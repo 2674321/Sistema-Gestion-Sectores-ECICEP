@@ -78,11 +78,16 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 | Normalización aplicada | **IMPLEMENTADO** | Reutiliza Norm_* 1:1; originales siempre conservados |
 | Identificación | **IMPLEMENTADO** | MATCH_EXACTO/PARCIAL/POSIBLE_DUPLICADO/SIN_MATCH/REQUIERE_REVISION con criterio+confianza (DEC-024) |
 | Duplicados en lote | **IMPLEMENTADO** | Explicables y no destructivos |
-| Transformación a EVENTOS | **IMPLEMENTADO (capa pura)** | Ev_desdeStaging con gates; escritura real a hoja EVENTOS = PARCIAL→ETAPA 3b |
-| Escritura real PACIENTES/EVENTOS + sync caché | **PENDIENTE** | Requiere ejecución autorizada en GAS sobre el spreadsheet real |
-| Migración masiva | **BLOQUEADA** | Por diseño hasta validación con muestra controlada |
+| Transformación a EVENTOS | **IMPLEMENTADO** | Ev_desdeStaging con gates; escritura real vía Ingresos_procesarTodasLasHojas |
+| Adaptador INGRESO_* → staging | **IMPLEMENTADO (3b)** | Sector derivado de la hoja (HOJAS_INGRESO); contradicciones declaradas como ERROR; idempotente (filas INGRESADO se saltan) |
+| Transacción PACIENTES/EVENTOS | **IMPLEMENTADO (3b)** | Gates explícitos por fila; nuevo→crea entidad+evento enlazado; existente→solo evento (sin sobrescritura); append-only garantizado; escrituras batch |
+| Ejecución controlada desde el sheet | **IMPLEMENTADO (3b)** | Menú ECICEP: 📥 Procesar ingresos · 🧪 Sembrar datos ficticios (prueba) |
+| Ejecución real verificada en el spreadsheet | **PENDIENTE (usuario)** | Requiere correr Instalar + Sembrar + Procesar con sesión autorizada |
+| Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con dataset ficticio |
 
-Pruebas: **143 casos verdes** (107 previas + 36 nuevas).
+Pruebas: **156 casos verdes** (143 previas + 13 nuevas ETAPA 3b: casos A–H,
+adaptadores, append-only, gates y resumen). Las pruebas de integración con
+Spreadsheet real son manuales/documentadas (menú 🧪→📥) y no corren en node.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 

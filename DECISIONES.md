@@ -221,6 +221,39 @@ el sistema al escribir. Los rangos de años plausibles difieren entre eventos
 (CFG_FECHAS.ANO_MIN=2015) y nacimientos (ANO_MIN_NACIMIENTO=1900).
 **Fecha:** 2026-08-21
 
+## DEC-026
+**Título:** Paciente existente: el ingreso NO sobrescribe campos, solo enlaza evento
+**Estado:** Aprobada (ETAPA 3b)
+**Motivo:** Sobre MATCH_EXACTO/MATCH_PARCIAL se crea únicamente el EVENTO
+enlazado por ID_INTERNO; la ficha permanece intacta (verificado por test con
+snapshot JSON). La información nueva vive como eventos; la sincronización de
+campos derivados (último control, etc.) será tarea explícita del sistema,
+nunca efecto colateral de un ingreso. Evita destrucción silenciosa (#6).
+**Fecha:** 2026-08-21
+
+## DEC-027
+**Título:** Hojas INGRESO_* con rotulación de cliente; sector derivado de la hoja
+**Estado:** Aprobada (ETAPA 3b)
+**Motivo:** Las tres puertas se llaman INGRESO_NARANJA / _AMARILLO / _VERDE
+(rotulación de la cliente) con mapeo explícito HOJAS_INGRESO → sector canónico
+(NARANJO/AMARILLO/VERDE). El usuario jamás digita el sector: lo define la hoja;
+una contradicción declarada en la fila es ERROR (no silenciosa). El instalador
+crea las tres hojas + EVENTOS. Columnas de sistema (ESTADO_INGRESO,
+NOTA_SISTEMA) nunca se importan. Estados centralizados en ESTADOS_INGRESO.
+**Fecha:** 2026-08-21
+
+## DEC-028
+**Título:** Orquestador 12_Ingresos: núcleo puro sobre store + wrapper GAS batch
+**Estado:** Aprobada (ETAPA 3b)
+**Motivo:** Ingresos_procesarFilas opera sobre {pacientes:[], eventos:[]} en
+memoria con nuevoId inyectable → casos A–H verificados determinísticamente en
+node sin Spreadsheet. El wrapper adapta Sheets↔store y persiste en UNA escritura
+por tabla (append-only). Identificación re-evaluada contra el store actualizado
+tras cada creación (duplicados dentro del mismo lote se enlazan a la ficha recién
+creada). Trazabilidad: staging completo a STAGING_IMPORT + resumen al LOG con
+ID de ejecución.
+**Fecha:** 2026-08-21
+
 ## DEC-008
 **Título:** Un solo proyecto Apps Script + separación lógica DEV/PROD (no 3 entornos físicos)
 **Estado:** Propuesta

@@ -39,6 +39,31 @@ const HOJAS = {
 };
 
 // ---------------------------------------------------------------------------
+// Hojas de ingreso por sector (ETAPA 3b) — puertas de entrada del usuario.
+// Nombres según rotulación de la cliente ("NARANJA"); el sector canónico
+// interno es NARANJO (DEC-018). El sector NUNCA se digita: lo define la hoja.
+// ---------------------------------------------------------------------------
+const HOJAS_INGRESO = {
+  'INGRESO_NARANJA': 'NARANJO',
+  'INGRESO_AMARILLO': 'AMARILLO',
+  'INGRESO_VERDE': 'VERDE'
+};
+
+// Campos operativos que el usuario completa en una hoja de ingreso.
+// ESTADO_INGRESO / NOTA_SISTEMA son columnas del SISTEMA (no se importan).
+const CAMPOS_INGRESO_OPERATIVOS = [
+  'NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS',
+  'ESTRATIFICACION', 'FECHA_INGRESO', 'DUPLA_INGRESO', 'OBSERVACIONES'
+];
+
+// Columnas de la hoja EVENTOS (orden compartido por instalador y escritor)
+const COLUMNAS_EVENTOS = [
+  'ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA_EVENTO', 'TIPO_EVENTO',
+  'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'PROFESIONAL_TIPO', 'DESCRIPCION',
+  'CANTIDAD', 'OBSERVACIONES', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'
+];
+
+// ---------------------------------------------------------------------------
 // Sectores geográficos (permanentes) — DEC-018
 //   Son división territorial del CESFAM, NO niveles de riesgo.
 //   La estratificación G1/G2/G3 es otra dimensión completamente independiente.
@@ -170,7 +195,9 @@ const SINONIMOS_ENCABEZADOS = {
   'USUARIO': 'NOMBRE',
   'NOMBRE PACIENTE': 'NOMBRE',
   'RUT': 'RUT',
+  'SEXO': 'SEXO',
   'TELEFONO': 'TELEFONO',
+  'TELEFONOS': 'TELEFONO',
   'FONO': 'TELEFONO',
   'CELULAR': 'TELEFONO',
   'ESTRATIFICACION': 'ESTRATIFICACION',
@@ -181,6 +208,8 @@ const SINONIMOS_ENCABEZADOS = {
   'FECHA DE INGRESO': 'FECHA_INGRESO',
   'FECHA INGRESO': 'FECHA_INGRESO',
   'J': 'FECHA_INGRESO',              // confirmado: encabezado "J" en Naranjo consolidada
+  'FECHA NACIMIENTO': 'FECHA_NACIMIENTO',
+  'FECHA DE NACIMIENTO': 'FECHA_NACIMIENTO',
   'DUPLA INGRESO': 'DUPLA_INGRESO',
   'MEDICO DUPLA': 'DUPLA_INGRESO',   // "MEDICO /DUPLA" tras quitar puntuación
   'SEGUIMIENTO': 'ULTIMO_SEGUIMIENTO',

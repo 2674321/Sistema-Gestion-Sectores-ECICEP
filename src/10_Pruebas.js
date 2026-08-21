@@ -40,6 +40,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_identificacion(t, A);
   _pruebas_duplicados_lote(t, A);
   _pruebas_eventos_staging(t, A);
+  _pruebas_ingresos_3b(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -460,6 +461,175 @@ function salida_contador() { _salida_contador_n += 1; return _salida_contador_n 
 
 var _salida_contador_n = 0;
 function salida_contador() { _salida_contador_n += 1; return _salida_contador_n - 1; }
+
+// ===========================================================================
+// ETAPA 3b — adaptadores INGRESO_* · gates · transacción paciente/evento
+// ===========================================================================
+
+function _pruebas_ingresos_3b(t, A) {
+  t('3B ADAPTADOR: hoja → sector canónico', function () {
+    A.igual(Ingresos_hojaASector('INGRESO_NARANJA'), 'NARANJO', 'naranja→naranjo');
+    A.igual(Ingresos_hojaASector('INGRESO_AMARILLO'), 'AMARILLO', 'amarillo');
+    A.igual(Ingresos_hojaASector('INGRESO_VERDE'), 'VERDE', 'verde');
+    A.igual(Ingresos_hojaASector('INGRESO_X'), '', 'desconocida');
+  });
+
+  // CASO A — paciente nuevo válido
+  t('3B CASO A: nuevo → PACIENTES +1, EVENTOS +1', function () {
+    var store = { pacientes: [], eventos: [] };
+    var s = Ingresos_procesarFilas([_stagingCaso('nuevoOk', 1)], store,
+      { nuevoId: function (i) { return 'EC-TEST-N' + ('00' + i).slice(-3); } });
+    A.igual(store.pacientes.length, 1, 'pacientes');
+    A.igual(store.eventos.length, 1, 'eventos');
+    A.igual(s.resumen.nuevos, 1, 'resumen nuevos');
+    A.igual(store.eventos[0].TIPO_EVENTO, 'INGRESO', 'tipo');
+    A.igual(store.eventos[0].SECTOR, 'VERDE', 'sector evento');
+    A.igual(store.pacientes[0].ID_INTERNO, 'EC-TEST-N001', 'id inyectable');
+    A.cierto(store.pacientes[0].RUT_DV_VALIDO === true, 'dv válido');
+    A.igual(s.resultados[0].estado, 'INGRESADO', 'resultado fila');
+  });
+
+  // CASO B — existente exacto: +0 paciente / +1 evento / campos intactos
+  t('3B CASO B: existente MATCH_EXACTO → +0 pacientes, +1 evento, sin sobrescritura', function () {
+    var base = DATASET_STAGING.base[0];
+    var snapshot = JSON.stringify(base);
+    var store = { pacientes: [base], eventos: [] };
+    var s = Ingresos_procesarFilas([_stagingCaso('existenteRut', 2)], store, {});
+    A.igual(store.pacientes.length, 1, '+0 pacientes');
+    A.igual(store.eventos.length, 1, '+1 evento');
+    A.igual(store.eventos[0].ID_INTERNO, 'EC-TEST-0001', 'enlazado');
+    A.igual(s.resumen.existentes, 1, 'resumen existentes');
+    A.igual(JSON.stringify(store.pacientes[0]), snapshot, 'paciente intacto');
+  });
+
+  // CASO C — ambiguo: nada se escribe
+  t('3B CASO C: POSIBLE_DUPLICADO sin confirmar → REQUIERE_REVISION y cero escritura', function () {
+    var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
+    var s = Ingresos_procesarFilas([_stagingCaso('posibleDuplicadoNombre', 3)], store, {});
+    A.igual(store.pacientes.length, DATASET_STAGING.base.length, '+0 pacientes');
+    A.igual(store.eventos.length, 0, '+0 eventos');
+    A.igual(s.resumen.revision, 1, 'a revisión');
+    A.igual(s.resultados[0].estado, 'REQUIERE_REVISION', 'estado fila');
+  });
+
+  // CASO D — RUT inválido: bloqueado
+  t('3B CASO D: RUT inválido → NO ESCRIBIR, ERROR', function () {
+    var store = { pacientes: [], eventos: [] };
+    var s = Ingresos_procesarFilas([_stagingCaso('rutInvalido', 4)], store, {});
+    A.igual(store.pacientes.length, 0, 'sin pacientes');
+    A.igual(store.eventos.length, 0, 'sin eventos');
+    A.igual(s.resultados[0].estado, 'ERROR', 'bloqueado');
+    A.cierto(s.resultados[0].nota.indexOf('RUT') !== -1, 'nota explicativa');
+  });
+
+  // CASO E — ingreso desde INGRESO_AMARILLO
+  t('3B CASO E: origen AMARILLO → EVENTO.SECTOR = AMARILLO', function () {
+    var store = { pacientes: [], eventos: [] };
+    Ingresos_procesarFilas([_stagingCaso('sectorValido', 5)], store, {});
+    A.igual(store.eventos[0].SECTOR, 'AMARILLO', 'sector del evento');
+    A.igual(store.pacientes[0].SECTOR, 'AMARILLO', 'sector de la entidad');
+  });
+
+  // CASO F — ingreso desde INGRESO_NARANJA (alias) → NARANJO
+  t('3B CASO F: origen NARANJA → EVENTO.SECTOR = NARANJO', function () {
+    var store = { pacientes: [], eventos: [] };
+    Ingresos_procesarFilas([_stagingCaso('aliasNaranja', 6)], store, {});
+    A.igual(store.eventos[0].SECTOR, 'NARANJO', 'canónico NARANJO');
+  });
+
+  // CASO G — G3 en campo sector jamás prospera
+  t('3B CASO G: "G3" como sector → ERROR, nunca SECTOR=G3', function () {
+    var store = { pacientes: [], eventos: [] };
+    var f = _stagingCaso('g3ComoSector', 7);
+    A.igual(f.NORMALIZADO.SECTOR, '', 'sector vacío, no G3');
+    var s = Ingresos_procesarFilas([f], store, {});
+    A.igual(store.pacientes.length, 0, 'sin escritura');
+    A.igual(s.resultados[0].estado, 'ERROR', 'bloqueado');
+    A.igual(f.NORMALIZADO.ESTRATIFICACION, 'G3', 'estratificación sí es G3');
+  });
+
+  // CASO H — misma persona, tres gestiones = tres eventos independientes
+  t('3B CASO H: INGRESO+CONTROL+SEGUIMIENTO → 3 eventos append-only', function () {
+    var base = JSON.parse(JSON.stringify(DATASET_STAGING.casos.nuevoOk));
+    function variar(fecha, tipo) {
+      var c = JSON.parse(JSON.stringify(base));
+      c.valores.FECHA_INGRESO = fecha;
+      c.valores.TIPO_EVENTO = tipo;
+      return Fuentes_normalizar(Fuentes_crearFila(c.origen, c.valores));
+    }
+    var store = { pacientes: [], eventos: [] };
+    var r1 = Ingresos_procesarFilas([variar('05/03/2026', 'INGRESO')], store,
+      { nuevoId: function (i) { return 'EC-TEST-H01'; } });
+    A.cierto(r1.ok !== false && store.eventos.length === 1, 'primera gestión');
+    var antes = JSON.stringify(store.eventos[0]);
+    Ingresos_procesarFilas([variar('09/06/2026', 'CONTROL')], store,
+      { nuevoId: function () { throw new Error('no debe crear otro paciente'); } });
+    Ingresos_procesarFilas([variar('01/07/2026', 'SEGUIMIENTO')], store, {});
+    A.igual(store.pacientes.length, 1, 'una sola entidad');
+    A.igual(store.eventos.length, 3, 'tres eventos');
+    A.arreglos(store.eventos.map(function (e) { return e.TIPO_EVENTO; }),
+      ['INGRESO', 'CONTROL', 'SEGUIMIENTO'], 'tipos');
+    A.arreglos(store.eventos.map(function (e) { return e.ID_INTERNO; }),
+      ['EC-TEST-H01', 'EC-TEST-H01', 'EC-TEST-H01'], 'mismo paciente');
+    A.arreglos(store.eventos.map(function (e) { return e.FECHA_EVENTO; }),
+      ['2026-03-05', '2026-06-09', '2026-07-01'], 'fechas por evento');
+    A.igual(JSON.stringify(store.eventos[0]), antes, 'append-only: evento previo intacto');
+  });
+
+  t('3B: duplicado dentro del lote se enlaza a la ficha creada en el mismo lote', function () {
+    var store = { pacientes: [], eventos: [] };
+    var s = Ingresos_procesarFilas(
+      [_stagingCaso('dupLoteA', 10), _stagingCaso('dupLoteB', 11)], store,
+      { nuevoId: function (i) { return 'EC-TEST-D' + i; } });
+    A.igual(store.pacientes.length, 1, 'una sola ficha');
+    A.igual(store.eventos.length, 2, 'dos ingresos registrados');
+    A.cierto(s.resultados.every(function (r) { return r.idInterno === 'EC-TEST-D1'; }), 'mismo ID_INTERNO');
+  });
+
+  t('3B: warning no bloquea el procesamiento', function () {
+    var store = { pacientes: [], eventos: [] };
+    var s = Ingresos_procesarFilas([_stagingCaso('telefonoDeformado', 12)], store,
+      { nuevoId: function () { return 'EC-TEST-W1'; } });
+    A.igual(s.resultados[0].estado, 'INGRESADO', 'warning procesable');
+    A.igual(store.eventos.length, 1, 'evento creado');
+  });
+
+  t('3B: fecha ausente en nueva persona → revisión sin escrituras', function () {
+    var store = { pacientes: [], eventos: [] };
+    // fila con RUT inválido: el gate de validación manda primero
+    var fila2 = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 2 },
+      { NOMBRE: 'Nora Nadie Nuñez', RUT: '16161616-?', SECTOR: 'VERDE' }, 21);
+    Fuentes_normalizar(fila2);
+    var s = Ingresos_procesarFilas([fila2], store, {});
+    A.igual(store.pacientes.length, 0, 'sin escritura');
+    A.igual(s.resultados[0].estado, 'ERROR', 'rut inválido manda primero');
+    // caso limpio solo sin fecha:
+    var fila3 = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 3 },
+      { NOMBRE: 'Ofelia Ocampo Ortiz', RUT: '17171717-5', SECTOR: 'VERDE' }, 22);
+    Fuentes_normalizar(fila3);
+    var s3 = Ingresos_procesarFilas([fila3], store, {});
+    A.igual(s3.resultados[0].estado, 'REQUIERE_REVISION', 'gate fecha');
+    A.igual(s3.resultados[0].nota, 'FECHA_EVENTO_AUSENTE', 'motivo trazable');
+    A.igual(store.pacientes.length, 0, 'sigue sin escritura');
+  });
+
+  t('3B: resumen integrador con lote mixto', function () {
+    var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
+    var s = Ingresos_procesarFilas([
+      _stagingCaso('nuevoOk', 30),                 // nuevo
+      _stagingCaso('existenteRut', 31),            // existente (base[0])
+      _stagingCaso('posibleDuplicadoNombre', 32),  // revisión
+      _stagingCaso('rutInvalido', 33)              // error
+    ], store, { nuevoId: function () { return 'EC-TEST-MIX'; } });
+    A.igual(s.resumen.leidos, 4, 'leídos');
+    A.igual(s.resumen.conError, 1, 'con error');
+    A.igual(s.resumen.nuevos, 1, 'nuevos');
+    A.igual(s.resumen.existentes, 1, 'existentes');
+    A.igual(s.resumen.revision, 1, 'revisión');
+    A.igual(s.resumen.eventosCreados, 2, 'eventos creados');
+    A.igual(s.resumen.validos, 2, 'válidos');
+  });
+}
 
 // ---------------------------------------------------------------------------
 

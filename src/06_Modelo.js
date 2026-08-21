@@ -46,6 +46,10 @@ var _MODELO_HOJAS_DEF = {};
 _MODELO_HOJAS_DEF[HOJAS.CONFIG] = ['CLAVE', 'VALOR', 'DESCRIPCION'];
 _MODELO_HOJAS_DEF[HOJAS.PACIENTES] = null; // usa MODELO_PACIENTE
 _MODELO_HOJAS_DEF[HOJAS.STAGING_IMPORT] = ['ID_PROVISIONAL', 'ARCHIVO_ORIGEN', 'HOJA_ORIGEN', 'FILA_ORIGEN', 'SECTOR_ORIGEN', 'ESTADO_VALIDACION', 'ERRORES', 'WARNINGS', 'IDENTIFICACION', 'VALORES_ORIGINALES', 'NORMALIZADO', 'FUENTE'];
+_MODELO_HOJAS_DEF[HOJAS.EVENTOS] = COLUMNAS_EVENTOS;
+// Puertas de entrada por sector (ETAPA 3b): columnas operativas + sistema
+var _INGRESO_ENCABEZADOS = ['NOMBRE', 'RUT', 'SEXO', 'FECHA NACIMIENTO', 'TELEFONO(S)', 'FECHA INGRESO', 'ESTRATIFICACION', 'DUPLA INGRESO', 'OBSERVACIONES', 'ESTADO_INGRESO', 'NOTA_SISTEMA'];
+Object.keys(HOJAS_INGRESO).forEach(function (h) { _MODELO_HOJAS_DEF[h] = _INGRESO_ENCABEZADOS; });
 _MODELO_HOJAS_DEF[HOJAS.LOG] = ['FECHA', 'NIVEL', 'MODULO', 'OPERACION', 'MENSAJE', 'DURACION_MS', 'CONTEXTO'];
 _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'DETALLE', 'FUENTE_A', 'FUENTE_B', 'ESTADO_REVISION', 'RESUELTO_POR'];
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
@@ -169,4 +173,56 @@ function Modelo_leerPacientes() {
 /** Map RUT normalizado → índice dentro del array de Modelo_leerPacientes. */
 function Modelo_indicePorRut(pacientes) {
   return Utl_mapaPor(pacientes, function (p) { return Utl_texto(p.RUT); });
+}
+
+// ---------------------------------------------------------------------------
+// Escrituras por lotes (ETAPA 3b) — solo entorno GAS
+// ---------------------------------------------------------------------------
+
+/** Convierte un objeto canónico a fila según orden MODELO_PACIENTE. */
+function Modelo_filaDesdeObjeto(obj) {
+  return Modelo_campos().map(function (campo) {
+    var v = obj[campo];
+    return (v === undefined || v === null) ? '' : v;
+  });
+}
+
+/**
+ * Agrega pacientes nuevos en UNA escritura. Los objetos deben venir completos
+ * desde la capa de ingresos; aquí solo se fija FECHA_ACTUALIZACION.
+ */
+function Modelo_agregarPacientes(objetos) {
+  if (!objetos || !objetos.length) return 0;
+  var ahora = new Date();
+  var filas = objetos.map(function (o) {
+    o.FECHA_ACTUALIZACION = ahora;
+    return Modelo_filaDesdeObjeto(o);
+  });
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
+}
+
+/**
+ * Agrega eventos en UNA escritura respetando append-only:
+ * nunca modifica filas existentes, solo añade al final.
+ * Fija FECHA_REGISTRO y REGISTRADO_POR al momento de escribir.
+ */
+function Modelo_agregarEventos(eventos, registradoPor) {
+  if (!eventos || !eventos.length) return 0;
+  var ss = Modelo_ss();
+  var hoja = ss.getSheetByName(HOJAS.EVENTOS);
+  if (!hoja) {
+    hoja = ss.insertSheet(HOJAS.EVENTOS);
+    Utl_escribirBloque(hoja, 1, 1, [COLUMNAS_EVENTOS]);
+  }
+  var ahora = new Date();
+  var filas = eventos.map(function (ev) {
+    ev.FECHA_REGISTRO = ahora;
+    ev.REGISTRADO_POR = ev.REGISTRADO_POR || registradoPor || '';
+    return COLUMNAS_EVENTOS.map(function (c) {
+      var v = ev[c];
+      return (v === undefined || v === null) ? '' : v;
+    });
+  });
+  return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
 }
