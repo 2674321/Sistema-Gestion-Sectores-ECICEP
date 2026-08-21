@@ -13,7 +13,8 @@
 
 var WEBHOOK_ACCIONES = [
   'estado', 'instalar', 'sembrar', 'procesar',
-  'refrescar', 'diagnosticar', 'limpiar_prueba'
+  'refrescar', 'diagnosticar', 'limpiar_prueba',
+  'diagnosticar_fuentes', 'importar_muestra'
 ];
 
 function doPost(e) { return _wh_despachar(e); }
@@ -52,6 +53,11 @@ function _wh_despachar(e) {
       case 'procesar':    resultado = Ingresos_procesarTodasLasHojas({}); break;
       case 'refrescar':   resultado = Modelo_refrescarVistasSectores(); break;
       case 'diagnosticar': resultado = Ingresos_diagnosticar(); break;
+      case 'diagnosticar_fuentes': resultado = Fuentes_diagnosticarFuentes(); break;
+      case 'importar_muestra':
+        resultado = Fuentes_importarMuestra(
+          e.parameter.archivo || '', e.parameter.hoja || '', parseInt(e.parameter.cantidad || '10', 10));
+        break;
       case 'limpiar_prueba':
         resultado = Limpieza_ejecutar(Limpieza_colectar());
         break;

@@ -110,8 +110,26 @@ const SECTORES = {
 };
 
 // ---------------------------------------------------------------------------
-// Tipos de evento (hoja EVENTOS) y estados de solicitud de ingreso
+// Fuentes reales (Drive) — IDs de los spreadsheets de origen
 // ---------------------------------------------------------------------------
+const FUENTES_DRIVE = {
+  'SEGUIMIENTO ECICEP Sector Amarillo': {
+    id: '', // pendiente: el Excel original no está subido como Sheets todavía
+    sector: 'AMARILLO',
+    hojas: ['INGRESOS ECICEP']
+  },
+  'ECICEP NARANJO': {
+    id: '17cNcOTdn8qupYchtc10ouMG45ve_BpaZZmTGEdos-4Q',
+    sector: 'NARANJO',
+    hojas: ['LISTADO 2025', 'Ingresos 2025 - 2026', 'Ingresos Enero ', 'Ingreso Febrero']
+  },
+  'PCTS. ECICEP DESDE 2023': {
+    id: '1T9a8Z85iIvjZU1mq2wbGPTgrJo48e-CdkP95p5d0lSE',
+    sector: 'VERDE',
+    hojas: ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS', 'GESTOR DE CASO', 'CONTROLES PENDIENTES', 'INASISTENTES A INGRESOS'],
+    excluir: ['NO LLENAR'] // duplicado histórico (DEC-009)
+  }
+};
 const TIPOS_EVENTO = {
   VALIDOS: [
     'INGRESO', 'CONTROL', 'SEGUIMIENTO', 'PLAN_CUIDADO',

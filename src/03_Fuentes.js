@@ -172,8 +172,166 @@ function Fuentes_validar(fila) {
 }
 
 // ---------------------------------------------------------------------------
-// I/O hoja STAGING_IMPORT — solo entorno GAS
+// ETAPA 5 — Conexión a fuentes reales en Drive
 // ---------------------------------------------------------------------------
+
+/**
+ * Diagnóstico estructural de TODAS las fuentes reales sin procesar datos.
+ * Lee encabezados de cada hoja configurada y reporta el mapeo al modelo.
+ * @returns {ok:boolean, fuentes:[{nombre, sector, id, hojas:[...]}]}
+ */
+function Fuentes_diagnosticarFuentes() {
+  var fuentes = [];
+  Object.keys(FUENTES_DRIVE).forEach(function (nombreArchivo) {
+    var cfg = FUENTES_DRIVE[nombreArchivo];
+    var info = {
+      nombre: nombreArchivo,
+      sector: cfg.sector,
+      id: cfg.id,
+      accesible: false,
+      hojas: []
+    };
+    if (!cfg.id) {
+      info.motivo = 'Sin ID de spreadsheet (Excel no subido a Drive)';
+      fuentes.push(info);
+      return;
+    }
+    try {
+      var ss = SpreadsheetApp.openById(cfg.id);
+      info.accesible = true;
+      info.nombreReal = ss.getName();
+      cfg.hojas.forEach(function (nombreHoja) {
+        var hoja = ss.getSheetByName(nombreHoja);
+        if (!hoja) {
+          info.hojas.push({ nombre: nombreHoja, existe: false });
+          return;
+        }
+        var valores = Utl_leerBloque(hoja);
+        if (!valores.length) {
+          info.hojas.push({ nombre: nombreHoja, existe: true, vacia: true });
+          return;
+        }
+        // detectar fila de encabezado (primera con ≥3 campos reconocibles)
+        var headerRow = 0;
+        for (var r = 0; r < Math.min(valores.length, 10); r++) {
+          var reconocidos = valores[r].filter(function (c) {
+            return Norm_mapearEncabezado(c).conocido;
+          }).length;
+          if (reconocidos >= 2) { headerRow = r; break; }
+        }
+        var mapa = Ingresos_mapearEncabezadosHoja(valores[headerRow] || []);
+        // contar filas de datos reales (no vacías ni separadores)
+        var filasDatos = 0;
+        var sect_re = /^[A-ZÁÉÍÓÚÑ ]+\s?20\d{2}\s*$|^ECICEP\s*20\d{2}\s*$/i;
+        for (var d = headerRow + 1; d < valores.length; d++) {
+          var noVacios = valores[d].filter(function (c) { return Utl_texto(c).trim() !== ''; }).length;
+          if (noVacios === 0) continue;
+          if (noVacios === 1 && sect_re.test(Utl_colapsarEspacios(Utl_texto(valores[d].find(function(c){return Utl_texto(c).trim()!=='';}))))) continue;
+          filasDatos += 1;
+        }
+        info.hojas.push({
+          nombre: nombreHoja,
+          existe: true,
+          encabezadoFila: headerRow + 1,
+          columnasReconocidas: Object.keys(mapa.campos),
+          columnasFaltantes: CAMPOS_INGRESO_OPERATIVOS.filter(function (c) { return mapa.campos[c] === undefined; }),
+          desconocidas: mapa.desconocidos.map(function (d) { return d.texto; }),
+          filasDatosAprox: filasDatos
+        });
+      });
+    } catch (e) {
+      info.error = e && e.message ? e.message : String(e);
+    }
+    fuentes.push(info);
+  });
+  return { ok: true, fuentes: fuentes };
+}
+
+/** Ejecuta diagnóstico de fuentes vía webhook. */
+function Fuentes_diagnosticarFuentesJson() {
+  return _wh_salida(Fuentes_diagnosticarFuentes());
+}
+
+/**
+ * ETAPA 5b — Importación controlada de una muestra de una fuente real.
+ * Lee N filas desde una hoja del Excel original (en Drive), las procesa
+ * por el pipeline completo pero en modo DRY RUN: no escribe nada.
+ * @param {string} nombreArchivo clave de FUENTES_DRIVE
+ * @param {string} nombreHoja hoja a importar
+ * @param {number} cantidad filas a procesar (default 10)
+ * @returns reporte detallado sin escrituras
+ */
+function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
+  var cfg = FUENTES_DRIVE[nombreArchivo];
+  if (!cfg) return { ok: false, motivo: 'ARCHIVO_DESCONOCIDO', archivos: Object.keys(FUENTES_DRIVE) };
+  if (!cfg.id) return { ok: false, motivo: 'SIN_ID_DRIVE' };
+
+  var ss = SpreadsheetApp.openById(cfg.id);
+  var hoja = ss.getSheetByName(nombreHoja);
+  if (!hoja) return { ok: false, motivo: 'HOJA_NO_EXISTE', disponible: ss.getSheets().map(function(s){return s.getName();}) };
+
+  var valores = Utl_leerBloque(hoja);
+  if (valores.length < 2) return { ok: false, motivo: 'HOJA_VACIA' };
+
+  // detectar fila de encabezado
+  var headerRow = 0;
+  for (var r = 0; r < Math.min(valores.length, 10); r++) {
+    var reconocidos = valores[r].filter(function (c) {
+      return Norm_mapearEncabezado(c).conocido;
+    }).length;
+    if (reconocidos >= 2) { headerRow = r; break; }
+  }
+  var mapa = Ingresos_mapearEncabezadosHoja(valores[headerRow] || []);
+
+  // leer hasta `cantidad` filas de datos reales
+  var sect_re = /^[A-ZÁÉÍÓÚÑ ]+\s?20\d{2}\s*$|^ECICEP\s*20\d{2}\s*$/i;
+  var staging = [];
+  for (var d = headerRow + 1; d < valores.length && staging.length < cantidad; d++) {
+    var filaVal = valores[d];
+    var noVacios = filaVal.filter(function (c) { return Utl_texto(c).trim() !== ''; }).length;
+    if (noVacios === 0) continue;
+    // saltar separadores de sección
+    var primerValor = Utl_colapsarEspacios(Utl_texto(filaVal.find(function(c){return Utl_texto(c).trim()!=='';})));
+    if (noVacios === 1 && sect_re.test(primerValor)) continue;
+    // construir valores canónicos
+    var v = {};
+    CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
+      if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
+    });
+    staging.push(Fuentes_normalizar(Fuentes_crearFila(
+      { archivo: nombreArchivo, hoja: nombreHoja, fila: d + 1, sector: cfg.sector }, v)));
+  }
+
+  // pipeline DRY RUN (no escribe nada)
+  var store = { pacientes: [], eventos: [] }; // store vacío = todo será "nuevo"
+  var salida = Ingresos_procesarFilas(staging, store, {
+    nuevoId: function (i) { return 'DRY-' + ('0000' + i).slice(-4); }
+  });
+
+  return {
+    ok: true,
+    dryRun: true,
+    fuente: nombreArchivo,
+    hoja: nombreHoja,
+    sector: cfg.sector,
+    encabezadoFila: headerRow + 1,
+    resumen: salida.resumen,
+    detalle: staging.map(function (f, i) {
+      return {
+        filaOrigen: f.FILA_ORIGEN,
+        estado: f.ESTADO_VALIDACION,
+        rut: f.NORMALIZADO.RUT || '',
+        nombre: (f.NORMALIZADO.NOMBRE || '').substring(0, 30),
+        sector: f.NORMALIZADO.SECTOR,
+        estratificacion: f.NORMALIZADO.ESTRATIFICACION,
+        errores: f.ERRORES.map(function(e){ return e.campo+': '+e.mensaje; }),
+        warnings: f.WARNINGS.map(function(w){ return w.campo+': '+w.mensaje; }),
+        gate: salida.resultados[i] ? salida.resultados[i].estado : '?',
+        idProvisional: f.ID_PROVISIONAL
+      };
+    })
+  };
+}
 
 function _fuentes_columnasStaging() {
   return ['ID_PROVISIONAL', 'ARCHIVO_ORIGEN', 'HOJA_ORIGEN', 'FILA_ORIGEN', 'SECTOR_ORIGEN',
