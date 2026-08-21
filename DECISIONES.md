@@ -296,3 +296,17 @@ sobrediseño. Dataset ficticio en `datos_prueba/` + hoja CONFIG distingue modo.
 **Motivo:** Es duplicado histórico de PLANILLA SECTOR VERDE (mismos pacientes
 desde 2023); incluirla duplicaría la base.
 **Fecha:** 2026-08-21
+
+## DEC-031
+**Título:** Causa raíz del "todo ERROR": filas llegaban sin normalizar al orquestador
+**Estado:** Aprobada (ETAPA 3b — corrección con evidencia de ejecución real v0.3.2)
+**Motivo:** `Ingresos_procesarTodasLasHojas` entregaba a `Ingresos_procesarFilas`
+las filas crudas de `Ingresos_leerHoja` (ESTADO_VALIDACION='PENDIENTE',
+NORMALIZADO={}); el gate las bloqueaba por RUT_ESTADO indefinido y se contaban
+como ERROR → "36/36" y luego "18/18" pese a que el diagnóstico mostraba filas
+OK/WARNING. Corrección en dos niveles: (a) `Ingresos_leerHoja` entrega filas YA
+normalizadas; (b) el orquestador auto-normaliza cualquier fila cruda como
+defensa (nunca bloquear por un defecto de integración aguas arriba). Lección
+registrada: los tests unitarios que normalizan manualmente NO cubren la unión
+adaptador↔orquestador; existe prueba de regresión específica del incidente.
+**Fecha:** 2026-08-21

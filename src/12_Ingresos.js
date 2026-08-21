@@ -145,6 +145,12 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   }
 
   filasStaging.forEach(function (fila) {
+    // 0) DEFENSA: si la fila llegó cruda (sin normalizar), se normaliza aquí.
+    //    Nunca bloquear por un defecto de integración aguas arriba.
+    if (!fila.NORMALIZADO || !fila.NORMALIZADO.RUT_ESTADO) {
+      Fuentes_normalizar(fila);
+    }
+
     // métrica de VALIDACIÓN (independiente del gate)
     if (fila.ESTADO_VALIDACION === 'OK') resumen.validacionOk += 1;
     else if (fila.ESTADO_VALIDACION === 'WARNING') resumen.validacionWarning += 1;
@@ -253,8 +259,10 @@ function Ingresos_leerHoja(nombreHoja) {
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (idxCampos[c] !== undefined) v[c] = filaVal[idxCampos[c]];
     });
-    staging.push(Fuentes_crearFila(
-      { archivo: 'HOJA_INGRESO', hoja: nombreHoja, fila: f + 1, sector: sector }, v));
+    // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
+    // el defecto histórico era entregar filas crudas al orquestador)
+    staging.push(Fuentes_normalizar(Fuentes_crearFila(
+      { archivo: 'HOJA_INGRESO', hoja: nombreHoja, fila: f + 1, sector: sector }, v)));
   }
   return { staging: staging, hoja: hoja };
 }

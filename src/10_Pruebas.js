@@ -616,6 +616,20 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(store.pacientes.length, 0, 'sigue sin escritura');
   });
 
+  t('3B REGRESIÓN: fila CRUDA (sin normalizar) ya no se bloquea — incidente 36/36', function () {
+    // Reproduce EXACTAMENTe el defecto real: el wrapper entregaba filas de
+    // Ingresos_leerHoja sin pasar por Fuentes_normalizar.
+    var cruda = Fuentes_crearFila(DATASET_STAGING.casos.nuevoOk.origen, DATASET_STAGING.casos.nuevoOk.valores, 99);
+    A.igual(cruda.ESTADO_VALIDACION, 'PENDIENTE', 'llega sin validar (como en el bug)');
+    var store = { pacientes: [], eventos: [] };
+    var s = Ingresos_procesarFilas([cruda], store,
+      { nuevoId: function () { return 'EC-TEST-RAW1'; } });
+    A.igual(s.resumen.validacionOk, 1, 'normalizada dentro del orquestador');
+    A.igual(store.pacientes.length, 1, 'paciente creado');
+    A.igual(store.eventos.length, 1, 'evento creado');
+    A.igual(s.resultados[0].estado, 'INGRESADO', 'procesada');
+  });
+
   t('3B: resumen integrador con lote mixto', function () {
     var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
     var s = Ingresos_procesarFilas([
