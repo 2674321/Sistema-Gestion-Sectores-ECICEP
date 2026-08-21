@@ -292,12 +292,24 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
     if (noVacios === 0) continue;
     // saltar separadores de sección
     var primerValor = Utl_colapsarEspacios(Utl_texto(filaVal.find(function(c){return Utl_texto(c).trim()!=='';})));
-    if (noVacios === 1 && sect_re.test(primerValor)) continue;
+    // separador: 1-3 celdas no vacías y alguna coincide con patrón de sección
+    if (noVacios <= 3 && sect_re.test(primerValor)) continue;
     // construir valores canónicos
     var v = {};
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
     });
+    // Si no hay RUT mapeado pero la primera columna tiene valores tipo RUT,
+    // asignarla (caso LISTADO 2025 de Naranjo donde la col A no tiene encabezado)
+    if (v.RUT === undefined || Utl_vacio(v.RUT)) {
+      for (var ci = 0; ci < Math.min(filaVal.length, 3); ci++) {
+        var testRut = Norm_normalizarRut(filaVal[ci]);
+        if (testRut.estado === 'OK' || testRut.estado === 'SIN_DV') {
+          v.RUT = filaVal[ci];
+          break;
+        }
+      }
+    }
     staging.push(Fuentes_normalizar(Fuentes_crearFila(
       { archivo: nombreArchivo, hoja: nombreHoja, fila: d + 1, sector: cfg.sector }, v)));
   }
