@@ -22,6 +22,9 @@ function onOpen() {
       .addItem('🔑 Configurar acceso remoto', 'UI_configurarWebhook')
       .addSeparator()
       .addItem('⚡ Demo completa (instalar+sembrar+procesar)', 'UI_demoCompleta')
+      .addSeparator()
+      .addItem('📋 Diagnosticar fuentes reales', 'UI_diagnosticarFuentes')
+      .addItem('📥 Importar muestra (DRY RUN, 10 filas/sector)', 'UI_importarMuestra')
       .addItem('🧪 Sembrar datos ficticios (prueba)', 'UI_sembrarFicticios')
       .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas')
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -91,15 +94,132 @@ function UI_diagnosticarIngresos() {
   if (hoja) SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(hoja);
 }
 
-/**
- * Escribe el dataset FICTICIO en las hojas INGRESO_* para probar el flujo
- * completo sin tocar datos reales. Cada fila queda marcada como prueba.
- * Incluye casos que terminan en error/revisión a propósito.
- */
-function UI_sembrarFicticios() {
-  var total = Sembrar_ficticios();
-  SpreadsheetApp.getActiveSpreadsheet().toast(
-    total + ' filas ficticias sembradas en las hojas de ingreso. Usa "📥 Procesar ingresos".', 'ECICEP — PRUEBA', 10);
+/** Un solo clic: instala, siembra ficticios, procesa y refresca vistas. */
+function UI_demoCompleta() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('Demo completa en curso…', 'ECICEP', 15);
+  var pasos = {};
+  pasos.estructura = Modelo_crearEstructura();
+  pasos.sembradas = Sembrar_ficticios();
+  pasos.proceso = Ingresos_procesarTodasLasHojas({});
+  pasos.vistas = Modelo_refrescarVistasSectores();
+  Log_info('UI', 'demoCompleta', JSON.stringify(pasos.proceso));
+  Log_flush();
+  ss.toast(
+    'Demo lista ✓ Sembradas: ' + pasos.sembradas +
+    ' · Nuevos: ' + pasos.proceso.nuevos +
+    ' · Enlazados: ' + pasos.proceso.existentes +
+    ' · Errores: ' + pasos.proceso.conError +
+    ' · Eventos: ' + pasos.proceso.eventosCreados, 'ECICEP ⚡', 20);
+}
+
+// ===========================================================================
+// ETAPA 5 — Fuentes reales
+// ===========================================================================
+
+function UI_diagnosticarFuentes() {
+  var resultado = Fuentes_diagnosticarFuentes();
+
+  // escribir reporte en DIAGNOSTICO
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hojaD = ss.getSheetByName('DIAGNOSTICO_FUENTES');
+  if (!hojaD) hojaD = ss.insertSheet('DIAGNOSTICO_FUENTES');
+  hojaD.clearContents();
+  Utl_escribirBloque(hojaD, 1, 1, [[
+    'FUENTE','SECTOR','HOJA','EXISTE','ENCAB.FILA','RECONOCIDAS','FALTANTES','DESCONOCIDAS','FILAS_DATOS','NOTA'
+  ]]);
+  var fila = 2;
+  resultado.fuentes.forEach(function (fuente) {
+    if (fuente.error || fuente.motivo) {
+      Utl_escribirBloque(hojaD, fila, 1, [[
+        fuente.nombre, fuente.sector, '', '', '', '', '', '', '', fuente.error || fuente.motivo
+      ]]);
+      fila++;
+      return;
+    }
+    fuente.hojas.forEach(function (h) {
+      Utl_escribirBloque(hojaD, fila, 1, [[
+        fuente.nombre,
+        fuente.sector,
+        h.nombre || '',
+        h.existe === false ? 'NO EXISTE' : (h.vacia ? 'VACÍA' : 'SÍ'),
+        h.encabezadoFila || '',
+        h.columnasReconocidas ? h.columnasReconocidas.join(', ') : '',
+        h.columnasFaltantes && h.columnasFaltantes.length ? h.columnasFaltantes.join(', ') : '',
+        h.desconocidas && h.desconocidas.length ? h.desconocidas.join(' | ') : '',
+        h.filasDatosAprox !== undefined ? h.filasDatosAprox : '',
+        ''
+      ]]);
+      fila++;
+    });
+  });
+  SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(hojaD);
+  SpreadsheetApp.getActiveSpreadsheet().toast('Diagnóstico de fuentes escrito en DIAGNOSTICO_FUENTES.', 'ECICEP', 8);
+}
+
+function UI_importarMuestra() {
+  var ui = SpreadsheetApp.getUi();
+  var sectores = Object.keys(FUENTES_DRIVE).filter(function (k) { return FUENTES_DRIVE[k].id; });
+  if (!sectores.length) {
+    ui.alert('No hay fuentes con ID de Drive configurado.');
+    return;
+  }
+
+  var resultados = [];
+  sectores.forEach(function (nombreArchivo) {
+    var cfg = FUENTES_DRIVE[nombreArchivo];
+    cfg.hojas.forEach(function (hoja) {
+      var r = Fuentes_importarMuestra(nombreArchivo, hoja, 10);
+      r.fuente = nombreArchivo;
+      r.hojaNombre = hoja;
+      resultados.push(r);
+    });
+  });
+
+  // escribir reporte en DIAGNOSTICO_IMPORT
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hojaR = ss.getSheetByName('IMPORT_MUESTRA');
+  if (!hojaR) hojaR = ss.insertSheet('IMPORT_MUESTRA');
+  hojaR.clearContents();
+  Utl_escribirBloque(hojaR, 1, 1, [[
+    'FUENTE','HOJA','FILA_ORIGEN','VALIDACIÓN','RUT','NOMBRE','SECTOR','ESTRAT',
+    'GATE','ERRORES','WARNINGS'
+  ]]);
+  var fila = 2;
+  var totales = { ok: 0, warn: 0, err: 0, nuevos: 0, enlazados: 0, revision: 0 };
+  resultados.forEach(function (r) {
+    if (!r.ok) {
+      Utl_escribirBloque(hojaR, fila, 1, [[r.fuente, r.hojaNombre, '', 'ERROR GLOBAL', '', '', '', '', r.motivo, '', '']]);
+      fila++;
+      return;
+    }
+    r.detalle.forEach(function (d) {
+      Utl_escribirBloque(hojaR, fila, 1, [[
+        r.fuente, r.hojaNombre, d.filaOrigen, d.estado,
+        d.rut, d.nombre, d.sector, d.estratificacion,
+        d.gate,
+        d.errores.join(' // '),
+        d.warnings.join(' // ')
+      ]]);
+      fila++;
+      if (d.estado === 'OK') totales.ok++;
+      else if (d.estado === 'WARNING') totales.warn++;
+      else totales.err++;
+    });
+    totales.nuevos += r.resumen.nuevos;
+    totales.enlazados += r.resumen.existentes;
+    totales.revision += r.resumen.revision;
+  });
+
+  ss.setActiveSheet(hojaR);
+  ui.alert(
+    'DRY RUN COMPLETADO — NO SE ESCRIBIÓ NADA\n\n' +
+    'Muestra: 10 filas por hoja\n' +
+    'Validación → OK: ' + totales.ok + ' · WARNING: ' + totales.warn + ' · ERROR: ' + totales.err + '\n' +
+    'Serían pacientes nuevos: ' + totales.nuevos + '\n' +
+    'Requieren revisión: ' + totales.revision + '\n\n' +
+    'Reporte completo en la hoja IMPORT_MUESTRA.\n' +
+    'Si los resultados son correctos, avisa al asistente para proceder con la carga real.');
 }
 
 /** Núcleo headless del sembrado (reutilizado por webhook). */
