@@ -104,3 +104,30 @@ function Ev_variosDesdeStaging(fila, listaOpciones) {
   }
   return salida;
 }
+
+/**
+ * PURA: último evento por paciente (para vistas y ficha).
+ * Criterio: mayor FECHA_EVENTO; empate → el que tenga FECHA_REGISTRO más tardía.
+ * @returns Map ID_INTERNO → {tipo:'', fecha:'', etiqueta:'TIPO (fecha)'}
+ */
+function Ev_ultimoPorPaciente(eventos) {
+  var mapa = {};
+  (eventos || []).forEach(function (ev) {
+    var id = Utl_texto(ev.ID_INTERNO);
+    if (!id) return;
+    var actual = mapa[id];
+    var mejor = !actual ||
+      Utl_texto(ev.FECHA_EVENTO) > Utl_texto(actual.fecha) ||
+      (Utl_texto(ev.FECHA_EVENTO) === Utl_texto(actual.fecha) &&
+       Utl_texto(ev.FECHA_REGISTRO) > Utl_texto(actual.registro));
+    if (mejor) {
+      mapa[id] = {
+        tipo: ev.TIPO_EVENTO,
+        fecha: ev.FECHA_EVENTO,
+        registro: ev.FECHA_REGISTRO || '',
+        etiqueta: Utl_texto(ev.TIPO_EVENTO) + (ev.FECHA_EVENTO ? ' (' + ev.FECHA_EVENTO + ')' : '')
+      };
+    }
+  });
+  return mapa;
+}

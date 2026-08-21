@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.3.2',
+  VERSION: '0.4.0',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -75,13 +75,19 @@ const COLUMNAS_EVENTOS = [
   'CANTIDAD', 'OBSERVACIONES', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'
 ];
 
-// Columnas de las vistas operativas SECTOR_* (derivadas de PACIENTES,
-// NUNCA bases independientes — corrección arquitectónica ETAPA 3b)
+// Columnas de las vistas operativas SECTOR_* (derivadas de PACIENTES+EVENTOS,
+// NUNCA bases independientes — corrección arquitectónica ETAPA 3b).
+// ETAPA 4: + ID_INTERNO (enlace a ficha), SEXO, EDAD (derivada),
+// ULTIMO_EVENTO (derivado de EVENTOS en el refresco).
 const COLUMNAS_SECTOR_VISTA = [
-  'RUT', 'NOMBRE', 'TELEFONOS', 'ESTRATIFICACION', 'ESTADO',
-  'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
-  'OBSERVACIONES'
+  'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS',
+  'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO',
+  'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
+  'ULTIMO_EVENTO', 'OBSERVACIONES'
 ];
+
+// Marcador que identifica inequívocamente datos ficticios (limpieza 4.0)
+const MARCA_DATOS_PRUEBA = 'DATOS DE PRUEBA';
 
 // ---------------------------------------------------------------------------
 // Sectores geográficos (permanentes) — DEC-018

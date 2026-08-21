@@ -310,3 +310,19 @@ defensa (nunca bloquear por un defecto de integración aguas arriba). Lección
 registrada: los tests unitarios que normalizan manualmente NO cubren la unión
 adaptador↔orquestador; existe prueba de regresión específica del incidente.
 **Fecha:** 2026-08-21
+
+## DEC-032
+**Título:** ETAPA 4 — Sidebar justificado para búsqueda/ficha/revisión; SECTOR_* ampliadas; limpieza por doble señal
+**Estado:** Aprobada (ETAPA 4)
+**Motivo:** (a) La búsqueda con historial y la cola de revisión SON interacciones
+que justifican sidebar (DEC-012); todo lo demás sigue siendo hoja nativa.
+(b) COLUMNAS_SECTOR_VISTA ampliadas (ID_INTERNO para abrir ficha, SEXO, EDAD
+derivada, ULTIMO_EVENTO derivado de EVENTOS vía Ev_ultimoPorPaciente); las vistas
+siguen regenerándose desde PACIENTES+EVENTOS. (c) La limpieza de datos de prueba
+exige DOBLE señal (RUT ∈ set marcado AND FUENTE=HOJA_INGRESO*) más confirmación
+humana con conteos; sin doble señal jamás se purga. (d) La cola de revisión vive
+en CONFLICTOS (ABIERTO→RESUELTO/…), guarda los datos originales en DETALLE y su
+resolución re-ejecuta los gates: errores críticos siguen bloqueando aunque haya
+decisión humana. (e) Protección: CONFIG incorpora RESPONSABLE_* vacíos (#13);
+no se codifican correos.
+**Fecha:** 2026-08-21

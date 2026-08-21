@@ -37,6 +37,23 @@ function Utl_claveAlnum(s) {
   return Utl_sinTildes(Utl_texto(s)).toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/**
+ * Edad en años cumplidos desde fecha ISO de nacimiento.
+ * Devuelve '' si no hay fecha o es inválida. refDate inyectable para pruebas.
+ */
+function Utl_edadDesde(isoNacimiento, refDate) {
+  if (Utl_vacio(isoNacimiento)) return '';
+  var m = Utl_texto(isoNacimiento).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '';
+  var ref = refDate || new Date();
+  var anio = +m[1], mes = +m[2], dia = +m[3];
+  if (!anio || !mes || !dia) return '';
+  var edad = ref.getFullYear() - anio;
+  var antesDeCumple = (ref.getMonth() + 1 < mes) || (ref.getMonth() + 1 === mes && ref.getDate() < dia);
+  if (antesDeCumple) edad -= 1;
+  return (edad >= 0 && edad < 130) ? String(edad) : '';
+}
+
 // ---------------------------------------------------------------------------
 // Bloques (regla del proyecto: nunca getValue/setValue dentro de loops)
 // ---------------------------------------------------------------------------

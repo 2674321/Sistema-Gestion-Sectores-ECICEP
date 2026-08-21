@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body{font-family:Arial,sans-serif;font-size:13px;margin:8px;color:#222}
+  input,select{width:100%;padding:5px;margin:2px 0 8px;box-sizing:border-box}
+  button{padding:6px 10px;border:0;border-radius:4px;background:#0b5394;color:#fff;cursor:pointer}
+  button.sec{background:#666} button.ok{background:#38761d} button.no{background:#a61c00}
+  .res{border-bottom:1px solid #ddd;padding:5px 0;cursor:pointer}
+  .res:hover{background:#eef3fa}
+  .etq{font-size:11px;color:#777;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td,th{border-bottom:1px solid #eee;padding:3px;text-align:left}
+  th{background:#f3f6f9}
+  .msg{margin-top:8px;padding:6px;display:none;border-radius:4px}
+  .ok{display:block;background:#d9ead3} .err{display:block;background:#f4cccc}
+  #vista{display:none}
+  h3{margin:6px 0 4px}
+</style>
+</head>
+<body>
+
+<div id="panelBuscar">
+  <div class="etq">Buscar paciente (RUT o nombre)</div>
+  <input id="termino" placeholder="Ej: 12345678-5 o Pérez">
+  <button onclick="buscar()">🔍 Buscar</button>
+  <button class="sec" onclick="verRevision()">🧾 Revisión (<span id="cntRev">…</span>)</button>
+  <div id="resultados"></div>
+</div>
+
+<div id="vista">
+  <button class="sec" onclick="volver()">← Volver</button>
+  <h3 id="fNombre"></h3>
+  <table id="fDatos"></table>
+  <h3>Historial (EVENTOS)</h3>
+  <table id="fEventos"></table>
+  <h3>Registrar gestión</h3>
+  <div class="etq">Tipo</div>
+  <select id="evTipo"></select>
+  <div class="etq">Fecha</div>
+  <input id="evFecha" type="date">
+  <div class="etq">Profesional (opcional)</div>
+  <input id="evProf">
+  <div class="etq">Descripción / observación (opcional)</div>
+  <input id="evDesc">
+  <button class="ok" onclick="registrarEvento()">✔ Registrar evento</button>
+  <div id="msgEv" class="msg"></div>
+</div>
+
+<div id="panelRevision" style="display:none">
+  <button class="sec" onclick="volver()">← Volver</button>
+  <h3>Cola de revisión</h3>
+  <div id="revLista"></div>
+</div>
+
+<div id="cargando" style="color:#888">Cargando…</div>
+
+<script>
+var PACIENTE_ACTUAL = null;
+var TIPOS = ['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','OTRO'];
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+function buscar(){
+  var t = document.getElementById('termino').value;
+  if(!t) return;
+  document.getElementById('resultados').innerHTML = '<i>Buscando…</i>';
+  google.script.run.withSuccessHandler(pintarResultados).api_buscar(t);
+}
+function pintarResultados(lista){
+  if(!lista.length){ document.getElementById('resultados').innerHTML='<i>Sin resultados</i>'; return; }
+  document.getElementById('resultados').innerHTML = lista.map(function(p){
+    return '<div class="res" onclick="abrirFicha(\''+esc(p.id)+'\')">'+
+      '<b>'+esc(p.nombre)+'</b><br>'+esc(p.rut)+' · '+esc(p.sector)+
+      ' · '+esc(p.estado||'—')+(p.estrat?' · '+esc(p.estrat):'')+'</div>';
+  }).join('');
+}
+
+function abrirFicha(id){
+  document.getElementById('cargando').style.display='block';
+  google.script.run.withSuccessHandler(function(f){
+    document.getElementById('cargando').style.display='none';
+    if(!f){ alert('Paciente no encontrado'); return; }
+    PACIENTE_ACTUAL = f.ID_INTERNO;
+    document.getElementById('panelBuscar').style.display='none';
+    document.getElementById('vista').style.display='block';
+    document.getElementById('fNombre').textContent = f.NOMBRE || '(sin nombre)';
+    var filas = [['RUT',f.RUT],['Sexo',f.SEXO],['Nacimiento',f.FECHA_NACIMIENTO],
+      ['Edad',f.EDAD],['Teléfono',f.TELEFONOS],['Sector',f.SECTOR],
+      ['Estratificación',f.ESTRATIFICACION],['Estado',f.ESTADO],
+      ['Ingreso',f.FECHA_INGRESO],['Últ. seguimiento',f.ULTIMO_SEGUIMIENTO],
+      ['Últ. control',f.ULTIMO_CONTROL],['Próx. control',f.PROXIMO_CONTROL],
+      ['Observaciones',f.OBSERVACIONES]];
+    document.getElementById('fDatos').innerHTML = filas.map(function(par){
+      return '<tr><td class="etq">'+par[0]+'</td><td>'+esc(par[1])+'</td></tr>';
+    }).join('');
+    document.getElementById('fEventos').innerHTML =
+      '<tr><th>Fecha</th><th>Tipo</th><th>G</th><th>Profesional</th></tr>' +
+      (f.eventos.length ? f.eventos.map(function(e){
+        return '<tr><td>'+esc(e.fecha)+'</td><td>'+esc(e.tipo)+'</td><td>'+esc(e.riesgo)+'</td><td>'+esc(e.profesional)+'</td></tr>';
+      }).join('') : '<tr><td colspan="4"><i>Sin eventos registrados</i></td></tr>');
+    var sel = document.getElementById('evTipo');
+    sel.innerHTML = TIPOS.map(function(t){return '<option>'+t+'</option>';}).join('');
+    document.getElementById('msgEv').className='msg';
+  }).api_ficha(id);
+}
+
+function registrarEvento(){
+  var msg = document.getElementById('msgEv');
+  msg.textContent='Registrando…'; msg.className='msg';
+  google.script.run.withSuccessHandler(function(r){
+    msg.textContent = r.ok ? ('✔ Evento '+r.evento.tipo+' registrado ('+r.evento.fecha+'). Vistas actualizadas.')
+                           : ('✗ '+r.motivo);
+    msg.className = 'msg ' + (r.ok?'ok':'err');
+    if(r.ok) abrirFicha(PACIENTE_ACTUAL);
+  }).api_registrarEvento({
+    idInterno: PACIENTE_ACTUAL,
+    tipoEvento: document.getElementById('evTipo').value,
+    fecha: document.getElementById('evFecha').value,
+    profesional: document.getElementById('evProf').value,
+    descripcion: document.getElementById('evDesc').value
+  });
+}
+
+function verRevision(){
+  document.getElementById('panelBuscar').style.display='none';
+  document.getElementById('vista').style.display='none';
+  document.getElementById('panelRevision').style.display='block';
+  document.getElementById('revLista').innerHTML='<i>Cargando…</i>';
+  google.script.run.withSuccessHandler(function(lista){
+    document.getElementById('cntRev').textContent = lista.length;
+    document.getElementById('revLista').innerHTML = lista.length ? lista.map(function(c){
+      return '<div style="border:1px solid #ccc;border-radius:4px;padding:6px;margin-bottom:6px">'+
+        '<b>'+esc(c.nombre)+'</b> ('+esc(c.rut||'sin RUT')+')<br>'+
+        '<span class="etq">'+esc(c.tipo)+' · '+esc(c.candidato||'')+' · '+esc((c.datos&&c.datos.criterio)||'')+
+        ' · confianza: '+esc((c.datos&&c.datos.confianza)||'')+'</span><br>'+
+        '<button class="ok" onclick="resolver('+c.indice+',\'CONFIRMAR_MATCH\')">Es el mismo</button> '+
+        '<button class="no" onclick="resolver('+c.indice+',\'RECHAZAR_MATCH\')">Es otro</button></div>';
+    }).join('') : '<i>No hay casos pendientes 🎉</i>';
+  }).api_revisionListar();
+}
+function resolver(indice, decision){
+  google.script.run.withSuccessHandler(function(r){
+    alert(r.ok ? ('Resuelto: '+r.accion + (r.accion==='CREAR'?' (paciente nuevo creado)':' (enlazado a existente)'))
+               : ('✗ '+r.motivo));
+    verRevision();
+  }).api_revisionResolver(indice, decision);
+}
+
+function volver(){
+  document.getElementById('vista').style.display='none';
+  document.getElementById('panelRevision').style.display='none';
+  document.getElementById('panelBuscar').style.display='block';
+}
+
+document.getElementById('termino').addEventListener('keyup', function(e){ if(e.key==='Enter') buscar(); });
+verRevision(); // precarga contador de revisión
+</script>
+</body>
+</html>

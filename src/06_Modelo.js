@@ -62,7 +62,10 @@ var _CONFIG_SEMILLA = [
   ['NIVEL_LOG', CFG_LOG.NIVEL, 'DEBUG | INFO | WARNING | ERROR'],
   ['TTL_CACHE_SEG', CFG_CACHE.TTL_DEFECTO_SEG, 'TTL por defecto de caché (segundos)'],
   ['ANO_MIN_FECHAS', CFG_FECHAS.ANO_MIN, 'Año mínimo plausible para fechas'],
-  ['ANO_MAX_FECHAS', CFG_FECHAS.ANO_MAX, 'Año máximo plausible para fechas']
+  ['ANO_MAX_FECHAS', CFG_FECHAS.ANO_MAX, 'Año máximo plausible para fechas'],
+  ['RESPONSABLE_NARANJO', '', 'Correo del responsable del sector (pendiente #13)'],
+  ['RESPONSABLE_AMARILLO', '', 'Correo del responsable del sector (pendiente #13)'],
+  ['RESPONSABLE_VERDE', '', 'Correo del responsable del sector (pendiente #13)']
 ];
 
 /**
@@ -228,6 +231,167 @@ function Modelo_agregarEventos(eventos, registradoPor) {
   return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
 }
 
+/**
+ * Agrega casos a la cola de revisión (CONFLICTOS) en UNA escritura.
+ * Omite casos cuyo idProvisional ya tenga un ABIERTO previo (idempotente).
+ */
+function Modelo_agregarConflictos(filas, idProvisionalKey) {
+  if (!filas || !filas.length) return 0;
+  var ss = Modelo_ss();
+  var hoja = ss.getSheetByName(HOJAS.CONFLICTOS);
+  if (!hoja) return 0;
+  var existentes = {};
+  if (hoja.getLastRow() > 1) {
+    Utl_leerBloque(hoja).slice(1).forEach(function (f) {
+      try { existentes[JSON.parse(f[5]).idProvisional] = true; } catch (e) { /* fila antigua */ }
+    });
+  }
+  var nuevos = filas.filter(function (f) { return !existentes[idProvisionalKey(f)]; });
+  if (!nuevos.length) return 0;
+  return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, nuevos);
+}
+
+// ---------------------------------------------------------------------------
+// Ficha de paciente (ETAPA 4)
+// ---------------------------------------------------------------------------
+
+var _FICHA_CAMPOS_OPERATIVOS = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO',
+  'TELEFONOS', 'TELEFONO_OBS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO',
+  'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO',
+  'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'COMPOSICION_CONTROL', 'OBSERVACIONES'];
+
+/**
+ * Ficha consolidada: datos operativos del paciente + historial desde EVENTOS
+ * (orden cronológico ascendente). Lee siempre desde las bases centrales.
+ */
+function Modelo_fichaPaciente(idInterno) {
+  var pacientes = Modelo_leerPacientes();
+  var paciente = null;
+  for (var i = 0; i < pacientes.length; i++) {
+    if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { paciente = pacientes[i]; break; }
+  }
+  if (!paciente) return null;
+
+  var eventos = Modelo_leerEventos().filter(function (e) {
+    return Utl_texto(e.ID_INTERNO) === Utl_texto(idInterno);
+  }).sort(function (a, b) {
+    return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 :
+           Utl_texto(a.FECHA_EVENTO) > Utl_texto(b.FECHA_EVENTO) ? 1 : 0;
+  });
+
+  var ficha = {};
+  _FICHA_CAMPOS_OPERATIVOS.forEach(function (c) { ficha[c] = paciente[c]; });
+  ficha.EDAD = Utl_edadDesde(paciente.FECHA_NACIMIENTO);
+  ficha.eventos = eventos.map(function (e) {
+    return { fecha: e.FECHA_EVENTO, tipo: e.TIPO_EVENTO, sector: e.SECTOR,
+             riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION };
+  });
+  return ficha;
+}
+
+// ---------------------------------------------------------------------------
+// Limpieza de datos de prueba (ETAPA 4.0)
+// ---------------------------------------------------------------------------
+
+/** PURA: true si el paciente es eliminable como dato de prueba.
+ *  Exige AMBAS señales: RUT dentro del set de prueba Y origen = HOJA_INGRESO. */
+function Limpieza_esPacienteDePrueba(paciente, rutsPrueba) {
+  var fuente = Utl_texto(paciente.FUENTE);
+  if (fuente.indexOf('HOJA_INGRESO') !== 0) return false;
+  return rutsPrueba.indexOf(Utl_texto(paciente.RUT).toUpperCase()) !== -1;
+}
+
+/**
+ * GAS: recolecta las filas de INGRESO_* marcadas con la marca de prueba.
+ * @returns {ruts:[], hojas:{hoja:[filasSheet]}, totalFilas:number}
+ */
+function Limpieza_colectar() {
+  var ruts = [], hojas = {}, totalFilas = 0;
+  Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
+    var hoja = Modelo_ss().getSheetByName(nombreHoja);
+    if (!hoja) return;
+    var valores = Utl_leerBloque(hoja);
+    if (valores.length < 2) return;
+    var idxRut = -1, idxNombre = -1, idxNota = -1;
+    (valores[0] || []).forEach(function (h, i) {
+      var clave = Utl_claveAlnum(h);
+      if (clave === 'RUT') idxRut = i;
+      else if (clave === 'NOMBRE') idxNombre = i;
+      else if (clave === 'NOTASISTEMA') idxNota = i;
+    });
+    for (var f = 1; f < valores.length; f++) {
+      var nota = idxNota >= 0 ? Utl_texto(valores[f][idxNota]) : '';
+      if (nota.indexOf(MARCA_DATOS_PRUEBA) === -1) continue;
+      var rutNorm = Norm_normalizarRut(idxRut >= 0 ? valores[f][idxRut] : '');
+      if (rutNorm.rut) ruts.push(rutNorm.rut.toUpperCase());
+      if (!hojas[nombreHoja]) hojas[nombreHoja] = [];
+      hojas[nombreHoja].push(f + 1); // fila real en la hoja
+      totalFilas += 1;
+    }
+  });
+  return { ruts: ruts, hojas: hojas, totalFilas: totalFilas };
+}
+
+/**
+ * Ejecuta la limpieza tras confirmación humana:
+ * elimina SOLO pacientes/eventos identificados como prueba y las filas
+ * marcadas en INGRESO_*. Refresca vistas al terminar.
+ */
+function Limpieza_ejecutar(colecta) {
+  var resumen = { pacientes: 0, eventos: 0, filasIngreso: colecta.totalFilas };
+  var ss = Modelo_ss();
+
+  // PACIENTES: reescribe sin los de prueba
+  var pacientes = Modelo_leerPacientes();
+  var conservarP = pacientes.filter(function (p) { return !Limpieza_esPacienteDePrueba(p, colecta.ruts); });
+  resumen.pacientes = pacientes.length - conservarP.length;
+  var idsEliminados = {};
+  pacientes.forEach(function (p) {
+    if (!Limpieza_esPacienteDePrueba(p, colecta.ruts)) return;
+    idsEliminados[Utl_texto(p.ID_INTERNO)] = true;
+  });
+
+  // EVENTOS: elimina solo los ligados a pacientes de prueba eliminados
+  var eventos = Modelo_leerEventos();
+  var conservarE = eventos.filter(function (e) {
+    var porId = idsEliminados[Utl_texto(e.ID_INTERNO)];
+    var porRut = colecta.ruts.indexOf(Utl_texto(e.RUT).toUpperCase()) !== -1;
+    var esIngresoHoja = Utl_texto(e.FUENTE).indexOf('HOJA_INGRESO') === 0;
+    return !(esIngresoHoja && (porId || porRut));
+  });
+  resumen.eventos = eventos.length - conservarE.length;
+
+  // reescritura batch
+  var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+  hojaP.getRange(2, 1, Math.max(hojaP.getMaxRows() - 1, 1), MODELO_PACIENTE.length).clearContent();
+  if (conservarP.length) {
+    Utl_escribirBloque(hojaP, 2, 1, conservarP.map(Modelo_filaDesdeObjeto));
+  }
+  var hojaE = Modelo_hoja(HOJAS.EVENTOS);
+  if (hojaE) {
+    hojaE.getRange(2, 1, Math.max(hojaE.getMaxRows() - 1, 1), COLUMNAS_EVENTOS.length).clearContent();
+    if (conservarE.length) {
+      Utl_escribirBloque(hojaE, 2, 1, conservarE.map(function (ev) {
+        return COLUMNAS_EVENTOS.map(function (c) { return ev[c] === undefined ? '' : ev[c]; });
+      }));
+    }
+  }
+
+  // filas marcadas en INGRESO_* (de abajo hacia arriba para no desplazar índices)
+  Object.keys(colecta.hojas).forEach(function (nombreHoja) {
+    var hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja) return;
+    colecta.hojas[nombreHoja].sort(function (a, b) { return b - a; }).forEach(function (filaSheet) {
+      hoja.deleteRow(filaSheet);
+    });
+  });
+
+  Modelo_refrescarVistasSectores();
+  Log_info('Limpieza', 'ejecutar', JSON.stringify(resumen));
+  Log_flush();
+  return resumen;
+}
+
 // ---------------------------------------------------------------------------
 // Vistas operativas SECTOR_* (derivadas de PACIENTES — corrección arquitectónica)
 // ---------------------------------------------------------------------------
@@ -235,12 +399,18 @@ function Modelo_agregarEventos(eventos, registradoPor) {
 /**
  * PURA: filas de la vista para un sector, según COLUMNAS_SECTOR_VISTA.
  * Solo incluye pacientes cuyo SECTOR vigente coincida exactamente.
+ * @param {Array} pacientes objetos canónicos
+ * @param {string} sector NARANJO|AMARILLO|VERDE
+ * @param {Map} [ultimoEventoMap] resultado de Ev_ultimoPorPaciente(eventos)
  */
-function Modelo_vistaSectorDesdePacientes(pacientes, sector) {
+function Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimoEventoMap) {
   return (pacientes || [])
     .filter(function (p) { return Utl_texto(p.SECTOR).toUpperCase() === sector; })
     .map(function (p) {
+      var ue = ultimoEventoMap ? ultimoEventoMap[Utl_texto(p.ID_INTERNO)] : null;
       return COLUMNAS_SECTOR_VISTA.map(function (c) {
+        if (c === 'EDAD') return Utl_edadDesde(p.FECHA_NACIMIENTO);
+        if (c === 'ULTIMO_EVENTO') return ue ? ue.etiqueta : '';
         var v = p[c];
         return (v === undefined || v === null) ? '' : v;
       });
@@ -248,12 +418,14 @@ function Modelo_vistaSectorDesdePacientes(pacientes, sector) {
 }
 
 /**
- * Regenera el contenido de las tres hojas SECTOR_* desde PACIENTES.
+ * Regenera el contenido de las tres hojas SECTOR_* desde PACIENTES + EVENTOS.
  * Sobrescribe SOLO el área de datos (fila 2+); los encabezados jamás se tocan.
  * @returns {SECTOR_NARANJO:n, SECTOR_AMARILLO:n, SECTOR_VERDE:n}
  */
 function Modelo_refrescarVistasSectores() {
   var pacientes = Modelo_leerPacientes();
+  var eventos = Modelo_leerEventos();
+  var ultimo = Ev_ultimoPorPaciente(eventos);
   var conteo = {};
   HOJAS_SECTOR.forEach(function (nombreHoja) {
     var sector = nombreHoja.replace('SECTOR_', '');
@@ -262,9 +434,24 @@ function Modelo_refrescarVistasSectores() {
     if (!hoja) return;
     // limpia área de datos completa antes de reescribir
     hoja.getRange(2, 1, Math.max(hoja.getMaxRows() - 1, 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
-    var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector);
+    var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimo);
     if (filas.length) Utl_escribirBloque(hoja, 2, 1, filas);
     conteo[sector] = filas.length;
   });
   return conteo;
+}
+
+/** Lee la hoja EVENTOS como objetos según COLUMNAS_EVENTOS. */
+function Modelo_leerEventos() {
+  var hoja = Modelo_hoja(HOJAS.EVENTOS);
+  if (!hoja || hoja.getLastRow() < 2) return [];
+  var valores = Utl_leerBloque(hoja);
+  var campos = valores[0];
+  var salida = [];
+  for (var f = 1; f < valores.length; f++) {
+    var o = {};
+    for (var c = 0; c < campos.length; c++) o[campos[c]] = valores[f][c];
+    salida.push(o);
+  }
+  return salida;
 }

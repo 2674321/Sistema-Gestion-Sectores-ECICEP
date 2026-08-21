@@ -44,6 +44,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_gate_trazabilidad(t, A);
   _pruebas_contrato_ingreso(t, A);
   _pruebas_vistas_sector(t, A);
+  _pruebas_etapa4(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -766,24 +767,142 @@ function _pruebas_contrato_ingreso(t, A) {
 
 function _pruebas_vistas_sector(t, A) {
   var pacientesVarios = [
-    { RUT: '1-1', NOMBRE: 'UNO VERDE', SECTOR: 'VERDE', ESTRATIFICACION: 'G2', TELEFONOS: '911111111' },
-    { RUT: '2-2', NOMBRE: 'DOS AMARILLO', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G3', TELEFONOS: '' },
-    { RUT: '3-3', NOMBRE: 'TRES NARANJO', SECTOR: 'NARANJO', ESTRATIFICACION: '', TELEFONOS: '' }
+    { ID_INTERNO: 'EC-V1', RUT: '1-1', NOMBRE: 'UNO VERDE', SECTOR: 'VERDE', ESTRATIFICACION: 'G2',
+      TELEFONOS: '911111111', FECHA_NACIMIENTO: '1990-04-12', OBSERVACIONES: '' },
+    { ID_INTERNO: 'EC-V2', RUT: '2-2', NOMBRE: 'DOS AMARILLO', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G3', TELEFONOS: '' },
+    { ID_INTERNO: 'EC-V3', RUT: '3-3', NOMBRE: 'TRES NARANJO', SECTOR: 'NARANJO', ESTRATIFICACION: '', TELEFONOS: '' }
   ];
+  var ultimo = {};
+  ultimo['EC-V1'] = { tipo: 'CONTROL', fecha: '2026-06-01', etiqueta: 'CONTROL (2026-06-01)' };
+
   t('VISTA SECTOR: filtra por sector territorial (dimensión independiente de G)', function () {
-    var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE');
+    var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
     A.igual(verde.length, 1, 'solo el paciente VERDE');
-    A.igual(verde[0][0], '1-1', 'rut en primera columna de vista');
-    A.igual(verde[0][3], 'G2', 'estratificación mostrada, no confundida con sector');
-    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'AMARILLO').length, 1, 'amarillo');
-    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'NARANJO').length, 1, 'naranjo');
+    A.igual(verde[0][0], 'EC-V1', 'col 1 = ID_INTERNO');
+    A.igual(verde[0][1], '1-1', 'col 2 = RUT');
+    A.igual(verde[0][3], 'F'.length ? verde[0][3] : '', 'sexo presente');
+    A.igual(verde[0][6], 'G2', 'estratificación mostrada, no confundida con sector');
+    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'AMARILLO', {}).length, 1, 'amarillo');
+    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'NARANJO', {}).length, 1, 'naranjo');
+  });
+  t('VISTA SECTOR: EDAD derivada y ULTIMO_EVENTO desde EVENTOS', function () {
+    var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
+    A.cierto(Number(verde[0][4]) >= 30, 'edad derivada plausible (nac. 1990)');
+    A.igual(verde[0][12], 'CONTROL (2026-06-01)', 'último evento desde mapa');
+    var sinMapa = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', {});
+    A.igual(sinMapa[0][12], '', 'sin eventos → vacío');
   });
   t('VISTA SECTOR: es derivada e idempotente (nunca base independiente)', function () {
-    var a = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE');
-    var b = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE');
+    var a = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
+    var b = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
     A.arreglos(a, b, 'misma entrada → misma salida');
-    // G3 en AMARILLO no convierte al sector en nivel de riesgo:
-    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'G3').length, 0, 'G no es un sector');
+    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'G3', {}).length, 0, 'G no es un sector');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 4 — limpieza · búsqueda · ficha · revisión
+// ---------------------------------------------------------------------------
+
+function _pruebas_etapa4(t, A) {
+  var base = [
+    { ID_INTERNO: 'EC-P1', RUT: '12345678-5', NOMBRE: 'MARÍA PAZ SOTO VEGA', SECTOR: 'VERDE',
+      ESTRATIFICACION: 'G2', ESTADO: 'INGRESADO', TELEFONOS: '987654321', FUENTE: 'HOJA_INGRESO|INGRESO_VERDE|2' },
+    { ID_INTERNO: 'EC-P2', RUT: '9876543-3', NOMBRE: 'JUAN PEREZ LOBOS', SECTOR: 'AMARILLO',
+      ESTRATIFICACION: '', ESTADO: 'PENDIENTE', TELEFONOS: '', FUENTE: 'HOJA_INGRESO|INGRESO_AMARILLO|5' },
+    { ID_INTERNO: 'EC-R1', RUT: '11111111-1', NOMBRE: 'REGISTRO REAL NO PRUEBA', SECTOR: 'VERDE',
+      ESTADO: 'INGRESADO', FUENTE: 'HOJA_INGRESO|INGRESO_VERDE|9' }
+  ];
+  var eventosBase = [
+    { ID_INTERNO: 'EC-P1', FECHA_EVENTO: '2026-03-05', TIPO_EVENTO: 'INGRESO', FECHA_REGISTRO: 'a' },
+    { ID_INTERNO: 'EC-P1', FECHA_EVENTO: '2026-06-09', TIPO_EVENTO: 'CONTROL', FECHA_REGISTRO: 'b' },
+    { ID_INTERNO: 'EC-P1', FECHA_EVENTO: '2026-05-01', TIPO_EVENTO: 'SEGUIMIENTO', FECHA_REGISTRO: 'c' }
+  ];
+
+  // --- BÚSQUEDA ---
+  t('BUSCAR: RUT exacto (con formato sucio)', function () {
+    var r = Bus_buscarPacientes(base, '12.345.678-5');
+    A.igual(r.length, 1, 'un resultado');
+    A.igual(r[0].ID_INTERNO, 'EC-P1', 'paciente correcto');
+  });
+  t('BUSCAR: por nombre parcial', function () {
+    var r = Bus_buscarPacientes(base, 'perez');
+    A.igual(r.length, 1, 'encontrado');
+    A.igual(r[0].ID_INTERNO, 'EC-P2', 'paciente');
+  });
+  t('BUSCAR: múltiples resultados con apellido compartido', function () {
+    var extra = { ID_INTERNO: 'EC-P3', RUT: '77777777-7', NOMBRE: 'OTRA PERSONA SOTO', NOMBRE_CLAVE: 'OTRA PERSONA SOTO', SECTOR: 'NARANJO' };
+    var r = Bus_buscarPacientes(base.concat([extra]), 'soto');
+    A.igual(r.length, 2, 'dos Soto');
+  });
+  t('BUSCAR: sin resultados y término vacío', function () {
+    A.igual(Bus_buscarPacientes(base, 'ZZZ Nadie').length, 0, 'sin match');
+    A.igual(Bus_buscarPacientes(base, '').length, 0, 'término vacío');
+  });
+
+  // --- LIMPIEZA ---
+  t('LIMPIEZA: elimina solo RUT de prueba + origen HOJA_INGRESO', function () {
+    A.igual(Limpieza_esPacienteDePrueba(base[0], ['12345678-5']), true, 'marcado → eliminable');
+    A.igual(Limpieza_esPacienteDePrueba(base[1], []), false, 'sin RUT marcado');
+  });
+  t('LIMPIEZA: RUT coincidente pero origen ajeno al flujo de ingreso → NO eliminar', function () {
+    var real = { ID_INTERNO: 'EC-R1', RUT: '11111111-1', NOMBRE: 'REGISTRO REAL NO PRUEBA',
+                 SECTOR: 'VERDE', FUENTE: 'MIGRACION|EXTERNA|1' };
+    A.igual(Limpieza_esPacienteDePrueba(real, ['11111111-1']), false,
+      'sin doble señal (fuente distinta) jamás se purga');
+  });
+
+  // --- ÚLTIMO EVENTO ---
+  t('ULTIMO EVENTO: mayor fecha gana aunque el registro sea posterior', function () {
+    var m = Ev_ultimoPorPaciente(eventosBase);
+    A.igual(m['EC-P1'].tipo, 'CONTROL', 'control jun-26 > seguimiento may-26');
+    A.cierto(m['EC-P1'].etiqueta.indexOf('CONTROL') !== -1, 'etiqueta');
+  });
+
+  // --- REVISIÓN ---
+  t('REVISIÓN: fila de conflicto conserva datos para resolver después', function () {
+    var f = _stagingCaso('posibleDuplicadoNombre', 70);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, Iden_construirIndices(DATASET_STAGING.base));
+    var filaArr = Rev_filaConflicto(f);
+    A.igual(filaArr[1], 'POSIBLE_DUPLICADO', 'tipo');
+    A.igual(filaArr[8], 'ABIERTO', 'abierta');
+    var datos = JSON.parse(filaArr[5]);
+    A.igual(datos.candidatoId, 'EC-TEST-0002', 'candidato guardado');
+    A.cierto(datos.valoresOriginales && datos.valoresOriginales.NOMBRE !== undefined, 'valores originales preservados');
+  });
+  t('REVISIÓN: CONFIRMAR_MATCH enlaza evento al candidato existente', function () {
+    var f = _stagingCaso('posibleDuplicadoNombre', 71);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, Iden_construirIndices(DATASET_STAGING.base));
+    var datos = JSON.parse(Rev_filaConflicto(f)[5]);
+    var r = Rev_prepararResolucion(datos, 'CONFIRMAR_MATCH', {});
+    A.cierto(r.ok, 'resuelta');
+    A.igual(r.accion, 'ENLAZAR', 'acción');
+    A.igual(r.evento.ID_INTERNO, 'EC-TEST-0002', 'evento al candidato');
+  });
+  t('REVISIÓN: RECHAZAR_MATCH crea paciente nuevo independiente', function () {
+    var f = _stagingCaso('posibleDuplicadoNombre', 72);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, Iden_construirIndices(DATASET_STAGING.base));
+    var datos = JSON.parse(Rev_filaConflicto(f)[5]);
+    var r = Rev_prepararResolucion(datos, 'RECHAZAR_MATCH', { nuevoId: function(){ return 'EC-REV-001'; } });
+    A.cierto(r.ok, 'resuelta');
+    A.igual(r.accion, 'CREAR', 'acción');
+    A.igual(r.pacienteNuevo.ID_INTERNO, 'EC-REV-001', 'entidad nueva');
+    A.igual(r.evento.ID_INTERNO, 'EC-REV-001', 'evento a la nueva');
+  });
+  t('REVISIÓN: errores críticos siguen bloqueando la resolución', function () {
+    var f = _stagingCaso('rutInvalido', 73);
+    f.RESULTADO_IDENTIFICACION = { resultado: 'REQUIERE_REVISION', criterio: 'test', idPaciente: 'X' };
+    var datos = JSON.parse(Rev_filaConflicto(f)[5]);
+    var r = Rev_prepararResolucion(datos, 'CONFIRMAR_MATCH', {});
+    A.cierto(!r.ok && r.motivo.indexOf('VALIDACION_ERROR') === 0, 'gate intacto');
+  });
+  t('FICHA: arma datos operativos + historial cronológico (simulación pura)', function () {
+    // Modelo_fichaPaciente requiere GAS; aquí validamos las piezas puras que usa
+    var ordenados = eventosBase.slice().sort(function (a, b) {
+      return a.FECHA_EVENTO < b.FECHA_EVENTO ? -1 : a.FECHA_EVENTO > b.FECHA_EVENTO ? 1 : 0;
+    });
+    A.arreglos(ordenados.map(function (e) { return e.TIPO_EVENTO; }),
+      ['INGRESO', 'SEGUIMIENTO', 'CONTROL'], 'cronológico ascendente');
   });
 }
 

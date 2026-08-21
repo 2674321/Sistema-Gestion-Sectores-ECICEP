@@ -351,6 +351,25 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   // 5) estados de vuelta en las hojas de ingreso
   Ingresos_escribirEstados(salida.resultados);
 
+  // 5b) casos ambiguos → cola de revisión (CONFLICTOS)
+  var conflicto = null;
+  try {
+    var filasConflicto = [];
+    staging.forEach(function (f) {
+      var r = f.RESULTADO_IDENTIFICACION;
+      if (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION')) {
+        filasConflicto.push(Rev_filaConflicto(f));
+      }
+    });
+    if (filasConflicto.length) {
+      conflicto = Modelo_agregarConflictos(filasConflicto, function (filaArr) {
+        try { return JSON.parse(filaArr[5]).idProvisional || ''; } catch (e) { return ''; }
+      });
+    }
+  } catch (e) {
+    Log_warning('Ingresos', 'colaRevision', e && e.message ? e.message : String(e));
+  }
+
   // 6) reflejar el resultado en las vistas sectoriales (derivadas, no bases)
   var vistas = null;
   try {
@@ -361,6 +380,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
 
   salida.resumen.usuario = _ingresosUsuarioActual();
   salida.resumen.vistasSector = vistas;
+  salida.resumen.aRevision = conflicto;
   Log_info('Ingresos', 'procesar', JSON.stringify({
     leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,
     existentes: salida.resumen.existentes, revision: salida.resumen.revision,
@@ -371,12 +391,115 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   return salida.resumen;
 }
 
+/**
+ * PURA (helper del wrapper): sincroniza la caché de estado vigente de UN
+ * paciente tras registrar un evento manual (último seguimiento/control).
+ * @param {Object} paciente objeto canónico (se muta)
+ * @param {Object} evento evento recién creado
+ */
+function Ingresos_sincronizarCache(paciente, evento) {
+  if (!paciente || !evento) return paciente;
+  var fecha = Utl_texto(evento.FECHA_EVENTO);
+  if (evento.TIPO_EVENTO === 'CONTROL') paciente.ULTIMO_CONTROL = fecha;
+  if (evento.TIPO_EVENTO === 'SEGUIMIENTO') paciente.ULTIMO_SEGUIMIENTO = fecha;
+  if (evento.TIPO_EVENTO === 'INGRESO' && !Utl_vacio(fecha)) paciente.FECHA_INGRESO = paciente.FECHA_INGRESO || fecha;
+  paciente.FECHA_ACTUALIZACION = new Date();
+  return paciente;
+}
+
 /** Semilla ficticia → nombres de hoja destino según sector del origen. */
 function Ingresos_hojaParaSector(sectorCanonica) {
   for (var hoja in HOJAS_INGRESO) {
     if (HOJAS_INGRESO.hasOwnProperty(hoja) && HOJAS_INGRESO[hoja] === sectorCanonica) return hoja;
   }
   return '';
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 4 — Cola de revisión (CONFLICTOS)
+// ---------------------------------------------------------------------------
+
+/**
+ * PURA: fila para la cola de revisión a partir de una fila de staging cuyo
+ * resultado fue REQUIERE_REVISION o POSIBLE_DUPLICADO. Guarda los datos
+ * necesarios para resolver después sin re-procesar la hoja de origen.
+ */
+function Rev_filaConflicto(filaStaging) {
+  var iden = filaStaging.RESULTADO_IDENTIFICACION || {};
+  return [
+    new Date(),
+    iden.resultado === 'POSIBLE_DUPLICADO' ? 'POSIBLE_DUPLICADO' : 'REQUIERE_REVISION',
+    '',
+    Utl_texto(filaStaging.NORMALIZADO.RUT),
+    Utl_texto(filaStaging.NORMALIZADO.NOMBRE),
+    JSON.stringify({
+      idProvisional: filaStaging.ID_PROVISIONAL,
+      origen: { archivo: filaStaging.ARCHIVO_ORIGEN, hoja: filaStaging.HOJA_ORIGEN, fila: filaStaging.FILA_ORIGEN },
+      sectorOrigen: filaStaging.SECTOR_ORIGEN,
+      valoresOriginales: filaStaging.VALORES_ORIGINALES,
+      criterio: iden.criterio,
+      confianza: iden.confianza,
+      candidatoId: iden.idPaciente || ''
+    }),
+    Fuentes_fuenteOrigen(filaStaging),
+    iden.idPaciente ? 'candidato:' + iden.idPaciente : '',
+    'ABIERTO',
+    ''
+  ];
+}
+
+/**
+ * PURA: prepara la escritura tras una decisión humana en la cola de revisión.
+ * Los errores críticos de validación siguen bloqueando aunque exista decisión.
+ * @param {Object} datos JSON guardado en CONFLICTOS.DETALLE
+ * @param {string} decision 'CONFIRMAR_MATCH' | 'RECHAZAR_MATCH'
+ * @param {Object} opciones {nuevoId()}
+ * @returns {ok, accion:'ENLAZAR'|'CREAR', evento, pacienteNuevo, motivo}
+ */
+function Rev_prepararResolucion(datos, decision, opciones) {
+  opciones = opciones || {};
+  var res = { ok: false, accion: '', evento: null, pacienteNuevo: null, motivo: '' };
+  if (!datos || !datos.valoresOriginales) { res.motivo = 'DATOS_INCOMPLETOS'; return res; }
+
+  var fila = Fuentes_normalizar(Fuentes_crearFila({
+    archivo: datos.origen.archivo || 'REVISION',
+    hoja: datos.origen.hoja || '',
+    fila: datos.origen.fila || '',
+    sector: datos.sectorOrigen || ''
+  }, datos.valoresOriginales));
+
+  if (fila.ESTADO_VALIDACION === 'ERROR') {
+    res.motivo = 'VALIDACION_ERROR: ' + (fila.ERRORES[0] ? fila.ERRORES[0].campo : '');
+    return res;
+  }
+
+  if (decision === 'CONFIRMAR_MATCH') {
+    if (!datos.candidatoId) { res.motivo = 'SIN_CANDIDATO'; return res; }
+    fila.RESULTADO_IDENTIFICACION = {
+      resultado: 'MATCH_PARCIAL', idPaciente: datos.candidatoId,
+      criterio: 'Confirmado manualmente en revisión', confianza: 'HUMANA'
+    };
+    var ev = Ev_desdeStaging(fila, {});
+    if (!ev.ok) { res.motivo = ev.motivo; return res; }
+    res.ok = true; res.accion = 'ENLAZAR'; res.evento = ev.evento;
+    return res;
+  }
+
+  if (decision === 'RECHAZAR_MATCH') {
+    fila.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
+    var ev2 = Ev_desdeStaging(fila, {});
+    if (!ev2.ok) { res.motivo = ev2.motivo; return res; }
+    res.ok = true; res.accion = 'CREAR';
+    res.pacienteNuevo = Ingresos_pacienteDesdeNormalizado(
+      fila.NORMALIZADO, fila,
+      opciones.nuevoId ? opciones.nuevoId() : ('EC-' + Date.now().toString(36).toUpperCase()));
+    ev2.evento.ID_INTERNO = res.pacienteNuevo.ID_INTERNO; // enlazar evento a la entidad nueva
+    res.evento = ev2.evento;
+    return res;
+  }
+
+  res.motivo = 'DECISION_INVALIDA';
+  return res;
 }
 
 /**

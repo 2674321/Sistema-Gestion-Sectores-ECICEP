@@ -173,3 +173,34 @@ function Iden_detectarDuplicadosLote(filas) {
   }
   return salida;
 }
+
+// ---------------------------------------------------------------------------
+// ETAPA 4 — Búsqueda operativa
+// ---------------------------------------------------------------------------
+
+/**
+ * Búsqueda NO agresiva para la interfaz:
+ *   1. Si el término parece RUT → match exacto por RUT normalizado.
+ *   2. Si no → pacientes cuyo nombre normalizado CONTIENE el término.
+ * Nunca fusiona ni decide: solo lista candidatos.
+ * @returns [{ID_INTERNO, RUT, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION}]
+ */
+function Bus_buscarPacientes(pacientes, termino, limite) {
+  var t = Utl_colapsarEspacios(Utl_texto(termino));
+  if (!t) return [];
+  var tope = limite || 25;
+  var salida = [];
+  var rut = Norm_normalizarRut(t);
+  if (rut.estado === 'OK') {
+    for (var i = 0; i < (pacientes || []).length && salida.length < tope; i++) {
+      if (Utl_texto(pacientes[i].RUT).toUpperCase() === rut.rut) salida.push(pacientes[i]);
+    }
+    return salida;
+  }
+  var clave = Norm_claveNombre(t);
+  for (var j = 0; j < (pacientes || []).length && salida.length < tope; j++) {
+    var claveP = Norm_claveNombre(pacientes[j].NOMBRE);
+    if (claveP && claveP.indexOf(clave) !== -1) salida.push(pacientes[j]);
+  }
+  return salida;
+}
