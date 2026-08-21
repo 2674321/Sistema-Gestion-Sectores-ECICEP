@@ -1,0 +1,31 @@
+# ===== DATOS REALES — NUNCA AL REPOSITORIO =====
+# Archivos de origen con información personal y sanitaria de pacientes
+*.xlsx
+*.xls
+*.csv
+!datos_prueba/*.xlsx
+!datos_prueba/*.csv
+
+# ===== CREDENCIALES / CONFIG SENSIBLE =====
+.clasp.json
+.clasprc.json
+*.credentials.json
+*.token.json
+.env
+
+# ===== CLASP =====
+.clasp/
+
+# ===== SISTEMA =====
+.DS_Store
+Thumbs.db
+~$*
+*.tmp
+
+# ===== NODE (si se usara tooling local) =====
+node_modules/
+package-lock.json
+
+# ===== BACKUPS LOCALES =====
+backups/
+*.bak
