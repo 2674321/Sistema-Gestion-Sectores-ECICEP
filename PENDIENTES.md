@@ -9,8 +9,8 @@
 | 5 | Estratificación 'G' sin nivel (399 casos en Verde): ¿derivable? ¿dejar null? | Consulta cliente | Normalización | MEDIA |
 | 6 | Lista cerrada de estados canónicos (PENDIENTE/AGENDADO/INGRESADO/NO_CONTESTA/FALLECIDO/NSP…) | Consulta cliente | Consolidación + UI | ALTA |
 | 7 | Indicadores que la cliente quiere en el dashboard | Consulta cliente | ETAPA dashboard | MEDIA |
-| 8 | Interfaz: sidebar dentro de la hoja vs Web App independiente | Decisión diseño (proponer en ETAPA 4) | ETAPA 4 | BAJA ahora |
-| 9 | Crear dataset ficticio en `datos_prueba/` (nombres/RUT/teléfonos inventados) | Tarea dev | ETAPA 3 (muestras) | MEDIA |
+| 8 | ~~Interfaz: sidebar vs Web App~~ ✅ **RESUELTO (2026-08-21):** Google Sheets es la interfaz principal (DEC-012); sidebar/dialog solo como complemento justificado | Resuelto | — | — |
+| 9 | Crear dataset ficticio en `datos_prueba/` (nombres/RUT/teléfonos inventados) | Tarea dev | ETAPA 3 (muestras) | MEDIA — dataset de normalización ya existe (`src/11_DatosPrueba.js`) |
 | 10 | Primer commit Git (repo ya inicializado, `.gitignore` listo) — esperar confirmación | Tarea dev | Versionado | MEDIA |
 | 11 | Definir destino de flujos auxiliares: GESTOR DE CASO, CONTROLES PENDIENTES, INASISTENTES A INGRESOS (¿eventos separados u observaciones?) | Consulta cliente | Modelo final | MEDIA |
 

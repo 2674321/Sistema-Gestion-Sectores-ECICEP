@@ -13,12 +13,13 @@ estructuras distintas.
 | Etapa | Estado |
 |-------|--------|
 | ETAPA 0 — Descubrimiento / Levantamiento | ✅ Completada (2026-08-21) |
-| ETAPA 1 — Arquitectura | 🔄 En diseño (ver `ARQUITECTURA.md`) |
-| ETAPA 2 — Núcleo | ⬜ Pendiente |
-| ETAPA 3+ — Datos controlados → Migración | ⬜ Bloqueado hasta validar arquitectura |
+| ETAPA 1 — Arquitectura | ✅ Diseñada y registrada (`ARQUITECTURA.md`, `DECISIONES.md`) |
+| ETAPA 2 — Núcleo (config · utilidades · log · normalización · modelo · estructura Sheets · pruebas) | ✅ Implementada, 85/85 pruebas verdes |
+| ETAPA 3 — Datos controlados (staging, validador, identificación) | ⬜ Siguiente |
+| ETAPA 4+ — Interfaz → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
 
+**Interfaz:** Google Sheets es la interfaz principal del sistema (DEC-012).
 **Regla vigente:** NO migrar ni procesar masivamente los datos reales todavía.
-Los `.xlsx` en esta carpeta son material de referencia local (ignorados por Git).
 
 ## Stack
 
@@ -44,9 +45,13 @@ Sistema-Gestion-Sectores-ECICEP/
 ├── *.xlsx                  # Fuentes reales (NO versionar)
 ├── src/                    # Código Apps Script (sincronizado con clasp)
 │   ├── appsscript.json
-│   └── 0X_*.js             # Módulos numerados
-├── datos_prueba/           # Dataset ficticio (único Excel permitido en Git)
-└── docs anteriores...
+│   ├── 00_Config … 09_Log  # Módulos del núcleo
+│   ├── 10_Pruebas.js       # Suites deterministas
+│   └── 11_DatosPrueba.js   # Dataset ficticio único
+├── tests/
+│   └── ejecutar_local.mjs  # node tests/ejecutar_local.mjs
+├── datos_prueba/           # Muestras ficticias futuras (único Excel permitido)
+└── docs...
 ```
 
 ## Reglas críticas

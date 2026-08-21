@@ -79,6 +79,53 @@ extra. Se copia ese manifest como base local (`src/appsscript.json`).
 Si más adelante se necesita Sheets API avanzado, se decide entonces.
 **Fecha:** 2026-08-21
 
+## DEC-012
+**Título:** Google Sheets es la interfaz principal del sistema (DECISIÓN OFICIAL)
+**Estado:** Aprobada — definida por el desarrollador al iniciar ETAPA 2
+**Motivo:** La experiencia del usuario ocurre DENTRO del spreadsheet: menús,
+botones, validaciones, formato condicional, vistas y navegación nativa.
+Apps Script es motor (normalización, integración, deduplicación, logs, caché).
+No se desarrollará SPA ni web app independiente; HTML/sidebar/dialog solo como
+complemento cuando una interacción lo justifique. Excel = fuentes externas;
+Git = versionamiento. No modificar sin razón técnica importante.
+**Fecha:** 2026-08-21
+
+## DEC-013
+**Título:** Nombres definitivos de hojas de ETAPA 2
+**Estado:** Aprobada
+**Motivo:** Se crea la base consolidada como `PACIENTES` (no "ECICEP"): más claro
+para la usuaria final; ECICEP es el nombre del sistema completo, no de una tabla.
+ETAPA 2 crea solo: CONFIG, PACIENTES, LOG, CONFLICTOS, FUENTES (+ eliminación de
+"Hoja 1" únicamente si está vacía). INICIO/DASHBOARD/FICHA/SEGUIMIENTO → ETAPA 4+.
+STAGING_IMPORT/MAPA_ORIGEN → ETAPA 3.
+**Fecha:** 2026-08-21
+
+## DEC-014
+**Título:** Logging con búfer en memoria + escritura por lotes
+**Estado:** Aprobada
+**Motivo:** Evitar que el propio log sea cuello de botella: las entradas se
+acumulan y se vuelcan a la hoja LOG en un solo setValues (auto-flush a las 50).
+LockService evita escrituras concurrentes; recorte automático a 5.000 filas;
+el log jamás lanza excepciones que rompan el flujo principal.
+**Fecha:** 2026-08-21
+
+## DEC-015
+**Título:** Caché mínima sobre CacheService con invalidación explícita
+**Estado:** Aprobada
+**Motivo:** Solo índices/parámetros de lectura con TTL corto (60 s por defecto),
+prefijo versionado (`ECICEP:v…:`) e invalidación explícita al escribir.
+Nunca datos en curso de modificación. En entornos sin CacheService (node) es no-op.
+**Fecha:** 2026-08-21
+
+## DEC-016
+**Título:** Pruebas duales deterministas (node local + Apps Script)
+**Estado:** Aprobada
+**Motivo:** La capa de normalización es pura (sin GAS), así corre idéntica en
+`node tests/ejecutar_local.mjs` y en el menú ECICEP → 🧪 dentro de Sheets.
+Dataset único ficticio (`src/11_DatosPrueba.js`) replicando los formatos reales
+detectados, sin datos de pacientes. Deterministas: sin red, sin hojas, sin hora actual.
+**Fecha:** 2026-08-21
+
 ## DEC-008
 **Título:** Un solo proyecto Apps Script + separación lógica DEV/PROD (no 3 entornos físicos)
 **Estado:** Propuesta

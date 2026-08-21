@@ -31,13 +31,40 @@ Excel/Sheets fuentes (3 sectores)
 | `03_Fuentes.gs` | Lectura de hojas fuente, detección de encabezado/separadores, validador estructural pre-import | consolidar |
 | `04_Identificacion.gs` | Claves de match, scoring, cola de revisión | escribir BASE |
 | `05_Consolidacion.gs` | Merge multi-fuente con conflictos; DRY RUN integrado | decidir solo |
-| `06_Modelo.gs` | Acceso a BASE_ECICEP (CRUD por lotes, índices en memoria) | normalizar |
-| `07_UI.gs` | Interfaz (sidebar/web app): búsqueda, ficha, registro de controles | lógica pesada |
+| `06_Modelo.gs` | Acceso a PACIENTES (lectura por bloques, índices) + instalación/reparación de estructura de hojas | normalizar |
+| `07_UI.gs` | Interfaz Sheets-nativa (DEC-012): menú ECICEP, toasts, navegación. Sidebar/dialog solo si una interacción lo justifica | lógica pesada |
 | `08_Dashboard.gs` | KPIs: pendientes, próximos controles, por sector/estratificación | — |
-| `09_Log.gs` | Logging INFO/WARNING/ERROR/CRITICAL a hoja LOG con LockService | — |
+| `09_Log.gs` | Logging INFO/WARNING/ERROR/DEBUG a hoja LOG con búfer + escritura por lotes (DEC-014) | — |
+| `10_Pruebas.js` | Suites deterministas del núcleo (corren en GAS y en node, DEC-016) | — |
+| `11_DatosPrueba.js` | Dataset ficticio único para las pruebas (sin datos reales) | — |
 
 Dependencia estricta hacia abajo: UI/Dashboard → Modelo → Normalización → Utilidades.
 La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
+
+## Estado de implementación (fin ETAPA 2)
+
+- ✅ `00_Config`: modelo canónico (24 campos con metadatos), sinonimos confirmados,
+  encabezados ambiguos registrados, estados, fechas, log y caché.
+- ✅ `01_Utilidades`: bloques batch, colecciones, medición, caché.
+- ✅ `02_Normalizacion`: RUT (módulo 11), teléfono multi-formato, fechas tolerantes
+  (VACIA/VALIDA/MES_ANO/INVALIDA/NO_RECONOCIDA), nombres, encabezados, estados,
+  estratificación — capa pura.
+- ✅ `09_Log`: búfer + flush por lotes + LockService + recorte histórico.
+- ✅ `06_Modelo`: instalación idempotente de hojas (elimina "Hoja 1" solo si vacía),
+  formato base de PACIENTES (encabezado fijo, técnicas agrupadas/ocultas), lectura
+  por bloques e índice por RUT.
+- ✅ `07_UI`: menú ECICEP (instalar estructura · ejecutar pruebas · abrir LOG).
+- ✅ Pruebas: 85 casos verdes (`node tests/ejecutar_local.mjs` = mismo runner que GAS).
+- ⬜ ETAPA 3: staging, validador estructural de fuentes, identificación, consolidación.
+
+## Interfaz dentro de Google Sheets (DEC-012)
+
+Sheets es la interfaz principal: menús personalizados, botones, listas
+desplegables, formato condicional, vistas filtradas y navegación entre hojas.
+HTML/sidebar/dialog únicamente como complemento justificado. Las hojas se
+diseñan como interfaz (encabezados congelados, anchos, colores consistentes,
+columnas técnicas agrupadas y ocultas). Fórmulas nativas cuando sean simples y
+no penalicen rendimiento; Apps Script para procesamiento complejo.
 
 ## Hojas (ver MODELO-DATOS.md)
 
@@ -84,8 +111,9 @@ hoja CONFIG distingue datos de prueba vs reales; dataset ficticio en
 
 | Herramienta | Veredicto |
 |---|---|
-| clasp 3.3.0 (instalado, autenticado) | ✅ Usar para sync; push solo tras confirmar script destino |
+| clasp 3.3.0 (instalado, autenticado) | ✅ Usar para sync; push solo tras verificar `.clasp.json` → script ligado |
 | Python 3.12 + openpyxl 3.1.5 (local) | ✅ Análisis/validación estructural de Excel fuera de línea; ya usado en ETAPA 0 |
-| Git local | ✅ Repo inicializado; primer commit pendiente de confirmación |
-| Node/npm para linting .gs | ⏸️ Aplazado: beneficio marginal ahora; evaluar en ETAPA 2+ si el código crece |
-| GAS tests framework externos | ⏸️ No instalar; tests como módulo propio simple (patrón CESFAM_SJ `10_Pruebas`) mejorado con asserts |
+| Node v18 (local) | ✅ Runner de pruebas del núcleo (`tests/ejecutar_local.mjs`) — mismo runner que GAS |
+| Git local | ✅ Repo inicializado; commits por etapa |
+| Node/npm para linting .gs | ⏸️ Aplazado: `node --check` cubre sintaxis; evaluar en ETAPA 3+ si el código crece |
+| GAS tests framework externos | ⏸️ No instalar; runner propio simple cumple (DEC-016) |

@@ -1,96 +1,93 @@
-# MODELO DE DATOS — Propuesta inicial v0.1
+# MODELO DE DATOS — v1.0 (implementado en 00_Config)
 
-> Estado: PROPUESTO. Debe validarse contra las fuentes (hecho parcialmente en
-> ETAPA 0) y confirmar campos ambiguos con la cliente antes de ETAPA 2.
+> Estado: IMPLEMENTADO en `src/00_Config.js` (ETAPA 2). Los cambios al modelo
+> se hacen ahí primero y se reflejan aquí. Validado contra las tres fuentes
+> en ETAPA 0; campos ambiguos siguen en PENDIENTES #4/#5/#6/#11.
 
 ## Principios
 
-1. Una **ficha única por persona** en `BASE_ECICEP` (tabla plana, simple de
-   mantener en Sheets y suficiente para el volumen estimado ~2–3 mil pacientes).
-2. **Trazabilidad obligatoria**: toda fila conserva su origen exacto.
-3. Los casos dudosos **no se consolidan automáticamente**: van a revisión.
-4. No inventar campos sin utilidad demostrable en las fuentes o en el flujo real.
+1. Una **ficha única por persona** en la hoja `PACIENTES` (tabla plana,
+   suficiente para el volumen estimado ~3 mil pacientes).
+2. **Trazabilidad obligatoria**: cada fila conserva su origen exacto (`FUENTE`);
+   los valores originales nunca se pierden (staging/MAPA_ORIGEN en ETAPA 3).
+3. Los casos dudosos **no se consolidan automáticamente** → `CONFLICTOS`.
+4. No inventar campos sin utilidad demostrable en las fuentes o el flujo real.
+5. **Google Sheets es la interfaz principal** (DEC-012): el orden de columnas
+   distingue información operativa (visible) de técnica (agrupada/oculta).
 
-## Entidad PACIENTE — campos canónicos
+## Entidad PACIENTE — campos canónicos definitivos
 
-| Campo | Tipo | Origen / regla |
-|---|---|---|
-| ID_INTERNO | texto generado | Estable, independiente del RUT (permite RUT corregido) |
-| RUT | texto | Normalizado `12345678-5`, DV módulo 11, mayúscula K |
-| RUT_DV_VALIDO | bool | false → marcar revisión, no bloquear |
-| RUT_SIN_DV | bool | true cuando la fuente no tenía DV (caso LISTADO Naranjo) |
-| NOMBRE | texto | Mayúsculas consistentes, espacios colapsados |
-| TELEFONOS | texto | Lista normalizada separada por `/`; anotaciones aparte |
-| TELEFONO_OBS | texto | 'ESPOSO', 'HIJO', etc., extraído del original |
-| SECTOR | enum | AMARILLO / VERDE / NARANJO / MULTIPLE |
-| ESTRATIFICACION | enum | G1 / G2 / G3 / null ('G' sola y 'NSP' → null + nota) |
-| DUPLA_INGRESO | texto | Dupla médico+profesional del ingreso |
-| PROFESIONAL_SEGUIMIENTO | texto | Profesional asignado al seguimiento |
-| ESTADO | enum canónico | Ver tabla de estados |
-| PREINGRESO | fecha \| estado | Fecha normalizada o NO_APLICA/PENDIENTE |
-| FECHA_INGRESO | fecha | Validada (año plausible 2023–2027); inválida → null + flag |
-| FECHA_LLAMADO | fecha | Del flujo de llamado (Naranjo LISTADO) |
-| ULTIMO_SEGUIMIENTO | fecha | Última gestión telefónica registrada |
-| ULTIMO_CONTROL | fecha | Último control realizado |
-| PROXIMO_CONTROL | fecha \| texto | Fecha si es parseable; si no, texto tal cual + flag |
-| COMPOSICION_CONTROL | texto | 'M+E', 'M+N', 'M/PS'… (desde OTROS/PROFESIONAL) |
-| OBSERVACIONES | texto | Libre |
-| FUENTE | texto | `archivo|hoja|fila` (multi-origen separado por `;`) |
-| FECHA_ACTUALIZACION | fecha | Última modificación por el sistema |
-| REQUIERE_REVISION | bool | Conflictos, DV inválido, duplicado dudoso |
+Orden = orden de columnas en la hoja. `Téc` = columna técnica (se agrupa y
+oculta al usuario; expandible cuando haga falta).
 
-## Estados canónicos (propuesta)
+| # | Campo | Tipo | Oblig | Téc | Regla de normalización |
+|---|-------|------|-------|-----|------------------------|
+| 1 | ID_INTERNO | id | ✔ | ✔ | `EC-<base36 tiempo>-<aleatorio>`; independiente del RUT |
+| 2 | RUT | texto | ✔ | | `Norm_normalizarRut`: sin puntos, DV mayúscula; sin DV en fuente → solo cuerpo + bandera |
+| 3 | NOMBRE | texto | ✔ | | Mayúsculas, espacios colapsados, conserva tildes/Ñ |
+| 4 | TELEFONOS | lista | | | Normalizados separados por `/`; prefijo país removido; duplicados fuera |
+| 5 | TELEFONO_OBS | texto | | | Anotaciones de la fuente (ESPOSO, nombres) tal cual |
+| 6 | SECTOR | enum | ✔ | | AMARILLO \| VERDE \| NARANJO \| MULTIPLE |
+| 7 | ESTRATIFICACION | enum | | | G1\|G2\|G3; 'G' sola, Z, NSP → vacío hasta confirmación (PENDIENTES #5) |
+| 8 | DUPLA_INGRESO | texto | | | Texto normalizado libre |
+| 9 | PROFESIONAL_SEGUIMIENTO | texto | | | Texto normalizado libre |
+| 10 | ESTADO | enum | | | Canónicos en tabla siguiente; desconocidos quedan visibles tal cual |
+| 11 | PREINGRESO | fecha\|texto | | | ISO si parseable; si no, estado textual (NO_APLICA, PENDIENTE…) |
+| 12 | FECHA_INGRESO | fecha | | | ISO yyyy-MM-dd; inválida → vacío + REQUIERE_REVISION |
+| 13 | FECHA_LLAMADO | fecha | | | ISO yyyy-MM-dd (flujo LISTADO Naranjo) |
+| 14 | ULTIMO_SEGUIMIENTO | fecha | | | ISO yyyy-MM-dd |
+| 15 | ULTIMO_CONTROL | fecha | | | ISO yyyy-MM-dd |
+| 16 | PROXIMO_CONTROL | fecha\|texto | | | ISO si parseable; texto tal cual + REQUIERE_REVISION si no |
+| 17 | COMPOSICION_CONTROL | texto | | | M+E, M+N, M/PS… normalizado libre |
+| 18 | OBSERVACIONES | texto | | | Conservado |
+| 19 | NOMBRE_NORMALIZADO | texto | | ✔ | Sin tildes, para búsqueda/matching |
+| 20 | RUT_DV_VALIDO | bool | | ✔ | false → DV erróneo según módulo 11 |
+| 21 | RUT_SIN_DV | bool | | ✔ | true → fuente sin DV (LISTADO Naranjo) |
+| 22 | FUENTE | texto | ✔ | ✔ | `archivo\|hoja\|fila`, múltiples separados por `;` |
+| 23 | FECHA_ACTUALIZACION | fecha | ✔ | ✔ | Última modificación del sistema |
+| 24 | REQUIERE_REVISION | bool | | ✔ | Conflictos, fechas inválidas, DV erróneo |
 
-| Canónico | Variantes observadas |
+## Estados canónicos
+
+| Canónico | Variantes de fuente mapeadas |
 |---|---|
-| PENDIENTE | 'PENDIENTE', 'Pendiente' |
-| AGENDADO | 'AGENDADO' |
-| INGRESADO | 'INGRESADO', 'INGRESADA', typos 'INGRESADAO', 'INGREASO' |
-| NO_CONTESTA | 'NO CONTESTA' |
-| FALLECIDO | 'FALLECIDO', 'FALLECIDA' |
-| NSP | 'NSP' |
-| *(vacío)* | sin estado en fuente |
+| PENDIENTE | PENDIENTE |
+| AGENDADO | AGENDADO |
+| INGRESADO | INGRESADO, INGRESADA, INGRESADAO*, INGREASO* |
+| NO_CONTESTA | NO CONTESTA, N/C, NC |
+| FALLECIDO | FALLECIDO, FALLECIDA |
+| NSP | NSP |
 
-⚠️ La lista cerrada requiere confirmación de la cliente (PENDIENTES #6).
+\* typos confirmados en levantamiento. Lista cerrada pendiente de confirmación
+de la cliente (PENDIENTES #6); valores desconocidos no se descartan: quedan visibles.
 
 ## Hojas del sistema
 
-| Hoja | Rol |
-|---|---|
-| BASE_ECICEP | Ficha única consolidada (tabla anterior) |
-| STAGING_IMPORT | Zona de aterrizaje de filas crudas validadas estructuralmente |
-| MAPA_ORIGEN | Trazabilidad: cada fila de origen → ID_INTERNO asignado (reversible) |
-| DUPLICADOS_REVISION | Matches dudosos para decisión humana |
-| LOG | INFO/WARNING/ERROR/CRITICAL con timestamp y módulo |
-| CONFIG | Parámetros: IDs de hojas fuente, sinonimos de columnas, estados |
+| Hoja | Rol | Creada en |
+|---|---|---|
+| CONFIG | Parámetros administrativos (clave/valor/descripción) | ETAPA 2 ✅ |
+| PACIENTES | Base consolidada — interfaz principal de datos | ETAPA 2 ✅ |
+| LOG | Registro técnico por lotes (FECHA/NIVEL/MODULO/OPERACION/MENSAJE/DURACION_MS/CONTEXTO) | ETAPA 2 ✅ |
+| CONFLICTOS | Registros que requieren revisión humana | ETAPA 2 ✅ (estructura) |
+| FUENTES | Control de archivos/sectores de origen | ETAPA 2 ✅ (estructura) |
+| STAGING_IMPORT / MAPA_ORIGEN | Aterrizaje controlado y trazabilidad fila a fila | ETAPA 3 |
+| INICIO / DASHBOARD / FICHA / SEGUIMIENTO | Interfaz Sheets-nativa (DEC-012) | ETAPA 4+ |
 
-## Mapeo fuente → canónico (resumen)
+La "Hoja 1" predeterminada se elimina durante la instalación SOLO si está vacía.
 
-| Canónico | Amarillo | Verde | Naranjo |
-|---|---|---|---|
-| NOMBRE | NOMBRE | NOMBRE/NOMBRES | USUARIO/NOMBRE/NOMBRE PACIENTE |
-| RUT | RUT | RUT | col1 sin título (LISTADO)/RUT |
-| TELEFONOS | TELÉFONO | FONO/TELEFONO | TELEFONO/FONO/CELULAR |
-| ESTRATIFICACION | G | ESTRATIFICACION | ESTRATIFICACIÓN |
-| PREINGRESO | PREINGRESO | PREINGRESO/PRE- INGRESO | PREINGRESO/PRE INGRESO |
-| FECHA_INGRESO | INGRESO | FECHA DE INGRESO/FECHA INGRESO | J/FECHA INGRESO |
-| DUPLA_INGRESO | — | DUPLA INGRESO/MEDICO/DUPLA INGRESO | DUPLA INGRESO/MEDICO /DUPLA |
-| ESTADO | ESTADO | —(derivar de seguimiento) | ESTADO (LISTADO) |
-| ULTIMO_SEGUIMIENTO | SEGUIMIENTO(fecha) | SEGUIMIENTO(SEGUIMIENTO TELEFONICO)(fecha) | SEGUIMIENTO(texto→parsear) |
-| ULTIMO_CONTROL | CONTROL | —(no existe explícito) | — |
-| PROXIMO_CONTROL | PRÓXIMO CONTROL | FECHA PROX CONTROL/PROXIMO CONTROL | FECHA PROX. CONTROL/PROXIMO CONTROL/PROFESIONAL(mezcla) |
-| OBSERVACIONES | OBSERVACIONES | OTROS/OBSERVACION | OBSERVACIONES/OTROS/COLUMNA 1 |
+## Mapeo fuente → canónico
 
-Campos aún sin destino definido (decidir con cliente): ASISTENCIA (Naranjo
-mensuales), PATOLOGIAS/QUIEN DERIVA/MOTIVO (Gestor de Caso), EVALUACIÓN DE PIE,
-COLUMN 12, CONTROLES PENDIENTES e INASISTENTES (¿eventos o notas?).
+Ver FUENTES-DATOS.md §4 (tabla completa por sector). El mapa operativo vive en
+`SINONIMOS_ENCABEZADOS` dentro de `00_Config.js` — solo equivalencias
+confirmadas; los encabezados ambiguos están listados explícitamente en
+`ENCABEZADOS_SIN_DESTINO` y jamás se mapean en silencio.
 
 ## Identificación de personas (prioridad)
 
 1. RUT normalizado válido (exacto).
-2. RUT sin DV → RUT numérico + nombre similar.
+2. RUT sin DV → cuerpo numérico + nombre similar (+ dvCalculado como ayuda).
 3. Nombre normalizado + teléfono.
 4. Nombre normalizado + sector/estratificación (solo candidato → revisión).
 
-Nunca consolidar solo por similitud de nombres. Score de match documentado en
-`DUPLICADOS_REVISION` con motivo legible.
+Nunca consolidar solo por similitud de nombres. Score y motivo legibles en
+`CONFLICTOS` (implementación en ETAPA 3).
