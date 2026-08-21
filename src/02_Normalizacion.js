@@ -303,3 +303,46 @@ function Norm_normalizarEstratificacion(raw) {
   if (/^G[123]$/.test(t)) return t;
   return '';
 }
+
+// ---------------------------------------------------------------------------
+// Sector geográfico, sexo y tipo de evento
+// ---------------------------------------------------------------------------
+
+/**
+ * Sector territorial canónico. Dimensión INDEPENDIENTE de la estratificación G.
+ * Acepta alias (NARANJA→NARANJO) y formas con/sin "SECTOR".
+ * @returns {estado:'VACIO'|'OK'|'INVALIDO', sector:'', original:''}
+ */
+function Norm_normalizarSector(raw) {
+  var original = Utl_texto(raw);
+  var res = { estado: 'VACIO', sector: '', detalle: '', original: original };
+  if (Utl_vacio(original)) return res;
+  var t = Utl_sinTildes(Utl_colapsarEspacios(original)).toUpperCase().replace(/^SECTOR\s+/, '');
+  if (SECTORES.ALIAS.hasOwnProperty(t)) t = SECTORES.ALIAS[t];
+  if (SECTORES.VALIDOS.indexOf(t) !== -1) {
+    res.estado = 'OK';
+    res.sector = t;
+  } else {
+    res.estado = 'INVALIDO';
+    res.detalle = 'Sector no reconocido';
+  }
+  return res;
+}
+
+/** Sexo canónico M|F|OTRO|'' (acepta MASCULINO/FEMENINO/HOMBRE/MUJER…). */
+function Norm_normalizarSexo(raw) {
+  var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();
+  if (t === '') return '';
+  if (SEXOS.VALIDOS.indexOf(t) !== -1) return t;
+  if (SEXOS.SINONIMOS.hasOwnProperty(t)) return SEXOS.SINONIMOS[t];
+  return ''; // desconocido: no se inventa
+}
+
+/** Tipo de evento canónico; desconocidos quedan visibles tal cual (mayúsculas). */
+function Norm_normalizarTipoEvento(raw) {
+  var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();
+  if (t === '') return '';
+  if (TIPOS_EVENTO.SINONIMOS.hasOwnProperty(t)) return TIPOS_EVENTO.SINONIMOS[t];
+  if (TIPOS_EVENTO.VALIDOS.indexOf(t) !== -1) return t;
+  return Utl_colapsarEspacios(Utl_texto(raw)).toUpperCase();
+}

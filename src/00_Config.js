@@ -6,6 +6,9 @@
  * Convención de nombres globales:
  *   ECICEP / HOJAS / MODELO_PACIENTE / ESTADOS / SINONIMOS_* / CFG_*  (datos)
  *   Utl_ / Norm_ / Log_ / Modelo_ / Pruebas_                          (funciones)
+ *
+ * v2.0 (ETAPA 2.5): modelo entidad/evento, demografía REM, motor de
+ * estratificación configurable, sectores geográficos ≠ estratificación.
  */
 
 // ---------------------------------------------------------------------------
@@ -13,20 +16,21 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.2.0',
+  VERSION: '0.3.0',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
 };
 
 // ---------------------------------------------------------------------------
-// Hojas del sistema (DEC-013)
-//   ETAPA 2 crea: CONFIG, PACIENTES, LOG, CONFLICTOS, FUENTES.
-//   INICIO / DASHBOARD / FICHA / SEGUIMIENTO se construyen en etapas de UI.
+// Hojas del sistema (DEC-013; inventario completo en MODELO-EVENTOS.md §7)
+//   ETAPA 2 creó: CONFIG, PACIENTES, LOG, CONFLICTOS, FUENTES.
+//   Las demás se crean en su etapa; NO todas automáticamente.
 // ---------------------------------------------------------------------------
 const HOJAS = {
   CONFIG: 'CONFIG',
-  PACIENTES: 'PACIENTES',       // base consolidada y normalizada
+  PACIENTES: 'PACIENTES',       // base consolidada (entidad, estado vigente)
+  EVENTOS: 'EVENTOS',           // historial de actividad (ETAPA 3)
   LOG: 'LOG',
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
@@ -34,43 +38,109 @@ const HOJAS = {
 };
 
 // ---------------------------------------------------------------------------
-// Modelo canónico del paciente (orden = orden de columnas en PACIENTES)
-//   tecnico:true  → columna técnica (se agrupa y oculta al usuario)
-//   Los valores originales de las fuentes viven en FUENTE/staging, nunca
-//   se pierden: la capa de integración conserva trazabilidad fila a fila.
+// Sectores geográficos (permanentes) — DEC-018
+//   Son división territorial del CESFAM, NO niveles de riesgo.
+//   La estratificación G1/G2/G3 es otra dimensión completamente independiente.
+//   Canonical interno = NARANJO (así lo escriben las fuentes); "NARANJA"
+//   aceptado como alias de entrada hasta confirmar rotulación oficial (#12).
+// ---------------------------------------------------------------------------
+const SECTORES = {
+  OPERATIVOS: ['NARANJO', 'AMARILLO', 'VERDE'],
+  VALIDOS: ['NARANJO', 'AMARILLO', 'VERDE', 'MULTIPLE'], // MULTIPLE solo transitorio del sistema
+  ALIAS: {
+    'NARANJA': 'NARANJO'
+  },
+  POR_ARCHIVO: {
+    'SEGUIMIENTO ECICEP SECTOR AMARILLO': 'AMARILLO',
+    'ECICEP NARANJO': 'NARANJO',
+    'PCTS. ECICEP DESDE 2023': 'VERDE'
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Tipos de evento (hoja EVENTOS) y estados de solicitud de ingreso
+// ---------------------------------------------------------------------------
+const TIPOS_EVENTO = {
+  VALIDOS: [
+    'INGRESO', 'CONTROL', 'SEGUIMIENTO', 'PLAN_CUIDADO',
+    'GESTION_CASO_INGRESO', 'GESTION_CASO_EGRESO', 'EGRESO',
+    'CAMBIO_SECTOR', 'CAMBIO_ESTRATIFICACION', 'LLAMADO', 'OTRO'
+  ],
+  SINONIMOS: {
+    'PLAN DE CUIDADO': 'PLAN_CUIDADO',
+    'PLAN': 'PLAN_CUIDADO',
+    'GESTION DE CASO INGRESO': 'GESTION_CASO_INGRESO',
+    'GESTION CASOS INGRESO': 'GESTION_CASO_INGRESO',
+    'INGRESO GESTION DE CASO': 'GESTION_CASO_INGRESO',
+    'GESTION DE CASO EGRESO': 'GESTION_CASO_EGRESO',
+    'GESTION CASOS EGRESO': 'GESTION_CASO_EGRESO',
+    'EGRESO GESTION DE CASO': 'GESTION_CASO_EGRESO',
+    'SEGUIMIENTO A DISTANCIA': 'SEGUIMIENTO',
+    'CAMBIO DE SECTOR': 'CAMBIO_SECTOR',
+    'CAMBIO DE ESTRATIFICACION': 'CAMBIO_ESTRATIFICACION'
+  }
+};
+
+const ESTADOS_INGRESO = {
+  VALIDOS: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR']
+};
+
+// ---------------------------------------------------------------------------
+// Sexo (REM lo requiere; fuentes actuales no lo traen)
+// ---------------------------------------------------------------------------
+const SEXOS = {
+  VALIDOS: ['M', 'F', 'OTRO'],
+  SINONIMOS: {
+    'MASCULINO': 'M', 'HOMBRE': 'M', 'VARON': 'M',
+    'FEMENINO': 'F', 'MUJER': 'F'
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Modelo canónico del paciente v2 (orden = columnas en PACIENTES)
+//   tecnico:true → columna técnica (agrupada/oculta al usuario)
+//   Estado VIGENTE = caché derivada de EVENTOS (ver MODELO-EVENTOS.md §3)
 // ---------------------------------------------------------------------------
 const MODELO_PACIENTE = [
   { campo: 'ID_INTERNO',             tipo: 'id',     obligatorio: true,  tecnico: true,  descripcion: 'Identificador interno estable generado por el sistema', regla: 'EC-<base36 tiempo>-<aleatorio>' },
-  { campo: 'RUT',                    tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'RUT normalizado cuerpo-DV', regla: 'Norm_normalizarRut: sin puntos, DV mayúscula; si la fuente no tenía DV queda solo el cuerpo con bandera RUT_SIN_DV' },
+  { campo: 'RUT',                    tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'RUT normalizado cuerpo-DV', regla: 'Norm_normalizarRut: sin puntos, DV mayúscula; sin DV en fuente → solo cuerpo con bandera RUT_SIN_DV' },
   { campo: 'NOMBRE',                 tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'Nombre del paciente', regla: 'Mayúsculas, espacios colapsados, conserva tildes' },
+  { campo: 'SEXO',                   tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Sexo registrado (REM)', regla: 'M | F | OTRO | vacío' },
+  { campo: 'FECHA_NACIMIENTO',       tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Fecha de nacimiento (base de EDAD/tramos derivados para REM)', regla: 'ISO yyyy-MM-dd' },
   { campo: 'TELEFONOS',              tipo: 'lista',  obligatorio: false, tecnico: false, descripcion: 'Teléfonos normalizados', regla: 'Separados por "/" sin espacios; prefijo país 56 removido' },
   { campo: 'TELEFONO_OBS',           tipo: 'texto',  obligatorio: false, tecnico: false, descripcion: 'Anotaciones del teléfono original (ej: familiar que contesta)', regla: 'Texto libre tal cual la fuente' },
-  { campo: 'SECTOR',                 tipo: 'enum',   obligatorio: true,  tecnico: false, descripcion: 'Sector de origen del registro', regla: 'AMARILLO | VERDE | NARANJO | MULTIPLE' },
-  { campo: 'ESTRATIFICACION',        tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Estratificación de riesgo', regla: 'G1 | G2 | G3 | vacío ("G" sin nivel o NSP quedan vacíos hasta confirmación)' },
+  { campo: 'SECTOR',                 tipo: 'enum',   obligatorio: true,  tecnico: false, descripcion: 'Sector territorial VIGENTE (dimensión independiente de G)', regla: 'NARANJO | AMARILLO | VERDE | MULTIPLE (transitorio)' },
+  { campo: 'ESTRATIFICACION',        tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Estratificación VIGENTE: prioridad según cantidad de patologías', regla: 'G1 | G2 | G3 | vacío ("G" sola/NSP quedan vacíos hasta confirmación)' },
+  { campo: 'ESTADO',                 tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Estado canónico del paciente en el flujo ECICEP', regla: 'Ver ESTADOS.VALIDOS' },
   { campo: 'DUPLA_INGRESO',          tipo: 'texto',  obligatorio: false, tecnico: false, descripcion: 'Dupla médico+profesional del ingreso', regla: 'Texto normalizado libre' },
   { campo: 'PROFESIONAL_SEGUIMIENTO',tipo: 'texto',  obligatorio: false, tecnico: false, descripcion: 'Profesional asignado al seguimiento', regla: 'Texto normalizado libre' },
-  { campo: 'ESTADO',                 tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Estado canónico del paciente en el flujo ECICEP', regla: 'Ver ESTADOS.VALIDOS' },
   { campo: 'PREINGRESO',             tipo: 'fecha|texto', obligatorio: false, tecnico: false, descripcion: 'Fecha de preingreso o su estado (NO_APLICA, PENDIENTE)', regla: 'Fecha ISO si es parseable; si no, texto de estado en mayúsculas' },
   { campo: 'FECHA_INGRESO',          tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Fecha de ingreso a ECICEP', regla: 'ISO yyyy-MM-dd; inválida → vacío + REQUIERE_REVISION' },
-  { campo: 'FECHA_LLAMADO',          tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Fecha del último llamado (flujo LISTADO Naranjo)', regla: 'ISO yyyy-MM-dd' },
-  { campo: 'ULTIMO_SEGUIMIENTO',     tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Fecha del último seguimiento telefónico registrado', regla: 'ISO yyyy-MM-dd' },
-  { campo: 'ULTIMO_CONTROL',         tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Fecha del último control realizado', regla: 'ISO yyyy-MM-dd' },
-  { campo: 'PROXIMO_CONTROL',        tipo: 'fecha|texto', obligatorio: false, tecnico: false, descripcion: 'Próximo control agendado', regla: 'ISO si es parseable; si no, texto tal cual + REQUIERE_REVISION' },
+  { campo: 'ULTIMO_SEGUIMIENTO',     tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Caché del último EVENTO SEGUIMIENTO', regla: 'ISO yyyy-MM-dd' },
+  { campo: 'ULTIMO_CONTROL',         tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Caché del último EVENTO CONTROL', regla: 'ISO yyyy-MM-dd' },
+  { campo: 'PROXIMO_CONTROL',        tipo: 'fecha|texto', obligatorio: false, tecnico: false, descripcion: 'Próximo control agendado', regla: 'ISO si es parseable; si no, texto tal cual + flag' },
   { campo: 'COMPOSICION_CONTROL',    tipo: 'texto',  obligatorio: false, tecnico: false, descripcion: 'Composición del próximo control (M+E, M+N, M/PS...)', regla: 'Texto normalizado libre' },
   { campo: 'OBSERVACIONES',          tipo: 'texto',  obligatorio: false, tecnico: false, descripcion: 'Observaciones libres', regla: 'Texto conservado' },
+  { campo: 'CONDICIONES',            tipo: 'lista',  obligatorio: false, tecnico: true,  descripcion: 'Condiciones/patologías detectadas — entrada del motor de estratificación', regla: 'Códigos canónicos separados por ";" (catálogo pendiente #14)' },
   { campo: 'NOMBRE_NORMALIZADO',     tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Nombre sin tildes para búsqueda y matching', regla: 'Utl_sinTildes(NOMBRE)' },
   { campo: 'RUT_DV_VALIDO',          tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'false → DV incorrecto según módulo 11', regla: 'Norm_validarRut' },
   { campo: 'RUT_SIN_DV',             tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'true → la fuente no traía DV (ej: LISTADO Naranjo)', regla: 'Norm_normalizarRut' },
+  { campo: 'ESTRAT_ORIGEN',          tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Valor original de la fuente para comparar vs calculada', regla: 'Conservado tal cual' },
+  { campo: 'ESTRAT_CALCULADA',       tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Salida del motor de estratificación', regla: 'G1|G2|G3|"" (motor apagado hasta regla oficial)' },
+  { campo: 'ESTRAT_FECHA_CALCULO',   tipo: 'fecha',  obligatorio: false, tecnico: true,  descripcion: 'Fecha del cálculo y versión de regla aplicada', regla: 'ISO con hora' },
   { campo: 'FUENTE',                 tipo: 'texto',  obligatorio: true,  tecnico: true,  descripcion: 'Origen exacto de cada dato consolidado', regla: '"archivo|hoja|fila" separados por ";" si hay múltiples' },
   { campo: 'FECHA_ACTUALIZACION',    tipo: 'fecha',  obligatorio: true,  tecnico: true,  descripcion: 'Última modificación hecha por el sistema', regla: 'ISO con hora' },
-  { campo: 'REQUIERE_REVISION',      tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'Marca de calidad: conflictos, fechas inválidas, DV erróneo', regla: 'La asigna la capa de integración/consolidación' }
+  { campo: 'REQUIERE_REVISION',      tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'Marca de calidad: conflictos, fechas inválidas, DV erróneo, discrepancia G', regla: 'La asigna integración/consolidación/motor' }
 ];
 
-// Columnas de fecha en formato hoja (para dar formato dd/MM/yyyy al instalar)
-const MODELO_COLUMNAS_FECHA = ['PREINGRESO', 'FECHA_INGRESO', 'FECHA_LLAMADO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'FECHA_ACTUALIZACION'];
+// Columnas de fecha en formato hoja (dd/MM/yyyy al instalar)
+const MODELO_COLUMNAS_FECHA = [
+  'PREINGRESO', 'FECHA_NACIMIENTO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO',
+  'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'ESTRAT_FECHA_CALCULO', 'FECHA_ACTUALIZACION'
+];
 
 // ---------------------------------------------------------------------------
-// Estados canónicos (PENDIENTES #6: lista cerrada por confirmar con cliente;
+// Estados canónicos del paciente (PENDIENTES #6: lista cerrada por confirmar;
 // variantes detectadas en levantamiento ya mapeadas)
 // ---------------------------------------------------------------------------
 const ESTADOS = {
@@ -86,23 +156,12 @@ const ESTADOS = {
   }
 };
 
-// Sectores válidos
-const SECTORES = {
-  VALIDOS: ['AMARILLO', 'VERDE', 'NARANJO', 'MULTIPLE'],
-  POR_ARCHIVO: {
-    'SEGUIMIENTO ECICEP SECTOR AMARILLO': 'AMARILLO',
-    'ECICEP NARANJO': 'NARANJO',
-    'PCTS. ECICEP DESDE 2023': 'VERDE'
-  }
-};
-
 // ---------------------------------------------------------------------------
 // Sinónimos de encabezados (solo equivalencias CONFIRMADAS en levantamiento,
-// ver FUENTES-DATOS.md §4). La clave se compara contra el encabezado
-// normalizado (mayúsculas, sin tildes, sin puntos, espacios colapsados).
+// ver FUENTES-DATOS.md §4). Claves comparadas vía Utl_claveAlnum.
 // Equivalencias ambiguas NO van aquí: DUPLA (LISTADO Naranjo = disciplina),
-// PROFESIONAL (Naranjo consolidada mezcla próximo control), COLUMN 12,
-// COLUMNA 1, EVALUACIÓN DE PIE, ASISTENCIA, PATOLOGIAS, QUIEN DERIVA, MOTIVO.
+// PROFESIONAL mezclada (Naranjo), COLUMN 12, COLUMNA 1, EVALUACIÓN DE PIE,
+// ASISTENCIA, PATOLOGIAS, QUIEN DERIVA, MOTIVO, FECHA DE LLAMADO (→ eventos).
 // ---------------------------------------------------------------------------
 const SINONIMOS_ENCABEZADOS = {
   'NOMBRE': 'NOMBRE',
@@ -129,7 +188,6 @@ const SINONIMOS_ENCABEZADOS = {
   'PROXIMO CONTROL': 'PROXIMO_CONTROL',
   'FECHA PROX CONTROL': 'PROXIMO_CONTROL',
   'PROXIMA FECHA CONTROL': 'PROXIMO_CONTROL',
-  'FECHA DE LLAMADO': 'FECHA_LLAMADO',
   'PROFESIONAL': 'PROFESIONAL_SEGUIMIENTO',
   'PREFESIONAL': 'PROFESIONAL_SEGUIMIENTO', // typo confirmado en Verde (preingresos)
   'OBSERVACIONES': 'OBSERVACIONES',
@@ -138,12 +196,12 @@ const SINONIMOS_ENCABEZADOS = {
 };
 
 // Encabezados presentes en las fuentes pero aún sin destino definido
-// (PENDIENTES #4/#11): se registran como conocidos-pero-sin-mapeo.
+// (PENDIENTES #4/#11/#15): conocidos-pero-sin-mapeo.
 const ENCABEZADOS_SIN_DESTINO = [
   'DUPLA', 'COLUMN 12', 'COLUMNA 1', 'EVALUACION DE PIE', 'ASISTENCIA',
   'PATOGIAS', 'PATOLOGIAS', 'QUIEN DERIVA', 'MOTIVO', 'FECHA',
   'OBSERVACION EXAMENES SOLICITADOS', 'OBSERVACION PENDIENTE',
-  'MEDICO DUPLA INGRESO', 'ESTATIFICACION'
+  'MEDICO DUPLA INGRESO', 'ESTATIFICACION', 'FECHA DE LLAMADO'
 ];
 
 // ---------------------------------------------------------------------------
@@ -154,6 +212,15 @@ const CFG_FECHAS = {
   ANO_MAX: 2040,
   FORMATO_HOJA: 'dd/MM/yyyy',
   ZONA: ECICEP.TZ
+};
+
+// ---------------------------------------------------------------------------
+// Estratificación automática (ESTRATIFICACION.md)
+//   REGLA_DISPONIBLE=false hasta recibir tabla oficial cantidad→G. Motor APAGADO.
+// ---------------------------------------------------------------------------
+const CFG_ESTRATIFICACION = {
+  REGLA_DISPONIBLE: false,
+  MOTIVO_SIN_REGLA: 'REGLA_NO_CONFIGURADA'
 };
 
 // ---------------------------------------------------------------------------

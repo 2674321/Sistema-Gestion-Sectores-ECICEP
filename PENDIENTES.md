@@ -14,6 +14,18 @@
 | 10 | Primer commit Git (repo ya inicializado, `.gitignore` listo) — esperar confirmación | Tarea dev | Versionado | MEDIA |
 | 11 | Definir destino de flujos auxiliares: GESTOR DE CASO, CONTROLES PENDIENTES, INASISTENTES A INGRESOS (¿eventos separados u observaciones?) | Consulta cliente | Modelo final | MEDIA |
 
+## Nuevas (ETAPA 2.5)
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 12 | Rotulación oficial del sector: fuentes dicen **NARANJO**, requisito dice **NARANJA**. Internamente es uno solo (alias aceptado); falta decidir la etiqueta visible | Consulta cliente | Etiquetas UI/REM | MEDIA |
+| 13 | Correos de responsables por sector (para protecciones SECTOR_*/INGRESO_*) | Consulta cliente | Configurar protecciones | ALTA en ETAPA 4 |
+| 14 | Catálogo de condiciones/patologías + mecanismo de captura (motor G necesita CONDICIONES); disponibilidad de FECHA_NACIMIENTO y SEXO (fuentes actuales no los traen) | Consulta cliente | Estratificación automática, Edad/Sexo en REM | ALTA |
+| 15 | Umbrales oficiales cantidad-de-patologías→G1/G2/G3 y definición operativa de PLAN_CUIDADO, GESTION_CASO_INGRESO/EGRESO | Consulta cliente | Activar motor G; semántica de eventos REM | ALTA |
+| 16 | Formato de entrega del REM (vista trabajo vs informe, XLSX/PDF) y período de cierre (mes calendario?) | Consulta cliente | Exportación REM | MEDIA |
+| 17 | Origen del bloque "atenciones" del REM (ficha, documento, centro, embarazada…): ¿sistema clínico externo o ECICEP? | Consulta cliente | Alcance real del generador REM | ALTA |
+| 18 | Mecánica de corrección de eventos ya registrados (evento correctivo vs edición controlada) — definir antes de operar EVENTOS en producción | Decisión diseño ETAPA 3 | Integridad historial | MEDIA |
+
 ## Limitaciones técnicas registradas
 
 - Token clasp actual solo permite metadatos de Drive (listado), no contenido de

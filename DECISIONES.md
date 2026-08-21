@@ -126,6 +126,66 @@ Dataset único ficticio (`src/11_DatosPrueba.js`) replicando los formatos reales
 detectados, sin datos de pacientes. Deterministas: sin red, sin hojas, sin hora actual.
 **Fecha:** 2026-08-21
 
+## DEC-017
+**Título:** Separación ENTIDAD/EVENTO: PACIENTES + EVENTOS
+**Estado:** Aprobada
+**Motivo:** El REM y el dashboard exigen historial de actividad por fecha de
+evento (ingresos, controles, seguimientos, planes, gestiones) con snapshot del
+nivel G al momento. Un modelo de fila estática sobrescribiría el historial y
+obligaría a doble digitación. PACIENTES = estado vigente (caché sincronizada);
+EVENTOS = append-only, verdad operativa. Ver MODELO-EVENTOS.md.
+**Fecha:** 2026-08-21
+
+## DEC-018
+**Título:** Sectores geográficos permanentes ≠ estratificación G1/G2/G3
+**Estado:** Aprobada (confirmado por cliente)
+**Motivo:** Los sectores NARANJO/AMARILLO/VERDE son división territorial; la
+estratificación es prioridad según cantidad de patologías. Dimensiones 100%
+independientes: ninguna lógica cruza ambas (ej: "Amarillo=G2" prohibido).
+Canonical interno = **NARANJO** (como escriben las fuentes); "NARANJA" aceptado
+como alias de entrada. Rotulación oficial a confirmar (#12).
+**Fecha:** 2026-08-21
+
+## DEC-019
+**Título:** Hojas sectoriales: SECTOR_* como superficies sincronizadas e INGRESO_* como puertas controladas
+**Estado:** Aprobada
+**Motivo:** Cada responsable trabaja en su hoja sin convertir las tres en bases
+independientes ni duplicar manualmente la base (#47): SECTOR_* = vistas de
+trabajo sincronizadas desde PACIENTES/EVENTOS; INGRESO_* = única vía de alta,
+con validación→identificación→crear/actualizar→evento INGRESO (sector inmutable
+por hoja de origen). El usuario nunca manipula IDs técnicos.
+**Fecha:** 2026-08-21
+
+## DEC-020
+**Título:** Protecciones de Sheets = control operativo, no seguridad institucional
+**Estado:** Aprobada
+**Motivo:** Capas: hojas administrativas estrictas; columnas técnicas siempre
+protegidas; sector solo editable para su responsable; áreas de resultado solo
+escritas por Apps Script. Documentada la limitación de autoridad de ejecución
+de scripts sobre rangos protegidos (patrón propietario/triggers instalables).
+No depender de ocultar hojas como seguridad.
+**Fecha:** 2026-08-21
+
+## DEC-021
+**Título:** Dashboard en una sola hoja con cálculo on-demand y trazabilidad
+**Estado:** Aprobada
+**Motivo:** Filtros editables sin código (período preset+fechas, selector
+sector), agregación Apps Script al pulsar Actualizar (lectura por bloques +
+escritura de valores compactos), cero fórmulas volátiles masivas, y vista
+DETALLE por indicador para auditar qué registros componen cada cifra.
+**Fecha:** 2026-08-21
+
+## DEC-022
+**Título:** REM como capa de reporting generada desde eventos; regla G configurable y apagada
+**Estado:** Aprobada
+**Motivo:** El REM se GENERA agregando EVENTOS (tipo+riesgo snapshot+fecha en
+período) — nadie copia estadísticas a mano. Campos derivados (TOTAL, "Tiene…",
+edades) se calculan, nunca se almacenan. La estratificación automática queda
+DISEÑADA pero APAGADA (`REGLA_DISPONIBLE=false`) hasta recibir la tabla oficial
+cantidad-de-patologías→G; no se inventa la regla clínica. Bloque "atenciones"
+del REM probablemente externo — a confirmar (#17).
+**Fecha:** 2026-08-21
+
 ## DEC-008
 **Título:** Un solo proyecto Apps Script + separación lógica DEV/PROD (no 3 entornos físicos)
 **Estado:** Propuesta

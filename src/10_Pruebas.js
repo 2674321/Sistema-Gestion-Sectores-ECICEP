@@ -33,6 +33,9 @@ function Pruebas_ejecutarTodo() {
   _pruebas_encabezados(t, A);
   _pruebas_estados(t, A);
   _pruebas_estratificacion(t, A);
+  _pruebas_sectores(t, A);
+  _pruebas_sexos(t, A);
+  _pruebas_tipos_evento(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -136,6 +139,41 @@ function _pruebas_estratificacion(t, A) {
   DATASET_NORMALIZACION.estratificaciones.forEach(function (caso) {
     t('ESTRAT: ' + JSON.stringify(caso[0]), function () {
       A.igual(Norm_normalizarEstratificacion(caso[0]), caso[1], 'estratificación');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+function _pruebas_sectores(t, A) {
+  DATASET_NORMALIZACION.sectores.forEach(function (caso) {
+    t('SECTOR: ' + JSON.stringify(caso[0]), function () {
+      var r = Norm_normalizarSector(caso[0]);
+      A.igual(r.estado, caso[1], 'estado');
+      A.igual(r.sector, caso[2], 'sector');
+    });
+  });
+  t('SECTOR: dimensiones independientes sector≠G', function () {
+    // Un paciente del Sector Amarillo puede ser G3: no existe lógica que cruce ambas.
+    A.igual(Norm_normalizarSector('Amarillo').sector, 'AMARILLO', 'sector');
+    A.igual(Norm_normalizarEstratificacion('G3'), 'G3', 'estratificación independiente');
+    A.igual(Norm_normalizarSector('G3').estado, 'INVALIDO', 'G no es un sector');
+  });
+}
+
+// ---------------------------------------------------------------------------
+function _pruebas_sexos(t, A) {
+  DATASET_NORMALIZACION.sexos.forEach(function (caso) {
+    t('SEXO: ' + JSON.stringify(caso[0]), function () {
+      A.igual(Norm_normalizarSexo(caso[0]), caso[1], 'sexo normalizado');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+function _pruebas_tipos_evento(t, A) {
+  DATASET_NORMALIZACION.tiposEvento.forEach(function (caso) {
+    t('TIPO EV: ' + JSON.stringify(caso[0]), function () {
+      A.igual(Norm_normalizarTipoEvento(caso[0]), caso[1], 'tipo de evento');
     });
   });
 }

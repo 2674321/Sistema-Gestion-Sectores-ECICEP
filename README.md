@@ -13,12 +13,14 @@ estructuras distintas.
 | Etapa | Estado |
 |-------|--------|
 | ETAPA 0 — Descubrimiento / Levantamiento | ✅ Completada (2026-08-21) |
-| ETAPA 1 — Arquitectura | ✅ Diseñada y registrada (`ARQUITECTURA.md`, `DECISIONES.md`) |
-| ETAPA 2 — Núcleo (config · utilidades · log · normalización · modelo · estructura Sheets · pruebas) | ✅ Implementada, 85/85 pruebas verdes |
-| ETAPA 3 — Datos controlados (staging, validador, identificación) | ⬜ Siguiente |
+| ETAPA 1 — Arquitectura | ✅ Diseñada y registrada |
+| ETAPA 2 — Núcleo | ✅ Implementada, pruebas verdes |
+| ETAPA 2.5 — Refinamiento funcional (paciente/evento, sectores, dashboard, REM, estratificación, protecciones) | ✅ Diseñada — docs: MODELO-EVENTOS · DASHBOARD · REM · ESTRATIFICACION |
+| ETAPA 3 — Datos controlados (staging, validador, identificación, hoja EVENTOS) | ⬜ Siguiente |
 | ETAPA 4+ — Interfaz → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
 
 **Interfaz:** Google Sheets es la interfaz principal del sistema (DEC-012).
+**Modelo:** PACIENTES (entidad/estado vigente) + EVENTOS (historial append-only) — DEC-017.
 **Regla vigente:** NO migrar ni procesar masivamente los datos reales todavía.
 
 ## Stack

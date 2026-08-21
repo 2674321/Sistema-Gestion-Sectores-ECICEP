@@ -110,5 +110,33 @@ const DATASET_NORMALIZACION = {
     ['Z', ''],     // valor basura detectado en Naranjo
     ['NSP', ''],
     ['', '']
+  ],
+
+  sectores: [
+    // [entrada, estadoEsperado, sectorEsperado]
+    ['Sector Amarillo', 'OK', 'AMARILLO'],
+    ['SECTOR VERDE', 'OK', 'VERDE'],
+    ['naranjo', 'OK', 'NARANJO'],
+    ['NARANJA', 'OK', 'NARANJO'],   // alias aceptado (discrepancia rotulación #12)
+    ['', 'VACIO', ''],
+    ['ROSARIO', 'INVALIDO', '']
+  ],
+
+  sexos: [
+    // [entrada, esperado]
+    ['F', 'F'], ['MASCULINO', 'M'], ['mujer', 'F'], ['HOMBRE ', 'M'],
+    ['OTRO', 'OTRO'], ['X', ''], ['','']
+  ],
+
+  tiposEvento: [
+    // [entrada, esperado]
+    ['INGRESO', 'INGRESO'],
+    ['Control', 'CONTROL'],
+    ['SEGUIMIENTO A DISTANCIA', 'SEGUIMIENTO'],
+    ['Plan de cuidado', 'PLAN_CUIDADO'],
+    ['GESTION DE CASO INGRESO', 'GESTION_CASO_INGRESO'],
+    ['CAMBIO DE SECTOR', 'CAMBIO_SECTOR'],
+    ['EGRESO', 'EGRESO'],
+    ['', '']
   ]
 };

@@ -1,25 +1,30 @@
-# ARQUITECTURA — Sistema ECICEP Unificado v0.1
+# ARQUITECTURA — Sistema ECICEP Unificado v0.3
 
-> Estado: PROPUESTA (ETAPA 1). Basada en el levantamiento ETAPA 0 y en los
-> patrones probados del proyecto de referencia CESFAM_SJ v2.
+> Estado: ETAPA 2.5 (refinamiento funcional). Base técnica estable de ETAPA 2
+> extendida con: modelo entidad/evento, hojas sectoriales, estratificación
+> configurable, dashboard dinámico y REM como capa de reporting.
 
-## Visión general
+## Visión general funcional
 
 ```text
-Excel/Sheets fuentes (3 sectores)
-        ↓  (importación controlada, staging)
-   VALIDACIÓN ESTRUCTURAL
-        ↓
-   NORMALIZACIÓN (capa independiente, pura, testeable)
-        ↓
-   IDENTIFICACIÓN (RUT → fallbacks; dudosos a revisión)
-        ↓
-   CONSOLIDACIÓN (explicable, reversible, vía MAPA_ORIGEN)
-        ↓
-   BASE_ECICEP  ←→  UI (búsqueda / ficha / controles)  ←→  DASHBOARD
-        ↓
-   LOG + métricas
+   SECTOR NARANJO        SECTOR AMARILLO       SECTOR VERDE
+  [INGRESO_…][SECTOR_…] [INGRESO_…][SECTOR_…] [INGRESO_…][SECTOR_…]
+        │  puertas de entrada controladas + superficies operativas
+        └───────────────┬───────────┴───────────────────┘
+                        ▼
+      VALIDACIÓN → NORMALIZACIÓN → IDENTIFICACIÓN → CONSOLIDACIÓN
+                        │  (explicable, reversible vía MAPA_ORIGEN)
+           ┌────────────┴────────────┐
+           ▼                         ▼
+      PACIENTES (entidad)       EVENTOS (actividad, append-only)
+           └────────────┬────────────┘
+                        ▼
+     DASHBOARD (análisis dinámico) · REM (agregación mensual) · SEGUIMIENTO
+                        │
+                   LOG + métricas
 ```
+
+Detalle del modelo paciente/evento: **MODELO-EVENTOS.md**.
 
 ## Módulos Apps Script (archivos planos numerados — patrón clasp)
 
@@ -38,24 +43,32 @@ Excel/Sheets fuentes (3 sectores)
 | `10_Pruebas.js` | Suites deterministas del núcleo (corren en GAS y en node, DEC-016) | — |
 | `11_DatosPrueba.js` | Dataset ficticio único para las pruebas (sin datos reales) | — |
 
+**Roadmap de módulos futuros** (se crean en su etapa, no antes):
+`03b_ValidadorEstructura` (reporte APTO/ADVERTENCIAS/REVISIÓN), `12_Ingresos`
+(procesador hojas INGRESO_*), `13_Eventos` (registro/consulta EVENTOS + sync
+caché PACIENTES), `14_Estratificacion` (motor regla-configurable, apagado hasta
+regla oficial), `15_Dashboard` (agregaciones on-demand), `16_Rem` (generador).
+
 Dependencia estricta hacia abajo: UI/Dashboard → Modelo → Normalización → Utilidades.
 La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 
-## Estado de implementación (fin ETAPA 2)
+## Estado de implementación
 
-- ✅ `00_Config`: modelo canónico (24 campos con metadatos), sinonimos confirmados,
-  encabezados ambiguos registrados, estados, fechas, log y caché.
-- ✅ `01_Utilidades`: bloques batch, colecciones, medición, caché.
-- ✅ `02_Normalizacion`: RUT (módulo 11), teléfono multi-formato, fechas tolerantes
-  (VACIA/VALIDA/MES_ANO/INVALIDA/NO_RECONOCIDA), nombres, encabezados, estados,
-  estratificación — capa pura.
-- ✅ `09_Log`: búfer + flush por lotes + LockService + recorte histórico.
-- ✅ `06_Modelo`: instalación idempotente de hojas (elimina "Hoja 1" solo si vacía),
-  formato base de PACIENTES (encabezado fijo, técnicas agrupadas/ocultas), lectura
-  por bloques e índice por RUT.
-- ✅ `07_UI`: menú ECICEP (instalar estructura · ejecutar pruebas · abrir LOG).
-- ✅ Pruebas: 85 casos verdes (`node tests/ejecutar_local.mjs` = mismo runner que GAS).
-- ⬜ ETAPA 3: staging, validador estructural de fuentes, identificación, consolidación.
+### ETAPA 2 ✅
+- Núcleo completo: Config v1, Utilidades, Normalización pura, Log por lotes,
+  Modelo con instalación idempotente, menú ECICEP, 85 pruebas verdes.
+
+### ETAPA 2.5 ✅ (refinamiento funcional — diseño)
+- Modelo entidad/evento definido (`MODELO-EVENTOS.md`); PACIENTES ampliado a
+  **29 campos** (sexo, fecha nacimiento, condiciones, estrat origen/calculada).
+- Config v0.3: sectores geográficos permanentes ≠ estratificación (DEC-018),
+  tipos de evento, estados de ingreso, motor G apagado hasta regla oficial.
+- Normalizadores nuevos: sector (alias NARANJA→NARANJO), sexo, tipo evento.
+- Diseños aprobados: DASHBOARD (filtros dinámicos, trazabilidad), REM (mapa de
+  trazabilidad campo a campo), ESTRATIFICACIÓN (motor data-driven), protecciones.
+- Pruebas: **107 casos verdes**.
+- ⬜ ETAPA 3: staging, validador estructural, identificación/deduplicación,
+  hoja EVENTOS y sincronización de caché.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 
@@ -66,9 +79,35 @@ diseñan como interfaz (encabezados congelados, anchos, colores consistentes,
 columnas técnicas agrupadas y ocultas). Fórmulas nativas cuando sean simples y
 no penalicen rendimiento; Apps Script para procesamiento complejo.
 
-## Hojas (ver MODELO-DATOS.md)
+## Hojas
 
-BASE_ECICEP · STAGING_IMPORT · MAPA_ORIGEN · DUPLICADOS_REVISION · LOG · CONFIG.
+Inventario completo y justificado: **MODELO-EVENTOS.md §7** (≈15 hojas).
+Creadas hoy: CONFIG · PACIENTES · LOG · CONFLICTOS · FUENTES.
+
+## Protecciones (control operativo, NO seguridad institucional)
+
+> **Advertencia honesta:** la protección de hojas/rangos de Google Sheets es un
+> mecanismo de control operativo contra errores accidentales. NO es una
+> arquitectura de seguridad avanzada; no se dependerá de ocultar hojas como
+> medida de protección, y la confidencialidad real se apoya en el control de
+> acceso a la cuenta de Google del spreadsheet.
+
+Plan por capas:
+
+| Capa | Mecanismo |
+|---|---|
+| Hojas administrativas (CONFIG, LOG, FUENTES, REGLAS_ESTRATIFICACION, columnas técnicas) | Protección estricta, solo propietario/desarrollo |
+| Columnas técnicas de PACIENTES/EVENTOS | Rango protegido siempre (el usuario jamás las edita) |
+| SECTOR_* e INGRESO_* | Protección con editor = responsable del sector; otras áreas solo advertencia o lectura |
+| Áreas de resultado (DASHBOARD, REM_SALIDA) | Protegidas: solo Apps Script escribe |
+
+Limitación técnica documentada: los menús de Apps Script ejecutan con la
+autoridad de quien hace clic — si un área le está protegida al usuario, la
+escritura del script fallaría. Patrón adoptado: operaciones del sistema sobre
+áreas protegidas se realizan mediante funciones instaladas/ejecutadas bajo
+autorización del propietario (instalable triggers / ejecución por propietario),
+y las áreas operativas de cada sector quedan editables SOLO para su responsable.
+Asignación de responsables = correos por sector (PENDIENTES #13).
 
 ## Infraestructura remota identificada
 
