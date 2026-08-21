@@ -82,12 +82,11 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 | Adaptador INGRESO_* → staging | **IMPLEMENTADO (3b)** | Sector derivado de la hoja (HOJAS_INGRESO); contradicciones declaradas como ERROR; idempotente (filas INGRESADO se saltan) |
 | Transacción PACIENTES/EVENTOS | **IMPLEMENTADO (3b)** | Gates explícitos por fila; nuevo→crea entidad+evento enlazado; existente→solo evento (sin sobrescritura); append-only garantizado; escrituras batch |
 | Ejecución controlada desde el sheet | **IMPLEMENTADO (3b)** | Menú ECICEP: 📥 Procesar ingresos · 🧪 Sembrar datos ficticios (prueba) |
-| Ejecución real verificada en el spreadsheet | **PENDIENTE (usuario)** | Requiere correr Instalar + Sembrar + Procesar con sesión autorizada |
-| Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con dataset ficticio |
+| Ejecución real verificada en el spreadsheet | ✅ **VERIFICADA (EJ-MT3IJ7RG)**: 18 leídos = 3 OK + 11 WARNING + 4 ERROR intencionales; 11 pacientes nuevos + 3 enlazados; 14 eventos; SECTOR_* refrescadas |
+| Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con muestra controlada de datos reales |
 
-Pruebas: **156 casos verdes** (143 previas + 13 nuevas ETAPA 3b: casos A–H,
-adaptadores, append-only, gates y resumen). Las pruebas de integración con
-Spreadsheet real son manuales/documentadas (menú 🧪→📥) y no corren en node.
+Pruebas: **171 casos verdes** (143 ETAPA 2 + 36 ETAPA 3 + 13 ETAPA 3b + ajustes).
+Las pruebas de integración con Spreadsheet real son manuales/documentadas (menú 🧪→📥) y no corren en node.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 

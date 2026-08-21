@@ -17,7 +17,7 @@ estructuras distintas.
 | ETAPA 2 — Núcleo | ✅ Implementada, pruebas verdes |
 | ETAPA 2.5 — Refinamiento funcional (paciente/evento, sectores, dashboard, REM, estratificación, protecciones) | ✅ Diseñada — docs: MODELO-EVENTOS · DASHBOARD · REM · ESTRATIFICACION |
 | ETAPA 3 — Staging + validador + identificación controlada | ✅ Núcleo implementado |
-| ETAPA 3b — INGRESO_* → staging → PACIENTES/EVENTOS (gates, append-only, batch) | ✅ Implementado — 156 pruebas verdes; ejecución real en sheet pendiente de correr por el usuario (menú ECICEP) |
+| ETAPA 3b — INGRESO_* → staging → PACIENTES/EVENTOS (gates, append-only, batch) | ✅ Implementada y **verificada end-to-end en el sheet real** (EJ-MT3IJ7RG: 18 leídos, 14 eventos, 11 nuevos + 3 enlazados) |
 | ETAPA 4+ — Interfaz → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
 
 **Interfaz:** Google Sheets es la interfaz principal del sistema (DEC-012).

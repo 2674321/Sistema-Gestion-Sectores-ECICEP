@@ -30,8 +30,8 @@
 
 | # | Pendiente | Tipo | Bloquea | Prioridad |
 |---|---|---|---|---|
-| 19 | ~~Activar escritura real a EVENTOS/PACIENTES~~ ✅ **IMPLEMENTADO (ETAPA 3b):** orquestador batch + menú. Pendiente SOLO su ejecución real autorizada en el spreadsheet (Instalar → Sembrar ficticios → Procesar) | Ejecución usuario (5 min) | Validación end-to-end | ALTA |
-| 20 | ~~Procesador de hojas INGRESO_*~~ ✅ **IMPLEMENTADO (ETAPA 3b):** adaptador con sector derivado de la hoja, idempotencia por estado y contradicciones como ERROR | Resuelto | — | — |
+| 19 | ~~Activar escritura real a EVENTOS/PACIENTES~~ ✅ **RESUELTO Y VERIFICADO (EJ-MT3IJ7RG):** flujo end-to-end real con dataset ficticio — leídos 18 = OK 3 + WARNING 11 + ERROR 4 (intencionales); pacientes nuevos 11 + enlazados 3; eventos 14; append-only verificado; SECTOR_* refrescadas automáticamente | Resuelto | — | — |
+| 20 | ~~Procesador de hojas INGRESO_*~~ ✅ **IMPLEMENTADO (ETAPA 3b):** adaptador con sector derivado de la hoja, idempotencia por estado y contradicciones como ERROR. Defecto de integración detectado en la primera corrida real (filas llegaban sin normalizar al orquestador) corregido y cubierto por prueba de regresión (DEC-031) | Resuelto | — | — |
 | 21 | Cola de revisión humana: UI mínima para resolver REQUIERE_REVISION/POSIBLE_DUPLICADO (por ahora viven en resultado JSON de staging) | Tarea dev ETAPA 4 | Operación diaria de casos dudosos | MEDIA |
 | 22 | Captura de fecha específica por gestión (CONTROL/SEGUIMIENTO con fecha propia) en hojas de ingreso o ficha: hoy el evento usa FECHA_INGRESO salvo override programático | Diseño ETAPA 4 | REM fiel por tipo de evento | ALTA para REM |
 
