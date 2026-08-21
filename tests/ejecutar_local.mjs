@@ -18,6 +18,9 @@ const archivos = [
   'src/00_Config.js',
   'src/01_Utilidades.js',
   'src/02_Normalizacion.js',
+  'src/03_Fuentes.js',
+  'src/04_Identificacion.js',
+  'src/13_Eventos.js',
   'src/11_DatosPrueba.js',
   'src/10_Pruebas.js'
 ];

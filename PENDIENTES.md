@@ -24,7 +24,15 @@
 | 15 | Umbrales oficiales cantidad-de-patologías→G1/G2/G3 y definición operativa de PLAN_CUIDADO, GESTION_CASO_INGRESO/EGRESO | Consulta cliente | Activar motor G; semántica de eventos REM | ALTA |
 | 16 | Formato de entrega del REM (vista trabajo vs informe, XLSX/PDF) y período de cierre (mes calendario?) | Consulta cliente | Exportación REM | MEDIA |
 | 17 | Origen del bloque "atenciones" del REM (ficha, documento, centro, embarazada…): ¿sistema clínico externo o ECICEP? | Consulta cliente | Alcance real del generador REM | ALTA |
-| 18 | Mecánica de corrección de eventos ya registrados (evento correctivo vs edición controlada) — definir antes de operar EVENTOS en producción | Decisión diseño ETAPA 3 | Integridad historial | MEDIA |
+| 18 | Mecánica de corrección de eventos ya registrados (evento correctivo vs edición controlada) — definir antes de operar EVENTOS en producción | Decisión diseño ETAPA 3b | Integridad historial | MEDIA |
+
+## Nuevas (ETAPA 3)
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 19 | Activar escritura real a EVENTOS/PACIENTES + sincronización de caché: requiere ejecución autorizada en GAS (menú) sobre el spreadsheet — la capa pura ya está probada | Tarea dev ETAPA 3b | Pipeline end-to-end con datos ficticios en el sheet real | ALTA |
+| 20 | Procesador de hojas INGRESO_* (lectura de las hojas sectoriales → staging): la lógica de fila/validación existe; falta el adaptador por hoja | Tarea dev ETAPA 3b | Flujo completo de ingreso sectorial | MEDIA |
+| 21 | Cola de revisión humana: UI mínima para resolver REQUIERE_REVISION/POSIBLE_DUPLICADO (por ahora viven en resultado JSON de staging) | Tarea dev ETAPA 4 | Operación diaria de casos dudosos | MEDIA |
 
 ## Limitaciones técnicas registradas
 

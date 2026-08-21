@@ -66,9 +66,23 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 - Normalizadores nuevos: sector (alias NARANJA→NARANJO), sexo, tipo evento.
 - Diseños aprobados: DASHBOARD (filtros dinámicos, trazabilidad), REM (mapa de
   trazabilidad campo a campo), ESTRATIFICACIÓN (motor data-driven), protecciones.
-- Pruebas: **107 casos verdes**.
 - ⬜ ETAPA 3: staging, validador estructural, identificación/deduplicación,
   hoja EVENTOS y sincronización de caché.
+
+### ETAPA 3 — estado por componente
+
+| Componente | Estado | Nota |
+|---|---|---|
+| Estructura STAGING_IMPORT | **IMPLEMENTADO** | `Fuentes_crearFila/normalizar/validar/validarEstructura` + hoja añadida al instalador; I/O batch (`Fuentes_guardarFilas`) |
+| Validador estructural | **IMPLEMENTADO** | ERROR/WARNING/OK trazables por campo; sin crashes (fechas corruptas, RUT malos, sector inválido, G-como-sector, incompatibilidad origen) |
+| Normalización aplicada | **IMPLEMENTADO** | Reutiliza Norm_* 1:1; originales siempre conservados |
+| Identificación | **IMPLEMENTADO** | MATCH_EXACTO/PARCIAL/POSIBLE_DUPLICADO/SIN_MATCH/REQUIERE_REVISION con criterio+confianza (DEC-024) |
+| Duplicados en lote | **IMPLEMENTADO** | Explicables y no destructivos |
+| Transformación a EVENTOS | **IMPLEMENTADO (capa pura)** | Ev_desdeStaging con gates; escritura real a hoja EVENTOS = PARCIAL→ETAPA 3b |
+| Escritura real PACIENTES/EVENTOS + sync caché | **PENDIENTE** | Requiere ejecución autorizada en GAS sobre el spreadsheet real |
+| Migración masiva | **BLOQUEADA** | Por diseño hasta validación con muestra controlada |
+
+Pruebas: **143 casos verdes** (107 previas + 36 nuevas).
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 

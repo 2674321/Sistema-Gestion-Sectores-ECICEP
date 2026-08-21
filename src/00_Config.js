@@ -31,6 +31,7 @@ const HOJAS = {
   CONFIG: 'CONFIG',
   PACIENTES: 'PACIENTES',       // base consolidada (entidad, estado vigente)
   EVENTOS: 'EVENTOS',           // historial de actividad (ETAPA 3)
+  STAGING_IMPORT: 'STAGING_IMPORT', // zona de importación controlada (ETAPA 3)
   LOG: 'LOG',
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
@@ -208,8 +209,9 @@ const ENCABEZADOS_SIN_DESTINO = [
 // Fechas
 // ---------------------------------------------------------------------------
 const CFG_FECHAS = {
-  ANO_MIN: 2015,           // fuera de rango → fecha inválida (no se corrige en silencio)
+  ANO_MIN: 2015,           // eventos: fuera de rango → fecha inválida (no se corrige en silencio)
   ANO_MAX: 2040,
+  ANO_MIN_NACIMIENTO: 1900, // fechas de nacimiento admiten años mucho más antiguos
   FORMATO_HOJA: 'dd/MM/yyyy',
   ZONA: ECICEP.TZ
 };

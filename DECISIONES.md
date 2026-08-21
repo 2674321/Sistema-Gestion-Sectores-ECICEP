@@ -186,6 +186,41 @@ cantidad-de-patologías→G; no se inventa la regla clínica. Bloque "atenciones
 del REM probablemente externo — a confirmar (#17).
 **Fecha:** 2026-08-21
 
+## DEC-023
+**Título:** Staging en 03_Fuentes con sector heredado del ORIGEN
+**Estado:** Aprobada (ETAPA 3)
+**Motivo:** La fila de staging ({ID_PROVISIONAL, origen completo,
+VALORES_ORIGINALES, NORMALIZADO, ERRORES/WARNINGS, RESULTADO_IDENTIFICACION})
+vive en 03_Fuentes según arquitectura documentada. El sector efectivo se toma
+de la fuente/hoja de ingreso cuando la fila no lo trae explícito (DEC-019);
+si la fila declara uno distinto al origen → ERROR de incompatibilidad.
+STAGING_IMPORT añadida al instalador de hojas.
+**Fecha:** 2026-08-21
+
+## DEC-024
+**Título:** Identificación conservadora separada de deduplicación de lote
+**Estado:** Aprobada (ETAPA 3)
+**Motivo:** Iden_identificar resuelve "¿existe identidad confiable?" por niveles:
+RUT completo exacto (ALTA) → cuerpo+nombre (MEDIA) → nombre+teléfono (MEDIA) →
+solo nombre = POSIBLE_DUPLICADO (BAJA, jamás auto-resuelto) → ambiguos
+REQUIERE_REVISION. Registro sucio (cuerpo existe con DV distinto) nunca se
+auto-decide. Iden_detectarDuplicadosLote solo REPORTA pares explicables
+(criterio+confianza); no elimina ni fusiona nada.
+**Fecha:** 2026-08-21
+
+## DEC-025
+**Título:** Eventos: builder puro con gates; override consciente para dudosos
+**Estado:** Aprobada (ETAPA 3)
+**Motivo:** Ev_desdeStaging (13_Eventos) bloquea eventos si hay ERROR de
+validación, falta identificación, es ambigua (REQUIERE_REVISION /
+POSIBLE_DUPLICADO), tipo inválido o sin fecha. POSIBLE_DUPLICADO admite
+`confirmarNuevo=true`: decisión humana que fuerza entidad NUEVA y jamás enlaza
+al candidato existente. RIESGO_G siempre snapshot de la estratificación
+normalizada, nunca inferido del sector. FECHA_REGISTRO=null en capa pura: la fija
+el sistema al escribir. Los rangos de años plausibles difieren entre eventos
+(CFG_FECHAS.ANO_MIN=2015) y nacimientos (ANO_MIN_NACIMIENTO=1900).
+**Fecha:** 2026-08-21
+
 ## DEC-008
 **Título:** Un solo proyecto Apps Script + separación lógica DEV/PROD (no 3 entornos físicos)
 **Estado:** Propuesta

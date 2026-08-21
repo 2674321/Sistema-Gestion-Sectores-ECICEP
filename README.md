@@ -16,7 +16,7 @@ estructuras distintas.
 | ETAPA 1 — Arquitectura | ✅ Diseñada y registrada |
 | ETAPA 2 — Núcleo | ✅ Implementada, pruebas verdes |
 | ETAPA 2.5 — Refinamiento funcional (paciente/evento, sectores, dashboard, REM, estratificación, protecciones) | ✅ Diseñada — docs: MODELO-EVENTOS · DASHBOARD · REM · ESTRATIFICACION |
-| ETAPA 3 — Datos controlados (staging, validador, identificación, hoja EVENTOS) | ⬜ Siguiente |
+| ETAPA 3 — Staging + validador + identificación controlada | 🔄 Núcleo implementado (143 pruebas verdes); escritura real a sheets pendiente (ETAPA 3b) |
 | ETAPA 4+ — Interfaz → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
 
 **Interfaz:** Google Sheets es la interfaz principal del sistema (DEC-012).

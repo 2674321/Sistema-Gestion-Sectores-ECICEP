@@ -1,6 +1,207 @@
 /**
- * ECICEP Unificado — 03_Fuentes
- * Lectura de hojas fuente: detección de fila de encabezado, descarte de
- * separadores de sección, validador estructural pre-import (reporte APTO /
- * APTO CON ADVERTENCIAS / REQUIERE REVISIÓN). ETAPA 3.
+ * Sistema ECICEP Unificado — 03_Fuentes
+ * STAGING_IMPORT: estructura de filas de importación controlada,
+ * validador estructural y aplicación de la normalización existente.
+ *
+ * Núcleo puro (testeable en node, determinista). Las funciones I/O hacia la
+ * hoja STAGING_IMPORT están claramente separadas y solo operan en GAS.
+ * Reglas: nunca se descarta el valor original; los defectos se convierten en
+ * resultados trazables (ERROR/WARNING), jamás en crashes.
  */
+
+var _FUENTES_SEQ = 0;
+
+/**
+ * Crea una fila de staging con trazabilidad completa.
+ * @param {Object} origen {archivo, hoja, fila, sector}
+ * @param {Object} valores  valores crudos mapeados a campos canónicos
+ * @param {number} [secuencia] opcional → ID determinista (pruebas)
+ */
+function Fuentes_crearFila(origen, valores, secuencia) {
+  var id;
+  if (typeof secuencia === 'number') {
+    id = 'SG-' + ('0000' + secuencia).slice(-4);
+  } else {
+    _FUENTES_SEQ += 1;
+    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + ('00' + _FUENTES_SEQ % 1296).slice(-2) +
+         Math.floor(Math.random() * 36).toString(36).toUpperCase();
+  }
+  return {
+    ID_PROVISIONAL: id,
+    ARCHIVO_ORIGEN: Utl_texto(origen && origen.archivo),
+    HOJA_ORIGEN: Utl_texto(origen && origen.hoja),
+    FILA_ORIGEN: (origen && origen.fila) || '',
+    SECTOR_ORIGEN: Utl_colapsarEspacios(Utl_texto(origen && origen.sector)).toUpperCase(),
+    VALORES_ORIGINALES: valores || {},
+    NORMALIZADO: {},
+    ERRORES: [],
+    WARNINGS: [],
+    ESTADO_VALIDACION: 'PENDIENTE',
+    RESULTADO_IDENTIFICACION: null
+  };
+}
+
+/** Cadena de trazabilidad estándar archivo|hoja|fila. */
+function Fuentes_fuenteOrigen(filaStaging) {
+  return Utl_texto(filaStaging.ARCHIVO_ORIGEN) + '|' + Utl_texto(filaStaging.HOJA_ORIGEN) + '|' + Utl_texto(filaStaging.FILA_ORIGEN);
+}
+
+/**
+ * Verificación estructural previa: presencia de campos críticos crudos.
+ * @returns {ok:boolean, faltantes:[]}
+ */
+function Fuentes_validarEstructura(valores, requeridos) {
+  var req = requeridos || ['RUT', 'NOMBRE'];
+  var faltantes = [];
+  req.forEach(function (campo) {
+    if (Utl_vacio((valores || {})[campo])) faltantes.push(campo);
+  });
+  return { ok: faltantes.length === 0, faltantes: faltantes };
+}
+
+/**
+ * Aplica los normalizadores existentes sobre la fila y produce el resultado
+ * de validación (ERROR/WARNING/OK) sin efectos secundarios externos.
+ * El valor original siempre se conserva en VALORES_ORIGINALES.
+ */
+function Fuentes_normalizar(fila) {
+  var v = fila.VALORES_ORIGINALES || {};
+  var n = {};
+  var err = [], warn = [];
+  function nota(arr, campo, mensaje) { arr.push({ campo: campo, mensaje: mensaje }); }
+
+  // --- RUT ---
+  var rut = Norm_normalizarRut(v.RUT);
+  n.RUT = rut.rut;
+  n.RUT_CUERPO = rut.cuerpo;
+  n.RUT_ESTADO = rut.estado;
+  if (rut.estado === 'VACIO') nota(err, 'RUT', 'RUT ausente');
+  else if (rut.estado === 'INVALIDO') nota(err, 'RUT', rut.detalle);
+  else if (rut.estado === 'SIN_DV') nota(warn, 'RUT', 'RUT sin dígito verificador');
+
+  // --- NOMBRE ---
+  var nom = Norm_normalizarNombre(v.NOMBRE);
+  n.NOMBRE = nom.nombre;
+  n.NOMBRE_CLAVE = Norm_claveNombre(nom.nombre);
+  if (!nom.ok) nota(err, 'NOMBRE', 'Nombre ausente o incompleto');
+  else if (n.NOMBRE.indexOf(' ') === -1) nota(warn, 'NOMBRE', 'Nombre de una sola palabra');
+
+  // --- SEXO ---
+  n.SEXO = Norm_normalizarSexo(v.SEXO);
+  if (!Utl_vacio(v.SEXO) && n.SEXO === '') nota(warn, 'SEXO', 'Valor de sexo no reconocido, se descarta');
+
+  // --- SECTOR (crítico; independiente de estratificación) ---
+  // Regla DEC-019: si la fila no trae sector explícito, hereda el del ORIGEN
+  // (hoja/archivo de ingreso); nunca al revés.
+  var sectorCrudo = Utl_vacio(v.SECTOR) ? fila.SECTOR_ORIGEN : v.SECTOR;
+  var sec = Norm_normalizarSector(sectorCrudo);
+  n.SECTOR = sec.sector;
+  if (sec.estado === 'VACIO') nota(err, 'SECTOR', 'Sector ausente');
+  else if (sec.estado === 'INVALIDO') nota(err, 'SECTOR', 'Sector inválido: "' + Utl_texto(sectorCrudo) + '"');
+
+  // Compatibilidad: sector declarado explícito vs sector del origen
+  if (!Utl_vacio(v.SECTOR) && !Utl_vacio(fila.SECTOR_ORIGEN)) {
+    var orig = Norm_normalizarSector(fila.SECTOR_ORIGEN);
+    if (sec.estado === 'OK' && orig.estado === 'OK' && sec.sector !== orig.sector) {
+      nota(err, 'SECTOR', 'Sector declarado "' + sec.sector + '" no coincide con el origen "' + orig.sector + '"');
+    }
+  }
+
+  // --- ESTRATIFICACIÓN (dimensión independiente; nunca se infiere) ---
+  n.ESTRATIFICACION = Norm_normalizarEstratificacion(v.ESTRATIFICACION);
+  n.ESTRAT_ORIGEN = Utl_colapsarEspacios(Utl_texto(v.ESTRATIFICACION)).toUpperCase();
+  if (n.ESTRAT_ORIGEN !== '' && n.ESTRATIFICACION === '') {
+    nota(warn, 'ESTRATIFICACION', 'Valor original no clasificable ("' + n.ESTRAT_ORIGEN + '"): queda pendiente');
+  }
+
+  // --- ESTADO ---
+  n.ESTADO = Norm_normalizarEstado(v.ESTADO);
+
+  // --- FECHAS ---
+  ['FECHA_NACIMIENTO', 'FECHA_INGRESO', 'PROXIMO_CONTROL'].forEach(function (campo) {
+    // Los nacimientos admiten años mucho más antiguos que los eventos
+    var rango = (campo === 'FECHA_NACIMIENTO')
+      ? { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX }
+      : undefined;
+    var r = Norm_normalizarFecha(v[campo], rango);
+    n[campo] = r.iso;
+    n[campo + '_ESTADO'] = r.estado;
+    if (r.estado === 'INVALIDA') {
+      nota(campo === 'FECHA_INGRESO' ? err : warn, campo, r.detalle);
+    } else if (r.estado === 'NO_RECONOCIDA') {
+      nota(warn, campo, 'Texto no reconocible como fecha: "' + Utl_texto(v[campo]) + '"');
+    } else if (r.estado === 'MES_ANO') {
+      nota(warn, campo, 'Solo mes/año');
+    }
+  });
+
+  // --- PREINGRESO (fecha o estado textual) ---
+  var pre = Norm_normalizarFecha(v.PREINGRESO);
+  if (pre.estado === 'VALIDA' || pre.estado === 'MES_ANO') n.PREINGRESO = pre.iso;
+  else if (pre.estado === 'NO_RECONOCIDA') n.PREINGRESO = Utl_texto(v.PREINGRESO).trim().toUpperCase();
+  else n.PREINGRESO = '';
+
+  // --- TELÉFONOS ---
+  var tel = Norm_normalizarTelefono(v.TELEFONOS !== undefined ? v.TELEFONOS : v.TELEFONO);
+  n.TELEFONOS = tel.telefonos.join('/');
+  n.TELEFONO_OBS = tel.observaciones.join('; ');
+  if (tel.estado === 'PARCIAL') nota(warn, 'TELEFONOS', tel.detalle);
+  else if (tel.telefonos.length === 0) nota(warn, 'TELEFONOS', 'Sin teléfono válido');
+
+  // --- Texto libre normalizado ---
+  n.DUPLA_INGRESO = Utl_colapsarEspacios(Utl_texto(v.DUPLA_INGRESO)).toUpperCase();
+  n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
+  n.OBSERVACIONES = Utl_texto(v.OBSERVACIONES).trim();
+
+  // --- Tipo de evento (opcional en la fuente) ---
+  n.TIPO_EVENTO = Norm_normalizarTipoEvento(v.TIPO_EVENTO);
+  if (!Utl_vacio(v.TIPO_EVENTO) && TIPOS_EVENTO.VALIDOS.indexOf(n.TIPO_EVENTO) === -1) {
+    nota(err, 'TIPO_EVENTO', 'Tipo de evento inválido: "' + Utl_texto(v.TIPO_EVENTO) + '"');
+  }
+
+  fila.NORMALIZADO = n;
+  fila.ERRORES = err;
+  fila.WARNINGS = warn;
+  fila.ESTADO_VALIDACION = err.length ? 'ERROR' : (warn.length ? 'WARNING' : 'OK');
+  return fila;
+}
+
+/** Puerta final: solo filas OK/WARNING avanzan hacia identificación/eventos. */
+function Fuentes_validar(fila) {
+  return fila && (fila.ESTADO_VALIDACION === 'OK' || fila.ESTADO_VALIDACION === 'WARNING');
+}
+
+// ---------------------------------------------------------------------------
+// I/O hoja STAGING_IMPORT — solo entorno GAS
+// ---------------------------------------------------------------------------
+
+function _fuentes_columnasStaging() {
+  return ['ID_PROVISIONAL', 'ARCHIVO_ORIGEN', 'HOJA_ORIGEN', 'FILA_ORIGEN', 'SECTOR_ORIGEN',
+          'ESTADO_VALIDACION', 'ERRORES', 'WARNINGS', 'IDENTIFICACION',
+          'VALORES_ORIGINALES', 'NORMALIZADO', 'FUENTE'];
+}
+
+/** Guarda filas de staging por lotes. Solo GAS; en node devuelve 0. */
+function Fuentes_guardarFilas(filas) {
+  try {
+    if (typeof SpreadsheetApp === 'undefined' || !filas || !filas.length) return 0;
+    var ss = Modelo_ss();
+    var hoja = ss.getSheetByName(HOJAS.STAGING_IMPORT);
+    if (!hoja) return 0;
+    var salida = filas.map(function (f) {
+      return [
+        f.ID_PROVISIONAL, f.ARCHIVO_ORIGEN, f.HOJA_ORIGEN, f.FILA_ORIGEN, f.SECTOR_ORIGEN,
+        f.ESTADO_VALIDACION,
+        JSON.stringify(f.ERRORES || []), JSON.stringify(f.WARNINGS || []),
+        JSON.stringify(f.RESULTADO_IDENTIFICACION || {}),
+        JSON.stringify(f.VALORES_ORIGINALES || {}), JSON.stringify(f.NORMALIZADO || {}),
+        Fuentes_fuenteOrigen(f)
+      ];
+    });
+    return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, salida);
+  } catch (e) {
+    Log_error('Fuentes', 'guardarFilas', e && e.message ? e.message : String(e));
+    Log_flush();
+    return 0;
+  }
+}

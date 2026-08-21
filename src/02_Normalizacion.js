@@ -136,6 +136,8 @@ function Norm_normalizarTelefono(raw) {
 
 /**
  * Parser tolerante y honesto: nunca transforma una fecha dudosa en otra fecha.
+ * @param {Object} [rango] {min,max} años plausibles; por defecto CFG_FECHAS
+ *        (los nacimientos usan ANO_MIN_NACIMIENTO — ver Fuentes_normalizar)
  * @returns {estado:'VACIA'|'VALIDA'|'MES_ANO'|'INVALIDA'|'NO_RECONOCIDA',
  *           fecha:Date|null, iso:'', detalle:'', original}
  *   VACIA         → vacío real ('', '-', '--')
@@ -144,7 +146,9 @@ function Norm_normalizarTelefono(raw) {
  *   INVALIDA      → parseable pero imposible (mes 24, año fuera de rango)
  *   NO_RECONOCIDA → texto que no es fecha (semántica la decide el negocio)
  */
-function Norm_normalizarFecha(raw) {
+function Norm_normalizarFecha(raw, rango) {
+  var anoMin = (rango && rango.min !== undefined) ? rango.min : CFG_FECHAS.ANO_MIN;
+  var anoMax = (rango && rango.max !== undefined) ? rango.max : CFG_FECHAS.ANO_MAX;
   var res = { estado: 'VACIA', fecha: null, iso: '', detalle: '', original: (raw instanceof Date) ? null : Utl_texto(raw) };
 
   function fijar(y, mo, d) {
@@ -153,7 +157,7 @@ function Norm_normalizarFecha(raw) {
     if (f.getFullYear() !== y || f.getMonth() !== mo - 1 || f.getDate() !== d) {
       res.estado = 'INVALIDA'; res.detalle = 'Fecha inexistente en calendario'; return false;
     }
-    if (y < CFG_FECHAS.ANO_MIN || y > CFG_FECHAS.ANO_MAX) {
+    if (y < anoMin || y > anoMax) {
       res.estado = 'INVALIDA'; res.detalle = 'Año ' + y + ' fuera de rango plausible'; return false;
     }
     res.estado = 'VALIDA'; res.fecha = f;
@@ -169,7 +173,7 @@ function Norm_normalizarFecha(raw) {
       return res;
     }
     var y = raw.getFullYear(), mo = raw.getMonth() + 1, d = raw.getDate();
-    if (y < CFG_FECHAS.ANO_MIN || y > CFG_FECHAS.ANO_MAX) {
+    if (y < anoMin || y > anoMax) {
       res.estado = 'INVALIDA'; res.detalle = 'Serial con año ' + y + ' fuera de rango';
     } else {
       res.estado = 'VALIDA'; res.fecha = new Date(y, mo - 1, d);
@@ -198,7 +202,7 @@ function Norm_normalizarFecha(raw) {
   if (mMes) {
     var mm = +mMes[1], aa = +mMes[2];
     if (mMes[2].length === 2) aa = 2000 + aa;
-    if (mm >= 1 && mm <= 12 && aa >= CFG_FECHAS.ANO_MIN && aa <= CFG_FECHAS.ANO_MAX) {
+    if (mm >= 1 && mm <= 12 && aa >= anoMin && aa <= anoMax) {
       res.estado = 'MES_ANO'; res.detalle = 'Solo mes/año';
       res.iso = aa + '-' + ('0' + mm).slice(-2);
     } else {
