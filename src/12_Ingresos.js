@@ -110,7 +110,13 @@ function Ingresos_decidirEscritura(fila) {
  * Procesa un lote de filas de staging YA NORMALIZADAS contra el store.
  * - store: {pacientes:[], eventos:[]} — se muta SOLO añadiendo (append-only).
  * - opciones: {nuevoId():string, confirmarNuevos:boolean, evSecuenciaInicial:number}
- * @returns {resultados:[], resumen:{}, pacientesNuevos:[], eventos:[]}
+ *
+ * Métricas separadas por concepto (corrección ETAPA 3b):
+ *   validacionOk / validacionWarning / validacionError  → resultado del VALIDADOR
+ *   bloqueados                                          → filas que NO se escriben por error
+ *   nuevos / existentes                                 → decisión de escritura
+ *   revision                                            → requieren decisión humana
+ *   eventosCreados                                      → eventos realmente generados
  */
 function Ingresos_procesarFilas(filasStaging, store, opciones) {
   opciones = opciones || {};
@@ -120,7 +126,9 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
 
   var resultados = [], pacientesNuevos = [], eventos = [];
   var resumen = {
-    leidos: filasStaging.length, validos: 0, conError: 0,
+    leidos: filasStaging.length,
+    validacionOk: 0, validacionWarning: 0, validacionError: 0,
+    validos: 0, conError: 0, bloqueados: 0,
     nuevos: 0, existentes: 0, revision: 0, eventosCreados: 0
   };
 
@@ -137,6 +145,10 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   }
 
   filasStaging.forEach(function (fila) {
+    // métrica de VALIDACIÓN (independiente del gate)
+    if (fila.ESTADO_VALIDACION === 'OK') resumen.validacionOk += 1;
+    else if (fila.ESTADO_VALIDACION === 'WARNING') resumen.validacionWarning += 1;
+
     // 1) IDENTIFICAR siempre contra el estado actual del store
     //    (incluye pacientes creados dentro de este mismo lote)
     var iden = Iden_identificar(fila.NORMALIZADO, indices);
@@ -149,6 +161,8 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     else decision = Ingresos_decidirEscritura(fila);
 
     if (decision === 'BLOQUEADO') {
+      resumen.validacionError += 1;
+      resumen.bloqueados += 1;
       resumen.conError += 1;
       registrar(fila, 'ERROR',
         fila.ERRORES[0] ? (fila.ERRORES[0].campo + ': ' + fila.ERRORES[0].mensaje) : 'error de validación');
@@ -355,6 +369,40 @@ function Ingresos_hojaParaSector(sectorCanonica) {
     if (HOJAS_INGRESO.hasOwnProperty(hoja) && HOJAS_INGRESO[hoja] === sectorCanonica) return hoja;
   }
   return '';
+}
+
+/**
+ * PURA: recorrido completo de una fila para diagnóstico (ETAPA 3b).
+ * Devuelve el estado en cada etapa sin ejecutar escrituras.
+ */
+function Ingresos_trazarFila(filaStaging, indices) {
+  var fila = filaStaging;
+  var t = {
+    idProvisional: fila ? fila.ID_PROVISIONAL : '',
+    estadoValidacion: fila ? fila.ESTADO_VALIDACION : 'FILA_INVALIDA',
+    errores: fila ? fila.ERRORES : [],
+    warnings: fila ? fila.WARNINGS : [],
+    identificacion: null,
+    decisionGate: '',
+    motivoBloqueo: ''
+  };
+  if (!fila || !fila.NORMALIZADO || !fila.NORMALIZADO.RUT_ESTADO) {
+    t.decisionGate = 'BLOQUEADO';
+    t.motivoBloqueo = 'FILA_INVALIDA';
+    return t;
+  }
+  var iden = Iden_identificar(fila.NORMALIZADO, indices);
+  fila.RESULTADO_IDENTIFICACION = iden;
+  t.identificacion = { resultado: iden.resultado, criterio: iden.criterio, confianza: iden.confianza, idPaciente: iden.idPaciente };
+
+  if (fila.ESTADO_VALIDACION === 'ERROR') {
+    t.decisionGate = 'BLOQUEADO';
+    t.motivoBloqueo = t.errores[0] ? (t.errores[0].campo + ': ' + t.errores[0].mensaje) : 'error de validación';
+    return t;
+  }
+  t.decisionGate = Ingresos_decidirEscritura(fila);
+  if (t.decisionGate === 'REVISION') t.motivoBloqueo = iden.criterio || 'requiere revisión manual';
+  return t;
 }
 
 /**

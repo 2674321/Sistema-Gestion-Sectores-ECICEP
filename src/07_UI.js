@@ -56,13 +56,14 @@ function UI_procesarIngresos() {
   Log_info('UI', 'procesarIngresos', JSON.stringify(r.resultado), null, r.ms);
   Log_flush();
   SpreadsheetApp.getUi().alert(
-    'PROCESAMIENTO COMPLETADO\n\n' +
-    'Ejecución: ' + (r.resultado.ejecucion || '-') + '\n' +
+    'PROCESAMIENTO COMPLETADO — v' + ECICEP.VERSION + '\n\n' +
+    'Ejecución: ' + (r.resultado.ejecucion || '-') + '\n\n' +
     'Ingresos leídos: ' + r.resultado.leidos + '\n' +
-    'Válidos: ' + r.resultado.validos + '\n' +
-    'Con error: ' + r.resultado.conError + '\n\n' +
+    'Validación → OK: ' + r.resultado.validacionOk +
+    ' · WARNING: ' + r.resultado.validacionWarning +
+    ' · ERROR: ' + r.resultado.validacionError + '\n\n' +
     'Pacientes nuevos: ' + r.resultado.nuevos + '\n' +
-    'Pacientes existentes: ' + r.resultado.existentes + '\n' +
+    'Pacientes existentes (evento enlazado): ' + r.resultado.existentes + '\n' +
     'Requieren revisión: ' + r.resultado.revision + '\n' +
     'Eventos creados: ' + r.resultado.eventosCreados + '\n\n' +
     '(' + r.ms + ' ms)');

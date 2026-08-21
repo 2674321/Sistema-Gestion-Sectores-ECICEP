@@ -251,7 +251,7 @@ const DATASET_STAGING = {
     // estratificación no clasificable ('Z') → WARNING + conservar original
     estratBasura: {
       origen: { archivo: 'MUESTRA', hoja: 'H1', fila: 97, sector: 'NARANJO' },
-      valores: { NOMBRE: 'Jorge Jara Jara', RUT: '77777777-6', SECTOR: 'NARANJO', ESTRATIFICACION: 'Z', FECHA_INGRESO: '15/02/2026' }
+      valores: { NOMBRE: 'Jorge Jara Jara', RUT: '77777777-7', SECTOR: 'NARANJO', ESTRATIFICACION: 'Z', FECHA_INGRESO: '15/02/2026' }
     },
     // preingreso semántico textual se conserva
     preingresoTexto: {

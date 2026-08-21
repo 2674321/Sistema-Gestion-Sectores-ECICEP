@@ -41,6 +41,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_duplicados_lote(t, A);
   _pruebas_eventos_staging(t, A);
   _pruebas_ingresos_3b(t, A);
+  _pruebas_gate_trazabilidad(t, A);
   _pruebas_contrato_ingreso(t, A);
   _pruebas_vistas_sector(t, A);
   _pruebas_utilidades(t, A);
@@ -634,7 +635,75 @@ function _pruebas_ingresos_3b(t, A) {
 }
 
 // ---------------------------------------------------------------------------
-// ETAPA 3b-fix — contrato instalador↔adaptador y vistas SECTOR_*
+// ETAPA 3b-fix — tabla de verdad del gate + trazador por etapa
+// ---------------------------------------------------------------------------
+
+function _pruebas_gate_trazabilidad(t, A) {
+  var indices = Iden_construirIndices(DATASET_STAGING.base);
+
+  t('GATE tabla: OK + SIN_MATCH → CREAR_PACIENTE', function () {
+    var f = _stagingCaso('nuevoOk', 40);
+    var tr = Ingresos_trazarFila(f, indices);
+    A.igual(tr.estadoValidacion, 'OK', 'validación');
+    A.igual(tr.identificacion.resultado, 'SIN_MATCH', 'identificación');
+    A.igual(tr.decisionGate, 'CREAR_PACIENTE', 'gate');
+    A.igual(tr.motivoBloqueo, '', 'sin bloqueo');
+  });
+  t('GATE tabla: WARNING + SIN_MATCH → CREAR_PACIENTE (warning NO bloquea)', function () {
+    var f = _stagingCaso('telefonoDeformado', 41);
+    var tr = Ingresos_trazarFila(f, indices);
+    A.igual(tr.estadoValidacion, 'WARNING', 'validación');
+    A.igual(tr.decisionGate, 'CREAR_PACIENTE', 'gate');
+    A.igual(tr.motivoBloqueo, '', 'procesable');
+  });
+  t('GATE tabla: ERROR (DV incorrecto) → BLOQUEADO con motivo trazable', function () {
+    var f = _stagingCaso('rutInvalido', 42);
+    var tr = Ingresos_trazarFila(f, indices);
+    A.igual(tr.decisionGate, 'BLOQUEADO', 'gate');
+    A.cierto(tr.motivoBloqueo.indexOf('RUT') !== -1 && tr.motivoBloqueo.indexOf('DV') !== -1, 'motivo');
+  });
+  t('GATE tabla: OK + MATCH_EXACTO → ENLAZAR_EXISTENTE', function () {
+    var f = _stagingCaso('existenteRut', 43);
+    var tr = Ingresos_trazarFila(f, indices);
+    A.igual(tr.identificacion.resultado, 'MATCH_EXACTO', 'identificación');
+    A.igual(tr.decisionGate, 'ENLAZAR_EXISTENTE', 'gate');
+  });
+  t('GATE tabla: POSIBLE_DUPLICADO sin confirmar → REVISION', function () {
+    var f = _stagingCaso('posibleDuplicadoNombre', 44);
+    var tr = Ingresos_trazarFila(f, indices);
+    A.igual(tr.identificacion.resultado, 'POSIBLE_DUPLICADO', 'identificación conservadora intacta (DEC-024)');
+    A.igual(tr.decisionGate, 'REVISION', 'nunca automático');
+  });
+
+  t('MÉTRICAS separadas: lote mixto desglosado por concepto', function () {
+    var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
+    var s = Ingresos_procesarFilas([
+      _stagingCaso('nuevoOk', 50),            // validación OK → nuevo
+      _stagingCaso('telefonoDeformado', 51),  // validación WARNING → nuevo
+      _stagingCaso('rutInvalido', 52),        // validación ERROR → bloqueado
+      _stagingCaso('posibleDuplicadoNombre', 53) // revisión
+    ], store, { nuevoId: function (i) { return 'EC-TEST-MX' + i; } });
+    A.igual(s.resumen.leidos, 4, 'leídos');
+    A.igual(s.resumen.validacionOk, 1, 'validación OK (solo nuevoOk)');
+    A.igual(s.resumen.validacionWarning, 2, 'validación WARNING');
+    A.igual(s.resumen.validacionError, 1, 'validación ERROR');
+    A.igual(s.resumen.bloqueados, 1, 'bloqueados');
+    A.igual(s.resumen.conError, 1, 'conError == validacionError (ya no mezcla conceptos)');
+    A.igual(s.resumen.nuevos, 2, 'creados (OK y WARNING)');
+    A.igual(s.resumen.revision, 1, 'revisión');
+    A.igual(s.resumen.eventosCreados, 2, 'eventos solo de procesadas');
+  });
+
+  t('DATASET: estratBasura corregido a RUT válido → ya no es ERROR', function () {
+    var f = _stagingCaso('estratBasura', 54);
+    A.cierto(f.NORMALIZADO.RUT_ESTADO === 'OK' || f.NORMALIZADO.RUT_ESTADO === 'SIN_DV',
+      'RUT del caso estratBasura válido (era bug del dataset)');
+    A.cierto(!f.ERRORES.some(function (e) { return e.campo === 'RUT'; }), 'sin error de RUT');
+    A.cierto(f.WARNINGS.some(function (w) { return w.campo === 'ESTRATIFICACION'; }),
+      'sigue advirtiendo la estratificación Z');
+  });
+}
+
 // ---------------------------------------------------------------------------
 
 function _pruebas_contrato_ingreso(t, A) {

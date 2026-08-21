@@ -269,6 +269,20 @@ encabezados físicos, mapeo y primer error por fila: los fallos de integración 
 diagnostican con datos, no con suposiciones.
 **Fecha:** 2026-08-21
 
+## DEC-030
+**Título:** Métricas separadas por etapa en el resumen de procesamiento
+**Estado:** Aprobada (ETAPA 3b — corrección de diagnóstico)
+**Motivo:** El resumen mezclaba conceptos bajo un solo contador ("Con error"),
+impidiendo distinguir si una fila falló en VALIDACIÓN, en el GATE o nunca llegó a
+procesarse. Nuevo desglose inmutable: validacionOk / validacionWarning /
+validacionError (= conError) · bloqueados · nuevos / existentes · revision ·
+eventosCreados, más versión del sistema visible en cada alerta. Adicionalmente:
+`Ingresos_trazarFila` expone el recorrido completo (validación → identificación →
+gate → motivo) por fila; tabla de verdad del gate cubierta por pruebas; RUT
+mal calculado en el caso ficticio estratBasura corregido EN EL DATASET (no en el
+validador), confirmando que el validador era correcto.
+**Fecha:** 2026-08-21
+
 ## DEC-008
 **Título:** Un solo proyecto Apps Script + separación lógica DEV/PROD (no 3 entornos físicos)
 **Estado:** Propuesta
