@@ -19,6 +19,9 @@ function onOpen() {
       .addItem('🧾 Cola de revisión', 'UI_abrirRevision')
       .addSeparator()
       .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
+      .addItem('🔑 Configurar acceso remoto', 'UI_configurarWebhook')
+      .addSeparator()
+      .addItem('⚡ Demo completa (instalar+sembrar+procesar)', 'UI_demoCompleta')
       .addItem('🧪 Sembrar datos ficticios (prueba)', 'UI_sembrarFicticios')
       .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas')
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -94,6 +97,13 @@ function UI_diagnosticarIngresos() {
  * Incluye casos que terminan en error/revisión a propósito.
  */
 function UI_sembrarFicticios() {
+  var total = Sembrar_ficticios();
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    total + ' filas ficticias sembradas en las hojas de ingreso. Usa "📥 Procesar ingresos".', 'ECICEP — PRUEBA', 10);
+}
+
+/** Núcleo headless del sembrado (reutilizado por webhook). */
+function Sembrar_ficticios() {
   var casos = DATASET_STAGING.casos;
   var porHoja = {};
   Object.keys(casos).forEach(function (nombre) {
@@ -120,8 +130,27 @@ function UI_sembrarFicticios() {
     });
     total += Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
   });
-  SpreadsheetApp.getActiveSpreadsheet().toast(
-    total + ' filas ficticias sembradas en las hojas de ingreso. Usa "📥 Procesar ingresos".', 'ECICEP — PRUEBA', 10);
+  Log_info('Sembrar', 'ficticios', total + ' filas');
+  return total;
+}
+
+/** Un solo clic: instala, siembra ficticios, procesa y refresca vistas. */
+function UI_demoCompleta() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('Demo completa en curso…', 'ECICEP', 15);
+  var pasos = {};
+  pasos.estructura = Modelo_crearEstructura();
+  pasos.sembradas = Sembrar_ficticios();
+  pasos.proceso = Ingresos_procesarTodasLasHojas({});
+  pasos.vistas = Modelo_refrescarVistasSectores();
+  Log_info('UI', 'demoCompleta', JSON.stringify(pasos.proceso));
+  Log_flush();
+  ss.toast(
+    'Demo lista ✓ Sembradas: ' + pasos.sembradas +
+    ' · Nuevos: ' + pasos.proceso.nuevos +
+    ' · Enlazados: ' + pasos.proceso.existentes +
+    ' · Errores: ' + pasos.proceso.conError +
+    ' · Eventos: ' + pasos.proceso.eventosCreados, 'ECICEP ⚡', 20);
 }
 
 // ===========================================================================

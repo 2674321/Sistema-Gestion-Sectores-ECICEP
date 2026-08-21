@@ -717,6 +717,11 @@ function _pruebas_gate_trazabilidad(t, A) {
     A.cierto(f.WARNINGS.some(function (w) { return w.campo === 'ESTRATIFICACION'; }),
       'sigue advirtiendo la estratificación Z');
   });
+  t('WEBHOOK: catálogo de acciones no destructivas definido', function () {
+    A.cierto(WEBHOOK_ACCIONES.indexOf('procesar') !== -1, 'procesar permitido');
+    A.cierto(WEBHOOK_ACCIONES.indexOf('limpiar_prueba') !== -1, 'limpieza de prueba permitida');
+    A.cierto(WEBHOOK_ACCIONES.indexOf('borrar_todo') === -1, 'jamás existe borrar_todo');
+  });
 }
 
 // ---------------------------------------------------------------------------
