@@ -12,6 +12,8 @@ function onOpen() {
       .createMenu('ECICEP')
       .addItem('⚙ Instalar / reparar estructura', 'UI_instalarEstructura')
       .addItem('📥 Procesar ingresos', 'UI_procesarIngresos')
+      .addItem('🔄 Actualizar vistas SECTOR', 'UI_refrescarSectores')
+      .addItem('🩺 Diagnosticar ingresos', 'UI_diagnosticarIngresos')
       .addSeparator()
       .addItem('🧪 Sembrar datos ficticios (prueba)', 'UI_sembrarFicticios')
       .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas')
@@ -64,6 +66,21 @@ function UI_procesarIngresos() {
     'Requieren revisión: ' + r.resultado.revision + '\n' +
     'Eventos creados: ' + r.resultado.eventosCreados + '\n\n' +
     '(' + r.ms + ' ms)');
+}
+
+/** Regenera las vistas SECTOR_* desde PACIENTES (nunca bases independientes). */
+function UI_refrescarSectores() {
+  var r = Utl_medir(Modelo_refrescarVistasSectores);
+  Log_info('UI', 'refrescarSectores', JSON.stringify(r.resultado), null, r.ms);
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    'Vistas actualizadas — ' + JSON.stringify(r.resultado) + ' (' + r.ms + ' ms)', 'ECICEP', 8);
+}
+
+/** Diagnóstico: por qué fallan los ingresos (encabezados, mapeo, errores). */
+function UI_diagnosticarIngresos() {
+  Ingresos_diagnosticar();
+  var hoja = Modelo_ss().getSheetByName('DIAGNOSTICO');
+  if (hoja) SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(hoja);
 }
 
 /**

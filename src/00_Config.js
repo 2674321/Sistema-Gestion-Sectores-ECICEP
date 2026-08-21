@@ -39,15 +39,27 @@ const HOJAS = {
 };
 
 // ---------------------------------------------------------------------------
-// Hojas de ingreso por sector (ETAPA 3b) — puertas de entrada del usuario.
-// Nombres según rotulación de la cliente ("NARANJA"); el sector canónico
-// interno es NARANJO (DEC-018). El sector NUNCA se digita: lo define la hoja.
+// Hojas de ingreso y vistas sectoriales (ETAPA 3b / corrección arquitectónica)
+//   - Nombre OFICIAL: INGRESO_NARANJO (ortografía canónica); INGRESO_NARANJA
+//     se mantiene como alias aceptado para compatibilidad.
+//   - El sector NUNCA se digita: lo define la hoja.
+//   - INGRESO_COLUMNAS es el CONTRATO ÚNICO compartido por instalador,
+//     sembrador y adaptador (DEC-029).
 // ---------------------------------------------------------------------------
 const HOJAS_INGRESO = {
-  'INGRESO_NARANJA': 'NARANJO',
+  'INGRESO_NARANJO': 'NARANJO',
+  'INGRESO_NARANJA': 'NARANJO', // alias aceptado
   'INGRESO_AMARILLO': 'AMARILLO',
   'INGRESO_VERDE': 'VERDE'
 };
+
+const HOJAS_SECTOR = ['SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE'];
+
+const INGRESO_COLUMNAS = [
+  'NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)',
+  'FECHA DE INGRESO', 'ESTRATIFICACION', 'DUPLA INGRESO', 'OBSERVACIONES',
+  'ESTADO_INGRESO', 'NOTA_SISTEMA'
+];
 
 // Campos operativos que el usuario completa en una hoja de ingreso.
 // ESTADO_INGRESO / NOTA_SISTEMA son columnas del SISTEMA (no se importan).
@@ -61,6 +73,14 @@ const COLUMNAS_EVENTOS = [
   'ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA_EVENTO', 'TIPO_EVENTO',
   'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'PROFESIONAL_TIPO', 'DESCRIPCION',
   'CANTIDAD', 'OBSERVACIONES', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'
+];
+
+// Columnas de las vistas operativas SECTOR_* (derivadas de PACIENTES,
+// NUNCA bases independientes — corrección arquitectónica ETAPA 3b)
+const COLUMNAS_SECTOR_VISTA = [
+  'RUT', 'NOMBRE', 'TELEFONOS', 'ESTRATIFICACION', 'ESTADO',
+  'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
+  'OBSERVACIONES'
 ];
 
 // ---------------------------------------------------------------------------

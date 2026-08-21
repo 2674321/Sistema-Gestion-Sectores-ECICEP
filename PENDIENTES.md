@@ -18,7 +18,7 @@
 
 | # | Pendiente | Tipo | Bloquea | Prioridad |
 |---|---|---|---|---|
-| 12 | Rotulación oficial del sector: fuentes dicen **NARANJO**, requisito dice **NARANJA**. Internamente es uno solo (alias aceptado); falta decidir la etiqueta visible | Consulta cliente | Etiquetas UI/REM | MEDIA |
+| 12 | Rotulación del sector resuelta en hojas: oficial **INGRESO_NARANJO / SECTOR_NARANJO** con alias INGRESO_NARANJA aceptado (DEC-029). Falta solo confirmar la etiqueta visible definitiva en UI/REM | Confirmado parcialmente (DEC-029) | Etiquetas REM | BAJA |
 | 13 | Correos de responsables por sector (para protecciones SECTOR_*/INGRESO_*) | Consulta cliente | Configurar protecciones | ALTA en ETAPA 4 |
 | 14 | Catálogo de condiciones/patologías + mecanismo de captura (motor G necesita CONDICIONES); disponibilidad de FECHA_NACIMIENTO y SEXO (fuentes actuales no los traen) | Consulta cliente | Estratificación automática, Edad/Sexo en REM | ALTA |
 | 15 | Umbrales oficiales cantidad-de-patologías→G1/G2/G3 y definición operativa de PLAN_CUIDADO, GESTION_CASO_INGRESO/EGRESO | Consulta cliente | Activar motor G; semántica de eventos REM | ALTA |

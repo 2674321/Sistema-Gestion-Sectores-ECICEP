@@ -22,6 +22,38 @@ function Ingresos_hojaASector(nombreHoja) {
   return HOJAS_INGRESO[k] || '';
 }
 
+/** Contrato único de columnas físicas de las hojas INGRESO_* (DEC-029). */
+function Ingresos_columnasHoja() {
+  return INGRESO_COLUMNAS.slice();
+}
+
+/**
+ * PURA: mapea los encabezados físicos de una hoja INGRESO_* a campos del
+ * modelo. Traduce el canónico de encabezado 'TELEFONO' al campo del modelo
+ * 'TELEFONOS' (contrato instalador↔adaptador, corrección ETAPA 3b).
+ * @param {Array} encabezados fila 1 cruda
+ * @returns {campos:{campoModelo:idxCol}, estadoIdx:number, notaIdx:number,
+ *           desconocidos:[{col, texto}]}
+ */
+function Ingresos_mapearEncabezadosHoja(encabezados) {
+  var campos = {}, estadoIdx = -1, notaIdx = -1, desconocidos = [];
+  (encabezados || []).forEach(function (h, i) {
+    var clave = Utl_claveAlnum(h);
+    if (clave === 'ESTADOINGRESO') { estadoIdx = i; return; }
+    if (clave === 'NOTASISTEMA') { notaIdx = i; return; }
+    if (clave === '') return;
+    var m = Norm_mapearEncabezado(h);
+    // traducción encabezado→modelo: TELEFONO (canonico de FONO/CELULAR/TELEFONOS)
+    var campo = (m.canonico === 'TELEFONO') ? 'TELEFONOS' : m.canonico;
+    if (m.conocido && CAMPOS_INGRESO_OPERATIVOS.indexOf(campo) !== -1) {
+      if (campos[campo] === undefined) campos[campo] = i;
+    } else {
+      desconocidos.push({ col: i + 1, texto: Utl_texto(h) });
+    }
+  });
+  return { campos: campos, estadoIdx: estadoIdx, notaIdx: notaIdx, desconocidos: desconocidos };
+}
+
 // ---------------------------------------------------------------------------
 // Capa pura
 // ---------------------------------------------------------------------------
@@ -191,19 +223,9 @@ function Ingresos_leerHoja(nombreHoja) {
   if (!hoja) return { staging: [], hoja: null };
   var valores = Utl_leerBloque(hoja);
   if (valores.length < 2) return { staging: [], hoja: hoja };
-  var encabezados = valores[0];
-  var idxCampos = {}, idxEstado = -1, idxNota = -1;
-  encabezados.forEach(function (h, i) {
-    var clave = Utl_claveAlnum(h);
-    if (clave === 'ESTADOINGRESO') idxEstado = i;
-    else if (clave === 'NOTASISTEMA') idxNota = i;
-    else {
-      var m = Norm_mapearEncabezado(h);
-      if (m.conocido && CAMPOS_INGRESO_OPERATIVOS.indexOf(m.canonico) !== -1 && idxCampos[m.canonico] === undefined) {
-        idxCampos[m.canonico] = i;
-      }
-    }
-  });
+  var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
+  var idxCampos = mapa.campos;
+  var idxEstado = mapa.estadoIdx, idxNota = mapa.notaIdx;
   var sector = Ingresos_hojaASector(nombreHoja);
   var staging = [];
   for (var f = 1; f < valores.length; f++) {
@@ -307,7 +329,16 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   // 5) estados de vuelta en las hojas de ingreso
   Ingresos_escribirEstados(salida.resultados);
 
+  // 6) reflejar el resultado en las vistas sectoriales (derivadas, no bases)
+  var vistas = null;
+  try {
+    if (typeof Modelo_refrescarVistasSectores === 'function') vistas = Modelo_refrescarVistasSectores();
+  } catch (e) {
+    Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
+  }
+
   salida.resumen.usuario = _ingresosUsuarioActual();
+  salida.resumen.vistasSector = vistas;
   Log_info('Ingresos', 'procesar', JSON.stringify({
     leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,
     existentes: salida.resumen.existentes, revision: salida.resumen.revision,
@@ -324,4 +355,68 @@ function Ingresos_hojaParaSector(sectorCanonica) {
     if (HOJAS_INGRESO.hasOwnProperty(hoja) && HOJAS_INGRESO[hoja] === sectorCanonica) return hoja;
   }
   return '';
+}
+
+/**
+ * Diagnóstico de integración: por cada hoja INGRESO_* reporta encabezados
+ * físicos, mapeo reconocido/desconocido, filas pendientes y un histograma
+ * del PRIMER error de cada fila. Escribe el reporte en la hoja DIAGNOSTICO
+ * para que el usuario vea exactamente por qué falla cada fila.
+ */
+function Ingresos_diagnosticar() {
+  var ss = Modelo_ss();
+  var lineas = [];
+  Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
+    var hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja) {
+      lineas.push([nombreHoja, 'HOJA NO EXISTE', '', '', '']);
+      return;
+    }
+    var valores = Utl_leerBloque(hoja);
+    var mapa = Ingresos_mapearEncabezadosHoja(valores[0] || []);
+    var faltantes = CAMPOS_INGRESO_OPERATIVOS.filter(function (c) { return mapa.campos[c] === undefined; });
+    lineas.push([nombreHoja, 'ENCABEZADOS', 'reconocidos', JSON.stringify(Object.keys(mapa.campos)), '']);
+    lineas.push([nombreHoja, 'ENCABEZADOS', 'faltantes', JSON.stringify(faltantes), '']);
+    if (mapa.desconocidos.length) {
+      lineas.push([nombreHoja, 'DESCONOCIDOS',
+        mapa.desconocidos.length + ' col', JSON.stringify(mapa.desconocidos), '']);
+    }
+    if (!faltantes.length && valores.length >= 2) {
+      var histograma = {};
+      for (var f = 1; f < valores.length; f++) {
+        var filaVal = valores[f];
+        var nombreRaw = mapa.campos.NOMBRE !== undefined ? filaVal[mapa.campos.NOMBRE] : '';
+        var rutRaw = mapa.campos.RUT !== undefined ? filaVal[mapa.campos.RUT] : '';
+        if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue;
+        var v = {};
+        CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
+          if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
+        });
+        var stg = Fuentes_normalizar(Fuentes_crearFila(
+          { archivo: 'DIAG', hoja: nombreHoja, fila: f + 1, sector: HOJAS_INGRESO[nombreHoja] }, v));
+        if (stg.ESTADO_VALIDACION === 'ERROR') {
+          var e0 = stg.ERRORES[0];
+          var llave = e0.campo + ': ' + e0.mensaje;
+          histograma[llave] = (histograma[llave] || 0) + 1;
+        } else if (stg.ESTADO_VALIDACION === 'WARNING') {
+          histograma['(WARNING)'] = (histograma['(WARNING)'] || 0) + 1;
+        } else {
+          histograma['(OK)'] = (histograma['(OK)'] || 0) + 1;
+        }
+      }
+      Object.keys(histograma).forEach(function (k) {
+        lineas.push([nombreHoja, 'FILAS', String(histograma[k]), k, '']);
+      });
+    }
+  });
+
+  // volcar a hoja DIAGNOSTICO (sobrescribe contenido previo)
+  var hojaD = ss.getSheetByName('DIAGNOSTICO');
+  if (!hojaD) hojaD = ss.insertSheet('DIAGNOSTICO');
+  hojaD.clearContents();
+  Utl_escribirBloque(hojaD, 1, 1, [['HOJA', 'TIPO', 'CANTIDAD/CLAVE', 'DETALLE', '']]);
+  Utl_escribirBloque(hojaD, 2, 1, lineas);
+  Log_info('Ingresos', 'diagnosticar', JSON.stringify(lineas).substring(0, 450));
+  Log_flush();
+  return lineas;
 }

@@ -47,9 +47,10 @@ _MODELO_HOJAS_DEF[HOJAS.CONFIG] = ['CLAVE', 'VALOR', 'DESCRIPCION'];
 _MODELO_HOJAS_DEF[HOJAS.PACIENTES] = null; // usa MODELO_PACIENTE
 _MODELO_HOJAS_DEF[HOJAS.STAGING_IMPORT] = ['ID_PROVISIONAL', 'ARCHIVO_ORIGEN', 'HOJA_ORIGEN', 'FILA_ORIGEN', 'SECTOR_ORIGEN', 'ESTADO_VALIDACION', 'ERRORES', 'WARNINGS', 'IDENTIFICACION', 'VALORES_ORIGINALES', 'NORMALIZADO', 'FUENTE'];
 _MODELO_HOJAS_DEF[HOJAS.EVENTOS] = COLUMNAS_EVENTOS;
-// Puertas de entrada por sector (ETAPA 3b): columnas operativas + sistema
-var _INGRESO_ENCABEZADOS = ['NOMBRE', 'RUT', 'SEXO', 'FECHA NACIMIENTO', 'TELEFONO(S)', 'FECHA INGRESO', 'ESTRATIFICACION', 'DUPLA INGRESO', 'OBSERVACIONES', 'ESTADO_INGRESO', 'NOTA_SISTEMA'];
-Object.keys(HOJAS_INGRESO).forEach(function (h) { _MODELO_HOJAS_DEF[h] = _INGRESO_ENCABEZADOS; });
+// Puertas de entrada por sector (contrato único INGRESO_COLUMNAS, DEC-029)
+Object.keys(HOJAS_INGRESO).forEach(function (h) { _MODELO_HOJAS_DEF[h] = INGRESO_COLUMNAS; });
+// Vistas operativas sectoriales (derivadas de PACIENTES — nunca bases independientes)
+HOJAS_SECTOR.forEach(function (h) { _MODELO_HOJAS_DEF[h] = COLUMNAS_SECTOR_VISTA; });
 _MODELO_HOJAS_DEF[HOJAS.LOG] = ['FECHA', 'NIVEL', 'MODULO', 'OPERACION', 'MENSAJE', 'DURACION_MS', 'CONTEXTO'];
 _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'DETALLE', 'FUENTE_A', 'FUENTE_B', 'ESTADO_REVISION', 'RESUELTO_POR'];
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
@@ -225,4 +226,45 @@ function Modelo_agregarEventos(eventos, registradoPor) {
     });
   });
   return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
+}
+
+// ---------------------------------------------------------------------------
+// Vistas operativas SECTOR_* (derivadas de PACIENTES — corrección arquitectónica)
+// ---------------------------------------------------------------------------
+
+/**
+ * PURA: filas de la vista para un sector, según COLUMNAS_SECTOR_VISTA.
+ * Solo incluye pacientes cuyo SECTOR vigente coincida exactamente.
+ */
+function Modelo_vistaSectorDesdePacientes(pacientes, sector) {
+  return (pacientes || [])
+    .filter(function (p) { return Utl_texto(p.SECTOR).toUpperCase() === sector; })
+    .map(function (p) {
+      return COLUMNAS_SECTOR_VISTA.map(function (c) {
+        var v = p[c];
+        return (v === undefined || v === null) ? '' : v;
+      });
+    });
+}
+
+/**
+ * Regenera el contenido de las tres hojas SECTOR_* desde PACIENTES.
+ * Sobrescribe SOLO el área de datos (fila 2+); los encabezados jamás se tocan.
+ * @returns {SECTOR_NARANJO:n, SECTOR_AMARILLO:n, SECTOR_VERDE:n}
+ */
+function Modelo_refrescarVistasSectores() {
+  var pacientes = Modelo_leerPacientes();
+  var conteo = {};
+  HOJAS_SECTOR.forEach(function (nombreHoja) {
+    var sector = nombreHoja.replace('SECTOR_', '');
+    conteo[sector] = 0;
+    var hoja = Modelo_ss().getSheetByName(nombreHoja);
+    if (!hoja) return;
+    // limpia área de datos completa antes de reescribir
+    hoja.getRange(2, 1, Math.max(hoja.getMaxRows() - 1, 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
+    var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector);
+    if (filas.length) Utl_escribirBloque(hoja, 2, 1, filas);
+    conteo[sector] = filas.length;
+  });
+  return conteo;
 }

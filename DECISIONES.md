@@ -254,6 +254,21 @@ creada). Trazabilidad: staging completo a STAGING_IMPORT + resumen al LOG con
 ID de ejecución.
 **Fecha:** 2026-08-21
 
+## DEC-029
+**Título:** Corrección integración: contrato único INGRESO_COLUMNAS + SECTOR_* como vistas + diagnóstico
+**Estado:** Aprobada (ETAPA 3b — corrección tras ejecución real con 36/36 errores)
+**Motivo:** (a) Contrato único `INGRESO_COLUMNAS` compartido por instalador,
+sembrador y adaptador; el mapeo se centraliza en `Ingresos_mapearEncabezadosHoja`
+con traducción encabezado 'TELEFONO'→campo modelo 'TELEFONOS' (bug que descartaba
+teléfonos). (b) Nombre oficial de hoja = INGRESO_NARANJO (ortografía canónica);
+INGRESO_NARANJA queda como alias aceptado. (c) SECTOR_NARANJO/AMARILLO/VERDE son
+VISTAS derivadas de PACIENTES (`Modelo_vistaSectorDesdePacientes` +
+`Modelo_refrescarVistasSectores`, refresco batch tras cada procesamiento y menú
+🔄) — nunca bases independientes. (d) Hoja DIAGNOSTICO + menú 🩺 para ver
+encabezados físicos, mapeo y primer error por fila: los fallos de integración se
+diagnostican con datos, no con suposiciones.
+**Fecha:** 2026-08-21
+
 ## DEC-008
 **Título:** Un solo proyecto Apps Script + separación lógica DEV/PROD (no 3 entornos físicos)
 **Estado:** Propuesta

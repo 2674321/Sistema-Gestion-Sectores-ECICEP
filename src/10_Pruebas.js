@@ -41,6 +41,8 @@ function Pruebas_ejecutarTodo() {
   _pruebas_duplicados_lote(t, A);
   _pruebas_eventos_staging(t, A);
   _pruebas_ingresos_3b(t, A);
+  _pruebas_contrato_ingreso(t, A);
+  _pruebas_vistas_sector(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -628,6 +630,77 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(s.resumen.revision, 1, 'revisión');
     A.igual(s.resumen.eventosCreados, 2, 'eventos creados');
     A.igual(s.resumen.validos, 2, 'válidos');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 3b-fix — contrato instalador↔adaptador y vistas SECTOR_*
+// ---------------------------------------------------------------------------
+
+function _pruebas_contrato_ingreso(t, A) {
+  t('CONTRATO: todos los encabezados del instalador son procesables por el adaptador', function () {
+    var mapa = Ingresos_mapearEncabezadosHoja(Ingresos_columnasHoja());
+    var faltantes = CAMPOS_INGRESO_OPERATIVOS.filter(function (c) { return mapa.campos[c] === undefined; });
+    A.arreglos(faltantes, [], 'sin campos operativos sin mapear');
+    A.cierto(mapa.estadoIdx !== -1, 'columna ESTADO_INGRESO detectada');
+    A.cierto(mapa.notaIdx !== -1, 'columna NOTA_SISTEMA detectada');
+    A.igual(mapa.desconocidos.length, 0, 'sin columnas desconocidas');
+  });
+  t('CONTRATO: regresión TELEFONO(S) → campo TELEFONOS del modelo', function () {
+    var mapa = Ingresos_mapearEncabezadosHoja(Ingresos_columnasHoja());
+    A.cierto(mapa.campos.TELEFONOS !== undefined, 'TELEFONOS capturado (bug corregido)');
+  });
+  t('CONTRATO: etiquetas antiguas siguen mapeando (compatibilidad hojas existentes)', function () {
+    var mapa = Ingresos_mapearEncabezadosHoja(
+      ['NOMBRE', 'RUT', 'FECHA NACIMIENTO', 'TELEFONO(S)', 'FECHA INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']);
+    A.cierto(mapa.campos.FECHA_NACIMIENTO !== undefined, 'FECHA NACIMIENTO');
+    A.cierto(mapa.campos.TELEFONOS !== undefined, 'TELEFONO(S)');
+    A.cierto(mapa.campos.FECHA_INGRESO !== undefined, 'FECHA INGRESO');
+  });
+  t('CONTRATO: nombres de hoja oficiales y alias', function () {
+    A.igual(Ingresos_hojaASector('INGRESO_NARANJO'), 'NARANJO', 'ortografía oficial');
+    A.igual(Ingresos_hojaASector('INGRESO_NARANJA'), 'NARANJO', 'alias cliente mantenido');
+    A.igual(Ingresos_hojaASector('INGRESO_AMARILLO'), 'AMARILLO', 'amarillo');
+    A.igual(Ingresos_hojaASector('INGRESO_VERDE'), 'VERDE', 'verde');
+  });
+  t('CONTRATO: fila simulada con plantilla real se valida sin ERROR estructural', function () {
+    // replica exactamente lo que el instalador crea + lo que el sembrador escribe
+    var encabezados = Ingresos_columnasHoja();
+    var valores = ['Carla Test Verde', '15234987-4', 'F', '', '968112233', '05/03/2026', 'G2', '', '', 'PENDIENTE', 'PRUEBA'];
+    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var v = {};
+    CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
+      if (mapa.campos[c] !== undefined) v[c] = valores[mapa.campos[c]];
+    });
+    var f = Fuentes_normalizar(Fuentes_crearFila(
+      { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_VERDE', fila: 2, sector: Ingresos_hojaASector('INGRESO_VERDE') }, v));
+    A.igual(f.ESTADO_VALIDACION, 'OK', 'fila de plantilla oficial procesa limpia');
+    A.igual(f.NORMALIZADO.SECTOR, 'VERDE', 'sector heredado de la hoja');
+  });
+}
+
+// ---------------------------------------------------------------------------
+
+function _pruebas_vistas_sector(t, A) {
+  var pacientesVarios = [
+    { RUT: '1-1', NOMBRE: 'UNO VERDE', SECTOR: 'VERDE', ESTRATIFICACION: 'G2', TELEFONOS: '911111111' },
+    { RUT: '2-2', NOMBRE: 'DOS AMARILLO', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G3', TELEFONOS: '' },
+    { RUT: '3-3', NOMBRE: 'TRES NARANJO', SECTOR: 'NARANJO', ESTRATIFICACION: '', TELEFONOS: '' }
+  ];
+  t('VISTA SECTOR: filtra por sector territorial (dimensión independiente de G)', function () {
+    var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE');
+    A.igual(verde.length, 1, 'solo el paciente VERDE');
+    A.igual(verde[0][0], '1-1', 'rut en primera columna de vista');
+    A.igual(verde[0][3], 'G2', 'estratificación mostrada, no confundida con sector');
+    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'AMARILLO').length, 1, 'amarillo');
+    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'NARANJO').length, 1, 'naranjo');
+  });
+  t('VISTA SECTOR: es derivada e idempotente (nunca base independiente)', function () {
+    var a = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE');
+    var b = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE');
+    A.arreglos(a, b, 'misma entrada → misma salida');
+    // G3 en AMARILLO no convierte al sector en nivel de riesgo:
+    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'G3').length, 0, 'G no es un sector');
   });
 }
 
