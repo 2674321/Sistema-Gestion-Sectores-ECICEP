@@ -84,3 +84,5 @@ function UI_configurarWebhook() {
   PropertiesService.getScriptProperties().setProperty('WEBHOOK_TOKEN', token);
   ui.alert('Token guardado.\n\nRecuerda publicar/actualizar la aplicación web\n(Ejecutar como: yo · Acceso: cualquiera con el enlace)\ny compartir la URL …/exec con el asistente.');
 }
+
+// v0.4.1
