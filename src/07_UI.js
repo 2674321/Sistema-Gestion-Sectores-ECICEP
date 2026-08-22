@@ -25,6 +25,8 @@ function onOpen() {
       .addSeparator()
       .addItem('📋 Diagnosticar fuentes reales', 'UI_diagnosticarFuentes')
       .addItem('📥 Importar muestra (DRY RUN, 10 filas/sector)', 'UI_importarMuestra')
+      .addItem('📊 Análisis de carga real (todas las hojas)', 'UI_analisisCarga')
+      .addItem('🚀 EJECUTAR carga real', 'UI_ejecutarCarga')
       .addItem('🧪 Sembrar datos ficticios (prueba)', 'UI_sembrarFicticios')
       .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas')
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -439,4 +441,88 @@ function UI_vaciarDatosPrueba() {
     'Pacientes eliminados: ' + r.pacientes + '\n' +
     'Eventos eliminados: ' + r.eventos + '\n\n' +
     'SECTOR_* refrescadas.');
+}
+
+// ===========================================================================
+// ETAPA 5 — Carga real controlada (análisis + ejecución con gate)
+// ===========================================================================
+
+function UI_analisisCarga() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('Analizando fuentes reales (DRY RUN, no escribe nada)…', 'ECICEP', 15);
+  var r = Fuentes_cargaReal({ ejecutar: false });
+  var res = r.resumen;
+
+  var hojaR = ss.getSheetByName('CARGA_ANALISIS');
+  if (!hojaR) hojaR = ss.insertSheet('CARGA_ANALISIS');
+  hojaR.clearContents();
+  Utl_escribirBloque(hojaR, 1, 1, [[
+    'FUENTE|HOJA','FILA','VALIDACIÓN','RUT','NOMBRE','SECTOR','ESTRAT','GATE','NOTA'
+  ]]);
+  r.detalle.forEach(function (d, i) {
+    Utl_escribirBloque(hojaR, i + 2, 1, [[
+      d.fuenteOrigen || '', d.fila || '', d.estado || '', d.rut || '',
+      d.nombre || '', d.sector || '', d.estratificacion || '',
+      d.gate || '', d.nota || ''
+    ]]);
+  });
+
+  Log_info('UI', 'analisisCarga', JSON.stringify(res));
+  Log_flush();
+  ss.setActiveSheet(hojaR);
+  ui = SpreadsheetApp.getUi();
+  ui.alert(
+    'ANÁLISIS DE CARGA REAL — DRY RUN\n\n' +
+    'Ejecución: ' + res.ejecucion + '\n' +
+    'Registros leídos: ' + res.leidos + '\n' +
+    'Ya importados previamente: ' + (res.yaImportadas || 0) + '\n\n' +
+    'Validación → OK: ' + res.validacionOk +
+    ' · WARNING: ' + res.validacionWarning +
+    ' · ERROR: ' + res.validacionError + '\n\n' +
+    'Si se ejecutara:\n' +
+    '  Pacientes nuevos: ' + res.nuevos + '\n' +
+    '  Existentes enlazados: ' + res.existentes + '\n' +
+    '  Requieren revisión: ' + res.revision + '\n' +
+    '  Eventos creados: ' + res.eventosCreados + '\n\n' +
+    'NO SE ESCRIBIÓ NADA.\n' +
+    'Para ejecutar la carga real usa 🚀 EJECUTAR carga real.');
+}
+
+function UI_ejecutarCarga() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    '🚀 EJECUTAR CARGA REAL',
+    'Esto escribirá datos REALES en PACIENTES y EVENTOS.\n\n' +
+    'Se procesarán únicamente las hojas autorizadas.\n' +
+    'Los errores y REQUIERE_REVISION quedan excluidos.\n' +
+    'La operación tiene idempotencia (no duplica).\n\n' +
+    '¿Confirmas la ejecución?',
+    ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) return;
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('Ejecutando carga real…', 'ECICEP', 30);
+
+  var r = Fuentes_cargaReal({ ejecutar: true });
+  var res = r.resumen;
+
+  Log_info('UI', 'ejecutarCarga', JSON.stringify({
+    leidos: res.leidos, nuevos: res.nuevos, existentes: res.existentes,
+    revision: res.revision, conError: res.conError, eventos: res.eventosCreados
+  }));
+  Log_flush();
+
+  ui.alert(
+    'CARGA REAL COMPLETADA ✓\n\n' +
+    'Ejecución: ' + res.ejecucion + '\n' +
+    'Leídos: ' + res.leidos + '\n' +
+    'Ya importados (omitidos): ' + (res.yaImportadas || 0) + '\n\n' +
+    'Validación → OK: ' + res.validacionOk +
+    ' · WARNING: ' + res.validacionWarning +
+    ' · ERROR (bloqueados): ' + res.validacionError + '\n\n' +
+    'Pacientes nuevos creados: ' + res.nuevos + '\n' +
+    'Existentes enlazados: ' + res.existentes + '\n' +
+    'Requieren revisión: ' + res.revision + '\n' +
+    'Eventos creados: ' + res.eventosCreados + '\n\n' +
+    'Vistas SECTOR_* refrescadas: ' + JSON.stringify(r.vistasSector || {}));
 }
