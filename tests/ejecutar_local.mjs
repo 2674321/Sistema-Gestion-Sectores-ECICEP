@@ -24,6 +24,7 @@ const archivos = [
   'src/12_Ingresos.js',
   'src/Webhook.js',
   'src/06_Modelo.js',
+  'src/08_Dashboard.js',
   'src/11_DatosPrueba.js',
   'src/10_Pruebas.js'
 ];

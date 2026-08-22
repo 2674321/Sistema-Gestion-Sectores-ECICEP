@@ -46,6 +46,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_vistas_sector(t, A);
   _pruebas_etapa4(t, A);
   _pruebas_hardguard(t, A);
+  _pruebas_estrat_estado(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -985,5 +986,38 @@ function _pruebas_utilidades(t, A) {
   t('UTL: vacío seguro', function () {
     A.cierto(Utl_vacio(null) && Utl_vacio('   ') && Utl_vacio(''), 'vacíos detectados');
     A.igual(Utl_texto(null), '', 'texto nulo');
+  });
+}
+// ---------------------------------------------------------------------------
+// ETAPA 7 — estratificación: G/null/vacío = PENDIENTE, nunca un nivel
+// ---------------------------------------------------------------------------
+
+function _pruebas_estrat_estado(t, A) {
+  t('ESTRAT ESTADO: G1/G2/G3 → NIVEL_DEFINIDO', function () {
+    A.igual(Norm_normalizarEstratificacion('G1'), 'G1', 'G1');
+    A.igual(Norm_normalizarEstratificacion('G2'), 'G2', 'G2');
+    A.igual(Norm_normalizarEstratificacion('g3'), 'G3', 'G3');
+  });
+  t('ESTRAT ESTADO: G/null/vacío → PENDIENTE (nunca un nivel)', function () {
+    ['G', '', null, undefined, 'NSP'].forEach(function (v) {
+      var r = Norm_normalizarEstratificacion(v);
+      A.cierto(r !== 'G1' && r !== 'G2' && r !== 'G3',
+        JSON.stringify(v) + ' jamás produce un nivel');
+      A.igual(r, '', JSON.stringify(v) + ' → vacío = pendiente');
+    });
+  });
+  t('ESTRAT ESTADO: dashboard no cuenta G como nivel', function () {
+    var pacientes = [
+      { SECTOR: 'VERDE', ESTRATIFICACION: 'G1' },
+      { SECTOR: 'VERDE', ESTRATIFICACION: 'G2' },
+      { SECTOR: 'VERDE', ESTRATIFICACION: '' },     // pendiente
+      { SECTOR: 'VERDE', ESTRATIFICACION: 'G' }     // pendiente
+    ];
+    var d = Dash_distribucionPacientes(pacientes, null);
+    A.igual(d.total, 4, 'total');
+    var mv = d.matrizG['VERDE'];
+    A.igual(mv['G1'] || 0, 1, 'G1');
+    A.igual(mv['G2'] || 0, 1, 'G2');
+    A.igual(mv['PENDIENTE'], 2, 'pendientes separados de niveles');
   });
 }
