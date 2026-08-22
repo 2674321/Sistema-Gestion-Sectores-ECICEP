@@ -117,7 +117,8 @@ function Dash_calidadDatos(pacientes) {
 
 /**
  * PURA: distribución de pacientes por sector y estratificación.
- * @returns {porSector:{NARANJO:n,...}, matrizG:{NARANJO:{G1:n,G2:n,G3:n},...}, total:n}
+ * G1/G2/G3 = niveles definidos. G/null/vacío = PENDIENTE (nunca un nivel).
+ * @returns {porSector:{NARANJO:n,...}, matrizG:{NARANJO:{G1:n,G2:n,G3:n,PENDIENTE:n},...}, total:n}
  */
 function Dash_distribucionPacientes(pacientes, sector) {
   var porSector = {}, matrizG = {}, total = 0;
@@ -128,7 +129,12 @@ function Dash_distribucionPacientes(pacientes, sector) {
     porSector[s] = (porSector[s] || 0) + 1;
     if (!matrizG[s]) matrizG[s] = {};
     var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
-    if (/^G[123]$/.test(g)) matrizG[s][g] = (matrizG[s][g] || 0) + 1;
+    if (/^G[123]$/.test(g)) {
+      matrizG[s][g] = (matrizG[s][g] || 0) + 1;
+    } else {
+      // 'G', null, vacío, NSP → PENDIENTE (jamás se cuenta como nivel)
+      matrizG[s]['PENDIENTE'] = (matrizG[s]['PENDIENTE'] || 0) + 1;
+    }
   });
   return { porSector: porSector, matrizG: matrizG, total: total };
 }
@@ -186,17 +192,18 @@ function Dash_actualizar() {
     if (actividad[t]) bloques.push([t, actividad[t], '', '']);
   });
 
-  bloques.push(['', '', '', '']);
-  bloques.push(['── DISTRIBUCIÓN PACIENTES ──', '', '', '']);
-  bloques.push(['SECTOR', 'TOTAL', 'G1', 'G2', 'G3']);
+  bloques.push(['', '', '', '', '']);
+  bloques.push(['── DISTRIBUCIÓN PACIENTES ──', '', '', '', '']);
+  bloques.push(['SECTOR', 'TOTAL', 'G1', 'G2', 'G3', 'PENDIENTE']);
   Object.keys(distPac.matrizG).sort().forEach(function (s) {
     var mg = distPac.matrizG[s];
-    bloques.push([s, distPac.porSector[s] || 0, mg['G1'] || 0, mg['G2'] || 0, mg['G3'] || 0]);
+    bloques.push([s, distPac.porSector[s] || 0, mg['G1'] || 0, mg['G2'] || 0, mg['G3'] || 0, mg['PENDIENTE'] || 0]);
   });
-  bloques.push(['TOTAL', distPac.total,
-    Object.values(distPac.matrizG).reduce(function(a,m){return a+(m.G1||0);},0),
-    Object.values(distPac.matrizG).reduce(function(a,m){return a+(m.G2||0);},0),
-    Object.values(distPac.matrizG).reduce(function(a,m){return a+(m.G3||0);},0)]);
+  var totG = { G1: 0, G2: 0, G3: 0, PENDIENTE: 0 };
+  Object.values(distPac.matrizG).forEach(function (m) {
+    ['G1','G2','G3','PENDIENTE'].forEach(function (k) { totG[k] += m[k] || 0; });
+  });
+  bloques.push(['TOTAL', distPac.total, totG.G1, totG.G2, totG.G3, totG.PENDIENTE]);
 
   bloques.push(['', '', '', '']);
   bloques.push(['── ACTIVIDAD MENSUAL ──', '', '', '']);
@@ -217,8 +224,8 @@ function Dash_actualizar() {
   hoja.getRange(filaEscritura, 1, Math.max(hoja.getMaxRows() - filaEscritura, 1), 5).clearContent();
   // normalizar todas las filas a exactamente 5 columnas
   var bloquesNorm = bloques.map(function (fila) {
-    while (fila.length < 5) fila.push('');
-    return fila.slice(0, 5);
+    while (fila.length < 6) fila.push('');
+    return fila.slice(0, 6);
   });
   Utl_escribirBloque(hoja, filaEscritura, 1, bloquesNorm);
 
