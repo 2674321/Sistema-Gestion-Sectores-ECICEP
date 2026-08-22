@@ -375,3 +375,170 @@ function Fuentes_guardarFilas(filas) {
     return 0;
   }
 }
+
+// ---------------------------------------------------------------------------
+// ETAPA 5 — Carga real controlada (análisis + ejecución con idempotencia)
+// ---------------------------------------------------------------------------
+
+/**
+ * Orquestador de carga real controlada desde las fuentes autorizadas.
+ * @param {Object} opciones {ejecutar:boolean}
+ *   ejecutar=false → DRY RUN: analiza, reporta, NO escribe
+ *   ejecutar=true  → IMPORTA: escribe PACIENTES + EVENTOS con idempotencia
+ * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
+ */
+function Fuentes_cargaReal(opciones) {
+  opciones = opciones || {};
+  var ejecucionId = 'CARGA-' + Date.now().toString(36).toUpperCase();
+  var t0 = Date.now();
+
+  // --- FASE 5.0: snapshot previo ---
+  var previo = { pacientes: 0, eventos: 0 };
+  if (typeof SpreadsheetApp !== 'undefined') {
+    var hp = Modelo_hoja(HOJAS.PACIENTES);
+    var he = Modelo_hoja(HOJAS.EVENTOS);
+    previo.pacientes = hp ? Math.max(hp.getLastRow() - 1, 0) : 0;
+    previo.eventos = he ? Math.max(he.getLastRow() - 1, 0) : 0;
+  }
+
+  // --- FASE 5.1: leer fuentes autorizadas → staging ---
+  var staging = [];
+  Object.keys(HOJAS_AUTORIZADAS_CARGA).forEach(function (nombreArchivo) {
+    var cfg = FUENTES_DRIVE[nombreArchivo];
+    if (!cfg || !cfg.id) return;
+    var ss = SpreadsheetApp.openById(cfg.id);
+    HOJAS_AUTORIZADAS_CARGA[nombreArchivo].forEach(function (nombreHoja) {
+      var hoja = ss.getSheetByName(nombreHoja);
+      if (!hoja) return;
+      var valores = Utl_leerBloque(hoja);
+      if (valores.length < 2) return;
+
+      // detectar encabezado
+      var headerRow = 0;
+      for (var r = 0; r < Math.min(valores.length, 10); r++) {
+        var rec = valores[r].filter(function (c) { return Norm_mapearEncabezado(c).conocido; }).length;
+        if (rec >= 2) { headerRow = r; break; }
+      }
+      var mapa = Ingresos_mapearEncabezadosHoja(valores[headerRow] || []);
+
+      var sect_re = /^[A-ZÁÉÍÓÚÑ ]+\s?20\d{2}\s*$|^ECICEP\s*20\d{2}\s*$/i;
+      for (var d = headerRow + 1; d < valores.length; d++) {
+        var filaVal = valores[d];
+        var noVacios = filaVal.filter(function (c) { return Utl_texto(c).trim() !== ''; }).length;
+        if (noVacios === 0) continue;
+        var primerValor = Utl_colapsarEspacios(Utl_texto(filaVal.find(function(c){return Utl_texto(c).trim()!=='';})));
+        if (noVacios <= 3 && sect_re.test(primerValor)) continue;
+
+        var v = {};
+        CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
+          if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
+        });
+        // RUT sin encabezado (LISTADO Naranjo pattern)
+        if (Utl_vacio(v.RUT)) {
+          for (var ci = 0; ci < Math.min(filaVal.length, 3); ci++) {
+            var testRut = Norm_normalizarRut(filaVal[ci]);
+            if (testRut.estado === 'OK' || testRut.estado === 'SIN_DV') { v.RUT = filaVal[ci]; break; }
+          }
+        }
+        staging.push(Fuentes_normalizar(Fuentes_crearFila(
+          { archivo: nombreArchivo, hoja: nombreHoja, fila: d + 1, sector: cfg.sector }, v)));
+      }
+    });
+  });
+
+  // --- IDEMPOTENCIA: filtrar filas ya importadas ---
+  var eventosExistentes = [];
+  if (typeof Modelo_leerEventos === 'function') eventosExistentes = Modelo_leerEventos();
+  var fuentesYaImportadas = {};
+  eventosExistentes.forEach(function (e) {
+    var f = Utl_texto(e.FUENTE);
+    if (f) fuentesYaImportadas[f] = true;
+  });
+  var yaImportadas = 0;
+  staging = staging.filter(function (f) {
+    var clave = Fuentes_fuenteOrigen(f);
+    if (fuentesYaImportadas[clave]) { yaImportadas += 1; return false; }
+    return true;
+  });
+
+  // --- FASE 5.2-3: validación + identificación ---
+  var store = { pacientes: [], eventos: [] };
+  if (opciones.ejecutar && typeof Modelo_leerPacientes === 'function') {
+    store.pacientes = Modelo_leerPacientes();
+  }
+
+  var salida = Ingresos_procesarFilas(staging, store, {
+    nuevoId: typeof Modelo_nuevoIdInterno === 'function' ? Modelo_nuevoIdInterno : function (i) {
+      return 'EC-' + ('000000' + i).slice(-6);
+    }
+  });
+
+  // --- FASE 5.4: reporte ---
+  var resumen = salida.resumen;
+  resumen.yaImportadas = yaImportadas;
+  resumen.previo = previo;
+  resumen.ejecucion = ejecucionId;
+  resumen.ms = Date.now() - t0;
+
+  var resultado = {
+    ok: true,
+    dryRun: !opciones.ejecutar,
+    ejecucionId: ejecucionId,
+    resumen: resumen,
+    excluidas: FUENTES_EXCLUIDAS,
+    detalle: staging.map(function (f, i) {
+      return {
+        fuenteOrigen: Fuentes_fuenteOrigen(f),
+        hoja: f.HOJA_ORIGEN,
+        fila: f.FILA_ORIGEN,
+        estado: f.ESTADO_VALIDACION,
+        nombre: (f.NORMALIZADO.NOMBRE || '').substring(0, 30),
+        rut: f.NORMALIZADO.RUT,
+        sector: f.NORMALIZADO.SECTOR,
+        gate: salida.resultados[i] ? salida.resultados[i].estado : '?',
+        nota: salida.resultados[i] ? salida.resultados[i].nota : ''
+      };
+    })
+  };
+
+  Log_info('Fuentes', opciones.ejecutar ? 'cargaReal' : 'cargaAnalisis',
+    JSON.stringify({ leidos: resumen.leidos, nuevos: resumen.nuevos, existentes: resumen.existentes,
+                     revision: resumen.revision, conError: resumen.conError, yaImportadas: yaImportadas }),
+    { ejecucion: ejecucionId });
+
+  // --- FASE 5.5: GATE — solo escribir si explícitamente se pide ---
+  if (!opciones.ejecutar) return resultado;
+
+  // --- FASE 5.6: IMPORTACIÓN ---
+  if (typeof Modelo_agregarPacientes === 'function' && salida.pacientesNuevos.length) {
+    Modelo_agregarPacientes(salida.pacientesNuevos);
+  }
+  if (typeof Modelo_agregarEventos === 'function' && salida.eventos.length) {
+    Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual());
+  }
+
+  // auditoría a STAGING_IMPORT
+  Fuentes_guardarFilas(staging);
+
+  // --- FASE 5.8: refrescar vistas sectoriales ---
+  if (typeof Modelo_refrescarVistasSectores === 'function') {
+    resultado.vistasSector = Modelo_refrescarVistasSectores();
+  }
+
+  Log_flush();
+  return resultado;
+}
+
+/**
+ * Webhook action: análisis de carga real (DRY RUN).
+ */
+function Fuentes_analizarCarga() {
+  return Fuentes_cargaReal({ ejecutar: false });
+}
+
+/**
+ * Webhook action: ejecución de carga real (IMPORTA).
+ */
+function Fuentes_ejecutarCarga() {
+  return Fuentes_cargaReal({ ejecutar: true });
+}

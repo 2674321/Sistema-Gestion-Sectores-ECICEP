@@ -130,6 +130,20 @@ const FUENTES_DRIVE = {
     excluir: ['NO LLENAR'] // duplicado histórico (DEC-009)
   }
 };
+
+// Hojas autorizadas para la primera carga real controlada (ETAPA 5)
+// Las excluidas (LISTADO 2025, INASISTENTES, GESTOR DE CASO) NO se procesan.
+const HOJAS_AUTORIZADAS_CARGA = {
+  'ECICEP NARANJO': ['Ingresos Enero ', 'Ingreso Febrero', 'Ingresos 2025 - 2026'],
+  'PCTS. ECICEP DESDE 2023': ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS', 'CONTROLES PENDIENTES']
+};
+
+const FUENTES_EXCLUIDAS = [
+  { fuente: 'LISTADO 2025', motivo: 'RUTs sin DV — requieren tratamiento específico', condicion: 'Completar DVs o resolver vía cola de revisión' },
+  { fuente: 'INASISTENTES A INGRESOS', motivo: 'Sin encabezados compatibles', condicion: 'Definir estructura o mapeo manual' },
+  { fuente: 'GESTOR DE CASO', motivo: 'Flujo diferente al ingreso estándar ECICEP', condicion: 'Analizar modelo de eventos para gestión de casos' }
+];
+
 const TIPOS_EVENTO = {
   VALIDOS: [
     'INGRESO', 'CONTROL', 'SEGUIMIENTO', 'PLAN_CUIDADO',
