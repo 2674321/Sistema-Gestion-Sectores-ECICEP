@@ -35,6 +35,9 @@ function onOpen() {
         .addItem('🧪 Sembrar datos ficticios', 'UI_sembrarFicticios')
         .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas'))
 
+      .addSubMenu(ui.createMenu('📈 Reportes')
+        .addItem('📊 Actualizar dashboard', 'UI_actualizarDashboard'))
+
       .addSeparator()
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
       .addToUi();
