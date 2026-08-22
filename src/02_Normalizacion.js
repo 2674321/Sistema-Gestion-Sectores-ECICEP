@@ -352,8 +352,68 @@ function Norm_normalizarTipoEvento(raw) {
 }
 
 // ---------------------------------------------------------------------------
-// ETAPA 8A — Motor de estratificación (normalización de condiciones)
+// ETAPA 8C — Contrato de validación del catálogo de condiciones
 // ---------------------------------------------------------------------------
+
+/**
+ * PURA: valida que un catálogo cumpla el esquema obligatorio.
+ * Detecta: campos faltantes, códigos duplicados, aliases en conflicto,
+ * ponderaciones inválidas y entradas malformadas.
+ * @param {Array} catalogo lista de condiciones
+ * @returns {valido:boolean, errores:[string], advertencias:[string]}
+ */
+function Estrat_validarCatalogo(catalogo) {
+  var errores = [], advertencias = [];
+  if (!catalogo || !catalogo.length) {
+    return { valido: false, errores: ['Catálogo vacío o nulo'], advertencias: [] };
+  }
+
+  var codigosVistos = {}, aliasesVistos = {};
+
+  catalogo.forEach(function (c, idx) {
+    var etiqueta = 'condición ' + (idx + 1) + ' (' + Utl_texto(c.CODIGO || '?') + ')';
+
+    // campos obligatorios
+    ['CODIGO','NOMBRE_CANONICO','ALIASES','PONDERACION','ACTIVA'].forEach(function (campo) {
+      if (c[campo] === undefined || c[campo] === null) {
+        errores.push(etiqueta + ': falta ' + campo);
+      }
+      // detectar campo obsoleto NOMBRE (en vez de NOMBRE_CANONICO)
+      if (campo === 'NOMBRE_CANONICO' && c.NOMBRE !== undefined && c.NOMBRE_CANONICO === undefined) {
+        errores.push(etiqueta + ': usa campo obsoleto NOMBRE en lugar de NOMBRE_CANONICO');
+      }
+    });
+
+    // código único
+    var codigo = Utl_texto(c.CODIGO).toUpperCase();
+    if (codigo && codigosVistos[codigo]) {
+      errores.push(etiqueta + ': código duplicado "' + codigo + '"');
+    }
+    if (codigo) codigosVistos[codigo] = true;
+
+    // ponderación válida
+    if (c.PONDERACION !== undefined && (typeof c.PONDERACION !== 'number' || c.PONDERACION < 0)) {
+      errores.push(etiqueta + ': PONDERACION inválida (' + c.PONDERACION + ')');
+    }
+
+    // aliases únicos entre todas las condiciones
+    (c.ALIASES || []).forEach(function (a) {
+      var claveA = Utl_claveAlnum(a);
+      if (!claveA) return;
+      if (aliasesVistos[claveA] && aliasesVistos[claveA] !== codigo) {
+        errores.push('alias "' + a + '" usado por ' + aliasesVistos[claveA] + ' y ' + codigo);
+      }
+      if (claveA) aliasesVistos[claveA] = codigo;
+    });
+
+    // nombre canónico no vacío si el campo existe
+    if (c.NOMBRE_CANONICO !== undefined && Utl_vacio(c.NOMBRE_CANONICO)) {
+      errores.push(etiqueta + ': NOMBRE_CANONICO vacío');
+    }
+  });
+
+  return { valido: errores.length === 0, errores: errores, advertencias: advertencias };
+}
 
 /**
  * PURA: normaliza el campo CONDICIONES del paciente contra el catálogo.

@@ -49,6 +49,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_estrat_estado(t, A);
   _pruebas_motor_estrat(t, A);
   _pruebas_ponderacion(t, A);
+  _pruebas_contrato_catalogo(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -1149,5 +1150,72 @@ function _pruebas_ponderacion(t, A) {
     A.cierto(r.noReconocidas.length > 0, 'desconocida registrada');
     A.cierto(r.estado !== 'CALCULADO' || r.resultado === 'G3',
       'si tiene desconocidas y resultado < G3 → NO_CALCULABLE');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 8C — contrato de validación del catálogo
+// ---------------------------------------------------------------------------
+
+function _pruebas_contrato_catalogo(t, A) {
+  var catReal = CATALOGO_CONDICIONES_ECICEP;
+
+  t('CONTRATO: catálogo ECICEP real es válido', function () {
+    var v = Estrat_validarCatalogo(catReal);
+    A.arreglos(v.errores, [], 'sin errores: ' + JSON.stringify(v.errores));
+    A.cierto(v.valido, 'valido');
+  });
+
+  t('CONTRATO: detecta NOMBRE obsoleto en lugar de NOMBRE_CANONICO', function () {
+    var malo = [{ CODIGO:'X', NOMBRE:'Algo', ALIASES:[], PONDERACION:1, ACTIVA:true }];
+    var v = Estrat_validarCatalogo(malo);
+    A.cierto(!v.valido, 'inválido');
+    A.cierto(v.errores.some(function(e){ return e.indexOf('NOMBRE_CANONICO') !== -1; }), 'menciona NOMBRE_CANONICO');
+  });
+
+  t('CONTRATO: detecta código duplicado', function () {
+    var dup = [
+      { CODIGO:'HTA', NOMBRE_CANONICO:'Hipertensión', ALIASES:[], PONDERACION:1, ACTIVA:true },
+      { CODIGO:'HTA', NOMBRE_CANONICO:'Otra cosa', ALIASES:[], PONDERACION:1, ACTIVA:true }
+    ];
+    var v = Estrat_validarCatalogo(dup);
+    A.cierto(!v.valido, 'inválido');
+    A.cierto(v.errores.some(function(e){ return e.indexOf('duplicado') !== -1; }), 'menciona duplicado');
+  });
+
+  t('CONTRATO: detecta alias en conflicto entre condiciones', function () {
+    var conf = [
+      { CODIGO:'A', NOMBRE_CANONICO:'Condición A', ALIASES:['comun'], PONDERACION:1, ACTIVA:true },
+      { CODIGO:'B', NOMBRE_CANONICO:'Condición B', ALIASES:['comun'], PONDERACION:1, ACTIVA:true }
+    ];
+    var v = Estrat_validarCatalogo(conf);
+    A.cierto(!v.valido, 'inválido');
+    A.cierto(v.errores.some(function(e){ return e.indexOf('alias') !== -1; }), 'menciona alias');
+  });
+
+  t('CONTRATO: detecta ponderación inválida', function () {
+    var mal = [{ CODIGO:'X', NOMBRE_CANONICO:'X', ALIASES:[], PONDERACION:'alta', ACTIVA:true }];
+    var v = Estrat_validarCatalogo(mal);
+    A.cierto(!v.valido, 'inválido');
+  });
+
+  t('CONTRATO: catálogo vacío → inválido', function () {
+    var v = Estrat_validarCatalogo([]);
+    A.cierto(!v.valido, 'vacío inválido');
+  });
+
+  t('CONTRATO: sin duplicados en catálogo real', function () {
+    var codigos = catReal.map(function(c){ return c.CODIGO; });
+    var unicos = {};
+    codigos.forEach(function(c){ unicos[c] = true; });
+    A.igual(Object.keys(unicos).length, codigos.length, 'todos los códigos únicos');
+  });
+
+  t('CONTRATO: las 8 condiciones de doble puntuación están presentes', function () {
+    var codigosDoble = ['DEM','DEPG','DM','ECV','ERCA','ECI','ESQ','DISCAP'];
+    codigosDoble.forEach(function (codigo) {
+      var found = catReal.some(function(c){ return c.CODIGO === codigo && c.PONDERACION === 2; });
+      A.cierto(found, codigo + ' con ponderación 2 presente');
+    });
   });
 }
