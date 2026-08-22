@@ -364,16 +364,55 @@ function api_registrarEvento(payload) {
   }
 }
 
-/** Endpoint sidebar: lista casos ABIERTOS de la cola de revisión. */
+/** Endpoint sidebar: lista casos ABIERTOS con comparación origen vs candidato. */
 function api_revisionListar() {
   var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
-  if (!hoja || hoja.getLastRow() < 2) return [];
-  return Utl_leerBloque(hoja).slice(1).map(function (f, i) {
+  if (!hoja || hoja.getLastRow() < 2) return { casos: [], metricas: {} };
+  var pacientes = Modelo_leerPacientes();
+  var porId = {};
+  pacientes.forEach(function (p) { porId[Utl_texto(p.ID_INTERNO)] = p; });
+
+  var casos = [], metricas = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0 };
+  Utl_leerBloque(hoja).slice(1).forEach(function (f, i) {
+    var estado = Utl_texto(f[8]);
+    if (estado === 'RESUELTO') {
+      metricas.resueltos += 1;
+      var dec = Utl_texto(f[6]).indexOf('CONFIRMAR') !== -1 ? 'esMismo' : 'esOtro';
+      metricas[dec] += 1;
+      return;
+    }
+    if (estado !== 'ABIERTO') return;
     var datos = null;
-    try { datos = JSON.parse(f[5]); } catch (e) { /* fila antigua */ }
-    return { indice: i + 2, tipo: f[1], rut: f[3], nombre: f[4],
-             detalle: f[6], candidato: f[7], estado: f[8], datos: datos };
-  }).filter(function (r) { return r.estado === 'ABIERTO' && r.datos; });
+    try { datos = JSON.parse(f[5]); } catch (e) { return; }
+    if (!datos) return;
+    metricas.abiertos += 1;
+
+    // buscar candidato
+    var cand = datos.candidatoId ? porId[datos.candidatoId] : null;
+    var vo = datos.valoresOriginales || {};
+    casos.push({
+      indice: i + 2,
+      tipo: f[1],
+      criterio: datos.criterio || '',
+      confianza: datos.confianza || '',
+      idProvisional: datos.idProvisional || '',
+      // lado A: registro origen
+      origen: {
+        nombre: vo.NOMBRE || '', rut: vo.RUT || '', telefono: vo.TELEFONOS || '',
+        sector: datos.sectorOrigen || '', estrat: vo.ESTRATIFICACION || '',
+        fechaIngreso: vo.FECHA_INGRESO || '',
+        fuente: (datos.origen ? datos.origen.hoja : '') + ' fila ' + (datos.origen ? datos.origen.fila : '')
+      },
+      // lado B: paciente candidato existente
+      candidato: cand ? {
+        id: cand.ID_INTERNO, nombre: cand.NOMBRE, rut: cand.RUT,
+        telefono: cand.TELEFONOS, sector: cand.SECTOR,
+        estrat: cand.ESTRATIFICACION, estado: cand.ESTADO
+      } : null
+    });
+  });
+  metricas.pendientes = metricas.abiertos;
+  return { casos: casos, metricas: metricas };
 }
 
 /** Endpoint sidebar: aplica la decisión humana sobre un caso ABIERTO. */
@@ -382,7 +421,7 @@ function api_revisionResolver(indiceHoja, decision) {
     var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
     if (!hoja) return { ok: false, motivo: 'SIN_HOJA' };
     var filaVal = hoja.getRange(indiceHoja, 1, 1, 10).getValues()[0];
-    if (Utl_texto(filaVal[8]) !== 'ABIERTO') return { ok: false, motivo: 'YA_RESUELTO' };
+    if (Utl_texto(filaVal[8]) !== 'ABIERTO') return { ok: false, motivo: 'CONFLICTO_YA_RESUELTO' };
     var datos = JSON.parse(filaVal[5]);
     if (decision !== 'CONFIRMAR_MATCH' && decision !== 'RECHAZAR_MATCH') {
       return { ok: false, motivo: 'DECISION_INVALIDA' };
@@ -391,16 +430,26 @@ function api_revisionResolver(indiceHoja, decision) {
     var prep = Rev_prepararResolucion(datos, decision, { nuevoId: Modelo_nuevoIdInterno });
     if (!prep.ok) return { ok: false, motivo: prep.motivo };
 
-    if (prep.accion === 'CREAR') Modelo_agregarPacientes([prep.pacienteNuevo], { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'revision-crear' });
-    Modelo_agregarEventos([prep.evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'revision-evento' });
+    var contexto = { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'revision-' + decision.toLowerCase() };
+    var destinoId = '';
+    if (prep.accion === 'CREAR') {
+      Modelo_agregarPacientes([prep.pacienteNuevo], contexto);
+      destinoId = prep.pacienteNuevo.ID_INTERNO;
+    } else {
+      destinoId = datos.candidatoId;
+    }
+    Modelo_agregarEventos([prep.evento], _ingresosUsuarioActual(), contexto);
 
+    // trazabilidad completa
+    var ahora = new Date();
     hoja.getRange(indiceHoja, 9).setValue('RESUELTO');
-    hoja.getRange(indiceHoja, 10).setValue(_ingresosUsuarioActual());
+    hoja.getRange(indiceHoja, 10).setValue(_ingresosUsuarioActual() + ' · ' + decision +
+      ' · ' + ahora.toISOString() + ' → ' + destinoId);
 
     Modelo_refrescarVistasSectores();
-    Log_info('Revision', decision, prep.accion + ' · caso fila ' + indiceHoja);
+    Log_info('Revision', decision, prep.accion + ' · caso fila ' + indiceHoja + ' → ' + destinoId);
     Log_flush();
-    return { ok: true, accion: prep.accion };
+    return { ok: true, accion: prep.accion, destinoId: destinoId };
   } catch (e) {
     Log_error('Revision', decision, e && e.message ? e.message : String(e));
     Log_flush();
