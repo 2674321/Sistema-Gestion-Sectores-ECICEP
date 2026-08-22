@@ -307,9 +307,24 @@ const CFG_FECHAS = {
 // Estratificación automática (ESTRATIFICACION.md)
 //   REGLA_DISPONIBLE=false hasta recibir tabla oficial cantidad→G. Motor APAGADO.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Estratificación automática (ESTRATIFICACION.md)
+//   REGLA_DISPONIBLE=false hasta recibir tabla oficial. Motor APAGADO.
+//   El catálogo de condiciones y sus ponderaciones son DATOS, no código.
+//   Cuando llegue la regla oficial del programa ECICEP, reemplazar el catálogo.
+// ---------------------------------------------------------------------------
 const CFG_ESTRATIFICACION = {
   REGLA_DISPONIBLE: false,
-  MOTIVO_SIN_REGLA: 'REGLA_NO_CONFIGURADA'
+  VERSION_REGLA: 'PENDIENTE_VALIDACION',
+  MOTIVO_SIN_REGLA: 'REGLA_NO_CONFIGURADA',
+  // Regla estructural de referencia MINSAL (NO oficial hasta validar):
+  // G0 = 0 condiciones · G1 = 1 · G2 = 2–4 · G3 = 5+
+  UMBRALES: [
+    { maxCondiciones: 0, nivel: 'G0' },
+    { minCondiciones: 1, maxCondiciones: 1, nivel: 'G1' },
+    { minCondiciones: 2, maxCondiciones: 4, nivel: 'G2' },
+    { minCondiciones: 5, nivel: 'G3' }
+  ]
 };
 
 // ---------------------------------------------------------------------------

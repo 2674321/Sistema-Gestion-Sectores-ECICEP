@@ -47,6 +47,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_etapa4(t, A);
   _pruebas_hardguard(t, A);
   _pruebas_estrat_estado(t, A);
+  _pruebas_motor_estrat(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -1019,5 +1020,60 @@ function _pruebas_estrat_estado(t, A) {
     A.igual(mv['G1'] || 0, 1, 'G1');
     A.igual(mv['G2'] || 0, 1, 'G2');
     A.igual(mv['PENDIENTE'], 2, 'pendientes separados de niveles');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 8A — motor de estratificación
+// ---------------------------------------------------------------------------
+
+function _pruebas_motor_estrat(t, A) {
+  var catalogo = CATALOGO_CONDICIONES_TEST;
+
+  DATASET_ESTRATIFICACION.casosMotor.forEach(function (caso) {
+    t('MOTOR: ' + JSON.stringify(caso[0] || '(vacío)').substring(0, 50), function () {
+      var r = Estrat_evaluar(caso[0], catalogo, {
+        REGLA_DISPONIBLE: true, VERSION_REGLA: 'TEST_V1',
+        UMBRALES: [
+          { maxCondiciones: 0, nivel: 'G0' },
+          { minCondiciones: 1, maxCondiciones: 1, nivel: 'G1' },
+          { minCondiciones: 2, maxCondiciones: 4, nivel: 'G2' },
+          { minCondiciones: 5, nivel: 'G3' }
+        ]
+      });
+      if (!caso[1]) {
+        // sin condiciones → SIN_DATOS o sin resultado
+        A.cierto(r.resultado === '' || r.resultado === undefined,
+          'resultado vacío para sin datos, obtenido=' + r.resultado);
+      } else {
+        A.igual(r.resultado, caso[1], 'nivel');
+        A.igual(r.cantidad, caso[2], 'cantidad');
+      }
+    });
+  });
+
+  t('MOTOR: alias reconocidos correctamente', function () {
+    var r = Norm_normalizarCondiciones('hipertension', catalogo);
+    A.igual(r.detectadas.length, 1, 'detectada');
+    A.igual(r.detectadas[0].codigo, 'HTA', 'código canónico');
+  });
+
+  t('MOTOR: condición desconocida NO se descarta silenciosamente', function () {
+    var r = Norm_normalizarCondiciones('patología XYZ', catalogo);
+    A.igual(r.detectadas.length, 0, 'sin detectadas');
+    A.igual(r.noReconocidas.length, 1, 'registrada como no reconocida');
+    A.igual(r.noReconocidas[0], 'PATOLOGÍA XYZ', 'texto original conservado');
+  });
+
+  t('MOTOR: regla no disponible → NO_CALCULABLE', function () {
+    var r = Norm_normalizarCondiciones('HTA; DM2', catalogo);
+    var calc = Estrat_calcularPorCantidad(2, CFG_ESTRATIFICACION);
+    A.igual(calc.resultado, 'NO_CALCULABLE', 'motor apagado');
+    A.igual(calc.regla, 'REGLA_NO_CONFIGURADA', 'motivo');
+  });
+
+  t('MOTOR: ponderación acumulada desde catálogo', function () {
+    var r = Norm_normalizarCondiciones('HTA; ERC', catalogo);
+    A.igual(r.sumaPonderacion, 3, 'HTA(1) + ERC(2) = 3');
   });
 }

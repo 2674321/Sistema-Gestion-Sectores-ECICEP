@@ -350,3 +350,112 @@ function Norm_normalizarTipoEvento(raw) {
   if (TIPOS_EVENTO.VALIDOS.indexOf(t) !== -1) return t;
   return Utl_colapsarEspacios(Utl_texto(raw)).toUpperCase();
 }
+
+// ---------------------------------------------------------------------------
+// ETAPA 8A — Motor de estratificación (normalización de condiciones)
+// ---------------------------------------------------------------------------
+
+/**
+ * PURA: normaliza el campo CONDICIONES del paciente contra el catálogo.
+ * @param {string} raw texto original con condiciones separadas por ";" o ","
+ * @param {Array} catalogo [{CODIGO,NOMBRE_CANONICO,ALIASES,PONDERACION,ACTIVA}]
+ * @returns {detectadas:[{codigo,nombre,ponderacion}], noReconocidas:[],
+ *           origen:string, cantidad:number, sumaPonderacion:number}
+ */
+function Norm_normalizarCondiciones(raw, catalogo) {
+  var origen = Utl_texto(raw).trim();
+  var res = { detectadas: [], noReconocidas: [], origen: origen,
+              cantidad: 0, sumaPonderacion: 0 };
+  if (!origen || !catalogo || !catalogo.length) return res;
+
+  var partes = origen.split(/[;,\n]+/);
+  var vistos = {};
+
+  partes.forEach(function (parte) {
+    var texto = Utl_colapsarEspacios(parte).trim();
+    if (!texto) return;
+    var clave = Utl_sinTildes(texto).toUpperCase();
+
+    // buscar en catálogo por código, nombre canónico o alias
+    var encontrada = null;
+    for (var i = 0; i < catalogo.length; i++) {
+      var c = catalogo[i];
+      if (!c.ACTIVA) continue;
+      if (Utl_claveAlnum(c.CODIGO) === Utl_claveAlnum(clave)) { encontrada = c; break; }
+      if (Utl_claveAlnum(c.NOMBRE_CANONICO || '') === Utl_claveAlnum(clave)) { encontrada = c; break; }
+      if (c.ALIASES && c.ALIASES.some(function(a) {
+        return Utl_claveAlnum(a) === Utl_claveAlnum(clave);
+      })) { encontrada = c; break; }
+    }
+
+    if (encontrada) {
+      if (!vistos[encontrada.CODIGO]) {
+        vistos[encontrada.CODIGO] = true;
+        res.detectadas.push({
+          codigo: encontrada.CODIGO,
+          nombre: encontrada.NOMBRE_CANONICO,
+          ponderacion: encontrada.PONDERACION !== undefined ? encontrada.PONDERACION : 1
+        });
+        res.sumaPonderacion += (encontrada.PONDERACION !== undefined ? encontrada.PONDERACION : 1);
+      }
+    } else {
+      res.noReconocidas.push(texto.toUpperCase());
+    }
+  });
+
+  res.cantidad = res.detectadas.length;
+  return res;
+}
+
+/**
+ * PURA: aplica la regla de estratificación según umbrales configurados.
+ * @param {number} cantidadCondiciones
+ * @param {Object} config CFG_ESTRATIFICACION
+ * @returns {resultado:'G0'|'G1'|'G2'|'G3'|'NO_CALCULABLE', regla:''}
+ */
+function Estrat_calcularPorCantidad(cantidadCondiciones, config) {
+  config = config || CFG_ESTRATIFICACION;
+  if (!config.REGLA_DISPONIBLE && config.VERSION_REGLA === 'PENDIENTE_VALIDACION') {
+    return { resultado: 'NO_CALCULABLE', regla: 'REGLA_NO_CONFIGURADA' };
+  }
+  var cant = Number(cantidadCondiciones) || 0;
+  for (var i = 0; i < (config.UMBRALES || []).length; i++) {
+    var u = config.UMBRALES[i];
+    var cumpleMin = u.minCondiciones === undefined || cant >= u.minCondiciones;
+    var cumpleMax = u.maxCondiciones === undefined || cant <= u.maxCondiciones;
+    if (cumpleMin && cumpleMax) {
+      return { resultado: u.nivel, regla: 'CANTIDAD_CONDICIONES=' + cant };
+    }
+  }
+  return { resultado: 'NO_CALCULABLE', regla: 'sin umbral coincidente para cantidad=' + cant };
+}
+
+/**
+ * PURA: motor completo — condiciones → catálogo → regla → nivel.
+ * @param {string} rawCondiciones valor original del campo CONDICIONES
+ * @param {Object} config CFG_ESTRATIFICACION
+ * @returns {estado:'SIN_DATOS'|'CALCULADO'|'NO_CALCULABLE',
+ *           resultado:'G0'|'G1'|'G2'|'G3'|'', detectadas:[], noReconocidas:[],
+ *           cantidad:0, regla:'', version:''}
+ */
+function Estrat_evaluar(rawCondiciones, catalogo, config) {
+  config = config || CFG_ESTRATIFICACION;
+  var norm = Norm_normalizarCondiciones(rawCondiciones, catalogo);
+
+  if (!norm.cantidad && !norm.noReconocidas.length) {
+    // sin datos → pendiente, no calcular
+    return { estado:'SIN_DATOS', resultado:'', detectadas:[], noReconocidas:[],
+             cantidad:0, regla:'', version: config.VERSION_REGLA };
+  }
+
+  var calc = Estrat_calcularPorCantidad(norm.cantidad, config);
+  return {
+    estado: calc.resultado === 'NO_CALCULABLE' ? 'NO_CALCULABLE' : 'CALCULADO',
+    resultado: calc.resultado === 'NO_CALCULABLE' ? '' : calc.resultado,
+    detectadas: norm.detectadas,
+    noReconocidas: norm.noReconocidas,
+    cantidad: norm.cantidad,
+    regla: calc.regla,
+    version: config.VERSION_REGLA
+  };
+}

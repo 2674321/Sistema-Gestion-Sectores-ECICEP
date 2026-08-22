@@ -268,3 +268,26 @@ const DATASET_STAGING = {
     { tipoEvento: 'PLAN_CUIDADO', fechaIso: '2026-07-15' }
   ]
 };
+
+// Catálogo de prueba para el motor de estratificación (FICTICIO).
+// El catálogo OFICIAL debe ser proporcionado por el programa ECICEP.
+const CATALOGO_CONDICIONES_TEST = [
+  { CODIGO: 'HTA', NOMBRE_CANONICO: 'Hipertensión arterial', ALIASES: ['hipertension','hta','presion alta'], PONDERACION: 1, ACTIVA: true },
+  { CODIGO: 'DM2', NOMBRE_CANONICO: 'Diabetes mellitus tipo 2', ALIASES: ['diabetes','dm2','diabetes tipo 2'], PONDERACION: 1, ACTIVA: true },
+  { CODIGO: 'HIPOT', NOMBRE_CANONICO: 'Hipotiroidismo', ALIASES: ['hipotiroidismo'], PONDERACION: 1, ACTIVA: true },
+  { CODIGO: 'ERC', NOMBRE_CANONICO: 'Enfermedad renal crónica', ALIASES: ['erc','enfermedad renal'], PONDERACION: 2, ACTIVA: true },
+  { CODIGO: 'EPOC', NOMBRE_CANONICO: 'Enfermedad pulmonar obstructiva crónica', ALIASES: ['epoc'], PONDERACION: 1, ACTIVA: true }
+];
+
+const DATASET_ESTRATIFICACION = {
+  casosMotor: [
+    ['', '', 0],
+    [null, '', 0],
+    ['HTA', 'G1', 1],
+    ['diabetes tipo 2', 'G1', 1],
+    ['HTA; DM2', 'G2', 2],
+    ['Hipertensión arterial; Diabetes mellitus tipo 2; hipotiroidismo', 'G2', 3],
+    ['HTA; DM2; HIPOT; EPOC', 'G2', 4],
+    ['HTA; DM2; HIPOT; EPOC; ERC', 'G3', 5]
+  ]
+};
