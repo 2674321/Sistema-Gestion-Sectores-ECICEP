@@ -136,11 +136,11 @@ function Dash_actualizar() {
   // leer filtros de las celdas
   var tipo = Utl_texto(hoja.getRange(_DASH_FILTROS.FILA_DESDE ? 1 : 1, 1).getValue());
   // simplificación: leer de celdas fijas
-  var b1 = hoja.getRange(1, 1, 5, 4).getValues();
-  var tipoPeriodo = Utl_texto(b1[0][1]).trim();
-  var desdeCustom = Utl_texto(b1[1][1]).trim();
-  var hastaCustom = Utl_texto(b1[2][1]).trim();
-  var sectorSel = Utl_texto(b1[3][1]).trim();
+  var b1 = hoja.getRange(1, 1, 6, 4).getValues();
+  var tipoPeriodo = Utl_texto(b1[1][1]).trim();  // fila 2: Tipo de período
+  var desdeCustom = Utl_texto(b1[2][1]).trim();  // fila 3: Fecha desde
+  var hastaCustom = Utl_texto(b1[3][1]).trim();  // fila 4: Fecha hasta
+  var sectorSel   = Utl_texto(b1[4][1]).trim();  // fila 5: Sector
 
   if (!tipoPeriodo) {
     _dash_inicializarFiltros(hoja);
