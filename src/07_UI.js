@@ -25,8 +25,12 @@ function onOpen() {
       .addSeparator()
       .addItem('📋 Diagnosticar fuentes reales', 'UI_diagnosticarFuentes')
       .addItem('📥 Importar muestra (DRY RUN, 10 filas/sector)', 'UI_importarMuestra')
-      .addItem('📊 Análisis de carga real (todas las hojas)', 'UI_analisisCarga')
+      .addItem('🔒 Análisis BLOQUEADO hasta auditoría', 'UI_bloqueado')
       .addItem('🚀 EJECUTAR carga real', 'UI_ejecutarCarga')
+      .addItem('🔒 EJECUTAR carga BLOQUEADO', 'UI_bloqueado')
+      .addSeparator()
+      .addItem('🔍 Recuperación: inventario de incidente', 'UI_recuperarInventario')
+      .addItem('⚠️ Recuperación: ejecutar reversión', 'UI_recuperarEjecutar')
       .addItem('🧪 Sembrar datos ficticios (prueba)', 'UI_sembrarFicticios')
       .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas')
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -341,7 +345,7 @@ function api_registrarEvento(payload) {
       REGISTRADO_POR: _ingresosUsuarioActual(),
       FECHA_REGISTRO: null
     };
-    Modelo_agregarEventos([evento]);
+    Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
 
     Ingresos_sincronizarCache(objetivo, evento);
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
@@ -387,8 +391,8 @@ function api_revisionResolver(indiceHoja, decision) {
     var prep = Rev_prepararResolucion(datos, decision, { nuevoId: Modelo_nuevoIdInterno });
     if (!prep.ok) return { ok: false, motivo: prep.motivo };
 
-    if (prep.accion === 'CREAR') Modelo_agregarPacientes([prep.pacienteNuevo]);
-    Modelo_agregarEventos([prep.evento], _ingresosUsuarioActual());
+    if (prep.accion === 'CREAR') Modelo_agregarPacientes([prep.pacienteNuevo], { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'revision-crear' });
+    Modelo_agregarEventos([prep.evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'revision-evento' });
 
     hoja.getRange(indiceHoja, 9).setValue('RESUELTO');
     hoja.getRange(indiceHoja, 10).setValue(_ingresosUsuarioActual());
@@ -525,4 +529,64 @@ function UI_ejecutarCarga() {
     'Requieren revisión: ' + res.revision + '\n' +
     'Eventos creados: ' + res.eventosCreados + '\n\n' +
     'Vistas SECTOR_* refrescadas: ' + JSON.stringify(r.vistasSector || {}));
+}
+
+function UI_bloqueado() {
+  SpreadsheetApp.getUi().alert(
+    '🔒 OPERACIÓN BLOQUEADA\n\n' +
+    'Esta acción está deshabilitada temporalmente\n' +
+    'por el incidente de escritura accidental en DRY RUN.\n\n' +
+    'No ejecutar hasta completar la auditoría.');
+}
+
+// ===========================================================================
+// ETAPA 5-INCIDENTE — Recuperación selectiva
+// ===========================================================================
+
+function UI_recuperarInventario() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.prompt(
+    'RECUPERACIÓN — Paso 1: Inventario',
+    'Pega el prefijo de fuente a investigar\n(ej: ECICEP NARANJO o PCTS. ECICEP):',
+    ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+  var prefijo = resp.getResponseText().trim();
+  if (!prefijo) return;
+
+  var conteo = Recuperar_inventario(prefijo);
+  var hoja = Modelo_ss().getSheetByName('RECUPERACION');
+  if (hoja) ss.setActiveSheet(hoja);
+  ui.alert(
+    'INVENTARIO GENERADO\n\n' +
+    'Pacientes afectados: ' + conteo.pacientes + '\n' +
+    'Eventos afectados: ' + conteo.eventos + '\n\n' +
+    'Revisa la hoja RECUPERACION.\n' +
+    'Si confirmas que TODOS deben eliminarse,\n' +
+    'usa ⚠️ Recuperación: ejecutar reversión.');
+}
+
+function UI_recuperarEjecutar() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.prompt(
+    '⚠️ REVERSIÓN SELECTIVA',
+    'Pega el MISMO prefijo de fuente usado en el inventario:',
+    ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+  var prefijo = resp.getResponseText().trim();
+  if (!prefijo) return;
+
+  var conf = ui.alert(
+    '⚠️ CONFIRMAR REVERSIÓN',
+    'Esto eliminará PERMANENTEMENTE los registros identificados.\n' +
+    'Solo se eliminan los del inventario (prefijo: ' + prefijo + ').\n\n' +
+    '¿Confirmas?',
+    ui.ButtonSet.YES_NO);
+  if (conf !== ui.Button.YES) return;
+
+  var r = Recuperar_ejecutar(prefijo);
+  ui.alert(
+    'REVERSIÓN COMPLETADA\n\n' +
+    'Pacientes eliminados: ' + r.pacientesEliminados + '\n' +
+    'Eventos eliminados: ' + r.eventosEliminados + '\n' +
+    'SECTOR_* refrescadas.');
 }

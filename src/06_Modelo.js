@@ -192,10 +192,28 @@ function Modelo_filaDesdeObjeto(obj) {
 }
 
 /**
+ * HARD GUARD: toda escritura a PACIENTES/EVENTOS exige un contexto
+ * de autorización explícito. Sin él → WRITE_BLOCKED (DEC-033).
+ */
+var _AUTORIZACION_IMPORT = 'IMPORT_AUTORIZADO';
+
+function Modelo_guardEscritura(contexto) {
+  if (!contexto || contexto.autorizacion !== _AUTORIZACION_IMPORT) {
+    var msg = 'WRITE_BLOCKED_IN_DRY_RUN: se intentó ' + (contexto && contexto.operacion ? contexto.operacion : 'escritura') +
+              ' sin autorización IMPORT_AUTORIZADO';
+    Log_error('Modelo', 'guardEscritura', msg);
+    throw new Error(msg);
+  }
+}
+
+/**
  * Agrega pacientes nuevos en UNA escritura. Los objetos deben venir completos
  * desde la capa de ingresos; aquí solo se fija FECHA_ACTUALIZACION.
+ * @param {Array} objetos pacientes canónicos
+ * @param {Object} [contexto] REQUERIDO: {autorizacion:'IMPORT_AUTORIZADO', operacion:'...'}
  */
-function Modelo_agregarPacientes(objetos) {
+function Modelo_agregarPacientes(objetos, contexto) {
+  Modelo_guardEscritura(contexto || {});
   if (!objetos || !objetos.length) return 0;
   var ahora = new Date();
   var filas = objetos.map(function (o) {
@@ -207,11 +225,13 @@ function Modelo_agregarPacientes(objetos) {
 }
 
 /**
- * Agrega eventos en UNA escritura respetando append-only:
- * nunca modifica filas existentes, solo añade al final.
- * Fija FECHA_REGISTRO y REGISTRADO_POR al momento de escribir.
+ * Agrega eventos en UNA escritura respetando append-only.
+ * @param {Array} eventos
+ * @param {string} registradoPor
+ * @param {Object} [contexto] REQUERIDO: {autorizacion:'IMPORT_AUTORIZADO'}
  */
-function Modelo_agregarEventos(eventos, registradoPor) {
+function Modelo_agregarEventos(eventos, registradoPor, contexto) {
+  Modelo_guardEscritura(contexto || {});
   if (!eventos || !eventos.length) return 0;
   var ss = Modelo_ss();
   var hoja = ss.getSheetByName(HOJAS.EVENTOS);
@@ -454,4 +474,129 @@ function Modelo_leerEventos() {
     salida.push(o);
   }
   return salida;
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 5-INCIDENTE — Recuperación selectiva de carga accidental
+// ---------------------------------------------------------------------------
+
+/**
+ * Identifica registros creados por una ejecución de carga accidental.
+ * Criterio: FUENTE empieza con el nombre del archivo fuente (no HOJA_INGRESO)
+ * y el registro no existía antes (no tiene marca de prueba).
+ * @param {string} prefijoFuente ej: 'ECICEP NARANJO|' o 'PCTS. ECICEP DESDE 2023|'
+ * @returns {pacientes:[{fila,idx,objet}], eventos:[{fila,idx,objet}]}
+ */
+function Recuperar_identificar(prefijoFuente) {
+  var pacientes = Modelo_leerPacientes();
+  var eventos = Modelo_leerEventos();
+
+  // eventos creados desde fuentes reales (FUENTE contiene '|' con archivo|hoja|fila)
+  var evAfectados = [];
+  eventos.forEach(function (e, idx) {
+    var f = Utl_texto(e.FUENTE);
+    if (f.indexOf('HOJA_INGRESO') === 0) return; // de flujo manual, no incidente
+    if (f.indexOf('|') !== -1 && f.toUpperCase().indexOf(Utl_texto(prefijoFuente).toUpperCase()) === 0) {
+      evAfectados.push({ fila: idx + 2, idx: idx, objet: e });
+    }
+  });
+
+  // IDs de pacientes afectados = IDs que aparecen en los eventos afectados
+  var idsAfectados = {};
+  evAfectados.forEach(function (e) { idsAfectados[Utl_texto(e.objet.ID_INTERNO)] = true; });
+
+  // pacientes afectados = los cuyo ID está en el set O cuyo RUT aparece en eventos
+  var pAfectados = [];
+  pacientes.forEach(function (p, idx) {
+    var id = Utl_texto(p.ID_INTERNO);
+    if (!idsAfectados[id]) return;
+    // excluir datos de prueba (esos se manejan con 🧹)
+    var f = Utl_texto(p.FUENTE);
+    if (f.indexOf('HOJA_INGRESO') === 0 && Utl_vacio(p.OBSERVACIONES)) return;
+    pAfectados.push({ fila: idx + 2, idx: idx, objet: p });
+  });
+
+  return { pacientes: pAfectados, eventos: evAfectados };
+}
+
+/**
+ * Genera un inventario legible en la hoja RECUPERACION para revisión humana.
+ */
+function Recuperar_inventario(prefijoFuente) {
+  var datos = Recuperar_identificar(prefijoFuente);
+  var ss = Modelo_ss();
+  var hoja = ss.getSheetByName('RECUPERACION');
+  if (!hoja) hoja = ss.insertSheet('RECUPERACION');
+  hoja.clearContents();
+
+  var fila = 1;
+  Utl_escribirBloque(hoja, fila, 1, [['=== INVENTARIO DE RECUPERACIÓN — ' + new Date().toISOString() + ' ===']]); fila++;
+  Utl_escribirBloque(hoja, fila, 1, [['PACIENTES afectados:', datos.pacientes.length]]); fila++;
+  Utl_escribirBloque(hoja, fila, 1, [['EVENTOS afectados:', datos.eventos.length]]); fila += 2;
+
+  Utl_escribirBloque(hoja, fila, 1, [['--- PACIENTES ---', 'FILA_SHEET', 'ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTADO', 'FUENTE']]); fila++;
+  datos.pacientes.forEach(function (p) {
+    Utl_escribirBloque(hoja, fila, 1, [[
+      '', p.fila, p.objet.ID_INTERNO, p.objet.RUT,
+      Utl_texto(p.objet.NOMBRE).substring(0, 30), p.objet.SECTOR,
+      p.objet.ESTADO, Utl_texto(p.objet.FUENTE).substring(0, 40)
+    ]]);
+    fila++;
+  });
+  fila++;
+
+  Utl_escribirBloque(hoja, fila, 1, [['--- EVENTOS ---', 'FILA_SHEET', 'ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA', 'TIPO', 'FUENTE']]); fila++;
+  datos.eventos.forEach(function (e) {
+    Utl_escribirBloque(hoja, fila, 1, [[
+      '', e.fila, e.objet.ID_EVENTO, e.objet.ID_INTERNO, e.objet.RUT,
+      Utl_texto(e.objet.NOMBRE).substring(0, 25),
+      e.objet.FECHA_EVENTO, e.objet.TIPO_EVENTO,
+      Utl_texto(e.objet.FUENTE).substring(0, 40)
+    ]]);
+    fila++;
+  });
+
+  return { pacientes: datos.pacientes.length, eventos: datos.eventos.length };
+}
+
+/**
+ * Ejecuta la recuperación selectiva: elimina SOLO los registros identificados.
+ * NO toca registros que no estén en el inventario. Requiere confirmación previa.
+ */
+function Recuperar_ejecutar(prefijoFuente) {
+  var datos = Recuperar_identificar(prefijoFuente);
+  var ss = Modelo_ss();
+  var eliminadosP = 0, eliminadosE = 0;
+
+  // EVENTOS: eliminar filas de abajo hacia arriba
+  if (datos.eventos.length) {
+    var hojaE = ss.getSheetByName(HOJAS.EVENTOS);
+    if (hojaE) {
+      var filasE = datos.eventos.map(function (e) { return e.fila; }).sort(function (a, b) { return b - a; });
+      filasE.forEach(function (f) { hojaE.deleteRow(f); eliminadosE++; });
+    }
+  }
+
+  // PACIENTES: reescribir sin los afectados
+  if (datos.pacientes.length) {
+    var pacientes = Modelo_leerPacientes();
+    var idsElim = {};
+    datos.pacientes.forEach(function (p) { idsElim[Utl_texto(p.objet.ID_INTERNO)] = true; });
+    var conservar = pacientes.filter(function (p) { return !idsElim[Utl_texto(p.ID_INTERNO)]; });
+    var hojaP = ss.getSheetByName(HOJAS.PACIENTES);
+    if (hojaP) {
+      hojaP.getRange(2, 1, Math.max(hojaP.getMaxRows() - 1, 1), MODELO_PACIENTE.length).clearContent();
+      if (conservar.length) {
+        Utl_escribirBloque(hojaP, 2, 1, conservar.map(Modelo_filaDesdeObjeto));
+      }
+      eliminadosP = datos.pacientes.length;
+    }
+  }
+
+  // refrescar vistas
+  if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores();
+
+  Log_info('Recuperar', 'ejecutar', JSON.stringify({ pacientes: eliminadosP, eventos: eliminadosE }));
+  Log_flush();
+  return { pacientesEliminados: eliminadosP, eventosEliminados: eliminadosE };
 }

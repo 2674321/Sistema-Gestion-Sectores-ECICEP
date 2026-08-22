@@ -511,10 +511,10 @@ function Fuentes_cargaReal(opciones) {
 
   // --- FASE 5.6: IMPORTACIÓN ---
   if (typeof Modelo_agregarPacientes === 'function' && salida.pacientesNuevos.length) {
-    Modelo_agregarPacientes(salida.pacientesNuevos);
+    Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
   }
   if (typeof Modelo_agregarEventos === 'function' && salida.eventos.length) {
-    Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual());
+    Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
   }
 
   // auditoría a STAGING_IMPORT

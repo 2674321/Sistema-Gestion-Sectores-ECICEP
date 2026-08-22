@@ -345,8 +345,8 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   salida.resumen.ejecucion = ejecucion;
 
   // 4) persistencia por lotes
-  Modelo_agregarPacientes(salida.pacientesNuevos);
-  Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual());
+  Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
+  Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-eventos' });
 
   // 5) estados de vuelta en las hojas de ingreso
   Ingresos_escribirEstados(salida.resultados);
