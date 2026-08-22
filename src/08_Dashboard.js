@@ -203,8 +203,13 @@ function Dash_actualizar() {
   bloques.push(['Requiere revisión', calidad.requiereRevision, '', '']);
 
   // limpiar área de resultados y escribir
-  hoja.getRange(filaEscritura, 1, Math.max(hoja.getMaxRows() - filaEscritura, 1), 6).clearContent();
-  Utl_escribirBloque(hoja, filaEscritura, 1, bloques);
+  hoja.getRange(filaEscritura, 1, Math.max(hoja.getMaxRows() - filaEscritura, 1), 5).clearContent();
+  // normalizar todas las filas a exactamente 5 columnas
+  var bloquesNorm = bloques.map(function (fila) {
+    while (fila.length < 5) fila.push('');
+    return fila.slice(0, 5);
+  });
+  Utl_escribirBloque(hoja, filaEscritura, 1, bloquesNorm);
 
   Log_info('Dashboard', 'actualizar', JSON.stringify({
     periodo: periodo.desde+'→'+periodo.hasta, sector: sector,
