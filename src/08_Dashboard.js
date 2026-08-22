@@ -41,14 +41,25 @@ function Dash_resolverPeriodo(tipo, desdeStr, hastaStr) {
   }
 }
 
+/** PURA: normaliza cualquier valor de fecha a formato ISO yyyy-mm-dd. */
+function Dash_fechaIso(v) {
+  if (v instanceof Date) {
+    return v.getFullYear() + '-' + ('0' + (v.getMonth() + 1)).slice(-2) + '-' + ('0' + v.getDate()).slice(-2);
+  }
+  var s = Utl_texto(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  return Utl_texto(v); // devolver tal cual si no es reconocible
+}
+
 /**
  * PURA: filtra eventos por rango de fechas y sector.
  */
 function Dash_filtrarEventos(eventos, desdeIso, hastaIso, sector) {
   return (eventos || []).filter(function (e) {
-    var f = Utl_texto(e.FECHA_EVENTO);
-    if (f && f < desdeIso) return false;
-    if (f && f > hastaIso) return false;
+    var f = Dash_fechaIso(e.FECHA_EVENTO);
+    if (!f) return false; // sin fecha → excluido del análisis temporal
+    if (f < desdeIso) return false;
+    if (f > hastaIso) return false;
     if (sector && sector !== 'TODOS' && Utl_texto(e.SECTOR).toUpperCase() !== sector.toUpperCase()) return false;
     return true;
   });
@@ -74,7 +85,7 @@ function Dash_agregarActividad(eventosFiltrados) {
 function Dash_actividadMensual(eventosFiltrados, desdeIso, hastaIso) {
   var meses = {};
   (eventosFiltrados || []).forEach(function (e) {
-    var f = Utl_texto(e.FECHA_EVENTO);
+    var f = Dash_fechaIso(e.FECHA_EVENTO);
     if (!f || f.length < 7) return;
     var mes = f.substring(0, 7);
     if (!meses[mes]) meses[mes] = {};
