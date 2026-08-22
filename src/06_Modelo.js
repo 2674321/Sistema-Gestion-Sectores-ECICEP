@@ -49,6 +49,7 @@ HOJAS_SECTOR.forEach(function (h) { _MODELO_HOJAS_DEF[h] = COLUMNAS_SECTOR_VISTA
 _MODELO_HOJAS_DEF[HOJAS.LOG] = ['FECHA', 'NIVEL', 'MODULO', 'OPERACION', 'MENSAJE', 'DURACION_MS', 'CONTEXTO'];
 _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'DETALLE', 'FUENTE_A', 'FUENTE_B', 'ESTADO_REVISION', 'RESUELTO_POR'];
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
+_MODELO_HOJAS_DEF['DASHBOARD'] = null; // se inicializa con filtros al crear
 
 var _CONFIG_SEMILLA = [
   ['VERSION', ECICEP.VERSION, 'Versión del sistema instalada'],
@@ -81,11 +82,28 @@ function Modelo_crearEstructura() {
       Utl_escribirBloque(hoja, 1, 1, [encabezados]);
     } else {
       res.existentes.push(nombre);
+      var esperados = _MODELO_HOJAS_DEF[nombre];
+      if (esperados && esperados.length) {
+        var actual = hoja.getRange(1, 1, 1, esperados.length).getValues()[0];
+        for (var c = 0; c < esperados.length; c++) {
+          if (Utl_texto(actual[c]) !== esperados[c]) {
+            Utl_escribirBloque(hoja, 1, 1, [esperados]);
+            Log_warning('Modelo', 'crearEstructura', 'Encabezados reparados: ' + nombre);
+            break;
+          }
+        }
+      }
     }
   });
 
   _modelo_formatearPacientes(ss.getSheetByName(HOJAS.PACIENTES));
-  _modelo_sembrarConfig(ss.getSheetByName(HOJAS.CONFIG), res.creadas.indexOf(HOJAS.CONFIG) !== -1);
+  _modelo_sembrarConfig(ss.getSheetByName(HOJAS.CONFIG), res);
+
+  // inicializar DASHBOARD con filtros si es nueva
+  if (res.creadas.indexOf('DASHBOARD') !== -1) {
+    var dashHoja = ss.getSheetByName('DASHBOARD');
+    if (dashHoja) { try { if (typeof _dash_inicializarFiltros === 'function') _dash_inicializarFiltros(dashHoja); } catch(e){} }
+  }
 
   // Hoja predeterminada: eliminar solo si vacía (regla de no destrucción)
   var hoja0 = ss.getSheetByName(HOJAS.HOJA_PREDETERMINADA);
@@ -137,16 +155,31 @@ function _modelo_formatearPacientes(hoja) {
 }
 
 /** Siembra CONFIG solo si la hoja es nueva o no tiene las claves base. */
-function _modelo_sembrarConfig(hoja, esNueva) {
+function _modelo_sembrarConfig(hoja, res) {
   if (!hoja) return;
   var existentes = {};
+  var esNueva = false;
+  if (res && res.creadas) esNueva = res.creadas.indexOf(HOJAS.CONFIG) !== -1;
   if (!esNueva && hoja.getLastRow() > 1) {
     Utl_leerBloque(hoja).slice(1).forEach(function (f) { existentes[f[0]] = true; });
   }
-  var filas = _CONFIG_SEMILLA.filter(function (f) { return esNueva || !existentes[f[0]]; });
-  if (filas.length) {
-    var inicio = hoja.getLastRow() + 1;
-    Utl_escribirBloque(hoja, Math.max(inicio, 2), 1, filas);
+  var filas = _CONFIG_SEMILLA.filter(function (f) {
+    if (f[0] === 'VERSION') return true; // VERSION siempre se actualiza
+    return esNueva || !existentes[f[0]];
+  });
+  if (!filas.length) return;
+  // escribir: actualizar VERSION in-situ o agregar nuevas claves
+  for (var i = 0; i < filas.length; i++) {
+    if (filas[i][0] === 'VERSION' && !esNueva && hoja.getLastRow() > 1) {
+      // buscar fila de VERSION existente y actualizar valor
+      var datos = Utl_leerBloque(hoja);
+      for (var r = 1; r < datos.length; r++) {
+        if (datos[r][0] === 'VERSION') { hoja.getRange(r+1, 2).setValue(filas[i][1]); break; }
+      }
+    } else {
+      hoja.getRange(hoja.getLastRow() + 1, 1, 1, 3).setValues([filas[i]]);
+      if (res) res.configActualizadas.push(filas[i][0]);
+    }
   }
 }
 
