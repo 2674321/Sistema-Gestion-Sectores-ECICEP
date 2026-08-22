@@ -520,6 +520,21 @@ function Fuentes_cargaReal(opciones) {
   // auditoría a STAGING_IMPORT
   Fuentes_guardarFilas(staging);
 
+  // casos ambiguos → cola de revisión (CONFLICTOS)
+  var filasConflicto = [];
+  staging.forEach(function (f) {
+    var r = f.RESULTADO_IDENTIFICACION;
+    if (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION')) {
+      filasConflicto.push(Rev_filaConflicto(f));
+    }
+  });
+  if (filasConflicto.length && typeof Modelo_agregarConflictos === 'function') {
+    resultado.aColaRevision = Modelo_agregarConflictos(filasConflicto, function (filaArr) {
+      try { return JSON.parse(filaArr[5]).idProvisional || ''; } catch (e) { return ''; }
+    });
+    Log_info('Fuentes', 'colaRevision', filasConflicto.length + ' enviados a CONFLICTOS');
+  }
+
   // --- FASE 5.8: refrescar vistas sectoriales ---
   if (typeof Modelo_refrescarVistasSectores === 'function') {
     resultado.vistasSector = Modelo_refrescarVistasSectores();
