@@ -408,53 +408,55 @@ function Norm_normalizarCondiciones(raw, catalogo) {
 }
 
 /**
- * PURA: aplica la regla de estratificación según umbrales configurados.
- * @param {number} cantidadCondiciones
+ * PURA: aplica la regla de estratificación por PUNTAJE PONDERADO.
+ * puntaje = suma de ponderaciones · 0→G0 · 1→G1 · 2-4→G2 · ≥5→G3
+ * @param {number} puntaje suma de ponderaciones
  * @param {Object} config CFG_ESTRATIFICACION
- * @returns {resultado:'G0'|'G1'|'G2'|'G3'|'NO_CALCULABLE', regla:''}
  */
-function Estrat_calcularPorCantidad(cantidadCondiciones, config) {
+function Estrat_calcularPorPuntaje(puntaje, config) {
   config = config || CFG_ESTRATIFICACION;
-  if (!config.REGLA_DISPONIBLE && config.VERSION_REGLA === 'PENDIENTE_VALIDACION') {
+  if (!config.REGLA_DISPONIBLE) {
     return { resultado: 'NO_CALCULABLE', regla: 'REGLA_NO_CONFIGURADA' };
   }
-  var cant = Number(cantidadCondiciones) || 0;
+  var p = Number(puntaje) || 0;
   for (var i = 0; i < (config.UMBRALES || []).length; i++) {
     var u = config.UMBRALES[i];
-    var cumpleMin = u.minCondiciones === undefined || cant >= u.minCondiciones;
-    var cumpleMax = u.maxCondiciones === undefined || cant <= u.maxCondiciones;
-    if (cumpleMin && cumpleMax) {
-      return { resultado: u.nivel, regla: 'CANTIDAD_CONDICIONES=' + cant };
-    }
+    var okMin = u.minPuntaje === undefined || p >= u.minPuntaje;
+    var okMax = u.maxPuntaje === undefined || p <= u.maxPuntaje;
+    if (okMin && okMax) return { resultado: u.nivel, regla: 'PUNTAJE=' + p };
   }
-  return { resultado: 'NO_CALCULABLE', regla: 'sin umbral coincidente para cantidad=' + cant };
+  return { resultado: 'NO_CALCULABLE', regla: 'sin umbral para puntaje=' + p };
 }
 
 /**
- * PURA: motor completo — condiciones → catálogo → regla → nivel.
- * @param {string} rawCondiciones valor original del campo CONDICIONES
- * @param {Object} config CFG_ESTRATIFICACION
- * @returns {estado:'SIN_DATOS'|'CALCULADO'|'NO_CALCULABLE',
- *           resultado:'G0'|'G1'|'G2'|'G3'|'', detectadas:[], noReconocidas:[],
- *           cantidad:0, regla:'', version:''}
+ * PURA: motor completo — condiciones → catálogo → ponderación → puntaje → nivel.
+ * Difiere de ETAPA 8A en que usa SUMA DE PONDERACIONES (no simple conteo).
+ * Las condiciones de doble puntuación aportan 2 al puntaje.
  */
 function Estrat_evaluar(rawCondiciones, catalogo, config) {
   config = config || CFG_ESTRATIFICACION;
   var norm = Norm_normalizarCondiciones(rawCondiciones, catalogo);
 
   if (!norm.cantidad && !norm.noReconocidas.length) {
-    // sin datos → pendiente, no calcular
+    // sin datos registrados ≠ sin condiciones (FASE 9)
     return { estado:'SIN_DATOS', resultado:'', detectadas:[], noReconocidas:[],
-             cantidad:0, regla:'', version: config.VERSION_REGLA };
+             cantidad:0, puntaje:0, regla:'', version: config.VERSION_REGLA };
   }
 
-  var calc = Estrat_calcularPorCantidad(norm.cantidad, config);
+  var calc = Estrat_calcularPorPuntaje(norm.sumaPonderacion, config);
+  var estadoFinal = calc.resultado === 'NO_CALCULABLE' ? 'NO_CALCULABLE' : 'CALCULADO';
+  // si hay no reconocidas y el resultado es bajo → marcar como NO_CALCULABLE
+  if (norm.noReconocidas.length > 0 && calc.resultado !== 'G3') {
+    estadoFinal = 'NO_CALCULABLE';
+    calc.regla += ' + CONDICIONES_NO_RECONOCIDAS=' + norm.noReconocidas.length;
+  }
   return {
-    estado: calc.resultado === 'NO_CALCULABLE' ? 'NO_CALCULABLE' : 'CALCULADO',
-    resultado: calc.resultado === 'NO_CALCULABLE' ? '' : calc.resultado,
+    estado: estadoFinal,
+    resultado: estadoFinal === 'CALCULADO' ? calc.resultado : '',
     detectadas: norm.detectadas,
     noReconocidas: norm.noReconocidas,
     cantidad: norm.cantidad,
+    puntaje: norm.sumaPonderacion,
     regla: calc.regla,
     version: config.VERSION_REGLA
   };

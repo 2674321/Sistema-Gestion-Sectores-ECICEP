@@ -48,6 +48,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_hardguard(t, A);
   _pruebas_estrat_estado(t, A);
   _pruebas_motor_estrat(t, A);
+  _pruebas_ponderacion(t, A);
   _pruebas_utilidades(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
@@ -1028,17 +1029,17 @@ function _pruebas_estrat_estado(t, A) {
 // ---------------------------------------------------------------------------
 
 function _pruebas_motor_estrat(t, A) {
-  var catalogo = CATALOGO_CONDICIONES_TEST;
+  var catalogo = CATALOGO_CONDICIONES_ECICEP;
 
   DATASET_ESTRATIFICACION.casosMotor.forEach(function (caso) {
     t('MOTOR: ' + JSON.stringify(caso[0] || '(vacío)').substring(0, 50), function () {
       var r = Estrat_evaluar(caso[0], catalogo, {
         REGLA_DISPONIBLE: true, VERSION_REGLA: 'TEST_V1',
         UMBRALES: [
-          { maxCondiciones: 0, nivel: 'G0' },
-          { minCondiciones: 1, maxCondiciones: 1, nivel: 'G1' },
-          { minCondiciones: 2, maxCondiciones: 4, nivel: 'G2' },
-          { minCondiciones: 5, nivel: 'G3' }
+          { maxPuntaje: 0, nivel: 'G0' },
+          { minPuntaje: 1, maxPuntaje: 1, nivel: 'G1' },
+          { minPuntaje: 2, maxPuntaje: 4, nivel: 'G2' },
+          { minPuntaje: 5, nivel: 'G3' }
         ]
       });
       if (!caso[1]) {
@@ -1067,7 +1068,7 @@ function _pruebas_motor_estrat(t, A) {
 
   t('MOTOR: regla no disponible → NO_CALCULABLE', function () {
     var r = Norm_normalizarCondiciones('HTA; DM2', catalogo);
-    var calc = Estrat_calcularPorCantidad(2, CFG_ESTRATIFICACION);
+    var calc = Estrat_calcularPorPuntaje(2, CFG_ESTRATIFICACION);
     A.igual(calc.resultado, 'NO_CALCULABLE', 'motor apagado');
     A.igual(calc.regla, 'REGLA_NO_CONFIGURADA', 'motivo');
   });
@@ -1075,5 +1076,78 @@ function _pruebas_motor_estrat(t, A) {
   t('MOTOR: ponderación acumulada desde catálogo', function () {
     var r = Norm_normalizarCondiciones('HTA; ERC', catalogo);
     A.igual(r.sumaPonderacion, 3, 'HTA(1) + ERC(2) = 3');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 8B — motor por PONDERACIÓN (no simple conteo)
+// ---------------------------------------------------------------------------
+
+function _pruebas_ponderacion(t, A) {
+  var cat = CATALOGO_CONDICIONES_ECICEP;
+  var cfgActivo = {
+    REGLA_DISPONIBLE: true, VERSION_REGLA: 'ECICEP_TEST',
+    UMBRALES: [
+      { maxPuntaje: 0, nivel: 'G0' },
+      { minPuntaje: 1, maxPuntaje: 1, nivel: 'G1' },
+      { minPuntaje: 2, maxPuntaje: 4, nivel: 'G2' },
+      { minPuntaje: 5, nivel: 'G3' }
+    ]
+  };
+
+  t('8B PONDERACIÓN: HTA(1) → G1', function () {
+    var r = Estrat_evaluar('HTA', cat, cfgActivo);
+    A.igual(r.puntaje, 1); A.igual(r.resultado, 'G1'); A.igual(r.estado, 'CALCULADO');
+  });
+
+  t('8B PONDERACIÓN: HTA + EPOC = 2 → G2', function () {
+    var r = Estrat_evaluar('HTA; EPOC', cat, cfgActivo);
+    A.igual(r.puntaje, 2); A.igual(r.resultado, 'G2');
+  });
+
+  t('8B PONDERACIÓN: HTA + EPOC + DM = 4 → G2', function () {
+    // HTA(1) + EPOC(1) + DM(2) = 4 puntos → G2
+    var r = Estrat_evaluar('HTA; EPOC; diabetes', cat, cfgActivo);
+    A.igual(r.puntaje, 4); A.igual(r.resultado, 'G2');
+  });
+
+  t('8B PONDERACIÓN CRÍTICA: HTA + EPOC + DM + otra = 5 → G3', function () {
+    // HTA(1) + EPOC(1) + DM(2) + HIPOT(1) = 5 → G3
+    var r = Estrat_evaluar('HTA; EPOC; diabetes; hipotiroidismo', cat, cfgActivo);
+    A.igual(r.puntaje, 5); A.igual(r.resultado, 'G3');
+  });
+
+  t('8B PONDERACIÓN: 3 condiciones simples + 1 doble = puede alcanzar G3', function () {
+    // HTA(1) + EPOC(1) + DEP(1) + DM(2) = 5 → G3
+    var r = Estrat_evaluar('HTA; EPOC; depresion; diabetes', cat, cfgActivo);
+    A.igual(r.puntaje, 5); A.igual(r.resultado, 'G3');
+  });
+
+  t('8B PONDERACIÓN: solo condiciones dobles DM(2) + DEM(2) = 4 → G2', function () {
+    var r = Estrat_evaluar('diabetes; demencia', cat, cfgActivo);
+    A.igual(r.puntaje, 4); A.igual(r.resultado, 'G2');
+  });
+
+  t('8B DEDUP: "HTA; hipertensión" cuenta UNA sola vez', function () {
+    var r = Norm_normalizarCondiciones('HTA; hipertension', CATALOGO_CONDICIONES_ECICEP);
+    A.igual(r.detectadas.length, 1, 'una condición, no dos');
+    A.igual(r.sumaPonderacion, 1, 'un punto, no dos');
+  });
+
+  t('8B MOTOR APAGADO: REGLA_DISPONIBLE=false → NO_CALCULABLE', function () {
+    var r = Estrat_evaluar('HTA; DM', CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    A.igual(r.estado, 'NO_CALCULABLE'); A.igual(r.resultado, '');
+  });
+
+  t('8B SIN_DATOS ≠ G0: null no produce resultado', function () {
+    var r = Estrat_evaluar(null, cat, cfgActivo);
+    A.igual(r.estado, 'SIN_DATOS'); A.cierto(!r.resultado, 'null ≠ G0');
+  });
+
+  t('8B NO_RECONOCIDAS: condición desconocida marca NO_CALCULABLE si resultado < G3', function () {
+    var r = Estrat_evaluar('HTA; patología misteriosa XYZ', cat, cfgActivo);
+    A.cierto(r.noReconocidas.length > 0, 'desconocida registrada');
+    A.cierto(r.estado !== 'CALCULADO' || r.resultado === 'G3',
+      'si tiene desconocidas y resultado < G3 → NO_CALCULABLE');
   });
 }

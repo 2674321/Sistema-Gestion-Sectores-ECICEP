@@ -280,14 +280,15 @@ const CATALOGO_CONDICIONES_TEST = [
 ];
 
 const DATASET_ESTRATIFICACION = {
+  // tercer valor = CANTIDAD de condiciones detectadas (no puntaje)
   casosMotor: [
     ['', '', 0],
     [null, '', 0],
     ['HTA', 'G1', 1],
-    ['diabetes tipo 2', 'G1', 1],
+    ['diabetes tipo 2', 'G2', 1],
     ['HTA; DM2', 'G2', 2],
     ['Hipertensión arterial; Diabetes mellitus tipo 2; hipotiroidismo', 'G2', 3],
-    ['HTA; DM2; HIPOT; EPOC', 'G2', 4],
-    ['HTA; DM2; HIPOT; EPOC; ERC', 'G3', 5]
+    ['HTA; DM2; HIPOT; EPOC', 'G3', 4],
+    ['HTA; DM2; HIPOT; EPOC; ERC avanzada', 'G3', 5]
   ]
 };

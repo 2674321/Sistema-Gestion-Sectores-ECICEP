@@ -317,15 +317,43 @@ const CFG_ESTRATIFICACION = {
   REGLA_DISPONIBLE: false,
   VERSION_REGLA: 'PENDIENTE_VALIDACION',
   MOTIVO_SIN_REGLA: 'REGLA_NO_CONFIGURADA',
-  // Regla estructural de referencia MINSAL (NO oficial hasta validar):
-  // G0 = 0 condiciones · G1 = 1 · G2 = 2–4 · G3 = 5+
+  // Regla por PUNTAJE PONDERADO (no simple conteo):
+  // puntaje = suma de ponderaciones · 0→G0 · 1→G1 · 2–4→G2 · ≥5→G3
   UMBRALES: [
-    { maxCondiciones: 0, nivel: 'G0' },
-    { minCondiciones: 1, maxCondiciones: 1, nivel: 'G1' },
-    { minCondiciones: 2, maxCondiciones: 4, nivel: 'G2' },
-    { minCondiciones: 5, nivel: 'G3' }
+    { maxPuntaje: 0, nivel: 'G0' },
+    { minPuntaje: 1, maxPuntaje: 1, nivel: 'G1' },
+    { minPuntaje: 2, maxPuntaje: 4, nivel: 'G2' },
+    { minPuntaje: 5, nivel: 'G3' }
   ]
 };
+
+// Catálogo ECICEP de condiciones crónicas con ponderación.
+// Las 8 condiciones marcas DUAL tienen doble puntuación (=2).
+// ⚠️ CATÁLOGO PARCIAL — completar con las ~52 condiciones del programa oficial.
+const CATALOGO_CONDICIONES_ECICEP = [
+  // --- Condiciones de DOBLE puntuación (peso 2) ---
+  { CODIGO:'DEM', NOMBRE_CANONICO:'Demencia', ALIASES:['demencia'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'DEPG', NOMBRE_CANONICO:'Depresión grave/refractaria/con psicosis', ALIASES:['depresion grave','depresion refractaria','depresion con ideacion suicida','depresion con psicosis'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'DM', NOMBRE_CANONICO:'Diabetes Mellitus', ALIASES:['diabetes mellitus','diabetes','dm','dm1','dm2','diabetes tipo 1','diabetes tipo 2','diabetes mellitus tipo 2'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'ECV', NOMBRE_CANONICO:'Enfermedad cerebrovascular', ALIASES:['enfermedad cerebrovascular','acv','ave','accidente cerebrovascular'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'ERCA', NOMBRE_CANONICO:'Enfermedad renal crónica avanzada', ALIASES:['enfermedad renal cronica avanzada','erca','erc avanzada','erc','insuficiencia renal cronica'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'ECI', NOMBRE_CANONICO:'Enfermedades cardiovasculares / IAM / Cardiopatía isquémica', ALIASES:['iam','infarto','cardiopatia isquemica','enfermedad cardiovascular','enfermedades cardiovasculares'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'ESQ', NOMBRE_CANONICO:'Esquizofrenia', ALIASES:['esquizofrenia','trastorno esquizofrenico'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'DISCAP', NOMBRE_CANONICO:'Función limitada / Discapacidad / Dependencia', ALIASES:['discapacidad','dependencia','funcion limitada','dependencia funcional'], PONDERACION:2, ACTIVA:true },
+
+  // --- Condiciones de puntuación simple (peso 1) ---
+  { CODIGO:'HTA', NOMBRE_CANONICO:'Hipertensión arterial', ALIASES:['hipertension','hta','presion alta'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ASMA', NOMBRE_CANONICO:'Asma', ALIASES:['asma'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'EPOC', NOMBRE_CANONICO:'Enfermedad pulmonar obstructiva crónica', ALIASES:['epoc'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'IC', NOMBRE_CANONICO:'Insuficiencia cardíaca', ALIASES:['insuficiencia cardiaca','ic'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'DEP', NOMBRE_CANONICO:'Depresión (leve/moderada)', ALIASES:['depresion'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'EPI', NOMBRE_CANONICO:'Epilepsia', ALIASES:['epilepsia'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'PK', NOMBRE_CANONICO:'Parkinson', ALIASES:['parkinson','enfermedad de parkinson'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'AR', NOMBRE_CANONICO:'Artritis reumatoide', ALIASES:['artritis reumatoide','ar'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'HIPOT', NOMBRE_CANONICO:'Hipotiroidismo', ALIASES:['hipotiroidismo'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'OBE', NOMBRE_CANONICO:'Obesidad', ALIASES:['obesidad'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'DLP', NOMBRE_CANONICO:'Dislipidemia', ALIASES:['dislipidemia','dislipemia'], PONDERACION:1, ACTIVA:true }
+];
 
 // ---------------------------------------------------------------------------
 // Logging (DEC-014): búfer en memoria + escritura por lotes
