@@ -314,12 +314,17 @@ var _FICHA_CAMPOS_OPERATIVOS = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NA
  * (orden cronológico ascendente). Lee siempre desde las bases centrales.
  */
 function Modelo_fichaPaciente(idInterno) {
+  console.log('[ECICEP modelo] fichaPaciente recibió:', JSON.stringify(idInterno), 'tipo:', typeof idInterno);
   var pacientes = Modelo_leerPacientes();
+  console.log('[ECICEP modelo] pacientes leídos:', pacientes.length);
   var paciente = null;
   for (var i = 0; i < pacientes.length; i++) {
     if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { paciente = pacientes[i]; break; }
   }
-  if (!paciente) return null;
+  if (!paciente) {
+    console.log('[ECICEP modelo] paciente NO encontrado para:', JSON.stringify(idInterno));
+    return null;
+  }
 
   var eventos = Modelo_leerEventos().filter(function (e) {
     return Utl_texto(e.ID_INTERNO) === Utl_texto(idInterno);

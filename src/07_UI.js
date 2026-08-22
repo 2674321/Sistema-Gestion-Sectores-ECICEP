@@ -314,7 +314,10 @@ function api_buscar(termino) {
 
 /** Endpoint sidebar: ficha consolidada + historial desde EVENTOS. */
 function api_ficha(idInterno) {
-  return Modelo_fichaPaciente(idInterno);
+  console.log('[ECICEP backend] api_ficha recibió idInterno:', JSON.stringify(idInterno));
+  var resultado = Modelo_fichaPaciente(idInterno);
+  console.log('[ECICEP backend] resultado:', resultado ? 'ENCONTRADO' : 'NULL');
+  return resultado;
 }
 
 /** Endpoint sidebar: registra un evento para un paciente existente y
@@ -727,4 +730,16 @@ function _calcularPuntaje(codigos) {
     }
   });
   return total;
+}
+
+/** Diagnóstico: cuenta pacientes y muestra primeros 3 IDs. */
+function api_diagnosticoPacientes() {
+  var pacientes = Modelo_leerPacientes();
+  return {
+    total: pacientes.length,
+    columnas: pacientes.length ? Object.keys(pacientes[0]).slice(0, 8) : [],
+    primerosIds: pacientes.slice(0, 3).map(function (p) { return p.ID_INTERNO; }),
+    hojaExiste: !!Modelo_hoja(HOJAS.PACIENTES),
+    ultimaFila: Modelo_hoja(HOJAS.PACIENTES) ? Modelo_hoja(HOJAS.PACIENTES).getLastRow() : 0
+  };
 }

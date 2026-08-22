@@ -80,9 +80,15 @@ function buscar(){
 }
 
 function abrirFicha(id){
-  google.script.run.withSuccessHandler(function(f){
-    if(!f){alert('No encontrado');return;}
-    P_ACTUAL=f.ID_INTERNO;
+  console.log('[ECICEP] abrirFicha → id recibido:', JSON.stringify(id));
+  if(!id){alert('ERROR: ID vacío');return;}
+  google.script.run
+    .withSuccessHandler(function(f){
+      console.log('[ECICEP] api_ficha respuesta:', f ? 'ENCONTRADO' : 'NULL', '| tipo:', typeof f);
+      if(!f){
+        alert('PACIENTE_NO_ENCONTRADO\nID buscado: '+JSON.stringify(id)+'\n\nVerifica consola (F12) para más detalles.');
+        return;
+      }
     document.getElementById('panelBuscar').style.display='none';
     document.getElementById('vista').style.display='block';
     document.getElementById('fNombre').textContent=f.NOMBRE||'';
@@ -101,6 +107,9 @@ function abrirFicha(id){
     document.getElementById('fEventos').innerHTML='<tr><th>Fecha</th><th>Tipo</th><th>G</th></tr>'+(f.eventos.length?f.eventos.map(function(e){return '<tr><td>'+esc(e.fecha)+'</td><td>'+esc(e.tipo)+'</td><td>'+esc(e.riesgo)+'</td></tr>';}).join(''):'<tr><td colspan=3><i>Sin eventos</i></td></tr>');
     var s=document.getElementById('evTipo');s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
     document.getElementById('msgEv').className='msg';
+  }).withFailureHandler(function(err){
+      alert('ERROR del servidor: ' + (err && err.message ? err.message : err));
+      console.error('api_ficha error:', err);
   }).api_ficha(id);
 }
 
