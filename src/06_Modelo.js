@@ -22,11 +22,6 @@ function Modelo_campos() {
   return MODELO_PACIENTE.map(function (c) { return c.campo; });
 }
 
-/** Índice (1-based) de una columna del modelo en la hoja PACIENTES. */
-function Modelo_indiceColumna(campo) {
-  return Modelo_campos().indexOf(campo) + 1;
-}
-
 /**
  * Genera un ID interno único: EC-<base36 tiempo>-<aleatorio>.
  * No depende de RUT (permite corregir un RUT sin romper referencias).

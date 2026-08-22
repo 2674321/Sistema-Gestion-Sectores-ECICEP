@@ -8,34 +8,37 @@
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet. */
 function onOpen() {
   try {
-    SpreadsheetApp.getUi()
-      .createMenu('ECICEP')
-      .addItem('⚙ Instalar / reparar estructura', 'UI_instalarEstructura')
-      .addItem('📥 Procesar ingresos', 'UI_procesarIngresos')
-      .addItem('🔄 Actualizar vistas SECTOR', 'UI_refrescarSectores')
-      .addItem('🩺 Diagnosticar ingresos', 'UI_diagnosticarIngresos')
+    var ui = SpreadsheetApp.getUi();
+    ui.createMenu('ECICEP')
+
+      .addSubMenu(ui.createMenu('📊 Operación')
+        .addItem('🔍 Buscar paciente / ficha', 'UI_abrirBuscador')
+        .addItem('🧾 Cola de revisión', 'UI_abrirRevision')
+        .addItem('📥 Procesar ingresos', 'UI_procesarIngresos')
+        .addItem('🔄 Actualizar vistas SECTOR', 'UI_refrescarSectores'))
+      .addSubMenu(ui.createMenu('📦 Importación')
+        .addItem('📋 Diagnosticar fuentes reales', 'UI_diagnosticarFuentes')
+        .addItem('📊 Análisis de carga real (DRY RUN)', 'UI_bloqueado')
+        .addItem('🚀 Ejecutar carga autorizada', 'UI_ejecutarCarga'))
+      .addSubMenu(ui.createMenu('🩺 Diagnóstico')
+        .addItem('🩺 Diagnosticar ingresos', 'UI_diagnosticarIngresos'))
+
+      .addSubMenu(ui.createMenu('⚙️ Administración')
+        .addItem('⚙️ Instalar / reparar estructura', 'UI_instalarEstructura')
+        .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
+        .addItem('🔑 Configurar acceso remoto', 'UI_configurarWebhook')
+        .addItem('🔍 Recuperación: inventario', 'UI_recuperarInventario')
+        .addItem('⚠️ Recuperación: ejecutar reversión', 'UI_recuperarEjecutar'))
+
+      .addSubMenu(ui.createMenu('🧪 Desarrollo')
+        .addItem('⚡ Demo completa (ficticio)', 'UI_demoCompleta')
+        .addItem('🧪 Sembrar datos ficticios', 'UI_sembrarFicticios')
+        .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas'))
+
       .addSeparator()
-      .addItem('🔍 Buscar paciente / Ficha', 'UI_abrirBuscador')
-      .addItem('🧾 Cola de revisión', 'UI_abrirRevision')
-      .addSeparator()
-      .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
-      .addItem('🔑 Configurar acceso remoto', 'UI_configurarWebhook')
-      .addSeparator()
-      .addItem('⚡ Demo completa (instalar+sembrar+procesar)', 'UI_demoCompleta')
-      .addSeparator()
-      .addItem('📋 Diagnosticar fuentes reales', 'UI_diagnosticarFuentes')
-      .addItem('📥 Importar muestra (DRY RUN, 10 filas/sector)', 'UI_importarMuestra')
-      .addItem('🔒 Análisis BLOQUEADO hasta auditoría', 'UI_bloqueado')
-      .addItem('🚀 EJECUTAR carga real', 'UI_ejecutarCarga')
-      .addItem('🔒 EJECUTAR carga BLOQUEADO', 'UI_bloqueado')
-      .addSeparator()
-      .addItem('🔍 Recuperación: inventario de incidente', 'UI_recuperarInventario')
-      .addItem('⚠️ Recuperación: ejecutar reversión', 'UI_recuperarEjecutar')
-      .addItem('🧪 Sembrar datos ficticios (prueba)', 'UI_sembrarFicticios')
-      .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas')
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
       .addToUi();
-  } catch (e) { /* entorno sin UI (scripts headless): ignorar */ }
+  } catch (e) { /* entorno sin UI */ }
 }
 
 function UI_instalarEstructura() {

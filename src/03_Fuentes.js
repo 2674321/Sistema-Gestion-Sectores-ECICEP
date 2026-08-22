@@ -247,11 +247,6 @@ function Fuentes_diagnosticarFuentes() {
   return { ok: true, fuentes: fuentes };
 }
 
-/** Ejecuta diagnóstico de fuentes vía webhook. */
-function Fuentes_diagnosticarFuentesJson() {
-  return _wh_salida(Fuentes_diagnosticarFuentes());
-}
-
 /**
  * ETAPA 5b — Importación controlada de una muestra de una fuente real.
  * Lee N filas desde una hoja del Excel original (en Drive), las procesa
