@@ -327,33 +327,95 @@ const CFG_ESTRATIFICACION = {
   ]
 };
 
-// Catálogo ECICEP de condiciones crónicas con ponderación.
-// Las 8 condiciones marcas DUAL tienen doble puntuación (=2).
-// ⚠️ CATÁLOGO PARCIAL — completar con las ~52 condiciones del programa oficial.
+// Catálogo ECICEP COMPLETO — extraído de la calculadora oficial (ecicep.cl/WallTech).
+// 8 condiciones de DOBLE puntuación (peso 2). Resto peso 1.
+// Fuente: Calculadora ECICEP + MINSAL RPE Nº4 + Marco Operativo SS Maule.
 const CATALOGO_CONDICIONES_ECICEP = [
-  // --- Condiciones de DOBLE puntuación (peso 2) ---
-  { CODIGO:'DEM', NOMBRE_CANONICO:'Demencia', ALIASES:['demencia'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'DEPG', NOMBRE_CANONICO:'Depresión grave/refractaria/con psicosis', ALIASES:['depresion grave','depresion refractaria','depresion con ideacion suicida','depresion con psicosis'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'DM', NOMBRE_CANONICO:'Diabetes Mellitus', ALIASES:['diabetes mellitus','diabetes','dm','dm1','dm2','diabetes tipo 1','diabetes tipo 2','diabetes mellitus tipo 2'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'ECV', NOMBRE_CANONICO:'Enfermedad cerebrovascular', ALIASES:['enfermedad cerebrovascular','acv','ave','accidente cerebrovascular'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'ERCA', NOMBRE_CANONICO:'Enfermedad renal crónica avanzada', ALIASES:['enfermedad renal cronica avanzada','erca','erc avanzada','erc','insuficiencia renal cronica'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'ECI', NOMBRE_CANONICO:'Enfermedades cardiovasculares / IAM / Cardiopatía isquémica', ALIASES:['iam','infarto','cardiopatia isquemica','enfermedad cardiovascular','enfermedades cardiovasculares'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'ESQ', NOMBRE_CANONICO:'Esquizofrenia', ALIASES:['esquizofrenia','trastorno esquizofrenico'], PONDERACION:2, ACTIVA:true },
-  { CODIGO:'DISCAP', NOMBRE_CANONICO:'Función limitada / Discapacidad / Dependencia', ALIASES:['discapacidad','dependencia','funcion limitada','dependencia funcional'], PONDERACION:2, ACTIVA:true },
+  // === SALUD MENTAL ===
+  { CODIGO:'DROGAS', NOMBRE_CANONICO:'Consumo perjudicial o dependiente de drogas', ALIASES:['consumo drogas','policonsumo','drogas','Z72.2','F11','F12','F14','F19'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ALCOHOL', NOMBRE_CANONICO:'Consumo perjudicial o dependiente de alcohol', ALIASES:['alcohol','alcoholismo','F10','Z71.4'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'DEPG', NOMBRE_CANONICO:'Depresión grave', ALIASES:['depresion grave','depresion grave sin psicosis','depresion grave con psicosis','depresion refractaria','F33.2','F33.3'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'DEP', NOMBRE_CANONICO:'Depresión leve o moderada', ALIASES:['depresion','depresion leve','depresion moderada','F33.4','F33.8','F33.9'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ESQ', NOMBRE_CANONICO:'Esquizofrenia', ALIASES:['esquizofrenia','trastorno esquizotipico','trastorno delirante','F20','F21','F22','F23'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'SUENO', NOMBRE_CANONICO:'Trastornos del sueño', ALIASES:['trastorno del sueno','insomnio','F51','G47'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'MALTRATO', NOMBRE_CANONICO:'Maltrato / VIF / Abuso sexual / Ideación suicida', ALIASES:['maltrato','vif','abuso sexual','ideacion suicida','intento suicida','T74','Y07'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ANSIEDAD', NOMBRE_CANONICO:'Ansiedad', ALIASES:['ansiedad','trastorno ansioso','fobias','TOC','F40','F41','F42'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'PERSON', NOMBRE_CANONICO:'Trastorno de la personalidad', ALIASES:['trastorno personalidad','F60','F61','F62','F68','F69'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'TCA', NOMBRE_CANONICO:'Trastornos alimentarios', ALIASES:['anorexia','bulimia','trastorno alimentario','F50'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'OTROS_SM', NOMBRE_CANONICO:'Otros trastornos de salud mental', ALIASES:['otros salud mental','F63','F64','F65','F66'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'TABACO', NOMBRE_CANONICO:'Tabaquismo', ALIASES:['tabaquismo','tabaco','fumador','F17'], PONDERACION:1, ACTIVA:true },
 
-  // --- Condiciones de puntuación simple (peso 1) ---
-  { CODIGO:'HTA', NOMBRE_CANONICO:'Hipertensión arterial', ALIASES:['hipertension','hta','presion alta'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'ASMA', NOMBRE_CANONICO:'Asma', ALIASES:['asma'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'EPOC', NOMBRE_CANONICO:'Enfermedad pulmonar obstructiva crónica', ALIASES:['epoc'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'IC', NOMBRE_CANONICO:'Insuficiencia cardíaca', ALIASES:['insuficiencia cardiaca','ic'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'DEP', NOMBRE_CANONICO:'Depresión (leve/moderada)', ALIASES:['depresion'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'EPI', NOMBRE_CANONICO:'Epilepsia', ALIASES:['epilepsia'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'PK', NOMBRE_CANONICO:'Parkinson', ALIASES:['parkinson','enfermedad de parkinson'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'AR', NOMBRE_CANONICO:'Artritis reumatoide', ALIASES:['artritis reumatoide','ar'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'HIPOT', NOMBRE_CANONICO:'Hipotiroidismo', ALIASES:['hipotiroidismo'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'OBE', NOMBRE_CANONICO:'Obesidad', ALIASES:['obesidad'], PONDERACION:1, ACTIVA:true },
-  { CODIGO:'DLP', NOMBRE_CANONICO:'Dislipidemia', ALIASES:['dislipidemia','dislipemia'], PONDERACION:1, ACTIVA:true }
+  // === METABÓLICAS ===
+  { CODIGO:'DM', NOMBRE_CANONICO:'Diabetes Mellitus', ALIASES:['diabetes mellitus','diabetes','dm','dm1','dm2','diabetes tipo 1','diabetes tipo 2','diabetes mellitus tipo 2','E10','E11','E14'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'DLP', NOMBRE_CANONICO:'Dislipidemia', ALIASES:['dislipidemia','dislipemia','E78'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'OBE', NOMBRE_CANONICO:'Obesidad', ALIASES:['obesidad','E66'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'TIRO', NOMBRE_CANONICO:'Trastornos tiroideos', ALIASES:['hipotiroidismo','hipertiroidismo','tiroideo','tiroides','hipot','E03','E05'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'HURI', NOMBRE_CANONICO:'Hiperuricemia / Gota', ALIASES:['gota','hiperuricemia','M10'], PONDERACION:1, ACTIVA:true },
+
+  // === CARDIOVASCULAR ===
+  { CODIGO:'HTA', NOMBRE_CANONICO:'Hipertensión arterial', ALIASES:['hipertension','hta','presion alta','I10','I11','I12','I13'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ECI', NOMBRE_CANONICO:'Enfermedad cardiovascular / IAM / Cardiopatía isquémica', ALIASES:['iam','infarto','cardiopatia isquemica','angina','enfermedad cardiovascular','I20','I21','I25'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'FA', NOMBRE_CANONICO:'Fibrilación auricular / Flutter', ALIASES:['fibrilacion auricular','fa','flutter','arritmia auricular','I48'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'IC', NOMBRE_CANONICO:'Insuficiencia cardíaca', ALIASES:['insuficiencia cardiaca','ic','I50'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ECV', NOMBRE_CANONICO:'Enfermedad cerebrovascular / ACV / AVE', ALIASES:['acv','ave','accidente vascular','cerebrovascular','I64','I67','G46'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'TIA', NOMBRE_CANONICO:'Isquemia cerebral transitoria (TIA)', ALIASES:['tia','isquemia cerebral transitoria','G45'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ARR', NOMBRE_CANONICO:'Arritmia cardíaca / Taquicardia paroxística', ALIASES:['arritmia','taquicardia','I47','I49.9'], PONDERACION:1, ACTIVA:true },
+
+  // === RESPIRATORIAS ===
+  { CODIGO:'ASMA', NOMBRE_CANONICO:'Asma', ALIASES:['asma','J45','J46'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'EPOC', NOMBRE_CANONICO:'Enfermedad pulmonar obstructiva crónica', ALIASES:['epoc','bronquitis cronica','enfisema','J44'], PONDERACION:1, ACTIVA:true },
+
+  // === RENALES ===
+  { CODIGO:'ERC', NOMBRE_CANONICO:'Enfermedad renal crónica', ALIASES:['erc','enfermedad renal cronica','N15','N19'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ERCA', NOMBRE_CANONICO:'Enfermedad renal crónica avanzada', ALIASES:['erc avanzada','erca','enfermedad renal cronica avanzada','insuficiencia renal terminal','N18'], PONDERACION:2, ACTIVA:true },
+
+  // === PROSTÁTICA ===
+  { CODIGO:'HPB', NOMBRE_CANONICO:'Hipertrofia prostática benigna', ALIASES:['prostata','hipertrofia prostatica','N40'], PONDERACION:1, ACTIVA:true },
+
+  // === DIGESTIVAS ===
+  { CODIGO:'HEPA', NOMBRE_CANONICO:'Enfermedad hepática crónica', ALIASES:['hepatitis cronica','cirrosis','enfermedad hepatica','K74'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ENTERO', NOMBRE_CANONICO:'Enteritis crónica / Colitis ulcerosa / Crohn', ALIASES:['crohn','colitis ulcerosa','enteritis cronica','K50','K51'], PONDERACION:1, ACTIVA:true },
+
+  // === REUMATOLÓGICAS ===
+  { CODIGO:'AR', NOMBRE_CANONICO:'Artritis reumatoidea', ALIASES:['artritis reumatoide','ar','M05','M06'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'ARTROSIS', NOMBRE_CANONICO:'Artrosis de rodilla, cadera u otro tipo', ALIASES:['artrosis','gonartrosis','coxartrosis','M15','M16','M17'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'NEURO_DOLOR', NOMBRE_CANONICO:'Dolor neuropático / Fibromialgia', ALIASES:['fibromialgia','dolor neuropatico','M79.7','G50'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'LUPUS', NOMBRE_CANONICO:'Lupus eritematoso sistémico', ALIASES:['lupus','les','M32'], PONDERACION:1, ACTIVA:true },
+
+  // === NEUROLÓGICAS ===
+  { CODIGO:'DEM', NOMBRE_CANONICO:'Demencia', ALIASES:['demencia','alzheimer','F00','F01','F03'], PONDERACION:2, ACTIVA:true },
+  { CODIGO:'EPI', NOMBRE_CANONICO:'Epilepsia', ALIASES:['epilepsia','G40'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'EM', NOMBRE_CANONICO:'Esclerosis múltiple', ALIASES:['esclerosis multiple','G35'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'PK', NOMBRE_CANONICO:'Parkinsonismo', ALIASES:['parkinson','parkinsonismo','G20'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'RM', NOMBRE_CANONICO:'Retraso mental', ALIASES:['retraso mental','discapacidad intelectual','F70','F71'], PONDERACION:1, ACTIVA:true },
+
+  // === HEMATOLÓGICAS ===
+  { CODIGO:'ANE', NOMBRE_CANONICO:'Anemia crónica', ALIASES:['anemia','D50','D64'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'COAG', NOMBRE_CANONICO:'Otros defectos de la coagulación', ALIASES:['coagulacion','hemofilia','D68'], PONDERACION:1, ACTIVA:true },
+
+  // === INFECCIOSAS ===
+  { CODIGO:'TBC', NOMBRE_CANONICO:'Tuberculosis', ALIASES:['tuberculosis','tbc','A15'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'VIH', NOMBRE_CANONICO:'Infección por VIH / SIDA', ALIASES:['vih','sida','B24'], PONDERACION:1, ACTIVA:true },
+
+  // === SENSORIALES ===
+  { CODIGO:'RETINO', NOMBRE_CANONICO:'Catarata / Retinopatía', ALIASES:['catarata','retinopatia','H25','H26'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'CEGUERA', NOMBRE_CANONICO:'Ceguera', ALIASES:['ceguera','H54'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'GLAUCOMA', NOMBRE_CANONICO:'Glaucoma', ALIASES:['glaucoma','H40'], PONDERACION:1, ACTIVA:true },
+  { CODIGO:'HIPOACUSIA', NOMBRE_CANONICO:'Presbiacusia / Hipoacusia', ALIASES:['hipoacusia','presbiacusia','sordera','H90'], PONDERACION:1, ACTIVA:true },
+
+  // === SOCIOECONÓMICAS ===
+  { CODIGO:'SOCIOEC', NOMBRE_CANONICO:'Dificultades socioeconómicas o psicosociales', ALIASES:['dificultades sociales','vulnerabilidad social','Z55','Z60'], PONDERACION:1, ACTIVA:true },
+
+  // === FUNCIONAL ===
+  { CODIGO:'DISCAP', NOMBRE_CANONICO:'Función limitada / Discapacidad / Dependencia', ALIASES:['discapacidad','dependencia','funcion limitada','Z74','Z99'], PONDERACION:2, ACTIVA:true },
+
+  // === ONCOLÓGICAS ===
+  { CODIGO:'CA', NOMBRE_CANONICO:'Malignidad (cáncer)', ALIASES:['cancer','malignidad','tumor','neoplasia','C00-C97'], PONDERACION:1, ACTIVA:true },
+
+  // === CUTÁNEAS ===
+  { CODIGO:'ULCERA', NOMBRE_CANONICO:'Úlcera crónica de la piel', ALIASES:['ulcera','ulcera cronica','L97'], PONDERACION:1, ACTIVA:true }
 ];
+
 
 // ---------------------------------------------------------------------------
 // Logging (DEC-014): búfer en memoria + escritura por lotes

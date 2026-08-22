@@ -1075,8 +1075,8 @@ function _pruebas_motor_estrat(t, A) {
   });
 
   t('MOTOR: ponderación acumulada desde catálogo', function () {
-    var r = Norm_normalizarCondiciones('HTA; ERC', catalogo);
-    A.igual(r.sumaPonderacion, 3, 'HTA(1) + ERC(2) = 3');
+    var r = Norm_normalizarCondiciones('HTA; erc avanzada', catalogo);
+    A.igual(r.sumaPonderacion, 3, 'HTA(1) + ERCA avanzada(2) = 3');
   });
 }
 
