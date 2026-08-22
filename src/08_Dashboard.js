@@ -170,13 +170,13 @@ function Dash_actualizar() {
   var bloques = [];
 
   bloques.push(['', '', '', '']);
-  bloques.push(['=== ACTIVIDAD EN PERÍODO ===', periodo.desde + ' → ' + periodo.hasta, '', '']);
+  bloques.push(['── ACTIVIDAD EN PERÍODO ──', periodo.desde + ' → ' + periodo.hasta, '', '']);
   TIPOS_EVENTO.VALIDOS.forEach(function (t) {
     if (actividad[t]) bloques.push([t, actividad[t], '', '']);
   });
 
   bloques.push(['', '', '', '']);
-  bloques.push(['=== DISTRIBUCIÓN PACIENTES ===', '', '', '']);
+  bloques.push(['── DISTRIBUCIÓN PACIENTES ──', '', '', '']);
   bloques.push(['SECTOR', 'TOTAL', 'G1', 'G2', 'G3']);
   Object.keys(distPac.matrizG).sort().forEach(function (s) {
     var mg = distPac.matrizG[s];
@@ -188,14 +188,14 @@ function Dash_actualizar() {
     Object.values(distPac.matrizG).reduce(function(a,m){return a+(m.G3||0);},0)]);
 
   bloques.push(['', '', '', '']);
-  bloques.push(['=== ACTIVIDAD MENSUAL ===', '', '', '']);
-  bloques.push.apply(bloques, [['MES'].concat(TIPOS_EVENTO.VALIDOS.slice(0, 5))]);
+  bloques.push(['── ACTIVIDAD MENSUAL ──', '', '', '']);
+  bloques.push(['MES','INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO']);
   mensual.forEach(function (m) {
-    bloques.push.apply(bloques, [[m.mes].concat(TIPOS_EVENTO.VALIDOS.slice(0, 5).map(function(t){return m[t]||0;}))]);
+    bloques.push([m.mes, m['INGRESO']||0, m['CONTROL']||0, m['SEGUIMIENTO']||0, m['PLAN_CUIDADO']||0]);
   });
 
   bloques.push(['', '', '', '']);
-  bloques.push(['=== CALIDAD DE DATOS ===', '', '', '']);
+  bloques.push(['── CALIDAD DE DATOS ──', '', '', '']);
   bloques.push(['Sin RUT', calidad.sinRut, '', '']);
   bloques.push(['RUT inválido/sin DV', calidad.rutInvalido, '', '']);
   bloques.push(['Sin sector', calidad.sinSector, '', '']);
