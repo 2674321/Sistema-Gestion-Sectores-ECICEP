@@ -15,11 +15,18 @@ td,th{border:1px solid #ddd;padding:3px 4px;text-align:left}
 th{background:#f0f4f8;font-size:11px}
 .msg{margin-top:6px;padding:5px;display:none;border-radius:3px;font-size:12px}
 .ok{display:block;background:#d9ead3}.err{display:block;background:#f4cccc}
-#vista,#panelRev{display:none}
+#vista,#panelRev,#panelPat{display:none}
 h3{margin:8px 0 4px;font-size:14px}
 .comp{border:1px solid #ccc;border-radius:4px;padding:6px;margin:4px 0;font-size:12px}
 .comp b{color:#0b5394}
 .cand{background:#f9f9ff}
+.pat-item{display:flex;align-items:center;padding:3px 0;border-bottom:1px solid #eee;cursor:pointer}
+.pat-item:hover{background:#f5f7fa}
+.peso{font-size:10px;background:#e0e0e0;border-radius:3px;padding:1px 4px;margin-left:auto;color:#555}
+.peso2{background:#fce4ec;color:#a61c00;font-weight:bold}
+.contador{font-size:12px;color:#0b5394;font-weight:bold;margin:6px 0}
+.otras-sep{border-top:2px solid #ccc;margin-top:10px;padding-top:8px;font-size:11px;color:#888}
+textarea{width:100%;height:50px;box-sizing:border-box;margin:2px 0}
 </style>
 </head>
 <body>
@@ -45,6 +52,9 @@ h3{margin:8px 0 4px;font-size:14px}
   <input id="evDesc" placeholder="Descripción (opcional)">
   <button class="b-verde" onclick="registrarEvento()">✔ Registrar</button>
   <div id="msgEv" class="msg"></div>
+  <h3>🩺 Patologías</h3>
+  <div id="fichaPats"></div>
+  <button class="b-gris" onclick="abrirPatologias()">🩺 Editar patologías</button>
 </div>
 
 <div id="panelRev" style="display:none">
@@ -78,6 +88,16 @@ function abrirFicha(id){
     document.getElementById('fNombre').textContent=f.NOMBRE||'';
     var d=[['RUT',f.RUT],['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],['Sector',f.SECTOR],['Estrat.',f.ESTRATIFICACION],['Estado',f.ESTADO],['Próx. control',f.PROXIMO_CONTROL]];
     document.getElementById('fDatos').innerHTML=d.map(function(x){return '<tr><td class="etq">'+x[0]+'</td><td>'+esc(x[1])+'</td></tr>';}).join('');
+    var pats=(f.CONDICIONES||'').split(';').filter(Boolean);
+    var nombresPats=pats.map(function(cod){
+      var match=PAT_CATALOGO.find(function(p){return p.codigo===cod;});
+      return match?match.nombre:cod;
+    });
+    document.getElementById('fichaPats').innerHTML=nombresPats.length?
+      '<div style="font-size:12px">'+nombresPats.map(function(n){return '• '+esc(n);}).join('<br>')+'</div>':
+      '<i style="color:#888;font-size:11px">Sin patologías registradas</i>';
+    // guardar catálogo para uso posterior
+    google.script.run.withSuccessHandler(function(cat){PAT_CATALOGO=cat;}).api_patologiasAbrir(f.ID_INTERNO);
     document.getElementById('fEventos').innerHTML='<tr><th>Fecha</th><th>Tipo</th><th>G</th></tr>'+(f.eventos.length?f.eventos.map(function(e){return '<tr><td>'+esc(e.fecha)+'</td><td>'+esc(e.tipo)+'</td><td>'+esc(e.riesgo)+'</td></tr>';}).join(''):'<tr><td colspan=3><i>Sin eventos</i></td></tr>');
     var s=document.getElementById('evTipo');s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
     document.getElementById('msgEv').className='msg';
@@ -136,5 +156,85 @@ function volver(){
 document.getElementById('termino').addEventListener('keyup',function(e){if(e.key==='Enter')buscar();});
 verRevision();
 </script>
+
+<div id="panelPat">
+  <button class="b-gris" onclick="volverDePatologias()">← Volver a ficha</button>
+  <h3>🩺 Patologías ECICEP</h3>
+  <input id="patBuscar" placeholder="Buscar condición…" onkeyup="filtrarPatologias()">
+  <div class="contador">Seleccionadas: <span id="patContador">0</span></div>
+  <div id="patLista" style="max-height:250px;overflow-y:auto"></div>
+  <div class="otras-sep">OTRAS PATOLOGÍAS / CONDICIONES<br><span style="font-size:10px">No reciben ponderación ECICEP automáticamente</span></div>
+  <textarea id="otrasPatologias" placeholder="Escriba aquí…"></textarea>
+  <button class="b-verde" onclick="guardarPatologias()">💾 Guardar patologías</button>
+  <div id="msgPat" class="msg"></div>
+</div>
+
+<script>
+var PAT_CATALOGO=[], PAT_SELECCIONADAS=[], PAT_ID='';
+
+function abrirPatologias(){
+  document.getElementById('vista').style.display='none';
+  document.getElementById('panelPat').style.display='block';
+  google.script.run.withSuccessHandler(function(r){
+    PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
+    document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
+    renderizarPatologias('');
+    actualizarContador();
+  }).api_patologiasAbrir(P_ACTUAL);
+}
+
+function renderizarPatologias(filtro){
+  var f=(filtro||'').toLowerCase();
+  var html=PAT_CATALOGO.filter(function(p){
+    if(!f)return true;
+    var nombre=p.nombre.toLowerCase(),cod=p.codigo.toLowerCase();
+    // búsqueda tolerante sin tildes
+    var nf=nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    var ff=f.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return nf.indexOf(ff)!==-1||cod.indexOf(f)!==-1;
+  }).map(function(p){
+    var sel=PAT_SELECCIONADAS.indexOf(p.codigo)!==-1;
+    var pesoCls=p.peso>=2?'peso peso2':'peso';
+    return '<div class="pat-item" onclick="togglePat(\''+p.codigo+'\')">'+
+      '<input type="checkbox" '+(sel?'checked':'')+' onclick="event.stopPropagation();togglePat(\''+p.codigo+'\')"> '+
+      esc(p.nombre)+'<span class="'+pesoCls+'">'+p.peso+'</span></div>';
+  }).join('');
+  document.getElementById('patLista').innerHTML=html||'<i>Sin resultados</i>';
+}
+
+function togglePat(cod){
+  var idx=PAT_SELECCIONADAS.indexOf(cod);
+  if(idx!==-1)PAT_SELECCIONADAS.splice(idx,1);
+  else PAT_SELECCIONADAS.push(cod);
+  renderizarPatologias(document.getElementById('patBuscar').value);
+  actualizarContador();
+}
+
+function filtrarPatologias(){renderizarPatologias(this.value||document.getElementById('patBuscar').value);}
+
+function actualizarContador(){
+  document.getElementById('patContador').textContent=PAT_SELECCIONADAS.length;
+}
+
+function guardarPatologias(){
+  var m=document.getElementById('msgPat');
+  m.textContent='Guardando…';m.className='msg';
+  var otras=document.getElementById('otrasPatologias').value;
+  google.script.run.withSuccessHandler(function(r){
+    m.textContent=r.ok?('✔ '+r.cantidad+' patologías guardadas · Ponderación: '+r.puntaje+' · Estratificación: '+r.estratificacion):('✗ '+r.motivo);
+    m.className='msg '+(r.ok?'ok':'err');
+  }).api_patologiasGuardar(P_ACTUAL,PAT_SELECCIONADAS.slice(),otras);
+}
+
+function volverDePatologias(){
+  document.getElementById('panelPat').style.display='none';
+  document.getElementById('vista').style.display='block';
+  abrirFicha(P_ACTUAL); // refrescar ficha con patologías actualizadas
+}
+
+// mostrar patologías en la ficha
+var _oldAbrirFicha=abrirFicha;
+</script>
+
 </body>
 </html>

@@ -645,3 +645,86 @@ function UI_recuperarEjecutar() {
     'Eventos eliminados: ' + r.eventosEliminados + '\n' +
     'SECTOR_* refrescadas.');
 }
+
+// ===========================================================================
+// ETAPA 8E — Selector de patologías ECICEP
+// ===========================================================================
+
+/** Endpoint sidebar: devuelve catálogo + condiciones actuales del paciente. */
+function api_patologiasAbrir(idInterno) {
+  var catalogo = CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; }).map(function (c) {
+    return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO, peso: c.PONDERACION };
+  });
+  var pacientes = Modelo_leerPacientes();
+  var paciente = null;
+  for (var i = 0; i < pacientes.length; i++) {
+    if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { paciente = pacientes[i]; break; }
+  }
+  var seleccionadas = paciente && paciente.CONDICIONES ? Utl_texto(paciente.CONDICIONES).split(';').filter(Boolean) : [];
+  var otras = paciente && paciente.OTRAS_PATOLOGIAS ? Utl_texto(paciente.OTRAS_PATOLOGIAS) : '';
+  return { catalogo: catalogo, seleccionadas: seleccionadas, otrasPatologias: otras };
+}
+
+/** PURA: valida que los códigos existan en el catálogo y elimina duplicados. */
+function Condiciones_validarSeleccion(codigos, catalogo) {
+  var validos = [], invalidos = [];
+  var vistos = {};
+  (codigos || []).forEach(function (codigo) {
+    var limpio = Utl_texto(codigo).toUpperCase().trim();
+    if (!limpio) return;
+    if (vistos[limpio]) return;
+    vistos[limpio] = true;
+    var existe = catalogo.some(function (c) {
+      return c.ACTIVA && c.CODIGO.toUpperCase() === limpio;
+    });
+    if (existe) validos.push(limpio);
+    else invalidos.push(limpio);
+  });
+  return { validos: validos, invalidos: invalidos };
+}
+
+/** Endpoint sidebar: valida y guarda las patologías del paciente. */
+function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias) {
+  try {
+    var val = Condiciones_validarSeleccion(codigosSeleccionados, CATALOGO_CONDICIONES_ECICEP);
+    if (val.invalidos.length) return { ok: false, motivo: 'CÓDIGOS_INVALIDOS', invalidos: val.invalidos };
+
+    var pacientes = Modelo_leerPacientes();
+    var idx = -1;
+    for (var i = 0; i < pacientes.length; i++) {
+      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { idx = i; break; }
+    }
+    if (idx < 0) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+
+    var anteriores = Utl_texto(pacientes[idx].CONDICIONES);
+    pacientes[idx].CONDICIONES = val.validos.join(';');
+    pacientes[idx].OTRAS_PATOLOGIAS = Utl_texto(otrasPatologias).trim();
+    pacientes[idx].FECHA_ACTUALIZACION = new Date();
+
+    Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+         .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
+
+    Log_info('Patologias', 'guardar', 'paciente=' + idInterno + ' anteriores=[' + anteriores + '] nuevas=[' + val.validos.join(';') + ']');
+    Log_flush();
+
+    return { ok: true, condiciones: val.validos, cantidad: val.validos.length,
+             puntaje: _calcularPuntaje(val.validos),
+             estratificacion: CFG_ESTRATIFICACION.REGLA_DISPONIBLE ? 'calculable' : 'pendiente de regla oficial' };
+  } catch (e) {
+    Log_error('Patologias', 'guardar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+function _calcularPuntaje(codigos) {
+  var total = 0;
+  (codigos || []).forEach(function (codigo) {
+    for (var i = 0; i < CATALOGO_CONDICIONES_ECICEP.length; i++) {
+      if (CATALOGO_CONDICIONES_ECICEP[i].CODIGO === codigo && CATALOGO_CONDICIONES_ECICEP[i].ACTIVA) {
+        total += CATALOGO_CONDICIONES_ECICEP[i].PONDERACION || 1; break;
+      }
+    }
+  });
+  return total;
+}
