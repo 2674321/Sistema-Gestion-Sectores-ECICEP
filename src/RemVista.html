@@ -46,8 +46,7 @@ thead th:first-child{z-index:40;max-width:220px}
 <header>
   <h1>REM — vista de trabajo</h1>
   <div class="acciones">
-    <button class="btn btn-pri" onclick="descargarPdf(this)"><i data-lucide="file-down"></i> Descargar PDF</button>
-    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+    <button class="btn btn-pri" onclick="google.script.host.close()"><i data-lucide="arrow-left"></i> Volver</button>
   </div>
 </header>
 <div class="scroll-wrap" id="wrap">
@@ -83,22 +82,6 @@ function pintar(filas,meta){
   setTimeout(chequear,80);_refrescarIconos();
 }
 var META=null;
-function descargarPdf(btn){
-  if(!META){toast('Genera primero un REM para exportarlo','warn');return;}
-  var fin=setLoading(btn,true,'Preparando PDF…'); /* único generador: REM_exportarPdf */
-  var terminado=false;
-  function cerrar(msg,tipo){ if(terminado)return; terminado=true; setLoading(btn,false); toast(msg,tipo||'info'); }
-  var guarda=setTimeout(function(){ cerrar('El PDF está tardando más de lo esperado. Reintenta.','warn'); },90000);
-  function terminar(r){
-    clearTimeout(guarda);
-    if(!r||!r.ok){ cerrar('No fue posible preparar el PDF: '+((r&&r.motivo)||'error'),'err'); return; }
-    cerrar('PDF listo: '+r.nombre,'ok');
-    window.open(r.url,'_blank');
-  }
-  google.script.run.withSuccessHandler(terminar)
-    .withFailureHandler(function(e){ terminar({ok:false,motivo:(e&&e.message)||e}); })
-    .REM_exportarPdf(META.anio,META.mes,META.sector);
-}
 google.script.run.withSuccessHandler(function(r){
   if(!r||!r.ok){pintar([]);return;}
   META=r.meta||null;

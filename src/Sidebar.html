@@ -172,6 +172,8 @@ textarea.inp{min-height:64px;resize:vertical}
       <span id="cntCola" class="chip rut pc-badge" style="display:none;margin-left:auto">0</span></button>
     <button class="btn btn-sec btn-block" onclick="abrirPanel(this)">
       <i data-lucide="bar-chart-3"></i> Estadísticas</button>
+    <button class="btn btn-sec btn-block" onclick="abrirGenerador(this)">
+      <i data-lucide="file-bar-chart"></i> Generar REM</button>
   </div>
 
   <div class="card cc-card">
@@ -573,7 +575,13 @@ function cargarPanel(){
   .api_centroResumen();
 }
 function abrirBuscadorPac(){ google.script.run.UI_abrirBuscador(); }
-function verRevisionDesdePanel(){ google.script.run.UI_abrirRevision(); }
+function verRevisionDesdePanel(btn){
+  var fin=btn?_btnPulso(btn,'Abriendo…'):null;
+  google.script.run
+    .withSuccessHandler(function(){if(fin)fin();})
+    .withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_abrirRevision')(e);})
+    .UI_abrirRevision();
+}
 function irA(nombre){
   google.script.run.withSuccessHandler(function(r){
     if(!r||!r.ok){toast('No se pudo abrir '+(r&&r.motivo==='HOJA_NO_EXISTE'?nombre:'la hoja'),'err');return;}

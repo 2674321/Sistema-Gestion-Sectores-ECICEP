@@ -323,10 +323,20 @@ function REM_exportarExcel(anio, mes, sectorFiltro) {
 
     // Export xlsx nativo del spreadsheet temporal
     var urlXlsx = 'https://docs.google.com/spreadsheets/d/' + tempId + '/export?format=xlsx';
-    var blob = UrlFetchApp.fetch(urlXlsx, {
-      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
-    }).getBlob().setName(nombre + '.xlsx');
-
+    var blob = null;
+    for (var intento = 1; intento <= 3 && !blob; intento++) {
+      try {
+        Utilities.sleep(intento === 1 ? 0 : 2000);
+        var b = UrlFetchApp.fetch(urlXlsx, {
+          headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+          muteHttpExceptions: true
+        });
+        if (b.getResponseCode() === 200 && b.getBytes().length > 1000) {
+          blob = b.getBlob().setName(nombre + '.xlsx');
+        }
+      } catch (eF) { if (intento === 3) throw eF; }
+    }
+    if (!blob) throw new Error('Exportación no disponible, reintenta en unos segundos');
     var archivo = DriveApp.createFile(blob);
 
     Log_info('REM', 'exportarExcel', nombre + ' · resumen=' + c.resumen.length +

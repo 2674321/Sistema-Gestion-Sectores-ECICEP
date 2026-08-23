@@ -17,9 +17,18 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 #btnGen{width:100%;justify-content:center;padding:14px;font-size:15px;margin-top:var(--space-2)}
 #resultado{display:none}
 .res-cab{font:700 17px 'Sora';color:var(--text-primary)}
-.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3);margin-top:var(--space-3)}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);margin-top:var(--space-3)}
 .acciones{display:flex;gap:10px;margin-top:var(--space-4)}
 @media(max-width:700px){.res-grid{grid-template-columns:1fr}}
+
+.barra-wrap{margin-top:var(--space-3);display:none}
+.barra{height:10px;background:var(--surface-alt);border-radius:var(--radius-full);overflow:hidden;border:1px solid var(--border)}
+.barra>span{display:block;height:100%;width:0;background:var(--primary);border-radius:var(--radius-full);transition:width .9s var(--ease-in)}
+.barra-msg{font-size:12px;color:var(--text-secondary);margin-top:6px;display:flex;align-items:center;gap:8px}
+.res-seccion{font:600 11px 'Inter';letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:var(--space-4) 0 var(--space-2)}
+.res-fila{display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:7px 2px;font-size:14px}
+.res-fila span:first-child{color:var(--text-secondary)}
+.res-fila b.num{text-align:right}
 </style>
 </head>
 <body>
@@ -50,15 +59,24 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
   <button id="btnGen" class="btn btn-pri" onclick="generar(this)">
     <i data-lucide="file-bar-chart"></i> Generar REM
   </button>
+  <div class="barra-wrap" id="barraWrap">
+    <div class="barra"><span id="barraFill"></span></div>
+    <div class="barra-msg"><span class="spin" style="width:13px;height:13px;border:2px solid var(--primary);border-top-color:transparent;border-radius:50%;display:inline-block;animation:girar .7s linear infinite"></span><span id="barraTxt">Preparando datos…</span></div>
+  </div>
 </div>
 
 <div class="card" id="resultado">
   <div class="res-cab" id="rCab"></div>
+  <div class="res-seccion">Resultado</div>
   <div class="res-grid">
-    <div class="kpi-mini"><span class="num" id="rEv">—</span><small>Eventos del período</small></div>
+    <div class="kpi-mini"><span class="num" id="rEv">—</span><small>Atenciones del período</small></div>
     <div class="kpi-mini"><span class="num" id="rPac">—</span><small>Pacientes con actividad</small></div>
     <div class="kpi-mini"><span class="num" id="rInv">—</span><small>Fechas no interpretables</small></div>
   </div>
+  <div class="res-seccion">Validación de completitud</div>
+  <div class="res-fila"><span>✓ Filas correctas</span><b class="num" id="rVok">—</b></div>
+  <div class="res-fila"><span>⚠ Filas con advertencias</span><b class="num" id="rVwarn">—</b></div>
+  <div class="res-fila"><span>✕ Filas con errores</span><b class="num" id="rVERR">—</b></div>
   <div class="acciones">
     <button class="btn btn-pri" onclick="descargarExcel(this)">
       <i data-lucide="file-spreadsheet"></i> Descargar Excel</button>
@@ -88,7 +106,8 @@ function generar(btn){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   if(!p.anio||!p.mes){toast('Selecciona año y mes del período','err');return;} /* validación #19 */
-  var fin=_btnCargando(btn,'Generando REM…'); /* anti doble clic #18 */
+  var fin=setLoading(btn,true,'Generando REM…');
+  iniciarBarra();
   google.script.run.withSuccessHandler(function(r){
     fin();_refrescarIconos();
     if(!r||!r.ok){toast('No fue posible generar el REM. Revisa los datos e inténtalo nuevamente.','err');return;}
@@ -103,7 +122,8 @@ function generar(btn){
     if(r.eventosPeriodo===0){toast('⚠ No existen registros para el período seleccionado','warn');}
     else{toast('✓ REM generado correctamente','ok');}
     /* La tarjeta de resultado permanece: Consultar REM es VOLUNTARIO */
-  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  }).withFailureHandler(function(e){detenerBarra();setLoading(btn,false);
+    toast('Error: '+(e&&e.message||e),'err');})
   .Rem_generar(p.anio,p.mes,sector);
 }
 function consultar(){google.script.run.UI_verRem();}
