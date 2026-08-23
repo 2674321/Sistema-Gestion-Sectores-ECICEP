@@ -6,48 +6,48 @@
  */
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
- *  Nombres minimalistas y directos; funciones agrupadas por segmento. */
+ *  Etiquetas profesionales y directas, agrupadas por segmento. */
 function onOpen() {
   try {
     var ui = SpreadsheetApp.getUi();
     ui.createMenu('ECICEP')
 
-      .addSubMenu(ui.createMenu('📊 Operación')
-        .addItem('🔍 Pacientes', 'UI_abrirBuscador')
-        .addItem('🧾 Revisión', 'UI_abrirRevision'))
+      .addSubMenu(ui.createMenu('Operación')
+        .addItem('Centro de control', 'UI_abrirBuscador')
+        .addItem('Cola de revisión', 'UI_abrirRevision'))
 
-      .addSubMenu(ui.createMenu('📥 Ingresos')
-        .addItem('⚡ Procesar', 'UI_procesarIngresos')
-        .addItem('🔬 Analizar', 'UI_bloqueado')
-        .addItem('🚀 Cargar', 'UI_ejecutarCarga')
-        .addItem('🗂️ Fuentes', 'UI_diagnosticarFuentes')
-        .addItem('🩺 Diagnóstico', 'UI_diagnosticarIngresos')
-        .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
+      .addSubMenu(ui.createMenu('Ingresos')
+        .addItem('Procesar ingresos', 'UI_procesarIngresos')
+        .addItem('Analizar carga', 'UI_bloqueado')
+        .addItem('Ejecutar carga', 'UI_ejecutarCarga')
+        .addItem('Diagnosticar fuentes', 'UI_diagnosticarFuentes')
+        .addItem('Diagnóstico de ingresos', 'UI_diagnosticarIngresos')
+        .addItem('Refrescar SECTOR', 'UI_refrescarSectores'))
 
-      .addSubMenu(ui.createMenu('📈 Reportes')
-        .addItem('📊 Panel', 'UI_abrirDashboard')
-        .addItem('🔄 Hoja dashboard', 'UI_actualizarDashboard')
-        .addItem('🧾 Generar REM', 'UI_generarRem')
-        .addItem('👁️ Ver REM', 'UI_verRem'))
+      .addSubMenu(ui.createMenu('Reportes')
+        .addItem('Panel interactivo', 'UI_abrirDashboard')
+        .addItem('Resumen en hoja', 'UI_actualizarDashboard')
+        .addItem('Generar REM', 'UI_generarRem')
+        .addItem('Consultar REM', 'UI_verRem'))
 
-      .addSubMenu(ui.createMenu('⚙️ Mantenimiento')
-        .addItem('🛠️ Instalar sistema', 'UI_instalarSistema')
+      .addSubMenu(ui.createMenu('Mantenimiento')
+        .addItem('Instalar sistema', 'UI_instalarSistema')
         .addSeparator()
-        .addItem('🧬 Esquema PACIENTES', 'UI_migrarEsquemaPacientes')
-        .addItem('🔎 Integridad datos', 'UI_diagnosticoTrazabilidad')
+        .addItem('Esquema PACIENTES', 'UI_migrarEsquemaPacientes')
+        .addItem('Integridad de datos', 'UI_diagnosticoTrazabilidad')
         .addSeparator()
-        .addItem('🧪 Sembrar prueba', 'UI_sembrarFicticios')
-        .addItem('🧹 Vaciar prueba', 'UI_vaciarDatosPrueba')
-        .addItem('⚡ Demo', 'UI_demoCompleta')
-        .addItem('✅ Pruebas', 'UI_ejecutarPruebas')
+        .addItem('Sembrar datos de prueba', 'UI_sembrarFicticios')
+        .addItem('Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
+        .addItem('Demo completa', 'UI_demoCompleta')
+        .addItem('Ejecutar pruebas', 'UI_ejecutarPruebas')
         .addSeparator()
-        .addItem('🔑 Acceso remoto', 'UI_configurarWebhook')
-        .addSubMenu(ui.createMenu('↩️ Recuperación')
-          .addItem('📋 Inventario', 'UI_recuperarInventario')
-          .addItem('⚠️ Ejecutar reversión', 'UI_recuperarEjecutar')))
+        .addItem('Acceso remoto', 'UI_configurarWebhook')
+        .addSubMenu(ui.createMenu('Recuperación')
+          .addItem('Inventario', 'UI_recuperarInventario')
+          .addItem('Ejecutar reversión', 'UI_recuperarEjecutar')))
 
       .addSeparator()
-      .addItem('📄 LOG', 'UI_abrirLog')
+      .addItem('Abrir LOG', 'UI_abrirLog')
       .addToUi();
   } catch (e) { /* entorno sin UI */ }
 }
@@ -327,7 +327,49 @@ function UI_abrirRevision() {
 
 function UI_abrirDashboard() { _ui_dialogo('Dashboard', 'Panel ECICEP'); }
 
-function UI_verRem() { _ui_dialogo('RemVista', 'REM — vista de trabajo'); }
+function UI_verRem() { _ui_dialogo('RemVista', 'REM vista de trabajo'); }
+
+/** Generador REM: dialog estilo Panel (reemplaza los prompt nativos). */
+function UI_generarRem() { _ui_dialogo('RemGenerador', 'Generar REM'); }
+
+/** Navegación a hoja por nombre, con whitelist del diseño del libro. */
+function api_irA(nombreHoja) {
+  try {
+    var permitidas = {};
+    MODELO_DISENO.forEach(function (d) { permitidas[d.nombre] = true; });
+    var nombre = Utl_texto(nombreHoja).trim();
+    if (!permitidas[nombre]) return { ok: false, motivo: 'HOJA_NO_PERMITIDA' };
+    var h = Modelo_hoja(nombre);
+    if (!h) return { ok: false, motivo: 'HOJA_NO_EXISTE' };
+    if (h.isSheetHidden()) h.showSheet();
+    Modelo_ss().setActiveSheet(h);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Resumen liviano para el Centro de Control (una llamada). */
+function api_centroResumen() {
+  try {
+    var pacientes = Modelo_leerPacientes();
+    var revisionAbiertos = 0;
+    try {
+      var rev = api_revisionListar();
+      revisionAbiertos = (rev && rev.metricas && rev.metricas.abiertos) || 0;
+    } catch (eR) {}
+    var mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
+    var eventosMes = Modelo_leerEventos().filter(function (e) {
+      return _ui_isoFecha(e.FECHA_EVENTO).slice(0, 7) === mesActual;
+    }).length;
+    return { ok: true, pacientes: pacientes.length,
+             revisionAbiertos: revisionAbiertos, eventosMes: eventosMes,
+             fecha: Utilities.formatDate(new Date(), Session.getScriptTimeZone(),
+               "EEEE d 'de' MMMM yyyy") };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
 
 /** Fecha → 'YYYY-MM-DD' en zona horaria del proyecto (nunca UTC por defecto). */
 function _ui_isoFecha(v) {

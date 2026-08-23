@@ -6,6 +6,23 @@
 <style>
 /* Vista sidebar angosto (~300px): base 14px definida en tokens */
 .wrap{padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-3)}
+.cc-head h1{font:700 19px 'Sora';margin:0;color:var(--text-primary)}
+.cc-fecha{font-size:12px;color:var(--text-muted);text-transform:capitalize}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi-mini{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.kpi-mini .num{font-size:22px;font-weight:700;color:var(--primary)}
+.kpi-mini small{color:var(--text-muted);font-size:11px}
+.cc-card .card-t{font:600 11px 'Inter';letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-muted);margin-bottom:8px}
+.btn-block{width:100%;justify-content:flex-start;margin-bottom:6px}
+.hojas-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mini-btn{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);font:500 12px 'Inter';
+  color:var(--text-primary);cursor:pointer;min-height:36px;transition:all .15s var(--ease-in);text-align:left}
+.mini-btn:hover{border-color:var(--primary);box-shadow:var(--shadow-sm)}
+.mini-btn .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.mini-btn .dot.hollow{background:transparent;border-width:2px;border-style:solid}
 .topbar{display:flex;align-items:center;gap:var(--space-2)}
 .topbar h2{margin:0;font-size:16px;color:var(--text-primary);flex:1}
 .pos-btn{position:relative}
@@ -85,8 +102,44 @@ textarea.inp{min-height:64px;resize:vertical}
 <body>
 <div id="toastZone"></div>
 
-<!-- ============ BÚSQUEDA ============ -->
+<!-- ============ CENTRO DE CONTROL + BÚSQUEDA ============ -->
 <div id="panelBuscar" class="wrap">
+  <div class="cc-head">
+    <h1>Centro de control</h1>
+    <div class="cc-fecha" id="ccFecha">…</div>
+  </div>
+
+  <div class="grid2" id="ccKpis">
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Pacientes</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Eventos del mes</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Revisión abierta</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Sectores</small></div>
+  </div>
+
+  <div class="card cc-card">
+    <div class="card-t">Acciones rápidas</div>
+    <button class="btn btn-pri btn-block" onclick="abrirPanel()">
+      <i data-lucide="bar-chart-3"></i> Panel interactivo</button>
+    <button class="btn btn-sec btn-block" onclick="verRevision()">
+      <i data-lucide="clipboard-check"></i> Cola de revisión</button>
+  </div>
+
+  <div class="card cc-card">
+    <div class="card-t">Hojas</div>
+    <div class="hojas-grid">
+      <button class="mini-btn" onclick="irA('DASHBOARD')"><span class="dot" style="background:#0E5C68"></span>Panel hoja</button>
+      <button class="mini-btn" onclick="irA('SECTOR_NARANJO')"><span class="dot" style="background:#E8730A"></span>Naranjo</button>
+      <button class="mini-btn" onclick="irA('SECTOR_AMARILLO')"><span class="dot" style="background:#C79A00"></span>Amarillo</button>
+      <button class="mini-btn" onclick="irA('SECTOR_VERDE')"><span class="dot" style="background:#2E8B57"></span>Verde</button>
+      <button class="mini-btn" onclick="irA('INGRESO_NARANJO')"><span class="dot hollow" style="border-color:#E8730A"></span>Ingreso N.</button>
+      <button class="mini-btn" onclick="irA('INGRESO_AMARILLO')"><span class="dot hollow" style="border-color:#C79A00"></span>Ingreso A.</button>
+      <button class="mini-btn" onclick="irA('INGRESO_VERDE')"><span class="dot hollow" style="border-color:#2E8B57"></span>Ingreso V.</button>
+      <button class="mini-btn" onclick="irA('PACIENTES')"><span class="dot" style="background:#1C2430"></span>Pacientes</button>
+      <button class="mini-btn" onclick="irA('EVENTOS')"><span class="dot" style="background:#3E8A96"></span>Eventos</button>
+      <button class="mini-btn" onclick="irA('REM_SALIDA')"><span class="dot" style="background:#6B5CA8"></span>REM</button>
+    </div>
+  </div>
+
   <div class="topbar"><h2>Pacientes ECICEP</h2>
     <button id="btnRev" class="btn btn-sec pos-btn" onclick="verRevision()">
       <i data-lucide="clipboard-check"></i><span class="cnt" id="cntRev">…</span>
@@ -385,7 +438,7 @@ function resolver(idx,dec,btn){
     if(!r.ok&&r.motivo==='CONFLICTO_YA_RESUELTO'){toast('Este conflicto ya estaba resuelto','info');verRevision();return;}
     if(r.ok)toast(r.accion==='CREAR'?'Paciente nuevo creado':'Enlazado a existente','ok');
     else toast(r.motivo||'No se pudo resolver','err');
-refrescarConteoRev(); /* al abrir: solo el chip, la vista inicial es la búsqueda */
+    verRevision();
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
   .api_revisionResolver(idx,dec);
 }
@@ -397,10 +450,36 @@ function volver(){
   refrescarConteoRev(); /* solo actualiza el chip, NO reabre la cola */
 }
 
+/* ================= Centro de control ================= */
+function cargarCentro(){
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');return;}
+    document.getElementById('ccFecha').textContent=r.fecha;
+    document.getElementById('ccKpis').innerHTML=
+      '<div class="kpi-mini"><span class="num">'+r.pacientes+'</span><small>Pacientes</small></div>'+
+      '<div class="kpi-mini"><span class="num">'+r.eventosMes+'</span><small>Eventos del mes</small></div>'+
+      '<div class="kpi-mini"><span class="num" style="color:'+(r.revisionAbiertos?'var(--warning)':'var(--success)')+'">'+r.revisionAbiertos+'</span><small>Revisión abierta</small></div>'+
+      '<div class="kpi-mini"><span class="num">3</span><small>Sectores</small></div>';
+    _refrescarIconos();
+  }).withFailureHandler(function(e){toast('Error de resumen: '+(e&&e.message||e),'err');})
+  .api_centroResumen();
+}
+function irA(nombre){
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo abrir la hoja','err');return;}
+    google.script.host.close();
+  }).api_irA(nombre);
+}
+function abrirPanel(){
+  google.script.run.UI_abrirDashboard(); /* el servidor abre el dialog */
+  google.script.host.close();
+}
+
 /* ================= init ================= */
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
 _refrescarIconos();
-verRevision();
+cargarCentro();
+refrescarConteoRev(); /* al abrir: chip + centro; la vista inicial es la búsqueda */
 </script>
 </body>
 </html>
