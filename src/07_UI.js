@@ -69,6 +69,20 @@ function UI_instalarSistema() {
     // 4b) Inventario de hojas internas: crear faltantes + corregir visibilidad
     var inv = Modelo_inventarioHojas(ss);
 
+    // 4c) Sincronización de datos por sector (idempotente):
+    //     si la fuente Amarillo está conectada en FUENTES_DRIVE → puerta + histórico
+    var amarillo = null;
+    try {
+      var cfgAm = FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'];
+      if (cfgAm && cfgAm.id) {
+        amarillo = Amarillo_importarTodo(true);
+        try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV) {}
+      }
+    } catch (eA) { avisos.push('Amarillo: ' + (eA && eA.message || eA)); }
+
+    // 4d) Limpieza de hojas residuales de desarrollo
+    var limpieza = Modelo_limpiarHojasResiduales(ss);
+
     // 5) Diseño visual completo (colores en pares sector-ingreso, orden,
     //    ocultas, banding, congelados, anchos y formatos de fecha)
     var dis = Modelo_aplicarDiseno();
@@ -114,6 +128,8 @@ function UI_instalarSistema() {
         (cat.sembrada ? ' (con ejemplos)' : ' verificado') + '\n' +
       '✓ Validaciones aplicadas: ' + val.validaciones + ' en ' + val.hojas + ' puertas INGRESO\n' +
       '✓ Columnas sistema marcadas: ' + val.protegidas + '\n' +
+      '✓ Hojas residuales eliminadas: ' + (limpieza.eliminadas.length
+        ? limpieza.eliminadas.join(', ') : 'ninguna') + '\n' +
       '✓ Hojas internas: ' + inv.total + ' verificadas' +
         (inv.creadas.length ? ' · creadas: ' + inv.creadas.join(', ') : '') +
         (inv.visibilidadCorregida.length ? ' · visibilidad corregida: ' + inv.visibilidadCorregida.join(', ') : '') + '\n' +
@@ -121,7 +137,13 @@ function UI_instalarSistema() {
         ' ordenadas · ' + dis.bandas + ' con filas intercaladas\n' +
       '✓ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
       '✓ Menú actualizado · Encabezados y fechas formateados\n' +
-      '✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n\n' +
+      '✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n' +
+      (amarillo ? '✓ Sector Amarillo sincronizado: puerta +' + amarillo.puerta.nuevas +
+        ' · histórico ' + amarillo.historico.eventosCreados + ' eventos · ' +
+        amarillo.historico.pacientesActualizados + ' pacientes actualizados' +
+        (amarillo.historico.pendientesSinPaciente.length
+          ? ' (⚠ ' + amarillo.historico.pendientesSinPaciente.length + ' filas requieren re-procesar ingresos)'
+          : '') + '\n' : '') + '\n' +
       (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ')
                      : 'Sistema listo para utilizar.'));
   } catch (e) {
@@ -525,7 +547,8 @@ function api_dashboardDatos() {
     var pacientes = Modelo_leerPacientes().map(function (p) {
       return { sector: Utl_texto(p.SECTOR), est: Utl_texto(p.ESTRATIFICACION),
                rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),
-               cond: Utl_texto(p.CONDICIONES), fi: _ui_isoFecha(p.FECHA_INGRESO) };
+               cond: Utl_texto(p.CONDICIONES), fi: _ui_isoFecha(p.FECHA_INGRESO),
+               pc: _ui_isoFecha(p.PROXIMO_CONTROL) };
     });
     var eventos = Modelo_leerEventos().map(function (e) {
       return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR),

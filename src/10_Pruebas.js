@@ -60,6 +60,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_instalador(t, A);
   _pruebas_rem_excel(t, A);
   _pruebas_amarillo(t, A);
+  _pruebas_limpieza(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1938,5 +1939,33 @@ function _pruebas_amarillo(t, A) {
                       { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-06-26' }];
     var evs = Amarillo_eventosNuevos(pac, Amarillo_historicoDe(FILA), existentes, 1);
     A.igual(evs.length, 0, 'cero nuevos si ya existen');
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Limpieza de hojas residuales
+// ---------------------------------------------------------------------------
+
+function _pruebas_limpieza(t, A) {
+  t('LIMPIEZA: hojas de diagnóstico y análisis son residuales', function () {
+    A.cierto(Modelo_esHojaResidual('DIAGNOSTICO', false), 'DIAGNOSTICO');
+    A.cierto(Modelo_esHojaResidual('DIAGNOSTICO_FUENTES', false), 'DIAGNOSTICO_FUENTES');
+    A.cierto(Modelo_esHojaResidual('CARGA_ANALISIS', true), 'CARGA_ANALISIS');
+    A.cierto(Modelo_esHojaResidual('IMPORT_MUESTRA', true), 'IMPORT_MUESTRA');
+  });
+
+  t('LIMPIEZA: hojas oficiales NUNCA son residuales', function () {
+    ['PACIENTES','EVENTOS','CONFIG','LOG','REM_SALIDA','DASHBOARD',
+     'SECTOR_NARANJO','INGRESO_AMARILLO','CAT_VIGENCIA_EXAMENES','Hoja 1']
+      .forEach(function (n) {
+        A.cierto(!Modelo_esHojaResidual(n, false), n + ' protegida');
+        A.cierto(!Modelo_esHojaResidual(n, true), n + ' protegida incluso vacía');
+      });
+  });
+
+  t('LIMPIEZA: desconocida vacía → residual; con datos → no', function () {
+    A.cierto(Modelo_esHojaResidual('PruebaBorrador', true), 'vacía sí');
+    A.cierto(!Modelo_esHojaResidual('PruebaBorrador', false), 'con datos no');
   });
 }

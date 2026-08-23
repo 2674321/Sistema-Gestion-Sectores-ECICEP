@@ -53,6 +53,8 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <div class="card kpi"><label class="etq">Ingresos del mes</label><div class="num" id="kIng">—</div><div class="delta neu" id="kIngD"></div></div>
   <div class="card kpi"><label class="etq">Con revisión pendiente</label><div class="num" id="kRev">—</div><div class="delta neu"></div></div>
   <div class="card kpi"><label class="etq">Patología más frecuente</label><div style="font:600 15px 'Inter';margin-top:8px" id="kPat">—</div><div class="delta neu num" id="kPatC"></div></div>
+  <div class="card kpi"><label class="etq">Controles del mes</label><div class="num" id="kCtrl">—</div><div class="delta neu"></div></div>
+  <div class="card kpi"><label class="etq">Próximos controles (30 días)</label><div class="num" id="kProx">—</div><div class="delta neu"></div></div>
 </section>
 
 <section class="grid-charts">
@@ -60,6 +62,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <div class="card chart-card"><h3>Estratificación <span class="etq" style="display:inline">(escala propia, no semáforo)</span></h3><div class="chart-wrap"><canvas id="chEst"></canvas></div></div>
   <div class="card chart-card"><h3>Ingresos por mes</h3><div class="chart-wrap"><canvas id="chIng"></canvas></div></div>
   <div class="card chart-card"><h3>Patologías más frecuentes</h3><div class="chart-wrap"><canvas id="chPat"></canvas></div></div>
+  <div class="card chart-card"><h3>Atenciones del mes por tipo</h3><div class="chart-wrap"><canvas id="chTipos"></canvas></div></div>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -112,6 +115,14 @@ function renderizarTodo(){
   else{d.textContent='sin base de comparación';d.className='delta neu';}
   animNum(document.getElementById('kRev'),pax.filter(function(p){return p.rev;}).length);
 
+  var hoyIso=hoy.toISOString().slice(0,10);
+  var mesIso=hoyIso.slice(0,7);
+  var ctrlMes=evs.filter(function(e){return e.tipo==='CONTROL'&&e.f.slice(0,7)===mesIso;}).length;
+  animNum(document.getElementById('kCtrl'),ctrlMes);
+  var lim30=new Date(hoy.getTime()+30*864e5).toISOString().slice(0,10);
+  var prox=pax.filter(function(p){return p.pc>=hoyIso&&p.pc<=lim30;}).length;
+  animNum(document.getElementById('kProx'),prox);
+
   var conteoPat={};
   pax.forEach(function(p){String(p.cond||'').split(';').forEach(function(c){
     if(c)conteoPat[c]=(conteoPat[c]||0)+1;});});
@@ -147,6 +158,17 @@ function renderizarTodo(){
   grafico('chIng','line',{labels:meses.map(function(k){var p=k.split('-');return p[1]+'/'+p[0].slice(2);}),
     datasets:[{data:serie,borderColor:'#0E5C68',backgroundColor:'rgba(14,92,104,.10)',
       fill:true,tension:.35,pointRadius:3}]},{y:{beginAtZero:true,precision:0}});
+
+  /* --- Atenciones del mes por tipo --- */
+  var tipos={};
+  evs.filter(function(e){return e.f.slice(0,7)===mesIso;}).forEach(function(e){
+    var t=e.tipo||'OTRO';tipos[t]=(tipos[t]||0)+1;});
+  var tKeys=Object.keys(tipos).sort();
+  if(CH.chTipos){CH.chTipos.destroy();delete CH.chTipos;}
+  grafico('chTipos','bar',{labels:tKeys.map(function(t){return t.replace(/_/g,' ');}),
+    datasets:[{data:tKeys.map(function(t){return tipos[t];}),
+      backgroundColor:'#E5F1F2',borderColor:'#0E5C68',borderWidth:1.5,borderRadius:6}]},
+    {y:{beginAtZero:true,precision:0},x:{ticks:{font:{size:11}}}});
 
   /* --- Top patologías --- */
   var pares=Object.keys(conteoPat).map(function(c){return {c:c,n:conteoPat[c]};})

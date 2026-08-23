@@ -312,7 +312,7 @@ function _modelo_estilizarEncabezado(hoja) {
   if (!cols) return;
   hoja.getRange(1, 1, 1, cols)
       .setFontWeight('bold').setBackground('#0E5C68').setFontColor('#FFFFFF')
-      .setVerticalAlignment('middle');
+      .setVerticalAlignment('middle').setHorizontalAlignment('center');
 }
 
 /** Banding (filas intercaladas) idempotente con colores del sistema de diseño. */
@@ -1219,6 +1219,49 @@ function Modelo_inventarioHojas(ss) {
       }
     } catch (e) {
       res.problemas.push(d.nombre + ': ' + (e && e.message || e));
+    }
+  });
+  return res;
+}
+
+
+/** PURA: ¿es una hoja residual de desarrollo? Regenerables o vacías sin rol. */
+function Modelo_esHojaResidual(nombre, estaVacia) {
+  var regenerables = ['CARGA_ANALISIS', 'IMPORT_MUESTRA'];
+  for (var i = 0; i < regenerables.length; i++) {
+    if (nombre === regenerables[i]) return true;
+    if (nombre.indexOf('DIAGNOSTICO') === 0 || nombre.indexOf('DIAGNÓSTICO') === 0) return true;
+  }
+  // vacías sin rol definido (residuos de desarrollo), excepto la predeterminada
+  if (estaVacia && nombre !== HOJAS.HOJA_PREDETERMINADA &&
+      !_MODELO_HOJAS_DEF.hasOwnProperty(nombre) &&
+      HOJAS_SECTOR.indexOf(nombre) === -1 &&
+      !HOJAS_INGRESO.hasOwnProperty(nombre) &&
+      nombre !== 'REM_SALIDA' && nombre !== 'CAT_VIGENCIA_EXAMENES' &&
+      nombre !== 'DASHBOARD') return true;
+  return false;
+}
+
+/** GAS: elimina hojas residuales de desarrollo. Con datos de diagnóstico se
+ *  eliminan igual (se regeneran); hojas desconocidas SOLO si están vacías. */
+function Modelo_limpiarHojasResiduales(ss) {
+  var res = { eliminadas: [] };
+  ss.getSheets().forEach(function (sh) {
+    var nombre = sh.getName();
+    if (_MODELO_HOJAS_DEF.hasOwnProperty(nombre) || HOJAS_SECTOR.indexOf(nombre) !== -1 ||
+        HOJAS_INGRESO.hasOwnProperty(nombre) || nombre === 'REM_SALIDA' ||
+        nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'DASHBOARD') return;
+    var vacia = true;
+    try {
+      var d = sh.getDataRange().getValues();
+      vacia = d.every(function (f) { return f.every(function (c) { return c === ''; }); });
+    } catch (e) {}
+    if (Modelo_esHojaResidual(nombre, vacia)) {
+      try {
+        ss.deleteSheet(sh);
+        res.eliminadas.push(nombre + (vacia ? ' (vacía)' : ' (regenerable)'));
+        Log_info('Instalador', 'limpieza', 'Hoja eliminada: ' + nombre);
+      } catch (e2) { /* única hoja visible u otra protección */ }
     }
   });
   return res;
