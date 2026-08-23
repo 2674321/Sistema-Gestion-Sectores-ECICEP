@@ -344,8 +344,9 @@ function include(nombre) {
 
 /** Abre una vista HTML como dialog ancho (dashboard / REM). */
 function _ui_dialogo(nombre, titulo) {
-  var html = HtmlService.createTemplateFromFile(nombre).evaluate()
-    .setTitle(titulo).setWidth(1180).setHeight(720);
+  var t = HtmlService.createTemplateFromFile(nombre);
+  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+  var html = t.evaluate().setTitle(titulo).setWidth(1180).setHeight(720);
   SpreadsheetApp.getUi().showModalDialog(html, titulo);
 }
 
@@ -353,6 +354,7 @@ function _ui_dialogo(nombre, titulo) {
 function _ui_sidebar(modo, titulo) {
   var t = HtmlService.createTemplateFromFile('Sidebar');
   t.modo = modo;
+  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
   SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle(titulo));
 }
 

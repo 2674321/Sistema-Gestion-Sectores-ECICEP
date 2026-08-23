@@ -115,6 +115,7 @@ textarea.inp{min-height:64px;resize:vertical}
   <div class="cc-head">
     <h1>Centro de control</h1>
     <div class="cc-fecha" id="ccFecha">…</div>
+    <div style="font-size:10px;color:var(--text-muted)">build <?= BUILD ?></div>
   </div>
 
   <div class="grid2" id="ccKpis">
@@ -183,8 +184,8 @@ textarea.inp{min-height:64px;resize:vertical}
 <!-- ============ FICHA ============ -->
 <div id="vista" class="wrap" style="display:none">
   <div class="ficha-head">
-    <button class="btn btn-ghost" style="padding:4px 8px;min-height:30px;margin-left:-8px" onclick="volver()">
-      <i data-lucide="arrow-left"></i> Volver
+    <button class="btn btn-ghost" style="padding:4px 8px;min-height:30px;margin-left:-8px" onclick="volver()" title="Conserva tu búsqueda y resultados">
+      <i data-lucide="arrow-left"></i> Volver al buscador
     </button>
     <div class="nombre" id="fNombre">—</div>
     <div class="ficha-chips">

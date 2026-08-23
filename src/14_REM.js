@@ -412,12 +412,20 @@ function REM_exportarPdf(anio, mes, sectorFiltro) {
 }
 
 /** Tabla DocumentApp con encabezado sombreado (marca) y bordes consistentes. */
+/** Tabla DocumentApp: SANITIZACIÓN estricta (#11) — matriz de STRINGS rectangular
+ *  o no se construye. Celdas sombreadas en encabezado y zebra suave. */
 function _rem_tablaDoc(body, filas, conEncabezado) {
-  var t = body.appendTable(filas.map(function (fila) {
-    return fila.map(function (v) {
-      return [String(v === null || v === undefined ? '' : v)];
+  if (!Array.isArray(filas) || !filas.length) return null;
+  var limpias = filas
+    .filter(function (f) { return Array.isArray(f) && f.length > 0; })
+    .map(function (f) {
+      return f.map(function (v) { return String(v === null || v === undefined ? '' : v); });
     });
-  }));
+  if (!limpias.length) return null;
+  var anchoMax = Math.max.apply(null, limpias.map(function (f) { return f.length; }));
+  limpias.forEach(function (f) { while (f.length < anchoMax) f.push(''); });
+
+  var t = body.appendTable(limpias); /* string[][] puro — nunca number[] */
   for (var f = 0; f < t.getNumRows(); f++) {
     for (var col = 0; col < t.getRow(f).getNumCells(); col++) {
       var celda = t.getCell(f, col);
