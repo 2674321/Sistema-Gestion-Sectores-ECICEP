@@ -261,46 +261,49 @@ function Rem_generar(anio, mes, sectorFiltro) {
     ? ('REGLA ' + Utl_texto(CFG_ESTRATIFICACION.VERSION_REGLA))
     : 'MANUAL/FUENTE';
 
-  var salida = [];
-  salida.push([Rem_cabecera(anio, mes, filtro)]);
-  salida.push(['Generado:', new Date(), 'Regla estratificación:', regla]);
-  salida.push([]);
-  salida.push(['BLOQUE A — RESUMEN POR NIVEL G (snapshot RIESGO_G del evento; sin G → PENDIENTE)']);
-  salida.push(['CONCEPTO'].concat(tabla.buckets).concat(['TOTAL']));
+  var salida = [], tipos = [];
+  var P = function (fila, tipo) { salida.push(fila); tipos.push(tipo || ''); };
+  P([Rem_cabecera(anio, mes, filtro)], 'titulo');
+  P(['Generado:', new Date(), 'Regla estratificación:', regla], 'meta');
+  P([], 'sep');
+  P(['BLOQUE A — RESUMEN POR NIVEL G (snapshot RIESGO_G del evento; sin G → PENDIENTE)'], 'seccion');
+  P(['CONCEPTO'].concat(tabla.buckets).concat(['TOTAL']), 'cols');
   tabla.filas.forEach(function (f) {
-    salida.push([f.etiqueta].concat(tabla.buckets.map(function (b) { return f.valores[b]; }))
-                 .concat([f.total]));
+    P([f.etiqueta].concat(tabla.buckets.map(function (b) { return f.valores[b]; }))
+      .concat([f.total]), 'dato');
   });
-  salida.push(['TOTAL'].concat(tabla.buckets.map(function (b) { return tabla.totalGeneral[b]; }))
-               .concat([tabla.totalGeneral.total]));
+  P(['TOTAL'].concat(tabla.buckets.map(function (b) { return tabla.totalGeneral[b]; }))
+    .concat([tabla.totalGeneral.total]), 'total');
   if (bloqueA.fechasInvalidas > 0) {
-    salida.push(['⚠️ Eventos con fecha no interpretable (fuera de todo período): ' + bloqueA.fechasInvalidas]);
+    P(['⚠️ Eventos con fecha no interpretable (fuera de todo período): ' + bloqueA.fechasInvalidas], 'nota');
   }
-  salida.push([]);
-  salida.push(['DETALLE TIPO × RIESGO_G × SECTOR']);
-  salida.push(['TIPO', 'RIESGO_G', 'SECTOR', 'CONTEO']);
+  P([], 'sep');
+  P(['DETALLE TIPO × RIESGO_G × SECTOR'], 'seccion');
+  P(['TIPO', 'RIESGO_G', 'SECTOR', 'CONTEO'], 'cols');
   bloqueA.conteos.forEach(function (c) {
-    salida.push([c.tipo, c.riesgoG, c.sector, c.conteo]);
+    P([c.tipo, c.riesgoG, c.sector, c.conteo], 'detalle');
   });
-  salida.push([]);
-  salida.push(['INDICADORES POR PACIENTE — ' + indicadores.length + ' con actividad en el período']);
-  salida.push(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'EVENTOS', 'TIENE_INGRESO',
-               'TIENE_CONTROL', 'TIENE_SEGUIMIENTO', 'TIENE_PLAN', 'TIENE_GC_INGRESO', 'TIENE_GC_EGRESO']);
+  P([], 'sep');
+  P(['INDICADORES POR PACIENTE — ' + indicadores.length + ' con actividad en el período'], 'seccion');
+  P(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'EVENTOS', 'TIENE_INGRESO',
+     'TIENE_CONTROL', 'TIENE_SEGUIMIENTO', 'TIENE_PLAN', 'TIENE_GC_INGRESO', 'TIENE_GC_EGRESO'], 'cols');
   indicadores.forEach(function (r) {
-    salida.push([r.id, r.rut, r.nombre, r.sector, r.eventos, r.ingreso, r.control,
-                 r.seguimiento, r.planCuidado, r.gcIngreso, r.gcEgreso]);
+    P([r.id, r.rut, r.nombre, r.sector, r.eventos, r.ingreso, r.control,
+       r.seguimiento, r.planCuidado, r.gcIngreso, r.gcEgreso], 'ind');
   });
-  salida.push([]);
-  salida.push(['BLOQUE B — DEMOGRAFÍA: NO DISPONIBLE (#14 — sin FECHA_NACIMIENTO/SEXO en fuentes)']);
-  salida.push(['BLOQUE C — ATENCIONES: NO DISPONIBLE (#17 — requiere definir fuente externa)']);
-  salida.push(['NOTA: TOTAL e indicadores son derivados al momento de generar (#25); ' +
-               'el REM es SOLO LECTURA de EVENTOS/PACIENTES.']);
+  P([], 'sep');
+  P(['BLOQUE B — DEMOGRAFÍA: NO DISPONIBLE (#14 — sin FECHA_NACIMIENTO/SEXO en fuentes)'], 'nota');
+  P(['BLOQUE C — ATENCIONES: NO DISPONIBLE (#17 — requiere definir fuente externa)'], 'nota');
+  P(['NOTA: TOTAL e indicadores son derivados al momento de generar (#25); ' +
+     'el REM es SOLO LECTURA de EVENTOS/PACIENTES.'], 'nota');
 
   var ss = Modelo_ss();
   var hoja = ss.getSheetByName('REM_SALIDA');
   if (!hoja) hoja = ss.insertSheet('REM_SALIDA');
   hoja.clear();
-  Utl_escribirBloque(hoja, 1, 1, _rem_aplanarAncho(salida));
+  var rectangulo = _rem_aplanarAncho(salida);
+  Utl_escribirBloque(hoja, 1, 1, rectangulo);
+  _rem_estilizarSalida(hoja, rectangulo, tipos);
 
   Log_info('REM', 'generar', Rem_cabecera(anio, mes, filtro) +
            ' · eventos=' + enPeriodo.length + ' · pacientes=' + indicadores.length);
@@ -430,4 +433,49 @@ function _rem_tablaDoc(body, filas, conEncabezado) {
     }
   }
   return t;
+}
+
+/** Estiliza REM_SALIDA según el mapa de tipos de cada fila (hoja interna,
+ *  pero ordenada y legible para revisión/auditoría). Idempotente. */
+function _rem_estilizarSalida(hoja, filas, tipos) {
+  var ancho = filas.reduce(function (m, f) { return Math.max(m, f.length); }, 1);
+  var alto = filas.length;
+  hoja.setFrozenRows(2);
+  hoja.setFrozenColumns(1);
+  hoja.setColumnWidth(1, 300);
+  for (var c = 2; c <= ancho; c++) hoja.setColumnWidth(c, 95);
+
+  var rangoBase = hoja.getRange(1, 1, alto, ancho)
+    .setFontFamily('Inter').setFontSize(10).setFontColor('#1C2430')
+    .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+
+  var zebra = 0; // contador por bloque para filas intercaladas
+  for (var i = 0; i < tipos.length; i++) {
+    var fila = i + 1;
+    var rangoFila = hoja.getRange(fila, 1, 1, ancho);
+    var t = tipos[i];
+    if (t === 'titulo') {
+      rangoFila.setFontWeight('bold').setFontSize(13).setFontColor('#0E5C68');
+    } else if (t === 'meta') {
+      rangoFila.setFontStyle('italic').setFontSize(9).setFontColor('#8A93A3');
+    } else if (t === 'seccion') {
+      rangoFila.setFontWeight('bold').setFontSize(11).setFontColor('#FFFFFF')
+               .setBackground('#08414A');
+      zebra = 0;
+    } else if (t === 'cols') {
+      rangoFila.setFontWeight('bold').setFontSize(9).setFontColor('#FFFFFF')
+               .setBackground('#0E5C68').setHorizontalAlignment('center');
+      zebra = 0;
+    } else if (t === 'total') {
+      rangoFila.setFontWeight('bold').setBackground('#E5F1F2');
+    } else if (t === 'nota') {
+      rangoFila.setFontStyle('italic').setFontSize(9).setFontColor('#8A93A3');
+    } else if (t === 'dato' || t === 'detalle' || t === 'ind') {
+      if (zebra % 2 === 1) rangoFila.setBackground('#F1F3F6'); /* intercalado */
+      zebra++;
+      if (ancho > 1) {
+        hoja.getRange(fila, 2, 1, ancho - 1).setHorizontalAlignment(t === 'dato' ? 'center' : 'right');
+      }
+    }
+  }
 }
