@@ -200,6 +200,20 @@ function _rem_normalizarEventos(crudos) {
   });
 }
 
+/** PURA: rellena todas las filas al ancho máximo con ''. setValues exige un
+ *  rectángulo perfecto y el informe mezcla filas de distinto largo (títulos,
+ *  secciones, filas vacías). No muta la entrada.
+ *  @returns nueva matriz [][] rectangular. */
+function _rem_aplanarAncho(filas) {
+  var max = 0;
+  (filas || []).forEach(function (f) { if (f && f.length > max) max = f.length; });
+  return (filas || []).map(function (f) {
+    var copia = (f || []).slice();
+    while (copia.length < max) copia.push('');
+    return copia;
+  });
+}
+
 /**
  * GAS: genera la hoja REM_SALIDA para el período. SOLO LECTURA de EVENTOS y
  * PACIENTES; escribe únicamente REM_SALIDA. El menú funciona autónomo (esta
@@ -272,7 +286,7 @@ function Rem_generar(anio, mes, sectorFiltro) {
   var hoja = ss.getSheetByName('REM_SALIDA');
   if (!hoja) hoja = ss.insertSheet('REM_SALIDA');
   hoja.clear();
-  Utl_escribirBloque(hoja, 1, 1, salida);
+  Utl_escribirBloque(hoja, 1, 1, _rem_aplanarAncho(salida));
 
   Log_info('REM', 'generar', Rem_cabecera(anio, mes, filtro) +
            ' · eventos=' + enPeriodo.length + ' · pacientes=' + indicadores.length);

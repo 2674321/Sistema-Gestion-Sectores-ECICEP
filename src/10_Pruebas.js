@@ -54,6 +54,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_migracion_esquema(t, A);
   _pruebas_trazabilidad(t, A);
   _pruebas_rem(t, A);
+  _pruebas_rem_ancho(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1594,5 +1595,28 @@ function _pruebas_rem(t, A) {
     var a = JSON.stringify(calcularREMBloqueA(eventos, { anio: 2026, mes: 8 }));
     var b = JSON.stringify(calcularREMBloqueA(JSON.parse(JSON.stringify(eventos)), { anio: 2026, mes: 8 }));
     A.igual(b, a, 'idéntico');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// REM — normalización de ancho para escritura rectangular
+// ---------------------------------------------------------------------------
+
+function _pruebas_rem_ancho(t, A) {
+  t('REM ANCHO: filas mixtas se rellenan al ancho máximo', function () {
+    var entrada = [['titulo'], ['a', 'b', 'c', 'd'], []];
+    var salida = _rem_aplanarAncho(entrada);
+    A.igual(salida.length, 3, 'misma cantidad de filas');
+    salida.forEach(function (f) { A.igual(f.length, 4, 'ancho uniforme'); });
+    A.arreglos(salida[0], ['titulo', '', '', ''], 'título rellenado');
+    A.arreglos(salida[2], ['', '', '', ''], 'fila vacía → ancho completo');
+  });
+
+  t('REM ANCHO: no muta la entrada y soporta fila nula', function () {
+    var a = ['x'];
+    var entrada = [a, null];
+    var salida = _rem_aplanarAncho(entrada);
+    A.arreglos(a, ['x'], 'original intacto');
+    A.igual(salida[1].length, 1, 'null tratado como fila vacía');
   });
 }
