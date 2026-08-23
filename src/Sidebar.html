@@ -193,6 +193,7 @@ function buscarAhora(){
 }
 var buscar=_debounce(buscarAhora,220);
 
+document.getElementById('termino').addEventListener('input',buscar);
 document.getElementById('termino').addEventListener('keydown',function(e){
   var cards=document.querySelectorAll('#resultados .res-card');
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){
@@ -202,7 +203,8 @@ document.getElementById('termino').addEventListener('keydown',function(e){
     if(cards[_resIdx])cards[_resIdx].scrollIntoView({block:'nearest'});
   }else if(e.key==='Enter'){
     if(_resIdx>=0&&cards[_resIdx])cards[_resIdx].click();
-    else if(cards[0])cards[0].click();
+    else if(cards.length&&_resIdx<0)cards[0].click();
+    else buscarAhora();
   }
 });
 
