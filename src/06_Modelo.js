@@ -22,6 +22,127 @@ function Modelo_campos() {
   return MODELO_PACIENTE.map(function (c) { return c.campo; });
 }
 
+// ---------------------------------------------------------------------------
+// Esquema PACIENTES — detección y migración de drift modelo ↔ hoja física.
+// Toda escritura es posicional según MODELO_PACIENTE; si la hoja física quedó
+// con un esquema anterior (p.ej. sin OTRAS_PATOLOGIAS desde ETAPA 8E), los
+// valores se corren de columna y se corrompen los campos posteriores.
+// ---------------------------------------------------------------------------
+
+/** PURA: plan de migración de encabezados físicos vs esperados.
+ *  Solo admite INSERTAR campos nuevos del modelo ausentes en la hoja,
+ *  preservando el orden relativo de los existentes. Reordenamientos o
+ *  columnas desconocidas → incompatible (no se adivina nada).
+ *  @returns {ok:boolean, insertar:[{indiceFinal,campo}], motivo:string} */
+function Modelo_planMigracionEsquema(encabezadosFisicos, camposEsperados) {
+  var fisicos = (encabezadosFisicos || []).map(function (h) { return Utl_texto(h).trim(); });
+  while (fisicos.length && fisicos[fisicos.length - 1] === '') fisicos.pop();
+  if (!fisicos.length) return { ok: false, insertar: [], motivo: 'SIN_ENCABEZADOS' };
+  var insertar = [];
+  var i = 0;
+  for (var j = 0; j < camposEsperados.length; j++) {
+    var esperado = camposEsperados[j];
+    if (i < fisicos.length && fisicos[i] === esperado) { i++; continue; }
+    if (fisicos.indexOf(esperado) !== -1) {
+      return { ok: false, insertar: [], motivo: 'ORDEN_DIVERGENTE: "' + esperado + '" está en otra posición' };
+    }
+    insertar.push({ indiceFinal: j, campo: esperado });
+  }
+  if (i < fisicos.length) {
+    return { ok: false, insertar: [], motivo: 'COLUMNAS_DESCONOCIDAS: ' + fisicos.slice(i).join(', ') };
+  }
+  return { ok: insertar.length === 0, insertar: insertar,
+           motivo: insertar.length ? 'FALTAN ' + insertar.length + ' COLUMNA(S)' : 'ESQUEMA_ALINEADO' };
+}
+
+/** PURA: recalcula campos técnicos deterministas de un paciente (repara la
+ *  corrupción típica de escritura desalineada). Muta obj.
+ *  @returns cantidad de cambios aplicados. */
+function _modelo_repararObjetoTecnico(obj) {
+  var cambios = 0;
+  var nombre = Utl_texto(obj.NOMBRE);
+  if (nombre && Utl_texto(obj.NOMBRE_NORMALIZADO) !== Utl_sinTildes(nombre)) {
+    obj.NOMBRE_NORMALIZADO = Utl_sinTildes(nombre); cambios++;
+  }
+  var rut = Utl_texto(obj.RUT);
+  if (rut) {
+    var dvDebe = Norm_validarRut(rut);
+    var dvEsta = obj.RUT_DV_VALIDO === true || obj.RUT_DV_VALIDO === 'TRUE';
+    if (dvEsta !== dvDebe) { obj.RUT_DV_VALIDO = dvDebe; cambios++; }
+    var sinDvDebe = rut.indexOf('-') === -1;
+    var sinDvEsta = obj.RUT_SIN_DV === true || obj.RUT_SIN_DV === 'TRUE';
+    if (sinDvEsta !== sinDvDebe) { obj.RUT_SIN_DV = sinDvDebe; cambios++; }
+  }
+  return cambios;
+}
+
+/** GAS: garantiza que PACIENTES tenga el esquema canónico (idempotente).
+ *  Si faltan columnas del modelo las inserta en su posición final y repara
+ *  los campos técnicos de todas las filas. Ante divergencia NO resolvible
+ *  (orden distinto, columnas desconocidas) no toca nada y reporta motivo.
+ *  Ruta sana = 1 lectura de encabezados (barata para llamar pre-escritura).
+ *  @returns plan.ok=true sin cambios | resultado de migración | ok=false */
+function Modelo_asegurarEsquemaPacientes() {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return { ok: false, insertar: [], motivo: 'SIN_HOJA_PACIENTES' };
+  var ancho = Math.max(hoja.getLastColumn() || 0, MODELO_PACIENTE.length);
+  var fisicos = hoja.getRange(1, 1, 1, ancho).getValues()[0];
+  var plan = Modelo_planMigracionEsquema(fisicos, Modelo_campos());
+  if (plan.ok) return plan;
+  if (!plan.insertar.length) {
+    Log_error('Modelo', 'asegurarEsquema', 'PACIENTES incompatible: ' + plan.motivo);
+    return plan;
+  }
+  for (var k = plan.insertar.length - 1; k >= 0; k--) {
+    var ins = plan.insertar[k];
+    hoja.insertColumns(ins.indiceFinal + 1);
+    hoja.getRange(1, ins.indiceFinal + 1).setValue(ins.campo);
+  }
+  var repar = Modelo_repararCamposTecnicos();
+  Log_warning('Modelo', 'asegurarEsquema',
+    'Migración PACIENTES: +' + plan.insertar.map(function (x) { return x.campo; }).join(',') +
+    ' · filas reparadas=' + repar.reparados + ' · marcadas revisión=' + repar.marcadosRevision);
+  return { ok: true, migrada: true,
+           insertadas: plan.insertar.map(function (x) { return x.campo; }),
+           motivo: plan.motivo, reparados: repar.reparados,
+           marcadosRevision: repar.marcadosRevision, sospechosas: repar.sospechosas };
+}
+
+/** GAS: repara campos técnicos deterministas en TODAS las filas y marca
+ *  REQUIERE_REVISION donde FUENTE quedó vacía (trazabilidad irrecuperable).
+ *  Reescritura completa solo si hubo cambios (precedente: Limpieza_ejecutar).
+ *  @returns {reparados, marcadosRevision, sospechosas:[{fila,id,rut,nombre}]} */
+function Modelo_repararCamposTecnicos() {
+  var res = { reparados: 0, marcadosRevision: 0, sospechosas: [] };
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja || hoja.getLastRow() < 2) return res;
+  var valores = Utl_leerBloque(hoja);
+  var campos = (valores[0] || []).map(function (c) { return Utl_texto(c); });
+  var salida = [];
+  for (var f = 1; f < valores.length; f++) {
+    var fila = valores[f];
+    var obj = {};
+    for (var c = 0; c < campos.length; c++) obj[campos[c]] = fila[c];
+    var n = _modelo_repararObjetoTecnico(obj);
+    if (!Utl_vacio(Utl_texto(obj.RUT)) && Utl_vacio(Utl_texto(obj.FUENTE)) &&
+        obj.REQUIERE_REVISION !== true) {
+      obj.REQUIERE_REVISION = true; n++;
+      res.marcadosRevision++;
+      res.sospechosas.push({ fila: f + 1, id: obj.ID_INTERNO, rut: obj.RUT, nombre: obj.NOMBRE });
+    }
+    if (n > 0) {
+      res.reparados++;
+      fila = campos.map(function (cm) {
+        var v = obj[cm];
+        return (v === undefined || v === null) ? '' : v;
+      });
+    }
+    salida.push(fila);
+  }
+  if (res.reparados > 0) Utl_escribirBloque(hoja, 2, 1, salida);
+  return res;
+}
+
 /**
  * Genera un ID interno único: EC-<base36 tiempo>-<aleatorio>.
  * No depende de RUT (permite corregir un RUT sin romper referencias).
@@ -243,6 +364,8 @@ function Modelo_guardEscritura(contexto) {
 function Modelo_agregarPacientes(objetos, contexto) {
   Modelo_guardEscritura(contexto || {});
   if (!objetos || !objetos.length) return 0;
+  var esquema = Modelo_asegurarEsquemaPacientes();
+  if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var ahora = new Date();
   var filas = objetos.map(function (o) {
     o.FECHA_ACTUALIZACION = ahora;
@@ -394,6 +517,8 @@ function Limpieza_colectar() {
 function Limpieza_ejecutar(colecta) {
   var resumen = { pacientes: 0, eventos: 0, filasIngreso: colecta.totalFilas };
   var ss = Modelo_ss();
+  var esquema = Modelo_asegurarEsquemaPacientes();
+  if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
 
   // PACIENTES: reescribe sin los de prueba
   var pacientes = Modelo_leerPacientes();
@@ -600,6 +725,8 @@ function Recuperar_inventario(prefijoFuente) {
 function Recuperar_ejecutar(prefijoFuente) {
   var datos = Recuperar_identificar(prefijoFuente);
   var ss = Modelo_ss();
+  var esquema = Modelo_asegurarEsquemaPacientes();
+  if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var eliminadosP = 0, eliminadosE = 0;
 
   // EVENTOS: eliminar filas de abajo hacia arriba

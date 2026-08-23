@@ -25,6 +25,7 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('⚙️ Administración')
         .addItem('⚙️ Instalar / reparar estructura', 'UI_instalarEstructura')
+        .addItem('🧬 Verificar / migrar esquema PACIENTES', 'UI_migrarEsquemaPacientes')
         .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
         .addItem('🔑 Configurar acceso remoto', 'UI_configurarWebhook')
         .addItem('🔍 Recuperación: inventario', 'UI_recuperarInventario')
@@ -393,6 +394,8 @@ function api_registrarEvento(payload) {
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
 
     Ingresos_sincronizarCache(objetivo, evento);
+    var esquema = Modelo_asegurarEsquemaPacientes();
+    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     var idx = pacientes.indexOf(objetivo); // posición dentro del bloque de datos
     hojaP.getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
@@ -649,7 +652,7 @@ function UI_recuperarInventario() {
 
   var conteo = Recuperar_inventario(prefijo);
   var hoja = Modelo_ss().getSheetByName('RECUPERACION');
-  if (hoja) ss.setActiveSheet(hoja);
+  if (hoja) Modelo_ss().setActiveSheet(hoja);
   ui.alert(
     'INVENTARIO GENERADO\n\n' +
     'Pacientes afectados: ' + conteo.pacientes + '\n' +
@@ -683,6 +686,39 @@ function UI_recuperarEjecutar() {
     'Pacientes eliminados: ' + r.pacientesEliminados + '\n' +
     'Eventos eliminados: ' + r.eventosEliminados + '\n' +
     'SECTOR_* refrescadas.');
+}
+
+// ===========================================================================
+// Esquema PACIENTES — migración manual/verificable desde el menú
+// ===========================================================================
+
+function UI_migrarEsquemaPacientes() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = Modelo_asegurarEsquemaPacientes();
+    if (!r.ok) {
+      ui.alert('❌ ESQUEMA INCOMPATIBLE\n\n' + r.motivo +
+        '\n\nNO se modificó nada.\nRevisar los encabezados de PACIENTES manualmente.');
+      return;
+    }
+    if (!r.migrada) {
+      ui.alert('✅ ESQUEMA ALINEADO\n\nPACIENTES coincide con MODELO_PACIENTE (' +
+        Modelo_campos().length + ' columnas).\nNo se requiere ninguna acción.');
+      return;
+    }
+    var msg = '🔧 MIGRACIÓN COMPLETADA\n\n' +
+      'Columnas insertadas: ' + r.insertadas.join(', ') + '\n' +
+      'Filas reparadas: ' + r.reparados + '\n' +
+      'Marcadas para revisión (FUENTE vacía): ' + r.marcadosRevision;
+    if (r.sospechosas && r.sospechosas.length) {
+      msg += '\n\n⚠️ Trazabilidad perdida en:\n' + r.sospechosas.slice(0, 10).map(function (s) {
+        return 'Fila ' + s.fila + ' · ' + s.nombre + ' (' + s.rut + ')';
+      }).join('\n');
+    }
+    ui.alert(msg);
+  } catch (e) {
+    ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
+  }
 }
 
 // ===========================================================================
@@ -728,6 +764,9 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     var val = Condiciones_validarSeleccion(codigosSeleccionados, CATALOGO_CONDICIONES_ECICEP);
     if (val.invalidos.length) return { ok: false, motivo: 'CÓDIGOS_INVALIDOS', invalidos: val.invalidos };
 
+    var esquema = Modelo_asegurarEsquemaPacientes();
+    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
+
     var pacientes = Modelo_leerPacientes();
     var idx = -1;
     for (var i = 0; i < pacientes.length; i++) {
@@ -748,7 +787,8 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
 
     return { ok: true, condiciones: val.validos, cantidad: val.validos.length,
              puntaje: _calcularPuntaje(val.validos),
-             estratificacion: CFG_ESTRATIFICACION.REGLA_DISPONIBLE ? 'calculable' : 'pendiente de regla oficial' };
+             estratificacion: CFG_ESTRATIFICACION.REGLA_DISPONIBLE ? 'calculable' : 'pendiente de regla oficial',
+             esquemaMigrado: !!esquema.migrada };
   } catch (e) {
     Log_error('Patologias', 'guardar', e && e.message ? e.message : String(e));
     Log_flush();

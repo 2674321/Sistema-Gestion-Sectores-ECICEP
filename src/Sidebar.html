@@ -238,7 +238,7 @@ function guardarPatologias(){
   m.textContent='Guardando…';m.className='msg';
   var otras=document.getElementById('otrasPatologias').value;
   google.script.run.withSuccessHandler(function(r){
-    m.textContent=r.ok?('✔ '+r.cantidad+' patologías guardadas · Ponderación: '+r.puntaje+' · Estratificación: '+r.estratificacion):('✗ '+r.motivo);
+    m.textContent=r.ok?('✔ '+r.cantidad+' patologías guardadas · Ponderación: '+r.puntaje+' · Estratificación: '+r.estratificacion+(r.esquemaMigrado?' · 🔧 Esquema PACIENTES migrado':'')):('✗ '+r.motivo);
     m.className='msg '+(r.ok?'ok':'err');
   }).api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),otras);
 }

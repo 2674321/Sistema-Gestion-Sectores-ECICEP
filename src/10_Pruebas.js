@@ -51,6 +51,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_ponderacion(t, A);
   _pruebas_contrato_catalogo(t, A);
   _pruebas_utilidades(t, A);
+  _pruebas_migracion_esquema(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1217,5 +1218,120 @@ function _pruebas_contrato_catalogo(t, A) {
       var found = catReal.some(function(c){ return c.CODIGO === codigo && c.PONDERACION === 2; });
       A.cierto(found, codigo + ' con ponderación 2 presente');
     });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Migración de esquema PACIENTES — drift modelo ↔ hoja física
+// ---------------------------------------------------------------------------
+
+function _pruebas_migracion_esquema(t, A) {
+  var campos = Modelo_campos();
+
+  t('ESQUEMA: hoja alineada → sin cambios', function () {
+    var p = Modelo_planMigracionEsquema(campos.slice(), campos);
+    A.cierto(p.ok, 'ok');
+    A.arreglos(p.insertar, [], 'sin inserciones');
+    A.igual(p.motivo, 'ESQUEMA_ALINEADO', 'motivo');
+  });
+
+  t('ESQUEMA: caso real ETAPA 8E — falta OTRAS_PATOLOGIAS (29 columnas)', function () {
+    var fisicos = campos.filter(function (c) { return c !== 'OTRAS_PATOLOGIAS'; });
+    A.igual(fisicos.length, campos.length - 1, 'simula hoja pre-8E');
+    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    A.cierto(!p.ok, 'requiere migración');
+    A.igual(p.insertar.length, 1, 'una inserción');
+    A.igual(p.insertar[0].campo, 'OTRAS_PATOLOGIAS', 'campo a insertar');
+    A.igual(p.insertar[0].indiceFinal, 20, 'posición final: tras CONDICIONES (0-based)');
+    A.igual(campos.indexOf('CONDICIONES'), 19, 'CONDICIONES en 19');
+    A.igual(campos.indexOf('NOMBRE_NORMALIZADO'), 21, 'NOMBRE_NORMALIZADO queda en 21');
+  });
+
+  t('ESQUEMA: múltiples columnas faltantes intercaladas', function () {
+    var fisicos = campos.filter(function (c) { return c !== 'CONDICIONES' && c !== 'OTRAS_PATOLOGIAS'; });
+    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    A.igual(p.insertar.length, 2, 'dos inserciones');
+    A.igual(p.insertar[0].campo, 'CONDICIONES', 'primera');
+    A.igual(p.insertar[0].indiceFinal, 19, 'índice CONDICIONES');
+    A.igual(p.insertar[1].campo, 'OTRAS_PATOLOGIAS', 'segunda');
+    A.igual(p.insertar[1].indiceFinal, 20, 'índice OTRAS_PATOLOGIAS');
+  });
+
+  t('ESQUEMA: columna faltante al final del modelo', function () {
+    var fisicos = campos.slice(0, campos.length - 1);
+    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    A.igual(p.insertar.length, 1, 'una inserción');
+    A.igual(p.insertar[0].campo, 'REQUIERE_REVISION', 'campo');
+    A.igual(p.insertar[0].indiceFinal, campos.length - 1, 'al final');
+  });
+
+  t('ESQUEMA: encabezados vacíos finales se ignoran', function () {
+    var p = Modelo_planMigracionEsquema(campos.concat(['', '', '']), campos);
+    A.cierto(p.ok, 'ok sin inserciones');
+  });
+
+  t('ESQUEMA: orden divergente → incompatible, no propone nada', function () {
+    var fisicos = campos.slice();
+    var tmp = fisicos[2]; fisicos[2] = fisicos[3]; fisicos[3] = tmp;
+    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    A.cierto(!p.ok, 'incompatible');
+    A.cierto(p.motivo.indexOf('ORDEN_DIVERGENTE') === 0, 'motivo orden: ' + p.motivo);
+    A.arreglos(p.insertar, [], 'sin inserciones');
+  });
+
+  t('ESQUEMA: columna desconocida → incompatible', function () {
+    var p = Modelo_planMigracionEsquema(campos.concat(['COLUMNA_EXTRA']), campos);
+    A.cierto(!p.ok, 'incompatible');
+    A.cierto(p.motivo.indexOf('COLUMNAS_DESCONOCIDAS') === 0, 'motivo: ' + p.motivo);
+  });
+
+  t('ESQUEMA: hoja sin encabezados → SIN_ENCABEZADOS', function () {
+    var p = Modelo_planMigracionEsquema(['', '', '', ''], campos);
+    A.cierto(!p.ok, 'incompatible');
+    A.igual(p.motivo, 'SIN_ENCABEZADOS', 'motivo');
+  });
+
+  t('ESQUEMA: encabezados con espacios se normalizan al comparar', function () {
+    var fisicos = campos.map(function (c, i) { return i === 0 ? ' ID_INTERNO ' : c; });
+    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    A.cierto(p.ok, 'trim aplicado');
+  });
+
+  t('REPARACIÓN: fila corrupta estilo incidente real se reconstruye', function () {
+    var obj = {
+      NOMBRE: 'SILVIA MONDACA ALFARO',
+      NOMBRE_NORMALIZADO: 'prueba',
+      RUT: '8031158-3',
+      RUT_DV_VALIDO: 'SILVIA MONDACA ALFARO',
+      RUT_SIN_DV: true,
+      FUENTE: '',
+      REQUIERE_REVISION: ''
+    };
+    var n = _modelo_repararObjetoTecnico(obj);
+    A.igual(obj.NOMBRE_NORMALIZADO, 'SILVIA MONDACA ALFARO', 'normalizado recomputado');
+    A.cierto(obj.RUT_DV_VALIDO === true, 'DV válido recomputado como booleano');
+    A.cierto(obj.RUT_SIN_DV === false, 'RUT con guion-DV → bandera falsa');
+    A.cierto(n >= 3, 'cambios contados (' + n + ')');
+  });
+
+  t('REPARACIÓN: objeto sano no genera cambios', function () {
+    var obj = { NOMBRE: 'ANA PEREZ', NOMBRE_NORMALIZADO: 'ANA PEREZ',
+                RUT: '11111111-1', RUT_DV_VALIDO: true, RUT_SIN_DV: false };
+    var n = _modelo_repararObjetoTecnico(obj);
+    A.igual(n, 0, 'cero cambios');
+  });
+
+  t('REPARACIÓN: DV inválido se detecta y marca falso', function () {
+    var obj = { NOMBRE: 'X Y', NOMBRE_NORMALIZADO: 'X Y',
+                RUT: '11111111-0', RUT_DV_VALIDO: true, RUT_SIN_DV: false };
+    _modelo_repararObjetoTecnico(obj);
+    A.cierto(obj.RUT_DV_VALIDO === false, 'DV erróneo marcado');
+  });
+
+  t('REPARACIÓN: RUT almacenado sin DV mantiene bandera verdadera', function () {
+    var obj = { NOMBRE: 'X Y', NOMBRE_NORMALIZADO: 'X Y',
+                RUT: '11111111', RUT_DV_VALIDO: false, RUT_SIN_DV: false };
+    _modelo_repararObjetoTecnico(obj);
+    A.cierto(obj.RUT_SIN_DV === true, 'sin guion → bandera true');
   });
 }
