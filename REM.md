@@ -85,3 +85,50 @@ Lo que sí se almacena: los eventos atómicos que permiten reconstruir todo.
 2. Definiciones operativas confirmadas de PLAN_CUIDADO y GESTION_CASO_* (#15).
 3. Decisión sobre bloque B/C (fuente externa vs ECICEP) (#17).
 4. Formato de entrega oficial del REM (#16).
+
+---
+
+# ETAPA 9 — REM EXCEL (implementada v0.6.0)
+
+Producto: **REM_ECICEP_AAAA_MM.xlsx** con dos hojas, generado desde
+PACIENTES+EVENTOS en modo SOLO LECTURA (`15_RemExcel.js`).
+
+## Hoja REM (resumen · 24 columnas)
+
+1 fila por paciente con actividad en el período. Paciente = RUT.
+Conteos tipo × G usando el SNAPSHOT `RIESGO_G` del evento; `G`/vacío →
+fuera de G1/G2/G3 y marcado en validación. Total = suma exacta de las
+16 celdas de conteo (verificado contra plantilla original).
+Tiene Ingreso/Control/Seguimiento/Plan = SI/NO por eventos reales.
+
+## Hoja REM_DETALLE (28 columnas)
+
+1 fila por atención/evento: Profesional, Tipo de Profesional*, Ficha
+(RUT sin DV), Doc., Tipo doc., Nombre, Edad a la Atención (nac+fecha
+evento), Año/Mes/Día, Sexo, Género Social*, Centro Paciente**, País
+Origen*, Sector (SECTOR X), Fecha/Hora, Hora Cierre*, Embarazada*,
+Tipo, Descripción, Cantidad, Condicionantes 1–5*, Comentario, Programa.
+
+## Matriz de trazabilidad
+
+| Campo REM | Fuente | Clase | Cobertura |
+|---|---|---|---|
+| Paciente / Doc. / Ficha | PACIENTES.RUT | AUTOMÁTICO | 100% |
+| Nombre | PACIENTES.NOMBRE | AUTOMÁTICO | 100% |
+| Sexo | PACIENTES.SEXO | AUTOMÁTICO | parcial (captura nueva) |
+| Edad a la Atención | FECHA_NACIMIENTO + FECHA_EVENTO | DERIVADO | requiere FECHA_NACIMIENTO |
+| Sector | EVENTOS.SECTOR | REGISTRADO EN EVENTO | ~100% |
+| Fecha + Año/Mes/Día | EVENTOS.FECHA_EVENTO | AUTOMÁTICO | 100% |
+| Tipo | EVENTOS.TIPO_EVENTO | AUTOMÁTICO | 100% |
+| Estratificación G | EVENTOS.RIESGO_G snapshot | REGISTRADO EN EVENTO | parcial |
+| Profesional | EVENTOS.PROFESIONAL | REGISTRADO EN EVENTO | parcial |
+| Descripción / Cantidad | EVENTOS | REGISTRADO EN EVENTO | sí |
+| Programa | CONFIG GENERAL_NOMBRE_SISTEMA | CONFIGURACIÓN | 100% |
+| Tipo de Profesional | — | REQUIERE CAPTURA | 0% |
+| Género Social / País Origen / Embarazada / Condicionantes 1–5 / Hora Cierre | — | REQUIERE CAPTURA | 0% |
+| Centro Paciente | CONFIG GENERAL_INSTITUCION | CONFIGURACIÓN (parcial) | — |
+
+## Brechas de captura abiertas
+
+Ver PENDIENTES #25. Hasta capturarse, esas columnas se entregan vacías y
+la hoja de validación las reporta por fila (nunca inventadas).

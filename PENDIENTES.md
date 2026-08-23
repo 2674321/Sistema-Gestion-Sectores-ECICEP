@@ -50,3 +50,9 @@
   2026-08-21 y re-verificado 2026-08-23 vía scripts:run (storage NOT_FOUND).
 - Los seriales de fecha corruptos detectados por openpyxl (celdas marcadas como
   fecha con valores imposibles) se tratarán como texto inválido → flag de revisión.
+
+## ETAPA 9 — Brechas de captura para REM completo
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 25 | Campos del REM original sin captura actual (se entregan vacíos, jamás inventados): TIPO_PROFESIONAL · GÉNERO_SOCIAL · PAÍS_ORIGEN · EMBARAZADA (+/PRIMIGESTA) · CONDICIONANTES 1–5 · HORA_INICIO/HORA_CIERRE · AGENDA/ASOCIADO. Requiere ampliar EVENTOS (columnas) + ficha "Registrar gestión" + validaciones + tests. FECHA_NACIMIENTO/SEXO en PACIENTES también siguen sin fuente (#14) | Captura nueva | REM 100% fiel al original | ALTA |

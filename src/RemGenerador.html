@@ -60,7 +60,9 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
     <div class="kpi-mini"><span class="num" id="rInv">—</span><small>Fechas no interpretables</small></div>
   </div>
   <div class="acciones">
-    <button class="btn btn-pri" onclick="consultar()"><i data-lucide="eye"></i> Consultar REM</button>
+    <button class="btn btn-pri" onclick="descargarExcel(this)">
+      <i data-lucide="file-spreadsheet"></i> Descargar Excel</button>
+    <button class="btn btn-sec" onclick="consultar()"><i data-lucide="eye"></i> Consultar REM</button>
     <button class="btn btn-ghost" onclick="google.script.host.close()">Cerrar</button>
   </div>
   <small style="color:var(--text-muted);margin-top:8px;display:block">
@@ -105,6 +107,23 @@ function generar(btn){
   .Rem_generar(p.anio,p.mes,sector);
 }
 function consultar(){google.script.run.UI_verRem();}
+function descargarExcel(btn){
+  var p=periodoActual();
+  var fin=setLoading(btn,true,'Preparando Excel…');
+  var guard=setTimeout(function(){setLoading(btn,false);
+    toast('Tardando más de lo esperado — reintenta','warn');},120000);
+  google.script.run.withSuccessHandler(function(r){
+    clearTimeout(guard);setLoading(btn,false);_refrescarIconos();
+    if(!r||!r.ok){
+      if(r&&r.motivo==='SIN_EVENTOS_PERIODO'){toast('⚠ Sin atenciones en el período seleccionado','warn');}
+      else{toast('No fue posible generar el Excel: '+((r&&r.motivo)||'error'),'err');}
+      return;}
+    toast('✓ '+r.nombre+' listo ('+r.resumen.pacientes+' pacientes · '+r.resumen.atenciones+' atenciones)','ok');
+    window.open(r.url,'_blank');
+  }).withFailureHandler(function(e){clearTimeout(guard);setLoading(btn,false);
+    toast('Error: '+(e&&e.message||e),'err');})
+  .REM_exportarExcel(p.anio,p.mes,sectorSel());
+}
 _refrescarIconos();
 </script>
 </body>

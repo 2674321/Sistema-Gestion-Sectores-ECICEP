@@ -58,6 +58,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_diseno(t, A);
   _pruebas_rem_pdf(t, A);
   _pruebas_instalador(t, A);
+  _pruebas_rem_excel(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1730,5 +1731,156 @@ function _pruebas_instalador(t, A) {
     CAT_VIGENCIA_SEMILLA.forEach(function (fila) {
       A.igual(fila.length, def.length, 'fila ' + fila[0] + ' coincide');
     });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 9 — REM Excel: núcleo puro (resumen 24c / detalle 28c / validación)
+// ---------------------------------------------------------------------------
+
+function _pruebas_rem_excel(t, A) {
+  var PACS = [
+    { id:'P1', rut:'11111111-1', nombre:'ANA UNO',   sexo:'F', fechaNacimiento:'1980-05-10' },
+    { id:'P2', rut:'22222222-2', nombre:'BETO DOS',  sexo:'M', fechaNacimiento:'1965-01-20' },
+    { id:'P3', rut:'33333333-3', nombre:'CARLA TRES',sexo:'',  fechaNacimiento:'' },
+    { id:'P4', rut:'44444444-4', nombre:'DIEZ CUATRO',sexo:'F',fechaNacimiento:'1990-09-09' }
+  ];
+  function EV(id,f,tipo,g,sector){return {id:id,rut:'',nombre:'',f:f,tipo:tipo,sector:sector||'NARANJO',g:g,
+    profesional:'MEDICO X',cantidad:'1',descripcion:'control de ejemplo'};}
+  var eventos = [
+    EV('P1','2026-08-02','INGRESO','G2'),
+    EV('P1','2026-08-10','CONTROL','G2'),
+    EV('P2','2026-08-11','INGRESO','G3'),
+    EV('P2','2026-08-12','GESTION_CASO_INGRESO','G3'),
+    EV('P2','2026-08-13','GESTION_CASO_EGRESO','G2'),
+    EV('P3','2026-08-14','CONTROL',''),            // sin nivel → fuera de conteos G
+    EV('P4','2026-08-15','SEGUIMIENTO','G1'),
+    EV('P4','2026-08-16','PLAN_CUIDADO','G1'),
+    EV('P1','2026-09-01','CONTROL','G2')           // mes siguiente excluido
+  ];
+
+  function construir(){
+    return Rem9_construir({pacientes:PACS,eventos:eventos,anio:2026,mes:8},
+      {sector:'TODOS',programa:'ECICEP'});
+  }
+
+  t('REMX: contrato de columnas — 24 resumen / 28 detalle', function(){
+    A.igual(REM9_RES_COLS.length,24,'resumen');
+    A.igual(REM9_DET_COLS.length,28,'detalle');
+    A.igual(REM9_RES_COLS[0],'Paciente','primera col');
+    A.igual(REM9_RES_COLS[19],'Total','col total');
+  });
+
+  t('REMX: una fila por paciente en resumen; derivada del detalle (#13)', function(){
+    var c=construir();
+    A.igual(c.resumen.length,4,'pacientes');
+    A.igual(c.atenciones,8,'atenciones del período');
+    A.igual(c.detalle.length,8,'filas detalle');
+  });
+
+  t('REMX: conteos por tipo × snapshot G', function(){
+    var c=construir();
+    var ana=c.resumen.filter(function(r){return r[0]==='11111111-1';})[0];
+    A.igual(ana[4],1,'Ingreso G2');   // índice 4 = Ingreso integral G2
+    A.igual(ana[7],1,'Control G2');
+    A.igual(ana[19],2,'total ana');
+  });
+
+  t('REMX: gestión de casos diferenciada ingreso/egreso × G2/G3', function(){
+    var c=construir();
+    var beto=c.resumen.filter(function(r){return r[0]==='22222222-2';})[0];
+    A.igual(beto[15],1,'GC ingreso G3'); // col16
+    A.igual(beto[18],1,'GC egreso G2');  // col19
+    A.igual(beto[19],3,'total beto');
+  });
+
+  t('REMX: G vacío NO cuenta en G1/G2/G3 pero sí genera fila y presencia', function(){
+    var c=construir();
+    var carla=c.resumen.filter(function(r){return r[0]==='33333333-3';})[0];
+    A.igual(carla[6]+carla[7]+carla[8],0,'controles G en cero');
+    A.cierto(carla[21]==='SI'||carla[22]==='SI','presencia marcada');
+    var w=c.validacion.filas.filter(function(f){return f.id==='P3'&&f.estado!=='OK';});
+    A.cierto(w.length>=1,'advertencia registrada');
+  });
+
+  t('REMX: columnas de presencia SI/NO reales (#14)', function(){
+    var c=construir();
+    var diez=c.resumen.filter(function(r){return r[0]==='44444444-4';})[0];
+    A.igual(diez[20],'NO','sin ingreso');
+    A.igual(diez[21],'NO','sin control');
+    A.igual(diez[22],'SI','con seguimiento');
+    A.igual(diez[23],'SI','con plan');
+  });
+
+  t('REMX: Total = suma exacta de las 18 celdas de conteo (#15)', function(){
+    var c=construir();
+    c.resumen.forEach(function(r){
+      var s=0;
+      for(var i=3;i<=18;i++)s+=r[i];
+      A.igual(s,r[19],'fila '+r[0]);
+    });
+  });
+
+  t('REMX: edad a la atención desde FECHA_NACIMIENTO + fecha evento (#16)', function(){
+    var c=construir();
+    var dAna=c.detalle.filter(function(f){return f[5]==='ANA UNO';})[0];
+    A.igual(dAna[6],46,'edad 2026 con nac 1980');
+    A.igual(dAna[7],2026,'año');A.igual(dAna[8],8,'mes');A.igual(dAna[9],2,'día');
+  });
+
+  t('REMX: campos sin captura quedan VACÍOS y jamás inventados (#32)', function(){
+    var c=construir();
+    c.detalle.forEach(function(f){
+      A.igual(f[1],'','tipo profesional pendiente');
+      A.igual(f[11],'','género social pendiente');
+      A.igual(f[13],'','país origen pendiente');
+      A.igual(f[17],'','embarazada pendiente');
+    });
+  });
+
+  t('REMX: sector del EVENTO con formato original (#18)', function(){
+    var c=construir();
+    var d=c.detalle[0];
+    A.igual(d[14],'SECTOR NARANJO','prefijo SECTOR');
+  });
+
+  t('REMX: validación clasifica OK/WARNING/ERROR (#24)', function(){
+    var c=construir();
+    A.igual(c.validacion.error,0,'sin errores aquí');
+    A.cierto(c.validacion.warning>=1,'al menos la de P3 sin G');
+  });
+
+  t('REMX: consistencia — eventos repetidos se reflejan exactos (#36)', function(){
+    var evs=[EV('P9','2026-08-01','INGRESO','G1'),
+             EV('P9','2026-08-05','INGRESO','G1'),
+             EV('P9','2026-08-06','CONTROL','G1'),
+             EV('P9','2026-08-07','CONTROL','G1'),
+             EV('P9','2026-08-08','CONTROL','G1'),
+             EV('P9','2026-08-09','SEGUIMIENTO','G1'),
+             EV('P9','2026-08-10','PLAN_CUIDADO','G1')];
+    var c=Rem9_construir({pacientes:[{id:'P9',rut:'99999999-9',nombre:'NUEVE',sexo:'M',
+      fechaNacimiento:'1970-01-01'}],eventos:evs,anio:2026,mes:8},{sector:'TODOS'});
+    A.igual(c.resumen.length,1,'una sola fila');
+    var r=c.resumen[0];
+    A.igual(r[3],2,'2 ingresos');
+    A.igual(r[6],3,'3 controles');
+    A.igual(r[9],1,'1 seguimiento');
+    A.igual(r[12],1,'1 plan');
+    A.igual(r[19],7,'total 7');
+    A.igual(c.detalle.length,7,'7 filas detalle');
+  });
+
+  t('REMX: idempotencia — misma entrada produce salida idéntica (#14/#37)', function(){
+    var a=JSON.stringify(construir());
+    var b=JSON.stringify(construir());
+    A.igual(b,a,'byte a byte');
+  });
+
+  t('REMX: filtro sector excluye otros sectores', function(){
+    var evs=JSON.parse(JSON.stringify(eventos));
+    evs.push(EV('P5','2026-08-25','INGRESO','G1','VERDE'));
+    var c=Rem9_construir({pacientes:PACS.concat([{id:'P5',rut:'55555555-5',nombre:'CINCO',sexo:'F'}]),
+      eventos:evs,anio:2026,mes:8},{sector:'VERDE'});
+    A.igual(c.atenciones,1,'solo VERDE');
   });
 }
