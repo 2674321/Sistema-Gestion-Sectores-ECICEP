@@ -361,7 +361,7 @@ function Modelo_aplicarDiseno() {
       if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h);
       if (d.banda) { _modelo_aplicarBanda(h); res.bandas++; }
       if (d.formato && d.formato.length) _modelo_formatoSencillo(h, d.formato);
-      if (d.oculta) { if (!h.isSheetHidden()) h.hideSheet(); }
+      if (d.oculta) { if (!h.isSheetHidden()) { h.hideSheet(); res.ocultas.push(d.nombre); } }
       else if (h.isSheetHidden()) h.showSheet();
     } catch (e) {
       res.fallidas.push(d.nombre + ': ' + (e && e.message || e));
@@ -1168,11 +1168,20 @@ function Modelo_validarIngresos(ss) {
       // Columnas del sistema: advertencia al usuario (no bloqueo duro)
       ['NOTA_SISTEMA', 'ESTADO_INGRESO'].forEach(function (colNombre) {
         if (!idx[colNombre]) return;
-        var r = h.getRange(1, idx[colNombre], Math.max(h.getMaxRows(), 1), 1);
-        var ya = r.getProtections(SpreadsheetApp.ProtectionType.RANGE)
-          .some(function (pr) { return pr.getDescription() === 'ECICEP-SISTEMA'; });
-        if (!ya) {
-          var pr = r.protect().setDescription('ECICEP-SISTEMA');
+        var col = idx[colNombre];
+        var yaTiene = SpreadsheetApp
+          .getProtections(SpreadsheetApp.ProtectionType.RANGE)
+          .some(function (pr) {
+            try {
+              var r = pr.getRange();
+              return pr.getDescription() === 'ECICEP-SISTEMA' &&
+                     r.getSheet().getName() === nombre &&
+                     r.getRow() === 1 && r.getColumn() === col;
+            } catch (eP) { return false; }
+          });
+        if (!yaTiene) {
+          var pr = h.getRange(1, col, Math.max(h.getMaxRows(), 1), 1)
+                     .protect().setDescription('ECICEP-SISTEMA');
           pr.setWarningOnly(true);
           res.protegidas++;
         }
