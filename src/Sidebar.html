@@ -181,6 +181,10 @@ verRevision();
 var PAT_CATALOGO=[], PAT_SELECCIONADAS=[], PAT_ID='';
 
 function abrirPatologias(){
+  var pid = document.getElementById('vista').getAttribute('data-id') ||
+            document.getElementById('panelPat').getAttribute('data-id') || '';
+  if(!pid){alert('Abre una ficha primero');return;}
+  document.getElementById('panelPat').setAttribute('data-id',pid);
   document.getElementById('vista').style.display='none';
   document.getElementById('panelPat').style.display='block';
   google.script.run.withSuccessHandler(function(r){
@@ -225,13 +229,15 @@ function actualizarContador(){
 }
 
 function guardarPatologias(){
+  var pid = document.getElementById('panelPat').getAttribute('data-id') || '';
+  if(!pid){alert('ERROR: No hay paciente abierto.');return;}
   var m=document.getElementById('msgPat');
   m.textContent='Guardando…';m.className='msg';
   var otras=document.getElementById('otrasPatologias').value;
   google.script.run.withSuccessHandler(function(r){
     m.textContent=r.ok?('✔ '+r.cantidad+' patologías guardadas · Ponderación: '+r.puntaje+' · Estratificación: '+r.estratificacion):('✗ '+r.motivo);
     m.className='msg '+(r.ok?'ok':'err');
-  }).api_patologiasGuardar(P_ACTUAL,PAT_SELECCIONADAS.slice(),otras);
+  }).api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),otras);
 }
 
 function volverDePatologias(){
