@@ -88,6 +88,9 @@ function abrirFicha(id){
       if(!res.ok){alert('✗ '+(res.code||'ERROR')+': '+res.message);return;}
       var f = res.ficha;
       if(!f){alert('Ficha vacía');return;}
+      P_ACTUAL=f.ID_INTERNO;
+      document.getElementById('panelPat').setAttribute('data-id',f.ID_INTERNO);
+      document.getElementById('vista').setAttribute('data-id',f.ID_INTERNO);
     document.getElementById('panelBuscar').style.display='none';
     document.getElementById('vista').style.display='block';
     document.getElementById('fNombre').textContent=f.NOMBRE||'';
