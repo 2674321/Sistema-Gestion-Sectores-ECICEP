@@ -104,6 +104,37 @@ textarea.inp{min-height:64px;resize:vertical}
 .rev-bloque b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:2px}
 .rev-acciones{display:flex;gap:8px;margin-top:10px}
 .rev-acciones .btn{flex:1;justify-content:center}
+
+/* ====== Panel de Control ====== */
+.pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;
+  padding-bottom:var(--space-3);border-bottom:2px solid var(--primary)}
+.pc-marca{font:700 11px 'Inter';letter-spacing:.14em;color:var(--text-muted)}
+.pc-tit{font:700 20px 'Sora';color:var(--text-primary);line-height:1.15}
+.pc-estado,.pc-sys{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;display:inline-block}
+.pc-ult{font-size:10.5px;color:var(--text-muted);line-height:1.3}
+.pc-ult b{font-size:13px;color:var(--text-secondary)}
+.build{font-size:9.5px;color:var(--border-strong)}
+.pc-kpis{margin-top:var(--space-3)}
+.kpi-mini small{font-size:10.5px;line-height:1.25;color:var(--text-muted)}
+.pc-badge{background:var(--warning)!important;color:#fff!important}
+.sec-card{border:1px solid var(--border);border-left:4px solid var(--border-strong);
+  border-radius:var(--radius-md);background:var(--surface);padding:10px 12px;margin-bottom:8px}
+.sec-nombre{font:600 13px 'Inter';display:flex;align-items:center;gap:6px}
+.sec-datos{display:flex;gap:10px;margin:6px 0;font-size:11.5px;color:var(--text-secondary);flex-wrap:wrap}
+.sec-datos b{color:var(--text-primary)}
+.cob{font:600 10px 'Inter';letter-spacing:.05em;text-transform:uppercase}
+.act-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.act-hora{color:var(--text-muted);font-variant-numeric:tabular-nums;width:40px}
+.act-tipo{font-weight:600}
+.act-init{margin-left:auto;color:var(--text-muted)}
+.mini-links{display:flex;flex-wrap:wrap;gap:6px}
+.mini-link{padding:7px 12px;border-radius:var(--radius-full);border:1px solid var(--border);
+  background:var(--surface-alt);font:600 11px 'Inter';letter-spacing:.04em;color:var(--text-secondary);
+  cursor:pointer;min-height:34px;transition:all .15s var(--ease-in)}
+.mini-link:hover{border-color:var(--primary);color:var(--primary)}
+@media(min-width:420px){.kpis-4{grid-template-columns:repeat(4,1fr)}}
+
 </style>
 </head>
 <body>
@@ -111,67 +142,63 @@ textarea.inp{min-height:64px;resize:vertical}
 
 <!-- ============ CENTRO DE CONTROL + BÚSQUEDA ============ -->
 <div id="panelBuscar" class="wrap">
-<? if (MODO === 'centro') { ?>
-  <div class="cc-head">
-    <h1>Panel de Control</h1>
-    <div class="cc-fecha" id="ccFecha">…</div>
-    <div style="font-size:10px;color:var(--text-muted)">build <?= BUILD ?></div>
+
+  <div class="pc-head">
+    <div>
+      <div class="pc-marca">ECICEP</div>
+      <div class="pc-tit">Panel de Control</div>
+      <div class="pc-estado"><span class="dot-ok"></span> Sistema operativo</div>
+    </div>
+    <div style="text-align:right">
+      <div class="pc-ult">Últ. actualización<br><b id="ccUltAct">—</b></div>
+      <div class="build">build <?= BUILD ?></div>
+    </div>
   </div>
 
-  <div class="grid2" id="ccKpis">
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Pacientes</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Ingresos de hoy</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Eventos del mes</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Por revisar</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Cola de revisión</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:80px;height:14px"></span><small>Última actualización</small></div>
+  <div id="ccKpis" class="grid2 pc-kpis kpis-4">
+    <div class="kpi-mini"><span class="skel" style="width:44px;height:24px"></span><small>Pacientes · base consolidada</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:44px;height:24px"></span><small>Ingresos de hoy</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:44px;height:24px"></span><small>Eventos del mes</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:44px;height:24px"></span><small>Por revisar</small></div>
   </div>
 
   <div class="card cc-card">
     <div class="card-t">Acciones rápidas</div>
-    <button class="btn btn-pri btn-block" onclick="abrirPanel(this)">
+    <button class="btn btn-pri btn-block" onclick="abrirBuscadorPac()">
+      <i data-lucide="search"></i> Buscar paciente</button>
+    <button class="btn btn-sec btn-block" onclick="verRevisionDesdePanel()">
+      <i data-lucide="clipboard-check"></i> Cola de revisión
+      <span id="cntCola" class="chip rut pc-badge" style="display:none;margin-left:auto">0</span></button>
+    <button class="btn btn-sec btn-block" onclick="abrirPanel(this)">
       <i data-lucide="bar-chart-3"></i> Estadísticas</button>
-    <button class="btn btn-sec btn-block" onclick="verRevision()">
-      <i data-lucide="clipboard-check"></i> Cola de revisión</button>
-    <button class="btn btn-sec btn-block" onclick="abrirGenerador(this)">
-      <i data-lucide="file-bar-chart"></i> Generar REM</button>
   </div>
 
-<? } /* fin bloque centro: cabecera+KPIs+acciones */ ?>
-
-<? if (MODO === 'centro') { ?>
   <div class="card cc-card">
     <div class="card-t">Sectores</div>
-    <div class="grupo-sec">
-      <div class="grupo-tit"><span class="dot" style="background:#E8730A"></span>Naranjo</div>
-      <button class="mini-btn" onclick="irA('SECTOR_NARANJO')">Sector Naranjo</button>
-      <button class="mini-btn" onclick="irA('INGRESO_NARANJO')">Ingreso Naranjo</button>
-    </div>
-    <div class="grupo-sec">
-      <div class="grupo-tit"><span class="dot" style="background:#C79A00"></span>Amarillo</div>
-      <button class="mini-btn" onclick="irA('SECTOR_AMARILLO')">Sector Amarillo</button>
-      <button class="mini-btn" onclick="irA('INGRESO_AMARILLO')">Ingreso Amarillo</button>
-    </div>
-    <div class="grupo-sec">
-      <div class="grupo-tit"><span class="dot" style="background:#2E8B57"></span>Verde</div>
-      <button class="mini-btn" onclick="irA('SECTOR_VERDE')">Sector Verde</button>
-      <button class="mini-btn" onclick="irA('INGRESO_VERDE')">Ingreso Verde</button>
-    </div>
+    <div id="sectoresGrid"><div class="skel" style="height:150px"></div></div>
+  </div>
+
+  <label class="etq">Búsqueda rápida</label>
+  <button class="btn btn-sec btn-block pc-lanzador" onclick="abrirBuscadorPac()">
+    <i data-lucide="search"></i> Buscar paciente por RUT o nombre…</button>
+
+  <div class="card cc-card">
+    <div class="card-t">Última actividad</div>
+    <div id="actLista"><div class="skel" style="height:70px"></div></div>
   </div>
 
   <div class="card cc-card">
     <div class="card-t">Bases y reportes</div>
-    <div class="hojas-grid">
-      <button class="mini-btn" onclick="irA('PACIENTES')"><span class="dot" style="background:#1C2430"></span>Pacientes</button>
-      <button class="mini-btn" onclick="irA('EVENTOS')"><span class="dot" style="background:#3E8A96"></span>Eventos</button>
-      <button class="mini-btn" onclick="irA('DASHBOARD')"><span class="dot" style="background:#0E5C68"></span>Panel hoja</button>
+    <div class="mini-links">
+      <button class="mini-link" onclick="irA('PACIENTES')">PACIENTES</button>
+      <button class="mini-link" onclick="irA('EVENTOS')">EVENTOS</button>
+      <button class="mini-link" onclick="irA('DASHBOARD')">Abrir panel en hoja</button>
+      <button class="mini-link" onclick="irA('LOG')">LOG</button>
     </div>
   </div>
 
-  <div style="position:relative">
-    <input id="lanzadorBusqueda" class="inp" readonly
-      placeholder="🔍 Buscar paciente ECICEP…" style="cursor:pointer;background:var(--surface)">
-  </div>
+  <div class="pc-sys"><span class="dot-ok"></span> Estado del sistema: operativo · <span id="ccFecha">—</span></div>
+
 <? } else { ?>
   <div class="cc-head"><h1>Buscar paciente ECICEP</h1>
     <div class="cc-fecha">Busca por nombre o RUT y abre la ficha directamente</div></div>
@@ -505,21 +532,47 @@ function fechaEsLarga(d){
 }
 function cargarPanel(){
   google.script.run.withSuccessHandler(function(r){
-    if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');return;}
+    if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');
+      document.getElementById('ccKpis').innerHTML='<div class="vacio" style="grid-column:1/-1"><i data-lucide="alert-triangle"></i>Sin datos — ejecuta Instalar / Reparar Sistema</div>';
+      _refrescarIconos();return;}
     var partes=(r.fechaIso||'').split('-');
     document.getElementById('ccFecha').textContent=partes.length===3?
-      fechaEsLarga(new Date(+partes[0],+partes[1]-1,+partes[2])):'';
-    document.getElementById('ccKpis').innerHTML=
-      '<div class="kpi-mini"><span class="num">'+r.pacientes+'</span><small>Pacientes</small></div>'+
+      fechaEsLarga(new Date(+partes[0],+partes[1]-1,+partes[2])):'\u2014';
+    document.getElementById('ccUltAct').textContent=r.ultimaAct;
+    var k=document.getElementById('ccKpis');
+    k.innerHTML=
+      '<div class="kpi-mini"><span class="num">'+r.pacientes+'</span><small>Pacientes \u00b7 base consolidada</small></div>'+
       '<div class="kpi-mini"><span class="num" style="color:var(--success)">'+r.ingresosHoy+'</span><small>Ingresos de hoy</small></div>'+
       '<div class="kpi-mini"><span class="num">'+r.eventosMes+'</span><small>Eventos del mes</small></div>'+
-      '<div class="kpi-mini"><span class="num" style="color:'+(r.porRevisar?'var(--warning)':'var(--success)')+'">'+r.porRevisar+'</span><small>Por revisar</small></div>'+
-      '<div class="kpi-mini"><span class="num" style="color:'+(r.colaRevision?'var(--warning)':'var(--success)')+'">'+r.colaRevision+'</span><small>Cola de revisión</small></div>'+
-      '<div class="kpi-mini"><span style="font-size:13px;font-weight:600">'+_esc(r.ultimaAct)+'</span><small>Última actualización</small></div>';
+      '<div class="kpi-mini"><span class="num" style="color:'+(r.porRevisar?'var(--warning)':'var(--success)')+'">'+ '\u25cf '+r.porRevisar+'</span><small>Por revisar</small></div>'+
+      (r.estratPendiente>0?'<div class="kpi-mini"><span class="num">'+r.estratPendiente+'</span><small>Estratificaci\u00f3n pendiente</small></div>':'');
+    var cnt=document.getElementById('cntCola');
+    if(r.colaRevision>0){cnt.style.display='inline-flex';cnt.textContent=r.colaRevision;}
+    document.getElementById('sectoresGrid').innerHTML=(r.sectores||[]).map(function(sec){
+      var dot={NARANJO:'#E8730A',AMARILLO:'#C79A00',VERDE:'#2E8B57'}[sec.sector]||'#8A93A3';
+      return '<div class="sec-card" style="border-left-color:'+dot+'">'+
+        '<div class="sec-nombre"><span class="n-dot" style="background:'+dot+'"></span>SECTOR '+sec.sector+
+        ' <span class="cob" style="color:'+(sec.cobertura==='Operativo'?'var(--success)':'var(--warning)')+'">\u25cf '+sec.cobertura+'</span></div>'+
+        '<div class="sec-datos num"><span><b>'+sec.pacientes+'</b> pacientes</span>'+
+        '<span>Ingresos 7d: <b>'+sec.ingresos7d+'</b></span>'+
+        '<span>Por revisar: <b>'+sec.porRevisar+'</b></span></div>'+
+        '<div style="display:flex;gap:6px">'+
+        '<button class="btn btn-pri" style="flex:1;justify-content:center;min-height:34px;padding:6px" onclick=\'irA("SECTOR_'+sec.sector+'")\'>Ver sector</button>'+
+        '<button class="btn btn-sec" style="flex:1;justify-content:center;min-height:34px;padding:6px" onclick=\'irA("INGRESO_'+sec.sector+'")\'>Registrar ingreso</button>'+
+        '</div></div>';
+    }).join('');
+    var al=document.getElementById('actLista');
+    al.innerHTML=(r.ultimos&&r.ultimos.length)?r.ultimos.map(function(e){
+      return '<div class="act-item"><span class="act-hora">'+(e.hora||'\u2014')+'</span>'+
+        '<span class="act-tipo">'+e.tipo+'</span>'+
+        (e.iniciales?'<span class="act-init">'+e.iniciales+'</span>':'')+'</div>';
+    }).join(''):'<div class="vacio"><i data-lucide="activity"></i>Sin actividad registrada</div>';
     _refrescarIconos();
-  }).withFailureHandler(function(e){toast('Error de resumen: '+(e&&e.message||e),'err');})
+  }).withFailureHandler(_errSilencioso('api_centroResumen'))
   .api_centroResumen();
 }
+function abrirBuscadorPac(){ google.script.run.UI_abrirBuscador(); }
+function verRevisionDesdePanel(){ google.script.run.UI_abrirRevision(); }
 function irA(nombre){
   google.script.run.withSuccessHandler(function(r){
     if(!r||!r.ok){toast('No se pudo abrir '+(r&&r.motivo==='HOJA_NO_EXISTE'?nombre:'la hoja'),'err');return;}

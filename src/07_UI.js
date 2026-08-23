@@ -458,15 +458,22 @@ function api_centroResumen() {
     var mesActual = hoyIso.slice(0, 7);
 
     var ingresosHoy = 0, eventosMes = 0;
-    eventos.forEach(function (e) {
+    var eventosMin = eventos.map(function (e) {
       var f = _ui_isoFecha(e.FECHA_EVENTO);
       if (f === hoyIso && Utl_texto(e.TIPO_EVENTO).toUpperCase() === 'INGRESO') ingresosHoy++;
       if (f.slice(0, 7) === mesActual) eventosMes++;
+      return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR), f: f,
+               nombre: Utl_texto(e.NOMBRE) };
     });
 
-    var porRevisar = pacientes.filter(function (p) {
-      return p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE';
-    }).length;
+    var paxMin = pacientes.map(function (p) {
+      return { sector: Utl_texto(p.SECTOR),
+               rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),
+               est: Utl_texto(p.ESTRATIFICACION) };
+    });
+    var porRevisar = paxMin.filter(function (p) { return p.rev; }).length;
+    var estratPendiente = _panel_estratPendiente(paxMin);
+    var sectores = _panel_resumenSectores(paxMin, eventosMin, hoyIso);
 
     var cola = 0;
     try {
@@ -480,11 +487,23 @@ function api_centroResumen() {
           (!ultimaD || p.FECHA_ACTUALIZACION > ultimaD)) ultimaD = p.FECHA_ACTUALIZACION;
     });
 
-    return { ok: true, pacientes: pacientes.length,
-             ingresosHoy: ingresosHoy, eventosMes: eventosMes,
-             porRevisar: porRevisar, colaRevision: cola,
+    // Última actividad: últimos 4 eventos del día/mes en curso, datos discretos
+    var ultimos = eventosMin.slice()
+      .sort(function (a, b) { return b.f < a.f ? -1 : b.f > a.f ? 1 : 0; })
+      .slice(0, 4)
+      .map(function (e) {
+        return { fechaIso: e.f, hora: (e.f && e.f.length >= 16) ? e.f.slice(11, 16) : '',
+                 tipo: e.tipo, iniciales: _panel_iniciales(e.nombre) };
+      });
+
+    return { ok: true,
+             pacientes: pacientes.length, ingresosHoy: ingresosHoy,
+             eventosMes: eventosMes, porRevisar: porRevisar,
+             estratPendiente: estratPendiente, colaRevision: cola,
+             sectores: sectores, ultimos: ultimos,
              ultimaAct: ultimaD ? Utilities.formatDate(ultimaD, tz, 'dd/MM/yyyy HH:mm') : 'sin cambios',
-             fechaIso: hoyIso };
+             fechaIso: hoyIso,
+             horaIso: Utilities.formatDate(new Date(), tz, 'HH:mm') };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
@@ -1396,4 +1415,60 @@ function _pruS_traza() {
     ? { estado: 'OK', detalle: d.total + ' pacientes con trazabilidad completa' }
     : { estado: 'WARN', detalle: d.conFuenteVacia + ' sin FUENTE (' +
         d.conFuenteVaciaRevisionFalse + ' cerradas sin origen)' };
+}
+
+// ===========================================================================
+// 🏠 Panel de Control — agregadores puros (testeables)
+// ===========================================================================
+
+var PANEL_SECTORES = ['NARANJO', 'AMARILLO', 'VERDE'];
+
+/** PURA: resumen por sector a partir de filas mínimas normalizadas.
+ *  pacientes:[{sector,rev}] · eventos:[{tipo,sector,f}]
+ *  Cobertura por volumen real (sin inventar importaciones):
+ *  ≥50 Operativo · >0 Cobertura parcial · 0 Sin datos. */
+function _panel_resumenSectores(pacientes, eventos, hoyIso) {
+  var secs = {};
+  PANEL_SECTORES.forEach(function (s) {
+    secs[s] = { sector: s, pacientes: 0, ingresos7d: 0, porRevisar: 0, cobertura: 'SIN DATOS' };
+  });
+  var limite = '';
+  if (hoyIso) {
+    var d = new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10));
+    d.setDate(d.getDate() - 6); // ventana de 7 días incluyendo hoy
+    limite = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+             '-' + String(d.getDate()).padStart(2, '0');
+  }
+  (pacientes || []).forEach(function (p) {
+    var s = secs[Utl_texto(p.sector).toUpperCase()];
+    if (!s) return;
+    s.pacientes++;
+    if (p.rev === true || p.rev === 'TRUE') s.porRevisar++;
+  });
+  (eventos || []).forEach(function (e) {
+    var s = secs[Utl_texto(e.sector).toUpperCase()];
+    if (!s) return;
+    if (Utl_texto(e.tipo).toUpperCase() === 'INGRESO' && limite &&
+        Utl_texto(e.f) >= limite && Utl_texto(e.f) <= hoyIso) s.ingresos7d++;
+  });
+  Object.keys(secs).forEach(function (k) {
+    var s = secs[k];
+    s.cobertura = s.pacientes >= 50 ? 'Operativo'
+                : s.pacientes > 0 ? 'Cobertura parcial' : 'Sin datos';
+  });
+  return PANEL_SECTORES.map(function (k) { return secs[k]; });
+}
+
+/** PURA: cantidad de pacientes con estratificación pendiente (vacío/'G'). */
+function _panel_estratPendiente(filas) {
+  return (filas || []).filter(function (e) {
+    var t = Utl_texto(e.est !== undefined ? e.est : e.ESTRATIFICACION).trim().toUpperCase();
+    return t === '' || t === 'G';
+  }).length;
+}
+
+/** PURA: iniciales discretas para actividad reciente (sin nombre completo). */
+function _panel_iniciales(nombre) {
+  return Utl_texto(nombre).trim().split(/\s+/).slice(0, 2)
+    .map(function (w) { return w.charAt(0).toUpperCase() + '.'; }).join(' ');
 }
