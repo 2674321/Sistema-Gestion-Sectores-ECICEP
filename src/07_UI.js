@@ -779,8 +779,9 @@ function UI_generarRem() {
     ui.alert(r.cabecera + '\n\n' +
       'Eventos del período: ' + r.eventosPeriodo + '\n' +
       'Pacientes con actividad: ' + r.pacientesConActividad + '\n' +
-      (r.sinRiesgo ? '⚠️ Eventos sin snapshot G: ' + r.sinRiesgo + '\n' : '') +
-      '\nHoja REM_SALIDA actualizada.');
+      (r.fechasInvalidas ? '⚠️ Fechas no interpretables: ' + r.fechasInvalidas + '\n' : '') +
+      '\nHoja REM_SALIDA actualizada.\n' +
+      'Bloques B y C: NO DISPONIBLE (#14 / #17).');
   } catch (e) {
     Log_error('REM', 'generar', e && e.message ? e.message : String(e));
     Log_flush();

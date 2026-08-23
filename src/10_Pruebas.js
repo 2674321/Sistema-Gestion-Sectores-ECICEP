@@ -1459,116 +1459,140 @@ function _pruebas_trazabilidad(t, A) {
 }
 
 // ---------------------------------------------------------------------------
-// REM mensual — generador desde EVENTOS (Bloque A)
+// REM mensual — contrato puro serializable + buckets sin pérdidas
 // ---------------------------------------------------------------------------
 
 function _pruebas_rem(t, A) {
-  var EV = function (id, rut, nombre, fecha, tipo, sector, g) {
-    return { ID_INTERNO: id, RUT: rut, NOMBRE: nombre, FECHA_EVENTO: fecha,
+  var EV = function (id, nombre, fecha, tipo, sector, g) {
+    return { ID_INTERNO: id, RUT: id + '-R', NOMBRE: nombre, FECHA_EVENTO: fecha,
              TIPO_EVENTO: tipo, SECTOR: sector, RIESGO_G: g };
   };
   var eventos = [
-    EV('P1', '11111111-1', 'ANA UNO',      '2026-08-03', 'INGRESO',              'NARANJO',  'G2'),
-    EV('P1', '11111111-1', 'ANA UNO',      '2026-08-10', 'CONTROL',              'NARANJO',  'G2'),
-    EV('P2', '22222222-2', 'BENITO DOS',   new Date(2026, 7, 5), 'INGRESO',     'AMARILLO', 'G3'),
-    EV('P2', '22222222-2', 'BENITO DOS',   '2026-08-20', 'SEGUIMIENTO',          'AMARILLO', 'G3'),
-    EV('P3', '33333333-3', 'CARLA TRES',   '2026-08-21', 'GESTION_CASO_INGRESO', 'VERDE',    'G2'),
-    EV('P3', '33333333-3', 'CARLA TRES',   '2026-08-22', 'GESTION_CASO_INGRESO', 'VERDE',    'G1'),
-    EV('P4', '44444444-4', 'DIEZ CUATRO',  '2026-08-25', 'PLAN_CUIDADO',         'VERDE',    ''),
-    EV('P4', '44444444-4', 'DIEZ CUATRO',  '2026-08-26', 'CONTROL',              'VERDE',    ''),
-    EV('X9', '99999999-9', 'FUERA JULIO',  '2026-07-31', 'INGRESO',              'NARANJO',  'G1'),
-    EV('X8', '88888888-8', 'FUERA SEPT',   '2026-09-01', 'INGRESO',              'NARANJO',  'G1')
+    EV('P1', 'ANA UNO',   '2026-08-03',           'INGRESO',              'NARANJO',  'G2'),
+    EV('P1', 'ANA UNO',   '2026-08-10',           'CONTROL',              'NARANJO',  'G2'),
+    EV('P2', 'BETO DOS',  '2026-08-05T09:30:00',  'INGRESO',              'AMARILLO', 'G3'),
+    EV('P2', 'BETO DOS',  '2026-08-20',           'SEGUIMIENTO',          '',         'G3'),
+    EV('P3', 'CARLA TRES','2026-08-21',           'GESTION_CASO_INGRESO', 'VERDE',    'G2'),
+    EV('P3', 'CARLA TRES','2026-08-22',           'GESTION_CASO_INGRESO', 'VERDE',    'G1'),
+    EV('P3', 'CARLA TRES','2026-08-23',           'CONTROL',              'VERDE',    ''),
+    EV('P4', 'DIEZ CUATRO','2026-08-24',          'PLAN_CUIDADO',         '',         'G'),
+    EV('X9', 'FUERA JULIO','2026-07-31T23:59:59', 'INGRESO',              'NARANJO',  'G1'),
+    EV('X8', 'FUERA SEPT','2026-09-01T00:00:00',  'INGRESO',              'NARANJO',  'G1'),
+    EV('X7', 'FECHABASURA','sin fecha',           'INGRESO',              'NARANJO',  'G1')
   ];
 
-  t('REM: periodo acepta ISO string y objeto Date', function () {
-    var iso = Rem_periodoDeFecha('2026-08-03');
-    A.igual(iso.anio, 2026, 'iso anio');
-    A.igual(iso.mes, 8, 'iso mes');
-    var p = Rem_periodoDeFecha(new Date(2026, 7, 5));
-    A.igual(p.anio, 2026, 'anio');
-    A.igual(p.mes, 8, 'mes (getMonth 7 → 8)');
-    A.cierto(Rem_periodoDeFecha('') === null, 'vacío → null');
-    A.cierto(Rem_periodoDeFecha('basura') === null, 'basura → null');
+  t('REM BUCKETS: RIESGO vacío o "G" → PENDIENTE; nunca se pierde un evento', function () {
+    A.igual(Rem_bucketRiesgo(''), 'PENDIENTE', 'vacío');
+    A.igual(Rem_bucketRiesgo('g'), 'PENDIENTE', 'G sola');
+    A.igual(Rem_bucketRiesgo(' G '), 'PENDIENTE', 'con espacios');
+    A.igual(Rem_bucketRiesgo('g2'), 'G2', 'normaliza mayúscula');
   });
 
-  t('REM: filtro de periodo excluye meses vecinos', function () {
-    var per = Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS');
-    A.igual(per.length, 8, 'solo agosto');
-    A.cierto(per.every(function (e) {
-      return Utl_texto(e.NOMBRE).indexOf('FUERA') === -1;
-    }), 'sin julio ni septiembre');
+  t('REM BUCKETS: SECTOR vacío → SIN_SECTOR', function () {
+    A.igual(Rem_bucketSector(''), 'SIN_SECTOR', 'vacío');
+    A.igual(Rem_bucketSector(' naranjo '), 'NARANJO', 'mayúsculas');
   });
 
-  t('REM: filtro por sector', function () {
-    var nar = Rem_filtrarPeriodo(eventos, 2026, 8, 'NARANJO');
-    A.igual(nar.length, 2, 'solo NARANJO');
-    A.cierto(nar.every(function (e) { return e.SECTOR === 'NARANJO'; }), 'sector correcto');
+  t('REM NÚCLEO: tally mixto tipo × riesgo × sector correcto', function () {
+    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    A.igual(r.conteos.length, 8, '8 combinaciones distintas');
+    var buscar = function (tipo, g, s) {
+      for (var i = 0; i < r.conteos.length; i++) {
+        var c = r.conteos[i];
+        if (c.tipo === tipo && c.riesgoG === g && c.sector === s) return c.conteo;
+      }
+      return 0;
+    };
+    A.igual(buscar('INGRESO', 'G2', 'NARANJO'), 1, 'ingreso');
+    A.igual(buscar('SEGUIMIENTO', 'G3', 'SIN_SECTOR'), 1, 'seguimiento sin sector');
+    A.igual(buscar('PLAN_CUIDADO', 'PENDIENTE', 'SIN_SECTOR'), 1, 'plan con G literal');
+    A.igual(buscar('CONTROL', 'PENDIENTE', 'VERDE'), 1, 'control sin G');
+    A.igual(buscar('GESTION_CASO_INGRESO', 'G1', 'VERDE'), 1, 'GC en G1 visible');
   });
 
-  t('REM: matriz Bloque A cuenta por tipo × snapshot G', function () {
-    var m = Rem_matrizBloqueA(Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS'));
-    var porClave = {};
-    m.filas.forEach(function (f) { porClave[f.clave] = f; });
-    A.igual(porClave.INGRESO.G2, 1, 'ingreso G2');
-    A.igual(porClave.INGRESO.G3, 1, 'ingreso G3');
-    A.igual(porClave.SEGUIMIENTO.total, 1, 'seguimiento');
-    A.igual(porClave.CONTROL.total, 1, 'solo el control con G clasifica');
-    A.igual(m.sinRiesgo, 2, 'eventos sin snapshot G visibles aparte');
+  t('REM NÚCLEO: mes sin eventos → vacío sin error; basura nunca cae en ningún mes', function () {
+    var vacio = calcularREMBloqueA([], { anio: 2025, mes: 12 });
+    A.arreglos(vacio.conteos, [], 'sin conteos');
+    A.igual(vacio.fechasInvalidas, 0, 'entrada limpia → cero inválidas');
+    var otro = calcularREMBloqueA(eventos, { anio: 2025, mes: 12 });
+    A.arreglos(otro.conteos, [], 'ningún evento de agosto en diciembre');
+    A.igual(otro.fechasInvalidas, 1, 'la fecha basura no pertenece a NINGÚN mes');
   });
 
-  t('REM: gestión de casos ignora G1 por definición REM', function () {
-    var m = Rem_matrizBloqueA(Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS'));
-    var gc = m.filas.filter(function (f) { return f.clave === 'GC_INGRESO'; })[0];
-    A.igual(gc.G2, 1, 'solo G2');
-    A.igual(gc.G1, 0, 'G1 excluido');
-    A.igual(gc.total, 1, 'total del concepto');
+  t('REM NÚCLEO: bordes de mes no cruzan de mes (primer y último instante)', function () {
+    var borde = [
+      EV('A', 'A', '2026-08-01T00:00:00', 'INGRESO', 'NARANJO', 'G1'),
+      EV('B', 'B', '2026-08-31T23:59:59', 'INGRESO', 'NARANJO', 'G1'),
+      EV('C', 'C', '2026-07-31T23:59:59', 'INGRESO', 'NARANJO', 'G1'),
+      EV('D', 'D', '2026-09-01T00:00:00', 'INGRESO', 'NARANJO', 'G1')
+    ];
+    var r = calcularREMBloqueA(borde, { anio: 2026, mes: 8 });
+    A.igual(r.conteos.length, 1, 'una combinación');
+    A.igual(r.conteos[0].conteo, 2, 'solo los dos de agosto');
   });
 
-  t('REM: totales derivados como suma de columnas', function () {
-    var m = Rem_matrizBloqueA(Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS'));
-    A.igual(m.totalGeneral.G2, 3, 'G2');
-    A.igual(m.totalGeneral.G3, 2, 'G3');
-    A.igual(m.totalGeneral.total, 5, 'total');
-    var suma = m.filas.reduce(function (acc, f) { return acc + f.total; }, 0);
-    A.igual(suma, m.totalGeneral.total, 'coherencia filas↔total');
+  t('REM NÚCLEO: fechas no interpretables se cuentan como fechasInvalidas', function () {
+    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    A.igual(r.fechasInvalidas, 1, 'visible, nunca silencioso');
   });
 
-  t('REM: indicadores "Tiene…" por paciente con dedupe y orden estable', function () {
-    var ind = Rem_indicadoresPorPaciente(Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS'));
-    A.igual(ind.length, 4, '4 pacientes distintos');
-    A.igual(ind[0].nombre, 'ANA UNO', 'orden alfabético');
-    var ana = ind[0];
-    A.igual(ana.eventos, 2, 'eventos contados');
-    A.cierto(ana.ingreso && ana.control, 'tiene ingreso y control');
-    A.cierto(!ana.seguimiento, 'sin seguimiento');
-    var diez = ind[3];
-    A.cierto(diez.planCuidado && diez.control, 'flags por tipo aunque G vacío');
+  t('REM NÚCLEO: salida 100% serializable (sin Date ni objetos GAS)', function () {
+    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    var vuelta = JSON.parse(JSON.stringify(r));
+    A.igual(JSON.stringify(vuelta), JSON.stringify(r), 'round-trip idéntico');
+    r.conteos.forEach(function (c) {
+      A.cierto(typeof c.tipo === 'string' && typeof c.riesgoG === 'string' &&
+               typeof c.sector === 'string' && typeof c.conteo === 'number',
+        'campos primitivos');
+    });
   });
 
-  t('REM: filtro sector se refleja en indicadores', function () {
-    var ind = Rem_indicadoresPorPaciente(Rem_filtrarPeriodo(eventos, 2026, 8, 'NARANJO'));
-    A.igual(ind.length, 1, 'solo ANA');
-    A.cierto(ind[0].ingreso && ind[0].control, 'sus flags');
+  t('REM NÚCLEO: la entrada NO se muta al calcular (solo lectura)', function () {
+    var antes = JSON.stringify(eventos);
+    Object.freeze(eventos);
+    calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    Rem_indicadoresPorPaciente(Rem_eventosDelPeriodo(eventos, 2026, 8));
+    A.igual(JSON.stringify(eventos), antes, 'snapshot intacto');
   });
 
-  t('REM: cabecera reproducible con nombre de mes', function () {
-    A.igual(Rem_cabecera(2026, 8, 'todOs '), 'REM ECICEP — AGOSTO 2026 · Sector: TODOS',
-      'agosto normalizado a mayúsculas');
-    A.igual(Rem_cabecera(2026, 1, ''), 'REM ECICEP — ENERO 2026 · Sector: TODOS', 'sin filtro → TODOS');
+  t('REM PERIODO: mes/año inválido lanza PERIODO_INVALIDO', function () {
+    var error = null;
+    try { calcularREMBloqueA([], { anio: 2026, mes: 13 }); }
+    catch (e) { error = e; }
+    A.cierto(error !== null, 'lanza');
+    A.cierto(String(error.message).indexOf('PERIODO_INVALIDO') !== -1, 'motivo');
   });
 
-  t('REM: regeneración reproducible — misma entrada, misma salida', function () {
-    var per = Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS');
-    var a = JSON.stringify({ m: Rem_matrizBloqueA(per), i: Rem_indicadoresPorPaciente(per) });
-    var b = JSON.stringify({ m: Rem_matrizBloqueA(Rem_filtrarPeriodo(eventos, 2026, 8, 'TODOS')),
-                             i: Rem_indicadoresPorPaciente(per) });
-    A.igual(b, a, 'idéntico byte a byte');
+  t('REM TABLA: PENDIENTE visible como columna y nada oculto', function () {
+    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    var tb = Rem_tablaDesdeConteos(r.conteos);
+    A.arreglos(tb.buckets, ['G1', 'G2', 'G3', 'PENDIENTE'], 'buckets orden estable');
+    var gcI = tb.filas.filter(function (f) { return f.clave === 'GC_INGRESO'; })[0];
+    A.igual(gcI.valores.G1, 1, 'GC en G1 se MUESTRA, no se oculta');
+    A.igual(gcI.valores.G2, 1, 'GC en G2');
+    A.igual(tb.totalGeneral.total, 8, 'total general = eventos del período');
+    A.igual(tb.filas.length, REM_CONCEPTOS.length, 'un concepto por fila');
   });
 
-  t('REM: período vacío produce estructura válida en ceros', function () {
-    var m = Rem_matrizBloqueA([]);
-    A.igual(m.filas.length, REM_CONCEPTOS.length, 'un concepto por fila');
-    A.igual(m.totalGeneral.total, 0, 'total 0');
-    A.igual(Rem_indicadoresPorPaciente([]).length, 0, 'sin pacientes');
+  t('REM INDICADORES: flags por tipo sobre eventos normalizados', function () {
+    var ind = Rem_indicadoresPorPaciente(Rem_eventosDelPeriodo(eventos, 2026, 8));
+    A.igual(ind.length, 4, '4 pacientes');
+    A.igual(ind[0].nombre, 'ANA UNO', 'orden alfabético estable');
+    var ana = ind[0], carla = ind[2], diez = ind[3];
+    A.cierto(ana.ingreso && ana.control && !ana.seguimiento, 'ANA');
+    A.cierto(carla.gcIngreso && carla.control, 'CARLA');
+    A.cierto(diez.planCuidado, 'DIEZ');
+    A.igual(diez.sector, 'SIN_SECTOR', 'bucket de sector aplicado también aquí');
+  });
+
+  t('REM CABECERA: reproducible y normalizada', function () {
+    A.igual(Rem_cabecera(2026, 8, ' todOs '), 'REM ECICEP — AGOSTO 2026 · Sector: TODOS', 'agosto');
+    A.igual(Rem_cabecera(2026, 1, ''), 'REM ECICEP — ENERO 2026 · Sector: TODOS', 'default TODOS');
+  });
+
+  t('REM REPRODUCIBILIDAD: misma entrada produce salida idéntica byte a byte', function () {
+    var a = JSON.stringify(calcularREMBloqueA(eventos, { anio: 2026, mes: 8 }));
+    var b = JSON.stringify(calcularREMBloqueA(JSON.parse(JSON.stringify(eventos)), { anio: 2026, mes: 8 }));
+    A.igual(b, a, 'idéntico');
   });
 }

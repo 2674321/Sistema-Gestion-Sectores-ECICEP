@@ -16,7 +16,7 @@ var WEBHOOK_ACCIONES = [
   'refrescar', 'diagnosticar', 'limpiar_prueba',
   'diagnosticar_fuentes', 'importar_muestra',
   'carga_analisis', 'carga_ejecutar',
-  'diag_trazabilidad', 'restaurar_fuente', 'generar_rem'
+  'diag_trazabilidad', 'restaurar_fuente', 'rem_mensual'
 ];
 
 function doPost(e) { return _wh_despachar(e); }
@@ -92,7 +92,7 @@ function _wh_despachar(e) {
         // Requiere fuente verificada contra el Excel original. NO toca fechas.
         resultado = Modelo_restaurarFuente(e.parameter.rut || '', e.parameter.fuente || '');
         break;
-      case 'generar_rem':
+      case 'rem_mensual':
         resultado = Rem_generar(e.parameter.anio || '', e.parameter.mes || '',
                                 e.parameter.sector || 'TODOS');
         break;
