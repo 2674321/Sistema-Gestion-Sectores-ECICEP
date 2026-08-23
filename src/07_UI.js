@@ -64,26 +64,62 @@ function UI_instalarEstructura() {
     '\n(Recomendado: 🛠️ Instalar sistema para el resumen completo)');
 }
 
-/** Instala estructura Y aplica el diseño visual del libro (idempotente). */
+/** Instala TODO en un clic: estructura + diseño + menús + validación final.
+ *  Idempotente: re-ejecutar no duplica nada. */
 function UI_instalarSistema() {
   var ui = SpreadsheetApp.getUi();
+  var avisos = [];
   try {
+    // 1-2) Estructura (crea/verifica hojas y configuración semilla)
     var est = Modelo_crearEstructura();
+
+    // 3) Diseño visual completo (colores, orden en pares, ocultas, banding,
+    //    congelados, anchos y formatos de fecha)
     var dis = Modelo_aplicarDiseno();
+
+    // 4) Menus disponibles de inmediato sin esperar a que Google re-dispare onOpen
+    try { onOpen(); } catch (eMenu) { avisos.push('Menú: ' + eMenu.message); }
+
+    // 5) Validación final de funciones y hojas críticas
+    var criticas = ['PACIENTES', 'EVENTOS', 'DASHBOARD',
+      'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
+      'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
+    var faltan = criticas.filter(function (n) { return !Modelo_hoja(n); });
+    if (faltan.length) avisos.push('Faltan hojas: ' + faltan.join(', '));
+
+    var funciones = [['Modelo_leerPacientes'], ['Rem_generar'], ['api_dashboardDatos'],
+      ['api_patologiasGuardar'], ['UI_verRem']];
+    var sinFn = funciones.filter(function (f) { return typeof this[f[0]] !== 'function'; }.bind(this))
+      .map(function (f) { return f[0]; });
+    if (sinFn.length) avisos.push('Funciones ausentes: ' + sinFn.join(', '));
+
+    var pacientes = Modelo_leerPacientes().length;
+    var eventos = Modelo_leerEventos().length;
+
     Log_info('UI', 'instalarSistema',
-      'creadas=' + est.creadas.length + ' coloreadas=' + dis.coloreadas, null);
+      'creadas=' + est.creadas.length + ' coloreadas=' + dis.coloreadas +
+      ' bandas=' + dis.bandas + ' pacientes=' + pacientes, null);
     Log_flush();
+
+    if (dis.fallidas && dis.fallidas.length) {
+      avisos = avisos.concat(dis.fallidas.map(function (f) { return 'Diseño · ' + f; }));
+    }
+
     ui.alert(
       '🛠️ SISTEMA INSTALADO\n\n' +
-      'Hojas creadas: ' + est.creadas.length + '\n' +
-      'Hojas existentes: ' + est.existentes.length + '\n\n' +
-      'Diseño aplicado:\n' +
-      '· ' + dis.coloreadas + ' hojas coloreadas por segmento\n' +
-      '· ' + dis.ordenadas + ' hojas ordenadas\n' +
-      '· Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
-      '· Encabezados estilizados · fila 1 congelada');
+      '✅ Hojas creadas: ' + est.creadas.length +
+      ' · existentes: ' + est.existentes.length + '\n' +
+      '✅ Diseño aplicado: ' + dis.coloreadas + ' hojas coloreadas · ' +
+      dis.ordenadas + ' ordenadas\n' +
+      '✅ Filas intercaladas: ' + dis.bandas + ' hojas\n' +
+      '✅ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
+      '✅ Menú reconstruido · Encabezados y fechas formateados\n' +
+      '✅ Validación: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n\n' +
+      (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ') : 'Todo correctamente configurado.'));
   } catch (e) {
-    ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
+    Log_error('UI', 'instalarSistema', e && e.message ? e.message : String(e));
+    Log_flush();
+    ui.alert('ERROR en instalación: ' + (e && e.message ? e.message : String(e)));
   }
 }
 
@@ -349,23 +385,43 @@ function api_irA(nombreHoja) {
   }
 }
 
-/** Resumen liviano para el Centro de Control (una llamada). */
+/** Resumen operativo real para el Centro de Control (una llamada). */
 function api_centroResumen() {
   try {
     var pacientes = Modelo_leerPacientes();
-    var revisionAbiertos = 0;
+    var eventos = Modelo_leerEventos();
+    var tz = Session.getScriptTimeZone();
+    var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    var mesActual = hoyIso.slice(0, 7);
+
+    var ingresosHoy = 0, eventosMes = 0;
+    eventos.forEach(function (e) {
+      var f = _ui_isoFecha(e.FECHA_EVENTO);
+      if (f === hoyIso && Utl_texto(e.TIPO_EVENTO).toUpperCase() === 'INGRESO') ingresosHoy++;
+      if (f.slice(0, 7) === mesActual) eventosMes++;
+    });
+
+    var porRevisar = pacientes.filter(function (p) {
+      return p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE';
+    }).length;
+
+    var cola = 0;
     try {
       var rev = api_revisionListar();
-      revisionAbiertos = (rev && rev.metricas && rev.metricas.abiertos) || 0;
+      cola = (rev && rev.metricas && rev.metricas.abiertos) || 0;
     } catch (eR) {}
-    var mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
-    var eventosMes = Modelo_leerEventos().filter(function (e) {
-      return _ui_isoFecha(e.FECHA_EVENTO).slice(0, 7) === mesActual;
-    }).length;
+
+    var ultimaD = null;
+    pacientes.forEach(function (p) {
+      if (p.FECHA_ACTUALIZACION instanceof Date &&
+          (!ultimaD || p.FECHA_ACTUALIZACION > ultimaD)) ultimaD = p.FECHA_ACTUALIZACION;
+    });
+
     return { ok: true, pacientes: pacientes.length,
-             revisionAbiertos: revisionAbiertos, eventosMes: eventosMes,
-             fecha: Utilities.formatDate(new Date(), Session.getScriptTimeZone(),
-               "EEEE d 'de' MMMM yyyy") };
+             ingresosHoy: ingresosHoy, eventosMes: eventosMes,
+             porRevisar: porRevisar, colaRevision: cola,
+             ultimaAct: ultimaD ? Utilities.formatDate(ultimaD, tz, 'dd/MM/yyyy HH:mm') : 'sin cambios',
+             fechaIso: hoyIso };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }

@@ -17,6 +17,11 @@
   color:var(--text-muted);margin-bottom:8px}
 .btn-block{width:100%;justify-content:flex-start;margin-bottom:6px}
 .hojas-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grupo-sec{margin-bottom:10px}
+.grupo-sec:last-child{margin-bottom:0}
+.grupo-tit{display:flex;align-items:center;gap:6px;font:600 12px 'Inter';color:var(--text-secondary);
+  margin-bottom:5px}
+.grupo-sec .mini-btn{width:100%;margin-bottom:4px}
 .mini-btn{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:var(--radius-sm);
   border:1px solid var(--border);background:var(--surface);font:500 12px 'Inter';
   color:var(--text-primary);cursor:pointer;min-height:36px;transition:all .15s var(--ease-in);text-align:left}
@@ -111,9 +116,11 @@ textarea.inp{min-height:64px;resize:vertical}
 
   <div class="grid2" id="ccKpis">
     <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Pacientes</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Ingresos de hoy</small></div>
     <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Eventos del mes</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Revisión abierta</small></div>
-    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Sectores</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Por revisar</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:40px;height:22px"></span><small>Cola de revisión</small></div>
+    <div class="kpi-mini"><span class="skel" style="width:80px;height:14px"></span><small>Última actualización</small></div>
   </div>
 
   <div class="card cc-card">
@@ -122,29 +129,39 @@ textarea.inp{min-height:64px;resize:vertical}
       <i data-lucide="bar-chart-3"></i> Panel interactivo</button>
     <button class="btn btn-sec btn-block" onclick="verRevision()">
       <i data-lucide="clipboard-check"></i> Cola de revisión</button>
+    <button class="btn btn-sec btn-block" onclick="abrirGenerador()">
+      <i data-lucide="file-bar-chart"></i> Generar REM</button>
   </div>
 
   <div class="card cc-card">
-    <div class="card-t">Hojas</div>
-    <div class="hojas-grid">
-      <button class="mini-btn" onclick="irA('DASHBOARD')"><span class="dot" style="background:#0E5C68"></span>Panel hoja</button>
-      <button class="mini-btn" onclick="irA('SECTOR_NARANJO')"><span class="dot" style="background:#E8730A"></span>Naranjo</button>
-      <button class="mini-btn" onclick="irA('SECTOR_AMARILLO')"><span class="dot" style="background:#C79A00"></span>Amarillo</button>
-      <button class="mini-btn" onclick="irA('SECTOR_VERDE')"><span class="dot" style="background:#2E8B57"></span>Verde</button>
-      <button class="mini-btn" onclick="irA('INGRESO_NARANJO')"><span class="dot hollow" style="border-color:#E8730A"></span>Ingreso N.</button>
-      <button class="mini-btn" onclick="irA('INGRESO_AMARILLO')"><span class="dot hollow" style="border-color:#C79A00"></span>Ingreso A.</button>
-      <button class="mini-btn" onclick="irA('INGRESO_VERDE')"><span class="dot hollow" style="border-color:#2E8B57"></span>Ingreso V.</button>
-      <button class="mini-btn" onclick="irA('PACIENTES')"><span class="dot" style="background:#1C2430"></span>Pacientes</button>
-      <button class="mini-btn" onclick="irA('EVENTOS')"><span class="dot" style="background:#3E8A96"></span>Eventos</button>
-      <button class="mini-btn" onclick="irA('REM_SALIDA')"><span class="dot" style="background:#6B5CA8"></span>REM</button>
+    <div class="card-t">Sectores</div>
+    <div class="grupo-sec">
+      <div class="grupo-tit"><span class="dot" style="background:#E8730A"></span>Naranjo</div>
+      <button class="mini-btn" onclick="irA('SECTOR_NARANJO')">Sector Naranjo</button>
+      <button class="mini-btn" onclick="irA('INGRESO_NARANJO')">Ingreso Naranjo</button>
+    </div>
+    <div class="grupo-sec">
+      <div class="grupo-tit"><span class="dot" style="background:#C79A00"></span>Amarillo</div>
+      <button class="mini-btn" onclick="irA('SECTOR_AMARILLO')">Sector Amarillo</button>
+      <button class="mini-btn" onclick="irA('INGRESO_AMARILLO')">Ingreso Amarillo</button>
+    </div>
+    <div class="grupo-sec">
+      <div class="grupo-tit"><span class="dot" style="background:#2E8B57"></span>Verde</div>
+      <button class="mini-btn" onclick="irA('SECTOR_VERDE')">Sector Verde</button>
+      <button class="mini-btn" onclick="irA('INGRESO_VERDE')">Ingreso Verde</button>
     </div>
   </div>
 
-  <div class="topbar"><h2>Pacientes ECICEP</h2>
-    <button id="btnRev" class="btn btn-sec pos-btn" onclick="verRevision()">
-      <i data-lucide="clipboard-check"></i><span class="cnt" id="cntRev">…</span>
-    </button>
+  <div class="card cc-card">
+    <div class="card-t">Bases y reportes</div>
+    <div class="hojas-grid">
+      <button class="mini-btn" onclick="irA('PACIENTES')"><span class="dot" style="background:#1C2430"></span>Pacientes</button>
+      <button class="mini-btn" onclick="irA('EVENTOS')"><span class="dot" style="background:#3E8A96"></span>Eventos</button>
+      <button class="mini-btn" onclick="irA('DASHBOARD')"><span class="dot" style="background:#0E5C68"></span>Panel hoja</button>
+    </div>
   </div>
+
+  <div class="topbar"><h2>Pacientes ECICEP</h2></div>
   <label class="etq" for="termino">Buscar por RUT o nombre</label>
   <input id="termino" class="inp" placeholder="Ej: 8031158-3 o Silvia…" autocomplete="off">
   <div id="resultados"></div>
@@ -392,19 +409,11 @@ function guardarPatologias(btn){
 }
 
 /* Conteo silencioso para el chip — NO abre ningún panel */
-function refrescarConteoRev(){
-  google.script.run.withSuccessHandler(function(r){
-    document.getElementById('cntRev').textContent=((r&&r.metricas&&r.metricas.abiertos)||0);
-    _refrescarIconos();
-  }).api_revisionListar();
-}
-
 /* ================= cola de revisión ================= */
 function verRevision(){
   document.getElementById('panelBuscar').style.display='none';
   document.getElementById('vista').style.display='none';
   document.getElementById('panelRev').style.display='flex';
-  refrescarConteoRev();
   document.getElementById('revLista').innerHTML='<div class="skel" style="height:120px"></div>';
   google.script.run.withSuccessHandler(function(r){
     var mt=r.metricas||{};
@@ -447,39 +456,45 @@ function volver(){
   document.getElementById('vista').style.display='none';
   document.getElementById('panelRev').style.display='none';
   document.getElementById('panelBuscar').style.display='flex';
-  refrescarConteoRev(); /* solo actualiza el chip, NO reabre la cola */
 }
 
 /* ================= Centro de control ================= */
+var DIAS_ES=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fechaEsLarga(d){
+  return DIAS_ES[d.getDay()].charAt(0).toUpperCase()+DIAS_ES[d.getDay()].slice(1)+', '+
+    d.getDate()+' de '+MESES_ES[d.getMonth()]+' de '+d.getFullYear();
+}
 function cargarCentro(){
   google.script.run.withSuccessHandler(function(r){
     if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');return;}
-    document.getElementById('ccFecha').textContent=r.fecha;
+    var partes=(r.fechaIso||'').split('-');
+    document.getElementById('ccFecha').textContent=partes.length===3?
+      fechaEsLarga(new Date(+partes[0],+partes[1]-1,+partes[2])):'';
     document.getElementById('ccKpis').innerHTML=
       '<div class="kpi-mini"><span class="num">'+r.pacientes+'</span><small>Pacientes</small></div>'+
+      '<div class="kpi-mini"><span class="num" style="color:var(--success)">'+r.ingresosHoy+'</span><small>Ingresos de hoy</small></div>'+
       '<div class="kpi-mini"><span class="num">'+r.eventosMes+'</span><small>Eventos del mes</small></div>'+
-      '<div class="kpi-mini"><span class="num" style="color:'+(r.revisionAbiertos?'var(--warning)':'var(--success)')+'">'+r.revisionAbiertos+'</span><small>Revisión abierta</small></div>'+
-      '<div class="kpi-mini"><span class="num">3</span><small>Sectores</small></div>';
+      '<div class="kpi-mini"><span class="num" style="color:'+(r.porRevisar?'var(--warning)':'var(--success)')+'">'+r.porRevisar+'</span><small>Por revisar</small></div>'+
+      '<div class="kpi-mini"><span class="num" style="color:'+(r.colaRevision?'var(--warning)':'var(--success)')+'">'+r.colaRevision+'</span><small>Cola de revisión</small></div>'+
+      '<div class="kpi-mini"><span style="font-size:13px;font-weight:600">'+_esc(r.ultimaAct)+'</span><small>Última actualización</small></div>';
     _refrescarIconos();
   }).withFailureHandler(function(e){toast('Error de resumen: '+(e&&e.message||e),'err');})
   .api_centroResumen();
 }
 function irA(nombre){
   google.script.run.withSuccessHandler(function(r){
-    if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo abrir la hoja','err');return;}
-    google.script.host.close();
+    if(!r||!r.ok){toast('No se pudo abrir '+(r&&r.motivo==='HOJA_NO_EXISTE'?nombre:'la hoja'),'err');return;}
+    toast('Hoja abierta: '+nombre,'ok'); /* el panel permanece disponible */
   }).api_irA(nombre);
 }
-function abrirPanel(){
-  google.script.run.UI_abrirDashboard(); /* el servidor abre el dialog */
-  google.script.host.close();
-}
+function abrirPanel(){ google.script.run.UI_abrirDashboard(); }
+function abrirGenerador(){ google.script.run.UI_generarRem(); }
 
 /* ================= init ================= */
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
 _refrescarIconos();
 cargarCentro();
-refrescarConteoRev(); /* al abrir: chip + centro; la vista inicial es la búsqueda */
 </script>
 </body>
 </html>

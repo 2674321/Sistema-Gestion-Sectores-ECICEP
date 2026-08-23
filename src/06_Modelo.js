@@ -284,18 +284,18 @@ function Modelo_nuevoIdInterno() {
 var MODELO_DISENO = [
   // Operación
   { nombre: 'DASHBOARD',        color: '#0E5C68', estilo: false },
+  // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
   { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00', banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'SECTOR_VERDE',     color: '#2E8B57', banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  // Puertas de ingreso (mismo semáforo que su sector)
   { nombre: 'INGRESO_NARANJO',  color: '#E8730A', banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00', banda: true, formato: COLUMNAS_SECTOR_VISTA },
   { nombre: 'INGRESO_AMARILLO', color: '#C79A00', banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'SECTOR_VERDE',     color: '#2E8B57', banda: true, formato: COLUMNAS_SECTOR_VISTA },
   { nombre: 'INGRESO_VERDE',    color: '#2E8B57', banda: true, formato: INGRESO_COLUMNAS },
   // Bases
   { nombre: 'PACIENTES',        color: '#1C2430', congelarCols: 3, banda: true }, // ID·RUT·NOMBRE
   { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2, banda: true },
-  // Reportes
-  { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false },
+  // Reportes (REM_SALIDA es interna: el usuario consulta vía "Consultar REM")
+  { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false, oculta: true },
   // Sistema (técnicas ocultas)
   { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true },
   { nombre: 'FUENTES',          color: '#8A93A3' },

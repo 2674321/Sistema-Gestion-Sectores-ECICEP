@@ -29,13 +29,13 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 </header>
 
 <div class="card">
-  <label class="etq">Período</label>
+  <label class="etq">Selecciona cualquier fecha del mes a generar</label>
   <div class="fila">
-    <div class="campo">
-      <select id="selMes" class="inp"></select>
+    <div class="campo" style="max-width:240px">
+      <input id="inFecha" type="date" class="inp">
     </div>
-    <div class="campo">
-      <input id="inAnio" type="number" class="inp" min="2020" max="2100" value="">
+    <div class="campo" style="flex:2;display:flex;align-items:center">
+      <span class="chip" id="lblPeriodo">Período: —</span>
     </div>
     <div class="campo" style="flex:2">
       <label class="etq" style="margin-top:0">Sector</label>
@@ -70,10 +70,19 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 var MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-var hoy=new Date(),mesActual=hoy.getMonth();
-document.getElementById('selMes').innerHTML=MESES.map(function(m,i){
-  return '<option value="'+(i+1)+'"'+(i===mesActual?' selected':'')+'>'+m+'</option>';}).join('');
-document.getElementById('inAnio').value=hoy.getFullYear();
+var hoy=new Date();
+document.getElementById('inFecha').value=hoy.toISOString().slice(0,10);
+function periodoDe(fecha){
+  var m=/^(\d{4})-(\d{2})/.exec(String(fecha||''));
+  return m?{anio:+m[1],mes:+m[2]}:null;
+}
+function actualizarPeriodo(){
+  var p=periodoDe(document.getElementById('inFecha').value);
+  document.getElementById('lblPeriodo').textContent=
+    p?('Período: '+MESES[p.mes-1]+' '+p.anio):'Selecciona una fecha válida';
+}
+document.getElementById('inFecha').addEventListener('change',actualizarPeriodo);
+actualizarPeriodo();
 
 document.querySelectorAll('.chip-sel').forEach(function(ch){
   ch.addEventListener('click',function(){
@@ -84,12 +93,13 @@ document.querySelectorAll('.chip-sel').forEach(function(ch){
 function sectorSel(){var el=document.querySelector('.chip-sel.on');return el?el.dataset.s:'TODOS';}
 
 function generar(btn){
-  var anio=+document.getElementById('inAnio').value,mes=+document.getElementById('selMes').value;
-  if(!anio||anio<2020){toast('Año inválido','err');return;}
-  var fin=_btnCargando(btn,'Generando…');
+  var fecha=document.getElementById('inFecha').value;
+  var p=periodoDe(fecha);
+  if(!p){toast('Selecciona una fecha válida del período a generar','err');return;} /* validación #19 */
+  var fin=_btnCargando(btn,'Generando REM…'); /* anti doble clic #18 */
   google.script.run.withSuccessHandler(function(r){
     fin();_refrescarIconos();
-    if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo generar','err');return;}
+    if(!r||!r.ok){toast('No fue posible generar el REM. Revisa los datos e inténtalo nuevamente.','err');return;}
     document.getElementById('rCab').textContent=r.cabecera;
     document.getElementById('rEv').textContent=r.eventosPeriodo;
     document.getElementById('rPac').textContent=r.pacientesConActividad;
@@ -97,9 +107,12 @@ function generar(btn){
     inv.textContent=r.fechasInvalidas;
     inv.style.color=r.fechasInvalidas?'var(--warning)':'var(--success)';
     document.getElementById('resultado').style.display='block';
-    toast('REM generado ✓','ok');_refrescarIconos();
+    _refrescarIconos();
+    if(r.eventosPeriodo===0){toast('REM generado, sin eventos en el período seleccionado','info');}
+    else{toast('REM generado correctamente ✓','ok');}
+    setTimeout(consultar,700); /* flujo #11: terminar en Consultar REM */
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-  .Rem_generar(anio,mes,sectorSel());
+  .Rem_generar(p.anio,p.mes,sectorSel());
 }
 function consultar(){google.script.run.UI_verRem();}
 _refrescarIconos();

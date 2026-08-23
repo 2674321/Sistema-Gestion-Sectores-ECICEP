@@ -1649,17 +1649,26 @@ function _pruebas_diseno(t, A) {
           A.cierto(pertenece, d.nombre + ' usa semáforo sin ser hoja del sector');
         }
       });
-      if (d.oculta) A.igual(d.color, '#8A93A3', 'oculta siempre gris técnica: ' + d.nombre);
     });
+    // Técnicas del segmento sistema: siempre grises y ocultas
+    ['CONFIG', 'LOG', 'STAGING_IMPORT'].forEach(function (n) {
+      var d = MODELO_DISENO.filter(function (x) { return x.nombre === n; })[0];
+      A.cierto(d && d.oculta === true, n + ' debe estar oculta');
+      A.igual(d.color, '#8A93A3', n + ' gris técnica');
+    });
+    A.igual(MODELO_DISENO.filter(function (d) { return d.nombre === 'REM_SALIDA'; })[0].oculta, true,
+      'REM_SALIDA es interna: el usuario consulta vía Consultar REM');
   });
 
-  t('DISEÑO: orden declarado agrupa segmentos en secuencia', function () {
+  t('DISEÑO: pares sector-ingreso adyacentes y segmentos en secuencia', function () {
     var nombres = MODELO_DISENO.map(function (d) { return d.nombre; });
     var pos = function (n) { return nombres.indexOf(n); };
+    A.igual(pos('INGRESO_NARANJO'), pos('SECTOR_NARANJO') + 1, 'par Naranjo junto');
+    A.igual(pos('INGRESO_AMARILLO'), pos('SECTOR_AMARILLO') + 1, 'par Amarillo junto');
+    A.igual(pos('INGRESO_VERDE'), pos('SECTOR_VERDE') + 1, 'par Verde junto');
     A.cierto(pos('DASHBOARD') < pos('SECTOR_NARANJO'), 'operación primero');
-    A.cierto(pos('SECTOR_VERDE') < pos('INGRESO_NARANJO'), 'sector antes que ingreso');
-    A.cierto(pos('INGRESO_VERDE') < pos('PACIENTES'), 'ingreso antes que bases');
+    A.cierto(pos('INGRESO_VERDE') < pos('PACIENTES'), 'sectores antes que bases');
     A.cierto(pos('EVENTOS') < pos('REM_SALIDA'), 'bases antes que reportes');
-    A.cierto(pos('REM_SALIDA') < pos('CONFIG'), 'reportes antes que sistema');
+    A.cierto(pos('REM_SALIDA') < pos('CONFLICTOS'), 'reportes antes que sistema');
   });
 }
