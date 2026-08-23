@@ -38,7 +38,8 @@ function onOpen() {
         .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas'))
 
       .addSubMenu(ui.createMenu('📈 Reportes')
-        .addItem('📊 Actualizar dashboard', 'UI_actualizarDashboard'))
+        .addItem('📊 Actualizar dashboard', 'UI_actualizarDashboard')
+        .addItem('🧾 Generar REM mensual', 'UI_generarRem'))
 
       .addSeparator()
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -749,6 +750,40 @@ function UI_diagnosticoTrazabilidad() {
     }
     ui.alert(msg);
   } catch (e) {
+    ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
+  }
+}
+
+// ===========================================================================
+// REM mensual — generable desde EVENTOS (REM.md)
+// ===========================================================================
+
+/** Solicita período (AAAA-MM) y sector, y genera la hoja REM_SALIDA. */
+function UI_generarRem() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var resp = ui.prompt(
+      'GENERAR REM',
+      'Período a generar: AAAA-MM (ej: 2026-08)\n' +
+      'Sector opcional: TODOS | NARANJO | AMARILLO | VERDE\n\n' +
+      'Escriba: AAAA-MM SECTOR   (o solo AAAA-MM)',
+      ui.ButtonSet.OK_CANCEL);
+    if (resp.getSelectedButton() !== ui.Button.OK) return;
+    var partes = resp.getResponseText().trim().split(/[\s,]+/).filter(Boolean);
+    var pm = partes.length ? /^(\d{4})-(\d{2})$/.exec(partes[0]) : null;
+    if (!pm) { ui.alert('Período inválido. Formato: AAAA-MM'); return; }
+    var sector = (partes[1] || 'TODOS').toUpperCase();
+    var r = Rem_generar(Number(pm[1]), Number(pm[2]), sector);
+    var hoja = Modelo_hoja('REM_SALIDA');
+    if (hoja) Modelo_ss().setActiveSheet(hoja);
+    ui.alert(r.cabecera + '\n\n' +
+      'Eventos del período: ' + r.eventosPeriodo + '\n' +
+      'Pacientes con actividad: ' + r.pacientesConActividad + '\n' +
+      (r.sinRiesgo ? '⚠️ Eventos sin snapshot G: ' + r.sinRiesgo + '\n' : '') +
+      '\nHoja REM_SALIDA actualizada.');
+  } catch (e) {
+    Log_error('REM', 'generar', e && e.message ? e.message : String(e));
+    Log_flush();
     ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
   }
 }
