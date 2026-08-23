@@ -452,7 +452,7 @@ var CONFIG_SEED_EXTRA = [
  * @returns {creadas:[], existentes:[], hojaPredeterminadaEliminada:boolean}
  */
 function Modelo_crearEstructura() {
-  var res = { creadas: [], existentes: [], hojaPredeterminadaEliminada: false };
+  var res = { creadas: [], existentes: [], configActualizadas: [], hojaPredeterminadaEliminada: false };
   var ss = Modelo_ss();
 
   Object.keys(_MODELO_HOJAS_DEF).forEach(function (nombre) {
@@ -560,7 +560,10 @@ function _modelo_sembrarConfig(hoja, res) {
       }
     } else {
       hoja.getRange(hoja.getLastRow() + 1, 1, 1, 3).setValues([filas[i]]);
-      if (res) res.configActualizadas.push(filas[i][0]);
+      if (res) {
+        if (!res.configActualizadas) res.configActualizadas = [];
+        res.configActualizadas.push(filas[i][0]);
+      }
     }
   }
 }
