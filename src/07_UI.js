@@ -701,17 +701,20 @@ function UI_migrarEsquemaPacientes() {
         '\n\nNO se modificó nada.\nRevisar los encabezados de PACIENTES manualmente.');
       return;
     }
-    if (!r.migrada) {
-      ui.alert('✅ ESQUEMA ALINEADO\n\nPACIENTES coincide con MODELO_PACIENTE (' +
-        Modelo_campos().length + ' columnas).\nNo se requiere ninguna acción.');
+    var repar = Modelo_repararCamposTecnicos();
+    if (!r.migrada && repar.reparados === 0 && repar.marcadosRevision === 0) {
+      ui.alert('✅ TODO LIMPIO\n\nEsquema alineado (' + Modelo_campos().length +
+        ' columnas) y sin filas con datos inconsistentes.\nNo se requiere ninguna acción.');
       return;
     }
-    var msg = '🔧 MIGRACIÓN COMPLETADA\n\n' +
-      'Columnas insertadas: ' + r.insertadas.join(', ') + '\n' +
-      'Filas reparadas: ' + r.reparados + '\n' +
-      'Marcadas para revisión (FUENTE vacía): ' + r.marcadosRevision;
-    if (r.sospechosas && r.sospechosas.length) {
-      msg += '\n\n⚠️ Trazabilidad perdida en:\n' + r.sospechosas.slice(0, 10).map(function (s) {
+    var msg = '';
+    if (r.migrada) {
+      msg += '🔧 MIGRACIÓN COMPLETADA\n\nColumnas insertadas: ' + r.insertadas.join(', ') + '\n\n';
+    }
+    msg += '🧹 LIMPIEZA APLICADA\nFilas reparadas: ' + repar.reparados +
+      '\nMarcadas para revisión (FUENTE vacía): ' + repar.marcadosRevision;
+    if (repar.sospechosas && repar.sospechosas.length) {
+      msg += '\n\n⚠️ Trazabilidad perdida en:\n' + repar.sospechosas.slice(0, 10).map(function (s) {
         return 'Fila ' + s.fila + ' · ' + s.nombre + ' (' + s.rut + ')';
       }).join('\n');
     }
