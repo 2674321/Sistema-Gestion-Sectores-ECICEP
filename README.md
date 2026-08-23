@@ -5,8 +5,23 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
+**v0.5.0** · Google Sheets + Apps Script (clasp) · 275 pruebas locales verdes ·
+1.582 pacientes reales / 1.879 eventos operando en producción.
+
 > **Nota contractual:** proyecto particular desarrollado para la cliente
 > Camila Paz Aguilar (Enfermera). No constituye un proyecto institucional del CESFAM.
+
+## Qué incluye v0.5.0
+
+- **Panel de Control**: KPIs reales, tarjetas por sector con cobertura, última actividad, accesos.
+- **Estadísticas** (dialog): 5 indicadores + 4 gráficos Chart.js + filtro cruzado por sector y fecha.
+- **REM mensual** derivado de EVENTOS (Bloque A) con exportación a **PDF profesional** vía DocumentApp.
+- **Selector de patologías ECICEP** en ficha (49 condiciones) con ponderación y esquema migrado.
+- **Cola de revisión**, registro de gestiones, timeline de historial, hard guard de escrituras.
+- **Instalar / Reparar Sistema**: hojas, CONFIG centralizado, catálogo de vigencias,
+  validaciones desplegables en INGRESO_*, diseño del libro (colores/orden/ocultas/banding).
+- **Centro de Pruebas**: diagnóstico seleccionable con informe técnico.
+- **Registro del sistema** (visor de LOG) con filtros y export CSV.
 
 ## Estado del proyecto
 
