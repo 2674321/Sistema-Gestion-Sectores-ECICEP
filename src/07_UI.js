@@ -27,7 +27,6 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('Reportes')
         .addItem('Panel interactivo', 'UI_abrirDashboard')
-        .addItem('Resumen en hoja', 'UI_actualizarDashboard')
         .addItem('Generar REM', 'UI_generarRem')
         .addItem('Consultar REM', 'UI_verRem'))
 
@@ -959,39 +958,10 @@ function UI_diagnosticoTrazabilidad() {
 }
 
 // ===========================================================================
-// REM mensual — generable desde EVENTOS (REM.md)
+// REM mensual — la interfaz oficial es el dialog RemGenerador (UI_generarRem,
+// definido junto a los demás openers). Esta sección se conserva vacía a
+// propósito: la generación vive en 14_REM.js y la UI en RemGenerador.html.
 // ===========================================================================
-
-/** Solicita período (AAAA-MM) y sector, y genera la hoja REM_SALIDA. */
-function UI_generarRem() {
-  var ui = SpreadsheetApp.getUi();
-  try {
-    var resp = ui.prompt(
-      'GENERAR REM',
-      'Período a generar: AAAA-MM (ej: 2026-08)\n' +
-      'Sector opcional: TODOS | NARANJO | AMARILLO | VERDE\n\n' +
-      'Escriba: AAAA-MM SECTOR   (o solo AAAA-MM)',
-      ui.ButtonSet.OK_CANCEL);
-    if (resp.getSelectedButton() !== ui.Button.OK) return;
-    var partes = resp.getResponseText().trim().split(/[\s,]+/).filter(Boolean);
-    var pm = partes.length ? /^(\d{4})-(\d{2})$/.exec(partes[0]) : null;
-    if (!pm) { ui.alert('Período inválido. Formato: AAAA-MM'); return; }
-    var sector = (partes[1] || 'TODOS').toUpperCase();
-    var r = Rem_generar(Number(pm[1]), Number(pm[2]), sector);
-    var hoja = Modelo_hoja('REM_SALIDA');
-    if (hoja) Modelo_ss().setActiveSheet(hoja);
-    ui.alert(r.cabecera + '\n\n' +
-      'Eventos del período: ' + r.eventosPeriodo + '\n' +
-      'Pacientes con actividad: ' + r.pacientesConActividad + '\n' +
-      (r.fechasInvalidas ? '⚠️ Fechas no interpretables: ' + r.fechasInvalidas + '\n' : '') +
-      '\nHoja REM_SALIDA actualizada.\n' +
-      'Bloques B y C: NO DISPONIBLE (#14 / #17).');
-  } catch (e) {
-    Log_error('REM', 'generar', e && e.message ? e.message : String(e));
-    Log_flush();
-    ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
-  }
-}
 
 // ===========================================================================
 // ETAPA 8E — Selector de patologías ECICEP

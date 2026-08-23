@@ -516,13 +516,15 @@ function irA(nombre){
   }).withFailureHandler(_errSilencioso('api_irA')).api_irA(nombre);
 }
 function abrirPanel(btn){
-  var fin=btn?_btnCargando(btn,'Abriendo…'):null;
-  google.script.run.withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_abrirDashboard')(e);})
+  var fin=_btnPulso(btn,'Abriendo…'); /* auto-restaura: el dialog cancela el RPC */
+  google.script.run.withSuccessHandler(function(){setLoading(btn,false);})
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('UI_abrirDashboard')(e);})
     .UI_abrirDashboard();
 }
 function abrirGenerador(btn){
-  var fin=btn?_btnCargando(btn,'Abriendo…'):null;
-  google.script.run.withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_generarRem')(e);})
+  var fin=_btnPulso(btn,'Abriendo…');
+  google.script.run.withSuccessHandler(function(){setLoading(btn,false);})
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('UI_generarRem')(e);})
     .UI_generarRem();
 }
 

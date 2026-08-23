@@ -143,4 +143,17 @@ function _btnCargando(btn,texto){
   btn.innerHTML='<span class="spin"></span> '+_esc(texto||'Guardando…');
   return function(){btn.disabled=false;btn.innerHTML=btn._htmlPrev;_refrescarIconos();};
 }
+/* API central #2: setLoading(btn,true|false) — un solo camino para todos los botones */
+function setLoading(btn,on,texto){
+  if(on){return _btnCargando(btn,texto||'Procesando…');}
+  if(btn&&typeof btn._htmlPrev!=='undefined'){btn.disabled=false;btn.innerHTML=btn._htmlPrev;
+    delete btn._htmlPrev;_refrescarIconos();}
+}
+/* Para openers cuyo completion no es observable (ej: abrir un dialog cancela
+   el RPC): pulso con auto-restauración garantizada. Nunca queda pegado. */
+function _btnPulso(btn,texto,ms){
+  var fin=setLoading(btn,true,texto);
+  setTimeout(function(){setLoading(btn,false);},ms||1600);
+  return fin;
+}
 </script>
