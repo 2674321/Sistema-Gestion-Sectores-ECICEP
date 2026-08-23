@@ -55,6 +55,24 @@ function _wh_despachar(e) {
       case 'refrescar':   resultado = Modelo_refrescarVistasSectores(); break;
       case 'diagnosticar': resultado = Ingresos_diagnosticar(); break;
       case 'diagnosticar_fuentes': resultado = Fuentes_diagnosticarFuentes(); break;
+      case 'diag_ficha':
+        var pacientes = Modelo_leerPacientes();
+        var testId = pacientes.length ? Utl_texto(pacientes[0].ID_INTERNO) : '';
+        var encontrado = null;
+        for (var pi = 0; pi < pacientes.length; pi++) {
+          if (Utl_texto(pacientes[pi].ID_INTERNO) === testId) { encontrado = pacientes[pi]; break; }
+        }
+        resultado = {
+          totalPacientes: pacientes.length,
+          headers: Object.keys(pacientes[0] || {}).slice(0, 8),
+          primeros3Ids: pacientes.slice(0, 3).map(function (p) { return { id: p.ID_INTERNO, tipo: typeof p.ID_INTERNO }; }),
+          testId: testId,
+          testIdTipo: typeof testId,
+          testEncontrado: !!encontrado,
+          tieneCONDICIONES: pacientes.length > 0 ? 'CONDICIONES' in pacientes[0] : false,
+          tieneOTRAS_PAT: pacientes.length > 0 ? 'OTRAS_PATOLOGIAS' in pacientes[0] : false
+        };
+        break;
       case 'importar_muestra':
         resultado = Fuentes_importarMuestra(
           e.parameter.archivo || '', e.parameter.hoja || '', parseInt(e.parameter.cantidad || '10', 10));

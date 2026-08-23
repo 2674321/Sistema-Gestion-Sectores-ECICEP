@@ -84,11 +84,11 @@ function abrirFicha(id){
   if(!id){alert('ERROR: ID vacío');return;}
   google.script.run
     .withSuccessHandler(function(f){
-      console.log('[ECICEP] api_ficha respuesta:', f ? 'ENCONTRADO' : 'NULL', '| tipo:', typeof f);
-      if(!f){
-        alert('PACIENTE_NO_ENCONTRADO\nID buscado: '+JSON.stringify(id)+'\n\nVerifica consola (F12) para más detalles.');
+      if(f && f._diagnostico){
+        alert('\ud83d\udd0d DIAGNÓSTICO\n\n'+JSON.stringify(f,null,2));
         return;
       }
+      if(!f){alert('PACIENTE_NO_ENCONTRADO');return;}
     document.getElementById('panelBuscar').style.display='none';
     document.getElementById('vista').style.display='block';
     document.getElementById('fNombre').textContent=f.NOMBRE||'';

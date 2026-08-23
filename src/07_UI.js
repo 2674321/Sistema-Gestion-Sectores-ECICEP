@@ -314,11 +314,27 @@ function api_buscar(termino) {
 
 /** Endpoint sidebar: ficha consolidada + historial desde EVENTOS. */
 function api_ficha(idInterno) {
-  console.log('[ECICEP backend] api_ficha recibió idInterno:', JSON.stringify(idInterno));
-  var resultado = Modelo_fichaPaciente(idInterno);
-  console.log('[ECICEP backend] resultado:', resultado ? 'ENCONTRADO' : 'NULL');
-  return resultado;
-}
+  var pacientes = Modelo_leerPacientes();
+  var paciente = null;
+  var idNormalizado = Utl_texto(idInterno).trim();
+
+  for (var i = 0; i < pacientes.length; i++) {
+    var idSheet = Utl_texto(pacientes[i].ID_INTERNO).trim();
+    if (idSheet === idNormalizado) { paciente = pacientes[i]; break; }
+  }
+
+  if (!paciente) {
+    // devolver diagnóstico en vez de null para que el frontend sepa qué pasó
+    return {
+      _diagnostico: true,
+      idBuscado: idNormalizado,
+      idOriginal: idInterno,
+      tipoOriginal: typeof idInterno,
+      totalPacientesLeidos: pacientes.length,
+      primeros3Ids: pacientes.slice(0, 3).map(function (p) { return String(p.ID_INTERNO); }),
+      mensaje: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idNormalizado)
+    };
+  }
 
 /** Endpoint sidebar: registra un evento para un paciente existente y
  *  sincroniza la caché de estado vigente en PACIENTES. */
@@ -742,4 +758,78 @@ function api_diagnosticoPacientes() {
     hojaExiste: !!Modelo_hoja(HOJAS.PACIENTES),
     ultimaFila: Modelo_hoja(HOJAS.PACIENTES) ? Modelo_hoja(HOJAS.PACIENTES).getLastRow() : 0
   };
+}
+
+/** DIAGNÓSTICO: ejecutar desde el editor de Apps Script para depurar búsqueda/ficha */
+function DIAGNOSTICO_BUSCAR_FICHA() {
+  var pacientes = Modelo_leerPacientes();
+  Logger.log('=== DIAGNÓSTICO BÚSQUEDA→FICHA ===');
+  Logger.log('Total pacientes: ' + pacientes.length);
+
+  if (pacientes.length === 0) {
+    Logger.log('❌ ERROR CRÍTICO: No se leyó ningún paciente de PACIENTES');
+    return;
+  }
+
+  Logger.log('✓ Pacientes leídos correctamente');
+  Logger.log('');
+
+  // analizar primeros 3 pacientes en detalle
+  pacientes.slice(0, 3).forEach(function (p, idx) {
+    Logger.log('--- Paciente ' + idx + ' ---');
+    Logger.log('ID_INTERNO: ' + JSON.stringify(p.ID_INTERNO));
+    Logger.log('tipo: ' + typeof p.ID_INTERNO);
+    Logger.log('largo: ' + Utl_texto(p.ID_INTERNO).length);
+    Logger.log('RUT: ' + JSON.stringify(p.RUT));
+    Logger.log('NOMBRE: ' + JSON.stringify(Utl_texto(p.NOMBRE).substring(0, 30)));
+    Logger.log('keys del objeto: ' + JSON.stringify(Object.keys(p).slice(0, 10)));
+    Logger.log('');
+  });
+
+  // prueba búsqueda del primero
+  var primero = pacientes[0];
+  var nombreBusqueda = Utl_texto(primero.NOMBRE).substring(0, 5);
+  Logger.log('--- Prueba búsqueda "' + nombreBusqueda + '" ---');
+  var busqueda = Bus_buscarPacientes(pacientes, nombreBusqueda);
+  Logger.log('Resultados búsqueda: ' + busqueda.length);
+  if (busqueda.length > 0) {
+    Logger.log('Primer resultado ID: ' + JSON.stringify(busqueda[0].ID_INTERNO));
+    Logger.log('Coincide con original: ' + (busqueda[0].ID_INTERNO === primero.ID_INTERNO));
+  }
+
+  // prueba ficha del primero
+  Logger.log('');
+  Logger.log('--- Prueba ficha para ID ' + JSON.stringify(primero.ID_INTERNO) + ' ---');
+  var ficha = Modelo_fichaPaciente(primero.ID_INTERNO);
+  Logger.log('Ficha resultado: ' + (ficha ? 'ENCONTRADA ✓' : 'NULL ✗'));
+
+  if (!ficha) {
+    Logger.log('⚠️ INVESTIGANDO POR QUÉ NO ENCUENTRA:');
+    Logger.log('ID buscado (string): ' + JSON.stringify(Utl_texto(primero.ID_INTERNO)));
+    // comparar manualmente cada ID
+    for (var i = 0; i < pacientes.length; i++) {
+      var idSheet = Utl_texto(pacientes[i].ID_INTERNO);
+      var idBuscar = Utl_texto(primero.ID_INTERNO);
+      if (i < 3) {
+        Logger.log('  fila ' + (i+2) + ': ID=' + JSON.stringify(idSheet) +
+                   ' | === buscado? ' + (idSheet === idBuscar));
+      }
+      if (idSheet === idBuscar) {
+        Logger.log('  MATCH MANUAL encontrado en índice ' + i);
+        break;
+      }
+    }
+  }
+
+  // probar también con un paciente del medio
+  if (pacientes.length > 10) {
+    var medio = pacientes[Math.floor(pacientes.length / 2)];
+    Logger.log('');
+    Logger.log('--- Prueba ficha paciente del medio ---');
+    Logger.log('ID: ' + JSON.stringify(medio.ID_INTERNO));
+    var fichaMedio = Modelo_fichaPaciente(medio.ID_INTERNO);
+    Logger.log('Ficha: ' + (fichaMedio ? 'ENCONTRADA ✓' : 'NULL ✗'));
+  }
+
+  Logger.log('=== FIN DIAGNÓSTICO ===');
 }
