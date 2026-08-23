@@ -134,7 +134,8 @@ function toast(msg,tipo){ /* reemplaza alert(): ok|err|info, auto 4s */
   var ic=tipo==='ok'?'check-circle':tipo==='err'?'alert-circle':tipo==='warn'?'alert-triangle':'info';
   el.innerHTML='<span class="t-ic"><i data-lucide="'+ic+'"></i></span><span>'+_esc(msg)+'</span>';
   z.appendChild(el);_refrescarIconos();
-  setTimeout(function(){el.classList.add('salida');setTimeout(function(){el.remove();},260);},4000);
+  setTimeout(function(){el.classList.add('salida');setTimeout(function(){el.remove();},260);},
+             tipo==='err'?8000:4000);
 }
 /* Estado de carga de botón: spinner inline + deshabilitado mientras corre google.script.run */
 function _btnCargando(btn,texto){

@@ -349,9 +349,13 @@ function REM_exportarExcel(anio, mes, sectorFiltro) {
              validacion: { ok: c.validacion.ok, warning: c.validacion.warning,
                            error: c.validacion.error } };
   } catch (e) {
-    Log_error('REM', 'exportarExcel', (nombre || '') + ' → ' + (e && e.message || e));
+    var msg = e && e.message ? e.message : String(e);
+    if (/permission|autoriz|Scope/i.test(msg)) {
+      msg += ' — autoriza los nuevos permisos (abre Apps Script y acepta el aviso).';
+    }
+    Log_error('REM', 'exportarExcel', (nombre || '') + ' → ' + msg);
     Log_flush();
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+    return { ok: false, motivo: msg };
   } finally {
     if (tempId) {
       try { DriveApp.getFileById(tempId).setTrashed(true); } catch (eT) {}
