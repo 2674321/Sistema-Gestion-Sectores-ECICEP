@@ -540,6 +540,7 @@ function abrirGenerador(btn){
 }
 
 /* ================= init ================= */
+try{
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
 _refrescarIconos();
 if(MODO==='revision'){
@@ -551,7 +552,11 @@ if(MODO==='revision'){
     lanz.addEventListener('click',abrirPac);
     lanz.addEventListener('focus',abrirPac);
   }
-  cargarCentro(); /* centro: KPIs reales + accesos; búsqueda vive en SU sidebar */
+  cargarPanel(); /* centro: KPIs reales + accesos */
+}
+}catch(eInit){
+  console.error('[ECICEP] init',eInit);
+  toast('Error inicializando: '+((eInit&&eInit.message)||eInit),'err');
 }
 </script>
 </body>
