@@ -336,6 +336,24 @@ function api_ficha(idInterno) {
     };
   }
 
+  // --- paciente encontrado: construir ficha ---
+  var eventos = Modelo_leerEventos().filter(function (e) {
+    return Utl_texto(e.ID_INTERNO) === Utl_texto(idNormalizado);
+  }).sort(function (a, b) {
+    return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 :
+           Utl_texto(a.FECHA_EVENTO) > Utl_texto(b.FECHA_EVENTO) ? 1 : 0;
+  });
+
+  var ficha = {};
+  _FICHA_CAMPOS_OPERATIVOS.forEach(function (c) { ficha[c] = paciente[c]; });
+  ficha.EDAD = Utl_edadDesde(paciente.FECHA_NACIMIENTO);
+  ficha.eventos = eventos.map(function (e) {
+    return { fecha: e.FECHA_EVENTO, tipo: e.TIPO_EVENTO, sector: e.SECTOR,
+             riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION };
+  });
+  return ficha;
+}
+
 /** Endpoint sidebar: registra un evento para un paciente existente y
  *  sincroniza la caché de estado vigente en PACIENTES. */
 function api_registrarEvento(payload) {
