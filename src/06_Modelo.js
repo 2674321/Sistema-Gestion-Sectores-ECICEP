@@ -1169,14 +1169,13 @@ function Modelo_validarIngresos(ss) {
       ['NOTA_SISTEMA', 'ESTADO_INGRESO'].forEach(function (colNombre) {
         if (!idx[colNombre]) return;
         var col = idx[colNombre];
-        var yaTiene = SpreadsheetApp
+        var yaTiene = h
           .getProtections(SpreadsheetApp.ProtectionType.RANGE)
           .some(function (pr) {
             try {
               var r = pr.getRange();
               return pr.getDescription() === 'ECICEP-SISTEMA' &&
-                     r.getSheet().getName() === nombre &&
-                     r.getRow() === 1 && r.getColumn() === col;
+                     r.getColumn() === col;
             } catch (eP) { return false; }
           });
         if (!yaTiene) {
