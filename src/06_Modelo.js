@@ -64,15 +64,30 @@ function _modelo_repararObjetoTecnico(obj) {
   if (nombre && Utl_texto(obj.NOMBRE_NORMALIZADO) !== Utl_sinTildes(nombre)) {
     obj.NOMBRE_NORMALIZADO = Utl_sinTildes(nombre); cambios++;
   }
+  // bool canónico: true/false/TRUE/FALSE; cualquier otra cosa (texto corrido
+  // por desalineación) se considera basura y se reescribe siempre.
+  var _bool = function (v) {
+    if (v === true || v === 'TRUE') return true;
+    if (v === false || v === 'FALSE') return false;
+    return null;
+  };
   var rut = Utl_texto(obj.RUT);
   if (rut) {
     var dvDebe = Norm_validarRut(rut);
-    var dvEsta = obj.RUT_DV_VALIDO === true || obj.RUT_DV_VALIDO === 'TRUE';
-    if (dvEsta !== dvDebe) { obj.RUT_DV_VALIDO = dvDebe; cambios++; }
+    var dvEsta = _bool(obj.RUT_DV_VALIDO);
+    if (dvEsta === null || dvEsta !== dvDebe) { obj.RUT_DV_VALIDO = dvDebe; cambios++; }
     var sinDvDebe = rut.indexOf('-') === -1;
-    var sinDvEsta = obj.RUT_SIN_DV === true || obj.RUT_SIN_DV === 'TRUE';
-    if (sinDvEsta !== sinDvDebe) { obj.RUT_SIN_DV = sinDvDebe; cambios++; }
+    var sinDvEsta = _bool(obj.RUT_SIN_DV);
+    if (sinDvEsta === null || sinDvEsta !== sinDvDebe) { obj.RUT_SIN_DV = sinDvDebe; cambios++; }
   }
+  // ESTRAT_* solo admiten G/G1/G2/G3 o vacío; TRUE/FALSE son residuos de
+  // columnas corridas. Otros textos de fuente se conservan (no se destruyen).
+  var _estrat = function (campo) {
+    var v = Utl_texto(obj[campo]).trim().toUpperCase();
+    if (v === 'TRUE' || v === 'FALSE') { obj[campo] = ''; cambios++; }
+  };
+  _estrat('ESTRAT_ORIGEN');
+  _estrat('ESTRAT_CALCULADA');
   return cambios;
 }
 

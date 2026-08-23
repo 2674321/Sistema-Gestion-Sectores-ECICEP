@@ -1334,4 +1334,32 @@ function _pruebas_migracion_esquema(t, A) {
     _modelo_repararObjetoTecnico(obj);
     A.cierto(obj.RUT_SIN_DV === true, 'sin guion → bandera true');
   });
+
+  t('REPARACIÓN: texto basura en columna booleana se reescribe aunque compare igual', function () {
+    var obj = { NOMBRE: 'X Y', NOMBRE_NORMALIZADO: 'X Y',
+                RUT: '8031158-3', RUT_DV_VALIDO: true,
+                RUT_SIN_DV: 'JUAN CUBILLOS RIVERA' };
+    var n = _modelo_repararObjetoTecnico(obj);
+    A.cierto(obj.RUT_SIN_DV === false, 'texto reemplazado por false');
+    A.cierto(n >= 1, 'cambio contado (' + n + ')');
+  });
+
+  t('REPARACIÓN: residuos TRUE/FALSE en ESTRAT_* se limpian', function () {
+    var obj = { NOMBRE: 'A B', NOMBRE_NORMALIZADO: 'A B', RUT: '11111111-1',
+                RUT_DV_VALIDO: true, RUT_SIN_DV: false,
+                ESTRAT_ORIGEN: 'FALSE', ESTRAT_CALCULADA: 'TRUE' };
+    var n = _modelo_repararObjetoTecnico(obj);
+    A.igual(obj.ESTRAT_ORIGEN, '', 'origen limpio');
+    A.igual(obj.ESTRAT_CALCULADA, '', 'calculada limpia');
+    A.cierto(n >= 2, 'cambios contados (' + n + ')');
+  });
+
+  t('REPARACIÓN: valores de fuente legítimos en ESTRAT_* se conservan', function () {
+    var obj = { NOMBRE: 'C D', NOMBRE_NORMALIZADO: 'C D', RUT: '11111111-1',
+                RUT_DV_VALIDO: true, RUT_SIN_DV: false,
+                ESTRAT_ORIGEN: 'Z', ESTRAT_CALCULADA: '' };
+    var n = _modelo_repararObjetoTecnico(obj);
+    A.igual(obj.ESTRAT_ORIGEN, 'Z', 'valor de fuente intacto');
+    A.igual(n, 0, 'sin cambios');
+  });
 }
