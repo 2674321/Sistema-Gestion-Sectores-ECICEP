@@ -40,11 +40,13 @@
 | # | Pendiente | Tipo | Bloquea | Prioridad |
 |---|---|---|---|---|
 | 23 | ~~Drift de esquema PACIENTES (hoja física sin OTRAS_PATOLOGIAS)~~ ✅ **RESUELTO (2026-08-23):** guardado de patologías escribía 30 valores posicionales sobre hoja de 29 columnas → corrupción desde NOMBRE_NORMALIZADO en adelante (2 filas afectadas reales). Implementado: `Modelo_planMigracionEsquema` (pura), `Modelo_asegurarEsquemaPacientes` (auto-migración idempotente en todo escritor posicional), limpieza profunda de tipos (texto en booleanos, TRUE/FALSE residual en ESTRAT_*), menú ⚙️ Administración → 🧬 Verificar/migrar esquema. Validado end-to-end en producción | Resuelto | — | — |
-| 24 | Restaurar FUENTE perdida en 2 filas de PACIENTES durante el incidente (#23): fila 15 JUAN CUBILLOS RIVERA (7030521-6, probablemente `ECICEP NARANJO\|Ingresos Enero \|4` — confirmar contra Excel) y fila 20 SILVIA MONDACA ALFARO (8031158-3, `ECICEP NARANJO\|Ingresos Enero \|9` — confirmado). Mantener REQUIERE_REVISION=TRUE hasta restaurar | Tarea manual con Excel original | Trazabilidad completa de esas 2 fichas | MEDIA |
+| 24 | Restaurar FUENTE perdida en 2 filas de PACIENTES durante el incidente (#23). ✅ **EVIDENCIA VERIFICADA (2026-08-23) contra `ECICEP NARANJO.xlsx` → hoja 'Ingresos Enero ':** fila 15 JUAN CUBILLOS RIVERA (7030521-6) → `ECICEP NARANJO\|Ingresos Enero \|4`; fila 20 SILVIA MONDACA ALFARO (8031158-3) → `ECICEP NARANJO\|Ingresos Enero \|9`. Aplicación pendiente (pegar en celda FUENTE; luego REQUIERE_REVISION=FALSE ya está). Contrato implementado (commit 7447d99): evaluador/guard/diagnóstico/restauración con protección anti-sobreescritura | Tarea manual (valores verificados arriba) | Cierre #24 | MEDIA — solo pegar 2 celdas |
 
 ## Limitaciones técnicas registradas
 
+- Webhook desplegado devuelve HTTP 404 (despliegue eliminado o URL vencida, detectado 2026-08-23). Las acciones remotas nuevas (diag_trazabilidad, restaurar_fuente) requieren republicar la app web. Alternativa: `clasp login` refrescaría el token con scopes completos (habilitaría scripts:run y lectura de contenido, cerrando también la limitación de abajo).
 - Token clasp actual solo permite metadatos de Drive (listado), no contenido de
-  Spreadsheets (403 en sheets.googleapis.com y en export). Verificado 2026-08-21.
+  Spreadsheets (403 en sheets.googleapis.com y en export). Verificado
+  2026-08-21 y re-verificado 2026-08-23 vía scripts:run (storage NOT_FOUND).
 - Los seriales de fecha corruptos detectados por openpyxl (celdas marcadas como
   fecha con valores imposibles) se tratarán como texto inválido → flag de revisión.
