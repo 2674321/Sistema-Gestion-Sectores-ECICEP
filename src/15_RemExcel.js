@@ -279,10 +279,10 @@ function api_rem9Datos(anio, mes, sectorFiltro) {
       programa: _rem9_configValor('GENERAL_NOMBRE_SISTEMA') || 'ECICEP',
       centro: '' });
     if (!c.atenciones) return { ok: false, motivo: 'SIN_EVENTOS_PERIODO',
-      nombre: remNombreArchivo(anio, mes, filtro) };
+      nombre: 'REM_ECICEP_' + anio + '_' + (mes < 10 ? '0' : '') + mes + '.xlsx' };
     Log_info('REM', 'datosExcel', 'resumen=' + c.resumen.length + ' detalle=' + c.detalle.length);
     Log_flush();
-    return { ok: true, nombre: remNombreArchivo(anio, mes, filtro),
+    return { ok: true, nombre: 'REM_ECICEP_' + anio + '_' + (mes < 10 ? '0' : '') + mes + '.xlsx',
       cabecera: Rem_cabecera(anio, mes, filtro),
       colsResumen: REM9_RES_COLS, colsDetalle: REM9_DET_COLS,
       resumen: c.resumen, detalle: c.detalle, validacion: c.validacion };
