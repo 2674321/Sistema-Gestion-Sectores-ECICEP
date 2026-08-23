@@ -2,256 +2,392 @@
 <html>
 <head>
 <base target="_top">
+<?!= include('00_Tokens') ?>
 <style>
-body{font-family:Arial,sans-serif;font-size:13px;margin:8px;color:#222}
-input,select{width:100%;padding:5px;margin:2px 0 8px;box-sizing:border-box}
-button{padding:5px 8px;border:0;border-radius:4px;cursor:pointer;font-size:12px}
-.b-azul{background:#0b5394;color:#fff}.b-verde{background:#38761d;color:#fff}
-.b-rojo{background:#a61c00;color:#fff}.b-gris{background:#666;color:#fff}
-.res{border-bottom:1px solid #ddd;padding:6px 0;cursor:pointer}.res:hover{background:#eef3fa}
-.etq{font-size:11px;color:#777;text-transform:uppercase}
-table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}
-td,th{border:1px solid #ddd;padding:3px 4px;text-align:left}
-th{background:#f0f4f8;font-size:11px}
-.msg{margin-top:6px;padding:5px;display:none;border-radius:3px;font-size:12px}
-.ok{display:block;background:#d9ead3}.err{display:block;background:#f4cccc}
-#vista,#panelRev,#panelPat{display:none}
-h3{margin:8px 0 4px;font-size:14px}
-.comp{border:1px solid #ccc;border-radius:4px;padding:6px;margin:4px 0;font-size:12px}
-.comp b{color:#0b5394}
-.cand{background:#f9f9ff}
-.pat-item{display:flex;align-items:center;padding:3px 0;border-bottom:1px solid #eee;cursor:pointer}
-.pat-item:hover{background:#f5f7fa}
-.peso{font-size:10px;background:#e0e0e0;border-radius:3px;padding:1px 4px;margin-left:auto;color:#555}
-.peso2{background:#fce4ec;color:#a61c00;font-weight:bold}
-.contador{font-size:12px;color:#0b5394;font-weight:bold;margin:6px 0}
-.otras-sep{border-top:2px solid #ccc;margin-top:10px;padding-top:8px;font-size:11px;color:#888}
-textarea{width:100%;height:50px;box-sizing:border-box;margin:2px 0}
+/* Vista sidebar angosto (~300px): base 14px definida en tokens */
+.wrap{padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-3)}
+.topbar{display:flex;align-items:center;gap:var(--space-2)}
+.topbar h2{margin:0;font-size:16px;color:var(--text-primary);flex:1}
+.pos-btn{position:relative}
+.pos-btn .cnt{position:absolute;top:-6px;right:-6px;background:var(--primary);color:#fff;
+  border-radius:var(--radius-full);font:700 10px 'Inter';min-width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;padding:0 4px}
+
+.res-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border-strong);
+  border-radius:var(--radius-md);padding:10px 12px;margin-bottom:var(--space-2);cursor:pointer;
+  transition:box-shadow .15s var(--ease-in),transform .15s var(--ease-in)}
+.res-card:hover,.res-card.kbd{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.res-card.kbd{border-color:var(--primary)}
+.res-nombre{font-weight:600;font-size:14px}
+.res-linea{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap}
+.rut{color:var(--text-secondary);font-size:12px}
+
+.ficha-head{position:sticky;top:0;z-index:20;background:var(--surface);
+  border-bottom:1px solid var(--border);padding:var(--space-3);margin:calc(var(--space-3)*-1);
+  margin-bottom:var(--space-2);box-shadow:var(--shadow-sm)}
+.ficha-head .nombre{font:700 17px 'Sora';line-height:1.25}
+.ficha-chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+
+.tabs{display:flex;border-bottom:2px solid var(--border);position:relative;margin-top:var(--space-1)}
+.tab{flex:1;text-align:center;padding:10px 4px;font:600 12.5px 'Inter';color:var(--text-muted);
+  cursor:pointer;background:none;border:none;border-radius:0;min-height:40px;transition:color .15s var(--ease-in)}
+.tab:hover{color:var(--text-primary)}
+.tab.activa{color:var(--primary)}
+.tab::after{content:'';position:absolute;bottom:-2px;left:0;width:100%;height:2px;background:var(--primary);
+  transform:scaleX(0);transition:transform .22s var(--ease-in);transform-origin:left}
+.tab.activa::after{transform:scaleX(1)}
+
+.pane{display:none;padding-top:var(--space-3)} .pane.activa{display:block;animation:tIn .22s var(--ease-in)}
+
+.dato-grid{display:flex;flex-direction:column;gap:2px}
+.dato-fila{display:flex;justify-content:space-between;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border)}
+.dato-fila .k{color:var(--text-muted);font-size:12px}
+.dato-fila .v{font-weight:500;text-align:right}
+
+.timeline{list-style:none;margin:0;padding:0 0 0 18px;position:relative}
+.timeline::before{content:'';position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:0 0 var(--space-3) 12px}
+.tl-item .punto{position:absolute;left:-18px;top:3px;width:12px;height:12px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center}
+.tl-item .tl-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.tl-tipo{font-weight:600;font-size:13px}
+.tl-fecha{font-size:11px;color:var(--text-muted);white-space:nowrap;cursor:default}
+.tl-detalle{font-size:12px;color:var(--text-secondary);margin-top:2px}
+.tl-item.anim{animation:tIn .3s var(--ease-in) both}
+
+.pat-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pchip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:var(--radius-full);
+  border:1px solid var(--border-strong);background:var(--surface);font:500 12px 'Inter';
+  cursor:pointer;user-select:none;transition:all .15s var(--ease-in);min-height:34px}
+.pchip:hover{border-color:var(--primary);color:var(--primary)}
+.pchip.sel{background:var(--primary);border-color:var(--primary);color:#fff}
+.pchip.sel.anim-pop{animation:pop .18s var(--ease-in)}
+.pchip .peso{font-size:10px;background:rgba(255,255,255,.25);border-radius:var(--radius-full);padding:1px 6px}
+.pchip:not(.sel) .peso{background:var(--surface-alt);color:var(--text-muted)}
+@keyframes pop{0%{transform:scale(.85)}70%{transform:scale(1.06)}100%{transform:scale(1)}}
+.otras-box{margin-top:var(--space-4);background:var(--surface-alt);border:1px dashed var(--border-strong);
+  border-radius:var(--radius-md);padding:var(--space-3)}
+.otras-box .tit{font:600 11px 'Inter';letter-spacing:.05em;color:var(--text-secondary);display:flex;gap:6px;align-items:center}
+.otras-box small{color:var(--text-muted)}
+textarea.inp{min-height:64px;resize:vertical}
+
+.rev-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:var(--space-3);margin-bottom:var(--space-3)}
+.rev-meta{font-size:11px;color:var(--text-muted);margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap}
+.rev-bloque{border-left:3px solid var(--border-strong);padding:6px 10px;background:var(--surface-alt);
+  border-radius:var(--radius-sm);margin:6px 0;font-size:12.5px}
+.rev-bloque.cand{border-left-color:var(--primary);background:var(--primary-soft)}
+.rev-bloque b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:2px}
+.rev-acciones{display:flex;gap:8px;margin-top:10px}
+.rev-acciones .btn{flex:1;justify-content:center}
 </style>
 </head>
 <body>
+<div id="toastZone"></div>
 
-<div id="panelBuscar">
-  <div class="etq">Buscar paciente (RUT o nombre)</div>
-  <input id="termino" placeholder="RUT o nombre…">
-  <button class="b-azul" onclick="buscar()">🔍 Buscar</button>
-  <button class="b-gris" onclick="verRevision()">🧾 Revisión (<span id="cntRev">…</span>)</button>
+<!-- ============ BÚSQUEDA ============ -->
+<div id="panelBuscar" class="wrap">
+  <div class="topbar"><h2>Pacientes ECICEP</h2>
+    <button id="btnRev" class="btn btn-sec pos-btn" onclick="verRevision()">
+      <i data-lucide="clipboard-check"></i><span class="cnt" id="cntRev">…</span>
+    </button>
+  </div>
+  <label class="etq" for="termino">Buscar por RUT o nombre</label>
+  <input id="termino" class="inp" placeholder="Ej: 8031158-3 o Silvia…" autocomplete="off">
   <div id="resultados"></div>
 </div>
 
-<div id="vista" style="display:none">
-  <button class="b-gris" onclick="volver()">← Volver</button>
-  <h3 id="fNombre"></h3>
-  <table id="fDatos"></table>
-  <h3>Historial</h3>
-  <table id="fEventos"></table>
-  <h3>Registrar gestión</h3>
-  <select id="evTipo"></select>
-  <input id="evFecha" type="date">
-  <input id="evProf" placeholder="Profesional (opcional)">
-  <input id="evDesc" placeholder="Descripción (opcional)">
-  <button class="b-verde" onclick="registrarEvento()">✔ Registrar</button>
-  <div id="msgEv" class="msg"></div>
-  <h3>🩺 Patologías</h3>
-  <div id="fichaPats"></div>
-  <button class="b-gris" onclick="abrirPatologias()">🩺 Editar patologías</button>
+<!-- ============ FICHA ============ -->
+<div id="vista" class="wrap" style="display:none">
+  <div class="ficha-head">
+    <button class="btn btn-ghost" style="padding:4px 8px;min-height:30px;margin-left:-8px" onclick="volver()">
+      <i data-lucide="arrow-left"></i> Volver
+    </button>
+    <div class="nombre" id="fNombre">—</div>
+    <div class="ficha-chips">
+      <span id="fSector"></span><span id="fEst"></span><span id="fEstado"></span>
+      <span class="chip rut" id="fRut"></span>
+    </div>
+    <nav class="tabs" id="tabsNav">
+      <button class="tab activa" data-pane="paneDatos">Datos</button>
+      <button class="tab" data-pane="paneHist">Historial</button>
+      <button class="tab" data-pane="panePat">Patologías</button>
+    </nav>
+  </div>
+
+  <section id="paneDatos" class="pane activa">
+    <div class="dato-grid" id="fDatos"></div>
+    <label class="etq"><i data-lucide="stethoscope" style="width:12px;height:12px;vertical-align:-2px"></i> Registrar gestión</label>
+    <select id="evTipo" class="inp"></select>
+    <input id="evFecha" type="date" class="inp" style="margin-top:8px">
+    <input id="evProf" class="inp" placeholder="Profesional (opcional)" style="margin-top:8px">
+    <input id="evDesc" class="inp" placeholder="Descripción (opcional)" style="margin-top:8px">
+    <button id="btnRegEv" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:10px"
+      onclick="registrarEvento(this)"><i data-lucide="check"></i> Registrar</button>
+  </section>
+
+  <section id="paneHist" class="pane">
+    <ul class="timeline" id="fTimeline"></ul>
+  </section>
+
+  <section id="panePat" class="pane">
+    <label class="etq" for="patBuscar">Catálogo ECICEP</label>
+    <input id="patBuscar" class="inp" placeholder="Buscar condición…" autocomplete="off">
+    <div class="chip est-pendiente" style="margin:10px 0;border-style:solid">
+      Seleccionadas: <b class="num" id="patContador" style="color:var(--primary)">0</b>
+    </div>
+    <div id="patLista" class="pat-chips"></div>
+    <div class="otras-box">
+      <div class="tit"><i data-lucide="notebook-pen" style="width:13px;height:13px"></i>
+        OTRAS PATOLOGÍAS / CONDICIONES</div>
+      <small>No reciben ponderación ECICEP automáticamente</small>
+      <textarea id="otrasPatologias" class="inp" placeholder="Escriba aquí…" style="margin-top:8px"></textarea>
+    </div>
+    <button id="btnGuardarPat" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:12px"
+      onclick="guardarPatologias(this)"><i data-lucide="save"></i> Guardar patologías</button>
+  </section>
 </div>
 
-<div id="panelRev" style="display:none">
-  <button class="b-gris" onclick="volver()">← Volver</button>
-  <h3>Cola de revisión</h3>
-  <div id="revMetricas"></div>
+<!-- ============ REVISIÓN ============ -->
+<div id="panelRev" class="wrap" style="display:none">
+  <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px" onclick="volver()">
+    <i data-lucide="arrow-left"></i> Volver
+  </button>
+  <h2 style="font-size:16px;margin:4px 0 8px">Cola de revisión</h2>
+  <div id="revMetricas" class="ficha-chips"></div>
   <div id="revLista"></div>
 </div>
 
+<script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var P_ACTUAL=null;
+/* ================= estado ================= */
+var P_ACTUAL=null, PAT_CATALOGO=[], PAT_SELECCIONADAS=[], _animTimeline=false, _resIdx=-1;
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','OTRO'];
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+var TL_ESTILO={
+  INGRESO:{c:'#0E5C68',i:'log-in'}, CONTROL:{c:'#6B5CA8',i:'stethoscope'},
+  SEGUIMIENTO:{c:'#5B6472',i:'phone'}, PLAN_CUIDADO:{c:'#3E7CA6',i:'clipboard-list'},
+  GESTION_CASO_INGRESO:{c:'#4A6FA5',i:'arrow-right-circle'},
+  GESTION_CASO_EGRESO:{c:'#7A5F8A',i:'arrow-left-circle'},
+  EGRESO:{c:'#8A93A3',i:'log-out'}
+};
+function estiloTL(t){return TL_ESTILO[String(t||'').toUpperCase()]||{c:'#8A93A3',i:'circle'};}
 
-function buscar(){
-  var t=document.getElementById('termino').value;if(!t)return;
-  document.getElementById('resultados').innerHTML='<i>Buscando…</i>';
+/* ================= búsqueda en vivo ================= */
+function buscarAhora(){
+  var t=document.getElementById('termino').value.trim();
+  if(t.length<2){document.getElementById('resultados').innerHTML='';_resIdx=-1;return;}
+  document.getElementById('resultados').innerHTML=
+    '<div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div>';
   google.script.run.withSuccessHandler(function(l){
-    document.getElementById('resultados').innerHTML=l.length?l.map(function(p){
-      return '<div class="res" onclick="abrirFicha(\''+esc(p.id)+'\')"><b>'+esc(p.nombre)+'</b><br>'+esc(p.rut)+' · '+esc(p.sector)+' · '+esc(p.estado||'—')+'</div>';
-    }).join(''):'<i>Sin resultados</i>';
+    var cont=document.getElementById('resultados');_resIdx=-1;
+    if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
+    cont.innerHTML=l.map(function(p){
+      return '<div class="res-card" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
+        '<div class="res-nombre">'+_esc(p.nombre)+'</div>'+
+        '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
+    }).join('');
+    _refrescarIconos();
   }).api_buscar(t);
 }
+var buscar=_debounce(buscarAhora,220);
+
+document.getElementById('termino').addEventListener('keydown',function(e){
+  var cards=document.querySelectorAll('#resultados .res-card');
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();if(!cards.length)return;
+    _resIdx=e.key==='ArrowDown'?Math.min(_resIdx+1,cards.length-1):Math.max(_resIdx-1,0);
+    cards.forEach(function(c,i){c.classList.toggle('kbd',i===_resIdx);});
+    if(cards[_resIdx])cards[_resIdx].scrollIntoView({block:'nearest'});
+  }else if(e.key==='Enter'){
+    if(_resIdx>=0&&cards[_resIdx])cards[_resIdx].click();
+    else if(cards[0])cards[0].click();
+  }
+});
+
+/* ================= ficha con tabs ================= */
+function activarTab(id){
+  document.querySelectorAll('.tab').forEach(function(tb){
+    tb.classList.toggle('activa',tb.dataset.pane===id);});
+  document.querySelectorAll('.pane').forEach(function(pn){
+    pn.classList.toggle('activa',pn.id===id);});
+}
+document.querySelectorAll('.tab').forEach(function(tb){
+  tb.addEventListener('click',function(){activarTab(tb.dataset.pane);});});
 
 function abrirFicha(id){
-  console.log('[ECICEP] abrirFicha → id recibido:', JSON.stringify(id));
-  if(!id){alert('ERROR: ID vacío');return;}
-  google.script.run
-    .withSuccessHandler(function(res){
-      if(!res){alert('ERROR: respuesta vacía del servidor');return;}
-      if(!res.ok){alert('✗ '+(res.code||'ERROR')+': '+res.message);return;}
-      var f = res.ficha;
-      if(!f){alert('Ficha vacía');return;}
-      P_ACTUAL=f.ID_INTERNO;
-      document.getElementById('panelPat').setAttribute('data-id',f.ID_INTERNO);
-      document.getElementById('vista').setAttribute('data-id',f.ID_INTERNO);
-    document.getElementById('panelBuscar').style.display='none';
-    document.getElementById('vista').style.display='block';
-    document.getElementById('fNombre').textContent=f.NOMBRE||'';
-    var d=[['RUT',f.RUT],['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],['Sector',f.SECTOR],['Estrat.',f.ESTRATIFICACION||'Pendiente'],['Estado',f.ESTADO],['Próx. control',f.PROXIMO_CONTROL]];
-    document.getElementById('fDatos').innerHTML=d.map(function(x){return '<tr><td class="etq">'+x[0]+'</td><td>'+esc(x[1])+'</td></tr>';}).join('');
-    var pats=(f.CONDICIONES||'').split(';').filter(Boolean);
-    var nombresPats=pats.map(function(cod){
-      var match=PAT_CATALOGO.find(function(p){return p.codigo===cod;});
-      return match?match.nombre:cod;
-    });
-    document.getElementById('fichaPats').innerHTML=nombresPats.length?
-      '<div style="font-size:12px">'+nombresPats.map(function(n){return '• '+esc(n);}).join('<br>')+'</div>':
-      '<i style="color:#888;font-size:11px">Sin patologías registradas</i>';
-    // guardar catálogo para uso posterior
-    google.script.run.withSuccessHandler(function(cat){PAT_CATALOGO=cat;}).api_patologiasAbrir(f.ID_INTERNO);
-    document.getElementById('fEventos').innerHTML='<tr><th>Fecha</th><th>Tipo</th><th>G</th></tr>'+(f.eventos.length?f.eventos.map(function(e){return '<tr><td>'+esc(e.fecha)+'</td><td>'+esc(e.tipo)+'</td><td>'+esc(e.riesgo)+'</td></tr>';}).join(''):'<tr><td colspan=3><i>Sin eventos</i></td></tr>');
-    var s=document.getElementById('evTipo');s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
-    document.getElementById('msgEv').className='msg';
-  }).withFailureHandler(function(err){
-      alert('ERROR del servidor: ' + (err && err.message ? err.message : err));
-      console.error('api_ficha error:', err);
+  if(!id){toast('ERROR: ID vacío','err');return;}
+  var cont=document.getElementById('vista');
+  document.getElementById('panelBuscar').style.display='none';
+  document.getElementById('panelRev').style.display='none';
+  cont.style.display='flex';cont.setAttribute('data-id',id);
+  ['fDatos','fTimeline','patLista'].forEach(function(x){document.getElementById(x).innerHTML='<div class="skel" style="height:52px"></div>';});
+  activarTab('paneDatos');
+  google.script.run.withSuccessHandler(function(res){
+    if(!res){toast('Respuesta vacía del servidor','err');return;}
+    if(!res.ok){toast((res.code||'ERROR')+': '+res.message,'err');return;}
+    pintarFicha(res.ficha);
+  }).withFailureHandler(function(err){toast('Error del servidor: '+(err&&err.message||err),'err');
   }).api_ficha(id);
 }
 
-function registrarEvento(){
-  var m=document.getElementById('msgEv');
-  m.textContent='Registrando…';m.className='msg';
-  google.script.run.withSuccessHandler(function(r){
-    m.textContent=r.ok?'✔ '+r.evento.tipo+' registrado':'✗ '+r.motivo;
-    m.className='msg '+(r.ok?'ok':'err');
-    if(r.ok)setTimeout(function(){abrirFicha(P_ACTUAL);},500);
-  }).api_registrarEvento({idInterno:P_ACTUAL,tipoEvento:document.getElementById('evTipo').value,fecha:document.getElementById('evFecha').value,profesional:document.getElementById('evProf').value,descripcion:document.getElementById('evDesc').value});
+function pintarFicha(f){
+  P_ACTUAL=f.ID_INTERNO;
+  document.getElementById('vista').setAttribute('data-id',f.ID_INTERNO);
+  document.getElementById('fNombre').textContent=f.NOMBRE||'—';
+  document.getElementById('fSector').innerHTML=_chipSector(f.SECTOR);
+  document.getElementById('fEst').innerHTML=_estIndicador(f.ESTRATIFICACION);
+  document.getElementById('fEstado').innerHTML='<span class="chip">'+_esc(f.ESTADO||'—')+'</span>';
+  document.getElementById('fRut').textContent=f.RUT||'';
+
+  var d=[['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],
+         ['Próx. control',_fmtFecha(f.PROXIMO_CONTROL)||f.PROXIMO_CONTROL],
+         ['Último control',_fmtFecha(f.ULTIMO_CONTROL)],['Ingreso',_fmtFecha(f.FECHA_INGRESO)]];
+  document.getElementById('fDatos').innerHTML=d.map(function(x){
+    return '<div class="dato-fila"><span class="k">'+x[0]+'</span><span class="v">'+
+      ((x[1]===''||x[1]==null)?'—':_esc(x[1]))+'</span></div>';}).join('');
+
+  /* historial timeline */
+  var tl=document.getElementById('fTimeline'),evs=f.eventos||[];
+  tl.innerHTML=evs.length?'':'<div class="vacio"><i data-lucide="history"></i>Sin eventos registrados</div>';
+  evs.slice().reverse().forEach(function(e,i){
+    var st=estiloTL(e.tipo),ex=_fmtFecha(e.fecha);
+    var li=document.createElement('li');li.className='tl-item'+(_animTimeline?'':' anim');
+    li.style.animationDelay=(i*40)+'ms';
+    li.innerHTML='<span class="punto" style="border-color:'+st.c+'"></span>'+
+      '<div class="tl-top"><span class="tl-tipo" style="color:'+st.c+'">'+_esc(e.tipo)+'</span>'+
+      '<span class="tl-fecha" title="'+ex+'">'+_rel(e.fecha)+'</span></div>'+
+      (e.profesional?'<div class="tl-detalle">'+_esc(e.profesional)+'</div>':'')+
+      (e.descripcion?'<div class="tl-detalle">'+_esc(e.descripcion)+'</div>':'')+
+      (e.riesgo?'<span class="chip rut" style="margin-top:4px;display:inline-flex">G: '+_esc(e.riesgo)+'</span>':'');
+    tl.appendChild(li);
+  });
+  _animTimeline=true;
+
+  /* patologías resumen en chips dentro del propio tab Patologías */
+  var s=document.getElementById('evTipo');
+  s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
+  cargarSelectorPatologias(f.ID_INTERNO,false);
+  _refrescarIconos();
 }
 
+/* ================= registrar gestión ================= */
+function registrarEvento(btn){
+  var fin=_btnCargando(btn,'Registrando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r.ok){toast(r.evento.tipo+' registrado ✓','ok');
+      document.getElementById('evDesc').value='';abrirFicha(P_ACTUAL);}
+    else toast(r.motivo||'No se pudo registrar','err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  .api_registrarEvento({idInterno:P_ACTUAL,tipoEvento:document.getElementById('evTipo').value,
+    fecha:document.getElementById('evFecha').value,
+    profesional:document.getElementById('evProf').value,
+    descripcion:document.getElementById('evDesc').value});
+}
+
+/* ================= patologías (selector en tab) ================= */
+var _patTimer=null;
+function cargarSelectorPatologias(pid,forzar){
+  if(!pid)return;
+  google.script.run.withSuccessHandler(function(r){
+    PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
+    document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
+    renderizarPats('');actualizarContador();_refrescarIconos();
+  }).api_patologiasAbrir(pid);
+}
+document.addEventListener('input',function(e){
+  if(e.target.id==='patBuscar'){var v=e.target.value;clearTimeout(_patTimer);
+    _patTimer=setTimeout(function(){renderizarPats(v);},220);}
+});
+
+function renderizarPats(filtro){
+  var f=(filtro||'').toLowerCase(),nf=function(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');};
+  var lista=PAT_CATALOGO.filter(function(p){
+    if(!f)return true;return nf(p.nombre.toLowerCase()).indexOf(nf(f))!==-1||p.codigo.toLowerCase().indexOf(f)!==-1;});
+  document.getElementById('patLista').innerHTML=lista.length?lista.map(function(p){
+    var sel=PAT_SELECCIONADAS.indexOf(p.codigo)!==-1;
+    return '<span class="pchip'+(sel?' sel':'')+'" onclick="togglePat(\''+p.codigo+'\',this)">'+
+      _esc(p.nombre)+'<span class="peso num">'+p.peso+'</span></span>';}).join('')
+    :'<div class="vacio" style="grid-column:1/-1"><i data-lucide="search-x"></i>Sin coincidencias</div>';
+  _refrescarIconos();
+}
+function togglePat(cod,el){
+  var i=PAT_SELECCIONADAS.indexOf(cod);
+  if(i!==-1){PAT_SELECCIONADAS.splice(i,1);if(el){el.classList.remove('sel','anim-pop');}}
+  else{PAT_SELECCIONADAS.push(cod);if(el){el.classList.add('sel','anim-pop');}}
+  actualizarContador();
+}
+function actualizarContador(){
+  document.getElementById('patContador').textContent=PAT_SELECCIONADAS.length;
+}
+function guardarPatologias(btn){
+  var pid=document.getElementById('vista').getAttribute('data-id')||'';
+  if(!pid){toast('No hay paciente abierto','err');return;}
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r.ok){toast(r.cantidad+' patologías guardadas · Ponderación '+r.puntaje,'ok');
+      if(r.esquemaMigrado)toast('Esquema PACIENTES migrado automáticamente','info');
+      abrirFicha(pid);}
+    else toast(r.motivo||'No se pudo guardar','err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  .api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),document.getElementById('otrasPatologias').value);
+}
+
+/* ================= cola de revisión ================= */
 function verRevision(){
   document.getElementById('panelBuscar').style.display='none';
   document.getElementById('vista').style.display='none';
   document.getElementById('panelRev').style.display='block';
-  document.getElementById('revLista').innerHTML='<i>Cargando…</i>';
+  document.getElementById('revLista').innerHTML='<div class="skel" style="height:120px"></div>';
   google.script.run.withSuccessHandler(function(r){
     var mt=r.metricas||{};
-    document.getElementById('revMetricas').innerHTML='<table style="font-size:11px"><tr><th>Abiertos</th><th>Resueltos</th><th>Mismo</th><th>Otro</th></tr><tr><td>'+(mt.abiertos||0)+'</td><td>'+(mt.resueltos||0)+'</td><td>'+(mt.esMismo||0)+'</td><td>'+(mt.esOtro||0)+'</td></tr></table>';
+    document.getElementById('revMetricas').innerHTML=
+      '<span class="chip">Abiertos <b class="num">'+(mt.abiertos||0)+'</b></span>'+
+      '<span class="chip">Resueltos <b class="num">'+(mt.resueltos||0)+'</b></span>'+
+      '<span class="chip">Mismo <b class="num">'+(mt.esMismo||0)+'</b></span>'+
+      '<span class="chip">Otro <b class="num">'+(mt.esOtro||0)+'</b></span>';
     var cs=r.casos||[];
     document.getElementById('revLista').innerHTML=cs.length?cs.map(function(c){
       var o=c.origen||{},cd=c.candidato;
-      return '<div style="border:1px solid #ccc;border-radius:4px;padding:6px;margin:6px 0">'+
-        '<div class="etq">'+esc(c.tipo)+' · '+esc(c.criterio)+' · confianza:'+esc(c.confianza)+'</div>'+
-        '<div class="comp"><b>📥 Origen:</b><br>Nombre: '+esc(o.nombre)+'<br>RUT: '+esc(o.rut||'sin RUT')+
-        '<br>Teléfono: '+esc(o.telefono||'—')+'<br>Sector: '+esc(o.sector)+'<br>Fuente: '+esc(o.fuente)+'</div>'+
-        '<div class="comp cand"><b>👤 Candidato:</b>'+
-        (cd?'<br>Nombre: '+esc(cd.nombre)+'<br>RUT: '+esc(cd.rut)+'<br>Teléfono: '+esc(cd.telefono||'—')+
-         '<br>Sector: '+esc(cd.sector)+'<br>Estrat.: '+esc(cd.estrat||'—')+'<br>Estado: '+esc(cd.estado||'')
-         :'<br><i>Sin candidato identificado</i>')+'</div>'+
-        '<button class="b-verde" onclick="resolver('+c.indice+',\'CONFIRMAR_MATCH\')">Es el mismo</button> '+
-        '<button class="b-rojo" onclick="resolver('+c.indice+',\'RECHAZAR_MATCH\')">Es otro</button>'+
-        '</div>';
-    }).join(''):'<i>No hay casos pendientes 🎉</i>';
+      return '<div class="rev-card"><div class="rev-meta"><span class="chip">'+_esc(c.tipo)+
+        '</span><span>'+_esc(c.criterio)+' · confianza '+_esc(c.confianza)+'</span></div>'+
+        '<div class="rev-bloque"><b>Origen</b>'+_esc(o.nombre)+'<br>RUT: '+_esc(o.rut||'sin RUT')+
+        '<br>Fuente: '+_esc(o.fuente)+'</div>'+
+        '<div class="rev-bloque cand"><b>Candidato</b>'+
+        (cd?_esc(cd.nombre)+'<br>RUT: '+_esc(cd.rut)+_chipSector(cd.sector)
+           :'<i>Sin candidato identificado</i>')+'</div>'+
+        '<div class="rev-acciones">'+
+        '<button class="btn btn-pri" onclick="resolver('+c.indice+',\'CONFIRMAR_MATCH\',this)"><i data-lucide="user-check"></i> Es el mismo</button>'+
+        '<button class="btn btn-danger" onclick="resolver('+c.indice+',\'RECHAZAR_MATCH\',this)"><i data-lucide="user-x"></i> Es otro</button>'+
+        '</div></div>';}).join('')
+      :'<div class="vacio"><i data-lucide="party-popper"></i>No hay casos pendientes</div>';
+    _refrescarIconos();
   }).api_revisionListar();
 }
-
-function resolver(idx,dec){
+function resolver(idx,dec,btn){
+  var fin=_btnCargando(btn,'Procesando…');
   google.script.run.withSuccessHandler(function(r){
-    if(!r.ok&&r.motivo==='CONFLICTO_YA_RESUELTO'){alert('CONFLICTO YA RESUELTO');return;}
-    alert(r.ok?('Resuelto: '+(r.accion==='CREAR'?'Paciente nuevo creado':'Enlazado a existente')):('✗ '+r.motivo));
+    fin();
+    if(!r.ok&&r.motivo==='CONFLICTO_YA_RESUELTO'){toast('Este conflicto ya estaba resuelto','info');verRevision();return;}
+    if(r.ok)toast(r.accion==='CREAR'?'Paciente nuevo creado':'Enlazado a existente','ok');
+    else toast(r.motivo||'No se pudo resolver','err');
     verRevision();
-  }).api_revisionResolver(idx,dec);
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  .api_revisionResolver(idx,dec);
 }
 
 function volver(){
   document.getElementById('vista').style.display='none';
   document.getElementById('panelRev').style.display='none';
-  document.getElementById('panelBuscar').style.display='block';
+  document.getElementById('panelBuscar').style.display='flex';
+  verRevision();
 }
-document.getElementById('termino').addEventListener('keyup',function(e){if(e.key==='Enter')buscar();});
+
+/* ================= init ================= */
+document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
+_refrescarIconos();
 verRevision();
 </script>
-
-<div id="panelPat">
-  <button class="b-gris" onclick="volverDePatologias()">← Volver a ficha</button>
-  <h3>🩺 Patologías ECICEP</h3>
-  <input id="patBuscar" placeholder="Buscar condición…" onkeyup="filtrarPatologias()">
-  <div class="contador">Seleccionadas: <span id="patContador">0</span></div>
-  <div id="patLista" style="max-height:250px;overflow-y:auto"></div>
-  <div class="otras-sep">OTRAS PATOLOGÍAS / CONDICIONES<br><span style="font-size:10px">No reciben ponderación ECICEP automáticamente</span></div>
-  <textarea id="otrasPatologias" placeholder="Escriba aquí…"></textarea>
-  <button class="b-verde" onclick="guardarPatologias()">💾 Guardar patologías</button>
-  <div id="msgPat" class="msg"></div>
-</div>
-
-<script>
-var PAT_CATALOGO=[], PAT_SELECCIONADAS=[], PAT_ID='';
-
-function abrirPatologias(){
-  var pid = document.getElementById('vista').getAttribute('data-id') ||
-            document.getElementById('panelPat').getAttribute('data-id') || '';
-  if(!pid){console.error('[ECICEP] data-id vacío en vista y panelPat');alert('Abre una ficha primero');return;}
-  document.getElementById('panelPat').setAttribute('data-id',pid);
-  document.getElementById('vista').style.display='none';
-  document.getElementById('panelPat').style.display='block';
-  google.script.run.withSuccessHandler(function(r){
-    PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
-    document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
-    renderizarPatologias('');
-    actualizarContador();
-  }).api_patologiasAbrir(pid);
-}
-
-function renderizarPatologias(filtro){
-  var f=(filtro||'').toLowerCase();
-  var html=PAT_CATALOGO.filter(function(p){
-    if(!f)return true;
-    var nombre=p.nombre.toLowerCase(),cod=p.codigo.toLowerCase();
-    // búsqueda tolerante sin tildes
-    var nf=nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    var ff=f.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    return nf.indexOf(ff)!==-1||cod.indexOf(f)!==-1;
-  }).map(function(p){
-    var sel=PAT_SELECCIONADAS.indexOf(p.codigo)!==-1;
-    var pesoCls=p.peso>=2?'peso peso2':'peso';
-    return '<div class="pat-item" onclick="togglePat(\''+p.codigo+'\')">'+
-      '<input type="checkbox" '+(sel?'checked':'')+' onclick="event.stopPropagation();togglePat(\''+p.codigo+'\')"> '+
-      esc(p.nombre)+'<span class="'+pesoCls+'">'+p.peso+'</span></div>';
-  }).join('');
-  document.getElementById('patLista').innerHTML=html||'<i>Sin resultados</i>';
-}
-
-function togglePat(cod){
-  var idx=PAT_SELECCIONADAS.indexOf(cod);
-  if(idx!==-1)PAT_SELECCIONADAS.splice(idx,1);
-  else PAT_SELECCIONADAS.push(cod);
-  renderizarPatologias(document.getElementById('patBuscar').value);
-  actualizarContador();
-}
-
-function filtrarPatologias(){renderizarPatologias(this.value||document.getElementById('patBuscar').value);}
-
-function actualizarContador(){
-  document.getElementById('patContador').textContent=PAT_SELECCIONADAS.length;
-}
-
-function guardarPatologias(){
-  var pid = document.getElementById('panelPat').getAttribute('data-id') || '';
-  if(!pid){alert('ERROR: No hay paciente abierto.');return;}
-  var m=document.getElementById('msgPat');
-  m.textContent='Guardando…';m.className='msg';
-  var otras=document.getElementById('otrasPatologias').value;
-  google.script.run.withSuccessHandler(function(r){
-    m.textContent=r.ok?('✔ '+r.cantidad+' patologías guardadas · Ponderación: '+r.puntaje+' · Estratificación: '+r.estratificacion+(r.esquemaMigrado?' · 🔧 Esquema PACIENTES migrado':'')):('✗ '+r.motivo);
-    m.className='msg '+(r.ok?'ok':'err');
-  }).api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),otras);
-}
-
-function volverDePatologias(){
-  document.getElementById('panelPat').style.display='none';
-  document.getElementById('vista').style.display='block';
-  abrirFicha(P_ACTUAL); // refrescar ficha con patologías actualizadas
-}
-
-// mostrar patologías en la ficha
-var _oldAbrirFicha=abrirFicha;
-</script>
-
 </body>
 </html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<?!= include('00_Tokens') ?>
+<style>
+/* Vista dialog ancho: 16px. SOLO tratamiento visual — el mapeo de columnas
+   exacto del REM queda PENDIENTE del documento de referencia. */
+body{font-size:16px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
+header{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)}
+header h1{font-size:20px;margin:0}
+.acciones{margin-left:auto;display:flex;gap:8px}
+.scroll-wrap{position:relative;flex:1;overflow:auto;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-lg)}
+/* gradiente que indica que hay más columnas hacia la derecha */
+.fade-der{position:absolute;top:0;right:0;bottom:0;width:36px;pointer-events:none;
+  background:linear-gradient(to left,rgba(16,24,40,.10),transparent);opacity:0;
+  transition:opacity .15s var(--ease-in)}
+.scroll-wrap.puede-scroll .fade-der{opacity:1}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13.5px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);
+  background:var(--surface);white-space:nowrap;text-align:left;color:var(--text-primary)}
+thead th{position:sticky;top:0;z-index:30;font:600 12px 'Inter';letter-spacing:.03em;
+  text-transform:uppercase;color:var(--text-secondary);background:var(--surface-alt)}
+tbody tr:nth-child(even) th,tbody tr:nth-child(even) td{background:var(--surface-alt)} /* zebra sutil */
+tbody tr:hover td,tbody tr:hover th{background:var(--primary-soft)}
+td.num-col,th.num-col{text-align:right;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{position:sticky;left:0;z-index:20;border-right:2px solid var(--border-strong)}
+thead th:first-child{z-index:40}
+.vacio-full{padding:var(--space-7);text-align:center;color:var(--text-muted)}
+@media print{
+  body{background:#fff;padding:0}
+  header .acciones,.fade-der{display:none!important}
+  header h1{color:#000}
+  .scroll-wrap{overflow:visible;border:none;border-radius:0}
+  th,td{background:#fff!important;color:#000;border-color:#999;white-space:normal}
+  thead th{background:#eee!important}
+  tbody tr:nth-child(even) td,tbody tr:nth-child(even) th{background:#f5f5f5!important}
+  table{width:100%;font-size:11px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>REM — vista de trabajo</h1>
+  <div class="acciones">
+    <button class="btn btn-sec" onclick="window.print()"><i data-lucide="printer"></i> Imprimir / PDF</button>
+    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+  </div>
+</header>
+<div class="scroll-wrap" id="wrap">
+  <table id="tabla"><thead></thead><tbody></tbody></table>
+  <div id="estado" class="vacio-full">
+    <div class="skel" style="height:220px;margin-bottom:12px"></div>
+    Cargando REM_SALIDA…
+  </div>
+</div>
+<div class="fade-der" id="fadeDer" style="position:fixed"></div>
+
+<script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<script>
+function pintar(filas){
+  var tb=document.getElementById('tabla'),thead=tb.querySelector('thead'),tbody=tb.querySelector('tbody');
+  if(!filas||filas.length<1){document.getElementById('estado').innerHTML=
+    '<div class="vacio"><i data-lucide="file-x"></i>REM_SALIDA está vacía.<br>Genera primero un período desde 📈 Reportes → 🧾 Generar REM mensual.</div>';
+    _refrescarIconos();return;}
+  document.getElementById('estado').remove();
+  var esNum=function(v){return /^-?\d+([.,]\d+)?$/.test(String(v).trim());};
+  thead.innerHTML='<tr>'+filas[0].map(function(h){
+    return '<th class="'+(esNum(h)?'num-col':'')+'">'+_esc(h)+'</th>';}).join('')+'</tr>';
+  tbody.innerHTML=filas.slice(1).map(function(f){
+    return '<tr>'+f.map(function(c){
+      return '<td class="'+(esNum(c)?'num-col':'')+'">'+_esc(c)+'</td>';}).join('')+'</tr>';}).join('');
+  var wrap=document.getElementById('wrap'),fade=document.getElementById('fadeDer');
+  function chequear(){
+    var puede=wrap.scrollWidth>wrap.clientWidth+4&&wrap.scrollLeft<wrap.scrollWidth-wrap.clientWidth-4;
+    fade.style.opacity=puede?'1':'0';
+    var r=wrap.getBoundingClientRect();fade.style.top=r.top+'px';fade.style.height=r.height+'px';
+  }
+  wrap.addEventListener('scroll',chequear);window.addEventListener('resize',chequear);
+  setTimeout(chequear,80);_refrescarIconos();
+}
+google.script.run.withSuccessHandler(function(r){
+  if(!r||!r.ok){pintar([]);return;}
+  pintar(r.filas);
+}).withFailureHandler(function(e){
+  document.getElementById('estado').innerHTML=
+    '<div class="vacio"><i data-lucide="alert-triangle"></i>Error al leer REM_SALIDA: '+_esc(e&&e.message||e)+
+    '<br><button class="btn btn-pri" style="margin-top:10px" onclick="location.reload()">Reintentar</button></div>';
+  _refrescarIconos();
+}).api_remLeer();
+_refrescarIconos();
+</script>
+</body>
+</html>

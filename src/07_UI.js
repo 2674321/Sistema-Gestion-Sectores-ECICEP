@@ -39,7 +39,9 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('📈 Reportes')
         .addItem('📊 Actualizar dashboard', 'UI_actualizarDashboard')
-        .addItem('🧾 Generar REM mensual', 'UI_generarRem'))
+        .addItem('📊 Panel interactivo', 'UI_abrirDashboard')
+        .addItem('🧾 Generar REM mensual', 'UI_generarRem')
+        .addItem('👁️ Ver REM generado', 'UI_verRem'))
 
       .addSeparator()
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -270,18 +272,81 @@ function Sembrar_ficticios() {
 }
 
 /** Un solo clic: instala, siembra ficticios, procesa y refresca vistas. */
+/** Incluye un archivo HTML (tokens/componentes) dentro de una plantilla. */
+function include(nombre) {
+  return HtmlService.createHtmlOutputFromFile(nombre).getContent();
+}
+
+/** Abre una vista HTML como dialog ancho (dashboard / REM). */
+function _ui_dialogo(nombre, titulo) {
+  var html = HtmlService.createTemplateFromFile(nombre).evaluate()
+    .setTitle(titulo).setWidth(1180).setHeight(720);
+  SpreadsheetApp.getUi().showModalDialog(html, titulo);
+}
+
 function UI_abrirBuscador() {
-  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle('ECICEP — Pacientes')
-    .setWidth(320);
+  var html = HtmlService.createTemplateFromFile('Sidebar')
+    .evaluate().setTitle('ECICEP — Pacientes');
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
 function UI_abrirRevision() {
-  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle('ECICEP — Revisión')
-    .setWidth(340);
+  var html = HtmlService.createTemplateFromFile('Sidebar')
+    .evaluate().setTitle('ECICEP — Revisión');
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function UI_abrirDashboard() { _ui_dialogo('Dashboard', 'Panel ECICEP'); }
+
+function UI_verRem() { _ui_dialogo('RemVista', 'REM — vista de trabajo'); }
+
+/** Fecha → 'YYYY-MM-DD' en zona horaria del proyecto (nunca UTC por defecto). */
+function _ui_isoFecha(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return Utl_texto(v).slice(0, 10);
+}
+
+/**
+ * Endpoint dashboard: UNA sola llamada con todo lo necesario para que el
+ * cliente filtre localmente y la UI reaccione instantánea. Payload mínimo
+ * por fila; sin datos derivados precalculados (#25: se computan en cliente).
+ */
+function api_dashboardDatos() {
+  try {
+    var pacientes = Modelo_leerPacientes().map(function (p) {
+      return { sector: Utl_texto(p.SECTOR), est: Utl_texto(p.ESTRATIFICACION),
+               rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),
+               cond: Utl_texto(p.CONDICIONES), fi: _ui_isoFecha(p.FECHA_INGRESO) };
+    });
+    var eventos = Modelo_leerEventos().map(function (e) {
+      return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR),
+               f: _ui_isoFecha(e.FECHA_EVENTO) };
+    });
+    var catalogo = CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; })
+      .map(function (c) { return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO }; });
+    return { ok: true, pacientes: pacientes, eventos: eventos, catalogo: catalogo,
+             generadoEn: _ui_isoFecha(new Date()) };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint visor REM: contenido crudo de REM_SALIDA para tratamiento visual.
+ *  NO define columnas oficiales — solo transporta lo generado. */
+function api_remLeer() {
+  try {
+    var hoja = Modelo_hoja('REM_SALIDA');
+    if (!hoja || hoja.getLastRow() < 1) return { ok: false, motivo: 'REM_NO_GENERADO' };
+    var tz = Session.getScriptTimeZone();
+    var filas = Utl_leerBloque(hoja).map(function (f) {
+      return f.map(function (c) {
+        return (c instanceof Date) ? Utilities.formatDate(c, tz, 'dd/MM/yyyy HH:mm') : c;
+      });
+    });
+    return { ok: true, filas: filas };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
 }
 
 /** Endpoint sidebar: búsqueda por RUT exacto o nombre (no agresiva). */
