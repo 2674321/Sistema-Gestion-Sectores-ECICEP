@@ -183,7 +183,7 @@ var PAT_CATALOGO=[], PAT_SELECCIONADAS=[], PAT_ID='';
 function abrirPatologias(){
   var pid = document.getElementById('vista').getAttribute('data-id') ||
             document.getElementById('panelPat').getAttribute('data-id') || '';
-  if(!pid){alert('Abre una ficha primero');return;}
+  if(!pid){console.error('[ECICEP] data-id vacío en vista y panelPat');alert('Abre una ficha primero');return;}
   document.getElementById('panelPat').setAttribute('data-id',pid);
   document.getElementById('vista').style.display='none';
   document.getElementById('panelPat').style.display='block';
@@ -192,7 +192,7 @@ function abrirPatologias(){
     document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
     renderizarPatologias('');
     actualizarContador();
-  }).api_patologiasAbrir(P_ACTUAL);
+  }).api_patologiasAbrir(pid);
 }
 
 function renderizarPatologias(filtro){

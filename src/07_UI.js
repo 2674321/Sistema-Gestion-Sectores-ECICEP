@@ -267,29 +267,6 @@ function Sembrar_ficticios() {
 }
 
 /** Un solo clic: instala, siembra ficticios, procesa y refresca vistas. */
-function UI_demoCompleta() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('Demo completa en curso…', 'ECICEP', 15);
-  var pasos = {};
-  pasos.estructura = Modelo_crearEstructura();
-  pasos.sembradas = Sembrar_ficticios();
-  pasos.proceso = Ingresos_procesarTodasLasHojas({});
-  pasos.vistas = Modelo_refrescarVistasSectores();
-  Log_info('UI', 'demoCompleta', JSON.stringify(pasos.proceso));
-  Log_flush();
-  ss.toast(
-    'Demo lista ✓ Sembradas: ' + pasos.sembradas +
-    ' · Nuevos: ' + pasos.proceso.nuevos +
-    ' · Enlazados: ' + pasos.proceso.existentes +
-    ' · Errores: ' + pasos.proceso.conError +
-    ' · Eventos: ' + pasos.proceso.eventosCreados, 'ECICEP ⚡', 20);
-}
-
-// ===========================================================================
-// ETAPA 4 — Búsqueda · Ficha · Registro de evento · Cola de revisión
-// (interacción con búsqueda/historial justifica sidebar — DEC-012)
-// ===========================================================================
-
 function UI_abrirBuscador() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar')
     .setTitle('ECICEP — Pacientes')
@@ -591,7 +568,7 @@ function UI_analisisCarga() {
   Log_info('UI', 'analisisCarga', JSON.stringify(res));
   Log_flush();
   ss.setActiveSheet(hojaR);
-  ui = SpreadsheetApp.getUi();
+  var ui = SpreadsheetApp.getUi();
   ui.alert(
     'ANÁLISIS DE CARGA REAL — DRY RUN\n\n' +
     'Ejecución: ' + res.ejecucion + '\n' +
