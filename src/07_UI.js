@@ -312,46 +312,71 @@ function api_buscar(termino) {
   });
 }
 
-/** Endpoint sidebar: ficha consolidada + historial desde EVENTOS. */
+/** Endpoint sidebar: ficha consolidada + historial desde EVENTOS.
+ *  Contrato: NUNCA retorna null/undefined. Siempre retorna {ok:true|false,...}
+ */
 function api_ficha(idInterno) {
-  var pacientes = Modelo_leerPacientes();
-  var paciente = null;
-  var idNormalizado = Utl_texto(idInterno).trim();
+  try {
+    var pacientes = Modelo_leerPacientes();
+    var paciente = null;
+    var idNormalizado = Utl_texto(idInterno).trim();
 
-  for (var i = 0; i < pacientes.length; i++) {
-    var idSheet = Utl_texto(pacientes[i].ID_INTERNO).trim();
-    if (idSheet === idNormalizado) { paciente = pacientes[i]; break; }
-  }
+    for (var i = 0; i < pacientes.length; i++) {
+      var idSheet = Utl_texto(pacientes[i].ID_INTERNO).trim();
+      if (idSheet === idNormalizado) { paciente = pacientes[i]; break; }
+    }
 
-  if (!paciente) {
-    // devolver diagnóstico en vez de null para que el frontend sepa qué pasó
+    if (!paciente) {
+      return {
+        ok: false,
+        code: 'PACIENTE_NO_ENCONTRADO',
+        message: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idNormalizado),
+        totalLeidos: pacientes.length
+      };
+    }
+
+    var eventos = [];
+    try {
+      eventos = Modelo_leerEventos().filter(function (e) {
+        return Utl_texto(e.ID_INTERNO) === Utl_texto(idNormalizado);
+      }).sort(function (a, b) {
+        return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 :
+               Utl_texto(a.FECHA_EVENTO) > Utl_texto(b.FECHA_EVENTO) ? 1 : 0;
+      });
+    } catch (evErr) {
+      console.warn('Error leyendo eventos para ficha:', evErr.message);
+      // continuar sin eventos pero con datos del paciente
+    }
+
+    var ficha = {};
+    _FICHA_CAMPOS_OPERATIVOS.forEach(function (c) {
+      var v = paciente[c];
+      // convertir Date objects a ISO string para serialización
+      if (v instanceof Date) {
+        v = v.getFullYear() + '-' + ('0'+(v.getMonth()+1)).slice(-2) + '-' + ('0'+v.getDate()).slice(-2);
+      }
+      ficha[c] = v !== undefined && v !== null ? v : '';
+    });
+
+    ficha.EDAD = Utl_edadDesde(paciente.FECHA_NACIMIENTO);
+    ficha.eventos = eventos.map(function (e) {
+      var fechaEv = e.FECHA_EVENTO;
+      if (fechaEv instanceof Date) {
+        fechaEv = fechaEv.getFullYear() + '-' + ('0'+(fechaEv.getMonth()+1)).slice(-2) + '-' + ('0'+fechaEv.getDate()).slice(-2);
+      }
+      return { fecha: fechaEv, tipo: e.TIPO_EVENTO, sector: e.SECTOR,
+               riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION };
+    });
+
+    return { ok: true, ficha: ficha };
+
+  } catch (e) {
     return {
-      _diagnostico: true,
-      idBuscado: idNormalizado,
-      idOriginal: idInterno,
-      tipoOriginal: typeof idInterno,
-      totalPacientesLeidos: pacientes.length,
-      primeros3Ids: pacientes.slice(0, 3).map(function (p) { return String(p.ID_INTERNO); }),
-      mensaje: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idNormalizado)
+      ok: false,
+      code: 'ERROR_BACKEND',
+      message: e && e.message ? e.message : String(e)
     };
   }
-
-  // --- paciente encontrado: construir ficha ---
-  var eventos = Modelo_leerEventos().filter(function (e) {
-    return Utl_texto(e.ID_INTERNO) === Utl_texto(idNormalizado);
-  }).sort(function (a, b) {
-    return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 :
-           Utl_texto(a.FECHA_EVENTO) > Utl_texto(b.FECHA_EVENTO) ? 1 : 0;
-  });
-
-  var ficha = {};
-  _FICHA_CAMPOS_OPERATIVOS.forEach(function (c) { ficha[c] = paciente[c]; });
-  ficha.EDAD = Utl_edadDesde(paciente.FECHA_NACIMIENTO);
-  ficha.eventos = eventos.map(function (e) {
-    return { fecha: e.FECHA_EVENTO, tipo: e.TIPO_EVENTO, sector: e.SECTOR,
-             riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION };
-  });
-  return ficha;
 }
 
 /** Endpoint sidebar: registra un evento para un paciente existente y

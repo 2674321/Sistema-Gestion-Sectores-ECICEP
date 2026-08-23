@@ -83,12 +83,11 @@ function abrirFicha(id){
   console.log('[ECICEP] abrirFicha → id recibido:', JSON.stringify(id));
   if(!id){alert('ERROR: ID vacío');return;}
   google.script.run
-    .withSuccessHandler(function(f){
-      if(f && f._diagnostico){
-        alert('\ud83d\udd0d DIAGNÓSTICO\n\n'+JSON.stringify(f,null,2));
-        return;
-      }
-      if(!f){alert('PACIENTE_NO_ENCONTRADO');return;}
+    .withSuccessHandler(function(res){
+      if(!res){alert('ERROR: respuesta vacía del servidor');return;}
+      if(!res.ok){alert('✗ '+(res.code||'ERROR')+': '+res.message);return;}
+      var f = res.ficha;
+      if(!f){alert('Ficha vacía');return;}
     document.getElementById('panelBuscar').style.display='none';
     document.getElementById('vista').style.display='block';
     document.getElementById('fNombre').textContent=f.NOMBRE||'';
