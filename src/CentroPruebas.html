@@ -118,6 +118,14 @@ header .sub{color:var(--text-muted);font-size:13px}
     </div>
   </div>
 
+  <div class="card h-card" style="border-left:4px solid #C79A00;margin-top:var(--space-3)">
+    <h3>🟡 Amarillo — importación completa</h3>
+    <p>Vuelca la fuente a INGRESO_AMARILLO (idempotente por RUT) y aplica el histórico (CONTROL / SEGUIMIENTO / PREINGRESO / PRÓXIMO CONTROL) a los pacientes ya importados. Requiere el archivo subido a Drive como Google Sheets y su ID en FUENTES_DRIVE.</p>
+    <button class="btn btn-pri" onclick="_amarillo(this,true)">Importar puerta + histórico</button>
+    <button class="btn btn-sec" onclick="_amarillo(this,false)">Solo puerta</button>
+    <span class="h-estado" id="st_amarillo"></span>
+  </div>
+
   <hr style="border:none;border-top:1px solid var(--border);margin:var(--space-4) 0">
   <small style="color:var(--text-muted);display:block;margin-bottom:8px">Operaciones sensibles — requieren confirmación:</small>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
@@ -242,6 +250,24 @@ function pintarInforme(r){
   _refrescarIconos();
 }
 cargarRegistro();
+function _amarillo(btn,conHistorico){
+  _btnPulso(btn,'Importando…',2500);
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo importar','err');return;}
+      var st=document.getElementById('st_amarillo');
+      var h=new Date();
+      if(st){st.textContent='\u2713 '+h.getHours()+':'+String(h.getMinutes()).padStart(2,'0');
+        st.style.color='var(--success)';}
+      toast('\ud83d\udfe1 Puerta: '+r.puerta.nuevas+' nuevas \u00b7 hist\u00f3rico: '+r.historico.eventosCreados
+        +' eventos / '+r.historico.pacientesActualizados+' pacientes actualizados','ok');
+      if(r.pendientesSinPaciente&&r.pendientesSinPaciente.length)
+        toast(r.pendientesSinPaciente.length+' filas sin paciente: procesa la puerta y re-ejecuta el hist\u00f3rico','warn');
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('Amarillo')(e);})
+    .Amarillo_importarTodo(conHistorico);
+}
 _refrescarIconos();
 </script>
 </body>

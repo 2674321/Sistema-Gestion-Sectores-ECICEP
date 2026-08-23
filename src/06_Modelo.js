@@ -299,8 +299,8 @@ var MODELO_DISENO = [
   // Catálogos y configuración (internas)
   { nombre: 'CAT_VIGENCIA_EXAMENES', color: '#8A93A3', oculta: true, banda: true },
   // Sistema (técnicas ocultas)
-  { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true },
-  { nombre: 'FUENTES',          color: '#8A93A3' },
+  { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
+  { nombre: 'FUENTES',          color: '#8A93A3', formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
   { nombre: 'CONFIG',           color: '#8A93A3', oculta: true },
   { nombre: 'LOG',              color: '#8A93A3', oculta: true },
   { nombre: 'STAGING_IMPORT',   color: '#8A93A3', oculta: true }

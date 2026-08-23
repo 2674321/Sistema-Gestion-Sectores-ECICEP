@@ -1233,7 +1233,8 @@ var PRUEBAS_SISTEMA = [
   { id: 'protecciones', modulo: 'DATOS',      nombre: 'Protecciones sistema',          fn: '_pruS_protecciones' },
   { id: 'remDatos',     modulo: 'REM',        nombre: 'REM generado disponible',       fn: '_pruS_remDatos' },
   { id: 'pdf',          modulo: 'REM',        nombre: 'Exportador PDF',                fn: '_pruS_pdf' },
-  { id: 'traza',        modulo: 'INTEGRIDAD', nombre: 'Trazabilidad FUENTE',           fn: '_pruS_traza' }
+  { id: 'traza',        modulo: 'INTEGRIDAD', nombre: 'Trazabilidad FUENTE',           fn: '_pruS_traza' },
+  { id: 'consistencia', modulo: 'INTEGRIDAD', nombre: 'Consistencia entre sectores',   fn: '_pruS_consistencia' }
 ];
 
 /** Registro para el cliente (checkboxes agrupados por módulo). */
@@ -1471,4 +1472,34 @@ function _panel_estratPendiente(filas) {
 function _panel_iniciales(nombre) {
   return Utl_texto(nombre).trim().split(/\s+/).slice(0, 2)
     .map(function (w) { return w.charAt(0).toUpperCase() + '.'; }).join(' ');
+}
+
+
+/** Consistencia transversal entre sectores (#5): conteos, duplicados por RUT,
+ *  pacientes sin sector y pendientes de importación Amarillo. */
+function _pruS_consistencia() {
+  var pacientes = Modelo_leerPacientes();
+  var porSector = {}, sinSector = 0, dups = {};
+  var vistos = {};
+  pacientes.forEach(function (p) {
+    var s = Utl_texto(p.SECTOR).toUpperCase() || '(SIN SECTOR)';
+    porSector[s] = (porSector[s] || 0) + 1;
+    if (s === '(SIN SECTOR)') sinSector++;
+    var rut = Utl_texto(p.RUT).toUpperCase();
+    if (rut && vistos[rut]) dups[rut] = (dups[rut] || 0) + 1;
+    vistos[rut] = true;
+  });
+  var detalle = Object.keys(porSector).sort().map(function (s) {
+    return s + ': ' + porSector[s];
+  }).join(' · ');
+  var nDup = Object.keys(dups).length;
+  if (nDup) return { estado: 'ERROR',
+    detalle: detalle + ' · ' + nDup + ' RUT duplicados: ' + Object.keys(dups).slice(0, 3).join(', ') };
+  if (sinSector) return { estado: 'WARN',
+    detalle: detalle + ' · ' + sinSector + ' sin sector' };
+  var amarillo = porSector['AMARILLO'] || 0;
+  var extra = amarillo < 100 ? ' · ⚠ Sector Amarillo con ' + amarillo +
+    ' registros (fuente de 1.091 pendiente de importar)' : '';
+  return { estado: amarillo < 100 ? 'WARN' : 'OK',
+           detalle: detalle + extra };
 }

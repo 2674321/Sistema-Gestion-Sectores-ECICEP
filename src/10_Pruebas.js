@@ -59,6 +59,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_rem_pdf(t, A);
   _pruebas_instalador(t, A);
   _pruebas_rem_excel(t, A);
+  _pruebas_amarillo(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1883,5 +1884,59 @@ function _pruebas_rem_excel(t, A) {
     var c=Rem9_construir({pacientes:PACS.concat([{ID_INTERNO:'P5',RUT:'55555555-5',NOMBRE:'CINCO',SEXO:'F'}]),
       eventos:evs,anio:2026,mes:8},{sector:'VERDE'});
     A.igual(c.atenciones,1,'solo VERDE');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sector Amarillo — mapeo puerta + histórico idempotente
+// ---------------------------------------------------------------------------
+
+function _pruebas_amarillo(t, A) {
+  var FILA = { NOMBRE: '  juan pérez  ', G: 'g3', RUT: '14438433-4',
+    'TELÉFONO': '95261221.0', PREINGRESO: new Date(2024,0,24),
+    INGRESO: new Date(2024,0,11), SEGUIMIENTO: '2026-06-26',
+    CONTROL: new Date(2026,3,19), 'PRÓXIMO CONTROL': '2026-08-01',
+    OBSERVACIONES: 'nota' };
+
+  t('AMARILLO: mapeo a contrato INGRESO_* — G normalizada, teléfono sin .0', function () {
+    var m = Amarillo_mapearFila(FILA);
+    A.igual(m.NOMBRE, 'JUAN PÉREZ', 'nombre normalizado');
+    A.igual(m.RUT, '14438433-4', 'rut');
+    A.igual(m.ESTRATIFICACION, 'G3', 'G mayúscula');
+    A.igual(m['TELEFONO(S)'], '95261221', 'teléfono sin .0');
+    A.igual(m['FECHA DE INGRESO'], '2024-01-11', 'fecha ingreso');
+    A.igual(m.SEXO, '', 'sexo no inventado');
+    A.igual(m['FECHA DE NACIMIENTO'], '', 'nacimiento no inventado');
+    A.igual(m.ESTADO_INGRESO, 'PENDIENTE', 'estado inicial');
+    A.cierto(m.NOTA_SISTEMA.indexOf('AMARILLO') !== -1, 'trazabilidad de origen');
+  });
+
+  t('AMARILLO: fechas corruptas/seriales imposibles → null (#no-inventar)', function () {
+    var h = Amarillo_historicoDe(Object.assign({}, FILA,
+      { CONTROL: 972554072, SEGUIMIENTO: '', 'PRÓXIMO CONTROL': 'basura' }));
+    A.cierto(h.control === null, 'serial imposible → null');
+    A.cierto(h.seguimiento === null, 'vacío → null');
+    A.cierto(h.proximoControl === null, 'texto → null');
+    A.igual(h.preingreso, '2024-01-24', 'preingreso válido');
+    A.igual(h.g, 'G3', 'G');
+  });
+
+  t('AMARILLO: eventos históricos CONTROL+SEGUIMIENTO con snapshot G', function () {
+    var pac = { ID_INTERNO: 'PX', RUT: '14438433-4', NOMBRE: 'JUAN PÉREZ' };
+    var evs = Amarillo_eventosNuevos(pac, Amarillo_historicoDe(FILA), [], 12);
+    A.igual(evs.length, 2, 'dos eventos');
+    A.igual(evs[0].TIPO_EVENTO, 'CONTROL', 'tipo');
+    A.igual(evs[0].FECHA_EVENTO, '2026-04-19', 'fecha');
+    A.igual(evs[0].RIESGO_G, 'G3', 'snapshot G de la fuente');
+    A.igual(evs[0].SECTOR, 'AMARILLO', 'sector');
+    A.cierto(evs[0].FUENTE.indexOf('fila12') !== -1, 'trazabilidad de fila');
+  });
+
+  t('AMARILLO: idempotencia — eventos ya existentes no se duplican', function () {
+    var pac = { ID_INTERNO: 'PX', RUT: '14438433-4', NOMBRE: 'JUAN PÉREZ' };
+    var existentes = [{ TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-04-19' },
+                      { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-06-26' }];
+    var evs = Amarillo_eventosNuevos(pac, Amarillo_historicoDe(FILA), existentes, 1);
+    A.igual(evs.length, 0, 'cero nuevos si ya existen');
   });
 }

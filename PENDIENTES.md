@@ -56,3 +56,11 @@
 | # | Pendiente | Tipo | Bloquea | Prioridad |
 |---|---|---|---|---|
 | 25 | Campos del REM original sin captura actual (se entregan vacíos, jamás inventados): TIPO_PROFESIONAL · GÉNERO_SOCIAL · PAÍS_ORIGEN · EMBARAZADA (+/PRIMIGESTA) · CONDICIONANTES 1–5 · HORA_INICIO/HORA_CIERRE · AGENDA/ASOCIADO. Requiere ampliar EVENTOS (columnas) + ficha "Registrar gestión" + validaciones + tests. FECHA_NACIMIENTO/SEXO en PACIENTES también siguen sin fuente (#14) | Captura nueva | REM 100% fiel al original | ALTA |
+
+## Cierre — Sector Amarillo, fuentes y usuarios
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 26 | **Sector Amarillo — importación** (fuente auditada: 1.091 pacientes, cobertura 99-100%, G3=594/G2=366/G1=127/SIN G=3, 25 duplicados en fuente, 6 RUTs problemáticos→revisión, 3 DV inválidos, seriales corruptos→revisión). **Pasos:** (1) subir `SEGUIMIENTO ECICEP Sector Amarillo.xlsx` a Drive como Google Sheets; (2) copiar el ID en `FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'].id`; (3) 🧪 Centro de Pruebas → 🟡 Amarillo → "Importar puerta + histórico"; (4) 📥 Gestión → Procesar ingresos; (5) re-ejecutar 🟡 Amarillo para el histórico. Módulo `16_Amarillo.js` (puerta idempotente por RUT + histórico append-only con snapshot G) | Acción operativa (2 clics tras subir archivo) | Cierre sector Amarillo | **ALTA** |
+| 27 | **Usuarios/accesos**: el sistema no gestiona usuarios propios — el acceso es por compartición de Google (hoja + Apps Script). Claves `RESPONSABLE_NARANJO/AMARILLO/VERDE` en CONFIG están vacías → definir correos de responsables por sector (#13) para protecciones finas | Decisión cliente | Protecciones por sector | MEDIA |
+| 28 | **Fuentes restantes**: `PCTS. ECICEP DESDE 2023.xlsx` (VERDE) ya importado en su hoja principal; hojas LISTADO 2025 / INASISTENTES / GESTOR DE CASO siguen EXCLUIDAS por análisis pendiente (#FUENTES_EXCLUIDAS). `ECICEP NARANJO.xlsx` completo. Actualización de fuentes = re-subir a Drive + re-procesar (pipeline idempotente) | Según cliente | Historial completo | MEDIA |
