@@ -13,7 +13,8 @@ function onOpen() {
     ui.createMenu('ECICEP')
 
       .addSubMenu(ui.createMenu('Operación')
-        .addItem('Centro de control', 'UI_abrirBuscador')
+        .addItem('Centro de control', 'UI_centroControl')
+        .addItem('Buscar paciente', 'UI_abrirBuscador')
         .addItem('Cola de revisión', 'UI_abrirRevision'))
 
       .addSubMenu(ui.createMenu('Ingresos')
@@ -349,17 +350,18 @@ function _ui_dialogo(nombre, titulo) {
   SpreadsheetApp.getUi().showModalDialog(html, titulo);
 }
 
-function UI_abrirBuscador() {
-  var html = HtmlService.createTemplateFromFile('Sidebar')
-    .evaluate().setTitle('ECICEP — Pacientes');
-  SpreadsheetApp.getUi().showSidebar(html);
+/** Abre la sidebar en un modo concreto: 'centro' (panel) o 'pacientes' (buscador+ficha). */
+function _ui_sidebar(modo, titulo) {
+  var t = HtmlService.createTemplateFromFile('Sidebar');
+  t.modo = modo;
+  SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle(titulo));
 }
 
-function UI_abrirRevision() {
-  var html = HtmlService.createTemplateFromFile('Sidebar')
-    .evaluate().setTitle('ECICEP — Revisión');
-  SpreadsheetApp.getUi().showSidebar(html);
-}
+function UI_centroControl() { _ui_sidebar('centro', 'ECICEP · Centro de control'); }
+
+function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Buscar paciente ECICEP'); }
+
+function UI_abrirRevision() { _ui_sidebar('centro', 'ECICEP · Cola de revisión'); }
 
 function UI_abrirDashboard() { _ui_dialogo('Dashboard', 'Panel ECICEP'); }
 
@@ -470,7 +472,17 @@ function api_remLeer() {
         return (c instanceof Date) ? Utilities.formatDate(c, tz, 'dd/MM/yyyy HH:mm') : c;
       });
     });
-    return { ok: true, filas: filas };
+    // meta para acciones del visor (PDF): parseo de la cabecera reproducible
+    var meta = { anio: null, mes: null, sector: 'TODOS' };
+    var textoCab = Utl_texto(filas.length ? filas[0][0] : '');
+    var mMes = /(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+(\d{4})/.exec(textoCab.toUpperCase());
+    if (mMes) {
+      meta.mes = REM_MESES.indexOf(mMes[1]) + 1;
+      meta.anio = +mMes[2];
+    }
+    var mSec = /Sector:\s*([A-ZÁÉÍÓÚ]+)/i.exec(textoCab);
+    if (mSec) meta.sector = mSec[1].toUpperCase();
+    return { ok: true, filas: filas, meta: meta };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }

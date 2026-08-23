@@ -2,6 +2,7 @@
 <html>
 <head>
 <base target="_top">
+<? var MODO = (typeof modo !== 'undefined' && modo === 'pacientes') ? 'pacientes' : 'centro'; ?>
 <?!= include('00_Tokens') ?>
 <style>
 /* Vista sidebar angosto (~300px): base 14px definida en tokens */
@@ -109,6 +110,7 @@ textarea.inp{min-height:64px;resize:vertical}
 
 <!-- ============ CENTRO DE CONTROL + BÚSQUEDA ============ -->
 <div id="panelBuscar" class="wrap">
+<? if (MODO === 'centro') { ?>
   <div class="cc-head">
     <h1>Centro de control</h1>
     <div class="cc-fecha" id="ccFecha">…</div>
@@ -133,6 +135,7 @@ textarea.inp{min-height:64px;resize:vertical}
       <i data-lucide="file-bar-chart"></i> Generar REM</button>
   </div>
 
+<? if (MODO === 'centro') { ?>
   <div class="card cc-card">
     <div class="card-t">Sectores</div>
     <div class="grupo-sec">
@@ -161,9 +164,16 @@ textarea.inp{min-height:64px;resize:vertical}
     </div>
   </div>
 
-  <div class="topbar"><h2>Pacientes ECICEP</h2></div>
-  <label class="etq" for="termino">Buscar por RUT o nombre</label>
-  <input id="termino" class="inp" placeholder="Ej: 8031158-3 o Silvia…" autocomplete="off">
+  <div style="position:relative">
+    <input id="lanzadorBusqueda" class="inp" readonly
+      placeholder="🔍 Buscar paciente ECICEP…" style="cursor:pointer;background:var(--surface)">
+  </div>
+<? } else { ?>
+  <div class="cc-head"><h1>Buscar paciente ECICEP</h1>
+    <div class="cc-fecha">Busca por nombre o RUT y abre la ficha directamente</div></div>
+  <label class="etq" for="termino">Nombre o RUT</label>
+  <input id="termino" class="inp" placeholder="Ej: 8031158-3 o Silvia…" autocomplete="off" autofocus>
+<? } ?>
   <div id="resultados"></div>
 </div>
 
@@ -263,8 +273,10 @@ function buscarAhora(){
 }
 var buscar=_debounce(buscarAhora,220);
 
-document.getElementById('termino').addEventListener('input',buscar);
-document.getElementById('termino').addEventListener('keydown',function(e){
+var _elTermino=document.getElementById('termino');
+if(_elTermino){
+  _elTermino.addEventListener('input',buscar);
+  _elTermino.addEventListener('keydown',function(e){
   var cards=document.querySelectorAll('#resultados .res-card');
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){
     e.preventDefault();if(!cards.length)return;
@@ -276,7 +288,8 @@ document.getElementById('termino').addEventListener('keydown',function(e){
     else if(cards.length&&_resIdx<0)cards[0].click();
     else buscarAhora();
   }
-});
+  });
+}
 
 /* ================= ficha con tabs ================= */
 function activarTab(id){
@@ -494,7 +507,15 @@ function abrirGenerador(){ google.script.run.UI_generarRem(); }
 /* ================= init ================= */
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
 _refrescarIconos();
-cargarCentro();
+if(MODO==='centro'){
+  var lanz=document.getElementById('lanzadorBusqueda');
+  if(lanz){
+    var abrirPac=function(){google.script.run.UI_abrirBuscador();};
+    lanz.addEventListener('click',abrirPac);
+    lanz.addEventListener('focus',abrirPac);
+  }
+  cargarCentro(); /* centro: KPIs reales + accesos; búsqueda vive en SU sidebar */
+}
 </script>
 </body>
 </html>

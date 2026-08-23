@@ -56,6 +56,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_rem(t, A);
   _pruebas_rem_ancho(t, A);
   _pruebas_diseno(t, A);
+  _pruebas_rem_pdf(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1670,5 +1671,18 @@ function _pruebas_diseno(t, A) {
     A.cierto(pos('INGRESO_VERDE') < pos('PACIENTES'), 'sectores antes que bases');
     A.cierto(pos('EVENTOS') < pos('REM_SALIDA'), 'bases antes que reportes');
     A.cierto(pos('REM_SALIDA') < pos('CONFLICTOS'), 'reportes antes que sistema');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// REM PDF — nombre de archivo automático
+// ---------------------------------------------------------------------------
+
+function _pruebas_rem_pdf(t, A) {
+  t('REM PDF: nombre automático consistente', function () {
+    A.igual(remNombreArchivo(2026, 8, 'NARANJO'), 'REM_Naranjo_2026-08.pdf', 'naranjo');
+    A.igual(remNombreArchivo(2026, 12, 'TODOS'), 'REM_Todos_2026-12.pdf', 'todos');
+    A.igual(remNombreArchivo('2026', '3', ''), 'REM_Todos_2026-03.pdf', 'default TODOS con cero');
+    A.cierto(/^REM_\w+_\d{4}-\d{2}\.pdf$/.test(remNombreArchivo(2025, 11, 'verde')), 'formato general');
   });
 }

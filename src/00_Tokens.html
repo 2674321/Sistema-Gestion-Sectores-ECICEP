@@ -72,6 +72,7 @@ label.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transfor
   padding:12px 16px;box-shadow:var(--shadow-lg);font:500 13px 'Inter';
   animation:tIn .3s var(--ease-in)}
 .toast.ok{border-left-color:var(--success)} .toast.err{border-left-color:var(--danger)}
+.toast.warn{border-left-color:var(--warning)} .toast.warn .t-ic{color:var(--warning)}
 .toast.ok .t-ic{color:var(--success)} .toast.err .t-ic{color:var(--danger)}
 .toast.salida{animation:tOut .25s var(--ease-out) forwards}
 @keyframes tIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
@@ -130,7 +131,7 @@ function toast(msg,tipo){ /* reemplaza alert(): ok|err|info, auto 4s */
   if(!z){z=document.createElement('div');z.id='toastZone';document.body.appendChild(z);}
   var el=document.createElement('div');
   el.className='toast '+(tipo||'info');
-  var ic=tipo==='ok'?'check-circle':tipo==='err'?'alert-circle':'info';
+  var ic=tipo==='ok'?'check-circle':tipo==='err'?'alert-circle':tipo==='warn'?'alert-triangle':'info';
   el.innerHTML='<span class="t-ic"><i data-lucide="'+ic+'"></i></span><span>'+_esc(msg)+'</span>';
   z.appendChild(el);_refrescarIconos();
   setTimeout(function(){el.classList.add('salida');setTimeout(function(){el.remove();},260);},4000);

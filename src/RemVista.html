@@ -46,7 +46,8 @@ thead th:first-child{z-index:40;max-width:220px}
 <header>
   <h1>REM — vista de trabajo</h1>
   <div class="acciones">
-    <button class="btn btn-sec" onclick="window.print()"><i data-lucide="printer"></i> Imprimir / PDF</button>
+    <button class="btn btn-pri" onclick="descargarPdf(this)"><i data-lucide="file-down"></i> Descargar PDF</button>
+    <button class="btn btn-sec" onclick="window.print()"><i data-lucide="printer"></i> Imprimir vista</button>
     <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
   </div>
 </header>
@@ -61,7 +62,7 @@ thead th:first-child{z-index:40;max-width:220px}
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-function pintar(filas){
+function pintar(filas,meta){
   var tb=document.getElementById('tabla'),thead=tb.querySelector('thead'),tbody=tb.querySelector('tbody');
   if(!filas||filas.length<1){document.getElementById('estado').innerHTML=
     '<div class="vacio"><i data-lucide="file-x"></i>REM_SALIDA está vacía.<br>Genera primero un período desde 📈 Reportes → 🧾 Generar REM mensual.</div>';
@@ -82,9 +83,22 @@ function pintar(filas){
   wrap.addEventListener('scroll',chequear);window.addEventListener('resize',chequear);
   setTimeout(chequear,80);_refrescarIconos();
 }
+var META=null;
+function descargarPdf(btn){
+  if(!META){toast('Genera primero un REM para exportarlo','warn');return;}
+  var fin=_btnCargando(btn,'Preparando PDF…'); /* anti doble clic */
+  google.script.run.withSuccessHandler(function(r){
+    fin();_refrescarIconos();
+    if(!r||!r.ok){toast('No fue posible generar el PDF: '+((r&&r.motivo)||'error'),'err');return;}
+    toast('PDF listo: '+r.nombre,'ok');
+    window.open(r.url,'_blank');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  .REM_exportarPdf(META.anio,META.mes,META.sector);
+}
 google.script.run.withSuccessHandler(function(r){
   if(!r||!r.ok){pintar([]);return;}
-  pintar(r.filas);
+  META=r.meta||null;
+  pintar(r.filas,r.meta);
 }).withFailureHandler(function(e){
   document.getElementById('estado').innerHTML=
     '<div class="vacio"><i data-lucide="alert-triangle"></i>Error al leer REM_SALIDA: '+_esc(e&&e.message||e)+

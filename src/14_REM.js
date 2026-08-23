@@ -215,10 +215,33 @@ function _rem_aplanarAncho(filas) {
 }
 
 /**
- * GAS: genera la hoja REM_SALIDA para el período. SOLO LECTURA de EVENTOS y
- * PACIENTES; escribe únicamente REM_SALIDA. El menú funciona autónomo (esta
- * función no depende del webhook). Regenerar el mismo período con los mismos
- * datos produce la misma tabla (reproducible).
+ * GAS: núcleo de cálculo compartido entre Rem_generar y el exportador PDF.
+ * Lectura única → normalización → filtro sector → núcleo puro.
+ */
+function _rem_calcula(anio, mes, filtro) {
+  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
+  var lote = eventos.filter(function (e) {
+    return filtro === 'TODOS' ? true : Rem_bucketSector(e.SECTOR) === filtro;
+  });
+  var bloqueA = calcularREMBloqueA(lote, { anio: anio, mes: mes });
+  var enPeriodo = Rem_eventosDelPeriodo(lote, anio, mes);
+  return { lote: lote, bloqueA: bloqueA, enPeriodo: enPeriodo,
+           tabla: Rem_tablaDesdeConteos(bloqueA.conteos),
+           indicadores: Rem_indicadoresPorPaciente(enPeriodo) };
+}
+
+/** PURA: nombre de archivo profesional y consistente. */
+function remNombreArchivo(anio, mes, sectorFiltro) {
+  var s = Utl_texto(sectorFiltro).trim().toUpperCase() || 'TODOS';
+  var bonito = s.charAt(0) + s.slice(1).toLowerCase();
+  return 'REM_' + bonito + '_' + Number(anio) + '-' +
+         (Number(mes) < 10 ? '0' : '') + Number(mes) + '.pdf';
+}
+
+/**
+ * GAS: genera la hoja REM_SALIDA para el período (hoja INTERNA, oculta).
+ * SOLO LECTURA de EVENTOS y PACIENTES. Regenerar el mismo período con los
+ * mismos datos produce la misma tabla (reproducible).
  * @param {number|string} anio  ej: 2026
  * @param {number|string} mes   1..12
  * @param {string} [sectorFiltro] 'TODOS' | NARANJO | AMARILLO | VERDE
@@ -228,19 +251,10 @@ function Rem_generar(anio, mes, sectorFiltro) {
   if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
   var filtro = Rem_bucketSector(Utl_texto(sectorFiltro).trim() === '' ? 'todos' : sectorFiltro);
 
-  // 1) lectura única + normalización a contratos serializables (tz proyecto)
-  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
-
-  // 2) filtro de sector sobre bucket normalizado ('' solo visible en TODOS)
-  var lote = eventos.filter(function (e) {
-    return filtro === 'TODOS' ? true : Rem_bucketSector(e.SECTOR) === filtro;
-  });
-
-  // 3) núcleo puro
-  var bloqueA = calcularREMBloqueA(lote, { anio: anio, mes: mes });
-  var enPeriodo = Rem_eventosDelPeriodo(lote, anio, mes);
-  var tabla = Rem_tablaDesdeConteos(bloqueA.conteos);
-  var indicadores = Rem_indicadoresPorPaciente(enPeriodo);
+  // cálculo compartido con el exportador PDF
+  var c = _rem_calcula(anio, mes, filtro);
+  var bloqueA = c.bloqueA, enPeriodo = c.enPeriodo;
+  var tabla = c.tabla, indicadores = c.indicadores;
 
   // 4) armado del informe (B/C declarados NO DISPONIBLE, sin datos falsos)
   var regla = CFG_ESTRATIFICACION.REGLA_DISPONIBLE
@@ -298,4 +312,122 @@ function Rem_generar(anio, mes, sectorFiltro) {
            fechasInvalidas: bloqueA.fechasInvalidas,
            conteos: bloqueA.conteos,
            filasEscritas: salida.length };
+}
+
+/**
+ * GAS: exporta el REM como PDF profesional vía DocumentApp (NO impresión de
+ * Sheets: sin marca "Hoja de cálculo de Google"). A4 horizontal, márgenes,
+ * encabezado con período/sector/fecha de generación, tablas con bordes y
+ * fila de encabezado sombreada. Nombre automático REM_<Sector>_<AAAA-MM>.pdf.
+ * @returns {ok, url?, nombre?, motivo?}
+ */
+function REM_exportarPdf(anio, mes, sectorFiltro) {
+  var nombre = '';
+  try {
+    anio = Number(anio); mes = Number(mes);
+    if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
+    var filtro = Rem_bucketSector(Utl_texto(sectorFiltro).trim() === '' ? 'todos' : sectorFiltro);
+    nombre = remNombreArchivo(anio, mes, filtro);
+
+    var c = _rem_calcula(anio, mes, filtro);
+    var tabla = c.tabla, indicadores = c.indicadores;
+    var tz = Session.getScriptTimeZone();
+    var generado = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm');
+
+    var doc = DocumentApp.create(nombre);
+    doc.setName(nombre);
+    var body = doc.getBody();
+
+    // A4 horizontal + márgenes
+    body.setPageWidth(842).setPageHeight(595);
+    body.setMarginTop(46).setMarginBottom(46).setMarginLeft(50).setMarginRight(50);
+
+    // Encabezado del documento
+    var titulo = body.appendParagraph('REM ECICEP');
+    titulo.setHeading(DocumentApp.ParagraphHeading.TITLE)
+          .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    var sub = body.appendParagraph(Rem_cabecera(anio, mes, filtro));
+    sub.setHeading(DocumentApp.ParagraphHeading.HEADING2)
+       .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    var meta = body.appendParagraph('Generado: ' + generado +
+      ' · Regla estratificación: ' + (CFG_ESTRATIFICACION.REGLA_DISPONIBLE ?
+        ('REGLA ' + Utl_texto(CFG_ESTRATIFICACION.VERSION_REGLA)) : 'MANUAL/FUENTE'));
+    meta.setAlignment(DocumentApp.HorizontalAlignment.CENTER)
+        .setFontSize(9).setForegroundColor('#5B6472');
+
+    // Bloque A — tabla resumen con encabezado sombreado
+    body.appendParagraph('Bloque A — Resumen por nivel G').setHeading(
+      DocumentApp.ParagraphHeading.HEADING3);
+    var filasA = [['CONCEPTO'].concat(tabla.buckets).concat(['TOTAL'])];
+    tabla.filas.forEach(function (f) {
+      filasA.push([f.etiqueta].concat(tabla.buckets.map(function (b) { return f.valores[b]; }))
+                   .concat([f.total]));
+    });
+    filasA.push(['TOTAL'].concat(tabla.buckets.map(function (b) { return tabla.totalGeneral[b]; }))
+                 .concat([tabla.totalGeneral.total]));
+    _rem_tablaDoc(body, filasA, true);
+
+    if (c.bloqueA.fechasInvalidas > 0) {
+      body.appendParagraph('Eventos con fecha no interpretable (fuera de todo período): ' +
+        c.bloqueA.fechasInvalidas).setFontSize(9).setForegroundColor('#D48806');
+    }
+
+    // Indicadores por paciente
+    body.appendParagraph('Indicadores por paciente (' + indicadores.length +
+      ' con actividad en el período)').setHeading(DocumentApp.ParagraphHeading.HEADING3);
+    if (indicadores.length) {
+      var filasI = [['NOMBRE', 'RUT', 'SECTOR', 'EVENTOS', 'INGRESO', 'CONTROL',
+                     'SEGUIM.', 'PLAN', 'GC ING.', 'GC EGR.']];
+      indicadores.forEach(function (r) {
+        filasI.push([r.nombre, r.rut, r.sector, r.eventos,
+          r.ingreso ? 'Sí' : '', r.control ? 'Sí' : '', r.seguimiento ? 'Sí' : '',
+          r.planCuidado ? 'Sí' : '', r.gcIngreso ? 'Sí' : '', r.gcEgreso ? 'Sí' : '']);
+      });
+      _rem_tablaDoc(body, filasI, true);
+    } else {
+      body.appendParagraph('Sin actividad en el período seleccionado.')
+          .setItalic(true).setFontSize(10);
+    }
+
+    body.appendParagraph('Bloques B (demografía #14) y C (atenciones #17): no disponibles. ' +
+      'Documento generado automáticamente por Sistema ECICEP — datos derivados de EVENTOS (#25).')
+      .setFontSize(8).setForegroundColor('#8A93A3');
+
+    doc.saveAndClose();
+    var pdfBlob = DriveApp.getFileById(doc.getId()).getAs('application/pdf').setName(nombre);
+    var archivo = DriveApp.createFile(pdfBlob);
+    DriveApp.getFileById(doc.getId()).setTrashed(true);
+
+    Log_info('REM', 'exportarPdf', nombre + ' · eventos=' + c.enPeriodo.length);
+    Log_flush();
+    return { ok: true, url: archivo.getUrl(), nombre: nombre };
+  } catch (e) {
+    Log_error('REM', 'exportarPdf', (nombre || '') + ' → ' + (e && e.message || e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Tabla DocumentApp con encabezado sombreado (marca) y bordes consistentes. */
+function _rem_tablaDoc(body, filas, conEncabezado) {
+  var t = body.appendTable(filas.map(function (fila) {
+    return fila.map(function (v) {
+      return [String(v === null || v === undefined ? '' : v)];
+    });
+  }));
+  for (var f = 0; f < t.getNumRows(); f++) {
+    for (var col = 0; col < t.getRow(f).getNumCells(); col++) {
+      var celda = t.getCell(f, col);
+      celda.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(6).setPaddingRight(6);
+      if (conEncabezado && f === 0) {
+        celda.setBackgroundColor('#0E5C68')
+             .setForegroundColor('#FFFFFF')
+             .setFontFamily('Inter').setFontSize(9).setBold(true);
+      } else {
+        if (f % 2 === 0) celda.setBackgroundColor('#F1F3F6');
+        celda.setFontFamily('Inter').setFontSize(9);
+      }
+    }
+  }
+  return t;
 }
