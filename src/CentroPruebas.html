@@ -81,10 +81,15 @@ header .sub{color:var(--text-muted);font-size:13px}
 </div>
 
 <!-- HERRAMIENTAS AVANZADAS: técnicas migradas desde el menú + operaciones sensibles -->
-<div class="panel" style="margin-top:var(--space-4)">
-  <div class="panel-tit">🧰 Herramientas avanzadas</div>
+<div class="panel" style="margin-top:var(--space-4);padding-top:var(--space-3);padding-bottom:var(--space-3)">
+  <div onclick="toggleHerr()" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+    <div class="panel-tit" style="margin-bottom:0">🧰 Herramientas avanzadas</div>
+    <small style="color:var(--text-muted)">técnicas · sensibles · ejecución manual</small>
+    <i data-lucide="chevron-down" id="herrChev" style="margin-left:auto;width:18px;height:18px;color:var(--text-muted);transition:transform .2s var(--ease-in)"></i>
+  </div>
+  <div id="herrBody" style="display:none;margin-top:var(--space-3)">
   <small style="color:var(--text-muted);display:block;margin-bottom:10px">
-    Herramientas técnicas y operaciones sensibles — se ejecutan manualmente y piden confirmación cuando corresponde.</small>
+    Estas operaciones se ejecutan manualmente y piden confirmación cuando corresponde.</small>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--space-3)">
     <div class="card h-card">
@@ -125,6 +130,7 @@ header .sub{color:var(--text-muted);font-size:13px}
     <button class="btn btn-sec" onclick="_herr(this,'UI_recuperarInventario')"><i data-lucide="clipboard-list"></i> Recuperación: inventario</button>
     <button class="btn btn-danger" onclick="_herr(this,'UI_recuperarEjecutar')"><i data-lucide="undo-2"></i> Recuperación: reversión</button>
   </div>
+  </div><!-- /herrBody -->
 </div>
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -133,6 +139,13 @@ var REGISTRO=[];
 var ICONOS={OK:'check-circle-2',WARN:'alert-triangle',ERROR:'x-circle',SKIP:'skip-forward',EJEC:'loader'};
 var COLORES={OK:'var(--success)',WARN:'var(--warning)',ERROR:'var(--danger)',SKIP:'var(--text-muted)',EJEC:'var(--primary)'};
 
+function toggleHerr(){
+  var b=document.getElementById('herrBody'),ch=document.getElementById('herrChev');
+  var abierto=b.style.display!=='none';
+  b.style.display=abierto?'none':'block';
+  ch.style.transform=abierto?'':'rotate(180deg)';
+  _refrescarIconos();
+}
 function cargarRegistro(){
   google.script.run.withSuccessHandler(function(r){
     if(!r||!r.ok){toast('No se pudo cargar el registro','err');return;}
