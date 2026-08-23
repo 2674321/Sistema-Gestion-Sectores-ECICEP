@@ -440,7 +440,7 @@ var CONFIG_SEED_EXTRA = [
   ['GENERAL_NOMBRE_SISTEMA', 'ECICEP', 'Nombre visible del sistema'],
   ['GENERAL_INSTITUCION',    'CESFAM San Juan', 'Establecimiento'],
   ['GENERAL_UNIDAD',         'Gestión de Sectores ECICEP', 'Unidad o programa'],
-  ['DASHBOARD_TITULO',       'Panel ECICEP', 'Título del panel interactivo'],
+  ['DASHBOARD_TITULO',       'Estadísticas', 'Título de la interfaz estadística'],
   ['REM_INCLUIR_INDICADORES','Sí',   'Indicadores por paciente en REM (Sí/No)'],
   ['REM_PDF_MARGEN_PT',      '46',   'Margen del PDF profesional (puntos)'],
   ['PACIENTES_MIN_BUSQUEDA', '2',    'Caracteres mínimos para buscar']
@@ -545,8 +545,9 @@ function _modelo_sembrarConfig(hoja, res) {
   if (!esNueva && hoja.getLastRow() > 1) {
     Utl_leerBloque(hoja).slice(1).forEach(function (f) { existentes[f[0]] = true; });
   }
+  var SIEMPRE = ['VERSION', 'DASHBOARD_TITULO']; // migraciones de valores oficiales
   var filas = _CONFIG_SEMILLA.concat(CONFIG_SEED_EXTRA).filter(function (f) {
-    if (f[0] === 'VERSION') return true; // VERSION siempre se actualiza
+    if (SIEMPRE.indexOf(f[0]) !== -1) return true;
     return esNueva || !existentes[f[0]];
   });
   if (!filas.length) return;

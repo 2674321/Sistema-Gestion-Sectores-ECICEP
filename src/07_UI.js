@@ -6,17 +6,17 @@
  */
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
- *  Etiquetas profesionales y directas, agrupadas por segmento. */
+ *  Estructura oficial: un nombre = una función = una interfaz = una finalidad. */
 function onOpen() {
   try {
     var ui = SpreadsheetApp.getUi();
     ui.createMenu('ECICEP')
 
-      .addSubMenu(ui.createMenu('🏠 Inicio')
-        .addItem('🏠 Panel de control', 'UI_abrirDashboard'))
+      .addSubMenu(ui.createMenu('🏠 Principal')
+        .addItem('🏠 Panel de Control', 'UI_panelControl'))
 
       .addSubMenu(ui.createMenu('👥 Gestión')
-        .addItem('🔎 Buscar paciente', 'UI_abrirBuscador')
+        .addItem('👤 Pacientes ECICEP', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
         .addItem('📊 Analizar carga', 'UI_bloqueado')
@@ -25,26 +25,17 @@ function onOpen() {
         .addItem('🩺 Diagnóstico de ingresos', 'UI_diagnosticarIngresos')
         .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
 
-      .addSubMenu(ui.createMenu('🩺 REM y estadísticas')
-        .addItem('📊 Estadísticas', 'UI_abrirDashboard')
+      .addSubMenu(ui.createMenu('📊 Información')
+        .addItem('📊 Estadísticas', 'UI_abrirDashboard'))
+
+      .addSubMenu(ui.createMenu('🩺 REM')
         .addItem('🩺 Generar REM', 'UI_generarRem')
-        .addItem('🔍 Consultar REM', 'UI_verRem'))
+        .addItem('🔎 Consultar REM', 'UI_verRem'))
 
       .addSubMenu(ui.createMenu('⚙️ Sistema')
-        .addItem('🛠️ Instalar / Reparar sistema', 'UI_instalarSistema')
-        .addSeparator()
-        .addItem('🧬 Esquema PACIENTES', 'UI_migrarEsquemaPacientes')
-        .addItem('🔎 Integridad de datos', 'UI_diagnosticoTrazabilidad')
-        .addSeparator()
-        .addItem('🌱 Sembrar datos de prueba', 'UI_sembrarFicticios')
-        .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
-        .addItem('⚡ Demo completa', 'UI_demoCompleta')
-        .addItem('✅ Ejecutar pruebas', 'UI_ejecutarPruebas')
-        .addSeparator()
-        .addItem('🔑 Acceso remoto', 'UI_configurarWebhook')
-        .addSubMenu(ui.createMenu('↩️ Recuperación')
-          .addItem('📋 Inventario', 'UI_recuperarInventario')
-          .addItem('⚠️ Ejecutar reversión', 'UI_recuperarEjecutar')))
+        .addItem('⚙️ Configuración', 'UI_configuracion')
+        .addItem('🔧 Instalar / Reparar Sistema', 'UI_instalarSistema')
+        .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas'))
 
       .addSeparator()
       .addItem('📄 Abrir LOG', 'UI_abrirLog')
@@ -374,13 +365,29 @@ function _ui_sidebar(modo, titulo) {
   SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle(titulo));
 }
 
-function UI_centroControl() { _ui_sidebar('centro', 'ECICEP · Centro de control'); }
+/** 🏠 Panel de Control: dashboard principal con accesos y estado general. */
+function UI_panelControl() { _ui_sidebar('centro', 'Panel de Control'); }
 
-function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Buscar paciente ECICEP'); }
+/** 👤 Pacientes ECICEP: buscador + ficha. */
+function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Pacientes ECICEP'); }
+
+/** 📋 Cola de Revisión: sidebar exclusivo del módulo de revisión. */
+function UI_abrirRevision() { _ui_sidebar('revision', 'Cola de Revisión'); }
+
+/** ⚙️ Configuración: abre la hoja CONFIG (la muestra si está oculta). */
+function UI_configuracion() {
+  var h = Modelo_hoja(HOJAS.CONFIG);
+  if (!h) return;
+  if (h.isSheetHidden()) h.showSheet();
+  Modelo_ss().setActiveSheet(h);
+}
+
+/** 🧪 Centro de Pruebas: única entrada al diagnóstico del sistema. */
+function UI_centroPruebas() { _ui_dialogo('CentroPruebas', 'Centro de Pruebas'); }
 
 function UI_abrirRevision() { _ui_sidebar('centro', 'ECICEP · Cola de revisión'); }
 
-function UI_abrirDashboard() { _ui_dialogo('Dashboard', 'Panel ECICEP'); }
+function UI_abrirDashboard() { _ui_dialogo('Dashboard', 'Estadísticas'); }
 
 function UI_verRem() { _ui_dialogo('RemVista', 'REM vista de trabajo'); }
 
@@ -1152,4 +1159,181 @@ function DIAGNOSTICO_BUSCAR_FICHA() {
   }
 
   Logger.log('=== FIN DIAGNÓSTICO ===');
+}
+
+// ===========================================================================
+// 🧪 Centro de Pruebas — registro declarativo + ejecutor con informe
+// ===========================================================================
+
+var PRUEBAS_SISTEMA = [
+  { id: 'hojas',        modulo: 'SISTEMA',    nombre: 'Hojas críticas presentes',      fn: '_pruS_hojas' },
+  { id: 'config',       modulo: 'SISTEMA',    nombre: 'CONFIG sembrado',               fn: '_pruS_config' },
+  { id: 'menu',         modulo: 'SISTEMA',    nombre: 'Funciones del menú globales',   fn: '_pruS_menu' },
+  { id: 'plantillas',   modulo: 'INTERFAZ',   nombre: 'Sidebars y dialogs compilables',fn: '_pruS_plantillas' },
+  { id: 'estadisticas', modulo: 'INTERFAZ',   nombre: 'Estadísticas operativa',        fn: '_pruS_estadisticas' },
+  { id: 'validaciones', modulo: 'DATOS',      nombre: 'Validaciones en INGRESO',       fn: '_pruS_validaciones' },
+  { id: 'catalogos',    modulo: 'DATOS',      nombre: 'Catálogo vigencias',            fn: '_pruS_catalogos' },
+  { id: 'formatos',     modulo: 'DATOS',      nombre: 'Formato de fechas PACIENTES',   fn: '_pruS_formatos' },
+  { id: 'protecciones', modulo: 'DATOS',      nombre: 'Protecciones sistema',          fn: '_pruS_protecciones' },
+  { id: 'remDatos',     modulo: 'REM',        nombre: 'REM generado disponible',       fn: '_pruS_remDatos' },
+  { id: 'pdf',          modulo: 'REM',        nombre: 'Exportador PDF',                fn: '_pruS_pdf' },
+  { id: 'traza',        modulo: 'INTEGRIDAD', nombre: 'Trazabilidad FUENTE',           fn: '_pruS_traza' }
+];
+
+/** Registro para el cliente (checkboxes agrupados por módulo). */
+function api_pruebasRegistro() {
+  return { ok: true, pruebas: PRUEBAS_SISTEMA };
+}
+
+/** Ejecuta SOLO las pruebas pedidas (#9). Cada check es inteligente cuando
+ *  puede (#11): evalúa funcionamiento real, no solo existencia. Registra en LOG (#10). */
+function api_pruebasSistema(ids) {
+  var t0 = Date.now();
+  var G = (typeof globalThis !== 'undefined') ? globalThis : this;
+  var pedidos = (ids && ids.length) ? ids : PRUEBAS_SISTEMA.map(function (p) { return p.id; });
+  var resultados = pedidos.map(function (id) {
+    var reg = null;
+    PRUEBAS_SISTEMA.forEach(function (p) { if (p.id === id) reg = p; });
+    if (!reg) return { id: id, estado: 'ERROR', detalle: 'Prueba desconocida', ms: 0 };
+    var t1 = Date.now();
+    try {
+      var fn = G[reg.fn];
+      if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
+      var r = fn() || {};
+      r.id = id; r.modulo = reg.modulo; r.nombre = reg.nombre;
+      r.ms = Date.now() - t1;
+      if (!r.estado) r.estado = 'OK';
+      return r;
+    } catch (e) {
+      return { id: id, modulo: reg.modulo, nombre: reg.nombre, estado: 'ERROR',
+               detalle: e && e.message ? e.message : String(e), ms: Date.now() - t1 };
+    }
+  });
+  var contar = function (e) {
+    return resultados.filter(function (r) { return r.estado === e; }).length;
+  };
+  var resumen = { total: resultados.length, ok: contar('OK'), warn: contar('WARN'),
+                  error: contar('ERROR'), skip: contar('SKIP') };
+  Log_info('Pruebas', 'ejecutar', JSON.stringify(resumen), null, Date.now() - t0);
+  Log_flush();
+  return { ok: true, resultados: resultados, resumen: resumen, duracion: Date.now() - t0 };
+}
+
+/* ---- Checks individuales: devuelven {estado:OK|WARN|ERROR|SKIP, detalle} ---- */
+
+function _pruS_hojas() {
+  var crit = ['PACIENTES', 'EVENTOS', 'DASHBOARD', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
+              'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
+  var faltan = crit.filter(function (n) { return !Modelo_hoja(n); });
+  return faltan.length
+    ? { estado: 'ERROR', detalle: 'Faltan: ' + faltan.join(', ') }
+    : { estado: 'OK', detalle: crit.length + '/' + crit.length + ' presentes' };
+}
+function _pruS_config() {
+  var h = Modelo_hoja(HOJAS.CONFIG);
+  if (!h) return { estado: 'ERROR', detalle: 'Sin hoja CONFIG' };
+  var req = ['GENERAL_NOMBRE_SISTEMA', 'GENERAL_INSTITUCION', 'DASHBOARD_TITULO',
+             'REM_INCLUIR_INDICADORES', 'PACIENTES_MIN_BUSQUEDA'];
+  var valores = {};
+  Utl_leerBloque(h).forEach(function (f) { valores[Utl_texto(f[0])] = f[1]; });
+  var faltan = req.filter(function (k) { return !(k in valores); });
+  return faltan.length
+    ? { estado: 'ERROR', detalle: 'Faltan claves: ' + faltan.join(', ') }
+    : { estado: 'OK', detalle: req.length + ' claves verificadas' };
+}
+function _pruS_menu() {
+  var G = (typeof globalThis !== 'undefined') ? globalThis : this;
+  var fns = ['UI_panelControl', 'UI_abrirBuscador', 'UI_abrirRevision', 'UI_abrirDashboard',
+             'UI_generarRem', 'UI_verRem', 'UI_configuracion', 'UI_instalarSistema',
+             'UI_centroPruebas'];
+  var faltan = fns.filter(function (n) { return typeof G[n] !== 'function'; });
+  return faltan.length
+    ? { estado: 'ERROR', detalle: 'Ausentes: ' + faltan.join(', ') }
+    : { estado: 'OK', detalle: fns.length + ' funciones globales' };
+}
+function _pruS_plantillas() {
+  var errores = [];
+  ['Sidebar', 'Dashboard', 'RemVista', 'RemGenerador', 'CentroPruebas']
+    .forEach(function (n) {
+      try {
+        var t = HtmlService.createTemplateFromFile(n);
+        t.modo = 'centro'; t.BUILD = '';
+        t.evaluate().getContent();
+      } catch (e) { errores.push(n + ': ' + (e && e.message || e)); }
+    });
+  return errores.length
+    ? { estado: 'ERROR', detalle: errores.join(' · ') }
+    : { estado: 'OK', detalle: '5 plantillas compilan' };
+}
+function _pruS_estadisticas() {
+  var r = api_dashboardDatos();
+  if (!r.ok) return { estado: 'ERROR', detalle: r.motivo || 'sin respuesta' };
+  return { estado: 'OK', detalle: 'pacientes=' + r.pacientes.length +
+           ' · eventos=' + r.eventos.length };
+}
+function _pruS_validaciones() {
+  var ss = Modelo_ss(), total = 0, con = 0;
+  Object.keys(HOJAS_INGRESO).forEach(function (n) {
+    var h = ss.getSheetByName(n);
+    if (!h || h.isSheetHidden()) return;
+    total++;
+    var col = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
+    if (h.getLastRow() >= 2 && h.getRange(2, col).getDataValidation()) con++;
+  });
+  if (!total) return { estado: 'WARN', detalle: 'sin puertas INGRESO visibles' };
+  return con === total
+    ? { estado: 'OK', detalle: con + '/' + total + ' puertas validadas' }
+    : { estado: 'WARN', detalle: con + '/' + total + ' — ejecuta Instalar / Reparar Sistema' };
+}
+function _pruS_catalogos() {
+  var h = Modelo_hoja('CAT_VIGENCIA_EXAMENES');
+  if (!h) return { estado: 'ERROR', detalle: 'Hoja CAT_VIGENCIA_EXAMENES ausente' };
+  var enc = (Utl_leerBloque(h)[0] || []).map(function (c) { return Utl_texto(c); });
+  var esperados = _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'];
+  var ok = esperados.every(function (e, i) { return enc[i] === e; });
+  return ok
+    ? { estado: 'OK', detalle: Math.max(h.getLastRow() - 1, 0) + ' exámenes configurados' }
+    : { estado: 'ERROR', detalle: 'Encabezados incorrectos: ' + enc.join(',') };
+}
+function _pruS_formatos() {
+  var h = Modelo_hoja(HOJAS.PACIENTES);
+  if (!h || h.getLastRow() < 2) return { estado: 'WARN', detalle: 'PACIENTES sin datos' };
+  var col = MODELO_PACIENTE.map(function (c) { return c.campo; })
+            .indexOf('FECHA_ACTUALIZACION') + 1;
+  var nf = h.getRange(2, col).getNumberFormat();
+  return String(nf).indexOf('dd') !== -1
+    ? { estado: 'OK', detalle: nf }
+    : { estado: 'WARN', detalle: 'Formato actual "' + nf + '" — ejecuta Instalar / Reparar Sistema' };
+}
+function _pruS_protecciones() {
+  var n = 0;
+  Object.keys(HOJAS_INGRESO).forEach(function (k) {
+    var h = Modelo_ss().getSheetByName(k);
+    if (!h) return;
+    n += h.getProtections(SpreadsheetApp.ProtectionType.RANGE)
+          .filter(function (p) { return p.getDescription() === 'ECICEP-SISTEMA'; }).length;
+  });
+  return n >= 6
+    ? { estado: 'OK', detalle: n + ' columnas del sistema marcadas' }
+    : { estado: 'WARN', detalle: n + '/6 — ejecuta Instalar / Reparar Sistema' };
+}
+function _pruS_remDatos() {
+  var r = api_remLeer();
+  return r.ok
+    ? { estado: 'OK', detalle: 'filas=' + r.filas.length }
+    : { estado: 'WARN', detalle: 'REM_NO_GENERADO — usa 🩺 Generar REM primero' };
+}
+function _pruS_pdf() {
+  var G = (typeof globalThis !== 'undefined') ? globalThis : this;
+  if (typeof G.REM_exportarPdf !== 'function')
+    return { estado: 'ERROR', detalle: 'REM_exportarPdf ausente' };
+  return { estado: 'SKIP',
+           detalle: 'Exportación manual: Consultar REM → Descargar PDF (evita archivos de prueba)' };
+}
+function _pruS_traza() {
+  var d = Modelo_diagnosticoTrazabilidad();
+  return d.conFuenteVacia === 0
+    ? { estado: 'OK', detalle: d.total + ' pacientes con trazabilidad completa' }
+    : { estado: 'WARN', detalle: d.conFuenteVacia + ' sin FUENTE (' +
+        d.conFuenteVaciaRevisionFalse + ' cerradas sin origen)' };
 }

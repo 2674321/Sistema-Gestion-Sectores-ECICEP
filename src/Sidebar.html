@@ -113,7 +113,7 @@ textarea.inp{min-height:64px;resize:vertical}
 <div id="panelBuscar" class="wrap">
 <? if (MODO === 'centro') { ?>
   <div class="cc-head">
-    <h1>Centro de control</h1>
+    <h1>Panel de Control</h1>
     <div class="cc-fecha" id="ccFecha">…</div>
     <div style="font-size:10px;color:var(--text-muted)">build <?= BUILD ?></div>
   </div>
@@ -130,7 +130,7 @@ textarea.inp{min-height:64px;resize:vertical}
   <div class="card cc-card">
     <div class="card-t">Acciones rápidas</div>
     <button class="btn btn-pri btn-block" onclick="abrirPanel(this)">
-      <i data-lucide="bar-chart-3"></i> Panel interactivo</button>
+      <i data-lucide="bar-chart-3"></i> Estadísticas</button>
     <button class="btn btn-sec btn-block" onclick="verRevision()">
       <i data-lucide="clipboard-check"></i> Cola de revisión</button>
     <button class="btn btn-sec btn-block" onclick="abrirGenerador(this)">
@@ -233,7 +233,11 @@ textarea.inp{min-height:64px;resize:vertical}
 </div>
 
 <!-- ============ REVISIÓN ============ -->
+<? if (MODO === 'revision') { ?>
+<div id="panelRev" class="wrap" style="display:flex">
+<? } else { ?>
 <div id="panelRev" class="wrap" style="display:none">
+<? } ?>
   <div style="display:flex;align-items:center;gap:8px">
     <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px;flex-shrink:0" onclick="volver()">
       <i data-lucide="arrow-left"></i> Volver
@@ -439,9 +443,12 @@ function guardarPatologias(btn){
 /* Conteo silencioso para el chip — NO abre ningún panel */
 /* ================= cola de revisión ================= */
 function verRevision(){
-  document.getElementById('panelBuscar').style.display='none';
-  document.getElementById('vista').style.display='none';
-  document.getElementById('panelRev').style.display='flex';
+  var pb=document.getElementById('panelBuscar');
+  if(pb)pb.style.display='none';
+  var v=document.getElementById('vista');
+  if(v)v.style.display='none';
+  var pr=document.getElementById('panelRev');
+  if(pr)pr.style.display='flex';
   document.getElementById('revLista').innerHTML='<div class="skel" style="height:120px"></div>';
   google.script.run.withSuccessHandler(function(r){
     var mt=r.metricas||{};
@@ -481,19 +488,22 @@ function resolver(idx,dec,btn){
 }
 
 function volver(){
-  document.getElementById('vista').style.display='none';
-  document.getElementById('panelRev').style.display='none';
-  document.getElementById('panelBuscar').style.display='flex';
+  var v=document.getElementById('vista');
+  if(v)v.style.display='none';
+  var pr=document.getElementById('panelRev');
+  if(pr)pr.style.display='none';
+  var pb=document.getElementById('panelBuscar');
+  if(pb)pb.style.display='flex';
 }
 
-/* ================= Centro de control ================= */
+/* ================= Panel de Control ================= */
 var DIAS_ES=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 var MESES_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function fechaEsLarga(d){
   return DIAS_ES[d.getDay()].charAt(0).toUpperCase()+DIAS_ES[d.getDay()].slice(1)+', '+
     d.getDate()+' de '+MESES_ES[d.getMonth()]+' de '+d.getFullYear();
 }
-function cargarCentro(){
+function cargarPanel(){
   google.script.run.withSuccessHandler(function(r){
     if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');return;}
     var partes=(r.fechaIso||'').split('-');
@@ -532,7 +542,9 @@ function abrirGenerador(btn){
 /* ================= init ================= */
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
 _refrescarIconos();
-if(MODO==='centro'){
+if(MODO==='revision'){
+  verRevision();
+}else if(MODO==='centro'){
   var lanz=document.getElementById('lanzadorBusqueda');
   if(lanz){
     var abrirPac=function(){google.script.run.UI_abrirBuscador();};
