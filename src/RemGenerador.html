@@ -131,8 +131,28 @@ function barraFin(ok,msg){
 
 function construirExcel(r){
   var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([r.colsResumen].concat(r.resumen)),'REM');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([r.colsDetalle].concat(r.detalle)),'REM_DETALLE');
+
+  /* REM: anchos por tipo de columna + autofiltro */
+  var wsR=XLSX.utils.aoa_to_sheet([r.colsResumen].concat(r.resumen));
+  var wR=[{wch:14},{wch:7},{wch:9}];                 // Paciente · Edad · Sexo
+  for(var i=3;i<=18;i++)wR.push({wch:12.5});         // 16 conteos
+  wR.push({wch:8});                                   // Total
+  for(var j=20;j<=23;j++)wR.push({wch:13});          // Tiene*
+  wsR['!cols']=wR;
+  wsR['!autofilter']={ref:XLSX.utils.encode_range({s:{c:0,r:0},e:{c:23,r:r.resumen.length}})};
+  XLSX.utils.book_append_sheet(wb,wsR,'REM');
+
+  /* REM_DETALLE: anchos según contenido */
+  var wsD=XLSX.utils.aoa_to_sheet([r.colsDetalle].concat(r.detalle));
+  var anchosD={'Profesional':24,'Tipo de Profesional':16,'Ficha Paciente':13,'Doc.':13,
+    'Tipo doc.':10,'Nombre Paciente':32,'Edad a la Atención':10,'Año':7,'Mes':7,'Día':7,
+    'Sexo':9,'Género Social':14,'Centro Paciente':28,'País Origen':12,'Sector':18,
+    'Fecha/Hora Atención':13,'Hora Cierre Atención':13,'Embarazada':12,'Tipo':15,
+    'Descripción':42,'Cantidad':9,'Condicionante 1':16,'Condicionante 2':16,
+    'Condicionante 3':16,'Condicionante 4':16,'Condicionante 5':16,'Comentario':42,'Programa':12};
+  wsD['!cols']=r.colsDetalle.map(function(c){return {wch:anchosD[c]||14};});
+  wsD['!autofilter']={ref:XLSX.utils.encode_range({s:{c:0,r:0},e:{c:r.colsDetalle.length-1,r:r.detalle.length}})};
+  XLSX.utils.book_append_sheet(wb,wsD,'REM_DETALLE');
   return wb;
 }
 
