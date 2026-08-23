@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <? var MODO = (typeof modo !== 'undefined' && modo === 'pacientes') ? 'pacientes' : 'centro'; ?>
+<script>var MODO = <?!= JSON.stringify(MODO) ?>; /* modo visible para el JS del cliente */</script>
 <?!= include('00_Tokens') ?>
 <style>
 /* Vista sidebar angosto (~300px): base 14px definida en tokens */
@@ -127,11 +128,11 @@ textarea.inp{min-height:64px;resize:vertical}
 
   <div class="card cc-card">
     <div class="card-t">Acciones rápidas</div>
-    <button class="btn btn-pri btn-block" onclick="abrirPanel()">
+    <button class="btn btn-pri btn-block" onclick="abrirPanel(this)">
       <i data-lucide="bar-chart-3"></i> Panel interactivo</button>
     <button class="btn btn-sec btn-block" onclick="verRevision()">
       <i data-lucide="clipboard-check"></i> Cola de revisión</button>
-    <button class="btn btn-sec btn-block" onclick="abrirGenerador()">
+    <button class="btn btn-sec btn-block" onclick="abrirGenerador(this)">
       <i data-lucide="file-bar-chart"></i> Generar REM</button>
   </div>
 
@@ -245,6 +246,15 @@ textarea.inp{min-height:64px;resize:vertical}
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 /* ================= estado ================= */
+/* Diagnóstico (#24): activo durante estabilización. Ver consola del navegador. */
+window._ECICEP_DEBUG=true;
+function _dbg(nombre,detalle){
+  if(window._ECICEP_DEBUG&&window.console){console.debug('[ECICEP] '+nombre,detalle===undefined?'':detalle);}
+}
+function _errSilencioso(nombre){return function(e){
+  console.error('[ECICEP] '+nombre,e);
+  toast('Error en '+nombre+': '+((e&&e.message)||e),'err');
+};}
 var P_ACTUAL=null, PAT_CATALOGO=[], PAT_SELECCIONADAS=[], _animTimeline=false, _resIdx=-1;
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','OTRO'];
 var TL_ESTILO={
@@ -260,9 +270,11 @@ function estiloTL(t){return TL_ESTILO[String(t||'').toUpperCase()]||{c:'#8A93A3'
 function buscarAhora(){
   var t=document.getElementById('termino').value.trim();
   if(t.length<2){document.getElementById('resultados').innerHTML='';_resIdx=-1;return;}
+  _dbg('api_buscar',{termino:t});
   document.getElementById('resultados').innerHTML=
     '<div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div>';
-  google.script.run.withSuccessHandler(function(l){
+  google.script.run.withFailureHandler(_errSilencioso('api_buscar')).withSuccessHandler(function(l){
+    _dbg('api_buscar OK',(l&&l.length||0)+' resultados');
     var cont=document.getElementById('resultados');_resIdx=-1;
     if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
     cont.innerHTML=l.map(function(p){
@@ -382,7 +394,7 @@ function cargarSelectorPatologias(pid,forzar){
     PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
     document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
     renderizarPats('');actualizarContador();_refrescarIconos();
-  }).api_patologiasAbrir(pid);
+  }).withFailureHandler(_errSilencioso('api_patologiasAbrir')).api_patologiasAbrir(pid);
 }
 document.addEventListener('input',function(e){
   if(e.target.id==='patBuscar'){var v=e.target.value;clearTimeout(_patTimer);
@@ -453,7 +465,7 @@ function verRevision(){
         '</div></div>';}).join('')
       :'<div class="vacio"><i data-lucide="party-popper"></i>No hay casos pendientes</div>';
     _refrescarIconos();
-  }).api_revisionListar();
+  }).withFailureHandler(_errSilencioso('api_revisionListar')).api_revisionListar();
 }
 function resolver(idx,dec,btn){
   var fin=_btnCargando(btn,'Procesando…');
@@ -501,10 +513,18 @@ function irA(nombre){
   google.script.run.withSuccessHandler(function(r){
     if(!r||!r.ok){toast('No se pudo abrir '+(r&&r.motivo==='HOJA_NO_EXISTE'?nombre:'la hoja'),'err');return;}
     toast('Hoja abierta: '+nombre,'ok'); /* el panel permanece disponible */
-  }).api_irA(nombre);
+  }).withFailureHandler(_errSilencioso('api_irA')).api_irA(nombre);
 }
-function abrirPanel(){ google.script.run.UI_abrirDashboard(); }
-function abrirGenerador(){ google.script.run.UI_generarRem(); }
+function abrirPanel(btn){
+  var fin=btn?_btnCargando(btn,'Abriendo…'):null;
+  google.script.run.withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_abrirDashboard')(e);})
+    .UI_abrirDashboard();
+}
+function abrirGenerador(btn){
+  var fin=btn?_btnCargando(btn,'Abriendo…'):null;
+  google.script.run.withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_generarRem')(e);})
+    .UI_generarRem();
+}
 
 /* ================= init ================= */
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
