@@ -5,46 +5,49 @@
  * (INICIO/DASHBOARD/FICHA/SEGUIMIENTO, búsquedas y botones) llega en ETAPA 4.
  */
 
-/** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet. */
+/** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
+ *  Nombres minimalistas y directos; funciones agrupadas por segmento. */
 function onOpen() {
   try {
     var ui = SpreadsheetApp.getUi();
     ui.createMenu('ECICEP')
 
       .addSubMenu(ui.createMenu('📊 Operación')
-        .addItem('🔍 Buscar paciente / ficha', 'UI_abrirBuscador')
-        .addItem('🧾 Cola de revisión', 'UI_abrirRevision')
-        .addItem('📥 Procesar ingresos', 'UI_procesarIngresos')
-        .addItem('🔄 Actualizar vistas SECTOR', 'UI_refrescarSectores'))
-      .addSubMenu(ui.createMenu('📦 Importación')
-        .addItem('📋 Diagnosticar fuentes reales', 'UI_diagnosticarFuentes')
-        .addItem('📊 Análisis de carga real (DRY RUN)', 'UI_bloqueado')
-        .addItem('🚀 Ejecutar carga autorizada', 'UI_ejecutarCarga'))
-      .addSubMenu(ui.createMenu('🩺 Diagnóstico')
-        .addItem('🩺 Diagnosticar ingresos', 'UI_diagnosticarIngresos')
-        .addItem('🔎 Integridad de trazabilidad', 'UI_diagnosticoTrazabilidad'))
+        .addItem('🔍 Pacientes', 'UI_abrirBuscador')
+        .addItem('🧾 Revisión', 'UI_abrirRevision'))
 
-      .addSubMenu(ui.createMenu('⚙️ Administración')
-        .addItem('⚙️ Instalar / reparar estructura', 'UI_instalarEstructura')
-        .addItem('🧬 Verificar / migrar esquema PACIENTES', 'UI_migrarEsquemaPacientes')
-        .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
-        .addItem('🔑 Configurar acceso remoto', 'UI_configurarWebhook')
-        .addItem('🔍 Recuperación: inventario', 'UI_recuperarInventario')
-        .addItem('⚠️ Recuperación: ejecutar reversión', 'UI_recuperarEjecutar'))
-
-      .addSubMenu(ui.createMenu('🧪 Desarrollo')
-        .addItem('⚡ Demo completa (ficticio)', 'UI_demoCompleta')
-        .addItem('🧪 Sembrar datos ficticios', 'UI_sembrarFicticios')
-        .addItem('🔬 Ejecutar pruebas', 'UI_ejecutarPruebas'))
+      .addSubMenu(ui.createMenu('📥 Ingresos')
+        .addItem('⚡ Procesar', 'UI_procesarIngresos')
+        .addItem('🔬 Analizar', 'UI_bloqueado')
+        .addItem('🚀 Cargar', 'UI_ejecutarCarga')
+        .addItem('🗂️ Fuentes', 'UI_diagnosticarFuentes')
+        .addItem('🩺 Diagnóstico', 'UI_diagnosticarIngresos')
+        .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
 
       .addSubMenu(ui.createMenu('📈 Reportes')
-        .addItem('📊 Actualizar dashboard', 'UI_actualizarDashboard')
-        .addItem('📊 Panel interactivo', 'UI_abrirDashboard')
-        .addItem('🧾 Generar REM mensual', 'UI_generarRem')
-        .addItem('👁️ Ver REM generado', 'UI_verRem'))
+        .addItem('📊 Panel', 'UI_abrirDashboard')
+        .addItem('🔄 Hoja dashboard', 'UI_actualizarDashboard')
+        .addItem('🧾 Generar REM', 'UI_generarRem')
+        .addItem('👁️ Ver REM', 'UI_verRem'))
+
+      .addSubMenu(ui.createMenu('⚙️ Mantenimiento')
+        .addItem('🛠️ Instalar sistema', 'UI_instalarSistema')
+        .addSeparator()
+        .addItem('🧬 Esquema PACIENTES', 'UI_migrarEsquemaPacientes')
+        .addItem('🔎 Integridad datos', 'UI_diagnosticoTrazabilidad')
+        .addSeparator()
+        .addItem('🧪 Sembrar prueba', 'UI_sembrarFicticios')
+        .addItem('🧹 Vaciar prueba', 'UI_vaciarDatosPrueba')
+        .addItem('⚡ Demo', 'UI_demoCompleta')
+        .addItem('✅ Pruebas', 'UI_ejecutarPruebas')
+        .addSeparator()
+        .addItem('🔑 Acceso remoto', 'UI_configurarWebhook')
+        .addSubMenu(ui.createMenu('↩️ Recuperación')
+          .addItem('📋 Inventario', 'UI_recuperarInventario')
+          .addItem('⚠️ Ejecutar reversión', 'UI_recuperarEjecutar')))
 
       .addSeparator()
-      .addItem('📄 Abrir LOG', 'UI_abrirLog')
+      .addItem('📄 LOG', 'UI_abrirLog')
       .addToUi();
   } catch (e) { /* entorno sin UI */ }
 }
@@ -53,9 +56,33 @@ function UI_instalarEstructura() {
   var r = Utl_medir(Modelo_crearEstructura);
   Log_info('UI', 'instalarEstructura', 'creadas=' + r.resultado.creadas.join(','), null, r.ms);
   Log_flush();
-  SpreadsheetApp.getActiveSpreadsheet().toast(
-    'Estructura lista. Creadas: ' + (r.resultado.creadas.join(', ') || 'ninguna (ya existían)') +
-    ' · ' + r.ms + ' ms', 'ECICEP', 8);
+  SpreadsheetApp.getUi().alert(
+    '⚙️ Estructura creada/reparada.\n\n' +
+    'Creadas: ' + (r.resultado.creadas.join(', ') || 'ninguna') +
+    '\nUsa 🛠️ Instalar sistema para aplicar también diseño visual.');
+}
+
+/** Instala estructura Y aplica el diseño visual del libro (idempotente). */
+function UI_instalarSistema() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var est = Modelo_crearEstructura();
+    var dis = Modelo_aplicarDiseno();
+    Log_info('UI', 'instalarSistema',
+      'creadas=' + est.creadas.length + ' coloreadas=' + dis.coloreadas, null);
+    Log_flush();
+    ui.alert(
+      '🛠️ SISTEMA INSTALADO\n\n' +
+      'Hojas creadas: ' + est.creadas.length + '\n' +
+      'Hojas existentes: ' + est.existentes.length + '\n\n' +
+      'Diseño aplicado:\n' +
+      '· ' + dis.coloreadas + ' hojas coloreadas por segmento\n' +
+      '· ' + dis.ordenadas + ' hojas ordenadas\n' +
+      '· Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
+      '· Encabezados estilizados · fila 1 congelada');
+  } catch (e) {
+    ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
+  }
 }
 
 function UI_ejecutarPruebas() {

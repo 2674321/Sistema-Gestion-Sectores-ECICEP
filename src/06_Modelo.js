@@ -276,6 +276,88 @@ function Modelo_nuevoIdInterno() {
 }
 
 // ---------------------------------------------------------------------------
+// Diseño del libro — segmentos, colores de pestaña, orden, visibilidad.
+// El semáforo de sector es lenguaje clínico establecido: SOLO en hojas de su
+// sector, nunca como decoración genérica. Sistema = gris; técnica = oculta.
+// ---------------------------------------------------------------------------
+
+var MODELO_DISENO = [
+  // Operación
+  { nombre: 'DASHBOARD',        color: '#0E5C68', estilo: false },
+  { nombre: 'SECTOR_NARANJO',   color: '#E8730A' },
+  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00' },
+  { nombre: 'SECTOR_VERDE',     color: '#2E8B57' },
+  // Puertas de ingreso (mismo semáforo que su sector)
+  { nombre: 'INGRESO_NARANJO',  color: '#E8730A' },
+  { nombre: 'INGRESO_AMARILLO', color: '#C79A00' },
+  { nombre: 'INGRESO_VERDE',    color: '#2E8B57' },
+  // Bases
+  { nombre: 'PACIENTES',        color: '#1C2430', congelarCols: 3 }, // ID_INTERNO·RUT·NOMBRE
+  { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2 },
+  // Reportes
+  { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false },
+  // Sistema (técnicas ocultas)
+  { nombre: 'CONFLICTOS',       color: '#8A93A3' },
+  { nombre: 'FUENTES',          color: '#8A93A3' },
+  { nombre: 'CONFIG',           color: '#8A93A3', oculta: true },
+  { nombre: 'LOG',              color: '#8A93A3', oculta: true },
+  { nombre: 'STAGING_IMPORT',   color: '#8A93A3', oculta: true }
+];
+
+/** Estiliza la fila de encabezado de una hoja de datos (marca ECICEP). */
+function _modelo_estilizarEncabezado(hoja) {
+  var cols = hoja.getLastColumn();
+  if (!cols) return;
+  hoja.getRange(1, 1, 1, cols)
+      .setFontWeight('bold').setBackground('#0E5C68').setFontColor('#FFFFFF')
+      .setVerticalAlignment('middle');
+}
+
+/**
+ * Aplica el diseño visual del libro de forma IDEMPOTENTE:
+ * color de pestaña por segmento, orden fijo, técnicas ocultas,
+ * fila 1 congelada y encabezado estilizado en hojas de datos.
+ * No crea ni borra nada: se ejecuta tras Modelo_crearEstructura().
+ */
+function Modelo_aplicarDiseno() {
+  var ss = Modelo_ss();
+  var res = { coloreadas: 0, ocultas: [], ordenadas: 0, congeladas: [] };
+
+  MODELO_DISENO.forEach(function (d) {
+    var h = ss.getSheetByName(d.nombre);
+    if (!h) return;
+    h.setTabColor(d.color);
+    res.coloreadas++;
+    try {
+      h.setFrozenRows(1);
+      if (d.congelarCols) h.setFrozenColumns(d.congelarCols);
+      res.congeladas.push(d.nombre);
+      if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h);
+    } catch (e) { /* hoja sin contenido aún */ }
+    try {
+      if (d.oculta) { if (!h.isSheetHidden()) h.hideSheet(); }
+      else if (h.isSheetHidden()) h.showSheet();
+    } catch (e2) { /* protección de hoja */ }
+  });
+
+  // Alias legacy INGRESO_NARANJA: colorear como Naranjo y ocultar para no confundir
+  var alias = ss.getSheetByName('INGRESO_NARANJA');
+  if (alias) {
+    try { alias.setTabColor('#E8730A'); alias.hideSheet(); res.ocultas.push('INGRESO_NARANJA'); } catch (e3) {}
+  }
+
+  // Orden fijo de segmentos (Operación → Ingreso → Bases → Reportes → Sistema)
+  MODELO_DISENO.forEach(function (d, i) {
+    var h = ss.getSheetByName(d.nombre);
+    if (!h) return;
+    h.activate();
+    ss.moveActiveSheet(i + 1);
+    res.ordenadas++;
+  });
+  return res;
+}
+
+// ---------------------------------------------------------------------------
 // Instalación / reparación de estructura (idempotente)
 // ---------------------------------------------------------------------------
 
@@ -365,7 +447,7 @@ function _modelo_formatearPacientes(hoja) {
   if (!hoja) return;
   hoja.setFrozenRows(1);
   var rangoEnc = hoja.getRange(1, 1, 1, MODELO_PACIENTE.length);
-  rangoEnc.setFontWeight('bold').setBackground('#0b5394').setFontColor('#ffffff');
+  rangoEnc.setFontWeight('bold').setBackground('#0E5C68').setFontColor('#ffffff');
 
   // Anchos razonables según tipo
   for (var i = 0; i < MODELO_PACIENTE.length; i++) {

@@ -55,6 +55,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_trazabilidad(t, A);
   _pruebas_rem(t, A);
   _pruebas_rem_ancho(t, A);
+  _pruebas_diseno(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1618,5 +1619,47 @@ function _pruebas_rem_ancho(t, A) {
     var salida = _rem_aplanarAncho(entrada);
     A.arreglos(a, ['x'], 'original intacto');
     A.igual(salida[1].length, 1, 'null tratado como fila vacía');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Diseño del libro — tabla declarativa íntegra
+// ---------------------------------------------------------------------------
+
+function _pruebas_diseno(t, A) {
+  t('DISEÑO: nombres de hoja únicos y existentes en el modelo', function () {
+    var vistos = {};
+    MODELO_DISENO.forEach(function (d) {
+      A.cierto(!vistos[d.nombre], 'duplicado: ' + d.nombre);
+      vistos[d.nombre] = true;
+      var existe = _MODELO_HOJAS_DEF.hasOwnProperty(d.nombre) ||
+        HOJAS_SECTOR.indexOf(d.nombre) !== -1 || d.nombre === 'REM_SALIDA' ||
+        d.nombre === HOJAS.HOJA_PREDETERMINADA;
+      A.cierto(existe, d.nombre + ' no está en _MODELO_HOJAS_DEF');
+    });
+  });
+
+  t('DISEÑO: colores hex válidos y semáforo solo en hojas de su sector', function () {
+    var SEMAFORO = { '#E8730A': ['NARANJO'], '#C79A00': ['AMARILLO'], '#2E8B57': ['VERDE'] };
+    MODELO_DISENO.forEach(function (d) {
+      A.cierto(/^#[0-9A-F]{6}$/.test(d.color), 'color inválido en ' + d.nombre);
+      Object.keys(SEMAFORO).forEach(function (hex) {
+        if (d.color === hex) {
+          var pertenece = SEMAFORO[hex].some(function (sec) { return d.nombre.indexOf(sec) !== -1; });
+          A.cierto(pertenece, d.nombre + ' usa semáforo sin ser hoja del sector');
+        }
+      });
+      if (d.oculta) A.igual(d.color, '#8A93A3', 'oculta siempre gris técnica: ' + d.nombre);
+    });
+  });
+
+  t('DISEÑO: orden declarado agrupa segmentos en secuencia', function () {
+    var nombres = MODELO_DISENO.map(function (d) { return d.nombre; });
+    var pos = function (n) { return nombres.indexOf(n); };
+    A.cierto(pos('DASHBOARD') < pos('SECTOR_NARANJO'), 'operación primero');
+    A.cierto(pos('SECTOR_VERDE') < pos('INGRESO_NARANJO'), 'sector antes que ingreso');
+    A.cierto(pos('INGRESO_VERDE') < pos('PACIENTES'), 'ingreso antes que bases');
+    A.cierto(pos('EVENTOS') < pos('REM_SALIDA'), 'bases antes que reportes');
+    A.cierto(pos('REM_SALIDA') < pos('CONFIG'), 'reportes antes que sistema');
   });
 }
