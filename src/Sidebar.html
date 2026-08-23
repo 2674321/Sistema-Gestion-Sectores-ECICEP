@@ -91,7 +91,7 @@ function abrirFicha(id){
     document.getElementById('panelBuscar').style.display='none';
     document.getElementById('vista').style.display='block';
     document.getElementById('fNombre').textContent=f.NOMBRE||'';
-    var d=[['RUT',f.RUT],['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],['Sector',f.SECTOR],['Estrat.',f.ESTRATIFICACION],['Estado',f.ESTADO],['Próx. control',f.PROXIMO_CONTROL]];
+    var d=[['RUT',f.RUT],['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],['Sector',f.SECTOR],['Estrat.',f.ESTRATIFICACION||'Pendiente'],['Estado',f.ESTADO],['Próx. control',f.PROXIMO_CONTROL]];
     document.getElementById('fDatos').innerHTML=d.map(function(x){return '<tr><td class="etq">'+x[0]+'</td><td>'+esc(x[1])+'</td></tr>';}).join('');
     var pats=(f.CONDICIONES||'').split(';').filter(Boolean);
     var nombresPats=pats.map(function(cod){
