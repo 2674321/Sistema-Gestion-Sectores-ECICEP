@@ -12,8 +12,7 @@ function onOpen() {
     var ui = SpreadsheetApp.getUi();
     ui.createMenu('ECICEP')
 
-      .addSubMenu(ui.createMenu('🏠 Principal')
-        .addItem('🏠 Panel de Control', 'UI_panelControl'))
+      .addItem('🏠 Panel de Control', 'UI_panelControl')
 
       .addSubMenu(ui.createMenu('👥 Gestión')
         .addItem('👤 Pacientes ECICEP', 'UI_abrirBuscador')
