@@ -150,10 +150,12 @@ textarea.inp{min-height:64px;resize:vertical}
 
 <!-- ============ REVISIÓN ============ -->
 <div id="panelRev" class="wrap" style="display:none">
-  <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px" onclick="volver()">
-    <i data-lucide="arrow-left"></i> Volver
-  </button>
-  <h2 style="font-size:16px;margin:4px 0 8px">Cola de revisión</h2>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px;flex-shrink:0" onclick="volver()">
+      <i data-lucide="arrow-left"></i> Volver
+    </button>
+    <h2 style="font-size:16px;margin:0">Cola de revisión</h2>
+  </div>
   <div id="revMetricas" class="ficha-chips"></div>
   <div id="revLista"></div>
 </div>
@@ -334,11 +336,20 @@ function guardarPatologias(btn){
   .api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),document.getElementById('otrasPatologias').value);
 }
 
+/* Conteo silencioso para el chip — NO abre ningún panel */
+function refrescarConteoRev(){
+  google.script.run.withSuccessHandler(function(r){
+    document.getElementById('cntRev').textContent=((r&&r.metricas&&r.metricas.abiertos)||0);
+    _refrescarIconos();
+  }).api_revisionListar();
+}
+
 /* ================= cola de revisión ================= */
 function verRevision(){
   document.getElementById('panelBuscar').style.display='none';
   document.getElementById('vista').style.display='none';
-  document.getElementById('panelRev').style.display='block';
+  document.getElementById('panelRev').style.display='flex';
+  refrescarConteoRev();
   document.getElementById('revLista').innerHTML='<div class="skel" style="height:120px"></div>';
   google.script.run.withSuccessHandler(function(r){
     var mt=r.metricas||{};
@@ -372,7 +383,7 @@ function resolver(idx,dec,btn){
     if(!r.ok&&r.motivo==='CONFLICTO_YA_RESUELTO'){toast('Este conflicto ya estaba resuelto','info');verRevision();return;}
     if(r.ok)toast(r.accion==='CREAR'?'Paciente nuevo creado':'Enlazado a existente','ok');
     else toast(r.motivo||'No se pudo resolver','err');
-    verRevision();
+refrescarConteoRev(); /* al abrir: solo el chip, la vista inicial es la búsqueda */
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
   .api_revisionResolver(idx,dec);
 }
@@ -381,7 +392,7 @@ function volver(){
   document.getElementById('vista').style.display='none';
   document.getElementById('panelRev').style.display='none';
   document.getElementById('panelBuscar').style.display='flex';
-  verRevision();
+  refrescarConteoRev(); /* solo actualiza el chip, NO reabre la cola */
 }
 
 /* ================= init ================= */

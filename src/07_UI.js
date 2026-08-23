@@ -54,12 +54,14 @@ function onOpen() {
 
 function UI_instalarEstructura() {
   var r = Utl_medir(Modelo_crearEstructura);
+  var dis = Modelo_aplicarDiseno();
   Log_info('UI', 'instalarEstructura', 'creadas=' + r.resultado.creadas.join(','), null, r.ms);
   Log_flush();
   SpreadsheetApp.getUi().alert(
     '⚙️ Estructura creada/reparada.\n\n' +
     'Creadas: ' + (r.resultado.creadas.join(', ') || 'ninguna') +
-    '\nUsa 🛠️ Instalar sistema para aplicar también diseño visual.');
+    '\nDiseño aplicado: ' + dis.coloreadas + ' hojas · orden ' + dis.ordenadas +
+    '\n(Recomendado: 🛠️ Instalar sistema para el resumen completo)');
 }
 
 /** Instala estructura Y aplica el diseño visual del libro (idempotente). */

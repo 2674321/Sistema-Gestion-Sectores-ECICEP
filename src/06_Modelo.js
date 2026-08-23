@@ -284,20 +284,20 @@ function Modelo_nuevoIdInterno() {
 var MODELO_DISENO = [
   // Operación
   { nombre: 'DASHBOARD',        color: '#0E5C68', estilo: false },
-  { nombre: 'SECTOR_NARANJO',   color: '#E8730A' },
-  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00' },
-  { nombre: 'SECTOR_VERDE',     color: '#2E8B57' },
+  { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00', banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'SECTOR_VERDE',     color: '#2E8B57', banda: true, formato: COLUMNAS_SECTOR_VISTA },
   // Puertas de ingreso (mismo semáforo que su sector)
-  { nombre: 'INGRESO_NARANJO',  color: '#E8730A' },
-  { nombre: 'INGRESO_AMARILLO', color: '#C79A00' },
-  { nombre: 'INGRESO_VERDE',    color: '#2E8B57' },
+  { nombre: 'INGRESO_NARANJO',  color: '#E8730A', banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'INGRESO_AMARILLO', color: '#C79A00', banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'INGRESO_VERDE',    color: '#2E8B57', banda: true, formato: INGRESO_COLUMNAS },
   // Bases
-  { nombre: 'PACIENTES',        color: '#1C2430', congelarCols: 3 }, // ID_INTERNO·RUT·NOMBRE
-  { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2 },
+  { nombre: 'PACIENTES',        color: '#1C2430', congelarCols: 3, banda: true }, // ID·RUT·NOMBRE
+  { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2, banda: true },
   // Reportes
   { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false },
   // Sistema (técnicas ocultas)
-  { nombre: 'CONFLICTOS',       color: '#8A93A3' },
+  { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true },
   { nombre: 'FUENTES',          color: '#8A93A3' },
   { nombre: 'CONFIG',           color: '#8A93A3', oculta: true },
   { nombre: 'LOG',              color: '#8A93A3', oculta: true },
@@ -313,47 +313,90 @@ function _modelo_estilizarEncabezado(hoja) {
       .setVerticalAlignment('middle');
 }
 
+/** Banding (filas intercaladas) idempotente con colores del sistema de diseño. */
+function _modelo_aplicarBanda(hoja) {
+  var cols = Math.max(hoja.getLastColumn(), 1);
+  var rango = hoja.getRange(1, 1, hoja.getMaxRows(), cols);
+  rango.getBandings().forEach(function (b) { b.remove(); });
+  if (hoja.getMaxRows() < 2) return;
+  var banda = hoja.getRange(2, 1, hoja.getMaxRows() - 1, cols).applyRowBanding();
+  banda.setFirstRowColor('#FFFFFF').setSecondRowColor('#F1F3F6'); // surface / surface-alt
+}
+
+/** Anchos y formatos de fecha para hojas de columnas conocidas (ingreso y vistas sector). */
+function _modelo_formatoSencillo(hoja, columnas) {
+  var anchos = { NOMBRE: 200, RUT: 110, OBSERVACIONES: 220, ESTADO: 120 };
+  columnas.forEach(function (nombreCol, i) {
+    var esFecha = /FECHA/.test(nombreCol);
+    hoja.setColumnWidth(i + 1, esFecha ? 105 : (anchos[nombreCol] || 130));
+    if (esFecha && hoja.getMaxRows() > 1) {
+      hoja.getRange(2, i + 1, hoja.getMaxRows() - 1, 1).setNumberFormat('dd/MM/yyyy');
+    }
+  });
+}
+
 /**
  * Aplica el diseño visual del libro de forma IDEMPOTENTE:
  * color de pestaña por segmento, orden fijo, técnicas ocultas,
- * fila 1 congelada y encabezado estilizado en hojas de datos.
- * No crea ni borra nada: se ejecuta tras Modelo_crearEstructura().
+ * fila 1 congelada, encabezado estilizado, banding y formatos.
+ * Robusto: fallo de una hoja no aborta el resto. Patrón probado en
+ * CESFAM_SJ/PADI (saltar ocultas al ordenar; restaurar hoja activa).
  */
 function Modelo_aplicarDiseno() {
   var ss = Modelo_ss();
-  var res = { coloreadas: 0, ocultas: [], ordenadas: 0, congeladas: [] };
+  var res = { coloreadas: 0, ocultas: [], ordenadas: 0, congeladas: [], bandas: 0, fallidas: [] };
+  var activaOriginal = ss.getActiveSheet().getName();
 
   MODELO_DISENO.forEach(function (d) {
-    var h = ss.getSheetByName(d.nombre);
-    if (!h) return;
-    h.setTabColor(d.color);
-    res.coloreadas++;
     try {
+      var h = ss.getSheetByName(d.nombre);
+      if (!h) return;
+      h.setTabColor(d.color);
+      res.coloreadas++;
       h.setFrozenRows(1);
       if (d.congelarCols) h.setFrozenColumns(d.congelarCols);
       res.congeladas.push(d.nombre);
       if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h);
-    } catch (e) { /* hoja sin contenido aún */ }
-    try {
+      if (d.banda) { _modelo_aplicarBanda(h); res.bandas++; }
+      if (d.formato && d.formato.length) _modelo_formatoSencillo(h, d.formato);
       if (d.oculta) { if (!h.isSheetHidden()) h.hideSheet(); }
       else if (h.isSheetHidden()) h.showSheet();
-    } catch (e2) { /* protección de hoja */ }
+    } catch (e) {
+      res.fallidas.push(d.nombre + ': ' + (e && e.message || e));
+    }
   });
 
   // Alias legacy INGRESO_NARANJA: colorear como Naranjo y ocultar para no confundir
-  var alias = ss.getSheetByName('INGRESO_NARANJA');
-  if (alias) {
-    try { alias.setTabColor('#E8730A'); alias.hideSheet(); res.ocultas.push('INGRESO_NARANJA'); } catch (e3) {}
-  }
+  try {
+    var alias = ss.getSheetByName('INGRESO_NARANJA');
+    if (alias) {
+      alias.setTabColor('#E8730A');
+      if (!alias.isSheetHidden()) alias.hideSheet();
+      res.ocultas.push('INGRESO_NARANJA');
+    }
+  } catch (eAlias) {}
 
-  // Orden fijo de segmentos (Operación → Ingreso → Bases → Reportes → Sistema)
-  MODELO_DISENO.forEach(function (d, i) {
-    var h = ss.getSheetByName(d.nombre);
-    if (!h) return;
-    h.activate();
-    ss.moveActiveSheet(i + 1);
-    res.ordenadas++;
+  // Orden fijo de segmentos — las ocultas se omiten (patrón PADI)
+  var pos = 1;
+  MODELO_DISENO.forEach(function (d) {
+    try {
+      var h = ss.getSheetByName(d.nombre);
+      if (!h || h.isSheetHidden()) return;
+      ss.setActiveSheet(h, false);
+      ss.moveActiveSheet(pos);
+      pos++;
+      res.ordenadas++;
+    } catch (e2) {
+      res.fallidas.push(d.nombre + ' (orden): ' + (e2 && e2.message || e2));
+    }
   });
+
+  // Restaurar la hoja que el usuario tenía activa
+  try {
+    var back = ss.getSheetByName(activaOriginal);
+    if (back) ss.setActiveSheet(back, false);
+  } catch (e3) {}
+
   return res;
 }
 
