@@ -147,11 +147,11 @@ function generar(btn){
       try{
         pintarValidacion(r1);
         var wb=construirExcel(r1);
-        XLSX.writeFile(wb,r.nombre); /* descarga directa del navegador */
-        barraFin(true,'✓ '+r.detalle.length+' atenciones exportadas');
+        XLSX.writeFile(wb,r1.nombre); /* descarga directa del navegador */
+        barraFin(true,'✓ '+r1.detalle.length+' atenciones exportadas');
         setLoading(btn,false);
-        toast('✓ '+r.nombre+' descargado ('+r.detalle.length+' atenciones · '
-          +r.validacion.ok+' OK / '+r.validacion.warning+' adv / '+r.validacion.error+' err)','ok');
+        toast('✓ '+r1.nombre+' descargado ('+r1.detalle.length+' atenciones · '
+          +r1.validacion.ok+' OK / '+r1.validacion.warning+' adv / '+r1.validacion.error+' err)','ok');
         _refrescarIconos();
       }catch(e){
         barraFin(false);setLoading(btn,false);
