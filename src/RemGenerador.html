@@ -98,9 +98,9 @@ function generar(btn){
     inv.style.color=r.fechasInvalidas?'var(--warning)':'var(--success)';
     document.getElementById('resultado').style.display='block';
     _refrescarIconos();
-    if(r.eventosPeriodo===0){toast('REM generado, sin eventos en el período seleccionado','info');}
-    else{toast('REM generado correctamente ✓','ok');}
-    setTimeout(consultar,700); /* flujo #11: terminar en Consultar REM */
+    if(r.eventosPeriodo===0){toast('⚠ No existen registros para el período seleccionado','warn');}
+    else{toast('✓ REM generado correctamente','ok');}
+    /* La tarjeta de resultado permanece: Consultar REM es VOLUNTARIO */
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
   .Rem_generar(p.anio,p.mes,sector);
 }

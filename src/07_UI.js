@@ -12,42 +12,42 @@ function onOpen() {
     var ui = SpreadsheetApp.getUi();
     ui.createMenu('ECICEP')
 
-      .addSubMenu(ui.createMenu('Operación')
-        .addItem('Centro de control', 'UI_centroControl')
-        .addItem('Buscar paciente', 'UI_abrirBuscador')
-        .addItem('Cola de revisión', 'UI_abrirRevision'))
+      .addSubMenu(ui.createMenu('🏠 Inicio')
+        .addItem('🏠 Panel de control', 'UI_abrirDashboard'))
 
-      .addSubMenu(ui.createMenu('Ingresos')
-        .addItem('Procesar ingresos', 'UI_procesarIngresos')
-        .addItem('Analizar carga', 'UI_bloqueado')
-        .addItem('Ejecutar carga', 'UI_ejecutarCarga')
-        .addItem('Diagnosticar fuentes', 'UI_diagnosticarFuentes')
-        .addItem('Diagnóstico de ingresos', 'UI_diagnosticarIngresos')
-        .addItem('Refrescar SECTOR', 'UI_refrescarSectores'))
+      .addSubMenu(ui.createMenu('👥 Gestión')
+        .addItem('🔎 Buscar paciente', 'UI_abrirBuscador')
+        .addItem('📋 Cola de revisión', 'UI_abrirRevision')
+        .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
+        .addItem('📊 Analizar carga', 'UI_bloqueado')
+        .addItem('🚀 Ejecutar carga', 'UI_ejecutarCarga')
+        .addItem('🗂️ Diagnosticar fuentes', 'UI_diagnosticarFuentes')
+        .addItem('🩺 Diagnóstico de ingresos', 'UI_diagnosticarIngresos')
+        .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
 
-      .addSubMenu(ui.createMenu('Reportes')
-        .addItem('Panel interactivo', 'UI_abrirDashboard')
-        .addItem('Generar REM', 'UI_generarRem')
-        .addItem('Consultar REM', 'UI_verRem'))
+      .addSubMenu(ui.createMenu('🩺 REM y estadísticas')
+        .addItem('📊 Estadísticas', 'UI_abrirDashboard')
+        .addItem('🩺 Generar REM', 'UI_generarRem')
+        .addItem('🔍 Consultar REM', 'UI_verRem'))
 
-      .addSubMenu(ui.createMenu('Mantenimiento')
-        .addItem('Instalar sistema', 'UI_instalarSistema')
+      .addSubMenu(ui.createMenu('⚙️ Sistema')
+        .addItem('🛠️ Instalar / Reparar sistema', 'UI_instalarSistema')
         .addSeparator()
-        .addItem('Esquema PACIENTES', 'UI_migrarEsquemaPacientes')
-        .addItem('Integridad de datos', 'UI_diagnosticoTrazabilidad')
+        .addItem('🧬 Esquema PACIENTES', 'UI_migrarEsquemaPacientes')
+        .addItem('🔎 Integridad de datos', 'UI_diagnosticoTrazabilidad')
         .addSeparator()
-        .addItem('Sembrar datos de prueba', 'UI_sembrarFicticios')
-        .addItem('Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
-        .addItem('Demo completa', 'UI_demoCompleta')
-        .addItem('Ejecutar pruebas', 'UI_ejecutarPruebas')
+        .addItem('🌱 Sembrar datos de prueba', 'UI_sembrarFicticios')
+        .addItem('🧹 Vaciar datos de prueba', 'UI_vaciarDatosPrueba')
+        .addItem('⚡ Demo completa', 'UI_demoCompleta')
+        .addItem('✅ Ejecutar pruebas', 'UI_ejecutarPruebas')
         .addSeparator()
-        .addItem('Acceso remoto', 'UI_configurarWebhook')
-        .addSubMenu(ui.createMenu('Recuperación')
-          .addItem('Inventario', 'UI_recuperarInventario')
-          .addItem('Ejecutar reversión', 'UI_recuperarEjecutar')))
+        .addItem('🔑 Acceso remoto', 'UI_configurarWebhook')
+        .addSubMenu(ui.createMenu('↩️ Recuperación')
+          .addItem('📋 Inventario', 'UI_recuperarInventario')
+          .addItem('⚠️ Ejecutar reversión', 'UI_recuperarEjecutar')))
 
       .addSeparator()
-      .addItem('Abrir LOG', 'UI_abrirLog')
+      .addItem('📄 Abrir LOG', 'UI_abrirLog')
       .addToUi();
   } catch (e) { /* entorno sin UI */ }
 }
@@ -64,23 +64,30 @@ function UI_instalarEstructura() {
     '\n(Recomendado: 🛠️ Instalar sistema para el resumen completo)');
 }
 
-/** Instala TODO en un clic: estructura + diseño + menús + validación final.
- *  Idempotente: re-ejecutar no duplica nada. */
+/** Instala TODO en un clic: estructura + CONFIG + catálogos + validaciones +
+ *  diseño + menús + validación final. Idempotente: re-ejecutar no duplica nada. */
 function UI_instalarSistema() {
   var ui = SpreadsheetApp.getUi();
   var avisos = [];
   try {
-    // 1-2) Estructura (crea/verifica hojas y configuración semilla)
+    // 1-2) Estructura (crea/verifica hojas y configuración semilla general+módulos)
     var est = Modelo_crearEstructura();
 
-    // 3) Diseño visual completo (colores, orden en pares, ocultas, banding,
-    //    congelados, anchos y formatos de fecha)
+    // 3) Catálogos centralizados (vigencia de exámenes)
+    var ss = Modelo_ss();
+    var cat = Modelo_instalarCatalogos(ss);
+
+    // 4) Validaciones controladas en puertas INGRESO_*
+    var val = Modelo_validarIngresos(ss);
+
+    // 5) Diseño visual completo (colores en pares sector-ingreso, orden,
+    //    ocultas, banding, congelados, anchos y formatos de fecha)
     var dis = Modelo_aplicarDiseno();
 
-    // 4) Menus disponibles de inmediato sin esperar a que Google re-dispare onOpen
+    // 6) Menus disponibles de inmediato sin esperar a que Google re-dispare onOpen
     try { onOpen(); } catch (eMenu) { avisos.push('Menú: ' + eMenu.message); }
 
-    // 5) Validación final de funciones y hojas críticas
+    // 7) Validación final de funciones y hojas críticas
     var criticas = ['PACIENTES', 'EVENTOS', 'DASHBOARD',
       'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
       'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
@@ -88,7 +95,7 @@ function UI_instalarSistema() {
     if (faltan.length) avisos.push('Faltan hojas: ' + faltan.join(', '));
 
     var funciones = [['Modelo_leerPacientes'], ['Rem_generar'], ['api_dashboardDatos'],
-      ['api_patologiasGuardar'], ['UI_verRem']];
+      ['api_patologiasGuardar'], ['UI_verRem'], ['REM_exportarPdf']];
     var sinFn = funciones.filter(function (f) { return typeof this[f[0]] !== 'function'; }.bind(this))
       .map(function (f) { return f[0]; });
     if (sinFn.length) avisos.push('Funciones ausentes: ' + sinFn.join(', '));
@@ -98,24 +105,33 @@ function UI_instalarSistema() {
 
     Log_info('UI', 'instalarSistema',
       'creadas=' + est.creadas.length + ' coloreadas=' + dis.coloreadas +
-      ' bandas=' + dis.bandas + ' pacientes=' + pacientes, null);
+      ' bandas=' + dis.bandas + ' validaciones=' + val.validaciones +
+      ' pacientes=' + pacientes, null);
     Log_flush();
 
     if (dis.fallidas && dis.fallidas.length) {
       avisos = avisos.concat(dis.fallidas.map(function (f) { return 'Diseño · ' + f; }));
     }
+    if (val.fallidas.length) {
+      avisos = avisos.concat(val.fallidas.map(function (f) { return 'Validaciones · ' + f; }));
+    }
 
     ui.alert(
-      '🛠️ SISTEMA INSTALADO\n\n' +
-      '✅ Hojas creadas: ' + est.creadas.length +
-      ' · existentes: ' + est.existentes.length + '\n' +
-      '✅ Diseño aplicado: ' + dis.coloreadas + ' hojas coloreadas · ' +
-      dis.ordenadas + ' ordenadas\n' +
-      '✅ Filas intercaladas: ' + dis.bandas + ' hojas\n' +
-      '✅ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
-      '✅ Menú reconstruido · Encabezados y fechas formateados\n' +
-      '✅ Validación: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n\n' +
-      (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ') : 'Todo correctamente configurado.'));
+      '🛠️ INSTALACIÓN FINALIZADA\n\n' +
+      '✓ Hojas verificadas: creadas ' + est.creadas.length +
+      ' · existentes ' + est.existentes.length + '\n' +
+      '✓ CONFIG general/módulos sembrado (idempotente)\n' +
+      '✓ Catálogo vigencia exámenes' +
+        (cat.sembrada ? ' (con ejemplos)' : ' verificado') + '\n' +
+      '✓ Validaciones aplicadas: ' + val.validaciones + ' en ' + val.hojas + ' puertas INGRESO\n' +
+      '✓ Columnas sistema marcadas: ' + val.protegidas + '\n' +
+      '✓ Diseño: ' + dis.coloreadas + ' hojas coloreadas · ' + dis.ordenadas +
+        ' ordenadas · ' + dis.bandas + ' con filas intercaladas\n' +
+      '✓ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
+      '✓ Menú actualizado · Encabezados y fechas formateados\n' +
+      '✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n\n' +
+      (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ')
+                     : 'Sistema listo para utilizar.'));
   } catch (e) {
     Log_error('UI', 'instalarSistema', e && e.message ? e.message : String(e));
     Log_flush();

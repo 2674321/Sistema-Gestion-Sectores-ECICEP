@@ -57,6 +57,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_rem_ancho(t, A);
   _pruebas_diseno(t, A);
   _pruebas_rem_pdf(t, A);
+  _pruebas_instalador(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1684,5 +1685,50 @@ function _pruebas_rem_pdf(t, A) {
     A.igual(remNombreArchivo(2026, 12, 'TODOS'), 'REM_Todos_2026-12.pdf', 'todos');
     A.igual(remNombreArchivo('2026', '3', ''), 'REM_Todos_2026-03.pdf', 'default TODOS con cero');
     A.cierto(/^REM_\w+_\d{4}-\d{2}\.pdf$/.test(remNombreArchivo(2025, 11, 'verde')), 'formato general');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Instalador profundo — vigencia de exámenes y semillas CONFIG
+// ---------------------------------------------------------------------------
+
+function _pruebas_instalador(t, A) {
+  t('VIGENCIA: vencimiento por meses con normalización de fecha', function () {
+    A.igual(Vigencia_vencimiento('2026-01-31', 1, 'meses'), '2026-02-28', 'mes fin de mes');
+    A.igual(Vigencia_vencimiento('2026-03-15', 6, 'meses'), '2026-09-15', 'semestre');
+  });
+
+  t('VIGENCIA: unidades días y años', function () {
+    A.igual(Vigencia_vencimiento('2026-08-23', 10, 'días'), '2026-09-02', 'días');
+    A.igual(Vigencia_vencimiento('2020-02-29', 1, 'años'), '2021-02-28', 'año bisiesto');
+  });
+
+  t('VIGENCIA: estados VIGENTE / POR_VENCER / VENCIDO', function () {
+    A.igual(Vigencia_estado('2026-08-01', 12, 'meses', '2026-08-23').estado, 'VIGENTE', 'vigente');
+    var pv = Vigencia_estado('2026-08-01', 1, 'meses', '2026-08-23');
+    A.igual(pv.estado, 'POR_VENCER', 'por vencer (≤30 días)');
+    A.cierto(pv.dias >= 0 && pv.dias <= 30, 'dias razonables');
+    A.igual(Vigencia_estado('2025-08-01', 6, 'meses', '2026-08-23').estado, 'VENCIDO', 'vencido');
+    A.igual(Vigencia_estado('fecha mala', 6, 'meses', '2026-08-23').estado, '', 'entrada inválida');
+  });
+
+  t('CONFIG: semillas extendidas sin colisiones con la general', function () {
+    var claves = _CONFIG_SEMILLA.map(function (f) { return f[0]; })
+      .concat(CONFIG_SEED_EXTRA.map(function (f) { return f[0]; }));
+    var unicos = {};
+    claves.forEach(function (c) {
+      A.cierto(!unicos[c], 'clave duplicada: ' + c);
+      unicos[c] = true;
+    });
+    ['GENERAL_NOMBRE_SISTEMA', 'DASHBOARD_TITULO', 'REM_INCLUIR_INDICADORES']
+      .forEach(function (k) { A.cierto(unicos[k], k + ' presente'); });
+  });
+
+  t('CATÁLOGO: definición de columnas consistente con la semilla', function () {
+    var def = _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'];
+    A.arreglos(def, ['EXAMEN', 'CODIGO', 'VIGENCIA', 'UNIDAD', 'ACTIVO'], 'columnas');
+    CAT_VIGENCIA_SEMILLA.forEach(function (fila) {
+      A.igual(fila.length, def.length, 'fila ' + fila[0] + ' coincide');
+    });
   });
 }

@@ -296,6 +296,8 @@ var MODELO_DISENO = [
   { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2, banda: true },
   // Reportes (REM_SALIDA es interna: el usuario consulta vía "Consultar REM")
   { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false, oculta: true },
+  // Catálogos y configuración (internas)
+  { nombre: 'CAT_VIGENCIA_EXAMENES', color: '#8A93A3', oculta: true, banda: true },
   // Sistema (técnicas ocultas)
   { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true },
   { nombre: 'FUENTES',          color: '#8A93A3' },
@@ -417,6 +419,8 @@ _MODELO_HOJAS_DEF[HOJAS.LOG] = ['FECHA', 'NIVEL', 'MODULO', 'OPERACION', 'MENSAJ
 _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'DETALLE', 'FUENTE_A', 'FUENTE_B', 'ESTADO_REVISION', 'RESUELTO_POR'];
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
 _MODELO_HOJAS_DEF['DASHBOARD'] = null; // se inicializa con filtros al crear
+// Catálogo centralizado de vigencia de exámenes (#15): administrable desde CONFIG
+_MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'] = ['EXAMEN', 'CODIGO', 'VIGENCIA', 'UNIDAD', 'ACTIVO'];
 
 var _CONFIG_SEMILLA = [
   ['VERSION', ECICEP.VERSION, 'Versión del sistema instalada'],
@@ -429,6 +433,17 @@ var _CONFIG_SEMILLA = [
   ['RESPONSABLE_NARANJO', '', 'Correo del responsable del sector (pendiente #13)'],
   ['RESPONSABLE_AMARILLO', '', 'Correo del responsable del sector (pendiente #13)'],
   ['RESPONSABLE_VERDE', '', 'Correo del responsable del sector (pendiente #13)']
+];
+
+// Configuración extendida por módulos (#12-15): parámetros administrables sin código.
+var CONFIG_SEED_EXTRA = [
+  ['GENERAL_NOMBRE_SISTEMA', 'ECICEP', 'Nombre visible del sistema'],
+  ['GENERAL_INSTITUCION',    'CESFAM San Juan', 'Establecimiento'],
+  ['GENERAL_UNIDAD',         'Gestión de Sectores ECICEP', 'Unidad o programa'],
+  ['DASHBOARD_TITULO',       'Panel ECICEP', 'Título del panel interactivo'],
+  ['REM_INCLUIR_INDICADORES','Sí',   'Indicadores por paciente en REM (Sí/No)'],
+  ['REM_PDF_MARGEN_PT',      '46',   'Margen del PDF profesional (puntos)'],
+  ['PACIENTES_MIN_BUSQUEDA', '2',    'Caracteres mínimos para buscar']
 ];
 
 /**
@@ -530,7 +545,7 @@ function _modelo_sembrarConfig(hoja, res) {
   if (!esNueva && hoja.getLastRow() > 1) {
     Utl_leerBloque(hoja).slice(1).forEach(function (f) { existentes[f[0]] = true; });
   }
-  var filas = _CONFIG_SEMILLA.filter(function (f) {
+  var filas = _CONFIG_SEMILLA.concat(CONFIG_SEED_EXTRA).filter(function (f) {
     if (f[0] === 'VERSION') return true; // VERSION siempre se actualiza
     return esNueva || !existentes[f[0]];
   });
@@ -1013,4 +1028,157 @@ function Recuperar_ejecutar(prefijoFuente) {
   Log_info('Recuperar', 'ejecutar', JSON.stringify({ pacientes: eliminadosP, eventos: eliminadosE }));
   Log_flush();
   return { pacientesEliminados: eliminadosP, eventosEliminados: eliminadosE };
+}
+
+// ---------------------------------------------------------------------------
+// Instalador profundo — catálogos, validaciones y vigencia (#9-#26)
+// Un dato tiene una definición única: catálogo CONFIG → desplegable → dato
+// normalizado → Dashboard/REM consistentes.
+// ---------------------------------------------------------------------------
+
+var CAT_VIGENCIA_SEMILLA = [
+  ['EXAMEN DE EJEMPLO', 'EJ-1', 6, 'meses', 'No']
+];
+
+/** PURA: fecha de vencimiento = fecha examen + vigencia configurada.
+ *  Meses recortan a fin de mes real (31-ene + 1m → 28-feb); unidades sin tildes. */
+function Vigencia_vencimiento(fechaISO, cantidad, unidad) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fechaISO || ''));
+  if (!m) return '';
+  var n = Number(cantidad);
+  if (!n || n < 0) return '';
+  var f = new Date(+m[1], +m[2] - 1, +m[3]);
+  var u = Utl_sinTildes(Utl_texto(unidad)).toLowerCase();
+  var diaOriginal = f.getDate();
+  if (u.indexOf('dia') === 0) {
+    f.setDate(f.getDate() + n);
+  } else if (u.indexOf('ano') === 0) {
+    f.setFullYear(f.getFullYear() + n);
+    if (f.getDate() !== diaOriginal) f.setDate(0); // 29-feb → 28-feb
+  } else { // meses por defecto
+    f.setMonth(f.getMonth() + n);
+    if (f.getDate() !== diaOriginal) f.setDate(0); // clamp a fin de mes real
+  }
+  return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') +
+         '-' + String(f.getDate()).padStart(2, '0');
+}
+
+/** PURA: estado de vigencia → {estado:'VIGENTE'|'POR_VENCER'|'VENCIDO'|'', vencimiento, dias}.
+ *  POR_VENCER = vence en ≤30 días. hoyRef inyectable para pruebas. */
+function Vigencia_estado(fechaExamenISO, cantidad, unidad, hoyRef) {
+  var venc = Vigencia_vencimiento(fechaExamenISO, cantidad, unidad);
+  if (!venc) return { estado: '', vencimiento: '', dias: null };
+  var hoy = String(hoyRef || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'))
+    .slice(0, 10);
+  var dH = new Date(+hoy.slice(0, 4), +hoy.slice(5, 7) - 1, +hoy.slice(8, 10));
+  var dV = new Date(+venc.slice(0, 4), +venc.slice(5, 7) - 1, +venc.slice(8, 10));
+  var dias = Math.round((dV - dH) / 864e5);
+  var estado = dias < 0 ? 'VENCIDO' : (dias <= 30 ? 'POR_VENCER' : 'VIGENTE');
+  return { estado: estado, vencimiento: venc, dias: dias };
+}
+
+/**
+ * Crea/repone la hoja de catálogo de vigencias de forma IDEMPOTENTE:
+ * solo siembra ejemplos si está vacía; jamás toca datos existentes.
+ */
+function Modelo_instalarCatalogos(ss) {
+  var res = { creada: false, sembrada: false, validaciones: 0 };
+  var nombre = 'CAT_VIGENCIA_EXAMENES';
+  var h = ss.getSheetByName(nombre);
+  if (!h) {
+    h = ss.insertSheet(nombre);
+    res.creada = true;
+  }
+  var def = _MODELO_HOJAS_DEF[nombre];
+  if (h.getLastRow() < 1) {
+    Utl_escribirBloque(h, 1, 1, [def]);
+  }
+  if (h.getLastRow() < 2) {
+    Utl_escribirBloque(h, 2, 1, CAT_VIGENCIA_SEMILLA);
+    res.sembrada = true;
+  }
+  h.setFrozenRows(1);
+  _modelo_estilizarEncabezado(h);
+  h.setColumnWidth(1, 220); h.setColumnWidth(2, 110);
+  h.setColumnWidth(3, 100); h.setColumnWidth(4, 90); h.setColumnWidth(5, 90);
+  if (h.getMaxRows() > 1) {
+    var colNum = h.getRange(2, 3, h.getMaxRows() - 1, 1);
+    colNum.setNumberFormat('0');
+    var reglaNum = SpreadsheetApp.newDataValidation()
+      .requireNumberGreaterThan(0).setAllowInvalid(false)
+      .setHelpText('Vigencia debe ser un número mayor que 0').build();
+    colNum.setDataValidation(reglaNum); res.validaciones++;
+    var colUni = h.getRange(2, 4, h.getMaxRows() - 1, 1);
+    colUni.setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireValueInList(['meses', 'días', 'años'], true).setAllowInvalid(false).build());
+    res.validaciones++;
+    var colAct = h.getRange(2, 5, h.getMaxRows() - 1, 1);
+    colAct.setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build());
+    res.validaciones++;
+  }
+  return res;
+}
+
+/**
+ * Validaciones controladas en las puertas INGRESO_* (#10/#11):
+ * desplegables para ESTADO/ESTRATIFICACIÓN/SEXO, fechas reales con formato,
+ * y marca de advertencia en columnas del sistema. Idempotente.
+ */
+function Modelo_validarIngresos(ss) {
+  var res = { hojas: 0, validaciones: 0, protegidas: 0, fallidas: [] };
+  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    try {
+      var h = ss.getSheetByName(nombre);
+      if (!h || h.isSheetHidden()) return; // alias oculto se ignora
+      var idx = {};
+      INGRESO_COLUMNAS.forEach(function (c, i) { idx[c] = i + 1; });
+      var filasDatos = Math.max(h.getMaxRows() - 1, 0);
+
+      function lista(colNombre, opciones) {
+        if (!idx[colNombre] || filasDatos < 1) return;
+        var r = h.getRange(2, idx[colNombre], filasDatos, 1);
+        r.setDataValidation(SpreadsheetApp.newDataValidation()
+          .requireValueInList(opciones, true).setAllowInvalid(true)
+          .setHelpText('Selecciona un valor de la lista').build());
+        res.validaciones++;
+      }
+      function fecha(colNombre) {
+        if (!idx[colNombre]) return;
+        var c = idx[colNombre];
+        if (filasDatos >= 1) {
+          var r = h.getRange(2, c, Math.max(filasDatos, 1), 1);
+          r.setDataValidation(SpreadsheetApp.newDataValidation()
+            .requireDate().setAllowInvalid(true)
+            .setHelpText('Ingresa una fecha válida').build());
+          r.setNumberFormat('dd/MM/yyyy');
+          res.validaciones++;
+        }
+      }
+
+      lista('ESTADO_INGRESO', ESTADOS_INGRESO.VALIDOS);
+      lista('ESTRATIFICACION', ['G1', 'G2', 'G3', 'G', 'PENDIENTE']);
+      lista('SEXO', ['M', 'F', 'OTRO']);
+      fecha('FECHA DE NACIMIENTO');
+      fecha('FECHA DE INGRESO');
+
+      // Columnas del sistema: advertencia al usuario (no bloqueo duro)
+      ['NOTA_SISTEMA', 'ESTADO_INGRESO'].forEach(function (colNombre) {
+        if (!idx[colNombre]) return;
+        var r = h.getRange(1, idx[colNombre], Math.max(h.getMaxRows(), 1), 1);
+        var ya = r.getProtections(SpreadsheetApp.ProtectionType.RANGE)
+          .some(function (pr) { return pr.getDescription() === 'ECICEP-SISTEMA'; });
+        if (!ya) {
+          var pr = r.protect().setDescription('ECICEP-SISTEMA');
+          pr.setWarningOnly(true);
+          res.protegidas++;
+        }
+      });
+
+      res.hojas++;
+    } catch (e) {
+      res.fallidas.push(nombre + ': ' + (e && e.message || e));
+    }
+  });
+  return res;
 }
