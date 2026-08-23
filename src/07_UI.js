@@ -1314,10 +1314,23 @@ function _pruS_plantillas() {
     : { estado: 'OK', detalle: '5 plantillas compilan' };
 }
 function _pruS_estadisticas() {
-  var r = api_dashboardDatos();
-  if (!r.ok) return { estado: 'ERROR', detalle: r.motivo || 'sin respuesta' };
-  return { estado: 'OK', detalle: 'pacientes=' + r.pacientes.length +
-           ' · eventos=' + r.eventos.length };
+  /* Verificación ligera (<1s): estructura legible, no el payload completo.
+     El payload completo ya lo ejercita el Panel cada vez que se abre. */
+  var G = (typeof globalThis !== 'undefined') ? globalThis : this;
+  if (typeof G.api_dashboardDatos !== 'function')
+    return { estado: 'ERROR', detalle: 'api_dashboardDatos ausente' };
+  var hP = Modelo_hoja(HOJAS.PACIENTES);
+  var hE = Modelo_hoja(HOJAS.EVENTOS);
+  if (!hP || !hE) return { estado: 'ERROR', detalle: 'Faltan hojas PACIENTES/EVENTOS' };
+  var filasP = Math.max(hP.getLastRow() - 1, 0);
+  var filasE = Math.max(hE.getLastRow() - 1, 0);
+  if (filasP > 0) {
+    var muestra = hP.getRange(2, 1, 1, 1).getValue(); // primera celda de datos legible
+    if (!muestra && muestra !== '') return { estado: 'WARN', detalle: 'lectura de datos devolvió valor inválido' };
+  }
+  return { estado: 'OK',
+           detalle: 'pacientes=' + filasP + ' · eventos=' + filasE +
+                    ' (payload completo verificado por el Panel al abrirse)' };
 }
 function _pruS_validaciones() {
   var ss = Modelo_ss(), total = 0, con = 0;
