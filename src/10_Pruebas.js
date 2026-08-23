@@ -52,6 +52,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_contrato_catalogo(t, A);
   _pruebas_utilidades(t, A);
   _pruebas_migracion_esquema(t, A);
+  _pruebas_trazabilidad(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1361,5 +1362,97 @@ function _pruebas_migracion_esquema(t, A) {
     var n = _modelo_repararObjetoTecnico(obj);
     A.igual(obj.ESTRAT_ORIGEN, 'Z', 'valor de fuente intacto');
     A.igual(n, 0, 'sin cambios');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Trazabilidad — FUENTE como contrato (cierre incidente #23/#24)
+// ---------------------------------------------------------------------------
+
+function _pruebas_trazabilidad(t, A) {
+  var pacienteSano = function () {
+    return { ID_INTERNO: 'EC-T-001', RUT: '8031158-3', NOMBRE: 'SILVIA MONDACA ALFARO',
+             FUENTE: 'ECICEP NARANJO|Ingresos Enero |9',
+             FECHA_ACTUALIZACION: new Date(2026, 7, 23), REQUIERE_REVISION: false };
+  };
+
+  t('TRAZA: paciente con fuente → OK', function () {
+    var ev = Modelo_evaluarTrazabilidad(pacienteSano());
+    A.igual(ev.estado, 'OK', 'estado');
+    A.arreglos(ev.faltantes, [], 'sin faltantes');
+    A.cierto(!ev.revisionIndebida, 'sin cierre indebido');
+  });
+
+  t('TRAZA: detección de trazabilidad incompleta (FUENTE vacía)', function () {
+    var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = true;
+    var ev = Modelo_evaluarTrazabilidad(p);
+    A.igual(ev.estado, 'TRAZABILIDAD_INCOMPLETA', 'estado');
+    A.arreglos(ev.faltantes, ['FUENTE'], 'faltante');
+    A.cierto(!ev.revisionIndebida, 'revisión abierta → no es cierre indebido');
+  });
+
+  t('TRAZA: FUENTE vacía + REQUIERE_REVISION=false → cierre indebido detectado', function () {
+    var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = false;
+    var ev = Modelo_evaluarTrazabilidad(p);
+    A.igual(ev.estado, 'TRAZABILIDAD_INCOMPLETA', 'estado');
+    A.cierto(ev.revisionIndebida, 'cerrada sin origen');
+  });
+
+  t('TRAZA: REQUIERE_REVISION como texto TRUE también cuenta como abierta', function () {
+    var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = 'TRUE';
+    A.cierto(!Modelo_evaluarTrazabilidad(p).revisionIndebida, 'no indebida');
+  });
+
+  t('RESTAURACIÓN manual: completar FUENTE devuelve el contrato a OK', function () {
+    var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = false;
+    A.igual(Modelo_evaluarTrazabilidad(p).estado, 'TRAZABILIDAD_INCOMPLETA', 'antes');
+    p.FUENTE = 'ECICEP NARANJO|Ingresos Enero |4';
+    p.REQUIERE_REVISION = false;
+    var ev = Modelo_evaluarTrazabilidad(p);
+    A.igual(ev.estado, 'OK', 'después');
+    A.cierto(!ev.revisionIndebida, 'cierre ahora legítimo');
+  });
+
+  t('FECHA histórica: la reparación NO sobrescribe FECHA_ACTUALIZACION', function () {
+    var fechaManual = new Date(2026, 7, 22);
+    var obj = { NOMBRE: 'JUAN CUBILLOS RIVERA', NOMBRE_NORMALIZADO: 'prueba basura',
+                RUT: '7030521-6', RUT_DV_VALIDO: 'texto corrido', RUT_SIN_DV: 'otro texto',
+                ESTRAT_ORIGEN: 'FALSE', FECHA_ACTUALIZACION: fechaManual };
+    _modelo_repararObjetoTecnico(obj);
+    A.igual(obj.FECHA_ACTUALIZACION, fechaManual, 'fecha manual intacta');
+  });
+
+  t('GUARD cierre: impedir cerrar revisión con FUENTE vacía', function () {
+    var p = pacienteSano(); p.FUENTE = '';
+    var error = null;
+    try { Modelo_guardCerrarRevision(p); } catch (e) { error = e; }
+    A.cierto(error !== null, 'lanza error');
+    A.cierto(String(error && error.message).indexOf('falta FUENTE') !== -1,
+      'mensaje claro: ' + (error && error.message));
+  });
+
+  t('GUARD cierre: permitir cierre con FUENTE presente', function () {
+    A.cierto(Modelo_guardCerrarRevision(pacienteSano()) === true, 'permitido');
+  });
+
+  t('ALTA: sin FUENTE → rechazada con motivo claro', function () {
+    var alta = { NOMBRE: 'PACIENTE NUEVO', RUT: '11111111-1' };
+    var v = Modelo_validarAltaTrazabilidad(alta);
+    A.cierto(!v.ok, 'inválida');
+    A.arreglos(v.faltantes, ['FUENTE'], 'faltante');
+  });
+
+  t('ALTA: con FUENTE → aceptada', function () {
+    var v = Modelo_validarAltaTrazabilidad({ NOMBRE: 'X', FUENTE: 'HOJA_INGRESO|INGRESO_VERDE|2' });
+    A.cierto(v.ok, 'válida');
+  });
+
+  t('ALTA: estampado automático de FECHA_ACTUALIZACION', function () {
+    var alta = { NOMBRE: 'X', FUENTE: 'F|h|1' };
+    var fija = new Date(2026, 7, 23, 12, 0, 0);
+    _modelo_estamparActualizacion(alta, fija);
+    A.igual(alta.FECHA_ACTUALIZACION, fija, 'fecha estampada');
+    var sinFechaArg = _modelo_estamparActualizacion({ NOMBRE: 'Y' });
+    A.cierto(sinFechaArg.FECHA_ACTUALIZACION instanceof Date, 'usa ahora por defecto');
   });
 }

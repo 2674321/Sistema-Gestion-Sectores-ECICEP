@@ -88,7 +88,113 @@ function _modelo_repararObjetoTecnico(obj) {
   };
   _estrat('ESTRAT_ORIGEN');
   _estrat('ESTRAT_CALCULADA');
+  // FECHA_ACTUALIZACION histórica NO se recalcula jamás aquí (DEC trazabilidad):
+  // las fechas corregidas manualmente deben conservarse.
   return cambios;
+}
+
+// ---------------------------------------------------------------------------
+// Trazabilidad — FUENTE como parte del contrato, no campo informativo.
+// Enseñanza del incidente de drift (#23): la ausencia de FUENTE influye en el
+// estado de revisión y debe ser detectable por validación de integridad.
+// ---------------------------------------------------------------------------
+
+/** PURA: evalúa el contrato de trazabilidad de un paciente.
+ *  @returns {estado:'OK'|'TRAZABILIDAD_INCOMPLETA', faltantes:[], revisionIndebida:boolean}
+ *   revisionIndebida = FUENTE vacía pero REQUIERE_REVISION=false (cerrada sin origen). */
+function Modelo_evaluarTrazabilidad(p) {
+  var faltantes = [];
+  if (Utl_vacio(Utl_texto(p ? p.FUENTE : ''))) faltantes.push('FUENTE');
+  var revisa = p ? (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE') : false;
+  return { estado: faltantes.length ? 'TRAZABILIDAD_INCOMPLETA' : 'OK',
+           faltantes: faltantes,
+           revisionIndebida: faltantes.length > 0 && !revisa };
+}
+
+/** PURA: toda ALTA exige FUENTE de origen (contrato de trazabilidad).
+ *  No existe hoy excepción administrativa documentada para registros sin fuente.
+ *  @returns {ok:boolean, faltantes:[]} */
+function Modelo_validarAltaTrazabilidad(obj) {
+  var faltantes = [];
+  if (Utl_vacio(Utl_texto(obj ? obj.FUENTE : ''))) faltantes.push('FUENTE');
+  return { ok: faltantes.length === 0, faltantes: faltantes };
+}
+
+/** PURA: estampa FECHA_ACTUALIZACION en una alta/modificación del sistema. */
+function _modelo_estamparActualizacion(obj, ahora) {
+  obj.FECHA_ACTUALIZACION = (ahora instanceof Date) ? ahora : new Date();
+  return obj;
+}
+
+/** PURA: guard de cierre de revisión — impedir REQUIERE_REVISION=false con
+ *  FUENTE vacía ("No se puede cerrar la revisión: falta FUENTE de origen").
+ *  Lanza si incumple; retorna true si el cierre está permitido. */
+function Modelo_guardCerrarRevision(obj) {
+  var ev = Modelo_evaluarTrazabilidad(obj);
+  if (ev.estado === 'TRAZABILIDAD_INCOMPLETA') {
+    throw new Error('No se puede cerrar la revisión: falta FUENTE de origen (' +
+      ev.faltantes.join(', ') + ')');
+  }
+  return true;
+}
+
+/** GAS: barrido de integridad de trazabilidad sobre PACIENTES.
+ *  SOLO REPORTA — no corrige automáticamente nada.
+ *  @returns {total, ok, conFuenteVacia, conFuenteVaciaRevisionFalse,
+ *            incompletas:[{fila,id,rut,nombre,fuente,requiereRevision}]} */
+function Modelo_diagnosticoTrazabilidad() {
+  var res = { total: 0, ok: 0, conFuenteVacia: 0, conFuenteVaciaRevisionFalse: 0, incompletas: [] };
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja || hoja.getLastRow() < 2) return res;
+  var valores = Utl_leerBloque(hoja);
+  var campos = (valores[0] || []).map(function (c) { return Utl_texto(c); });
+  for (var f = 1; f < valores.length; f++) {
+    var fila = valores[f];
+    var obj = {};
+    for (var c = 0; c < campos.length; c++) obj[campos[c]] = fila[c];
+    res.total++;
+    var ev = Modelo_evaluarTrazabilidad(obj);
+    if (ev.estado === 'OK') { res.ok++; continue; }
+    res.conFuenteVacia++;
+    if (ev.revisionIndebida) res.conFuenteVaciaRevisionFalse++;
+    res.incompletas.push({ fila: f + 1, id: obj.ID_INTERNO, rut: obj.RUT, nombre: obj.NOMBRE,
+                           fuente: Utl_texto(obj.FUENTE),
+                           requiereRevision: !ev.revisionIndebida });
+  }
+  return res;
+}
+
+/**
+ * GAS: restaura la FUENTE de UN paciente identificado por RUT, solo si está
+ * vacía (jamás sobrescribe evidencia existente) y respaldada por verificación
+ * contra la fuente original. Al restaurar, cierra REQUIERE_REVISION (la marca
+ * fue puesta únicamente por la ausencia de FUENTE). NO toca FECHA_ACTUALIZACION.
+ * @returns {ok, fila?, id?, nombre?, motivo?}
+ */
+function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
+  var fuenteLimpia = Utl_texto(fuenteRestaurada).trim();
+  if (!fuenteLimpia) return { ok: false, motivo: 'FUENTE_VACIA' };
+  var rutClave = Utl_texto(rutBuscado).trim().toUpperCase();
+  if (!rutClave) return { ok: false, motivo: 'RUT_VACIO' };
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja || hoja.getLastRow() < 2) return { ok: false, motivo: 'SIN_DATOS' };
+  var valores = Utl_leerBloque(hoja);
+  var campos = (valores[0] || []).map(function (c) { return Utl_texto(c); });
+  var iRut = campos.indexOf('RUT'), iFuente = campos.indexOf('FUENTE'), iRev = campos.indexOf('REQUIERE_REVISION');
+  if (iRut < 0 || iFuente < 0) return { ok: false, motivo: 'ESQUEMA_SIN_RUT_O_FUENTE' };
+  for (var f = 1; f < valores.length; f++) {
+    if (Utl_texto(valores[f][iRut]).trim().toUpperCase() !== rutClave) continue;
+    if (!Utl_vacio(Utl_texto(valores[f][iFuente]))) {
+      return { ok: false, motivo: 'FUENTE_YA_PRESENTE_NO_SE_SOBSSCRIBE', actual: Utl_texto(valores[f][iFuente]) };
+    }
+    hoja.getRange(f + 1, iFuente + 1).setValue(fuenteLimpia);
+    if (iRev >= 0) hoja.getRange(f + 1, iRev + 1).setValue(false);
+    Log_info('Modelo', 'restaurarFuente',
+      'rut=' + rutClave + ' fuente=[' + fuenteLimpia + '] fila=' + (f + 1));
+    return { ok: true, fila: f + 1, id: valores[f][campos.indexOf('ID_INTERNO')],
+             nombre: valores[f][campos.indexOf('NOMBRE')] };
+  }
+  return { ok: false, motivo: 'RUT_NO_ENCONTRADO' };
 }
 
 /** GAS: garantiza que PACIENTES tenga el esquema canónico (idempotente).
@@ -379,12 +485,19 @@ function Modelo_guardEscritura(contexto) {
 function Modelo_agregarPacientes(objetos, contexto) {
   Modelo_guardEscritura(contexto || {});
   if (!objetos || !objetos.length) return 0;
+  // Contrato de trazabilidad (DEC trazabilidad): toda alta con FUENTE de origen.
+  for (var a = 0; a < objetos.length; a++) {
+    var traza = Modelo_validarAltaTrazabilidad(objetos[a]);
+    if (!traza.ok) {
+      throw new Error('ALTA_SIN_TRAZABILIDAD: ' + Utl_texto(objetos[a].NOMBRE) +
+        ' sin ' + traza.faltantes.join(', '));
+    }
+  }
   var esquema = Modelo_asegurarEsquemaPacientes();
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var ahora = new Date();
   var filas = objetos.map(function (o) {
-    o.FECHA_ACTUALIZACION = ahora;
-    return Modelo_filaDesdeObjeto(o);
+    return Modelo_filaDesdeObjeto(_modelo_estamparActualizacion(o, ahora));
   });
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);

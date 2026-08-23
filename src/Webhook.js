@@ -15,7 +15,8 @@ var WEBHOOK_ACCIONES = [
   'estado', 'instalar', 'sembrar', 'procesar',
   'refrescar', 'diagnosticar', 'limpiar_prueba',
   'diagnosticar_fuentes', 'importar_muestra',
-  'carga_analisis', 'carga_ejecutar'
+  'carga_analisis', 'carga_ejecutar',
+  'diag_trazabilidad', 'restaurar_fuente'
 ];
 
 function doPost(e) { return _wh_despachar(e); }
@@ -82,6 +83,14 @@ function _wh_despachar(e) {
         break;
       case 'carga_ejecutar':
         resultado = Fuentes_cargaReal({ ejecutar: true });
+        break;
+      case 'diag_trazabilidad':
+        resultado = Modelo_diagnosticoTrazabilidad();
+        break;
+      case 'restaurar_fuente':
+        // Solo restaura si FUENTE está vacía (jamás sobrescribe evidencia).
+        // Requiere fuente verificada contra el Excel original. NO toca fechas.
+        resultado = Modelo_restaurarFuente(e.parameter.rut || '', e.parameter.fuente || '');
         break;
       case 'limpiar_prueba':
         resultado = Limpieza_ejecutar(Limpieza_colectar());

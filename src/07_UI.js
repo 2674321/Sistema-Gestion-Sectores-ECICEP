@@ -21,7 +21,8 @@ function onOpen() {
         .addItem('📊 Análisis de carga real (DRY RUN)', 'UI_bloqueado')
         .addItem('🚀 Ejecutar carga autorizada', 'UI_ejecutarCarga'))
       .addSubMenu(ui.createMenu('🩺 Diagnóstico')
-        .addItem('🩺 Diagnosticar ingresos', 'UI_diagnosticarIngresos'))
+        .addItem('🩺 Diagnosticar ingresos', 'UI_diagnosticarIngresos')
+        .addItem('🔎 Integridad de trazabilidad', 'UI_diagnosticoTrazabilidad'))
 
       .addSubMenu(ui.createMenu('⚙️ Administración')
         .addItem('⚙️ Instalar / reparar estructura', 'UI_instalarEstructura')
@@ -717,6 +718,34 @@ function UI_migrarEsquemaPacientes() {
       msg += '\n\n⚠️ Trazabilidad perdida en:\n' + repar.sospechosas.slice(0, 10).map(function (s) {
         return 'Fila ' + s.fila + ' · ' + s.nombre + ' (' + s.rut + ')';
       }).join('\n');
+    }
+    ui.alert(msg);
+  } catch (e) {
+    ui.alert('ERROR: ' + (e && e.message ? e.message : String(e)));
+  }
+}
+
+// ===========================================================================
+// Integridad de trazabilidad (FUENTE como contrato)
+// ===========================================================================
+
+/** Diagnóstico SOLO LECTURA: detecta FUENTE vacía y cierres indebidos. */
+function UI_diagnosticoTrazabilidad() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = Modelo_diagnosticoTrazabilidad();
+    var msg = '🔎 INTEGRIDAD DE TRAZABILIDAD\n\n' +
+      'Total pacientes: ' + r.total + '\n' +
+      'OK: ' + r.ok + '\n' +
+      'Con FUENTE vacía: ' + r.conFuenteVacia + '\n' +
+      'FUENTE vacía + REQUIERE_REVISION=false: ' + r.conFuenteVaciaRevisionFalse + '\n' +
+      '(solo reporte — no se corrigió nada)';
+    if (r.incompletas.length) {
+      msg += '\n\n⚠️ TRAZABILIDAD_INCOMPLETA:\n' + r.incompletas.slice(0, 10).map(function (p) {
+        return 'Fila ' + p.fila + ' · ' + p.nombre + ' (' + p.rut + ')' +
+          (p.requiereRevision ? '' : ' · ⚠️ cerrada sin origen');
+      }).join('\n');
+      if (r.incompletas.length > 10) msg += '\n… y ' + (r.incompletas.length - 10) + ' más';
     }
     ui.alert(msg);
   } catch (e) {
