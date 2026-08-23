@@ -1245,9 +1245,11 @@ function Modelo_esHojaResidual(nombre, estaVacia) {
 /** GAS: elimina hojas residuales de desarrollo. Con datos de diagnóstico se
  *  eliminan igual (se regeneran); hojas desconocidas SOLO si están vacías. */
 function Modelo_limpiarHojasResiduales(ss) {
-  var res = { eliminadas: [] };
+  var res = { eliminadas: [], conservadas: 0 };
+  var activa = ss.getActiveSheet().getName();
   ss.getSheets().forEach(function (sh) {
     var nombre = sh.getName();
+    if (nombre === activa) { res.conservadas++; return; }
     if (_MODELO_HOJAS_DEF.hasOwnProperty(nombre) || HOJAS_SECTOR.indexOf(nombre) !== -1 ||
         HOJAS_INGRESO.hasOwnProperty(nombre) || nombre === 'REM_SALIDA' ||
         nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'DASHBOARD') return;
@@ -1262,6 +1264,8 @@ function Modelo_limpiarHojasResiduales(ss) {
         res.eliminadas.push(nombre + (vacia ? ' (vacía)' : ' (regenerable)'));
         Log_info('Instalador', 'limpieza', 'Hoja eliminada: ' + nombre);
       } catch (e2) { /* única hoja visible u otra protección */ }
+    } else {
+      res.conservadas++;
     }
   });
   return res;

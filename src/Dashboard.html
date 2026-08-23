@@ -17,7 +17,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 .chip-filtro.on.amarillo{background:var(--sector-amarillo)}
 .chip-filtro.on.verde{background:var(--sector-verde)}
 .rango{display:flex;gap:8px;align-items:center;margin-left:auto;color:var(--text-secondary);font-size:13px}
-.grid-kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-3);margin-bottom:var(--space-4)}
+.grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--space-3);margin-bottom:var(--space-4)}
 .kpi .etq{margin-bottom:6px}
 .kpi .num{font-size:34px;font-weight:700;color:var(--text-primary);line-height:1.1}
 .kpi .delta{font-size:12px;font-weight:600;margin-top:4px}
@@ -119,6 +119,13 @@ function renderizarTodo(){
   var mesIso=hoyIso.slice(0,7);
   var ctrlMes=evs.filter(function(e){return e.tipo==='CONTROL'&&e.f.slice(0,7)===mesIso;}).length;
   animNum(document.getElementById('kCtrl'),ctrlMes);
+  var mesAntD=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);
+  var mesAntK2=mesAntD.getFullYear()+'-'+String(mesAntD.getMonth()+1).padStart(2,'0');
+  var ctrlAnt=evs.filter(function(e){return e.tipo==='CONTROL'&&e.f.slice(0,7)===mesAntK2&&activos().indexOf(e.sector)!==-1;}).length;
+  var dC=document.getElementById('kCtrl').parentElement.querySelector('.delta');
+  if(ctrlAnt>0){var pc=Math.round(100*(ctrlMes-ctrlAnt)/ctrlAnt);
+    dC.textContent=(pc>=0?'▲ +':'▼ ')+pc+'% vs mes anterior';dC.className='delta '+(pc>=0?'up':'down');}
+  else{dC.textContent='sin base de comparación';dC.className='delta neu';}
   var lim30=new Date(hoy.getTime()+30*864e5).toISOString().slice(0,10);
   var prox=pax.filter(function(p){return p.pc>=hoyIso&&p.pc<=lim30;}).length;
   animNum(document.getElementById('kProx'),prox);

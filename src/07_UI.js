@@ -145,7 +145,8 @@ function UI_instalarSistema() {
           ? ' (⚠ ' + amarillo.historico.pendientesSinPaciente.length + ' filas requieren re-procesar ingresos)'
           : '') + '\n' : '') + '\n' +
       (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ')
-                     : 'Sistema listo para utilizar.'));
+                     : 'Sistema listo para utilizar.') +
+      '\n\n\u23f1 Duraci\u00f3n: ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s');
   } catch (e) {
     Log_error('UI', 'instalarSistema', e && e.message ? e.message : String(e));
     Log_flush();
