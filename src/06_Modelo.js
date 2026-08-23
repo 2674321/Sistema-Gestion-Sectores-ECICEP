@@ -1194,3 +1194,32 @@ function Modelo_validarIngresos(ss) {
   });
   return res;
 }
+
+/** Inventario explícito de hojas INTERNAS del sistema (#13): existencia,
+ *  visibilidad esperada y reparación automática de visibilidad (#14/#16).
+ *  Nunca borra datos: solo crea lo faltante y corrige visibilidad (#15). */
+function Modelo_inventarioHojas(ss) {
+  var internas = MODELO_DISENO.filter(function (d) { return d.oculta; });
+  var res = { total: internas.length, creadas: [], visibilidadCorregida: [],
+              correctas: 0, problemas: [] };
+  internas.forEach(function (d) {
+    try {
+      var h = ss.getSheetByName(d.nombre);
+      if (!h) {
+        h = ss.insertSheet(d.nombre);
+        res.creadas.push(d.nombre);
+        Log_warning('Instalador', 'inventario', 'Hoja interna creada: ' + d.nombre);
+      }
+      if (!h.isSheetHidden()) {
+        h.hideSheet();
+        res.visibilidadCorregida.push(d.nombre);
+        Log_warning('Instalador', 'inventario', 'Visibilidad corregida (ahora oculta): ' + d.nombre);
+      } else {
+        res.correctas++;
+      }
+    } catch (e) {
+      res.problemas.push(d.nombre + ': ' + (e && e.message || e));
+    }
+  });
+  return res;
+}

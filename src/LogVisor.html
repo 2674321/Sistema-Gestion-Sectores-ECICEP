@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<?!= include('00_Tokens') ?>
+<style>
+body{font-size:16px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
+header{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap}
+header h1{font-size:21px;margin:0}
+header .build{font-size:10px;color:var(--text-muted)}
+.kpis{display:flex;gap:10px;margin:var(--space-3) 0;flex-wrap:wrap}
+.kpi-mini{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 14px;display:flex;gap:8px;align-items:baseline}
+.kpi-mini b{font-size:20px;font-family:'Sora'}
+.filtros{display:flex;gap:var(--space-3);align-items:flex-end;flex-wrap:wrap;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3) var(--space-4)}
+.acciones-log{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tabla-wrap{flex:1;overflow:auto;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);margin-top:var(--space-3)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
+thead th{position:sticky;top:0;background:var(--surface-alt);font:600 11px 'Inter';
+  text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);z-index:5}
+tbody tr{cursor:pointer} tbody tr:hover{background:var(--primary-soft)}
+tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--primary)}
+.nivel{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;padding:2px 10px;border-radius:var(--radius-full)}
+.n-dot{width:8px;height:8px;border-radius:50%}
+.n-INFO{background:var(--primary-soft);color:var(--primary)} .n-INFO .n-dot{background:var(--success)}
+.n-WARNING{background:#FBF3D6;color:#7A5F00} .n-WARNING .n-dot{background:var(--warning)}
+.n-ERROR{background:#FBE4E4;color:var(--danger)} .n-ERROR .n-dot{background:var(--danger)}
+.n-DEBUG{background:var(--surface-alt);color:var(--text-muted)} .n-DEBUG .n-dot{background:var(--text-muted)}
+.detalle{background:var(--surface);border-top:2px solid var(--primary);border-radius:var(--radius-lg);
+  padding:var(--space-4);max-height:220px;overflow:auto;display:none}
+.detalle.abierto{display:block}
+.detalle dt{font:600 11px 'Inter';color:var(--text-muted);text-transform:uppercase;margin-top:8px}
+.detalle dd{margin:2px 0 0;font:400 13px ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 Registro del Sistema</h1><span class="build">build <?= BUILD ?></span>
+  <div class="acciones-log" style="margin-left:auto">
+    <button class="btn btn-sec" onclick="cargar()"><i data-lucide="refresh-cw"></i> Actualizar</button>
+    <button class="btn btn-ghost" onclick="limpiarFiltros()"><i data-lucide="filter-x"></i> Limpiar filtros</button>
+    <button class="btn btn-sec" onclick="copiarDetalle()"><i data-lucide="copy"></i> Copiar detalle</button>
+    <button class="btn btn-pri" onclick="exportarCsv()"><i data-lucide="download"></i> Exportar LOG</button>
+    <button class="btn btn-ghost" onclick="verHoja()"><i data-lucide="table"></i> Hoja LOG</button>
+    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+  </div>
+</header>
+
+<div class="kpis" id="kpis">
+  <div class="kpi-mini"><b id="kTotal">—</b><small>Total eventos</small></div>
+  <div class="kpi-mini"><b id="kErr" style="color:var(--danger)">—</b><small>Errores</small></div>
+  <div class="kpi-mini"><b id="kWarn" style="color:var(--warning)">—</b><small>Advertencias</small></div>
+  <div class="kpi-mini"><b id="kInfo" style="color:var(--primary)">—</b><small>Información</small></div>
+</div>
+
+<div class="filtros">
+  <label class="etq" style="margin:0">Nivel
+    <select id="fNivel" class="inp" style="min-width:140px">
+      <option value="">Todos</option><option>ERROR</option><option>WARNING</option><option>INFO</option><option>DEBUG</option>
+    </select></label>
+  <label class="etq" style="margin:0">Módulo
+    <select id="fModulo" class="inp" style="min-width:150px"><option value="">Todos</option></select></label>
+  <label class="etq" style="margin:0">Fecha
+    <select id="fRango" class="inp" style="min-width:150px">
+      <option value="hoy">Hoy</option><option value="7" selected>Últimos 7 días</option>
+      <option value="30">Últimos 30 días</option><option value="">Personalizado</option>
+    </select></label>
+  <label class="etq" style="margin:0">Desde <input type="date" id="fDesde" class="inp" style="width:150px"></label>
+  <label class="etq" style="margin:0">Hasta <input type="date" id="fHasta" class="inp" style="width:150px"></label>
+  <label class="etq" style="margin:0">Texto
+    <input id="fTexto" class="inp" style="width:180px" placeholder="Buscar…"></label>
+</div>
+
+<div class="tabla-wrap">
+  <table>
+    <thead><tr><th style="width:150px">Fecha/Hora</th><th style="width:120px">Nivel</th>
+      <th style="width:130px">Módulo</th><th style="width:190px">Acción</th><th>Resultado</th></tr></thead>
+    <tbody id="tbody"><tr><td colspan="5"><div class="skel" style="height:160px"></div>Cargando…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="detalle" id="detalle"><b>Detalle técnico</b><dl id="detBody"></dl></div>
+
+<script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<script>
+var DATOS=[],SEL=null;
+var DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function cargar(){
+  document.getElementById('tbody').innerHTML='<tr><td colspan="5"><div class="skel" style="height:120px"></div></td></tr>';
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok){toast(r&&r.motivo||'No se pudo leer el LOG','err');return;}
+    DATOS=r.registros;r.resumen=r.resumen;
+    document.getElementById('kTotal').textContent=r.resumen.total;
+    document.getElementById('kErr').textContent=r.resumen.errores;
+    document.getElementById('kWarn').textContent=r.resumen.advertencias;
+    document.getElementById('kInfo').textContent=r.resumen.informacion;
+    var mods={};DATOS.forEach(function(x){if(x.modulo)mods[x.modulo]=1;});
+    var sel=document.getElementById('fModulo'),actual=sel.value;
+    sel.innerHTML='<option value="">Todos</option>'+Object.keys(mods).sort().map(function(m){return '<option>'+m+'</option>';}).join('');
+    sel.value=actual;
+    render();
+  }).withFailureHandler(function(e){toast('Error cargando LOG: '+(e&&e.message||e),'err');})
+  .api_logLeer(800);
+}
+
+function filtrados(){
+  var n=document.getElementById('fNivel').value,m=document.getElementById('fModulo').value,
+      rg=document.getElementById('fRango').value,
+      d=document.getElementById('fDesde').value,h=document.getElementById('fHasta').value,
+      tx=document.getElementById('fTexto').value.toLowerCase();
+  var hoy=new Date(),lim=null;
+  if(rg==='hoy')lim=hoy.toISOString().slice(0,10);
+  else if(rg==='7'||rg==='30'){var f=new Date(hoy);f.setDate(f.getDate()-(+rg));lim=f.toISOString().slice(0,10);}
+  if(rg!==''){d=d||lim; if(!h)h='9999-12-31';}
+  return DATOS.filter(function(x){
+    var fx=(x.fechaIso||'').slice(0,10);
+    if(n&&x.nivel!==n)return false;
+    if(m&&x.modulo!==m)return false;
+    if(d&&fx<d)return false;
+    if(h&&fx>h)return false;
+    if(tx&&((x.resultado+' '+x.accion+' '+x.contexto).toLowerCase().indexOf(tx)===-1))return false;
+    return true;
+  });
+}
+function render(){
+  var fs=filtrados(),tb=document.getElementById('tbody');
+  SEL=null;document.getElementById('detalle').classList.remove('abierto');
+  if(!fs.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><i data-lucide="inbox"></i>No hay registros para los filtros seleccionados</div></td></tr>';_refrescarIconos();return;}
+  tb.innerHTML=fs.map(function(x,i){
+    return '<tr onclick="sel('+i+')" data-i="'+i+'">'+
+      '<td class="num">'+_esc(x.fechaIso)+'</td>'+
+      '<td><span class="nivel n-'+_esc(x.nivel)+'"><span class="n-dot"></span>'+iconoNivel(x.nivel)+' '+nivelEs(x.nivel)+'</span></td>'+
+      '<td>'+_esc(x.modulo)+'</td><td>'+_esc(x.accion)+'</td>'+
+      '<td>'+_esc(x.resultado.length>90?x.resultado.slice(0,90)+'…':x.resultado)+'</td></tr>';
+  }).join('');
+  _refrescarIconos();
+}
+function iconoNivel(n){return {ERROR:'⛔',WARNING:'🟡',DEBUG:'⚪',INFO:'🟢'}[n]||'⚪';}
+function nivelEs(n){return {ERROR:'Error',WARNING:'Advertencia',DEBUG:'Debug',INFO:'Información'}[n]||n;}
+function sel(i){
+  var fs=filtrados();if(!fs[i])return;SEL=fs[i];
+  document.querySelectorAll('#tbody tr').forEach(function(tr,j){tr.classList.toggle('sel',j===+this)},[i].length?[]:[]);
+  var trs=document.querySelectorAll('#tbody tr');trs.forEach(function(tr,j){tr.classList.toggle('sel',String(j)===String(i));});
+  var x=fs[i],dt=document.getElementById('detalle'),bd=document.getElementById('detBody');
+  bd.innerHTML='<dt>Fecha/Hora</dt><dd>'+_esc(x.fechaIso)+'</dd>'+
+    '<dt>Nivel</dt><dd>'+nivelEs(x.nivel)+' ('+x.nivel+')</dd>'+
+    '<dt>Módulo</dt><dd>'+_esc(x.modulo)+'</dd>'+
+    '<dt>Función / Acción</dt><dd>'+_esc(x.modulo+' → '+x.accion)+'</dd>'+
+    '<dt>Resultado</dt><dd>'+_esc(x.resultado)+'</dd>'+
+    (x.duracionMs!==''&&x.duracionMs!=null?'<dt>Duración</dt><dd>'+_esc(x.duracionMs)+' ms</dd>':'')+
+    '<dt>Detalle técnico (contexto)</dt><dd>'+_esc(x.contexto||'(sin contexto adicional)')+'</dd>';
+  dt.classList.add('abierto');
+}
+function limpiarFiltros(){
+  ['fNivel','fModulo'].forEach(function(i){document.getElementById(i).value='';});
+  document.getElementById('fRango').value='7';
+  ['fDesde','fHasta','fTexto'].forEach(function(i){document.getElementById(i).value='';});
+  render();
+}
+function copiarDetalle(){
+  if(!SEL){toast('Selecciona un registro primero','warn');return;}
+  var t='['+SEL.fechaIso+'] '+SEL.nivel+' · '+SEL.modulo+' → '+SEL.accion+
+    '\nResultado: '+SEL.resultado+'\nDuración: '+SEL.duracionMs+' ms\nContexto: '+(SEL.contexto||'—');
+  navigator.clipboard.writeText(t).then(function(){toast('Detalle copiado ✓','ok');},
+    function(){toast('No se pudo copiar','err');});
+}
+function exportarCsv(){
+  var fs=filtrados();
+  if(!fs.length){toast('No hay registros filtrados para exportar','warn');return;}
+  var esc=function(v){v=String(v==null?'':v);return '"'+v.replace(/"/g,'""')+'"';};
+  var csv='FechaHora,Nivel,Modulo,Accion,Resultado,DuracionMs,Contexto\n'+fs.map(function(x){
+    return [x.fechaIso,x.nivel,x.modulo,x.accion,x.resultado,x.duracionMs,x.contexto].map(esc).join(',');
+  }).join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='ECICEP_LOG_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('LOG exportado ('+fs.length+' registros)','ok');
+}
+function verHoja(){google.script.run.api_irA('LOG');}
+['fNivel','fModulo','fRango','fDesde','fHasta'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',render);});
+document.getElementById('fTexto').addEventListener('input',_debounce(render,220));
+cargar();_refrescarIconos();
+</script>
+</body>
+</html>

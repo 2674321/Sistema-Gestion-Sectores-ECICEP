@@ -37,6 +37,9 @@ header .sub{color:var(--text-muted);font-size:13px}
   background:var(--surface-alt);border-radius:var(--radius-sm);padding:6px 8px;white-space:pre-wrap}
 .linea.abierta .l-detalle{display:block}
 .vacio-i{display:none}
+.h-card h3{margin:0 0 6px;font-size:16px}
+.h-card p{font-size:13px;color:var(--text-secondary);min-height:38px;margin:0 0 10px}
+.h-estado{display:block;font:600 12px 'Inter';margin-top:8px;min-height:16px}
 </style>
 </head>
 <body>
@@ -77,12 +80,42 @@ header .sub{color:var(--text-muted);font-size:13px}
   </div>
 </div>
 
-<!-- HERRAMIENTAS AVANZADAS: migradas desde el menú — única entrada -->
+<!-- HERRAMIENTAS AVANZADAS: técnicas migradas desde el menú + operaciones sensibles -->
 <div class="panel" style="margin-top:var(--space-4)">
   <div class="panel-tit">🧰 Herramientas avanzadas</div>
   <small style="color:var(--text-muted);display:block;margin-bottom:10px">
-    Operaciones sensibles. Se abrirá una confirmación sobre la hoja cuando corresponda.</small>
-  <div class="hojas-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    Herramientas técnicas y operaciones sensibles — se ejecutan manualmente y piden confirmación cuando corresponde.</small>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--space-3)">
+    <div class="card h-card">
+      <h3>📊 Analizar</h3>
+      <p>Análisis técnico DRY RUN de fuentes reales: estructura, calidad y problemas antes de cargar.</p>
+      <button class="btn btn-pri" onclick="_herr(this,'UI_analisisCarga')">Ejecutar</button>
+      <span class="h-estado" id="st_UI_analisisCarga"></span>
+    </div>
+    <div class="card h-card">
+      <h3>🚀 Cargar</h3>
+      <p>Carga autorizada de datos a PACIENTES/EVENTOS tras un análisis satisfactorio.</p>
+      <button class="btn btn-danger" onclick="_herr(this,'UI_ejecutarCarga')">Ejecutar</button>
+      <span class="h-estado" id="st_UI_ejecutarCarga"></span>
+    </div>
+    <div class="card h-card">
+      <h3>🗂️ Fuentes</h3>
+      <p>Inspección de archivos y hojas fuente conectadas por Drive (FUENTES_DRIVE).</p>
+      <button class="btn btn-pri" onclick="_herr(this,'UI_diagnosticarFuentes')">Ejecutar</button>
+      <span class="h-estado" id="st_UI_diagnosticarFuentes"></span>
+    </div>
+    <div class="card h-card">
+      <h3>🩺 Diagnóstico</h3>
+      <p>Diagnóstico detallado del pipeline de ingresos y sus resultados por fila.</p>
+      <button class="btn btn-pri" onclick="_herr(this,'UI_diagnosticarIngresos')">Ejecutar</button>
+      <span class="h-estado" id="st_UI_diagnosticarIngresos"></span>
+    </div>
+  </div>
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:var(--space-4) 0">
+  <small style="color:var(--text-muted);display:block;margin-bottom:8px">Operaciones sensibles — requieren confirmación:</small>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
     <button class="btn btn-sec" onclick="_herr(this,'UI_migrarEsquemaPacientes')"><i data-lucide="database"></i> Esquema PACIENTES</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_diagnosticoTrazabilidad')"><i data-lucide="shield-check"></i> Integridad de datos</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_sembrarFicticios')"><i data-lucide="sprout"></i> Sembrar prueba</button>
@@ -124,13 +157,19 @@ function cargarRegistro(){
 /* Herramientas avanzadas: pulso auto-restaurable (los prompts del servidor
    bloquean el RPC hasta que el usuario responde sobre la hoja) */
 function _herr(btn,fnNombre){
-  var fin=_btnPulso(btn,'Esperando confirmación…');
+  var fin=_btnPulso(btn,'Ejecutando…');
+  var st=document.getElementById('st_'+fnNombre);
   google.script.run
-    .withSuccessHandler(function(){setLoading(btn,false);})
+    .withSuccessHandler(function(){
+      setLoading(btn,false);
+      if(st){var h=new Date();st.textContent='✓ ejecutado '+String(h.getHours()).padStart(2,'0')+':'+String(h.getMinutes()).padStart(2,'0');st.style.color='var(--success)';}
+      toast(fnNombre.replace('UI_','')+' finalizada','ok');
+    })
     .withFailureHandler(function(e){
       setLoading(btn,false);
+      if(st){st.textContent='✕ error — ver LOG';st.style.color='var(--danger)';}
       toast('Error en '+fnNombre+': '+((e&&e.message)||e),'err');
-      if(window._ECICEP_DEBUG!==false&&window.console)console.error('[ECICEP]',fnNombre,e);
+      if(window.console)console.error('[ECICEP]',fnNombre,e);
     })
     [fnNombre]();
 }

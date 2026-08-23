@@ -19,10 +19,6 @@ function onOpen() {
         .addItem('👤 Pacientes ECICEP', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
-        .addItem('📊 Analizar carga', 'UI_bloqueado')
-        .addItem('🚀 Ejecutar carga', 'UI_ejecutarCarga')
-        .addItem('🗂️ Diagnosticar fuentes', 'UI_diagnosticarFuentes')
-        .addItem('🩺 Diagnóstico de ingresos', 'UI_diagnosticarIngresos')
         .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
 
       .addSubMenu(ui.createMenu('📊 Información')
@@ -38,7 +34,7 @@ function onOpen() {
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas'))
 
       .addSeparator()
-      .addItem('📄 Abrir LOG', 'UI_abrirLog')
+      .addItem('📄 Registro del sistema', 'UI_abrirLog')
       .addToUi();
   } catch (e) { /* entorno sin UI */ }
 }
@@ -70,6 +66,9 @@ function UI_instalarSistema() {
 
     // 4) Validaciones controladas en puertas INGRESO_*
     var val = Modelo_validarIngresos(ss);
+
+    // 4b) Inventario de hojas internas: crear faltantes + corregir visibilidad
+    var inv = Modelo_inventarioHojas(ss);
 
     // 5) Diseño visual completo (colores en pares sector-ingreso, orden,
     //    ocultas, banding, congelados, anchos y formatos de fecha)
@@ -116,6 +115,9 @@ function UI_instalarSistema() {
         (cat.sembrada ? ' (con ejemplos)' : ' verificado') + '\n' +
       '✓ Validaciones aplicadas: ' + val.validaciones + ' en ' + val.hojas + ' puertas INGRESO\n' +
       '✓ Columnas sistema marcadas: ' + val.protegidas + '\n' +
+      '✓ Hojas internas: ' + inv.total + ' verificadas' +
+        (inv.creadas.length ? ' · creadas: ' + inv.creadas.join(', ') : '') +
+        (inv.visibilidadCorregida.length ? ' · visibilidad corregida: ' + inv.visibilidadCorregida.join(', ') : '') + '\n' +
       '✓ Diseño: ' + dis.coloreadas + ' hojas coloreadas · ' + dis.ordenadas +
         ' ordenadas · ' + dis.bandas + ' con filas intercaladas\n' +
       '✓ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
@@ -141,10 +143,46 @@ function UI_ejecutarPruebas() {
   Logger.log(JSON.stringify(res.detalles.filter(function (d) { return !d.ok; }), null, 2));
 }
 
+/** 📄 Registro del Sistema: visor visual del LOG (la hoja queda interna). */
 function UI_abrirLog() {
-  var hoja = Modelo_hoja(HOJAS.LOG);
-  if (!hoja) { Modelo_crearEstructura(); hoja = Modelo_hoja(HOJAS.LOG); }
-  SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(hoja);
+  var t = HtmlService.createTemplateFromFile('LogVisor');
+  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+  SpreadsheetApp.getUi().showModalDialog(t.evaluate().setTitle('Registro del Sistema')
+    .setWidth(1180).setHeight(720));
+}
+
+/** Endpoint visor LOG: últimos registros + conteos por nivel. */
+function api_logLeer(limite) {
+  try {
+    var h = Modelo_hoja(HOJAS.LOG);
+    if (!h || h.getLastRow() < 2) return { ok: true, registros: [], resumen: { total: 0, errores: 0, advertencias: 0, informacion: 0 } };
+    var max = Math.min(Number(limite) || 500, 2000);
+    var ultima = h.getLastRow();
+    var desde = Math.max(2, ultima - max + 1);
+    var vals = h.getRange(desde, 1, ultima - desde + 1, Math.min(h.getLastColumn(), 7)).getValues();
+    var tz = Session.getScriptTimeZone();
+    var registros = vals.map(function (f) {
+      return {
+        fechaIso: f[0] instanceof Date ? Utilities.formatDate(f[0], tz, 'yyyy-MM-dd HH:mm:ss') : Utl_texto(f[0]),
+        nivel: Utl_texto(f[1]).toUpperCase(),
+        modulo: Utl_texto(f[2]),
+        accion: Utl_texto(f[3]),
+        resultado: Utl_texto(f[4]),
+        duracionMs: f[5],
+        contexto: Utl_texto(f[6])
+      };
+    });
+    var errores = 0, adv = 0, info = 0;
+    registros.forEach(function (r) {
+      if (r.nivel === 'ERROR') errores++;
+      else if (r.nivel === 'WARNING') adv++;
+      else info++;
+    });
+    return { ok: true, registros: registros,
+             resumen: { total: registros.length, errores: errores, advertencias: adv, informacion: info } };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
 }
 
 /** Flujo INGRESO_* → PACIENTES + EVENTOS con resumen comprensible. */
@@ -1225,9 +1263,19 @@ function _pruS_hojas() {
   var crit = ['PACIENTES', 'EVENTOS', 'DASHBOARD', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
               'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
   var faltan = crit.filter(function (n) { return !Modelo_hoja(n); });
-  return faltan.length
-    ? { estado: 'ERROR', detalle: 'Faltan: ' + faltan.join(', ') }
-    : { estado: 'OK', detalle: crit.length + '/' + crit.length + ' presentes' };
+  if (faltan.length) return { estado: 'ERROR',
+    detalle: 'Faltan hojas operativas: ' + faltan.join(', ') };
+
+  var problemas = [], okInternas = [];
+  MODELO_DISENO.filter(function (d) { return d.oculta; }).forEach(function (d) {
+    var h = Modelo_hoja(d.nombre);
+    if (!h) { problemas.push('\u274c ' + d.nombre + ' no existe'); return; }
+    if (!h.isSheetHidden()) { problemas.push('\u26a0 ' + d.nombre + ' existe pero est\u00e1 VISIBLE'); }
+    else okInternas.push(d.nombre + ' oculta \u2713');
+  });
+  if (problemas.length) return { estado: 'WARN', detalle: problemas.join(' \u00b7 ') };
+  return { estado: 'OK',
+           detalle: crit.length + ' operativas · internas OK: ' + okInternas.length };
 }
 function _pruS_config() {
   var h = Modelo_hoja(HOJAS.CONFIG);
