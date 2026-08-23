@@ -29,6 +29,10 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 .res-fila{display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:7px 2px;font-size:14px}
 .res-fila span:first-child{color:var(--text-secondary)}
 .res-fila b.num{text-align:right}
+
+.barra.indet>span{width:100%!important;background:repeating-linear-gradient(45deg,#E5F1F2 0 10px,#0E5C68 10px 20px);animation:desliza .8s linear infinite}
+@keyframes desliza{from{background-position:0 0}to{background-position:28px 0}}
+
 </style>
 </head>
 <body>
@@ -80,8 +84,6 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
   <div class="res-fila"><span>⚠ Filas con advertencias</span><b class="num" id="rVwarn">—</b></div>
   <div class="res-fila"><span>✕ Filas con errores</span><b class="num" id="rVERR">—</b></div>
   <div class="acciones">
-    <button class="btn btn-pri" onclick="descargarExcel(this)">
-      <i data-lucide="file-spreadsheet"></i> Descargar Excel</button>
     <button class="btn btn-sec" onclick="consultar()"><i data-lucide="eye"></i> Consultar REM</button>
     <button class="btn btn-ghost" onclick="google.script.host.close()">Cerrar</button>
   </div>
@@ -89,6 +91,7 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
     Bloques B y C: NO DISPONIBLE (#14 / #17). La hoja REM_SALIDA queda actualizada y reproducible.</small>
 </div>
 
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 var MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
@@ -104,83 +107,80 @@ function periodoActual(){
           mes:+document.getElementById('selMes').value};
 }
 
-var FASES_REM=['Preparando datos…','Procesando registros…','Agrupando pacientes…','Construyendo hoja REM…','Finalizando…'];
-var FASES_XLSX=['Preparando datos…','Creando documento…','Escribiendo REM y detalle…','Exportando xlsx…'];
-function startBarra(wrapId,fillId,txtId,fases){
-  var w=document.getElementById(wrapId);
-  if(!w)return {stop:function(){}};
-  var st={timer:null,fase:0};
-  w.style.display='block';st.fase=0;
-  document.getElementById(txtId).textContent=fases[0];
-  var fl=document.getElementById(fillId);fl.style.width='6%';
-  st.timer=setInterval(function(){
-    st.fase=Math.min(st.fase+1,fases.length-1);
-    document.getElementById(txtId).textContent=fases[st.fase];
-    var cur=parseFloat(fl.style.width)||6;
-    fl.style.width=Math.min(cur+6,92)+'%';
-  },1500);
-  return { stop:function(exito){
-    if(st.timer){clearInterval(st.timer);st.timer=null;}
-    fl.style.width=exito?'100%':'0';
-    setTimeout(function(){w.style.display='none';fl.style.width='0';},exito?500:200);
-  }};
+var FASES_REM_XLSX=['Solicitando datos al servidor…','Construyendo hoja REM…','Construyendo REM_DETALLE…','Empaquetando xlsx…'];
+var _bt=null;
+function barraMsg(txt){var e=document.getElementById('barraTxt');if(e)e.textContent=txt;}
+function barraIndet(msgs){
+  var w=document.getElementById('barraWrap');if(!w)return;
+  w.style.display='block';
+  var f=document.getElementById('barraFill');
+  f.classList.add('indet');f.style.width='100%';
+  var i=0;_bt=setInterval(function(){i=(i+1)%msgs.length;barraMsg(msgs[i]);},1600);
 }
-/* Watchdog: ninguna operación puede dejar la UI colgada (#estados) */
-function watchdog(ms,mensaje){
-  var t=setTimeout(function(){
-    toast(mensaje||'La operación sigue tardando más de lo esperado','warn');
-  },ms);
-  return function(){clearTimeout(t);};
+function barraFin(ok,msg){
+  if(_bt){clearInterval(_bt);_bt=null;}
+  var f=document.getElementById('barraFill');
+  if(f)f.style.width=ok?'100%':'0';
+  if(msg)barraMsg(msg);
+  setTimeout(function(){
+    var w=document.getElementById('barraWrap');
+    if(w)w.style.display='none';
+    if(f)f.style.width='0';
+  },ok?600:200);
 }
+
+function construirExcel(r){
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([r.colsResumen].concat(r.resumen)),'REM');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([r.colsDetalle].concat(r.detalle)),'REM_DETALLE');
+  return wb;
+}
+
 function generar(btn){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
-  if(!p.anio||!p.mes){toast('Selecciona año y mes del período','err');return;} /* validación #19 */
-  var fin=setLoading(btn,true,'Generando REM…');
-  var barra=startBarra('barraWrap','barraFill','barraTxt',FASES_REM);
-  var vence=watchdog(120000,'El REM sigue procesándose; revisa Consultar REM en un momento.');
-  google.script.run.withSuccessHandler(function(r){
-    fin();_refrescarIconos();
-    if(!r||!r.ok){toast('No fue posible generar el REM. Revisa los datos e inténtalo nuevamente.','err');return;}
-    document.getElementById('rCab').textContent=r.cabecera;
-    document.getElementById('rEv').textContent=r.eventosPeriodo;
-    document.getElementById('rPac').textContent=r.pacientesConActividad;
-    var inv=document.getElementById('rInv');
-    inv.textContent=r.fechasInvalidas;
-    inv.style.color=r.fechasInvalidas?'var(--warning)':'var(--success)';
-    document.getElementById('resultado').style.display='block';
-    _refrescarIconos();
-    if(r.eventosPeriodo===0){toast('⚠ No existen registros para el período seleccionado','warn');}
-    else{toast('✓ REM generado correctamente','ok');}
-    setLoading(btn,false);
-    /* La tarjeta de resultado permanece: Consultar REM es VOLUNTARIO */
-  }).withFailureHandler(function(e){barra.stop(false);vence();setLoading(btn,false);
-    toast('Error: '+(e&&e.message||e),'err');})
-  .Rem_generar(p.anio,p.mes,sector);
+  if(!p.anio||!p.mes){toast('Selecciona año y mes del período','err');return;}
+  var fin=setLoading(btn,true,'Generando…');
+  barraIndet(FASES_REM_XLSX);
+  google.script.run
+    .withSuccessHandler(function(r1){
+      try{
+        pintarValidacion(r1);
+        var wb=construirExcel(r1);
+        XLSX.writeFile(wb,r.nombre); /* descarga directa del navegador */
+        barraFin(true,'✓ '+r.detalle.length+' atenciones exportadas');
+        setLoading(btn,false);
+        toast('✓ '+r.nombre+' descargado ('+r.detalle.length+' atenciones · '
+          +r.validacion.ok+' OK / '+r.validacion.warning+' adv / '+r.validacion.error+' err)','ok');
+        _refrescarIconos();
+      }catch(e){
+        barraFin(false);setLoading(btn,false);
+        toast('Error construyendo el Excel: '+((e&&e.message)||e),'err');
+        console.error('[ECICEP] xlsx',e);
+      }
+    })
+    .withFailureHandler(function(e){
+      barraFin(false);setLoading(btn,false);
+      toast('✕ Error al obtener los datos: '+((e&&e.message)||e),'err');
+      console.error('[ECICEP] datos',e);
+    })
+    .api_rem9Datos(p.anio,p.mes,sector);
 }
 function consultar(){google.script.run.UI_verRem();}
-function descargarExcel(btn){
-  var p=periodoActual();
-  if(!p.anio||!p.mes){toast('Selecciona período primero','warn');return;}
-  var fin=setLoading(btn,true,'Preparando Excel…');
-  var barra=startBarra('barraWrap','barraFill','barraTxt',FASES_XLSX);
-  var vence=watchdog(180000,'El Excel sigue generándose; si no aparece, reintenta en un minuto.');
-  function terminar(r){
-    vence();
-    if(!r||!r.ok){
-      barra.stop(false);setLoading(btn,false);
-      if(r&&r.motivo==='SIN_EVENTOS_PERIODO'){toast('⚠ Sin atenciones en el período seleccionado','warn');}
-      else{toast('✕ No fue posible preparar el Excel: '+((r&&r.motivo)||'error'),'err');}
-      return;
-    }
-    barra.stop(true);setLoading(btn,false);
-    toast('✓ '+r.nombre+' listo · ábrelo desde la pestaña nueva','ok');
-    window.open(r.url,'_blank');
-  }
-  google.script.run.withSuccessHandler(terminar)
-    .withFailureHandler(function(e){terminar({ok:false,motivo:(e&&e.message)||e});})
-    .REM_exportarExcel(p.anio,p.mes,sectorSel());
+
+function pintarValidacion(r1){
+  document.getElementById('rCab').textContent=r1.cabecera;
+  document.getElementById('rEv').textContent=r1.eventosPeriodo;
+  document.getElementById('rPac').textContent=r1.pacientesConActividad;
+  var inv=document.getElementById('rInv');
+  inv.textContent=r1.fechasInvalidas;
+  inv.style.color=r1.fechasInvalidas?'var(--warning)':'var(--success)';
+  var v=r1.validacion||{ok:'—',warning:'—',error:'—'};
+  document.getElementById('rVok').textContent=v.ok;
+  document.getElementById('rVwarn').textContent=v.warning;
+  document.getElementById('rVERR').textContent=v.error;
 }
+function consultar(){google.script.run.UI_verRem();}
 _refrescarIconos();
 </script>
 </body>

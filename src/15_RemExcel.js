@@ -99,13 +99,13 @@ function Rem9_rutSinDv(rut) {
 function Rem9_filaResumen(pac, eventosPac) {
   var fila = {};
   REM9_RES_COLS.forEach(function (c) { fila[c] = 0; });
-  fila['Paciente'] = Utl_texto(pac.rut);
+  fila['Paciente'] = Utl_texto(pac.RUT);
   var tiene = { 'Tiene Ingreso': false, 'Tiene Control': false,
                 'Tiene seguimiento': false, 'Tiene Plan de cuidado': false };
   var ultimaFecha = '';
   (eventosPac || []).forEach(function (e) {
-    var tipo = Utl_texto(e.tipo).trim().toUpperCase();
-    var g = Rem9_bucketG(e.g);
+    var tipo = Utl_texto(e.TIPO_EVENTO).trim().toUpperCase();
+    var g = Rem9_bucketG(e.RIESGO_G);
     var bloque = REM9_TIPO_BLOQUE[tipo];
     if (bloque && g) { fila[bloque + ' ' + g]++; fila['Total']++; }
     if (REM9_TIPO_BLOQUE[tipo]) tiene[bloque === 'Ingreso integral' ? 'Tiene Ingreso'
@@ -114,11 +114,11 @@ function Rem9_filaResumen(pac, eventosPac) {
       : 'Tiene Plan de cuidado'] = true;
     var gc = REM9_GC_COLS[tipo];
     if (gc && gc[g]) { fila[gc[g]]++; fila['Total']++; }
-    if (e.f > ultimaFecha) ultimaFecha = e.f;
+    if (Utl_texto(e.FECHA_EVENTO) > ultimaFecha) ultimaFecha = Utl_texto(e.FECHA_EVENTO);
   });
   Object.keys(tiene).forEach(function (k) { fila[k] = tiene[k] ? 'SI' : 'NO'; });
-  fila['Edad'] = Rem9_edadEn(pac.fechaNacimiento || '', ultimaFecha || pac.corteIso);
-  fila['Sexo'] = Rem9_sexoRem(pac.sexo);
+  fila['Edad'] = Rem9_edadEn(pac.FECHA_NACIMIENTO || '', ultimaFecha || pac.CORTE_ISO);
+  fila['Sexo'] = Rem9_sexoRem(pac.SEXO);
   return REM9_RES_COLS.map(function (c) { return fila[c]; });
 }
 
@@ -127,50 +127,50 @@ function Rem9_filaResumen(pac, eventosPac) {
  *  PENDIENTE_CAPTURA (nunca inventados). */
 function Rem9_filaDetalle(ev, pac, opciones) {
   opciones = opciones || {};
-  var f = Rem9_normFecha(ev.f);
+  var f = Rem9_normFecha(ev.FECHA_EVENTO);
   var val = [];
   function chk(campo, valor, minimo) {
     if (!minimo) return;
     val.push({ campo: campo, estado: (valor === '' || valor == null) ? 'WARNING' : 'OK',
                detalle: valor === '' ? 'sin dato en el modelo' : '' });
   }
-  var edad = pac.fechaNacimiento ? Rem9_edadEn(pac.fechaNacimiento, ev.f) : '';
+  var edad = pac.FECHA_NACIMIENTO ? Rem9_edadEn(pac.FECHA_NACIMIENTO, ev.FECHA_EVENTO) : '';
   if (!f) val.push({ campo: 'Fecha/Hora Atención', estado: 'ERROR', detalle: 'evento sin fecha válida' });
 
   var fila = {};
   REM9_DET_COLS.forEach(function (c) { fila[c] = ''; });
-  fila['Profesional'] = Utl_texto(ev.profesional);
-  fila['Tipo de Profesional'] = Utl_texto(ev.tipoProfesional); // PENDIENTE_CAPTURA
+  fila['Profesional'] = Utl_texto(ev.PROFESIONAL);
+  fila['Tipo de Profesional'] = Utl_texto(ev.PROFESIONAL_TIPO); // PENDIENTE_CAPTURA
   fila['Ficha Paciente'] = Rem9_rutSinDv(pac.rut);
   fila['Doc.'] = Utl_texto(pac.rut);
   fila['Tipo doc.'] = pac.rut ? 'R.U.N.' : '';
-  fila['Nombre Paciente'] = Utl_texto(pac.nombre);
+  fila['Nombre Paciente'] = Utl_texto(pac.NOMBRE);
   fila['Edad a la Atención'] = edad;
   fila['Año'] = f ? f.anio : '';
   fila['Mes'] = f ? f.mes : '';
   fila['Día'] = f ? f.dia : '';
-  fila['Sexo'] = Rem9_sexoRem(pac.sexo);
-  fila['Género Social'] = Utl_texto(ev.generoSocial);            // PENDIENTE_CAPTURA
+  fila['Sexo'] = Rem9_sexoRem(pac.SEXO);
+  fila['Género Social'] = '';            // PENDIENTE_CAPTURA (#25)
   fila['Centro Paciente'] = opciones.centro || '';               // CONFIG-derivado opcional
-  fila['País Origen'] = Utl_texto(ev.paisOrigen);                // PENDIENTE_CAPTURA
-  fila['Sector'] = Utl_texto(ev.sector) ? 'SECTOR ' + Utl_texto(ev.sector).toUpperCase() : '';
+  fila['País Origen'] = '';                // PENDIENTE_CAPTURA (#25)
+  fila['Sector'] = Utl_texto(ev.SECTOR) ? 'SECTOR ' + Utl_texto(ev.SECTOR).toUpperCase() : '';
   fila['Fecha/Hora Atención'] = f ? f.iso : '';
   fila['Hora Cierre Atención'] = Utl_texto(ev.horaCierre);       // PENDIENTE_CAPTURA
-  fila['Embarazada'] = Utl_texto(ev.embarazada);                 // PENDIENTE_CAPTURA
-  fila['Tipo'] = Utl_texto(ev.tipo);
-  fila['Descripción'] = Utl_texto(ev.descripcion);
-  fila['Cantidad'] = (ev.cantidad === '' || ev.cantidad == null) ? '' : Number(ev.cantidad) || '';
+  fila['Embarazada'] = '';                 // PENDIENTE_CAPTURA (#25)
+  fila['Tipo'] = Utl_texto(ev.TIPO_EVENTO);
+  fila['Descripción'] = Utl_texto(ev.DESCRIPCION);
+  fila['Cantidad'] = (ev.CANTIDAD === '' || ev.CANTIDAD == null) ? '' : Number(ev.CANTIDAD) || '';
   for (var i = 1; i <= 5; i++) {
     fila['Condicionante ' + i] = Utl_texto(ev['condicionante' + i]); // PENDIENTE_CAPTURA
   }
-  fila['Comentario'] = Utl_texto(ev.comentario);
+  fila['Comentario'] = Utl_texto(ev.COMENTARIO);
   fila['Programa'] = Utl_texto(opciones.programa);
 
   chk('Profesional', fila['Profesional'], false);
   chk('Sexo', fila['Sexo'], true);
   chk('Edad a la Atención', fila['Edad a la Atención'], true);
   chk('Sector', fila['Sector'], true);
-  chk('Estratificación (snapshot)', Rem9_bucketG(ev.g) ||
+  chk('Estratificación (snapshot)', Rem9_bucketG(ev.RIESGO_G) ||
       (val.push({ campo: 'Estratificación', estado: 'WARNING',
                   detalle: 'G vacío → fuera de conteos G1/G2/G3' }), ''), false);
 
@@ -191,32 +191,33 @@ function Rem9_construir(datos, opciones) {
 
   var pacientesIdx = {};
   (datos.pacientes || []).forEach(function (p) {
-    pacientesIdx[Utl_texto(p.id)] = p;
+    pacientesIdx[Utl_texto(p.ID_INTERNO)] = p;
   });
 
   var enPeriodo = (datos.eventos || []).filter(function (e) {
-    var f = Rem9_normFecha(e.f);
+    var f = Rem9_normFecha(e.FECHA_EVENTO);
     if (!f) return false;
     if (f.anio !== anio || f.mes !== mes) return false;
     if (opciones.sector && opciones.sector !== 'TODOS' &&
-        Utl_texto(e.sector).toUpperCase() !== String(opciones.sector).toUpperCase()) return false;
+        Utl_texto(e.SECTOR).toUpperCase() !== String(opciones.sector).toUpperCase()) return false;
     return true;
-  }).sort(function (a, b) { return Utl_texto(a.f) < Utl_texto(b.f) ? -1 : 1; });
+  }).sort(function (a, b) { return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 : 1; });
 
   /* DETALLE */
   var detalle = [], validaciones = [], err = 0, warn = 0;
   var porPaciente = {};
   enPeriodo.forEach(function (ev) {
-    var pac = pacientesIdx[Utl_texto(ev.id)] ||
-              { rut: Utl_texto(ev.rut), nombre: Utl_texto(ev.nombre), sexo: '', fechaNacimiento: '' };
+    var pac = pacientesIdx[Utl_texto(ev.ID_INTERNO)] ||
+              { RUT: Utl_texto(ev.RUT), NOMBRE: Utl_texto(ev.NOMBRE), SEXO: '',
+                FECHA_NACIMIENTO: '' };
     var rd = Rem9_filaDetalle(ev, pac, { centro: opciones.centro, programa: opciones.programa });
-    detalle.push(rd.fila); validaciones.push({ id: ev.id, nombre: pac.nombre,
+    detalle.push(rd.fila); validaciones.push({ id: ev.ID_INTERNO, nombre: pac.NOMBRE,
       estado: rd.estado, campos: rd.validacion });
     if (rd.estado === 'ERROR') err++;
     else if (rd.estado === 'WARNING') warn++;
-    var k = Utl_texto(ev.id);
+    var k = Utl_texto(ev.ID_INTERNO);
     (porPaciente[k] = porPaciente[k] || { pac: pac, evs: [] }).evs.push({
-      tipo: ev.tipo, g: ev.g, f: ev.f });
+      TIPO_EVENTO: ev.TIPO_EVENTO, RIESGO_G: ev.RIESGO_G, FECHA_EVENTO: ev.FECHA_EVENTO });
   });
 
   /* RESUMEN derivado del detalle (#13) */
@@ -263,102 +264,31 @@ function _rem9_configValor(clave) {
 }
 
 /**
- * 📄 Genera REM_ECICEP_YYYY_MM.xlsx con hojas REM + REM_DETALLE.
- * READ ONLY sobre PACIENTES/EVENTOS; crea un spreadsheet TEMPORAL que se
- * envía a papelera tras exportar. Idempotente.
- * @returns {ok, url?, nombre?, resumen?, validacion?, motivo?}
+ * Endpoint ligero: entrega SOLO los datos del REM ya construidos
+ * (resumen + detalle + validación) para que el NAVEGADOR genere el .xlsx
+ * localmente con SheetJS. Sin hojas temporales ni export endpoints frágiles.
+ * READ ONLY sobre PACIENTES/EVENTOS (#38). Idempotente.
  */
-function REM_exportarExcel(anio, mes, sectorFiltro) {
-  var nombre = '';
-  var tempId = null;
+function api_rem9Datos(anio, mes, sectorFiltro) {
   try {
     anio = Number(anio); mes = Number(mes);
     if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
     var filtro = Rem_bucketSector(Utl_texto(sectorFiltro).trim() === '' ? 'todos' : sectorFiltro);
-    nombre = 'REM_ECICEP_' + anio + '_' + (mes < 10 ? '0' : '') + mes;
-
     var datos = _rem9_datos(anio, mes, filtro);
     var c = Rem9_construir(datos, { sector: filtro,
       programa: _rem9_configValor('GENERAL_NOMBRE_SISTEMA') || 'ECICEP',
       centro: '' });
-
-    if (!c.atenciones) {
-      return { ok: false, motivo: 'SIN_EVENTOS_PERIODO',
-               validacion: c.validacion,
-               detalle: 'No hay atenciones para ' + nombre };
-    }
-
-    // Spreadsheet temporal → 2 hojas contractuales
-    var temp = SpreadsheetApp.create(nombre);
-    tempId = temp.getId();
-    var shR = temp.getSheets()[0].setName('REM');
-    var shD = temp.insertSheet('REM_DETALLE');
-
-    var rect = function (cols, filas) {
-      var w = cols.length;
-      var out = [cols.slice()];
-      (filas || []).forEach(function (f) {
-        var r = f.slice(0, w);
-        while (r.length < w) r.push('');
-        out.push(r);
-      });
-      return out;
-    };
-
-    Utl_escribirBloque(shR, 1, 1, rect(REM9_RES_COLS, c.resumen));
-    Utl_escribirBloque(shD, 1, 1, rect(REM9_DET_COLS, c.detalle));
-
-    // Formatos mínimos: encabezado marca + fechas reales en detalle
-    [shR, shD].forEach(function (sh) {
-      sh.getRange(1, 1, 1, sh.getLastColumn())
-        .setFontWeight('bold').setBackground('#0E5C68').setFontColor('#FFFFFF');
-      sh.setFrozenRows(1);
-    });
-    var colFec = REM9_DET_COLS.indexOf('Fecha/Hora Atención') + 1;
-    if (c.detalle.length) {
-      shD.getRange(2, colFec, c.detalle.length, 1).setNumberFormat('dd/mm/yyyy');
-    }
-
-    SpreadsheetApp.flush();
-
-    // Export xlsx nativo del spreadsheet temporal
-    var urlXlsx = 'https://docs.google.com/spreadsheets/d/' + tempId + '/export?format=xlsx';
-    var blob = null;
-    for (var intento = 1; intento <= 3 && !blob; intento++) {
-      try {
-        Utilities.sleep(intento === 1 ? 0 : 2000);
-        var b = UrlFetchApp.fetch(urlXlsx, {
-          headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-          muteHttpExceptions: true
-        });
-        if (b.getResponseCode() === 200 && b.getBytes().length > 1000) {
-          blob = b.getBlob().setName(nombre + '.xlsx');
-        }
-      } catch (eF) { if (intento === 3) throw eF; }
-    }
-    if (!blob) throw new Error('Exportación no disponible, reintenta en unos segundos');
-    var archivo = DriveApp.createFile(blob);
-
-    Log_info('REM', 'exportarExcel', nombre + ' · resumen=' + c.resumen.length +
-      ' detalle=' + c.detalle.length + ' err=' + c.validacion.error +
-      ' warn=' + c.validacion.warning);
+    if (!c.atenciones) return { ok: false, motivo: 'SIN_EVENTOS_PERIODO',
+      nombre: remNombreArchivo(anio, mes, filtro) };
+    Log_info('REM', 'datosExcel', 'resumen=' + c.resumen.length + ' detalle=' + c.detalle.length);
     Log_flush();
-
-    return { ok: true, url: archivo.getUrl(), nombre: nombre + '.xlsx',
-             resumen: { pacientes: c.pacientes, atenciones: c.atenciones },
-             validacion: { ok: c.validacion.ok, warning: c.validacion.warning,
-                           error: c.validacion.error } };
+    return { ok: true, nombre: remNombreArchivo(anio, mes, filtro),
+      cabecera: Rem_cabecera(anio, mes, filtro),
+      colsResumen: REM9_RES_COLS, colsDetalle: REM9_DET_COLS,
+      resumen: c.resumen, detalle: c.detalle, validacion: c.validacion };
   } catch (e) {
-    var msg = e && e.message ? e.message : String(e);
-    if (/permission|autoriz|Scope/i.test(msg)) {
-      msg += ' — autoriza los nuevos permisos (abre Apps Script y acepta el aviso).';
-    }
-    Log_error('REM', 'exportarExcel', (nombre || '') + ' → ' + msg);
+    Log_error('REM', 'datosExcel', e && e.message ? e.message : String(e));
     Log_flush();
-    return { ok: false, motivo: msg };
-  } finally {
-    if (tempId) {
-      try { DriveApp.getFileById(tempId).setTrashed(true); } catch (eT) {}
-    }
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }

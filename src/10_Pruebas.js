@@ -1740,13 +1740,14 @@ function _pruebas_instalador(t, A) {
 
 function _pruebas_rem_excel(t, A) {
   var PACS = [
-    { id:'P1', rut:'11111111-1', nombre:'ANA UNO',   sexo:'F', fechaNacimiento:'1980-05-10' },
-    { id:'P2', rut:'22222222-2', nombre:'BETO DOS',  sexo:'M', fechaNacimiento:'1965-01-20' },
-    { id:'P3', rut:'33333333-3', nombre:'CARLA TRES',sexo:'',  fechaNacimiento:'' },
-    { id:'P4', rut:'44444444-4', nombre:'DIEZ CUATRO',sexo:'F',fechaNacimiento:'1990-09-09' }
+    { ID_INTERNO:'P1', RUT:'11111111-1', NOMBRE:'ANA UNO',   SEXO:'F', FECHA_NACIMIENTO:'1980-05-10' },
+    { ID_INTERNO:'P2', RUT:'22222222-2', NOMBRE:'BETO DOS',  SEXO:'M', FECHA_NACIMIENTO:'1965-01-20' },
+    { ID_INTERNO:'P3', RUT:'33333333-3', NOMBRE:'CARLA TRES',SEXO:'',  FECHA_NACIMIENTO:'' },
+    { ID_INTERNO:'P4', RUT:'44444444-4', NOMBRE:'DIEZ CUATRO',SEXO:'F',FECHA_NACIMIENTO:'1990-09-09' }
   ];
-  function EV(id,f,tipo,g,sector){return {id:id,rut:'',nombre:'',f:f,tipo:tipo,sector:sector||'NARANJO',g:g,
-    profesional:'MEDICO X',cantidad:'1',descripcion:'control de ejemplo'};}
+  function EV(id,f,tipo,g,sector){return {ID_INTERNO:id,RUT:'',NOMBRE:'',FECHA_EVENTO:f,TIPO_EVENTO:tipo,
+    SECTOR:(sector||'NARANJO'),RIESGO_G:g,
+    PROFESIONAL:'MEDICO X',CANTIDAD:1,DESCRIPCION:'control de ejemplo'};}
   var eventos = [
     EV('P1','2026-08-02','INGRESO','G2'),
     EV('P1','2026-08-10','CONTROL','G2'),
@@ -1823,7 +1824,7 @@ function _pruebas_rem_excel(t, A) {
 
   t('REMX: edad a la atención desde FECHA_NACIMIENTO + fecha evento (#16)', function(){
     var c=construir();
-    var dAna=c.detalle.filter(function(f){return f[5]==='ANA UNO';})[0];
+    var dAna=c.detalle.filter(function(f){return f[5]==='ANA UNO';})[0]; // Nombre Paciente col 6
     A.igual(dAna[6],46,'edad 2026 con nac 1980');
     A.igual(dAna[7],2026,'año');A.igual(dAna[8],8,'mes');A.igual(dAna[9],2,'día');
   });
@@ -1858,8 +1859,8 @@ function _pruebas_rem_excel(t, A) {
              EV('P9','2026-08-08','CONTROL','G1'),
              EV('P9','2026-08-09','SEGUIMIENTO','G1'),
              EV('P9','2026-08-10','PLAN_CUIDADO','G1')];
-    var c=Rem9_construir({pacientes:[{id:'P9',rut:'99999999-9',nombre:'NUEVE',sexo:'M',
-      fechaNacimiento:'1970-01-01'}],eventos:evs,anio:2026,mes:8},{sector:'TODOS'});
+    var c=Rem9_construir({pacientes:[{ID_INTERNO:'P9',RUT:'99999999-9',NOMBRE:'NUEVE',SEXO:'M',
+      FECHA_NACIMIENTO:'1970-01-01'}],eventos:evs,anio:2026,mes:8},{sector:'TODOS'});
     A.igual(c.resumen.length,1,'una sola fila');
     var r=c.resumen[0];
     A.igual(r[3],2,'2 ingresos');
@@ -1879,7 +1880,7 @@ function _pruebas_rem_excel(t, A) {
   t('REMX: filtro sector excluye otros sectores', function(){
     var evs=JSON.parse(JSON.stringify(eventos));
     evs.push(EV('P5','2026-08-25','INGRESO','G1','VERDE'));
-    var c=Rem9_construir({pacientes:PACS.concat([{id:'P5',rut:'55555555-5',nombre:'CINCO',sexo:'F'}]),
+    var c=Rem9_construir({pacientes:PACS.concat([{ID_INTERNO:'P5',RUT:'55555555-5',NOMBRE:'CINCO',SEXO:'F'}]),
       eventos:evs,anio:2026,mes:8},{sector:'VERDE'});
     A.igual(c.atenciones,1,'solo VERDE');
   });

@@ -196,7 +196,10 @@ function _rem_normalizarEventos(crudos) {
     return { ID_INTERNO: Utl_texto(e.ID_INTERNO), RUT: Utl_texto(e.RUT),
              NOMBRE: Utl_texto(e.NOMBRE), FECHA_EVENTO: iso,
              TIPO_EVENTO: Utl_texto(e.TIPO_EVENTO),
-             SECTOR: Utl_texto(e.SECTOR), RIESGO_G: Utl_texto(e.RIESGO_G) };
+             SECTOR: Utl_texto(e.SECTOR), RIESGO_G: Utl_texto(e.RIESGO_G),
+             PROFESIONAL: Utl_texto(e.PROFESIONAL),
+             DESCRIPCION: Utl_texto(e.DESCRIPCION),
+             CANTIDAD: e.CANTIDAD === '' || e.CANTIDAD == null ? '' : Number(e.CANTIDAD) || '' };
   });
 }
 
@@ -443,47 +446,55 @@ function _rem_tablaDoc(body, filas, conEncabezado) {
   return t;
 }
 
-/** Estiliza REM_SALIDA según el mapa de tipos de cada fila (hoja interna,
- *  pero ordenada y legible para revisión/auditoría). Idempotente. */
+/** Estiliza REM_SALIDA por BLOQUES (sin loops por fila): estilos puntuales
+ *  para título/secciones/encabezados/totales/notas + banding nativo sobre los
+ *  tramos de datos. Rápido incluso con miles de filas. Idempotente. */
 function _rem_estilizarSalida(hoja, filas, tipos) {
-  var ancho = filas.reduce(function (m, f) { return Math.max(m, f.length); }, 1);
+  var ancho = filas.reduce(function (mm, f) { return Math.max(mm, f.length); }, 1);
   var alto = filas.length;
   hoja.setFrozenRows(2);
   hoja.setFrozenColumns(1);
   hoja.setColumnWidth(1, 300);
-  for (var c = 2; c <= ancho; c++) hoja.setColumnWidth(c, 95);
+  if (ancho > 1) hoja.getRange(2, 2, Math.max(alto - 1, 1), ancho - 1).setColumnWidth(95);
 
-  var rangoBase = hoja.getRange(1, 1, alto, ancho)
-    .setFontFamily('Inter').setFontSize(10).setFontColor('#1C2430')
-    .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  hoja.getRange(1, 1, alto, ancho)
+      .setFontFamily('Inter').setFontSize(10).setFontColor('#1C2430')
+      .setVerticalAlignment('middle')
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
 
-  var zebra = 0; // contador por bloque para filas intercaladas
+  var ESTILOS = {
+    titulo:  { bg: null,      fg: '#0E5C68', bold: true,  size: 13 },
+    meta:    { fg: '#8A93A3', italic: true, size: 9 },
+    seccion: { bg: '#08414A', fg: '#FFFFFF', bold: true, size: 11 },
+    cols:    { bg: '#0E5C68', fg: '#FFFFFF', bold: true, size: 9, center: true },
+    total:   { bg: '#E5F1F2', bold: true },
+    nota:    { fg: '#8A93A3', italic: true, size: 9 }
+  };
   for (var i = 0; i < tipos.length; i++) {
-    var fila = i + 1;
-    var rangoFila = hoja.getRange(fila, 1, 1, ancho);
     var t = tipos[i];
-    if (t === 'titulo') {
-      rangoFila.setFontWeight('bold').setFontSize(13).setFontColor('#0E5C68');
-    } else if (t === 'meta') {
-      rangoFila.setFontStyle('italic').setFontSize(9).setFontColor('#8A93A3');
-    } else if (t === 'seccion') {
-      rangoFila.setFontWeight('bold').setFontSize(11).setFontColor('#FFFFFF')
-               .setBackground('#08414A');
-      zebra = 0;
-    } else if (t === 'cols') {
-      rangoFila.setFontWeight('bold').setFontSize(9).setFontColor('#FFFFFF')
-               .setBackground('#0E5C68').setHorizontalAlignment('center');
-      zebra = 0;
-    } else if (t === 'total') {
-      rangoFila.setFontWeight('bold').setBackground('#E5F1F2');
-    } else if (t === 'nota') {
-      rangoFila.setFontStyle('italic').setFontSize(9).setFontColor('#8A93A3');
-    } else if (t === 'dato' || t === 'detalle' || t === 'ind') {
-      if (zebra % 2 === 1) rangoFila.setBackground('#F1F3F6'); /* intercalado */
-      zebra++;
-      if (ancho > 1) {
-        hoja.getRange(fila, 2, 1, ancho - 1).setHorizontalAlignment(t === 'dato' ? 'center' : 'right');
-      }
-    }
+    if (t === '' || t === 'dato' || t === 'detalle' || t === 'ind') continue;
+    var st = ESTILOS[t];
+    if (!st) continue;
+    var rg = hoja.getRange(i + 1, 1, 1, ancho);
+    if (st.bg) rg.setBackground(st.bg);
+    if (st.fg) rg.setFontColor(st.fg);
+    if (st.bold) rg.setFontWeight('bold');
+    if (st.italic) rg.setFontStyle('italic');
+    if (st.size) rg.setFontSize(st.size);
+    if (st.center) rg.setHorizontalAlignment('center');
   }
+
+  /* Banding nativo sobre tramos contiguos de datos */
+  function banda(desde, hasta) {
+    if (hasta < desde) return;
+    var b = hoja.getRange(desde, 1, hasta - desde + 1, ancho).applyRowBanding();
+    b.setFirstRowColor('#FFFFFF').setSecondRowColor('#F1F3F6');
+  }
+  var iniBloque = 0, tipoBloque = '';
+  for (var j = 0; j < tipos.length; j++) {
+    var esDato = (tipos[j] === 'detalle' || tipos[j] === 'ind');
+    if (esDato && tipoBloque === '') { iniBloque = j + 2; tipoBloque = tipos[j]; }
+    else if (!esDato && tipoBloque !== '') { banda(iniBloque, j + 1); tipoBloque = ''; }
+  }
+  if (tipoBloque !== '') banda(iniBloque, tipos.length);
 }
