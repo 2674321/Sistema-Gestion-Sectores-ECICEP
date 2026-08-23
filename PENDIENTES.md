@@ -35,6 +35,13 @@
 | 21 | Cola de revisión humana: UI mínima para resolver REQUIERE_REVISION/POSIBLE_DUPLICADO (por ahora viven en resultado JSON de staging) | Tarea dev ETAPA 4 | Operación diaria de casos dudosos | MEDIA |
 | 22 | Captura de fecha específica por gestión (CONTROL/SEGUIMIENTO con fecha propia) en hojas de ingreso o ficha: hoy el evento usa FECHA_INGRESO salvo override programático | Diseño ETAPA 4 | REM fiel por tipo de evento | ALTA para REM |
 
+## Nuevas (ETAPA 8E)
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 23 | ~~Drift de esquema PACIENTES (hoja física sin OTRAS_PATOLOGIAS)~~ ✅ **RESUELTO (2026-08-23):** guardado de patologías escribía 30 valores posicionales sobre hoja de 29 columnas → corrupción desde NOMBRE_NORMALIZADO en adelante (2 filas afectadas reales). Implementado: `Modelo_planMigracionEsquema` (pura), `Modelo_asegurarEsquemaPacientes` (auto-migración idempotente en todo escritor posicional), limpieza profunda de tipos (texto en booleanos, TRUE/FALSE residual en ESTRAT_*), menú ⚙️ Administración → 🧬 Verificar/migrar esquema. Validado end-to-end en producción | Resuelto | — | — |
+| 24 | Restaurar FUENTE perdida en 2 filas de PACIENTES durante el incidente (#23): fila 15 JUAN CUBILLOS RIVERA (7030521-6, probablemente `ECICEP NARANJO\|Ingresos Enero \|4` — confirmar contra Excel) y fila 20 SILVIA MONDACA ALFARO (8031158-3, `ECICEP NARANJO\|Ingresos Enero \|9` — confirmado). Mantener REQUIERE_REVISION=TRUE hasta restaurar | Tarea manual con Excel original | Trazabilidad completa de esas 2 fichas | MEDIA |
+
 ## Limitaciones técnicas registradas
 
 - Token clasp actual solo permite metadatos de Drive (listado), no contenido de
