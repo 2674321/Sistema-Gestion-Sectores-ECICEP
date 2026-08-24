@@ -103,42 +103,36 @@ function Hojas_crearInicio(ss) {
 // Formato condicional, filtros, ocultamiento y protecciones
 // ---------------------------------------------------------------------------
 
-/** GAS: reglas de formato condicional por hoja (idempotente: borra las del
- *  sistema 'ECICEP-FMT' y recrea). Estados con color + texto ya en celda. */
+/** GAS: reglas de formato condicional por hoja.
+ *  API a nivel SHEET (get/setConditionalFormatRules — Range no las tiene).
+ *  Estas hojas son del sistema: se reemplazan TODAS sus reglas por las del
+ *  estándar (idempotente). Errores aislados por hoja. */
 function Hojas_formatoCondicional(ss) {
   var aplicadas = 0, errores = [];
-  function reemplazar(hoja, reglas) {
-    var rangoTodo = hoja.getRange(1, 1, Math.max(hoja.getMaxRows(), 1), Math.max(hoja.getLastColumn(), 1));
-    rangoTodo.getConditionalFormatRules().forEach(function (r) {
-      if (r.getFrozens && false) {}
-    });
-    // borrar solo reglas propias: Sheets no etiqueta reglas → reconstruir todas
-    var actuales = hoja.getConditionalFormatRules();
-    var conservar = actuales.filter(function (r) {
-      return String(r.getRanges()[0] && r.getRanges()[0].getA1Notation()).indexOf('ECICEP') !== -1;
-    });
-    hoja.setConditionalFormatRules(conservar.concat(reglas));
-    aplicadas += reglas.length;
-  }
+
   function regla(formula, fondo, rango, negrita) {
     var b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula)
       .setBackground(fondo).setRanges([rango]);
     if (negrita) b = b.setBold(true);
     return b.build();
   }
+  function aplicar(hoja, reglas) {
+    hoja.setConditionalFormatRules(reglas);
+    aplicadas += reglas.length;
+  }
 
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat pendiente (ámbar) */
-  var p = ss.getSheetByName(HOJAS.PACIENTES);
-  if (p && p.getLastRow() > 1) { try {
-    var filas = Math.max(p.getMaxRows() - 1, 1);
-    var reglas = [
+  try {
+    var p = ss.getSheetByName(HOJAS.PACIENTES);
+    if (p && p.getLastRow() > 1) {
+      var filas = Math.max(p.getMaxRows() - 1, 1);
+      aplicar(p, [
         regla('=$W2=FALSE', '#FBE4E4', p.getRange(2, 2, filas, 1), true),
         regla('=$AD2=TRUE', '#FBF3D6', p.getRange(2, 30, filas, 1), true),
         regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1))
-      ];
-      reemplazar(p, reglas);
-    } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
-  }
+      ]);
+    }
+  } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
 
   /* INGRESO_*: estado con semáforo textual */
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
@@ -146,10 +140,9 @@ function Hojas_formatoCondicional(ss) {
       var h = ss.getSheetByName(nombre);
       if (!h || h.getLastRow() < 2) return;
       var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-      var filas = Math.max(h.getMaxRows() - 1, 1);
-      var rEstado = h.getRange(2, colEstado, filas, 1);
       var L = String.fromCharCode(64 + colEstado);
-      reemplazar(h, [
+      var rEstado = h.getRange(2, colEstado, Math.max(h.getMaxRows() - 1, 1), 1);
+      aplicar(h, [
         regla('=$' + L + '2="ERROR"', '#FBE4E4', rEstado, true),
         regla('=$' + L + '2="REQUIERE_REVISION"', '#FBF3D6', rEstado),
         regla('=$' + L + '2="INGRESADO"', '#E3F3EA', rEstado)
@@ -164,7 +157,7 @@ function Hojas_formatoCondicional(ss) {
       if (!h || h.getLastRow() < 2) return;
       var col = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
       var letra = String.fromCharCode(64 + col);
-      reemplazar(h, [
+      aplicar(h, [
         regla('=OR($' + letra + '2="",$' + letra + '2="G")', '#FBF3D6',
              h.getRange(2, col, Math.max(h.getMaxRows() - 1, 1), 1))
       ]);
@@ -172,16 +165,17 @@ function Hojas_formatoCondicional(ss) {
   });
 
   /* CONFLICTOS: pendiente / resuelto */
-  var con = ss.getSheetByName(HOJAS.CONFLICTOS);
-  if (con && con.getLastRow() > 1) {
-    try {
+  try {
+    var con = ss.getSheetByName(HOJAS.CONFLICTOS);
+    if (con && con.getLastRow() > 1) {
       var rC = con.getRange(2, 9, Math.max(con.getMaxRows() - 1, 1), 1);
-      reemplazar(con, [
+      aplicar(con, [
         regla('=$I2="PENDIENTE"', '#FBF3D6', rC, true),
         regla('=$I2="RESUELTO"', '#E3F3EA', rC)
       ]);
-    } catch (eC2) { errores.push('CONFLICTOS: ' + (eC2 && eC2.message || eC2)); }
-  }
+    }
+  } catch (eC2) { errores.push('CONFLICTOS: ' + (eC2 && eC2.message || eC2)); }
+
   return { aplicadas: aplicadas, errores: errores };
 }
 
