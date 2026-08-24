@@ -30,7 +30,8 @@ function onOpen() {
         .addItem('⚙️ Configuración', 'UI_configuracion')
         .addItem('🔧 Instalar / Reparar Sistema', 'UI_instalarSistema')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
-        .addItem('💾 Backups', 'UI_backup'))
+        .addItem('💾 Backups', 'UI_backup')
+        .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
 
       .addSeparator()
       .addItem('📄 Registro del sistema', 'UI_abrirLog')
