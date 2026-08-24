@@ -154,6 +154,7 @@ function animNum(el,val,sufijo){
 
 function renderizarTodo(){
 try{
+  if(!D){toast('Datos aún no cargados — espera o presiona Actualizar','info');return;}
   var op=opcionesCalc();
   var pax=paxFiltrados();
   if(op.sinPend)pax=pax.filter(function(p){return !esPendiente(p.est);});
