@@ -46,6 +46,8 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 <body>
 <header>
   <h1>Estadísticas</h1><span class="chip rut" id="chipGen">…</span>
+  <button class="btn btn-sec" onclick="cargarDatos()" style="margin-left:auto">
+    <i data-lucide="refresh-cw"></i> Actualizar</button>
   <div class="sub">Los KPIs y gráficos reaccionan a los filtros · El rango de fechas define la ventana del gráfico de ingresos por mes</div>
 </header>
 
@@ -276,7 +278,8 @@ function errorFatal(msg){
     '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--danger)">'+
     '<b>Error cargando datos:</b> '+msg+'<br><small>Copia este mensaje y avisa para diagnóstico.</small></div>');
 }
-google.script.run.withSuccessHandler(function(r){
+function cargarDatos(){
+  google.script.run.withSuccessHandler(function(r){
   ['kTotal','kPend','kIng','kRev'].forEach(function(id){
     document.getElementById(id).textContent='…';});
   if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');return;}
@@ -289,6 +292,8 @@ google.script.run.withSuccessHandler(function(r){
   renderizarTodo();_refrescarIconos();
 }).withFailureHandler(function(e){toast('Error cargando datos: '+(e&&e.message||e),'err');})
 .api_dashboardDatos();
+}
+
 _refrescarIconos();
 </script>
 </body>

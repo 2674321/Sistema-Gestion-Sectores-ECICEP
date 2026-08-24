@@ -151,6 +151,9 @@ textarea.inp{min-height:64px;resize:vertical}
       <div class="pc-estado"><span class="dot-ok"></span> Sistema operativo</div>
     </div>
     <div style="text-align:right">
+      <button class="btn btn-ghost" onclick="cargarPanel()" title="Actualizar"
+        id="btnRefrescarPanel">
+        <i data-lucide="refresh-cw" style="width:15px;height:15px"></i></button>
       <div class="pc-ult">Últ. actualización<br><b id="ccUltAct">—</b></div>
       <div class="build">build <?= BUILD ?></div>
     </div>

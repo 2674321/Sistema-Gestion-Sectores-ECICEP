@@ -170,8 +170,9 @@ function generar(btn){
         XLSX.writeFile(wb,r1.nombre); /* descarga directa del navegador */
         barraFin(true,'✓ '+r1.detalle.length+' atenciones exportadas');
         setLoading(btn,false);
+        var tValid=(r1.validacion.error>0?'err':r1.validacion.warning>0?'warn':'ok');
         toast('✓ '+r1.nombre+' descargado ('+r1.detalle.length+' atenciones · '
-          +r1.validacion.ok+' OK / '+r1.validacion.warning+' adv / '+r1.validacion.error+' err)','ok');
+          +r1.validacion.ok+' OK / '+r1.validacion.warning+' adv / '+r1.validacion.error+' err)',tValid);
         _refrescarIconos();
       }catch(e){
         barraFin(false);setLoading(btn,false);
