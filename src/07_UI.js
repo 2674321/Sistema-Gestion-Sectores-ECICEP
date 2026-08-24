@@ -1353,22 +1353,26 @@ function _pruS_estadisticas() {
                     ' (payload completo verificado por el Panel al abrirse)' };
 }
 function _pruS_validaciones() {
-  var ss = Modelo_ss(), total = 0, con = 0;
+  var ss = Modelo_ss(), total = 0, con = 0, sin = [];
   Object.keys(HOJAS_INGRESO).forEach(function (n) {
-    var h = ss.getSheetByName(n);
-    if (!h || h.isSheetHidden()) return;
-    total++;
-    var col = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-    var tiene = false;
-    for (var rr = 2; rr <= Math.min(h.getLastRow(), 30) && !tiene; rr++) {
-      if (h.getRange(rr, col).getDataValidation()) tiene = true;
-    }
-    if (tiene) con++;
+    try {
+      var h = ss.getSheetByName(n);
+      if (!h || h.isSheetHidden()) return;
+      total++;
+      var col = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
+      var tiene = false;
+      for (var rr = 2; rr <= Math.min(Math.max(h.getLastRow(), 2), 30); rr++) {
+        if (h.getRange(rr, col).getDataValidation()) { tiene = true; break; }
+      }
+      if (tiene) con++; else sin.push(n);
+    } catch (eI) { sin.push(n + ' (error: ' + (eI && eI.message || eI) + ')'); }
   });
   if (!total) return { estado: 'WARN', detalle: 'sin puertas INGRESO visibles' };
   return con === total
     ? { estado: 'OK', detalle: con + '/' + total + ' puertas validadas' }
-    : { estado: 'WARN', detalle: con + '/' + total + ' — ejecuta Instalar / Reparar Sistema' };
+    : { estado: 'WARN',
+        detalle: con + '/' + total + ' validadas · sin validación: ' + sin.join(', ') +
+                 ' — ejecuta Instalar / Reparar Sistema' };
 }
 function _pruS_catalogos() {
   var h = Modelo_hoja('CAT_VIGENCIA_EXAMENES');
