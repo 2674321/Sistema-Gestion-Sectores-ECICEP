@@ -107,6 +107,12 @@ function UI_instalarSistema() {
       dis.ordenadas + ' ordenadas · ' + dis.bandas + ' con banding' : 'no aplicado'));
     L.push((hojasUI ? '✓' : '✕') + ' Hoja INICIO: ' + (hojasUI ? hojasUI.inicio.accesos +
       ' accesos + indicadores vivos' : 'no creada'));
+    if (hojasUI && hojasUI.cond.errores && hojasUI.cond.errores.length) {
+      hojasUI.cond.errores.forEach(function (er) { avisos.push('Formato condicional · ' + er); });
+    }
+    if (hojasUI && hojasUI.cond.errores && hojasUI.cond.errores.length) {
+      hojasUI.cond.errores.forEach(function (er) { avisos.push('Formato condicional · ' + er); });
+    }
     L.push('✓ Formato condicional: ' + (hojasUI ? hojasUI.cond.aplicadas : 0) +
       ' reglas · Filtros: ' + (hojasUI ? hojasUI.filtros.filtros : 0) +
       ' · Técnicas ocultas: ' + (hojasUI ? hojasUI.ocultas.ocultas : 0) +

@@ -35,10 +35,10 @@ function Hojas_formulaIndicador(tipo) {
   switch (tipo) {
     case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!A2:A)';
     case 'EVENTOS':     return '=COUNTA(EVENTOS!A2:A)';
-    case 'POR_REVISAR': return '=COUNTIF(PACIENTES!AD2:AD,TRUE)';
-    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!I2:I,"")+COUNTIF(PACIENTES!I2:I,"G")';
-    case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!W2:W,FALSE)';
-    case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B,PACIENTES!B2:B)>1))';
+    case 'POR_REVISAR': return '=COUNTIF(PACIENTES!AD2:AD;TRUE)';
+    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")';
+    case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!W2:W;FALSE)';
+    case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))';
     case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!AC2:AC)=0,"\\u2014",TEXT(MAX(PACIENTES!AC2:AC),"dd/mm/yyyy hh:mm"))';
     default: return '';
   }
@@ -66,7 +66,7 @@ function Hojas_crearInicio(ss) {
   HOJAS_NAV.forEach(function (n) {
     if (!gids[n.hoja]) return;
     h.getRange(fila, 2).setFormula(
-      '=HYPERLINK("#gid=' + gids[n.hoja] + '","' + n.etiqueta + '")')
+      '=HYPERLINK("#gid=' + gids[n.hoja] + '";"' + n.etiqueta + '")')
       .setFontSize(12).setFontColor('#0E5C68');
     fila++;
   });
@@ -220,8 +220,10 @@ function Hojas_proteger(ss) {
   var n = 0;
   function advertir(hoja, a1, desc) {
     var rango = hoja.getRange(a1);
-    var ya = rango.getProtections(SpreadsheetApp.ProtectionType.RANGE)
-      .some(function (pr) { return pr.getDescription() === desc; });
+    var ya = hoja.getProtections(SpreadsheetApp.ProtectionType.RANGE)
+      .some(function (pr) {
+        try { return pr.getDescription() === desc; } catch (eP) { return false; }
+      });
     if (!ya) {
       var pr = rango.protect().setDescription(desc);
       pr.setWarningOnly(true);
