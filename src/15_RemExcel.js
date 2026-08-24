@@ -292,3 +292,35 @@ function api_rem9Datos(anio, mes, sectorFiltro) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
+
+
+/** CONFIG set/get puntual (clave=valor en hoja CONFIG). */
+function _config_set(clave, valor) {
+  var h = Modelo_hoja(HOJAS.CONFIG);
+  if (!h) return;
+  var vals = Utl_leerBloque(h);
+  for (var i = 1; i < vals.length; i++) {
+    if (Utl_texto(vals[i][0]) === clave) { h.getRange(i + 1, 2).setValue(valor); return; }
+  }
+  h.getRange(h.getLastRow() + 1, 1, 1, 3).setValues([[clave, valor, '']]);
+}
+
+/** ¿La fuente ya fue importada? → existen pacientes con FUENTE que empieza
+ *  por el nombre del archivo. Evita re-importar y duplicar eventos. */
+function Fuentes_yaImportada(nombreArchivo) {
+  var pacientes = Modelo_leerPacientes();
+  for (var i = 0; i < pacientes.length; i++) {
+    if (Utl_texto(pacientes[i].FUENTE).indexOf(nombreArchivo) === 0) return true;
+  }
+  return false;
+}
+
+/** Fuentes pendientes de primera importación (con ID en Drive y sin datos). */
+function Fuentes_pendientes() {
+  return Object.keys(FUENTES_DRIVE).filter(function (n) {
+    var cfg = FUENTES_DRIVE[n];
+    if (!cfg.id) return false;
+    if (n === 'SEGUIMIENTO ECICEP Sector Amarillo') return false; // flujo propio
+    return !Fuentes_yaImportada(n);
+  });
+}

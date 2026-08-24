@@ -13,6 +13,7 @@ function onOpen() {
     ui.createMenu('ECICEP')
 
       .addItem('🏠 Panel de Control', 'UI_panelControl')
+      .addItem('📊 Estadísticas', 'UI_abrirDashboard')
 
       .addSubMenu(ui.createMenu('👥 Gestión')
         .addItem('👤 Pacientes ECICEP', 'UI_abrirBuscador')
@@ -20,8 +21,6 @@ function onOpen() {
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
         .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
 
-      .addSubMenu(ui.createMenu('📊 Información')
-        .addItem('📊 Estadísticas', 'UI_abrirDashboard'))
 
       .addSubMenu(ui.createMenu('🩺 REM')
         .addItem('🩺 Generar REM', 'UI_generarRem')
@@ -80,6 +79,22 @@ function UI_instalarSistema() {
         try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV) {}
       }
     } catch (eA) { avisos.push('Amarillo: ' + (eA && eA.message || eA)); }
+
+    // 4c-bis) Primera importación de fuentes conectadas (Naranjo/Verde).
+    // Idempotente: se marca en CONFIG y se salta si ya hay datos de esa fuente.
+    var cargaFuente = null;
+    try {
+      var pend = Fuentes_pendientes();
+      var yaHecha = _rem9_configValor('CARGA_REAL_HECHA');
+      if (pend.length && !yaHecha) {
+        cargaFuente = Fuentes_cargaReal({ ejecutar: true });
+        _config_set('CARGA_REAL_HECHA', Utilities.formatDate(new Date(),
+          Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
+        try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV2) {}
+      } else if (pend.length && yaHecha) {
+        avisos.push('Fuentes sin importar (' + pend.join(', ') + ') — ya existe una carga real del ' + yaHecha + '. Usa Herramientas → Cargar para re-importar.');
+      }
+    } catch (eC) { avisos.push('Carga de fuentes: ' + (eC && eC.message || eC)); }
 
     // 4d) Limpieza de hojas residuales de desarrollo
     var limpieza = Modelo_limpiarHojasResiduales(ss);
@@ -140,6 +155,8 @@ function UI_instalarSistema() {
       '✓ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
       '✓ Menú actualizado · Encabezados y fechas formateados\n' +
       '✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n' +
+      (cargaFuente ? '✓ Carga inicial de fuentes: ' + JSON.stringify(
+        (cargaFuente.porFuente||cargaFuente.resumen||cargaFuente)) + '\n' : '') +
       (amarillo ? '✓ Sector Amarillo sincronizado: puerta +' + amarillo.puerta.nuevas +
         ' · histórico ' + amarillo.historico.eventosCreados + ' eventos · ' +
         amarillo.historico.pacientesActualizados + ' pacientes actualizados' +
@@ -562,6 +579,8 @@ function api_dashboardDatos() {
     return { ok: true, pacientes: pacientes, eventos: eventos, catalogo: catalogo,
              generadoEn: _ui_isoFecha(new Date()) };
   } catch (e) {
+    Log_error('Dashboard', 'api_dashboardDatos', e && e.message ? e.message : String(e));
+    Log_flush();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
