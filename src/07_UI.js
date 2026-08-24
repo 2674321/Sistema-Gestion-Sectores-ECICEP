@@ -67,7 +67,6 @@ function UI_instalarSistema() {
     var est = paso('Estructura', function () { return Modelo_crearEstructura(); });
     ss = Modelo_ss();
     var cat = paso('Catálogos', function () { return Modelo_instalarCatalogos(ss); });
-    var val = paso('Validaciones INGRESO', function () { return Modelo_validarIngresos(ss); });
 
     var amarillo = null;
     paso('Sincronización Amarillo', function () {
@@ -76,6 +75,8 @@ function UI_instalarSistema() {
       amarillo = Amarillo_importarTodo(true);
       try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV) {}
     });
+
+    var val = paso('Validaciones INGRESO', function () { return Modelo_validarIngresos(ss); });
 
     var limpieza = paso('Limpieza de residuales', function () { return Modelo_limpiarHojasResiduales(ss); });
     var dis = paso('Diseño del libro', function () { return Modelo_aplicarDiseno(); });
