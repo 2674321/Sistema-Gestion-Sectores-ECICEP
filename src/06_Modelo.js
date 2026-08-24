@@ -282,6 +282,8 @@ function Modelo_nuevoIdInterno() {
 // ---------------------------------------------------------------------------
 
 var MODELO_DISENO = [
+  // Navegación
+  { nombre: 'INICIO',           color: '#0E5C68', estilo: false },
 
   // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
   { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA },
@@ -419,6 +421,7 @@ _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
 // Catálogo centralizado de vigencia de exámenes (#15): administrable desde CONFIG
 _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'] = ['EXAMEN', 'CODIGO', 'VIGENCIA', 'UNIDAD', 'ACTIVO'];
+_MODELO_HOJAS_DEF['INICIO'] = null; // navegación: la construye Hojas_crearInicio
 
 var _CONFIG_SEMILLA = [
   ['VERSION', ECICEP.VERSION, 'Versión del sistema instalada'],
@@ -1243,7 +1246,8 @@ function Modelo_limpiarHojasResiduales(ss) {
   var activa = ss.getActiveSheet().getName();
   ss.getSheets().forEach(function (sh) {
     var nombre = sh.getName();
-    if (nombre === activa) { res.conservadas++; return; }
+    res.conservadas++;
+    if (nombre === activa) { return; }
     if (_MODELO_HOJAS_DEF.hasOwnProperty(nombre) || HOJAS_SECTOR.indexOf(nombre) !== -1 ||
         HOJAS_INGRESO.hasOwnProperty(nombre) || nombre === 'REM_SALIDA' ||
         nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'INICIO') return;

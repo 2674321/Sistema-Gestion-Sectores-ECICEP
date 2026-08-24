@@ -106,7 +106,7 @@ function Hojas_crearInicio(ss) {
 /** GAS: reglas de formato condicional por hoja (idempotente: borra las del
  *  sistema 'ECICEP-FMT' y recrea). Estados con color + texto ya en celda. */
 function Hojas_formatoCondicional(ss) {
-  var aplicadas = 0;
+  var aplicadas = 0, errores = [];
   function reemplazar(hoja, reglas) {
     var rangoTodo = hoja.getRange(1, 1, Math.max(hoja.getMaxRows(), 1), Math.max(hoja.getLastColumn(), 1));
     rangoTodo.getConditionalFormatRules().forEach(function (r) {
@@ -123,59 +123,66 @@ function Hojas_formatoCondicional(ss) {
   function regla(formula, fondo, rango, negrita) {
     var b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula)
       .setBackground(fondo).setRanges([rango]);
-    if (negrita) b = b.setFontBold(true);
+    if (negrita) b = b.setBold(true);
     return b.build();
   }
 
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat pendiente (ámbar) */
   var p = ss.getSheetByName(HOJAS.PACIENTES);
-  if (p && p.getLastRow() > 1) {
+  if (p && p.getLastRow() > 1) { try {
     var filas = Math.max(p.getMaxRows() - 1, 1);
     var reglas = [
-      regla('=$W2=FALSE', '#FBE4E4', p.getRange(2, 2, filas, 1), true),   // RUT inválido
-      regla('=$AD2=TRUE', '#FBF3D6', p.getRange(2, 30, filas, 1), true),  // Requiere revisión
-      regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1)) // Estrat pendiente
-    ];
-    reemplazar(p, reglas);
+        regla('=$W2=FALSE', '#FBE4E4', p.getRange(2, 2, filas, 1), true),
+        regla('=$AD2=TRUE', '#FBF3D6', p.getRange(2, 30, filas, 1), true),
+        regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1))
+      ];
+      reemplazar(p, reglas);
+    } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
   }
 
   /* INGRESO_*: estado con semáforo textual */
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
-    var h = ss.getSheetByName(nombre);
-    if (!h || h.getLastRow() < 2) return;
-    var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-    var filas = Math.max(h.getMaxRows() - 1, 1);
-    var rEstado = h.getRange(2, colEstado, filas, 1);
-    reemplazar(h, [
-      regla('=$' + String.fromCharCode(64 + colEstado) + '2="ERROR"', '#FBE4E4', rEstado, true),
-      regla('=$' + String.fromCharCode(64 + colEstado) + '2="REQUIERE_REVISION"', '#FBF3D6', rEstado),
-      regla('=$' + String.fromCharCode(64 + colEstado) + '2="INGRESADO"', '#E3F3EA', rEstado)
-    ]);
+    try {
+      var h = ss.getSheetByName(nombre);
+      if (!h || h.getLastRow() < 2) return;
+      var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
+      var filas = Math.max(h.getMaxRows() - 1, 1);
+      var rEstado = h.getRange(2, colEstado, filas, 1);
+      var L = String.fromCharCode(64 + colEstado);
+      reemplazar(h, [
+        regla('=$' + L + '2="ERROR"', '#FBE4E4', rEstado, true),
+        regla('=$' + L + '2="REQUIERE_REVISION"', '#FBF3D6', rEstado),
+        regla('=$' + L + '2="INGRESADO"', '#E3F3EA', rEstado)
+      ]);
+    } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
 
   /* SECTOR_*: estratificación pendiente */
   HOJAS_SECTOR.forEach(function (nombre) {
-    var h = ss.getSheetByName(nombre);
-    if (!h || h.getLastRow() < 2) return;
-    var col = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
-    var letra = String.fromCharCode(64 + col);
-    reemplazar(h, [
-      regla('=OR($' + letra + '2="",$' + letra + '2="G")', '#FBF3D6',
-           h.getRange(2, col, Math.max(h.getMaxRows() - 1, 1), 1))
-    ]);
+    try {
+      var h = ss.getSheetByName(nombre);
+      if (!h || h.getLastRow() < 2) return;
+      var col = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
+      var letra = String.fromCharCode(64 + col);
+      reemplazar(h, [
+        regla('=OR($' + letra + '2="",$' + letra + '2="G")', '#FBF3D6',
+             h.getRange(2, col, Math.max(h.getMaxRows() - 1, 1), 1))
+      ]);
+    } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }
   });
 
   /* CONFLICTOS: pendiente / resuelto */
   var con = ss.getSheetByName(HOJAS.CONFLICTOS);
   if (con && con.getLastRow() > 1) {
-    var colRev = 9; // ESTADO_REVISION
-    var rC = con.getRange(2, colRev, Math.max(con.getMaxRows() - 1, 1), 1);
-    reemplazar(con, [
-      regla('=$I2="PENDIENTE"', '#FBF3D6', rC, true),
-      regla('=$I2="RESUELTO"', '#E3F3EA', rC)
-    ]);
+    try {
+      var rC = con.getRange(2, 9, Math.max(con.getMaxRows() - 1, 1), 1);
+      reemplazar(con, [
+        regla('=$I2="PENDIENTE"', '#FBF3D6', rC, true),
+        regla('=$I2="RESUELTO"', '#E3F3EA', rC)
+      ]);
+    } catch (eC2) { errores.push('CONFLICTOS: ' + (eC2 && eC2.message || eC2)); }
   }
-  return { aplicadas: aplicadas };
+  return { aplicadas: aplicadas, errores: errores };
 }
 
 /** GAS: filtros básicos en hojas de datos (uno por hoja, idempotente). */
