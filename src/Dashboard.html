@@ -51,7 +51,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 </head>
 <body>
 <header>
-  <h1>Estadísticas</h1><span class="chip rut" id="chipGen">…</span>
+  <h1>Estadísticas</h1> <span class="build" style="font-size:10px;color:var(--border-strong)">build <?= BUILD ?></span><span class="chip rut" id="chipGen">…</span>
   <button class="btn btn-sec" onclick="cargarDatos()" style="margin-left:auto">
     <i data-lucide="refresh-cw"></i> Actualizar</button>
   <div class="sub">Los KPIs y gráficos reaccionan a los filtros · El rango de fechas define la ventana del gráfico de ingresos por mes</div>
