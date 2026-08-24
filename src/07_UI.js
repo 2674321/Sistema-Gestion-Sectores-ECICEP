@@ -55,6 +55,7 @@ function UI_instalarEstructura() {
 function UI_instalarSistema() {
   var ui = SpreadsheetApp.getUi();
   var avisos = [];
+  var t0 = Date.now();
   try {
     // 1-2) Estructura (crea/verifica hojas y configuración semilla general+módulos)
     var est = Modelo_crearEstructura();
