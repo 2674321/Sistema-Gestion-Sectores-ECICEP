@@ -62,6 +62,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_amarillo(t, A);
   _pruebas_limpieza(t, A);
   _pruebas_hojas(t, A);
+  _pruebas_calidad(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1999,5 +2000,73 @@ function _pruebas_hojas(t, A) {
 
   t('INICIO: protegida del limpiador incluso vacía', function () {
     A.cierto(!Modelo_esHojaResidual('INICIO', true), 'INICIO jamás residual');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Calidad de datos — clasificación, cola y resolución automática (ETAPA cierre)
+// ---------------------------------------------------------------------------
+
+function _pruebas_calidad(t, A) {
+  var P_OK    = { ID_INTERNO:'PA', RUT:'11111111-1', NOMBRE:'ANA',   SECTOR:'NARANJO' };
+  var P_MAL   = { ID_INTERNO:'PB', RUT:'11111111-0', NOMBRE:'',     SECTOR:'' };
+  var P_SINDV = { ID_INTERNO:'PC', RUT:'12345678',   NOMBRE:'CARLOS',SECTOR:'VERDE' };
+  var P_DUP   = { ID_INTERNO:'PD', RUT:'11111111-1', NOMBRE:'ANA CLON', SECTOR:'VERDE' };
+
+  t('CALIDAD: paciente sano → cero problemas', function () {
+    A.arreglos(Calidad_problemasPaciente(P_OK, {}), [], 'sin problemas');
+  });
+
+  t('CALIDAD: RUT con DV errado → RUT_INVALIDO (ERROR)', function () {
+    var pr = Calidad_problemasPaciente(P_MAL, {});
+    A.igual(pr[0].tipo, 'RUT_INVALIDO', 'tipo');
+    A.igual(pr[0].gravedad, 'ERROR', 'gravedad');
+  });
+
+  t('CALIDAD: RUT sin DV → RUT_INCOMPLETO', function () {
+    A.igual(Calidad_problemasPaciente(P_SINDV, {})[0].tipo, 'RUT_INCOMPLETO', 'tipo');
+  });
+
+  t('CALIDAD: RUT duplicado solo se marca con set de duplicados', function () {
+    var pr = Calidad_problemasPaciente(P_DUP, { '11111111-1': true });
+    A.cierto(pr.some(function (p) { return p.tipo === 'RUT_DUPLICADO'; }), 'detectado con set');
+    A.cierto(!Calidad_problemasPaciente(P_DUP, {}).some(function (p) {
+      return p.tipo === 'RUT_DUPLICADO'; }), 'sin set no marca');
+  });
+
+  t('CALIDAD: sin nombre y sin sector clasificados', function () {
+    var pr = Calidad_problemasPaciente(P_MAL, {});
+    A.cierto(pr.some(function (p) { return p.tipo === 'SIN_NOMBRE'; }), 'sin nombre');
+    A.cierto(pr.some(function (p) { return p.tipo === 'SIN_SECTOR'; }), 'sin sector');
+  });
+
+  t('CALIDAD: evento huérfano (paciente inexistente) → ERROR', function () {
+    var pr = Calidad_problemasEvento({ ID_INTERNO:'FANTASMA', FECHA_EVENTO:'2026-08-01',
+      TIPO_EVENTO:'CONTROL', RUT:'11111111-1' }, false);
+    A.cierto(pr.some(function (p) { return p.tipo === 'EVENTO_HUERFANO'; }), 'huérfano');
+  });
+
+  t('CALIDAD: evento sin fecha válida → FECHA_INVALIDA', function () {
+    var pr = Calidad_problemasEvento({ ID_INTERNO:'PA', FECHA_EVENTO:'basura',
+      TIPO_EVENTO:'CONTROL', RUT:'' }, true);
+    A.cierto(pr.some(function (p) { return p.tipo === 'FECHA_INVALIDA'; }), 'fecha');
+  });
+
+  t('CALIDAD: peor gravedad escala OK→WARNING→ERROR', function () {
+    A.igual(Calidad_peorGravedad([]), 'OK', 'vacío');
+    A.igual(Calidad_peorGravedad([{ gravedad:'WARNING' }]), 'WARNING', 'warn');
+    A.igual(Calidad_peorGravedad([{ gravedad:'WARNING' }, { gravedad:'ERROR' }]), 'ERROR', 'error domina');
+  });
+
+  t('COLA: una fila por entidad con TODOS los motivos agregados', function () {
+    var f = Calidad_filaCola('CALIDAD', 'PB', P_MAL, Calidad_problemasPaciente(P_MAL, {}));
+    A.igual(f.estado, 'PENDIENTE', 'requiere intervención humana');
+    A.cierto(f.motivos.some(function (m) { return m.gravedad === 'ERROR'; }), 'motivo ERROR presente');
+    A.igual(f.rut, '11111111-0', 'rut');
+    A.cierto(f.motivos.length >= 3, 'motivos juntos (' + f.motivos.length + ')');
+  });
+
+  t('COLA: entidad sin problemas → RESUELTO_AUTO (sale de la cola)', function () {
+    A.igual(Calidad_filaCola('CALIDAD', 'PA', P_OK, []).estado, 'RESUELTO_AUTO', 'resuelto');
   });
 }

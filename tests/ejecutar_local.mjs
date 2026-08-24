@@ -25,6 +25,7 @@ const archivos = [
   'src/15_RemExcel.js',
   'src/16_Amarillo.js',
   'src/17_Hojas.js',
+  'src/18_Calidad.js',
   'src/12_Ingresos.js',
   'src/Webhook.js',
   'src/06_Modelo.js',

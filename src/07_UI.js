@@ -1284,7 +1284,8 @@ var PRUEBAS_SISTEMA = [
   { id: 'remDatos',     modulo: 'REM',        nombre: 'REM generado disponible',       fn: '_pruS_remDatos' },
   { id: 'pdf',          modulo: 'REM',        nombre: 'Exportador PDF',                fn: '_pruS_pdf' },
   { id: 'traza',        modulo: 'INTEGRIDAD', nombre: 'Trazabilidad FUENTE',           fn: '_pruS_traza' },
-  { id: 'consistencia', modulo: 'INTEGRIDAD', nombre: 'Consistencia entre sectores',   fn: '_pruS_consistencia' }
+  { id: 'consistencia', modulo: 'INTEGRIDAD', nombre: 'Consistencia entre sectores',   fn: '_pruS_consistencia' },
+  { id: 'calidad',      modulo: 'INTEGRIDAD', nombre: 'Calidad de datos (auditoría)',  fn: '_pruS_calidad' }
 ];
 
 /** Registro para el cliente (checkboxes agrupados por módulo). */
@@ -1552,4 +1553,19 @@ function _pruS_consistencia() {
     ' registros (fuente de 1.091 pendiente de importar)' : '';
   return { estado: amarillo < 100 ? 'WARN' : 'OK',
            detalle: detalle + extra };
+}
+
+
+/** Auditoría de calidad como prueba del Centro: WARN si hay problemas. */
+function _pruS_calidad() {
+  var a = Calidad_auditarTodo();
+  if (a.conProblemas === 0)
+    return { estado: 'OK', detalle: a.totalPacientes + ' pacientes · ' +
+      a.totalEventos + ' eventos sin problemas de calidad' };
+  return { estado: a.resumenTipos['RUT_INVALIDO'] || a.resumenTipos['EVENTO_HUERFANO']
+             ? 'ERROR' : 'WARN',
+           detalle: a.conProblemas + ' entidades con problemas: ' +
+             Object.keys(a.resumenTipos).map(function (k) {
+               return k + '=' + a.resumenTipos[k]; }).join(' · ') +
+             ' — usa Herramientas → Auditar calidad y sincronizar Cola' };
 }

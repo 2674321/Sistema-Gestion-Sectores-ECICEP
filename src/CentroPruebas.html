@@ -129,6 +129,8 @@ header .sub{color:var(--text-muted);font-size:13px}
   <hr style="border:none;border-top:1px solid var(--border);margin:var(--space-4) 0">
   <small style="color:var(--text-muted);display:block;margin-bottom:8px">Operaciones sensibles — requieren confirmación:</small>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <button class="btn btn-pri" onclick="_calidad(this)"><i data-lucide="search-check"></i> Auditar calidad + sincronizar Cola</button>
+    <button class="btn btn-sec" onclick="_normalizar(this)"><i data-lucide="wand-2"></i> Normalizar formato de RUTs</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_migrarEsquemaPacientes')"><i data-lucide="database"></i> Esquema PACIENTES</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_diagnosticoTrazabilidad')"><i data-lucide="shield-check"></i> Integridad de datos</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_sembrarFicticios')"><i data-lucide="sprout"></i> Sembrar prueba</button>
@@ -250,6 +252,31 @@ function pintarInforme(r){
   _refrescarIconos();
 }
 cargarRegistro();
+function _calidad(btn){
+  var fin=_btnPulso(btn,'Auditando…',2500);
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(!r||!r.ok){toast('No se pudo auditar','err');return;}
+      toast('Calidad: '+r.conProblemas+' entidades con problemas · '+r.entidadesOk+' OK · Cola sincronizada',
+        r.conProblemas?(r.resumenTipos['RUT_INVALIDO']||r.resumenTipos['EVENTO_HUERFANO']?'err':'warn'):'ok');
+      if(window.console)console.debug('[ECICEP] calidad',r);
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('calidad')(e);})
+    .Calidad_sincronizarCola();
+}
+function _normalizar(btn){
+  var fin=_btnPulso(btn,'Normalizando…',2000);
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(!r||!r.ok){toast('No se pudo normalizar','err');return;}
+      toast('✓ '+r.corregidos+' RUTs normalizados (solo formato, con módulo 11)',r.corregidos?'ok':'info');
+      if(r.detalles&&r.detalles.length)console.debug('[ECICEP] normalizados',r.detalles);
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('normalizar')(e);})
+    .Calidad_normalizarFormatoRuts();
+}
 function _amarillo(btn,conHistorico){
   _btnPulso(btn,'Importando…',2500);
   google.script.run
