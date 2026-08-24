@@ -131,6 +131,7 @@ function UI_instalarSistema() {
       '✓ Columnas sistema marcadas: ' + val.protegidas + '\n' +
       '✓ Hojas residuales eliminadas: ' + (limpieza.eliminadas.length
         ? limpieza.eliminadas.join(', ') : 'ninguna') + '\n' +
+      (est.dashboardReparado ? '✓ DASHBOARD reparado (tenía encabezados de PACIENTES)\n' : '') +
       '✓ Hojas internas: ' + inv.total + ' verificadas' +
         (inv.creadas.length ? ' · creadas: ' + inv.creadas.join(', ') : '') +
         (inv.visibilidadCorregida.length ? ' · visibilidad corregida: ' + inv.visibilidadCorregida.join(', ') : '') + '\n' +

@@ -460,8 +460,9 @@ function Modelo_crearEstructura() {
     if (!hoja) {
       hoja = ss.insertSheet(nombre);
       res.creadas.push(nombre);
-      var encabezados = _MODELO_HOJAS_DEF[nombre] || Modelo_campos();
-      Utl_escribirBloque(hoja, 1, 1, [encabezados]);
+      var encabezados = _MODELO_HOJAS_DEF[nombre];
+      if (encabezados) Utl_escribirBloque(hoja, 1, 1, [encabezados]);
+      /* def null (DASHBOARD) → sin encabezados genéricos: los inicializa su módulo */
     } else {
       res.existentes.push(nombre);
       var esperados = _MODELO_HOJAS_DEF[nombre];
@@ -480,6 +481,19 @@ function Modelo_crearEstructura() {
 
   _modelo_formatearPacientes(ss.getSheetByName(HOJAS.PACIENTES));
   _modelo_sembrarConfig(ss.getSheetByName(HOJAS.CONFIG), res);
+
+  /* Reparación DASHBOARD: si heredó encabezados de PACIENTES (bug histórico
+   * 'null || Modelo_campos'), se limpia y reinicializan sus filtros. */
+  var dashH = ss.getSheetByName('DASHBOARD');
+  if (dashH && dashH.getLastRow() >= 1) {
+    var fila1 = dashH.getRange(1, 1, 1, Math.min(dashH.getLastColumn(), 10)).getValues()[0];
+    if (fila1.indexOf('FECHA_NACIMIENTO') !== -1 || fila1.indexOf('TELEFONOS') !== -1) {
+      dashH.clear();
+      if (typeof _dash_inicializarFiltros === 'function') _dash_inicializarFiltros(dashH);
+      res.dashboardReparado = true;
+      Log_warning('Modelo', 'crearEstructura', 'DASHBOARD reparado: tenía encabezados de PACIENTES');
+    }
+  }
 
   // inicializar DASHBOARD con filtros si es nueva
   if (res.creadas.indexOf('DASHBOARD') !== -1) {
