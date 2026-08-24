@@ -38,8 +38,16 @@ function ECICEP_autorizar() {
   });
 
   paso('Triggers (crear/borrar)', function () {
-    var t = ScriptApp.newTrigger('ECICEP_noop').timeBased().after(60 * 1000).create();
-    ScriptApp.deleteTrigger(t);
+    ScriptApp.newTrigger('ECICEP_noop').timeBased().after(60 * 1000).create();
+    /* deleteTrigger directo sobre el objeto recién creado lanza un quirk de
+       GAS; localizarlo vía getProjectTriggers (referencia fresca) sí funciona */
+    var borrado = false;
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'ECICEP_noop') {
+        ScriptApp.deleteTrigger(t); borrado = true;
+      }
+    });
+    if (!borrado) throw new Error('no se pudo localizar el trigger de prueba');
   });
 
   paso('URL Fetch', function () {
