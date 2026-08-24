@@ -93,6 +93,13 @@ label.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transfor
 .vacio{display:flex;flex-direction:column;align-items:center;gap:8px;padding:var(--space-6);
   color:var(--text-muted);text-align:center}
 .vacio .lucide{width:28px;height:28px;stroke-width:1.5px}
+
+/* Micro-feedback de presión y elevaciones suaves */
+.btn:active:not(:disabled){transform:scale(.98)}
+.kpi-mini,.sec-card{transition:box-shadow .15s var(--ease-in),transform .15s var(--ease-in)}
+.kpi-mini:hover,.sec-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.fade-in{animation:tIn .25s var(--ease-in) both}
+
 </style>
 <script>
 /* Helpers compartidos (vanilla, sin dependencias salvo Lucide opcional) */

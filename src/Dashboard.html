@@ -331,7 +331,12 @@ function cargarDatos(){
   document.getElementById('fDesde').value=new Date(hoy.getFullYear()-1,hoy.getMonth(),hoy.getDate()).toISOString().slice(0,10);
   document.getElementById('fHasta').value=hoy.toISOString().slice(0,10);
   document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);barraFin(true,'✓ Datos cargados');if(b)b.disabled=false;
-  renderizarTodo();_refrescarIconos();
+  renderizarTodo();
+  if(!_conteoAnim){
+    Array.prototype.forEach.call(document.querySelectorAll('.kpi,.chart-card'),function(c,i2){
+      c.classList.add('fade-in');c.style.animationDelay=(i2*50)+'ms';});
+  }
+  _refrescarIconos();
 }).withFailureHandler(function(e){toast('Error cargando datos: '+(e&&e.message||e),'err');})
 .api_dashboardDatos();
 }

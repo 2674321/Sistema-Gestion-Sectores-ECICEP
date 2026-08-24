@@ -549,6 +549,12 @@ function cargarPanel(){
       (r.estratPendiente>0?'<div class="kpi-mini"><span class="num">'+r.estratPendiente+'</span><small>Estratificaci\u00f3n pendiente</small></div>':'');
     var cnt=document.getElementById('cntCola');
     if(r.colaRevision>0){cnt.style.display='inline-flex';cnt.textContent=r.colaRevision;}
+    var kEl=document.getElementById('ccKpis');
+    Array.prototype.forEach.call(kEl.children,function(c,i2){
+      c.classList.add('fade-in');c.style.animationDelay=(i2*60)+'ms';});
+    var sgEl=document.getElementById('sectoresGrid');
+    Array.prototype.forEach.call(sgEl.children,function(c,i2){
+      c.classList.add('fade-in');c.style.animationDelay=(i2*70)+'ms';});
     document.getElementById('sectoresGrid').innerHTML=(r.sectores||[]).map(function(sec){
       var dot={NARANJO:'#E8730A',AMARILLO:'#C79A00',VERDE:'#2E8B57'}[sec.sector]||'#8A93A3';
       return '<div class="sec-card" style="border-left-color:'+dot+'">'+
