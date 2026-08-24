@@ -61,6 +61,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_rem_excel(t, A);
   _pruebas_amarillo(t, A);
   _pruebas_limpieza(t, A);
+  _pruebas_hojas(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1965,5 +1966,38 @@ function _pruebas_limpieza(t, A) {
   t('LIMPIEZA: desconocida vacía → residual; con datos → no', function () {
     A.cierto(Modelo_esHojaResidual('PruebaBorrador', true), 'vacía sí');
     A.cierto(!Modelo_esHojaResidual('PruebaBorrador', false), 'con datos no');
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Hojas como interfaz — navegación e indicadores
+// ---------------------------------------------------------------------------
+
+function _pruebas_hojas(t, A) {
+  t('INICIO: navegación con hojas existentes y etiquetas únicas', function () {
+    var vistos = {};
+    HOJAS_NAV.forEach(function (n) {
+      A.cierto(!vistos[n.hoja], 'hoja repetida: ' + n.hoja);
+      vistos[n.hoja] = true;
+      A.cierto(_MODELO_HOJAS_DEF.hasOwnProperty(n.hoja) ||
+               HOJAS_SECTOR.indexOf(n.hoja) !== -1 ||
+               HOJAS_INGRESO.hasOwnProperty(n.hoja) ||
+               n.hoja==='REM_SALIDA',
+        n.hoja + ' no existe en el modelo');
+    });
+    A.cierto(HOJAS_NAV.length >= 10, 'cobertura de accesos');
+  });
+
+  t('INICIO: fórmulas de indicadores vivas (nunca valores)', function () {
+    A.igual(Hojas_formulaIndicador('TOTAL_PAC'), '=COUNTA(PACIENTES!A2:A)', 'total');
+    A.cierto(Hojas_formulaIndicador('POR_REVISAR').indexOf('COUNTIF(PACIENTES!AD') === 1, 'revisión');
+    A.cierto(Hojas_formulaIndicador('DUPLICADOS').indexOf('SUMPRODUCT') === 1, 'duplicados');
+    A.cierto(Hojas_formulaIndicador('ULT_ACT').indexOf('MAX(PACIENTES!AC') !== -1, 'última act');
+    A.igual(Hojas_formulaIndicador('DESCONOCIDO'), '', 'desconocido vacío');
+  });
+
+  t('INICIO: protegida del limpiador incluso vacía', function () {
+    A.cierto(!Modelo_esHojaResidual('INICIO', true), 'INICIO jamás residual');
   });
 }

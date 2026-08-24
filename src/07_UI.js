@@ -99,6 +99,9 @@ function UI_instalarSistema() {
     // 4d) Limpieza de hojas residuales de desarrollo
     var limpieza = Modelo_limpiarHojasResiduales(ss);
 
+    // 4e) Interfaz de hojas: INICIO + indicadores + condicional + filtros + ocultas + protecciones
+    var hojasUI = Modelo_disenoHojas();
+
     // 5) Diseño visual completo (colores en pares sector-ingreso, orden,
     //    ocultas, banding, congelados, anchos y formatos de fecha)
     var dis = Modelo_aplicarDiseno();
@@ -153,6 +156,10 @@ function UI_instalarSistema() {
       '✓ Diseño: ' + dis.coloreadas + ' hojas coloreadas · ' + dis.ordenadas +
         ' ordenadas · ' + dis.bandas + ' con filas intercaladas\n' +
       '✓ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
+      '✓ Hoja INICIO: ' + hojasUI.inicio.accesos + ' accesos + indicadores vivos\n' +
+      '✓ Formato condicional: ' + hojasUI.cond.aplicadas + ' reglas · Filtros: ' +
+        hojasUI.filtros.filtros + ' · Columnas técnicas ocultas: ' + hojasUI.ocultas.ocultas + '\n' +
+      '✓ Protecciones de advertencia: ' + hojasUI.protecciones.protecciones + '\n' +
       '✓ Menú actualizado · Encabezados y fechas formateados\n' +
       '✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n' +
       (cargaFuente ? '✓ Carga inicial de fuentes: ' + JSON.stringify(

@@ -1231,7 +1231,8 @@ function Modelo_esHojaResidual(nombre, estaVacia) {
       !_MODELO_HOJAS_DEF.hasOwnProperty(nombre) &&
       HOJAS_SECTOR.indexOf(nombre) === -1 &&
       !HOJAS_INGRESO.hasOwnProperty(nombre) &&
-      nombre !== 'REM_SALIDA' && nombre !== 'CAT_VIGENCIA_EXAMENES') return true;
+      nombre !== 'REM_SALIDA' && nombre !== 'CAT_VIGENCIA_EXAMENES' &&
+      nombre !== 'INICIO') return true;
   return false;
 }
 
@@ -1245,7 +1246,7 @@ function Modelo_limpiarHojasResiduales(ss) {
     if (nombre === activa) { res.conservadas++; return; }
     if (_MODELO_HOJAS_DEF.hasOwnProperty(nombre) || HOJAS_SECTOR.indexOf(nombre) !== -1 ||
         HOJAS_INGRESO.hasOwnProperty(nombre) || nombre === 'REM_SALIDA' ||
-        nombre === 'CAT_VIGENCIA_EXAMENES') return;
+        nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'INICIO') return;
     var vacia = true;
     try {
       var d = sh.getDataRange().getValues();
