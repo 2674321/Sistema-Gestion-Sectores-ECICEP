@@ -200,7 +200,7 @@ textarea.inp{min-height:64px;resize:vertical}
 
   <div class="pc-sys"><span class="dot-ok"></span> Estado del sistema: operativo · <span id="ccFecha">—</span></div>
 
-<? } else { ?>
+<? } else if (MODO === 'pacientes') { ?>
   <div class="cc-head"><h1>Buscar paciente ECICEP</h1>
     <div class="cc-fecha">Busca por nombre o RUT y abre la ficha directamente</div></div>
   <label class="etq" for="termino">Nombre o RUT</label>
@@ -210,8 +210,9 @@ textarea.inp{min-height:64px;resize:vertical}
       style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:4px 8px;min-height:30px;display:none">
       <i data-lucide="x" style="width:14px;height:14px"></i></button>
   </div>
-<? } ?>
+<? if (MODO !== 'revision') { ?>
   <div id="resultados"></div>
+<? } ?>
 </div>
 
 <!-- ============ FICHA ============ -->

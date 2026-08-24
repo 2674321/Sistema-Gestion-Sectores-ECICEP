@@ -269,7 +269,7 @@ function _rem9_configValor(clave) {
  * localmente con SheetJS. Sin hojas temporales ni export endpoints frágiles.
  * READ ONLY sobre PACIENTES/EVENTOS (#38). Idempotente.
  */
-function api_rem9Datos(anio, mes, sectorFiltro) {
+function api_rem9Datos(anio, mes, sectorFiltro, opts) {
   try {
     anio = Number(anio); mes = Number(mes);
     if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
@@ -278,6 +278,19 @@ function api_rem9Datos(anio, mes, sectorFiltro) {
     var c = Rem9_construir(datos, { sector: filtro,
       programa: _rem9_configValor('GENERAL_NOMBRE_SISTEMA') || 'ECICEP',
       centro: '' });
+    /* Opciones de procesado (#procesado): excluir filas por estado de validación */
+    opts = opts || {};
+    if (opts.excluirErrores || opts.excluirAdvertencias) {
+      var conservar = [];
+      for (var iv = 0; iv < c.validacion.filas.length; iv++) {
+        var vst = c.validacion.filas[iv].estado;
+        if (vst === 'ERROR' && opts.excluirErrores) continue;
+        if (vst === 'WARNING' && opts.excluirAdvertencias) continue;
+        conservar.push(c.detalle[iv]);
+      }
+      c.detalle = conservar;
+      c.validacion.excluidas = c.validacion.filas.length - conservar.length;
+    }
     if (!c.atenciones) return { ok: false, motivo: 'SIN_EVENTOS_PERIODO',
       nombre: 'REM_ECICEP_' + anio + '_' + (mes < 10 ? '0' : '') + mes + '.xlsx' };
     Log_info('REM', 'datosExcel', 'resumen=' + c.resumen.length + ' detalle=' + c.detalle.length);

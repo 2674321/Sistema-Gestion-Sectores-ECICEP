@@ -85,6 +85,7 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
   <div class="res-fila"><span>✕ Filas con errores</span><b class="num" id="rVERR">—</b></div>
   <div class="acciones">
     <button class="btn btn-sec" onclick="consultar()"><i data-lucide="eye"></i> Consultar REM</button>
+    <button class="btn btn-sec" onclick="informePdf(this)"><i data-lucide="file-text"></i> Informe PDF</button>
     <button class="btn btn-ghost" onclick="google.script.host.close()">Cerrar</button>
   </div>
   <small style="color:var(--text-muted);margin-top:8px;display:block">
@@ -170,6 +171,8 @@ function generar(btn){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   if(!p.anio||!p.mes){toast('Selecciona año y mes del período','err');return;}
+  _ULT_OPTS={excluirErrores:document.getElementById('opExErr').checked,
+             excluirAdvertencias:document.getElementById('opExAdv').checked};
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
   var fin=setLoading(btn,true,'Generando…');
   barraIndet(FASES_REM_XLSX);
@@ -196,7 +199,18 @@ function generar(btn){
       toast('✕ Error al obtener los datos: '+((e&&e.message)||e),'err');
       console.error('[ECICEP] datos',e);
     })
-    .api_rem9Datos(p.anio,p.mes,sector);
+    .api_rem9Datos(p.anio,p.mes,sector,_ULT_OPTS);
+}
+function informePdf(btn){
+  var p=periodoActual();
+  var fin=setLoading(btn,true,'Generando PDF…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();_refrescarIconos();
+    if(!r||!r.ok){toast('\u2715 No fue posible generar el PDF: '+((r&&r.motivo)||'error'),'err');return;}
+    toast('\u2713 Informe PDF listo: '+r.nombre,'ok');
+    window.open(r.url,'_blank');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  .REM_exportarPdf(p.anio,p.mes,sectorSel());
 }
 function consultar(){google.script.run.UI_verRem();}
 
