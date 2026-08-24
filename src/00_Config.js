@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.6.1',
+  VERSION: '0.7.0',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'

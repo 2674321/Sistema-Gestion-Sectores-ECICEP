@@ -5,13 +5,13 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.6.1** · Google Sheets + Apps Script (clasp) · 275 pruebas locales verdes ·
+**v0.7.0** · Google Sheets + Apps Script (clasp) · 275 pruebas locales verdes ·
 1.582 pacientes reales / 1.879 eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
 > Camila Paz Aguilar (Enfermera). No constituye un proyecto institucional del CESFAM.
 
-## Qué incluye v0.5.0
+## Qué incluye (v0.5.0 → v0.7.0)
 
 - **Panel de Control**: KPIs reales, tarjetas por sector con cobertura, última actividad, accesos.
 - **Estadísticas** (dialog): 5 indicadores + 4 gráficos Chart.js + filtro cruzado por sector y fecha.
@@ -80,3 +80,12 @@ Sistema-Gestion-Sectores-ECICEP/
 3. Deduplicación explicable, reversible y trazable; dudosos → revisión manual.
 4. Lecturas/escrituras por bloques; nunca `getValue/setValue` en loops.
 5. Toda decisión arquitectónica se registra en `DECISIONES.md`.
+
+## v0.7.0 — Las hojas como interfaz profesional
+
+- **Hoja INICIO**: navegación con enlaces internos + indicadores de calidad con fórmulas vivas (pacientes, eventos, por revisar, estratificación pendiente, RUT inválidos, duplicados, última actualización)
+- **Validación de RUT en vivo**: al escribir en INGRESO_* se normaliza el formato y se pinta verde (✓ válido) / rojo (❌ inválido) con módulo 11, marcando duplicados con nota
+- **Formato condicional**: RUT inválido, requiere revisión, estratificación pendiente, estados de ingreso con semáforo textual, cola de revisión pendiente/resuelto
+- **Protecciones por categoría** (advertencia, nunca bloqueo): EVENTOS append-only, SECTOR_*/REM generadas, LOG/STAGING técnicas, claves de CONFIG
+- **Columnas técnicas ocultas** (IDs, fuentes, flags internos) · **Filtros** en todas las hojas de datos · Encabezados centrados
+- **Instalar / Reparar Sistema** = un clic: estructura + fuentes (Naranjo/Verde/Amarillo) + CONFIG + catálogos + validaciones + diseño + INICIO + menú + auditoría final
