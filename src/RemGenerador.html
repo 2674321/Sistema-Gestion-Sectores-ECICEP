@@ -135,7 +135,17 @@ function construirExcel(r){
   /* REM: anchos por tipo de columna + autofiltro */
   var wsR=XLSX.utils.aoa_to_sheet([r.colsResumen].concat(r.resumen));
   var wR=[{wch:14},{wch:7},{wch:9}];                 // Paciente · Edad · Sexo
-  for(var i=3;i<=18;i++)wR.push({wch:12.5});         // 16 conteos
+  for(var i=3;i<=18;i++)wR.push({wch:12.5});
+
+/* Restaurar última selección */
+try{
+  var ult=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');
+  if(ult){
+    document.getElementById('selMes').value=ult.mes;
+    document.getElementById('selAnio').value=ult.anio;
+    document.getElementById('selSector').value=ult.sector;
+  }
+}catch(eL){}         // 16 conteos
   wR.push({wch:8});                                   // Total
   for(var j=20;j<=23;j++)wR.push({wch:13});          // Tiene*
   wsR['!cols']=wR;
@@ -160,6 +170,7 @@ function generar(btn){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   if(!p.anio||!p.mes){toast('Selecciona año y mes del período','err');return;}
+  try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
   var fin=setLoading(btn,true,'Generando…');
   barraIndet(FASES_REM_XLSX);
   google.script.run

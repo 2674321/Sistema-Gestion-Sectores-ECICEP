@@ -223,6 +223,10 @@ try{
   document.getElementById('kPat').style.color=nom?'var(--text-primary)':'var(--text-muted)';
   document.getElementById('kPatC').textContent=nom?(topN+' paciente'+(topN>1?'s':'')):'';
 
+  try{localStorage.setItem('DASH_OPS',JSON.stringify({
+    ops:op,sectores:activos(),desde:document.getElementById('fDesde').value,
+    hasta:document.getElementById('fHasta').value}));}catch(eS){}
+
   /* --- Chips con conteo real por sector (siempre sobre el total) --- */
   document.querySelectorAll('.chip-filtro').forEach(function(ch){
     var s=ch.dataset.s;
@@ -337,7 +341,21 @@ function cargarDatos(){
   var hoy=new Date();
   document.getElementById('fDesde').value=new Date(hoy.getFullYear()-1,hoy.getMonth(),hoy.getDate()).toISOString().slice(0,10);
   document.getElementById('fHasta').value=hoy.toISOString().slice(0,10);
-  document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);barraFin(true,'✓ Datos cargados');if(b)b.disabled=false;
+  document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);
+
+  try{
+    var sv=JSON.parse(localStorage.getItem('DASH_OPS')||'null');
+    if(sv){
+      document.querySelectorAll('.chip-filtro').forEach(function(ch){
+        ch.classList.toggle('on',sv.sectores.indexOf(ch.dataset.s)!==-1);});
+      document.getElementById('opSinPend').checked=!!sv.ops.sinPend;
+      document.getElementById('opConPat').checked=!!sv.ops.conPat;
+      document.getElementById('opSinSector').checked=!!sv.ops.sinSector;
+      document.getElementById('opDias').value=sv.ops.dias;
+      document.getElementById('fDesde').value=sv.desde;
+      document.getElementById('fHasta').value=sv.hasta;
+    }
+  }catch(eL){}barraFin(true,'✓ Datos cargados');if(b)b.disabled=false;
   renderizarTodo();
   if(!_conteoAnim){
     Array.prototype.forEach.call(document.querySelectorAll('.kpi,.chart-card'),function(c,i2){

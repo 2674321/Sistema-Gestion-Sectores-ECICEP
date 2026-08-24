@@ -325,6 +325,15 @@ function buscarAhora(){
 }
 var buscar=_debounce(buscarAhora,220);
 
+/* Atajo '/' para enfocar búsqueda (modo pacientes) */
+document.addEventListener('keydown',function(e){
+  if(MODO!=='pacientes')return;
+  var t=document.getElementById('termino');
+  if(e.key==='/'&&t&&document.activeElement!==t){
+    e.preventDefault();t.focus();
+  }
+});
+
 var _elTermino=document.getElementById('termino');
 if(_elTermino){
   _elTermino.addEventListener('input',buscar);
@@ -376,7 +385,15 @@ function pintarFicha(f){
   document.getElementById('fSector').innerHTML=_chipSector(f.SECTOR);
   document.getElementById('fEst').innerHTML=_estIndicador(f.ESTRATIFICACION);
   document.getElementById('fEstado').innerHTML='<span class="chip">'+_esc(f.ESTADO||'—')+'</span>';
-  document.getElementById('fRut').textContent=f.RUT||'';
+  var rutEl=document.getElementById('fRut');
+  rutEl.textContent=f.RUT||'';
+  rutEl.onclick=function(){
+    if(!f.RUT)return;
+    navigator.clipboard.writeText(f.RUT).then(function(){
+      toast('RUT copiado: '+f.RUT,'ok');});
+  };
+  rutEl.style.cursor='pointer';
+  rutEl.title='Clic para copiar RUT';
   Array.prototype.forEach.call(document.querySelectorAll('.ficha-chips > .chip'),function(c,i){
     c.classList.add('fade-in');c.style.animationDelay=(i*50)+'ms';});
 
@@ -556,7 +573,7 @@ function cargarPanel(){
       '<div class="kpi-mini"><span class="num">'+r.pacientes+'</span><small>Pacientes \u00b7 base consolidada</small></div>'+
       '<div class="kpi-mini"><span class="num" style="color:var(--success)">'+r.ingresosHoy+'</span><small>Ingresos de hoy</small></div>'+
       '<div class="kpi-mini"><span class="num">'+r.eventosMes+'</span><small>Eventos del mes</small></div>'+
-      '<div class="kpi-mini"><span class="num" style="color:'+(r.porRevisar?'var(--warning)':'var(--success)')+'">'+ '\u25cf '+r.porRevisar+'</span><small>Por revisar</small></div>'+
+      '<div class="kpi-mini" style="cursor:pointer" onclick="verRevisionDesdePanel()"><span class="num" style="color:'+(r.porRevisar?'var(--warning)':'var(--success)')+'">'+ '\u25cf '+r.porRevisar+'</span><small>Por revisar</small></div>'+
       (r.estratPendiente>0?'<div class="kpi-mini"><span class="num">'+r.estratPendiente+'</span><small>Estratificaci\u00f3n pendiente</small></div>':'');
     var cnt=document.getElementById('cntCola');
     if(r.colaRevision>0){cnt.style.display='inline-flex';cnt.textContent=r.colaRevision;}

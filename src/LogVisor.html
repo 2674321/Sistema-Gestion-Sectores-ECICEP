@@ -40,6 +40,7 @@ tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--prima
   <h1>📄 Registro del Sistema</h1><span class="build">build <?= BUILD ?></span>
   <div class="acciones-log" style="margin-left:auto">
     <button class="btn btn-sec" onclick="cargar()"><i data-lucide="refresh-cw"></i> Actualizar</button>
+    <button class="btn btn-ghost" onclick="window._logLim=(window._logLim||500)+500;cargar()" title="Cargar más historial"><i data-lucide="chevrons-down"></i> Cargar más</button>
     <button class="btn btn-ghost" onclick="limpiarFiltros()"><i data-lucide="filter-x"></i> Limpiar filtros</button>
     <button class="btn btn-sec" onclick="copiarDetalle()"><i data-lucide="copy"></i> Copiar detalle</button>
     <button class="btn btn-pri" onclick="exportarCsv()"><i data-lucide="download"></i> Exportar LOG</button>
