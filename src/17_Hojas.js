@@ -90,7 +90,7 @@ function Hojas_crearInicio(ss) {
 
   fila += 1;
   h.getRange(fila, 2).setValue('Los indicadores se calculan solos (fórmulas vivas). '+
-    'Usa el menú ECICEP para las operaciones.').setFontItalic(true).setFontSize(9)
+    'Usa el menú ECICEP para las operaciones.').setFontStyle('italic').setFontSize(9)
     .setFontColor('#8A93A3');
 
   h.setColumnWidth(2, 240); h.setColumnWidth(3, 160);

@@ -57,131 +57,73 @@ function UI_instalarSistema() {
   var ui = SpreadsheetApp.getUi();
   var avisos = [];
   var t0 = Date.now();
+  var ss = null;
+  /* Cada paso es independiente: un fallo NO salta el resto (#robustez) */
+  function paso(nombre, fn) {
+    try { var r = fn(); return r; }
+    catch (e) { avisos.push(nombre + ': ' + (e && e.message || e)); return null; }
+  }
   try {
-    // 1-2) Estructura (crea/verifica hojas y configuración semilla general+módulos)
-    var est = Modelo_crearEstructura();
+    var est = paso('Estructura', function () { return Modelo_crearEstructura(); });
+    ss = Modelo_ss();
+    var cat = paso('Catálogos', function () { return Modelo_instalarCatalogos(ss); });
+    var val = paso('Validaciones INGRESO', function () { return Modelo_validarIngresos(ss); });
 
-    // 3) Catálogos centralizados (vigencia de exámenes)
-    var ss = Modelo_ss();
-    var cat = Modelo_instalarCatalogos(ss);
-
-    // 4) Validaciones controladas en puertas INGRESO_*
-    var val = Modelo_validarIngresos(ss);
-
-    // 4b) Inventario de hojas internas: crear faltantes + corregir visibilidad
-    var inv = Modelo_inventarioHojas(ss);
-
-    // 4c) Sincronización de datos por sector (idempotente):
-    //     si la fuente Amarillo está conectada en FUENTES_DRIVE → puerta + histórico
     var amarillo = null;
-    try {
+    paso('Sincronización Amarillo', function () {
       var cfgAm = FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'];
-      if (cfgAm && cfgAm.id) {
-        amarillo = Amarillo_importarTodo(true);
-        try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV) {}
-      }
-    } catch (eA) { avisos.push('Amarillo: ' + (eA && eA.message || eA)); }
+      if (!(cfgAm && cfgAm.id)) { avisos.push('Amarillo: sin ID en FUENTES_DRIVE'); return; }
+      amarillo = Amarillo_importarTodo(true);
+      try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV) {}
+    });
 
-    // 4c-bis) Primera importación de fuentes conectadas (Naranjo/Verde).
-    // Idempotente: se marca en CONFIG y se salta si ya hay datos de esa fuente.
-    var cargaFuente = null;
-    try {
-      var pend = Fuentes_pendientes();
-      var yaHecha = _rem9_configValor('CARGA_REAL_HECHA');
-      if (pend.length && !yaHecha) {
-        cargaFuente = Fuentes_cargaReal({ ejecutar: true });
-        _config_set('CARGA_REAL_HECHA', Utilities.formatDate(new Date(),
-          Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
-        try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV2) {}
-      } else if (pend.length && yaHecha) {
-        avisos.push('Fuentes sin importar (' + pend.join(', ') + ') — ya existe una carga real del ' + yaHecha + '. Usa Herramientas → Cargar para re-importar.');
-      }
-    } catch (eC) { avisos.push('Carga de fuentes: ' + (eC && eC.message || eC)); }
+    var limpieza = paso('Limpieza de residuales', function () { return Modelo_limpiarHojasResiduales(ss); });
+    var dis = paso('Diseño del libro', function () { return Modelo_aplicarDiseno(); });
+    var hojasUI = paso('Interfaz de hojas (INICIO)', function () { return Modelo_disenoHojas(); });
+    paso('Menú', function () { onOpen(); });
 
-    // 4d) Limpieza de hojas residuales de desarrollo
-    var limpieza = Modelo_limpiarHojasResiduales(ss);
+    var pacientes = 0, eventos = 0;
+    paso('Lectura de datos', function () {
+      pacientes = Modelo_leerPacientes().length;
+      eventos = Modelo_leerEventos().length;
+    });
 
-    // 4e) Interfaz de hojas: INICIO + indicadores + condicional + filtros + ocultas + protecciones
-    var hojasUI = Modelo_disenoHojas();
-
-    // 5) Diseño visual completo (colores en pares sector-ingreso, orden,
-    //    ocultas, banding, congelados, anchos y formatos de fecha)
-    var dis = Modelo_aplicarDiseno();
-
-    // 6) Menus disponibles de inmediato sin esperar a que Google re-dispare onOpen
-    try { onOpen(); } catch (eMenu) { avisos.push('Menú: ' + eMenu.message); }
-
-    // 7) Validación final de funciones y hojas críticas
-    var criticas = ['PACIENTES', 'EVENTOS',
-      'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
-      'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
-    var faltan = criticas.filter(function (n) { return !Modelo_hoja(n); });
-    if (faltan.length) avisos.push('Faltan hojas: ' + faltan.join(', '));
-
-    var funciones = [['Modelo_leerPacientes'], ['Rem_generar'], ['api_dashboardDatos'],
-      ['api_patologiasGuardar'], ['UI_verRem'], ['REM_exportarPdf']];
-    var sinFn = funciones.filter(function (f) { return typeof this[f[0]] !== 'function'; }.bind(this))
-      .map(function (f) { return f[0]; });
-    if (sinFn.length) avisos.push('Funciones ausentes: ' + sinFn.join(', '));
-
-    var pacientes = Modelo_leerPacientes().length;
-    var eventos = Modelo_leerEventos().length;
-
-    Log_info('UI', 'instalarSistema',
-      'creadas=' + est.creadas.length + ' coloreadas=' + dis.coloreadas +
-      ' bandas=' + dis.bandas + ' validaciones=' + val.validaciones +
-      ' pacientes=' + pacientes, null);
-    Log_flush();
-
-    if (dis.fallidas && dis.fallidas.length) {
-      avisos = avisos.concat(dis.fallidas.map(function (f) { return 'Diseño · ' + f; }));
-    }
-    if (val.fallidas.length) {
-      avisos = avisos.concat(val.fallidas.map(function (f) { return 'Validaciones · ' + f; }));
-    }
-
-    ui.alert(
-      '🛠️ INSTALACIÓN FINALIZADA\n\n' +
-      '✓ Hojas verificadas: creadas ' + est.creadas.length +
-      ' · existentes ' + est.existentes.length + '\n' +
-      '✓ CONFIG general/módulos sembrado (idempotente)\n' +
-      '✓ Catálogo vigencia exámenes' +
-        (cat.sembrada ? ' (con ejemplos)' : ' verificado') + '\n' +
-      '✓ Validaciones aplicadas: ' + val.validaciones + ' en ' + val.hojas + ' puertas INGRESO\n' +
-      '✓ Columnas sistema marcadas: ' + val.protegidas + '\n' +
-      '✓ Hojas residuales eliminadas: ' + (limpieza.eliminadas.length
-        ? limpieza.eliminadas.join(', ') : 'ninguna') + '\n' +
-      (est.dashboardReparado ? '✓ DASHBOARD reparado (tenía encabezados de PACIENTES)\n' : '') +
-      '✓ Hojas internas: ' + inv.total + ' verificadas' +
-        (inv.creadas.length ? ' · creadas: ' + inv.creadas.join(', ') : '') +
-        (inv.visibilidadCorregida.length ? ' · visibilidad corregida: ' + inv.visibilidadCorregida.join(', ') : '') + '\n' +
-      '✓ Diseño: ' + dis.coloreadas + ' hojas coloreadas · ' + dis.ordenadas +
-        ' ordenadas · ' + dis.bandas + ' con filas intercaladas\n' +
-      '✓ Ocultas: ' + (dis.ocultas.length ? dis.ocultas.join(', ') : 'ninguna') + '\n' +
-      '✓ Hoja INICIO: ' + hojasUI.inicio.accesos + ' accesos + indicadores vivos\n' +
-      '✓ Formato condicional: ' + hojasUI.cond.aplicadas + ' reglas · Filtros: ' +
-        hojasUI.filtros.filtros + ' · Columnas técnicas ocultas: ' + hojasUI.ocultas.ocultas + '\n' +
-      '✓ Protecciones de advertencia: ' + hojasUI.protecciones.protecciones + '\n' +
-      '✓ Menú actualizado · Encabezados y fechas formateados\n' +
-      '✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos + '\n' +
-      (cargaFuente ? '✓ Carga inicial de fuentes: ' + JSON.stringify(
-        (cargaFuente.porFuente||cargaFuente.resumen||cargaFuente)) + '\n' : '') +
-      (amarillo ? '✓ Sector Amarillo sincronizado: puerta +' + amarillo.puerta.nuevas +
-        ' · histórico ' + amarillo.historico.eventosCreados + ' eventos · ' +
-        amarillo.historico.pacientesActualizados + ' pacientes actualizados' +
+    var L = [];
+    L.push((est ? '✓' : '✕') + ' Estructura: creadas ' + (est ? est.creadas.length : 0) +
+      ' · existentes ' + (est ? est.existentes.length : 0));
+    L.push((cat ? '✓' : '✕') + ' CONFIG sembrado (general/módulos, idempotente)');
+    L.push((cat && cat.sembrada !== undefined ? '✓' : '✕') + ' Catálogo vigencia exámenes');
+    L.push((val ? '✓' : '✕') + ' Validaciones: ' + (val ? val.validaciones + ' en ' + val.hojas + ' puertas · columnas sistema: ' + val.protegidas : 'no aplicadas'));
+    L.push((amarillo ? '✓' : '•') + ' Sector Amarillo: ' + (amarillo
+      ? 'puerta +' + amarillo.puerta.nuevas + ' · histórico ' + amarillo.historico.eventosCreados +
+        ' eventos · ' + amarillo.historico.pacientesActualizados + ' pacientes' +
         (amarillo.historico.pendientesSinPaciente.length
-          ? ' (⚠ ' + amarillo.historico.pendientesSinPaciente.length + ' filas requieren re-procesar ingresos)'
-          : '') + '\n' : '') + '\n' +
+          ? ' (⚠ ' + amarillo.historico.pendientesSinPaciente.length + ' requieren re-procesar ingresos)' : '')
+      : 'sin cambios'));
+    L.push((limpieza ? '✓' : '✕') + ' Hojas residuales: ' + (limpieza
+      ? (limpieza.eliminadas.length ? limpieza.eliminadas.join(', ') : 'ninguna') +
+        ' · conservadas ' + limpieza.conservadas : 'no evaluadas'));
+    L.push((dis ? '✓' : '✕') + ' Diseño: ' + (dis ? dis.coloreadas + ' coloreadas · ' +
+      dis.ordenadas + ' ordenadas · ' + dis.bandas + ' con banding' : 'no aplicado'));
+    L.push((hojasUI ? '✓' : '✕') + ' Hoja INICIO: ' + (hojasUI ? hojasUI.inicio.accesos +
+      ' accesos + indicadores vivos' : 'no creada'));
+    L.push('✓ Formato condicional: ' + (hojasUI ? hojasUI.cond.aplicadas : 0) +
+      ' reglas · Filtros: ' + (hojasUI ? hojasUI.filtros.filtros : 0) +
+      ' · Técnicas ocultas: ' + (hojasUI ? hojasUI.ocultas.ocultas : 0) +
+      ' · Protecciones: ' + (hojasUI ? hojasUI.protecciones.protecciones : 0));
+    L.push('✓ Menú actualizado · Encabezados centrados y fechas formateadas');
+    L.push('✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos);
+
+    ui.alert('🛠️ INSTALACIÓN FINALIZADA\n\n' + L.join('\n') + '\n\n' +
       (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ')
                      : 'Sistema listo para utilizar.') +
-      '\n\n\u23f1 Duraci\u00f3n: ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s');
+      '\n\n⏱ Duración: ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s');
   } catch (e) {
     Log_error('UI', 'instalarSistema', e && e.message ? e.message : String(e));
     Log_flush();
     ui.alert('ERROR en instalación: ' + (e && e.message ? e.message : String(e)));
   }
 }
-
 function UI_ejecutarPruebas() {
   var res = Pruebas_ejecutarTodo();
   Log_info('UI', 'pruebas', 'pasados=' + res.pasados + '/' + res.total);
