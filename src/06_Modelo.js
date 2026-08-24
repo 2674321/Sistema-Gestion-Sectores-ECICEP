@@ -282,8 +282,7 @@ function Modelo_nuevoIdInterno() {
 // ---------------------------------------------------------------------------
 
 var MODELO_DISENO = [
-  // Operación
-  { nombre: 'DASHBOARD',        color: '#0E5C68', estilo: false },
+
   // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
   { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA },
   { nombre: 'INGRESO_NARANJO',  color: '#E8730A', banda: true, formato: INGRESO_COLUMNAS },
@@ -418,7 +417,6 @@ HOJAS_SECTOR.forEach(function (h) { _MODELO_HOJAS_DEF[h] = COLUMNAS_SECTOR_VISTA
 _MODELO_HOJAS_DEF[HOJAS.LOG] = ['FECHA', 'NIVEL', 'MODULO', 'OPERACION', 'MENSAJE', 'DURACION_MS', 'CONTEXTO'];
 _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'DETALLE', 'FUENTE_A', 'FUENTE_B', 'ESTADO_REVISION', 'RESUELTO_POR'];
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
-_MODELO_HOJAS_DEF['DASHBOARD'] = null; // se inicializa con filtros al crear
 // Catálogo centralizado de vigencia de exámenes (#15): administrable desde CONFIG
 _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'] = ['EXAMEN', 'CODIGO', 'VIGENCIA', 'UNIDAD', 'ACTIVO'];
 
@@ -481,25 +479,6 @@ function Modelo_crearEstructura() {
 
   _modelo_formatearPacientes(ss.getSheetByName(HOJAS.PACIENTES));
   _modelo_sembrarConfig(ss.getSheetByName(HOJAS.CONFIG), res);
-
-  /* Reparación DASHBOARD: si heredó encabezados de PACIENTES (bug histórico
-   * 'null || Modelo_campos'), se limpia y reinicializan sus filtros. */
-  var dashH = ss.getSheetByName('DASHBOARD');
-  if (dashH && dashH.getLastRow() >= 1) {
-    var fila1 = dashH.getRange(1, 1, 1, Math.min(dashH.getLastColumn(), 10)).getValues()[0];
-    if (fila1.indexOf('FECHA_NACIMIENTO') !== -1 || fila1.indexOf('TELEFONOS') !== -1) {
-      dashH.clear();
-      if (typeof _dash_inicializarFiltros === 'function') _dash_inicializarFiltros(dashH);
-      res.dashboardReparado = true;
-      Log_warning('Modelo', 'crearEstructura', 'DASHBOARD reparado: tenía encabezados de PACIENTES');
-    }
-  }
-
-  // inicializar DASHBOARD con filtros si es nueva
-  if (res.creadas.indexOf('DASHBOARD') !== -1) {
-    var dashHoja = ss.getSheetByName('DASHBOARD');
-    if (dashHoja) { try { if (typeof _dash_inicializarFiltros === 'function') _dash_inicializarFiltros(dashHoja); } catch(e){} }
-  }
 
   // Hoja predeterminada: eliminar solo si vacía (regla de no destrucción)
   var hoja0 = ss.getSheetByName(HOJAS.HOJA_PREDETERMINADA);
@@ -1247,12 +1226,12 @@ function Modelo_esHojaResidual(nombre, estaVacia) {
     if (nombre.indexOf('DIAGNOSTICO') === 0 || nombre.indexOf('DIAGNÓSTICO') === 0) return true;
   }
   // vacías sin rol definido (residuos de desarrollo), excepto la predeterminada
+  if (nombre === 'DASHBOARD') return true; // obsoleta: Estadísticas es la interfaz
   if (estaVacia && nombre !== HOJAS.HOJA_PREDETERMINADA &&
       !_MODELO_HOJAS_DEF.hasOwnProperty(nombre) &&
       HOJAS_SECTOR.indexOf(nombre) === -1 &&
       !HOJAS_INGRESO.hasOwnProperty(nombre) &&
-      nombre !== 'REM_SALIDA' && nombre !== 'CAT_VIGENCIA_EXAMENES' &&
-      nombre !== 'DASHBOARD') return true;
+      nombre !== 'REM_SALIDA' && nombre !== 'CAT_VIGENCIA_EXAMENES') return true;
   return false;
 }
 
@@ -1266,7 +1245,7 @@ function Modelo_limpiarHojasResiduales(ss) {
     if (nombre === activa) { res.conservadas++; return; }
     if (_MODELO_HOJAS_DEF.hasOwnProperty(nombre) || HOJAS_SECTOR.indexOf(nombre) !== -1 ||
         HOJAS_INGRESO.hasOwnProperty(nombre) || nombre === 'REM_SALIDA' ||
-        nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'DASHBOARD') return;
+        nombre === 'CAT_VIGENCIA_EXAMENES') return;
     var vacia = true;
     try {
       var d = sh.getDataRange().getValues();

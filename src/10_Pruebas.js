@@ -1956,12 +1956,13 @@ function _pruebas_limpieza(t, A) {
   });
 
   t('LIMPIEZA: hojas oficiales NUNCA son residuales', function () {
-    ['PACIENTES','EVENTOS','CONFIG','LOG','REM_SALIDA','DASHBOARD',
+    ['PACIENTES','EVENTOS','CONFIG','LOG','REM_SALIDA',
      'SECTOR_NARANJO','INGRESO_AMARILLO','CAT_VIGENCIA_EXAMENES','Hoja 1']
       .forEach(function (n) {
         A.cierto(!Modelo_esHojaResidual(n, false), n + ' protegida');
         A.cierto(!Modelo_esHojaResidual(n, true), n + ' protegida incluso vacía');
       });
+    A.cierto(Modelo_esHojaResidual('DASHBOARD', false), 'DASHBOARD obsoleta → residual');
   });
 
   t('LIMPIEZA: desconocida vacía → residual; con datos → no', function () {

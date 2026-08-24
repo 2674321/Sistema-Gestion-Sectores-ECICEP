@@ -92,7 +92,7 @@ function UI_instalarSistema() {
     try { onOpen(); } catch (eMenu) { avisos.push('Menú: ' + eMenu.message); }
 
     // 7) Validación final de funciones y hojas críticas
-    var criticas = ['PACIENTES', 'EVENTOS', 'DASHBOARD',
+    var criticas = ['PACIENTES', 'EVENTOS',
       'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
       'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
     var faltan = criticas.filter(function (n) { return !Modelo_hoja(n); });
@@ -1305,7 +1305,7 @@ function api_pruebasSistema(ids) {
 /* ---- Checks individuales: devuelven {estado:OK|WARN|ERROR|SKIP, detalle} ---- */
 
 function _pruS_hojas() {
-  var crit = ['PACIENTES', 'EVENTOS', 'DASHBOARD', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
+  var crit = ['PACIENTES', 'EVENTOS', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
               'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
   var faltan = crit.filter(function (n) { return !Modelo_hoja(n); });
   if (faltan.length) return { estado: 'ERROR',
