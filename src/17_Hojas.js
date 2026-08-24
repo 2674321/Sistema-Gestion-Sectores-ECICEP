@@ -61,188 +61,188 @@ function Hojas_formulaIndicador(tipo) {
   }
 }
 
-/** GAS: INICIO — escritorio principal (lienzo cerrado, tarjetas, jerarquía). */
+/** GAS: INICIO v4 — ventana de aplicación sobre fondo azul institucional. */
 function Hojas_crearInicio(ss) {
   var h = ss.getSheetByName('INICIO');
   if (!h) h = ss.insertSheet('INICIO');
   h.clear();
   h.setHiddenGridlines(true);
 
-  var PRIM = '#0E5C68', PRIM_SOFT = '#E5F1F2', TXT = '#1C2430',
-      GRIS = '#5B6472', MUTED = '#8A93A3', BORDE = '#C9CEDA',
-      SUAVE = '#F1F3F6', BLANCO = '#FFFFFF',
-      OK = '#1F9D6B', WARN_BG = '#FBF3D6', ERR_BG = '#FBE4E4';
+  /* límites reales primero (#14): expandir a tamaño del diseño */
+  var FILA_FIN = 48, COL_FIN = 12; // lienzo A..L, filas 1..48
+  if (h.getMaxRows() < FILA_FIN + 2) h.insertRowsAfter(h.getMaxRows(), FILA_FIN + 2 - h.getMaxRows());
+  if (h.getMaxColumns() < COL_FIN + 2) h.insertColumnsAfter(h.getMaxColumns(), COL_FIN + 2 - h.getMaxColumns());
 
-  /* ===== LIENZO: columnas B..K (2..11), filas 2..46 ===== */
-  var COL_INI = 2, COL_FIN = 11, FILA_FIN = 46;
-  for (var c = COL_INI; c <= COL_FIN; c++) h.setColumnWidth(c, 96);
-  h.setColumnWidth(1, 24);
-  h.getRange(1, COL_INI, FILA_FIN - 1, COL_FIN - COL_INI + 1).setBackground(BLANCO);
+  var AZUL = '#0B3C49', AZUL2 = '#0E4A5C', PRIM = '#0E5C68', PRIM_BR = '#1B7A8A',
+      VENTANA = '#F7F8FA', BLANCO = '#FFFFFF', TXT = '#12242E',
+      GRIS = '#5B6472', MUTED = '#7E93A3', BORDE = '#C9D4DC',
+      OK = '#35C28F', WARN = '#F0B429';
+
+  /* FUNDO AZUL completo */
+  h.getRange(1, 1, FILA_FIN, COL_FIN).setBackground(AZUL);
+
+  /* VENTANA (superficie clara) C2:J47 */
+  var vIniC = 3, vFinC = 10, vIniF = 2, vFinF = 47;
+  h.getRange(vIniF, vIniC, vFinF - vIniF + 1, vFinC - vIniC + 1).setBackground(VENTANA);
+
+  /* ===== BARRA SUPERIOR DE APLICACIÓN (azul, dentro de la ventana) ===== */
+  h.getRange(vIniF, vIniC, 1, vFinC - vIniC + 1).setBackground(AZUL2);
+  h.getRange(vIniF, vIniC).setValue('\u25cf \u25cf \u25cf   ECICEP')
+   .setFontWeight('bold').setFontSize(11).setFontColor('#FFFFFF');
+  h.getRange(vIniF, vIniC + 4, 1, 4).merge()
+   .setValue('\u2713 Operativo   \u00b7   v' + ECICEP.VERSION + '   \u00b7   Build ' +
+     (ECICEP_BUILD.commit || 'dev'))
+   .setFontSize(10).setFontColor('#9FD8CF')
+   .setHorizontalAlignment('right');
+  h.setRowHeight(vIniF, 26);
 
   /* ===== CABECERA ===== */
-  h.getRange(2, COL_INI, 2, 5).merge().setValue('ECICEP')
-    .setFontWeight('bold').setFontSize(30).setFontColor(PRIM).setFontFamily('Sora')
-    .setVerticalAlignment('middle');
-  h.getRange(2, 7, 1, 5).merge().setValue('\u2713 SISTEMA OPERATIVO')
-    .setFontWeight('bold').setFontSize(11).setFontColor(OK)
-    .setHorizontalAlignment('right');
-  h.getRange(3, 7, 1, 5).merge().setValue('v' + ECICEP.VERSION + '  \u00b7  Build ' +
-    (ECICEP_BUILD.commit || 'dev')).setFontSize(10).setFontColor(MUTED)
-    .setHorizontalAlignment('right');
-  h.getRange(4, COL_INI, 1, 10).merge()
-    .setValue('Sistema de Gesti\u00f3n de Pacientes Cr\u00f3nicos por Sectores  \u00b7  CESFAM San Juan')
-    .setFontStyle('italic').setFontSize(11).setFontColor(GRIS);
+  h.getRange(4, vIniC, 2, 4).merge().setValue('ECICEP')
+   .setFontWeight('bold').setFontSize(30).setFontColor(PRIM).setFontFamily('Sora')
+   .setVerticalAlignment('middle');
+  h.getRange(4, vIniC + 4, 2, 4).merge()
+   .setValue('Sistema de Gesti\u00f3n de Pacientes Cr\u00f3nicos\npor Sectores \u00b7 CESFAM San Juan')
+   .setFontSize(11).setFontColor(GRIS).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
+   .setHorizontalAlignment('right').setVerticalAlignment('middle');
+  h.setRowHeight(4, 26); h.setRowHeight(5, 26);
 
-  /* ===== MÓDULOS PRINCIPALES (4 tarjetas grandes) ===== */
-  h.getRange(6, COL_INI).setValue('M\u00d3DULOS').setFontWeight('bold')
+  /* ===== MÓDULOS: 4 botones principales (2 cols × 3 filas c/u) ===== */
+  h.getRange(7, vIniC).setValue('M\u00d3DULOS DEL SISTEMA').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var principales = [
-    { hoja:'PACIENTES',      icono:'\ud83d\udc65', nombre:'PACIENTES',        desc:'Consulta y gesti\u00f3n',      imp:true },
-    { hoja:'INGRESO_NARANJO',icono:'\ud83d\udce5', nombre:'INGRESOS',         desc:'Nuevos registros por sector',  imp:true },
-    { hoja:'CONFLICTOS',     icono:'\ud83d\udccb', nombre:'COLA DE REVISI\u00d3N', desc:'Registros que requieren atenci\u00f3n', imp:true },
-    { hoja:'REM_SALIDA',     icono:'\ud83e\ude7a', nombre:'REM',              desc:'Reporte mensual generado',     imp:true }
-  ];
-  /* tarjetas en columnas: (B,C) gap D (E,F) gap G (H,I) gap J (K,L)? limitado a B..K:
-     usar pares B:C, E:F, H:I + K como borde derecho → 3 tarjetas por fila */
-  function tarjeta(fila, c0, ancho, icono, nombre, desc, hojaDestino, importante, filasAlto) {
-    var rng = h.getRange(fila, c0, filasAlto, ancho);
-    rng.merge();
-    rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(hojaDestino).getSheetId() +
-      '";"' + icono + '\n' + nombre + '\n' + desc + '")')
-     .setFontWeight('bold').setFontSize(importante ? 12 : 11)
-     .setFontColor(importante ? '#FFFFFF' : PRIM)
-     .setBackground(importante ? PRIM : SUAVE)
-     .setHorizontalAlignment('center').setVerticalAlignment('middle')
-     .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-    rng.setBorder(true, true, true, true, null, null,
-      importante ? PRIM : BORDE, SpreadsheetApp.BorderStyle.SOLID);
-    return rng;
-  }
-  var modulosPrincipales = [
     { hoja:'PACIENTES',       icono:'\ud83d\udc65', nombre:'PACIENTES',        desc:'Consulta y gesti\u00f3n' },
     { hoja:'INGRESO_NARANJO', icono:'\ud83d\udce5', nombre:'INGRESOS',         desc:'Nuevos registros' },
-    { hoja:'CONFLICTOS',      icono:'\ud83d\udccb', nombre:'COLA DE REVISI\u00d3N', desc:'Requieren atenci\u00f3n' },
+    { hoja:'CONFLICTOS',      icono:'\ud83d\udccb', nombre:'REVISI\u00d3N',   desc:'Requieren atenci\u00f3n' },
     { hoja:'REM_SALIDA',      icono:'\ud83e\ude7a', nombre:'REM',              desc:'Reporte mensual' }
   ];
-  modulosPrincipales.forEach(function (mod, ix) {
-    tarjeta(7, COL_INI + ix * 2 + (ix > 0 ? ix : 0), 2, mod.icono, mod.nombre,
-            mod.desc, mod.hoja, true, 3);
+  principales.forEach(function (mod, ix) {
+    var c0 = vIniC + ix * 2;
+    var rng = h.getRange(8, c0, 3, 2).merge();
+    rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(mod.hoja).getSheetId() +
+      '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
+     .setFontWeight('bold').setFontSize(12).setFontColor('#FFFFFF')
+     .setBackground(PRIM).setHorizontalAlignment('center')
+     .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    rng.setBorder(true, true, true, true, null, null, PRIM_BR, SpreadsheetApp.BorderStyle.SOLID);
+    h.setRowHeights(8, 3, 22);
   });
-  h.setRowHeights(7, 3, 22);
 
-  /* ===== MÓDULOS SECUNDARIOS (4 tarjetas chicas) ===== */
+  /* ===== MÓDULOS SECUNDARIOS (4 tarjetas suaves) ===== */
   var secundarios = [
-    { hoja:'SECTOR_NARANJO', icono:'\ud83d\udfe7', nombre:'SECTORES',        desc:'Naranjo \u00b7 Amarillo · Verde' },
-    { hoja:'FUENTES',        icono:'\ud83d\uddc2\ufe0f', nombre:'FUENTES',   desc:'Informaci\u00f3n y sincronizaci\u00f3n' },
+    { hoja:'SECTOR_NARANJO', icono:'\ud83d\udfe7', nombre:'SECTORES',   desc:'Naranjo · Amarillo · Verde' },
+    { hoja:'FUENTES',        icono:'\ud83d\uddc2\ufe0f', nombre:'FUENTES', desc:'Información y sync' },
     { hoja:'LOG',            icono:'\ud83e\uddea', nombre:'DIAGN\u00d3STICO', desc:'Centro de Pruebas · LOG' },
-    { hoja:'CONFIG',         icono:'\u2699\ufe0f', nombre:'ADMINISTRACI\u00d3N', desc:'Configuraci\u00f3n y mantenimiento' }
+    { hoja:'CONFIG',         icono:'\u2699\ufe0f', nombre:'ADMINISTRACI\u00d3N', desc:'Configuración' }
   ];
   secundarios.forEach(function (mod, ix) {
-    tarjeta(11, COL_INI + ix * 2 + (ix > 0 ? ix : 0), 2, mod.icono, mod.nombre,
-            mod.desc, mod.hoja, false, 3);
+    var c0 = vIniC + ix * 2;
+    var rng = h.getRange(12, c0, 3, 2).merge();
+    rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(mod.hoja).getSheetId() +
+      '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
+     .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
+     .setBackground('#FFFFFF').setHorizontalAlignment('center')
+     .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    rng.setBorder(true, true, true, true, null, null, BORDE, SpreadsheetApp.BorderStyle.SOLID);
+    h.setRowHeights(12, 3, 20);
   });
-  h.setRowHeights(11, 3, 20);
 
-  /* ===== INDICADORES (6 tarjetas KPI, 3 por fila) ===== */
-  h.getRange(15, COL_INI).setValue('INDICADORES').setFontWeight('bold')
+  /* ===== INDICADORES: 6 tarjetas KPI (2 filas × 3) ===== */
+  h.getRange(16, vIniC).setValue('INDICADORES').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var kpis = [
-    ['=COUNTA(PACIENTES!A2:A)', 'PACIENTES'],
-    ['=COUNTA(EVENTOS!A2:A)', 'EVENTOS'],
-    ['=COUNTIF(PACIENTES!AD2:AD;TRUE)', 'POR REVISAR'],
-    ['=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")', 'ESTRAT. PENDIENTE'],
-    ['=COUNTIF(PACIENTES!W2:W;FALSE)', 'RUT INV\u00c1LIDOS'],
-    ['=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))', 'DUPLICADOS']
+    ['=COUNTA(PACIENTES!A2:A)', 'PACIENTES', 'Total registrados'],
+    ['=COUNTA(EVENTOS!A2:A)', 'EVENTOS', 'Historial del sistema'],
+    ['=COUNTIF(PACIENTES!AD2:AD;TRUE)', 'POR REVISAR', 'Requieren atención'],
+    ['=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")', 'ESTRAT. PENDIENTE', 'Sin confirmar'],
+    ['=COUNTIF(PACIENTES!W2:W;FALSE)', 'RUT INV\u00c1LIDOS', 'DV incorrecto'],
+    ['=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))', 'DUPLICADOS', 'Detectados']
   ];
   kpis.forEach(function (k, ix) {
-    var filaK = 16 + Math.floor(ix / 3) * 3;
-    var c0 = COL_INI + (ix % 3) * 3 + Math.floor((ix % 3) / 2);
-    var rngV = h.getRange(filaK, c0, 1, 2).merge().setFormula(k[0])
-      .setFontWeight('bold').setFontSize(20).setFontFamily('Sora')
-      .setFontColor(PRIM).setBackground(SUAVE)
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    var rngL = h.getRange(filaK + 1, c0, 1, 2).merge().setValue(k[1])
-      .setFontSize(9).setFontColor(MUTED).setBackground(SUAVE)
-      .setHorizontalAlignment('center');
-    rngV.setBorder(true, true, false, true, null, null, BORDE, SpreadsheetApp.BorderStyle.SOLID);
-    rngL.setBorder(false, true, true, true, null, null, BORDE, SpreadsheetApp.BorderStyle.SOLID);
-    h.setRowHeight(filaK, 32); h.setRowHeight(filaK + 1, 16);
+    var f0 = 17 + Math.floor(ix / 3) * 4;
+    var c0 = vIniC + (ix % 3) * 3;
+    h.getRange(f0, c0, 1, 2).merge().setValue(k[1])
+     .setFontSize(9).setFontWeight('bold').setFontColor(MUTED)
+     .setBackground(BLANCO);
+    var rng = h.getRange(f0 + 1, c0, 1, 2).merge().setFormula(k[0])
+     .setFontWeight('bold').setFontSize(22).setFontFamily('Sora').setFontColor(PRIM)
+     .setBackground(BLANCO).setHorizontalAlignment('center');
+    h.getRange(f0 + 2, c0, 1, 2).merge().setValue(k[2])
+     .setFontSize(9.5).setFontColor(GRIS).setBackground(BLANCO);
+    h.getRange(f0, c0, 3, 2).setBorder(true, true, true, true, null, null,
+      BORDE, SpreadsheetApp.BorderStyle.SOLID);
+    h.setRowHeight(f0, 14); h.setRowHeight(f0 + 1, 30); h.setRowHeight(f0 + 2, 14);
   });
 
-  /* ===== ALERTAS (tarjeta dinámica) ===== */
-  h.getRange(23, COL_INI).setValue('ALERTAS').setFontWeight('bold')
+  /* ===== ALERTA DINÁMICA (tarjeta) ===== */
+  h.getRange(25, vIniC).setValue('ALERTAS').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
-  var rAlerta = h.getRange(24, COL_INI, 3, 10).merge();
-  rAlerta.setFormula('=IF(COUNTIF(PACIENTES!AD2:AD;TRUE)+COUNTIF(PACIENTES!W2:W;FALSE)>0;' +
+  var rA = h.getRange(26, vIniC, 2, 8).merge();
+  rA.setFormula('=IF(COUNTIF(PACIENTES!AD2:AD;TRUE)+COUNTIF(PACIENTES!W2:W;FALSE)>0;' +
     '"\u26a0 ATENCI\u00d3N REQUERIDA\n" & COUNTIF(PACIENTES!AD2:AD;TRUE) & " pacientes por revisar \u00b7 " &' +
-    'COUNTIF(PACIENTES!W2:W;FALSE) & " RUT inv\u00e1lidos\nVer Cola de Revisi\u00f3n \u2192";' +
-    '"\u2713 TODO EN ORDEN\nNo existen incidencias pendientes")')
-   .setFontWeight('bold').setFontSize(12)
-   .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-  rAlerta.setBorder(true, true, true, true, null, null, BORDE, SpreadsheetApp.BorderStyle.SOLID);
-  h.setRowHeights(24, 3, 20);
+    'COUNTIF(PACIENTES!W2:W;FALSE) & " RUT inv\u00e1lidos   \u2014   abrir Cola de Revisi\u00f3n \u2192";' +
+    '"\u2713 SISTEMA SIN INCIDENCIAS\nNo existen problemas pendientes")')
+   .setFontWeight('bold').setFontSize(12).setVerticalAlignment('middle')
+   .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  rA.setBorder(true, true, true, true, null, null, BORDE, SpreadsheetApp.BorderStyle.SOLID);
+  h.setRowHeights(26, 2, 18);
 
-  /* ===== DISTRIBUCIÓN POR SECTOR (3 tarjetas) ===== */
-  h.getRange(28, COL_INI).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
+  /* ===== DISTRIBUCIÓN POR SECTOR (3 tarjetas con %) ===== */
+  h.getRange(29, vIniC).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var sectores = [
-    { dot:'\ud83d\udfe0', nombre:'NARANJO',  color:'#E8730A' },
-    { dot:'\ud83d\udfe1', nombre:'AMARILLO', color:'#C79A00' },
-    { dot:'\ud83d\udfe2', nombre:'VERDE',    color:'#2E8B57' }
+    { nombre:'NARANJO',  color:'#E8730A' },
+    { nombre:'AMARILLO', color:'#C79A00' },
+    { nombre:'VERDE',    color:'#2E8B57' }
   ];
   sectores.forEach(function (s2, ix) {
-    var c0 = COL_INI + ix * 3 + Math.floor(ix / 2);
-    h.getRange(29, c0, 1, 2).merge().setValue(s2.dot + ' ' + s2.nombre)
-     .setFontWeight('bold').setFontSize(11).setFontColor(TXT)
-     .setHorizontalAlignment('center');
-    var rng = h.getRange(30, c0, 2, 2).merge()
+    var c0 = vIniC + ix * 3;
+    var letra = 'NARANJO AMARILLO VERDE'.split(' ')[ix] ? s2.nombre : s2.nombre;
+    h.getRange(30, c0, 1, 2).merge().setValue('\u25cf ' + s2.nombre)
+     .setFontWeight('bold').setFontSize(10).setFontColor(s2.color)
+     .setBackground(BLANCO).setHorizontalAlignment('center');
+    var rng = h.getRange(31, c0, 1, 2).merge()
      .setFormula('=COUNTIF(PACIENTES!H2:H;"' + s2.nombre + '")&" pacientes"')
-     .setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
+     .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    rng.setBorder(true, true, true, true, null, null, s2.color,
-      SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-    h.setRowHeights(30, 2, 16);
+    h.getRange(32, c0, 1, 2).merge()
+     .setFormula('=TEXT(COUNTIF(PACIENTES!H2:H;"' + s2.nombre + '")/MAX(COUNTA(PACIENTES!A2:A);1);"0%")&" del total"')
+     .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
+     .setHorizontalAlignment('center');
+    h.getRange(30, c0, 3, 2).setBorder(true, true, true, true, null, null,
+      s2.color, SpreadsheetApp.BorderStyle.SOLID);
+    h.setRowHeight(30, 16); h.setRowHeight(31, 24); h.setRowHeight(32, 14);
   });
 
-  /* ===== ESTADO DEL SISTEMA (tarjeta) ===== */
-  h.getRange(33, COL_INI).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
+  /* ===== ESTADO DEL SISTEMA (tarjeta inferior) ===== */
+  h.getRange(34, vIniC).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
-  h.getRange(34, COL_INI, 1, 10).merge().setValue('\u2713 SISTEMA OPERATIVO')
-   .setFontWeight('bold').setFontSize(13).setFontColor(OK)
-   .setBackground(SUAVE).setHorizontalAlignment('center');
+  h.getRange(35, vIniC, 1, 8).merge().setValue('\u2713 OPERATIVO')
+   .setFontWeight('bold').setFontSize(14).setFontColor(OK)
+   .setBackground(BLANCO).setHorizontalAlignment('center');
   var info = [
-    ['Sistema', 'ECICEP v' + ECICEP.VERSION + '  \u00b7  Build ' + (ECICEP_BUILD.commit || 'dev')],
-    ['Actualizaci\u00f3n del sistema', ECICEP_BUILD.fecha || '\u2014'],
-    ['\u00daltima actualizaci\u00f3n de datos',
+    ['Versión', 'ECICEP v' + ECICEP.VERSION],
+    ['Build', (ECICEP_BUILD.commit || 'dev')],
+    ['Actualización del sistema', ECICEP_BUILD.fecha || '\u2014'],
+    ['\u00daltima actualización de datos',
       '=IF(COUNT(PACIENTES!AC2:AC)=0;"\u2014";TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))'],
-    ['\u00daltima sincronizaci\u00f3n de fuentes',
+    ['\u00daltima sincronización de fuentes',
       '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")']
   ];
   info.forEach(function (par, ix) {
-    h.getRange(35 + ix, COL_INI, 1, 3).merge().setValue(par[0])
-     .setFontColor(GRIS).setFontSize(11).setBackground(BLANCO);
-    h.getRange(35 + ix, COL_INI + 3, 1, 7).merge().setValue(par[1])
-     .setFontWeight('bold').setFontSize(11).setFontColor(TXT).setBackground(BLANCO);
+    var f = 36 + ix;
+    h.getRange(f, vIniC, 1, 3).merge().setValue(par[0])
+     .setFontColor(GRIS).setFontSize(10.5).setBackground(BLANCO);
+    h.getRange(f, vIniC + 3, 1, 5).merge().setValue(par[1])
+     .setFontWeight('bold').setFontSize(10.5).setFontColor(TXT).setBackground(BLANCO);
+    h.setRowHeight(f, 16);
   });
 
-  /* ===== CONDICIONAL: alerta cambia según contenido ===== */
-  h.setConditionalFormatRules([
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=LEFT($B$24;1)="\u26a0"')
-      .setRanges([h.getRange(24, COL_INI)]).setBackground(WARN_BG).build(),
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=LEFT($B$24;1)="\u2713"')
-      .setRanges([h.getRange(24, COL_INI)]).setBackground('#E3F3EA').build()
-  ]);
-
-  /* ===== CERRAR LIENZO ===== */
-  h.getRange(1, COL_INI, FILA_FIN - 1, COL_FIN - COL_INI + 1)
-   .setBorder(true, true, true, true, null, null, BORDE, SpreadsheetApp.BorderStyle.SOLID_THICK);
-  h.setRowHeight(1, 12);
+  /* ===== CERRAR: ocultar fuera del lienzo ===== */
   if (h.getMaxRows() > FILA_FIN) h.hideRows(FILA_FIN + 1, h.getMaxRows());
   if (h.getMaxColumns() > COL_FIN) h.hideColumns(COL_FIN + 1, h.getMaxColumns() - COL_FIN);
+  h.setRowHeight(1, 10);
+  h.setTabColor(AZUL);
 
-  h.setTabColor(PRIM);
   return { modulos: INICIO_MODULOS.length, accesos: INICIO_MODULOS.length };
 }
 

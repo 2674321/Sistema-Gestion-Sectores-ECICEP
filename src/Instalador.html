@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<?!= include('00_Tokens') ?>
+<style>
+body{font-size:15px;padding:var(--space-5);background:var(--surface);
+  display:flex;flex-direction:column;min-height:90vh;box-sizing:border-box}
+.marca{text-align:center;margin-bottom:var(--space-4)}
+.marca .sys{font:700 24px 'Sora';color:var(--primary)}
+.marca .sub{font-size:13px;color:var(--text-muted)}
+.barra{height:12px;background:var(--surface-alt);border-radius:var(--radius-full);
+  overflow:hidden;border:1px solid var(--border);margin:var(--space-3) 0}
+.barra>span{display:block;height:100%;width:0;background:var(--primary);
+  border-radius:var(--radius-full);transition:width .5s var(--ease-in)}
+.pct{text-align:center;font:700 15px 'Sora';color:var(--primary);margin-bottom:var(--space-2)}
+.etapa-actual{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);
+  margin-bottom:var(--space-3);min-height:20px}
+.etapa-actual .spin{width:14px;height:14px;border:2px solid var(--primary);
+  border-top-color:transparent;border-radius:50%;display:inline-block;animation:girar .7s linear infinite}
+.lista{flex:1;overflow:auto;font-size:13.5px}
+.item{display:flex;align-items:center;gap:9px;padding:6px 4px;border-bottom:1px solid var(--surface-alt)}
+.item .ic{width:18px;text-align:center;flex-shrink:0}
+.item.ok .ic{color:var(--success)} .item.err .ic{color:var(--danger)}
+.item.run .ic{color:var(--primary)} .item.pen .ic{color:var(--border-strong)}
+.item.err{color:var(--danger)}
+.final{text-align:center;display:none}
+.final .big-check{font-size:44px;color:var(--success);line-height:1}
+.final h2{font:700 20px 'Sora';margin:8px 0 2px;color:var(--text-primary)}
+.final .ver{font:600 13px 'Inter';color:var(--text-secondary)}
+.final .pruebas{font-size:12px;color:var(--text-muted);margin-top:4px}
+.aviso-final{background:var(--warning);color:#fff;border-radius:var(--radius-md);
+  padding:8px 12px;font-size:12.5px;margin-top:var(--space-3);display:none;text-align:left}
+.botones{display:none;gap:10px;margin-top:var(--space-4)}
+.botones .btn{flex:1;justify-content:center}
+.pie{text-align:center;font-size:11px;color:var(--text-muted);margin-top:auto;padding-top:var(--space-3)}
+</style>
+</head>
+<body>
+<script>var VER='v<?= ECICEP.VERSION ?>';var BUILD='<?= BUILD ?>';</script>
+<div class="marca">
+  <div class="sys">ECICEP</div>
+  <div class="sub">Instalando el sistema</div>
+</div>
+
+<div class="pct" id="pct">0%</div>
+<div class="barra"><span id="fill"></span></div>
+<div class="etapa-actual" id="etapaActual">
+  <span class="spin"></span><span id="etapaTxt">Preparando…</span>
+</div>
+
+<div class="lista" id="lista"></div>
+
+<div class="final" id="final">
+  <div class="big-check">✓</div>
+  <h2>INSTALACIÓN COMPLETADA</h2>
+  <div class="ver" id="finVer"></div>
+  <div class="pruebas" id="finDatos"></div>
+  <div class="aviso-final" id="finAvisos"></div>
+  <div class="botones" style="display:flex">
+    <button class="btn btn-pri" onclick="google.script.host.close()">Continuar</button>
+  </div>
+</div>
+
+<div class="pie">No cierres esta ventana hasta que finalice</div>
+
+<script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<script>
+var ETAPAS=[],RESULTADOS=[],ERRORES=[];
+var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
+
+function cargarEtapas(){
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok){document.getElementById('etapaTxt').textContent='Error cargando etapas';return;}
+    ETAPAS=r.etapas||[];
+    var L=document.getElementById('lista');
+    L.innerHTML=ETAPAS.map(function(e){
+      return '<div class="item pen" id="it_'+e.id+'"><span class="ic">'+ICON.pen+'</span>'+
+        '<span>'+e.nombre+'</span></div>';
+    }).join('');
+    ejecutarSecuencia(0);
+  }).withFailureHandler(function(e){
+    document.getElementById('etapaTxt').textContent='Error: '+(e&&e.message||e);
+  }).api_instalarEtapas();
+}
+
+function marcar(id,estado){
+  var el=document.getElementById('it_'+id);
+  if(el){el.className='item '+estado;
+    el.querySelector('.ic').textContent=ICON[estado]||'○';}
+}
+
+function ejecutarSecuencia(ix){
+  if(ix>=ETAPAS.length){finalizar();return;}
+  var etapa=ETAPAS[ix];
+  marcar(etapa.id,'run');
+  document.getElementById('etapaTxt').textContent=etapa.nombre+'…';
+  var pct=Math.round((ix/ETAPAS.length)*100);
+  document.getElementById('pct').textContent=pct+'%';
+  document.getElementById('fill').style.width=pct+'%';
+
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||r.ok===false){
+      marcar(etapa.id,'err');
+      ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&r.motivo)||'error'});
+      document.getElementById('etapaTxt').textContent='Etapa fallida: '+etapa.nombre;
+      mostrarFinal(false); /* pantalla de error con reintentar */
+      return;
+    }
+    marcar(etapa.id,'ok');
+    RESULTADOS.push(r);
+    ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
+  }).withFailureHandler(function(e){
+    marcar(etapa.id,'err');
+    ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(e&&e.message)||e});
+    mostrarFinal(false);
+  }).api_instalarPaso(etapa.id);
+}
+
+function reintentarDesde(ix){
+  ERRORES=ERRORES.filter(function(e){return e.etapa!==ETAPAS[ix].id;});
+  marcar(ETAPAS[ix].id,'pen');
+  ejecutarSecuencia(ix);
+}
+
+function mostrarFinal(ok){
+  var pct=ok?100:Math.round((RESULTADOS.length/ETAPAS.length)*100);
+  document.getElementById('pct').textContent=pct+'%';
+  document.getElementById('fill').style.width=pct+'%';
+  document.getElementById('etapaActual').style.display=ok?'none':'flex';
+  if(!ok){
+    var er=ERRORES[ERRORES.length-1];
+    document.getElementById('etapaTxt').textContent='✕ '+er.nombre+' falló: '+er.motivo;
+    var L=document.getElementById('lista');
+    var btn=document.createElement('button');
+    btn.className='btn btn-pri';btn.style.width='100%';btn.style.marginTop='8px';
+    btn.innerHTML='↻ Reintentar etapa';
+    btn.onclick=function(){
+      var ix=ETAPAS.findIndex(function(e){return e.id===er.etapa;});
+      L.removeChild(btn);ejecutarSecuencia(ix);
+    };
+    L.appendChild(btn);
+    return;
+  }
+  document.getElementById('finVer').textContent='ECICEP '+VER+' \u00b7 Build '+BUILD;
+  var datos=RESULTADOS.filter(function(x){return x.etapa==='verificar';})[0];
+  document.getElementById('finDatos').textContent=
+    datos?('Pacientes: '+datos.pacientes+' · Eventos: '+datos.eventos):'';
+  var av=document.getElementById('finAvisos');
+  if(ERRORES.length){av.style.display='block';
+    av.innerHTML='⚠ Completado con avisos:<br>'+ERRORES.map(function(e){
+      return '· '+e.nombre+': '+e.motivo;}).join('<br>');}
+  document.getElementById('final').style.display='block';
+  _refrescarIconos();
+}
+
+function finalizar(){
+  document.getElementById('pct').textContent='100%';
+  document.getElementById('fill').style.width='100%';
+  document.getElementById('etapaActual').style.display='none';
+  mostrarFinal(true);
+}
+
+cargarEtapas();
+_refrescarIconos();
+</script>
+</body>
+</html>

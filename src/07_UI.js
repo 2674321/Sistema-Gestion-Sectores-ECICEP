@@ -28,7 +28,7 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('⚙️ Sistema')
         .addItem('⚙️ Configuración', 'UI_configuracion')
-        .addItem('🔧 Instalar / Reparar Sistema', 'UI_instalarSistema')
+        .addItem('⚙ Instalar sistema', 'UI_instalarSistema')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
         .addItem('💾 Backups', 'UI_backup')
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
@@ -51,85 +51,13 @@ function UI_instalarEstructura() {
     '\n(Recomendado: 🛠️ Instalar sistema para el resumen completo)');
 }
 
-/** Instala TODO en un clic: estructura + CONFIG + catálogos + validaciones +
- *  diseño + menús + validación final. Idempotente: re-ejecutar no duplica nada. */
+/** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
 function UI_instalarSistema() {
-  var ui = SpreadsheetApp.getUi();
-  var avisos = [];
-  var t0 = Date.now();
-  var ss = null;
-  /* Cada paso es independiente: un fallo NO salta el resto (#robustez) */
-  function paso(nombre, fn) {
-    try { var r = fn(); return r; }
-    catch (e) { avisos.push(nombre + ': ' + (e && e.message || e)); return null; }
-  }
-  try {
-    var est = paso('Estructura', function () { return Modelo_crearEstructura(); });
-    ss = Modelo_ss();
-    var cat = paso('Catálogos', function () { return Modelo_instalarCatalogos(ss); });
-
-    var amarillo = null;
-    paso('Sincronización Amarillo', function () {
-      var cfgAm = FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'];
-      if (!(cfgAm && cfgAm.id)) { avisos.push('Amarillo: sin ID en FUENTES_DRIVE'); return; }
-      amarillo = Amarillo_importarTodo(true);
-      try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (eV) {}
-    });
-
-    var val = paso('Validaciones INGRESO', function () { return Modelo_validarIngresos(ss); });
-
-    var limpieza = paso('Limpieza de residuales', function () { return Modelo_limpiarHojasResiduales(ss); });
-    var dis = paso('Diseño del libro', function () { return Modelo_aplicarDiseno(); });
-    var hojasUI = paso('Interfaz de hojas (INICIO)', function () { return Modelo_disenoHojas(); });
-    paso('Menú', function () { onOpen(); });
-
-    var pacientes = 0, eventos = 0;
-    paso('Lectura de datos', function () {
-      pacientes = Modelo_leerPacientes().length;
-      eventos = Modelo_leerEventos().length;
-    });
-
-    var L = [];
-    L.push((est ? '✓' : '✕') + ' Estructura: creadas ' + (est ? est.creadas.length : 0) +
-      ' · existentes ' + (est ? est.existentes.length : 0));
-    L.push((cat ? '✓' : '✕') + ' CONFIG sembrado (general/módulos, idempotente)');
-    L.push((cat && cat.sembrada !== undefined ? '✓' : '✕') + ' Catálogo vigencia exámenes');
-    L.push((val ? '✓' : '✕') + ' Validaciones: ' + (val ? val.validaciones + ' en ' + val.hojas + ' puertas · columnas sistema: ' + val.protegidas : 'no aplicadas'));
-    L.push((amarillo ? '✓' : '•') + ' Sector Amarillo: ' + (amarillo
-      ? 'puerta +' + amarillo.puerta.nuevas + ' · histórico ' + amarillo.historico.eventosCreados +
-        ' eventos · ' + amarillo.historico.pacientesActualizados + ' pacientes' +
-        (amarillo.historico.pendientesSinPaciente.length
-          ? ' (⚠ ' + amarillo.historico.pendientesSinPaciente.length + ' requieren re-procesar ingresos)' : '')
-      : 'sin cambios'));
-    L.push((limpieza ? '✓' : '✕') + ' Hojas residuales: ' + (limpieza
-      ? (limpieza.eliminadas.length ? limpieza.eliminadas.join(', ') : 'ninguna') +
-        ' · conservadas ' + limpieza.conservadas : 'no evaluadas'));
-    L.push((dis ? '✓' : '✕') + ' Diseño: ' + (dis ? dis.coloreadas + ' coloreadas · ' +
-      dis.ordenadas + ' ordenadas · ' + dis.bandas + ' con banding' : 'no aplicado'));
-    L.push((hojasUI ? '✓' : '✕') + ' Hoja INICIO: ' + (hojasUI ? hojasUI.inicio.accesos +
-      ' accesos + indicadores vivos' : 'no creada'));
-    if (hojasUI && hojasUI.cond.errores && hojasUI.cond.errores.length) {
-      hojasUI.cond.errores.forEach(function (er) { avisos.push('Formato condicional · ' + er); });
-    }
-    if (hojasUI && hojasUI.cond.errores && hojasUI.cond.errores.length) {
-      hojasUI.cond.errores.forEach(function (er) { avisos.push('Formato condicional · ' + er); });
-    }
-    L.push('✓ Formato condicional: ' + (hojasUI ? hojasUI.cond.aplicadas : 0) +
-      ' reglas · Filtros: ' + (hojasUI ? hojasUI.filtros.filtros : 0) +
-      ' · Técnicas ocultas: ' + (hojasUI ? hojasUI.ocultas.ocultas : 0) +
-      ' · Protecciones: ' + (hojasUI ? hojasUI.protecciones.protecciones : 0));
-    L.push('✓ Menú actualizado · Encabezados centrados y fechas formateadas');
-    L.push('✓ Datos: PACIENTES ' + pacientes + ' · EVENTOS ' + eventos);
-
-    ui.alert('🛠️ INSTALACIÓN FINALIZADA\n\n' + L.join('\n') + '\n\n' +
-      (avisos.length ? '⚠️ AVISOS:\n· ' + avisos.join('\n· ')
-                     : 'Sistema listo para utilizar.') +
-      '\n\n⏱ Duración: ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s');
-  } catch (e) {
-    Log_error('UI', 'instalarSistema', e && e.message ? e.message : String(e));
-    Log_flush();
-    ui.alert('ERROR en instalación: ' + (e && e.message ? e.message : String(e)));
-  }
+  var t = HtmlService.createTemplateFromFile('Instalador');
+  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+  SpreadsheetApp.getUi().showModalDialog(t.evaluate()
+    .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
+    'Instalaci\u00f3n del sistema');
 }
 function UI_ejecutarPruebas() {
   var res = Pruebas_ejecutarTodo();
