@@ -75,7 +75,7 @@ function Hojas_crearInicio(ss) {
 
   var AZUL = '#0B3C49', AZUL2 = '#0E4A5C', PRIM = '#0E5C68', PRIM_BR = '#1B7A8A',
       VENTANA = '#F7F8FA', BLANCO = '#FFFFFF', TXT = '#12242E',
-      GRIS = '#5B6472', MUTED = '#7E93A3', BORDE = '#C9D4DC',
+      GRIS = '#5B6472', MUTED = '#7E93A3', BORDE = '#C9D4DC', SUAVE = '#F1F3F6',
       OK = '#35C28F', WARN = '#F0B429';
 
   /* FUNDO AZUL completo */
