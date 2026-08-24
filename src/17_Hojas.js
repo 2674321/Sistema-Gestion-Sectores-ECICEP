@@ -267,9 +267,9 @@ function Hojas_crearInicio(ss) {
     hoja: !!ss.getSheetByName('INICIO'),
     filas: h.getMaxRows() >= FILA_FIN,
     columnas: h.getMaxColumns() >= COL_FIN,
-    fondo: h.getRange(1, 1).getBackground() === AZUL,
-    ventana: h.getRange(5, 4).getBackground() === BLANCO ||
-             h.getRange(5, 4).getBackground() === VENTANA,
+    fondo: String(h.getRange(1, 1).getBackground()).toLowerCase() === AZUL.toLowerCase(),
+    ventana: String(h.getRange(5, 4).getBackground()).toLowerCase() === VENTANA.toLowerCase() ||
+             String(h.getRange(5, 4).getBackground()).toLowerCase() === BLANCO.toLowerCase(),
     modulos: h.getRange(9, 4).getFormula().indexOf('HYPERLINK') !== -1,
     kpi: h.getRange(19, 4).getFormula().indexOf('COUNTA') !== -1
   };
