@@ -2,7 +2,7 @@
 <html>
 <head>
 <base target="_top">
-<? var MODO = (typeof modo !== 'undefined' && modo === 'pacientes') ? 'pacientes' : 'centro'; ?>
+<? var MODO = (modo === 'pacientes' || modo === 'revision') ? modo : 'centro'; ?>
 <script>var MODO = <?!= JSON.stringify(MODO) ?>; /* modo visible para el JS del cliente */</script>
 <?!= include('00_Tokens') ?>
 <style>
