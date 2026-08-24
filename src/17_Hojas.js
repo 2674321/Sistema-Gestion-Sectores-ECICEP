@@ -295,3 +295,70 @@ function onEdit(e) {
     if (cnt > 1) celda.setNote('⚠ Posible duplicado (' + cnt + ' filas con este RUT)');
   } catch (err) { /* simple trigger: jamás interrumpir al usuario */ }
 }
+
+// ---------------------------------------------------------------------------
+// Reset de fábrica — eliminar TODAS las hojas para reinstalar desde cero
+// ---------------------------------------------------------------------------
+
+/**
+ * GAS: elimina TODAS las hojas del spreadsheet (deja una mínima vacía).
+ * @param {boolean} conBackup si true, copia el spreadsheet completo a Drive
+ *        antes de borrar (RECOMENDADO: es la única red de seguridad).
+ * @returns {ok, backupUrl?, hojasEliminadas}
+ */
+function Hojas_resetFabrica(conBackup) {
+  var ss = Modelo_ss();
+  var backupUrl = null;
+  if (conBackup) {
+    var nombreBackup = 'BACKUP_ECICEP_' + Utilities.formatDate(new Date(),
+      Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
+    var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombreBackup);
+    backupUrl = copia.getUrl();
+    Log_info('Fabrica', 'reset', 'Backup creado: ' + nombreBackup);
+  }
+  var primera = ss.getSheets()[0];
+  ss.getSheets().forEach(function (sh) {
+    if (sh !== primera) ss.deleteSheet(sh);
+  });
+  primera.clear();
+  primera.setName('Hoja 1');
+  primera.setTabColor(null);
+  if (primera.getFilter()) primera.getFilter().remove();
+  Log_warning('Fabrica', 'reset', 'Todas las hojas eliminadas (' +
+    (conBackup ? 'con backup' : 'SIN backup') + ')');
+  Log_flush();
+  return { ok: true, backupUrl: backupUrl };
+}
+
+/** GAS: confirmación en dos pasos con palabra clave. */
+function UI_resetFabrica(conBackup) {
+  var ui = SpreadsheetApp.getUi();
+  var r1 = ui.prompt(
+    '⚠️ RESET DE FÁBRICA — Paso 1/2',
+    'Esto ELIMINARÁ TODAS las hojas y datos del spreadsheet\n' +
+    '(pacientes, eventos, conflictos, configuración).\n\n' +
+    'Escribe ELIMINAR para continuar:',
+    ui.ButtonSet.OK_CANCEL);
+  if (r1.getSelectedButton() !== ui.Button.OK) return;
+  if (Utl_texto(r1.getResponseText()).trim() !== 'ELIMINAR') {
+    ui.alert('Palabra incorrecta — operación cancelada.');
+    return;
+  }
+  var r2 = ui.prompt(
+    'Paso 2/2 — Backup',
+    '¿Crear backup completo en Drive antes de borrar?\n' +
+    'RECOMENDADO: sí (es la única red de seguridad).\n\n' +
+    'Escribe SI para crear backup, NO para borrar sin backup:',
+    ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  var resp = Utl_texto(r2.getResponseText()).trim().toUpperCase();
+  if (resp !== 'SI' && resp !== 'NO') {
+    ui.alert('Respuesta inválida — operación cancelada.');
+    return;
+  }
+  var r = Hojas_resetFabrica(resp === 'SI');
+  ui.alert('🏭 RESET COMPLETADO\n\n' +
+    (r.backupUrl ? 'Backup creado en Drive.\n' : 'SIN backup.\n') +
+    '\nSiguiente paso:\nECICEP → ⚙️ Sistema → 🔧 Instalar / Reparar Sistema\n' +
+    '(recreará hojas y re-importará las fuentes conectadas).');
+}

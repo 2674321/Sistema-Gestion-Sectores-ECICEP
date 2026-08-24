@@ -139,6 +139,7 @@ header .sub{color:var(--text-muted);font-size:13px}
     <button class="btn btn-sec" onclick="_herr(this,'UI_configurarWebhook')"><i data-lucide="key-round"></i> Acceso remoto</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_recuperarInventario')"><i data-lucide="clipboard-list"></i> Recuperación: inventario</button>
     <button class="btn btn-danger" onclick="_herr(this,'UI_recuperarEjecutar')"><i data-lucide="undo-2"></i> Recuperación: reversión</button>
+    <button class="btn btn-danger" onclick="_resetFabrica(this)"><i data-lucide="factory"></i> ⚠️ Reset de fábrica (borra TODO)</button>
   </div>
   </div><!-- /herrBody -->
 </div>
@@ -276,6 +277,15 @@ function _normalizar(btn){
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('normalizar')(e);})
     .Calidad_normalizarFormatoRuts();
+}
+function _resetFabrica(btn){
+  if(!confirm('RESET DE FÁBRICA\n\nSe borrarán TODAS las hojas y datos (pacientes, eventos, CONFIG).\nSe te pedirá confirmación y se ofrecerá backup en Drive.\n\n¿Continuar?'))return;
+  var fin=_btnPulso(btn,'Esperando confirmación…',3000);
+  google.script.run
+    .withSuccessHandler(function(){setLoading(btn,false);
+      toast('Reset completado — ahora ejecuta Instalar / Reparar Sistema','ok');})
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('reset')(e);})
+    .UI_resetFabrica(true);
 }
 function _amarillo(btn,conHistorico){
   _btnPulso(btn,'Importando…',2500);
