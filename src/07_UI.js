@@ -464,8 +464,6 @@ function UI_configuracion() {
 /** 🧪 Centro de Pruebas: única entrada al diagnóstico del sistema. */
 function UI_centroPruebas() { _ui_dialogo('CentroPruebas', 'Centro de Pruebas'); }
 
-function UI_abrirRevision() { _ui_sidebar('centro', 'ECICEP · Cola de revisión'); }
-
 function UI_abrirDashboard() { _ui_dialogo('Dashboard', 'Estadísticas'); }
 
 function UI_verRem() { _ui_dialogo('RemVista', 'REM vista de trabajo'); }
