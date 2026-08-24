@@ -94,7 +94,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   </div>
 </div>
 
-<section class="grid-kpi">
+<section class="grid-kpi" id="kpis">
   <div class="card kpi"><label class="etq">Total pacientes</label><div class="num" id="kTotal">—</div><div class="delta neu" id="kTotalD"></div></div>
   <div class="card kpi"><label class="etq">% estratificación pendiente</label><div class="num" id="kPend">—</div><div class="delta neu"></div></div>
   <div class="card kpi"><label class="etq">Ingresos del mes</label><div class="num" id="kIng">—</div><div class="delta neu" id="kIngD"></div></div>
@@ -188,6 +188,17 @@ try{
 
   var hoyIso=hoy.toISOString().slice(0,10);
   var mesIso=hoyIso.slice(0,7);
+
+  /* Estado vacío global: PACIENTES sin datos en este spreadsheet */
+  if(pax.length===0){
+    d.getElementById('kpis').insertAdjacentHTML('afterend',
+      '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--warning);margin-bottom:var(--space-3)">'+
+      '<b>\u2139 La hoja PACIENTES est\u00e1 vac\u00eda en este spreadsheet.</b><br>'+
+      '<small>Para poblarlo: sube las fuentes a Drive con su ID en FUENTES_DRIVE y ejecuta '+
+      '<b>Instalar / Reparar Sistema</b> (importa Naranjo/Verde/Amarillo) o '+
+      '<b>Procesar ingresos</b> si las puertas INGRESO_* ya tienen filas.</small>'+
+      '</div>');
+  }
   var ctrlMes=evs.filter(function(e){return e.tipo==='CONTROL'&&e.f.slice(0,7)===mesIso;}).length;
   animNum(document.getElementById('kCtrl'),ctrlMes);
   var mesAntD=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);
