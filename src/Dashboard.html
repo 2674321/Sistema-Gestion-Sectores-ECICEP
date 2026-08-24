@@ -26,6 +26,21 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 .chart-card h3{margin:0 0 var(--space-3);font-size:15px}
 .chart-wrap{position:relative;height:260px}
 @media(max-width:900px){.grid-kpi{grid-template-columns:repeat(2,1fr)}.grid-charts{grid-template-columns:1fr}}
+
+.opciones{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  margin-bottom:var(--space-3);overflow:hidden}
+.opciones-head{display:flex;align-items:center;gap:8px;padding:10px var(--space-4);cursor:pointer;
+  user-select:none;font:600 13px 'Inter';color:var(--text-secondary)}
+.opciones-head:hover{background:var(--surface-alt)}
+.opciones-head .chev{margin-left:auto;transition:transform .2s var(--ease-in)}
+.opciones.abierta .chev{transform:rotate(180deg)}
+.opciones-body{display:none;padding:0 var(--space-4) var(--space-3)}
+.opciones.abierta .opciones-body{display:block}
+.opt-grid{display:flex;flex-wrap:wrap;gap:var(--space-4)}
+.opt{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--text-primary)}
+.opt input[type=checkbox]{width:15px;height:15px;accent-color:var(--primary)}
+.opt select{min-height:34px;width:90px}
+
 </style>
 </head>
 <body>
@@ -33,6 +48,29 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <h1>Estadísticas</h1><span class="chip rut" id="chipGen">…</span>
   <div class="sub">Los KPIs y gráficos reaccionan a los filtros · El rango de fechas define la ventana del gráfico de ingresos por mes</div>
 </header>
+
+<div class="opciones" id="panelOpciones">
+  <div class="opciones-head" onclick="toggleOpciones()">
+    <i data-lucide="settings-2" style="width:16px;height:16px"></i> Opciones de cálculo
+    <i data-lucide="chevron-down" class="chev"></i>
+  </div>
+  <div class="opciones-body">
+    <div class="opt-grid">
+      <label class="opt"><input type="checkbox" id="opSinPend">
+        Excluir estratificación pendiente</label>
+      <label class="opt"><input type="checkbox" id="opConPat">
+        Solo pacientes con patologías registradas</label>
+      <label class="opt"><input type="checkbox" id="opSinSector">
+        Incluir atenciones sin sector definido</label>
+      <label class="opt">Próximos controles:
+        <select id="opDias" class="inp" style="width:90px;min-height:34px">
+          <option value="30" selected>30 días</option>
+          <option value="60">60 días</option>
+          <option value="90">90 días</option>
+        </select></label>
+    </div>
+  </div>
+</div>
 
 <div class="filtros">
   <span class="etq" style="margin:0">Sectores:</span>
@@ -76,6 +114,22 @@ var _conteoAnim=false;
 document.querySelectorAll('.chip-filtro').forEach(function(ch){
   ch.addEventListener('click',function(){ch.classList.toggle('on');renderizarTodo();});
 });
+function toggleOpciones(){
+  var p=document.getElementById('panelOpciones');
+  p.classList.toggle('abierta');
+  _refrescarIconos();
+}
+function opcionesCalc(){
+  return {
+    sinPend:document.getElementById('opSinPend').checked,
+    conPat:document.getElementById('opConPat').checked,
+    sinSector:document.getElementById('opSinSector').checked,
+    dias:+document.getElementById('opDias').value
+  };
+}
+['opSinPend','opConPat','opSinSector','opDias'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',renderizarTodo);
+});
 ['fDesde','fHasta'].forEach(function(id){
   document.getElementById(id).addEventListener('change',renderizarTodo);
 });
@@ -97,7 +151,13 @@ function animNum(el,val,sufijo){
 }
 
 function renderizarTodo(){
-  var pax=paxFiltrados(),evs=evFiltrados();
+  var op=opcionesCalc();
+  var pax=paxFiltrados();
+  if(op.sinPend)pax=pax.filter(function(p){return !esPendiente(p.est);});
+  if(op.conPat)pax=pax.filter(function(p){return String(p.cond||'').split(';').filter(Boolean).length>0;});
+  var evs=evFiltrados();
+  if(op.sinSector)evs=evs.concat(D.eventos.filter(function(e){
+    return e.sector===''&&activos().length===SECTORES.length;}));
 
   /* --- KPIs --- */
   animNum(document.getElementById('kTotal'),pax.length);
@@ -126,8 +186,9 @@ function renderizarTodo(){
   if(ctrlAnt>0){var pc=Math.round(100*(ctrlMes-ctrlAnt)/ctrlAnt);
     dC.textContent=(pc>=0?'▲ +':'▼ ')+pc+'% vs mes anterior';dC.className='delta '+(pc>=0?'up':'down');}
   else{dC.textContent='sin base de comparación';dC.className='delta neu';}
-  var lim30=new Date(hoy.getTime()+30*864e5).toISOString().slice(0,10);
+  var lim30=new Date(hoy.getTime()+op.dias*864e5).toISOString().slice(0,10);
   var prox=pax.filter(function(p){return p.pc>=hoyIso&&p.pc<=lim30;}).length;
+  document.getElementById('kProx').parentElement.querySelector('.etq').textContent='Próximos controles ('+op.dias+' días)';
   animNum(document.getElementById('kProx'),prox);
 
   var conteoPat={};
