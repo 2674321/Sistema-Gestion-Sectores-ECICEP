@@ -1359,7 +1359,11 @@ function _pruS_validaciones() {
     if (!h || h.isSheetHidden()) return;
     total++;
     var col = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-    if (h.getLastRow() >= 2 && h.getRange(2, col).getDataValidation()) con++;
+    var tiene = false;
+    for (var rr = 2; rr <= Math.min(h.getLastRow(), 30) && !tiene; rr++) {
+      if (h.getRange(rr, col).getDataValidation()) tiene = true;
+    }
+    if (tiene) con++;
   });
   if (!total) return { estado: 'WARN', detalle: 'sin puertas INGRESO visibles' };
   return con === total

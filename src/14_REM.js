@@ -193,7 +193,8 @@ function _rem_normalizarEventos(crudos) {
     var iso = (f instanceof Date)
       ? Utilities.formatDate(f, tz, 'yyyy-MM-dd')
       : Utl_texto(f).slice(0, 10);
-    return { ID_INTERNO: Utl_texto(e.ID_INTERNO), RUT: Utl_texto(e.RUT),
+    return { ID_EVENTO: Utl_texto(e.ID_EVENTO),
+             ID_INTERNO: Utl_texto(e.ID_INTERNO), RUT: Utl_texto(e.RUT),
              NOMBRE: Utl_texto(e.NOMBRE), FECHA_EVENTO: iso,
              TIPO_EVENTO: Utl_texto(e.TIPO_EVENTO),
              SECTOR: Utl_texto(e.SECTOR), RIESGO_G: Utl_texto(e.RIESGO_G),
