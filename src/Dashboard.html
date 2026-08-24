@@ -41,6 +41,12 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 .opt input[type=checkbox]{width:15px;height:15px;accent-color:var(--primary)}
 .opt select{min-height:34px;width:90px}
 
+
+.barra{height:10px;background:var(--surface-alt);border-radius:var(--radius-full);overflow:hidden;border:1px solid var(--border)}
+.barra>span{display:block;height:100%;width:100%;background:var(--primary);border-radius:var(--radius-full)}
+.barra.indet>span{background:repeating-linear-gradient(45deg,#E5F1F2 0 10px,#0E5C68 10px 20px);animation:deslizaD .8s linear infinite}
+@keyframes deslizaD{from{background-position:0 0}to{background-position:28px 0}}
+
 </style>
 </head>
 <body>
@@ -49,6 +55,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <button class="btn btn-sec" onclick="cargarDatos()" style="margin-left:auto">
     <i data-lucide="refresh-cw"></i> Actualizar</button>
   <div class="sub">Los KPIs y gráficos reaccionan a los filtros · El rango de fechas define la ventana del gráfico de ingresos por mes</div>
+  <div class="barra" id="barraWrap" style="display:none;margin-top:10px"><span></span></div>
 </header>
 
 <div class="opciones" id="panelOpciones">
@@ -273,6 +280,25 @@ function grafico(id,tipo,data,opts,horizontal){
       plugins:{legend:{display:tipo==='doughnut',position:'right'}},indexAxis:horizontal?'y':undefined},opts)});
 }
 
+var _bT=null;
+function barraMsg(t){var e=document.getElementById('barraTxt');
+  if(!e){var w=document.getElementById('barraWrap');
+    if(w){var s=document.createElement('div');s.className='barra-msg';s.style.fontSize='12px';s.style.color='var(--text-secondary)';s.id='barraTxt';w.parentNode.insertBefore(s,w.nextSibling);} }
+  if(e)e.textContent=t;}
+function barraIndet(msgs){
+  var w=document.getElementById('barraWrap');if(!w)return;
+  w.style.display='block';
+  var f=w.querySelector('span');f.classList.add('indet');
+  var i=0;_bT=setInterval(function(){i=(i+1)%msgs.length;barraMsg(msgs[i]);},1600);
+  barraMsg(msgs[0]);
+}
+function barraFin(ok){
+  if(_bT){clearInterval(_bT);_bT=null;}
+  var w=document.getElementById('barraWrap');
+  var f=w?w.querySelector('span'):null;
+  if(f)f.style.width=ok?'100%':'0';
+  setTimeout(function(){if(w)w.style.display='none';if(f){f.style.width='0';f.classList.remove('indet');}},ok?500:200);
+}
 function errorFatal(msg){
   ['kTotal','kPend','kIng','kRev','kCtrl','kProx'].forEach(function(id){
     var e=document.getElementById(id);if(e)e.textContent='\u2715';});
@@ -282,6 +308,8 @@ function errorFatal(msg){
     '<b>Error cargando datos:</b> '+msg+'<br><small>Copia este mensaje y avisa para diagnóstico.</small></div>');
 }
 function cargarDatos(){
+  var b=document.querySelector('.acciones .btn-sec');
+  if(b){b.disabled=true;barraMsg('Solicitando datos al servidor…');barraIndet(['Solicitando datos…','Leyendo pacientes…','Leyendo eventos…','Serializando…']);}
   google.script.run.withSuccessHandler(function(r){
   ['kTotal','kPend','kIng','kRev'].forEach(function(id){
     document.getElementById(id).textContent='…';});
@@ -291,12 +319,13 @@ function cargarDatos(){
   var hoy=new Date();
   document.getElementById('fDesde').value=new Date(hoy.getFullYear()-1,hoy.getMonth(),hoy.getDate()).toISOString().slice(0,10);
   document.getElementById('fHasta').value=hoy.toISOString().slice(0,10);
-  document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);
+  document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);barraFin(true,'✓ Datos cargados');if(b)b.disabled=false;
   renderizarTodo();_refrescarIconos();
 }).withFailureHandler(function(e){toast('Error cargando datos: '+(e&&e.message||e),'err');})
 .api_dashboardDatos();
 }
 
+cargarDatos();
 _refrescarIconos();
 </script>
 </body>
