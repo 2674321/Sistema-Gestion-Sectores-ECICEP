@@ -189,15 +189,20 @@ try{
   var hoyIso=hoy.toISOString().slice(0,10);
   var mesIso=hoyIso.slice(0,7);
 
-  /* Estado vacío global: PACIENTES sin datos en este spreadsheet */
-  if(pax.length===0){
+  /* Estados vacíos: hoja sin datos ≠ filtros sin resultados */
+  var evCard=document.getElementById('estadoVacioPax');
+  if(evCard)evCard.remove();
+  if(D.pacientes.length===0){
     document.getElementById('kpis').insertAdjacentHTML('afterend',
-      '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--warning);margin-bottom:var(--space-3)">'+
+      '<div class="card" id="estadoVacioPax" style="grid-column:1/-1;border-left:4px solid var(--warning);margin-bottom:var(--space-3)">'+
       '<b>\u2139 La hoja PACIENTES est\u00e1 vac\u00eda en este spreadsheet.</b><br>'+
       '<small>Para poblarlo: sube las fuentes a Drive con su ID en FUENTES_DRIVE y ejecuta '+
-      '<b>Instalar / Reparar Sistema</b> (importa Naranjo/Verde/Amarillo) o '+
-      '<b>Procesar ingresos</b> si las puertas INGRESO_* ya tienen filas.</small>'+
-      '</div>');
+      '<b>Instalar / Reparar Sistema</b> o <b>Procesar ingresos</b>.</small></div>');
+  } else if(pax.length===0){
+    document.getElementById('kpis').insertAdjacentHTML('afterend',
+      '<div class="card" id="estadoVacioPax" style="grid-column:1/-1;border-left:4px solid var(--border);margin-bottom:var(--space-3)">'+
+      '<b>\u2139 No hay pacientes para la selecci\u00f3n actual.</b><br>'+
+      '<small>Activa alg\u00fan sector en los chips o revisa las opciones de c\u00e1lculo.</small></div>');
   }
   var ctrlMes=evs.filter(function(e){return e.tipo==='CONTROL'&&e.f.slice(0,7)===mesIso;}).length;
   animNum(document.getElementById('kCtrl'),ctrlMes);
