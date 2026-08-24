@@ -154,7 +154,7 @@ function Hojas_formatoCondicional(ss) {
   HOJAS_SECTOR.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      if (!h || h.getLastRow() < 2) return;
+      if (!h) return;
       var col = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
       var letra = String.fromCharCode(64 + col);
       aplicar(h, [

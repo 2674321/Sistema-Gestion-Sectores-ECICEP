@@ -174,7 +174,12 @@ function Amarillo_volcarPuerta(filas) {
  *  YA importados. Los RUT sin paciente quedan listados como pendientes. */
 function Amarillo_aplicarHistorico(filas) {
   var pacientes = Modelo_leerPacientes();
-  var idxRut = Modelo_indicePorRut(pacientes);
+  /* índice NORMALIZADO (trim+mayúsculas) — el RUT de la fuente puede traer
+     espacios o variaciones; sin esto el join falla al 100% */
+  var idxRut = {};
+  pacientes.forEach(function (p) {
+    idxRut[Utl_texto(p.RUT).trim().toUpperCase()] = p;
+  });
   var eventos = Modelo_leerEventos();
   var porPaciente = {};
   eventos.forEach(function (e) {
