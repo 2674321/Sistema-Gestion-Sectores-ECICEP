@@ -39,7 +39,7 @@ function Hojas_formulaIndicador(tipo) {
     case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")';
     case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!W2:W;FALSE)';
     case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))';
-    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!AC2:AC)=0;"\\u2014",TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))';
+    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!AC2:AC)=0;"sin datos";MAX(PACIENTES!AC2:AC))';
     default: return '';
   }
 }
@@ -83,8 +83,9 @@ function Hojas_crearInicio(ss) {
   ];
   indicadores.forEach(function (ind) {
     h.getRange(fila, 2).setValue(ind[0]).setFontColor('#5B6472');
-    h.getRange(fila, 3).setFormula(Hojas_formulaIndicador(ind[1]))
+    var cVal = h.getRange(fila, 3).setFormula(Hojas_formulaIndicador(ind[1]))
      .setFontWeight('bold').setFontFamily('Sora');
+    if (ind[1] === 'ULT_ACT') cVal.setNumberFormat('dd/MM/yyyy HH:mm');
     fila++;
   });
 
