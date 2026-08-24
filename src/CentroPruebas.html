@@ -226,7 +226,7 @@ function ejecutar(btn){
 }
 function pintarInforme(r){
   var rs=r.resumen;
-  document.getElementById('resumen').className='resumen';
+  document.getElementById('resumen').className='resumen fade-in';
   document.getElementById('resumen').innerHTML=
     '<span class="rchip">Total <b>'+rs.total+'</b></span>'+
     '<span class="rchip" style="color:var(--success)">✓ Correctas <b>'+rs.ok+'</b></span>'+

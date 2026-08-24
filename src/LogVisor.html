@@ -130,8 +130,9 @@ function render(){
   var fs=filtrados(),tb=document.getElementById('tbody');
   SEL=null;document.getElementById('detalle').classList.remove('abierto');
   if(!fs.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><i data-lucide="inbox"></i>No hay registros para los filtros seleccionados</div></td></tr>';_refrescarIconos();return;}
-  tb.innerHTML=fs.map(function(x,i){
-    return '<tr onclick="sel('+i+')" data-i="'+i+'">'+
+  tb.innerHTML=fs.slice(0,400).map(function(x,i){
+    var st=' style="animation:tIn .2s var(--ease-in) both;animation-delay:'+Math.min(i,15)*25+'ms"';
+    return '<tr'+st+' onclick="sel('+i+')" data-i="'+i+'">'+
       '<td class="num">'+_esc(x.fechaIso)+'</td>'+
       '<td><span class="nivel n-'+_esc(x.nivel)+'"><span class="n-dot"></span>'+iconoNivel(x.nivel)+' '+nivelEs(x.nivel)+'</span></td>'+
       '<td>'+_esc(x.modulo)+'</td><td>'+_esc(x.accion)+'</td>'+
@@ -153,7 +154,7 @@ function sel(i){
     '<dt>Resultado</dt><dd>'+_esc(x.resultado)+'</dd>'+
     (x.duracionMs!==''&&x.duracionMs!=null?'<dt>Duración</dt><dd>'+_esc(x.duracionMs)+' ms</dd>':'')+
     '<dt>Detalle técnico (contexto)</dt><dd>'+_esc(x.contexto||'(sin contexto adicional)')+'</dd>';
-  dt.classList.add('abierto');
+  dt.classList.add('abierto','fade-in');
 }
 function limpiarFiltros(){
   ['fNivel','fModulo'].forEach(function(i){document.getElementById(i).value='';});

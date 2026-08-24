@@ -73,6 +73,7 @@ function pintar(filas,meta){
     return '<tr>'+f.map(function(c){
       return '<td class="'+(esNum(c)?'num-col':'')+'">'+_esc(c)+'</td>';}).join('')+'</tr>';}).join('');
   var wrap=document.getElementById('wrap'),fade=document.getElementById('fadeDer');
+  wrap.classList.add('fade-in');
   function chequear(){
     var puede=wrap.scrollWidth>wrap.clientWidth+4&&wrap.scrollLeft<wrap.scrollWidth-wrap.clientWidth-4;
     fade.style.opacity=puede?'1':'0';

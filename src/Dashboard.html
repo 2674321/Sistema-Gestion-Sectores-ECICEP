@@ -223,6 +223,13 @@ try{
   document.getElementById('kPat').style.color=nom?'var(--text-primary)':'var(--text-muted)';
   document.getElementById('kPatC').textContent=nom?(topN+' paciente'+(topN>1?'s':'')):'';
 
+  /* --- Chips con conteo real por sector (siempre sobre el total) --- */
+  document.querySelectorAll('.chip-filtro').forEach(function(ch){
+    var s=ch.dataset.s;
+    var n=D.pacientes.filter(function(p){return String(p.sector||'').toUpperCase()===s;}).length;
+    ch.textContent=(s.charAt(0)+s.slice(1).toLowerCase())+' \u00b7 '+n;
+  });
+
   /* --- Donut sector --- */
   grafico('chSector','doughnut',{
     labels:SECTORES.map(function(s){return s.charAt(0)+s.slice(1).toLowerCase();}),

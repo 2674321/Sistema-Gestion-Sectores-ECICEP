@@ -310,8 +310,8 @@ function buscarAhora(){
     _dbg('api_buscar OK',(l&&l.length||0)+' resultados');
     var cont=document.getElementById('resultados');_resIdx=-1;
     if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
-    cont.innerHTML=l.map(function(p){
-      return '<div class="res-card" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
+    cont.innerHTML=l.map(function(p,i){
+      return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
         '<div class="res-nombre">'+_esc(p.nombre)+'</div>'+
         '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
     }).join('');
@@ -372,6 +372,8 @@ function pintarFicha(f){
   document.getElementById('fEst').innerHTML=_estIndicador(f.ESTRATIFICACION);
   document.getElementById('fEstado').innerHTML='<span class="chip">'+_esc(f.ESTADO||'—')+'</span>';
   document.getElementById('fRut').textContent=f.RUT||'';
+  Array.prototype.forEach.call(document.querySelectorAll('.ficha-chips > .chip'),function(c,i){
+    c.classList.add('fade-in');c.style.animationDelay=(i*50)+'ms';});
 
   var d=[['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],
          ['Próx. control',_fmtFecha(f.PROXIMO_CONTROL)||f.PROXIMO_CONTROL],
