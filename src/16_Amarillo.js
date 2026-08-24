@@ -89,7 +89,9 @@ function Amarillo_historicoDe(f) {
 function Amarillo_eventosNuevos(paciente, hist, eventosExistentes, filaNum) {
   var prev = {};
   (eventosExistentes || []).forEach(function (e) {
-    prev[Utl_texto(e.TIPO_EVENTO).toUpperCase() + '|' + Utl_texto(e.FECHA_EVENTO).slice(0, 10)] = true;
+    var fExist = Amarillo_aFecha(e.FECHA_EVENTO) ||
+                 Utl_texto(e.FECHA_EVENTO).slice(0, 10);
+    prev[Utl_texto(e.TIPO_EVENTO).toUpperCase() + '|' + fExist] = true;
   });
   var out = [];
   [['CONTROL', hist.control], ['SEGUIMIENTO', hist.seguimiento]].forEach(function (par) {
