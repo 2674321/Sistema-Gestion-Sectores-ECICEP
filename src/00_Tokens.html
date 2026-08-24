@@ -100,6 +100,12 @@ label.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transfor
 .kpi-mini:hover,.sec-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
 .fade-in{animation:tIn .25s var(--ease-in) both}
 
+
+::selection{background:var(--primary-soft);color:var(--primary-strong)}
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+.btn-ok-flash{box-shadow:0 0 0 3px var(--success)!important;border-color:var(--success)!important}
+
 </style>
 <script>
 /* Helpers compartidos (vanilla, sin dependencias salvo Lucide opcional) */

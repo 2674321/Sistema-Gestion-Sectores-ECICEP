@@ -204,7 +204,12 @@ textarea.inp{min-height:64px;resize:vertical}
   <div class="cc-head"><h1>Buscar paciente ECICEP</h1>
     <div class="cc-fecha">Busca por nombre o RUT y abre la ficha directamente</div></div>
   <label class="etq" for="termino">Nombre o RUT</label>
-  <input id="termino" class="inp" placeholder="Ej: 8031158-3 o Silvia…" autocomplete="off" autofocus>
+  <div style="position:relative">
+    <input id="termino" class="inp" placeholder="Ej: 8031158-3 o Silvia…" autocomplete="off" autofocus>
+    <button id="clearTerm" class="btn btn-ghost" onclick="limpiarBusqueda()"
+      style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:4px 8px;min-height:30px;display:none">
+      <i data-lucide="x" style="width:14px;height:14px"></i></button>
+  </div>
 <? } ?>
   <div id="resultados"></div>
 </div>
@@ -411,7 +416,9 @@ function registrarEvento(btn){
   var fin=_btnCargando(btn,'Registrando…');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r.ok){toast(r.evento.tipo+' registrado ✓','ok');
+    if(r.ok){toast(r.evento.tipo+' registrado \u2713','ok');
+      btn.classList.add('btn-ok-flash');
+      setTimeout(function(){btn.classList.remove('btn-ok-flash');},700);
       document.getElementById('evDesc').value='';abrirFicha(P_ACTUAL);}
     else toast(r.motivo||'No se pudo registrar','err');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
@@ -455,6 +462,8 @@ function togglePat(cod,el){
 }
 function actualizarContador(){
   document.getElementById('patContador').textContent=PAT_SELECCIONADAS.length;
+  var chip=document.getElementById('patContador').parentElement;
+  chip.classList.remove('anim-pop');void chip.offsetWidth;chip.classList.add('anim-pop');
 }
 function guardarPatologias(btn){
   var pid=document.getElementById('vista').getAttribute('data-id')||'';
@@ -483,12 +492,12 @@ function verRevision(){
   google.script.run.withSuccessHandler(function(r){
     var mt=r.metricas||{};
     document.getElementById('revMetricas').innerHTML=
-      '<span class="chip">Abiertos <b class="num">'+(mt.abiertos||0)+'</b></span>'+
+      '<span class="chip fade-in">Abiertos <b class="num">'+(mt.abiertos||0)+'</b></span>'+
       '<span class="chip">Resueltos <b class="num">'+(mt.resueltos||0)+'</b></span>'+
       '<span class="chip">Mismo <b class="num">'+(mt.esMismo||0)+'</b></span>'+
       '<span class="chip">Otro <b class="num">'+(mt.esOtro||0)+'</b></span>';
     var cs=r.casos||[];
-    document.getElementById('revLista').innerHTML=cs.length?cs.map(function(c){
+    document.getElementById('revLista').innerHTML=cs.length?cs.map(function(c,ix){
       var o=c.origen||{},cd=c.candidato;
       return '<div class="rev-card"><div class="rev-meta"><span class="chip">'+_esc(c.tipo)+
         '</span><span>'+_esc(c.criterio)+' · confianza '+_esc(c.confianza)+'</span></div>'+
