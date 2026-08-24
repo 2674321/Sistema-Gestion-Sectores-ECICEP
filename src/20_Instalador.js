@@ -87,6 +87,12 @@ function Instalar_pDiseno() {
 }
 function Instalar_pInicio() {
   var r = Modelo_disenoHojas();
+  if (r.inicio && r.inicio.verificacion) {
+    var fallos = Object.keys(r.inicio.verificacion)
+      .filter(function (k) { return !r.inicio.verificacion[k]; });
+    if (fallos.length) return { ok: false,
+      motivo: 'verificación INICIO falló en: ' + fallos.join(', ') };
+  }
   return { inicio: r.inicio, cond: r.cond, filtros: r.filtros,
            ocultas: r.ocultas, protecciones: r.protecciones };
 }
