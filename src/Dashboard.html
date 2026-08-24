@@ -101,7 +101,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <div class="card chart-card"><h3>Pacientes por sector</h3><div class="chart-wrap"><canvas id="chSector"></canvas></div></div>
   <div class="card chart-card"><h3>Estratificación <span class="etq" style="display:inline">(escala propia, no semáforo)</span></h3><div class="chart-wrap"><canvas id="chEst"></canvas></div></div>
   <div class="card chart-card"><h3>Ingresos por mes</h3><div class="chart-wrap"><canvas id="chIng"></canvas></div></div>
-  <div class="card chart-card"><h3>Patologías más frecuentes</h3><div class="chart-wrap"><canvas id="chPat"></canvas></div></div>
+  <div class="card chart-card"><h3>Patologías más frecuentes</h3><div class="chart-wrap" id="chPatBox"><canvas id="chPat"></canvas></div></div>
   <div class="card chart-card"><h3>Atenciones del mes por tipo</h3><div class="chart-wrap"><canvas id="chTipos"></canvas></div></div>
 </section>
 
@@ -246,9 +246,11 @@ try{
     .sort(function(a,b){return b.n-a.n;}).slice(0,8);
   if(!pares.length){
     if(CH.chPat){CH.chPat.destroy();delete CH.chPat;}
-    document.getElementById('chPat').parentElement.innerHTML=
-      '<div class="vacio"><i data-lucide="inbox"></i>Sin pacientes en la selección actual</div>';
+    document.getElementById('chPatBox').innerHTML=
+      '<div class="vacio"><i data-lucide="inbox"></i>Sin patologías en la selección actual</div>';
   }else{
+    if(!document.getElementById('chPat'))
+      document.getElementById('chPatBox').innerHTML='<canvas id="chPat"></canvas>';
     grafico('chPat','bar',{labels:pares.map(function(x){return D.catalogo[x.c]||x.c;}),
       datasets:[{data:pares.map(function(x){return x.n;}),
         backgroundColor:'#E5F1F2',borderColor:'#0E5C68',borderWidth:1.5,borderRadius:6}]},
