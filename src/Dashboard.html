@@ -191,7 +191,7 @@ try{
 
   /* Estado vacío global: PACIENTES sin datos en este spreadsheet */
   if(pax.length===0){
-    d.getElementById('kpis').insertAdjacentHTML('afterend',
+    document.getElementById('kpis').insertAdjacentHTML('afterend',
       '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--warning);margin-bottom:var(--space-3)">'+
       '<b>\u2139 La hoja PACIENTES est\u00e1 vac\u00eda en este spreadsheet.</b><br>'+
       '<small>Para poblarlo: sube las fuentes a Drive con su ID en FUENTES_DRIVE y ejecuta '+
