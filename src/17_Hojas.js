@@ -15,6 +15,23 @@
  * idempotente en cada ejecución de Instalar / Reparar Sistema.
  */
 
+/* Identidad de versión — generada por tools/sync_remoto.py (BUILD.js) */
+if (typeof ECICEP_BUILD === 'undefined') {
+  var ECICEP_BUILD = { commit: 'dev', fecha: '' };
+}
+
+/* Módulos para el escritorio INICIO */
+var INICIO_MODULOS = [
+  { hoja:'PACIENTES',      icono:'👥', nombre:'PACIENTES',        desc:'Consulta y gestión de pacientes ECICEP' },
+  { hoja:'INGRESO_NARANJO',icono:'📥', nombre:'INGRESOS',         desc:'Procesamiento de nuevos registros (puertas por sector)' },
+  { hoja:'SECTOR_NARANJO', icono:'🗺️', nombre:'SECTORES',         desc:'Vistas operativas · Naranjo · Amarillo · Verde' },
+  { hoja:'CONFLICTOS',     icono:'📋', nombre:'COLA DE REVISIÓN', desc:'Control de datos pendientes' },
+  { hoja:'REM_SALIDA',     icono:'🩺', nombre:'REM',              desc:'Reporte mensual generado' },
+  { hoja:'FUENTES',        icono:'🗂️', nombre:'FUENTES',          desc:'Fuentes de información y sincronización' },
+  { hoja:'LOG',            icono:'🧪', nombre:'DIAGNÓSTICO',      desc:'Centro de Pruebas en el menú · LOG técnico' },
+  { hoja:'CONFIG',         icono:'⚙️', nombre:'ADMINISTRACIÓN',   desc:'Configuración y mantenimiento' }
+];
+
 var HOJAS_NAV = [
   { hoja: 'PACIENTES',   etiqueta: '👥 Pacientes ECICEP' },
   { hoja: 'INGRESO_NARANJO', etiqueta: '🟠 Ingreso Naranjo' },
@@ -44,60 +61,130 @@ function Hojas_formulaIndicador(tipo) {
   }
 }
 
-/** GAS: hoja INICIO — navegación + indicadores vivos. Idempotente. */
+/** GAS: INICIO — escritorio principal del sistema (no parece hoja de cálculo). */
 function Hojas_crearInicio(ss) {
   var h = ss.getSheetByName('INICIO');
-  if (!h) { h = ss.insertSheet('INICIO'); }
+  if (!h) h = ss.insertSheet('INICIO');
   h.clear();
-  var gids = {};
-  HOJAS_NAV.forEach(function (n) {
-    var sh = ss.getSheetByName(n.hoja);
-    if (sh) gids[n.hoja] = sh.getSheetId();
-  });
+  h.setHiddenGridlines(true);
 
-  h.getRange('B2').setValue('ECICEP').setFontWeight('bold').setFontSize(22)
-   .setFontColor('#0E5C68').setFontFamily('Sora');
-  h.getRange('B3').setValue('Panel de navegación del sistema · CESFAM San Juan')
-   .setFontColor('#5B6472').setFontSize(10);
+  var PRIM = '#0E5C68', TXT = '#1C2430', GRIS = '#5B6472', SUAVE = '#F1F3F6';
+  var verTxt = 'v' + ECICEP.VERSION + '  ·  Build ' + (ECICEP_BUILD.commit || 'dev');
 
-  h.getRange('B5').setValue('ACCESOS').setFontWeight('bold').setFontSize(10)
-   .setFontColor('#8A93A3');
-  var fila = 6;
-  HOJAS_NAV.forEach(function (n) {
-    if (!gids[n.hoja]) return;
-    h.getRange(fila, 2).setFormula(
-      '=HYPERLINK("#gid=' + gids[n.hoja] + '";"' + n.etiqueta + '")')
-      .setFontSize(12).setFontColor('#0E5C68');
+  /* anchos: A espaciador, B..I contenido */
+  h.setColumnWidth(1, 24);
+  for (var c = 2; c <= 9; c++) h.setColumnWidth(c, 112);
+
+  /* CABECERA */
+  h.getRange('B2:D3').merge().setValue('ECICEP')
+    .setFontWeight('bold').setFontSize(26).setFontColor(PRIM).setFontFamily('Sora')
+    .setVerticalAlignment('middle');
+  h.getRange('E2:I2').merge().setValue('v' + ECICEP.VERSION + '  ·  \u2713 Operativo')
+    .setFontWeight('bold').setFontSize(11).setFontColor('#1F9D6B')
+    .setHorizontalAlignment('right').setVerticalAlignment('bottom');
+  h.getRange('E3:I3').merge().setValue('Build ' + (ECICEP_BUILD.commit || 'dev'))
+    .setFontSize(9).setFontColor('#8A93A3')
+    .setHorizontalAlignment('right').setVerticalAlignment('top');
+  h.getRange('B4:I4').merge()
+   .setValue('Sistema de Gesti\u00f3n de Pacientes Cr\u00f3nicos por Sectores \u00b7 CESFAM San Juan')
+   .setFontStyle('italic').setFontSize(11).setFontColor(GRIS);
+
+  /* MÓDULOS */
+  h.getRange('B6').setValue('M\u00d3DULOS DEL SISTEMA').setFontWeight('bold')
+   .setFontSize(10).setFontColor('#8A93A3');
+  var fila = 7;
+  INICIO_MODULOS.forEach(function (mod) {
+    var gidSh = ss.getSheetByName(mod.hoja);
+    if (!gidSh) return;
+    h.getRange(fila, 2, 1, 8).merge()
+     .setFormula('=HYPERLINK("#gid=' + gidSh.getSheetId() + '";"' +
+        mod.icono + '  ' + mod.nombre + '   \u00b7   ' + mod.desc + '")')
+     .setFontWeight('bold').setFontSize(12).setFontColor(PRIM)
+     .setBackground(SUAVE).setHorizontalAlignment('left')
+     .setVerticalAlignment('middle');
+    h.setRowHeight(fila, 30);
     fila++;
   });
 
+  /* INDICADORES (tarjetas KPI) */
   fila += 1;
-  h.getRange(fila, 2).setValue('INDICADORES DE CALIDAD').setFontWeight('bold')
+  h.getRange(fila, 2).setValue('INDICADORES').setFontWeight('bold')
    .setFontSize(10).setFontColor('#8A93A3');
   fila++;
-  var indicadores = [
-    ['Pacientes', 'TOTAL_PAC'], ['Eventos', 'EVENTOS'],
-    ['Por revisar', 'POR_REVISAR'], ['Estratificación pendiente', 'ESTRAT_PEND'],
-    ['RUT inválidos', 'RUT_INVALIDOS'], ['Registros duplicados', 'DUPLICADOS'],
-    ['Última actualización', 'ULT_ACT']
+  var kpis = [
+    ['PACIENTES', '=COUNTA(PACIENTES!A2:A)'],
+    ['EVENTOS', '=COUNTA(EVENTOS!A2:A)'],
+    ['POR REVISAR', '=COUNTIF(PACIENTES!AD2:AD;TRUE)'],
+    ['ESTRAT. PENDIENTE', '=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")'],
+    ['RUT INV\u00c1LIDOS', '=COUNTIF(PACIENTES!W2:W;FALSE)'],
+    ['DUPLICADOS', '=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))']
   ];
-  indicadores.forEach(function (ind) {
-    h.getRange(fila, 2).setValue(ind[0]).setFontColor('#5B6472');
-    var cVal = h.getRange(fila, 3).setFormula(Hojas_formulaIndicador(ind[1]))
-     .setFontWeight('bold').setFontFamily('Sora');
-    if (ind[1] === 'ULT_ACT') cVal.setNumberFormat('dd/MM/yyyy HH:mm');
+  var colK = 2;
+  kpis.forEach(function (k) {
+    h.getRange(fila, colK, 1, 2).merge().setFormula(k[1])
+     .setFontWeight('bold').setFontSize(18).setFontFamily('Sora')
+     .setFontColor(PRIM).setBackground(SUAVE)
+     .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    h.getRange(fila + 1, colK, 1, 2).merge().setValue(k[0])
+     .setFontSize(9).setFontColor(GRIS).setBackground(SUAVE)
+     .setHorizontalAlignment('center');
+    colK += 2;
+  });
+  h.setRowHeight(fila, 34);
+  fila += 2;
+
+  /* ALERTAS (fórmulas: aparecen/desaparecen solas) */
+  h.getRange(fila, 2).setValue('\u26a0 ATENCI\u00d3N REQUERIDA').setFontWeight('bold')
+   .setFontSize(10).setFontColor('#8A93A3');
+  fila++;
+  var alertas = [
+    ['=IF(COUNTIF(PACIENTES!AD2:AD;TRUE)>0;"\u26a0 "&COUNTIF(PACIENTES!AD2:AD;TRUE)&" pacientes requieren revis\u00f3n";"\u2713 Sin pacientes por revisar")'],
+    ['=IF(COUNTIF(PACIENTES!W2:W;FALSE)>0;"\u26a0 "&COUNTIF(PACIENTES!W2:W;FALSE)&" RUT inv\u00e1lidos detectados";"\u2713 RUTs correctos")'],
+    ['=IF(COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")>0;"\u26a0 "&(COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G"))&" sin estratificaci\u00f3n confirmada";"\u2713 Estratificaci\u00f3n completa")']
+  ];
+  alertas.forEach(function (a) {
+    h.getRange(fila, 2, 1, 8).merge().setFormula(a[0]).setFontSize(11);
     fila++;
   });
 
+  /* DISTRIBUCIÓN POR SECTOR */
   fila += 1;
-  h.getRange(fila, 2).setValue('Los indicadores se calculan solos (fórmulas vivas). '+
-    'Usa el menú ECICEP para las operaciones.').setFontStyle('italic').setFontSize(9)
-    .setFontColor('#8A93A3');
+  h.getRange(fila, 2).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
+   .setFontSize(10).setFontColor('#8A93A3');
+  fila++;
+  [['\ud83d\udfe0 NARANJO'], ['\ud83d\udfe1 AMARILLO'], ['\ud83d\udfe2 VERDE']].forEach(function (s2, ix) {
+    var nom = ['NARANJO', 'AMARILLO', 'VERDE'][ix];
+    h.getRange(fila, 2).setValue(s2[0]).setFontWeight('bold').setFontSize(11);
+    h.getRange(fila, 3).setFormula('=COUNTIF(PACIENTES!H2:H;"' + nom + '")&" pacientes"')
+     .setFontColor(GRIS).setFontSize(11);
+    fila++;
+  });
 
-  h.setColumnWidth(2, 240); h.setColumnWidth(3, 160);
-  h.setTabColor('#0E5C68');
-  h.setHiddenGridlines(true);
-  return { filas: fila, accesos: Object.keys(gids).length };
+  /* ESTADO DEL SISTEMA + INFORMACIÓN */
+  fila += 1;
+  h.getRange(fila, 2).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
+   .setFontSize(10).setFontColor('#8A93A3');
+  fila++;
+  h.getRange(fila, 2).setValue('\u2713 SISTEMA OPERATIVO').setFontWeight('bold')
+   .setFontSize(13).setFontColor('#1F9D6B');
+  fila++;
+  var info = [
+    ['Sistema', 'ECICEP v' + ECICEP.VERSION + '  \u00b7  Build ' + (ECICEP_BUILD.commit || 'dev')],
+    ['Actualizaci\u00f3n del sistema', ECICEP_BUILD.fecha || '—'],
+    ['\u00daltima actualizaci\u00f3n de datos',
+      '=IF(COUNT(PACIENTES!AC2:AC)=0;"\u2014";TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))'],
+    ['\u00daltima sincronizaci\u00f3n de fuentes',
+      '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")']
+  ];
+  info.forEach(function (par) {
+    h.getRange(fila, 2).setValue(par[0]).setFontColor(GRIS).setFontSize(11);
+    h.getRange(fila, 4).setValue(par[1]).setFontWeight('bold').setFontSize(11)
+     .setFontColor(TXT);
+    fila++;
+  });
+
+  h.setTabColor(PRIM);
+  return { modulos: INICIO_MODULOS.length, accesos: INICIO_MODULOS.length };
 }
 
 // ---------------------------------------------------------------------------

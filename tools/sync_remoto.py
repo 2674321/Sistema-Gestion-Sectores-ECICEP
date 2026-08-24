@@ -37,6 +37,17 @@ def api(url, method="GET", body=None):
 
 files = []
 src_dir = os.path.join(BASE, "src")
+
+# BUILD.js generado: identidad de versión (commit + fecha) para INICIO
+import subprocess
+try:
+    _commit = subprocess.check_output(['git','rev-parse','--short','HEAD'], cwd=BASE).decode().strip()
+except Exception:
+    _commit = 'dev'
+from datetime import datetime as _dt
+_build = "var ECICEP_BUILD = { commit: '%s', fecha: '%s' };" % (
+    _commit, _dt.now().strftime('%Y-%m-%d %H:%M'))
+open(os.path.join(src_dir, 'BUILD.js'), 'w', encoding='utf-8').write(_build + '\n')
 for nombre in sorted(os.listdir(src_dir)):
     ruta = os.path.join(src_dir, nombre)
     if not os.path.isfile(ruta):
