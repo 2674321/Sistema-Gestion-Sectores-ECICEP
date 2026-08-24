@@ -39,7 +39,7 @@ function Hojas_formulaIndicador(tipo) {
     case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")';
     case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!W2:W;FALSE)';
     case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))';
-    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!AC2:AC)=0,"\\u2014",TEXT(MAX(PACIENTES!AC2:AC),"dd/mm/yyyy hh:mm"))';
+    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!AC2:AC)=0;"\\u2014",TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))';
     default: return '';
   }
 }
@@ -57,7 +57,7 @@ function Hojas_crearInicio(ss) {
 
   h.getRange('B2').setValue('ECICEP').setFontWeight('bold').setFontSize(22)
    .setFontColor('#0E5C68').setFontFamily('Sora');
-  h.getRange('B3').setValue('Panel de navegación del sistema \\u00b7 CESFAM San Juan')
+  h.getRange('B3').setValue('Panel de navegación del sistema · CESFAM San Juan')
    .setFontColor('#5B6472').setFontSize(10);
 
   h.getRange('B5').setValue('ACCESOS').setFontWeight('bold').setFontSize(10)

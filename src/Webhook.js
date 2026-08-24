@@ -16,7 +16,8 @@ var WEBHOOK_ACCIONES = [
   'refrescar', 'diagnosticar', 'limpiar_prueba',
   'diagnosticar_fuentes', 'importar_muestra',
   'carga_analisis', 'carga_ejecutar',
-  'diag_trazabilidad', 'restaurar_fuente', 'rem_mensual'
+  'diag_trazabilidad', 'restaurar_fuente', 'rem_mensual',
+  'pruebas_sistema', 'auditar_calidad'
 ];
 
 function doPost(e) { return _wh_despachar(e); }
@@ -91,6 +92,12 @@ function _wh_despachar(e) {
         // Solo restaura si FUENTE está vacía (jamás sobrescribe evidencia).
         // Requiere fuente verificada contra el Excel original. NO toca fechas.
         resultado = Modelo_restaurarFuente(e.parameter.rut || '', e.parameter.fuente || '');
+        break;
+      case 'pruebas_sistema':
+        resultado = api_pruebasSistema(null); // todas, SOLO LECTURA
+        break;
+      case 'auditar_calidad':
+        resultado = Calidad_auditarTodo();
         break;
       case 'rem_mensual':
         resultado = Rem_generar(e.parameter.anio || '', e.parameter.mes || '',
