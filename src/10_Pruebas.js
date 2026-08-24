@@ -478,9 +478,6 @@ function _pruebas_eventos_staging(t, A) {
 var _salida_contador_n = 0;
 function salida_contador() { _salida_contador_n += 1; return _salida_contador_n - 1; }
 
-var _salida_contador_n = 0;
-function salida_contador() { _salida_contador_n += 1; return _salida_contador_n - 1; }
-
 // ===========================================================================
 // ETAPA 3b — adaptadores INGRESO_* · gates · transacción paciente/evento
 // ===========================================================================
