@@ -2069,4 +2069,21 @@ function _pruebas_calidad(t, A) {
   t('COLA: entidad sin problemas → RESUELTO_AUTO (sale de la cola)', function () {
     A.igual(Calidad_filaCola('CALIDAD', 'PA', P_OK, []).estado, 'RESUELTO_AUTO', 'resuelto');
   });
+
+  t('AMARILLO dedup: eventos existentes con Date NO duplican el histórico', function () {
+    var pac = { ID_INTERNO: 'PX', RUT: '14438433-4', NOMBRE: 'JUAN PÉREZ' };
+    var hist = Amarillo_historicoDe({ CONTROL: new Date(2026, 3, 19),
+      SEGUIMIENTO: '', 'PRÓXIMO CONTROL': '', PREINGRESO: '', G: 'G3' });
+    var existentes = [{ TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: new Date(2026, 3, 19) }];
+    var evs = Amarillo_eventosNuevos(pac, hist, existentes, 1);
+    A.igual(evs.length, 0, 'dedup correcto con Date crudo');
+  });
+
+  t('AMARILLO dedup: sin existentes → crea ambos', function () {
+    var pac = { ID_INTERNO: 'PY', RUT: '7478597-2', NOMBRE: 'SANDRA DÍAZ' };
+    var evs = Amarillo_eventosNuevos(pac,
+      Amarillo_historicoDe({ CONTROL: '2026-04-19', SEGUIMIENTO: '2026-06-26',
+        'PRÓXIMO CONTROL': '', PREINGRESO: '', G: 'G3' }), [], 2);
+    A.igual(evs.length, 2, 'dos eventos nuevos');
+  });
 }

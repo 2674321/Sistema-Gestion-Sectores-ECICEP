@@ -180,7 +180,9 @@ function Amarillo_aplicarHistorico(filas) {
   pacientes.forEach(function (p) {
     idxRut[Utl_texto(p.RUT).trim().toUpperCase()] = p;
   });
-  var eventos = Modelo_leerEventos();
+  /* eventos NORMALIZADOS a fechas ISO — el dedup contra Date crudos fallaba
+     ('Wed Aug 01' ≠ '2026-04-19') y duplicaba el histórico */
+  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
   var porPaciente = {};
   eventos.forEach(function (e) {
     var k = Utl_texto(e.ID_INTERNO);
@@ -241,4 +243,46 @@ function Amarillo_importarTodo(aplicarHistorico) {
   Log_flush();
   return { ok: true, puerta: puerta, historico: hist,
            pendientesSinPaciente: hist.pendientesSinPaciente };
+}
+
+/**
+ * GAS: elimina SOLO los duplicados inequívocos creados por el bug Date/ISO
+ * del histórico Amarillo: mismo ID_INTERNO + TIPO_EVENTO + FECHA_EVENTO
+ * (día) + FUENTE AMARILLO. Conserva la primera ocurrencia. Documenta en LOG.
+ * @returns {ok, revisados, eliminados, ejemplos}
+ */
+function Amarillo_dedupHistorico() {
+  var ss = Modelo_ss();
+  var hojaE = ss.getSheetByName(HOJAS.EVENTOS);
+  if (!hojaE || hojaE.getLastRow() < 2)
+    return { ok: true, revisados: 0, eliminados: 0, ejemplos: [] };
+  var tz = Session.getScriptTimeZone();
+  var vals = hojaE.getRange(2, 1, hojaE.getLastRow() - 1, hojaE.getLastColumn()).getValues();
+  var vistos = {}, filasBorrar = [], ejemplos = [];
+  for (var i = 0; i < vals.length; i++) {
+    var f = vals[i];
+    var fuente = Utl_texto(f[13]); // FUENTE
+    if (fuente.indexOf(AMARILLO_FUENTE_TAG) === -1) continue;
+    var fechaIso = f[4] instanceof Date
+      ? Utilities.formatDate(f[4], tz, 'yyyy-MM-dd')
+      : Utl_texto(f[4]).slice(0, 10);
+    var k = Utl_texto(f[1]) + '|' + Utl_texto(f[5]).toUpperCase() + '|' + fechaIso;
+    if (vistos[k]) {
+      filasBorrar.push(i + 2); // fila real en hoja
+      if (ejemplos.length < 5)
+        ejemplos.push('Fila ' + (i + 2) + ': ' + Utl_texto(f[3]) + ' · ' +
+          Utl_texto(f[5]) + ' ' + fechaIso);
+    } else {
+      vistos[k] = true;
+    }
+  }
+  for (var b = filasBorrar.length - 1; b >= 0; b--) {
+    hojaE.deleteRow(filasBorrar[b]);
+    Log_warning('Amarillo', 'dedup', 'Evento duplicado eliminado (fila ' + filasBorrar[b] + ')');
+  }
+  Log_warning('Amarillo', 'dedup', 'Eliminados ' + filasBorrar.length +
+    ' duplicados del histórico (bug Date/ISO ya corregido)');
+  Log_flush();
+  return { ok: true, revisados: vals.length, eliminados: filasBorrar.length,
+           ejemplos: ejemplos };
 }
