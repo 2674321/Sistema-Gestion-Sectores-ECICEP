@@ -73,7 +73,7 @@ function Hojas_crearInicio(ss) {
 
   /* PASO 2-3: dimensiones del lienzo (contenido + márgenes generosos) */
   var FILA_FIN = 90;   // lienzo vertical: contenido hasta ~44 + margen azul 45..90
-  var COL_FIN = 22;    // lienzo horizontal: contenido hasta ~20 + margen azul 21..22
+  var COL_FIN = 40;    // lienzo horizontal: contenido + margen azul amplio (pantallas 21")
   var FILA_CONT = 44;  // última fila de contenido
   var COL_CONT = 20;   // última columna de contenido
 
@@ -93,8 +93,9 @@ function Hojas_crearInicio(ss) {
   h.getRange(1, 1, FILA_FIN, COL_FIN).setBackground(AZUL);
 
   /* márgenes de seguridad: última col/fila del lienzo anchas y azules */
-  h.setColumnWidth(1, 40);            // margen azul izquierdo
-  h.setColumnWidth(COL_FIN, 140);     // margen azul derecho amplio
+  h.setColumnWidth(1, 140);           // margen azul izquierdo
+  h.setColumnWidth(2, 40);            // col 2: azul entre margen y ventana
+  h.setColumnWidth(COL_FIN, 400);     // margen azul derecho panorámico
   h.setRowHeight(1, 24);              // margen azul superior
   h.setRowHeight(FILA_FIN, 160);      // margen azul inferior amplio
   for (var cm = 2; cm < COL_FIN; cm++) h.setColumnWidth(cm, 58);
