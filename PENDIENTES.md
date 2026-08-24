@@ -64,3 +64,9 @@
 | 26 | **Sector Amarillo — importación** (fuente auditada: 1.091 pacientes, cobertura 99-100%, G3=594/G2=366/G1=127/SIN G=3, 25 duplicados en fuente, 6 RUTs problemáticos→revisión, 3 DV inválidos, seriales corruptos→revisión). **Pasos:** (1) subir `SEGUIMIENTO ECICEP Sector Amarillo.xlsx` a Drive como Google Sheets; (2) copiar el ID en `FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'].id`; (3) 🧪 Centro de Pruebas → 🟡 Amarillo → "Importar puerta + histórico"; (4) 📥 Gestión → Procesar ingresos; (5) re-ejecutar 🟡 Amarillo para el histórico. Módulo `16_Amarillo.js` (puerta idempotente por RUT + histórico append-only con snapshot G) | Acción operativa (2 clics tras subir archivo) | Cierre sector Amarillo | **ALTA** |
 | 27 | **Usuarios/accesos**: el sistema no gestiona usuarios propios — el acceso es por compartición de Google (hoja + Apps Script). Claves `RESPONSABLE_NARANJO/AMARILLO/VERDE` en CONFIG están vacías → definir correos de responsables por sector (#13) para protecciones finas | Decisión cliente | Protecciones por sector | MEDIA |
 | 28 | **Fuentes restantes**: `PCTS. ECICEP DESDE 2023.xlsx` (VERDE) ya importado en su hoja principal; hojas LISTADO 2025 / INASISTENTES / GESTOR DE CASO siguen EXCLUIDAS por análisis pendiente (#FUENTES_EXCLUIDAS). `ECICEP NARANJO.xlsx` completo. Actualización de fuentes = re-subir a Drive + re-procesar (pipeline idempotente) | Según cliente | Historial completo | MEDIA |
+
+## Backups
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 29 | **Backups**: manual (💾 Backups → AHORA) y automático semanal (domingo 03:00, conserva últimos 8, poda automática). Requiere autorizar scope scriptapp la primera vez. Los backups son COPIAS COMPLETAS del spreadsheet (hojas+formatos+paneles) en la raíz de Drive. Recomendación: activar SEMANAL en producción | Operativo | Pérdida de datos | **ALTA** |

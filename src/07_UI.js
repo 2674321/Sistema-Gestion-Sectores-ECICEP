@@ -29,7 +29,8 @@ function onOpen() {
       .addSubMenu(ui.createMenu('⚙️ Sistema')
         .addItem('⚙️ Configuración', 'UI_configuracion')
         .addItem('🔧 Instalar / Reparar Sistema', 'UI_instalarSistema')
-        .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas'))
+        .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
+        .addItem('💾 Backups', 'UI_backup'))
 
       .addSeparator()
       .addItem('📄 Registro del sistema', 'UI_abrirLog')

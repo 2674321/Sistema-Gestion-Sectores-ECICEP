@@ -362,3 +362,109 @@ function UI_resetFabrica(conBackup) {
     '\nSiguiente paso:\nECICEP → ⚙️ Sistema → 🔧 Instalar / Reparar Sistema\n' +
     '(recreará hojas y re-importará las fuentes conectadas).');
 }
+
+// ---------------------------------------------------------------------------
+// 💾 Backups — manual ahora + automático semanal (trigger) con poda
+// ---------------------------------------------------------------------------
+
+var BACKUP_PREFIJO_AUTO = 'AUTO_ECICEP_BACKUP';
+var BACKUP_MANTENER = 8;
+
+/** GAS: copia completa del spreadsheet (hojas, formatos, paneles, todo). */
+function Backup_crear(etiqueta) {
+  var ss = Modelo_ss();
+  var ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
+  var nombre = 'BACKUP_ECICEP' + (etiqueta ? '_' + etiqueta : '') + '_' + ts;
+  var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombre);
+  Log_info('Backup', 'crear', nombre);
+  Log_flush();
+  return { ok: true, nombre: nombre, url: copia.getUrl(), id: copia.getId() };
+}
+
+/** GAS: elimina los backups automáticos más viejos, conserva los últimos N. */
+function Backup_podarAuto(mantener) {
+  var lista = [];
+  var files = DriveApp.searchFiles('name contains "' + BACKUP_PREFIJO_AUTO + '" and trashed = false');
+  while (files.hasNext()) lista.push(files.next());
+  lista.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  var borrados = 0;
+  for (var i = (mantener || BACKUP_MANTENER); i < lista.length; i++) {
+    lista[i].setTrashed(true); borrados++;
+  }
+  return borrados;
+}
+
+/** GAS: punto de entrada del TRIGGER semanal (sin UI). */
+function Backup_programado() {
+  var r = Backup_crear('AUTO');
+  var borrados = Backup_podarAuto(BACKUP_MANTENER);
+  _config_set('BACKUP_AUTO_ULTIMA', Utilities.formatDate(new Date(),
+    Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
+  Log_info('Backup', 'programado', r.nombre + ' · podados=' + borrados);
+  Log_flush();
+  return r;
+}
+
+/** GAS: ¿existe el trigger semanal? */
+function Backup_triggerInstalado() {
+  return ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'Backup_programado';
+  });
+}
+
+/** GAS: instala trigger semanal (domingo 03:00), idempotente. */
+function Backup_programarSemanal() {
+  Backup_quitarProgramacion();
+  ScriptApp.newTrigger('Backup_programado').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  Log_info('Backup', 'programar', 'trigger semanal instalado');
+  Log_flush();
+}
+
+/** GAS: quita el trigger semanal. */
+function Backup_quitarProgramacion() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'Backup_programado') ScriptApp.deleteTrigger(t);
+  });
+}
+
+/** GAS: estado actual de backups. */
+function Backup_estado() {
+  return { trigger: Backup_triggerInstalado(),
+           ultima: _rem9_configValor('BACKUP_AUTO_ULTIMA') || 'nunca' };
+}
+
+/** 💾 Menú único de backups (manual / programar / quitar / estado). */
+function UI_backup() {
+  var ui = SpreadsheetApp.getUi();
+  var st = Backup_estado();
+  var r = ui.prompt(
+    '💾 BACKUPS DEL SISTEMA',
+    'Programación semanal: ' + (st.trigger ? 'ACTIVA (domingo 03:00)' : 'inactiva') +
+    '\nÚltima automática: ' + st.ultima +
+    '\nSe conservan los últimos ' + BACKUP_MANTENER + ' automáticos.\n\n' +
+    'Escribe una opción:\n' +
+    '  AHORA   → backup manual completo, ahora\n' +
+    '  SEMANAL → activar backup automático semanal\n' +
+    '  QUITAR  → desactivar automático\n' +
+    '  ESTADO  → ver estado',
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var op = Utl_texto(r.getResponseText()).trim().toUpperCase();
+  if (op === 'AHORA') {
+    var b = Backup_crear('MANUAL');
+    ui.alert('✓ Backup creado:\n' + b.nombre + '\n\n' + b.url);
+  } else if (op === 'SEMANAL') {
+    Backup_programarSemanal();
+    ui.alert('✓ Backup automático semanal ACTIVADO\n(Domingo 03:00 · se conservan los últimos ' +
+      BACKUP_MANTENER + ')');
+  } else if (op === 'QUITAR') {
+    Backup_quitarProgramacion();
+    ui.alert('Programación automática desactivada.');
+  } else if (op === 'ESTADO') {
+    ui.alert('Programación semanal: ' + (st.trigger ? 'ACTIVA' : 'inactiva') +
+      '\nÚltima automática: ' + st.ultima);
+  } else {
+    ui.alert('Opción no reconocida: ' + op);
+  }
+}
