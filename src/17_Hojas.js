@@ -364,26 +364,50 @@ function Hojas_formatoCondicional(ss) {
     });
   } catch (eEs) { errores.push('ESTADO dropdown: ' + (eEs && eEs.message || eEs)); }
 
-  /* Notas guía en encabezados INGRESO_* */
+  /* Notas guía en encabezados de TODAS las hojas */
   try {
-    var notas = {
-      'NOMBRE': 'Apellido Paterno + Materno + Nombre',
+    var N = {
       'RUT': 'Formato: 12345678-5 (se valida automáticamente)',
+      'NOMBRE': 'Apellido Paterno + Materno + Nombre',
       'SEXO': 'F = Femenino · M = Masculino',
       'FECHA DE NACIMIENTO': 'Formato: dd/mm/aaaa (usar date picker)',
+      'TELEFONO': 'Un solo teléfono de contacto',
+      'TELEFONO1': 'Teléfono principal',
+      'TELEFONO2': 'Teléfono secundario (opcional)',
       'TELEFONO(S)': 'Separe múltiples con / (ej: 912345678/987654321)',
+      'SECTOR': 'Naranjo · Amarillo · Verde (se asigna automáticamente)',
+      'ESTRATIFICACION': 'G1 (alto) · G2 (medio) · G3 (bajo) · G (sin calcular)',
+      'ESTADO': 'Estado actual del paciente',
+      'PROFESIONAL': 'Profesional asignado al seguimiento',
+      'CONDICIONES': 'Condiciones crónicas del paciente (ej: HTA, DM)',
+      'OTRAS_PATOLOGÍAS': 'Patologías adicionales registradas',
+      'OBSERVACIONES': 'Notas y observaciones del seguimiento',
+      'DUPLA': 'Pareja o duplica del paciente (si aplica)',
+      'FUENTE': 'Origen de los datos (INGRESO / HISTÓRICO / EDITOR)',
       'FECHA DE INGRESO': 'Fecha de ingreso al programa ECICEP',
-      'ESTRATIFICACION': 'G1 · G2 · G3 · G (sin confirmar)',
-      'ESTADO_INGRESO': 'PENDIENTE · AGENDADO · INGRESADO · NO_CONTESTA · FALLECIDO · NSP'
+      'ESTADO_INGRESO': 'PENDIENTE · AGENDADO · INGRESADO · NO_CONTESTA · FALLECIDO · NSP',
+      'OBSERVACIONES_INGRESO': 'Notas del proceso de ingreso',
+      'RUT_DV_VALIDO': 'TRUE = RUT correcto · FALSE = necesita revisión',
+      'ULTIMO_EVENTO': 'Fecha del último evento registrado',
+      'PRÓXIMO_SEGUIMIENTO': 'Fecha programada para próximo seguimiento',
+      'FECHA_CONSULTA': 'Fecha de la consulta realizada',
+      'CONFLICTO': 'Descripción del conflicto identificado',
+      'ESTADO_CONFLICTO': 'PENDIENTE · RESUELTO',
+      'RESOLUCIÓN': 'Acción tomada para resolver el conflicto',
+      'RESULTADO': 'Resultado del análisis o evaluación'
     };
-    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
-      var h = ss.getSheetByName(nombre);
-      if (!h) return;
-      INGRESO_COLUMNAS.forEach(function (col, ix) {
-        if (notas[col]) h.getRange(1, ix + 1).setNote(notas[col]);
+    function _aplicarNotas(hoja, columnas) {
+      if (!hoja || hoja.getLastRow() < 1) return;
+      columnas.forEach(function (col, ix) {
+        if (N[col]) hoja.getRange(1, ix + 1).setNote(N[col]);
       });
-    });
-  } catch (eNt) { errores.push('Notas INGRESO: ' + (eNt && eNt.message || eNt)); }
+    }
+    _aplicarNotas(ss.getSheetByName(HOJAS.PACIENTES), MODELO_PACIENTE.map(function (c) { return c.campo; }));
+    HOJAS_SECTOR.forEach(function (n) { _aplicarNotas(ss.getSheetByName(n), COLUMNAS_SECTOR_VISTA); });
+    Object.keys(HOJAS_INGRESO).forEach(function (n) { _aplicarNotas(ss.getSheetByName(n), INGRESO_COLUMNAS); });
+    if (HOJAS.CONFLICTOS) _aplicarNotas(ss.getSheetByName(HOJAS.CONFLICTOS), ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR']);
+    if (HOJAS.CONSULTA) _aplicarNotas(ss.getSheetByName(HOJAS.CONSULTA), ['FECHA_CONSULTA','RUT','NOMBRE','SEXO','SECTOR','ESTRATIFICACION']);
+  } catch (eNt) { errores.push('Notas encabezados: ' + (eNt && eNt.message || eNt)); }
 
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat por nivel */
   try {
