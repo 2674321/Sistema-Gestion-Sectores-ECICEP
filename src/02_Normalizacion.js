@@ -588,3 +588,93 @@ function Estrat_recalcularTodos() {
   Log_flush();
   return { ok: true, total: pacientes.length, recalculados: recalculados, tiempo: ms };
 }
+
+// ---------------------------------------------------------------------------
+// Frecuencia de controles (editable desde CONFIG)
+// ---------------------------------------------------------------------------
+/** Lee los días de frecuencia por nivel desde CONFIG (editable por el usuario). */
+function Control_leerFrecuencia() {
+  var defaults = { G1: 90, G2: 180, G3: 365, G: 180 };
+  try {
+    var h = Modelo_hoja(HOJAS.CONFIG);
+    if (!h || h.getLastRow() < 2) return defaults;
+    var vals = Utl_leerBloque(h);
+    for (var i = 1; i < vals.length; i++) {
+      var k = Utl_texto(vals[i][0]);
+      var v = parseInt(vals[i][1], 10);
+      if (k === 'FREC_CONTROL_G1' && v > 0) defaults.G1 = v;
+      if (k === 'FREC_CONTROL_G2' && v > 0) defaults.G2 = v;
+      if (k === 'FREC_CONTROL_G3' && v > 0) defaults.G3 = v;
+      if (k === 'FREC_CONTROL_G'  && v > 0) defaults.G  = v;
+    }
+  } catch (e) {}
+  return defaults;
+}
+
+/** Calcula PRÓXIMO_CONTROL a partir de ÚLTIMO_CONTROL + estratificación. */
+function Control_calcularProximo(ultimoControl, estratificacion) {
+  if (!ultimoControl) return '';
+  var freq = Control_leerFrecuencia();
+  var dias = freq[Utl_texto(estratificacion)] || freq.G;
+  var fecha = ultimoControl instanceof Date ? new Date(ultimoControl) : new Date(ultimoControl);
+  if (isNaN(fecha.getTime())) return '';
+  fecha.setDate(fecha.getDate() + dias);
+  return Utilities.formatDate(fecha, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/** Evalúa el estado de vigencia de un control. */
+function Control_estadoVigencia(proximoControl) {
+  if (!proximoControl) return 'SIN_FECHA';
+  var hoy = new Date();
+  var pc = proximoControl instanceof Date ? new Date(proximoControl) : new Date(proximoControl);
+  if (isNaN(pc.getTime())) return 'SIN_FECHA';
+  var diff = Math.ceil((pc - hoy) / 86400000);
+  var aviso = 7;
+  try {
+    var h = Modelo_hoja(HOJAS.CONFIG);
+    if (h && h.getLastRow() > 1) {
+      var vals = Utl_leerBloque(h);
+      for (var i = 1; i < vals.length; i++) {
+        if (Utl_texto(vals[i][0]) === 'AVISO_CONTROL_DIAS') {
+          aviso = parseInt(vals[i][1], 10) || 7;
+        }
+      }
+    }
+  } catch (e) {}
+  if (diff < 0) return 'VENCIDO';
+  if (diff <= aviso) return 'POR_VENCER';
+  return 'VIGENTE';
+}
+
+/** Recalcula PRÓXIMO_CONTROL para todos los pacientes con ÚLTIMO_CONTROL. */
+function Control_recalcularTodos() {
+  var t0 = new Date();
+  var ss = Modelo_ss();
+  var hoja = ss.getSheetByName(HOJAS.PACIENTES);
+  if (!hoja || hoja.getLastRow() < 2) return { ok: true, total: 0, cambios: 0, tiempo: 0 };
+  var pacientes = Modelo_leerPacientes();
+  var colUltCtrl = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('ULTIMO_CONTROL') + 1;
+  var colProxCtrl = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('PROXIMO_CONTROL') + 1;
+  var colEstrat = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('ESTRATIFICACION') + 1;
+  var filas = [], cambios = 0;
+  pacientes.forEach(function (p) {
+    var proxNuevo = Control_calcularProximo(p.ULTIMO_CONTROL, p.ESTRATIFICACION);
+    var proxActual = Utl_texto(p.PROXIMO_CONTROL);
+    if (proxNuevo && proxNuevo !== proxActual) {
+      p.PROXIMO_CONTROL = proxNuevo;
+      filas.push([p.ID_INTERNO, proxNuevo]);
+      cambios++;
+    }
+  });
+  if (filas.length) {
+    filas.forEach(function (par) {
+      var rng = hoja.createTextFinder(par[0]).findNext();
+      if (rng) hoja.getRange(rng.getRow(), colProxCtrl).setValue(par[1]);
+    });
+  }
+  var ms = new Date() - t0;
+  Log_info('Control', 'recalcularTodos', 'total=' + pacientes.length +
+    ' cambios=' + cambios, null, ms);
+  Log_flush();
+  return { ok: true, total: pacientes.length, cambios: cambios, tiempo: ms };
+}

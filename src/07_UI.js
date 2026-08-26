@@ -63,17 +63,18 @@ function UI_instalarSistema() {
     'Instalaci\u00f3n del sistema');
 }
 
-/** 🔄 Actualizar todo: recalcula estratificación + refresca SECTOR_* + re-aplica formato. */
+/** 🔄 Actualizar todo: recalcula estratificación + controles + refresca SECTOR_* + re-aplica formato. */
 function UI_actualizarTodo() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('🔄 Actualizando todo…', 'ECICEP', 30);
+  ss.toast('🔄 Actualizando todo…', 'ECICEP', 45);
   var r1 = Estrat_recalcularTodos();
-  var r2 = Utl_medir(Modelo_refrescarVistasSectores);
-  var r3 = Utl_medir(function () {
+  var r2 = Control_recalcularTodos();
+  var r3 = Utl_medir(Modelo_refrescarVistasSectores);
+  var r4 = Utl_medir(function () {
     Hojas_formatoCondicional(ss);
   });
   ss.toast('✅ Actualizado — ' + r1.recalculados + ' estrat. · ' +
-    r2.ms + 'ms sector · ' + r3.ms + 'ms formato', 'ECICEP', 10);
+    r2.cambios + ' controles · ' + r3.ms + 'ms sector · ' + r4.ms + 'ms formato', 'ECICEP', 10);
 }
 
 /** 🔄 Recalcular estratificación (legacy — usar UI_actualizarTodo). */

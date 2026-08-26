@@ -377,6 +377,8 @@ function Hojas_formatoCondicional(ss) {
       'TELEFONO(S)': 'Separe múltiples con / (ej: 912345678/987654321)',
       'SECTOR': 'Naranjo · Amarillo · Verde (se asigna automáticamente)',
       'ESTRATIFICACION': 'G1 (alto) · G2 (medio) · G3 (bajo) · G (sin calcular)',
+      'ULTIMO_CONTROL': 'Fecha del último control registrado',
+      'PROXIMO_CONTROL': 'Se calcula: ÚLT_CONTROL + frecuencia según G (CONFIG)',
       'ESTADO': 'Estado actual del paciente',
       'PROFESIONAL': 'Profesional asignado al seguimiento',
       'CONDICIONES': 'Condiciones crónicas del paciente (ej: HTA, DM)',
@@ -389,6 +391,8 @@ function Hojas_formatoCondicional(ss) {
       'OBSERVACIONES_INGRESO': 'Notas del proceso de ingreso',
       'RUT_DV_VALIDO': 'TRUE = RUT correcto · FALSE = necesita revisión',
       'ULTIMO_EVENTO': 'Fecha del último evento registrado',
+      'ULTIMO_CONTROL': 'Fecha del último control (se actualiza con eventos CONTROL)',
+      'PROXIMO_CONTROL': 'Se calcula automáticamente: ÚLT_CONTROL + frecuencia según G (editable en CONFIG)',
       'PRÓXIMO_SEGUIMIENTO': 'Fecha programada para próximo seguimiento',
       'FECHA_CONSULTA': 'Fecha de la consulta realizada',
       'CONFLICTO': 'Descripción del conflicto identificado',
@@ -420,7 +424,10 @@ function Hojas_formatoCondicional(ss) {
         regla('=$I2="G1"', '#D4EDDA', p.getRange(2, 9, filas, 1)),
         regla('=$I2="G2"', '#FFF3CD', p.getRange(2, 9, filas, 1)),
         regla('=$I2="G3"', '#F8D7DA', p.getRange(2, 9, filas, 1)),
-        regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1))
+        regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1)),
+        regla('=$Q2<>"",AND($Q2<TODAY()),#F8D7DA', p.getRange(2, 17, filas, 1)),
+        regla('=$Q2<>"",AND($Q2>=TODAY(),$Q2<=TODAY()+7),#FFF3CD', p.getRange(2, 17, filas, 1)),
+        regla('=$Q2<>"",AND($Q2>TODAY()+7),#D4EDDA', p.getRange(2, 17, filas, 1))
       ]);
     }
   } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
@@ -461,7 +468,13 @@ function Hojas_formatoCondicional(ss) {
         regla('=$' + letraEst + '2="G3"', '#F8D7DA',
              h.getRange(2, colEst, filas, 1)),
         regla('=OR($' + letraEst + '2="",$' + letraEst + '2="G")', '#FBF3D6',
-             h.getRange(2, colEst, filas, 1))
+             h.getRange(2, colEst, filas, 1)),
+        regla('=$M2<>"",AND($M2<TODAY()),#F8D7DA',
+             h.getRange(2, COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1, filas, 1)),
+        regla('=$M2<>"",AND($M2>=TODAY(),$M2<=TODAY()+7),#FFF3CD',
+             h.getRange(2, COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1, filas, 1)),
+        regla('=$M2<>"",AND($M2>TODAY()+7),#D4EDDA',
+             h.getRange(2, COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1, filas, 1))
       ]);
     } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }
   });

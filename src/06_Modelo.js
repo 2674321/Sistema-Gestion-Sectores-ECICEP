@@ -442,9 +442,14 @@ var CONFIG_SEED_EXTRA = [
   ['GENERAL_INSTITUCION',    'CESFAM San Juan', 'Establecimiento'],
   ['GENERAL_UNIDAD',         'Gestión de Sectores ECICEP', 'Unidad o programa'],
   ['DASHBOARD_TITULO',       'Estadísticas', 'Título de la interfaz estadística'],
-  ['REM_INCLUIR_INDICADORES','Sí',   'Indicadores por paciente en REM (Sí/No)'],
+  ['REM_INCLUIR_INDICADORES','Sí',   'Indicador por paciente en REM (Sí/No)'],
   ['REM_PDF_MARGEN_PT',      '46',   'Margen del PDF profesional (puntos)'],
-  ['PACIENTES_MIN_BUSQUEDA', '2',    'Caracteres mínimos para buscar']
+  ['PACIENTES_MIN_BUSQUEDA', '2',    'Caracteres mínimos para buscar'],
+  ['FREC_CONTROL_G1',        '90',   'Días entre controles para G1 (alto riesgo)'],
+  ['FREC_CONTROL_G2',        '180',  'Días entre controles para G2 (medio riesgo)'],
+  ['FREC_CONTROL_G3',        '365',  'Días entre controles para G3 (bajo riesgo)'],
+  ['FREC_CONTROL_G',         '180',  'Días entre controles para G (sin estratificar)'],
+  ['AVISO_CONTROL_DIAS',     '7',    'Avisar N días antes del vencimiento del control']
 ];
 
 /**

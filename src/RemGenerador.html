@@ -137,16 +137,6 @@ function construirExcel(r){
   var wsR=XLSX.utils.aoa_to_sheet([r.colsResumen].concat(r.resumen));
   var wR=[{wch:14},{wch:7},{wch:9}];                 // Paciente · Edad · Sexo
   for(var i=3;i<=18;i++)wR.push({wch:12.5});
-
-/* Restaurar última selección */
-try{
-  var ult=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');
-  if(ult){
-    document.getElementById('selMes').value=ult.mes;
-    document.getElementById('selAnio').value=ult.anio;
-    document.getElementById('selSector').value=ult.sector;
-  }
-}catch(eL){}         // 16 conteos
   wR.push({wch:8});                                   // Total
   for(var j=20;j<=23;j++)wR.push({wch:13});          // Tiene*
   wsR['!cols']=wR;
@@ -171,8 +161,7 @@ function generar(btn){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   if(!p.anio||!p.mes){toast('Selecciona año y mes del período','err');return;}
-  _ULT_OPTS={excluirErrores:document.getElementById('opExErr').checked,
-             excluirAdvertencias:document.getElementById('opExAdv').checked};
+  _ULT_OPTS={};
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
   var fin=setLoading(btn,true,'Generando…');
   barraIndet(FASES_REM_XLSX);
@@ -215,12 +204,13 @@ function informePdf(btn){
 function consultar(){google.script.run.UI_verRem();}
 
 function pintarValidacion(r1){
-  document.getElementById('rCab').textContent=r1.cabecera;
-  document.getElementById('rEv').textContent=r1.eventosPeriodo;
-  document.getElementById('rPac').textContent=r1.pacientesConActividad;
+  document.getElementById('rCab').textContent=r1.cabecera||'—';
+  document.getElementById('rEv').textContent=r1.detalle?r1.detalle.length:0;
+  document.getElementById('rPac').textContent=r1.resumen?r1.resumen.length:0;
   var inv=document.getElementById('rInv');
-  inv.textContent=r1.fechasInvalidas;
-  inv.style.color=r1.fechasInvalidas?'var(--warning)':'var(--success)';
+  var v=r1.validacion||{ok:0,warning:0,error:0};
+  inv.textContent=v.error||0;
+  inv.style.color=v.error?'var(--warning)':'var(--success)';
   var v=r1.validacion||{ok:'—',warning:'—',error:'—'};
   document.getElementById('rVok').textContent=v.ok;
   document.getElementById('rVwarn').textContent=v.warning;
@@ -228,6 +218,14 @@ function pintarValidacion(r1){
 }
 function consultar(){google.script.run.UI_verRem();}
 _refrescarIconos();
+try{
+  var ult=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');
+  if(ult){
+    document.getElementById('selMes').value=ult.mes;
+    document.getElementById('selAnio').value=ult.anio;
+    document.getElementById('selSector').value=ult.sector;
+  }
+}catch(eL){}
 </script>
 </body>
 </html>

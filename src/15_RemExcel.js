@@ -240,9 +240,9 @@ function _rem9_datos(anio, mes, sectorFiltro) {
   var tz = Session.getScriptTimeZone();
   var eventos = _rem_normalizarEventos(Modelo_leerEventos());
   var pacientes = Modelo_leerPacientes().map(function (p) {
-    return { id: Utl_texto(p.ID_INTERNO), rut: Utl_texto(p.RUT),
-             nombre: Utl_texto(p.NOMBRE), sexo: Utl_texto(p.SEXO),
-             fechaNacimiento: p.FECHA_NACIMIENTO instanceof Date
+    return { ID_INTERNO: Utl_texto(p.ID_INTERNO), RUT: Utl_texto(p.RUT),
+             NOMBRE: Utl_texto(p.NOMBRE), SEXO: Utl_texto(p.SEXO),
+             FECHA_NACIMIENTO: p.FECHA_NACIMIENTO instanceof Date
                ? Utilities.formatDate(p.FECHA_NACIMIENTO, tz, 'yyyy-MM-dd')
                : Utl_texto(p.FECHA_NACIMIENTO).slice(0, 10) };
   });
