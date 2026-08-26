@@ -541,16 +541,16 @@ function Estrat_recalcularPaciente(idInterno) {
   if (idx < 0) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
   var p = pacientes[idx];
   var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
-  var nuevoValor = res.estado === 'CALCULADO' ? res.resultado : '';
+  var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
   var anterior = Utl_texto(p.ESTRATIFICACION);
-  p.ESTRATIFICACION = nuevoValor;
-  p.ESTRAT_ORIGEN = anterior || '';
-  p.ESTRAT_CALCULADA = res.resultado || '';
+  if (nuevoValor) p.ESTRATIFICACION = nuevoValor;
+  p.ESTRAT_ORIGEN = String(anterior || '');
+  p.ESTRAT_CALCULADA = String(res.resultado || '');
   p.ESTRAT_FECHA_CALCULO = new Date();
   p.FECHA_ACTUALIZACION = new Date();
   Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
     .setValues([Modelo_filaDesdeObjeto(p)]);
-  return { ok: true, resultado: nuevoValor, puntaje: res.puntaje,
+  return { ok: true, resultado: nuevoValor || anterior || 'pendiente', puntaje: res.puntaje,
            regla: res.regla, version: res.version };
 }
 
@@ -567,15 +567,19 @@ function Estrat_recalcularTodos() {
   var filas = [];
   pacientes.forEach(function (p) {
     var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
-    var nuevoValor = res.estado === 'CALCULADO' ? res.resultado : '';
+    var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
     var anterior = Utl_texto(p.ESTRATIFICACION);
-    p.ESTRATIFICACION = nuevoValor;
-    p.ESTRAT_ORIGEN = anterior || '';
-    p.ESTRAT_CALCULADA = res.resultado || '';
+    if (nuevoValor) {
+      p.ESTRATIFICACION = nuevoValor;
+    } else if (!anterior) {
+      p.ESTRATIFICACION = '';
+    }
+    p.ESTRAT_ORIGEN = String(anterior || '');
+    p.ESTRAT_CALCULADA = String(res.resultado || '');
     p.ESTRAT_FECHA_CALCULO = new Date();
     p.FECHA_ACTUALIZACION = new Date();
     filas.push(Modelo_filaDesdeObjeto(p));
-    if (nuevoValor !== anterior) recalculados++;
+    if (nuevoValor && nuevoValor !== anterior) recalculados++;
   });
   if (filas.length) {
     hoja.getRange(2, 1, filas.length, MODELO_PACIENTE.length).setValues(filas);

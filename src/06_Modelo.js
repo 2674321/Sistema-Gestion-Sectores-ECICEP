@@ -578,7 +578,11 @@ function Modelo_leerPacientes() {
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
     var obj = {};
-    for (var c = 0; c < campos.length; c++) obj[campos[c]] = valores[f][c];
+    for (var c = 0; c < campos.length; c++) {
+      var v = valores[f][c];
+      if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
+      obj[campos[c]] = v;
+    }
     salida.push(obj);
   }
   return salida;

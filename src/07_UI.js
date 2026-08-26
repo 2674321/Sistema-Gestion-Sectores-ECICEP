@@ -1052,10 +1052,11 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
          .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
 
     var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
-    var estratValor = estratRes.estado === 'CALCULADO' ? estratRes.resultado : '';
-    pacientes[idx].ESTRATIFICACION = estratValor;
-    pacientes[idx].ESTRAT_ORIGEN = Utl_texto(pacientes[idx].ESTRAT_ORIGEN) || '';
-    pacientes[idx].ESTRAT_CALCULADA = estratRes.resultado || '';
+    var estratValor = estratRes.estado === 'CALCULADO' ? String(estratRes.resultado) : '';
+    var antEstrat = Utl_texto(pacientes[idx].ESTRATIFICACION);
+    if (estratValor) pacientes[idx].ESTRATIFICACION = estratValor;
+    pacientes[idx].ESTRAT_ORIGEN = String(antEstrat || '');
+    pacientes[idx].ESTRAT_CALCULADA = String(estratRes.resultado || '');
     pacientes[idx].ESTRAT_FECHA_CALCULO = new Date();
     Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
