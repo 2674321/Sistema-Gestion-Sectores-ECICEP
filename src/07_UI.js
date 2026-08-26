@@ -521,10 +521,16 @@ function api_centroResumen() {
     var estratPendiente = _panel_estratPendiente(paxMin);
     var sectores = _panel_resumenSectores(paxMin, eventosMin, hoyIso);
 
+    /* Contar conflictos abiertos directamente desde CONFLICTOS (sin re-leer PACIENTES) */
     var cola = 0;
     try {
-      var rev = api_revisionListar();
-      cola = (rev && rev.metricas && rev.metricas.abiertos) || 0;
+      var hojaC = Modelo_hoja(HOJAS.CONFLICTOS);
+      if (hojaC && hojaC.getLastRow() >= 2) {
+        var filasC = Utl_leerBloque(hojaC).slice(1);
+        for (var ci = 0; ci < filasC.length; ci++) {
+          if (Utl_texto(filasC[ci][8]) === 'ABIERTO') cola++;
+        }
+      }
     } catch (eR) {}
 
     var ultimaD = null;

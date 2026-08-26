@@ -80,6 +80,8 @@
 .tl-item.anim{animation:tIn .3s var(--ease-in) both}
 
 .pat-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dup-seleccion{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--surface-alt);border:1px dashed var(--border-strong);border-radius:var(--radius-md);min-height:36px}
+.dup-seleccion:empty::after{content:'Sin seleccionados';color:var(--text-muted);font-size:12px}
 .pchip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:var(--radius-full);
   border:1px solid var(--border-strong);background:var(--surface);font:500 12px 'Inter';
   cursor:pointer;user-select:none;transition:all .15s var(--ease-in);min-height:34px}
@@ -270,11 +272,9 @@ textarea.inp{min-height:64px;resize:vertical}
   </section>
 
   <section id="paneDupla" class="pane">
-    <label class="etq" for="dupBuscar">Equipo de cabecera</label>
-    <input id="dupBuscar" class="inp" placeholder="Buscar profesional..." autocomplete="off">
-    <div class="chip est-pendiente" style="margin:10px 0;border-style:solid">
-      Seleccionados: <b class="num" id="dupContador" style="color:var(--primary)">0</b>
-    </div>
+    <label class="etq">Equipo de cabecera</label>
+    <div id="dupSeleccion" class="dup-seleccion" style="margin-bottom:10px"></div>
+    <label class="etq" style="margin-top:4px">Todos los profesionales</label>
     <div id="dupLista" class="pat-chips"></div>
     <button id="btnGuardarDupla" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:10px"
       onclick="guardarDupla(this)"><i data-lucide="save"></i> Guardar dupla</button>
@@ -310,13 +310,16 @@ function _errSilencioso(nombre){return function(e){
   toast('Error en '+nombre+': '+((e&&e.message)||e),'err');
 };}
 var P_ACTUAL=null, PAT_CATALOGO=[], PAT_SELECCIONADAS=[], _animTimeline=false, _resIdx=-1;
-var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','OTRO'];
+var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','CAMBIO_SECTOR','CAMBIO_ESTRATIFICACION','LLAMADO','OTRO'];
 var TL_ESTILO={
   INGRESO:{c:'#0E5C68',i:'log-in'}, CONTROL:{c:'#6B5CA8',i:'stethoscope'},
   SEGUIMIENTO:{c:'#5B6472',i:'phone'}, PLAN_CUIDADO:{c:'#3E7CA6',i:'clipboard-list'},
   GESTION_CASO_INGRESO:{c:'#4A6FA5',i:'arrow-right-circle'},
   GESTION_CASO_EGRESO:{c:'#7A5F8A',i:'arrow-left-circle'},
-  EGRESO:{c:'#8A93A3',i:'log-out'}
+  EGRESO:{c:'#8A93A3',i:'log-out'},
+  CAMBIO_SECTOR:{c:'#E8730A',i:'arrow-right-left'},
+  CAMBIO_ESTRATIFICACION:{c:'#C79A00',i:'shield'},
+  LLAMADO:{c:'#3E7CA6',i:'phone-outgoing'}
 };
 function estiloTL(t){return TL_ESTILO[String(t||'').toUpperCase()]||{c:'#8A93A3',i:'circle'};}
 
@@ -413,7 +416,14 @@ function pintarFicha(f){
   Array.prototype.forEach.call(document.querySelectorAll('.ficha-chips > .chip'),function(c,i){
     c.classList.add('fade-in');c.style.animationDelay=(i*50)+'ms';});
 
+  var duplaTexto=f.DUPLA_INGRESO||'';
+  var duplaNames=duplaTexto?duplaTexto.split(';').map(function(c){
+    c=c.trim().toUpperCase();
+    var found=CATALOGO_PROFESIONALES.filter(function(p){return p.CODIGO===c;});
+    return found.length?found[0].NOMBRE_CANONICO:c;
+  }).filter(function(s){return s;}).join(', '):'';
   var d=[['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],
+         ['Dupla',duplaNames||duplaTexto],
          ['Próx. control',_fmtFecha(f.PROXIMO_CONTROL)||f.PROXIMO_CONTROL],
          ['Último control',_fmtFecha(f.ULTIMO_CONTROL)],['Ingreso',_fmtFecha(f.FECHA_INGRESO)]];
   document.getElementById('fDatos').innerHTML=d.map(function(x){
@@ -440,10 +450,25 @@ function pintarFicha(f){
   /* patologías resumen en chips dentro del propio tab Patologías */
   var s=document.getElementById('evTipo');
   s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
+  s.value='CONTROL';
   cargarSelectorPatologias(f.ID_INTERNO,false);
   cargarSelectorDupla(f.ID_INTERNO);
   _refrescarIconos();
 }
+/* Auto-fill: CONTROL selecciona hoy como fecha */
+document.getElementById('evTipo').addEventListener('change',function(e){
+  if(e.target.value==='CONTROL'){
+    var hoy=new Date().toISOString().slice(0,10);
+    document.getElementById('evFecha').value=hoy;
+  }
+});
+
+/* Catálogo de profesionales (solo cliente, para nombres en ficha) */
+var CATALOGO_PROFESIONALES=[{CODIGO:'MED',NOMBRE_CANONICO:'Médico/a'},{CODIGO:'ENF',NOMBRE_CANONICO:'Enfermera/o'},
+  {CODIGO:'TENS',NOMBRE_CANONICO:'TENS'},{CODIGO:'MAT',NOMBRE_CANONICO:'Matrona/o'},
+  {CODIGO:'PSI',NOMBRE_CANONICO:'Psicólogo/a'},{CODIGO:'ASIST',NOMBRE_CANONICO:'Asistente Social'},
+  {CODIGO:'NUTRI',NOMBRE_CANONICO:'Nutricionista'},{CODIGO:'KINE',NOMBRE_CANONICO:'Kinesiólogo/a'},
+  {CODIGO:'TO',NOMBRE_CANONICO:'Terapeuta Ocupacional'}];
 
 /* ================= registrar gestión ================= */
 function registrarEvento(btn){
@@ -528,53 +553,48 @@ function recalcularEstrat(btn){
 /* ================= dupla ================= */
 var DUPLA_CATALOGO=[];
 var DUPLA_SELECCIONADAS=[];
-var _dupTimer=null;
 
 function cargarSelectorDupla(pid){
   google.script.run
     .withSuccessHandler(function(r){
       DUPLA_CATALOGO=r.catalogo||[];
       DUPLA_SELECCIONADAS=r.seleccionados||[];
-      renderizarDupla('');
-      actualizarContadorDupla();
+      renderizarDupla();
     })
     .withFailureHandler(_errSilencioso('api_duplaAbrir'))
     .api_duplaAbrir(pid);
 }
 
-function renderizarDupla(filtro){
-  var q=(filtro||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function renderizarDupla(){
+  var selEl=document.getElementById('dupSeleccion');
   var lista=document.getElementById('dupLista');
-  if(!lista)return;
+  if(!selEl||!lista)return;
+  var selHtml='';
+  if(DUPLA_SELECCIONADAS.length){
+    DUPLA_SELECCIONADAS.forEach(function(cod){
+      var found=DUPLA_CATALOGO.filter(function(c){return c.CODIGO===cod;});
+      var nombre=found.length?found[0].NOMBRE:cod;
+      selHtml+='<span class="chip sel anim-pop" onclick="toggleDupla(\''+cod+'\',this)" style="cursor:pointer">'+_esc(nombre)+'</span>';
+    });
+  }else{
+    selHtml='<small style="color:var(--text-muted)">Sin seleccionados</small>';
+  }
+  selEl.innerHTML=selHtml;
+  var q='';
   var html='';
   DUPLA_CATALOGO.forEach(function(c){
     var nombre=c.NOMBRE||'';
-    var nn=nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if(q&&nn.indexOf(q)===-1)return;
     var sel=DUPLA_SELECCIONADAS.indexOf(c.CODIGO)!==-1;
-    html+='<span class="chip'+(sel?' sel anim-pop':'')+'" onclick="toggleDupla(\''+c.CODIGO+'\',this)" style="cursor:pointer">'+_esc(nombre)+'</span>';
+    html+='<span class="chip'+(sel?' sel':'')+'" onclick="toggleDupla(\''+c.CODIGO+'\',this)" style="cursor:pointer">'+_esc(nombre)+'</span>';
   });
-  lista.innerHTML=html||'<small style="color:var(--text-muted)">Sin resultados</small>';
+  lista.innerHTML=html||'<small style="color:var(--text-muted)">Sin datos</small>';
 }
-
-document.addEventListener('input',function(e){
-  if(e.target.id==='dupBuscar'){
-    clearTimeout(_dupTimer);
-    var v=e.target.value;
-    _dupTimer=setTimeout(function(){renderizarDupla(v);},220);
-  }
-});
 
 function toggleDupla(cod,el){
   var i=DUPLA_SELECCIONADAS.indexOf(cod);
-  if(i!==-1){DUPLA_SELECCIONADAS.splice(i,1);el.classList.remove('sel','anim-pop');}
-  else{DUPLA_SELECCIONADAS.push(cod);el.classList.add('sel','anim-pop');}
-  actualizarContadorDupla();
-}
-
-function actualizarContadorDupla(){
-  var el=document.getElementById('dupContador');
-  if(el)el.textContent=DUPLA_SELECCIONADAS.length;
+  if(i!==-1)DUPLA_SELECCIONADAS.splice(i,1);
+  else DUPLA_SELECCIONADAS.push(cod);
+  renderizarDupla();
 }
 
 function guardarDupla(btn){
