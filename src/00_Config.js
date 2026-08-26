@@ -80,7 +80,7 @@ const COLUMNAS_EVENTOS = [
 // ETAPA 4: + ID_INTERNO (enlace a ficha), SEXO, EDAD (derivada),
 // ULTIMO_EVENTO (derivado de EVENTOS en el refresco).
 const COLUMNAS_SECTOR_VISTA = [
-  'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS',
+  'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
   'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO',
   'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
   'ULTIMO_EVENTO', 'OBSERVACIONES'
@@ -315,9 +315,9 @@ const CFG_FECHAS = {
 //   Cuando llegue la regla oficial del programa ECICEP, reemplazar el catálogo.
 // ---------------------------------------------------------------------------
 const CFG_ESTRATIFICACION = {
-  REGLA_DISPONIBLE: false,
-  VERSION_REGLA: 'PENDIENTE_VALIDACION',
-  MOTIVO_SIN_REGLA: 'REGLA_NO_CONFIGURADA',
+  REGLA_DISPONIBLE: true,
+  VERSION_REGLA: 'v1.0-MINSAL',
+  MOTIVO_SIN_REGLA: '',
   // Regla por PUNTAJE PONDERADO (no simple conteo):
   // puntaje = suma de ponderaciones · 0→G0 · 1→G1 · 2–4→G2 · ≥5→G3
   UMBRALES: [

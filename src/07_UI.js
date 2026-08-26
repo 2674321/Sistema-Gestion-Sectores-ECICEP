@@ -29,6 +29,7 @@ function onOpen() {
       .addSubMenu(ui.createMenu('⚙️ Sistema')
         .addItem('⚙️ Configuración', 'UI_configuracion')
         .addItem('⚙ Instalar sistema', 'UI_instalarSistema')
+        .addItem('🔄 Recalcular estratificación', 'UI_recalcularEstrat')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
         .addItem('💾 Backups', 'UI_backup')
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
@@ -59,6 +60,22 @@ function UI_instalarSistema() {
     .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
     'Instalaci\u00f3n del sistema');
 }
+
+/** 🔄 Recalcular estratificación: masivo con toast + alerta final. */
+function UI_recalcularEstrat() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert('🔄 Recalcular estratificación',
+    'Esto recalculará la estratificación de TODOS los pacientes según sus patologías.\n\n' +
+    '¿Continuar?', ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) return;
+  SpreadsheetApp.getActiveSpreadsheet().toast('Recalculando estratificación…', 'ECICEP', 30);
+  var r = Estrat_recalcularTodos();
+  ui.alert('🔄 Recálculo completado\n\n' +
+    'Total: ' + r.total + '\n' +
+    'Recalculados: ' + r.recalculados + '\n' +
+    'Tiempo: ' + r.tiempo + 'ms');
+}
+
 function UI_ejecutarPruebas() {
   var res = Pruebas_ejecutarTodo();
   Log_info('UI', 'pruebas', 'pasados=' + res.pasados + '/' + res.total);
@@ -1034,12 +1051,22 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
 
+    var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    var estratValor = estratRes.estado === 'CALCULADO' ? estratRes.resultado : '';
+    pacientes[idx].ESTRATIFICACION = estratValor;
+    pacientes[idx].ESTRAT_ORIGEN = Utl_texto(pacientes[idx].ESTRAT_ORIGEN) || '';
+    pacientes[idx].ESTRAT_CALCULADA = estratRes.resultado || '';
+    pacientes[idx].ESTRAT_FECHA_CALCULO = new Date();
+    Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+         .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
+
     Log_info('Patologias', 'guardar', 'paciente=' + idInterno + ' anteriores=[' + anteriores + '] nuevas=[' + val.validos.join(';') + ']');
     Log_flush();
 
     return { ok: true, condiciones: val.validos, cantidad: val.validos.length,
              puntaje: _calcularPuntaje(val.validos),
-             estratificacion: CFG_ESTRATIFICACION.REGLA_DISPONIBLE ? 'calculable' : 'pendiente de regla oficial',
+             estratificacion: estratValor || 'pendiente',
+             estratRegla: estratRes.regla || '',
              esquemaMigrado: !!esquema.migrada };
   } catch (e) {
     Log_error('Patologias', 'guardar', e && e.message ? e.message : String(e));

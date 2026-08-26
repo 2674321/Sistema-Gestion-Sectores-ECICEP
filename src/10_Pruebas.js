@@ -800,16 +800,17 @@ function _pruebas_vistas_sector(t, A) {
     A.igual(verde[0][0], 'EC-V1', 'col 1 = ID_INTERNO');
     A.igual(verde[0][1], '1-1', 'col 2 = RUT');
     A.igual(verde[0][3], 'F'.length ? verde[0][3] : '', 'sexo presente');
-    A.igual(verde[0][6], 'G2', 'estratificación mostrada, no confundida con sector');
+    A.igual(verde[0][6], '', 'RUT_DV_VALIDO presente');
+    A.igual(verde[0][7], 'G2', 'estratificación mostrada, no confundida con sector');
     A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'AMARILLO', {}).length, 1, 'amarillo');
     A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'NARANJO', {}).length, 1, 'naranjo');
   });
   t('VISTA SECTOR: EDAD derivada y ULTIMO_EVENTO desde EVENTOS', function () {
     var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
     A.cierto(Number(verde[0][4]) >= 30, 'edad derivada plausible (nac. 1990)');
-    A.igual(verde[0][12], 'CONTROL (2026-06-01)', 'último evento desde mapa');
+    A.igual(verde[0][13], 'CONTROL (2026-06-01)', 'último evento desde mapa');
     var sinMapa = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', {});
-    A.igual(sinMapa[0][12], '', 'sin eventos → vacío');
+    A.igual(sinMapa[0][13], '', 'sin eventos → vacío');
   });
   t('VISTA SECTOR: es derivada e idempotente (nunca base independiente)', function () {
     var a = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
@@ -1078,7 +1079,8 @@ function _pruebas_motor_estrat(t, A) {
 
   t('MOTOR: regla no disponible → NO_CALCULABLE', function () {
     var r = Norm_normalizarCondiciones('HTA; DM2', catalogo);
-    var calc = Estrat_calcularPorPuntaje(2, CFG_ESTRATIFICACION);
+    var cfgOff = { REGLA_DISPONIBLE: false, VERSION_REGLA: 'OFF', UMBRALES: CFG_ESTRATIFICACION.UMBRALES };
+    var calc = Estrat_calcularPorPuntaje(2, cfgOff);
     A.igual(calc.resultado, 'NO_CALCULABLE', 'motor apagado');
     A.igual(calc.regla, 'REGLA_NO_CONFIGURADA', 'motivo');
   });
@@ -1145,7 +1147,8 @@ function _pruebas_ponderacion(t, A) {
   });
 
   t('8B MOTOR APAGADO: REGLA_DISPONIBLE=false → NO_CALCULABLE', function () {
-    var r = Estrat_evaluar('HTA; DM', CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    var cfgOff = { REGLA_DISPONIBLE: false, VERSION_REGLA: 'OFF', UMBRALES: CFG_ESTRATIFICACION.UMBRALES };
+    var r = Estrat_evaluar('HTA; DM', CATALOGO_CONDICIONES_ECICEP, cfgOff);
     A.igual(r.estado, 'NO_CALCULABLE'); A.igual(r.resultado, '');
   });
 

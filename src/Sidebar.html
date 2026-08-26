@@ -264,6 +264,8 @@ textarea.inp{min-height:64px;resize:vertical}
     </div>
     <button id="btnGuardarPat" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:12px"
       onclick="guardarPatologias(this)"><i data-lucide="save"></i> Guardar patologías</button>
+    <button id="btnRecalcEstrat" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:6px;font-size:12px"
+      onclick="recalcularEstrat(this)"><i data-lucide="refresh-cw"></i> Recalcular estratificación</button>
   </section>
 </div>
 
@@ -496,6 +498,18 @@ function guardarPatologias(btn){
     else toast(r.motivo||'No se pudo guardar','err');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
   .api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),document.getElementById('otrasPatologias').value);
+}
+function recalcularEstrat(btn){
+  var pid=document.getElementById('vista').getAttribute('data-id')||'';
+  if(!pid){toast('No hay paciente abierto','err');return;}
+  var fin=_btnCargando(btn,'Recalculando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r.ok){toast('Estratificación: '+(r.resultado||'pendiente')+' (puntaje '+r.puntaje+')','ok');
+      abrirFicha(pid);}
+    else toast(r.motivo||'No se pudo recalcular','err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+  .Estrat_recalcularPaciente(pid);
 }
 
 /* Conteo silencioso para el chip — NO abre ningún panel */

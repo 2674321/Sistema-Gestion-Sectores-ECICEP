@@ -521,3 +521,68 @@ function Estrat_evaluar(rawCondiciones, catalogo, config) {
     version: config.VERSION_REGLA
   };
 }
+
+// ---------------------------------------------------------------------------
+// GAS: recálculo de estratificación
+// ---------------------------------------------------------------------------
+
+/**
+ * Recalcula la estratificación de UN paciente y guarda en PACIENTES.
+ * @returns {{ok:boolean, resultado:string, puntaje:number, regla:string}}
+ */
+function Estrat_recalcularPaciente(idInterno) {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
+  var pacientes = Modelo_leerPacientes();
+  var idx = -1;
+  for (var i = 0; i < pacientes.length; i++) {
+    if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { idx = i; break; }
+  }
+  if (idx < 0) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+  var p = pacientes[idx];
+  var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+  var nuevoValor = res.estado === 'CALCULADO' ? res.resultado : '';
+  var anterior = Utl_texto(p.ESTRATIFICACION);
+  p.ESTRATIFICACION = nuevoValor;
+  p.ESTRAT_ORIGEN = anterior || '';
+  p.ESTRAT_CALCULADA = res.resultado || '';
+  p.ESTRAT_FECHA_CALCULO = new Date();
+  p.FECHA_ACTUALIZACION = new Date();
+  Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+    .setValues([Modelo_filaDesdeObjeto(p)]);
+  return { ok: true, resultado: nuevoValor, puntaje: res.puntaje,
+           regla: res.regla, version: res.version };
+}
+
+/**
+ * Recalcula la estratificación de TODOS los pacientes.
+ * @returns {{ok:boolean, total:number, recalculados:number, tiempo:number}}
+ */
+function Estrat_recalcularTodos() {
+  var t0 = new Date();
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
+  var pacientes = Modelo_leerPacientes();
+  var recalculados = 0;
+  var filas = [];
+  pacientes.forEach(function (p) {
+    var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    var nuevoValor = res.estado === 'CALCULADO' ? res.resultado : '';
+    var anterior = Utl_texto(p.ESTRATIFICACION);
+    p.ESTRATIFICACION = nuevoValor;
+    p.ESTRAT_ORIGEN = anterior || '';
+    p.ESTRAT_CALCULADA = res.resultado || '';
+    p.ESTRAT_FECHA_CALCULO = new Date();
+    p.FECHA_ACTUALIZACION = new Date();
+    filas.push(Modelo_filaDesdeObjeto(p));
+    if (nuevoValor !== anterior) recalculados++;
+  });
+  if (filas.length) {
+    hoja.getRange(2, 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
+  }
+  var ms = new Date() - t0;
+  Log_info('Estrat', 'recalcularTodos', 'total=' + pacientes.length +
+    ' recalculados=' + recalculados, null, ms);
+  Log_flush();
+  return { ok: true, total: pacientes.length, recalculados: recalculados, tiempo: ms };
+}

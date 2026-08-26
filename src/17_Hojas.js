@@ -332,16 +332,21 @@ function Hojas_formatoCondicional(ss) {
     } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
 
-  /* SECTOR_*: estratificación pendiente */
+  /* SECTOR_*: RUT inválido (rojo) + estratificación pendiente (ámbar) */
   HOJAS_SECTOR.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
       if (!h) return;
-      var col = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
-      var letra = String.fromCharCode(64 + col);
+      var colRut = COLUMNAS_SECTOR_VISTA.indexOf('RUT_DV_VALIDO') + 1;
+      var colEst = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
+      var letraRut = String.fromCharCode(64 + colRut);
+      var letraEst = String.fromCharCode(64 + colEst);
+      var filas = Math.max(h.getMaxRows() - 1, 1);
       aplicar(h, [
-        regla('=OR($' + letra + '2="",$' + letra + '2="G")', '#FBF3D6',
-             h.getRange(2, col, Math.max(h.getMaxRows() - 1, 1), 1))
+        regla('=$' + letraRut + '2=FALSE', '#FBE4E4',
+             h.getRange(2, colRut, filas, 1), true),
+        regla('=OR($' + letraEst + '2="",$' + letraEst + '2="G")', '#FBF3D6',
+             h.getRange(2, colEst, filas, 1))
       ]);
     } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }
   });
