@@ -445,7 +445,7 @@ function Modelo_disenoHojas() {
 }
 
 /**
- * onEdit — validación de RUT EN VIVO en las puertas INGRESO_*:
+ * onEdit — validación de RUT EN VIVO en INGRESO_* y SECTOR_*:
  * normaliza el formato, pinta verde/rojo según módulo 11 y marca
  * duplicados con nota. Simple trigger: corre como el usuario.
  */
@@ -454,10 +454,18 @@ function onEdit(e) {
     if (!e || !e.range) return;
     var sh = e.range.getSheet();
     var nombre = sh.getName();
-    if (!HOJAS_INGRESO.hasOwnProperty(nombre)) return;
+    var esIngreso = HOJAS_INGRESO.hasOwnProperty(nombre);
+    var esSector = HOJAS_SECTOR.indexOf(nombre) !== -1;
+    if (!esIngreso && !esSector) return;
     var fila = e.range.getRow(), col = e.range.getColumn();
     if (fila < 2) return;
-    var colRut = INGRESO_COLUMNAS.indexOf('RUT') + 1;
+
+    var colRut;
+    if (esIngreso) {
+      colRut = INGRESO_COLUMNAS.indexOf('RUT') + 1;
+    } else {
+      colRut = COLUMNAS_SECTOR_VISTA.indexOf('RUT') + 1;
+    }
     if (col !== colRut) return;
 
     var celda = sh.getRange(fila, col);
@@ -468,14 +476,16 @@ function onEdit(e) {
     }
     var norm = Norm_normalizarRut(String(crudo));
     if (norm.rut && norm.rut !== String(crudo).trim() && e.value === String(crudo)) {
-      celda.setValue(norm.rut); // normaliza el formato visible
+      celda.setValue(norm.rut);
     }
     var valido = norm.rut && Norm_validarRut(norm.rut);
     celda.setBackground(valido ? '#E3F3EA' : '#FBE4E4');
     celda.setNote(valido ? '✓ RUT válido' :
       '❌ RUT inválido (revisa dígito verificador o formato)');
 
-    /* duplicados dentro de la misma puerta */
+    if (!esIngreso) return;
+
+    /* duplicados dentro de la misma puerta (solo INGRESO_*) */
     var ultimo = norm.rut || String(crudo).trim().toUpperCase();
     var colVals = sh.getRange(2, col, Math.max(sh.getLastRow() - 1, 1), 1).getValues();
     var cnt = 0;
