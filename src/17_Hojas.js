@@ -727,43 +727,118 @@ function UI_resetFabrica(conBackup) {
 }
 
 // ---------------------------------------------------------------------------
-// 💾 Backups — manual ahora + automático semanal (trigger) con poda
+// 💾 Backups — dashboard HTML + carpeta dedicada + historial + poda
 // ---------------------------------------------------------------------------
 
+var BACKUP_PREFIJO = 'ECICEP_BACKUP';
 var BACKUP_PREFIJO_AUTO = 'AUTO_ECICEP_BACKUP';
-var BACKUP_MANTENER = 8;
+var BACKUP_PREFIJO_MAN = 'MANUAL_ECICEP_BACKUP';
+var BACKUP_DEFAULT_MANTENER = 8;
+var BACKUP_FOLDER_NOMBRE = 'ECICEP_Backups';
 
-/** GAS: copia completa del spreadsheet (hojas, formatos, paneles, todo). */
+/** Obtiene (o crea) la carpeta dedicada de backups en Drive. */
+function _backup_folder() {
+  var folders = DriveApp.getFoldersByName(BACKUP_FOLDER_NOMBRE);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(BACKUP_FOLDER_NOMBRE);
+}
+
+/** Obtiene el límite de retención desde CONFIG (editable por el usuario). */
+function _backup_mantener() {
+  try {
+    var h = Modelo_hoja(HOJAS.CONFIG);
+    if (h && h.getLastRow() > 1) {
+      var vals = Utl_leerBloque(h);
+      for (var i = 1; i < vals.length; i++) {
+        if (Utl_texto(vals[i][0]) === 'BACKUP_MANTENER') {
+          var v = parseInt(vals[i][1], 10);
+          if (v > 0) return v;
+        }
+      }
+    }
+  } catch (e) {}
+  return BACKUP_DEFAULT_MANTENER;
+}
+
+/** GAS: crea backup completo en carpeta dedicada. */
 function Backup_crear(etiqueta) {
-  var ss = Modelo_ss();
-  var ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
-  var nombre = 'BACKUP_ECICEP' + (etiqueta ? '_' + etiqueta : '') + '_' + ts;
-  var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombre);
-  Log_info('Backup', 'crear', nombre);
-  Log_flush();
-  return { ok: true, nombre: nombre, url: copia.getUrl(), id: copia.getId() };
+  try {
+    var ss = Modelo_ss();
+    var tz = Session.getScriptTimeZone();
+    var ts = Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss');
+    var prefijo = etiqueta === 'AUTO' ? BACKUP_PREFIJO_AUTO : BACKUP_PREFIJO_MAN;
+    var nombre = prefijo + '_' + ts;
+    var folder = _backup_folder();
+    var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombre, folder);
+    var tamano = copia.getSize();
+    Log_info('Backup', 'crear', nombre + ' · ' + tamano + ' bytes');
+    Log_flush();
+    return { ok: true, nombre: nombre, url: copia.getUrl(), id: copia.getId(), tamano: tamano };
+  } catch (e) {
+    Log_error('Backup', 'crear', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** GAS: lista todos los backups (auto + manual) ordenados por fecha. */
+function Backup_listar() {
+  var items = [];
+  var folder = null;
+  try { folder = _backup_folder(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    var nombre = f.getName();
+    if (nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0 || nombre.indexOf(BACKUP_PREFIJO_MAN) === 0) {
+      items.push({
+        nombre: nombre,
+        url: f.getUrl(),
+        id: f.getId(),
+        tamano: f.getSize(),
+        fecha: f.getDateCreated().toISOString(),
+        esAuto: nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0
+      });
+    }
+  }
+  items.sort(function (a, b) { return b.fecha > a.fecha ? 1 : b.fecha < a.fecha ? -1 : 0; });
+  var autoCount = items.filter(function (x) { return x.esAuto; }).length;
+  var manCount = items.filter(function (x) { return !x.esAuto; }).length;
+  return {
+    ok: true,
+    items: items,
+    autoCount: autoCount,
+    manCount: manCount,
+    total: items.length
+  };
 }
 
 /** GAS: elimina los backups automáticos más viejos, conserva los últimos N. */
-function Backup_podarAuto(mantener) {
-  var lista = [];
-  var files = DriveApp.searchFiles('name contains "' + BACKUP_PREFIJO_AUTO + '" and trashed = false');
-  while (files.hasNext()) lista.push(files.next());
-  lista.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
-  var borrados = 0;
-  for (var i = (mantener || BACKUP_MANTENER); i < lista.length; i++) {
-    lista[i].setTrashed(true); borrados++;
+function Backup_podar(mantener) {
+  mantener = mantener || _backup_mantener();
+  var folder = null;
+  try { folder = _backup_folder(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
+  var autoFiles = [];
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    if (f.getName().indexOf(BACKUP_PREFIJO_AUTO) === 0 && !f.isTrashed()) autoFiles.push(f);
   }
-  return borrados;
+  autoFiles.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  var borrados = 0;
+  for (var i = mantener; i < autoFiles.length; i++) {
+    try { autoFiles[i].setTrashed(true); borrados++; } catch (e) {}
+  }
+  return { ok: true, borrados: borrados, conservados: Math.min(autoFiles.length, mantener) };
 }
 
 /** GAS: punto de entrada del TRIGGER semanal (sin UI). */
 function Backup_programado() {
   var r = Backup_crear('AUTO');
-  var borrados = Backup_podarAuto(BACKUP_MANTENER);
+  var poda = Backup_podar();
   _config_set('BACKUP_AUTO_ULTIMA', Utilities.formatDate(new Date(),
     Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
-  Log_info('Backup', 'programado', r.nombre + ' · podados=' + borrados);
+  Log_info('Backup', 'programado', r.nombre + ' · podados=' + (poda.borrados || 0));
   Log_flush();
   return r;
 }
@@ -791,43 +866,49 @@ function Backup_quitarProgramacion() {
   });
 }
 
-/** GAS: estado actual de backups. */
-function Backup_estado() {
-  return { trigger: Backup_triggerInstalado(),
-           ultima: _rem9_configValor('BACKUP_AUTO_ULTIMA') || 'nunca' };
+/** Endpoint: estado + historial completo (para el HTML). */
+function api_backupListar() {
+  var st = Backup_listar();
+  var trigger = Backup_triggerInstalado();
+  var ultima = '';
+  try { ultima = _rem9_configValor('BACKUP_AUTO_ULTIMA') || ''; } catch (e) {}
+  return {
+    ok: true,
+    trigger: trigger,
+    ultima: ultima || 'nunca',
+    mantener: _backup_mantener(),
+    items: st.items || [],
+    autoCount: st.autoCount || 0,
+    manCount: st.manCount || 0
+  };
 }
 
-/** 💾 Menú único de backups (manual / programar / quitar / estado). */
-function UI_backup() {
-  var ui = SpreadsheetApp.getUi();
-  var st = Backup_estado();
-  var r = ui.prompt(
-    '💾 BACKUPS DEL SISTEMA',
-    'Programación semanal: ' + (st.trigger ? 'ACTIVA (domingo 03:00)' : 'inactiva') +
-    '\nÚltima automática: ' + st.ultima +
-    '\nSe conservan los últimos ' + BACKUP_MANTENER + ' automáticos.\n\n' +
-    'Escribe una opción:\n' +
-    '  AHORA   → backup manual completo, ahora\n' +
-    '  SEMANAL → activar backup automático semanal\n' +
-    '  QUITAR  → desactivar automático\n' +
-    '  ESTADO  → ver estado',
-    ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  var op = Utl_texto(r.getResponseText()).trim().toUpperCase();
-  if (op === 'AHORA') {
-    var b = Backup_crear('MANUAL');
-    ui.alert('✓ Backup creado:\n' + b.nombre + '\n\n' + b.url);
-  } else if (op === 'SEMANAL') {
-    Backup_programarSemanal();
-    ui.alert('✓ Backup automático semanal ACTIVADO\n(Domingo 03:00 · se conservan los últimos ' +
-      BACKUP_MANTENER + ')');
-  } else if (op === 'QUITAR') {
-    Backup_quitarProgramacion();
-    ui.alert('Programación automática desactivada.');
-  } else if (op === 'ESTADO') {
-    ui.alert('Programación semanal: ' + (st.trigger ? 'ACTIVA' : 'inactiva') +
-      '\nÚltima automática: ' + st.ultima);
-  } else {
-    ui.alert('Opción no reconocida: ' + op);
+/** Endpoint: crear backup manual. */
+function api_backupCrear(etiqueta) {
+  return Backup_crear(etiqueta || 'MANUAL');
+}
+
+/** Endpoint: alternar programación automática. */
+function api_backupToggle() {
+  try {
+    if (Backup_triggerInstalado()) {
+      Backup_quitarProgramacion();
+      return { ok: true, mensaje: 'Backup automático desactivado' };
+    } else {
+      Backup_programarSemanal();
+      return { ok: true, mensaje: 'Backup automático activado (domingo 03:00)' };
+    }
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
+}
+
+/** Endpoint: podar backups automáticos viejos. */
+function api_backupPodar() {
+  return Backup_podar();
+}
+
+/** 💾 Menú de backups: abre dashboard HTML. */
+function UI_backup() {
+  _ui_dialogo('Backup', 'Backups del sistema');
 }

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <?!= include('00_Tokens') ?>
+  <base target="_top">
+  <style>
+    body{font-family:'Inter',sans-serif;background:var(--bg);margin:0;padding:var(--space-5);color:var(--text-primary)}
+    h2{font-size:18px;margin:0 0 var(--space-4)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-5)}
+    .card-sm{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4)}
+    .card-sm .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+    .card-sm .value{font-size:22px;font-weight:700;margin-top:4px}
+    .card-sm .value.ok{color:var(--success)} .card-sm .value.warn{color:var(--warning)} .card-sm .value.off{color:var(--text-muted)}
+    .actions{display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)}
+    .section-title{font-size:13px;font-weight:600;color:var(--text-secondary);margin:var(--space-4) 0 var(--space-2);display:flex;align-items:center;gap:6px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;padding:8px 10px;background:var(--surface-alt);color:var(--text-secondary);font-weight:600;border-bottom:2px solid var(--border)}
+    td{padding:8px 10px;border-bottom:1px solid var(--border)}
+    tr:hover td{background:var(--primary-soft)}
+    .badge{display:inline-block;padding:2px 8px;border-radius:var(--radius-full);font-size:11px;font-weight:600}
+    .badge-auto{background:#E5F1F2;color:var(--primary)} .badge-manual{background:#FBF3D6;color:#7A5F00}
+    .badge-ok{background:#D4EDDA;color:#1D5B38} .badge-err{background:#F8D7DA;color:#842029}
+    .link{color:var(--primary);text-decoration:none;font-weight:500} .link:hover{text-decoration:underline}
+    .empty{text-align:center;padding:var(--space-6);color:var(--text-muted)}
+    .footer{margin-top:var(--space-5);font-size:11px;color:var(--text-muted);text-align:center}
+    .row-acciones{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap}
+    .skel{height:60px;background:var(--surface-alt);border-radius:var(--radius-md);animation:pulso 1.5s infinite}
+    @keyframes pulso{0%,100%{opacity:.6}50%{opacity:1}}
+    .toast-zone{position:fixed;top:16px;right:16px;z-index:999}
+  </style>
+</head>
+<body>
+<div style="max-width:800px;margin:0 auto">
+  <h2>💾 Backups del sistema</h2>
+
+  <!-- Estado -->
+  <div class="grid" id="bkEstado">
+    <div class="card-sm"><div class="label">Programación</div><div class="value off" id="bkProg">—</div></div>
+    <div class="card-sm"><div class="label">Última automática</div><div class="value off" id="bkUltima">—</div></div>
+    <div class="card-sm"><div class="label">Backups automáticos</div><div class="value" id="bkAutoCount">—</div></div>
+    <div class="card-sm"><div class="label">Backups manuales</div><div class="value" id="bkManCount">—</div></div>
+  </div>
+
+  <!-- Acciones -->
+  <div class="actions">
+    <button class="btn btn-pri" id="btnCrear" onclick="crearBackup(this)"><i data-lucide="hard-drive-download"></i> Crear backup ahora</button>
+    <button class="btn btn-sec" id="btnToggle" onclick="toggleProgramacion(this)"><i data-lucide="clock"></i> <span id="txtToggle">—</span></button>
+    <button class="btn btn-ghost" onclick="cargarBackups()"><i data-lucide="refresh-cw"></i> Actualizar</button>
+  </div>
+
+  <!-- Tabla historial -->
+  <div class="section-title"><i data-lucide="list"></i> Historial de backups</div>
+  <div id="bkTabla"><div class="skel"></div><div class="skel" style="margin-top:8px"></div></div>
+
+  <div class="footer">Se conservan los últimos <b id="bkRetencion">8</b> backups automáticos. Los manuales se conservan indefinidamente.</div>
+</div>
+
+<div id="toastZone" class="toast-zone"></div>
+
+<script>
+function toast(m,t){var z=document.getElementById('toastZone');var d=document.createElement('div');d.className='toast '+(t||'ok');d.innerHTML='<span class="t-ic">'+(t==='err'?'✕':'✓')+'</span> '+m;z.appendChild(d);setTimeout(function(){d.classList.add('out');setTimeout(function(){d.remove();},300);},4000);}
+
+function fmtBytes(b){if(!b||b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
+function fmtFecha(iso){if(!iso)return '—';try{var d=new Date(iso);return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
+
+function cargarBackups(){
+  document.getElementById('bkTabla').innerHTML='<div class="skel"></div><div class="skel" style="margin-top:8px"></div>';
+  google.script.run.withSuccessHandler(pintarBackups).withFailureHandler(function(e){document.getElementById('bkTabla').innerHTML='<div class="empty">Error al cargar</div>';console.error(e);}).api_backupListar();
+}
+
+function pintarBackups(r){
+  if(!r||!r.ok){document.getElementById('bkTabla').innerHTML='<div class="empty">'+((r&&r.motivo)||'Sin datos')+'</div>';return;}
+  document.getElementById('bkProg').textContent=r.trigger?'Activa (domingo 03:00)':'Inactiva';
+  document.getElementById('bkProg').className='value '+(r.trigger?'ok':'off');
+  document.getElementById('bkUltima').textContent=r.ultima||'nunca';
+  document.getElementById('bkAutoCount').textContent=r.autoCount||0;
+  document.getElementById('bkManCount').textContent=r.manCount||0;
+  document.getElementById('txtToggle').textContent=r.trigger?'Desactivar automático':'Activar automático';
+  document.getElementById('bkRetencion').textContent=r.mantener||8;
+  _refrescarIconos();
+  if(!r.items||!r.items.length){document.getElementById('bkTabla').innerHTML='<div class="empty">No hay backups registrados</div>';return;}
+  var h='<table><thead><tr><th>Nombre</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th><th>Estado</th><th></th></tr></thead><tbody>';
+  r.items.forEach(function(b){
+    var tipo=b.nombre.indexOf('AUTO_')===0?'auto':'manual';
+    h+='<tr><td style="max-width:280px;word-break:break-all">'+_esc(b.nombre)+'</td>';
+    h+='<td><span class="badge badge-'+tipo+'">'+tipo+'</span></td>';
+    h+='<td>'+fmtFecha(b.fecha)+'</td>';
+    h+='<td>'+fmtBytes(b.tamano)+'</td>';
+    h+='<td><span class="badge badge-ok">OK</span></td>';
+    h+='<td><a class="link" href="'+b.url+'" target="_blank" rel="noopener">Abrir</a></td></tr>';
+  });
+  h+='</tbody></table>';
+  document.getElementById('bkTabla').innerHTML=h;
+  _refrescarIconos();
+}
+
+function crearBackup(btn){
+  var fin=setLoading(btn,true,'Creando backup…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('✓ Backup creado: '+r.nombre,'ok');cargarBackups();}
+    else toast('✕ Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('✕ Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL');
+}
+
+function toggleProgramacion(btn){
+  var fin=setLoading(btn,true,'Procesando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('✓ '+(r.mensaje||'Actualizado'),'ok');cargarBackups();}
+    else toast('✕ Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('✕ Error: '+(e&&e.message||e),'err');}).api_backupToggle();
+}
+
+function podarAuto(btn){
+  if(!confirm('Esto eliminará los backups automáticos antiguos (se conservan los últimos 8).'))return;
+  var fin=setLoading(btn,true,'Podando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('✓ '+r.borrados+' backups eliminados','ok');cargarBackups();}
+    else toast('✕ Error','err');
+  }).withFailureHandler(function(e){fin();toast('✕ Error','err');}).api_backupPodar();
+}
+
+_refrescarIconos();
+cargarBackups();
+</script>
+</body>
+</html>
