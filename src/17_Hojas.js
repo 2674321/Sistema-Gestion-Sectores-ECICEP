@@ -323,6 +323,37 @@ function Hojas_formatoCondicional(ss) {
     });
   } catch (eSx) { errores.push('SEXO dropdown: ' + (eSx && eSx.message || eSx)); }
 
+  /* Date picker FECHA_NACIMIENTO en INGRESO_* */
+  try {
+    var ruleFecha = SpreadsheetApp.newDataValidation()
+      .setDateValid(true).setAllowInvalid(false).build();
+    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+      var h = ss.getSheetByName(nombre);
+      if (h && h.getLastRow() > 1) {
+        var colFnac = INGRESO_COLUMNAS.indexOf('FECHA DE NACIMIENTO') + 1;
+        if (colFnac > 0) {
+          h.getRange(2, colFnac, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleFecha);
+          aplicadas++;
+        }
+      }
+    });
+  } catch (eFn) { errores.push('FECHA_NACIMIENTO date picker: ' + (eFn && eFn.message || eFn)); }
+
+  /* Dropdown ESTADO en INGRESO_* */
+  try {
+    var ruleEstado = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['PENDIENTE', 'AGENDADO', 'INGRESADO', 'NO_CONTESTA', 'FALLECIDO', 'NSP'], true)
+      .setAllowInvalid(false).build();
+    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+      var h = ss.getSheetByName(nombre);
+      if (h && h.getLastRow() > 1) {
+        var colEst = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
+        h.getRange(2, colEst, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleEstado);
+        aplicadas++;
+      }
+    });
+  } catch (eEs) { errores.push('ESTADO dropdown: ' + (eEs && eEs.message || eEs)); }
+
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat pendiente (ámbar) */
   try {
     var p = ss.getSheetByName(HOJAS.PACIENTES);
@@ -410,7 +441,7 @@ function Hojas_ocultarTecnicas(ss) {
     });
   }
   var p = ss.getSheetByName(HOJAS.PACIENTES);
-  if (p) ocultar(p, [1, 7, 22, 24, 27]); // ID_INTERNO·TEL_OBS·NOM_NORM·RUT_SIN_DV·EST_FEC
+  if (p) ocultar(p, [1, 7, 22, 23, 24, 25, 26, 27, 28]); // ID_INTERNO·TEL_OBS·NOMBRE_NORM·RUT_SIN_DV·ESTRAT_ORIGEN·ESTRAT_CALC·ESTRAT_FECHA·FECHA_ACT·REVISION
   var e = ss.getSheetByName(HOJAS.EVENTOS);
   if (e) ocultar(e, [1, 2, 14, 15, 16]); // ID_EVENTO·ID_INTERNO·FUENTE·REGISTRADO_POR·FECHA_REG
   return { ocultas: ocultas };
