@@ -231,6 +231,7 @@ textarea.inp{min-height:64px;resize:vertical}
       <button class="tab activa" data-pane="paneDatos">Datos</button>
       <button class="tab" data-pane="paneHist">Historial</button>
       <button class="tab" data-pane="panePat">Patologías</button>
+      <button class="tab" data-pane="paneDupla">Dupla</button>
     </nav>
   </div>
 
@@ -266,6 +267,17 @@ textarea.inp{min-height:64px;resize:vertical}
       onclick="guardarPatologias(this)"><i data-lucide="save"></i> Guardar patologías</button>
     <button id="btnRecalcEstrat" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:6px;font-size:12px"
       onclick="recalcularEstrat(this)"><i data-lucide="refresh-cw"></i> Recalcular estratificación</button>
+  </section>
+
+  <section id="paneDupla" class="pane">
+    <label class="etq" for="dupBuscar">Equipo de cabecera</label>
+    <input id="dupBuscar" class="inp" placeholder="Buscar profesional..." autocomplete="off">
+    <div class="chip est-pendiente" style="margin:10px 0;border-style:solid">
+      Seleccionados: <b class="num" id="dupContador" style="color:var(--primary)">0</b>
+    </div>
+    <div id="dupLista" class="pat-chips"></div>
+    <button id="btnGuardarDupla" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:10px"
+      onclick="guardarDupla(this)"><i data-lucide="save"></i> Guardar dupla</button>
   </section>
 </div>
 
@@ -429,6 +441,7 @@ function pintarFicha(f){
   var s=document.getElementById('evTipo');
   s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
   cargarSelectorPatologias(f.ID_INTERNO,false);
+  cargarSelectorDupla(f.ID_INTERNO);
   _refrescarIconos();
 }
 
@@ -510,6 +523,72 @@ function recalcularEstrat(btn){
     else toast(r.motivo||'No se pudo recalcular','err');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
   .Estrat_recalcularPaciente(pid);
+}
+
+/* ================= dupla ================= */
+var DUPLA_CATALOGO=[];
+var DUPLA_SELECCIONADAS=[];
+var _dupTimer=null;
+
+function cargarSelectorDupla(pid){
+  google.script.run
+    .withSuccessHandler(function(r){
+      DUPLA_CATALOGO=r.catalogo||[];
+      DUPLA_SELECCIONADAS=r.seleccionados||[];
+      renderizarDupla('');
+      actualizarContadorDupla();
+    })
+    .withFailureHandler(_errSilencioso('api_duplaAbrir'))
+    .api_duplaAbrir(pid);
+}
+
+function renderizarDupla(filtro){
+  var q=(filtro||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var lista=document.getElementById('dupLista');
+  if(!lista)return;
+  var html='';
+  DUPLA_CATALOGO.forEach(function(c){
+    var nombre=c.NOMBRE||'';
+    var nn=nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(q&&nn.indexOf(q)===-1)return;
+    var sel=DUPLA_SELECCIONADAS.indexOf(c.CODIGO)!==-1;
+    html+='<span class="chip'+(sel?' sel anim-pop':'')+'" onclick="toggleDupla(\''+c.CODIGO+'\',this)" style="cursor:pointer">'+_esc(nombre)+'</span>';
+  });
+  lista.innerHTML=html||'<small style="color:var(--text-muted)">Sin resultados</small>';
+}
+
+document.addEventListener('input',function(e){
+  if(e.target.id==='dupBuscar'){
+    clearTimeout(_dupTimer);
+    var v=e.target.value;
+    _dupTimer=setTimeout(function(){renderizarDupla(v);},220);
+  }
+});
+
+function toggleDupla(cod,el){
+  var i=DUPLA_SELECCIONADAS.indexOf(cod);
+  if(i!==-1){DUPLA_SELECCIONADAS.splice(i,1);el.classList.remove('sel','anim-pop');}
+  else{DUPLA_SELECCIONADAS.push(cod);el.classList.add('sel','anim-pop');}
+  actualizarContadorDupla();
+}
+
+function actualizarContadorDupla(){
+  var el=document.getElementById('dupContador');
+  if(el)el.textContent=DUPLA_SELECCIONADAS.length;
+}
+
+function guardarDupla(btn){
+  var pid=document.getElementById('vista').getAttribute('data-id')||'';
+  if(!pid){toast('No hay paciente abierto','err');return;}
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run
+    .withSuccessHandler(function(r){
+      fin();
+      if(r&&r.ok){toast('✓ Dupla guardada ('+r.cantidad+' profesionales)','ok');}
+      else toast(r.motivo||'No se pudo guardar','err');
+    })
+    .withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
+    .api_duplaGuardar(pid,DUPLA_SELECCIONADAS.slice());
 }
 
 /* Conteo silencioso para el chip — NO abre ningún panel */

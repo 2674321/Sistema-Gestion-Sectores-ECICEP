@@ -417,6 +417,19 @@ const CATALOGO_CONDICIONES_ECICEP = [
   { CODIGO:'ULCERA', NOMBRE_CANONICO:'Úlcera crónica de la piel', ALIASES:['ulcera','ulcera cronica','L97'], PONDERACION:1, ACTIVA:true }
 ];
 
+// Catálogo de tipos de profesional CESFAM (PROPUESTA — pendiente confirmación del cliente).
+const CATALOGO_PROFESIONALES = [
+  { CODIGO:'MED',  NOMBRE_CANONICO:'Médico/a',            ACTIVA:true },
+  { CODIGO:'ENF',  NOMBRE_CANONICO:'Enfermera/o',         ACTIVA:true },
+  { CODIGO:'TENS', NOMBRE_CANONICO:'TENS',                ACTIVA:true },
+  { CODIGO:'MAT',  NOMBRE_CANONICO:'Matrona/o',           ACTIVA:true },
+  { CODIGO:'PSI',  NOMBRE_CANONICO:'Psicólogo/a',         ACTIVA:true },
+  { CODIGO:'ASIST',NOMBRE_CANONICO:'Asistente Social',    ACTIVA:true },
+  { CODIGO:'NUTRI',NOMBRE_CANONICO:'Nutricionista',       ACTIVA:true },
+  { CODIGO:'KINE', NOMBRE_CANONICO:'Kinesiólogo/a',       ACTIVA:true },
+  { CODIGO:'TO',   NOMBRE_CANONICO:'Terapeuta Ocupacional',ACTIVA:true }
+];
+
 
 // ---------------------------------------------------------------------------
 // Logging (DEC-014): búfer en memoria + escritura por lotes

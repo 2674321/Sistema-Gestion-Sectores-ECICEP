@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <?!= include('00_Tokens') ?>
+  <base target="_top">
+  <style>
+    body{font-family:'Inter',sans-serif;background:var(--bg);margin:0;padding:var(--space-6);display:flex;justify-content:center;align-items:center;min-height:80vh;}
+    .acerca-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--space-7);max-width:600px;width:100%;text-align:center;}
+    .logo{font-size:48px;margin-bottom:var(--space-3);}
+    .nombre{font-size:24px;font-weight:700;color:var(--text-primary);margin:0;}
+    .institucion{font-size:14px;color:var(--text-secondary);margin-top:var(--space-1);}
+    .version-badge{display:inline-block;background:var(--primary-soft);color:var(--primary);font-weight:600;font-size:13px;padding:4px 14px;border-radius:var(--radius-full);margin-top:var(--space-3);}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-top:var(--space-5);}
+    .stat{background:var(--surface-alt);border-radius:var(--radius-md);padding:var(--space-3);}
+    .stat-num{font-size:28px;font-weight:700;color:var(--primary);}
+    .stat-label{font-size:12px;color:var(--text-muted);margin-top:2px;}
+    .info{margin-top:var(--space-5);text-align:left;font-size:13px;color:var(--text-secondary);line-height:1.7;}
+    .info b{color:var(--text-primary);}
+    .links{margin-top:var(--space-5);display:flex;gap:var(--space-3);justify-content:center;flex-wrap:wrap;}
+    .links a{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;padding:8px 20px;border-radius:var(--radius-md);text-decoration:none;font-weight:600;font-size:13px;transition:background .2s;}
+    .links a:hover{background:var(--primary-strong);}
+    .footer{margin-top:var(--space-5);font-size:11px;color:var(--text-muted);}
+  </style>
+</head>
+<body>
+<div class="acerca-card">
+  <div class="logo">&#x1F3E5;</div>
+  <h1 class="nombre" id="acrNombre">ECICEP</h1>
+  <div class="institucion" id="acrInstitucion">—</div>
+  <div class="version-badge" id="acrVersion">v0.8.0</div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num" id="acrPac">—</div>
+      <div class="stat-label">Pacientes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="acrEvs">—</div>
+      <div class="stat-label">Eventos</div>
+    </div>
+  </div>
+
+  <div class="info">
+    <b>Sistema:</b> <span id="acrSistema">—</span><br>
+    <b>Ambiente:</b> <span id="acrAmbiente">Producción</span><br>
+    <b>Fecha vista:</b> <span id="acrFecha">—</span><br>
+    <b>Motor estratificación:</b> <span id="acrEstrat">—</span>
+  </div>
+
+  <div class="links">
+    <a href="https://github.com/2674321" target="_blank" rel="noopener">
+      <i data-lucide="github"></i> GitHub
+    </a>
+  </div>
+
+  <div class="footer">ECICEP &mdash; Gestión de Sectores para Crónicos</div>
+</div>
+
+<script>
+function pintar(r){
+  if(!r)return;
+  document.getElementById('acrNombre').textContent=r.nombre||'ECICEP';
+  document.getElementById('acrInstitucion').textContent=r.institucion||'';
+  document.getElementById('acrVersion').textContent='v'+(r.version||'0.8.0');
+  document.getElementById('acrPac').textContent=r.pacientes!=null?r.pacientes:'—';
+  document.getElementById('acrEvs').textContent=r.eventos!=null?r.eventos:'—';
+  document.getElementById('acrSistema').textContent=(r.nombre||'ECICEP')+' — '+(r.institucion||'');
+  document.getElementById('acrFecha').textContent=r.fecha||'—';
+  document.getElementById('acrEstrat').textContent=r.estratificacion||'—';
+  document.getElementById('acrAmbiente').textContent=r.ambiente||'Producción';
+  _refrescarIconos();
+}
+google.script.run
+  .withSuccessHandler(pintar)
+  .withFailureHandler(function(e){document.getElementById('acrPac').textContent='Error';console.error(e);})
+  .api_acercaDe();
+</script>
+</body>
+</html>

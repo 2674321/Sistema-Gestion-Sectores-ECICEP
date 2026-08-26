@@ -286,12 +286,12 @@ var MODELO_DISENO = [
   { nombre: 'INICIO',           color: '#0E5C68', estilo: false },
 
   // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
-  { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'INGRESO_NARANJO',  color: '#E8730A', banda: true, formato: INGRESO_COLUMNAS },
-  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00', banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'INGRESO_AMARILLO', color: '#C79A00', banda: true, formato: INGRESO_COLUMNAS },
-  { nombre: 'SECTOR_VERDE',     color: '#2E8B57', banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'INGRESO_VERDE',    color: '#2E8B57', banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
+  { nombre: 'INGRESO_NARANJO',  color: '#E8730A', banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
+  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00', banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
+  { nombre: 'INGRESO_AMARILLO', color: '#C79A00', banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
+  { nombre: 'SECTOR_VERDE',     color: '#2E8B57', banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
+  { nombre: 'INGRESO_VERDE',    color: '#2E8B57', banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
   // Bases
   { nombre: 'PACIENTES',        color: '#1C2430', congelarCols: 3, banda: true }, // ID·RUT·NOMBRE
   { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2, banda: true },

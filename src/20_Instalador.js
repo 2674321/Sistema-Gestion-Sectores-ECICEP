@@ -87,6 +87,7 @@ function Instalar_pDiseno() {
 }
 function Instalar_pInicio() {
   var r = Modelo_disenoHojas();
+  Hojas_colorearRutIngresos();
   if (r.inicio && r.inicio.verificacion) {
     var fallos = Object.keys(r.inicio.verificacion)
       .filter(function (k) { return !r.inicio.verificacion[k]; });

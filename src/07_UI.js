@@ -34,6 +34,7 @@ function onOpen() {
 
       .addSeparator()
       .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
+      .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe')
       .addItem('📄 Registro del sistema', 'UI_abrirLog')
       .addToUi();
     SpreadsheetApp.getActiveSpreadsheet().toast(
@@ -389,6 +390,92 @@ function UI_verRem() { _ui_dialogo('RemVista', 'REM vista de trabajo'); }
 
 /** Generador REM: dialog estilo Panel (reemplaza los prompt nativos). */
 function UI_generarRem() { _ui_dialogo('RemGenerador', 'Generar REM'); }
+
+/** Acerca de: dialog con datos del sistema. */
+function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
+
+/** Endpoint: datos para la vista "Acerca de". */
+function api_acercaDe() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tz = Session.getScriptTimeZone();
+  var pacHoja = ss.getSheetByName(HOJAS.PACIENTES);
+  var evsHoja = ss.getSheetByName(HOJAS.EVENTOS);
+  var pacCount = pacHoja && pacHoja.getLastRow() > 1 ? pacHoja.getLastRow() - 1 : 0;
+  var evsCount = evsHoja && evsHoja.getLastRow() > 1 ? evsHoja.getLastRow() - 1 : 0;
+  var nombre = '', institucion = '';
+  try {
+    var h = ss.getSheetByName(HOJAS.CONFIG);
+    if (h && h.getLastRow() > 1) {
+      var vals = Utl_leerBloque(h);
+      for (var i = 1; i < vals.length; i++) {
+        var k = Utl_texto(vals[i][0]), v = Utl_texto(vals[i][1]);
+        if (k === 'GENERAL_NOMBRE_SISTEMA') nombre = v;
+        if (k === 'GENERAL_INSTITUCION') institucion = v;
+      }
+    }
+  } catch (e) {}
+  return {
+    nombre: nombre || 'ECICEP',
+    institucion: institucion || 'CESFAM San Juan',
+    version: ECICEP.VERSION,
+    pacientes: pacCount,
+    eventos: evsCount,
+    fecha: Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm"),
+    estratificacion: CFG_ESTRATIFICACION.REGLA_DISPONIBLE
+      ? 'Activa (regla ' + Utl_texto(CFG_ESTRATIFICACION.VERSION_REGLA) + ')'
+      : 'Manual / sin regla',
+    ambiente: 'Producción'
+  };
+}
+
+/** Endpoint: catálogo de profesionales + selección del paciente. */
+function api_duplaAbrir(idInterno) {
+  try {
+    var pacientes = Modelo_leerPacientes();
+    var p = null;
+    for (var i = 0; i < pacientes.length; i++) {
+      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { p = pacientes[i]; break; }
+    }
+    var seleccionados = p ? Utl_texto(p.DUPLA_INGRESO).split(';').map(function (s) {
+      return s.trim().toUpperCase();
+    }).filter(function (s) { return s; }) : [];
+    return {
+      ok: true,
+      catalogo: CATALOGO_PROFESIONALES.filter(function (c) { return c.ACTIVA; })
+        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE_CANONICO }; }),
+      seleccionados: seleccionados
+    };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: guarda la dupla del paciente como códigos separados por ';'. */
+function api_duplaGuardar(idInterno, codigos) {
+  try {
+    codigos = (codigos || []).map(function (c) { return String(c).trim().toUpperCase(); }).filter(Boolean);
+    var dupla = codigos.join('; ');
+    var pacientes = Modelo_leerPacientes();
+    var idx = -1;
+    for (var i = 0; i < pacientes.length; i++) {
+      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { idx = i; break; }
+    }
+    if (idx === -1) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    pacientes[idx].DUPLA_INGRESO = dupla;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var hoja = ss.getSheetByName(HOJAS.PACIENTES);
+    var colDupla = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('DUPLA_INGRESO') + 1;
+    var rng = hoja.createTextFinder(Utl_texto(idInterno)).findNext();
+    if (rng) hoja.getRange(rng.getRow(), colDupla).setValue(dupla);
+    Log_info('Dupla', 'guardar', idInterno + ' → ' + dupla);
+    Log_flush();
+    return { ok: true, cantidad: codigos.length, dupla: dupla };
+  } catch (e) {
+    Log_error('Dupla', 'guardar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
 
 /** Navegación a hoja por nombre, con whitelist del diseño del libro. */
 function api_irA(nombreHoja) {

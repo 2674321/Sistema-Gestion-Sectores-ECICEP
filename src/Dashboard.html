@@ -344,7 +344,7 @@ function cargarDatos(){
   D=r;D.catalogoObj={};(r.catalogo||[]).forEach(function(c){D.catalogoObj[c.codigo]=c.nombre;});
   D.catalogo=D.catalogoObj;
   var hoy=new Date();
-  document.getElementById('fDesde').value=new Date(hoy.getFullYear()-1,hoy.getMonth(),hoy.getDate()).toISOString().slice(0,10);
+  document.getElementById('fDesde').value=new Date(hoy.getFullYear(),0,1).toISOString().slice(0,10);
   document.getElementById('fHasta').value=hoy.toISOString().slice(0,10);
   document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);
 

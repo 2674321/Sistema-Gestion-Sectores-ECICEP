@@ -420,6 +420,7 @@ function Hojas_formatoCondicional(ss) {
       var filas = Math.max(p.getMaxRows() - 1, 1);
       aplicar(p, [
         regla('=$W2=FALSE', '#FBE4E4', p.getRange(2, 2, filas, 1), true),
+        regla('=$X2=TRUE', '#FBF3D6', p.getRange(2, 2, filas, 1)),
         regla('=$AD2=TRUE', '#FBF3D6', p.getRange(2, 30, filas, 1), true),
         regla('=$I2="G1"', '#D4EDDA', p.getRange(2, 9, filas, 1)),
         regla('=$I2="G2"', '#FFF3CD', p.getRange(2, 9, filas, 1)),
@@ -461,6 +462,8 @@ function Hojas_formatoCondicional(ss) {
       aplicar(h, [
         regla('=$' + letraRut + '2=FALSE', '#FBE4E4',
              h.getRange(2, colRut, filas, 1), true),
+        regla('=$' + letraRut + '2=FALSE', '#FBE4E4',
+             h.getRange(2, 2, filas, 1), true),
         regla('=$' + letraEst + '2="G1"', '#D4EDDA',
              h.getRange(2, colEst, filas, 1)),
         regla('=$' + letraEst + '2="G2"', '#FFF3CD',
@@ -577,6 +580,31 @@ function Modelo_disenoHojas() {
     protecciones: res.protecciones.protecciones }));
   Log_flush();
   return res;
+}
+
+/** Colorea todas las celdas RUT en INGRESO_* según validación (persistente). */
+function Hojas_colorearRutIngresos(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  var ok = 0;
+  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    try {
+      var h = ss.getSheetByName(nombre);
+      if (!h || h.getLastRow() < 2) return;
+      var colRut = INGRESO_COLUMNAS.indexOf('RUT') + 1;
+      var vals = h.getRange(2, colRut, h.getLastRow() - 1, 1).getValues();
+      var backgrounds = [];
+      for (var i = 0; i < vals.length; i++) {
+        var rut = Utl_texto(vals[i][0]);
+        if (!rut) { backgrounds.push(['']); continue; }
+        var norm = Norm_normalizarRut(rut);
+        var valido = norm.rut && Norm_validarRut(norm.rut);
+        backgrounds.push([valido ? '#E3F3EA' : '#FBE4E4']);
+      }
+      h.getRange(2, colRut, backgrounds.length, 1).setBackgrounds(backgrounds);
+      ok++;
+    } catch (e) {}
+  });
+  return ok;
 }
 
 /**
