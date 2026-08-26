@@ -303,6 +303,26 @@ function Hojas_formatoCondicional(ss) {
     aplicadas += reglas.length;
   }
 
+  /* Dropdown SEXO (F/M) en PACIENTES e INGRESO_* */
+  try {
+    var ruleSexo = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['F', 'M'], true).setAllowInvalid(false).build();
+    var pSexo = ss.getSheetByName(HOJAS.PACIENTES);
+    if (pSexo && pSexo.getLastRow() > 1) {
+      var colSexoP = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('SEXO') + 1;
+      pSexo.getRange(2, colSexoP, Math.max(pSexo.getMaxRows() - 1, 1), 1).setDataValidation(ruleSexo);
+      aplicadas++;
+    }
+    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+      var h = ss.getSheetByName(nombre);
+      if (h && h.getLastRow() > 1) {
+        var colSexo = INGRESO_COLUMNAS.indexOf('SEXO') + 1;
+        h.getRange(2, colSexo, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleSexo);
+        aplicadas++;
+      }
+    });
+  } catch (eSx) { errores.push('SEXO dropdown: ' + (eSx && eSx.message || eSx)); }
+
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat pendiente (ámbar) */
   try {
     var p = ss.getSheetByName(HOJAS.PACIENTES);
@@ -414,10 +434,17 @@ function Hojas_proteger(ss) {
   var ev = ss.getSheetByName(HOJAS.EVENTOS);
   if (ev) advertir(ev, 'A1:Z' + Math.max(ev.getMaxRows(), 1),
     '🔵 EVENTOS es append-only — el sistema agrega; evita editar/borrar filas');
-  HOJAS_SECTOR.concat(['REM_SALIDA']).forEach(function (nombre) {
+  var rem = ss.getSheetByName('REM_SALIDA');
+  if (rem) advertir(rem, 'A1', '🔵 Hoja generada automáticamente — los cambios se sobrescriben al refrescar');
+
+  /* Limpiar protecciones previas de SECTOR_* e INGRESO_* (ya no se protegen) */
+  HOJAS_SECTOR.concat(Object.keys(HOJAS_INGRESO)).forEach(function (nombre) {
     var h = ss.getSheetByName(nombre);
-    if (h) advertir(h, 'A1', '🔵 Hoja generada automáticamente — los cambios se sobrescriben al refrescar');
+    if (h) h.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (pr) {
+      try { pr.remove(); } catch (eR) { /* best effort */ }
+    });
   });
+
   var log = ss.getSheetByName(HOJAS.LOG);
   if (log) advertir(log, 'A1', '🔴 Técnica — registro del sistema, no editar');
   var st = ss.getSheetByName(HOJAS.STAGING_IMPORT);
