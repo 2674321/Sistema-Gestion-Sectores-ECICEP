@@ -908,6 +908,16 @@ function api_backupPodar() {
   return Backup_podar();
 }
 
+/** Endpoint: URL de la carpeta de backups. */
+function api_backupFolder() {
+  try {
+    var folder = _backup_folder();
+    return { ok: true, url: folder.getUrl(), id: folder.getId() };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
 /** 💾 Menú de backups: abre dashboard HTML. */
 function UI_backup() {
   _ui_dialogo('Backup', 'Backups del sistema');

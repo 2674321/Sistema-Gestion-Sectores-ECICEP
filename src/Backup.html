@@ -11,7 +11,6 @@
     .card-sm .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
     .card-sm .value{font-size:22px;font-weight:700;margin-top:4px}
     .card-sm .value.ok{color:var(--success)} .card-sm .value.warn{color:var(--warning)} .card-sm .value.off{color:var(--text-muted)}
-    .actions{display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)}
     .section-title{font-size:13px;font-weight:600;color:var(--text-secondary);margin:var(--space-4) 0 var(--space-2);display:flex;align-items:center;gap:6px}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th{text-align:left;padding:8px 10px;background:var(--surface-alt);color:var(--text-secondary);font-weight:600;border-bottom:2px solid var(--border)}
@@ -19,14 +18,31 @@
     tr:hover td{background:var(--primary-soft)}
     .badge{display:inline-block;padding:2px 8px;border-radius:var(--radius-full);font-size:11px;font-weight:600}
     .badge-auto{background:#E5F1F2;color:var(--primary)} .badge-manual{background:#FBF3D6;color:#7A5F00}
-    .badge-ok{background:#D4EDDA;color:#1D5B38} .badge-err{background:#F8D7DA;color:#842029}
+    .badge-ok{background:#D4EDDA;color:#1D5B38}
     .link{color:var(--primary);text-decoration:none;font-weight:500} .link:hover{text-decoration:underline}
     .empty{text-align:center;padding:var(--space-6);color:var(--text-muted)}
     .footer{margin-top:var(--space-5);font-size:11px;color:var(--text-muted);text-align:center}
-    .row-acciones{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap}
     .skel{height:60px;background:var(--surface-alt);border-radius:var(--radius-md);animation:pulso 1.5s infinite}
     @keyframes pulso{0%,100%{opacity:.6}50%{opacity:1}}
     .toast-zone{position:fixed;top:16px;right:16px;z-index:999}
+    /* Collapsable */
+    .collap-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+      padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3);user-select:none;transition:background .15s}
+    .collap-header:hover{background:var(--surface-alt)}
+    .collap-header h3{font-size:13px;font-weight:600;margin:0;display:flex;align-items:center;gap:6px}
+    .collap-header .arrow{transition:transform .2s;font-size:12px;color:var(--text-muted)}
+    .collap-header.abierto .arrow{transform:rotate(90deg)}
+    .collap-body{display:none;padding:0 0 var(--space-3)}
+    .collap-body.abierto{display:block}
+    .collap-inner{background:var(--surface);border:1px solid var(--border);border-top:none;
+      border-radius:0 0 var(--radius-md) var(--radius-md);padding:var(--space-4)}
+    .cfg-row{display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;
+      border-bottom:1px solid var(--border)}
+    .cfg-row:last-child{border-bottom:none}
+    .cfg-label{font-size:13px;color:var(--text-secondary)}
+    .cfg-label small{display:block;color:var(--text-muted);font-size:11px;margin-top:2px}
+    .cfg-valor{font-size:13px;font-weight:600;color:var(--text-primary)}
   </style>
 </head>
 <body>
@@ -41,27 +57,66 @@
     <div class="card-sm"><div class="label">Backups manuales</div><div class="value" id="bkManCount">—</div></div>
   </div>
 
-  <!-- Acciones -->
-  <div class="actions">
-    <button class="btn btn-pri" id="btnCrear" onclick="crearBackup(this)"><i data-lucide="hard-drive-download"></i> Crear backup ahora</button>
-    <button class="btn btn-sec" id="btnToggle" onclick="toggleProgramacion(this)"><i data-lucide="clock"></i> <span id="txtToggle">—</span></button>
-    <button class="btn btn-ghost" onclick="cargarBackups()"><i data-lucide="refresh-cw"></i> Actualizar</button>
+  <!-- Botón crear -->
+  <div style="margin-bottom:var(--space-4)">
+    <button class="btn btn-pri" id="btnCrear" onclick="crearBackup(this)" style="width:100%;justify-content:center">
+      <i data-lucide="hard-drive-download"></i> Crear backup ahora
+    </button>
+  </div>
+
+  <!-- Configuración colapsable -->
+  <div class="collap-header" id="collapCfg" onclick="toggleCollap('collapCfg','collapCfgBody')">
+    <h3><i data-lucide="settings" style="width:14px;height:14px"></i> Configuración de backups</h3>
+    <span class="arrow">&#9654;</span>
+  </div>
+  <div class="collap-body" id="collapCfgBody">
+    <div class="collap-inner">
+      <div class="cfg-row">
+        <div class="cfg-label">Backup automático<small>Domingo 03:00 — crea backup y poda viejos</small></div>
+        <button class="btn btn-sec" id="btnToggle" onclick="toggleProgramacion(this)" style="font-size:12px;padding:6px 14px">
+          <i data-lucide="clock"></i> <span id="txtToggle">—</span>
+        </button>
+      </div>
+      <div class="cfg-row">
+        <div class="cfg-label">Podar automáticos viejos<small>Elimina los que excedan la retención</small></div>
+        <button class="btn btn-ghost" id="btnPodar" onclick="podarAuto(this)" style="font-size:12px;padding:6px 14px">
+          <i data-lucide="trash-2"></i> Podar ahora
+        </button>
+      </div>
+      <div class="cfg-row">
+        <div class="cfg-label">Retención automática<small>Cuántos backups auto conservar (editable en CONFIG)</small></div>
+        <div class="cfg-valor"><span id="bkRetencion">8</span> backups</div>
+      </div>
+      <div class="cfg-row">
+        <div class="cfg-label">Carpeta en Drive<small>ECICEP_Backups — todos los backups se guardan aquí</small></div>
+        <button class="btn btn-ghost" onclick="abrirCarpeta()" style="font-size:12px;padding:6px 14px">
+          <i data-lucide="folder-open"></i> Abrir
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Tabla historial -->
   <div class="section-title"><i data-lucide="list"></i> Historial de backups</div>
   <div id="bkTabla"><div class="skel"></div><div class="skel" style="margin-top:8px"></div></div>
 
-  <div class="footer">Se conservan los últimos <b id="bkRetencion">8</b> backups automáticos. Los manuales se conservan indefinidamente.</div>
+  <div class="footer">Se conservan los últimos <b id="bkRetencionFoot">8</b> backups automáticos. Los manuales se conservan indefinidamente.</div>
 </div>
 
 <div id="toastZone" class="toast-zone"></div>
 
 <script>
-function toast(m,t){var z=document.getElementById('toastZone');var d=document.createElement('div');d.className='toast '+(t||'ok');d.innerHTML='<span class="t-ic">'+(t==='err'?'✕':'✓')+'</span> '+m;z.appendChild(d);setTimeout(function(){d.classList.add('out');setTimeout(function(){d.remove();},300);},4000);}
+function toast(m,t){var z=document.getElementById('toastZone');var d=document.createElement('div');d.className='toast '+(t||'ok');d.innerHTML='<span class="t-ic">'+(t==='err'?'&#10005;':'&#10003;')+'</span> '+m;z.appendChild(d);setTimeout(function(){d.classList.add('out');setTimeout(function(){d.remove();},300);},4000);}
 
 function fmtBytes(b){if(!b||b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
 function fmtFecha(iso){if(!iso)return '—';try{var d=new Date(iso);return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
+
+function toggleCollap(headerId,bodyId){
+  var h=document.getElementById(headerId);
+  var b=document.getElementById(bodyId);
+  var abierto=h.classList.toggle('abierto');
+  b.classList.toggle('abierto',abierto);
+}
 
 function cargarBackups(){
   document.getElementById('bkTabla').innerHTML='<div class="skel"></div><div class="skel" style="margin-top:8px"></div>';
@@ -77,6 +132,7 @@ function pintarBackups(r){
   document.getElementById('bkManCount').textContent=r.manCount||0;
   document.getElementById('txtToggle').textContent=r.trigger?'Desactivar automático':'Activar automático';
   document.getElementById('bkRetencion').textContent=r.mantener||8;
+  document.getElementById('bkRetencionFoot').textContent=r.mantener||8;
   _refrescarIconos();
   if(!r.items||!r.items.length){document.getElementById('bkTabla').innerHTML='<div class="empty">No hay backups registrados</div>';return;}
   var h='<table><thead><tr><th>Nombre</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th><th>Estado</th><th></th></tr></thead><tbody>';
@@ -95,31 +151,35 @@ function pintarBackups(r){
 }
 
 function crearBackup(btn){
-  var fin=setLoading(btn,true,'Creando backup…');
+  var fin=setLoading(btn,true,'Creando backup\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('✓ Backup creado: '+r.nombre,'ok');cargarBackups();}
-    else toast('✕ Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('✕ Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL');
+    if(r&&r.ok){toast('\u2713 Backup creado: '+r.nombre,'ok');cargarBackups();}
+    else toast('\u2715 Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('\u2715 Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL');
 }
 
 function toggleProgramacion(btn){
-  var fin=setLoading(btn,true,'Procesando…');
+  var fin=setLoading(btn,true,'Procesando\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('✓ '+(r.mensaje||'Actualizado'),'ok');cargarBackups();}
-    else toast('✕ Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('✕ Error: '+(e&&e.message||e),'err');}).api_backupToggle();
+    if(r&&r.ok){toast('\u2713 '+(r.mensaje||'Actualizado'),'ok');cargarBackups();}
+    else toast('\u2715 Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('\u2715 Error: '+(e&&e.message||e),'err');}).api_backupToggle();
 }
 
 function podarAuto(btn){
-  if(!confirm('Esto eliminará los backups automáticos antiguos (se conservan los últimos 8).'))return;
-  var fin=setLoading(btn,true,'Podando…');
+  if(!confirm('Esto eliminar\u00e1 los backups autom\u00e1ticos antiguos (se conservan los \u00faltimos 8).'))return;
+  var fin=setLoading(btn,true,'Podando\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('✓ '+r.borrados+' backups eliminados','ok');cargarBackups();}
-    else toast('✕ Error','err');
-  }).withFailureHandler(function(e){fin();toast('✕ Error','err');}).api_backupPodar();
+    if(r&&r.ok){toast('\u2713 '+r.borrados+' backups eliminados','ok');cargarBackups();}
+    else toast('\u2715 Error','err');
+  }).withFailureHandler(function(e){fin();toast('\u2715 Error','err');}).api_backupPodar();
+}
+
+function abrirCarpeta(){
+  google.script.run.withSuccessHandler(function(r){if(r&&r.url)window.open(r.url,'_blank');}).api_backupFolder();
 }
 
 _refrescarIconos();
