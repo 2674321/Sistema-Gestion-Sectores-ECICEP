@@ -450,7 +450,9 @@ var CONFIG_SEED_EXTRA = [
   ['FREC_CONTROL_G3',        '365',  'Días entre controles para G3 (bajo riesgo)'],
   ['FREC_CONTROL_G',         '180',  'Días entre controles para G (sin estratificar)'],
   ['AVISO_CONTROL_DIAS',     '7',    'Avisar N días antes del vencimiento del control'],
-  ['BACKUP_MANTENER',        '8',    'Cantidad de backups automáticos a conservar']
+  ['BACKUP_MANTENER',        '8',    'Cantidad de backups automáticos a conservar'],
+  ['BACKUP_DIA',             'DOMINGO', 'Día de la semana para backup automático'],
+  ['BACKUP_HORA',            '3',    'Hora del backup automático (0-23)']
 ];
 
 /**

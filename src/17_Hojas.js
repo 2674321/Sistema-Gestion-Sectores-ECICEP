@@ -843,20 +843,34 @@ function Backup_programado() {
   return r;
 }
 
-/** GAS: ¿existe el trigger semanal? */
+/** GAS: ¿existe el trigger programado? */
 function Backup_triggerInstalado() {
   return ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'Backup_programado';
   });
 }
 
-/** GAS: instala trigger semanal (domingo 03:00), idempotente. */
-function Backup_programarSemanal() {
+/** GAS: instala trigger con parámetros configurables, idempotente. */
+function Backup_programar(dia, hora) {
   Backup_quitarProgramacion();
+  var dias = { 'DOMINGO': ScriptApp.WeekDay.SUNDAY, 'LUNES': ScriptApp.WeekDay.MONDAY,
+    'MARTES': ScriptApp.WeekDay.TUESDAY, 'MIERCOLES': ScriptApp.WeekDay.WEDNESDAY,
+    'JUEVES': ScriptApp.WeekDay.THURSDAY, 'VIERNES': ScriptApp.WeekDay.FRIDAY,
+    'SABADO': ScriptApp.WeekDay.SATURDAY };
+  var weekDay = dias[String(dia).toUpperCase()] || ScriptApp.WeekDay.SUNDAY;
+  var hour = parseInt(hora, 10);
+  if (isNaN(hour) || hour < 0 || hour > 23) hour = 3;
   ScriptApp.newTrigger('Backup_programado').timeBased()
-    .onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
-  Log_info('Backup', 'programar', 'trigger semanal instalado');
+    .onWeekDay(weekDay).atHour(hour).create();
+  _config_set('BACKUP_DIA', String(dia).toUpperCase());
+  _config_set('BACKUP_HORA', String(hour));
+  Log_info('Backup', 'programar', dia + ' ' + hour + ':00');
   Log_flush();
+}
+
+/** GAS: instala trigger semanal (legacy — usa Backup_programar). */
+function Backup_programarSemanal() {
+  Backup_programar('DOMINGO', 3);
 }
 
 /** GAS: quita el trigger semanal. */
@@ -888,19 +902,41 @@ function api_backupCrear(etiqueta) {
   return Backup_crear(etiqueta || 'MANUAL');
 }
 
-/** Endpoint: alternar programación automática. */
+/** Endpoint: toggle automático (activar/desactivar). */
 function api_backupToggle() {
   try {
     if (Backup_triggerInstalado()) {
       Backup_quitarProgramacion();
       return { ok: true, mensaje: 'Backup automático desactivado' };
     } else {
-      Backup_programarSemanal();
-      return { ok: true, mensaje: 'Backup automático activado (domingo 03:00)' };
+      var dia = _rem9_configValor('BACKUP_DIA') || 'DOMINGO';
+      var hora = _rem9_configValor('BACKUP_HORA') || '3';
+      Backup_programar(dia, hora);
+      return { ok: true, mensaje: 'Backup automático activado (' + dia + ' ' + hora + ':00)' };
     }
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
+}
+
+/** Endpoint: programar backup con día y hora específicos. */
+function api_backupProgramar(dia, hora) {
+  try {
+    Backup_programar(dia, hora);
+    return { ok: true, mensaje: 'Backup programado: ' + dia + ' ' + hora + ':00' };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: leer configuración actual de programación. */
+function api_backupConfigLeer() {
+  return {
+    ok: true,
+    dia: _rem9_configValor('BACKUP_DIA') || 'DOMINGO',
+    hora: _rem9_configValor('BACKUP_HORA') || '3',
+    mantener: _backup_mantener()
+  };
 }
 
 /** Endpoint: podar backups automáticos viejos. */

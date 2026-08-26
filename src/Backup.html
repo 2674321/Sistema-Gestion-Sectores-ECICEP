@@ -43,6 +43,10 @@
     .cfg-label{font-size:13px;color:var(--text-secondary)}
     .cfg-label small{display:block;color:var(--text-muted);font-size:11px;margin-top:2px}
     .cfg-valor{font-size:13px;font-weight:600;color:var(--text-primary)}
+    .sch-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);align-items:end}
+    .sch-grid label{font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px}
+    .sch-grid select,.sch-grid input{width:100%}
+    .sch-preview{margin-top:var(--space-3);padding:var(--space-3);background:var(--primary-soft);border-radius:var(--radius-md);font-size:12px;color:var(--primary);text-align:center;font-weight:500}
   </style>
 </head>
 <body>
@@ -91,6 +95,40 @@
         <div class="cfg-label">Carpeta en Drive<small>ECICEP_Backups — todos los backups se guardan aquí</small></div>
         <button class="btn btn-ghost" onclick="abrirCarpeta()" style="font-size:12px;padding:6px 14px">
           <i data-lucide="folder-open"></i> Abrir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Programación colapsable -->
+  <div class="collap-header" id="collapSch" onclick="toggleCollap('collapSch','collapSchBody')">
+    <h3><i data-lucide="calendar-clock" style="width:14px;height:14px"></i> Programación y periodicidad</h3>
+    <span class="arrow">&#9654;</span>
+  </div>
+  <div class="collap-body" id="collapSchBody">
+    <div class="collap-inner">
+      <div class="sch-grid">
+        <div>
+          <label for="schDia">Día de la semana</label>
+          <select id="schDia" class="inp">
+            <option value="DOMINGO">Domingo</option>
+            <option value="LUNES">Lunes</option>
+            <option value="MARTES">Martes</option>
+            <option value="MIERCOLES">Miércoles</option>
+            <option value="JUEVES">Jueves</option>
+            <option value="VIERNES">Viernes</option>
+            <option value="SABADO">Sábado</option>
+          </select>
+        </div>
+        <div>
+          <label for="schHora">Hora</label>
+          <select id="schHora" class="inp"></select>
+        </div>
+      </div>
+      <div class="sch-preview" id="schPreview">—</div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-3)">
+        <button class="btn btn-pri" id="btnProgramar" onclick="programarBackup(this)" style="flex:1;justify-content:center">
+          <i data-lucide="check"></i> Guardar programación
         </button>
       </div>
     </div>
@@ -182,6 +220,50 @@ function abrirCarpeta(){
   google.script.run.withSuccessHandler(function(r){if(r&&r.url)window.open(r.url,'_blank');}).api_backupFolder();
 }
 
+/* Programación */
+var _DIAS_NOMBRE={'DOMINGO':'Domingo','LUNES':'Lunes','MARTES':'Martes','MIERCOLES':'Miércoles','JUEVES':'Jueves','VIERNES':'Viernes','SABADO':'Sábado'};
+
+function initHoras(){
+  var sel=document.getElementById('schHora');
+  for(var i=0;i<24;i++){
+    var o=document.createElement('option');
+    o.value=String(i);o.textContent=(i<10?'0':'')+i+':00';
+    sel.appendChild(o);
+  }
+}
+
+function cargarConfig(){
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok)return;
+    document.getElementById('schDia').value=r.dia||'DOMINGO';
+    document.getElementById('schHora').value=String(parseInt(r.hora,10)||3);
+    actualizarPreview();
+  }).api_backupConfigLeer();
+}
+
+function actualizarPreview(){
+  var dia=document.getElementById('schDia').value;
+  var hora=parseInt(document.getElementById('schHora').value,10);
+  var nombre=_DIAS_NOMBRE[dia]||dia;
+  document.getElementById('schPreview').textContent='El backup se ejecuta cada '+nombre+' a las '+(hora<10?'0':'')+hora+':00';
+}
+
+document.getElementById('schDia').addEventListener('change',actualizarPreview);
+document.getElementById('schHora').addEventListener('change',actualizarPreview);
+
+function programarBackup(btn){
+  var dia=document.getElementById('schDia').value;
+  var hora=document.getElementById('schHora').value;
+  var fin=setLoading(btn,true,'Programando\u2026');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('\u2713 '+(r.mensaje||'Programado'),'ok');cargarBackups();}
+    else toast('\u2715 Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('\u2715 Error: '+(e&&e.message||e),'err');}).api_backupProgramar(dia,hora);
+}
+
+initHoras();
+cargarConfig();
 _refrescarIconos();
 cargarBackups();
 </script>
