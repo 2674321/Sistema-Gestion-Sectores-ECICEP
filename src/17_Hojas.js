@@ -364,6 +364,27 @@ function Hojas_formatoCondicional(ss) {
     });
   } catch (eEs) { errores.push('ESTADO dropdown: ' + (eEs && eEs.message || eEs)); }
 
+  /* Notas guía en encabezados INGRESO_* */
+  try {
+    var notas = {
+      'NOMBRE': 'Apellido Paterno + Materno + Nombre',
+      'RUT': 'Formato: 12345678-5 (se valida automáticamente)',
+      'SEXO': 'F = Femenino · M = Masculino',
+      'FECHA DE NACIMIENTO': 'Formato: dd/mm/aaaa (usar date picker)',
+      'TELEFONO(S)': 'Separe múltiples con / (ej: 912345678/987654321)',
+      'FECHA DE INGRESO': 'Fecha de ingreso al programa ECICEP',
+      'ESTRATIFICACION': 'G1 · G2 · G3 · G (sin confirmar)',
+      'ESTADO_INGRESO': 'PENDIENTE · AGENDADO · INGRESADO · NO_CONTESTA · FALLECIDO · NSP'
+    };
+    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+      var h = ss.getSheetByName(nombre);
+      if (!h) return;
+      INGRESO_COLUMNAS.forEach(function (col, ix) {
+        if (notas[col]) h.getRange(1, ix + 1).setNote(notas[col]);
+      });
+    });
+  } catch (eNt) { errores.push('Notas INGRESO: ' + (eNt && eNt.message || eNt)); }
+
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat por nivel */
   try {
     var p = ss.getSheetByName(HOJAS.PACIENTES);

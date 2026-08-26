@@ -34,9 +34,11 @@ function onOpen() {
 
       .addSeparator()
       .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
-      .addSeparator()
       .addItem('📄 Registro del sistema', 'UI_abrirLog')
       .addToUi();
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'ECICEP v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha',
+      'ECICEP', 6);
   } catch (e) { /* entorno sin UI */ }
 }
 
@@ -63,28 +65,15 @@ function UI_instalarSistema() {
 
 /** 🔄 Actualizar todo: recalcula estratificación + refresca SECTOR_* + re-aplica formato. */
 function UI_actualizarTodo() {
-  var ui = SpreadsheetApp.getUi();
-  var resp = ui.alert('🔄 Actualizar todo',
-    'Esto hará:\n' +
-    '1. Recalcular estratificación de todos los pacientes\n' +
-    '2. Actualizar vistas SECTOR_*\n' +
-    '3. Re-aplicar formato condicional y validaciones\n\n' +
-    '¿Continuar?', ui.ButtonSet.YES_NO);
-  if (resp !== ui.Button.YES) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('1/3 Recalculando estratificación…', 'Actualizar todo', 30);
+  ss.toast('🔄 Actualizando todo…', 'ECICEP', 30);
   var r1 = Estrat_recalcularTodos();
-  ss.toast('2/3 Actualizando vistas SECTOR…', 'Actualizar todo', 30);
   var r2 = Utl_medir(Modelo_refrescarVistasSectores);
-  ss.toast('3/3 Re-aplicando formato y validaciones…', 'Actualizar todo', 30);
   var r3 = Utl_medir(function () {
     Hojas_formatoCondicional(ss);
-    Hojas_proteger(ss);
   });
-  ui.alert('✅ Todo actualizado\n\n' +
-    'Estratificación: ' + r1.recalculados + ' de ' + r1.total + ' cambios (' + r1.tiempo + 'ms)\n' +
-    'Vistas SECTOR: ' + JSON.stringify(r2.resultado) + ' (' + r2.ms + 'ms)\n' +
-    'Formato: ' + r3.ms + 'ms');
+  ss.toast('✅ Actualizado — ' + r1.recalculados + ' estrat. · ' +
+    r2.ms + 'ms sector · ' + r3.ms + 'ms formato', 'ECICEP', 10);
 }
 
 /** 🔄 Recalcular estratificación (legacy — usar UI_actualizarTodo). */
