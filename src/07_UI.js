@@ -18,8 +18,7 @@ function onOpen() {
       .addSubMenu(ui.createMenu('👥 Gestión')
         .addItem('👤 Pacientes ECICEP', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
-        .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
-        .addItem('🔄 Refrescar SECTOR', 'UI_refrescarSectores'))
+        .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
 
 
       .addSubMenu(ui.createMenu('🩺 REM')
@@ -29,7 +28,7 @@ function onOpen() {
       .addSubMenu(ui.createMenu('⚙️ Sistema')
         .addItem('⚙️ Configuración', 'UI_configuracion')
         .addItem('⚙ Instalar sistema', 'UI_instalarSistema')
-        .addItem('🔄 Recalcular estratificación', 'UI_recalcularEstrat')
+        .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
         .addItem('💾 Backups', 'UI_backup')
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
@@ -61,7 +60,33 @@ function UI_instalarSistema() {
     'Instalaci\u00f3n del sistema');
 }
 
-/** 🔄 Recalcular estratificación: masivo con toast + alerta final. */
+/** 🔄 Actualizar todo: recalcula estratificación + refresca SECTOR_* + re-aplica formato. */
+function UI_actualizarTodo() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert('🔄 Actualizar todo',
+    'Esto hará:\n' +
+    '1. Recalcular estratificación de todos los pacientes\n' +
+    '2. Actualizar vistas SECTOR_*\n' +
+    '3. Re-aplicar formato condicional y validaciones\n\n' +
+    '¿Continuar?', ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('1/3 Recalculando estratificación…', 'Actualizar todo', 30);
+  var r1 = Estrat_recalcularTodos();
+  ss.toast('2/3 Actualizando vistas SECTOR…', 'Actualizar todo', 30);
+  var r2 = Utl_medir(Modelo_refrescarVistasSectores);
+  ss.toast('3/3 Re-aplicando formato y validaciones…', 'Actualizar todo', 30);
+  var r3 = Utl_medir(function () {
+    Hojas_formatoCondicional(ss);
+    Hojas_proteger(ss);
+  });
+  ui.alert('✅ Todo actualizado\n\n' +
+    'Estratificación: ' + r1.recalculados + ' de ' + r1.total + ' cambios (' + r1.tiempo + 'ms)\n' +
+    'Vistas SECTOR: ' + JSON.stringify(r2.resultado) + ' (' + r2.ms + 'ms)\n' +
+    'Formato: ' + r3.ms + 'ms');
+}
+
+/** 🔄 Recalcular estratificación (legacy — usar UI_actualizarTodo). */
 function UI_recalcularEstrat() {
   var ui = SpreadsheetApp.getUi();
   var resp = ui.alert('🔄 Recalcular estratificación',

@@ -321,6 +321,16 @@ function Hojas_formatoCondicional(ss) {
         aplicadas++;
       }
     });
+    HOJAS_SECTOR.forEach(function (nombre) {
+      var h = ss.getSheetByName(nombre);
+      if (h && h.getLastRow() > 1) {
+        var colSexoS = COLUMNAS_SECTOR_VISTA.indexOf('SEXO') + 1;
+        if (colSexoS > 0) {
+          h.getRange(2, colSexoS, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleSexo);
+          aplicadas++;
+        }
+      }
+    });
   } catch (eSx) { errores.push('SEXO dropdown: ' + (eSx && eSx.message || eSx)); }
 
   /* Date picker FECHA_NACIMIENTO en INGRESO_* */
@@ -354,7 +364,7 @@ function Hojas_formatoCondicional(ss) {
     });
   } catch (eEs) { errores.push('ESTADO dropdown: ' + (eEs && eEs.message || eEs)); }
 
-  /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat pendiente (ámbar) */
+  /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat por nivel */
   try {
     var p = ss.getSheetByName(HOJAS.PACIENTES);
     if (p && p.getLastRow() > 1) {
@@ -362,6 +372,9 @@ function Hojas_formatoCondicional(ss) {
       aplicar(p, [
         regla('=$W2=FALSE', '#FBE4E4', p.getRange(2, 2, filas, 1), true),
         regla('=$AD2=TRUE', '#FBF3D6', p.getRange(2, 30, filas, 1), true),
+        regla('=$I2="G1"', '#D4EDDA', p.getRange(2, 9, filas, 1)),
+        regla('=$I2="G2"', '#FFF3CD', p.getRange(2, 9, filas, 1)),
+        regla('=$I2="G3"', '#F8D7DA', p.getRange(2, 9, filas, 1)),
         regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1))
       ]);
     }
@@ -383,7 +396,7 @@ function Hojas_formatoCondicional(ss) {
     } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
 
-  /* SECTOR_*: RUT inválido (rojo) + estratificación pendiente (ámbar) */
+  /* SECTOR_*: RUT inválido (rojo) + estratificación por nivel de color */
   HOJAS_SECTOR.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
@@ -396,6 +409,12 @@ function Hojas_formatoCondicional(ss) {
       aplicar(h, [
         regla('=$' + letraRut + '2=FALSE', '#FBE4E4',
              h.getRange(2, colRut, filas, 1), true),
+        regla('=$' + letraEst + '2="G1"', '#D4EDDA',
+             h.getRange(2, colEst, filas, 1)),
+        regla('=$' + letraEst + '2="G2"', '#FFF3CD',
+             h.getRange(2, colEst, filas, 1)),
+        regla('=$' + letraEst + '2="G3"', '#F8D7DA',
+             h.getRange(2, colEst, filas, 1)),
         regla('=OR($' + letraEst + '2="",$' + letraEst + '2="G")', '#FBF3D6',
              h.getRange(2, colEst, filas, 1))
       ]);
