@@ -543,14 +543,15 @@ function Estrat_recalcularPaciente(idInterno) {
   var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
   var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
   var anterior = Utl_texto(p.ESTRATIFICACION);
-  if (nuevoValor) p.ESTRATIFICACION = nuevoValor;
+  p.ESTRATIFICACION = nuevoValor;
   p.ESTRAT_ORIGEN = String(anterior || '');
   p.ESTRAT_CALCULADA = String(res.resultado || '');
   p.ESTRAT_FECHA_CALCULO = new Date();
   p.FECHA_ACTUALIZACION = new Date();
   Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
     .setValues([Modelo_filaDesdeObjeto(p)]);
-  return { ok: true, resultado: nuevoValor || anterior || 'pendiente', puntaje: res.puntaje,
+  try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
+  return { ok: true, resultado: nuevoValor || 'pendiente', puntaje: res.puntaje,
            regla: res.regla, version: res.version };
 }
 
@@ -569,21 +570,18 @@ function Estrat_recalcularTodos() {
     var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
     var anterior = Utl_texto(p.ESTRATIFICACION);
-    if (nuevoValor) {
-      p.ESTRATIFICACION = nuevoValor;
-    } else if (!anterior) {
-      p.ESTRATIFICACION = '';
-    }
+    p.ESTRATIFICACION = nuevoValor;
     p.ESTRAT_ORIGEN = String(anterior || '');
     p.ESTRAT_CALCULADA = String(res.resultado || '');
     p.ESTRAT_FECHA_CALCULO = new Date();
     p.FECHA_ACTUALIZACION = new Date();
     filas.push(Modelo_filaDesdeObjeto(p));
-    if (nuevoValor && nuevoValor !== anterior) recalculados++;
+    if (nuevoValor !== anterior) recalculados++;
   });
   if (filas.length) {
     hoja.getRange(2, 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
   }
+  try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
   var ms = new Date() - t0;
   Log_info('Estrat', 'recalcularTodos', 'total=' + pacientes.length +
     ' recalculados=' + recalculados, null, ms);

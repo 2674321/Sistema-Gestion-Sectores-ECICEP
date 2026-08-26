@@ -1054,7 +1054,7 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var estratValor = estratRes.estado === 'CALCULADO' ? String(estratRes.resultado) : '';
     var antEstrat = Utl_texto(pacientes[idx].ESTRATIFICACION);
-    if (estratValor) pacientes[idx].ESTRATIFICACION = estratValor;
+    pacientes[idx].ESTRATIFICACION = estratValor;
     pacientes[idx].ESTRAT_ORIGEN = String(antEstrat || '');
     pacientes[idx].ESTRAT_CALCULADA = String(estratRes.resultado || '');
     pacientes[idx].ESTRAT_FECHA_CALCULO = new Date();
@@ -1063,6 +1063,8 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
 
     Log_info('Patologias', 'guardar', 'paciente=' + idInterno + ' anteriores=[' + anteriores + '] nuevas=[' + val.validos.join(';') + ']');
     Log_flush();
+
+    try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
 
     return { ok: true, condiciones: val.validos, cantidad: val.validos.length,
              puntaje: _calcularPuntaje(val.validos),
