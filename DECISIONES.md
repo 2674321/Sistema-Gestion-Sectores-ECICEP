@@ -362,3 +362,33 @@ mantengan fuera de la barra de pestañas (se sigue pudiendo abrir a demanda desd
 el módulo INICIO / `api_irA`, que muestra hojas ocultas consultadas). La fuente
 de verdad operativa sigue siendo `FUENTES_DRIVE` en código, no la hoja.
 **Fecha:** 2026-08-27
+
+## DEC-035
+**Título:** v0.8.5 — Modelo clínico de control unificado (estratificación → frecuencia → próximo → estado → color → recordatorio)
+**Estado:** Aprobada (v0.8.5)
+**Motivo:** Se unifica la cadena de control clínico con **una sola fuente de verdad**
+en `02_Normalizacion.js` (`Control_*`), corregiendo dos defectos confirmados en
+auditoría: (a) **Amarillo** (`Amarillo_aplicarHistorico`) sobrescribía
+`PRÓXIMO_CONTROL` con el valor crudo de la fuente en vez de computarlo — `fila →
+Amarillo_aplicarHistorico:207`; (b) tras registrar un CONTROL no se recalculaba
+`PRÓXIMO_CONTROL` (gap global; `Ingresos_sincronizarCache` solo actualizaba
+`ULTIMO_CONTROL`). Se decide:
+(a) **Frecuencia configurable por nivel y unidad**: `FREC_CONTROL_G*_CANT/_UNIDAD`
+(días/meses) por persona vía estratificación; reintroduce el modelo conceptual
+G1→90/G2→180/G3→365 por defecto pero parametrizable; se respeta fin de mes al
+sumar meses (reutiliza `Vigencia_vencimiento`).
+(b) **Cálculo y estado centralizados** (`Control_calcularProximo`, `Control_estadoVigencia`,
+`Control_colorEstado`, `Control_recordatorio`, `Control_filasPanel`, `Control_analizar`),
+todos **puros** (hoyRef/freqConfig inyectables) y testeables en node.
+(c) **Recálculo automático** en la cadena de registro de control y a demanda
+(`🔄 Actualizar todo`); Amarillo deja de copiar el próximo de la fuente y lo deriva.
+(d) **Panel de Control ampliado**: sección «Controles por persona» con
+`api_controlPanel` / `api_controlActualizarUltimo` y acciones por persona.
+(e) **CONFIG**: interfaz por secciones con dropdown de unidad + validación
+cliente/servidor + `Modelo_invalidarLecturas()` en escrituras + **fix del bug de
+eliminar** (el `confirm()` nativo está deshabilitado en el sandbox IFRAME de Apps
+Script → se reemplaza por doble confirmación inline).
+(f) **Diagnóstico dry-run** (`api_diagnosticoControl`) con métricas reales por
+sector, alertas de PRÓXIMO desalineado y acciones sugeridas; variante que aplica
+los próximos por separado (idempotente). 335 pruebas locales verdes.
+**Fecha:** 2026-08-27

@@ -557,7 +557,7 @@ var CONFIG_PROTEGIDAS = {
   TTL_CACHE_SEG: true, ANO_MIN_FECHAS: true, ANO_MAX_FECHAS: true
 };
 
-/** Endpoint: lista las claves de CONFIG con su descripción y si están protegidas. */
+/** Endpoint: lista las claves de CONFIG con sección, tipo, descripción y protección. */
 function api_configListar() {
   try {
     var hoja = Modelo_hoja(HOJAS.CONFIG);
@@ -568,23 +568,32 @@ function api_configListar() {
         var k = Utl_texto(vals[i][0]);
         if (!k) continue;
         filas.push({ clave: k, valor: Utl_texto(vals[i][1]),
-                     descripcion: Utl_texto(vals[i][2]), protegida: !!CONFIG_PROTEGIDAS[k] });
+                     descripcion: Utl_texto(vals[i][2]),
+                     protegida: Config_estaProtegida(k),
+                     seccion: Config_seccionDe(k),
+                     tipo: Config_tipoDe(k),
+                     opciones: Config_opcionesDe(k) });
       }
     }
     return { ok: true, config: filas, version: ECICEP.VERSION,
+             secciones: ['ESTRATIFICACION', 'CORREOS_RESPONSABLES', 'COMUNES', 'ADMINISTRADOR', 'OTRAS'],
              hojaOculta: hoja ? hoja.isSheetHidden() : false };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
 
-/** Endpoint: guarda el valor de una clave NO protegida. */
+/** Endpoint: guarda el valor de una clave NO protegida (con validación). */
 function api_configGuardar(clave, valor) {
   try {
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
-    if (CONFIG_PROTEGIDAS[k]) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
-    _config_set(k, String(valor == null ? '' : valor));
+    if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    var v = String(valor == null ? '' : valor);
+    var problema = Config_validarValor(k, v);
+    if (problema) return { ok: false, motivo: 'Valor inválido (' + k + '): ' + problema };
+    _config_set(k, v);
+    Modelo_invalidarLecturas();
     Log_info('Config', 'guardar', k);
     Log_flush();
     return { ok: true };
@@ -600,7 +609,10 @@ function api_configAgregar(clave, valor, descripcion) {
   try {
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
-    if (CONFIG_PROTEGIDAS[k]) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    var v = String(valor == null ? '' : valor);
+    var problema = Config_validarValor(k, v);
+    if (problema) return { ok: false, motivo: 'Valor inválido (' + k + '): ' + problema };
     var hoja = Modelo_hoja(HOJAS.CONFIG);
     var duplicada = false;
     if (hoja && hoja.getLastRow() > 1) {
@@ -608,9 +620,10 @@ function api_configAgregar(clave, valor, descripcion) {
       for (var i = 1; i < vals.length; i++) if (Utl_texto(vals[i][0]) === k) { duplicada = true; break; }
     }
     if (duplicada) return { ok: false, motivo: 'CLAVE_DUPLICADA: ' + k };
-    _config_set(k, String(valor == null ? '' : valor));
+    _config_set(k, v);
     var h2 = Modelo_hoja(HOJAS.CONFIG);
     if (h2 && h2.getLastRow() > 1) h2.getRange(h2.getLastRow(), 3).setValue(Utl_texto(descripcion));
+    Modelo_invalidarLecturas();
     Log_info('Config', 'agregar', k);
     Log_flush();
     return { ok: true };
@@ -626,17 +639,19 @@ function api_configEliminar(clave) {
   try {
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
-    if (CONFIG_PROTEGIDAS[k]) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
     var hoja = Modelo_hoja(HOJAS.CONFIG);
+    var eliminada = false;
     if (hoja && hoja.getLastRow() > 1) {
       var vals = Utl_leerBloque(hoja);
       for (var i = 1; i < vals.length; i++) {
-        if (Utl_texto(vals[i][0]) === k) { hoja.deleteRow(i + 1); break; }
+        if (Utl_texto(vals[i][0]) === k) { hoja.deleteRow(i + 1); eliminada = true; break; }
       }
     }
-    Log_info('Config', 'eliminar', k);
+    Modelo_invalidarLecturas();
+    Log_info('Config', 'eliminar', k + (eliminada ? '' : ' (no encontrada)'));
     Log_flush();
-    return { ok: true };
+    return { ok: true, eliminada: eliminada };
   } catch (e) {
     Log_error('Config', 'eliminar', e && e.message ? e.message : String(e));
     Log_flush();
@@ -734,6 +749,135 @@ function api_centroResumen() {
 function _ui_isoFecha(v) {
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   return Utl_texto(v).slice(0, 10);
+}
+
+/* ---------------------- Panel de Control: controles por persona ---------------------- */
+
+/** Endpoint: lista personas con su estado de control (por sector opcional). */
+function api_controlPanel(sec) {
+  try {
+    var tz = Session.getScriptTimeZone();
+    var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    var pacientes = Modelo_leerPacientes();
+    var filtrados = sec
+      ? pacientes.filter(function (p) { return Utl_texto(p.SECTOR).toUpperCase() === Utl_texto(sec).toUpperCase(); })
+      : pacientes;
+    var data = Control_filasPanel(filtrados, Control_leerFrecuencia(), hoyIso);
+    return { ok: true, filas: data.filas, sectores: data.sectores, fechaIso: hoyIso };
+  } catch (e) {
+    Log_error('PanelControl', 'listar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: actualiza ÚLTIMO CONTROL / ÚLTIMO SEGUIMIENTO de una persona y
+ *  recalcula PRÓXIMO_CONTROL si corresponde (frecuencia de CONFIG). */
+function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
+  try {
+    var tipoUp = Utl_texto(tipo).toUpperCase();
+    if (tipoUp !== 'CONTROL' && tipoUp !== 'SEGUIMIENTO') return { ok: false, motivo: 'TIPO_INVALIDO' };
+    var nf = Norm_normalizarFecha(fechaIso);
+    if (nf.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
+    var pacientes = Modelo_leerPacientes();
+    var objetivo = null, idx = -1;
+    for (var i = 0; i < pacientes.length; i++) {
+      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { objetivo = pacientes[i]; idx = i; break; }
+    }
+    if (!objetivo) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var freq = Control_leerFrecuencia();
+    if (tipoUp === 'CONTROL') {
+      objetivo.ULTIMO_CONTROL = nf.iso;
+      var prox = Control_calcularProximo(nf.iso, objetivo.ESTRATIFICACION, freq);
+      if (prox) objetivo.PROXIMO_CONTROL = prox;
+    } else {
+      objetivo.ULTIMO_SEGUIMIENTO = nf.iso;
+    }
+    objetivo.FECHA_ACTUALIZACION = new Date();
+    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+    hojaP.getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+         .setValues([Modelo_filaDesdeObjeto(objetivo)]);
+    Modelo_refrescarVistasSectores();
+    Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO);
+    Log_flush();
+    return { ok: true, proximo: objetivo.PROXIMO_CONTROL || '' };
+  } catch (e) {
+    Log_error('PanelControl', 'actualizarUltimo', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Diagnóstico integral del modelo clínico de control (dry-run por defecto).
+ *  NO modifica datos cuando dryRun=true (default). Devuelve métricas reales,
+ *  alertas de PROXIMO_CONTROL, estado del sector Amarillo y acciones sugeridas. */
+function api_diagnosticoControl(dryRun) {
+  try {
+    var tz = Session.getScriptTimeZone();
+    var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    var pacientes = Modelo_leerPacientes();
+    var freq = Control_leerFrecuencia();
+    var anal = Control_analizar(pacientes, freq, hoyIso);
+    var panel = Control_filasPanel(pacientes, freq, hoyIso);
+
+    var inconsistentes = [];
+    panel.filas.forEach(function (f) {
+      if (!f.ultimoControl) return;
+      if (f.estado === 'SIN_FECHA' && !f.proximo) {
+        inconsistentes.push(f.idInterno + ': con último control pero sin próximo calculable');
+      }
+    });
+
+    /* Alertas de PROXIMO_CONTROL desalineado: el actual difiere del derivado */
+    var desalineados = 0, ejemplosDes = [];
+    pacientes.forEach(function (p) {
+      var deriv = Control_calcularProximo(p.ULTIMO_CONTROL, p.ESTRATIFICACION, freq);
+      var actual = Utl_texto(p.PROXIMO_CONTROL).slice(0, 10);
+      if (p.ULTIMO_CONTROL && deriv && actual && actual !== deriv) {
+        desalineados++;
+        if (ejemplosDes.length < 5) ejemplosDes.push(p.ID_INTERNO + ': ' + actual + ' ≠ ' + deriv);
+      }
+    });
+
+    var dedupSr = null;
+    try {
+      var eventoAmarillo = Modelo_leerEventos().filter(function (e) {
+        return Utl_texto(e.SECTOR).toUpperCase() === 'AMARILLO';
+      });
+      dedupSr = Amarillo_analizarDuplicados(eventoAmarillo);
+    } catch (eD) {}
+
+    /* Acciones sugeridas (solo lectura, no se ejecutan aquí) */
+    var acciones = [];
+    var m = anal.metricas;
+    if (m.sinUltimoControl > 0) acciones.push('Registrar últimos controles de ' + m.sinUltimoControl + ' persona(s) sin último control.');
+    if (m.vencidos > 0) acciones.push(m.vencidos + ' control(es) vencidos: priorizar gestión por sector.');
+    if (m.configFaltante > 0) acciones.push('Revisar frecuencia configurada (hay ' + m.configFaltante + ' cálculo(s) sin próximo control).');
+    if (desalineados > 0) acciones.push(desalineados + ' PRÓXIMO_CONTROL desalineado(s) con la frecuencia configurada — ejecutar «🔄 Actualizar todo».');
+    if (dedupSr && dedupSr.gruposDuplicados > 0) acciones.push(dedupSr.gruposDuplicados + ' grupo(s) de duplicados en eventos Amarillo — revisar dedup.');
+    if (!acciones.length) acciones.push('Modelo clínico de control consistente: sin acciones pendientes.');
+
+    if (dryRun === false) {
+      /* Aplicativo: corrige PROXIMO_CONTROL derivado (idempotente). */
+      var res = Control_recalcularTodos();
+      return { ok: true, dryRun: false, aplicado: res.cambios,
+               resumen: res, ocasiones: acciones, fechaIso: hoyIso,
+               metricas: m, porSector: anal.porSector, dedup: dedupSr ? {
+                 analizados: dedupSr.analizados, gruposDuplicados: dedupSr.gruposDuplicados,
+                 eliminar: dedupSr.eliminar } : null };
+    }
+
+    return { ok: true, dryRun: true, metricas: m, porSector: anal.porSector,
+             inconsistentes: inconsistentes, desalineados: desalineados,
+             ejemplosDesalineados: ejemplosDes, dedup: dedupSr ? {
+               analizados: dedupSr.analizados, gruposDuplicados: dedupSr.gruposDuplicados,
+               eliminar: dedupSr.eliminar } : null,
+             acciones: acciones, frecuencia: freq, fechaIso: hoyIso };
+  } catch (e) {
+    Log_error('Diagnostico', 'control', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
 }
 
 /**

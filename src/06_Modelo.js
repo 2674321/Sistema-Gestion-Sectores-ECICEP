@@ -448,15 +448,80 @@ var CONFIG_SEED_EXTRA = [
   ['REM_INCLUIR_INDICADORES','Sí',   'Indicador por paciente en REM (Sí/No)'],
   ['REM_PDF_MARGEN_PT',      '46',   'Margen del PDF profesional (puntos)'],
   ['PACIENTES_MIN_BUSQUEDA', '2',    'Caracteres mínimos para buscar'],
-  ['FREC_CONTROL_G1',        '90',   'Días entre controles para G1 (alto riesgo)'],
-  ['FREC_CONTROL_G2',        '180',  'Días entre controles para G2 (medio riesgo)'],
-  ['FREC_CONTROL_G3',        '365',  'Días entre controles para G3 (bajo riesgo)'],
-  ['FREC_CONTROL_G',         '180',  'Días entre controles para G (sin estratificar)'],
+  ['FREC_CONTROL_G1_CANT',  '90',  'Cantidad de frecuencia de control G1 (alto riesgo)'],
+  ['FREC_CONTROL_G1_UNIDAD','días','Unidad: días | meses'],
+  ['FREC_CONTROL_G2_CANT',  '180', 'Cantidad de frecuencia de control G2 (medio riesgo)'],
+  ['FREC_CONTROL_G2_UNIDAD','días','Unidad: días | meses'],
+  ['FREC_CONTROL_G3_CANT',  '365', 'Cantidad de frecuencia de control G3 (bajo riesgo)'],
+  ['FREC_CONTROL_G3_UNIDAD','días','Unidad: días | meses'],
+  ['FREC_CONTROL_G_CANT',   '180', 'Cantidad de frecuencia de control G (sin estratificar)'],
+  ['FREC_CONTROL_G_UNIDAD', 'días','Unidad: días | meses'],
   ['AVISO_CONTROL_DIAS',     '7',    'Avisar N días antes del vencimiento del control'],
   ['BACKUP_MANTENER',        '8',    'Cantidad de backups automáticos a conservar'],
   ['BACKUP_DIA',             'DOMINGO', 'Día de la semana para backup automático'],
   ['BACKUP_HORA',            '3',    'Hora del backup automático (0-23)']
 ];
+
+/* ---------------------------------------------------------------------------
+ * Metadatos de CONFIG (PURAS): sección, tipo de editor y validación.
+ * Se usan en la interfaz Configuracion.html y en las pruebas node.
+ * ------------------------------------------------------------------------- */
+
+/** PURA: sección de presentación de una clave CONFIG. */
+function Config_seccionDe(clave) {
+  var k = Utl_texto(clave).toUpperCase();
+  if (CONFIG_PROTEGIDAS_DEFAULTS[k]) return 'ADMINISTRADOR';
+  if (/^RESPONSABLE_|^CORREO|@/.test(k)) return 'CORREOS_RESPONSABLES';
+  if (/^FREC_CONTROL_/.test(k) || /^AVISO_CONTROL/.test(k)) return 'ESTRATIFICACION';
+  if (/^GENERAL_|^REM_|^PACIENTES_|^DASHBOARD_|^BACKUP_|^CAT_/.test(k)) return 'COMUNES';
+  return 'OTRAS';
+}
+
+/** PURA: tipo de editor: select | numero | texto. */
+function Config_tipoDe(clave) {
+  var k = Utl_texto(clave).toUpperCase();
+  if (/_UNIDAD$/.test(k)) return 'select';
+  if (/^FREC_CONTROL_.*_CANT$|^AVISO_CONTROL_DIAS$|^PACIENTES_MIN_BUSQUEDA$|^TTL_CACHE_SEG$|^BACKUP_HORA$|^ANO_MIN_FECHAS$|^ANO_MAX_FECHAS$/.test(k)) return 'numero';
+  if (/^BACKUP_DIA$/.test(k)) return 'select';
+  return 'texto';
+}
+
+/** PURA: opciones para selects de CONFIG (si aplica). */
+function Config_opcionesDe(clave) {
+  var k = Utl_texto(clave).toUpperCase();
+  if (/_UNIDAD$/.test(k)) return ['días', 'meses'];
+  if (/^BACKUP_DIA$/.test(k)) return ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
+  return [];
+}
+
+/** PURA: valida un valor para una clave. Devuelve '' si es válido o un motivo. */
+function Config_validarValor(clave, valor) {
+  var k = Utl_texto(clave).toUpperCase();
+  var v = Utl_texto(valor);
+  if (CONFIG_PROTEGIDAS_DEFAULTS[k]) return 'clave protegida de sistema';
+  if (Config_tipoDe(k) === 'select') {
+    var ops = Config_opcionesDe(k);
+    var okSel = ops.some(function (o) { return o.toLowerCase() === v.toLowerCase(); });
+    return okSel ? '' : 'valor debe ser: ' + ops.join(' | ');
+  }
+  if (Config_tipoDe(k) === 'numero') {
+    if (!/^\d+$/.test(v) || +v < 1) return 'debe ser un entero mayor a 0';
+  }
+  return '';
+}
+
+/** Defs de claves protegidas usadas como fallback si 07_UI no está cargado. */
+var CONFIG_PROTEGIDAS_DEFAULTS = {
+  VERSION: true, AMBIENTE: true, SPREADSHEET_ID: true, NIVEL_LOG: true,
+  TTL_CACHE_SEG: true, ANO_MIN_FECHAS: true, ANO_MAX_FECHAS: true
+};
+
+/** ¿Es una clave protegida? (unifica CONFIG_PROTEGIDAS de UI + defaults).
+ *  Definida en 06_Modelo para ser testeable en node (07_UI no se carga). */
+function Config_estaProtegida(clave) {
+  if (typeof CONFIG_PROTEGIDAS !== 'undefined' && CONFIG_PROTEGIDAS[clave]) return true;
+  return !!(CONFIG_PROTEGIDAS_DEFAULTS && CONFIG_PROTEGIDAS_DEFAULTS[clave]);
+}
 
 /**
  * Crea/repara las hojas del sistema sin tocar datos existentes.

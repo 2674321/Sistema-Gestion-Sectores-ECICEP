@@ -188,6 +188,19 @@ textarea.inp{min-height:64px;resize:vertical}
   </div>
 
   <div class="card cc-card">
+    <div class="card-t">Controles por persona
+      <select id="ctrlSec" class="inp" style="margin-left:auto;width:auto;min-height:30px"
+        onchange="cargarControles()">
+        <option value="">Todos los sectores</option>
+        <option value="AMARILLO">AMARILLO</option>
+        <option value="NARANJO">NARANJO</option>
+        <option value="VERDE">VERDE</option>
+      </select>
+    </div>
+    <div id="ctrlLista"><div class="skel" style="height:120px"></div></div>
+  </div>
+
+  <div class="card cc-card">
     <div class="card-t">Última actividad</div>
     <div id="actLista"><div class="skel" style="height:70px"></div></div>
   </div>
@@ -773,6 +786,77 @@ function abrirGenerador(btn){
     .UI_generarRem();
 }
 
+/* ================= Panel de Control: controles por persona ================= */
+var CTRL_ACTUAL = [];
+var CTRL_SEC = '';
+
+function cargarControles(btn){
+  var el=document.getElementById('ctrlLista');
+  var sec=document.getElementById('ctrlSec')?document.getElementById('ctrlSec').value:'';
+  CTRL_SEC=sec;
+  if(btn){btn.disabled=true;}
+  else if(el){el.innerHTML='<div class="skel" style="height:120px"></div>';}
+  google.script.run.withSuccessHandler(function(r){
+    if(btn){btn.disabled=false;}
+    if(!r||!r.ok){el.innerHTML='<div class="vacio">'+(r&&r.motivo||'Sin datos')+'</div>';_refrescarIconos();return;}
+    CTRL_ACTUAL=r.filas||[];
+    pintarControles();
+  }).withFailureHandler(function(e){
+    if(btn){btn.disabled=false;}
+    _errSilencioso('api_controlPanel')(e);
+  }).api_controlPanel(sec);
+}
+
+function estadoChip(est){
+  var color={VENCIDO:'var(--danger)',POR_VENCER:'var(--warning)',VIGENTE:'var(--success)',SIN_FECHA:'var(--text-muted)'}[est]||'var(--text-muted)';
+  var etq={VENCIDO:'Vencido',POR_VENCER:'Próximo',VIGENTE:'Vigente',SIN_FECHA:'Sin control'}[est]||est;
+  return '<span class="chip" style="color:'+color+';border:1px solid '+color+'">'+etq+'</span>';
+}
+
+function hitosCtrl(f){
+  var s='';
+  if(f.estrat)s+='<span class="chip rut">'+_esc(f.estrat)+'</span> ';
+  if(f.ultimoControl)s+='<span class="chip">Ctrl: '+_esc(f.ultimoControl.slice(0,10))+'</span> ';
+  if(f.ultimoSeguimiento)s+='<span class="chip">Seg: '+_esc(f.ultimoSeguimiento.slice(0,10))+'</span> ';
+  if(f.proximo)s+='<span class="chip" style="border-color:var(--primary)">Próx: '+_esc(f.proximo.slice(0,10))+'</span> ';
+  if(f.edad)s+='<span class="chip">'+_esc(f.edad)+' años</span>';
+  return s;
+}
+
+function pintarControles(){
+  var el=document.getElementById('ctrlLista');
+  var filas=CTRL_ACTUAL;
+  if(!filas.length){el.innerHTML='<div class="vacio"><i data-lucide="stethoscope"></i>No hay personas con controles aquí</div>';_refrescarIconos();return;}
+  el.innerHTML=filas.map(function(f){
+    var hoy=new Date().toISOString().slice(0,10);
+    return '<div class="act-item" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px">'+
+      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
+        '<b style="font-size:13px">'+_esc(f.nombre)+'</b>'+
+        '<span class="chip rut">'+_esc(f.sector)+'</span>'+estadoChip(f.estado)+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--text-muted)">'+hitosCtrl(f)+'</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<button class="btn btn-sec" style="flex:1;min-height:30px;font-size:11px" '+
+          'onclick="actualizarUltimo(this,\''+_esc(f.idInterno)+'\',\'CONTROL\',\''+hoy+'\')">'+
+          '<i data-lucide="stethoscope" style="width:13px;height:13px"></i> Actualizar control</button>'+
+        '<button class="btn btn-ghost" style="flex:1;min-height:30px;font-size:11px" '+
+          'onclick="actualizarUltimo(this,\''+_esc(f.idInterno)+'\',\'SEGUIMIENTO\',\''+hoy+'\')">'+
+          '<i data-lucide="clipboard-check" style="width:13px;height:13px"></i> Seguimiento</button>'+
+      '</div></div>';
+  }).join('');
+  _refrescarIconos();
+}
+
+function actualizarUltimo(btn,idInterno,tipo,fecha){
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    setLoading(btn,false);
+    if(r&&r.ok){toast('✓ '+tipo+' actualizado'+(r.proximo?' · próximo '+r.proximo:''),'ok');cargarControles();}
+    else toast(r.motivo||'No se pudo actualizar','err');
+  }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+  .api_controlActualizarUltimo(idInterno,tipo,fecha);
+}
+
 /* ================= init ================= */
 try{
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
@@ -787,6 +871,7 @@ if(MODO==='revision'){
     lanz.addEventListener('focus',abrirPac);
   }
   cargarPanel(); /* centro: KPIs reales + accesos */
+  cargarControles(); /* controles por persona */
 }
 }catch(eInit){
   console.error('[ECICEP] init',eInit);

@@ -5,8 +5,8 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.0** · Google Sheets + Apps Script (clasp) · 275 pruebas locales verdes ·
-1.582 pacientes reales / 1.879 eventos operando en producción.
+**v0.8.5** · Google Sheets + Apps Script (clasp) · 335 pruebas locales verdes ·
+pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
 > Camila Paz Aguilar (Enfermera). No constituye un proyecto institucional del CESFAM.
@@ -110,4 +110,31 @@ Sistema-Gestion-Sectores-ECICEP/
 - **⚙️ Configuración segura**: ítem de menú (y función) `⚙️ Configuración` abre un **diálogo de administración** (nueva `Configuracion.html`); la hoja CONFIG **nunca se muestra** (se vuelve a ocultar de forma idempotente y se excluye de la navegación por hoja). Se marcan claves técnicas como solo-lectura, permite editar/agregar/eliminar claves no protegidas.
 - **🗂️ FUENTES como referencia**: la hoja FUENTES ahora queda **oculta** y se siembra una sola vez (instalación) con el inventario estático de las fuentes de `FUENTES_DRIVE` (archivo · sector · hojas · notas de exclusión). Es referencia visual únicamente; no se rellena dinámicamente.
 - **INICIO**: el módulo secundario **ADMINISTRACIÓN** deja de abrir CONFIG y pasa a ser un bloque informativo (configuración vía menú). 316 pruebas locales verdes.
+
+## v0.8.5 — Modelo clínico de control unificado (Estratificación → frecuencia → próximo → estado → color → recordatorio)
+
+- **Frecuencia de control configurable por nivel y unidad (días/meses)**. Nuevas claves
+  `FREC_CONTROL_G*_CANT` + `FREC_CONTROL_G*_UNIDAD` (por persona vía estratificación G1/G2/G3/G),
+  editables en el diálogo de configuración con **dropdown de unidad y validación de entero**. La
+  interfaz CONFIG se reorganizó en **secciones** (ESTRATIFICACIÓN · CORREOS/RESPONSABLES · COMUNES · ADMINISTRADOR).
+- **Cálculo centralizado y comprobable** (`Control_*`): `PRÓXIMO_CONTROL = ÚLTIMO_CONTROL +
+  frecuencia(estratificación)` reutilizando `Vigencia_vencimiento` (respeta fin de mes en meses);
+  estado (**VENCIDO/POR_VENCER/VIGENTE/SIN_FECHA**), **color** (rojo/ámbar/verde/gris) y **recordatorio**
+  con una única fuente de verdad en `02_Normalizacion.js`.
+- **🟡 Amarillo corregido (causa raíz)**: `Amarillo_aplicarHistorico` ya NO copia el PRÓXIMO CONTROL de
+  la fuente (que rompía el modelo); ahora se **deriva** de último control + estratificación + frecuencia.
+- **Recálculo automático**: al registrar un CONTROL (`Ingresos_sincronizarCache` / `api_registrarEvento`)
+  se actualiza PRÓXIMO_CONTROL y las vistas de sector al instante.
+- **Panel de Control ampliado**: nueva sección **«Controles por persona»** (filtro por sector) que lista
+  personas con su estratificación, último control/seguimiento, próximo control, estado en color, edad y
+  botones **«Actualizar control» / «Seguimiento»** (`api_controlPanel` / `api_controlActualizarUltimo`).
+- **Diagnóstico del modelo (dry-run)**: `api_diagnosticoControl` + botón en Centro de Pruebas reporta
+  métricas reales por sector, personas sin último control, controles vencidos/próximos/vigentes,
+  PRÓXIMO desalineados con la frecuencia configurada y acciones sugeridas. Versión que **aplica** los
+  próximos (idempotente) disponible por separado.
+- **🐛 Bug de «Eliminar» en Configuración corregido**: el `confirm()` nativo está deshabilitado en el
+  sandbox de Apps Script (provocaba el error del botón rojo); se reemplazó por **doble confirmación
+  inline**. + `Modelo_invalidarLecturas()` en todas las escrituras de CONFIG y validación cliente/servidor.
+- **Edad automática** desde `FECHA_NACIMIENTO` (`Utl_edadDesde`, consciente del cumpleaños) usada por
+  panel y diagnóstico. **335 pruebas locales verdes**.
 

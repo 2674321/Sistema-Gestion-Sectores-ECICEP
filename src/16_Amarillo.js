@@ -204,9 +204,14 @@ function Amarillo_aplicarHistorico(filas) {
       return Utl_texto(p.ID_INTERNO) === Utl_texto(pac.ID_INTERNO);
     })[0];
     if (hist.preingreso && Utl_vacio(Utl_texto(obj.PREINGRESO))) { obj.PREINGRESO = hist.preingreso; }
-    if (hist.proximoControl) { obj.PROXIMO_CONTROL = hist.proximoControl; }
     evs.forEach(function (e) { Ingresos_sincronizarCache(obj, e); });
-    if (evs.length || hist.preingreso || hist.proximoControl) actualizados[Utl_texto(pac.ID_INTERNO)] = obj;
+    /* FIX v0.8.5: NO se copia el PRÓXIMO CONTROL de la fuente (que puede estar
+       vacío, desalineado o no respetar la frecuencia configurada). Se DERIVA de
+       ÚLTIMO_CONTROL + estratificación + frecuencia de CONFIG. */
+    var proxDerivado = obj.ULTIMO_CONTROL
+      ? Control_calcularProximo(obj.ULTIMO_CONTROL, obj.ESTRATIFICACION) : '';
+    if (proxDerivado) obj.PROXIMO_CONTROL = proxDerivado;
+    if (evs.length || hist.preingreso || proxDerivado) actualizados[Utl_texto(pac.ID_INTERNO)] = obj;
   });
 
   if (nuevosEv.length) {

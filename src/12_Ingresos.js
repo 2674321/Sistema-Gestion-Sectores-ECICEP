@@ -394,13 +394,20 @@ function Ingresos_procesarTodasLasHojas(opciones) {
 /**
  * PURA (helper del wrapper): sincroniza la caché de estado vigente de UN
  * paciente tras registrar un evento manual (último seguimiento/control).
+ * FIX v0.8.5: al registrar un CONTROL se recalcula PROXIMO_CONTROL desde
+ * ULTIMO_CONTROL + estratificación + frecuencia (días/meses) de CONFIG.
  * @param {Object} paciente objeto canónico (se muta)
  * @param {Object} evento evento recién creado
+ * @param {Object} [freqConfig] frecuencia {G1..}: si se omite se lee de CONFIG (GAS)
  */
-function Ingresos_sincronizarCache(paciente, evento) {
+function Ingresos_sincronizarCache(paciente, evento, freqConfig) {
   if (!paciente || !evento) return paciente;
   var fecha = Utl_texto(evento.FECHA_EVENTO);
-  if (evento.TIPO_EVENTO === 'CONTROL') paciente.ULTIMO_CONTROL = fecha;
+  if (evento.TIPO_EVENTO === 'CONTROL') {
+    paciente.ULTIMO_CONTROL = fecha;
+    var prox = Control_calcularProximo(fecha, paciente.ESTRATIFICACION, freqConfig);
+    if (prox) paciente.PROXIMO_CONTROL = prox;
+  }
   if (evento.TIPO_EVENTO === 'SEGUIMIENTO') paciente.ULTIMO_SEGUIMIENTO = fecha;
   if (evento.TIPO_EVENTO === 'INGRESO' && !Utl_vacio(fecha)) paciente.FECHA_INGRESO = paciente.FECHA_INGRESO || fecha;
   paciente.FECHA_ACTUALIZACION = new Date();

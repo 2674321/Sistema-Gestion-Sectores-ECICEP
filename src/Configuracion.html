@@ -12,47 +12,49 @@ header .sub{color:var(--text-muted);font-size:13px}
 .chip{display:inline-flex;gap:6px;align-items:center;padding:5px 12px;border-radius:var(--radius-full);
   background:var(--surface-alt);font:600 12px 'Inter'}
 .chip.ok{color:var(--success)} .chip.warn{color:var(--warning)}
-.tabla{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
+.chip.sec{cursor:pointer;user-select:none;border:1px solid transparent}
+.chip.sec.on{border-color:var(--primary);color:var(--primary);background:var(--surface)}
+.cuerpo{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
+.seccion-titulo{position:sticky;top:0;z-index:2;background:var(--surface);padding:10px 14px;
+  font:700 12px 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--primary);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.seccion-titulo .n{font:600 11px 'Inter';color:var(--text-muted)}
 table{width:100%;border-collapse:collapse;min-width:620px}
-th{position:sticky;top:0;background:var(--surface-alt);text-align:left;font:700 11px 'Inter';
-  text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);padding:9px 10px;border-bottom:1px solid var(--border)}
+th{text-align:left;font:700 11px 'Inter';text-transform:uppercase;letter-spacing:.04em;
+  color:var(--text-muted);padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface-alt)}
 td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
 tr:last-child td{border-bottom:none}
 td .clave{font:600 12px ui-monospace,monospace;color:var(--primary)}
-td .desc{font-size:12px;color:var(--text-muted)}
-input[type=text]{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);
+td .desc{font-size:12px;color:var(--text-muted);display:block;margin-top:2px}
+input[type=text],input[type=number]{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);
   border-radius:var(--radius-sm);font:400 12px ui-monospace,monospace;background:var(--surface)}
 input.protegida{background:var(--surface-alt);color:var(--text-muted);border-style:dashed}
+select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  font:400 12px ui-monospace,monospace;background:var(--surface)}
 .badge{display:inline-block;font:600 9px 'Inter';padding:2px 6px;border-radius:var(--radius-full);
   background:var(--surface-alt);color:var(--text-muted);margin-left:6px;vertical-align:middle}
 .btn-peq{padding:5px 10px;min-height:28px;font-size:11px}
-.agregar{margin-top:var(--space-3);display:grid;grid-template-columns:1fr 1.5fr 1.5fr auto;gap:8px;align-items:center}
+.acciones{display:flex;gap:6px;align-items:center}
+.agregar{margin-top:var(--space-3);display:grid;grid-template-columns:1fr 1fr 1.5fr auto;gap:8px;align-items:center;
+  border-top:1px solid var(--border);padding-top:var(--space-3)}
 .agregar input{font-size:12px}
 .muted{color:var(--text-muted);font-size:12px}
+.armado{border-color:var(--warning)!important;color:var(--warning)!important}
 </style>
 </head>
 <body>
 <header>
   <h1>⚙️ Configuración</h1>
-  <span class="sub">Administración desde aquí · la hoja CONFIG queda oculta</span>
+  <span class="sub">Administración por secciones · la hoja CONFIG queda oculta</span>
   <div class="acciones" style="margin-left:auto">
     <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
   </div>
 </header>
 
 <div class="estado" id="estado"></div>
+<div class="estado" id="filtros" style="margin-top:0"></div>
 
-<div class="tabla">
-  <table>
-    <thead><tr>
-      <th style="width:22%">Clave</th>
-      <th style="width:26%">Valor</th>
-      <th style="width:36%">Descripción</th>
-      <th style="width:16%">Acciones</th>
-    </tr></thead>
-    <tbody id="filas"></tbody>
-  </table>
-</div>
+<div class="cuerpo" id="cuerpo"></div>
 
 <div class="agregar">
   <input type="text" id="nClave" placeholder="CLAVE (nueva)">
@@ -62,7 +64,9 @@ input.protegida{background:var(--surface-alt);color:var(--text-muted);border-sty
 </div>
 
 <script>
-var CONFIG_PENDIENTE = [];
+var CONFIG_actual = [];
+var FILTRO = 'TODAS';
+var ARMED = {}; // clave → indentificador para doble confirmación (sin confirm() nativo)
 
 function cargar(){
   var st=document.getElementById('estado');
@@ -71,56 +75,119 @@ function cargar(){
     .withSuccessHandler(function(r){
       if(!r||!r.ok){st.innerHTML='<span class="chip warn">Error: '+_esc(r&&r.motivo||'no data')+'</span>';return;}
       st.innerHTML='<span class="chip">v'+_esc(r.version)+'</span>'+
-        (r.hojaOculta?'<span class="chip ok">Hoja CONFIG oculta ✓</span>':'<span class="chip warn">Hoja CONFIG VISIBLE</span>')+
+        '<span class="chip ok">CONFIG oculta ✓</span>'+
         '<span class="chip">'+r.config.length+' claves</span>';
-      pintar(r.config);
+      CONFIG_actual=r.config||[];
+      pintarFiltros();
+      pintar();
     })
     .withFailureHandler(function(e){st.innerHTML='<span class="chip warn">Error: '+_esc(e&&e.message||e)+'</span>';})
     .api_configListar();
 }
 
-function pintar(config){
-  var tb=document.getElementById('filas');
-  CONFIG_PENDIENTE=config.map(function(c){return {clave:c.clave,valor:c.valor,desc:c.descripcion,protegida:c.protegida};});
-  tb.innerHTML=config.map(function(c){
-    var proteccion=c.protegida?'<span class="badge">técnica</span>':'';
-    return '<tr>'+
-      '<td><span class="clave">'+_esc(c.clave)+'</span>'+proteccion+'</td>'+
-      '<td><input type="text" data-clave="'+_esc(c.clave)+'" data-protegida="'+(c.protegida?'1':'0')+'"'+
-        (c.protegida?' disabled class="protegida"':'')+' value="'+_esc(c.valor)+'"></td>'+
-      '<td><span class="desc">'+_esc(c.descripcion||'—')+'</span></td>'+
-      '<td>'+
-        (c.protegida?'<span class="muted">solo lectura</span>'
-          :'<button class="btn btn-sec btn-peq" onclick="guardarFila(this,\''+_esc(c.clave)+'\')"><i data-lucide="save"></i> Guardar</button> '+
-           '<button class="btn btn-danger btn-peq" onclick="eliminarClave(this,\''+_esc(c.clave)+'\')"><i data-lucide="trash-2"></i></button>')+
-      '</td></tr>';
+function pintarFiltros(){
+  var secciones=['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'];
+  var fr=document.getElementById('filtros');
+  fr.innerHTML=secciones.map(function(s){
+    var cnt = s==='TODAS' ? CONFIG_actual.length : CONFIG_actual.filter(function(c){return c.seccion===s;}).length;
+    var icono = s==='ESTRATIFICACION'?'🎯':s==='CORREOS_RESPONSABLES'?'✉️':s==='COMUNES'?'🛠️':s==='ADMINISTRADOR'?'🔒':'…';
+    return '<span class="chip sec '+(FILTRO===s?'on':'')+'" onclick="setFiltro(\''+s+'\')">'+
+      icono+' '+_esc(s)+' <span class="n">('+cnt+')</span></span>';
   }).join('');
   _refrescarIconos();
 }
 
-function guardarFila(btn,clave){
-  var input=document.querySelector('input[data-clave="'+CSS.escape(clave)+'"]');
-  var valor=input?input.value:'';
-  var fin=_btnCargando(btn,'Guardando…');
-  google.script.run
-    .withSuccessHandler(function(r){
-      setLoading(btn,false);
-      if(r&&r.ok){toast('✓ '+clave+' guardada','ok');cargar();}
-      else toast(r.motivo||'No se pudo guardar','err');
-    })
-    .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-    .api_configGuardar(clave,valor);
+function setFiltro(s){FILTRO=s;pintarFiltros();pintar();}
+
+function legSec(s){
+  return {ESTRATIFICACION:'Frecuencia de control & vigencia (Estratificación)',
+          CORREOS_RESPONSABLES:'Correos · Responsables',
+          COMUNES:'Configuraciones comunes',
+          ADMINISTRADOR:'Administrador (sistema)',
+          OTRAS:'Otras'}[s]||s;
 }
 
-function eliminarClave(btn,clave){
-  if(!confirm('Eliminar la clave '+clave+' de CONFIG?\n\nEsta acción no se puede deshacer.'))return;
-  var fin=_btnCargando(btn,'…');
+function pintar(){
+  var cuerpo=document.getElementById('cuerpo');
+  var secciones=[];
+  (FILTRO==='TODAS'?CONFIG_actual:CONFIG_actual.filter(function(c){return c.seccion===FILTRO;}))
+    .forEach(function(c){ if(secciones.indexOf(c.seccion)===-1) secciones.push(c.seccion); });
+  secciones.sort(function(a,b){return ['ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'].indexOf(a)-['ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'].indexOf(b);});
+
+  var html='';
+  secciones.forEach(function(sec){
+    var lista=CONFIG_actual.filter(function(c){return c.seccion===sec;});
+    if(FILTRO!=='TODAS'||lista.length){
+      html+='<div class="seccion-titulo"><span>'+_esc(legSec(sec))+'</span><span class="n">'+lista.length+'</span></div>';
+    }
+    html+='<table><thead><tr><th style="width:24%">Clave</th><th style="width:26%">Valor</th>'+
+          '<th style="width:34%">Descripción</th><th style="width:16%">Acciones</th></tr></thead><tbody>';
+    lista.forEach(function(c){ html+=fila(c); });
+    html+='</tbody></table>';
+  });
+  if(!html) html='<div class="muted" style="padding:20px">Sin claves en esta sección.</div>';
+  cuerpo.innerHTML=html;
+  _refrescarIconos();
+}
+
+function editorDe(c){
+  if(c.protegida) return '<input type="text" data-clave="'+_esc(c.clave)+'" class="protegida" disabled value="'+_esc(c.valor)+'">';
+  if(c.tipo==='select'){
+    var ops=c.opciones||['días','meses'];
+    var opt=ops.map(function(o){var sel=String(o).toLowerCase()===String(c.valor).toLowerCase()?' selected':'';return '<option'+sel+'>'+_esc(o)+'</option>';}).join('');
+    return '<select data-clave="'+_esc(c.clave)+'">'+opt+'</select>';
+  }
+  if(c.tipo==='numero') return '<input type="number" min="1" step="1" data-clave="'+_esc(c.clave)+'" value="'+_esc(c.valor)+'">';
+  return '<input type="text" data-clave="'+_esc(c.clave)+'" value="'+_esc(c.valor)+'">';
+}
+
+function fila(c){
+  var proteccion=c.protegida?'<span class="badge">sistema</span>':'';
+  var acciones;
+  if(c.protegida) acciones='<span class="muted">solo lectura</span>';
+  else acciones='<div class="acciones">'+
+      '<button class="btn btn-sec btn-peq" onclick="guardarFila(this,\''+_esc(c.clave)+'\')"><i data-lucide="save"></i> Guardar</button>'+
+      '<button class="btn btn-danger btn-peq" data-elim="'+_esc(c.clave)+'" onclick="pedirEliminar(this,\''+_esc(c.clave)+'\')"><i data-lucide="trash-2"></i> Eliminar</button>'+
+    '</div>';
+  return '<tr><td><span class="clave">'+_esc(c.clave)+'</span>'+proteccion+
+         '<span class="desc">'+_esc(c.descripcion||'—')+'</span></td>'+
+         '<td>'+editorDe(c)+'</td><td></td><td>'+acciones+'</td></tr>';
+}
+
+function valorDe(clave){
+  var el=document.querySelector('[data-clave="'+CSS.escape(clave)+'"]');
+  return el?el.value:'';
+}
+
+function guardarFila(btn,clave){
+  var fin=_btnCargando(btn,'Guardando…');
   google.script.run
     .withSuccessHandler(function(r){setLoading(btn,false);
-      if(r&&r.ok){toast('✓ '+clave+' eliminada','ok');cargar();}
-      else toast(r.motivo||'No se pudo eliminar','err');})
+      if(r&&r.ok){toast('✓ '+clave+' guardada','ok');cargar();}
+      else toast(r.motivo||'No se pudo guardar','err');})
     .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-    .api_configEliminar(clave);
+    .api_configGuardar(clave,valorDe(clave));
+}
+
+/* Eliminación con doble confirmación INLINE (confirm() nativo está deshabilitado
+ * en el sandbox IFRAME de Apps Script y provoca error → "solo botón rojo"). */
+function pedirEliminar(btn,clave){
+  if(ARMED[clave]){
+    var fin=_btnCargando(btn,'Eliminando…');
+    google.script.run
+      .withSuccessHandler(function(r){setLoading(btn,false);ARMED[clave]=false;
+        if(r&&r.ok){toast('✓ '+clave+' eliminada','ok');cargar();}
+        else toast(r.motivo||'No se pudo eliminar','err');})
+      .withFailureHandler(function(e){setLoading(btn,false);ARMED[clave]=false;toast('Error: '+(e&&e.message||e),'err');})
+      .api_configEliminar(clave);
+  } else {
+    ARMED[clave]=true;
+    btn.classList.add('armado');
+    btn.innerHTML='<i data-lucide="alert-triangle"></i> ¿Seguro?';
+    _refrescarIconos();
+    setTimeout(function(){ if(ARMED[clave]){ARMED[clave]=false;btn.classList.remove('armado');
+      btn.innerHTML='<i data-lucide="trash-2"></i> Eliminar';_refrescarIconos();} },4000);
+  }
 }
 
 function agregarClave(btn){

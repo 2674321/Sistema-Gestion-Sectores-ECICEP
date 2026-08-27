@@ -64,6 +64,8 @@ function Pruebas_ejecutarTodo() {
   _pruebas_hojas(t, A);
   _pruebas_calidad(t, A);
   _pruebas_profesionales(t, A);
+  _pruebas_config_v085(t, A);
+  _pruebas_control_v085(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2193,5 +2195,183 @@ function _pruebas_profesionales(t, A) {
     A.cierto(CATALOGO_PROFESIONALES.every(function (c) {
       return !!(c.CODIGO && c.NOMBRE_CANONICO && c.TIPO_ROL);
     }), 'semilla completa con TIPO_ROL');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.5 — CONFIG: secciones, tipo de editor, validación (PURAS, testables)
+// ---------------------------------------------------------------------------
+
+function _pruebas_config_v085(t, A) {
+  t('CONFIG v0.8.5: sección por clave', function () {
+    A.igual(Config_seccionDe('FREC_CONTROL_G1_CANT'), 'ESTRATIFICACION');
+    A.igual(Config_seccionDe('FREC_CONTROL_G2_UNIDAD'), 'ESTRATIFICACION');
+    A.igual(Config_seccionDe('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES');
+    A.igual(Config_seccionDe('GENERAL_NOMBRE_SISTEMA'), 'COMUNES');
+    A.igual(Config_seccionDe('DASHBOARD_TITULO'), 'COMUNES');
+    A.igual(Config_seccionDe('VERSION'), 'ADMINISTRADOR');
+    A.igual(Config_seccionDe('AMBIENTE'), 'ADMINISTRADOR');
+    A.igual(Config_seccionDe('CLAVE_SUELTA'), 'OTRAS');
+  });
+
+  t('CONFIG v0.8.5: tipo de editor por clave', function () {
+    A.igual(Config_tipoDe('FREC_CONTROL_G1_UNIDAD'), 'select');
+    A.igual(Config_tipoDe('FREC_CONTROL_G1_CANT'), 'numero');
+    A.igual(Config_tipoDe('AVISO_CONTROL_DIAS'), 'numero');
+    A.igual(Config_tipoDe('PACIENTES_MIN_BUSQUEDA'), 'numero');
+    A.igual(Config_tipoDe('GENERAL_NOMBRE_SISTEMA'), 'texto');
+  });
+
+  t('CONFIG v0.8.5: opciones de selects', function () {
+    A.arreglos(Config_opcionesDe('FREC_CONTROL_G3_UNIDAD'), ['días', 'meses'], 'unidad');
+    A.cierto(Config_opcionesDe('GENERAL_NOMBRE_SISTEMA').length === 0, 'sin opciones');
+  });
+
+  t('CONFIG v0.8.5: validación', function () {
+    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', '90'), '');
+    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', '0'), 'debe ser un entero mayor a 0');
+    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', '-5'), 'debe ser un entero mayor a 0');
+    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', 'abc'), 'debe ser un entero mayor a 0');
+    A.igual(Config_validarValor('FREC_CONTROL_G1_UNIDAD', 'meses'), '');
+    A.igual(Config_validarValor('FREC_CONTROL_G1_UNIDAD', 'días'), '');
+    A.igual(Config_validarValor('FREC_CONTROL_G1_UNIDAD', 'semanal'), 'valor debe ser: días | meses');
+    A.cierto(Config_validarValor('VERSION', '0.8.5') !== '', 'clave protegida rechazada');
+    A.igual(Config_validarValor('GENERAL_NOMBRE_SISTEMA', 'ECICEP'), '');
+  });
+
+  t('CONFIG v0.8.5: protección de claves de sistema', function () {
+    A.cierto(Config_estaProtegida('VERSION'));
+    A.cierto(Config_estaProtegida('SPREADSHEET_ID'));
+    A.cierto(!Config_estaProtegida('FREC_CONTROL_G1_CANT'));
+    A.cierto(!Config_estaProtegida('GENERAL_NOMBRE_SISTEMA'));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.5 — MODELO de control: frecuencia (días/meses), próximo, estado, color,
+// recordatorio, panel por persona, edad. Todas llamadas PURAS con freqConfig.
+// ---------------------------------------------------------------------------
+
+function _pruebas_control_v085(t, A) {
+  var FREC_G1_MES = { G1: { cantidad: 1, unidad: 'meses' }, G2: { cantidad: 180, unidad: 'días' },
+                      G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
+
+  t('CONTROL v0.8.5: frecuenciaConfig con CANT+UNIDAD (días/meses)', function () {
+    var filas = [
+      ['FREC_CONTROL_G1_CANT', '90', ''],
+      ['FREC_CONTROL_G1_UNIDAD', 'meses', ''],
+      ['FREC_CONTROL_G2_CANT', '180', ''],
+      ['FREC_CONTROL_G2_UNIDAD', 'días', ''],
+      ['FREC_CONTROL_G3_CANT', '365', ''],
+      ['FREC_CONTROL_G3_UNIDAD', 'meses', '']
+    ];
+    var r = Control_frecuenciaConfig(filas);
+    A.arreglos(r.G1, { cantidad: 90, unidad: 'meses' }, 'G1 meses');
+    A.arreglos(r.G2, { cantidad: 180, unidad: 'días' }, 'G2 días');
+    A.arreglos(r.G3, { cantidad: 365, unidad: 'meses' }, 'G3 meses');
+    A.arreglos(r.G, { cantidad: 180, unidad: 'días' }, 'G default');
+  });
+
+  t('CONTROL v0.8.5: frecuenciaConfig default y legacy en días', function () {
+    var r = Control_frecuenciaConfig(null);
+    A.igual(r.G1.cantidad, 90, 'default G1'); A.igual(r.G1.unidad, 'días');
+    // legacy: solo FREC_CONTROL_G2=30 (sin _CANT) → se usa en días
+    var leg = Control_frecuenciaConfig([['FREC_CONTROL_G2', '30', '']]);
+    A.arreglos(leg.G2, { cantidad: 30, unidad: 'días' }, 'legacy G2 días');
+    // si existe _CANT, la legacy NO pisa
+    var mixt = Control_frecuenciaConfig([['FREC_CONTROL_G2_CANT', '60', ''], ['FREC_CONTROL_G2', '30', '']]);
+    A.igual(mixt.G2.cantidad, 60, 'CANT gana a legacy');
+  });
+
+  t('CONTROL v0.8.5: frecuenciaDe por nivel', function () {
+    var f = Control_frecuenciaConfig([['FREC_CONTROL_G1_CANT', '45', ''], ['FREC_CONTROL_G1_UNIDAD', 'meses', '']]);
+    A.arreglos(Control_frecuenciaDe('G1', f), { cantidad: 45, unidad: 'meses' });
+    A.igual(Control_frecuenciaDe('G2', f).cantidad, 180, 'G2 fallback');
+    A.arreglos(Control_frecuenciaDe('', f), { cantidad: 180, unidad: 'días' }, 'sin nivel → G');
+  });
+
+  t('CONTROL v0.8.5: próximo = último + frecuencia en días', function () {
+    A.igual(Control_calcularProximo('2026-01-01', 'G1', Control_frecuenciaDefault()), '2026-04-01');
+    A.igual(Control_calcularProximo('2026-01-01', 'G3', Control_frecuenciaDefault()), '2027-01-01');
+  });
+
+  t('CONTROL v0.8.5: próximo respeta meses y fin de mes', function () {
+    A.igual(Control_calcularProximo('2026-01-31', 'G1', FREC_G1_MES), '2026-02-28', 'clamp 31→feb');
+    A.igual(Control_calcularProximo('2026-06-15', 'G1', FREC_G1_MES), '2026-07-15', '1 mes');
+  });
+
+  t('CONTROL v0.8.5: sin último control → sin próximo', function () {
+    A.igual(Control_calcularProximo('', 'G1', Control_frecuenciaDefault()), '');
+    A.igual(Control_calcularProximo('fecha-invalida', 'G1', Control_frecuenciaDefault()), '');
+  });
+
+  t('CONTROL v0.8.5: estadoVigencia con hoyRef y avisoDias', function () {
+    A.igual(Control_estadoVigencia('2026-08-30', '2026-08-27', 7), 'POR_VENCER', 'a 3 días');
+    A.igual(Control_estadoVigencia('2026-09-15', '2026-08-27', 7), 'VIGENTE', 'lejos');
+    A.igual(Control_estadoVigencia('2026-08-20', '2026-08-27', 7), 'VENCIDO', 'atrasado');
+    A.igual(Control_estadoVigencia('', '2026-08-27', 7), 'SIN_FECHA', 'vacío');
+  });
+
+  t('CONTROL v0.8.5: color y recordatorio por estado', function () {
+    A.igual(Control_colorEstado('VENCIDO'), 'rojo');
+    A.igual(Control_colorEstado('POR_VENCER'), 'ambar');
+    A.igual(Control_colorEstado('VIGENTE'), 'verde');
+    A.igual(Control_colorEstado('SIN_FECHA'), 'gris');
+    A.cierto(Control_recordatorio('VENCIDO').indexOf('VENCIDO') !== -1, 'recordatorio vencido');
+    A.cierto(Control_recordatorio('SIN_FECHA').indexOf('Sin control') !== -1, 'sin control');
+  });
+
+  t('CONTROL v0.8.5: filasPanel por persona con estado/edad', function () {
+    var hoy = '2026-08-27';
+    var pac = [
+      { ID_INTERNO: 'P1', NOMBRE: 'Ana', RUT: '1-4', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1',
+        ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '2026-07-01', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1990-05-15' },
+      { ID_INTERNO: 'P2', NOMBRE: 'Luis', RUT: '2-5', SECTOR: 'VERDE', ESTRATIFICACION: 'G3',
+        ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '2000-01-01' }
+    ];
+    var d = Control_filasPanel(pac, Control_frecuenciaDefault(), hoy);
+    A.igual(d.filas.length, 2, 'dos filas');
+    var ana = d.filas.filter(function (f) { return f.idInterno === 'P1'; })[0];
+    A.igual(ana.proximo, Control_calcularProximo('2026-06-01', 'G1', Control_frecuenciaDefault()), 'próximo G1');
+    A.igual(ana.estado, 'POR_VENCER', 'estado Ana (90 días desde 1-jun ≈ fin agosto)');
+    A.igual(ana.color, 'ambar', 'color Ana');
+    A.igual(ana.edad, '36', 'edad Ana en 2026');
+    var luis = d.filas.filter(function (f) { return f.idInterno === 'P2'; })[0];
+    A.igual(luis.estado, 'SIN_FECHA', 'Luis sin control');
+    A.cierto(d.sectores.length >= 2, 'sectores agrupados');
+  });
+
+  t('CONTROL v0.8.5: analizar métricas por sector', function () {
+    var pac = [
+      { ID_INTERNO: 'P1', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '2026-08-01', FECHA_NACIMIENTO: '' },
+      { ID_INTERNO: 'P2', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '', FECHA_NACIMIENTO: '' }
+    ];
+    var r = Control_analizar(pac, Control_frecuenciaDefault(), '2026-08-27');
+    A.igual(r.metricas.analizados, 2, 'analizados');
+    A.igual(r.metricas.G1, 2, 'G1');
+    A.igual(r.metricas.sinUltimoControl, 1, 'uno sin último control');
+    A.igual(r.porSector['AMARILLO'].total, 2, 'sector amarillo');
+  });
+
+  t('CONTROL v0.8.5: sincronizarCache recalcula PRÓXIMO en CONTROL', function () {
+    var pac = { ID_INTERNO: 'P1', ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '' };
+    var ev = { FECHA_EVENTO: '2026-01-01', TIPO_EVENTO: 'CONTROL' };
+    Ingresos_sincronizarCache(pac, ev, Control_frecuenciaDefault());
+    A.igual(pac.ULTIMO_CONTROL, '2026-01-01');
+    A.igual(pac.PROXIMO_CONTROL, '2026-06-30', 'G2 180 días → jun 30');
+  });
+
+  t('CONTROL v0.8.5: idempotencia de filasPanel (pura, sin efectos)', function () {
+    var pac = [{ ID_INTERNO: 'P1', SECTOR: 'VERDE', ESTRATIFICACION: 'G3', ULTIMO_CONTROL: '2026-01-01', FECHA_NACIMIENTO: '' }];
+    var d1 = JSON.stringify(Control_filasPanel(pac, Control_frecuenciaDefault(), '2026-08-27'));
+    var d2 = JSON.stringify(Control_filasPanel(pac, Control_frecuenciaDefault(), '2026-08-27'));
+    A.igual(d1, d2, 'misma salida');
+  });
+
+  t('CONTROL v0.8.5: edad desde fecha de nacimiento (cumpleaños)', function () {
+    A.igual(Utl_edadDesde('1990-05-15', new Date(2026, 7, 27)), '36', 'años cumplidos');
+    A.igual(Utl_edadDesde('1990-12-01', new Date(2026, 7, 27)), '35', 'sin cumplir aún');
+    A.igual(Utl_edadDesde('', new Date(2026, 7, 27)), '', 'sin fecha');
+    A.igual(Utl_edadDesde('invalida', new Date(2026, 7, 27)), '', 'fecha inválida');
   });
 }

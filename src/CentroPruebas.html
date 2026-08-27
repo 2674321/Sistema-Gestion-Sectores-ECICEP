@@ -143,6 +143,8 @@ header .sub{color:var(--text-muted);font-size:13px}
     <button class="btn btn-danger" onclick="_herr(this,'UI_recuperarEjecutar')"><i data-lucide="undo-2"></i> Recuperación: reversión</button>
     <button class="btn btn-danger" onclick="_resetFabrica(this)"><i data-lucide="factory"></i> ⚠️ Reset de fábrica (borra TODO)</button>
     <button class="btn btn-pri" onclick="_herr(this,'UI_backup')"><i data-lucide="save"></i> 💾 Backups (menú)</button>
+    <button class="btn btn-pri" onclick="_diagControl(this,true)"><i data-lucide="stethoscope"></i> Control clínico · diagnóstico (dry-run)</button>
+    <button class="btn btn-sec" onclick="_diagControl(this,false)"><i data-lucide="refresh-cw"></i> Control clínico · aplicar próximos</button>
   </div>
   </div><!-- /herrBody -->
 </div>
@@ -336,6 +338,28 @@ function _amarilloEliminar(btn){
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('AmarilloEliminar')(e);})
     .Amarillo_dedupHistorico(false);
+}
+function _diagControl(btn,dryRun){
+  var fin=_btnCargando(btn,dryRun?'Analizando…':'Aplicando…');
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(!r||!r.ok){toast((r&&r.motivo)||'Sin diagnóstico','err');return;}
+      var m=r.metricas||{};
+      if(dryRun){
+        var linea='Diagnóstico: '+m.analizados+' personas · G1:'+m.G1+' G2:'+m.G2+' G3:'+m.G3+
+          ' · sin último control: '+m.sinUltimoControl+' · vencidos: '+m.vencidos+
+          ' · próximos: '+m.proximos+' · vigentes: '+m.vigentes+
+          ' · PRÓXIMO desalineado: '+r.desalineados;
+        toast(linea,(m.vencidos||r.desalineados)?'warn':'ok');
+        (r.acciones||[]).forEach(function(a){toast('· '+a,'info');});
+      } else {
+        toast('✓ PRÓXIMO_CONTROL recalculado — cambios: '+(r.aplicado||0),'ok');
+      }
+      if(window.console)console.debug('[ECICEP] diagnosticoControl',r);
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('api_diagnosticoControl')(e);})
+    .api_diagnosticoControl(dryRun);
 }
 _refrescarIconos();
 </script>

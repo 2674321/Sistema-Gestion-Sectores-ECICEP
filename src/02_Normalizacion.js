@@ -590,91 +590,247 @@ function Estrat_recalcularTodos() {
 }
 
 // ---------------------------------------------------------------------------
-// Frecuencia de controles (editable desde CONFIG)
+// Frecuencia de controles y estado (MODELO UNIFICADO v0.8.5)
+// Fuente de verdad: CONFIG (FREC_CONTROL_G*_CANT + _UNIDAD) + estratificación
+// de CADA persona. Se reutiliza Vigencia_vencimiento para soportar días/meses.
 // ---------------------------------------------------------------------------
-/** Lee los días de frecuencia por nivel desde CONFIG (editable por el usuario). */
+
+/** Normaliza un valor de fecha (Date, ISO, serial) a ISO yyyy-mm-dd o ''. */
+function Control_aIso(v) {
+  if (v instanceof Date && !isNaN(v.getTime()))
+    return v.getFullYear() + '-' + ('0' + (v.getMonth() + 1)).slice(-2) + '-' + ('0' + v.getDate()).slice(-2);
+  var s = Utl_texto(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  if (/^\d+(\.\d+)?$/.test(s)) { // serial
+    var f = new Date((Math.round(+s)) * 86400000);
+    if (!isNaN(f.getTime()) && f.getFullYear() > 1900)
+      return f.getFullYear() + '-' + ('0' + (f.getMonth() + 1)).slice(-2) + '-' + ('0' + f.getDate()).slice(-2);
+  }
+  return '';
+}
+
+/** Frecuencia por defecto (semilla): G1 = alto riesgo (más frecuente) →
+ *  G3 = bajo (menos frecuente). Idéntica a la semilla de CONFIG. */
+function Control_frecuenciaDefault() {
+  return { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' },
+           G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
+}
+
+/** PURA: parsea las filas de CONFIG → {G1:{cantidad,unidad},G2,G3,G}.
+ *  Prioriza FREC_CONTROL_G*_CANT/_UNIDAD; si un nivel no tiene _CANT, usa la
+ *  clave legacy FREC_CONTROL_G* (en días). Unidad válida: días | meses. */
+function Control_frecuenciaConfig(configRows) {
+  var r = Control_frecuenciaDefault();
+  var legacy = {};
+  var tieneCant = {};
+  ['G1', 'G2', 'G3', 'G'].forEach(function (g) { tieneCant[g] = false; });
+  (configRows || []).forEach(function (f) {
+    var k = Utl_texto(f[0]), v = Utl_texto(f[1]);
+    var m;
+    if ((m = /^FREC_CONTROL_(G[123]|G)_CANT$/.exec(k))) {
+      var c = parseInt(v, 10);
+      if (c > 0) r[m[1]].cantidad = c;
+      tieneCant[m[1]] = true;
+    } else if ((m = /^FREC_CONTROL_(G[123]|G)_UNIDAD$/.exec(k))) {
+      r[m[1]].unidad = Utl_sinTildes(v).toLowerCase().indexOf('mes') === 0 ? 'meses' : 'días';
+    } else if ((m = /^FREC_CONTROL_(G[123]|G)$/.exec(k))) {
+      var d = parseInt(v, 10);
+      if (d > 0) legacy[m[1]] = d;
+    }
+  });
+  ['G1', 'G2', 'G3', 'G'].forEach(function (g) {
+    if (!tieneCant[g] && legacy[g]) r[g] = { cantidad: legacy[g], unidad: 'días' };
+  });
+  return r;
+}
+
+/** GAS: lee la frecuencia configurada desde la hoja CONFIG. */
 function Control_leerFrecuencia() {
-  var defaults = { G1: 90, G2: 180, G3: 365, G: 180 };
   try {
     var h = Modelo_hoja(HOJAS.CONFIG);
-    if (!h || h.getLastRow() < 2) return defaults;
-    var vals = Utl_leerBloque(h);
-    for (var i = 1; i < vals.length; i++) {
-      var k = Utl_texto(vals[i][0]);
-      var v = parseInt(vals[i][1], 10);
-      if (k === 'FREC_CONTROL_G1' && v > 0) defaults.G1 = v;
-      if (k === 'FREC_CONTROL_G2' && v > 0) defaults.G2 = v;
-      if (k === 'FREC_CONTROL_G3' && v > 0) defaults.G3 = v;
-      if (k === 'FREC_CONTROL_G'  && v > 0) defaults.G  = v;
-    }
+    if (h && h.getLastRow() > 1) return Control_frecuenciaConfig(Utl_leerBloque(h));
   } catch (e) {}
-  return defaults;
+  return Control_frecuenciaDefault();
 }
 
-/** Calcula PRÓXIMO_CONTROL a partir de ÚLTIMO_CONTROL + estratificación. */
-function Control_calcularProximo(ultimoControl, estratificacion) {
-  if (!ultimoControl) return '';
-  var freq = Control_leerFrecuencia();
-  var dias = freq[Utl_texto(estratificacion)] || freq.G;
-  var fecha = ultimoControl instanceof Date ? new Date(ultimoControl) : new Date(ultimoControl);
-  if (isNaN(fecha.getTime())) return '';
-  fecha.setDate(fecha.getDate() + dias);
-  return Utilities.formatDate(fecha, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+/** PURA: frecuencia de un nivel (G1/G2/G3) o G que aplica a la persona. */
+function Control_frecuenciaDe(estratificacion, freqConfig) {
+  var g = /^G[123]$/.test(Utl_texto(estratificacion))
+    ? Utl_texto(estratificacion).toUpperCase() : 'G';
+  return (freqConfig && freqConfig[g]) || { cantidad: 180, unidad: 'días' };
 }
 
-/** Evalúa el estado de vigencia de un control. */
-function Control_estadoVigencia(proximoControl) {
-  if (!proximoControl) return 'SIN_FECHA';
-  var hoy = new Date();
-  var pc = proximoControl instanceof Date ? new Date(proximoControl) : new Date(proximoControl);
-  if (isNaN(pc.getTime())) return 'SIN_FECHA';
-  var diff = Math.ceil((pc - hoy) / 86400000);
-  var aviso = 7;
-  try {
-    var h = Modelo_hoja(HOJAS.CONFIG);
-    if (h && h.getLastRow() > 1) {
-      var vals = Utl_leerBloque(h);
-      for (var i = 1; i < vals.length; i++) {
-        if (Utl_texto(vals[i][0]) === 'AVISO_CONTROL_DIAS') {
-          aviso = parseInt(vals[i][1], 10) || 7;
-        }
+/** PURA: PRÓXIMO_CONTROL = ÚLTIMO_CONTROL + frecuencia (días/meses, respeta
+ *  CONFIG). Si no se pasa freqConfig, lee CONFIG (entorno GAS). */
+function Control_calcularProximo(ultimoControl, estratificacion, freqConfig) {
+  var uc = Control_aIso(ultimoControl);
+  if (!uc) return '';
+  var f = Control_frecuenciaDe(estratificacion,
+    freqConfig || (typeof Control_leerFrecuencia === 'function' ? Control_leerFrecuencia() : null));
+  var v = Vigencia_vencimiento(uc, f.cantidad, f.unidad);
+  return v || '';
+}
+
+/** PURA: estado de vigencia del control → SIN_FECHA | VENCIDO | POR_VENCER | VIGENTE.
+ *  hoyRef y avisoDias inyectables (pruebas deterministas). */
+function Control_estadoVigencia(proximoControl, hoyRef, avisoDias) {
+  var pc = Control_aIso(proximoControl);
+  if (!pc) return 'SIN_FECHA';
+  var aviso = (avisoDias == null) ? 7 : avisoDias;
+  if (avisoDias == null) {
+    try {
+      var h = Modelo_hoja(HOJAS.CONFIG);
+      if (h && h.getLastRow() > 1) {
+        Utl_leerBloque(h).slice(1).forEach(function (f) {
+          if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
+        });
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
+  var hoy = String(hoyRef || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')).slice(0, 10);
+  function dDias(a, b) {
+    var x = new Date(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10));
+    var y = new Date(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10));
+    return Math.round((x - y) / 864e5);
+  }
+  var diff = dDias(pc, hoy);
   if (diff < 0) return 'VENCIDO';
   if (diff <= aviso) return 'POR_VENCER';
   return 'VIGENTE';
 }
 
-/** Recalcula PRÓXIMO_CONTROL para todos los pacientes con ÚLTIMO_CONTROL. */
+/** PURA: color por estado de control (semáforo real, una sola fuente). */
+function Control_colorEstado(estado) {
+  return { VENCIDO: 'rojo', POR_VENCER: 'ambar', VIGENTE: 'verde', SIN_FECHA: 'gris' }[estado] || 'gris';
+}
+
+/** PURA: recordatorio legible a partir del estado y fechas. */
+function Control_recordatorio(estado, proximoIso, hoyIso) {
+  if (estado === 'SIN_FECHA') return 'Sin control registrado';
+  if (estado === 'VENCIDO') return 'Control VENCIDO — agenda su control';
+  var d = 0;
+  if (proximoIso && hoyIso) {
+    var x = new Date(+proximoIso.slice(0, 4), +proximoIso.slice(5, 7) - 1, +proximoIso.slice(8, 10));
+    var y = new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10));
+    d = Math.round((x - y) / 864e5);
+  }
+  if (estado === 'POR_VENCER') return 'Control próximo — quedan ' + d + ' día(s)';
+  return 'Control vigente';
+}
+
+/**
+ * PURA: analiza un conjunto de pacientes para el diagnóstico de control.
+ * (base del dry-run). @returns {metricas, inconsistencias, porSector}
+ */
+function Control_analizar(pacientes, freqConfig, hoyIso) {
+  var m = { analizados: 0, G1: 0, G2: 0, G3: 0, GPend: 0,
+            conControles: 0, sinUltimoControl: 0, conProximo: 0,
+            vencidos: 0, proximos: 0, vigentes: 0, sinFecha: 0,
+            sinNacimiento: 0, fechaInvalida: 0, configFaltante: 0,
+            ambiguos: 0, edadRecalculable: 0 },
+      inconsistencias = [], porSector = {};
+  (pacientes || []).forEach(function (p) {
+    m.analizados++;
+    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    var nivel = /^G[123]$/.test(g) ? g : 'GPend';
+    m[nivel]++;
+    var sec = Utl_texto(p.SECTOR).toUpperCase() || 'SIN_SECTOR';
+    porSector[sec] = porSector[sec] || { total: 0, G1: 0, G2: 0, G3: 0, GPend: 0 };
+    porSector[sec].total++; porSector[sec][nivel]++;
+    var uc = p.ULTIMO_CONTROL;
+    var estado, prox;
+    if (Utl_vacio(uc)) {
+      m.sinUltimoControl++;
+      estado = 'SIN_FECHA';
+      inconsistencias.push(p.ID_INTERNO + ': sin último control');
+    } else {
+      m.conControles++;
+      prox = Control_calcularProximo(uc, g, freqConfig);
+      if (!prox) { m.configFaltante++; }
+      estado = prox ? Control_estadoVigencia(prox, hoyIso, 7) : 'SIN_FECHA';
+      if (prox) {
+        m.conProximo++;
+        if (estado === 'VENCIDO') m.vencidos++;
+        else if (estado === 'POR_VENCER') m.proximos++;
+        else m.vigentes++;
+      }
+    }
+    if (estado === 'SIN_FECHA') m.sinFecha++;
+    var nac = Utl_edadDesde(Utl_texto(p.FECHA_NACIMIENTO), hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined);
+    if (Utl_vacio(p.FECHA_NACIMIENTO)) m.sinNacimiento++;
+    else if (nac === '' && !Utl_vacio(p.FECHA_NACIMIENTO)) m.fechaInvalida++;
+    else if (nac !== '') m.edadRecalculable++;
+  });
+  m.GPend = (pacientes || []).length - m.G1 - m.G2 - m.G3;
+  return { metricas: m, inconsistencias: inconsistencias, porSector: porSector };
+}
+
+/**
+ * PURA: filas para el Panel de Control (una por persona) con estado/color/
+ * recordatorio, ya ordenadas por sector. Base del panel y del dry-run.
+ * @returns {filas:[{idInterno,nombre,rut,sector,estrat,ultimoControl,ultimoSeguimiento,proximo,estado,color,recordatorio,edad}], sectores:[...]}
+ */
+function Control_filasPanel(pacientes, freqConfig, hoyIso) {
+  var filas = (pacientes || []).map(function (p) {
+    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    var uc = Utl_texto(p.ULTIMO_CONTROL);
+    var prox = Control_calcularProximo(p.ULTIMO_CONTROL, g, freqConfig);
+    var estado = prox ? Control_estadoVigencia(prox, hoyIso, 7) : (uc ? 'SIN_FECHA' : 'SIN_FECHA');
+    if (!uc && prox) estado = 'SIN_FECHA';
+    return {
+      idInterno: Utl_texto(p.ID_INTERNO),
+      nombre: Utl_texto(p.NOMBRE),
+      rut: Utl_texto(p.RUT),
+      sector: Utl_texto(p.SECTOR),
+      estrat: g,
+      ultimoControl: uc,
+      ultimoSeguimiento: Utl_texto(p.ULTIMO_SEGUIMIENTO),
+      proximo: prox || '',
+      estado: estado,
+      color: Control_colorEstado(estado),
+      recordatorio: Control_recordatorio(estado, prox, hoyIso),
+      edad: Utl_edadDesde(Utl_texto(p.FECHA_NACIMIENTO),
+        hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined)
+    };
+  });
+  function ordenSec(s) { return { AMARILLO: 0, NARANJO: 1, VERDE: 2 }[Utl_texto(s).toUpperCase()] ?? 3; }
+  var sectores = {};
+  filas.forEach(function (f) { sectores[f.sector] = (sectores[f.sector] || 0) + 1; });
+  var listaSectores = Object.keys(sectores).map(function (s) {
+    return { sector: s, personas: sectores[s] };
+  }).sort(function (a, b) { return ordenSec(a.sector) - ordenSec(b.sector); });
+  filas.sort(function (a, b) {
+    var d = ordenSec(a.sector) - ordenSec(b.sector);
+    if (d) return d;
+    return Utl_texto(a.nombre) < Utl_texto(b.nombre) ? -1 : 1;
+  });
+  return { filas: filas, sectores: listaSectores };
+}
+
+/** Escribe PRÓXIMO_CONTROL derivado (idempotente: solo si cambia y deja de
+ *  quedar vacío). Recalculo por persona según su estratificación + CONFIG. */
 function Control_recalcularTodos() {
   var t0 = new Date();
   var ss = Modelo_ss();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja || hoja.getLastRow() < 2) return { ok: true, total: 0, cambios: 0, tiempo: 0 };
   var pacientes = Modelo_leerPacientes();
-  var colUltCtrl = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('ULTIMO_CONTROL') + 1;
+  var freq = Control_leerFrecuencia();
   var colProxCtrl = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('PROXIMO_CONTROL') + 1;
-  var colEstrat = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('ESTRATIFICACION') + 1;
-  var filas = [], cambios = 0;
-  pacientes.forEach(function (p) {
-    var proxNuevo = Control_calcularProximo(p.ULTIMO_CONTROL, p.ESTRATIFICACION);
-    var proxActual = Utl_texto(p.PROXIMO_CONTROL);
-    if (proxNuevo && proxNuevo !== proxActual) {
-      p.PROXIMO_CONTROL = proxNuevo;
-      filas.push([p.ID_INTERNO, proxNuevo]);
-      cambios++;
+  var cambios = 0;
+  var pendientes = []; // {fila, valor}
+  pacientes.forEach(function (p, i) {
+    var n = Control_calcularProximo(p.ULTIMO_CONTROL, p.ESTRATIFICACION, freq);
+    if (n && n !== Utl_texto(p.PROXIMO_CONTROL)) {
+      pendientes.push({ fila: 2 + i, valor: n });
     }
   });
-  if (filas.length) {
-    filas.forEach(function (par) {
-      var rng = hoja.createTextFinder(par[0]).findNext();
-      if (rng) hoja.getRange(rng.getRow(), colProxCtrl).setValue(par[1]);
-    });
+  if (pendientes.length) {
+    pendientes.forEach(function (x) { hoja.getRange(x.fila, colProxCtrl).setValue(x.valor); cambios++; });
   }
   var ms = new Date() - t0;
   Log_info('Control', 'recalcularTodos', 'total=' + pacientes.length +
-    ' cambios=' + cambios, null, ms);
+    ' cambios=' + cambios + ' frecuencia=' + JSON.stringify(freq), null, ms);
   Log_flush();
-  return { ok: true, total: pacientes.length, cambios: cambios, tiempo: ms };
+  return { ok: true, total: pacientes.length, cambios: cambios, frecuencia: freq, tiempo: ms };
 }
