@@ -20,18 +20,6 @@ if (typeof ECICEP_BUILD === 'undefined') {
   var ECICEP_BUILD = { commit: 'dev', fecha: '' };
 }
 
-/* Módulos para el escritorio INICIO */
-var INICIO_MODULOS = [
-  { hoja:'PACIENTES',      icono:'👥', nombre:'PACIENTES',        desc:'Consulta y gestión de pacientes ECICEP' },
-  { hoja:'INGRESO_NARANJO',icono:'📥', nombre:'INGRESOS',         desc:'Procesamiento de nuevos registros (puertas por sector)' },
-  { hoja:'SECTOR_NARANJO', icono:'🗺️', nombre:'SECTORES',         desc:'Vistas operativas · Naranjo · Amarillo · Verde' },
-  { hoja:'CONFLICTOS',     icono:'📋', nombre:'COLA DE REVISIÓN', desc:'Control de datos pendientes' },
-  { hoja:'REM_SALIDA',     icono:'🩺', nombre:'REM',              desc:'Reporte mensual generado' },
-  { hoja:'FUENTES',        icono:'🗂️', nombre:'FUENTES',          desc:'Fuentes de información y sincronización' },
-  { hoja:'LOG',            icono:'🧪', nombre:'DIAGNÓSTICO',      desc:'Centro de Pruebas en el menú · LOG técnico' },
-  { hoja:'CONFIG',         icono:'⚙️', nombre:'ADMINISTRACIÓN',   desc:'Configuración y mantenimiento' }
-];
-
 var HOJAS_NAV = [
   { hoja: 'PACIENTES',   etiqueta: '👥 Pacientes ECICEP' },
   { hoja: 'INGRESO_NARANJO', etiqueta: '🟠 Ingreso Naranjo' },
@@ -43,7 +31,6 @@ var HOJAS_NAV = [
   { hoja: 'CONFLICTOS',  etiqueta: '📋 Cola de revisión' },
   { hoja: 'REM_SALIDA',  etiqueta: '🩺 REM (generado)' },
   { hoja: 'FUENTES',     etiqueta: '🗂️ Fuentes' },
-  { hoja: 'CONFIG',      etiqueta: '⚙️ Configuración' },
   { hoja: 'LOG',         etiqueta: '📄 LOG' }
 ];
 
@@ -152,16 +139,24 @@ function Hojas_crearInicio(ss) {
     { hoja:'SECTOR_NARANJO', icono:'\ud83d\udfe7', nombre:'SECTORES',   desc:'Naranjo \u00b7 Amarillo · Verde' },
     { hoja:'FUENTES',        icono:'\ud83d\uddc2\ufe0f', nombre:'FUENTES', desc:'Informaci\u00f3n y sync' },
     { hoja:'LOG',            icono:'\ud83e\uddea', nombre:'DIAGN\u00d3STICO', desc:'Centro de Pruebas · LOG' },
-    { hoja:'CONFIG',         icono:'\u2699\ufe0f', nombre:'ADMINISTRACI\u00d3N', desc:'Configuraci\u00f3n' }
+    { info:true,             icono:'\u2699\ufe0f', nombre:'ADMINISTRACI\u00d3N', desc:'Configuraci\u00f3n v\u00eda men\u00fa \u2192 \u2699 Sistema' }
   ];
   secundarios.forEach(function (mod, ix) {
     var c0 = 4 + ix * 4;
     var rng = h.getRange(13, c0, 3, 4).merge();
-    rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(mod.hoja).getSheetId() +
-      '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-     .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
-     .setBackground(BLANCO).setHorizontalAlignment('center')
-     .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    if (mod.info) {
+      // Bloque informativo: CONFIG se administra desde el menú (hoja oculta).
+      rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
+       .setFontWeight('bold').setFontSize(11).setFontColor(GRIS)
+       .setBackground(BLANCO).setHorizontalAlignment('center')
+       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    } else {
+      rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(mod.hoja).getSheetId() +
+        '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
+       .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
+       .setBackground(BLANCO).setHorizontalAlignment('center')
+       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    }
     rng.setBorder(true, true, true, true, null, null, BORDE,
       SpreadsheetApp.BorderStyle.SOLID);
     h.setRowHeights(13, 3, 20);

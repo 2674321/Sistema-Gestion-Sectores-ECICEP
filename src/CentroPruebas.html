@@ -123,6 +123,8 @@ header .sub{color:var(--text-muted);font-size:13px}
     <p>Vuelca la fuente a INGRESO_AMARILLO (idempotente por RUT) y aplica el histórico (CONTROL / SEGUIMIENTO / PREINGRESO / PRÓXIMO CONTROL) a los pacientes ya importados. Requiere el archivo subido a Drive como Google Sheets y su ID en FUENTES_DRIVE.</p>
     <button class="btn btn-pri" onclick="_amarillo(this,true)">Importar puerta + histórico</button>
     <button class="btn btn-sec" onclick="_amarillo(this,false)">Solo puerta</button>
+    <button class="btn btn-sec" onclick="_amarilloAuditar(this)">🔍 Auditar duplicados (dry-run)</button>
+    <button class="btn btn-danger" onclick="_amarilloEliminar(this)">🗑 Eliminar duplicados</button>
     <span class="h-estado" id="st_amarillo"></span>
   </div>
 
@@ -305,6 +307,35 @@ function _amarillo(btn,conHistorico){
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('Amarillo')(e);})
     .Amarillo_importarTodo(conHistorico);
+}
+function _amarilloAuditar(btn){
+  _btnCargando(btn,'Analizando…');
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo analizar','err');return;}
+      var linea='Amarillo: '+r.analizados+' eventos analizados · '+r.gruposDuplicados+' grupos duplicados · '+
+        r.eliminar+' a eliminar (conserva 1 por combinación)';
+      toast(linea,r.eliminar?'warn':'ok');
+      (r.ejemplos||[]).forEach(function(ej){console.debug('[ECICEP] dup amarillo',ej);});
+      if(window.console)console.debug('[ECICEP] dedup amarillo (dry-run)',r);
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('AmarilloAuditar')(e);})
+    .Amarillo_dedupHistorico(true);
+}
+function _amarilloEliminar(btn){
+  if(!confirm('Eliminar duplicados del histórico Amarillo\n\nSe borrarán SOLO los eventos repetidos '+
+    '(misma identidad ID_INTERNO+TIPO+FECHA) del sector Amarillo, conservando 1 por grupo.\n'+
+    'Se recomienda un Backup antes (💾 Backups en el menú).\n\n¿Continuar?'))return;
+  _btnCargando(btn,'Eliminando…');
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo deduplicar','err');return;}
+      toast('✓ '+r.eliminar+' eventos duplicados eliminados (idempotente: re-ejecutar no borra más)',r.eliminar?'ok':'info');
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('AmarilloEliminar')(e);})
+    .Amarillo_dedupHistorico(false);
 }
 _refrescarIconos();
 </script>

@@ -326,3 +326,24 @@ resolución re-ejecuta los gates: errores críticos siguen bloqueando aunque hay
 decisión humana. (e) Protección: CONFIG incorpora RESPONSABLE_* vacíos (#13);
 no se codifican correos.
 **Fecha:** 2026-08-21
+
+## DEC-033
+**Título:** v0.8.4 — CONFIG mediante diálogo/menú (hoja siempre oculta) · catálogo central de profesionales · dedupe del histórico Amarillo
+**Estado:** Aprobada (v0.8.4)
+**Motivo:** (a) **CONFIG deja de ser una hoja de acceso directo.** La hoja CONFIG
+permanece OCULTA de forma idempotente (instalador + `UI_configuracion()` re-prende
+el ocultamiento); el ítem de menú y la función `⚙️ Configuración` abren un diálogo
+(`Configuracion.html`) de administración con lectura/edición, y CONFIG se excluye
+de la navegación por hoja (`api_irA`) y de la metadata de navegación. El módulo
+INICIO "ADMINISTRACIÓN" pasa de hyperlink a bloque informativo. No se usa el
+ocultamiento como seguridad, sino como simplificación: el acceso sigue siendo por
+compartición de Google (DEC-009 caracter), pero a la configuración se llega por una
+vía controlada (menú) en vez de pasearse por la hoja.
+(b) **Profesionales como catálogo central.** Nueva hoja oculta PROFESIONALES
+(sembrada con 9 roles idempotente) + funciones puras `Profesionales_mapear`/
+`Profesionales_validar` + `Profesionales_catalogo()`. `renderizarDupla` y la ficha
+resuelven nombres desde el catálogo del servidor; se elimina la copia duplicada
+hardcodeada del cliente (una sola fuente de verdad). (c) **Dedupe Amarillo** con
+`Amarillo_analizarDuplicados` puro (clave ID+TIPO+FECHA+AMARILLO) expuesto en
+Centro de Pruebas como auditar (dry-run) y eliminar; idempotente y determinista.
+**Fecha:** 2026-08-27

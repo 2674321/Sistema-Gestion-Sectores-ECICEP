@@ -63,6 +63,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_limpieza(t, A);
   _pruebas_hojas(t, A);
   _pruebas_calidad(t, A);
+  _pruebas_profesionales(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1942,6 +1943,46 @@ function _pruebas_amarillo(t, A) {
     var evs = Amarillo_eventosNuevos(pac, Amarillo_historicoDe(FILA), existentes, 1);
     A.igual(evs.length, 0, 'cero nuevos si ya existen');
   });
+
+  t('AMARILLO: análisis de duplicados — solo combos Amarillo repetidos', function () {
+    var eventos = [
+      // duplicado real Amarillo: misma identidad (ID_INTERNO+TIPO+FECHA)
+      { ID_INTERNO:'A118', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP|fila3', NOMBRE:'JUAN PÉREZ', FILA:2 },
+      { ID_INTERNO:'A118', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP|fila3', NOMBRE:'JUAN PÉREZ', FILA:3 },
+      // mismo paciente, misma fecha, distinto tipo → NO duplicado
+      { ID_INTERNO:'A118', TIPO_EVENTO:'SEGUIMIENTO', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP|fila3', NOMBRE:'JUAN PÉREZ', FILA:4 },
+      // mismo tipo+fecha, distinto paciente → NO duplicado
+      { ID_INTERNO:'A120', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP|fila9', NOMBRE:'OTRO', FILA:5 },
+      // fecha Date cruda vs ISO: misma identidad tras normalizar
+      { ID_INTERNO:'A120', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP|fila9', NOMBRE:'OTRO', FILA:6 },
+      // fuera de la fuente Amarillo: se ignora aunque se repita
+      { ID_INTERNO:'N001', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'NARANJO', NOMBRE:'X', FILA:7 },
+      { ID_INTERNO:'N001', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'NARANJO', NOMBRE:'X', FILA:8 }
+    ];
+    var r = Amarillo_analizarDuplicados(eventos);
+    A.igual(r.analizados, 5, 'analiza 5 eventos Amarillo (ignora 2 Naranjo)');
+    A.igual(r.gruposDuplicados, 2, 'dos grupos duplicados');
+    A.igual(r.eliminar, 2, 'dos filas a eliminar');
+    A.igual(r.filas[0], 6, 'borra en orden descendente (6)');
+    A.igual(r.filas[1], 3, 'luego 3');
+    A.igual(r.ejemplos.length, 2, 'ejemplos acotados a los duplicados');
+  });
+
+  t('AMARILLO: dedup idempotente — segunda pasada no elimina nada', function () {
+    var base = [
+      { ID_INTERNO:'A118', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP', NOMBRE:'JUAN PÉREZ', FILA:2 },
+      { ID_INTERNO:'A118', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'AMARILLO|INGRESOS ECICEP', NOMBRE:'JUAN PÉREZ', FILA:3 },
+      { ID_INTERNO:'A118', TIPO_EVENTO:'SEGUIMIENTO', FECHA_EVENTO:'2026-06-26', FUENTE:'AMARILLO|INGRESOS ECICEP', NOMBRE:'JUAN PÉREZ', FILA:4 }
+    ];
+    // 1ª pasada: filas 3 a eliminar (A118 CONTROL duplicado)
+    var p1 = Amarillo_analizarDuplicados(base);
+    A.igual(p1.eliminar, 1, 'primera pasada elimina 1');
+    // simulamos la conservación: filtramos las filas eliminadas
+    var conservados = base.filter(function (e) { return p1.filas.indexOf(e.FILA) === -1; });
+    var p2 = Amarillo_analizarDuplicados(conservados);
+    A.igual(p2.eliminar, 0, 'segunda pasada no elimina nada');
+    A.igual(p2.gruposDuplicados, 0, 'sin grupos duplicados restantes');
+  });
 }
 
 
@@ -2088,5 +2129,59 @@ function _pruebas_calidad(t, A) {
       Amarillo_historicoDe({ CONTROL: '2026-04-19', SEGUIMIENTO: '2026-06-26',
         'PRÓXIMO CONTROL': '', PREINGRESO: '', G: 'G3' }), [], 2);
     A.igual(evs.length, 2, 'dos eventos nuevos');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo central de profesionales
+// ---------------------------------------------------------------------------
+
+function _pruebas_profesionales(t, A) {
+  t('PROFESIONALES: mapeo de filas canónicas (encabezado + normalización)', function () {
+    var filas = [
+      ['CODIGO', 'NOMBRE', 'TIPO_ROL', 'ACTIVO'],
+      ['MED', 'Médico/a', 'Médico', true],
+      ['enf', 'Enfermera/o', 'Enfermería', 'FALSE'],
+      ['', '', '', ''],              // fila vacía → se omite
+      ['TENS', 'TENS', 'Técnico', true]
+    ];
+    var r = Profesionales_mapear(filas);
+    A.igual(r.length, 3, 'tres profesionales (vacía omitida)');
+    A.igual(r[0].CODIGO, 'MED', 'código normalizado');
+    A.igual(r[1].CODIGO, 'ENF', 'código a mayúsculas');
+    A.igual(r[1].ACTIVO, false, 'ACTIVO FALSE → false');
+    A.igual(r[2].TIPO_ROL, 'Técnico', 'tipo rol conservado');
+    A.cierto(r[0].ACTIVO === true, 'ACTIVO true por defecto');
+  });
+
+  t('PROFESIONALES: validación detecta duplicados y códigos vacíos', function () {
+    var v1 = Profesionales_validar([
+      { CODIGO: 'MED', NOMBRE: 'Médico/a' },
+      { CODIGO: 'ENF', NOMBRE: 'Enfermera/o' }
+    ]);
+    A.cierto(v1.ok, 'catálogo válido');
+
+    var v2 = Profesionales_validar([
+      { CODIGO: 'MED', NOMBRE: 'Médico/a' },
+      { CODIGO: 'med', NOMBRE: 'Médico/a 2' }
+    ]);
+    A.cierto(!v2.ok, 'duplicado detectado');
+    A.cierto(v2.errores.join(' ').indexOf('duplicado') !== -1, 'mensaje de duplicado');
+
+    var v3 = Profesionales_validar([{ CODIGO: ' ', NOMBRE: 'Sin código' }]);
+    A.cierto(!v3.ok, 'código vacío detectado');
+
+    var v4 = Profesionales_validar([{ CODIGO: 'X1', NOMBRE: '' }]);
+    A.cierto(!v4.ok, 'nombre vacío detectado');
+  });
+
+  t('PROFESIONALES: catalogo de respaldo desde semilla si hoja vacía', function () {
+    // Profesionales_catalogo() depende de hoja; aquí verificamos la semilla.
+    A.igual(CATALOGO_PROFESIONALES.length, 9, 'semilla con 9 roles');
+    var codigos = CATALOGO_PROFESIONALES.map(function (c) { return c.CODIGO; });
+    A.cierto(codigos.indexOf('MED') !== -1 && codigos.indexOf('TO') !== -1, 'contiene extremos');
+    A.cierto(CATALOGO_PROFESIONALES.every(function (c) {
+      return !!(c.CODIGO && c.NOMBRE_CANONICO && c.TIPO_ROL);
+    }), 'semilla completa con TIPO_ROL');
   });
 }

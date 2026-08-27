@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.3',
+  VERSION: '0.8.4',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -35,8 +35,13 @@ const HOJAS = {
   LOG: 'LOG',
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
+  PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
   HOJA_PREDETERMINADA: 'Hoja 1' // la elimina el instalador solo si está vacía
 };
+
+// Columnas del catálogo central de profesionales (fuente de verdad para
+// Dupla y validaciones; REM conserva el texto libre del evento).
+const COLUMNAS_PROFESIONALES = ['CODIGO', 'NOMBRE', 'TIPO_ROL', 'ACTIVO'];
 
 // ---------------------------------------------------------------------------
 // Hojas de ingreso y vistas sectoriales (ETAPA 3b / corrección arquitectónica)
@@ -417,17 +422,19 @@ const CATALOGO_CONDICIONES_ECICEP = [
   { CODIGO:'ULCERA', NOMBRE_CANONICO:'Úlcera crónica de la piel', ALIASES:['ulcera','ulcera cronica','L97'], PONDERACION:1, ACTIVA:true }
 ];
 
-// Catálogo de tipos de profesional CESFAM (PROPUESTA — pendiente confirmación del cliente).
+// Catálogo de profesionales CESFAM — SEMILLA de la hoja PROFESIONALES.
+// La hoja oculta PROFESIONALES es la fuente de verdad editable vía diálogo;
+// esta constante solo siembra/valida valores iniciales y actúa de respaldo.
 const CATALOGO_PROFESIONALES = [
-  { CODIGO:'MED',  NOMBRE_CANONICO:'Médico/a',            ACTIVA:true },
-  { CODIGO:'ENF',  NOMBRE_CANONICO:'Enfermera/o',         ACTIVA:true },
-  { CODIGO:'TENS', NOMBRE_CANONICO:'TENS',                ACTIVA:true },
-  { CODIGO:'MAT',  NOMBRE_CANONICO:'Matrona/o',           ACTIVA:true },
-  { CODIGO:'PSI',  NOMBRE_CANONICO:'Psicólogo/a',         ACTIVA:true },
-  { CODIGO:'ASIST',NOMBRE_CANONICO:'Asistente Social',    ACTIVA:true },
-  { CODIGO:'NUTRI',NOMBRE_CANONICO:'Nutricionista',       ACTIVA:true },
-  { CODIGO:'KINE', NOMBRE_CANONICO:'Kinesiólogo/a',       ACTIVA:true },
-  { CODIGO:'TO',   NOMBRE_CANONICO:'Terapeuta Ocupacional',ACTIVA:true }
+  { CODIGO:'MED',  NOMBRE_CANONICO:'Médico/a',            TIPO_ROL:'Médico',     ACTIVA:true },
+  { CODIGO:'ENF',  NOMBRE_CANONICO:'Enfermera/o',         TIPO_ROL:'Enfermería', ACTIVA:true },
+  { CODIGO:'TENS', NOMBRE_CANONICO:'TENS',                TIPO_ROL:'Técnico',    ACTIVA:true },
+  { CODIGO:'MAT',  NOMBRE_CANONICO:'Matrona/o',           TIPO_ROL:'Matronería', ACTIVA:true },
+  { CODIGO:'PSI',  NOMBRE_CANONICO:'Psicólogo/a',         TIPO_ROL:'Psicología', ACTIVA:true },
+  { CODIGO:'ASIST',NOMBRE_CANONICO:'Asistente Social',    TIPO_ROL:'Asistencia Social', ACTIVA:true },
+  { CODIGO:'NUTRI',NOMBRE_CANONICO:'Nutricionista',       TIPO_ROL:'Nutrición',  ACTIVA:true },
+  { CODIGO:'KINE', NOMBRE_CANONICO:'Kinesiólogo/a',       TIPO_ROL:'Kinesiología', ACTIVA:true },
+  { CODIGO:'TO',   NOMBRE_CANONICO:'Terapeuta Ocupacional',TIPO_ROL:'Terapia Ocupacional', ACTIVA:true }
 ];
 
 

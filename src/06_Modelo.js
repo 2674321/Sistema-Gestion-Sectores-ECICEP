@@ -299,6 +299,7 @@ var MODELO_DISENO = [
   { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false, oculta: true },
   // Catálogos y configuración (internas)
   { nombre: 'CAT_VIGENCIA_EXAMENES', color: '#8A93A3', oculta: true, banda: true },
+  { nombre: 'PROFESIONALES', color: '#8A93A3', oculta: true, banda: true },
   // Sistema (técnicas ocultas)
   { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
   { nombre: 'FUENTES',          color: '#8A93A3', formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
@@ -421,6 +422,8 @@ _MODELO_HOJAS_DEF[HOJAS.CONFLICTOS] = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 
 _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGISTRO', 'ULTIMA_LECTURA', 'OBSERVACIONES'];
 // Catálogo centralizado de vigencia de exámenes (#15): administrable desde CONFIG
 _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'] = ['EXAMEN', 'CODIGO', 'VIGENCIA', 'UNIDAD', 'ACTIVO'];
+// Catálogo central de profesionales (fuente de verdad para Dupla).
+_MODELO_HOJAS_DEF[HOJAS.PROFESIONALES] = COLUMNAS_PROFESIONALES;
 _MODELO_HOJAS_DEF['INICIO'] = null; // navegación: la construye Hojas_crearInicio
 
 var _CONFIG_SEMILLA = [
@@ -490,6 +493,7 @@ function Modelo_crearEstructura() {
 
   _modelo_formatearPacientes(ss.getSheetByName(HOJAS.PACIENTES));
   _modelo_sembrarConfig(ss.getSheetByName(HOJAS.CONFIG), res);
+  _modelo_sembrarProfesionales(ss.getSheetByName(HOJAS.PROFESIONALES), res);
 
   // Hoja predeterminada: eliminar solo si vacía (regla de no destrucción)
   var hoja0 = ss.getSheetByName(HOJAS.HOJA_PREDETERMINADA);
@@ -571,6 +575,100 @@ function _modelo_sembrarConfig(hoja, res) {
       }
     }
   }
+}
+
+/**
+ * Siembra el catálogo PROFESIONALES con los roles iniciales si la hoja está
+ * vacía o le faltan entradas base. Idempotente: nunca borra ni duplica.
+ * Devuelve cantidad de filas agregadas.
+ */
+function _modelo_sembrarProfesionales(hoja, res) {
+  if (!hoja) return 0;
+  var agregadas = 0;
+  if (hoja.getLastRow() < 2) {
+    var filas = CATALOGO_PROFESIONALES.map(function (c) {
+      return [c.CODIGO, c.NOMBRE_CANONICO, c.TIPO_ROL || '', true];
+    });
+    if (filas.length) { Utl_escribirBloque(hoja, 2, 1, filas); agregadas = filas.length; }
+    return agregadas;
+  }
+  // completar códigos base faltantes (migración sin destruir)
+  var valores = Utl_leerBloque(hoja);
+  var exist = {};
+  valores.slice(1).forEach(function (f) { exist[Utl_texto(f[0]).toUpperCase()] = true; });
+  var faltantes = CATALOGO_PROFESIONALES.filter(function (c) { return !exist[c.CODIGO]; });
+  if (faltantes.length) {
+    var filas = faltantes.map(function (c) {
+      return [c.CODIGO, c.NOMBRE_CANONICO, c.TIPO_ROL || '', true];
+    });
+    Utl_escribirBloque(hoja, valores.length + 1, 1, filas);
+    agregadas = filas.length;
+  }
+  if (res && agregadas && !res.profesionalesSembrados) res.profesionalesSembrados = agregadas;
+  return agregadas;
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo central de profesionales (fuente de verdad para Dupla)
+// ---------------------------------------------------------------------------
+
+/**
+ * PURA: convierte las filas crudas de la hoja PROFESIONALES (con encabezado)
+ * en arreglo de objetos canónicos {CODIGO, NOMBRE, TIPO_ROL, ACTIVO}.
+ * Ignora filas vacías. Normaliza CODIGO y ACTIVO.
+ */
+function Profesionales_mapear(filas) {
+  var out = [];
+  var idx = {};
+  var enc = (filas && filas[0]) || [];
+  COLUMNAS_PROFESIONALES.forEach(function (c, i) { idx[c] = i; });
+  for (var f = 1; f < (filas || []).length; f++) {
+    var r = filas[f];
+    var codigo = Utl_texto(r[idx.CODIGO]).trim().toUpperCase();
+    if (!codigo) continue;
+    out.push({
+      CODIGO: codigo,
+      NOMBRE: Utl_texto(r[idx.NOMBRE]).trim(),
+      TIPO_ROL: Utl_texto(r[idx.TIPO_ROL]).trim(),
+      ACTIVO: !(r[idx.ACTIVO] === false || Utl_texto(r[idx.ACTIVO]).toUpperCase() === 'FALSE')
+    });
+  }
+  return out;
+}
+
+/**
+ * PURA: valida un arreglo de profesionales canónico para evitar duplicados y
+ * referencias vacías al guardar.
+ * @returns {ok:boolean, errores:[]}
+ */
+function Profesionales_validar(profesionales) {
+  var errores = [], vistos = {};
+  (profesionales || []).forEach(function (p) {
+    var c = Utl_texto(p.CODIGO).trim().toUpperCase();
+    if (!c) { errores.push('CODIGO vacío'); return; }
+    if (vistos[c]) { errores.push('CODIGO duplicado: ' + c); return; }
+    vistos[c] = true;
+    if (!Utl_texto(p.NOMBRE).trim()) errores.push(c + ': sin NOMBRE');
+    if (Utl_texto(p.CODIGO).trim() !== c) errores.push(c + ': código debe ir en mayúsculas sin espacios');
+  });
+  return { ok: errores.length === 0, errores: errores };
+}
+
+/**
+ * GAS: lee el catálogo de profesionales desde la hoja PROFESIONALES.
+ * Si la hoja está vacía usa la semilla de código como respaldo (no escribe).
+ * @returns {Array} profesionales canónicos
+ */
+function Profesionales_catalogo() {
+  var hoja = Modelo_hoja(HOJAS.PROFESIONALES);
+  if (hoja && hoja.getLastRow() > 1) {
+    var vals = _memoLeer(hoja, 'PROFESIONALES');
+    var mapeados = Profesionales_mapear(vals);
+    if (mapeados.length) return mapeados;
+  }
+  return CATALOGO_PROFESIONALES.map(function (c) {
+    return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE_CANONICO, TIPO_ROL: c.TIPO_ROL || '', ACTIVO: !!c.ACTIVA };
+  });
 }
 
 // ---------------------------------------------------------------------------

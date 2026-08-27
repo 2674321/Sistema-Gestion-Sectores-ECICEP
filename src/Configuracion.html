@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<?!= include('00_Tokens') ?>
+<style>
+body{font-size:15px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
+header{display:flex;align-items:center;gap:var(--space-3)}
+header h1{font-size:20px;margin:0}
+header .sub{color:var(--text-muted);font-size:13px}
+.estado{margin:var(--space-4) 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;gap:6px;align-items:center;padding:5px 12px;border-radius:var(--radius-full);
+  background:var(--surface-alt);font:600 12px 'Inter'}
+.chip.ok{color:var(--success)} .chip.warn{color:var(--warning)}
+.tabla{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th{position:sticky;top:0;background:var(--surface-alt);text-align:left;font:700 11px 'Inter';
+  text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);padding:9px 10px;border-bottom:1px solid var(--border)}
+td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td .clave{font:600 12px ui-monospace,monospace;color:var(--primary)}
+td .desc{font-size:12px;color:var(--text-muted)}
+input[type=text]{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);font:400 12px ui-monospace,monospace;background:var(--surface)}
+input.protegida{background:var(--surface-alt);color:var(--text-muted);border-style:dashed}
+.badge{display:inline-block;font:600 9px 'Inter';padding:2px 6px;border-radius:var(--radius-full);
+  background:var(--surface-alt);color:var(--text-muted);margin-left:6px;vertical-align:middle}
+.btn-peq{padding:5px 10px;min-height:28px;font-size:11px}
+.agregar{margin-top:var(--space-3);display:grid;grid-template-columns:1fr 1.5fr 1.5fr auto;gap:8px;align-items:center}
+.agregar input{font-size:12px}
+.muted{color:var(--text-muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ Configuración</h1>
+  <span class="sub">Administración desde aquí · la hoja CONFIG queda oculta</span>
+  <div class="acciones" style="margin-left:auto">
+    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+  </div>
+</header>
+
+<div class="estado" id="estado"></div>
+
+<div class="tabla">
+  <table>
+    <thead><tr>
+      <th style="width:22%">Clave</th>
+      <th style="width:26%">Valor</th>
+      <th style="width:36%">Descripción</th>
+      <th style="width:16%">Acciones</th>
+    </tr></thead>
+    <tbody id="filas"></tbody>
+  </table>
+</div>
+
+<div class="agregar">
+  <input type="text" id="nClave" placeholder="CLAVE (nueva)">
+  <input type="text" id="nValor" placeholder="Valor">
+  <input type="text" id="nDesc" placeholder="Descripción">
+  <button class="btn btn-sec btn-peq" onclick="agregarClave(this)"><i data-lucide="plus"></i> Agregar</button>
+</div>
+
+<script>
+var CONFIG_PENDIENTE = [];
+
+function cargar(){
+  var st=document.getElementById('estado');
+  st.innerHTML='<span class="chip">Cargando…</span>';
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.ok){st.innerHTML='<span class="chip warn">Error: '+_esc(r&&r.motivo||'no data')+'</span>';return;}
+      st.innerHTML='<span class="chip">v'+_esc(r.version)+'</span>'+
+        (r.hojaOculta?'<span class="chip ok">Hoja CONFIG oculta ✓</span>':'<span class="chip warn">Hoja CONFIG VISIBLE</span>')+
+        '<span class="chip">'+r.config.length+' claves</span>';
+      pintar(r.config);
+    })
+    .withFailureHandler(function(e){st.innerHTML='<span class="chip warn">Error: '+_esc(e&&e.message||e)+'</span>';})
+    .api_configListar();
+}
+
+function pintar(config){
+  var tb=document.getElementById('filas');
+  CONFIG_PENDIENTE=config.map(function(c){return {clave:c.clave,valor:c.valor,desc:c.descripcion,protegida:c.protegida};});
+  tb.innerHTML=config.map(function(c){
+    var proteccion=c.protegida?'<span class="badge">técnica</span>':'';
+    return '<tr>'+
+      '<td><span class="clave">'+_esc(c.clave)+'</span>'+proteccion+'</td>'+
+      '<td><input type="text" data-clave="'+_esc(c.clave)+'" data-protegida="'+(c.protegida?'1':'0')+'"'+
+        (c.protegida?' disabled class="protegida"':'')+' value="'+_esc(c.valor)+'"></td>'+
+      '<td><span class="desc">'+_esc(c.descripcion||'—')+'</span></td>'+
+      '<td>'+
+        (c.protegida?'<span class="muted">solo lectura</span>'
+          :'<button class="btn btn-sec btn-peq" onclick="guardarFila(this,\''+_esc(c.clave)+'\')"><i data-lucide="save"></i> Guardar</button> '+
+           '<button class="btn btn-danger btn-peq" onclick="eliminarClave(this,\''+_esc(c.clave)+'\')"><i data-lucide="trash-2"></i></button>')+
+      '</td></tr>';
+  }).join('');
+  _refrescarIconos();
+}
+
+function guardarFila(btn,clave){
+  var input=document.querySelector('input[data-clave="'+CSS.escape(clave)+'"]');
+  var valor=input?input.value:'';
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run
+    .withSuccessHandler(function(r){
+      setLoading(btn,false);
+      if(r&&r.ok){toast('✓ '+clave+' guardada','ok');cargar();}
+      else toast(r.motivo||'No se pudo guardar','err');
+    })
+    .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+    .api_configGuardar(clave,valor);
+}
+
+function eliminarClave(btn,clave){
+  if(!confirm('Eliminar la clave '+clave+' de CONFIG?\n\nEsta acción no se puede deshacer.'))return;
+  var fin=_btnCargando(btn,'…');
+  google.script.run
+    .withSuccessHandler(function(r){setLoading(btn,false);
+      if(r&&r.ok){toast('✓ '+clave+' eliminada','ok');cargar();}
+      else toast(r.motivo||'No se pudo eliminar','err');})
+    .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+    .api_configEliminar(clave);
+}
+
+function agregarClave(btn){
+  var k=document.getElementById('nClave').value.trim();
+  var v=document.getElementById('nValor').value;
+  var d=document.getElementById('nDesc').value;
+  if(!k){toast('Indica una CLAVE','warn');return;}
+  var fin=_btnCargando(btn,'…');
+  google.script.run
+    .withSuccessHandler(function(r){setLoading(btn,false);
+      if(r&&r.ok){toast('✓ Clave '+k+' agregada','ok');
+        document.getElementById('nClave').value='';document.getElementById('nValor').value='';document.getElementById('nDesc').value='';
+        cargar();}
+      else toast(r.motivo||'No se pudo agregar','err');})
+    .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+    .api_configAgregar(k,v,d);
+}
+
+cargar();
+</script>
+</body>
+</html>

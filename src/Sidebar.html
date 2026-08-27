@@ -418,10 +418,11 @@ function pintarFicha(f){
     c.classList.add('fade-in');c.style.animationDelay=(i*50)+'ms';});
 
   var duplaTexto=f.DUPLA_INGRESO||'';
+  var duplaCat=(f.dupla&&f.dupla.catalogo)||[];
   var duplaNames=duplaTexto?duplaTexto.split(';').map(function(c){
     c=c.trim().toUpperCase();
-    var found=CATALOGO_PROFESIONALES.filter(function(p){return p.CODIGO===c;});
-    return found.length?found[0].NOMBRE_CANONICO:c;
+    var found=duplaCat.filter(function(p){return p.CODIGO===c;});
+    return found.length?found[0].NOMBRE:c;
   }).filter(function(s){return s;}).join(', '):'';
   var d=[['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],
          ['Dupla',duplaNames||duplaTexto],
@@ -464,12 +465,8 @@ document.getElementById('evTipo').addEventListener('change',function(e){
   }
 });
 
-/* Catálogo de profesionales (solo cliente, para nombres en ficha) */
-var CATALOGO_PROFESIONALES=[{CODIGO:'MED',NOMBRE_CANONICO:'Médico/a'},{CODIGO:'ENF',NOMBRE_CANONICO:'Enfermera/o'},
-  {CODIGO:'TENS',NOMBRE_CANONICO:'TENS'},{CODIGO:'MAT',NOMBRE_CANONICO:'Matrona/o'},
-  {CODIGO:'PSI',NOMBRE_CANONICO:'Psicólogo/a'},{CODIGO:'ASIST',NOMBRE_CANONICO:'Asistente Social'},
-  {CODIGO:'NUTRI',NOMBRE_CANONICO:'Nutricionista'},{CODIGO:'KINE',NOMBRE_CANONICO:'Kinesiólogo/a'},
-  {CODIGO:'TO',NOMBRE_CANONICO:'Terapeuta Ocupacional'}];
+/* El catálogo de profesionales proviene del servidor (hoja oculta
+   PROFESIONALES) embebido en ficha.dupla.catalogo — sin copia en cliente. */
 
 /* ================= registrar gestión ================= */
 function registrarEvento(btn){

@@ -248,43 +248,74 @@ function Amarillo_importarTodo(aplicarHistorico) {
 }
 
 /**
- * GAS: elimina SOLO los duplicados inequívocos creados por el bug Date/ISO
- * del histórico Amarillo: mismo ID_INTERNO + TIPO_EVENTO + FECHA_EVENTO
- * (día) + FUENTE AMARILLO. Conserva la primera ocurrencia. Documenta en LOG.
- * @returns {ok, revisados, eliminados, ejemplos}
+ * PURA: detecta los duplicados inequívocos del histórico Amarillo creados por
+ * el bug Date/ISO ya corregido. Identidad lógica del evento:
+ *   ID_INTERNO + TIPO_EVENTO + FECHA_EVENTO (día) + FUENTE AMARILLO.
+ * Un paciente tiene a lo sumo un CONTROL y un SEGUIMIENTO por fecha, por lo
+ * que repetir esa combinatoria = duplicado real; se conserva la 1ª ocurrencia.
+ * Determinista e idempotente: re-ejecutar no elimina nada más.
+ * @param {Array<{ID_INTERNO,TIPO_EVENTO,FECHA_EVENTO,FUENTE,NOMBRE,FILA}>} eventos
+ * @returns {{analizados,gruposDuplicados,eliminar:number,filas:number[],ejemplos:[]}}
  */
-function Amarillo_dedupHistorico() {
-  var ss = Modelo_ss();
-  var hojaE = ss.getSheetByName(HOJAS.EVENTOS);
-  if (!hojaE || hojaE.getLastRow() < 2)
-    return { ok: true, revisados: 0, eliminados: 0, ejemplos: [] };
-  var tz = Session.getScriptTimeZone();
-  var vals = hojaE.getRange(2, 1, hojaE.getLastRow() - 1, hojaE.getLastColumn()).getValues();
-  var vistos = {}, filasBorrar = [], ejemplos = [];
-  for (var i = 0; i < vals.length; i++) {
-    var f = vals[i];
-    var fuente = Utl_texto(f[13]); // FUENTE
-    if (fuente.indexOf(AMARILLO_FUENTE_TAG) === -1) continue;
-    var fechaIso = f[4] instanceof Date
-      ? Utilities.formatDate(f[4], tz, 'yyyy-MM-dd')
-      : Utl_texto(f[4]).slice(0, 10);
-    var k = Utl_texto(f[1]) + '|' + Utl_texto(f[5]).toUpperCase() + '|' + fechaIso;
+function Amarillo_analizarDuplicados(eventos) {
+  var vistos = {}, grupos = {}, eliminar = [], ejemplos = [], analizados = 0;
+  (eventos || []).forEach(function (ev) {
+    if (Utl_texto(ev.FUENTE).indexOf(AMARILLO_FUENTE_TAG) === -1) return;
+    analizados++;
+    var fechaIso = Amarillo_aFecha(ev.FECHA_EVENTO) || Utl_texto(ev.FECHA_EVENTO).slice(0, 10);
+    var k = Utl_texto(ev.ID_INTERNO) + '|' + Utl_texto(ev.TIPO_EVENTO).toUpperCase() + '|' + fechaIso;
+    grupos[k] = (grupos[k] || 0) + 1;
     if (vistos[k]) {
-      filasBorrar.push(i + 2); // fila real en hoja
+      eliminar.push(ev);
       if (ejemplos.length < 5)
-        ejemplos.push('Fila ' + (i + 2) + ': ' + Utl_texto(f[3]) + ' · ' +
-          Utl_texto(f[5]) + ' ' + fechaIso);
-    } else {
-      vistos[k] = true;
-    }
+        ejemplos.push('Fila ' + (ev.FILA || '?') + ': ' + Utl_texto(ev.NOMBRE) + ' · ' +
+          Utl_texto(ev.TIPO_EVENTO) + ' ' + fechaIso);
+    } else vistos[k] = true;
+  });
+  var gruposDuplicados = Object.keys(grupos).filter(function (g) { return grupos[g] > 1; }).length;
+  return {
+    analizados: analizados,
+    gruposDuplicados: gruposDuplicados,
+    eliminar: eliminar.length,
+    filas: eliminar.map(function (ev) { return ev.FILA; }).sort(function (a, b) { return b - a; }),
+    ejemplos: ejemplos
+  };
+}
+
+/** GAS: lee EVENTOS como objetos planos (una fila = un objeto con FILA física). */
+function Amarillo_leerEventosComoObjetos() {
+  var hojaE = Modelo_hoja(HOJAS.EVENTOS);
+  if (!hojaE || hojaE.getLastRow() < 2) return [];
+  var vals = hojaE.getRange(2, 1, hojaE.getLastRow() - 1, hojaE.getLastColumn()).getValues();
+  var idx = {};
+  COLUMNAS_EVENTOS.forEach(function (c, i) { idx[c] = i; });
+  return vals.map(function (f, i) {
+    return { ID_INTERNO: f[idx.ID_INTERNO], TIPO_EVENTO: f[idx.TIPO_EVENTO],
+             FECHA_EVENTO: f[idx.FECHA_EVENTO], FUENTE: f[idx.FUENTE],
+             NOMBRE: f[idx.NOMBRE], FILA: i + 2 };
+  });
+}
+
+/**
+ * GAS: analiza (dry-run) o elimina SOLO los duplicados inequívocos del
+ * histórico Amarillo (bug Date/ISO). Conserva la primera ocurrencia. Con
+ * dryRun=true NO borra nada y devuelve estadísticas + ejemplos. Idempotente.
+ * @param {boolean} [dryRun]
+ * @returns {ok, dryRun, analizados, gruposDuplicados, eliminar, filas, ejemplos}
+ */
+function Amarillo_dedupHistorico(dryRun) {
+  var a = Amarillo_analizarDuplicados(Amarillo_leerEventosComoObjetos());
+  if (!dryRun && a.eliminar > 0) {
+    var hojaE = Modelo_hoja(HOJAS.EVENTOS);
+    a.filas.forEach(function (fila) {
+      hojaE.deleteRow(fila);
+      Log_warning('Amarillo', 'dedup', 'Evento duplicado eliminado (fila ' + fila + ')');
+    });
+    Log_warning('Amarillo', 'dedup', 'Eliminados ' + a.eliminar +
+      ' duplicados del histórico Amarillo (bug Date/ISO ya corregido)');
+    Log_flush();
   }
-  for (var b = filasBorrar.length - 1; b >= 0; b--) {
-    hojaE.deleteRow(filasBorrar[b]);
-    Log_warning('Amarillo', 'dedup', 'Evento duplicado eliminado (fila ' + filasBorrar[b] + ')');
-  }
-  Log_warning('Amarillo', 'dedup', 'Eliminados ' + filasBorrar.length +
-    ' duplicados del histórico (bug Date/ISO ya corregido)');
-  Log_flush();
-  return { ok: true, revisados: vals.length, eliminados: filasBorrar.length,
-           ejemplos: ejemplos };
+  return { ok: true, dryRun: !!dryRun, analizados: a.analizados,
+           gruposDuplicados: a.gruposDuplicados, eliminar: a.eliminar,
+           filas: a.filas, ejemplos: a.ejemplos };
 }

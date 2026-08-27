@@ -372,12 +372,15 @@ function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Pacientes ECICEP'); }
 /** 📋 Cola de Revisión: sidebar exclusivo del módulo de revisión. */
 function UI_abrirRevision() { _ui_sidebar('revision', 'Cola de Revisión'); }
 
-/** ⚙️ Configuración: abre la hoja CONFIG (la muestra si está oculta). */
+/** ⚙ Configuración: abre el diálogo de administración. La hoja CONFIG
+ *  permanece OCULTA (no se muestra). Usa una función desde menú, jamás la hoja. */
 function UI_configuracion() {
-  var h = Modelo_hoja(HOJAS.CONFIG);
-  if (!h) return;
-  if (h.isSheetHidden()) h.showSheet();
-  Modelo_ss().setActiveSheet(h);
+  // Re-prende el ocultamiento de CONFIG (idempotente) por si quedó visible.
+  try {
+    var cfg = Modelo_hoja(HOJAS.CONFIG);
+    if (cfg && !cfg.isSheetHidden()) cfg.hideSheet();
+  } catch (e) {}
+  _ui_dialogo('Configuracion', 'Configuración');
 }
 
 /** 🧪 Centro de Pruebas: única entrada al diagnóstico del sistema. */
@@ -440,8 +443,8 @@ function api_duplaAbrir(idInterno) {
     }).filter(function (s) { return s; }) : [];
     return {
       ok: true,
-      catalogo: CATALOGO_PROFESIONALES.filter(function (c) { return c.ACTIVA; })
-        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE_CANONICO }; }),
+      catalogo: Profesionales_catalogo().filter(function (c) { return c.ACTIVO; })
+        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE }; }),
       seleccionados: seleccionados
     };
   } catch (e) {
@@ -475,13 +478,181 @@ function api_duplaGuardar(idInterno, codigos) {
   }
 }
 
-/** Navegación a hoja por nombre, con whitelist del diseño del libro. */
+/* ---------------------- Catálogo central de profesionales ---------------------- */
+
+/** Endpoint: lista el catálogo actual de profesionales para la vista de admin. */
+function api_profesionalesListar() {
+  try {
+    return { ok: true, profesionales: Profesionales_catalogo() };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Escritura atómica del catálogo (reemplazo validado). Guarda si no hay errores. */
+function _profesionales_guardarFilas(profesionales) {
+  var val = Profesionales_validar(profesionales);
+  if (!val.ok) return { ok: false, errores: val.errores };
+  var hoja = Modelo_hoja(HOJAS.PROFESIONALES);
+  if (!hoja) return { ok: false, motivo: 'Falta hoja PROFESIONALES (ejecuta Instalar sistema)' };
+  var filas = profesionales.map(function (p) {
+    return [Utl_texto(p.CODIGO).trim().toUpperCase(), Utl_texto(p.NOMBRE).trim(),
+            Utl_texto(p.TIPO_ROL).trim(), p.ACTIVO !== false];
+  });
+  if (hoja.getLastRow() > 1) hoja.getRange(2, 1, hoja.getLastRow() - 1, COLUMNAS_PROFESIONALES.length).clear();
+  if (filas.length) Utl_escribirBloque(hoja, 2, 1, filas);
+  Modelo_invalidarLecturas();
+  Log_info('Profesionales', 'guardar', 'catálogo reemplazado (' + filas.length + ' entradas)');
+  Log_flush();
+  return { ok: true, cantidad: filas.length };
+}
+
+/** Endpoint: reemplaza el catálogo completo con la lista validada. */
+function api_profesionalesGuardar(profesionales) {
+  try { return _profesionales_guardarFilas(profesionales); }
+  catch (e) {
+    Log_error('Profesionales', 'guardar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: agrega un profesional nuevo al catálogo (con validación). */
+function api_profesionalesAgregar(codigo, nombre, tipoRol, activo) {
+  try {
+    var actuales = Profesionales_catalogo();
+    var c = Utl_texto(codigo).trim().toUpperCase();
+    if (!c || !Utl_texto(nombre).trim()) return { ok: false, errores: ['CODIGO y NOMBRE obligatorios'] };
+    var duplicado = actuales.some(function (p) { return p.CODIGO === c; });
+    if (duplicado) return { ok: false, errores: ['CODIGO duplicado: ' + c] };
+    actuales.push({ CODIGO: c, NOMBRE: Utl_texto(nombre).trim(),
+                    TIPO_ROL: Utl_texto(tipoRol).trim(), ACTIVO: activo !== false });
+    return _profesionales_guardarFilas(actuales);
+  } catch (e) {
+    Log_error('Profesionales', 'agregar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: elimina un profesional del catálogo por código. */
+function api_profesionalesEliminar(codigo) {
+  try {
+    var c = Utl_texto(codigo).trim().toUpperCase();
+    if (!c) return { ok: false, motivo: 'CODIGO vacío' };
+    var restantes = Profesionales_catalogo().filter(function (p) { return p.CODIGO !== c; });
+    return _profesionales_guardarFilas(restantes);
+  } catch (e) {
+    Log_error('Profesionales', 'eliminar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/* ---------------------- Administración de CONFIG (diálogo) ---------------------- */
+
+/** Claves técnicas del sistema: el operador no las edita desde el diálogo. */
+var CONFIG_PROTEGIDAS = {
+  VERSION: true, AMBIENTE: true, SPREADSHEET_ID: true, NIVEL_LOG: true,
+  TTL_CACHE_SEG: true, ANO_MIN_FECHAS: true, ANO_MAX_FECHAS: true
+};
+
+/** Endpoint: lista las claves de CONFIG con su descripción y si están protegidas. */
+function api_configListar() {
+  try {
+    var hoja = Modelo_hoja(HOJAS.CONFIG);
+    var filas = [];
+    if (hoja && hoja.getLastRow() > 1) {
+      var vals = Utl_leerBloque(hoja);
+      for (var i = 1; i < vals.length; i++) {
+        var k = Utl_texto(vals[i][0]);
+        if (!k) continue;
+        filas.push({ clave: k, valor: Utl_texto(vals[i][1]),
+                     descripcion: Utl_texto(vals[i][2]), protegida: !!CONFIG_PROTEGIDAS[k] });
+      }
+    }
+    return { ok: true, config: filas, version: ECICEP.VERSION,
+             hojaOculta: hoja ? hoja.isSheetHidden() : false };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: guarda el valor de una clave NO protegida. */
+function api_configGuardar(clave, valor) {
+  try {
+    var k = Utl_texto(clave).trim();
+    if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
+    if (CONFIG_PROTEGIDAS[k]) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    _config_set(k, String(valor == null ? '' : valor));
+    Log_info('Config', 'guardar', k);
+    Log_flush();
+    return { ok: true };
+  } catch (e) {
+    Log_error('Config', 'guardar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: agrega una clave nueva (no puede duplicar). */
+function api_configAgregar(clave, valor, descripcion) {
+  try {
+    var k = Utl_texto(clave).trim();
+    if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
+    if (CONFIG_PROTEGIDAS[k]) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    var hoja = Modelo_hoja(HOJAS.CONFIG);
+    var duplicada = false;
+    if (hoja && hoja.getLastRow() > 1) {
+      var vals = Utl_leerBloque(hoja);
+      for (var i = 1; i < vals.length; i++) if (Utl_texto(vals[i][0]) === k) { duplicada = true; break; }
+    }
+    if (duplicada) return { ok: false, motivo: 'CLAVE_DUPLICADA: ' + k };
+    _config_set(k, String(valor == null ? '' : valor));
+    var h2 = Modelo_hoja(HOJAS.CONFIG);
+    if (h2 && h2.getLastRow() > 1) h2.getRange(h2.getLastRow(), 3).setValue(Utl_texto(descripcion));
+    Log_info('Config', 'agregar', k);
+    Log_flush();
+    return { ok: true };
+  } catch (e) {
+    Log_error('Config', 'agregar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: elimina una clave NO protegida de CONFIG. */
+function api_configEliminar(clave) {
+  try {
+    var k = Utl_texto(clave).trim();
+    if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
+    if (CONFIG_PROTEGIDAS[k]) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    var hoja = Modelo_hoja(HOJAS.CONFIG);
+    if (hoja && hoja.getLastRow() > 1) {
+      var vals = Utl_leerBloque(hoja);
+      for (var i = 1; i < vals.length; i++) {
+        if (Utl_texto(vals[i][0]) === k) { hoja.deleteRow(i + 1); break; }
+      }
+    }
+    Log_info('Config', 'eliminar', k);
+    Log_flush();
+    return { ok: true };
+  } catch (e) {
+    Log_error('Config', 'eliminar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Navegación a hoja por nombre, con whitelist del diseño del libro.
+ *  CONFIG queda EXCLUIDA: se administra solo vía el diálogo (menú/función). */
 function api_irA(nombreHoja) {
   try {
     var permitidas = {};
     MODELO_DISENO.forEach(function (d) { permitidas[d.nombre] = true; });
     var nombre = Utl_texto(nombreHoja).trim();
-    if (!permitidas[nombre]) return { ok: false, motivo: 'HOJA_NO_PERMITIDA' };
+    if (!permitidas[nombre] || nombre === HOJAS.CONFIG)
+      return { ok: false, motivo: 'HOJA_NO_PERMITIDA' };
     var h = Modelo_hoja(nombre);
     if (!h) return { ok: false, motivo: 'HOJA_NO_EXISTE' };
     if (h.isSheetHidden()) h.showSheet();
@@ -687,8 +858,8 @@ function api_ficha(idInterno) {
 
     /* Catálogo e información de selección en la MISMA llamada (menos RPC) */
     ficha.dupla = {
-      catalogo: CATALOGO_PROFESIONALES.filter(function (c) { return c.ACTIVA; })
-        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE_CANONICO }; }),
+      catalogo: Profesionales_catalogo().filter(function (c) { return c.ACTIVO; })
+        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE }; }),
       seleccionados: (Utl_texto(paciente.DUPLA_INGRESO).split(';').map(function (s) {
         return s.trim().toUpperCase(); }).filter(function (s) { return s; }))
     };
