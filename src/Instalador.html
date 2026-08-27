@@ -34,6 +34,8 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 .botones{display:none;gap:10px;margin-top:var(--space-4)}
 .botones .btn{flex:1;justify-content:center}
 .pie{text-align:center;font-size:11px;color:var(--text-muted);margin-top:auto;padding-top:var(--space-3)}
+#btnCancelarWrap{display:none;margin-top:var(--space-2)}
+#btnCancelarWrap .btn{width:100%;justify-content:center}
 </style>
 </head>
 <body>
@@ -47,6 +49,9 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 <div class="barra"><span id="fill"></span></div>
 <div class="etapa-actual" id="etapaActual">
   <span class="spin"></span><span id="etapaTxt">Preparando…</span>
+</div>
+<div id="btnCancelarWrap">
+  <button class="btn btn-ghost" onclick="cancelarInstalacion()">Detener proceso</button>
 </div>
 
 <div class="lista" id="lista"></div>
@@ -66,8 +71,30 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var ETAPAS=[],RESULTADOS=[],ERRORES=[];
+var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false,_msgTimer=null;
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
+/* Peso relativo por etapa: las importaciones de fuentes dominan el tiempo */
+var PESO_ETAPA={estructura:1,fuentes:8,amarillo:6,validaciones:2,limpieza:1,diseno:2,inicio:3,menu:1,verificar:1};
+function pesoTotal(){return ETAPAS.reduce(function(s,e){return s+(PESO_ETAPA[e.id]||1);},0);}
+var MSG_LENTAS=['Procesando datos…','Estabilizando sistema…','Aplicando cambios en el libro…','Casi listo…'];
+function arrancarMsgs(){
+  pararMsgs();
+  var i=0;
+  _msgTimer=setInterval(function(){
+    i=(i+1)%MSG_LENTAS.length;
+    var el=document.getElementById('etapaTxt');
+    if(el)el.textContent=el.getAttribute('data-etapa')+' — '+MSG_LENTAS[i];
+  },1300);
+}
+function pararMsgs(){if(_msgTimer){clearInterval(_msgTimer);_msgTimer=null;}}
+
+function cancelarInstalacion(){
+  if(_CANCELADO)return;
+  _CANCELADO=true;
+  pararMsgs();
+  document.getElementById('btnCancelarWrap').style.display='none';
+  document.getElementById('etapaTxt').textContent='Proceso detenido — puedes cerrar esta ventana';
+}
 
 function cargarEtapas(){
   google.script.run.withSuccessHandler(function(r){
@@ -91,19 +118,34 @@ function marcar(id,estado){
 }
 
 function ejecutarSecuencia(ix){
+  if(_CANCELADO)return;
   if(ix>=ETAPAS.length){finalizar();return;}
   var etapa=ETAPAS[ix];
+  _enCurso=true;
+  document.getElementById('btnCancelarWrap').style.display='block';
   marcar(etapa.id,'run');
-  document.getElementById('etapaTxt').textContent=etapa.nombre+'…';
-  var pct=Math.round((ix/ETAPAS.length)*100);
+  var et=document.getElementById('etapaTxt');
+  et.textContent=etapa.nombre+'…';
+  et.setAttribute('data-etapa',etapa.nombre);
+  arrancarMsgs();
+  var hecho=0;
+  RESULTADOS.forEach(function(r){
+    var e=ETAPAS.filter(function(x){return x.id===r.etapa;})[0];
+    if(e)hecho+=(PESO_ETAPA[e.id]||1);
+  });
+  var pct=Math.round((hecho/pesoTotal())*100);
   document.getElementById('pct').textContent=pct+'%';
   document.getElementById('fill').style.width=pct+'%';
 
   google.script.run.withSuccessHandler(function(r){
+    if(_CANCELADO)return;
+    pararMsgs();
+    _enCurso=false;
     if(!r||r.ok===false){
       marcar(etapa.id,'err');
       ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&r.motivo)||'error'});
       document.getElementById('etapaTxt').textContent='Etapa fallida: '+etapa.nombre;
+      document.getElementById('btnCancelarWrap').style.display='none';
       mostrarFinal(false); /* pantalla de error con reintentar */
       return;
     }
@@ -111,8 +153,12 @@ function ejecutarSecuencia(ix){
     RESULTADOS.push(r);
     ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
   }).withFailureHandler(function(e){
+    if(_CANCELADO)return;
+    pararMsgs();
+    _enCurso=false;
     marcar(etapa.id,'err');
     ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(e&&e.message)||e});
+    document.getElementById('btnCancelarWrap').style.display='none';
     mostrarFinal(false);
   }).api_instalarPaso(etapa.id);
 }

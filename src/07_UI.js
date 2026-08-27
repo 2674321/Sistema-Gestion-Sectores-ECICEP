@@ -465,8 +465,7 @@ function api_duplaGuardar(idInterno, codigos) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var hoja = ss.getSheetByName(HOJAS.PACIENTES);
     var colDupla = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('DUPLA_INGRESO') + 1;
-    var rng = hoja.createTextFinder(Utl_texto(idInterno)).findNext();
-    if (rng) hoja.getRange(rng.getRow(), colDupla).setValue(dupla);
+    hoja.getRange(2 + idx, colDupla).setValue(dupla);
     Log_info('Dupla', 'guardar', idInterno + ' → ' + dupla);
     Log_flush();
     return { ok: true, cantidad: codigos.length, dupla: dupla };
@@ -686,6 +685,20 @@ function api_ficha(idInterno) {
       return { fecha: fechaEv, tipo: e.TIPO_EVENTO, sector: e.SECTOR,
                riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION };
     });
+
+    /* Catálogo e información de selección en la MISMA llamada (menos RPC) */
+    ficha.dupla = {
+      catalogo: CATALOGO_PROFESIONALES.filter(function (c) { return c.ACTIVA; })
+        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE_CANONICO }; }),
+      seleccionados: (Utl_texto(paciente.DUPLA_INGRESO).split(';').map(function (s) {
+        return s.trim().toUpperCase(); }).filter(function (s) { return s; }))
+    };
+    ficha.patologias = {
+      catalogo: CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; }).map(function (c) {
+        return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO, peso: c.PONDERACION }; }),
+      seleccionadas: paciente.CONDICIONES ? Utl_texto(paciente.CONDICIONES).split(';').filter(Boolean) : [],
+      otrasPatologias: paciente.OTRAS_PATOLOGIAS ? Utl_texto(paciente.OTRAS_PATOLOGIAS) : ''
+    };
 
     return { ok: true, ficha: ficha };
 

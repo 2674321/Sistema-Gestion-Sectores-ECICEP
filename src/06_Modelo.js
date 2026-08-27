@@ -578,10 +578,22 @@ function _modelo_sembrarConfig(hoja, res) {
 // ---------------------------------------------------------------------------
 
 /** Lee PACIENTES completo como array de objetos canónicos. */
+/* Memo de lecturas por invocación: evita re-leer la misma hoja dos veces
+ * dentro de una misma llamada RPC (api_ficha + patologías + dupla, etc.).
+ * Se invalida con Modelo_invalidarLecturas(). Nunca persiste entre llamadas. */
+var _MEMO_HOJAS = {};
+function Modelo_invalidarLecturas() { _MEMO_HOJAS = {}; }
+function _memoLeer(hoja, clave) {
+  if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, clave)) return _MEMO_HOJAS[clave];
+  var v = Utl_leerBloque(hoja);
+  _MEMO_HOJAS[clave] = v;
+  return v;
+}
+
 function Modelo_leerPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja || hoja.getLastRow() < 2) return [];
-  var valores = Utl_leerBloque(hoja);
+  var valores = _memoLeer(hoja, 'PACIENTES');
   var campos = valores[0];
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
@@ -679,7 +691,9 @@ function Modelo_agregarEventos(eventos, registradoPor, contexto) {
       return (v === undefined || v === null) ? '' : v;
     });
   });
-  return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
+  var N = Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
+  Modelo_invalidarLecturas();
+  return N;
 }
 
 /**
@@ -882,6 +896,7 @@ function Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimoEventoMap) {
  * @returns {SECTOR_NARANJO:n, SECTOR_AMARILLO:n, SECTOR_VERDE:n}
  */
 function Modelo_refrescarVistasSectores() {
+  Modelo_invalidarLecturas();
   var pacientes = Modelo_leerPacientes();
   var eventos = Modelo_leerEventos();
   var ultimo = Ev_ultimoPorPaciente(eventos);
@@ -904,7 +919,7 @@ function Modelo_refrescarVistasSectores() {
 function Modelo_leerEventos() {
   var hoja = Modelo_hoja(HOJAS.EVENTOS);
   if (!hoja || hoja.getLastRow() < 2) return [];
-  var valores = Utl_leerBloque(hoja);
+  var valores = _memoLeer(hoja, 'EVENTOS');
   var campos = valores[0];
   var salida = [];
   for (var f = 1; f < valores.length; f++) {

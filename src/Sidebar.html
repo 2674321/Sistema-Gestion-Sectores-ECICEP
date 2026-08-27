@@ -80,6 +80,7 @@
 .tl-item.anim{animation:tIn .3s var(--ease-in) both}
 
 .pat-chips{display:flex;flex-wrap:wrap;gap:6px}
+.refresh-spin .lucide{animation:girar .8s linear infinite}
 .dup-seleccion{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--surface-alt);border:1px dashed var(--border-strong);border-radius:var(--radius-md);min-height:36px}
 .dup-seleccion:empty::after{content:'Sin seleccionados';color:var(--text-muted);font-size:12px}
 .pchip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:var(--radius-full);
@@ -153,7 +154,7 @@ textarea.inp{min-height:64px;resize:vertical}
       <div class="pc-estado"><span class="dot-ok"></span> Sistema operativo</div>
     </div>
     <div style="text-align:right">
-      <button class="btn btn-ghost" onclick="cargarPanel()" title="Actualizar"
+      <button class="btn btn-ghost" onclick="cargarPanel(this)" title="Actualizar"
         id="btnRefrescarPanel">
         <i data-lucide="refresh-cw" style="width:15px;height:15px"></i></button>
       <div class="pc-ult">Últ. actualización<br><b id="ccUltAct">—</b></div>
@@ -170,7 +171,7 @@ textarea.inp{min-height:64px;resize:vertical}
 
   <div class="card cc-card">
     <div class="card-t">Acciones rápidas</div>
-    <button class="btn btn-pri btn-block" onclick="abrirBuscadorPac()">
+    <button class="btn btn-pri btn-block" onclick="abrirBuscadorPac(this)">
       <i data-lucide="search"></i> Buscar paciente</button>
     <button class="btn btn-sec btn-block" onclick="verRevisionDesdePanel()">
       <i data-lucide="clipboard-check"></i> Cola de revisión
@@ -451,8 +452,8 @@ function pintarFicha(f){
   var s=document.getElementById('evTipo');
   s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
   s.value='CONTROL';
-  cargarSelectorPatologias(f.ID_INTERNO,false);
-  cargarSelectorDupla(f.ID_INTERNO);
+  cargarSelectorPatologias(f.ID_INTERNO,false,f.patologias);
+  cargarSelectorDupla(f.ID_INTERNO,f.dupla);
   _refrescarIconos();
 }
 /* Auto-fill: CONTROL selecciona hoy como fecha */
@@ -489,8 +490,14 @@ function registrarEvento(btn){
 
 /* ================= patologías (selector en tab) ================= */
 var _patTimer=null;
-function cargarSelectorPatologias(pid,forzar){
+function cargarSelectorPatologias(pid,forzar,datosEmbebidos){
   if(!pid)return;
+  if(datosEmbebidos){
+    PAT_CATALOGO=datosEmbebidos.catalogo||[];PAT_SELECCIONADAS=datosEmbebidos.seleccionadas||[];
+    document.getElementById('otrasPatologias').value=datosEmbebidos.otrasPatologias||'';
+    renderizarPats('');actualizarContador();_refrescarIconos();
+    return;
+  }
   google.script.run.withSuccessHandler(function(r){
     PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
     document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
@@ -554,7 +561,13 @@ function recalcularEstrat(btn){
 var DUPLA_CATALOGO=[];
 var DUPLA_SELECCIONADAS=[];
 
-function cargarSelectorDupla(pid){
+function cargarSelectorDupla(pid,datosEmbebidos){
+  if(datosEmbebidos){
+    DUPLA_CATALOGO=datosEmbebidos.catalogo||[];
+    DUPLA_SELECCIONADAS=datosEmbebidos.seleccionados||[];
+    renderizarDupla();
+    return;
+  }
   google.script.run
     .withSuccessHandler(function(r){
       DUPLA_CATALOGO=r.catalogo||[];
@@ -681,8 +694,13 @@ function fechaEsLarga(d){
   return DIAS_ES[d.getDay()].charAt(0).toUpperCase()+DIAS_ES[d.getDay()].slice(1)+', '+
     d.getDate()+' de '+MESES_ES[d.getMonth()]+' de '+d.getFullYear();
 }
-function cargarPanel(){
+function cargarPanel(btn){
+  if(btn){
+    if(btn.dataset.cargando==='1')return;
+    btn.dataset.cargando='1';btn.disabled=true;btn.classList.add('refresh-spin');
+  }
   google.script.run.withSuccessHandler(function(r){
+    if(btn){btn.dataset.cargando='0';btn.disabled=false;btn.classList.remove('refresh-spin');}
     if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');
       document.getElementById('ccKpis').innerHTML='<div class="vacio" style="grid-column:1/-1"><i data-lucide="alert-triangle"></i>Sin datos — ejecuta Instalar / Reparar Sistema</div>';
       _refrescarIconos();return;}
@@ -725,10 +743,13 @@ function cargarPanel(){
         (e.iniciales?'<span class="act-init">'+e.iniciales+'</span>':'')+'</div>';
     }).join(''):'<div class="vacio"><i data-lucide="activity"></i>Sin actividad registrada</div>';
     _refrescarIconos();
-  }).withFailureHandler(_errSilencioso('api_centroResumen'))
+  }).withFailureHandler(function(e){
+    if(btn){btn.dataset.cargando='0';btn.disabled=false;btn.classList.remove('refresh-spin');}
+    _errSilencioso('api_centroResumen')(e);
+  })
   .api_centroResumen();
 }
-function abrirBuscadorPac(){ google.script.run.UI_abrirBuscador(); }
+function abrirBuscadorPac(btn){ var fin=_btnPulso(btn,'Abriendo…'); google.script.run.UI_abrirBuscador(); }
 function verRevisionDesdePanel(btn){
   var fin=btn?_btnPulso(btn,'Abriendo…'):null;
   google.script.run

@@ -46,13 +46,14 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 .barra>span{display:block;height:100%;width:100%;background:var(--primary);border-radius:var(--radius-full)}
 .barra.indet>span{background:repeating-linear-gradient(45deg,#E5F1F2 0 10px,#0E5C68 10px 20px);animation:deslizaD .8s linear infinite}
 @keyframes deslizaD{from{background-position:0 0}to{background-position:28px 0}}
+.refresh-spin .lucide{animation:girar .8s linear infinite}
 
 </style>
 </head>
 <body>
 <header>
   <h1>Estadísticas</h1> <span class="build" style="font-size:10px;color:var(--border-strong)">build <?= BUILD ?></span><span class="chip rut" id="chipGen">…</span>
-  <button class="btn btn-sec" onclick="cargarDatos()" style="margin-left:auto">
+  <button class="btn btn-sec" id="btnActualizar" onclick="cargarDatos(this)" style="margin-left:auto">
     <i data-lucide="refresh-cw"></i> Actualizar</button>
   <div class="sub">Los KPIs y gráficos reaccionan a los filtros · El rango de fechas define la ventana del gráfico de ingresos por mes</div>
   <div class="barra" id="barraWrap" style="display:none;margin-top:10px"><span></span></div>
@@ -121,7 +122,7 @@ var COL_EST={'G1':'#3E8A96','G2':'#0E5C68','G3':'#08414A','PENDIENTE':'#B9C0CC'}
 var _conteoAnim=false;
 
 document.querySelectorAll('.chip-filtro').forEach(function(ch){
-  ch.addEventListener('click',function(){ch.classList.toggle('on');renderizarTodo();});
+  ch.addEventListener('click',function(){ch.classList.toggle('on');_reboteRender();});
 });
 function toggleOpciones(){
   var p=document.getElementById('panelOpciones');
@@ -137,11 +138,13 @@ function opcionesCalc(){
   };
 }
 ['opSinPend','opConPat','opSinSector','opDias'].forEach(function(id){
-  document.getElementById(id).addEventListener('change',renderizarTodo);
+  document.getElementById(id).addEventListener('change',_reboteRender);
 });
 ['fDesde','fHasta'].forEach(function(id){
-  document.getElementById(id).addEventListener('change',renderizarTodo);
+  document.getElementById(id).addEventListener('change',_reboteRender);
 });
+function _reboteRender(){clearTimeout(_rebRenderT);_rebRenderT=setTimeout(renderizarTodo,120);}
+var _rebRenderT=null;
 
 function activos(){return SECTORES.filter(function(s){
   return document.querySelector('.chip-filtro[data-s="'+s+'"]').classList.contains('on');});}
@@ -319,8 +322,9 @@ function barraIndet(msgs){
   var i=0;_bT=setInterval(function(){i=(i+1)%msgs.length;barraMsg(msgs[i]);},1600);
   barraMsg(msgs[0]);
 }
-function barraFin(ok){
+function barraFin(ok,msg){
   if(_bT){clearInterval(_bT);_bT=null;}
+  if(msg)barraMsg(msg);
   var w=document.getElementById('barraWrap');
   var f=w?w.querySelector('span'):null;
   if(f)f.style.width=ok?'100%':'0';
@@ -334,13 +338,17 @@ function errorFatal(msg){
     '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--danger)">'+
     '<b>Error cargando datos:</b> '+msg+'<br><small>Copia este mensaje y avisa para diagnóstico.</small></div>');
 }
-function cargarDatos(){
-  var b=document.querySelector('.acciones .btn-sec');
-  if(b){b.disabled=true;barraMsg('Solicitando datos al servidor…');barraIndet(['Solicitando datos…','Leyendo pacientes…','Leyendo eventos…','Serializando…']);}
+function cargarDatos(btn){
+  if(btn&&btn.disabled)return;
+  if(btn){btn.disabled=true;btn.classList.add('refresh-spin');}
+  if(!document.getElementById('barraTxt'))barraMsg('');
+  barraMsg('Solicitando datos al servidor…');barraIndet(['Solicitando datos…','Leyendo pacientes…','Leyendo eventos…','Serializando…']);
   google.script.run.withSuccessHandler(function(r){
   ['kTotal','kPend','kIng','kRev'].forEach(function(id){
     document.getElementById(id).textContent='…';});
-  if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');return;}
+  if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');
+    barraFin(false);if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
+    return;}
   D=r;D.catalogoObj={};(r.catalogo||[]).forEach(function(c){D.catalogoObj[c.codigo]=c.nombre;});
   D.catalogo=D.catalogoObj;
   var hoy=new Date();
@@ -360,14 +368,16 @@ function cargarDatos(){
       document.getElementById('fDesde').value=sv.desde;
       document.getElementById('fHasta').value=sv.hasta;
     }
-  }catch(eL){}barraFin(true,'✓ Datos cargados');if(b)b.disabled=false;
+  }catch(eL){}barraFin(true,'✓ Datos cargados');if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
   renderizarTodo();
   if(!_conteoAnim){
     Array.prototype.forEach.call(document.querySelectorAll('.kpi,.chart-card'),function(c,i2){
       c.classList.add('fade-in');c.style.animationDelay=(i2*50)+'ms';});
   }
   _refrescarIconos();
-}).withFailureHandler(function(e){toast('Error cargando datos: '+(e&&e.message||e),'err');})
+}).withFailureHandler(function(e){barraFin(false);var b2=document.getElementById('btnActualizar');
+  if(b2){b2.disabled=false;b2.classList.remove('refresh-spin');}
+  toast('Error cargando datos: '+(e&&e.message||e),'err');})
 .api_dashboardDatos();
 }
 
