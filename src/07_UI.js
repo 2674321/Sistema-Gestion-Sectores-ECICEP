@@ -1097,7 +1097,8 @@ function api_registrarEvento(payload) {
     };
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
 
-    Ingresos_sincronizarCache(objetivo, evento);
+    var freqReg = Control_leerFrecuencia();
+    Ingresos_sincronizarCache(objetivo, evento, freqReg);
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);

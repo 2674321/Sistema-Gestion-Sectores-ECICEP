@@ -420,3 +420,34 @@ llamaba a `UI_sembrarFicticios` (inexistente); se define la envoltura.
 eliminó; cambio de navegación/etiquetas con compatibilidad total. 335 pruebas
 locales verdes.
 **Fecha:** 2026-08-27
+
+## DEC-037
+**Título:** v0.8.7 — Diagnóstico y optimización de rendimiento del Sector Amarillo
+**Estado:** Aprobada (v0.8.7)
+**Motivo:** El importar el histórico de la hoja fuente Amarillo fallaba por
+«Se ha superado el tiempo máximo de ejecución.». Diagnóstico: tres costes
+acumulados en `Amarillo_aplicarHistorico` — (a) **O(F×P)**: un
+`pacientes.filter(...)` por cada fila fuente pese a existir `idxRut`; (b)
+**~2×F lecturas de CONFIG**: `Control_calcularProximo` y `Ingresos_sincronizarCache`
+re-leían la hoja CONFIG en cada fila porque no se les pasaba `freqConfig`
+(regla clínica vigente sin cambios: PRÓXIMO_CONTROL siempre se **deriva**, jamás
+se copia de la fuente); (c) **F escrituras** `getRange().setValues()` fila por
+fila. Se decide:
+(a) **Núcleo puro e indexado** `Amarillo_calcularHistorico(pacientes, eventos,
+filas, freqConfig)` (in-memory, testeable) que construye `idxRut` y agrupa
+eventos una sola vez → **O(F+P+E)**: benchmark local ~217× más rápido en
+5.000 pacientes × 5.000 filas.
+(b) **CONFIG leída una única vez por operación** (frecuencia + perfilado
+`AMARILLO_PROFILE`) y reutilizada; sin lecturas de hoja en el bucle.
+(c) **Escrituras por bloques contiguos** de pacientes (`_amarillo_escribirPacientes`:
+una `setValues()` por rango de índices consecutivos). Eventos ya se escribían
+en batch (`Modelo_agregarEventos`).
+(d) **Perfilado** activable/desactivable por `AMARILLO_PROFILE = TRUE` en CONFIG,
+que registra en el LOG tiempos por fase, filas fuente, pacientes, eventos y
+escrituras.
+(e) **`api_registrarEvento`** reutiliza una única lectura de frecuencia
+(`Ingresos_sincronizarCache(paciente, evento, freqRel)`).
+(f) **Sin cambios clínicos ni de contrato**: no se copia PRÓXIMO de la fuente
+(regla vigente intacta), dedup idempotente intacto. 337 pruebas locales verdes
+(335 previas + 2 nuevas de núcleo/escala Amarillo).
+**Fecha:** 2026-08-27

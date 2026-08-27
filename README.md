@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.5** · Google Sheets + Apps Script (clasp) · 335 pruebas locales verdes ·
+**v0.8.7 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **337 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -137,6 +137,28 @@ Sistema-Gestion-Sectores-ECICEP/
   inline**. + `Modelo_invalidarLecturas()` en todas las escrituras de CONFIG y validación cliente/servidor.
 - **Edad automática** desde `FECHA_NACIMIENTO` (`Utl_edadDesde`, consciente del cumpleaños) usada por
   panel y diagnóstico. **335 pruebas locales verdes**.
+
+## v0.8.7 — Diagnóstico y optimización de rendimiento del Sector Amarillo
+
+- **🐛 Timeout del Sector Amarillo diagnosticado**: «Se ha superado el tiempo máximo de ejecución.»
+  en `Amarillo_aplicarHistorico` por tres costes acumulados: (a) **O(F×P)** — un `pacientes.filter(...)`
+  por cada fila fuente a pesar de existir `idxRut`; (b) **~2×F lecturas de CONFIG** —
+  `Control_calcularProximo` e `Ingresos_sincronizarCache` re-leían la hoja CONFIG **sin `freqConfig`**
+  en cada fila; (c) **F escrituras** individuales `getRange().setValues()` fila por fila en PACIENTES.
+- **Núcleo puro e indexado**: nuevo `Amarillo_calcularHistorico(pacientes, eventos, filas, freqConfig)`
+  (in-memory, testeable) construye `idxRut` y el agrupado de eventos **una sola vez** → **O(F+P+E)**
+  en vez de O(F×P) (benchmark local: **~217× más rápido** en 5.000 pacientes × 5.000 filas).
+- **CONFIG leída una sola vez por operación** y reutilizada (frecuencia + perfilado) — antes se
+  re-leía por fila (regla clínica **sin cambios**: PRÓXIMO_CONTROL sigue derivándose de
+  ÚLTIMO_CONTROL + estratificación + frecuencia, jamás se copia el de la fuente).
+- **Escrituras por bloques contiguos**: `_amarillo_escribirPacientes` agrupa índices consecutivos y
+  hace **una `setValues()` por bloque**, no una por fila. Eventos ya se escribían en batch.
+- **Perfilado activable/desactivable por CONFIG**: con `AMARILLO_PROFILE = TRUE` registra en el LOG
+  tiempos por fase (config/cálculo/escritura), filas fuente, pacientes y eventos.
+- **`api_registrarEvento`** reutiliza una única lectura de frecuencia (`Ingresos_sincronizarCache`
+  recibe `freqConfig` explícito; antes releía CONFIG por cada evento).
+- **Regresión confirmada**: **337 pruebas locales verdes** (335 previas + 2 nuevas de núcleo/escala
+  Amarillo: corrección de índices/regla/preingreso/pendientes y escala idempotente 100/1.000/3.000).
 
 ## v0.8.6 — Rediseño de navegación centrado en tareas (Parte 0 · auditoría UX)
 

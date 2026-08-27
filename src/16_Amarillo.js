@@ -172,67 +172,128 @@ function Amarillo_volcarPuerta(filas) {
   return { nuevas: nuevas.length, yaPresentes: ya };
 }
 
-/** GAS: aplica histórico (eventos + PREINGRESO/PRÓXIMO_CONTROL) a pacientes
- *  YA importados. Los RUT sin paciente quedan listados como pendientes. */
-function Amarillo_aplicarHistorico(filas) {
-  var pacientes = Modelo_leerPacientes();
-  /* índice NORMALIZADO (trim+mayúsculas) — el RUT de la fuente puede traer
-     espacios o variaciones; sin esto el join falla al 100% */
+/** PURA: núcleo del histórico Amarillo (in-memory, sin acceso a Sheets).
+ *  Para cada fila fuente con paciente ya importado calcula los eventos
+ *  históricos nuevos (dedup idempotente), actualiza la caché del paciente
+ *  (últimos controles/seguimientos) y deriva el PRÓXIMO_CONTROL conforme a la
+ *  regla clínica vigente (NO se copia el de la fuente). Construye índices una
+ *  sola vez → O(F + P + E) en vez de O(F×P) del barrido con filter por fila.
+ *
+ * @param {Array} pacientes pacientes canónicos (los actualizados se mutan)
+ * @param {Array} eventos eventos ya normalizados a ISO (Modelo_leerEventos)
+ * @param {Array} filas filas fuentes Amarillo (Amarillo_leerFuente)
+ * @param {Object} [freqConfig] {G1..} de CONFIG, reutilizado en memoria
+ * @returns {{nuevosEv:[], actualizados:[{idx,obj}], pendientes:[], yaHist:number}}
+ */
+function Amarillo_calcularHistorico(pacientes, eventos, filas, freqConfig) {
+  /* índice NORMALIZADO (trim+mayúsculas); guarda objeto y su índice para
+     escrituras por bloques — evita el O(n) de indexOf/filter por fila */
   var idxRut = {};
-  pacientes.forEach(function (p) {
-    idxRut[Utl_texto(p.RUT).trim().toUpperCase()] = p;
+  pacientes.forEach(function (p, i) {
+    idxRut[Utl_texto(p.RUT).trim().toUpperCase()] = { obj: p, idx: i };
   });
-  /* eventos NORMALIZADOS a fechas ISO — el dedup contra Date crudos fallaba
-     ('Wed Aug 01' ≠ '2026-04-19') y duplicaba el histórico */
-  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
   var porPaciente = {};
-  eventos.forEach(function (e) {
+  (eventos || []).forEach(function (e) {
     var k = Utl_texto(e.ID_INTERNO);
     (porPaciente[k] = porPaciente[k] || []).push(e);
   });
 
-  var nuevosEv = [], actualizados = {}, pendientes = [], yaHist = 0;
+  var nuevosEv = [], actualizadosMap = {}, pendientes = [], yaHist = 0;
   filas.forEach(function (f, ix) {
     var rut = Utl_texto(f.RUT).trim().toUpperCase();
-    var pac = idxRut[rut];
-    if (!pac) { pendientes.push({ fila: f._fila, rut: rut, nombre: Utl_texto(f.NOMBRE) }); return; }
+    var ent = idxRut[rut];
+    if (!ent) { pendientes.push({ fila: f._fila, rut: rut, nombre: Utl_texto(f.NOMBRE) }); return; }
+    var pac = ent.obj;
     var hist = Amarillo_historicoDe(f);
     var evs = Amarillo_eventosNuevos(pac, hist, porPaciente[Utl_texto(pac.ID_INTERNO)] || [], f._fila || ix + 2);
     if (!evs.length) yaHist++;
     nuevosEv = nuevosEv.concat(evs);
-    var obj = pacientes.filter(function (p) {
-      return Utl_texto(p.ID_INTERNO) === Utl_texto(pac.ID_INTERNO);
-    })[0];
-    if (hist.preingreso && Utl_vacio(Utl_texto(obj.PREINGRESO))) { obj.PREINGRESO = hist.preingreso; }
-    evs.forEach(function (e) { Ingresos_sincronizarCache(obj, e); });
-    /* FIX v0.8.5: NO se copia el PRÓXIMO CONTROL de la fuente (que puede estar
-       vacío, desalineado o no respetar la frecuencia configurada). Se DERIVA de
+    if (hist.preingreso && Utl_vacio(Utl_texto(pac.PREINGRESO))) { pac.PREINGRESO = hist.preingreso; }
+    evs.forEach(function (e) { Ingresos_sincronizarCache(pac, e, freqConfig); });
+    /* FIX v0.8.5 (regla clínica vigente): NO se copia el PRÓXIMO CONTROL de la
+       fuente (vacío, desalineado o sin respetar la frecuencia). Se DERIVA de
        ÚLTIMO_CONTROL + estratificación + frecuencia de CONFIG. */
-    var proxDerivado = obj.ULTIMO_CONTROL
-      ? Control_calcularProximo(obj.ULTIMO_CONTROL, obj.ESTRATIFICACION) : '';
-    if (proxDerivado) obj.PROXIMO_CONTROL = proxDerivado;
-    if (evs.length || hist.preingreso || proxDerivado) actualizados[Utl_texto(pac.ID_INTERNO)] = obj;
+    var proxDerivado = pac.ULTIMO_CONTROL
+      ? Control_calcularProximo(pac.ULTIMO_CONTROL, pac.ESTRATIFICACION, freqConfig) : '';
+    if (proxDerivado) pac.PROXIMO_CONTROL = proxDerivado;
+    if (evs.length || hist.preingreso || proxDerivado) {
+      actualizadosMap[Utl_texto(pac.ID_INTERNO)] = { idx: ent.idx, obj: pac };
+    }
   });
+  return { nuevosEv: nuevosEv, actualizados: Object.keys(actualizadosMap).map(function (k) { return actualizadosMap[k]; }),
+           pendientes: pendientes, yaHist: yaHist };
+}
 
-  if (nuevosEv.length) {
-    Modelo_agregarEventos(nuevosEv, 'IMPORT_AMARILLO',
+/** GAS: aplica el histórico a pacientes YA importados. Lecturas masivas una
+ *  vez (pacientes y eventos memoizados via @skip, CONFIG leído una única vez
+ *  y reutilizado), cálculo 100% en memoria y escrituras por bloques contiguos
+ *  (una setValues por bloque, no una por fila). Los RUT sin paciente quedan
+ *  listados como pendientes. Perfilado activable/desactivable por CONFIG
+ *  (AMARILLO_PROFILE = TRUE). */
+function Amarillo_aplicarHistorico(filas) {
+  var t0 = Date.now(), tm = { config: 0, calculo: 0, escritura: 0 };
+  var pacientes = Modelo_leerPacientes();
+  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
+  var configRows = _amarillo_leerConfig();
+  tm.config = Date.now() - t0;
+  var freqConfig = Control_frecuenciaConfig(configRows);
+  var perfilable = _amarillo_puedePerfilar(configRows);
+  var core = Amarillo_calcularHistorico(pacientes, eventos, filas, freqConfig);
+  tm.calculo = Date.now() - t0 - tm.config;
+
+  if (core.nuevosEv.length) {
+    Modelo_agregarEventos(core.nuevosEv, 'IMPORT_AMARILLO',
       { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'amarillo-historico' });
   }
-  var filasEscritas = 0;
-  var ids = Object.keys(actualizados);
-  if (ids.length) {
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    ids.forEach(function (id, ix) {
-      var fila = 2 + pacientes.indexOf(actualizados[id]);
-      if (fila > 1) {
-        hojaP.getRange(fila, 1, 1, MODELO_PACIENTE.length)
-             .setValues([Modelo_filaDesdeObjeto(actualizados[id])]);
-        filasEscritas++;
-      }
-    });
+  var filasEscritas = _amarillo_escribirPacientes(core.actualizados, pacientes);
+  tm.escritura = Date.now() - t0 - tm.config - tm.calculo;
+  var ms = Date.now() - t0;
+  var perfil = perfilable ? { ms: ms, configMs: tm.config, calculoMs: tm.calculo, escrituraMs: tm.escritura,
+                              filasFuente: (filas || []).length, pacientes: pacientes.length,
+                              eventos: core.nuevosEv.length, escrituras: filasEscritas } : null;
+  if (perfilable) Log_info('Amarillo', 'perfil', JSON.stringify(perfil));
+  return { eventosCreados: core.nuevosEv.length, pacientesActualizados: filasEscritas,
+           yaConHistorico: core.yaHist, pendientesSinPaciente: core.pendientes, perfil: perfil };
+}
+
+/** Lee el bloque de CONFIG una sola vez (reutilizado para frecuencia y perfil). */
+function _amarillo_leerConfig() {
+  try {
+    var h = Modelo_hoja(HOJAS.CONFIG);
+    if (h && h.getLastRow() > 1) return Utl_leerBloque(h);
+  } catch (e) {}
+  return [];
+}
+
+/** ¿Perfilado activo? CONFIG AMARILLO_PROFILE = TRUE (activable/desactivable). */
+function _amarillo_puedePerfilar(configRows) {
+  for (var i = 1; i < (configRows || []).length; i++) {
+    if (Utl_texto(configRows[i][0]) === 'AMARILLO_PROFILE' &&
+        Utl_texto(configRows[i][1]).toUpperCase() === 'TRUE') return true;
   }
-  return { eventosCreados: nuevosEv.length, pacientesActualizados: filasEscritas,
-           yaConHistorico: yaHist, pendientesSinPaciente: pendientes };
+  return false;
+}
+
+/** Escribe solo los pacientes cambiados agrupando índices contiguos en
+ *  bloques (una setValues por bloque). Evita la escritura fila por fila. */
+function _amarillo_escribirPacientes(actualizados, pacientes) {
+  if (!actualizados || !actualizados.length) return 0;
+  var idx = actualizados.map(function (a) { return a.idx; }).sort(function (a, b) { return a - b; });
+  var runs = [], escritas = 0;
+  idx.forEach(function (i) {
+    var ultimo = runs.length ? runs[runs.length - 1] : null;
+    if (ultimo && i === ultimo[ultimo.length - 1] + 1) ultimo.push(i);
+    else runs.push([i]);
+  });
+  var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+  runs.forEach(function (run) {
+    var desde = run[0], hasta = run[run.length - 1];
+    var filas = [];
+    for (var r = desde; r <= hasta; r++) filas.push(Modelo_filaDesdeObjeto(pacientes[r]));
+    hojaP.getRange(2 + desde, 1, hasta - desde + 1, MODELO_PACIENTE.length).setValues(filas);
+    escritas += run.length;
+  });
+  return escritas;
 }
 
 /** Orquestador: puerta + (opcional) histórico. Devuelve resumen para el UI. */

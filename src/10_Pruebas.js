@@ -1985,6 +1985,61 @@ function _pruebas_amarillo(t, A) {
     A.igual(p2.eliminar, 0, 'segunda pasada no elimina nada');
     A.igual(p2.gruposDuplicados, 0, 'sin grupos duplicados restantes');
   });
+
+  // v0.8.7 — núcleo puro con índices (elimina el O(F×P) y las ~2×F lecturas de CONFIG)
+  t('AMARILLO: calcularHistorico — índices, regla clínica, PREINGRESO, pendientes', function () {
+    var freq = { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' },
+                 G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
+    var pacientes = [
+      { RUT: '14438433-4', ID_INTERNO: 'AA', NOMBRE: 'JUAN PÉREZ', ESTRATIFICACION: 'G1',
+        ULTIMO_CONTROL: '', PROXIMO_CONTROL: '', PREINGRESO: '', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null },
+      { RUT: '98765432-1', ID_INTERNO: 'BB', NOMBRE: 'MARÍA LÓPEZ', ESTRATIFICACION: 'G2',
+        ULTIMO_CONTROL: '', PROXIMO_CONTROL: '', PREINGRESO: '', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null }
+    ];
+    var filas = [
+      { RUT: '14438433-4', NOMBRE: 'juan pérez', _fila: 1, CONTROL: new Date(2026, 3, 19),
+        SEGUIMIENTO: '', PREINGRESO: new Date(2024, 0, 24), 'PRÓXIMO CONTROL': '2026-08-01' },
+      { RUT: '99999999-9', NOMBRE: 'NO IMPORTADO', _fila: 2, CONTROL: '', SEGUIMIENTO: '',
+        PREINGRESO: '', 'PRÓXIMO CONTROL': '' }
+    ];
+    var r = Amarillo_calcularHistorico(pacientes, [], filas, freq);
+    A.igual(r.nuevosEv.length, 1, 'un evento CONTROL generado');
+    A.igual(r.actualizados.length, 1, 'solo AA actualizado');
+    A.igual(r.pendientes.length, 1, 'RUT sin paciente → pendiente');
+    A.igual(r.yaHist, 0, 'AA tuvo histórico');
+    var aa = r.actualizados[0].obj;
+    A.cierto(aa === pacientes[0], 'el mismo objeto (mutación en sitio, sin filter por fila)');
+    A.igual(aa.ULTIMO_CONTROL, '2026-04-19', 'último control sincronizado');
+    A.igual(aa.PREINGRESO, '2024-01-24', 'PREINGRESO seteado');
+    var esperado = Control_calcularProximo('2026-04-19', 'G1', freq);
+    A.igual(aa.PROXIMO_CONTROL, esperado, 'PRÓXIMO derivado de la regla (NO la fuente 2026-08-01)');
+  });
+
+  t('AMARILLO: calcularHistorico — escala 100/1.000/3.000 (G1/G2/G3 + duplicados), idempotente', function () {
+    var freq = Control_frecuenciaDefault();
+    [100, 1000, 3000].forEach(function (P) {
+      var filas = [];
+      for (var i = 0; i < P; i++) {
+        filas.push({ RUT: String(20000000 + (i % P)), NOMBRE: 'Pac ' + i, _fila: i + 1,
+          CONTROL: i % 3 === 0 ? '2026-0' + ((i % 3) + 1) + '-10' : '',
+          SEGUIMIENTO: '', PREINGRESO: '', 'PRÓXIMO CONTROL': '2026-12-31' });
+      }
+      filas.push({ RUT: '11111111-1', NOMBRE: 'suelto', _fila: P + 1, CONTROL: '', SEGUIMIENTO: '',
+        PREINGRESO: '', 'PRÓXIMO CONTROL': '' });
+      var pacientes = [];
+      for (var j = 0; j < P; j++) {
+        pacientes.push({ RUT: String(20000000 + j), ID_INTERNO: 'S' + j, NOMBRE: 'Pac ' + j,
+          ESTRATIFICACION: ['G1', 'G2', 'G3'][j % 3], ULTIMO_CONTROL: '', PROXIMO_CONTROL: '',
+          PREINGRESO: '', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null });
+      }
+      var r1 = Amarillo_calcularHistorico(pacientes, [], filas, freq);
+      var r2 = Amarillo_calcularHistorico(pacientes, r1.nuevosEv, filas, freq);
+      A.igual(r1.nuevosEv.length, Math.ceil(P / 3), 'P/3 eventos CONTROL en ' + P);
+      A.igual(r1.actualizados.length, Math.ceil(P / 3), 'P/3 actualizados en ' + P);
+      A.igual(r1.pendientes.length, 1, '1 pendiente (RUT suelto)');
+      A.igual(r2.nuevosEv.length, 0, '2ª pasada con eventos persistidos: 0 nuevos (idempotente)');
+    });
+  });
 }
 
 
