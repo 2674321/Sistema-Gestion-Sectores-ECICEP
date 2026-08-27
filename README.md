@@ -138,3 +138,26 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Edad automática** desde `FECHA_NACIMIENTO` (`Utl_edadDesde`, consciente del cumpleaños) usada por
   panel y diagnóstico. **335 pruebas locales verdes**.
 
+## v0.8.6 — Rediseño de navegación centrado en tareas (Parte 0 · auditoría UX)
+
+- **Menú reorganizado por tareas** (se eliminaron los nombres técnicos/por módulo interno):
+  `👥 Personas` (Buscar/Ficha · Cola de revisión · Procesar ingresos),
+  `🎯 Estratificación`, `👨‍⚕️ Responsables y correos`, `📊 Reportes` (Estadísticas · REM),
+  `⚙️ Configuración` y `🛠️ Herramientas` (Instalar · Centro de Pruebas · Backups · Registro · Acerca de).
+  `Estratificación` y `Responsables y correos` abren el diálogo de Configuración **pre-filtrado** a su
+  sección (`UI_configuracionEstratificacion`/`UI_configuracionResponsables` · `SECCION` inicial en `Configuracion.html`).
+- **PERSONAS como entidad central — ficha integrada**: nueva pestaña **«Seguimiento»** en la ficha
+  (`Sidebar.html`) que consolida **Último seguimiento · Último control · Próximo control · Estado (color) ·
+  Estratificación · Recordatorio** y botones **«Seguimiento hoy» / «Control hoy»**, con recalculo
+  automático del próximo/estado. Reutiliza `api_ficha` (campo `seguimiento` vía `Control_filasPanel`) y
+  `api_controlActualizarUltimo` — una única fuente de verdad, sin duplicar lógica (Parte 0.6/0.7/0.8).
+- **INICIO como centro operativo**: los módulos pasan a **lenguaje de tarea** (PERSONAS · INGRESOS ·
+  REVISIÓN · REPORTES · CONFIGURACIÓN) conservando sus enlaces a las hojas donde vive la tarea y con
+  pista «menú → …» para las interfaces de diálogo. En ESTADO DEL SISTEMA se desglosan **Controles
+  VENCIDOS / por vencer (≤30 días) / últimos 30 días** calculados sobre `PRÓXIMO_CONTROL` (Parte 0.5).
+- **🐛 Botón huérfano corregido**: «Sembrar prueba» en Centro de Pruebas llamaba a `UI_sembrarFicticios`
+  (inexistente); ahora se define la función y funciona.
+- **Consolidación sin romper**: no se eliminó ningún endpoint ni interfaz funcional; sólo cambió la
+  navegación y el etiquetado, manteniendo compatibilidad total del backend.
+- **335 pruebas locales verdes**.
+

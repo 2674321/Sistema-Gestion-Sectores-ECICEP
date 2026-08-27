@@ -65,7 +65,8 @@ select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:v
 
 <script>
 var CONFIG_actual = [];
-var FILTRO = 'TODAS';
+var SECCIONES = ['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'];
+var FILTRO = SECCIONES.indexOf('<?= SECCION ?>') !== -1 ? '<?= SECCION ?>' : 'TODAS';
 var ARMED = {}; // clave → indentificador para doble confirmación (sin confirm() nativo)
 
 function cargar(){
@@ -86,7 +87,7 @@ function cargar(){
 }
 
 function pintarFiltros(){
-  var secciones=['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'];
+  var secciones=SECCIONES;
   var fr=document.getElementById('filtros');
   fr.innerHTML=secciones.map(function(s){
     var cnt = s==='TODAS' ? CONFIG_actual.length : CONFIG_actual.filter(function(c){return c.seccion===s;}).length;

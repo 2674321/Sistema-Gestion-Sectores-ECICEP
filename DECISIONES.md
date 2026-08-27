@@ -392,3 +392,31 @@ Script → se reemplaza por doble confirmación inline).
 sector, alertas de PRÓXIMO desalineado y acciones sugeridas; variante que aplica
 los próximos por separado (idempotente). 335 pruebas locales verdes.
 **Fecha:** 2026-08-27
+
+## DEC-036
+**Título:** v0.8.6 — Rediseño de navegación centrado en tareas (Parte 0 · auditoría UX)
+**Estado:** Aprobada (v0.8.6)
+**Motivo:** La auditoría UX mostró que menú e INICIO presentaban al usuario
+nombres técnicos de módulos/hojas (PACIENTES, INGRESO_NARANJO, CONFLICTOS,
+REM_SALIDA, CONFIG) y que el seguimiento clínico estaba disperso entre Panel,
+ficha, SECTOR_* e INICIO, obligando a «recordar el ID y salir». Se decide
+reorganizar **solo la navegación y el etiquetado** (sin refactor de backend):
+(a) **Menú por tareas**: 👥 Personas · 🎯 Estratificación · 👨‍⚕️ Responsables ·
+📊 Reportes · ⚙️ Configuración · 🛠️ Herramientas; `Estratificación` y
+`Responsables` abren CONFIG pre-filtrada por sección (`SECCION` inicial en
+`Configuracion.html` vía `UI_configuracionEstratificacion/Responsables`).
+(b) **PERSONAS como entidad central**: nueva pestaña «Seguimiento» en la ficha
+(`Sidebar.html`) que consolida último seguimiento/control, próximo, estado en
+color, estratificación y recordatorio (reusa `api_ficha` → `seguimiento` vía
+`Control_filasPanel`, y `api_controlActualizarUltimo`); una única fuente de
+verdad, contexto de persona preservado a través de los tabs.
+(c) **INICIO como centro operativo**: módulos renombrados a lenguaje de tarea
+conservando sus enlaces a las hojas donde vive la tarea + pista «menú → …» para
+diálogos; ESTADO DEL SISTEMA desglosa Controles VENCIDOS / por vencer (≤30d) /
+últimos 30 días sobre `PRÓXIMO_CONTROL`.
+(d) **🐛 Botón huérfano corregido**: `Sembrar prueba` (CentroPruebas.html:138)
+llamaba a `UI_sembrarFicticios` (inexistente); se define la envoltura.
+(e) **Consolidación sin romper**: ningún endpoint ni interfaz funcional se
+eliminó; cambio de navegación/etiquetas con compatibilidad total. 335 pruebas
+locales verdes.
+**Fecha:** 2026-08-27

@@ -116,10 +116,10 @@ function Hojas_crearInicio(ss) {
   h.getRange(8, 4).setValue('M\u00d3DULOS DEL SISTEMA').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var principales = [
-    { hoja:'PACIENTES',       icono:'\ud83d\udc65', nombre:'PACIENTES',        desc:'Consulta y gesti\u00f3n' },
-    { hoja:'INGRESO_NARANJO', icono:'\ud83d\udce5', nombre:'INGRESOS',         desc:'Nuevos registros' },
+    { hoja:'PACIENTES',       icono:'\ud83d\udc65', nombre:'PERSONAS',        desc:'Buscar · Ficha · Seguimiento' },
+    { hoja:'INGRESO_NARANJO', icono:'\ud83d\udce5', nombre:'INGRESOS',        desc:'Nuevos registros' },
     { hoja:'CONFLICTOS',      icono:'\ud83d\udccb', nombre:'REVISI\u00d3N',   desc:'Requieren atenci\u00f3n' },
-    { hoja:'REM_SALIDA',      icono:'\ud83e\ude7a', nombre:'REM',              desc:'Reporte mensual' }
+    { hoja:'REM_SALIDA',      icono:'\ud83d\udcca', nombre:'REPORTES',        desc:'REM mensual \u00b7 men\u00fa \u2192 \ud83d\udcca' }
   ];
   principales.forEach(function (mod, ix) {
     var c0 = 4 + ix * 4;
@@ -139,7 +139,7 @@ function Hojas_crearInicio(ss) {
     { hoja:'SECTOR_NARANJO', icono:'\ud83d\udfe7', nombre:'SECTORES',   desc:'Naranjo \u00b7 Amarillo · Verde' },
     { hoja:'FUENTES',        icono:'\ud83d\uddc2\ufe0f', nombre:'FUENTES', desc:'Informaci\u00f3n y sync' },
     { hoja:'LOG',            icono:'\ud83e\uddea', nombre:'DIAGN\u00d3STICO', desc:'Centro de Pruebas · LOG' },
-    { info:true,             icono:'\u2699\ufe0f', nombre:'ADMINISTRACI\u00d3N', desc:'Configuraci\u00f3n v\u00eda men\u00fa \u2192 \u2699 Sistema' }
+    { info:true,             icono:'\u2699\ufe0f', nombre:'CONFIGURACI\u00d3N', desc:'Men\u00fa \u2192 \u2699 Configuraci\u00f3n \u00b7 Estratificaci\u00f3n \u00b7 Responsables' }
   ];
   secundarios.forEach(function (mod, ix) {
     var c0 = 4 + ix * 4;
@@ -279,8 +279,12 @@ function Hojas_crearInicio(ss) {
       '=IF(COUNT(PACIENTES!AC2:AC)=0;"\u2014";TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))'],
     ['\u00daltima sincronización de fuentes',
       '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")'],
-    ['Controles agendados (30 d\u00edas)',
-      '=COUNTIF(PACIENTES!Q2:Q;">="&TODAY())-COUNTIF(PACIENTES!Q2:Q;">"&TODAY()+30)']
+    ['Controles VENCIDOS',
+      '=COUNTIF(PACIENTES!Q2:Q;"<"&TODAY())'],
+    ['Controles por vencer (\u226430 d\u00edas)',
+      '=COUNTIF(PACIENTES!Q2:Q;">="&TODAY())-COUNTIF(PACIENTES!Q2:Q;">"&TODAY()+30)'],
+    ['Controles \u00faltimos 30 d\u00edas',
+      '=COUNTIF(PACIENTES!Q2:Q;">="&TODAY()-30)-COUNTIF(PACIENTES!Q2:Q;">"&TODAY())']
   ];
   info.forEach(function (par, ix) {
     h.getRange(41 + ix, 4, 1, 4).merge().setValue(par[0])

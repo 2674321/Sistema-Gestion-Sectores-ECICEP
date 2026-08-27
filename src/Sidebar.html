@@ -245,6 +245,7 @@ textarea.inp{min-height:64px;resize:vertical}
     </div>
     <nav class="tabs" id="tabsNav">
       <button class="tab activa" data-pane="paneDatos">Datos</button>
+      <button class="tab" data-pane="paneSeg">Seguimiento</button>
       <button class="tab" data-pane="paneHist">Historial</button>
       <button class="tab" data-pane="panePat">Patologías</button>
       <button class="tab" data-pane="paneDupla">Dupla</button>
@@ -260,6 +261,27 @@ textarea.inp{min-height:64px;resize:vertical}
     <input id="evDesc" class="inp" placeholder="Descripción (opcional)" style="margin-top:8px">
     <button id="btnRegEv" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:10px"
       onclick="registrarEvento(this)"><i data-lucide="check"></i> Registrar</button>
+  </section>
+
+  <section id="paneSeg" class="pane">
+    <div id="segChips" class="ficha-chips" style="margin-bottom:10px"></div>
+    <div class="dato-grid" id="segDatos">
+      <div class="dato-fila"><span class="k">Último seguimiento</span><span class="v" id="segUltSeguimiento">—</span></div>
+      <div class="dato-fila"><span class="k">Último control</span><span class="v" id="segUltControl">—</span></div>
+      <div class="dato-fila"><span class="k">Próximo control</span><span class="v" id="segProximo">—</span></div>
+    </div>
+    <div id="segRecordatorio" class="chip" style="margin:10px 0 14px;display:flex;width:fit-content;max-width:100%"></div>
+    <label class="etq">Registrar actividad de seguimiento</label>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn btn-ghost" style="flex:1;min-height:32px;font-size:11.5px" id="segBtnSeguimiento"
+        onclick="segActualizar(this,'SEGUIMIENTO')"><i data-lucide="clipboard-check" style="width:13px;height:13px"></i> Seguimiento hoy</button>
+      <button class="btn btn-sec" style="flex:1;min-height:32px;font-size:11.5px" id="segBtnControl"
+        onclick="segActualizar(this,'CONTROL')"><i data-lucide="stethoscope" style="width:13px;height:13px"></i> Control hoy</button>
+    </div>
+    <small style="color:var(--text-muted);display:block;margin-top:10px;line-height:1.4">
+      Al actualizar el control, el próximo control y el estado se recalculan automáticamente según la
+      frecuencia de su estratificación (Configuración → Estratificación).
+    </small>
   </section>
 
   <section id="paneHist" class="pane">
@@ -324,6 +346,7 @@ function _errSilencioso(nombre){return function(e){
   toast('Error en '+nombre+': '+((e&&e.message)||e),'err');
 };}
 var P_ACTUAL=null, PAT_CATALOGO=[], PAT_SELECCIONADAS=[], _animTimeline=false, _resIdx=-1;
+var SEG_ACTUAL=null;
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','CAMBIO_SECTOR','CAMBIO_ESTRATIFICACION','LLAMADO','OTRO'];
 var TL_ESTILO={
   INGRESO:{c:'#0E5C68',i:'log-in'}, CONTROL:{c:'#6B5CA8',i:'stethoscope'},
@@ -468,7 +491,36 @@ function pintarFicha(f){
   s.value='CONTROL';
   cargarSelectorPatologias(f.ID_INTERNO,false,f.patologias);
   cargarSelectorDupla(f.ID_INTERNO,f.dupla);
+  pintarSeguimiento(f.seguimiento);
   _refrescarIconos();
+}
+/* Seguimiento y controles: vista consolidada por persona (misma fuente que el Panel). */
+function pintarSeguimiento(sg){
+  SEG_ACTUAL=sg||null;
+  var set=function(id,txt){var el=document.getElementById(id);if(el)el.textContent=txt||'—';};
+  set('segUltSeguimiento',(sg&&sg.ultimoSeguimiento&&sg.ultimoSeguimiento.slice(0,10))||'—');
+  set('segUltControl',(sg&&sg.ultimoControl&&sg.ultimoControl.slice(0,10))||'—');
+  set('segProximo',(sg&&sg.proximo&&sg.proximo.slice(0,10))||'—');
+  var chipsEl=document.getElementById('segChips');
+  if(chipsEl){
+    chipsEl.innerHTML=''+
+      (sg&&sg.estrat?'<span class="chip">Estrat: '+_esc(sg.estrat)+'</span>':'')+
+      (sg?estadoChip(sg.estado):'')+
+      (sg&&sg.sector?'<span class="chip rut">'+_esc(sg.sector)+'</span>':'');
+  }
+  var rec=document.getElementById('segRecordatorio');
+  if(rec) rec.textContent=(sg&&sg.recordatorio)||'Sin registro de control';
+}
+function segActualizar(btn,tipo){
+  if(!P_ACTUAL){toast('No hay persona abierta','err');return;}
+  var hoy=new Date().toISOString().slice(0,10);
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    setLoading(btn,false);
+    if(r&&r.ok){toast('✓ '+tipo+' de hoy registrado'+(r.proximo?' · próximo '+r.proximo:''),'ok');abrirFicha(P_ACTUAL);}
+    else toast(r.motivo||'No se pudo actualizar','err');
+  }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+  .api_controlActualizarUltimo(P_ACTUAL,tipo,hoy);
 }
 /* Auto-fill: CONTROL selecciona hoy como fecha */
 document.getElementById('evTipo').addEventListener('change',function(e){

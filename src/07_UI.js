@@ -13,28 +13,32 @@ function onOpen() {
     ui.createMenu('ECICEP')
 
       .addItem('🏠 Panel de Control', 'UI_panelControl')
-      .addItem('📊 Estadísticas', 'UI_abrirDashboard')
 
-      .addSubMenu(ui.createMenu('👥 Gestión')
+      .addSubMenu(ui.createMenu('👥 Personas')
+        .addItem('✏️ Buscar / Ficha de persona', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
 
+      .addItem('🎯 Estratificación', 'UI_configuracionEstratificacion')
+      .addItem('👨‍⚕️ Responsables y correos', 'UI_configuracionResponsables')
 
-      .addSubMenu(ui.createMenu('🩺 REM')
+      .addSubMenu(ui.createMenu('📊 Reportes')
+        .addItem('📊 Estadísticas', 'UI_abrirDashboard')
         .addItem('🩺 Generar REM', 'UI_generarRem')
         .addItem('🔎 Consultar REM', 'UI_verRem'))
 
-      .addSubMenu(ui.createMenu('⚙️ Sistema')
+      .addSubMenu(ui.createMenu('⚙️ Configuración')
         .addItem('⚙️ Configuración', 'UI_configuracion')
-        .addItem('⚙ Instalar sistema', 'UI_instalarSistema')
-        .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
-        .addItem('💾 Backups', 'UI_backup')
+        .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
 
-      .addSeparator()
-      .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
-      .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe')
-      .addItem('📄 Registro del sistema', 'UI_abrirLog')
+      .addSubMenu(ui.createMenu('🛠️ Herramientas')
+        .addItem('⚙️ Instalar / reparar sistema', 'UI_instalarSistema')
+        .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
+        .addItem('💾 Backups', 'UI_backup')
+        .addItem('📄 Registro del sistema', 'UI_abrirLog')
+        .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe'))
+
       .addToUi();
     SpreadsheetApp.getActiveSpreadsheet().toast(
       'ECICEP v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha',
@@ -182,6 +186,18 @@ function UI_diagnosticarIngresos() {
 }
 
 /** Un solo clic: instala, siembra ficticios, procesa y refresca vistas. */
+/** Sembrar prueba: siembra pacientes ficticios de demostración (úsase desde
+ *  el Centro de Pruebas, no en el flujo normal). */
+function UI_sembrarFicticios() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('Sembrando datos de prueba…', 'ECICEP', 15);
+  var sembradas = Sembrar_ficticios();
+  Log_info('UI', 'sembrarFicticios', 'sembradas=' + sembradas);
+  Log_flush();
+  ss.toast('Sembradas: ' + sembradas + ' filas de prueba', 'ECICEP', 8);
+  return sembradas;
+}
+
 function UI_demoCompleta() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.toast('Demo completa en curso…', 'ECICEP', 15);
@@ -374,14 +390,23 @@ function UI_abrirRevision() { _ui_sidebar('revision', 'Cola de Revisión'); }
 
 /** ⚙ Configuración: abre el diálogo de administración. La hoja CONFIG
  *  permanece OCULTA (no se muestra). Usa una función desde menú, jamás la hoja. */
-function UI_configuracion() {
+function _ui_configuracion(seccion) {
   // Re-prende el ocultamiento de CONFIG (idempotente) por si quedó visible.
   try {
     var cfg = Modelo_hoja(HOJAS.CONFIG);
     if (cfg && !cfg.isSheetHidden()) cfg.hideSheet();
   } catch (e) {}
-  _ui_dialogo('Configuracion', 'Configuración');
+  var t = HtmlService.createTemplateFromFile('Configuracion');
+  t.SECCION = seccion || 'TODAS';
+  SpreadsheetApp.getUi().showModalDialog(t.evaluate()
+    .setTitle('Configuración').setWidth(900).setHeight(680));
 }
+
+function UI_configuracion() { _ui_configuracion('TODAS'); }
+/** 🎯 Estratificación: abre CONFIG filtrado a frecuencias/reglas de control. */
+function UI_configuracionEstratificacion() { _ui_configuracion('ESTRATIFICACION'); }
+/** 👨‍⚕️ Responsables y correos: abre CONFIG filtrado a responsables/correos. */
+function UI_configuracionResponsables() { _ui_configuracion('CORREOS_RESPONSABLES'); }
 
 /** 🧪 Centro de Pruebas: única entrada al diagnóstico del sistema. */
 function UI_centroPruebas() { _ui_dialogo('CentroPruebas', 'Centro de Pruebas'); }
@@ -1013,6 +1038,17 @@ function api_ficha(idInterno) {
       seleccionadas: paciente.CONDICIONES ? Utl_texto(paciente.CONDICIONES).split(';').filter(Boolean) : [],
       otrasPatologias: paciente.OTRAS_PATOLOGIAS ? Utl_texto(paciente.OTRAS_PATOLOGIAS) : ''
     };
+
+    /* Seguimiento y controles consolidados (misma fuente que el Panel).
+       Recalcula PRÓXIMO_CONTROL derivado, estado, color y recordatorio. */
+    try {
+      var tz = Session.getScriptTimeZone();
+      var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+      var filasSeg = Control_filasPanel([paciente], Control_leerFrecuencia(), hoyIso).filas;
+      ficha.seguimiento = (filasSeg && filasSeg[0]) || null;
+    } catch (e) {
+      ficha.seguimiento = null;
+    }
 
     return { ok: true, ficha: ficha };
 
