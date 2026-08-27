@@ -72,9 +72,9 @@ function Hojas_crearInicio(ss) {
   var maxF = h.getMaxRows(), maxC = h.getMaxColumns();
 
   /* PASO 2-3: dimensiones del lienzo (contenido + márgenes generosos) */
-  var FILA_FIN = 90;   // lienzo vertical: contenido hasta ~44 + margen azul 45..90
+  var FILA_FIN = 90;   // lienzo vertical: contenido hasta ~48 + margen azul 49..90
   var COL_FIN = 40;    // lienzo horizontal: contenido + margen azul amplio (pantallas 21")
-  var FILA_CONT = 44;  // última fila de contenido
+  var FILA_CONT = 48;  // última fila de contenido
   var COL_CONT = 20;   // última columna de contenido
 
   /* PASO 3-4: expandir ANTES de pintar */
@@ -179,7 +179,7 @@ function Hojas_crearInicio(ss) {
     ['=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))', 'DUPLICADOS', 'Detectados']
   ];
   kpis.forEach(function (k, ix) {
-    var fila = 18 + Math.floor(ix / 3) * 4;
+    var fila = 18 + Math.floor(ix / 3) * 3;
     var c0 = 4 + (ix % 3) * 4 + (ix % 3) * 0;
     if (ix % 3 === 1) c0 = 9; if (ix % 3 === 2) c0 = 14; // 4-7 · 9-12 · 14-17
     h.getRange(fila, c0, 1, 4).merge().setValue(k[1])
@@ -194,23 +194,32 @@ function Hojas_crearInicio(ss) {
     h.setRowHeight(fila, 14); h.setRowHeight(fila + 1, 32); h.setRowHeight(fila + 2, 14);
   });
 
-  /* ===== ALERTA DINÁMICA (tarjeta) ===== */
-  h.getRange(24, 4).setValue('ALERTAS').setFontWeight('bold')
+  /* ===== ALERTA DINÁMICA (tarjeta con color condicional) ===== */
+  h.getRange(25, 4).setValue('ALERTAS').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
-  var rA = h.getRange(25, 4, 2, 16).merge();
+  var rA = h.getRange(26, 4, 2, 16).merge();
   rA.setFormula('=IF(COUNTIF(PACIENTES!AD2:AD;TRUE)+COUNTIF(PACIENTES!W2:W;FALSE)>0;' +
     '"\u26a0 ATENCI\u00d3N REQUERIDA\n" & COUNTIF(PACIENTES!AD2:AD;TRUE) & ' +
     '" pacientes por revisar \u00b7 " & COUNTIF(PACIENTES!W2:W;FALSE) & ' +
     '" RUT inv\u00e1lidos   \u2014   abrir Cola de Revisi\u00f3n \u2192";' +
     '"\u2713 TODO EN ORDEN\nNo existen incidencias pendientes")')
    .setFontWeight('bold').setFontSize(12).setVerticalAlignment('middle')
+   .setBackground(BLANCO)
    .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   rA.setBorder(true, true, true, true, null, null, BORDE,
     SpreadsheetApp.BorderStyle.SOLID);
-  h.setRowHeights(25, 2, 18);
+  /* color semáforo automático: ⚠ fondo ámbar, ✓ fondo verde */
+  var reglaAlerta = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=LEFT(D26;1)="\u26a0"')
+    .setBackground('#FDE7B8').setFontColor('#7A5400').setRanges([rA]).build();
+  var reglaOk = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=LEFT(D26;1)="\u2713"')
+    .setBackground('#DDF6E9').setFontColor('#0E6B45').setRanges([rA]).build();
+  h.setConditionalFormatRules([reglaAlerta, reglaOk]);
+  h.setRowHeights(26, 2, 18);
 
   /* ===== DISTRIBUCIÓN POR SECTOR (3 tarjetas) ===== */
-  h.getRange(28, 4).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
+  h.getRange(29, 4).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var sectores = [
     { nombre:'NARANJO',  color:'#E8730A' },
@@ -219,26 +228,52 @@ function Hojas_crearInicio(ss) {
   ];
   sectores.forEach(function (s2, ix) {
     var c0 = 4 + ix * 5 + (ix === 2 ? 1 : 0);
-    h.getRange(29, c0, 1, 4).merge().setValue('\u25cf ' + s2.nombre)
+    h.getRange(30, c0, 1, 4).merge().setValue('\u25cf ' + s2.nombre)
      .setFontWeight('bold').setFontSize(10).setFontColor(s2.color).setBackground(BLANCO)
      .setHorizontalAlignment('center');
-    var rng = h.getRange(30, c0, 1, 4).merge()
+    var rng = h.getRange(31, c0, 1, 4).merge()
      .setFormula('=COUNTIF(PACIENTES!H2:H;"' + s2.nombre + '")&" pacientes"')
      .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    h.getRange(31, c0, 1, 4).merge()
+    h.getRange(32, c0, 1, 4).merge()
      .setFormula('=TEXT(COUNTIF(PACIENTES!H2:H;"' + s2.nombre + '")/MAX(COUNTA(PACIENTES!A2:A);1);"0%")&" del total"')
      .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
      .setHorizontalAlignment('center');
-    h.getRange(29, c0, 3, 4).setBorder(true, true, true, true, null, null,
+    h.getRange(30, c0, 3, 4).setBorder(true, true, true, true, null, null,
       s2.color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-    h.setRowHeight(29, 16); h.setRowHeight(30, 24); h.setRowHeight(31, 14);
+    h.setRowHeight(30, 16); h.setRowHeight(31, 24); h.setRowHeight(32, 14);
+  });
+
+  /* ===== DISTRIBUCIÓN POR ESTRATIFICACIÓN (3 tarjetas, NUEVO) ===== */
+  h.getRange(34, 4).setValue('DISTRIBUCI\u00d3N POR ESTRATIFICACI\u00d3N')
+   .setFontWeight('bold').setFontSize(10).setFontColor(MUTED);
+  var estrates = [
+    { nombre:'G1', color:'#3E8A96', desc:'Bajo'},
+    { nombre:'G2', color:'#0E5C68', desc:'Medio'},
+    { nombre:'G3', color:'#08414A', desc:'Alto'}
+  ];
+  estrates.forEach(function (g, ix) {
+    var c0 = 4 + ix * 5 + (ix === 2 ? 1 : 0);
+    h.getRange(35, c0, 1, 4).merge().setValue('\u25cf ' + g.nombre)
+     .setFontWeight('bold').setFontSize(10).setFontColor(BLANCO).setBackground(g.color)
+     .setHorizontalAlignment('center');
+    var r = h.getRange(36, c0, 1, 4).merge()
+     .setFormula('=COUNTIF(PACIENTES!I2:I;"' + g.nombre + '")&" pacientes"')
+     .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
+     .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    h.getRange(37, c0, 1, 4).merge()
+     .setFormula('=TEXT(COUNTIF(PACIENTES!I2:I;"' + g.nombre + '")/MAX(COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G1")+COUNTIF(PACIENTES!I2:I;"G2")+COUNTIF(PACIENTES!I2:I;"G3");1);"0%")&" · ' + g.desc + '"')
+     .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
+     .setHorizontalAlignment('center');
+    h.getRange(35, c0, 3, 4).setBorder(true, true, true, true, null, null,
+      g.color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    h.setRowHeight(35, 16); h.setRowHeight(36, 24); h.setRowHeight(37, 14);
   });
 
   /* ===== ESTADO DEL SISTEMA (tarjeta) ===== */
-  h.getRange(33, 4).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
+  h.getRange(39, 4).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
-  h.getRange(34, 4, 1, 16).merge().setValue('\u2713 SISTEMA OPERATIVO')
+  h.getRange(40, 4, 1, 16).merge().setValue('\u2713 SISTEMA OPERATIVO')
    .setFontWeight('bold').setFontSize(13).setFontColor(OK).setBackground(BLANCO)
    .setHorizontalAlignment('center');
   var info = [
@@ -248,14 +283,16 @@ function Hojas_crearInicio(ss) {
     ['\u00daltima actualización de datos',
       '=IF(COUNT(PACIENTES!AC2:AC)=0;"\u2014";TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))'],
     ['\u00daltima sincronización de fuentes',
-      '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")']
+      '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")'],
+    ['Controles agendados (30 d\u00edas)',
+      '=COUNTIF(PACIENTES!Q2:Q;">="&TODAY())-COUNTIF(PACIENTES!Q2:Q;">"&TODAY()+30)']
   ];
   info.forEach(function (par, ix) {
-    h.getRange(35 + ix, 4, 1, 4).merge().setValue(par[0])
+    h.getRange(41 + ix, 4, 1, 4).merge().setValue(par[0])
      .setFontColor(GRIS).setFontSize(10.5).setBackground(BLANCO);
-    h.getRange(35 + ix, 8, 1, 12).merge().setValue(par[1])
+    h.getRange(41 + ix, 8, 1, 12).merge().setValue(par[1])
      .setFontWeight('bold').setFontSize(10.5).setFontColor(TXT).setBackground(BLANCO);
-    h.setRowHeight(35 + ix, 16);
+    h.setRowHeight(41 + ix, 16);
   });
 
   /* ===== PASO 14: ocultar SOLO excedentes fuera del lienzo ===== */
@@ -272,7 +309,8 @@ function Hojas_crearInicio(ss) {
     ventana: String(h.getRange(5, 4).getBackground()).toLowerCase() === VENTANA.toLowerCase() ||
              String(h.getRange(5, 4).getBackground()).toLowerCase() === BLANCO.toLowerCase(),
     modulos: h.getRange(9, 4).getFormula().indexOf('HYPERLINK') !== -1,
-    kpi: h.getRange(19, 4).getFormula().indexOf('COUNTA') !== -1
+    kpi: h.getRange(19, 4).getFormula().indexOf('COUNTA') !== -1,
+    estrat: h.getRange(36, 4).getFormula().indexOf('COUNTIF') !== -1
   };
   var fallos = Object.keys(ver).filter(function (k) { return !ver[k]; });
   if (fallos.length) {

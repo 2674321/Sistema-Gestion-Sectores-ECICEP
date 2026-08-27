@@ -16,7 +16,6 @@ function onOpen() {
       .addItem('📊 Estadísticas', 'UI_abrirDashboard')
 
       .addSubMenu(ui.createMenu('👥 Gestión')
-        .addItem('👤 Pacientes ECICEP', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
 
