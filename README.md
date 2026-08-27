@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.7.1 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **350 pruebas locales verdes** ·
+**v0.8.7.2 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **360 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -137,6 +137,38 @@ Sistema-Gestion-Sectores-ECICEP/
   inline**. + `Modelo_invalidarLecturas()` en todas las escrituras de CONFIG y validación cliente/servidor.
 - **Edad automática** desde `FECHA_NACIMIENTO` (`Utl_edadDesde`, consciente del cumpleaños) usada por
   panel y diagnóstico. **335 pruebas locales verdes**.
+
+## v0.8.7.2 — Responsables por sector acumulables + dropdowns + mejora visual de Configuración
+
+- **Nuevo modelo ACUMULABLE de responsables** (DEC-039, supera el «pendiente #13»): un sector puede
+  tener **N responsables** y un responsable puede estar en **N sectores**. Nueva hoja interna
+  `RESPONSABLES` (oculta): `SECTOR | CODIGO_RESPONSABLE | NOMBRE_RESPONSABLE | CORREO | ACTIVO`.
+  Identificador estable = `CODIGO_RESPONSABLE` (enlaza al catálogo `PROFESIONALES`; para personas fuera
+  del catálogo se usa `R_<clave>`). La unicidad `(SECTOR, CODIGO)` impide duplicados.
+- **Pantalla dedicada dentro de 🗂️ Configuración → Correos · Responsables**: selector de sector
+  (Amarillo/Naranjo/Verde), **dropdown de responsable alimentado del catálogo** `PROFESIONALES`
+  (activos + optgroup de inactivos + responsables ya en uso + opción «Otro»), nombre auto-completado
+  y correo opcional. Lista «Responsables actuales» por sector con **estado activo/inactivo** (●/○) y
+  quitar asociación (no elimina del catálogo). Los **dropdowns no cargan pacientes/eventos/controles**.
+- **Guardado atómico validado**: `api_responsablesGuardarSector` reescribe el sector completo en un
+  bloque (sin sobrescribir otros sectores ni el catálogo) tras validar duplicados, nombres, correos y
+  sectores del conjunto cerrado; avisa si el cargo proviene del catálogo inactivo.
+- **Dry-run / diagnóstico** (`api_responsablesListar` → `Responsables_diagnostico`, puro): muestra
+  totales por sector, duplicados, correos inválidos, responsables sin catálogo, inactivos y los correos
+  legacy `RESPONSABLE_<SECTOR>` (que ahora se administran desde el panel, no como texto plano) — sin
+  modificar datos automáticamente.
+- **Correos múltiples listos para uso futuro**: `Responsables_correosDe(lista, sector, legacy, incluirInactivos)`
+  devuelve la colección deduplida de un sector (activos + legacy). Las claves legacy se mantienen en
+  CONFIG y se integran como correo adicional, sin migración automática.
+- **Mejora visual de Configuración con colores semánticos** (no decorativos): encabezados de sección
+  diferenciados (Estratificación 🟣, Correos · Responsables 🔵, Comunes ⚪, Administrador 🔴 con banner
+  de «solo lectura» para claves sistema), chips de nivel **G1/G2/G3** junto a las frecuencias de
+  control, puntos 🟢 activo / ○ inactivo en responsables, chips 🔴 error / 🟡 atención / 🔵 información
+  en el diagnóstico.
+- **Regresión confirmada**: **360 pruebas locales verdes** (350 previas + 10 nuevas:
+  `_pruebas_responsables_v0872`: mapeo, N responsables por sector, duplicados, mismo responsable en
+  varios sectores, sector inválido, correos múltiples con legacy, inactivos, diagnóstico/dry-run,
+  conjunto cerrado de sectores). `node --check` limpio.
 
 ## v0.8.7.1 — UX de rendimiento: Controles bajo demanda, ficha completa y diálogos de configuración
 

@@ -491,3 +491,42 @@ verdad para `_pruS_menu`, `_pruS_plantillas`, `_pruS_ficha` (5 pestañas↔5
 paneles) y `_pruebas_dialogos_v087` (node). 350 pruebas locales verdes
 (337 previas + 13 nuevas de consultas/paginación/inventario). `node --check`
 limpio. **Fecha:** 2026-08-27
+
+## DEC-039
+**Título:** v0.8.7.2 — Responsables por sector acumulables + dropdowns + mejora visual de Configuración
+**Estado:** Aprobada (v0.8.7.2)
+**Motivo:** Modernizar el modelo de responsables (pendiente #13) manteniendo los
+correos por sector sin perder los datos históricos. El modelo anterior
+`RESPONSABLE_<SECTOR>` de CONFIG estaba limitado a **un solo correo por sector**,
+ninguna función lo consume aún y no existía intervención visual. Se decide:
+(a) **Modelo ACUMULABLE** en hoja interna nueva `RESPONSABLES` (oculta, creada por
+el instalador): `SECTOR | CODIGO_RESPONSABLE | NOMBRE_RESPONSABLE | CORREO | ACTIVO`.
+Un sector admite N responsables y un responsable puede estar en N sectores. La
+**unicidad (SECTOR, CODIGO_RESPONSABLE)** es la clave anti-duplicado. Identificador
+estable = código del catálogo `PROFESIONALES` (fuente de verdad; el catálogo no
+lleva correo, por eso el correo vive en la asociación); personas fuera del
+catálogo usan `R_<clave>` normalizada. Eliminar una asociación **no** elimina al
+profesional del catálogo.
+(b) **UI dedicada** en `Configuracion.html` → sección «Correos · Responsables»:
+selector de sector (conjunto cerrado AMARILLO/NARANJO/VERDE), **dropdown de
+responsable desde el catálogo** (activos + optgroup de inactivos + responsables en
+uso + opción explícita «Otro»), nombre auto-completado y correo opcional. Sin
+texto libre para el responsable cuando existe catálogo utilizable; los dropdowns
+**no cargan pacientes/eventos/controles**.
+(c) **Guardado atómico validado**: `api_responsablesGuardarSector(sector, filas)`
+reemplaza el sector completo en **una escritura por bloques** (no por fila),
+validando sectores del conjunto cerrado, duplicados, nombres y correos antes de
+persistir (PURA `Responsables_validarSector`, testeable en node). Los correos
+legacy se administran desde el panel y quedan **ocultos** de la tabla genérica de
+CONFIG (se filtran en `api_configListar`) para evitar edición duplicada como texto.
+(e) **Dry-run sin modificar**: `api_responsablesListar` → `Responsables_diagnostico`
+(PURA) muestra asociaciones por sector, duplicados, correos inválidos, responsables
+sin catálogo, profesionales inactivos y los correos legacy — diagnóstico visible en
+la UI y reportable. **Sin migración automática** de los legacy; `Responsables_correosDe`
+integra la colección múltiple (deduplida, activos + legacy) lista para futuros
+avisos/recordatorios.
+(f) **Colores SEMÁNTICOS en Configuración** (no decorativos): encabezados por
+sección (Estratificación/CORREOS/Comunes/Administrador con banner de solo lectura),
+chips G1/G2/G3, puntos activo/inactivo, chips de error/atención/info. Versión
+`0.8.7.2`. 360 pruebas locales verdes (350 previas + 10 nuevas `_pruebas_responsables_v0872`).
+`node --check` limpio. **Fecha:** 2026-08-27

@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.7.1',
+  VERSION: '0.8.7.2',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -61,12 +61,22 @@ const HOJAS = {
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
   PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
+  RESPONSABLES: 'RESPONSABLES',   // responsables por sector (acumulables, hoja oculta)
   HOJA_PREDETERMINADA: 'Hoja 1' // la elimina el instalador solo si está vacía
 };
 
 // Columnas del catálogo central de profesionales (fuente de verdad para
 // Dupla y validaciones; REM conserva el texto libre del evento).
 const COLUMNAS_PROFESIONALES = ['CODIGO', 'NOMBRE', 'TIPO_ROL', 'ACTIVO'];
+
+// Asociaciones responsables ↔ sector (modelo ACUMULABLE: un sector puede tener
+// N responsables y un responsable puede estar en N sectores). SECTOR guarda el
+// nombre corto ('AMARILLO'); CODIGO_RESPONSABLE enlaza al catálogo PROFESIONALES
+// cuando aplica (o 'R_'+clave para responsables externos al catálogo).
+const COLUMNAS_RESPONSABLES = ['SECTOR', 'CODIGO_RESPONSABLE', 'NOMBRE_RESPONSABLE', 'CORREO', 'ACTIVO'];
+
+// Sectores geográficos sobre los que se asignan responsables (conjunto cerrado).
+const SECTORES_RESPONSABLES = ['AMARILLO', 'NARANJO', 'VERDE'];
 
 // ---------------------------------------------------------------------------
 // Hojas de ingreso y vistas sectoriales (ETAPA 3b / corrección arquitectónica)

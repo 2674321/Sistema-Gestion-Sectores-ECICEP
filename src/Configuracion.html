@@ -17,8 +17,14 @@ header .sub{color:var(--text-muted);font-size:13px}
 .cuerpo{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
 .seccion-titulo{position:sticky;top:0;z-index:2;background:var(--surface);padding:10px 14px;
   font:700 12px 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--primary);
-  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;border-left:4px solid transparent}
 .seccion-titulo .n{font:600 11px 'Inter';color:var(--text-muted)}
+/* Jerarquía visual + colores SEMÁNTICOS por sección (DEC-039) */
+.seccion-titulo.sec-estrat{color:#5A4A9A;border-left-color:#8B7FD0;background:linear-gradient(90deg,#F3F0FB,var(--surface))}
+.seccion-titulo.sec-correos{color:var(--primary);border-left-color:var(--primary);background:linear-gradient(90deg,var(--primary-soft),var(--surface))}
+.seccion-titulo.sec-comunes{color:var(--text-secondary);border-left-color:var(--border-strong);background:linear-gradient(90deg,var(--surface-alt),var(--surface))}
+.seccion-titulo.sec-admin{color:var(--danger);border-left-color:var(--danger);background:linear-gradient(90deg,#FDEEEE,var(--surface))}
+.seccion-titulo.sec-otras{color:var(--text-muted);border-left-color:var(--surface-alt);background:var(--surface)}
 table{width:100%;border-collapse:collapse;min-width:620px}
 th{text-align:left;font:700 11px 'Inter';text-transform:uppercase;letter-spacing:.04em;
   color:var(--text-muted);padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface-alt)}
@@ -40,6 +46,44 @@ select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:v
 .agregar input{font-size:12px}
 .muted{color:var(--text-muted);font-size:12px}
 .armado{border-color:var(--warning)!important;color:var(--warning)!important}
+.banner-admin{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--danger);
+  background:#FDEEEE;padding:8px 14px;border-bottom:1px solid var(--border)}
+/* Chips por nivel G en Estratificación (G3 = mayor severidad) */
+.chip-g1{background:var(--primary-soft);color:var(--primary)}
+.chip-g2{background:var(--sector-amarillo-soft);color:var(--sector-amarillo-text)}
+.chip-g3{background:#FDECEC;color:var(--danger)}
+/* ---- Panel: Responsables por sector (acumulables, DEC-039) ---- */
+.res-panel{padding:14px;display:flex;flex-direction:column;gap:12px}
+.res-chips{display:flex;gap:8px;flex-wrap:wrap}
+.sec-chip{cursor:pointer;user-select:none;border:1px solid transparent}
+.sec-chip.on{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+.res-form{display:grid;grid-template-columns:1.2fr 1.2fr 1fr auto;gap:10px;align-items:end}
+.res-form .inp{min-height:36px;font-size:12px}
+.res-addbtn .btn{width:100%;min-height:36px}
+.res-enc{font:700 11px 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--primary);
+  border-top:1px dashed var(--border);padding-top:10px;margin-top:2px}
+.res-fila{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--border)}
+.res-fila:last-child{border-bottom:none}
+span.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-muted);margin:var(--space-3) 0 var(--space-1)}
+.res-nombre{font:500 13px 'Inter'}
+.res-cod{font:600 11px ui-monospace,monospace;color:var(--text-muted)}
+.res-correo{margin-left:auto;font:400 12px ui-monospace,monospace;color:var(--primary)}
+.res-correo a{color:var(--primary)}
+.res-correo .muted{font:400 11px 'Inter'}
+.res-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border-strong);background:transparent;
+  cursor:pointer;padding:0;flex:none;transition:all .15s var(--ease-in)}
+.res-dot.on{border-color:var(--success);background:var(--success)}
+.res-acciones{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.res-diag{border:1px dashed var(--border-strong);border-radius:var(--radius-md);padding:10px;
+  display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.res-diag-t{font:600 10px 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.res-chip-ok{color:var(--success);border-color:var(--success);background:var(--surface)}
+.res-chip-err{color:var(--danger);border-color:var(--danger);background:var(--surface)}
+.res-chip-warn{color:var(--warning);border-color:var(--warning);background:var(--surface)}
+.chip-info{color:var(--primary);border-color:var(--primary);background:var(--surface)}
+.res-detalle{margin:0;font:400 11px ui-monospace,monospace;color:var(--text-secondary);white-space:pre-wrap}
+@media(max-width:760px){.res-form{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -69,6 +113,10 @@ var SECCIONES = ['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADM
 var FILTRO = SECCIONES.indexOf('<?= SECCION ?>') !== -1 ? '<?= SECCION ?>' : 'TODAS';
 var ARMED = {}; // clave → indentificador para doble confirmación (sin confirm() nativo)
 
+// Estado de RESPONSABLES por sector (acumulables, DEC-039)
+var RESP_actual = [], RESP_prof = [], RESP_legacy = {}, RESP_sectores = [], RESP_diag = null;
+var RESP_sec = 'AMARILLO', RESP_draft = [];
+
 function cargar(){
   var st=document.getElementById('estado');
   st.innerHTML='<span class="chip">Cargando…</span>';
@@ -81,16 +129,33 @@ function cargar(){
       CONFIG_actual=r.config||[];
       pintarFiltros();
       pintar();
+      cargarResponsables();
     })
     .withFailureHandler(function(e){st.innerHTML='<span class="chip warn">Error: '+_esc(e&&e.message||e)+'</span>';})
     .api_configListar();
+}
+
+function cargarResponsables(){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo cargar responsables','warn');return;}
+      RESP_actual=r.lista||[]; RESP_prof=r.profesionales||[]; RESP_legacy=r.legacy||{};
+      RESP_sectores=r.sectores||['AMARILLO','NARANJO','VERDE']; RESP_diag=r.diagnostico||null;
+      if(RESP_sectores.indexOf(RESP_sec)===-1) RESP_sec=RESP_sectores[0]||'AMARILLO';
+      rebuildRespDraft();
+      pintarFiltros(); pintar();
+      renderRespList(); renderRespDiag(); buildRespOptions();
+    })
+    .withFailureHandler(function(e){toast('Error: '+(e&&e.message||e),'err');})
+    .api_responsablesListar();
 }
 
 function pintarFiltros(){
   var secciones=SECCIONES;
   var fr=document.getElementById('filtros');
   fr.innerHTML=secciones.map(function(s){
-    var cnt = s==='TODAS' ? CONFIG_actual.length : CONFIG_actual.filter(function(c){return c.seccion===s;}).length;
+    var cnt = s==='CORREOS_RESPONSABLES' ? (RESP_actual.length||0)
+      : (s==='TODAS' ? CONFIG_actual.length : CONFIG_actual.filter(function(c){return c.seccion===s;}).length);
     var icono = s==='ESTRATIFICACION'?'🎯':s==='CORREOS_RESPONSABLES'?'✉️':s==='COMUNES'?'🛠️':s==='ADMINISTRADOR'?'🔒':'…';
     return '<span class="chip sec '+(FILTRO===s?'on':'')+'" onclick="setFiltro(\''+s+'\')">'+
       icono+' '+_esc(s)+' <span class="n">('+cnt+')</span></span>';
@@ -108,18 +173,37 @@ function legSec(s){
           OTRAS:'Otras'}[s]||s;
 }
 
+function clsSec(s){
+  return {ESTRATIFICACION:'sec-estrat',CORREOS_RESPONSABLES:'sec-correos',COMUNES:'sec-comunes',
+          ADMINISTRADOR:'sec-admin',OTRAS:'sec-otras'}[s]||'sec-otras';
+}
+
 function pintar(){
   var cuerpo=document.getElementById('cuerpo');
   var secciones=[];
   (FILTRO==='TODAS'?CONFIG_actual:CONFIG_actual.filter(function(c){return c.seccion===FILTRO;}))
     .forEach(function(c){ if(secciones.indexOf(c.seccion)===-1) secciones.push(c.seccion); });
+  // La sección CORREOS_RESPONSABLES vive en el panel acumulable (sus claves
+  // legacy no se listan como tablas de texto): siempre visible en "TODAS".
+  if(FILTRO==='TODAS'&&secciones.indexOf('CORREOS_RESPONSABLES')===-1) secciones.push('CORREOS_RESPONSABLES');
+  if(FILTRO==='CORREOS_RESPONSABLES') secciones=['CORREOS_RESPONSABLES'];
   secciones.sort(function(a,b){return ['ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'].indexOf(a)-['ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'].indexOf(b);});
 
   var html='';
   secciones.forEach(function(sec){
     var lista=CONFIG_actual.filter(function(c){return c.seccion===sec;});
+    if(sec==='CORREOS_RESPONSABLES'){
+      html+='<div class="seccion-titulo '+clsSec(sec)+'"><span>'+_esc(legSec(sec))+'</span>'+
+            '<span class="n">'+(RESP_sec?RESP_actual.filter(function(r){return r.sector===RESP_sec;}).length:0)+' en '+_esc(RESP_sec)+'</span></div>';
+      html+=panelResponsablesHtml();
+      return;
+    }
     if(FILTRO!=='TODAS'||lista.length){
-      html+='<div class="seccion-titulo"><span>'+_esc(legSec(sec))+'</span><span class="n">'+lista.length+'</span></div>';
+      html+='<div class="seccion-titulo '+clsSec(sec)+'"><span>'+_esc(legSec(sec))+'</span>'+
+            '<span class="n">'+lista.length+'</span></div>';
+    }
+    if(sec==='ADMINISTRADOR'){
+      html+='<div class="banner-admin"><i data-lucide="shield-alert"></i> Parámetros sensibles del sistema. Las claves marcadas como sistema son de solo lectura.</div>';
     }
     html+='<table><thead><tr><th style="width:24%">Clave</th><th style="width:26%">Valor</th>'+
           '<th style="width:34%">Descripción</th><th style="width:16%">Acciones</th></tr></thead><tbody>';
@@ -131,6 +215,194 @@ function pintar(){
   _refrescarIconos();
 }
 
+/* ---- Panel de responsables por sector (acumulables) ---- */
+function panelResponsablesHtml(){
+  return '<div class="res-panel">'+
+    '<div class="res-sec"><span class="etq">Sector</span>'+
+      '<div id="respSecChips" class="res-chips">'+secChipsHtml()+'</div></div>'+
+    '<div class="res-form">'+
+      '<div><span class="etq">Responsable (catálogo · en uso · otro)</span>'+
+        '<select id="rResp" class="inp" onchange="onRespSelect()"></select></div>'+
+      '<div><span class="etq">Nombre</span>'+
+        '<input id="rNombre" class="inp" placeholder="Se completa con el catálogo" value=""></div>'+
+      '<div><span class="etq">Correo</span>'+
+        '<input id="rCorreo" class="inp" placeholder="opcional" value=""></div>'+
+      '<div class="res-addbtn"><span class="etq">&nbsp;</span>'+
+        '<button class="btn btn-sec btn-peq" onclick="agregarResponsable()"><i data-lucide="plus"></i> Agregar</button></div>'+
+    '</div>'+
+    '<div class="res-enc">Responsables actuales · '+_esc(RESP_sec||'—')+'</div>'+
+    '<div id="respList"></div>'+
+    '<div class="res-acciones">'+
+      '<button class="btn btn-pri" onclick="guardarResponsables(this)"><i data-lucide="save"></i> Guardar sector</button>'+
+      '<span class="muted">Guardado atómico: valida el sector completo y no afecta otros datos ni el catálogo.</span>'+
+    '</div>'+
+    '<div id="respDiag" class="res-diag"></div>'+
+  '</div>';
+}
+
+function secChipsHtml(){
+  return RESP_sectores.map(function(s){
+    var cls={'AMARILLO':'chip-sec-amarillo','NARANJO':'chip-sec-naranjo','VERDE':'chip-sec-verde'}[s]||'';
+    return '<span class="chip '+cls+' sec-chip '+(RESP_sec===s?'on':'')+'" data-sec="'+_esc(s)+'" onclick="secPanel(\''+_esc(s)+'\')">'+
+      _esc(s.charAt(0)+s.slice(1).toLowerCase())+'</span>';
+  }).join('');
+}
+
+function rebuildRespDraft(){
+  RESP_draft=RESP_actual.filter(function(r){return r.sector===RESP_sec;}).map(function(r){
+    return {codigo:r.codigo,nombre:r.nombre,correo:r.correo,activo:!!r.activo};
+  });
+}
+
+function secPanel(s){
+  if(RESP_sec===s)return;
+  RESP_sec=s;rebuildRespDraft();
+  var el=document.getElementById('respSecChips');
+  if(el)el.innerHTML=secChipsHtml();
+  renderRespList();renderRespDiag();
+  var tr=document.querySelector('.res-enc');
+  if(tr)tr.textContent='Responsables actuales · '+_esc(RESP_sec);
+}
+
+function buildRespOptions(){
+  var sel=document.getElementById('rResp');
+  if(!sel)return;
+  var html='<option value="">— Responsable —</option>';
+  RESP_prof.filter(function(p){return p.ACTIVO!==false;}).forEach(function(p){
+    html+='<option value="'+_esc(p.CODIGO)+'">'+_esc(p.NOMBRE+' ('+p.CODIGO+(p.TIPO_ROL?' · '+p.TIPO_ROL:'')+')')+'</option>';
+  });
+  var inact=RESP_prof.filter(function(p){return p.ACTIVO===false;});
+  if(inact.length){
+    html+='<optgroup label="Catálogo inactivos">';
+    inact.forEach(function(p){html+='<option value="'+_esc(p.CODIGO)+'">'+_esc(p.NOMBRE+' ('+p.CODIGO+')')+'</option>';});
+    html+='</optgroup>';
+  }
+  var enUso=[];
+  RESP_actual.forEach(function(r){
+    if(enUso.indexOf(r.codigo)===-1&&!RESP_prof.some(function(p){return p.CODIGO===r.codigo;}))enUso.push(r.codigo);
+  });
+  if(enUso.length){
+    html+='<optgroup label="Responsables en uso (catálogo sin entrada)">';
+    enUso.forEach(function(c){
+      var r=RESP_actual.filter(function(x){return x.codigo===c;})[0];
+      html+='<option value="'+_esc(c)+'">'+_esc((r&&r.nombre||c)+' ('+c+')')+'</option>';
+    });
+    html+='</optgroup>';
+  }
+  html+='<option value="__otro">✏️ Otro responsable (fuera de catálogo)</option>';
+  sel.innerHTML=html;
+}
+
+function onRespSelect(){
+  var sel=document.getElementById('rResp').value||'';
+  var n=document.getElementById('rNombre'),c=document.getElementById('rCorreo');
+  if(!sel){n.value='';c.value='';return;}
+  if(sel==='__otro'){n.value='';c.value='';return;}
+  var p=RESP_prof.filter(function(x){return x.CODIGO===sel;})[0];
+  var prev=RESP_actual.filter(function(r){return r.codigo===sel&&r.correo;})[0];
+  if(p){n.value=p.NOMBRE;c.value=prev?prev.correo:'';}
+  else if(prev){n.value=prev.nombre;c.value=prev.correo||'';}
+  else n.value='';
+}
+
+function _claveN(s){
+  return String(s==null?'':s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
+}
+
+function agregarResponsable(){
+  var sel=document.getElementById('rResp').value||'';
+  var nombre=document.getElementById('rNombre').value.trim()||'';
+  var correo=document.getElementById('rCorreo').value.trim()||'';
+  var codigo=sel;
+  if(sel==='__otro'){
+    if(!nombre){toast('Indica el nombre del responsable','warn');return;}
+    codigo='R_'+_claveN(nombre);
+  }else if(!sel){
+    toast('Selecciona un responsable del catálogo (u "Otro responsable")','warn');return;
+  }else{
+    if(!nombre){
+      var p=RESP_prof.filter(function(x){return x.CODIGO===sel;})[0];
+      nombre=(p&&p.NOMBRE)||nombre;
+    }
+    if(!nombre){toast('Indica el nombre','warn');return;}
+  }
+  if(correo&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)){toast('Correo inválido: '+correo,'err');return;}
+  if(RESP_draft.some(function(r){return r.codigo===codigo;})){toast('Ya existe '+codigo+' en '+RESP_sec,'warn');return;}
+  RESP_draft.push({codigo:codigo,nombre:nombre,correo:correo,activo:true});
+  document.getElementById('rNombre').value='';document.getElementById('rCorreo').value='';
+  document.getElementById('rResp').value='';
+  renderRespList();
+}
+
+function quitarResponsable(i){
+  RESP_draft.splice(i,1);
+  renderRespList();
+}
+
+function toggleRespActivo(i){
+  RESP_draft[i].activo=!RESP_draft[i].activo;
+  renderRespList();
+}
+
+function renderRespList(){
+  var el=document.getElementById('respList');
+  if(!el)return;
+  if(!RESP_draft.length){
+    el.innerHTML='<div class="muted" style="padding:8px 0">Sin responsables asignados a '+_esc(RESP_sec||'')+'.</div>';
+    return;
+  }
+  el.innerHTML=RESP_draft.map(function(r,i){
+    var on=r.activo!==false;
+    return '<div class="res-fila">'+
+      '<button class="res-dot '+(on?'on':'')+'" onclick="toggleRespActivo('+i+')" title="'+(on?'Activo — clic para inactivar':'Inactivo — clic para activar')+'"></button>'+
+      '<span class="res-nombre">'+_esc(r.nombre)+' <span class="res-cod">'+_esc(r.codigo)+'</span></span>'+
+      '<span class="res-correo">'+(r.correo?'<a href="mailto:'+_esc(r.correo)+'">'+_esc(r.correo)+'</a>':'<span class="muted">sin correo</span>')+'</span>'+
+      '<button class="btn btn-ghost btn-peq" onclick="quitarResponsable('+i+')" title="Quitar (no elimina del catálogo)"><i data-lucide="trash-2"></i></button>'+
+      '</div>';
+  }).join('');
+  _refrescarIconos();
+}
+
+function renderRespDiag(){
+  var el=document.getElementById('respDiag');
+  if(!el||!RESP_diag)return;
+  var d=RESP_diag;
+  var chips=['<span class="chip res-chip-ok">'+d.totales.asociaciones+' asociaciones</span>',
+             '<span class="chip">'+d.totales.sectoresConDatos+' sectores con datos</span>'];
+  (d.legacy?Object.keys(d.legacy):[]).forEach(function(k){
+    if(d.legacy[k])chips.push('<span class="chip chip-info" title="Correo legacy RESPONSABLE_'+_esc(k)+'">'+_esc(k)+': '+_esc(d.legacy[k])+'</span>');
+  });
+  if(d.duplicados.length)chips.push('<span class="chip res-chip-err">'+d.duplicados.length+' duplicado(s)</span>');
+  if(d.correosInvalidos.length)chips.push('<span class="chip res-chip-err">'+d.correosInvalidos.length+' correo(s) inválido(s)</span>');
+  if(d.sinCatalogo.length)chips.push('<span class="chip res-chip-warn">'+d.sinCatalogo.length+' sin catálogo</span>');
+  if(d.inactivosCargo.length)chips.push('<span class="chip res-chip-warn">'+d.inactivosCargo.length+' inactivo(s)</span>');
+  var dets='';
+  if(d.duplicados.length)dets+=(dets?'\n':'')+'• duplicados: '+d.duplicados.join(', ');
+  if(d.correosInvalidos.length)dets+=(dets?'\n':'')+'• correos inválidos: '+d.correosInvalidos.join(', ');
+  if(d.sinCatalogo.length)dets+=(dets?'\n':'')+'• sin catálogo (personalizado): '+d.sinCatalogo.join(', ');
+  if(d.inactivosCargo.length)dets+=(dets?'\n':'')+'• catálogo inactivo: '+d.inactivosCargo.join(', ');
+  el.innerHTML='<span class="res-diag-t">Diagnóstico (solo lectura · no modifica datos)</span>'+
+    '<span style="display:flex;flex-wrap:wrap;gap:6px">'+chips.join('')+'</span>'+
+    (dets?'<pre class="res-detalle">'+_esc(dets)+'</pre>':'');
+}
+
+function guardarResponsables(btn){
+  if(!_guardarBot(btn,'Guardando…'))return;
+  google.script.run
+    .withSuccessHandler(function(r){_restaurarBot(btn);
+      if(!r||!r.ok){
+        toast((r&&r.errores&&r.errores.length?r.errores.join(' · '):(r&&r.motivo||'No se pudo guardar')),'err');
+        return;
+      }
+      toast('✓ '+RESP_sec+' · '+r.cantidad+' responsable(s) guardado(s)'+
+        (r.inactivos&&r.inactivos.length?' (catálogo inactivo: '+r.inactivos.join(', ')+')':''),'ok');
+      cargar();
+    })
+    .withFailureHandler(function(e){_restaurarBot(btn);toast('Error: '+(e&&e.message||e),'err');})
+    .api_responsablesGuardarSector(RESP_sec, RESP_draft);
+}
+
+/* ---- Tabla genérica de CONFIG (resto de secciones) ---- */
 function editorDe(c){
   if(c.protegida) return '<input type="text" data-clave="'+_esc(c.clave)+'" class="protegida" disabled value="'+_esc(c.valor)+'">';
   if(c.tipo==='select'){
@@ -142,6 +414,11 @@ function editorDe(c){
   return '<input type="text" data-clave="'+_esc(c.clave)+'" value="'+_esc(c.valor)+'">';
 }
 
+function gChip(clave){
+  var m=/^FREC_CONTROL_G([123])/.exec(clave);
+  return m?'<span class="chip chip-g'+m[1]+'" style="padding:1px 8px;margin-left:6px">G'+m[1]+'</span>':'';
+}
+
 function fila(c){
   var proteccion=c.protegida?'<span class="badge">sistema</span>':'';
   var acciones;
@@ -150,7 +427,7 @@ function fila(c){
       '<button class="btn btn-sec btn-peq" onclick="guardarFila(this,\''+_esc(c.clave)+'\')"><i data-lucide="save"></i> Guardar</button>'+
       '<button class="btn btn-danger btn-peq" data-elim="'+_esc(c.clave)+'" onclick="pedirEliminar(this,\''+_esc(c.clave)+'\')"><i data-lucide="trash-2"></i> Eliminar</button>'+
     '</div>';
-  return '<tr><td><span class="clave">'+_esc(c.clave)+'</span>'+proteccion+
+  return '<tr><td><span class="clave">'+_esc(c.clave)+'</span>'+proteccion+gChip(c.clave)+
          '<span class="desc">'+_esc(c.descripcion||'—')+'</span></td>'+
          '<td>'+editorDe(c)+'</td><td></td><td>'+acciones+'</td></tr>';
 }

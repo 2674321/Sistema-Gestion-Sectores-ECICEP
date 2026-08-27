@@ -68,6 +68,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_control_v085(t, A);
   _pruebas_controles_v087(t, A);
   _pruebas_dialogos_v087(t, A);
+  _pruebas_responsables_v0872(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2562,8 +2563,125 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.7.1', 'versión esperada');
+    A.igual(v, '0.8.7.2', 'versión esperada');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.7.2 — RESPONSABLES POR SECTOR (acumulables, DEC-039)
+// ---------------------------------------------------------------------------
+function _pruebas_responsables_v0872(t, A) {
+  var filas = [
+    COLUMNAS_RESPONSABLES,
+    ['AMARILLO', 'ENF', 'Enfermera/o', 'enfermeria@cli.cl', true],
+    ['amarillo', 'MED', 'Médico/a', 'medico@cli.cl', 'FALSE'],
+    ['', '', '', '', ''],
+    ['NARANJO', 'ENF', 'Enfermera/o', 'enfermeria@cli.cl', true]
+  ];
+
+  t('RESPONSABLES v0.8.7.2: mapeo canónico (sector/código normalizados, vacía omitida)', function () {
+    var r = Responsables_mapear(filas);
+    A.igual(r.length, 3, 'tres asociaciones (vacía omitida)');
+    A.igual(r[0].sector, 'AMARILLO', 'sector a mayúsculas');
+    A.igual(r[1].sector, 'AMARILLO', 'sector escrito en minúscula normalizado');
+    A.igual(r[1].activo, false, 'ACTIVO FALSE → inactivo');
+    A.igual(r[2].sector, 'NARANJO', 'sector distinto conservado');
+  });
+
+  t('RESPONSABLES v0.8.7.2: un sector puede tener N responsables sin sobrescribir', function () {
+    var lista = Responsables_mapear(filas);
+    var v1 = Responsables_validarSector('AMARILLO', lista.filter(function (r) { return r.sector === 'AMARILLO'; }), []);
+    A.cierto(v1.ok, 'sector con ENF y MED válido');
+    A.igual(v1.cantidad, 2, 'dos responsables coexisten');
+  });
+
+  t('RESPONSABLES v0.8.7.2: duplicados (SECTOR+CODIGO) detectados y sin duplicar al guardar', function () {
+    var lista = Responsables_mapear(filas);
+    var v = Responsables_validarSector('AMARILLO', [
+      { codigo: 'ENF', nombre: 'Enfermera/o', correo: '', activo: true },
+      { codigo: 'enf', nombre: 'Enfermera/o 2', correo: '', activo: true }
+    ], []);
+    A.cierto(!v.ok, 'duplicado rechazado');
+    A.cierto(v.duplicados.indexOf('ENF') !== -1, 'duplicado ' + v.duplicados.join(','));
+    A.cierto(v.errores.join(' ').indexOf('Duplicados') !== -1, 'mensaje de duplicados');
+  });
+
+  t('RESPONSABLES v0.8.7.2: mismo responsable en varios sectores (clave incluye sector)', function () {
+    A.cierto(Responsables_clave('AMARILLO', 'ENF') !== Responsables_clave('NARANJO', 'ENF'), 'claves distintas por sector');
+    var lista = Responsables_mapear(filas); // ENF en AMARILLO y NARANJO
+    var v = Responsables_validarSector('NARANJO', lista.filter(function (r) { return r.sector === 'NARANJO'; }), []);
+    A.cierto(v.ok, 'ENF puede estar en NARANJO aunque también esté en AMARILLO');
+  });
+
+  t('RESPONSABLES v0.8.7.2: sector inválido y responsables sin nombre/código rechazados', function () {
+    var v1 = Responsables_validarSector('AZUL', [], []);
+    A.cierto(!v1.ok, 'sector fuera del conjunto cerrado');
+    A.cierto(v1.errores.join(' ').indexOf('Sector inválido') !== -1, 'mensaje de sector');
+    var v2 = Responsables_validarSector('AMARILLO', [{ codigo: 'X1', nombre: '', correo: '', activo: true }], []);
+    A.cierto(!v2.ok, 'responsable sin nombre rechazado');
+  });
+
+  t('RESPONSABLES v0.8.7.2: correos múltiples deduplidos (incluye legacy)', function () {
+    var lista = [
+      { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera/o', correo: 'a@cli.cl', activo: true },
+      { sector: 'AMARILLO', codigo: 'MED', nombre: 'Médico/a', correo: 'b@cli.cl', activo: true },
+      { sector: 'AMARILLO', codigo: 'TO', nombre: 'TO', correo: 'a@cli.cl', activo: true }, // duplicado de correo
+      { sector: 'AMARILLO', codigo: 'OFF', nombre: 'Inactivo', correo: 'c@cli.cl', activo: false }
+    ];
+    var legacy = { AMARILLO: 'b@cli.cl', NARANJO: 'n@cli.cl' };
+    A.arreglos(Responsables_correosDe(lista, 'AMARILLO', legacy, false), ['a@cli.cl', 'b@cli.cl'], 'activos + legacy sin duplicar');
+    A.arreglos(Responsables_correosDe(lista, 'AMARILLO', legacy, true), ['a@cli.cl', 'b@cli.cl', 'c@cli.cl'], 'con inactivos si se pide');
+    A.arreglos(Responsables_correosDe(lista, 'NARANJO', legacy, false), ['n@cli.cl'], 'solo legacy de otro sector');
+  });
+
+  t('RESPONSABLES v0.8.7.2: inactivo del catálogo no se pierde pero se marca', function () {
+    var catalogo = [
+      { CODIGO: 'ENF', NOMBRE: 'Enfermera/o', ACTIVO: true },
+      { CODIGO: 'MED', NOMBRE: 'Médico/a', ACTIVO: false }
+    ];
+    var v = Responsables_validarSector('AMARILLO', [
+      { codigo: 'ENF', nombre: 'Enfermera/o', correo: '', activo: true },
+      { codigo: 'MED', nombre: 'Médico/a', correo: '', activo: true }
+    ], catalogo);
+    A.cierto(v.ok, 'entrada del catálogo inactivo NO bloquea la guarda');
+    A.cierto(v.inactivos.indexOf('MED') !== -1, 'MED reportado como inactivo');
+  });
+
+  t('RESPONSABLES v0.8.7.2: diagnóstico/dry-run sin modificar (duplicados, inválidos, sin catálogo, legacy)', function () {
+    var lista = [
+      { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera/o', correo: 'ok@cli.cl', activo: true },
+      { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera/o', correo: 'ok@cli.cl', activo: true }, // duplicado
+      { sector: 'NARANJO', codigo: 'X1', nombre: 'Externo', correo: 'correo mal', activo: true },
+      { sector: 'VERDE', codigo: 'R_PERSONA', nombre: 'Persona', correo: '', activo: false }
+    ];
+    var catalogo = [
+      { CODIGO: 'ENF', NOMBRE: 'Enfermera/o', ACTIVO: true },
+      { CODIGO: 'R_PERSONA', NOMBRE: 'Persona', ACTIVO: true }
+    ];
+    var legacy = { VERDE: 'jefe@cli.cl' };
+    var d = Responsables_diagnostico(lista, catalogo, legacy);
+    A.igual(d.totales.asociaciones, 4, 'total asociaciones');
+    A.igual(d.sectores.join(','), 'AMARILLO,NARANJO,VERDE', 'conjunto cerrado de sectores');
+    A.igual(d.duplicados.length, 1, 'duplicado detectado');
+    A.igual(d.correosInvalidos.length, 1, 'correo inválido detectado');
+    A.igual(d.sinCatalogo.length, 1, 'responsable sin entrada de catálogo');
+    A.igual(Object.keys(d.legacy).length, 1, 'legacy integrado');
+    A.igual(d.legacy.VERDE, 'jefe@cli.cl', 'valor legacy');
+  });
+
+  t('RESPONSABLES v0.8.7.2: email válido (vacío = opcional) y conjunto de sectores cerrado', function () {
+    A.cierto(Responsables_emailValido(''), 'vacío opcional');
+    A.cierto(Responsables_emailValido('a@b.cl'), 'correo simple válido');
+    A.cierto(!Responsables_emailValido('correo mal'), 'sin @ rechazado');
+    A.cierto(!Responsables_emailValido('a@b'), 'sin dominio rechazado');
+    SECTORES_RESPONSABLES.forEach(function (s) {
+      A.cierto(/^(AMARILLO|NARANJO|VERDE)$/.test(s), 'sector cerrado: ' + s);
+    });
+  });
+
+  t('RESPONSABLES v0.8.7.2: las claves legacy no se listan (se administran en el panel)', function () {
+    A.igual(Config_seccionDe('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES', 'legacy sigue tipada como correos'); // persistencia del contrato
   });
 }

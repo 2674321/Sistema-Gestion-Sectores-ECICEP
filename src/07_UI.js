@@ -614,6 +614,10 @@ function api_configListar() {
       for (var i = 1; i < vals.length; i++) {
         var k = Utl_texto(vals[i][0]);
         if (!k) continue;
+        // RESPONSABLE_<SECTOR> (legacy 1 correo / sector) pasó al panel acumulable
+        // de la sección CORREOS_RESPONSABLES: aquí se ocultan para no editarlos
+        // como texto plano y duplicar el mantenimiento (#13 → DEC-039).
+        if (/^RESPONSABLE_(NARANJO|AMARILLO|VERDE)$/.test(k)) continue;
         filas.push({ clave: k, valor: Utl_texto(vals[i][1]),
                      descripcion: Utl_texto(vals[i][2]),
                      protegida: Config_estaProtegida(k),
@@ -701,6 +705,104 @@ function api_configEliminar(clave) {
     return { ok: true, eliminada: eliminada };
   } catch (e) {
     Log_error('Config', 'eliminar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsables por sector (ACUMULABLES, DEC-039)
+ *   Hoja oculta RESPONSABLES: SECTOR | CODIGO_RESPONSABLE | NOMBRE | CORREO | ACTIVO
+ *   - api_responsablesListar      → lectura + diagnóstico (dry-run, NO escribe)
+ *   - api_responsablesGuardarSector → reescritura atómica validada de un sector
+ * ------------------------------------------------------------------------- */
+
+/** Asegura que la hoja RESPONSABLES exista (la crea con encabezados si falta). */
+function _responsables_asegurarHoja() {
+  var ss = Modelo_ss();
+  var hoja = ss.getSheetByName(HOJAS.RESPONSABLES);
+  if (!hoja) {
+    hoja = ss.insertSheet(HOJAS.RESPONSABLES);
+    Utl_escribirBloque(hoja, 1, 1, [COLUMNAS_RESPONSABLES]);
+  }
+  return hoja;
+}
+
+/** Lee todas las asociaciones canónicas de RESPONSABLES (sin tocar catálogo). */
+function _responsables_leer() {
+  var hoja = Modelo_ss().getSheetByName(HOJAS.RESPONSABLES);
+  if (!hoja || hoja.getLastRow() < 2) return [];
+  return Responsables_mapear(Utl_leerBloque(hoja));
+}
+
+/** Lee los correos legacy RESPONSABLE_<SECTOR> de CONFIG → {SEC:'correo'}. */
+function _responsables_leerLegacy() {
+  var hoja = Modelo_hoja(HOJAS.CONFIG);
+  var legacy = {};
+  if (!hoja || hoja.getLastRow() < 2) return legacy;
+  Utl_leerBloque(hoja).forEach(function (r) {
+    var k = Utl_texto(r[0]);
+    if (/^RESPONSABLE_(NARANJO|AMARILLO|VERDE)$/.test(k))
+      legacy[k.replace('RESPONSABLE_', '')] = Utl_texto(r[1]).trim();
+  });
+  return legacy;
+}
+
+/** Reescritura atómica de toda la hoja RESPONSABLES (ya validada). */
+function _responsables_escribirTodo(lista) {
+  var hoja = _responsables_asegurarHoja();
+  if (hoja.getLastRow() > 1)
+    hoja.getRange(2, 1, hoja.getLastRow() - 1, COLUMNAS_RESPONSABLES.length).clear();
+  if (lista.length) {
+    var filas = lista.map(function (r) {
+      return [Utl_texto(r.sector).toUpperCase(), r.codigo, r.nombre, r.correo, r.activo !== false];
+    });
+    Utl_escribirBloque(hoja, 2, 1, filas);
+  }
+  Modelo_invalidarLecturas();
+}
+
+/** Endpoint: lectura + diagnóstico/dry-run de responsables (NO modifica datos).
+ *  No carga PACIENTES/EVENTOS: solo la hoja RESPONSABLES, el catálogo
+ *  PROFESIONALES y las claves legacy de CONFIG. */
+function api_responsablesListar() {
+  try {
+    var lista = _responsables_leer();
+    var profesionales = Profesionales_catalogo();
+    var legacy = _responsables_leerLegacy();
+    var diagnostico = Responsables_diagnostico(lista, profesionales, legacy);
+    return { ok: true, lista: lista, profesionales: profesionales,
+             sectores: SECTORES_RESPONSABLES, legacy: legacy, diagnostico: diagnostico };
+  } catch (e) {
+    Log_error('Responsables', 'listar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** Endpoint: guarda de forma atómica y validada TODAS las asociaciones de un
+ *  sector. filas = [{codigo, nombre, correo, activo}] (reemplazan las del
+ *  sector). Eliminar una asociación aquí NO elimina al profesional del catálogo
+ *  PROFESIONALES. No sobreescribe otros sectores. */
+function api_responsablesGuardarSector(sector, filas) {
+  try {
+    var sec = Utl_texto(sector).toUpperCase();
+    var profesionales = Profesionales_catalogo();
+    var val = Responsables_validarSector(sec, filas, profesionales);
+    if (!val.ok) return { ok: false, errores: val.errores };
+    var resto = _responsables_leer().filter(function (r) { return r.sector !== sec; });
+    var nuevas = (filas || []).map(function (f) {
+      return { sector: sec, codigo: Utl_texto(f.codigo).trim().toUpperCase(),
+               nombre: Utl_texto(f.nombre).trim(), correo: Utl_texto(f.correo).trim(),
+               activo: f.activo !== false };
+    });
+    _responsables_escribirTodo(resto.concat(nuevas));
+    Log_info('Responsables', 'guardarSector', sec + ' → ' + nuevas.length +
+      (val.inactivos.length ? ' (inactivos catálogo: ' + val.inactivos.join(',') + ')' : ''));
+    Log_flush();
+    return { ok: true, cantidad: nuevas.length, inactivos: val.inactivos };
+  } catch (e) {
+    Log_error('Responsables', 'guardarSector', e && e.message ? e.message : String(e));
     Log_flush();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }

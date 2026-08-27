@@ -300,6 +300,7 @@ var MODELO_DISENO = [
   // Catálogos y configuración (internas)
   { nombre: 'CAT_VIGENCIA_EXAMENES', color: '#8A93A3', oculta: true, banda: true },
   { nombre: 'PROFESIONALES', color: '#8A93A3', oculta: true, banda: true },
+  { nombre: 'RESPONSABLES', color: '#8A93A3', oculta: true, banda: true },
   // Sistema (técnicas ocultas)
   { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
   { nombre: 'FUENTES',          color: '#8A93A3', oculta: true, formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
@@ -424,6 +425,8 @@ _MODELO_HOJAS_DEF[HOJAS.FUENTES] = ['ARCHIVO', 'SECTOR', 'HOJAS', 'ESTADO_REGIST
 _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'] = ['EXAMEN', 'CODIGO', 'VIGENCIA', 'UNIDAD', 'ACTIVO'];
 // Catálogo central de profesionales (fuente de verdad para Dupla).
 _MODELO_HOJAS_DEF[HOJAS.PROFESIONALES] = COLUMNAS_PROFESIONALES;
+// Responsables por sector (acumulables): SECTOR | CODIGO | NOMBRE | CORREO | ACTIVO.
+_MODELO_HOJAS_DEF[HOJAS.RESPONSABLES] = COLUMNAS_RESPONSABLES;
 _MODELO_HOJAS_DEF['INICIO'] = null; // navegación: la construye Hojas_crearInicio
 
 var _CONFIG_SEMILLA = [
@@ -434,9 +437,9 @@ var _CONFIG_SEMILLA = [
   ['TTL_CACHE_SEG', CFG_CACHE.TTL_DEFECTO_SEG, 'TTL por defecto de caché (segundos)'],
   ['ANO_MIN_FECHAS', CFG_FECHAS.ANO_MIN, 'Año mínimo plausible para fechas'],
   ['ANO_MAX_FECHAS', CFG_FECHAS.ANO_MAX, 'Año máximo plausible para fechas'],
-  ['RESPONSABLE_NARANJO', '', 'Correo del responsable del sector (pendiente #13)'],
-  ['RESPONSABLE_AMARILLO', '', 'Correo del responsable del sector (pendiente #13)'],
-  ['RESPONSABLE_VERDE', '', 'Correo del responsable del sector (pendiente #13)']
+  ['RESPONSABLE_NARANJO', '', 'Correo histórico (legacy) — administrarlo desde Responsables y correos'],
+  ['RESPONSABLE_AMARILLO', '', 'Correo histórico (legacy) — administrarlo desde Responsables y correos'],
+  ['RESPONSABLE_VERDE', '', 'Correo histórico (legacy) — administrarlo desde Responsables y correos']
 ];
 
 // Configuración extendida por módulos (#12-15): parámetros administrables sin código.
@@ -775,6 +778,143 @@ function Profesionales_catalogo() {
   return CATALOGO_PROFESIONALES.map(function (c) {
     return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE_CANONICO, TIPO_ROL: c.TIPO_ROL || '', ACTIVO: !!c.ACTIVA };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Responsables por sector (modelo ACUMULABLE v0.8.7.2, DEC-039)
+//   - Un sector → N responsables; un responsable puede estar en N sectores.
+//   - Identificador estable = CODIGO_RESPONSABLE (catálogo PROFESIONALES o
+//     'R_' + clave cuando la persona no está en el catálogo).
+//   - Todas las funciones de este bloque son PURAS (testeables en node).
+// ---------------------------------------------------------------------------
+
+/** PURA: convierte filas crudas de RESPONSABLES (con encabezado) en objetos
+ *  canónicos {sector, codigo, nombre, correo, activo}. Omita filas vacías. */
+function Responsables_mapear(filas) {
+  var out = [];
+  var idx = {};
+  COLUMNAS_RESPONSABLES.forEach(function (c, i) { idx[c] = i; });
+  for (var f = 1; f < (filas || []).length; f++) {
+    var r = filas[f];
+    var sector = Utl_texto(r[idx.SECTOR]).trim().toUpperCase();
+    var codigo = Utl_texto(r[idx.CODIGO_RESPONSABLE]).trim().toUpperCase();
+    if (!sector || !codigo) continue;
+    out.push({
+      sector: sector,
+      codigo: codigo,
+      nombre: Utl_texto(r[idx.NOMBRE_RESPONSABLE]).trim(),
+      correo: Utl_texto(r[idx.CORREO]).trim(),
+      activo: !(r[idx.ACTIVO] === false || Utl_texto(r[idx.ACTIVO]).toUpperCase() === 'FALSE')
+    });
+  }
+  return out;
+}
+
+/** PURA: clave estable de una asociación (SECTOR + CODIGO). Es la clave del
+ *  duplicado: impide que un mismo responsable se agregue dos veces al sector. */
+function Responsables_clave(sector, codigo) {
+  return Utl_texto(sector).toUpperCase() + '§' + Utl_claveAlnum(codigo);
+}
+
+/** PURA: correo válido simple (vacío = opcional = válido). */
+function Responsables_emailValido(v) {
+  var t = Utl_texto(v).trim();
+  if (t === '') return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t);
+}
+
+/** PURA: diagnóstico/dry-run de responsables (NO escribe nada).
+ *  @param lista        asociaciones canónicas
+ *  @param profesionales catálogo de profesionales canónicos (CODIGO/NOMBRE/ACTIVO)
+ *  @param legacy        {SEC:'correo'} de las claves RESPONSABLE_* históricas
+ *  @returns {porSector, duplicados, correosInvalidos, sinCatalogo, inactivosCargo,
+ *            legacy, totales}
+ */
+function Responsables_diagnostico(lista, profesionales, legacy) {
+  var catMap = {};
+  var catActivo = {};
+  (profesionales || []).forEach(function (p) {
+    catMap[Utl_texto(p.CODIGO).toUpperCase()] = p.NOMBRE || p.CODIGO;
+    catActivo[Utl_texto(p.CODIGO).toUpperCase()] = p.ACTIVO !== false;
+  });
+  var porSector = {}, vistos = {};
+  var duplicados = [], correosInvalidos = [], sinCatalogo = [], inactivosCargo = [];
+  (lista || []).forEach(function (r) {
+    var cl = Responsables_clave(r.sector, r.codigo);
+    if (vistos[cl]) { duplicados.push(r.sector + ' + ' + r.codigo); return; }
+    vistos[cl] = true;
+    if (r.correo && !Responsables_emailValido(r.correo))
+      correosInvalidos.push(r.sector + ' + ' + r.codigo + ' → ' + r.correo);
+    if (!catMap[r.codigo])
+      sinCatalogo.push(r.sector + ' + ' + r.codigo + ' (' + (r.nombre || 'sin nombre') + ')');
+    else if (catActivo[r.codigo] === false)
+      inactivosCargo.push(r.sector + ' + ' + r.codigo);
+    (porSector[r.sector] = porSector[r.sector] || []).push(r);
+  });
+  return {
+    sectores: SECTORES_RESPONSABLES,
+    porSector: porSector,
+    duplicados: duplicados,
+    correosInvalidos: correosInvalidos,
+    sinCatalogo: sinCatalogo,
+    inactivosCargo: inactivosCargo,
+    legacy: legacy || {},
+    totales: {
+      asociaciones: (lista || []).length,
+      sectoresConDatos: Object.keys(porSector).length
+    }
+  };
+}
+
+/** PURA: colección deduplida y en orden de los correos de un sector.
+ *  Incluye activos siempre; inactivos solo si incluirInactivos=true.
+ *  Integra el correo legacy RESPONSABLE_<SECTOR> si no está repetido. */
+function Responsables_correosDe(lista, sector, legacy, incluirInactivos) {
+  var out = [], visto = {};
+  (lista || []).forEach(function (r) {
+    if (Utl_texto(r.sector).toUpperCase() !== Utl_texto(sector).toUpperCase()) return;
+    if (r.activo === false && !incluirInactivos) return;
+    var m = Utl_texto(r.correo).trim();
+    if (m && !visto[m.toLowerCase()]) { visto[m.toLowerCase()] = true; out.push(m); }
+  });
+  var leg = (legacy || {})[Utl_texto(sector).toUpperCase()];
+  var lm = Utl_texto(leg).trim();
+  if (lm && !visto[lm.toLowerCase()]) out.push(lm);
+  return out;
+}
+
+/** PURA: valida el guardado atómico de un SECTOR completo.
+ *  @param sector nombre corto del sector ('AMARILLO')
+ *  @param filas  [{codigo,nombre,correo,activo}] a persistir (reemplazan las del sector)
+ *  @param profesionales catálogo de profesionales (para avisar de activos/inactivos)
+ *  @returns {ok, errores[], cantidad, duplicados}
+ */
+function Responsables_validarSector(sector, filas, profesionales) {
+  var sec = Utl_texto(sector).toUpperCase();
+  var errores = [];
+  if (SECTORES_RESPONSABLES.indexOf(sec) === -1)
+    errores.push('Sector inválido (use ' + SECTORES_RESPONSABLES.join(', ') + ')');
+  var vistos = {}, duplicados = [];
+  (filas || []).forEach(function (f) {
+    var codigo = Utl_texto(f.codigo).trim().toUpperCase();
+    if (!codigo) { errores.push('Responsable sin código'); return; }
+    if (vistos[codigo]) { duplicados.push(codigo); return; }
+    vistos[codigo] = true;
+    if (!Utl_texto(f.nombre).trim()) errores.push(codigo + ': sin nombre');
+    if (f.correo && !Responsables_emailValido(f.correo))
+      errores.push(codigo + ': correo inválido (' + f.correo + ')');
+  });
+  if (duplicados.length) errores.push('Duplicados en el sector: ' + duplicados.join(', '));
+  var inactivos = [];
+  if (profesionales) {
+    var activo = {};
+    profesionales.forEach(function (p) { activo[Utl_texto(p.CODIGO).toUpperCase()] = p.ACTIVO !== false; });
+    (filas || []).forEach(function (f) {
+      var c = Utl_texto(f.codigo).trim().toUpperCase();
+      if (c && activo[c] === false) inactivos.push(c);
+    });
+  }
+  return { ok: errores.length === 0, errores: errores, cantidad: (filas || []).length, duplicados: duplicados, inactivos: inactivos };
 }
 
 // ---------------------------------------------------------------------------
