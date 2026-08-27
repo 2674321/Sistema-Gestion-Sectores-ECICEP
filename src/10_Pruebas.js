@@ -66,6 +66,8 @@ function Pruebas_ejecutarTodo() {
   _pruebas_profesionales(t, A);
   _pruebas_config_v085(t, A);
   _pruebas_control_v085(t, A);
+  _pruebas_controles_v087(t, A);
+  _pruebas_dialogos_v087(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2428,5 +2430,140 @@ function _pruebas_control_v085(t, A) {
     A.igual(Utl_edadDesde('1990-12-01', new Date(2026, 7, 27)), '35', 'sin cumplir aún');
     A.igual(Utl_edadDesde('', new Date(2026, 7, 27)), '', 'sin fecha');
     A.igual(Utl_edadDesde('invalida', new Date(2026, 7, 27)), '', 'fecha inválida');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.7.1 — CONTROLES POR PERSONA bajo demanda (parámetros → filas paginadas)
+// ---------------------------------------------------------------------------
+function _pruebas_controles_v087(t, A) {
+  var PAC = [
+    { ID_INTERNO: 'I001', NOMBRE: 'María Pérez', RUT: '8031158-3', SECTOR: 'AMARILLO',
+      ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1990-05-15' },
+    { ID_INTERNO: 'I002', NOMBRE: 'Luis Soto', RUT: '12.345.678-9', SECTOR: 'VERDE',
+      ESTRATIFICACION: 'G3', ULTIMO_CONTROL: '2026-01-01', ULTIMO_SEGUIMIENTO: '2026-07-01', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '2000-01-01' },
+    { ID_INTERNO: 'I003', NOMBRE: 'Ana Silva', RUT: '9.876.543-2', SECTOR: 'NARANJO',
+      ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '2026-08-10', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1985-03-03' },
+    { ID_INTERNO: 'I004', NOMBRE: 'Pedro Gónzalez', RUT: '5.555.555-5', SECTOR: 'AMARILLO',
+      ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1978-11-11' }
+  ];
+  var FR = Control_frecuenciaDefault();
+  var HOY = '2026-08-27';
+
+  t('CONTROL v0.8.7.1: "Todos los sectores" se consulta (todos) con límite 25', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, {});
+    A.igual(r.total, 4, 'total (opts vacío = consulta explícita, no inicialización)');
+    A.igual(r.filas.length, 4, 'limite default 25 alcanza');
+    A.igual(r.limite, 25, 'limite devuelto');
+    A.igual(r.inicio, 0, 'inicio 0');
+    A.cierto(r.sectores && r.sectores.length === 3, 'sectores agrupados');
+  });
+
+  t('CONTROL v0.8.7.1: filtro por sector (AMARILLO)', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { sector: 'AMARILLO' });
+    A.igual(r.total, 2, '2 amarillos');
+    A.cierto(r.filas.every(function (f) { return f.sector === 'AMARILLO'; }), 'todas amarillas');
+  });
+
+  t('CONTROL v0.8.7.1: "Todos los sectores" combinado con término acotado', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { sector: '', termino: 'silva' });
+    A.igual(r.total, 1, 'Ana Silva');
+    A.igual(r.filas[0].idInterno, 'I003');
+  });
+
+  t('CONTROL v0.8.7.1: búsqueda por RUT ignora puntos y guión', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { termino: '123456789' });
+    A.igual(r.total, 1, 'RUT sin puntos');
+    A.igual(r.filas[0].idInterno, 'I002', 'Luis Soto');
+  });
+
+  t('CONTROL v0.8.7.1: búsqueda por ID interno (subcadena)', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { termino: 'I00' });
+    A.igual(r.total, 4, 'todos los IDs');
+    r = Control_consultarControles(PAC, FR, HOY, { termino: '003' });
+    A.igual(r.total, 1, 'I003');
+  });
+
+  t('CONTROL v0.8.7.1: búsqueda por nombre ignora tildes', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { termino: 'gonzalez' });
+    A.igual(r.total, 1, 'Pedro (se escribe "Gónzalez")');
+    A.igual(r.filas[0].idInterno, 'I004');
+  });
+
+  t('CONTROL v0.8.7.1: paginación pageSize=2 avanza y conserva total', function () {
+    var p1 = Control_consultarControles(PAC, FR, HOY, { limite: 2 });
+    A.igual(p1.total, 4, 'total');
+    A.igual(p1.filas.length, 2, 'página 1');
+    A.igual(p1.desde, 0, 'desde 0');
+    A.igual(p1.hasta, 2, 'hasta 2');
+    var p2 = Control_consultarControles(PAC, FR, HOY, { inicio: 2, limite: 2 });
+    A.igual(p2.filas.length, 2, 'página 2');
+    A.igual(p2.desde, 2, 'desde 2');
+    var ids = p1.filas.map(function (f) { return f.idInterno; }).concat(p2.filas.map(function (f) { return f.idInterno; }));
+    A.igual(ids.slice().sort().join(','), ['I001', 'I002', 'I003', 'I004'].join(','), 'sin solapes');
+  });
+
+  t('CONTROL v0.8.7.1: límite se capa a 100 y el desplazamiento no excede total', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { inicio: 999, limite: 999 });
+    A.igual(r.limite, 100, 'cap 100');
+    A.igual(r.desde, 4, 'desde clamp a total');
+    A.igual(r.filas.length, 0, 'sin filas tras el final');
+    r = Control_consultarControles(PAC, FR, HOY, { limite: 0 });
+    A.igual(r.limite, 25, 'limite 0 → default 25');
+  });
+
+  t('CONTROL v0.8.7.1: sin resultados (término inexistente)', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { termino: 'zznotthere' });
+    A.igual(r.total, 0, 'total 0');
+    A.igual(r.filas.length, 0, 'filas vacías');
+    A.igual(r.hasta, 0, 'hasta 0');
+  });
+
+  t('CONTROL v0.8.7.1: ficha usa contexto individual (no recorre la población)', function () {
+    var una = Control_consultarControles([PAC[0]], FR, HOY, { sector: 'AMARILLO' });
+    A.igual(una.total, 1, 'una sola persona consultada');
+    A.igual(una.filas[0].idInterno, 'I001');
+    var sg = Control_filasPanel([PAC[0]], FR, HOY).filas[0];
+    A.igual(sg.nombre, 'María Pérez', 'fila individual');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.7.1 — AUDITORÍA DE DIÁLOGOS: inventario único (UICFG_DIALOGOS)
+// ---------------------------------------------------------------------------
+function _pruebas_dialogos_v087(t, A) {
+  t('DIÁLOGOS v0.8.7.1: inventario bien formado y sin duplicados', function () {
+    A.cierto(Array.isArray(UICFG_DIALOGOS) && UICFG_DIALOGOS.length >= 14, 'inventario poblado');
+    var vistos = {};
+    UICFG_DIALOGOS.forEach(function (d) {
+      A.cierto(d && typeof d.opener === 'string' && d.opener.length > 2, 'opener ' + d.opener);
+      A.cierto(typeof d.plantilla === 'string' && d.plantilla.length > 1, 'plantilla ' + d.plantilla);
+      A.cierto(d.tipo === 'modal' || d.tipo === 'sidebar', 'tipo de ' + d.opener);
+      A.cierto(!vistos[d.opener], 'duplicado: ' + d.opener);
+      vistos[d.opener] = true;
+    });
+  });
+
+  t('DIÁLOGOS v0.8.7.1: todo modal con plantilla, todo opener único y consistente', function () {
+    var modales = UICFG_DIALOGOS.filter(function (d) { return d.tipo === 'modal'; });
+    var sidebars = UICFG_DIALOGOS.filter(function (d) { return d.tipo === 'sidebar'; });
+    A.cierto(modales.length >= 9, 'al menos 9 modales');
+    A.cierto(sidebars.length >= 3, 'al menos 3 sidebars');
+    var opens = UICFG_DIALOGOS.map(function (d) { return d.opener; });
+    A.igual(opens.length, opens.filter(function (x, i) { return opens.indexOf(x) === i; }).length, 'openers únicos');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Controles'; }), 'Controles en el inventario');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.opener === 'UI_abrirControles'; }), 'opener UI_abrirControles');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.opener === 'UI_abrirFicha'; }), 'opener UI_abrirFicha');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Configuracion' && d.opener === 'UI_configuracionEstratificacion'; }),
+      'Estratificación integrado a Configuración');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Configuracion' && d.opener === 'UI_configuracionResponsables'; }),
+      'Responsables integrado a Configuración');
+  });
+
+  t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
+    var v = ECICEP.VERSION;
+    A.igual(v, '0.8.7.1', 'versión esperada');
+    var part = v.split('.');
+    A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
 }

@@ -807,6 +807,65 @@ function Control_filasPanel(pacientes, freqConfig, hoyIso) {
   return { filas: filas, sectores: listaSectores };
 }
 
+/**
+ * PURA: consulta "Controles por persona" bajo demanda, filtrada y paginada.
+ * NUNCA recoje toda la población si no hay criterios: el llamador decide.
+ *  - sector: filtra por sector ('AMARILLO'|'NARANJO'|'VERDE'|'').
+ *  - termino: busca por ID interno, RUT o nombre (insensible a mayúsculas
+ *    y tildes; substring).
+ *  - inicio: desplazamiento (pag 1 = 0). limite: filas a devolver (máx 100,
+ *    default 25). Devuelve total real + desde/hasta. Orden sector→nombre
+ *    (mismo criterio que Control_filasPanel).
+ */
+function Control_consultarControles(pacientes, freqConfig, hoyIso, opts) {
+  var o = opts || {};
+  var sec = Utl_texto(o.sector).toUpperCase();
+  var term = Utl_texto(o.termino).trim();
+  function numPos(v, def) {
+    var n = Math.floor(Number(v));
+    return isFinite(n) && n >= 0 ? n : def;
+  }
+  var inicio = numPos(o.inicio, 0);
+  var limite = numPos(o.limite, 25);
+  if (!(limite > 0)) limite = 25;
+  if (limite > 100) limite = 100;
+
+  var lista = pacientes || [];
+  var filtrados;
+  if (sec && term) {
+    filtrados = lista.filter(function (p) {
+      return Utl_texto(p.SECTOR).toUpperCase() === sec && Control_coincideTermino(p, term);
+    });
+  } else if (sec) {
+    filtrados = lista.filter(function (p) {
+      return Utl_texto(p.SECTOR).toUpperCase() === sec;
+    });
+  } else if (term) {
+    filtrados = lista.filter(function (p) { return Control_coincideTermino(p, term); });
+  } else {
+    filtrados = lista;
+  }
+
+  var res = Control_filasPanel(filtrados, freqConfig, hoyIso);
+  var total = res.filas.length;
+  var desde = inicio < total ? inicio : total;
+  var pedazo = res.filas.slice(desde, inicio + limite);
+  var hasta = desde + pedazo.length;
+  return { filas: pedazo, total: total, desde: desde, hasta: hasta,
+           inicio: desde, limite: limite, sectores: res.sectores };
+}
+
+/** PURA: ¿el término coincide con ID interno, RUT o nombre? Clave normalizada
+ *  (sin tildes, sin puntos/guiones, sin mayúsculas) → el RUT '12.345.678-9'
+ *  se encuentra escribiendo '123456789' y el nombre 'Gónzalez' con 'gonzalez'. */
+function Control_coincideTermino(p, termino) {
+  var q = Utl_claveAlnum(termino);
+  if (q === '') return true;
+  var clave = Utl_claveAlnum(
+    Utl_texto(p.ID_INTERNO) + ' ' + Utl_texto(p.RUT) + ' ' + Utl_texto(p.NOMBRE));
+  return clave.indexOf(q) !== -1;
+}
+
 /** Escribe PRÓXIMO_CONTROL derivado (idempotente: solo si cambia y deja de
  *  quedar vacío). Recalculo por persona según su estratificación + CONFIG. */
 function Control_recalcularTodos() {

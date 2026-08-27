@@ -2,8 +2,10 @@
 <html>
 <head>
 <base target="_top">
-<? var MODO = (modo === 'pacientes' || modo === 'revision') ? modo : 'centro'; ?>
+<? var MODO = (modo === 'pacientes' || modo === 'revision' || modo === 'ficha') ? modo : 'centro'; ?>
 <script>var MODO = <?!= JSON.stringify(MODO) ?>; /* modo visible para el JS del cliente */</script>
+<? var ID_INICIAL = (typeof ID_INICIAL !== 'undefined') ? ID_INICIAL : ''; ?>
+<script>var ID_INICIAL = <?!= JSON.stringify(ID_INICIAL) ?>; /* ficha directa (modo 'ficha') */</script>
 <?!= include('00_Tokens') ?>
 <style>
 /* Vista sidebar angosto (~300px): base 14px definida en tokens */
@@ -52,9 +54,14 @@
 .ficha-head .nombre{font:700 17px 'Sora';line-height:1.25}
 .ficha-chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
 
-.tabs{display:flex;border-bottom:2px solid var(--border);position:relative;margin-top:var(--space-1)}
-.tab{flex:1;text-align:center;padding:10px 4px;font:600 12.5px 'Inter';color:var(--text-muted);
-  cursor:pointer;background:none;border:none;border-radius:0;min-height:40px;transition:color .15s var(--ease-in)}
+.tabs{display:flex;border-bottom:2px solid var(--border);position:relative;margin-top:var(--space-1);
+  overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;scrollbar-width:thin;
+  scrollbar-color:var(--border-strong) transparent;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{height:6px}
+.tabs::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:var(--radius-full)}
+.tab{flex:0 0 auto;text-align:center;padding:10px 14px;font:600 12.5px 'Inter';color:var(--text-muted);
+  cursor:pointer;background:none;border:none;border-radius:0;min-height:40px;position:relative;
+  white-space:nowrap;transition:color .15s var(--ease-in)}
 .tab:hover{color:var(--text-primary)}
 .tab.activa{color:var(--primary)}
 .tab::after{content:'';position:absolute;bottom:-2px;left:0;width:100%;height:2px;background:var(--primary);
@@ -62,6 +69,7 @@
 .tab.activa::after{transform:scaleX(1)}
 
 .pane{display:none;padding-top:var(--space-3)} .pane.activa{display:block;animation:tIn .22s var(--ease-in)}
+#vista{padding-bottom:var(--space-7)}
 
 .dato-grid{display:flex;flex-direction:column;gap:2px}
 .dato-fila{display:flex;justify-content:space-between;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border)}
@@ -188,16 +196,14 @@ textarea.inp{min-height:64px;resize:vertical}
   </div>
 
   <div class="card cc-card">
-    <div class="card-t">Controles por persona
-      <select id="ctrlSec" class="inp" style="margin-left:auto;width:auto;min-height:30px"
-        onchange="cargarControles()">
-        <option value="">Todos los sectores</option>
-        <option value="AMARILLO">AMARILLO</option>
-        <option value="NARANJO">NARANJO</option>
-        <option value="VERDE">VERDE</option>
-      </select>
+    <div class="card-t">Controles por persona</div>
+    <div class="vacio" style="padding:var(--space-3)">
+      <i data-lucide="stethoscope"></i>
+      Consulta bajo demanda: elige sector o busca a una persona.
     </div>
-    <div id="ctrlLista"><div class="skel" style="height:120px"></div></div>
+    <button class="btn btn-pri btn-block" style="margin-top:6px" onclick="abrirControles(this)">
+      <i data-lucide="stethoscope"></i> Abrir controles
+    </button>
   </div>
 
   <div class="card cc-card">
@@ -235,8 +241,8 @@ textarea.inp{min-height:64px;resize:vertical}
 <!-- ============ FICHA ============ -->
 <div id="vista" class="wrap" style="display:none">
   <div class="ficha-head">
-    <button class="btn btn-ghost" style="padding:4px 8px;min-height:30px;margin-left:-8px" onclick="volver()" title="Conserva tu búsqueda y resultados">
-      <i data-lucide="arrow-left"></i> Volver al buscador
+    <button class="btn btn-ghost" style="padding:4px 8px;min-height:30px;margin-left:-8px" onclick="volver()" title="<?= MODO==='ficha' ? 'Cierra esta ficha y conserva tu panel' : 'Conserva tu búsqueda y resultados' ?>">
+      <i data-lucide="arrow-left"></i> <?= MODO==='ficha' ? 'Cerrar' : 'Volver al buscador' ?>
     </button>
     <div class="nombre" id="fNombre">—</div>
     <div class="ficha-chips">
@@ -411,7 +417,10 @@ if(_elTermino){
 /* ================= ficha con tabs ================= */
 function activarTab(id){
   document.querySelectorAll('.tab').forEach(function(tb){
-    tb.classList.toggle('activa',tb.dataset.pane===id);});
+    var activa=tb.dataset.pane===id;
+    tb.classList.toggle('activa',activa);
+    if(activa&&tb.scrollIntoView)tb.scrollIntoView({block:'nearest',inline:'nearest'});
+  });
   document.querySelectorAll('.pane').forEach(function(pn){
     pn.classList.toggle('activa',pn.id===id);});
 }
@@ -734,6 +743,7 @@ function resolver(idx,dec,btn){
 }
 
 function volver(){
+  if(MODO==='ficha'){ google.script.host.close(); return; }
   if(MODO==='revision'){
     /* La cola es un módulo propio: volver = Panel de Control */
     google.script.run
@@ -839,24 +849,14 @@ function abrirGenerador(btn){
 }
 
 /* ================= Panel de Control: controles por persona ================= */
-var CTRL_ACTUAL = [];
-var CTRL_SEC = '';
-
-function cargarControles(btn){
-  var el=document.getElementById('ctrlLista');
-  var sec=document.getElementById('ctrlSec')?document.getElementById('ctrlSec').value:'';
-  CTRL_SEC=sec;
-  if(btn){btn.disabled=true;}
-  else if(el){el.innerHTML='<div class="skel" style="height:120px"></div>';}
-  google.script.run.withSuccessHandler(function(r){
-    if(btn){btn.disabled=false;}
-    if(!r||!r.ok){el.innerHTML='<div class="vacio">'+(r&&r.motivo||'Sin datos')+'</div>';_refrescarIconos();return;}
-    CTRL_ACTUAL=r.filas||[];
-    pintarControles();
-  }).withFailureHandler(function(e){
-    if(btn){btn.disabled=false;}
-    _errSilencioso('api_controlPanel')(e);
-  }).api_controlPanel(sec);
+/* La consulta vive en el modal Controles.html (bajo demanda, paginado). El
+   panel solo ofrece el acceso; NO carga la población al abrirse. */
+function abrirControles(btn){
+  var fin=btn?_btnPulso(btn,'Abriendo…'):null;
+  google.script.run
+    .withSuccessHandler(function(){if(fin)setLoading(btn,false);})
+    .withFailureHandler(function(e){if(fin)setLoading(btn,false);_errSilencioso('UI_abrirControles')(e);})
+    .UI_abrirControles();
 }
 
 function estadoChip(est){
@@ -865,56 +865,14 @@ function estadoChip(est){
   return '<span class="chip" style="color:'+color+';border:1px solid '+color+'">'+etq+'</span>';
 }
 
-function hitosCtrl(f){
-  var s='';
-  if(f.estrat)s+='<span class="chip rut">'+_esc(f.estrat)+'</span> ';
-  if(f.ultimoControl)s+='<span class="chip">Ctrl: '+_esc(f.ultimoControl.slice(0,10))+'</span> ';
-  if(f.ultimoSeguimiento)s+='<span class="chip">Seg: '+_esc(f.ultimoSeguimiento.slice(0,10))+'</span> ';
-  if(f.proximo)s+='<span class="chip" style="border-color:var(--primary)">Próx: '+_esc(f.proximo.slice(0,10))+'</span> ';
-  if(f.edad)s+='<span class="chip">'+_esc(f.edad)+' años</span>';
-  return s;
-}
-
-function pintarControles(){
-  var el=document.getElementById('ctrlLista');
-  var filas=CTRL_ACTUAL;
-  if(!filas.length){el.innerHTML='<div class="vacio"><i data-lucide="stethoscope"></i>No hay personas con controles aquí</div>';_refrescarIconos();return;}
-  el.innerHTML=filas.map(function(f){
-    var hoy=new Date().toISOString().slice(0,10);
-    return '<div class="act-item" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px">'+
-      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
-        '<b style="font-size:13px">'+_esc(f.nombre)+'</b>'+
-        '<span class="chip rut">'+_esc(f.sector)+'</span>'+estadoChip(f.estado)+
-      '</div>'+
-      '<div style="font-size:11px;color:var(--text-muted)">'+hitosCtrl(f)+'</div>'+
-      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-        '<button class="btn btn-sec" style="flex:1;min-height:30px;font-size:11px" '+
-          'onclick="actualizarUltimo(this,\''+_esc(f.idInterno)+'\',\'CONTROL\',\''+hoy+'\')">'+
-          '<i data-lucide="stethoscope" style="width:13px;height:13px"></i> Actualizar control</button>'+
-        '<button class="btn btn-ghost" style="flex:1;min-height:30px;font-size:11px" '+
-          'onclick="actualizarUltimo(this,\''+_esc(f.idInterno)+'\',\'SEGUIMIENTO\',\''+hoy+'\')">'+
-          '<i data-lucide="clipboard-check" style="width:13px;height:13px"></i> Seguimiento</button>'+
-      '</div></div>';
-  }).join('');
-  _refrescarIconos();
-}
-
-function actualizarUltimo(btn,idInterno,tipo,fecha){
-  var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
-    setLoading(btn,false);
-    if(r&&r.ok){toast('✓ '+tipo+' actualizado'+(r.proximo?' · próximo '+r.proximo:''),'ok');cargarControles();}
-    else toast(r.motivo||'No se pudo actualizar','err');
-  }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-  .api_controlActualizarUltimo(idInterno,tipo,fecha);
-}
-
 /* ================= init ================= */
 try{
 document.getElementById('evFecha').value=new Date().toISOString().slice(0,10);
 _refrescarIconos();
 if(MODO==='revision'){
   verRevision();
+}else if(MODO==='ficha'){
+  abrirFicha(ID_INICIAL);
 }else if(MODO==='centro'){
   var lanz=document.getElementById('lanzadorBusqueda');
   if(lanz){
@@ -922,8 +880,8 @@ if(MODO==='revision'){
     lanz.addEventListener('click',abrirPac);
     lanz.addEventListener('focus',abrirPac);
   }
-  cargarPanel(); /* centro: KPIs reales + accesos */
-  cargarControles(); /* controles por persona */
+  cargarPanel(); /* centro: KPIs reales + accesos. Los controles NO se cargan
+                    al abrir: se consultan bajo demanda en su propio modal. */
 }
 }catch(eInit){
   console.error('[ECICEP] init',eInit);

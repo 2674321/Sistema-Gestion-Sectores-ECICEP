@@ -19,8 +19,8 @@ function onOpen() {
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
 
-      .addItem('🎯 Estratificación', 'UI_configuracionEstratificacion')
-      .addItem('👨‍⚕️ Responsables y correos', 'UI_configuracionResponsables')
+      .addSubMenu(ui.createMenu('📅 Seguimiento y controles')
+        .addItem('🩺 Controles por persona', 'UI_abrirControles'))
 
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('📊 Estadísticas', 'UI_abrirDashboard')
@@ -29,6 +29,8 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('⚙️ Configuración')
         .addItem('⚙️ Configuración', 'UI_configuracion')
+        .addItem('🎯 Estratificación', 'UI_configuracionEstratificacion')
+        .addItem('👨‍⚕️ Responsables y correos', 'UI_configuracionResponsables')
         .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
 
@@ -112,7 +114,7 @@ function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
   t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
   SpreadsheetApp.getUi().showModalDialog(t.evaluate().setTitle('Registro del Sistema')
-    .setWidth(1180).setHeight(720));
+    .setWidth(1180).setHeight(720), 'Registro del Sistema');
 }
 
 /** Endpoint visor LOG: últimos registros + conteos por nivel. */
@@ -371,10 +373,12 @@ function _ui_dialogo(nombre, titulo) {
   SpreadsheetApp.getUi().showModalDialog(html, titulo);
 }
 
-/** Abre la sidebar en un modo concreto: 'centro' (panel) o 'pacientes' (buscador+ficha). */
-function _ui_sidebar(modo, titulo) {
+/** Abre la sidebar en un modo concreto: 'centro' (panel), 'pacientes' (buscador+ficha),
+ *  'revision' (cola) o 'ficha' (abre directamente la ficha de la persona). */
+function _ui_sidebar(modo, titulo, idInicial) {
   var t = HtmlService.createTemplateFromFile('Sidebar');
   t.modo = modo;
+  t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
   SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle(titulo));
 }
@@ -399,7 +403,7 @@ function _ui_configuracion(seccion) {
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
   SpreadsheetApp.getUi().showModalDialog(t.evaluate()
-    .setTitle('Configuración').setWidth(900).setHeight(680));
+    .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
 }
 
 function UI_configuracion() { _ui_configuracion('TODAS'); }
@@ -420,6 +424,24 @@ function UI_generarRem() { _ui_dialogo('RemGenerador', 'Generar REM'); }
 
 /** Acerca de: dialog con datos del sistema. */
 function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
+
+/** 🩺 Controles por persona: modal independiente de consulta BAJO DEMANDA.
+ *  No lista población al abrir: se consulta solo cuando el usuario elige
+ *  sector y/o escribe búsqueda. */
+function UI_abrirControles() {
+  var t = HtmlService.createTemplateFromFile('Controles');
+  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+  var html = t.evaluate().setTitle('Controles por persona')
+    .setWidth(840).setHeight(680);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Controles por persona');
+}
+
+/** 🔎 Abre la ficha de una persona directamente (sidebar modo 'ficha'). */
+function UI_abrirFicha(idInterno) {
+  if (!idInterno) return false;
+  _ui_sidebar('ficha', 'Pacientes ECICEP', String(idInterno));
+  return true;
+}
 
 /** Endpoint: datos para la vista "Acerca de". */
 function api_acercaDe() {
@@ -778,17 +800,30 @@ function _ui_isoFecha(v) {
 
 /* ---------------------- Panel de Control: controles por persona ---------------------- */
 
-/** Endpoint: lista personas con su estado de control (por sector opcional). */
-function api_controlPanel(sec) {
+/** Endpoint: consulta "Controles por persona" BAJO DEMANDA y paginada.
+ *  No lista población al inicializar: hace falta sector y/o término explícito.
+ *  Filtros sobre paciente (sector + término por ID/RUT/nombre) y luego límite.
+ *  @param {Object} [opts] — {sector, termino, inicio, limite}
+ *  @returns {{ok:boolean, filas:Array, total:number, desde:number, hasta:number,
+ *             limite:number, sectores:Array, fechaIso:string}} */
+function api_controlPanel(opts) {
   try {
+    var p = opts || {};
+    if (typeof p === 'string') p = { sector: p }; // compat con firma antigua
     var tz = Session.getScriptTimeZone();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
-    var filtrados = sec
-      ? pacientes.filter(function (p) { return Utl_texto(p.SECTOR).toUpperCase() === Utl_texto(sec).toUpperCase(); })
-      : pacientes;
-    var data = Control_filasPanel(filtrados, Control_leerFrecuencia(), hoyIso);
-    return { ok: true, filas: data.filas, sectores: data.sectores, fechaIso: hoyIso };
+    var res = Control_consultarControles(pacientes, Control_leerFrecuencia(), hoyIso, p);
+    return {
+      ok: true,
+      filas: res.filas,
+      total: res.total,
+      desde: res.desde,
+      hasta: res.hasta,
+      limite: res.limite,
+      sectores: res.sectores,
+      fechaIso: hoyIso
+    };
   } catch (e) {
     Log_error('PanelControl', 'listar', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1658,6 +1693,7 @@ var PRUEBAS_SISTEMA = [
   { id: 'config',       modulo: 'SISTEMA',    nombre: 'CONFIG sembrado',               fn: '_pruS_config' },
   { id: 'menu',         modulo: 'SISTEMA',    nombre: 'Funciones del menú globales',   fn: '_pruS_menu' },
   { id: 'plantillas',   modulo: 'INTERFAZ',   nombre: 'Sidebars y dialogs compilables',fn: '_pruS_plantillas' },
+  { id: 'ficha',        modulo: 'INTERFAZ',   nombre: 'Ficha: 5 pestañas y paneles',   fn: '_pruS_ficha' },
   { id: 'estadisticas', modulo: 'INTERFAZ',   nombre: 'Estadísticas operativa',        fn: '_pruS_estadisticas' },
   { id: 'validaciones', modulo: 'DATOS',      nombre: 'Validaciones en INGRESO',       fn: '_pruS_validaciones' },
   { id: 'catalogos',    modulo: 'DATOS',      nombre: 'Catálogo vigencias',            fn: '_pruS_catalogos' },
@@ -1743,27 +1779,47 @@ function _pruS_config() {
 }
 function _pruS_menu() {
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
-  var fns = ['UI_panelControl', 'UI_abrirBuscador', 'UI_abrirRevision', 'UI_abrirDashboard',
-             'UI_generarRem', 'UI_verRem', 'UI_configuracion', 'UI_instalarSistema',
-             'UI_centroPruebas'];
+  var fns = (UICFG_DIALOGOS || []).map(function (d) { return d.opener; });
   var faltan = fns.filter(function (n) { return typeof G[n] !== 'function'; });
   return faltan.length
     ? { estado: 'ERROR', detalle: 'Ausentes: ' + faltan.join(', ') }
     : { estado: 'OK', detalle: fns.length + ' funciones globales' };
 }
 function _pruS_plantillas() {
-  var errores = [];
-  ['Sidebar', 'Dashboard', 'RemVista', 'RemGenerador', 'CentroPruebas']
-    .forEach(function (n) {
-      try {
-        var t = HtmlService.createTemplateFromFile(n);
-        t.modo = 'centro'; t.BUILD = '';
-        t.evaluate().getContent();
-      } catch (e) { errores.push(n + ': ' + (e && e.message || e)); }
-    });
+  var errores = [], vistos = {};
+  (UICFG_DIALOGOS || []).forEach(function (d) {
+    if (vistos[d.plantilla]) return;
+    vistos[d.plantilla] = true;
+    try {
+      var t = HtmlService.createTemplateFromFile(d.plantilla);
+      t.modo = 'centro'; t.BUILD = ''; t.ID_INICIAL = '';
+      t.evaluate().getContent();
+    } catch (e) { errores.push(d.plantilla + ': ' + (e && e.message || e)); }
+  });
   return errores.length
     ? { estado: 'ERROR', detalle: errores.join(' · ') }
-    : { estado: 'OK', detalle: '5 plantillas compilan' };
+    : { estado: 'OK', detalle: Object.keys(vistos).length + ' plantillas compilan' };
+}
+function _pruS_ficha() {
+  try {
+    var t = HtmlService.createTemplateFromFile('Sidebar');
+    t.modo = 'pacientes'; t.BUILD = ''; t.ID_INICIAL = '';
+    var cont = t.evaluate().getContent();
+    var tabs = (cont.match(/class="tab/g) || []).length;
+    var panes = (cont.match(/class="pane/g) || []).length;
+    var refs = [], re = /data-pane="([^"]+)"/g, m;
+    while ((m = re.exec(cont))) refs.push(m[1]);
+    var faltan = refs.filter(function (r) {
+      return cont.indexOf('id="' + r + '"') === -1;
+    });
+    if (tabs === 5 && panes === 5 && refs.length === 5 && faltan.length === 0) {
+      return { estado: 'OK', detalle: '5 pestañas y 5 paneles coherentes (la 5ª es Dupla)' };
+    }
+    return { estado: 'ERROR', detalle: 'tabs=' + tabs + ' panes=' + panes +
+             ' refs=' + refs.length + ' sin-panel=' + faltan.join(',') };
+  } catch (e) {
+    return { estado: 'ERROR', detalle: (e && e.message || String(e)) };
+  }
 }
 function _pruS_estadisticas() {
   /* Verificación ligera (<1s): estructura legible, no el payload completo.

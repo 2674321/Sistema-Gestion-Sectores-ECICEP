@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<?!= include('00_Tokens') ?>
+<style>
+html,body{height:100%}
+body{padding:var(--space-4);display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}
+header{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3);flex-shrink:0}
+header h1{font:700 17px 'Sora';margin:0;color:var(--text-primary)}
+header .sub{font-size:12px;color:var(--text-muted)}
+.acciones{margin-left:auto;display:flex;gap:var(--space-2)}
+
+.filtros{display:grid;grid-template-columns:230px 1fr auto;gap:var(--space-2);
+  align-items:end;margin-bottom:var(--space-3);flex-shrink:0}
+
+.estado{padding:var(--space-5) var(--space-4);text-align:center;color:var(--text-secondary);
+  font-size:13px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);
+  background:var(--surface-alt);flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;min-height:0}
+.estado .lucide{opacity:.55}
+.estado .atajos{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.estado .atajos .btn{min-height:34px}
+
+.contenido{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);
+  background:var(--surface);min-height:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface-alt);font:600 10.5px 'Inter';letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-muted);text-align:left;padding:9px 10px;
+  border-bottom:1px solid var(--border);z-index:1}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface-alt)}
+td.persona b{display:block;font-size:13px}
+td.persona small{color:var(--text-muted);font-variant-numeric:tabular-nums}
+td.acc{white-space:nowrap;display:table-cell}
+.r-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);font:500 11px 'Inter';
+  color:var(--text-primary);cursor:pointer;min-height:28px;transition:all .15s var(--ease-in);margin-right:4px}
+.r-btn:hover{border-color:var(--primary)}
+.r-btn.ctr{border-color:var(--primary);color:var(--primary)}
+.r-btn[disabled]{opacity:.55;cursor:default}
+.num{font-variant-numeric:tabular-nums}
+
+.pie{display:flex;align-items:center;gap:var(--space-3);padding-top:var(--space-3);flex-shrink:0}
+.pie .cont{font-size:12px;color:var(--text-muted)}
+.skel-row{height:44px;background:linear-gradient(90deg,var(--surface-alt) 25%,var(--border) 50%,var(--surface-alt) 75%);
+  background-size:200% 100%;animation:skel 1.2s infinite;border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div id="toastZone"></div>
+
+<header>
+  <h1>🩺 Controles por persona</h1>
+  <span class="sub">Consulta bajo demanda · sector y/o búsqueda</span>
+  <div class="acciones">
+    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+  </div>
+</header>
+
+<div class="filtros">
+  <div>
+    <label class="etq" for="fSec">Sector</label>
+    <select id="fSec" class="inp" style="min-height:40px">
+      <option value="">Todos los sectores</option>
+      <option value="AMARILLO">AMARILLO</option>
+      <option value="NARANJO">NARANJO</option>
+      <option value="VERDE">VERDE</option>
+    </select>
+  </div>
+  <div>
+    <label class="etq" for="fTermino">Buscar por ID, RUT o nombre</label>
+    <input id="fTermino" class="inp" placeholder="Ej: 8031158-3, Silvia…" autocomplete="off" style="min-height:40px">
+  </div>
+  <div>
+    <label class="etq">&nbsp;</label>
+    <button id="btnConsultar" class="btn btn-pri" style="min-height:40px" onclick="consultar(true,this)">
+      <i data-lucide="search"></i> Consultar</button>
+  </div>
+</div>
+
+<div id="estadoInicial" class="estado">
+  <i data-lucide="stethoscope" style="width:34px;height:34px"></i>
+  <div>Selecciona un sector o escribe una búsqueda para consultar controles.</div>
+  <div class="atajos">
+    <button class="btn btn-sec" onclick="consultarSector('')"><i data-lucide="layout-grid"></i> Ver todos</button>
+    <button class="btn btn-sec" onclick="consultarSector('AMARILLO')">AMARILLO</button>
+    <button class="btn btn-sec" onclick="consultarSector('NARANJO')">NARANJO</button>
+    <button class="btn btn-sec" onclick="consultarSector('VERDE')">VERDE</button>
+  </div>
+</div>
+
+<div id="contenido" class="contenido" style="display:none"></div>
+
+<div id="pie" class="pie" style="display:none">
+  <span id="resumen" class="cont">—</span>
+  <span style="flex:1"></span>
+  <button id="btnMas" class="btn btn-sec" style="display:none" onclick="cargarMas(this)">
+    <i data-lucide="chevrons-down"></i> Cargar más</button>
+</div>
+
+<script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<script>
+/* ================= estado de la consulta ================= */
+var CTRL={sector:'',termino:'',inicio:0,limite:25,total:0,filas:[]};
+var _cargando=false;
+
+function _estadoChip(est){
+  var color={VENCIDO:'var(--danger)',POR_VENCER:'var(--warning)',VIGENTE:'var(--success)',SIN_FECHA:'var(--text-muted)'}[est]||'var(--text-muted)';
+  var etq={VENCIDO:'Vencido',POR_VENCER:'Próximo',VIGENTE:'Vigente',SIN_FECHA:'Sin control'}[est]||est;
+  return '<span class="chip" style="color:'+color+';border:1px solid '+color+'">'+etq+'</span>';
+}
+
+function consultarSector(sec){
+  document.getElementById('fSec').value=sec;
+  consultar(true);
+}
+
+/* Solo se consulta cuando el usuario lo dispara: nunca al abrir el modal. */
+function consultar(reset,btn){
+  if(_cargando)return;
+  var fin=btn?_btnCargando(btn,'Consultando…'):null;
+  _cargando=true;
+  if(btn)btn.disabled=true;
+  if(reset){CTRL.inicio=0;}
+  else{showMas(false);}
+  var sec=document.getElementById('fSec').value||'';
+  var ter=document.getElementById('fTermino').value.trim();
+  CTRL.sector=sec;CTRL.termino=ter;
+  if(reset)mostrarSkeleton();
+  google.script.run
+    .withSuccessHandler(function(r){
+      _cargando=false;
+      if(fin){setLoading(btn,false);btn.disabled=false;}
+      if(!r||!r.ok){
+        ocultar(true);
+        estadoMsg((r&&r.motivo)||'No se pudo consultar');
+        toast('Error al consultar: '+((r&&r.motivo)||'respuesta vacía'),'err');
+        return;
+      }
+      CTRL.filas = reset ? (r.filas||[]) : CTRL.filas.concat(r.filas||[]);
+      CTRL.total = r.total||0;
+      CTRL.inicio = reset ? (r.filas||[]).length : CTRL.inicio + (r.filas||[]).length;
+      pintar(reset);
+    })
+    .withFailureHandler(function(e){
+      _cargando=false;
+      if(fin){setLoading(btn,false);btn.disabled=false;}
+      ocultar(true);
+      estadoMsg('Error: '+((e&&e.message)||e));
+      toast('Error consultando controles','err');
+    })
+    .api_controlPanel({sector:sec,termino:ter,inicio:reset?0:CTRL.inicio,limite:CTRL.limite});
+}
+
+function mostrarSkeleton(){
+  var cont=document.getElementById('contenido');
+  cont.style.display='block';
+  var filas='';
+  for(var i=0;i<6;i++)filas+='<div class="skel-row"></div>';
+  cont.innerHTML='<table><tbody>'+filas+'</tbody></table>';
+}
+
+function ocultar(bool){
+  document.getElementById('estadoInicial').style.display=bool?'none':'';
+  document.getElementById('contenido').style.display=bool?'none':'';
+  document.getElementById('pie').style.display=bool?'none':'';
+}
+function mostrarEstado(){
+  document.getElementById('estadoInicial').style.display='flex';
+  document.getElementById('contenido').style.display='none';
+  document.getElementById('pie').style.display='none';
+}
+function estadoMsg(html){
+  document.getElementById('estadoInicial').innerHTML=
+    '<i data-lucide="search-x" style="width:30px;height:30px"></i><div>'+html+'</div>'+
+    '<div class="atajos"><button class="btn btn-sec" onclick="volverInicio()"><i data-lucide="refresh-cw"></i> Nueva consulta</button></div>';
+  _refrescarIconos();
+}
+function volverInicio(){
+  document.getElementById('estadoInicial').innerHTML=''+
+    '<i data-lucide="stethoscope" style="width:34px;height:34px"></i>'+
+    '<div>Selecciona un sector o escribe una búsqueda para consultar controles.</div>'+
+    '<div class="atajos">'+
+      '<button class="btn btn-sec" onclick="consultarSector(\'\')"><i data-lucide="layout-grid"></i> Ver todos</button>'+
+      '<button class="btn btn-sec" onclick="consultarSector(\'AMARILLO\')">AMARILLO</button>'+
+      '<button class="btn btn-sec" onclick="consultarSector(\'NARANJO\')">NARANJO</button>'+
+      '<button class="btn btn-sec" onclick="consultarSector(\'VERDE\')">VERDE</button>'+
+    '</div>';
+  _refrescarIconos();
+  document.getElementById('estadoInicial').style.display='flex';
+  document.getElementById('contenido').style.display='none';
+  document.getElementById('pie').style.display='none';
+}
+
+function pintar(reset){
+  var filas=CTRL.filas;
+  var cont=document.getElementById('contenido');
+  cont.style.display='block';
+  if(!filas.length){
+    mostrarEstado();
+    estadoMsg('Sin resultados para la consulta actual.');
+    return;
+  }
+  var rows=filas.map(function(f){
+    return '<tr>'+
+      '<td class="persona"><b>'+_esc(f.nombre)+'</b><small>'+_esc(f.rut||'sin RUT')+'</small></td>'+
+      '<td>'+_chipSector(f.sector)+'</td>'+
+      '<td><span class="chip rut">'+_esc(f.estrat||'—')+'</span></td>'+
+      '<td class="num">'+(_fmtFecha(f.ultimoControl)||'—')+'</td>'+
+      '<td class="num">'+(_fmtFecha(f.proximo)||'—')+'</td>'+
+      '<td>'+_estadoChip(f.estado)+'</td>'+
+      '<td class="acc">'+
+        '<button class="r-btn ctr" data-acc="CONTROL" data-id="'+_esc(f.idInterno)+'"><i data-lucide="stethoscope" style="width:13px;height:13px"></i> Control</button>'+
+        '<button class="r-btn" data-acc="SEGUIMIENTO" data-id="'+_esc(f.idInterno)+'"><i data-lucide="clipboard-check" style="width:13px;height:13px"></i> Seguimiento</button>'+
+        '<button class="r-btn" data-acc="FICHA" data-id="'+_esc(f.idInterno)+'"><i data-lucide="external-link" style="width:13px;height:13px"></i> Ver ficha</button>'+
+      '</td></tr>';
+  }).join('');
+  cont.innerHTML='<table><thead><tr><th>Persona</th><th>Sector</th><th>Estrat.</th>'+
+    '<th>Últ. control</th><th>Próx. control</th><th>Estado</th><th>Acciones</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table>';
+  _refrescarIconos();
+  var resumen=document.getElementById('resumen');
+  if(CTRL.total>filas.length){ /* página intermedia/última: no sabemos el desplazamiento global truncado */
+    resumen.textContent='Mostrando '+CTRL.filas.length+' de '+CTRL.total+' personas';
+  }else if(CTRL.filas.length===CTRL.total){
+    resumen.textContent='Mostrando '+CTRL.total+' '+(CTRL.total===1?'persona':'personas');
+  }else{
+    resumen.textContent='Mostrando '+CTRL.filas.length+' de '+CTRL.total+' personas';
+  }
+  showMas(filas.length<CTRL.total);
+  document.getElementById('pie').style.display='flex';
+}
+
+function showMas(visible){
+  document.getElementById('btnMas').style.display=visible?'inline-flex':'none';
+  document.getElementById('btnMas').disabled=false;
+}
+function cargarMas(btn){
+  if(btn)btn.disabled=true;
+  consultar(false);
+}
+
+/* Delegación de acciones por fila */
+document.getElementById('contenido').addEventListener('click',function(e){
+  var btn=e.target.closest('.r-btn');
+  if(!btn||btn.disabled)return;
+  var id=btn.getAttribute('data-id');
+  var acc=btn.getAttribute('data-acc');
+  if(acc==='FICHA'){ verFicha(id); return; }
+  actualizarUltimo(btn,id,acc);
+});
+
+function verFicha(id){
+  google.script.run
+    .withSuccessHandler(function(){ google.script.host.close(); })
+    .withFailureHandler(function(){ google.script.host.close(); })
+    .UI_abrirFicha(id);
+}
+
+function actualizarUltimo(btn,idInterno,tipo){
+  var fin=_btnCargando(btn,'Guardando…');btn.disabled=true;
+  var hoy=new Date().toISOString().slice(0,10);
+  google.script.run
+    .withSuccessHandler(function(r){
+      btn.disabled=false;setLoading(btn,false);
+      if(r&&r.ok){
+        toast('✓ '+tipo+' de hoy registrado'+(r.proximo?' · próximo '+r.proximo:''),'ok');
+        consultar(true);
+      }else toast(r.motivo||'No se pudo actualizar','err');
+    })
+    .withFailureHandler(function(e){
+      btn.disabled=false;setLoading(btn,false);
+      toast('Error: '+((e&&e.message)||e),'err');
+    })
+    .api_controlActualizarUltimo(idInterno,tipo,hoy);
+}
+
+/* Filtros: escritura (mín 2 caracteres) y cambio de sector disparan consulta */
+document.getElementById('fTermino').addEventListener('input',(function(){
+  var timer=null;
+  return function(){
+    clearTimeout(timer);
+    timer=setTimeout(function(){
+      var v=document.getElementById('fTermino').value.trim();
+      if(v.length>=2||v.length===0)consultar(true);
+    },350);
+  };
+})());
+document.getElementById('fSec').addEventListener('change',function(){ consultar(true); });
+</script>
+</body>
+</html>

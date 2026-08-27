@@ -451,3 +451,43 @@ escrituras.
 (regla vigente intacta), dedup idempotente intacto. 337 pruebas locales verdes
 (335 previas + 2 nuevas de núcleo/escala Amarillo).
 **Fecha:** 2026-08-27
+
+## DEC-038
+**Título:** v0.8.7.1 — Controles bajo demanda, ficha completa y diálogos de configuración
+**Estado:** Aprobada (v0.8.7.1)
+**Motivo:** Corrección de UX/rendimiento (OPEN CODE). Tres problemas + auditoría:
+(1) «Controles por persona» **cargaba ~300 pacientes al abrir el Panel** (modelo
+anti-patrón «abrir interfaz → cargar todo → filtrar en cliente»); (2) la **5ª
+pestaña (Dupla) de la ficha quedaba cortada**; (3) «Estratificación» y
+«Responsables y correos» fallaban con «Los parámetros (HtmlService.HtmlOutput)
+no coinciden con la firma de método Ui.showModalDialog» por llamar
+`showModalDialog(output)` con **un solo argumento**. Se decide:
+(a) **Patrón vigente desde ahora**: «abrir interfaz → estado vacío → usuario
+elige → consultar solo lo necesario» y «una interfaz agrupa varias acciones
+relacionadas». Controles por persona pasa a **modal bajo demanda**
+(`Controles.html` vía `UI_abrirControles`, `showModalDialog(html, 'Controles por
+persona')`): el Panel abre con estado vacío sin consultar; «Todos los sectores»
+solo consulta al seleccionarlo; búsqueda por ID/RUT/nombre (mín 2 caracteres,
+RUT normalizado sin puntos/guiones, sin tildes). Backend puro y testeable
+`Control_consultarControles(pacientes, freqConfig, hoyIso, opts)` → filtrado →
+`Control_filasPanel` → **paginación** (`inicio`, límite default 25 / máx 100,
+devuelve `total/desde/hasta`); `api_controlPanel(opts)` **retrocompatible**
+(acepta `sector` como string). El Panel ya no ejecuta consulta al inicializar.
+(b) **Ficha**: barra de pestañas desplazable (`overflow-x:auto`,
+`flex-wrap:nowrap`, cada tab `flex:0 0 auto` + `white-space:nowrap`), la pestaña
+activa se trae al viewport y `#vista` gana scroll/padding inferior — las 5
+pestañas (incluida Dupla) quedan siempre accesibles. Nuevo `UI_abrirFicha(id)`
+(sidebar modo `ficha` con `ID_INICIAL`) accesible desde «Ver ficha» del modal.
+(c) **showModalDialog corregido a 2 argumentos** en `_ui_configuracion` y
+`UI_abrirLog`; auditoría del resto: `_ui_dialogo` (Dashboard/REM/CentroPruebas/
+AcercaDe/Backup/Log) y `UI_instalarSistema` ya usaban 2 argumentos; sidebars
+usan `showSidebar(output.setTitle(...))` (1 argumento, correcto).
+(d) **Menú consolidado**: Estratificación y Responsables dejan de ser entradas
+independientes y viven dentro del submenú `⚙️ Configuración` (pre-filtrado a su
+sección); nuevo submenú `📅 Seguimiento y controles` → `Controles por persona`.
+Sin entradas duplicadas; ningún endpoint/interfaz funcional se eliminó.
+(e) **Inventario único de diálogos** `UICFG_DIALOGOS` (00_Config) fuente de
+verdad para `_pruS_menu`, `_pruS_plantillas`, `_pruS_ficha` (5 pestañas↔5
+paneles) y `_pruebas_dialogos_v087` (node). 350 pruebas locales verdes
+(337 previas + 13 nuevas de consultas/paginación/inventario). `node --check`
+limpio. **Fecha:** 2026-08-27

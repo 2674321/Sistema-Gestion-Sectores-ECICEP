@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.7 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **337 pruebas locales verdes** ·
+**v0.8.7.1 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **350 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -137,6 +137,37 @@ Sistema-Gestion-Sectores-ECICEP/
   inline**. + `Modelo_invalidarLecturas()` en todas las escrituras de CONFIG y validación cliente/servidor.
 - **Edad automática** desde `FECHA_NACIMIENTO` (`Utl_edadDesde`, consciente del cumpleaños) usada por
   panel y diagnóstico. **335 pruebas locales verdes**.
+
+## v0.8.7.1 — UX de rendimiento: Controles bajo demanda, ficha completa y diálogos de configuración
+
+- **Controles por persona pasa a consulta BAJO DEMANDA**: el Panel ya **no lista ~300 pacientes al
+  abrirse**. La card muestra un estado vacío con acceso a un **modal independiente** (`Controles.html` →
+  `UI_abrirControles`, `showModalDialog(html, 'Controles por persona')`) donde el usuario elige sector
+  (el «Todos los sectores» **solo consulta cuando se selecciona**) y/o escribe una búsqueda (ID, RUT con
+  puntos/guiones ignorados, nombre sin tildes; mínimo 2 caracteres). Consulta **paginada** (`api_controlPanel(opts)`
+  → `Control_consultarControles`, puro y testeable: sector → término → `Control_filasPanel` → slice;
+  límite default 25, máximo 100, devuelve total/desde/hasta + «Cargar más»). El Panel ya no ejecuta
+  `cargarControles()` al inicializar.
+- **Ficha persona completa**: la 5ª pestaña **Dupla** ya no queda cortada. La barra de pestañas es
+  **desplazable** (`overflow-x:auto` + `flex-wrap:nowrap`; cada tab `flex:0 0 auto` + `white-space:nowrap`,
+  nunca se oculta ninguna) y la activa se trae al viewport (`scrollIntoView`). Contenido con scroll propio
+  (`#vista` con `padding-bottom`). Nueva apertura directa `UI_abrirFicha(idInterno)` (sidebar modo `ficha`
+  con `ID_INICIAL`) usada desde «Ver ficha» del modal de controles.
+- **🐛 showModalDialog corregido**: «Responsables y correos» y «Estratificación» fallaban con
+  «Los parámetros (HtmlService.HtmlOutput) no coinciden con la firma de método Ui.showModalDialog».
+  La firma real exige **2 argumentos** `showModalDialog(output, título)`; `_ui_configuracion` y
+  `UI_abrirLog` llamaban con **1 solo argumento**. Corregidas **ambas** + auditoría: `UI_instalarSistema`,
+  `_ui_dialogo` (todas las vistas anchas: Dashboard/REM/CentroPruebas/AcercaDe/Backup/Log) ya usaban 2;
+  sidebars usan `showSidebar(output.setTitle(...))` (1 argumento, correcto).
+- **Menú consolidado**: `🎯 Estratificación` y `👨‍⚕️ Responsables y correos` dejan de ser entradas
+  independientes y pasan **dentro del submenú `⚙️ Configuración`** (abriendo CONFIG pre-filtrado a su
+  sección). Se añade el submenú `📅 Seguimiento y controles` → `🩺 Controles por persona`. **Sin
+  entradas duplicadas** y todos los endpoints/interfaces funcionales permanecen.
+- **Inventario único de diálogos** (`UICFG_DIALOGOS`) y verificaciones: plantilla compila + opener
+  global (live `_pruS_menu`/`_pruS_plantillas`), coherencia 5 pestañas↔5 paneles (live `_pruS_ficha`),
+  y estructura del inventario (node).
+- **Regresión confirmada**: **350 pruebas locales verdes** (337 previas + 13 nuevas: `_pruebas_controles_v087`
+  sector/término RUT-tildes/ID, paginación, cap 100, contexto individual + `_pruebas_dialogos_v087`).
 
 ## v0.8.7 — Diagnóstico y optimización de rendimiento del Sector Amarillo
 

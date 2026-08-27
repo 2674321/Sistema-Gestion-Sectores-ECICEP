@@ -16,11 +16,36 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.7',
+  VERSION: '0.8.7.1',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
 };
+
+// Son los diálogos/public-dialog y sidebars públicos. Fuente única usada por
+// _pruS_menu/_pruS_plantillas (GAS) y _pruebas_dialogos_v087 (node).
+// Todo `showModalDialog(output, TITULO)` DEBE llevar 2 argumentos; las
+// sidebars usan showSidebar(output.setTitle(...)) (1 argumento, correcto).
+//   tipo: 'modal' → Ui.showModalDialog(htmlEval, titulo)
+//         'sidebar' → Ui.showSidebar(htmlEval.setTitle(titulo))
+const UICFG_DIALOGOS = [
+  { opener: 'UI_instalarSistema', plantilla: 'Instalador', tipo: 'modal' },
+  { opener: 'UI_abrirLog', plantilla: 'LogVisor', tipo: 'modal' },
+  { opener: 'UI_centroPruebas', plantilla: 'CentroPruebas', tipo: 'modal' },
+  { opener: 'UI_abrirDashboard', plantilla: 'Dashboard', tipo: 'modal' },
+  { opener: 'UI_configuracion', plantilla: 'Configuracion', tipo: 'modal' },
+  { opener: 'UI_configuracionEstratificacion', plantilla: 'Configuracion', tipo: 'modal' },
+  { opener: 'UI_configuracionResponsables', plantilla: 'Configuracion', tipo: 'modal' },
+  { opener: 'UI_abrirControles', plantilla: 'Controles', tipo: 'modal' },
+  { opener: 'UI_generarRem', plantilla: 'RemGenerador', tipo: 'modal' },
+  { opener: 'UI_verRem', plantilla: 'RemVista', tipo: 'modal' },
+  { opener: 'UI_backup', plantilla: 'Backup', tipo: 'modal' },
+  { opener: 'UI_abrirAcercaDe', plantilla: 'AcercaDe', tipo: 'modal' },
+  { opener: 'UI_panelControl', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_abrirBuscador', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_abrirRevision', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' }
+];
 
 // ---------------------------------------------------------------------------
 // Hojas del sistema (DEC-013; inventario completo en MODELO-EVENTOS.md §7)
