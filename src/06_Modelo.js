@@ -302,7 +302,7 @@ var MODELO_DISENO = [
   { nombre: 'PROFESIONALES', color: '#8A93A3', oculta: true, banda: true },
   // Sistema (técnicas ocultas)
   { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
-  { nombre: 'FUENTES',          color: '#8A93A3', formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
+  { nombre: 'FUENTES',          color: '#8A93A3', oculta: true, formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
   { nombre: 'CONFIG',           color: '#8A93A3', oculta: true },
   { nombre: 'LOG',              color: '#8A93A3', oculta: true },
   { nombre: 'STAGING_IMPORT',   color: '#8A93A3', oculta: true }
@@ -494,6 +494,7 @@ function Modelo_crearEstructura() {
   _modelo_formatearPacientes(ss.getSheetByName(HOJAS.PACIENTES));
   _modelo_sembrarConfig(ss.getSheetByName(HOJAS.CONFIG), res);
   _modelo_sembrarProfesionales(ss.getSheetByName(HOJAS.PROFESIONALES), res);
+  _modelo_sembrarFuentes(ss.getSheetByName(HOJAS.FUENTES), res);
 
   // Hoja predeterminada: eliminar solo si vacía (regla de no destrucción)
   var hoja0 = ss.getSheetByName(HOJAS.HOJA_PREDETERMINADA);
@@ -606,6 +607,46 @@ function _modelo_sembrarProfesionales(hoja, res) {
   }
   if (res && agregadas && !res.profesionalesSembrados) res.profesionalesSembrados = agregadas;
   return agregadas;
+}
+
+/**
+ * PURA: arma las filas de referencia de la hoja FUENTES a partir de la
+ * configuración FUENTES_DRIVE (archivo · sector · hojas · notas de exclusión).
+ * No toca hojas — solo construye el arreglo de filas para la siembra.
+ * @returns {Array<Array>} filas (sin encabezado)
+ */
+function _modelo_fuentesFilas() {
+  var filas = [];
+  Object.keys(FUENTES_DRIVE || {}).forEach(function (nombre) {
+    var f = (FUENTES_DRIVE || {})[nombre];
+    if (!f) return;
+    filas.push([
+      nombre,
+      f.sector || '',
+      (f.hojas || []).join('; '),
+      '',
+      '',
+      (f.excluir && f.excluir.length) ? 'Excluye: ' + f.excluir.join('; ') : ''
+    ]);
+  });
+  return filas;
+}
+
+/**
+ * Siembra la hoja FUENTES como REFERENCIA VISUAL ESTÁTICA: lista los
+ * orígenes configurados en FUENTES_DRIVE (archivo, sector, hojas, notas) para
+ * tener el inventario de fuentes a la vista. No se rellena dinámicamente: solo
+ * se escribe si la hoja está vacía (idempotente). La hoja permanece OCULTA.
+ * @returns {number} filas escritas
+ */
+function _modelo_sembrarFuentes(hoja, res) {
+  if (!hoja) return 0;
+  if (hoja.getLastRow() >= 2) return 0; // ya escrita (referencia estática)
+  var filas = _modelo_fuentesFilas();
+  if (!filas.length) return 0;
+  Utl_escribirBloque(hoja, 2, 1, filas);
+  if (res && !res.fuentesSembradas) res.fuentesSembradas = filas.length;
+  return filas.length;
 }
 
 // ---------------------------------------------------------------------------

@@ -2045,6 +2045,16 @@ function _pruebas_hojas(t, A) {
   t('INICIO: protegida del limpiador incluso vacía', function () {
     A.cierto(!Modelo_esHojaResidual('INICIO', true), 'INICIO jamás residual');
   });
+
+  t('FUENTES: referencia estática = una fila por fuente configurada + hoja oculta', function () {
+    var filas = _modelo_fuentesFilas();
+    A.igual(filas.length, Object.keys(FUENTES_DRIVE).length, 'una fila por fuente de FUENTES_DRIVE');
+    A.igual(filas[0][0], Object.keys(FUENTES_DRIVE)[0], 'primera columna = archivo');
+    A.igual(filas[0][2], (FUENTES_DRIVE[Object.keys(FUENTES_DRIVE)[0]].hojas || []).join('; '), 'hojas unidas');
+    A.cierto(filas.every(function (f) { return f[1] !== ''; }), 'sector nunca vacío');
+    var diseno = MODELO_DISENO.filter(function (d) { return d.nombre === 'FUENTES'; })[0];
+    A.cierto(diseno && diseno.oculta === true, 'FUENTES marcada oculta en el diseño');
+  });
 }
 
 // ---------------------------------------------------------------------------

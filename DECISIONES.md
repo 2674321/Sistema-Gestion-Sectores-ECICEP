@@ -347,3 +347,18 @@ hardcodeada del cliente (una sola fuente de verdad). (c) **Dedupe Amarillo** con
 `Amarillo_analizarDuplicados` puro (clave ID+TIPO+FECHA+AMARILLO) expuesto en
 Centro de Pruebas como auditar (dry-run) y eliminar; idempotente y determinista.
 **Fecha:** 2026-08-27
+
+## DEC-034
+**Título:** FUENTES como referencia visual estática y oculta
+**Estado:** Aprobada (v0.8.4)
+**Motivo:** La hoja FUENTES estaba definida en el modelo pero **nunca se
+rellenaba** (código funcional no la escribe ni la lee), así que era ruido sin
+valor. Se decide: (a) sembrarla una sola vez al instalar con el inventario
+estático de `FUENTES_DRIVE` (archivo · sector · hojas · notas de exclusión) vía
+`_modelo_sembrarFuentes`/`_modelo_fuentesFilas` (pura y testeada) como REFERENCIA
+VISUAL únicamente — no se actualiza dinámicamente; (b) marcarla `oculta:true` en
+`MODELO_DISENO` para que `Modelo_aplicarDiseno`/`Modelo_inventarioCorregir` la
+mantengan fuera de la barra de pestañas (se sigue pudiendo abrir a demanda desde
+el módulo INICIO / `api_irA`, que muestra hojas ocultas consultadas). La fuente
+de verdad operativa sigue siendo `FUENTES_DRIVE` en código, no la hoja.
+**Fecha:** 2026-08-27
