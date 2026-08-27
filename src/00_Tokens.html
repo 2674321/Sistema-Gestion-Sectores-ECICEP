@@ -172,4 +172,42 @@ function _btnPulso(btn,texto,ms){
   setTimeout(function(){setLoading(btn,false);},ms||1600);
   return fin;
 }
+/* Anti doble-clic universal (DEC-VI): guarda global para que ningún botón
+   dispare dos RPCs concurrentes. Uso: onclick="return _guardarBot(this)"
+   o envuelve la función: onclick="return _guardarBot(this)&&miFn(this)".
+   Deshabilitado en cuanto el RPC regresa (success o failure). */
+function _guardarBot(btn,texto){
+  if(!btn||btn.disabled)return false;
+  btn.disabled=true;
+  btn._htmlPrev=btn.innerHTML;
+  btn.innerHTML='<span class="spin"></span> '+_esc(texto||'Procesando…');
+  return true;
+}
+/* Restaura un botón protegido con _guardarBot (llamar en success/failure). */
+function _restaurarBot(btn){
+  if(btn&&typeof btn._htmlPrev!=='undefined'){
+    btn.disabled=false;btn.innerHTML=btn._htmlPrev;
+    delete btn._htmlPrev;_refrescarIconos();
+  }
+}
+/* Guarda global anti doble-clic por delegación (DEC-VII): captura cualquier
+   click sobre un <button> y lo deshabilita al instante para evitar RPCs
+   concurrentes. Los manejadores que ya usan _btnCargando/setLoading gestionan
+   su propio spinner y restauración; aquí solo reforzamos la barrera inicial y
+   re-habilitamos de forma segura tras un lapso, sin pisar su HTML. */
+(function(){
+  document.addEventListener('click',function(ev){
+    var btn=ev.target&&ev.target.closest?ev.target.closest('button'):null;
+    if(!btn||btn.disabled)return;
+    /* No intervenir en toggles de pestañas/acordeones ni menús externos */
+    if(btn.classList.contains('mini-link')
+       ||btn.closest('.opciones-head,.collap-header,details,.tab'))return;
+    btn.disabled=true;              /* bloquea doble-clic inmediato */
+    setTimeout(function(){         /* re-habilita solo si NADIE gestiona el estado */
+      if(btn&&typeof btn._htmlPrev==='undefined'&&!btn.closest('.opciones-head,.collap-header,details,.tab')){
+        btn.disabled=false;
+      }
+    },900);
+  },true);
+})();
 </script>
