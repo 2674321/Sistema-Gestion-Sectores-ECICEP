@@ -1,7 +1,7 @@
 # Sistema ECICEP Unificado
 
 Sistema de gestión para centralizar la información de pacientes del programa **ECICEP**
-(Examen de Medicina Preventiva) proveniente de los tres sectores del CESFAM San Juan
+(Estrategia de Cuidado Integral Centrado en la Persona) proveniente de los tres sectores del CESFAM San Juan
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
