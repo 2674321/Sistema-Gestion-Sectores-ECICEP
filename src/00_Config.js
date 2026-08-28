@@ -62,6 +62,7 @@ var HOJAS = {
   FUENTES: 'FUENTES',
   PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
   RESPONSABLES: 'RESPONSABLES',   // responsables por sector (acumulables, hoja oculta)
+  REM_SALIDA: 'REM_SALIDA',       // reporte REM generado (interna; la construye 14_REM.js)
   HOJA_PREDETERMINADA: 'Hoja 1' // la elimina el instalador solo si está vacía
 };
 

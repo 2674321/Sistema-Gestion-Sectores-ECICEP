@@ -428,6 +428,7 @@ _MODELO_HOJAS_DEF[HOJAS.PROFESIONALES] = COLUMNAS_PROFESIONALES;
 // Responsables por sector (acumulables): SECTOR | CODIGO | NOMBRE | CORREO | ACTIVO.
 _MODELO_HOJAS_DEF[HOJAS.RESPONSABLES] = COLUMNAS_RESPONSABLES;
 _MODELO_HOJAS_DEF['INICIO'] = null; // navegación: la construye Hojas_crearInicio
+_MODELO_HOJAS_DEF[HOJAS.REM_SALIDA] = null; // reporte REM interno: lo construye 14_REM.js
 
 var _CONFIG_SEMILLA = [
   ['VERSION', ECICEP.VERSION, 'Versión del sistema instalada'],

@@ -302,8 +302,8 @@ function Rem_generar(anio, mes, sectorFiltro) {
      'el REM es SOLO LECTURA de EVENTOS/PACIENTES.'], 'nota');
 
   var ss = Modelo_ss();
-  var hoja = ss.getSheetByName('REM_SALIDA');
-  if (!hoja) hoja = ss.insertSheet('REM_SALIDA');
+  var hoja = ss.getSheetByName(HOJAS.REM_SALIDA);
+  if (!hoja) hoja = ss.insertSheet(HOJAS.REM_SALIDA);
   hoja.clear();
   var rectangulo = _rem_aplanarAncho(salida);
   Utl_escribirBloque(hoja, 1, 1, rectangulo);

@@ -149,11 +149,20 @@ function Hojas_crearInicio(ss) {
   principales.forEach(function (mod, ix) {
     var c0 = 4 + ix * 4;
     var rng = h.getRange(9, c0, 3, 4).merge();
-    rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(mod.hoja).getSheetId() +
-      '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-     .setFontWeight('bold').setFontSize(12).setFontColor('#FFFFFF')
-     .setBackground(PRIM).setHorizontalAlignment('center')
-     .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    var destino = ss.getSheetByName(mod.hoja);
+    if (!destino) {
+      // Defensa: hoja aún no creada en este contrato → botón informativo.
+      rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
+       .setFontWeight('bold').setFontSize(12).setFontColor(GRIS)
+       .setBackground(BLANCO).setHorizontalAlignment('center')
+       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    } else {
+      rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() +
+        '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
+       .setFontWeight('bold').setFontSize(12).setFontColor('#FFFFFF')
+       .setBackground(PRIM).setHorizontalAlignment('center')
+       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    }
     rng.setBorder(true, true, true, true, null, null, PRIM_BR,
       SpreadsheetApp.BorderStyle.SOLID);
     h.setRowHeights(9, 3, 22);
@@ -176,11 +185,20 @@ function Hojas_crearInicio(ss) {
        .setBackground(BLANCO).setHorizontalAlignment('center')
        .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
     } else {
-      rng.setFormula('=HYPERLINK("#gid=' + ss.getSheetByName(mod.hoja).getSheetId() +
-        '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-       .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
-       .setBackground(BLANCO).setHorizontalAlignment('center')
-       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+      var destino = ss.getSheetByName(mod.hoja);
+      if (!destino) {
+        // Defensa: hoja aún no creada en este contrato → bloque informativo.
+        rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
+         .setFontWeight('bold').setFontSize(11).setFontColor(GRIS)
+         .setBackground(BLANCO).setHorizontalAlignment('center')
+         .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+      } else {
+        rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() +
+          '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
+         .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
+         .setBackground(BLANCO).setHorizontalAlignment('center')
+         .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+      }
     }
     rng.setBorder(true, true, true, true, null, null, BORDE,
       SpreadsheetApp.BorderStyle.SOLID);
@@ -612,7 +630,7 @@ function Hojas_proteger(ss) {
   var ev = ss.getSheetByName(HOJAS.EVENTOS);
   if (ev) advertir(ev, 'A1:Z' + Math.max(ev.getMaxRows(), 1),
     '🔵 EVENTOS es append-only — el sistema agrega; evita editar/borrar filas');
-  var rem = ss.getSheetByName('REM_SALIDA');
+  var rem = ss.getSheetByName(HOJAS.REM_SALIDA);
   if (rem) advertir(rem, 'A1', '🔵 Hoja generada automáticamente — los cambios se sobrescriben al refrescar');
 
   /* Limpiar protecciones previas de SECTOR_* e INGRESO_* (ya no se protegen) */
