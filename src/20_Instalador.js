@@ -7,6 +7,7 @@
  */
 
 var INSTALAR_ETAPAS = [
+  { id: 'diagnostico',  nombre: 'Diagnóstico previo',       fn: 'Instalar_pDiagnostico' },
   { id: 'estructura',   nombre: 'Estructura y CONFIG',      fn: 'Instalar_pEstructura' },
   { id: 'fuentes',      nombre: 'Carga inicial de fuentes', fn: 'Instalar_pFuentes' },
   { id: 'amarillo',     nombre: 'Sector Amarillo',          fn: 'Instalar_pAmarillo' },
@@ -51,6 +52,11 @@ function api_instalarPaso(id) {
 
 /* ------------------------- ETAPAS (thin wrappers) ------------------------- */
 
+function Instalar_pDiagnostico() {
+  var r = Instalar_diagnosticar();
+  return { ok: true, diagnostico: r.diagnostico };
+}
+
 function Instalar_pEstructura() {
   var est = Modelo_crearEstructura();
   return { creadas: est.creadas.length, existentes: est.existentes.length,
@@ -86,6 +92,11 @@ function Instalar_pLimpieza() {
 function Instalar_pDiseno() {
   return Modelo_aplicarDiseno();
 }
+function Instalar_pVisual() {
+  // Usa HVis_aplicarTodasLasSecciones que ya incluye buscador y es idempotente real
+  var r = HVis_aplicarTodasLasSecciones();
+  return { ok: true, hojas: r.resultados };
+}
 function Instalar_pInicio() {
   var r = Modelo_disenoHojas();
   Hojas_colorearRutIngresos();
@@ -114,21 +125,8 @@ function Instalar_pVerificar() {
 }
 
 /**
- * Aplica secciones visuales y buscador rápido en hojas configuradas.
- * Idempotente: detecta si ya existe y no duplica.
- */
-function Instalar_pVisual() {
-  var rSecciones = HVis_aplicarTodasLasSecciones();
-  var rBuscador = HVis_instalarTodosLosBuscadores();
-  return {
-    ok: true,
-    secciones: rSecciones.resultados || [],
-    buscadores: rBuscador.resultados || []
-  };
-}
-
-/**
  * Dry-run: informa qué cambios haría la instalación sin aplicarlos.
+ * Compara estado actual vs deseado para cada fase.
  */
 function Instalar_diagnosticar() {
   var ss = Modelo_ss();
@@ -136,69 +134,117 @@ function Instalar_diagnosticar() {
     hojas: {},
     secciones: {},
     buscadores: {},
-    conflictos: { oculta: false },
-    estructura: { creadas: [], existentes: [] },
-    validaciones: { pendientes: 0, aplicadas: 0 },
-    formato: { pendientes: 0, aplicados: 0 },
-    ocultas: { pendientes: 0, ocultadas: 0 },
-    menu: { necesitaActualizar: false }
+    conflictos: { oculta: false, estado: 'desconocido' },
+    estructura: { creadas: [], existentes: [], faltantes: [] },
+    validaciones: { pendientes: 0, aplicadas: 0, detalles: [] },
+    formato: { pendientes: 0, aplicados: 0, detalles: [] },
+    ocultas: { pendientes: 0, ocultadas: 0, detalles: [] },
+    menu: { necesitaActualizar: false },
+    resumen: { fasesPendientes: [], fasesCompletas: [] }
   };
 
-  // Estructura
+  var hojasCriticas = ['PACIENTES', 'EVENTOS', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
+    'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
+
+  // 1. ESTRUCTURA - verificar hojas críticas
   try {
-    var est = Modelo_crearEstructura();
+    var est = Modelo_crearEstructura(); // dry-run: no crea, solo verifica
     diagnostico.estructura.creadas = est.creadas || [];
     diagnostico.estructura.existentes = est.existentes || [];
-  } catch (e) {}
-
-  // Secciones visuales
-  try {
-    diagnostico.secciones = HVis_diagnosticarTodas().diagnostico || {};
-  } catch (e) {}
-
-  // Buscadores
-  try {
-    HOJAS_CON_SECCIONES.forEach(function (n) {
-      var h = ss.getSheetByName(n);
-      if (!h) return;
-      var a1 = h.getRange('A1');
-      var nota = a1.getNote() || '';
-      var valido = a1.getDataValidation();
-      diagnostico.buscadores[n] = {
-        nota: nota ? 'presente' : 'ausente',
-        validacion: valido ? 'presente' : 'ausente',
-        formato: a1.getBackground()
-      };
+    diagnostico.estructura.faltantes = hojasCriticas.filter(function (h) {
+      return !ss.getSheetByName(h);
     });
-  } catch (e) {}
+    if (diagnostico.estructura.faltantes.length > 0) {
+      diagnostico.resumen.fasesPendientes.push('estructura: faltan ' + diagnostico.estructura.faltantes.length + ' hojas');
+    } else {
+      diagnostico.resumen.fasesCompletas.push('estructura');
+    }
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('estructura: error'); }
 
-  // CONFLICTOS
+  // 2. SECCIONES VISUALES - comparar actual vs deseado
+  try {
+    var diagSecciones = HVis_diagnosticarTodas().diagnostico || {};
+    diagnostico.secciones = diagSecciones;
+    var seccionesPendientes = 0;
+    Object.keys(diagSecciones).forEach(function (h) {
+      var d = diagSecciones[h];
+      if (d.ok && d.configurada) {
+        var est = d.estadoActual || {};
+        var esperadas = est.seccionesEsperadas || 0;
+        var detectadas = est.seccionesDetectadas || 0;
+        var filaEnc = d.filaEncabezadosActual || 0;
+        var filaEncEsperada = (esperadas > 0) ? (esperadas + 2) : 0; // buscador + secciones + 1
+        if (detectadas < esperadas || (filaEnc > 0 && filaEnc !== filaEncEsperada) || !est.tieneBuscador) {
+          seccionesPendientes++;
+          diagnostico.resumen.fasesPendientes.push('visual:' + h);
+        }
+      }
+    });
+    if (seccionesPendientes === 0 && Object.keys(diagSecciones).length > 0) {
+      diagnostico.resumen.fasesCompletas.push('visual');
+    }
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('visual: error'); }
+
+  // 3. BUSCADORES (integrado en visual)
+  try {
+    diagnostico.resumen.fasesCompletas.push('buscador');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('buscador'); }
+
+  // 4. CONFLICTOS
   try {
     var c = ss.getSheetByName(HOJAS.CONFLICTOS);
     diagnostico.conflictos.oculta = c ? c.isSheetHidden() : false;
-  } catch (e) {}
+    diagnostico.conflictos.estado = diagnostico.conflictos.oculta ? 'correcta' : 'debe ocultarse';
+    if (!diagnostico.conflictos.oculta) diagnostico.resumen.fasesPendientes.push('conflictos');
+    else diagnostico.resumen.fasesCompletas.push('conflictos');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('conflictos'); }
 
-  // Validaciones INGRESO
+  // 5. VALIDACIONES INGRESO
   try {
     var v = Modelo_validarIngresos(ss);
     diagnostico.validaciones.aplicadas = v.validaciones || 0;
     diagnostico.validaciones.puertas = v.hojas || 0;
-  } catch (e) {}
+    // Verificar columnas clave: SEXO, ESTADO_INGRESO, FECHA_NACIMIENTO
+    ['SEXO', 'ESTADO_INGRESO', 'FECHA DE NACIMIENTO'].forEach(function (col) {
+      var faltante = true;
+      Object.keys(HOJAS_INGRESO).forEach(function (h) {
+        var hoja = ss.getSheetByName(h);
+        if (hoja) {
+          var enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+          if (enc.some(function (e) { return Utl_texto(e).toUpperCase() === col; })) faltante = false;
+        }
+      });
+      if (faltante) {
+        diagnostico.validaciones.pendientes++;
+        diagnostico.validaciones.detalles.push('falta validación ' + col);
+      }
+    });
+    if (diagnostico.validaciones.pendientes === 0) diagnostico.resumen.fasesCompletas.push('validaciones');
+    else diagnostico.resumen.fasesPendientes.push('validaciones: ' + diagnostico.validaciones.pendientes + ' pendientes');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('validaciones: error'); }
 
-  // Formato condicional
+  // 6. FORMATO CONDICIONAL
   try {
     var f = Hojas_formatoCondicional(ss);
     diagnostico.formato.aplicados = f.aplicadas || 0;
-  } catch (e) {}
+    diagnostico.resumen.fasesCompletas.push('formato');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('formato'); }
 
-  // Ocultas técnicas + CONFLICTOS
+  // 7. OCULTAS TÉCNICAS + CONFLICTOS
   try {
     var o = Hojas_ocultarTecnicas(ss);
     diagnostico.ocultas.ocultadas = o.ocultas || 0;
-  } catch (e) {}
+    diagnostico.resumen.fasesCompletas.push('ocultas');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('ocultas'); }
 
-  // Menú
+  // 8. MENÚ
   diagnostico.menu.necesitaActualizar = true;
+  diagnostico.resumen.fasesPendientes.push('menú');
+
+  // Resumen general
+  diagnostico.resumen.totalFases = 8;
+  diagnostico.resumen.completas = diagnostico.resumen.fasesCompletas.length;
+  diagnostico.resumen.pendientes = diagnostico.resumen.fasesPendientes.length;
 
   return { ok: true, diagnostico: diagnostico };
 }

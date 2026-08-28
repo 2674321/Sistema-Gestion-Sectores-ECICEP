@@ -558,6 +558,19 @@ Tests: `_pruebas_hojasvisual_v0881` (10 tests). 393 → 403 tests. Versionado 0.
 
 ---
 
+## DEC-043
+**Título:** v0.8.8.3 — Rediseño visual real de hojas, buscador prominente, instalador reconciliador
+**Estado:** Aprobada
+**Motivo:** Corrección de problemas visuales reales detectados tras despliegue v0.8.8.2:
+1. **Secciones visuales reales**: `HVis_aplicarSecciones` reescrita → filas de sección con **merged cells** sobre columnas exactas, título visible centrado, colores semánticos, bordes separadores. Buscador prominente en **fila 1 merged** con etiqueta clara "🔎 Buscar persona (RUT / ID / Nombre)", nota, formato azul. Encabezados reales estilizados (gris, negrita, centrados, borde inferior) y congelados junto con buscador + secciones. Filtro nativo en encabezados reales.
+2. **Instalador reconciliador real**: nueva fase `diagnostico` (primera) ejecuta `Instalar_diagnosticar()` que compara estado actual vs deseado por fase y reporta diferencias. Cada fase verifica cambios pendientes antes de escribir (idempotencia real). Fase `visual` detecta estado actual vs plan y aplica solo diffs (no duplica, no destruye filtros).
+3. **CONFLICTOS oculta garantizada**: verificada en diagnóstico y aplicada en `Hojas_ocultarTecnicas`.
+4. **Validaciones centralizadas**: diagnóstico verifica SEXO, ESTADO_INGRESO, FECHA DE NACIMIENTO en todas las puertas INGRESO.
+5. **Tests**: `_pruebas_hojasvisual_v0883` (10 tests: mapa columnas, validación, plan cálculo, diagnóstico, idempotencia). **408/408 tests verdes**.
+6. **Versionado 0.8.8.3**. **Fecha:** 2026-08-27
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada

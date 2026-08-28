@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.8.2 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **403 pruebas locales verdes** ·
+**v0.8.8.3 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **408 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -276,4 +276,13 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Diagnóstico dry-run de instalación**: nueva función `Instalar_diagnosticar()` + menú `🔍 Diagnóstico instalación` en `🛠️ Herramientas`. Informa qué cambiaría la instalación sin aplicarlo (estructura, secciones, buscadores, CONFLICTOS, validaciones, formato, ocultas).
 - **Instalador más idempotente**: evita reaplicar formatos/validaciones innecesariamente; cada fase verifica estado antes de escribir.
 - **Tests**: 403/403 verdes. `node --check` limpio. Versionado **0.8.8.2**.
+
+## v0.8.8.3 — Rediseño visual real de hojas + buscador prominente + instalador reconciliador
+
+- **Secciones visuales reales**: `HVis_aplicarSecciones` reescrita para crear filas de sección con **merged cells** que abarcan exactamente las columnas de cada sección, título visible centrado, colores semánticos, bordes separadores. Buscador prominente en **fila 1 merged (A1:D1)** con etiqueta "🔎 Buscar persona (RUT / ID / Nombre)", nota explicativa, formato azul distintivo. Encabezados reales estilizados (gris, negrita, centrados, borde inferior grueso) y congelados junto con buscador + secciones. Filtro nativo activado en encabezados reales.
+- **Instalador como reconciliador real**: nueva fase `diagnostico` (primera) ejecuta `Instalar_diagnosticar()` que compara estado actual vs deseado por fase (estructura, visual, validaciones, formato, CONFLICTOS, ocultas, menú) y reporta qué cambiaría. Cada fase posterior verifica si hay cambios pendientes antes de escribir (idempotencia real). Fase `visual` usa `HVis_aplicarTodasLasSecciones` que detecta estado actual vs plan deseado y aplica solo diferencias (no duplica filas, no destruye filtros).
+- **CONFLICTOS oculta garantizada**: verificada en diagnóstico y aplicada en `Hojas_ocultarTecnicas`.
+- **Validaciones centralizadas**: diagnóstico verifica SEXO, ESTADO_INGRESO, FECHA DE NACIMIENTO en todas las puertas INGRESO antes de aplicar.
+- **Tests**: `_pruebas_hojasvisual_v0883` (10 tests: mapa columnas, validación, plan cálculo, diagnóstico, idempotencia). **408/408 tests verdes**.
+- **Versionado 0.8.8.3** + `README.md` + `DECISIONES.md` (DEC-043). `node --check` limpio.
 
