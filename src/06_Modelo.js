@@ -543,7 +543,7 @@ function Modelo_crearEstructura() {
       var encabezados = _MODELO_HOJAS_DEF[nombre];
       // PACIENTES usa MODELO_PACIENTE (def null) → extraer campos
       if (nombre === HOJAS.PACIENTES) {
-        encabezados = Modelo_PACIENTE.map(function (c) { return c.campo; });
+        encabezados = MODELO_PACIENTE.map(function (c) { return c.campo; });
       }
       if (encabezados) Utl_escribirBloque(hoja, 1, 1, [encabezados]);
       /* def null (DASHBOARD) → sin encabezados genéricos: los inicializa su módulo */
@@ -552,7 +552,7 @@ function Modelo_crearEstructura() {
       var esperados = _MODELO_HOJAS_DEF[nombre];
       // PACIENTES: headers esperados = MODELO_PACIENTE campos
       if (nombre === HOJAS.PACIENTES) {
-        esperados = Modelo_PACIENTE.map(function (c) { return c.campo; });
+        esperados = MODELO_PACIENTE.map(function (c) { return c.campo; });
       }
       if (esperados && esperados.length) {
         var actual = hoja.getRange(1, 1, 1, esperados.length).getValues()[0];
