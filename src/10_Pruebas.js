@@ -3068,9 +3068,11 @@ function _pruebas_hojasvisual_v0883(t, A) {
     var mapa = HVis_mapaColumnas(enc);
     var secciones = SECCIONES_HOJAS.PACIENTES;
     var plan = HVis_calcularPlan({ getName: function() { return 'PACIENTES'; } }, secciones, mapa);
-    A.igual(plan.filaBuscador, 1, 'buscador en fila 1');
+    A.igual(plan.filaSector, 1, 'fila sector = 1');
+    A.igual(plan.filaBuscador, 2, 'buscador en fila 2');
+    A.igual(plan.filaEncabezados, 3, 'encabezados en fila 3');
+    A.igual(plan.filasTotales, 3, 'total 3 filas fijas');
     A.igual(plan.secciones.length, 6, '6 secciones PACIENTES (todas tienen columnas en datos completos)');
-    A.igual(plan.filaEncabezadosReales, 8, 'encabezados en fila 8 (1 buscador + 6 secciones + 1)');
     // Verificar rangos de columnas (ajustados a la estructura real)
     var idSec = plan.secciones.find(function(s) { return s.id === 'identidad'; });
     A.igual(idSec.colInicio, 1);
@@ -3088,9 +3090,10 @@ function _pruebas_hojasvisual_v0883(t, A) {
     A.cierto(r.diagnostico.resumen.totalFases >= 8, 'al menos 8 fases');
   });
 
-  t('HOJAS VISUALES v0.8.8.3: HVis_detectarEstadoActual detecta estructura', function () {
-    // Test puro sin GAS - solo verifica que la función existe y tiene firma correcta
-    A.cierto(typeof HVis_detectarEstadoActual === 'function', 'función existe');
-    A.cierto(typeof HVis_calcularPlan === 'function', 'función existe');
+  t('HOJAS VISUALES v0.8.8.3: funciones puras existen', function () {
+    // Test puro sin GAS - solo verifica que las funciones existen
+    A.cierto(typeof HVis_calcularPlan === 'function', 'HVis_calcularPlan existe');
+    A.cierto(typeof HVis_validarSeccion === 'function', 'HVis_validarSeccion existe');
+    A.cierto(typeof HVis_mapaColumnas === 'function', 'HVis_mapaColumnas existe');
   });
 }
