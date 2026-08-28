@@ -545,6 +545,19 @@ Tests: `_pruebas_hojasvisual_v0881` (10 tests). 393 → 403 tests. Versionado 0.
 
 ---
 
+## DEC-042
+**Título:** v0.8.8.2 — Reparación instalación, eliminación "Ver sección", CONFLICTOS oculta, instalador idempotente
+**Estado:** Aprobada
+**Motivo:** Correcciones de problemas reales detectados en validación manual:
+1. **Eliminación completa "Ver sección"**: borrado `HVerSeccion.html`, funciones `HVis_abrirVerSeccion`, `HVis_obtenerDatosSeccion`, `HVis_abrirFichaDesdeHoja`, `HVis_menuVerSeccion`, entrada menú `👁 Ver sección`. Sin código muerto residual.
+2. **Secciones y buscador integrados en instalador**: nueva fase `visual` (`Instalar_pVisual`) ejecuta `HVis_aplicarTodasLasSecciones()` + `HVis_instalarTodosLosBuscadores()` → ahora se aplican realmente.
+3. **CONFLICTOS oculta**: añadida a `Hojas_ocultarTecnicas()`; no aparece en navegación, se accede vía Cola de revisión.
+4. **Diagnóstico dry-run**: `Instalar_diagnosticar()` + menú `🔍 Diagnóstico instalación` en `🛠️ Herramientas` informa qué cambiaría sin aplicarlo.
+5. **Instalador más idempotente**: cada fase verifica estado antes de escribir; evita reaplicar validaciones/formatos innecesarios.
+6. **Tests**: 403/403 verdes. Versionado 0.8.8.2. **Fecha:** 2026-08-27
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada

@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.8.1 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **403 pruebas locales verdes** ·
+**v0.8.8.2 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **403 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -267,4 +267,13 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Diagnóstico dry-run** (`HVis_diagnosticarTodas`): valida columnas existentes/faltantes por sección antes de aplicar.
 - **Tests**: `_pruebas_hojasvisual_v0881` (10 tests: config, normalización, mapa columnas, validación, claves búsqueda, colores). **403/403 tests verdes**.
 - **Versionado 0.8.8.1** + `README.md` + `DECISIONES.md` (DEC-041). `node --check` limpio.
+
+## v0.8.8.2 — Reparación de instalación + eliminación de "Ver sección" + CONFLICTOS oculta
+
+- **Eliminada funcionalidad "Ver sección"**: borrado `HVerSeccion.html`, funciones `HVis_abrirVerSeccion`, `HVis_obtenerDatosSeccion`, `HVis_abrirFichaDesdeHoja`, `HVis_menuVerSeccion`, entrada de menú `👁 Ver sección` y referencias residuales. Código limpio sin código muerto.
+- **Secciones visuales y buscador integrados en instalador**: nueva fase `visual` en `Instalar_pVisual` que ejecuta `HVis_aplicarTodasLasSecciones()` + `HVis_instalarTodosLosBuscadores()`. Ahora se aplican realmente al instalar/reparar.
+- **Hoja CONFLICTOS oculta**: añadida a `Hojas_ocultarTecnicas()` para que no aparezca en navegación normal (se accede vía Cola de revisión).
+- **Diagnóstico dry-run de instalación**: nueva función `Instalar_diagnosticar()` + menú `🔍 Diagnóstico instalación` en `🛠️ Herramientas`. Informa qué cambiaría la instalación sin aplicarlo (estructura, secciones, buscadores, CONFLICTOS, validaciones, formato, ocultas).
+- **Instalador más idempotente**: evita reaplicar formatos/validaciones innecesariamente; cada fase verifica estado antes de escribir.
+- **Tests**: 403/403 verdes. `node --check` limpio. Versionado **0.8.8.2**.
 

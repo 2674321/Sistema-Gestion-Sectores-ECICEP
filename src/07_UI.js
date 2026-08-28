@@ -16,7 +16,6 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('👥 Personas')
         .addItem('✏️ Buscar / Ficha de persona', 'UI_abrirBuscador')
-        .addItem('👁 Ver sección', 'HVis_menuVerSeccion')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
 
@@ -37,6 +36,7 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
         .addItem('⚙️ Instalar / reparar sistema', 'UI_instalarSistema')
+        .addItem('🔍 Diagnóstico instalación', 'UI_instalarDiagnosticar')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
         .addItem('💾 Backups', 'UI_backup')
         .addItem('📄 Registro del sistema', 'UI_abrirLog')
@@ -68,6 +68,39 @@ function UI_instalarSistema() {
   SpreadsheetApp.getUi().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
     'Instalaci\u00f3n del sistema');
+}
+
+/** 🔍 Diagnóstico de instalación (dry-run): informa qué cambiaría sin aplicarlo. */
+function UI_instalarDiagnosticar() {
+  var r = Instalar_diagnosticar();
+  if (!r.ok) {
+    SpreadsheetApp.getUi().alert('Error', r.motivo || 'Error en diagnóstico', SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  }
+  var d = r.diagnostico;
+  var lineas = [];
+  lineas.push('ESTRUCTURA: ' + d.estructura.creadas.length + ' por crear, ' + d.estructura.existentes.length + ' existentes');
+  lineas.push('SECCIONES VISUALES:');
+  Object.keys(d.secciones).forEach(function (h) {
+    var s = d.secciones[h];
+    if (s.ok && s.configurada) {
+      lineas.push('  ' + h + ': ' + s.secciones.length + ' secciones, ' + s.columnasSinSeccion.length + ' sin sección');
+    } else {
+      lineas.push('  ' + h + ': ' + (s.motivo || 'sin config'));
+    }
+  });
+  lineas.push('BUSCADORES A1:');
+  Object.keys(d.buscadores).forEach(function (h) {
+    var b = d.buscadores[h];
+    lineas.push('  ' + h + ': nota=' + b.nota + ' validación=' + b.validacion);
+  });
+  lineas.push('CONFLICTOS oculta: ' + (d.conflictos.oculta ? 'SÍ' : 'NO'));
+  lineas.push('VALIDACIONES: ' + d.validaciones.aplicadas + ' aplicadas en ' + d.validaciones.puertas + ' puertas');
+  lineas.push('FORMATO CONDICIONAL: ' + d.formato.aplicados + ' reglas');
+  lineas.push('OCULTAS TÉCNICAS: ' + d.ocultas.ocultadas + ' columnas');
+  lineas.push('');
+  lineas.push('Ejecute "Instalar / reparar sistema" para aplicar los cambios pendientes.');
+  SpreadsheetApp.getUi().alert('🔍 Diagnóstico de instalación', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 /** 🔄 Actualizar todo: recalcula estratificación + controles + refresca SECTOR_* + re-aplica formato. */

@@ -561,6 +561,11 @@ function Hojas_ocultarTecnicas(ss) {
   if (p) ocultar(p, [1, 7, 22, 23, 24, 25, 26, 27, 28]); // ID_INTERNO·TEL_OBS·NOMBRE_NORM·RUT_SIN_DV·ESTRAT_ORIGEN·ESTRAT_CALC·ESTRAT_FECHA·FECHA_ACT·REVISION
   var e = ss.getSheetByName(HOJAS.EVENTOS);
   if (e) ocultar(e, [1, 2, 14, 15, 16]); // ID_EVENTO·ID_INTERNO·FUENTE·REGISTRADO_POR·FECHA_REG
+
+  // Ocultar hoja CONFLICTOS (se accede vía Cola de revisión)
+  var c = ss.getSheetByName(HOJAS.CONFLICTOS);
+  if (c && !c.isSheetHidden()) { c.hideSheet(); ocultas++; }
+
   return { ocultas: ocultas };
 }
 

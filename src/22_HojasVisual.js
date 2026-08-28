@@ -1,10 +1,9 @@
 // ===========================================================================
-// 👁 HOJAS VISUALES v0.8.8.1 — Secciones, Buscador rápido, "Ver sección"
+// 👁 HOJAS VISUALES v0.8.8.2 — Secciones, Buscador rápido
 // ---------------------------------------------------------------------------
 // Principios:
 // - NO oculta columnas globalmente (multi-usuario seguro)
 // - Buscador usa fórmulas nativas / índices, NO carga población completa
-// - "Ver sección" abre diálogo individual por persona+sección
 // - Idempotente: ejecutar 2x = mismo resultado
 // - No rompe filtros ni fórmulas existentes (no mueve fila 1 de encabezados)
 // ===========================================================================
@@ -339,107 +338,8 @@ function HVis_instalarTodosLosBuscadores() {
 }
 
 // ===========================================================================
-// 👁 "VER SECCIÓN" — Vista individual por persona + sección (diálogo)
+// MENÚ: Diagnóstico de secciones (dry-run)
 // ===========================================================================
-
-/**
- * GAS: abre diálogo "Ver sección" para la hoja actual.
- * Usa la fila activa (selección del usuario) para obtener la persona.
- * @param {string} [nombreHoja] si no se pasa, usa hoja activa
- */
-function HVis_abrirVerSeccion(nombreHoja) {
-  var ss = Modelo_ss();
-  var hoja = nombreHoja ? ss.getSheetByName(nombreHoja) : ss.getActiveSheet();
-  if (!hoja) return { ok: false, motivo: 'Hoja no encontrada' };
-  var secciones = HVis_obtenerSecciones(hoja.getName());
-  if (!secciones) return { ok: false, motivo: 'Hoja sin secciones configuradas' };
-
-  // Obtener fila activa
-  var rangoActivo = hoja.getActiveRange();
-  var fila = rangoActivo ? rangoActivo.getRow() : 1;
-  var filaEnc = hoja.getFrozenRows() || 1;
-  if (fila <= filaEnc) {
-    // Usuario no seleccionó una fila de datos → pedir selección
-    var ui = SpreadsheetApp.getUi();
-    ui.alert('Seleccione una fila de persona primero', 'Haga clic en cualquier celda de la fila de la persona y vuelva a intentar "Ver sección".', ui.ButtonSet.OK);
-    return { ok: false, motivo: 'Fila de datos no seleccionada' };
-  }
-
-  // Leer datos de la persona (solo columnas necesarias)
-  var encabezados = hoja.getRange(filaEnc, 1, 1, hoja.getLastColumn()).getValues()[0];
-  var valores = hoja.getRange(fila, 1, 1, hoja.getLastColumn()).getValues()[0];
-  var persona = {};
-  encabezados.forEach(function (h, i) {
-    var k = Utl_texto(h).trim();
-    if (k) persona[k] = valores[i];
-  });
-
-  // HTML del diálogo
-  var html = HtmlService.createTemplateFromFile('HVerSeccion');
-  html.hoja = hoja.getName();
-  html.secciones = JSON.stringify(secciones.map(function (s) { return { id: s.id, nombre: s.nombre, color: s.color }; }));
-  html.persona = JSON.stringify(persona);
-  html.filaEncabezados = filaEnc;
-  html.filaPersona = fila;
-
-  var dialog = html.evaluate()
-    .setWidth(480)
-    .setHeight(400)
-    .setTitle('👁 Ver sección — ' + hoja.getName());
-  SpreadsheetApp.getUi().showModalDialog(dialog, '👁 Ver sección');
-  return { ok: true };
-}
-
-/**
- * GAS (llamado desde diálogo): obtiene datos de una sección para una persona.
- * @param {Object} persona - datos de la persona (clave-valor)
- * @param {string} seccionId - id de la sección
- * @param {string} nombreHoja - nombre de la hoja
- * @returns {Object} {ok, seccion, datos}
- */
-function HVis_obtenerDatosSeccion(persona, seccionId, nombreHoja) {
-  var secciones = HVis_obtenerSecciones(nombreHoja);
-  var sec = (secciones || []).find(function (s) { return s.id === seccionId; });
-  if (!sec) return { ok: false, motivo: 'Sección no encontrada' };
-  var datos = {};
-  sec.columnas.forEach(function (c) {
-    var k = Utl_texto(c).trim().toUpperCase();
-    // Buscar clave coincidente en persona (case-insensitive)
-    var valor = '';
-    Object.keys(persona).forEach(function (pk) {
-      if (Utl_texto(pk).toUpperCase() === k) valor = persona[pk];
-    });
-    datos[c] = valor;
-  });
-  return { ok: true, seccion: sec.nombre, color: sec.color, datos: datos };
-}
-
-/**
- * GAS: endpoint para "Abrir ficha" desde buscador/ver sección.
- */
-function HVis_abrirFichaDesdeHoja(idInterno) {
-  if (!idInterno) return { ok: false, motivo: 'ID_INTERNO requerido' };
-  var ui = SpreadsheetApp.getUi();
-  // Usar la función existente del menú
-  var html = HtmlService.createTemplateFromFile('Sidebar');
-  html.modo = 'ficha';
-  html.ID_INICIAL = idInterno;
-  html.BUILD = '';
-  var sidebar = html.evaluate().setTitle('Ficha — ' + idInterno);
-  ui.showSidebar(sidebar);
-  return { ok: true };
-}
-
-// ===========================================================================
-// MENÚ: "Ver sección" en Personas
-// ===========================================================================
-
-/**
- * GAS: entry point del menú Personas → Ver sección.
- */
-function HVis_menuVerSeccion() {
-  return HVis_abrirVerSeccion();
-}
 
 /**
  * GAS: diagnóstico rápido desde menú (dry-run).

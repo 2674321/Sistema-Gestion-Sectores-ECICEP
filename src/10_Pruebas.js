@@ -2566,7 +2566,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.8.1', 'versión esperada v0.8.8.1');
+    A.igual(v, '0.8.8.2', 'versión esperada v0.8.8.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2807,9 +2807,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.8.1', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.8.2', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.8.1', 'versión esperada v0.8.8.1');
+    A.igual(v, '0.8.8.2', 'versión esperada v0.8.8.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2918,10 +2918,10 @@ function _pruebas_escala_v088(t, A) {
 }
 
 // ---------------------------------------------------------------------------
-// v0.8.8.1 — HOJAS VISUALES: secciones, buscador, "ver sección"
+// v0.8.8.2 — HOJAS VISUALES: secciones, buscador (sin "Ver sección")
 // ---------------------------------------------------------------------------
 function _pruebas_hojasvisual_v0881(t, A) {
-  t('HOJAS VISUALES v0.8.8.1: SECCIONES_HOJAS definida para todos los tipos', function () {
+  t('HOJAS VISUALES v0.8.8.2: SECCIONES_HOJAS definida para todos los tipos', function () {
     A.cierto(typeof SECCIONES_HOJAS === 'object', 'existe');
     A.cierto(Array.isArray(SECCIONES_HOJAS.INGRESO), 'INGRESO');
     A.cierto(Array.isArray(SECCIONES_HOJAS.PACIENTES), 'PACIENTES');
@@ -2929,7 +2929,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.cierto(Array.isArray(SECCIONES_HOJAS.EVENTOS), 'EVENTOS');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: cada sección tiene id, nombre, color, columnas', function () {
+  t('HOJAS VISUALES v0.8.8.2: cada sección tiene id, nombre, color, columnas', function () {
     Object.values(SECCIONES_HOJAS).forEach(function (arr) {
       arr.forEach(function (s) {
         A.cierto(typeof s.id === 'string' && s.id.length > 0, 'id: ' + s.nombre);
@@ -2940,7 +2940,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     });
   });
 
-  t('HOJAS VISUALES v0.8.8.1: HOJAS_CON_SECCIONES cubre hojas prioritarias', function () {
+  t('HOJAS VISUALES v0.8.8.2: HOJAS_CON_SECCIONES cubre hojas prioritarias', function () {
     A.cierto(HOJAS_CON_SECCIONES.includes('INGRESO_NARANJO'), 'INGRESO_NARANJO');
     A.cierto(HOJAS_CON_SECCIONES.includes('INGRESO_AMARILLO'), 'INGRESO_AMARILLO');
     A.cierto(HOJAS_CON_SECCIONES.includes('INGRESO_VERDE'), 'INGRESO_VERDE');
@@ -2954,7 +2954,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.cierto(!HOJAS_CON_SECCIONES.includes('CONFLICTOS'), 'CONFLICTOS excluida');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: TIPO_SECCIONES_POR_HOJA mapea correctamente', function () {
+  t('HOJAS VISUALES v0.8.8.2: TIPO_SECCIONES_POR_HOJA mapea correctamente', function () {
     A.igual(TIPO_SECCIONES_POR_HOJA['INGRESO_NARANJO'], 'INGRESO');
     A.igual(TIPO_SECCIONES_POR_HOJA['PACIENTES'], 'PACIENTES');
     A.igual(TIPO_SECCIONES_POR_HOJA['SECTOR_AMARILLO'], 'SECTOR_VISTA');
@@ -2962,13 +2962,13 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.igual(TIPO_SECCIONES_POR_HOJA['INGRESO_NARANJA'], undefined, 'alias no está en mapa (normalizado en runtime)');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: HVis_normalizarNombreHoja normaliza alias', function () {
+  t('HOJAS VISUALES v0.8.8.2: HVis_normalizarNombreHoja normaliza alias', function () {
     A.igual(HVis_normalizarNombreHoja('INGRESO_NARANJA'), 'INGRESO_NARANJO');
     A.igual(HVis_normalizarNombreHoja('ingreso_naranja'), 'INGRESO_NARANJO');
     A.igual(HVis_normalizarNombreHoja('PACIENTES'), 'PACIENTES');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: HVis_obtenerSecciones devuelve config válida', function () {
+  t('HOJAS VISUALES v0.8.8.2: HVis_obtenerSecciones devuelve config válida', function () {
     var s = HVis_obtenerSecciones('INGRESO_NARANJO');
     A.cierto(Array.isArray(s) && s.length > 0, 'INGRESO_NARANJO');
     var s2 = HVis_obtenerSecciones('PACIENTES');
@@ -2977,7 +2977,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.igual(s3, null, 'LOG sin config');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: HVis_mapaColumnas construye índice 1-based', function () {
+  t('HOJAS VISUALES v0.8.8.2: HVis_mapaColumnas construye índice 1-based', function () {
     var enc = ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO'];
     var mapa = HVis_mapaColumnas(enc);
     A.igual(mapa['NOMBRE'], 1);
@@ -2987,7 +2987,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.igual(mapa['INEXISTENTE'], undefined);
   });
 
-  t('HOJAS VISUALES v0.8.8.1: HVis_validarSeccion filtra columnas existentes', function () {
+  t('HOJAS VISUALES v0.8.8.2: HVis_validarSeccion filtra columnas existentes', function () {
     var enc = ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO'];
     var mapa = HVis_mapaColumnas(enc);
     var sec = { columnas: ['NOMBRE', 'RUT', 'INEXISTENTE'] };
@@ -2997,7 +2997,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.igual(v.faltantes[0], 'INEXISTENTE');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: CLAVES_BUSQUEDA_POR_HOJA define claves por hoja', function () {
+  t('HOJAS VISUALES v0.8.8.2: CLAVES_BUSQUEDA_POR_HOJA define claves por hoja', function () {
     A.cierto(Array.isArray(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES']), 'PACIENTES array');
     A.cierto(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES'].includes('ID_INTERNO'), 'ID_INTERNO');
     A.cierto(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES'].includes('RUT'), 'RUT');
@@ -3005,7 +3005,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.cierto(!CLAVES_BUSQUEDA_POR_HOJA['LOG'], 'LOG sin claves (undefined)');
   });
 
-  t('HOJAS VISUALES v0.8.8.1: COLORES_SECCION paleta semántica completa', function () {
+  t('HOJAS VISUALES v0.8.8.2: COLORES_SECCION paleta semántica completa', function () {
     A.igual(COLORES_SECCION.IDENTIDAD, '#0D47A1');
     A.igual(COLORES_SECCION.SECTORIZACION, '#2E7D32');
     A.igual(COLORES_SECCION.CONTROLES, '#EF6C00');

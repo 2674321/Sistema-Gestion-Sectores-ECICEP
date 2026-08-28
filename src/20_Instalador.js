@@ -13,6 +13,7 @@ var INSTALAR_ETAPAS = [
   { id: 'validaciones', nombre: 'Validaciones INGRESO',     fn: 'Instalar_pValidaciones' },
   { id: 'limpieza',     nombre: 'Limpieza de residuales',   fn: 'Instalar_pLimpieza' },
   { id: 'diseno',       nombre: 'Diseño del libro',         fn: 'Instalar_pDiseno' },
+  { id: 'visual',       nombre: 'Secciones y buscador',     fn: 'Instalar_pVisual' },
   { id: 'inicio',       nombre: 'INICIO + interfaz hojas',  fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Menú y permisos',          fn: 'Instalar_pMenu' },
   { id: 'verificar',    nombre: 'Verificación final',       fn: 'Instalar_pVerificar' }
@@ -110,4 +111,94 @@ function Instalar_pVerificar() {
   if (faltan.length) return { ok: false, faltan: faltan,
     linea: 'faltan hojas: ' + faltan.join(', ') };
   return { ok: true, pacientes: pacientes, eventos: eventos };
+}
+
+/**
+ * Aplica secciones visuales y buscador rápido en hojas configuradas.
+ * Idempotente: detecta si ya existe y no duplica.
+ */
+function Instalar_pVisual() {
+  var rSecciones = HVis_aplicarTodasLasSecciones();
+  var rBuscador = HVis_instalarTodosLosBuscadores();
+  return {
+    ok: true,
+    secciones: rSecciones.resultados || [],
+    buscadores: rBuscador.resultados || []
+  };
+}
+
+/**
+ * Dry-run: informa qué cambios haría la instalación sin aplicarlos.
+ */
+function Instalar_diagnosticar() {
+  var ss = Modelo_ss();
+  var diagnostico = {
+    hojas: {},
+    secciones: {},
+    buscadores: {},
+    conflictos: { oculta: false },
+    estructura: { creadas: [], existentes: [] },
+    validaciones: { pendientes: 0, aplicadas: 0 },
+    formato: { pendientes: 0, aplicados: 0 },
+    ocultas: { pendientes: 0, ocultadas: 0 },
+    menu: { necesitaActualizar: false }
+  };
+
+  // Estructura
+  try {
+    var est = Modelo_crearEstructura();
+    diagnostico.estructura.creadas = est.creadas || [];
+    diagnostico.estructura.existentes = est.existentes || [];
+  } catch (e) {}
+
+  // Secciones visuales
+  try {
+    diagnostico.secciones = HVis_diagnosticarTodas().diagnostico || {};
+  } catch (e) {}
+
+  // Buscadores
+  try {
+    HOJAS_CON_SECCIONES.forEach(function (n) {
+      var h = ss.getSheetByName(n);
+      if (!h) return;
+      var a1 = h.getRange('A1');
+      var nota = a1.getNote() || '';
+      var valido = a1.getDataValidation();
+      diagnostico.buscadores[n] = {
+        nota: nota ? 'presente' : 'ausente',
+        validacion: valido ? 'presente' : 'ausente',
+        formato: a1.getBackground()
+      };
+    });
+  } catch (e) {}
+
+  // CONFLICTOS
+  try {
+    var c = ss.getSheetByName(HOJAS.CONFLICTOS);
+    diagnostico.conflictos.oculta = c ? c.isSheetHidden() : false;
+  } catch (e) {}
+
+  // Validaciones INGRESO
+  try {
+    var v = Modelo_validarIngresos(ss);
+    diagnostico.validaciones.aplicadas = v.validaciones || 0;
+    diagnostico.validaciones.puertas = v.hojas || 0;
+  } catch (e) {}
+
+  // Formato condicional
+  try {
+    var f = Hojas_formatoCondicional(ss);
+    diagnostico.formato.aplicados = f.aplicadas || 0;
+  } catch (e) {}
+
+  // Ocultas técnicas + CONFLICTOS
+  try {
+    var o = Hojas_ocultarTecnicas(ss);
+    diagnostico.ocultas.ocultadas = o.ocultas || 0;
+  } catch (e) {}
+
+  // Menú
+  diagnostico.menu.necesitaActualizar = true;
+
+  return { ok: true, diagnostico: diagnostico };
 }
