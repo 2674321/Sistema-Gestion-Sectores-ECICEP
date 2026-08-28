@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.8.3 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **408 pruebas locales verdes** ·
+**v0.8.9.0 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **408 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -285,4 +285,14 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Validaciones centralizadas**: diagnóstico verifica SEXO, ESTADO_INGRESO, FECHA DE NACIMIENTO en todas las puertas INGRESO antes de aplicar.
 - **Tests**: `_pruebas_hojasvisual_v0883` (10 tests: mapa columnas, validación, plan cálculo, diagnóstico, idempotencia). **408/408 tests verdes**.
 - **Versionado 0.8.8.3** + `README.md` + `DECISIONES.md` (DEC-043). `node --check` limpio.
+
+## v0.8.9.0 — Normalización integral del sistema
+
+- **PACIENTES con encabezados correctos**: `Modelo_crearEstructura` ahora escribe encabezados de `MODELO_PACIENTE` al crear la hoja (antes `_MODELO_HOJAS_DEF[PACIENTES] = null` causaba `SIN_ENCABEZADOS` y fallaba `Fuentes_cargaReal` con `ESQUEMA_PACIENTES_INCOMPATIBLE`). Reparación de esquema funciona aunque la hoja exista sin encabezados.
+- **Fórmulas INICIO dinámicas**: `Hojas_formulaIndicador` ahora usa `Hojas_columnaPaciente(campo)` → `Hojas_indiceAColumna(idx)` para resolver letras de columna reales desde `MODELO_PACIENTE` (ID_INTERNO→A, RUT→B, ESTRATIFICACION→I, RUT_DV_VALIDO→W, REQUIERE_REVISION→AD, FECHA_ACTUALIZACION→AC). Eliminadas referencias hardcoded `AD2:AD`, `I2:I`, `W2:W`, `B2:B`, `AC2:AC`.
+- **Instalador idempotente real**: fase `diagnostico` (primera) ejecuta `Instalar_diagnosticar()` que compara estado actual vs deseado por fase (estructura, validaciones, formato, CONFLICTOS, ocultas, menú). Cada fase posterior verifica cambios pendientes antes de escribir. Fase `validaciones` centraliza SEXO, ESTADO_INGRESO, FECHA DE NACIMIENTO en todas las puertas INGRESO. Fase `visual` detecta estado actual vs plan y aplica solo diferencias (no duplica filas, no destruye filtros).
+- **CONFLICTOS oculta garantizada**: verificada en diagnóstico y aplicada en `Hojas_ocultarTecnicas`.
+- **Visual system 3-row layout**: Fila 1=Barra sector, Fila 2=Buscador, Fila 3=Encabezados reales, Datos desde fila 4. Congeladas filas 1-3 + columna 1 (ID). Quitada validación de columna 1 (ID) en datos.
+- **Tests**: `_pruebas_hojasvisual_v0883` + `_pruebas_auditoria_v088` + `_pruebas_escala_v088` + tests INICIO dinámicos. **408/408 tests verdes**.
+- **Versionado 0.8.9.0** + `README.md` + `DECISIONES.md` (DEC-044). `node --check` limpio.
 

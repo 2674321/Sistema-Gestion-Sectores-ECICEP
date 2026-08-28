@@ -34,16 +34,41 @@ var HOJAS_NAV = [
   { hoja: 'LOG',         etiqueta: '📄 LOG' }
 ];
 
-/** PURA: fórmula de indicador de calidad para INICIO. */
+/** PURA: obtiene letra de columna (A, B, ..., Z, AA, AB, ...) a partir de índice 1-based. */
+function Hojas_indiceAColumna(idx) {
+  var letra = '';
+  while (idx > 0) {
+    var resto = (idx - 1) % 26;
+    letra = String.fromCharCode(65 + resto) + letra;
+    idx = Math.floor((idx - 1) / 26);
+  }
+  return letra;
+}
+
+/** PURA: obtiene la letra de columna para un campo en MODELO_PACIENTE. */
+function Hojas_columnaPaciente(campo) {
+  var idx = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf(campo);
+  if (idx === -1) return '';
+  return Hojas_indiceAColumna(idx + 1);
+}
+
+/** PURA: genera fórmula de indicador de calidad para INICIO usando columnas reales de MODELO_PACIENTE. */
 function Hojas_formulaIndicador(tipo) {
+  var colRUT = Hojas_columnaPaciente('RUT');                    // B
+  var colEstrat = Hojas_columnaPaciente('ESTRATIFICACION');     // I
+  var colRutValido = Hojas_columnaPaciente('RUT_DV_VALIDO');    // W
+  var colReqRev = Hojas_columnaPaciente('REQUIERE_REVISION');   // AD
+  var colFechaAct = Hojas_columnaPaciente('FECHA_ACTUALIZACION'); // AC
+  var colIdInterno = Hojas_columnaPaciente('ID_INTERNO');       // A
+
   switch (tipo) {
-    case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!A2:A)';
+    case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!' + colIdInterno + '2:' + colIdInterno + ')';
     case 'EVENTOS':     return '=COUNTA(EVENTOS!A2:A)';
-    case 'POR_REVISAR': return '=COUNTIF(PACIENTES!AD2:AD;TRUE)';
-    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")';
-    case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!W2:W;FALSE)';
-    case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))';
-    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!AC2:AC)=0;"sin datos";MAX(PACIENTES!AC2:AC))';
+    case 'POR_REVISAR': return '=COUNTIF(PACIENTES!' + colReqRev + '2:' + colReqRev + ';TRUE)';
+    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!' + colEstrat + '2:' + colEstrat + ';"")+COUNTIF(PACIENTES!' + colEstrat + '2:' + colEstrat + ';"G")';
+    case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!' + colRutValido + '2:' + colRutValido + ';FALSE)';
+    case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!' + colRUT + '2:' + colRUT + '<>"")*(COUNTIF(PACIENTES!' + colRUT + '2:' + colRUT + ';PACIENTES!' + colRUT + '2:' + colRUT + ')>1))';
+    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!' + colFechaAct + '2:' + colFechaAct + ')=0;"sin datos";MAX(PACIENTES!' + colFechaAct + '2:' + colFechaAct + '))';
     default: return '';
   }
 }

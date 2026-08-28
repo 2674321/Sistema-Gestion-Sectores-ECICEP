@@ -1,5 +1,5 @@
 // ===========================================================================
-// 👁 HOJAS VISUALES v0.8.8.3 — Secciones reales, Buscador prominente
+// 👁 HOJAS VISUALES v0.8.9.0 — Secciones reales, Buscador prominente
 // ---------------------------------------------------------------------------
 // Principios:
 // - Secciones con título visible + merged cells sobre columnas reales

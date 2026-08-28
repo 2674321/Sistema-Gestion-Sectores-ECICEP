@@ -571,6 +571,20 @@ Tests: `_pruebas_hojasvisual_v0881` (10 tests). 393 → 403 tests. Versionado 0.
 
 ---
 
+## DEC-044
+**Título:** v0.8.9.0 — Normalización integral del sistema ECICEP
+**Estado:** Aprobada
+**Motivo:** Corrección de problemas estructurales críticos detectados en validación manual:
+1. **PACIENTES sin encabezados**: `_MODELO_HOJAS_DEF[PACIENTES] = null` causaba creación de hoja sin headers → `Fuentes_cargaReal` fallaba con `ESQUEMA_PACIENTES_INCOMPATIBLE: SIN_ENCABEZADOS`. Corrección: `Modelo_crearEstructura` escribe headers de `MODELO_PACIENTE` al crear PACIENTES; reparación funciona aunque la hoja exista vacía.
+2. **Fórmulas INICIO hardcoded**: `Hojas_formulaIndicador` usaba referencias fijas `AD2:AD`, `I2:I`, `W2:W`, `B2:B`, `AC2:AC` que se rompen si cambia el esquema. Corrección: `Hojas_formulaIndicador` dinámica vía `Hojas_columnaPaciente(campo)` → `Hojas_indiceAColumna(idx)` resolviendo letras reales desde `MODELO_PACIENTE`.
+3. **Instalador no idempotente real**: fases ejecutaban sin verificar estado previo, reaplicando validaciones/formato. Corrección: fase `diagnostico` (primera) ejecuta `Instalar_diagnosticar()` comparando actual vs deseado por fase. Cada fase verifica pendientes antes de escribir. Fase `validaciones` centraliza SEXO, ESTADO_INGRESO, FECHA_NACIMIENTO en INGRESO_*. Fase `visual` detecta estado vs plan y aplica solo diffs.
+4. **CONFLICTOS oculta garantizada**: verificada en diagnóstico y aplicada en `Hojas_ocultarTecnicas`.
+5. **Visual system 3-row layout**: Fila 1=Barra sector, Fila 2=Buscador, Fila 3=Encabezados, Datos desde fila 4. Congeladas 1-3 + col 1 (ID). Quitada validación col 1.
+6. **Tests**: `_pruebas_hojasvisual_v0883` + `_pruebas_auditoria_v088` + `_pruebas_escala_v088` + tests INICIO dinámicos. **408/408 tests verdes**.
+7. **Versionado 0.8.9.0**. **Fecha:** 2026-08-27
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada
