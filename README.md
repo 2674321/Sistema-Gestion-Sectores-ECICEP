@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.7.2 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **360 pruebas locales verdes** ·
+**v0.8.8.0 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **393 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -245,4 +245,15 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Consolidación sin romper**: no se eliminó ningún endpoint ni interfaz funcional; sólo cambió la
   navegación y el etiquetado, manteniendo compatibilidad total del backend.
 - **335 pruebas locales verdes**.
+
+## v0.8.8 — Auditoría integral del sistema (FASE 1 dry-run, FASE 2 rendimiento, FASE 3 arquitectura clínica, FASE 4 consistencia, FASE 5 UX, FASE 6 dry-run real, FASE 7-15 correcciones, tests, versión, git/clasp)
+
+- **Módulo de auditoría completo** (`src/21_Auditoria.js`): dry-run de **solo lectura** (FASE 1: 1.1–1.17 inventario, fuente de verdad, edad, controles VIGENTE/PRÓXIMO/VENCIDO/SIN_ÚLTIMO/SIN_ESTRAT/SIN_CONFIG/FECHA_INV/DESALINEADO, Amarillo, responsables, profesionales, CONFIG ESTRAT/RESP/COMUNES/ADMIN/LEGACY/DESCONOCIDA, duplicados, INICIO, Panel, Controles, Ficha, Config, diálogos, menú; FASE 2 perfilado N+1/cache/O(n²); FASE 3 arquitectura clínica única PERSONA→ESTRAT→FREC→ÚLTIMO→PRÓXIMO→ESTADO→COLOR→RECORDATORIO; FASE 4 consistencia entre interfaces; FASE 5 UX pasos por tarea; FASE 6 informe ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗ con datos reales anonimizados). Botón **⚖️ Auditoría v0.8.8** en Centro de Pruebas.
+- **Correcciones de integridad clínica (C1)**: `api_controlActualizarUltimo` ahora **crea EVENTO CONTROL/SEGUIMIENTO** (fuente de verdad EVENTOS + caché derivada en PACIENTES) — antes solo actualizaba caché sin evento. Unifica el flujo con `api_registrarEvento`. Dashboard "controles del mes" y REM ahora cuentan correctamente.
+- **Fuente de verdad AVISO_CONTROL_DIAS (C2)**: Panel (`Control_filasPanel`), diagnóstico (`Control_analizar`), ficha leen aviso desde CONFIG (una vez por operación) en vez de hardcodear 7 días. Elimina variante muerta.
+- **Rendimiento (C3)**: `api_centroResumen` top-4 eventos en **single-pass O(E)** (sin sort completo O(E log E)). Limpieza `console.log` en `Modelo_fichaPaciente` (C4).
+- **Tests de auditoría y escala (FASE 10–11)**: `_pruebas_auditoria_v088` (clasificación, anonimización, Amarillo, responsables, profesionales, CONFIG, render ╔═╗) + `_pruebas_escala_v088` (**100 / 500 / 1k / 3k / 5k / 10k** pacientes y eventos: `Control_filasPanel`, `Aud_clasificarPoblacion`, `Amarillo_analizarDuplicados`, `Responsables_diagnostico`, búsqueda RUT O(n)).
+- **Clasificación hallazgos (FASE 7)**: CRÍTICO/ALTO/MEDIO/BAJO. Solo CRÍTICO/ALTO/seguros corregidos (cambio mínimo, FASE 9).
+- **Informe final obligatorio A–I** (FASE 6): A=Auditoría, B=Datos reales, C=Rendimiento, D=UX, E=Correcciones, F=No corregido, G=Tests (antes 360 → ahora 393), H=Git/Clasp, I=Acciones manuales.
+- **Versionado 0.8.8.0** (semver 4 partes) + `README.md` + `DECISIONES.md` (DEC-040). `node --check` limpio, **393/393 tests verdes**.
 

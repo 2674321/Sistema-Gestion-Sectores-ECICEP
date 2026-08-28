@@ -721,8 +721,10 @@ function Control_recordatorio(estado, proximoIso, hoyIso) {
 /**
  * PURA: analiza un conjunto de pacientes para el diagnóstico de control.
  * (base del dry-run). @returns {metricas, inconsistencias, porSector}
+ * @param {number} [avisoDias=7] días de aviso (desde CONFIG AVISO_CONTROL_DIAS)
  */
-function Control_analizar(pacientes, freqConfig, hoyIso) {
+function Control_analizar(pacientes, freqConfig, hoyIso, avisoDias) {
+  var aviso = (avisoDias == null) ? 7 : avisoDias;
   var m = { analizados: 0, G1: 0, G2: 0, G3: 0, GPend: 0,
             conControles: 0, sinUltimoControl: 0, conProximo: 0,
             vencidos: 0, proximos: 0, vigentes: 0, sinFecha: 0,
@@ -747,7 +749,7 @@ function Control_analizar(pacientes, freqConfig, hoyIso) {
       m.conControles++;
       prox = Control_calcularProximo(uc, g, freqConfig);
       if (!prox) { m.configFaltante++; }
-      estado = prox ? Control_estadoVigencia(prox, hoyIso, 7) : 'SIN_FECHA';
+      estado = prox ? Control_estadoVigencia(prox, hoyIso, aviso) : 'SIN_FECHA';
       if (prox) {
         m.conProximo++;
         if (estado === 'VENCIDO') m.vencidos++;
@@ -768,14 +770,19 @@ function Control_analizar(pacientes, freqConfig, hoyIso) {
 /**
  * PURA: filas para el Panel de Control (una por persona) con estado/color/
  * recordatorio, ya ordenadas por sector. Base del panel y del dry-run.
- * @returns {filas:[{idInterno,nombre,rut,sector,estrat,ultimoControl,ultimoSeguimiento,proximo,estado,color,recordatorio,edad}], sectores:[...]}
+ * @param {Array} pacientes
+ * @param {Object} freqConfig
+ * @param {string} hoyIso
+ * @param {number} [avisoDias=7] días de aviso (desde CONFIG AVISO_CONTROL_DIAS)
+ * @returns {filas:[...], sectores:[...]}
  */
-function Control_filasPanel(pacientes, freqConfig, hoyIso) {
+function Control_filasPanel(pacientes, freqConfig, hoyIso, avisoDias) {
+  var aviso = (avisoDias == null) ? 7 : avisoDias;
   var filas = (pacientes || []).map(function (p) {
     var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
     var uc = Utl_texto(p.ULTIMO_CONTROL);
     var prox = Control_calcularProximo(p.ULTIMO_CONTROL, g, freqConfig);
-    var estado = prox ? Control_estadoVigencia(prox, hoyIso, 7) : (uc ? 'SIN_FECHA' : 'SIN_FECHA');
+    var estado = prox ? Control_estadoVigencia(prox, hoyIso, aviso) : (uc ? 'SIN_FECHA' : 'SIN_FECHA');
     if (!uc && prox) estado = 'SIN_FECHA';
     return {
       idInterno: Utl_texto(p.ID_INTERNO),
@@ -817,7 +824,7 @@ function Control_filasPanel(pacientes, freqConfig, hoyIso) {
  *    default 25). Devuelve total real + desde/hasta. Orden sector→nombre
  *    (mismo criterio que Control_filasPanel).
  */
-function Control_consultarControles(pacientes, freqConfig, hoyIso, opts) {
+function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDias) {
   var o = opts || {};
   var sec = Utl_texto(o.sector).toUpperCase();
   var term = Utl_texto(o.termino).trim();
@@ -846,7 +853,7 @@ function Control_consultarControles(pacientes, freqConfig, hoyIso, opts) {
     filtrados = lista;
   }
 
-  var res = Control_filasPanel(filtrados, freqConfig, hoyIso);
+  var res = Control_filasPanel(filtrados, freqConfig, hoyIso, avisoDias);
   var total = res.filas.length;
   var desde = inicio < total ? inicio : total;
   var pedazo = res.filas.slice(desde, inicio + limite);

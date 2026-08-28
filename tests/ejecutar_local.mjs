@@ -28,6 +28,7 @@ const archivos = [
   'src/18_Calidad.js',
   'src/19_Permisos.js',
   'src/20_Instalador.js',
+  'src/21_Auditoria.js',
   'src/12_Ingresos.js',
   'src/Webhook.js',
   'src/06_Modelo.js',

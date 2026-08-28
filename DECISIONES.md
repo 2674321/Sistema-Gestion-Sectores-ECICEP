@@ -526,7 +526,14 @@ la UI y reportable. **Sin migración automática** de los legacy; `Responsables_
 integra la colección múltiple (deduplida, activos + legacy) lista para futuros
 avisos/recordatorios.
 (f) **Colores SEMÁNTICOS en Configuración** (no decorativos): encabezados por
-sección (Estratificación/CORREOS/Comunes/Administrador con banner de solo lectura),
-chips G1/G2/G3, puntos activo/inactivo, chips de error/atención/info. Versión
-`0.8.7.2`. 360 pruebas locales verdes (350 previas + 10 nuevas `_pruebas_responsables_v0872`).
-`node --check` limpio. **Fecha:** 2026-08-27
+  sección (Estratificación/CORREOS/Comunes/Administrador con banner de solo lectura),
+  chips G1/G2/G3, puntos activo/inactivo, chips de error/atención/info. Versión
+  `0.8.7.2`. 360 pruebas locales verdes (350 previas + 10 nuevas `_pruebas_responsables_v0872`).
+  `node --check` limpio. **Fecha:** 2026-08-27
+
+---
+
+## DEC-040
+**Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
+**Estado:** Aprobada
+**Motivo:** El sistema requiere una auditoría completa antes de seguir evolucionando: (1) inventario real de hojas/datos, (2) única fuente de verdad por dato, (3) edad global consistente, (4) controles clínicos con clasificación VIGENTE/PRÓXIMO/VENCIDO/SIN_ÚLTIMO/SIN_ESTRAT/SIN_CONFIG/FECHA_INV/DESALINEADO, (5) Amarillo histórico auditado, (6) responsables/profesionales/CONFIG clasificados, (7) duplicados, (8) consistencia entre interfaces, (9) UX/flujos, (10) rendimiento N+1/cache/O(n²). FASE 1 **prohíbe modificar datos reales** (dry-run solo lectura). Correcciones justificadas: C1 (HIGH) `api_controlActualizarUltimo` ahora crea EVENTO (fuente de verdad única: EVENTOS + caché PACIENTES); C2 (MEDIO) aviso desde CONFIG en Panel/diagnóstico/ficha; C3 (BAJO) `api_centroResumen` top-4 single-pass O(E); C4 (CLEANUP) `console.log` removido. Tests: 360 → 393 (+33 auditoría + escala 100..10k). Informe A–I obligatorio. Versionado 0.8.8.0 (semver 4 partes). **Fecha:** 2026-08-27

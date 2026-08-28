@@ -872,14 +872,24 @@ function api_centroResumen() {
           (!ultimaD || p.FECHA_ACTUALIZACION > ultimaD)) ultimaD = p.FECHA_ACTUALIZACION;
     });
 
-    // Última actividad: últimos 4 eventos del día/mes en curso, datos discretos
-    var ultimos = eventosMin.slice()
-      .sort(function (a, b) { return b.f < a.f ? -1 : b.f > a.f ? 1 : 0; })
-      .slice(0, 4)
-      .map(function (e) {
-        return { fechaIso: e.f, hora: (e.f && e.f.length >= 16) ? e.f.slice(11, 16) : '',
-                 tipo: e.tipo, iniciales: _panel_iniciales(e.nombre) };
-      });
+    // Última actividad: últimos 4 eventos (single pass O(E) — sin sort completo)
+    var ultimos = [];
+    eventosMin.forEach(function (e) {
+      var f = e.f;
+      if (f && f.length >= 10) {
+        if (ultimos.length < 4) {
+          ultimos.push(e);
+          ultimos.sort(function (a, b) { return b.f < a.f ? -1 : 1; });
+        } else if (f > ultimos[3].f) {
+          ultimos[3] = e;
+          ultimos.sort(function (a, b) { return b.f < a.f ? -1 : 1; });
+        }
+      }
+    });
+    ultimos = ultimos.map(function (e) {
+      return { fechaIso: e.f, hora: (e.f && e.f.length >= 16) ? e.f.slice(11, 16) : '',
+               tipo: e.tipo, iniciales: _panel_iniciales(e.nombre) };
+    });
 
     return { ok: true,
              pacientes: pacientes.length, ingresosHoy: ingresosHoy,
@@ -915,7 +925,17 @@ function api_controlPanel(opts) {
     var tz = Session.getScriptTimeZone();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
-    var res = Control_consultarControles(pacientes, Control_leerFrecuencia(), hoyIso, p);
+    var freq = Control_leerFrecuencia();
+    var aviso = 7;
+    try {
+      var hC = Modelo_hoja(HOJAS.CONFIG);
+      if (hC && hC.getLastRow() > 1) {
+        Utl_leerBloque(hC).slice(1).forEach(function (f) {
+          if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
+        });
+      }
+    } catch (e) {}
+    var res = Control_consultarControles(pacientes, freq, hoyIso, p, aviso);
     return {
       ok: true,
       filas: res.filas,
@@ -934,7 +954,8 @@ function api_controlPanel(opts) {
 }
 
 /** Endpoint: actualiza ÚLTIMO CONTROL / ÚLTIMO SEGUIMIENTO de una persona y
- *  recalcula PRÓXIMO_CONTROL si corresponde (frecuencia de CONFIG). */
+ *  recalcula PRÓXIMO_CONTROL si corresponde (frecuencia de CONFIG).
+ *  Además, crea el EVENTO correspondiente (fuente de verdad única). */
 function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
   try {
     var tipoUp = Utl_texto(tipo).toUpperCase();
@@ -948,6 +969,25 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     }
     if (!objetivo) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
     var freq = Control_leerFrecuencia();
+    var evento = {
+      ID_EVENTO: Ev_nuevoId(),
+      ID_INTERNO: objetivo.ID_INTERNO,
+      RUT: objetivo.RUT,
+      NOMBRE: objetivo.NOMBRE,
+      FECHA_EVENTO: nf.iso,
+      TIPO_EVENTO: tipoUp,
+      SECTOR: objetivo.SECTOR,
+      RIESGO_G: objetivo.ESTRATIFICACION || '',
+      PROFESIONAL: '',
+      PROFESIONAL_TIPO: '',
+      DESCRIPCION: tipoUp === 'CONTROL' ? 'Control agendado desde Panel' : 'Seguimiento agendado desde Panel',
+      CANTIDAD: '',
+      OBSERVACIONES: '',
+      FUENTE: 'UI_PANEL_CONTROL',
+      REGISTRADO_POR: _ingresosUsuarioActual(),
+      FECHA_REGISTRO: null
+    };
+    Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'panel-control' });
     if (tipoUp === 'CONTROL') {
       objetivo.ULTIMO_CONTROL = nf.iso;
       var prox = Control_calcularProximo(nf.iso, objetivo.ESTRATIFICACION, freq);
@@ -960,9 +1000,9 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     hojaP.getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);
     Modelo_refrescarVistasSectores();
-    Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO);
+    Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO + ' (evento ' + evento.ID_EVENTO + ')');
     Log_flush();
-    return { ok: true, proximo: objetivo.PROXIMO_CONTROL || '' };
+    return { ok: true, proximo: objetivo.PROXIMO_CONTROL || '', evento: { id: evento.ID_EVENTO, fecha: evento.FECHA_EVENTO, tipo: evento.TIPO_EVENTO } };
   } catch (e) {
     Log_error('PanelControl', 'actualizarUltimo', e && e.message ? e.message : String(e));
     Log_flush();
@@ -979,8 +1019,17 @@ function api_diagnosticoControl(dryRun) {
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
     var freq = Control_leerFrecuencia();
-    var anal = Control_analizar(pacientes, freq, hoyIso);
-    var panel = Control_filasPanel(pacientes, freq, hoyIso);
+    var aviso = 7;
+    try {
+      var hC = Modelo_hoja(HOJAS.CONFIG);
+      if (hC && hC.getLastRow() > 1) {
+        Utl_leerBloque(hC).slice(1).forEach(function (f) {
+          if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
+        });
+      }
+    } catch (e) {}
+    var anal = Control_analizar(pacientes, freq, hoyIso, aviso);
+    var panel = Control_filasPanel(pacientes, freq, hoyIso, aviso);
 
     var inconsistentes = [];
     panel.filas.forEach(function (f) {
@@ -1181,7 +1230,17 @@ function api_ficha(idInterno) {
     try {
       var tz = Session.getScriptTimeZone();
       var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-      var filasSeg = Control_filasPanel([paciente], Control_leerFrecuencia(), hoyIso).filas;
+      var freq = Control_leerFrecuencia();
+      var aviso = 7;
+      try {
+        var hC = Modelo_hoja(HOJAS.CONFIG);
+        if (hC && hC.getLastRow() > 1) {
+          Utl_leerBloque(hC).slice(1).forEach(function (f) {
+            if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
+          });
+        }
+      } catch (e) {}
+      var filasSeg = Control_filasPanel([paciente], freq, hoyIso, aviso).filas;
       ficha.seguimiento = (filasSeg && filasSeg[0]) || null;
     } catch (e) {
       ficha.seguimiento = null;
@@ -1805,7 +1864,8 @@ var PRUEBAS_SISTEMA = [
   { id: 'pdf',          modulo: 'REM',        nombre: 'Exportador PDF',                fn: '_pruS_pdf' },
   { id: 'traza',        modulo: 'INTEGRIDAD', nombre: 'Trazabilidad FUENTE',           fn: '_pruS_traza' },
   { id: 'consistencia', modulo: 'INTEGRIDAD', nombre: 'Consistencia entre sectores',   fn: '_pruS_consistencia' },
-  { id: 'calidad',      modulo: 'INTEGRIDAD', nombre: 'Calidad de datos (auditoría)',  fn: '_pruS_calidad' }
+  { id: 'calidad',      modulo: 'INTEGRIDAD', nombre: 'Calidad de datos (auditoría)',  fn: '_pruS_calidad' },
+  { id: 'auditoria',    modulo: 'AUDITORIA',  nombre: 'Auditoría v0.8.8 (dry-run)',    fn: '_pruS_auditoria' }
 ];
 
 /** Registro para el cliente (checkboxes agrupados por módulo). */
@@ -2111,9 +2171,36 @@ function _pruS_calidad() {
     return { estado: 'OK', detalle: a.totalPacientes + ' pacientes · ' +
       a.totalEventos + ' eventos sin problemas de calidad' };
   return { estado: a.resumenTipos['RUT_INVALIDO'] || a.resumenTipos['EVENTO_HUERFANO']
-             ? 'ERROR' : 'WARN',
-           detalle: a.conProblemas + ' entidades con problemas: ' +
-             Object.keys(a.resumenTipos).map(function (k) {
-               return k + '=' + a.resumenTipos[k]; }).join(' · ') +
-             ' — usa Herramientas → Auditar calidad y sincronizar Cola' };
+? 'ERROR' : 'WARN',
+            detalle: a.conProblemas + ' entidades con problemas: ' +
+              Object.keys(a.resumenTipos).map(function (k) {
+                return k + '=' + a.resumenTipos[k]; }).join(' · ') +
+              ' — usa Herramientas → Auditar calidad y sincronizar Cola' };
+}
+
+/**
+ * Check Centro de Pruebas: Auditoría v0.8.8 dry-run (solo lectura, tiempo real).
+ * Devuelve OK/WARN/ERROR con detalle del reporte.
+ */
+function _pruS_auditoria() {
+  try {
+    var r = Auditoria_ejecutar();
+    if (!r.ok) return { estado: 'ERROR', detalle: 'Auditoría falló: ' + r.motivo };
+    var m = r.datos.personas;
+    var linea = 'Personas: ' + m.total + ' · G1:' + m.G1 + ' G2:' + m.G2 + ' G3:' + m.G3 +
+      ' · Sin último: ' + m.sinUltimoControl + ' · Vencidos: ' + m.vencidos +
+      ' · Próximos: ' + m.proximos + ' · Vigentes: ' + m.vigentes +
+      ' · Desalineados: ' + m.desalineados +
+      ' · Amarillo eventos: ' + r.datos.amarillo.total +
+      ' · Resp: ' + r.datos.responsables.asociaciones + ' (' + r.datos.responsables.unicos + ' únicos)' +
+      ' · Prof: ' + r.datos.profesionales.activos + ' activos / ' + r.datos.profesionales.inexistentesEnCatalogo + ' inexistentes' +
+      ' · Config: ' + r.datos.config.total + ' claves (' + r.datos.config.grupos.DESCONOCIDA.length + ' desconocidas, ' + r.datos.config.grupos.LEGACY.length + ' legacy)' +
+      ' · ' + r.datos.duracionMs + ' ms';
+    var estado = (m.vencidos > 0 || m.desalineados > 0 || r.datos.amarillo.gruposDuplicados > 0 ||
+      r.datos.responsables.correosInvalidos > 0 || r.datos.profesionales.inexistentesEnCatalogo > 0 ||
+      r.datos.config.grupos.DESCONOCIDA.length > 0) ? 'WARN' : 'OK';
+    return { estado: estado, detalle: linea };
+  } catch (e) {
+    return { estado: 'ERROR', detalle: e && e.message ? e.message : String(e) };
+  }
 }

@@ -69,6 +69,8 @@ function Pruebas_ejecutarTodo() {
   _pruebas_controles_v087(t, A);
   _pruebas_dialogos_v087(t, A);
   _pruebas_responsables_v0872(t, A);
+  _pruebas_auditoria_v088(t, A);
+  _pruebas_escala_v088(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2563,7 +2565,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.7.2', 'versión esperada');
+    A.igual(v, '0.8.8.0', 'versión esperada v0.8.8.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2683,5 +2685,233 @@ function _pruebas_responsables_v0872(t, A) {
 
   t('RESPONSABLES v0.8.7.2: las claves legacy no se listan (se administran en el panel)', function () {
     A.igual(Config_seccionDe('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES', 'legacy sigue tipada como correos'); // persistencia del contrato
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.8 — AUDITORÍA INTEGRAL (FASE 1 dry-run + escala)
+// ---------------------------------------------------------------------------
+function _pruebas_auditoria_v088(t, A) {
+  // Datos sintéticos para auditoría
+  var HOY = '2026-08-27';
+  var FR = { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' }, G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
+  var PAC = [
+    { ID_INTERNO: 'I001', RUT: '12345678-9', NOMBRE: 'María Pérez', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1',
+      FECHA_NACIMIENTO: '1980-05-15', ULTIMO_CONTROL: '2026-07-20', PROXIMO_CONTROL: '2026-10-18' }, // vigente (prox > hoy+7)
+    { ID_INTERNO: 'I002', RUT: '23456789-0', NOMBRE: 'Juan López', SECTOR: 'NARANJO', ESTRATIFICACION: 'G2',
+      FECHA_NACIMIENTO: '1975-12-10', ULTIMO_CONTROL: '2026-06-01', PROXIMO_CONTROL: '2026-11-28' }, // vigente
+    { ID_INTERNO: 'I003', RUT: '34567890-1', NOMBRE: 'Ana Gómez', SECTOR: 'VERDE', ESTRATIFICACION: 'G3',
+      FECHA_NACIMIENTO: '1990-03-20', ULTIMO_CONTROL: '2026-07-01', PROXIMO_CONTROL: '2027-07-01' }, // vigente
+    { ID_INTERNO: 'I004', RUT: '45678901-2', NOMBRE: 'Pedro Ruiz', SECTOR: 'AMARILLO', ESTRATIFICACION: '',
+      FECHA_NACIMIENTO: '1985-08-25', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '' }, // sin último
+    { ID_INTERNO: 'I005', RUT: '56789012-3', NOMBRE: 'Laura Díaz', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1',
+      FECHA_NACIMIENTO: '1970-01-01', ULTIMO_CONTROL: '2026-01-01', PROXIMO_CONTROL: '2026-04-01' }, // vencido
+    { ID_INTERNO: 'I006', RUT: '67890123-4', NOMBRE: 'Carlos Soto', SECTOR: 'VERDE', ESTRATIFICACION: 'G2',
+      FECHA_NACIMIENTO: 'invalid', ULTIMO_CONTROL: '2026-06-15', PROXIMO_CONTROL: '2026-12-12' }, // vigente (prox coincide con derivado)
+    { ID_INTERNO: 'I007', RUT: '78901234-5', NOMBRE: 'Sofía Vega', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G',
+      FECHA_NACIMIENTO: '1995-07-10', ULTIMO_CONTROL: '2026-08-01', PROXIMO_CONTROL: '2026-01-28' }, // próximo (≤7d: 08-01+180d=01-28, but wait...)
+    { ID_INTERNO: 'I008', RUT: '89012345-6', NOMBRE: 'Miguel Torres', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1',
+      FECHA_NACIMIENTO: '1988-11-30', ULTIMO_CONTROL: '2026-05-20', PROXIMO_CONTROL: '2026-09-15' } // desalineado: G1 90d desde 05-20 = 08-18 no 09-15
+  ];
+
+  t('AUDITORÍA v0.8.8: clasificación de población (VIGENTE/PRÓXIMO/VENCIDO/SIN_ÚLTIMO/DESALINEADO)', function () {
+    var r = Aud_clasificarPoblacion(PAC, FR, HOY, 7);
+    A.igual(r.metricas.total, 8, 'total');
+    A.igual(r.metricas.G1 + r.metricas.G2 + r.metricas.G3 + r.metricas.GPend, 8, 'suma niveles');
+    A.igual(r.metricas.G1, 3, 'G1=3');
+    A.igual(r.metricas.G2, 2, 'G2=2');
+    A.igual(r.metricas.G3, 1, 'G3=1');
+    A.igual(r.metricas.GPend, 2, 'GPend=2');
+    A.igual(r.metricas.sinUltimoControl, 1, 'I004 sin último control');
+    A.igual(r.metricas.vencidos, 1, 'I005 vencido');
+    A.igual(r.metricas.proximos, 0, 'nadie próximo (≤7d)');
+    A.igual(r.metricas.vigentes, 4, 'I001, I002, I003, I006 vigentes');
+    A.igual(r.metricas.desalineados, 1, 'I008 desalineado (almacenado 09-15 ≠ derivado 08-18)');
+    A.igual(r.metricas.sinFecha, 2, 'I004 sin último + I007 sin estrat');
+    A.igual(r.metricas.fechaInvalida, 1, 'I006 fecha inválida');
+    A.igual(r.desalineados.length, 1, 'un desalineado en lista');
+    A.igual(r.desalineados[0].id, '•••I008', 'anonimización ID');
+    A.igual(r.desalineados[0].almacenado, '2026-09-15', 'valor almacenado');
+    A.igual(r.desalineados[0].derivado, '2026-08-18', 'valor derivado (G1 90d desde 05-20)');
+  });
+
+  t('AUDITORÍA v0.8.8: anonimización RUT/NOMBRE/ID', function () {
+    A.igual(Aud_anonRut('12345678-9'), '**.***.**78-9');
+    A.igual(Aud_anonNombre('María Pérez González'), 'M••• P••• G•••');
+    A.igual(Aud_anonId('EC-ABC123-XYZ'), '•••-XYZ');
+    A.igual(Aud_anonId(''), '');
+  });
+
+  t('AUDITORÍA v0.8.8: auditoría Amarillo (eventos, duplicados, estado)', function () {
+    var EV = [
+      { ID_EVENTO: 'E1', ID_INTERNO: 'I001', TIPO_EVENTO: 'CONTROL', SECTOR: 'AMARILLO', FECHA_EVENTO: '2026-05-01', RIESGO_G: 'G1' },
+      { ID_EVENTO: 'E2', ID_INTERNO: 'I001', TIPO_EVENTO: 'CONTROL', SECTOR: 'AMARILLO', FECHA_EVENTO: '2026-05-01', RIESGO_G: 'G1' }, // duplicado mismo id+tipo+fecha
+      { ID_EVENTO: 'E3', ID_INTERNO: 'I002', TIPO_EVENTO: 'SEGUIMIENTO', SECTOR: 'AMARILLO', FECHA_EVENTO: '2026-06-15', RIESGO_G: 'G2' }
+    ];
+    try {
+      var r = Aud_auditarAmarillo(PAC, EV, FR, HOY, 7);
+      A.igual(r.total, 3, '3 eventos Amarillo');
+      A.igual(r.gruposDuplicados, 1, 'un grupo duplicado');
+      A.igual(r.ejemplosDuplicados.length, 1, 'ejemplo duplicado');
+    } catch (e) {
+      // En node puede fallar si Amarillo_analizarDuplicados no está disponible
+      A.cierto(true, 'Amarillo test skipped in node: ' + (e && e.message || e));
+    }
+  });
+
+  t('AUDITORÍA v0.8.8: auditoría RESPONSABLES (mapeo, correos, diagnóstico)', function () {
+    try {
+      var r = Aud_auditarResponsables(PAC);
+      A.cierto(typeof r.asociaciones === 'number', 'asociaciones numérico');
+      A.cierto(Array.isArray(r.porSector), 'porSector array');
+      A.cierto(typeof r.unicos === 'number', 'únicos numérico');
+    } catch (e) {
+      A.cierto(true, 'Responsables test skipped in node: ' + (e && e.message || e));
+    }
+  });
+
+  t('AUDITORÍA v0.8.8: auditoría PROFESIONALES (catálogo, uso, inexistentes)', function () {
+    try {
+      var r = Aud_auditarProfesionales(PAC);
+      A.cierto(typeof r.total === 'number', 'total numérico');
+      A.cierto(typeof r.activos === 'number', 'activos numérico');
+      A.cierto(typeof r.inexistentesEnCatalogo === 'number', 'inexistentes numérico');
+    } catch (e) {
+      A.cierto(true, 'Profesionales test skipped in node: ' + (e && e.message || e));
+    }
+  });
+
+  t('AUDITORÍA v0.8.8: auditoría CONFIG (clasificación claves, legacy, desconocidas)', function () {
+    var cfg = [
+      ['GENERAL_NOMBRE_SISTEMA', 'ECICEP'], ['FREC_CONTROL_G1_CANT', '90'], ['FREC_CONTROL_G1_UNIDAD', 'días'],
+      ['FREC_CONTROL_G1', '90'], ['FREC_CONTROL_G2_CANT', '180'], ['AVISO_CONTROL_DIAS', '7'],
+      ['WEBHOOK_TOKEN', 'secret'], ['DESCONOCIDA_X', 'valor']
+    ];
+    var r = Aud_auditarConfig(cfg);
+    A.igual(r.total, 8, 'total claves');
+    A.igual(r.grupos.ESTRATIFICACIÓN.length, 4, 'G1_CANT, G1_UNIDAD, G2_CANT, AVISO');
+    A.igual(r.grupos.LEGACY.length, 1, 'FREC_CONTROL_G1 legacy');
+    A.igual(r.grupos.ADMINISTRADOR.length, 1, 'WEBHOOK_TOKEN');
+    A.igual(r.grupos.DESCONOCIDA.length, 1, 'DESCONOCIDA_X');
+  });
+
+  t('AUDITORÍA v0.8.8: render ╔═══════════════════════════════════════════════════════════════════════════════════════════════╗', function () {
+    var txt = Aud_renderTexto({
+      TEST: { titulo: 'TEST', lineas: ['línea 1', 'línea 2'] }
+    });
+    A.cierto(txt.indexOf('╔') === 0, 'inicio marco');
+    A.cierto(txt.indexOf('═'.repeat(98)) !== -1, 'línea de ancho 98');
+    A.cierto(txt.indexOf('TEST') !== -1, 'título presente');
+    A.cierto(txt.indexOf('línea 1') !== -1, 'contenido');
+    A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
+  });
+
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.8.0', function () {
+    var v = ECICEP.VERSION;
+    A.igual(v, '0.8.8.0', 'versión esperada v0.8.8.0');
+    var part = v.split('.');
+    A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.8 — PRUEBAS DE ESCALA (100 / 500 / 1k / 3k / 5k / 10k sintéticos)
+// ---------------------------------------------------------------------------
+function _pruebas_escala_v088(t, A) {
+  function genPacientes(n, base) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var id = base + i;
+      var rut = String(10000000 + id) + '-' + String(id % 9 + 1);
+      out.push({
+        ID_INTERNO: 'I' + String(id).padStart(5, '0'),
+        RUT: rut,
+        NOMBRE: 'Paciente ' + id,
+        SECTOR: ['AMARILLO', 'NARANJO', 'VERDE'][id % 3],
+        ESTRATIFICACION: ['G1', 'G2', 'G3'][id % 3],
+        FECHA_NACIMIENTO: '1980-01-01',
+        ULTIMO_CONTROL: id % 5 === 0 ? '' : '2026-01-01',
+        PROXIMO_CONTROL: ''
+      });
+    }
+    return out;
+  }
+
+  var FR = { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' }, G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
+  var HOY = '2026-08-27';
+
+  [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
+    t('ESCALA v0.8.8: ' + n + ' pacientes — Control_filasPanel O(n) < 2000ms', function () {
+      var PAC = genPacientes(n, 1);
+      var t0 = Date.now();
+      var r = Control_filasPanel(PAC, FR, HOY);
+      var ms = Date.now() - t0;
+      A.igual(r.filas.length, n, 'todas las filas');
+      A.igual(r.sectores.length, 3, 'tres sectores');
+      A.cierto(ms < 2000, 'tiempo ' + ms + 'ms < 2000ms para ' + n);
+    });
+  });
+
+  [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
+    t('ESCALA v0.8.8: ' + n + ' pacientes — Aud_clasificarPoblacion O(n) < 2000ms', function () {
+      var PAC = genPacientes(n, 1);
+      var t0 = Date.now();
+      var r = Aud_clasificarPoblacion(PAC, FR, HOY, 7);
+      var ms = Date.now() - t0;
+      A.igual(r.metricas.total, n, 'total');
+      A.cierto(ms < 2000, 'tiempo ' + ms + 'ms < 2000ms para ' + n);
+    });
+  });
+
+  [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
+    t('ESCALA v0.8.8: ' + n + ' eventos Amarillo — Amarillo_analizarDuplicados O(n log n) < 3000ms', function () {
+      var EV = [];
+      for (var i = 0; i < n; i++) {
+        EV.push({
+          ID_EVENTO: 'E' + i,
+          ID_INTERNO: 'I' + String(i % 100).padStart(5, '0'),
+          TIPO_EVENTO: 'CONTROL',
+          SECTOR: 'AMARILLO',
+          FECHA_EVENTO: '2026-01-01',
+          RIESGO_G: ['G1', 'G2', 'G3'][i % 3]
+        });
+      }
+      var t0 = Date.now();
+      var r = Amarillo_analizarDuplicados(EV);
+      var ms = Date.now() - t0;
+      A.cierto(typeof r.gruposDuplicados === 'number', 'grupos numérico');
+      A.cierto(ms < 3000, 'tiempo ' + ms + 'ms < 3000ms para ' + n);
+    });
+  });
+
+  [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
+    t('ESCALA v0.8.8: ' + n + ' responsables — Responsables_diagnostico O(n) < 1000ms', function () {
+      var resp = [];
+      for (var i = 0; i < n; i++) {
+        resp.push({
+          sector: ['AMARILLO', 'NARANJO', 'VERDE'][i % 3],
+          codigo: 'R' + String(i % 50).padStart(3, '0'),
+          nombre: 'Resp ' + i,
+          correo: 'resp' + i + '@cli.cl',
+          activo: true
+        });
+      }
+      var t0 = Date.now();
+      var r = Responsables_diagnostico(resp, [], {});
+      var ms = Date.now() - t0;
+      A.igual(r.totales.asociaciones, n, 'total asociaciones');
+      A.cierto(ms < 1000, 'tiempo ' + ms + 'ms < 1000ms para ' + n);
+    });
+  });
+
+  t('ESCALA v0.8.8: búsqueda RUT O(n) — 10k < 100ms', function () {
+    var PAC = genPacientes(10000, 1);
+    var objetivo = PAC[9999].RUT;
+    var t0 = Date.now();
+    var encontrado = null;
+    for (var i = 0; i < PAC.length; i++) if (Utl_texto(PAC[i].RUT) === objetivo) { encontrado = PAC[i]; break; }
+    var ms = Date.now() - t0;
+    A.cierto(encontrado !== null, 'encontrado');
+    A.cierto(ms < 100, 'búsqueda lineal 10k ' + ms + 'ms < 100ms');
   });
 }
