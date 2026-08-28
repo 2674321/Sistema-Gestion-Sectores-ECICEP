@@ -265,8 +265,7 @@ function UI_actualizarDashboard() {
   if (r.resultado.ok) {
     Log_info('UI', 'dashboard', JSON.stringify(r.resultado.periodo));
     Log_flush();
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      'Dashboard actualizado (' + r.ms + ' ms)', 'ECICEP 📊', 8);
+    Utl_toast('ok', 'Dashboard actualizado', 8);
   } else {
     SpreadsheetApp.getUi().alert(r.resultado.motivo);
   }

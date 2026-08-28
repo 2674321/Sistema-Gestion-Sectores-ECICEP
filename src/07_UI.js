@@ -43,9 +43,7 @@ function onOpen() {
         .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe'))
 
       .addToUi();
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      'ECICEP v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha',
-      'ECICEP', 6);
+    Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
   } catch (e) { /* entorno sin UI */ }
 }
 
@@ -105,16 +103,14 @@ function UI_instalarDiagnosticar() {
 
 /** 🔄 Actualizar todo: recalcula estratificación + controles + refresca SECTOR_* + re-aplica formato. */
 function UI_actualizarTodo() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('🔄 Actualizando todo…', 'ECICEP', 45);
+  Utl_toast('info', 'Actualizando todo…', 45);
   var r1 = Estrat_recalcularTodos();
   var r2 = Control_recalcularTodos();
-  var r3 = Utl_medir(Modelo_refrescarVistasSectores);
-  var r4 = Utl_medir(function () {
-    Hojas_formatoCondicional(ss);
+  Utl_medir(Modelo_refrescarVistasSectores);
+  Utl_medir(function () {
+    Hojas_formatoCondicional(SpreadsheetApp.getActiveSpreadsheet());
   });
-  ss.toast('✅ Actualizado — ' + r1.recalculados + ' estrat. · ' +
-    r2.cambios + ' controles · ' + r3.ms + 'ms sector · ' + r4.ms + 'ms formato', 'ECICEP', 10);
+  Utl_toast('ok', 'Actualizado — ' + r1.recalculados + ' estrat. · ' + r2.cambios + ' controles', 10);
 }
 
 /** 🔄 Recalcular estratificación (legacy — usar UI_actualizarTodo). */
@@ -124,12 +120,11 @@ function UI_recalcularEstrat() {
     'Esto recalculará la estratificación de TODOS los pacientes según sus patologías.\n\n' +
     '¿Continuar?', ui.ButtonSet.YES_NO);
   if (resp !== ui.Button.YES) return;
-  SpreadsheetApp.getActiveSpreadsheet().toast('Recalculando estratificación…', 'ECICEP', 30);
+  Utl_toast('info', 'Recalculando estratificación…', 30);
   var r = Estrat_recalcularTodos();
   ui.alert('🔄 Recálculo completado\n\n' +
     'Total: ' + r.total + '\n' +
-    'Recalculados: ' + r.recalculados + '\n' +
-    'Tiempo: ' + r.tiempo + 'ms');
+    'Recalculados: ' + r.recalculados);
 }
 
 function UI_ejecutarPruebas() {
@@ -185,33 +180,23 @@ function api_logLeer(limite) {
   }
 }
 
-/** Flujo INGRESO_* → PACIENTES + EVENTOS con resumen comprensible. */
+/** Flujo INGRESO_* → PACIENTES + EVENTOS con resumen comprensible (Parte 3.7). */
 function UI_procesarIngresos() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('Procesando flujo de ingreso (validación → identificación → escritura)…', 'ECICEP', 10);
   var r = Utl_medir(Ingresos_procesarTodasLasHojas);
   Log_info('UI', 'procesarIngresos', JSON.stringify(r.resultado), null, r.ms);
   Log_flush();
-  SpreadsheetApp.getUi().alert(
-    'PROCESAMIENTO COMPLETADO — v' + ECICEP.VERSION + '\n\n' +
-    'Ejecución: ' + (r.resultado.ejecucion || '-') + '\n\n' +
-    'Ingresos leídos: ' + r.resultado.leidos + '\n' +
-    'Validación → OK: ' + r.resultado.validacionOk +
-    ' · WARNING: ' + r.resultado.validacionWarning +
-    ' · ERROR: ' + r.resultado.validacionError + '\n\n' +
-    'Pacientes nuevos: ' + r.resultado.nuevos + '\n' +
-    'Pacientes existentes (evento enlazado): ' + r.resultado.existentes + '\n' +
-    'Requieren revisión: ' + r.resultado.revision + '\n' +
-    'Eventos creados: ' + r.resultado.eventosCreados + '\n\n' +
-    '(' + r.ms + ' ms)');
+  var texto = Ingresos_resumenTexto(r.resultado);
+  if ((r.resultado.revision || 0) > 0) {
+    texto += '\n\n⚠ ' + r.resultado.revision + ' caso(s) en la Cola de revisión.';
+  }
+  SpreadsheetApp.getUi().alert(texto, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 /** Regenera las vistas SECTOR_* desde PACIENTES (nunca bases independientes). */
 function UI_refrescarSectores() {
   var r = Utl_medir(Modelo_refrescarVistasSectores);
   Log_info('UI', 'refrescarSectores', JSON.stringify(r.resultado), null, r.ms);
-  SpreadsheetApp.getActiveSpreadsheet().toast(
-    'Vistas actualizadas — ' + JSON.stringify(r.resultado) + ' (' + r.ms + ' ms)', 'ECICEP', 8);
+  Utl_toast('ok', 'Vistas de sectores actualizadas', 8);
 }
 
 /** Diagnóstico: por qué fallan los ingresos (encabezados, mapeo, errores). */
@@ -225,18 +210,16 @@ function UI_diagnosticarIngresos() {
 /** Sembrar prueba: siembra pacientes ficticios de demostración (úsase desde
  *  el Centro de Pruebas, no en el flujo normal). */
 function UI_sembrarFicticios() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('Sembrando datos de prueba…', 'ECICEP', 15);
+  Utl_toast('info', 'Sembrando datos de prueba…', 15);
   var sembradas = Sembrar_ficticios();
   Log_info('UI', 'sembrarFicticios', 'sembradas=' + sembradas);
   Log_flush();
-  ss.toast('Sembradas: ' + sembradas + ' filas de prueba', 'ECICEP', 8);
+  Utl_toast('ok', 'Sembradas ' + sembradas + ' filas de prueba', 8);
   return sembradas;
 }
 
 function UI_demoCompleta() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('Demo completa en curso…', 'ECICEP', 15);
+  Utl_toast('info', 'Preparando demostración…', 15);
   var pasos = {};
   pasos.estructura = Modelo_crearEstructura();
   pasos.sembradas = Sembrar_ficticios();
@@ -244,12 +227,9 @@ function UI_demoCompleta() {
   pasos.vistas = Modelo_refrescarVistasSectores();
   Log_info('UI', 'demoCompleta', JSON.stringify(pasos.proceso));
   Log_flush();
-  ss.toast(
-    'Demo lista ✓ Sembradas: ' + pasos.sembradas +
-    ' · Nuevos: ' + pasos.proceso.nuevos +
-    ' · Enlazados: ' + pasos.proceso.existentes +
-    ' · Errores: ' + pasos.proceso.conError +
-    ' · Eventos: ' + pasos.proceso.eventosCreados, 'ECICEP ⚡', 20);
+  Utl_toast('ok', 'Demo lista · Sembradas: ' + pasos.sembradas +
+    ' · Ingresados: ' + ((pasos.proceso.nuevos || 0) + (pasos.proceso.existentes || 0)) +
+    ' · Eventos: ' + (pasos.proceso.eventosCreados || 0), 20);
 }
 
 // ===========================================================================
@@ -293,7 +273,7 @@ function UI_diagnosticarFuentes() {
     });
   });
   SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(hojaD);
-  SpreadsheetApp.getActiveSpreadsheet().toast('Diagnóstico de fuentes escrito en DIAGNOSTICO_FUENTES.', 'ECICEP', 8);
+  Utl_toast('ok', 'Diagnóstico escrito en DIAGNOSTICO_FUENTES', 8);
 }
 
 function UI_importarMuestra() {
@@ -1486,8 +1466,8 @@ function UI_vaciarDatosPrueba() {
 // ===========================================================================
 
 function UI_analisisCarga() {
+  Utl_toast('info', 'Analizando fuentes reales (no escribe nada)…', 15);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('Analizando fuentes reales (DRY RUN, no escribe nada)…', 'ECICEP', 15);
   var r = Fuentes_cargaReal({ ejecutar: false });
   var res = r.resumen;
 
@@ -1510,20 +1490,10 @@ function UI_analisisCarga() {
   ss.setActiveSheet(hojaR);
   var ui = SpreadsheetApp.getUi();
   ui.alert(
-    'ANÁLISIS DE CARGA REAL — DRY RUN\n\n' +
-    'Ejecución: ' + res.ejecucion + '\n' +
-    'Registros leídos: ' + res.leidos + '\n' +
-    'Ya importados previamente: ' + (res.yaImportadas || 0) + '\n\n' +
-    'Validación → OK: ' + res.validacionOk +
-    ' · WARNING: ' + res.validacionWarning +
-    ' · ERROR: ' + res.validacionError + '\n\n' +
-    'Si se ejecutara:\n' +
-    '  Pacientes nuevos: ' + res.nuevos + '\n' +
-    '  Existentes enlazados: ' + res.existentes + '\n' +
-    '  Requieren revisión: ' + res.revision + '\n' +
-    '  Eventos creados: ' + res.eventosCreados + '\n\n' +
-    'NO SE ESCRIBIÓ NADA.\n' +
-    'Para ejecutar la carga real usa 🚀 EJECUTAR carga real.');
+    'ANÁLISIS DE CARGA — DRY RUN (no escribió nada)\n\n' +
+    'Registros pendientes: ' + (res.leidos - (res.yaImportadas || 0)) + '\n\n' +
+    Ingresos_resumenTexto(res) + '\n\n' +
+    'Para escribir la carga usa 🚀 EJECUTAR CARGA REAL.');
 }
 
 function UI_ejecutarCarga() {
@@ -1538,8 +1508,7 @@ function UI_ejecutarCarga() {
     ui.ButtonSet.YES_NO);
   if (resp !== ui.Button.YES) return;
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('Ejecutando carga real…', 'ECICEP', 30);
+  Utl_toast('info', 'Cargando…', 30);
 
   var r = Fuentes_cargaReal({ ejecutar: true });
   var res = r.resumen;
@@ -1550,19 +1519,9 @@ function UI_ejecutarCarga() {
   }));
   Log_flush();
 
-  ui.alert(
-    'CARGA REAL COMPLETADA ✓\n\n' +
-    'Ejecución: ' + res.ejecucion + '\n' +
-    'Leídos: ' + res.leidos + '\n' +
-    'Ya importados (omitidos): ' + (res.yaImportadas || 0) + '\n\n' +
-    'Validación → OK: ' + res.validacionOk +
-    ' · WARNING: ' + res.validacionWarning +
-    ' · ERROR (bloqueados): ' + res.validacionError + '\n\n' +
-    'Pacientes nuevos creados: ' + res.nuevos + '\n' +
-    'Existentes enlazados: ' + res.existentes + '\n' +
-    'Requieren revisión: ' + res.revision + '\n' +
-    'Eventos creados: ' + res.eventosCreados + '\n\n' +
-    'Vistas SECTOR_* refrescadas: ' + JSON.stringify(r.vistasSector || {}));
+  var texto = Ingresos_resumenTexto(res);
+  if ((res.revision || 0) > 0) texto += '\n\n⚠ ' + res.revision + ' caso(s) en la Cola de revisión.';
+  ui.alert('CARGA COMPLETADA ✓\n\n' + texto);
 }
 
 function UI_bloqueado() {

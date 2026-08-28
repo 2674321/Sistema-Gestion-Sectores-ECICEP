@@ -306,13 +306,13 @@ function HVis_normalizarLayout(hoja) {
     rTitulo.merge();
     rTitulo.setValue(sectorHoja ? 'SECTOR ' + sectorHoja : 'SISTEMA ECICEP');
     rTitulo.setBackground(colorSector);
-    rTitulo.setFontColor('#FFFFFF');
+    rTitulo.setFontColor(TINTA_SECCION);
     rTitulo.setFontWeight('bold');
     rTitulo.setFontSize(13);
     rTitulo.setHorizontalAlignment('CENTER');
     rTitulo.setVerticalAlignment('MIDDLE');
-    rTitulo.setBorder(true, true, true, true, false, false, '#FFFFFF', SpreadsheetApp.BorderStyle.SOLID_THICK);
-    hoja.setRowHeight(1, 26);
+    rTitulo.setBorder(true, true, true, true, false, false, '#D8DEE4', SpreadsheetApp.BorderStyle.SOLID_THICK);
+    hoja.setRowHeight(1, 28);
   } catch (eT) { advertencias.push('Fila título: ' + (eT && eT.message || eT)); }
 
   // ===== FILA 2: SECCIONES (títulos reales sobre columnas reales) =====
@@ -327,7 +327,7 @@ function HVis_normalizarLayout(hoja) {
       var rSec = hoja.getRange(plan.seccionesRow, 1, 1, ultimaCol);
       rSec.breakApart();
       rSec.clear();
-      rSec.setBackground('#EEF1F4');
+      rSec.setBackground('#F4F6F8');
     } catch (eC) {}
     plan.secciones.forEach(function (sec) {
       var rng = hoja.getRange(plan.seccionesRow, sec.colInicio, 1, sec.colFin - sec.colInicio + 1);
@@ -335,15 +335,15 @@ function HVis_normalizarLayout(hoja) {
       rng.merge();
       rng.setValue(sec.nombre);
       rng.setBackground(sec.color);
-      rng.setFontColor('#FFFFFF');
+      rng.setFontColor(TINTA_SECCION);
       rng.setFontWeight('bold');
-      rng.setFontSize(10);
+      rng.setFontSize(11);
       rng.setHorizontalAlignment('CENTER');
       rng.setVerticalAlignment('MIDDLE');
-      rng.setBorder(false, false, true, false, false, false, '#90A4AE', SpreadsheetApp.BorderStyle.SOLID_THICK);
+      rng.setBorder(false, false, true, false, false, false, '#C9D2DA', SpreadsheetApp.BorderStyle.SOLID_THICK);
       seccionesAplicadas++;
     });
-    hoja.setRowHeight(plan.seccionesRow, 22);
+    hoja.setRowHeight(plan.seccionesRow, 26);
   } catch (eS) { advertencias.push('Filas de secciones: ' + (eS && eS.message || eS)); }
 
   // ===== ENCABEZADOS REALES: normalizar etiquetas a canónicas =====
@@ -362,9 +362,11 @@ function HVis_normalizarLayout(hoja) {
     });
     var filasDatos = Math.max(hoja.getLastRow() - hrEnc, 1);
     var rngEnc = hoja.getRange(hrEnc, 1, 1, ultimaCol);
-    rngEnc.setFontWeight('bold').setFontSize(10)
+    rngEnc.setFontWeight(PULIDO_ENCABEZADO.peso).setFontSize(PULIDO_ENCABEZADO.fuente)
       .setHorizontalAlignment('CENTER').setVerticalAlignment('MIDDLE')
-      .setBackground('#ECEFF1').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+      .setBackground('#0E5C68').setFontColor('#FFFFFF')
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+    hoja.setRowHeight(hrEnc, PULIDO_ENCABEZADO.alturaVisual);
     if (correcciones) advertencias.push('Etiquetas de encabezados normalizadas: ' + correcciones);
   } catch (eEnc) { advertencias.push('Encabezados: ' + (eEnc && eEnc.message || eEnc)); }
 
@@ -425,16 +427,10 @@ function HVis_detectarSectorHoja(nombre) {
 }
 
 /**
- * PURA: color por sector.
+ * PURA: color por sector (tonos pastel de identificación — Parte 1.3).
  */
 function HVis_colorPorSector(sector) {
-  var colores = {
-    'AMARILLO': '#C79A00',
-    'NARANJO': '#E8730A',
-    'VERDE': '#2E7D32',
-    'PACIENTES': '#0D47A1'
-  };
-  return colores[sector] || '#546E7A';
+  return COLORES_SECTOR[sector] || COLORES_SECTOR.DEFECTO;
 }
 
 /**

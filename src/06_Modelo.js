@@ -310,15 +310,50 @@ var MODELO_DISENO = [
   { nombre: 'STAGING_IMPORT',   color: '#8A93A3', oculta: true }
 ];
 
-/** Estiliza la fila de encabezado real de una hoja (headerRow según contrato). */
+/** PURA: ancho de columna según el tipo de campo (ANCHOS_COLUMNA, Parte 2.4/2.5).
+ *  Primer patrón que coincide por substring gana; default 130. */
+function Modelo_anchoColumna(nombreCol) {
+  var n = Utl_texto(nombreCol).toUpperCase();
+  for (var i = 0; i < ANCHOS_COLUMNA.length; i++) {
+    var k = ANCHOS_COLUMNA[i].clave;
+    if (n === k || n.indexOf(k) !== -1) return ANCHOS_COLUMNA[i].ancho;
+  }
+  return 130;
+}
+
+/** PURA: lista de campos por hoja según el contrato (_MODELO_HOJAS_DEF).
+ *  PACIENTES usa MODELO_PACIENTE; INICIO/REM_SALIDA no tienen columnas fijas. */
+function _modelo_camposHoja(nombre) {
+  if (nombre === HOJAS.PACIENTES) return MODELO_PACIENTE.map(function (c) { return c.campo; });
+  var def = _MODELO_HOJAS_DEF[nombre];
+  return (def && def.slice) ? def.slice() : [];
+}
+
+/** GAS: aplica los anchos por campo a una hoja con columnas de contrato. */
+function _modelo_anchosHoja(hoja) {
+  var campos = _modelo_camposHoja(hoja.getName());
+  if (!campos.length) return;
+  campos.forEach(function (c, i) {
+    hoja.setColumnWidth(i + 1, Modelo_anchoColumna(c));
+  });
+}
+
+/** Estiliza la fila de encabezado real de una hoja (headerRow según contrato).
+ *  Parte 2: fuente mayor, bold, WRAP y altura suficiente para nombres largos. */
 function _modelo_estilizarEncabezado(hoja) {
   var cols = hoja.getLastColumn();
   if (!cols) return;
   var hr = Modelo_headerRow(hoja.getName());
   if (hoja.getLastRow() < hr) return;
   hoja.getRange(hr, 1, 1, cols)
-      .setFontWeight('bold').setBackground('#0E5C68').setFontColor('#FFFFFF')
+      .setFontWeight(PULIDO_ENCABEZADO.peso)
+      .setFontSize(PULIDO_ENCABEZADO.fuente)
+      .setBackground('#0E5C68').setFontColor('#FFFFFF')
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
       .setVerticalAlignment('middle').setHorizontalAlignment('center');
+  hoja.setRowHeight(hr, Modelo_esHojaVisual(hoja.getName())
+    ? PULIDO_ENCABEZADO.alturaVisual : PULIDO_ENCABEZADO.alturaSimple);
+  _modelo_anchosHoja(hoja);
 }
 
 /** Banding (filas intercaladas) idempotente SOLO sobre la zona de datos (dataStartRow). */
@@ -332,13 +367,12 @@ function _modelo_aplicarBanda(hoja) {
   banda.setFirstRowColor('#FFFFFF').setSecondRowColor('#F1F3F6'); // surface / surface-alt
 }
 
-/** Anchos y formatos de fecha para hojas de columnas conocidas (desde dataStartRow). */
+/** Formatos de fecha para hojas de columnas conocidas (desde dataStartRow).
+ *  Los ANCHOS los centraliza _modelo_anchosHoja (única fuente de verdad). */
 function _modelo_formatoSencillo(hoja, columnas) {
-  var anchos = { NOMBRE: 200, RUT: 110, OBSERVACIONES: 220, ESTADO: 120 };
   var ini = Modelo_dataStartRow(hoja.getName());
   columnas.forEach(function (nombreCol, i) {
     var esFecha = /FECHA/.test(nombreCol);
-    hoja.setColumnWidth(i + 1, esFecha ? 105 : (anchos[nombreCol] || 130));
     if (esFecha && hoja.getMaxRows() >= ini) {
       hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1).setNumberFormat('dd/MM/yyyy');
     }
@@ -685,10 +719,10 @@ function _modelo_formatearPacientes(hoja) {
   var rangoEnc = hoja.getRange(hr, 1, 1, MODELO_PACIENTE.length);
   rangoEnc.setFontWeight('bold').setBackground('#0E5C68').setFontColor('#ffffff');
 
-  // Anchos razonables según tipo
+  // Anchos razonables según tipo de campo (centralizado en ANCHOS_COLUMNA)
   for (var i = 0; i < MODELO_PACIENTE.length; i++) {
+    var ancho = Modelo_anchoColumna(MODELO_PACIENTE[i].campo);
     var tipo = MODELO_PACIENTE[i].tipo;
-    var ancho = (tipo === 'fecha') ? 100 : (tipo === 'enum' ? 110 : (tipo === 'bool' ? 90 : 160));
     hoja.setColumnWidth(i + 1, ancho);
     if (tipo === 'fecha') {
       hoja.getRange(ini, i + 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), 1)

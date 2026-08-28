@@ -58,7 +58,7 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 
 <div class="final" id="final">
   <div class="big-check">✓</div>
-  <h2>INSTALACIÓN COMPLETADA</h2>
+  <h2>SISTEMA ACTUALIZADO</h2>
   <div class="ver" id="finVer"></div>
   <div class="pruebas" id="finDatos"></div>
   <div class="aviso-final" id="finAvisos"></div>
@@ -71,27 +71,15 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false,_msgTimer=null;
+var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false;
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
 /* Peso relativo por etapa: las importaciones de fuentes dominan el tiempo */
 var PESO_ETAPA={estructura:1,fuentes:8,amarillo:6,validaciones:2,limpieza:1,diseno:2,inicio:3,menu:1,verificar:1};
 function pesoTotal(){return ETAPAS.reduce(function(s,e){return s+(PESO_ETAPA[e.id]||1);},0);}
-var MSG_LENTAS=['Procesando datos…','Estabilizando sistema…','Aplicando cambios en el libro…','Casi listo…'];
-function arrancarMsgs(){
-  pararMsgs();
-  var i=0;
-  _msgTimer=setInterval(function(){
-    i=(i+1)%MSG_LENTAS.length;
-    var el=document.getElementById('etapaTxt');
-    if(el)el.textContent=el.getAttribute('data-etapa')+' — '+MSG_LENTAS[i];
-  },1300);
-}
-function pararMsgs(){if(_msgTimer){clearInterval(_msgTimer);_msgTimer=null;}}
 
 function cancelarInstalacion(){
   if(_CANCELADO)return;
   _CANCELADO=true;
-  pararMsgs();
   document.getElementById('btnCancelarWrap').style.display='none';
   document.getElementById('etapaTxt').textContent='Proceso detenido — puedes cerrar esta ventana';
 }
@@ -125,9 +113,8 @@ function ejecutarSecuencia(ix){
   document.getElementById('btnCancelarWrap').style.display='block';
   marcar(etapa.id,'run');
   var et=document.getElementById('etapaTxt');
-  et.textContent=etapa.nombre+'…';
+  et.textContent='Instalando ECICEP…';
   et.setAttribute('data-etapa',etapa.nombre);
-  arrancarMsgs();
   var hecho=0;
   RESULTADOS.forEach(function(r){
     var e=ETAPAS.filter(function(x){return x.id===r.etapa;})[0];
@@ -139,12 +126,11 @@ function ejecutarSecuencia(ix){
 
   google.script.run.withSuccessHandler(function(r){
     if(_CANCELADO)return;
-    pararMsgs();
     _enCurso=false;
     if(!r||r.ok===false){
       marcar(etapa.id,'err');
       ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&r.motivo)||'error'});
-      document.getElementById('etapaTxt').textContent='Etapa fallida: '+etapa.nombre;
+      document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
       document.getElementById('btnCancelarWrap').style.display='none';
       mostrarFinal(false); /* pantalla de error con reintentar */
       return;
@@ -154,10 +140,10 @@ function ejecutarSecuencia(ix){
     ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
   }).withFailureHandler(function(e){
     if(_CANCELADO)return;
-    pararMsgs();
     _enCurso=false;
     marcar(etapa.id,'err');
     ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(e&&e.message)||e});
+    document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
     document.getElementById('btnCancelarWrap').style.display='none';
     mostrarFinal(false);
   }).api_instalarPaso(etapa.id);
@@ -176,7 +162,11 @@ function mostrarFinal(ok){
   document.getElementById('etapaActual').style.display=ok?'none':'flex';
   if(!ok){
     var er=ERRORES[ERRORES.length-1];
-    document.getElementById('etapaTxt').textContent='✕ '+er.nombre+' falló: '+er.motivo;
+    var et=document.getElementById('etapaTxt');
+    et.textContent='✕ No se pudo completar la instalación.';
+    var det=document.createElement('br');
+    et.appendChild(det);
+    et.append('Fase: '+er.nombre+' · Detalle: '+er.motivo);
     var L=document.getElementById('lista');
     var btn=document.createElement('button');
     btn.className='btn btn-pri';btn.style.width='100%';btn.style.marginTop='8px';

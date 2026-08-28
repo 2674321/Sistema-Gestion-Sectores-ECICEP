@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.9.4',
+  VERSION: '0.8.9.5',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -147,34 +147,165 @@ var COLUMNAS_SECTOR_VISTA = [
 ];
 
 // ---------------------------------------------------------------------------
+// PULIDO VISUAL v0.8.9.5 — paleta clara/suave y parámetros de encabezados.
+// PRINCIPIO (DEC-026): los colores de ORGANIZACIÓN (barras de sección) usan
+// pasteles claros con tinta oscura; los colores SEMÁNTICOS CLÍNICOS de las
+// filas (vigente/próximo/vencido) usan su propia familia y JAMÁS coinciden
+// con los de organización. Valores con contraste TINTA/color ≥ 4.5:1.
+// ---------------------------------------------------------------------------
+
+// Colores de las BARRAS DE SECCIÓN (fila 2): tonos pastel claros.
+const COLORES_SECCION = {
+  IDENTIDAD: '#DCEAFB',           // azul muy claro
+  DATOS_PERSONALES: '#DCEAFB',    // azul claro
+  IDENTIFICACION: '#E8EEF5',      // gris azulado claro
+  SECTORIZACION: '#DFF0E4',       // verde claro
+  ESTRATIFICACION: '#E9DFF3',     // violeta/lila claro
+  INGRESO: '#E8EEF5',             // gris azulado claro
+  CONTROLES: '#FFE3C8',           // naranja claro (≠ próximos clínicos #FFF3CD)
+  CONTROLES_SEGUIMIENTO: '#FFE3C8',
+  CLINICO: '#EDE3F4',             // morado claro
+  TECNICO: '#EEF1F3',             // gris claro
+  OBSERVACIONES: '#EEF1F3',       // gris claro
+  EVENTO: '#FFE9D1',              // naranja claro
+  AUDITORIA: '#E5EBEF'            // gris azulado muy claro
+};
+
+// Tinta de texto sobre barras pastel (contraste alto sobre todas las anteriores).
+const TINTA_SECCION = '#0B3C49';
+
+// Identificación visual de las hojas SECTOR_* (fila 1, barra de título):
+// tonos pastel del sector, mismos fundamentos que las secciones.
+const COLORES_SECTOR = {
+  AMARILLO: '#FFF1C9',
+  NARANJO: '#FFE3C4',
+  VERDE: '#BFE3C9',
+  PACIENTES: '#DCEAFB',
+  DEFECTO: '#EEF1F3'
+};
+
+// Parámetros de diseño de la fila de ENCABEZADOS (Parte 2).
+const PULIDO_ENCABEZADO = {
+  fuente: 12,          // tamaño de letra
+  peso: 'bold',        // negrita
+  wrap: true,          // WrapStrategy.WRAP para nombres largos
+  alturaVisual: 42,    // altura fila de encabezados en hojas visuales
+  alturaSimple: 30     // altura fila de encabezados en hojas simples
+};
+
+// Anchos de columna por tipo de campo (Parte 2.4/2.5): el primer patrón que
+// coincida por substring (en orden) gana. 'NOMBRE' amplio para lectura;
+// campos técnicos compactos; fechas con ancho para 'dd/MM/yyyy'.
+const ANCHOS_COLUMNA = [
+  { clave: 'NOMBRE_NORMALIZADO', ancho: 150 },
+  { clave: 'NOMBRE', ancho: 240 },
+  { clave: 'RUT', ancho: 110 },
+  { clave: 'ID_INTERNO', ancho: 135 },
+  { clave: 'ID_EVENTO', ancho: 135 },
+  { clave: 'ID_PROVISIONAL', ancho: 150 },
+  { clave: 'FECHA', ancho: 110 },
+  { clave: 'TELEFON', ancho: 135 },
+  { clave: 'OBSERVACION', ancho: 270 },
+  { clave: 'ESTRATIFICACION', ancho: 130 },
+  { clave: 'ESTRAT_', ancho: 130 },
+  { clave: 'PROXIMO_CONTROL', ancho: 115 },
+  { clave: 'ULTIMO', ancho: 115 },
+  { clave: 'COMPOSICION_CONTROL', ancho: 150 },
+  { clave: 'CONDICIONES', ancho: 200 },
+  { clave: 'PATOLOG', ancho: 220 },
+  { clave: 'DUPLA', ancho: 150 },
+  { clave: 'PROFESIONAL', ancho: 165 },
+  { clave: 'EMAIL', ancho: 180 },
+  { clave: 'CORREO', ancho: 180 },
+  { clave: 'DESCRIPCION', ancho: 220 },
+  { clave: 'NOTA', ancho: 210 },
+  { clave: 'DETALLE', ancho: 210 },
+  { clave: 'NORMALIZADO', ancho: 170 },
+  { clave: 'ERRORES', ancho: 170 },
+  { clave: 'WARNINGS', ancho: 170 },
+  { clave: 'VALORES_ORIGINALES', ancho: 180 },
+  { clave: 'IDENTIFICACION', ancho: 170 },
+  { clave: 'ARCHIVO', ancho: 180 },
+  { clave: 'FUENTE', ancho: 170 },
+  { clave: 'HOJAS', ancho: 160 },
+  { clave: 'EXAMEN', ancho: 170 },
+  { clave: 'VIGENCIA', ancho: 100 },
+  { clave: 'UNIDAD', ancho: 90 },
+  { clave: 'ACTIVO', ancho: 80 },
+  { clave: 'CODIGO', ancho: 100 },
+  { clave: 'CLAVE', ancho: 160 },
+  { clave: 'VALOR', ancho: 360 },
+  { clave: 'SECTOR', ancho: 100 },
+  { clave: 'SEXO', ancho: 55 },
+  { clave: 'EDAD', ancho: 55 },
+  { clave: 'ESTADO', ancho: 125 },
+  { clave: 'TIPO', ancho: 100 },
+  { clave: 'REGISTRO', ancho: 115 },
+  { clave: 'DEFAULT', ancho: 130 }
+];
+
+// ---------------------------------------------------------------------------
+// TERMINOLOGÍA OFICIAL v0.8.9.5 (Parte 6): diccionario de términos del
+// proyecto. Regla: un término por contexto; NO alternar sinónimos en la
+// misma funcionalidad.
+//   PACIENTE    → entidad de atención (base PACIENTES, ficha, estratificación)
+//   PERSONA     → término genérico de navegación (menú "Personas")
+//   INGRESO     → entrada de un paciente por la puerta de un sector
+//   CONTROL     → control clínico registrado (EVENTOS)
+//   SEGUIMIENTO → seguimiento a distancia registrado (EVENTOS)
+//   ESTRATIFICACIÓN → nivel de riesgo G1/G2/G3 (con tilde en UI)
+//   RESPONSABLE → profesional/equipo que responde por un sector
+//   SECTOR      → zona territorial del CESFAM (NARANJO/AMARILLO/VERDE)
+// ---------------------------------------------------------------------------
+const TERMINOLOGIA = {
+  PACIENTE: 'PACIENTE',
+  PERSONA: 'PERSONA',
+  INGRESO: 'INGRESO',
+  CONTROL: 'CONTROL',
+  SEGUIMIENTO: 'SEGUIMIENTO',
+  ESTRATIFICACION: 'ESTRATIFICACIÓN',
+  RESPONSABLE: 'RESPONSABLE',
+  SECTOR: 'SECTOR',
+  ETIQUETAS: {
+    BUSCAR: 'Buscar paciente',
+    FICHA: 'Ficha del paciente',
+    COLAREVISION: 'Cola de revisión',
+    PROCESAR: 'Procesar ingresos',
+    CONTROLES: 'Controles por persona'
+  }
+};
+
+// ---------------------------------------------------------------------------
 // Configuración declarativa de secciones visuales por tipo de hoja.
 // Cada sección agrupa columnas reales existentes; NO inventa columnas.
 // Las claves de columna deben coincidir exactamente con los modelos.
+// Los colores DE ORGANIZACIÓN se toman de COLORES_SECCION (nunca de las
+// familias semánticas clínicas de las filas).
 // ---------------------------------------------------------------------------
 const SECCIONES_HOJAS = {
   INGRESO: [
     {
       id: 'datosPersonales',
       nombre: 'DATOS PERSONALES',
-      color: '#1565C0',
+      color: COLORES_SECCION.DATOS_PERSONALES,
       columnas: ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)']
     },
     {
       id: 'identificacion',
       nombre: 'IDENTIFICACIÓN',
-      color: '#546E7A',
+      color: COLORES_SECCION.IDENTIFICACION,
       columnas: ['FECHA DE INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']
     },
     {
       id: 'sectorizacion',
       nombre: 'SECTORIZACIÓN',
-      color: '#2E7D32',
+      color: COLORES_SECCION.SECTORIZACION,
       columnas: ['ESTRATIFICACION']
     },
     {
       id: 'controlesSeguimiento',
       nombre: 'CONTROLES / SEGUIMIENTO',
-      color: '#EF6C00',
+      color: COLORES_SECCION.CONTROLES,
       columnas: ['DUPLA INGRESO', 'OBSERVACIONES']
     }
   ],
@@ -182,37 +313,37 @@ const SECCIONES_HOJAS = {
     {
       id: 'identidad',
       nombre: 'IDENTIDAD',
-      color: '#0D47A1',
+      color: COLORES_SECCION.IDENTIDAD,
       columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS']
     },
     {
       id: 'sectorizacion',
       nombre: 'SECTORIZACIÓN',
-      color: '#2E7D32',
+      color: COLORES_SECCION.SECTORIZACION,
       columnas: ['SECTOR', 'ESTRATIFICACION', 'ESTADO']
     },
     {
       id: 'ingreso',
       nombre: 'INGRESO',
-      color: '#37474F',
+      color: COLORES_SECCION.INGRESO,
       columnas: ['DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO']
     },
     {
       id: 'controles',
       nombre: 'CONTROLES',
-      color: '#EF6C00',
+      color: COLORES_SECCION.CONTROLES,
       columnas: ['ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'COMPOSICION_CONTROL']
     },
     {
       id: 'clinico',
       nombre: 'CLÍNICO',
-      color: '#6A1B9A',
+      color: COLORES_SECCION.CLINICO,
       columnas: ['CONDICIONES', 'OTRAS_PATOLOGIAS', 'OBSERVACIONES']
     },
     {
       id: 'tecnico',
       nombre: 'TÉCNICO',
-      color: '#546E7A',
+      color: COLORES_SECCION.TECNICO,
       columnas: ['NOMBRE_NORMALIZADO', 'RUT_DV_VALIDO', 'RUT_SIN_DV', 'ESTRAT_ORIGEN', 'ESTRAT_CALCULADA', 'ESTRAT_FECHA_CALCULO', 'FUENTE', 'FECHA_ACTUALIZACION', 'REQUIERE_REVISION']
     }
   ],
@@ -220,25 +351,25 @@ const SECCIONES_HOJAS = {
     {
       id: 'identidad',
       nombre: 'IDENTIDAD',
-      color: '#0D47A1',
+      color: COLORES_SECCION.IDENTIDAD,
       columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO']
     },
     {
       id: 'sectorizacion',
       nombre: 'SECTORIZACIÓN',
-      color: '#2E7D32',
+      color: COLORES_SECCION.SECTORIZACION,
       columnas: ['ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO']
     },
     {
       id: 'controles',
       nombre: 'CONTROLES',
-      color: '#EF6C00',
+      color: COLORES_SECCION.CONTROLES,
       columnas: ['ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'ULTIMO_EVENTO']
     },
     {
       id: 'observaciones',
       nombre: 'OBSERVACIONES',
-      color: '#546E7A',
+      color: COLORES_SECCION.TECNICO,
       columnas: ['OBSERVACIONES']
     }
   ],
@@ -246,25 +377,25 @@ const SECCIONES_HOJAS = {
     {
       id: 'evento',
       nombre: 'EVENTO',
-      color: '#EF6C00',
+      color: COLORES_SECCION.CONTROLES,
       columnas: ['ID_EVENTO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'DESCRIPCION', 'CANTIDAD', 'OBSERVACIONES']
     },
     {
       id: 'identidad',
       nombre: 'IDENTIDAD',
-      color: '#0D47A1',
+      color: COLORES_SECCION.IDENTIDAD,
       columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR']
     },
     {
       id: 'clinico',
       nombre: 'CLÍNICO',
-      color: '#6A1B9A',
+      color: COLORES_SECCION.CLINICO,
       columnas: ['RIESGO_G', 'PROFESIONAL', 'PROFESIONAL_TIPO']
     },
     {
       id: 'auditoria',
       nombre: 'AUDITORÍA',
-      color: '#546E7A',
+      color: COLORES_SECCION.TECNICO,
       columnas: ['FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO']
     }
   ]
@@ -288,22 +419,6 @@ const TIPO_SECCIONES_POR_HOJA = {
   'SECTOR_AMARILLO': 'SECTOR_VISTA',
   'SECTOR_VERDE': 'SECTOR_VISTA',
   'EVENTOS': 'EVENTOS'
-};
-
-// Colores semánticos de sección (paleta consistente)
-const COLORES_SECCION = {
-  IDENTIDAD: '#0D47A1',
-  DATOS_PERSONALES: '#1565C0',
-  IDENTIFICACION: '#546E7A',
-  SECTORIZACION: '#2E7D32',
-  INGRESO: '#37474F',
-  CONTROLES: '#EF6C00',
-  CONTROLES_SEGUIMIENTO: '#EF6C00',
-  CLINICO: '#6A1B9A',
-  TECNICO: '#546E7A',
-  OBSERVACIONES: '#546E7A',
-  EVENTO: '#EF6C00',
-  AUDITORIA: '#546E7A'
 };
 
 // Claves de búsqueda válidas por hoja (para buscador rápido)

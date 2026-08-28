@@ -73,6 +73,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_escala_v088(t, A);
   _pruebas_hojasvisual_v0881(t, A);
   _pruebas_hojasvisual_v0883(t, A);
+  _pruebas_pulido_v0895(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -537,6 +538,7 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(store.pacientes.length, DATASET_STAGING.base.length, '+0 pacientes');
     A.igual(store.eventos.length, 0, '+0 eventos');
     A.igual(s.resumen.revision, 1, 'a revisión');
+    A.igual(s.resumen.duplicados, 1, 'resumen duplicados (POSIBLE_DUPLICADO)');
     A.igual(s.resultados[0].estado, 'REQUIERE_REVISION', 'estado fila');
   });
 
@@ -2586,7 +2588,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.4', 'versión esperada v0.8.9.4');
+    A.igual(v, '0.8.9.5', 'versión esperada v0.8.9.5');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2827,9 +2829,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.4', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.5', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.4', 'versión esperada v0.8.9.4');
+    A.igual(v, '0.8.9.5', 'versión esperada v0.8.9.5');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3026,11 +3028,11 @@ function _pruebas_hojasvisual_v0881(t, A) {
   });
 
   t('HOJAS VISUALES v0.8.9.0: COLORES_SECCION paleta semántica completa', function () {
-    A.igual(COLORES_SECCION.IDENTIDAD, '#0D47A1');
-    A.igual(COLORES_SECCION.SECTORIZACION, '#2E7D32');
-    A.igual(COLORES_SECCION.CONTROLES, '#EF6C00');
-    A.igual(COLORES_SECCION.CLINICO, '#6A1B9A');
-    A.igual(COLORES_SECCION.TECNICO, '#546E7A');
+    A.igual(COLORES_SECCION.IDENTIDAD, '#DCEAFB');
+    A.igual(COLORES_SECCION.SECTORIZACION, '#DFF0E4');
+    A.igual(COLORES_SECCION.CONTROLES, '#FFE3C8');
+    A.igual(COLORES_SECCION.CLINICO, '#EDE3F4');
+    A.igual(COLORES_SECCION.TECNICO, '#EEF1F3');
   });
 }
 
@@ -3184,5 +3186,133 @@ function _pruebas_hojasvisual_v0883(t, A) {
     A.cierto(typeof HVis_calcularPlan === 'function', 'HVis_calcularPlan existe');
     A.cierto(typeof HVis_validarSeccion === 'function', 'HVis_validarSeccion existe');
     A.cierto(typeof HVis_mapaColumnas === 'function', 'HVis_mapaColumnas existe');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.9.5 — PULIDO VISUAL + AUTOMATIZACIÓN INGRESOS + UX/TERMINOLOGÍA
+// ---------------------------------------------------------------------------
+function _pruebas_pulido_v0895(t, A) {
+  function _lum(hex) {
+    var h = hex.replace('#', '');
+    var r = parseInt(h.substr(0, 2), 16) / 255;
+    var g = parseInt(h.substr(2, 2), 16) / 255;
+    var b = parseInt(h.substr(4, 2), 16) / 255;
+    function lin(c) {
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+  function _ratio(a, b) {
+    var l1 = _lum(a), l2 = _lum(b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  }
+
+  t('PULIDO v0.8.9.5: TERMINOLOGIA diccionario completo', function () {
+    A.igual(TERMINOLOGIA.PACIENTE, 'PACIENTE');
+    A.igual(TERMINOLOGIA.SEGUIMIENTO, 'SEGUIMIENTO');
+    A.igual(TERMINOLOGIA.ESTRATIFICACION, 'ESTRATIFICACIÓN');
+    A.igual(TERMINOLOGIA.ETIQUETAS.BUSCAR, 'Buscar paciente');
+    A.igual(TERMINOLOGIA.ETIQUETAS.FICHA, 'Ficha del paciente');
+    A.igual(TERMINOLOGIA.ETIQUETAS.COLAREVISION, 'Cola de revisión');
+    A.igual(TERMINOLOGIA.ETIQUETAS.PROCESAR, 'Procesar ingresos');
+    A.igual(TERMINOLOGIA.ETIQUETAS.CONTROLES, 'Controles por persona');
+  });
+
+  t('PULIDO v0.8.9.5: PULIDO_ENCABEZADO legible (12/bold/wrap/alturas)', function () {
+    A.igual(PULIDO_ENCABEZADO.fuente, 12, 'fuente');
+    A.igual(PULIDO_ENCABEZADO.peso, 'bold', 'peso');
+    A.cierto(PULIDO_ENCABEZADO.wrap === true, 'wrap');
+    A.igual(PULIDO_ENCABEZADO.alturaVisual, 42, 'altura visual');
+    A.igual(PULIDO_ENCABEZADO.alturaSimple, 30, 'altura simple');
+  });
+
+  t('PULIDO v0.8.9.5: paleta pastel con contraste TINTA ≥ 4.5:1', function () {
+    var malos = [];
+    Object.keys(COLORES_SECCION).forEach(function (k) {
+      var c = _ratio(TINTA_SECCION, COLORES_SECCION[k]);
+      if (c < 4.5) malos.push(k + ':' + c.toFixed(2));
+    });
+    Object.keys(COLORES_SECTOR).forEach(function (k) {
+      var c = _ratio(TINTA_SECCION, COLORES_SECTOR[k]);
+      if (c < 4.5) malos.push(k + ':' + c.toFixed(2));
+    });
+    A.igual(malos.length, 0, 'tinta legible en todas las superficies (' + malos.join(', ') + ')');
+    A.igual(TINTA_SECCION, '#0B3C49');
+  });
+
+  t('PULIDO v0.8.9.5: CONTROLES pastel ≠ colores clínicos de CF', function () {
+    A.cierto(COLORES_SECCION.CONTROLES !== '#FFF3CD', '≠ próximos clínicos');
+    A.cierto(COLORES_SECCION.CONTROLES !== '#D4EDDA', '≠ vigente');
+    A.cierto(COLORES_SECCION.CONTROLES !== '#F8D7DA', '≠ vencido');
+  });
+
+  t('PULIDO v0.8.9.5: SECCIONES_HOJAS referencian valores de COLORES_SECCION', function () {
+    var valores = Object.keys(COLORES_SECCION).map(function (k) { return COLORES_SECCION[k]; });
+    var mal = [];
+    Object.keys(SECCIONES_HOJAS).forEach(function (tipo) {
+      SECCIONES_HOJAS[tipo].forEach(function (s) {
+        if (valores.indexOf(s.color) === -1) mal.push(tipo + ':' + s.id + '=' + s.color);
+      });
+    });
+    A.igual(mal.length, 0, 'todas las refs son de la paleta (' + mal.join(', ') + ')');
+  });
+
+  t('PULIDO v0.8.9.5: Modelo_anchoColumna centralizado (orden=precedencia)', function () {
+    A.igual(Modelo_anchoColumna('NOMBRE_NORMALIZADO'), 150, 'normalizado gana a NOMBRE');
+    A.igual(Modelo_anchoColumna('NOMBRE'), 240, 'nombre amplio');
+    A.igual(Modelo_anchoColumna('RUT'), 110, 'rut');
+    A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 110, 'fecha');
+    A.igual(Modelo_anchoColumna('SEXO'), 55, 'sexo compacto');
+    A.igual(Modelo_anchoColumna('CAMPORARO'), 130, 'default');
+  });
+
+  t('PULIDO v0.8.9.5: _modelo_camposHoja cubre PACIENTES y hojas con contrato', function () {
+    A.igual(_modelo_camposHoja('PACIENTES').length, MODELO_PACIENTE.length, 'pacientes');
+    A.igual(_modelo_camposHoja('PACIENTES')[0], 'ID_INTERNO', 'primera columna');
+    A.igual(_modelo_camposHoja('SECTOR_AMARILLO').length, COLUMNAS_SECTOR_VISTA.length, 'sector amarillo');
+    A.igual(_modelo_camposHoja('INICIO').length, 0, 'INICIO sin columnas fijas');
+  });
+
+  t('PULIDO v0.8.9.5: Ingresos_resumenTexto un solo mensaje breve', function () {
+    A.igual(Ingresos_resumenTexto({}), 'Sin ingresos pendientes', 'vacío');
+    A.igual(Ingresos_resumenTexto(null), 'Sin ingresos pendientes', 'nulo');
+    A.igual(Ingresos_resumenTexto({ leidos: 5, nuevos: 3, existentes: 1, eventosCreados: 4 }),
+      '✓ Ingresados: 4 · Eventos: 4', 'condeo sin revision/errores');
+    A.igual(Ingresos_resumenTexto({ leidos: 5, nuevos: 2, existentes: 1, eventosCreados: 3, duplicados: 1, revision: 1 }),
+      '✓ Ingresados: 3 · Eventos: 3 · Duplicados: 1 · Revisión: 1', 'duplicados+revisión');
+    A.cierto(Ingresos_resumenTexto({ leidos: 2, conError: 1, nuevos: 1, eventosCreados: 1 })
+      .indexOf('Errores: 1') !== -1, 'errores visibles');
+    A.igual(Ingresos_resumenTexto({ leidos: 1 }), '✓ Ingresados: 0 · Eventos: 0', 'ceros presentes');
+  });
+
+  t('PULIDO v0.8.9.5: lote mixto pendientes → resumen por puerta', function () {
+    // Lote heterogéneo sobre el pipeline existente (mismas reglas que el GAS):
+    // un nuevo, un existente, un posible duplicado y un inválido conviven;
+    // los errores no bloquean el avance y cada puerta contabiliza.
+    var store = { pacientes: JSON.parse(JSON.stringify(DATASET_STAGING.base)), eventos: [] };
+    var filas = [
+      _stagingCaso('nuevoOk', 1),
+      _stagingCaso('existenteRut', 2),
+      _stagingCaso('posibleDuplicadoNombre', 3),
+      _stagingCaso('rutInvalido', 4)
+    ];
+    var s = Ingresos_procesarFilas(filas, store, {
+      nuevoId: function (i) { return 'EC-PUL-' + ('000' + i).slice(-3); }
+    });
+    A.igual(s.resumen.nuevos, 1, 'nuevos');
+    A.igual(s.resumen.existentes, 1, 'existentes');
+    A.igual(s.resumen.duplicados, 1, 'duplicados');
+    A.igual(s.resumen.revision, 1, 'revision contabilizada');
+    A.igual(s.resumen.conError, 1, 'error no bloquea al lote');
+    A.igual(s.resumen.eventosCreados, 2, 'eventos de los dos válidos');
+  });
+
+  t('PULIDO v0.8.9.5: Ingresos_resumenTexto listo para el toast 3.7', function () {
+    var resumen = { leidos: 10, nuevos: 4, existentes: 0, eventosCreados: 4, revision: 0, conError: 0 };
+    var txt = Ingresos_resumenTexto(resumen);
+    A.cierto(txt.indexOf('ms') === -1, 'sin tiempo técnico');
+    A.cierto(txt.indexOf('Ejecución') === -1, 'sin id de ejecución');
+    A.igual(txt, '✓ Ingresados: 4 · Eventos: 4');
   });
 }

@@ -152,3 +152,27 @@ function Utl_cacheOlvidar(clave) {
     CacheService.getScriptCache().remove(CFG_CACHE.PREFIJO + clave);
   } catch (e) { /* no-op */ }
 }
+
+// ---------------------------------------------------------------------------
+// Toast semántico de servidor (Parte 5 v0.8.9.5): centraliza icono y título.
+// tipo: 'ok' → ✓ · 'warn' → ⚠ · 'err' → ✕ · 'info' → sin icono.
+// Regla: UN mensaje final breve; los detalles técnicos van al LOG, no al toast.
+// ---------------------------------------------------------------------------
+
+/** Devuelve el prefijo de icono para un tipo de toast. PURA. */
+function Utl_toastIcono(tipo) {
+  if (tipo === 'ok') return '✓ ';
+  if (tipo === 'warn') return '⚠ ';
+  if (tipo === 'err') return '✕ ';
+  return '';
+}
+
+/** GAS: muestra un toast breve con semántica central. Sin fallas si no hay
+ *  spreadsheet activo (node o entorno sin UI). */
+function Utl_toast(tipo, texto, segundos) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return;
+    ss.toast(Utl_toastIcono(tipo) + texto, 'ECICEP', segundos || 6);
+  } catch (e) { /* sin UI: silencioso */ }
+}

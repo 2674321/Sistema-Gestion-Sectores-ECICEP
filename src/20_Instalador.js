@@ -7,18 +7,18 @@
  */
 
 var INSTALAR_ETAPAS = [
-  { id: 'runtime',      nombre: 'Validación de runtime',      fn: 'Instalar_pRuntime' },
-  { id: 'diagnostico',  nombre: 'Diagnóstico previo',       fn: 'Instalar_pDiagnostico' },
-  { id: 'estructura',   nombre: 'Estructura y CONFIG',      fn: 'Instalar_pEstructura' },
-  { id: 'fuentes',      nombre: 'Carga inicial de fuentes', fn: 'Instalar_pFuentes' },
-  { id: 'amarillo',     nombre: 'Sector Amarillo',          fn: 'Instalar_pAmarillo' },
-  { id: 'visual',       nombre: 'Layout visual (contrato)', fn: 'Instalar_pVisual' },
-  { id: 'validaciones', nombre: 'Validaciones INGRESO',     fn: 'Instalar_pValidaciones' },
-  { id: 'limpieza',     nombre: 'Limpieza de residuales',   fn: 'Instalar_pLimpieza' },
-  { id: 'diseno',       nombre: 'Diseño del libro',         fn: 'Instalar_pDiseno' },
-  { id: 'inicio',       nombre: 'INICIO + interfaz hojas',  fn: 'Instalar_pInicio' },
-  { id: 'menu',         nombre: 'Menú y permisos',          fn: 'Instalar_pMenu' },
-  { id: 'verificar',    nombre: 'Verificación final',       fn: 'Instalar_pVerificar' }
+  { id: 'runtime',      nombre: 'Verificando el entorno',       fn: 'Instalar_pRuntime' },
+  { id: 'diagnostico',  nombre: 'Diagnóstico previo',           fn: 'Instalar_pDiagnostico' },
+  { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura' },
+  { id: 'fuentes',      nombre: 'Importando fuentes',           fn: 'Instalar_pFuentes' },
+  { id: 'amarillo',     nombre: 'Integrando sector amarillo',   fn: 'Instalar_pAmarillo' },
+  { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
+  { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
+  { id: 'limpieza',     nombre: 'Depurando datos residuales',   fn: 'Instalar_pLimpieza' },
+  { id: 'diseno',       nombre: 'Ajustando el libro',           fn: 'Instalar_pDiseno' },
+  { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
+  { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
+  { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
 ];
 
 /** Registro para el cliente. */

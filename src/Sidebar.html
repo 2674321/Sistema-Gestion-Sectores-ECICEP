@@ -521,7 +521,7 @@ function pintarSeguimiento(sg){
   if(rec) rec.textContent=(sg&&sg.recordatorio)||'Sin registro de control';
 }
 function segActualizar(btn,tipo){
-  if(!P_ACTUAL){toast('No hay persona abierta','err');return;}
+  if(!P_ACTUAL){toast('No hay paciente abierto','err');return;}
   var hoy=new Date().toISOString().slice(0,10);
   var fin=_btnCargando(btn,'Guardando…');
   google.script.run.withSuccessHandler(function(r){

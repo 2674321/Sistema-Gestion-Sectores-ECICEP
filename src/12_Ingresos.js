@@ -129,7 +129,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     leidos: filasStaging.length,
     validacionOk: 0, validacionWarning: 0, validacionError: 0,
     validos: 0, conError: 0, bloqueados: 0,
-    nuevos: 0, existentes: 0, revision: 0, eventosCreados: 0
+    nuevos: 0, existentes: 0, revision: 0, duplicados: 0, eventosCreados: 0
   };
 
   function registrar(fila, estado, nota, idInterno, idEvento) {
@@ -176,6 +176,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     }
     if (decision === 'REVISION') {
       resumen.revision += 1;
+      if (iden.resultado === 'POSIBLE_DUPLICADO') resumen.duplicados += 1;
       registrar(fila, 'REQUIERE_REVISION',
         iden.criterio || 'requiere revisión manual', iden.idPaciente);
       return;
@@ -225,6 +226,25 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
 // ---------------------------------------------------------------------------
 // Wrapper GAS — lectura de hojas, persistencia por lotes y trazabilidad
 // ---------------------------------------------------------------------------
+
+/**
+ * PURA: resumen breve para el usuario (Parte 3.7 y 5.3). Un único mensaje
+ * final con las cuentas relevantes; cero detalle técnico.
+ * Formato: "✓ Ingresados: X · Eventos: X · Revisión: N · Errores: M"
+ * (los bloques con 0 se omiten; "Duplicados" aparece solo si los hay).
+ */
+function Ingresos_resumenTexto(r) {
+  var resumen = r || {};
+  if (!resumen.leidos) return 'Sin ingresos pendientes';
+  var partes = [
+    'Ingresados: ' + ((resumen.nuevos || 0) + (resumen.existentes || 0)),
+    'Eventos: ' + (resumen.eventosCreados || 0)
+  ];
+  if ((resumen.duplicados || 0) > 0) partes.push('Duplicados: ' + resumen.duplicados);
+  if ((resumen.revision || 0) > 0) partes.push('Revisión: ' + resumen.revision);
+  if ((resumen.conError || 0) > 0) partes.push('Errores: ' + resumen.conError);
+  return '✓ ' + partes.join(' · ');
+}
 
 function _ingresosUsuarioActual() {
   try {
