@@ -145,8 +145,8 @@ function Modelo_guardCerrarRevision(obj) {
 function Modelo_diagnosticoTrazabilidad() {
   var res = { total: 0, ok: 0, conFuenteVacia: 0, conFuenteVaciaRevisionFalse: 0, incompletas: [] };
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (!hoja || hoja.getLastRow() < 2) return res;
-  var valores = Utl_leerBloque(hoja);
+  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.PACIENTES)) return res;
+  var valores = Modelo_leerBloqueCabecera(HOJAS.PACIENTES, hoja);
   var campos = (valores[0] || []).map(function (c) { return Utl_texto(c); });
   for (var f = 1; f < valores.length; f++) {
     var fila = valores[f];
@@ -157,7 +157,7 @@ function Modelo_diagnosticoTrazabilidad() {
     if (ev.estado === 'OK') { res.ok++; continue; }
     res.conFuenteVacia++;
     if (ev.revisionIndebida) res.conFuenteVaciaRevisionFalse++;
-    res.incompletas.push({ fila: f + 1, id: obj.ID_INTERNO, rut: obj.RUT, nombre: obj.NOMBRE,
+    res.incompletas.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1), id: obj.ID_INTERNO, rut: obj.RUT, nombre: obj.NOMBRE,
                            fuente: Utl_texto(obj.FUENTE),
                            requiereRevision: !ev.revisionIndebida });
   }
@@ -177,8 +177,8 @@ function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
   var rutClave = Utl_texto(rutBuscado).trim().toUpperCase();
   if (!rutClave) return { ok: false, motivo: 'RUT_VACIO' };
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (!hoja || hoja.getLastRow() < 2) return { ok: false, motivo: 'SIN_DATOS' };
-  var valores = Utl_leerBloque(hoja);
+  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.PACIENTES)) return { ok: false, motivo: 'SIN_DATOS' };
+  var valores = Modelo_leerBloqueCabecera(HOJAS.PACIENTES, hoja);
   var campos = (valores[0] || []).map(function (c) { return Utl_texto(c); });
   var iRut = campos.indexOf('RUT'), iFuente = campos.indexOf('FUENTE'), iRev = campos.indexOf('REQUIERE_REVISION');
   if (iRut < 0 || iFuente < 0) return { ok: false, motivo: 'ESQUEMA_SIN_RUT_O_FUENTE' };
@@ -187,11 +187,12 @@ function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
     if (!Utl_vacio(Utl_texto(valores[f][iFuente]))) {
       return { ok: false, motivo: 'FUENTE_YA_PRESENTE_NO_SE_SOBSSCRIBE', actual: Utl_texto(valores[f][iFuente]) };
     }
-    hoja.getRange(f + 1, iFuente + 1).setValue(fuenteLimpia);
-    if (iRev >= 0) hoja.getRange(f + 1, iRev + 1).setValue(false);
+    var filaFisica = Modelo_filaFisica(HOJAS.PACIENTES, f - 1);
+    hoja.getRange(filaFisica, iFuente + 1).setValue(fuenteLimpia);
+    if (iRev >= 0) hoja.getRange(filaFisica, iRev + 1).setValue(false);
     Log_info('Modelo', 'restaurarFuente',
-      'rut=' + rutClave + ' fuente=[' + fuenteLimpia + '] fila=' + (f + 1));
-    return { ok: true, fila: f + 1, id: valores[f][campos.indexOf('ID_INTERNO')],
+      'rut=' + rutClave + ' fuente=[' + fuenteLimpia + '] fila=' + filaFisica);
+    return { ok: true, fila: filaFisica, id: valores[f][campos.indexOf('ID_INTERNO')],
              nombre: valores[f][campos.indexOf('NOMBRE')] };
   }
   return { ok: false, motivo: 'RUT_NO_ENCONTRADO' };
@@ -207,7 +208,7 @@ function Modelo_asegurarEsquemaPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, insertar: [], motivo: 'SIN_HOJA_PACIENTES' };
   var ancho = Math.max(hoja.getLastColumn() || 0, MODELO_PACIENTE.length);
-  var fisicos = hoja.getRange(1, 1, 1, ancho).getValues()[0];
+  var fisicos = hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), 1, 1, ancho).getValues()[0];
   var plan = Modelo_planMigracionEsquema(fisicos, Modelo_campos());
   if (plan.ok) return plan;
   if (!plan.insertar.length) {
@@ -217,7 +218,7 @@ function Modelo_asegurarEsquemaPacientes() {
   for (var k = plan.insertar.length - 1; k >= 0; k--) {
     var ins = plan.insertar[k];
     hoja.insertColumns(ins.indiceFinal + 1);
-    hoja.getRange(1, ins.indiceFinal + 1).setValue(ins.campo);
+    hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), ins.indiceFinal + 1).setValue(ins.campo);
   }
   var repar = Modelo_repararCamposTecnicos();
   Log_warning('Modelo', 'asegurarEsquema',
@@ -236,8 +237,8 @@ function Modelo_asegurarEsquemaPacientes() {
 function Modelo_repararCamposTecnicos() {
   var res = { reparados: 0, marcadosRevision: 0, sospechosas: [] };
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (!hoja || hoja.getLastRow() < 2) return res;
-  var valores = Utl_leerBloque(hoja);
+  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.PACIENTES)) return res;
+  var valores = Modelo_leerBloqueCabecera(HOJAS.PACIENTES, hoja);
   var campos = (valores[0] || []).map(function (c) { return Utl_texto(c); });
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
@@ -249,7 +250,7 @@ function Modelo_repararCamposTecnicos() {
         obj.REQUIERE_REVISION !== true) {
       obj.REQUIERE_REVISION = true; n++;
       res.marcadosRevision++;
-      res.sospechosas.push({ fila: f + 1, id: obj.ID_INTERNO, rut: obj.RUT, nombre: obj.NOMBRE });
+      res.sospechosas.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1), id: obj.ID_INTERNO, rut: obj.RUT, nombre: obj.NOMBRE });
     }
     if (n > 0) {
       res.reparados++;
@@ -260,7 +261,7 @@ function Modelo_repararCamposTecnicos() {
     }
     salida.push(fila);
   }
-  if (res.reparados > 0) Utl_escribirBloque(hoja, 2, 1, salida);
+  if (res.reparados > 0) Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, salida);
   return res;
 }
 
@@ -309,33 +310,37 @@ var MODELO_DISENO = [
   { nombre: 'STAGING_IMPORT',   color: '#8A93A3', oculta: true }
 ];
 
-/** Estiliza la fila de encabezado de una hoja de datos (marca ECICEP). */
+/** Estiliza la fila de encabezado real de una hoja (headerRow según contrato). */
 function _modelo_estilizarEncabezado(hoja) {
   var cols = hoja.getLastColumn();
   if (!cols) return;
-  hoja.getRange(1, 1, 1, cols)
+  var hr = Modelo_headerRow(hoja.getName());
+  if (hoja.getLastRow() < hr) return;
+  hoja.getRange(hr, 1, 1, cols)
       .setFontWeight('bold').setBackground('#0E5C68').setFontColor('#FFFFFF')
       .setVerticalAlignment('middle').setHorizontalAlignment('center');
 }
 
-/** Banding (filas intercaladas) idempotente con colores del sistema de diseño. */
+/** Banding (filas intercaladas) idempotente SOLO sobre la zona de datos (dataStartRow). */
 function _modelo_aplicarBanda(hoja) {
   var cols = Math.max(hoja.getLastColumn(), 1);
+  var ini = Modelo_dataStartRow(hoja.getName());
   var rango = hoja.getRange(1, 1, hoja.getMaxRows(), cols);
   rango.getBandings().forEach(function (b) { b.remove(); });
-  if (hoja.getMaxRows() < 2) return;
-  var banda = hoja.getRange(2, 1, hoja.getMaxRows() - 1, cols).applyRowBanding();
+  if (hoja.getMaxRows() < ini) return;
+  var banda = hoja.getRange(ini, 1, hoja.getMaxRows() - ini + 1, cols).applyRowBanding();
   banda.setFirstRowColor('#FFFFFF').setSecondRowColor('#F1F3F6'); // surface / surface-alt
 }
 
-/** Anchos y formatos de fecha para hojas de columnas conocidas (ingreso y vistas sector). */
+/** Anchos y formatos de fecha para hojas de columnas conocidas (desde dataStartRow). */
 function _modelo_formatoSencillo(hoja, columnas) {
   var anchos = { NOMBRE: 200, RUT: 110, OBSERVACIONES: 220, ESTADO: 120 };
+  var ini = Modelo_dataStartRow(hoja.getName());
   columnas.forEach(function (nombreCol, i) {
     var esFecha = /FECHA/.test(nombreCol);
     hoja.setColumnWidth(i + 1, esFecha ? 105 : (anchos[nombreCol] || 130));
-    if (esFecha && hoja.getMaxRows() > 1) {
-      hoja.getRange(2, i + 1, hoja.getMaxRows() - 1, 1).setNumberFormat('dd/MM/yyyy');
+    if (esFecha && hoja.getMaxRows() >= ini) {
+      hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1).setNumberFormat('dd/MM/yyyy');
     }
   });
 }
@@ -358,7 +363,7 @@ function Modelo_aplicarDiseno() {
       if (!h) return;
       h.setTabColor(d.color);
       res.coloreadas++;
-      h.setFrozenRows(1);
+      h.setFrozenRows(Modelo_headerRow(h.getName())); // visuales: 3 (título+secciones+headers); simples: 1
       if (d.congelarCols) h.setFrozenColumns(d.congelarCols);
       res.congeladas.push(d.nombre);
       if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h);
@@ -429,6 +434,61 @@ _MODELO_HOJAS_DEF[HOJAS.PROFESIONALES] = COLUMNAS_PROFESIONALES;
 _MODELO_HOJAS_DEF[HOJAS.RESPONSABLES] = COLUMNAS_RESPONSABLES;
 _MODELO_HOJAS_DEF['INICIO'] = null; // navegación: la construye Hojas_crearInicio
 _MODELO_HOJAS_DEF[HOJAS.REM_SALIDA] = null; // reporte REM interno: lo construye 14_REM.js
+
+// ---------------------------------------------------------------------------
+// CONTRATO FÍSICO DE HOJAS (v0.8.9.4): helpers de layout por hoja.
+// Toda lectura/escritura/formato/filtro debe derivar de aquí, jamás asumir
+// "fila 1" o "fila 3" de forma dispersa.
+// ---------------------------------------------------------------------------
+
+/** PURA: layout del contrato para una hoja (visual o simple). */
+function Modelo_layoutHoja(nombreHoja) {
+  nombreHoja = Utl_texto(nombreHoja);
+  if (LAYOUT_HOJAS_VISUALES.indexOf(nombreHoja) !== -1) return CONTRATO_LAYOUT_VISUAL;
+  return CONTRATO_LAYOUT_SIMPLE;
+}
+
+/** PURA: ¿la hoja usa layout visual (título/secciones/encabezados/datos)? */
+function Modelo_esHojaVisual(nombreHoja) {
+  return Modelo_layoutHoja(nombreHoja) === CONTRATO_LAYOUT_VISUAL;
+}
+
+/** PURA: fila física donde viven los encabezados reales. */
+function Modelo_headerRow(nombreHoja) {
+  return Modelo_layoutHoja(nombreHoja).encabezadosRow;
+}
+
+/** PURA: fila física donde empiezan los datos (debajo de encabezados). */
+function Modelo_dataStartRow(nombreHoja) {
+  return Modelo_layoutHoja(nombreHoja).datosDesdeRow;
+}
+
+/** PURA: fila física (1-based) de un índice de datos (0-based). */
+function Modelo_filaFisica(nombreHoja, idxDato) {
+  return Modelo_dataStartRow(nombreHoja) + idxDato;
+}
+
+/**
+ * GAS: lee una hoja desde sus encabezados reales hacia abajo.
+ * Devuelve [ [encabezados], ...filas de datos ] — mismo shape que
+ * Utl_leerBloque pero siempre alineado al contrato (headerRow).
+ * Convenio: si el sheet está vacío devuelve [[encabezados]] solo si los
+ * encabezados existen; si no hay hoja devuelve [].
+ */
+function Modelo_leerBloqueCabecera(nombreHoja, hoja) {
+  if (!hoja) hoja = Modelo_hoja(nombreHoja);
+  if (!hoja) return [];
+  var hr = Modelo_headerRow(nombreHoja);
+  var ultima = hoja.getLastRow();
+  var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+  if (ultima >= hr) {
+    return hoja.getRange(hr, 1, ultima - hr + 1, ancho).getValues();
+  }
+  // Sin datos: devolver solo la fila de encabezados (cargada por estructura).
+  var filaEnc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+  if (filaEnc.some(function (c) { return !Utl_vacio(c); })) return [filaEnc];
+  return [];
+}
 
 var _CONFIG_SEMILLA = [
   ['VERSION', ECICEP.VERSION, 'Versión del sistema instalada'],
@@ -538,6 +598,7 @@ function Modelo_crearEstructura() {
 
   Object.keys(_MODELO_HOJAS_DEF).forEach(function (nombre) {
     var hoja = ss.getSheetByName(nombre);
+    var layout = Modelo_layoutHoja(nombre);
     if (!hoja) {
       hoja = ss.insertSheet(nombre);
       res.creadas.push(nombre);
@@ -546,7 +607,11 @@ function Modelo_crearEstructura() {
       if (nombre === HOJAS.PACIENTES) {
         encabezados = MODELO_PACIENTE.map(function (c) { return c.campo; });
       }
-      if (encabezados) Utl_escribirBloque(hoja, 1, 1, [encabezados]);
+      if (encabezados) {
+        // Layout visual: filas 1-2 libres para título/secciones, encabezados en 3.
+        if (layout === CONTRATO_LAYOUT_VISUAL) hoja.insertRowsBefore(1, layout.encabezadosRow - 1);
+        Utl_escribirBloque(hoja, Modelo_headerRow(nombre), 1, [encabezados]);
+      }
       /* def null (DASHBOARD) → sin encabezados genéricos: los inicializa su módulo */
     } else {
       res.existentes.push(nombre);
@@ -555,7 +620,7 @@ function Modelo_crearEstructura() {
       if (nombre === HOJAS.PACIENTES) {
         esperados = MODELO_PACIENTE.map(function (c) { return c.campo; });
       }
-      if (esperados && esperados.length) {
+      if (esperados && esperados.length && layout === CONTRATO_LAYOUT_SIMPLE) {
         var actual = hoja.getRange(1, 1, 1, esperados.length).getValues()[0];
         for (var c = 0; c < esperados.length; c++) {
           if (Utl_texto(actual[c]) !== esperados[c]) {
@@ -563,6 +628,31 @@ function Modelo_crearEstructura() {
             Log_warning('Modelo', 'crearEstructura', 'Encabezados reparados: ' + nombre);
             break;
           }
+        }
+      } else if (esperados && esperados.length && layout === CONTRATO_LAYOUT_VISUAL) {
+        // Layout visual: reposición de encabezados solo en estado SEGURO
+        // (hoja vacía → crear andamiaje; encabezados ya en headerRow → verificar).
+        // Layout heredado (filas de datos donde irían headers) NO se toca aquí:
+        // lo normaliza HVis (migrador de layout) sin perder datos.
+        var hr = layout.encabezadosRow;
+        if (hoja.getLastRow() < hr) {
+          if (hoja.getMaxRows() < hr) hoja.insertRowsBefore(1, hr - Math.max(hoja.getLastRow(), 0) - 1);
+          hoja.setRowHeight(3, 22);
+          Utl_escribirBloque(hoja, hr, 1, [esperados]);
+          Log_warning('Modelo', 'crearEstructura', 'Soporte visual creado: ' + nombre);
+        } else if (hoja.getLastRow() >= hr) {
+          var actualV = hoja.getRange(hr, 1, 1, esperados.length).getValues()[0];
+          var coincideTotal = true;
+          for (var cv = 0; cv < esperados.length; cv++) {
+            if (Utl_texto(actualV[cv]) !== esperados[cv]) { coincideTotal = false; break; }
+          }
+          if (coincideTotal) {
+            // encabezados canónicos ya en fila 3 → ok (secciones las pinta HVis)
+          } else if (hoja.getLastRow() === hr) {
+            // solo header row presente (sin datos) → corregir etiquetas en sitio
+            Utl_escribirBloque(hoja, hr, 1, [esperados]);
+          }
+          // con datos bajo headerRow y etiquetas divergentes → dejarlo a HVis
         }
       }
     }
@@ -589,8 +679,10 @@ function Modelo_crearEstructura() {
 /** Formato base de PACIENTES: encabezado fijo, anchos, fechas, técnicas ocultas. */
 function _modelo_formatearPacientes(hoja) {
   if (!hoja) return;
-  hoja.setFrozenRows(1);
-  var rangoEnc = hoja.getRange(1, 1, 1, MODELO_PACIENTE.length);
+  var hr = Modelo_headerRow(HOJAS.PACIENTES);
+  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
+  hoja.setFrozenRows(Modelo_headerRow(HOJAS.PACIENTES));
+  var rangoEnc = hoja.getRange(hr, 1, 1, MODELO_PACIENTE.length);
   rangoEnc.setFontWeight('bold').setBackground('#0E5C68').setFontColor('#ffffff');
 
   // Anchos razonables según tipo
@@ -599,7 +691,8 @@ function _modelo_formatearPacientes(hoja) {
     var ancho = (tipo === 'fecha') ? 100 : (tipo === 'enum' ? 110 : (tipo === 'bool' ? 90 : 160));
     hoja.setColumnWidth(i + 1, ancho);
     if (tipo === 'fecha') {
-      hoja.getRange(2, i + 1, hoja.getMaxRows() - 1, 1).setNumberFormat(CFG_FECHAS.FORMATO_HOJA);
+      hoja.getRange(ini, i + 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), 1)
+        .setNumberFormat(CFG_FECHAS.FORMATO_HOJA);
     }
   }
 
@@ -613,7 +706,7 @@ function _modelo_formatearPacientes(hoja) {
   }
   if (primeraTecnica > 0 && contador > 0) {
     try {
-      hoja.getRange(1, primeraTecnica, 1, contador).shiftColumnGroupDepth(1);
+      hoja.getRange(hr, primeraTecnica, 1, contador).shiftColumnGroupDepth(1);
       var grupo = hoja.getColumnGroup(primeraTecnica, contador);
       grupo.collapse();
     } catch (e) {
@@ -938,14 +1031,14 @@ var _MEMO_HOJAS = {};
 function Modelo_invalidarLecturas() { _MEMO_HOJAS = {}; }
 function _memoLeer(hoja, clave) {
   if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, clave)) return _MEMO_HOJAS[clave];
-  var v = Utl_leerBloque(hoja);
+  var v = Modelo_leerBloqueCabecera(clave, hoja);
   _MEMO_HOJAS[clave] = v;
   return v;
 }
 
 function Modelo_leerPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (!hoja || hoja.getLastRow() < 2) return [];
+  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.PACIENTES)) return [];
   var valores = _memoLeer(hoja, 'PACIENTES');
   var campos = valores[0];
   var salida = [];
@@ -1131,7 +1224,7 @@ function Limpieza_colectar() {
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
     if (!hoja) return;
-    var valores = Utl_leerBloque(hoja);
+    var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
     if (valores.length < 2) return;
     var idxRut = -1, idxNombre = -1, idxNota = -1;
     (valores[0] || []).forEach(function (h, i) {
@@ -1146,7 +1239,7 @@ function Limpieza_colectar() {
       var rutNorm = Norm_normalizarRut(idxRut >= 0 ? valores[f][idxRut] : '');
       if (rutNorm.rut) ruts.push(rutNorm.rut.toUpperCase());
       if (!hojas[nombreHoja]) hojas[nombreHoja] = [];
-      hojas[nombreHoja].push(f + 1); // fila real en la hoja
+      hojas[nombreHoja].push(Modelo_filaFisica(nombreHoja, f - 1)); // fila real en la hoja
       totalFilas += 1;
     }
   });
@@ -1186,15 +1279,17 @@ function Limpieza_ejecutar(colecta) {
 
   // reescritura batch
   var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-  hojaP.getRange(2, 1, Math.max(hojaP.getMaxRows() - 1, 1), MODELO_PACIENTE.length).clearContent();
+  var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
+  hojaP.getRange(iniP, 1, Math.max(hojaP.getMaxRows() - (iniP - 1), 1), MODELO_PACIENTE.length).clearContent();
   if (conservarP.length) {
-    Utl_escribirBloque(hojaP, 2, 1, conservarP.map(Modelo_filaDesdeObjeto));
+    Utl_escribirBloque(hojaP, iniP, 1, conservarP.map(Modelo_filaDesdeObjeto));
   }
   var hojaE = Modelo_hoja(HOJAS.EVENTOS);
   if (hojaE) {
-    hojaE.getRange(2, 1, Math.max(hojaE.getMaxRows() - 1, 1), COLUMNAS_EVENTOS.length).clearContent();
+    var iniE = Modelo_dataStartRow(HOJAS.EVENTOS);
+    hojaE.getRange(iniE, 1, Math.max(hojaE.getMaxRows() - (iniE - 1), 1), COLUMNAS_EVENTOS.length).clearContent();
     if (conservarE.length) {
-      Utl_escribirBloque(hojaE, 2, 1, conservarE.map(function (ev) {
+      Utl_escribirBloque(hojaE, iniE, 1, conservarE.map(function (ev) {
         return COLUMNAS_EVENTOS.map(function (c) { return ev[c] === undefined ? '' : ev[c]; });
       }));
     }
@@ -1256,10 +1351,11 @@ function Modelo_refrescarVistasSectores() {
     conteo[sector] = 0;
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
     if (!hoja) return;
-    // limpia área de datos completa antes de reescribir
-    hoja.getRange(2, 1, Math.max(hoja.getMaxRows() - 1, 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
+    var ini = Modelo_dataStartRow(nombreHoja);
+    // limpia área de datos completa antes de reescribir (desde dataStartRow)
+    hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
     var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimo);
-    if (filas.length) Utl_escribirBloque(hoja, 2, 1, filas);
+    if (filas.length) Utl_escribirBloque(hoja, ini, 1, filas);
     conteo[sector] = filas.length;
   });
   return conteo;
@@ -1268,7 +1364,7 @@ function Modelo_refrescarVistasSectores() {
 /** Lee la hoja EVENTOS como objetos según COLUMNAS_EVENTOS. */
 function Modelo_leerEventos() {
   var hoja = Modelo_hoja(HOJAS.EVENTOS);
-  if (!hoja || hoja.getLastRow() < 2) return [];
+  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.EVENTOS)) return [];
   var valores = _memoLeer(hoja, 'EVENTOS');
   var campos = valores[0];
   var salida = [];
@@ -1301,7 +1397,7 @@ function Recuperar_identificar(prefijoFuente) {
     var f = Utl_texto(e.FUENTE);
     if (f.indexOf('HOJA_INGRESO') === 0) return; // de flujo manual, no incidente
     if (f.indexOf('|') !== -1 && f.toUpperCase().indexOf(Utl_texto(prefijoFuente).toUpperCase()) === 0) {
-      evAfectados.push({ fila: idx + 2, idx: idx, objet: e });
+      evAfectados.push({ fila: Modelo_filaFisica(HOJAS.EVENTOS, idx), idx: idx, objet: e });
     }
   });
 
@@ -1317,7 +1413,7 @@ function Recuperar_identificar(prefijoFuente) {
     // excluir datos de prueba (esos se manejan con 🧹)
     var f = Utl_texto(p.FUENTE);
     if (f.indexOf('HOJA_INGRESO') === 0 && Utl_vacio(p.OBSERVACIONES)) return;
-    pAfectados.push({ fila: idx + 2, idx: idx, objet: p });
+    pAfectados.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, idx), idx: idx, objet: p });
   });
 
   return { pacientes: pAfectados, eventos: evAfectados };
@@ -1391,9 +1487,10 @@ function Recuperar_ejecutar(prefijoFuente) {
     var conservar = pacientes.filter(function (p) { return !idsElim[Utl_texto(p.ID_INTERNO)]; });
     var hojaP = ss.getSheetByName(HOJAS.PACIENTES);
     if (hojaP) {
-      hojaP.getRange(2, 1, Math.max(hojaP.getMaxRows() - 1, 1), MODELO_PACIENTE.length).clearContent();
+      var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
+      hojaP.getRange(iniP, 1, Math.max(hojaP.getMaxRows() - iniP + 1, 1), MODELO_PACIENTE.length).clearContent();
       if (conservar.length) {
-        Utl_escribirBloque(hojaP, 2, 1, conservar.map(Modelo_filaDesdeObjeto));
+        Utl_escribirBloque(hojaP, iniP, 1, conservar.map(Modelo_filaDesdeObjeto));
       }
       eliminadosP = datos.pacientes.length;
     }
@@ -1510,11 +1607,13 @@ function Modelo_validarIngresos(ss) {
       if (!h || h.isSheetHidden()) return; // alias oculto se ignora
       var idx = {};
       INGRESO_COLUMNAS.forEach(function (c, i) { idx[c] = i + 1; });
-      var filasDatos = Math.max(h.getMaxRows() - 1, 0);
+      var ini = Modelo_dataStartRow(nombre);
+      var hr = Modelo_headerRow(nombre);
+      var filasDatos = Math.max(h.getMaxRows() - (ini - 1), 0);
 
       function lista(colNombre, opciones) {
         if (!idx[colNombre] || filasDatos < 1) return;
-        var r = h.getRange(2, idx[colNombre], filasDatos, 1);
+        var r = h.getRange(ini, idx[colNombre], filasDatos, 1);
         r.setDataValidation(SpreadsheetApp.newDataValidation()
           .requireValueInList(opciones, true).setAllowInvalid(true)
           .setHelpText('Selecciona un valor de la lista').build());
@@ -1524,7 +1623,7 @@ function Modelo_validarIngresos(ss) {
         if (!idx[colNombre]) return;
         var c = idx[colNombre];
         if (filasDatos >= 1) {
-          var r = h.getRange(2, c, Math.max(filasDatos, 1), 1);
+          var r = h.getRange(ini, c, Math.max(filasDatos, 1), 1);
           r.setDataValidation(SpreadsheetApp.newDataValidation()
             .requireDate().setAllowInvalid(true)
             .setHelpText('Ingresa una fecha válida').build());
@@ -1553,7 +1652,7 @@ function Modelo_validarIngresos(ss) {
             } catch (eP) { return false; }
           });
         if (!yaTiene) {
-          var pr = h.getRange(1, col, Math.max(h.getMaxRows(), 1), 1)
+          var pr = h.getRange(hr, col, Math.max(h.getMaxRows() - (hr - 1), 1), 1)
                      .protect().setDescription('ECICEP-SISTEMA');
           pr.setWarningOnly(true);
           res.protegidas++;

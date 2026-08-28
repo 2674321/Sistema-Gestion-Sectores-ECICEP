@@ -483,8 +483,10 @@ function api_acercaDe() {
   var tz = Session.getScriptTimeZone();
   var pacHoja = ss.getSheetByName(HOJAS.PACIENTES);
   var evsHoja = ss.getSheetByName(HOJAS.EVENTOS);
-  var pacCount = pacHoja && pacHoja.getLastRow() > 1 ? pacHoja.getLastRow() - 1 : 0;
-  var evsCount = evsHoja && evsHoja.getLastRow() > 1 ? evsHoja.getLastRow() - 1 : 0;
+  var pacIni = Modelo_dataStartRow(HOJAS.PACIENTES);
+  var pacCount = pacHoja && pacHoja.getLastRow() >= pacIni ? pacHoja.getLastRow() - pacIni + 1 : 0;
+  var evsIni = Modelo_dataStartRow(HOJAS.EVENTOS);
+  var evsCount = evsHoja && evsHoja.getLastRow() >= evsIni ? evsHoja.getLastRow() - evsIni + 1 : 0;
   var nombre = '', institucion = '';
   try {
     var h = ss.getSheetByName(HOJAS.CONFIG);
@@ -2026,10 +2028,12 @@ function _pruS_estadisticas() {
   var hP = Modelo_hoja(HOJAS.PACIENTES);
   var hE = Modelo_hoja(HOJAS.EVENTOS);
   if (!hP || !hE) return { estado: 'ERROR', detalle: 'Faltan hojas PACIENTES/EVENTOS' };
-  var filasP = Math.max(hP.getLastRow() - 1, 0);
-  var filasE = Math.max(hE.getLastRow() - 1, 0);
+  var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
+  var iniE = Modelo_dataStartRow(HOJAS.EVENTOS);
+  var filasP = Math.max((hP.getLastRow() >= iniP ? hP.getLastRow() - iniP + 1 : 0), 0);
+  var filasE = Math.max((hE.getLastRow() >= iniE ? hE.getLastRow() - iniE + 1 : 0), 0);
   if (filasP > 0) {
-    var muestra = hP.getRange(2, 1, 1, 1).getValue(); // primera celda de datos legible
+    var muestra = hP.getRange(iniP, 1, 1, 1).getValue(); // primera celda de datos legible
     if (!muestra && muestra !== '') return { estado: 'WARN', detalle: 'lectura de datos devolvió valor inválido' };
   }
   return { estado: 'OK',
@@ -2044,8 +2048,9 @@ function _pruS_validaciones() {
       if (!h || h.isSheetHidden()) return;
       total++;
       var col = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
+      var ini = Modelo_dataStartRow(n);
       var tiene = false;
-      for (var rr = 2; rr <= Math.min(Math.max(h.getLastRow(), 2), 30); rr++) {
+      for (var rr = ini; rr <= Math.min(Math.max(h.getLastRow(), ini), ini + 28); rr++) {
         if (h.getRange(rr, col).getDataValidation()) { tiene = true; break; }
       }
       if (tiene) con++; else sin.push(n);
@@ -2070,10 +2075,11 @@ function _pruS_catalogos() {
 }
 function _pruS_formatos() {
   var h = Modelo_hoja(HOJAS.PACIENTES);
-  if (!h || h.getLastRow() < 2) return { estado: 'WARN', detalle: 'PACIENTES sin datos' };
+  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
+  if (!h || h.getLastRow() < ini) return { estado: 'WARN', detalle: 'PACIENTES sin datos' };
   var col = MODELO_PACIENTE.map(function (c) { return c.campo; })
             .indexOf('FECHA_ACTUALIZACION') + 1;
-  var nf = h.getRange(2, col).getNumberFormat();
+  var nf = h.getRange(ini, col).getNumberFormat();
   return String(nf).indexOf('dd') !== -1
     ? { estado: 'OK', detalle: nf }
     : { estado: 'WARN', detalle: 'Formato actual "' + nf + '" — ejecuta Instalar / Reparar Sistema' };

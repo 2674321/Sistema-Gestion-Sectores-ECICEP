@@ -241,7 +241,7 @@ function _ingresosUsuarioActual() {
 function Ingresos_leerHoja(nombreHoja) {
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
-  var valores = Utl_leerBloque(hoja);
+  var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
   if (valores.length < 2) return { staging: [], hoja: hoja };
   var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
   var idxCampos = mapa.campos;
@@ -262,7 +262,8 @@ function Ingresos_leerHoja(nombreHoja) {
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
     staging.push(Fuentes_normalizar(Fuentes_crearFila(
-      { archivo: 'HOJA_INGRESO', hoja: nombreHoja, fila: f + 1, sector: sector }, v)));
+      { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
+        fila: Modelo_filaFisica(nombreHoja, f - 1), sector: sector }, v)));
   }
   return { staging: staging, hoja: hoja };
 }
@@ -279,9 +280,11 @@ function Ingresos_escribirEstados(resultados) {
     Object.keys(porHoja).forEach(function (nombreHoja) {
       var hoja = ss.getSheetByName(nombreHoja);
       if (!hoja) return;
+      var ini = Modelo_dataStartRow(nombreHoja);
+      var hr = Modelo_headerRow(nombreHoja);
       var ultima = hoja.getLastRow();
-      if (ultima < 2) return;
-      var encabezados = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+      if (ultima < ini) return;
+      var encabezados = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
       var colEstado = -1, colNota = -1;
       encabezados.forEach(function (h, i) {
         var clave = Utl_claveAlnum(h);
@@ -290,15 +293,15 @@ function Ingresos_escribirEstados(resultados) {
       });
       if (colEstado < 0 || colNota < 0) return;
       var desde = Math.min(colEstado, colNota), ancho = Math.abs(colEstado - colNota) + 1;
-      var bloque = hoja.getRange(2, desde, ultima - 1, ancho).getValues();
+      var bloque = hoja.getRange(ini, desde, ultima - ini + 1, ancho).getValues();
       var offsetEstado = colEstado - desde, offsetNota = colNota - desde;
       porHoja[nombreHoja].forEach(function (r) {
-        var filaHoja = Number(r.filaOrigen) - 2; // índice 0-based dentro del bloque (fila 2 = 0)
+        var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
         if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
         bloque[filaHoja][offsetEstado] = r.estado;
         bloque[filaHoja][offsetNota] = r.nota;
       });
-      hoja.getRange(2, desde, ultima - 1, ancho).setValues(bloque);
+      hoja.getRange(ini, desde, ultima - ini + 1, ancho).setValues(bloque);
     });
   } catch (e) {
     Log_error('Ingresos', 'escribirEstados', e && e.message ? e.message : String(e));
@@ -558,7 +561,7 @@ function Ingresos_diagnosticar() {
       lineas.push([nombreHoja, 'HOJA NO EXISTE', '', '', '']);
       return;
     }
-    var valores = Utl_leerBloque(hoja);
+    var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
     var mapa = Ingresos_mapearEncabezadosHoja(valores[0] || []);
     var faltantes = CAMPOS_INGRESO_OPERATIVOS.filter(function (c) { return mapa.campos[c] === undefined; });
     lineas.push([nombreHoja, 'ENCABEZADOS', 'reconocidos', JSON.stringify(Object.keys(mapa.campos)), '']);
@@ -579,7 +582,8 @@ function Ingresos_diagnosticar() {
           if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
         });
         var stg = Fuentes_normalizar(Fuentes_crearFila(
-          { archivo: 'DIAG', hoja: nombreHoja, fila: f + 1, sector: HOJAS_INGRESO[nombreHoja] }, v));
+          { archivo: 'DIAG', hoja: nombreHoja,
+            fila: Modelo_filaFisica(nombreHoja, f - 1), sector: HOJAS_INGRESO[nombreHoja] }, v));
         if (stg.ESTADO_VALIDACION === 'ERROR') {
           var e0 = stg.ERRORES[0];
           var llave = e0.campo + ': ' + e0.mensaje;

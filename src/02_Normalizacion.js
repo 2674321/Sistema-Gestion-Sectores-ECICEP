@@ -579,7 +579,7 @@ function Estrat_recalcularTodos() {
     if (nuevoValor !== anterior) recalculados++;
   });
   if (filas.length) {
-    hoja.getRange(2, 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
+    hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
   }
   try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
   var ms = new Date() - t0;

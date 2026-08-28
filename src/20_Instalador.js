@@ -12,11 +12,11 @@ var INSTALAR_ETAPAS = [
   { id: 'estructura',   nombre: 'Estructura y CONFIG',      fn: 'Instalar_pEstructura' },
   { id: 'fuentes',      nombre: 'Carga inicial de fuentes', fn: 'Instalar_pFuentes' },
   { id: 'amarillo',     nombre: 'Sector Amarillo',          fn: 'Instalar_pAmarillo' },
+  { id: 'visual',       nombre: 'Layout visual (contrato)', fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Validaciones INGRESO',     fn: 'Instalar_pValidaciones' },
   { id: 'limpieza',     nombre: 'Limpieza de residuales',   fn: 'Instalar_pLimpieza' },
   { id: 'diseno',       nombre: 'Diseño del libro',         fn: 'Instalar_pDiseno' },
   { id: 'inicio',       nombre: 'INICIO + interfaz hojas',  fn: 'Instalar_pInicio' },
-  { id: 'visual',       nombre: 'Secciones y buscador',     fn: 'Instalar_pVisual' },
   { id: 'menu',         nombre: 'Menú y permisos',          fn: 'Instalar_pMenu' },
   { id: 'verificar',    nombre: 'Verificación final',       fn: 'Instalar_pVerificar' }
 ];
@@ -170,23 +170,25 @@ function Instalar_diagnosticar() {
     }
   } catch (e) { diagnostico.resumen.fasesPendientes.push('estructura: error'); }
 
-  // 2. SECCIONES VISUALES - comparar actual vs deseado
+  // 2. SECCIONES VISUALES - comparar actual vs deseado (contrato)
   try {
     var diagSecciones = HVis_diagnosticarTodas().diagnostico || {};
     diagnostico.secciones = diagSecciones;
     var seccionesPendientes = 0;
     Object.keys(diagSecciones).forEach(function (h) {
       var d = diagSecciones[h];
-      if (d.ok && d.configurada) {
-        var est = d.estadoActual || {};
-        var esperadas = est.seccionesEsperadas || 0;
-        var detectadas = est.seccionesDetectadas || 0;
-        var filaEnc = d.filaEncabezadosActual || 0;
-        var filaEncEsperada = (esperadas > 0) ? (esperadas + 2) : 0; // buscador + secciones + 1
-        if (detectadas < esperadas || (filaEnc > 0 && filaEnc !== filaEncEsperada) || !est.tieneBuscador) {
-          seccionesPendientes++;
-          diagnostico.resumen.fasesPendientes.push('visual:' + h);
-        }
+      if (!(d.ok && d.configurada)) return;
+      if (!(d.layout && d.layout.tipo === 'visual')) return; // simples (EVENTOS) no aplican
+      var est = d.estadoActual || {};
+      var esperadas = est.seccionesEsperadas || 0;
+      var detectadas = est.seccionesDetectadas || 0;
+      var filaEnc = est.filaEncabezadosReal || 0;
+      var filaEncEsperada = est.filaEncabezadosEsperada || 0;
+      if (est.estructura !== 'OK' ||
+          detectadas < esperadas ||
+          (filaEncEsperada && filaEnc !== filaEncEsperada)) {
+        seccionesPendientes++;
+        diagnostico.resumen.fasesPendientes.push('visual:' + h);
       }
     });
     if (seccionesPendientes === 0 && Object.keys(diagSecciones).length > 0) {
@@ -219,7 +221,7 @@ function Instalar_diagnosticar() {
       Object.keys(HOJAS_INGRESO).forEach(function (h) {
         var hoja = ss.getSheetByName(h);
         if (hoja) {
-          var enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+          var enc = hoja.getRange(Modelo_headerRow(h), 1, 1, hoja.getLastColumn()).getValues()[0];
           if (enc.some(function (e) { return Utl_texto(e).toUpperCase() === col; })) faltante = false;
         }
       });

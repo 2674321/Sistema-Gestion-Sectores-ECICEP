@@ -151,7 +151,7 @@ function Amarillo_volcarPuerta(filas) {
   var puerta = ss.getSheetByName('INGRESO_AMARILLO');
   if (!puerta) throw new Error('Falta hoja INGRESO_AMARILLO — ejecuta Instalar sistema');
   var existentes = {};
-  var actuales = Utl_leerBloque(puerta);
+  var actuales = Modelo_leerBloqueCabecera('INGRESO_AMARILLO', puerta);
   var iCol = INGRESO_COLUMNAS.indexOf('RUT');
   for (var i = 1; i < actuales.length; i++) {
     existentes[Utl_texto(actuales[i][iCol]).toUpperCase()] = true;
@@ -286,11 +286,12 @@ function _amarillo_escribirPacientes(actualizados, pacientes) {
     else runs.push([i]);
   });
   var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+  var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
   runs.forEach(function (run) {
     var desde = run[0], hasta = run[run.length - 1];
     var filas = [];
     for (var r = desde; r <= hasta; r++) filas.push(Modelo_filaDesdeObjeto(pacientes[r]));
-    hojaP.getRange(2 + desde, 1, hasta - desde + 1, MODELO_PACIENTE.length).setValues(filas);
+    hojaP.getRange(iniP + desde, 1, hasta - desde + 1, MODELO_PACIENTE.length).setValues(filas);
     escritas += run.length;
   });
   return escritas;

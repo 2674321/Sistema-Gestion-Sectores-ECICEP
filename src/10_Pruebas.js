@@ -2107,18 +2107,21 @@ function _pruebas_hojas(t, A) {
     var fEstr = Hojas_formulaIndicador('ESTRAT_PEND');
     var fRut = Hojas_formulaIndicador('RUT_INVALIDOS');
     
-    // ID_INTERNO sigue en columna A
-    A.igual(fTotal, '=COUNTA(PACIENTES!A2:A)', 'total usa ID_INTERNO en A');
+    // ID_INTERNO sigue en columna A — datos desde dataStartRow (4)
+    A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO en A desde fila 4');
     // REQUIERE_REVISION en AD
     A.cierto(fRev.indexOf('COUNTIF(PACIENTES!AD') === 1, 'revisión usa AD');
     // Duplicados usa SUMPRODUCT con RUT (columna B)
-    A.cierto(fDup.indexOf('SUMPRODUCT') === 1 && fDup.indexOf('PACIENTES!B2:B') !== -1, 'duplicados usa RUT en B');
+    A.cierto(fDup.indexOf('SUMPRODUCT') === 1 && fDup.indexOf('PACIENTES!B4:B') !== -1, 'duplicados usa RUT en B desde fila 4');
     // FECHA_ACTUALIZACION en AC
-    A.cierto(fUlt.indexOf('MAX(PACIENTES!AC') !== -1, 'última act usa AC');
+    A.cierto(fUlt.indexOf('MAX(PACIENTES!AC') !== -1, 'última act usa AC desde fila 4');
     // ESTRATIFICACION en I
-    A.cierto(fEstr.indexOf('PACIENTES!I2:I') !== -1, 'estratificación pendiente usa I');
+    A.cierto(fEstr.indexOf('PACIENTES!I4:I') !== -1, 'estratificación pendiente usa I desde fila 4');
     // RUT_DV_VALIDO en W
-    A.cierto(fRut.indexOf('PACIENTES!W2:W') !== -1, 'rut inválidos usa W');
+    A.cierto(fRut.indexOf('PACIENTES!W4:W') !== -1, 'rut inválidos usa W desde fila 4');
+    // Sin anclas heredadas en fila 2
+    A.cierto(fTotal.indexOf('A2:A') === -1, 'sin ancla A2:A');
+    A.cierto(fRut.indexOf('W2:W') === -1, 'sin ancla W2:W');
     A.igual(Hojas_formulaIndicador('DESCONOCIDO'), '', 'desconocido vacío');
   });
 
@@ -2583,7 +2586,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.0', 'versión esperada v0.8.9.0');
+    A.igual(v, '0.8.9.4', 'versión esperada v0.8.9.4');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2824,9 +2827,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.0', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.4', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.0', 'versión esperada v0.8.9.0');
+    A.igual(v, '0.8.9.4', 'versión esperada v0.8.9.4');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3083,11 +3086,14 @@ function _pruebas_hojasvisual_v0883(t, A) {
       'ESTRAT_FECHA_CALCULO', 'FUENTE', 'FECHA_ACTUALIZACION', 'REQUIERE_REVISION'];
     var mapa = HVis_mapaColumnas(enc);
     var secciones = SECCIONES_HOJAS.PACIENTES;
-    var plan = HVis_calcularPlan({ getName: function() { return 'PACIENTES'; } }, secciones, mapa);
-    A.igual(plan.filaSector, 1, 'fila sector = 1');
-    A.igual(plan.filaBuscador, 2, 'buscador en fila 2');
+    var plan = HVis_calcularPlan('PACIENTES', secciones, mapa);
+    A.igual(plan.filaSector, 1, 'fila sector (alias título) = 1');
+    A.igual(plan.tituloRow, 1, 'título en fila 1');
+    A.igual(plan.seccionesRow, 2, 'secciones en fila 2');
     A.igual(plan.filaEncabezados, 3, 'encabezados en fila 3');
+    A.igual(plan.datosDesdeRow, 4, 'datos desde fila 4');
     A.igual(plan.filasTotales, 3, 'total 3 filas fijas');
+    A.cierto(plan.esVisual, 'PACIENTES es visual');
     A.igual(plan.secciones.length, 6, '6 secciones PACIENTES (todas tienen columnas en datos completos)');
     // Verificar rangos de columnas (ajustados a la estructura real)
     var idSec = plan.secciones.find(function(s) { return s.id === 'identidad'; });
@@ -3096,6 +3102,73 @@ function _pruebas_hojasvisual_v0883(t, A) {
     var ctrlSec = plan.secciones.find(function(s) { return s.id === 'controles'; });
     A.igual(ctrlSec.colInicio, 15); // ULTIMO_SEGUIMIENTO en posición 15
     A.igual(ctrlSec.colFin, 18);   // COMPOSICION_CONTROL en posición 18
+  });
+
+  t('HOJAS VISUALES v0.8.9.4: EVENTOS es layout simple (no aplica visual)', function () {
+    var enc = ['ID_EVENTO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'DESCRIPCION', 'CANTIDAD',
+      'ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'];
+    var mapa = HVis_mapaColumnas(enc);
+    var secciones = SECCIONES_HOJAS.EVENTOS;
+    var plan = HVis_calcularPlan('EVENTOS', secciones, mapa);
+    A.igual(plan.esVisual, false, 'EVENTOS NO es visual');
+    A.igual(plan.filaEncabezados, 1, 'simple: encabezados en fila 1');
+    A.igual(plan.datosDesdeRow, 2, 'simple: datos desde fila 2');
+    A.igual(plan.filasTotales, 1, 'simple: 1 fila fija');
+  });
+
+  t('HOJAS VISUALES v0.8.9.4: contrato por hoja', function () {
+    A.igual(Modelo_headerRow(HOJAS.PACIENTES), 3, 'PACIENTES headers fila 3');
+    A.igual(Modelo_dataStartRow(HOJAS.PACIENTES), 4, 'PACIENTES datos fila 4');
+    A.cierto(Modelo_esHojaVisual('INGRESO_NARANJO'), 'INGRESO_NARANJO visual');
+    A.igual(Modelo_dataStartRow('INGRESO_VERDE'), 4, 'INGRESO_VERDE datos fila 4');
+    A.igual(Modelo_dataStartRow('SECTOR_AMARILLO'), 4, 'SECTOR_AMARILLO datos fila 4');
+    A.igual(Modelo_dataStartRow(HOJAS.EVENTOS), 2, 'EVENTOS datos fila 2');
+    A.igual(Modelo_dataStartRow(HOJAS.CONFLICTOS), 2, 'CONFLICTOS datos fila 2');
+    A.igual(Modelo_filaFisica('INGRESO_NARANJO', 0), 4, 'fila física índice 0 = 4');
+    A.igual(Modelo_filaFisica(HOJAS.PACIENTES, 7), 11, 'fila física índice 7 = 11');
+    A.igual(Modelo_filaFisica(HOJAS.EVENTOS, 0), 2, 'EVENTOS fila física 0 = 2');
+  });
+
+  t('HOJAS VISUALES v0.8.9.4: secciones INGRESO por nombres reales', function () {
+    var sec = SECCIONES_HOJAS.INGRESO;
+    var mapa = HVis_mapaColumnas(INGRESO_COLUMNAS);
+    var faltantes = 0;
+    sec.forEach(function (s) {
+      var v = HVis_validarSeccion(s, mapa);
+      faltantes += v.faltantes.length;
+    });
+    A.igual(faltantes, 0, 'todas las columnas de secciones INGRESO existen en INGRESO_COLUMNAS');
+    var esperadas = HVis_columnasEsperadas('INGRESO_AMARILLO');
+    var cubre = INGRESO_COLUMNAS.every(function (c) { return esperadas.indexOf(c) !== -1; });
+    A.cierto(cubre, 'COLUMNAS esperadas cubren INGRESO_COLUMNAS');
+  });
+
+  t('HOJAS VISUALES v0.8.9.4: coincidencia de encabezados (clave normalizada)', function () {
+    var esperadas = ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)'];
+    var filaOk = ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)'];
+    var filaDesc = ['n ó m b r e', 'Rut', 'sexo', 'Fecha de Nacimiento', 'Telefono(s)'];
+    var filaMala = ['A', 'B', 'C', 'D', 'E'];
+    A.igual(HVis_coincidenciaEncabezados(filaOk, esperadas), 1, 'exacta = 1');
+    A.cierto(HVis_coincidenciaEncabezados(filaDesc, esperadas) === 1, 'normalizada ignora tildes/espacios');
+    A.igual(HVis_coincidenciaEncabezados(filaMala, esperadas), 0, 'sin coincidencia = 0');
+    A.igual(HVis_coincidenciaEncabezados([], esperadas), 0, 'vacía = 0');
+  });
+
+  t('HOJAS VISUALES v0.8.9.4: fórmulas INICIO derivadas del contrato', function () {
+    var fTotal = Hojas_formulaIndicador('TOTAL_PAC');
+    var fEstr = Hojas_formulaIndicador('ESTRAT_PEND');
+    var fRut = Hojas_formulaIndicador('RUT_INVALIDOS');
+    var fDup = Hojas_formulaIndicador('DUPLICADOS');
+    var fUlt = Hojas_formulaIndicador('ULT_ACT');
+    var fEve = Hojas_formulaIndicador('EVENTOS');
+    A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO (A) desde fila 4');
+    A.cierto(fDup.indexOf('SUMPRODUCT') === 1 && fDup.indexOf('PACIENTES!B4:B') !== -1, 'duplicados usa RUT en B desde fila 4');
+    A.cierto(fEstr.indexOf('PACIENTES!I4:I') !== -1, 'estratificación pendiente usa I desde fila 4');
+    A.cierto(fRut.indexOf('PACIENTES!W4:W') !== -1, 'rut inválidos usa W desde fila 4');
+    A.cierto(fUlt.indexOf('PACIENTES!AC4:AC') !== -1, 'última actualización usa AC desde fila 4');
+    A.igual(fEve, '=COUNTA(EVENTOS!A2:A)', 'eventos (simple) sigue en fila 2');
+    A.cierto(fTotal.indexOf('A2:A') === -1, 'sin anclas A2:A');
+    A.cierto(fRut.indexOf('W2:W') === -1, 'sin anclas W2:W');
   });
 
   t('HOJAS VISUALES v0.8.9.0: Instalar_diagnosticar estructura completa (solo node)', function () {

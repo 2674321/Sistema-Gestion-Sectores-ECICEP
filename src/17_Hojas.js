@@ -52,23 +52,39 @@ function Hojas_columnaPaciente(campo) {
   return Hojas_indiceAColumna(idx + 1);
 }
 
-/** PURA: genera fórmula de indicador de calidad para INICIO usando columnas reales de MODELO_PACIENTE. */
-function Hojas_formulaIndicador(tipo) {
-  var colRUT = Hojas_columnaPaciente('RUT');                    // B
-  var colEstrat = Hojas_columnaPaciente('ESTRATIFICACION');     // I
-  var colRutValido = Hojas_columnaPaciente('RUT_DV_VALIDO');    // W
-  var colReqRev = Hojas_columnaPaciente('REQUIERE_REVISION');   // AD
-  var colFechaAct = Hojas_columnaPaciente('FECHA_ACTUALIZACION'); // AC
-  var colIdInterno = Hojas_columnaPaciente('ID_INTERNO');       // A
+/** PURA: rango de DATOS (col desde dataStartRow) para un campo de PACIENTES.
+ *  Siempre deriva del contrato: jamás "A2:A" hardcoded. */
+function Hojas_rangoPaciente(campo) {
+  var col = Hojas_columnaPaciente(campo);
+  if (!col) return '';
+  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
+  return col + ini + ':' + col;
+}
 
+/** PURA: rango de DATOS (col desde dataStartRow) para una hoja simple o visual
+ *  según _MODELO_HOJAS_DEF / MODELO_PACIENTE. */
+function Hojas_rangoHoja(nombreHoja, campo) {
+  if (nombreHoja === HOJAS.PACIENTES) return Hojas_rangoPaciente(campo);
+  var def = _MODELO_HOJAS_DEF[nombreHoja];
+  var col = def && def.indexOf ? def.indexOf(campo) : -1;
+  if (col < 0) return '';
+  var letra = Hojas_indiceAColumna(col + 1);
+  var ini = Modelo_dataStartRow(nombreHoja);
+  return letra + ini + ':' + letra;
+}
+
+/** PURA: genera fórmula de indicador de calidad para INICIO usando columnas
+ *  reales de MODELO_PACIENTE y el dataStartRow del contrato (nunca A2:A). */
+function Hojas_formulaIndicador(tipo) {
+  var p = Hojas_rangoPaciente;
   switch (tipo) {
-    case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!' + colIdInterno + '2:' + colIdInterno + ')';
-    case 'EVENTOS':     return '=COUNTA(EVENTOS!A2:A)';
-    case 'POR_REVISAR': return '=COUNTIF(PACIENTES!' + colReqRev + '2:' + colReqRev + ';TRUE)';
-    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!' + colEstrat + '2:' + colEstrat + ';"")+COUNTIF(PACIENTES!' + colEstrat + '2:' + colEstrat + ';"G")';
-    case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!' + colRutValido + '2:' + colRutValido + ';FALSE)';
-    case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!' + colRUT + '2:' + colRUT + '<>"")*(COUNTIF(PACIENTES!' + colRUT + '2:' + colRUT + ';PACIENTES!' + colRUT + '2:' + colRUT + ')>1))';
-    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!' + colFechaAct + '2:' + colFechaAct + ')=0;"sin datos";MAX(PACIENTES!' + colFechaAct + '2:' + colFechaAct + '))';
+    case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!' + p('ID_INTERNO') + ')';
+    case 'EVENTOS':     return '=COUNTA(EVENTOS!' + Hojas_rangoHoja(HOJAS.EVENTOS, 'ID_EVENTO') + ')';
+    case 'POR_REVISAR': return '=COUNTIF(PACIENTES!' + p('REQUIERE_REVISION') + ';TRUE)';
+    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!' + p('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + p('ESTRATIFICACION') + ';"G")';
+    case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!' + p('RUT_DV_VALIDO') + ';FALSE)';
+    case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!' + p('RUT') + '<>"")*(COUNTIF(PACIENTES!' + p('RUT') + ';PACIENTES!' + p('RUT') + ')>1))';
+    case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!' + p('FECHA_ACTUALIZACION') + ')=0;"sin datos";MAX(PACIENTES!' + p('FECHA_ACTUALIZACION') + '))';
     default: return '';
   }
 }
@@ -209,12 +225,12 @@ function Hojas_crearInicio(ss) {
   h.getRange(17, 4).setValue('INDICADORES').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var kpis = [
-    ['=COUNTA(PACIENTES!A2:A)', 'PACIENTES', 'Total registrados'],
-    ['=COUNTA(EVENTOS!A2:A)', 'EVENTOS', 'Historial del sistema'],
-    ['=COUNTIF(PACIENTES!AD2:AD;TRUE)', 'POR REVISAR', 'Requieren atención'],
-    ['=COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G")', 'ESTRAT. PENDIENTE', 'Sin confirmar'],
-    ['=COUNTIF(PACIENTES!W2:W;FALSE)', 'RUT INV\u00c1LIDOS', 'DV incorrecto'],
-    ['=SUMPRODUCT((PACIENTES!B2:B<>"")*(COUNTIF(PACIENTES!B2:B;PACIENTES!B2:B)>1))', 'DUPLICADOS', 'Detectados']
+    ['=COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ')', 'PACIENTES', 'Total registrados'],
+    ['=COUNTA(EVENTOS!' + Hojas_rangoHoja(HOJAS.EVENTOS, 'ID_EVENTO') + ')', 'EVENTOS', 'Historial del sistema'],
+    ['=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('REQUIERE_REVISION') + ';TRUE)', 'POR REVISAR', 'Requieren atención'],
+    ['=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G")', 'ESTRAT. PENDIENTE', 'Sin confirmar'],
+    ['=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT_DV_VALIDO') + ';FALSE)', 'RUT INV\u00c1LIDOS', 'DV incorrecto'],
+    ['=SUMPRODUCT((PACIENTES!' + Hojas_rangoPaciente('RUT') + '<>"")*(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT') + ';PACIENTES!' + Hojas_rangoPaciente('RUT') + ')>1))', 'DUPLICADOS', 'Detectados']
   ];
   kpis.forEach(function (k, ix) {
     var fila = 18 + Math.floor(ix / 3) * 3;
@@ -236,9 +252,9 @@ function Hojas_crearInicio(ss) {
   h.getRange(25, 4).setValue('ALERTAS').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var rA = h.getRange(26, 4, 2, 16).merge();
-  rA.setFormula('=IF(COUNTIF(PACIENTES!AD2:AD;TRUE)+COUNTIF(PACIENTES!W2:W;FALSE)>0;' +
-    '"\u26a0 ATENCI\u00d3N REQUERIDA\n" & COUNTIF(PACIENTES!AD2:AD;TRUE) & ' +
-    '" pacientes por revisar \u00b7 " & COUNTIF(PACIENTES!W2:W;FALSE) & ' +
+  rA.setFormula('=IF(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('REQUIERE_REVISION') + ';TRUE)+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT_DV_VALIDO') + ';FALSE)>0;' +
+    '"\u26a0 ATENCI\u00d3N REQUERIDA\n" & COUNTIF(PACIENTES!' + Hojas_rangoPaciente('REQUIERE_REVISION') + ';TRUE) & ' +
+    '" pacientes por revisar \u00b7 " & COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT_DV_VALIDO') + ';FALSE) & ' +
     '" RUT inv\u00e1lidos   \u2014   abrir Cola de Revisi\u00f3n \u2192";' +
     '"\u2713 TODO EN ORDEN\nNo existen incidencias pendientes")')
    .setFontWeight('bold').setFontSize(12).setVerticalAlignment('middle')
@@ -270,11 +286,11 @@ function Hojas_crearInicio(ss) {
      .setFontWeight('bold').setFontSize(10).setFontColor(s2.color).setBackground(BLANCO)
      .setHorizontalAlignment('center');
     var rng = h.getRange(31, c0, 1, 4).merge()
-     .setFormula('=COUNTIF(PACIENTES!H2:H;"' + s2.nombre + '")&" pacientes"')
+     .setFormula('=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('SECTOR') + ';"' + s2.nombre + '")&" pacientes"')
      .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
     h.getRange(32, c0, 1, 4).merge()
-     .setFormula('=TEXT(COUNTIF(PACIENTES!H2:H;"' + s2.nombre + '")/MAX(COUNTA(PACIENTES!A2:A);1);"0%")&" del total"')
+     .setFormula('=TEXT(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('SECTOR') + ';"' + s2.nombre + '")/MAX(COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ');1);"0%")&" del total"')
      .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
      .setHorizontalAlignment('center');
     h.getRange(30, c0, 3, 4).setBorder(true, true, true, true, null, null,
@@ -296,11 +312,11 @@ function Hojas_crearInicio(ss) {
      .setFontWeight('bold').setFontSize(10).setFontColor(BLANCO).setBackground(g.color)
      .setHorizontalAlignment('center');
     var r = h.getRange(36, c0, 1, 4).merge()
-     .setFormula('=COUNTIF(PACIENTES!I2:I;"' + g.nombre + '")&" pacientes"')
+     .setFormula('=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")&" pacientes"')
      .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
     h.getRange(37, c0, 1, 4).merge()
-     .setFormula('=TEXT(COUNTIF(PACIENTES!I2:I;"' + g.nombre + '")/MAX(COUNTIF(PACIENTES!I2:I;"")+COUNTIF(PACIENTES!I2:I;"G1")+COUNTIF(PACIENTES!I2:I;"G2")+COUNTIF(PACIENTES!I2:I;"G3");1);"0%")&" · ' + g.desc + '"')
+     .setFormula('=TEXT(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")/MAX(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G1")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G2")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G3");1);"0%")&" · ' + g.desc + '"')
      .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
      .setHorizontalAlignment('center');
     h.getRange(35, c0, 3, 4).setBorder(true, true, true, true, null, null,
@@ -319,15 +335,15 @@ function Hojas_crearInicio(ss) {
     ['Build', (ECICEP_BUILD.commit || 'dev')],
     ['Actualización del sistema', ECICEP_BUILD.fecha || '\u2014'],
     ['\u00daltima actualización de datos',
-      '=IF(COUNT(PACIENTES!AC2:AC)=0;"\u2014";TEXT(MAX(PACIENTES!AC2:AC);"dd/mm/yyyy hh:mm"))'],
+      '=IF(COUNT(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ')=0;"\u2014";TEXT(MAX(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ');"dd/mm/yyyy hh:mm"))'],
     ['\u00daltima sincronización de fuentes',
       '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")'],
     ['Controles VENCIDOS',
-      '=COUNTIF(PACIENTES!Q2:Q;"<"&TODAY())'],
+      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';"<"&TODAY())'],
     ['Controles por vencer (\u226430 d\u00edas)',
-      '=COUNTIF(PACIENTES!Q2:Q;">="&TODAY())-COUNTIF(PACIENTES!Q2:Q;">"&TODAY()+30)'],
+      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY())-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY()+30)'],
     ['Controles \u00faltimos 30 d\u00edas',
-      '=COUNTIF(PACIENTES!Q2:Q;">="&TODAY()-30)-COUNTIF(PACIENTES!Q2:Q;">"&TODAY())']
+      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY()-30)-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY())']
   ];
   info.forEach(function (par, ix) {
     h.getRange(41 + ix, 4, 1, 4).merge().setValue(par[0])
@@ -383,62 +399,69 @@ function Hojas_formatoCondicional(ss) {
     aplicadas += reglas.length;
   }
 
-  /* Dropdown SEXO (F/M) en PACIENTES e INGRESO_* */
+  /* Dropdown SEXO (F/M) en PACIENTES, INGRESO_* y SECTOR_* (desde dataStartRow) */
   try {
     var ruleSexo = SpreadsheetApp.newDataValidation()
       .requireValueInList(['F', 'M'], true).setAllowInvalid(false).build();
     var pSexo = ss.getSheetByName(HOJAS.PACIENTES);
-    if (pSexo && pSexo.getLastRow() > 1) {
-      var colSexoP = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('SEXO') + 1;
-      pSexo.getRange(2, colSexoP, Math.max(pSexo.getMaxRows() - 1, 1), 1).setDataValidation(ruleSexo);
-      aplicadas++;
+    if (pSexo) {
+      var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
+      if (pSexo.getLastRow() >= iniP) {
+        var colSexoP = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('SEXO') + 1;
+        pSexo.getRange(iniP, colSexoP, Math.max(pSexo.getMaxRows() - iniP + 1, 1), 1).setDataValidation(ruleSexo);
+        aplicadas++;
+      }
     }
     Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
       var h = ss.getSheetByName(nombre);
-      if (h && h.getLastRow() > 1) {
+      var ini = Modelo_dataStartRow(nombre);
+      if (h && h.getLastRow() >= ini) {
         var colSexo = INGRESO_COLUMNAS.indexOf('SEXO') + 1;
-        h.getRange(2, colSexo, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleSexo);
+        h.getRange(ini, colSexo, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleSexo);
         aplicadas++;
       }
     });
     HOJAS_SECTOR.forEach(function (nombre) {
       var h = ss.getSheetByName(nombre);
-      if (h && h.getLastRow() > 1) {
+      var ini = Modelo_dataStartRow(nombre);
+      if (h && h.getLastRow() >= ini) {
         var colSexoS = COLUMNAS_SECTOR_VISTA.indexOf('SEXO') + 1;
         if (colSexoS > 0) {
-          h.getRange(2, colSexoS, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleSexo);
+          h.getRange(ini, colSexoS, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleSexo);
           aplicadas++;
         }
       }
     });
   } catch (eSx) { errores.push('SEXO dropdown: ' + (eSx && eSx.message || eSx)); }
 
-  /* Date picker FECHA_NACIMIENTO en INGRESO_* */
+  /* Date picker FECHA_NACIMIENTO en INGRESO_* (desde dataStartRow) */
   try {
     var ruleFecha = SpreadsheetApp.newDataValidation()
       .setDateValid(true).setAllowInvalid(false).build();
     Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
       var h = ss.getSheetByName(nombre);
-      if (h && h.getLastRow() > 1) {
+      var ini = Modelo_dataStartRow(nombre);
+      if (h && h.getLastRow() >= ini) {
         var colFnac = INGRESO_COLUMNAS.indexOf('FECHA DE NACIMIENTO') + 1;
         if (colFnac > 0) {
-          h.getRange(2, colFnac, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleFecha);
+          h.getRange(ini, colFnac, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleFecha);
           aplicadas++;
         }
       }
     });
   } catch (eFn) { errores.push('FECHA_NACIMIENTO date picker: ' + (eFn && eFn.message || eFn)); }
 
-  /* Dropdown ESTADO en INGRESO_* */
+  /* Dropdown ESTADO en INGRESO_* (desde dataStartRow) */
   try {
     var ruleEstado = SpreadsheetApp.newDataValidation()
       .requireValueInList(['PENDIENTE', 'AGENDADO', 'INGRESADO', 'NO_CONTESTA', 'FALLECIDO', 'NSP'], true)
       .setAllowInvalid(false).build();
     Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
       var h = ss.getSheetByName(nombre);
-      if (h && h.getLastRow() > 1) {
+      var ini = Modelo_dataStartRow(nombre);
+      if (h && h.getLastRow() >= ini) {
         var colEst = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-        h.getRange(2, colEst, Math.max(h.getMaxRows() - 1, 1), 1).setDataValidation(ruleEstado);
+        h.getRange(ini, colEst, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleEstado);
         aplicadas++;
       }
     });
@@ -480,51 +503,58 @@ function Hojas_formatoCondicional(ss) {
       'RESOLUCIÓN': 'Acción tomada para resolver el conflicto',
       'RESULTADO': 'Resultado del análisis o evaluación'
     };
-    function _aplicarNotas(hoja, columnas) {
-      if (!hoja || hoja.getLastRow() < 1) return;
+    function _aplicarNotas(nombre, columnas) {
+      var hoja = ss.getSheetByName(nombre);
+      if (!hoja) return;
+      var hr = Modelo_headerRow(nombre);
+      if (hoja.getLastRow() < hr) return;
       columnas.forEach(function (col, ix) {
-        if (N[col]) hoja.getRange(1, ix + 1).setNote(N[col]);
+        if (N[col]) hoja.getRange(hr, ix + 1).setNote(N[col]);
       });
     }
-    _aplicarNotas(ss.getSheetByName(HOJAS.PACIENTES), MODELO_PACIENTE.map(function (c) { return c.campo; }));
-    HOJAS_SECTOR.forEach(function (n) { _aplicarNotas(ss.getSheetByName(n), COLUMNAS_SECTOR_VISTA); });
-    Object.keys(HOJAS_INGRESO).forEach(function (n) { _aplicarNotas(ss.getSheetByName(n), INGRESO_COLUMNAS); });
-    if (HOJAS.CONFLICTOS) _aplicarNotas(ss.getSheetByName(HOJAS.CONFLICTOS), ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR']);
-    if (HOJAS.CONSULTA) _aplicarNotas(ss.getSheetByName(HOJAS.CONSULTA), ['FECHA_CONSULTA','RUT','NOMBRE','SEXO','SECTOR','ESTRATIFICACION']);
+    _aplicarNotas(HOJAS.PACIENTES, MODELO_PACIENTE.map(function (c) { return c.campo; }));
+    HOJAS_SECTOR.forEach(function (n) { _aplicarNotas(n, COLUMNAS_SECTOR_VISTA); });
+    Object.keys(HOJAS_INGRESO).forEach(function (n) { _aplicarNotas(n, INGRESO_COLUMNAS); });
+    if (HOJAS.CONFLICTOS) _aplicarNotas(HOJAS.CONFLICTOS, ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR']);
+    if (HOJAS.CONSULTA) _aplicarNotas(HOJAS.CONSULTA, ['FECHA_CONSULTA','RUT','NOMBRE','SEXO','SECTOR','ESTRATIFICACION']);
   } catch (eNt) { errores.push('Notas encabezados: ' + (eNt && eNt.message || eNt)); }
 
-  /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat por nivel */
+  /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat por nivel.
+   *  Fórmulas y rangos derivados del contrato (dataStartRow). */
   try {
     var p = ss.getSheetByName(HOJAS.PACIENTES);
-    if (p && p.getLastRow() > 1) {
-      var filas = Math.max(p.getMaxRows() - 1, 1);
+    var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
+    if (p && p.getLastRow() >= iniP) {
+      var filas = Math.max(p.getMaxRows() - iniP + 1, 1);
       aplicar(p, [
-        regla('=$W2=FALSE', '#FBE4E4', p.getRange(2, 2, filas, 1), true),
-        regla('=$X2=TRUE', '#FBF3D6', p.getRange(2, 2, filas, 1)),
-        regla('=$AD2=TRUE', '#FBF3D6', p.getRange(2, 30, filas, 1), true),
-        regla('=$I2="G1"', '#D4EDDA', p.getRange(2, 9, filas, 1)),
-        regla('=$I2="G2"', '#FFF3CD', p.getRange(2, 9, filas, 1)),
-        regla('=$I2="G3"', '#F8D7DA', p.getRange(2, 9, filas, 1)),
-        regla('=OR($I2="",$I2="G")', '#FBF3D6', p.getRange(2, 9, filas, 1)),
-        regla('=$Q2<>"",AND($Q2<TODAY()),#F8D7DA', p.getRange(2, 17, filas, 1)),
-        regla('=$Q2<>"",AND($Q2>=TODAY(),$Q2<=TODAY()+7),#FFF3CD', p.getRange(2, 17, filas, 1)),
-        regla('=$Q2<>"",AND($Q2>TODAY()+7),#D4EDDA', p.getRange(2, 17, filas, 1))
+        regla('=$W' + iniP + '=FALSE', '#FBE4E4', p.getRange(iniP, 2, filas, 1), true),
+        regla('=$X' + iniP + '=TRUE', '#FBF3D6', p.getRange(iniP, 2, filas, 1)),
+        regla('=$AD' + iniP + '=TRUE', '#FBF3D6', p.getRange(iniP, 30, filas, 1), true),
+        regla('=$I' + iniP + '="G1"', '#D4EDDA', p.getRange(iniP, 9, filas, 1)),
+        regla('=$I' + iniP + '="G2"', '#FFF3CD', p.getRange(iniP, 9, filas, 1)),
+        regla('=$I' + iniP + '="G3"', '#F8D7DA', p.getRange(iniP, 9, filas, 1)),
+        regla('=OR($I' + iniP + '="",$I' + iniP + '="G")', '#FBF3D6', p.getRange(iniP, 9, filas, 1)),
+        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '<TODAY()),#F8D7DA', p.getRange(iniP, 17, filas, 1)),
+        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>=TODAY(),$Q' + iniP + '<=TODAY()+7),#FFF3CD', p.getRange(iniP, 17, filas, 1)),
+        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>TODAY()+7),#D4EDDA', p.getRange(iniP, 17, filas, 1))
       ]);
     }
   } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
 
-  /* INGRESO_*: estado con semáforo textual */
+  /* INGRESO_*: estado con semáforo textual (desde dataStartRow) */
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      if (!h || h.getLastRow() < 2) return;
+      var ini = Modelo_dataStartRow(nombre);
+      var hr = Modelo_headerRow(nombre);
+      if (!h || h.getLastRow() < hr) return;
       var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
       var L = String.fromCharCode(64 + colEstado);
-      var rEstado = h.getRange(2, colEstado, Math.max(h.getMaxRows() - 1, 1), 1);
+      var rEstado = h.getRange(ini, colEstado, Math.max(h.getMaxRows() - ini + 1, 1), 1);
       aplicar(h, [
-        regla('=$' + L + '2="ERROR"', '#FBE4E4', rEstado, true),
-        regla('=$' + L + '2="REQUIERE_REVISION"', '#FBF3D6', rEstado),
-        regla('=$' + L + '2="INGRESADO"', '#E3F3EA', rEstado)
+        regla('=$' + L + ini + '="ERROR"', '#FBE4E4', rEstado, true),
+        regla('=$' + L + ini + '="REQUIERE_REVISION"', '#FBF3D6', rEstado),
+        regla('=$' + L + ini + '="INGRESADO"', '#E3F3EA', rEstado)
       ]);
     } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
@@ -533,43 +563,49 @@ function Hojas_formatoCondicional(ss) {
   HOJAS_SECTOR.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      if (!h) return;
+      var ini = Modelo_dataStartRow(nombre);
+      var hr = Modelo_headerRow(nombre);
+      if (!h || h.getLastRow() < hr) return;
       var colRut = COLUMNAS_SECTOR_VISTA.indexOf('RUT_DV_VALIDO') + 1;
       var colEst = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
+      var colProx = COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1;
       var letraRut = String.fromCharCode(64 + colRut);
       var letraEst = String.fromCharCode(64 + colEst);
-      var filas = Math.max(h.getMaxRows() - 1, 1);
+      var letraProx = String.fromCharCode(64 + colProx);
+      var filas = Math.max(h.getMaxRows() - ini + 1, 1);
       aplicar(h, [
-        regla('=$' + letraRut + '2=FALSE', '#FBE4E4',
-             h.getRange(2, colRut, filas, 1), true),
-        regla('=$' + letraRut + '2=FALSE', '#FBE4E4',
-             h.getRange(2, 2, filas, 1), true),
-        regla('=$' + letraEst + '2="G1"', '#D4EDDA',
-             h.getRange(2, colEst, filas, 1)),
-        regla('=$' + letraEst + '2="G2"', '#FFF3CD',
-             h.getRange(2, colEst, filas, 1)),
-        regla('=$' + letraEst + '2="G3"', '#F8D7DA',
-             h.getRange(2, colEst, filas, 1)),
-        regla('=OR($' + letraEst + '2="",$' + letraEst + '2="G")', '#FBF3D6',
-             h.getRange(2, colEst, filas, 1)),
-        regla('=$M2<>"",AND($M2<TODAY()),#F8D7DA',
-             h.getRange(2, COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1, filas, 1)),
-        regla('=$M2<>"",AND($M2>=TODAY(),$M2<=TODAY()+7),#FFF3CD',
-             h.getRange(2, COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1, filas, 1)),
-        regla('=$M2<>"",AND($M2>TODAY()+7),#D4EDDA',
-             h.getRange(2, COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1, filas, 1))
+        regla('=$' + letraRut + ini + '=FALSE', '#FBE4E4',
+             h.getRange(ini, colRut, filas, 1), true),
+        regla('=$' + letraRut + ini + '=FALSE', '#FBE4E4',
+             h.getRange(ini, 2, filas, 1), true),
+        regla('=$' + letraEst + ini + '="G1"', '#D4EDDA',
+             h.getRange(ini, colEst, filas, 1)),
+        regla('=$' + letraEst + ini + '="G2"', '#FFF3CD',
+             h.getRange(ini, colEst, filas, 1)),
+        regla('=$' + letraEst + ini + '="G3"', '#F8D7DA',
+             h.getRange(ini, colEst, filas, 1)),
+        regla('=OR($' + letraEst + ini + '="",$' + letraEst + ini + '="G")', '#FBF3D6',
+             h.getRange(ini, colEst, filas, 1)),
+        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '<TODAY()),#F8D7DA',
+             h.getRange(ini, colProx, filas, 1)),
+        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>=TODAY(),$' + letraProx + ini + '<=TODAY()+7),#FFF3CD',
+             h.getRange(ini, colProx, filas, 1)),
+        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>TODAY()+7),#D4EDDA',
+             h.getRange(ini, colProx, filas, 1))
       ]);
     } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }
   });
 
-  /* CONFLICTOS: pendiente / resuelto */
+  /* CONFLICTOS: pendiente / resuelto (layout simple → dataStartRow=2) */
   try {
     var con = ss.getSheetByName(HOJAS.CONFLICTOS);
-    if (con && con.getLastRow() > 1) {
-      var rC = con.getRange(2, 9, Math.max(con.getMaxRows() - 1, 1), 1);
+    var iniC = Modelo_dataStartRow(HOJAS.CONFLICTOS);
+    var hrC = Modelo_headerRow(HOJAS.CONFLICTOS);
+    if (con && con.getLastRow() >= hrC) {
+      var rC = con.getRange(iniC, 9, Math.max(con.getMaxRows() - iniC + 1, 1), 1);
       aplicar(con, [
-        regla('=$I2="PENDIENTE"', '#FBF3D6', rC, true),
-        regla('=$I2="RESUELTO"', '#E3F3EA', rC)
+        regla('=$I' + iniC + '="PENDIENTE"', '#FBF3D6', rC, true),
+        regla('=$I' + iniC + '="RESUELTO"', '#E3F3EA', rC)
       ]);
     }
   } catch (eC2) { errores.push('CONFLICTOS: ' + (eC2 && eC2.message || eC2)); }
@@ -577,15 +613,20 @@ function Hojas_formatoCondicional(ss) {
   return { aplicadas: aplicadas, errores: errores };
 }
 
-/** GAS: filtros básicos en hojas de datos (uno por hoja, idempotente). */
+/** GAS: filtros básicos en hojas de datos, anclados en headerRow del contrato
+ *  (idempotente; si existe un filtro heredado mal anclado, se recrea). */
 function Hojas_filtros(ss) {
   var n = 0;
   ['PACIENTES', 'EVENTOS', 'CONFLICTOS'].concat(HOJAS_SECTOR, Object.keys(HOJAS_INGRESO))
     .forEach(function (nombre) {
       var h = ss.getSheetByName(nombre);
-      if (!h || h.getLastRow() < 2) return;
-      if (!h.getFilter()) {
-        h.getRange(1, 1, h.getLastRow(), Math.max(h.getLastColumn(), 1)).createFilter();
+      var hr = Modelo_headerRow(nombre);
+      var ini = Modelo_dataStartRow(nombre);
+      if (!h || h.getLastRow() < ini) return;
+      var filtro = h.getFilter();
+      if (!filtro || filtro.getRange().getRow() !== hr) {
+        if (filtro) { try { filtro.remove(); } catch (eR) {} }
+        h.getRange(hr, 1, h.getLastRow() - hr + 1, Math.max(h.getLastColumn(), 1)).createFilter();
         n++;
       }
     });
@@ -674,9 +715,10 @@ function Hojas_colorearRutIngresos(ss) {
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      if (!h || h.getLastRow() < 2) return;
+      var ini = Modelo_dataStartRow(nombre);
+      if (!h || h.getLastRow() < ini) return;
       var colRut = INGRESO_COLUMNAS.indexOf('RUT') + 1;
-      var vals = h.getRange(2, colRut, h.getLastRow() - 1, 1).getValues();
+      var vals = h.getRange(ini, colRut, h.getLastRow() - ini + 1, 1).getValues();
       var backgrounds = [];
       for (var i = 0; i < vals.length; i++) {
         var rut = Utl_texto(vals[i][0]);
@@ -685,7 +727,7 @@ function Hojas_colorearRutIngresos(ss) {
         var valido = norm.rut && Norm_validarRut(norm.rut);
         backgrounds.push([valido ? '#E3F3EA' : '#FBE4E4']);
       }
-      h.getRange(2, colRut, backgrounds.length, 1).setBackgrounds(backgrounds);
+      h.getRange(ini, colRut, backgrounds.length, 1).setBackgrounds(backgrounds);
       ok++;
     } catch (e) {}
   });
@@ -706,7 +748,8 @@ function onEdit(e) {
     var esSector = HOJAS_SECTOR.indexOf(nombre) !== -1;
     if (!esIngreso && !esSector) return;
     var fila = e.range.getRow(), col = e.range.getColumn();
-    if (fila < 2) return;
+    var ini = Modelo_dataStartRow(nombre);
+    if (fila < ini) return;
 
     var colRut;
     if (esIngreso) {
@@ -735,7 +778,7 @@ function onEdit(e) {
 
     /* duplicados dentro de la misma puerta (solo INGRESO_*) */
     var ultimo = norm.rut || String(crudo).trim().toUpperCase();
-    var colVals = sh.getRange(2, col, Math.max(sh.getLastRow() - 1, 1), 1).getValues();
+    var colVals = sh.getRange(ini, col, Math.max(sh.getLastRow() - ini + 1, 1), 1).getValues();
     var cnt = 0;
     colVals.forEach(function (r) {
       if (Utl_texto(r[0]).toUpperCase() === ultimo.toUpperCase()) cnt++;

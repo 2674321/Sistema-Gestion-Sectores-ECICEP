@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.9.0',
+  VERSION: '0.8.9.4',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -96,6 +96,25 @@ var HOJAS_INGRESO = {
 
 var HOJAS_SECTOR = ['SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE'];
 
+// ---------------------------------------------------------------------------
+// CONTRATO FÍSICO DE HOJAS (v0.8.9.4 — NORMALIZACIÓN DEFINITIVA).
+// LAYOUT_VISUAL: fila 1 = TÍTULO/IDENTIDAD · fila 2 = SECCIONES ·
+//                fila 3 = ENCABEZADOS REALES (filtro nativo) · fila 4+ = DATOS.
+// LAYOUT_SIMPLE: fila 1 = encabezados · fila 2+ = datos.
+// Ningún módulo puede asumir "fila 1 = encabezados" ni "fila 3 = encabezados"
+// de forma dispersa: debe consultar Modelo_headerRow()/Modelo_dataStartRow()
+// o leer con Modelo_leerBloqueCabecera().
+// ---------------------------------------------------------------------------
+var CONTRATO_LAYOUT_VISUAL = { tituloRow: 1, seccionesRow: 2, encabezadosRow: 3, datosDesdeRow: 4 };
+var CONTRATO_LAYOUT_SIMPLE = { tituloRow: 0, seccionesRow: 0, encabezadosRow: 1, datosDesdeRow: 2 };
+
+// Hojas con diseño visual (título + secciones + encabezados en fila 3 + datos en 4+).
+// Las restantes (EVENTOS, CONFLICTOS, CONFIG, FUENTES, LOG, PROFESIONALES,
+// RESPONSABLES, CAT_VIGENCIA_EXAMENES, STAGING_IMPORT, REM_SALIDA, INICIO)
+// usan LAYOUT_SIMPLE: encabezados en fila 1, datos desde fila 2.
+var LAYOUT_HOJAS_VISUALES = [HOJAS.PACIENTES]
+  .concat(Object.keys(HOJAS_INGRESO), HOJAS_SECTOR);
+
 const INGRESO_COLUMNAS = [
   'NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)',
   'FECHA DE INGRESO', 'ESTRATIFICACION', 'DUPLA INGRESO', 'OBSERVACIONES',
@@ -138,13 +157,13 @@ const SECCIONES_HOJAS = {
       id: 'datosPersonales',
       nombre: 'DATOS PERSONALES',
       color: '#1565C0',
-      columnas: ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS']
+      columnas: ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)']
     },
     {
       id: 'identificacion',
       nombre: 'IDENTIFICACIÓN',
       color: '#546E7A',
-      columnas: ['FECHA_INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']
+      columnas: ['FECHA DE INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']
     },
     {
       id: 'sectorizacion',
@@ -156,7 +175,7 @@ const SECCIONES_HOJAS = {
       id: 'controlesSeguimiento',
       nombre: 'CONTROLES / SEGUIMIENTO',
       color: '#EF6C00',
-      columnas: ['DUPLA_INGRESO', 'OBSERVACIONES']
+      columnas: ['DUPLA INGRESO', 'OBSERVACIONES']
     }
   ],
   PACIENTES: [
