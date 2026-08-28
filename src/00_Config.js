@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------------
 // Identificación del proyecto
 // ---------------------------------------------------------------------------
-const ECICEP = {
+var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
   VERSION: '0.8.9.0',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
@@ -28,7 +28,7 @@ const ECICEP = {
 // sidebars usan showSidebar(output.setTitle(...)) (1 argumento, correcto).
 //   tipo: 'modal' → Ui.showModalDialog(htmlEval, titulo)
 //         'sidebar' → Ui.showSidebar(htmlEval.setTitle(titulo))
-const UICFG_DIALOGOS = [
+var UICFG_DIALOGOS = [
   { opener: 'UI_instalarSistema', plantilla: 'Instalador', tipo: 'modal' },
   { opener: 'UI_abrirLog', plantilla: 'LogVisor', tipo: 'modal' },
   { opener: 'UI_centroPruebas', plantilla: 'CentroPruebas', tipo: 'modal' },
@@ -52,7 +52,7 @@ const UICFG_DIALOGOS = [
 //   ETAPA 2 creó: CONFIG, PACIENTES, LOG, CONFLICTOS, FUENTES.
 //   Las demás se crean en su etapa; NO todas automáticamente.
 // ---------------------------------------------------------------------------
-const HOJAS = {
+var HOJAS = {
   CONFIG: 'CONFIG',
   PACIENTES: 'PACIENTES',       // base consolidada (entidad, estado vigente)
   EVENTOS: 'EVENTOS',           // historial de actividad (ETAPA 3)
@@ -67,16 +67,16 @@ const HOJAS = {
 
 // Columnas del catálogo central de profesionales (fuente de verdad para
 // Dupla y validaciones; REM conserva el texto libre del evento).
-const COLUMNAS_PROFESIONALES = ['CODIGO', 'NOMBRE', 'TIPO_ROL', 'ACTIVO'];
+var COLUMNAS_PROFESIONALES = ['CODIGO', 'NOMBRE', 'TIPO_ROL', 'ACTIVO'];
 
 // Asociaciones responsables ↔ sector (modelo ACUMULABLE: un sector puede tener
 // N responsables y un responsable puede estar en N sectores). SECTOR guarda el
 // nombre corto ('AMARILLO'); CODIGO_RESPONSABLE enlaza al catálogo PROFESIONALES
 // cuando aplica (o 'R_'+clave para responsables externos al catálogo).
-const COLUMNAS_RESPONSABLES = ['SECTOR', 'CODIGO_RESPONSABLE', 'NOMBRE_RESPONSABLE', 'CORREO', 'ACTIVO'];
+var COLUMNAS_RESPONSABLES = ['SECTOR', 'CODIGO_RESPONSABLE', 'NOMBRE_RESPONSABLE', 'CORREO', 'ACTIVO'];
 
 // Sectores geográficos sobre los que se asignan responsables (conjunto cerrado).
-const SECTORES_RESPONSABLES = ['AMARILLO', 'NARANJO', 'VERDE'];
+var SECTORES_RESPONSABLES = ['AMARILLO', 'NARANJO', 'VERDE'];
 
 // ---------------------------------------------------------------------------
 // Hojas de ingreso y vistas sectoriales (ETAPA 3b / corrección arquitectónica)
@@ -86,14 +86,14 @@ const SECTORES_RESPONSABLES = ['AMARILLO', 'NARANJO', 'VERDE'];
 //   - INGRESO_COLUMNAS es el CONTRATO ÚNICO compartido por instalador,
 //     sembrador y adaptador (DEC-029).
 // ---------------------------------------------------------------------------
-const HOJAS_INGRESO = {
+var HOJAS_INGRESO = {
   'INGRESO_NARANJO': 'NARANJO',
   'INGRESO_NARANJA': 'NARANJO', // alias aceptado
   'INGRESO_AMARILLO': 'AMARILLO',
   'INGRESO_VERDE': 'VERDE'
 };
 
-const HOJAS_SECTOR = ['SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE'];
+var HOJAS_SECTOR = ['SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE'];
 
 const INGRESO_COLUMNAS = [
   'NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)',
@@ -109,7 +109,7 @@ const CAMPOS_INGRESO_OPERATIVOS = [
 ];
 
 // Columnas de la hoja EVENTOS (orden compartido por instalador y escritor)
-const COLUMNAS_EVENTOS = [
+var COLUMNAS_EVENTOS = [
   'ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA_EVENTO', 'TIPO_EVENTO',
   'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'PROFESIONAL_TIPO', 'DESCRIPCION',
   'CANTIDAD', 'OBSERVACIONES', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'
@@ -119,7 +119,7 @@ const COLUMNAS_EVENTOS = [
 // NUNCA bases independientes — corrección arquitectónica ETAPA 3b).
 // ETAPA 4: + ID_INTERNO (enlace a ficha), SEXO, EDAD (derivada),
 // ULTIMO_EVENTO (derivado de EVENTOS en el refresco).
-const COLUMNAS_SECTOR_VISTA = [
+var COLUMNAS_SECTOR_VISTA = [
   'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
   'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO',
   'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
@@ -251,7 +251,7 @@ const SECCIONES_HOJAS = {
 };
 
 // Hojas que reciben el sistema visual (prioritarias).
-const HOJAS_CON_SECCIONES = [
+var HOJAS_CON_SECCIONES = [
   'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE',
   'PACIENTES',
   'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
@@ -345,7 +345,7 @@ const FUENTES_DRIVE = {
 
 // Hojas autorizadas para la primera carga real controlada (ETAPA 5)
 // Las excluidas (LISTADO 2025, INASISTENTES, GESTOR DE CASO) NO se procesan.
-const HOJAS_AUTORIZADAS_CARGA = {
+var HOJAS_AUTORIZADAS_CARGA = {
   'ECICEP NARANJO': ['Ingresos Enero ', 'Ingreso Febrero', 'Ingresos 2025 - 2026'],
   'PCTS. ECICEP DESDE 2023': ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS', 'CONTROLES PENDIENTES']
 };
@@ -397,7 +397,7 @@ const SEXOS = {
 //   tecnico:true → columna técnica (agrupada/oculta al usuario)
 //   Estado VIGENTE = caché derivada de EVENTOS (ver MODELO-EVENTOS.md §3)
 // ---------------------------------------------------------------------------
-const MODELO_PACIENTE = [
+var MODELO_PACIENTE = [
   { campo: 'ID_INTERNO',             tipo: 'id',     obligatorio: true,  tecnico: true,  descripcion: 'Identificador interno estable generado por el sistema', regla: 'EC-<base36 tiempo>-<aleatorio>' },
   { campo: 'RUT',                    tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'RUT normalizado cuerpo-DV', regla: 'Norm_normalizarRut: sin puntos, DV mayúscula; sin DV en fuente → solo cuerpo con bandera RUT_SIN_DV' },
   { campo: 'NOMBRE',                 tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'Nombre del paciente', regla: 'Mayúsculas, espacios colapsados, conserva tildes' },
@@ -508,7 +508,7 @@ const ENCABEZADOS_SIN_DESTINO = [
 // ---------------------------------------------------------------------------
 // Fechas
 // ---------------------------------------------------------------------------
-const CFG_FECHAS = {
+var CFG_FECHAS = {
   ANO_MIN: 2015,           // eventos: fuera de rango → fecha inválida (no se corrige en silencio)
   ANO_MAX: 2040,
   ANO_MIN_NACIMIENTO: 1900, // fechas de nacimiento admiten años mucho más antiguos
@@ -526,7 +526,7 @@ const CFG_FECHAS = {
 //   El catálogo de condiciones y sus ponderaciones son DATOS, no código.
 //   Cuando llegue la regla oficial del programa ECICEP, reemplazar el catálogo.
 // ---------------------------------------------------------------------------
-const CFG_ESTRATIFICACION = {
+var CFG_ESTRATIFICACION = {
   REGLA_DISPONIBLE: true,
   VERSION_REGLA: 'v1.0-MINSAL',
   MOTIVO_SIN_REGLA: '',
@@ -648,7 +648,7 @@ const CATALOGO_PROFESIONALES = [
 // ---------------------------------------------------------------------------
 // Logging (DEC-014): búfer en memoria + escritura por lotes
 // ---------------------------------------------------------------------------
-const CFG_LOG = {
+var CFG_LOG = {
   HOJA: HOJAS.LOG,
   NIVEL: 'INFO',           // DEBUG < INFO < WARNING < ERROR (DEBUG se descarta)
   MAX_BUFFER: 50,          // auto-flush al alcanzar N entradas
@@ -659,7 +659,7 @@ const CFG_LOG = {
 // Caché (DEC-015): solo índices/parámetros de lectura, TTL corto,
 // invalidación explícita al escribir. Nunca datos en curso de modificación.
 // ---------------------------------------------------------------------------
-const CFG_CACHE = {
+var CFG_CACHE = {
   PREFIJO: 'ECICEP:v' + ECICEP.VERSION.replace(/\./g, '') + ':',
   TTL_DEFECTO_SEG: 60
 };
