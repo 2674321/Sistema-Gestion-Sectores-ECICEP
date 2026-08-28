@@ -308,7 +308,7 @@ function HVis_normalizarLayout(hoja) {
     rTitulo.setBackground(colorSector);
     rTitulo.setFontColor(TINTA_SECCION);
     rTitulo.setFontWeight('bold');
-    rTitulo.setFontSize(13);
+    rTitulo.setFontSize(PULIDO_BARRAS.titulo);
     rTitulo.setHorizontalAlignment('CENTER');
     rTitulo.setVerticalAlignment('MIDDLE');
     rTitulo.setBorder(true, true, true, true, false, false, '#D8DEE4', SpreadsheetApp.BorderStyle.SOLID_THICK);
@@ -329,15 +329,17 @@ function HVis_normalizarLayout(hoja) {
       rSec.clear();
       rSec.setBackground('#F4F6F8');
     } catch (eC) {}
+    var familia = HVis_familiaHoja(nombre);
+    var secuencias = PALETA_SECCION[familia] || null;
     plan.secciones.forEach(function (sec) {
       var rng = hoja.getRange(plan.seccionesRow, sec.colInicio, 1, sec.colFin - sec.colInicio + 1);
       try { rng.breakApart(); } catch (eB) {}
       rng.merge();
       rng.setValue(sec.nombre);
-      rng.setBackground(sec.color);
+      rng.setBackground(secuencias ? secuencias[plan.secciones.indexOf(sec)] : sec.color);
       rng.setFontColor(TINTA_SECCION);
       rng.setFontWeight('bold');
-      rng.setFontSize(11);
+      rng.setFontSize(PULIDO_BARRAS.seccion);
       rng.setHorizontalAlignment('CENTER');
       rng.setVerticalAlignment('MIDDLE');
       rng.setBorder(false, false, true, false, false, false, '#C9D2DA', SpreadsheetApp.BorderStyle.SOLID_THICK);
@@ -427,7 +429,20 @@ function HVis_detectarSectorHoja(nombre) {
 }
 
 /**
- * PURA: color por sector (tonos pastel de identificación — Parte 1.3).
+ * PURA: familia de color de una hoja según su sector (v0.8.9.5).
+ * AMARILLO, NARANJO o VERDE para las hojas SECTOR e INGRESO del sector;
+ * cadena vacía si la hoja no pertenece a ningún sector.
+ */
+function HVis_familiaHoja(nombre) {
+  var n = Utl_texto(nombre);
+  if (n.indexOf('AMARILLO') !== -1) return 'AMARILLO';
+  if (n.indexOf('NARANJ') !== -1) return 'NARANJO';
+  if (n.indexOf('VERDE') !== -1) return 'VERDE';
+  return '';
+}
+
+/**
+ * PURA: color por sector (tono MEDIO de la familia — fila 1).
  */
 function HVis_colorPorSector(sector) {
   return COLORES_SECTOR[sector] || COLORES_SECTOR.DEFECTO;

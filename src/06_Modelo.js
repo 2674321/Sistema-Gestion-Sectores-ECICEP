@@ -329,12 +329,17 @@ function _modelo_camposHoja(nombre) {
   return (def && def.slice) ? def.slice() : [];
 }
 
-/** GAS: aplica los anchos por campo a una hoja con columnas de contrato. */
+/** GAS: aplica los anchos por campo a una hoja. Fuente de verdad = ETIQUETA
+ *  real de la fila de encabezados (hr del contrato), no el orden supuesto:
+ *  así los anchos SIEMPRE coinciden con las columnas existentes. */ 
 function _modelo_anchosHoja(hoja) {
-  var campos = _modelo_camposHoja(hoja.getName());
-  if (!campos.length) return;
-  campos.forEach(function (c, i) {
-    hoja.setColumnWidth(i + 1, Modelo_anchoColumna(c));
+  var nombre = hoja.getName();
+  var hr = Modelo_headerRow(nombre);
+  if (hoja.getLastRow() < hr) return;
+  var labels = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
+  labels.forEach(function (etiqueta, i) {
+    if (Utl_texto(etiqueta) === '') return;
+    hoja.setColumnWidth(i + 1, Modelo_anchoColumna(etiqueta));
   });
 }
 

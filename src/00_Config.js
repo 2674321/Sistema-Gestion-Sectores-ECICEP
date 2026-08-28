@@ -154,34 +154,53 @@ var COLUMNAS_SECTOR_VISTA = [
 // con los de organización. Valores con contraste TINTA/color ≥ 4.5:1.
 // ---------------------------------------------------------------------------
 
-// Colores de las BARRAS DE SECCIÓN (fila 2): tonos pastel claros.
+// Colores de las BARRAS DE SECCIÓN (fila 2): paleta VIBRANTE pero armónica,
+// tonos luz media con croma alto. Todos mantienen ≥4.5:1 sobre TINTA_SECCION.
 const COLORES_SECCION = {
-  IDENTIDAD: '#DCEAFB',           // azul muy claro
-  DATOS_PERSONALES: '#DCEAFB',    // azul claro
-  IDENTIFICACION: '#E8EEF5',      // gris azulado claro
-  SECTORIZACION: '#DFF0E4',       // verde claro
-  ESTRATIFICACION: '#E9DFF3',     // violeta/lila claro
-  INGRESO: '#E8EEF5',             // gris azulado claro
-  CONTROLES: '#FFE3C8',           // naranja claro (≠ próximos clínicos #FFF3CD)
-  CONTROLES_SEGUIMIENTO: '#FFE3C8',
-  CLINICO: '#EDE3F4',             // morado claro
-  TECNICO: '#EEF1F3',             // gris claro
-  OBSERVACIONES: '#EEF1F3',       // gris claro
-  EVENTO: '#FFE9D1',              // naranja claro
-  AUDITORIA: '#E5EBEF'            // gris azulado muy claro
+  IDENTIDAD: '#5FA8E8',           // azul vibrante
+  DATOS_PERSONALES: '#5FA8E8',    // azul vibrante
+  IDENTIFICACION: '#AFCBE0',      // acero claro
+  SECTORIZACION: '#57C28C',       // verde vibrante
+  ESTRATIFICACION: '#C3A7EC',     // violeta claro
+  INGRESO: '#AFCBE0',             // acero claro
+  CONTROLES: '#F2A65A',           // durazno vibrante (≠ próximos clínicos #FFF3CD)
+  CONTROLES_SEGUIMIENTO: '#F2A65A',
+  CLINICO: '#B79BE4',             // púrpura claro
+  TECNICO: '#B9C6D0',             // gris acero claro
+  OBSERVACIONES: '#B9C6D0',       // gris acero claro
+  EVENTO: '#EFB273',              // ámbar claro
+  AUDITORIA: '#BFD3E4'            // gris azulado claro
 };
 
-// Tinta de texto sobre barras pastel (contraste alto sobre todas las anteriores).
+// Tinta de texto sobre barras (contraste ≥4.5:1 sobre todos los valores de
+// COLORES_SECCION, COLORES_SECTOR y PALETA_SECCION).
 const TINTA_SECCION = '#0B3C49';
 
-// Identificación visual de las hojas SECTOR_* (fila 1, barra de título):
-// tonos pastel del sector, mismos fundamentos que las secciones.
+// Identificación de las hojas (fila 1, barra de título): tono MEDIO de la
+// familia del sector — la escalera de lectura es pestaña(profunda) → título
+// (media) → secciones (claras), TODO dentro del mismo matiz por sector.
 const COLORES_SECTOR = {
-  AMARILLO: '#FFF1C9',
-  NARANJO: '#FFE3C4',
-  VERDE: '#BFE3C9',
-  PACIENTES: '#DCEAFB',
-  DEFECTO: '#EEF1F3'
+  AMARILLO: '#E5A62F',
+  NARANJO: '#F29646',
+  VERDE: '#57C28C',
+  PACIENTES: '#5AA7E6',
+  DEFECTO: '#B9C6D0'
+};
+
+// Secciones internas de hojas SECTOR_*/INGRESO_*: claras de la MISMA familia
+// del sector (índice = orden de la sección en la plantilla). Garantiza que
+// cada hoja sea monocromática por familia y coherente entre hojas del sector.
+const PALETA_SECCION = {
+  AMARILLO: ['#F4D47C', '#F0C25E', '#ECB34C', '#F3CE71'],
+  NARANJO: ['#F7C48B', '#F3AF6E', '#EF9A53', '#F5BE81'],
+  VERDE: ['#BFE3C9', '#A3D8B0', '#8CCEA0', '#B2DDBC']
+};
+
+// Tamaños ESTANDARIZADOS de las barras superiores: título y encabezados a
+// 12pt; secciones a 10pt (caption). Bold en todas.
+const PULIDO_BARRAS = {
+  titulo: 12,
+  seccion: 10
 };
 
 // Parámetros de diseño de la fila de ENCABEZADOS (Parte 2).

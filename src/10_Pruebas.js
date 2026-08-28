@@ -3028,11 +3028,11 @@ function _pruebas_hojasvisual_v0881(t, A) {
   });
 
   t('HOJAS VISUALES v0.8.9.0: COLORES_SECCION paleta semántica completa', function () {
-    A.igual(COLORES_SECCION.IDENTIDAD, '#DCEAFB');
-    A.igual(COLORES_SECCION.SECTORIZACION, '#DFF0E4');
-    A.igual(COLORES_SECCION.CONTROLES, '#FFE3C8');
-    A.igual(COLORES_SECCION.CLINICO, '#EDE3F4');
-    A.igual(COLORES_SECCION.TECNICO, '#EEF1F3');
+    A.igual(COLORES_SECCION.IDENTIDAD, '#5FA8E8');
+    A.igual(COLORES_SECCION.SECTORIZACION, '#57C28C');
+    A.igual(COLORES_SECCION.CONTROLES, '#F2A65A');
+    A.igual(COLORES_SECCION.CLINICO, '#B79BE4');
+    A.igual(COLORES_SECCION.TECNICO, '#B9C6D0');
   });
 }
 
@@ -3241,10 +3241,52 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(TINTA_SECCION, '#0B3C49');
   });
 
-  t('PULIDO v0.8.9.5: CONTROLES pastel ≠ colores clínicos de CF', function () {
-    A.cierto(COLORES_SECCION.CONTROLES !== '#FFF3CD', '≠ próximos clínicos');
-    A.cierto(COLORES_SECCION.CONTROLES !== '#D4EDDA', '≠ vigente');
-    A.cierto(COLORES_SECCION.CONTROLES !== '#F8D7DA', '≠ vencido');
+  t('PULIDO v0.8.9.5: PALETA_SECCION monocromática y con contraste', function () {
+    var familias = ['AMARILLO', 'NARANJO', 'VERDE'];
+    var malos = [], inco = [];
+    familias.forEach(function (f) {
+      var arr = PALETA_SECCION[f];
+      A.cierto(Array.isArray(arr) && arr.length >= 4, f + ' con ≥4 tonos');
+      if (!arr) return;
+      arr.forEach(function (c) {
+        var r = _ratio(TINTA_SECCION, c);
+        if (r < 4.5) malos.push(f + ':' + c + '(' + r.toFixed(2) + ')');
+      });
+      var deltas = arr.slice(1).map(function (c, i) {
+        return Math.abs(_lum(c) - _lum(arr[i]));
+      });
+      var maxDelta = Math.max.apply(Math, deltas);
+      if (maxDelta > 0.3) inco.push(f + ': delta=' + maxDelta.toFixed(2));
+    });
+    A.igual(malos.length, 0, 'tinta legible en todas (' + malos.join(', ') + ')');
+    A.igual(inco.length, 0, 'familias homogéneas en luminancia (' + inco.join(', ') + ')');
+  });
+
+  t('PULIDO v0.8.9.5: secciones del sector ≠ colores clínicos de CF', function () {
+    ['AMARILLO', 'NARANJO', 'VERDE'].forEach(function (f) {
+      A.cierto(PALETA_SECCION[f][2] !== '#FFF3CD', f + ' ≠ próximos');
+      A.cierto(PALETA_SECCION[f][2] !== '#D4EDDA', f + ' ≠ vigente');
+      A.cierto(PALETA_SECCION[f][2] !== '#F8D7DA', f + ' ≠ vencido');
+    });
+    A.cierto(COLORES_SECCION.CONTROLES !== '#FFF3CD', 'global ≠ próximos');
+    A.cierto(COLORES_SECCION.CONTROLES !== '#D4EDDA', 'global ≠ vigente');
+    A.cierto(COLORES_SECCION.CONTROLES !== '#F8D7DA', 'global ≠ vencido');
+  });
+
+  t('PULIDO v0.8.9.5: HVis_familiaHoja asocia cada puerta a su familia', function () {
+    A.igual(HVis_familiaHoja('SECTOR_AMARILLO'), 'AMARILLO', 'sector amarillo');
+    A.igual(HVis_familiaHoja('INGRESO_AMARILLO'), 'AMARILLO', 'ingreso amarillo');
+    A.igual(HVis_familiaHoja('SECTOR_NARANJO'), 'NARANJO', 'sector naranjo');
+    A.igual(HVis_familiaHoja('INGRESO_NARANJA'), 'NARANJO', 'alias naranja');
+    A.igual(HVis_familiaHoja('SECTOR_VERDE'), 'VERDE', 'sector verde');
+    A.igual(HVis_familiaHoja('PACIENTES'), '', 'sin familia');
+    A.igual(HVis_familiaHoja('EVENTOS'), '', 'sin familia');
+  });
+
+  t('PULIDO v0.8.9.5: tamaños estandarizados de barras', function () {
+    A.igual(PULIDO_BARRAS.titulo, 12, 'título 12');
+    A.igual(PULIDO_BARRAS.seccion, 10, 'secciones 10');
+    A.igual(PULIDO_ENCABEZADO.fuente, 12, 'encabezado 12');
   });
 
   t('PULIDO v0.8.9.5: SECCIONES_HOJAS referencian valores de COLORES_SECCION', function () {
