@@ -7,6 +7,7 @@
  */
 
 var INSTALAR_ETAPAS = [
+  { id: 'runtime',      nombre: 'Validación de runtime',      fn: 'Instalar_pRuntime' },
   { id: 'diagnostico',  nombre: 'Diagnóstico previo',       fn: 'Instalar_pDiagnostico' },
   { id: 'estructura',   nombre: 'Estructura y CONFIG',      fn: 'Instalar_pEstructura' },
   { id: 'fuentes',      nombre: 'Carga inicial de fuentes', fn: 'Instalar_pFuentes' },
@@ -51,6 +52,14 @@ function api_instalarPaso(id) {
 }
 
 /* ------------------------- ETAPAS (thin wrappers) ------------------------- */
+
+function Instalar_pRuntime() {
+  var r = Modelo_validarDependenciasRuntime();
+  if (!r.ok) {
+    return { ok: false, motivo: r.detalle, faltantes: r.faltantes };
+  }
+  return { ok: true, dependencias: r.total };
+}
 
 function Instalar_pDiagnostico() {
   var r = Instalar_diagnosticar();

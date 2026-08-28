@@ -1644,3 +1644,61 @@ function Modelo_limpiarHojasResiduales(ss) {
   });
   return res;
 }
+
+/**
+ * GAS: valida que todas las dependencias críticas de runtime estén disponibles.
+ * Ejecutar ANTES de cualquier instalación/importación.
+ * @returns {ok: boolean, faltantes: [], detalle: string}
+ */
+function Modelo_validarDependenciasRuntime() {
+  var criticas = [
+    { nombre: 'MODELO_PACIENTE', valor: (typeof MODELO_PACIENTE !== 'undefined') },
+    { nombre: 'HOJAS', valor: (typeof HOJAS !== 'undefined') },
+    { nombre: 'COLUMNAS_EVENTOS', valor: (typeof COLUMNAS_EVENTOS !== 'undefined') },
+    { nombre: 'INGRESO_COLUMNAS', valor: (typeof INGRESO_COLUMNAS !== 'undefined') },
+    { nombre: 'COLUMNAS_SECTOR_VISTA', valor: (typeof COLUMNAS_SECTOR_VISTA !== 'undefined') },
+    { nombre: 'HOJAS_INGRESO', valor: (typeof HOJAS_INGRESO !== 'undefined') },
+    { nombre: 'HOJAS_SECTOR', valor: (typeof HOJAS_SECTOR !== 'undefined') },
+    { nombre: 'COLUMNAS_PROFESIONALES', valor: (typeof COLUMNAS_PROFESIONALES !== 'undefined') },
+    { nombre: 'COLUMNAS_RESPONSABLES', valor: (typeof COLUMNAS_RESPONSABLES !== 'undefined') },
+    { nombre: 'SECTORES_RESPONSABLES', valor: (typeof SECTORES_RESPONSABLES !== 'undefined') },
+    { nombre: 'FUENTES_DRIVE', valor: (typeof FUENTES_DRIVE !== 'undefined') },
+    { nombre: 'CONFIG_PROTEGIDAS', valor: (typeof CONFIG_PROTEGIDAS !== 'undefined') },
+    { nombre: 'CFG_FECHAS', valor: (typeof CFG_FECHAS !== 'undefined') },
+    { nombre: 'CFG_ESTRATIFICACION', valor: (typeof CFG_ESTRATIFICACION !== 'undefined') },
+    { nombre: 'CFG_LOG', valor: (typeof CFG_LOG !== 'undefined') },
+    { nombre: 'CFG_CACHE', valor: (typeof CFG_CACHE !== 'undefined') },
+    { nombre: 'UICFG_DIALOGOS', valor: (typeof UICFG_DIALOGOS !== 'undefined') },
+    { nombre: 'ECICEP', valor: (typeof ECICEP !== 'undefined') },
+    { nombre: 'MODELO_DISENO', valor: (typeof MODELO_DISENO !== 'undefined') },
+    { nombre: 'ESTADOS', valor: (typeof ESTADOS !== 'undefined') },
+    { nombre: 'SINONIMOS_ENCABEZADOS', valor: (typeof SINONIMOS_ENCABEZADOS !== 'undefined') },
+    { nombre: 'TIPOS_EVENTO', valor: (typeof TIPOS_EVENTO !== 'undefined') },
+    { nombre: 'CATALOGO_CONDICIONES_ECICEP', valor: (typeof CATALOGO_CONDICIONES_ECICEP !== 'undefined') },
+    { nombre: 'SEXOS', valor: (typeof SEXOS !== 'undefined') },
+    { nombre: 'HOJAS_NAV', valor: (typeof HOJAS_NAV !== 'undefined') },
+    { nombre: 'MARCA_DATOS_PRUEBA', valor: (typeof MARCA_DATOS_PRUEBA !== 'undefined') },
+    { nombre: '_MODELO_HOJAS_DEF', valor: (typeof _MODELO_HOJAS_DEF !== 'undefined') },
+    { nombre: '_CONFIG_SEMILLA', valor: (typeof _CONFIG_SEMILLA !== 'undefined') },
+    { nombre: 'CONFIG_SEED_EXTRA', valor: (typeof CONFIG_SEED_EXTRA !== 'undefined') },
+    { nombre: 'MODELO_COLUMNAS_FECHA', valor: (typeof MODELO_COLUMNAS_FECHA !== 'undefined') }
+  ];
+
+  var faltantes = criticas.filter(function (c) { return !c.valor; }).map(function (c) { return c.nombre; });
+  var ok = faltantes.length === 0;
+
+  if (!ok) {
+    Log_error('Modelo', 'validarDependenciasRuntime', 'Dependencias faltantes: ' + faltantes.join(', '));
+    Log_flush();
+  } else {
+    Log_info('Modelo', 'validarDependenciasRuntime', 'Todas las dependencias OK (' + criticas.length + ')');
+    Log_flush();
+  }
+
+  return {
+    ok: ok,
+    total: criticas.length,
+    faltantes: faltantes,
+    detalle: ok ? 'Todas las dependencias de runtime disponibles' : 'Faltantes: ' + faltantes.join(', ')
+  };
+}

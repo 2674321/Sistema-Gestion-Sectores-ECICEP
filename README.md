@@ -296,3 +296,34 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Tests**: `_pruebas_hojasvisual_v0883` + `_pruebas_auditoria_v088` + `_pruebas_escala_v088` + tests INICIO dinámicos. **408/408 tests verdes**.
 - **Versionado 0.8.9.0** + `README.md` + `DECISIONES.md` (DEC-044). `node --check` limpio.
 
+## QR permanente — Google Sheets
+
+En el root del repositorio se incluyen dos archivos de código QR que apuntan directamente a la hoja de cálculo principal del proyecto:
+
+| Archivo | Formato | Uso recomendado |
+|---------|---------|-----------------|
+| `QR-GOOGLE-SHEET.png` | PNG (alta resolución) | Impresión, documentos, presentaciones |
+| `QR-GOOGLE-SHEET.svg` | SVG (vectorial) | Escalado sin pérdida, web, diseño |
+
+**URL codificada:**
+```
+https://docs.google.com/spreadsheets/d/1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE/edit?usp=sharing
+```
+
+### Regenerar el QR
+
+Si la URL de la hoja de cálculo cambia en el futuro:
+
+1. Edita la constante `GOOGLE_SHEET_URL` en `generate_qr.py`
+2. Ejecuta:
+   ```bash
+   python3 generate_qr.py
+   ```
+3. Verifica que el QR se decodifica correctamente (el script lo hace automáticamente si tienes OpenCV instalado)
+
+El script genera ambas versiones (PNG y SVG) con:
+- Corrección de error **H** (máxima, ~30% tolerancia a daño)
+- **Quiet zone** de 4 módulos
+- **Box size** 12 (alta resolución para impresión)
+- Alto contraste (negro sobre blanco)
+
