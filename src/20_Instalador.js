@@ -14,8 +14,8 @@ var INSTALAR_ETAPAS = [
   { id: 'validaciones', nombre: 'Validaciones INGRESO',     fn: 'Instalar_pValidaciones' },
   { id: 'limpieza',     nombre: 'Limpieza de residuales',   fn: 'Instalar_pLimpieza' },
   { id: 'diseno',       nombre: 'Diseño del libro',         fn: 'Instalar_pDiseno' },
-  { id: 'visual',       nombre: 'Secciones y buscador',     fn: 'Instalar_pVisual' },
   { id: 'inicio',       nombre: 'INICIO + interfaz hojas',  fn: 'Instalar_pInicio' },
+  { id: 'visual',       nombre: 'Secciones y buscador',     fn: 'Instalar_pVisual' },
   { id: 'menu',         nombre: 'Menú y permisos',          fn: 'Instalar_pMenu' },
   { id: 'verificar',    nombre: 'Verificación final',       fn: 'Instalar_pVerificar' }
 ];

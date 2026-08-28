@@ -79,11 +79,12 @@ function HVis_calcularPlan(hoja, secciones, mapa) {
   filaActual = 2;
   
   // Filas de sección (una por sección con columnas válidas)
-  var seccionesValidas = secciones.filter(function (s) {
-    return HVis_validarSeccion(s, mapa).existentes.length > 0;
+  var seccionesValidas = (secciones || []).filter(function (s) {
+    return s && HVis_validarSeccion(s, mapa).existentes.length > 0;
   });
   
   seccionesValidas.forEach(function (sec, idx) {
+    if (!sec) return;
     var validada = HVis_validarSeccion(sec, mapa);
     var colInicio = Math.min.apply(null, validada.existentes.map(function (c) { return c.indice; }));
     var colFin = Math.max.apply(null, validada.existentes.map(function (c) { return c.indice; }));
@@ -94,16 +95,14 @@ function HVis_calcularPlan(hoja, secciones, mapa) {
       colInicio: colInicio,
       colFin: colFin,
       filaSeccion: filaActual,
-      filaEncabezados: filaActual + 1 + idx // se ajusta después
+      filaEncabezados: filaActual + 1 + idx
     });
     filaActual++;
   });
   
-  // La fila de encabezados reales queda después de buscador + secciones
-  plan.filaEncabezadosReales = 1 + 1 + seccionesValidas.length; // buscador + secciones + 1 (base 1)
+  plan.filaEncabezadosReales = 1 + 1 + seccionesValidas.length;
   plan.filasTotales = plan.filaEncabezadosReales;
   
-  // Actualizar filaEncabezados en cada sección
   plan.secciones.forEach(function (s, idx) {
     s.filaEncabezados = plan.filaEncabezadosReales;
   });
@@ -143,23 +142,37 @@ function HVis_detectarEstadoActual(hoja, secciones, mapa) {
         return c && c.toUpperCase() === sc.toUpperCase(); 
       });
     });
-    var tieneTextoSeccion = filaValores.some(function (v) {
-      var t = Utl_texto(v).toUpperCase();
-      return SECCIONES_HOJAS && Object.values(SECCIONES_HOJAS).some(function(arr) {
-        return arr.some(function(s) { return t.indexOf(Utl_texto(s.nombre).toUpperCase()) !== -1; });
+    var tieneTextoSeccion = false;
+    if (filaValores && Array.isArray(filaValores)) {
+      tieneTextoSeccion = filaValores.some(function (v) {
+        var t = Utl_texto(v).toUpperCase();
+        return SECCIONES_HOJAS && Object.values(SECCIONES_HOJAS).some(function(arr) {
+          return arr && Array.isArray(arr) && arr.some(function(s) { 
+            return s && s.nombre && t.indexOf(Utl_texto(s.nombre).toUpperCase()) !== -1; 
+          });
+        });
       });
-    });
+    }
     
     if (tieneColorSeccion && tieneTextoSeccion) {
       seccionesDetectadas++;
     }
     // Detectar fila de encabezados (fila con muchos valores no vacíos, fondo gris claro)
     if (filaEncabezadosDetectada === -1 && !tieneColorSeccion) {
-      var noVacios = filaValores.filter(function(v) { return Utl_texto(v) !== ''; }).length;
+      var noVacios = (filaValores || []).filter(function(v) { return Utl_texto(v) !== ''; }).length;
       if (noVacios > 3) { // heurística: fila de encabezados tiene muchas celdas con texto
         filaEncabezadosDetectada = f + 1; // 1-based
       }
     }
+  }
+  
+  var seccionesEsperadas = 0;
+  if (secciones && Array.isArray(secciones) && mapa) {
+    seccionesEsperadas = secciones.filter(function(s) { 
+      return s && HVis_validarSeccion(s, mapa).existentes.length > 0; 
+    }).length;
+  } else if (secciones && Array.isArray(secciones)) {
+    seccionesEsperadas = secciones.filter(function(s) { return s && s.columnas && s.columnas.length > 0; }).length;
   }
   
   return {
@@ -167,7 +180,7 @@ function HVis_detectarEstadoActual(hoja, secciones, mapa) {
     tieneBuscador: tieneBuscador,
     seccionesDetectadas: seccionesDetectadas,
     filaEncabezadosDetectada: filaEncabezadosDetectada,
-    seccionesEsperadas: secciones.filter(function(s) { return HVis_validarSeccion(s, mapa).existentes.length > 0; }).length
+    seccionesEsperadas: seccionesEsperadas
   };
 }
 
@@ -185,43 +198,41 @@ function HVis_aplicarSecciones(hoja) {
   var ultimaCol = hoja.getLastColumn();
   if (ultimaFila < 1 || ultimaCol < 1) return { ok: false, motivo: 'Hoja vacía' };
 
-  // Leer encabezados reales (asumimos que están en la fila detectada o fila 1 si no hay estructura)
+  // Leer encabezados reales - primero detectar estado actual SIN mapa (para no fallar)
   var estadoActual = HVis_detectarEstadoActual(hoja, secciones, null);
-  var encabezadosReales = [];
   var filaEncabezadosReal = estadoActual.filaEncabezadosDetectada > 0 ? estadoActual.filaEncabezadosDetectada : 1;
   
-  // Si ya tiene estructura completa y correcta → no tocar
-  if (estadoActual.tieneEstructura && 
-      estadoActual.tieneBuscador && 
-      estadoActual.seccionesDetectadas === estadoActual.seccionesEsperadas &&
-      estadoActual.filaEncabezadosDetectada === estadoActual.seccionesEsperadas + 2) { // buscador + secciones + 1
-    return { ok: true, seccionesAplicadas: 0, mensaje: 'Estructura ya correcta (idempotente)' };
-  }
-
-  // Leer encabezados desde la fila real
+  // Leer encabezados desde la fila real para crear el mapa
+  var encabezadosReales = [];
   try {
     encabezadosReales = hoja.getRange(filaEncabezadosReal, 1, 1, ultimaCol).getValues()[0];
   } catch (e) {
-    // Fallback: leer fila 1
     encabezadosReales = hoja.getRange(1, 1, 1, ultimaCol).getValues()[0];
     filaEncabezadosReal = 1;
   }
   var mapa = HVis_mapaColumnas(encabezadosReales);
+  
+  // Si ya tiene estructura completa y correcta → no tocar (re-detectar con mapa real)
+  var estadoConMapa = HVis_detectarEstadoActual(hoja, secciones, mapa);
+  if (estadoConMapa.tieneEstructura && 
+      estadoConMapa.tieneBuscador && 
+      estadoConMapa.seccionesDetectadas === estadoConMapa.seccionesEsperadas &&
+      estadoConMapa.filaEncabezadosDetectada === estadoConMapa.seccionesEsperadas + 2) {
+    return { ok: true, seccionesAplicadas: 0, mensaje: 'Estructura ya correcta (idempotente)' };
+  }
 
   // Calcular plan deseado
-  var plan = HVis_calcularPlan(hoja, secciones, mapa);
-  if (plan.secciones.length === 0) {
+  var plan = HVis_calcularPlan(null, secciones, mapa);
+  if (!plan || plan.secciones.length === 0) {
     return { ok: true, seccionesAplicadas: 0, mensaje: 'Sin secciones válidas' };
   }
 
   var advertencias = [];
-  var filasAInsertar = plan.filasTotales - filaEncabezadosReal;
   
   // Si la estructura actual no coincide, reconstruir desde cero
-  // Para idempotencia real: si ya hay filas de sección/buscador pero mal ubicadas, limpiar e insertar
-  var necesitaReconstruir = !estadoActual.tieneEstructura || 
-                           !estadoActual.tieneBuscador || 
-                           estadoActual.seccionesDetectadas !== plan.secciones.length ||
+  var necesitaReconstruir = !estadoConMapa.tieneEstructura || 
+                           !estadoConMapa.tieneBuscador || 
+                           estadoConMapa.seccionesDetectadas !== plan.secciones.length ||
                            filaEncabezadosReal !== plan.filaEncabezadosReales;
 
   if (necesitaReconstruir) {
@@ -231,7 +242,7 @@ function HVis_aplicarSecciones(hoja) {
       try { hoja.deleteRows(1, filasALimpiar); } catch (e) { advertencias.push('No se pudieron limpiar filas antiguas: ' + e.message); }
     }
     // Insertar filas nuevas (buscador + secciones)
-    hoja.insertRowsBefore(1, plan.filasTotales - 1); // -1 porque fila 1 ya existe
+    hoja.insertRowsBefore(1, plan.filasTotales - 1);
     filaEncabezadosReal = plan.filaEncabezadosReales;
   }
 
@@ -245,13 +256,13 @@ function HVis_aplicarSecciones(hoja) {
   rangoBuscador.setFontSize(12);
   rangoBuscador.setHorizontalAlignment('LEFT');
   rangoBuscador.setVerticalAlignment('MIDDLE');
-  // Nota con instrucciones
   hoja.getRange('A1').setNote('Escriba RUT, ID_INTERNO o nombre y presione Enter.\nEl filtro nativo de Sheets aplicará la búsqueda automáticamente.');
 
   // 2. CREAR FILAS DE SECCIÓN (una por sección válida)
   var seccionesValidas = plan.secciones;
   seccionesValidas.forEach(function (sec, idx) {
-    var filaSec = 2 + idx; // fila 2 en adelante (fila 1 = buscador)
+    if (!sec) return;
+    var filaSec = 2 + idx;
     var rangoTitulo = hoja.getRange(filaSec, sec.colInicio, 1, sec.colFin - sec.colInicio + 1);
     rangoTitulo.merge();
     rangoTitulo.setValue(sec.nombre);
@@ -261,11 +272,10 @@ function HVis_aplicarSecciones(hoja) {
     rangoTitulo.setFontSize(11);
     rangoTitulo.setHorizontalAlignment('LEFT');
     rangoTitulo.setVerticalAlignment('MIDDLE');
-    // Bordes para separar visualmente
     rangoTitulo.setBorder(true, true, true, true, false, false, '#FFFFFF', SpreadsheetApp.BorderStyle.SOLID_THICK);
   });
 
-  // 3. ESTILIZAR ENCABEZADOS REALES (fila plan.filaEncabezadosReales)
+  // 3. ESTILIZAR ENCABEZADOS REALES
   try {
     var rangoEnc = hoja.getRange(plan.filaEncabezadosReales, 1, 1, ultimaCol);
     rangoEnc.setBackground('#ECEFF1');
@@ -274,19 +284,14 @@ function HVis_aplicarSecciones(hoja) {
     rangoEnc.setHorizontalAlignment('CENTER');
     rangoEnc.setVerticalAlignment('MIDDLE');
     rangoEnc.setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-    // Borde inferior grueso para separar de datos
     rangoEnc.setBorder(false, false, true, false, false, false, '#90A4AE', SpreadsheetApp.BorderStyle.SOLID_THICK);
   } catch (e) {
     advertencias.push('No se pudo estilizar encabezados: ' + e.message);
   }
 
   // 4. CONGELAR: filas de buscador + secciones + encabezados
-  try {
-    hoja.setFrozenRows(plan.filaEncabezadosReales);
-  } catch (e) {}
-  try {
-    hoja.setFrozenColumns(1);
-  } catch (e) {}
+  try { hoja.setFrozenRows(plan.filaEncabezadosReales); } catch (e) {}
+  try { hoja.setFrozenColumns(1); } catch (e) {}
 
   // 5. ACTIVAR FILTRO NATIVO en encabezados reales
   try {
