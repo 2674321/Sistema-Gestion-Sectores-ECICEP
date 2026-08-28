@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.8.0 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **393 pruebas locales verdes** ·
+**v0.8.8.1 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **403 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -256,4 +256,15 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Clasificación hallazgos (FASE 7)**: CRÍTICO/ALTO/MEDIO/BAJO. Solo CRÍTICO/ALTO/seguros corregidos (cambio mínimo, FASE 9).
 - **Informe final obligatorio A–I** (FASE 6): A=Auditoría, B=Datos reales, C=Rendimiento, D=UX, E=Correcciones, F=No corregido, G=Tests (antes 360 → ahora 393), H=Git/Clasp, I=Acciones manuales.
 - **Versionado 0.8.8.0** (semver 4 partes) + `README.md` + `DECISIONES.md` (DEC-040). `node --check` limpio, **393/393 tests verdes**.
+
+## v0.8.8.1 — Navegación y organización visual de hojas (secciones, buscador, "Ver sección")
+
+- **Secciones visuales declarativas** (`src/22_HojasVisual.js` + `SECCIONES_HOJAS` en `00_Config.js`): agrupan columnas reales por función (IDENTIDAD, SECTORIZACIÓN, CONTROLES, CLÍNICO, TÉCNICO, EVENTO, AUDITORÍA) con colores semánticos (azul/verde/naranja/morado/gris). No inventa columnas; usa solo las reales de cada hoja.
+- **Hoja priorizadas**: INGRESO_NARANJO/AMARILLO/VERDE, PACIENTES, SECTOR_NARANJO/AMARILLO/VERDE, EVENTOS. Excluidas: LOG, CONFIG, CONFLICTOS, FUENTES, PROFESIONALES, RESPONSABLES.
+- **Idempotente**: `HVis_aplicarTodasLasSecciones()` inserta filas de sección ANTES de encabezados (no mueve fila 1), combina celdas solo para título, estiliza encabezados, congela filas+columna ID. Ejecutar 2× = mismo resultado.
+- **Buscador rápido en celda A1** (`HVis_instalarBuscador`): nota explicativa + formato visual + validación nativa + filtro nativo de Sheets. Busca por RUT/ID/NOMBRE según claves disponibles por hoja. NO carga población completa; usa filtro nativo instantáneo.
+- **"Ver sección" individual** (`HVis_menuVerSeccion` → diálogo `HVerSeccion.html`): usa fila activa para obtener persona, selector de secciones reales de la hoja, muestra solo campos de esa sección. NO oculta columnas globalmente (multi-usuario seguro). Botón "Abrir ficha" reutiliza `UI_abrirFicha`.
+- **Diagnóstico dry-run** (`HVis_diagnosticarTodas`): valida columnas existentes/faltantes por sección antes de aplicar.
+- **Tests**: `_pruebas_hojasvisual_v0881` (10 tests: config, normalización, mapa columnas, validación, claves búsqueda, colores). **403/403 tests verdes**.
+- **Versionado 0.8.8.1** + `README.md` + `DECISIONES.md` (DEC-041). `node --check` limpio.
 

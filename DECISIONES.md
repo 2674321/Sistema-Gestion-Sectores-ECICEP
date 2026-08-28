@@ -533,6 +533,18 @@ avisos/recordatorios.
 
 ---
 
+## DEC-041
+**Título:** Navegación y organización visual de hojas v0.8.8.1 — secciones, buscador rápido, "Ver sección" individual
+**Estado:** Aprobada
+**Motivo:** Mejora transversal de UX en las hojas sin convertirlas en interfaces pesadas ni afectar a otros usuarios. Tres componentes:
+1. **Secciones visuales declarativas** (`SECCIONES_HOJAS`): agrupan columnas reales por función (IDENTIDAD, SECTORIZACIÓN, CONTROLES, CLÍNICO, TÉCNICO, EVENTO, AUDITORÍA) con colores semánticos. Aplicación idempotente (`HVis_aplicarTodasLasSecciones`) que inserta filas de sección ANTES de encabezados, no rompe filtros, congela filas+columna ID.
+2. **Buscador rápido en celda A1** (`HVis_instalarBuscador`): usa validación de datos + filtro nativo de Sheets; busca por RUT/ID/NOMBRE según claves reales por hoja; NO carga población completa; instantáneo.
+3. **"Ver sección" individual** (`HVerSeccion.html`): diálogo que usa fila activa + selector de secciones reales; muestra solo campos de esa sección; NO oculta columnas globalmente (multi-usuario seguro); botón "Abrir ficha" reutiliza ficha existente.
+Hojas prioritarias: INGRESO_*, PACIENTES, SECTOR_*, EVENTOS. Excluidas: LOG, CONFIG, CONFLICTOS, FUENTES, PROFESIONALES, RESPONSABLES.
+Tests: `_pruebas_hojasvisual_v0881` (10 tests). 393 → 403 tests. Versionado 0.8.8.1. **Fecha:** 2026-08-27
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada

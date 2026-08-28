@@ -71,6 +71,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_responsables_v0872(t, A);
   _pruebas_auditoria_v088(t, A);
   _pruebas_escala_v088(t, A);
+  _pruebas_hojasvisual_v0881(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2565,7 +2566,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.8.0', 'versión esperada v0.8.8.0');
+    A.igual(v, '0.8.8.1', 'versión esperada v0.8.8.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2806,9 +2807,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.8.0', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.8.1', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.8.0', 'versión esperada v0.8.8.0');
+    A.igual(v, '0.8.8.1', 'versión esperada v0.8.8.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2913,5 +2914,102 @@ function _pruebas_escala_v088(t, A) {
     var ms = Date.now() - t0;
     A.cierto(encontrado !== null, 'encontrado');
     A.cierto(ms < 100, 'búsqueda lineal 10k ' + ms + 'ms < 100ms');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.8.1 — HOJAS VISUALES: secciones, buscador, "ver sección"
+// ---------------------------------------------------------------------------
+function _pruebas_hojasvisual_v0881(t, A) {
+  t('HOJAS VISUALES v0.8.8.1: SECCIONES_HOJAS definida para todos los tipos', function () {
+    A.cierto(typeof SECCIONES_HOJAS === 'object', 'existe');
+    A.cierto(Array.isArray(SECCIONES_HOJAS.INGRESO), 'INGRESO');
+    A.cierto(Array.isArray(SECCIONES_HOJAS.PACIENTES), 'PACIENTES');
+    A.cierto(Array.isArray(SECCIONES_HOJAS.SECTOR_VISTA), 'SECTOR_VISTA');
+    A.cierto(Array.isArray(SECCIONES_HOJAS.EVENTOS), 'EVENTOS');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: cada sección tiene id, nombre, color, columnas', function () {
+    Object.values(SECCIONES_HOJAS).forEach(function (arr) {
+      arr.forEach(function (s) {
+        A.cierto(typeof s.id === 'string' && s.id.length > 0, 'id: ' + s.nombre);
+        A.cierto(typeof s.nombre === 'string' && s.nombre.length > 0, 'nombre: ' + s.id);
+        A.cierto(typeof s.color === 'string' && s.color.startsWith('#'), 'color: ' + s.nombre);
+        A.cierto(Array.isArray(s.columnas) && s.columnas.length > 0, 'columnas: ' + s.nombre);
+      });
+    });
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: HOJAS_CON_SECCIONES cubre hojas prioritarias', function () {
+    A.cierto(HOJAS_CON_SECCIONES.includes('INGRESO_NARANJO'), 'INGRESO_NARANJO');
+    A.cierto(HOJAS_CON_SECCIONES.includes('INGRESO_AMARILLO'), 'INGRESO_AMARILLO');
+    A.cierto(HOJAS_CON_SECCIONES.includes('INGRESO_VERDE'), 'INGRESO_VERDE');
+    A.cierto(HOJAS_CON_SECCIONES.includes('PACIENTES'), 'PACIENTES');
+    A.cierto(HOJAS_CON_SECCIONES.includes('SECTOR_NARANJO'), 'SECTOR_NARANJO');
+    A.cierto(HOJAS_CON_SECCIONES.includes('SECTOR_AMARILLO'), 'SECTOR_AMARILLO');
+    A.cierto(HOJAS_CON_SECCIONES.includes('SECTOR_VERDE'), 'SECTOR_VERDE');
+    A.cierto(HOJAS_CON_SECCIONES.includes('EVENTOS'), 'EVENTOS');
+    A.cierto(!HOJAS_CON_SECCIONES.includes('LOG'), 'LOG excluida');
+    A.cierto(!HOJAS_CON_SECCIONES.includes('CONFIG'), 'CONFIG excluida');
+    A.cierto(!HOJAS_CON_SECCIONES.includes('CONFLICTOS'), 'CONFLICTOS excluida');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: TIPO_SECCIONES_POR_HOJA mapea correctamente', function () {
+    A.igual(TIPO_SECCIONES_POR_HOJA['INGRESO_NARANJO'], 'INGRESO');
+    A.igual(TIPO_SECCIONES_POR_HOJA['PACIENTES'], 'PACIENTES');
+    A.igual(TIPO_SECCIONES_POR_HOJA['SECTOR_AMARILLO'], 'SECTOR_VISTA');
+    A.igual(TIPO_SECCIONES_POR_HOJA['EVENTOS'], 'EVENTOS');
+    A.igual(TIPO_SECCIONES_POR_HOJA['INGRESO_NARANJA'], undefined, 'alias no está en mapa (normalizado en runtime)');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: HVis_normalizarNombreHoja normaliza alias', function () {
+    A.igual(HVis_normalizarNombreHoja('INGRESO_NARANJA'), 'INGRESO_NARANJO');
+    A.igual(HVis_normalizarNombreHoja('ingreso_naranja'), 'INGRESO_NARANJO');
+    A.igual(HVis_normalizarNombreHoja('PACIENTES'), 'PACIENTES');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: HVis_obtenerSecciones devuelve config válida', function () {
+    var s = HVis_obtenerSecciones('INGRESO_NARANJO');
+    A.cierto(Array.isArray(s) && s.length > 0, 'INGRESO_NARANJO');
+    var s2 = HVis_obtenerSecciones('PACIENTES');
+    A.cierto(Array.isArray(s2) && s2.length > 0, 'PACIENTES');
+    var s3 = HVis_obtenerSecciones('LOG');
+    A.igual(s3, null, 'LOG sin config');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: HVis_mapaColumnas construye índice 1-based', function () {
+    var enc = ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO'];
+    var mapa = HVis_mapaColumnas(enc);
+    A.igual(mapa['NOMBRE'], 1);
+    A.igual(mapa['RUT'], 2);
+    A.igual(mapa['SEXO'], 3);
+    A.igual(mapa['FECHA_NACIMIENTO'], 4);
+    A.igual(mapa['INEXISTENTE'], undefined);
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: HVis_validarSeccion filtra columnas existentes', function () {
+    var enc = ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO'];
+    var mapa = HVis_mapaColumnas(enc);
+    var sec = { columnas: ['NOMBRE', 'RUT', 'INEXISTENTE'] };
+    var v = HVis_validarSeccion(sec, mapa);
+    A.igual(v.existentes.length, 2, '2 existentes');
+    A.igual(v.faltantes.length, 1, '1 faltante');
+    A.igual(v.faltantes[0], 'INEXISTENTE');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: CLAVES_BUSQUEDA_POR_HOJA define claves por hoja', function () {
+    A.cierto(Array.isArray(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES']), 'PACIENTES array');
+    A.cierto(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES'].includes('ID_INTERNO'), 'ID_INTERNO');
+    A.cierto(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES'].includes('RUT'), 'RUT');
+    A.cierto(CLAVES_BUSQUEDA_POR_HOJA['PACIENTES'].includes('NOMBRE'), 'NOMBRE');
+    A.cierto(!CLAVES_BUSQUEDA_POR_HOJA['LOG'], 'LOG sin claves (undefined)');
+  });
+
+  t('HOJAS VISUALES v0.8.8.1: COLORES_SECCION paleta semántica completa', function () {
+    A.igual(COLORES_SECCION.IDENTIDAD, '#0D47A1');
+    A.igual(COLORES_SECCION.SECTORIZACION, '#2E7D32');
+    A.igual(COLORES_SECCION.CONTROLES, '#EF6C00');
+    A.igual(COLORES_SECCION.CLINICO, '#6A1B9A');
+    A.igual(COLORES_SECCION.TECNICO, '#546E7A');
   });
 }

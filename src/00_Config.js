@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 const ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.8.0',
+  VERSION: '0.8.8.1',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -125,6 +125,178 @@ const COLUMNAS_SECTOR_VISTA = [
   'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
   'ULTIMO_EVENTO', 'OBSERVACIONES'
 ];
+
+// ---------------------------------------------------------------------------
+// Configuración declarativa de secciones visuales por tipo de hoja.
+// Cada sección agrupa columnas reales existentes; NO inventa columnas.
+// Las claves de columna deben coincidir exactamente con los modelos.
+// ---------------------------------------------------------------------------
+const SECCIONES_HOJAS = {
+  INGRESO: [
+    {
+      id: 'datosPersonales',
+      nombre: 'DATOS PERSONALES',
+      color: '#1565C0',
+      columnas: ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS']
+    },
+    {
+      id: 'identificacion',
+      nombre: 'IDENTIFICACIÓN',
+      color: '#546E7A',
+      columnas: ['FECHA_INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']
+    },
+    {
+      id: 'sectorizacion',
+      nombre: 'SECTORIZACIÓN',
+      color: '#2E7D32',
+      columnas: ['ESTRATIFICACION']
+    },
+    {
+      id: 'controlesSeguimiento',
+      nombre: 'CONTROLES / SEGUIMIENTO',
+      color: '#EF6C00',
+      columnas: ['DUPLA_INGRESO', 'OBSERVACIONES']
+    }
+  ],
+  PACIENTES: [
+    {
+      id: 'identidad',
+      nombre: 'IDENTIDAD',
+      color: '#0D47A1',
+      columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS']
+    },
+    {
+      id: 'sectorizacion',
+      nombre: 'SECTORIZACIÓN',
+      color: '#2E7D32',
+      columnas: ['SECTOR', 'ESTRATIFICACION', 'ESTADO']
+    },
+    {
+      id: 'ingreso',
+      nombre: 'INGRESO',
+      color: '#37474F',
+      columnas: ['DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO']
+    },
+    {
+      id: 'controles',
+      nombre: 'CONTROLES',
+      color: '#EF6C00',
+      columnas: ['ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'COMPOSICION_CONTROL']
+    },
+    {
+      id: 'clinico',
+      nombre: 'CLÍNICO',
+      color: '#6A1B9A',
+      columnas: ['CONDICIONES', 'OTRAS_PATOLOGIAS', 'OBSERVACIONES']
+    },
+    {
+      id: 'tecnico',
+      nombre: 'TÉCNICO',
+      color: '#546E7A',
+      columnas: ['NOMBRE_NORMALIZADO', 'RUT_DV_VALIDO', 'RUT_SIN_DV', 'ESTRAT_ORIGEN', 'ESTRAT_CALCULADA', 'ESTRAT_FECHA_CALCULO', 'FUENTE', 'FECHA_ACTUALIZACION', 'REQUIERE_REVISION']
+    }
+  ],
+  SECTOR_VISTA: [
+    {
+      id: 'identidad',
+      nombre: 'IDENTIDAD',
+      color: '#0D47A1',
+      columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO']
+    },
+    {
+      id: 'sectorizacion',
+      nombre: 'SECTORIZACIÓN',
+      color: '#2E7D32',
+      columnas: ['ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO']
+    },
+    {
+      id: 'controles',
+      nombre: 'CONTROLES',
+      color: '#EF6C00',
+      columnas: ['ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'ULTIMO_EVENTO']
+    },
+    {
+      id: 'observaciones',
+      nombre: 'OBSERVACIONES',
+      color: '#546E7A',
+      columnas: ['OBSERVACIONES']
+    }
+  ],
+  EVENTOS: [
+    {
+      id: 'evento',
+      nombre: 'EVENTO',
+      color: '#EF6C00',
+      columnas: ['ID_EVENTO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'DESCRIPCION', 'CANTIDAD', 'OBSERVACIONES']
+    },
+    {
+      id: 'identidad',
+      nombre: 'IDENTIDAD',
+      color: '#0D47A1',
+      columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR']
+    },
+    {
+      id: 'clinico',
+      nombre: 'CLÍNICO',
+      color: '#6A1B9A',
+      columnas: ['RIESGO_G', 'PROFESIONAL', 'PROFESIONAL_TIPO']
+    },
+    {
+      id: 'auditoria',
+      nombre: 'AUDITORÍA',
+      color: '#546E7A',
+      columnas: ['FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO']
+    }
+  ]
+};
+
+// Hojas que reciben el sistema visual (prioritarias).
+const HOJAS_CON_SECCIONES = [
+  'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE',
+  'PACIENTES',
+  'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
+  'EVENTOS'
+];
+
+// Mapeo hoja → tipo de secciones
+const TIPO_SECCIONES_POR_HOJA = {
+  'INGRESO_NARANJO': 'INGRESO',
+  'INGRESO_AMARILLO': 'INGRESO',
+  'INGRESO_VERDE': 'INGRESO',
+  'PACIENTES': 'PACIENTES',
+  'SECTOR_NARANJO': 'SECTOR_VISTA',
+  'SECTOR_AMARILLO': 'SECTOR_VISTA',
+  'SECTOR_VERDE': 'SECTOR_VISTA',
+  'EVENTOS': 'EVENTOS'
+};
+
+// Colores semánticos de sección (paleta consistente)
+const COLORES_SECCION = {
+  IDENTIDAD: '#0D47A1',
+  DATOS_PERSONALES: '#1565C0',
+  IDENTIFICACION: '#546E7A',
+  SECTORIZACION: '#2E7D32',
+  INGRESO: '#37474F',
+  CONTROLES: '#EF6C00',
+  CONTROLES_SEGUIMIENTO: '#EF6C00',
+  CLINICO: '#6A1B9A',
+  TECNICO: '#546E7A',
+  OBSERVACIONES: '#546E7A',
+  EVENTO: '#EF6C00',
+  AUDITORIA: '#546E7A'
+};
+
+// Claves de búsqueda válidas por hoja (para buscador rápido)
+const CLAVES_BUSQUEDA_POR_HOJA = {
+  'INGRESO_NARANJO': ['RUT', 'NOMBRE'],
+  'INGRESO_AMARILLO': ['RUT', 'NOMBRE'],
+  'INGRESO_VERDE': ['RUT', 'NOMBRE'],
+  'PACIENTES': ['ID_INTERNO', 'RUT', 'NOMBRE'],
+  'SECTOR_NARANJO': ['ID_INTERNO', 'RUT', 'NOMBRE'],
+  'SECTOR_AMARILLO': ['ID_INTERNO', 'RUT', 'NOMBRE'],
+  'SECTOR_VERDE': ['ID_INTERNO', 'RUT', 'NOMBRE'],
+  'EVENTOS': ['ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE']
+};
 
 // Marcador que identifica inequívocamente datos ficticios (limpieza 4.0)
 const MARCA_DATOS_PRUEBA = 'DATOS DE PRUEBA';

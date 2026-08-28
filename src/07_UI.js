@@ -16,6 +16,7 @@ function onOpen() {
 
       .addSubMenu(ui.createMenu('👥 Personas')
         .addItem('✏️ Buscar / Ficha de persona', 'UI_abrirBuscador')
+        .addItem('👁 Ver sección', 'HVis_menuVerSeccion')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
 

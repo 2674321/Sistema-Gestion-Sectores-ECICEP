@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<?!= include('00_Tokens') ?>
+<style>
+  body{font-size:14px;padding:var(--space-4);font-family:var(--font-family)}
+  h3{margin:0 0 var(--space-3);font-size:16px;color:var(--text-primary)}
+  .seccion-picker{margin-bottom:var(--space-4)}
+  label{display:block;margin-bottom:6px;font-weight:600;font-size:12px;color:var(--text-secondary)}
+  select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;background:var(--surface);color:var(--text-primary)}
+  .datos-grid{display:grid;grid-template-columns:140px 1fr;gap:8px 12px;max-height:260px;overflow:auto}
+  .dato-label{font-weight:600;font-size:13px;color:var(--text-secondary)}
+  .dato-valor{font-size:13px;color:var(--text-primary);word-break:break-word}
+  .vacío{color:var(--text-muted);font-style:italic;text-align:center;padding:var(--space-6)}
+  .acciones{display:flex;gap:8px;margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border)}
+  .btn{padding:10px 16px;border-radius:var(--radius-md);font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px}
+  .btn-pri{background:var(--primary);color:white}
+  .btn-sec{background:var(--surface-alt);color:var(--text-primary);border:1px solid var(--border)}
+  .seccion-header{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);margin-bottom:var(--space-3);color:white;font-weight:600}
+  .seccion-badge{font-size:11px;padding:2px 8px;border-radius:var(--radius-full);background:rgba(255,255,255,0.2)}
+</style>
+</head>
+<body>
+<div class="seccion-picker">
+  <label>Sección</label>
+  <select id="selSeccion"><option value="">— Seleccionar —</option></select>
+</div>
+<div id="contenido">
+  <div class="vacío">Seleccione una sección para ver los datos de esta persona</div>
+</div>
+<div class="acciones">
+  <button class="btn btn-pri" id="btnFicha" disabled><i data-lucide="folder-open"></i> Abrir ficha</button>
+  <button class="btn btn-sec" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+</div>
+
+<script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<script>
+var SECCIONES = JSON.parse('<?= secciones ?>');
+var PERSONA = JSON.parse('<?= persona ?>');
+var HOJA = '<?= hoja ?>';
+var ID_INTERNO = PERSONA.ID_INTERNO || PERSONA['ID_INTERNO'] || '';
+
+document.addEventListener('DOMContentLoaded', function () {
+  lucide.createIcons();
+  var sel = document.getElementById('selSeccion');
+  SECCIONES.forEach(function (s) {
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.nombre;
+    opt.dataset.color = s.color;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', cargarSeccion);
+  document.getElementById('btnFicha').addEventListener('click', abrirFicha);
+});
+
+function cargarSeccion() {
+  var sel = document.getElementById('selSeccion');
+  var seccionId = sel.value;
+  var cont = document.getElementById('contenido');
+  var btnFicha = document.getElementById('btnFicha');
+
+  if (!seccionId) {
+    cont.innerHTML = '<div class="vacío">Seleccione una sección para ver los datos de esta persona</div>';
+    btnFicha.disabled = true;
+    return;
+  }
+
+  var color = sel.options[sel.selectedIndex].dataset.color;
+  cont.innerHTML = '<div style="text-align:center;padding:20px"><div class="spin" style="width:24px;height:24px;border:3px solid var(--primary);border-top-color:transparent;border-radius:50%;display:inline-block;animation:girar .7s linear infinite"></div></div>';
+
+  google.script.run
+    .withSuccessHandler(function (r) {
+      if (!r.ok) {
+        cont.innerHTML = '<div class="vacío">Error: ' + (r.motivo || 'desconocido') + '</div>';
+        return;
+      }
+      renderDatos(r.seccion, r.color, r.datos);
+      btnFicha.disabled = !ID_INTERNO;
+    })
+    .withFailureHandler(function (e) {
+      cont.innerHTML = '<div class="vacío">Error de comunicación</div>';
+      console.error(e);
+    })
+    .HVis_obtenerDatosSeccion(PERSONA, seccionId, HOJA);
+}
+
+function renderDatos(nombreSeccion, color, datos) {
+  var cont = document.getElementById('contenido');
+  var html = '<div class="seccion-header" style="background:' + color + '"><span>' + nombreSeccion + '</span><span class="seccion-badge">' + Object.keys(datos).length + ' campos</span></div>';
+  var claves = Object.keys(datos);
+  if (claves.length === 0) {
+    html += '<div class="vacío">Esta sección no tiene datos para esta persona</div>';
+  } else {
+    html += '<div class="datos-grid">';
+    claves.forEach(function (k) {
+      var v = datos[k];
+      var mostrar = (v === undefined || v === null || v === '') ? '—' : String(v);
+      html += '<div class="dato-label">' + k + '</div><div class="dato-valor">' + mostrar + '</div>';
+    });
+    html += '</div>';
+  }
+  cont.innerHTML = html;
+  lucide.createIcons();
+}
+
+function abrirFicha() {
+  if (!ID_INTERNO) return;
+  google.script.run
+    .withSuccessHandler(function () {})
+    .withFailureHandler(function (e) { console.error(e); })
+    .HVis_abrirFichaDesdeHoja(ID_INTERNO);
+  google.script.host.close();
+}
+</script>
+<style>
+  @keyframes girar { to { transform: rotate(360deg); } }
+</style>
+</body>
+</html>
