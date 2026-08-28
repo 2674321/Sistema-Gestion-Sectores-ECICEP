@@ -650,6 +650,9 @@ function Modelo_crearEstructura() {
         // Layout visual: filas 1-2 libres para título/secciones, encabezados en 3.
         if (layout === CONTRATO_LAYOUT_VISUAL) hoja.insertRowsBefore(1, layout.encabezadosRow - 1);
         Utl_escribirBloque(hoja, Modelo_headerRow(nombre), 1, [encabezados]);
+        if (layout === CONTRATO_LAYOUT_VISUAL) {
+          try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
+        }
       }
       /* def null (DASHBOARD) → sin encabezados genéricos: los inicializa su módulo */
     } else {
@@ -678,6 +681,7 @@ function Modelo_crearEstructura() {
           if (hoja.getMaxRows() < hr) hoja.insertRowsBefore(1, hr - Math.max(hoja.getLastRow(), 0) - 1);
           hoja.setRowHeight(3, 22);
           Utl_escribirBloque(hoja, hr, 1, [esperados]);
+          try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
           Log_warning('Modelo', 'crearEstructura', 'Soporte visual creado: ' + nombre);
         } else if (hoja.getLastRow() >= hr) {
           var actualV = hoja.getRange(hr, 1, 1, esperados.length).getValues()[0];
@@ -686,10 +690,13 @@ function Modelo_crearEstructura() {
             if (Utl_texto(actualV[cv]) !== esperados[cv]) { coincideTotal = false; break; }
           }
           if (coincideTotal) {
-            // encabezados canónicos ya en fila 3 → ok (secciones las pinta HVis)
+            // encabezados canónicos ya en fila 3 → ok; se garantiza el ESTILO
+            // (título/secciones los pinta HVis). Fix v0.8.9.5: headers en blanco.
+            try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
           } else if (hoja.getLastRow() === hr) {
             // solo header row presente (sin datos) → corregir etiquetas en sitio
             Utl_escribirBloque(hoja, hr, 1, [esperados]);
+            try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
           }
           // con datos bajo headerRow y etiquetas divergentes → dejarlo a HVis
         }

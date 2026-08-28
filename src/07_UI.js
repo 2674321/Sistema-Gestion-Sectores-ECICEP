@@ -107,6 +107,9 @@ function UI_actualizarTodo() {
   var r1 = Estrat_recalcularTodos();
   var r2 = Control_recalcularTodos();
   Utl_medir(Modelo_refrescarVistasSectores);
+  try {
+    if (typeof HVis_formatearIngresos === 'function') HVis_formatearIngresos();
+  } catch (e) { /* best effort */ }
   Utl_medir(function () {
     Hojas_formatoCondicional(SpreadsheetApp.getActiveSpreadsheet());
   });

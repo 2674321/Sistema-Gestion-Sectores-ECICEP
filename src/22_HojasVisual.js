@@ -451,6 +451,29 @@ function HVis_colorPorSector(sector) {
 /**
  * GAS: aplica secciones a TODAS las hojas configuradas (idempotente real).
  */
+/**
+ * GAS: aplica el formato visual completo (título, secciones, encabezados y
+ * anchos) a las hojas de INGRESO. Idempotente. Fix v0.8.9.5: los encabezados
+ * quedaban en blanco cuando la hoja se creaba fuera del instalador.
+ */
+function HVis_formatearIngresos() {
+  var ss = Modelo_ss();
+  var estados = {};
+  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    var hoja = ss.getSheetByName(nombre);
+    if (hoja && hoja.getLastRow() >= Modelo_headerRow(nombre)) {
+      var r = HVis_aplicarSecciones(hoja);
+      estados[nombre] = r.estado || 'OK';
+    }
+  });
+  Log_info('HojasVisual', 'formatearIngresos', JSON.stringify(estados));
+  Log_flush();
+  return estados;
+}
+
+/**
+ * GAS: aplica el sistema visual a todas las hojas con secciones.
+ */
 function HVis_aplicarTodasLasSecciones() {
   var ss = Modelo_ss();
   var resultados = [];

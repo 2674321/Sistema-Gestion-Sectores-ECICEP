@@ -401,8 +401,21 @@ function Ingresos_procesarTodasLasHojas(opciones) {
     Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
   }
 
+  // 6b) formato visual idempotente de las hojas de INGRESO (título, secciones
+  // y encabezados). Fix v0.8.9.5: los encabezados quedaban en blanco en hojas
+  // creadas fuera del instalador; HVis_formatearIngresos es idempotente.
+  var formatoIngreso = {};
+  try {
+    if (typeof HVis_formatearIngresos === 'function') {
+      formatoIngreso = HVis_formatearIngresos();
+    }
+  } catch (e) {
+    Log_warning('Ingresos', 'formatoIngreso', e && e.message ? e.message : String(e));
+  }
+
   salida.resumen.usuario = _ingresosUsuarioActual();
   salida.resumen.vistasSector = vistas;
+  salida.resumen.formatoIngreso = formatoIngreso;
   salida.resumen.aRevision = conflicto;
   Log_info('Ingresos', 'procesar', JSON.stringify({
     leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,

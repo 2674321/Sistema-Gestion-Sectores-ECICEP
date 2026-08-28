@@ -3316,6 +3316,15 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(_modelo_camposHoja('INICIO').length, 0, 'INICIO sin columnas fijas');
   });
 
+  t('PULIDO v0.8.9.5: hojas INGRESO visuales con encabezados formateados', function () {
+    A.cierto(Modelo_esHojaVisual('INGRESO_AMARILLO'), 'ingreso amarillo visual');
+    A.cierto(Modelo_esHojaVisual('INGRESO_NARANJO'), 'ingreso naranjo visual');
+    A.cierto(Modelo_esHojaVisual('INGRESO_VERDE'), 'ingreso verde visual');
+    A.igual(Modelo_headerRow('INGRESO_AMARILLO'), 3, 'encabezados en fila 3');
+    A.cierto(typeof HVis_formatearIngresos === 'function', 'helper de formato existe');
+    A.igual(Ingresos_hojaASector('INGRESO_AMARILLO'), 'AMARILLO', 'familia de la puerta');
+  });
+
   t('PULIDO v0.8.9.5: Ingresos_resumenTexto un solo mensaje breve', function () {
     A.igual(Ingresos_resumenTexto({}), 'Sin ingresos pendientes', 'vacío');
     A.igual(Ingresos_resumenTexto(null), 'Sin ingresos pendientes', 'nulo');
