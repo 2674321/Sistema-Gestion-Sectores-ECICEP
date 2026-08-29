@@ -260,14 +260,3 @@ function _dash_inicializarFiltros(hoja) {
   var reglaSector = SpreadsheetApp.newDataValidation().requireValueInList(sectoresValidos, true).build();
   hoja.getRange(5, 2).setDataValidation(reglaSector);
 }
-
-function UI_actualizarDashboard() {
-  var r = Utl_medir(Dash_actualizar);
-  if (r.resultado.ok) {
-    Log_info('UI', 'dashboard', JSON.stringify(r.resultado.periodo));
-    Log_flush();
-    Utl_toast('ok', 'Dashboard actualizado', 8);
-  } else {
-    SpreadsheetApp.getUi().alert(r.resultado.motivo);
-  }
-}

@@ -397,9 +397,12 @@ function Modelo_aplicarDiseno() {
   var res = { coloreadas: 0, ocultas: [], ordenadas: 0, congeladas: [], bandas: 0, fallidas: [] };
   var activaOriginal = ss.getActiveSheet().getName();
 
+  var porHoja = {};
+  MODELO_DISENO.forEach(function (d) { porHoja[d.nombre] = ss.getSheetByName(d.nombre); });
+
   MODELO_DISENO.forEach(function (d) {
     try {
-      var h = ss.getSheetByName(d.nombre);
+      var h = porHoja[d.nombre];
       if (!h) return;
       h.setTabColor(d.color);
       res.coloreadas++;
@@ -430,7 +433,7 @@ function Modelo_aplicarDiseno() {
   var pos = 1;
   MODELO_DISENO.forEach(function (d) {
     try {
-      var h = ss.getSheetByName(d.nombre);
+      var h = porHoja[d.nombre];
       if (!h || h.isSheetHidden()) return;
       ss.setActiveSheet(h, false);
       ss.moveActiveSheet(pos);
@@ -1599,48 +1602,6 @@ function Vigencia_estado(fechaExamenISO, cantidad, unidad, hoyRef) {
 }
 
 /**
- * Crea/repone la hoja de catálogo de vigencias de forma IDEMPOTENTE:
- * solo siembra ejemplos si está vacía; jamás toca datos existentes.
- */
-function Modelo_instalarCatalogos(ss) {
-  var res = { creada: false, sembrada: false, validaciones: 0 };
-  var nombre = 'CAT_VIGENCIA_EXAMENES';
-  var h = ss.getSheetByName(nombre);
-  if (!h) {
-    h = ss.insertSheet(nombre);
-    res.creada = true;
-  }
-  var def = _MODELO_HOJAS_DEF[nombre];
-  if (h.getLastRow() < 1) {
-    Utl_escribirBloque(h, 1, 1, [def]);
-  }
-  if (h.getLastRow() < 2) {
-    Utl_escribirBloque(h, 2, 1, CAT_VIGENCIA_SEMILLA);
-    res.sembrada = true;
-  }
-  h.setFrozenRows(1);
-  _modelo_estilizarEncabezado(h);
-  _modelo_anchosHoja(h);
-  if (h.getMaxRows() > 1) {
-    var colNum = h.getRange(2, 3, h.getMaxRows() - 1, 1);
-    colNum.setNumberFormat('0');
-    var reglaNum = SpreadsheetApp.newDataValidation()
-      .requireNumberGreaterThan(0).setAllowInvalid(false)
-      .setHelpText('Vigencia debe ser un número mayor que 0').build();
-    colNum.setDataValidation(reglaNum); res.validaciones++;
-    var colUni = h.getRange(2, 4, h.getMaxRows() - 1, 1);
-    colUni.setDataValidation(SpreadsheetApp.newDataValidation()
-      .requireValueInList(['meses', 'días', 'años'], true).setAllowInvalid(false).build());
-    res.validaciones++;
-    var colAct = h.getRange(2, 5, h.getMaxRows() - 1, 1);
-    colAct.setDataValidation(SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build());
-    res.validaciones++;
-  }
-  return res;
-}
-
-/**
  * Validaciones controladas en las puertas INGRESO_* (#10/#11):
  * desplegables para ESTADO/ESTRATIFICACIÓN/SEXO, fechas reales con formato,
  * y marca de advertencia en columnas del sistema. Idempotente.
@@ -1712,36 +1673,6 @@ function Modelo_validarIngresos(ss) {
   });
   return res;
 }
-
-/** Inventario explícito de hojas INTERNAS del sistema (#13): existencia,
- *  visibilidad esperada y reparación automática de visibilidad (#14/#16).
- *  Nunca borra datos: solo crea lo faltante y corrige visibilidad (#15). */
-function Modelo_inventarioHojas(ss) {
-  var internas = MODELO_DISENO.filter(function (d) { return d.oculta; });
-  var res = { total: internas.length, creadas: [], visibilidadCorregida: [],
-              correctas: 0, problemas: [] };
-  internas.forEach(function (d) {
-    try {
-      var h = ss.getSheetByName(d.nombre);
-      if (!h) {
-        h = ss.insertSheet(d.nombre);
-        res.creadas.push(d.nombre);
-        Log_warning('Instalador', 'inventario', 'Hoja interna creada: ' + d.nombre);
-      }
-      if (!h.isSheetHidden()) {
-        h.hideSheet();
-        res.visibilidadCorregida.push(d.nombre);
-        Log_warning('Instalador', 'inventario', 'Visibilidad corregida (ahora oculta): ' + d.nombre);
-      } else {
-        res.correctas++;
-      }
-    } catch (e) {
-      res.problemas.push(d.nombre + ': ' + (e && e.message || e));
-    }
-  });
-  return res;
-}
-
 
 /** PURA: ¿es una hoja residual de desarrollo? Regenerables o vacías sin rol. */
 function Modelo_esHojaResidual(nombre, estaVacia) {

@@ -538,17 +538,3 @@ function Fuentes_cargaReal(opciones) {
   Log_flush();
   return resultado;
 }
-
-/**
- * Webhook action: análisis de carga real (DRY RUN).
- */
-function Fuentes_analizarCarga() {
-  return Fuentes_cargaReal({ ejecutar: false });
-}
-
-/**
- * Webhook action: ejecución de carga real (IMPORTA).
- */
-function Fuentes_ejecutarCarga() {
-  return Fuentes_cargaReal({ ejecutar: true });
-}

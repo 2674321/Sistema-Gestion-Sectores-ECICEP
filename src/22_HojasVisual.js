@@ -42,13 +42,6 @@ function HVis_obtenerSecciones(nombreHoja) {
 }
 
 /**
- * PURA: verifica si una hoja tiene configuración de secciones.
- */
-function HVis_tieneSecciones(nombreHoja) {
-  return HVis_obtenerSecciones(nombreHoja) !== null;
-}
-
-/**
  * PURA: construye mapa columna → índice (1-based) desde encabezados reales.
  */
 function HVis_mapaColumnas(encabezados) {
@@ -738,36 +731,4 @@ function HVis_diagnosticarTodas() {
     else res[n] = { ok: false, motivo: 'No existe' };
   });
   return { ok: true, diagnostico: res };
-}
-
-// ===========================================================================
-// 🔍 BUSCADOR RÁPIDO — ahora SOLO vía Sidebar (no fila de hoja).
-// Se mantienen por compatibilidad de API; delegan en la aplicación de layout.
-// ===========================================================================
-function HVis_instalarBuscador(hoja, celda) {
-  return HVis_aplicarSecciones(hoja);
-}
-
-function HVis_instalarTodosLosBuscadores() {
-  return HVis_aplicarTodasLasSecciones();
-}
-
-// ===========================================================================
-// MENÚ: Diagnóstico de secciones (dry-run)
-// ===========================================================================
-function HVis_menuDiagnosticar() {
-  var r = HVis_diagnosticarTodas();
-  var lineas = [];
-  Object.keys(r.diagnostico).forEach(function (n) {
-    var d = r.diagnostico[n];
-    if (d.ok && d.configurada) {
-      var est = (d.estadoActual || {}).estructura;
-      lineas.push(n + ': ' + d.secciones.length + ' secciones config · estructura=' +
-        (est === 'OK' ? 'OK' : (est === 'NO_VISUAL' ? 'simple (no aplica)' : est)));
-    } else {
-      lineas.push(n + ': ' + (d.motivo || 'sin config'));
-    }
-  });
-  SpreadsheetApp.getUi().alert('Diagnóstico de secciones', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
-  return { ok: true, diagnostico: r };
 }

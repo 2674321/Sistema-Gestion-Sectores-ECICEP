@@ -47,18 +47,6 @@ function onOpen() {
   } catch (e) { /* entorno sin UI */ }
 }
 
-function UI_instalarEstructura() {
-  var r = Utl_medir(Modelo_crearEstructura);
-  var dis = Modelo_aplicarDiseno();
-  Log_info('UI', 'instalarEstructura', 'creadas=' + r.resultado.creadas.join(','), null, r.ms);
-  Log_flush();
-  SpreadsheetApp.getUi().alert(
-    '⚙️ Estructura creada/reparada.\n\n' +
-    'Creadas: ' + (r.resultado.creadas.join(', ') || 'ninguna') +
-    '\nDiseño aplicado: ' + dis.coloreadas + ' hojas · orden ' + dis.ordenadas +
-    '\n(Recomendado: 🛠️ Instalar sistema para el resumen completo)');
-}
-
 /** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
 function UI_instalarSistema() {
   var t = HtmlService.createTemplateFromFile('Instalador');
@@ -116,31 +104,6 @@ function UI_actualizarTodo() {
   Utl_toast('ok', 'Actualizado — ' + r1.recalculados + ' estrat. · ' + r2.cambios + ' controles', 10);
 }
 
-/** 🔄 Recalcular estratificación (legacy — usar UI_actualizarTodo). */
-function UI_recalcularEstrat() {
-  var ui = SpreadsheetApp.getUi();
-  var resp = ui.alert('🔄 Recalcular estratificación',
-    'Esto recalculará la estratificación de TODOS los pacientes según sus patologías.\n\n' +
-    '¿Continuar?', ui.ButtonSet.YES_NO);
-  if (resp !== ui.Button.YES) return;
-  Utl_toast('info', 'Recalculando estratificación…', 30);
-  var r = Estrat_recalcularTodos();
-  ui.alert('🔄 Recálculo completado\n\n' +
-    'Total: ' + r.total + '\n' +
-    'Recalculados: ' + r.recalculados);
-}
-
-function UI_ejecutarPruebas() {
-  var res = Pruebas_ejecutarTodo();
-  Log_info('UI', 'pruebas', 'pasados=' + res.pasados + '/' + res.total);
-  Log_flush();
-  SpreadsheetApp.getUi().alert(
-    'ECICEP — Pruebas del núcleo\n\n' +
-    'Total: ' + res.total + '\nPasados: ' + res.pasados + '\nFallidos: ' + res.fallidos +
-    (res.fallidos ? '\n\nRevisa el registro (Logger) para el detalle.' : '\n\nTodo correcto.'));
-  Logger.log(JSON.stringify(res.detalles.filter(function (d) { return !d.ok; }), null, 2));
-}
-
 /** 📄 Registro del Sistema: visor visual del LOG (la hoja queda interna). */
 function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
@@ -193,13 +156,6 @@ function UI_procesarIngresos() {
     texto += '\n\n⚠ ' + r.resultado.revision + ' caso(s) en la Cola de revisión.';
   }
   SpreadsheetApp.getUi().alert(texto, SpreadsheetApp.getUi().ButtonSet.OK);
-}
-
-/** Regenera las vistas SECTOR_* desde PACIENTES (nunca bases independientes). */
-function UI_refrescarSectores() {
-  var r = Utl_medir(Modelo_refrescarVistasSectores);
-  Log_info('UI', 'refrescarSectores', JSON.stringify(r.resultado), null, r.ms);
-  Utl_toast('ok', 'Vistas de sectores actualizadas', 8);
 }
 
 /** Diagnóstico: por qué fallan los ingresos (encabezados, mapeo, errores). */
@@ -277,71 +233,6 @@ function UI_diagnosticarFuentes() {
   });
   SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(hojaD);
   Utl_toast('ok', 'Diagnóstico escrito en DIAGNOSTICO_FUENTES', 8);
-}
-
-function UI_importarMuestra() {
-  var ui = SpreadsheetApp.getUi();
-  var sectores = Object.keys(FUENTES_DRIVE).filter(function (k) { return FUENTES_DRIVE[k].id; });
-  if (!sectores.length) {
-    ui.alert('No hay fuentes con ID de Drive configurado.');
-    return;
-  }
-
-  var resultados = [];
-  sectores.forEach(function (nombreArchivo) {
-    var cfg = FUENTES_DRIVE[nombreArchivo];
-    cfg.hojas.forEach(function (hoja) {
-      var r = Fuentes_importarMuestra(nombreArchivo, hoja, 10);
-      r.fuente = nombreArchivo;
-      r.hojaNombre = hoja;
-      resultados.push(r);
-    });
-  });
-
-  // escribir reporte en DIAGNOSTICO_IMPORT
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var hojaR = ss.getSheetByName('IMPORT_MUESTRA');
-  if (!hojaR) hojaR = ss.insertSheet('IMPORT_MUESTRA');
-  hojaR.clearContents();
-  Utl_escribirBloque(hojaR, 1, 1, [[
-    'FUENTE','HOJA','FILA_ORIGEN','VALIDACIÓN','RUT','NOMBRE','SECTOR','ESTRAT',
-    'GATE','ERRORES','WARNINGS'
-  ]]);
-  var fila = 2;
-  var totales = { ok: 0, warn: 0, err: 0, nuevos: 0, enlazados: 0, revision: 0 };
-  resultados.forEach(function (r) {
-    if (!r.ok) {
-      Utl_escribirBloque(hojaR, fila, 1, [[r.fuente, r.hojaNombre, '', 'ERROR GLOBAL', '', '', '', '', r.motivo, '', '']]);
-      fila++;
-      return;
-    }
-    r.detalle.forEach(function (d) {
-      Utl_escribirBloque(hojaR, fila, 1, [[
-        r.fuente, r.hojaNombre, d.filaOrigen, d.estado,
-        d.rut, d.nombre, d.sector, d.estratificacion,
-        d.gate,
-        d.errores.join(' // '),
-        d.warnings.join(' // ')
-      ]]);
-      fila++;
-      if (d.estado === 'OK') totales.ok++;
-      else if (d.estado === 'WARNING') totales.warn++;
-      else totales.err++;
-    });
-    totales.nuevos += r.resumen.nuevos;
-    totales.enlazados += r.resumen.existentes;
-    totales.revision += r.resumen.revision;
-  });
-
-  ss.setActiveSheet(hojaR);
-  ui.alert(
-    'DRY RUN COMPLETADO — NO SE ESCRIBIÓ NADA\n\n' +
-    'Muestra: 10 filas por hoja\n' +
-    'Validación → OK: ' + totales.ok + ' · WARNING: ' + totales.warn + ' · ERROR: ' + totales.err + '\n' +
-    'Serían pacientes nuevos: ' + totales.nuevos + '\n' +
-    'Requieren revisión: ' + totales.revision + '\n\n' +
-    'Reporte completo en la hoja IMPORT_MUESTRA.\n' +
-    'Si los resultados son correctos, avisa al asistente para proceder con la carga real.');
 }
 
 /** Núcleo headless del sembrado (reutilizado por webhook). */
@@ -539,77 +430,6 @@ function api_duplaGuardar(idInterno, codigos) {
     return { ok: true, cantidad: codigos.length, dupla: dupla };
   } catch (e) {
     Log_error('Dupla', 'guardar', e && e.message ? e.message : String(e));
-    Log_flush();
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
-}
-
-/* ---------------------- Catálogo central de profesionales ---------------------- */
-
-/** Endpoint: lista el catálogo actual de profesionales para la vista de admin. */
-function api_profesionalesListar() {
-  try {
-    return { ok: true, profesionales: Profesionales_catalogo() };
-  } catch (e) {
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
-}
-
-/** Escritura atómica del catálogo (reemplazo validado). Guarda si no hay errores. */
-function _profesionales_guardarFilas(profesionales) {
-  var val = Profesionales_validar(profesionales);
-  if (!val.ok) return { ok: false, errores: val.errores };
-  var hoja = Modelo_hoja(HOJAS.PROFESIONALES);
-  if (!hoja) return { ok: false, motivo: 'Falta hoja PROFESIONALES (ejecuta Instalar sistema)' };
-  var filas = profesionales.map(function (p) {
-    return [Utl_texto(p.CODIGO).trim().toUpperCase(), Utl_texto(p.NOMBRE).trim(),
-            Utl_texto(p.TIPO_ROL).trim(), p.ACTIVO !== false];
-  });
-  if (hoja.getLastRow() > 1) hoja.getRange(2, 1, hoja.getLastRow() - 1, COLUMNAS_PROFESIONALES.length).clear();
-  if (filas.length) Utl_escribirBloque(hoja, 2, 1, filas);
-  Modelo_invalidarLecturas();
-  Log_info('Profesionales', 'guardar', 'catálogo reemplazado (' + filas.length + ' entradas)');
-  Log_flush();
-  return { ok: true, cantidad: filas.length };
-}
-
-/** Endpoint: reemplaza el catálogo completo con la lista validada. */
-function api_profesionalesGuardar(profesionales) {
-  try { return _profesionales_guardarFilas(profesionales); }
-  catch (e) {
-    Log_error('Profesionales', 'guardar', e && e.message ? e.message : String(e));
-    Log_flush();
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
-}
-
-/** Endpoint: agrega un profesional nuevo al catálogo (con validación). */
-function api_profesionalesAgregar(codigo, nombre, tipoRol, activo) {
-  try {
-    var actuales = Profesionales_catalogo();
-    var c = Utl_texto(codigo).trim().toUpperCase();
-    if (!c || !Utl_texto(nombre).trim()) return { ok: false, errores: ['CODIGO y NOMBRE obligatorios'] };
-    var duplicado = actuales.some(function (p) { return p.CODIGO === c; });
-    if (duplicado) return { ok: false, errores: ['CODIGO duplicado: ' + c] };
-    actuales.push({ CODIGO: c, NOMBRE: Utl_texto(nombre).trim(),
-                    TIPO_ROL: Utl_texto(tipoRol).trim(), ACTIVO: activo !== false });
-    return _profesionales_guardarFilas(actuales);
-  } catch (e) {
-    Log_error('Profesionales', 'agregar', e && e.message ? e.message : String(e));
-    Log_flush();
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
-}
-
-/** Endpoint: elimina un profesional del catálogo por código. */
-function api_profesionalesEliminar(codigo) {
-  try {
-    var c = Utl_texto(codigo).trim().toUpperCase();
-    if (!c) return { ok: false, motivo: 'CODIGO vacío' };
-    var restantes = Profesionales_catalogo().filter(function (p) { return p.CODIGO !== c; });
-    return _profesionales_guardarFilas(restantes);
-  } catch (e) {
-    Log_error('Profesionales', 'eliminar', e && e.message ? e.message : String(e));
     Log_flush();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
@@ -1527,14 +1347,6 @@ function UI_ejecutarCarga() {
   ui.alert('CARGA COMPLETADA ✓\n\n' + texto);
 }
 
-function UI_bloqueado() {
-  SpreadsheetApp.getUi().alert(
-    '🔒 OPERACIÓN BLOQUEADA\n\n' +
-    'Esta acción está deshabilitada temporalmente\n' +
-    'por el incidente de escritura accidental en DRY RUN.\n\n' +
-    'No ejecutar hasta completar la auditoría.');
-}
-
 // ===========================================================================
 // ETAPA 5-INCIDENTE — Recuperación selectiva
 // ===========================================================================
@@ -1755,18 +1567,6 @@ function _calcularPuntaje(codigos) {
     }
   });
   return total;
-}
-
-/** Diagnóstico: cuenta pacientes y muestra primeros 3 IDs. */
-function api_diagnosticoPacientes() {
-  var pacientes = Modelo_leerPacientes();
-  return {
-    total: pacientes.length,
-    columnas: pacientes.length ? Object.keys(pacientes[0]).slice(0, 8) : [],
-    primerosIds: pacientes.slice(0, 3).map(function (p) { return p.ID_INTERNO; }),
-    hojaExiste: !!Modelo_hoja(HOJAS.PACIENTES),
-    ultimaFila: Modelo_hoja(HOJAS.PACIENTES) ? Modelo_hoja(HOJAS.PACIENTES).getLastRow() : 0
-  };
 }
 
 /** DIAGNÓSTICO: ejecutar desde el editor de Apps Script para depurar búsqueda/ficha */

@@ -144,7 +144,7 @@ function Hojas_crearInicio(ss) {
    .setValue('\u2713 Operativo   \u00b7   v' + ECICEP.VERSION + '   \u00b7   Build ' +
      (ECICEP_BUILD.commit || 'dev'))
    .setFontSize(10).setFontColor(M.agua).setHorizontalAlignment('right');
-  h.setRowHeight(3, 28);
+  h.setRowHeight(3, DESIGN_SYSTEM.ALTURAS.barra);
 
   /* ===== CABECERA ===== */
   h.getRange(5, 4, 2, 6).merge().setValue('ECICEP')
@@ -154,7 +154,7 @@ function Hojas_crearInicio(ss) {
    .setValue('Sistema de Gesti\u00f3n de Pacientes Cr\u00f3nicos por Sectores\nCESFAM San Juan')
    .setFontSize(11).setFontColor(GRIS).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
    .setHorizontalAlignment('right').setVerticalAlignment('middle');
-  h.setRowHeight(5, 24); h.setRowHeight(6, 24);
+  h.setRowHeight(5, DESIGN_SYSTEM.ALTURAS.buscador); h.setRowHeight(6, DESIGN_SYSTEM.ALTURAS.buscador);
 
   /* ===== MÓDULOS PRINCIPALES (4 botones, 4 cols c/u) ===== */
   h.getRange(8, 4).setValue('M\u00d3DULOS DEL SISTEMA').setFontWeight('bold')
@@ -172,13 +172,13 @@ function Hojas_crearInicio(ss) {
     if (!destino) {
       // Defensa: hoja aún no creada en este contrato → botón informativo.
       rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
-       .setFontWeight('bold').setFontSize(12).setFontColor(GRIS)
+       .setFontWeight('bold').setFontSize(DESIGN_SYSTEM.TIPOGRAFIA.encabezado).setFontColor(GRIS)
        .setBackground(BLANCO).setHorizontalAlignment('center')
        .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
     } else {
       rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() +
         '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-       .setFontWeight('bold').setFontSize(12).setFontColor(BLANCO)
+       .setFontWeight('bold').setFontSize(DESIGN_SYSTEM.TIPOGRAFIA.encabezado).setFontColor(BLANCO)
        .setBackground(PRIM).setHorizontalAlignment('center')
        .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
     }
@@ -537,9 +537,12 @@ function Hojas_formatoCondicional(ss) {
         regla('=$I' + iniP + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 9, filas, 1)),
         regla('=$I' + iniP + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 9, filas, 1)),
         regla('=OR($I' + iniP + '="",$I' + iniP + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 9, filas, 1)),
-        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '<TODAY()),#F8D7DA', p.getRange(iniP, 17, filas, 1)),
-        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>=TODAY(),$Q' + iniP + '<=TODAY()+7),#FFF3CD', p.getRange(iniP, 17, filas, 1)),
-        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>TODAY()+7),#D4EDDA', p.getRange(iniP, 17, filas, 1))
+        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '<TODAY())',
+          DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 17, filas, 1)),
+        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>=TODAY(),$Q' + iniP + '<=TODAY()+7)',
+          DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 17, filas, 1)),
+        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>TODAY()+7)',
+          DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, 17, filas, 1))
       ]);
     }
   } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
@@ -589,12 +592,12 @@ function Hojas_formatoCondicional(ss) {
              h.getRange(ini, colEst, filas, 1)),
         regla('=OR($' + letraEst + ini + '="",$' + letraEst + ini + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo,
              h.getRange(ini, colEst, filas, 1)),
-        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '<TODAY()),#F8D7DA',
-             h.getRange(ini, colProx, filas, 1)),
-        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>=TODAY(),$' + letraProx + ini + '<=TODAY()+7),#FFF3CD',
-             h.getRange(ini, colProx, filas, 1)),
-        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>TODAY()+7),#D4EDDA',
-             h.getRange(ini, colProx, filas, 1))
+        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '<TODAY())',
+             DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, h.getRange(ini, colProx, filas, 1)),
+        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>=TODAY(),$' + letraProx + ini + '<=TODAY()+7)',
+             DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, h.getRange(ini, colProx, filas, 1)),
+        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>TODAY()+7)',
+             DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, h.getRange(ini, colProx, filas, 1))
       ]);
     } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }
   });
@@ -997,11 +1000,6 @@ function Backup_programar(dia, hora) {
   _config_set('BACKUP_HORA', String(hour));
   Log_info('Backup', 'programar', dia + ' ' + hour + ':00');
   Log_flush();
-}
-
-/** GAS: instala trigger semanal (legacy — usa Backup_programar). */
-function Backup_programarSemanal() {
-  Backup_programar('DOMINGO', 3);
 }
 
 /** GAS: quita el trigger semanal. */

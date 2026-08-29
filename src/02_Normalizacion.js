@@ -892,7 +892,12 @@ function Control_recalcularTodos() {
     }
   });
   if (pendientes.length) {
-    pendientes.forEach(function (x) { hoja.getRange(x.fila, colProxCtrl).setValue(x.valor); cambios++; });
+    var fMin = Math.min.apply(null, pendientes.map(function (x) { return x.fila; }));
+    var fMax = Math.max.apply(null, pendientes.map(function (x) { return x.fila; }));
+    var rango = hoja.getRange(fMin, colProxCtrl, fMax - fMin + 1, 1);
+    var v = rango.getValues();
+    pendientes.forEach(function (x) { v[x.fila - fMin][0] = x.valor; cambios++; });
+    rango.setValues(v);
   }
   var ms = new Date() - t0;
   Log_info('Control', 'recalcularTodos', 'total=' + pacientes.length +

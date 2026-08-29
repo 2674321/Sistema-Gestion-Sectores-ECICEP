@@ -161,12 +161,13 @@ function Calidad_sincronizarCola() {
 
   var creadas = 0, actualizadas = 0, resueltas = 0;
   var hoy = new Date();
+  var detalleNuevo = {}, estadoNuevo = {}, resueltoNuevo = {};
   audit.filasCola.forEach(function (f) {
     var detalleJson = JSON.stringify(f.motivos);
     var filaHoja = filasCalidad[f.idInterno];
     if (filaHoja) {
-      hoja.getRange(filaHoja, colDetalle).setValue(detalleJson);
-      hoja.getRange(filaHoja, colEstado).setValue('PENDIENTE');
+      detalleNuevo[filaHoja] = detalleJson;
+      estadoNuevo[filaHoja] = 'PENDIENTE';
       actualizadas++;
     } else {
       hoja.appendRow([hoy, 'CALIDAD_DATOS', f.idInterno, f.rut, f.nombre,
@@ -180,12 +181,25 @@ function Calidad_sincronizarCola() {
     if (!sigue) {
       var filaHoja = filasCalidad[id];
       if (Utl_texto(valores[filaHoja - 1][colEstado]) === 'PENDIENTE') {
-        hoja.getRange(filaHoja, colEstado).setValue('RESUELTO_AUTO');
-        hoja.getRange(filaHoja, colResueltoPor).setValue('SISTEMA');
+        estadoNuevo[filaHoja] = 'RESUELTO_AUTO';
+        resueltoNuevo[filaHoja] = 'SISTEMA';
         resueltas++;
       }
     }
   });
+  /* escritura por bloque (regla: nunca setValue dentro de loops) */
+  function _escribirCol(col, porFila) {
+    var filas = Object.keys(porFila).map(Number);
+    if (!filas.length) return;
+    var fMin = Math.min.apply(null, filas), fMax = Math.max.apply(null, filas);
+    var rango = hoja.getRange(fMin, col, fMax - fMin + 1, 1);
+    var v = rango.getValues();
+    filas.forEach(function (f) { v[f - fMin][0] = porFila[f]; });
+    rango.setValues(v);
+  }
+  _escribirCol(colDetalle, detalleNuevo);
+  _escribirCol(colEstado, estadoNuevo);
+  _escribirCol(colResueltoPor, resueltoNuevo);
 
   Log_info('Calidad', 'sincronizarCola', 'creadas=' + creadas +
     ' actualizadas=' + actualizadas + ' resueltasAuto=' + resueltas);
@@ -204,17 +218,27 @@ function Calidad_sincronizarCola() {
 function Calidad_normalizarFormatoRuts() {
   var pacientes = Modelo_leerPacientes();
   var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+  var colRut = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('RUT') + 1;
   var corregidos = 0, detalles = [];
+  var filas = [], valores = {};
   pacientes.forEach(function (p, ix) {
     var original = Utl_texto(p.RUT);
     var norm = Norm_normalizarRut(original);
     if (!norm.rut || norm.rut === original) return;
     if (!Norm_validarRut(norm.rut)) return; // solo formato, con evidencia
-    hojaP.getRange(2 + ix, MODELO_PACIENTE.map(function (c) { return c.campo; })
-      .indexOf('RUT') + 1).setValue(norm.rut);
+    var fila = 2 + ix;
+    filas.push(fila);
+    valores[fila] = norm.rut;
     corregidos++;
     detalles.push(original + ' → ' + norm.rut);
   });
+  if (filas.length) {
+    var fMin = Math.min.apply(null, filas), fMax = Math.max.apply(null, filas);
+    var rango = hojaP.getRange(fMin, colRut, fMax - fMin + 1, 1);
+    var v = rango.getValues();
+    filas.forEach(function (f) { v[f - fMin][0] = valores[f]; });
+    rango.setValues(v);
+  }
   Log_info('Calidad', 'normalizarRuts', 'corregidos=' + corregidos);
   Log_flush();
   return { ok: true, corregidos: corregidos, detalles: detalles.slice(0, 20) };

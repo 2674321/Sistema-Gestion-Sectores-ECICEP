@@ -25,23 +25,9 @@ function Log_registrar(nivel, modulo, operacion, mensaje, contexto, duracionMs) 
   } catch (e) { /* el log nunca rompe el flujo */ }
 }
 
-function Log_debug(modulo, operacion, mensaje, contexto) { Log_registrar('DEBUG', modulo, operacion, mensaje, contexto); }
 function Log_info(modulo, operacion, mensaje, contexto) { Log_registrar('INFO', modulo, operacion, mensaje, contexto); }
 function Log_warning(modulo, operacion, mensaje, contexto) { Log_registrar('WARNING', modulo, operacion, mensaje, contexto); }
 function Log_error(modulo, operacion, mensaje, contexto) { Log_registrar('ERROR', modulo, operacion, mensaje, contexto); }
-
-/** Mide fn, registra duración y devuelve su resultado. Propaga errores tras registrarlos. */
-function Log_medir(modulo, operacion, fn) {
-  var t0 = Date.now();
-  try {
-    var r = fn();
-    Log_info(modulo, operacion, 'OK', null, Date.now() - t0);
-    return r;
-  } catch (e) {
-    Log_error(modulo, operacion, e && e.message ? e.message : String(e), null, Date.now() - t0);
-    throw e;
-  }
-}
 
 /**
  * Vuelca el búfer a la hoja LOG en una sola escritura.
