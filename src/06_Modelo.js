@@ -284,30 +284,29 @@ function Modelo_nuevoIdInterno() {
 
 var MODELO_DISENO = [
   // Navegación
-  { nombre: 'INICIO',           color: '#0E5C68', estilo: false },
+  { nombre: 'INICIO',           color: DESIGN_SYSTEM.MARCA.sistema, estilo: false },
 
   // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
-  { nombre: 'SECTOR_NARANJO',   color: '#E8730A', banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
-  { nombre: 'INGRESO_NARANJO',  color: '#E8730A', banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
-  { nombre: 'SECTOR_AMARILLO',  color: '#C79A00', banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
-  { nombre: 'INGRESO_AMARILLO', color: '#C79A00', banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
-  { nombre: 'SECTOR_VERDE',     color: '#2E8B57', banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
-  { nombre: 'INGRESO_VERDE',    color: '#2E8B57', banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
-  // Bases
-  { nombre: 'PACIENTES',        color: '#1C2430', congelarCols: 3, banda: true }, // ID·RUT·NOMBRE
-  { nombre: 'EVENTOS',          color: '#3E8A96', congelarCols: 2, banda: true },
+{ nombre: 'SECTOR_NARANJO',   color: IDENTIDAD.NARANJO, banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
+  { nombre: 'INGRESO_NARANJO',  color: IDENTIDAD.NARANJO, banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
+  { nombre: 'SECTOR_AMARILLO',  color: IDENTIDAD.AMARILLO, banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
+  { nombre: 'INGRESO_AMARILLO', color: IDENTIDAD.AMARILLO, banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
+  { nombre: 'SECTOR_VERDE',     color: IDENTIDAD.VERDE, banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
+  { nombre: 'INGRESO_VERDE',    color: IDENTIDAD.VERDE, banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
+  { nombre: 'PACIENTES',        color: DESIGN_SYSTEM.MARCA.sistema, congelarCols: 3, banda: true }, // ID·RUT·NOMBRE
+  { nombre: 'EVENTOS',          color: DESIGN_SYSTEM.MARCA.sistemaClaro, congelarCols: 2, banda: true },
   // Reportes (REM_SALIDA es interna: el usuario consulta vía "Consultar REM")
-  { nombre: 'REM_SALIDA',       color: '#6B5CA8', estilo: false, oculta: true },
+  { nombre: 'REM_SALIDA',       color: DESIGN_SYSTEM.MARCA.reporte, estilo: false, oculta: true },
   // Catálogos y configuración (internas)
-  { nombre: 'CAT_VIGENCIA_EXAMENES', color: '#8A93A3', oculta: true, banda: true },
-  { nombre: 'PROFESIONALES', color: '#8A93A3', oculta: true, banda: true },
-  { nombre: 'RESPONSABLES', color: '#8A93A3', oculta: true, banda: true },
+  { nombre: 'CAT_VIGENCIA_EXAMENES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
+  { nombre: 'PROFESIONALES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
+  { nombre: 'RESPONSABLES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
   // Sistema (técnicas ocultas)
-  { nombre: 'CONFLICTOS',       color: '#8A93A3', banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
-  { nombre: 'FUENTES',          color: '#8A93A3', oculta: true, formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
-  { nombre: 'CONFIG',           color: '#8A93A3', oculta: true },
-  { nombre: 'LOG',              color: '#8A93A3', oculta: true },
-  { nombre: 'STAGING_IMPORT',   color: '#8A93A3', oculta: true }
+  { nombre: 'CONFLICTOS',       color: DESIGN_SYSTEM.MARCA.tecnico, banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
+  { nombre: 'FUENTES',          color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
+  { nombre: 'CONFIG',           color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true },
+  { nombre: 'LOG',              color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true },
+  { nombre: 'STAGING_IMPORT',   color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true }
 ];
 
 /** PURA: ancho de columna según el tipo de campo (ANCHOS_COLUMNA, Parte 2.4/2.5).
@@ -353,9 +352,10 @@ function _modelo_estilizarEncabezado(hoja) {
   hoja.getRange(hr, 1, 1, cols)
       .setFontWeight(PULIDO_ENCABEZADO.peso)
       .setFontSize(PULIDO_ENCABEZADO.fuente)
-      .setBackground('#0E5C68').setFontColor('#FFFFFF')
+      .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta)
       .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
-      .setVerticalAlignment('middle').setHorizontalAlignment('center');
+      .setVerticalAlignment(DESIGN_SYSTEM.ENCABEZADOS.vertical)
+      .setHorizontalAlignment(DESIGN_SYSTEM.ENCABEZADOS.horizontal);
   hoja.setRowHeight(hr, Modelo_esHojaVisual(hoja.getName())
     ? PULIDO_ENCABEZADO.alturaVisual : PULIDO_ENCABEZADO.alturaSimple);
   _modelo_anchosHoja(hoja);
@@ -369,7 +369,8 @@ function _modelo_aplicarBanda(hoja) {
   rango.getBandings().forEach(function (b) { b.remove(); });
   if (hoja.getMaxRows() < ini) return;
   var banda = hoja.getRange(ini, 1, hoja.getMaxRows() - ini + 1, cols).applyRowBanding();
-  banda.setFirstRowColor('#FFFFFF').setSecondRowColor('#F1F3F6'); // surface / surface-alt
+  banda.setFirstRowColor(DESIGN_SYSTEM.SUPERFICIE.datos)
+       .setSecondRowColor(DESIGN_SYSTEM.SUPERFICIE.datosAlterno)
 }
 
 /** Formatos de fecha para hojas de columnas conocidas (desde dataStartRow).
@@ -419,7 +420,7 @@ function Modelo_aplicarDiseno() {
   try {
     var alias = ss.getSheetByName('INGRESO_NARANJA');
     if (alias) {
-      alias.setTabColor('#E8730A');
+      alias.setTabColor(IDENTIDAD.NARANJO);
       if (!alias.isSheetHidden()) alias.hideSheet();
       res.ocultas.push('INGRESO_NARANJA');
     }
@@ -679,7 +680,7 @@ function Modelo_crearEstructura() {
         var hr = layout.encabezadosRow;
         if (hoja.getLastRow() < hr) {
           if (hoja.getMaxRows() < hr) hoja.insertRowsBefore(1, hr - Math.max(hoja.getLastRow(), 0) - 1);
-          hoja.setRowHeight(3, 22);
+          hoja.setRowHeight(3, PULIDO_ENCABEZADO.alturaVisual);
           Utl_escribirBloque(hoja, hr, 1, [esperados]);
           try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
           Log_warning('Modelo', 'crearEstructura', 'Soporte visual creado: ' + nombre);
@@ -729,7 +730,7 @@ function _modelo_formatearPacientes(hoja) {
   var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
   hoja.setFrozenRows(Modelo_headerRow(HOJAS.PACIENTES));
   var rangoEnc = hoja.getRange(hr, 1, 1, MODELO_PACIENTE.length);
-  rangoEnc.setFontWeight('bold').setBackground('#0E5C68').setFontColor('#ffffff');
+  rangoEnc.setFontWeight('bold').setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta);
 
   // Anchos razonables según tipo de campo (centralizado en ANCHOS_COLUMNA)
   for (var i = 0; i < MODELO_PACIENTE.length; i++) {
@@ -1619,8 +1620,7 @@ function Modelo_instalarCatalogos(ss) {
   }
   h.setFrozenRows(1);
   _modelo_estilizarEncabezado(h);
-  h.setColumnWidth(1, 220); h.setColumnWidth(2, 110);
-  h.setColumnWidth(3, 100); h.setColumnWidth(4, 90); h.setColumnWidth(5, 90);
+  _modelo_anchosHoja(h);
   if (h.getMaxRows() > 1) {
     var colNum = h.getRange(2, 3, h.getMaxRows() - 1, 1);
     colNum.setNumberFormat('0');

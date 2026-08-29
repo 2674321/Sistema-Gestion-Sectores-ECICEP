@@ -299,8 +299,11 @@ function HVis_normalizarLayout(hoja) {
     advertencias.push('Filas superiores con datos propios no reconocidos: no se tocaron.');
   }
 
-  // ===== FILA 1: TÍTULO (barra de sector, full width) =====
+  // ===== FILA 1: TÍTULO (barra de identidad, full width) =====
   try {
+    // v0.8.9.6: color = RAMPA de la familia del sector (identidad vibrante);
+    // tinta única TINTA_SECCION (≥4.5:1 sobre todas las rampas), altura
+    // estandarizada y borde de DESIGN_SYSTEM (Parte 4/Rampa).
     var rTitulo = hoja.getRange(1, 1, 1, ultimaCol);
     try { rTitulo.breakApart(); } catch (eB) {}
     rTitulo.merge();
@@ -309,10 +312,11 @@ function HVis_normalizarLayout(hoja) {
     rTitulo.setFontColor(TINTA_SECCION);
     rTitulo.setFontWeight('bold');
     rTitulo.setFontSize(PULIDO_BARRAS.titulo);
-    rTitulo.setHorizontalAlignment('CENTER');
-    rTitulo.setVerticalAlignment('MIDDLE');
-    rTitulo.setBorder(true, true, true, true, false, false, '#D8DEE4', SpreadsheetApp.BorderStyle.SOLID_THICK);
-    hoja.setRowHeight(1, 28);
+    rTitulo.setHorizontalAlignment(DESIGN_SYSTEM.CENTRO);
+    rTitulo.setVerticalAlignment(DESIGN_SYSTEM.MEDIO);
+    rTitulo.setBorder(true, true, true, true, false, false,
+      DESIGN_SYSTEM.BORDES.titulo, SpreadsheetApp.BorderStyle.SOLID_THICK);
+    hoja.setRowHeight(1, DESIGN_SYSTEM.ALTURAS.barra);
   } catch (eT) { advertencias.push('Fila título: ' + (eT && eT.message || eT)); }
 
   // ===== FILA 2: SECCIONES (títulos reales sobre columnas reales) =====
@@ -327,25 +331,31 @@ function HVis_normalizarLayout(hoja) {
       var rSec = hoja.getRange(plan.seccionesRow, 1, 1, ultimaCol);
       rSec.breakApart();
       rSec.clear();
-      rSec.setBackground('#F4F6F8');
+      rSec.setBackground(DESIGN_SYSTEM.SUPERFICIE.residuo);
     } catch (eC) {}
+    // v0.8.9.6: rampa interna de la familia (barra/sección/encabezado) → cada
+    // hoja de sector queda monocromática en su identidad; PACIENTES usa la
+    // paleta COLORES_SECCION (familia GENERAL). Mismas propiedades estructurales.
     var familia = HVis_familiaHoja(nombre);
-    var secuencias = PALETA_SECCION[familia] || null;
+    var rampa = PALETA_SECCION[familia] || null;
     plan.secciones.forEach(function (sec) {
       var rng = hoja.getRange(plan.seccionesRow, sec.colInicio, 1, sec.colFin - sec.colInicio + 1);
       try { rng.breakApart(); } catch (eB) {}
       rng.merge();
       rng.setValue(sec.nombre);
-      rng.setBackground(secuencias ? secuencias[plan.secciones.indexOf(sec)] : sec.color);
+      rng.setBackground(rampa
+        ? rampa.seccion[plan.secciones.indexOf(sec) % rampa.seccion.length]
+        : sec.color);
       rng.setFontColor(TINTA_SECCION);
       rng.setFontWeight('bold');
       rng.setFontSize(PULIDO_BARRAS.seccion);
-      rng.setHorizontalAlignment('CENTER');
-      rng.setVerticalAlignment('MIDDLE');
-      rng.setBorder(false, false, true, false, false, false, '#C9D2DA', SpreadsheetApp.BorderStyle.SOLID_THICK);
+      rng.setHorizontalAlignment(DESIGN_SYSTEM.CENTRO);
+      rng.setVerticalAlignment(DESIGN_SYSTEM.MEDIO);
+      rng.setBorder(false, false, true, false, false, false,
+        DESIGN_SYSTEM.BORDES.seccion, SpreadsheetApp.BorderStyle.SOLID_THICK);
       seccionesAplicadas++;
     });
-    hoja.setRowHeight(plan.seccionesRow, 26);
+    hoja.setRowHeight(plan.seccionesRow, DESIGN_SYSTEM.ALTURAS.seccion);
   } catch (eS) { advertencias.push('Filas de secciones: ' + (eS && eS.message || eS)); }
 
   // ===== ENCABEZADOS REALES: normalizar etiquetas a canónicas =====
@@ -364,9 +374,12 @@ function HVis_normalizarLayout(hoja) {
     });
     var filasDatos = Math.max(hoja.getLastRow() - hrEnc, 1);
     var rngEnc = hoja.getRange(hrEnc, 1, 1, ultimaCol);
+    // v0.8.9.6: encabezados UNIFORMES (Parte 6) — una sola especificación
+    // PULIDO_ENCABEZADO consumida por 22_HojasVisual y 06_Modelo por igual.
     rngEnc.setFontWeight(PULIDO_ENCABEZADO.peso).setFontSize(PULIDO_ENCABEZADO.fuente)
-      .setHorizontalAlignment('CENTER').setVerticalAlignment('MIDDLE')
-      .setBackground('#0E5C68').setFontColor('#FFFFFF')
+      .setHorizontalAlignment(DESIGN_SYSTEM.ENCABEZADOS.horizontal)
+      .setVerticalAlignment(DESIGN_SYSTEM.ENCABEZADOS.vertical)
+      .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta)
       .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
     hoja.setRowHeight(hrEnc, PULIDO_ENCABEZADO.alturaVisual);
     if (correcciones) advertencias.push('Etiquetas de encabezados normalizadas: ' + correcciones);
@@ -439,6 +452,21 @@ function HVis_familiaHoja(nombre) {
   if (n.indexOf('NARANJ') !== -1) return 'NARANJO';
   if (n.indexOf('VERDE') !== -1) return 'VERDE';
   return '';
+}
+
+/**
+ * PURA: identidad de diseño de una hoja (v0.8.9.6, DESIGN_SYSTEM).
+ * Devuelve la CLAVE de RAMPA/COLORES_SECTOR que aplica: AMARILLO, NARANJO o
+ * VERDE para las hojas del sector; EVENTOS hereda la identidad NARANJO
+ * (naranja de sistema, mismo soporte físico); el resto (PACIENTES, INICIO,
+ * hojas técnicas) es GENERAL (azul de sistema).
+ */
+function HVis_identidad(nombre) {
+  var familia = HVis_familiaHoja(nombre);
+  if (familia) return familia;
+  var n = Utl_texto(nombre).toUpperCase();
+  if (n.indexOf('EVENTOS') !== -1) return 'NARANJO';
+  return 'GENERAL';
 }
 
 /**
@@ -555,6 +583,103 @@ function HVis_diagnosticarDisenio(nombreHoja) {
       filasSuperioresEscribibles: HVis_filasSuperioresEscribibles(hoja, Math.max(hoja.getLastColumn() || 0, 1), HVis_detectarSectorHoja(nombreHoja))
     }
   };
+}
+
+/**
+ * PURA: especificación visual que el DESIGN_SYSTEM exige para una hoja
+ * (Parte 20). No lee la hoja: declara el ESTADO DESEADO (título por
+ * identidad, secciones por rampa/paleta, fila de encabezados estándar).
+ */
+function HVis_especVisual(nombre) {
+  var familia = HVis_familiaHoja(nombre);
+  var identidad = HVis_identidad(nombre);
+  var det = HVis_detectarSectorHoja(nombre);
+  var secciones = HVis_obtenerSecciones(nombre) || [];
+  var colorTitulo = HVis_colorPorSector(det);
+  var colorSecciones;
+  if (familia) {
+    // Hoja de sector → rampa interna de su familia (monocromática).
+    colorSecciones = secciones.map(function (s, i) {
+      return PALETA_SECCION[familia].seccion[i % PALETA_SECCION[familia].seccion.length];
+    });
+  } else {
+    // PACIENTES → paleta semántica general; resto sin secciones.
+    colorSecciones = secciones.map(function (s) { return s.color; });
+  }
+  return {
+    hoja: nombre,
+    identidad: identidad,
+    familia: familia,
+    visual: Modelo_esHojaVisual(nombre),
+    colorTitulo: colorTitulo,
+    tintaTitulo: TINTA_SECCION,
+    colorSecciones: colorSecciones,
+    encabezados: {
+      fila: Modelo_headerRow(nombre),
+      fondo: PULIDO_ENCABEZADO.fondo,
+      tinta: PULIDO_ENCABEZADO.tinta,
+      peso: PULIDO_ENCABEZADO.peso,
+      tamanio: PULIDO_ENCABEZADO.fuente,
+      altura: PULIDO_ENCABEZADO.alturaVisual
+    }
+  };
+}
+
+/**
+ * GAS: devuelve los CAMBIOS PENDIENTES del diseño de una hoja frente a la
+ * especificación (Parte 20). NO modifica la hoja. Ej.: CAMBIOS PENDIENTES = 0
+ * cuando el diseño ya cumple el DESIGN_SYSTEM (idempotencia verificable).
+ */
+function HVis_pendientesVisual(hoja) {
+  if (!hoja) return { hoja: '', pendientes: ['Hoja inexistente'] };
+  var nombre = hoja.getName();
+  var pendientes = [];
+  var esp = HVis_especVisual(nombre);
+  try {
+    var lastC = Math.max(hoja.getLastColumn() || 0, 1);
+    if (esp.visual) {
+      if (hoja.getLastRow() >= 1) {
+        var r1 = hoja.getRange(1, 1);
+        if (!HVis_mismosColor(r1.getBackground(), esp.colorTitulo))
+          pendientes.push('fila1 color=' + r1.getBackground() + ' → ' + esp.colorTitulo);
+        if (!HVis_mismosColor(r1.getFontColor(), esp.tintaTitulo))
+          pendientes.push('fila1 tinta=' + r1.getFontColor() + ' → ' + esp.tintaTitulo);
+        if (r1.getFontSize() !== PULIDO_BARRAS.titulo)
+          pendientes.push('fila1 tamaño=' + r1.getFontSize() + ' → ' + PULIDO_BARRAS.titulo);
+        if (hoja.getRowHeight(1) !== DESIGN_SYSTEM.ALTURAS.barra)
+          pendientes.push('fila1 altura=' + hoja.getRowHeight(1));
+      }
+      var hrA = Modelo_headerRow(nombre);
+      if (hoja.getLastRow() >= hrA) {
+        var rEnc = hoja.getRange(hrA, 1, 1, lastC);
+        var bgs = rEnc.getBackgrounds()[0];
+        var okEnc = bgs.every(function (b) { return HVis_mismosColor(b, esp.encabezados.fondo); });
+        if (!okEnc) pendientes.push('encabezados fondo≠' + esp.encabezados.fondo);
+        var fcs = rEnc.getFontColors()[0];
+        var okTinta = fcs.every(function (c) { return HVis_mismosColor(c, esp.encabezados.tinta); });
+        if (!okTinta) pendientes.push('encabezados tinta≠' + esp.encabezados.tinta);
+        var okBold = rEnc.getFontWeights()[0].every(function (w) { return w === esp.encabezados.peso; });
+        if (!okBold) pendientes.push('encabezados peso≠bold');
+        var okSize = rEnc.getFontSizes()[0].every(function (s) { return s === esp.encabezados.tamanio; });
+        if (!okSize) pendientes.push('encabezados tamaño≠' + esp.encabezados.tamanio);
+        if (hoja.getRowHeight(hrA) !== esp.encabezados.altura)
+          pendientes.push('encabezados altura=' + hoja.getRowHeight(hrA) + ' → ' + esp.encabezados.altura);
+      }
+    }
+  } catch (eD) {
+    pendientes.push('no inspeccionable: ' + (eD && eD.message || eD));
+  }
+  return { hoja: nombre, identidad: esp.identidad, visual: esp.visual,
+           pendientes: pendientes, cantidadPendientes: pendientes.length };
+}
+
+/** PURA: compara colores normalizados (case-insensitive; vacíos = iguales). */
+function HVis_mismosColor(a, b) {
+  function norm(x) {
+    var t = Utl_texto(x).toUpperCase();
+    return (t === '' || t === 'TRANSPARENT') ? '' : t;
+  }
+  return norm(a) === norm(b);
 }
 
 /**

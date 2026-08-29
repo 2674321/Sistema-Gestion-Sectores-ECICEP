@@ -360,7 +360,7 @@ function REM_exportarPdf(anio, mes, sectorFiltro) {
       ' · Regla estratificación: ' + (CFG_ESTRATIFICACION.REGLA_DISPONIBLE ?
         ('REGLA ' + Utl_texto(CFG_ESTRATIFICACION.VERSION_REGLA)) : 'MANUAL/FUENTE'));
     meta.setAlignment(DocumentApp.HorizontalAlignment.CENTER)
-        .setFontSize(9).setForegroundColor('#5B6472');
+        .setFontSize(9).setForegroundColor(DESIGN_SYSTEM.MARCA.gris);
 
     // Bloque A — tabla resumen con encabezado sombreado
     body.appendParagraph('Bloque A — Resumen por nivel G').setHeading(
@@ -376,7 +376,7 @@ function REM_exportarPdf(anio, mes, sectorFiltro) {
 
     if (c.bloqueA.fechasInvalidas > 0) {
       body.appendParagraph('Eventos con fecha no interpretable (fuera de todo período): ' +
-        c.bloqueA.fechasInvalidas).setFontSize(9).setForegroundColor('#D48806');
+        c.bloqueA.fechasInvalidas).setFontSize(9).setForegroundColor(DESIGN_SYSTEM.ESTADOS.ALERTA.tinta);
     }
 
     // Indicadores por paciente
@@ -398,7 +398,7 @@ function REM_exportarPdf(anio, mes, sectorFiltro) {
 
     body.appendParagraph('Bloques B (demografía #14) y C (atenciones #17): no disponibles. ' +
       'Documento generado automáticamente por Sistema ECICEP — datos derivados de EVENTOS (#25).')
-      .setFontSize(8).setForegroundColor('#8A93A3');
+      .setFontSize(8).setForegroundColor(DESIGN_SYSTEM.MARCA.muted);
 
     doc.saveAndClose();
     var pdfBlob = DriveApp.getFileById(doc.getId()).getAs('application/pdf').setName(nombre);
@@ -435,11 +435,11 @@ function _rem_tablaDoc(body, filas, conEncabezado) {
       var celda = t.getCell(f, col);
       celda.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(6).setPaddingRight(6);
       if (conEncabezado && f === 0) {
-        celda.setBackgroundColor('#0E5C68')
-             .setForegroundColor('#FFFFFF')
+        celda.setBackgroundColor(PULIDO_ENCABEZADO.fondo)
+             .setForegroundColor(PULIDO_ENCABEZADO.tinta)
              .setFontFamily('Inter').setFontSize(9).setBold(true);
       } else {
-        if (f % 2 === 0) celda.setBackgroundColor('#F1F3F6');
+        if (f % 2 === 0) celda.setBackgroundColor(DESIGN_SYSTEM.SUPERFICIE.datosAlterno);
         celda.setFontFamily('Inter').setFontSize(9);
       }
     }
@@ -459,17 +459,19 @@ function _rem_estilizarSalida(hoja, filas, tipos) {
   if (ancho > 1) hoja.getRange(2, 2, Math.max(alto - 1, 1), ancho - 1).setColumnWidth(95);
 
   hoja.getRange(1, 1, alto, ancho)
-      .setFontFamily('Inter').setFontSize(10).setFontColor('#1C2430')
+      .setFontFamily('Inter').setFontSize(10).setFontColor(DESIGN_SYSTEM.MARCA.texto)
       .setVerticalAlignment('middle')
       .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
 
+  // v0.8.9.6: ESTILOS del informe consumen DESIGN_SYSTEM (marca, encabezados,
+  // superficies y estados clínicos) — un único sistema visual en todo el libro.
   var ESTILOS = {
-    titulo:  { bg: null,      fg: '#0E5C68', bold: true,  size: 13 },
-    meta:    { fg: '#8A93A3', italic: true, size: 9 },
-    seccion: { bg: '#08414A', fg: '#FFFFFF', bold: true, size: 11 },
-    cols:    { bg: '#0E5C68', fg: '#FFFFFF', bold: true, size: 9, center: true },
-    total:   { bg: '#E5F1F2', bold: true },
-    nota:    { fg: '#8A93A3', italic: true, size: 9 }
+    titulo:  { bg: null, fg: DESIGN_SYSTEM.MARCA.sistema, bold: true,  size: 13 },
+    meta:    { fg: DESIGN_SYSTEM.MARCA.muted, italic: true, size: 9 },
+    seccion: { bg: DESIGN_SYSTEM.MARCA.sistemaProfundo, fg: DESIGN_SYSTEM.MARCA.blanco, bold: true, size: 11 },
+    cols:    { bg: PULIDO_ENCABEZADO.fondo, fg: PULIDO_ENCABEZADO.tinta, bold: true, size: 9, center: true },
+    total:   { bg: DESIGN_SYSTEM.SUPERFICIE.total, bold: true },
+    nota:    { fg: DESIGN_SYSTEM.MARCA.muted, italic: true, size: 9 }
   };
   for (var i = 0; i < tipos.length; i++) {
     var t = tipos[i];
@@ -489,7 +491,8 @@ function _rem_estilizarSalida(hoja, filas, tipos) {
   function banda(desde, hasta) {
     if (hasta < desde) return;
     var b = hoja.getRange(desde, 1, hasta - desde + 1, ancho).applyRowBanding();
-    b.setFirstRowColor('#FFFFFF').setSecondRowColor('#F1F3F6');
+    b.setFirstRowColor(DESIGN_SYSTEM.SUPERFICIE.datos)
+      .setSecondRowColor(DESIGN_SYSTEM.SUPERFICIE.datosAlterno);
   }
   var iniBloque = 0, tipoBloque = '';
   for (var j = 0; j < tipos.length; j++) {

@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.9.5',
+  VERSION: '0.8.9.6',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -147,69 +147,225 @@ var COLUMNAS_SECTOR_VISTA = [
 ];
 
 // ---------------------------------------------------------------------------
-// PULIDO VISUAL v0.8.9.5 — paleta clara/suave y parámetros de encabezados.
-// PRINCIPIO (DEC-026): los colores de ORGANIZACIÓN (barras de sección) usan
-// pasteles claros con tinta oscura; los colores SEMÁNTICOS CLÍNICOS de las
-// filas (vigente/próximo/vencido) usan su propia familia y JAMÁS coinciden
-// con los de organización. Valores con contraste TINTA/color ≥ 4.5:1.
+// DESIGN SYSTEM ECICEP v0.8.9.6 — ÚNICA ESPECIFICACIÓN VISUAL GLOBAL.
+// Toda función visual (22_HojasVisual, 06_Modelo, 17_Hojas, 08_Dashboard,
+// 14_REM, 20_Instalador) consume ESTA fuente. Prohibido repetir/derivar
+// colores, tamaños, alturas o anchos arbitrariamente en los módulos.
+//
+// Paleta VIBRANTE pero COHERENTE: cada familia se construye sobre UN matiz
+// (hue HSL) con luminancias descendentes. La diferencia entre hojas es el
+// COLOR DE IDENTIDAD del sector, no una estructura visual distinta.
+//   barra (identidad) → secciones → encabezados (mismo matiz, más claros).
+//   El COLOR CLÍNICO (vigente/próximo/vencido) es independiente (ver ESTADOS).
 // ---------------------------------------------------------------------------
 
-// Colores de las BARRAS DE SECCIÓN (fila 2): paleta VIBRANTE pero armónica,
-// tonos luz media con croma alto. Todos mantienen ≥4.5:1 sobre TINTA_SECCION.
-const COLORES_SECCION = {
-  IDENTIDAD: '#5FA8E8',           // azul vibrante
-  DATOS_PERSONALES: '#5FA8E8',    // azul vibrante
-  IDENTIFICACION: '#AFCBE0',      // acero claro
-  SECTORIZACION: '#57C28C',       // verde vibrante
-  ESTRATIFICACION: '#C3A7EC',     // violeta claro
-  INGRESO: '#AFCBE0',             // acero claro
-  CONTROLES: '#F2A65A',           // durazno vibrante (≠ próximos clínicos #FFF3CD)
-  CONTROLES_SEGUIMIENTO: '#F2A65A',
-  CLINICO: '#B79BE4',             // púrpura claro
-  TECNICO: '#B9C6D0',             // gris acero claro
-  OBSERVACIONES: '#B9C6D0',       // gris acero claro
-  EVENTO: '#EFB273',              // ámbar claro
-  AUDITORIA: '#BFD3E4'            // gris azulado claro
+// Tipografía: una única fuente por semántica (Parte 3).
+const DESIGN_SYSTEM = {
+  // --- Tipografía ---
+  FUENTES: {
+    encabezados: 'Arial',   // hojas de datos (lectura densa)
+    titulo: 'Arial',        // barra de identidad
+    dashboard: 'Inter',     // paneles HTML / REM
+    inicio: 'Sora'          // INICIO (marca)
+  },
+  // --- Tamaños por nivel semántico (Parte 3/11) ---
+  TIPOGRAFIA: {
+    titulo: 12,      // barra de identidad (fila 1)
+    seccion: 10,     // barra de sección (fila 2)
+    encabezado: 12,  // fila de encabezados (fila 3)
+    datos: 10,       // fila de datos
+    nota: 9,         // notas guía / indicadores
+    meta: 9,         // metadatos (REM, INICIO)
+    indicador: 22    // valores KPI (INICIO)
+  },
+  // --- Alturas estándar (Parte 8) ---
+  ALTURAS: {
+    barra: 28,            // barra de identidad
+    seccion: 26,          // barra de sección
+    buscador: 24,         // (legacy, INICIO)
+    encabezadoVisual: 42, // encabezados en hojas visuales
+    encabezadoSimple: 30, // encabezados en hojas simples
+    dato: 21              // fila de datos
+  },
+  // --- Alineación y envoltura comunes ---
+  CENTRO: 'CENTER',
+  MEDIO: 'MIDDLE',
+  // --- Bordes ---
+  BORDES: {
+    titulo: '#D8DEE4',
+    seccion: '#C9D2DA',
+    datos: '#E2E8EE'
+  },
+  // --- Superficies (datos neutros, Parte 4 "datos: neutro") ---
+  SUPERFICIE: {
+    datos: '#FFFFFF',
+    datosAlterno: '#F1F3F6',
+    residuo: '#F4F6F8',        // restos de secciones previas (al limpiar)
+    total: '#E5F1F2'           // filas de totales (REM, cuadros)
+  },
+  // --- Encabezados (Parte 6): especificación única, una fuente de verdad ---
+  ENCABEZADOS: {
+    fondo: '#0E5C68',       // barra de encabezado (idéntica en TODAS las hojas)
+    tinta: '#FFFFFF',
+    peso: 'bold',
+    wrap: true,
+    horizontal: 'CENTER',
+    vertical: 'MIDDLE',
+    borde: '#D8DEE4'
+  },
+  // --- MARCA del sistema (azul institution), usada en pestañas, INICIO, REM ---
+  MARCA: {
+    sistema: '#0E5C68',
+    sistemaProfundo: '#0B3C49',
+    sistemaBarra: '#0E4A5C',
+    sistemaBorde: '#1B7A8A',
+    sistemaClaro: '#3E8A96',
+    agua: '#9FD8CF',        // acento teal claro (INICIO barra superior)
+    gris: '#5B6472',
+    muted: '#7E93A3',
+    borde: '#C9D4DC',
+    ventana: '#F7F8FA',
+    blanco: '#FFFFFF',
+    indicador: '#35C28F',   // acento verde de estado operativo
+    tecnico: '#8A93A3',     // pestañas de hojas técnicas internas
+    reporte: '#6B5CA8',     // pestaña del informe REM (única púrpura)
+    texto: '#12242E'
+  },
+  // --- ESTADOS CLÍNICOS (Parte 5): independientes del color de organización.
+  // Representan SOLO el estado del paciente (semáforo), jamás el sector. ---
+  ESTADOS: {
+    VENCIDO:  { fondo: '#F8D7DA', tinta: '#842029' }, // 🔴
+    PROXIMO:  { fondo: '#FFF3CD', tinta: '#664D03' }, // 🟡
+    VIGENTE:  { fondo: '#D4EDDA', tinta: '#0E6B45' }, // 🟢
+    REVISION: { fondo: '#FBF3D6', tinta: '#664D03' },
+    ERROR:    { fondo: '#FBE4E4', tinta: '#842029' },
+    OK:       { fondo: '#E3F3EA', tinta: '#0E6B45' },
+    ALERTA:   { fondo: '#FDE7B8', tinta: '#7A5400' },
+    INFO:     { fondo: '#EAF3FA', tinta: '#0B3C49' }
+  }
 };
 
-// Tinta de texto sobre barras (contraste ≥4.5:1 sobre todos los valores de
-// COLORES_SECCION, COLORES_SECTOR y PALETA_SECCION).
+// Pestañas / identidad por familia (Parte 4) — profundidad constante por matiz.
+const IDENTIDAD = {
+  GENERAL: '#0E5C68',        // azul de sistema (PACIENTES, EVENTOS)
+  AMARILLO: '#C79A00',
+  NARANJO: '#E8730A',
+  VERDE: '#2E8B57'
+};
+
+// Rampas vibrantes por familia: barra → secciones → encabezados, mismas
+// luminancias relativas para que TODAS las hojas luzcan del mismo sistema.
+const RAMPA = (function () {
+  function hex(h, s, L) {
+    s /= 100; L /= 100;
+    var c = (1 - Math.abs(2 * L - 1)) * s;
+    var hp = (h % 360) / 60;
+    var x = c * (1 - Math.abs((hp % 2) - 1));
+    var r = 0, g = 0, b = 0;
+    if (hp < 1) { r = c; g = x; } else if (hp < 2) { r = x; g = c; }
+    else if (hp < 3) { g = c; b = x; } else if (hp < 4) { g = x; b = c; }
+    else if (hp < 5) { r = x; b = c; } else { r = c; b = x; }
+    var m = L - c / 2;
+    function p(v) { var t = Math.round((v + m) * 255).toString(16).toUpperCase(); return t.length < 2 ? '0' + t : t; }
+    return '#' + p(r) + p(g) + p(b);
+  }
+  var fam = {
+    GENERAL: { h: 200, s: 72, barra: 57, A: 66, B: 72, C: 69, enc: 85 },
+    AMARILLO: { h: 42, s: 85, barra: 57, A: 66, B: 72, C: 69, enc: 85 },
+    NARANJO: { h: 27, s: 85, barra: 57, A: 66, B: 72, C: 69, enc: 85 },
+    VERDE: { h: 152, s: 62, barra: 57, A: 66, B: 72, C: 69, enc: 85 }
+  };
+  var out = {};
+  Object.keys(fam).forEach(function (f) {
+    var c = fam[f];
+    out[f] = {
+      barra: hex(c.h, c.s, c.barra),
+      seccion: [hex(c.h, c.s, c.A), hex(c.h, c.s, c.B), hex(c.h, c.s, c.C)],
+      encabezado: hex(c.h, c.s, c.enc)
+    };
+  });
+  return out;
+})();
+
+// Tinta sobre superficies tintadas (contraste ≥4.5:1 en todas las rampas).
 const TINTA_SECCION = '#0B3C49';
 
-// Identificación de las hojas (fila 1, barra de título): tono MEDIO de la
-// familia del sector — la escalera de lectura es pestaña(profunda) → título
-// (media) → secciones (claras), TODO dentro del mismo matiz por sector.
+// Tinta del texto de DATOS y de títulos sobre superficies claras/medias.
+const TINTA_DATOS = '#12242E';
+
+// Colores de las BARRAS DE SECCIÓN (fila 2). Para las hojas de SECTOR se usa
+// la rampa de la familia (ver PALETA_SECCION); para PACIENTES/EVENTOS, la
+// familia GENERAL (azul de sistema) con variantes de luminancia por sección.
+const COLORES_SECCION = {
+  IDENTIDAD: RAMPA.GENERAL.seccion[0],
+  DATOS_PERSONALES: RAMPA.GENERAL.seccion[0],
+  IDENTIFICACION: RAMPA.GENERAL.seccion[2],
+  SECTORIZACION: RAMPA.GENERAL.seccion[1],
+  ESTRATIFICACION: RAMPA.GENERAL.seccion[2],
+  INGRESO: RAMPA.GENERAL.seccion[2],
+  CONTROLES: RAMPA.GENERAL.seccion[2],
+  CONTROLES_SEGUIMIENTO: RAMPA.GENERAL.seccion[2],
+  CLINICO: RAMPA.GENERAL.seccion[1],
+  TECNICO: RAMPA.GENERAL.seccion[1],
+  OBSERVACIONES: RAMPA.GENERAL.seccion[1],
+  EVENTO: RAMPA.GENERAL.seccion[2],
+  AUDITORIA: RAMPA.GENERAL.seccion[1]
+};
+
+// Identificación de las hojas (fila 1, barra de título): familia del sector.
+// PACIENTES/EVENTOS = azul de sistema (GENERAL). Las secciones internas de
+// SECTOR_*/INGRESO_* derivan de la MISMA familia por sector (Parte 4/13/14).
 const COLORES_SECTOR = {
-  AMARILLO: '#E5A62F',
-  NARANJO: '#F29646',
-  VERDE: '#57C28C',
-  PACIENTES: '#5AA7E6',
-  DEFECTO: '#B9C6D0'
+  AMARILLO: RAMPA.AMARILLO.barra,
+  NARANJO: RAMPA.NARANJO.barra,
+  VERDE: RAMPA.VERDE.barra,
+  PACIENTES: RAMPA.GENERAL.barra,
+  EVENTOS: RAMPA.GENERAL.barra,
+  DEFECTO: RAMPA.GENERAL.barra
 };
 
-// Secciones internas de hojas SECTOR_*/INGRESO_*: claras de la MISMA familia
-// del sector (índice = orden de la sección en la plantilla). Garantiza que
-// cada hoja sea monocromática por familia y coherente entre hojas del sector.
+// Rampas internas de SECTOR_*/INGRESO_* (barra + secciones + encabezado) por
+// familia: cada hoja queda monocromática dentro de su sector y coherente con
+// las demás hojas del mismo sector (Parte 4).
 const PALETA_SECCION = {
-  AMARILLO: ['#F4D47C', '#F0C25E', '#ECB34C', '#F3CE71'],
-  NARANJO: ['#F7C48B', '#F3AF6E', '#EF9A53', '#F5BE81'],
-  VERDE: ['#BFE3C9', '#A3D8B0', '#8CCEA0', '#B2DDBC']
+  AMARILLO: {
+    barra: RAMPA.AMARILLO.barra,
+    seccion: RAMPA.AMARILLO.seccion,
+    encabezado: RAMPA.AMARILLO.encabezado
+  },
+  NARANJO: {
+    barra: RAMPA.NARANJO.barra,
+    seccion: RAMPA.NARANJO.seccion,
+    encabezado: RAMPA.NARANJO.encabezado
+  },
+  VERDE: {
+    barra: RAMPA.VERDE.barra,
+    seccion: RAMPA.VERDE.seccion,
+    encabezado: RAMPA.VERDE.encabezado
+  }
 };
 
-// Tamaños ESTANDARIZADOS de las barras superiores: título y encabezados a
-// 12pt; secciones a 10pt (caption). Bold en todas.
+// Tamaños ESTANDARIZADOS de las barras superiores (Parte 3). Consume
+// DESIGN_SYSTEM.TIPOGRAFIA (una sola fuente de verdad).
 const PULIDO_BARRAS = {
-  titulo: 12,
-  seccion: 10
+  titulo: DESIGN_SYSTEM.TIPOGRAFIA.titulo,
+  seccion: DESIGN_SYSTEM.TIPOGRAFIA.seccion
 };
 
-// Parámetros de diseño de la fila de ENCABEZADOS (Parte 2).
+// Parámetros de diseño de la fila de ENCABEZADOS (Parte 6). Consume
+// DESIGN_SYSTEM (tipografía + alturas). Ya no hay hex dispersos en los módulos.
+// La fila de encabezados es UNIFORME en todas las hojas: fondo sistema con
+// tinta blanca (una sola especificación; el color de identidad vive en la
+// barra 1 y las secciones 2).
 const PULIDO_ENCABEZADO = {
-  fuente: 12,          // tamaño de letra
-  peso: 'bold',        // negrita
-  wrap: true,          // WrapStrategy.WRAP para nombres largos
-  alturaVisual: 42,    // altura fila de encabezados en hojas visuales
-  alturaSimple: 30     // altura fila de encabezados en hojas simples
+  fuente: DESIGN_SYSTEM.TIPOGRAFIA.encabezado,
+  peso: DESIGN_SYSTEM.ENCABEZADOS.peso,
+  wrap: DESIGN_SYSTEM.ENCABEZADOS.wrap,
+  tinta: DESIGN_SYSTEM.ENCABEZADOS.tinta,
+  fondo: DESIGN_SYSTEM.ENCABEZADOS.fondo,
+  alturaVisual: DESIGN_SYSTEM.ALTURAS.encabezadoVisual, // 42
+  alturaSimple: DESIGN_SYSTEM.ALTURAS.encabezadoSimple, // 30
+  alturaDato: DESIGN_SYSTEM.ALTURAS.dato            // 21
 };
 
 // Anchos de columna por tipo de campo (Parte 2.4/2.5): el primer patrón que

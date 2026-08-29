@@ -249,7 +249,8 @@ function _dash_inicializarFiltros(hoja) {
     ['Sector', 'TODOS']
   ];
   Utl_escribirBloque(hoja, 1, 1, encabezados);
-  hoja.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#0b5394').setFontColor('#ffffff');
+  hoja.getRange(1, 1, 1, 2).setFontWeight('bold')
+     .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta);
 
   // validación de datos para Tipo de período y Sector
   var tiposPermitidos = ['MES ACTUAL','MES ANTERIOR','ÚLTIMOS 3 MESES','ÚLTIMOS 6 MESES','AÑO ACTUAL','AÑO A LA FECHA','PERSONALIZADO'];

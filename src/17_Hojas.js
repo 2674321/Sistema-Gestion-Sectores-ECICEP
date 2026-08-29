@@ -112,10 +112,13 @@ function Hojas_crearInicio(ss) {
   h.clear();
   h.setHiddenGridlines(true);
 
-  var AZUL = '#0B3C49', AZUL_BAR = '#0E4A5C', PRIM = '#0E5C68', PRIM_BR = '#1B7A8A',
-      VENTANA = '#F7F8FA', BLANCO = '#FFFFFF', TXT = '#12242E',
-      GRIS = '#5B6472', MUTED = '#7E93A3', BORDE = '#C9D4DC', SUAVE = '#F1F3F6',
-      OK = '#35C28F', WARN_BG = '#FBF3D6';
+  // v0.8.9.6: paleta INICIO = DESIGN_SYSTEM.MARCA (una fuente de verdad).
+  var M = DESIGN_SYSTEM.MARCA;
+  var AZUL = M.sistemaProfundo, AZUL_BAR = M.sistemaBarra, PRIM = M.sistema,
+      PRIM_BR = M.sistemaBorde, VENTANA = M.ventana, BLANCO = M.blanco,
+      TXT = M.texto, GRIS = M.gris, MUTED = M.muted,
+      BORDE = M.borde, SUAVE = DESIGN_SYSTEM.SUPERFICIE.datosAlterno,
+      OK = M.indicador, WARN_BG = DESIGN_SYSTEM.ESTADOS.REVISION.fondo;
 
   /* PASO 5-6: FUNDO AZUL COMPLETO (todo el lienzo, incluidos márgenes) */
   h.getRange(1, 1, FILA_FIN, COL_FIN).setBackground(AZUL);
@@ -136,11 +139,11 @@ function Hojas_crearInicio(ss) {
   /* ===== BARRA SUPERIOR DE APLICACIÓN ===== */
   h.getRange(3, 3, 1, COL_CONT - 2).setBackground(AZUL_BAR);
   h.getRange(3, 4).setValue('\u25cf \u25cf \u25cf   ECICEP')
-   .setFontWeight('bold').setFontSize(11).setFontColor('#FFFFFF');
+   .setFontWeight('bold').setFontSize(11).setFontColor(BLANCO);
   h.getRange(3, 13, 1, 7).merge()
    .setValue('\u2713 Operativo   \u00b7   v' + ECICEP.VERSION + '   \u00b7   Build ' +
      (ECICEP_BUILD.commit || 'dev'))
-   .setFontSize(10).setFontColor('#9FD8CF').setHorizontalAlignment('right');
+   .setFontSize(10).setFontColor(M.agua).setHorizontalAlignment('right');
   h.setRowHeight(3, 28);
 
   /* ===== CABECERA ===== */
@@ -175,7 +178,7 @@ function Hojas_crearInicio(ss) {
     } else {
       rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() +
         '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-       .setFontWeight('bold').setFontSize(12).setFontColor('#FFFFFF')
+       .setFontWeight('bold').setFontSize(12).setFontColor(BLANCO)
        .setBackground(PRIM).setHorizontalAlignment('center')
        .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
     }
@@ -265,10 +268,10 @@ function Hojas_crearInicio(ss) {
   /* color semáforo automático: ⚠ fondo ámbar, ✓ fondo verde */
   var reglaAlerta = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=LEFT(D26;1)="\u26a0"')
-    .setBackground('#FDE7B8').setFontColor('#7A5400').setRanges([rA]).build();
+    .setBackground(DESIGN_SYSTEM.ESTADOS.ALERTA.fondo).setFontColor(DESIGN_SYSTEM.ESTADOS.ALERTA.tinta).setRanges([rA]).build();
   var reglaOk = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=LEFT(D26;1)="\u2713"')
-    .setBackground('#DDF6E9').setFontColor('#0E6B45').setRanges([rA]).build();
+    .setBackground(DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo).setFontColor(DESIGN_SYSTEM.ESTADOS.VIGENTE.tinta).setRanges([rA]).build();
   h.setConditionalFormatRules([reglaAlerta, reglaOk]);
   h.setRowHeights(26, 2, 18);
 
@@ -276,9 +279,9 @@ function Hojas_crearInicio(ss) {
   h.getRange(29, 4).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var sectores = [
-    { nombre:'NARANJO',  color:'#E8730A' },
-    { nombre:'AMARILLO', color:'#C79A00' },
-    { nombre:'VERDE',    color:'#2E8B57' }
+    { nombre:'NARANJO',  color: IDENTIDAD.NARANJO },
+    { nombre:'AMARILLO', color: IDENTIDAD.AMARILLO },
+    { nombre:'VERDE',    color: IDENTIDAD.VERDE }
   ];
   sectores.forEach(function (s2, ix) {
     var c0 = 4 + ix * 5 + (ix === 2 ? 1 : 0);
@@ -302,9 +305,9 @@ function Hojas_crearInicio(ss) {
   h.getRange(34, 4).setValue('DISTRIBUCI\u00d3N POR ESTRATIFICACI\u00d3N')
    .setFontWeight('bold').setFontSize(10).setFontColor(MUTED);
   var estrates = [
-    { nombre:'G1', color:'#3E8A96', desc:'Bajo'},
-    { nombre:'G2', color:'#0E5C68', desc:'Medio'},
-    { nombre:'G3', color:'#08414A', desc:'Alto'}
+    { nombre:'G1', color: DESIGN_SYSTEM.MARCA.sistemaClaro, desc:'Bajo'},
+    { nombre:'G2', color: DESIGN_SYSTEM.MARCA.sistema, desc:'Medio'},
+    { nombre:'G3', color: DESIGN_SYSTEM.MARCA.sistemaProfundo, desc:'Alto'}
   ];
   estrates.forEach(function (g, ix) {
     var c0 = 4 + ix * 5 + (ix === 2 ? 1 : 0);
@@ -527,13 +530,13 @@ function Hojas_formatoCondicional(ss) {
     if (p && p.getLastRow() >= iniP) {
       var filas = Math.max(p.getMaxRows() - iniP + 1, 1);
       aplicar(p, [
-        regla('=$W' + iniP + '=FALSE', '#FBE4E4', p.getRange(iniP, 2, filas, 1), true),
-        regla('=$X' + iniP + '=TRUE', '#FBF3D6', p.getRange(iniP, 2, filas, 1)),
-        regla('=$AD' + iniP + '=TRUE', '#FBF3D6', p.getRange(iniP, 30, filas, 1), true),
-        regla('=$I' + iniP + '="G1"', '#D4EDDA', p.getRange(iniP, 9, filas, 1)),
-        regla('=$I' + iniP + '="G2"', '#FFF3CD', p.getRange(iniP, 9, filas, 1)),
-        regla('=$I' + iniP + '="G3"', '#F8D7DA', p.getRange(iniP, 9, filas, 1)),
-        regla('=OR($I' + iniP + '="",$I' + iniP + '="G")', '#FBF3D6', p.getRange(iniP, 9, filas, 1)),
+        regla('=$W' + iniP + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo, p.getRange(iniP, 2, filas, 1), true),
+        regla('=$X' + iniP + '=TRUE', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 2, filas, 1)),
+        regla('=$AD' + iniP + '=TRUE', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 30, filas, 1), true),
+        regla('=$I' + iniP + '="G1"', DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, 9, filas, 1)),
+        regla('=$I' + iniP + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 9, filas, 1)),
+        regla('=$I' + iniP + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 9, filas, 1)),
+        regla('=OR($I' + iniP + '="",$I' + iniP + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 9, filas, 1)),
         regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '<TODAY()),#F8D7DA', p.getRange(iniP, 17, filas, 1)),
         regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>=TODAY(),$Q' + iniP + '<=TODAY()+7),#FFF3CD', p.getRange(iniP, 17, filas, 1)),
         regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>TODAY()+7),#D4EDDA', p.getRange(iniP, 17, filas, 1))
@@ -552,9 +555,9 @@ function Hojas_formatoCondicional(ss) {
       var L = String.fromCharCode(64 + colEstado);
       var rEstado = h.getRange(ini, colEstado, Math.max(h.getMaxRows() - ini + 1, 1), 1);
       aplicar(h, [
-        regla('=$' + L + ini + '="ERROR"', '#FBE4E4', rEstado, true),
-        regla('=$' + L + ini + '="REQUIERE_REVISION"', '#FBF3D6', rEstado),
-        regla('=$' + L + ini + '="INGRESADO"', '#E3F3EA', rEstado)
+        regla('=$' + L + ini + '="ERROR"', DESIGN_SYSTEM.ESTADOS.ERROR.fondo, rEstado, true),
+        regla('=$' + L + ini + '="REQUIERE_REVISION"', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, rEstado),
+        regla('=$' + L + ini + '="INGRESADO"', DESIGN_SYSTEM.ESTADOS.OK.fondo, rEstado)
       ]);
     } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
@@ -574,17 +577,17 @@ function Hojas_formatoCondicional(ss) {
       var letraProx = String.fromCharCode(64 + colProx);
       var filas = Math.max(h.getMaxRows() - ini + 1, 1);
       aplicar(h, [
-        regla('=$' + letraRut + ini + '=FALSE', '#FBE4E4',
+        regla('=$' + letraRut + ini + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo,
              h.getRange(ini, colRut, filas, 1), true),
-        regla('=$' + letraRut + ini + '=FALSE', '#FBE4E4',
+        regla('=$' + letraRut + ini + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo,
              h.getRange(ini, 2, filas, 1), true),
-        regla('=$' + letraEst + ini + '="G1"', '#D4EDDA',
+        regla('=$' + letraEst + ini + '="G1"', DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo,
              h.getRange(ini, colEst, filas, 1)),
-        regla('=$' + letraEst + ini + '="G2"', '#FFF3CD',
+        regla('=$' + letraEst + ini + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo,
              h.getRange(ini, colEst, filas, 1)),
-        regla('=$' + letraEst + ini + '="G3"', '#F8D7DA',
+        regla('=$' + letraEst + ini + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo,
              h.getRange(ini, colEst, filas, 1)),
-        regla('=OR($' + letraEst + ini + '="",$' + letraEst + ini + '="G")', '#FBF3D6',
+        regla('=OR($' + letraEst + ini + '="",$' + letraEst + ini + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo,
              h.getRange(ini, colEst, filas, 1)),
         regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '<TODAY()),#F8D7DA',
              h.getRange(ini, colProx, filas, 1)),
@@ -604,8 +607,8 @@ function Hojas_formatoCondicional(ss) {
     if (con && con.getLastRow() >= hrC) {
       var rC = con.getRange(iniC, 9, Math.max(con.getMaxRows() - iniC + 1, 1), 1);
       aplicar(con, [
-        regla('=$I' + iniC + '="PENDIENTE"', '#FBF3D6', rC, true),
-        regla('=$I' + iniC + '="RESUELTO"', '#E3F3EA', rC)
+        regla('=$I' + iniC + '="PENDIENTE"', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, rC, true),
+        regla('=$I' + iniC + '="RESUELTO"', DESIGN_SYSTEM.ESTADOS.OK.fondo, rC)
       ]);
     }
   } catch (eC2) { errores.push('CONFLICTOS: ' + (eC2 && eC2.message || eC2)); }
@@ -725,7 +728,7 @@ function Hojas_colorearRutIngresos(ss) {
         if (!rut) { backgrounds.push(['']); continue; }
         var norm = Norm_normalizarRut(rut);
         var valido = norm.rut && Norm_validarRut(norm.rut);
-        backgrounds.push([valido ? '#E3F3EA' : '#FBE4E4']);
+        backgrounds.push([valido ? DESIGN_SYSTEM.ESTADOS.OK.fondo : DESIGN_SYSTEM.ESTADOS.ERROR.fondo]);
       }
       h.getRange(ini, colRut, backgrounds.length, 1).setBackgrounds(backgrounds);
       ok++;
@@ -770,7 +773,7 @@ function onEdit(e) {
       celda.setValue(norm.rut);
     }
     var valido = norm.rut && Norm_validarRut(norm.rut);
-    celda.setBackground(valido ? '#E3F3EA' : '#FBE4E4');
+    celda.setBackground(valido ? DESIGN_SYSTEM.ESTADOS.OK.fondo : DESIGN_SYSTEM.ESTADOS.ERROR.fondo);
     celda.setNote(valido ? '✓ RUT válido' :
       '❌ RUT inválido (revisa dígito verificador o formato)');
 

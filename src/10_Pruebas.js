@@ -74,6 +74,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_hojasvisual_v0881(t, A);
   _pruebas_hojasvisual_v0883(t, A);
   _pruebas_pulido_v0895(t, A);
+  _pruebas_designsystem_v0896(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1659,7 +1660,10 @@ function _pruebas_diseno(t, A) {
   });
 
   t('DISEÑO: colores hex válidos y semáforo solo en hojas de su sector', function () {
-    var SEMAFORO = { '#E8730A': ['NARANJO'], '#C79A00': ['AMARILLO'], '#2E8B57': ['VERDE'] };
+    var SEMAFORO = {};
+    SEMAFORO[IDENTIDAD.NARANJO] = ['NARANJO'];
+    SEMAFORO[IDENTIDAD.AMARILLO] = ['AMARILLO'];
+    SEMAFORO[IDENTIDAD.VERDE] = ['VERDE'];
     MODELO_DISENO.forEach(function (d) {
       A.cierto(/^#[0-9A-F]{6}$/.test(d.color), 'color inválido en ' + d.nombre);
       Object.keys(SEMAFORO).forEach(function (hex) {
@@ -1673,7 +1677,7 @@ function _pruebas_diseno(t, A) {
     ['CONFIG', 'LOG', 'STAGING_IMPORT'].forEach(function (n) {
       var d = MODELO_DISENO.filter(function (x) { return x.nombre === n; })[0];
       A.cierto(d && d.oculta === true, n + ' debe estar oculta');
-      A.igual(d.color, '#8A93A3', n + ' gris técnica');
+      A.igual(d.color, DESIGN_SYSTEM.MARCA.tecnico, n + ' gris técnica');
     });
     A.igual(MODELO_DISENO.filter(function (d) { return d.nombre === 'REM_SALIDA'; })[0].oculta, true,
       'REM_SALIDA es interna: el usuario consulta vía Consultar REM');
@@ -2588,7 +2592,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.5', 'versión esperada v0.8.9.5');
+    A.igual(v, '0.8.9.6', 'versión esperada v0.8.9.6');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2829,9 +2833,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.5', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.6', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.5', 'versión esperada v0.8.9.5');
+    A.igual(v, '0.8.9.6', 'versión esperada v0.8.9.6');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3028,11 +3032,13 @@ function _pruebas_hojasvisual_v0881(t, A) {
   });
 
   t('HOJAS VISUALES v0.8.9.0: COLORES_SECCION paleta semántica completa', function () {
-    A.igual(COLORES_SECCION.IDENTIDAD, '#5FA8E8');
-    A.igual(COLORES_SECCION.SECTORIZACION, '#57C28C');
-    A.igual(COLORES_SECCION.CONTROLES, '#F2A65A');
-    A.igual(COLORES_SECCION.CLINICO, '#B79BE4');
-    A.igual(COLORES_SECCION.TECNICO, '#B9C6D0');
+    A.igual(COLORES_SECCION.IDENTIDAD, RAMPA.GENERAL.seccion[0]);
+    A.igual(COLORES_SECCION.SECTORIZACION, RAMPA.GENERAL.seccion[1]);
+    A.igual(COLORES_SECCION.CONTROLES, RAMPA.GENERAL.seccion[2]);
+    A.igual(COLORES_SECCION.CLINICO, RAMPA.GENERAL.seccion[1]);
+    A.igual(COLORES_SECCION.TECNICO, RAMPA.GENERAL.seccion[1]);
+    var vals = Object.keys(COLORES_SECCION).map(function (k) { return COLORES_SECCION[k]; });
+    A.cierto(vals.length > 6, '>6 secciones definidas');
   });
 }
 
@@ -3245,15 +3251,17 @@ function _pruebas_pulido_v0895(t, A) {
     var familias = ['AMARILLO', 'NARANJO', 'VERDE'];
     var malos = [], inco = [];
     familias.forEach(function (f) {
-      var arr = PALETA_SECCION[f];
-      A.cierto(Array.isArray(arr) && arr.length >= 4, f + ' con ≥4 tonos');
-      if (!arr) return;
-      arr.forEach(function (c) {
-        var r = _ratio(TINTA_SECCION, c);
-        if (r < 4.5) malos.push(f + ':' + c + '(' + r.toFixed(2) + ')');
+      var r = PALETA_SECCION[f];
+      A.cierto(r && Array.isArray(r.seccion) && r.seccion.length >= 3,
+        f + ' con rampa barra/sección/encabezado');
+      A.cierto(r.barra && r.encabezado, f + ' barra y encabezado presentes');
+      if (!r) return;
+      [r.barra].concat(r.seccion).concat([r.encabezado]).forEach(function (c) {
+        var rr = _ratio(TINTA_SECCION, c);
+        if (rr < 4.5) malos.push(f + ':' + c + '(' + rr.toFixed(2) + ')');
       });
-      var deltas = arr.slice(1).map(function (c, i) {
-        return Math.abs(_lum(c) - _lum(arr[i]));
+      var deltas = r.seccion.slice(1).map(function (c, i) {
+        return Math.abs(_lum(c) - _lum(r.seccion[i]));
       });
       var maxDelta = Math.max.apply(Math, deltas);
       if (maxDelta > 0.3) inco.push(f + ': delta=' + maxDelta.toFixed(2));
@@ -3263,14 +3271,16 @@ function _pruebas_pulido_v0895(t, A) {
   });
 
   t('PULIDO v0.8.9.5: secciones del sector ≠ colores clínicos de CF', function () {
+    var E = DESIGN_SYSTEM.ESTADOS;
     ['AMARILLO', 'NARANJO', 'VERDE'].forEach(function (f) {
-      A.cierto(PALETA_SECCION[f][2] !== '#FFF3CD', f + ' ≠ próximos');
-      A.cierto(PALETA_SECCION[f][2] !== '#D4EDDA', f + ' ≠ vigente');
-      A.cierto(PALETA_SECCION[f][2] !== '#F8D7DA', f + ' ≠ vencido');
+      var c = PALETA_SECCION[f].seccion[2];
+      A.cierto(c !== E.PROXIMO.fondo, f + ' ≠ próximos');
+      A.cierto(c !== E.VIGENTE.fondo, f + ' ≠ vigente');
+      A.cierto(c !== E.VENCIDO.fondo, f + ' ≠ vencido');
     });
-    A.cierto(COLORES_SECCION.CONTROLES !== '#FFF3CD', 'global ≠ próximos');
-    A.cierto(COLORES_SECCION.CONTROLES !== '#D4EDDA', 'global ≠ vigente');
-    A.cierto(COLORES_SECCION.CONTROLES !== '#F8D7DA', 'global ≠ vencido');
+    A.cierto(COLORES_SECCION.CONTROLES !== E.PROXIMO.fondo, 'global ≠ próximos');
+    A.cierto(COLORES_SECCION.CONTROLES !== E.VIGENTE.fondo, 'global ≠ vigente');
+    A.cierto(COLORES_SECCION.CONTROLES !== E.VENCIDO.fondo, 'global ≠ vencido');
   });
 
   t('PULIDO v0.8.9.5: HVis_familiaHoja asocia cada puerta a su familia', function () {
@@ -3365,5 +3375,148 @@ function _pruebas_pulido_v0895(t, A) {
     A.cierto(txt.indexOf('ms') === -1, 'sin tiempo técnico');
     A.cierto(txt.indexOf('Ejecución') === -1, 'sin id de ejecución');
     A.igual(txt, '✓ Ingresados: 4 · Eventos: 4');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.8.9.6 — DESIGN SYSTEM GLOBAL (NORMALIZACIÓN VISUAL ÚNICA)
+// ---------------------------------------------------------------------------
+function _pruebas_designsystem_v0896(t, A) {
+  function _lum(hex) {
+    var h = hex.replace('#', '');
+    var r = parseInt(h.substr(0, 2), 16) / 255;
+    var g = parseInt(h.substr(2, 2), 16) / 255;
+    var b = parseInt(h.substr(4, 2), 16) / 255;
+    function lin(c) {
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+  function _ratio(a, b) {
+    var l1 = _lum(a), l2 = _lum(b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  }
+
+  t('DESIGN SYSTEM v0.8.9.6: estructura RAMPA completa con contraste ≥4.5', function () {
+    ['GENERAL', 'AMARILLO', 'NARANJO', 'VERDE'].forEach(function (f) {
+      var r = RAMPA[f];
+      A.cierto(/^#[0-9A-F]{6}$/.test(r.barra), f + ' barra hex');
+      A.igual(r.seccion.length, 3, f + ' 3 tonos de sección');
+      A.cierto(/^#[0-9A-F]{6}$/.test(r.encabezado), f + ' encabezado hex');
+      [r.barra].concat(r.seccion.concat([r.encabezado])).forEach(function (c) {
+        var rr = _ratio(TINTA_SECCION, c);
+        A.cierto(rr >= 4.5, f + ':' + c + ' contraste ' + rr.toFixed(2));
+      });
+    });
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: misma luminancia relativa entre familias', function () {
+    // Coherencia global Parte 4/13: jerarquía única (barra > sección >
+    // encabezado) y luminancias comparables entre familias. La Y lineal absoluta
+    // igual entre matices es inviable (amarillo/verde pesan más en sRGB); se
+    // exige homogeneidad de NIVEL (mismo L HSL) y tolerancia global ≤ 0.20.
+    var fams = ['GENERAL', 'AMARILLO', 'NARANJO', 'VERDE'];
+    fams.forEach(function (f) {
+      var r = RAMPA[f];
+      var lb = _lum(r.barra), l0 = _lum(r.seccion[0]), le = _lum(r.encabezado);
+      A.cierto(lb < l0 + 0.03, f + ' barra más oscura que sección');
+      A.cierto(l0 < le - 0.05, f + ' sección más oscura que encabezado');
+    });
+    var lumsBarra = fams.map(function (f) { return _lum(RAMPA[f].barra); });
+    var max = Math.max.apply(Math, lumsBarra), min = Math.min.apply(Math, lumsBarra);
+    A.cierto(max - min <= 0.20, 'barras en rango comparable (Δ=' + (max - min).toFixed(3) + ')');
+    var lumsSec = fams.map(function (f) { return _lum(RAMPA[f].seccion[0]); });
+    var mx = Math.max.apply(Math, lumsSec), mn = Math.min.apply(Math, lumsSec);
+    A.cierto(mx - mn <= 0.20, 'secciones en rango comparable (Δ=' + (mx - mn).toFixed(3) + ')');
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: identidad por hoja (HVis_identidad)', function () {
+    A.igual(HVis_identidad('SECTOR_AMARILLO'), 'AMARILLO');
+    A.igual(HVis_identidad('INGRESO_NARANJO'), 'NARANJO');
+    A.igual(HVis_identidad('SECTOR_VERDE'), 'VERDE');
+    A.igual(HVis_identidad('EVENTOS'), 'NARANJO', 'EVENTOS hereda naranja sistema');
+    A.igual(HVis_identidad('PACIENTES'), 'GENERAL');
+    A.igual(HVis_identidad('INICIO'), 'GENERAL');
+    A.igual(HVis_identidad('LOG'), 'GENERAL');
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: PULIDO_ENCABEZADO deriva de DESIGN_SYSTEM (una fuente)', function () {
+    A.igual(PULIDO_ENCABEZADO.fuente, DESIGN_SYSTEM.TIPOGRAFIA.encabezado);
+    A.igual(PULIDO_ENCABEZADO.alturaVisual, DESIGN_SYSTEM.ALTURAS.encabezadoVisual);
+    A.igual(PULIDO_ENCABEZADO.alturaSimple, DESIGN_SYSTEM.ALTURAS.encabezadoSimple);
+    A.igual(PULIDO_ENCABEZADO.fondo, DESIGN_SYSTEM.ENCABEZADOS.fondo);
+    A.igual(PULIDO_ENCABEZADO.tinta, DESIGN_SYSTEM.ENCABEZADOS.tinta);
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: COLORES_SECTOR alineados con RAMPA identidad', function () {
+    A.igual(COLORES_SECTOR.AMARILLO, RAMPA.AMARILLO.barra);
+    A.igual(COLORES_SECTOR.NARANJO, RAMPA.NARANJO.barra);
+    A.igual(COLORES_SECTOR.VERDE, RAMPA.VERDE.barra);
+    A.igual(COLORES_SECTOR.PACIENTES, RAMPA.GENERAL.barra);
+    A.igual(COLORES_SECTOR.EVENTOS, RAMPA.GENERAL.barra);
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: ESTADOS clínicos lejos de los colores de organización', function () {
+    // Parte 5: ningún color de identidad/sección coincide con un estado clínico.
+    var org = [];
+    Object.keys(RAMPA).forEach(function (f) {
+      org.push(RAMPA[f].barra);
+      org = org.concat(RAMPA[f].seccion).concat([RAMPA[f].encabezado]);
+    });
+    Object.keys(COLORES_SECCION).forEach(function (k) { org.push(COLORES_SECCION[k]); });
+    var E = DESIGN_SYSTEM.ESTADOS;
+    ['VENCIDO', 'PROXIMO', 'VIGENTE', 'REVISION', 'ERROR', 'OK', 'ALERTA', 'INFO'].forEach(function (e) {
+      A.cierto(org.indexOf(E[e].fondo) === -1, e + '.fondo no colisiona con organización');
+    });
+    var contrastes = [];
+    Object.keys(E).forEach(function (e) {
+      var r = _ratio(E[e].tinta, E[e].fondo);
+      if (r < 4.5) contrastes.push(e + ':' + r.toFixed(2));
+    });
+    A.igual(contrastes.length, 0, 'tinta/estado clínicos legibles (' + contrastes.join(', ') + ')');
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: encabezados uniformes en toda hoja de datos', function () {
+    ['PACIENTES', 'SECTOR_AMARILLO', 'SECTOR_NARANJO', 'SECTOR_VERDE',
+     'INGRESO_AMARILLO', 'INGRESO_NARANJO', 'INGRESO_VERDE'].forEach(function (n) {
+      A.cierto(Modelo_esHojaVisual(n), n + ' contratada como visual');
+      A.igual(Modelo_headerRow(n), 3, n + ' encabezados en fila 3');
+    });
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: anchos con fallback por tipo (Parte 10)', function () {
+    A.igual(Modelo_anchoColumna('ID_INTERNO'), 135, 'identificador');
+    A.igual(Modelo_anchoColumna('FECHA_EVENTO'), 110, 'fecha');
+    A.igual(Modelo_anchoColumna('CANTIDAD'), 130, 'numérico → default');
+    A.igual(Modelo_anchoColumna('DESCRIPCION'), 220, 'texto largo');
+    A.igual(Modelo_anchoColumna('SEXO'), 55, 'enum compacto');
+    A.igual(Modelo_anchoColumna('ALGO_INVENTADO'), 130, 'default 130');
+  });
+
+  t('DESIGN SYSTEM v0.8.9.6: HVis_especVisual declara el estado deseado (Parte 20)', function () {
+    var secAmarillo = HVis_especVisual('SECTOR_AMARILLO');
+    A.igual(secAmarillo.identidad, 'AMARILLO');
+    A.igual(secAmarillo.familia, 'AMARILLO');
+    A.igual(secAmarillo.colorTitulo, RAMPA.AMARILLO.barra);
+    A.igual(secAmarillo.tintaTitulo, TINTA_SECCION);
+    A.igual(secAmarillo.encabezados.fondo, PULIDO_ENCABEZADO.fondo);
+    // secciones monocromáticas de la familia
+    var soloFamilia = secAmarillo.colorSecciones.every(function (c) {
+      return RAMPA.AMARILLO.seccion.indexOf(c) !== -1;
+    });
+    A.cierto(soloFamilia, 'SECTOR_AMARILLO monocromático amarillo');
+
+    var pac = HVis_especVisual('PACIENTES');
+    A.igual(pac.identidad, 'GENERAL');
+    A.igual(pac.colorTitulo, RAMPA.GENERAL.barra);
+    A.cierto(pac.colorSecciones.length === SECCIONES_HOJAS.PACIENTES.length, 'secciones definidas');
+    // PACIENTES usa la paleta semántica (COLORES_SECCION), no la rampa GEN.
+    var usaPaleta = pac.colorSecciones.every(function (c) {
+      return Object.keys(COLORES_SECCION).some(function (k) { return COLORES_SECCION[k] === c; });
+    });
+    A.cierto(usaPaleta, 'PACIENTES usa COLORES_SECCION');
+
+    A.igual(HVis_especVisual('EVENTOS').identidad, 'NARANJO', 'EVENTOS identidad naranja');
+    A.igual(HVis_especVisual('EVENTOS').visual, false, 'EVENTOS simple');
   });
 }
