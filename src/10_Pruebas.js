@@ -3518,5 +3518,10 @@ function _pruebas_designsystem_v0896(t, A) {
 
     A.igual(HVis_especVisual('EVENTOS').identidad, 'NARANJO', 'EVENTOS identidad naranja');
     A.igual(HVis_especVisual('EVENTOS').visual, false, 'EVENTOS simple');
+    A.igual(HVis_especVisual('EVENTOS').encabezados.altura, PULIDO_ENCABEZADO.alturaSimple,
+      'EVENTOS encabezado a 30 (simple)');
+    A.igual(HVis_especVisual('SECTOR_VERDE').colorTitulo, RAMPA.VERDE.barra, 'SECTOR_VERDE título rampa');
+    A.cierto(typeof HVis_reconciliarHoja === 'function', 'reconciliador visual existe (Parte 17)');
+    A.cierto(typeof HVis_pendientesVisual === 'function', 'pendientes visual existe (Parte 20)');
   });
 }

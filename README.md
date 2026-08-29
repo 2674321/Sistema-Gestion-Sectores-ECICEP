@@ -296,6 +296,45 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Tests**: `_pruebas_hojasvisual_v0883` + `_pruebas_auditoria_v088` + `_pruebas_escala_v088` + tests INICIO dinámicos. **408/408 tests verdes**.
 - **Versionado 0.8.9.0** + `README.md` + `DECISIONES.md` (DEC-044). `node --check` limpio.
 
+## v0.8.9.5 — Pulido visual y automatización de ingresos
+
+- **Encabezados de INGRESO siempre formateados**: `Modelo_crearEstructura` estiliza los
+  encabezados al crear una hoja nueva, al verificar coincidencia total del esquema y al
+  corregir etiquetas; el pipeline `Ingresos_procesarTodasLasHojas` (paso 6b) y
+  `UI_actualizarTodo` invocan `HVis_formatearIngresos()` — fin de los encabezados en
+  blanco en hojas creadas fuera del instalador.
+- **Terminología UX**: PACIENTE/SEGUIMIENTO/ESTRATIFICACIÓN y etiquetas unificadas
+  (Buscar paciente, Ficha del paciente, Cola de revisión, Procesar ingresos).
+- **Resumen de procesamiento breve** (`Ingresos_resumenTexto`) para el toast.
+- **Tests**: `_pruebas_pulido_v0895`. **427/427 tests verdes**.
+- Desplegado WebApp **@63**.
+
+## v0.8.9.6 — DESIGN SYSTEM único (normalización visual global)
+
+- **DESIGN_SYSTEM** en `00_Config.js`: única especificación visual del sistema.
+  Rampas por identidad (GENERAL/AMARILLO/NARANJO/VERDE) con jerarquía única
+  *barra → sección → encabezado*; `TIPOGRAFIA`, `ALTURAS` (28/26/42/30/21),
+  `ANCHOS`+FALLBACK (default 130), `ENCABEZADOS`, `BORDES`, `SUPERFICIE`, `MARCA`
+  y `ESTADOS` clínicos separados del color de organización (Parte 5).
+- **Una sola tinta** (`TINTA_SECCION #0B3C49`) con contraste ≥4.5:1 sobre todas las
+  superficies; encabezados **uniformes** (#0E5C68/blanco) en todas las hojas.
+- **`HVis_identidad(nombre)`**: EVENTOS hereda la identidad NARANJO; el resto de
+  hojas técnicas son GENERAL. Hojas de sector **monocromáticas por familia**;
+  PACIENTES conserva barras semánticas dentro de la familia azul.
+- **Refactorizado a tokens**: `22_HojasVisual`, `06_Modelo` (pestañas/banding/anchos
+  de catálogo), `17_Hojas` (INICIO + formatos condicionales clínicos →
+  `DESIGN_SYSTEM.ESTADOS`), `08_Dashboard` y `14_REM` (incl. PDF). Cero colores
+  literales fuera de la configuración.
+- **Reconciliación y diagnóstico** (Parte 17/20): `HVis_especVisual`
+  (estado deseado), `HVis_pendientesVisual` (CAMBIOS PENDIENTES, solo lectura) y
+  `HVis_reconciliarHoja` (aplicar → verificar). El diagnóstico del instalador
+  reporta los cambios visuales pendientes por hoja.
+- **Tests**: `_pruebas_designsystem_v0896` (rampas, contraste, coherencia entre
+  hojas, identidad, no-colisión clínico/organización, anchos fallback, especificación
+  visual). **436/436 tests verdes**.
+- **Despliegue (Parte 25)**: sin deploy WebApp en desarrollo (20/20 alcanzados);
+  solo `clasp push -f`. El ejecutable de producción permanece en **@63**.
+
 ## QR permanente — Google Sheets
 
 En el root del repositorio se incluyen dos archivos de código QR que apuntan directamente a la hoja de cálculo principal del proyecto:

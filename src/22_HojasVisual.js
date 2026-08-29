@@ -580,7 +580,9 @@ function HVis_diagnosticarDisenio(nombreHoja) {
       seccionesDetectadas: seccionesDetectadas,
       filaEncabezadosReal: filaEnc,
       filaEncabezadosEsperada: layout.encabezadosRow,
-      filasSuperioresEscribibles: HVis_filasSuperioresEscribibles(hoja, Math.max(hoja.getLastColumn() || 0, 1), HVis_detectarSectorHoja(nombreHoja))
+      filasSuperioresEscribibles: HVis_filasSuperioresEscribibles(hoja, Math.max(hoja.getLastColumn() || 0, 1), HVis_detectarSectorHoja(nombreHoja)),
+      // v0.8.9.6: CAMBIOS PENDIENTES frente al DESIGN_SYSTEM (solo lectura).
+      visual: HVis_pendientesVisual(hoja)
     }
   };
 }
@@ -620,7 +622,9 @@ function HVis_especVisual(nombre) {
       tinta: PULIDO_ENCABEZADO.tinta,
       peso: PULIDO_ENCABEZADO.peso,
       tamanio: PULIDO_ENCABEZADO.fuente,
-      altura: PULIDO_ENCABEZADO.alturaVisual
+      altura: Modelo_esHojaVisual(nombre)
+        ? PULIDO_ENCABEZADO.alturaVisual
+        : PULIDO_ENCABEZADO.alturaSimple
     }
   };
 }
@@ -637,6 +641,8 @@ function HVis_pendientesVisual(hoja) {
   var esp = HVis_especVisual(nombre);
   try {
     var lastC = Math.max(hoja.getLastColumn() || 0, 1);
+    var hrA = Modelo_headerRow(nombre);
+    var rEnc = hoja.getRange(hrA, 1, 1, lastC);
     if (esp.visual) {
       if (hoja.getLastRow() >= 1) {
         var r1 = hoja.getRange(1, 1);
@@ -649,28 +655,66 @@ function HVis_pendientesVisual(hoja) {
         if (hoja.getRowHeight(1) !== DESIGN_SYSTEM.ALTURAS.barra)
           pendientes.push('fila1 altura=' + hoja.getRowHeight(1));
       }
-      var hrA = Modelo_headerRow(nombre);
-      if (hoja.getLastRow() >= hrA) {
-        var rEnc = hoja.getRange(hrA, 1, 1, lastC);
-        var bgs = rEnc.getBackgrounds()[0];
-        var okEnc = bgs.every(function (b) { return HVis_mismosColor(b, esp.encabezados.fondo); });
-        if (!okEnc) pendientes.push('encabezados fondo≠' + esp.encabezados.fondo);
-        var fcs = rEnc.getFontColors()[0];
-        var okTinta = fcs.every(function (c) { return HVis_mismosColor(c, esp.encabezados.tinta); });
-        if (!okTinta) pendientes.push('encabezados tinta≠' + esp.encabezados.tinta);
-        var okBold = rEnc.getFontWeights()[0].every(function (w) { return w === esp.encabezados.peso; });
-        if (!okBold) pendientes.push('encabezados peso≠bold');
-        var okSize = rEnc.getFontSizes()[0].every(function (s) { return s === esp.encabezados.tamanio; });
-        if (!okSize) pendientes.push('encabezados tamaño≠' + esp.encabezados.tamanio);
-        if (hoja.getRowHeight(hrA) !== esp.encabezados.altura)
-          pendientes.push('encabezados altura=' + hoja.getRowHeight(hrA) + ' → ' + esp.encabezados.altura);
+      // fila 2: secciones (solo si los encabezados están en su fila contractual)
+      if (hoja.getLastRow() >= 2 && !HVis_hojaVacia(hoja)) {
+        var plan = HVis_calcularPlan(nombre, esp.colorSecciones ? HVis_obtenerSecciones(nombre) : [], HVis_mapaColumnas(rEnc.getValues()[0]));
+        if (plan) {
+          var bgSecc = hoja.getRange(plan.seccionesRow, 1, 1, lastC).getBackgrounds()[0];
+          esp.colorSecciones.forEach(function (esperado, i) {
+            var col = plan.secciones[i] ? plan.secciones[i].colInicio : null;
+            if (col == null || col < 1 || col > lastC) return;
+            if (!HVis_mismosColor(bgSecc[col - 1], esperado))
+              pendientes.push('sección ' + plan.secciones[i].id + ' color=' + bgSecc[col - 1] + ' → ' + esperado);
+          });
+        }
       }
+      if (hoja.getRowHeight(plan && plan.seccionesRow || 2) !== DESIGN_SYSTEM.ALTURAS.seccion)
+        pendientes.push('fila secciones altura=' + hoja.getRowHeight((plan && plan.seccionesRow) || 2));
+    }
+    if (hoja.getLastRow() >= hrA) {
+      var bgs = rEnc.getBackgrounds()[0];
+      var okEnc = bgs.every(function (b) { return HVis_mismosColor(b, esp.encabezados.fondo); });
+      if (!okEnc) pendientes.push('encabezados fondo≠' + esp.encabezados.fondo);
+      var fcs = rEnc.getFontColors()[0];
+      var okTinta = fcs.every(function (c) { return HVis_mismosColor(c, esp.encabezados.tinta); });
+      if (!okTinta) pendientes.push('encabezados tinta≠' + esp.encabezados.tinta);
+      var okBold = rEnc.getFontWeights()[0].every(function (w) { return w !== 'normal'; });
+      if (!okBold) pendientes.push('encabezados peso≠bold');
+      var okSize = rEnc.getFontSizes()[0].every(function (s) { return s === esp.encabezados.tamanio; });
+      if (!okSize) pendientes.push('encabezados tamaño≠' + esp.encabezados.tamanio);
+      if (hoja.getRowHeight(hrA) !== esp.encabezados.altura)
+        pendientes.push('encabezados altura=' + hoja.getRowHeight(hrA) + ' → ' + esp.encabezados.altura);
     }
   } catch (eD) {
     pendientes.push('no inspeccionable: ' + (eD && eD.message || eD));
   }
   return { hoja: nombre, identidad: esp.identidad, visual: esp.visual,
            pendientes: pendientes, cantidadPendientes: pendientes.length };
+}
+
+/**
+ * GAS: RECONCILIACIÓN VISUAL (Parte 17) — ESTADO ACTUAL → DESEADO (especi)
+ * → APLICAR (aplicarSecciones) → VERIFICAR (pendientesVisual).
+ * Devuelve CAMBIOS PENDIENTES tras aplicar; 0 = hoja alineada al DESIGN_SYSTEM.
+ */
+function HVis_reconciliarHoja(hoja) {
+  if (!hoja) return { hoja: '', ok: false, motivo: 'Hoja inexistente' };
+  var nombre = hoja.getName();
+  if (!HVis_obtenerSecciones(nombre)) {
+    return { hoja: nombre, ok: true, sinConfig: true, pendientes: 0 };
+  }
+  var aplicado = HVis_aplicarSecciones(hoja);
+  if (aplicado.estado && aplicado.estado !== 'OK') {
+    return { hoja: nombre, ok: false, motivo: aplicado.estado };
+  }
+  var verificado = HVis_pendientesVisual(hoja);
+  return {
+    hoja: nombre,
+    ok: verificado.cantidadPendientes === 0,
+    pendientes: verificado.cantidadPendientes,
+    detalles: verificado.pendientes,
+    seccionesAplicadas: aplicado.secciones
+  };
 }
 
 /** PURA: compara colores normalizados (case-insensitive; vacíos = iguales). */

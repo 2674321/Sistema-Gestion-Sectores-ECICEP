@@ -585,6 +585,45 @@ Tests: `_pruebas_hojasvisual_v0881` (10 tests). 393 → 403 tests. Versionado 0.
 
 ---
 
+## DEC-045
+**Título:** v0.8.9.5 — Encabezados de INGRESO siempre formateados (fix visual semanas)
+**Estado:** Aprobada
+**Motivo:** Los encabezados de INGRESO_* quedaban en blanco cuando la hoja se creaba fuera del
+instalador. Corrección en tres frentes: (1) `Modelo_crearEstructura` estiliza los encabezados al
+crear hoja, al verificar coincidencia total y al corregir etiquetas; (2) `HVis_formatearIngresos()`
+helper compartido invocado por el paso 6b de `Ingresos_procesarTodasLasHojas` y por
+`UI_actualizarTodo`; (3) prueba dedicada `PULIDO v0.8.9.5 hojas INGRESO visuales`.
+427/427 tests verdes. Desplegado WebApp @63. **Fecha:** 2026-08-28
+
+---
+
+## DEC-046
+**Título:** v0.8.9.6 — DESIGN SYSTEM único (una especificación visual, cero colores literales)
+**Estado:** Aprobada
+**Motivo:** Limpieza del formato heredado: cada módulo definía sus propios colores/tamaños, lo que
+producía hojas que no parecían del mismo sistema. Decisión:
+1. **`DESIGN_SYSTEM`** en `00_Config.js` es la ÚNICA autoridad visual: rampas por identidad
+   (GENERAL/AMARILLO/NARANJO/VERDE) con jerarquía *barra → sección → encabezado*, tipografía,
+   alturas (28/26/42/30/21), anchos con fallback por tipo (default 130), encabezados uniformes,
+   bordes, superficies, marca y estados clínicos.
+2. **Color clínico ≠ color de organización** (Parte 5): los estados VIGENTE/PRÓXIMO/VENCIDO son
+   un semáforo independiente (`DESIGN_SYSTEM.ESTADOS`) que jamás coincide con las rampas.
+3. **Identidad por hoja**: `HVis_identidad()` mapea SECTOR_*/INGRESO_* a su familia (monocromáticas
+   por sector), EVENTOS hereda NARANJO y PACIENTES/técnicas son GENERAL.
+4. **Encabezados uniformes** en TODAS las hojas (fondo #0E5C68, tinta blanca, 12/bold/wrap,
+   alturas 42/30) — una sola especificación consumida por 22_HojasVisual y 06_Modelo.
+5. **Tinta única** `TINTA_SECCION #0B3C49` con contraste ≥4.5:1 sobre todas las superficies.
+6. **Reconciliación** (Parte 17): `HVis_especVisual` (deseado) + `HVis_pendientesVisual`
+   (CAMBIOS PENDIENTES, solo lectura) + `HVis_reconciliarHoja` (aplicar→verificar). El
+   diagnóstico del instalador reporta los pendientes por hoja.
+7. **Despliegue (Parte 25)**: en desarrollo NO se crean deployments WebApp (límite 20/20);
+   solo `clasp push -f`. El ejecutable de producción permanece donde esté.
+8. **Tests**: `_pruebas_designsystem_v0896` (rampas y contraste, coherencia entre familias,
+   identidad, no-colisión clínico/org, anchos fallback, especificación) + actualización de
+   asserts de paleta/versión. **436/436 tests verdes**. **Fecha:** 2026-08-28
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada
