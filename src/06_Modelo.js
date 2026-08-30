@@ -1104,11 +1104,6 @@ function Modelo_leerPacientes() {
   return salida;
 }
 
-/** Map RUT normalizado → índice dentro del array de Modelo_leerPacientes. */
-function Modelo_indicePorRut(pacientes) {
-  return Utl_mapaPor(pacientes, function (p) { return Utl_texto(p.RUT); });
-}
-
 // ---------------------------------------------------------------------------
 // Escrituras por lotes (ETAPA 3b) — solo entorno GAS
 // ---------------------------------------------------------------------------

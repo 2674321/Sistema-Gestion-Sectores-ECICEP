@@ -97,6 +97,28 @@ diseñan como interfaz (encabezados congelados, anchos, colores consistentes,
 columnas técnicas agrupadas y ocultas). Fórmulas nativas cuando sean simples y
 no penalicen rendimiento; Apps Script para procesamiento complejo.
 
+### DESIGN SYSTEM (v0.8.9.6, DEC-046)
+
+Una sola especificación visual en `00_Config.js` (`DESIGN_SYSTEM`): tipografía,
+alturas (28/26/42/30/21), anchos con fallback, bordes, superficies, marca,
+encabezados uniformes (#0E5C68/blanco en TODAS las hojas), estados clínicos
+(`ESTADOS`) separados de la identidad de sector, y rampas de color por familia
+(GENERAL/AMARILLO/NARANJO/VERDE) con jerarquía única barra→sección→encabezado.
+Cero colores literales fuera de la configuración (verificado por grep).
+
+- **Layout por contrato**: hoja visual = fila 1 barra de identidad, fila 2
+  secciones, fila 3 encabezados, fila 4+ datos. Hoja simple = fila 1
+  encabezados, fila 2+ datos.
+- **Identidad por hoja** (`HVis_identidad`): SECTOR_*/INGRESO_* → su familia;
+  EVENTOS → NARANJO; PACIENTES/técnicas → GENERAL. Las hojas de sector son
+  monocromáticas por familia; PACIENTES conserva barras semánticas azules.
+- **Reconciliación** (`22_HojasVisual`): `HVis_especVisual` (estado deseado,
+  puro) + `HVis_pendientesVisual` (CAMBIOS PENDIENTES, solo lectura) +
+  `HVis_reconciliarHoja` (aplicar→verificar). El diagnóstico del instalador
+  reporta los pendientes por hoja.
+- **Regla de escritura**: nunca `get/setValue` dentro de loops (bloques
+  `setValues` con ranuras fila→valor); verificada con auditoría transversal.
+
 ## Hojas
 
 Inventario completo y justificado: **MODELO-EVENTOS.md §7** (≈15 hojas).

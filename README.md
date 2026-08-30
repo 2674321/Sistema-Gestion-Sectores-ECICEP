@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.9.0 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **408 pruebas locales verdes** ·
+**v0.8.9.6 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **436 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente

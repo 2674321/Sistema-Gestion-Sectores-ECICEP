@@ -70,3 +70,13 @@
 | # | Pendiente | Tipo | Bloquea | Prioridad |
 |---|---|---|---|---|
 | 29 | **Backups**: manual (💾 Backups → AHORA) y automático semanal (domingo 03:00, conserva últimos 8, poda automática). Requiere autorizar scope scriptapp la primera vez. Los backups son COPIAS COMPLETAS del spreadsheet (hojas+formatos+paneles) en la raíz de Drive. Recomendación: activar SEMANAL en producción | Operativo | Pérdida de datos | **ALTA** |
+
+## Ingeniería — seguimiento v0.8.9.6 (DESIGN SYSTEM) y estabilidad
+
+| # | Pendiente | Tipo | Prioridad |
+|---|---|---|---|
+| 30 | **Parte 21 — Validación VISUAL MANUAL**: antes de promover v0.8.9.6, revisar con ojos humanos el libro real (INICIO, INGRESO_*, PACIENTES, SECTOR_*, EVENTOS, CONFIG): rampas por familia, encabezados uniformes #0E5C68/blanco, tinta #0B3C49, estados clínicos no colisionando con colores de sector | Humano | **ALTA** |
+| 31 | **Parte 25 — Deploy WebApp**: el límite de 20 deployments se alcanzó en dev y NO se crea ninguno nuevo; el ejecutable de producción permanece en @63 (v0.8.9.5). Promover v0.8.9.6 exige liberar un deployment (borrar un dev) o autorización explícita | Cliente | MEDIA |
+| 32 | **Parte 16 — Limpieza de formato heredado**: el formato heredado se normaliza al re-aplicar el estándar (Instalar fase visual + reconciliador). No se implementa limpieza destructiva manual fuera del estándar para no tocar datos | Dev | BAJA |
+| 33 | **HTML → tokens CSS**: colores duplicados de `00_Config` en Sidebar/Dashboard/Backup/LogVisor/RemGenerador/RemVista/CentroPruebas/Configuracion deberían migrar a vars CSS de `00_Tokens.html` | Dev (cosmético) | BAJA |
+| 34 | **Consolidar normalizadores de fecha/edad**: 3 helpers casi-equivalentes (Amarillo_aFecha, Dash_fechaIso, _ui_isoFecha) y 2 de edad (Utl_edadDesde vs Rem9_edadEn). Comportamientos distintos (serial Excel vs string crudo); requerirían tests de contrato antes de unificar (riesgo moderado) | Dev | MEDIA |
