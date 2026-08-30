@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <?!= include('00_Tokens') ?>
+  <base target="_top">
+  <style>
+    body{font-family:'Inter',sans-serif;background:var(--bg);margin:0;padding:var(--space-6);}
+    .frm-titulo{font-size:19px;font-weight:700;color:var(--text-primary);margin:0 0 2px;}
+    .frm-sub{font-size:12px;color:var(--text-secondary);margin-bottom:var(--space-4);}
+    .frm-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3);margin-bottom:var(--space-4);}
+    .frm-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);text-align:center;}
+    .frm-num{font-size:24px;font-weight:700;color:var(--primary);}
+    .frm-lab{font-size:11px;color:var(--text-muted);margin-top:2px;}
+    .frm-acciones{display:flex;gap:var(--space-2);margin-bottom:var(--space-4);flex-wrap:wrap;}
+    .frm-info{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4);font-size:12px;color:var(--text-secondary);line-height:1.7;margin-bottom:var(--space-4);}
+    .frm-info b{color:var(--text-primary);}
+    .frm-consola{background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);font-size:11px;color:var(--text-secondary);white-space:pre-wrap;min-height:52px;max-height:180px;overflow:auto;}
+    .frm-ok{color:var(--success);font-weight:600;}
+    .frm-err{color:var(--danger);font-weight:600;}
+    .spin{display:none;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spinFrm .7s linear infinite;vertical-align:-2px;}
+    .spin.on{display:inline-block;margin-right:6px;}
+    @keyframes spinFrm{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <h1 class="frm-titulo">Formulario de Ingresos</h1>
+  <div class="frm-sub">Puerta complementaria de captura &mdash; respuestas normalizadas antes de entrar al pipeline.</div>
+
+  <div class="frm-stats">
+    <div class="frm-stat"><div class="frm-num" id="fxTotal">—</div><div class="frm-lab">Respuestas</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxProcesadas">—</div><div class="frm-lab">Procesadas</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxPendientes">—</div><div class="frm-lab">Pendientes</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxRevision">—</div><div class="frm-lab">Revisi&oacute;n</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxErrores">—</div><div class="frm-lab">Error</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxCaptura">—</div><div class="frm-lab">&Uacute;ltima captura</div></div>
+  </div>
+
+  <div class="frm-acciones">
+    <button class="btn btn-sec" id="fxBtnInstalar"><span class="spin" id="fxSpinInstalar"></span>Instalar</button>
+    <button class="btn btn-sec" id="fxBtnDiagnostico"><span class="spin" id="fxSpinDiag"></span>Diagnosticar</button>
+    <button class="btn btn-pri" id="fxBtnProcesar"><span class="spin" id="fxSpinProc"></span>Procesar pendientes</button>
+  </div>
+
+  <div class="frm-info" id="fxInfo">
+    <b>Trigger:</b> <span id="fxTrigger">—</span><br>
+    <b>Motor:</b> <span id="fxMotor">—</span><br>
+    <b>Sector de puerta:</b> hoja INGRESO_&lt;SECTOR&gt;.<br>
+    <b>Marca de trazabilidad:</b> <span id="fxMarca">FORM|&lt;respuesta&gt;|&lt;acci&oacute;n&gt;</span><br>
+    <b>Instalaci&oacute;n de Estructura no modifica el formulario de Google</b> (solo prepara la hoja de respuestas y el trigger).
+  </div>
+
+  <div class="frm-consola" id="fxConsola">Listo.</div>
+
+<script>
+function frmSubir(){
+  var s=document.getElementById('fxSpinProc');
+  if(s)s.classList.add('on');
+}
+function flashOk(btn){
+  if(btn){btn.classList.add('btn-ok-flash');setTimeout(function(){btn.classList.remove('btn-ok-flash');},900);}
+}
+function frmLog(tipo,msg){
+  var c=document.getElementById('fxConsola');
+  var linea=document.createElement('div');
+  if(tipo==='ok')linea.className='frm-ok';
+  if(tipo==='err')linea.className='frm-err';
+  linea.textContent=msg;
+  c.innerHTML='';
+  c.appendChild(linea);
+}
+function pintarEstado(r){
+  if(!r)return;
+  var m=r.metricas||{};
+  var nv=function(id,v){var el=document.getElementById(id);if(el)el.textContent=(v==null)?'—':v;};
+  nv('fxTotal',m.total); nv('fxProcesadas',m.procesados); nv('fxPendientes',m.pendientes);
+  nv('fxRevision',m.revision); nv('fxErrores',m.error);
+  nv('fxCaptura',m.ultimaCaptura||'—');
+  nv('fxTrigger',r.triggerInstalado?('Instalado'+(r.config&&r.config.activo?'':' (inactivo)')):'No instalado');
+  if(typeof _refrescarIconos==='function')_refrescarIconos();
+}
+document.getElementById('fxBtnInstalar').addEventListener('click',function(){
+  var s=document.getElementById('fxSpinInstalar');if(s)s.classList.add('on');
+  google.script.run.withSuccessHandler(function(r){
+    if(s)s.classList.remove('on');
+    frmLog(r&&r.ok?'ok':'err',(r&&r.ok)?('Estructura '+(r.hoja||'lista')+'. '+(r.nota||'')
+      +((r.formIdConfigurado)?'':'. FORM_ID pendiente: el formulario debe crearse en Google Forms y asociarse en FORM_CONFIG'))
+      :((r&&r.motivo)||'Instalación incompleta'));
+    if(r&&r.ok)flashOk(document.getElementById('fxBtnInstalar'));
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Instalar: '+(e.message||String(e)));}).api_formularioInstalar();
+});
+document.getElementById('fxBtnDiagnostico').addEventListener('click',function(){
+  var s=document.getElementById('fxSpinDiag');if(s)s.classList.add('on');
+  google.script.run.withSuccessHandler(function(r){
+    if(s)s.classList.remove('on');
+    if(r&&r.checks){
+      var det=r.checks.map(function(c){return (c.ok?'\u2714 ':'\u2718 ')+c.nombre+(c.ok?'':' — '+c.detalle);}).join('\n');
+      frmLog((r.ok)?'ok':'err','Chequeos:\n'+det);
+    }else{
+      frmLog('err',(r&&r.motivo)||'Sin resultados');
+    }
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Diagnóstico: '+(e.message||String(e)));}).api_formularioDiagnostico();
+});
+document.getElementById('fxBtnProcesar').addEventListener('click',function(){
+  var s=document.getElementById('fxSpinProc');if(s)s.classList.add('on');
+  google.script.run.withSuccessHandler(function(r){
+    if(s)s.classList.remove('on');
+    var res=(r&&r.resumen)||{};
+    frmLog((r&&r.ok)?'ok':'err',
+      (r&&r.ok)?('Le&iacute;das '+res.leidos+' · ingresos nuevos '+res.nuevosIngresos+' · cl&iacute;nicas '+res.clinicas+' · procesadas '+res.procesados+' · revisi&oacute;n '+res.revision+' · errores '+res.errores+(res.pipeline?(' · pipeline '+res.pipeline):''))
+      :((r&&r.motivo)||'Sin resultados'));
+    flashOk(document.getElementById('fxBtnProcesar'));
+    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Procesar: '+(e.message||String(e)));}).api_formularioProcesar();
+});
+google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(e){frmLog('err','Estado: '+e.message);}).api_formularioEstado();
+</script>
+</body>
+</html>

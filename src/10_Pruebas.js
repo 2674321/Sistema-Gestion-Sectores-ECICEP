@@ -75,6 +75,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_hojasvisual_v0883(t, A);
   _pruebas_pulido_v0895(t, A);
   _pruebas_designsystem_v0896(t, A);
+  _pruebas_formulario_v090(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2592,7 +2593,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.6', 'versión esperada v0.8.9.6');
+    A.igual(v, '0.9.0', 'versión esperada v0.9.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2833,9 +2834,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.8.9.6', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.0', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.8.9.6', 'versión esperada v0.8.9.6');
+    A.igual(v, '0.9.0', 'versión esperada v0.9.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3523,5 +3524,273 @@ function _pruebas_designsystem_v0896(t, A) {
     A.igual(HVis_especVisual('SECTOR_VERDE').colorTitulo, RAMPA.VERDE.barra, 'SECTOR_VERDE título rampa');
     A.cierto(typeof HVis_reconciliarHoja === 'function', 'reconciliador visual existe (Parte 17)');
     A.cierto(typeof HVis_pendientesVisual === 'function', 'pendientes visual existe (Parte 20)');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.9.0 — FORMULARIO COMPLEMENTARIO (puerta de entrada controlada, DEC-048)
+// ---------------------------------------------------------------------------
+function _pruebas_formulario_v090(t, A) {
+  // RUT válido reproducible (DV por módulo 11)
+  var dvA = Norm_dvModulo11('12345678');
+  var RUTA = '12345678-' + dvA;
+  A.cierto(Norm_validarRut(RUTA), 'RUT de prueba válido');
+  var dvB = Norm_dvModulo11('98765432');
+  var RUTB = '98765432-' + dvB;
+
+  function respuestaNuevo(rut, extra) {
+    var c = {
+      ACCION: 'NUEVO_INGRESO', RUT: rut, NOMBRE: 'María José Fuentes', SEXO: 'F',
+      FECHA_NACIMIENTO: '15/04/1990', SECTOR: 'NARANJO', ESTRATIFICACION: 'G2',
+      TELEFONOS: '+56987654321', OBSERVACIONES: ''
+    };
+    if (extra) for (var k in extra) c[k] = extra[k];
+    return c;
+  }
+  function respuestaControl(rut, extra) {
+    var c = { ACCION: 'REGISTRAR_CONTROL', RUT: rut, FECHA_EVENTO: '2026-06-10', PROFESIONAL: 'MATRONA', OBSERVACIONES: '' };
+    if (extra) for (var k in extra) c[k] = extra[k];
+    return c;
+  }
+
+  // ── contrato y mapeo (sin dependencia del número de columna) ──
+  t('FORM v0.9.0: columnas técnicas únicas y derivadas del contrato CAMPOS', function () {
+    var cols = Form_columnas();
+    A.cierto(cols.length === cols.filter(function (x, i) { return cols.indexOf(x) === i; }).length, 'columnas únicas');
+    A.cierto(cols.indexOf('RESPONSE_ID') !== -1 && cols.indexOf('ESTADO') !== -1 && cols.indexOf('TRAZA_CRUDA') !== -1, 'meta presente');
+    A.cierto(cols.indexOf('ACCION') !== -1 && cols.indexOf('RUT') !== -1, 'campos del contrato presentes');
+    A.igual(cols[0], 'FECHA_FORMS', 'primera columna = FECHA_FORMS');
+  });
+
+  t('FORM v0.9.0: mapeo por contenido, no por índice (encabezados reordenados)', function () {
+    var cols = Form_columnas();
+    var reorden = cols.slice().reverse();
+    var m = Form_mapeoEncabezados(reorden);
+    A.cierto(m.idx['ESTADO'] !== undefined && m.idx['RESPONSEID'] !== undefined, 'mapea por clave de encabezado');
+    A.igual(m.idx['ESTADO'], cols.length - 1 - cols.indexOf('ESTADO'), 'índice correcto tras reordenar');
+  });
+
+  t('FORM v0.9.0: config de acciones y sector coherente', function () {
+    FORM_CONFIG.ACCIONES.VALIDOS.forEach(function (a) {
+      A.cierto(!!FORM_CONFIG.ACCIONES.ETIQUETAS[a], 'etiqueta para ' + a);
+    });
+    A.cierto(FORM_CONFIG.ESTADOS.VALIDOS.indexOf('PROCESADO') !== -1, 'estado PROCESADO definido');
+    var sectorCampo = null;
+    Form_campos().forEach(function (c) { if (c.campo === 'SECTOR') sectorCampo = c; });
+    A.cierto(!!sectorCampo && sectorCampo.opciones && sectorCampo.opciones.length === SECTORES_RESPONSABLES.length, 'opciones de sector = sectores oficiales');
+    A.cierto(FORM_CONFIG.MARCAS.PREFIJO === 'FORM|', 'prefijo de marca estándar');
+  });
+
+  t('FORM v0.9.0: marca de trazabilidad canónica', function () {
+    A.igual(Form_marcadorFuente('RESP-1', 'REGISTRAR_CONTROL'), 'FORM|RESP-1|REGISTRAR_CONTROL', 'marca');
+    A.igual(Form_sectorHojaIngreso('naranjo'), 'INGRESO_NARANJO', 'puerta naranjo');
+    A.igual(Form_sectorHojaIngreso('AMARILLO'), 'INGRESO_AMARILLO', 'puerta amarillo');
+    A.igual(Form_sectorHojaIngreso('VERDE'), 'INGRESO_VERDE', 'puerta verde');
+    A.igual(Form_sectorHojaIngreso('AZUL'), '', 'sector desconocido sin puerta');
+  });
+
+  t('FORM v0.9.0: fila canónica en orden INGRESO_COLUMNAS con NOTA_SISTEMA', function () {
+    var valid = Form_validarRespuesta(respuestaNuevo(RUTA), { hoy: '2026-08-29' });
+    A.cierto(valid.ok, 'respuesta válida');
+    var fila = Form_filaCanonicaIngreso(valid.normalizado, 'FORM|X|INGRESO', { hoy: '2026-08-29' });
+    A.igual(fila.length, INGRESO_COLUMNAS.length, 'once celdas');
+    A.igual(fila[0], 'MARÍA JOSÉ FUENTES', 'NOMBRE normalizado');
+    A.igual(fila[1], RUTA, 'RUT normalizado');
+    A.igual(fila[4], '987654321', 'teléfono sin prefijo');
+    A.igual(fila[5], '2026-08-29', 'FECHA DE INGRESO = hoy (default)');
+    A.igual(fila[6], 'G2', 'ESTRATIFICACION');
+    A.igual(fila[9], '', 'ESTADO_INGRESO vacío (lo escribe el pipeline)');
+    A.igual(fila[10], 'FORM|X|INGRESO', 'NOTA_SISTEMA marca');
+  });
+
+  // ── validación / normalización ──
+  t('FORM v0.9.0: NUEVO_INGRESO válido normaliza con las reglas existentes', function () {
+    var r = Form_validarRespuesta(respuestaNuevo(RUTA), { hoy: '2026-08-29' });
+    A.cierto(r.ok, 'ok');
+    A.igual(r.normalizado.ACCION, 'NUEVO_INGRESO', 'accion');
+    A.igual(r.normalizado.RUT, RUTA, 'rut canónico');
+    A.igual(r.normalizado.NOMBRE, 'MARÍA JOSÉ FUENTES', 'nombre mayúsculas');
+    A.igual(r.normalizado.SEXO, 'F', 'sexo');
+    A.igual(r.normalizado.FECHA_NACIMIENTO, '1990-04-15', 'nacimiento ISO');
+    A.igual(r.normalizado.SECTOR, 'NARANJO', 'sector');
+    A.igual(r.normalizado.ESTRATIFICACION, 'G2', 'estrat');
+    A.igual(r.normalizado.FECHA_INGRESO, '2026-08-29', 'fecha ingreso por defecto hoy');
+  });
+
+  t('FORM v0.9.0: RUT inválido / sin DV son bloqueantes', function () {
+    A.cierto(!Form_validarRespuesta(respuestaNuevo('12345678-x')).ok, 'DV incorrecto bloquea');
+    var sinDv = Form_validarRespuesta(respuestaNuevo('12345678'), { hoy: '2026-08-29' });
+    A.cierto(!sinDv.ok && sinDv.errores.some(function (e) { return e.campo === 'RUT'; }), 'RUT sin DV bloquea');
+  });
+
+  t('FORM v0.9.0: campos obligatorios de NUEVO_INGRESO', function () {
+    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { NOMBRE: '' })).errores.some(function (e) { return e.campo === 'NOMBRE'; }), 'NOMBRE requerido');
+    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { FECHA_NACIMIENTO: '' })).errores.some(function (e) { return e.campo === 'FECHA_NACIMIENTO'; }), 'nacimiento requerido');
+    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { FECHA_NACIMIENTO: '31/02/2020' })).errores.length > 0, 'fecha imposible bloquea');
+    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { SECTOR: 'AZUL' })).errores.some(function (e) { return e.campo === 'SECTOR'; }), 'sector no oficial bloquea');
+    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { ESTRATIFICACION: 'G4' })).errores.some(function (e) { return e.campo === 'ESTRATIFICACION'; }), 'estrat no oficial bloquea');
+  });
+
+  t('FORM v0.9.0: CONTROL valida RUT + fecha de evento', function () {
+    var ok = Form_validarRespuesta(respuestaControl(RUTA));
+    A.cierto(ok.ok && ok.normalizado.FECHA_EVENTO === '2026-06-10', 'control válido');
+    var sfe = Form_validarRespuesta(respuestaControl(RUTA, { FECHA_EVENTO: '' }));
+    A.cierto(sfe.errores.some(function (e) { return e.campo === 'FECHA_EVENTO'; }), 'fecha evento requerida');
+    var sfi = Form_validarRespuesta(respuestaControl(RUTA, { FECHA_EVENTO: '45/13/2026' }));
+    A.cierto(sfi.errores.length > 0, 'fecha evento inválida bloquea');
+  });
+
+  t('FORM v0.9.0: acción desconocida cuarentena-ERROR', function () {
+    var r = Form_validarRespuesta({ ACCION: 'BORRAR TODO', RUT: RUTA });
+    A.cierto(r.errores.some(function (e) { return e.campo === 'ACCION'; }), 'acción inválida');
+    A.igual(Form_erroresTexto(r.errores), 'ACCION: Acción no válida: "BORRAR TODO"', 'motivo legible');
+  });
+
+  // ── procesamiento de lote (decisiones puras) ──
+  t('FORM v0.9.0: lote mixto decide ANEXAR / CLINICA / ERROR / CUARENTENA / SALTAR', function () {
+    var persona = { RUT: RUTA, ID_INTERNO: 'EC-FORM-1' };
+    var ctx = { indiceRut: {}, marcas: {} };
+    ctx.indiceRut[RUTA.toUpperCase()] = persona;
+    var respuestas = [
+      { responseId: 'R1', estadoPrevio: 'RECIBIDO', crudo: respuestaNuevo(RUTA) },
+      { responseId: 'R2', estadoPrevio: 'RECIBIDO', crudo: respuestaControl(RUTA) },
+      { responseId: 'R3', estadoPrevio: 'RECIBIDO', crudo: respuestaNuevo('9999999-x') },
+      { responseId: 'R4', estadoPrevio: 'RECIBIDO', crudo: respuestaControl(RUTB) },
+      { responseId: 'R5', estadoPrevio: 'PROCESADO', crudo: respuestaNuevo(RUTA) }
+    ];
+    var lote = Form_procesarLote(respuestas, ctx, { hoy: '2026-08-29' });
+    var porId = {};
+    lote.decisiones.forEach(function (d) { porId[d.responseId] = d; });
+    A.igual(porId['R1'].decision, 'ANEXAR', 'nuevo ingreso → anexar');
+    A.igual(porId['R1'].ingreso.hoja, 'INGRESO_NARANJO', 'puerta por sector');
+    A.igual(porId['R2'].decision, 'CLINICA', 'control sobre persona existente');
+    A.igual(porId['R2'].idInterno, 'EC-FORM-1', 'id interno resuelto');
+    A.igual(porId['R3'].decision, 'ERROR', 'rut inválido → error');
+    A.igual(porId['R4'].decision, 'CUARENTENA', 'persona no encontrada → cuarentena');
+    A.igual(porId['R5'].decision, 'SALTAR', 'ya procesada');
+    A.igual(lote.resumen.anexos, 1, 'un anexo');
+    A.igual(lote.resumen.clinica, 1, 'una acción clínica');
+    A.igual(lote.resumen.error, 1, 'un error');
+    A.igual(lote.resumen.cuarentena, 1, 'una cuarentena');
+  });
+
+  t('FORM v0.9.0: idempotencia por marca de evento', function () {
+    var persona = { RUT: RUTA, ID_INTERNO: 'EC-FORM-2' };
+    var marca = Form_marcadorFuente('R2', 'REGISTRAR_CONTROL');
+    var ctx = { indiceRut: {}, marcas: {} };
+    ctx.indiceRut[RUTA.toUpperCase()] = persona;
+    ctx.marcas[marca] = { idEvento: 'EV-FORM-9' };
+    var lote = Form_procesarLote(
+      [{ responseId: 'R2', estadoPrevio: 'VALIDANDO', reintentos: 1, crudo: respuestaControl(RUTA) }],
+      ctx, {});
+    A.igual(lote.decisiones[0].decision, 'PROCESADO_YA', 'reintento detecta la marca y no duplica');
+  });
+
+  t('FORM v0.9.0: fila de ingreso ya anexada no se vuelve a anexar', function () {
+    var lote = Form_procesarLote(
+      [{ responseId: 'R6', estadoPrevio: 'VALIDANDO', ingresoHoja: 'INGRESO_NARANJO', ingresoFila: '7', crudo: respuestaNuevo(RUTA) }],
+      {}, { hoy: '2026-08-29' });
+    A.igual(lote.decisiones[0].decision, 'YA_ANEXADO', 'no re-anexa');
+    A.igual(lote.decisiones[0].ingreso.fila, '7', 'mantiene la fila anexada');
+  });
+
+  t('FORM v0.9.0: ACTUALIZAR_DATOS requiere persona existente', function () {
+    var crudo = { ACCION: 'ACTUALIZAR_DATOS', RUT: RUTB, TELEFONOS: '+56911112222' };
+    var ctxCon = { indiceRut: {}, marcas: {} };
+    ctxCon.indiceRut[RUTB.toUpperCase()] = { RUT: RUTB, ID_INTERNO: 'EC-FORM-3' };
+    var l = Form_procesarLote([{ responseId: 'R7', estadoPrevio: 'RECIBIDO', crudo: crudo }], ctxCon, {});
+    A.igual(l.decisiones[0].decision, 'CLINICA', 'con persona → clínica');
+    var l2 = Form_procesarLote([{ responseId: 'R8', estadoPrevio: 'RECIBIDO', crudo: crudo }], {}, {});
+    A.igual(l2.decisiones[0].decision, 'CUARENTENA', 'sin persona → cuarentena');
+  });
+
+  // ── resultado → estado del formulario ──
+  t('FORM v0.9.0: traducción de estado del pipeline a estado FORM', function () {
+    A.igual(Form_mapearResultadoFila('INGRESADO', '').estado, 'PROCESADO', 'ingresado');
+    A.igual(Form_mapearResultadoFila('DUPLICADO', 'posible duplicado').estado, 'REQUIERE_REVISION', 'duplicado');
+    A.igual(Form_mapearResultadoFila('REQUIERE_REVISION', 'nota').estado, 'REQUIERE_REVISION', 'revisión');
+    A.igual(Form_mapearResultadoFila('ERROR', 'x').estado, 'ERROR', 'error');
+    A.igual(Form_mapearResultadoFila('', '').estado, 'ERROR', 'sin estado no se da por hecho');
+  });
+
+  // ── lectura de pendientes ──
+  t('FORM v0.9.0: pendientes excluyen PROCESADO y revisión; reintentos respetan tope', function () {
+    var headers = Form_columnas();
+    var idx = function (clave) {
+      var m = Form_mapeoEncabezados(headers).idx;
+      return m[clave];
+    };
+    function fila(estado, reint, rid) {
+      var arr = new Array(headers.length).fill('');
+      arr[idx('FECHAFORMS')] = '2026-08-29 10:00:00';
+      arr[idx('RESPONSEID')] = rid;
+      arr[idx('ESTADO')] = estado;
+      arr[idx('REINTENTOS')] = reint;
+      arr[idx('ACCION')] = 'NUEVO_INGRESO';
+      arr[idx('RUT')] = RUTA;
+      arr[idx('NOMBRE')] = 'JUAN PEREZ';
+      return arr;
+    }
+    var valores = [headers, fila('RECIBIDO', 0, 'P1'), fila('PROCESADO', 0, 'P2'), fila('REQUIERE_REVISION', 0, 'P3'), fila('ERROR', 1, 'P4'), fila('ERROR', 3, 'P5')];
+    var pend = Form_filasPendientes(valores, Form_mapeoEncabezados(headers), 3);
+    A.igual(pend.length, 2, 'solo RECIBIDO y ERROR reintentable');
+    A.igual(pend[0].responseId, 'P1', 'recibido primero');
+    A.igual(pend[1].responseId, 'P4', 'error reintentable (reintentos=1 < 3)');
+    A.igual(pend[0].filaFisica, Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS), 'fila física alineada al layout simple');
+    A.igual(pend[0].crudo.RUT, RUTA, 'crudo mapeado por campo');
+    var pendMax0 = Form_filasPendientes(valores, Form_mapeoEncabezados(headers), 3, 0);
+    A.igual(pendMax0.length, 0, 'tope max=0 devuelve vacío');
+  });
+
+  // ── métricas │──
+  t('FORM v0.9.0: métricas agregadas sin datos personales', function () {
+    var filas = [
+      { ESTADO: 'PROCESADO', ACCION: 'NUEVO_INGRESO', FECHA_FORMS: '2026-08-01 08:00:00' },
+      { ESTADO: 'PROCESADO', ACCION: 'REGISTRAR_CONTROL', FECHA_FORMS: '2026-08-02 09:00:00' },
+      { ESTADO: 'REQUIERE_REVISION', ACCION: 'NUEVO_INGRESO', FECHA_FORMS: '2026-08-03 10:00:00' },
+      { ESTADO: 'ERROR', ACCION: 'NUEVO_INGRESO', FECHA_FORMS: '2026-08-04 11:00:00' },
+      { ESTADO: 'RECIBIDO', ACCION: 'NUEVO_INGRESO', FECHA_FORMS: '2026-08-05 12:00:00' }
+    ];
+    var m = Form_metricas(filas);
+    A.igual(m.total, 5, 'total');
+    A.igual(m.procesados, 2, 'procesados');
+    A.igual(m.revision, 1, 'revisión');
+    A.igual(m.error, 1, 'errores');
+    A.igual(m.pendientes, 1, 'pendientes');
+    A.igual(m.porAccion['NUEVO_INGRESO'], 4, 'por acción');
+    A.igual(m.ultimaCaptura, '2026-08-05 12:00:00', 'última captura');
+  });
+
+  // ── duplicados los decide el pipeline (no el formulario) ──
+  t('FORM v0.9.0: dos ingresos iguales NUNCA crean dos pacientes (lo decide el pipeline)', function () {
+    var f1 = Fuentes_normalizar(Fuentes_crearFila(
+      { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_NARANJO', fila: 4, sector: 'NARANJO' },
+      { RUT: RUTA, NOMBRE: 'JUAN PEREZ', FECHA_INGRESO: '2026-01-01' }));
+    var f2 = Fuentes_normalizar(Fuentes_crearFila(
+      { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_NARANJO', fila: 5, sector: 'NARANJO' },
+      { RUT: RUTA, NOMBRE: 'JUAN PEREZ', FECHA_INGRESO: '2026-02-01' }));
+    var salida = Ingresos_procesarFilas([f1, f2], { pacientes: [], eventos: [] },
+      { nuevoId: function () { return 'EC-PRUEBA-1'; }, evSecuenciaInicial: 1 });
+    A.igual(salida.resumen.nuevos, 1, 'un solo paciente creado');
+    A.igual(salida.resumen.existentes, 1, 'el segundo se enlaza al existente');
+    A.igual(salida.resumen.eventosCreados, 2, 'dos eventos INGRESO (historial, no duplicación de entidad)');
+  });
+
+  // ── simulador (partes 42/44/46) ──
+  t('FORM v0.9.0: simulador 10→3000 determinista y con RUTs válidos', function () {
+    var sim = Form_simularRespuestas(100, { semilla: 42 });
+    A.igual(sim.length, 100, '100 generadas');
+    var ids = sim.map(function (s) { return s.responseId; });
+    A.igual(ids.length, ids.filter(function (x, i) { return ids.indexOf(x) === i; }).length, 'responseIds únicos');
+    sim.forEach(function (s) {
+      A.cierto(FORM_CONFIG.ACCIONES.VALIDOS.indexOf(s.crudo.ACCION) !== -1, 'acción ' + s.crudo.ACCION);
+      A.cierto(Norm_validarRut(s.crudo.RUT), 'rut válido de ' + s.responseId);
+    });
+    var sim2 = Form_simularRespuestas(100, { semilla: 42 });
+    A.igual(JSON.stringify(sim), JSON.stringify(sim2), 'determinista con la misma semilla');
+    A.igual(Form_simularRespuestas(10, { semilla: 1 }).length, 10, '10');
+    A.igual(Form_simularRespuestas(500, { semilla: 1 }).length, 500, '500');
+    A.igual(Form_simularRespuestas(1000, { semilla: 1 }).length, 1000, '1000');
+    A.igual(Form_simularRespuestas(3000, { semilla: 1 }).length, 3000, '3000');
   });
 }

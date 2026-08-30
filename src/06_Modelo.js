@@ -301,6 +301,7 @@ var MODELO_DISENO = [
   { nombre: 'CAT_VIGENCIA_EXAMENES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
   { nombre: 'PROFESIONALES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
   { nombre: 'RESPONSABLES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
+  { nombre: 'FORM_RESPUESTAS', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
   // Sistema (técnicas ocultas)
   { nombre: 'CONFLICTOS',       color: DESIGN_SYSTEM.MARCA.tecnico, banda: true, formato: ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR'] },
   { nombre: 'FUENTES',          color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, formato: ['ARCHIVO','SECTOR','HOJAS','ESTADO_REGISTRO','ULTIMA_LECTURA','OBSERVACIONES'] },
@@ -475,6 +476,8 @@ _MODELO_HOJAS_DEF['CAT_VIGENCIA_EXAMENES'] = ['EXAMEN', 'CODIGO', 'VIGENCIA', 'U
 _MODELO_HOJAS_DEF[HOJAS.PROFESIONALES] = COLUMNAS_PROFESIONALES;
 // Responsables por sector (acumulables): SECTOR | CODIGO | NOMBRE | CORREO | ACTIVO.
 _MODELO_HOJAS_DEF[HOJAS.RESPONSABLES] = COLUMNAS_RESPONSABLES;
+// Zona técnica del formulario (v0.9.0): captura + estados; la gestiona 24_Formulario.
+_MODELO_HOJAS_DEF[HOJAS.FORM_RESPUESTAS] = FORM_RESPUESTAS_COLUMNAS;
 _MODELO_HOJAS_DEF['INICIO'] = null; // navegación: la construye Hojas_crearInicio
 _MODELO_HOJAS_DEF[HOJAS.REM_SALIDA] = null; // reporte REM interno: lo construye 14_REM.js
 

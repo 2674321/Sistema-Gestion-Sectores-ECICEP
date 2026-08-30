@@ -624,6 +624,58 @@ producía hojas que no parecían del mismo sistema. Decisión:
 
 ---
 
+## DEC-047
+**Título:** v0.9.0 — Instalación conservadora del formulario (dry-run, sin auto-creación)
+**Estado:** Aprobada
+**Motivo:** El formulario complementario crea un canal de captura con acceso a datos clínicos; su
+instalación debe ser auditada y no destructiva.
+1. **`Form_instalar` NO crea ni modifica el formulario de Google Forms.** Solo garantiza la
+   estructura de datos (hoja oculta `FORM_RESPUESTAS` con color `DESIGN_SYSTEM.MARCA.tecnico`,
+   encabezados alineados al contrato `FORM_RESPUESTAS_COLUMNAS` si estuvieran desalineados) y
+   `Form_instalarTrigger()` (idempotente por handler `Form_onFormSubmit`, `forSpreadsheet`).
+2. **`Form_diagnosticar`** es solo lectura: estructura, FORM_ID, `FormApp.openById`, trigger.
+3. **`Form_reparar`** nunca borra datos y nunca recrea un formulario eliminado: reporta la deuda
+   como pendiente humano (crear el formulario en Google Forms y llenar `FORM_CONFIG.FORM_ID`).
+4. **`FORM_ID` vacío** no impide preparar la estructura; el trigger se instala recién con FORM_ID
+   configurado. Captura con `getResponses(desde)` desde la última captura (ventana inicial 2 h)
+   para no reprocesar historial previo a la instalación.
+5. **Sin efectos colaterales clínicos**: nada de lo instalado toca PACIENTES/EVENTOS hasta que
+   llegue una respuesta real. **Fecha:** 2026-08-29
+
+---
+
+## DEC-048
+**Título:** v0.9.0 — Formulario complementario como puerta de entrada controlada (no base paralela)
+**Estado:** Aprobada
+**Motivo:** El equipo desea capturar ingresos, controles y seguimientos vía Google Form sin crear
+una segunda verdad clínica. Decisión: el formulario es SOLO una puerta de entrada:
+`FORM → respuesta → VALIDACIÓN/NORMALIZACIÓN → pipeline existente → PACIENTES/EVENTOS/SECTOR/INICIO`.
+1. **Sin escritura clínica directa desde el formulario.** `NUEVO_INGRESO` anexa la fila canónica
+   (11 celdas, `INGRESO_COLUMNAS`) a `INGRESO_<SECTOR>` con `ESTADO_INGRESO` vacío y
+   `NOTA_SISTEMA = 'FORM|<responseId>|INGRESO'`; **el pipeline existente** decide ingreso/duplicado/
+   enlace (prueba garantiza que dos respuestas idénticas jamás crean dos pacientes).
+2. **Acciones clínicas reusan `api_registrarEvento`** con `fuente` y `registradoPor` opcionales
+   (retrocompatibles): `CONTROL`/`SEGUIMIENTO` registran el evento completo y `ACTUALIZAR_DATOS`
+   ajusta solo campos operativos (teléfono/observaciones/profesional, identidad intacta).
+3. **El cambio de estratificación queda excluido del formulario** (se mantiene en la ficha clínica).
+   `ACTUALIZAR_DATOS` nunca toca identidad ni reglas clínicas.
+4. **Idempotencia**: clave `responseId`; estados `RECIBIDO|VALIDANDO|VALIDO|PROCESADO|
+   REQUIERE_REVISION|ERROR`; reintentos máx `FORM_CONFIG.MAX_REINTENTOS=3`; marca FUENTE previene
+   eventos duplicados; `INGRESO_FILA` no vacío → `YA_ANEXADO`; `LockService` en procesamiento.
+5. **Columnas nunca por índice fijo**: siempre mapeadas por encabezado
+   (`Form_mapeoEncabezados` + `Utl_claveAlnum`), a prueba de reordenamiento.
+6. **El pipeline es el único juez de duplicados** (nuevos vs enlazados); el formulario solo
+   traduce el resultado a su estado (`INGRESADO→PROCESADO`, `DUPLICADO/REVISION→REQUIERE_REVISION`,
+   `ERROR→ERROR`).
+7. **Seguridad**: validación estricta por acción (RUT con DV, fechas reales, sector/estrat
+   oficiales), teléfono NO bloquear ingreso válido, panel de administración con métricas
+   agregadas (sin datos personales). **Tests:** `_pruebas_formulario_v090` (mapeo, validación,
+   decisiones ANEXAR/CLINICA/ERROR/CUARENTENA/PROCESADO_YA/SALTAR/YA_ANEXADO, traducción,
+   pendientes, métricas, pipeline-duplicados, simulador 10→3000 determinista). **455/455 tests
+   verdes.** **Fecha:** 2026-08-29
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada

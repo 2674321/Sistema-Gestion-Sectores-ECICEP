@@ -5,7 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.8.9.6 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **436 pruebas locales verdes** ·
+**v0.9.0 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **455 pruebas locales verdes** ·
 pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
@@ -54,6 +54,7 @@ Sin dependencias externas salvo beneficio demostrable.
 | `MODELO-DATOS.md` | Modelo canónico propuesto y mapeo desde las fuentes |
 | `ARQUITECTURA.md` | Arquitectura del sistema, módulos, hojas, rendimiento |
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
+| `FORMULARIO.md` | Formulario complementario: instalación, mapeo, operación y seguridad |
 | `PENDIENTES.md` | Decisiones abiertas y tareas bloqueantes |
 
 ## Estructura
@@ -64,6 +65,7 @@ Sistema-Gestion-Sectores-ECICEP/
 ├── src/                    # Código Apps Script (sincronizado con clasp)
 │   ├── appsscript.json
 │   ├── 00_Config … 09_Log  # Módulos del núcleo
+│   ├── 24_Formulario.js    # Puerta Google Forms (DEC-047/048)
 │   ├── 10_Pruebas.js       # Suites deterministas
 │   └── 11_DatosPrueba.js   # Dataset ficticio único
 ├── tests/
@@ -334,6 +336,29 @@ Sistema-Gestion-Sectores-ECICEP/
   visual). **436/436 tests verdes**.
 - **Despliegue (Parte 25)**: sin deploy WebApp en desarrollo (20/20 alcanzados);
   solo `clasp push -f`. El ejecutable de producción permanece en **@63**.
+
+## v0.9.0 — Formulario complementario como puerta de entrada controlada (DEC-047/048)
+
+- **Nuevo módulo `src/24_Formulario.js`** (menú `📥 Formularios` → panel `FormularioPanel.html`): el
+  sistema recibe respuestas de un Google Form y las convierte en **entradas al pipeline existente**,
+  nunca en una base clínica paralela (`FORM → validación/normalización → pipeline → PACIENTES/EVENTOS`).
+- **Acciones**: `NUEVO_INGRESO` (anexa fila canónica a `INGRESO_<SECTOR>` y corre el pipeline real;
+  duplicados los decide el sistema), `REGISTRAR_CONTROL` / `REGISTRAR_SEGUIMIENTO` (evento completo vía
+  `api_registrarEvento`) y `ACTUALIZAR_DATOS` (solo campos operativos; identidad nunca se toca). La
+  estratificación NO se cambia por formulario (se mantiene en la ficha).
+- **Hoja `FORM_RESPUESTAS` oculta** con contrato `FORM_RESPUESTAS_COLUMNAS`; columnas siempre mapeadas
+  por encabezado (`Form_mapeoEncabezados`), nunca por índice. Idempotencia por `responseId` + marca
+  `FORM|<id>|<ACCIÓN>` en `NOTA_SISTEMA`/`FUENTE`; reintentos máx 3; `LockService`; trailer de resultados.
+- **Instalación conservadora (DEC-047)**: `Form_instalar` NUNCA crea/modifica el formulario de Google
+  (solo prepara la estructura + trigger idempotente); `Form_diagnosticar` es solo lectura y
+  `Form_reparar` nunca borra datos ni recrea un formulario eliminado.
+- **Seguridad**: validación estricta por acción (RUT con DV por módulo 11, fechas reales, sector y
+  estratificación oficiales), teléfono no bloquea un ingreso válido, panel con métricas agregadas sin
+  datos personales, trigger `forSpreadsheet` idempotente y ventana inicial de captura de 2 h.
+- **Tests**: `_pruebas_formulario_v090` (contrato de columnas, mapeo por contenido, validación por
+  acción, decisiones ANEXAR/CLINICA/ERROR/CUARENTENA/PROCESADO_YA/SALTAR/YA_ANEXADO, traducción de
+  estado, pendientes, métricas, duplicados decididos por el pipeline, simulador determinista 10→3000).
+  **455/455 tests verdes**; `node --check` limpio; cero colores literales fuera de la configuración.
 
 ## QR permanente — Google Sheets
 

@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.8.9.6',
+  VERSION: '0.9.0',
   AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -44,7 +44,8 @@ var UICFG_DIALOGOS = [
   { opener: 'UI_panelControl', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirBuscador', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirRevision', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' }
+  { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_formularioPanel', plantilla: 'FormularioPanel', tipo: 'modal' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ var HOJAS = {
   LOG: 'LOG',
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
+  FORM_RESPUESTAS: 'FORM_RESPUESTAS', // zona técnica del formulario (captura + estados; oculta)
   PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
   RESPONSABLES: 'RESPONSABLES',   // responsables por sector (acumulables, hoja oculta)
   REM_SALIDA: 'REM_SALIDA',       // reporte REM generado (interna; la construye 14_REM.js)
@@ -690,6 +692,61 @@ const TIPOS_EVENTO = {
 const ESTADOS_INGRESO = {
   VALIDOS: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR']
 };
+
+// ---------------------------------------------------------------------------
+// FORMULARIO COMPLEMENTARIO (v0.9.0 — DEC-048). Puerta de entrada controlada:
+// el formulario es SOLO captura + validación + normalización; NUNCA una base
+// paralela. Los datos válidos NUEVO_INGRESO entran por el pipeline existente
+// (INGRESO_<SECTOR> → Ingresos_procesarTodasLasHojas); CONTROL/SEGUIMIENTO/
+// ACTUALIZAR reusan api_registrarEvento. CAMPOS es el contrato pregunta↔campo
+// y define además las columnas de la hoja técnica FORM_RESPUESTAS (se leen y
+// escriben por ENCABEZADO, jamás por número de columna fijo).
+// FORM_ID es configuración central: lo completa el administrador al instalar
+// (Form_instalar NO crea formularios automáticamente, DEC-047/48).
+// ---------------------------------------------------------------------------
+var FORM_CONFIG = {
+  FORM_ID: '',
+  FORM_VERSION: 1,
+  ACTIVO: true,
+  MAX_REINTENTOS: 3,
+  VENTANA_CAPTURA_INICIAL_HS: 2,
+  MARCAS: { PREFIJO: 'FORM|' },
+  ESTADOS: {
+    VALIDOS: ['RECIBIDO', 'VALIDANDO', 'VALIDO', 'PROCESADO', 'REQUIERE_REVISION', 'ERROR']
+  },
+  ACCIONES: {
+    VALIDOS: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'],
+    ETIQUETAS: {
+      NUEVO_INGRESO: 'Nuevo ingreso a ECICEP',
+      REGISTRAR_CONTROL: 'Registrar un control',
+      REGISTRAR_SEGUIMIENTO: 'Registrar un seguimiento',
+      ACTUALIZAR_DATOS: 'Actualizar datos de contacto'
+    }
+  },
+  CAMPOS: [
+    { pregunta: 'Acción a registrar', campo: 'ACCION', tipo: 'dropdown', requerido: true,
+      opciones: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'RUT de la persona (ej: 12.345.678-5)', campo: 'RUT', tipo: 'texto', requerido: true },
+    { pregunta: 'Nombre completo', campo: 'NOMBRE', tipo: 'texto', requerido: true, acciones: ['NUEVO_INGRESO'] },
+    { pregunta: 'Sexo (M / F / OTRO)', campo: 'SEXO', tipo: 'dropdown', opciones: ['M', 'F', 'OTRO'], acciones: ['NUEVO_INGRESO'] },
+    { pregunta: 'Fecha de nacimiento', campo: 'FECHA_NACIMIENTO', tipo: 'fecha', requerido: true, acciones: ['NUEVO_INGRESO'] },
+    { pregunta: 'Sector', campo: 'SECTOR', tipo: 'dropdown', requerido: true,
+      opciones: SECTORES_RESPONSABLES, acciones: ['NUEVO_INGRESO'] },
+    { pregunta: 'Estratificación (solo si se conoce)', campo: 'ESTRATIFICACION', tipo: 'dropdown',
+      opciones: ['G1', 'G2', 'G3', ''], acciones: ['NUEVO_INGRESO'] },
+    { pregunta: 'Teléfono(s)', campo: 'TELEFONOS', tipo: 'texto', acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Fecha del evento (control/seguimiento)', campo: 'FECHA_EVENTO', tipo: 'fecha', requerido: true,
+      acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO'] },
+    { pregunta: 'Profesional que registra (opcional)', campo: 'PROFESIONAL', tipo: 'texto',
+      acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Descripción / observaciones', campo: 'OBSERVACIONES', tipo: 'texto' }
+  ]
+};
+
+// Columnas físicas de FORM_RESPUESTAS (derivadas del contrato CAMPOS).
+var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'USUARIO']
+  .concat(FORM_CONFIG.CAMPOS.map(function (c) { return c.campo; }))
+  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO']);
 
 // ---------------------------------------------------------------------------
 // Sexo (REM lo requiere; fuentes actuales no lo traen)

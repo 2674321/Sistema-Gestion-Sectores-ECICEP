@@ -39,6 +39,7 @@ function onOpen() {
         .addItem('🔍 Diagnóstico instalación', 'UI_instalarDiagnosticar')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
         .addItem('💾 Backups', 'UI_backup')
+        .addItem('📥 Formularios', 'UI_formularioPanel')
         .addItem('📄 Registro del sistema', 'UI_abrirLog')
         .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe'))
 
@@ -54,6 +55,14 @@ function UI_instalarSistema() {
   SpreadsheetApp.getUi().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
     'Instalaci\u00f3n del sistema');
+}
+
+/** 📥 Panel de administración del formulario complementario (FormularioPanel.html). */
+function UI_formularioPanel() {
+  var t = HtmlService.createTemplateFromFile('FormularioPanel');
+  SpreadsheetApp.getUi().showModalDialog(t.evaluate()
+    .setTitle('📥 Formularios').setWidth(520).setHeight(520),
+    '📥 Formularios');
 }
 
 /** 🔍 Diagnóstico de instalación (dry-run): informa qué cambiaría sin aplicarlo. */
@@ -1126,8 +1135,9 @@ function api_registrarEvento(payload) {
       DESCRIPCION: p.descripcion || '',
       CANTIDAD: '',
       OBSERVACIONES: p.observaciones || '',
-      FUENTE: 'UI_FICHA',
-      REGISTRADO_POR: _ingresosUsuarioActual(),
+      FUENTE: p.fuente || 'UI_FICHA',
+      REGISTRADO_POR: (p.registradoPor !== undefined && p.registradoPor !== null)
+        ? p.registradoPor : _ingresosUsuarioActual(),
       FECHA_REGISTRO: null
     };
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });

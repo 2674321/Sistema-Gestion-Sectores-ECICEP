@@ -80,3 +80,10 @@
 | 32 | **Parte 16 — Limpieza de formato heredado**: el formato heredado se normaliza al re-aplicar el estándar (Instalar fase visual + reconciliador). No se implementa limpieza destructiva manual fuera del estándar para no tocar datos | Dev | BAJA |
 | 33 | **HTML → tokens CSS**: colores duplicados de `00_Config` en Sidebar/Dashboard/Backup/LogVisor/RemGenerador/RemVista/CentroPruebas/Configuracion deberían migrar a vars CSS de `00_Tokens.html` | Dev (cosmético) | BAJA |
 | 34 | **Consolidar normalizadores de fecha/edad**: 3 helpers casi-equivalentes (Amarillo_aFecha, Dash_fechaIso, _ui_isoFecha) y 2 de edad (Utl_edadDesde vs Rem9_edadEn). Comportamientos distintos (serial Excel vs string crudo); requerirían tests de contrato antes de unificar (riesgo moderado) | Dev | MEDIA |
+
+## Formulario complementario — v0.9.0
+
+| # | Pendiente | Tipo | Bloquea | Prioridad |
+|---|---|---|---|---|
+| 35 | **Formulario de Google real (acción manual, DEC-047)**: crear el Google Form con las preguntas de `FORM_CONFIG.CAMPOS` (títulos exactos), vincularlo a este libro, completar `FORM_CONFIG.FORM_ID` y pulsar **📥 Formularios → Instalar** para activar la captura por trigger. Núcleo implementado y probado (455/455); la producción espera esta activación | Manual | Captura real | **ALTA** |
+| 36 | **Validación manual en el libro real**: revisar con el panel `📥 Formularios` el diagnóstico, procesar un formulario de prueba ficticio end-to-end (respuesta → INGRESO_* → PACIENTES/EVENTOS → SECTOR/INICIO) y verificar la idempotencia (reintento no duplica) | Humano | Operación | **MEDIA** |

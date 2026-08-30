@@ -42,6 +42,7 @@ Detalle del modelo paciente/evento: **MODELO-EVENTOS.md**.
 | `09_Log.gs` | Logging INFO/WARNING/ERROR/DEBUG a hoja LOG con búfer + escritura por lotes (DEC-014) | — |
 | `10_Pruebas.js` | Suites deterministas del núcleo (corren en GAS y en node, DEC-016) | — |
 | `11_DatosPrueba.js` | Dataset ficticio único para las pruebas (sin datos reales) | — |
+| `24_Formulario.js` | Puerta de entrada Google Forms (v0.9.0): validación→decisión→pipeline; wrappers GAS y endpoints del panel | escritura clínica directa |
 
 **Roadmap de módulos futuros** (se crean en su etapa, no antes):
 `03b_ValidadorEstructura` (reporte APTO/ADVERTENCIAS/REVISIÓN), `12_Ingresos`
@@ -83,6 +84,7 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 | Transacción PACIENTES/EVENTOS | **IMPLEMENTADO (3b)** | Gates explícitos por fila; nuevo→crea entidad+evento enlazado; existente→solo evento (sin sobrescritura); append-only garantizado; escrituras batch |
 | Ejecución controlada desde el sheet | **IMPLEMENTADO (3b)** | Menú ECICEP: 📥 Procesar ingresos · 🧪 Sembrar datos ficticios (prueba) |
 | Ejecución real verificada en el spreadsheet | ✅ **VERIFICADA (EJ-MT3IJ7RG)**: 18 leídos = 3 OK + 11 WARNING + 4 ERROR intencionales; 11 pacientes nuevos + 3 enlazados; 14 eventos; SECTOR_* refrescadas |
+| Puerta Google Forms (v0.9.0) | **IMPLEMENTADO (núcleo tolerante en desarrollo)** | DEC-047/048: FORM → validación/normalización (`Form_validarRespuesta`), decisión (`Form_procesarLote`), efectos anexando la fila canónica a `INGRESO_<SECTOR>` y reusando `api_registrarEvento`; el pipeline decide duplicados; idempotencia por `responseId` + marcas `FORM|<id>|<acción>`; captura GAS con trigger `Form_onFormSubmit`; activación real requiere la acción manual de `FORMULARIO.md §6` |
 | Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con muestra controlada de datos reales |
 
 Pruebas: **171 casos verdes** (143 ETAPA 2 + 36 ETAPA 3 + 13 ETAPA 3b + ajustes).
