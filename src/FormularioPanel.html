@@ -33,12 +33,17 @@
     <div class="frm-stat"><div class="frm-num" id="fxRevision">—</div><div class="frm-lab">Revisi&oacute;n</div></div>
     <div class="frm-stat"><div class="frm-num" id="fxErrores">—</div><div class="frm-lab">Error</div></div>
     <div class="frm-stat"><div class="frm-num" id="fxCaptura">—</div><div class="frm-lab">&Uacute;ltima captura</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxViaForm">—</div><div class="frm-lab">% v&iacute;a Form</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxDupEvit">—</div><div class="frm-lab">Dup. evitados</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxReproc">—</div><div class="frm-lab">Reprocesos</div></div>
   </div>
 
   <div class="frm-acciones">
     <button class="btn btn-sec" id="fxBtnInstalar"><span class="spin" id="fxSpinInstalar"></span>Instalar</button>
     <button class="btn btn-sec" id="fxBtnDiagnostico"><span class="spin" id="fxSpinDiag"></span>Diagnosticar</button>
     <button class="btn btn-pri" id="fxBtnProcesar"><span class="spin" id="fxSpinProc"></span>Procesar pendientes</button>
+    <button class="btn btn-sec" id="fxBtnControl"><span class="spin" id="fxSpinCtrl"></span>Actualizar hoja de control</button>
+    <button class="btn btn-sec" id="fxBtnReprocesar"><span class="spin" id="fxSpinRepr"></span>Reprocesar errores</button>
   </div>
 
   <div class="frm-info" id="fxInfo">
@@ -74,10 +79,14 @@ function frmLog(tipo,msg){
 function pintarEstado(r){
   if(!r)return;
   var m=r.metricas||{};
+  var o=r.operativo||{};
   var nv=function(id,v){var el=document.getElementById(id);if(el)el.textContent=(v==null)?'—':v;};
   nv('fxTotal',m.total); nv('fxProcesadas',m.procesados); nv('fxPendientes',m.pendientes);
   nv('fxRevision',m.revision); nv('fxErrores',m.error);
   nv('fxCaptura',m.ultimaCaptura||'—');
+  nv('fxViaForm',(o.pctViaForm!=null)?(o.pctViaForm+'%'):'—');
+  nv('fxDupEvit',(o.duplicadosEvitados!=null)?o.duplicadosEvitados:'—');
+  nv('fxReproc',(o.reprocesamientos!=null)?o.reprocesamientos:'—');
   var ent=(r.entorno&&r.entorno.entorno)||'DESCONOCIDO';
   nv('fxEntorno',ent);
   nv('fxSsId',(r.entorno&&r.entorno.ssId)||'—');
@@ -126,6 +135,29 @@ document.getElementById('fxBtnProcesar').addEventListener('click',function(){
     flashOk(document.getElementById('fxBtnProcesar'));
     google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
   }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Procesar: '+(e.message||String(e)));}).api_formularioProcesar();
+});
+document.getElementById('fxBtnControl').addEventListener('click',function(){
+  var s=document.getElementById('fxSpinCtrl');if(s)s.classList.add('on');
+  google.script.run.withSuccessHandler(function(r){
+    if(s)s.classList.remove('on');
+    frmLog((r&&r.ok)?'ok':'err',
+      (r&&r.ok)?('Hoja de control actualizada: '+r.total+' env&iacute;os con trazabilidad rastreables en FORM_CONTROL.')
+      :((r&&r.motivo)||'Sin resultados'));
+    if(r&&r.ok)flashOk(document.getElementById('fxBtnControl'));
+    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Control: '+(e.message||String(e)));}).api_formularioControl();
+});
+document.getElementById('fxBtnReprocesar').addEventListener('click',function(){
+  var s=document.getElementById('fxSpinRepr');if(s)s.classList.add('on');
+  google.script.run.withSuccessHandler(function(r){
+    if(s)s.classList.remove('on');
+    var res=(r&&r.resumen)||{};
+    frmLog((r&&r.ok)?'ok':'err',
+      (r&&r.ok)?('Reproceso seguro ejecutado (idempotente por marca). Le&iacute;das '+res.leidos+' · procesadas '+res.procesados+' · revisi&oacute;n '+res.revision+' · errores '+res.errores)
+      :((r&&r.motivo)||'Sin resultados'));
+    if(r&&r.ok)flashOk(document.getElementById('fxBtnReprocesar'));
+    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Reprocesar: '+(e.message||String(e)));}).api_formularioReprocesar({});
 });
 google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(e){frmLog('err','Estado: '+e.message);}).api_formularioEstado();
 </script>

@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.9.1',
+  VERSION: '0.9.2',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
@@ -92,6 +92,7 @@ var HOJAS = {
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
   FORM_RESPUESTAS: 'FORM_RESPUESTAS', // zona técnica del formulario (captura + estados; oculta)
+  FORM_CONTROL: 'FORM_CONTROL',       // control administrativo del formulario (visible; trazabilidad + métricas operativas — v0.9.2)
   PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
   RESPONSABLES: 'RESPONSABLES',   // responsables por sector (acumulables, hoja oculta)
   REM_SALIDA: 'REM_SALIDA',       // reporte REM generado (interna; la construye 14_REM.js)
@@ -771,9 +772,43 @@ var FORM_CONFIG = {
     { pregunta: 'Teléfono(s)', campo: 'TELEFONOS', tipo: 'texto', acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Fecha del evento (control/seguimiento)', campo: 'FECHA_EVENTO', tipo: 'fecha', requerido: true,
       acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO'] },
-    { pregunta: 'Profesional que registra (opcional)', campo: 'PROFESIONAL', tipo: 'texto',
+    { pregunta: 'Profesional que registra (opcional)', campo: 'PROFESIONAL', tipo: 'dropdown',
       acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Descripción / observaciones', campo: 'OBSERVACIONES', tipo: 'texto' }
+  ]
+};
+
+// ---------------------------------------------------------------------------
+// Control administrativo del formulario (v0.9.2 — DEC-051). Hoja visible
+// FORM_CONTROL (LAYOUT_SIMPLE) que responde "¿qué pasó con este envío?" y
+// muestra las métricas operativas del canal (lo que el admin ve sin abrir
+// FORM_RESPUESTAS, que es técnica y oculta). Se regenera por bloque:
+// primera fila de encabezados de trazabilidad + bloque de métricas agregadas.
+// FUENTE de verdad: FORM_RESPUESTAS (trazabilidad) + PACIENTES/EVENTOS
+// (métricas vía formulario vs manuales).
+// ---------------------------------------------------------------------------
+FORM_CONFIG.CONTROL = {
+  // Columnas de trazabilidad por-envío (opción REESCRIBIR=true: la hoja se
+  // sobrescribe por completo para que siempre cuente lo que realmente existe).
+  REESCRIBIR: true,
+  COLUMNAS: [
+    'RESPONSE_ID', 'MARCA', 'FECHA_FORMS', 'ACCION', 'RUT', 'ID_INTERNO',
+    'ESTADO', 'MOTIVO', 'REINTENTOS', 'ID_EVENTO'
+  ],
+  // Métricas operativas que se exponen en el bloque agregado de la hoja y en
+  // el panel administrativo (título legible → clave).
+  METRICAS: [
+    { etiqueta: 'Respuestas recibidas', clave: 'total' },
+    { etiqueta: 'Registros vía formulario', clave: 'viaForm' },
+    { etiqueta: 'Registros manuales', clave: 'manuales' },
+    { etiqueta: '% vía formulario', clave: 'pctViaForm' },
+    { etiqueta: 'Controles vía formulario', clave: 'controlesForm' },
+    { etiqueta: 'Seguimientos vía formulario', clave: 'seguimientosForm' },
+    { etiqueta: 'Errores', clave: 'errores' },
+    { etiqueta: 'Rechazados', clave: 'rechazos' },
+    { etiqueta: 'Duplicados evitados', clave: 'duplicadosEvitados' },
+    { etiqueta: 'Reprocesamientos', clave: 'reprocesamientos' },
+    { etiqueta: 'Pendientes', clave: 'pendientes' }
   ]
 };
 
@@ -1044,6 +1079,20 @@ const CATALOGO_PROFESIONALES = [
   { CODIGO:'KINE', NOMBRE_CANONICO:'Kinesiólogo/a',       TIPO_ROL:'Kinesiología', ACTIVA:true },
   { CODIGO:'TO',   NOMBRE_CANONICO:'Terapeuta Ocupacional',TIPO_ROL:'Terapia Ocupacional', ACTIVA:true }
 ];
+
+// Catálogos → opciones de dropdowns del formulario (v0.9.2 — DEC-051).
+// La fuente maestra sigue siendo el catálogo; el formulario NO duplica listas a
+// mano. Se asigna aquí (tras declarar CATALOGO_PROFESIONALES) porque el
+// catálogo es CONST declarado al final del archivo y no puede referenciarse
+// dentro del literal FORM_CONFIG (TDZ).
+(function () {
+  var opcionesProf = CATALOGO_PROFESIONALES
+    .filter(function (p) { return p.ACTIVA; })
+    .map(function (p) { return p.NOMBRE_CANONICO; });
+  FORM_CONFIG.CAMPOS.forEach(function (c) {
+    if (c.campo === 'PROFESIONAL') c.opciones = opcionesProf;
+  });
+})();
 
 
 // ---------------------------------------------------------------------------

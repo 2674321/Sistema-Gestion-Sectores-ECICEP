@@ -470,6 +470,115 @@ registrar('observabilidad: el resumen NO expone el contenido de OBSERVACIONES (d
   return { ok, causa: 'se filtró contenido sensible en agregados del formulario' };
 });
 
+console.log('\n── GRUPO C: operativización v0.9.2 (métricas · trazabilidad · catálogos · control) ──');
+
+registrar('operativo: métricas distinguen registros vía FORM vs manuales (pctViaForm)', () => {
+  const eventos = [
+    { FUENTE: 'FORM|R-1|REGISTRAR_CONTROL', TIPO_EVENTO: 'CONTROL' },
+    { FUENTE: 'FORM|R-2|NUEVO_INGRESO', TIPO_EVENTO: 'INGRESO' },
+    { FUENTE: 'UI_FICHA', TIPO_EVENTO: 'CONTROL' },
+    { FUENTE: 'PCTS|hoja|1', TIPO_EVENTO: 'CONTROL' }
+  ];
+  const m = T.Form_metricasOperativas(eventos, []);
+  const ok = m.viaForm === 2 && m.manuales === 2
+    && m.controlesForm === 1 && m.ingresosForm === 1
+    && m.pctViaForm === 50;
+  return { ok, causa: 'métricas operativas mal calculadas: ' + JSON.stringify(m) };
+});
+
+registrar('operativo: métricas cuentan errores/rechazos/duplicados/reprocesamientos desde respuestas', () => {
+  const filas = [
+    { ESTADO: 'PROCESADO', REINTENTOS: '0' },
+    { ESTADO: 'ERROR', REINTENTOS: '2' },
+    { ESTADO: 'ERROR', REINTENTOS: '1' },
+    { ESTADO: 'REQUIERE_REVISION', REINTENTOS: '0' },
+    { ESTADO: 'DUPLICADO', REINTENTOS: '0' },
+    { ESTADO: 'VALIDO', REINTENTOS: '0' }
+  ];
+  const m = T.Form_metricasOperativas([], filas);
+  const ok = m.errores === 2 && m.rechazos === 1
+    && m.duplicadosEvitados === 1 && m.reprocesamientos === 3
+    && m.pendientes === 1 && m.procesados === 1 && m.total === 6;
+  return { ok, causa: 'métricas de estados mal derivadas: ' + JSON.stringify(m) };
+});
+
+registrar('operativo: trazabilidad por-envío reconstruye la marca FORM| y expone estado', () => {
+  const head = ['FECHA_FORMS', 'RESPONSE_ID', 'ACCION', 'RUT', 'ESTADO', 'MOTIVO', 'REINTENTOS', 'ID_INTERNO', 'ID_EVENTO'];
+  const filas = [
+    head,
+    ['2026-08-31 10:00:00', 'R-901', 'REGISTRAR_CONTROL', '12.345.678-5', 'PROCESADO', 'ok', '0', 'EC-1', 'EV-1'],
+    ['2026-08-31 10:05:00', 'R-902', 'NUEVO_INGRESO', '22.222.222-2', 'ERROR', 'RUT inválido', '2', '', '']
+  ];
+  const mapa = T.Form_mapeoEncabezados(head);
+  const traz = T.Form_trazabilidad(filas, mapa, {});
+  const ok = traz.length === 2
+    && traz[0].marca === 'FORM|R-901|REGISTRAR_CONTROL'
+    && traz[0].idInterno === 'EC-1'
+    && traz[1].estado === 'ERROR' && traz[1].reintentos === 2;
+  return { ok, causa: 'trazabilidad por-envío mal construida: ' + JSON.stringify(traz) };
+});
+
+registrar('operativo: filtro de trazabilidad por ERROR/PENDIENTES para recuperación', () => {
+  const head = ['RESPONSE_ID', 'ACCION', 'ESTADO', 'MOTIVO'];
+  const filas = [
+    head,
+    ['R-11', 'REGISTRAR_CONTROL', 'ERROR', 'RUT inválido'],
+    ['R-12', 'REGISTRAR_CONTROL', 'RECIBIDO', ''],
+    ['R-13', 'REGISTRAR_CONTROL', 'PROCESADO', 'ok']
+  ];
+  const mapa = T.Form_mapeoEncabezados(head);
+  const soloError = T.Form_trazabilidad(filas, mapa, { soloError: true });
+  const soloPend = T.Form_trazabilidad(filas, mapa, { soloPendientes: true });
+  const ok = soloError.length === 1 && soloError[0].responseId === 'R-11'
+    && soloPend.length === 1 && soloPend[0].responseId === 'R-12';
+  return { ok, causa: 'el filtro de recuperación no aisló ERROR/PENDIENTES' };
+});
+
+registrar('operativo: PROFESIONAL del formulario se nutre del catálogo oficial (no se duplica a mano)', () => {
+  const prof = T.FORM_CONFIG.CAMPOS.find(c => c.campo === 'PROFESIONAL');
+  const ok = prof && prof.tipo === 'dropdown' && Array.isArray(prof.opciones)
+    && prof.opciones.indexOf('Enfermera/o') !== -1
+    && prof.opciones.indexOf('Matrona/o') !== -1
+    && prof.opciones.indexOf('Asistente Social') !== -1;
+  return { ok, causa: 'PROFESIONAL no está enlazado al catálogo de profesionales' };
+});
+
+registrar('operativo: SECTOR y ESTRATIFICACIÓN provienen de la fuente oficial del modelo', () => {
+  const sector = T.FORM_CONFIG.CAMPOS.find(c => c.campo === 'SECTOR');
+  const strat = T.FORM_CONFIG.CAMPOS.find(c => c.campo === 'ESTRATIFICACION');
+  const ok = sector && Array.isArray(sector.opciones)
+    && sector.opciones.length === T.SECTORES_RESPONSABLES.length
+    && sector.opciones.join(',') === T.SECTORES_RESPONSABLES.join(',')
+    && strat && strat.opciones.indexOf('G1') !== -1 && strat.opciones.indexOf('G3') !== -1;
+  return { ok, causa: 'catálogos del formulario no provienen de la fuente oficial' };
+});
+
+registrar('operativo: contrato FORM_CONTROL (columnas de trazabilidad + métricas del canal)', () => {
+  const col = T.FORM_CONFIG.CONTROL && T.FORM_CONFIG.CONTROL.COLUMNAS;
+  const met = T.FORM_CONFIG.CONTROL && T.FORM_CONFIG.CONTROL.METRICAS;
+  const ok = Array.isArray(col) && col.indexOf('RESPONSE_ID') !== -1 && col.indexOf('MARCA') !== -1
+    && col.indexOf('ID_INTERNO') !== -1 && col.indexOf('ESTADO') !== -1
+    && Array.isArray(met) && met.some(x => x.clave === 'pctViaForm')
+    && met.some(x => x.clave === 'duplicadosEvitados');
+  return { ok, causa: 'contrato de la hoja FORM_CONTROL incompleto' };
+});
+
+registrar('operativo: reprocesar NO duplica (marca FUENTE ya registrada → PROCESADO_YA)', () => {
+  const store = { pacientes: [], eventos: [], _marcas: {} };
+  const rut = rutOk(33334444);
+  ingresarPorForm({ responseId: 'ACE-C-050', crudo: nuevoIngreso(rut) }, store);
+  store._marcas = indexarMarcas(store);
+  const r = [{ responseId: 'ACE-C-051', crudo: control(rut) }];
+  const primera = procesarLote(r, store);
+  aplicarClinica(r, primera.decisiones, store); // evento con FUENTE=marca persistido
+  const segunda = procesarLote(r, store);       // re-procesar tras fallo/ERROR
+  const totalControles = store.eventos.filter(e => e.TIPO_EVENTO === 'CONTROL').length;
+  const ok = primera.decisiones[0].decision === 'CLINICA'
+    && segunda.decisiones[0].decision === 'PROCESADO_YA'
+    && totalControles === 1;
+  return { ok, causa: 'el reproceso duplicó el evento (totalControles=' + totalControles + ')' };
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // Resumen
 // ════════════════════════════════════════════════════════════════════════════

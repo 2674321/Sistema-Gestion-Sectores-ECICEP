@@ -722,9 +722,43 @@ red ni hora actual.
    estable; observabilidad sin datos personales.
 4. **Modela el efecto del entorno GAS** (`aplicarClinica`) para validar idempotencia real por
    marca, espejando `Form_procesarPendientes` + `api_registrarEvento`.
-   **Resultado:** 21/21 verdes; núcleo 463/463; `node --check` limpio. **Fecha:** 2026-08-31
+    **Resultado:** 21/21 verdes; núcleo 463/463; `node --check` limpio. **Fecha:** 2026-08-31
 
 ---
+
+## DEC-051
+**Título:** v0.9.2 — Transición de la captura directa en la hoja hacia el formulario (operativización)
+**Estado:** Aprobada
+**Motivo:** El formulario v0.9.0/51 ya es un canal de captura funcional; esta versión lo convierte en
+el canal OPERATIVO principal (el usuario captura, el sistema procesa y la hoja pasa a ser
+BASE+ADMIN+SUPERVISIÓN), reduciendo el número de personas con acceso de edición a la hoja.
+1. **Sin sistema paralelo.** El formulario sigue siendo SOLO otra puerta de entrada al MISMO
+   núcleo (FORM → INGESTA → NÚCLEO → MODELO). Se reutilizan pipeline, api_registrarEvento e
+   idempotencia por marca `FORM|<id>|<ACCIÓN>` (DEC-048); no se duplican reglas.
+2. **Matriz de operaciones.** Clasificación explícita: CAPTURABLES POR FORM (NUEVO_INGRESO,
+   REGISTRAR_CONTROL, REGISTRAR_SEGUIMIENTO, ACTUALIZAR_DATOS) · ADMINISTRATIVAS (hoja/panel:
+   config, responsables, revisión, control) · AUTOMÁTICAS (trigger, procesamiento, cálculo) ·
+   NO EXPUESTAS (identidad/ID interno, marcas, estados, métricas técnicas). Ver FORMULARIO.md §11.
+3. **MVP operativo = CONTROL/SEGUIMIENTO** (mayor frecuencia y menor riesgo: persona ya existe,
+   idempotencia por marca). Este flujo queda operativo de punta a punta y confirmado por el
+   usuario: el capturador solo llena el formulario y NUNCA abre la hoja.
+4. **Catálogos desde la fuente oficial.** El campo PROFESIONAL del formulario se nutre de
+   `CATALOGO_PROFESIONALES` (se asigna tras declararlo por TDZ); SECTOR viene de
+   `SECTORES_RESPONSABLES` y ESTRATIFICACIÓN de `['G1','G2','G3']`. No se copian listas a mano
+   (se verifica en tests).
+5. **Métrica operativa** `% de registros vía formulario` (`Form_metricasOperativas`): de EVENTOS
+   (FUENTE `FORM|…` = vía formulario; resto = manuales). Se acompaña de registros por formulario,
+   controles/seguimientos/ingresos vía formulario, errores, rechazos, duplicados evitados y
+   reprocesamientos — agregados, sin datos personales.
+6. **Observabilidad administrativa** `FORM_CONTROL` (hoja visible, LAYOUT_SIMPLE, regenerable):
+   por-envío (`RESPONSE_ID · MARCA · FECHA · ACCION · RUT · ID_INTERNO · ESTADO · MOTIVO ·
+   REINTENTOS · ID_EVENTO`) + bloque de métricas. El panel `FormularioPanel.html` muestra las
+   métricas y agrega acciones "Actualizar hoja de control" y "Reprocesar errores".
+7. **Recuperación idempotente** (`Form_reprocesar`/`Form_reiniciarRespuesta`): listar y reprocesar
+   ERROR/PENDIENTES; reinicia solo estados no-PROCESADO; la marca FUENTE/INGRESO_FILA garantiza
+   que reprocesar NUNCA duplica (se asevera en tests).
+8. **Versión**: v0.9.2. **Tests:** `_pruebas_operativo_v092` (+6) y Grupo C de aceptación (+8):
+   **469/469 núcleo + 29/29 aceptación**; `node --check` limpio. **Fecha:** 2026-08-31
 
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento

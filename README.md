@@ -5,8 +5,8 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.9.1 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **463 pruebas locales verdes +
-21 aceptación formulario** · pacientes reales / eventos operando en producción.
+**v0.9.2 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **469 pruebas locales verdes +
+29 aceptación formulario** · pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
 > Camila Paz Aguilar (Enfermera). No constituye un proyecto institucional del CESFAM.
@@ -65,13 +65,13 @@ Sistema-Gestion-Sectores-ECICEP/
 ├── src/                    # Código Apps Script (sincronizado con clasp)
 │   ├── appsscript.json
 │   ├── 00_Config … 09_Log  # Módulos del núcleo
-│   ├── 24_Formulario.js    # Puerta Google Forms (DEC-047/048)
+│   ├── 24_Formulario.js    # Puerta Google Forms + operativización (DEC-047/048/051)
 │   ├── 25_Entorno.js       # Estrategia DEV/DEMO, gate e identidad (DEC-049)
 │   ├── 10_Pruebas.js       # Suites deterministas
 │   └── 11_DatosPrueba.js   # Dataset ficticio único
 ├── tests/
-│   ├── ejecutar_local.mjs          # node tests/ejecutar_local.mjs (núcleo 463)
-│   └── aceptacion_formulario.mjs   # node tests/aceptacion_formulario.mjs (aceptación 21)
+│   ├── ejecutar_local.mjs          # node tests/ejecutar_local.mjs (núcleo 469)
+│   └── aceptacion_formulario.mjs   # node tests/aceptacion_formulario.mjs (aceptación 29)
 ├── datos_prueba/           # Muestras ficticias futuras (único Excel permitido)
 └── docs...
 ```
@@ -384,6 +384,28 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Tests**: `_pruebas_entornos_v091` + `_pruebas_formulario_v090`. **463/463 núcleo + 21/21
   aceptación verdes**; `node --check` limpio. Despliegue: `clasp push -f` (sin deploy WebApp en
   desarrollo; el ejecutable de producción permanece en @63).
+
+## v0.9.2 — Operativización del formulario (DEC-051)
+
+- El formulario pasa a ser el **canal operativo principal de captura**: el usuario llena el FORM y
+  no abre la hoja. La hoja pasa a ser **base operativa + administración + supervisión**. Sin
+  sistema paralelo: FORM → INGESTA → el MISMO núcleo → modelo.
+- **MVP operativo = CONTROL/SEGUIMIENTO**: flujo completo (persona ya existe) cubierto de punta a
+  punta; idempotencia por marca `FORM|<id>|<ACCIÓN>` impide duplicados en reintentos.
+- **Catálogos desde la fuente oficial**: `PROFESIONAL` se nutre de `CATALOGO_PROFESIONALES`,
+  `SECTOR` de `SECTORES_RESPONSABLES`, `ESTRATIFICACIÓN` de `['G1','G2','G3']`. Nada se copia a
+  mano.
+- **Observabilidad** (`src/24_Formulario.js`): `Form_metricasOperativas` (% vía formulario,
+  registros por form, errores, rechazos, duplicados evitados, reprocesamientos) y
+  `Form_trazabilidad` (por-envío: RESPONSE_ID · MARCA · FECHA · ACCION · RUT · ID_INTERNO ·
+  ESTADO · MOTIVO · REINTENTOS · ID_EVENTO).
+- **Hoja de control `FORM_CONTROL`**: tabla administrativa visible y regenerable (`Form_refrescarControl`)
+  con la trazabilidad por-envío + el bloque de métricas operativas. Panel `FormularioPanel.html`
+  agrega las métricas y los botones "Actualizar hoja de control" y "Reprocesar errores".
+- **Recuperación idempotente** (`Form_reprocesar`/`Form_reiniciarRespuesta`): listar/reprocesar
+  ERROR y PENDIENTES; reinicia solo estados no-PROCESADO y nunca duplica (marca/INGRESO_FILA).
+- **Tests**: `_pruebas_operativo_v092` (+6) + Grupo C de aceptación (+8). **469/469 núcleo +
+  29/29 aceptación verdes**; `node --check` limpio.
 
 ## QR permanente — Google Sheets
 

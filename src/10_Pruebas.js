@@ -77,6 +77,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_designsystem_v0896(t, A);
   _pruebas_formulario_v090(t, A);
   _pruebas_entornos_v091(t, A);
+  _pruebas_operativo_v092(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2594,7 +2595,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.1', 'versión esperada v0.9.1');
+    A.igual(v, '0.9.2', 'versión esperada v0.9.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2835,9 +2836,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.1', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.2', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.1', 'versión esperada v0.9.1');
+    A.igual(v, '0.9.2', 'versión esperada v0.9.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3900,5 +3901,93 @@ function _pruebas_entornos_v091(t, A) {
     });
     A.cierto(Array.isArray(CONFIG_SEED_EXTRA) && CONFIG_SEED_EXTRA.length > 0,
       'la configuración clínica sigue viviendo en el sistema existente (CONFIG_SEED_EXTRA), no duplicada en ENTORNOS');
+  });
+}
+
+// v0.9.2 — Operativización del formulario (DEC-051): métricas operativas,
+// trazabilidad por-envío, catálogos oficiales y contrato de la hoja FORM_CONTROL.
+function _pruebas_operativo_v092(t, A) {
+  t('OPERATIVO v0.9.2: métricas distinguen registros vía FORM vs manuales (pctViaForm)', function () {
+    var eventos = [
+      { FUENTE: 'FORM|R-1|REGISTRAR_CONTROL' },
+      { FUENTE: 'FORM|R-2|NUEVO_INGRESO' },
+      { FUENTE: 'FORM|R-3|REGISTRAR_SEGUIMIENTO' },
+      { FUENTE: 'UI_FICHA' },
+      { FUENTE: 'PCTS|hoja|1' }
+    ];
+    var m = Form_metricasOperativas(eventos, []);
+    A.igual(m.viaForm, 3, 'viaForm');
+    A.igual(m.manuales, 2, 'manuales');
+    A.igual(m.controlesForm, 1, 'controlesForm');
+    A.igual(m.seguimientosForm, 1, 'seguimientosForm');
+    A.igual(m.ingresosForm, 1, 'ingresosForm');
+    A.igual(m.pctViaForm, 60, 'pctViaForm');
+    A.igual(m.registrosPorForm['REGISTRAR_CONTROL'], 1, 'registrosPorForm control');
+  });
+
+  t('OPERATIVO v0.9.2: métricas derivan errores/rechazos/duplicados/reprocesamientos', function () {
+    var filas = [
+      { ESTADO: 'PROCESADO', REINTENTOS: '0' },
+      { ESTADO: 'ERROR', REINTENTOS: '2' },
+      { ESTADO: 'ERROR', REINTENTOS: '1' },
+      { ESTADO: 'REQUIERE_REVISION', REINTENTOS: '0' },
+      { ESTADO: 'DUPLICADO', REINTENTOS: '0' },
+      { ESTADO: 'VALIDO', REINTENTOS: '0' }
+    ];
+    var m = Form_metricasOperativas([], filas);
+    A.igual(m.errores, 2, 'errores');
+    A.igual(m.rechazos, 1, 'rechazos');
+    A.igual(m.duplicadosEvitados, 1, 'duplicadosEvitados');
+    A.igual(m.reprocesamientos, 3, 'reprocesamientos');
+    A.igual(m.pendientes, 1, 'pendientes');
+    A.igual(m.procesados, 1, 'procesados');
+    A.igual(m.total, 6, 'total');
+  });
+
+  t('OPERATIVO v0.9.2: trazabilidad por-envío reconstruye marca FORM| y estado', function () {
+    var head = ['FECHA_FORMS', 'RESPONSE_ID', 'ACCION', 'RUT', 'ESTADO', 'MOTIVO', 'REINTENTOS', 'ID_INTERNO', 'ID_EVENTO'];
+    var filas = [
+      head,
+      ['2026-08-31 10:00:00', 'R-901', 'REGISTRAR_CONTROL', '12.345.678-5', 'PROCESADO', 'ok', '0', 'EC-1', 'EV-1']
+    ];
+    var mapa = Form_mapeoEncabezados(head);
+    var traz = Form_trazabilidad(filas, mapa, {});
+    A.igual(traz.length, 1, 'una fila');
+    A.igual(traz[0].marca, 'FORM|R-901|REGISTRAR_CONTROL', 'marca');
+    A.igual(traz[0].idInterno, 'EC-1', 'idInterno');
+    A.igual(traz[0].estado, 'PROCESADO', 'estado');
+  });
+
+  t('OPERATIVO v0.9.2: filtros de trazabilidad para recuperación (ERROR/PENDIENTES)', function () {
+    var head = ['RESPONSE_ID', 'ACCION', 'ESTADO'];
+    var filas = [
+      head,
+      ['R-11', 'REGISTRAR_CONTROL', 'ERROR'],
+      ['R-12', 'REGISTRAR_CONTROL', 'RECIBIDO'],
+      ['R-13', 'REGISTRAR_CONTROL', 'PROCESADO']
+    ];
+    var mapa = Form_mapeoEncabezados(head);
+    A.igual(Form_trazabilidad(filas, mapa, { soloError: true }).length, 1, 'soloError');
+    A.igual(Form_trazabilidad(filas, mapa, { soloPendientes: true }).length, 1, 'soloPendientes');
+  });
+
+  t('OPERATIVO v0.9.2: PROFESIONAL del formulario viene del catálogo oficial (no se duplica)', function () {
+    var prof = null;
+    Form_campos().forEach(function (c) { if (c.campo === 'PROFESIONAL') prof = c; });
+    A.cierto(prof !== null, 'campo PROFESIONAL existe');
+    A.igual(prof.tipo, 'dropdown', 'tipo dropdown');
+    A.cierto(prof.opciones.indexOf('Enfermera/o') !== -1, 'opción Enfermera/o');
+    A.cierto(prof.opciones.indexOf('Matrona/o') !== -1, 'opción Matrona/o');
+    A.igual(prof.opciones.length, CATALOGO_PROFESIONALES.filter(function (p) { return p.ACTIVA; }).length, 'todas las activas');
+  });
+
+  t('OPERATIVO v0.9.2: contrato de la hoja FORM_CONTROL (trazabilidad + métricas)', function () {
+    var col = FORM_CONFIG.CONTROL.COLUMNAS;
+    ['RESPONSE_ID', 'MARCA', 'FECHA_FORMS', 'ACCION', 'RUT', 'ID_INTERNO', 'ESTADO', 'MOTIVO', 'REINTENTOS', 'ID_EVENTO']
+      .forEach(function (c) { A.cierto(col.indexOf(c) !== -1, 'columna ' + c); });
+    var claves = FORM_CONFIG.CONTROL.METRICAS.map(function (m) { return m.clave; });
+    ['pctViaForm', 'viaForm', 'manuales', 'errores', 'rechazos', 'duplicadosEvitados', 'reprocesamientos']
+      .forEach(function (k) { A.cierto(claves.indexOf(k) !== -1, 'métrica ' + k); });
+    A.igual(FORM_CONFIG.CONTROL.REESCRIBIR, true, 'REESCRIBIR true');
   });
 }

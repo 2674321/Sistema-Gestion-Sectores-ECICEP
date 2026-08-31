@@ -332,6 +332,103 @@ function Form_metricas(filas) {
 }
 
 /**
+ * PURA: métricas OPERATIVAS del canal formulario (v0.9.2 — DEC-051).
+ * Responde objetivamente "¿el formulario está reemplazando la captura
+ * directa en la hoja?":
+ *   - viaForm / manuales / pctViaForm: qué proporción de registros clínicos
+ *     (controles + seguimientos + ingresos) entró por el formulario.
+ *   - registrosPorForm: eventos clínicos por marca (obra/acción).
+ *   - errores / rechazos / duplicadosEvitados / reprocesamientos: derivados de
+ *     las respuestas (estados y reintentos).
+ * Todo se calcula de datos YA persistidos (no escribe nada).
+ * @param {Object[]} eventos           EVENTOS con FUENTE (el FUENTE determina
+ *                                     si el registro clínico vino por el
+ *                                     formulario —'FORM|…'— o por otro origen)
+ * @param {Object[]} [filasRespuestas] [{ESTADO, ACCION, REINTENTOS}]
+ * @returns métricas operativas agregadas
+ */
+function Form_metricasOperativas(eventos, filasRespuestas) {
+  var m = {
+    viaForm: 0, manuales: 0, pctViaForm: 0, registrosPorForm: {},
+    controlesForm: 0, seguimientosForm: 0, ingresosForm: 0,
+    errores: 0, rechazos: 0, duplicadosEvitados: 0, reprocesamientos: 0,
+    total: 0, pendientes: 0, procesados: 0
+  };
+  var claves = { control: 'REGISTRAR_CONTROL', seguimiento: 'REGISTRAR_SEGUIMIENTO', ingreso: 'NUEVO_INGRESO' };
+
+  (eventos || []).forEach(function (ev) {
+    var fuente = Utl_texto(ev.FUENTE);
+    if (fuente.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0) {
+      m.viaForm += 1;
+      // accion = último segmento de la marca FORM|<id>|<ACCIÓN>
+      var seg = fuente.split('|');
+      var acc = seg.length > 2 ? Utl_texto(seg[seg.length - 1]).toUpperCase() : '';
+      m.registrosPorForm[acc || 'FORM'] = (m.registrosPorForm[acc || 'FORM'] || 0) + 1;
+      if (acc === claves.control) m.controlesForm += 1;
+      else if (acc === claves.seguimiento) m.seguimientosForm += 1;
+      else if (acc === claves.ingreso) m.ingresosForm += 1;
+    } else {
+      m.manuales += 1;
+    }
+  });
+
+  var totalRegistros = m.viaForm + m.manuales;
+  m.pctViaForm = totalRegistros > 0 ? Math.round((m.viaForm / totalRegistros) * 1000) / 10 : 0;
+
+  (filasRespuestas || []).forEach(function (f) {
+    m.total += 1;
+    var est = Utl_texto(f.ESTADO).toUpperCase() || 'RECIBIDO';
+    if (est === 'RECIBIDO' || est === 'VALIDANDO' || est === 'VALIDO') m.pendientes += 1;
+    else if (est === 'PROCESADO') m.procesados += 1;
+    else if (est === 'ERROR') { m.errores += 1; m.reprocesamientos += (Number(f.REINTENTOS) || 0); }
+    else if (est === 'REQUIERE_REVISION') m.rechazos += 1;
+    else if (est === 'DUPLICADO') m.duplicadosEvitados += 1;
+  });
+
+  return m;
+}
+
+/**
+ * PURA: trazabilidad por-envío para el control administrativo (v0.9.2).
+ * Devuelve una fila plana por respuesta: FORM_RESPONSE · MARCA · FECHA ·
+ * ACCION · RUT · ID_INTERNO · ESTADO · MOTIVO · REINTENTOS · ID_EVENTO.
+ * La MARCA se reconstruye con Form_marcadorFuente para que el admin pueda
+ * rastrearla en EVENTOS/INGRESO hasta el ID_INTERNO.
+ * @param {Object[]} filas  filas de FORM_RESPUESTAS (con todos los campos)
+ * @param {Object}   mapa   {idx} mapeo encabezados (Form_mapeoEncabezados)
+ * @param {Object}   [opciones] {soloPendientes|soloError}
+ * @returns {Object[]} filas planas de trazabilidad
+ */
+function Form_trazabilidad(filas, mapa, opciones) {
+  opciones = opciones || {};
+  var idx = mapa.idx;
+  var salida = [];
+  (filas || []).forEach(function (fila, i) {
+    if (i === 0) return; // encabezado
+    var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto(fila[idx['RESPONSEID']]) : '';
+    if (!responseId) return;
+    var accion = idx['ACCION'] !== undefined ? Utl_texto(fila[idx['ACCION']]) : '';
+    var estado = Utl_texto(idx['ESTADO'] !== undefined ? fila[idx['ESTADO']] : '').toUpperCase();
+    if (opciones.soloPendientes && estado !== 'RECIBIDO' && estado !== 'VALIDANDO' && estado !== 'VALIDO') return;
+    if (opciones.soloError && estado !== 'ERROR') return;
+    salida.push({
+      responseId: responseId,
+      marca: Form_marcadorFuente(responseId, accion || 'FORM'),
+      fechaForms: idx['FECHAFORMS'] !== undefined ? Utl_texto(fila[idx['FECHAFORMS']]) : '',
+      accion: accion,
+      rut: idx['RUT'] !== undefined ? Utl_texto(fila[idx['RUT']]) : '',
+      nombre: idx['NOMBRE'] !== undefined ? Utl_texto(fila[idx['NOMBRE']]) : '',
+      idInterno: idx['IDINTERNO'] !== undefined ? Utl_texto(fila[idx['IDINTERNO']]) : '',
+      idEvento: idx['IDEVENTO'] !== undefined ? Utl_texto(fila[idx['IDEVENTO']]) : '',
+      estado: estado || 'RECIBIDO',
+      motivo: idx['MOTIVO'] !== undefined ? Utl_texto(fila[idx['MOTIVO']]) : '',
+      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0
+    });
+  });
+  return salida;
+}
+
+/**
  * PURA: simulador determinista de respuestas del formulario.
  * @param {number} cantidad  10 | 100 | 500 | 1000 | 3000
  * @param {Object} [opciones] {semilla, porcentajeInvalidos}
@@ -448,9 +545,12 @@ function Form_instalar() {
     }
     try { hoja.setTabColor(DESIGN_SYSTEM.MARCA.tecnico); } catch (e) { /* color no crítico */ }
     Form_instalarTrigger();
+    var control = {};
+    try { control = Form_refrescarControl(); } catch (e) { control = { ok: false, motivo: String(e) }; }
     return {
       ok: true, hoja: creada ? 'creada' : 'existente', cambios: cambios,
       formIdConfigurado: !Utl_vacio(FORM_CONFIG.FORM_ID),
+      control: control && control.ok ? 'FORM_CONTROL actualizado' : 'FORM_CONTROL pendiente',
       version: FORM_CONFIG.FORM_VERSION,
       nota: (Utl_vacio(FORM_CONFIG.FORM_ID))
         ? 'FORM_ID sin configurar: se prepara la estructura; el formulario se crea manualmente en Google Forms y se asocia en FORM_CONFIG.'
@@ -584,16 +684,173 @@ function Form_obtenerEstado() {
       }
     }
     var cur = Entorno_actualGAS();
+    var operativo = Form_metricasOperativas(_controlEventosResumen(), filas);
     return {
       ok: true,
       entorno: { entorno: cur.entorno, ssId: cur.ssId, coincide: cur.coincide },
       config: { activo: FORM_CONFIG.ACTIVO, formId: FORM_CONFIG.FORM_ID, version: FORM_CONFIG.FORM_VERSION },
       triggerInstalado: Form_triggerInstalado(),
-      metricas: Form_metricas(filas)
+      metricas: Form_metricas(filas),
+      operativo: operativo
     };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
+}
+
+/** GAS: EVENTOS leídos para las métricas operativas (por FUENTE). */
+function _controlEventosResumen() {
+  return Modelo_leerEventos();
+}
+
+// ---------------------------------------------------------------------------
+// WRAPPERS GAS — control administrativo y recuperación (v0.9.2 — DEC-051)
+// ---------------------------------------------------------------------------
+
+/** GAS: lista de trazabilidad por-envío (FORM_RESPONSE · MARCA · FECHA ·
+ *  ACCION · RUT · ID_INTERNO · ESTADO · MOTIVO · REINTENTOS · ID_EVENTO).
+ *  Responde "¿qué pasó con este envío?" sin exponer hojas técnicas. */
+function Form_listarControl(opciones) {
+  opciones = opciones || {};
+  if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
+  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  var filas = Form_trazabilidad([], { idx: {} }, opciones);
+  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
+    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+    filas = Form_trazabilidad(valores, Form_mapeoEncabezados(valores[0]), opciones);
+  }
+  return { ok: true, filas: filas, total: filas.length };
+}
+
+/**
+ * GAS: regenera por completo la hoja administrativa FORM_CONTROL (trazabilidad
+ * por-envío + bloque de métricas operativas). Idempotente y de solo-escritura:
+ * nunca toca FORM_RESPUESTAS ni los datos clínicos.
+ */
+function Form_refrescarControl() {
+  if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet() || Modelo_ss();
+    var hoja = ss.getSheetByName(HOJAS.FORM_CONTROL);
+    if (!hoja) {
+      hoja = ss.insertSheet(HOJAS.FORM_CONTROL);
+      try { hoja.setTabColor(DESIGN_SYSTEM.MARCA.sistema); } catch (e) { /* color no crítico */ }
+    }
+    hoja.showSheet();
+    hoja.clear();
+
+    var columnas = FORM_CONFIG.CONTROL.COLUMNAS;
+    var listado = Form_listarControl();
+    var traz = listado.filas || [];
+
+    var filas = [columnas];
+    traz.forEach(function (t) {
+      filas.push([
+        t.responseId, t.marca, t.fechaForms, t.accion, t.rut, t.idInterno,
+        t.estado, t.motivo, t.reintentos, t.idEvento
+      ]);
+    });
+
+    // Bloque de métricas operativas: una fila en blanco + cabecera + valores
+    filas.push([]);
+    filas.push(['MÉTRICAS OPERATIVAS', '']);
+    var oper = Form_metricasOperativas(_controlEventosResumen(), _controlRespuestasResumen());
+    FORM_CONFIG.CONTROL.METRICAS.forEach(function (met) {
+      filas.push([met.etiqueta, oper[met.clave] === undefined ? 0 : oper[met.clave]]);
+    });
+
+    // setValues exige un rango rectangular: se rellenan todas las filas a la
+    // cantidad de columnas del contrato (las filas de métricas solo usan 2).
+    var ancho = columnas.length;
+    var filasNorm = filas.map(function (fila) {
+      var out = fila || [];
+      while (out.length < ancho) out.push('');
+      return out.slice(0, ancho);
+    });
+
+    if (filasNorm.length > 0) {
+      hoja.getRange(1, 1, filasNorm.length, ancho).setValues(filasNorm);
+    }
+    try { hoja.setFrozenRows(1); } catch (e) { /* opcional */ }
+
+    return { ok: true, total: traz.length, metricas: oper };
+  } catch (e) {
+    Log_error('Formulario', 'control', e && e.message ? e.message : String(e));
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** GAS: lee FORM_RESPUESTAS como objetos {ESTADO, ACCION, REINTENTOS} para métricas. */
+function _controlRespuestasResumen() {
+  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  var salida = [];
+  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
+    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+    var mapa = Form_mapeoEncabezados(valores[0]);
+    for (var f = 1; f < valores.length; f++) {
+      salida.push({
+        ESTADO: mapa.idx['ESTADO'] !== undefined ? valores[f][mapa.idx['ESTADO']] : '',
+        ACCION: mapa.idx['ACCION'] !== undefined ? valores[f][mapa.idx['ACCION']] : '',
+        REINTENTOS: mapa.idx['REINTENTOS'] !== undefined ? valores[f][mapa.idx['REINTENTOS']] : ''
+      });
+    }
+  }
+  return salida;
+}
+
+/**
+ * GAS: recuperación/reprocesamiento administrativo IDEMPOTENTE.
+ * - `respuestaId` dado → resetea su ESTADO a RECIBIDO (y REINTENTOS) y lo
+ *   reprocesa una vez. La idempotencia por marca FUENTE / INGRESO_FILA
+ *   garantiza que NO duplica eventos ni filas (DEC-048/49/50).
+ * - sin `respuestaId` → reprocesa el lote de pendientes completo (incluye los
+ *   ERROR dentro del tope de reintentos).
+ * Devuelve un resumen del procesamiento y refresca FORM_CONTROL.
+ */
+function Form_reprocesar(opciones) {
+  opciones = opciones || {};
+  if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
+  if (opciones.respuestaId) {
+    var okReset = Form_reiniciarRespuesta(opciones.respuestaId);
+    if (!okReset.ok) return okReset;
+  }
+  var procesado = Form_procesarPendientes({ forzar: true });
+  if (!procesado.ok) return procesado;
+  var control = Form_refrescarControl();
+  return {
+    ok: true,
+    resumen: procesado.resumen || {},
+    respuestaId: opciones.respuestaId || null,
+    control: control.total
+  };
+}
+
+/**
+ * GAS: reinicia una respuesta errónea/atascada para permitir su reprocesamiento
+ * seguro. Nunca reinicia PROCESADO. Devuelve {ok, motivo}.
+ */
+function Form_reiniciarRespuesta(responseId) {
+  if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
+  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  if (!hoja) return { ok: false, motivo: 'SIN_HOJA' };
+  var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+  var mapa = Form_mapeoEncabezados(valores[0]);
+  var start = Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS);
+  for (var f = 1; f < valores.length; f++) {
+    var rid = mapa.idx['RESPONSEID'] !== undefined ? Utl_texto(valores[f][mapa.idx['RESPONSEID']]) : '';
+    if (rid !== responseId) continue;
+    var estado = (mapa.idx['ESTADO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ESTADO']]) : '').toUpperCase();
+    if (estado === 'PROCESADO') return { ok: false, motivo: 'YA_PROCESADO_NO_SE_REINICIA' };
+    var filaFisica = start + f - 1;
+    var cEstado = mapa.idx['ESTADO'];
+    var cMotivo = mapa.idx['MOTIVO'];
+    var cReint = mapa.idx['REINTENTOS'];
+    if (cEstado !== undefined) hoja.getRange(filaFisica, cEstado + 1).setValue('RECIBIDO');
+    if (cReint !== undefined) hoja.getRange(filaFisica, cReint + 1).setValue(0);
+    if (cMotivo !== undefined) hoja.getRange(filaFisica, cMotivo + 1).setValue('');
+    return { ok: true, fila: filaFisica };
+  }
+  return { ok: false, motivo: 'NO_ENCONTRADA' };
 }
 
 // ---------------------------------------------------------------------------
@@ -979,3 +1236,9 @@ function api_formularioDiagnostico() { return Form_diagnosticar(); }
 function api_formularioProcesar() { return Form_procesarAhora(); }
 
 function api_formularioInstalar() { return Form_instalar(); }
+
+function api_formularioControl() { return Form_refrescarControl(); }
+
+function api_formularioReprocesar(param) {
+  return Form_reprocesar(param && param.respuestaId ? { respuestaId: param.respuestaId } : {});
+}
