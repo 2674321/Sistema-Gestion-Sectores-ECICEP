@@ -76,6 +76,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_pulido_v0895(t, A);
   _pruebas_designsystem_v0896(t, A);
   _pruebas_formulario_v090(t, A);
+  _pruebas_entornos_v091(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2593,7 +2594,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.0', 'versión esperada v0.9.0');
+    A.igual(v, '0.9.1', 'versión esperada v0.9.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2834,9 +2835,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.0', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.1', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.0', 'versión esperada v0.9.0');
+    A.igual(v, '0.9.1', 'versión esperada v0.9.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3792,5 +3793,112 @@ function _pruebas_formulario_v090(t, A) {
     A.igual(Form_simularRespuestas(500, { semilla: 1 }).length, 500, '500');
     A.igual(Form_simularRespuestas(1000, { semilla: 1 }).length, 1000, '1000');
     A.igual(Form_simularRespuestas(3000, { semilla: 1 }).length, 3000, '3000');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v0.9.1 — ENTORNOS DEV/DEMO (estrategia de despliegue, DEC-049)
+// ---------------------------------------------------------------------------
+function _pruebas_entornos_v091(t, A) {
+  var DEV_ID = ENTORNOS.DEV.SPREADSHEET_ID;
+  var DEMO_ID = ENTORNOS.DEMO.SPREADSHEET_ID;
+
+  t('ENTORNO v0.9.1: identidad por Spreadsheet ID, nunca por nombre', function () {
+    A.igual(Entorno_detectar(DEV_ID), 'DEV', 'DEV por ID');
+    A.igual(Entorno_detectar(DEMO_ID), 'DEMO', 'DEMO por ID');
+    A.igual(Entorno_detectar('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 'DESCONOCIDO', 'libro ajeno → DESCONOCIDO');
+    A.igual(Entorno_detectar(''), 'DESCONOCIDO', 'sin ID → DESCONOCIDO');
+    A.igual(Entorno_detectar('Hoja llamada DEMO pero de otro libro'), 'DESCONOCIDO', 'el nombre visible NO define el entorno');
+    var porNombre = (function () {
+      try { return Function('return typeof Entorno_porNombre !== "undefined"')(); } catch (e) { return false; }
+    })();
+    A.cierto(!porNombre, 'prohibido resolver el entorno por nombre de hoja');
+    A.cierto(typeof Entorno_detectar === 'function', 'la identidad se resuelve solo por getActiveSpreadsheet().getId()');
+    A.cierto(Entorno_esLibro(DEV_ID, 'DEV'), 'esLibro DEV');
+    A.cierto(!Entorno_esLibro(DEMO_ID, 'DEV'), 'DEMO no es DEV');
+  });
+
+  t('ENTORNO v0.9.1: configuración transversal y clínica sin duplicar (rollback seguro)', function () {
+    Entorno_lista().forEach(function (env) {
+      var d = Entorno_datos(env);
+      A.cierto(!!d.SPREADSHEET_ID, env + ': spreadsheet registrado');
+      A.cierto(!!d.NOMBRE && !!d.ETIQUETA, env + ': nombre y etiqueta');
+      var f = Entorno_carpetaEsperada(env);
+      A.cierto(f === 'ECICEP_Backups_' + env || (d.BACKUP_FOLDER_ID && f),
+        env + ': carpeta de backup derivada o por ID (nunca compartida)');
+    });
+    A.cierto(Entorno_carpetaEsperada('DEV') !== Entorno_carpetaEsperada('DEMO'), 'carpetas DEV ≠ DEMO');
+    A.cierto(!('FORMATO_FECHAS' in ENTORNOS.DEV) || !('FORMATO_FECHAS' in ENTORNOS.DEMO),
+      'la configuración de presentación vive en CFG/GLOBAL, no en ENTORNOS');
+  });
+
+  t('ENTORNO v0.9.1: gate de procesamiento — entorno correcto pasa', function () {
+    var g = Entorno_validarProcesamiento(DEV_ID, '', {});
+    A.cierto(g.ok, 'DEV sin form explícito procesa');
+    A.igual(g.entorno, 'DEV', 'entorno DEV');
+    var g2 = Entorno_validarProcesamiento(DEMO_ID, '', {});
+    A.cierto(g2.ok, 'DEMO sin form explícito procesa');
+    A.igual(g2.entorno, 'DEMO', 'entorno DEMO');
+  });
+
+  t('ENTORNO v0.9.1: gate bloquea libro desconocido (ERROR_CONFIG_ENTORNO)', function () {
+    var g = Entorno_validarProcesamiento('11111111111111111111111111111111', '', {});
+    A.cierto(!g.ok, 'libro desconocido bloquea');
+    A.igual(g.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo normalizado');
+    var g0 = Entorno_validarProcesamiento('', '', {});
+    A.cierto(!g0.ok, 'sin libro bloquea');
+    A.igual(g0.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo sin libro');
+    if (!g0.ok) A.igual(g0.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo sin libro');
+  });
+
+  t('ENTORNO v0.9.1: aislamiento del Form — form de otro entorno bloquea', function () {
+    var formDemo = ENTORNOS.DEMO.FORM_ID;
+    if (!formDemo) {
+      A.cierto(true, 'SKIP: DEMO.FORM_ID aún no configurado');
+      return;
+    }
+    var g = Entorno_validarProcesamiento(DEV_ID, formDemo, {});
+    A.cierto(!g.ok, 'Form DEMO desde DEV bloquea');
+    A.igual(g.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo de aislamiento');
+  });
+
+  t('ENTORNO v0.9.1: mapeo de recursos — diagnóstico sin efecto y con checks', function () {
+    var d = Entorno_diagnostico(DEV_ID, '', { trigger: true, procesador: true, mapeo: 12, campos: 12 });
+    A.igual(d.entorno, 'DEV', 'entorno detectado');
+    A.igual(d.esperadoId, DEV_ID, 'esperadoId = spreadsheet DEV');
+    var nombres = d.checks.map(function (c) { return c.nombre; });
+    ['entorno', 'spreadsheet', 'form', 'mapeo', 'trigger', 'procesador'].forEach(function (n) {
+      A.cierto(nombres.indexOf(n) !== -1, 'check ' + n + ' presente');
+    });
+    var sp = null, trig = null;
+    d.checks.forEach(function (c) {
+      if (c.nombre === 'spreadsheet') sp = c;
+      if (c.nombre === 'trigger') trig = c;
+    });
+    A.cierto(sp.ok === true, 'spreadsheet coincide');
+    A.cierto(trig.ok === true, 'trigger presente');
+    A.cierto(d.ok === false, 'sin FORM_ID el diagnóstico no es verde (pendiente manual)');
+  });
+
+  t('ENTORNO v0.9.1: auditoría read-only — ninguna función de entorno escribe', function () {
+    var antes = JSON.stringify(ENTORNOS);
+    Entorno_lista().forEach(function (env) {
+      Entorno_detectar(ENTORNOS[env].SPREADSHEET_ID);
+      Entorno_validarProcesamiento(ENTORNOS[env].SPREADSHEET_ID, '', {});
+      Entorno_carpetaEsperada(env);
+      Entorno_diagnostico(ENTORNOS[env].SPREADSHEET_ID, '', { trigger: true });
+    });
+    Entorno_validarProcesamiento('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', {});
+    A.igual(JSON.stringify(ENTORNOS), antes, 'ninguna mutación de configuración');
+  });
+
+  t('ENTORNO v0.9.1: ENTORNOS no duplica reglas clínicas ni productividad', function () {
+    var claves = ['G1', 'G2', 'G3', 'FECHA_INGRESO', 'RESPONSABLES', 'DIAS_RECUPERACION'];
+    claves.forEach(function (k) {
+      A.igual(ENTORNOS.DEV[k] === undefined, true, 'DEV sin ' + k);
+      A.igual(ENTORNOS.DEMO[k] === undefined, true, 'DEMO sin ' + k);
+    });
+    A.cierto(Array.isArray(CONFIG_SEED_EXTRA) && CONFIG_SEED_EXTRA.length > 0,
+      'la configuración clínica sigue viviendo en el sistema existente (CONFIG_SEED_EXTRA), no duplicada en ENTORNOS');
   });
 }

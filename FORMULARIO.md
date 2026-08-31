@@ -1,8 +1,14 @@
-# Formulario complementario — v0.9.0
+# Formulario complementario — v0.9.1
 
 Puerta de entrada controlada: las respuestas de un **Google Form** se validan, normalizan y se
 entregan al pipeline existente (**PACIENTES / EVENTOS / SECTOR / INICIO**). El formulario **no es**
 una base de datos paralela (DEC-048) y su instalación es conservadora (DEC-047).
+
+Desde **v0.9.1 (DEC-049)** el formulario convive con la estrategia de entornos **DEV + DEMO**: el
+mismo código distingue por `Spreadsheet.getId()` si el libro activo es desarrollo o demostración,
+y el **gate de entorno** (`Entorno_validarProcesamiento`) bloquea con `ERROR_CONFIG_ENTORNO`
+cualquier cruce (libro/Form de otro entorno o libro desconocido). La identidad NUNCA depende del
+nombre visible de la hoja.
 
 ```
 FORM → respuesta → VALIDACIÓN/NORMALIZACIÓN → pipeline existente → PACIENTES · EVENTOS · SECTOR · INICIO
@@ -96,9 +102,13 @@ por decisión del pipeline). Reintentos: un `ERROR` se reintenta hasta
 | `src/06_Modelo.js` | Esquema de `FORM_RESPUESTAS`, helpers de fila/lectura |
 | `src/07_UI.js` | `UI_formularioPanel`, `api_registrarEvento` (fuente/registradoPor) |
 | `src/FormularioPanel.html` | Panel de administración (métricas, instalar, diagnosticar, procesar) |
-| `src/10_Pruebas.js` | `_pruebas_formulario_v090` (455/455 globales verdes) |
+| `src/25_Entorno.js` | Estrategia DEV/DEMO (v0.9.1): identidad por ID, gate, backups aislados |
+| `src/10_Pruebas.js` | `_pruebas_formulario_v090` + `_pruebas_entornos_v091` (463/463 verdes) |
+| `tests/aceptacion_formulario.mjs` | Batería de aceptación end-to-end (21/21 verdes) |
 
 ## 10. Estado
 
-**v0.9.0** — módulo implementado y probado localmente (455/455). En producción la activación requiere
-la acción manual del §6 (formulario real) y el botón **Instalar**.
+**v0.9.1** — módulo implementado y probado localmente (**463/463 núcleo + 21/21 aceptación**).
+Incluye la estrategia de entornos **DEV + DEMO** (DEC-049) con gate de entorno, backups aislados y
+diagnóstico que expone el entorno activo. En producción la activación requiere la acción manual del
+§6 (formulario real — uno por entorno, `BACKUP_FOLDER_ID` por libro) y el botón **Instalar**.

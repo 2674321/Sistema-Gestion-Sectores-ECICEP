@@ -42,6 +42,9 @@
   </div>
 
   <div class="frm-info" id="fxInfo">
+    <b>Entorno:</b> <span id="fxEntorno">—</span> <span id="fxEntornoOk"></span><br>
+    <b>Spreadsheet:</b> <span id="fxSsId" style="word-break:break-all">—</span><br>
+    <b>Formulario:</b> <span id="fxFormId">—</span><br>
     <b>Trigger:</b> <span id="fxTrigger">—</span><br>
     <b>Motor:</b> <span id="fxMotor">—</span><br>
     <b>Sector de puerta:</b> hoja INGRESO_&lt;SECTOR&gt;.<br>
@@ -75,6 +78,18 @@ function pintarEstado(r){
   nv('fxTotal',m.total); nv('fxProcesadas',m.procesados); nv('fxPendientes',m.pendientes);
   nv('fxRevision',m.revision); nv('fxErrores',m.error);
   nv('fxCaptura',m.ultimaCaptura||'—');
+  var ent=(r.entorno&&r.entorno.entorno)||'DESCONOCIDO';
+  nv('fxEntorno',ent);
+  nv('fxSsId',(r.entorno&&r.entorno.ssId)||'—');
+  nv('fxFormId',(r.config&&r.config.formId)||'(sin configurar)');
+  nv('fxMotor',(r.config&&r.config.version!=null)?('FORM v'+(r.config.version)):'—');
+  var okEl=document.getElementById('fxEntornoOk');
+  if(okEl){
+    var c=r.entorno&&r.entorno.coincide;
+    okEl.textContent=c?' ✓ Spreadsheet coincide':(' ✗ Desalineación');
+    okEl.style.color=c?'var(--success)':'var(--danger)';
+    okEl.style.fontWeight='600';
+  }
   nv('fxTrigger',r.triggerInstalado?('Instalado'+(r.config&&r.config.activo?'':' (inactivo)')):'No instalado');
   if(typeof _refrescarIconos==='function')_refrescarIconos();
 }

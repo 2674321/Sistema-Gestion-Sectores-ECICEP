@@ -5,8 +5,8 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.9.0 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **455 pruebas locales verdes** ·
-pacientes reales / eventos operando en producción.
+**v0.9.1 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **463 pruebas locales verdes +
+21 aceptación formulario** · pacientes reales / eventos operando en producción.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
 > Camila Paz Aguilar (Enfermera). No constituye un proyecto institucional del CESFAM.
@@ -66,10 +66,12 @@ Sistema-Gestion-Sectores-ECICEP/
 │   ├── appsscript.json
 │   ├── 00_Config … 09_Log  # Módulos del núcleo
 │   ├── 24_Formulario.js    # Puerta Google Forms (DEC-047/048)
+│   ├── 25_Entorno.js       # Estrategia DEV/DEMO, gate e identidad (DEC-049)
 │   ├── 10_Pruebas.js       # Suites deterministas
 │   └── 11_DatosPrueba.js   # Dataset ficticio único
 ├── tests/
-│   └── ejecutar_local.mjs  # node tests/ejecutar_local.mjs
+│   ├── ejecutar_local.mjs          # node tests/ejecutar_local.mjs (núcleo 463)
+│   └── aceptacion_formulario.mjs   # node tests/aceptacion_formulario.mjs (aceptación 21)
 ├── datos_prueba/           # Muestras ficticias futuras (único Excel permitido)
 └── docs...
 ```
@@ -359,6 +361,29 @@ Sistema-Gestion-Sectores-ECICEP/
   acción, decisiones ANEXAR/CLINICA/ERROR/CUARENTENA/PROCESADO_YA/SALTAR/YA_ANEXADO, traducción de
   estado, pendientes, métricas, duplicados decididos por el pipeline, simulador determinista 10→3000).
   **455/455 tests verdes**; `node --check` limpio; cero colores literales fuera de la configuración.
+
+## v0.9.1 — Estrategia de entornos DEV + DEMO (DEC-049/050)
+
+- **Mismo código, dos entornos aislados** (`src/25_Entorno.js`): la identidad se resuelve por
+  `Spreadsheet.getId()` (`Entorno_detectar`), NUNCA por el nombre de la hoja. `ENTORNOS` registra
+  `DEV` (desarrollo, `1OEV…`) y `DEMO` (demostración, `1Iyv…`). Permitido hacer deploy de una
+  versión estable a DEMO sin comprometer el desarrollo ni los datos reales.
+- **Gate de procesamiento** (`Entorno_validarProcesamiento`): bloquea con `ERROR_CONFIG_ENTORNO`
+  cuando el libro activo no está registrado o cuando el `FORM_ID` configurado pertenece a otro
+  entorno (aislamiento cruzado Form DEV↔DEMO). Aplicado en captura, procesamiento y trigger.
+- **Backups aislados por entorno**: `ECICEP_Backups_<ENV>` (o `BACKUP_FOLDER_ID` del entorno);
+  DEV y DEMO jamás comparten carpeta de respaldo.
+- **Panel y diagnóstico muestran entorno**: `Form_diagnosticar`/`Form_obtenerEstado` exponen
+  entorno, spreadsheet y coherencia; el panel `FormularioPanel.html` los muestra.
+- **Batería de aceptación end-to-end** (`tests/aceptacion_formulario.mjs`): 21 casos deterministas
+  que validan el flujo que GAS ejecutará (validación → decisión → pipeline → eventos → caché) más
+  la estrategia DEV/DEMO: NUEVO_INGRESO, duplicados por el pipeline, RUT/fechas/sector inválidos,
+  CONTROL que deriva PRÓXIMO→ESTADO→COLOR, CUARENTENA, SEGUIMIENTO/ACTUALIZAR, reintentos,
+  concurrencia y recuperación idempotentes por marca, escala 10→3.000, esquema estable y
+  observabilidad sin datos personales.
+- **Tests**: `_pruebas_entornos_v091` + `_pruebas_formulario_v090`. **463/463 núcleo + 21/21
+  aceptación verdes**; `node --check` limpio. Despliegue: `clasp push -f` (sin deploy WebApp en
+  desarrollo; el ejecutable de producción permanece en @63).
 
 ## QR permanente — Google Sheets
 

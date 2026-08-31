@@ -16,11 +16,41 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP Unificado',
-  VERSION: '0.9.0',
-  AMBIENTE: 'DESARROLLO', // DESARROLLO | PRODUCCION
+  VERSION: '0.9.1',
+  AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   TZ: 'America/Santiago'
 };
+
+// ---------------------------------------------------------------------------
+// ENTORNOS (v0.9.1 — DEC-049). MISMO CÓDIGO + DOS ENTORNOS aislados.
+// Identidad determinada por el Spreadsheet activo (getId()), NUNCA por el nombre
+// visible de la hoja. DEV → @HEAD / DEMO → versión estable fijada.
+// FORM_ID y BACKUP_FOLDER_ID reales de DEMO son recursos que se crean
+// manualmente (DEC-047/48/50); mientras estén vacíos, la captura queda pendiente
+// y el diagnóstico lo reporta (la estructura del formulario sí se prepara).
+// ---------------------------------------------------------------------------
+var ENTORNOS = {
+  DEV: {
+    NOMBRE: 'DEV',
+    ETIQUETA: 'Desarrollo',
+    SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
+    FORM_ID: '',
+    BACKUP_FOLDER_ID: ''
+  },
+  DEMO: {
+    NOMBRE: 'DEMO',
+    ETIQUETA: 'Demostración',
+    SPREADSHEET_ID: '1IyvpE6658lLM-QHIVQ1hzhPv0TGeh60r5P74vjeSKgE',
+    FORM_ID: '',
+    BACKUP_FOLDER_ID: ''
+  }
+};
+
+// Entorno por defecto cuando el Spreadsheet activo no está registrado en
+// ENTORNOS. El gate de procesamiento bloquea (ERROR_CONFIG_ENTORNO) para
+// evitar escrituras en libros desconocidos. DEV es el entorno de desarrollo.
+var ENTORNO_PRINCIPAL = 'DEV';
 
 // Son los diálogos/public-dialog y sidebars públicos. Fuente única usada por
 // _pruS_menu/_pruS_plantillas (GAS) y _pruebas_dialogos_v087 (node).
@@ -702,7 +732,11 @@ const ESTADOS_INGRESO = {
 // y define además las columnas de la hoja técnica FORM_RESPUESTAS (se leen y
 // escriben por ENCABEZADO, jamás por número de columna fijo).
 // FORM_ID es configuración central: lo completa el administrador al instalar
-// (Form_instalar NO crea formularios automáticamente, DEC-047/48).
+// (Form_instalar NO crea formularios automáticamente, DEC-047/48). Desde
+// v0.9.1 (DEC-049) la referencia canónica del Form del entorno es
+// ENTORNOS.<ENV>.FORM_ID; FORM_CONFIG.FORM_ID se resuelve/mantiene con la del
+// entorno activo. El gate Entorno_validarProcesamiento bloquea si el Form
+// configurado pertenece a otro entorno (aislamiento DEV/DEMO).
 // ---------------------------------------------------------------------------
 var FORM_CONFIG = {
   FORM_ID: '',

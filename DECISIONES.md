@@ -676,6 +676,56 @@ una segunda verdad clínica. Decisión: el formulario es SOLO una puerta de entr
 
 ---
 
+## DEC-049
+**Título:** v0.9.1 — Estrategia de entornos DEV + DEMO (mismo código, libros aislados)
+**Estado:** Aprobada
+**Motivo:** Sumar un entorno de DEMOSTRACIÓN (versión estable fijada) sin duplicar código ni
+configuración clínica, y poder despliegue/prueba sin tocar los datos de desarrollo ni los reales.
+1. **Mismo código en ambos entornos; la identidad se resuelve por `Spreadsheet.getId()`**
+   (`Entorno_detectar`), NUNCA por el nombre visible de la hoja. `ENTORNOS` en `00_Config.js`
+   registra `DEV` (desarrollo @HEAD, `1OEV…`) y `DEMO` (demostración, `1Iyv…`).
+2. **Gate de procesamiento** (`Entorno_validarProcesamiento`): bloquea con
+   `ERROR_CONFIG_ENTORNO` cuando el libro activo no está registrado o cuando el `FORM_ID`
+   configurado pertenece a OTRO entorno (aislamiento cruzado Form DEV↔DEMO).
+3. **`25_Entorno.js` es núcleo puro** (identidad, recursos, diagnóstico read-only, gate);
+   los wrappers GAS (`Entorno_actualGAS`/`Entorno_gateGAS`) resuelven el libro activo. No
+   duplica reglas clínicas (G1/G2/G3, frecuencias, responsables…) que siguen viviendo en CONFIG.
+4. **Backups aislados por entorno**: `ECICEP_Backups_<ENV>` (o `BACKUP_FOLDER_ID` del entorno);
+   DEV y DEMO jamás comparten carpeta.
+5. **Captura/trigger/diagnóstico respetan el entorno**: `Form_capturarRespuestas`,
+   `Form_procesarPendientes`, `Form_instalarTrigger` y `Form_diagnosticar` consultan el gate y
+   exponen entorno/spreadsheet en panel y diagnóstico.
+6. **Recursos reales de DEMO** (Form y carpeta) se crean manualmente (DEC-047/48/50); mientras
+   estén vacíos, el diagnóstico lo reporta sin bloquear la preparación.
+   **Tests:** `_pruebas_entornos_v091` (identidad por ID, gate, aislamiento cruzado, backups,
+   diagnóstico read-only, no-duplicación clínica) + batería `aceptacion_formulario.mjs`.
+   **463/463 + 21/21 verdes.** **Fecha:** 2026-08-31
+
+---
+
+## DEC-050
+**Título:** v0.9.1 — Batería de Aceptación end-to-end del formulario (nivel de aceptación)
+**Estado:** Aprobada
+**Motivo:** El núcleo puro tiene cobertura unitaria (`10_Pruebas.js`), pero el despliegue del
+formulario exige validar el flujo COMPLETO que el entorno GAS ejecutará (validación → decisión →
+pipeline de ingreso → eventos → caché derivada) y la estrategia DEV/DEMO, sin depender de hojas,
+red ni hora actual.
+1. **`tests/aceptacion_formulario.mjs`** carga el mismo código del núcleo en un sandbox `vm`
+   (nodo) y ejecuta 21 casos de aceptación deterministas con el contrato público real.
+2. **Grupo A — DEV/DEMO**: identidad por ID, gate de entorno, aislamiento cruzado Form,
+   backups aislados, diagnóstico read-only, no-duplicación de configuración clínica.
+3. **Grupo B — flujo end-to-end**: NUEVO_INGRESO → 1 paciente + evento INGRESO + marca de
+   trazabilidad (NOTA_SISTEMA); duplicados decididos por el pipeline; RUT/fechas/sector inválidos
+   → ERROR; CONTROL deriva ULTIMO→PRÓXIMO→ESTADO→COLOR; CONTROL a persona inexistente →
+   CUARENTENA; SEGUIMIENTO y ACTUALIZAR_DATOS; reintentos dentro del tope; concurrencia y
+   recuperación idempotentes por marca FUENTE; escala 10/100/500/1.000/3.000; contrato/esquema
+   estable; observabilidad sin datos personales.
+4. **Modela el efecto del entorno GAS** (`aplicarClinica`) para validar idempotencia real por
+   marca, espejando `Form_procesarPendientes` + `api_registrarEvento`.
+   **Resultado:** 21/21 verdes; núcleo 463/463; `node --check` limpio. **Fecha:** 2026-08-31
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada

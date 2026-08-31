@@ -870,11 +870,27 @@ var BACKUP_PREFIJO_MAN = 'MANUAL_ECICEP_BACKUP';
 var BACKUP_DEFAULT_MANTENER = 8;
 var BACKUP_FOLDER_NOMBRE = 'ECICEP_Backups';
 
-/** Obtiene (o crea) la carpeta dedicada de backups en Drive. */
+/** Obtiene (o crea) la carpeta dedicada de backups del ENTORNO activo (v0.9.1).
+ *  Aislamiento DEV/DEMO: usa BACKUP_FOLDER_ID del entorno si está configurado;
+ *  si no, deriva el nombre 'ECICEP_Backups_<ENV>' (DEV ≠ DEMO jamás comparten).
+ *  Si el entorno es desconocido, cae al nombre genérico (solo lectura segura). */
 function _backup_folder() {
-  var folders = DriveApp.getFoldersByName(BACKUP_FOLDER_NOMBRE);
+  var cur = Entorno_actualGAS();
+  var idEsperado = Entorno_recursoEsperado(cur.entorno, 'BACKUP_FOLDER_ID');
+  if (idEsperado) {
+    try {
+      var fById = DriveApp.getFolderById(idEsperado);
+      if (fById) return fById;
+    } catch (e) { /* carpeta no accesible: caer al nombre derivado */ }
+  }
+  var nombre = cur.entorno === 'DESCONOCIDO'
+    ? BACKUP_FOLDER_NOMBRE
+    : Entorno_carpetaEsperada(cur.entorno);
+  var folders = DriveApp.getFoldersByName(nombre);
   if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(BACKUP_FOLDER_NOMBRE);
+  var creada = DriveApp.createFolder(nombre);
+  Log_info('Backup', 'carpeta', 'creada ' + nombre, null, null);
+  return creada;
 }
 
 /** Obtiene el límite de retención desde CONFIG (editable por el usuario). */

@@ -32,6 +32,7 @@ const archivos = [
   'src/22_HojasVisual.js',
   'src/12_Ingresos.js',
   'src/24_Formulario.js',
+  'src/25_Entorno.js',
   'src/Webhook.js',
   'src/06_Modelo.js',
   'src/08_Dashboard.js',

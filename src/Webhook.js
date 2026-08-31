@@ -47,6 +47,7 @@ function _wh_despachar(e) {
         resultado = {
           version: ECICEP.VERSION,
           ambiente: ECICEP.AMBIENTE,
+          entorno: Entorno_actualGAS().entorno,
           pacientes: Modelo_hoja(HOJAS.PACIENTES) ? Math.max(Modelo_hoja(HOJAS.PACIENTES).getLastRow() - 1, 0) : 0,
           eventos: Modelo_hoja(HOJAS.EVENTOS) ? Math.max(Modelo_hoja(HOJAS.EVENTOS).getLastRow() - 1, 0) : 0
         };

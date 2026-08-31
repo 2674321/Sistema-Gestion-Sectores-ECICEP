@@ -468,6 +468,8 @@ function Form_instalarTrigger() {
   try {
     if (Form_triggerInstalado()) return { ok: true, activado: false, motivo: 'Ya instalado' };
     if (Utl_vacio(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
+    var gate = Entorno_gateGAS();
+    if (!gate.ok) return { ok: false, motivo: gate.motivo, detalle: gate.detalle };
     var ss = Modelo_ss();
     ScriptApp.newTrigger('Form_onFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
     return { ok: true, activado: true };
@@ -489,13 +491,38 @@ function Form_triggerInstalado() {
 }
 
 /**
- * GAS: diagnóstico completo, SIN efectos secundarios.
+ * GAS: diagnóstico completo, SIN efectos secundarios. Incluye entorno
+ * (DEV/DEMO), spreadsheet esperado, Form del entorno, mapeo pregunta→campo,
+ * trigger, estructura (staging) y procesador (v0.9.1).
  */
 function Form_diagnosticar() {
   var checks = [];
   if (typeof SpreadsheetApp === 'undefined') {
     return { ok: false, motivo: 'SOLO_GAS', checks: checks };
   }
+  var cur = Entorno_actualGAS();
+
+  // Entorno + recursos (puro, reutilizado por la batería de aceptación)
+  var mapeo = -1;
+  if (typeof FormApp !== 'undefined' && !Utl_vacio(FORM_CONFIG.FORM_ID)) {
+    try {
+      var form = FormApp.openById(FORM_CONFIG.FORM_ID);
+      var porPregunta = form.getItems().map(function (it) { return it.getTitle(); });
+      var halladas = 0;
+      Form_campos().forEach(function (c) {
+        if (porPregunta.indexOf(c.pregunta) !== -1) halladas += 1;
+      });
+      mapeo = halladas;
+    } catch (e) { mapeo = -1; }
+  }
+  var envDiag = Entorno_diagnostico(cur.ssId, FORM_CONFIG.FORM_ID, {
+    trigger: Form_triggerInstalado(),
+    procesador: typeof Form_procesarPendientes === 'function' && !!FORM_CONFIG.ACTIVO,
+    mapeo: mapeo,
+    campos: Form_campos().length,
+    carpetaBackup: Entorno_carpetaEsperada(cur.entorno)
+  });
+
   var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
   checks.push({ nombre: 'estructura', ok: !!hoja, detalle: hoja ? 'Hoja FORM_RESPUESTAS presente' : 'Falta la hoja FORM_RESPUESTAS' });
   checks.push({ nombre: 'form_id', ok: !Utl_vacio(FORM_CONFIG.FORM_ID), detalle: Utl_vacio(FORM_CONFIG.FORM_ID) ? 'FORM_ID sin configurar' : 'FORM_ID: ' + FORM_CONFIG.FORM_ID });
@@ -504,11 +531,15 @@ function Form_diagnosticar() {
     try { FormApp.openById(FORM_CONFIG.FORM_ID); formOk = true; } catch (e) { formOk = false; }
   }
   checks.push({ nombre: 'form_accesible', ok: formOk, detalle: formOk ? 'Formulario accesible' : 'No se puede abrir el formulario configurado' });
-  checks.push({ nombre: 'trigger', ok: Form_triggerInstalado(), detalle: Form_triggerInstalado() ? 'Trigger Form_onFormSubmit instalado' : 'Sin trigger de envío (los envíos se procesan bajo demanda)' });
+
+  checks = checks.concat(envDiag.checks);
+
   var metricas = Form_obtenerEstado();
   return {
     ok: checks.every(function (c) { return c.ok; }),
     checks: checks,
+    entorno: envDiag.entorno,
+    ssId: cur.ssId,
     metricas: metricas && metricas.metricas ? metricas.metricas : {},
     versionSistema: ECICEP.VERSION,
     versionForm: FORM_CONFIG.FORM_VERSION
@@ -552,8 +583,10 @@ function Form_obtenerEstado() {
         });
       }
     }
+    var cur = Entorno_actualGAS();
     return {
       ok: true,
+      entorno: { entorno: cur.entorno, ssId: cur.ssId, coincide: cur.coincide },
       config: { activo: FORM_CONFIG.ACTIVO, formId: FORM_CONFIG.FORM_ID, version: FORM_CONFIG.FORM_VERSION },
       triggerInstalado: Form_triggerInstalado(),
       metricas: Form_metricas(filas)
@@ -604,6 +637,8 @@ function Form_capturarRespuestas(opciones) {
   opciones = opciones || {};
   if (typeof FormApp === 'undefined' || typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   if (Utl_vacio(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
+  var gate = Entorno_gateGAS();
+  if (!gate.ok) return { ok: false, motivo: gate.motivo, detalle: gate.detalle };
   var form = FormApp.openById(FORM_CONFIG.FORM_ID);
 
   // Ventana de captura: desde la última captura (o ventana inicial para no
@@ -757,6 +792,8 @@ function Form_procesarPendientes(opciones) {
   if (lock && !lock.tryLock(30000)) return { ok: false, motivo: 'OCUPADO: otro proceso está procesando respuestas del formulario' };
   try {
     if (!FORM_CONFIG.ACTIVO) return { ok: true, resumen: { leidos: 0, notas: 'FORM_CONFIG.ACTIVO = false' } };
+    var gate = Entorno_gateGAS();
+    if (!gate.ok) return { ok: false, motivo: gate.motivo, detalle: gate.detalle };
     var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
     if (!hoja) { Form_instalar(); hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS); }
     var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
