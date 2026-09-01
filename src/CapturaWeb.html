@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('00_Tokens') ?>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    .wrap{max-width:640px;margin:0 auto;padding:var(--space-5);}
+    .head{margin-bottom:var(--space-4)}
+    .head h1{font-size:20px;margin:0 0 2px;color:var(--text-primary)}
+    .head .sub{font-size:12px;color:var(--text-secondary)}
+    .card{padding:var(--space-5)}
+    .sec-sep{height:1px;background:var(--border);margin:var(--space-4) 0}
+    .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--space-4)}
+    .rows .full{grid-column:1/-1}
+    .hint{font-size:11px;color:var(--text-muted);margin-top:3px}
+    .resumen{background:var(--primary-soft);border:1px solid var(--primary);border-radius:var(--radius-md);
+      padding:var(--space-3) var(--space-4);font:600 12px 'Inter';color:var(--primary-strong)}
+    .resumen.err{background:#FDEDED;border-color:var(--danger);color:#8A1D1D}
+    .resumen .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .acciones{display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-4)}
+    .foot-note{font-size:10px;color:var(--text-muted);text-align:center;margin-top:var(--space-4)}
+    .oculto{display:none!important}
+    @media(max-width:520px){.rows{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>ECICEP &mdash; Captura</h1>
+    <div class="sub">Nuevo canal de registro. Los datos se validan y procesan con el pipeline existente.</div>
+  </div>
+
+  <div class="card">
+    <label class="etq" for="accion">Acción</label>
+    <select class="inp" id="accion">
+      <option value="NUEVO_INGRESO">Nuevo ingreso</option>
+      <option value="REGISTRAR_CONTROL">Registrar control</option>
+      <option value="REGISTRAR_SEGUIMIENTO">Registrar seguimiento</option>
+      <option value="ACTUALIZAR_DATOS">Actualizar datos</option>
+    </select>
+
+    <div class="sec-sep"></div>
+
+    <div class="rows">
+      <div class="full">
+        <label class="etq" for="rut">RUT *</label>
+        <input class="inp rut" id="rut" placeholder="12.345.678-9" autocomplete="off">
+      </div>
+
+      <div id="grpIdent" class="full" style="display:none">
+        <label class="etq" for="nombre">Nombre completo</label>
+        <input class="inp" id="nombre" autocomplete="off">
+        <div class="rows" style="grid-template-columns:1fr 1fr">
+          <div>
+            <label class="etq" for="sexo">Sexo</label>
+            <select class="inp" id="sexo">
+              <option value="">(sin especificar)</option>
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+              <option value="OTRO">Otro</option>
+            </select>
+          </div>
+          <div>
+            <label class="etq" for="fnac">Fecha de nacimiento</label>
+            <input class="inp" type="date" id="fnac">
+          </div>
+        </div>
+        <div class="rows">
+          <div>
+            <label class="etq" for="sector">Sector</label>
+            <select class="inp" id="sector">
+              <option value="">(seleccionar)</option>
+              <option value="NARANJO">Naranjo</option>
+              <option value="AMARILLO">Amarillo</option>
+              <option value="VERDE">Verde</option>
+            </select>
+          </div>
+          <div>
+            <label class="etq" for="estrat">Estratificación</label>
+            <select class="inp" id="estrat">
+              <option value="">(sin confirmar)</option>
+              <option value="G1">G1</option>
+              <option value="G2">G2</option>
+              <option value="G3">G3</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="grpEvento" class="full" style="display:none">
+        <label class="etq" for="fecha_evento">Fecha del evento *</label>
+        <input class="inp" type="date" id="fecha_evento">
+      </div>
+
+      <div class="full">
+        <label class="etq" for="telefonos">Teléfonos (opcional)</label>
+        <input class="inp" id="telefonos" placeholder="ej: +56912345678" autocomplete="off">
+      </div>
+
+      <div class="full">
+        <label class="etq" for="profesional">Profesional (opcional)</label>
+        <input class="inp" id="profesional" placeholder="Nombre del profesional" autocomplete="off">
+      </div>
+
+      <div class="full">
+        <label class="etq" for="obs">Observaciones (opcional)</label>
+        <textarea class="inp" id="obs" rows="3"></textarea>
+      </div>
+    </div>
+
+    <div class="resumen oculto" id="resumen"></div>
+
+    <div class="acciones">
+      <button class="btn btn-pri" id="btnEnviar">Enviar registro</button>
+      <button class="btn btn-sec" id="btnLimpiar">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="foot-note">DEMO &mdash; el destino de escritura se confirma en el despliegue.</div>
+</div>
+
+<script>
+  var ACCIONES = {
+    NUEVO_INGRESO:        { ident:true,  evento:false, ruleta:null },
+    REGISTRAR_CONTROL:    { ident:false, evento:true,  ruleta:null },
+    REGISTRAR_SEGUIMIENTO:{ ident:false, evento:true,  ruleta:null },
+    ACTUALIZAR_DATOS:     { ident:false, evento:false, ruleta:null }
+  };
+
+  function accionActual(){ return document.getElementById('accion').value; }
+
+  function pintarCampos(){
+    var a=ACCIONES[accionActual()]||{};
+    document.getElementById('grpIdent').style.display=a.ident?'':'none';
+    document.getElementById('grpEvento').style.display=a.evento?'':'none';
+  }
+
+  function recolectar(){
+    return {
+      ACCION: accionActual(),
+      RUT: document.getElementById('rut').value,
+      NOMBRE: document.getElementById('nombre').value,
+      SEXO: document.getElementById('sexo').value,
+      FECHA_NACIMIENTO: document.getElementById('fnac').value,
+      SECTOR: document.getElementById('sector').value,
+      ESTRATIFICACION: document.getElementById('estrat').value,
+      TELEFONOS: document.getElementById('telefonos').value,
+      FECHA_EVENTO: document.getElementById('fecha_evento').value,
+      PROFESIONAL: document.getElementById('profesional').value,
+      OBSERVACIONES: document.getElementById('obs').value
+    };
+  }
+
+  function mostrarResumen(tipo, titulo, det){
+    var el=document.getElementById('resumen');
+    el.classList.remove('oculto','err');
+    if(tipo==='err')el.classList.add('err');
+    var html='<strong>'+_esc(titulo)+'</strong>';
+    if(det)html+='<div class="chips">'+det+'</div>';
+    el.innerHTML=html;
+  }
+
+  function ocultarResumen(){ document.getElementById('resumen').classList.add('oculto'); }
+
+  document.getElementById('accion').addEventListener('change',function(){ pintarCampos(); ocultarResumen(); });
+
+  document.getElementById('btnEnviar').addEventListener('click',function(){
+    var btn=document.getElementById('btnEnviar');
+    if(!_guardarBot(btn))return;
+    ocultarResumen();
+    var datos=recolectar();
+    google.script.run
+      .withSuccessHandler(function(r){
+        _restaurarBot(btn);
+        if(!r){ mostrarResumen('err','Error inesperado','Respuesta vacía del servidor.'); return; }
+        if(!r.ok){
+          var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
+          mostrarResumen('err','No fue posible registrar','<div style="margin-top:6px">'+det+'</div>');
+          return;
+        }
+        var d=r.data||{};
+        var chips='';
+        chips+='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
+        if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
+        if(d.idInterno)chips+='<span class="chip">ID: '+_esc(d.idInterno)+'</span>';
+        chips+='<span class="chip">Ref: '+_esc(d.responseId||'')+'</span>';
+        mostrarResumen('ok',(r.message||'Registro realizado'),chips);
+        document.getElementById('btnLimpiar').click();
+      })
+      .withFailureHandler(function(e){ _restaurarBot(btn); mostrarResumen('err','Error de conexión',_esc(e&&e.message?e.message:String(e))); })
+      .Form_capturarDesdeUI(datos);
+  });
+
+  document.getElementById('btnLimpiar').addEventListener('click',function(){
+    ['rut','nombre','fnac','fecha_evento','telefonos','profesional','obs'].forEach(function(id){
+      document.getElementById(id).value='';
+    });
+    document.getElementById('sexo').value='';
+    document.getElementById('sector').value='';
+    document.getElementById('estrat').value='';
+    ocultarResumen();
+    document.getElementById('rut').focus();
+  });
+
+  pintarCampos();
+  document.getElementById('rut').focus();
+</script>
+</body>
+</html>

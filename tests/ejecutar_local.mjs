@@ -34,6 +34,7 @@ const archivos = [
   'src/24_Formulario.js',
   'src/25_Entorno.js',
   'src/Webhook.js',
+  'src/WebApp.gs',
   'src/06_Modelo.js',
   'src/08_Dashboard.js',
   'src/11_DatosPrueba.js',
