@@ -57,8 +57,9 @@
     .c-body{padding:var(--sp-5) var(--sp-6) var(--sp-6)}
 
     /* ── Sections ── */
-    .sec{margin-bottom:var(--sp-5)}
+    .sec{margin-bottom:var(--sp-5);overflow:hidden;transition:max-height .25s ease,opacity .25s ease}
     .sec:last-child{margin-bottom:0}
+    .sec.collapsed{max-height:0!important;opacity:0;margin-bottom:0;padding:0;border:none;pointer-events:none}
     .sec-title{font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--c-text-3);
       text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--sp-3);
       padding-bottom:var(--sp-2);border-bottom:1px solid var(--c-border-light)}
@@ -137,6 +138,13 @@
     .btn-s{background:var(--c-surface);color:var(--c-text-2);border:1.5px solid var(--c-border)}
     .btn-s:hover:not(:disabled){background:var(--c-surface-alt);border-color:#A0A5AE}
     .btn-s:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+    .btn-ok{background:var(--c-ok);color:#fff;box-shadow:var(--sh-sm)}
+    .btn-ok:hover:not(:disabled){background:#096B50;box-shadow:var(--sh-md)}
+    .btn-ok:focus-visible{outline:2px solid var(--c-ok);outline-offset:2px}
+    .btns-nueva{display:none;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-4)}
+    .btns-nueva.show{display:flex}
+    .btn-limpiar{display:none}
+    .btn-limpiar.show{display:inline-flex}
 
     /* ── Spinner ── */
     .spin{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
@@ -363,9 +371,14 @@
         <!-- Status -->
         <div class="status" id="resumen" role="status" aria-live="polite"></div>
 
+        <!-- Nueva captura (post-éxito) -->
+        <div class="btns-nueva" id="btnsNueva">
+          <button class="btn btn-ok" id="btnNuevaCaptura" type="button">Nueva captura</button>
+        </div>
+
         <!-- Buttons -->
         <div class="btns">
-          <button class="btn btn-s" id="btnLimpiar" type="button">Limpiar</button>
+          <button class="btn btn-s btn-limpiar" id="btnLimpiar" type="button">Limpiar</button>
           <button class="btn btn-p" id="btnEnviar" type="button">
             <span class="spin" id="spinEnviar"></span>Registrar informaci&oacute;n
           </button>
@@ -392,9 +405,21 @@
     ACTUALIZAR_DATOS:      { ident:false, evento:false, tel:true,  prof:true,  obs:true }
   };
 
+  var ACCION_MENSAJES = {
+    NUEVO_INGRESO:         'Nuevo ingreso registrado correctamente',
+    REGISTRAR_CONTROL:     'Control registrado correctamente',
+    REGISTRAR_SEGUIMIENTO: 'Seguimiento registrado correctamente',
+    ACTUALIZAR_DATOS:      'Datos actualizados correctamente'
+  };
+
   var $=function(id){return document.getElementById(id)};
   var duplaVisible=false;
   var _esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')};
+
+  function hoyISO(){
+    var d=new Date(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');
+    return d.getFullYear()+'-'+m+'-'+dd;
+  }
 
   function getAccion(){
     var r=document.querySelector('input[name="accion"]:checked');
@@ -423,13 +448,19 @@
 
   function pintarCampos(){
     var a=ACCIONES[getAccion()]||{};
-    $('secIdent').classList.toggle('hidden',!a.ident);
-    $('secEvento').classList.toggle('hidden',!a.evento);
-    $('secTel').classList.toggle('hidden',!a.tel);
-    $('secProf').classList.toggle('hidden',!a.prof);
-    $('secObs').classList.toggle('hidden',!a.obs);
+    var secAccion={secIdent:'ident',secEvento:'evento',secTel:'tel',secProf:'prof',secObs:'obs'};
+    Object.keys(secAccion).forEach(function(id){
+      var sec=$(id);
+      var show=a[secAccion[id]];
+      if(show){sec.classList.remove('collapsed');sec.classList.remove('hidden');}
+      else{sec.classList.add('collapsed');}
+    });
     limpiarErrores();
-    if(!a.prof){duplaVisible=false;$('duplaP2').classList.remove('show');}
+    if(!a.prof){duplaVisible=false;$('duplaP2').classList.remove('show');
+      $('duplaToggle').textContent='+ Agregar segundo profesional';
+      $('duplaToggle').setAttribute('aria-expanded','false');}
+    if(a.evento&&!$('fecha_evento').value){$('fecha_evento').value=hoyISO();}
+    if(a.prof){var pf=$('profesional');if(!pf.value&&pf.options.length>1)pf.focus();}
   }
 
   function recolectar(){
@@ -561,6 +592,7 @@
     ocultarResumen();
     estadoEnviando();
     var datos=recolectar();
+    var accionEnvio=getAccion();
     google.script.run
       .withSuccessHandler(function(r){
         if(!r){estadoListo();mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');return;}
@@ -571,11 +603,15 @@
           return;
         }
         var d=r.data||{};
+        var msg=ACCION_MENSAJES[accionEnvio]||'Registro guardado correctamente';
         var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
         if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
-        if(d.idInterno)chips+='<span class="chip">ID: '+_esc(d.idInterno)+'</span>';
-        mostrarResumen('ok','Registro guardado correctamente',chips);
-        limpiarFormulario();
+        mostrarResumen('ok',msg,chips);
+        estadoListo();
+        $('btnEnviar').classList.add('hidden');
+        $('btnsNueva').classList.add('show');
+        $('btnLimpiar').classList.remove('show');
+        limpiarFormulario(true);
       })
       .withFailureHandler(function(e){
         estadoListo();
@@ -585,30 +621,70 @@
       .Form_capturarDesdeUI(datos);
   }
 
-  function limpiarFormulario(){
+  function limpiarFormulario(retenerProfesional){
+    var profGuardado=retenerProfesional?$('profesional').value:'';
+    var prof2Guardado=retenerProfesional?$('profesional2').value:'';
+    var duplaGuardada=retenerProfesional?duplaVisible:false;
+    var accionGuardada=getAccion();
     ['rut','nombre','fnac','fecha_evento','telefonos','obs'].forEach(function(id){$(id).value='';});
     $('sexo').value='';$('sector').value='';$('estrat').value='';
-    $('profesional').value='';$('profesional2').value='';
-    duplaVisible=false;$('duplaP2').classList.remove('show');
-    $('duplaToggle').textContent='+ Agregar segundo profesional';
-    $('duplaToggle').setAttribute('aria-expanded','false');
+    $('profesional').value=profGuardado;$('profesional2').value=prof2Guardado;
+    duplaVisible=duplaGuardada;
+    $('duplaP2').classList.toggle('show',duplaVisible);
+    $('duplaToggle').textContent=duplaVisible
+      ?'\u2212 Quitar segundo profesional'
+      :'+ Agregar segundo profesional';
+    $('duplaToggle').setAttribute('aria-expanded',duplaVisible);
     limpiarErrores();ocultarResumen();
+    $('btnsNueva').classList.remove('show');
+    $('btnEnviar').classList.remove('hidden');
+    $('btnLimpiar').classList.remove('show');
     $('rut').focus();
   }
 
   function syncRut(){}
 
+  function formTieneDatos(){
+    return ($('rut').value||'').trim()||($('nombre').value||'').trim()||
+      ($('profesional').value||'').trim()||($('obs').value||'').trim();
+  }
+
+  function actualizarLimpiar(){
+    $('btnLimpiar').classList.toggle('show',formTieneDatos());
+  }
+
+  function rutFormatoProgresivo(v){
+    var s=v.replace(/[^0-9kK]/g,'');
+    if(s.length>1){
+      var cuerpo=s.slice(0,-1),dv=s.slice(-1);
+      cuerpo=cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+      return cuerpo+'-'+dv;
+    }
+    return s;
+  }
+
   document.querySelectorAll('input[name="accion"]').forEach(function(radio){
-    radio.addEventListener('change',function(){pintarCampos();ocultarResumen();syncRut();});
+    radio.addEventListener('change',function(){pintarCampos();ocultarResumen();});
   });
   $('btnEnviar').addEventListener('click',enviar);
   $('btnLimpiar').addEventListener('click',function(){
-    if(($('rut').value||$('rut2').value||$('nombre').value||$('profesional').value).trim()){
+    if(formTieneDatos()){
       if(!confirm('Se perder\u00e1n los datos ingresados.\u00bfDesea limpiar el formulario?'))return;
     }
-    limpiarFormulario();
+    limpiarFormulario(false);
   });
+  $('btnNuevaCaptura').addEventListener('click',function(){limpiarFormulario(true);});
   $('duplaToggle').addEventListener('click',toggleDupla);
+  ['rut','nombre','fnac','fecha_evento','telefonos','obs','profesional','profesional2'].forEach(function(id){
+    $(id).addEventListener('input',actualizarLimpiar);
+    $(id).addEventListener('change',actualizarLimpiar);
+  });
+  $('rut').addEventListener('input',function(){
+    var pos=this.selectionStart,old=this.value;
+    this.value=rutFormatoProgresivo(this.value);
+    var diff=this.value.length-old.length;
+    this.setSelectionRange(pos+diff,pos+diff);
+  });
 
   poblarProfesionales();
   pintarCampos();
