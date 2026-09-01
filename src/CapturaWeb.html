@@ -5,7 +5,7 @@
   <?!= include('00_Tokens') ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    .wrap{max-width:640px;margin:0 auto;padding:var(--space-5);}
+    .wrap{max-width:640px;margin:0 auto;padding:var(--space-5)}
     .head{margin-bottom:var(--space-4)}
     .head h1{font-size:20px;margin:0 0 2px;color:var(--text-primary)}
     .head .sub{font-size:12px;color:var(--text-secondary)}
@@ -13,14 +13,23 @@
     .sec-sep{height:1px;background:var(--border);margin:var(--space-4) 0}
     .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--space-4)}
     .rows .full{grid-column:1/-1}
-    .hint{font-size:11px;color:var(--text-muted);margin-top:3px}
-    .resumen{background:var(--primary-soft);border:1px solid var(--primary);border-radius:var(--radius-md);
-      padding:var(--space-3) var(--space-4);font:600 12px 'Inter';color:var(--primary-strong)}
-    .resumen.err{background:#FDEDED;border-color:var(--danger);color:#8A1D1D}
-    .resumen .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .field{margin-bottom:var(--space-3)}
+    .field-error{font-size:11px;color:var(--danger);margin-top:3px;display:none}
+    .field-error.visible{display:block}
+    .inp.field-error-input{border-color:var(--danger)}
+    .inp.field-error-input:focus{box-shadow:0 0 0 3px rgba(214,69,69,.12)}
     .acciones{display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-4)}
     .foot-note{font-size:10px;color:var(--text-muted);text-align:center;margin-top:var(--space-4)}
     .oculto{display:none!important}
+    .resumen{border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);
+      font:600 12px 'Inter';margin-top:var(--space-3)}
+    .resumen.ok{background:var(--primary-soft);border:1px solid var(--primary);color:var(--primary-strong)}
+    .resumen.err{background:#FDEDED;border:1px solid var(--danger);color:#8A1D1D}
+    .resumen .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .spin{display:none;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;
+      border-radius:50%;animation:spinFrm .7s linear infinite;vertical-align:-2px}
+    .spin.on{display:inline-block;margin-right:6px}
+    @keyframes spinFrm{to{transform:rotate(360deg)}}
     @media(max-width:520px){.rows{grid-template-columns:1fr}}
   </style>
 </head>
@@ -28,31 +37,39 @@
 <div class="wrap">
   <div class="head">
     <h1>ECICEP &mdash; Captura</h1>
-    <div class="sub">Nuevo canal de registro. Los datos se validan y procesan con el pipeline existente.</div>
+    <div class="sub">Registro de datos &mdash; los datos se validan y procesan con el pipeline existente.</div>
   </div>
 
   <div class="card">
-    <label class="etq" for="accion">Acción</label>
-    <select class="inp" id="accion">
-      <option value="NUEVO_INGRESO">Nuevo ingreso</option>
-      <option value="REGISTRAR_CONTROL">Registrar control</option>
-      <option value="REGISTRAR_SEGUIMIENTO">Registrar seguimiento</option>
-      <option value="ACTUALIZAR_DATOS">Actualizar datos</option>
-    </select>
+    <div class="field">
+      <label class="etq" for="accion">Acci&oacute;n</label>
+      <select class="inp" id="accion" aria-describedby="accion-hint">
+        <option value="NUEVO_INGRESO">Nuevo ingreso</option>
+        <option value="REGISTRAR_CONTROL">Registrar control</option>
+        <option value="REGISTRAR_SEGUIMIENTO">Registrar seguimiento</option>
+        <option value="ACTUALIZAR_DATOS">Actualizar datos</option>
+      </select>
+    </div>
 
     <div class="sec-sep"></div>
 
     <div class="rows">
-      <div class="full">
+      <div class="full field">
         <label class="etq" for="rut">RUT *</label>
-        <input class="inp rut" id="rut" placeholder="12.345.678-9" autocomplete="off">
+        <input class="inp rut" id="rut" placeholder="12.345.678-9" autocomplete="off"
+               aria-required="true" aria-describedby="rut-err">
+        <div class="field-error" id="rut-err" role="alert"></div>
       </div>
 
       <div id="grpIdent" class="full" style="display:none">
-        <label class="etq" for="nombre">Nombre completo</label>
-        <input class="inp" id="nombre" autocomplete="off">
+        <div class="field">
+          <label class="etq" for="nombre">Nombre completo *</label>
+          <input class="inp" id="nombre" autocomplete="off"
+                 aria-required="true" aria-describedby="nombre-err">
+          <div class="field-error" id="nombre-err" role="alert"></div>
+        </div>
         <div class="rows" style="grid-template-columns:1fr 1fr">
-          <div>
+          <div class="field">
             <label class="etq" for="sexo">Sexo</label>
             <select class="inp" id="sexo">
               <option value="">(sin especificar)</option>
@@ -61,23 +78,27 @@
               <option value="OTRO">Otro</option>
             </select>
           </div>
-          <div>
-            <label class="etq" for="fnac">Fecha de nacimiento</label>
-            <input class="inp" type="date" id="fnac">
+          <div class="field">
+            <label class="etq" for="fnac">Fecha de nacimiento *</label>
+            <input class="inp" type="date" id="fnac"
+                   aria-required="true" aria-describedby="fnac-err">
+            <div class="field-error" id="fnac-err" role="alert"></div>
           </div>
         </div>
         <div class="rows">
-          <div>
-            <label class="etq" for="sector">Sector</label>
-            <select class="inp" id="sector">
+          <div class="field">
+            <label class="etq" for="sector">Sector *</label>
+            <select class="inp" id="sector"
+                    aria-required="true" aria-describedby="sector-err">
               <option value="">(seleccionar)</option>
               <option value="NARANJO">Naranjo</option>
               <option value="AMARILLO">Amarillo</option>
               <option value="VERDE">Verde</option>
             </select>
+            <div class="field-error" id="sector-err" role="alert"></div>
           </div>
-          <div>
-            <label class="etq" for="estrat">Estratificación</label>
+          <div class="field">
+            <label class="etq" for="estrat">Estratificaci&oacute;n</label>
             <select class="inp" id="estrat">
               <option value="">(sin confirmar)</option>
               <option value="G1">G1</option>
@@ -89,122 +110,256 @@
       </div>
 
       <div id="grpEvento" class="full" style="display:none">
-        <label class="etq" for="fecha_evento">Fecha del evento *</label>
-        <input class="inp" type="date" id="fecha_evento">
+        <div class="field">
+          <label class="etq" for="fecha_evento">Fecha del evento *</label>
+          <input class="inp" type="date" id="fecha_evento"
+                 aria-required="true" aria-describedby="fecha_evento-err">
+          <div class="field-error" id="fecha_evento-err" role="alert"></div>
+        </div>
       </div>
 
-      <div class="full">
-        <label class="etq" for="telefonos">Teléfonos (opcional)</label>
+      <div id="grpTel" class="full field" style="display:none">
+        <label class="etq" for="telefonos">Tel&eacute;fono(s)</label>
         <input class="inp" id="telefonos" placeholder="ej: +56912345678" autocomplete="off">
       </div>
 
-      <div class="full">
-        <label class="etq" for="profesional">Profesional (opcional)</label>
-        <input class="inp" id="profesional" placeholder="Nombre del profesional" autocomplete="off">
+      <div id="grpProf" class="full field" style="display:none">
+        <label class="etq" for="profesional">Profesional</label>
+        <select class="inp" id="profesional">
+          <option value="">(seleccionar)</option>
+        </select>
       </div>
 
-      <div class="full">
-        <label class="etq" for="obs">Observaciones (opcional)</label>
+      <div id="grpObs" class="full field" style="display:none">
+        <label class="etq" for="obs">Observaciones</label>
         <textarea class="inp" id="obs" rows="3"></textarea>
       </div>
     </div>
 
-    <div class="resumen oculto" id="resumen"></div>
+    <div class="resumen oculto" id="resumen" role="status" aria-live="polite"></div>
 
     <div class="acciones">
-      <button class="btn btn-pri" id="btnEnviar">Enviar registro</button>
-      <button class="btn btn-sec" id="btnLimpiar">Limpiar</button>
+      <button class="btn btn-pri" id="btnEnviar" type="button">
+        <span class="spin" id="spinEnviar"></span>Enviar registro
+      </button>
+      <button class="btn btn-sec" id="btnLimpiar" type="button">Limpiar</button>
     </div>
   </div>
 
-  <div class="foot-note">DEMO &mdash; el destino de escritura se confirma en el despliegue.</div>
+  <div class="foot-note">Sistema ECICEP &middot; Captura de datos</div>
 </div>
 
 <script>
+(function(){
+  var PROFESIONALES_OPCIONES = [
+    'M\u00e9dico/a','Enfermera/o','TENS','Matrona/o',
+    'Psic\u00f3logo/a','Asistente Social','Nutricionista',
+    'Kinesi\u00f3logo/a','Terapeuta Ocupacional'
+  ];
+
   var ACCIONES = {
-    NUEVO_INGRESO:        { ident:true,  evento:false, ruleta:null },
-    REGISTRAR_CONTROL:    { ident:false, evento:true,  ruleta:null },
-    REGISTRAR_SEGUIMIENTO:{ ident:false, evento:true,  ruleta:null },
-    ACTUALIZAR_DATOS:     { ident:false, evento:false, ruleta:null }
+    NUEVO_INGRESO:         { ident:true,  evento:false, tel:true,  prof:true,  obs:true },
+    REGISTRAR_CONTROL:     { ident:false, evento:true,  tel:false, prof:true,  obs:true },
+    REGISTRAR_SEGUIMIENTO: { ident:false, evento:true,  tel:false, prof:true,  obs:true },
+    ACTUALIZAR_DATOS:      { ident:false, evento:false, tel:true,  prof:true,  obs:true }
   };
 
-  function accionActual(){ return document.getElementById('accion').value; }
+  var $ = function(id){ return document.getElementById(id); };
+  var accionEl = $('accion');
+
+  function accionActual(){ return accionEl.value; }
+
+  function poblarProfesionales(){
+    var sel = $('profesional');
+    PROFESIONALES_OPCIONES.forEach(function(nombre){
+      var opt = document.createElement('option');
+      opt.value = nombre;
+      opt.textContent = nombre;
+      sel.appendChild(opt);
+    });
+  }
 
   function pintarCampos(){
-    var a=ACCIONES[accionActual()]||{};
-    document.getElementById('grpIdent').style.display=a.ident?'':'none';
-    document.getElementById('grpEvento').style.display=a.evento?'':'none';
+    var a = ACCIONES[accionActual()] || {};
+    $('grpIdent').style.display = a.ident ? '' : 'none';
+    $('grpEvento').style.display = a.evento ? '' : 'none';
+    $('grpTel').style.display = a.tel ? '' : 'none';
+    $('grpProf').style.display = a.prof ? '' : 'none';
+    $('grpObs').style.display = a.obs ? '' : 'none';
+    limpiarErrores();
   }
 
   function recolectar(){
     return {
       ACCION: accionActual(),
-      RUT: document.getElementById('rut').value,
-      NOMBRE: document.getElementById('nombre').value,
-      SEXO: document.getElementById('sexo').value,
-      FECHA_NACIMIENTO: document.getElementById('fnac').value,
-      SECTOR: document.getElementById('sector').value,
-      ESTRATIFICACION: document.getElementById('estrat').value,
-      TELEFONOS: document.getElementById('telefonos').value,
-      FECHA_EVENTO: document.getElementById('fecha_evento').value,
-      PROFESIONAL: document.getElementById('profesional').value,
-      OBSERVACIONES: document.getElementById('obs').value
+      RUT: $('rut').value,
+      NOMBRE: $('nombre').value,
+      SEXO: $('sexo').value,
+      FECHA_NACIMIENTO: $('fnac').value,
+      SECTOR: $('sector').value,
+      ESTRATIFICACION: $('estrat').value,
+      TELEFONOS: $('telefonos').value,
+      FECHA_EVENTO: $('fecha_evento').value,
+      PROFESIONAL: $('profesional').value,
+      OBSERVACIONES: $('obs').value
     };
   }
 
-  function mostrarResumen(tipo, titulo, det){
-    var el=document.getElementById('resumen');
-    el.classList.remove('oculto','err');
-    if(tipo==='err')el.classList.add('err');
-    var html='<strong>'+_esc(titulo)+'</strong>';
-    if(det)html+='<div class="chips">'+det+'</div>';
-    el.innerHTML=html;
+  function mostrarError(campo, msg){
+    var errEl = $(campo + '-err');
+    var inpEl = $(campo);
+    if(errEl){ errEl.textContent = msg; errEl.classList.add('visible'); }
+    if(inpEl){ inpEl.classList.add('field-error-input'); inpEl.setAttribute('aria-invalid','true'); }
   }
 
-  function ocultarResumen(){ document.getElementById('resumen').classList.add('oculto'); }
+  function limpiarErrores(){
+    ['rut','nombre','fnac','sector','fecha_evento'].forEach(function(c){
+      var errEl = $(c + '-err');
+      var inpEl = $(c);
+      if(errEl){ errEl.textContent = ''; errEl.classList.remove('visible'); }
+      if(inpEl){ inpEl.classList.remove('field-error-input'); inpEl.removeAttribute('aria-invalid'); }
+    });
+  }
 
-  document.getElementById('accion').addEventListener('change',function(){ pintarCampos(); ocultarResumen(); });
+  function validarRutBasico(rut){
+    var t = (rut || '').trim();
+    if(!t) return 'El RUT es obligatorio';
+    var sinPuntos = t.replace(/\./g,'');
+    if(!/^\d{7,8}-[\dkK]$/.test(sinPuntos)) return 'Formato de RUT inv\u00e1lido (ej: 12.345.678-9)';
+    return '';
+  }
 
-  document.getElementById('btnEnviar').addEventListener('click',function(){
-    var btn=document.getElementById('btnEnviar');
-    if(!_guardarBot(btn))return;
+  function validarFecha(fechaStr){
+    if(!fechaStr) return false;
+    var parts = fechaStr.split('-');
+    if(parts.length !== 3) return false;
+    var y = parseInt(parts[0],10), m = parseInt(parts[1],10), d = parseInt(parts[2],10);
+    if(isNaN(y)||isNaN(m)||isNaN(d)) return false;
+    if(m<1||m>12||d<1||d>31) return false;
+    var test = new Date(y, m-1, d);
+    return test.getFullYear()===y && test.getMonth()===(m-1) && test.getDate()===d;
+  }
+
+  function validarFormulario(){
+    var accion = accionActual();
+    var hayError = false;
+    limpiarErrores();
+
+    var rutErr = validarRutBasico($('rut').value);
+    if(rutErr){ mostrarError('rut', rutErr); hayError = true; }
+
+    if(accion === 'NUEVO_INGRESO'){
+      var nombre = ($('nombre').value||'').trim();
+      if(!nombre){ mostrarError('nombre','El nombre es obligatorio'); hayError = true; }
+
+      var fnac = $('fnac').value;
+      if(!fnac){ mostrarError('fnac','La fecha de nacimiento es obligatoria'); hayError = true; }
+      else if(!validarFecha(fnac)){ mostrarError('fnac','Fecha inv\u00e1lida'); hayError = true; }
+
+      var sector = $('sector').value;
+      if(!sector){ mostrarError('sector','Seleccione un sector'); hayError = true; }
+    }
+
+    if(accion === 'REGISTRAR_CONTROL' || accion === 'REGISTRAR_SEGUIMIENTO'){
+      var fe = $('fecha_evento').value;
+      if(!fe){ mostrarError('fecha_evento','La fecha del evento es obligatoria'); hayError = true; }
+      else if(!validarFecha(fe)){ mostrarError('fecha_evento','Fecha inv\u00e1lida'); hayError = true; }
+    }
+
+    return !hayError;
+  }
+
+  function mostrarResumen(tipo, titulo, det){
+    var el = $('resumen');
+    el.classList.remove('oculto','ok','err');
+    el.classList.add(tipo);
+    var html = '<strong>' + _esc(titulo) + '</strong>';
+    if(det) html += '<div class="chips">' + det + '</div>';
+    el.innerHTML = html;
+  }
+
+  function ocultarResumen(){ $('resumen').classList.add('oculto'); }
+
+  function estadoEnviando(){
+    var btn = $('btnEnviar');
+    var spin = $('spinEnviar');
+    btn.disabled = true;
+    spin.classList.add('on');
+    btn.innerHTML = '';
+    btn.appendChild(spin);
+    btn.appendChild(document.createTextNode(' Enviando\u2026'));
+  }
+
+  function estadoListo(){
+    var btn = $('btnEnviar');
+    var spin = $('spinEnviar');
+    btn.disabled = false;
+    spin.classList.remove('on');
+    btn.innerHTML = '';
+    btn.appendChild(spin);
+    btn.appendChild(document.createTextNode('Enviar registro'));
+  }
+
+  function enviar(){
+    if(!validarFormulario()){
+      mostrarResumen('err','Revise los campos marcados','');
+      return;
+    }
     ocultarResumen();
-    var datos=recolectar();
+    estadoEnviando();
+    var datos = recolectar();
     google.script.run
       .withSuccessHandler(function(r){
-        _restaurarBot(btn);
-        if(!r){ mostrarResumen('err','Error inesperado','Respuesta vacía del servidor.'); return; }
-        if(!r.ok){
-          var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
-          mostrarResumen('err','No fue posible registrar','<div style="margin-top:6px">'+det+'</div>');
+        if(!r){
+          estadoListo();
+          mostrarResumen('err','No fue posible registrar el evento. Revise los datos e int\u00e9ntelo nuevamente.','');
           return;
         }
-        var d=r.data||{};
-        var chips='';
-        chips+='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
-        if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
-        if(d.idInterno)chips+='<span class="chip">ID: '+_esc(d.idInterno)+'</span>';
-        chips+='<span class="chip">Ref: '+_esc(d.responseId||'')+'</span>';
-        mostrarResumen('ok',(r.message||'Registro realizado'),chips);
-        document.getElementById('btnLimpiar').click();
+        if(!r.ok){
+          estadoListo();
+          var det = (r.errors||[]).map(function(e){
+            return _esc(e && e.mensaje ? e.mensaje : String(e));
+          }).join('<br>');
+          mostrarResumen('err','No fue posible registrar', det ? '<div style="margin-top:6px">'+det+'</div>' : '');
+          return;
+        }
+        var d = r.data || {};
+        var chips = '';
+        chips += '<span class="chip">Estado: <b>' + _esc(d.estado||'RECIBIDO') + '</b></span>';
+        if(d.motivo) chips += '<span class="chip">' + _esc(d.motivo) + '</span>';
+        if(d.idInterno) chips += '<span class="chip">ID: ' + _esc(d.idInterno) + '</span>';
+        mostrarResumen('ok', '\u2713 Registro guardado correctamente', chips);
+        limpiarFormulario();
       })
-      .withFailureHandler(function(e){ _restaurarBot(btn); mostrarResumen('err','Error de conexión',_esc(e&&e.message?e.message:String(e))); })
+      .withFailureHandler(function(e){
+        estadoListo();
+        mostrarResumen('err','No fue posible registrar el evento. Revise los datos e int\u00e9ntelo nuevamente.','');
+        console.error('ECICEP WebApp error:', e);
+      })
       .Form_capturarDesdeUI(datos);
-  });
+  }
 
-  document.getElementById('btnLimpiar').addEventListener('click',function(){
-    ['rut','nombre','fnac','fecha_evento','telefonos','profesional','obs'].forEach(function(id){
-      document.getElementById(id).value='';
+  function limpiarFormulario(){
+    ['rut','nombre','fnac','fecha_evento','telefonos','obs'].forEach(function(id){
+      $(id).value = '';
     });
-    document.getElementById('sexo').value='';
-    document.getElementById('sector').value='';
-    document.getElementById('estrat').value='';
+    $('sexo').value = '';
+    $('sector').value = '';
+    $('estrat').value = '';
+    $('profesional').value = '';
+    limpiarErrores();
     ocultarResumen();
-    document.getElementById('rut').focus();
-  });
+    $('rut').focus();
+  }
 
+  accionEl.addEventListener('change', function(){ pintarCampos(); ocultarResumen(); });
+  $('btnEnviar').addEventListener('click', enviar);
+  $('btnLimpiar').addEventListener('click', limpiarFormulario);
+
+  poblarProfesionales();
   pintarCampos();
-  document.getElementById('rut').focus();
+  $('rut').focus();
+})();
 </script>
 </body>
 </html>
