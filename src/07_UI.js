@@ -10,44 +10,43 @@
 function onOpen() {
   try {
     var ui = SpreadsheetApp.getUi();
+
+    ui.createMenu('Captura')
+      .addItem('📋 Abrir formulario de captura', 'UI_abrirFormularioCaptura')
+      .addItem('📱 Mostrar QR del formulario', 'UI_mostrarQR')
+      .addToUi();
+
     ui.createMenu('ECICEP')
-
       .addItem('🏠 Panel de Control', 'UI_panelControl')
-
       .addSubMenu(ui.createMenu('👥 Personas')
         .addItem('✏️ Buscar / Ficha de persona', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
         .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
-
       .addSubMenu(ui.createMenu('📅 Seguimiento y controles')
         .addItem('🩺 Controles por persona', 'UI_abrirControles'))
-
-      .addItem('📋 Abrir formulario de captura', 'UI_abrirFormularioCaptura')
-      .addItem('📱 Mostrar QR del formulario', 'UI_mostrarQR')
-
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('📊 Estadísticas', 'UI_abrirDashboard')
         .addItem('🩺 Generar REM', 'UI_generarRem')
         .addItem('🔎 Consultar REM', 'UI_verRem'))
-
       .addSubMenu(ui.createMenu('⚙️ Configuración')
         .addItem('⚙️ Configuración', 'UI_configuracion')
         .addItem('🎯 Estratificación', 'UI_configuracionEstratificacion')
         .addItem('👨‍⚕️ Responsables y correos', 'UI_configuracionResponsables')
         .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
-
-      .addSubMenu(ui.createMenu('🛠️ Herramientas')
-        .addItem('🔍 Diagnóstico del sistema', 'UI_instalarDiagnosticar')
-        .addItem('🔄 Actualizar sistema', 'UI_actualizarSistema')
-        .addItem('⚙️ Instalar / reparar sistema', 'UI_instalarSistema')
-        .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
-        .addItem('💾 Backups', 'UI_backup')
-        .addItem('📥 Formularios', 'UI_formularioPanel')
-        .addItem('📄 Registro del sistema', 'UI_abrirLog')
-        .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe'))
-
       .addToUi();
+
+    ui.createMenu('Sistema')
+      .addItem('🔍 Diagnóstico del sistema', 'UI_instalarDiagnosticar')
+      .addItem('🔄 Actualizar sistema', 'UI_actualizarSistema')
+      .addItem('⚙️ Instalar / reparar sistema', 'UI_instalarSistema')
+      .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
+      .addItem('💾 Backups', 'UI_backup')
+      .addItem('📥 Formularios', 'UI_formularioPanel')
+      .addItem('📄 Registro del sistema', 'UI_abrirLog')
+      .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe')
+      .addToUi();
+
     Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
   } catch (e) { /* entorno sin UI */ }
 }
@@ -60,19 +59,20 @@ function ECICEP_webAppUrl() {
 /** 📋 Abrir formulario de captura en nueva pestaña. */
 function UI_abrirFormularioCaptura() {
   var url = ECICEP_webAppUrl();
-  var html = HtmlService.createHtmlOutput(
-    '<script>window.open("' + url + '","_blank");google.script.host.close();</script>'
-  ).setWidth(10).setHeight(10);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Abriendo formulario...');
+  var html = '<html><body><script>'
+    + 'var a=document.createElement("a");a.href="' + url + '";a.target="_blank";'
+    + 'document.body.appendChild(a);a.click();google.script.host.close();'
+    + '</script></body></html>';
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(10).setHeight(10),
+    'Abriendo formulario...');
 }
 
 /** 📱 Mostrar QR del formulario de captura en sidebar. */
 function UI_mostrarQR() {
   var url = ECICEP_webAppUrl();
-  var qrApi = 'https://chart.googleapis.com/chart?cht=qr&chs=280x280&chl=' + encodeURIComponent(url)
-    + '&choe=UTF-8';
   var t = HtmlService.createTemplateFromFile('QRFormulario');
-  t.QR_URL = qrApi;
+  t.QR_URL = url;
   t.WEB_APP_URL = url;
   SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle('📱 QR — Formulario ECICEP'));
 }

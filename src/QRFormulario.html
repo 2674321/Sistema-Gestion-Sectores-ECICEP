@@ -12,8 +12,8 @@
     .qr-header{padding:20px 20px 0}
     .qr-header h2{font-size:16px;font-weight:700;color:#0B3C49;margin:0}
     .qr-header p{font-size:13px;color:#5B6070;margin:4px 0 0}
-    .qr-img{padding:20px}
-    .qr-img img{width:240px;height:240px;border:1px solid #E8EAED;border-radius:8px}
+    .qr-img{padding:20px;display:flex;justify-content:center}
+    .qr-img canvas{border:1px solid #E8EAED;border-radius:8px}
     .qr-url{padding:0 20px 8px}
     .qr-url-box{background:#F7F8FA;border:1px solid #D4D7DC;border-radius:6px;
       padding:8px 12px;font-size:11px;color:#5B6070;word-break:break-all;
@@ -36,14 +36,14 @@
       <p>Escanea este c&oacute;digo para abrir el formulario de captura.</p>
     </div>
     <div class="qr-img">
-      <img src="<?= QR_URL ?>" alt="QR del formulario ECICEP">
+      <canvas id="qrCanvas" width="240" height="240"></canvas>
     </div>
     <div class="qr-url">
       <div class="qr-url-box" id="urlBox"><?= WEB_APP_URL ?></div>
     </div>
     <div class="qr-footer">
       <button class="btn-copy" id="btnCopy" type="button" onclick="copiarURL()">
-        📋 Copiar URL
+        &#128203; Copiar URL
       </button>
       <div class="copied" id="copiedMsg">&#10003; URL copiada al portapapeles</div>
       <p style="margin-top:10px">Esta URL apunta al formulario oficial de captura ECICEP.</p>
@@ -51,6 +51,112 @@
   </div>
 
   <script>
+    function generateQR(text, canvas, size) {
+      var ctx = canvas.getContext('2d');
+      var modules = qrGetModules(text);
+      var len = modules.length;
+      var cellSize = Math.floor(size / (len + 8));
+      var margin = Math.floor((size - cellSize * len) / 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#000000';
+      for (var r = 0; r < len; r++) {
+        for (var c = 0; c < len; c++) {
+          if (modules[r][c]) {
+            ctx.fillRect(margin + c * cellSize, margin + r * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+
+    function qrGetModules(text) {
+      var data = qrEncode(text);
+      var size = data.modules.length;
+      var result = [];
+      for (var r = 0; r < size; r++) {
+        result[r] = [];
+        for (var c = 0; c < size; c++) {
+          result[r][c] = data.modules[r][c] ? true : false;
+        }
+      }
+      return result;
+    }
+
+    function qrEncode(text) {
+      var len = text.length;
+      var version = 1;
+      if (len > 25) version = 3;
+      if (len > 70) version = 5;
+      if (len > 127) version = 7;
+      var size = version * 4 + 17;
+      var modules = [];
+      var isFunction = [];
+      for (var r = 0; r < size; r++) {
+        modules[r] = [];
+        isFunction[r] = [];
+        for (var c = 0; c < size; c++) {
+          modules[r][c] = false;
+          isFunction[r][c] = false;
+        }
+      }
+      qrAddFinderPattern(modules, isFunction, 0, 0, size);
+      qrAddFinderPattern(modules, isFunction, size - 7, 0, size);
+      qrAddFinderPattern(modules, isFunction, 0, size - 7, size);
+      qrAddTimingPatterns(modules, isFunction, size);
+      for (var i = 0; i < len && i < 64; i++) {
+        var ch = text.charCodeAt(i);
+        var bits = [];
+        for (var b = 7; b >= 0; b--) bits.push((ch >> b) & 1);
+        for (var b = 0; b < 8; b++) {
+          var r = 8 + Math.floor(i / 4) * 2;
+          var c = size - 8 - (i % 4) * 2 + (b < 4 ? 0 : 1);
+          if (r < size && c >= 0 && c < size && !isFunction[r][c]) {
+            modules[r][c] = bits[b] === 1;
+          }
+        }
+      }
+      for (var r = 0; r < size; r++) {
+        for (var c = 0; c < size; c++) {
+          if (!isFunction[r][c]) {
+            modules[r][c] = ((r + c) % 3 === 0) || modules[r][c];
+          }
+        }
+      }
+      return { modules: modules, version: version };
+    }
+
+    function qrAddFinderPattern(modules, isFunction, row, col, size) {
+      var pattern = [
+        [1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1],
+        [1,0,1,1,1,0,1],
+        [1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1]
+      ];
+      for (var r = 0; r < 7; r++) {
+        for (var c = 0; c < 7; c++) {
+          var mr = row + r, mc = col + c;
+          if (mr >= 0 && mr < size && mc >= 0 && mc < size) {
+            modules[mr][mc] = pattern[r][c] === 1;
+            isFunction[mr][mc] = true;
+          }
+        }
+      }
+    }
+
+    function qrAddTimingPatterns(modules, isFunction, size) {
+      for (var i = 8; i < size - 8; i++) {
+        modules[6][i] = i % 2 === 0;
+        isFunction[6][i] = true;
+        modules[i][6] = i % 2 === 0;
+        isFunction[i][6] = true;
+      }
+    }
+
+    generateQR('<?= WEB_APP_URL ?>', document.getElementById('qrCanvas'), 240);
+
     function copiarURL(){
       var url = document.getElementById('urlBox').textContent;
       if(navigator.clipboard){
