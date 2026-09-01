@@ -774,6 +774,8 @@ var FORM_CONFIG = {
       acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO'] },
     { pregunta: 'Profesional que registra (opcional)', campo: 'PROFESIONAL', tipo: 'dropdown',
       acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Segundo profesional (opcional)', campo: 'PROFESIONAL2', tipo: 'texto',
+      acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Descripción / observaciones', campo: 'OBSERVACIONES', tipo: 'texto' }
   ]
 };
