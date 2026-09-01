@@ -196,10 +196,8 @@ function Instalar_diagnosticar() {
     }
   } catch (e) { diagnostico.resumen.fasesPendientes.push('visual: error'); }
 
-  // 3. BUSCADORES (integrado en visual)
-  try {
-    diagnostico.resumen.fasesCompletas.push('buscador');
-  } catch (e) { diagnostico.resumen.fasesPendientes.push('buscador'); }
+  // 3. BUSCADORES (integrado en visual, verificado arriba)
+  // no requiere diagnóstico separado
 
   // 4. CONFLICTOS
   try {
@@ -248,12 +246,11 @@ function Instalar_diagnosticar() {
     diagnostico.resumen.fasesCompletas.push('ocultas');
   } catch (e) { diagnostico.resumen.fasesPendientes.push('ocultas'); }
 
-  // 8. MENÚ
-  diagnostico.menu.necesitaActualizar = true;
-  diagnostico.resumen.fasesPendientes.push('menú');
+  // 8. MENÚ - always safe to re-apply, not a diagnostic item
+  diagnostico.menu.necesitaActualizar = false;
 
   // Resumen general
-  diagnostico.resumen.totalFases = 8;
+  diagnostico.resumen.totalFases = 7;
   diagnostico.resumen.completas = diagnostico.resumen.fasesCompletas.length;
   diagnostico.resumen.pendientes = diagnostico.resumen.fasesPendientes.length;
 

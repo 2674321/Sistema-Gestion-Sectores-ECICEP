@@ -38,8 +38,9 @@ function onOpen() {
         .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
 
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
+        .addItem('🔍 Diagnóstico del sistema', 'UI_instalarDiagnosticar')
+        .addItem('🔄 Actualizar sistema', 'UI_actualizarSistema')
         .addItem('⚙️ Instalar / reparar sistema', 'UI_instalarSistema')
-        .addItem('🔍 Diagnóstico instalación', 'UI_instalarDiagnosticar')
         .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
         .addItem('💾 Backups', 'UI_backup')
         .addItem('📥 Formularios', 'UI_formularioPanel')
@@ -102,28 +103,55 @@ function UI_instalarDiagnosticar() {
   }
   var d = r.diagnostico;
   var lineas = [];
-  lineas.push('ESTRUCTURA: ' + d.estructura.creadas.length + ' por crear, ' + d.estructura.existentes.length + ' existentes');
+  lineas.push('=== ECICEP v' + ECICEP.VERSION + ' — Diagnóstico ===');
+  lineas.push('');
+  lineas.push('ESTRUCTURA: ' + d.estructura.existentes.length + ' hojas OK, ' + d.estructura.faltantes.length + ' faltantes');
+  if (d.estructura.faltantes.length) lineas.push('  Faltan: ' + d.estructura.faltantes.join(', '));
+  lineas.push('');
   lineas.push('SECCIONES VISUALES:');
+  var seccPend = 0;
   Object.keys(d.secciones).forEach(function (h) {
     var s = d.secciones[h];
     if (s.ok && s.configurada) {
-      lineas.push('  ' + h + ': ' + s.secciones.length + ' secciones, ' + s.columnasSinSeccion.length + ' sin sección');
-    } else {
-      lineas.push('  ' + h + ': ' + (s.motivo || 'sin config'));
+      var est = s.estadoActual || {};
+      if (est.estructura !== 'OK') seccPend++;
+      lineas.push('  ' + h + ': ' + (est.estructura || 'N/A'));
     }
   });
-  lineas.push('BUSCADORES A1:');
-  Object.keys(d.buscadores).forEach(function (h) {
-    var b = d.buscadores[h];
-    lineas.push('  ' + h + ': nota=' + b.nota + ' validación=' + b.validacion);
-  });
-  lineas.push('CONFLICTOS oculta: ' + (d.conflictos.oculta ? 'SÍ' : 'NO'));
-  lineas.push('VALIDACIONES: ' + d.validaciones.aplicadas + ' aplicadas en ' + d.validaciones.puertas + ' puertas');
-  lineas.push('FORMATO CONDICIONAL: ' + d.formato.aplicados + ' reglas');
-  lineas.push('OCULTAS TÉCNICAS: ' + d.ocultas.ocultadas + ' columnas');
+  if (seccPend === 0) lineas.push('  Todas correctas');
   lineas.push('');
-  lineas.push('Ejecute "Instalar / reparar sistema" para aplicar los cambios pendientes.');
-  SpreadsheetApp.getUi().alert('🔍 Diagnóstico de instalación', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+  lineas.push('CONFLICTOS: ' + (d.conflictos.oculta ? 'oculta (OK)' : 'visible (requiere ocultar)'));
+  lineas.push('VALIDACIONES: ' + d.validaciones.aplicadas + ' aplicadas');
+  lineas.push('FORMATO: ' + d.formato.aplicados + ' reglas');
+  lineas.push('OCULTAS: ' + d.ocultas.ocultadas + ' columnas técnicas');
+  lineas.push('');
+  if (d.resumen.fasesPendientes.length) {
+    lineas.push('⚠ Cambios pendientes: ' + d.resumen.fasesPendientes.length);
+    d.resumen.fasesPendientes.forEach(function (p) { lineas.push('  · ' + p); });
+  } else {
+    lineas.push('✓ Sistema al día — no se requieren cambios');
+  }
+  lineas.push('');
+  lineas.push('Para aplicar cambios: Herramientas → Actualizar sistema');
+  SpreadsheetApp.getUi().alert('🔍 Diagnóstico', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/** 🔄 Actualizar sistema: ejecuta todas las etapas con confirmación previa. */
+function UI_actualizarSistema() {
+  var ui = SpreadsheetApp.getUi();
+  var r = Instalar_diagnosticar();
+  var pendientes = r.ok ? (r.diagnostico.resumen.fasesPendientes || []) : [];
+  var msg = 'Versión actual: v' + ECICEP.VERSION + '\n\n';
+  if (pendientes.length === 0) {
+    msg += 'El sistema está al día. No hay cambios pendientes.\n\n¿Desea ejecutar la actualización de todos modos?';
+  } else {
+    msg += 'Cambios detectados (' + pendientes.length + '):\n';
+    pendientes.forEach(function (p) { msg += '  · ' + p + '\n'; });
+    msg += '\nLos datos existentes se conservarán.\n¿Desea aplicar los cambios?';
+  }
+  var resp = ui.alert('🔄 Actualizar sistema', msg, ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) return;
+  UI_instalarSistema();
 }
 
 /** 🔄 Actualizar todo: recalcula estratificación + controles + refresca SECTOR_* + re-aplica formato. */
