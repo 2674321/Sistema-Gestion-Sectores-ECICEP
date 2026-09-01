@@ -1,5 +1,35 @@
 # AGENTS.md — Contrato permanente para agentes ECICEP
 
+## REGLAS INVIOLABLES
+
+1. Este repositorio trabaja sobre un único entorno activo.
+2. No crear DEV/DEMO/PROD como arquitectura.
+3. La Web App es el único canal de captura.
+4. Google Forms no debe reintroducirse.
+5. Existe una única fuente de verdad.
+6. No crear segunda base de datos.
+7. No duplicar pipeline.
+8. No cambiar backend para resolver problemas de UI sin necesidad.
+9. Leer documentación actual antes de cambiar arquitectura.
+10. Ejecutar tests antes de declarar una tarea terminada.
+
+---
+
+## Precedencia de instrucciones
+
+Cuando exista conflicto entre documentos, la prioridad es:
+
+1. `AGENTS.md`
+2. Código actual
+3. Tests actuales
+4. Documentación vigente (`docs/`)
+5. Decisiones históricas
+6. Informes históricos
+
+No utilizar documentos históricos para reconstruir comportamiento actual.
+
+---
+
 ## Entorno
 
 Este repositorio trabaja sobre **un único proyecto Apps Script** y **un único Spreadsheet configurado**.
@@ -9,6 +39,8 @@ No introducir separación DEV/DEMO/PRODUCCIÓN salvo instrucción explícita del
 **Estado actual: arquitectura de entorno único.**
 
 La existencia de deployments/versiones técnicas de Apps Script NO cambia esta decisión arquitectónica.
+
+Ver `docs/ENTORNO.md` para detalle.
 
 ---
 
@@ -79,6 +111,8 @@ clasp deploy --deploymentId <deployment activo>
 ```
 
 No crear deployments innecesarios. Reutilizar el deployment existente cuando sea posible.
+
+Ver `docs/WORKFLOW.md` para detalle.
 
 ---
 
@@ -170,3 +204,15 @@ Referencias a DEV/DEMO en documentos existentes son **HISTÓRICAS** ( DEC-049, v
 Estado actual: un único entorno operativo.
 
 No utilizar documentación histórica como justificación para crear arquitectura multi-entorno.
+
+---
+
+## Documentación del proyecto
+
+| Documento | Propósito |
+|-----------|-----------|
+| `AGENTS.md` | Reglas permanentes para agentes |
+| `README.md` | Visión general del proyecto |
+| `docs/WORKFLOW.md` | Flujo de desarrollo, clasp, deployment |
+| `docs/CONTRATOS.md` | Especificación funcional de captura |
+| `docs/ENTORNO.md` | Arquitectura de entorno único |
