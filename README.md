@@ -32,16 +32,18 @@ estructuras distintas.
 | ETAPA 2 — Núcleo | ✅ Implementada, pruebas verdes |
 | ETAPA 2.5 — Refinamiento funcional (paciente/evento, sectores, dashboard, REM, estratificación, protecciones) | ✅ Diseñada — docs: MODELO-EVENTOS · DASHBOARD · REM · ESTRATIFICACION |
 | ETAPA 3 — Staging + validador + identificación controlada | ✅ Núcleo implementado |
-| ETAPA 3b — INGRESO_* → staging → PACIENTES/EVENTOS (gates, append-only, batch) | ✅ Implementada y **verificada end-to-end en el sheet real** (EJ-MT3IJ7RG: 18 leídos, 14 eventos, 11 nuevos + 3 enlazados) |
-| ETAPA 4+ — Interfaz → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
+| ETAPA 4+ — **Web App de captura** → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
 
-**Interfaz:** Google Sheets es la interfaz principal del sistema (DEC-012).
+**Interfaz:** **Web App de captura v0.9.3** es la interfaz de captura de usuarios (URL `/exec`), accesible por navegador desktop y móvil. Google Forms existe como canal histórico/legacy pero **NO es la interfaz actual de captura** — el sistema trabaja con un solo canal activo: la Web App. Google Sheets es la interfaz administrativa principal (DEC-012, actualizada).
+
 **Modelo:** PACIENTES (entidad/estado vigente) + EVENTOS (historial append-only) — DEC-017.
 **Regla vigente:** NO migrar ni procesar masivamente los datos reales todavía.
 
+**Nuevo en v0.9.3:** Web App de captura como único canal activo de entrada para usuarios. Los datos siguen el pipeline: `Form_capturarDesdeUI()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → efectos clínicos. No se crea segunda base de datos ni lógica paralela. Google Forms puede permanecer en el proyecto como referencia histórica pero no debe usarse como interfaz de captura activa.
+
 ## Stack
 
-Google Sheets · Google Apps Script · HTML/CSS/JS · Git · Clasp.
+Google Sheets · Google Apps Script · HTML/CSS/JS · Git · Clasp · Web App de captura v0.9.3.
 Sin dependencias externas salvo beneficio demostrable.
 
 ## Documentación (fuente de verdad)
@@ -56,6 +58,7 @@ Sin dependencias externas salvo beneficio demostrable.
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
 | `FORMULARIO.md` | Formulario complementario: instalación, mapeo, operación y seguridad |
 | `PENDIENTES.md` | Decisiones abiertas y tareas bloqueantes |
+| `ARQUITECTURA-WEBAPP.md` | **(nueva)** Arquitectura del canal Web App v0.9.3 |
 
 ## Estructura
 
@@ -66,7 +69,7 @@ Sistema-Gestion-Sectores-ECICEP/
 │   ├── appsscript.json
 │   ├── 00_Config … 09_Log  # Módulos del núcleo
 │   ├── 24_Formulario.js    # Puerta Google Forms + operativización (DEC-047/048/051)
-│   ├── 25_Entorno.js       # Estrategia DEV/DEMO, gate e identidad (DEC-049)
+│   ├── 25_Entorno.js       # Identidad por Spreadsheet ID (DEC-049, v0.9.1)
 │   ├── 10_Pruebas.js       # Suites deterministas
 │   └── 11_DatosPrueba.js   # Dataset ficticio único
 ├── tests/
@@ -362,7 +365,10 @@ Sistema-Gestion-Sectores-ECICEP/
   estado, pendientes, métricas, duplicados decididos por el pipeline, simulador determinista 10→3000).
   **455/455 tests verdes**; `node --check` limpio; cero colores literales fuera de la configuración.
 
-## v0.9.1 — Estrategia de entornos DEV + DEMO (DEC-049/050)
+## v0.9.1 — Estrategia de entornos DEV + DEMO (DEC-049/050) [HISTÓRICO]
+
+> **Estado: HISTÓRICO / SUPERADO.** Esta estrategia fue relevante en v0.9.1 pero el sistema
+> actual trabaja como **único entorno operativo**. Ver `AGENTS.md` para la decisión permanente.
 
 - **Mismo código, dos entornos aislados** (`src/25_Entorno.js`): la identidad se resuelve por
   `Spreadsheet.getId()` (`Entorno_detectar`), NUNCA por el nombre de la hoja. `ENTORNOS` registra
