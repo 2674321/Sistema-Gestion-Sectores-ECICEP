@@ -72,11 +72,7 @@ No se debe asumir que una URL es correcta por aparecer en un documento históric
 
 ## Deployment histórico `@63`
 
-`@63` es una referencia histórica de un deployment antiguo.
-
-No debe documentarse como “producción”, ni considerarse un entorno separado, ni preservarse por defecto como una implementación intocable.
-
-Antes de eliminarlo hay que verificar si alguna URL, automatización, QR, configuración o usuario todavía depende de él.
+`@63` fue un deployment antiguo. Fue eliminado después de verificar que no tenía dependencias operativas activas.
 
 ## Regla de código
 

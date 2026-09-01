@@ -49,7 +49,7 @@ Las tareas de publicación deben:
 5. comprobar `/exec` mediante E2E;
 6. eliminar deployments obsoletos únicamente después de verificar dependencias.
 
-El deployment histórico `@63` no es un pendiente especial ni una “producción” protegida por documentación. Puede eliminarse cuando se demuestre que no tiene dependencias activas y exista una tarea explícita de limpieza.
+El deployment histórico `@63` fue eliminado después de verificar que no tenía dependencias operativas activas.
 
 ## 4. Limitaciones conocidas
 

@@ -312,7 +312,7 @@ Sistema-Gestion-Sectores-ECICEP/
   (Buscar paciente, Ficha del paciente, Cola de revisión, Procesar ingresos).
 - **Resumen de procesamiento breve** (`Ingresos_resumenTexto`) para el toast.
 - **Tests**: `_pruebas_pulido_v0895`. **427/427 tests verdes**.
-- Despliegue registrado históricamente en `@63`; esa referencia no define el deployment operativo actual.
+- Despliegue registrado históricamente en `@63` (eliminado); esa referencia no define el deployment operativo actual.
 
 ## v0.8.9.6 — DESIGN SYSTEM único (normalización visual global)
 

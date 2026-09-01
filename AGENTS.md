@@ -180,7 +180,7 @@ No modificar ni eliminar recursos fuera del alcance de la tarea.
 
 Una operación destructiva sobre deployments, hojas, archivos, datos o permisos requiere comprobar previamente sus dependencias reales.
 
-Una referencia histórica como `@63` **no tiene protección arquitectónica especial**: si existe y ya no tiene dependencia activa, puede ser candidata a eliminación dentro de una tarea explícita de limpieza, después de verificar sus dependencias.
+Una referencia histórica como `@63` **no tiene protección arquitectónica especial**: si existe y ya no tiene dependencia activa, puede ser candidata a eliminación dentro de una tarea explícita de limpieza, después de verificar sus dependencias. `@63` fue eliminado en la tarea de limpieza de deployments.
 
 ---
 

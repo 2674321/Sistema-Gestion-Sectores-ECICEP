@@ -97,7 +97,7 @@ El sistema funciona como **un único entorno operativo**: un proyecto Apps Scrip
 
 Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Script son mecanismos técnicos de publicación. No representan DEV/DEMO/PROD como arquitectura.
 
-Una referencia histórica como `@63` no debe documentarse como “producción” ni utilizarse para reconstruir el sistema. Su eventual eliminación depende de verificar primero sus dependencias reales.
+Una referencia histórica como `@63` no debe documentarse como "producción" ni utilizarse para reconstruir el sistema. `@63` fue eliminado después de verificar sus dependencias reales.
 
 ## Canal de captura
 
