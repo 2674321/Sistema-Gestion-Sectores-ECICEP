@@ -21,7 +21,7 @@ var WEBHOOK_ACCIONES = [
 ];
 
 function doPost(e) { return _wh_despachar(e); }
-function doGet(e) { return _wh_despachar(e); }
+// doGet quedó definido en WebApp.gs (único por proyecto).
 
 function _wh_salida(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
