@@ -29,7 +29,7 @@ function doGet(e) {
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
     return _wh_despachar(e);
   }
-  return HtmlService.createHtmlOutputFromFile('CapturaWeb')
+  return HtmlService.createTemplateFromFile('CapturaWeb').evaluate()
     .setTitle('ECICEP — Captura')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
