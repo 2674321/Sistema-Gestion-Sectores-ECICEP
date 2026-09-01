@@ -1,8 +1,6 @@
-# ARQUITECTURA — Sistema ECICEP Unificado v0.3
+# ARQUITECTURA — Sistema ECICEP Unificado
 
-> Estado: ETAPA 2.5 (refinamiento funcional). Base técnica estable de ETAPA 2
-> extendida con: modelo entidad/evento, hojas sectoriales, estratificación
-> configurable, dashboard dinámico y REM como capa de reporting.
+> Estado documental: consolidación de la arquitectura vigente. Los hitos ETAPA 2/2.5/3 y las versiones 0.x se conservan como historial; no describen por sí solos el estado operativo actual.
 
 ## Visión general funcional
 
@@ -42,8 +40,8 @@ Detalle del modelo paciente/evento: **MODELO-EVENTOS.md**.
 | `09_Log.gs` | Logging INFO/WARNING/ERROR/DEBUG a hoja LOG con búfer + escritura por lotes (DEC-014) | — |
 | `10_Pruebas.js` | Suites deterministas del núcleo (corren en GAS y en node, DEC-016) | — |
 | `11_DatosPrueba.js` | Dataset ficticio único para las pruebas (sin datos reales) | — |
-| `24_Formulario.js` | Puerta de entrada Google Forms (v0.9.0) + operativización (v0.9.2): validación→decisión→pipeline; métricas operativas, trazabilidad, control FORM_CONTROL, reprocesamiento idempotente; wrappers GAS y endpoints del panel | escritura clínica directa |
-| `25_Entorno.js` | Estrategia DEV/DEMO (v0.9.1): identidad por ID, gate, backups aislados | duplicación de reglas clínicas |
+| `24_Formulario.js` | Backend de captura Web App: validación, decisión, persistencia en `FORM_RESPUESTAS`, procesamiento idempotente, métricas/trazabilidad y wrappers GAS | escritura clínica fuera del pipeline |
+| `25_Entorno.js` | Utilidades históricas o de transición relacionadas con identidad/configuración del proyecto, si todavía existen en el código | crear ambientes operativos paralelos |
 
 **Roadmap de módulos futuros** (se crean en su etapa, no antes):
 `03b_ValidadorEstructura` (reporte APTO/ADVERTENCIAS/REVISIÓN), `12_Ingresos`
@@ -85,11 +83,25 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 | Transacción PACIENTES/EVENTOS | **IMPLEMENTADO (3b)** | Gates explícitos por fila; nuevo→crea entidad+evento enlazado; existente→solo evento (sin sobrescritura); append-only garantizado; escrituras batch |
 | Ejecución controlada desde el sheet | **IMPLEMENTADO (3b)** | Menú ECICEP: 📥 Procesar ingresos · 🧪 Sembrar datos ficticios (prueba) |
 | Ejecución real verificada en el spreadsheet | ✅ **VERIFICADA (EJ-MT3IJ7RG)**: 18 leídos = 3 OK + 11 WARNING + 4 ERROR intencionales; 11 pacientes nuevos + 3 enlazados; 14 eventos; SECTOR_* refrescadas |
-| Puerta Google Forms (v0.9.2) | **IMPLEMENTADO (núcleo tolerante en desarrollo)** | DEC-047/048/049/050/051: FORM → validación/normalización (`Form_validarRespuesta`), decisión (`Form_procesarLote`), efectos anexando la fila canónica a `INGRESO_<SECTOR>` y reusando `api_registrarEvento`; el pipeline decide duplicados; idempotencia por `responseId` + marcas `FORM|<id>|<acción>`; captura GAS con trigger `Form_onFormSubmit`; entornos DEV/DEMO por ID con gate `Entorno_validarProcesamiento` (DEC-049); operativización v0.9.2: métricas % vía formulario, trazabilidad por-envío, hoja `FORM_CONTROL` y reprocesamiento idempotente (DEC-051); activación real requiere la acción manual de `FORMULARIO.md §6` |
+| Captura histórica basada en Google Forms | **OBSOLETA / HISTÓRICA** | Canal utilizado en versiones anteriores. `Form_onFormSubmit`, `FormApp`, `FORM_ID` y `onFormSubmit` no forman parte de la operación actual. Su presencia eventual en código debe tratarse como compatibilidad/deuda histórica, no como canal activo.
+
+| Web App de captura | **ÚNICO canal operativo actual** | Flujo: `CapturaWeb.html` → `google.script.run` → `Form_capturarDesdeUI(datos)` → `Form_validarRespuesta()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → pipeline clínico. `FORM_RESPUESTAS` es estructura interna del mismo sistema. No hay segunda base de datos ni lógica paralela. El identificador de captura UI usa el esquema vigente con prefijo `UI-`.
 | Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con muestra controlada de datos reales |
 
 Pruebas: **171 casos verdes** (143 ETAPA 2 + 36 ETAPA 3 + 13 ETAPA 3b + ajustes).
 Las pruebas de integración con Spreadsheet real son manuales/documentadas (menú 🧪→📥) y no corren en node.
+
+## Entorno operativo
+
+El sistema funciona como **un único entorno operativo**: un proyecto Apps Script, un Spreadsheet, una Web App, un backend y un pipeline.
+
+Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Script son mecanismos técnicos de publicación. No representan DEV/DEMO/PROD como arquitectura.
+
+Una referencia histórica como `@63` no debe documentarse como “producción” ni utilizarse para reconstruir el sistema. Su eventual eliminación depende de verificar primero sus dependencias reales.
+
+## Canal de captura
+
+La Web App es la única interfaz operativa de captura. El backend reutiliza el mismo pipeline ya existente. No existe un segundo canal de negocio que deba mantenerse en paralelo.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 

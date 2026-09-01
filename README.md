@@ -5,8 +5,7 @@ Sistema de gestión para centralizar la información de pacientes del programa *
 (Amarillo, Verde, Naranjo), hoy dispersa en planillas Excel independientes con
 estructuras distintas.
 
-**v0.9.2 (OPEN CODE)** · Google Sheets + Apps Script (clasp) · **469 pruebas locales verdes +
-29 aceptación formulario** · pacientes reales / eventos operando en producción.
+**Estado actual:** Web App de captura sobre Google Apps Script + Google Sheets. El sistema opera con **un único entorno**, un único Spreadsheet configurado, un único backend y un único pipeline.
 
 > **Nota contractual:** proyecto particular desarrollado para la cliente
 > Camila Paz Aguilar (Enfermera). No constituye un proyecto institucional del CESFAM.
@@ -34,12 +33,12 @@ estructuras distintas.
 | ETAPA 3 — Staging + validador + identificación controlada | ✅ Núcleo implementado |
 | ETAPA 4+ — **Web App de captura** → Migración → Optimización → Validación | ⬜ Bloqueadas secuencialmente |
 
-**Interfaz:** **Web App de captura v0.9.3** es la interfaz de captura de usuarios (URL `/exec`), accesible por navegador desktop y móvil. Google Forms existe como canal histórico/legacy pero **NO es la interfaz actual de captura** — el sistema trabaja con un solo canal activo: la Web App. Google Sheets es la interfaz administrativa principal (DEC-012, actualizada).
+**Interfaz:** La **Web App** es el único canal operativo de captura de usuarios. Google Sheets es la interfaz administrativa principal. Google Forms quedó fuera de operación y no debe reintroducirse.
 
 **Modelo:** PACIENTES (entidad/estado vigente) + EVENTOS (historial append-only) — DEC-017.
 **Regla vigente:** NO migrar ni procesar masivamente los datos reales todavía.
 
-**Nuevo en v0.9.3:** Web App de captura como único canal activo de entrada para usuarios. Los datos siguen el pipeline: `Form_capturarDesdeUI()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → efectos clínicos. No se crea segunda base de datos ni lógica paralela. Google Forms puede permanecer en el proyecto como referencia histórica pero no debe usarse como interfaz de captura activa.
+**Captura vigente:** `CapturaWeb.html` → `Form_capturarDesdeUI()` → `Form_validarRespuesta()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → pipeline clínico. `FORM_RESPUESTAS` es una estructura interna del mismo sistema; no es una base paralela ni requiere Google Forms.
 
 ## Stack
 
@@ -58,7 +57,6 @@ Sin dependencias externas salvo beneficio demostrable.
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
 | `FORMULARIO.md` | Formulario complementario: instalación, mapeo, operación y seguridad |
 | `PENDIENTES.md` | Decisiones abiertas y tareas bloqueantes |
-| `ARQUITECTURA-WEBAPP.md` | **(nueva)** Arquitectura del canal Web App v0.9.3 |
 
 ## Estructura
 
@@ -68,8 +66,8 @@ Sistema-Gestion-Sectores-ECICEP/
 ├── src/                    # Código Apps Script (sincronizado con clasp)
 │   ├── appsscript.json
 │   ├── 00_Config … 09_Log  # Módulos del núcleo
-│   ├── 24_Formulario.js    # Puerta Google Forms + operativización (DEC-047/048/051)
-│   ├── 25_Entorno.js       # Identidad por Spreadsheet ID (DEC-049, v0.9.1)
+│   ├── 24_Formulario.js    # Backend de captura Web App + pipeline FORM_RESPUESTAS
+│   ├── 25_Entorno.js       # Utilidades de transición/configuración, si aún existe en el código
 │   ├── 10_Pruebas.js       # Suites deterministas
 │   └── 11_DatosPrueba.js   # Dataset ficticio único
 ├── tests/
@@ -314,7 +312,7 @@ Sistema-Gestion-Sectores-ECICEP/
   (Buscar paciente, Ficha del paciente, Cola de revisión, Procesar ingresos).
 - **Resumen de procesamiento breve** (`Ingresos_resumenTexto`) para el toast.
 - **Tests**: `_pruebas_pulido_v0895`. **427/427 tests verdes**.
-- Desplegado WebApp **@63**.
+- Despliegue registrado históricamente en `@63`; esa referencia no define el deployment operativo actual.
 
 ## v0.8.9.6 — DESIGN SYSTEM único (normalización visual global)
 
@@ -339,10 +337,21 @@ Sistema-Gestion-Sectores-ECICEP/
 - **Tests**: `_pruebas_designsystem_v0896` (rampas, contraste, coherencia entre
   hojas, identidad, no-colisión clínico/organización, anchos fallback, especificación
   visual). **436/436 tests verdes**.
-- **Despliegue (Parte 25)**: sin deploy WebApp en desarrollo (20/20 alcanzados);
-  solo `clasp push -f`. El ejecutable de producción permanece en **@63**.
+- **Despliegue (histórico):** se documentó un límite operativo de deployments durante esa etapa. Ese criterio no define la arquitectura actual.
 
-## v0.9.0 — Formulario complementario como puerta de entrada controlada (DEC-047/048)
+## Estado actual frente al historial v0.x
+
+Las secciones v0.5–v0.9 documentan la evolución del proyecto. Son **historial**, no instrucciones de arquitectura actual.
+
+En particular:
+
+- Google Forms está abandonado;
+- DEV/DEMO/PROD no son entornos de la aplicación;
+- la Web App es el único canal operativo de captura;
+- los deployments son mecanismos técnicos de publicación;
+- no existe segunda base de datos ni segundo pipeline.
+
+## v0.9.0 — Etapa histórica: captura basada en Google Forms (DEC-047/048)
 
 - **Nuevo módulo `src/24_Formulario.js`** (menú `📥 Formularios` → panel `FormularioPanel.html`): el
   sistema recibe respuestas de un Google Form y las convierte en **entradas al pipeline existente**,
@@ -365,7 +374,7 @@ Sistema-Gestion-Sectores-ECICEP/
   estado, pendientes, métricas, duplicados decididos por el pipeline, simulador determinista 10→3000).
   **455/455 tests verdes**; `node --check` limpio; cero colores literales fuera de la configuración.
 
-## v0.9.1 — Estrategia de entornos DEV + DEMO (DEC-049/050) [HISTÓRICO]
+## v0.9.1 — Etapa histórica: estrategia DEV + DEMO (DEC-049/050)
 
 > **Estado: HISTÓRICO / SUPERADO.** Esta estrategia fue relevante en v0.9.1 pero el sistema
 > actual trabaja como **único entorno operativo**. Ver `AGENTS.md` para la decisión permanente.
@@ -388,14 +397,12 @@ Sistema-Gestion-Sectores-ECICEP/
   concurrencia y recuperación idempotentes por marca, escala 10→3.000, esquema estable y
   observabilidad sin datos personales.
 - **Tests**: `_pruebas_entornos_v091` + `_pruebas_formulario_v090`. **463/463 núcleo + 21/21
-  aceptación verdes**; `node --check` limpio. Despliegue: `clasp push -f` (sin deploy WebApp en
-  desarrollo; el ejecutable de producción permanece en @63).
+  aceptación verdes**; `node --check` limpio. El comportamiento de environments/deployments de esta
+  etapa es histórico y no define la publicación actual.
 
-## v0.9.2 — Operativización del formulario (DEC-051)
+## v0.9.2 — Etapa histórica: transición de captura (DEC-051)
 
-- El formulario pasa a ser el **canal operativo principal de captura**: el usuario llena el FORM y
-  no abre la hoja. La hoja pasa a ser **base operativa + administración + supervisión**. Sin
-  sistema paralelo: FORM → INGESTA → el MISMO núcleo → modelo.
+- En esta etapa histórica la captura se desplazó hacia una interfaz separada de la hoja. En el estado actual esa interfaz es la **Web App**, no Google Forms.
 - **MVP operativo = CONTROL/SEGUIMIENTO**: flujo completo (persona ya existe) cubierto de punta a
   punta; idempotencia por marca `FORM|<id>|<ACCIÓN>` impide duplicados en reintentos.
 - **Catálogos desde la fuente oficial**: `PROFESIONAL` se nutre de `CATALOGO_PROFESIONALES`,
@@ -412,6 +419,28 @@ Sistema-Gestion-Sectores-ECICEP/
   ERROR y PENDIENTES; reinicia solo estados no-PROCESADO y nunca duplica (marca/INGRESO_FILA).
 - **Tests**: `_pruebas_operativo_v092` (+6) + Grupo C de aceptación (+8). **469/469 núcleo +
   29/29 aceptación verdes**; `node --check` limpio.
+
+## Arquitectura vigente
+
+```text
+Web App (captura única)
+        ↓
+Form_capturarDesdeUI()
+        ↓
+FORM_RESPUESTAS
+        ↓
+Form_procesarPendientes()
+        ↓
+PIPELINE
+   ┌────┴────┐
+PACIENTES  EVENTOS
+   │           │
+   └────┬──────┘
+        ↓
+SECTORES / DASHBOARD / REM / LOG
+```
+
+Google Sheets continúa como superficie administrativa y de supervisión. Todo pertenece al mismo sistema y al mismo entorno operativo.
 
 ## QR permanente — Google Sheets
 
@@ -443,4 +472,3 @@ El script genera ambas versiones (PNG y SVG) con:
 - **Quiet zone** de 4 módulos
 - **Box size** 12 (alta resolución para impresión)
 - Alto contraste (negro sobre blanco)
-

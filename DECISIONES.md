@@ -80,14 +80,17 @@ Si más adelante se necesita Sheets API avanzado, se decide entonces.
 **Fecha:** 2026-08-21
 
 ## DEC-012
-**Título:** Google Sheets es la interfaz principal del sistema (DECISIÓN OFICIAL)
-**Estado:** Aprobada — definida por el desarrollador al iniciar ETAPA 2
+**Título:** Google Sheets es la interfaz administrativa principal
+**Estado:** Aprobada (2026-08-21) — vigente para administración; supersedida para captura por la Web App
 **Motivo:** La experiencia del usuario ocurre DENTRO del spreadsheet: menús,
 botones, validaciones, formato condicional, vistas y navegación nativa.
 Apps Script es motor (normalización, integración, deduplicación, logs, caché).
 No se desarrollará SPA ni web app independiente; HTML/sidebar/dialog solo como
 complemento cuando una interacción lo justifique. Excel = fuentes externas;
 Git = versionamiento. No modificar sin razón técnica importante.
+**Observación vigente:** Google Sheets continúa como interfaz administrativa principal.
+La captura operativa de usuarios se realiza exclusivamente mediante la Web App.
+Ambas superficies pertenecen al mismo sistema y reutilizan el mismo backend/pipeline.
 **Fecha:** 2026-08-21
 
 ## DEC-013
@@ -626,28 +629,34 @@ producía hojas que no parecían del mismo sistema. Decisión:
 
 ## DEC-047
 **Título:** v0.9.0 — Instalación conservadora del formulario (dry-run, sin auto-creación)
-**Estado:** Aprobada
-**Motivo:** El formulario complementario crea un canal de captura con acceso a datos clínicos; su
-instalación debe ser auditada y no destructiva.
+**Estado:** Aprobada — **OBSOLETA / HISTÓRICA**
+**Motivo:** El formulario complementario creó un canal de captura con acceso a datos clínicos; su
+instalación debía ser auditada y no destructiva. **Queda supersedida por v0.9.3:**
+la Web App es ahora el único canal operativo de captura.
 1. **`Form_instalar` NO crea ni modifica el formulario de Google Forms.** Solo garantiza la
    estructura de datos (hoja oculta `FORM_RESPUESTAS` con color `DESIGN_SYSTEM.MARCA.tecnico`,
    encabezados alineados al contrato `FORM_RESPUESTAS_COLUMNAS` si estuvieran desalineados) y
    `Form_instalarTrigger()` (idempotente por handler `Form_onFormSubmit`, `forSpreadsheet`).
+   **Ya no es necesario** para la operación normal; el trigger `onFormSubmit` no recibe
+   escrituras nuevas en operación con Web App como único canal.
 2. **`Form_diagnosticar`** es solo lectura: estructura, FORM_ID, `FormApp.openById`, trigger.
+   **Mantenido por referencia histórica**; no es necesario configurar FORM_ID en operación normal.
 3. **`Form_reparar`** nunca borra datos y nunca recrea un formulario eliminado: reporta la deuda
-   como pendiente humano (crear el formulario en Google Forms y llenar `FORM_CONFIG.FORM_ID`).
+   como pendiente humano. **Solo relevante si se decides reactivar Google Forms en el futuro.**
 4. **`FORM_ID` vacío** no impide preparar la estructura; el trigger se instala recién con FORM_ID
-   configurado. Captura con `getResponses(desde)` desde la última captura (ventana inicial 2 h)
-   para no reprocesar historial previo a la instalación.
+   configurado. **Ya no es necesario** para operación con Web App como único canal. Captura con
+   `getResponses(desde)` desde la última captura (ventana inicial 2 h) para no reprocesar
+   historial previo a la instalación, si se mantiene el trigger legacy.
 5. **Sin efectos colaterales clínicos**: nada de lo instalado toca PACIENTES/EVENTOS hasta que
-   llegue una respuesta real. **Fecha:** 2026-08-29
-
+   llegue una respuesta real. **Observación:** esto sigue siendo cierto, pero las respuestas
+   ya no vienen de Google Forms en operación normal, sino de la Web App.
+**Fecha:** 2026-09-01
 ---
 
 ## DEC-048
 **Título:** v0.9.0 — Formulario complementario como puerta de entrada controlada (no base paralela)
-**Estado:** Aprobada
-**Motivo:** El equipo desea capturar ingresos, controles y seguimientos vía Google Form sin crear
+**Estado:** Aprobada — **OBSOLETA / HISTÓRICA**
+**Motivo histórico:** El equipo deseaba capturar ingresos, controles y seguimientos vía Google Form sin crear
 una segunda verdad clínica. Decisión: el formulario es SOLO una puerta de entrada:
 `FORM → respuesta → VALIDACIÓN/NORMALIZACIÓN → pipeline existente → PACIENTES/EVENTOS/SECTOR/INICIO`.
 1. **Sin escritura clínica directa desde el formulario.** `NUEVO_INGRESO` anexa la fila canónica
@@ -677,88 +686,75 @@ una segunda verdad clínica. Decisión: el formulario es SOLO una puerta de entr
 ---
 
 ## DEC-049
-**Título:** v0.9.1 — Estrategia de entornos DEV + DEMO (mismo código, libros aislados)
-**Estado:** Aprobada
-**Motivo:** Sumar un entorno de DEMOSTRACIÓN (versión estable fijada) sin duplicar código ni
-configuración clínica, y poder despliegue/prueba sin tocar los datos de desarrollo ni los reales.
-1. **Mismo código en ambos entornos; la identidad se resuelve por `Spreadsheet.getId()`**
-   (`Entorno_detectar`), NUNCA por el nombre visible de la hoja. `ENTORNOS` en `00_Config.js`
-   registra `DEV` (desarrollo @HEAD, `1OEV…`) y `DEMO` (demostración, `1Iyv…`).
-2. **Gate de procesamiento** (`Entorno_validarProcesamiento`): bloquea con
-   `ERROR_CONFIG_ENTORNO` cuando el libro activo no está registrado o cuando el `FORM_ID`
-   configurado pertenece a OTRO entorno (aislamiento cruzado Form DEV↔DEMO).
-3. **`25_Entorno.js` es núcleo puro** (identidad, recursos, diagnóstico read-only, gate);
-   los wrappers GAS (`Entorno_actualGAS`/`Entorno_gateGAS`) resuelven el libro activo. No
-   duplica reglas clínicas (G1/G2/G3, frecuencias, responsables…) que siguen viviendo en CONFIG.
-4. **Backups aislados por entorno**: `ECICEP_Backups_<ENV>` (o `BACKUP_FOLDER_ID` del entorno);
-   DEV y DEMO jamás comparten carpeta.
-5. **Captura/trigger/diagnóstico respetan el entorno**: `Form_capturarRespuestas`,
-   `Form_procesarPendientes`, `Form_instalarTrigger` y `Form_diagnosticar` consultan el gate y
-   exponen entorno/spreadsheet en panel y diagnóstico.
-6. **Recursos reales de DEMO** (Form y carpeta) se crean manualmente (DEC-047/48/50); mientras
-   estén vacíos, el diagnóstico lo reporta sin bloquear la preparación.
-   **Tests:** `_pruebas_entornos_v091` (identidad por ID, gate, aislamiento cruzado, backups,
-   diagnóstico read-only, no-duplicación clínica) + batería `aceptacion_formulario.mjs`.
-   **463/463 + 21/21 verdes.** **Fecha:** 2026-08-31
+**Título:** v0.9.1 — Estrategia histórica DEV + DEMO
+**Estado:** **OBSOLETA / HISTÓRICA**
+**Motivo histórico:** Durante una etapa anterior se evaluó aislar desarrollo y demostración mediante dos Spreadsheets y una resolución de entorno por ID.
+
+Esta estrategia **no forma parte de la arquitectura actual**. El sistema fue normalizado posteriormente a un único entorno operativo.
+
+Elementos históricos de esta decisión:
+
+1. detección de identidad por `Spreadsheet.getId()`;
+2. registro de `DEV` y `DEMO`;
+3. gate `Entorno_validarProcesamiento`;
+4. backups separados por ambiente;
+5. aislamiento de formularios por entorno.
+
+No usar estos elementos para reconstruir la arquitectura actual.
+
+**Fecha histórica:** 2026-08-31
 
 ---
 
 ## DEC-050
-**Título:** v0.9.1 — Batería de Aceptación end-to-end del formulario (nivel de aceptación)
-**Estado:** Aprobada
-**Motivo:** El núcleo puro tiene cobertura unitaria (`10_Pruebas.js`), pero el despliegue del
-formulario exige validar el flujo COMPLETO que el entorno GAS ejecutará (validación → decisión →
-pipeline de ingreso → eventos → caché derivada) y la estrategia DEV/DEMO, sin depender de hojas,
-red ni hora actual.
-1. **`tests/aceptacion_formulario.mjs`** carga el mismo código del núcleo en un sandbox `vm`
-   (nodo) y ejecuta 21 casos de aceptación deterministas con el contrato público real.
-2. **Grupo A — DEV/DEMO**: identidad por ID, gate de entorno, aislamiento cruzado Form,
-   backups aislados, diagnóstico read-only, no-duplicación de configuración clínica.
-3. **Grupo B — flujo end-to-end**: NUEVO_INGRESO → 1 paciente + evento INGRESO + marca de
-   trazabilidad (NOTA_SISTEMA); duplicados decididos por el pipeline; RUT/fechas/sector inválidos
-   → ERROR; CONTROL deriva ULTIMO→PRÓXIMO→ESTADO→COLOR; CONTROL a persona inexistente →
-   CUARENTENA; SEGUIMIENTO y ACTUALIZAR_DATOS; reintentos dentro del tope; concurrencia y
-   recuperación idempotentes por marca FUENTE; escala 10/100/500/1.000/3.000; contrato/esquema
-   estable; observabilidad sin datos personales.
-4. **Modela el efecto del entorno GAS** (`aplicarClinica`) para validar idempotencia real por
-   marca, espejando `Form_procesarPendientes` + `api_registrarEvento`.
-    **Resultado:** 21/21 verdes; núcleo 463/463; `node --check` limpio. **Fecha:** 2026-08-31
+**Título:** v0.9.1 — Batería de aceptación histórica del formulario
+**Estado:** **OBSOLETA / HISTÓRICA**
+**Motivo histórico:** Validar la implementación de captura basada en Google Forms y la estrategia DEV/DEMO de esa etapa.
+
+Los casos de prueba que correspondan al comportamiento actual deben conservarse solo si siguen cubriendo contratos vigentes. Los casos exclusivos de Google Forms, `FORM_ID`, triggers `onFormSubmit` o DEV/DEMO no constituyen requisitos actuales.
+
+**Fecha histórica:** 2026-08-31
 
 ---
 
 ## DEC-051
-**Título:** v0.9.2 — Transición de la captura directa en la hoja hacia el formulario (operativización)
-**Estado:** Aprobada
-**Motivo:** El formulario v0.9.0/51 ya es un canal de captura funcional; esta versión lo convierte en
-el canal OPERATIVO principal (el usuario captura, el sistema procesa y la hoja pasa a ser
-BASE+ADMIN+SUPERVISIÓN), reduciendo el número de personas con acceso de edición a la hoja.
-1. **Sin sistema paralelo.** El formulario sigue siendo SOLO otra puerta de entrada al MISMO
-   núcleo (FORM → INGESTA → NÚCLEO → MODELO). Se reutilizan pipeline, api_registrarEvento e
-   idempotencia por marca `FORM|<id>|<ACCIÓN>` (DEC-048); no se duplican reglas.
-2. **Matriz de operaciones.** Clasificación explícita: CAPTURABLES POR FORM (NUEVO_INGRESO,
-   REGISTRAR_CONTROL, REGISTRAR_SEGUIMIENTO, ACTUALIZAR_DATOS) · ADMINISTRATIVAS (hoja/panel:
-   config, responsables, revisión, control) · AUTOMÁTICAS (trigger, procesamiento, cálculo) ·
-   NO EXPUESTAS (identidad/ID interno, marcas, estados, métricas técnicas). Ver FORMULARIO.md §11.
-3. **MVP operativo = CONTROL/SEGUIMIENTO** (mayor frecuencia y menor riesgo: persona ya existe,
-   idempotencia por marca). Este flujo queda operativo de punta a punta y confirmado por el
-   usuario: el capturador solo llena el formulario y NUNCA abre la hoja.
-4. **Catálogos desde la fuente oficial.** El campo PROFESIONAL del formulario se nutre de
-   `CATALOGO_PROFESIONALES` (se asigna tras declararlo por TDZ); SECTOR viene de
-   `SECTORES_RESPONSABLES` y ESTRATIFICACIÓN de `['G1','G2','G3']`. No se copian listas a mano
-   (se verifica en tests).
-5. **Métrica operativa** `% de registros vía formulario` (`Form_metricasOperativas`): de EVENTOS
-   (FUENTE `FORM|…` = vía formulario; resto = manuales). Se acompaña de registros por formulario,
-   controles/seguimientos/ingresos vía formulario, errores, rechazos, duplicados evitados y
-   reprocesamientos — agregados, sin datos personales.
-6. **Observabilidad administrativa** `FORM_CONTROL` (hoja visible, LAYOUT_SIMPLE, regenerable):
-   por-envío (`RESPONSE_ID · MARCA · FECHA · ACCION · RUT · ID_INTERNO · ESTADO · MOTIVO ·
-   REINTENTOS · ID_EVENTO`) + bloque de métricas. El panel `FormularioPanel.html` muestra las
-   métricas y agrega acciones "Actualizar hoja de control" y "Reprocesar errores".
-7. **Recuperación idempotente** (`Form_reprocesar`/`Form_reiniciarRespuesta`): listar y reprocesar
-   ERROR/PENDIENTES; reinicia solo estados no-PROCESADO; la marca FUENTE/INGRESO_FILA garantiza
-   que reprocesar NUNCA duplica (se asevera en tests).
-8. **Versión**: v0.9.2. **Tests:** `_pruebas_operativo_v092` (+6) y Grupo C de aceptación (+8):
-   **469/469 núcleo + 29/29 aceptación**; `node --check` limpio. **Fecha:** 2026-08-31
+**Título:** v0.9.2 / v0.9.3 — Evolución histórica de la captura hacia la Web App
+**Estado:** **SUPERSEDIDA para el canal de captura actual; conserva valor histórico**
+
+**Motivo histórico:** El proyecto evolucionó desde una captura inicial basada en formulario hacia la Web App como única interfaz operativa. El backend y el pipeline existente se conservaron para evitar duplicación de reglas.
+
+### Estado actual derivado de esta evolución
+
+1. La Web App es el **único canal operativo de captura**.
+2. `CapturaWeb.html` llama a `Form_capturarDesdeUI(datos)` mediante `google.script.run`.
+3. El flujo continúa por `Form_validarRespuesta()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → pipeline clínico.
+4. `FORM_RESPUESTAS` es una estructura interna del pipeline; no requiere Google Forms.
+5. No se utiliza `FORM_ID` para la operación actual.
+6. No se utiliza `onFormSubmit` como trigger de captura.
+7. No existe una segunda ruta de negocio: Web App y administración reutilizan el mismo backend.
+
+Las referencias históricas a métricas, paneles o pruebas construidas alrededor de Google Forms deben entenderse como parte de la evolución del sistema, no como instrucciones para reactivar ese canal.
+
+**Fecha de actualización documental:** 2026-09-01
+
+---
+
+## DEC-052
+**Título:** Arquitectura operativa única: Web App como único canal de captura
+**Estado:** **Aprobada / vigente**
+**Motivo:** Se normaliza la documentación para que todas las instrucciones vigentes describan un solo sistema operativo, una sola fuente de verdad y un solo pipeline. Los deployments de Apps Script se consideran únicamente mecanismos técnicos de publicación y no ambientes de aplicación.
+
+1. Un único proyecto Apps Script y un único Spreadsheet configurado.
+2. Una única Web App como canal de captura.
+3. Un único pipeline de procesamiento.
+4. Google Forms queda fuera de la operación.
+5. DEV/DEMO/PROD no son ambientes del sistema.
+6. Un deployment histórico puede eliminarse solo después de verificar dependencias activas.
+7. La documentación histórica se conserva como historial, pero no tiene precedencia sobre el estado actual.
+
+**Fecha:** 2026-09-01
+
+---
 
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento

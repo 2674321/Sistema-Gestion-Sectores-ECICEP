@@ -572,8 +572,6 @@ function Form_instalarTrigger() {
   try {
     if (Form_triggerInstalado()) return { ok: true, activado: false, motivo: 'Ya instalado' };
     if (Utl_vacio(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
-    var gate = Entorno_gateGAS();
-    if (!gate.ok) return { ok: false, motivo: gate.motivo, detalle: gate.detalle };
     var ss = Modelo_ss();
     ScriptApp.newTrigger('Form_onFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
     return { ok: true, activado: true };
@@ -898,8 +896,6 @@ function Form_capturarRespuestas(opciones) {
   opciones = opciones || {};
   if (typeof FormApp === 'undefined' || typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   if (Utl_vacio(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
-  var gate = Entorno_gateGAS();
-  if (!gate.ok) return { ok: false, motivo: gate.motivo, detalle: gate.detalle };
   var form = FormApp.openById(FORM_CONFIG.FORM_ID);
 
   // Ventana de captura: desde la última captura (o ventana inicial para no
@@ -1053,8 +1049,6 @@ function Form_procesarPendientes(opciones) {
   if (lock && !lock.tryLock(30000)) return { ok: false, motivo: 'OCUPADO: otro proceso está procesando respuestas del formulario' };
   try {
     if (!FORM_CONFIG.ACTIVO) return { ok: true, resumen: { leidos: 0, notas: 'FORM_CONFIG.ACTIVO = false' } };
-    var gate = Entorno_gateGAS();
-    if (!gate.ok) return { ok: false, motivo: gate.motivo, detalle: gate.detalle };
     var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
     if (!hoja) { Form_instalar(); hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS); }
     var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
@@ -1253,4 +1247,15 @@ function api_formularioControl() { return Form_refrescarControl(); }
 
 function api_formularioReprocesar(param) {
   return Form_reprocesar(param && param.respuestaId ? { respuestaId: param.respuestaId } : {});
+}
+
+/** GAS: catálogo de profesionales para el dropdown de la Web App. */
+function api_profesionalesCatalogo() {
+  try {
+    return Profesionales_catalogo()
+      .filter(function (c) { return c.ACTIVA; })
+      .map(function (c) { return c.NOMBRE_CANONICO; });
+  } catch (e) {
+    return ['Médico/a','Enfermera/o','TENS','Matrona/o','Psicólogo/a','Asistente Social','Nutricionista','Kinesiólogo/a','Terapeuta Ocupacional'];
+  }
 }

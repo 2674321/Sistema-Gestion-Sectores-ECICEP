@@ -1,91 +1,107 @@
 # WORKFLOW — Flujo de desarrollo ECICEP
 
-## Workflow estándar
+## Objetivo
 
-```
+Mantener un único sistema ECICEP coherente desde el código hasta la Web App publicada, evitando que el estado del repositorio, el deployment y la documentación se separen entre sí.
+
+## Flujo estándar
+
+```text
 1. leer AGENTS.md
 2. leer documentación relevante
-3. inspeccionar código
-4. planificar
-5. implementar
-6. tests
-7. corregir
-8. actualizar documentación
-9. clasp push
-10. deployment
-11. E2E
-12. git commit
-13. git push
+3. inspeccionar código, tests y estado real de publicación
+4. identificar contratos y dependencias
+5. planificar
+6. implementar
+7. ejecutar tests
+8. corregir
+9. actualizar documentación
+10. clasp push --force
+11. actualizar deployment operativo cuando corresponda
+12. E2E / verificación real
+13. git add / commit
+14. git push
 ```
+
+No pedir confirmación para pasos rutinarios. Solicitar intervención humana solo cuando exista una decisión arquitectónica, destructiva, de permisos, de pérdida de datos o irreversible.
 
 ## Tests
 
+Ejecutar los tests que correspondan al alcance:
+
 ```bash
-node tests/ejecutar_local.mjs      # núcleo (469)
-node tests/aceptacion_formulario.mjs  # aceptación (29)
+node tests/ejecutar_local.mjs
+node tests/aceptacion_formulario.mjs
 ```
+
+El test de aceptación representa el **flujo actual de la Web App**. No debe reinterpretarse como una prueba que requiera Google Forms.
+
+No modificar tests para ocultar un fallo.
 
 ## Clasp
 
-### Push (actualizar código)
+### Sincronizar código
 
 ```bash
 clasp push --force
 ```
 
-Actualiza el código del proyecto Apps Script en el editor.
+Esto actualiza el código del proyecto Apps Script.
 
-**NO actualiza automáticamente ninguna URL de deployment.**
+**No actualiza automáticamente las versiones servidas por un deployment existente.**
 
-### Deploy (publicar en URL)
+### Publicar en un deployment existente
 
 ```bash
 clasp deploy --deploymentId <ID>
 ```
 
-Crea una nueva versión y apunta la URL del deployment a ella.
+Esto publica una nueva versión en ese deployment.
 
-### Listar deployments
+### Inspeccionar deployments
 
 ```bash
 clasp deployments
 ```
 
-### Listar versiones
+### Inspeccionar versiones
 
 ```bash
 clasp versions
 ```
 
-## Deployment
+## Regla de publicación
 
-### Deployment activo
+El proyecto tiene un único entorno operativo, aunque Apps Script pueda mostrar múltiples deployments o URLs técnicas.
 
-- ID: `AKfycbxIm10Zo0utnRZ9LYIedZzvdc8rZk2ZCbZjSPfK6n_OHUkrgr8QTo3BqvJrQGcck43dUQ`
-- URL: `https://script.google.com/macros/s/AKfycbxIm10Zo0utnRZ9LYIedZzvdc8rZk2ZCbZjSPfK6n_OHUkrgr8QTo3BqvJrQGcck43dUQ/exec`
+Antes de cambiar o eliminar deployments:
 
-### Producción (NO MODIFICAR)
+1. listar el estado real;
+2. identificar la URL operativa;
+3. comprobar qué versión sirve cada deployment relevante;
+4. comprobar dependencias de URL, QR, hojas, automatizaciones y usuarios;
+5. actualizar el deployment correcto;
+6. realizar E2E;
+7. eliminar únicamente lo que esté demostrado como obsoleto.
 
-- ID: `@63`
-- URL: `https://script.google.com/macros/s/AKfycbxBbj3ILC_EN0TaltS9uWkgcYAQftpEY3jSNvp0FM9jmoC3G_mo_1pyZMS9truXSWnYNw/exec`
+No crear deployments nuevos por cada push. Reutilizar el deployment operativo existente cuando sea posible.
 
-### Script automático
+## `/dev` y `/exec`
 
-```bash
-bash tools/push_y_abrir.sh
-```
+No tratar `/dev` y `/exec` como ambientes separados.
 
-Ejecuta: push → deploy → abre Web App.
+La diferencia es de publicación y mecanismo de acceso de Apps Script. Cuando se diagnostique una discrepancia entre ambas URLs, comparar el contenido realmente servido y la versión asociada al deployment; no crear otra arquitectura para compensarlo.
 
-## E2E
+## E2E mínimo después de un cambio de Web App
 
-Después de cada deploy, verificar:
+Verificar, según corresponda:
 
-1. Abrir `/exec` → Web App carga
-2. Verificar menú: Captura / ECICEP / Sistema
-3. Probar "Abrir formulario" → abre Web App
-4. Probar "Mostrar QR" → QR visible y escaneable
-5. Probar envío de formulario → éxito
+1. la URL operativa `/exec` carga la versión esperada;
+2. la UI muestra el estado/versión correspondiente;
+3. **Abrir formulario** genera y abre la URL correcta de la Web App;
+4. **Mostrar QR** genera un QR real, visible y escaneable;
+5. una captura de prueba completa el pipeline hasta el estado esperado;
+6. no se crea una ruta paralela ni se duplica un evento.
 
 ## Git
 
@@ -94,3 +110,5 @@ git add .
 git commit -m "tipo: descripción"
 git push origin master
 ```
+
+La documentación debe quedar actualizada en el mismo cambio cuando el comportamiento, contrato, deployment o arquitectura haya cambiado.

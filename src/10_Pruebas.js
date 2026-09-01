@@ -2595,7 +2595,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.2', 'versión esperada v0.9.2');
+    A.igual(v, '0.9.3', 'versión esperada v0.9.3');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2836,9 +2836,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.2', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.3', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.2', 'versión esperada v0.9.2');
+    A.igual(v, '0.9.3', 'versión esperada v0.9.3');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });

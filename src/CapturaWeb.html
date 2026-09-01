@@ -392,11 +392,7 @@
 
 <script>
 (function(){
-  var PROF = [
-    'M\u00e9dico/a','Enfermera/o','TENS','Matrona/o',
-    'Psic\u00f3logo/a','Asistente Social','Nutricionista',
-    'Kinesi\u00f3logo/a','Terapeuta Ocupacional'
-  ];
+  var PROF = [];
 
   var ACCIONES = {
     NUEVO_INGRESO:         { ident:true,  evento:false, tel:true,  prof:true,  obs:true },
@@ -427,8 +423,19 @@
   }
 
   function poblarProfesionales(){
+    google.script.run
+      .withSuccessHandler(function(lista){
+        if(lista&&lista.length){PROF=lista;}
+        _poblarDropdowns();
+      })
+      .withFailureHandler(function(){_poblarDropdowns();})
+      .api_profesionalesCatalogo();
+  }
+
+  function _poblarDropdowns(){
     ['profesional','profesional2'].forEach(function(id){
       var sel=$(id);
+      sel.innerHTML='<option value="">Seleccionar profesional</option>';
       PROF.forEach(function(nombre){
         var o=document.createElement('option');
         o.value=nombre;o.textContent=nombre;sel.appendChild(o);

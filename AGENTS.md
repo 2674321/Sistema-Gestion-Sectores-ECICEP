@@ -2,22 +2,22 @@
 
 ## REGLAS INVIOLABLES
 
-1. Este repositorio trabaja sobre un único entorno activo.
-2. No crear DEV/DEMO/PROD como arquitectura.
-3. La Web App es el único canal de captura.
-4. Google Forms no debe reintroducirse.
-5. Existe una única fuente de verdad.
-6. No crear segunda base de datos.
-7. No duplicar pipeline.
-8. No cambiar backend para resolver problemas de UI sin necesidad.
-9. Leer documentación actual antes de cambiar arquitectura.
-10. Ejecutar tests antes de declarar una tarea terminada.
+1. Este repositorio trabaja sobre **un único entorno operativo**.
+2. No crear DEV/DEMO/PROD como arquitectura ni separar la aplicación en ambientes paralelos.
+3. La **Web App es el único canal operativo de captura de datos**.
+4. **Google Forms está abandonado** y no debe reintroducirse, activarse ni documentarse como canal operativo.
+5. Existe **una sola fuente de verdad** para el sistema y un solo pipeline clínico.
+6. No crear una segunda base de datos, un segundo Spreadsheet operativo ni lógica de negocio paralela.
+7. No cambiar backend para resolver un problema que pertenece a UI, publicación o navegación, salvo necesidad técnica demostrada.
+8. Leer `AGENTS.md` y la documentación vigente relevante antes de cambiar arquitectura o contratos.
+9. No reabrir problemas explícitamente cerrados y validados salvo evidencia nueva de regresión.
+10. Ejecutar los tests correspondientes antes de declarar una tarea terminada.
 
 ---
 
-## Precedencia de instrucciones
+## PRECEDENCIA DE INSTRUCCIONES
 
-Cuando exista conflicto entre documentos, la prioridad es:
+Cuando exista conflicto documental, utilizar este orden:
 
 1. `AGENTS.md`
 2. Código actual
@@ -26,193 +26,191 @@ Cuando exista conflicto entre documentos, la prioridad es:
 5. Decisiones históricas
 6. Informes históricos
 
-No utilizar documentos históricos para reconstruir comportamiento actual.
+Una referencia histórica no puede convertirse por sí sola en una instrucción vigente.
+Si un documento antiguo contradice el sistema actual, corregir la documentación en lugar de reconstruir la arquitectura antigua.
 
 ---
 
-## Entorno
+## ARQUITECTURA ACTUAL
 
-Este repositorio trabaja sobre **un único proyecto Apps Script** y **un único Spreadsheet configurado**.
+ECICEP se entiende como **un solo sistema operativo**, compuesto por:
 
-No introducir separación DEV/DEMO/PRODUCCIÓN salvo instrucción explícita del usuario.
+- **1 proyecto Apps Script**: el proyecto definido por el `.clasp.json` del repositorio.
+- **1 Spreadsheet activo**: configurado por `00_Config.js` mediante `ECICEP.SPREADSHEET_ID`.
+- **1 Web App**: interfaz/canal operativo de captura.
+- **1 backend**: reglas de negocio y servicios existentes.
+- **1 pipeline**: reutilizado por todas las operaciones de captura.
+- **1 fuente de verdad**: el modelo/configuración vigente del proyecto.
 
-**Estado actual: arquitectura de entorno único.**
+Los IDs de deployment, las versiones de Apps Script y las URLs `/dev` o `/exec` son **mecanismos técnicos de publicación**. No deben describirse como entornos separados.
 
-La existencia de deployments/versiones técnicas de Apps Script NO cambia esta decisión arquitectónica.
+### Flujo conceptual
 
-Ver `docs/ENTORNO.md` para detalle.
-
----
-
-## Arquitectura
-
-```
-          ECICEP
-             │
-      ┌──────┴──────┐
-      │             │
-   WEB APP       SPREADSHEET
-      │             │
-      └──────┬──────┘
-             │
-          BACKEND
-             │
-          PIPELINE
-```
-
-- **1 proyecto Apps Script** (`.clasp.json` define el proyecto activo)
-- **1 Spreadsheet** (`00_Config.js` define `ECICEP.SPREADSHEET_ID`)
-- **1 Web App** (canal único de captura)
-- **1 backend** (mismo pipeline para todas las operaciones)
-- **1 fuente de verdad** (`00_Config.js`)
-
----
-
-## Web App
-
-La Web App es el **único canal de recolección de datos** ECICEP.
-
-Google Forms **no forma parte** del sistema de captura actual.
-
-No reintroducir Google Forms.
-
----
-
-## Backend
-
-Reutilizar el pipeline existente.
-
-No crear pipelines paralelos.
-
-No crear bases paralelas.
-
----
-
-## Configuración
-
-No hardcodear nuevos IDs de Spreadsheet, Form o recursos externos.
-
-La fuente de verdad es `00_Config.js`.
-
----
-
-## Deployment
-
-`clasp push` y `clasp deploy` son operaciones distintas:
-
-- `clasp push` → actualiza el código del proyecto Apps Script
-- `clasp deploy --deploymentId <ID>` → actualiza una URL de deployment
-
-Para publicar código actualizado en la Web App:
-
-```bash
-clasp push --force
-clasp deploy --deploymentId <deployment activo>
+```text
+                 ECICEP
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+       WEB APP            SHEETS / ADMIN
+          │                   │
+          └─────────┬─────────┘
+                    │
+                 BACKEND
+                    │
+                 PIPELINE
+                    │
+              MODELO CLÍNICO
+        PACIENTES + EVENTOS + DERIVADOS
 ```
 
-No crear deployments innecesarios. Reutilizar el deployment existente cuando sea posible.
-
-Ver `docs/WORKFLOW.md` para detalle.
+Sheets conserva su función administrativa y operativa interna cuando corresponda; eso no crea un segundo sistema ni un segundo entorno.
 
 ---
 
-## Tests
+## WEB APP — ÚNICO CANAL DE CAPTURA
+
+La Web App es la única interfaz operativa destinada a registrar datos de captura.
+
+Flujo contractual actual:
+
+```text
+CapturaWeb.html
+      ↓
+google.script.run
+      ↓
+Form_capturarDesdeUI(datos)
+      ↓
+Form_validarRespuesta()
+      ↓
+FORM_RESPUESTAS
+      ↓
+Form_procesarPendientes()
+      ↓
+pipeline existente
+      ↓
+PACIENTES / EVENTOS / efectos derivados
+```
+
+Google Forms **no es parte del flujo actual**. No crear formularios, no completar `FORM_ID`, no instalar triggers `onFormSubmit` para reactivar ese canal y no diseñar lógica de aislamiento para formularios.
+
+`FORM_RESPUESTAS` es una estructura interna del pipeline y su nombre no implica la existencia de Google Forms.
+
+---
+
+## DEPLOYMENT Y PUBLICACIÓN
+
+`clasp push` y `clasp deploy` cumplen funciones distintas:
+
+- `clasp push --force`: sincroniza el código del repositorio con el proyecto Apps Script.
+- `clasp deploy --deploymentId <ID>`: publica una nueva versión en un deployment existente.
+- `clasp deployments`: permite inspeccionar los deployments existentes.
+- `clasp versions`: permite inspeccionar versiones publicadas.
+
+Para publicar una actualización de la Web App, reutilizar el deployment operativo existente cuando sea posible. **No crear deployments por rutina.**
+
+Nunca asumir que `/dev`, `/exec`, `@HEAD` o un número de versión representan ambientes distintos. Primero verificar qué deployment/versión sirve realmente cada URL.
+
+No eliminar un deployment únicamente por su antigüedad. Antes de una operación destructiva, verificar si alguna URL, configuración, QR, automatización o usuario depende de él.
+
+---
+
+## CONFIGURACIÓN
+
+No hardcodear nuevos IDs de Spreadsheet, formularios o recursos externos.
+
+La configuración activa se determina desde `00_Config.js` y la configuración real del proyecto.
+
+No crear lógica del tipo `if (DEV)`, `if (DEMO)` o equivalente salvo una decisión arquitectónica futura explícita del usuario.
+
+---
+
+## TESTS
 
 No ocultar fallos modificando tests.
 
-Ejecutar tests antes y después de cambios:
+Ejecutar, según el alcance de la modificación:
 
 ```bash
-node tests/ejecutar_local.mjs      # núcleo
-node tests/aceptacion_formulario.mjs  # aceptación
+node tests/ejecutar_local.mjs
+node tests/aceptacion_formulario.mjs
 ```
+
+Los tests de aceptación deben representar el contrato actual de la Web App, no el flujo histórico de Google Forms.
 
 ---
 
-## Git
+## WORKFLOW ESTÁNDAR
 
-Ejecutar commit/push automáticamente en el workflow normal de desarrollo.
-
-Workflow estándar:
-
-```
+```text
 1. leer AGENTS.md
 2. leer documentación relevante
-3. inspeccionar código
-4. planificar
-5. implementar
-6. tests
-7. corregir
-8. actualizar documentación
-9. clasp push
-10. deployment
-11. E2E
-12. git commit
-13. git push
+3. inspeccionar código y estado real
+4. identificar contratos y dependencias
+5. planificar
+6. implementar
+7. ejecutar tests
+8. corregir regresiones
+9. actualizar documentación vigente
+10. clasp push
+11. actualizar el deployment operativo cuando corresponda
+12. E2E / verificación real cuando corresponda
+13. git commit
+14. git push
 ```
 
----
+El agente debe ejecutar automáticamente las tareas rutinarias del workflow cuando las credenciales y herramientas estén disponibles.
 
-## Seguridad
-
-No realizar operaciones destructivas ni modificar recursos fuera del alcance.
-
-Producción `@63` **NO MODIFICAR**.
+Solo solicitar confirmación humana para decisiones realmente arquitectónicas, destructivas, de permisos, de pérdida de datos o irreversibles.
 
 ---
 
-## Done
+## PROBLEMAS CERRADOS
 
-Una tarea está terminada cuando:
+Un problema marcado como resuelto y validado se considera **cerrado**.
+
+No volver a implementar, rediseñar o auditarlo sin evidencia nueva de que el problema reapareció.
+
+Esto incluye, mientras no exista una regresión demostrada, los problemas ya cerrados de contrato de profesionales/dupla, renderizado de `include('00_Tokens')`, esquema de PACIENTES, trazabilidad de `FUENTE`, deduplicación histórica de Amarillo y demás correcciones documentadas como validadas.
+
+---
+
+## SEGURIDAD Y OPERACIONES DESTRUCTIVAS
+
+No modificar ni eliminar recursos fuera del alcance de la tarea.
+
+Una operación destructiva sobre deployments, hojas, archivos, datos o permisos requiere comprobar previamente sus dependencias reales.
+
+Una referencia histórica como `@63` **no tiene protección arquitectónica especial**: si existe y ya no tiene dependencia activa, puede ser candidata a eliminación dentro de una tarea explícita de limpieza, después de verificar sus dependencias.
+
+---
+
+## DEFINITION OF DONE
+
+Una tarea está terminada cuando, según corresponda:
 
 - código implementado;
-- tests ejecutados;
-- deployment actualizado cuando corresponda;
-- E2E realizado cuando corresponda;
-- documentación actualizada;
-- git commit realizado;
-- git push realizado si las credenciales están disponibles;
-- no existen cambios accidentales;
-- no se introdujo arquitectura paralela.
+- tests ejecutados y verdes;
+- documentación vigente actualizada;
+- deployment operativo actualizado;
+- E2E realizado;
+- commit realizado;
+- push a Git realizado si las credenciales están disponibles;
+- no quedan cambios accidentales;
+- no se introdujo arquitectura paralela;
+- el estado final quedó explícito para el siguiente agente.
 
 ---
 
-## Fuentes de verdad
-
-Cuando exista conflicto entre:
-
-- prompt antiguo
-- documentación antigua
-- informe antiguo
-
-y:
-
-- código actual
-- tests actuales
-- arquitectura vigente
-
-**la fuente de verdad actual debe prevalecer.**
-
-Investigar la contradicción y actualizar la documentación, no reconstruir la arquitectura antigua.
-
----
-
-## Documentación histórica
-
-Referencias a DEV/DEMO en documentos existentes son **HISTÓRICAS** ( DEC-049, v0.9.1 ).
-
-Estado actual: un único entorno operativo.
-
-No utilizar documentación histórica como justificación para crear arquitectura multi-entorno.
-
----
-
-## Documentación del proyecto
+## DOCUMENTACIÓN DEL PROYECTO
 
 | Documento | Propósito |
 |-----------|-----------|
-| `AGENTS.md` | Reglas permanentes para agentes |
-| `README.md` | Visión general del proyecto |
-| `docs/WORKFLOW.md` | Flujo de desarrollo, clasp, deployment |
-| `docs/CONTRATOS.md` | Especificación funcional de captura |
-| `docs/ENTORNO.md` | Arquitectura de entorno único |
+| `AGENTS.md` | Contrato permanente para agentes |
+| `README.md` | Visión general, estado y evolución del proyecto |
+| `ARQUITECTURA.md` | Arquitectura técnica y funcional vigente |
+| `DECISIONES.md` | Registro de decisiones; conserva también las obsoletas como historial |
+| `FORMULARIO.md` | Contrato de la captura Web App y estructura interna `FORM_RESPUESTAS` |
+| `CONTRATOS.md` | Contratos de entrada, salida y pipeline |
+| `ENTORNO.md` | Definición del único entorno operativo y mecánica de deployments |
+| `WORKFLOW.md` | Procedimiento de desarrollo, publicación y verificación |
+| `PENDIENTES.md` | Trabajo pendiente real; no contiene tareas históricas ya invalidas |
