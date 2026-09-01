@@ -88,9 +88,48 @@ No crear deployments nuevos por cada push. Reutilizar el deployment operativo ex
 
 ## `/dev` y `/exec`
 
-No tratar `/dev` y `/exec` como ambientes separados.
+`/dev` y `/exec` **NO son ambientes separados**. Son mecanismos técnicos de publicación de Apps Script que sirven el mismo proyecto.
 
-La diferencia es de publicación y mecanismo de acceso de Apps Script. Cuando se diagnostique una discrepancia entre ambas URLs, comparar el contenido realmente servido y la versión asociada al deployment; no crear otra arquitectura para compensarlo.
+| Canal | Mecanismo | Cuándo usarlo |
+|-------|-----------|---------------|
+| `/dev` | `clasp push --force` | Revisión rápida del código actual |
+| `/exec` | `clasp push --force` + `clasp deploy --deploymentId @85` | Publicación operativa |
+
+**HEAD** es el código fuente actual del proyecto después de `clasp push`.
+
+**`/dev`** es la URL de desarrollo que refleja HEAD sin necesidad de crear una versión.
+
+**`@85`** es el deployment operativo que sirve `/exec`.
+
+**`/exec`** es la URL estable que utilizan los usuarios finales.
+
+La diferencia es de **mecanismo de publicación**, no de arquitectura.
+
+### Desarrollo / revisión
+
+```bash
+clasp push --force
+# → recargar /dev en el navegador
+```
+
+No crear versión. No ejecutar `clasp deploy`. No cambiar URL.
+
+### Publicación operativa
+
+```bash
+clasp push --force
+clasp deploy --deploymentId @85
+# → probar /exec
+```
+
+Verificar que `/exec` carga la versión esperada.
+
+### Script automatizado
+
+```bash
+bash tools/push_y_abrir.sh            # push + abrir /dev
+bash tools/push_y_abrir.sh --publish  # push + deploy @85 + abrir /exec
+```
 
 ## E2E mínimo después de un cambio de Web App
 

@@ -1,22 +1,34 @@
 #!/bin/bash
-# ECICEP — Push + deploy + abrir Web App de desarrollo
+# ECICEP — Push + abrir /dev (revisión rápida)
 # Uso: bash tools/push_y_abrir.sh
-# Nota: clasp push solo actualiza el código del proyecto.
-#       clasp deploy actualiza la URL /exec que se abre en el navegador.
+# Flujos:
+#   push_y_abrir.sh          → push + abrir /dev (revisión)
+#   push_y_abrir.sh --publish → push + deploy @85 + abrir /exec (publicación)
 set -e
 
 cd "$(dirname "$0")/.."
 
+DEPLOY_ID="AKfycbxIm10Zo0utnRZ9LYIedZzvdc8rZk2ZCbZjSPfK6n_OHUkrgr8QTo3BqvJrQGcck43dUQ"
+DEV_URL="https://script.google.com/macros/s/AKfycbwd7PkYNWEmglmOqkqgxEw14jTZkTK3O-FgiP3JTVTT/exec"
+EXEC_URL="https://script.google.com/macros/s/${DEPLOY_ID}/exec"
+
 echo "→ clasp push --force"
 clasp push --force
 
-echo ""
-echo "→ Desplegando..."
-clasp deploy --deploymentId AKfycbxIm10Zo0utnRZ9LYIedZzvdc8rZk2ZCbZjSPfK6n_OHUkrgr8QTo3BqvJrQGcck43dUQ
+if [ "$1" = "--publish" ]; then
+  echo ""
+  echo "→ Publicando en @85..."
+  clasp deploy --deploymentId "$DEPLOY_ID"
 
-echo ""
-echo "→ Abriendo Web App de desarrollo..."
-URL="https://script.google.com/macros/s/AKfycbxIm10Zo0utnRZ9LYIedZzvdc8rZk2ZCbZjSPfK6n_OHUkrgr8QTo3BqvJrQGcck43dUQ/exec"
+  echo ""
+  echo "→ Abriendo /exec..."
+  URL="$EXEC_URL"
+else
+  echo ""
+  echo "→ Abriendo /dev (revisión)..."
+  URL="$DEV_URL"
+fi
+
 xdg-open "$URL" 2>/dev/null \
   || open "$URL" 2>/dev/null \
   || echo "URL: $URL"
