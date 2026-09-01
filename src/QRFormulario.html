@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      background:#F7F8FA;color:#1A1D23;padding:24px;line-height:1.5}
+    .qr-card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);
+      border:1px solid #E8EAED;overflow:hidden;text-align:center}
+    .qr-header{padding:20px 20px 0}
+    .qr-header h2{font-size:16px;font-weight:700;color:#0B3C49;margin:0}
+    .qr-header p{font-size:13px;color:#5B6070;margin:4px 0 0}
+    .qr-img{padding:20px}
+    .qr-img img{width:240px;height:240px;border:1px solid #E8EAED;border-radius:8px}
+    .qr-url{padding:0 20px 8px}
+    .qr-url-box{background:#F7F8FA;border:1px solid #D4D7DC;border-radius:6px;
+      padding:8px 12px;font-size:11px;color:#5B6070;word-break:break-all;
+      font-family:'SF Mono',Monaco,Menlo,monospace}
+    .qr-footer{padding:12px 20px 16px;border-top:1px solid #E8EAED}
+    .qr-footer p{font-size:12px;color:#8C919C;margin:0}
+    .btn-copy{display:inline-flex;align-items:center;gap:6px;margin-top:10px;
+      padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;
+      font-family:inherit;cursor:pointer;border:1.5px solid #D4D7DC;
+      background:#fff;color:#1A1D23;transition:all .15s}
+    .btn-copy:hover{background:#F7F8FA;border-color:#A0A5AE}
+    .btn-copy:focus-visible{outline:2px solid #0E5C68;outline-offset:2px}
+    .copied{color:#0A7B5F;font-weight:600;margin-top:8px;font-size:12px;display:none}
+  </style>
+</head>
+<body>
+  <div class="qr-card">
+    <div class="qr-header">
+      <h2>Acceso al formulario ECICEP</h2>
+      <p>Escanea este c&oacute;digo para abrir el formulario de captura.</p>
+    </div>
+    <div class="qr-img">
+      <img src="<?= QR_URL ?>" alt="QR del formulario ECICEP">
+    </div>
+    <div class="qr-url">
+      <div class="qr-url-box" id="urlBox"><?= WEB_APP_URL ?></div>
+    </div>
+    <div class="qr-footer">
+      <button class="btn-copy" id="btnCopy" type="button" onclick="copiarURL()">
+        📋 Copiar URL
+      </button>
+      <div class="copied" id="copiedMsg">&#10003; URL copiada al portapapeles</div>
+      <p style="margin-top:10px">Esta URL apunta al formulario oficial de captura ECICEP.</p>
+    </div>
+  </div>
+
+  <script>
+    function copiarURL(){
+      var url = document.getElementById('urlBox').textContent;
+      if(navigator.clipboard){
+        navigator.clipboard.writeText(url).then(function(){
+          document.getElementById('copiedMsg').style.display='block';
+          setTimeout(function(){document.getElementById('copiedMsg').style.display='none';},2000);
+        });
+      } else {
+        var t=document.createElement('textarea');
+        t.value=url;t.style.position='fixed';t.style.left='-9999px';
+        document.body.appendChild(t);t.select();
+        try{document.execCommand('copy');
+          document.getElementById('copiedMsg').style.display='block';
+          setTimeout(function(){document.getElementById('copiedMsg').style.display='none';},2000);
+        }catch(e){}
+        document.body.removeChild(t);
+      }
+    }
+  </script>
+</body>
+</html>

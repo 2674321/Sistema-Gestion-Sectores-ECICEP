@@ -22,6 +22,9 @@ function onOpen() {
       .addSubMenu(ui.createMenu('📅 Seguimiento y controles')
         .addItem('🩺 Controles por persona', 'UI_abrirControles'))
 
+      .addItem('📋 Abrir formulario de captura', 'UI_abrirFormularioCaptura')
+      .addItem('📱 Mostrar QR del formulario', 'UI_mostrarQR')
+
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('📊 Estadísticas', 'UI_abrirDashboard')
         .addItem('🩺 Generar REM', 'UI_generarRem')
@@ -46,6 +49,31 @@ function onOpen() {
       .addToUi();
     Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
   } catch (e) { /* entorno sin UI */ }
+}
+
+/** URL centralizada de la Web App de captura. Única fuente de verdad. */
+function ECICEP_webAppUrl() {
+  return ScriptApp.getService().getUrl();
+}
+
+/** 📋 Abrir formulario de captura en nueva pestaña. */
+function UI_abrirFormularioCaptura() {
+  var url = ECICEP_webAppUrl();
+  var html = HtmlService.createHtmlOutput(
+    '<script>window.open("' + url + '","_blank");google.script.host.close();</script>'
+  ).setWidth(10).setHeight(10);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Abriendo formulario...');
+}
+
+/** 📱 Mostrar QR del formulario de captura en sidebar. */
+function UI_mostrarQR() {
+  var url = ECICEP_webAppUrl();
+  var qrApi = 'https://chart.googleapis.com/chart?cht=qr&chs=280x280&chl=' + encodeURIComponent(url)
+    + '&choe=UTF-8';
+  var t = HtmlService.createTemplateFromFile('QRFormulario');
+  t.QR_URL = qrApi;
+  t.WEB_APP_URL = url;
+  SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle('📱 QR — Formulario ECICEP'));
 }
 
 /** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
