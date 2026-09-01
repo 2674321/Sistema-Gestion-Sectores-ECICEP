@@ -159,6 +159,10 @@ function Form_validarRespuesta(respuesta, opciones) {
   var tel = Norm_normalizarTelefono(v.TELEFONOS !== undefined ? v.TELEFONOS : '');
   n.TELEFONOS = tel.telefonos.join('/');
   n.PROFESIONAL = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL)).toUpperCase();
+  n.PROFESIONAL2 = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL2 || '')).toUpperCase();
+  if (n.PROFESIONAL && n.PROFESIONAL2 && n.PROFESIONAL === n.PROFESIONAL2) {
+    no('PROFESIONAL2', 'Los dos profesionales deben ser diferentes');
+  }
   n.OBSERVACIONES = Utl_texto(v.OBSERVACIONES).trim();
   n.DESCRIPCION = '';
 
@@ -1207,6 +1211,14 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca) {
     if (normalizado.TELEFONOS) { paciente.TELEFONOS = normalizado.TELEFONOS; cambios += 1; }
     if (normalizado.OBSERVACIONES) { paciente.OBSERVACIONES = normalizado.OBSERVACIONES; cambios += 1; }
     if (normalizado.PROFESIONAL) { paciente.PROFESIONAL_SEGUIMIENTO = normalizado.PROFESIONAL; cambios += 1; }
+    // Dupla: almacena profesional 1 y 2 como códigos separados por punto y coma
+    var duplaPartes = [];
+    if (normalizado.PROFESIONAL) duplaPartes.push(normalizado.PROFESIONAL);
+    if (normalizado.PROFESIONAL2) duplaPartes.push(normalizado.PROFESIONAL2);
+    if (duplaPartes.length > 0) {
+      paciente.DUPLA_INGRESO = duplaPartes.join('; ');
+      cambios += 1;
+    }
     if (!cambios) return false;
     paciente.FECHA_ACTUALIZACION = Form_aIsoConHora(new Date());
     var esquema = Modelo_asegurarEsquemaPacientes();
