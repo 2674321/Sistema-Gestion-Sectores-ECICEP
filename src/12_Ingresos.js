@@ -262,6 +262,14 @@ function Ingresos_leerHoja(nombreHoja) {
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
   var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
+  // Fallback para hojas aún no reconciliadas al layout visual (header en fila 1)
+  if (valores.length) {
+    var hdrOk = valores[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1;
+    if (!hdrOk && hoja.getLastRow() >= 1) {
+      var alt = hoja.getRange(1, 1, hoja.getLastRow(), Math.max(hoja.getLastColumn(),1)).getValues();
+      if (alt.length && alt[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1) valores = alt;
+    }
+  }
   if (valores.length < 2) return { staging: [], hoja: hoja };
   var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
   var idxCampos = mapa.campos;

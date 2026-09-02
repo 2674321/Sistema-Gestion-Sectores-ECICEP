@@ -173,8 +173,12 @@ function Form_validarRespuesta(respuesta, opciones) {
  * PURA: fila canónica para anexar en INGRESO_<SECTOR> (orden INGRESO_COLUMNAS).
  * ESTADO_INGRESO va vacío (el pipeline lo escribe) y NOTA_SISTEMA lleva la
  * marca de trazabilidad 'FORM|<responseId>|INGRESO'.
+ * DUPLA se compone de PROFESIONAL + PROFESIONAL2 cuando existen.
  */
 function Form_filaCanonicaIngreso(normalizado, marca, opciones) {
+  var dupla = Utl_texto(normalizado.PROFESIONAL || '');
+  var p2 = Utl_texto(normalizado.PROFESIONAL2 || '');
+  if (p2) dupla = dupla + (dupla ? '; ' : '') + p2;
   return [
     normalizado.NOMBRE || '',
     normalizado.RUT || '',
@@ -183,7 +187,7 @@ function Form_filaCanonicaIngreso(normalizado, marca, opciones) {
     normalizado.TELEFONOS || '',
     normalizado.FECHA_INGRESO || Form_hoy(opciones),
     normalizado.ESTRATIFICACION || '',
-    '',
+    dupla,
     normalizado.OBSERVACIONES || '',
     '',
     marca || ''

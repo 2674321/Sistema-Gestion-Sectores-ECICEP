@@ -849,24 +849,70 @@
     return s;
   }
 
-  /* ── Memoria de últimos inputs (texto libre) para pruebas rápidas ── */
-  var STORAGE_KEY='ecicep_captura_ultimos_v1';
+  /* ── Memoria sugerencias (texto libre) para pruebas rápidas ──
+     Solo profesionales se prellenan (limpiarFormulario true). Texto libre usa datalist/placeholder como sugerencia, no autollenado. */
+  var STORAGE_KEY='ecicep_captura_sugerencias_v1';
+  var CAMPOS_SUGERENCIA=['rut','nombre','telefonos','obs'];
   function guardarUltimosInputs(){
     try{
-      var v={rut:$('rut').value,nombre:$('nombre').value,telefonos:$('telefonos').value,obs:$('obs').value};
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
+      var raw=localStorage.getItem(STORAGE_KEY);
+      var hist=raw?JSON.parse(raw):{rut:[],nombre:[],telefonos:[],obs:[]};
+      CAMPOS_SUGERENCIA.forEach(function(id){
+        var v=($(id).value||'').trim();
+        if(!v) return;
+        var arr=hist[id]||[];
+        // mover al inicio, deduplicar, max 10
+        var idx=arr.indexOf(v);
+        if(idx!==-1) arr.splice(idx,1);
+        arr.unshift(v);
+        if(arr.length>10) arr.length=10;
+        hist[id]=arr;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(hist));
+      renderSugerencias();
     }catch(e){}
   }
-  function cargarUltimosInputs(){
+  function ensureDatalist(id){
+    var input=$(id);
+    if(!input || input.tagName==='TEXTAREA') return null;
+    var dlId='dl-'+id;
+    var dl=document.getElementById(dlId);
+    if(!dl){
+      dl=document.createElement('datalist');
+      dl.id=dlId;
+      document.body.appendChild(dl);
+      input.setAttribute('list', dlId);
+      input.setAttribute('autocomplete','off');
+    }
+    return dl;
+  }
+  function renderSugerencias(){
     try{
       var raw=localStorage.getItem(STORAGE_KEY);
       if(!raw) return;
-      var v=JSON.parse(raw);
-      if(v.rut) $('rut').value=v.rut;
-      if(v.nombre) $('nombre').value=v.nombre;
-      if(v.telefonos) $('telefonos').value=v.telefonos;
-      if(v.obs) $('obs').value=v.obs;
+      var hist=JSON.parse(raw);
+      CAMPOS_SUGERENCIA.forEach(function(id){
+        var arr=hist[id]||[];
+        if(!arr.length) return;
+        if(id==='obs'){
+          var ta=$(id);
+          if(ta && !ta.value && arr[0]) ta.placeholder=arr[0]+'  — sugerencia (último)';
+          return;
+        }
+        var dl=ensureDatalist(id);
+        if(!dl) return;
+        dl.innerHTML='';
+        arr.forEach(function(v){
+          var o=document.createElement('option');
+          o.value=v;
+          dl.appendChild(o);
+        });
+      });
     }catch(e){}
+  }
+  function cargarUltimosInputs(){
+    // no prellenar; solo renderizar sugerencias (datalist/placeholder)
+    renderSugerencias();
   }
 
   /* ── Confirm Modal ── */
