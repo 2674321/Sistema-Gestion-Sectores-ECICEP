@@ -859,14 +859,20 @@
       var hist=raw?JSON.parse(raw):{rut:[],nombre:[],telefonos:[],obs:[]};
       CAMPOS_SUGERENCIA.forEach(function(id){
         var v=($(id).value||'').trim();
-        if(!v) return;
+        if(!v || v.length<2) return;
+        // no guardar fragmentos de 1 caracter (evita historial por cada tecla)
+        // solo valores completos aceptados (se llama al enviar, no en cada input)
         var arr=hist[id]||[];
-        // mover al inicio, deduplicar, max 10
         var idx=arr.indexOf(v);
         if(idx!==-1) arr.splice(idx,1);
         arr.unshift(v);
-        if(arr.length>10) arr.length=10;
+        if(arr.length>5) arr.length=5;
         hist[id]=arr;
+      });
+      // limpiar entradas fragmentarias previas (<2 chars) que se colaron por bug anterior
+      Object.keys(hist).forEach(function(k){
+        hist[k]=(hist[k]||[]).filter(function(x){return String(x).trim().length>=2;});
+        if(hist[k].length>5) hist[k]=hist[k].slice(0,5);
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(hist));
       renderSugerencias();
@@ -891,8 +897,11 @@
       var raw=localStorage.getItem(STORAGE_KEY);
       if(!raw) return;
       var hist=JSON.parse(raw);
+      var dirty=false;
       CAMPOS_SUGERENCIA.forEach(function(id){
-        var arr=hist[id]||[];
+        var arr=(hist[id]||[]).filter(function(x){return String(x).trim().length>=2;});
+        if(arr.length>5){arr=arr.slice(0,5); dirty=true;}
+        if(arr.length!==(hist[id]||[]).length) {hist[id]=arr; dirty=true;}
         if(!arr.length) return;
         if(id==='obs'){
           var ta=$(id);
@@ -908,6 +917,7 @@
           dl.appendChild(o);
         });
       });
+      if(dirty) try{localStorage.setItem(STORAGE_KEY, JSON.stringify(hist));}catch(e2){}
     }catch(e){}
   }
   function cargarUltimosInputs(){
@@ -1036,11 +1046,6 @@
   ['rut','nombre','fnac','fecha_evento','telefonos','obs','profesional','profesional2'].forEach(function(id){
     $(id).addEventListener('input',actualizarLimpiar);
     $(id).addEventListener('change',actualizarLimpiar);
-  });
-  // guardar en cada cambio de texto libre para no perder si no se envía
-  ['rut','nombre','telefonos','obs'].forEach(function(id){
-    $(id).addEventListener('input',guardarUltimosInputs);
-    $(id).addEventListener('change',guardarUltimosInputs);
   });
   $('rut').addEventListener('input',function(){
     var pos=this.selectionStart,old=this.value;
