@@ -758,6 +758,7 @@
     estadoEnviando();
     _enviando=true;
     var datos=recolectar();
+    guardarUltimosInputs();
     var accionEnvio=getAccion();
     var timeoutId=setTimeout(function(){
       if(!_enviando)return;
@@ -846,6 +847,26 @@
       return cuerpo+'-'+dv;
     }
     return s;
+  }
+
+  /* ── Memoria de últimos inputs (texto libre) para pruebas rápidas ── */
+  var STORAGE_KEY='ecicep_captura_ultimos_v1';
+  function guardarUltimosInputs(){
+    try{
+      var v={rut:$('rut').value,nombre:$('nombre').value,telefonos:$('telefonos').value,obs:$('obs').value};
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
+    }catch(e){}
+  }
+  function cargarUltimosInputs(){
+    try{
+      var raw=localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      var v=JSON.parse(raw);
+      if(v.rut) $('rut').value=v.rut;
+      if(v.nombre) $('nombre').value=v.nombre;
+      if(v.telefonos) $('telefonos').value=v.telefonos;
+      if(v.obs) $('obs').value=v.obs;
+    }catch(e){}
   }
 
   /* ── Confirm Modal ── */
@@ -970,6 +991,11 @@
     $(id).addEventListener('input',actualizarLimpiar);
     $(id).addEventListener('change',actualizarLimpiar);
   });
+  // guardar en cada cambio de texto libre para no perder si no se envía
+  ['rut','nombre','telefonos','obs'].forEach(function(id){
+    $(id).addEventListener('input',guardarUltimosInputs);
+    $(id).addEventListener('change',guardarUltimosInputs);
+  });
   $('rut').addEventListener('input',function(){
     var pos=this.selectionStart,old=this.value;
     this.value=rutFormatoProgresivo(this.value);
@@ -978,8 +1004,10 @@
   });
 
   /* ── Init ── */
+  cargarUltimosInputs();
   poblarProfesionales();
   pintarCampos();
+  actualizarLimpiar();
   $('rut').focus();
   google.script.run
     .withSuccessHandler(function(r){if(r&&r.url){ECICEP_WEBAPP_URL=r.url;}})
