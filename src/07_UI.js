@@ -51,8 +51,13 @@ function onOpen() {
   } catch (e) { /* entorno sin UI */ }
 }
 
-/** URL centralizada de la Web App de captura. Única fuente de verdad. */
+/** URL centralizada de la Web App de captura. Única fuente de verdad.
+ *  Si ECICEP.WEB_APP_URL está configurado, lo usa; si no, cae en
+ *  ScriptApp.getService().getUrl() (funciona en /exec, puede fallar
+ *  desde un script vinculado si el deployment no es el operativo). */
 function ECICEP_webAppUrl() {
+  var configurada = Utl_texto(ECICEP.WEB_APP_URL).trim();
+  if (configurada) return configurada;
   return ScriptApp.getService().getUrl();
 }
 

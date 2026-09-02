@@ -1253,8 +1253,8 @@ function api_formularioReprocesar(param) {
 function api_profesionalesCatalogo() {
   try {
     return Profesionales_catalogo()
-      .filter(function (c) { return c.ACTIVA; })
-      .map(function (c) { return c.NOMBRE_CANONICO; });
+      .filter(function (c) { return c.ACTIVO; })
+      .map(function (c) { return c.NOMBRE; });
   } catch (e) {
     return ['Médico/a','Enfermera/o','TENS','Matrona/o','Psicólogo/a','Asistente Social','Nutricionista','Kinesiólogo/a','Terapeuta Ocupacional'];
   }

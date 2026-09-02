@@ -19,6 +19,7 @@ var ECICEP = {
   VERSION: '0.9.3',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwd7PkYNWEmglmOqkqgxEw14jTZkTK3O-FgiP3JTVTT/dev',
   TZ: 'America/Santiago'
 };
 

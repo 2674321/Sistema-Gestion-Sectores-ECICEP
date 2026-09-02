@@ -54,7 +54,9 @@ function doGet(e) {
  */
 function Form_capturarDesdeUI(datos) {
   try {
+    console.log('[BACKEND] 01 entrada Form_capturarDesdeUI');
     if (typeof SpreadsheetApp === 'undefined') {
+      console.error('[BACKEND] 01b SpreadsheetApp no disponible');
       return { ok: false, message: 'Entorno no disponible (GAS)', errors: [{ campo: '_', mensaje: 'SOLO_GAS' }] };
     }
     datos = datos || {};
@@ -72,10 +74,13 @@ function Form_capturarDesdeUI(datos) {
       PROFESIONAL2: datos.PROFESIONAL2 || '',
       OBSERVACIONES: datos.OBSERVACIONES
     };
+    console.log('[BACKEND] 02 crudo construido accion=' + crudo.ACCION + ' rut=' + (crudo.RUT || '').substring(0, 6) + '***');
 
     // Valida en servidor con la MISMA regla del pipeline (nunca confiar en HTML).
     var val = Form_validarRespuesta(crudo, {});
+    console.log('[BACKEND] 03 validacion val.ok=' + val.ok);
     if (!val.ok) {
+      console.log('[BACKEND] 03b validacion FALLA');
       return {
         ok: false,
         message: 'El registro no pasó la validación.',
@@ -85,6 +90,7 @@ function Form_capturarDesdeUI(datos) {
 
     // idempotencia: id único por envío (el pipeline lo usa como marca FORM|id|ACCION)
     var responseId = 'UI-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+    console.log('[BACKEND] 04 responseId=' + responseId);
 
     // Construye la fila plana IGUAL que Form_capturarRespuestas (contrato FORM_RESPUESTAS).
     var fila = Form_campos().map(function (c) {
@@ -103,14 +109,20 @@ function Form_capturarDesdeUI(datos) {
     if (!hoja) { Form_instalar(); hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS); }
     var cols = Form_columnas();
     hoja.getRange(hoja.getLastRow() + 1, 1, 1, cols.length).setValues([filaPlana]);
+    console.log('[BACKEND] 05 fila escrita en FORM_RESPUESTAS');
 
     // Procesa con el pipeline EXISTENTE (misma ruta que onFormSubmit).
+    console.log('[BACKEND] 06 inicio Form_procesarPendientes');
+    var t0 = new Date().getTime();
     var proc = Form_procesarPendientes({ max: 200 });
+    var t1 = new Date().getTime();
+    console.log('[BACKEND] 07 fin Form_procesarPendientes duracion=' + (t1 - t0) + 'ms proc=' + JSON.stringify(proc).substring(0, 200));
 
     // Lee el resultado de este envío para responder al navegador.
     var estado = UI_lecturaEstadoRespuesta(responseId);
+    console.log('[BACKEND] 08 estado=' + JSON.stringify(estado));
 
-    return {
+    var resultado = {
       ok: true,
       message: proc && proc.ok === false
         ? ('Recibido. Procesamiento pendiente: ' + (proc.motivo || ''))
@@ -124,7 +136,10 @@ function Form_capturarDesdeUI(datos) {
       },
       errors: []
     };
+    console.log('[BACKEND] 09 RETORNANDO ok=true estado=' + estado.estado);
+    return resultado;
   } catch (err) {
+    console.error('[BACKEND] 09C EXCEPTION:', err && err.message ? err.message : String(err));
     Log_error('WebApp', 'capturarDesdeUI', err && err.message ? err.message : String(err));
     Log_flush();
     return {
@@ -163,6 +178,7 @@ function api_webappEstado() {
   return {
     ok: true,
     version: ECICEP.VERSION,
-    entorno: typeof Entorno_actualGAS !== 'undefined' ? Entorno_actualGAS().entorno : 'DESCONOCIDO'
+    entorno: typeof Entorno_actualGAS !== 'undefined' ? Entorno_actualGAS().entorno : 'DESCONOCIDO',
+    url: typeof ECICEP_webAppUrl === 'function' ? ECICEP_webAppUrl() : ''
   };
 }
