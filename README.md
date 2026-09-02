@@ -420,14 +420,27 @@ En particular:
 - **Tests**: `_pruebas_operativo_v092` (+6) + Grupo C de aceptación (+8). **469/469 núcleo +
   29/29 aceptación verdes**; `node --check` limpio.
 
-## Arquitectura vigente
+## v0.9.3 — Estabilización integral Web App (canónica vigente)
+
+> **Versión canónica actual: `0.9.3`** — fuente de verdad `ECICEP.VERSION` en `src/00_Config.js`.
+> Build `e5d540c` (2026-09-02). Tag `v0.9.3`.
+
+- **Web App como único canal operativo de captura** (`src/CapturaWeb.html` → `Form_capturarDesdeUI()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → pipeline). Google Forms queda abandonado como canal histórico; no se crea `FORM_ID` ni trigger `onFormSubmit` para operación.
+- **Catálogo de profesionales como fuente única vía RPC**: `CapturaWeb` carga `api_profesionalesCatalogo()` desde `PROFESIONALES` (`CODIGO/NOMBRE/ACTIVO`); se elimina copia hardcodeada en cliente. `24_Formulario.js` usa `Profesionales_catalogo()` con filtro `ACTIVO/NOMBRE`.
+- **Pipeline sin gate de entorno operativo**: `Entorno_gateGAS` ya no bloquea captura/procesamiento en `WebApp.gs`/`24_Formulario.js`; el único entorno es el Spreadsheet configurado por `ECICEP.SPREADSHEET_ID`. `src/25_Entorno.js` permanece como referencia histórica.
+- **QR estabilizado** (`CapturaWeb.html`): librería estándar del proyecto con API real `qrcode→addData→make→getModuleCount→isDark`, render en `<canvas 220x220>` vía `google.script.run→api_webappEstado`.
+- **Logo CESFAM restaurado** (`CapturaWeb.html:281/300`): re-encode desde `logo_cesfam_san_juan_Coq.png` original (289×333 RGBA) — header `64×74` + watermark `300×300` con `object-fit:contain`.
+- **Config centralizada**: `ECICEP.WEB_APP_URL` en `00_Config.js` consumida por `ECICEP_webAppUrl()`; fallback `ScriptApp.getService().getUrl()`.
+- **Tests**: **469/469 núcleo + 29/29 aceptación** verdes. `clasp push --force` sincronizado; deployments como mecanismo técnico (`@HEAD` operativo, `/dev` revisión, `/exec` publicación).
+
+## Arquitectura vigente (v0.9.3)
 
 ```text
 Web App (captura única)
         ↓
 Form_capturarDesdeUI()
         ↓
-FORM_RESPUESTAS
+FORM_RESPUESTAS  (cola interna, no Google Forms)
         ↓
 Form_procesarPendientes()
         ↓
@@ -441,6 +454,7 @@ SECTORES / DASHBOARD / REM / LOG
 ```
 
 Google Sheets continúa como superficie administrativa y de supervisión. Todo pertenece al mismo sistema y al mismo entorno operativo.
+Single source of truth: `ECICEP.VERSION` (`src/00_Config.js:19`).
 
 ## QR permanente — Google Sheets
 

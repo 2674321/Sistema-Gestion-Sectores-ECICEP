@@ -99,6 +99,8 @@ Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Scr
 
 Una referencia histórica como `@63` no debe documentarse como "producción" ni utilizarse para reconstruir el sistema. `@63` fue eliminado después de verificar sus dependencias reales.
 
+**Versión canónica vigente: `0.9.3`** — `ECICEP.VERSION` en `src/00_Config.js:19` (single source of truth). Build `e5d540c` (2026-09-02), tag `v0.9.3`. Stack `Google Sheets + Apps Script + CapturaWeb.html + 00_Tokens.html + WebApp.gs + 24_Formulario.js` sin dependencias externas; `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`.
+
 ## Canal de captura
 
 La Web App es la única interfaz operativa de captura. El backend reutiliza el mismo pipeline ya existente. No existe un segundo canal de negocio que deba mantenerse en paralelo.

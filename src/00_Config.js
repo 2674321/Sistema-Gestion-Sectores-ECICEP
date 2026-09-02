@@ -24,9 +24,13 @@ var ECICEP = {
 };
 
 // ---------------------------------------------------------------------------
-// ENTORNOS (v0.9.1 — DEC-049). MISMO CÓDIGO + DOS ENTORNOS aislados.
-// Identidad determinada por el Spreadsheet activo (getId()), NUNCA por el nombre
-// visible de la hoja. DEV → @HEAD / DEMO → versión estable fijada.
+// ENTORNOS (v0.9.1 — DEC-049) — HISTÓRICO / REFERENCIA.
+// El sistema actual opera como ÚNICO entorno (AGENTS.md, DEC-052, ENTORNO.md).
+// ECICEP.SPREADSHEET_ID es la única fuente de verdad operativa.
+// Este bloque se conserva por compatibilidad de diagnóstico/tests y no
+// debe usarse para bifurcar lógica de negocio (if DEV/DEMO/PROD).
+// Identidad histórica determinada por el Spreadsheet activo (getId()),
+// NUNCA por el nombre visible de la hoja. DEV → @HEAD / DEMO → estable.
 // FORM_ID y BACKUP_FOLDER_ID reales de DEMO son recursos que se crean
 // manualmente (DEC-047/48/50); mientras estén vacíos, la captura queda pendiente
 // y el diagnóstico lo reporta (la estructura del formulario sí se prepara).

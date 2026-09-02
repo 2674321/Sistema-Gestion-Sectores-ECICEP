@@ -756,6 +756,14 @@ Las referencias históricas a métricas, paneles o pruebas construidas alrededor
 
 ---
 
+## DEC-053
+**Título:** v0.9.3 — Estabilización integral Web App (versión canónica)
+**Estado:** Aprobada / vigente
+**Motivo:** Cierre de estabilización antes de fase exclusiva de pruebas funcionales del formulario. Se establece `0.9.3` como versión canónica única con `ECICEP.VERSION` (`src/00_Config.js:19`) como single source of truth y `ECICEP_BUILD` (`src/BUILD.js`) sincronizado al commit. Auditoría integral (GitHub↔Apps Script↔Spreadsheet↔Web App↔docs) detectó y corrigió: (a) gate `Entorno_gateGAS` eliminado del pipeline de captura (el único entorno es `ECICEP.SPREADSHEET_ID`); (b) `PROFESIONAL` vía `api_profesionalesCatalogo()` desde catálogo `PROFESIONALES` (ACTIVO/NOMBRE) — fix de `ACTIVA/NOMBRE_CANONICO`; (c) `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`; (d) QR con librería estándar `qrcode→addData→make` render en canvas + `api_webappEstado`; (e) logo re-encode desde `logo_cesfam_san_juan_Coq.png` (289×333) en `CapturaWeb.html:281/300` con `64×74`+`object-fit:contain`. Menús/UI Sheets, `FORM_RESPUESTAS`/`PACIENTES`/`EVENTOS`/`REM`, `FORM_CONTROL`, contratos y deployments (`@HEAD` operativo, `/dev` revisión, `/exec` publicación) alineados. AppSheet auditado: sin config en repo — requiere intervención manual. Tests **469/469 + 29/29** verdes.
+**Fecha:** 2026-09-02
+
+---
+
 ## DEC-040
 **Título:** Auditoría integral v0.8.8 — FASE 1 dry-run read-only + correcciones de integridad clínica y rendimiento
 **Estado:** Aprobada

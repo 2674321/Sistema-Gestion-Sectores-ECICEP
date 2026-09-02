@@ -92,14 +92,14 @@ No crear deployments nuevos por cada push. Reutilizar el deployment operativo ex
 
 | Canal | Mecanismo | Cuándo usarlo |
 |-------|-----------|---------------|
-| `/dev` | `clasp push --force` | Revisión rápida del código actual |
-| `/exec` | `clasp push --force` + `clasp deploy --deploymentId @85` | Publicación operativa |
+| `/dev` | `clasp push --force` | Revisión rápida del código actual (`@HEAD`) |
+| `/exec` | `clasp push --force` + `clasp deploy --deploymentId <ID-operativo>` | Publicación operativa (ver `clasp deployments`) |
 
 **HEAD** es el código fuente actual del proyecto después de `clasp push`.
 
 **`/dev`** es la URL de desarrollo que refleja HEAD sin necesidad de crear una versión.
 
-**`@85`** es el deployment operativo que sirve `/exec`.
+**`@HEAD` / deployment operativo** es el que sirve `/exec` (verificar con `clasp deployments` cuál es el operativo actual; `@85` fue histórico).
 
 **`/exec`** es la URL estable que utilizan los usuarios finales.
 
@@ -118,8 +118,8 @@ No crear versión. No ejecutar `clasp deploy`. No cambiar URL.
 
 ```bash
 clasp push --force
-clasp deploy --deploymentId @85
-# → probar /exec
+clasp deploy --deploymentId <ID-operativo>
+# → probar /exec (identificar ID con clasp deployments)
 ```
 
 Verificar que `/exec` carga la versión esperada.
