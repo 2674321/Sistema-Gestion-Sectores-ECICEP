@@ -987,7 +987,8 @@ function Form_leerFilaIngreso(nombreHoja, filaFisica) {
   if (!hojaEst) return { estado: 'ERROR', nota: 'HOJA_INGRESO_AUSENTE' };
   var valores = Modelo_leerBloqueCabecera(nombreHoja, hojaEst);
   if (!valores.length) return { estado: 'ERROR', nota: 'SIN_DATOS' };
-  var idxDato = Number(filaFisica) - Modelo_dataStartRow(nombreHoja);
+  var hr = Modelo_headerRow(nombreHoja);
+  var idxDato = Number(filaFisica) - hr;
   if (isNaN(idxDato) || idxDato < 1 || idxDato >= valores.length) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
   var fila = valores[idxDato];
   var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);

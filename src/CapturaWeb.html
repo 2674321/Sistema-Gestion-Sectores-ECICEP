@@ -777,10 +777,17 @@
           return;
         }
         var d=r.data||{};
-        var msg=ACCION_MENSAJES[accionEnvio]||'Registro guardado correctamente';
+        if(d.estado==='ERROR'){
+          estadoListo();
+          var detErr=_esc(d.motivo||r.message||'Error');
+          mostrarResumen('err',r.message||'No fue posible registrar','<div style="margin-top:6px">'+detErr+'</div>');
+          return;
+        }
+        var isRev=d.estado==='REQUIERE_REVISION';
+        var msg=isRev?(r.message||'Registro recibido — requiere revisión'):ACCION_MENSAJES[accionEnvio]||'Registro guardado correctamente';
         var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
         if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
-        mostrarResumen('ok',msg,chips);
+        mostrarResumen(isRev?'err':'ok',msg,chips);
         estadoListo();
         $('btnEnviar').classList.add('hidden');
         $('btnsNueva').classList.add('show');

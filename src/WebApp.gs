@@ -122,11 +122,19 @@ function Form_capturarDesdeUI(datos) {
     var estado = UI_lecturaEstadoRespuesta(responseId);
     console.log('[BACKEND] 08 estado=' + JSON.stringify(estado));
 
+    var esError = estado.estado === 'ERROR';
+    var esRevision = estado.estado === 'REQUIERE_REVISION';
+    var ok = !esError;
+    var message = esError
+      ? ('No se pudo completar: ' + (estado.motivo || estado.estado))
+      : esRevision
+        ? 'Registro recibido — requiere revisión'
+        : (proc && proc.ok === false
+          ? ('Recibido. Procesamiento pendiente: ' + (proc.motivo || ''))
+          : 'Registro realizado correctamente');
     var resultado = {
-      ok: true,
-      message: proc && proc.ok === false
-        ? ('Recibido. Procesamiento pendiente: ' + (proc.motivo || ''))
-        : 'Registro realizado correctamente',
+      ok: ok,
+      message: message,
       data: {
         responseId: responseId,
         accion: val.accion,
@@ -134,9 +142,9 @@ function Form_capturarDesdeUI(datos) {
         motivo: estado.motivo,
         idInterno: estado.idInterno
       },
-      errors: []
+      errors: esError ? [{ campo: '_', mensaje: estado.motivo || estado.estado }] : []
     };
-    console.log('[BACKEND] 09 RETORNANDO ok=true estado=' + estado.estado);
+    console.log('[BACKEND] 09 RETORNANDO ok=' + ok + ' estado=' + estado.estado);
     return resultado;
   } catch (err) {
     console.error('[BACKEND] 09C EXCEPTION:', err && err.message ? err.message : String(err));
