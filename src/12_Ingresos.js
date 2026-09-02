@@ -262,12 +262,16 @@ function Ingresos_leerHoja(nombreHoja) {
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
   var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
+  var hrDetect = Modelo_headerRow(nombreHoja);
   // Fallback para hojas aún no reconciliadas al layout visual (header en fila 1)
   if (valores.length) {
     var hdrOk = valores[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1;
     if (!hdrOk && hoja.getLastRow() >= 1) {
       var alt = hoja.getRange(1, 1, hoja.getLastRow(), Math.max(hoja.getLastColumn(),1)).getValues();
-      if (alt.length && alt[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1) valores = alt;
+      if (alt.length && alt[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
+        valores = alt;
+        hrDetect = 1;
+      }
     }
   }
   if (valores.length < 2) return { staging: [], hoja: hoja };
@@ -289,9 +293,11 @@ function Ingresos_leerHoja(nombreHoja) {
     });
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
+    // fila física real = header detectado + índice en valores
+    var filaFis = hrDetect + f;
     staging.push(Fuentes_normalizar(Fuentes_crearFila(
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
-        fila: Modelo_filaFisica(nombreHoja, f - 1), sector: sector }, v)));
+        fila: filaFis, sector: sector }, v)));
   }
   return { staging: staging, hoja: hoja };
 }
@@ -311,8 +317,17 @@ function Ingresos_escribirEstados(resultados) {
       var ini = Modelo_dataStartRow(nombreHoja);
       var hr = Modelo_headerRow(nombreHoja);
       var ultima = hoja.getLastRow();
-      if (ultima < ini) return;
+      // Detectar header real (visual hr vs legacy fila1)
       var encabezados = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
+      var hdrOk = encabezados.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
+      if (!hdrOk && hoja.getLastRow() >= 1) {
+        var altHdr = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+        if (altHdr.join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
+          hr = 1; ini = 2;
+          encabezados = altHdr;
+        }
+      }
+      if (ultima < ini) return;
       var colEstado = -1, colNota = -1;
       encabezados.forEach(function (h, i) {
         var clave = Utl_claveAlnum(h);

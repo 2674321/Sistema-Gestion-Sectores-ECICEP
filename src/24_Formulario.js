@@ -992,6 +992,13 @@ function Form_leerFilaIngreso(nombreHoja, filaFisica) {
   var valores = Modelo_leerBloqueCabecera(nombreHoja, hojaEst);
   if (!valores.length) return { estado: 'ERROR', nota: 'SIN_DATOS' };
   var hr = Modelo_headerRow(nombreHoja);
+  // Fallback legacy fila 1
+  if (valores[0].join('|').toUpperCase().indexOf('NOMBRE') === -1 && hojaEst.getLastRow() >= 1) {
+    var alt = hojaEst.getRange(1, 1, hojaEst.getLastRow(), Math.max(hojaEst.getLastColumn(),1)).getValues();
+    if (alt.length && alt[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
+      valores = alt; hr = 1;
+    }
+  }
   var idxDato = Number(filaFisica) - hr;
   if (isNaN(idxDato) || idxDato < 1 || idxDato >= valores.length) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
   var fila = valores[idxDato];
