@@ -1425,6 +1425,76 @@ function Modelo_leerEventos() {
 }
 
 // ---------------------------------------------------------------------------
+// PACIENTES duplicados por RUT — diagnóstico y soporte de incidentes
+// ---------------------------------------------------------------------------
+function Modelo_duplicadosPorRut() {
+  var pacientes = Modelo_leerPacientes();
+  var porRut = {};
+  pacientes.forEach(function(p, idx){
+    var k = Utl_texto(p.RUT).toUpperCase().trim();
+    if (!k) return;
+    if (!porRut[k]) porRut[k] = [];
+    porRut[k].push({idx: idx, fila: Modelo_filaFisica(HOJAS.PACIENTES, idx), paciente: p});
+  });
+  var grupos = [];
+  Object.keys(porRut).forEach(function(k){
+    if (porRut[k].length > 1) grupos.push({rut: k, cantidad: porRut[k].length, registros: porRut[k]});
+  });
+  grupos.sort(function(a,b){return b.cantidad - a.cantidad;});
+  return grupos;
+}
+function Api_duplicadosListar() {
+  try {
+    var grupos = Modelo_duplicadosPorRut();
+    return {ok:true, grupos: grupos, totalGrupos: grupos.length, totalDuplicados: grupos.reduce(function(s,g){return s+g.cantidad;},0)};
+  } catch(e){ return {ok:false, motivo: e && e.message ? e.message : String(e)}; }
+}
+function Api_duplicadosUnirPorRut(rut, idConservar) {
+  try {
+    rut = Utl_texto(rut).toUpperCase().trim();
+    if (!rut) return {ok:false, motivo:'RUT_VACIO'};
+    var hoja = Modelo_hoja(HOJAS.PACIENTES);
+    if (!hoja) return {ok:false, motivo:'SIN_HOJA_PACIENTES'};
+    var grupos = Modelo_duplicadosPorRut().filter(function(g){return g.rut===rut;});
+    if (!grupos.length) return {ok:false, motivo:'SIN_DUPLICADOS'};
+    var g = grupos[0];
+    var conservar = null;
+    g.registros.forEach(function(r){ if (r.paciente.ID_INTERNO===idConservar) conservar=r; });
+    if (!conservar) conservar = g.registros[0];
+    // Marcar duplicados restantes como REQUIERE_REVISION y mover eventos al conservado
+    var idsDuplicados = g.registros.filter(function(r){return r.paciente.ID_INTERNO!==conservar.paciente.ID_INTERNO;}).map(function(r){return r.paciente.ID_INTERNO;});
+    // Reasignar eventos de duplicados al conservado
+    var eventos = Modelo_leerEventos();
+    var hojaE = Modelo_hoja(HOJAS.EVENTOS);
+    var colId = COLUMNAS_EVENTOS.indexOf('ID_INTERNO')+1;
+    if (hojaE && eventos.length && idsDuplicados.length) {
+      var vals = Modelo_leerBloqueCabecera(HOJAS.EVENTOS, hojaE);
+      var idxId = vals[0].map(function(h){return Utl_texto(h).toUpperCase();}).indexOf('ID_INTERNO');
+      if (idxId>=0) {
+        for (var f=1; f<vals.length; f++) {
+          if (idsDuplicados.indexOf(Utl_texto(vals[f][idxId]))!==-1) {
+            hojaE.getRange(Modelo_dataStartRow(HOJAS.EVENTOS)+f-1, idxId+1).setValue(conservar.paciente.ID_INTERNO);
+          }
+        }
+      }
+    }
+    // Marcar filas duplicadas en PACIENTES con OBSERVACIONES de union
+    g.registros.forEach(function(r){
+      if (r.paciente.ID_INTERNO===conservar.paciente.ID_INTERNO) return;
+      var fila = r.fila;
+      var colObs = MODELO_PACIENTE.map(function(c){return c.campo;}).indexOf('OBSERVACIONES')+1;
+      var colRev = MODELO_PACIENTE.map(function(c){return c.campo;}).indexOf('REQUIERE_REVISION')+1;
+      if (colObs>0) hoja.getRange(fila, colObs).setValue(Utl_texto(hoja.getRange(fila,colObs).getValue())+' | UNIDO a '+conservar.paciente.ID_INTERNO+' '+new Date().toISOString().slice(0,10));
+      if (colRev>0) hoja.getRange(fila, colRev).setValue(true);
+    });
+    Modelo_invalidarLecturas();
+    Log_info('Duplicados','unir', rut+' conservar='+conservar.paciente.ID_INTERNO+' unidos='+idsDuplicados.length);
+    Log_flush();
+    return {ok:true, conservado: conservar.paciente.ID_INTERNO, unidos: idsDuplicados};
+  } catch(e){ return {ok:false, motivo: e && e.message ? e.message : String(e)}; }
+}
+
+// ---------------------------------------------------------------------------
 // ETAPA 5-INCIDENTE — Recuperación selectiva de carga accidental
 // ---------------------------------------------------------------------------
 

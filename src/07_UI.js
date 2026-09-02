@@ -21,7 +21,8 @@ function onOpen() {
       .addSubMenu(ui.createMenu('👥 Personas')
         .addItem('✏️ Buscar / Ficha de persona', 'UI_abrirBuscador')
         .addItem('📋 Cola de revisión', 'UI_abrirRevision')
-        .addItem('📝 Procesar ingresos', 'UI_procesarIngresos'))
+        .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
+        .addItem('👥 Duplicados por RUT', 'UI_duplicados'))
       .addSubMenu(ui.createMenu('📅 Seguimiento y controles')
         .addItem('🩺 Controles por persona', 'UI_abrirControles'))
       .addSubMenu(ui.createMenu('📊 Reportes')
@@ -369,6 +370,22 @@ function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Pacientes ECICEP'); }
 
 /** 📋 Cola de Revisión: sidebar exclusivo del módulo de revisión. */
 function UI_abrirRevision() { _ui_sidebar('revision', 'Cola de Revisión'); }
+
+/** 👥 Duplicados por RUT: lista grupos con mismo RUT y permite unir. */
+function UI_duplicados(){
+  var r=Api_duplicadosListar();
+  if(!r.ok){ SpreadsheetApp.getUi().alert('Duplicados: '+r.motivo); return; }
+  if(!r.totalGrupos){ SpreadsheetApp.getUi().alert('Duplicados por RUT','Sin duplicados por RUT en PACIENTES.', SpreadsheetApp.getUi().ButtonSet.OK); return; }
+  var msg='Grupos duplicados: '+r.totalGrupos+' ('+r.totalDuplicados+' registros)\n\n';
+  r.grupos.slice(0,10).forEach(function(g){
+    msg+=g.rut+' x'+g.cantidad+' -> '+g.registros.map(function(x){return x.paciente.NOMBRE.substring(0,20)+'['+x.paciente.ID_INTERNO+']';}).join(' | ')+'\n';
+  });
+  if(r.totalGrupos>10) msg+='... y '+(r.totalGrupos-10)+' grupos mas. Ver LOG para detalle.\n';
+  msg+='\nPara unir: ECICEP > Personas > Duplicados guarda el primero y reasigna eventos de los otros (marca REQUIERE_REVISION). Ejecuta Api_duplicadosUnirPorRut(rut, idConservar) desde script si necesitas elegir.';
+  Log_info('Duplicados','listar', JSON.stringify(r.grupos.slice(0,5).map(function(g){return g.rut+':'+g.cantidad;})));
+  Log_flush();
+  SpreadsheetApp.getUi().alert('Duplicados por RUT', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+}
 
 /** ⚙ Configuración: abre el diálogo de administración. La hoja CONFIG
  *  permanece OCULTA (no se muestra). Usa una función desde menú, jamás la hoja. */
