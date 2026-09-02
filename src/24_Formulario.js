@@ -1066,8 +1066,9 @@ function Form_procesarPendientes(opciones) {
     var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
     if (valores.length < 2) return { ok: true, resumen: { leidos: 0 } };
     var mapa = Form_mapeoEncabezados(valores[0]);
-    var pendientes = Form_filasPendientes(valores, mapa, FORM_CONFIG.MAX_REINTENTOS, opciones.max);
+     var pendientes = Form_filasPendientes(valores, mapa, FORM_CONFIG.MAX_REINTENTOS, opciones.max);
     if (!pendientes.length) return { ok: true, resumen: { leidos: 0 } };
+    console.log('[PIPE] pendientes='+pendientes.length+' ids='+pendientes.map(function(p){return p.responseId;}).join(','));
 
     // contexto: pacientes e índice por RUT + marcas de eventos (una lectura)
     var pacientes = Modelo_leerPacientes() || [];
@@ -1076,6 +1077,7 @@ function Form_procesarPendientes(opciones) {
     var marcas = Form_leerMarcas();
 
     var lote = Form_procesarLote(pendientes, { indiceRut: indiceRut, marcas: marcas }, {});
+    console.log('[PIPE] lote decisiones='+lote.decisiones.map(function(d){return d.responseId+':'+d.decision;}).join(' | '));
 
     // ---- efectos por tipo ----
     // (1) anexar filas NUEVO_INGRESO (por hoja, sin duplicar: ANEXAR solo si sin INGRESO_FILA)
@@ -1094,11 +1096,14 @@ function Form_procesarPendientes(opciones) {
         if (!hojaI) { d.motivo = 'HOJA_INGRESO_AUSENTE'; return; }
         var filasNuevas = Form_filaCanonicaIngreso(d.normalizado, Form_marcadorFuente(d.responseId, 'INGRESO'), {});
         var desde = hojaI.getLastRow() + 1;
+        var hrI = Modelo_headerRow(nombreHoja);
+        console.log('[PIPE] anexando '+d.responseId+' -> '+nombreHoja+' fila='+desde+' hr='+hrI+' lastRowAntes='+(desde-1));
         hojaI.getRange(desde, 1, 1, filasNuevas.length).setValues([filasNuevas]);
         d.ingreso.fila = String(desde);
         trailersAnexos.push({ filaFisica: d.filaFisica, ingresoHoja: nombreHoja, ingresoFila: String(desde), reintentos: 0, estado: 'VALIDANDO', motivo: '', idInterno: '', idEvento: '', fechaProceso: '' });
       });
     });
+    console.log('[PIPE] trailersAnexos='+JSON.stringify(trailersAnexos).substring(0,400));
 
     if (trailersAnexos.length) Form_actualizarTrailer(trailersAnexos);
 
@@ -1133,13 +1138,17 @@ function Form_procesarPendientes(opciones) {
     var hayAnexos = Object.keys(porHoja).length > 0;
     var resumenPipeline = null;
     if (hayAnexos) {
+      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos);
       resumenPipeline = Ingresos_procesarTodasLasHojas({});
+      console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
+    } else {
+      console.log('[PIPE] sin anexos, no se llama pipeline');
     }
 
     // (4) resultados finales (re-leer) e ids de evento para clínicas
     var marcasFinales = Form_leerMarcas();
     var trailers = [];
-    lote.decisiones.forEach(function (d) {
+     lote.decisiones.forEach(function (d) {
       var est = 'ERROR', mot = d.motivo || '', idInt = d.idInterno || '', idEv = (marcasFinales[Form_marcadorFuente(d.responseId, d.accion)] || {}).idEvento || '';
       if (d.decision === 'SALTAR') {
         if (d.motivo === 'SIN_RESPONSE_ID') { est = 'ERROR'; }
@@ -1159,11 +1168,14 @@ function Form_procesarPendientes(opciones) {
         var hojaAnnex = (d.ingreso && d.ingreso.hoja ? d.ingreso.hoja : d.ingresoHoja) || '';
         if (hojaAnnex && filaAnnex) {
           var lf = Form_leerFilaIngreso(hojaAnnex, filaAnnex);
+          console.log('[PIPE] Form_leerFilaIngreso '+d.responseId+' -> '+hojaAnnex+' fila='+filaAnnex+' lf='+JSON.stringify(lf));
           var map = Form_mapearResultadoFila(lf.estado, lf.nota);
           est = map.estado; mot = map.motivo;
+          console.log('[PIPE] mapeado '+d.responseId+' est='+est+' mot='+mot);
         } else {
           est = 'ERROR';
           if (!mot) mot = 'SIN_FILA_INGRESO';
+          console.log('[PIPE] SIN_FILA_INGRESO '+d.responseId);
         }
       }
       var reint = Number(d.reintentos) || 0;

@@ -263,15 +263,21 @@ function Ingresos_leerHoja(nombreHoja) {
   if (!hoja) return { staging: [], hoja: null };
   var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
   var hrDetect = Modelo_headerRow(nombreHoja);
+  var hrOrig = hrDetect;
   // Fallback para hojas aún no reconciliadas al layout visual (header en fila 1)
   if (valores.length) {
     var hdrOk = valores[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1;
     if (!hdrOk && hoja.getLastRow() >= 1) {
       var alt = hoja.getRange(1, 1, hoja.getLastRow(), Math.max(hoja.getLastColumn(),1)).getValues();
       if (alt.length && alt[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
+        console.log('[PIPE] Ingresos_leerHoja '+nombreHoja+' fallback hr '+hrOrig+'->1 valores visual sin NOMBRE, usando alt fila1');
         valores = alt;
         hrDetect = 1;
+      } else {
+        console.log('[PIPE] Ingresos_leerHoja '+nombreHoja+' hrDet='+hrDetect+' hdrOk='+hdrOk+' sin alt valido');
       }
+    } else {
+      console.log('[PIPE] Ingresos_leerHoja '+nombreHoja+' hrDet='+hrDetect+' hdrOk='+hdrOk+' valoresLen='+valores.length);
     }
   }
   if (valores.length < 2) return { staging: [], hoja: hoja };
