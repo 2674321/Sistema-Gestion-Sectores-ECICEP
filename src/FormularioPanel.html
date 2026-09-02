@@ -20,41 +20,47 @@
     .spin{display:none;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spinFrm .7s linear infinite;vertical-align:-2px;}
     .spin.on{display:inline-block;margin-right:6px;}
     @keyframes spinFrm{to{transform:rotate(360deg)}}
+    .frm-legacy{opacity:.5;font-style:italic;font-size:11px;margin-top:var(--space-2);color:var(--text-muted);}
   </style>
 </head>
 <body>
-  <h1 class="frm-titulo">Formulario de Ingresos</h1>
-  <div class="frm-sub">Puerta complementaria de captura &mdash; respuestas normalizadas antes de entrar al pipeline.</div>
+  <h1 class="frm-titulo">Panel de administraci&oacute;n</h1>
+  <div class="frm-sub">Estado del sistema de captura ECICEP.</div>
 
   <div class="frm-stats">
-    <div class="frm-stat"><div class="frm-num" id="fxTotal">—</div><div class="frm-lab">Respuestas</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxProcesadas">—</div><div class="frm-lab">Procesadas</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxPendientes">—</div><div class="frm-lab">Pendientes</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxRevision">—</div><div class="frm-lab">Revisi&oacute;n</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxErrores">—</div><div class="frm-lab">Error</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxCaptura">—</div><div class="frm-lab">&Uacute;ltima captura</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxViaForm">—</div><div class="frm-lab">% v&iacute;a Form</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxDupEvit">—</div><div class="frm-lab">Dup. evitados</div></div>
-    <div class="frm-stat"><div class="frm-num" id="fxReproc">—</div><div class="frm-lab">Reprocesos</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxTotal">&mdash;</div><div class="frm-lab">Respuestas</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxProcesadas">&mdash;</div><div class="frm-lab">Procesadas</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxPendientes">&mdash;</div><div class="frm-lab">Pendientes</div></div>
+  </div>
+  <div class="frm-stats">
+    <div class="frm-stat"><div class="frm-num" id="fxRevision">&mdash;</div><div class="frm-lab">Revisi&oacute;n</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxErrores">&mdash;</div><div class="frm-lab">Errores</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxCaptura">&mdash;</div><div class="frm-lab">&Uacute;ltima captura</div></div>
+  </div>
+  <div class="frm-stats">
+    <div class="frm-stat"><div class="frm-num" id="fxViaForm">&mdash;</div><div class="frm-lab">V&iacute;a WebApp</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxDupEvit">&mdash;</div><div class="frm-lab">Duplicados evitados</div></div>
+    <div class="frm-stat"><div class="frm-num" id="fxReproc">&mdash;</div><div class="frm-lab">Reprocesados</div></div>
   </div>
 
   <div class="frm-acciones">
-    <button class="btn btn-sec" id="fxBtnInstalar"><span class="spin" id="fxSpinInstalar"></span>Instalar</button>
-    <button class="btn btn-sec" id="fxBtnDiagnostico"><span class="spin" id="fxSpinDiag"></span>Diagnosticar</button>
-    <button class="btn btn-pri" id="fxBtnProcesar"><span class="spin" id="fxSpinProc"></span>Procesar pendientes</button>
-    <button class="btn btn-sec" id="fxBtnControl"><span class="spin" id="fxSpinCtrl"></span>Actualizar hoja de control</button>
-    <button class="btn btn-sec" id="fxBtnReprocesar"><span class="spin" id="fxSpinRepr"></span>Reprocesar errores</button>
+    <button class="btn btn-p" id="fxBtnProcesar" type="button"><span class="spin" id="fxSpinProc"></span>Procesar pendientes</button>
+    <button class="btn btn-s" id="fxBtnControl" type="button"><span class="spin" id="fxSpinCtrl"></span>Actualizar hoja de control</button>
+    <button class="btn btn-s" id="fxBtnReprocesar" type="button"><span class="spin" id="fxSpinRepr"></span>Reprocesar errores</button>
   </div>
 
-  <div class="frm-info" id="fxInfo">
-    <b>Entorno:</b> <span id="fxEntorno">—</span> <span id="fxEntornoOk"></span><br>
-    <b>Spreadsheet:</b> <span id="fxSsId" style="word-break:break-all">—</span><br>
-    <b>Formulario:</b> <span id="fxFormId">—</span><br>
-    <b>Trigger:</b> <span id="fxTrigger">—</span><br>
-    <b>Motor:</b> <span id="fxMotor">—</span><br>
-    <b>Sector de puerta:</b> hoja INGRESO_&lt;SECTOR&gt;.<br>
+  <div class="frm-info">
+    <b>Canal de captura:</b> Web App (<code>Form_capturarDesdeUI</code>)<br>
+    <b>Canal legado:</b> Google Forms (deshabilitado &mdash; FORM_ID vac&iacute;o)<br>
+    <b>Spreadsheet:</b> <span id="fxSsId" style="word-break:break-all">&mdash;</span><br>
+    <b>Entorno:</b> <span id="fxEntorno">&mdash;</span> <span id="fxEntornoOk"></span><br>
+    <b>Trigger:</b> <span id="fxTrigger">&mdash;</span><br>
+    <b>Motor:</b> <span id="fxMotor">&mdash;</span><br>
     <b>Marca de trazabilidad:</b> <span id="fxMarca">FORM|&lt;respuesta&gt;|&lt;acci&oacute;n&gt;</span><br>
-    <b>Instalaci&oacute;n de Estructura no modifica el formulario de Google</b> (solo prepara la hoja de respuestas y el trigger).
+    <div class="frm-legacy">
+      Botones de instalaci&oacute;n y diagn&oacute;stico de Google Forms se han eliminado de esta interfaz.
+      El sistema opera v&iacute;a Web App directamente.
+    </div>
   </div>
 
   <div class="frm-consola" id="fxConsola">Listo.</div>
@@ -80,57 +86,35 @@ function pintarEstado(r){
   if(!r)return;
   var m=r.metricas||{};
   var o=r.operativo||{};
-  var nv=function(id,v){var el=document.getElementById(id);if(el)el.textContent=(v==null)?'—':v;};
+  var nv=function(id,v){var el=document.getElementById(id);if(el)el.textContent=(v==null)?'\u2014':v;};
   nv('fxTotal',m.total); nv('fxProcesadas',m.procesados); nv('fxPendientes',m.pendientes);
   nv('fxRevision',m.revision); nv('fxErrores',m.error);
-  nv('fxCaptura',m.ultimaCaptura||'—');
-  nv('fxViaForm',(o.pctViaForm!=null)?(o.pctViaForm+'%'):'—');
-  nv('fxDupEvit',(o.duplicadosEvitados!=null)?o.duplicadosEvitados:'—');
-  nv('fxReproc',(o.reprocesamientos!=null)?o.reprocesamientos:'—');
+  nv('fxCaptura',m.ultimaCaptura||'\u2014');
+  nv('fxViaForm',(o.pctViaForm!=null)?(o.pctViaForm+'%'):'\u2014');
+  nv('fxDupEvit',(o.duplicadosEvitados!=null)?o.duplicadosEvitados:'\u2014');
+  nv('fxReproc',(o.reprocesamientos!=null)?o.reprocesamientos:'\u2014');
   var ent=(r.entorno&&r.entorno.entorno)||'DESCONOCIDO';
   nv('fxEntorno',ent);
-  nv('fxSsId',(r.entorno&&r.entorno.ssId)||'—');
+  nv('fxSsId',(r.entorno&&r.entorno.ssId)||'\u2014');
   nv('fxFormId',(r.config&&r.config.formId)||'(sin configurar)');
-  nv('fxMotor',(r.config&&r.config.version!=null)?('FORM v'+(r.config.version)):'—');
+  nv('fxMotor',(r.config&&r.config.version!=null)?('FORM v'+(r.config.version)):'\u2014');
   var okEl=document.getElementById('fxEntornoOk');
   if(okEl){
     var c=r.entorno&&r.entorno.coincide;
-    okEl.textContent=c?' ✓ Spreadsheet coincide':(' ✗ Desalineación');
+    okEl.textContent=c?' \u2713 Spreadsheet coincide':(' \u2717 Desalineaci\u00f3n');
     okEl.style.color=c?'var(--success)':'var(--danger)';
     okEl.style.fontWeight='600';
   }
   nv('fxTrigger',r.triggerInstalado?('Instalado'+(r.config&&r.config.activo?'':' (inactivo)')):'No instalado');
   if(typeof _refrescarIconos==='function')_refrescarIconos();
 }
-document.getElementById('fxBtnInstalar').addEventListener('click',function(){
-  var s=document.getElementById('fxSpinInstalar');if(s)s.classList.add('on');
-  google.script.run.withSuccessHandler(function(r){
-    if(s)s.classList.remove('on');
-    frmLog(r&&r.ok?'ok':'err',(r&&r.ok)?('Estructura '+(r.hoja||'lista')+'. '+(r.nota||'')
-      +((r.formIdConfigurado)?'':'. FORM_ID pendiente: el formulario debe crearse en Google Forms y asociarse en FORM_CONFIG'))
-      :((r&&r.motivo)||'Instalación incompleta'));
-    if(r&&r.ok)flashOk(document.getElementById('fxBtnInstalar'));
-  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Instalar: '+(e.message||String(e)));}).api_formularioInstalar();
-});
-document.getElementById('fxBtnDiagnostico').addEventListener('click',function(){
-  var s=document.getElementById('fxSpinDiag');if(s)s.classList.add('on');
-  google.script.run.withSuccessHandler(function(r){
-    if(s)s.classList.remove('on');
-    if(r&&r.checks){
-      var det=r.checks.map(function(c){return (c.ok?'\u2714 ':'\u2718 ')+c.nombre+(c.ok?'':' — '+c.detalle);}).join('\n');
-      frmLog((r.ok)?'ok':'err','Chequeos:\n'+det);
-    }else{
-      frmLog('err',(r&&r.motivo)||'Sin resultados');
-    }
-  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Diagnóstico: '+(e.message||String(e)));}).api_formularioDiagnostico();
-});
 document.getElementById('fxBtnProcesar').addEventListener('click',function(){
   var s=document.getElementById('fxSpinProc');if(s)s.classList.add('on');
   google.script.run.withSuccessHandler(function(r){
     if(s)s.classList.remove('on');
     var res=(r&&r.resumen)||{};
     frmLog((r&&r.ok)?'ok':'err',
-      (r&&r.ok)?('Le&iacute;das '+res.leidos+' · ingresos nuevos '+res.nuevosIngresos+' · cl&iacute;nicas '+res.clinicas+' · procesadas '+res.procesados+' · revisi&oacute;n '+res.revision+' · errores '+res.errores+(res.pipeline?(' · pipeline '+res.pipeline):''))
+      (r&&r.ok)?('Le\u00eddas '+res.leidos+' \u00b7 ingresos nuevos '+res.nuevosIngresos+' \u00b7 cl\u00ednicas '+res.clinicas+' \u00b7 procesadas '+res.procesados+' \u00b7 revisi\u00f3n '+res.revision+' \u00b7 errores '+res.errores+(res.pipeline?(' \u00b7 pipeline '+res.pipeline):''))
       :((r&&r.motivo)||'Sin resultados'));
     flashOk(document.getElementById('fxBtnProcesar'));
     google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
@@ -141,7 +125,7 @@ document.getElementById('fxBtnControl').addEventListener('click',function(){
   google.script.run.withSuccessHandler(function(r){
     if(s)s.classList.remove('on');
     frmLog((r&&r.ok)?'ok':'err',
-      (r&&r.ok)?('Hoja de control actualizada: '+r.total+' env&iacute;os con trazabilidad rastreables en FORM_CONTROL.')
+      (r&&r.ok)?('Hoja de control actualizada: '+r.total+' env\u00edos con trazabilidad rastreables en FORM_CONTROL.')
       :((r&&r.motivo)||'Sin resultados'));
     if(r&&r.ok)flashOk(document.getElementById('fxBtnControl'));
     google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
@@ -153,7 +137,7 @@ document.getElementById('fxBtnReprocesar').addEventListener('click',function(){
     if(s)s.classList.remove('on');
     var res=(r&&r.resumen)||{};
     frmLog((r&&r.ok)?'ok':'err',
-      (r&&r.ok)?('Reproceso seguro ejecutado (idempotente por marca). Le&iacute;das '+res.leidos+' · procesadas '+res.procesados+' · revisi&oacute;n '+res.revision+' · errores '+res.errores)
+      (r&&r.ok)?('Reproceso seguro ejecutado (idempotente por marca). Le\u00eddas '+res.leidos+' \u00b7 procesadas '+res.procesados+' \u00b7 revisi\u00f3n '+res.revision+' \u00b7 errores '+res.errores)
       :((r&&r.motivo)||'Sin resultados'));
     if(r&&r.ok)flashOk(document.getElementById('fxBtnReprocesar'));
     google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
