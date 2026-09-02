@@ -24,8 +24,6 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 
 | # | Pendiente | Tipo | Prioridad |
 |---|---|---|---|
-| 21 | Implementar UI mínima para resolver `REQUIERE_REVISION` / `POSIBLE_DUPLICADO` | Tarea dev | MEDIA |
-| 22 | Permitir captura de fecha específica para gestiones CONTROL/SEGUIMIENTO donde corresponda | Diseño ETAPA 4 | ALTA |
 | 25 | Completar captura de campos REM actualmente ausentes sin inventar datos | Captura nueva | ALTA |
 | 26 | Completar importación/cierre del histórico del sector Amarillo según fuente y procedimiento vigente | Acción operativa | ALTA |
 | 27 | Completar definición de usuarios/accesos y responsables por sector | Decisión cliente | MEDIA |
@@ -34,7 +32,7 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 | 30 | Realizar validación visual manual integral del libro real tras los cambios correspondientes | Humano | ALTA |
 | 32 | Normalizar formato heredado mediante el reconciliador visual, sin limpieza destructiva manual | Dev | BAJA |
 | 33 | Migrar colores duplicados en HTML a tokens CSS de `00_Tokens` | Dev / cosmético | BAJA |
-| 34 | Consolidar normalizadores de fecha/edad después de definir y probar un contrato único | Dev | MEDIA |
+| 34 | Consolidar `Rem9_edadEn` en `Utl_edadDesde` (duplicado menor confirmado) | Dev | BAJA |
 
 ## 3. Publicación / deployment
 
@@ -75,3 +73,6 @@ Estas tareas pertenecen a etapas históricas que fueron supersedidas por la arqu
 ## 6. Problemas cerrados
 
 Los problemas que ya fueron implementados y validados permanecen cerrados y no forman parte de la cola activa. Una reaparición debe demostrarse mediante una nueva evidencia o una regresión reproducible.
+
+- **#21** UI mínima para `REQUIERE_REVISION` / `POSIBLE_DUPLICADO`: resuelto. Backend (`api_revisionListar`, `api_revisionResolver`) y frontend (Sidebar `mode='revision'` con comparación lado a lado y botones de acción) completamente implementados. Accesible vía `ECICEP > Personas > Cola de revisión` y Panel de Control.
+- **#22** Fecha específica para CONTROL/SEGUIMIENTO: resuelto. `FECHA_EVENTO` es obligatorio en el contrato, capturado por `<input type="date">` en la UI, validado/normalizado en `Form_validarRespuesta`, persistido en `FORM_RESPUESTAS`, y utilizado por `api_registrarEvento` para crear el evento con la fecha del usuario.
