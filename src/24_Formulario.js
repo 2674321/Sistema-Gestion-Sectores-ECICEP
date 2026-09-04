@@ -1164,6 +1164,7 @@ function Form_procesarPendientes(opciones) {
   var lock = null;
   try { lock = LockService.getScriptLock(); } catch (e) { lock = null; }
   if (lock && !lock.tryLock(30000)) return { ok: false, motivo: 'OCUPADO: otro proceso está procesando respuestas del formulario' };
+  var _tForm = Date.now();
   try {
     if (!FORM_CONFIG.ACTIVO) return { ok: true, resumen: { leidos: 0, notas: 'FORM_CONFIG.ACTIVO = false' } };
     var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
@@ -1173,6 +1174,7 @@ function Form_procesarPendientes(opciones) {
     var mapa = Form_mapeoEncabezados(valores[0]);
      var pendientes = Form_filasPendientes(valores, mapa, FORM_CONFIG.MAX_REINTENTOS, opciones.max);
     if (!pendientes.length) return { ok: true, resumen: { leidos: 0 } };
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (lectura+pendientes FORM)');
     console.log('[PIPE] pendientes='+pendientes.length+' ids='+pendientes.map(function(p){return p.responseId;}).join(','));
 
     // contexto: pacientes e índice por RUT + marcas de eventos (una lectura)
@@ -1180,8 +1182,10 @@ function Form_procesarPendientes(opciones) {
     var indiceRut = {};
     pacientes.forEach(function (p) { indiceRut[Utl_texto(p.RUT).toUpperCase()] = p; });
     var marcas = Form_leerMarcas();
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (contexto: pacientes+marcas)');
 
     var lote = Form_procesarLote(pendientes, { indiceRut: indiceRut, marcas: marcas }, {});
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (lote decisiones)');
     console.log('[PIPE] lote decisiones='+lote.decisiones.map(function(d){return d.responseId+':'+d.decision;}).join(' | '));
 
     // (0) Idempotencia real por MARCA de FUENTE (independiente del trailer):
@@ -1229,6 +1233,7 @@ function Form_procesarPendientes(opciones) {
     console.log('[PIPE] trailersAnexos='+JSON.stringify(trailersAnexos).substring(0,400));
 
     if (trailersAnexos.length) Form_actualizarTrailer(trailersAnexos);
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (anexo filas INGRESO, paso 1)');
 
     // (2) acciones clínicas (reuso completo de api_registrarEvento)
     lote.decisiones.forEach(function (d) {
@@ -1256,6 +1261,7 @@ function Form_procesarPendientes(opciones) {
         d._motivo = resp.ok ? '' : (resp.motivo || '');
       }
     });
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (acciones clínicas, paso 2)');
 
     // (3) pipeline existente solo si hay ingresos nuevos anexados
     var hayAnexos = Object.keys(porHoja).length > 0;
@@ -1263,6 +1269,7 @@ function Form_procesarPendientes(opciones) {
     if (hayAnexos) {
       console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' confirmarNuevos='+(opciones.confirmarNuevos===true));
       resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true });
+      console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3)');
       console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
     } else {
       console.log('[PIPE] sin anexos, no se llama pipeline');

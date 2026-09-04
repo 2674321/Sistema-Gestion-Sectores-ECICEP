@@ -369,6 +369,7 @@ function Ingresos_escribirEstados(resultados) {
 function Ingresos_procesarTodasLasHojas(opciones) {
   opciones = opciones || {};
   var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase();
+  var _tIni = Date.now();
   Log_info('Ingresos', 'procesar', 'inicio ejecución ' + ejecucion);
 
   // 0) NORMALIZAR el layout visual ANTES de leer/escribir: HVis_normalizarLayout
@@ -386,12 +387,14 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   } catch (eN) {
     Log_warning('Ingresos', 'normalizarLayoutPre', eN && eN.message ? eN.message : String(eN));
   }
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (formato visual, paso 0)');
 
   // 1) leer todas las puertas de entrada
   var staging = [];
   Object.keys(HOJAS_INGRESO).forEach(function (hojaNombre) {
     staging = staging.concat(Ingresos_leerHoja(hojaNombre).staging);
   });
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (lectura hojas ingreso, paso 1)');
 
   // Sectores tocados por esta captura (para refrescar SOLO sus vistas).
   var sectoresAfectados = [];
@@ -415,6 +418,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
 
   // 2) auditoría completa en STAGING_IMPORT (valores originales incluidos)
   Fuentes_guardarFilas(staging);
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (auditoría staging, paso 2)');
 
   // 2b) BARRERA idempotencia por (RUT, FECHA_INGRESO): si el paciente ya tiene
   //     un ingreso registrado con la MISMA fecha, la fila pendiente es un
@@ -442,7 +446,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
     return false;
   });
   staging = stagingFiltrado;
-  console.log('[PIPE] staging tras barrera RUT+fecha: '+staging.length+' duplicadosDia='+duplicadosDia.length);
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (barrera RUT+fecha, paso 2b) staging tras barrera=' + staging.length + ' duplicadosDia=' + duplicadosDia.length);
   if (!staging.length) {
     Ingresos_escribirEstados(duplicadosDia);
     var salidaDuplicada = { resultados: duplicadosDia, resumen: { leidos: duplicadosDia.length, validos: 0, conError: 0, nuevos: 0, existentes: 0, revision: 0, duplicados: duplicadosDia.length, eventosCreados: 0 }, pacientesNuevos: [], eventos: [] };
@@ -460,13 +464,16 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   salida.resumen.ejecucion = ejecucion;
   salida.resultados = salida.resultados.concat(duplicadosDia);
   if (duplicadosDia.length) salida.resumen.duplicados = (salida.resumen.duplicados || 0) + duplicadosDia.length;
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (pipeline puro, paso 3)');
 
   // 4) persistencia por lotes
   Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
   Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-eventos' });
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (persistencia pacientes/eventos, paso 4)');
 
   // 5) estados de vuelta en las hojas de ingreso
   Ingresos_escribirEstados(salida.resultados);
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (estados en hojas, paso 5)');
 
   // 5b) casos ambiguos → cola de revisión (CONFLICTOS)
   var conflicto = null;
@@ -486,6 +493,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   } catch (e) {
     Log_warning('Ingresos', 'colaRevision', e && e.message ? e.message : String(e));
   }
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (cola de revisión, paso 5b)');
 
   // 6) reflejar el resultado en las vistas sectoriales (derivadas, no bases).
   //    Solo se reescriben las vistas de los sectores tocados por la captura.
@@ -495,6 +503,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   } catch (e) {
     Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
   }
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (vistas sectoriales, paso 6) TOTAL_pipeline_ms');
 
   salida.resumen.usuario = _ingresosUsuarioActual();
   salida.resumen.vistasSector = vistas;
