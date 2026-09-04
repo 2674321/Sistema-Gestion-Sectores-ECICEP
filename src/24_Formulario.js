@@ -71,13 +71,18 @@ function Form_derivarAcotacionPaso3(filasAnexadas, buscadorMarca) {
   var filasEnJuego = {};
   (filasAnexadas || []).forEach(function (d) {
     if (d.decision !== 'ANEXAR' && d.decision !== 'YA_ANEXADO') return;
-    var hallado = buscadorMarca ? buscadorMarca(d.responseId) : null;
-    var h = null, f = '';
-    if (hallado && hallado.hoja && hallado.fila) { h = hallado.hoja; f = String(hallado.fila); }
-    else {
-      h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
-      var ff = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
-      if (ff !== undefined && ff !== '' && ff !== null) f = String(ff);
+    // Preferir SIEMPRE las coordenadas ya conocidas en memoria (recién
+    // anexadas en este mismo request en el paso 1, o resueltas por la
+    // idempotencia del paso 0) — son gratis. `buscadorMarca` (barrido de las
+    // 4 hojas INGRESO_*, costoso con backlog grande) es solo el RESPALDO
+    // cuando esas coordenadas realmente faltan (DEC-055 original).
+    var h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
+    var f = '';
+    var ff = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
+    if (ff !== undefined && ff !== '' && ff !== null) f = String(ff);
+    if (!h || !f) {
+      var hallado = buscadorMarca ? buscadorMarca(d.responseId) : null;
+      if (hallado && hallado.hoja && hallado.fila) { h = hallado.hoja; f = String(hallado.fila); }
     }
     if (!h) return;
     hojasEnJuego[h] = true;

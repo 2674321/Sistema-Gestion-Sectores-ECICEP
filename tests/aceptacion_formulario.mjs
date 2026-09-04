@@ -757,6 +757,102 @@ registrar('acotación: decisión SALTAR/ERROR/CLINICA no infla el acotado', () =
   return { ok: ac.soloHojas.length === 0 && ac.soloFilas === null, causa: 'decisiones no-INGRESO afectaron el acotado' };
 });
 
+// ── GRUPO C EXTENDIDO: el acotado debe saltar el COSTO, no solo filtrar el
+//    resultado (DEC-056 fix 1a/1b/2a). Verifica a nivel de función de lectura
+//    que `filasPermitidas` evita N normalizaciones y que `buscadorMarca` no se
+//    barre cuando las coordenadas ya viven en memoria.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Sheet stub de layout VISUAL (título fila 1, secciones fila 2, encabezados
+ *  fila 3, datos fila 4+) con nPendientes filas de datos. */
+function gridIngresoBacklog(nPendientes) {
+  const ancho = T.Ingresos_columnasHoja().length; // 11 (contrato INGRESO_COLUMNAS)
+  const enc = T.Ingresos_columnasHoja();
+  const grid = [];
+  grid.push(Array(ancho).fill('TITULO'));
+  grid.push(Array(ancho).fill('SECCION'));
+  grid.push(enc.slice());
+  for (let i = 0; i < nPendientes; i++) {
+    const fila = Array(ancho).fill('');
+    fila[0] = 'PENDIENTE ' + i;
+    fila[1] = '1111111' + String(i % 10) + '-K';
+    grid.push(fila);
+  }
+  return grid;
+}
+
+function conHojaIngresoSimulada(hoja, grid, fn) {
+  const hojaStub = {
+    getLastRow() { return grid.length; },
+    getLastColumn() { return grid.length ? grid[0].length : 1; },
+    getRange(row, col, nRows, nCols) {
+      const r0 = row - 1, c0 = col - 1;
+      return {
+        getValues() {
+          const out = [];
+          for (let i = 0; i < nRows; i++) {
+            const src = grid[r0 + i] || [];
+            const rr = [];
+            for (let j = 0; j < nCols; j++) rr.push(src[c0 + j]);
+            out.push(rr);
+          }
+          return out;
+        }
+      };
+    }
+  };
+  const prev = T._MODELO_SS;
+  T._MODELO_SS = { getSheetByName(n) { return n === hoja ? hojaStub : null; } };
+  try { return fn(); } finally { T._MODELO_SS = prev; }
+}
+
+registrar('acotación: Ingresos_leerHoja con filasPermitidas NO normaliza el backlog (>1000 filas)', () => {
+  const grid = gridIngresoBacklog(1004); // fila física 1005 = última de datos (visual layout hr=3)
+  let llamadas = 0;
+  const real = T.Fuentes_normalizar;
+  T.Fuentes_normalizar = function () { llamadas++; return real.apply(this, arguments); };
+  try {
+    const r = conHojaIngresoSimulada('INGRESO_AMARILLO', grid, () => T.Ingresos_leerHoja('INGRESO_AMARILLO', ['1005']));
+    return {
+      ok: r.staging.length === 1 && llamadas === 1,
+      causa: 'staging=' + r.staging.length + ' normalizaciones=' + llamadas + ' (eso era lo que pagaba cada envío con backlog)'
+    };
+  } finally { T.Fuentes_normalizar = real; }
+});
+
+registrar('acotación: Ingresos_leerHoja SIN filasPermitidas lee y normaliza todo (batch/panel intactos)', () => {
+  const grid = gridIngresoBacklog(100);
+  const r = conHojaIngresoSimulada('INGRESO_AMARILLO', grid, () => T.Ingresos_leerHoja('INGRESO_AMARILLO'));
+  return { ok: r.staging.length === 100, causa: 'staging=' + r.staging.length + ' (el flujo batch perdió el backlog)' };
+});
+
+registrar('acotación: paso 3 — con coordenadas en memoria, buscadorMarca NO se invoca (barrido evitado)', () => {
+  let llamadas = 0;
+  const d = {
+    responseId: 'UI-Z', decision: 'ANEXAR',
+    ingreso: { sector: 'AMARILLO', hoja: 'INGRESO_AMARILLO', fila: '1005' },
+    ingresoHoja: 'INGRESO_AMARILLO', ingresoFila: '1005'
+  };
+  const ac = T.Form_derivarAcotacionPaso3([d], () => { llamadas++; return { hoja: 'INGRESO_VERDE', fila: 1 }; });
+  return {
+    ok: llamadas === 0 && ac.soloHojas.join(',') === 'INGRESO_AMARILLO' && ac.soloFilas && ac.soloFilas['INGRESO_AMARILLO'].join(',') === '1005',
+    causa: 'buscadorMarca se invocó ' + llamadas + ' veces (barrido de las 4 hojas sería evitable)'
+  };
+});
+
+registrar('acotación: paso 3 — coordenadas vacías SÍ invocan buscadorMarca (fallback DEC-055 intacto)', () => {
+  let llamadas = 0;
+  const d = {
+    responseId: 'UI-W', decision: 'ANEXAR',
+    ingreso: { sector: 'AMARILLO', hoja: '', fila: '' }, ingresoHoja: '', ingresoFila: ''
+  };
+  const ac = T.Form_derivarAcotacionPaso3([d], () => { llamadas++; return { hoja: 'INGRESO_AMARILLO', fila: 1074 }; });
+  return {
+    ok: llamadas === 1 && ac.soloHojas.join(',') === 'INGRESO_AMARILLO' && ac.soloFilas && ac.soloFilas['INGRESO_AMARILLO'].join(',') === '1074',
+    causa: 'fallback no se ejecutó: llamadas=' + llamadas + ' ac=' + JSON.stringify(ac)
+  };
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // Resumen
 // ════════════════════════════════════════════════════════════════════════════

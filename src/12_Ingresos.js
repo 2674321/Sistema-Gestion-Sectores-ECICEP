@@ -260,7 +260,7 @@ function _ingresosUsuarioActual() {
  * Ignora filas vacías y las ya procesadas (ESTADO_INGRESO = INGRESADO).
  * @returns {staging:[], hoja:Object|null}
  */
-function Ingresos_leerHoja(nombreHoja) {
+function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
   var _tHoja = Date.now();
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
@@ -291,6 +291,11 @@ function Ingresos_leerHoja(nombreHoja) {
   var staging = [];
   for (var f = 1; f < valores.length; f++) {
     var filaVal = valores[f];
+    // Acotado: si hay lista de filas permitidas para esta hoja, saltar TODO lo
+    // demás ANTES de normalizar (el costo real está en Fuentes_normalizar, no
+    // en el filtro posterior de Ingresos_acotarStaging).
+    var filaFis = hrDetect + f;
+    if (filasPermitidas && filasPermitidas.length && filasPermitidas.indexOf(String(filaFis)) === -1) continue;
     var nombreRaw = idxCampos.NOMBRE !== undefined ? filaVal[idxCampos.NOMBRE] : '';
     var rutRaw = idxCampos.RUT !== undefined ? filaVal[idxCampos.RUT] : '';
     if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue;
@@ -302,8 +307,6 @@ function Ingresos_leerHoja(nombreHoja) {
     });
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
-    // fila física real = header detectado + índice en valores
-    var filaFis = hrDetect + f;
     staging.push(Fuentes_normalizar(Fuentes_crearFila(
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v)));
@@ -429,7 +432,12 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   var soloFilas = opciones && opciones.soloFilas ? opciones.soloFilas : null; // {hoja:[filas]}
   var staging = [];
   Object.keys(HOJAS_INGRESO).forEach(function (hojaNombre) {
-    staging = staging.concat(Ingresos_acotarStaging(Ingresos_leerHoja(hojaNombre).staging, hojaNombre, soloHojas, soloFilas));
+    if (soloHojas && soloHojas.length && soloHojas.indexOf(hojaNombre) === -1) {
+      console.log('[PIPE] leerHoja ' + hojaNombre + ' OMITIDA (fuera de soloHojas)');
+      return;
+    }
+    var filasPermitidas = soloFilas && soloFilas[hojaNombre] ? soloFilas[hojaNombre] : null;
+    staging = staging.concat(Ingresos_acotarStaging(Ingresos_leerHoja(hojaNombre, filasPermitidas).staging, hojaNombre, soloHojas, soloFilas));
   });
   if ((soloHojas && soloHojas.length) || soloFilas) {
     console.log('[PIPE] pipeline acotado soloHojas=' + JSON.stringify(soloHojas) + ' soloFilas=' + JSON.stringify(soloFilas));
