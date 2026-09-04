@@ -537,6 +537,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Copiar enlace
           </button>
+          <button class="qr-btn" id="qrDescargar" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Descargar QR
+          </button>
           <button class="qr-btn" id="qrShare" type="button" style="display:none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             Compartir
@@ -1105,6 +1109,23 @@
     }
   });
 
+  $('qrDescargar').addEventListener('click',function(){
+    var url=$('qrUrlBox').textContent;
+    if(!url||url==='Cargando...'){mostrarToast('Espera a que se cargue el QR');return;}
+    try{
+      var lienzo=document.createElement('canvas');lienzo.width=512;lienzo.height=512;
+      generarQRCanvas(url,lienzo,512);
+      var a=document.createElement('a');
+      a.href=lienzo.toDataURL('image/png');
+      a.download='QR_EICEP_Formulario_Captura.png';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      mostrarToast('\u2713 QR descargado');
+    }catch(e){
+      console.error('[QR] descarga fallo:',e);
+      mostrarToast('No fue posible descargar la imagen');
+    }
+  });
+
   function mostrarToast(msg){
     var t=document.createElement('div');t.className='qr-toast';t.textContent=msg;
     document.body.appendChild(t);
@@ -1113,6 +1134,24 @@
 
   /* ── QR Encoder (reutiliza libreria estandar del proyecto) ── */
   var ECICEP_WEBAPP_URL='';
+  function generarQRCanvas(url, cv){
+    if(!cv)return;
+    var ctx=cv.getContext('2d');
+    var qr=qrcode(0,'M');
+    qr.addData(url);qr.make();
+    var modCount=qr.getModuleCount();
+    var cellSize=Math.floor((cv.width-20)/modCount);
+    var margin=Math.floor((cv.width-modCount*cellSize)/2);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
+    for(var r=0;r<modCount;r++){
+      for(var c=0;c<modCount;c++){
+        if(qr.isDark(r,c)){
+          ctx.fillStyle='#0B3C49';
+          ctx.fillRect(margin+c*cellSize,margin+r*cellSize,cellSize,cellSize);
+        }
+      }
+    }
+  }
   function generarQR(url){
     if(!url){
       $('qrCanvas').getContext('2d').clearRect(0,0,220,220);
@@ -1125,21 +1164,7 @@
       return;
     }
     try{
-      var cv=$('qrCanvas'),ctx=cv.getContext('2d');
-      var qr=qrcode(0,'M');
-      qr.addData(url);qr.make();
-      var modCount=qr.getModuleCount();
-      var cellSize=Math.floor((cv.width-20)/modCount);
-      var margin=Math.floor((cv.width-modCount*cellSize)/2);
-      ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
-      for(var r=0;r<modCount;r++){
-        for(var c=0;c<modCount;c++){
-          if(qr.isDark(r,c)){
-            ctx.fillStyle='#0B3C49';
-            ctx.fillRect(margin+c*cellSize,margin+r*cellSize,cellSize,cellSize);
-          }
-        }
-      }
+      generarQRCanvas(url,$('qrCanvas'));
     }catch(e){
       console.error('[QR] generation failed:',e);
       $('qrUrlBox').innerHTML='<span style="color:var(--c-err)">Error al generar QR: '+_esc(String(e))+'. Puedes utilizar "Copiar enlace".</span>';

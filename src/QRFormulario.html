@@ -26,6 +26,7 @@
       background:#fff;color:#1A1D23;transition:all .15s}
     .btn-copy:hover{background:#F7F8FA;border-color:#A0A5AE}
     .btn-copy:focus-visible{outline:2px solid #0E5C68;outline-offset:2px}
+    .qr-footer .btn-copy + .btn-copy{margin-left:8px}
     .copied{color:#0A7B5F;font-weight:600;margin-top:8px;font-size:12px;display:none}
   </style>
 </head>
@@ -42,6 +43,9 @@
       <div class="qr-url-box" id="urlBox"><?= WEB_APP_URL ?></div>
     </div>
     <div class="qr-footer">
+      <button class="btn-copy" id="btnDownload" type="button" onclick="descargarQR()">
+        &#11015; Descargar QR
+      </button>
       <button class="btn-copy" id="btnCopy" type="button" onclick="copiarURL()">
         &#128203; Copiar URL
       </button>
@@ -2373,6 +2377,24 @@ var qrcode = function() {
     }
 
     generateQR('<?= WEB_APP_URL ?>', document.getElementById('qrCanvas'), 240);
+
+    function descargarQR(){
+      try {
+        var url = document.getElementById('urlBox').textContent;
+        var lienzo = document.createElement('canvas');
+        lienzo.width = 512; lienzo.height = 512;
+        generateQR(url, lienzo, 512);
+        var a = document.createElement('a');
+        a.href = lienzo.toDataURL('image/png');
+        a.download = 'QR_EICEP_Formulario_Captura.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch(e){
+        var box = document.getElementById('urlBox');
+        box.innerHTML = '<span style="color:#B3261E">No fue posible descargar la imagen. Copie la URL.</span>';
+      }
+    }
 
     function copiarURL(){
       var url = document.getElementById('urlBox').textContent;
