@@ -1062,6 +1062,26 @@ function Form_onFormSubmit(e) {
   }
 }
 
+/**
+ * PURA: resuelve HOJA/FILA desde la que leer el resultado de un ANEXAR/YA_ANEXADO.
+ * Si el barrido por MARCA encontró la fila real (hallado), esa gana siempre:
+ * robusto frente a desplazamientos de filas por HVis_normalizarLayout (inserta
+ * filas al inicio cuando la hoja estaba en layout legacy). Si no, cae a la
+ * coordenada registrada en el momento del anexo.
+ * @param {Object|null} hallado resultado de Form_buscarFilaIngresoPorMarca
+ * @param {Object} ingreso d.ingreso ({hoja,fila})
+ * @param {string} ingresoHoja d.ingresoHoja (fallback histórico)
+ * @param {string} ingresoFila d.ingresoFila (fallback histórico)
+ */
+function Form_resolverFilaIngreso(hallado, ingreso, ingresoHoja, ingresoFila) {
+  ingreso = ingreso || {};
+  if (hallado && hallado.fila) return { hoja: hallado.hoja, fila: String(hallado.fila) };
+  var fila = (ingreso.fila !== undefined && ingreso.fila !== '') ? ingreso.fila : ingresoFila;
+  var hoja = (ingreso.hoja !== undefined && ingreso.hoja !== '') ? ingreso.hoja : ingresoHoja;
+  if (fila === undefined || fila === '' || fila === null) return null;
+  return { hoja: hoja || '', fila: String(fila) };
+}
+
 /** GAS: actualiza columnas de resultado de respuestas específicas (por fila). */
 function Form_actualizarTrailer(actualizaciones) {
   // actualizaciones: [{filaFisica, ingresoHoja, ingresoFila, reintentos, estado, motivo, idInterno, idEvento, fechaProceso}]
@@ -1220,8 +1240,15 @@ function Form_procesarPendientes(opciones) {
         est = d._ok ? 'PROCESADO' : 'ERROR';
         if (!d._ok && !mot) mot = d._motivo || '';
       } else if (d.decision === 'ANEXAR' || d.decision === 'YA_ANEXADO') {
-        var filaAnnex = (d.ingreso && d.ingreso.fila ? d.ingreso.fila : d.ingresoFila) || '';
-        var hojaAnnex = (d.ingreso && d.ingreso.hoja ? d.ingreso.hoja : d.ingresoHoja) || '';
+        // Resolver la fila por MARCA (barrido de contenido): robusto frente a
+        // desplazamientos de fila causados por HVis_normalizarLayout (inserta
+        // filas al inicio si la hoja estaba en layout legacy). La coordenada
+        // registrada al anexar puede quedar desactualizada.
+        var hallado = Form_buscarFilaIngresoPorMarca(Form_marcadorFuente(d.responseId, 'INGRESO'));
+        var ub = Form_resolverFilaIngreso(hallado, d.ingreso, d.ingresoHoja, d.ingresoFila);
+        var filaAnnex = ub ? ub.fila : '';
+        var hojaAnnex = ub ? ub.hoja : '';
+        if (hallado) console.log('[PIPE] fila resuelta por marca '+d.responseId+' -> '+hallado.hoja+'/'+hallado.fila);
         if (hojaAnnex && filaAnnex) {
           var lf = Form_leerFilaIngreso(hojaAnnex, filaAnnex);
           console.log('[PIPE] Form_leerFilaIngreso '+d.responseId+' -> '+hojaAnnex+' fila='+filaAnnex+' lf='+JSON.stringify(lf));

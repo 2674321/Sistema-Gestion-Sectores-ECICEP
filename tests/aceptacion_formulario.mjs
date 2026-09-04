@@ -580,6 +580,30 @@ registrar('operativo: reprocesar NO duplica (marca FUENTE ya registrada → PROC
   return { ok, causa: 'el reproceso duplicó el evento (totalControles=' + totalControles + ')' };
 });
 
+registrar('operativo: leer resultado ANEXAR prioriza la MARCA aunque la coordenada quedó desactualizada por el layout visual', () => {
+  // HVis_normalizarLayout puede insertar filas al inicio (MIGRABLE_ABRIR):
+  // la fila registrada al anexar (p.ej. 5) queda vacía porque el dato se
+  // desplazó (p.ej. a 7). El barrido por marca reubica la fila real y el
+  // lector ya no devuelve SIN_ESTADO.
+  const hallado = { hoja: 'INGRESO_VERDE', fila: 7 };
+  const ingreso = { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '5' };
+  const ub = T.Form_resolverFilaIngreso(hallado, ingreso, 'INGRESO_VERDE', '5');
+  const ok = ub && ub.hoja === 'INGRESO_VERDE' && ub.fila === '7';
+  return { ok, causa: 'la coordenada desactualizada ganó sobre el hallazgo por marca' };
+});
+
+registrar('operativo: leer resultado ANEXAR cae a la coordenada registrada si no hay hallazgo por marca', () => {
+  const ub = T.Form_resolverFilaIngreso(null, { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '5' }, '', '');
+  const ok = ub && ub.hoja === 'INGRESO_VERDE' && ub.fila === '5';
+  return { ok, causa: 'el resolver perdió la coordenada registrada' };
+});
+
+registrar('operativo: resolver fila inválido devuelve null (no SIN_ESTADO engañoso)', () => {
+  const ub = T.Form_resolverFilaIngreso(null, null, '', '');
+  const ok = ub === null;
+  return { ok, causa: 'el resolver no devolvió null para coordenadas ausentes' };
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // Resumen
 // ════════════════════════════════════════════════════════════════════════════

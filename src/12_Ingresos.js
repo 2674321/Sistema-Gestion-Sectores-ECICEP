@@ -371,6 +371,22 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase();
   Log_info('Ingresos', 'procesar', 'inicio ejecución ' + ejecucion);
 
+  // 0) NORMALIZAR el layout visual ANTES de leer/escribir: HVis_normalizarLayout
+  //    puede insertar filas al inicio (MIGRABLE_ABRIR) cuando la hoja aún está
+  //    en el layout legacy (header fila 1). Correrlo al final invalidaba las
+  //    coordenadas (filaOrigen) en las que Ingresos_escribirEstados ya había
+  //    escrito el ESTADO_INGRESO → SIN_ESTADO en la Web App. Ejecutado aquí,
+  //    todo el pipeline trabaja sobre un layout estable.
+  var normaLayout = {};
+  try {
+    if (typeof HVis_formatearIngresos === 'function') {
+      normaLayout = HVis_formatearIngresos();
+      console.log('[PIPE] layout normalizado pre-pipeline: ' + JSON.stringify(normaLayout).substring(0, 300));
+    }
+  } catch (eN) {
+    Log_warning('Ingresos', 'normalizarLayoutPre', eN && eN.message ? eN.message : String(eN));
+  }
+
   // 1) leer todas las puertas de entrada
   var staging = [];
   Object.keys(HOJAS_INGRESO).forEach(function (hojaNombre) {
@@ -470,21 +486,8 @@ function Ingresos_procesarTodasLasHojas(opciones) {
     Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
   }
 
-  // 6b) formato visual idempotente de las hojas de INGRESO (título, secciones
-  // y encabezados). Fix v0.8.9.5: los encabezados quedaban en blanco en hojas
-  // creadas fuera del instalador; HVis_formatearIngresos es idempotente.
-  var formatoIngreso = {};
-  try {
-    if (typeof HVis_formatearIngresos === 'function') {
-      formatoIngreso = HVis_formatearIngresos();
-    }
-  } catch (e) {
-    Log_warning('Ingresos', 'formatoIngreso', e && e.message ? e.message : String(e));
-  }
-
   salida.resumen.usuario = _ingresosUsuarioActual();
   salida.resumen.vistasSector = vistas;
-  salida.resumen.formatoIngreso = formatoIngreso;
   salida.resumen.aRevision = conflicto;
   Log_info('Ingresos', 'procesar', JSON.stringify({
     leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,
