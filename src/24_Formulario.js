@@ -1239,7 +1239,8 @@ function Form_diagnosticoEnvio(responseId) {
         }
       }
     }
-    // 2) rastrear la marca en todas las INGRESO_*
+    // 2) rastrear la marca en todas las INGRESO_* (compacTO: respuestas y
+    //    coordenadas primero; el listado staging se resume a conteo + primeros 3)
     var ss = Modelo_ss();
     Object.keys(HOJAS_INGRESO).forEach(function (nk) {
       var hs = ss.getSheetByName(nk);
@@ -1253,11 +1254,11 @@ function Form_diagnosticoEnvio(responseId) {
         info.ultima = hs.getLastRow();
         info.ancho = ancho;
         var enc = hs.getRange(hr, 1, 1, ancho).getValues()[0];
-        info.encabezados = enc.join('|').substring(0, 260);
+        info.encabezados = enc.join('|').substring(0, 60);
         var mapa = Ingresos_mapearEncabezadosHoja(enc);
         info.estadoIdx = mapa.estadoIdx;
         info.notaIdx = mapa.notaIdx;
-        // coordena registrada (si apunta a esta hoja)
+        // coordena registrada (si apunta a esta hoja) — compara con la marca
         var filaCoord = (d.respuesta && d.respuesta.ingresoHoja === nk) ? Number(d.respuesta.ingresoFila) : NaN;
         if (!isNaN(filaCoord) && filaCoord >= hr) {
           var filaC = hs.getRange(filaCoord, 1, 1, ancho).getValues()[0];
@@ -1276,18 +1277,23 @@ function Form_diagnosticoEnvio(responseId) {
             if (hay.indexOf(d.marcaBuscada) !== -1) { filaHallada = hr + b; estadoHallado = mapa.estadoIdx >= 0 ? Utl_texto(bloque[b][mapa.estadoIdx]) : ''; break; }
           }
           info.marcaHallada = filaHallada > 0 ? { fila: filaHallada, estado: estadoHallado.substring(0, 40) } : null;
+          if (info.coordRegistrada && filaHallada > 0 && filaHallada !== filaCoord) {
+            info.desplazamiento = 'coord=' + filaCoord + ' vs marca=' + filaHallada;
+          }
         }
-        // Vista del staging TAL COMO LA LEE EL PIPELINE: si la fila anexada no
-        // aparece aquí, el defecto está aguas arriba de escribirEstados.
+        // Vista del pipeline: si la fila anexada NO aparece aquí, el defecto
+        // está aguas arriba de escribirEstados. Resumen + primeros 3 para no
+        // truncar las secciones clave del diagnóstico.
         try {
           if (typeof Ingresos_leerHoja === 'function') {
-            var st = Ingresos_leerHoja(nk);
-            info.staging = st.staging.map(function (s) {
+            var st = Ingresos_leerHoja(nk).staging;
+            info.pendientes = st.length;
+            info.primeraFila = st.length ? Number(st[0].FILA_ORIGEN) : null;
+            info.staging = st.slice(0, 3).map(function (s) {
               return {
                 fila: Utl_texto(s.FILA_ORIGEN),
                 validacion: Utl_texto(s.ESTADO_VALIDACION),
-                rut: (s.NORMALIZADO && s.NORMALIZADO.RUT) ? Utl_texto(s.NORMALIZADO.RUT) : '',
-                nombre: (s.NORMALIZADO && s.NORMALIZADO.NOMBRE) ? Utl_texto(s.NORMALIZADO.NOMBRE).substring(0, 28) : ''
+                rut: (s.NORMALIZADO && s.NORMALIZADO.RUT) ? Utl_texto(s.NORMALIZADO.RUT) : ''
               };
             });
           }
@@ -1536,9 +1542,13 @@ function Form_procesarPendientes(opciones) {
         if (lf && lf.estado) {
           var map = Form_mapearResultadoFila(lf.estado, lf.nota);
           est = map.estado; mot = map.motivo;
+          if (est === 'ERROR') {
+            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' lf='+JSON.stringify(lf)+' -> '+mot);
+          }
         } else {
           est = 'ERROR';
           if (!mot) mot = 'SIN_FILA_INGRESO';
+          console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' SIN_ESTADO lf='+JSON.stringify(lf));
         }
       }
       var reint = Number(d.reintentos) || 0;
