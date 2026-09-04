@@ -123,7 +123,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   var _tPF = Date.now();
   var confirmarNuevos = !!opciones.confirmarNuevos;
   var seqPac = 0, seqEv = (opciones.evSecuenciaInicial || 1) - 1;
-  var indices = Iden_construirIndices(store.pacientes);
+  var indices = Iden_construirIndices((store && store.pacientes) || []);
 
   var resultados = [], pacientesNuevos = [], eventos = [];
   var resumen = {
@@ -354,6 +354,11 @@ function Ingresos_escribirEstados(resultados) {
       var desde = Math.min(colEstado, colNota), ancho = Math.abs(colEstado - colNota) + 1;
       var bloque = hoja.getRange(ini, desde, ultima - ini + 1, ancho).getValues();
       var offsetEstado = colEstado - desde, offsetNota = colNota - desde;
+      console.log('[PIPE] escribirEstados ' + nombreHoja + ' n=' + porHoja[nombreHoja].length +
+        ' ini=' + ini + ' hr=' + hr + ' ultima=' + ultima + ' desde=' + desde + ' ancho=' + ancho +
+        ' colEstado=' + colEstado + ' colNota=' + colNota +
+        ' filas=' + JSON.stringify(porHoja[nombreHoja].map(function (r) { return r.filaOrigen; })) +
+        ' estados=' + JSON.stringify(porHoja[nombreHoja].map(function (r) { return r.estado; })));
       porHoja[nombreHoja].forEach(function (r) {
         var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
         if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
@@ -369,8 +374,19 @@ function Ingresos_escribirEstados(resultados) {
           : notaNueva;
       });
       hoja.getRange(ini, desde, ultima - ini + 1, ancho).setValues(bloque);
+      // Verificación post-escritura: re-lectura del mismo bloque para comprobar
+      // que el estado quedó donde los lectores (Form_leerFilaIngreso) lo buscan.
+      var verif = hoja.getRange(ini, desde, ultima - ini + 1, ancho).getValues();
+      porHoja[nombreHoja].forEach(function (r) {
+        var fi = Number(r.filaOrigen) - ini;
+        if (isNaN(fi) || fi < 0 || fi >= verif.length) return;
+        console.log('[PIPE] escribirEstados verif ' + nombreHoja + ' fila=' + r.filaOrigen +
+          ' estado=' + Utl_texto(verif[fi][offsetEstado]).toUpperCase() +
+          ' nota=' + Utl_texto(verif[fi][offsetNota]).substring(0, 90));
+      });
     });
   } catch (e) {
+    console.log('[PIPE] escribirEstados EXCEPCION: ' + (e && e.message ? e.message : String(e)) + (e && e.stack ? ' | ' + e.stack : ''));
     Log_error('Ingresos', 'escribirEstados', e && e.message ? e.message : String(e));
   }
 }
