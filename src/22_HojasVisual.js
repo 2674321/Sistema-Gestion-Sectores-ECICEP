@@ -233,6 +233,28 @@ function HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja) {
  * 4) Normaliza etiquetas de encabezados a sus nombres canónicos.
  * Devuelve {pre, post, advertencias}. NUNCA toca datos.
  */
+/**
+ * GAS: ¿la hoja ya tiene el DESIGN_SYSTEM visual aplicado? Chequeo barato
+ * (3 lecturas: título, fila de secciones, encabezados) para que el pipeline no
+ * reescriba estilos en CADA envío de la Web App (re-estilizar todas las
+ * INGRESO_* por submit era gran parte de los ~15s de latencia). Ante cualquier
+ * anomalía devuelve false → se ejecuta el formateo completo como antes.
+ */
+function HVis_yaFormateada(hoja) {
+  try {
+    var nombre = hoja.getName();
+    var sector = HVis_detectarSectorHoja(nombre);
+    var esperado = sector ? ('SECTOR ' + sector) : 'SISTEMA ECICEP';
+    if (Utl_claveAlnum(Utl_texto(hoja.getRange(1, 1).getValue())) !== Utl_claveAlnum(esperado)) return false;
+    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+    if (!hoja.getRange(2, 1, 1, ancho).getValues()[0].some(function (x) { return !Utl_vacio(x); })) return false;
+    var hr = Modelo_headerRow(nombre);
+    if (hr < 1) return false;
+    var hdr = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+    return hdr.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
+  } catch (e) { return false; }
+}
+
 function HVis_normalizarLayout(hoja) {
   var nombre = hoja.getName();
   var secciones = HVis_obtenerSecciones(nombre);
@@ -273,6 +295,16 @@ function HVis_normalizarLayout(hoja) {
     salida.post = 'OK';
   } else if (estado === 'OK') {
     salida.post = 'OK';
+    // Fast-path rendimiento: hoja ya con DESIGN_SYSTEM aplicado → no reescribir
+    // título/secciones/encabezados (el pipeline formatea en cada envío; de aquí
+    // venían gran parte de los ~15s por submit).
+    if (HVis_yaFormateada(hoja)) {
+      salida.secciones = secciones.length;
+      salida.advertencias = advertencias;
+      salida.filaEncabezados = hr;
+      salida.estado = 'OK';
+      return salida;
+    }
   }
 
   if (salida.post !== 'OK') {

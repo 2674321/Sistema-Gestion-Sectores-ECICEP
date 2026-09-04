@@ -1388,14 +1388,24 @@ function Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimoEventoMap) {
  * Sobrescribe SOLO el área de datos (fila 2+); los encabezados jamás se tocan.
  * @returns {SECTOR_NARANJO:n, SECTOR_AMARILLO:n, SECTOR_VERDE:n}
  */
-function Modelo_refrescarVistasSectores() {
+/**
+ * Refresca las vistas sectoriales (SECTOR_*), hoja por sector.
+ * Optimización: `sectores` opcional restringe la reescritura a esos sectores
+ * (el pipeline del formulario solo necesita refrescar los sectores tocados por
+ * la captura; antes reescribía las N vistas en cada envío — parte de los ~15s
+ * de latencia). Sin argumentos refresca todas (comportamiento histórico).
+ */
+function Modelo_refrescarVistasSectores(sectores) {
   Modelo_invalidarLecturas();
   var pacientes = Modelo_leerPacientes();
   var eventos = Modelo_leerEventos();
   var ultimo = Ev_ultimoPorPaciente(eventos);
   var conteo = {};
+  var objetivo = (sectores && sectores.length)
+    ? sectores.map(function (s) { return Utl_texto(s).toUpperCase(); }) : null;
   HOJAS_SECTOR.forEach(function (nombreHoja) {
     var sector = nombreHoja.replace('SECTOR_', '');
+    if (objetivo && objetivo.indexOf(sector) === -1) return;
     conteo[sector] = 0;
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
     if (!hoja) return;

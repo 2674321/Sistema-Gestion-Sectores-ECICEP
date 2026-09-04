@@ -393,6 +393,15 @@ function Ingresos_procesarTodasLasHojas(opciones) {
     staging = staging.concat(Ingresos_leerHoja(hojaNombre).staging);
   });
 
+  // Sectores tocados por esta captura (para refrescar SOLO sus vistas).
+  var sectoresAfectados = [];
+  staging.forEach(function (f) {
+    var sec = (f.NORMALIZADO && f.NORMALIZADO.SECTOR) || f.SECTOR || '';
+    sec = Utl_texto(sec).toUpperCase().trim();
+    if (sec && sectoresAfectados.indexOf(sec) === -1) sectoresAfectados.push(sec);
+  });
+  console.log('[PIPE] sectoresAfectados=' + JSON.stringify(sectoresAfectados));
+
   var vacio = {
     ejecucion: ejecucion,
     leidos: 0, validos: 0, conError: 0, nuevos: 0, existentes: 0,
@@ -478,10 +487,11 @@ function Ingresos_procesarTodasLasHojas(opciones) {
     Log_warning('Ingresos', 'colaRevision', e && e.message ? e.message : String(e));
   }
 
-  // 6) reflejar el resultado en las vistas sectoriales (derivadas, no bases)
+  // 6) reflejar el resultado en las vistas sectoriales (derivadas, no bases).
+  //    Solo se reescriben las vistas de los sectores tocados por la captura.
   var vistas = null;
   try {
-    if (typeof Modelo_refrescarVistasSectores === 'function') vistas = Modelo_refrescarVistasSectores();
+    if (typeof Modelo_refrescarVistasSectores === 'function') vistas = Modelo_refrescarVistasSectores(sectoresAfectados);
   } catch (e) {
     Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
   }
