@@ -129,9 +129,13 @@ function Form_capturarDesdeUI(datos) {
     console.log('[BACKEND] 05 fila escrita en FORM_RESPUESTAS');
 
     // Procesa con el pipeline EXISTENTE (misma ruta que onFormSubmit).
-    console.log('[BACKEND] 06 inicio Form_procesarPendientes');
+    // 'fuerzaNuevoPaciente' (elegido por el usuario: "son personas diferentes")
+    // propaga confirmarNuevos al pipeline → POSIBLE_DUPLICADO se crea como nuevo.
+    var opcionesProc = { max: 200 };
+    if (datos.__fuerzaNuevoPaciente === true) opcionesProc.confirmarNuevos = true;
+    console.log('[BACKEND] 06 inicio Form_procesarPendientes confirmarNuevos=' + (opcionesProc.confirmarNuevos === true));
     var t0 = new Date().getTime();
-    var proc = Form_procesarPendientes({ max: 200 });
+    var proc = Form_procesarPendientes(opcionesProc);
     var t1 = new Date().getTime();
     console.log('[BACKEND] 07 fin Form_procesarPendientes duracion=' + (t1 - t0) + 'ms proc=' + JSON.stringify(proc).substring(0, 200));
 
@@ -229,6 +233,84 @@ function UI_lecturaEstadoRespuesta(responseId) {
     }
   } catch (e) { /* devuelve estado default */ }
   return { estado: 'RECIBIDO', motivo: '', idInterno: '' };
+}
+
+/**
+ * GAS: chequeo PREVIO de coincidencias (parte del proceso de envío de la Web
+ * App, no una herramienta aparte). Reusa la identificación existente
+ * (Iden_identificar) contra PACIENTES:
+ *   - RUT idéntico            → MATCH_EXACTO
+ *   - cuerpo de RUT + señales → MATCH_PARCIAL / REQUIERE_REVISION
+ *   - nombre exacto duplicado → NOMBRE_EXACTO / POSIBLE_DUPLICADO
+ * Devuelve candidatos legibles para que el usuario decida (enviar de todas
+ * formas / son personas diferentes / descartar).
+ */
+function WebApp_previaDuplicados(datos) {
+  try {
+    if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
+    datos = datos || {};
+    if (Utl_texto(datos.ACCION).toUpperCase() !== 'NUEVO_INGRESO') {
+      return { ok: true, coincidencia: false, candidatos: [], motivo: 'Solo se chequean coincidencias en NUEVO_INGRESO' };
+    }
+    var n = {};
+    var rut = Norm_normalizarRut(datos.RUT);
+    n.RUT = rut.rut; n.RUT_ESTADO = rut.estado; n.RUT_CUERPO = rut.cuerpo;
+    var nom = Norm_normalizarNombre(datos.NOMBRE);
+    n.NOMBRE = nom.nombre;
+    n.NOMBRE_CLAVE = (nom.ok && nom.nombre) ? Norm_claveNombre(nom.nombre) : '';
+    n.TELEFONOS = Norm_normalizarTelefono(Utl_texto(datos.TELEFONOS)).telefonos.join('/');
+
+    var pacientes = Modelo_leerPacientes() || [];
+    var indices = Iden_construirIndices(pacientes);
+    var iden = Iden_identificar(n, indices);
+    var candidatos = [];
+    if (iden.paciente && iden.idPaciente) {
+      candidatos.push({
+        criterio: iden.criterio || 'Coincidencia detectada',
+        confianza: iden.confianza || '',
+        resultado: iden.resultado,
+        paciente: WebApp_resumenPaciente(iden.paciente)
+      });
+    }
+    // Lista adicional: TODOS los pacientes con el nombre exacto duplicado
+    // (por si hay varias personas con el mismo nombre, muy común en Chile).
+    if (iden.resultado !== 'MATCH_EXACTO' && n.NOMBRE_CLAVE && indices.porNombre[n.NOMBRE_CLAVE]) {
+      indices.porNombre[n.NOMBRE_CLAVE].forEach(function (p) {
+        var ya = candidatos.some(function (c) { return c.paciente.idInterno === p.ID_INTERNO; });
+        if (!ya) {
+          candidatos.push({
+            criterio: 'Nombre exacto duplicado',
+            confianza: 'MEDIA',
+            resultado: 'NOMBRE_EXACTO',
+            paciente: WebApp_resumenPaciente(p)
+          });
+        }
+      });
+    }
+    return { ok: true, coincidencia: candidatos.length > 0, candidatos: candidatos, rutNormalizado: n.RUT };
+  } catch (e) {
+    console.error('[BACKEND] previaDuplicados EXCEPTION: ' + String(e && e.message ? e.message : e));
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/**
+ * GAS: versión reducida y legible de un paciente para mostrar en la Web App.
+ * Cuidado de privacidad: NO se expone TELEFONOS ni OBSERVACIONES al navegador;
+ * solo identidad y fechas de operación (los datos que el formulario ya conoce).
+ */
+function WebApp_resumenPaciente(p) {
+  if (!p) return null;
+  return {
+    idInterno: p.ID_INTERNO || '',
+    nombre: Utl_texto(p.NOMBRE),
+    rut: Utl_texto(p.RUT),
+    sexo: Utl_texto(p.SEXO),
+    fechaNacimiento: Utl_texto(p.FECHA_NACIMIENTO),
+    sector: Utl_texto(p.SECTOR),
+    estratificacion: Utl_texto(p.ESTRATIFICACION),
+    fechaIngreso: Utl_texto(p.FECHA_INGRESO)
+  };
 }
 
 // Aliases de panel (para poder usarla también desde una sidebar si se desea).

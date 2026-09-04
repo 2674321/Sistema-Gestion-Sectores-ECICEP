@@ -228,11 +228,22 @@
       align-items:center;justify-content:center;padding:var(--sp-4);backdrop-filter:blur(2px)}
     .confirm-overlay.show{display:flex;animation:fadeIn .15s ease}
     .confirm-modal{background:var(--c-surface);border-radius:var(--r-lg);box-shadow:var(--sh-xl);
-      max-width:320px;width:100%;padding:var(--sp-6);text-align:center}
+      max-width:360px;width:100%;padding:var(--sp-6);text-align:center}
     .confirm-overlay.show .confirm-modal{animation:scaleIn .2s ease}
     .confirm-modal p{font-size:var(--fs-base);color:var(--c-text);margin:0 0 var(--sp-5);line-height:1.5}
     .confirm-btns{display:flex;gap:var(--sp-3);justify-content:center}
     .confirm-btns .btn{min-width:100px}
+
+    /* ── Duplicados Modal (parte del flujo de envío) ── */
+    .dup-list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-4);
+      max-height:240px;overflow:auto;text-align:left}
+    .dup-item{border:1px solid var(--c-border);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);
+      background:var(--c-surface-alt);font-size:var(--fs-sm)}
+    .dup-item b{display:block;margin-bottom:2px}
+    .dup-item span{color:var(--c-text-2);display:inline-block;margin-right:var(--sp-3);white-space:nowrap}
+    .dup-criterio{display:inline-block;margin-top:2px;font-size:var(--fs-xs);color:var(--c-text-3)}
+    .dup-btns{flex-wrap:wrap;gap:var(--sp-2)}
+    .dup-btns .btn{min-width:0;flex:1 1 auto}
 
     /* ── Animations ── */
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -546,6 +557,19 @@
     </div>
   </div>
 
+  <!-- Duplicados Modal: detectado durante el propio envío -->
+  <div class="confirm-overlay" id="dupOverlay" role="alertdialog" aria-modal="true" aria-describedby="dupMsg">
+    <div class="confirm-modal">
+      <p id="dupMsg"></p>
+      <div class="dup-list" id="dupLista"></div>
+      <div class="confirm-btns dup-btns">
+        <button class="btn btn-p" id="dupEnviar" type="button">Enviar de todas formas</button>
+        <button class="btn btn-s" id="dupNuevo" type="button">Son personas diferentes — nuevo</button>
+        <button class="btn btn-s" id="dupDescartar" type="button">Descartar</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 (function(){
   var PROF = [];
@@ -748,6 +772,96 @@
   }
 
   var _enviando=false;
+  var _envTimeoutId=null;
+  function _envTimeoutOff(){if(_envTimeoutId){clearTimeout(_envTimeoutId);_envTimeoutId=null;}}
+  function _envExito(r,accionEnvio){
+    _envTimeoutOff();
+    _enviando=false;
+    if(!r){estadoListo();mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');return;}
+    if(!r.ok){
+      estadoListo();
+      var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
+      mostrarResumen('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
+      return;
+    }
+    var d=r.data||{};
+    if(d.estado==='ERROR'){
+      estadoListo();
+      var detErr=_esc(d.motivo||r.message||'Error');
+      mostrarResumen('err',r.message||'No fue posible registrar','<div style="margin-top:6px">'+detErr+'</div>');
+      return;
+    }
+    var isRev=d.estado==='REQUIERE_REVISION';
+    var msg=isRev?(r.message||'Registro recibido — requiere revisión'):ACCION_MENSAJES[accionEnvio]||'Registro guardado correctamente';
+    var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
+    if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
+    mostrarResumen(isRev?'err':'ok',msg,chips);
+    estadoListo();
+    $('btnEnviar').classList.add('hidden');
+    $('btnsNueva').classList.add('show');
+    $('btnLimpiar').classList.remove('show');
+    limpiarCampos();
+  }
+  function _envFallo(){
+    _envTimeoutOff();
+    _enviando=false;
+    estadoListo();
+    mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');
+  }
+  function enviarFinal(datos, fuerzaNuevoPaciente){
+    var accionEnvio=getAccion();
+    if(fuerzaNuevoPaciente)datos.__fuerzaNuevoPaciente=true;
+    _envTimeoutId=setTimeout(function(){
+      if(!_enviando)return;
+      _enviando=false;
+      estadoListo();
+      mostrarResumen('err','La respuesta tard\u00f3 demasiado. Verifique su conexi\u00f3n e int\u00e9ntelo nuevamente.','');
+    },60000);
+    google.script.run
+      .withSuccessHandler(function(r){_envExito(r,accionEnvio);})
+      .withFailureHandler(_envFallo)
+      .Form_capturarDesdeUI(datos);
+  }
+
+  /* ── Duplicados: verificación integrada al enviar ── */
+  var _dupCb=null;
+  function mostrarDuplicados(candidatos, cb){
+    _dupCb=cb;
+    var n=candidatos.length;
+    var tieneRut=candidatos.some(function(c){return c.resultado==='MATCH_EXACTO';});
+    $('dupMsg').textContent=tieneRut
+      ? ('Ya existe una persona con el mismo RUT en la base ('+(n===1?'1 coincidencia':n+' coincidencias')+'). Revisa antes de continuar:')
+      : ('Encontramos personas con el mismo nombre exacto en la base ('+(n===1?'1 coincidencia':n+' coincidencias')+'). Revisa antes de continuar:');
+    var html='';
+    candidatos.forEach(function(c){
+      var p=c.paciente||{};
+      var chips='';
+      if(p.rut)chips+='<span>RUT: <b>'+_esc(p.rut)+'</b></span>';
+      if(p.sexo)chips+='<span>Sexo: '+_esc(p.sexo)+'</span>';
+      if(p.fechaNacimiento)chips+='<span>Nac: '+_esc(p.fechaNacimiento)+'</span>';
+      if(p.fechaIngreso)chips+='<span>Ingreso: '+_esc(p.fechaIngreso)+'</span>';
+      if(p.estratificacion)chips+='<span>'+_esc(p.estratificacion)+'</span>';
+      html+='<div class="dup-item"><b>'+_esc(p.nombre||'¿?')+'</b>'+chips+
+        '<span class="dup-criterio">'+_esc(c.criterio||'')+'</span></div>';
+    });
+    $('dupLista').innerHTML=html;
+    $('dupOverlay').classList.add('show');
+    $('dupEnviar').focus();
+  }
+  function cerrarDuplicados(){ $('dupOverlay').classList.remove('show'); _dupCb=null; }
+  $('dupEnviar').addEventListener('click',function(){
+    var cb=_dupCb;cerrarDuplicados();if(cb&&cb.enviar)cb.enviar();
+  });
+  $('dupNuevo').addEventListener('click',function(){
+    var cb=_dupCb;cerrarDuplicados();if(cb&&cb.nuevo)cb.nuevo();
+  });
+  $('dupDescartar').addEventListener('click',function(){
+    var cb=_dupCb;cerrarDuplicados();if(cb&&cb.descartar)cb.descartar();
+  });
+  $('dupOverlay').addEventListener('click',function(e){
+    if(e.target===this){var cb=_dupCb;cerrarDuplicados();if(cb&&cb.descartar)cb.descartar();}
+  });
+
   function enviar(){
     if(_enviando)return;
     if(!validarFormulario()){
@@ -760,48 +874,31 @@
     var datos=recolectar();
     guardarUltimosInputs();
     var accionEnvio=getAccion();
-    var timeoutId=setTimeout(function(){
-      if(!_enviando)return;
-      _enviando=false;
-      estadoListo();
-      mostrarResumen('err','La respuesta tard\u00f3 demasiado. Verifique su conexi\u00f3n e int\u00e9ntelo nuevamente.','');
-    },60000);
+
+    // Paso integrado del proceso de envío: chequeo de coincidencias (RUT /
+    // nombre exacto) ANTES de registrar. Si hay coincidencia, el usuario decide.
     google.script.run
-      .withSuccessHandler(function(r){
-        clearTimeout(timeoutId);
-        _enviando=false;
-        if(!r){estadoListo();mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');return;}
-        if(!r.ok){
-          estadoListo();
-          var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
-          mostrarResumen('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
+      .withSuccessHandler(function(prev){
+        if(prev && !prev.ok){
+          _envTimeoutOff();_enviando=false;estadoListo();
+          mostrarResumen('err','No fue posible verificar coincidencias','<div style="margin-top:6px">'+_esc(prev.motivo||'Error')+'</div>');
           return;
         }
-        var d=r.data||{};
-        if(d.estado==='ERROR'){
-          estadoListo();
-          var detErr=_esc(d.motivo||r.message||'Error');
-          mostrarResumen('err',r.message||'No fue posible registrar','<div style="margin-top:6px">'+detErr+'</div>');
+        if(accionEnvio==='NUEVO_INGRESO' && prev && prev.coincidencia){
+          mostrarDuplicados(prev.candidatos||[],{
+            enviar:function(){estadoEnviando();enviarFinal(datos,false);},
+            nuevo:function(){estadoEnviando();enviarFinal(datos,true);},
+            descartar:function(){_envTimeoutOff();_enviando=false;estadoListo();ocultarResumen();$('rut').focus();}
+          });
           return;
         }
-        var isRev=d.estado==='REQUIERE_REVISION';
-        var msg=isRev?(r.message||'Registro recibido — requiere revisión'):ACCION_MENSAJES[accionEnvio]||'Registro guardado correctamente';
-        var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
-        if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
-        mostrarResumen(isRev?'err':'ok',msg,chips);
-        estadoListo();
-        $('btnEnviar').classList.add('hidden');
-        $('btnsNueva').classList.add('show');
-        $('btnLimpiar').classList.remove('show');
-        limpiarCampos();
+        enviarFinal(datos,false);
       })
-      .withFailureHandler(function(e){
-        clearTimeout(timeoutId);
-        _enviando=false;
-        estadoListo();
-        mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');
+      .withFailureHandler(function(){
+        _envTimeoutOff();_enviando=false;estadoListo();
+        mostrarResumen('err','No fue posible verificar coincidencias. Intente nuevamente.','');
       })
-      .Form_capturarDesdeUI(datos);
+      .WebApp_previaDuplicados(datos);
   }
 
   function limpiarCampos(){
@@ -968,6 +1065,7 @@
     if(e.key==='Escape'){
       if($('qrOverlay').classList.contains('show'))cerrarQR();
       if($('confirmOverlay').classList.contains('show'))cerrarConfirm();
+      if($('dupOverlay').classList.contains('show')){var cb=_dupCb;cerrarDuplicados();if(cb&&cb.descartar)cb.descartar();}
     }
   });
 

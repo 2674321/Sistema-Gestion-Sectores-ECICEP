@@ -1194,8 +1194,8 @@ function Form_procesarPendientes(opciones) {
     var hayAnexos = Object.keys(porHoja).length > 0;
     var resumenPipeline = null;
     if (hayAnexos) {
-      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos);
-      resumenPipeline = Ingresos_procesarTodasLasHojas({});
+      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' confirmarNuevos='+(opciones.confirmarNuevos===true));
+      resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true });
       console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
     } else {
       console.log('[PIPE] sin anexos, no se llama pipeline');
