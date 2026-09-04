@@ -775,3 +775,13 @@ Las referencias históricas a métricas, paneles o pruebas construidas alrededor
 **Estado:** Aprobada / vigente
 **Motivo:** Tras diagnóstico en vivo (commit `7b4c077`/`b7eccf9`) se comprobó que `INGRESO_AMARILLO` y otras hojas arrastran cientos/miles de filas sin `ESTADO_INGRESO == 'INGRESADO'`. El pipeline se ejecutaba COMPLETO en cada envío de la Web App (`Ingresos_procesarTodasLasHojas` sin filtro) → re-lectura, re-auditoría, re-proceso y re-escritura de todo el backlog → envío >60 s → timeout persistente y `SIN_FILA_INGRESO`. Corrección: `Form_procesarPendientes` deriva las hojas de las decisiones ANEXAR/YA_ANEXADO y las pasa como `opciones.soloHojas`; `Ingresos_procesarTodasLasHojas` solo lee/procesa esas hojas. No es lógica paralela: es el mismo pipeline con entrada acotada. El backlog completo se sigue procesando por lote desde el panel (`Form_procesarAhora`/menú → llamada sin `soloHojas`). Web App = único canal de captura; el procesamiento de hojas por lotes es operativo interno. Backlog histórico de AMARILLO que deba tomarse como pendiente reale se decide explícitamente (no se auto-re-procesa en cada envío).
 **Fecha:** 2026-09-04
+
+## DEC-055
+**Título:** Pipeline de captura Web App acotado a la FILA anexada (`soloFilas`), derivado de la MARCA
+**Estado:** Aprobada / vigente
+**Motivo:** DEC-054 (acotado por hoja) redujo el envío a las hojas de la captura, pero cuando la hoja objetivo es `INGRESO_AMARILLO` (1070+ pendientes) el proceso completo de ESA hoja sigue superando los 60 s → timeout y anexo sin `ESTADO_INGRESO` escrito. Corrección (commit en curso): el acotado pasa a nivel de FILA —
+  1. `Ingresos_procesarTodasLasHojas` acepta `opciones.soloFilas` (`{hoja:[filas]}`) y filtra el `staging` por `FILA_ORIGEN`, de modo que el pipeline procesa únicamente la(s) fila(s) recién anexadas de la captura.
+  2. `Form_procesarPendientes` deriva `soloHojas`+`soloFilas` de la MARCA física (`Form_buscarFilaIngresoPorMarca`) con fallback a coordenadas del trailer. La marca es la fuente autoritativa (inmune a pérdida de coordenadas documentada en el diagnóstico `respuesta.ingresoHoja/ingresoFila=''`); esto además hace que la resolución del paso 4 devuelva el estado real escrito (`INGRESADO`) aunque las coordenadas se hayan perdido.
+  3. El backlog histórico de las hojas se procesa por lote desde el panel (llamada completa sin `soloHojas`/`soloFilas`).
+No es lógica paralela: idéntico pipeline con entrada acotada a la captura en curso.
+**Fecha:** 2026-09-04

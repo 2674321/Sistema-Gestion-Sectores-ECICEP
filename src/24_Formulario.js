@@ -1475,15 +1475,31 @@ function Form_procesarPendientes(opciones) {
     // la causa del timeout (>60 s) y del SIN_FILA_INGRESO. El resto del
     // backlog se sigue procesando por lote desde el panel (llamada completa).
     var hojasEnJuego = {};
+    var filasEnJuego = {};
     filasAnexadas.forEach(function (d) {
-      var h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
-      if (h) hojasEnJuego[h] = true;
+      // Fuente autoritativa: la MARCA físicamente escrita en la hoja (inmune a
+      // pérdida de coordenadas o desalineación del trailer). Fallback: coords.
+      var hallado = Form_buscarFilaIngresoPorMarca(Form_marcadorFuente(d.responseId, 'INGRESO'));
+      var h = null, f = '';
+      if (hallado && hallado.hoja && hallado.fila) { h = hallado.hoja; f = String(hallado.fila); }
+      else {
+        h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
+        var ff = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
+        if (ff !== undefined && ff !== '' && ff !== null) f = String(ff);
+      }
+      if (!h) return;
+      hojasEnJuego[h] = true;
+      if (f) {
+        if (!filasEnJuego[h]) filasEnJuego[h] = [];
+        if (filasEnJuego[h].indexOf(f) === -1) filasEnJuego[h].push(f);
+      }
     });
     var soloHojas = Object.keys(hojasEnJuego);
+    var soloFilas = Object.keys(filasEnJuego).length ? filasEnJuego : null;
     var resumenPipeline = null;
     if (hayAnexos || filasAnexadas.length) {
-      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
-      resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null });
+      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
+      resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null, soloFilas: soloFilas });
       console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3, anexos=' + hayAnexos + ')');
       console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
     } else {
