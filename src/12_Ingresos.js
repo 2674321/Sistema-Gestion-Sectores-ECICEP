@@ -39,8 +39,8 @@ function Ingresos_mapearEncabezadosHoja(encabezados) {
   var campos = {}, estadoIdx = -1, notaIdx = -1, desconocidos = [];
   (encabezados || []).forEach(function (h, i) {
     var clave = Utl_claveAlnum(h);
-    if (clave === 'ESTADOINGRESO') { estadoIdx = i; return; }
-    if (clave === 'NOTASISTEMA') { notaIdx = i; return; }
+    if (estadoIdx < 0 && (clave === 'ESTADOINGRESO' || clave === 'INGRESOESTADO' || clave === 'ESTADO')) { estadoIdx = i; return; }
+    if (notaIdx < 0 && (clave === 'NOTASISTEMA' || clave === 'NOTA')) { notaIdx = i; return; }
     if (clave === '') return;
     var m = Norm_mapearEncabezado(h);
     // traducción encabezado→modelo: TELEFONO (canonico de FONO/CELULAR/TELEFONOS)
@@ -337,10 +337,13 @@ function Ingresos_escribirEstados(resultados) {
       var colEstado = -1, colNota = -1;
       encabezados.forEach(function (h, i) {
         var clave = Utl_claveAlnum(h);
-        if (clave === 'ESTADOINGRESO') colEstado = i + 1;
-        else if (clave === 'NOTASISTEMA') colNota = i + 1;
+        if (clave === 'ESTADOINGRESO' || clave === 'INGRESOESTADO' || clave === 'ESTADO') colEstado = i + 1;
+        else if (clave === 'NOTASISTEMA' || clave === 'NOTASISTEMAS' || clave === 'NOTA') colNota = i + 1;
       });
-      if (colEstado < 0 || colNota < 0) return;
+      if (colEstado < 0 || colNota < 0) {
+        console.log('[PIPE] escribirEstados '+nombreHoja+' hr='+hr+' colEstado='+colEstado+' colNota='+colNota+' enc='+JSON.stringify(encabezados));
+        return;
+      }
       var desde = Math.min(colEstado, colNota), ancho = Math.abs(colEstado - colNota) + 1;
       var bloque = hoja.getRange(ini, desde, ultima - ini + 1, ancho).getValues();
       var offsetEstado = colEstado - desde, offsetNota = colNota - desde;
@@ -388,13 +391,50 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   // 2) auditoría completa en STAGING_IMPORT (valores originales incluidos)
   Fuentes_guardarFilas(staging);
 
-  // 3) pipeline puro sobre el store real
+  // 2b) BARRERA idempotencia por (RUT, FECHA_INGRESO): si el paciente ya tiene
+  //     un ingreso registrado con la MISMA fecha, la fila pendiente es un
+  //     reenvío (reintento, doble clic, fila antes no marcada) → se marca
+  //     DUPLICADO y se excluye del pipeline (nunca vuelve a crear paciente ni
+  //     evento). Regla operativa: un ingreso por paciente por día.
   var store = { pacientes: Modelo_leerPacientes(), eventos: [] };
+  var clavesPacienteIngreso = {};
+  store.pacientes.forEach(function (p) {
+    var k = Utl_texto(p.RUT).toUpperCase().trim() + '|' + Utl_texto(p.FECHA_INGRESO);
+    if (k.length > 1) clavesPacienteIngreso[k] = true;
+  });
+  var duplicadosDia = [];
+  var stagingFiltrado = staging.filter(function (fila) {
+    if (!fila.NORMALIZADO || !fila.NORMALIZADO.RUT || !fila.NORMALIZADO.FECHA_INGRESO) return true;
+    var k = Utl_texto(fila.NORMALIZADO.RUT).toUpperCase().trim() + '|' + Utl_texto(fila.NORMALIZADO.FECHA_INGRESO);
+    if (!clavesPacienteIngreso[k]) return true;
+    duplicadosDia.push({
+      idProvisional: fila.ID_PROVISIONAL, hoja: fila.HOJA_ORIGEN, filaOrigen: fila.FILA_ORIGEN,
+      estado: 'DUPLICADO', nota: 'Paciente ya registrado con ingreso de la misma fecha (RUT ' + Utl_texto(fila.NORMALIZADO.RUT) + ')',
+      idInterno: (store.pacientes.filter(function(p){ return Utl_texto(p.RUT).toUpperCase().trim()+ '|' + Utl_texto(p.FECHA_INGRESO) === k; })[0] || {}).ID_INTERNO || '',
+      idEvento: ''
+    });
+    console.log('[PIPE] DUPLICADO por RUT+fecha: '+fila.HOJA_ORIGEN+'/'+fila.FILA_ORIGEN+' ' + Utl_texto(fila.NORMALIZADO.RUT));
+    return false;
+  });
+  staging = stagingFiltrado;
+  console.log('[PIPE] staging tras barrera RUT+fecha: '+staging.length+' duplicadosDia='+duplicadosDia.length);
+  if (!staging.length) {
+    Ingresos_escribirEstados(duplicadosDia);
+    var salidaDuplicada = { resultados: duplicadosDia, resumen: { leidos: duplicadosDia.length, validos: 0, conError: 0, nuevos: 0, existentes: 0, revision: 0, duplicados: duplicadosDia.length, eventosCreados: 0 }, pacientesNuevos: [], eventos: [] };
+    salidaDuplicada.resumen.ejecucion = ejecucion;
+    Log_info('Ingresos', 'procesar', JSON.stringify({ leidos: salidaDuplicada.resumen.leidos, duplicados: salidaDuplicada.resumen.duplicados }));
+    Log_flush();
+    return salidaDuplicada.resumen;
+  }
+
+  // 3) pipeline puro sobre el store real
   var salida = Ingresos_procesarFilas(staging, store, {
     nuevoId: Modelo_nuevoIdInterno,
     confirmarNuevos: !!opciones.confirmarNuevos
   });
   salida.resumen.ejecucion = ejecucion;
+  salida.resultados = salida.resultados.concat(duplicadosDia);
+  if (duplicadosDia.length) salida.resumen.duplicados = (salida.resumen.duplicados || 0) + duplicadosDia.length;
 
   // 4) persistencia por lotes
   Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });

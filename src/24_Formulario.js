@@ -58,6 +58,44 @@ function Form_sectorHojaIngreso(sector) {
   return '';
 }
 
+/**
+ * GAS: busca una fila de INGRESO_* que contenga la marca 'FORM|<responseId>|
+ * INGRESO' en cualquiera de sus celdas (NOTA_SISTEMA). Devuelve {hoja, fila}
+ * o null. Robustecido: detecta el layout por encabezados (visual fila 3 o
+ * legacy fila 1) y hace match por contenido, no por columna fija.
+ */
+function Form_buscarFilaIngresoPorMarca(marca) {
+  if (typeof SpreadsheetApp === 'undefined' || !marca) return null;
+  var objetivo = Utl_texto(marca);
+  var ss = Modelo_ss();
+  var keys = Object.keys(HOJAS_INGRESO);
+  for (var iK = 0; iK < keys.length; iK++) {
+    var nombreHoja = keys[iK];
+    try {
+      var hoja = ss.getSheetByName(nombreHoja);
+      if (!hoja || hoja.getLastRow() < 1) continue;
+      var hr = Modelo_headerRow(nombreHoja);
+      var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+      var valores = hoja.getRange(hr, 1, Math.max(hoja.getLastRow() - hr + 1, 1), ancho).getValues();
+      if (valores[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) {
+        var alt0 = hoja.getRange(1, 1, 1, ancho).getValues()[0];
+        if (alt0.join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
+          hr = 1;
+          valores = hoja.getRange(1, 1, hoja.getLastRow(), ancho).getValues();
+        }
+      }
+      for (var f = 1; f < valores.length; f++) {
+        if (valores[f].join('|').indexOf(objetivo) !== -1) {
+          return { hoja: nombreHoja, fila: hr + f };
+        }
+      }
+    } catch (e) {
+      console.log('[PIPE] busqueda marca '+objetivo+' error en '+nombreHoja+': '+String(e));
+    }
+  }
+  return null;
+}
+
 /** PURA: hoy en ISO (sobrescribible con opciones.hoy para tests). */
 function Form_hoy(opciones) {
   return (opciones && opciones.hoy) ? opciones.hoy : (function () {
@@ -1078,6 +1116,24 @@ function Form_procesarPendientes(opciones) {
 
     var lote = Form_procesarLote(pendientes, { indiceRut: indiceRut, marcas: marcas }, {});
     console.log('[PIPE] lote decisiones='+lote.decisiones.map(function(d){return d.responseId+':'+d.decision;}).join(' | '));
+
+    // (0) Idempotencia real por MARCA de FUENTE (independiente del trailer):
+    //     si la fila de ingreso con 'FORM|<responseId>|INGRESO' ya existe en
+    //     alguna INGRESO_*, NO anexar de nuevo (evita duplicados por re-proceso
+    //     o trailer perdido).
+    lote.decisiones.forEach(function (d) {
+      if (d.decision !== 'ANEXAR') return;
+      var marcaD = Form_marcadorFuente(d.responseId, 'INGRESO');
+      var hallado = Form_buscarFilaIngresoPorMarca(marcaD);
+      if (hallado) {
+        d.decision = 'YA_ANEXADO';
+        d.motivo = 'Fila de ingreso ya existe por marca en ' + hallado.hoja + ' fila ' + hallado.fila;
+        d.ingreso = { sector: d.ingreso.sector, hoja: hallado.hoja, fila: String(hallado.fila) };
+        d.ingresoHoja = hallado.hoja;
+        d.ingresoFila = String(hallado.fila);
+        console.log('[PIPE] ANEXAR->YA_ANEXADO por marca '+d.responseId+' en '+hallado.hoja+'/'+hallado.fila);
+      }
+    });
 
     // ---- efectos por tipo ----
     // (1) anexar filas NUEVO_INGRESO (por hoja, sin duplicar: ANEXAR solo si sin INGRESO_FILA)

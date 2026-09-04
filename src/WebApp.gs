@@ -88,6 +88,23 @@ function Form_capturarDesdeUI(datos) {
       };
     }
 
+    // idempotencia: si un envío IDÉNTICO (ACCION+RUT) llegó en los últimos 90s
+    // y NO terminó en error, se reaprovecha (evita duplicado por doble clic o
+    // reintento tras timeout→botón re-habilitado). Nunca crea una segunda fila.
+    var existente = UI_buscarEnvioReciente(crudo.ACCION, crudo.RUT);
+    if (existente && existente.responseId) {
+      console.log('[BACKEND] 03c envío reciente detectado '+existente.responseId+' estado='+existente.estado);
+      var estadoExistente = UI_lecturaEstadoRespuesta(existente.responseId);
+      return {
+        ok: !(estadoExistente.estado === 'ERROR'),
+        message: estadoExistente.estado === 'ERROR'
+          ? 'El envío anterior falló: ' + (estadoExistente.motivo || estadoExistente.estado)
+          : 'Registro ya recibido (se evita duplicado)',
+        data: { responseId: existente.responseId, accion: crudo.ACCION, estado: estadoExistente.estado, motivo: estadoExistente.motivo, idInterno: estadoExistente.idInterno },
+        errors: []
+      };
+    }
+
     // idempotencia: id único por envío (el pipeline lo usa como marca FORM|id|ACCION)
     var responseId = 'UI-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
     console.log('[BACKEND] 04 responseId=' + responseId);
@@ -156,6 +173,40 @@ function Form_capturarDesdeUI(datos) {
       errors: [{ campo: '_', mensaje: err && err.message ? err.message : String(err) }]
     };
   }
+}
+
+/**
+ * GAS: busca un envío previo con la MISMA ACCION+RUT dentro de una ventana de
+ * 90 segundos que NO haya terminado en ERROR. Devuelve {responseId, estado} o
+ * null. Lee solo las filas recientes del final (máx 25).
+ */
+function UI_buscarEnvioReciente(accion, rut) {
+  try {
+    var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+    if (!hoja) return null;
+    var ultima = hoja.getLastRow();
+    var hr = Modelo_headerRow(HOJAS.FORM_RESPUESTAS);
+    if (!ultima || ultima < hr) return null;
+    var desde = Math.max(hr + 1, ultima - 24);
+    var valores = hoja.getRange(desde, 1, ultima - desde + 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues();
+    var mapa = Form_mapeoEncabezados(hoja.getRange(hr, 1, 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0]);
+    var idx = mapa.idx;
+    var ahora = Date.now();
+    for (var i = valores.length - 1; i >= 0; i--) {
+      var filaA = valores[i];
+      var ts = idx['FECHAFORMS'] !== undefined ? new Date(filaA[idx['FECHAFORMS']]).getTime() : 0;
+      if (!ts || (ahora - ts) > 90000) continue;
+      var a = Utl_colapsarEspacios(Utl_texto(idx['ACCION'] !== undefined ? filaA[idx['ACCION']] : '')).toUpperCase();
+      var r = Utl_texto(idx['RUT'] !== undefined ? filaA[idx['RUT']] : '').toUpperCase().replace(/[\s.]/g, '');
+      var r2 = Utl_texto(rut).toUpperCase().replace(/[\s.]/g, '');
+      if (a === accion && r === r2) {
+        var est = Utl_texto(idx['ESTADO'] !== undefined ? filaA[idx['ESTADO']] : '').toUpperCase();
+        if (est === 'ERROR') continue;
+        return { responseId: Utl_texto(idx['RESPONSEID'] !== undefined ? filaA[idx['RESPONSEID']] : ''), estado: est || 'RECIBIDO' };
+      }
+    }
+  } catch (e) { console.log('[BACKEND] busqueda reciente: ' + String(e)); }
+  return null;
 }
 
 /** GAS: lee el estado/motivo/idInterno de una respuesta recién procesada. */
