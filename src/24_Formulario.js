@@ -59,11 +59,42 @@ function Form_sectorHojaIngreso(sector) {
 }
 
 /**
- * GAS: busca una fila de INGRESO_* que contenga la marca 'FORM|<responseId>|
- * INGRESO' en cualquiera de sus celdas (NOTA_SISTEMA). Devuelve {hoja, fila}
- * o null. Robustecido: detecta el layout por encabezados (visual fila 3 o
- * legacy fila 1) y hace match por contenido, no por columna fija.
+ * PURA: deriva el acotado del pipeline para una captura Web App (paso 3 de
+ * Form_procesarPendientes, DEC-055). Fuente autoritativa: la MARCA física
+ * escrita en la hoja (inmune a pérdida de coordenadas del trailer). Fallback:
+ * coordenadas registradas al anexar/reenviar. `buscadorMarca(responseId)` es
+ * inyectable (GAS: Form_buscarFilaIngresoPorMarca) para poder probarlo puro.
+ * Devuelve {soloHojas:[...], soloFilas:{hoja:[filas]}|null}.
  */
+function Form_derivarAcotacionPaso3(filasAnexadas, buscadorMarca) {
+  var hojasEnJuego = {};
+  var filasEnJuego = {};
+  (filasAnexadas || []).forEach(function (d) {
+    if (d.decision !== 'ANEXAR' && d.decision !== 'YA_ANEXADO') return;
+    var hallado = buscadorMarca ? buscadorMarca(d.responseId) : null;
+    var h = null, f = '';
+    if (hallado && hallado.hoja && hallado.fila) { h = hallado.hoja; f = String(hallado.fila); }
+    else {
+      h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
+      var ff = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
+      if (ff !== undefined && ff !== '' && ff !== null) f = String(ff);
+    }
+    if (!h) return;
+    hojasEnJuego[h] = true;
+    if (f) {
+      if (!filasEnJuego[h]) filasEnJuego[h] = [];
+      if (filasEnJuego[h].indexOf(f) === -1) filasEnJuego[h].push(f);
+    }
+  });
+  return {
+    soloHojas: Object.keys(hojasEnJuego),
+    soloFilas: Object.keys(filasEnJuego).length ? filasEnJuego : null
+  };
+}
+
+/** GAS: busca (barriendo la columna FUENTE/NOTA_SISTEMA) dónde quedó la fila de
+ * un envío de la captura: {hoja, fila} en INGRESO_* o null. Núcleo de la
+ * autoridad por marca del acotado paso 3 y del respaldo del paso 4. */
 function Form_buscarFilaIngresoPorMarca(marca) {
   if (typeof SpreadsheetApp === 'undefined' || !marca) return null;
   var objetivo = Utl_texto(marca);
@@ -1474,28 +1505,9 @@ function Form_procesarPendientes(opciones) {
     // ESTADO_INGRESO == 'INGRESADO') NO deben re-procesarse en cada envío: era
     // la causa del timeout (>60 s) y del SIN_FILA_INGRESO. El resto del
     // backlog se sigue procesando por lote desde el panel (llamada completa).
-    var hojasEnJuego = {};
-    var filasEnJuego = {};
-    filasAnexadas.forEach(function (d) {
-      // Fuente autoritativa: la MARCA físicamente escrita en la hoja (inmune a
-      // pérdida de coordenadas o desalineación del trailer). Fallback: coords.
-      var hallado = Form_buscarFilaIngresoPorMarca(Form_marcadorFuente(d.responseId, 'INGRESO'));
-      var h = null, f = '';
-      if (hallado && hallado.hoja && hallado.fila) { h = hallado.hoja; f = String(hallado.fila); }
-      else {
-        h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
-        var ff = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
-        if (ff !== undefined && ff !== '' && ff !== null) f = String(ff);
-      }
-      if (!h) return;
-      hojasEnJuego[h] = true;
-      if (f) {
-        if (!filasEnJuego[h]) filasEnJuego[h] = [];
-        if (filasEnJuego[h].indexOf(f) === -1) filasEnJuego[h].push(f);
-      }
-    });
-    var soloHojas = Object.keys(hojasEnJuego);
-    var soloFilas = Object.keys(filasEnJuego).length ? filasEnJuego : null;
+    var acotacion = Form_derivarAcotacionPaso3(filasAnexadas, Form_buscarFilaIngresoPorMarca);
+    var soloHojas = acotacion.soloHojas;
+    var soloFilas = acotacion.soloFilas;
     var resumenPipeline = null;
     if (hayAnexos || filasAnexadas.length) {
       console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));

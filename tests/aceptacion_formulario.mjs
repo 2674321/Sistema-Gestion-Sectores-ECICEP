@@ -655,6 +655,109 @@ registrar('operativo: OBSERVACIONES sin acciones aplica a todas las ACCIONES', (
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// GRUPO C — ACOTACIÓN POR FILA (soloFilas) SOBRE BACKLOG MASIVO
+// Reproduce el escenario real que causó el timeout/SIN_FILA_INGRESO: una hoja
+// INGRESO_* con +1000 filas pendientes (backlog histórico) y UNA fila nueva
+// anexada al final. Verifica que el pipeline con `soloFilas` procesa SOLO la
+// fila de la captura y que el flujo batch (sin acotación) conserva el backlog.
+// ════════════════════════════════════════════════════════════════════════════
+console.log('\n── GRUPO C: acotación por fila sobre backlog masivo (DEC-054/055) ──');
+
+function stagingBacklogMasivo(nPendientes, hoja, sector) {
+  const filas = [];
+  for (let i = 4; i < 4 + nPendientes; i++) {
+    filas.push(T.Fuentes_crearFila({ archivo: 'HOJA_INGRESO', hoja, fila: i, sector }, { NOMBRE: 'PEND ' + i, RUT: '1-' + i }));
+  }
+  return filas;
+}
+
+registrar('acotación: soloFilas procesa SOLO la fila anexada del backlog masivo (>1000 pendientes)', () => {
+  const hoja = 'INGRESO_AMARILLO';
+  const backlog = stagingBacklogMasivo(1070, hoja, 'AMARILLO');
+  const anexada = T.Fuentes_crearFila({ archivo: 'HOJA_INGRESO', hoja, fila: 1074, sector: 'AMARILLO' }, { NOMBRE: 'NUEVA CAPTURA', RUT: '21889985-4' });
+  anexada.NOTA_SISTEMA = 'FORM|UI-1788554323646-947557|INGRESO';
+  const todo = backlog.concat([anexada]);
+  const acotado = T.Ingresos_acotarStaging(todo, hoja, [hoja], { [hoja]: ['1074'] });
+  const soloLaAnexada = acotado.length === 1 && String(acotado[0].FILA_ORIGEN) === '1074'
+    && acotado[0].VALORES_ORIGINALES && acotado[0].VALORES_ORIGINALES.RUT === '21889985-4';
+  return { ok: soloLaAnexada, causa: 'se procesaron ' + acotado.length + ' filas en vez de 1; backlog intacto no verificado' };
+});
+
+registrar('acotación: comparación FILA_ORIGEN robusta a string/number', () => {
+  const hoja = 'INGRESO_AMARILLO';
+  const filas = stagingBacklogMasivo(100, hoja, 'AMARILLO');
+  const anexada = T.Fuentes_crearFila({ archivo: 'HOJA_INGRESO', hoja, fila: 104, sector: 'AMARILLO' }, { NOMBRE: 'X', RUT: '1-1' });
+  const todo = filas.concat([anexada]);
+  const asStr = T.Ingresos_acotarStaging(todo, hoja, null, { [hoja]: ['104'] });
+  const asNum = T.Ingresos_acotarStaging(todo, hoja, null, { [hoja]: [104] });
+  const ok = asStr.length === 1 && asNum.length === 1
+    && String(asStr[0].FILA_ORIGEN) === String(asNum[0].FILA_ORIGEN) && String(asStr[0].FILA_ORIGEN) === '104';
+  return { ok, causa: 'string y number no normalizan igual' };
+});
+
+registrar('acotación: sin soloFilas (batch/panel) el staging completo sobrevive', () => {
+  const hoja = 'INGRESO_AMARILLO';
+  const todo = stagingBacklogMasivo(1071, hoja, 'AMARILLO');
+  const sinAcotar = T.Ingresos_acotarStaging(todo, hoja, null, null);
+  const porHoja = T.Ingresos_acotarStaging(todo, hoja, [hoja], null);
+  const ok = sinAcotar.length === 1071 && porHoja.length === 1071;
+  return { ok, causa: 'el flujo batch perdió el backlog (' + sinAcotar.length + ')' };
+});
+
+registrar('acotación: hoja fuera de soloHojas se excluye por completo', () => {
+  const filas = stagingBacklogMasivo(10, 'INGRESO_VERDE', 'VERDE');
+  const r = T.Ingresos_acotarStaging(filas, 'INGRESO_VERDE', ['INGRESO_AMARILLO'], null);
+  return { ok: r.length === 0, causa: 'la hoja ajena a la captura entró al staging' };
+});
+
+registrar('acotación: soloFilas[hoja] indefinido/vacío NO vacía el staging (fallback batch histórico)', () => {
+  const hoja = 'INGRESO_AMARILLO';
+  const filas = stagingBacklogMasivo(20, hoja, 'AMARILLO');
+  const indef = T.Ingresos_acotarStaging(filas, hoja, [hoja], { 'OTRA_HOJA': ['3'] });
+  const vacio = T.Ingresos_acotarStaging(filas, hoja, [hoja], { [hoja]: [] });
+  return { ok: indef.length === 20 && vacio.length === 20,
+    causa: 'se vació el staging: ' + indef.length + '/' + vacio.length };
+});
+
+registrar('acotación: paso 3 — la MARCA autoritativa gana aunque el trailer tenga coordenadas vacías', () => {
+  const d = {
+    responseId: 'UI-1788554323646-947557', decision: 'ANEXAR',
+    ingreso: null, ingresoHoja: '', ingresoFila: '',
+    normalizado: { SECTOR: 'AMARILLO' }
+  };
+  const ac = T.Form_derivarAcotacionPaso3([d], () => ({ hoja: 'INGRESO_AMARILLO', fila: 1074 }));
+  const ok = ac.soloHojas.join(',') === 'INGRESO_AMARILLO'
+    && ac.soloFilas && ac.soloFilas['INGRESO_AMARILLO'].join(',') === '1074';
+  return { ok, causa: 'no se derivó de la marca: ' + JSON.stringify(ac) };
+});
+
+registrar('acotación: paso 3 — sin hallazgo por marca se hereda la coordenada registrada', () => {
+  const d = {
+    responseId: 'UI-X', decision: 'YA_ANEXADO',
+    ingreso: { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '7' }, ingresoHoja: '', ingresoFila: ''
+  };
+  const ac = T.Form_derivarAcotacionPaso3([d], () => null);
+  const ok = ac.soloHojas.join(',') === 'INGRESO_VERDE' && ac.soloFilas['INGRESO_VERDE'].join(',') === '7';
+  return { ok, causa: 'fallback de coordenadas perdido: ' + JSON.stringify(ac) };
+});
+
+registrar('acotación: paso 3 — sin marca ni coordenadas la hoja NO se incluye (no acota silenciosamente un backlog)', () => {
+  const d = { responseId: 'UI-Y', decision: 'ANEXAR', ingreso: { sector: 'AMARILLO', hoja: '', fila: '' }, ingresoHoja: '', ingresoFila: '' };
+  const ac = T.Form_derivarAcotacionPaso3([d], () => null);
+  const ok = ac.soloHojas.length === 0 && ac.soloFilas === null;
+  return { ok, causa: 'se incluyó una hoja sin fila resoluble: ' + JSON.stringify(ac) };
+});
+
+registrar('acotación: decisión SALTAR/ERROR/CLINICA no infla el acotado', () => {
+  const ac = T.Form_derivarAcotacionPaso3([
+    { responseId: 'A', decision: 'SALTAR', motivo: 'YA_PROCESADO' },
+    { responseId: 'B', decision: 'ERROR', normalizado: null },
+    { responseId: 'C', decision: 'CLINICA', ingreso: null }
+  ], () => null);
+  return { ok: ac.soloHojas.length === 0 && ac.soloFilas === null, causa: 'decisiones no-INGRESO afectaron el acotado' };
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // Resumen
 // ════════════════════════════════════════════════════════════════════════════
 console.log('\n──¹──── Resultado ────');

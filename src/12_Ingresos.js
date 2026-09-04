@@ -369,6 +369,24 @@ function Ingresos_escribirEstados(resultados) {
 }
 
 /**
+ * PURA: acota el staging de una hoja INGRESO_* a la captura en curso
+ * (DEC-054/055). Semántica explícita:
+ *   - `soloHojas` set Y sin coincidencia de hoja → []
+ *   - `soloFilas[hoja]` set → solo las filas listadas (comparación de
+ *     FILA_ORIGEN normalizada a texto: robusta a string/number)
+ *   - sin acotación (batch/panel) o `soloFilas[hoja]` indefinido/vacío →
+ *     staging completo (comportamiento histórico: el backlog se procesa por
+ *     lote; en la Web App esto solo ocurre si la acotación no pudo resolverse)
+ */
+function Ingresos_acotarStaging(staging, hojaNombre, soloHojas, soloFilas) {
+  if (soloHojas && soloHojas.length && soloHojas.indexOf(hojaNombre) === -1) return [];
+  if (!soloFilas || !soloFilas[hojaNombre] || !soloFilas[hojaNombre].length) return staging;
+  var set = {};
+  soloFilas[hojaNombre].forEach(function (nf) { set[String(nf)] = true; });
+  return staging.filter(function (f) { return set[Utl_texto(f.FILA_ORIGEN)]; });
+}
+
+/**
  * Orquestador de alto nivel (menú ECICEP → 📥 Procesar ingresos).
  * Ejecuta el flujo completo sobre TODAS las hojas INGRESO_* presentes,
  * exclusivamente sobre lo que el usuario haya digitado ahí (dataset ficticio
@@ -407,14 +425,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   var soloFilas = opciones && opciones.soloFilas ? opciones.soloFilas : null; // {hoja:[filas]}
   var staging = [];
   Object.keys(HOJAS_INGRESO).forEach(function (hojaNombre) {
-    if (soloHojas && soloHojas.indexOf(hojaNombre) === -1) return;
-    var filasDeHoja = Ingresos_leerHoja(hojaNombre).staging;
-    if (soloFilas && soloFilas[hojaNombre] && soloFilas[hojaNombre].length) {
-      var set = {};
-      soloFilas[hojaNombre].forEach(function (nf) { set[String(nf)] = true; });
-      filasDeHoja = filasDeHoja.filter(function (f) { return set[Utl_texto(f.FILA_ORIGEN)]; });
-    }
-    staging = staging.concat(filasDeHoja);
+    staging = staging.concat(Ingresos_acotarStaging(Ingresos_leerHoja(hojaNombre).staging, hojaNombre, soloHojas, soloFilas));
   });
   if ((soloHojas && soloHojas.length) || soloFilas) {
     console.log('[PIPE] pipeline acotado soloHojas=' + JSON.stringify(soloHojas) + ' soloFilas=' + JSON.stringify(soloFilas));
