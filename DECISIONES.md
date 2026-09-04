@@ -785,3 +785,18 @@ Las referencias históricas a métricas, paneles o pruebas construidas alrededor
   3. El backlog histórico de las hojas se procesa por lote desde el panel (llamada completa sin `soloHojas`/`soloFilas`).
 No es lógica paralela: idéntico pipeline con entrada acotada a la captura en curso.
 **Fecha:** 2026-09-04
+
+## DEC-056
+**Título:** El acotado `soloHojas`/`soloFilas` debe saltar el COSTO (lectura + normalización), no solo filtrar el resultado
+**Estado:** Aprobada / vigente
+**Motivo:** DEC-054/055 filtraban el `staging` DESPUÉS de costos completos por envío:
+  1. `Ingresos_leerHoja` normalizaba (`Fuentes_normalizar`) TODAS las filas no-`INGRESADO` de cada hoja INGRESO_* antes de que `Ingresos_acotarStaging` filtrara → con `INGRESO_AMARILLO` (1070+ pendientes) 1070 normalizaciones en cada envío, ignorando `soloFilas`.
+  2. `Form_derivarAcotacionPaso3` invocaba `buscadorMarca` (barrido de las 4 hojas) ANTES de revisar las coordenadas ya pobladas en memoria (recién escritas en el paso 1 / resueltas por idempotencia del paso 0).
+  3. `Form_diagnosticoEnvio` corría inline en el request en error y re-leía + normalizaba todas las hojas.
+  Corrección:
+  - `Ingresos_procesarTodasLasHojas` omite `Ingresos_leerHoja` en hojas fuera de `soloHojas` (commit `14a095f`).
+  - `Ingresos_leerHoja(nombreHoja, filasPermitidas)` salta líneas fuera de alcance ANTES de `Fuentes_normalizar` (parámetro opcional → batch/panel intactos).
+  - `Form_derivarAcotacionPaso3` usa PRIMERO coordenadas en memoria y solo invoca `buscadorMarca` si realmente faltan (DEC-055 intacto).
+  - `Form_diagnosticoEnvio` lee UNA vez por hoja y cuenta pendientes por la columna ESTADO (muestras ≤3 normalizadas).
+  Tests: aceptación 46 → 50 (espía `Fuentes_normalizar`: 1004 filas → staging=1 con 1 sola normalización; espía `buscadorMarca` no invocado con coords pobladas).
+**Fecha:** 2026-09-04
