@@ -174,7 +174,9 @@
     .status{border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);
       font-weight:var(--fw-medium);margin-top:var(--sp-4);display:none;line-height:1.5;
       animation:fadeSlideIn .25s ease}
-    .status.show{display:flex;align-items:flex-start;gap:var(--sp-2)}
+    .status.show{display:block}
+    .status-row{display:flex;align-items:flex-start;gap:var(--sp-2)}
+    .status-row+.status-row{margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px dashed currentColor}
     .status-ok{background:var(--c-ok-bg);border:1px solid var(--c-ok-border);color:var(--c-ok)}
     .status-err{background:var(--c-err-bg);border:1px solid var(--c-err-border);color:var(--c-err)}
     .status-icon{font-size:16px;flex-shrink:0;margin-top:1px}
@@ -770,15 +772,28 @@
     return!hay;
   }
 
-  function mostrarResumen(tipo,titulo,det){
+  var _resumenEntradas=[];
+  function _resumenRender(){
     var el=$('resumen');
-    el.className='status show status-'+tipo;
-    var icon=tipo==='ok'?'&#10003;':'&#9888;';
-    el.innerHTML='<span class="status-icon">'+icon+'</span><div class="status-text"><strong>'+_esc(titulo)+'</strong>'
-      +(det?'<div class="chips">'+det+'</div>':'')+'</div>';
+    var ult=_resumenEntradas.length?_resumenEntradas[_resumenEntradas.length-1]:null;
+    el.className='status show status-'+(ult?ult.tipo:'err');
+    var html='';
+    _resumenEntradas.forEach(function(e,i){
+      var ic=e.tipo==='ok'?'&#10003;':'&#9888;';
+      html+='<div class="status-row"><span class="status-icon">'+ic+'</span><div class="status-text"><strong>'+_esc(e.titulo)+'</strong>'
+        +(e.det?'<div class="chips">'+e.det+'</div>':'')+'</div></div>';
+    });
+    el.innerHTML=html;
   }
-
-  function ocultarResumen(){$('resumen').className='status';}
+  function mostrarResumen(tipo,titulo,det){
+    _resumenEntradas=[{tipo:tipo,titulo:titulo,det:det}];
+    _resumenRender();
+  }
+  function _resumenAnexar(tipo,titulo,det){
+    _resumenEntradas.push({tipo:tipo,titulo:titulo,det:det});
+    _resumenRender();
+  }
+  function ocultarResumen(){ $('resumen').className='status'; _resumenEntradas=[]; }
 
   function estadoEnviando(){
     var b=$('btnEnviar'),s=$('spinEnviar');
@@ -800,28 +815,28 @@
   function _envExito(r,accionEnvio){
     _envTimeoutOff();
     _enviando=false;
-    if(!r){estadoListo();mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');return;}
+    if(!r){estadoListo();_resumenAnexar('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');return;}
     if(!r.ok){
       estadoListo();
       var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
       if(!det && r.message)det=_esc(r.message);
-      var diag=(r.data&&r.data.diagnostico)?JSON.stringify(r.data.diagnostico).substring(0,900):'';
+      var diag=(r.data&&r.data.diagnostico)?JSON.stringify(r.data.diagnostico).substring(0,2500):'';
       if(diag)det+='<details style="margin-top:8px"><summary>Ver diagnóstico</summary><pre style="white-space:pre-wrap;font-size:11px;opacity:.85;margin:6px 0 0">'+_esc(diag)+'</pre></details>';
-      mostrarResumen('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
+      _resumenAnexar('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
       return;
     }
     var d=r.data||{};
     if(d.estado==='ERROR'){
       estadoListo();
       var detErr=_esc(d.motivo||r.message||'Error');
-      mostrarResumen('err',r.message||'No fue posible registrar','<div style="margin-top:6px">'+detErr+'</div>');
+      _resumenAnexar('err',r.message||'No fue posible registrar','<div style="margin-top:6px">'+detErr+'</div>');
       return;
     }
     var isRev=d.estado==='REQUIERE_REVISION';
     var msg=isRev?(r.message||'Registro recibido — requiere revisión'):_esquemaAccion(accionEnvio).mensajeExito||'Registro guardado correctamente';
     var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
     if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
-    mostrarResumen(isRev?'err':'ok',msg,chips);
+    _resumenAnexar(isRev?'err':'ok',msg,chips);
     estadoListo();
     $('btnEnviar').classList.add('hidden');
     $('btnsNueva').classList.add('show');
@@ -832,16 +847,17 @@
     _envTimeoutOff();
     _enviando=false;
     estadoListo();
-    mostrarResumen('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');
+    _resumenAnexar('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');
   }
   function enviarFinal(datos, fuerzaNuevoPaciente){
     var accionEnvio=getAccion();
     if(fuerzaNuevoPaciente)datos.__fuerzaNuevoPaciente=true;
+    ocultarResumen();
     _envTimeoutId=setTimeout(function(){
       if(!_enviando)return;
       _enviando=false;
       estadoListo();
-      mostrarResumen('err','La respuesta tard\u00f3 demasiado. Verifique su conexi\u00f3n e int\u00e9ntelo nuevamente.','');
+      _resumenAnexar('err','La respuesta tard\u00f3 demasiado. Verifique su conexi\u00f3n e int\u00e9ntelo nuevamente.','');
     },60000);
     google.script.run
       .withSuccessHandler(function(r){_envExito(r,accionEnvio);})

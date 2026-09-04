@@ -1277,6 +1277,23 @@ function Form_diagnosticoEnvio(responseId) {
           }
           info.marcaHallada = filaHallada > 0 ? { fila: filaHallada, estado: estadoHallado.substring(0, 40) } : null;
         }
+        // Vista del staging TAL COMO LA LEE EL PIPELINE: si la fila anexada no
+        // aparece aquí, el defecto está aguas arriba de escribirEstados.
+        try {
+          if (typeof Ingresos_leerHoja === 'function') {
+            var st = Ingresos_leerHoja(nk);
+            info.staging = st.staging.map(function (s) {
+              return {
+                fila: Utl_texto(s.FILA_ORIGEN),
+                validacion: Utl_texto(s.ESTADO_VALIDACION),
+                rut: (s.NORMALIZADO && s.NORMALIZADO.RUT) ? Utl_texto(s.NORMALIZADO.RUT) : '',
+                nombre: (s.NORMALIZADO && s.NORMALIZADO.NOMBRE) ? Utl_texto(s.NORMALIZADO.NOMBRE).substring(0, 28) : ''
+              };
+            });
+          }
+        } catch (eSt) {
+          info.errorStaging = eSt && eSt.message ? eSt.message : String(eSt);
+        }
       }
       d.hojas[nk] = info;
     });
