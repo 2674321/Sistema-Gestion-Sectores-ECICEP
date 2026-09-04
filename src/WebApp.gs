@@ -62,6 +62,7 @@ function WebApp_esquemaFormulario() {
  * @returns {{ok:boolean, data?:Object, message:string, errors?:Array}}
  */
 function Form_capturarDesdeUI(datos) {
+  var _tTotal = Date.now();
   try {
     console.log('[BACKEND] 01 entrada Form_capturarDesdeUI');
     if (typeof SpreadsheetApp === 'undefined') {
@@ -191,20 +192,23 @@ function Form_capturarDesdeUI(datos) {
     };
     // Si el envío terminó en ERROR, adjuntar un diagnóstico en vivo de la hoja
     // (estado real de la fila y de la marca), para depurar sin volver a ciegas.
+    // 2024-09-04: el diagnóstico corre INLINE dentro del mismo request (presupuesto 60s)
+    // → se mide su tiempo y se hizo barato (lectura única por hoja, sin normalizar todo).
     if (esError) {
+      var _tDiag = Date.now();
       try {
         if (typeof Form_diagnosticoEnvio === 'function') {
           resultado.data.diagnostico = Form_diagnosticoEnvio(responseId);
-          console.log('[DIAG] ' + JSON.stringify(resultado.data.diagnostico).substring(0, 1500));
+          console.log('[DIAG] t=' + (Date.now() - _tDiag) + 'ms ' + JSON.stringify(resultado.data.diagnostico).substring(0, 1500));
         }
       } catch (eDiag) {
         console.log('[DIAG] error capturando diagnóstico: ' + String(eDiag));
       }
     }
-    console.log('[BACKEND] 09 RETORNANDO ok=' + ok + ' estado=' + estado.estado);
+    console.log('[BACKEND] 09 RETORNANDO ok=' + ok + ' estado=' + estado.estado + ' tTotal=' + (Date.now() - _tTotal) + 'ms');
     return resultado;
   } catch (err) {
-    console.error('[BACKEND] 09C EXCEPTION:', err && err.message ? err.message : String(err));
+    console.error('[BACKEND] 09C EXCEPTION:', err && err.message ? err.message : String(err), 'tTotal=' + (Date.now() - _tTotal) + 'ms');
     Log_error('WebApp', 'capturarDesdeUI', err && err.message ? err.message : String(err));
     Log_flush();
     return {

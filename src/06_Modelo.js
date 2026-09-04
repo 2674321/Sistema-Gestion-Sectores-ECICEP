@@ -1084,8 +1084,10 @@ var _MEMO_HOJAS = {};
 function Modelo_invalidarLecturas() { _MEMO_HOJAS = {}; }
 function _memoLeer(hoja, clave) {
   if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, clave)) return _MEMO_HOJAS[clave];
+  var _tM = Date.now();
   var v = Modelo_leerBloqueCabecera(clave, hoja);
   _MEMO_HOJAS[clave] = v;
+  console.log('[PIPE] _memoLeer ' + clave + ' t=' + (Date.now() - _tM) + 'ms filas=' + v.length + ' (1ª lectura; memoizada)');
   return v;
 }
 

@@ -510,15 +510,19 @@ function HVis_colorPorSector(sector) {
  * quedaban en blanco cuando la hoja se creaba fuera del instalador.
  */
 function HVis_formatearIngresos() {
+  var _tF = Date.now();
   var ss = Modelo_ss();
   var estados = {};
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    var _tHojaF = Date.now();
     var hoja = ss.getSheetByName(nombre);
     if (hoja && hoja.getLastRow() >= Modelo_headerRow(nombre)) {
       var r = HVis_aplicarSecciones(hoja);
       estados[nombre] = r.estado || 'OK';
+      console.log('[PIPE] formatearIngresos ' + nombre + ': ' + (Date.now() - _tHojaF) + 'ms estado=' + estados[nombre] + ' fast=' + HVis_yaFormateada(hoja));
     }
   });
+  console.log('[PIPE] formatearIngresos total: ' + (Date.now() - _tF) + 'ms');
   Log_info('HojasVisual', 'formatearIngresos', JSON.stringify(estados));
   Log_flush();
   return estados;

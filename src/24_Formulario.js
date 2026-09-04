@@ -100,11 +100,13 @@ function Form_buscarFilaIngresoPorMarca(marca) {
   var objetivo = Utl_texto(marca);
   var ss = Modelo_ss();
   var keys = Object.keys(HOJAS_INGRESO);
+  var _tB = Date.now();
   for (var iK = 0; iK < keys.length; iK++) {
+    var _tHojaB = Date.now();
     var nombreHoja = keys[iK];
     try {
       var hoja = ss.getSheetByName(nombreHoja);
-      if (!hoja || hoja.getLastRow() < 1) continue;
+      if (!hoja || hoja.getLastRow() < 1) { console.log('[PIPE] buscarMarca ' + nombreHoja + ': sin hoja/filas'); continue; }
       var ancho = Math.max(hoja.getLastColumn() || 0, 1);
       var hr = Modelo_headerRow(nombreHoja);
       var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
@@ -131,6 +133,7 @@ function Form_buscarFilaIngresoPorMarca(marca) {
         var col = hoja.getRange(hr + 1, posMarca + 1, n, 1).getValues();
         for (var f = 0; f < col.length; f++) {
           if (Utl_texto(col[f][0]).indexOf(objetivo) !== -1) {
+            console.log('[PIPE] buscarMarca ' + nombreHoja + ': ' + col.length + ' filas, ' + (Date.now() - _tHojaB) + 'ms — MARCA ENCONTRADA fila ' + (hr + 1 + f) + ' (total ' + (Date.now() - _tB) + 'ms)');
             return { hoja: nombreHoja, fila: hr + 1 + f };
           }
         }
@@ -139,14 +142,17 @@ function Form_buscarFilaIngresoPorMarca(marca) {
         var buscado = objetivo.toUpperCase();
         for (var g = 0; g < filasBarrido.length; g++) {
           if (filasBarrido[g].join('|').toUpperCase().indexOf(buscado) !== -1) {
+            console.log('[PIPE] buscarMarca ' + nombreHoja + ': sweep, ' + (Date.now() - _tHojaB) + 'ms — MARCA ENCONTRADA fila ' + (hr + 1 + g) + ' (total ' + (Date.now() - _tB) + 'ms)');
             return { hoja: nombreHoja, fila: hr + 1 + g };
           }
         }
       }
+      console.log('[PIPE] buscarMarca ' + nombreHoja + ': ' + n + ' filas, ' + (Date.now() - _tHojaB) + 'ms sin hallazgo');
     } catch (e) {
       console.log('[PIPE] busqueda marca '+objetivo+' error en '+nombreHoja+': '+String(e));
     }
   }
+  console.log('[PIPE] buscarMarca total sin hallazgo: ' + (Date.now() - _tB) + 'ms');
   return null;
 }
 
@@ -1120,6 +1126,7 @@ function Form_idsCapturados() {
 function Form_leerMarcas() {
   var salida = {};
   if (typeof SpreadsheetApp === 'undefined') return salida;
+  var _tLeer = Date.now();
   try {
     var hoja = Modelo_hoja(HOJAS.EVENTOS);
     if (!hoja) return salida;
@@ -1151,6 +1158,7 @@ function Form_leerMarcas() {
         };
       }
     }
+    console.log('[PIPE] leerMarcas t=' + (Date.now() - _tLeer) + 'ms filas=' + n + ' marcas=' + Object.keys(salida).length);
   } catch (e) { /* sin eventos disponibles */ }
   return salida;
 }
@@ -1274,6 +1282,7 @@ function Form_diagnosticoEnvio(responseId) {
     //    coordenadas primero; el listado staging se resume a conteo + primeros 3)
     var ss = Modelo_ss();
     Object.keys(HOJAS_INGRESO).forEach(function (nk) {
+      var _tDiagHoja = Date.now();
       var hs = ss.getSheetByName(nk);
       var info = { existe: !!hs };
       var hr = -1;
@@ -1299,37 +1308,60 @@ function Form_diagnosticoEnvio(responseId) {
             nota: (mapa.notaIdx >= 0 ? Utl_texto(filaC[mapa.notaIdx]).substring(0, 120) : '')
           };
         }
-        // barrido por marca
+        // Una SOLA lectura del bloque por hoja y una SOLA pasada en memoria
+        // (marca + conteo pendientes + muestras ≤3). ANTES leíamos el bloque 3
+        // veces y normalizábamos CADA fila pendiente con Fuentes_normalizar
+        // — con INGRESO_AMARILLO (>1000 filas) ese costo se pagaba DENTRO del
+        // request del envío que terminó en ERROR (`Form_diagnosticoEnvio` es
+        // inline) → contribuía al timeout >60s. El conteo de pendientes se hace
+        // solo por la columna ESTADO (sin normalizar cada fila).
         var bloque = Modelo_leerBloqueCabecera(nk, hs);
         if (bloque.length >= 2) {
-          var filaHallada = -1, estadoHallado = '';
+          var filaHallada = -1, estadoHallado = '', pendientes = 0, primeraFila = null;
+          var idxNom2 = (mapa.campos && mapa.campos.NOMBRE !== undefined) ? mapa.campos.NOMBRE : -1;
+          var idxRut2 = (mapa.campos && mapa.campos.RUT !== undefined) ? mapa.campos.RUT : -1;
+          var muestras = [];
           for (var b = 1; b < bloque.length; b++) {
-            var hay = (bloque[b] || []).join('|');
-            if (hay.indexOf(d.marcaBuscada) !== -1) { filaHallada = hr + b; estadoHallado = mapa.estadoIdx >= 0 ? Utl_texto(bloque[b][mapa.estadoIdx]) : ''; break; }
+            var filaB = bloque[b] || [];
+            if (filaB.join('|').indexOf(d.marcaBuscada) !== -1) {
+              filaHallada = hr + b;
+              estadoHallado = mapa.estadoIdx >= 0 ? Utl_texto(filaB[mapa.estadoIdx]) : '';
+            }
+            var nomB = idxNom2 >= 0 ? filaB[idxNom2] : '';
+            var rutB = idxRut2 >= 0 ? filaB[idxRut2] : '';
+            if (Utl_vacio(nomB) && Utl_vacio(rutB)) continue;
+            var estB = mapa.estadoIdx >= 0 ? Utl_texto(filaB[mapa.estadoIdx]).toUpperCase() : '';
+            if (estB === 'INGRESADO') continue;
+            pendientes += 1;
+            if (primeraFila === null) primeraFila = hr + b;
+            if (muestras.length < 3) muestras.push({ indexBloque: b, filaFis: hr + b });
           }
           info.marcaHallada = filaHallada > 0 ? { fila: filaHallada, estado: estadoHallado.substring(0, 40) } : null;
           if (info.coordRegistrada && filaHallada > 0 && filaHallada !== filaCoord) {
             info.desplazamiento = 'coord=' + filaCoord + ' vs marca=' + filaHallada;
           }
-        }
-        // Vista del pipeline: si la fila anexada NO aparece aquí, el defecto
-        // está aguas arriba de escribirEstados. Resumen + primeros 3 para no
-        // truncar las secciones clave del diagnóstico.
-        try {
-          if (typeof Ingresos_leerHoja === 'function') {
-            var st = Ingresos_leerHoja(nk).staging;
-            info.pendientes = st.length;
-            info.primeraFila = st.length ? Number(st[0].FILA_ORIGEN) : null;
-            info.staging = st.slice(0, 3).map(function (s) {
-              return {
-                fila: Utl_texto(s.FILA_ORIGEN),
-                validacion: Utl_texto(s.ESTADO_VALIDACION),
-                rut: (s.NORMALIZADO && s.NORMALIZADO.RUT) ? Utl_texto(s.NORMALIZADO.RUT) : ''
-              };
-            });
-          }
-        } catch (eSt) {
-          info.errorStaging = eSt && eSt.message ? eSt.message : String(eSt);
+          // Muestras ≤3 normalizadas (misma semántica que el staging del
+          // pipeline), para que el diagnóstico conserve validacion/rut sin pagar
+          // 1000+ normalizaciones.
+          var stMuestras = [];
+          muestras.forEach(function (m) {
+            try {
+              var filaM = bloque[m.indexBloque];
+              var v = {};
+              CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
+                if (mapa.campos && mapa.campos[c] !== undefined) v[c] = filaM[mapa.campos[c]];
+              });
+              var norm = Fuentes_normalizar(Fuentes_crearFila(
+                { archivo: 'HOJA_INGRESO', hoja: nk, fila: m.filaFis, sector: Ingresos_hojaASector(nk) }, v));
+              stMuestras.push({ fila: String(m.filaFis), validacion: Utl_texto(norm.ESTADO_VALIDACION), rut: (norm.NORMALIZADO && norm.NORMALIZADO.RUT) ? Utl_texto(norm.NORMALIZADO.RUT) : '' });
+            } catch (eM) {
+              stMuestras.push({ fila: String(m.filaFis), validacion: 'ERR', rut: '' });
+            }
+          });
+          info.pendientes = pendientes;
+          info.primeraFila = primeraFila;
+          info.staging = stMuestras;
+          console.log('[PIPE] diag t=' + (Date.now() - _tDiagHoja) + 'ms hoja=' + nk + ' filas=' + (bloque.length - 1) + ' pendientes=' + pendientes + ' marca=' + info.marcaHallada);
         }
       }
       d.hojas[nk] = info;
@@ -1508,6 +1540,7 @@ function Form_procesarPendientes(opciones) {
     var acotacion = Form_derivarAcotacionPaso3(filasAnexadas, Form_buscarFilaIngresoPorMarca);
     var soloHojas = acotacion.soloHojas;
     var soloFilas = acotacion.soloFilas;
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (acotación paso 3 + búsqueda marcas) acotacion=' + JSON.stringify(acotacion));
     var resumenPipeline = null;
     if (hayAnexos || filasAnexadas.length) {
       console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
@@ -1530,6 +1563,7 @@ function Form_procesarPendientes(opciones) {
       var hoja = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
       if (hoja && !hojasAnexadas[hoja]) hojasAnexadas[hoja] = Modelo_leerBloqueCabecera(hoja);
     });
+    console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (paso 4b lectura bloques hojas anexadas) hojas=' + JSON.stringify(Object.keys(hojasAnexadas)));
 
     var trailers = [];
      lote.decisiones.forEach(function (d) {

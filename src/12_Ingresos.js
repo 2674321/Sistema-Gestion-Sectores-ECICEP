@@ -120,6 +120,7 @@ function Ingresos_decidirEscritura(fila) {
  */
 function Ingresos_procesarFilas(filasStaging, store, opciones) {
   opciones = opciones || {};
+  var _tPF = Date.now();
   var confirmarNuevos = !!opciones.confirmarNuevos;
   var seqPac = 0, seqEv = (opciones.evSecuenciaInicial || 1) - 1;
   var indices = Iden_construirIndices(store.pacientes);
@@ -220,6 +221,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       idInterno, ev.evento.ID_EVENTO);
   });
 
+  console.log('[PIPE] procesarFilas t=' + (Date.now() - _tPF) + 'ms filas=' + filasStaging.length + ' pacientesIdx=' + (store.pacientes || []).length);
   return { resultados: resultados, resumen: resumen, pacientesNuevos: pacientesNuevos, eventos: eventos };
 }
 
@@ -259,6 +261,7 @@ function _ingresosUsuarioActual() {
  * @returns {staging:[], hoja:Object|null}
  */
 function Ingresos_leerHoja(nombreHoja) {
+  var _tHoja = Date.now();
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
   var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
@@ -305,6 +308,7 @@ function Ingresos_leerHoja(nombreHoja) {
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v)));
   }
+  console.log('[PIPE] leerHoja ' + nombreHoja + ' t=' + (Date.now() - _tHoja) + 'ms valores=' + valores.length + ' staging=' + staging.length);
   return { staging: staging, hoja: hoja };
 }
 
