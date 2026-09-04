@@ -74,19 +74,28 @@ function Form_buscarFilaIngresoPorMarca(marca) {
     try {
       var hoja = ss.getSheetByName(nombreHoja);
       if (!hoja || hoja.getLastRow() < 1) continue;
-      var hr = Modelo_headerRow(nombreHoja);
       var ancho = Math.max(hoja.getLastColumn() || 0, 1);
-      var valores = hoja.getRange(hr, 1, Math.max(hoja.getLastRow() - hr + 1, 1), ancho).getValues();
-      if (valores[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) {
+      var hr = Modelo_headerRow(nombreHoja);
+      var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+      // Fallback legacy: encabezados reales en fila 1.
+      if (enc.join('|').toUpperCase().indexOf('NOMBRE') === -1) {
         var alt0 = hoja.getRange(1, 1, 1, ancho).getValues()[0];
         if (alt0.join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
           hr = 1;
-          valores = hoja.getRange(1, 1, hoja.getLastRow(), ancho).getValues();
+          enc = alt0;
         }
       }
-      for (var f = 1; f < valores.length; f++) {
-        if (valores[f].join('|').indexOf(objetivo) !== -1) {
-          return { hoja: nombreHoja, fila: hr + f };
+      // Barrido SOLO de la columna FUENTE (la marca vive ahí): evita leer el
+      // ancho completo de todas las INGRESO_* en cada envío.
+      var posFuente = -1;
+      enc.forEach(function (h, i) { if (Utl_claveAlnum(h) === 'FUENTE') posFuente = i; });
+      if (posFuente < 0) continue;
+      var n = hoja.getLastRow() - hr;
+      if (n < 1) continue;
+      var col = hoja.getRange(hr + 1, posFuente + 1, n, 1).getValues();
+      for (var f = 0; f < col.length; f++) {
+        if (Utl_texto(col[f][0]).indexOf(objetivo) !== -1) {
+          return { hoja: nombreHoja, fila: hr + 1 + f };
         }
       }
     } catch (e) {
@@ -1057,17 +1066,70 @@ function Form_idsCapturados() {
 }
 
 /** GAS: marcas de eventos clínicos existentes 'FORM|<id>|<ACCION>'. */
+/**
+ * GAS: índices marca FORM|... → {idInterno, idEvento} leyendo SOLO las
+ * columnas necesarias de EVENTOS (FUENTE, ID_INTERNO, ID_EVENTO) en lugar de
+ * la hoja completa. Se invoca 2 veces por envío; con miles de eventos, leer
+ * las 16 columnas era un costo evitable del envío.
+ */
 function Form_leerMarcas() {
   var salida = {};
   if (typeof SpreadsheetApp === 'undefined') return salida;
   try {
-    var eventos = Modelo_leerEventos() || [];
-    eventos.forEach(function (ev) {
-      var f = Utl_texto(ev.FUENTE);
-      if (f.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0) salida[f] = { idInterno: ev.ID_INTERNO || '', idEvento: ev.ID_EVENTO || '' };
-    });
+    var hoja = Modelo_hoja(HOJAS.EVENTOS);
+    if (!hoja) return salida;
+    var hr = Modelo_headerRow(HOJAS.EVENTOS);
+    var ultima = hoja.getLastRow();
+    if (ultima < hr) return salida;
+    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+    var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+    var pos = {};
+    enc.forEach(function (h, i) { pos[Utl_texto(h).trim().toUpperCase()] = i; });
+    var desde = Modelo_dataStartRow(HOJAS.EVENTOS);
+    var n = ultima - desde + 1;
+    if (n < 1) return salida;
+    function leerCol(nombre) {
+      var p = pos[nombre];
+      if (p === undefined || p === null) return [];
+      return hoja.getRange(desde, p + 1, n, 1).getValues();
+    }
+    var fuentes = leerCol('FUENTE');
+    if (!fuentes.length) return salida;
+    var internos = leerCol('ID_INTERNO');
+    var evs = leerCol('ID_EVENTO');
+    for (var i = 0; i < fuentes.length; i++) {
+      var f = Utl_texto(fuentes[i] && fuentes[i][0]);
+      if (f.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0) {
+        salida[f] = {
+          idInterno: Utl_texto((internos[i] && internos[i][0]) || ''),
+          idEvento: Utl_texto((evs[i] && evs[i][0]) || '')
+        };
+      }
+    }
   } catch (e) { /* sin eventos disponibles */ }
   return salida;
+}
+
+/**
+ * PURA/GAS: estado de una fila desde un bloque ya leído (encabezados, ...datos).
+ * El bloque debe ir alineado a los encabezados reales (Modelo_leerBloqueCabecera).
+ * Si el bloque está desalineado devuelve estado '' para que el llamador pueda
+ * resolver por MARCA como respaldo.
+ */
+function Form_leerFilaIngresoDesdeBloque(nombreHoja, filaFisica, valores) {
+  if (!valores || valores.length < 2) return { estado: 'ERROR', nota: 'SIN_DATOS' };
+  var hr = Modelo_headerRow(nombreHoja);
+  if (valores[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) {
+    return { estado: '', nota: 'BLOQUE_DESALINEADO' };
+  }
+  var idxDato = Number(filaFisica) - hr;
+  if (isNaN(idxDato) || idxDato < 1 || idxDato >= valores.length) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
+  var fila = valores[idxDato];
+  var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
+  return {
+    estado: mapa.estadoIdx >= 0 ? Utl_texto(fila[mapa.estadoIdx]).toUpperCase() : '',
+    nota: mapa.notaIdx >= 0 ? Utl_texto(fila[mapa.notaIdx]) : ''
+  };
 }
 
 /** GAS: re-lee el estado de una fila de ingreso anexada (tras el pipeline). */
@@ -1207,6 +1269,23 @@ function Form_procesarPendientes(opciones) {
     });
 
     // ---- efectos por tipo ----
+
+    // (0.5) estabilizar el layout de las INGRESO_* ANTES de anexar: si una hoja
+    //       está en layout legacy, HVis_normalizarLayout inserta filas arriba
+    //       (MIGRABLE_ABRIR). Ejecutarlo aquí (ritual pre-anexo) garantiza que
+    //       las coordenadas registradas al anexar (ingreso.fila) no se desplacen
+    //       luego, y el paso (4) puede leer por coordenada directa; el barrido
+    //       por MARCA queda solo como respaldo. El pipeline lo vuelve a llamar
+    //       al inicio, pero con fast-path (HVis_yaFormateada) es casi gratis.
+    try {
+      if (typeof HVis_formatearIngresos === 'function') {
+        HVis_formatearIngresos();
+        console.log('[PIPE] layout INGRESO estable pre-anexo (t=' + (Date.now() - _tForm) + 'ms)');
+      }
+    } catch (eForm) {
+      Log_warning('Formulario', 'normalizarLayoutPreAnexo', eForm && eForm.message ? eForm.message : String(eForm));
+    }
+
     // (1) anexar filas NUEVO_INGRESO (por hoja, sin duplicar: ANEXAR solo si sin INGRESO_FILA)
     var porHoja = {};
     lote.decisiones.forEach(function (d) {
@@ -1277,6 +1356,17 @@ function Form_procesarPendientes(opciones) {
 
     // (4) resultados finales (re-leer) e ids de evento para clínicas
     var marcasFinales = Form_leerMarcas();
+
+    // (4b) leer UNA vez el bloque completo de cada hoja INGRESO_* involucrada:
+    //      con el layout estabilizado (0.5), las coordenadas registradas al
+    //      anexar son válidas y basta una lectura por hoja (no una por fila).
+    var hojasAnexadas = {};
+    lote.decisiones.forEach(function (d) {
+      if (d.decision !== 'ANEXAR' && d.decision !== 'YA_ANEXADO') return;
+      var hoja = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
+      if (hoja && !hojasAnexadas[hoja]) hojasAnexadas[hoja] = Modelo_leerBloqueCabecera(hoja);
+    });
+
     var trailers = [];
      lote.decisiones.forEach(function (d) {
       var est = 'ERROR', mot = d.motivo || '', idInt = d.idInterno || '', idEv = (marcasFinales[Form_marcadorFuente(d.responseId, d.accion)] || {}).idEvento || '';
@@ -1294,25 +1384,31 @@ function Form_procesarPendientes(opciones) {
         est = d._ok ? 'PROCESADO' : 'ERROR';
         if (!d._ok && !mot) mot = d._motivo || '';
       } else if (d.decision === 'ANEXAR' || d.decision === 'YA_ANEXADO') {
-        // Resolver la fila por MARCA (barrido de contenido): robusto frente a
-        // desplazamientos de fila causados por HVis_normalizarLayout (inserta
-        // filas al inicio si la hoja estaba en layout legacy). La coordenada
-        // registrada al anexar puede quedar desactualizada.
-        var hallado = Form_buscarFilaIngresoPorMarca(Form_marcadorFuente(d.responseId, 'INGRESO'));
-        var ub = Form_resolverFilaIngreso(hallado, d.ingreso, d.ingresoHoja, d.ingresoFila);
-        var filaAnnex = ub ? ub.fila : '';
-        var hojaAnnex = ub ? ub.hoja : '';
-        if (hallado) console.log('[PIPE] fila resuelta por marca '+d.responseId+' -> '+hallado.hoja+'/'+hallado.fila);
-        if (hojaAnnex && filaAnnex) {
-          var lf = Form_leerFilaIngreso(hojaAnnex, filaAnnex);
-          console.log('[PIPE] Form_leerFilaIngreso '+d.responseId+' -> '+hojaAnnex+' fila='+filaAnnex+' lf='+JSON.stringify(lf));
+        // Resolver por COORDENADA registrada al anexar (layout ya estable por el
+        // ritual pre-anexo 0.5). Solo si la lectura directa es inconcluyente se
+        // resuelve por MARCA (barrido FUENTE) como respaldo robusto.
+        var hojaA = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
+        var filaA = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
+        var lf = null;
+        if (hojaA && filaA && hojasAnexadas[hojaA]) {
+          lf = Form_leerFilaIngresoDesdeBloque(hojaA, filaA, hojasAnexadas[hojaA]);
+        }
+        if (!lf || !lf.estado || lf.nota === 'FILA_INGRESO_FUERA_DE_RANGO' || lf.nota === 'BLOQUE_DESALINEADO') {
+          var hallado = Form_buscarFilaIngresoPorMarca(Form_marcadorFuente(d.responseId, 'INGRESO'));
+          var ub = Form_resolverFilaIngreso(hallado, d.ingreso, d.ingresoHoja, d.ingresoFila);
+          if (ub && ub.hoja && ub.fila) {
+            lf = Form_leerFilaIngreso(ub.hoja, ub.fila);
+            if (hallado) console.log('[PIPE] fila resuelta por marca '+d.responseId+' -> '+hallado.hoja+'/'+hallado.fila);
+          } else if (!hallado) {
+            console.log('[PIPE] SIN_FILA_INGRESO '+d.responseId);
+          }
+        }
+        if (lf && lf.estado) {
           var map = Form_mapearResultadoFila(lf.estado, lf.nota);
           est = map.estado; mot = map.motivo;
-          console.log('[PIPE] mapeado '+d.responseId+' est='+est+' mot='+mot);
         } else {
           est = 'ERROR';
           if (!mot) mot = 'SIN_FILA_INGRESO';
-          console.log('[PIPE] SIN_FILA_INGRESO '+d.responseId);
         }
       }
       var reint = Number(d.reintentos) || 0;

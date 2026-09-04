@@ -229,9 +229,16 @@ function UI_lecturaEstadoRespuesta(responseId) {
     if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
       return { estado: 'RECIBIDO', motivo: '', idInterno: '' };
     }
-    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
-    var mapa = Form_mapeoEncabezados(valores[0]);
-    for (var f = valores.length - 1; f > 0; f--) {
+    var ultima = hoja.getLastRow();
+    var hr = Modelo_headerRow(HOJAS.FORM_RESPUESTAS);
+    // La respuesta recién se escribió al final: leer solo la cola (evita leer
+    // todo el histórico de FORM_RESPUESTAS en cada envío).
+    var desde = Math.max(hr + 1, ultima - 39);
+    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+    var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+    var mapa = Form_mapeoEncabezados(enc);
+    var valores = hoja.getRange(desde, 1, ultima - desde + 1, ancho).getValues();
+    for (var f = valores.length - 1; f >= 0; f--) {
       if (Utl_texto(valores[f][mapa.idx['RESPONSEID']]) === String(responseId)) {
         return {
           estado: mapa.idx['ESTADO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ESTADO']]) : '',
