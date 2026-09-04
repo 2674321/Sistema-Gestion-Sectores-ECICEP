@@ -40,6 +40,15 @@ function doGet(e) {
 // ---------------------------------------------------------------------------
 
 /**
+ * GAS: expone a la Web App el esquema del formulario (secciones por ACCION,
+ * campos requeridos y mensajes de éxito) derivado de FORM_CONFIG. La UI pinta
+ * y valida con LO MISMO que valida el backend — sin reglas duplicadas a mano.
+ */
+function WebApp_esquemaFormulario() {
+  return Form_esquemaFormulario();
+}
+
+/**
  * GAS: puente entre la interfaz WebApp y el pipeline existente.
  * Recibe `datos` serializables desde el HTML (claves = campos del contrato),
  * los deposita como una fila RECIBIDO en FORM_RESPUESTAS y dispara

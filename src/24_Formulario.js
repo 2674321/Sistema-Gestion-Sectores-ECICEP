@@ -112,6 +112,53 @@ function Form_erroresTexto(errores) {
   }).join(' · ');
 }
 
+/**
+ * PURA: ¿un campo aplica a una acción? Sin `acciones` en su definición aplica
+ * a TODAS (p.ej. OBSERVACIONES). `ACCION` es estructural y se excluye siempre.
+ */
+function Form_campoAplicaAccion(campoDef, accion) {
+  if (!campoDef) return false;
+  if (campoDef.campo === 'ACCION') return false;
+  if (!Array.isArray(campoDef.acciones)) return true;
+  return campoDef.acciones.indexOf(accion) !== -1;
+}
+
+/**
+ * PURA: esquema completo del formulario derivado de FORM_CONFIG (única fuente
+ * de verdad). La Web App lo consume para pintar secciones y validar campos sin
+ * duplicar reglas a mano; el backend ya valida con la misma información.
+ * OBSERVACIONES no declara `acciones` → aparece en todas las acciones.
+ * @returns {ACCION: {secciones:{ident:bool, evento:bool, tel:bool, prof:bool,
+ *          obs:bool}, camposRequeridos:[campo], mensajeExito:string}}
+ */
+function Form_esquemaFormulario() {
+  var seccionNombres = ['ident', 'evento', 'tel', 'prof', 'obs'];
+  var seccionDef = FORM_CONFIG.SECCIONES || {};
+  var detalle = (FORM_CONFIG.ACCIONES.DETALLE) || {};
+  var campos = FORM_CONFIG.CAMPOS || [];
+  var acciones = FORM_CONFIG.ACCIONES.VALIDOS || [];
+  var esquema = {};
+
+  acciones.forEach(function (acc) {
+    var camposAccion = campos.filter(function (c) { return Form_campoAplicaAccion(c, acc); });
+    var secciones = {};
+    seccionNombres.forEach(function (sec) {
+      secciones[sec] = (seccionDef[sec] || []).some(function (campo) {
+        return Form_campoAplicaAccion(
+          campos.filter(function (c) { return c.campo === campo; })[0], acc);
+      });
+    });
+    var camposRequeridos = camposAccion.filter(function (c) { return c.requerido === true; })
+      .map(function (c) { return c.campo; });
+    esquema[acc] = {
+      secciones: secciones,
+      camposRequeridos: camposRequeridos,
+      mensajeExito: (detalle[acc] && detalle[acc].mensaje) || ''
+    };
+  });
+  return esquema;
+}
+
 // ---------------------------------------------------------------------------
 // NÚCLEO PURO — validación y normalización de una respuesta
 // ---------------------------------------------------------------------------

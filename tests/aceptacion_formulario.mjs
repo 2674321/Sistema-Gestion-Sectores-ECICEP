@@ -604,6 +604,56 @@ registrar('operativo: resolver fila inválido devuelve null (no SIN_ESTADO enga�
   return { ok, causa: 'el resolver no devolvió null para coordenadas ausentes' };
 });
 
+registrar('operativo: esquema por ACCION deriva secciones desde CAMPOS (fuente única)', () => {
+  const esq = T.Form_esquemaFormulario();
+  const ok = !!esq
+    && esq.NUEVO_INGRESO.secciones.ident === true
+    && esq.NUEVO_INGRESO.secciones.evento === false
+    && esq.NUEVO_INGRESO.secciones.tel === true
+    && esq.NUEVO_INGRESO.secciones.prof === true
+    && esq.NUEVO_INGRESO.secciones.obs === true
+    && esq.REGISTRAR_CONTROL.secciones.ident === false
+    && esq.REGISTRAR_CONTROL.secciones.evento === true
+    && esq.REGISTRAR_CONTROL.secciones.obs === true
+    && esq.ACTUALIZAR_DATOS.secciones.tel === true
+    && esq.ACTUALIZAR_DATOS.secciones.evento === false;
+  return { ok, causa: 'las secciones por ACCION no coinciden con CAMPOS[].acciones' };
+});
+
+registrar('operativo: esquema por ACCION deriva campos requeridos correctos', () => {
+  const esq = T.Form_esquemaFormulario();
+  const j = (a) => (esq[a].camposRequeridos || []).sort().join(',');
+  const ok = j('NUEVO_INGRESO') === 'FECHA_NACIMIENTO,NOMBRE,PROFESIONAL,RUT,SECTOR'
+    && j('REGISTRAR_CONTROL') === 'FECHA_EVENTO,PROFESIONAL,RUT'
+    && j('REGISTRAR_SEGUIMIENTO') === 'FECHA_EVENTO,PROFESIONAL,RUT'
+    && j('ACTUALIZAR_DATOS') === 'PROFESIONAL,RUT';
+  return { ok, causa: 'camposRequeridos derivados no coinciden con el contrato: ' + j('NUEVO_INGRESO') };
+});
+
+registrar('operativo: esquema expone mensaje de éxito por ACCION (no hardcodeado en HTML)', () => {
+  const esq = T.Form_esquemaFormulario();
+  const ok = esq.NUEVO_INGRESO.mensajeExito === 'Nuevo ingreso registrado correctamente'
+    && esq.REGISTRAR_CONTROL.mensajeExito === 'Control registrado correctamente'
+    && esq.ACTUALIZAR_DATOS.mensajeExito === 'Datos actualizados correctamente';
+  return { ok, causa: 'mensajeExito por ACCION incompleto o ausente' };
+});
+
+registrar('operativo: PROFESIONAL participa en NUEVO_INGRESO (sección prof visible y requerida)', () => {
+  const esq = T.Form_esquemaFormulario();
+  const prof = T.FORM_CONFIG.CAMPOS.find(c => c.campo === 'PROFESIONAL');
+  const ok = prof && prof.acciones.indexOf('NUEVO_INGRESO') !== -1
+    && prof.requerido === true
+    && esq.NUEVO_INGRESO.secciones.prof === true
+    && esq.NUEVO_INGRESO.camposRequeridos.indexOf('PROFESIONAL') !== -1;
+  return { ok, causa: 'PROFESIONAL no participa en NUEVO_INGRESO (drift UI vs backend)' };
+});
+
+registrar('operativo: OBSERVACIONES sin acciones aplica a todas las ACCIONES', () => {
+  const esq = T.Form_esquemaFormulario();
+  const todas = T.FORM_CONFIG.ACCIONES.VALIDOS.every(a => esq[a].secciones.obs === true);
+  return { ok: todas, causa: 'OBSERVACIONES no aparece en todas las acciones' };
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // Resumen
 // ════════════════════════════════════════════════════════════════════════════

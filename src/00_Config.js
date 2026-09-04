@@ -777,12 +777,32 @@ var FORM_CONFIG = {
     { pregunta: 'Teléfono(s)', campo: 'TELEFONOS', tipo: 'texto', acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Fecha del evento (control/seguimiento)', campo: 'FECHA_EVENTO', tipo: 'fecha', requerido: true,
       acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO'] },
-    { pregunta: 'Profesional que registra (opcional)', campo: 'PROFESIONAL', tipo: 'dropdown',
-      acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Profesional que registra', campo: 'PROFESIONAL', tipo: 'dropdown', requerido: true,
+      acciones: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Segundo profesional (opcional)', campo: 'PROFESIONAL2', tipo: 'texto',
-      acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
+      acciones: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Descripción / observaciones', campo: 'OBSERVACIONES', tipo: 'texto' }
   ]
+};
+
+// Agrupación de campos en secciones de la Web App (única fuente de verdad).
+// Cada sección se muestra u oculta según si alguno de sus campos participa en
+// la ACCION activa (definida por CAMPOS[].acciones). Sincroniza backend y UI.
+FORM_CONFIG.SECCIONES = {
+  ident: ['NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR', 'ESTRATIFICACION'],
+  evento: ['FECHA_EVENTO'],
+  tel: ['TELEFONOS'],
+  prof: ['PROFESIONAL', 'PROFESIONAL2'],
+  obs: ['OBSERVACIONES']
+};
+
+// Detalle operativo por ACCION (mensajes y futuras reglas por tipo). El
+// formulario deriva su comportamiento de aquí + CAMPOS[].acciones/requerido.
+FORM_CONFIG.ACCIONES.DETALLE = {
+  NUEVO_INGRESO: { mensaje: 'Nuevo ingreso registrado correctamente' },
+  REGISTRAR_CONTROL: { mensaje: 'Control registrado correctamente' },
+  REGISTRAR_SEGUIMIENTO: { mensaje: 'Seguimiento registrado correctamente' },
+  ACTUALIZAR_DATOS: { mensaje: 'Datos actualizados correctamente' }
 };
 
 // ---------------------------------------------------------------------------

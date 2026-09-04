@@ -574,19 +574,45 @@
 (function(){
   var PROF = [];
 
-  var ACCIONES = {
-    NUEVO_INGRESO:         { ident:true,  evento:false, tel:true,  prof:true,  obs:true },
-    REGISTRAR_CONTROL:     { ident:false, evento:true,  tel:false, prof:true,  obs:true },
-    REGISTRAR_SEGUIMIENTO: { ident:false, evento:true,  tel:false, prof:true,  obs:true },
-    ACTUALIZAR_DATOS:      { ident:false, evento:false, tel:true,  prof:true,  obs:true }
+  var esquemaFormulario=null;
+  /* Fallback local (mismo contrato que FORM_CONFIG) por si el backend no
+     responde: la UI nunca queda sin comportamiento por acción. */
+  var ESQUEMA_FALLBACK={
+    NUEVO_INGRESO:{secciones:{ident:true,evento:false,tel:true,prof:true,obs:true},
+      camposRequeridos:['NOMBRE','FECHA_NACIMIENTO','SECTOR','PROFESIONAL'],
+      mensajeExito:'Nuevo ingreso registrado correctamente'},
+    REGISTRAR_CONTROL:{secciones:{ident:false,evento:true,tel:false,prof:true,obs:true},
+      camposRequeridos:['FECHA_EVENTO','PROFESIONAL'],
+      mensajeExito:'Control registrado correctamente'},
+    REGISTRAR_SEGUIMIENTO:{secciones:{ident:false,evento:true,tel:false,prof:true,obs:true},
+      camposRequeridos:['FECHA_EVENTO','PROFESIONAL'],
+      mensajeExito:'Seguimiento registrado correctamente'},
+    ACTUALIZAR_DATOS:{secciones:{ident:false,evento:false,tel:true,prof:true,obs:true},
+      camposRequeridos:['PROFESIONAL'],
+      mensajeExito:'Datos actualizados correctamente'}
   };
-
-  var ACCION_MENSAJES = {
-    NUEVO_INGRESO:         'Nuevo ingreso registrado correctamente',
-    REGISTRAR_CONTROL:     'Control registrado correctamente',
-    REGISTRAR_SEGUIMIENTO: 'Seguimiento registrado correctamente',
-    ACTUALIZAR_DATOS:      'Datos actualizados correctamente'
-  };
+  var CAMPO_A_DOM={RUT:'rut',NOMBRE:'nombre',SEXO:'sexo',FECHA_NACIMIENTO:'fnac',
+    SECTOR:'sector',ESTRATIFICACION:'estrat',TELEFONOS:'telefonos',
+    FECHA_EVENTO:'fecha_evento',PROFESIONAL:'profesional',PROFESIONAL2:'profesional2',
+    OBSERVACIONES:'obs'};
+  var MENSAJE_CAMPO={NOMBRE:'El nombre es obligatorio',FECHA_NACIMIENTO:'La fecha de nacimiento es obligatoria',
+    SECTOR:'Seleccione un sector',FECHA_EVENTO:'La fecha del evento es obligatoria',
+    PROFESIONAL:'Selecciona un profesional'};
+  var CAMPO_SECCION={NOMBRE:'ident',SEXO:'ident',FECHA_NACIMIENTO:'ident',SECTOR:'ident',
+    ESTRATIFICACION:'ident',FECHA_EVENTO:'evento',TELEFONOS:'tel',
+    PROFESIONAL:'prof',PROFESIONAL2:'prof',OBSERVACIONES:'obs'};
+  function _esquemaAccion(accion){
+    var e=(esquemaFormulario&&esquemaFormulario[accion])||ESQUEMA_FALLBACK[accion];
+    return e||{secciones:{},camposRequeridos:[],mensajeExito:''};
+  }
+  function cargarEsquema(){
+    google.script.run
+      .withSuccessHandler(function(e){
+        if(e&&typeof e==='object'){esquemaFormulario=e;pintarCampos();}
+      })
+      .withFailureHandler(function(){})
+      .WebApp_esquemaFormulario();
+  }
 
   var $=function(id){return document.getElementById(id)};
   var duplaVisible=false;
@@ -634,20 +660,20 @@
   }
 
   function pintarCampos(){
-    var a=ACCIONES[getAccion()]||{};
+    var sec=_esquemaAccion(getAccion()).secciones;
     var secAccion={secIdent:'ident',secEvento:'evento',secTel:'tel',secProf:'prof',secObs:'obs'};
     Object.keys(secAccion).forEach(function(id){
-      var sec=$(id);
-      var show=a[secAccion[id]];
-      if(show){sec.classList.remove('collapsed');sec.classList.remove('hidden');}
-      else{sec.classList.add('collapsed');}
+      var secEl=$(id);
+      var show=sec[secAccion[id]];
+      if(show){secEl.classList.remove('collapsed');secEl.classList.remove('hidden');}
+      else{secEl.classList.add('collapsed');}
     });
     limpiarErrores();
-    if(!a.prof){duplaVisible=false;$('duplaP2').classList.remove('show');
+    if(!sec.prof){duplaVisible=false;$('duplaP2').classList.remove('show');
       $('duplaToggle').textContent='+ Agregar segundo profesional';
       $('duplaToggle').setAttribute('aria-expanded','false');}
-    if(a.evento&&!$('fecha_evento').value){$('fecha_evento').value=hoyISO();}
-    if(a.prof){var pf=$('profesional');if(!pf.value&&pf.options.length>1)pf.focus();}
+    if(sec.evento&&!$('fecha_evento').value){$('fecha_evento').value=hoyISO();}
+    if(sec.prof){var pf=$('profesional');if(!pf.value&&pf.options.length>1)pf.focus();}
   }
 
   function recolectar(){
@@ -710,33 +736,26 @@
   }
 
   function validarFormulario(){
-    var accion=getAccion();
+    var esp=_esquemaAccion(getAccion());
     var hay=false;
     limpiarErrores();
 
-    var esIngreso=accion==='NUEVO_INGRESO';
     var rutErr=validarRutBasico($('rut').value);
     if(rutErr){mostrarError('rut',rutErr);hay=true;}
 
-    if(esIngreso){
-      if(!($('nombre').value||'').trim()){mostrarError('nombre','El nombre es obligatorio');hay=true;}
-      var fn=$('fnac').value;
-      if(!fn){mostrarError('fnac','La fecha de nacimiento es obligatoria');hay=true;}
-      else if(!validarFecha(fn)){mostrarError('fnac','Fecha inv\u00e1lida');hay=true;}
-      if(!$('sector').value){mostrarError('sector','Seleccione un sector');hay=true;}
-    }
-
-    if(accion==='REGISTRAR_CONTROL'||accion==='REGISTRAR_SEGUIMIENTO'){
-      var fe=$('fecha_evento').value;
-      if(!fe){mostrarError('fecha_evento','La fecha del evento es obligatoria');hay=true;}
-      else if(!validarFecha(fe)){mostrarError('fecha_evento','Fecha inv\u00e1lida');hay=true;}
-    }
-
-    var prof=$('profesional').value;
-    if(!prof){mostrarError('profesional','Selecciona un profesional');hay=true;}
+    (esp.camposRequeridos||[]).forEach(function(campo){
+      if(campo==='RUT')return; // ya validado con reglas específicas arriba
+      var id=CAMPO_A_DOM[campo];if(!id)return;
+      var secN=(CAMPO_SECCION[campo]||'');if(secN&&!esp.secciones[secN])return;
+      var val=($(id).value||'').trim();
+      if(!val){mostrarError(id,(MENSAJE_CAMPO[campo]||'Campo obligatorio'));hay=true;return;}
+      if(campo==='FECHA_NACIMIENTO'||campo==='FECHA_EVENTO'){
+        if(!validarFecha(val)){mostrarError(id,'Fecha inv\u00e1lida');hay=true;}
+      }
+    });
 
     if(duplaVisible){
-      var p2=$('profesional2').value;
+      var prof=$('profesional').value,p2=$('profesional2').value;
       if(prof&&p2&&prof===p2){
         mostrarError('profesional2','Los dos profesionales deben ser diferentes');
         mostrarError('profesional','Los dos profesionales deben ser diferentes');
@@ -792,7 +811,7 @@
       return;
     }
     var isRev=d.estado==='REQUIERE_REVISION';
-    var msg=isRev?(r.message||'Registro recibido — requiere revisión'):ACCION_MENSAJES[accionEnvio]||'Registro guardado correctamente';
+    var msg=isRev?(r.message||'Registro recibido — requiere revisión'):_esquemaAccion(accionEnvio).mensajeExito||'Registro guardado correctamente';
     var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
     if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
     mostrarResumen(isRev?'err':'ok',msg,chips);
@@ -1155,6 +1174,7 @@
   /* ── Init ── */
   cargarUltimosInputs();
   poblarProfesionales();
+  cargarEsquema();
   pintarCampos();
   actualizarLimpiar();
   $('rut').focus();
