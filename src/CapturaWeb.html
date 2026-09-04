@@ -804,6 +804,7 @@
     if(!r.ok){
       estadoListo();
       var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
+      if(!det && r.message)det=_esc(r.message);
       mostrarResumen('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
       return;
     }

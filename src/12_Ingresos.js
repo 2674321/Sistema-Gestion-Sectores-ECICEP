@@ -351,7 +351,15 @@ function Ingresos_escribirEstados(resultados) {
         var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
         if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
         bloque[filaHoja][offsetEstado] = r.estado;
-        bloque[filaHoja][offsetNota] = r.nota;
+        // Preservar la marca de trazabilidad 'FORM|<responseId>|INGRESO' que el
+        // anexo dejó en NOTA_SISTEMA: la resolución de la Web App y la
+        // idempotencia del re-proceso dependen de que la marca siga presente
+        // tras escribir el estado. Se conserva ANTEPUESTA a la nota humana.
+        var notaAnt = Utl_texto(bloque[filaHoja][offsetNota] || '');
+        var notaNueva = Utl_texto(r.nota || '');
+        bloque[filaHoja][offsetNota] = notaAnt.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0
+          ? (notaNueva ? notaAnt + ' · ' + notaNueva : notaAnt)
+          : notaNueva;
       });
       hoja.getRange(ini, desde, ultima - ini + 1, ancho).setValues(bloque);
     });

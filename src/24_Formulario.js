@@ -85,17 +85,31 @@ function Form_buscarFilaIngresoPorMarca(marca) {
           enc = alt0;
         }
       }
-      // Barrido SOLO de la columna FUENTE (la marca vive ahí): evita leer el
-      // ancho completo de todas las INGRESO_* en cada envío.
-      var posFuente = -1;
-      enc.forEach(function (h, i) { if (Utl_claveAlnum(h) === 'FUENTE') posFuente = i; });
-      if (posFuente < 0) continue;
+      // La marca de trazabilidad vive en NOTA_SISTEMA (hojas INGRESO_*) o en
+      // FUENTE (EVENTOS). Se detecta la columna por encabezado y se barre SOLO
+      // esa columna (rápido: una lectura por hoja); si el encabezado no es
+      // reconocible, cae al barrido completo de la fila (robustez layout legacy).
+      var posMarca = -1;
+      enc.forEach(function (h, i) {
+        var k = Utl_claveAlnum(h);
+        if (k === 'FUENTE' || k === 'NOTASISTEMA' || k === 'NOTASISTEMAS' || k === 'NOTA') posMarca = i;
+      });
       var n = hoja.getLastRow() - hr;
       if (n < 1) continue;
-      var col = hoja.getRange(hr + 1, posFuente + 1, n, 1).getValues();
-      for (var f = 0; f < col.length; f++) {
-        if (Utl_texto(col[f][0]).indexOf(objetivo) !== -1) {
-          return { hoja: nombreHoja, fila: hr + 1 + f };
+      if (posMarca >= 0) {
+        var col = hoja.getRange(hr + 1, posMarca + 1, n, 1).getValues();
+        for (var f = 0; f < col.length; f++) {
+          if (Utl_texto(col[f][0]).indexOf(objetivo) !== -1) {
+            return { hoja: nombreHoja, fila: hr + 1 + f };
+          }
+        }
+      } else {
+        var filasBarrido = hoja.getRange(hr + 1, 1, n, ancho).getValues();
+        var buscado = objetivo.toUpperCase();
+        for (var g = 0; g < filasBarrido.length; g++) {
+          if (filasBarrido[g].join('|').toUpperCase().indexOf(buscado) !== -1) {
+            return { hoja: nombreHoja, fila: hr + 1 + g };
+          }
         }
       }
     } catch (e) {
@@ -1342,16 +1356,23 @@ function Form_procesarPendientes(opciones) {
     });
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (acciones clínicas, paso 2)');
 
-    // (3) pipeline existente solo si hay ingresos nuevos anexados
+    // (3) pipeline existente si hay ingresos NUEVOS anexados, o si quedan
+    //     filas de ingreso en juego (ANEXAR/YA_ANEXADO). El segundo caso es
+    //     auto-reparación: un envío interrumpido (timeout) dejó la fila sin
+    //     ESTADO_INGRESO; el pipeline la re-procesa aquí y el paso (4) deja de
+    //     reportar SIN_FILA_INGRESO eternamente en los reenvíos.
     var hayAnexos = Object.keys(porHoja).length > 0;
+    var filasAnexadas = lote.decisiones.filter(function (d) {
+      return d.decision === 'ANEXAR' || d.decision === 'YA_ANEXADO';
+    });
     var resumenPipeline = null;
-    if (hayAnexos) {
-      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' confirmarNuevos='+(opciones.confirmarNuevos===true));
+    if (hayAnexos || filasAnexadas.length) {
+      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' confirmarNuevos='+(opciones.confirmarNuevos===true));
       resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true });
-      console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3)');
+      console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3, anexos=' + hayAnexos + ')');
       console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
     } else {
-      console.log('[PIPE] sin anexos, no se llama pipeline');
+      console.log('[PIPE] sin anexos ni filas de ingreso pendientes, no se llama pipeline');
     }
 
     // (4) resultados finales (re-leer) e ids de evento para clínicas

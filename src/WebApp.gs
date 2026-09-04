@@ -103,12 +103,21 @@ function Form_capturarDesdeUI(datos) {
     var existente = UI_buscarEnvioReciente(crudo.ACCION, crudo.RUT);
     if (existente && existente.responseId) {
       console.log('[BACKEND] 03c envío reciente detectado '+existente.responseId+' estado='+existente.estado);
+      // Si el envío previo quedó pendiente (un timeout interrumpió el
+      // procesamiento del lado del servidor), se re-ejecuta el pipeline para
+      // RETOMARLO y se responde con el estado real, nunca con un falso éxito.
+      if (existente.estado === 'RECIBIDO' || existente.estado === 'VALIDANDO') {
+        try { Form_procesarPendientes({ max: 200 }); } catch (eProc) { console.log('[BACKEND] 03c retomar pendientes: ' + String(eProc)); }
+      }
       var estadoExistente = UI_lecturaEstadoRespuesta(existente.responseId);
+      var pendiente = (estadoExistente.estado === 'RECIBIDO' || estadoExistente.estado === 'VALIDANDO');
       return {
-        ok: !(estadoExistente.estado === 'ERROR'),
+        ok: !(estadoExistente.estado === 'ERROR') && !pendiente,
         message: estadoExistente.estado === 'ERROR'
           ? 'El envío anterior falló: ' + (estadoExistente.motivo || estadoExistente.estado)
-          : 'Registro ya recibido (se evita duplicado)',
+          : (pendiente
+              ? 'Registro ya recibido (procesamiento pendiente; se retomará automáticamente)'
+              : 'Registro ya recibido (se evita duplicado)'),
         data: { responseId: existente.responseId, accion: crudo.ACCION, estado: estadoExistente.estado, motivo: estadoExistente.motivo, idInterno: estadoExistente.idInterno },
         errors: []
       };
@@ -154,14 +163,20 @@ function Form_capturarDesdeUI(datos) {
 
     var esError = estado.estado === 'ERROR';
     var esRevision = estado.estado === 'REQUIERE_REVISION';
-    var ok = !esError;
+    var procFallido = !!(proc && proc.ok === false);
+    // Respuesta VERAZ según lo que realmente ocurrió: si el procesamiento
+    // falló (lock ocupado, excepción) o la fila quedó sin estado final, nunca
+    // reportar "registrado correctamente" por defecto.
+    var ok = !esError && !procFallido;
     var message = esError
       ? ('No se pudo completar: ' + (estado.motivo || estado.estado))
       : esRevision
         ? 'Registro recibido — requiere revisión'
-        : (proc && proc.ok === false
-          ? ('Recibido. Procesamiento pendiente: ' + (proc.motivo || ''))
-          : 'Registro realizado correctamente');
+        : procFallido
+          ? ('No se pudo registrar: ' + (proc.motivo || 'El procesamiento no finalizó'))
+          : (estado.estado === 'RECIBIDO' || estado.estado === 'VALIDANDO')
+            ? 'Registro recibido. El procesamiento quedó pendiente; se retomará automáticamente.'
+            : 'Registro realizado correctamente';
     var resultado = {
       ok: ok,
       message: message,
