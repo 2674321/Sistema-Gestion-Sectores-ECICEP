@@ -805,6 +805,8 @@
       estadoListo();
       var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
       if(!det && r.message)det=_esc(r.message);
+      var diag=(r.data&&r.data.diagnostico)?JSON.stringify(r.data.diagnostico).substring(0,900):'';
+      if(diag)det+='<details style="margin-top:8px"><summary>Ver diagnóstico</summary><pre style="white-space:pre-wrap;font-size:11px;opacity:.85;margin:6px 0 0">'+_esc(diag)+'</pre></details>';
       mostrarResumen('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
       return;
     }

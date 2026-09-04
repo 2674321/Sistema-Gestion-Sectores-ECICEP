@@ -189,6 +189,18 @@ function Form_capturarDesdeUI(datos) {
       },
       errors: esError ? [{ campo: '_', mensaje: estado.motivo || estado.estado }] : []
     };
+    // Si el envío terminó en ERROR, adjuntar un diagnóstico en vivo de la hoja
+    // (estado real de la fila y de la marca), para depurar sin volver a ciegas.
+    if (esError) {
+      try {
+        if (typeof Form_diagnosticoEnvio === 'function') {
+          resultado.data.diagnostico = Form_diagnosticoEnvio(responseId);
+          console.log('[DIAG] ' + JSON.stringify(resultado.data.diagnostico).substring(0, 1500));
+        }
+      } catch (eDiag) {
+        console.log('[DIAG] error capturando diagnóstico: ' + String(eDiag));
+      }
+    }
     console.log('[BACKEND] 09 RETORNANDO ok=' + ok + ' estado=' + estado.estado);
     return resultado;
   } catch (err) {

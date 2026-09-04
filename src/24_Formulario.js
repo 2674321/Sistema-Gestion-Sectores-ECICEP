@@ -1205,6 +1205,87 @@ function Form_resolverFilaIngreso(hallado, ingreso, ingresoHoja, ingresoFila) {
   return { hoja: hoja || '', fila: String(fila) };
 }
 
+/**
+ * GAS: diagnóstico en vivo de un envío fallido (SIN_FILA_INGRESO). Lee el
+ * estado real en la hoja de cálculo para localizar dónde se rompió la
+ * resolución: fila en FORM_RESPUESTAS, coordenadas registradas, layout de
+ * cada INGRESO_* y qué dice ESTADO_INGRESO en la fila marcada.
+ * @param {string} responseId
+ * @returns {Object} diagnóstico estructurado (cero efectos colaterales)
+ */
+function Form_diagnosticoEnvio(responseId) {
+  var d = { responseId: responseId, respuesta: null, marcaBuscada: '', hojas: {} };
+  if (typeof SpreadsheetApp === 'undefined') return d;
+  try {
+    d.marcaBuscada = Form_marcadorFuente(responseId, 'INGRESO');
+    // 1) fila en FORM_RESPUESTAS
+    var hf = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+    if (hf && hf.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
+      var vf = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hf);
+      var mf = Form_mapeoEncabezados(vf[0]);
+      var ix = mf.idx || {};
+      for (var i = 1; i < vf.length; i++) {
+        if (Utl_texto(vf[i][ix.RESPONSEID]) === responseId) {
+          d.respuesta = {
+            estado: Utl_texto(vf[i][ix.ESTADO] || ''),
+            motivo: Utl_texto(vf[i][ix.MOTIVO] || ''),
+            reintentos: Utl_texto(vf[i][ix.REINTENTOS] || ''),
+            accion: Utl_texto(vf[i][ix.ACCION] || ''),
+            ingresoHoja: Utl_texto(vf[i][ix.INGRESOHOJA] || ''),
+            ingresoFila: Utl_texto(vf[i][ix.INGRESOFILA] || ''),
+            filaFisica: String(Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS) + i - 1)
+          };
+          break;
+        }
+      }
+    }
+    // 2) rastrear la marca en todas las INGRESO_*
+    var ss = Modelo_ss();
+    Object.keys(HOJAS_INGRESO).forEach(function (nk) {
+      var hs = ss.getSheetByName(nk);
+      var info = { existe: !!hs };
+      var hr = -1;
+      if (hs && hs.getLastRow() >= 1) {
+        hr = Modelo_headerRow(nk);
+        var ancho = Math.max(hs.getLastColumn() || 0, 1);
+        info.hr = hr;
+        info.dataStart = Modelo_dataStartRow(nk);
+        info.ultima = hs.getLastRow();
+        info.ancho = ancho;
+        var enc = hs.getRange(hr, 1, 1, ancho).getValues()[0];
+        info.encabezados = enc.join('|').substring(0, 260);
+        var mapa = Ingresos_mapearEncabezadosHoja(enc);
+        info.estadoIdx = mapa.estadoIdx;
+        info.notaIdx = mapa.notaIdx;
+        // coordena registrada (si apunta a esta hoja)
+        var filaCoord = (d.respuesta && d.respuesta.ingresoHoja === nk) ? Number(d.respuesta.ingresoFila) : NaN;
+        if (!isNaN(filaCoord) && filaCoord >= hr) {
+          var filaC = hs.getRange(filaCoord, 1, 1, ancho).getValues()[0];
+          info.coordRegistrada = {
+            fila: filaCoord,
+            estado: mapa.estadoIdx >= 0 ? Utl_texto(filaC[mapa.estadoIdx]).substring(0, 40) : 'SIN_ESTADO_COL',
+            nota: (mapa.notaIdx >= 0 ? Utl_texto(filaC[mapa.notaIdx]).substring(0, 120) : '')
+          };
+        }
+        // barrido por marca
+        var bloque = Modelo_leerBloqueCabecera(nk, hs);
+        if (bloque.length >= 2) {
+          var filaHallada = -1, estadoHallado = '';
+          for (var b = 1; b < bloque.length; b++) {
+            var hay = (bloque[b] || []).join('|');
+            if (hay.indexOf(d.marcaBuscada) !== -1) { filaHallada = hr + b; estadoHallado = mapa.estadoIdx >= 0 ? Utl_texto(bloque[b][mapa.estadoIdx]) : ''; break; }
+          }
+          info.marcaHallada = filaHallada > 0 ? { fila: filaHallada, estado: estadoHallado.substring(0, 40) } : null;
+        }
+      }
+      d.hojas[nk] = info;
+    });
+  } catch (e) {
+    d.errorDiagnostico = e && e.message ? e.message : String(e);
+  }
+  return d;
+}
+
 /** GAS: actualiza columnas de resultado de respuestas específicas (por fila). */
 function Form_actualizarTrailer(actualizaciones) {
   // actualizaciones: [{filaFisica, ingresoHoja, ingresoFila, reintentos, estado, motivo, idInterno, idEvento, fechaProceso}]
