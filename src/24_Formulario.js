@@ -1463,10 +1463,21 @@ function Form_procesarPendientes(opciones) {
     var filasAnexadas = lote.decisiones.filter(function (d) {
       return d.decision === 'ANEXAR' || d.decision === 'YA_ANEXADO';
     });
+    // El pipeline de la Web App se acota a las hojas INGRESO_* involucradas en
+    // ESTA captura. Hojas con saldos pendientes históricos (miles de filas sin
+    // ESTADO_INGRESO == 'INGRESADO') NO deben re-procesarse en cada envío: era
+    // la causa del timeout (>60 s) y del SIN_FILA_INGRESO. El resto del
+    // backlog se sigue procesando por lote desde el panel (llamada completa).
+    var hojasEnJuego = {};
+    filasAnexadas.forEach(function (d) {
+      var h = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
+      if (h) hojasEnJuego[h] = true;
+    });
+    var soloHojas = Object.keys(hojasEnJuego);
     var resumenPipeline = null;
     if (hayAnexos || filasAnexadas.length) {
-      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' confirmarNuevos='+(opciones.confirmarNuevos===true));
-      resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true });
+      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
+      resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null });
       console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3, anexos=' + hayAnexos + ')');
       console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
     } else {

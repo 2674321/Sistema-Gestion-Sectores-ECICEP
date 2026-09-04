@@ -398,10 +398,20 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (formato visual, paso 0)');
 
   // 1) leer todas las puertas de entrada
+  //    Con `soloHojas` (Web App), el pipeline se acota a las hojas INGRESO_*
+  //    de la captura en curso. Las hojas con saldos pendientes históricos
+  //    (cientos/miles de filas sin ESTADO_INGRESO == 'INGRESADO') NO vuelven a
+  //    procesarse en cada envío — era la causa del timeout (>60 s) de la Web
+  //    App. El backlog completo se sigue procesando por lote desde el panel.
+  var soloHojas = opciones && opciones.soloHojas && opciones.soloHojas.length ? opciones.soloHojas.slice() : null;
   var staging = [];
   Object.keys(HOJAS_INGRESO).forEach(function (hojaNombre) {
+    if (soloHojas && soloHojas.indexOf(hojaNombre) === -1) return;
     staging = staging.concat(Ingresos_leerHoja(hojaNombre).staging);
   });
+  if (soloHojas && soloHojas.length) {
+    console.log('[PIPE] pipeline acotado soloHojas=' + JSON.stringify(soloHojas));
+  }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (lectura hojas ingreso, paso 1)');
 
   // Sectores tocados por esta captura (para refrescar SOLO sus vistas).
