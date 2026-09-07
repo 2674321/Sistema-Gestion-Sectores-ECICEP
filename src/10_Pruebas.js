@@ -493,9 +493,6 @@ function _pruebas_eventos_staging(t, A) {
   });
 }
 
-var _salida_contador_n = 0;
-function salida_contador() { _salida_contador_n += 1; return _salida_contador_n - 1; }
-
 // ===========================================================================
 // ETAPA 3b — adaptadores INGRESO_* · gates · transacción paciente/evento
 // ===========================================================================
@@ -951,6 +948,24 @@ function _pruebas_etapa4(t, A) {
     });
     A.arreglos(ordenados.map(function (e) { return e.TIPO_EVENTO; }),
       ['INGRESO', 'SEGUIMIENTO', 'CONTROL'], 'cronológico ascendente');
+  });
+  t('REVISIÓN: clave de idempotencia por origen (no por ID_PROVISIONAL)', function () {
+    var a = _stagingCaso('posibleDuplicadoNombre', 80);
+    var b = _stagingCaso('posibleDuplicadoNombre', 999);
+    a.ARCHIVO_ORIGEN = 'X.xlsx'; a.HOJA_ORIGEN = 'A'; a.FILA_ORIGEN = 7;
+    b.ARCHIVO_ORIGEN = 'X.xlsx'; b.HOJA_ORIGEN = 'A'; b.FILA_ORIGEN = 7;
+    var fa = Rev_filaConflicto(a), fb = Rev_filaConflicto(b);
+    A.cierto(fa[5] !== fb[5], 'ID_PROVISIONAL distinto → DETALLE distinto');
+    A.igual(Rev_claveOrigenDesdeFila(fa), Rev_claveOrigenDesdeFila(fb), 'clave misma por origen');
+    var filtrado = Rev_filtrarConflictosNuevos([fa], [Rev_claveOrigenDesdeFila(fa)], Rev_claveOrigenDesdeFila);
+    A.igual(filtrado.length, 0, 'duplicado del mismo origen se descarta');
+  });
+  t('REVISIÓN: dedupe intra-lote — la misma fila origen solo encola una vez', function () {
+    var a = _stagingCaso('posibleDuplicadoNombre', 81); a.ARCHIVO_ORIGEN = 'Y.xlsx'; a.HOJA_ORIGEN = 'A'; a.FILA_ORIGEN = 1;
+    var b = _stagingCaso('posibleDuplicadoNombre', 82); b.ARCHIVO_ORIGEN = 'Y.xlsx'; b.HOJA_ORIGEN = 'A'; b.FILA_ORIGEN = 1;
+    var fa = Rev_filaConflicto(a), fb = Rev_filaConflicto(b);
+    var filtrado = Rev_filtrarConflictosNuevos([fa, fb], [], Rev_claveOrigenDesdeFila);
+    A.igual(filtrado.length, 1, 'solo una entrada por origen');
   });
 }
 
@@ -1775,10 +1790,10 @@ function _pruebas_instalador(t, A) {
 
 function _pruebas_rem_excel(t, A) {
   var PACS = [
-    { ID_INTERNO:'P1', RUT:'11111111-1', NOMBRE:'ANA UNO',   SEXO:'F', FECHA_NACIMIENTO:'1980-05-10' },
-    { ID_INTERNO:'P2', RUT:'22222222-2', NOMBRE:'BETO DOS',  SEXO:'M', FECHA_NACIMIENTO:'1965-01-20' },
-    { ID_INTERNO:'P3', RUT:'33333333-3', NOMBRE:'CARLA TRES',SEXO:'',  FECHA_NACIMIENTO:'' },
-    { ID_INTERNO:'P4', RUT:'44444444-4', NOMBRE:'DIEZ CUATRO',SEXO:'F',FECHA_NACIMIENTO:'1990-09-09' }
+    { ID_INTERNO:'P1', RUT:'11111111-1', NOMBRE:'ANA UNO',   SEXO:'F', SECTOR:'NARANJO', FECHA_NACIMIENTO:'1980-05-10' },
+    { ID_INTERNO:'P2', RUT:'22222222-2', NOMBRE:'BETO DOS',  SEXO:'M', SECTOR:'NARANJO', FECHA_NACIMIENTO:'1965-01-20' },
+    { ID_INTERNO:'P3', RUT:'33333333-3', NOMBRE:'CARLA TRES',SEXO:'',  SECTOR:'AMARILLO', FECHA_NACIMIENTO:'' },
+    { ID_INTERNO:'P4', RUT:'44444444-4', NOMBRE:'DIEZ CUATRO',SEXO:'F',SECTOR:'VERDE', FECHA_NACIMIENTO:'1990-09-09' }
   ];
   function EV(id,f,tipo,g,sector){return {ID_INTERNO:id,RUT:'',NOMBRE:'',FECHA_EVENTO:f,TIPO_EVENTO:tipo,
     SECTOR:(sector||'NARANJO'),RIESGO_G:g,
@@ -1918,6 +1933,70 @@ function _pruebas_rem_excel(t, A) {
     var c=Rem9_construir({pacientes:PACS.concat([{ID_INTERNO:'P5',RUT:'55555555-5',NOMBRE:'CINCO',SEXO:'F'}]),
       eventos:evs,anio:2026,mes:8},{sector:'VERDE'});
     A.igual(c.atenciones,1,'solo VERDE');
+  });
+
+  t('REMX: resumen es CENSO del sector — incluye pacientes sin actividad en el mes', function(){
+    var pacs = PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'CINCO DIEZ', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01' }]);
+    var c = Rem9_construir({ pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 }, { sector: 'TODOS' });
+    A.igual(c.resumen.length, 5, 'los 5 pacientes (un censo, no solo actividad)');
+    var sinAct = c.resumen.filter(function (r) { return r[0] === '99999999-9'; })[0];
+    A.cierto(sinAct, 'paciente presente sin actividad');
+    A.igual(sinAct[19], 0, 'total en cero');
+    A.igual(sinAct[20], 'NO', 'sin ingreso');
+  });
+
+  t('REMX: censo filtra por sector canónico del PACIENTE (indicadores del mes)', function(){
+    var pacs = PACS.concat([{ ID_INTERNO:'PV', RUT:'55555555-5', NOMBRE:'CINCO', SEXO:'F', FECHA_NACIMIENTO:'1990-01-01', SECTOR:'VERDE' }]);
+    var evs = JSON.parse(JSON.stringify(eventos));
+    evs.push({ ID_INTERNO:'PV', RUT:'', NOMBRE:'', FECHA_EVENTO:'2026-08-25', TIPO_EVENTO:'INGRESO', SECTOR:'VERDE', RIESGO_G:'G1', PROFESIONAL:'', CANTIDAD:0, DESCRIPCION:'' });
+    var c = Rem9_construir({ pacientes: pacs, eventos: evs, anio: 2026, mes: 8 }, { sector: 'VERDE' });
+    A.igual(c.resumen.length, 2, 'P4 (del censo) + PV, ambos VERDE');
+    var pv = c.resumen.filter(function (r) { return r[0] === '55555555-5'; })[0];
+    A.igual(pv[3], 1, 'ingreso G1 del mes');
+    A.igual(pv[19], 1, 'total del mes');
+  });
+
+  t('REMV: vista GENERAL — censo histórico con indicadores acumulados', function(){
+    var v = Rem9_armarVistaDatos({
+      pacientes: PACS.concat([{ ID_INTERNO:'P5', RUT:'55555555-5', NOMBRE:'CINCO', SEXO:'F', FECHA_NACIMIENTO:'1990-01-01', SECTOR:'NARANJO' }]),
+      eventos: eventos, anio: 2026, mes: 8 }, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'GENERAL' });
+    A.igual(v.meta.modo, 'GENERAL', 'modo');
+    A.igual(v.tablas.length, 1, 'una tabla (sin Bloque A)');
+    var censo = v.tablas[0];
+    A.igual(censo.filas.length, 5, 'todos los pacientes del censo');
+    var ana = censo.filas.filter(function (f) { return f[0] === '11111111-1'; })[0];
+    A.igual(ana[3], 46, 'edad'); A.igual(ana[4], 'Mujer', 'sexo');
+    A.igual(ana[5], 3, 'eventos acumulados (incluye sep, excluido del mes)');
+    A.igual(ana[6], 'SI', 'tiene ingreso'); A.igual(ana[7], 'SI', 'tiene control');
+    A.igual(v.meta.atenciones, 8, 'atenciones SOLO del mes seleccionado');
+  });
+
+  t('REMV: vista MES — Bloque A + censo con indicadores del mes', function(){
+    var v = Rem9_armarVistaDatos({
+      pacientes: PACS.concat([{ ID_INTERNO:'P5', RUT:'55555555-5', NOMBRE:'CINCO', SEXO:'F', FECHA_NACIMIENTO:'1990-01-01', SECTOR:'NARANJO' }]),
+      eventos: eventos, anio: 2026, mes: 8 }, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
+    A.igual(v.meta.modo, 'MES', 'modo');
+    A.igual(v.tablas.length, 2, 'Bloque A + censo');
+    var analista = null;
+    v.tablas.forEach(function (t) {
+      if (!t.filas) return;
+      var f = t.filas.filter(function (r) { return r[0] === '11111111-1'; })[0];
+      if (f) analista = t;
+    });
+    A.cierto(analista, 'censo presente');
+    A.igual(analista.filas.filter(function (r) { return r[0] === '11111111-1'; })[0][5], 2, 'eventos solo del mes (P1)');
+  });
+
+  t('REMV: censo MES filtra pacientes por fecha del evento, no solo por presencia', function(){
+    var v = Rem9_armarVistaDatos({
+      pacientes: PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'NUEVE', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01', SECTOR:'NARANJO' }]),
+      eventos: eventos, anio: 2026, mes: 8 }, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
+    var c = v.tablas[1];
+    var p1 = c.filas.filter(function (r) { return r[0] === '11111111-1'; })[0];
+    var p9 = c.filas.filter(function (r) { return r[0] === '99999999-9'; })[0];
+    A.igual(p1[5], 2, 'P1: eventos 02 y 10 del mes (excluye 01 sep)');
+    A.igual(p9[5], 0, 'P9 sin eventos del mes');
+    A.igual(p9[7], 'NO', 'P9 sin control en el mes');
   });
 }
 
@@ -4092,6 +4171,17 @@ function _pruebas_enriquecimiento_s5(t, A) {
       'UI_backup','UI_formularioPanel','UI_abrirLog','UI_abrirAcercaDe'];
     refs.forEach(function (fn) {
       A.cierto(typeof globalThis[fn] === 'function', fn + ' existe');
+    });
+  });
+
+  t('OPT B8: código muerto de S9 no se reintroduce (no definido en el ámbito)', function () {
+    var muertos = ['Utl_mapaPor','Utl_cacheGet','Utl_cachePut','Utl_cacheOlvidar',
+      'Fuentes_validar','_fuentes_columnasStaging','DIAGNOSTICO_BUSCAR_FICHA',
+      'Dash_actualizar','_dash_inicializarFiltros','Form_reparar','api_formularioDiagnostico',
+      'api_formularioInstalar','api_profesionalesCatalogo','Entorno_gateGAS',
+      'Act_enriquecerPacientePorRut','api_webappCapturar','salida_contador'];
+    muertos.forEach(function (fn) {
+      A.cierto(typeof globalThis[fn] === 'undefined', fn + ' no reintroducido');
     });
   });
 

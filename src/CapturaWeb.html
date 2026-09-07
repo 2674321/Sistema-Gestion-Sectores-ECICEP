@@ -1300,7 +1300,7 @@
   /* ── Init ── */
   cargarUltimosInputs();
   // Una sola RPC: esquema + catálogo profesionales + url (antes eran 3 llamadas
-  // separadas: WebApp_esquemaFormulario, api_profesionalesCatalogo, api_webappEstado).
+  // separadas de esquema, catálogo y URL).
   google.script.run
     .withSuccessHandler(function(r){
       if(r){

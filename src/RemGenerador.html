@@ -76,7 +76,7 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
   <div class="res-seccion">Resultado</div>
   <div class="res-grid">
     <div class="kpi-mini"><span class="num" id="rEv">—</span><small>Atenciones del período</small></div>
-    <div class="kpi-mini"><span class="num" id="rPac">—</span><small>Pacientes con actividad</small></div>
+    <div class="kpi-mini"><span class="num" id="rPac">—</span><small>Pacientes del censo del sector</small></div>
     <div class="kpi-mini"><span class="num" id="rInv">—</span><small>Fechas no interpretables</small></div>
   </div>
   <div class="res-seccion">Validación de completitud</div>
@@ -89,7 +89,9 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
     <button class="btn btn-ghost" onclick="google.script.host.close()">Cerrar</button>
   </div>
   <small style="color:var(--text-muted);margin-top:8px;display:block">
-    Bloques B y C: NO DISPONIBLE (#14 / #17). La hoja REM_SALIDA queda actualizada y reproducible.</small>
+    Bloques B y C: NO DISPONIBLE (#14 / #17). El RESUMEN es el censo del sector
+    (todos los pacientes; indicadores del mes). Excel/PDF y la vista de trabajo se
+    calculan al vuelo, sin hoja REM_SALIDA.</small>
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>

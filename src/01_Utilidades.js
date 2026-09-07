@@ -91,16 +91,6 @@ function Utl_escribirBloque(hoja, filaInicio, colInicio, valores) {
 // Colecciones
 // ---------------------------------------------------------------------------
 
-/** Map clave→primer elemento que produce esa clave. */
-function Utl_mapaPor(arr, fnClave, fnValor) {
-  var m = new Map();
-  for (var i = 0; i < arr.length; i++) {
-    var k = fnClave(arr[i], i);
-    if (!m.has(k)) m.set(k, fnValor ? fnValor(arr[i], i) : arr[i]);
-  }
-  return m;
-}
-
 /** Map clave→array de elementos con esa clave. */
 function Utl_agruparPor(arr, fnClave) {
   var m = new Map();
@@ -136,44 +126,12 @@ function Utl_medir(fn) {
 }
 
 // ---------------------------------------------------------------------------
-// Caché (DEC-015): abstracción mínima sobre CacheService.
-// Solo para índices/parámetros de lectura con invalidación explícita.
-// En node (sin CacheService) queda en no-op silencioso.
-// ---------------------------------------------------------------------------
-function Utl_cacheGet(clave) {
-  try {
-    if (typeof CacheService === 'undefined') return null;
-    var bruto = CacheService.getScriptCache().get(CFG_CACHE.PREFIJO + clave);
-    return bruto === null ? null : JSON.parse(bruto);
-  } catch (e) {
-    return null; // la caché jamás debe romper el flujo
-  }
-}
-
-function Utl_cachePut(clave, valor, ttlSeg) {
-  try {
-    if (typeof CacheService === 'undefined') return false;
-    CacheService.getScriptCache().put(CFG_CACHE.PREFIJO + clave, JSON.stringify(valor), ttlSeg || CFG_CACHE.TTL_DEFECTO_SEG);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-function Utl_cacheOlvidar(clave) {
-  try {
-    if (typeof CacheService === 'undefined') return;
-    CacheService.getScriptCache().remove(CFG_CACHE.PREFIJO + clave);
-  } catch (e) { /* no-op */ }
-}
-
-// ---------------------------------------------------------------------------
-// Toast semántico de servidor (Parte 5 v0.8.9.5): centraliza icono y título.
+// Toast semántico de servidor.
 // tipo: 'ok' → ✓ · 'warn' → ⚠ · 'err' → ✕ · 'info' → sin icono.
-// Regla: UN mensaje final breve; los detalles técnicos van al LOG, no al toast.
+// UN mensaje final breve; los detalles técnicos van al LOG.
 // ---------------------------------------------------------------------------
 
-/** Devuelve el prefijo de icono para un tipo de toast. PURA. */
+/** PURA: prefijo de icono según tipo. */
 function Utl_toastIcono(tipo) {
   if (tipo === 'ok') return '✓ ';
   if (tipo === 'warn') return '⚠ ';
@@ -181,8 +139,7 @@ function Utl_toastIcono(tipo) {
   return '';
 }
 
-/** GAS: muestra un toast breve con semántica central. Sin fallas si no hay
- *  spreadsheet activo (node o entorno sin UI). */
+/** GAS: toast breve con semántica central. No falla sin spreadsheet activo. */
 function Utl_toast(tipo, texto, segundos) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();

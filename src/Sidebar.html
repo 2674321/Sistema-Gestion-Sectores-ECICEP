@@ -115,6 +115,7 @@ textarea.inp{min-height:64px;resize:vertical}
 .rev-bloque b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:2px}
 .rev-acciones{display:flex;gap:8px;margin-top:10px}
 .rev-acciones .btn{flex:1;justify-content:center}
+.chip.mut{background:var(--surface-alt);color:var(--text-muted);font-size:11px;flex:1;justify-content:center}
 
 /* ====== Panel de Control ====== */
 .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;
@@ -723,7 +724,9 @@ function verRevision(){
         (cd?_esc(cd.nombre)+'<br>RUT: '+_esc(cd.rut)+_chipSector(cd.sector)
            :'<i>Sin candidato identificado</i>')+'</div>'+
         '<div class="rev-acciones">'+
-        '<button class="btn btn-pri" onclick="resolver('+c.indice+',\'CONFIRMAR_MATCH\',this)"><i data-lucide="user-check"></i> Es el mismo</button>'+
+        (cd
+          ? '<button class="btn btn-pri" onclick="resolver('+c.indice+',\'CONFIRMAR_MATCH\',this)"><i data-lucide="user-check"></i> Es el mismo</button>'
+          : '<span class="chip mut" title="Sin candidato: la coincidencia no fue automática">Sin candidato — solo "Es otro"</span>')+
         '<button class="btn btn-danger" onclick="resolver('+c.indice+',\'RECHAZAR_MATCH\',this)"><i data-lucide="user-x"></i> Es otro</button>'+
         '</div></div>';}).join('')
       :'<div class="vacio"><i data-lucide="party-popper"></i>No hay casos pendientes</div>';

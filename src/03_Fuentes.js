@@ -166,11 +166,6 @@ function Fuentes_normalizar(fila) {
   return fila;
 }
 
-/** Puerta final: solo filas OK/WARNING avanzan hacia identificación/eventos. */
-function Fuentes_validar(fila) {
-  return fila && (fila.ESTADO_VALIDACION === 'OK' || fila.ESTADO_VALIDACION === 'WARNING');
-}
-
 // ---------------------------------------------------------------------------
 // ETAPA 5 — Conexión a fuentes reales en Drive
 // ---------------------------------------------------------------------------
@@ -338,12 +333,6 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
       };
     })
   };
-}
-
-function _fuentes_columnasStaging() {
-  return ['ID_PROVISIONAL', 'ARCHIVO_ORIGEN', 'HOJA_ORIGEN', 'FILA_ORIGEN', 'SECTOR_ORIGEN',
-          'ESTADO_VALIDACION', 'ERRORES', 'WARNINGS', 'IDENTIFICACION',
-          'VALORES_ORIGINALES', 'NORMALIZADO', 'FUENTE'];
 }
 
 /** Guarda filas de staging por lotes. Solo GAS; en node devuelve 0. */
@@ -524,9 +513,7 @@ function Fuentes_cargaReal(opciones) {
     }
   });
   if (filasConflicto.length && typeof Modelo_agregarConflictos === 'function') {
-    resultado.aColaRevision = Modelo_agregarConflictos(filasConflicto, function (filaArr) {
-      try { return JSON.parse(filaArr[5]).idProvisional || ''; } catch (e) { return ''; }
-    });
+    resultado.aColaRevision = Modelo_agregarConflictos(filasConflicto);
     Log_info('Fuentes', 'colaRevision', filasConflicto.length + ' enviados a CONFLICTOS');
   }
 

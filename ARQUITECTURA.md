@@ -208,7 +208,7 @@ Plan por capas:
 | Hojas administrativas (CONFIG, LOG, FUENTES, REGLAS_ESTRATIFICACION, columnas técnicas) | Protección estricta, solo propietario/desarrollo |
 | Columnas técnicas de PACIENTES/EVENTOS | Rango protegido siempre (el usuario jamás las edita) |
 | SECTOR_* e INGRESO_* | Protección con editor = responsable del sector; otras áreas solo advertencia o lectura |
-| Áreas de resultado (DASHBOARD, REM_SALIDA) | Protegidas: solo Apps Script escribe |
+| Áreas de resultado (DASHBOARD, REM_SALIDA) | Protegidas: solo Apps Script escribe. El REM de trabajo se calcula **al vuelo** (`api_remVista`, sin depender de la hoja REM_SALIDA) |
 
 Limitación técnica documentada: los menús de Apps Script ejecutan con la
 autoridad de quien hace clic — si un área le está protegida al usuario, la
@@ -236,8 +236,10 @@ El proyecto usa su propio `.clasp.json` local → script ligado, rootDir `src`
 
 - Lectura única por hoja: `getDataRange().getValues()` → procesamiento en memoria.
 - Escrituras masivas: arrays con `setValues()`; jamás `setValue()` en loops.
-- Índices en memoria (Map RUT→fila) reconstruidos por carga, cacheados 30–60 s
-  (CacheService) con invalidación al escribir.
+- Índices en memoria (Map RUT→fila) reconstruidos por carga; memorización por
+  ejecución (`_memoLeer` para PACIENTES/EVENTOS/PROFESIONALES) e invalidación al
+  escribir. Las utilidades `Utl_cache*` sobre CacheService eran código muerto y se
+  removieron en S9 (sin pérdida funcional: nunca se ejecutaron operativamente).
 - LockService en escrituras concurrentes y en el log.
 - Presupuesto objetivo: importación completa (~3.000 filas × 12 columnas) < 60 s,
   dentro de límites de cuota de Apps Script (6 min/ejecución).

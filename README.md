@@ -14,7 +14,7 @@ estructuras distintas.
 
 - **Panel de Control**: KPIs reales, tarjetas por sector con cobertura, última actividad, accesos.
 - **Estadísticas** (dialog): 5 indicadores + 4 gráficos Chart.js + filtro cruzado por sector y fecha.
-- **REM mensual** derivado de EVENTOS: resumen 24c + detalle por atención, exportable a **Excel .xlsx** (contrato REM original) y PDF profesional.
+- **REM mensual** derivado de EVENTOS: **resumen = censo del sector** (una fila por paciente, indicadores del mes) + detalle por atención, exportable a **Excel .xlsx** (contrato REM original) y PDF profesional. Vista de trabajo **al vuelo** (modo Mes / General), sin hoja REM_SALIDA.
 - **Selector de patologías ECICEP** en ficha (49 condiciones) con ponderación y esquema migrado.
 - **Cola de revisión**, registro de gestiones, timeline de historial, hard guard de escrituras.
 - **Instalar / Reparar Sistema**: hojas, CONFIG centralizado, catálogo de vigencias,
@@ -434,6 +434,14 @@ En particular:
 - **Logo CESFAM restaurado** (`CapturaWeb.html:281/300`): re-encode desde `logo_cesfam_san_juan_Coq.png` original (289×333 RGBA) — header `64×74` + watermark `300×300` con `object-fit:contain`.
 - **Config centralizada**: `ECICEP.WEB_APP_URL` en `00_Config.js` consumida por `ECICEP_webAppUrl()`; fallback `ScriptApp.getService().getUrl()`.
 - **Tests**: **469/469 núcleo + 29/29 aceptación** verdes. `clasp push --force` sincronizado; deployments como mecanismo técnico (`@HEAD` operativo, `/dev` revisión, `/exec` publicación).
+
+## S9 — Auditoría profunda (rendimiento · automatización · robustez)
+
+> Informe completo: `docs/INFORME_AUDITORIA_S9.md`. Fase de auditoría sin cambio de versión, sin commit, sin deploy.
+
+- **Código muerto verificado removido** (0 referencias en src + tests + HTML + menú): `Utl_mapaPor`, `Utl_cacheGet/Put/Olvidar` (caché CacheService que nunca operó), `Fuentes_validar`, `_fuentes_columnasStaging`, `DIAGNOSTICO_BUSCAR_FICHA`, `Dash_actualizar` + `_dash_inicializarFiltros` + `_DASH_FILTROS` (hoja DASHBOARD obsoleta; el dashboard vive como funciones puras vía `api_dashboardDatos`), `Form_reparar`, `api_formularioDiagnostico`, `api_formularioInstalar`, `api_profesionalesCatalogo` (suplida por `WebApp_estadoInicial`), `Entorno_gateGAS`, `Act_enriquecerPacientePorRut`, `WebApp_previaDuplicados` (legacy pre-V2), `api_webappCapturar`, `salida_contador`.
+- **Declarado y auditado SIN cambio**: inicio en 1 RPC (`WebApp_estadoInicial`), búsqueda con debounce 220 ms + tope 25 (RUT exacto primero), lecturas por bloque + memoización `_memoLeer`, medición existente (`Utl_medir`, `Captura_v2_medida` T0–T6, perfil Auditor RENDIMIENTO), EDAD por fórmula (`DATEDIF`) ya automática.
+- **Tests**: batería completa **739/739** verde tras las eliminaciones; se añadió test-guarda de "código muerto no reintroducible".
 
 ## Arquitectura vigente — pipeline clínico (contrato de captura V2)
 

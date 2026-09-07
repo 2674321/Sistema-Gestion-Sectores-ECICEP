@@ -550,9 +550,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
       }
     });
     if (filasConflicto.length) {
-      conflicto = Modelo_agregarConflictos(filasConflicto, function (filaArr) {
-        try { return JSON.parse(filaArr[5]).idProvisional || ''; } catch (e) { return ''; }
-      });
+      conflicto = Modelo_agregarConflictos(filasConflicto);
     }
   } catch (e) {
     Log_warning('Ingresos', 'colaRevision', e && e.message ? e.message : String(e));
@@ -644,6 +642,44 @@ function Rev_filaConflicto(filaStaging) {
     'ABIERTO',
     ''
   ];
+}
+
+/**
+ * PURA: clave de idempotencia real de un conflicto por SU ORIGEN (archivo|hoja|fila),
+ * no por ID_PROVISIONAL (que es aleatorio por corrida y producía duplicados al
+ * re-importar la misma fuente). Extraída del detalle JSON.
+ */
+function Rev_claveOrigen(datos) {
+  var o = (datos && datos.origen) || {};
+  return Utl_texto(o.archivo) + '|' + Utl_texto(o.hoja) + '|' + Utl_texto(o.fila);
+}
+
+/** PURA: clave de origen a partir de una fila de CONFLICTOS (col F = DETALLE JSON). */
+function Rev_claveOrigenDesdeFila(filaArr) {
+  try {
+    return Rev_claveOrigen(JSON.parse((filaArr || [])[5]));
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * PURA: filtra las filas de conflicto NUEVAS contra claves ya existentes.
+ * Idempotente por origen y dedupe intra-lote (la misma fila origen nunca se
+ * encola dos veces). Sin clave fiable → descartada (no deduplicable).
+ */
+function Rev_filtrarConflictosNuevos(filas, clavesExistentes, claveFunc) {
+  claveFunc = claveFunc || Rev_claveOrigenDesdeFila;
+  var usadas = {};
+  (clavesExistentes || []).forEach(function (k) { if (k) usadas[k] = true; });
+  var nuevos = [];
+  filas.forEach(function (f) {
+    var k = claveFunc(f);
+    if (!k || usadas[k]) return;
+    usadas[k] = true;
+    nuevos.push(f);
+  });
+  return nuevos;
 }
 
 /**

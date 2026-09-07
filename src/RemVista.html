@@ -4,96 +4,189 @@
 <base target="_top">
 <?!= include('00_Tokens') ?>
 <style>
-/* Vista dialog ancho: 16px. SOLO tratamiento visual — el mapeo de columnas
-   exacto del REM queda PENDIENTE del documento de referencia. */
+/* Vista de trabajo REM — calcula al vuelo (api_remVista), sin hoja REM_SALIDA.
+   Modo MES: Bloque A (atenciones del mes) + censo con indicadores del mes.
+   Modo GENERAL: censo histórico del sector (indicadores acumulados). */
 body{font-size:16px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
-header{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)}
-header h1{font-size:20px;margin:0}
-.acciones{margin-left:auto;display:flex;gap:8px}
+header{display:flex;align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-3);flex-wrap:wrap}
+header .tit{min-width:220px}
+header h1{font-size:20px;margin:0 0 6px}
+.seg{display:inline-flex;gap:2px;background:var(--surface-alt);border:1px solid var(--border);
+  border-radius:var(--radius-full);padding:3px}
+.seg button{border:none;background:transparent;border-radius:var(--radius-full);padding:6px 14px;
+  font:600 12px 'Inter';color:var(--text-secondary);cursor:pointer}
+.seg button.seg-on{background:var(--primary);color:#fff}
+.filtros{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.filtros label{display:flex;flex-direction:column;gap:3px;font:600 10px 'Inter';letter-spacing:.05em;color:var(--text-muted)}
+.hint{font-size:12px;color:var(--text-muted);margin:0 0 8px}
+.hint b{color:var(--text-secondary)}
 .scroll-wrap{position:relative;flex:1;overflow:auto;background:var(--surface);
-  border:1px solid var(--border);border-radius:var(--radius-lg)}
-/* gradiente que indica que hay más columnas hacia la derecha */
-.fade-der{position:absolute;top:0;right:0;bottom:0;width:36px;pointer-events:none;
-  background:linear-gradient(to left,rgba(16,24,40,.10),transparent);opacity:0;
-  transition:opacity .15s var(--ease-in)}
-.scroll-wrap.puede-scroll .fade-der{opacity:1}
-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13.5px}
-th,td{padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);
+  border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3)}
+.meta-line{font:500 12px 'Inter';color:var(--text-secondary);margin-bottom:8px;padding:6px 10px;
+  background:var(--surface-alt);border-radius:var(--radius-md)}
+.nota{font-size:11.5px;color:var(--warning);margin:8px 0}
+.tbl-tit{font:600 12px 'Inter';letter-spacing:.03em;text-transform:uppercase;color:var(--text-secondary);
+  margin:14px 0 6px}
+.tbl-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-md);max-height:46vh;overflow-y:auto}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13px}
+th,td{padding:7px 11px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);
   background:var(--surface);white-space:nowrap;text-align:left;color:var(--text-primary)}
-thead th{position:sticky;top:0;z-index:30;font:600 12px 'Inter';letter-spacing:.03em;
+thead th{position:sticky;top:0;z-index:30;font:600 11px 'Inter';letter-spacing:.03em;
   text-transform:uppercase;color:var(--text-secondary);background:var(--surface-alt)}
-tbody tr:nth-child(even) th,tbody tr:nth-child(even) td{background:var(--surface-alt)} /* zebra sutil */
-tbody tr:hover td,tbody tr:hover th{background:var(--primary-soft)}
-td.num-col,th.num-col{text-align:right;font-variant-numeric:tabular-nums}
-th:first-child,td:first-child{position:sticky;left:0;z-index:20;
-  max-width:220px;min-width:110px;overflow-wrap:anywhere;white-space:normal;
-  border-right:2px solid var(--border-strong);box-shadow:2px 0 4px rgba(16,24,40,.06)}
-thead th:first-child{z-index:40;max-width:220px}
+.tbl-scroll tr:nth-child(even) td{background:var(--surface-alt)}
+.tbl-scroll tr:hover td{background:var(--primary-soft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.vacio-cell{padding:20px;text-align:center;color:var(--text-muted);white-space:normal}
 .vacio-full{padding:var(--space-7);text-align:center;color:var(--text-muted)}
+.vacio{color:var(--text-muted)}
 @media print{
   body{background:#fff;padding:0}
-  header .acciones,.fade-der{display:none!important}
+  header .filtros,.seg,.hint{display:none!important}
   header h1{color:#000}
-  .scroll-wrap{overflow:visible;border:none;border-radius:0}
+  .scroll-wrap{overflow:visible;border:none;border-radius:0;padding:0}
+  .tbl-scroll{max-height:none;overflow:visible;border:none}
   th,td{background:#fff!important;color:#000;border-color:#999;white-space:normal}
   thead th{background:#eee!important}
-  tbody tr:nth-child(even) td,tbody tr:nth-child(even) th{background:#f5f5f5!important}
-  table{width:100%;font-size:11px}
+  .tbl-scroll tr:nth-child(even) td{background:#f5f5f5!important}
 }
 </style>
 </head>
 <body>
 <header>
-  <h1>REM — vista de trabajo</h1>
-  <div class="acciones">
-    <button class="btn btn-pri" onclick="google.script.host.close()"><i data-lucide="arrow-left"></i> Volver</button>
+  <div class="tit">
+    <h1>REM — vista de trabajo</h1>
+    <div class="seg" id="seg">
+      <button id="segMes" type="button" class="seg-on" onclick="setModo('MES')">Mes</button>
+      <button id="segGen" type="button" onclick="setModo('GENERAL')">General</button>
+    </div>
+  </div>
+  <div class="filtros">
+    <label>Año
+      <select id="selAnio" class="inp"></select>
+    </label>
+    <label>Mes
+      <select id="selMes" class="inp">
+        <option value="1">Enero</option><option value="2">Febrero</option>
+        <option value="3">Marzo</option><option value="4">Abril</option>
+        <option value="5">Mayo</option><option value="6">Junio</option>
+        <option value="7">Julio</option><option value="8">Agosto</option>
+        <option value="9">Septiembre</option><option value="10">Octubre</option>
+        <option value="11">Noviembre</option><option value="12">Diciembre</option>
+      </select>
+    </label>
+    <label>Sector
+      <select id="selSector" class="inp">
+        <option value="TODOS">Todos</option>
+        <option value="NARANJO">Naranjo</option>
+        <option value="AMARILLO">Amarillo</option>
+        <option value="VERDE">Verde</option>
+      </select>
+    </label>
+    <button class="btn btn-pri" onclick="consultar(this)"><i data-lucide="search"></i> Consultar</button>
+    <button class="btn btn-ghost" onclick="google.script.host.close()">Volver</button>
   </div>
 </header>
+<p class="hint" id="hintMes"><b>Mes:</b> atenciones del mes (Bloque A) + censo del sector con los indicadores «Tiene…» del propio mes.</p>
+<p class="hint" id="hintGen" style="display:none"><b>General:</b> censo del sector con indicadores «Tiene…» acumulados (histórico de EVENTOS).</p>
 <div class="scroll-wrap" id="wrap">
-  <table id="tabla"><thead></thead><tbody></tbody></table>
   <div id="estado" class="vacio-full">
     <div class="skel" style="height:220px;margin-bottom:12px"></div>
-    Cargando REM_SALIDA…
+    Calculando el informe…
   </div>
 </div>
-<div class="fade-der" id="fadeDer" style="position:fixed"></div>
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-function pintar(filas,meta){
-  var tb=document.getElementById('tabla'),thead=tb.querySelector('thead'),tbody=tb.querySelector('tbody');
-  if(!filas||filas.length<1){document.getElementById('estado').innerHTML=
-    '<div class="vacio"><i data-lucide="file-x"></i>REM_SALIDA está vacía.<br>Genera primero un período desde 📈 Reportes → 🧾 Generar REM mensual.</div>';
-    _refrescarIconos();return;}
-  document.getElementById('estado').remove();
-  var esNum=function(v){return /^-?\d+([.,]\d+)?$/.test(String(v).trim());};
-  thead.innerHTML='<tr>'+filas[0].map(function(h){
-    return '<th class="'+(esNum(h)?'num-col':'')+'">'+_esc(h)+'</th>';}).join('')+'</tr>';
-  tbody.innerHTML=filas.slice(1).map(function(f){
-    return '<tr>'+f.map(function(c){
-      return '<td class="'+(esNum(c)?'num-col':'')+'">'+_esc(c)+'</td>';}).join('')+'</tr>';}).join('');
-  var wrap=document.getElementById('wrap'),fade=document.getElementById('fadeDer');
-  wrap.classList.add('fade-in');
-  function chequear(){
-    var puede=wrap.scrollWidth>wrap.clientWidth+4&&wrap.scrollLeft<wrap.scrollWidth-wrap.clientWidth-4;
-    fade.style.opacity=puede?'1':'0';
-    var r=wrap.getBoundingClientRect();fade.style.top=r.top+'px';fade.style.height=r.height+'px';
-  }
-  wrap.addEventListener('scroll',chequear);window.addEventListener('resize',chequear);
-  setTimeout(chequear,80);_refrescarIconos();
+var MODO = 'MES';
+function setModo(m) {
+  MODO = m;
+  document.getElementById('segMes').className = m === 'MES' ? 'seg-on' : '';
+  document.getElementById('segGen').className = m === 'GENERAL' ? 'seg-on' : '';
+  var esMes = m === 'MES';
+  document.getElementById('selAnio').disabled = !esMes;
+  document.getElementById('selMes').disabled = !esMes;
+  document.getElementById('hintMes').style.display = esMes ? '' : 'none';
+  document.getElementById('hintGen').style.display = esMes ? 'none' : '';
 }
-var META=null;
-google.script.run.withSuccessHandler(function(r){
-  if(!r||!r.ok){pintar([]);return;}
-  META=r.meta||null;
-  pintar(r.filas,r.meta);
-}).withFailureHandler(function(e){
-  document.getElementById('estado').innerHTML=
-    '<div class="vacio"><i data-lucide="alert-triangle"></i>Error al leer REM_SALIDA: '+_esc(e&&e.message||e)+
-    '<br><button class="btn btn-pri" style="margin-top:10px" onclick="location.reload()">Reintentar</button></div>';
+function esNum(v) { return /^-?\d+([.,]\d+)?$/.test(String(v).trim()); }
+function pintarError(msg) {
+  document.getElementById('wrap').innerHTML =
+    '<div class="vacio-full"><i data-lucide="alert-triangle"></i>Error: ' + _esc(msg) +
+    '<br><button class="btn btn-pri" style="margin-top:10px" onclick="consultar()">Reintentar</button></div>';
   _refrescarIconos();
-}).api_remLeer();
-_refrescarIconos();
+}
+function pintar(tablas, meta, notas) {
+  var wrap = document.getElementById('wrap');
+  if (!tablas || !tablas.length) {
+    wrap.innerHTML = '<div class="vacio-full"><i data-lucide="file-x"></i>Sin contenido para mostrar.</div>';
+    _refrescarIconos();
+    return;
+  }
+  var html = '<div class="meta-line">' + _esc(meta.sector || 'TODOS') +
+    ' · ' + (meta.modo === 'GENERAL' ? 'Censo general' : meta.mes + ' de ' + meta.anio) +
+    ' · <b>' + (meta.pacientes || 0) + '</b> pacientes' +
+    ' · <b>' + (meta.atenciones || 0) + '</b> atenciones del mes</div>';
+  (notas || []).forEach(function (n) { html += '<div class="nota">' + _esc(n) + '</div>'; });
+  tablas.forEach(function (t) {
+    html += '<div class="tbl-tit">' + _esc(t.titulo) + '</div><div class="tbl-scroll"><table>';
+    html += '<thead><tr>' + (t.cols || []).map(function (h) {
+      return '<th class="' + (esNum(h) ? 'num' : '') + '">' + _esc(h) + '</th>';
+    }).join('') + '</tr></thead><tbody>';
+    if (t.filas && t.filas.length) {
+      html += t.filas.map(function (f) {
+        return '<tr>' + f.map(function (c) {
+          var s = (c === null || c === undefined) ? '' : String(c);
+          return '<td class="' + (esNum(s) ? 'num' : '') + '">' + _esc(s) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    } else {
+      html += '<tr><td class="vacio-cell" colspan="' + (t.cols ? t.cols.length : 1) +
+        '">Sin filas en esta vista (¿sector sin pacientes o mes sin datos?).</td></tr>';
+    }
+    html += '</tbody></table></div>';
+  });
+  wrap.innerHTML = html;
+  _refrescarIconos();
+}
+function consultar() {
+  var anio = +document.getElementById('selAnio').value;
+  var mes = +document.getElementById('selMes').value;
+  var sector = document.getElementById('selSector').value;
+  document.getElementById('wrap').innerHTML =
+    '<div class="vacio-full"><div class="skel" style="height:180px;margin-bottom:12px"></div>Calculando…</div>';
+  try {
+    localStorage.setItem('REM_ULTIMA', JSON.stringify({ mes: mes, anio: anio, sector: sector, MODO: MODO }));
+  } catch (e) {}
+  google.script.run
+    .withSuccessHandler(function (r) {
+      if (!r || !r.ok) { pintarError((r && r.motivo) || 'error'); return; }
+      pintar(r.tablas, r.meta, r.notas);
+    })
+    .withFailureHandler(function (e) { pintarError(e && e.message || e); })
+    .api_remVista(anio, mes, sector, MODO);
+}
+(function init() {
+  var h = new Date();
+  var anioSel = String(h.getFullYear()), mesSel = String(h.getMonth() + 1);
+  try {
+    var ult = JSON.parse(localStorage.getItem('REM_ULTIMA') || 'null');
+    if (ult) {
+      if (ult.anio) anioSel = String(ult.anio);
+      if (ult.mes) mesSel = String(ult.mes);
+      if (ult.MODO) setModo(ult.MODO);
+      if (ult.sector) document.getElementById('selSector').value = ult.sector;
+    }
+  } catch (e) {}
+  var selA = document.getElementById('selAnio');
+  for (var a = h.getFullYear(); a >= h.getFullYear() - 5; a--) {
+    var op = document.createElement('option');
+    op.value = a; op.textContent = a;
+    selA.appendChild(op);
+  }
+  selA.value = anioSel;
+  document.getElementById('selMes').value = mesSel;
+  _refrescarIconos();
+})();
 </script>
 </body>
 </html>

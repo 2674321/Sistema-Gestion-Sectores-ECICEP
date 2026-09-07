@@ -225,7 +225,7 @@ function ejecutar(btn){
     clearInterval(rotador);fin();prog.style.display='none';
     if(!r||!r.ok){toast('No fue posible ejecutar las pruebas','err');return;}
     pintarInforme(r);
-    toast('✓ Pruebas terminadas · '+r.resumen.ok+'/'+r.resumen.total+' correctas',
+    toast('Pruebas terminadas · '+r.resumen.ok+'/'+r.resumen.total+' correctas',
       r.resumen.error?'err':(r.resumen.warn?'warn':'ok'));
     _refrescarIconos();
   }).withFailureHandler(function(e){
@@ -278,7 +278,7 @@ function _normalizar(btn){
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast('No se pudo normalizar','err');return;}
-      toast('✓ '+r.corregidos+' RUTs normalizados (solo formato, con módulo 11)',r.corregidos?'ok':'info');
+      toast(r.corregidos+' RUTs normalizados (solo formato, con módulo 11)',r.corregidos?'ok':'info');
       if(r.detalles&&r.detalles.length)console.debug('[ECICEP] normalizados',r.detalles);
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('normalizar')(e);})
@@ -335,7 +335,7 @@ function _amarilloEliminar(btn){
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo deduplicar','err');return;}
-      toast('✓ '+r.eliminar+' eventos duplicados eliminados (idempotente: re-ejecutar no borra más)',r.eliminar?'ok':'info');
+      toast(r.eliminar+' eventos duplicados eliminados (idempotente: re-ejecutar no borra más)',r.eliminar?'ok':'info');
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('AmarilloEliminar')(e);})
     .Amarillo_dedupHistorico(false);
@@ -355,7 +355,7 @@ function _diagControl(btn,dryRun){
         toast(linea,(m.vencidos||r.desalineados)?'warn':'ok');
         (r.acciones||[]).forEach(function(a){toast('· '+a,'info');});
       } else {
-        toast('✓ PRÓXIMO_CONTROL recalculado — cambios: '+(r.aplicado||0),'ok');
+        toast('PRÓXIMO_CONTROL recalculado — cambios: '+(r.aplicado||0),'ok');
       }
       if(window.console)console.debug('[ECICEP] diagnosticoControl',r);
     })
@@ -368,7 +368,7 @@ function _auditoria(btn){
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo auditar','err');return;}
-      toast('⚖️ Auditoría completada — ' + r.datos.duracionMs + ' ms','ok');
+      toast('Auditoría completada — ' + r.datos.duracionMs + ' ms','ok');
       if(r.texto){
         console.log(r.texto);
         // Mostrar en modal o toast largo

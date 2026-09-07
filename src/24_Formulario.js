@@ -815,23 +815,6 @@ function Form_diagnosticar() {
 }
 
 /**
- * GAS: reparación idempotente. Nunca borra datos ni recría un formulario
- * eliminado (solo informa la deuda técnica como pendiente humano).
- */
-function Form_reparar() {
-  var reparados = [], pendientes = [];
-  var instala = Form_instalar();
-  if (instala.ok && instala.cambios && instala.cambios.length) reparados = reparados.concat(instala.cambios);
-  if (!Form_triggerInstalado()) {
-    pendientes.push({ nombre: 'trigger', sugerencia: 'Ejecutar "📥 Formularios → Instalar" (o Form_instalar) para crear el trigger de envío' });
-  }
-  if (Utl_vacio(FORM_CONFIG.FORM_ID)) {
-    pendientes.push({ nombre: 'form_id', sugerencia: 'Crear el formulario en Google Forms y completar FORM_CONFIG.FORM_ID' });
-  }
-  return { ok: pendientes.length === 0, reparados: reparados, pendientes: pendientes };
-}
-
-/**
  * GAS: estado agregado para el panel de administración (sin datos clínicos,
  * solo contadores agregados).
  */
@@ -1719,25 +1702,10 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca) {
 
 function api_formularioEstado() { return Form_obtenerEstado(); }
 
-function api_formularioDiagnostico() { return Form_diagnosticar(); }
-
 function api_formularioProcesar() { return Form_procesarAhora(); }
-
-function api_formularioInstalar() { return Form_instalar(); }
 
 function api_formularioControl() { return Form_refrescarControl(); }
 
 function api_formularioReprocesar(param) {
   return Form_reprocesar(param && param.respuestaId ? { respuestaId: param.respuestaId } : {});
-}
-
-/** GAS: catálogo de profesionales para el dropdown de la Web App. */
-function api_profesionalesCatalogo() {
-  try {
-    return Profesionales_catalogo()
-      .filter(function (c) { return c.ACTIVO; })
-      .map(function (c) { return c.NOMBRE; });
-  } catch (e) {
-    return ['Médico/a','Enfermera/o','TENS','Matrona/o','Psicólogo/a','Asistente Social','Nutricionista','Kinesiólogo/a','Terapeuta Ocupacional'];
-  }
 }

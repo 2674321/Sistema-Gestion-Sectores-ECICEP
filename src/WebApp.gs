@@ -285,65 +285,6 @@ function UI_lecturaEstadoRespuesta(responseId) {
 }
 
 /**
- * GAS: chequeo PREVIO de coincidencias (parte del proceso de envío de la Web
- * App, no una herramienta aparte). Reusa la identificación existente
- * (Iden_identificar) contra PACIENTES:
- *   - RUT idéntico            → MATCH_EXACTO
- *   - cuerpo de RUT + señales → MATCH_PARCIAL / REQUIERE_REVISION
- *   - nombre exacto duplicado → NOMBRE_EXACTO / POSIBLE_DUPLICADO
- * Devuelve candidatos legibles para que el usuario decida (enviar de todas
- * formas / son personas diferentes / descartar).
- */
-function WebApp_previaDuplicados(datos) {
-  try {
-    if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
-    datos = datos || {};
-    if (Utl_texto(datos.ACCION).toUpperCase() !== 'NUEVO_INGRESO') {
-      return { ok: true, coincidencia: false, candidatos: [], motivo: 'Solo se chequean coincidencias en NUEVO_INGRESO' };
-    }
-    var n = {};
-    var rut = Norm_normalizarRut(datos.RUT);
-    n.RUT = rut.rut; n.RUT_ESTADO = rut.estado; n.RUT_CUERPO = rut.cuerpo;
-    var nom = Norm_normalizarNombre(datos.NOMBRE);
-    n.NOMBRE = nom.nombre;
-    n.NOMBRE_CLAVE = (nom.ok && nom.nombre) ? Norm_claveNombre(nom.nombre) : '';
-    n.TELEFONOS = Norm_normalizarTelefono(Utl_texto(datos.TELEFONOS)).telefonos.join('/');
-
-    var pacientes = Modelo_leerPacientes() || [];
-    var indices = Iden_construirIndices(pacientes);
-    var iden = Iden_identificar(n, indices);
-    var candidatos = [];
-    if (iden.paciente && iden.idPaciente) {
-      candidatos.push({
-        criterio: iden.criterio || 'Coincidencia detectada',
-        confianza: iden.confianza || '',
-        resultado: iden.resultado,
-        paciente: WebApp_resumenPaciente(iden.paciente)
-      });
-    }
-    // Lista adicional: TODOS los pacientes con el nombre exacto duplicado
-    // (por si hay varias personas con el mismo nombre, muy común en Chile).
-    if (iden.resultado !== 'MATCH_EXACTO' && n.NOMBRE_CLAVE && indices.porNombre[n.NOMBRE_CLAVE]) {
-      indices.porNombre[n.NOMBRE_CLAVE].forEach(function (p) {
-        var ya = candidatos.some(function (c) { return c.paciente.idInterno === p.ID_INTERNO; });
-        if (!ya) {
-          candidatos.push({
-            criterio: 'Nombre exacto duplicado',
-            confianza: 'MEDIA',
-            resultado: 'NOMBRE_EXACTO',
-            paciente: WebApp_resumenPaciente(p)
-          });
-        }
-      });
-    }
-    return { ok: true, coincidencia: candidatos.length > 0, candidatos: candidatos, rutNormalizado: n.RUT };
-  } catch (e) {
-    console.error('[BACKEND] previaDuplicados EXCEPTION: ' + String(e && e.message ? e.message : e));
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
-}
-
-/**
  * GAS: versión reducida y legible de un paciente para mostrar en la Web App.
  * Cuidado de privacidad: NO se expone TELEFONOS ni OBSERVACIONES al navegador;
  * solo identidad y fechas de operación (los datos que el formulario ya conoce).
@@ -362,8 +303,6 @@ function WebApp_resumenPaciente(p) {
   };
 }
 
-// Aliases de panel (para poder usarla también desde una sidebar si se desea).
-function api_webappCapturar(datos) { return Form_capturarDesdeUI(datos); }
 function api_webappEstado() {
   return {
     ok: true,
@@ -374,9 +313,8 @@ function api_webappEstado() {
 }
 
 /** GAS: estado inicial de la WebApp (esquema + catálogo profesionales + url).
- *  Unifica en una sola RPC las tres llamadas que el formulario realizaba al
- *  cargar (WebApp_esquemaFormulario, api_profesionalesCatalogo, api_webappEstado),
- *  reduciendo la latencia inicial de 3 round-trips a 1. */
+ *  Unifica en una sola RPC las llamadas que el formulario realizaba por separado
+ *  al cargar (esquema, catálogo y url), reduciendo la latencia inicial a 1 viaje. */
 function WebApp_estadoInicial() {
   return {
     esquema: Form_esquemaFormulario(),

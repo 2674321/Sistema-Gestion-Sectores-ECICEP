@@ -3,9 +3,10 @@
  * Generador del REM ECICEP como archivo .xlsx con DOS hojas, siguiendo el
  * contrato del archivo original "REM ECICEP.xlsx":
  *
- *   HOJA "REM"          → 1 fila por PACIENTE con actividad en el período
- *                         (24 columnas: conteos tipo × G por SNAPSHOT +
- *                          Total + Tiene Ingreso/Control/Seguimiento/Plan).
+ *   HOJA "REM"          → 1 fila por PACIENTE del SECTOR (CENSO completo,
+ *                         incluso sin actividad en el período; 24 columnas:
+ *                         conteos tipo × G por SNAPSHOT del mes + Total +
+ *                         Tiene Ingreso/Control/Seguimiento/Plan).
  *   HOJA "REM_DETALLE"  → 1 fila por ATENCIÓN/EVENTO del período
  *                         (28 columnas contractuales del formato original).
  *
@@ -122,6 +123,164 @@ function Rem9_filaResumen(pac, eventosPac) {
   return REM9_RES_COLS.map(function (c) { return fila[c]; });
 }
 
+/** PURA: índice de eventos por ID_INTERNO. */
+function Rem9_evsPorId(eventos) {
+  var idx = {};
+  (eventos || []).forEach(function (e) {
+    var id = Utl_texto(e.ID_INTERNO);
+    if (!id) return;
+    (idx[id] = idx[id] || []).push(e);
+  });
+  return idx;
+}
+
+/** PURA: fila CENSO del REM (vista de trabajo). Los indicadores derivan de los
+ *  eventos ENTREGADOS (ya filtrados por modo: solo el mes en MES; histórico en
+ *  GENERAL). Nunca se inventan: sin dato → '', sin bandera → NO. */
+function Rem9_filaCenso(pac, evs) {
+  var tiene = { ingreso: false, control: false, seguimiento: false,
+                plan: false, gcIngreso: false, gcEgreso: false };
+  var ult = '';
+  (evs || []).forEach(function (e) {
+    switch (Utl_texto(e.TIPO_EVENTO).trim().toUpperCase()) {
+      case 'INGRESO':              tiene.ingreso = true; break;
+      case 'CONTROL':              tiene.control = true; break;
+      case 'SEGUIMIENTO':          tiene.seguimiento = true; break;
+      case 'PLAN_CUIDADO':         tiene.plan = true; break;
+      case 'GESTION_CASO_INGRESO': tiene.gcIngreso = true; break;
+      case 'GESTION_CASO_EGRESO':  tiene.gcEgreso = true; break;
+    }
+    if (Utl_texto(e.FECHA_EVENTO) > ult) ult = Utl_texto(e.FECHA_EVENTO);
+  });
+  var si = function (b) { return b ? 'SI' : 'NO'; };
+  return [
+    Utl_texto(pac.RUT), Utl_texto(pac.NOMBRE),
+    Utl_texto(pac.SECTOR).trim().toUpperCase(),
+    Rem9_edadEn(pac.FECHA_NACIMIENTO || '', ult), Rem9_sexoRem(pac.SEXO),
+    (evs || []).length, si(tiene.ingreso), si(tiene.control),
+    si(tiene.seguimiento), si(tiene.plan), si(tiene.gcIngreso), si(tiene.gcEgreso)
+  ];
+}
+
+/** PURA: CENSO del sector — una fila por paciente de PACIENTES (filtrado por su
+ *  SECTOR canónico) más pacientes presentes SOLO en EVENTOS (nunca se pierde
+ *  actividad). Modo 'MES' → indicadores del período; 'GENERAL' → histórico.
+ *  Orden estable por NOMBRE y luego RUT. */
+function Rem9_censoPacientes(pacientes, eventos, filtro, anio, mes, modo) {
+  var evsIdx = Rem9_evsPorId(eventos);
+  var pref = (anio && mes) ? Number(anio) + '-' + (Number(mes) < 10 ? '0' : '') + Number(mes) : '';
+  var modoMes = modo === 'MES' && pref;
+  var porModo = function (id) {
+    var arr = evsIdx[id] || [];
+    if (!modoMes) return arr;
+    return arr.filter(function (e) { return Utl_texto(e.FECHA_EVENTO).slice(0, 7) === pref; });
+  };
+  filtro = Utl_texto(filtro).trim().toUpperCase() || 'TODOS';
+  var filtra = function (s) {
+    s = Utl_texto(s).trim().toUpperCase();
+    return filtro === 'TODOS' ? true : s === filtro;
+  };
+  var conId = {};
+  var filas = [];
+  (pacientes || []).forEach(function (p) {
+    conId[Utl_texto(p.ID_INTERNO)] = true;
+    if (!filtra(p.SECTOR)) return;
+    var evs = porModo(Utl_texto(p.ID_INTERNO));
+    filas.push(Rem9_filaCenso(p, evs));
+  });
+  Object.keys(evsIdx).forEach(function (id) {
+    if (conId[id]) return;
+    var evs = porModo(id);
+    if (!evs.length) return;
+    var e0 = evs[0];
+    if (!filtra(e0.SECTOR)) return;
+    filas.push(Rem9_filaCenso({
+      RUT: e0.RUT, NOMBRE: e0.NOMBRE, SECTOR: e0.SECTOR,
+      FECHA_NACIMIENTO: '', SEXO: ''
+    }, evs));
+  });
+  filas.sort(function (a, b) {
+    return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 :
+           a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
+  });
+  return filas;
+}
+
+/** PURA: resumen REM mensual como CENSO del sector — una fila por paciente
+ *  aunque no haya tenido actividad en el período (indicadores del mes); los
+ *  pacientes que aparecen en eventos sin registro PACIENTES no se pierden. */
+function Rem9_censoResumen(pacientes, porPaciente, filtro) {
+  filtro = Utl_texto(filtro).trim().toUpperCase() || 'TODOS';
+  var filtra = function (s) {
+    s = Utl_texto(s).trim().toUpperCase();
+    return filtro === 'TODOS' ? true : s === filtro;
+  };
+  var conId = {};
+  var filas = [];
+  (pacientes || []).forEach(function (p) {
+    conId[Utl_texto(p.ID_INTERNO)] = true;
+    var pk = porPaciente[Utl_texto(p.ID_INTERNO)];
+    if (!filtra(p.SECTOR) && !pk) return;
+    filas.push(Rem9_filaResumen(p, pk ? pk.evs : []));
+  });
+  Object.keys(porPaciente).forEach(function (k) {
+    if (conId[k]) return;
+    filas.push(Rem9_filaResumen(porPaciente[k].pac, porPaciente[k].evs));
+  });
+  return filas.sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+}
+
+/** PURA: arma la VISTA DE TRABAJO del REM (MES o GENERAL) a partir de datos ya
+ *  normalizados, en memoria y sin tocar la hoja REM_SALIDA. Devuelve tablas
+ *  estructuradas listas para renderizar en el dialog. */
+function Rem9_armarVistaDatos(datos, o) {
+  o = o || {};
+  var anio = Number(o.anio), mes = Number(o.mes);
+  var filtro = Utl_texto(o.sector).trim().toUpperCase() || 'TODOS';
+  var modo = o.modo === 'GENERAL' ? 'GENERAL' : 'MES';
+  var pref = anio + '-' + (mes < 10 ? '0' : '') + mes;
+
+  var lote = (datos.eventos || []).filter(function (e) {
+    return filtro === 'TODOS' ? true : Rem_bucketSector(e.SECTOR) === filtro;
+  });
+  var enPeriodo = lote.filter(function (e) {
+    return Utl_texto(e.FECHA_EVENTO).slice(0, 7) === pref;
+  });
+
+  var tablas = [], notas = [];
+  if (modo === 'MES') {
+    var bloqueA = calcularREMBloqueA(lote, { anio: anio, mes: mes });
+    var tabla = Rem_tablaDesdeConteos(bloqueA.conteos);
+    if (bloqueA.fechasInvalidas > 0) {
+      notas.push('Eventos con fecha no interpretable (fuera de todo período): ' + bloqueA.fechasInvalidas);
+    }
+    var filasT = tabla.filas.map(function (f) {
+      return [f.etiqueta].concat(tabla.buckets.map(function (b) { return f.valores[b]; }))
+        .concat([f.total]);
+    });
+    filasT.push(['TOTAL'].concat(tabla.buckets.map(function (b) { return tabla.totalGeneral[b]; }))
+      .concat([tabla.totalGeneral.total]));
+    tablas.push({ titulo: 'Bloque A — atenciones del mes por nivel G',
+                  cols: ['CONCEPTO'].concat(tabla.buckets).concat(['TOTAL']),
+                  filas: filasT, clase: 'resumen' });
+  }
+
+  var censo = Rem9_censoPacientes(datos.pacientes, datos.eventos, filtro, anio, mes, modo);
+  var titulo = modo === 'GENERAL'
+    ? 'Censo general del sector — histórico de EVENTOS (' + censo.length + ' pacientes)'
+    : 'Censo del sector — ' + REM_MESES[mes - 1] + ' ' + anio + ' (' + censo.length +
+      ' pacientes; incluye quienes no tuvieron actividad en el mes)';
+  tablas.push({ titulo: titulo,
+    cols: ['PACIENTE', 'NOMBRE', 'SECTOR', 'EDAD', 'SEXO', 'EVENTOS',
+           'TIENE_INGRESO', 'TIENE_CONTROL', 'TIENE_SEGUIMIENTO', 'TIENE_PLAN',
+           'TIENE_GC_INGRESO', 'TIENE_GC_EGRESO'],
+    filas: censo, clase: 'censo' });
+
+  return { tablas: tablas, notas: notas,
+           meta: { anio: anio, mes: mes, sector: filtro, modo: modo,
+                   pacientes: censo.length, atenciones: enPeriodo.length } };
+}
+
 /** PURA: fila DETALLE (28 cols) + validación de completitud por campo.
  *  Campos sin captura en el modelo actual quedan '' y se listan como
  *  PENDIENTE_CAPTURA (nunca inventados). */
@@ -220,10 +379,10 @@ function Rem9_construir(datos, opciones) {
       TIPO_EVENTO: ev.TIPO_EVENTO, RIESGO_G: ev.RIESGO_G, FECHA_EVENTO: ev.FECHA_EVENTO });
   });
 
-  /* RESUMEN derivado del detalle (#13) */
-  var resumen = Object.keys(porPaciente).map(function (k) {
-    return Rem9_filaResumen(porPaciente[k].pac, porPaciente[k].evs);
-  }).sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+  /* RESUMEN = CENSO del sector (una fila por paciente, incluso sin actividad
+     en el mes; indicadores del período). Reemplazo la derivación histórica
+     'del detalle' (#13) para que el REM muestre el universo completo. */
+  var resumen = Rem9_censoResumen(datos.pacientes || [], porPaciente, opciones.sector);
 
   return { resumen: resumen, detalle: detalle, validacion: {
              ok: validaciones.length - err - warn, warning: warn, error: err,
@@ -242,6 +401,7 @@ function _rem9_datos(anio, mes, sectorFiltro) {
   var pacientes = Modelo_leerPacientes().map(function (p) {
     return { ID_INTERNO: Utl_texto(p.ID_INTERNO), RUT: Utl_texto(p.RUT),
              NOMBRE: Utl_texto(p.NOMBRE), SEXO: Utl_texto(p.SEXO),
+             SECTOR: Utl_texto(p.SECTOR),
              FECHA_NACIMIENTO: p.FECHA_NACIMIENTO instanceof Date
                ? Utilities.formatDate(p.FECHA_NACIMIENTO, tz, 'yyyy-MM-dd')
                : Utl_texto(p.FECHA_NACIMIENTO).slice(0, 10) };

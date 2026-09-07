@@ -1194,20 +1194,22 @@ function Modelo_agregarEventos(eventos, registradoPor, contexto) {
 
 /**
  * Agrega casos a la cola de revisión (CONFLICTOS) en UNA escritura.
- * Omite casos cuyo idProvisional ya tenga un ABIERTO previo (idempotente).
+ * Idempotente por ORIGEN (archivo|hoja|fila): re-importar la misma fuente
+ * jamás genera un segundo ABIERTO para la misma fila (dedupe intra-lote + vs
+ * lo ya escrito). Sin clave fiable la fila se descarta.
  */
-function Modelo_agregarConflictos(filas, idProvisionalKey) {
+function Modelo_agregarConflictos(filas, claveFunc) {
   if (!filas || !filas.length) return 0;
   var ss = Modelo_ss();
   var hoja = ss.getSheetByName(HOJAS.CONFLICTOS);
   if (!hoja) return 0;
-  var existentes = {};
+  var claves = [];
   if (hoja.getLastRow() > 1) {
     Utl_leerBloque(hoja).slice(1).forEach(function (f) {
-      try { existentes[JSON.parse(f[5]).idProvisional] = true; } catch (e) { /* fila antigua */ }
+      claves.push(Rev_claveOrigenDesdeFila(f));
     });
   }
-  var nuevos = filas.filter(function (f) { return !existentes[idProvisionalKey(f)]; });
+  var nuevos = Rev_filtrarConflictosNuevos(filas, claves, claveFunc);
   if (!nuevos.length) return 0;
   return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, nuevos);
 }

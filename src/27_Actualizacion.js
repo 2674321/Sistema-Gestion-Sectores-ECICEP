@@ -255,49 +255,6 @@ function Act_enriquecerPacientes(opciones) {
 }
 
 /**
- * GAS: enriquece UN paciente por RUT canónico exacto (operación unitaria,
- * comparte el motor puro). Nunca crea pacientes: no encontrado → ok:false.
- * @returns {ok, motivo?, cambios:[], bloqueos:[], dryRun}
- */
-function Act_enriquecerPacientePorRut(rut, opciones) {
-  opciones = opciones || {};
-  var dryRun = opciones.dryRun !== false;
-  var pacientes = Modelo_leerPacientes();
-  var objetivo = null, ix = -1;
-  var clave = Utl_texto(rut).toUpperCase();
-  pacientes.forEach(function (p, i) {
-    if (Utl_texto(p.RUT).toUpperCase() === clave) { objetivo = p; ix = i; }
-  });
-  if (!objetivo) {
-    return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO', dryRun: dryRun, cambios: [], bloqueos: [] };
-  }
-  var origen = Act_leerOrigenesDemograficos()[clave];
-  var res = Act_aplicarEnriquecimiento(objetivo, origen);
-  var salida = {
-    ok: true, dryRun: dryRun,
-    rut: clave, id: Utl_texto(objetivo.ID_INTERNO),
-    cambios: res.aplicados.map(function (a) { return a.campo; }),
-    bloqueos: res.bloqueos.map(function (b) { return b.campo + ':' + b.motivo; })
-  };
-  if (res.bloqueos.length) {
-    salida.revision = true;
-    objetivo.REQUIERE_REVISION = true;
-  }
-  if (!dryRun && (res.aplicados.length || res.bloqueos.length)) {
-    var esquema = Modelo_asegurarEsquemaPacientes();
-    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo, dryRun: dryRun };
-    if (res.aplicados.length) {
-      objetivo.FUENTE = Act_appendFuente(objetivo.FUENTE, res.aplicados.map(function (a) { return a.fuente; }));
-      objetivo.FECHA_ACTUALIZACION = new Date();
-    }
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    hojaP.getRange(Modelo_dataStartRow(HOJAS.PACIENTES) + ix, 1, 1, MODELO_PACIENTE.length)
-      .setValues([Modelo_filaDesdeObjeto(objetivo)]);
-  }
-  return salida;
-}
-
-/**
  * GAS: diagnóstico dry-run de cuántos
  * pacientes tienen demografía vacía y con fuente disponible/conflictiva.
  * Útil para el reporte previo a aplicar cambios.

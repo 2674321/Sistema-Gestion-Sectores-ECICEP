@@ -24,7 +24,6 @@
     .footer{margin-top:var(--space-5);font-size:11px;color:var(--text-muted);text-align:center}
     .skel{height:60px;background:var(--surface-alt);border-radius:var(--radius-md);animation:pulso 1.5s infinite}
     @keyframes pulso{0%,100%{opacity:.6}50%{opacity:1}}
-    .toast-zone{position:fixed;top:16px;right:16px;z-index:999}
     /* Collapsable */
     .collap-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;
       background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
@@ -141,11 +140,9 @@
   <div class="footer">Se conservan los últimos <b id="bkRetencionFoot">8</b> backups automáticos. Los manuales se conservan indefinidamente.</div>
 </div>
 
-<div id="toastZone" class="toast-zone"></div>
+<div id="toastZone"></div>
 
 <script>
-function toast(m,t){var z=document.getElementById('toastZone');var d=document.createElement('div');d.className='toast '+(t||'ok');d.innerHTML='<span class="t-ic">'+(t==='err'?'&#10005;':'&#10003;')+'</span> '+m;z.appendChild(d);setTimeout(function(){d.classList.add('out');setTimeout(function(){d.remove();},300);},4000);}
-
 function fmtBytes(b){if(!b||b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
 function fmtFecha(iso){if(!iso)return '—';try{var d=new Date(iso);return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
 
@@ -192,18 +189,18 @@ function crearBackup(btn){
   var fin=setLoading(btn,true,'Creando backup\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('\u2713 Backup creado: '+r.nombre,'ok');cargarBackups();}
-    else toast('\u2715 Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('\u2715 Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL');
+    if(r&&r.ok){toast('Backup creado: '+r.nombre,'ok');cargarBackups();}
+    else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL');
 }
 
 function toggleProgramacion(btn){
   var fin=setLoading(btn,true,'Procesando\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('\u2713 '+(r.mensaje||'Actualizado'),'ok');cargarBackups();}
-    else toast('\u2715 Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('\u2715 Error: '+(e&&e.message||e),'err');}).api_backupToggle();
+    if(r&&r.ok){toast(r.mensaje||'Actualizado','ok');cargarBackups();}
+    else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupToggle();
 }
 
 function podarAuto(btn){
@@ -211,9 +208,9 @@ function podarAuto(btn){
   var fin=setLoading(btn,true,'Podando\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('\u2713 '+r.borrados+' backups eliminados','ok');cargarBackups();}
-    else toast('\u2715 Error','err');
-  }).withFailureHandler(function(e){fin();toast('\u2715 Error','err');}).api_backupPodar();
+    if(r&&r.ok){toast(r.borrados+' backups eliminados','ok');cargarBackups();}
+    else toast('Error','err');
+  }).withFailureHandler(function(e){fin();toast('Error','err');}).api_backupPodar();
 }
 
 function abrirCarpeta(){
@@ -257,9 +254,9 @@ function programarBackup(btn){
   var fin=setLoading(btn,true,'Programando\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
-    if(r&&r.ok){toast('\u2713 '+(r.mensaje||'Programado'),'ok');cargarBackups();}
-    else toast('\u2715 Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('\u2715 Error: '+(e&&e.message||e),'err');}).api_backupProgramar(dia,hora);
+    if(r&&r.ok){toast(r.mensaje||'Programado','ok');cargarBackups();}
+    else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupProgramar(dia,hora);
 }
 
 initHoras();

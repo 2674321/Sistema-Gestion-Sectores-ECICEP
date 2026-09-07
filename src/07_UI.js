@@ -1048,30 +1048,27 @@ function api_dashboardDatos() {
   }
 }
 
-/** Endpoint visor REM: contenido crudo de REM_SALIDA para tratamiento visual.
- *  NO define columnas oficiales — solo transporta lo generado. */
-function api_remLeer() {
+/** Endpoint vista de trabajo REM: calcula el informe AL VUELO (modo MES o
+ *  GENERAL) sin leer ni crear la hoja REM_SALIDA. Solo lectura de PACIENTES y
+ *  EVENTOS; 100% serializable. Modo 'MES' → Bloque A + censo con indicadores
+ *  del mes; 'GENERAL' → censo histórico del sector. */
+function api_remVista(anio, mes, sector, modo) {
   try {
-    var hoja = Modelo_hoja('REM_SALIDA');
-    if (!hoja || hoja.getLastRow() < 1) return { ok: false, motivo: 'REM_NO_GENERADO' };
-    var tz = Session.getScriptTimeZone();
-    var filas = Utl_leerBloque(hoja).map(function (f) {
-      return f.map(function (c) {
-        return (c instanceof Date) ? Utilities.formatDate(c, tz, 'dd/MM/yyyy HH:mm') : c;
-      });
+    anio = Number(anio); mes = Number(mes);
+    if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
+    var filtro = Rem_bucketSector(Utl_texto(sector).trim() === '' ? 'todos' : sector);
+    var datos = _rem9_datos(anio, mes, filtro);
+    var v = Rem9_armarVistaDatos(datos, {
+      anio: anio, mes: mes, sector: filtro,
+      modo: Utl_texto(modo).toUpperCase() === 'GENERAL' ? 'GENERAL' : 'MES'
     });
-    // meta para acciones del visor (PDF): parseo de la cabecera reproducible
-    var meta = { anio: null, mes: null, sector: 'TODOS' };
-    var textoCab = Utl_texto(filas.length ? filas[0][0] : '');
-    var mMes = /(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+(\d{4})/.exec(textoCab.toUpperCase());
-    if (mMes) {
-      meta.mes = REM_MESES.indexOf(mMes[1]) + 1;
-      meta.anio = +mMes[2];
-    }
-    var mSec = /Sector:\s*([A-ZÁÉÍÓÚ]+)/i.exec(textoCab);
-    if (mSec) meta.sector = mSec[1].toUpperCase();
-    return { ok: true, filas: filas, meta: meta };
+    Log_info('REM', 'vista', v.meta.modo + ' · ' + filtro + ' · pacientes=' + v.meta.pacientes +
+             ' · atenciones=' + v.meta.atenciones);
+    Log_flush();
+    return { ok: true, tablas: v.tablas, notas: v.notas, meta: v.meta };
   } catch (e) {
+    Log_error('REM', 'vista', e && e.message ? e.message : String(e));
+    Log_flush();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
@@ -1325,8 +1322,26 @@ function api_revisionResolver(indiceHoja, decision) {
     hoja.getRange(indiceHoja, 10).setValue(_ingresosUsuarioActual() + ' · ' + decision +
       ' · ' + ahora.toISOString() + ' → ' + destinoId);
 
+    // hermanas duplicadas de la MISMA fila origen (idempotencia por origen):
+    // se cierran sin reprocesar — la decisión ya se aplicó una sola vez.
+    var claveOrig = Rev_claveOrigen(datos);
+    var hermanas = 0;
+    if (claveOrig && hoja.getLastRow() > 1) {
+      Utl_leerBloque(hoja).slice(1).forEach(function (sf, i) {
+        var filaAbs = i + 2;
+        if (filaAbs === indiceHoja) return;
+        if (Utl_texto(sf[8]) !== 'ABIERTO') return;
+        if (Rev_claveOrigenDesdeFila(sf) !== claveOrig) return;
+        hoja.getRange(filaAbs, 9).setValue('RESUELTO');
+        hoja.getRange(filaAbs, 10).setValue(_ingresosUsuarioActual() + ' · ' + decision +
+          ' · ' + ahora.toISOString() + ' → ' + destinoId + ' (hermana del mismo origen)');
+        hermanas++;
+      });
+    }
+
     Modelo_refrescarVistasSectores();
-    Log_info('Revision', decision, prep.accion + ' · caso fila ' + indiceHoja + ' → ' + destinoId);
+    Log_info('Revision', decision, prep.accion + ' · caso fila ' + indiceHoja + ' → ' + destinoId +
+      (hermanas ? ' · +' + hermanas + ' hermanas del mismo origen' : ''));
     Log_flush();
     return { ok: true, accion: prep.accion, destinoId: destinoId };
   } catch (e) {
@@ -1660,80 +1675,6 @@ function _calcularPuntaje(codigos) {
   return total;
 }
 
-/** DIAGNÓSTICO: ejecutar desde el editor de Apps Script para depurar búsqueda/ficha */
-function DIAGNOSTICO_BUSCAR_FICHA() {
-  var pacientes = Modelo_leerPacientes();
-  Logger.log('=== DIAGNÓSTICO BÚSQUEDA→FICHA ===');
-  Logger.log('Total pacientes: ' + pacientes.length);
-
-  if (pacientes.length === 0) {
-    Logger.log('❌ ERROR CRÍTICO: No se leyó ningún paciente de PACIENTES');
-    return;
-  }
-
-  Logger.log('✓ Pacientes leídos correctamente');
-  Logger.log('');
-
-  // analizar primeros 3 pacientes en detalle
-  pacientes.slice(0, 3).forEach(function (p, idx) {
-    Logger.log('--- Paciente ' + idx + ' ---');
-    Logger.log('ID_INTERNO: ' + JSON.stringify(p.ID_INTERNO));
-    Logger.log('tipo: ' + typeof p.ID_INTERNO);
-    Logger.log('largo: ' + Utl_texto(p.ID_INTERNO).length);
-    Logger.log('RUT: ' + JSON.stringify(p.RUT));
-    Logger.log('NOMBRE: ' + JSON.stringify(Utl_texto(p.NOMBRE).substring(0, 30)));
-    Logger.log('keys del objeto: ' + JSON.stringify(Object.keys(p).slice(0, 10)));
-    Logger.log('');
-  });
-
-  // prueba búsqueda del primero
-  var primero = pacientes[0];
-  var nombreBusqueda = Utl_texto(primero.NOMBRE).substring(0, 5);
-  Logger.log('--- Prueba búsqueda "' + nombreBusqueda + '" ---');
-  var busqueda = Bus_buscarPacientes(pacientes, nombreBusqueda);
-  Logger.log('Resultados búsqueda: ' + busqueda.length);
-  if (busqueda.length > 0) {
-    Logger.log('Primer resultado ID: ' + JSON.stringify(busqueda[0].ID_INTERNO));
-    Logger.log('Coincide con original: ' + (busqueda[0].ID_INTERNO === primero.ID_INTERNO));
-  }
-
-  // prueba ficha del primero
-  Logger.log('');
-  Logger.log('--- Prueba ficha para ID ' + JSON.stringify(primero.ID_INTERNO) + ' ---');
-  var ficha = Modelo_fichaPaciente(primero.ID_INTERNO);
-  Logger.log('Ficha resultado: ' + (ficha ? 'ENCONTRADA ✓' : 'NULL ✗'));
-
-  if (!ficha) {
-    Logger.log('⚠️ INVESTIGANDO POR QUÉ NO ENCUENTRA:');
-    Logger.log('ID buscado (string): ' + JSON.stringify(Utl_texto(primero.ID_INTERNO)));
-    // comparar manualmente cada ID
-    for (var i = 0; i < pacientes.length; i++) {
-      var idSheet = Utl_texto(pacientes[i].ID_INTERNO);
-      var idBuscar = Utl_texto(primero.ID_INTERNO);
-      if (i < 3) {
-        Logger.log('  fila ' + (i+2) + ': ID=' + JSON.stringify(idSheet) +
-                   ' | === buscado? ' + (idSheet === idBuscar));
-      }
-      if (idSheet === idBuscar) {
-        Logger.log('  MATCH MANUAL encontrado en índice ' + i);
-        break;
-      }
-    }
-  }
-
-  // probar también con un paciente del medio
-  if (pacientes.length > 10) {
-    var medio = pacientes[Math.floor(pacientes.length / 2)];
-    Logger.log('');
-    Logger.log('--- Prueba ficha paciente del medio ---');
-    Logger.log('ID: ' + JSON.stringify(medio.ID_INTERNO));
-    var fichaMedio = Modelo_fichaPaciente(medio.ID_INTERNO);
-    Logger.log('Ficha: ' + (fichaMedio ? 'ENCONTRADA ✓' : 'NULL ✗'));
-  }
-
-  Logger.log('=== FIN DIAGNÓSTICO ===');
-}
-
 // ===========================================================================
 // 🧪 Centro de Pruebas — registro declarativo + ejecutor con informe
 // ===========================================================================
@@ -1950,10 +1891,12 @@ function _pruS_protecciones() {
     : { estado: 'WARN', detalle: n + '/6 — ejecuta Instalar / Reparar Sistema' };
 }
 function _pruS_remDatos() {
-  var r = api_remLeer();
-  return r.ok
-    ? { estado: 'OK', detalle: 'filas=' + r.filas.length }
-    : { estado: 'WARN', detalle: 'REM_NO_GENERADO — usa 🩺 Generar REM primero' };
+  var d = new Date();
+  var r = api_remVista(d.getFullYear(), d.getMonth() + 1, 'TODOS', 'MES');
+  return r && r.ok
+    ? { estado: 'OK', detalle: 'REM al vuelo: ' + r.meta.pacientes +
+        ' pacientes del censo · ' + r.meta.atenciones + ' atenciones del mes' }
+    : { estado: 'WARN', detalle: (r && r.motivo) || 'sin datos' };
 }
 function _pruS_pdf() {
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;

@@ -119,3 +119,21 @@ convertirse en regla normativa. Ningún campo se asimila en silencio.
   conserva para diagnóstico.
 - **Tests**: se añadieron tests de `Utl_columnaLetra`, `Utl_formulaEdad` y de
   existencia de las funciones referenciadas por el menú. Batería completa **738/738**.
+
+## 10. Fase S9 — Auditoría profunda (cierres)
+
+- **Código muerto verificado eliminado** (0 referencias en src + tests + HTML):
+  `Utl_cacheGet/Put/Olvidar` (caché CacheService que nunca operó), `Utl_mapaPor`,
+  `Fuentes_validar`, `_fuentes_columnasStaging`, `DIAGNOSTICO_BUSCAR_FICHA`,
+  `Dash_actualizar`, `_dash_inicializarFiltros`, `_DASH_FILTROS`, `Form_reparar`,
+  `api_formularioDiagnostico`, `api_formularioInstalar`, `api_profesionalesCatalogo`,
+  `Entorno_gateGAS`, `Act_enriquecerPacientePorRut`, `WebApp_previaDuplicados`
+  (legacy), `api_webappCapturar`, `salida_contador`.
+- **Dashboard**: hoja `DASHBOARD` legacy obsoleta; se eliminó su orquestador. El
+  dashboard vive como funciones puras vía `api_dashboardDatos`.
+- **EDAD**: ya automática por fórmula `DATEDIF` (S8), sin cambio.
+- **Tests**: batería completa **739/739** (se añadió test-guarda OPT B8 de código
+  muerto no reintroducible).
+- **E2E real**: no medible en esta ejecución (sin login Google). Pendiente explícito
+  de verificación en vivo antes del commit/push/despliegue.
+- **Referencias**: `docs/INFORME_AUDITORIA_S9.md`, `ARQUITECTURA.md`, `README.md`.

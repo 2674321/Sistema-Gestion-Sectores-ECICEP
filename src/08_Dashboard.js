@@ -1,16 +1,12 @@
 /**
  * Sistema ECICEP Unificado — 08_Dashboard
  * Dashboard base sobre PACIENTES + EVENTOS (nunca SECTOR_* como fuente).
- * Filtros dinámicos sin código: DESDE/HASTA/SECTOR en celdas identificadas.
- * Agregación batch en memoria → escritura de valores → trazabilidad por detalle.
+ * Solo contiene funciones PURAS: la UI las consume vía api_dashboardDatos
+ * (07_UI.js) y Dashboard.html. La capa legacy que escribía una hoja DASHBOARD
+ * fue retirada en S9 (la hoja residual se conserva como tal).
+ *
+ * Módulo deliberadamente sin acceso a SpreadsheetApp: 100% testeable en node.
  */
-
-var _DASH_FILTROS = {
-  FILA_DESDE: 2, COL_DESDE: 2,
-  FILA_HASTA: 3, COL_HASTA: 2,
-  FILA_SECTOR: 4, COL_SECTOR: 2,
-  SECTORES: ['TODOS', 'NARANJO', 'AMARILLO', 'VERDE']
-};
 
 /** PURA: resuelve fechas inicio/fin según tipo de período seleccionado. */
 function Dash_resolverPeriodo(tipo, desdeStr, hastaStr) {
@@ -137,126 +133,4 @@ function Dash_distribucionPacientes(pacientes, sector) {
     }
   });
   return { porSector: porSector, matrizG: matrizG, total: total };
-}
-
-/**
- * ORQUESTADOR: actualiza la hoja DASHBOARD con los filtros actuales.
- * Lee filtros de celdas, hace batch reads, agrega en memoria, escribe valores.
- * Menú: 📈 Reportes → 🔄 Actualizar dashboard
- */
-function Dash_actualizar() {
-  var ss = Modelo_ss();
-  var hoja = ss.getSheetByName('DASHBOARD');
-  if (!hoja) hoja = ss.insertSheet('DASHBOARD');
-  ss.setActiveSheet(hoja);
-
-  // leer filtros de las celdas
-  var tipo = Utl_texto(hoja.getRange(_DASH_FILTROS.FILA_DESDE ? 1 : 1, 1).getValue());
-  // simplificación: leer de celdas fijas
-  var b1 = hoja.getRange(1, 1, 6, 4).getValues();
-  var tipoPeriodo = Utl_texto(b1[1][1]).trim();  // fila 2: Tipo de período
-  var desdeCustom = Utl_texto(b1[2][1]).trim();  // fila 3: Fecha desde
-  var hastaCustom = Utl_texto(b1[3][1]).trim();  // fila 4: Fecha hasta
-  var sectorSel   = Utl_texto(b1[4][1]).trim();  // fila 5: Sector
-
-  if (!tipoPeriodo) {
-    _dash_inicializarFiltros(hoja);
-    return { ok: false, motivo: 'DASHBOARD_INICIALIZADO — configura los filtros y vuelve a ejecutar.' };
-  }
-  if (tipoPeriodo === 'TIPO DE PERÍODO ▼') {
-    _dash_inicializarFiltros(hoja);
-    return { ok: false, motivo: 'CONFIGURA LOS FILTROS PRIMERO.' };
-  }
-
-  var periodo = Dash_resolverPeriodo(tipoPeriodo, desdeCustom, hastaCustom);
-  var sector = sectorSel || 'TODOS';
-
-  // batch reads
-  var pacientes = Modelo_leerPacientes();
-  var eventos = Modelo_leerEventos();
-  var evFiltrados = Dash_filtrarEventos(eventos, periodo.desde, periodo.hasta, sector === 'TODOS' ? null : sector);
-
-  // agregaciones en memoria
-  var actividad = Dash_agregarActividad(evFiltrados);
-  var mensual = Dash_actividadMensual(evFiltrados, periodo.desde, periodo.hasta);
-  var distPac = Dash_distribucionPacientes(pacientes, sector === 'TODOS' ? null : sector);
-  var calidad = Dash_calidadDatos(pacientes);
-
-  // escribir resultados como VALORES (no fórmulas)
-  var filaEscritura = 7; // después del bloque de filtros
-  var bloques = [];
-
-  bloques.push(['', '', '', '']);
-  bloques.push(['── ACTIVIDAD EN PERÍODO ──', periodo.desde + ' → ' + periodo.hasta, '', '']);
-  TIPOS_EVENTO.VALIDOS.forEach(function (t) {
-    if (actividad[t]) bloques.push([t, actividad[t], '', '']);
-  });
-
-  bloques.push(['', '', '', '', '']);
-  bloques.push(['── DISTRIBUCIÓN PACIENTES ──', '', '', '', '']);
-  bloques.push(['SECTOR', 'TOTAL', 'G1', 'G2', 'G3', 'PENDIENTE']);
-  Object.keys(distPac.matrizG).sort().forEach(function (s) {
-    var mg = distPac.matrizG[s];
-    bloques.push([s, distPac.porSector[s] || 0, mg['G1'] || 0, mg['G2'] || 0, mg['G3'] || 0, mg['PENDIENTE'] || 0]);
-  });
-  var totG = { G1: 0, G2: 0, G3: 0, PENDIENTE: 0 };
-  Object.values(distPac.matrizG).forEach(function (m) {
-    ['G1','G2','G3','PENDIENTE'].forEach(function (k) { totG[k] += m[k] || 0; });
-  });
-  bloques.push(['TOTAL', distPac.total, totG.G1, totG.G2, totG.G3, totG.PENDIENTE]);
-
-  bloques.push(['', '', '', '']);
-  bloques.push(['── ACTIVIDAD MENSUAL ──', '', '', '']);
-  bloques.push(['MES','INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO']);
-  mensual.forEach(function (m) {
-    bloques.push([m.mes, m['INGRESO']||0, m['CONTROL']||0, m['SEGUIMIENTO']||0, m['PLAN_CUIDADO']||0]);
-  });
-
-  bloques.push(['', '', '', '']);
-  bloques.push(['── CALIDAD DE DATOS ──', '', '', '']);
-  bloques.push(['Sin RUT', calidad.sinRut, '', '']);
-  bloques.push(['RUT inválido/sin DV', calidad.rutInvalido, '', '']);
-  bloques.push(['Sin sector', calidad.sinSector, '', '']);
-  bloques.push(['Estratificación pendiente', calidad.estratPendiente, '', '']);
-  bloques.push(['Requiere revisión', calidad.requiereRevision, '', '']);
-
-  // limpiar área de resultados y escribir
-  hoja.getRange(filaEscritura, 1, Math.max(hoja.getMaxRows() - filaEscritura, 1), 5).clearContent();
-  // normalizar todas las filas a exactamente 5 columnas
-  var bloquesNorm = bloques.map(function (fila) {
-    while (fila.length < 6) fila.push('');
-    return fila.slice(0, 6);
-  });
-  Utl_escribirBloque(hoja, filaEscritura, 1, bloquesNorm);
-
-  Log_info('Dashboard', 'actualizar', JSON.stringify({
-    periodo: periodo.desde+'→'+periodo.hasta, sector: sector,
-    eventos: evFiltrados.length, pacientes: distPac.total }));
-  Log_flush();
-
-  return { ok: true, periodo: periodo, sector: sector,
-           actividad: actividad, distribucion: distPac, calidad: calidad };
-}
-
-/** Inicializa los filtros si la hoja está vacía o mal configurada. */
-function _dash_inicializarFiltros(hoja) {
-  hoja.getRange(1, 1, 5, 4).clearContent();
-  var encabezados = [
-    ['FILTRO', 'VALOR'],
-    ['Tipo de período', 'MES ACTUAL'],
-    ['Fecha desde (si PERSONALIZADO)', ''],
-    ['Fecha hasta (si PERSONALIZADO)', ''],
-    ['Sector', 'TODOS']
-  ];
-  Utl_escribirBloque(hoja, 1, 1, encabezados);
-  hoja.getRange(1, 1, 1, 2).setFontWeight('bold')
-     .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta);
-
-  // validación de datos para Tipo de período y Sector
-  var tiposPermitidos = ['MES ACTUAL','MES ANTERIOR','ÚLTIMOS 3 MESES','ÚLTIMOS 6 MESES','AÑO ACTUAL','AÑO A LA FECHA','PERSONALIZADO'];
-  var reglaTipo = SpreadsheetApp.newDataValidation().requireValueInList(tiposPermitidos, true).build();
-  hoja.getRange(2, 2).setDataValidation(reglaTipo);
-  var sectoresValidos = _DASH_FILTROS.SECTORES;
-  var reglaSector = SpreadsheetApp.newDataValidation().requireValueInList(sectoresValidos, true).build();
-  hoja.getRange(5, 2).setDataValidation(reglaSector);
 }

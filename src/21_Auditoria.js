@@ -429,7 +429,6 @@ function Auditoria_ejecutar() {
       titulo: 'SEGURIDAD — Superficie y hallazgos',
       lineas: [
         'api_irA des-oculta hojas ocultas (LOG, RESPONSABLES, PROFESIONALES, CONFIG, STAGING, REM_SALIDA) — acceso amplio',
-        'CacheService TTL_CACHE_SEG definido en CONFIG pero código Utl_cacheGet/Put/Olvidar no usado (muerto)',
         'CONFIG expuesta en api_configListar (solo lectura) · api_configGuardar/Agregar/Eliminar requieren usuario admin (verificar)',
         'Webhook token en CONFIG (sensible) — no ofuscado en UI'
       ]

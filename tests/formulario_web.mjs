@@ -110,7 +110,7 @@ const document = {
 // Stub de google.script.run: encadenable, registra llamadas, nunca resuelve.
 const rpcCalls = [];
 const gsr = { withSuccessHandler() { return this; }, withFailureHandler() { return this; } };
-['WebApp_esquemaFormulario', 'api_profesionalesCatalogo', 'api_webappEstado',
+['WebApp_esquemaFormulario', 'api_webappEstado',
   'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar'].forEach((name) => {
   gsr[name] = function () { rpcCalls.push({ name, args: [...arguments] }); return this; };
 });

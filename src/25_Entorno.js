@@ -221,16 +221,3 @@ function Entorno_actualGAS() {
     coincide: entorno !== 'DESCONOCIDO' && Entorno_esLibro(ssId, entorno)
   };
 }
-
-/** GAS: gate de entorno para captura/procesamiento/trigger. Devuelve inmediato
- *  cuando SpreadsheetApp no existe (tests/node) con entorno DESCONOCIDO. */
-function Entorno_gateGAS() {
-  var cur = Entorno_actualGAS();
-  var gate = Entorno_validarProcesamiento(cur.ssId, FORM_CONFIG.FORM_ID, {});
-  gate.entornoActual = cur.entorno;
-  gate.ssIdActual = cur.ssId;
-  if (cur.entorno === 'DESCONOCIDO') {
-    if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS', entorno: 'DESCONOCIDO' };
-  }
-  return gate;
-}
