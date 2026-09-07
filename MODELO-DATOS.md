@@ -26,8 +26,8 @@ Orden = orden de columnas en la hoja. `Téc` = columna técnica.
 | 1 | ID_INTERNO | id | ✔ | ✔ | `EC-<base36>-<rand>`; estable aunque cambie el RUT |
 | 2 | RUT | texto | ✔ | | Normalizado cuerpo-DV; sin DV en fuente → cuerpo + bandera |
 | 3 | NOMBRE | texto | ✔ | | Mayúsculas, espacios colapsados, conserva tildes |
-| 4 | SEXO | enum | | | M \| F \| OTRO \| '' (REM lo requiere; hoy sin fuente — captura futura) |
-| 5 | FECHA_NACIMIENTO | fecha | | | ISO; base de EDAD/tramos derivados (REM) |
+| 4 | SEXO | enum | | | M \| F \| OTRO \| '' (REM lo requiere; completo solo si vacío desde hojas INGRESO_* — S5/DEC-057) |
+| 5 | FECHA_NACIMIENTO | fecha | | | ISO; base de EDAD/tramos derivados (REM); completo solo si vacío desde hojas INGRESO_* (S5/DEC-057) |
 | 6 | TELEFONOS | lista | | | Normalizados separados por `/`; prefijo país removido |
 | 7 | TELEFONO_OBS | texto | | | Anotaciones de fuente (ESPOSO…) |
 | 8 | SECTOR | enum | ✔ | | NARANJO \| AMARILLO \| VERDE (vigente); MULTIPLE solo transitorio del sistema |

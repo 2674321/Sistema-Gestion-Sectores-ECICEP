@@ -142,7 +142,10 @@ function UI_instalarDiagnosticar() {
   SpreadsheetApp.getUi().alert('🔍 Diagnóstico', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-/** 🔄 Actualizar sistema: ejecuta todas las etapas con confirmación previa. */
+/** 🔄 Actualizar sistema: ejecuta todas las etapas con confirmación previa.
+ *  Nota: la operación de enriquecimiento demográfico de PACIENTES (S5, DEC-057)
+ *  NO vive aquí; se ejecuta como etapa del instalador
+ *  ("⚙️ Instalar / reparar sistema") — Instalar_pEnriquecimiento. */
 function UI_actualizarSistema() {
   var ui = SpreadsheetApp.getUi();
   var r = Instalar_diagnosticar();

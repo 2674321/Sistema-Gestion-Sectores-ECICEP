@@ -813,3 +813,18 @@ No es lógica paralela: idéntico pipeline con entrada acotada a la captura en c
   - `Form_diagnosticoEnvio` lee UNA vez por hoja y cuenta pendientes por la columna ESTADO (muestras ≤3 normalizadas).
   Tests: aceptación 46 → 50 (espía `Fuentes_normalizar`: 1004 filas → staging=1 con 1 sola normalización; espía `buscadorMarca` no invocado con coords pobladas).
 **Fecha:** 2026-09-04
+
+## DEC-057
+**Título:** S5 — Enriquecimiento seguro de PACIENTES desde hojas INGRESO_* (solo campos vacíos)
+**Estado:** Aprobada / vigente
+**Motivo:** La captura actual no escribe `SEXO`/`FECHA_NACIMIENTO` en PACIENTES, pero las hojas `INGRESO_*` ya contienen ambos datos en muchos casos. En lugar de reintroducir un formulario o rediseñar captura, se integra el **enriquecimiento** dentro de la operación administrativa existente `UI_actualizarSistema` (Web App = único canal de captura; Sheets/paneles = operativo interno):
+
+1. **Contrato mínimo**: solo se completan **`SEXO`** y **`FECHA_NACIMIENTO` vacíos**; `EDAD` nunca se almacena (campo derivado en vivo vía `Utl_edadDesde`, DECISIONES de edad previas).
+2. **Identidad**: `ID_INTERNO` de PACIENTES es la identidad canónica; el match a fuentes se hace por **`RUT` normalizado exacto** (`Norm_normalizarRut`) contra los RUT de las hojas `INGRESO_*` — nunca se falsifica un RUT incompleto.
+3. **Regla de escritura**: un campo se completa solo si su valor candidato de fuente es válido (SEXO ∈ {M,F,OTRO} tras `Norm_normalizarSexo`; fecha ISO válida en rango `[1900, 2040]`); si hay fuentes **inconsistentes entre sí se marca `REQUIERE_REVISION` sin escribir**; si no hay fuente aplicable el campo queda vacío (no se infiere).
+4. **Idempotencia y trazabilidad**: una segunda ejecución no cambia nada; cada aplicación acumula `FUENTE` con `ENRIQUECIMIENTO|<hoja>|<fila>` (append sin duplicar), estampa `FECHA_ACTUALIZACION` y registra `Log_info`.
+5. **Sin lógica paralela**: reutiliza funciones de hoja (`Modelo_leerBloqueCabecera`, `Ingresos_mapearEncabezadosHoja`, `Modelo_leerPacientes`, `Utl_escribirBloque`) y el pipeline real; no toca `FORM_RESPUESTAS`, contrato V2, captureId ni deployments.
+6. **Ubicación operativa (corrección tras validación real)**: el enriquecimiento vive como **etapa del instalador** (`INSTALAR_ETAPAS` → `Instalar_pEnriquecimiento` en `src/20_Instalador.js`), ejecutada por "⚙️ Instalar / reparar sistema" antes de la verificación final. **No** se integra en "🔄 Actualizar sistema" (`UI_actualizarSistema` conserva su rol original).
+Tests: núcleo 469 → 487 (+18 casos A–H/EDAD) verdes con batería completa (732).
+
+**Fecha:** 2026-09-07

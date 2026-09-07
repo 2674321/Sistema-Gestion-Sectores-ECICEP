@@ -14,7 +14,7 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 | 11 | Definir destino de flujos auxiliares: GESTOR DE CASO, CONTROLES PENDIENTES, INASISTENTES A INGRESOS | Consulta cliente | Modelo final | MEDIA |
 | 12 | Confirmar etiqueta visible definitiva de NARANJO/NARANJA en UI/REM | Consulta cliente | Etiquetas REM | BAJA |
 | 13 | Definir correos de responsables por sector para protecciones operativas | Consulta cliente | Protecciones | MEDIA |
-| 14 | Definir catálogo de condiciones/patologías y disponibilidad final de FECHA_NACIMIENTO/SEXO desde fuentes actuales | Consulta cliente | Estratificación / REM | ALTA |
+| 14 | Definir catálogo de condiciones/patologías; disponibilidad de FECHA_NACIMIENTO/SEXO resuelta vía S5 (enriquecimiento desde hojas INGRESO_*, `src/27_Actualizacion.js` — DEC-057) | Consulta cliente | Estratificación / REM | ALTA |
 | 15 | Confirmar umbrales oficiales G1/G2/G3 y definición operativa de PLAN_CUIDADO / GESTION_CASO | Consulta cliente | Motor G / REM | ALTA |
 | 16 | Definir formato de entrega del REM y período de cierre | Consulta cliente | Exportación REM | MEDIA |
 | 17 | Confirmar origen del bloque “atenciones” del REM | Consulta cliente | Generador REM | ALTA |

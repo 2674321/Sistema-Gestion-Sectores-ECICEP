@@ -36,7 +36,8 @@ const archivos = [
   'src/20_Instalador.js', 'src/21_Auditoria.js', 'src/22_HojasVisual.js', 'src/12_Ingresos.js',
   'src/24_Formulario.js', 'src/25_Entorno.js', 'src/Webhook.js', 'src/WebApp.gs',
   'src/06_Modelo.js', 'src/08_Dashboard.js', 'src/11_DatosPrueba.js', 'src/10_Pruebas.js',
-  'src/26_Captura.js'
+  'src/26_Captura.js',
+  'src/27_Actualizacion.js'
 ];
 let codigo = '';
 for (const a of archivos) codigo += readFileSync(path.join(raiz, a), 'utf8') + '\n';

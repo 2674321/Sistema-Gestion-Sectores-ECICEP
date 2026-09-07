@@ -18,6 +18,7 @@ var INSTALAR_ETAPAS = [
   { id: 'diseno',       nombre: 'Ajustando el libro',           fn: 'Instalar_pDiseno' },
   { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
+  { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
   { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
 ];
 
@@ -131,6 +132,22 @@ function Instalar_pVerificar() {
   if (faltan.length) return { ok: false, faltan: faltan,
     linea: 'faltan hojas: ' + faltan.join(', ') };
   return { ok: true, pacientes: pacientes, eventos: eventos };
+}
+
+/** (S5, DEC-057) Etapa de enriquecimiento demográfico de PACIENTES dentro del
+ *  instalador: completa SOLO campos vacíos (SEXO/FECHA_NACIMIENTO) desde
+ *  hojas INGRESO_* con fuente consistente; idempotente; no crea pacientes. */
+function Instalar_pEnriquecimiento() {
+  var r = Act_enriquecerPacientes({ dryRun: false });
+  if (!r || r.ok === false) {
+    return { ok: false, linea: (r && r.motivo) ? r.motivo : 'error en enriquecimiento' };
+  }
+  var lineas = [];
+  if (r.enriquecidos) lineas.push('Completados: ' + r.enriquecidos + ' pacientes (' + r.aplicados + ' campos)');
+  else lineas.push('Nada que enriquecer (campos demográficos ya presentes o sin fuente)');
+  if (r.conflictos) lineas.push('En revisión (fuentes inconsistentes): ' + r.conflictos);
+  return { ok: true, enriquecidos: r.enriquecidos, aplicados: r.aplicados,
+           conflictos: r.conflictos, linea: lineas.join(' · ') };
 }
 
 /**

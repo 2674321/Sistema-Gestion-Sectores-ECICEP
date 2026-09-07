@@ -78,6 +78,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_formulario_v090(t, A);
   _pruebas_entornos_v091(t, A);
   _pruebas_operativo_v092(t, A);
+  _pruebas_enriquecimiento_s5(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -3989,5 +3990,251 @@ function _pruebas_operativo_v092(t, A) {
     ['pctViaForm', 'viaForm', 'manuales', 'errores', 'rechazos', 'duplicadosEvitados', 'reprocesamientos']
       .forEach(function (k) { A.cierto(claves.indexOf(k) !== -1, 'métrica ' + k); });
     A.igual(FORM_CONFIG.CONTROL.REESCRIBIR, true, 'REESCRIBIR true');
+  });
+}
+
+// ===========================================================================
+// S5 — Enriquecimiento seguro de PACIENTES existentes (27_Actualizacion.js)
+// Casos obligatorios A–H + invariantes de identidad, EDAD derivada y FUENTE.
+// ===========================================================================
+
+function _pruebas_enriquecimiento_s5(t, A) {
+  // Origen sintético: mismo shape que Act_leerOrigenesDesdeBloques por RUT.
+  // Los valores pasan por la misma normalización que en producción.
+  function origen(sexo, nac, opts) {
+    var s = Act_normalizarCandidato('SEXO', sexo);
+    var n = Act_normalizarCandidato('FECHA_NACIMIENTO', nac);
+    return {
+      SEXO: { valor: s, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100',
+              conflicto: !!(opts && opts.conflictoSexo) },
+      FECHA_NACIMIENTO: { valor: n, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100',
+                          conflicto: !!(opts && opts.conflictoNac) }
+    };
+  }
+  function pacienteCompleto(extra) {
+    var p = {
+      ID_INTERNO: 'EC-X-1', RUT: '15987654-3', NOMBRE: 'ANA TEST',
+      SEXO: 'F', FECHA_NACIMIENTO: '1990-05-10', TELEFONOS: '912345678',
+      SECTOR: 'AMARILLO', ESTRATIFICACION: '', ESTADO: 'PENDIENTE',
+      FUENTE: 'INGRESO_AMARILLO|INGRESO_AMARILLO|90', FECHA_ACTUALIZACION: null,
+      REQUIERE_REVISION: false
+    };
+    if (extra) Object.keys(extra).forEach(function (k) { p[k] = extra[k]; });
+    return p;
+  }
+
+  // ---- Caso A: paciente con todos los datos de origen → sin cambios ----
+  t('S5 A: paciente completo no se toca (0 campos vacíos)', function () {
+    var p = pacienteCompleto();
+    var res = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    A.igual(res.aplicados.length, 0, 'sin campos aplicados');
+    A.igual(res.bloqueos.length, 0, 'sin bloqueos');
+    A.igual(p.SEXO, 'F', 'SEXO intacto');
+    A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'FECHA intacta');
+    A.igual(Act_camposVacios(p).length, 0, 'no hay campos vacíos');
+  });
+
+  // ---- Caso B: FECHA_NACIMIENTO faltante → se completa (EDAD queda derivada) ----
+  t('S5 B: FECHA_NACIMIENTO vacía se completa desde fuente válida', function () {
+    var p = pacienteCompleto({ FECHA_NACIMIENTO: '' });
+    var res = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    A.igual(res.aplicados.map(function (a) { return a.campo; }).join(','), 'FECHA_NACIMIENTO', 'solo FECHA_NACIMIENTO aplicado');
+    A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha completada');
+    A.igual(Norm_normalizarFecha(p.FECHA_NACIMIENTO, { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX }).estado, 'VALIDA', 'fecha válida');
+    // EDAD nunca se almacena como campo (DECISIONES): no existe en el modelo.
+    A.igual(Act_enriquecimientoCampos().indexOf('EDAD'), -1, 'EDAD no es campo de enriquecimiento');
+    // La derivación en vivo respeta el cumpleaños (FASE 3).
+    A.igual(Utl_edadDesde('1990-05-10', new Date(2011, 4, 9)), '20', 'edad antes de cumpleaños');
+    A.igual(Utl_edadDesde('1990-05-10', new Date(2011, 4, 10)), '21', 'edad en el cumpleaños');
+    A.igual(Utl_edadDesde('1990-05-10', new Date(2011, 4, 11)), '21', 'edad tras cumpleaños');
+    A.igual(Utl_edadDesde('', new Date(2011, 4, 11)), '', 'sin fecha → sin edad');
+    A.igual(Utl_edadDesde('2026-01-01', new Date(2026, 8, 7)), '0', 'bebé nacido este año → 0');
+    A.igual(Utl_edadDesde('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
+  });
+
+  // ---- Caso C: SEXO faltante + fuente válida → se completa ----
+  t('S5 C: SEXO vacío se completa con valor canónico válido', function () {
+    var p = pacienteCompleto({ SEXO: '' });
+    var res = Act_aplicarEnriquecimiento(p, origen('M', ''));
+    A.igual(res.aplicados.map(function (a) { return a.campo; }).join(','), 'SEXO', 'SEXO aplicado');
+    A.igual(p.SEXO, 'M', 'SEXO completado');
+  });
+  t('S5 C2: sinónimo confirmado de fuente se canjea al canónico', function () {
+    var p = pacienteCompleto({ SEXO: '' });
+    var res = Act_aplicarEnriquecimiento(p, origen('FEMENINO', ''));
+    A.igual(p.SEXO, 'F', 'sinónimo → F');
+    A.igual(res.aplicados.length, 1, '1 campo');
+  });
+
+  // ---- Caso D: SEXO faltante + fuente sin dato confiable → permanece vacío ----
+  t('S5 D: fuente vacía/inválida NO completa SEXO (no se infiere)', function () {
+    ['', 'X', 'desconocido', 'NO APLICA', '  '].forEach(function (v) {
+      var p = pacienteCompleto({ SEXO: '' });
+      var res = Act_aplicarEnriquecimiento(p, origen(v, ''));
+      A.igual(res.aplicados.length, 0, 'sin aplicar para [' + v + ']');
+      A.igual(p.SEXO, '', 'SEXO permanece vacío');
+      A.igual(Act_normalizarCandidato('SEXO', v), '', 'candidato inválido → ""');
+    });
+  });
+  t('S5 D2: fecha inválida NO completa FECHA_NACIMIENTO', function () {
+    var p = pacienteCompleto({ FECHA_NACIMIENTO: '' });
+    var res = Act_aplicarEnriquecimiento(p, origen('', '2026-13-40'));
+    A.igual(res.aplicados.length, 0, 'no se completa');
+    A.igual(p.FECHA_NACIMIENTO, '', 'sigue vacía');
+  });
+
+  // ---- Caso E: paciente ya enriquecido → idempotente ----
+  t('S5 E: segunda ejecución es estable (idempotencia)', function () {
+    var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '' });
+    var o = origen('M', '1985-07-20');
+    var r1 = Act_aplicarEnriquecimiento(p, o);
+    A.igual(r1.aplicados.length, 2, 'primera ejecución aplica');
+    var r2 = Act_aplicarEnriquecimiento(p, o);
+    A.igual(r2.aplicados.length, 0, 'segunda ejecución no cambia');
+    A.igual(r2.bloqueos.length, 0, 'sin bloqueos en 2ª');
+    A.igual(p.SEXO, 'M', 'sin duplicar valor');
+    A.igual(p.FECHA_NACIMIENTO, '1985-07-20', 'sin corrupción');
+    A.igual(Act_appendFuente('A|B|1', ['A|B|1', 'C|D|2']), 'A|B|1;C|D|2', 'FUENTE no duplica');
+    A.igual(Act_appendFuente('', ['C|D|2']), 'C|D|2', 'FUENTE desde vacío');
+  });
+  t('S5 E2: ya-enriquecido con fuente distinta NO sobrescribe', function () {
+    var p = pacienteCompleto({ SEXO: 'F', FECHA_NACIMIENTO: '1990-05-10' });
+    var res = Act_aplicarEnriquecimiento(p, origen('M', '2000-01-01'));
+    A.igual(res.aplicados.length, 0, 'nada sobrescrito');
+    A.igual(p.SEXO, 'F', 'SEXO original intacto');
+    A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha original intacta');
+  });
+
+  // ---- Caso F: paciente inexistente / sin origen → nunca se crea ----
+  t('S5 F: sin fuente para el RUT → no se inventa dato ni paciente', function () {
+    var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '' });
+    var res = Act_aplicarEnriquecimiento(p, null);
+    A.igual(res.aplicados.length, 0, 'sin origen → sin aplicar');
+    A.igual(res.bloqueos.length, 0, 'sin bloqueo');
+    A.igual(p.RUT, '15987654-3', 'paciente intacto (no se duplica ni crea)');
+    // Origen sin esa clave (mapa vacío) equivale a null.
+    var vacio = Act_leerOrigenesDesdeBloques([]);
+    A.cierto(vacio !== null, 'mapa vacío existe');
+    var r2 = Act_aplicarEnriquecimiento(p, undefined);
+    A.igual(r2.aplicados.length, 0, 'undefined → sin aplicar');
+  });
+  t('S5 F2: bloque sin filas de datos no produce orígenes', function () {
+    var o = Act_leerOrigenesDesdeBloques([{ hoja: 'INGRESO_AMARILLO', headerRow: 3, val: [['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO']] }]);
+    A.igual(Object.keys(o || {}).length, 0, 'solo encabezados → sin orígenes');
+  });
+
+  // ---- Caso G: fuentes inconsistentes/ambigüedad → REQUIERE_REVISION ----
+  t('S5 G: SEXO divergente entre fuentes → REQUIERE_REVISION, sin escribir', function () {
+    var p = pacienteCompleto({ SEXO: '' });
+    var o = origen('M', '', { conflictoSexo: true });
+    var res = Act_aplicarEnriquecimiento(p, o);
+    A.igual(res.aplicados.length, 0, 'nada aplicado');
+    A.igual(res.bloqueos.length, 1, 'bloqueo presente');
+    A.igual(res.bloqueos[0].campo, 'SEXO', 'campo bloqueado');
+    A.igual(res.bloqueos[0].motivo, 'FUENTES_INCONSISTENTES', 'motivo');
+    A.igual(p.SEXO, '', 'SEXO no se escribe');
+  });
+  t('S5 G2: consolidación detecta conflicto real entre dos filas', function () {
+    var bloques = [{
+      hoja: 'INGRESO_AMARILLO', headerRow: 3,
+      val: [
+        ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO'],
+        ['ANA', '15987654-3', 'M', '1990-05-10'],
+        ['ANA', '15.987.654-3', 'F', '1990-05-10']
+      ]
+    }];
+    var o = Act_leerOrigenesDesdeBloques(bloques);
+    V = o['15987654-3'];
+    A.cierto(V.SEXO.conflicto, 'SEXO inconsistente detectado');
+    A.igual(V.FECHA_NACIMIENTO.valor, '1990-05-10', 'fecha consistente conservada');
+    A.cierto(V.FECHA_NACIMIENTO.conflicto !== true, 'fecha sin conflicto');
+  });
+  t('S5 G3: segunda fila idéntica consolida sin conflicto', function () {
+    var bloques = [{
+      hoja: 'INGRESO_AMARILLO', headerRow: 3,
+      val: [
+        ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO'],
+        ['ANA', '15987654-3', 'M', '1990-05-10'],
+        ['ANA', '15.987.654-3', 'M', '1990-05-10']
+      ]
+    }];
+    var o = Act_leerOrigenesDesdeBloques(bloques);
+    var V = o['15987654-3'];
+    A.igual(V.SEXO.valor, 'M', 'SEXO consistente');
+    A.cierto(V.SEXO.conflicto !== true, 'sin conflicto');
+    A.igual(V.FECHA_NACIMIENTO.valor, '1990-05-10', 'fecha consistente');
+  });
+  t('S5 G4: RUT sin DV en la fuente no falsifica match exacto', function () {
+    var bloques = [{
+      hoja: 'INGRESO_NARANJO', headerRow: 3,
+      val: [
+        ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO'],
+        ['ANA', '15987654', 'F', '1990-05-10']
+      ]
+    }];
+    var o = Act_leerOrigenesDesdeBloques(bloques);
+    A.cierto(!o['15987654-3'], 'sin clave con DV (no se inventa el DV)');
+    A.cierto(o['15987654'], 'clave por cuerpo queda disponible');
+  });
+
+  // ---- Caso H: campos no autorizados permanecen intactos ----
+  t('S5 H: campos no autorizados no se modifican al enriquecer', function () {
+    var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '912345678', SECTOR: 'AMARILLO', NOMBRE: 'ANA TEST', RUT: '15987654-3' });
+    var o = origen('F', '1990-05-10');
+    var res = Act_aplicarEnriquecimiento(p, o);
+    A.igual(res.aplicados.length, 2, 'SEXO y FECHA completados');
+    A.igual(res.aplicados.map(function (a) { return a.campo; }).join(','), 'SEXO,FECHA_NACIMIENTO', 'solo campos autorizados');
+    A.igual(p.NOMBRE, 'ANA TEST', 'NOMBRE intacto');
+    A.igual(p.RUT, '15987654-3', 'RUT intacto');
+    A.igual(p.TELEFONOS, '912345678', 'TELEFONOS intacto');
+    A.igual(p.SECTOR, 'AMARILLO', 'SECTOR intacto');
+    A.igual(p.ESTADO, 'PENDIENTE', 'ESTADO intacto');
+    A.igual(p.ID_INTERNO, 'EC-X-1', 'ID_INTERNO intacto');
+  });
+
+  // ---- Invariante global: campos autorizados son exactamente SEXO y FECHA_NACIMIENTO ----
+  t('S5: invariante — solo se enriquece SEXO y FECHA_NACIMIENTO', function () {
+    var campos = CAMPOS_ENRIQUECIMIENTO.slice().sort();
+    A.igual(campos.join(','), 'FECHA_NACIMIENTO,SEXO', 'contrato S5 de campos');
+    var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '', OBSERVACIONES: '', ESTADO: '' });
+    var v = Act_camposVacios(p);
+    // Solo se REPORTAN vacíos de los campos autorizados; el resto del modelo queda fuera.
+    A.cierto(v.indexOf('SEXO') !== -1 && v.indexOf('FECHA_NACIMIENTO') !== -1, 'SEXO+FECHA detectados');
+    A.cierto(v.indexOf('TELEFONOS') === -1, 'TELEFONOS NO es campo S5');
+    A.cierto(v.indexOf('ESTADO') === -1, 'ESTADO NO es campo S5');
+  });
+
+  // ---- Trazabilidad: FUENTE append conserva origen previo ----
+  t('S5: FUENTE acumula origen exacto del enriquecimiento sin perder previo', function () {
+    var p = pacienteCompleto({ FECHA_NACIMIENTO: '' });
+    var res = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    var nueva = Act_appendFuente(p.FUENTE, res.aplicados.map(function (a) { return a.fuente; }));
+    A.cierto(nueva.indexOf('INGRESO_AMARILLO|INGRESO_AMARILLO|90') !== -1, 'FUENTE previa conservada');
+    A.cierto(nueva.indexOf('ENRIQUECIMIENTO|INGRESO_AMARILLO|100') !== -1, 'origen enriquecimiento incorporado');
+  });
+
+  // ---- EDAD: derivación correcta en la frontera del año bisiesto/período ----
+  t('S5 EDAD: rango sanitario y fechas de referencia', function () {
+    A.igual(Utl_edadDesde('2026-01-01', new Date(2026, 8, 7)), '0', 'recién nacido del año');
+    A.igual(Utl_edadDesde('1900-01-01', new Date(2026, 8, 7)), '126', 'extremo superior permitido');
+    A.igual(Utl_edadDesde('1900-01-01', new Date(2031, 0, 1)), '', 'fuera de rango >129 → vacío');
+    A.igual(Utl_edadDesde('02-05-1990', new Date(2026, 8, 7)), '', 'formato no ISO → vacío');
+  });
+
+  // ---- Wiring: S5 vive en "⚙️ Instalar / reparar sistema", NO en "Actualizar sistema" ----
+  t('S5 wiring: enriquecimiento es etapa del instalador (Instalar_pEnriquecimiento)', function () {
+    var ids = INSTALAR_ETAPAS.map(function (e) { return e.id; });
+    A.cierto(ids.indexOf('enriquecimiento') !== -1, 'etapa enriquecimiento registrada en INSTALAR_ETAPAS');
+    var iEnr = ids.indexOf('enriquecimiento');
+    var iVer = ids.indexOf('verificar');
+    A.cierto(iEnr !== -1 && iVer !== -1 && iEnr < iVer, 'la etapa corre antes de verificación final');
+    var etapa = INSTALAR_ETAPAS[ids.indexOf('enriquecimiento')];
+    A.igual(etapa.fn, 'Instalar_pEnriquecimiento', 'función de la etapa');
+    A.cierto(typeof Instalar_pEnriquecimiento === 'function', 'Instalar_pEnriquecimiento existe');
+  });
+  t('S5 wiring: UI_actualizarSistema ya no ejecuta enriquecimiento inline', function () {
+    var fu = UI_actualizarSistema.toString();
+    A.cierto(fu.indexOf('Act_enriquecerPacientes') === -1, 'sin llamada a enriquecimiento en Actualizar sistema');
+    A.cierto(fu.indexOf('Act_diagnosticarEnriquecimiento') === -1, 'sin dry-run en Actualizar sistema');
   });
 }

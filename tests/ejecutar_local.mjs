@@ -36,9 +36,11 @@ const archivos = [
   'src/Webhook.js',
   'src/WebApp.gs',
   'src/06_Modelo.js',
+  'src/07_UI.js',
   'src/08_Dashboard.js',
   'src/11_DatosPrueba.js',
-  'src/10_Pruebas.js'
+  'src/10_Pruebas.js',
+  'src/27_Actualizacion.js'
 ];
 
 let codigo = '';

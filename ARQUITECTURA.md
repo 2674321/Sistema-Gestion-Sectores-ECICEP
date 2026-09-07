@@ -131,6 +131,29 @@ captureId sin duplicar efectos. La Web App exige sesión de Google autenticada
 (§24.1 `Sesión de usuario no detectada; acceso denegado` en anónimo), consistente
 con su rol de canal operativo. Evidencia y detalle: `AUDITORIA_ESTABILIZACION.md` §9.
 
+### S5 — Instalar/reparar sistema: instalación + enriquecimiento seguro de PACIENTES
+
+El instalador (`⚙️ Instalar / reparar sistema`, `UI_instalarSistema` → panel
+`Instalador.html` → etapas de `src/20_Instalador.js`) incorpora, desde **DEC-057**,
+la etapa **`enriquecimiento`** (`Instalar_pEnriquecimiento`, `src/27_Actualizacion.js`):
+completa **solo campos vacíos** (`SEXO`, `FECHA_NACIMIENTO`) de PACIENTES desde los
+datos demográficos que ya viven en las hojas `INGRESO_*` (layout visual estándar
+de la captura: título/secciones/encabezados/datos), reutilizando funciones de hoja
+y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su resumen
+(`Completados: N pacientes (M campos) · En revisión: K`) se muestra en la pantalla final.
+
+- **Identidad**: `ID_INTERNO` es la identidad canónica; el match a fuentes es por
+  `RUT` normalizado exacto. **Regla de escritura**: valor candidato válido (SEXO ∈
+  {M,F,OTRO}; fecha ISO en `[1900,2040]`) sobre campo vacío; fuentes
+  inconsistentes → `REQUIERE_REVISION` **sin escribir**; sin fuente aplicable → el
+  campo queda vacío (no se infiere). `EDAD` nunca se almacena (derivada en vivo).
+- **Idempotencia y trazabilidad**: segunda ejecución no cambia nada; `FUENTE`
+  acumula `ENRIQUECIMIENTO|<hoja>|<fila>` (append sin duplicar), se estampa
+  `FECHA_ACTUALIZACION` y se registra `Log_info`.
+- **"🔄 Actualizar sistema"** (`UI_actualizarSistema`) conserva su rol original de
+  aplicar etapas de instalación pendientes (confirmación + panel), **sin**
+  enriquecimiento. No toca `FORM_RESPUESTAS`, contrato V2, captureId ni deployments.
+
 ## Interfaz dentro de Google Sheets (DEC-012)
 
 Sheets es la interfaz principal: menús personalizados, botones, listas

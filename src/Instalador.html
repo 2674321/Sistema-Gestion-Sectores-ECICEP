@@ -180,8 +180,11 @@ function mostrarFinal(ok){
   }
   document.getElementById('finVer').textContent='ECICEP '+VER+' \u00b7 Build '+BUILD;
   var datos=RESULTADOS.filter(function(x){return x.etapa==='verificar';})[0];
-  document.getElementById('finDatos').textContent=
-    datos?('Pacientes: '+datos.pacientes+' · Eventos: '+datos.eventos):'';
+  var enr=RESULTADOS.filter(function(x){return x.etapa==='enriquecimiento';})[0];
+  var txt='';
+  if(datos)txt+='Pacientes: '+datos.pacientes+' · Eventos: '+datos.eventos;
+  if(enr){if(txt)txt+=' · ';txt+='Enriquecidos: '+(enr.enriquecidos||0)+' ('+(enr.aplicados||0)+' campos)';}
+  document.getElementById('finDatos').textContent=txt;
   var av=document.getElementById('finAvisos');
   if(ERRORES.length){av.style.display='block';
     av.innerHTML='⚠ Completado con avisos:<br>'+ERRORES.map(function(e){
