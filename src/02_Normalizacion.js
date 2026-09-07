@@ -548,7 +548,7 @@ function Estrat_recalcularPaciente(idInterno) {
   p.ESTRAT_CALCULADA = String(res.resultado || '');
   p.ESTRAT_FECHA_CALCULO = new Date();
   p.FECHA_ACTUALIZACION = new Date();
-  Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+  Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
     .setValues([Modelo_filaDesdeObjeto(p)]);
   try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
   return { ok: true, resultado: nuevoValor || 'pendiente', puntaje: res.puntaje,

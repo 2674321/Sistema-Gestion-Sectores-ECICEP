@@ -3,6 +3,15 @@
 Formato: DEC-XXX · Título · Estado (Propuesta/Aprobada/Rechazada/Obsoleta) ·
 Motivo · Fecha. Una decisión rechazada u obsoleta NO se borra.
 
+> ⚠️ **CONTRATOS DE CAPTURA DESCRITOS EN ESTE REGISTRO: HISTÓRICOS / NO NORMATIVOS.**
+>
+> Este documento es un **registro histórico** de decisiones. Cuando una DEC describe
+> el contrato anterior de captura (campos, acciones, estados, `FORM_RESPUESTAS`,
+> validación, idempotencia, Google Forms o Web App), esa descripción constituye
+> **historial, NO especificación vigente** — **NO UTILIZAR PARA IMPLEMENTACIÓN NUEVA.**
+> El contrato de captura vigente está definido en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO** —
+> única fuente del contrato de captura); ninguna DEC pasada es normativa para captura.
+
 ---
 
 ## DEC-001
@@ -724,6 +733,10 @@ Los casos de prueba que correspondan al comportamiento actual deben conservarse 
 **Motivo histórico:** El proyecto evolucionó desde una captura inicial basada en formulario hacia la Web App como única interfaz operativa. El backend y el pipeline existente se conservaron para evitar duplicación de reglas.
 
 ### Estado actual derivado de esta evolución
+
+> ⚠️ **NO NORMATIVO.** La lista siguiente describe el contrato de captura anterior
+> y quedó **INVALIDADA**. No usar como especificación para el nuevo contrato;
+> el código que la implementa es deuda transitoria pendiente de redefinición.
 
 1. La Web App es el **único canal operativo de captura**.
 2. `CapturaWeb.html` llama a `Form_capturarDesdeUI(datos)` mediante `google.script.run`.

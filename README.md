@@ -38,7 +38,7 @@ estructuras distintas.
 **Modelo:** PACIENTES (entidad/estado vigente) + EVENTOS (historial append-only) — DEC-017.
 **Regla vigente:** NO migrar ni procesar masivamente los datos reales todavía.
 
-**Captura vigente:** `CapturaWeb.html` → `Form_capturarDesdeUI()` → `Form_validarRespuesta()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → pipeline clínico. `FORM_RESPUESTAS` es una estructura interna del mismo sistema; no es una base paralela ni requiere Google Forms.
+**Captura vigente:** ⚠️ CONTRATO DE CAPTURA PREVIO INVALIDADO. El flujo contractual anterior (`CapturaWeb.html` → `Form_capturarDesdeUI()` → `Form_validarRespuesta()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()`) fue retirado deliberadamente y no debe usarse como especificación normativa; la especificación vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**, única fuente del contrato de captura). Se conserva la regla arquitectónica: la Web App es el único canal operativo de captura.
 
 ## Stack
 
@@ -55,7 +55,8 @@ Sin dependencias externas salvo beneficio demostrable.
 | `MODELO-DATOS.md` | Modelo canónico propuesto y mapeo desde las fuentes |
 | `ARQUITECTURA.md` | Arquitectura del sistema, módulos, hojas, rendimiento |
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
-| `FORMULARIO.md` | Formulario complementario: instalación, mapeo, operación y seguridad |
+| `FORMULARIO.md` | Contrato de captura **INVALIDADO** (obsoleto, sin contenido normativo); el contrato vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**) |
+| `docs/CONTRATO_CAPTURA_V2.md` | Contrato de captura V2 — **NORMATIVO**, única fuente del contrato de captura (operaciones, payload, idempotencia, estados, errores) |
 | `PENDIENTES.md` | Decisiones abiertas y tareas bloqueantes |
 
 ## Estructura
@@ -349,7 +350,8 @@ En particular:
 - DEV/DEMO/PROD no son entornos de la aplicación;
 - la Web App es el único canal operativo de captura;
 - los deployments son mecanismos técnicos de publicación;
-- no existe segunda base de datos ni segundo pipeline.
+- no existe segunda base de datos ni segundo pipeline;
+- las definiciones del contrato de captura mencionadas en las secciones v0.x (acciones, estados, campos, `FORM_RESPUESTAS`, idempotencia) son **historial invalidado** — no constituyen especificación para implementación nueva (la especificación vigente es `docs/CONTRATO_CAPTURA_V2.md`, **NORMATIVO**).
 
 ## v0.9.0 — Etapa histórica: captura basada en Google Forms (DEC-047/048)
 
@@ -433,17 +435,13 @@ En particular:
 - **Config centralizada**: `ECICEP.WEB_APP_URL` en `00_Config.js` consumida por `ECICEP_webAppUrl()`; fallback `ScriptApp.getService().getUrl()`.
 - **Tests**: **469/469 núcleo + 29/29 aceptación** verdes. `clasp push --force` sincronizado; deployments como mecanismo técnico (`@HEAD` operativo, `/dev` revisión, `/exec` publicación).
 
-## Arquitectura vigente (v0.9.3)
+## Arquitectura vigente — pipeline clínico (contrato de captura V2)
+
+> ⚠️ **CONTRATO DE CAPTURA PREVIO INVALIDADO.** La cadena de captura anterior (Web App → `Form_capturarDesdeUI()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()`) fue retirada deliberadamente y no debe usarse como especificación normativa. La especificación vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**, única fuente). El pipeline clínico (PACIENTES/EVENTOS → SECTORES/DASHBOARD/REM/LOG) no se ve afectado.
+
+**Backend de captura V2 (implementado).** `src/26_Captura.js` implementa el backend del contrato de captura V2: validación por capas en el orden §17 (matriz §5.1, tipos §7, enums §9, fechas §10), idempotencia §13 (A1 reenvío terminal, A2 reintento técnico, B conflicto, C dedupe de negocio), estados y terminales §18/§19, persistencia §15 con confirmación por relectura y respuesta §16/§17, transformación TR-1/TR-2 §21, sesión §24.1 y entrypoints `WebApp_capturarEnviar`/`WebApp_capturarEstado`. Verificado por `tests/captura_backend_v2.mjs` (52 casos A/B/C) con regresión completa verde.
 
 ```text
-Web App (captura única)
-        ↓
-Form_capturarDesdeUI()
-        ↓
-FORM_RESPUESTAS  (cola interna, no Google Forms)
-        ↓
-Form_procesarPendientes()
-        ↓
 PIPELINE
    ┌────┴────┐
 PACIENTES  EVENTOS

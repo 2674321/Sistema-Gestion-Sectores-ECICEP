@@ -744,6 +744,12 @@ const ESTADOS_INGRESO = {
 // entorno activo. El gate Entorno_validarProcesamiento bloquea si el Form
 // configurado pertenece a otro entorno (aislamiento DEV/DEMO).
 // ---------------------------------------------------------------------------
+// Versión del CONTRATO DE CAPTURA vigente (docs/CONTRATO_CAPTURA_V2.md §26,
+// NORMATIVO). El backend 26_Captura.js la registra en cada fila de
+// FORM_RESPUESTAS (columna FORM_VERSION) y la expone al frontend para
+// sincronización de versiones. Cambios sustantivos requieren major++.
+var CAPTURE_CONTRACT_VERSION = 2;
+
 var FORM_CONFIG = {
   FORM_ID: '',
   FORM_VERSION: 1,
@@ -842,7 +848,7 @@ FORM_CONFIG.CONTROL = {
 // Columnas físicas de FORM_RESPUESTAS (derivadas del contrato CAMPOS).
 var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'USUARIO']
   .concat(FORM_CONFIG.CAMPOS.map(function (c) { return c.campo; }))
-  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO']);
+  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO', 'FECHA_INGRESO']);
 
 // ---------------------------------------------------------------------------
 // Sexo (REM lo requiere; fuentes actuales no lo traen)

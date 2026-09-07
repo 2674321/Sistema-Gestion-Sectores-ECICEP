@@ -623,7 +623,7 @@ registrar('operativo: esquema por ACCION deriva secciones desde CAMPOS (fuente Ã
 registrar('operativo: esquema por ACCION deriva campos requeridos correctos', () => {
   const esq = T.Form_esquemaFormulario();
   const j = (a) => (esq[a].camposRequeridos || []).sort().join(',');
-  const ok = j('NUEVO_INGRESO') === 'FECHA_NACIMIENTO,NOMBRE,PROFESIONAL,RUT,SECTOR'
+  const ok = j('NUEVO_INGRESO') === 'FECHA_INGRESO,FECHA_NACIMIENTO,NOMBRE,PROFESIONAL,RUT,SECTOR'
     && j('REGISTRAR_CONTROL') === 'FECHA_EVENTO,PROFESIONAL,RUT'
     && j('REGISTRAR_SEGUIMIENTO') === 'FECHA_EVENTO,PROFESIONAL,RUT'
     && j('ACTUALIZAR_DATOS') === 'PROFESIONAL,RUT';

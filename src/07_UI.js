@@ -511,7 +511,7 @@ function api_duplaGuardar(idInterno, codigos) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var hoja = ss.getSheetByName(HOJAS.PACIENTES);
     var colDupla = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('DUPLA_INGRESO') + 1;
-    hoja.getRange(2 + idx, colDupla).setValue(dupla);
+    hoja.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), colDupla).setValue(dupla);
     Log_info('Dupla', 'guardar', idInterno + ' → ' + dupla);
     Log_flush();
     return { ok: true, cantidad: codigos.length, dupla: dupla };
@@ -923,7 +923,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     }
     objetivo.FECHA_ACTUALIZACION = new Date();
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    hojaP.getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);
     Modelo_refrescarVistasSectores();
     Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO + ' (evento ' + evento.ID_EVENTO + ')');
@@ -1226,7 +1226,7 @@ function api_registrarEvento(payload) {
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     var idx = pacientes.indexOf(objetivo); // posición dentro del bloque de datos
-    hojaP.getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);
 
     Modelo_refrescarVistasSectores();
@@ -1615,7 +1615,7 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     pacientes[idx].OTRAS_PATOLOGIAS = Utl_texto(otrasPatologias).trim();
     pacientes[idx].FECHA_ACTUALIZACION = new Date();
 
-    Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
 
     var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
@@ -1625,7 +1625,7 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     pacientes[idx].ESTRAT_ORIGEN = String(antEstrat || '');
     pacientes[idx].ESTRAT_CALCULADA = String(estratRes.resultado || '');
     pacientes[idx].ESTRAT_FECHA_CALCULO = new Date();
-    Modelo_hoja(HOJAS.PACIENTES).getRange(2 + idx, 1, 1, MODELO_PACIENTE.length)
+    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
 
     Log_info('Patologias', 'guardar', 'paciente=' + idInterno + ' anteriores=[' + anteriores + '] nuevas=[' + val.validos.join(';') + ']');

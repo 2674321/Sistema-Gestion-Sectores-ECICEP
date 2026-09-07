@@ -4,10 +4,12 @@
  * interfaz de captura. NO es una segunda implementación: reutiliza el 100%
  * del backend existente (validación, decisión, efectos, idempotencia).
  *
- * Flujo:
- *   WebApp HTML → google.script.run → Form_capturarDesdeUI(datos)
- *     → deposita la respuesta en FORM_RESPUESTAS (mismo mecanismo que el
- *       trigger onFormSubmit) → Form_procesarPendientes() (pipeline real).
+ * Flujo vigente (captura V2 — único canal, contrato docs/CONTRATO_CAPTURA_V2.md NORMATIVO):
+ *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
+ *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
+ *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2, TRAZA_CRUDA JSON) + entrega acotada + trailer.
+ *   El puente legacy Form_capturarDesdeUI se conserva solo como compatibilidad interna
+ *   (sin consumidor en la UI vigente); el pipeline legacy NO procesa filas del namespace V2.
  *
  * AISLAMIENTO: este módulo NO crea bases ni lógica paralela. El código es
  * autónomo y portátil: utiliza el contexto del proyecto (SpreadsheetApp.getActive()

@@ -179,6 +179,7 @@
     .status-row+.status-row{margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px dashed currentColor}
     .status-ok{background:var(--c-ok-bg);border:1px solid var(--c-ok-border);color:var(--c-ok)}
     .status-err{background:var(--c-err-bg);border:1px solid var(--c-err-border);color:var(--c-err)}
+    .status-warn{background:var(--c-warn-bg);border:1px solid var(--c-warn);color:var(--c-warn)}
     .status-icon{font-size:16px;flex-shrink:0;margin-top:1px}
     .status-text{flex:1}
     .status-text strong{display:block;font-size:var(--fs-base);font-weight:var(--fw-semibold);margin-bottom:2px}
@@ -454,6 +455,14 @@
               </select>
             </div>
           </div>
+          <div class="f-row">
+            <div class="f">
+              <label class="f-label" for="fingreso">Fecha de ingreso <span class="req">*</span></label>
+              <input class="f-input" type="date" id="fingreso"
+                     aria-required="true" aria-describedby="fingreso-err">
+              <div class="f-err" id="fingreso-err" role="alert"></div>
+            </div>
+          </div>
         </fieldset>
 
         <!-- 5. Evento -->
@@ -585,7 +594,7 @@
      responde: la UI nunca queda sin comportamiento por acción. */
   var ESQUEMA_FALLBACK={
     NUEVO_INGRESO:{secciones:{ident:true,evento:false,tel:true,prof:true,obs:true},
-      camposRequeridos:['NOMBRE','FECHA_NACIMIENTO','SECTOR','PROFESIONAL'],
+      camposRequeridos:['NOMBRE','FECHA_NACIMIENTO','SECTOR','FECHA_INGRESO','PROFESIONAL'],
       mensajeExito:'Nuevo ingreso registrado correctamente'},
     REGISTRAR_CONTROL:{secciones:{ident:false,evento:true,tel:false,prof:true,obs:true},
       camposRequeridos:['FECHA_EVENTO','PROFESIONAL'],
@@ -598,14 +607,15 @@
       mensajeExito:'Datos actualizados correctamente'}
   };
   var CAMPO_A_DOM={RUT:'rut',NOMBRE:'nombre',SEXO:'sexo',FECHA_NACIMIENTO:'fnac',
-    SECTOR:'sector',ESTRATIFICACION:'estrat',TELEFONOS:'telefonos',
+    SECTOR:'sector',FECHA_INGRESO:'fingreso',ESTRATIFICACION:'estrat',TELEFONOS:'telefonos',
     FECHA_EVENTO:'fecha_evento',PROFESIONAL:'profesional',PROFESIONAL2:'profesional2',
     OBSERVACIONES:'obs'};
   var MENSAJE_CAMPO={NOMBRE:'El nombre es obligatorio',FECHA_NACIMIENTO:'La fecha de nacimiento es obligatoria',
-    SECTOR:'Seleccione un sector',FECHA_EVENTO:'La fecha del evento es obligatoria',
+    SECTOR:'Seleccione un sector',FECHA_INGRESO:'La fecha de ingreso es obligatoria',
+    FECHA_EVENTO:'La fecha del evento es obligatoria',
     PROFESIONAL:'Selecciona un profesional'};
   var CAMPO_SECCION={NOMBRE:'ident',SEXO:'ident',FECHA_NACIMIENTO:'ident',SECTOR:'ident',
-    ESTRATIFICACION:'ident',FECHA_EVENTO:'evento',TELEFONOS:'tel',
+    FECHA_INGRESO:'ident',ESTRATIFICACION:'ident',FECHA_EVENTO:'evento',TELEFONOS:'tel',
     PROFESIONAL:'prof',PROFESIONAL2:'prof',OBSERVACIONES:'obs'};
   function _esquemaAccion(accion){
     var e=(esquemaFormulario&&esquemaFormulario[accion])||ESQUEMA_FALLBACK[accion];
@@ -632,6 +642,33 @@
   function getAccion(){
     var r=document.querySelector('input[name="accion"]:checked');
     return r?r.value:'NUEVO_INGRESO';
+  }
+
+  function _accionCamel(a){
+    return {NUEVO_INGRESO:'nuevoIngreso',REGISTRAR_CONTROL:'registrarControl',
+      REGISTRAR_SEGUIMIENTO:'registrarSeguimiento',ACTUALIZAR_DATOS:'actualizarDatos'}[a]||'';
+  }
+
+  /* captureId V2 (§12): "Cp2-" + exactamente 32 hex minúsculas, conforme a
+     CAPTURA_V2.RE_CAPTURE_ID (/^Cp2-[a-f0-9]{32}$/). Un identificador más largo
+     (p.ej. 64 hex) es rechazado por el backend con SINTAXIS_INVALIDA.
+     El mismo contenido reutiliza el mismo captureId (reintento idéntico §13 A1);
+     al editar el formulario se genera uno nuevo. */
+  var _ultimoSig=null,_capIdPendiente='';
+  function _hex16(){
+    var a=new Uint8Array(16);
+    if(window.crypto&&window.crypto.getRandomValues)window.crypto.getRandomValues(a);
+    else for(var i=0;i<16;i++)a[i]=Math.floor(Math.random()*256);
+    var s='';
+    for(var i=0;i<16;i++){var h=a[i].toString(16);s+=(h.length<2?'0':'')+h;}
+    return s;
+  }
+  function _asignarCaptureId(sig){
+    if(sig!==_ultimoSig){
+      _ultimoSig=sig;
+      _capIdPendiente=_hex16();
+    }
+    return 'Cp2-'+_capIdPendiente;
   }
 
   function poblarProfesionales(){
@@ -679,24 +716,64 @@
       $('duplaToggle').textContent='+ Agregar segundo profesional';
       $('duplaToggle').setAttribute('aria-expanded','false');}
     if(sec.evento&&!$('fecha_evento').value){$('fecha_evento').value=hoyISO();}
+    if(getAccion()==='NUEVO_INGRESO'&&!$('fingreso').value){$('fingreso').value=hoyISO();}
     if(sec.prof){var pf=$('profesional');if(!pf.value&&pf.options.length>1)pf.focus();}
   }
 
+  /* Constructor ÚNICO del payload contractual V2 (§6/§5.1). PURA.
+     Entrada: el estado completo de la UI (todas las claves que el formulario
+     tiene, incluidas las que el backend marca NP). Salida: SOLO las claves
+     permitidas por la operación. Regla NP (§5.1): una clave NP jamás existe en
+     el payload, ni como '' ni como null. REQ siempre presente; OPC presente
+     solo si tiene valor no vacío (ausencia ≡ sin valor, §11). */
+  function construirPayloadV2(estado, opciones){
+    var e=estado||{};
+    var accion=_accionCamel(e.accionUI||'');
+    var p={accion:accion,captureId:e.captureId||'',rut:e.rut||''};
+    if(accion==='nuevoIngreso'){
+      p.nombre=e.nombre||'';
+      if(e.sexo)p.sexo=e.sexo;
+      p.fechaNacimiento=e.fechaNacimiento||'';
+      p.sector=e.sector||'';
+      p.fechaIngreso=e.fechaIngreso||'';
+      if(e.estratificacion)p.estratificacion=e.estratificacion;
+      if(e.telefonos)p.telefonos=e.telefonos;
+      if(opciones&&opciones.confirmarNuevoPaciente)p.confirmarNuevoPaciente=true;
+    }else if(accion==='registrarControl'||accion==='registrarSeguimiento'){
+      p.fechaEvento=e.fechaEvento||'';
+    }else if(accion==='actualizarDatos'){
+      if(e.telefonos)p.telefonos=e.telefonos;
+    }
+    p.profesional=e.profesional||'';
+    if(e.profesionalSecundario)p.profesionalSecundario=e.profesionalSecundario;
+    if(e.observaciones)p.observaciones=e.observaciones;
+    return p;
+  }
+
+  /* Adaptador DOM → estado UI. Único punto de lectura del formulario;
+     tanto el preflight de duplicados como el envío consumen el MISMO payload. */
   function recolectar(){
-    return{
-      ACCION:getAccion(),
-      RUT:$('rut').value,
-      NOMBRE:$('nombre').value,
-      SEXO:$('sexo').value,
-      FECHA_NACIMIENTO:$('fnac').value,
-      SECTOR:$('sector').value,
-      ESTRATIFICACION:$('estrat').value,
-      TELEFONOS:$('telefonos').value,
-      FECHA_EVENTO:$('fecha_evento').value,
-      PROFESIONAL:$('profesional').value,
-      PROFESIONAL2:$('profesional2').value,
-      OBSERVACIONES:$('obs').value
+    var estado={
+      accionUI:getAccion(),
+      rut:$('rut').value,
+      nombre:$('nombre').value,
+      sexo:$('sexo').value,
+      fechaNacimiento:$('fnac').value,
+      sector:$('sector').value,
+      fechaIngreso:$('fingreso').value,
+      estratificacion:$('estrat').value,
+      telefonos:$('telefonos').value,
+      fechaEvento:$('fecha_evento').value,
+      profesional:$('profesional').value,
+      profesionalSecundario:$('profesional2').value,
+      observaciones:$('obs').value
     };
+    var sig=[estado.accionUI,estado.rut,estado.nombre,estado.sexo,
+      estado.fechaNacimiento,estado.sector,estado.fechaIngreso,estado.estratificacion,
+      estado.telefonos,estado.fechaEvento,estado.profesional,
+      estado.profesionalSecundario,estado.observaciones].join('\u0001');
+    estado.captureId=_asignarCaptureId(sig);
+    return construirPayloadV2(estado);
   }
 
   function mostrarError(campo,msg){
@@ -717,7 +794,7 @@
   }
 
   function limpiarErrores(){
-    ['rut','nombre','fnac','sector','fecha_evento','profesional','profesional2'].forEach(function(c){
+    ['rut','nombre','fnac','sector','fingreso','fecha_evento','profesional','profesional2'].forEach(function(c){
       limpiarError(c);
     });
     $('duplaGroup').removeAttribute('aria-invalid');
@@ -755,7 +832,7 @@
       var secN=(CAMPO_SECCION[campo]||'');if(secN&&!esp.secciones[secN])return;
       var val=($(id).value||'').trim();
       if(!val){mostrarError(id,(MENSAJE_CAMPO[campo]||'Campo obligatorio'));hay=true;return;}
-      if(campo==='FECHA_NACIMIENTO'||campo==='FECHA_EVENTO'){
+      if(campo==='FECHA_NACIMIENTO'||campo==='FECHA_EVENTO'||campo==='FECHA_INGRESO'){
         if(!validarFecha(val)){mostrarError(id,'Fecha inv\u00e1lida');hay=true;}
       }
     });
@@ -812,6 +889,14 @@
   var _enviando=false;
   var _envTimeoutId=null;
   function _envTimeoutOff(){if(_envTimeoutId){clearTimeout(_envTimeoutId);_envTimeoutId=null;}}
+  function _envChips(d){
+    var out='<span class="chip">Estado: <b>'+_esc(d.estado||'')+'</b></span>';
+    if(d.captureId)out+='<span class="chip">ID: <b>'+_esc(d.captureId)+'</b></span>';
+    if(d.motivo)out+='<span class="chip">'+_esc(d.motivo)+'</span>';
+    if(d.idInterno)out+='<span class="chip">Paciente: <b>'+_esc(d.idInterno)+'</b></span>';
+    if(d.idEvento)out+='<span class="chip">Evento: <b>'+_esc(d.idEvento)+'</b></span>';
+    return out;
+  }
   function _envExito(r,accionEnvio){
     _envTimeoutOff();
     _enviando=false;
@@ -820,8 +905,6 @@
       estadoListo();
       var det=(r.errors||[]).map(function(e){return _esc(e&&e.mensaje?e.mensaje:String(e));}).join('<br>');
       if(!det && r.message)det=_esc(r.message);
-      var diag=(r.data&&r.data.diagnostico)?JSON.stringify(r.data.diagnostico).substring(0,4000):'';
-      if(diag)det+='<details style="margin-top:8px"><summary>Ver diagnóstico</summary><pre style="white-space:pre-wrap;font-size:11px;opacity:.85;margin:6px 0 0">'+_esc(diag)+'</pre></details>';
       _resumenAnexar('err','No fue posible registrar',det?'<div style="margin-top:6px">'+det+'</div>':'');
       return;
     }
@@ -832,16 +915,26 @@
       _resumenAnexar('err',r.message||'No fue posible registrar','<div style="margin-top:6px">'+detErr+'</div>');
       return;
     }
-    var isRev=d.estado==='REQUIERE_REVISION';
-    var msg=isRev?(r.message||'Registro recibido — requiere revisión'):_esquemaAccion(accionEnvio).mensajeExito||'Registro guardado correctamente';
-    var chips='<span class="chip">Estado: <b>'+_esc(d.estado||'RECIBIDO')+'</b></span>';
-    if(d.motivo)chips+='<span class="chip">'+_esc(d.motivo)+'</span>';
-    _resumenAnexar(isRev?'err':'ok',msg,chips);
+    if(d.estado==='PROCESADO'){
+      estadoListo();
+      var msgEx=_esquemaAccion(accionEnvio).mensajeExito||'Registro guardado correctamente';
+      _resumenAnexar('ok',msgEx,_envChips(d));
+      $('btnEnviar').classList.add('hidden');
+      $('btnsNueva').classList.add('show');
+      $('btnLimpiar').classList.remove('show');
+      limpiarCampos();
+      return;
+    }
+    if(d.estado==='REQUIERE_REVISION'){
+      estadoListo();
+      _resumenAnexar('warn','Registro recibido — requiere revisión',_envChips(d));
+      return;
+    }
+    var msgPend=(d.motivo==='PENDIENTE_ENTREGA')
+      ?'Captura recibida — entrega pendiente de confirmación'
+      :('Captura recibida — pendiente ('+_esc(d.estado||'SIN_ESTADO')+')');
+    _resumenAnexar('warn',msgPend,_envChips(d));
     estadoListo();
-    $('btnEnviar').classList.add('hidden');
-    $('btnsNueva').classList.add('show');
-    $('btnLimpiar').classList.remove('show');
-    limpiarCampos();
   }
   function _envFallo(){
     _envTimeoutOff();
@@ -849,20 +942,26 @@
     estadoListo();
     _resumenAnexar('err','No fue posible registrar. Revise los datos e int\u00e9ntelo nuevamente.','');
   }
-  function enviarFinal(datos, fuerzaNuevoPaciente){
-    var accionEnvio=getAccion();
-    if(fuerzaNuevoPaciente)datos.__fuerzaNuevoPaciente=true;
-    ocultarResumen();
+  function _envTimeoutInit(){
+    _envTimeoutOff();
     _envTimeoutId=setTimeout(function(){
+      _envTimeoutId=null;
       if(!_enviando)return;
       _enviando=false;
       estadoListo();
       _resumenAnexar('err','La respuesta tard\u00f3 demasiado. Verifique su conexi\u00f3n e int\u00e9ntelo nuevamente.','');
     },60000);
+  }
+  function enviarFinal(datos, fuerzaNuevoPaciente){
+    var accionEnvio=getAccion();
+    if(fuerzaNuevoPaciente&&_accionCamel(accionEnvio)==='nuevoIngreso')datos.confirmarNuevoPaciente=true;
+    ocultarResumen();
+    estadoEnviando();
+    _envTimeoutInit();
     google.script.run
       .withSuccessHandler(function(r){_envExito(r,accionEnvio);})
       .withFailureHandler(_envFallo)
-      .Form_capturarDesdeUI(datos);
+      .WebApp_capturarEnviar(datos);
   }
 
   /* ── Duplicados: verificación integrada al enviar ── */
@@ -913,6 +1012,7 @@
     ocultarResumen();
     estadoEnviando();
     _enviando=true;
+    _envTimeoutInit();
     var datos=recolectar();
     guardarUltimosInputs();
     var accionEnvio=getAccion();
@@ -940,11 +1040,11 @@
         _envTimeoutOff();_enviando=false;estadoListo();
         mostrarResumen('err','No fue posible verificar coincidencias. Intente nuevamente.','');
       })
-      .WebApp_previaDuplicados(datos);
+      .WebApp_previaDuplicadosV2(datos);
   }
 
   function limpiarCampos(){
-    ['rut','nombre','fnac','fecha_evento','telefonos','obs'].forEach(function(id){$(id).value='';});
+    ['rut','nombre','fnac','fingreso','fecha_evento','telefonos','obs'].forEach(function(id){$(id).value='';});
     $('sexo').value='';$('sector').value='';$('estrat').value='';
     limpiarErrores();
   }
@@ -953,7 +1053,7 @@
     var profGuardado=retenerProfesional?$('profesional').value:'';
     var prof2Guardado=retenerProfesional?$('profesional2').value:'';
     var duplaGuardada=retenerProfesional?duplaVisible:false;
-    ['rut','nombre','fnac','fecha_evento','telefonos','obs'].forEach(function(id){$(id).value='';});
+    ['rut','nombre','fnac','fingreso','fecha_evento','telefonos','obs'].forEach(function(id){$(id).value='';});
     $('sexo').value='';$('sector').value='';$('estrat').value='';
     $('profesional').value=profGuardado;$('profesional2').value=prof2Guardado;
     duplaVisible=duplaGuardada;

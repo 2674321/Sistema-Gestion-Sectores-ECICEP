@@ -85,7 +85,7 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 | Ejecución real verificada en el spreadsheet | ✅ **VERIFICADA (EJ-MT3IJ7RG)**: 18 leídos = 3 OK + 11 WARNING + 4 ERROR intencionales; 11 pacientes nuevos + 3 enlazados; 14 eventos; SECTOR_* refrescadas |
 | Captura histórica basada en Google Forms | **OBSOLETA / HISTÓRICA** | Canal utilizado en versiones anteriores. `Form_onFormSubmit`, `FormApp`, `FORM_ID` y `onFormSubmit` no forman parte de la operación actual. Su presencia eventual en código debe tratarse como compatibilidad/deuda histórica, no como canal activo.
 
-| Web App de captura | **ÚNICO canal operativo actual** | Flujo: `CapturaWeb.html` → `google.script.run` → `Form_capturarDesdeUI(datos)` → `Form_validarRespuesta()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()` → pipeline clínico. `FORM_RESPUESTAS` es estructura interna del mismo sistema. No hay segunda base de datos ni lógica paralela. El identificador de captura UI usa el esquema vigente con prefijo `UI-`.
+| Web App de captura | **ÚNICO canal operativo actual (regla arquitectónica)** | ⚠️ El flujo contractual anterior (`CapturaWeb.html` → `Form_capturarDesdeUI()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()`, identificador `UI-`) fue **INVALIDADO** y no constituye especificación normativa. La especificación vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**, única fuente del contrato de captura). Sin segunda base de datos ni lógica paralela.
 | Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con muestra controlada de datos reales |
 
 Pruebas: **171 casos verdes** (143 ETAPA 2 + 36 ETAPA 3 + 13 ETAPA 3b + ajustes).
@@ -99,11 +99,25 @@ Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Scr
 
 Una referencia histórica como `@63` no debe documentarse como "producción" ni utilizarse para reconstruir el sistema. `@63` fue eliminado después de verificar sus dependencias reales.
 
-**Versión canónica vigente: `0.9.3`** — `ECICEP.VERSION` en `src/00_Config.js:19` (single source of truth). Build `e5d540c` (2026-09-02), tag `v0.9.3`. Stack `Google Sheets + Apps Script + CapturaWeb.html + 00_Tokens.html + WebApp.gs + 24_Formulario.js` sin dependencias externas; `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`.
+**Versión canónica vigente:** `ECICEP.VERSION` en `src/00_Config.js:19` (single source of truth). El sistema operativo actual incluye el módulo de captura **V2** (`src/26_Captura.js`, contrato `docs/CONTRATO_CAPTURA_V2.md`), la Web App 100% V2 (`src/CapturaWeb.html`) y el layout visual de `PACIENTES` (`CONTRATO_LAYOUT_VISUAL`); sus invariantes de datos se definen en `CONTRATO_DATOS.md` (**NORMATIVO**). Stack `Google Sheets + Apps Script + CapturaWeb.html + 00_Tokens.html + WebApp.gs + 26_Captura.js + 24_Formulario.js` sin dependencias externas; `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`.
 
 ## Canal de captura
 
 La Web App es la única interfaz operativa de captura. El backend reutiliza el mismo pipeline ya existente. No existe un segundo canal de negocio que deba mantenerse en paralelo.
+
+### S3 — Comportamiento del formulario web
+
+El formulario web interpreta la respuesta del backend V2 con una única regla de
+limpieza: **solo limpia el formulario cuando `data.estado === 'PROCESADO'`**
+(aceptada + persistida + entregada). En `RECIBIDO`/`VALIDANDO`/`VALIDO`
+(pendiente, p. ej. `PENDIENTE_ENTREGA`), `REQUIERE_REVISION` y `ERROR` el
+formulario se conserva y se muestra un mensaje no ambiguo. El reintento
+idéntico es inocuo (idempotencia A1/A2) porque el `captureId` se conserva
+mientras el contenido no cambie. El envío está protegido contra doble clic
+(`_enviando`), y un timeout de 60 s (que cubre también la verificación previa
+de duplicados) desbloquea botón y spinner ante una respuesta colgada. El
+`captureId` cumple estrictamente `Cp2-` + 32 hex minúsculas (§12). Detalles y
+pruebas: `AUDITORIA_ESTABILIZACION.md` §8.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 

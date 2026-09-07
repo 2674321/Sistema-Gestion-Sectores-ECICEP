@@ -71,29 +71,13 @@ Sheets conserva su función administrativa y operativa interna cuando correspond
 
 La Web App es la única interfaz operativa destinada a registrar datos de captura.
 
-Flujo contractual actual:
+⚠️ CONTRATO DE CAPTURA INVALIDADO.
 
-```text
-CapturaWeb.html
-      ↓
-google.script.run
-      ↓
-Form_capturarDesdeUI(datos)
-      ↓
-Form_validarRespuesta()
-      ↓
-FORM_RESPUESTAS
-      ↓
-Form_procesarPendientes()
-      ↓
-pipeline existente
-      ↓
-PACIENTES / EVENTOS / efectos derivados
-```
+El flujo contractual anterior (nombres de funciones de captura, `FORM_RESPUESTAS`, estados, acciones, validación e idempotencia) fue retirado deliberadamente y **no debe utilizarse como especificación normativa**. La especificación vigente está definida en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO** — única fuente del contrato de captura).
 
-Google Forms **no es parte del flujo actual**. No crear formularios, no completar `FORM_ID`, no instalar triggers `onFormSubmit` para reactivar ese canal y no diseñar lógica de aislamiento para formularios.
+Google Forms **no es parte del flujo actual** y no debe reactivarse: no crear formularios, no completar `FORM_ID`, no instalar triggers `onFormSubmit` y no diseñar lógica de aislamiento para formularios.
 
-`FORM_RESPUESTAS` es una estructura interna del pipeline y su nombre no implica la existencia de Google Forms.
+`FORM_RESPUESTAS` es **implementación existente pendiente de redefinición contractual**: no se asume que su esquema actual sea correcto ni incorrecto.
 
 ---
 
@@ -133,9 +117,10 @@ Ejecutar, según el alcance de la modificación:
 ```bash
 node tests/ejecutar_local.mjs
 node tests/aceptacion_formulario.mjs
+node tests/contrato_captura_v2.mjs
 ```
 
-Los tests de aceptación deben representar el contrato actual de la Web App, no el flujo histórico de Google Forms.
+Los tests de aceptación no deben representar el flujo histórico de Google Forms; el contrato de captura vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**), al cual se ajustarán los tests al implementarlo (hasta entonces, la batería existente sigue siendo la red de seguridad).
 
 ---
 
@@ -209,8 +194,9 @@ Una tarea está terminada cuando, según corresponda:
 | `README.md` | Visión general, estado y evolución del proyecto |
 | `ARQUITECTURA.md` | Arquitectura técnica y funcional vigente |
 | `DECISIONES.md` | Registro de decisiones; conserva también las obsoletas como historial |
-| `FORMULARIO.md` | Contrato de la captura Web App y estructura interna `FORM_RESPUESTAS` |
-| `CONTRATOS.md` | Contratos de entrada, salida y pipeline |
+| `FORMULARIO.md` | Contrato de captura **INVALIDADO** (obsoleto, sin contenido normativo); el contrato vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**) |
+| `CONTRATOS.md` | Contratos de entrada, salida y pipeline — **INVALIDADOS** (obsoletos, sin contenido normativo); el contrato vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**) |
+| `docs/CONTRATO_CAPTURA_V2.md` | Contrato de captura V2 — **NORMATIVO**, única fuente del contrato de captura (operaciones, payload, idempotencia, estados, errores) |
 | `ENTORNO.md` | Definición del único entorno operativo y mecánica de deployments |
 | `WORKFLOW.md` | Procedimiento de desarrollo, publicación y verificación |
 | `PENDIENTES.md` | Trabajo pendiente real; no contiene tareas históricas ya invalidas |

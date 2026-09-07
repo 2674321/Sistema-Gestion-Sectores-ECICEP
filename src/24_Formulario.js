@@ -215,6 +215,13 @@ function Form_esquemaFormulario() {
     });
     var camposRequeridos = camposAccion.filter(function (c) { return c.requerido === true; })
       .map(function (c) { return c.campo; });
+    // Puente V2 (campaña fechaIngreso): FORM_CONFIG.CAMPOS NO se toca (desplazaría
+    // FORM_RESPUESTAS_COLUMNAS e invalidaría filas existentes). El esquema expuesto
+    // a la UI añade FECHA_INGRESO como requerido solo en el ingreso, y el backend
+    // V2 lo exige como fechaIngreso (§5.1/§8).
+    if (acc === 'NUEVO_INGRESO' && camposRequeridos.indexOf('FECHA_INGRESO') === -1) {
+      camposRequeridos.push('FECHA_INGRESO');
+    }
     esquema[acc] = {
       secciones: secciones,
       camposRequeridos: camposRequeridos,
@@ -631,7 +638,10 @@ function Form_simularRespuestas(cantidad, opciones) {
   return salida;
 }
 
-/** PURA: filas pendientes de una lectura de FORM_RESPUESTAS (por estado). */
+/** PURA: filas pendientes de una lectura de FORM_RESPUESTAS (por estado).
+ *  S1 — separación de namespaces: las filas V2 (FORM_VERSION=2 o RESPONSE_ID
+ *  con prefijo Cp2-) pertenecen al procesador V2 (26_Captura) y NUNCA se
+ *  entregan al procesador legacy del pipeline de Forms. */
 function Form_filasPendientes(valores, mapa, maxReintentos, max) {
   var camposInfo = Form_campos();
   max = typeof max === 'number' ? max : Infinity;
@@ -643,6 +653,8 @@ function Form_filasPendientes(valores, mapa, maxReintentos, max) {
     var estado = idx['ESTADO'] !== undefined ? Utl_texto(fila[idx['ESTADO']]).toUpperCase() : '';
     var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto(fila[idx['RESPONSEID']]) : '';
     if (!responseId) continue;
+    var formVersion = idx['FORMVERSION'] !== undefined ? Utl_texto(fila[idx['FORMVERSION']]) : '';
+    if (formVersion === '2' || responseId.lastIndexOf('Cp2-', 0) === 0) continue; // namespace V2
     if (estado === 'PROCESADO') continue;
     if (estado === 'REQUIERE_REVISION') continue; // requieren decisión humana, no se reintentan
     if (estado === 'ERROR') {
@@ -995,6 +1007,12 @@ function Form_reiniciarRespuesta(responseId) {
   for (var f = 1; f < valores.length; f++) {
     var rid = mapa.idx['RESPONSEID'] !== undefined ? Utl_texto(valores[f][mapa.idx['RESPONSEID']]) : '';
     if (rid !== responseId) continue;
+    // S1: las respuestas V2 no se reinician desde el panel legacy; su retoma
+    // pertenece al procesador V2 (Captura_v2_retomarRegistro, 26_Captura).
+    var formVersion = mapa.idx['FORMVERSION'] !== undefined ? Utl_texto(valores[f][mapa.idx['FORMVERSION']]) : '';
+    if (formVersion === '2' || rid.lastIndexOf('Cp2-', 0) === 0) {
+      return { ok: false, motivo: 'NAMESPACE_V2_USA_PROCESADOR_V2' };
+    }
     var estado = (mapa.idx['ESTADO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ESTADO']]) : '').toUpperCase();
     if (estado === 'PROCESADO') return { ok: false, motivo: 'YA_PROCESADO_NO_SE_REINICIA' };
     var filaFisica = start + f - 1;
