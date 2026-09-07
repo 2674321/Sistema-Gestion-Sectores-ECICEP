@@ -777,6 +777,13 @@ function _pruebas_contrato_ingreso(t, A) {
     A.cierto(mapa.campos.TELEFONOS !== undefined, 'TELEFONO(S)');
     A.cierto(mapa.campos.FECHA_INGRESO !== undefined, 'FECHA INGRESO');
   });
+  t('CONTRATO B1: variantes de encabezado de FECHA_NACIMIENTO (NACIMIENTO / FECHA NAC / F.N. / DOB)', function () {
+    ['NACIMIENTO', 'FECHA NAC', 'F.N.', 'DOB'].forEach(function (h) {
+      var mapa = Ingresos_mapearEncabezadosHoja([h]);
+      A.igual(mapa.campos.FECHA_NACIMIENTO, 0, h + ' → FECHA_NACIMIENTO');
+      A.igual(mapa.desconocidos.length, 0, h + ' sin desconocidos');
+    });
+  });
   t('CONTRATO: nombres de hoja oficiales y alias', function () {
     A.igual(Ingresos_hojaASector('INGRESO_NARANJO'), 'NARANJO', 'ortografía oficial');
     A.igual(Ingresos_hojaASector('INGRESO_NARANJA'), 'NARANJO', 'alias cliente mantenido');
@@ -812,22 +819,26 @@ function _pruebas_vistas_sector(t, A) {
   ultimo['EC-V1'] = { tipo: 'CONTROL', fecha: '2026-06-01', etiqueta: 'CONTROL (2026-06-01)' };
 
   t('VISTA SECTOR: filtra por sector territorial (dimensión independiente de G)', function () {
+    var pos = function (c) { return COLUMNAS_SECTOR_VISTA.indexOf(c); };
     var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
     A.igual(verde.length, 1, 'solo el paciente VERDE');
-    A.igual(verde[0][0], 'EC-V1', 'col 1 = ID_INTERNO');
-    A.igual(verde[0][1], '1-1', 'col 2 = RUT');
-    A.igual(verde[0][3], 'F'.length ? verde[0][3] : '', 'sexo presente');
-    A.igual(verde[0][6], '', 'RUT_DV_VALIDO presente');
-    A.igual(verde[0][7], 'G2', 'estratificación mostrada, no confundida con sector');
+    A.igual(verde[0][pos('ID_INTERNO')], 'EC-V1', 'ID_INTERNO');
+    A.igual(verde[0][pos('RUT')], '1-1', 'RUT');
+    A.igual(verde[0][pos('FECHA_NACIMIENTO')], '1990-04-12', 'FECHA_NACIMIENTO visible en la vista');
+    A.igual(verde[0][pos('SEXO')], Utl_texto(pacientesVarios[0].SEXO), 'sexo desde PACIENTES');
+    A.igual(verde[0][pos('RUT_DV_VALIDO')], '', 'RUT_DV_VALIDO presente');
+    A.igual(verde[0][pos('ESTRATIFICACION')], 'G2', 'estratificación mostrada, no confundida con sector');
     A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'AMARILLO', {}).length, 1, 'amarillo');
     A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'NARANJO', {}).length, 1, 'naranjo');
   });
   t('VISTA SECTOR: EDAD derivada y ULTIMO_EVENTO desde EVENTOS', function () {
+    var pos = function (c) { return COLUMNAS_SECTOR_VISTA.indexOf(c); };
     var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
-    A.cierto(Number(verde[0][4]) >= 30, 'edad derivada plausible (nac. 1990)');
-    A.igual(verde[0][13], 'CONTROL (2026-06-01)', 'último evento desde mapa');
+    A.cierto(Number(verde[0][pos('EDAD')]) >= 30, 'edad derivada plausible (nac. 1990)');
+    A.igual(verde[0][pos('SEXO')], '', 'sin sexo en fuente → vista sin inventar');
+    A.igual(verde[0][pos('ULTIMO_EVENTO')], 'CONTROL (2026-06-01)', 'último evento desde mapa');
     var sinMapa = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', {});
-    A.igual(sinMapa[0][13], '', 'sin eventos → vacío');
+    A.igual(sinMapa[0][pos('ULTIMO_EVENTO')], '', 'sin eventos → vacío');
   });
   t('VISTA SECTOR: es derivada e idempotente (nunca base independiente)', function () {
     var a = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);

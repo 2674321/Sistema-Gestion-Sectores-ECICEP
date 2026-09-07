@@ -96,7 +96,6 @@ function pintarEstado(r){
   var ent=(r.entorno&&r.entorno.entorno)||'DESCONOCIDO';
   nv('fxEntorno',ent);
   nv('fxSsId',(r.entorno&&r.entorno.ssId)||'\u2014');
-  nv('fxFormId',(r.config&&r.config.formId)||'(sin configurar)');
   nv('fxMotor',(r.config&&r.config.version!=null)?('FORM v'+(r.config.version)):'\u2014');
   var okEl=document.getElementById('fxEntornoOk');
   if(okEl){

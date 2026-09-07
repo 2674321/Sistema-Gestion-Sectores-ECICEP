@@ -60,7 +60,7 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 
 ### ETAPA 2.5 ✅ (refinamiento funcional — diseño)
 - Modelo entidad/evento definido (`MODELO-EVENTOS.md`); PACIENTES ampliado a
-  **29 campos** (sexo, fecha nacimiento, condiciones, estrat origen/calculada).
+  **30 campos** (sexo, fecha nacimiento, condiciones, estrat origen/calculada).
 - Config v0.3: sectores geográficos permanentes ≠ estratificación (DEC-018),
   tipos de evento, estados de ingreso, motor G apagado hasta regla oficial.
 - Normalizadores nuevos: sector (alias NARANJA→NARANJO), sexo, tipo evento.

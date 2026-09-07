@@ -59,7 +59,7 @@ function Ingresos_mapearEncabezadosHoja(encabezados) {
 // ---------------------------------------------------------------------------
 
 /**
- * Construye el objeto PACIENTE completo (29 campos del modelo v2) desde la
+ * Construye el objeto PACIENTE completo (30 campos del modelo v2) desde la
  * fila normalizada. FECHA_ACTUALIZACION queda null: la fija el escritor real.
  */
 function Ingresos_pacienteDesdeNormalizado(n, fila, idInterno) {

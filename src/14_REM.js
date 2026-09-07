@@ -296,7 +296,7 @@ function Rem_generar(anio, mes, sectorFiltro) {
        r.seguimiento, r.planCuidado, r.gcIngreso, r.gcEgreso], 'ind');
   });
   P([], 'sep');
-  P(['BLOQUE B — DEMOGRAFÍA: NO DISPONIBLE (#14 — sin FECHA_NACIMIENTO/SEXO en fuentes)'], 'nota');
+  P(['BLOQUE B — DEMOGRAFÍA: PENDIENTE DE IMPLEMENTACIÓN (#14 · infraestructura Rem9_edadEn lista; SEXO/FECHA_NACIMIENTO disponibles vía S5)'], 'nota');
   P(['BLOQUE C — ATENCIONES: NO DISPONIBLE (#17 — requiere definir fuente externa)'], 'nota');
   P(['NOTA: TOTAL e indicadores son derivados al momento de generar (#25); ' +
      'el REM es SOLO LECTURA de EVENTOS/PACIENTES.'], 'nota');

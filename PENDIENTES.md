@@ -77,3 +77,27 @@ Los problemas que ya fueron implementados y validados permanecen cerrados y no f
 - **#21** UI mínima para `REQUIERE_REVISION` / `POSIBLE_DUPLICADO`: resuelto. Backend (`api_revisionListar`, `api_revisionResolver`) y frontend (Sidebar `mode='revision'` con comparación lado a lado y botones de acción) completamente implementados. Accesible vía `ECICEP > Personas > Cola de revisión` y Panel de Control.
 - **#22** Fecha específica para CONTROL/SEGUIMIENTO: resuelto. El comportamiento puntual quedó implementado en el código vigente; la definición contractual de `FECHA_EVENTO` (obligatoriedad, captura, validación y persistencia) fue **invalidada** y redefinida en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**).
 - **#29 (backend)** Captura V2: **cerrado y validado por fase en S1** (2026-09-06). Backend y **UI 100% V2 operativa** según `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**): `src/26_Captura.js` (validación §5.1/§14 en orden §17, idempotencia §13, estados §18, reintentos §23, persistencia §15, TR-1/TR-2 §21, entrypoints `WebApp_capturarEnviar`/`WebApp_capturarEstado`) y `src/CapturaWeb.html` (canal único, `captureId` `Cp2-`+32 hex, SDK `WebApp_previaDuplicadosV2`/`WebApp_capturarEnviar`). Desde S1 incluye **retoma V2 por su propio procesador**: `WebApp_capturarRetomar`/`Captura_v2_retomarRegistro`. Verificación: `tests/captura_backend_v2.mjs` (65), `tests/captura_ui_payload_v2.mjs` (16), `tests/contrato_captura_v2.mjs` (36), `tests/contrato_datos.mjs` (20), regresión completa verde (núcleo 469, aceptación 50). Pendiente **exclusivamente** de E2E en vivo (login Google en el perfil Brave), no de implementación.
+
+## 7. Campos pendientes de captura — clasificación provisional (A/B/C/D)
+
+Clasificación operativa de `ENCABEZADOS_SIN_DESTINO` y campos REM ausentes
+(§2/#25). **Provisional**: requiere validación del equipo clínico antes de
+convertirse en regla normativa. Ningún campo se asimila en silencio.
+
+| Clase | Significado | Encabezados / campos | Acción propuesta |
+|---|---|---|---|
+| **A** | Normativo del contrato V2, obligatorio | — | (la captura V2 ya cumple §5.1; no hay pendiente clase A) |
+| **B** | Alta prioridad clínica; sin él hay pérdida de información relevante | `PATOLOGIAS`/`PATOGIAS`, `OBSERVACION EXAMENES SOLICITADOS`, `FECHA DE LLAMADO`, `QUIEN DERIVA`, `MOTIVO`, `DUPLA`/`MEDICO DUPLA INGRESO` | Definir campo destino canónico y sumarlo al contrato V2 (decisión de negocio: #4/#25) |
+| **C** | Útil pero no bloqueante | `ASISTENCIA`, `EVALUACION DE PIE`, `OBSERVACION PENDIENTE`, `ESTATIFICACION` (typo), `MEDICO DUPLA` | Depurar alias y reconocerlos con destino solo tras acuerdo |
+| **D** | Ambiguo / sin semántica resuelta — NO asimilar | `FECHA` (genérico), `COLUMN 12`, `COLUMNA 1` | Mantener en `ENCABEZADOS_SIN_DESTINO`; no inferir destino |
+| — | Cerrado | `FECHA_NACIMIENTO` variantes (`NACIMIENTO`, `FECHA NAC`, `F.N.`, `DOB`) | Sinónimos añadidos en `SINONIMOS_ENCABEZADOS`; mapeo automático |
+
+## 8. Registro de cierres recientes
+
+- **Vistas SECTOR_***: agregan la columna `FECHA_NACIMIENTO` (tras `SEXO`), con
+  `EDAD` siempre derivada de `FECHA_NACIMIENTO` en el refresco (nunca almacenada).
+  La columna aparece en el libro real tras reinstalar (los encabezados de las
+  SECTOR_* solo se escriben en instalación).
+- **URL de la Web App**: `ECICEP.WEB_APP_URL` apunta al deployment operativo
+  (`@93`, `/exec`) en lugar de `/dev` (`@HEAD`); el QR (`QRFormulario.html`) y el
+  menú "Abrir formulario de captura" usan `<?= WEB_APP_URL ?>` / contenido.

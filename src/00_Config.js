@@ -19,7 +19,7 @@ var ECICEP = {
   VERSION: '0.9.3',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
-  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwd7PkYNWEmglmOqkqgxEw14jTZkTK3O-FgiP3JTVTT/dev',
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
   TZ: 'America/Santiago'
 };
 
@@ -178,7 +178,7 @@ var COLUMNAS_EVENTOS = [
 // ETAPA 4: + ID_INTERNO (enlace a ficha), SEXO, EDAD (derivada),
 // ULTIMO_EVENTO (derivado de EVENTOS en el refresco).
 var COLUMNAS_SECTOR_VISTA = [
-  'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
+  'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
   'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO',
   'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
   'ULTIMO_EVENTO', 'OBSERVACIONES'
@@ -950,6 +950,10 @@ const SINONIMOS_ENCABEZADOS = {
   'J': 'FECHA_INGRESO',              // confirmado: encabezado "J" en Naranjo consolidada
   'FECHA NACIMIENTO': 'FECHA_NACIMIENTO',
   'FECHA DE NACIMIENTO': 'FECHA_NACIMIENTO',
+  'NACIMIENTO': 'FECHA_NACIMIENTO',
+  'FECHA NAC': 'FECHA_NACIMIENTO',
+  'F.N.': 'FECHA_NACIMIENTO',
+  'DOB': 'FECHA_NACIMIENTO',
   'DUPLA INGRESO': 'DUPLA_INGRESO',
   'MEDICO DUPLA': 'DUPLA_INGRESO',   // "MEDICO /DUPLA" tras quitar puntuación
   'SEGUIMIENTO': 'ULTIMO_SEGUIMIENTO',
