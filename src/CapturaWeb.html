@@ -621,14 +621,6 @@
     var e=(esquemaFormulario&&esquemaFormulario[accion])||ESQUEMA_FALLBACK[accion];
     return e||{secciones:{},camposRequeridos:[],mensajeExito:''};
   }
-  function cargarEsquema(){
-    google.script.run
-      .withSuccessHandler(function(e){
-        if(e&&typeof e==='object'){esquemaFormulario=e;pintarCampos();}
-      })
-      .withFailureHandler(function(){})
-      .WebApp_esquemaFormulario();
-  }
 
   var $=function(id){return document.getElementById(id)};
   var duplaVisible=false;
@@ -669,16 +661,6 @@
       _capIdPendiente=_hex16();
     }
     return 'Cp2-'+_capIdPendiente;
-  }
-
-  function poblarProfesionales(){
-    google.script.run
-      .withSuccessHandler(function(lista){
-        if(lista&&lista.length){PROF=lista;}
-        _poblarDropdowns();
-      })
-      .withFailureHandler(function(){_poblarDropdowns();})
-      .api_profesionalesCatalogo();
   }
 
   function _poblarDropdowns(){
@@ -1317,15 +1299,25 @@
 
   /* ── Init ── */
   cargarUltimosInputs();
-  poblarProfesionales();
-  cargarEsquema();
-  pintarCampos();
-  actualizarLimpiar();
-  $('rut').focus();
+  // Una sola RPC: esquema + catálogo profesionales + url (antes eran 3 llamadas
+  // separadas: WebApp_esquemaFormulario, api_profesionalesCatalogo, api_webappEstado).
   google.script.run
-    .withSuccessHandler(function(r){if(r&&r.url){ECICEP_WEBAPP_URL=r.url;}})
-    .withFailureHandler(function(){})
-    .api_webappEstado();
+    .withSuccessHandler(function(r){
+      if(r){
+        if(r.esquema){esquemaFormulario=r.esquema;}
+        if(r.profesionales&&r.profesionales.length){PROF=r.profesionales;}
+        if(r.url){ECICEP_WEBAPP_URL=r.url;}
+      }
+      pintarCampos();
+      actualizarLimpiar();
+      $('rut').focus();
+    })
+    .withFailureHandler(function(){
+      pintarCampos();
+      actualizarLimpiar();
+      $('rut').focus();
+    })
+    .WebApp_estadoInicial();
 })();
 </script>
 

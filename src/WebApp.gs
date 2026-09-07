@@ -372,3 +372,15 @@ function api_webappEstado() {
     url: typeof ECICEP_webAppUrl === 'function' ? ECICEP_webAppUrl() : ''
   };
 }
+
+/** GAS: estado inicial de la WebApp (esquema + catálogo profesionales + url).
+ *  Unifica en una sola RPC las tres llamadas que el formulario realizaba al
+ *  cargar (WebApp_esquemaFormulario, api_profesionalesCatalogo, api_webappEstado),
+ *  reduciendo la latencia inicial de 3 round-trips a 1. */
+function WebApp_estadoInicial() {
+  return {
+    esquema: Form_esquemaFormulario(),
+    profesionales: typeof Captura_v2_catalogo === 'function' ? Captura_v2_catalogo() : [],
+    url: typeof ECICEP_webAppUrl === 'function' ? ECICEP_webAppUrl() : ''
+  };
+}

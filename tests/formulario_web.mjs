@@ -111,7 +111,7 @@ const document = {
 const rpcCalls = [];
 const gsr = { withSuccessHandler() { return this; }, withFailureHandler() { return this; } };
 ['WebApp_esquemaFormulario', 'api_profesionalesCatalogo', 'api_webappEstado',
-  'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar'].forEach((name) => {
+  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar'].forEach((name) => {
   gsr[name] = function () { rpcCalls.push({ name, args: [...arguments] }); return this; };
 });
 

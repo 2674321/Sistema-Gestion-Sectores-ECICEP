@@ -6,46 +6,46 @@
  */
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
- *  Estructura oficial: un nombre = una función = una interfaz = una finalidad. */
+ *  Estructura oficial: un nombre = una función = una interfaz = una finalidad.
+ *  Menús minimalistas (fase de optimización S8): tres grupos (Captura / ECICEP /
+ *  Sistema) con nombres cortos y sin emojis en cada elemento. Las utilidades de
+ *  desarrollo (Diagnóstico, Centro de Pruebas) no se exponen en el menú operativo. */
 function onOpen() {
   try {
     var ui = SpreadsheetApp.getUi();
 
     ui.createMenu('Captura')
-      .addItem('📋 Abrir formulario de captura', 'UI_abrirFormularioCaptura')
-      .addItem('📱 Mostrar QR del formulario', 'UI_mostrarQR')
+      .addItem('Abrir formulario', 'UI_abrirFormularioCaptura')
+      .addItem('Mostrar QR', 'UI_mostrarQR')
       .addToUi();
 
     ui.createMenu('ECICEP')
-      .addItem('🏠 Panel de Control', 'UI_panelControl')
-      .addSubMenu(ui.createMenu('👥 Personas')
-        .addItem('✏️ Buscar / Ficha de persona', 'UI_abrirBuscador')
-        .addItem('📋 Cola de revisión', 'UI_abrirRevision')
-        .addItem('📝 Procesar ingresos', 'UI_procesarIngresos')
-        .addItem('👥 Duplicados por RUT', 'UI_duplicados'))
-      .addSubMenu(ui.createMenu('📅 Seguimiento y controles')
-        .addItem('🩺 Controles por persona', 'UI_abrirControles'))
-      .addSubMenu(ui.createMenu('📊 Reportes')
-        .addItem('📊 Estadísticas', 'UI_abrirDashboard')
-        .addItem('🩺 Generar REM', 'UI_generarRem')
-        .addItem('🔎 Consultar REM', 'UI_verRem'))
-      .addSubMenu(ui.createMenu('⚙️ Configuración')
-        .addItem('⚙️ Configuración', 'UI_configuracion')
-        .addItem('🎯 Estratificación', 'UI_configuracionEstratificacion')
-        .addItem('👨‍⚕️ Responsables y correos', 'UI_configuracionResponsables')
-        .addItem('🔄 Actualizar todo', 'UI_actualizarTodo')
-        .addItem('🔑 Autorizar permisos', 'ECICEP_autorizar'))
+      .addItem('Inicio', 'UI_panelControl')
+      .addSubMenu(ui.createMenu('Personas')
+        .addItem('Buscar / Ficha', 'UI_abrirBuscador')
+        .addItem('Cola de revisión', 'UI_abrirRevision')
+        .addItem('Ingresos', 'UI_procesarIngresos')
+        .addItem('Duplicados por RUT', 'UI_duplicados'))
+      .addSubMenu(ui.createMenu('Seguimiento')
+        .addItem('Controles por persona', 'UI_abrirControles'))
+      .addSubMenu(ui.createMenu('Reportes')
+        .addItem('Estadísticas', 'UI_abrirDashboard')
+        .addItem('Generar REM', 'UI_generarRem')
+        .addItem('Consultar REM', 'UI_verRem'))
+      .addSubMenu(ui.createMenu('Configuración')
+        .addItem('Configuración', 'UI_configuracion')
+        .addItem('Estratificación', 'UI_configuracionEstratificacion')
+        .addItem('Responsables y correos', 'UI_configuracionResponsables')
+        .addItem('Autorizar permisos', 'ECICEP_autorizar'))
       .addToUi();
 
     ui.createMenu('Sistema')
-      .addItem('🔍 Diagnóstico del sistema', 'UI_instalarDiagnosticar')
-      .addItem('🔄 Actualizar sistema', 'UI_actualizarSistema')
-      .addItem('⚙️ Instalar / reparar sistema', 'UI_instalarSistema')
-      .addItem('🧪 Centro de Pruebas', 'UI_centroPruebas')
-      .addItem('💾 Backups', 'UI_backup')
-      .addItem('📥 Formularios', 'UI_formularioPanel')
-      .addItem('📄 Registro del sistema', 'UI_abrirLog')
-      .addItem('ℹ️ Acerca de', 'UI_abrirAcercaDe')
+      .addItem('Actualizar', 'UI_actualizarSistema')
+      .addItem('Instalar / reparar', 'UI_instalarSistema')
+      .addItem('Backups', 'UI_backup')
+      .addItem('Formularios', 'UI_formularioPanel')
+      .addItem('Registro del sistema', 'UI_abrirLog')
+      .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 
     Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);

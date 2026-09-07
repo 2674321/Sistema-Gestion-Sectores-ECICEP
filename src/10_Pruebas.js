@@ -4063,6 +4063,38 @@ function _pruebas_enriquecimiento_s5(t, A) {
     A.igual(Utl_edadDesde('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
   });
 
+  // ---- OPT B2: helpers de fórmula de EDAD en vivo ----
+  t('OPT B2: Utl_columnaLetra índice 1-based → letra A1', function () {
+    A.igual(Utl_columnaLetra(1), 'A', '1→A');
+    A.igual(Utl_columnaLetra(5), 'E', '5→E');
+    A.igual(Utl_columnaLetra(26), 'Z', '26→Z');
+    A.igual(Utl_columnaLetra(27), 'AA', '27→AA');
+    A.igual(Utl_columnaLetra(52), 'AZ', '52→AZ');
+    A.igual(Utl_columnaLetra(53), 'BA', '53→BA');
+    A.igual(Utl_columnaLetra(143), 'EM', '143→EM');
+  });
+  t('OPT B2: Utl_formulaEdad genera fórmula DATEDIF viva sobre FECHA_NACIMIENTO', function () {
+    var f1 = Utl_formulaEdad(5, 4);
+    A.cierto(f1.indexOf('=IF(') === 0, 'fórmula IF');
+    A.cierto(f1.indexOf('E4') !== -1, 'referencia E4');
+    A.cierto(f1.indexOf('DATEDIF') !== -1, 'DATEDIF presente');
+    A.cierto(f1.indexOf('TODAY()') !== -1, 'TODAY presente');
+    A.cierto(f1.indexOf('IFERROR') !== -1, 'IFERROR para fechas inválidas');
+    A.cierto(f1.indexOf('MID(') !== -1, 'parsea ISO por partes (locale-independiente)');
+    var f2 = Utl_formulaEdad(1, 12);
+    A.cierto(f2.indexOf('A12') !== -1, 'referencia A12 con columna 1');
+  });
+  t('OPT B7: funciones referenciadas por el menú existen en el ámbito global', function () {
+    var refs = ['UI_abrirFormularioCaptura','UI_mostrarQR','UI_panelControl','UI_abrirBuscador',
+      'UI_abrirRevision','UI_procesarIngresos','UI_duplicados','UI_abrirControles','UI_abrirDashboard',
+      'UI_generarRem','UI_verRem','UI_configuracion','UI_configuracionEstratificacion',
+      'UI_configuracionResponsables','ECICEP_autorizar','UI_actualizarSistema','UI_instalarSistema',
+      'UI_backup','UI_formularioPanel','UI_abrirLog','UI_abrirAcercaDe'];
+    refs.forEach(function (fn) {
+      A.cierto(typeof globalThis[fn] === 'function', fn + ' existe');
+    });
+  });
+
   // ---- Caso C: SEXO faltante + fuente válida → se completa ----
   t('S5 C: SEXO vacío se completa con valor canónico válido', function () {
     var p = pacienteCompleto({ SEXO: '' });

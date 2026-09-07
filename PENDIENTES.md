@@ -101,3 +101,21 @@ convertirse en regla normativa. Ningún campo se asimila en silencio.
 - **URL de la Web App**: `ECICEP.WEB_APP_URL` apunta al deployment operativo
   (`@93`, `/exec`) en lugar de `/dev` (`@HEAD`); el QR (`QRFormulario.html`) y el
   menú "Abrir formulario de captura" usan `<?= WEB_APP_URL ?>` / contenido.
+
+## 9. Fase de optimización — cierres
+
+- **EDAD 100% automática**: la vista `SECTOR_*` escribe en la columna `EDAD` la
+  fórmula `DATEDIF(…;TODAY();"Y")` (helper `Utl_formulaEdad`), en lugar del valor
+  materializado del refresco. Con solo refrescar una vez la vista queda viva y la
+  edad se actualiza sola; `FECHA_NACIMIENTO` se muestra con formato `dd/MM/yyyy`.
+  La función pura del modelo no cambió (los tests de vista siguen pasando).
+- **Carga de la Web App acelerada**: las 3 RPCs iniciales
+  (`WebApp_esquemaFormulario`, `api_profesionalesCatalogo`, `api_webappEstado`) se
+  fusionaron en una única `WebApp_estadoInicial()` (esquema + catálogo + url). El
+  QR sigue consultando la url bajo demanda.
+- **Menús minimalistas**: se quitaron los emojis redundantes y las utilidades de
+  desarrollo (Diagnóstico, Centro de Pruebas) del menú operativo; se consolidó
+  "Actualizar todo" bajo "Actualizar". El código de las funciones retiradas se
+  conserva para diagnóstico.
+- **Tests**: se añadieron tests de `Utl_columnaLetra`, `Utl_formulaEdad` y de
+  existencia de las funciones referenciadas por el menú. Batería completa **738/738**.

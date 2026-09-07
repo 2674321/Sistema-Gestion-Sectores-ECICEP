@@ -146,7 +146,10 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
   `RUT` normalizado exacto. **Regla de escritura**: valor candidato válido (SEXO ∈
   {M,F,OTRO}; fecha ISO en `[1900,2040]`) sobre campo vacío; fuentes
   inconsistentes → `REQUIERE_REVISION` **sin escribir**; sin fuente aplicable → el
-  campo queda vacío (no se infiere). `EDAD` nunca se almacena (derivada en vivo).
+  campo queda vacío (no se infiere). `EDAD` nunca se almacena: la vista `SECTOR_*`
+  la deriva con **fórmula DATEDIF(FECHA_NACIMIENTO; HOY(); "Y")** viva en la hoja
+  (locale-independiente), de modo que se actualiza sola al pasar el tiempo y nunca
+  se materializa como valor estático.
 - **Idempotencia y trazabilidad**: segunda ejecución no cambia nada; `FUENTE`
   acumula `ENRIQUECIMIENTO|<hoja>|<fila>` (append sin duplicar), se estampa
   `FECHA_ACTUALIZACION` y se registra `Log_info`.

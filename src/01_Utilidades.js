@@ -54,6 +54,20 @@ function Utl_edadDesde(isoNacimiento, refDate) {
   return (edad >= 0 && edad < 130) ? String(edad) : '';
 }
 
+/** PURA: convierte un índice 1-based (1=A, 26=Z, 27=AA) a letras de columna A1. */
+function Utl_columnaLetra(n) {
+  var s = '';
+  while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+/** PURA: fórmula EDAD en vivo para la vista SECTOR_*.
+ *  Trabaja sobre texto ISO "yyyy-MM-dd" (locale-independiente). */
+function Utl_formulaEdad(colFecha, fila) {
+  var c = Utl_columnaLetra(colFecha);
+  return '=IF(' + c + fila + '="","",IFERROR(DATEDIF(DATE(MID(' + c + fila + ',1,4),MID(' + c + fila + ',6,2),MID(' + c + fila + ',9,2)),TODAY(),"Y"),""))';
+}
+
 // ---------------------------------------------------------------------------
 // Bloques (regla del proyecto: nunca getValue/setValue dentro de loops)
 // ---------------------------------------------------------------------------

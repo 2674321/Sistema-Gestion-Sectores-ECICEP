@@ -1405,6 +1405,8 @@ function Modelo_refrescarVistasSectores(sectores) {
   var conteo = {};
   var objetivo = (sectores && sectores.length)
     ? sectores.map(function (s) { return Utl_texto(s).toUpperCase(); }) : null;
+  var edadIdx = COLUMNAS_SECTOR_VISTA.indexOf('EDAD');
+  var fnacIdx = COLUMNAS_SECTOR_VISTA.indexOf('FECHA_NACIMIENTO');
   HOJAS_SECTOR.forEach(function (nombreHoja) {
     var sector = nombreHoja.replace('SECTOR_', '');
     if (objetivo && objetivo.indexOf(sector) === -1) return;
@@ -1415,7 +1417,20 @@ function Modelo_refrescarVistasSectores(sectores) {
     // limpia área de datos completa antes de reescribir (desde dataStartRow)
     hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
     var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimo);
-    if (filas.length) Utl_escribirBloque(hoja, ini, 1, filas);
+    if (filas.length) {
+      Utl_escribirBloque(hoja, ini, 1, filas);
+      // EDAD: fórmula DATEDIF(viva sobre FECHA_NACIMIENTO, se actualiza con HOY()
+      // sin depender de un refresco manual; la vista nunca almacena edad estática).
+      var colEdad = edadIdx + 1;
+      var colFnac = fnacIdx + 1;
+      var formulas = [];
+      for (var i = 0; i < filas.length; i++) {
+        formulas.push([Utl_formulaEdad(colFnac, ini + i)]);
+      }
+      hoja.getRange(ini, colEdad, filas.length, 1).setFormulas(formulas);
+      // FECHA_NACIMIENTO: formato dd/MM/yyyy para visualización consistente
+      hoja.getRange(ini, colFnac, filas.length, 1).setNumberFormat('dd/MM/yyyy');
+    }
     conteo[sector] = filas.length;
   });
   return conteo;
