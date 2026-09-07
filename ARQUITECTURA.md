@@ -119,6 +119,18 @@ de duplicados) desbloquea botón y spinner ante una respuesta colgada. El
 `captureId` cumple estrictamente `Cp2-` + 32 hex minúsculas (§12). Detalles y
 pruebas: `AUDITORIA_ESTABILIZACION.md` §8.
 
+#### S4 — Publicación controlada y validación E2E real
+
+El código V2 estabilizado (S0–S3) quedó **publicado en la instancia real** (v91
+sobre el deployment operativo de captura) y validado de extremo a extremo con un
+registro de prueba descartable: FORMULARIO → FORM_RESPUESTAS (captureId
+`Cp2-55cac2c87ab08e34541ba94ab82590c4`, una sola fila) → `INGRESO_AMARILLO`
+→ PACIENTES (`EC-MTR7FJY3-B6NB`) → EVENTOS (`EV-0001`, ingreso). La
+**idempotencia A1/A2** se verificó en vivo: el reenvío idéntico devuelve el mismo
+captureId sin duplicar efectos. La Web App exige sesión de Google autenticada
+(§24.1 `Sesión de usuario no detectada; acceso denegado` en anónimo), consistente
+con su rol de canal operativo. Evidencia y detalle: `AUDITORIA_ESTABILIZACION.md` §9.
+
 ## Interfaz dentro de Google Sheets (DEC-012)
 
 Sheets es la interfaz principal: menús personalizados, botones, listas

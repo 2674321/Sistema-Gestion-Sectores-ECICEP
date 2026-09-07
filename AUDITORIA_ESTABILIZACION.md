@@ -484,3 +484,64 @@ La sesión `pvc.devno@gmail.com` sigue sin estar disponible en Brave. S3 se vali
 **estáticamente** (código + 714 tests). El E2E real (enviar → determinismo de estados →
 limpieza solo en PROCESADO) queda **PENDIENTE POR AUTENTICACIÓN**. `clasp push` no se ejecutó
 en S3; quedará pendiente de decisión controlada del usuario.
+
+---
+
+## 9. RESOLUCIÓN S4 — PUBLICACIÓN CONTROLADA Y VALIDACIÓN E2E REAL
+
+> **Fase S4 del PROMPT MAESTRO · fecha 2026-09-07.** Objetivo único: publicar el código V2
+> estabilizado (S0–S3) y validar en la **instancia real** el circuito
+> `FORMULARIO → WEB APP/BACKEND → FORM_RESPUESTAS → PACIENTES/EVENTOS`, incluyendo idempotencia
+> A1/A2 y control de errores. **Sin funcionalidad nueva** (sin edad, sexo, dashboard, G1–G3,
+> REM, actualizar sistema, filtros, búsquedas). S4 no modifica código de negocio.
+
+### 9.1 Antecedente y hallazgo de inspección
+
+- **S3-BUG-001 (antecedente):** `_asignarCaptureId` emitía `Cp2-` + 64 hex; el contrato §12 exige
+  `Cp2-` + exactamente 32 hex (`RE_CAPTURE_ID: /^Cp2-[a-f0-9]{32}$/`, `26_Captura.js:52`).
+  Sin la corrección S3, todo envío real habría sido rechazado con `SINTAXIS_INVALIDA`.
+- **S4.1 Hallazgo de inspección:** la instancia real **servía formularios PRE-V2** (deployments
+  @89/@90 legacy: sin `construirPayloadV2`, `captureId`, `Cp2-`). El código V2 estabilizado
+  **nunca se había desplegado**. S4 publica V2 por primera vez.
+
+### 9.2 Publicación
+
+| Paso | Resultado |
+|---|---|
+| `git commit 60ec053` (S0–S4, 27 archivos, +6764/−530; `docs/hoja_de_vida.pdf` quedó **untracked**, ajeno a la tarea) | OK |
+| Regresión previa a publicación | 714/714 ✅ (re-ejecutada en S4.3) |
+| `clasp push --force` | OK, proyecto sincronizado sin untracked |
+| `clasp version` | **v91** |
+| `clasp deploy --deploymentId AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw --versionNumber 91` (deployment @90, la URL de captura) | **Deployed @91** |
+| Verificación HTTP `/exec` del deployment @90 | HTML V2 real (520 KB): `construirPayloadV2`×2, `captureId`, `Cp2-`, `.status-warn`, `entrega pendiente`, `NUEVO_INGRESO` |
+| `/dev` del deployment @HEAD | Sigue devolviendo página de autorización Apps Script (5541 B); @HEAD se actualiza por push pero requiere autorización propia del deployment |
+
+Distribución de deployments: @HEAD `AKfycbwd7PkYNWEmglmOqkqgxEw14jTZkTK3O-FgiP3JTVTT` (dinámico,
+sin fijar), **@90→v91 `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`
+(URL operativa de captura, ahora V2)**, @89 legacy `AKfycbx2LvLy7c3xUVWcPWzy4DsVTaSFR0ldtoKNfyM-3M7cYOMjyBvf_5fFrkKU47UGz9PS6A`
+(sin tocar), @86-test (sin tocar). No se crearon deployments nuevos.
+
+### 9.3 Validación E2E real (registro de prueba descartable)
+
+> Registro de prueba identificable enviado desde la instancia real por `pvc.devno@gmail.com`:
+> RUT `15987654-3` · NOMBRE `PRUEBA E2E S4 ECICEP NO REAL` · sexo M · nac. 1990-05-05 · sector
+> AMARILLO · G2 · tel 955555444 · obs “Registro de prueba S4 (2026-09-07). Descartable.”.
+> La Web App real exige sesión de Google (diseño de producción, §24.1: `Sesión de usuario no
+> detectada; acceso denegado` en acceso anónimo); el envío se realizó con sesión autenticada.
+
+| Etapa | Evidencia real |
+|---|---|
+| **A — Formulario V2 servido** | Deployment @90/exec responde 200 y el frame `/blank` renderiza la app V2 (nuevo ingreso/control/seguimiento/actualizar, `#btnEnviar`) |
+| **B — captureId** | `Cp2-55cac2c87ab08e34541ba94ab82590c4` (32 hex, formato §12 válido) |
+| **C — FORM_RESPUESTAS** | **1 sola fila** con ese captureId (nunca dos); estado `RECIBIDO`, `PENDIENTE_CONFIRMACION`, trazabilidad cruda `FORM|Cp2-…|NUEVO_INGRESO`, ingreso `INGRESO_AMARILLO:1071` |
+| **D — Entrega/pipeline** | `INGRESO_AMARILLO` fila 1071 con marca `pacientes:EC-MTR7FJY3-B6NB`; **PACIENTES** `EC-MTR7FJY3-B6NB` (estado PENDIENTE); **EVENTOS** `EV-0001` (INGRESO, 2026-09-07) |
+| **Idempotencia (A1/A2)** | Envío #2 con datos idénticos → **el mismo captureId**, sin fila nueva; la previa de duplicados leyó `Modelo_leerPacientes()` real y detectó la persona ya registrada (dedup de negocio §22) |
+| **Error controlado (seguro)** | El rechazo anónimo (§24.1) no limpió el formulario y mostró error claro; la confirmación pendiente (`RECIBIDO`) tampoco lo limpió (comportamiento §8.3 coherente) |
+
+### 9.4 Cierre del proceso de estabilización S0→S4
+
+- El **núcleo de captura está operativo en la instancia real**: envío V2 → FORM_RESPUESTAS →
+  INGRESO_* → PACIENTES/EVENTOS, con captureId estable e idempotencia técnica verificada en vivo.
+- Pendiente de fases futuras (S5+): enriquecimiento, edad/sexo, dashboard, G1–G3, REM,
+  S0-PF6 (marca `NUEVO_INGRESO` vs `INGRESO`), reproceso por lote para confirmar el `RECIBIDO`
+  a `VALIDO/PROCESADO` y limpieza/decision de deployments @89/@HEAD según dependencias reales.
