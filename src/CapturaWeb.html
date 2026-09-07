@@ -1308,11 +1308,13 @@
         if(r.profesionales&&r.profesionales.length){PROF=r.profesionales;}
         if(r.url){ECICEP_WEBAPP_URL=r.url;}
       }
+      _poblarDropdowns();
       pintarCampos();
       actualizarLimpiar();
       $('rut').focus();
     })
     .withFailureHandler(function(){
+      _poblarDropdowns();
       pintarCampos();
       actualizarLimpiar();
       $('rut').focus();

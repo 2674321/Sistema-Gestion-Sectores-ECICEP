@@ -304,6 +304,33 @@ t('Ningún payload construido contiene claves fuera de PERMITIDAS', () => {
   });
 });
 
+console.log('\nPARTE H — BUG-E2E-002 (S10): el dropdown de profesionales se puebla tras la RPC única.');
+
+t('H1: _poblarDropdowns() se invoca en el success handler de WebApp_estadoInicial', () => {
+  const asignacion = 'PROF=r.profesionales;';
+  const iAsign = html.indexOf(asignacion);
+  const iLlamada = html.indexOf('_poblarDropdowns();', iAsign);
+  const iFinRpc = html.indexOf('.WebApp_estadoInicial();');
+  A(iAsign !== -1, 'asignación de PROF presente en init');
+  A(iLlamada !== -1 && iLlamada > iAsign && iLlamada < iFinRpc,
+    'la llamada debe existir entre PROF=r.profesionales y el envío de la RPC (regresión S8: se eliminó)');
+});
+
+t('H2: _poblarDropdowns() también se invoca en el failure handler', () => {
+  const iFin = html.indexOf('.WebApp_estadoInicial();');
+  const iFallo = html.indexOf('.withFailureHandler', iFin - 4000);
+  const seg = html.slice(iFallo, iFin);
+  A(seg.indexOf('_poblarDropdowns();') !== -1, 'failure handler debe poblar (vaciar) los dropdowns');
+});
+
+t('H3: el catálogo que recibe el dropdown son nombres canónicos (strings de activos), no objetos', () => {
+  const gs = readFileSync(path.join(raiz, 'src/WebApp.gs'), 'utf8');
+  A(gs.indexOf('function WebApp_profesionalesDropdown') !== -1, 'helper de dropdown presente en WebApp.gs');
+  const body = gs.slice(gs.indexOf('function WebApp_profesionalesDropdown'));
+  A(body.indexOf('.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO') !== -1, 'devuelve NOMBRE_CANONICO (string), no el objeto');
+  A(body.indexOf('filter(function (c) { return c && c.ACTIVO !== false') !== -1, 'solo profesionales activos');
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('');
 console.log('Captura UI Payload V2 — TOTAL: ' + (PASS + FAIL) + ' · PASS: ' + PASS + ' · FAIL: ' + FAIL);

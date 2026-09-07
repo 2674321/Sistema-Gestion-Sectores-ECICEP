@@ -318,7 +318,21 @@ function api_webappEstado() {
 function WebApp_estadoInicial() {
   return {
     esquema: Form_esquemaFormulario(),
-    profesionales: typeof Captura_v2_catalogo === 'function' ? Captura_v2_catalogo() : [],
+    profesionales: WebApp_profesionalesDropdown(),
     url: typeof ECICEP_webAppUrl === 'function' ? ECICEP_webAppUrl() : ''
   };
+}
+
+/** GAS: catálogo PROFESIONALES para el dropdown de la Web App.
+ *  Contrato del api_profesionalesCatalogo retirado: solo profesionales activos,
+ *  como nombres canónicos (strings), no objetos. */
+function WebApp_profesionalesDropdown() {
+  try {
+    if (typeof Captura_v2_catalogo !== 'function') return [];
+    return Captura_v2_catalogo()
+      .filter(function (c) { return c && c.ACTIVO !== false && (c.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO); })
+      .map(function (c) { return c.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO; });
+  } catch (e) {
+    return [];
+  }
 }
