@@ -1051,8 +1051,9 @@ function api_dashboardDatos() {
 /** Endpoint vista de trabajo REM: calcula el informe AL VUELO (modo MES o
  *  GENERAL) sin leer ni crear la hoja REM_SALIDA. Solo lectura de PACIENTES y
  *  EVENTOS; 100% serializable. Modo 'MES' → Bloque A + censo con indicadores
- *  del mes; 'GENERAL' → censo histórico del sector. */
-function api_remVista(anio, mes, sector, modo) {
+ *  del mes; 'GENERAL' → censo histórico del sector. `actividad` restringe el
+ *  censo a pacientes con al menos un evento en el período ('' = todos). */
+function api_remVista(anio, mes, sector, modo, actividad) {
   try {
     anio = Number(anio); mes = Number(mes);
     if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
@@ -1060,7 +1061,8 @@ function api_remVista(anio, mes, sector, modo) {
     var datos = _rem9_datos(anio, mes, filtro);
     var v = Rem9_armarVistaDatos(datos, {
       anio: anio, mes: mes, sector: filtro,
-      modo: Utl_texto(modo).toUpperCase() === 'GENERAL' ? 'GENERAL' : 'MES'
+      modo: Utl_texto(modo).toUpperCase() === 'GENERAL' ? 'GENERAL' : 'MES',
+      actividad: (actividad === true || actividad === 1 || actividad === '1' || actividad === 'true')
     });
     Log_info('REM', 'vista', v.meta.modo + ' · ' + filtro + ' · pacientes=' + v.meta.pacientes +
              ' · atenciones=' + v.meta.atenciones);

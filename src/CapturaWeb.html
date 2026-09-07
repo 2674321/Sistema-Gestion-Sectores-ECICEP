@@ -1299,6 +1299,10 @@
 
   /* ── Init ── */
   cargarUltimosInputs();
+  // Pintar de inmediato con el esquema fallback para que las secciones sean
+  // visibles ya (evita la pantalla con solo RUT mientras llega la RPC #E1).
+  pintarCampos();
+  actualizarLimpiar();
   // Una sola RPC: esquema + catálogo profesionales + url (antes eran 3 llamadas
   // separadas de esquema, catálogo y URL).
   google.script.run

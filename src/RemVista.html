@@ -39,6 +39,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .vacio-cell{padding:20px;text-align:center;color:var(--text-muted);white-space:normal}
 .vacio-full{padding:var(--space-7);text-align:center;color:var(--text-muted)}
 .vacio{color:var(--text-muted)}
+.prog{position:relative;height:6px;border-radius:3px;background:var(--surface-alt);
+  overflow:hidden;margin:0 0 12px}
+.prog::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:40%;
+  background:var(--primary);animation:prog 1.1s ease-in-out infinite}
+@keyframes prog{0%{left:-40%}100%{left:100%}}
 @media print{
   body{background:#fff;padding:0}
   header .filtros,.seg,.hint{display:none!important}
@@ -82,15 +87,21 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <option value="VERDE">Verde</option>
       </select>
     </label>
+    <label>Censo
+      <select id="selAct" class="inp">
+        <option value="">Todos los pacientes</option>
+        <option value="1">Solo con actividad</option>
+      </select>
+    </label>
     <button class="btn btn-pri" onclick="consultar(this)"><i data-lucide="search"></i> Consultar</button>
     <button class="btn btn-ghost" onclick="google.script.host.close()">Volver</button>
   </div>
 </header>
-<p class="hint" id="hintMes"><b>Mes:</b> atenciones del mes (Bloque A) + censo del sector con los indicadores «Tiene…» del propio mes.</p>
-<p class="hint" id="hintGen" style="display:none"><b>General:</b> censo del sector con indicadores «Tiene…» acumulados (histórico de EVENTOS).</p>
+<p class="hint" id="hintMes"><b>Mes:</b> atenciones del mes (Bloque A) + censo del sector con los indicadores «Tiene…» del propio mes. En «Censo: solo con actividad» se omiten los pacientes sin eventos en el mes.</p>
+<p class="hint" id="hintGen" style="display:none"><b>General:</b> censo del sector con indicadores «Tiene…» acumulados (histórico de EVENTOS). En «Censo: solo con actividad» se omiten los pacientes sin eventos registrados.</p>
 <div class="scroll-wrap" id="wrap">
   <div id="estado" class="vacio-full">
-    <div class="skel" style="height:220px;margin-bottom:12px"></div>
+    <div class="prog" style="width:min(420px,70%);margin:0 auto 12px"></div>
     Calculando el informe…
   </div>
 </div>
@@ -124,6 +135,7 @@ function pintar(tablas, meta, notas) {
   }
   var html = '<div class="meta-line">' + _esc(meta.sector || 'TODOS') +
     ' · ' + (meta.modo === 'GENERAL' ? 'Censo general' : meta.mes + ' de ' + meta.anio) +
+    (meta.actividad ? ' · <b>solo con actividad</b>' : ' · <b>todos los pacientes</b>') +
     ' · <b>' + (meta.pacientes || 0) + '</b> pacientes' +
     ' · <b>' + (meta.atenciones || 0) + '</b> atenciones del mes</div>';
   (notas || []).forEach(function (n) { html += '<div class="nota">' + _esc(n) + '</div>'; });
@@ -148,22 +160,28 @@ function pintar(tablas, meta, notas) {
   wrap.innerHTML = html;
   _refrescarIconos();
 }
-function consultar() {
+function consultar(btn) {
   var anio = +document.getElementById('selAnio').value;
   var mes = +document.getElementById('selMes').value;
   var sector = document.getElementById('selSector').value;
+  var act = document.getElementById('selAct').value;
+  if (btn) { btn.disabled = true; }
   document.getElementById('wrap').innerHTML =
-    '<div class="vacio-full"><div class="skel" style="height:180px;margin-bottom:12px"></div>Calculando…</div>';
+    '<div class="vacio-full"><div class="prog"></div>Calculando el informe…</div>';
   try {
-    localStorage.setItem('REM_ULTIMA', JSON.stringify({ mes: mes, anio: anio, sector: sector, MODO: MODO }));
+    localStorage.setItem('REM_ULTIMA', JSON.stringify({ mes: mes, anio: anio, sector: sector, MODO: MODO, act: act }));
   } catch (e) {}
   google.script.run
     .withSuccessHandler(function (r) {
+      if (btn) { btn.disabled = false; }
       if (!r || !r.ok) { pintarError((r && r.motivo) || 'error'); return; }
       pintar(r.tablas, r.meta, r.notas);
     })
-    .withFailureHandler(function (e) { pintarError(e && e.message || e); })
-    .api_remVista(anio, mes, sector, MODO);
+    .withFailureHandler(function (e) {
+      if (btn) { btn.disabled = false; }
+      pintarError(e && e.message || e);
+    })
+    .api_remVista(anio, mes, sector, MODO, act);
 }
 (function init() {
   var h = new Date();
@@ -175,6 +193,7 @@ function consultar() {
       if (ult.mes) mesSel = String(ult.mes);
       if (ult.MODO) setModo(ult.MODO);
       if (ult.sector) document.getElementById('selSector').value = ult.sector;
+      if (ult.act) document.getElementById('selAct').value = ult.act;
     }
   } catch (e) {}
   var selA = document.getElementById('selAnio');

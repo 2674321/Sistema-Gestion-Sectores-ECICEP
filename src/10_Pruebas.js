@@ -1998,6 +1998,29 @@ function _pruebas_rem_excel(t, A) {
     A.igual(p9[5], 0, 'P9 sin eventos del mes');
     A.igual(p9[7], 'NO', 'P9 sin control en el mes');
   });
+
+  t('REMV: censo MES «solo con actividad» excluye sin eventos del mes', function(){
+    var pacs = PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'NUEVE', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01', SECTOR:'NARANJO' }]);
+    var datos = { pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 };
+    var completo = Rem9_armarVistaDatos(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
+    var solo = Rem9_armarVistaDatos(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES', actividad: true });
+    A.igual(completo.meta.actividad, false, 'default sin filtro');
+    A.igual(completo.tablas[1].filas.length, 5, 'completo: incluye a P9 sin actividad');
+    A.igual(solo.meta.actividad, true, 'filtro activo');
+    A.igual(solo.tablas[1].filas.length, 4, 'solo: excluye a P9');
+    A.igual(solo.tablas[1].titulo.indexOf('con actividad en el mes') > -1, true, 'título refleja el filtro');
+    A.cierto((solo.notas || []).some(function (n) { return n.indexOf('solo con actividad') > -1; }), 'nota de filtro');
+  });
+
+  t('REMV: censo GENERAL «solo con actividad» excluye sin eventos históricos', function(){
+    var pacs = PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'NUEVE', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01', SECTOR:'NARANJO' }]);
+    var datos = { pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 };
+    var solo = Rem9_armarVistaDatos(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'GENERAL', actividad: '1' });
+    A.igual(solo.meta.actividad, true, 'filtro activo (param string \'1\')');
+    var rut = solo.tablas[0].filas.map(function (r) { return r[0]; });
+    A.cierto(rut.indexOf('11111111-1') > -1, 'P1 con actividad sigue');
+    A.igual(rut.indexOf('99999999-9'), -1, 'P9 sin actividad excluido');
+  });
 }
 
 // ---------------------------------------------------------------------------

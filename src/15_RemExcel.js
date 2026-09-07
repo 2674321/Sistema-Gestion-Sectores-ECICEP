@@ -165,11 +165,13 @@ function Rem9_filaCenso(pac, evs) {
 /** PURA: CENSO del sector — una fila por paciente de PACIENTES (filtrado por su
  *  SECTOR canónico) más pacientes presentes SOLO en EVENTOS (nunca se pierde
  *  actividad). Modo 'MES' → indicadores del período; 'GENERAL' → histórico.
- *  Orden estable por NOMBRE y luego RUT. */
-function Rem9_censoPacientes(pacientes, eventos, filtro, anio, mes, modo) {
+ *  `soloActividad` restringe el censo a quienes tienen al menos un evento en el
+ *  período (default false = censo completo). Orden estable por NOMBRE y luego RUT. */
+function Rem9_censoPacientes(pacientes, eventos, filtro, anio, mes, modo, soloActividad) {
   var evsIdx = Rem9_evsPorId(eventos);
   var pref = (anio && mes) ? Number(anio) + '-' + (Number(mes) < 10 ? '0' : '') + Number(mes) : '';
   var modoMes = modo === 'MES' && pref;
+  var solo = soloActividad === true || soloActividad === 1 || soloActividad === '1' || soloActividad === 'true';
   var porModo = function (id) {
     var arr = evsIdx[id] || [];
     if (!modoMes) return arr;
@@ -186,6 +188,7 @@ function Rem9_censoPacientes(pacientes, eventos, filtro, anio, mes, modo) {
     conId[Utl_texto(p.ID_INTERNO)] = true;
     if (!filtra(p.SECTOR)) return;
     var evs = porModo(Utl_texto(p.ID_INTERNO));
+    if (solo && !evs.length) return;
     filas.push(Rem9_filaCenso(p, evs));
   });
   Object.keys(evsIdx).forEach(function (id) {
@@ -238,6 +241,7 @@ function Rem9_armarVistaDatos(datos, o) {
   var anio = Number(o.anio), mes = Number(o.mes);
   var filtro = Utl_texto(o.sector).trim().toUpperCase() || 'TODOS';
   var modo = o.modo === 'GENERAL' ? 'GENERAL' : 'MES';
+  var solo = o.actividad === true || o.actividad === 1 || o.actividad === '1' || o.actividad === 'true';
   var pref = anio + '-' + (mes < 10 ? '0' : '') + mes;
 
   var lote = (datos.eventos || []).filter(function (e) {
@@ -265,11 +269,18 @@ function Rem9_armarVistaDatos(datos, o) {
                   filas: filasT, clase: 'resumen' });
   }
 
-  var censo = Rem9_censoPacientes(datos.pacientes, datos.eventos, filtro, anio, mes, modo);
+  var censo = Rem9_censoPacientes(datos.pacientes, datos.eventos, filtro, anio, mes, modo, solo);
   var titulo = modo === 'GENERAL'
-    ? 'Censo general del sector — histórico de EVENTOS (' + censo.length + ' pacientes)'
-    : 'Censo del sector — ' + REM_MESES[mes - 1] + ' ' + anio + ' (' + censo.length +
-      ' pacientes; incluye quienes no tuvieron actividad en el mes)';
+    ? 'Censo general del sector — histórico de EVENTOS (' + censo.length + ' pacientes)' +
+      (solo ? ' — solo con actividad' : '')
+    : (solo
+      ? 'Censo del sector — ' + REM_MESES[mes - 1] + ' ' + anio +
+        ' (' + censo.length + ' pacientes con actividad en el mes)'
+      : 'Censo del sector — ' + REM_MESES[mes - 1] + ' ' + anio + ' (' + censo.length +
+        ' pacientes; incluye quienes no tuvieron actividad en el mes)');
+  if (solo) {
+    notas.push('Filtro «solo con actividad»: la vista excluye pacientes sin eventos en el período consultado.');
+  }
   tablas.push({ titulo: titulo,
     cols: ['PACIENTE', 'NOMBRE', 'SECTOR', 'EDAD', 'SEXO', 'EVENTOS',
            'TIENE_INGRESO', 'TIENE_CONTROL', 'TIENE_SEGUIMIENTO', 'TIENE_PLAN',
@@ -278,6 +289,7 @@ function Rem9_armarVistaDatos(datos, o) {
 
   return { tablas: tablas, notas: notas,
            meta: { anio: anio, mes: mes, sector: filtro, modo: modo,
+                   actividad: solo,
                    pacientes: censo.length, atenciones: enPeriodo.length } };
 }
 
