@@ -24,16 +24,23 @@
       --fw-regular:400;--fw-medium:500;--fw-semibold:600;--fw-bold:700;
       --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
       --transition:150ms ease;
+      color-scheme:light;
     }
 
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:var(--ff);font-size:var(--fs-base);color:var(--c-text);
-      background:var(--c-bg);min-height:100vh;display:flex;flex-direction:column;
+      background:radial-gradient(900px 420px at 50% -180px, rgba(14,92,104,.10), transparent 60%), var(--c-bg);
+      min-height:100vh;display:flex;flex-direction:column;
       line-height:1.5;-webkit-font-smoothing:antialiased}
+    @supports(min-height:100dvh){body{min-height:100dvh}} /* evita la barra móvil falsa en teléfonos */
 
     /* ── Header ── */
     .hdr{background:linear-gradient(135deg,var(--c-primary) 0%,var(--c-primary-mid) 50%,var(--c-primary-light) 100%);
-      color:#fff;padding:var(--sp-4) var(--sp-6);box-shadow:var(--sh-md);position:relative;z-index:10}
+      color:#fff;padding-top:calc(var(--sp-4) + env(safe-area-inset-top,0px));
+      padding-right:calc(var(--sp-6) + env(safe-area-inset-right,0px));
+      padding-bottom:var(--sp-4);
+      padding-left:calc(var(--sp-6) + env(safe-area-inset-left,0px));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.09), var(--sh-md);position:relative;z-index:10}
     .hdr-inner{max-width:540px;margin:0 auto;display:flex;align-items:center;gap:var(--sp-3)}
     .hdr-logo{width:64px;height:74px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
     .hdr-logo img{width:100%;height:100%;object-fit:contain}
@@ -50,7 +57,11 @@
     .hdr-btn svg{width:16px;height:16px;flex-shrink:0}
 
     /* ── Main ── */
-    .main{flex:1;padding:var(--sp-5) var(--sp-4) var(--sp-8);position:relative;overflow:hidden}
+    .main{flex:1;padding-top:var(--sp-5);
+      padding-right:calc(var(--sp-4) + env(safe-area-inset-right,0px));
+      padding-bottom:calc(var(--sp-8) + env(safe-area-inset-bottom,0px));
+      padding-left:calc(var(--sp-4) + env(safe-area-inset-left,0px));
+      position:relative;overflow:hidden}
     .card{max-width:540px;margin:0 auto;background:var(--c-surface);border-radius:var(--r-xl);
       box-shadow:var(--sh-lg);border:1px solid var(--c-border-light);position:relative;z-index:1;overflow:hidden}
 
@@ -189,7 +200,9 @@
       border:1px solid rgba(0,0,0,.06)}
 
     /* ── Footer ── */
-    .ftr{text-align:center;padding:var(--sp-4);font-size:var(--fs-xs);color:var(--c-text-3)}
+    .ftr{text-align:center;padding-top:var(--sp-4);
+      padding-bottom:calc(var(--sp-4) + env(safe-area-inset-bottom,0px));
+      font-size:var(--fs-xs);color:var(--c-text-3);border-top:1px solid var(--c-border-light)}
 
     /* ── QR Modal ── */
     .qr-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;
@@ -254,13 +267,53 @@
     @keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
     @keyframes fadeSlideUp{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 
-    /* ── Responsive ── */
-    @media(max-width:540px){
-      .hdr{padding:var(--sp-3) var(--sp-4)}
+    /* ── Mejoras visuales (solo apariencia) ── */
+
+    /* fieldset/legend sin reglas nativas del navegador */
+    .sec{border:none;min-width:0}
+    legend{max-width:100%;padding:0}
+
+    /* selección de texto y cursor de los campos */
+    ::selection{background:var(--c-primary-light);color:#fff}
+    .f-input{caret-color:var(--c-primary-mid)}
+
+    /* input sin "flash" amarillo de autofill */
+    .f-input:-webkit-autofill,.f-input:-webkit-autofill:hover,.f-input:-webkit-autofill:focus{
+      -webkit-box-shadow:0 0 0 1000px var(--c-surface) inset;
+      -webkit-text-fill-color:var(--c-text);
+      transition:background-color 9999s ease-in-out 0s}
+
+    /* picker nativo de fecha/select: más discreto */
+    .f-input::-webkit-calendar-picker-indicator{opacity:.55;cursor:pointer;transition:opacity var(--transition)}
+    .f-input::-webkit-calendar-picker-indicator:hover{opacity:.9}
+
+    /* títulos de sección con acento lateral (jerarquía sin recargar) */
+    .sec-title{padding-left:10px;border-left:3px solid var(--c-primary-light)}
+    @media(max-width:360px){.sec-title{padding-left:8px;border-left-width:2px}}
+
+    /* botones: micro-elevación en hover */
+    .btn{letter-spacing:.01em}
+    .btn-p:hover:not(:disabled),.btn-ok:hover:not(:disabled){transform:translateY(-1px)}
+
+    /* scrollbars discretas en listas/cajas internas */
+    .dup-list::-webkit-scrollbar,.qr-url-box::-webkit-scrollbar{width:6px;height:6px}
+    .dup-list::-webkit-scrollbar-thumb,.qr-url-box::-webkit-scrollbar-thumb{background:var(--c-border);border-radius:999px}
+    .dup-list::-webkit-scrollbar-thumb:hover,.qr-url-box::-webkit-scrollbar-thumb:hover{background:#A0A5AE}
+
+    /* ── Responsive / Adaptativo ── */
+
+    /* tablet/teléfono: encabezado fijo, formulario siempre accesible */
+    @media(max-width:640px){
+      .hdr{position:sticky;top:0;z-index:20}
+      .hdr{padding-top:calc(var(--sp-3) + env(safe-area-inset-top,0px));padding-bottom:var(--sp-3)}
       .hdr-logo{width:52px;height:60px}
       .hdr-brand h1{font-size:16px}
       .hdr-brand p{font-size:10px}
       .hdr-btn span{display:none}
+    }
+    @media(max-width:540px){
+      .hdr{padding-left:calc(var(--sp-4) + env(safe-area-inset-left,0px));
+           padding-right:calc(var(--sp-4) + env(safe-area-inset-right,0px))}
       .c-body{padding:var(--sp-4)}
       .action-grid{grid-template-columns:1fr}
       .f-row{grid-template-columns:1fr}
@@ -270,11 +323,28 @@
     }
     @media(max-width:360px){
       .hdr-brand h1{font-size:15px}
+      .hdr-brand p{font-size:9px}
       .card{border-radius:var(--r-md)}
       .c-body{padding:var(--sp-3)}
+      .sec-title{letter-spacing:.04em}
     }
     @media(min-width:768px){
-      .main{padding:var(--sp-8) var(--sp-6)}
+      .main{padding-top:var(--sp-8);
+            padding-right:calc(var(--sp-6) + env(safe-area-inset-right,0px));
+            padding-bottom:var(--sp-8);
+            padding-left:calc(var(--sp-6) + env(safe-area-inset-left,0px))}
+    }
+    @media(min-width:1024px){
+      .hdr-inner,.card{max-width:600px}
+      .main{padding-top:56px;padding-bottom:48px}
+    }
+
+    /* teléfono: 16px en campos evita el zoom automático de iOS al enfocar */
+    @media(hover:none) and (pointer:coarse){
+      .f-input{font-size:16px}
+    }
+    @media(prefers-reduced-motion:no-preference){
+      html{scroll-behavior:smooth}
     }
 
     /* ── Reduced motion ── */
