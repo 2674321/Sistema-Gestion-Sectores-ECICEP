@@ -83,6 +83,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_auditoria_s11r(t, A);
   _pruebas_separacion_s12(t, A);
   _pruebas_s10fix_esquema(t, A);
+  _pruebas_inst1_versionado(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -4765,5 +4766,275 @@ function _pruebas_s10fix_esquema(t, A) {
     A.cierto(fn.indexOf('appendRow') === -1 && fn.indexOf('insertRow') === -1, 'sin append/insert');
     var todo = UI_actualizarTodo.toString();
     A.cierto(todo.indexOf('Modelo_alinearVistasSectoriales') !== -1, 'UI_actualizarTodo la invoca');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// INST-1 — Endurecimiento del instalador: versionado de esquema, registro de
+// migraciones idempotentes, detección de instalaciones y LockService (DEC-059).
+// T1–T15: puras + introspección de fuente. Sin GAS ni datos reales.
+// ---------------------------------------------------------------------------
+function _pruebas_inst1_versionado(t, A) {
+  function _snap(opts) {
+    opts = opts || {};
+    var canon = COLUMNAS_SECTOR_VISTA.slice();
+    var viejo15 = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
+      'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL',
+      'PROXIMO_CONTROL', 'ULTIMO_EVENTO', 'OBSERVACIONES'];
+    var criticas = ['PACIENTES', 'EVENTOS', 'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE',
+      'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
+    var datos = !!opts.datos;
+    var hojas = {};
+    criticas.forEach(function (n) {
+      var dat = Modelo_dataStartRow(n);
+      hojas[n] = {
+        layout: Modelo_layoutHoja(n) === CONTRATO_LAYOUT_VISUAL ? 'visual' : 'simple',
+        ultimaFila: datos ? dat + 2 : dat - 1,
+        maxFilas: 500,
+        maxCols: 30,
+        encabezados: (n.indexOf('SECTOR_') === 0)
+          ? (opts.divergente ? viejo15.slice() : canon.slice())
+          : []
+      };
+    });
+    return {
+      hojas: hojas,
+      criticasPresentes: criticas.slice(),
+      criticasFaltantes: opts.faltantes || [],
+      config: opts.config || {}
+    };
+  }
+
+  t('T1: versión canónica única (esquema 1, instalador INST-1) y registro MIG-001 alineado', function () {
+    A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 1, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 1');
+    A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '1', 'esquema objetivo serializa a "1"');
+    A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.9'), 0, 'versión de aplicación coherente (0.9.x)');
+    A.cierto(REGISTRO_MIGRACIONES.length >= 1, 'hay al menos una migración');
+    var vistos = {};
+    REGISTRO_MIGRACIONES.forEach(function (m) {
+      A.igual(typeof m.id, 'string', 'id string');
+      A.cierto(!vistos[m.id], 'id único: ' + m.id);
+      vistos[m.id] = true;
+      A.cierto(typeof m.fn === 'string' && m.fn.length > 0, 'fn declarada en ' + m.id);
+      var hasta = String(m.hasta);
+      A.igual(hasta, String(SISTEMA_VERSION_SCHEMA_ACTUAL), m.id + ' termina en el objetivo canónico (' + hasta + ')');
+    });
+    var m001 = REGISTRO_MIGRACIONES.filter(function (m) { return m.id === 'MIG-001'; })[0];
+    A.igual(m001.desde, '0', 'MIG-001 parte de esquema legado (0)');
+    A.igual(m001.fn, 'Mig_run001', 'MIG-001 ejecuta Mig_run001');
+    var api = api_instalarEtapas.toString();
+    A.cierto(api.indexOf('SISTEMA_VERSION_INSTALADOR') !== -1 && api.indexOf('SISTEMA_VERSION_SCHEMA_ACTUAL') !== -1,
+      'api_instalarEtapas expone instalador y esquema');
+  });
+
+  t('T2: identificación de esquema por clave CONFIG (ausente≡0, ilegible→DESCONOCIDA, mayor→DIVERGENTE, faltan críticas→INCOMPLETA)', function () {
+    var ausente = Mig_clasificarInstalacion(_snap({ datos: true }), null, REGISTRO_MIGRACIONES);
+    A.igual(ausente.version, '0', 'clave ausente ≡ 0');
+    A.igual(ausente.estado, 'ANTIGUA', 'legada con datos → ANTIGUA');
+    var ilegible = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: 'abc' } }), null, REGISTRO_MIGRACIONES);
+    A.igual(ilegible.estado, 'DESCONOCIDA', 'versión ilegible → DESCONOCIDA');
+    A.igual(ilegible.accion, 'manual', 'no se auto-migra ilegible');
+    var mayor = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '2' } }), null, REGISTRO_MIGRACIONES);
+    A.igual(mayor.estado, 'DIVERGENTE', 'esquema superior al código → DIVERGENTE');
+    A.igual(mayor.accion, 'manual', 'requiere atención humana');
+    var incompleta = Mig_clasificarInstalacion(_snap({ datos: true, faltantes: ['PACIENTES'] }), null, REGISTRO_MIGRACIONES);
+    A.igual(incompleta.estado, 'INCOMPLETA', 'faltan hojas críticas → INCOMPLETA');
+    A.igual(incompleta.accion, 'reparar', 'accion de reparación');
+    var vigenteComoParametro = Mig_clasificarInstalacion(_snap({ datos: true }), '1', REGISTRO_MIGRACIONES);
+    A.igual(vigenteComoParametro.estado, 'VIGENTE', 'parámetro explícito respeta snapshot');
+  });
+
+  t('T3: instalación NUEVA (sin datos y sin versionar) se detecta y migra en cadena', function () {
+    var v = Mig_clasificarInstalacion(_snap({ datos: false }), null, REGISTRO_MIGRACIONES);
+    A.igual(v.estado, 'NUEVA', 'sin datos → NUEVA');
+    A.igual(v.version, '0', 'esquema 0');
+    A.igual(v.hayDatos, false, 'sin datos');
+    A.igual(v.pendientes[0], 'MIG-001', 'la cadena desde 0 arranca en MIG-001');
+    A.igual(v.accion, 'migrar', 'accion migrar');
+  });
+
+  t('T4: instalación VIGENTE (esquema 1 canónico) sin migraciones pendientes', function () {
+    var v = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '1' } }), null, REGISTRO_MIGRACIONES);
+    A.igual(v.estado, 'VIGENTE', 'estado VIGENTE');
+    A.igual(v.version, '1', 'esquema 1');
+    A.arreglos(v.pendientes, [], 'sin pendientes');
+    A.arreglos(v.sectoresDivergentes, [], 'sectores canónicos');
+    A.igual(v.accion, 'ninguna', 'accion ninguna');
+    A.arreglos(Mig_pendientesPura('1', REGISTRO_MIGRACIONES), [], 'desde 1 no hay pendientes');
+  });
+
+  t('T5: instalación ANTIGUA legada (0) con vistas SECTOR_* divergentes → MIG-001 pendiente', function () {
+    var v = Mig_clasificarInstalacion(_snap({ datos: true, divergente: true }), null, REGISTRO_MIGRACIONES);
+    A.igual(v.estado, 'ANTIGUA', 'estado ANTIGUA');
+    A.igual(v.version, '0', 'esquema 0');
+    A.cierto(v.pendientes.indexOf('MIG-001') !== -1, 'MIG-001 pendiente');
+    A.cierto(v.sectoresDivergentes.length === 3, 'las tres vistas SECTOR_* divergentes');
+    A.igual(v.accion, 'migrar', 'accion migrar');
+    A.arreglos(Mig_pendientesPura('0', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }), ['MIG-001'], 'cadena desde 0');
+  });
+
+  t('T6: la clasificación y las pendientes son idempotentes (doble ejecución idéntica)', function () {
+    var s = _snap({ datos: true, divergente: true });
+    var a = Mig_clasificarInstalacion(s, null, REGISTRO_MIGRACIONES);
+    var b = Mig_clasificarInstalacion(s, null, REGISTRO_MIGRACIONES);
+    A.igual(a.estado, b.estado, 'mismo estado');
+    A.arreglos(a.pendientes, b.pendientes, 'mismas pendientes');
+    A.arreglos(a.sectoresDivergentes, b.sectoresDivergentes, 'mismos sectores divergentes');
+    A.arreglos(Mig_pendientesPura('0'), Mig_pendientesPura('0'), 'pendientes 0 doble llamada idéntica');
+  });
+
+  t('T7: orden determinista de la cadena (desde ascendente, luego id.)', function () {
+    var reg = [
+      { id: 'MIG-004', desde: '2', hasta: '3', fn: 'Mig_stubA' },
+      { id: 'MIG-002', desde: '0', hasta: '1', fn: 'Mig_stubA' },
+      { id: 'MIG-003', desde: '1', hasta: '2', fn: 'Mig_stubA' },
+      { id: 'MIG-002B', desde: '0', hasta: '1', fn: 'Mig_stubA' }
+    ];
+    var ids = Mig_pendientesPura('0', reg, '3').map(function (m) { return m.id; });
+    A.arreglos(ids, ['MIG-002', 'MIG-002B', 'MIG-003', 'MIG-004'], 'orden desde asc + id');
+    A.arreglos(Mig_pendientesPura('1', reg, '3').map(function (m) { return m.id; }), ['MIG-003', 'MIG-004'], 'desde 1 continúa la cadena restante');
+    A.arreglos(Mig_pendientesPura('3', reg, '3'), [], 'desde 3 no queda nada');
+  });
+
+  t('T8: el runner persiste SCHEMA_VERSION/LAST_MIGRATION tras cada éxito (test de contrato de persistencia)', function () {
+    var prev = globalThis._inst_configEscribir;
+    var calls = [], restored = false;
+    try {
+      globalThis._inst_configEscribir = function (clave, valor) { calls.push([clave, String(valor)]); };
+      globalThis.Mig_stubA = function () { return { ok: true }; };
+      var reg = [
+        { id: 'MIG-A', desde: '0', hasta: '1', fn: 'Mig_stubA' },
+        { id: 'MIG-B', desde: '1', hasta: '2', fn: 'Mig_stubA' }
+      ];
+      var r = Mig_ejecutarDeclaradas(reg, { schemaVersion: '0', persistir: true, objetivo: '2' });
+      A.igual(r.ok, true, 'ok');
+      A.arreglos(r.aplicadas, ['MIG-A', 'MIG-B'], 'aplicadas en orden');
+      A.igual(r.versionFinal, '2', 'versión final 2');
+      A.igual(calls.length, 4, '2 claves × 2 migraciones');
+      A.arreglos(calls[0], ['LAST_MIGRATION', 'MIG-A'], 'persiste LAST_MIGRATION de la 1ª');
+      A.arreglos(calls[1], ['SCHEMA_VERSION', '1'], 'persiste SCHEMA_VERSION tras la 1ª');
+      A.arreglos(calls[2], ['LAST_MIGRATION', 'MIG-B'], 'persiste LAST_MIGRATION de la 2ª');
+      A.arreglos(calls[3], ['SCHEMA_VERSION', '2'], 'persiste SCHEMA_VERSION final');
+    } finally {
+      if (prev) { globalThis._inst_configEscribir = prev; restored = true; }
+      else { delete globalThis._inst_configEscribir; }
+      delete globalThis.Mig_stubA;
+    }
+    A.cierto(restored, 'se restaura _inst_configEscribir');
+  });
+
+  t('T9: una migración fallida DETIENE la cadena y NO avanza la versión', function () {
+    globalThis.Mig_stubA = function () { return { ok: true }; };
+    globalThis.Mig_stubFail = function () { return { ok: false, motivo: 'FALLO_TEST' }; };
+    try {
+      var reg = [
+        { id: 'MIG-A', desde: '0', hasta: '1', fn: 'Mig_stubA' },
+        { id: 'MIG-FAIL', desde: '1', hasta: '2', fn: 'Mig_stubFail' },
+        { id: 'MIG-B', desde: '2', hasta: '3', fn: 'Mig_stubA' }
+      ];
+      var r = Mig_ejecutarDeclaradas(reg, { schemaVersion: '0', persistir: false, objetivo: '3' });
+      A.igual(r.ok, false, 'ok false');
+      A.arreglos(r.aplicadas, ['MIG-A'], 'solo la primera aplicada');
+      A.igual(r.versionFinal, '1', 'la versión NO avanza más allá del éxito previo');
+      A.igual(r.migracion, 'MIG-FAIL', 'señala la migración que falló');
+      A.igual(r.motivo, 'FALLO_TEST', 'propaga el motivo');
+      // función ausente → también detiene sin marcar
+      var rg2 = [{ id: 'MIG-X', desde: '0', hasta: '1', fn: 'Mig_stubNoExiste' }];
+      var r2 = Mig_ejecutarDeclaradas(rg2, { schemaVersion: '0', persistir: false });
+      A.igual(r2.ok, false, 'función ausente → ok false');
+      A.cierto(String(r2.motivo).indexOf('FUNCION_AUSENTE') !== -1, 'motivo de función ausente');
+      A.arreglos(r2.aplicadas, [], 'nada aplicado');
+    } finally {
+      delete globalThis.Mig_stubA;
+      delete globalThis.Mig_stubFail;
+    }
+  });
+
+  t('T10: el diagnóstico es SOLO LECTURA (escanea, nunca Modelo_crearEstructura)', function () {
+    var fn = Instalar_diagnosticar.toString();
+    A.cierto(fn.indexOf('Modelo_escanearEstructura') !== -1, 'usa escaneo de solo lectura');
+    A.cierto(fn.indexOf('Modelo_crearEstructura') === -1, 'el diagnóstico NO repara estructura');
+    A.cierto(fn.indexOf('versionado') !== -1, 'incluye el bloque versionado');
+  });
+
+  t('T11: api_instalarPaso protege etapas mutantes con LockService', function () {
+    var fn = api_instalarPaso.toString();
+    A.cierto(fn.indexOf('LockService') !== -1, 'usa LockService');
+    A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
+    A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
+    ['migraciones', 'estructura', 'fuentes', 'amarillo', 'visual', 'validaciones',
+     'limpieza', 'diseno', 'inicio', 'menu', 'enriquecimiento'].forEach(function (id) {
+      A.cierto(!!INSTALAR_ETAPAS_MUTAN[id], id + ' figura como mutante');
+    });
+    ['runtime', 'diagnostico', 'versionado', 'verificar'].forEach(function (id) {
+      A.cierto(!INSTALAR_ETAPAS_MUTAN[id], id + ' es solo lectura (sin lock)');
+    });
+    A.cierto(INSTALAR_ETAPAS.filter(function (e) { return e.id === 'versionado'; }).length === 1,
+      'etapa versionado registrada');
+    A.cierto(INSTALAR_ETAPAS.filter(function (e) { return e.id === 'migraciones'; }).length === 1,
+      'etapa migraciones registrada');
+  });
+
+  t('T12: Actualizar NO incorpora versionado ni ejecuta migraciones (separación S12/INST-1)', function () {
+    var todo = UI_actualizarTodo.toString();
+    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones', 'SCHEMA_VERSION', '_inst_configEscribir'].forEach(function (f) {
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
+    });
+    var act = UI_actualizarSistema.toString();
+    ['Mig_', 'Instalar_pMigraciones', 'SCHEMA_VERSION'].forEach(function (f) {
+      A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
+    });
+  });
+
+  t('T13: la regresión BUG-E2E-003 queda protegida por MIG-001 (detección + re-aplicación)', function () {
+    var v = Mig_clasificarInstalacion(_snap({ datos: true, divergente: true, config: { SCHEMA_VERSION: '1' } }), null, REGISTRO_MIGRACIONES);
+    A.igual(v.estado, 'ANTIGUA', 'esquema 1 con SECTOR_* divergentes → ANTIGUA (defensa)');
+    A.cierto(v.sectoresDivergentes.length > 0, 'divergencia detectada');
+    var persistente = Mig_ejecutarPersistente.toString();
+    A.cierto(persistente.indexOf('sectoresDivergentes') !== -1, 'defensa lee divergencia');
+    A.cierto(persistente.indexOf("'MIG-001'") !== -1, 're-aplica MIG-001');
+    var run = Mig_run001.toString();
+    A.cierto(run.indexOf('Modelo_alinearVistaSector') !== -1, 'MIG-001 migra por nombre (S10-FIX)');
+    A.cierto(run.indexOf('ENCABEZADOS_INCOMPATIBLES') === -1, 'no oculta la incompatibilidad');
+  });
+
+  t('T14: el motor de migraciones toca SOLO estructura de vistas (sin PACIENTES/EVENTOS/append/insert)', function () {
+    var fns = ['Mig_pendientesPura', 'Mig_clasificarInstalacion', 'Mig_ejecutarDeclaradas',
+      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Mig_run001',
+      'Instalar_pMigraciones'];
+    var G = (typeof globalThis !== 'undefined') ? globalThis : this;
+    fns.forEach(function (name) {
+      var fn = G[name];
+      A.cierto(typeof fn === 'function', name + ' existe');
+      var src = fn.toString();
+      ['PACIENTES', 'EVENTOS', 'appendRow', 'insertRow', 'insertRowsAfter', 'insertSheet'].forEach(function (pal) {
+        A.cierto(src.indexOf(pal) === -1, name + ' sin ' + pal);
+      });
+    });
+  });
+
+  t('T15: sin duplicación: el runner no crea hojas ni filas y respeta idempotencia', function () {
+    var dec = Mig_ejecutarDeclaradas.toString();
+    ['appendRow', 'insertRow', 'insertRows', 'insertSheet', 'deleteRow', 'Modelo_crearEstructura'].forEach(function (pal) {
+      A.cierto(dec.indexOf(pal) === -1, 'Mig_ejecutarDeclaradas sin ' + pal);
+    });
+    var run = Mig_run001.toString();
+    ['insertSheet', 'appendRow', 'insertRow', 'deleteRow', 'append'].forEach(function (pal) {
+      A.cierto(run.indexOf(pal) === -1, 'Mig_run001 sin ' + pal);
+    });
+    // Doble aplicación de las pendientes desde 0 → 1 está vacía
+    A.arreglos(Mig_pendientesPura('1', REGISTRO_MIGRACIONES), [], 'tras llegar a 1 no queda nada que migrar');
+    globalThis.Mig_stubA = function () { return { ok: true }; };
+    try {
+      var reg = [{ id: 'MIG-STUB', desde: '0', hasta: String(SISTEMA_VERSION_SCHEMA_ACTUAL), fn: 'Mig_stubA' }];
+      var apply = Mig_ejecutarDeclaradas(reg, { schemaVersion: '0', persistir: false });
+      A.igual(apply.ok, true, 'ejecución declarada (stub) ok');
+      A.arreglos(apply.aplicadas, ['MIG-STUB'], 'aplica en cadena sin duplicar');
+      var apply2 = Mig_ejecutarDeclaradas(reg, { schemaVersion: String(SISTEMA_VERSION_SCHEMA_ACTUAL), persistir: false });
+      A.arreglos(apply2.aplicadas, [], 'segunda ejecución sin duplicar nada');
+    } finally {
+      delete globalThis.Mig_stubA;
+    }
   });
 }

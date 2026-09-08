@@ -87,6 +87,14 @@ sin pérdida de datos y corregida por el refresco desde la fuente; queda como
 **mejora opcional** para S10-FIX.4 (reparar solo encabezados y regenerar desde
 PACIENTES/EVENTOS, sin remapear filas por nombre).
 
+**Interceptor (INST-1, DEC-059):** desde la fase INST-1 la misma alineación 15→16
+de `SECTOR_*` se declaró como **migración por registro** `MIG-001` (0→1, registrada
+en `REGISTRO_MIGRACIONES`) que el instalador aplica idempotentemente en su etapa
+`migraciones` (`Mig_ejecutarPersistente`), con defensa activa: vistas divergentes
+reclasifican ANTIGUA aunque `SCHEMA_VERSION` diga estar al día. El cierre de
+BUG-E2E-003 queda, además, **protegido por el camino del instalador**, no solo por
+`Actualizar`. BUG-E2E-004 sigue **ABIERTO (no bloqueante)** como mejora opcional.
+
 ## Registro de bugs
 
 | ID | Capa | Severidad | Síntoma | Causa | Corrección | Test | E2E | Estado |

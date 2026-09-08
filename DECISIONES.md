@@ -856,3 +856,47 @@ Tests: guarda S11R-2 actualizada a la nueva realidad (antes) + U1–U6/U9 (6 cas
 regresión completa 769 (núcleo 521).
 
 **Fecha:** 2026-09-08
+
+## DEC-059
+**Título:** INST-1 — Versionado canónico del esquema y motor de migraciones declarativas en el instalador
+**Estado:** Aprobada / vigente
+**Motivo:** El instalador ejecutaba su pipeline sin concepto de versión estructural:
+una instalación legacy se "reparaba" con `Modelo_crearEstructura` + `HVis` sin conocer
+su esquema, y la única protección del layout 15→16 de `SECTOR_*` (BUG-E2E-003) vivía
+empotrada en `UI_actualizarTodo`/`Modelo_crearEstructura`. Se endurece el instalador
+con versión canónica y migraciones declarativas:
+
+1. **Fuente única de versiones** (`00_Config`): `SISTEMA_VERSION_SCHEMA_ACTUAL = 1`
+   y `SISTEMA_VERSION_INSTALADOR = 'INST-1'`. **Regla de semejanza**: `SCHEMA_VERSION`
+   ausente/vacía/ilegible ⇒ esquema legacy `'0'` (nunca se presume VIGENTE).
+2. **Un único autor del esquema**: **NO** se siembra `SCHEMA_VERSION` en
+   `_CONFIG_SEMILLA`; solo `Mig_ejecutarDeclaradas(...persistir:true)` escribe
+   `SCHEMA_VERSION`/`LAST_MIGRATION` en CONFIG (vía `_inst_configEscribir`). Sembrar
+   el valor canónico enmascararía instalaciones legacy y **saltaría** las migraciones.
+3. **Migraciones declarativas**: `REGISTRO_MIGRACIONES` con `{id,desde,hasta,fn,
+   descripcion}`; cadena determinista (`desde` asc, luego `id`) con objetivo canónico
+   (parametrizable en tests); ejecutor puro `Mig_ejecutarDeclaradas` que **detiene la
+   cadena ante el primer fallo sin avanzar la versión**; `Mig_run001` alinea
+   `SECTOR_*` 15→16 por nombre (idempotente; `ENCABEZADOS_INCOMPATIBLES` ⇒ falla, no
+   adivina) — es el camino por-registro de la protección BUG-E2E-003.
+4. **Clasificación de instalación** (`Mig_clasificarInstalacion`, pura):
+   NUEVA/VIGENTE/ANTIGUA/DIVERGENTE/INCOMPLETA/DESCONOCIDA. Las vistas `SECTOR_*`
+   divergentes reclasifican ANTIGUA aunque `SCHEMA_VERSION` diga estar al día.
+5. **Diagnóstico dry-run**: `Instalar_diagnosticar` reemplaza `Modelo_crearEstructura()`
+   (golpeado dentro de un reporte) por `Modelo_escanearEstructura` (solo lecturas) y
+   reporta el bloque VERSIONADO. Nada de diagnóstico muta.
+6. **Etapas nuevas** del instalador: `versionado` (solo lectura) y `migraciones`
+   (mutante) después del `diagnostico`; `api_instalarPaso` protege con LockService
+   (`tryLock(30000)`, `releaseLock` en `finally`) **solo** las etapas de
+   `INSTALAR_ETAPAS_MUTAN`; tolerante en node (sin `LockService`).
+7. **Webhook** `instalar` → `Instalar_ejecutarPolitica()` (DIVERGENTE/DESCONOCIDA =
+   error sin mutar; INCOMPLETA = reparar estructura; luego migraciones persistidas).
+8. **Sin lógica paralela**: `Actualizar sistema` (DEC-058) no referencias `Mig_*`,
+   `REGISTRO_MIGRACIONES`, `SCHEMA_VERSION` ni el motor; el refresco de vistas sigue
+   en su lugar (T12). Migraciones tocan solo estructura (sin append/insert de filas,
+   sin tocar PACIENTES/EVENTOS).
+Tests: `_pruebas_inst1_versionado` (T1–T15) añaden +15 casos (núcleo 534 → **549**);
+baterías completas verdes (núcleo 549/549, aceptación 50/50, backend V2 65/65, UI V2
+19/19, cola 33/33, contrato captura V2 36/36, contrato datos 20/20, formulario web 25/25).
+
+**Fecha:** 2026-09-08

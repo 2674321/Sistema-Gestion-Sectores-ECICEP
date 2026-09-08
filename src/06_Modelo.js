@@ -739,6 +739,70 @@ function Modelo_crearEstructura() {
   return res;
 }
 
+/**
+ * GAS: escaneo SOLO LECTURA del estado estructural real del libro (INST-1,
+ * DEC-059). NO crea hojas, NO repara, NO escribe, NO formatea — a diferencia
+ * de Modelo_crearEstructura. Es la fuente del diagnóstico dry-run del
+ * instalador y de la etapa 'versionado'.
+ *
+ * Config: NO inocula SCHEMA_VERSION (clave ausente ≡ esquema '0' heredado
+ * sin versionar); la escribe solo el motor de migraciones.
+ *
+ * @returns { hojas: { nombre: { fecha?, layout, ultimaFila, maxFilas, maxCols,
+ *           encabezados:[...] } | null },
+ *           criticasPresentes:[], criticasFaltantes:[],
+ *           config: { VERSION?, SCHEMA_VERSION?, LAST_MIGRATION? } }
+ */
+function Modelo_escanearEstructura(ss) {
+  if (!ss) ss = Modelo_ss();
+  var criticas = ['PACIENTES', 'EVENTOS', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
+    'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
+  var snapshot = { hojas: {}, criticasPresentes: [], criticasFaltantes: [], config: {} };
+
+  Object.keys(_MODELO_HOJAS_DEF).forEach(function (nombre) {
+    var hoja = ss.getSheetByName(nombre);
+    if (!hoja) { snapshot.hojas[nombre] = null; return; }
+    var esperados = _MODELO_HOJAS_DEF[nombre] ? _MODELO_HOJAS_DEF[nombre].slice() : [];
+    if (nombre === HOJAS.PACIENTES) {
+      esperados = MODELO_PACIENTE.map(function (c) { return c.campo; });
+    }
+    var layout = Modelo_layoutHoja(nombre);
+    var hr = Modelo_headerRow(nombre);
+    var maxFilas = hoja.getMaxRows(), maxCols = hoja.getMaxColumns();
+    var info = {
+      layout: layout === CONTRATO_LAYOUT_VISUAL ? 'visual' : 'simple',
+      ultimaFila: hoja.getLastRow(),
+      maxFilas: maxFilas,
+      maxCols: maxCols,
+      encabezados: null
+    };
+    if (maxFilas >= hr && maxCols >= 1 && esperados.length) {
+      var ancho = Math.min(esperados.length, maxCols);
+      var fila = hoja.getRange(hr, 1, 1, ancho).getValues()[0] || [];
+      info.encabezados = fila.map(function (c) { return Utl_texto(c); });
+    }
+    snapshot.hojas[nombre] = info;
+    if (criticas.indexOf(nombre) !== -1) snapshot.criticasPresentes.push(nombre);
+  });
+
+  criticas.forEach(function (n) {
+    if (!ss.getSheetByName(n)) snapshot.criticasFaltantes.push(n);
+  });
+
+  var cfg = ss.getSheetByName(HOJAS.CONFIG);
+  if (cfg) {
+    var nCfg = Math.min(cfg.getLastRow(), cfg.getMaxRows());
+    if (nCfg >= 2) {
+      cfg.getRange(1, 1, nCfg, 3).getValues().forEach(function (f) {
+        var k = Utl_texto(f[0]);
+        if (k) snapshot.config[k] = Utl_texto(f[1]);
+      });
+    }
+  }
+
+  return snapshot;
+}
+
 /** Formato base de PACIENTES: encabezado fijo, anchos, fechas, técnicas ocultas. */
 function _modelo_formatearPacientes(hoja) {
   if (!hoja) return;

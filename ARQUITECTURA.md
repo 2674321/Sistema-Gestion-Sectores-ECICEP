@@ -169,6 +169,35 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
 - El recálculo de vistas `SECTOR_*` vive también en el pipeline de captura y en puntos
   de `07_UI.js`; dentro del instalador ocurre solo en la etapa `amarillo`.
 
+### S6 — Versionado del esquema y motor de migraciones (INST-1, DEC-059)
+
+- **Fuente única de versiones**: `SISTEMA_VERSION_SCHEMA_ACTUAL` (=**1**) y
+  `SISTEMA_VERSION_INSTALADOR` (=**'INST-1'**) en `src/00_Config.js`. Clave
+  `SCHEMA_VERSION` ausente/vacía ≡ esquema legacy **`'0'`** (nunca se asume
+  VIGENTE); **solo el motor de migraciones** escribe `SCHEMA_VERSION`/`LAST_MIGRATION`
+  en CONFIG (no se siembra en `_CONFIG_SEMILLA`).
+- **Declarativo e idempotente**: `REGISTRO_MIGRACIONES` (MIG-001 `0→1`, alinear
+  `SECTOR_*` 15→16 con `COLUMNAS_SECTOR_VISTA`; defiende la regresión de
+  BUG-E2E-003 por el camino del instalador). `Mig_pendientesPura` (cadena
+  determinista, objetiva canónico), `Mig_clasificarInstalacion` (NUEVA/VIGENTE/
+  ANTIGUA/DIVERGENTE/INCOMPLETA/DESCONOCIDA), `Mig_ejecutarDeclaradas`
+  (`persistir:true` → única autora de la versión; fallo → detiene sin avanzar
+  versión), `Mig_ejecutarPersistente` (GAS). Detalle: `docs/MIGRACIONES.md`.
+- **Etapas nuevas** en `INSTALAR_ETAPAS`: **`versionado`** (solo lectura,
+  diagnosticar) y **`migraciones`** (mutante, aplica pendientes) entre
+  `diagnostico` y `estructura`. `api_instalarPaso` toma **LockService**
+  (`tryLock(30000)`, `releaseLock` en `finally`) para las etapas de
+  `INSTALAR_ETAPAS_MUTAN`; `{ok:false, motivo:'CONCURRENCIA'}` si está ocupado.
+- **Diagnóstico no-mutante**: `Instalar_diagnosticar` usa `Modelo_escanearEstructura`
+  (solo lecturas) en lugar de `Modelo_crearEstructura()`, e imprime el bloque
+  VERSIONADO (instalador, esquema leído→esperado, estado, pendientes, sectores).
+  `Instalar_pVerificar` reporta `schemaVersion`/`esquemaOK`/`estado`.
+- **Webhook**: `action:'instalar'` → `Instalar_ejecutarPolitica()` (DIVERGENTE/
+  DESCONOCIDA → error sin mutar; INCOMPLETA → repara estructura; luego
+  `Mig_ejecutarPersistente()`).
+- **Tests**: `_pruebas_inst1_versionado` T1–T15 (+15; núcleo **549**/549,
+  batería completa verde).
+
 ## Interfaz dentro de Google Sheets (DEC-012)
 
 Sheets es la interfaz principal: menús personalizados, botones, listas

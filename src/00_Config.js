@@ -24,6 +24,20 @@ var ECICEP = {
 };
 
 // ---------------------------------------------------------------------------
+// VERSIONADO INST-1 (DEC-059): FUENTE ÚNICA de versiones del sistema.
+//   ECICEP.VERSION           → versión de aplicación (UI/lógica/comportamiento)
+//   SISTEMA_VERSION_SCHEMA_ACTUAL → versión del ESQUEMA estructural (hojas,
+//     columnas, encabezados, metadatos). Evoluciona SOLO con el registro de
+//     migraciones (REGISTRO_MIGRACIONES en 20_Instalador).
+//   SISTEMA_VERSION_INSTALADOR   → versión del motor instalar/reparar.
+// La versión instalada se PERSISTE en la hoja CONFIG (claves SCHEMA_VERSION y
+// LAST_MIGRATION), gestionadas EXCLUSIVAMENTE por el motor de migraciones.
+// No debe existir otra constante contradictoria para ninguno de estos valores.
+// ---------------------------------------------------------------------------
+var SISTEMA_VERSION_SCHEMA_ACTUAL = 1; // 0 = esquema heredado sin versionar (legacy)
+var SISTEMA_VERSION_INSTALADOR = 'INST-1';
+
+// ---------------------------------------------------------------------------
 // ENTORNOS (v0.9.1 — DEC-049) — HISTÓRICO / REFERENCIA.
 // El sistema actual opera como ÚNICO entorno (AGENTS.md, DEC-052, ENTORNO.md).
 // ECICEP.SPREADSHEET_ID es la única fuente de verdad operativa.

@@ -114,6 +114,18 @@ function UI_instalarDiagnosticar() {
   lineas.push('ESTRUCTURA: ' + d.estructura.existentes.length + ' hojas OK, ' + d.estructura.faltantes.length + ' faltantes');
   if (d.estructura.faltantes.length) lineas.push('  Faltan: ' + d.estructura.faltantes.join(', '));
   lineas.push('');
+  lineas.push('VERSIONADO (INST-1):');
+  if (d.versionado) {
+    var ver = d.versionado;
+    lineas.push('  Aplicación v' + ECICEP.VERSION + ' · Instalador ' + SISTEMA_VERSION_INSTALADOR);
+    lineas.push('  Esquema: leído ' + ver.version + ' · esperado ' + ver.objetivo);
+    lineas.push('  Estado: ' + ver.estado +
+      (ver.pendientes.length ? ' · migraciones pendientes: ' + ver.pendientes.join(', ') : '') +
+      (ver.sectoresDivergentes.length ? ' · SECTOR_* divergentes: ' + ver.sectoresDivergentes.join(', ') : ''));
+  } else {
+    lineas.push('  no disponible');
+  }
+  lineas.push('');
   lineas.push('SECCIONES VISUALES:');
   var seccPend = 0;
   Object.keys(d.secciones).forEach(function (h) {

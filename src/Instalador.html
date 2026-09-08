@@ -73,8 +73,9 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 <script>
 var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false;
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
-/* Peso relativo por etapa: las importaciones de fuentes dominan el tiempo */
-var PESO_ETAPA={estructura:1,fuentes:8,amarillo:6,validaciones:2,limpieza:1,diseno:2,inicio:3,menu:1,verificar:1};
+/* Peso relativo por etapa: las importaciones de fuentes dominan el tiempo.
+   versionado (lectura) y migraciones (escritura) son las etapas INST-1. */
+var PESO_ETAPA={versionado:1,migraciones:2,estructura:1,fuentes:8,amarillo:6,validaciones:2,limpieza:1,diseno:2,inicio:3,menu:1,verificar:1};
 function pesoTotal(){return ETAPAS.reduce(function(s,e){return s+(PESO_ETAPA[e.id]||1);},0);}
 
 function cancelarInstalacion(){
@@ -181,8 +182,11 @@ function mostrarFinal(ok){
   document.getElementById('finVer').textContent='ECICEP '+VER+' \u00b7 Build '+BUILD;
   var datos=RESULTADOS.filter(function(x){return x.etapa==='verificar';})[0];
   var enr=RESULTADOS.filter(function(x){return x.etapa==='enriquecimiento';})[0];
+  var mig=RESULTADOS.filter(function(x){return x.etapa==='migraciones';})[0];
   var txt='';
   if(datos)txt+='Pacientes: '+datos.pacientes+' · Eventos: '+datos.eventos;
+  if(datos&&datos.schemaVersion)
+    txt+=(txt?' · ':'')+'Esquema: v'+datos.schemaVersion+(datos.esquemaOK?' ✓':' ('+datos.estado+')');
   if(enr){
     if(txt)txt+=' · ';
     txt+='Revisados: '+(enr.revisados||0)+'/'+(enr.totalPacientes||0)
@@ -192,6 +196,12 @@ function mostrarFinal(ok){
     if(enr.conflictos)txt+=' · Revisión: '+(enr.conflictos||0);
     if(enr.noEncontrados)txt+=' · Sin fuente: '+(enr.noEncontrados||0);
     txt+=' · Errores: '+(enr.errores||0);
+  }
+  if(mig){
+    var migTxt=(mig.aplicadas&&mig.aplicadas.length)
+      ? mig.aplicadas.join(', ')+' (esquema '+mig.versionInicial+'→'+mig.versionFinal+')'
+      : 'sin pendientes';
+    txt+=(txt?' · ':'')+'Migraciones: '+migTxt;
   }
   document.getElementById('finDatos').textContent=txt;
   var av=document.getElementById('finAvisos');

@@ -52,7 +52,7 @@ function _wh_despachar(e) {
           eventos: Modelo_hoja(HOJAS.EVENTOS) ? Math.max(Modelo_hoja(HOJAS.EVENTOS).getLastRow() - 1, 0) : 0
         };
         break;
-      case 'instalar':    resultado = Modelo_crearEstructura(); break;
+      case 'instalar':    resultado = Instalar_ejecutarPolitica(); break;
       case 'sembrar':     resultado = Sembrar_ficticios(); break;
       case 'procesar':    resultado = Ingresos_procesarTodasLasHojas({}); break;
       case 'refrescar':   resultado = Modelo_refrescarVistasSectores(); break;
