@@ -153,22 +153,21 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
 - **Idempotencia y trazabilidad**: segunda ejecución no cambia nada; `FUENTE`
   acumula `ENRIQUECIMIENTO|<hoja>|<fila>` (append sin duplicar), se estampa
   `FECHA_ACTUALIZACION` y se registra `Log_info`.
-- **"🔄 Actualizar sistema"** (`UI_actualizarSistema`) ejecuta **diagnóstico previo**
-  (`Instalar_diagnosticar`) + confirmación y luego abre el **mismo panel que
-  "Instalar / reparar"** (`UI_instalarSistema` → `Instalador.html`), cuya secuencia
-  `INSTALAR_ETAPAS` corre por completo (incluida la etapa `enriquecimiento`, penúltima,
-  antes de `verificar`). En tiempo de ejecución ambas entradas de menú aplican el mismo
-  pipeline estructural; la única diferencia es la puerta de confirmación/diagnóstico.
-  Por eso un clic en "Actualizar" **sí** puede enriquecer PACIENTES vía
-  `Instalar_pEnriquecimiento`. No toca `FORM_RESPUESTAS`, contrato V2, captureId ni
-  deployments.
-- **Vistas y campos automáticos** (estratificación, controles, refresco de `SECTOR_*`
-  y formato) NO se ejecutan desde el menú "Actualizar": ese recálculo vive en
+- **Separación funcional (S12, DEC-058)** — **"🔄 Actualizar sistema"**
+  (`UI_actualizarSistema`) actualiza **solo datos derivados y vistas** y delega en
   `UI_actualizarTodo` (`Estrat_recalcularTodos` + `Control_recalcularTodos` +
-  `Modelo_refrescarVistasSectores`), retirado del menú (el código se conserva) y se
-  dispara desde el pipeline de captura y de `07_UI.js`. Dentro del instalador, el
-  refresco de vistas `SECTOR_*` ocurre solo en la etapa `amarillo`
-  (`Instalar_pAmarillo`) cuando esa etapa se ejecuta.
+  `Modelo_refrescarVistasSectores` + `HVis_formatearIngresos` +
+  `Hojas_formatoCondicional`). No importa fuentes, no enriquece, no repara
+  estructura, no crea pacientes/eventos y no toca `FORM_RESPUESTAS`, contrato V2,
+  captureId ni deployments (idempotente sobre la fuente). El mensaje de confirmación
+  describe esas responsabilidades.
+- **"⚙️ Instalar / reparar sistema"** (`UI_instalarSistema`) mantiene el **pipeline
+  estructural completo**: `Instalador.html` → `INSTALAR_ETAPAS` (runtime, diagnóstico,
+  estructura, fuentes, amarillo, visual, validaciones, limpieza, diseño, inicio, menú,
+  enriquecimiento, verificación). Es la única entrada para importar fuentes y para
+  ejecutar la etapa `enriquecimiento` (`Instalar_pEnriquecimiento`).
+- El recálculo de vistas `SECTOR_*` vive también en el pipeline de captura y en puntos
+  de `07_UI.js`; dentro del instalador ocurre solo en la etapa `amarillo`.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 

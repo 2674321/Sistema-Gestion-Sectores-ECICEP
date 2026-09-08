@@ -828,3 +828,31 @@ No es lógica paralela: idéntico pipeline con entrada acotada a la captura en c
 Tests: núcleo 469 → 487 (+18 casos A–H/EDAD) verdes con batería completa (732).
 
 **Fecha:** 2026-09-07
+
+## DEC-058
+**Título:** S12 — Separación funcional "Actualizar sistema" (derivados/vistas) vs "Instalar / reparar" (mantenimiento estructural)
+**Estado:** Aprobada / vigente
+**Motivo:** S11-R audió el call graph real y encontró que ambos menús de "Sistema"
+abrían el mismo instalador completo; el recálculo de vistas/campos automáticos vivía
+en `UI_actualizarTodo`, sin exponerse. DEC-057 (ítem 6) ya reservaba el enriquecimiento
+exclusivamente al instalador, pero la entrada "Actualizar" redundaba en la misma ruta.
+Se separa para que cada menú tenga responsabilidad única y verificable.
+
+1. **Actualizar sistema** (`UI_actualizarSistema`) = **datos derivados y vistas**; delega
+   en `UI_actualizarTodo()` (sin copiar la lógica): `Estrat_recalcularTodos`,
+   `Control_recalcularTodos`, `Modelo_refrescarVistasSectores`,
+   `HVis_formatearIngresos`, `Hojas_formatoCondicional`. Mensaje de confirmación
+   actualizado para describir esas responsabilidades (sin "instalar/importar/reparar").
+2. **Instalar / reparar sistema** (`UI_instalarSistema`) mantiene el pipeline completo
+   `INSTALAR_ETAPAS`, incluyendo importación de fuentes y la etapa `enriquecimiento`
+   (`Instalar_pEnriquecimiento`, DEC-057 intacta). Es la única entrada para estructura.
+3. **Sin efecto sobre captura**: `UI_actualizarSistema` no referencia `captureId`,
+   `FORM_RESPUESTAS`, contrato V2 ni funge de importación/enriquecimiento (guardas U1–U6, U9).
+4. **EDAD** sigue siendo derivada (fórmula DATEDIF viva en `SECTOR_*`/en memoria; no se
+   crea columna); **SEXO** sigue siendo dato fuente (se completa solo en vacíos desde el instalador).
+5. **Idempotencia**: el recálculo reescribe filas en sitio (`setValues`, sin `appendRow`);
+   no crea pacientes ni eventos; doble "Actualizar" → mismo resultado.
+Tests: guarda S11R-2 actualizada a la nueva realidad (antes) + U1–U6/U9 (6 casos);
+regresión completa 769 (núcleo 521).
+
+**Fecha:** 2026-09-08

@@ -138,39 +138,35 @@ function UI_instalarDiagnosticar() {
     lineas.push('✓ Sistema al día — no se requieren cambios');
   }
   lineas.push('');
-  lineas.push('Para aplicar cambios: Herramientas → Actualizar sistema');
+  lineas.push('Para aplicar cambios estructurales: Sistema → Instalar / reparar sistema');
   SpreadsheetApp.getUi().alert('🔍 Diagnóstico', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-/** 🔄 Actualizar sistema: diagnóstico + confirmación y ejecución de la secuencia
- *  completa de instalación (INSTALAR_ETAPAS) en el mismo panel que
- *  "Actualizar / reparar". La cadena visible es:
- *     Sistema → Actualizar → Instalar_diagnosticar() → [confirmar] →
- *     UI_instalarSistema() → Instalador.html → api_instalarPaso por etapa
- *  La etapa de enriquecimiento demográfico de PACIENTES (S5, DEC-057) se ejecuta
- *  dentro de esa secuencia (Instalar_pEnriquecimiento, penúltima antes de verificar),
- *  igual que desde "Instalar / reparar". El recálculo de vistas/campos automáticos
- *  (UI_actualizarTodo) NO forma parte del menú "Actualizar". */
+/** 🔄 Actualizar sistema: actualiza datos derivados y vistas (S12, DEC-058).
+ *  Responsabilidad RESERVADA a derivados: NO importa fuentes, NO repara
+ *  estructura, NO enriquece, NO toca captura ni FORM_RESPUESTAS.
+ *  Implementación: delega en UI_actualizarTodo() (única lógica, sin copiar).
+ *  Estructura/importación/enriquecimiento → "Sistema → Instalar / reparar". */
 function UI_actualizarSistema() {
   var ui = SpreadsheetApp.getUi();
-  var r = Instalar_diagnosticar();
-  var pendientes = r.ok ? (r.diagnostico.resumen.fasesPendientes || []) : [];
-  var msg = 'Versión actual: v' + ECICEP.VERSION + '\n\n';
-  if (pendientes.length === 0) {
-    msg += 'El sistema está al día. No hay cambios pendientes.\n\n¿Desea ejecutar la actualización de todos modos?';
-  } else {
-    msg += 'Cambios detectados (' + pendientes.length + '):\n';
-    pendientes.forEach(function (p) { msg += '  · ' + p + '\n'; });
-    msg += '\nLos datos existentes se conservarán.\n¿Desea aplicar los cambios?';
-  }
+  var msg = 'Actualizar sistema\n\n' +
+    'Actualiza:\n' +
+    '  · vistas (SECTOR_*);\n' +
+    '  · campos automáticos;\n' +
+    '  · cálculos (estratificación y próximos controles);\n' +
+    '  · indicadores/formato derivado.\n\n' +
+    'No importa fuentes, no crea ni modifica registros clínicos.\n' +
+    '¿Desea ejecutar la actualización?';
   var resp = ui.alert('🔄 Actualizar sistema', msg, ui.ButtonSet.YES_NO);
   if (resp !== ui.Button.YES) return;
-  UI_instalarSistema();
+  UI_actualizarTodo();
 }
 
-/** 🔄 Actualizar todo: recalcula estratificación + controles + refresca SECTOR_* + re-aplica formato. */
+/** 🔄 Actualizar todo (lógica real de "Actualizar sistema", S12): recalcula
+ *  estratificación + controles + refresca SECTOR_* + re-aplica formato.
+ *  Solo toca datos derivados; idempotente sobre la fuente. */
 function UI_actualizarTodo() {
-  Utl_toast('info', 'Actualizando todo…', 45);
+  Utl_toast('info', 'Actualizando sistema…', 45);
   var r1 = Estrat_recalcularTodos();
   var r2 = Control_recalcularTodos();
   Utl_medir(Modelo_refrescarVistasSectores);

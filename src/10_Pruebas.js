@@ -81,6 +81,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_enriquecimiento_s5(t, A);
   _pruebas_enriquecimiento_s11(t, A);
   _pruebas_auditoria_s11r(t, A);
+  _pruebas_separacion_s12(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -4527,16 +4528,20 @@ function _pruebas_auditoria_s11r(t, A) {
     A.cierto(vista !== -1, 'EDAD aparece solo como columna derivada en SECTOR_*');
   });
 
-  t('S11R-2: "Actualizar" y "Instalar / reparar" abren EL MISMO instalador; Actualizar NO recalcula vistas/estrat inline', function () {
+  t('S11R-2: (S12) "Actualizar" ya se comporta como vistas/derivados; "Instalar / reparar" conserva el panel completo', function () {
     var act = UI_actualizarSistema.toString();
     var inst = UI_instalarSistema.toString();
     A.cierto(inst.indexOf("createTemplateFromFile('Instalador')") !== -1,
       'Instalar / reparar abre el dialog Instalador (secuencia completa)');
-    A.cierto(act.indexOf('UI_instalarSistema()') !== -1,
-      'Actualizar termina abriendo el MISMO instalador');
-    ['Act_enriquecerPacientes', 'Estrat_recalcularTodos', 'Control_recalcularTodos',
-     'Modelo_refrescarVistasSectores', 'HVis_formatearIngresos'].forEach(function (f) {
-      A.cierto(act.indexOf(f) === -1, 'Actualizar no ejecuta ' + f + ' directamente');
+    A.cierto(inst.indexOf('api_instalarPaso') === -1, 'el Instalador.html (no 07_UI) ejecuta la secuencia');
+    A.cierto(act.indexOf('UI_instalarSistema(') === -1,
+      'Actualizar ya NO abre el instalador');
+    A.cierto(act.indexOf('Instalar_diagnosticar') === -1,
+      'Actualizar ya no diagnostica fases estructurales');
+    A.cierto(act.indexOf('UI_actualizarTodo(') !== -1,
+      'Actualizar delega en UI_actualizarTodo (vistas/derivados)');
+    ['Act_enriquecerPacientes', 'act_enriquecer', 'Fuentes_cargaReal', 'api_instalarPaso'].forEach(function (f) {
+      A.cierto(act.indexOf(f) === -1, 'Actualizar no ejecuta ' + f);
     });
   });
 
@@ -4551,5 +4556,69 @@ function _pruebas_auditoria_s11r(t, A) {
     var p = Instalar_pEnriquecimiento.toString();
     A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
       'la etapa es la puerta de entrada al barrido por ambas rutas de menú');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S12 — Separación funcional Instalar/reparar vs Actualizar (DEC-058)
+// U1–U6, U9. U7/U8 cubiertas por S11R-3 (pipeline completo + enriquecimiento).
+// ---------------------------------------------------------------------------
+
+function _pruebas_separacion_s12(t, A) {
+  t('S12 U1: Actualizar no importa fuentes', function () {
+    var act = UI_actualizarSistema.toString();
+    var todo = UI_actualizarTodo.toString();
+    ['Fuentes_', 'Fuentes_cargaReal', 'Amarillo_', 'Instalar_', 'api_instalarPaso'].forEach(function (f) {
+      A.cierto(act.indexOf(f) === -1, 'Actualizar (delegación) no referencia ' + f);
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
+    });
+  });
+
+  t('S12 U2·U3: Actualizar no crea pacientes ni eventos', function () {
+    var act = UI_actualizarSistema.toString();
+    var todo = UI_actualizarTodo.toString();
+    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura'].forEach(function (f) {
+      A.cierto(act.indexOf(f) === -1, 'Actualizar no ' + f);
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no ' + f);
+    });
+    A.cierto(todo.indexOf('EVENTOS') === -1 && todo.indexOf('Eventos') === -1,
+      'UI_actualizarTodo no crea ni referencia eventos');
+    A.cierto(act.indexOf('EVENTOS') === -1, 'Actualizar no referencia EVENTOS');
+  });
+
+  t('S12 U4: Actualizar recalcula derivados (estratificación + controles)', function () {
+    var todo = UI_actualizarTodo.toString();
+    A.cierto(todo.indexOf('Estrat_recalcularTodos') !== -1, 'recalcula estratificación');
+    A.cierto(todo.indexOf('Control_recalcularTodos') !== -1, 'recalcula próximos controles');
+    var act = UI_actualizarSistema.toString();
+    A.cierto(act.indexOf('UI_actualizarTodo(') !== -1, 'Actualizar delega la lógica (sin duplicar)');
+  });
+
+  t('S12 U5: Actualizar refresca vistas y formato derivado', function () {
+    var todo = UI_actualizarTodo.toString();
+    ['Modelo_refrescarVistasSectores', 'HVis_formatearIngresos', 'Hojas_formatoCondicional'].forEach(function (f) {
+      A.cierto(todo.indexOf(f) !== -1, 'refresca/deriva con ' + f);
+    });
+  });
+
+  t('S12 U6: recálculo de derivados idempotente (mismas filas, sin duplicar)', function () {
+    var e = Estrat_recalcularTodos.toString();
+    var c = Control_recalcularTodos.toString();
+    A.cierto(e.indexOf('setValues') !== -1 && e.indexOf('appendRow') === -1,
+      'Estrat reescribe en sitio (setValues), sin añadir filas');
+    A.cierto(c.indexOf('setValues') !== -1 && c.indexOf('appendRow') === -1,
+      'Control reescribe en sitio (setValues), sin añadir filas');
+    ['Fuentes_', 'Amarillo_', 'Act_enriquecer'].forEach(function (f) {
+      A.cierto(e.indexOf(f) === -1 && c.indexOf(f) === -1, 'derivados no enganchan ' + f);
+    });
+  });
+
+  t('S12 U9: captura V2 intacta (Actualizar no referencia el canal)', function () {
+    var act = UI_actualizarSistema.toString();
+    var todo = UI_actualizarTodo.toString();
+    ['captureId', 'FORM_RESPUESTAS', 'Form_respuestas', 'api_webappCapturar'].forEach(function (f) {
+      A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
+    });
   });
 }
