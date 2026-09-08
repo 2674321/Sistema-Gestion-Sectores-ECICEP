@@ -236,6 +236,11 @@ Cero colores literales fuera de la configuración (verificado por grep).
   App (ésta no carga Lucide → iconos por glifo de texto). En servidor, el toast
   nativo de Sheets `Utl_toast` (`01_Utilidades.js`). No hay notificaciones
   paralelas: `ui.alert` se reserva solo para confirmaciones/diálogos modales.
+- **Fuentes**: carga condicional vía marcador `data-ecicep-fuentes` en
+  `00_Tokens` (inyector de `<link>`). Por defecto Inter+Sora (paneles); la Web
+  App declara `data-ecicep-fuentes="sora"` (solo Sora, que usa para el título;
+  no usa Inter) y `"none"` desactiva las webfonts. Evita descargar familias no
+  usadas en el canal móvil de captura.
 
 ## Hojas
 

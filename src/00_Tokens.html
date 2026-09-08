@@ -1,7 +1,23 @@
 <!-- ECICEP — Sistema de diseño compartido. Incluir SIEMPRE primero:
-     <?!= include('00_Tokens') ?>  -->
+     <?!= include('00_Tokens') ?>
+
+     Carga selectiva de fuentes: por defecto Inter+Sora (paneles). El HTML puede
+     declarar data-ecicep-fuentes="sora" (solo Sora, p.ej. la Web App que no usa
+     Inter) o "none" (sin fuentes). Evita descargar webfonts que la página no usa. -->
+<script>
+(function () {
+  var attr = document.documentElement.getAttribute('data-ecicep-fuentes') || 'all';
+  var href;
+  if (attr === 'sora') href = 'https://fonts.googleapis.com/css2?family=Sora:wght@600;700&display=swap';
+  else if (attr === 'all') href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap';
+  if (href) {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = href;
+    document.head.appendChild(l);
+  }
+})();
+</script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap');
 
 :root{
   --bg:#F7F8FA; --surface:#FFFFFF; --surface-alt:#F1F3F6;
@@ -69,7 +85,8 @@ label.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transfor
   flex-direction:column;gap:8px;max-width:min(92vw,420px)}
 .toast{display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);color:var(--text-primary);
   border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:var(--radius-md);
-  padding:12px 16px;box-shadow:var(--shadow-lg);font:500 13px 'Inter';
+  padding:12px 16px;box-shadow:var(--shadow-lg);font-size:13px;font-weight:500;
+  font-family:'Inter',system-ui,sans-serif;
   animation:tIn .3s var(--ease-in)}
 .toast.ok{border-left-color:var(--success)} .toast.err{border-left-color:var(--danger)}
 .toast.warn{border-left-color:var(--warning)} .toast.warn .t-ic{color:var(--warning)}
