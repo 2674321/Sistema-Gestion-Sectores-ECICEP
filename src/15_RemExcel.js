@@ -72,14 +72,15 @@ function Rem9_bucketG(g) {
   return (t === 'G1' || t === 'G2' || t === 'G3') ? t : '';
 }
 
-/** PURA: edad cumplida a una fecha de referencia. '' si faltan datos. */
+/** PURA: edad cumplida a una fecha de referencia. '' si faltan datos.
+ *  Consolidado sobre Utl_edadDesde (PENDIENTES #34): un único algoritmo de edad.
+ *  CONTRATO REM: devuelve Número (o '' ), no string. */
 function Rem9_edadEn(fechaNacIso, fechaRefIso) {
-  var n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(Utl_texto(fechaNacIso));
-  var r = /^(\d{4})-(\d{2})-(\d{2})$/.exec(Utl_texto(fechaRefIso));
-  if (!n || !r) return '';
-  var edad = +r[1] - +n[1];
-  if (+r[2] < +n[2] || (+r[2] === +n[2] && +r[3] < +n[3])) edad--;
-  return edad >= 0 && edad < 130 ? edad : '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(Utl_texto(fechaRefIso));
+  if (!m) return '';
+  var ref = new Date(+m[1], +m[2] - 1, +m[3]);
+  var e = Utl_edadDesde(fechaNacIso, ref);
+  return (e === '' || e === null || e === undefined) ? '' : Number(e);
 }
 
 /** PURA: sexo canónico → representación REM del archivo original. */

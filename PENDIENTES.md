@@ -32,7 +32,6 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 | 30 | Realizar validación visual manual integral del libro real tras los cambios correspondientes | Humano | ALTA |
 | 32 | Normalizar formato heredado mediante el reconciliador visual, sin limpieza destructiva manual | Dev | BAJA |
 | 33 | Migrar colores duplicados en HTML a tokens CSS de `00_Tokens` | Dev / cosmético | BAJA |
-| 34 | Consolidar `Rem9_edadEn` en `Utl_edadDesde` (duplicado menor confirmado) | Dev | BAJA |
 
 ## 3. Publicación / deployment
 
@@ -101,6 +100,17 @@ convertirse en regla normativa. Ningún campo se asimila en silencio.
 - **URL de la Web App**: `ECICEP.WEB_APP_URL` apunta al deployment operativo
   (`@93`, `/exec`) en lugar de `/dev` (`@HEAD`); el QR (`QRFormulario.html`) y el
   menú "Abrir formulario de captura" usan `<?= WEB_APP_URL ?>` / contenido.
+- **Sello de build (INICIO)**: `tools/push_y_abrir.sh` ahora regenera `src/BUILD.js`
+  (commit `git rev-parse --short HEAD` + fecha) antes de `clasp push`, y `--publish`
+  apunta al deployment operativo. Así "Versión/Build/Actualización del sistema" nunca
+  quedan desactualizados respecto al código enviado.
+- **"Última sincronización de fuentes" legible**: la tarjeta de INICIO envuelve el
+  `VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0)` en `TEXT(…;"dd/mm/yyyy hh:mm")`
+  (antes mostraba el serial crudo tipo `46262,55972`). Efectos sobre el libro real
+  tras reconstruir INICIO (Instalar → etapa diseño).
+- **Duplicado #34 consolidado**: `Rem9_edadEn` delegó su algoritmo en
+  `Utl_edadDesde` (un único cálculo de edad). El contrato REM se preserva
+  (devuelve Número o `''`); tests de paridad añadidos en `_pruebas_utilidades`.
 
 ## 9. Fase de optimización — cierres
 

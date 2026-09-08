@@ -84,6 +84,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_separacion_s12(t, A);
   _pruebas_s10fix_esquema(t, A);
   _pruebas_inst1_versionado(t, A);
+  _pruebas_inicio_formulas(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -1047,6 +1048,17 @@ function _pruebas_utilidades(t, A) {
   t('UTL: vacío seguro', function () {
     A.cierto(Utl_vacio(null) && Utl_vacio('   ') && Utl_vacio(''), 'vacíos detectados');
     A.igual(Utl_texto(null), '', 'texto nulo');
+  });
+  t('UTL: Rem9_edadEn consolidada sobre Utl_edadDesde (PENDIENTES #34)', function () {
+    A.igual(Rem9_edadEn('1980-05-10', '2026-01-01'), 45, 'edad numérica válida');
+    A.cierto(typeof Rem9_edadEn('1980-05-10', '2026-01-01') === 'number', 'contrato REM: Número, no string');
+    A.igual(Rem9_edadEn('1980-05-10', '2026-05-09'), 45, 'antes del cumpleaños');
+    A.igual(Rem9_edadEn('1980-05-10', '2026-05-10'), 46, 'en el cumpleaños');
+    A.igual(Rem9_edadEn('', '2026-01-01'), '', 'sin nacimiento → vacío');
+    A.igual(Rem9_edadEn('1980-05-10', ''), '', 'sin fecha de referencia → vacío');
+    A.igual(Rem9_edadEn('1980-05-10', 'texto-raro'), '', 'referencia no fecha → vacío');
+    A.igual(Utl_edadDesde('2000-02-29', new Date(2026, 0, 1)), '25', 'año bisiesto sigue consistente');
+    A.igual(Rem9_edadEn('2000-02-29', '2026-01-01'), 25, 'bisiesto vía REM coincide con Utl_edadDesde');
   });
 }
 // ---------------------------------------------------------------------------
@@ -5036,5 +5048,24 @@ function _pruebas_inst1_versionado(t, A) {
     } finally {
       delete globalThis.Mig_stubA;
     }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// INST-1.1 — Dashboard/INICIO: fórmulas legibles (fecha, sin serial crudo).
+function _pruebas_inicio_formulas(t, A) {
+  t('INI-1: "Última sincronización de fuentes" arma la fecha con TEXT() (no serial crudo)', function () {
+    var src = Hojas_crearInicio.toString();
+    A.cierto(src.indexOf('CARGA_REAL_HECHA') !== -1, 'la consulta a CONFIG existe');
+    A.cierto(src.indexOf('IFERROR(TEXT(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0)') !== -1,
+      'CARGA_REAL_HECHA se envuelve en TEXT(...)');
+    A.cierto(src.indexOf('IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0)') === -1,
+      'no queda la variante sin formato (regresión del serial 46262,xxxx)');
+    A.cierto(src.indexOf('"dd/mm/yyyy hh:mm"') !== -1, 'formato de fecha legible aplicado');
+  });
+  t('INI-2: la fecha de "Última actualización de datos" continúa formateada como fecha', function () {
+    var src = Hojas_crearInicio.toString();
+    A.cierto(src.indexOf('TEXT(MAX(PACIENTES!') !== -1 && src.indexOf('"dd/mm/yyyy hh:mm"') !== -1,
+      'TEXT con dd/mm/yyyy hh:mm en la última actualización de datos');
   });
 }

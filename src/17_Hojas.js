@@ -340,7 +340,7 @@ function Hojas_crearInicio(ss) {
     ['\u00daltima actualización de datos',
       '=IF(COUNT(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ')=0;"\u2014";TEXT(MAX(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ');"dd/mm/yyyy hh:mm"))'],
     ['\u00daltima sincronización de fuentes',
-      '=IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"\u2014")'],
+      '=IFERROR(TEXT(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"dd/mm/yyyy hh:mm");"\u2014")'],
     ['Controles VENCIDOS',
       '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';"<"&TODAY())'],
     ['Controles por vencer (\u226430 d\u00edas)',
