@@ -230,6 +230,12 @@ Cero colores literales fuera de la configuración (verificado por grep).
   reporta los pendientes por hoja.
 - **Regla de escritura**: nunca `get/setValue` dentro de loops (bloques
   `setValues` con ranuras fila→valor); verificada con auditoría transversal.
+- **Notificaciones (toasts)**: una sola implementación cliente en
+  `00_Tokens.html` (`toast(msg,tipo)` con ok/err/warn/info, pila máx. 4, cierre
+  por clic y `role`/`aria-live`), usada por todos los paneles **y** por la Web
+  App (ésta no carga Lucide → iconos por glifo de texto). En servidor, el toast
+  nativo de Sheets `Utl_toast` (`01_Utilidades.js`). No hay notificaciones
+  paralelas: `ui.alert` se reserva solo para confirmaciones/diálogos modales.
 
 ## Hojas
 

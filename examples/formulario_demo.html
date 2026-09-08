@@ -248,9 +248,26 @@
   .qr-btn:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
   .qr-btn-primary{background:var(--c-primary-mid);color:#fff;border-color:var(--c-primary-mid)}
   .qr-btn-primary:hover{background:var(--c-primary)}
-  .qr-toast{position:fixed;bottom:var(--sp-5);left:50%;transform:translateX(-50%);background:var(--c-primary);
-    color:#fff;padding:8px 20px;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:var(--fw-semibold);
-    box-shadow:var(--sh-lg);z-index:1100;animation:fadeSlideUp .3s ease;pointer-events:none}
+
+  /* ── Toast (réplica del sistema: una sola zona, severidad por tipo) ── */
+  #toastZone{position:fixed;bottom:calc(var(--sp-5) + env(safe-area-inset-bottom,0px));
+    right:calc(var(--sp-5) + env(safe-area-inset-right,0px));z-index:1100;display:flex;
+    flex-direction:column;gap:8px;max-width:min(92vw,420px);pointer-events:none}
+  #toastZone .toast{display:flex;align-items:center;gap:10px;cursor:pointer;pointer-events:auto;
+    background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);
+    border-left:4px solid var(--c-primary);border-radius:var(--r-md);padding:10px 14px;
+    box-shadow:var(--sh-lg);font-size:var(--fs-sm);font-weight:var(--fw-medium);
+    animation:toastIn .25s ease;min-width:180px}
+  #toastZone .toast.ok{border-left-color:var(--c-ok)}
+  #toastZone .toast.err{border-left-color:var(--c-err)}
+  #toastZone .toast.warn{border-left-color:var(--c-warn)}
+  #toastZone .toast .t-ic{flex-shrink:0;font-size:13px;font-weight:var(--fw-bold);line-height:1}
+  #toastZone .toast.ok .t-ic{color:var(--c-ok)}
+  #toastZone .toast.err .t-ic{color:var(--c-err)}
+  #toastZone .toast.warn .t-ic{color:var(--c-warn)}
+  #toastZone .toast.salida{animation:toastOut .2s ease forwards}
+  @keyframes toastIn{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+  @keyframes toastOut{to{transform:translateY(6px);opacity:0}}
 
   /* ── Confirm / Duplicados Modal ── */
   .confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;
@@ -358,7 +375,7 @@
     html{scroll-behavior:smooth}
   }
   @media(prefers-reduced-motion:reduce){
-    .status,.qr-modal,.confirm-modal,.qr-toast{animation:none!important}
+    .status,.qr-modal,.confirm-modal{animation:none!important}
   }
   .hidden{display:none!important}
 </style>
@@ -888,10 +905,21 @@
       else if (rnd() > 0.5) { ctx.fillRect(x * cell, y * cell, cell, cell); }
     } }
   }
-  function toast (msg) {
-    var t = document.createElement('div'); t.className = 'qr-toast'; t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 2200);
+  function toast (msg, tipo) {
+    var z = document.getElementById('toastZone');
+    if (!z) { z = document.createElement('div'); z.id = 'toastZone'; document.body.appendChild(z); }
+    while (z.children.length >= 4) { z.removeChild(z.firstChild); }
+    var t = (tipo === 'ok' || tipo === 'err' || tipo === 'warn') ? tipo : 'info';
+    var el = document.createElement('div');
+    el.className = 'toast ' + t;
+    el.setAttribute('role', t === 'err' ? 'alert' : 'status');
+    el.setAttribute('aria-live', t === 'err' ? 'assertive' : 'polite');
+    var glyph = t === 'ok' ? '\u2713' : t === 'err' ? '\u2715' : t === 'warn' ? '\u26A0' : '';
+    el.innerHTML = '<span class="t-ic"' + (glyph ? '' : ' style="display:none"') + '>' + glyph + '</span><span>' + msg + '</span>';
+    el.title = 'Clic para cerrar';
+    el.addEventListener('click', function () { el.classList.add('salida'); setTimeout(function () { el.remove(); }, 200); });
+    z.appendChild(el);
+    setTimeout(function () { el.classList.add('salida'); setTimeout(function () { el.remove(); }, 220); }, t === 'err' ? 8000 : 4000);
   }
 
   // ---------- init ----------
@@ -943,11 +971,11 @@
   $('qrCopiar').addEventListener('click', function () {
     var v = $('qrUrlBox').textContent;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(v).then(function () { toast('Enlace copiado'); }, function () { toast('Copia manual disponible'); });
-    } else { toast('Copia el enlace de la caja'); }
+      navigator.clipboard.writeText(v).then(function () { toast('Enlace copiado', 'ok'); }, function () { toast('Copia manual disponible', 'info'); });
+    } else { toast('Copia el enlace de la caja', 'info'); }
   });
   $('qrDescargar').addEventListener('click', function () {
-    toast('QR de demo descargado');
+    toast('QR de demo descargado', 'ok');
   });
 
   // Cierre de modal de duplicados

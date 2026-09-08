@@ -235,9 +235,6 @@
     .qr-btn:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
     .qr-btn-primary{background:var(--c-primary-mid);color:#fff;border-color:var(--c-primary-mid)}
     .qr-btn-primary:hover{background:var(--c-primary)}
-    .qr-toast{position:fixed;bottom:var(--sp-5);left:50%;transform:translateX(-50%);background:var(--c-primary);
-      color:#fff;padding:8px 20px;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:var(--fw-semibold);
-      box-shadow:var(--sh-lg);z-index:1100;animation:fadeSlideUp .3s ease;pointer-events:none}
 
     /* ── Confirm Modal ── */
     .confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;
@@ -349,7 +346,7 @@
 
     /* ── Reduced motion ── */
     @media(prefers-reduced-motion:reduce){
-      .status,.qr-modal,.confirm-modal,.qr-toast{animation:none!important}
+      .status,.qr-modal,.confirm-modal{animation:none!important}
     }
 
     /* ── Hidden ── */
@@ -1266,11 +1263,11 @@
   $('qrCopiar').addEventListener('click',function(){
     var url=$('qrUrlBox').textContent;
     if(navigator.clipboard){
-      navigator.clipboard.writeText(url).then(function(){mostrarToast('\u2713 Enlace copiado');});
+      navigator.clipboard.writeText(url).then(function(){toast('Enlace copiado','ok');});
     }else{
       var ta=document.createElement('textarea');ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
       document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
-      mostrarToast('\u2713 Enlace copiado');
+      toast('Enlace copiado','ok');
     }
   });
 
@@ -1282,7 +1279,7 @@
 
   $('qrDescargar').addEventListener('click',function(){
     var url=$('qrUrlBox').textContent;
-    if(!url||url==='Cargando...'){mostrarToast('Espera a que se cargue el QR');return;}
+    if(!url||url==='Cargando...'){toast('Espera a que se cargue el QR','warn');return;}
     try{
       var lienzo=document.createElement('canvas');lienzo.width=512;lienzo.height=512;
       generarQRCanvas(url,lienzo,512);
@@ -1290,18 +1287,12 @@
       a.href=lienzo.toDataURL('image/png');
       a.download='QR_EICEP_Formulario_Captura.png';
       document.body.appendChild(a);a.click();document.body.removeChild(a);
-      mostrarToast('\u2713 QR descargado');
+      toast('QR descargado','ok');
     }catch(e){
       console.error('[QR] descarga fallo:',e);
-      mostrarToast('No fue posible descargar la imagen');
+      toast('No fue posible descargar la imagen','err');
     }
   });
-
-  function mostrarToast(msg){
-    var t=document.createElement('div');t.className='qr-toast';t.textContent=msg;
-    document.body.appendChild(t);
-    setTimeout(function(){t.remove();},2200);
-  }
 
   /* ── QR Encoder (reutiliza libreria estandar del proyecto) ── */
   var ECICEP_WEBAPP_URL='';

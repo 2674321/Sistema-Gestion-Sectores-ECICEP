@@ -143,6 +143,11 @@ explícita (migración controlada: análisis → validación → simulación →
 migración). Los datos personales y sanitarios nunca salen del entorno de la
 cliente hacia repositorios públicos.
 
+## Autoría
+
+Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
+[ORCID](https://orcid.org/0009-0002-1087-9445).
+
 ## Documentación
 
 | Documento | Propósito |
