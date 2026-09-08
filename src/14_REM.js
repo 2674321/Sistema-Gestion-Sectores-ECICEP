@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 14_REM
+ * Sistema ECICEP — 14_REM
  * Generador mensual del REM desde EVENTOS (REM.md §1-4) — SOLO LECTURA.
  *
  * CONTRATO DEL NÚCLEO PURO (lección ETAPA 8E — api_ficha):

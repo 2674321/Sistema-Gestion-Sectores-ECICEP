@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 09_Log
+ * Sistema ECICEP — 09_Log
  * Logging centralizado con búfer en memoria y escritura por lotes (DEC-014).
  * Niveles: DEBUG < INFO < WARNING < ERROR. El búfer se vuelca a la hoja LOG
  * en una sola escritura; jamás lanza excepciones que rompan el flujo principal.

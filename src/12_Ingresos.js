@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 12_Ingresos
+ * Sistema ECICEP — 12_Ingresos
  * Orquestador ETAPA 3b: INGRESO_* → STAGING → VALIDACIÓN → IDENTIFICACIÓN →
  * DECISIÓN → PACIENTES + EVENTOS.
  *

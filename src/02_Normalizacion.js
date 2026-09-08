@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 02_Normalizacion
+ * Sistema ECICEP — 02_Normalizacion
  * Capa PURA: responde "¿cómo representamos consistentemente este dato?".
  * Prohibido aquí decidir semántica de negocio (eso es dominio/consolidación).
  * Sin SpreadsheetApp ni servicios GAS → testeable en node de forma aislada.

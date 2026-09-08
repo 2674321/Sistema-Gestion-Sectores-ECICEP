@@ -200,3 +200,4 @@ Una tarea está terminada cuando, según corresponda:
 | `ENTORNO.md` | Definición del único entorno operativo y mecánica de deployments |
 | `WORKFLOW.md` | Procedimiento de desarrollo, publicación y verificación |
 | `PENDIENTES.md` | Trabajo pendiente real; no contiene tareas históricas ya invalidas |
+| `docs/HISTORIAL.md` | Evolución completa por versión y fase (historial, sin valor normativo) |

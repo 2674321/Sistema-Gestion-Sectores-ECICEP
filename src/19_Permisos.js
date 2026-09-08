@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 19_Permisos
+ * Sistema ECICEP — 19_Permisos
  * Autorización CONSOLIDADA: ejecuta UNA VEZ (desde el editor o desde el menú
  * ⚙️ Sistema → 🔑 Autorizar permisos) y Google pedirá un único consentimiento
  * con TODOS los scopes del sistema. Así ninguna función queda después

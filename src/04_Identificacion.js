@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 04_Identificacion
+ * Sistema ECICEP — 04_Identificacion
  * Identificación de pacientes y detección explicable de duplicados.
  *
  * Separación estricta (ETAPA 3):

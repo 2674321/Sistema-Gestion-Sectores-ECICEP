@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 03_Fuentes
+ * Sistema ECICEP — 03_Fuentes
  * STAGING_IMPORT: estructura de filas de importación controlada,
  * validador estructural y aplicación de la normalización existente.
  *

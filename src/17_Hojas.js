@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 17_Hojas
+ * Sistema ECICEP — 17_Hojas
  * Las hojas de Google Sheets como INTERFAZ profesional (ETAPA hojas).
  *
  * Categorías de hoja (criterio de diseño/protección):

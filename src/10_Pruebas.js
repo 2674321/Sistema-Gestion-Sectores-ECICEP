@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 10_Pruebas
+ * Sistema ECICEP — 10_Pruebas
  * Pruebas deterministas del núcleo (DEC-016). Usan EXCLUSIVAMENTE datos
  * ficticios (11_DatosPrueba) y no dependen de hojas, red ni hora actual.
  * Corren igual en Apps Script (menú ECICEP → 🧪) y en node local

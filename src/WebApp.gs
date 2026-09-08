@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — WebApp de captura (v0.9.3)
+ * Sistema ECICEP — WebApp de captura (v0.9.3)
  * NUEVO CANAL DE ENTRADA (HTML propio) que reemplaza a Google Forms como
  * interfaz de captura. NO es una segunda implementación: reutiliza el 100%
  * del backend existente (validación, decisión, efectos, idempotencia).

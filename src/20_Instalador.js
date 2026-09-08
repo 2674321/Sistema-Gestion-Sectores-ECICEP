@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 20_Instalador
+ * Sistema ECICEP — 20_Instalador
  * Instalación por ETAPAS REALES: cada etapa ejecuta trabajo verdadero y
  * devuelve un resumen serializable. El cliente (Instalador.html) las invoca
  * en secuencia → la barra de progreso representa avance real (#no-inventar).

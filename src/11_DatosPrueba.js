@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 11_DatosPrueba
+ * Sistema ECICEP — 11_DatosPrueba
  * Dataset FICTICIO para pruebas deterministas del núcleo (DEC-016).
  * Nombres, RUTs, teléfonos y fechas inventados. Los formatos replican los
  * patrones reales detectados en el levantamiento (FUENTES-DATOS.md), pero

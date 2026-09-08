@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 07_UI
+ * Sistema ECICEP — 07_UI
  * Interfaz DENTRO de Google Sheets (DEC-012: Sheets es la interfaz principal).
  * ETAPA 2: solo menú base con acciones existentes. La experiencia completa
  * (INICIO/DASHBOARD/FICHA/SEGUIMIENTO, búsquedas y botones) llega en ETAPA 4.

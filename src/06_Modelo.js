@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 06_Modelo
+ * Sistema ECICEP — 06_Modelo
  * Acceso a la base PACIENTES y creación de la estructura del Spreadsheet.
  * Única puerta de entrada a las hojas del sistema para el resto de módulos.
  */

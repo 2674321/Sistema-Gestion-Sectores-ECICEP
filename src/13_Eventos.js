@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 13_Eventos
+ * Sistema ECICEP — 13_Eventos
  * Transformación controlada: fila de staging validada e identificada → EVENTO.
  *
  * Capa PURA (ETAPA 3): la escritura física a la hoja EVENTOS ocurre en la

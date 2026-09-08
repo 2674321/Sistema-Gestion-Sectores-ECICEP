@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 01_Utilidades
+ * Sistema ECICEP — 01_Utilidades
  * Helpers genéricos de rendimiento y transformación. Sin lógica de negocio.
  * Todas las funciones que tocan servicios GAS están protegidas para poder
  * ejecutar este módulo en node (pruebas locales deterministas).

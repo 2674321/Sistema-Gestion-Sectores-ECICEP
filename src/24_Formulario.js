@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 24_Formulario
+ * Sistema ECICEP — 24_Formulario
  * Puerta de entrada controlada vía Google Form (v0.9.0 — DEC-048).
  *
  * El formulario es SOLO captura + validación + normalización; NUNCA una base

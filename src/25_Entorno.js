@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 25_Entorno
+ * Sistema ECICEP — 25_Entorno
  * Estrategia DEV + DEMO (v0.9.1 — DEC-049).
  *
  * MISMO código en ambos entornos; la identidad se deriva del Spreadsheet

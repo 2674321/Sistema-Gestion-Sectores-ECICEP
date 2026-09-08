@@ -1,4 +1,4 @@
-# ARQUITECTURA — Sistema ECICEP Unificado
+# ARQUITECTURA — Sistema ECICEP
 
 > Estado documental: consolidación de la arquitectura vigente. Los hitos ETAPA 2/2.5/3 y las versiones 0.x se conservan como historial; no describen por sí solos el estado operativo actual.
 

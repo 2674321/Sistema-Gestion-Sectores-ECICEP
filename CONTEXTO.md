@@ -1,4 +1,4 @@
-# CONTEXTO — Sistema ECICEP Unificado
+# CONTEXTO — Sistema ECICEP
 
 ## Cliente
 

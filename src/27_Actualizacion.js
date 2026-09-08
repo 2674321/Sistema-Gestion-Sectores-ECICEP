@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 27_Actualizacion
+ * Sistema ECICEP — 27_Actualizacion
  * Enriquecimiento seguro de PACIENTES existentes (FASE S5, DEC-057).
  *
  * PRINCIPIO: no se reinventa el modelo ni se inferen datos. La operación

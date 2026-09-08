@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="es">
+<!--
+  ECICEP — Demo estática del formulario de captura (réplica del canal operativo real).
+  ================================================================================
+  Esta página reproduce, con la máxima fidelidad posible, la interfaz de `src/CapturaWeb.html`
+  (Web App de captura de ECICEP): mismos tokens de diseño, mismas secciones, mismos
+  comportamientos por tipo de registro, mismas validaciones y mismo flujo de envío.
+
+  DIFERENCIAS CON EL CANAL REAL:
+    1. Es 100% estática: no usa Google Apps Script ni necesita conexión.
+    2. Los datos precargados son FICTICIOS (personas, profesionales, RUT).
+    3. El envío se simula en el navegador (no escribe en ningún libro).
+   Para ver la réplica: abre este archivo en un navegador (doble clic) o publícalo en GitHub Pages.
+
+  RUT "ya registrados" en la base demo (gatillan el aviso de coincidencia en NUEVO_INGRESO):
+     13.187.212-7 · 9.866.001-1 · 15.798.443-8
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECICEP · Captura de datos · DEMO</title>
+<style>
+  :root{
+    --c-primary:#0B3C49;--c-primary-mid:#0E5C68;--c-primary-light:#1B7A8A;
+    --c-bg:#EFF1F4;--c-surface:#FFFFFF;--c-surface-alt:#F7F8FA;
+    --c-text:#1A1D23;--c-text-2:#5B6070;--c-text-3:#8C919C;
+    --c-border:#D4D7DC;--c-border-light:#E8EAED;
+    --c-focus:#0E5C68;--c-focus-ring:rgba(14,92,104,.18);
+    --c-ok:#0A7B5F;--c-ok-bg:#E8F8F1;--c-ok-border:#A7E4CC;
+    --c-err:#C42828;--c-err-bg:#FDF0F0;--c-err-border:#F0BABA;
+    --c-warn:#B45309;--c-warn-bg:#FEF6E6;
+    --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;
+    --sh-sm:0 1px 2px rgba(0,0,0,.05);
+    --sh-md:0 2px 8px rgba(0,0,0,.07);
+    --sh-lg:0 4px 20px rgba(0,0,0,.09);
+    --sh-xl:0 8px 32px rgba(0,0,0,.12);
+    --ff:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --fs-xs:11px;--fs-sm:12px;--fs-base:14px;--fs-md:15px;--fs-lg:18px;--fs-xl:22px;
+    --fw-regular:400;--fw-medium:500;--fw-semibold:600;--fw-bold:700;
+    --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
+    --transition:150ms ease;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--ff);font-size:var(--fs-base);color:var(--c-text);
+    background:var(--c-bg);min-height:100vh;display:flex;flex-direction:column;
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+
+  /* ── Demo banner ── */
+  .demo-aviso{background:#14202A;color:#F2E8C9;text-align:center;padding:6px 12px;
+    font-size:12px;font-weight:600;letter-spacing:.02em}
+  .demo-aviso b{color:#FFD88A}
+
+  /* ── Header ── */
+  .hdr{background:linear-gradient(135deg,var(--c-primary) 0%,var(--c-primary-mid) 50%,var(--c-primary-light) 100%);
+    color:#fff;padding:var(--sp-4) var(--sp-6);box-shadow:var(--sh-md);position:relative;z-index:10}
+  .hdr-inner{max-width:540px;margin:0 auto;display:flex;align-items:center;gap:var(--sp-3)}
+  .hdr-logo{width:64px;height:74px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .hdr-logo svg{width:100%;height:100%}
+  .hdr-brand{flex:1;min-width:0}
+  .hdr-brand h1{font-size:var(--fs-lg);font-weight:var(--fw-bold);letter-spacing:-.3px;line-height:1.15;margin:0}
+  .hdr-brand p{font-size:var(--fs-xs);font-weight:var(--fw-regular);opacity:.78;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hdr-actions{display:flex;gap:var(--sp-2);flex-shrink:0}
+  .hdr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-sm);
+    font-size:var(--fs-sm);font-weight:var(--fw-semibold);font-family:var(--ff);cursor:pointer;
+    border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;
+    transition:all var(--transition);min-height:36px}
+  .hdr-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5)}
+  .hdr-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .hdr-btn svg{width:16px;height:16px;flex-shrink:0}
+
+  /* ── Main ── */
+  .main{flex:1;padding:var(--sp-5) var(--sp-4) var(--sp-8);position:relative;overflow:hidden}
+  .card{max-width:540px;margin:0 auto;background:var(--c-surface);border-radius:var(--r-xl);
+    box-shadow:var(--sh-lg);border:1px solid var(--c-border-light);position:relative;z-index:1;overflow:hidden}
+
+  /* ── Card sections ── */
+  .c-hdr{padding:var(--sp-5) var(--sp-6) var(--sp-4);border-bottom:1px solid var(--c-border-light)}
+  .c-hdr h2{font-size:var(--fs-md);font-weight:var(--fw-semibold);color:var(--c-primary);margin:0}
+  .c-hdr p{font-size:var(--fs-sm);color:var(--c-text-2);margin:var(--sp-1) 0 0}
+  .c-body{padding:var(--sp-5) var(--sp-6) var(--sp-6)}
+
+  /* ── Sections ── */
+  .sec{margin-bottom:var(--sp-5);overflow:hidden;transition:max-height .3s ease,opacity .3s ease}
+  .sec:last-child{margin-bottom:0}
+  .sec.collapsed{max-height:0!important;opacity:0;margin-bottom:0;padding:0;border:none;pointer-events:none}
+  .sec-title{font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--c-text-3);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--sp-3);
+    padding-bottom:var(--sp-2);border-bottom:1px solid var(--c-border-light);
+    display:flex;align-items:center;gap:var(--sp-2)}
+  .sec-title svg{width:14px;height:14px;opacity:.5}
+
+  /* ── Action cards ── */
+  .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+  .action-card{position:relative}
+  .action-card input{position:absolute;opacity:0;width:0;height:0}
+  .action-card label{display:flex;flex-direction:column;gap:4px;padding:var(--sp-3) var(--sp-3);
+    border:1.5px solid var(--c-border);border-radius:var(--r-md);cursor:pointer;
+    font-size:var(--fs-sm);font-weight:var(--fw-medium);color:var(--c-text);
+    transition:all var(--transition);background:var(--c-surface);min-height:56px}
+  .action-card label:hover{border-color:var(--c-primary-mid);background:var(--c-surface-alt)}
+  .action-card input:checked + label{border-color:var(--c-primary-mid);background:rgba(14,92,104,.06);
+    color:var(--c-primary);font-weight:var(--fw-semibold);box-shadow:0 0 0 1px rgba(14,92,104,.15)}
+  .action-card input:focus-visible + label{outline:2px solid var(--c-focus);outline-offset:2px}
+  .ac-head{display:flex;align-items:center;gap:var(--sp-2)}
+  .ac-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--c-border);
+    flex-shrink:0;position:relative;transition:all var(--transition)}
+  .action-card input:checked + label .ac-dot{border-color:var(--c-primary-mid);background:var(--c-primary-mid)}
+  .action-card input:checked + label .ac-dot::after{content:'';position:absolute;top:3px;left:3px;
+    width:6px;height:6px;border-radius:50%;background:#fff}
+  .ac-name{flex:1}
+  .ac-desc{font-size:var(--fs-xs);color:var(--c-text-3);font-weight:var(--fw-regular);line-height:1.3;
+    padding-left:22px}
+  .action-card input:checked + label .ac-desc{color:var(--c-primary-mid)}
+
+  /* ── Fields ── */
+  .f{margin-bottom:var(--sp-4)}
+  .f:last-child{margin-bottom:0}
+  .f-row{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--sp-3)}
+  .f-label{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);font-weight:var(--fw-semibold);
+    color:var(--c-text);margin-bottom:var(--sp-1)}
+  .f-label .req{color:var(--c-err);font-weight:var(--fw-bold)}
+  .f-label .opt{font-weight:var(--fw-regular);color:var(--c-text-3);font-size:var(--fs-xs)}
+  .f-hint{font-size:var(--fs-xs);color:var(--c-text-3);margin-top:2px}
+  .f-input{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--c-border);
+    border-radius:var(--r-sm);font-size:var(--fs-base);font-family:var(--ff);
+    color:var(--c-text);background:var(--c-surface);transition:all var(--transition);
+    outline:none;min-height:42px}
+  .f-input::placeholder{color:var(--c-text-3)}
+  .f-input:hover{border-color:#A0A5AE}
+  .f-input:focus{border-color:var(--c-focus);box-shadow:0 0 0 3px var(--c-focus-ring)}
+  .f-input[aria-invalid="true"]{border-color:var(--c-err)}
+  .f-input[aria-invalid="true"]:focus{box-shadow:0 0 0 3px rgba(196,40,40,.12)}
+  select.f-input{cursor:pointer;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+  textarea.f-input{resize:vertical;min-height:72px}
+  .f-err{font-size:var(--fs-xs);color:var(--c-err);margin-top:var(--sp-1);display:none;line-height:1.4}
+  .f-err.show{display:block}
+
+  /* ── Dupla ── */
+  .dupla{border:1.5px solid var(--c-border);border-radius:var(--r-md);padding:var(--sp-3);
+    background:var(--c-surface-alt);transition:all var(--transition)}
+  .dupla:focus-within{border-color:var(--c-focus);box-shadow:0 0 0 3px var(--c-focus-ring)}
+  .dupla[aria-invalid="true"]{border-color:var(--c-err)}
+  .dupla .f{margin-bottom:var(--sp-3)}
+  .dupla .f:last-of-type{margin-bottom:0}
+  .dupla-p2{display:none}
+  .dupla-p2.show{display:block}
+  .dupla-toggle{display:inline-flex;align-items:center;gap:var(--sp-1);margin-top:var(--sp-2);
+    font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--c-primary-mid);
+    cursor:pointer;background:none;border:none;padding:var(--sp-1) 0;font-family:var(--ff);
+    transition:color var(--transition)}
+  .dupla-toggle:hover{color:var(--c-primary);text-decoration:underline}
+  .dupla-toggle:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+
+  /* ── Buttons ── */
+  .btns{display:flex;justify-content:flex-end;gap:var(--sp-3);margin-top:var(--sp-5);
+    padding-top:var(--sp-5);border-top:1px solid var(--c-border-light)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);
+    padding:var(--sp-2) var(--sp-5);border-radius:var(--r-sm);font-size:var(--fs-base);
+    font-weight:var(--fw-semibold);font-family:var(--ff);cursor:pointer;border:none;
+    transition:all var(--transition);min-height:44px}
+  .btn:active:not(:disabled){transform:scale(.98)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-p{background:var(--c-primary-mid);color:#fff;box-shadow:var(--sh-sm)}
+  .btn-p:hover:not(:disabled){background:var(--c-primary);box-shadow:var(--sh-md)}
+  .btn-p:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+  .btn-s{background:var(--c-surface);color:var(--c-text-2);border:1.5px solid var(--c-border)}
+  .btn-s:hover:not(:disabled){background:var(--c-surface-alt);border-color:#A0A5AE}
+  .btn-s:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+  .btn-ok{background:var(--c-ok);color:#fff;box-shadow:var(--sh-sm)}
+  .btn-ok:hover:not(:disabled){background:#096B50;box-shadow:var(--sh-md)}
+  .btn-ok:focus-visible{outline:2px solid var(--c-ok);outline-offset:2px}
+  .btns-nueva{display:none;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-4)}
+  .btns-nueva.show{display:flex}
+  .btn-limpiar{display:none}
+  .btn-limpiar.show{display:inline-flex}
+
+  /* ── Spinner ── */
+  .btn-p .spin{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+    border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite}
+  .btn-p .spin.on{display:inline-block}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ── Status ── */
+  .status{border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);
+    font-weight:var(--fw-medium);margin-top:var(--sp-4);display:none;line-height:1.5;
+    animation:fadeSlideIn .25s ease}
+  .status.show{display:block}
+  .status-row{display:flex;align-items:flex-start;gap:var(--sp-2)}
+  .status-row+.status-row{margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px dashed currentColor}
+  .status-ok{background:var(--c-ok-bg);border:1px solid var(--c-ok-border);color:var(--c-ok)}
+  .status-err{background:var(--c-err-bg);border:1px solid var(--c-err-border);color:var(--c-err)}
+  .status-warn{background:var(--c-warn-bg);border:1px solid var(--c-warn);color:var(--c-warn)}
+  .status-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+  .status-text{flex:1}
+  .status-text strong{display:block;font-size:var(--fs-base);font-weight:var(--fw-semibold);margin-bottom:2px}
+  .status .chips{display:flex;gap:var(--sp-1);flex-wrap:wrap;margin-top:var(--sp-2)}
+  .chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;
+    font-size:var(--fs-xs);font-weight:var(--fw-semibold);background:rgba(255,255,255,.5);
+    border:1px solid rgba(0,0,0,.06)}
+
+  /* ── Footer ── */
+  .ftr{text-align:center;padding:var(--sp-4);font-size:var(--fs-xs);color:var(--c-text-3)}
+
+  /* ── QR Modal ── */
+  .qr-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;
+    align-items:center;justify-content:center;padding:var(--sp-4);backdrop-filter:blur(2px)}
+  .qr-overlay.show{display:flex;animation:fadeIn .2s ease}
+  .qr-modal{background:var(--c-surface);border-radius:var(--r-xl);box-shadow:var(--sh-xl);
+    max-width:360px;width:100%;overflow:hidden}
+  .qr-overlay.show .qr-modal{animation:scaleIn .25s ease}
+  .qr-modal-hdr{padding:var(--sp-5) var(--sp-5) var(--sp-3);display:flex;align-items:flex-start;justify-content:space-between}
+  .qr-modal-hdr h3{font-size:var(--fs-md);font-weight:var(--fw-semibold);color:var(--c-primary);margin:0}
+  .qr-modal-close{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
+    border-radius:var(--r-sm);border:none;background:transparent;color:var(--c-text-3);cursor:pointer;
+    transition:all var(--transition);flex-shrink:0}
+  .qr-modal-close:hover{background:var(--c-surface-alt);color:var(--c-text)}
+  .qr-modal-body{padding:0 var(--sp-5) var(--sp-5);text-align:center}
+  .qr-modal-body>p{font-size:var(--fs-sm);color:var(--c-text-2);margin-bottom:var(--sp-4)}
+  .qr-canvas-wrap{display:flex;justify-content:center;margin-bottom:var(--sp-4)}
+  .qr-canvas-wrap canvas{border:1px solid var(--c-border-light);border-radius:var(--r-md);
+    box-shadow:var(--sh-sm);max-width:100%;height:auto}
+  .qr-url-box{background:var(--c-surface-alt);border:1px solid var(--c-border-light);border-radius:var(--r-sm);
+    padding:8px 12px;font-size:var(--fs-xs);color:var(--c-text-2);word-break:break-all;
+    font-family:'SF Mono',Monaco,Menlo,monospace;margin-bottom:var(--sp-4);max-height:60px;overflow:auto}
+  .qr-actions{display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap}
+  .qr-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;
+    border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:var(--fw-semibold);
+    font-family:var(--ff);cursor:pointer;border:1.5px solid var(--c-border);
+    background:var(--c-surface);color:var(--c-text);transition:all var(--transition);min-height:40px}
+  .qr-btn:hover{background:var(--c-surface-alt);border-color:#A0A5AE}
+  .qr-btn:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+  .qr-btn-primary{background:var(--c-primary-mid);color:#fff;border-color:var(--c-primary-mid)}
+  .qr-btn-primary:hover{background:var(--c-primary)}
+  .qr-toast{position:fixed;bottom:var(--sp-5);left:50%;transform:translateX(-50%);background:var(--c-primary);
+    color:#fff;padding:8px 20px;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:var(--fw-semibold);
+    box-shadow:var(--sh-lg);z-index:1100;animation:fadeSlideUp .3s ease;pointer-events:none}
+
+  /* ── Confirm / Duplicados Modal ── */
+  .confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;
+    align-items:center;justify-content:center;padding:var(--sp-4);backdrop-filter:blur(2px)}
+  .confirm-overlay.show{display:flex;animation:fadeIn .15s ease}
+  .confirm-modal{background:var(--c-surface);border-radius:var(--r-lg);box-shadow:var(--sh-xl);
+    max-width:360px;width:100%;padding:var(--sp-6);text-align:center}
+  .confirm-overlay.show .confirm-modal{animation:scaleIn .2s ease}
+  .confirm-modal p{font-size:var(--fs-base);color:var(--c-text);margin:0 0 var(--sp-5);line-height:1.5}
+  .confirm-btns{display:flex;gap:var(--sp-3);justify-content:center}
+  .confirm-btns .btn{min-width:100px}
+  .dup-list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-4);
+    max-height:240px;overflow:auto;text-align:left}
+  .dup-item{border:1px solid var(--c-border);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);
+    background:var(--c-surface-alt);font-size:var(--fs-sm)}
+  .dup-item b{display:block;margin-bottom:2px}
+  .dup-item span{color:var(--c-text-2);display:inline-block;margin-right:var(--sp-3);white-space:nowrap}
+  .dup-criterio{display:inline-block;margin-top:2px;font-size:var(--fs-xs);color:var(--c-text-3)}
+  .dup-btns{flex-wrap:wrap;gap:var(--sp-2)}
+  .dup-btns .btn{min-width:0;flex:1 1 auto}
+
+  /* ── Animations ── */
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+  @keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fadeSlideUp{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+
+  /* ── Responsive ── */
+  @media(max-width:540px){
+    .hdr{padding:var(--sp-3) var(--sp-4)}
+    .hdr-logo{width:52px;height:60px}
+    .hdr-brand h1{font-size:16px}
+    .hdr-brand p{font-size:10px}
+    .hdr-btn span{display:none}
+    .c-body{padding:var(--sp-4)}
+    .action-grid{grid-template-columns:1fr}
+    .f-row{grid-template-columns:1fr}
+    .btns{flex-direction:column}
+    .btns .btn{width:100%}
+    .qr-modal{margin:var(--sp-4)}
+  }
+  @media(max-width:360px){
+    .hdr-brand h1{font-size:15px}
+    .card{border-radius:var(--r-md)}
+    .c-body{padding:var(--sp-3)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .status,.qr-modal,.confirm-modal,.qr-toast{animation:none!important}
+  }
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+  <div class="demo-aviso">DEMO INTERACTIVA · datos ficticios · la captura real vive en la Web App (contrato V2) · <b>RUT demo ya registrados:</b> 13.187.212-7 · 9.866.001-1 · 15.798.443-8</div>
+
+  <!-- Header -->
+  <header class="hdr" role="banner">
+    <div class="hdr-inner">
+      <div class="hdr-logo" aria-hidden="true">
+        <svg viewBox="0 0 64 74" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ECICEP">
+          <rect width="64" height="74" rx="10" fill="#16323C"/>
+          <circle cx="32" cy="32" r="19" fill="none" stroke="#7FD1DE" stroke-width="3"/>
+          <path d="M32 15v34M32 32l14-10M32 32l14 10M32 32L18 22M32 32l-14 10" stroke="#7FD1DE" stroke-width="3" stroke-linecap="round"/>
+          <path d="M22 56c4-6 16-6 20 0" fill="none" stroke="#E8A33D" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="hdr-brand">
+        <h1>ECICEP</h1>
+        <p>Aplicaci&oacute;n de captura de datos</p>
+      </div>
+      <div class="hdr-actions">
+        <button class="hdr-btn" id="btnCompartir" type="button" aria-label="Compartir formulario" title="Compartir formulario">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Compartir</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main" role="main">
+    <div class="card" role="form" aria-label="Formulario de captura ECICEP">
+      <div class="c-hdr">
+        <h2>Nueva captura</h2>
+        <p>Selecciona el tipo de registro y completa los campos.</p>
+      </div>
+
+      <div class="c-body">
+        <!-- 1. Acción -->
+        <fieldset class="sec" id="secAccion">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Tipo de registro
+          </legend>
+          <div class="action-grid" role="radiogroup" aria-label="Tipo de registro">
+            <div class="action-card">
+              <input type="radio" name="accion" id="acc1" value="NUEVO_INGRESO" checked>
+              <label for="acc1">
+                <span class="ac-head"><span class="ac-dot"></span><span class="ac-name">Nuevo ingreso</span></span>
+                <span class="ac-desc">Registro completo de persona nueva</span>
+              </label>
+            </div>
+            <div class="action-card">
+              <input type="radio" name="accion" id="acc2" value="REGISTRAR_CONTROL">
+              <label for="acc2">
+                <span class="ac-head"><span class="ac-dot"></span><span class="ac-name">Control</span></span>
+                <span class="ac-desc">Consulta de control existente</span>
+              </label>
+            </div>
+            <div class="action-card">
+              <input type="radio" name="accion" id="acc3" value="REGISTRAR_SEGUIMIENTO">
+              <label for="acc3">
+                <span class="ac-head"><span class="ac-dot"></span><span class="ac-name">Seguimiento</span></span>
+                <span class="ac-desc">Seguimiento a persona registrada</span>
+              </label>
+            </div>
+            <div class="action-card">
+              <input type="radio" name="accion" id="acc4" value="ACTUALIZAR_DATOS">
+              <label for="acc4">
+                <span class="ac-head"><span class="ac-dot"></span><span class="ac-name">Actualizar</span></span>
+                <span class="ac-desc">Actualizar datos de contacto</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 2. Profesionales -->
+        <fieldset class="sec hidden" id="secProf">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Equipo de ingreso
+          </legend>
+          <div class="dupla" id="duplaGroup" role="group" aria-label="Dupla de ingreso">
+            <div class="f">
+              <label class="f-label" for="profesional">Profesional <span class="req">*</span></label>
+              <select class="f-input" id="profesional" aria-required="true" aria-describedby="profesional-err">
+                <option value="">Seleccionar profesional</option>
+              </select>
+              <div class="f-err" id="profesional-err" role="alert"></div>
+            </div>
+            <div class="dupla-p2" id="duplaP2">
+              <div class="f">
+                <label class="f-label" for="profesional2">Segundo profesional <span class="opt">opcional</span></label>
+                <select class="f-input" id="profesional2">
+                  <option value="">Seleccionar profesional</option>
+                </select>
+                <div class="f-err" id="profesional2-err" role="alert"></div>
+              </div>
+            </div>
+            <button type="button" class="dupla-toggle" id="duplaToggle" aria-expanded="false" aria-controls="duplaP2">
+              + Agregar segundo profesional
+            </button>
+          </div>
+        </fieldset>
+
+        <!-- 3. Identificación -->
+        <fieldset class="sec">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Identificaci&oacute;n
+          </legend>
+          <div class="f">
+            <label class="f-label" for="rut">RUT <span class="req">*</span></label>
+            <input class="f-input" id="rut" placeholder="12.345.678-9" inputmode="numeric"
+                   autocomplete="off" aria-required="true" aria-describedby="rut-err">
+            <div class="f-err" id="rut-err" role="alert"></div>
+          </div>
+        </fieldset>
+
+        <!-- 4. Datos persona -->
+        <fieldset class="sec hidden" id="secIdent">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Datos de la persona
+          </legend>
+          <div class="f">
+            <label class="f-label" for="nombre">Nombre completo <span class="req">*</span></label>
+            <input class="f-input" id="nombre" autocomplete="off" aria-required="true" aria-describedby="nombre-err">
+            <div class="f-err" id="nombre-err" role="alert"></div>
+          </div>
+          <div class="f-row">
+            <div class="f">
+              <label class="f-label" for="sexo">Sexo</label>
+              <select class="f-input" id="sexo">
+                <option value="">Sin especificar</option>
+                <option value="M">Masculino</option>
+                <option value="F">Femenino</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+            <div class="f">
+              <label class="f-label" for="fnac">Fecha de nacimiento <span class="req">*</span></label>
+              <input class="f-input" type="date" id="fnac" aria-required="true" aria-describedby="fnac-err">
+              <div class="f-err" id="fnac-err" role="alert"></div>
+            </div>
+          </div>
+          <div class="f-row">
+            <div class="f">
+              <label class="f-label" for="sector">Sector <span class="req">*</span></label>
+              <select class="f-input" id="sector" aria-required="true" aria-describedby="sector-err">
+                <option value="">Seleccionar</option>
+                <option value="NARANJO">Naranjo</option>
+                <option value="AMARILLO">Amarillo</option>
+                <option value="VERDE">Verde</option>
+              </select>
+              <div class="f-err" id="sector-err" role="alert"></div>
+            </div>
+            <div class="f">
+              <label class="f-label" for="estrat">Estratificaci&oacute;n</label>
+              <select class="f-input" id="estrat">
+                <option value="">Sin confirmar</option>
+                <option value="G1">G1</option>
+                <option value="G2">G2</option>
+                <option value="G3">G3</option>
+              </select>
+            </div>
+          </div>
+          <div class="f-row">
+            <div class="f">
+              <label class="f-label" for="fingreso">Fecha de ingreso <span class="req">*</span></label>
+              <input class="f-input" type="date" id="fingreso" aria-required="true" aria-describedby="fingreso-err">
+              <div class="f-err" id="fingreso-err" role="alert"></div>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 5. Evento -->
+        <fieldset class="sec hidden" id="secEvento">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Registro / evento
+          </legend>
+          <div class="f">
+            <label class="f-label" for="fecha_evento">Fecha del evento <span class="req">*</span></label>
+            <input class="f-input" type="date" id="fecha_evento" aria-required="true" aria-describedby="fecha_evento-err">
+            <div class="f-err" id="fecha_evento-err" role="alert"></div>
+          </div>
+        </fieldset>
+
+        <!-- 6. Contacto -->
+        <fieldset class="sec hidden" id="secTel">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Contacto
+          </legend>
+          <div class="f">
+            <label class="f-label" for="telefonos">Tel&eacute;fono(s)</label>
+            <input class="f-input" id="telefonos" placeholder="+56912345678" inputmode="tel" autocomplete="tel">
+            <div class="f-hint">Incluye c&oacute;digo de pa&iacute;s si aplica.</div>
+          </div>
+        </fieldset>
+
+        <!-- 7. Observaciones -->
+        <fieldset class="sec hidden" id="secObs">
+          <legend class="sec-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+            Informaci&oacute;n adicional
+          </legend>
+          <div class="f">
+            <label class="f-label" for="obs">Observaciones</label>
+            <textarea class="f-input" id="obs" rows="3" placeholder="Detalles relevantes del registro..."></textarea>
+          </div>
+        </fieldset>
+
+        <!-- Status -->
+        <div class="status" id="resumen" role="status" aria-live="polite"></div>
+
+        <!-- Nueva captura -->
+        <div class="btns-nueva" id="btnsNueva">
+          <button class="btn btn-ok" id="btnNuevaCaptura" type="button">Nueva captura</button>
+        </div>
+
+        <!-- Buttons -->
+        <div class="btns">
+          <button class="btn btn-s btn-limpiar" id="btnLimpiar" type="button">Limpiar</button>
+          <button class="btn btn-p" id="btnEnviar" type="button" aria-busy="false">
+            <span class="spin" id="spinEnviar"></span>Registrar informaci&oacute;n
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="ftr" role="contentinfo">Sistema ECICEP &middot; Captura de datos &middot; DEMO con datos ficticios</footer>
+
+  <!-- QR Modal -->
+  <div class="qr-overlay" id="qrOverlay" role="dialog" aria-modal="true" aria-label="Compartir formulario">
+    <div class="qr-modal">
+      <div class="qr-modal-hdr">
+        <h3>Compartir formulario</h3>
+        <button class="qr-modal-close" id="qrClose" type="button" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="qr-modal-body">
+        <p>Escanea este c&oacute;digo para abrir el formulario</p>
+        <div class="qr-canvas-wrap">
+          <canvas id="qrCanvas" width="220" height="220" aria-label="C&oacute;digo QR (demo, no funcional)"></canvas>
+        </div>
+        <div class="qr-url-box" id="qrUrlBox" role="textbox" aria-readonly="true"></div>
+        <div class="qr-actions">
+          <button class="qr-btn qr-btn-primary" id="qrCopiar" type="button">Copiar enlace</button>
+          <button class="qr-btn" id="qrDescargar" type="button">Descargar QR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duplicados Modal: simula el aviso del canal real -->
+  <div class="confirm-overlay" id="dupOverlay" role="alertdialog" aria-modal="true" aria-describedby="dupMsg">
+    <div class="confirm-modal">
+      <p id="dupMsg"></p>
+      <div class="dup-list" id="dupLista"></div>
+      <div class="confirm-btns dup-btns">
+        <button class="btn btn-p" id="dupEnviar" type="button">Enviar de todas formas</button>
+        <button class="btn btn-s" id="dupNuevo" type="button">Son personas diferentes — nuevo</button>
+        <button class="btn btn-s" id="dupDescartar" type="button">Descartar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- utilidades ----------
+  function $ (id) { return document.getElementById(id); }
+  function _esc (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function hoyISO () {
+    var d = new Date();
+    var m = String(d.getMonth() + 1); var day = String(d.getDate());
+    return d.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (day.length < 2 ? '0' + day : day);
+  }
+
+  // ---------- esquema por acción (mismo contrato que el del canal real) ----------
+  var ESQUEMA = {
+    NUEVO_INGRESO: { secciones: { ident: true, evento: false, tel: true, prof: true, obs: true },
+      camposRequeridos: ['NOMBRE', 'FECHA_NACIMIENTO', 'SECTOR', 'FECHA_INGRESO', 'PROFESIONAL'],
+      mensajeExito: 'Nuevo ingreso registrado correctamente' },
+    REGISTRAR_CONTROL: { secciones: { ident: false, evento: true, tel: false, prof: true, obs: true },
+      camposRequeridos: ['FECHA_EVENTO', 'PROFESIONAL'],
+      mensajeExito: 'Control registrado correctamente' },
+    REGISTRAR_SEGUIMIENTO: { secciones: { ident: false, evento: true, tel: false, prof: true, obs: true },
+      camposRequeridos: ['FECHA_EVENTO', 'PROFESIONAL'],
+      mensajeExito: 'Seguimiento registrado correctamente' },
+    ACTUALIZAR_DATOS: { secciones: { ident: false, evento: false, tel: true, prof: true, obs: true },
+      camposRequeridos: ['PROFESIONAL'],
+      mensajeExito: 'Datos actualizados correctamente' }
+  };
+  var CAMPO_A_DOM = { RUT: 'rut', NOMBRE: 'nombre', SEXO: 'sexo', FECHA_NACIMIENTO: 'fnac',
+    SECTOR: 'sector', FECHA_INGRESO: 'fingreso', ESTRATIFICACION: 'estrat', TELEFONOS: 'telefonos',
+    FECHA_EVENTO: 'fecha_evento', PROFESIONAL: 'profesional', PROFESIONAL2: 'profesional2',
+    OBSERVACIONES: 'obs' };
+  var CAMPO_SECCION = { NOMBRE: 'ident', SEXO: 'ident', FECHA_NACIMIENTO: 'ident', SECTOR: 'ident',
+    FECHA_INGRESO: 'ident', ESTRATIFICACION: 'ident', FECHA_EVENTO: 'evento', TELEFONOS: 'tel',
+    PROFESIONAL: 'prof', PROFESIONAL2: 'prof', OBSERVACIONES: 'obs' };
+  var MENSAJE_CAMPO = {
+    NOMBRE: 'El nombre es obligatorio', FECHA_NACIMIENTO: 'La fecha de nacimiento es obligatoria',
+    SECTOR: 'Seleccione un sector', FECHA_INGRESO: 'La fecha de ingreso es obligatoria',
+    FECHA_EVENTO: 'La fecha del evento es obligatoria', PROFESIONAL: 'Selecciona un profesional' };
+
+  // ---------- datos FICTICIOS demo ----------
+  var CATALOGO = ['Médico/a', 'Enfermera/o', 'TENS', 'Matrona/o', 'Psicólogo/a',
+    'Asistente Social', 'Nutricionista', 'Kinesiólogo/a', 'Terapeuta Ocupacional'];
+  // Módulo 11 (mismo algoritmo del sistema real)
+  function dvModulo11 (cuerpo) {
+    var factores = [2, 3, 4, 5, 6, 7]; var suma = 0; var i = cuerpo.length - 1; var f = 0;
+    while (i >= 0) { suma += parseInt(cuerpo.charAt(i), 10) * factores[f % factores.length]; i--; f++; }
+    var resto = suma % 11; var dv = 11 - resto;
+    if (dv === 11) return '0'; if (dv === 10) return 'K'; return String(dv);
+  }
+  function rutNormalizado (rut) {
+    var t = (rut || '').trim().replace(/\./g, '').toUpperCase();
+    if (!/^\d{7,8}-[\dkK]$/.test(t)) return null;
+    return t;
+  }
+  // Personas demodata (solo RUT + nombre para el aviso de coincidencia)
+  var DEMO_PACIENTES = [
+    { rut: '13.187.212-7', nombre: 'María Elena Rojas Vega', sector: 'Naranjo' },
+    { rut: '9.866.001-1', nombre: 'José Miguel Contreras Silva', sector: 'Amarillo' },
+    { rut: '15.798.443-8', nombre: 'Ana Carolina Morales Tapia', sector: 'Verde' }
+  ];
+  function buscarCoincidencias () {
+    var body = (rutNormalizado($('rut').value) || '').replace(/-\w$/, '');
+    var exact = [];
+    DEMO_PACIENTES.forEach(function (p) {
+      var pb = p.rut.replace(/\./g, '').replace(/-\w$/, '');
+      if (pb === body) exact.push(p);
+    });
+    return exact;
+  }
+
+  // ---------- estado de la UI ----------
+  var duplaVisible = false;
+
+  function getAccion () {
+    var r = document.querySelector('input[name="accion"]:checked');
+    return r ? r.value : 'NUEVO_INGRESO';
+  }
+
+  // ---------- secciones ----------
+  function pintarCampos () {
+    var sec = ESQUEMA[getAccion()].secciones;
+    var map = { secIdent: 'ident', secEvento: 'evento', secTel: 'tel', secProf: 'prof', secObs: 'obs' };
+    Object.keys(map).forEach(function (id) {
+      var el = $(id); var show = sec[map[id]];
+      el.classList.toggle('hidden', !show);
+    });
+    limpiarErrores();
+    if (!sec.prof) { duplaVisible = false; $('duplaP2').classList.remove('show');
+      $('duplaToggle').textContent = '+ Agregar segundo profesional';
+      $('duplaToggle').setAttribute('aria-expanded', 'false'); }
+    if (sec.evento && !$('fecha_evento').value) { $('fecha_evento').value = hoyISO(); }
+    if (getAccion() === 'NUEVO_INGRESO' && !$('fingreso').value) { $('fingreso').value = hoyISO(); }
+  }
+
+  function toggleDupla () {
+    duplaVisible = !duplaVisible;
+    if (duplaVisible) { $('duplaP2').classList.add('show'); }
+    else { $('duplaP2').classList.remove('show'); $('profesional2').value = ''; }
+    $('duplaToggle').textContent = duplaVisible ? '\u2212 Quitar segundo profesional' : '+ Agregar segundo profesional';
+    $('duplaToggle').setAttribute('aria-expanded', String(duplaVisible));
+  }
+
+  // ---------- validación ----------
+  function validarRutBasico (rut) {
+    var t = (rut || '').trim();
+    if (!t) return 'El RUT es obligatorio';
+    var s = t.replace(/\./g, '');
+    if (!/^\d{7,8}-[\dkK]$/.test(s)) return 'Formato inv\u00e1lido (ej: 12.345.678-9)';
+    return '';
+  }
+  function validarFecha (f) {
+    if (!f) return false;
+    var p = f.split('-'); if (p.length !== 3) return false;
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return false;
+    if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+    var t = new Date(y, m - 1, d);
+    return t.getFullYear() === y && t.getMonth() === (m - 1) && t.getDate() === d;
+  }
+  function mostrarError (campoId, msg) {
+    var el = $(campoId); var err = $(campoId + '-err');
+    if (el) { el.setAttribute('aria-invalid', 'true'); }
+    if (err) { err.textContent = msg; err.classList.add('show'); }
+  }
+  function limpiarError (campoId) {
+    var el = $(campoId); var err = $(campoId + '-err');
+    if (el) { el.removeAttribute('aria-invalid'); }
+    if (err) { err.classList.remove('show'); }
+  }
+  function limpiarErrores () {
+    Object.keys(CAMPO_A_DOM).forEach(function (c) { limpiarError(CAMPO_A_DOM[c]); });
+    $('duplaGroup').removeAttribute('aria-invalid');
+  }
+  function validarFormulario () {
+    var esp = ESQUEMA[getAccion()];
+    var hay = false;
+    limpiarErrores();
+    var rutErr = validarRutBasico($('rut').value);
+    if (rutErr) { mostrarError('rut', rutErr); hay = true; }
+    (esp.camposRequeridos || []).forEach(function (campo) {
+      if (campo === 'RUT') return;
+      var id = CAMPO_A_DOM[campo]; if (!id) return;
+      var secN = CAMPO_SECCION[campo] || ''; if (secN && !esp.secciones[secN]) return;
+      var val = ($(id).value || '').trim();
+      if (!val) { mostrarError(id, MENSAJE_CAMPO[campo] || 'Campo obligatorio'); hay = true; return; }
+      if (campo === 'FECHA_NACIMIENTO' || campo === 'FECHA_EVENTO' || campo === 'FECHA_INGRESO') {
+        if (!validarFecha(val)) { mostrarError(id, 'Fecha inv\u00e1lida'); hay = true; }
+      }
+    });
+    if (duplaVisible) {
+      var p1 = $('profesional').value, p2 = $('profesional2').value;
+      if (p1 && p2 && p1 === p2) {
+        mostrarError('profesional2', 'Los dos profesionales deben ser diferentes');
+        mostrarError('profesional', 'Los dos profesionales deben ser diferentes');
+        hay = true;
+      }
+    }
+    return !hay;
+  }
+
+  function mostrarResumen (tipo, titulo, detalle) {
+    var icon = tipo === 'ok' ? '✓' : (tipo === 'err' ? '✕' : '⚠');
+    $('resumen').className = 'status show status-' + tipo;
+    $('resumen').innerHTML =
+      '<div class="status-row"><span class="status-icon">' + icon + '</span>' +
+      '<div class="status-text"><strong>' + _esc(titulo) + '</strong>' +
+      (detalle ? '<span>' + detalle + '</span>' : '') + '</div></div>';
+  }
+  function limpiarResumen () { $('resumen').className = 'status'; $('resumen').innerHTML = ''; }
+
+  // ---------- envío simulado ----------
+  function estadoEnvio (on) {
+    $('btnEnviar').setAttribute('aria-busy', String(on));
+    $('btnEnviar').disabled = on;
+    $('spinEnviar').classList.toggle('on', on);
+  }
+
+  function simularEnvio (resolucionFinal) {
+    estadoEnvio(true);
+    setTimeout(function () {
+      estadoEnvio(false);
+      $('resumen').className = 'status show status-ok';
+      $('btnEnviar').classList.add('hidden');
+      $('btnLimpiar').classList.add('show');
+      $('btnsNueva').classList.add('show');
+      mostrarResumen('ok', ESQUEMA[getAccion()].mensajeExito,
+        '<span class="chips"><span class="chip">' + _esc(getAccion()).replace(/_/g, ' ') + '</span>' +
+        '<span class="chip">id ' + Math.random().toString(16).slice(2, 8) + '</span>' +
+        '<span class="chip">sin datos reales</span></span>');
+      $('resumen').className = 'status show status-ok';
+      if (resolucionFinal) { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    }, 650);
+  }
+
+  function enviarFormulario () {
+    limpiarResumen();
+    if (!validarFormulario()) return;
+    // Aviso de coincidencia (RUT) ANTES de registrar — comportamiento del canal real.
+    if (getAccion() === 'NUEVO_INGRESO') {
+      var co = buscarCoincidencias();
+      if (co.length) {
+        $('dupMsg').textContent = 'Ya existe una persona con el mismo RUT en la base (' +
+          (co.length === 1 ? '1 coincidencia' : co.length + ' coincidencias') + '). Revisa antes de continuar:';
+        $('dupLista').innerHTML = co.map(function (p) {
+          return '<div class="dup-item"><b>' + _esc(p.nombre) + '</b>' +
+            '<span>' + _esc(p.rut) + '</span><span>' + _esc(p.sector) + '</span>' +
+            '<div class="dup-criterio">Tupla: RUT exacto</div></div>';
+        }).join('');
+        $('dupOverlay').classList.add('show');
+        return;
+      }
+    }
+    simularEnvio(true);
+  }
+
+  // ---------- limpiar / nueva ----------
+  function limpiarFormulario () {
+    ['rut', 'nombre', 'sexo', 'fnac', 'fingreso', 'estrat', 'telefonos', 'fecha_evento', 'obs'].forEach(function (id) {
+      $(id).value = '';
+    });
+    $('sector').value = ''; $('profesional').value = ''; $('profesional2').value = '';
+    duplaVisible = false; $('duplaP2').classList.remove('show');
+    $('duplaToggle').textContent = '+ Agregar segundo profesional';
+    limpiarErrores(); limpiarResumen();
+  }
+  function nuevaCaptura () {
+    // Vuelve al estado inicial (acción por defecto) y bloquea el envío de nuevo.
+    var r = $('acc1'); if (r) { r.checked = true; }
+    limpiarFormulario();
+    $('btnEnviar').classList.remove('hidden');
+    $('btnLimpiar').classList.remove('show');
+    $('btnsNueva').classList.remove('show');
+    $('fingreso').value = hoyISO();
+    pintarCampos();
+  }
+
+  // ---------- QR demo ----------
+  function dibujarQrDemo () {
+    var c = $('qrCanvas'), ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 220, 220);
+    var n = 25, cell = 220 / n, seed = 20260908;
+    var rnd = function () { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    ctx.fillStyle = '#0B3C49';
+    for (var y = 0; y < n; y++) { for (var x = 0; x < n; x++) {
+      var finder = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
+      if (finder) { if (x === 0 || y === 0 || x === 6 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4)) { ctx.fillRect(x * cell, y * cell, cell, cell); } }
+      else if (rnd() > 0.5) { ctx.fillRect(x * cell, y * cell, cell, cell); }
+    } }
+  }
+  function toast (msg) {
+    var t = document.createElement('div'); t.className = 'qr-toast'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 2200);
+  }
+
+  // ---------- init ----------
+  CATALOGO.forEach(function (p) {
+    var o = document.createElement('option'); o.value = p; o.textContent = p;
+    $('profesional').appendChild(o);
+    var o2 = document.createElement('option'); o2.value = p; o2.textContent = p;
+    $('profesional2').appendChild(o2);
+  });
+
+  document.querySelectorAll('input[name="accion"]').forEach(function (r) {
+    r.addEventListener('change', pintarCampos);
+  });
+
+  $('rut').addEventListener('blur', function () {
+    var e = validarRutBasico($('rut').value);
+    if (!e) { limpiarError('rut'); return; }
+    // Entrada sin guion/DV: completa y valida el dígito verificador (módulo 11).
+    var s = $('rut').value.toUpperCase().replace(/\./g, '');
+    if (s.indexOf('-') === -1 && /^\d{7,8}$/.test(s)) {
+      var dv = dvModulo11(s);
+      var cuerpo = s, chunks = [], i = s.length;
+      while (i > 0) { chunks.unshift(cuerpo.slice(Math.max(0, i - 3), i)); i -= 3; }
+      $('rut').value = chunks.join('.') + '-' + dv;
+      limpiarError('rut');
+      return;
+    }
+    // Con guion pero DV inválido según módulo 11.
+    if (s.indexOf('-') !== -1 && /^\d{7,8}-[\dkK]$/.test(s)) {
+      var norm = rutNormalizado($('rut').value);
+      var body = norm.replace(/-\w$/, '');
+      if (dvModulo11(body) !== norm.slice(-1)) { mostrarError('rut', 'El d\u00edgito verificador no es v\u00e1lido'); return; }
+    }
+    mostrarError('rut', e);
+  });
+
+  $('btnEnviar').addEventListener('click', enviarFormulario);
+  $('btnLimpiar').addEventListener('click', limpiarFormulario);
+  $('btnNuevaCaptura').addEventListener('click', nuevaCaptura);
+  $('duplaToggle').addEventListener('click', toggleDupla);
+  $('btnCompartir').addEventListener('click', function () {
+    var url = location.href || 'https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP';
+    $('qrUrlBox').textContent = url;
+    dibujarQrDemo();
+    $('qrOverlay').classList.add('show');
+  });
+  $('qrClose').addEventListener('click', function () { $('qrOverlay').classList.remove('show'); });
+  $('qrOverlay').addEventListener('click', function (ev) { if (ev.target === $('qrOverlay')) $('qrOverlay').classList.remove('show'); });
+  $('qrCopiar').addEventListener('click', function () {
+    var v = $('qrUrlBox').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(v).then(function () { toast('Enlace copiado'); }, function () { toast('Copia manual disponible'); });
+    } else { toast('Copia el enlace de la caja'); }
+  });
+  $('qrDescargar').addEventListener('click', function () {
+    toast('QR de demo descargado');
+  });
+
+  // Cierre de modal de duplicados
+  function cerrarDup () { $('dupOverlay').classList.remove('show'); }
+  $('dupDescartar').addEventListener('click', cerrarDup);
+  $('dupNuevo').addEventListener('click', cerrarDup);
+  $('dupEnviar').addEventListener('click', function () { cerrarDup(); simularEnvio(true); });
+  $('dupOverlay').addEventListener('click', function (ev) { if (ev.target === $('dupOverlay')) cerrarDup(); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') { $('qrOverlay').classList.remove('show'); cerrarDup(); }
+  });
+
+  // Estado inicial
+  $('fingreso').value = hoyISO();
+  pintarCampos();
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 08_Dashboard
+ * Sistema ECICEP — 08_Dashboard
  * Dashboard base sobre PACIENTES + EVENTOS (nunca SECTOR_* como fuente).
  * Solo contiene funciones PURAS: la UI las consume vía api_dashboardDatos
  * (07_UI.js) y Dashboard.html. La capa legacy que escribía una hoja DASHBOARD

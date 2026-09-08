@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 16_Amarillo (cierre Sector Amarillo)
+ * Sistema ECICEP — 16_Amarillo (cierre Sector Amarillo)
  *
  * FUENTE: 'SEGUIMIENTO ECICEP Sector Amarillo' (FUENTES_DRIVE) · hoja
  * 'INGRESOS ECICEP' · columnas: NOMBRE, G, RUT, TELÉFONO, PREINGRESO,

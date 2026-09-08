@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 15_RemExcel (ETAPA 9)
+ * Sistema ECICEP — 15_RemExcel (ETAPA 9)
  * Generador del REM ECICEP como archivo .xlsx con DOS hojas, siguiendo el
  * contrato del archivo original "REM ECICEP.xlsx":
  *

@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — Webhook (ETAPA 4)
+ * Sistema ECICEP — Webhook (ETAPA 4)
  * Puente de ejecución remota: permite lanzar las operaciones del sistema
  * desde una URL autorizada (usado por el asistente de desarrollo para
  * ejecutar él mismo instalar/sembrar/procesar sin menús manuales).

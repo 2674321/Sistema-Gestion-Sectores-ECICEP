@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 18_Calidad
+ * Sistema ECICEP — 18_Calidad
  * Depuración y centro de calidad de datos (ETAPA cierre).
  *
  * Clasificación de problemas (sin inventar nada):

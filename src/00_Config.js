@@ -1,5 +1,5 @@
 /**
- * Sistema ECICEP Unificado — 00_Config
+ * Sistema ECICEP — 00_Config
  * Configuración centralizada. Única fuente de verdad de constantes.
  * Sin lógica de negocio ni operaciones I/O (testeable en node y GAS).
  *
@@ -15,7 +15,7 @@
 // Identificación del proyecto
 // ---------------------------------------------------------------------------
 var ECICEP = {
-  NOMBRE: 'Sistema ECICEP Unificado',
+  NOMBRE: 'Sistema ECICEP',
   VERSION: '0.9.3',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
