@@ -97,6 +97,8 @@ El sistema funciona como **un único entorno operativo**: un proyecto Apps Scrip
 
 Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Script son mecanismos técnicos de publicación. No representan DEV/DEMO/PROD como arquitectura.
 
+**GitHub Actions + GitHub Pages:** el CI (`node tests/*.mjs`, puro, sin red ni Sheets) verifica cada push y PR; GitHub Pages (`https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/`) publica **exclusivamente** la demo estática `examples/formulario_demo.html` (datos ficticios, sin backend). No es un entorno operativo, un canal de captura ni un deployment de la aplicación.
+
 Una referencia histórica como `@63` no debe documentarse como "producción" ni utilizarse para reconstruir el sistema. `@63` fue eliminado después de verificar sus dependencias reales.
 
 **Versión canónica vigente:** `ECICEP.VERSION` en `src/00_Config.js:19` (single source of truth). El sistema operativo actual incluye el módulo de captura **V2** (`src/26_Captura.js`, contrato `docs/CONTRATO_CAPTURA_V2.md`), la Web App 100% V2 (`src/CapturaWeb.html`) y el layout visual de `PACIENTES` (`CONTRATO_LAYOUT_VISUAL`); sus invariantes de datos se definen en `CONTRATO_DATOS.md` (**NORMATIVO**). Stack `Google Sheets + Apps Script + CapturaWeb.html + 00_Tokens.html + WebApp.gs + 26_Captura.js + 24_Formulario.js` sin dependencias externas; `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`.
