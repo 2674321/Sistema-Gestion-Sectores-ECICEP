@@ -25,7 +25,14 @@ jobs:
       - name: Sintaxis src/*.js y *.gs
         run: |
           set -e
-          for f in src/*.js src/*.gs; do node --check "$f"; done
+          for f in src/*.js; do node --check "$f"; done
+          # node --check no conoce .gs: se valida como .js temporal.
+          for f in src/*.gs; do
+            tmp="$(mktemp --suffix=.js)"
+            cp "$f" "$tmp"
+            node --check "$tmp"
+            rm -f "$tmp"
+          done
 
       - name: Batería núcleo
         run: node tests/ejecutar_local.mjs
