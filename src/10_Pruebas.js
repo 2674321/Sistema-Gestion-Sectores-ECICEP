@@ -82,6 +82,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_enriquecimiento_s11(t, A);
   _pruebas_auditoria_s11r(t, A);
   _pruebas_separacion_s12(t, A);
+  _pruebas_s10fix_esquema(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -4186,8 +4187,12 @@ function _pruebas_enriquecimiento_s5(t, A) {
     A.cierto(f1.indexOf('TODAY()') !== -1, 'TODAY presente');
     A.cierto(f1.indexOf('IFERROR') !== -1, 'IFERROR para fechas inválidas');
     A.cierto(f1.indexOf('MID(') !== -1, 'parsea ISO por partes (locale-independiente)');
+    A.cierto(f1.indexOf(',') === -1 && f1.indexOf(';') !== -1,
+      'separador ÚNICO ";" (S10-FIX: mezcla ; y , provoca #ERROR! de parseo)');
+    A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(DATE(MID(E4;1;4);MID(E4;6;2);MID(E4;9;2));TODAY();"Y");""))', 'fórmula canónica');
     var f2 = Utl_formulaEdad(1, 12);
     A.cierto(f2.indexOf('A12') !== -1, 'referencia A12 con columna 1');
+    A.cierto(f2.indexOf(',') === -1, 'f2 sin comas');
   });
   t('OPT B7: funciones referenciadas por el menú existen en el ámbito global', function () {
     var refs = ['UI_abrirFormularioCaptura','UI_mostrarQR','UI_panelControl','UI_abrirBuscador',
@@ -4620,5 +4625,145 @@ function _pruebas_separacion_s12(t, A) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
       A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
     });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S10-FIX: esquema canónico de vistas SECTOR_*, fórmula EDAD y migración
+// explícita 15→16 (BUG-E2E). Helper 100% puros + introspección de fuente.
+// ---------------------------------------------------------------------------
+function _pruebas_s10fix_esquema(t, A) {
+  t('T1: esquema canónico SECTOR_* = 16 columnas con FECHA_NACIMIENTO idx4 y EDAD idx5', function () {
+    A.igual(COLUMNAS_SECTOR_VISTA.length, 16, '16 columnas');
+    A.igual(COLUMNAS_SECTOR_VISTA[4], 'FECHA_NACIMIENTO', 'FECHA_NACIMIENTO en índice 4');
+    A.igual(COLUMNAS_SECTOR_VISTA[5], 'EDAD', 'EDAD en índice 5');
+    A.igual(COLUMNAS_SECTOR_VISTA[6], 'TELEFONOS', 'TELEFONOS tras EDAD');
+    A.igual(COLUMNAS_SECTOR_VISTA[7], 'RUT_DV_VALIDO', 'RUT_DV_VALIDO tras TELEFONOS');
+  });
+
+  t('T2: COLUMNAS_SECTOR_VISTA sin duplicados y con identidad al inicio', function () {
+    var vistos = {};
+    COLUMNAS_SECTOR_VISTA.forEach(function (c) {
+      A.cierto(!vistos[c], 'duplicado: ' + c);
+      vistos[c] = true;
+    });
+    A.igual(COLUMNAS_SECTOR_VISTA[0], 'ID_INTERNO', 'ID_INTERNO al inicio');
+    A.igual(COLUMNAS_SECTOR_VISTA[1], 'RUT', 'RUT segundo');
+    A.igual(COLUMNAS_SECTOR_VISTA[2], 'NOMBRE', 'NOMBRE tercero');
+  });
+
+  t('T3: divergencia detectada para esquema viejo de 15 columnas (sin FECHA_NACIMIENTO)', function () {
+    var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO',
+      'ESTRATIFICACION','ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL',
+      'PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
+    A.cierto(Modelo_esquemaVistaDivergente(viejo15), 'esquema 15-col divergente');
+    A.cierto(!Modelo_esquemaVistaDivergente(COLUMNAS_SECTOR_VISTA.slice()), 'esquema canónico bajo divergente');
+  });
+
+  t('T4: reordenar migra fila 15→16 sin corrimiento (FECHA_NACIMIENTO→EDAD→TELEFONOS→RUT_DV)', function () {
+    var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
+      'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
+    var fila = ['X-1','12345678-5','PACIENTE A','F','35','+56 9 5555 6666','TRUE','G','PENDIENTE',
+      '10/01/2024','5/06/2026','8/06/2026','2/01/2027','INGRESO (x)','obs'];
+    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    A.igual(nueva.length, 16, 'largo canónico');
+    A.igual(nueva[0], 'X-1', 'ID_INTERNO');
+    A.igual(nueva[1], '12345678-5', 'RUT');
+    A.igual(nueva[2], 'PACIENTE A', 'NOMBRE');
+    A.igual(nueva[3], 'F', 'SEXO');
+    A.igual(nueva[4], '', 'FECHA_NACIMIENTO ausente → vacío');
+    A.igual(nueva[5], '35', 'EDAD bajo su columna (nombre, no posición)');
+    A.igual(nueva[6], '+56 9 5555 6666', 'TELEFONOS tras EDAD');
+    A.igual(nueva[7], 'TRUE', 'RUT_DV_VALIDO');
+    A.igual(nueva[15], 'obs', 'OBSERVACIONES al final');
+  });
+
+  t('T5: EDAD fórmula con separador ÚNICO ";" (sin "," entre argumentos)', function () {
+    var f1 = Utl_formulaEdad(5, 4);
+    A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(DATE(MID(E4;1;4);MID(E4;6;2);MID(E4;9;2));TODAY();"Y");""))', 'fórmula canónica 5,4');
+    A.cierto(f1.indexOf(',') === -1, 'sin coma de separación de argumentos');
+    A.cierto(f1.indexOf(';') !== -1, 'separador ; presente');
+    var f2 = Utl_formulaEdad(1, 12);
+    A.igual(f2, '=IF(A12="";"";IFERROR(DATEDIF(DATE(MID(A12;1;4);MID(A12;6;2);MID(A12;9;2));TODAY();"Y");""))', 'fórmula canónica 1,12');
+  });
+
+  t('T6: migración conserva EDAD ya calculada bajo columna correcta', function () {
+    var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
+      'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
+    var fila = ['X-2','22222222-2','PACIENTE B','M','41','98665','FALSE','G1','PENDIENTE',
+      '10/01/2024','','8/06/2026','','',''];
+    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    A.igual(nueva[5], '41', 'EDAD 41 en idx5 tras migración');
+    A.igual(nueva[6], '98665', 'tef resta en idx6');
+  });
+
+  t('T7: identidad (ID_INTERNO/RUT/NOMBRE) intacta tras reordenar', function () {
+    var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
+      'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
+    var fila = ['X-3','33333333-3','PACIENTE C','F','','','','','','','','','','',''];
+    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    A.arreglos(nueva.slice(0, 3), ['X-3', '33333333-3', 'PACIENTE C'], 'identidad conservada');
+  });
+
+  t('T8: sin pérdida: los campos conocidos reaparecen; los nuevos quedan vacíos', function () {
+    var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
+      'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
+    var fila = ['X-4','44444444-4','PACIENTE D','F','','999','','','PENDIENTE','','','','','','c'];
+    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    var presentes = 0;
+    nueva.forEach(function (v) { if (v !== '') presentes++; });
+    for (var i = 0; i < viejo15.length; i++) {
+      if (fila[i] !== '') A.cierto(nueva.indexOf(fila[i]) !== -1, 'dato no perdido: ' + fila[i]);
+    }
+    A.igual(nueva[4], '', 'nuevo campo FECHA_NACIMIENTO vacío (lo rellena el refresco desde PACIENTES)');
+    A.cierto(presentes >= 5, 'al menos ID/RUT/NOMBRE/ESTADO/OBS conservados');
+  });
+
+  t('T9: idempotente: encabezados canónicos → identidad (sin tocar datos)', function () {
+    var filaCanonica = ['X-5','55555555-5','PACIENTE E','','','','','','','','','','','','',''];
+    var nueva = Modelo_reordenarFilaVista(filaCanonica, COLUMNAS_SECTOR_VISTA.slice());
+    A.arreglos(nueva, filaCanonica, 'identidad sobre esquema canónico');
+  });
+
+  t('T10: columnas extra/desconocidas se excluyen (sin duplicados)', function () {
+    var extra = ['ID_INTERNO','RUT','NOMBRE','SEXO','FECHA_NACIMIENTO','EDAD','TELEFONOS','RUT_DV_VALIDO',
+      'ESTRATIFICACION','ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL',
+      'ULTIMO_EVENTO','OBSERVACIONES','COLUMNA_FANTASMA_X'];
+    var fila = ['X-6','66666666-6','PACIENTE F','','2000-05-10','','989','','','','','','','','','','fantasma'];
+    var nueva = Modelo_reordenarFilaVista(fila, extra);
+    A.igual(nueva.length, 16, 'solo canónicas');
+    A.igual(nueva.indexOf('fantasma'), -1, 'valor de columna desconocida descartado');
+  });
+
+  t('T11: equivalencia clave (mayúsculas/tildes/espacios/"_" ignorados) por nombre', function () {
+    var variantes = ['ID_INTERNO','RUT','NOMBRE','SEXO','fecha_nacimiento','EDAD','TELEFONOS','RUT_DV_VALIDO',
+      'ESTRATIFICACION','ESTADO','FECHA INGRESO','ULTIMO SEGUIMIENTO','ULTIMO CONTROL','PROXIMO CONTROL',
+      'ULTIMO EVENTO','OBSERVACIONES'];
+    A.cierto(!Modelo_esquemaVistaDivergente(variantes), 'mismas claves normalizadas → no divergente');
+    var fila = ['X-7','77777777-7','PACIENTE G','F','2001-02-03','25','','TRUE','','','','','','','',''];
+    var nueva = Modelo_reordenarFilaVista(fila, variantes);
+    A.igual(nueva[4], '2001-02-03', 'FECHA_NACIMIENTO mapeada desde variante');
+    A.igual(nueva[10], '', 'FECHA INGRESO vacía (ausente en fila)');
+  });
+
+  t('T12: Actualizar ejecuta la migración S10-FIX como paso EXPLÍCITO (no instalador)', function () {
+    var todo = UI_actualizarTodo.toString();
+    A.cierto(todo.indexOf('Modelo_alinearVistasSectoriales()') !== -1, 'migración explícita en Actualizar');
+    A.cierto(todo.indexOf('Modelo_crearEstructura') === -1, 'Actualizar no repara estructura');
+    A.cierto(todo.indexOf('appendRow') === -1 && todo.indexOf('insertRow') === -1, 'sin append/insert');
+    ['captureId', 'FORM_RESPUESTAS', 'api_webappCapturar'].forEach(function (f) {
+      A.cierto(todo.indexOf(f) === -1, 'Actualizar no referencia ' + f);
+    });
+  });
+
+  t('T13: migración restringida a SECTOR_*, por nombre (sin posiciones ciegas ni append)', function () {
+    var fn = Modelo_alinearVistaSector.toString();
+    A.cierto(fn.indexOf('HOJAS_SECTOR') !== -1, 'restringida a SECTOR_*');
+    A.cierto(fn.indexOf('COLUMNAS_SECTOR_VISTA') !== -1, 'usa fuente única de verdad');
+    A.cierto(fn.indexOf('Modelo_reordenarFilaVista') !== -1, 'mapea por nombre');
+    A.cierto(fn.indexOf('Modelo_headerRow') !== -1, 'usa headerRow del contrato');
+    A.cierto(fn.indexOf('appendRow') === -1 && fn.indexOf('insertRow') === -1, 'sin append/insert');
+    var todo = UI_actualizarTodo.toString();
+    A.cierto(todo.indexOf('Modelo_alinearVistasSectoriales') !== -1, 'UI_actualizarTodo la invoca');
   });
 }

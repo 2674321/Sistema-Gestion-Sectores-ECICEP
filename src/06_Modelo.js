@@ -704,8 +704,18 @@ function Modelo_crearEstructura() {
             // solo header row presente (sin datos) → corregir etiquetas en sitio
             Utl_escribirBloque(hoja, hr, 1, [esperados]);
             try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
+          } else if (HOJAS_SECTOR.indexOf(nombre) !== -1) {
+            // S10-FIX: SECTOR_* con datos y encabezados divergentes se migra
+            // EXPLÍCITAMENTE al esquema canónico (por nombre, idempotente).
+            // El resto de hojas visuales conserva el comportamiento histórico (HVis).
+            var mig = Modelo_alinearVistaSector(nombre);
+            if (mig.ok && mig.alineado) {
+              Log_warning('Modelo', 'crearEstructura', 'Vista SECTOR_* migrada: ' + nombre);
+            } else {
+              Log_warning('Modelo', 'crearEstructura', nombre + ' queda para HVis: ' + (mig.motivo || ''));
+            }
           }
-          // con datos bajo headerRow y etiquetas divergentes → dejarlo a HVis
+          // con datos bajo headerRow y etiquetas divergentes → lo restante a HVis
         }
       }
     }
@@ -1385,6 +1395,87 @@ function Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimoEventoMap) {
         return (v === undefined || v === null) ? '' : v;
       });
     });
+}
+
+/**
+ * PURA: ¿divergen los encabezados actuales de la vista SECTOR_* del esquema
+ * canónico `COLUMNAS_SECTOR_VISTA`? Comparación por nombres normalizados
+ * (clave alfanumérica), nunca por posición ciega.
+ */
+function Modelo_esquemaVistaDivergente(encabezadosActuales) {
+  for (var i = 0; i < COLUMNAS_SECTOR_VISTA.length; i++) {
+    if (Utl_claveAlnum(encabezadosActuales[i]) !== Utl_claveAlnum(COLUMNAS_SECTOR_VISTA[i])) return true;
+  }
+  return false;
+}
+
+/** PURA: reordena una fila de la vista SECTOR_* al orden canónico
+ *  `COLUMNAS_SECTOR_VISTA` mapeando POR NOMBRE de encabezado (clave
+ *  alfanumérica), de modo que un esquema antiguo de 15 columnas migre a 16 sin
+ *  corrimientos ni pérdidas (S10-FIX). Campos ausentes/desconocidos → ''.
+ *  @returns {Array} fila de largo COLUMNAS_SECTOR_VISTA.length */
+function Modelo_reordenarFilaVista(fila, encabezadosActuales) {
+  var mapa = {};
+  for (var i = 0; i < encabezadosActuales.length; i++) mapa[Utl_claveAlnum(encabezadosActuales[i])] = i;
+  return COLUMNAS_SECTOR_VISTA.map(function (c) {
+    var idx = mapa[Utl_claveAlnum(c)];
+    return (idx === undefined) ? '' : fila[idx];
+  });
+}
+
+/**
+ * GAS: alinea una hoja SECTOR_* al esquema canónico `COLUMNAS_SECTOR_VISTA`
+ * (corrección S10-FIX). Migración EXPLÍCITA, IDEMPOTENTE y por NOMBRE:
+ * reescribe la fila de encabezados reales (Modelo_headerRow) y recoloca los
+ * datos existentes al orden canónico (los campos ausentes quedan ''; la vista
+ * es derivada de PACIENTES+EVENTOS y el refresco posterior regenera el bloque
+ * desde la fuente). SOLO toca SECTOR_*; nunca usa append/insert ni posiciones
+ * ciegas. Devuelve {ok, alineado, motivo?, filas?}.
+ */
+function Modelo_alinearVistaSector(nombreHoja) {
+  if (HOJAS_SECTOR.indexOf(nombreHoja) === -1) return { ok: false, motivo: 'NO_ES_VISTA_SECTOR' };
+  var hoja = Modelo_hoja(nombreHoja);
+  if (!hoja) return { ok: false, motivo: 'HOJA_NO_EXISTE' };
+  var hr = Modelo_headerRow(nombreHoja);
+  var ini = Modelo_dataStartRow(nombreHoja);
+  var ancho = Math.max(hoja.getLastColumn(), COLUMNAS_SECTOR_VISTA.length);
+  var filasLeer = Math.max(hoja.getLastRow() - hr, 0) + 1;
+  if (filasLeer <= 0) return { ok: false, motivo: 'SIN_ENCABEZADOS' };
+  var bloque = hoja.getRange(hr, 1, filasLeer, ancho).getValues();
+  var encabezados = bloque[0];
+  if (!Modelo_esquemaVistaDivergente(encabezados)) {
+    return { ok: true, alineado: false, motivo: 'YA_CANONICO' };
+  }
+  // Seguridad: exige la identidad mínima; encabezados irreconocibles → no migrar.
+  var claves = encabezados.map(Utl_claveAlnum);
+  var identidad = ['ID_INTERNO', 'RUT', 'NOMBRE'].every(function (c) {
+    return claves.indexOf(Utl_claveAlnum(c)) !== -1;
+  });
+  if (!identidad) return { ok: false, motivo: 'ENCABEZADOS_INCOMPATIBLES' };
+  var nuevas = [];
+  for (var f = 1; f < bloque.length; f++) nuevas.push(Modelo_reordenarFilaVista(bloque[f], encabezados));
+  hoja.getRange(hr, 1, 1, COLUMNAS_SECTOR_VISTA.length).setValues([COLUMNAS_SECTOR_VISTA.slice()]);
+  if (nuevas.length) {
+    hoja.getRange(ini, 1, nuevas.length, COLUMNAS_SECTOR_VISTA.length).setValues(nuevas);
+  } else {
+    hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
+  }
+  try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
+  Log_warning('Modelo', 'alinearVistaSector', nombreHoja + ' migrada a ' + COLUMNAS_SECTOR_VISTA.length + ' columnas (' + nuevas.length + ' filas)');
+  return { ok: true, alineado: true, filas: nuevas.length };
+}
+
+/** GAS: aplica la alineación del esquema a todas las vistas SECTOR_*
+ *  (S10-FIX). Idempotente: replica el estado canónico. */
+function Modelo_alinearVistasSectoriales() {
+  var res = { alineadas: [], yaCanonicas: [], errores: [] };
+  HOJAS_SECTOR.forEach(function (n) {
+    var r = Modelo_alinearVistaSector(n);
+    if (r.ok && r.alineado) res.alineadas.push(n);
+    else if (r.ok) res.yaCanonicas.push(n);
+    else res.errores.push(n + ':' + r.motivo);
+  });
+  return res;
 }
 
 /**

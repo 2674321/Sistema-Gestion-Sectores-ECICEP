@@ -167,6 +167,10 @@ function UI_actualizarSistema() {
  *  Solo toca datos derivados; idempotente sobre la fuente. */
 function UI_actualizarTodo() {
   Utl_toast('info', 'Actualizando sistema…', 45);
+  // S10-FIX: alineación explícita del esquema de SECTOR_* (migración idempotente
+  // por nombre). Paso explícito de la fase, no un efecto lateral oculto: solo
+  // replica el esquema canónico de las vistas derivadas.
+  Modelo_alinearVistasSectoriales();
   var r1 = Estrat_recalcularTodos();
   var r2 = Control_recalcularTodos();
   Utl_medir(Modelo_refrescarVistasSectores);

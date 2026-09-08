@@ -1,4 +1,4 @@
-# Informe de Bugs E2E — S10-FIX + POST-RELEASE
+# Informe de Bugs E2E — S10-FIX + POST-RELEASE + S10-FIX.3
 
 Registro histórico de errores reales detectados durante el uso del sistema
 publicado (después del release). Ningún error se considera corregido sin:
@@ -23,6 +23,20 @@ se publica en @97; su cierre formal queda condicionado a la verificación visual
 del usuario. E9 (error controlado) y E12 (limpieza de datos de prueba) fueron
 ejecutados por el usuario con resultado **OK** y, en E8, **sin duplicación**.
 
+En la pase E2E del release S10-FIX.3 (S12) se detectó el **BUG-E2E-003**
+(estructural, vistas `SECTOR_*`): la fórmula de EDAD mostraba `#ERROR!` y las
+columnas se percibían corridas desde `FECHA_NACIMIENTO`/`EDAD`. Auditada la fase
+S10-FIX se determinó la causa: (1) `Utl_formulaEdad` mezclaba separadores `;` y
+`,`, lo que produce error de parseo de fórmula (`#ERROR!`) en cualquier locale;
+(2) el esquema canónico `COLUMNAS_SECTOR_VISTA` pasó de 15 a 16 columnas (se
+añadió `FECHA_NACIMIENTO` en S7, commit f272ad4) y ninguna ruta migraba los
+encabezados de hojas `SECTOR_*` existentes (el refresco de vistas escribe datos
+sin tocar encabezados; `Modelo_crearEstructura` dejaba la rama divergente a HVis;
+HVis no inserta columnas). Corrección en S10-FIX.3: fórmula con separador único
+`;` y migración **explícita e idempotente** por nombre
+(`Modelo_alinearVistasSectoriales`) enganchada en `Actualizar sistema` y en
+`Modelo_crearEstructura`. Cierre formal pendiente del E2E real.
+
 La fase POST-RELEASE (autorizada por el usuario) implementó las observaciones de
 la vista REM (E11): **dropdown de censo** («Todos los pacientes» / «Solo con
 actividad», nuevo parámetro `actividad` de `api_remVista`) y **barra de progreso**
@@ -32,10 +46,15 @@ Referencias del release:
 
 | Ítem | Valor |
 |---|---|
-| Release (Git) | `37d8bd7` (base) → `70af819`/`dc879b3` (S10-FIX) → POST-RELEASE |
-| Tests | 749/749 (S10-FIX) → **751/751** (núcleo 503 + 2 REMV) |
-| Deployment operativo | `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` @94 → @95 (fix 002) → **@97 (POST-RELEASE)** |
+| Release (Git) | `37d8bd7` (base) → `70af819`/`dc879b3` (S10-FIX) → POST-RELEASE → S10-FIX.3 (BUG-E2E-003) |
+| Tests | 749/749 (S10-FIX) → **751/751** (núcleo 503 + 2 REMV) → **534/534 núcleo (S10-FIX.3) + 50/50 aceptación + 36/36 contrato V2** |
+| Deployment operativo | `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` @94 → @95 (fix 002) → @97 (POST-RELEASE) → @100 (S10-FIX.3) |
 | URL /exec | `https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec` |
+
+Cierre del BUG-E2E-003 (CERRAR solo con evidencia del E2E real): encabezados de
+`SECTOR_*` con las 16 columnas canónicas (FECHA_NACIMIENTO → EDAD → TELEFONOS →
+RUT_DV_VALIDO), EDAD sin `#ERROR!`, sin datos modificados/duplicados, `Actualizar`
+sigue siendo solo derivados, `/exec` operativo.
 
 ## Registro de bugs
 
@@ -43,6 +62,7 @@ Referencias del release:
 | -- | ---- | --------- | ------- | ----- | ---------- | ---- | --- | ------ |
 | BUG-E2E-002 | FRONTEND (+ RPC) | CRÍTICO | Los dropdowns de profesional no cargan; `PROFESIONAL` es obligatorio → ninguna captura puede enviarse | La consolidación S8 de las 3 RPC en `WebApp_estadoInicial` eliminó las llamadas `_poblarDropdowns()` (success y failure) y cambió el catálogo de strings (contrato `api_profesionalesCatalogo`) a objetos | Restaurar `_poblarDropdowns()` en ambos handlers; nuevo `WebApp_profesionalesDropdown()` (solo activos, nombres canónicos string) | H1–H3 en `tests/captura_ui_payload_v2.mjs` (fallan en baseline, pasan con fix) | OK — E4 repetido post-fix: profesionales cargan (TENS/Enfermera/o) y captura completa (RECIBIDO Cp2-740b509e…) | CERRADO ✅ |
 | BUG-E2E-001 | FRONTEND / VALIDACIÓN | BAJO | Al cargar /exec solo se ve el campo RUT (las secciones se pintan tras la RPC); usuario podría intentar enviar solo RUT | El fieldset RUT es el único siempre visible por defecto y el resto de secciones parten `hidden` (solo visibles tras `WebApp_estadoInicial` success/failure) | POST-RELEASE: `pintarCampos()/actualizarLimpiar()` se ejecutan al init con el esquema fallback, antes de la RPC; los handlers la repiten (idempotente). El envío solo-RUT ya lo bloqueaban cliente y servidor (CAMPO_INVALIDO, sin persistencia) | Cubierto por validación H1–H3 reutilizada (el init no rompe la regresión del dropdown) | Verificación visual E1 pendiente del usuario (@97) | CERRADO (corregido en @97) — confirmación visual pendiente |
+| BUG-E2E-003 | BACKEND / VISUALIZACIÓN | MEDIO | En las vistas `SECTOR_*`, EDAD muestra `#ERROR!` y las columnas se perciben corridas desde `FECHA_NACIMIENTO`/`EDAD` (la fórmula de edad aparece bajo «TELEFONOS» y RUT_DV con números de teléfono) | (1) `Utl_formulaEdad` mezclaba separadores `;` y `,` → fórmula inválida (`#ERROR!` de parseo) en cualquier locale; (2) `COLUMNAS_SECTOR_VISTA` pasó 15→16 columnas (S7, f272ad4) y ninguna ruta migraba encabezados de `SECTOR_*` existentes (refresco no toca encabezados; `crearEstructura` remitía a HVis; HVis no inserta columnas) | (1) `Utl_formulaEdad` con separador único `;` (estrategia del proyecto); (2) migración explícita e idempotente `Modelo_alinearVistaSector`/`Modelo_alinearVistasSectoriales` (por nombre via `COLUMNAS_SECTOR_VISTA`, solo SECTOR_*, sin append/insert) enganchada en `UI_actualizarTodo` y en `Modelo_crearEstructura` | T1–T13 en `src/10_Pruebas.js` (`_pruebas_s10fix_esquema`) + OPT B2 reforzado; baterías: 534/534 núcleo, 50/50 aceptación, 36/36 contrato V2 | Pendiente del usuario (E2E real tras deploy) | ABIERTO — corregido en S10-FIX.3, validación real pendiente |
 
 ## Observaciones E2E (E11 / REM) — implementadas en POST-RELEASE
 

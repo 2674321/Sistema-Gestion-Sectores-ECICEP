@@ -62,10 +62,13 @@ function Utl_columnaLetra(n) {
 }
 
 /** PURA: fórmula EDAD en vivo para la vista SECTOR_*.
- *  Trabaja sobre texto ISO "yyyy-MM-dd" (locale-independiente). */
+ *  Trabaja sobre texto ISO "yyyy-MM-dd" (locale-independiente).
+ *  Separador ÚNICO ';' (estrategia centralizada del proyecto, ver 17_Hojas):
+ *  mezclar ';' y ',' en una misma fórmula es erróneo de parseo (#ERROR!)
+ *  en cualquier locale (S10-FIX). */
 function Utl_formulaEdad(colFecha, fila) {
   var c = Utl_columnaLetra(colFecha);
-  return '=IF(' + c + fila + '="","",IFERROR(DATEDIF(DATE(MID(' + c + fila + ',1,4),MID(' + c + fila + ',6,2),MID(' + c + fila + ',9,2)),TODAY(),"Y"),""))';
+  return '=IF(' + c + fila + '="";"";IFERROR(DATEDIF(DATE(MID(' + c + fila + ';1;4);MID(' + c + fila + ';6;2);MID(' + c + fila + ';9;2));TODAY();"Y");""))';
 }
 
 // ---------------------------------------------------------------------------
