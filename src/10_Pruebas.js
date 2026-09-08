@@ -80,6 +80,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_operativo_v092(t, A);
   _pruebas_enriquecimiento_s5(t, A);
   _pruebas_enriquecimiento_s11(t, A);
+  _pruebas_auditoria_s11r(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -4508,5 +4509,47 @@ function _pruebas_enriquecimiento_s11(t, A) {
     var res = Act_enriquecerPacientes.toString();
     A.cierto(res.indexOf('totalPacientes') !== -1 && res.indexOf('errores') !== -1, 'resumen S11 en el barrido');
     A.cierto(res.indexOf('sinVacias') !== -1, 'contador sin huecos');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S11-R — Auditoría del modelo funcional Instalar/Actualizar (guards del mapa)
+// ---------------------------------------------------------------------------
+
+function _pruebas_auditoria_s11r(t, A) {
+  t('S11R-1: EDAD no es campo físico ni dato fuente (solo derivada/fórmula)', function () {
+    var campos = MODELO_PACIENTE.map(function (m) { return m.campo; });
+    A.cierto(campos.indexOf('EDAD') === -1, 'PACIENTES no tiene columna EDAD');
+    A.igual(JSON.stringify(CAMPOS_ENRIQUECIMIENTO), '["SEXO","FECHA_NACIMIENTO"]',
+      'el enriquecimiento solo completa SEXO y FECHA_NACIMIENTO');
+    A.cierto(CAMPOS_ENRIQUECIMIENTO.indexOf('EDAD') === -1, 'EDAD nunca se enriquece/almacena');
+    var vista = COLUMNAS_SECTOR_VISTA.indexOf('EDAD');
+    A.cierto(vista !== -1, 'EDAD aparece solo como columna derivada en SECTOR_*');
+  });
+
+  t('S11R-2: "Actualizar" y "Instalar / reparar" abren EL MISMO instalador; Actualizar NO recalcula vistas/estrat inline', function () {
+    var act = UI_actualizarSistema.toString();
+    var inst = UI_instalarSistema.toString();
+    A.cierto(inst.indexOf("createTemplateFromFile('Instalador')") !== -1,
+      'Instalar / reparar abre el dialog Instalador (secuencia completa)');
+    A.cierto(act.indexOf('UI_instalarSistema()') !== -1,
+      'Actualizar termina abriendo el MISMO instalador');
+    ['Act_enriquecerPacientes', 'Estrat_recalcularTodos', 'Control_recalcularTodos',
+     'Modelo_refrescarVistasSectores', 'HVis_formatearIngresos'].forEach(function (f) {
+      A.cierto(act.indexOf(f) === -1, 'Actualizar no ejecuta ' + f + ' directamente');
+    });
+  });
+
+  t('S11R-3: el enriquecimiento corre SOLO como etapa del instalador (sin entrada suelta por botón)', function () {
+    var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
+    A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
+    A.igual(enr[0].fn, 'Instalar_pEnriquecimiento', 'única función de la etapa');
+    var etapasConEnriquecimiento = INSTALAR_ETAPAS.filter(function (e) {
+      return e.fn.indexOf('Enriquec') !== -1;
+    });
+    A.igual(etapasConEnriquecimiento.length, 1, 'ninguna otra etapa ejecuta enriquecimiento');
+    var p = Instalar_pEnriquecimiento.toString();
+    A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
+      'la etapa es la puerta de entrada al barrido por ambas rutas de menú');
   });
 }

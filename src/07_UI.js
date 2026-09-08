@@ -142,10 +142,15 @@ function UI_instalarDiagnosticar() {
   SpreadsheetApp.getUi().alert('🔍 Diagnóstico', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-/** 🔄 Actualizar sistema: ejecuta todas las etapas con confirmación previa.
- *  Nota: la operación de enriquecimiento demográfico de PACIENTES (S5, DEC-057)
- *  NO vive aquí; se ejecuta como etapa del instalador
- *  ("⚙️ Instalar / reparar sistema") — Instalar_pEnriquecimiento. */
+/** 🔄 Actualizar sistema: diagnóstico + confirmación y ejecución de la secuencia
+ *  completa de instalación (INSTALAR_ETAPAS) en el mismo panel que
+ *  "Actualizar / reparar". La cadena visible es:
+ *     Sistema → Actualizar → Instalar_diagnosticar() → [confirmar] →
+ *     UI_instalarSistema() → Instalador.html → api_instalarPaso por etapa
+ *  La etapa de enriquecimiento demográfico de PACIENTES (S5, DEC-057) se ejecuta
+ *  dentro de esa secuencia (Instalar_pEnriquecimiento, penúltima antes de verificar),
+ *  igual que desde "Instalar / reparar". El recálculo de vistas/campos automáticos
+ *  (UI_actualizarTodo) NO forma parte del menú "Actualizar". */
 function UI_actualizarSistema() {
   var ui = SpreadsheetApp.getUi();
   var r = Instalar_diagnosticar();

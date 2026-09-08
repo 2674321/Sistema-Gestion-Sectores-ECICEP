@@ -153,9 +153,22 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
 - **Idempotencia y trazabilidad**: segunda ejecución no cambia nada; `FUENTE`
   acumula `ENRIQUECIMIENTO|<hoja>|<fila>` (append sin duplicar), se estampa
   `FECHA_ACTUALIZACION` y se registra `Log_info`.
-- **"🔄 Actualizar sistema"** (`UI_actualizarSistema`) conserva su rol original de
-  aplicar etapas de instalación pendientes (confirmación + panel), **sin**
-  enriquecimiento. No toca `FORM_RESPUESTAS`, contrato V2, captureId ni deployments.
+- **"🔄 Actualizar sistema"** (`UI_actualizarSistema`) ejecuta **diagnóstico previo**
+  (`Instalar_diagnosticar`) + confirmación y luego abre el **mismo panel que
+  "Instalar / reparar"** (`UI_instalarSistema` → `Instalador.html`), cuya secuencia
+  `INSTALAR_ETAPAS` corre por completo (incluida la etapa `enriquecimiento`, penúltima,
+  antes de `verificar`). En tiempo de ejecución ambas entradas de menú aplican el mismo
+  pipeline estructural; la única diferencia es la puerta de confirmación/diagnóstico.
+  Por eso un clic en "Actualizar" **sí** puede enriquecer PACIENTES vía
+  `Instalar_pEnriquecimiento`. No toca `FORM_RESPUESTAS`, contrato V2, captureId ni
+  deployments.
+- **Vistas y campos automáticos** (estratificación, controles, refresco de `SECTOR_*`
+  y formato) NO se ejecutan desde el menú "Actualizar": ese recálculo vive en
+  `UI_actualizarTodo` (`Estrat_recalcularTodos` + `Control_recalcularTodos` +
+  `Modelo_refrescarVistasSectores`), retirado del menú (el código se conserva) y se
+  dispara desde el pipeline de captura y de `07_UI.js`. Dentro del instalador, el
+  refresco de vistas `SECTOR_*` ocurre solo en la etapa `amarillo`
+  (`Instalar_pAmarillo`) cuando esa etapa se ejecuta.
 
 ## Interfaz dentro de Google Sheets (DEC-012)
 
