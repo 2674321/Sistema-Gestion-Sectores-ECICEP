@@ -35,7 +35,10 @@ sin tocar encabezados; `Modelo_crearEstructura` dejaba la rama divergente a HVis
 HVis no inserta columnas). Corrección en S10-FIX.3: fórmula con separador único
 `;` y migración **explícita e idempotente** por nombre
 (`Modelo_alinearVistasSectoriales`) enganchada en `Actualizar sistema` y en
-`Modelo_crearEstructura`. Cierre formal pendiente del E2E real.
+`Modelo_crearEstructura`. **CERRADO por E2E real (2026-09-08)**: encabezados 16
+canónicos post-Actualizar, datos alineados, EDAD vacía sin `#ERROR!`, 2ª
+ejecución idempotente, Actualizar sin panel Instalador (solo confirmación +
+toast), `/exec` operativo. (ver Registro E2E S10-FIX-E2E).
 
 La fase POST-RELEASE (autorizada por el usuario) implementó las observaciones de
 la vista REM (E11): **dropdown de censo** («Todos los pacientes» / «Solo con
@@ -70,7 +73,15 @@ sobre el entorno operativo (sin copiar datos personales):
 | Durante E3 | «el cero se convirtió en una fecha de nacimiento» → interpretado como **transitorio de la migración**: `Modelo_reordenarFilaVista` remapea por los nombres de encabezados viejos sobre datos ya-alineados a 16 (corrimiento momentáneo) que el refresco posterior regeneró desde PACIENTES a su estado correcto |
 | Pendiente de confirmar (usuario) | E7 (2ª ejecución idempotente → mismas 16 columnas/valores), E6 (conteos pre/post: pacientes, filas, eventos, duplicados), E8 (Actualizar no abrió Instalador), E9 visual (/exec: profesionales + botón) |
 
-Diagnóstico refinado: la hipótesis «código no activo» queda **refutada** (encabezados
+**Confirmación final del usuario (2026-09-08):**
+- **E6**: PACIENTES = 2606 filas · EVENTOS = 18605 · sin duplicados observados.
+- **E7**: 2ª ejecución de Actualizar → quedó **igual** (idempotente).
+- **E8**: se mostró el diálogo de confirmación + toast; **sin panel Instalador**.
+- **E9**: `/exec` OK visual (formulario, profesionales, botón Registrar).
+
+**→ BUG-E2E-003 CERRADO ✅** (fix `001bfb8`, deploy @101).
+
+Diagnóstico refinado: la hipótesis «código no activo» quedó **refutada** (encabezados
 16 = corrió el código @101 con la migración). La anomalía 0→fecha es transitoria,
 sin pérdida de datos y corregida por el refresco desde la fuente; queda como
 **mejora opcional** para S10-FIX.4 (reparar solo encabezados y regenerar desde
@@ -82,7 +93,7 @@ PACIENTES/EVENTOS, sin remapear filas por nombre).
 | -- | ---- | --------- | ------- | ----- | ---------- | ---- | --- | ------ |
 | BUG-E2E-002 | FRONTEND (+ RPC) | CRÍTICO | Los dropdowns de profesional no cargan; `PROFESIONAL` es obligatorio → ninguna captura puede enviarse | La consolidación S8 de las 3 RPC en `WebApp_estadoInicial` eliminó las llamadas `_poblarDropdowns()` (success y failure) y cambió el catálogo de strings (contrato `api_profesionalesCatalogo`) a objetos | Restaurar `_poblarDropdowns()` en ambos handlers; nuevo `WebApp_profesionalesDropdown()` (solo activos, nombres canónicos string) | H1–H3 en `tests/captura_ui_payload_v2.mjs` (fallan en baseline, pasan con fix) | OK — E4 repetido post-fix: profesionales cargan (TENS/Enfermera/o) y captura completa (RECIBIDO Cp2-740b509e…) | CERRADO ✅ |
 | BUG-E2E-001 | FRONTEND / VALIDACIÓN | BAJO | Al cargar /exec solo se ve el campo RUT (las secciones se pintan tras la RPC); usuario podría intentar enviar solo RUT | El fieldset RUT es el único siempre visible por defecto y el resto de secciones parten `hidden` (solo visibles tras `WebApp_estadoInicial` success/failure) | POST-RELEASE: `pintarCampos()/actualizarLimpiar()` se ejecutan al init con el esquema fallback, antes de la RPC; los handlers la repiten (idempotente). El envío solo-RUT ya lo bloqueaban cliente y servidor (CAMPO_INVALIDO, sin persistencia) | Cubierto por validación H1–H3 reutilizada (el init no rompe la regresión del dropdown) | Verificación visual E1 pendiente del usuario (@97) | CERRADO (corregido en @97) — confirmación visual pendiente |
-| BUG-E2E-003 | BACKEND / VISUALIZACIÓN | MEDIO | En las vistas `SECTOR_*`, EDAD muestra `#ERROR!` y las columnas se perciben corridas desde `FECHA_NACIMIENTO`/`EDAD` (la fórmula de edad aparece bajo «TELEFONOS» y RUT_DV con números de teléfono) | (1) `Utl_formulaEdad` mezclaba separadores `;` y `,` → fórmula inválida (`#ERROR!` de parseo) en cualquier locale; (2) `COLUMNAS_SECTOR_VISTA` pasó 15→16 columnas (S7, f272ad4) y ninguna ruta migraba encabezados de `SECTOR_*` existentes (refresco no toca encabezados; `crearEstructura` remitía a HVis; HVis no inserta columnas) | (1) `Utl_formulaEdad` con separador único `;` (estrategia del proyecto); (2) migración explícita e idempotente `Modelo_alinearVistaSector`/`Modelo_alinearVistasSectoriales` (por nombre via `COLUMNAS_SECTOR_VISTA`, solo SECTOR_*, sin append/insert) enganchada en `UI_actualizarTodo` y en `Modelo_crearEstructura` | T1–T13 en `src/10_Pruebas.js` (`_pruebas_s10fix_esquema`) + OPT B2 reforzado; baterías: 534/534 núcleo, 50/50 aceptación, 36/36 contrato V2 | E2E real (2026-09-08): encabezados 16 canónicos post-Actualizar, datos alineados (TELEFONOS/RUT_DV_VALIDO), EDAD vacía sin `#ERROR!`; pendiente E7/E6/E9 para cierre formal | EN VALIDACIÓN FINAL (fix activo; cierre pend. E7 idempotencia + E6 conteos + E9 /exec) |
+| BUG-E2E-003 | BACKEND / VISUALIZACIÓN | MEDIO | En las vistas `SECTOR_*`, EDAD muestra `#ERROR!` y las columnas se perciben corridas desde `FECHA_NACIMIENTO`/`EDAD` (la fórmula de edad aparece bajo «TELEFONOS» y RUT_DV con números de teléfono) | (1) `Utl_formulaEdad` mezclaba separadores `;` y `,` → fórmula inválida (`#ERROR!` de parseo) en cualquier locale; (2) `COLUMNAS_SECTOR_VISTA` pasó 15→16 columnas (S7, f272ad4) y ninguna ruta migraba encabezados de `SECTOR_*` existentes (refresco no toca encabezados; `crearEstructura` remitía a HVis; HVis no inserta columnas) | (1) `Utl_formulaEdad` con separador único `;` (estrategia del proyecto); (2) migración explícita e idempotente `Modelo_alinearVistaSector`/`Modelo_alinearVistasSectoriales` (por nombre via `COLUMNAS_SECTOR_VISTA`, solo SECTOR_*, sin append/insert) enganchada en `UI_actualizarTodo` y en `Modelo_crearEstructura` | T1–T13 en `src/10_Pruebas.js` (`_pruebas_s10fix_esquema`) + OPT B2 reforzado; baterías: 534/534 núcleo, 50/50 aceptación, 36/36 contrato V2 | E2E real (2026-09-08): encabezados 16 canónicos post-Actualizar, datos alineados (TELEFONOS/RUT_DV_VALIDO), EDAD vacía sin `#ERROR!`, 2ª ejecución idempotente (E7), Actualizar solo confirmación+toast (E8, sin Instalador), `/exec` OK (E9) | CERRADO ✅ (2026-09-08, fix commit `001bfb8`, deploy @101) |
 | BUG-E2E-004 | BACKEND / MIGRACIÓN | BAJO | Tras `Actualizar`, de forma TRANSITORIA un valor apareció desplazado («0 → fecha de nacimiento») durante la migración | `Modelo_reordenarFilaVista` remapea filas por los nombres de encabezados viejos; sobre datos ya alineados a 16 columnas el remapeo intermedio desfasa valores. El refresco posterior desde PACIENTES (vistas derivadas) regenera el estado correcto: sin pérdida ni persistencia | Sin código (mejora opcional si se realiza S10-FIX.4): alineación que repare encabezados y regenere desde PACIENTES/EVENTOS sin remapear filas por nombre | Cobertura conceptual ya en T1–T13 | Transitorio, corregido por el refresco; sin impacto de datos | ABIERTO (no bloqueante) — mejora opcional |
 
 ## Observaciones E2E (E11 / REM) — implementadas en POST-RELEASE
