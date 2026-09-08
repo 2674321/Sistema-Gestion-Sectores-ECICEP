@@ -7,6 +7,9 @@
 > **Naturaleza:** proyecto **particular**, desarrollado a medida para una
 > profesional de enfermería como cliente. **No es un desarrollo institucional.**
 
+[![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
+[![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
+
 ## De un vistazo
 
 | | |
@@ -80,11 +83,13 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 
 Puedes probar una **réplica estática exacta** del formulario de captura (misma
 interfaz, mismas secciones y mismas validaciones, **datos ficticios**, sin
-conexión a Apps Script):
+conexión a Apps Script) en línea:
 
-- **`examples/formulario_demo.html`** — ábrelo en un navegador (haz doble clic o
-  súbelo a GitHub Pages). Incluye RUT de ejemplo que ya existen en la base demo
-  para ver el comportamiento de personas registradas.
+- **🌐 En línea:** <https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/>
+- **Local:** abre `examples/formulario_demo.html` en un navegador (doble clic).
+
+Incluye RUT de ejemplo que ya existen en la base demo (13.187.212-7,
+9.866.001-1, 15.798.443-8) para ver el comportamiento de personas registradas.
 
 ## Arquitectura
 
