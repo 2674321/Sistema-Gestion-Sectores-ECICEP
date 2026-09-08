@@ -79,6 +79,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_entornos_v091(t, A);
   _pruebas_operativo_v092(t, A);
   _pruebas_enriquecimiento_s5(t, A);
+  _pruebas_enriquecimiento_s11(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -4392,5 +4393,120 @@ function _pruebas_enriquecimiento_s5(t, A) {
     var fu = UI_actualizarSistema.toString();
     A.cierto(fu.indexOf('Act_enriquecerPacientes') === -1, 'sin llamada a enriquecimiento en Actualizar sistema');
     A.cierto(fu.indexOf('Act_diagnosticarEnriquecimiento') === -1, 'sin dry-run en Actualizar sistema');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S11 — Enriquecimiento de datos existentes (EDAD/SEXO) · pruebas A1–A10
+// ---------------------------------------------------------------------------
+
+function _pruebas_enriquecimiento_s11(t, A) {
+  function origen(sexo, nac) {
+    var s = Act_normalizarCandidato('SEXO', sexo);
+    var n = Act_normalizarCandidato('FECHA_NACIMIENTO', nac);
+    return {
+      SEXO: { valor: s, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100', conflicto: false },
+      FECHA_NACIMIENTO: { valor: n, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100', conflicto: false }
+    };
+  }
+  function pac(extra) {
+    var p = { ID_INTERNO: 'EC-X-1', RUT: '15987654-3', NOMBRE: 'ANA TEST', SEXO: '', FECHA_NACIMIENTO: '',
+      TELEFONOS: '', SECTOR: 'AMARILLO', ESTRATIFICACION: '', ESTADO: 'PENDIENTE',
+      FUENTE: 'INGRESO_AMARILLO|INGRESO_AMARILLO|90', FECHA_ACTUALIZACION: null, REQUIERE_REVISION: false };
+    if (extra) Object.keys(extra).forEach(function (k) { p[k] = extra[k]; });
+    return p;
+  }
+
+  t('S11 A1·A4: FECHA_NACIMIENTO completada → EDAD derivada correcta (nunca almacenada)', function () {
+    var p = pac();
+    var r = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha completada desde fuente');
+    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 9)), '35', 'edad antes de cumpleaños');
+    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 10)), '36', 'edad en el cumpleaños');
+    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 11)), '36', '36 tras el cumpleaños');
+    A.igual(Act_camposVacios(p).indexOf('EDAD'), -1, 'EDAD no es campo de enriquecimiento');
+    A.igual(Utl_edadDesde('', new Date(2026, 4, 11)), '', 'sin fecha → sin edad');
+  });
+
+  t('S11 A2: cambio de fecha de nacimiento actualiza la EDAD derivada; no sobrescribe fecha presente', function () {
+    var p = pac();
+    Act_aplicarEnriquecimiento(p, origen('M', '1990-05-10'));
+    var edadAntes = Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 20));
+    p.FECHA_NACIMIENTO = '1980-05-10'; // corrección administrativa del dato
+    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 20)), '46', 'edad sigue la nueva fecha');
+    A.cierto(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 20)) !== edadAntes, 'EDAD derivada cambia');
+    // El enriquecimiento jamás sobrescribe una FECHA_NACIMIENTO ya presente:
+    var r = Act_aplicarEnriquecimiento(p, origen('F', '2000-01-01'));
+    A.igual(r.aplicados.length, 0, 'nada reescrito');
+    A.igual(p.FECHA_NACIMIENTO, '1980-05-10', 'fecha presente intacta');
+  });
+
+  t('S11 A3: fecha futura/inválida no se admite como FECHA_NACIMIENTO', function () {
+    A.igual(Act_normalizarCandidato('FECHA_NACIMIENTO', '2045-01-01'), '', 'más allá de ANO_MAX → no candidato');
+    A.igual(Act_normalizarCandidato('FECHA_NACIMIENTO', '2026-13-40'), '', 'mes/día inválidos → no candidato');
+    A.igual(Utl_edadDesde('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
+    var p = pac();
+    var r = Act_aplicarEnriquecimiento(p, origen('', '2045-01-01'));
+    A.igual(r.aplicados.length, 0, 'sin aplicar con fecha inadmisible');
+    A.igual(p.FECHA_NACIMIENTO, '', 'sigue vacía');
+  });
+
+  t('S11 A5: SEXO explícito válido se completa con valor canónico', function () {
+    [['MASCULINO', 'M'], ['F', 'F'], ['OTRO', 'OTRO']].forEach(function (par) {
+      var p = pac();
+      var r = Act_aplicarEnriquecimiento(p, origen(par[0], ''));
+      A.igual(p.SEXO, par[1], '[' + par[0] + '] → ' + par[1]);
+      A.igual(r.aplicados.length, 1, 'aplicado');
+    });
+  });
+
+  t('S11 A6·A7: SEXO ausente o inválido NO se completa (nunca se infiere)', function () {
+    ['', 'X', 'desconocido', 'NO APLICA', '  '].forEach(function (v) {
+      var p = pac();
+      var r = Act_aplicarEnriquecimiento(p, origen(v, ''));
+      A.igual(r.aplicados.length, 0, 'sin aplicar para [' + v + ']');
+      A.igual(p.SEXO, '', 'SEXO permanece vacío (faltante)');
+    });
+  });
+
+  t('S11 A8: segunda ejecución es idempotente (mismas entradas → sin cambios nuevos)', function () {
+    var p = pac();
+    var o = origen('M', '1985-07-20');
+    var r1 = Act_aplicarEnriquecimiento(p, o);
+    A.igual(r1.aplicados.length, 2, '1ª aplicación SEXO+FECHA');
+    var r2 = Act_aplicarEnriquecimiento(p, o);
+    A.igual(r2.aplicados.length, 0, '2ª ejecución sin cambios');
+    A.igual(Act_appendFuente('A|B|1', ['A|B|1']), 'A|B|1', 'FUENTE no duplica segmentos');
+  });
+
+  t('S11 A9: el enriquecimiento NUNCA crea eventos clínicos', function () {
+    var fu = Act_enriquecerPacientes.toString();
+    A.cierto(fu.indexOf('EVENTOS') === -1, 'Act_enriquecerPacientes no referencia EVENTOS');
+    A.cierto(fu.indexOf('Eventos') === -1, 'sin funciones de eventos');
+    var etapa = Instalar_pEnriquecimiento.toString();
+    A.cierto(etapa.indexOf('EVENTOS') === -1 && etapa.indexOf('Eventos') === -1, 'etapa sin eventos');
+    A.cierto(INSTALAR_ETAPAS.every(function (e) { return e.id !== 'eventos'; }), 'sin etapa que cree eventos');
+  });
+
+  t('S11 A10: actualización selectiva no duplica pacientes (escritura posicional)', function () {
+    var fu = Act_enriquecerPacientes.toString();
+    A.cierto(fu.indexOf('Utl_escribirBloque') !== -1, 'escritura por bloque posicional');
+    A.cierto(fu.indexOf('appendRow') === -1, 'sin appendRow');
+    A.cierto(fu.indexOf('insertRowAfter') === -1 && fu.indexOf('insertRowsAfter') === -1, 'sin inserción de filas');
+    var p = pac();
+    var res = Act_aplicarEnriquecimiento(p, null);
+    A.igual(res.aplicados.length, 0, 'sin origen → nada escrito ni duplicado');
+    A.igual(p.RUT, '15987654-3', 'un solo registro, intacto');
+  });
+
+  t('S11 UI: Instalar_pEnriquecimiento reporta métricas completas (S11.11)', function () {
+    var etapa = Instalar_pEnriquecimiento.toString();
+    ['totalPacientes', 'revisados', 'enriquecidos', 'aplicados', 'sinCambios',
+     'sinVacias', 'conflictos', 'noEncontrados', 'errores'].forEach(function (k) {
+      A.cierto(etapa.indexOf(k) !== -1, 'reporta ' + k);
+    });
+    var res = Act_enriquecerPacientes.toString();
+    A.cierto(res.indexOf('totalPacientes') !== -1 && res.indexOf('errores') !== -1, 'resumen S11 en el barrido');
+    A.cierto(res.indexOf('sinVacias') !== -1, 'contador sin huecos');
   });
 }

@@ -183,7 +183,16 @@ function mostrarFinal(ok){
   var enr=RESULTADOS.filter(function(x){return x.etapa==='enriquecimiento';})[0];
   var txt='';
   if(datos)txt+='Pacientes: '+datos.pacientes+' · Eventos: '+datos.eventos;
-  if(enr){if(txt)txt+=' · ';txt+='Enriquecidos: '+(enr.enriquecidos||0)+' ('+(enr.aplicados||0)+' campos)';}
+  if(enr){
+    if(txt)txt+=' · ';
+    txt+='Revisados: '+(enr.revisados||0)+'/'+(enr.totalPacientes||0)
+      +' · Actualizados: '+(enr.enriquecidos||0)+' ('+(enr.aplicados||0)+' campos)';
+    if(enr.sinCambios)txt+=' · Sin cambio: '+(enr.sinCambios||0);
+    if(enr.sinVacias)txt+=' · Sin huecos: '+(enr.sinVacias||0);
+    if(enr.conflictos)txt+=' · Revisión: '+(enr.conflictos||0);
+    if(enr.noEncontrados)txt+=' · Sin fuente: '+(enr.noEncontrados||0);
+    txt+=' · Errores: '+(enr.errores||0);
+  }
   document.getElementById('finDatos').textContent=txt;
   var av=document.getElementById('finAvisos');
   if(ERRORES.length){av.style.display='block';

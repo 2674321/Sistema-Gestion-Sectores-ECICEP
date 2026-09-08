@@ -176,20 +176,23 @@ function Act_appendFuente(fuenteActual, fuentesNuevas) {
  * solo campos vacíos con fuente consistente → estampar FUENTE/FECHA → escribir
  * en UNA llamada → trazar por Log. dryRun=true (default) NO escribe nada.
  * @param {Object} opciones {dryRun:boolean, soloRut?:string}
- * @returns {ok, dryRun, revisados, enriquecidos, aplicados, conflictos,
- *            noEncontrados, sinOrigen, sinCambios, detalle:[]}
+ * @returns {ok, dryRun, totalPacientes, revisados, enriquecidos, aplicados,
+ *            sinVacias, conflictos, noEncontrados, sinCambios, errores,
+ *            detalle:[]}
  */
 function Act_enriquecerPacientes(opciones) {
   opciones = opciones || {};
   var dryRun = opciones.dryRun !== false;
   var resumen = {
     ok: true, dryRun: dryRun,
-    revisados: 0, enriquecidos: 0, aplicados: 0,
-    conflictos: 0, noEncontrados: 0, sinCambios: 0,
+    totalPacientes: 0, revisados: 0, sinVacias: 0,
+    enriquecidos: 0, aplicados: 0,
+    conflictos: 0, noEncontrados: 0, sinCambios: 0, errores: 0,
     detalle: []
   };
 
   var pacientes = Modelo_leerPacientes();
+  resumen.totalPacientes = pacientes.length;
   var porRut = Act_leerOrigenesDemograficos();
   var escrituras = []; // {idxDato, paciente}
 
@@ -198,7 +201,7 @@ function Act_enriquecerPacientes(opciones) {
       var solo = Utl_texto(opciones.soloRut).toUpperCase();
       if (Utl_texto(p.RUT).toUpperCase() !== solo) return;
     }
-    if (!Act_camposVacios(p).length) return; // nada que enriquecer
+    if (!Act_camposVacios(p).length) { resumen.sinVacias++; return; } // sin huecos
 
     var origen = porRut[Utl_texto(p.RUT).toUpperCase()];
     if (!origen) { resumen.noEncontrados++; return; }
@@ -238,6 +241,7 @@ function Act_enriquecerPacientes(opciones) {
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) {
       resumen.ok = false;
+      resumen.errores = 1;
       resumen.motivo = 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo;
       return resumen;
     }
@@ -246,8 +250,11 @@ function Act_enriquecerPacientes(opciones) {
       pacientes.map(Modelo_filaDesdeObjeto));
     Log_info('Actualizacion', 'enriquecerPacientes',
       JSON.stringify({
-        dryRun: dryRun, enriquecidos: resumen.enriquecidos,
-        aplicados: resumen.aplicados, conflictos: resumen.conflictos
+        dryRun: dryRun, totalPacientes: resumen.totalPacientes,
+        revisados: resumen.revisados, enriquecidos: resumen.enriquecidos,
+        aplicados: resumen.aplicados, sinCambios: resumen.sinCambios,
+        conflictos: resumen.conflictos, noEncontrados: resumen.noEncontrados,
+        sinVacias: resumen.sinVacias, errores: resumen.errores
       }));
   }
 
@@ -264,11 +271,14 @@ function Act_diagnosticarEnriquecimiento() {
   return {
     campos: CAMPOS_ENRIQUECIMIENTO.slice(),
     resumen: {
+      totalPacientes: resumen.totalPacientes,
       revisados: resumen.revisados,
       enriquecibles: resumen.enriquecidos,
       aplicables: resumen.aplicados,
+      sinCambios: resumen.sinCambios,
       conflictos: resumen.conflictos,
-      sinOrigen: resumen.noEncontrados
+      sinOrigen: resumen.noEncontrados,
+      errores: resumen.errores
     }
   };
 }

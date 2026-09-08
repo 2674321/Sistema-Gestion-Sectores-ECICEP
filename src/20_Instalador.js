@@ -134,20 +134,31 @@ function Instalar_pVerificar() {
   return { ok: true, pacientes: pacientes, eventos: eventos };
 }
 
-/** (S5, DEC-057) Etapa de enriquecimiento demográfico de PACIENTES dentro del
- *  instalador: completa SOLO campos vacíos (SEXO/FECHA_NACIMIENTO) desde
- *  hojas INGRESO_* con fuente consistente; idempotente; no crea pacientes. */
+/** (S5/S11, DEC-057) Etapa de enriquecimiento demográfico de PACIENTES dentro
+ *  del instalador: completa SOLO campos vacíos (SEXO/FECHA_NACIMIENTO) desde
+ *  hojas INGRESO_* con fuente consistente; idempotente; no crea pacientes ni
+ *  eventos. Reporta métricas S11: totalPacientes, revisados, enriquecidos,
+ *  sinCambios, conflictos (requieren revisión), noEncontrados (sin fuente) y
+ *  errores. */
 function Instalar_pEnriquecimiento() {
   var r = Act_enriquecerPacientes({ dryRun: false });
   if (!r || r.ok === false) {
     return { ok: false, linea: (r && r.motivo) ? r.motivo : 'error en enriquecimiento' };
   }
   var lineas = [];
-  if (r.enriquecidos) lineas.push('Completados: ' + r.enriquecidos + ' pacientes (' + r.aplicados + ' campos)');
-  else lineas.push('Nada que enriquecer (campos demográficos ya presentes o sin fuente)');
-  if (r.conflictos) lineas.push('En revisión (fuentes inconsistentes): ' + r.conflictos);
-  return { ok: true, enriquecidos: r.enriquecidos, aplicados: r.aplicados,
-           conflictos: r.conflictos, linea: lineas.join(' · ') };
+  lineas.push('Pacientes revisados: ' + (r.revisados || 0) + ' de ' + (r.totalPacientes || 0));
+  if (r.enriquecidos) lineas.push('Actualizados: ' + r.enriquecidos + ' (' + (r.aplicados || 0) + ' campos)');
+  else lineas.push('Actualizados: sin campos demográficos vacíos con fuente');
+  if (r.sinCambios) lineas.push('Sin cambio: ' + r.sinCambios);
+  if (r.sinVacias) lineas.push('Sin huecos que enriquecer: ' + r.sinVacias);
+  if (r.conflictos) lineas.push('Requieren revisión: ' + r.conflictos);
+  if (r.noEncontrados) lineas.push('Sin fuente (quedan faltantes): ' + r.noEncontrados);
+  lineas.push('Errores: ' + (r.errores || 0));
+  return { ok: true, totalPacientes: r.totalPacientes || 0, revisados: r.revisados || 0,
+           enriquecidos: r.enriquecidos || 0, aplicados: r.aplicados || 0,
+           sinCambios: r.sinCambios || 0, sinVacias: r.sinVacias || 0,
+           conflictos: r.conflictos || 0, noEncontrados: r.noEncontrados || 0,
+           errores: r.errores || 0, linea: lineas.join(' · ') };
 }
 
 /**
