@@ -188,8 +188,9 @@ function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
       return { ok: false, motivo: 'FUENTE_YA_PRESENTE_NO_SE_SOBSSCRIBE', actual: Utl_texto(valores[f][iFuente]) };
     }
     var filaFisica = Modelo_filaFisica(HOJAS.PACIENTES, f - 1);
-    hoja.getRange(filaFisica, iFuente + 1).setValue(fuenteLimpia);
-    if (iRev >= 0) hoja.getRange(filaFisica, iRev + 1).setValue(false);
+    valores[f][iFuente] = fuenteLimpia;
+    if (iRev >= 0) valores[f][iRev] = false;
+    hoja.getRange(filaFisica, 1, 1, valores[f].length).setValues([valores[f]]);
     Log_info('Modelo', 'restaurarFuente',
       'rut=' + rutClave + ' fuente=[' + fuenteLimpia + '] fila=' + filaFisica);
     return { ok: true, fila: filaFisica, id: valores[f][campos.indexOf('ID_INTERNO')],

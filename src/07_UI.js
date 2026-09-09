@@ -1348,11 +1348,12 @@ function api_revisionResolver(indiceHoja, decision) {
     }
     Modelo_agregarEventos([prep.evento], _ingresosUsuarioActual(), contexto);
 
-    // trazabilidad completa
+    // trazabilidad completa (columnas 9-10 contiguas: una escritura)
     var ahora = new Date();
-    hoja.getRange(indiceHoja, 9).setValue('RESUELTO');
-    hoja.getRange(indiceHoja, 10).setValue(_ingresosUsuarioActual() + ' · ' + decision +
-      ' · ' + ahora.toISOString() + ' → ' + destinoId);
+    hoja.getRange(indiceHoja, 9, 1, 2).setValues([
+      ['RESUELTO', _ingresosUsuarioActual() + ' · ' + decision +
+        ' · ' + ahora.toISOString() + ' → ' + destinoId]
+    ]);
 
     // hermanas duplicadas de la MISMA fila origen (idempotencia por origen):
     // se cierran sin reprocesar — la decisión ya se aplicó una sola vez.

@@ -1002,9 +1002,10 @@ function Form_reiniciarRespuesta(responseId) {
     var cEstado = mapa.idx['ESTADO'];
     var cMotivo = mapa.idx['MOTIVO'];
     var cReint = mapa.idx['REINTENTOS'];
-    if (cEstado !== undefined) hoja.getRange(filaFisica, cEstado + 1).setValue('RECIBIDO');
-    if (cReint !== undefined) hoja.getRange(filaFisica, cReint + 1).setValue(0);
-    if (cMotivo !== undefined) hoja.getRange(filaFisica, cMotivo + 1).setValue('');
+    if (cEstado !== undefined) valores[f][cEstado] = 'RECIBIDO';
+    if (cReint !== undefined) valores[f][cReint] = 0;
+    if (cMotivo !== undefined) valores[f][cMotivo] = '';
+    hoja.getRange(filaFisica, 1, 1, valores[f].length).setValues([valores[f]]);
     return { ok: true, fila: filaFisica };
   }
   return { ok: false, motivo: 'NO_ENCONTRADA' };
