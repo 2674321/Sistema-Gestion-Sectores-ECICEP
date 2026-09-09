@@ -857,21 +857,27 @@ function _modelo_sembrarConfig(hoja, res) {
     return esNueva || !existentes[f[0]];
   });
   if (!filas.length) return;
-  // escribir: actualizar VERSION in-situ o agregar nuevas claves
+  // escribir: actualizar VERSION in-situ o agrupar nuevas claves en un bloque
+  var pendientes = [];
   for (var i = 0; i < filas.length; i++) {
     if (filas[i][0] === 'VERSION' && !esNueva && hoja.getLastRow() > 1) {
       // buscar fila de VERSION existente y actualizar valor
       var datos = Utl_leerBloque(hoja);
+      var actualizado = false;
       for (var r = 1; r < datos.length; r++) {
-        if (datos[r][0] === 'VERSION') { hoja.getRange(r+1, 2).setValue(filas[i][1]); break; }
+        if (datos[r][0] === 'VERSION') { hoja.getRange(r+1, 2).setValue(filas[i][1]); actualizado = true; break; }
       }
+      if (!actualizado) pendientes.push(filas[i]);
     } else {
-      hoja.getRange(hoja.getLastRow() + 1, 1, 1, 3).setValues([filas[i]]);
+      pendientes.push(filas[i]);
       if (res) {
         if (!res.configActualizadas) res.configActualizadas = [];
         res.configActualizadas.push(filas[i][0]);
       }
     }
+  }
+  if (pendientes.length) {
+    hoja.getRange(hoja.getLastRow() + 1, 1, pendientes.length, 3).setValues(pendientes);
   }
 }
 

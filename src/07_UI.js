@@ -1862,10 +1862,9 @@ function _pruS_validaciones() {
       total++;
       var col = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
       var ini = Modelo_dataStartRow(n);
-      var tiene = false;
-      for (var rr = ini; rr <= Math.min(Math.max(h.getLastRow(), ini), ini + 28); rr++) {
-        if (h.getRange(rr, col).getDataValidation()) { tiene = true; break; }
-      }
+      var hasta = Math.min(Math.max(h.getLastRow(), ini), ini + 28);
+      var validaciones = h.getRange(ini, col, hasta - ini + 1, 1).getDataValidations();
+      var tiene = validaciones.some(function (v) { return v[0]; });
       if (tiene) con++; else sin.push(n);
     } catch (eI) { sin.push(n + ' (error: ' + (eI && eI.message || eI) + ')'); }
   });
