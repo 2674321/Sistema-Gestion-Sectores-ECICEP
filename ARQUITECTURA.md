@@ -241,6 +241,14 @@ Cero colores literales fuera de la configuración (verificado por grep).
   App declara `data-ecicep-fuentes="sora"` (solo Sora, que usa para el título;
   no usa Inter) y `"none"` desactiva las webfonts. Evita descargar familias no
   usadas en el canal móvil de captura.
+- **Carga diferida de la librería QR**: `CapturaWeb.html` incluye la librería
+  `qrcode` (~56 KB) en un bloque `<script type="text/plain" id="qrLibSrc">` que
+  el navegador **no compila al cargar**; `_cargarLibQR()` lo inyecta como
+  `<script>` real la primera vez que se abre el overlay QR (compartir/descargar).
+  Reduce el trabajo de parse+compile del arranque de la Web App en el canal
+  móvil sin cambiar el comportamiento: `generarQR` y el botón "Descargar QR"
+  aseguran la carga previa. `QRFormulario.html` (sidebar) conserva su copia
+  propia de la librería.
 
 ## Hojas
 

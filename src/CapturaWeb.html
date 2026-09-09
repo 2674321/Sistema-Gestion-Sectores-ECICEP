@@ -1279,22 +1279,36 @@
   $('qrDescargar').addEventListener('click',function(){
     var url=$('qrUrlBox').textContent;
     if(!url||url==='Cargando...'){toast('Espera a que se cargue el QR','warn');return;}
-    try{
-      var lienzo=document.createElement('canvas');lienzo.width=512;lienzo.height=512;
-      generarQRCanvas(url,lienzo,512);
-      var a=document.createElement('a');
-      a.href=lienzo.toDataURL('image/png');
-      a.download='QR_EICEP_Formulario_Captura.png';
-      document.body.appendChild(a);a.click();document.body.removeChild(a);
-      toast('QR descargado','ok');
-    }catch(e){
-      console.error('[QR] descarga fallo:',e);
-      toast('No fue posible descargar la imagen','err');
-    }
+    _cargarLibQR(function(){
+      try{
+        var lienzo=document.createElement('canvas');lienzo.width=512;lienzo.height=512;
+        generarQRCanvas(url,lienzo,512);
+        var a=document.createElement('a');
+        a.href=lienzo.toDataURL('image/png');
+        a.download='QR_EICEP_Formulario_Captura.png';
+        document.body.appendChild(a);a.click();document.body.removeChild(a);
+        toast('QR descargado','ok');
+      }catch(e){
+        console.error('[QR] descarga fallo:',e);
+        toast('No fue posible descargar la imagen','err');
+      }
+    });
   });
 
   /* ── QR Encoder (reutiliza libreria estandar del proyecto) ── */
   var ECICEP_WEBAPP_URL='';
+  function _cargarLibQR(cb){
+    if(typeof qrcode!=='undefined'){if(cb)cb();return;}
+    var src=document.getElementById('qrLibSrc');
+    if(!src){if(cb)cb();return;}
+    try{
+      var s=document.createElement('script');
+      s.textContent=src.textContent||src.innerHTML;
+      src.parentNode.removeChild(src);
+      (document.head||document.body||document.documentElement).appendChild(s);
+    }catch(e){}
+    if(cb)cb();
+  }
   function generarQRCanvas(url, cv){
     if(!cv)return;
     var ctx=cv.getContext('2d');
@@ -1319,17 +1333,19 @@
       $('qrUrlBox').innerHTML='<span style="color:var(--c-err)">No fue posible generar el código QR. Puedes utilizar "Copiar enlace".</span>';
       return;
     }
-    if(typeof qrcode==='undefined'){
-      console.error('[QR] qrcode library not loaded');
-      $('qrUrlBox').innerHTML='<span style="color:var(--c-err)">Error: librería QR no disponible. Puedes utilizar "Copiar enlace".</span>';
-      return;
-    }
-    try{
-      generarQRCanvas(url,$('qrCanvas'));
-    }catch(e){
-      console.error('[QR] generation failed:',e);
-      $('qrUrlBox').innerHTML='<span style="color:var(--c-err)">Error al generar QR: '+_esc(String(e))+'. Puedes utilizar "Copiar enlace".</span>';
-    }
+    _cargarLibQR(function(){
+      if(typeof qrcode==='undefined'){
+        console.error('[QR] qrcode library not loaded');
+        $('qrUrlBox').innerHTML='<span style="color:var(--c-err)">Error: librería QR no disponible. Puedes utilizar "Copiar enlace".</span>';
+        return;
+      }
+      try{
+        generarQRCanvas(url,$('qrCanvas'));
+      }catch(e){
+        console.error('[QR] generation failed:',e);
+        $('qrUrlBox').innerHTML='<span style="color:var(--c-err)">Error al generar QR: '+_esc(String(e))+'. Puedes utilizar "Copiar enlace".</span>';
+      }
+    });
   }
 
   /* ── Eventos ── */
@@ -1387,7 +1403,9 @@
 })();
 </script>
 
-<script>
+<!-- Librería QR diferida: no se compila al cargar la Web App; se inyecta
+     la primera vez que se abre el overlay QR (ver _cargarLibQR). -->
+<script type="text/plain" id="qrLibSrc">
 var qrcode = function() {
 
   //---------------------------------------------------------------------
