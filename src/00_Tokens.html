@@ -380,12 +380,23 @@ var ECICEP_guia = (function () {
     document.removeEventListener('keydown', activa._key);
     window.removeEventListener('scroll', activa._pos, true);
     window.removeEventListener('resize', activa._pos);
+    var bt = activa.trigger;
     activa = null;
+    /* Accesibilidad: restaurar el foco al elemento que abrió la guía y
+       marcar su estado de expansión ARIA, si lo expone. */
+    if (bt && typeof bt.focus === 'function') {
+      try { bt.setAttribute('aria-expanded', 'false'); } catch (e) {}
+      try { bt.focus(); } catch (e) {}
+    }
   }
   function abrir(pasos, opts) {
     if (!pasos || !pasos.length) return;
     if (activa) cerrar();
     opts = opts || {};
+    /* Trigger: elemento que abrió la guía (para restablecer foco/ARIA al cerrar). */
+    var trigger = null;
+    try { if (document.activeElement && document.activeElement.focus) trigger = document.activeElement; } catch (e) {}
+    if (trigger) { try { trigger.setAttribute('aria-expanded', 'true'); } catch (e) {} }
     var i = 0;
     var mask = _el('div', 'guia-mask on');
     var spot = _el('div', 'guia-spot'); spot.style.display = 'none';
@@ -656,7 +667,7 @@ var ECICEP_guia = (function () {
     mask.addEventListener('click', function (e) { if (e.target === mask) cerrar(); });
     var _key = function (e) { if (e.key === 'Escape') { cerrar(); } };
     var _pos = function () { if (activa) { posicionar(); } };
-    activa = { mask: mask, _key: _key, _pos: _pos, sync: { limpiar: function () {
+    activa = { mask: mask, _key: _key, _pos: _pos, trigger: trigger, sync: { limpiar: function () {
       limpiadores.forEach(function (fn) { try { fn(); } catch (e) {} });
       limpiadores = [];
     } }, ctl: null };

@@ -451,7 +451,7 @@
         <p>Aplicaci&oacute;n de captura de datos</p>
       </div>
       <div class="hdr-actions">
-        <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" title="Guía de uso">
+        <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" aria-haspopup="dialog" title="Guía de uso">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
           <span>Guía</span>
         </button>
@@ -807,7 +807,7 @@
 
   function toggleDupla () {
     duplaVisible = !duplaVisible;
-    if (duplaVisible) { $('duplaP2').classList.add('show'); }
+    if (duplaVisible) { $('duplaP2').classList.add('show'); $('profesional2').focus(); }
     else { $('duplaP2').classList.remove('show'); $('profesional2').value = ''; }
     $('duplaToggle').textContent = duplaVisible ? '\u2212 Quitar segundo profesional' : '+ Agregar segundo profesional';
     $('duplaToggle').setAttribute('aria-expanded', String(duplaVisible));
@@ -927,6 +927,17 @@
   }
 
   // ---------- limpiar / nueva ----------
+  function formTieneDatos () {
+    return ['rut', 'nombre', 'fnac', 'fingreso', 'fecha_evento', 'telefonos', 'obs',
+      'sector', 'estrat', 'sexo', 'profesional', 'profesional2']
+      .some(function (id) { return ($(id).value || '').trim(); });
+  }
+  window.addEventListener('beforeunload', function (e) {
+    // Misma protección que el canal real: no perder una captura a medio llenar.
+    if (!formTieneDatos()) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
   function limpiarFormulario () {
     ['rut', 'nombre', 'sexo', 'fnac', 'fingreso', 'estrat', 'telefonos', 'fecha_evento', 'obs'].forEach(function (id) {
       $(id).value = '';
@@ -1113,11 +1124,19 @@
       document.removeEventListener('keydown', activa._key);
       window.removeEventListener('scroll', activa._pos, true);
       window.removeEventListener('resize', activa._pos);
+      var bt = activa.trigger;
       activa = null;
+      if (bt && typeof bt.focus === 'function') {
+        try { bt.setAttribute('aria-expanded', 'false'); } catch (e) {}
+        try { bt.focus(); } catch (e) {}
+      }
     }
     function abrir (pasos) {
       if (!pasos || !pasos.length) return;
       if (activa) cerrar();
+      var trigger = null;
+      try { if (document.activeElement && document.activeElement.focus) trigger = document.activeElement; } catch (e) {}
+      if (trigger) { try { trigger.setAttribute('aria-expanded', 'true'); } catch (e) {} }
       var i = 0;
       var mask = _el('div', 'guia-mask on');
       var spot = _el('div', 'guia-spot'); spot.style.display = 'none';
@@ -1379,7 +1398,7 @@
       mask.addEventListener('click', function (e) { if (e.target === mask) cerrar(); });
       var _key = function (e) { if (e.key === 'Escape') { cerrar(); } };
       var _pos = function () { if (activa) { posicionar(); } };
-      activa = { mask: mask, _key: _key, _pos: _pos, sync: { limpiar: function () {
+      activa = { mask: mask, _key: _key, _pos: _pos, trigger: trigger, sync: { limpiar: function () {
         limpiadores.forEach(function (fn) { try { fn(); } catch (e) {} });
         limpiadores = [];
       } }, ctl: null };

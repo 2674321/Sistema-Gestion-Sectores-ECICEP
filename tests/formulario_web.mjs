@@ -123,7 +123,9 @@ function clearTimeout(id) { timers.delete(id); }
 const sandbox = {
   console, JSON, Date, Math, RegExp, Object, Array, String, Number, Boolean, Error,
   parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent,
-  document, window: null, localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+  document, window: null,
+  addEventListener() {}, removeEventListener() {},
+  localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
   google: { script: { run: gsr } },
   setTimeout, clearTimeout,
   RPC_CALLOUTS: rpcCalls,

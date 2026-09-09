@@ -365,7 +365,7 @@
         <p>Aplicaci&oacute;n de captura de datos</p>
       </div>
       <div class="hdr-actions">
-        <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" title="Guía de uso">
+        <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" aria-haspopup="dialog" title="Guía de uso">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
           <span>Guía</span>
         </button>
@@ -752,6 +752,7 @@
       :'+ Agregar segundo profesional';
     $('duplaToggle').setAttribute('aria-expanded',duplaVisible);
     if(!duplaVisible){$('profesional2').value='';limpiarError('profesional2');}
+    else{$('profesional2').focus();}
   }
 
   function pintarCampos(){
@@ -1122,9 +1123,23 @@
   }
 
   function formTieneDatos(){
-    return ($('rut').value||'').trim()||($('nombre').value||'').trim()||
-      ($('profesional').value||'').trim()||($('obs').value||'').trim();
+    return ['rut','nombre','fnac','fingreso','fecha_evento','telefonos','obs',
+      'sector','estrat','sexo','profesional','profesional2']
+      .some(function(id){return ($(id).value||'').trim();});
   }
+
+  function capturaEnProgreso(){
+    if(_enviando) return true;
+    return formTieneDatos();
+  }
+  window.addEventListener('beforeunload',function(e){
+    /* Protege la captura clínica: no perder un registro a medio llenar al
+       recargar o cerrar la pestaña. Se desactiva solo al limpiar o tras
+       enviar (PROCESADO) porque formTieneDatos() queda vacío. */
+    if(!capturaEnProgreso()) return;
+    e.preventDefault();
+    e.returnValue='';
+  });
 
   function actualizarLimpiar(){
     $('btnLimpiar').classList.toggle('show',formTieneDatos());

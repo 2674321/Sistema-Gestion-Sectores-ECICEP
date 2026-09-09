@@ -249,6 +249,14 @@ Cero colores literales fuera de la configuración (verificado por grep).
   móvil sin cambiar el comportamiento: `generarQR` y el botón "Descargar QR"
   aseguran la carga previa. `QRFormulario.html` (sidebar) conserva su copia
   propia de la librería.
+- **Protección de captura en curso**: `CapturaWeb.html` registra un
+  `beforeunload` que avisa al recargar/cerrar la pestaña si hay una captura a
+  medio llenar (`capturaEnProgreso()` = envío en curso o `formTieneDatos()`),
+  evitando perder un registro clínico en el canal móvil. Se desactiva solo al
+  limpiar o tras un envío PROCESADO (el formulario queda vacío). El botón
+  "Limpiar" y su estado visible usan la misma `formTieneDatos()`, ampliada a
+  **todos** los campos (antes solo RUT/nombre/profesional/obs). Al abrir la
+  dupla, el foco se mueve al segundo profesional (`aria-expanded` coherente).
 - **Guía interactiva**: motor reutilizable `ECICEP_guia` en `00_Tokens.html`
   (CSS `.guia-*` + JS). Toma pasos `{sel, titulo, texto, sugerencia, puntos,
   replicas, replicasCondicionales, modoInformativo}`. Atenuación **parcial**
@@ -271,8 +279,10 @@ Cero colores literales fuera de la configuración (verificado por grep).
   vivo el valor (incluye las réplicas condicionales visibles). La guía recorre
   los 4 tipos de formulario (Nuevo ingreso/Control/Seguimiento/Actualizar),
   la dupla, los campos y **Compartir por QR** antes de Enviar. Se invoca desde
-  `#btnGuia` en `CapturaWeb.html` (17 pasos) y en el demo
-  `examples/formulario_demo.html` (motor y pasos equivalentes a producción).
+  `#btnGuia` (con `aria-haspopup="dialog"`) en `CapturaWeb.html` (17 pasos) y en
+  el demo `examples/formulario_demo.html` (motor y pasos equivalentes a
+  producción). Accesibilidad: al abrir marca `aria-expanded="true"` en el
+  botón disparador y restaura foco + `aria-expanded="false"` al cerrar.
   Excluida del anti doble-clic global (`.guia-panel`). No-op sin pasos, sin
   `document`, o si ya hay una guía en curso.
 

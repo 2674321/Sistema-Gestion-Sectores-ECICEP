@@ -34,6 +34,19 @@ jobs:
             rm -f "$tmp"
           done
 
+      - name: Sin datos personales en el repositorio
+        run: |
+          set -e
+          banned=$(find . -not -path './.git/*' -not -path './datos_prueba/*' \
+            -not -path './node_modules/*' \
+            \( -name '*.xlsx' -o -name '*.xls' -o -name '*.csv' \) | sort)
+          if [ -n "$banned" ]; then
+            echo "ERROR: Se detectaron archivos de datos potencialmente reales versionados:"
+            echo "$banned"
+            exit 1
+          fi
+          echo "OK: sin archivos de datos fuera de datos_prueba/"
+
       - name: Batería núcleo
         run: node tests/ejecutar_local.mjs
 
