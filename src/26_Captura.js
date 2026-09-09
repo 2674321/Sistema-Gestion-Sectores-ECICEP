@@ -950,12 +950,13 @@ function Captura_v2_buscarMarcaEnHoja(nombreHoja, marca) {
  * relee la fila y verifica por encabezado que FECHA DE INGRESO = fechaIngreso y
  * que el pipeline dejó ESTADO_INGRESO marcado. Devuelve {ok:true} o {ok:false,motivo}.
  */
-function Captura_v2_confirmarEntregaIngreso(nombreHoja, filaFisica, fechaIso) {
+function Captura_v2_confirmarEntregaIngreso(nombreHoja, filaFisica, fechaIso, bloqueReusar) {
   try {
     var hoja = Modelo_hoja(nombreHoja);
     if (!hoja) return { ok: false, motivo: 'HOJA_AUSENTE' };
     var ultimac = Math.min(hoja.getLastColumn(), 40);
-    var bloque = hoja.getRange(1, 1, hoja.getLastRow(), ultimac).getValues();
+    var bloque = (bloqueReusar && bloqueReusar.length) ? bloqueReusar
+      : hoja.getRange(1, 1, hoja.getLastRow(), ultimac).getValues();
     if (!bloque.length || bloque[0].join('|') == null || bloque[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) {
       return { ok: false, motivo: 'BLOQUE_DESALINEADO' };
     }
@@ -970,7 +971,7 @@ function Captura_v2_confirmarEntregaIngreso(nombreHoja, filaFisica, fechaIso) {
     var okEstado = mapa.estadoIdx >= 0 && Utl_texto(bloque[idx][mapa.estadoIdx]).toUpperCase() !== '';
     if (!okFecha) return { ok: false, motivo: 'FECHA_INGRESO_DIVERGENTE', actual: escrito };
     if (!okEstado) return { ok: false, motivo: 'SIN_ESTADO_PIPELINE' };
-    return { ok: true, fila: filaFisica };
+    return { ok: true, fila: filaFisica, bloque: bloque };
   } catch (e) {
     return { ok: false, motivo: 'EXCEPCION' };
   }
@@ -1045,7 +1046,9 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
       };
     }
 
-    var est = Form_leerFilaIngreso(hojaEntrega, filaFisica);
+    var est = (conf && conf.bloque)
+      ? Form_leerFilaIngresoDesdeBloque(hojaEntrega, filaFisica, conf.bloque)
+      : Form_leerFilaIngreso(hojaEntrega, filaFisica);
     var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
     var idInterno = Captura_v2_buscarIdInternoPorRut(norm.rut);
     return {
