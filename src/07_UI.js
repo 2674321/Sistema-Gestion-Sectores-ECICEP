@@ -1328,7 +1328,11 @@ function api_revisionResolver(indiceHoja, decision) {
   try {
     var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
     if (!hoja) return { ok: false, motivo: 'SIN_HOJA' };
-    var filaVal = hoja.getRange(indiceHoja, 1, 1, 10).getValues()[0];
+    // Lectura única del bloque: la fila del caso y (si aplica) las hermanas del
+    // mismo origen se derivan del mismo getDataRange (una lectura por acción).
+    var bloqueConflictos = Utl_leerBloque(hoja);
+    if (!bloqueConflictos.length) return { ok: false, motivo: 'SIN_DATOS' };
+    var filaVal = bloqueConflictos[indiceHoja - 1] || [];
     if (Utl_texto(filaVal[8]) !== 'ABIERTO') return { ok: false, motivo: 'CONFLICTO_YA_RESUELTO' };
     var datos = JSON.parse(filaVal[5]);
     if (decision !== 'CONFIRMAR_MATCH' && decision !== 'RECHAZAR_MATCH') {
@@ -1361,8 +1365,8 @@ function api_revisionResolver(indiceHoja, decision) {
     var claveOrig = Rev_claveOrigen(datos);
     var hermanas = 0;
     var filasHermana = [];
-    if (claveOrig && hoja.getLastRow() > 1) {
-      Utl_leerBloque(hoja).slice(1).forEach(function (sf, i) {
+    if (claveOrig && bloqueConflictos.length > 1) {
+      bloqueConflictos.slice(1).forEach(function (sf, i) {
         var filaAbs = i + 2;
         if (filaAbs === indiceHoja) return;
         if (Utl_texto(sf[8]) !== 'ABIERTO') return;
@@ -1375,14 +1379,13 @@ function api_revisionResolver(indiceHoja, decision) {
       var usuarioRev = _ingresosUsuarioActual();
       Utl_gruposContiguosFilas(filasHermana).forEach(function (grupo) {
         var n = grupo.length;
-        var est = [], tra = [];
+        // columnas 9-10 contiguas (estado + trazabilidad): un solo setValues
+        var traza2 = [];
         for (var i = 0; i < n; i++) {
-          est.push(['RESUELTO']);
-          tra.push([usuarioRev + ' · ' + decision + ' · ' + ahora.toISOString() +
+          traza2.push(['RESUELTO', usuarioRev + ' · ' + decision + ' · ' + ahora.toISOString() +
             ' → ' + destinoId + ' (hermana del mismo origen)']);
         }
-        hoja.getRange(grupo[0], 9, n, 1).setValues(est);
-        hoja.getRange(grupo[0], 10, n, 1).setValues(tra);
+        hoja.getRange(grupo[0], 9, n, 2).setValues(traza2);
       });
     }
 
