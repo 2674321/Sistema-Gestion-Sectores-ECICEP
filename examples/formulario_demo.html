@@ -379,25 +379,51 @@
   .hidden{display:none!important}
 
   /* ── Guía interactiva (réplica del motor de 00_Tokens: ECICEP_guia) ── */
-  .guia-mask{position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.45);
-    opacity:0;transition:opacity .18s cubic-bezier(.4,0,.2,1)}
+  .guia-mask{position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.14);
+    opacity:0;transition:opacity .2s cubic-bezier(.4,0,.2,1)}
   .guia-mask.on{opacity:1}
-  .guia-card{position:fixed;z-index:2147483001;max-width:min(92vw,356px);background:#fff;
-    border:1px solid #c9ceda;border-radius:16px;box-shadow:0 12px 32px rgba(16,24,40,.14);
-    padding:16px;color:#1c2430;font:400 13px Inter,system-ui,sans-serif;
-    opacity:0;transform:translateY(6px);transition:opacity .18s cubic-bezier(.4,0,.2,1),transform .18s cubic-bezier(.4,0,.2,1)}
-  .guia-card.on{opacity:1;transform:none}
-  .guia-tit{font:600 14px Sora,Inter,sans-serif;margin:0 0 4px;letter-spacing:-.2px}
-  .guia-txt{margin:0 0 12px;color:#5b6472;line-height:1.5}
-  .guia-nav{display:flex;align-items:center;gap:6px}
-  .guia-nav .guia-count{flex:1;font:600 11px Inter;color:#8a93a3;letter-spacing:.04em}
-  .guia-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid #c9ceda;
-    border-radius:6px;background:#fff;color:#1c2430;font:600 12px Inter;padding:6px 12px;cursor:pointer;min-height:32px}
+  .guia-panel{position:fixed;z-index:2147483002;top:24px;right:20px;bottom:24px;
+    width:min(400px,calc(100vw - 40px));display:flex;flex-direction:column;
+    background:#fff;border:1px solid #c9ceda;border-radius:16px;
+    box-shadow:0 24px 48px rgba(16,24,40,.22);color:#1c2430;font:400 13.5px Inter,system-ui,sans-serif;
+    overflow:hidden}
+  .guia-panel.on{animation:guiaIn .2s cubic-bezier(.4,0,.2,1)}
+  @keyframes guiaIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+  .guia-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #eef1f6}
+  .guia-head .guia-count{flex:1;font:600 12px Inter;color:#8a93a3;letter-spacing:.05em}
+  .guia-x{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+    border:1px solid #c9ceda;border-radius:6px;background:#fff;color:#5b6472;font:600 14px Inter;cursor:pointer}
+  .guia-x:hover{background:#f1f3f6}
+  .guia-body{flex:1;overflow-y:auto;padding:16px}
+  .guia-step .guia-tit{font:600 15.5px Sora,Inter,sans-serif;margin:0 0 6px;letter-spacing:-.2px}
+  .guia-step .guia-txt{margin:0 0 14px;color:#5b6472;line-height:1.55}
+  .guia-ctrl{border:1px dashed #c9ceda;border-radius:10px;background:#f6f8fa;padding:12px;
+    display:flex;flex-direction:column;gap:8px}
+  .guia-ctrl-label{font:600 11px Inter;color:#8a93a3;letter-spacing:.06em;text-transform:uppercase}
+  .guia-res{margin-top:12px;padding:10px 12px;border:1px solid #eef1f6;border-radius:10px;background:#fff;
+    display:flex;flex-direction:column;gap:4px}
+  .guia-res-label{font:600 11px Inter;color:#8a93a3;letter-spacing:.06em;text-transform:uppercase}
+  .guia-res-val{font:600 13px Inter;color:#1c2430;word-break:break-word}
+  .guia-nav{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid #eef1f6}
+  .guia-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid #c9ceda;
+    border-radius:6px;background:#fff;color:#1c2430;font:600 12.5px Inter;padding:8px 14px;cursor:pointer;min-height:36px}
   .guia-btn:hover{background:#f1f3f6}
   .guia-btn:disabled{opacity:.45;cursor:not-allowed}
-  .guia-btn-pri{background:#0e5c68;border-color:#0e5c68;color:#fff}
+  .guia-btn-pri{background:#0e5c68;border-color:#0e5c68;color:#fff;flex:1}
   .guia-btn-pri:hover:not(:disabled){background:#08414a}
-  @media(prefers-reduced-motion:reduce){.guia-mask,.guia-card{transition:none}}
+  .guia-spot{position:fixed;z-index:2147483001;pointer-events:none;
+    border:3px solid #0e5c68;border-radius:10px;
+    box-shadow:0 0 18px 2px rgba(14,92,104,.35),0 0 0 200vmax rgba(15,23,42,.06);
+    transition:all .22s cubic-bezier(.4,0,.2,1)}
+  .guia-copy{width:100%;box-sizing:border-box;border:1px solid #c9ceda;border-radius:6px;background:#fff;
+    color:#1c2430;font:400 13.5px Inter;padding:8px 10px;min-height:38px}
+  .guia-copy:focus{outline:2px solid #0e5c68;outline-offset:1px}
+  .guia-copy-lab{display:inline-flex;align-items:center;gap:8px;font:400 13.5px Inter;color:#1c2430;cursor:pointer}
+  .guia-copy-lab input{width:16px;height:16px;accent-color:#0e5c68}
+  @media(max-width:600px){
+    .guia-panel{top:auto;right:8px;left:8px;bottom:8px;width:auto;max-height:78vh}
+  }
+  @media(prefers-reduced-motion:reduce){.guia-mask,.guia-panel,.guia-panel.on{transition:none;animation:none}}
 </style>
 </head>
 <body>
@@ -1016,16 +1042,48 @@
   $('fingreso').value = hoyISO();
   pintarCampos();
 
-  /* ── Guía interactiva (réplica del motor de 00_Tokens) ── */
+/* ── Guía interactiva (réplica del motor de 00_Tokens: ECICEP_guia) ── */
   var ECICEP_guia = (function () {
     var activa = null;
+    var syncLock = false;
     function _el (tag, cls) {
       var e = document.createElement(tag);
       if (cls) e.className = cls;
       return e;
     }
+    function esc (s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function emitir (ctl, ev) {
+      try {
+        ctl.dispatchEvent(new (window.Event || window.CustomEvent)(ev, { bubbles: true }));
+      } catch (e) {
+        try { if (typeof ctl[ev] === 'function') ctl[ev](); } catch (_e) {}
+      }
+    }
+    function esBoton (ctl) {
+      return ctl.tagName === 'BUTTON' || ctl.type === 'submit' || ctl.type === 'button';
+    }
+    function controlObjetivo (paso) {
+      var t = paso.sel ? document.querySelector(paso.sel) : (paso.el || null);
+      if (!t) return null;
+      if (t.tagName && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName)) return t;
+      var c = t.querySelector('select,input,textarea,button');
+      return c || t;
+    }
+    function estadoTexto (ctl) {
+      if (!ctl) return '—';
+      if (esBoton(ctl)) return (ctl.textContent || ctl.value || ctl.getAttribute('aria-label') || 'Botón').trim();
+      if (ctl.tagName === 'SELECT') {
+        var ix = ctl.selectedIndex;
+        return (ix >= 0 && ctl.options && ctl.options[ix]) ? ctl.options[ix].text : '';
+      }
+      return ctl.value || '— vacío —';
+    }
     function cerrar () {
       if (!activa) return;
+      if (activa.sync) activa.sync.limpiar();
       activa.mask.parentNode.removeChild(activa.mask);
       document.removeEventListener('keydown', activa._key);
       window.removeEventListener('scroll', activa._pos, true);
@@ -1037,69 +1095,150 @@
       if (activa) cerrar();
       var i = 0;
       var mask = _el('div', 'guia-mask on');
-      var card = _el('div', 'guia-card on');
-      var spot = _el('div'); spot.style.cssText = 'position:fixed;z-index:2147483002;pointer-events:none;'
-        + 'border:2px solid #0e5c68;border-radius:10px;box-shadow:0 0 0 4px rgba(14,92,104,.18);transition:all .18s;'
-        + 'background:rgba(14,92,104,.06);';
-      card.setAttribute('role', 'dialog');
-      card.setAttribute('aria-modal', 'true');
+      var spot = _el('div', 'guia-spot'); spot.style.display = 'none';
+      var panel = _el('div', 'guia-panel on');
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      var head = _el('div', 'guia-head');
+      var count = _el('span', 'guia-count');
+      var bX = _el('button', 'guia-x'); bX.type = 'button'; bX.setAttribute('aria-label', 'Cerrar guía'); bX.textContent = '✕';
+      head.appendChild(count); head.appendChild(bX);
+      var body = _el('div', 'guia-body');
+      var step = _el('div', 'guia-step');
       var tit = _el('h3', 'guia-tit');
       var txt = _el('p', 'guia-txt');
+      step.appendChild(tit); step.appendChild(txt);
+      var ctrl = _el('div', 'guia-ctrl');
+      var ctrlLab = _el('span', 'guia-ctrl-label'); ctrlLab.textContent = 'Pruébalo aquí';
+      var res = _el('div', 'guia-res');
+      var resLab = _el('span', 'guia-res-label'); resLab.textContent = 'Resultado actual';
+      var resVal = _el('span', 'guia-res-val');
+      res.appendChild(resLab); res.appendChild(resVal);
+      body.appendChild(step); body.appendChild(ctrl); body.appendChild(res);
       var nav = _el('div', 'guia-nav');
-      var count = _el('span', 'guia-count');
       var bPrev = _el('button', 'guia-btn'); bPrev.type = 'button';
-      var bClose = _el('button', 'guia-btn'); bClose.type = 'button';
       var bNext = _el('button', 'guia-btn guia-btn-pri'); bNext.type = 'button';
-      nav.appendChild(bPrev); nav.appendChild(count); nav.appendChild(bClose); nav.appendChild(bNext);
-      card.appendChild(tit); card.appendChild(txt); card.appendChild(nav);
-      mask.appendChild(spot); mask.appendChild(card);
+      nav.appendChild(bPrev); nav.appendChild(bNext);
+      panel.appendChild(head); panel.appendChild(body); panel.appendChild(nav);
+      mask.appendChild(spot); mask.appendChild(panel);
       document.body.appendChild(mask);
 
-      function esc (s) {
-        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      var sync = null;
+      function actualizarResultado () {
+        resVal.textContent = estadoTexto(activa.ctl);
       }
-      function elementoSel () {
-        var paso = pasos[i];
-        return paso.sel ? document.querySelector(paso.sel) : (paso.el || null);
+      function pintarReplica () {
+        if (sync) { sync.limpiar(); sync = null; }
+        while (ctrl.firstChild) ctrl.removeChild(ctrl.firstChild);
+        ctrl.appendChild(ctrlLab);
+        var ctl = activa.ctl = controlObjetivo(pasos[i]);
+        if (!ctl) return;
+        var espejo = null;
+        if (esBoton(ctl)) {
+          espejo = _el('button', 'guia-btn guia-btn-pri');
+          espejo.type = 'button';
+          espejo.textContent = (ctl.textContent || ctl.value || 'Ejecutar').trim();
+          espejo.addEventListener('click', function () { try { ctl.click(); } catch (e) {} });
+          ctrl.appendChild(espejo);
+        } else if (ctl.tagName === 'SELECT') {
+          espejo = _el('select', 'guia-copy');
+          for (var j = 0; j < ctl.options.length; j++) {
+            var o = _el('option');
+            o.value = ctl.options[j].value;
+            o.textContent = ctl.options[j].textContent;
+            espejo.appendChild(o);
+          }
+          espejo.value = ctl.value;
+          espejo.addEventListener('change', function () {
+            if (syncLock) return; syncLock = true;
+            ctl.value = espejo.value; emitir(ctl, 'change'); emitir(ctl, 'input');
+            syncLock = false; actualizarResultado();
+          });
+          ctrl.appendChild(espejo);
+        } else if (ctl.tagName === 'TEXTAREA') {
+          espejo = _el('textarea', 'guia-copy'); espejo.rows = 3;
+          espejo.value = ctl.value;
+          espejo.addEventListener('input', function () {
+            if (syncLock) return; syncLock = true;
+            ctl.value = espejo.value; emitir(ctl, 'input'); emitir(ctl, 'change');
+            syncLock = false; actualizarResultado();
+          });
+          ctrl.appendChild(espejo);
+        } else { /* INPUT */
+          if (ctl.type === 'checkbox') {
+            espejo = _el('label', 'guia-copy-lab');
+            var cb = _el('input'); cb.type = 'checkbox'; cb.checked = ctl.checked;
+            espejo.appendChild(cb);
+            espejo.appendChild(document.createTextNode((ctl.getAttribute('aria-label') || ctl.name || 'Opción').trim()));
+            cb.addEventListener('change', function () {
+              if (syncLock) return; syncLock = true;
+              ctl.checked = cb.checked; emitir(ctl, 'change');
+              syncLock = false; actualizarResultado();
+            });
+            ctrl.appendChild(espejo);
+          } else {
+            espejo = _el('input', 'guia-copy');
+            espejo.type = (ctl.type === 'date' || ctl.type === 'number') ? ctl.type : 'text';
+            espejo.value = ctl.value;
+            espejo.addEventListener('input', function () {
+              if (syncLock) return; syncLock = true;
+              ctl.value = espejo.value; emitir(ctl, 'input'); emitir(ctl, 'change');
+              syncLock = false; actualizarResultado();
+            });
+            ctrl.appendChild(espejo);
+          }
+        }
+        var onReal = function () {
+          if (syncLock || !espejo) return; syncLock = true;
+          try {
+            if (espejo.tagName === 'SELECT') espejo.value = ctl.value;
+            else if (espejo.tagName === 'TEXTAREA') espejo.value = ctl.value;
+            else if (espejo.type === 'checkbox') espejo.checked = ctl.checked;
+            else espejo.value = ctl.value;
+          } catch (e) {}
+          syncLock = false; actualizarResultado();
+        };
+        ctl.addEventListener('input', onReal);
+        ctl.addEventListener('change', onReal);
+        sync = { limpiar: function () {
+          ctl.removeEventListener('input', onReal);
+          ctl.removeEventListener('change', onReal);
+          espejo = null;
+        } };
       }
       function posicionar () {
-        var target = elementoSel();
+        var target = pasos[i].sel ? document.querySelector(pasos[i].sel) : (pasos[i].el || null);
         if (!target || !target.getBoundingClientRect) { spot.style.display = 'none'; return; }
         var r = target.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) { spot.style.display = 'none'; return; }
         spot.style.display = 'block';
-        spot.style.left = (r.left - 4) + 'px';
-        spot.style.top = (r.top - 4) + 'px';
-        spot.style.width = (r.width + 8) + 'px';
-        spot.style.height = (r.height + 8) + 'px';
-        var ch = card.offsetHeight || 120;
-        var top = r.bottom + 14;
-        if (top + ch > window.innerHeight) top = Math.max(12, r.top - ch - 14);
-        card.style.left = (Math.min(Math.max(12, r.left), Math.max(12, window.innerWidth - 368))) + 'px';
-        card.style.top = top + 'px';
+        spot.style.left = (r.left - 5) + 'px';
+        spot.style.top = (r.top - 5) + 'px';
+        spot.style.width = (r.width + 10) + 'px';
+        spot.style.height = (r.height + 10) + 'px';
       }
       function pintar () {
         var paso = pasos[i];
-        tit.textContent = esc(paso.titulo || 'Paso ' + (i + 1));
-        txt.textContent = esc(paso.texto || '');
         count.textContent = (i + 1) + ' / ' + pasos.length;
-        bPrev.textContent = 'Atrás'; bPrev.disabled = i === 0;
-        bClose.textContent = 'Cerrar';
-        bNext.textContent = (i === pasos.length - 1) ? 'Terminar' : 'Siguiente';
-        var target = elementoSel();
+        tit.textContent = paso.titulo || ('Paso ' + (i + 1));
+        txt.textContent = paso.texto || '';
+        bPrev.textContent = '← Atrás'; bPrev.disabled = i === 0;
+        bNext.textContent = (i === pasos.length - 1) ? 'Terminar ✓' : 'Siguiente →';
+        var target = paso.sel ? document.querySelector(paso.sel) : (paso.el || null);
         if (target) { try { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+        pintarReplica();
+        actualizarResultado();
         posicionar();
       }
       function nxt () { if (i < pasos.length - 1) { i++; pintar(); } else cerrar(); }
       function prv () { if (i > 0) { i--; pintar(); } }
       bNext.addEventListener('click', nxt);
       bPrev.addEventListener('click', prv);
-      bClose.addEventListener('click', cerrar);
+      bX.addEventListener('click', cerrar);
       mask.addEventListener('click', function (e) { if (e.target === mask) cerrar(); });
-      var _key = function (e) { if (e.key === 'Escape') cerrar(); };
-      var _pos = function () { if (activa) posicionar(); };
-      activa = { mask: mask, _key: _key, _pos: _pos };
+      var _key = function (e) { if (e.key === 'Escape') { cerrar(); } };
+      var _pos = function () { if (activa) { posicionar(); } };
+      activa = { mask: mask, _key: _key, _pos: _pos, sync: null, ctl: null };
       document.addEventListener('keydown', _key);
       window.addEventListener('scroll', _pos, true);
       window.addEventListener('resize', _pos);

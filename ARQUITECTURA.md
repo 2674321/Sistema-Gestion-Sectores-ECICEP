@@ -250,12 +250,18 @@ Cero colores literales fuera de la configuración (verificado por grep).
   aseguran la carga previa. `QRFormulario.html` (sidebar) conserva su copia
   propia de la librería.
 - **Guía interactiva**: motor reutilizable `ECICEP_guia` en `00_Tokens.html`
-  (CSS `.guia-*` + JS). Toma un arreglo de pasos `{sel, titulo, texto}` y
-  muestra un resaltado (mask + spotlight) sobre cada selector con tarjeta de
-  navegación Atrás/Siguiente/Cerrar y cierre por `Escape`/clic fuera. Se invoca
-  desde `#btnGuia` en `CapturaWeb.html` (12 pasos sobre el formulario) y en el
-  demo `examples/formulario_demo.html` (réplica estática del motor). No-op sin
-  pasos, sin `document`, o si ya hay una guía en curso.
+  (CSS `.guia-*` + JS). Toma pasos `{sel, titulo, texto}`. Atenuación **parcial**
+  (mask clara `rgba(15,23,42,.14)` + spotlight de color sobre el objetivo) en
+  lugar de oscurecer toda la página. Panel lateral derecho (400px, hoja inferior
+  en móvil) con navegación Atrás/Siguiente/Terminar, cierre por `Escape`/clic
+  fuera/`✕`, y una **réplica interactiva bidireccional** del control real:
+  botón replicado (`click` → ejecuta la acción real), selects/campos/textarea
+  espejo (`input`/`change` → se aplican al control real), y bloque
+  "**Resultado actual**" que muestra el valor en vivo. Se invoca desde
+  `#btnGuia` en `CapturaWeb.html` (12 pasos sobre el formulario) y en el demo
+  `examples/formulario_demo.html` (réplica estática del motor). Excluida del
+  anti doble-clic global (`.guia-panel`). No-op sin pasos, sin `document`, o si
+  ya hay una guía en curso.
 
 ## Hojas
 
