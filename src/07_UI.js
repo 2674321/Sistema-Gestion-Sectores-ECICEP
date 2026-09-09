@@ -869,6 +869,26 @@ function _ui_isoFecha(v, tz) {
   return Utl_texto(v).slice(0, 10);
 }
 
+/** CONFIG de controles en UNA lectura de CONFIG: {freq, aviso}.
+ *  Antes cada endpoint leía CONFIG 2 veces: Control_leerFrecuencia() + el
+ *  barrido de AVISO_CONTROL_DIAS. Sin caché módulo: la administración puede
+ *  escribir CONFIG en la misma sesión. Fallback idéntico a la versión doble
+ *  (frecuencia por defecto y aviso=7 cuando CONFIG no existe o no define). */
+function _UI_controlConfig() {
+  var aviso = 7, bloque = [];
+  try {
+    var hC = Modelo_hoja(HOJAS.CONFIG);
+    if (hC && hC.getLastRow() > 1) bloque = Utl_leerBloque(hC);
+  } catch (e) {}
+  var freq = Control_frecuenciaConfig(bloque);
+  if (bloque.length > 1) {
+    bloque.slice(1).forEach(function (f) {
+      if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
+    });
+  }
+  return { freq: freq, aviso: aviso };
+}
+
 /* ---------------------- Panel de Control: controles por persona ---------------------- */
 
 /** Endpoint: consulta "Controles por persona" BAJO DEMANDA y paginada.
@@ -884,16 +904,9 @@ function api_controlPanel(opts) {
     var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
-    var freq = Control_leerFrecuencia();
-    var aviso = 7;
-    try {
-      var hC = Modelo_hoja(HOJAS.CONFIG);
-      if (hC && hC.getLastRow() > 1) {
-        Utl_leerBloque(hC).slice(1).forEach(function (f) {
-          if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
-        });
-      }
-    } catch (e) {}
+    var cfg = _UI_controlConfig();
+    var freq = cfg.freq;
+    var aviso = cfg.aviso;
     var res = Control_consultarControles(pacientes, freq, hoyIso, p, aviso);
     return {
       ok: true,
@@ -977,16 +990,9 @@ function api_diagnosticoControl(dryRun) {
     var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
-    var freq = Control_leerFrecuencia();
-    var aviso = 7;
-    try {
-      var hC = Modelo_hoja(HOJAS.CONFIG);
-      if (hC && hC.getLastRow() > 1) {
-        Utl_leerBloque(hC).slice(1).forEach(function (f) {
-          if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
-        });
-      }
-    } catch (e) {}
+    var cfg = _UI_controlConfig();
+    var freq = cfg.freq;
+    var aviso = cfg.aviso;
     var anal = Control_analizar(pacientes, freq, hoyIso, aviso);
     var panel = Control_filasPanel(pacientes, freq, hoyIso, aviso);
 
@@ -1188,16 +1194,9 @@ function api_ficha(idInterno) {
     try {
       var tz = _UI_tz();
       var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-      var freq = Control_leerFrecuencia();
-      var aviso = 7;
-      try {
-        var hC = Modelo_hoja(HOJAS.CONFIG);
-        if (hC && hC.getLastRow() > 1) {
-          Utl_leerBloque(hC).slice(1).forEach(function (f) {
-            if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
-          });
-        }
-      } catch (e) {}
+      var cfg = _UI_controlConfig();
+      var freq = cfg.freq;
+      var aviso = cfg.aviso;
       var filasSeg = Control_filasPanel([paciente], freq, hoyIso, aviso).filas;
       ficha.seguimiento = (filasSeg && filasSeg[0]) || null;
     } catch (e) {
