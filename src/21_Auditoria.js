@@ -301,16 +301,16 @@ function Aud_renderTexto(secciones) {
  */
 function Auditoria_ejecutar() {
   var t0 = Date.now();
-  var tz = Session.getScriptTimeZone();
+  var tz = _UI_tz();
   var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var avisoDias = 7;
+  var hC = Modelo_hoja(HOJAS.CONFIG);
+  // ÚNICA lectura del bloque de CONFIG (antes se leía dos veces)
+  var configRows = (hC && hC.getLastRow() > 1) ? Utl_leerBloque(hC).slice(1) : [];
   try {
-    var hC = Modelo_hoja(HOJAS.CONFIG);
-    if (hC && hC.getLastRow() > 1) {
-      Utl_leerBloque(hC).slice(1).forEach(function (f) {
-        if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') avisoDias = parseInt(f[1], 10) || 7;
-      });
-    }
+    configRows.forEach(function (f) {
+      if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') avisoDias = parseInt(f[1], 10) || 7;
+    });
   } catch (e) {}
 
   var pacientes = Modelo_leerPacientes();

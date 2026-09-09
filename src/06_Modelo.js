@@ -848,9 +848,10 @@ function _modelo_sembrarConfig(hoja, res) {
   var existentes = {};
   var esNueva = false;
   if (res && res.creadas) esNueva = res.creadas.indexOf(HOJAS.CONFIG) !== -1;
-  if (!esNueva && hoja.getLastRow() > 1) {
-    Utl_leerBloque(hoja).slice(1).forEach(function (f) { existentes[f[0]] = true; });
-  }
+  // única lectura del bloque de CONFIG (memo de filas por invocación)
+  var filasExistentes = [];
+  if (!esNueva && hoja.getLastRow() > 1) filasExistentes = Utl_leerBloque(hoja).slice(1);
+  filasExistentes.forEach(function (f) { existentes[f[0]] = true; });
   var SIEMPRE = ['VERSION', 'DASHBOARD_TITULO']; // migraciones de valores oficiales
   var filas = _CONFIG_SEMILLA.concat(CONFIG_SEED_EXTRA).filter(function (f) {
     if (SIEMPRE.indexOf(f[0]) !== -1) return true;
@@ -860,12 +861,11 @@ function _modelo_sembrarConfig(hoja, res) {
   // escribir: actualizar VERSION in-situ o agrupar nuevas claves en un bloque
   var pendientes = [];
   for (var i = 0; i < filas.length; i++) {
-    if (filas[i][0] === 'VERSION' && !esNueva && hoja.getLastRow() > 1) {
+    if (filas[i][0] === 'VERSION' && filasExistentes.length) {
       // buscar fila de VERSION existente y actualizar valor
-      var datos = Utl_leerBloque(hoja);
       var actualizado = false;
-      for (var r = 1; r < datos.length; r++) {
-        if (datos[r][0] === 'VERSION') { hoja.getRange(r+1, 2).setValue(filas[i][1]); actualizado = true; break; }
+      for (var r = 0; r < filasExistentes.length; r++) {
+        if (filasExistentes[r][0] === 'VERSION') { hoja.getRange(r + 2, 2).setValue(filas[i][1]); actualizado = true; break; }
       }
       if (!actualizado) pendientes.push(filas[i]);
     } else {
