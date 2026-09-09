@@ -32,7 +32,12 @@ Ejecutar los tests que correspondan al alcance:
 ```bash
 node tests/ejecutar_local.mjs
 node tests/aceptacion_formulario.mjs
+node tests/contrato_captura_v2.mjs
+node tests/validar_html.mjs
 ```
+
+`tests/validar_html.mjs` valida la sintaxis de los `<script>` embebidos en los
+HTML (Web App, guía, paneles y demo). Ejecutarlo siempre que se toque un HTML.
 
 El test de aceptación representa el **flujo actual de la Web App**. No debe reinterpretarse como una prueba que requiera Google Forms.
 

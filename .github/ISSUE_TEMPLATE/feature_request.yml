@@ -1,0 +1,43 @@
+name: Mejora o decisión funcional
+description: Solicita una mejora, ajuste de comportamiento o decisión de diseño
+title: "[MEJORA] "
+labels: [mejora]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de reportar, revisa `PENDIENTES.md` y `DECISIONES.md` para evitar
+        duplicar decisiones ya tomadas o pendientes ya registradas.
+  - type: textarea
+    id: situacion
+    attributes:
+      label: Situación actual
+      description: Qué hace hoy el sistema en este punto.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Mejora propuesta
+      description: Qué debería hacer o cómo debería comportarse.
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo
+      options:
+        - Decisión de diseño (requiere registro en DECISIONES.md)
+        - Consulta de negocio / clínica (requiere cliente)
+        - Mejora de interfaz / UX
+        - Optimización / rendimiento
+        - Cobertura de tests / CI
+        - Documentación
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Contexto adicional
+      description: Enlaces, referencias a documentación o notas (sin datos reales).

@@ -37,6 +37,9 @@ jobs:
       - name: Batería núcleo
         run: node tests/ejecutar_local.mjs
 
+      - name: Sintaxis <script> embebidos en HTML (Web App, guía, paneles, demo)
+        run: node tests/validar_html.mjs
+
       - name: Batería aceptación formulario
         run: node tests/aceptacion_formulario.mjs
 

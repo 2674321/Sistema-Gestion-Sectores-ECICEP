@@ -9,6 +9,8 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
+[![Release](https://img.shields.io/badge/release-v0.9.3-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/releases/tag/v0.9.3)
+[![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
 
@@ -174,6 +176,10 @@ Sistema-Gestion-Sectores-ECICEP/
 │   ├── 26_Captura.js      # Backend contrato de captura V2
 │   └── CapturaWeb.html    # Formulario Web App (canal de captura)
 ├── tests/                 # Baterías ejecutables: node tests/*.mjs
+│   ├── ejecutar_local.mjs # Núcleo (552 deterministas)
+│   ├── formulario_web.mjs # Lógica real de CapturaWeb.html (25)
+│   ├── captura_ui_payload_v2.mjs, captura_backend_v2.mjs, contrato_*.mjs…
+│   └── validar_html.mjs   # Sintaxis de <script> embebidos en los HTML
 ├── examples/              # Réplicas/demos (ej. formulario_demo.html)
 ├── tools/                 # push_y_abrir.sh, sync_remoto.py…
 └── docs/                  # Documentación vigente

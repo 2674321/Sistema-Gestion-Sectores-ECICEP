@@ -118,7 +118,10 @@ Ejecutar, según el alcance de la modificación:
 node tests/ejecutar_local.mjs
 node tests/aceptacion_formulario.mjs
 node tests/contrato_captura_v2.mjs
+node tests/validar_html.mjs
 ```
+
+`tests/validar_html.mjs` valida la sintaxis de todos los `<script>` embebidos en los HTML (Web App, guía interactiva, paneles y demo); cierra el hueco del CI que solo revisaba `.js`/`.gs`.
 
 Los tests de aceptación no deben representar el flujo histórico de Google Forms; el contrato de captura vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**), al cual se ajustarán los tests al implementarlo (hasta entonces, la batería existente sigue siendo la red de seguridad).
 

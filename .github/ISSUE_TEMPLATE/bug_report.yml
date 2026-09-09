@@ -1,0 +1,49 @@
+name: Informe de bug
+description: Reporta un comportamiento incorrecto del sistema ECICEP
+title: "[BUG] "
+labels: [bug]
+body:
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción
+      description: Qué se esperaba y qué ocurrió realmente.
+    validations:
+      required: true
+  - type: dropdown
+    id: superficie
+    attributes:
+      label: Superficie
+      description: Dónde se observa el problema.
+      options:
+        - Web App de captura (/exec)
+        - Guía interactiva del formulario
+        - Sidebar / menú (Sheets)
+        - Dashboard / Estadísticas
+        - REM (Excel/PDF)
+        - Instalador / Diagnóstico
+        - Backend / pipeline (datos)
+        - Documentación
+        - Otro
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión / build
+      description: "Versión o build visibles en el sistema (ej. v0.9.3, @108)."
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducir
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Evidencia
+      description: Capturas, mensajes de error o salida de consola, **sin datos reales de pacientes**.
+    validations:
+      required: true
