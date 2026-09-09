@@ -377,6 +377,27 @@
     .status,.qr-modal,.confirm-modal{animation:none!important}
   }
   .hidden{display:none!important}
+
+  /* ── Guía interactiva (réplica del motor de 00_Tokens: ECICEP_guia) ── */
+  .guia-mask{position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.45);
+    opacity:0;transition:opacity .18s cubic-bezier(.4,0,.2,1)}
+  .guia-mask.on{opacity:1}
+  .guia-card{position:fixed;z-index:2147483001;max-width:min(92vw,356px);background:#fff;
+    border:1px solid #c9ceda;border-radius:16px;box-shadow:0 12px 32px rgba(16,24,40,.14);
+    padding:16px;color:#1c2430;font:400 13px Inter,system-ui,sans-serif;
+    opacity:0;transform:translateY(6px);transition:opacity .18s cubic-bezier(.4,0,.2,1),transform .18s cubic-bezier(.4,0,.2,1)}
+  .guia-card.on{opacity:1;transform:none}
+  .guia-tit{font:600 14px Sora,Inter,sans-serif;margin:0 0 4px;letter-spacing:-.2px}
+  .guia-txt{margin:0 0 12px;color:#5b6472;line-height:1.5}
+  .guia-nav{display:flex;align-items:center;gap:6px}
+  .guia-nav .guia-count{flex:1;font:600 11px Inter;color:#8a93a3;letter-spacing:.04em}
+  .guia-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid #c9ceda;
+    border-radius:6px;background:#fff;color:#1c2430;font:600 12px Inter;padding:6px 12px;cursor:pointer;min-height:32px}
+  .guia-btn:hover{background:#f1f3f6}
+  .guia-btn:disabled{opacity:.45;cursor:not-allowed}
+  .guia-btn-pri{background:#0e5c68;border-color:#0e5c68;color:#fff}
+  .guia-btn-pri:hover:not(:disabled){background:#08414a}
+  @media(prefers-reduced-motion:reduce){.guia-mask,.guia-card{transition:none}}
 </style>
 </head>
 <body>
@@ -399,6 +420,10 @@
         <p>Aplicaci&oacute;n de captura de datos</p>
       </div>
       <div class="hdr-actions">
+        <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" title="Guía de uso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          <span>Guía</span>
+        </button>
         <button class="hdr-btn" id="btnCompartir" type="button" aria-label="Compartir formulario" title="Compartir formulario">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           <span>Compartir</span>
@@ -990,6 +1015,129 @@
   // Estado inicial
   $('fingreso').value = hoyISO();
   pintarCampos();
+
+  /* ── Guía interactiva (réplica del motor de 00_Tokens) ── */
+  var ECICEP_guia = (function () {
+    var activa = null;
+    function _el (tag, cls) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      return e;
+    }
+    function cerrar () {
+      if (!activa) return;
+      activa.mask.parentNode.removeChild(activa.mask);
+      document.removeEventListener('keydown', activa._key);
+      window.removeEventListener('scroll', activa._pos, true);
+      window.removeEventListener('resize', activa._pos);
+      activa = null;
+    }
+    function abrir (pasos) {
+      if (!pasos || !pasos.length) return;
+      if (activa) cerrar();
+      var i = 0;
+      var mask = _el('div', 'guia-mask on');
+      var card = _el('div', 'guia-card on');
+      var spot = _el('div'); spot.style.cssText = 'position:fixed;z-index:2147483002;pointer-events:none;'
+        + 'border:2px solid #0e5c68;border-radius:10px;box-shadow:0 0 0 4px rgba(14,92,104,.18);transition:all .18s;'
+        + 'background:rgba(14,92,104,.06);';
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-modal', 'true');
+      var tit = _el('h3', 'guia-tit');
+      var txt = _el('p', 'guia-txt');
+      var nav = _el('div', 'guia-nav');
+      var count = _el('span', 'guia-count');
+      var bPrev = _el('button', 'guia-btn'); bPrev.type = 'button';
+      var bClose = _el('button', 'guia-btn'); bClose.type = 'button';
+      var bNext = _el('button', 'guia-btn guia-btn-pri'); bNext.type = 'button';
+      nav.appendChild(bPrev); nav.appendChild(count); nav.appendChild(bClose); nav.appendChild(bNext);
+      card.appendChild(tit); card.appendChild(txt); card.appendChild(nav);
+      mask.appendChild(spot); mask.appendChild(card);
+      document.body.appendChild(mask);
+
+      function esc (s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function elementoSel () {
+        var paso = pasos[i];
+        return paso.sel ? document.querySelector(paso.sel) : (paso.el || null);
+      }
+      function posicionar () {
+        var target = elementoSel();
+        if (!target || !target.getBoundingClientRect) { spot.style.display = 'none'; return; }
+        var r = target.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) { spot.style.display = 'none'; return; }
+        spot.style.display = 'block';
+        spot.style.left = (r.left - 4) + 'px';
+        spot.style.top = (r.top - 4) + 'px';
+        spot.style.width = (r.width + 8) + 'px';
+        spot.style.height = (r.height + 8) + 'px';
+        var ch = card.offsetHeight || 120;
+        var top = r.bottom + 14;
+        if (top + ch > window.innerHeight) top = Math.max(12, r.top - ch - 14);
+        card.style.left = (Math.min(Math.max(12, r.left), Math.max(12, window.innerWidth - 368))) + 'px';
+        card.style.top = top + 'px';
+      }
+      function pintar () {
+        var paso = pasos[i];
+        tit.textContent = esc(paso.titulo || 'Paso ' + (i + 1));
+        txt.textContent = esc(paso.texto || '');
+        count.textContent = (i + 1) + ' / ' + pasos.length;
+        bPrev.textContent = 'Atrás'; bPrev.disabled = i === 0;
+        bClose.textContent = 'Cerrar';
+        bNext.textContent = (i === pasos.length - 1) ? 'Terminar' : 'Siguiente';
+        var target = elementoSel();
+        if (target) { try { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+        posicionar();
+      }
+      function nxt () { if (i < pasos.length - 1) { i++; pintar(); } else cerrar(); }
+      function prv () { if (i > 0) { i--; pintar(); } }
+      bNext.addEventListener('click', nxt);
+      bPrev.addEventListener('click', prv);
+      bClose.addEventListener('click', cerrar);
+      mask.addEventListener('click', function (e) { if (e.target === mask) cerrar(); });
+      var _key = function (e) { if (e.key === 'Escape') cerrar(); };
+      var _pos = function () { if (activa) posicionar(); };
+      activa = { mask: mask, _key: _key, _pos: _pos };
+      document.addEventListener('keydown', _key);
+      window.addEventListener('scroll', _pos, true);
+      window.addEventListener('resize', _pos);
+      pintar();
+    }
+    return abrir;
+  })();
+
+  var GUIA_PASOS = [
+    { sel: '#secAccion', titulo: 'Tipo de registro',
+      texto: 'Elige qué operación vas a realizar. Cada tipo muestra las secciones que corresponden (identificación, evento, contacto).' },
+    { sel: '#secProf', titulo: 'Equipo de ingreso',
+      texto: 'Selecciona el profesional que registra. La dupla es opcional: pulsa "+ Agregar segundo profesional" cuando corresponda.' },
+    { sel: '#rut', titulo: 'RUT del paciente',
+      texto: 'Ingresa el RUT con formato 12.345.678-9 (solo dígitos o con puntos y guión). Se valida al escribir.' },
+    { sel: '#nombre', titulo: 'Nombre del paciente',
+      texto: 'Nombre completo tal como figura en la ficha. Necesario para identificar la persona en el sector.' },
+    { sel: '#sexo', titulo: 'Sexo registral',
+      texto: 'Indica el sexo registral del paciente. Obligatorio para el perfil de riesgo.' },
+    { sel: '#fnac', titulo: 'Fecha de nacimiento',
+      texto: 'Se usa para calcular la edad y el perfil de riesgo. Rango válido 1900–2040.' },
+    { sel: '#sector', titulo: 'Sector',
+      texto: 'Asigna el sector (Naranjo, Amarillo o Verde) correspondiente a la unidad.' },
+    { sel: '#estrat', titulo: 'Estratificación',
+      texto: 'Nivel de riesgo resultante (G1/G2/G3) o "No aplica". Se pondera según el perfil clínico.' },
+    { sel: '#secEvento', titulo: 'Fecha del evento',
+      texto: 'Fecha de la intervención. Se precompleta con hoy y puede ajustarse.' },
+    { sel: '#secTel', titulo: 'Teléfono de contacto',
+      texto: 'Teléfonos de contacto del paciente (formato +56912345678). Opcional.' },
+    { sel: '#secObs', titulo: 'Observaciones',
+      texto: 'Notas libres sobre la captura. Opcional.' },
+    { sel: '#btnEnviar', titulo: 'Enviar captura',
+      texto: 'Guarda el registro con el contrato de captura V2. Recibirás confirmación e iniciarás una nueva captura.' }
+  ];
+  var bg = document.getElementById('btnGuia');
+  if (bg) bg.addEventListener('click', function () {
+    if (typeof ECICEP_guia === 'function') ECICEP_guia(GUIA_PASOS);
+  });
 })();
 </script>
 </body>

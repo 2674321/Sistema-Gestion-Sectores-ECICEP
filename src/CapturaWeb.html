@@ -365,6 +365,10 @@
         <p>Aplicaci&oacute;n de captura de datos</p>
       </div>
       <div class="hdr-actions">
+        <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" title="Guía de uso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          <span>Guía</span>
+        </button>
         <button class="hdr-btn" id="btnCompartir" type="button" aria-label="Compartir formulario" title="Compartir formulario">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           <span>Compartir</span>
@@ -1400,6 +1404,38 @@
       $('rut').focus();
     })
     .WebApp_estadoInicial();
+
+  /* ── Guía interactiva (motor en 00_Tokens: ECICEP_guia) ── */
+  var GUIA_PASOS = [
+    { sel: '#secAccion', titulo: 'Tipo de registro',
+      texto: 'Elige qué operación vas a realizar. Cada tipo muestra las secciones que corresponden (identificación, evento, contacto).' },
+    { sel: '#secProf', titulo: 'Equipo de ingreso',
+      texto: 'Selecciona el profesional que registra. La dupla es opcional: pulsa "+ Agregar segundo profesional" cuando corresponda.' },
+    { sel: '#rut', titulo: 'RUT del paciente',
+      texto: 'Ingresa el RUT con formato 12.345.678-9 (solo dígitos o con puntos y guión). Se valida al escribir.' },
+    { sel: '#nombre', titulo: 'Nombre del paciente',
+      texto: 'Nombre completo tal como figura en la ficha. Necesario para identificar la persona en el sector.' },
+    { sel: '#sexo', titulo: 'Sexo registral',
+      texto: 'Indica el sexo registral del paciente. Obligatorio para el perfil de riesgo.' },
+    { sel: '#fnac', titulo: 'Fecha de nacimiento',
+      texto: 'Se usa para calcular la edad y el perfil de riesgo. Rango válido 1900–2040.' },
+    { sel: '#sector', titulo: 'Sector',
+      texto: 'Asigna el sector (Naranjo, Amarillo o Verde) correspondiente a la unidad.' },
+    { sel: '#estrat', titulo: 'Estratificación',
+      texto: 'Nivel de riesgo resultante (G1/G2/G3) o "No aplica". Se pondera según el perfil clínico.' },
+    { sel: '#secEvento', titulo: 'Fecha del evento',
+      texto: 'Fecha de la intervención. Se precompleta con hoy y puede ajustarse.' },
+    { sel: '#secTel', titulo: 'Teléfono de contacto',
+      texto: 'Teléfonos de contacto del paciente (formato +56912345678). Opcional.' },
+    { sel: '#secObs', titulo: 'Observaciones',
+      texto: 'Notas libres sobre la captura. Opcional.' },
+    { sel: '#btnEnviar', titulo: 'Enviar captura',
+      texto: 'Guarda el registro con el contrato de captura V2. Recibirás confirmación e iniciarás una nueva captura.' }
+  ];
+  var bg = document.getElementById('btnGuia');
+  if (bg) bg.addEventListener('click', function () {
+    if (typeof ECICEP_guia === 'function') ECICEP_guia(GUIA_PASOS);
+  });
 })();
 </script>
 

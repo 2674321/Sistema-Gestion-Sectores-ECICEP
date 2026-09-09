@@ -123,6 +123,31 @@ html{scroll-behavior:smooth}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 .btn-ok-flash{box-shadow:0 0 0 3px var(--success)!important;border-color:var(--success)!important}
 
+/* ── Guía interactiva (reutilizable). Usar:
+   ECICEP_guia([{sel:'#id', titulo:'...', texto:'...'},...], {autostart:false, volverAlOrigen:true})
+   Recomendado como único paso-opcional con resaltado del elemento. ── */
+.guia-mask{position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.45);
+  opacity:0;transition:opacity .18s var(--ease-in)}
+.guia-mask.on{opacity:1}
+.guia-card{position:fixed;z-index:2147483001;max-width:min(92vw,356px);background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
+  padding:var(--space-4);color:var(--text-primary);font:400 13px 'Inter',system-ui,sans-serif;
+  opacity:0;transform:translateY(6px);transition:opacity .18s var(--ease-in),transform .18s var(--ease-in)}
+.guia-card.on{opacity:1;transform:none}
+.guia-tit{font:600 14px 'Sora','Inter',sans-serif;margin:0 0 var(--space-1);letter-spacing:-.2px}
+.guia-txt{margin:0 0 var(--space-3);color:var(--text-secondary);line-height:1.5}
+.guia-nav{display:flex;align-items:center;gap:6px}
+.guia-nav .guia-count{flex:1;font:600 11px 'Inter';color:var(--text-muted);letter-spacing:.04em}
+.guia-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border-strong);
+  border-radius:var(--radius-sm);background:var(--surface);color:var(--text-primary);
+  font:600 12px 'Inter';padding:6px 12px;cursor:pointer;min-height:32px;transition:background .12s var(--ease-in)}
+.guia-btn:hover{background:var(--surface-alt)}
+.guia-btn:disabled{opacity:.45;cursor:not-allowed}
+.guia-btn-pri{background:var(--primary);border-color:var(--primary);color:#fff}
+.guia-btn-pri:hover:not(:disabled){background:var(--primary-strong)}
+@media(prefers-reduced-motion:reduce){
+  .guia-mask,.guia-card{transition:none}
+}
 </style>
 <script>
 /* Helpers compartidos (vanilla, sin dependencias salvo Lucide opcional) */
@@ -228,7 +253,7 @@ function _restaurarBot(btn){
     if(!btn||btn.disabled)return;
     /* No intervenir en toggles de pestañas/acordeones ni menús externos */
     if(btn.classList.contains('mini-link')
-       ||btn.closest('.opciones-head,.collap-header,details,.tab'))return;
+       ||btn.closest('.opciones-head,.collap-header,details,.tab,.guia-card'))return;
     btn.disabled=true;              /* bloquea doble-clic inmediato */
     setTimeout(function(){         /* re-habilita solo si NADIE gestiona el estado */
       if(btn&&typeof btn._htmlPrev==='undefined'&&!btn.closest('.opciones-head,.collap-header,details,.tab')){
@@ -236,5 +261,108 @@ function _restaurarBot(btn){
       }
     },900);
   },true);
+})();
+
+/* ── Guía interactiva (ECICEP_guia). Reutilizable en cualquier panel:
+ *   ECICEP_guia([
+ *     {sel:'#campoId', titulo:'Paso 1', texto:'Explicación...'}, ...
+ *   ], { volverAlOrigen:true });
+ * Muestra un resaltado (mask + spotlight) sobre cada selector y una tarjeta
+ * con navegación Atrás/Siguiente/Cerrar. No-op si falta pasos, si no hay
+ * document, o si ya hay una guía en curso. */
+var ECICEP_guia = (function () {
+  if (typeof document === 'undefined' || !document.createElement) return function () {};
+  var activa = null;
+  function _el(tag, cls) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    return e;
+  }
+  function cerrar() {
+    if (!activa) return;
+    activa.mask.parentNode.removeChild(activa.mask);
+    document.removeEventListener('keydown', activa._key);
+    window.removeEventListener('scroll', activa._pos, true);
+    window.removeEventListener('resize', activa._pos);
+    activa = null;
+  }
+  function abrir(pasos, opts) {
+    if (!pasos || !pasos.length) return;
+    if (activa) cerrar();
+    opts = opts || {};
+    var i = 0;
+    var mask = _el('div', 'guia-mask on');
+    var card = _el('div', 'guia-card on');
+    var spot = _el('div'); spot.style.cssText = 'position:fixed;z-index:2147483002;pointer-events:none;'
+      + 'border:2px solid var(--primary);border-radius:var(--radius-md);'
+      + 'box-shadow:0 0 0 4px rgba(14,92,104,.18);transition:all .18s var(--ease-in);'
+      + 'background:rgba(14,92,104,.06);';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    var tit = _el('h3', 'guia-tit');
+    var txt = _el('p', 'guia-txt');
+    var nav = _el('div', 'guia-nav');
+    var count = _el('span', 'guia-count');
+    var bPrev = _el('button', 'guia-btn');  bPrev.type = 'button';
+    var bClose = _el('button', 'guia-btn'); bClose.type = 'button';
+    var bNext = _el('button', 'guia-btn guia-btn-pri'); bNext.type = 'button';
+    nav.appendChild(bPrev); nav.appendChild(count); nav.appendChild(bClose); nav.appendChild(bNext);
+    card.appendChild(tit); card.appendChild(txt); card.appendChild(nav);
+    mask.appendChild(spot); mask.appendChild(card);
+    document.body.appendChild(mask);
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function elementoSel() {
+      var paso = pasos[i];
+      return paso.sel ? document.querySelector(paso.sel) : (paso.el || null);
+    }
+    /* Posiciona spot y tarjeta respecto al viewport (position:fixed). No hace
+       scroll: se usa en repintado por pasos y en scroll/resize sin loops. */
+    function posicionar() {
+      var target = elementoSel();
+      if (!target || !target.getBoundingClientRect) { spot.style.display = 'none'; return; }
+      var r = target.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) { spot.style.display = 'none'; return; }
+      spot.style.display = 'block';
+      spot.style.left = (r.left - 4) + 'px';
+      spot.style.top = (r.top - 4) + 'px';
+      spot.style.width = (r.width + 8) + 'px';
+      spot.style.height = (r.height + 8) + 'px';
+      var ch = card.offsetHeight || 120;
+      var top = r.bottom + 14;
+      if (top + ch > window.innerHeight) top = Math.max(12, r.top - ch - 14);
+      card.style.left = (Math.min(Math.max(12, r.left), Math.max(12, window.innerWidth - 368))) + 'px';
+      card.style.top = top + 'px';
+    }
+    function pintar() {
+      var paso = pasos[i];
+      tit.textContent = esc(paso.titulo || 'Paso ' + (i + 1));
+      txt.textContent = esc(paso.texto || '');
+      count.textContent = (i + 1) + ' / ' + pasos.length;
+      bPrev.textContent = 'Atrás'; bPrev.disabled = i === 0;
+      bClose.textContent = 'Cerrar';
+      bNext.textContent = (i === pasos.length - 1) ? 'Terminar' : 'Siguiente';
+      var target = elementoSel();
+      if (target) { try { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+      posicionar();
+    }
+    function nxt() { if (i < pasos.length - 1) { i++; pintar(); } else cerrar(); }
+    function prv() { if (i > 0) { i--; pintar(); } }
+    bNext.addEventListener('click', nxt);
+    bPrev.addEventListener('click', prv);
+    bClose.addEventListener('click', cerrar);
+    mask.addEventListener('click', function (e) { if (e.target === mask) cerrar(); });
+    var _key = function (e) { if (e.key === 'Escape') { cerrar(); } };
+    var _pos = function () { if (activa) { posicionar(); } };
+    activa = { mask: mask, _key: _key, _pos: _pos };
+    document.addEventListener('keydown', _key);
+    window.addEventListener('scroll', _pos, true);
+    window.addEventListener('resize', _pos);
+    pintar();
+  }
+  return abrir;
 })();
 </script>

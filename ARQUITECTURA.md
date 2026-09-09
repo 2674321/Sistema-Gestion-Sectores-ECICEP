@@ -249,6 +249,13 @@ Cero colores literales fuera de la configuración (verificado por grep).
   móvil sin cambiar el comportamiento: `generarQR` y el botón "Descargar QR"
   aseguran la carga previa. `QRFormulario.html` (sidebar) conserva su copia
   propia de la librería.
+- **Guía interactiva**: motor reutilizable `ECICEP_guia` en `00_Tokens.html`
+  (CSS `.guia-*` + JS). Toma un arreglo de pasos `{sel, titulo, texto}` y
+  muestra un resaltado (mask + spotlight) sobre cada selector con tarjeta de
+  navegación Atrás/Siguiente/Cerrar y cierre por `Escape`/clic fuera. Se invoca
+  desde `#btnGuia` en `CapturaWeb.html` (12 pasos sobre el formulario) y en el
+  demo `examples/formulario_demo.html` (réplica estática del motor). No-op sin
+  pasos, sin `document`, o si ya hay una guía en curso.
 
 ## Hojas
 
