@@ -940,7 +940,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
       if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { objetivo = pacientes[i]; idx = i; break; }
     }
     if (!objetivo) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-    var freq = Control_leerFrecuencia();
+    var freq = _UI_controlConfig().freq;
     var evento = {
       ID_EVENTO: Ev_nuevoId(),
       ID_INTERNO: objetivo.ID_INTERNO,
@@ -1251,7 +1251,7 @@ function api_registrarEvento(payload) {
     };
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
 
-    var freqReg = Control_leerFrecuencia();
+    var freqReg = _UI_controlConfig().freq;
     Ingresos_sincronizarCache(objetivo, evento, freqReg);
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
