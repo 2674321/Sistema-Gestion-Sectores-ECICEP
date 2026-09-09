@@ -829,7 +829,7 @@ function Hojas_resetFabrica(conBackup) {
 
 /** GAS: confirmación en dos pasos con palabra clave. */
 function UI_resetFabrica(conBackup) {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var r1 = ui.prompt(
     '⚠️ RESET DE FÁBRICA — Paso 1/2',
     'Esto ELIMINARÁ TODAS las hojas y datos del spreadsheet\n' +

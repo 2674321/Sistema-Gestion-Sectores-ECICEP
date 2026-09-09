@@ -62,7 +62,7 @@ function ECICEP_autorizar() {
   var resumen = '🔑 AUTORIZACIÓN DEL SISTEMA\n\n' + out.join('\n') +
     '\n\nSi todo está ✓, ninguna función volverá a pedir permisos.';
   try {
-    SpreadsheetApp.getUi().alert(resumen);
+    _UI_get().alert(resumen);
   } catch (eSinUi) {
     Logger.log(resumen); // ejecución desde el editor
   }

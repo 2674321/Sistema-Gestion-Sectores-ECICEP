@@ -124,7 +124,7 @@ function _wh_despachar(e) {
 
 /** Menú 🔑: guarda el token compartido (pegarlo también al asistente). */
 function UI_configurarWebhook() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var resp = ui.prompt(
     'ACCESO REMOTO ECICEP',
     'Pega el token acordado con el asistente (mínimo 20 caracteres).\n' +

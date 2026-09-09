@@ -166,3 +166,14 @@ function Utl_toast(tipo, texto, segundos) {
     ss.toast(Utl_toastIcono(tipo) + texto, 'ECICEP', segundos || 6);
   } catch (e) { /* sin UI: silencioso */ }
 }
+
+/** GAS: objeto Ui cacheados por invocación. getUi() es costoso (compila la
+ *  IDE la primera vez); con cachear evitamos RPC repetidos en una ejecución
+ *  (mismo patrón que _MEMO_HOJAS). Devuelve null si no hay UI. */
+var _UI_CACHE = null;
+function _UI_get() {
+  if (!_UI_CACHE && typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp.getUi) {
+    try { _UI_CACHE = SpreadsheetApp.getUi(); } catch (e) { _UI_CACHE = null; }
+  }
+  return _UI_CACHE;
+}

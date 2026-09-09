@@ -12,7 +12,7 @@
  *  desarrollo (Diagnóstico, Centro de Pruebas) no se exponen en el menú operativo. */
 function onOpen() {
   try {
-    var ui = SpreadsheetApp.getUi();
+    var ui = _UI_get();
 
     ui.createMenu('Captura')
       .addItem('Abrir formulario', 'UI_abrirFormularioCaptura')
@@ -69,7 +69,7 @@ function UI_abrirFormularioCaptura() {
     + 'var a=document.createElement("a");a.href="' + url + '";a.target="_blank";'
     + 'document.body.appendChild(a);a.click();google.script.host.close();'
     + '</script></body></html>';
-  SpreadsheetApp.getUi().showModalDialog(
+  _UI_get().showModalDialog(
     HtmlService.createHtmlOutput(html).setWidth(10).setHeight(10),
     'Abriendo formulario...');
 }
@@ -80,14 +80,14 @@ function UI_mostrarQR() {
   var t = HtmlService.createTemplateFromFile('QRFormulario');
   t.QR_URL = url;
   t.WEB_APP_URL = url;
-  SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle('📱 QR — Formulario ECICEP'));
+  _UI_get().showSidebar(t.evaluate().setTitle('📱 QR — Formulario ECICEP'));
 }
 
 /** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
 function UI_instalarSistema() {
   var t = HtmlService.createTemplateFromFile('Instalador');
-  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
-  SpreadsheetApp.getUi().showModalDialog(t.evaluate()
+  t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  _UI_get().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
     'Instalaci\u00f3n del sistema');
 }
@@ -95,7 +95,7 @@ function UI_instalarSistema() {
 /** 📥 Panel de administración del formulario complementario (FormularioPanel.html). */
 function UI_formularioPanel() {
   var t = HtmlService.createTemplateFromFile('FormularioPanel');
-  SpreadsheetApp.getUi().showModalDialog(t.evaluate()
+  _UI_get().showModalDialog(t.evaluate()
     .setTitle('📥 Formularios').setWidth(520).setHeight(520),
     '📥 Formularios');
 }
@@ -104,7 +104,7 @@ function UI_formularioPanel() {
 function UI_instalarDiagnosticar() {
   var r = Instalar_diagnosticar();
   if (!r.ok) {
-    SpreadsheetApp.getUi().alert('Error', r.motivo || 'Error en diagnóstico', SpreadsheetApp.getUi().ButtonSet.OK);
+    _UI_get().alert('Error', r.motivo || 'Error en diagnóstico', _UI_get().ButtonSet.OK);
     return;
   }
   var d = r.diagnostico;
@@ -151,7 +151,7 @@ function UI_instalarDiagnosticar() {
   }
   lineas.push('');
   lineas.push('Para aplicar cambios estructurales: Sistema → Instalar / reparar sistema');
-  SpreadsheetApp.getUi().alert('🔍 Diagnóstico', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+  _UI_get().alert('🔍 Diagnóstico', lineas.join('\n'), _UI_get().ButtonSet.OK);
 }
 
 /** 🔄 Actualizar sistema: actualiza datos derivados y vistas (S12, DEC-058).
@@ -160,7 +160,7 @@ function UI_instalarDiagnosticar() {
  *  Implementación: delega en UI_actualizarTodo() (única lógica, sin copiar).
  *  Estructura/importación/enriquecimiento → "Sistema → Instalar / reparar". */
 function UI_actualizarSistema() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var msg = 'Actualizar sistema\n\n' +
     'Actualiza:\n' +
     '  · vistas (SECTOR_*);\n' +
@@ -198,8 +198,8 @@ function UI_actualizarTodo() {
 /** 📄 Registro del Sistema: visor visual del LOG (la hoja queda interna). */
 function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
-  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
-  SpreadsheetApp.getUi().showModalDialog(t.evaluate().setTitle('Registro del Sistema')
+  t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  _UI_get().showModalDialog(t.evaluate().setTitle('Registro del Sistema')
     .setWidth(1180).setHeight(720), 'Registro del Sistema');
 }
 
@@ -212,7 +212,7 @@ function api_logLeer(limite) {
     var ultima = h.getLastRow();
     var desde = Math.max(2, ultima - max + 1);
     var vals = h.getRange(desde, 1, ultima - desde + 1, Math.min(h.getLastColumn(), 7)).getValues();
-    var tz = Session.getScriptTimeZone();
+    var tz = _UI_tz();
     var registros = vals.map(function (f) {
       return {
         fechaIso: f[0] instanceof Date ? Utilities.formatDate(f[0], tz, 'yyyy-MM-dd HH:mm:ss') : Utl_texto(f[0]),
@@ -246,7 +246,7 @@ function UI_procesarIngresos() {
   if ((r.resultado.revision || 0) > 0) {
     texto += '\n\n⚠ ' + r.resultado.revision + ' caso(s) en la Cola de revisión.';
   }
-  SpreadsheetApp.getUi().alert(texto, SpreadsheetApp.getUi().ButtonSet.OK);
+  _UI_get().alert(texto, _UI_get().ButtonSet.OK);
 }
 
 /** Diagnóstico: por qué fallan los ingresos (encabezados, mapeo, errores). */
@@ -367,9 +367,9 @@ function include(nombre) {
 /** Abre una vista HTML como dialog ancho (dashboard / REM). */
 function _ui_dialogo(nombre, titulo) {
   var t = HtmlService.createTemplateFromFile(nombre);
-  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+  t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
   var html = t.evaluate().setTitle(titulo).setWidth(1180).setHeight(720);
-  SpreadsheetApp.getUi().showModalDialog(html, titulo);
+  _UI_get().showModalDialog(html, titulo);
 }
 
 /** Abre la sidebar en un modo concreto: 'centro' (panel), 'pacientes' (buscador+ficha),
@@ -378,8 +378,8 @@ function _ui_sidebar(modo, titulo, idInicial) {
   var t = HtmlService.createTemplateFromFile('Sidebar');
   t.modo = modo;
   t.ID_INICIAL = idInicial || '';
-  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
-  SpreadsheetApp.getUi().showSidebar(t.evaluate().setTitle(titulo));
+  t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
 
 /** 🏠 Panel de Control: dashboard principal con accesos y estado general. */
@@ -394,8 +394,8 @@ function UI_abrirRevision() { _ui_sidebar('revision', 'Cola de Revisión'); }
 /** 👥 Duplicados por RUT: lista grupos con mismo RUT y permite unir. */
 function UI_duplicados(){
   var r=Api_duplicadosListar();
-  if(!r.ok){ SpreadsheetApp.getUi().alert('Duplicados: '+r.motivo); return; }
-  if(!r.totalGrupos){ SpreadsheetApp.getUi().alert('Duplicados por RUT','Sin duplicados por RUT en PACIENTES.', SpreadsheetApp.getUi().ButtonSet.OK); return; }
+  if(!r.ok){ _UI_get().alert('Duplicados: '+r.motivo); return; }
+  if(!r.totalGrupos){ _UI_get().alert('Duplicados por RUT','Sin duplicados por RUT en PACIENTES.', _UI_get().ButtonSet.OK); return; }
   var msg='Grupos duplicados: '+r.totalGrupos+' ('+r.totalDuplicados+' registros)\n\n';
   r.grupos.slice(0,10).forEach(function(g){
     msg+=g.rut+' x'+g.cantidad+' -> '+g.registros.map(function(x){return x.paciente.NOMBRE.substring(0,20)+'['+x.paciente.ID_INTERNO+']';}).join(' | ')+'\n';
@@ -404,7 +404,7 @@ function UI_duplicados(){
   msg+='\nPara unir: ECICEP > Personas > Duplicados guarda el primero y reasigna eventos de los otros (marca REQUIERE_REVISION). Ejecuta Api_duplicadosUnirPorRut(rut, idConservar) desde script si necesitas elegir.';
   Log_info('Duplicados','listar', JSON.stringify(r.grupos.slice(0,5).map(function(g){return g.rut+':'+g.cantidad;})));
   Log_flush();
-  SpreadsheetApp.getUi().alert('Duplicados por RUT', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+  _UI_get().alert('Duplicados por RUT', msg, _UI_get().ButtonSet.OK);
 }
 
 /** ⚙ Configuración: abre el diálogo de administración. La hoja CONFIG
@@ -417,7 +417,7 @@ function _ui_configuracion(seccion) {
   } catch (e) {}
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
-  SpreadsheetApp.getUi().showModalDialog(t.evaluate()
+  _UI_get().showModalDialog(t.evaluate()
     .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
 }
 
@@ -445,10 +445,10 @@ function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
  *  sector y/o escribe búsqueda. */
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
-  t.BUILD = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+  t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
   var html = t.evaluate().setTitle('Controles por persona')
     .setWidth(840).setHeight(680);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Controles por persona');
+  _UI_get().showModalDialog(html, 'Controles por persona');
 }
 
 /** 🔎 Abre la ficha de una persona directamente (sidebar modo 'ficha'). */
@@ -461,7 +461,7 @@ function UI_abrirFicha(idInterno) {
 /** Endpoint: datos para la vista "Acerca de". */
 function api_acercaDe() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var tz = Session.getScriptTimeZone();
+  var tz = _UI_tz();
   var pacHoja = ss.getSheetByName(HOJAS.PACIENTES);
   var evsHoja = ss.getSheetByName(HOJAS.EVENTOS);
   var pacIni = Modelo_dataStartRow(HOJAS.PACIENTES);
@@ -778,13 +778,13 @@ function api_centroResumen() {
   try {
     var pacientes = Modelo_leerPacientes();
     var eventos = Modelo_leerEventos();
-    var tz = Session.getScriptTimeZone();
+    var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var mesActual = hoyIso.slice(0, 7);
 
     var ingresosHoy = 0, eventosMes = 0;
     var eventosMin = eventos.map(function (e) {
-      var f = _ui_isoFecha(e.FECHA_EVENTO);
+      var f = _ui_isoFecha(e.FECHA_EVENTO, tz);
       if (f === hoyIso && Utl_texto(e.TIPO_EVENTO).toUpperCase() === 'INGRESO') ingresosHoy++;
       if (f.slice(0, 7) === mesActual) eventosMes++;
       return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR), f: f,
@@ -850,9 +850,22 @@ function api_centroResumen() {
   }
 }
 
-/** Fecha → 'YYYY-MM-DD' en zona horaria del proyecto (nunca UTC por defecto). */
-function _ui_isoFecha(v) {
-  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+/** Zona horaria del script cacheada por invocación (getScriptTimeZone() es
+ *  un RPC; cachear la evita en maps masivos sobre pacientes/eventos).
+ *  Mismo patrón que _MEMO_HOJAS y _UI_CACHE. */
+var _TZ_CACHE = '';
+function _UI_tz() {
+  if (!_TZ_CACHE && typeof Session !== 'undefined' && Session.getScriptTimeZone) {
+    try { _TZ_CACHE = Session.getScriptTimeZone(); } catch (e) { _TZ_CACHE = 'America/Santiago'; }
+  }
+  return _TZ_CACHE;
+}
+
+/** Fecha → 'YYYY-MM-DD' en zona horaria del proyecto (nunca UTC por defecto).
+ *  Acepta tz explícito (el del llamador) para evitar reconsultar por fila. */
+function _ui_isoFecha(v, tz) {
+  var t = tz || _UI_tz();
+  if (v instanceof Date) return Utilities.formatDate(v, t, 'yyyy-MM-dd');
   return Utl_texto(v).slice(0, 10);
 }
 
@@ -868,7 +881,7 @@ function api_controlPanel(opts) {
   try {
     var p = opts || {};
     if (typeof p === 'string') p = { sector: p }; // compat con firma antigua
-    var tz = Session.getScriptTimeZone();
+    var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
     var freq = Control_leerFrecuencia();
@@ -961,7 +974,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
  *  alertas de PROXIMO_CONTROL, estado del sector Amarillo y acciones sugeridas. */
 function api_diagnosticoControl(dryRun) {
   try {
-    var tz = Session.getScriptTimeZone();
+    var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientes();
     var freq = Control_leerFrecuencia();
@@ -1173,7 +1186,7 @@ function api_ficha(idInterno) {
     /* Seguimiento y controles consolidados (misma fuente que el Panel).
        Recalcula PRÓXIMO_CONTROL derivado, estado, color y recordatorio. */
     try {
-      var tz = Session.getScriptTimeZone();
+      var tz = _UI_tz();
       var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
       var freq = Control_leerFrecuencia();
       var aviso = 7;
@@ -1343,18 +1356,32 @@ function api_revisionResolver(indiceHoja, decision) {
 
     // hermanas duplicadas de la MISMA fila origen (idempotencia por origen):
     // se cierran sin reprocesar — la decisión ya se aplicó una sola vez.
+    // Escritura por bloques contiguos (regla del proyecto: no celdas en loops).
     var claveOrig = Rev_claveOrigen(datos);
     var hermanas = 0;
+    var filasHermana = [];
     if (claveOrig && hoja.getLastRow() > 1) {
       Utl_leerBloque(hoja).slice(1).forEach(function (sf, i) {
         var filaAbs = i + 2;
         if (filaAbs === indiceHoja) return;
         if (Utl_texto(sf[8]) !== 'ABIERTO') return;
         if (Rev_claveOrigenDesdeFila(sf) !== claveOrig) return;
-        hoja.getRange(filaAbs, 9).setValue('RESUELTO');
-        hoja.getRange(filaAbs, 10).setValue(_ingresosUsuarioActual() + ' · ' + decision +
-          ' · ' + ahora.toISOString() + ' → ' + destinoId + ' (hermana del mismo origen)');
+        filasHermana.push(filaAbs);
         hermanas++;
+      });
+    }
+    if (filasHermana.length) {
+      var usuarioRev = _ingresosUsuarioActual();
+      Utl_gruposContiguosFilas(filasHermana).forEach(function (grupo) {
+        var n = grupo.length;
+        var est = [], tra = [];
+        for (var i = 0; i < n; i++) {
+          est.push(['RESUELTO']);
+          tra.push([usuarioRev + ' · ' + decision + ' · ' + ahora.toISOString() +
+            ' → ' + destinoId + ' (hermana del mismo origen)']);
+        }
+        hoja.getRange(grupo[0], 9, n, 1).setValues(est);
+        hoja.getRange(grupo[0], 10, n, 1).setValues(tra);
       });
     }
 
@@ -1372,7 +1399,7 @@ function api_revisionResolver(indiceHoja, decision) {
 
 /** FASE 4.0 — limpieza segura del dataset ficticio. */
 function UI_vaciarDatosPrueba() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var colecta = Limpieza_colectar();
 
   // cuenta pacientes/eventos afectados ANTES de borrar nada
@@ -1436,7 +1463,7 @@ function UI_analisisCarga() {
   Log_info('UI', 'analisisCarga', JSON.stringify(res));
   Log_flush();
   ss.setActiveSheet(hojaR);
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   ui.alert(
     'ANÁLISIS DE CARGA — DRY RUN (no escribió nada)\n\n' +
     'Registros pendientes: ' + (res.leidos - (res.yaImportadas || 0)) + '\n\n' +
@@ -1445,7 +1472,7 @@ function UI_analisisCarga() {
 }
 
 function UI_ejecutarCarga() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var resp = ui.alert(
     '🚀 EJECUTAR CARGA REAL',
     'Esto escribirá datos REALES en PACIENTES y EVENTOS.\n\n' +
@@ -1477,7 +1504,7 @@ function UI_ejecutarCarga() {
 // ===========================================================================
 
 function UI_recuperarInventario() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var resp = ui.prompt(
     'RECUPERACIÓN — Paso 1: Inventario',
     'Pega el prefijo de fuente a investigar\n(ej: ECICEP NARANJO o PCTS. ECICEP):',
@@ -1499,7 +1526,7 @@ function UI_recuperarInventario() {
 }
 
 function UI_recuperarEjecutar() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   var resp = ui.prompt(
     '⚠️ REVERSIÓN SELECTIVA',
     'Pega el MISMO prefijo de fuente usado en el inventario:',
@@ -1529,7 +1556,7 @@ function UI_recuperarEjecutar() {
 // ===========================================================================
 
 function UI_migrarEsquemaPacientes() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   try {
     var r = Modelo_asegurarEsquemaPacientes();
     if (!r.ok) {
@@ -1566,7 +1593,7 @@ function UI_migrarEsquemaPacientes() {
 
 /** Diagnóstico SOLO LECTURA: detecta FUENTE vacía y cierres indebidos. */
 function UI_diagnosticoTrazabilidad() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = _UI_get();
   try {
     var r = Modelo_diagnosticoTrazabilidad();
     var msg = '🔎 INTEGRIDAD DE TRAZABILIDAD\n\n' +
