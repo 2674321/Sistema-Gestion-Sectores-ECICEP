@@ -245,12 +245,16 @@ function HVis_yaFormateada(hoja) {
     var nombre = hoja.getName();
     var sector = HVis_detectarSectorHoja(nombre);
     var esperado = sector ? ('SECTOR ' + sector) : 'SISTEMA ECICEP';
-    if (Utl_claveAlnum(Utl_texto(hoja.getRange(1, 1).getValue())) !== Utl_claveAlnum(esperado)) return false;
-    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
-    if (!hoja.getRange(2, 1, 1, ancho).getValues()[0].some(function (x) { return !Utl_vacio(x); })) return false;
     var hr = Modelo_headerRow(nombre);
     if (hr < 1) return false;
-    var hdr = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+    // LECTURA ÚNICA del bloque completo 1..hr (antes 3 lecturas separadas:
+    // título, fila de secciones y encabezados) → 1 RPC en vez de 3+.
+    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+    var bloque = hoja.getRange(1, 1, hr, ancho).getValues();
+    if (bloque[0] == null || bloque[1] == null) return false;
+    if (Utl_claveAlnum(Utl_texto(bloque[0][0])) !== Utl_claveAlnum(esperado)) return false;
+    if (!bloque[1].some(function (x) { return !Utl_vacio(x); })) return false;
+    var hdr = bloque[hr - 1];
     return hdr.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
   } catch (e) { return false; }
 }
@@ -303,6 +307,7 @@ function HVis_normalizarLayout(hoja) {
       salida.advertencias = advertencias;
       salida.filaEncabezados = hr;
       salida.estado = 'OK';
+      salida.fast = true;
       return salida;
     }
   }
@@ -363,21 +368,47 @@ function HVis_normalizarLayout(hoja) {
     // paleta COLORES_SECCION (familia GENERAL). Mismas propiedades estructurales.
     var familia = HVis_familiaHoja(nombre);
     var rampa = PALETA_SECCION[familia] || null;
+    // BATCH (rendimiento): valores y estilos de TODAS las secciones se aplican
+    // sobre la fila completa en una llamada por propiedad (setValues +
+    // matrices de estilo). Solo los merges quedan individuales: Range.merge
+    // no tiene variante batch en la API clásica.
+    var filaSecciones = [];
+    var bgs = [], tinta = [], pesos = [], tams = [], hAligns = [], vAligns = [];
+    var bTop = [], bBtm = [], bLft = [], bRgt = [], bVer = [], bHor = [];
+    var cBordes = [], eBordes = [];
+    for (var j = 0; j < ultimaCol; j++) {
+      filaSecciones.push('');
+      bgs.push(DESIGN_SYSTEM.SUPERFICIE.residuo);
+      tinta.push(TINTA_SECCION);
+      pesos.push('bold');
+      tams.push(PULIDO_BARRAS.seccion);
+      hAligns.push(DESIGN_SYSTEM.CENTRO);
+      vAligns.push(DESIGN_SYSTEM.MEDIO);
+      bTop.push(false); bBtm.push(false); bLft.push(false); bRgt.push(false);
+      bVer.push(false); bHor.push(false);
+      cBordes.push(DESIGN_SYSTEM.BORDES.seccion);
+      eBordes.push(SpreadsheetApp.BorderStyle.SOLID_THICK);
+    }
+    plan.secciones.forEach(function (sec, ix) {
+      var color = rampa ? rampa.seccion[ix % rampa.seccion.length] : sec.color;
+      for (var c = sec.colInicio; c <= sec.colFin; c++) {
+        if (c === sec.colInicio) filaSecciones[c - 1] = sec.nombre;
+        bgs[c - 1] = color;
+        bBtm[c - 1] = true;
+      }
+    });
+    var rFilaSec = hoja.getRange(plan.seccionesRow, 1, 1, ultimaCol);
+    rFilaSec.setValues([filaSecciones]);
+    rFilaSec.setBackgrounds([bgs]);
+    rFilaSec.setFontColors([tinta]);
+    rFilaSec.setFontWeights([pesos]);
+    rFilaSec.setFontSizes([tams]);
+    rFilaSec.setHorizontalAlignments([hAligns]);
+    rFilaSec.setVerticalAlignments([vAligns]);
+    rFilaSec.setBorders([bTop], [bBtm], [bLft], [bRgt], [bVer], [bHor],
+      [cBordes], [eBordes]);
     plan.secciones.forEach(function (sec) {
-      var rng = hoja.getRange(plan.seccionesRow, sec.colInicio, 1, sec.colFin - sec.colInicio + 1);
-      try { rng.breakApart(); } catch (eB) {}
-      rng.merge();
-      rng.setValue(sec.nombre);
-      rng.setBackground(rampa
-        ? rampa.seccion[plan.secciones.indexOf(sec) % rampa.seccion.length]
-        : sec.color);
-      rng.setFontColor(TINTA_SECCION);
-      rng.setFontWeight('bold');
-      rng.setFontSize(PULIDO_BARRAS.seccion);
-      rng.setHorizontalAlignment(DESIGN_SYSTEM.CENTRO);
-      rng.setVerticalAlignment(DESIGN_SYSTEM.MEDIO);
-      rng.setBorder(false, false, true, false, false, false,
-        DESIGN_SYSTEM.BORDES.seccion, SpreadsheetApp.BorderStyle.SOLID_THICK);
+      hoja.getRange(plan.seccionesRow, sec.colInicio, 1, sec.colFin - sec.colInicio + 1).merge();
       seccionesAplicadas++;
     });
     hoja.setRowHeight(plan.seccionesRow, DESIGN_SYSTEM.ALTURAS.seccion);
@@ -388,16 +419,19 @@ function HVis_normalizarLayout(hoja) {
     var hrEnc = Modelo_headerRow(nombre);
     var filaEncActual = hoja.getRange(hrEnc, 1, 1, ultimaCol).getValues()[0];
     var mapaE = HVis_mapaColumnas(filaEncActual);
+    // BATCH: corregir etiquetas en memoria y escribir TODO en un solo
+    // setValues de la fila (antes un setValue por etiqueta a corregir).
+    var filaCorregida = filaEncActual.slice();
     var correcciones = 0;
     esperadas.forEach(function (c) {
       var idx = mapaE[Utl_texto(c).toUpperCase()];
       if (!idx) return;
       var actual = Utl_texto(filaEncActual[idx - 1]);
       if (Utils_similarEtiqueta(c, actual)) return;
-      hoja.getRange(hrEnc, idx).setValue(c);
+      filaCorregida[idx - 1] = c;
       correcciones++;
     });
-    var filasDatos = Math.max(hoja.getLastRow() - hrEnc, 1);
+    if (correcciones) hoja.getRange(hrEnc, 1, 1, ultimaCol).setValues([filaCorregida]);
     var rngEnc = hoja.getRange(hrEnc, 1, 1, ultimaCol);
     // v0.8.9.6: encabezados UNIFORMES (Parte 6) — una sola especificación
     // PULIDO_ENCABEZADO consumida por 22_HojasVisual y 06_Modelo por igual.
@@ -519,7 +553,7 @@ function HVis_formatearIngresos() {
     if (hoja && hoja.getLastRow() >= Modelo_headerRow(nombre)) {
       var r = HVis_aplicarSecciones(hoja);
       estados[nombre] = r.estado || 'OK';
-      console.log('[PIPE] formatearIngresos ' + nombre + ': ' + (Date.now() - _tHojaF) + 'ms estado=' + estados[nombre] + ' fast=' + HVis_yaFormateada(hoja));
+      console.log('[PIPE] formatearIngresos ' + nombre + ': ' + (Date.now() - _tHojaF) + 'ms estado=' + estados[nombre] + ' fast=' + (r.fast ? 'si' : 'no'));;
     }
   });
   console.log('[PIPE] formatearIngresos total: ' + (Date.now() - _tF) + 'ms');
