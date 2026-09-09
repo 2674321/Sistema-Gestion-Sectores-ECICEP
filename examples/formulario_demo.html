@@ -402,6 +402,9 @@
   .guia-ctrl-label{font:600 11px Inter;color:#8a93a3;letter-spacing:.06em;text-transform:uppercase}
   .guia-sug{margin:0 0 14px;padding:8px 10px;border:1px solid rgba(14,92,104,.18);border-left:3px solid #0e5c68;
     border-radius:8px;background:rgba(14,92,104,.06);color:#5b6472;font:500 12px Inter;line-height:1.5}
+  .guia-info{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .guia-info li{position:relative;padding-left:16px;font:400 12.5px Inter;color:#5b6472;line-height:1.45}
+  .guia-info li::before{content:'';position:absolute;left:0;top:5px;width:6px;height:6px;border-radius:50%;background:#0e5c68}
   .guia-res{margin-top:12px;padding:10px 12px;border:1px solid #eef1f6;border-radius:10px;background:#fff;
     display:flex;flex-direction:column;gap:4px}
   .guia-res-label{font:600 11px Inter;color:#8a93a3;letter-spacing:.06em;text-transform:uppercase}
@@ -1067,6 +1070,17 @@
     function esBoton (ctl) {
       return ctl.tagName === 'BUTTON' || ctl.type === 'submit' || ctl.type === 'button';
     }
+    function esOculto (el) {
+      if (!el || el.nodeType !== 1) return true;
+      var c = el;
+      while (c && c.nodeType === 1) {
+        if (c.hidden) return true;
+        var _cs = (typeof getComputedStyle === 'function') ? getComputedStyle(c) : null;
+        if (_cs && (_cs.display === 'none' || _cs.visibility === 'hidden')) return true;
+        c = c.parentElement;
+      }
+      return false;
+    }
     function nombreOpcion (r) {
       var l = document.querySelector('label[for="' + r.id + '"] .ac-name');
       return l ? l.textContent.trim() : (r.value || r.id);
@@ -1119,7 +1133,8 @@
       var tit = _el('h3', 'guia-tit');
       var txt = _el('p', 'guia-txt');
       var sug = _el('div', 'guia-sug'); sug.style.display = 'none';
-      step.appendChild(tit); step.appendChild(txt); step.appendChild(sug);
+      var info = _el('ul', 'guia-info'); info.style.display = 'none';
+      step.appendChild(tit); step.appendChild(txt); step.appendChild(sug); step.appendChild(info);
       var ctrl = _el('div', 'guia-ctrl');
       var ctrlLab = _el('span', 'guia-ctrl-label'); ctrlLab.textContent = 'Pruébalo aquí';
       var res = _el('div', 'guia-res');
@@ -1138,7 +1153,20 @@
       var limpiadores = limpiadores || [];
       function registrarLimpiador (fn) { limpiadores.push(fn); }
       function actualizarResultado () {
-        resVal.textContent = estadoTexto(activa.ctl);
+        var partes = [];
+        if (activa.ctl) {
+          var base = estadoTexto(activa.ctl);
+          if (base && base !== '—') partes.push(base);
+        }
+        var paso = pasos[i];
+        (paso ? (paso.replicasCondicionales || []) : []).forEach(function (selx) {
+          var ex = document.querySelector(selx);
+          if (ex && ex !== activa.ctl && !esOculto(ex)) {
+            var v = estadoTexto(ex);
+            if (v && v !== '—') partes.push(v);
+          }
+        });
+        resVal.textContent = partes.length ? partes.join(' · ') : '—';
       }
       function construirEspejo (ctl, esPrincipal) {
         if (!ctl) return;
@@ -1192,7 +1220,15 @@
           espejo = _el('button', (cls || 'guia-btn guia-btn-pri').trim());
           espejo.type = 'button';
           espejo.textContent = (ctl.textContent || ctl.value || 'Ejecutar').trim();
-          espejo.addEventListener('click', function () { try { ctl.click(); } catch (e) {} });
+          espejo.addEventListener('click', function () {
+            try { ctl.click(); } catch (e) {}
+            setTimeout(function () {
+              if (!activa) return;
+              pintarReplica();
+              actualizarResultado();
+              posicionar();
+            }, 40);
+          });
           ctrl.appendChild(espejo);
         } else if (ctl.tagName === 'SELECT') {
           espejo = _el('select', 'guia-copy ' + (cls || 'f-input').trim());
@@ -1267,11 +1303,27 @@
         ctrl.appendChild(ctrlLab);
         var paso = pasos[i];
         var principal = controlObjetivo(paso);
-        construirEspejo(principal, true);
-        (paso.replicas || []).forEach(function (selx) {
-          var ex = document.querySelector(selx);
-          if (ex && ex !== principal) construirEspejo(ex, false);
-        });
+        if (paso.modoInformativo) {
+          if (principal) activa.ctl = principal;
+          if (principal && esBoton(principal)) {
+            var ib = _el('button', (principal.className && principal.className.indexOf('guia-') !== 0 ? principal.className : 'guia-btn guia-btn-pri').trim());
+            ib.type = 'button';
+            ib.disabled = true;
+            ib.textContent = (principal.textContent || principal.value || 'Botón').trim();
+            ib.setAttribute('aria-label', (principal.getAttribute('aria-label') || ib.textContent) + ' (vista previa de la guía)');
+            ctrl.appendChild(ib);
+          }
+        } else {
+          construirEspejo(principal, true);
+          (paso.replicas || []).forEach(function (selx) {
+            var ex = document.querySelector(selx);
+            if (ex && ex !== principal) construirEspejo(ex, false);
+          });
+          (paso.replicasCondicionales || []).forEach(function (selx) {
+            var ex = document.querySelector(selx);
+            if (ex && ex !== principal && !esOculto(ex)) construirEspejo(ex, false);
+          });
+        }
       }
       function posicionar () {
         var target = pasos[i].sel ? document.querySelector(pasos[i].sel) : (pasos[i].el || null);
@@ -1299,6 +1351,17 @@
           sug.textContent = '💡 ' + paso.sugerencia;
         } else {
           sug.style.display = 'none';
+        }
+        if (paso.puntos && paso.puntos.length) {
+          while (info.firstChild) info.removeChild(info.firstChild);
+          paso.puntos.forEach(function (p) {
+            var li = _el('li');
+            li.textContent = p;
+            info.appendChild(li);
+          });
+          info.style.display = 'block';
+        } else {
+          info.style.display = 'none';
         }
         bPrev.textContent = '← Atrás'; bPrev.disabled = i === 0;
         bNext.textContent = (i === pasos.length - 1) ? 'Terminar ✓' : 'Siguiente →';
@@ -1346,8 +1409,10 @@
       sugerencia: 'Para corregir teléfono u observaciones sin crear evento.' },
     { sel: '#secProf', titulo: '6 · Equipo de ingreso',
       texto: 'Selecciona el profesional que registra. La dupla es opcional y se agrega con el botón de abajo.',
-      sugerencia: 'Elige primero al profesional principal; la dupla queda opcional.',
-      replicas: ['#duplaToggle'] },
+      sugerencia: 'Elige primero al profesional principal; al añadir la dupla se mostrará el segundo aquí mismo.',
+      puntos: ['El profesional principal es obligatorio', 'La dupla es opcional y aparece con el botón de abajo'],
+      replicas: ['#duplaToggle'],
+      replicasCondicionales: ['#profesional2'] },
     { sel: '#rut', titulo: '7 · RUT del paciente',
       texto: 'Ingresa el RUT con formato 12.345.678-9. Se normaliza y valida al escribir.',
       sugerencia: 'Escribe solo dígitos o con puntos y guión; se valida el dígito verificador.' },
@@ -1375,7 +1440,12 @@
     { sel: '#secObs', titulo: '15 · Observaciones',
       texto: 'Notas libres sobre la captura. Opcional.',
       sugerencia: 'Solo datos clínicos relevantes; evita datos personales innecesarios.' },
-    { sel: '#btnEnviar', titulo: '16 · Enviar captura',
+    { sel: '#btnCompartir', titulo: '16 · Compartir el formulario',
+      texto: 'El botón Compartir genera un código QR con el enlace de este formulario, para escanearlo y abrirlo desde otro celular.',
+      sugerencia: 'La ventana QR permite copiar el enlace o descargar el código como imagen.',
+      puntos: ['El QR apunta al formulario de captura', 'Permite abrir la captura desde otro dispositivo'],
+      modoInformativo: true },
+    { sel: '#btnEnviar', titulo: '17 · Enviar captura',
       texto: 'Guarda el registro con el contrato de captura V2. Recibirás confirmación e iniciarás una nueva captura.',
       sugerencia: 'Revisa identificación y evento antes de enviar; no podrás editarlo después.' }
   ];

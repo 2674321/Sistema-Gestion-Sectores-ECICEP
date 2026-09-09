@@ -151,6 +151,9 @@ html{scroll-behavior:smooth}
 .guia-sug{margin:0 0 14px;padding:8px 10px;border:1px solid rgba(14,92,104,.18);border-left:3px solid var(--primary);
   border-radius:var(--radius-sm);background:rgba(14,92,104,.06);color:var(--text-secondary);
   font:500 12px 'Inter';line-height:1.5}
+.guia-info{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.guia-info li{position:relative;padding-left:16px;font:400 12.5px 'Inter';color:var(--text-secondary);line-height:1.45}
+.guia-info li::before{content:'';position:absolute;left:0;top:5px;width:6px;height:6px;border-radius:50%;background:var(--primary)}
 .guia-ctrl{border:1px dashed var(--border-strong);border-radius:var(--radius-md);
   background:var(--surface-alt);padding:12px;display:flex;flex-direction:column;gap:8px}
 .guia-ctrl-label{font:600 11px 'Inter';color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase}
@@ -334,6 +337,17 @@ var ECICEP_guia = (function () {
   function esBoton(ctl) {
     return ctl.tagName === 'BUTTON' || ctl.type === 'submit' || ctl.type === 'button';
   }
+  function esOculto(el) {
+    if (!el || el.nodeType !== 1) return true;
+    var c = el;
+    while (c && c.nodeType === 1) {
+      if (c.hidden) return true;
+      var _cs = (typeof getComputedStyle === 'function') ? getComputedStyle(c) : null;
+      if (_cs && (_cs.display === 'none' || _cs.visibility === 'hidden')) return true;
+      c = c.parentElement;
+    }
+    return false;
+  }
   function controlObjetivo(paso) {
     var t = paso.sel ? document.querySelector(paso.sel) : (paso.el || null);
     if (!t) return null;
@@ -387,7 +401,8 @@ var ECICEP_guia = (function () {
     var tit = _el('h3', 'guia-tit');
     var txt = _el('p', 'guia-txt');
     var sug = _el('div', 'guia-sug'); sug.style.display = 'none';
-    step.appendChild(tit); step.appendChild(txt); step.appendChild(sug);
+    var info = _el('ul', 'guia-info'); info.style.display = 'none';
+    step.appendChild(tit); step.appendChild(txt); step.appendChild(sug); step.appendChild(info);
     var ctrl = _el('div', 'guia-ctrl');
     var ctrlLab = _el('span', 'guia-ctrl-label'); ctrlLab.textContent = 'Pruébalo aquí';
     var res = _el('div', 'guia-res');
@@ -406,7 +421,20 @@ var ECICEP_guia = (function () {
     var limpiadores = [];
     function registrarLimpiador(fn) { limpiadores.push(fn); }
     function actualizarResultado() {
-      resVal.textContent = estadoTexto(activa.ctl);
+      var partes = [];
+      if (activa.ctl) {
+        var base = estadoTexto(activa.ctl);
+        if (base && base !== '—') partes.push(base);
+      }
+      var paso = pasos[i];
+      (paso ? (paso.replicasCondicionales || []) : []).forEach(function (selx) {
+        var ex = document.querySelector(selx);
+        if (ex && ex !== activa.ctl && !esOculto(ex)) {
+          var v = estadoTexto(ex);
+          if (v && v !== '—') partes.push(v);
+        }
+      });
+      resVal.textContent = partes.length ? partes.join(' · ') : '—';
     }
     function construirEspejo(ctl, esPrincipal) {
       if (!ctl) return;
@@ -462,7 +490,17 @@ var ECICEP_guia = (function () {
         espejo = _el('button', (cls || 'guia-btn guia-btn-pri').trim());
         espejo.type = 'button';
         espejo.textContent = (ctl.textContent || ctl.value || 'Ejecutar').trim();
-        espejo.addEventListener('click', function () { try { ctl.click(); } catch (e) {} });
+        espejo.addEventListener('click', function () {
+          try { ctl.click(); } catch (e) {}
+          /* Tras una acción real (p.ej. mostrar dupla) el layout cambia:
+             re-pintar réplicas y re-alinear el spotlight. */
+          setTimeout(function () {
+            if (!activa) return;
+            pintarReplica();
+            actualizarResultado();
+            posicionar();
+          }, 40);
+        });
         ctrl.appendChild(espejo);
       } else if (ctl.tagName === 'SELECT') {
         espejo = _el('select', 'guia-copy ' + (cls || 'f-input').trim());
@@ -538,11 +576,31 @@ var ECICEP_guia = (function () {
       ctrl.appendChild(ctrlLab);
       var paso = pasos[i];
       var principal = controlObjetivo(paso);
-      construirEspejo(principal, true);
-      (paso.replicas || []).forEach(function (selx) {
-        var ex = document.querySelector(selx);
-        if (ex && ex !== principal) construirEspejo(ex, false);
-      });
+      if (paso.modoInformativo) {
+        /* Réplica informativa: muestra el botón objetivo tal cual pero sin
+           disparar su acción real (evita abrir modales detrás del panel). */
+        if (principal) activa.ctl = principal;
+        if (principal && esBoton(principal)) {
+          var ib = _el('button', (principal.className && principal.className.indexOf('guia-') !== 0 ? principal.className : 'guia-btn guia-btn-pri').trim());
+          ib.type = 'button';
+          ib.disabled = true;
+          ib.textContent = (principal.textContent || principal.value || 'Botón').trim();
+          ib.setAttribute('aria-label', (principal.getAttribute('aria-label') || ib.textContent) + ' (vista previa de la guía)');
+          ctrl.appendChild(ib);
+        }
+      } else {
+        construirEspejo(principal, true);
+        (paso.replicas || []).forEach(function (selx) {
+          var ex = document.querySelector(selx);
+          if (ex && ex !== principal) construirEspejo(ex, false);
+        });
+        /* Réplicas condicionales: solo si el control real es visible
+           (p.ej. segundo profesional cuando la dupla está activa). */
+        (paso.replicasCondicionales || []).forEach(function (selx) {
+          var ex = document.querySelector(selx);
+          if (ex && ex !== principal && !esOculto(ex)) construirEspejo(ex, false);
+        });
+      }
     }
     function posicionar() {
       var target = pasos[i].sel ? document.querySelector(pasos[i].sel) : (pasos[i].el || null);
@@ -570,6 +628,17 @@ var ECICEP_guia = (function () {
         sug.textContent = '💡 ' + paso.sugerencia;
       } else {
         sug.style.display = 'none';
+      }
+      if (paso.puntos && paso.puntos.length) {
+        while (info.firstChild) info.removeChild(info.firstChild);
+        paso.puntos.forEach(function (p) {
+          var li = _el('li');
+          li.textContent = p;
+          info.appendChild(li);
+        });
+        info.style.display = 'block';
+      } else {
+        info.style.display = 'none';
       }
       bPrev.textContent = '← Atrás'; bPrev.disabled = i === 0;
       bNext.textContent = (i === pasos.length - 1) ? 'Terminar ✓' : 'Siguiente →';

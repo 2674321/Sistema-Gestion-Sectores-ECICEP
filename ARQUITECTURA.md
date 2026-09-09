@@ -250,22 +250,31 @@ Cero colores literales fuera de la configuración (verificado por grep).
   aseguran la carga previa. `QRFormulario.html` (sidebar) conserva su copia
   propia de la librería.
 - **Guía interactiva**: motor reutilizable `ECICEP_guia` en `00_Tokens.html`
-  (CSS `.guia-*` + JS). Toma pasos `{sel, titulo, texto, sugerencia, replicas}`.
-  Atenuación **parcial** (mask clara `rgba(15,23,42,.14)` + spotlight de color
-  sobre el objetivo) en lugar de oscurecer toda la página. Panel lateral derecho
-  (400px, hoja inferior en móvil) con navegación Atrás/Siguiente/Terminar,
-  cierre por `Escape`/clic fuera/`✕`, y una **réplica interactiva bidireccional**
-  del control real que hereda sus clases CSS reales (apariencia idéntica al
-  original): botones (`click` → acción real), selects/campos/textarea espejo
+  (CSS `.guia-*` + JS). Toma pasos `{sel, titulo, texto, sugerencia, puntos,
+  replicas, replicasCondicionales, modoInformativo}`. Atenuación **parcial**
+  (mask clara `rgba(15,23,42,.14)` + spotlight de color sobre el objetivo) en
+  lugar de oscurecer toda la página. Panel lateral derecho (400px, hoja inferior
+  en móvil) con navegación Atrás/Siguiente/Terminar, cierre por `Escape`/clic
+  fuera/`✕`, y una **réplica interactiva bidireccional** del control real que
+  hereda sus clases CSS reales (apariencia idéntica al original): botones
+  (`click` → acción real), selects/campos/textarea espejo
   (`input`/`change` → control real), réplica de **grupos de radios tipo tarjeta**
-  (`.action-card`), réplicas extra por paso (`paso.replicas`, p.ej. dupla), y
-  bloque "**Resultado actual**" en vivo. Cada paso puede mostrar una
-  **sugerencia breve** resaltada (`.guia-sug`). La guía recorre los 4 tipos de
-  formulario (Nuevo ingreso/Control/Seguimiento/Actualizar) antes del resto del
-  formulario. Se invoca desde `#btnGuia` en `CapturaWeb.html` (16 pasos) y en el
-  demo `examples/formulario_demo.html` (motor y pasos equivalentes a
-  producción). Excluida del anti doble-clic global (`.guia-panel`). No-op sin
-  pasos, sin `document`, o si ya hay una guía en curso.
+  (`.action-card`), réplicas extra por paso (`paso.replicas`, p.ej. dupla) y
+  **réplicas condicionales** (`paso.replicasCondicionales`): solo se muestran si
+  el control real es visible (p.ej. segundo profesional cuando la dupla está
+  activa). Tras una acción de botón réplica se re-pinta la réplica y se
+  re-alinea el spotlight (evita desalineación al mostrar/ocultar campos).
+  `paso.modoInformativo` muestra una vista previa no funcional del botón objetivo
+  (evita abrir modales detrás del panel, p.ej. ventana QR). Cada paso puede
+  mostrar una **sugerencia breve** resaltada (`.guia-sug`) y una lista de
+  **puntos clave** (`.guia-info`), y el bloque "**Resultado actual**" muestra en
+  vivo el valor (incluye las réplicas condicionales visibles). La guía recorre
+  los 4 tipos de formulario (Nuevo ingreso/Control/Seguimiento/Actualizar),
+  la dupla, los campos y **Compartir por QR** antes de Enviar. Se invoca desde
+  `#btnGuia` en `CapturaWeb.html` (17 pasos) y en el demo
+  `examples/formulario_demo.html` (motor y pasos equivalentes a producción).
+  Excluida del anti doble-clic global (`.guia-panel`). No-op sin pasos, sin
+  `document`, o si ya hay una guía en curso.
 
 ## Hojas
 
