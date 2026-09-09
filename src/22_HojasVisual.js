@@ -212,10 +212,10 @@ function HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja) {
     'CRC', 'DATOS PERSONALES', 'IDENTIFICACION', 'SECTORIZACION', 'INGRESO',
     'EVENTO', 'AUDITORIA', 'TECNICO', 'OBSERVACIONES'].map(function (x) { return Utl_claveAlnum(x); });
   var sector = Utl_claveAlnum(sectorHoja || '');
-  for (var r = 1; r < hr; r++) {
-    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
-    var vals = hoja.getRange(r, 1, 1, ancho).getValues()[0];
-    var noVacios = vals.filter(function (x) { return !Utl_vacio(x); });
+  var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+  var bloque = hoja.getRange(1, 1, hr - 1, ancho).getValues();
+  for (var r = 0; r < bloque.length; r++) {
+    var noVacios = bloque[r].filter(function (x) { return !Utl_vacio(x); });
     if (!noVacios.length) continue;
     var texto = Utl_claveAlnum(noVacios.join(' '));
     var esPropio = marcadores.some(function (m) { return texto.indexOf(m) !== -1; })

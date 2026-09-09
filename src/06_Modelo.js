@@ -1647,7 +1647,7 @@ function Api_duplicadosUnirPorRut(rut, idConservar) {
     if (!conservar) conservar = g.registros[0];
     // Marcar duplicados restantes como REQUIERE_REVISION y mover eventos al conservado
     var idsDuplicados = g.registros.filter(function(r){return r.paciente.ID_INTERNO!==conservar.paciente.ID_INTERNO;}).map(function(r){return r.paciente.ID_INTERNO;});
-    // Reasignar eventos de duplicados al conservado
+    // Reasignar eventos de duplicados al conservado (escritura por bloques)
     var eventos = Modelo_leerEventos();
     var hojaE = Modelo_hoja(HOJAS.EVENTOS);
     var colId = COLUMNAS_EVENTOS.indexOf('ID_INTERNO')+1;
@@ -1655,22 +1655,44 @@ function Api_duplicadosUnirPorRut(rut, idConservar) {
       var vals = Modelo_leerBloqueCabecera(HOJAS.EVENTOS, hojaE);
       var idxId = vals[0].map(function(h){return Utl_texto(h).toUpperCase();}).indexOf('ID_INTERNO');
       if (idxId>=0) {
+        var filasEv = [];
+        var iniE = Modelo_dataStartRow(HOJAS.EVENTOS);
         for (var f=1; f<vals.length; f++) {
-          if (idsDuplicados.indexOf(Utl_texto(vals[f][idxId]))!==-1) {
-            hojaE.getRange(Modelo_dataStartRow(HOJAS.EVENTOS)+f-1, idxId+1).setValue(conservar.paciente.ID_INTERNO);
-          }
+          if (idsDuplicados.indexOf(Utl_texto(vals[f][idxId]))!==-1) filasEv.push(iniE+f-1);
+        }
+        if (filasEv.length) {
+          Utl_gruposContiguosFilas(filasEv).forEach(function (grupo) {
+            var datos = [];
+            for (var i=0; i<grupo.length; i++) datos.push([conservar.paciente.ID_INTERNO]);
+            hojaE.getRange(grupo[0], idxId+1, grupo.length, 1).setValues(datos);
+          });
         }
       }
     }
-    // Marcar filas duplicadas en PACIENTES con OBSERVACIONES de union
+    // Marcar filas duplicadas en PACIENTES (OBSERVACIONES de unión + revisión)
+    var filasObj = [];
+    var obsNuevo = {};
     g.registros.forEach(function(r){
       if (r.paciente.ID_INTERNO===conservar.paciente.ID_INTERNO) return;
-      var fila = r.fila;
+      filasObj.push(r.fila);
+      obsNuevo[r.fila] = Utl_texto(r.paciente.OBSERVACIONES)+' | UNIDO a '+conservar.paciente.ID_INTERNO+' '+new Date().toISOString().slice(0,10);
+    });
+    if (filasObj.length) {
       var colObs = MODELO_PACIENTE.map(function(c){return c.campo;}).indexOf('OBSERVACIONES')+1;
       var colRev = MODELO_PACIENTE.map(function(c){return c.campo;}).indexOf('REQUIERE_REVISION')+1;
-      if (colObs>0) hoja.getRange(fila, colObs).setValue(Utl_texto(hoja.getRange(fila,colObs).getValue())+' | UNIDO a '+conservar.paciente.ID_INTERNO+' '+new Date().toISOString().slice(0,10));
-      if (colRev>0) hoja.getRange(fila, colRev).setValue(true);
-    });
+      Utl_gruposContiguosFilas(filasObj).forEach(function (grupo) {
+        if (colObs>0) {
+          var obs = [];
+          for (var i=0; i<grupo.length; i++) obs.push([obsNuevo[grupo[i]]]);
+          hoja.getRange(grupo[0], colObs, grupo.length, 1).setValues(obs);
+        }
+        if (colRev>0) {
+          var rev = [];
+          for (var i=0; i<grupo.length; i++) rev.push([true]);
+          hoja.getRange(grupo[0], colRev, grupo.length, 1).setValues(rev);
+        }
+      });
+    }
     Modelo_invalidarLecturas();
     Log_info('Duplicados','unir', rut+' conservar='+conservar.paciente.ID_INTERNO+' unidos='+idsDuplicados.length);
     Log_flush();

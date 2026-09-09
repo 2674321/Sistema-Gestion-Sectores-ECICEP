@@ -112,6 +112,22 @@ function Utl_partir(arr, n) {
   return bloques;
 }
 
+/** Agrupa filas 1-based consecutivas en sub-arrays contiguos, para poder
+ *  escribir varias celdas con un solo setValues por grupo (regla del
+ *  proyecto: nunca accesos de celda en loops). Devuelve [] sin filas. */
+function Utl_gruposContiguosFilas(filas) {
+  if (!filas || !filas.length) return [];
+  var ordenadas = filas.slice().sort(function (a, b) { return a - b; });
+  var grupos = [];
+  var actual = [ordenadas[0]];
+  for (var i = 1; i < ordenadas.length; i++) {
+    if (ordenadas[i] === actual[actual.length - 1] + 1) actual.push(ordenadas[i]);
+    else { grupos.push(actual); actual = [ordenadas[i]]; }
+  }
+  grupos.push(actual);
+  return grupos;
+}
+
 // ---------------------------------------------------------------------------
 // Medición de tiempo (rendimiento)
 // ---------------------------------------------------------------------------

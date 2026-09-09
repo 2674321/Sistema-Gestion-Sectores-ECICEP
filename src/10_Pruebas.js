@@ -1040,6 +1040,15 @@ function _pruebas_utilidades(t, A) {
     A.igual(b.length, 3, 'cantidad de bloques');
     A.igual(b[2].length, 1, 'tamaño último bloque');
   });
+  t('UTL: gruposContiguosFilas agrupa filas consecutivas (escritura por bloques)', function () {
+    var g = Utl_gruposContiguosFilas([3, 1, 2, 8, 9, 10, 15]);
+    A.igual(g.length, 3, 'tres grupos');
+    A.igual(JSON.stringify(g[0]), '[1,2,3]', 'grupo inicial [1,2,3]');
+    A.igual(JSON.stringify(g[1]), '[8,9,10]', 'grupo medio [8,9,10]');
+    A.igual(JSON.stringify(g[2]), '[15]', 'fila suelta al final');
+    A.igual(JSON.stringify(Utl_gruposContiguosFilas([])), '[]', 'sin filas → []');
+    A.igual(JSON.stringify(Utl_gruposContiguosFilas([4])), '[[4]]', 'una sola fila');
+  });
   t('UTL: agruparPor agrupa por clave', function () {
     var g = Utl_agruparPor([{ s: 'A' }, { s: 'B' }, { s: 'A' }], function (x) { return x.s; });
     A.igual(g.get('A').length, 2, 'grupo A');
