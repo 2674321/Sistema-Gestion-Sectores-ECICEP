@@ -617,9 +617,9 @@ function api_configAgregar(clave, valor, descripcion) {
       for (var i = 1; i < vals.length; i++) if (Utl_texto(vals[i][0]) === k) { duplicada = true; break; }
     }
     if (duplicada) return { ok: false, motivo: 'CLAVE_DUPLICADA: ' + k };
-    _config_set(k, v);
-    var h2 = Modelo_hoja(HOJAS.CONFIG);
-    if (h2 && h2.getLastRow() > 1) h2.getRange(h2.getLastRow(), 3).setValue(Utl_texto(descripcion));
+    // Alta única: clave, valor y descripción van en el mismo setValues de
+    // _config_set (evita getLastRow + setValue de la descripción).
+    _config_set(k, v, Utl_texto(descripcion));
     Modelo_invalidarLecturas();
     Log_info('Config', 'agregar', k);
     Log_flush();

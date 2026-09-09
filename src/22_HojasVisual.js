@@ -353,7 +353,12 @@ function HVis_normalizarLayout(hoja) {
   var seccionesAplicadas = 0;
   try {
     var hrActual = Modelo_headerRow(nombre);
-    var encReales = hoja.getRange(hrActual, 1, 1, ultimaCol).getValues()[0];
+    // Reutiliza la fila ya leída por HVis_buscarFilaEncabezados (en estado OK
+    // su fila física es hr): evita re-leer la misma fila para el mapa de
+    // columnas (antes 1 getValues adicional por hoja).
+    var encReales = (buscado.encabezados && buscado.encabezados.length === ultimaCol)
+      ? buscado.encabezados
+      : hoja.getRange(hrActual, 1, 1, ultimaCol).getValues()[0];
     var mapa = HVis_mapaColumnas(encReales);
     var plan = HVis_calcularPlan(nombre, secciones, mapa);
     // Limpiar residuos de secciones previas en la fila de secciones
@@ -417,7 +422,11 @@ function HVis_normalizarLayout(hoja) {
   // ===== ENCABEZADOS REALES: normalizar etiquetas a canónicas =====
   try {
     var hrEnc = Modelo_headerRow(nombre);
-    var filaEncActual = hoja.getRange(hrEnc, 1, 1, ultimaCol).getValues()[0];
+    // Misma fila ya leída (buscado.encabezados): evita re-leerla para corregir
+    // etiquetas (antes 1 getValues adicional por hoja).
+    var filaEncActual = (buscado.encabezados && buscado.encabezados.length === ultimaCol)
+      ? buscado.encabezados
+      : hoja.getRange(hrEnc, 1, 1, ultimaCol).getValues()[0];
     var mapaE = HVis_mapaColumnas(filaEncActual);
     // BATCH: corregir etiquetas en memoria y escribir TODO en un solo
     // setValues de la fila (antes un setValue por etiqueta a corregir).

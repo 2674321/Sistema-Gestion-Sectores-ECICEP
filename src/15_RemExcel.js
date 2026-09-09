@@ -481,14 +481,16 @@ function api_rem9Datos(anio, mes, sectorFiltro, opts) {
 
 
 /** CONFIG set/get puntual (clave=valor en hoja CONFIG). */
-function _config_set(clave, valor) {
+function _config_set(clave, valor, descripcion) {
   var h = Modelo_hoja(HOJAS.CONFIG);
   if (!h) return;
   var vals = Utl_leerBloque(h);
   for (var i = 1; i < vals.length; i++) {
     if (Utl_texto(vals[i][0]) === clave) { h.getRange(i + 1, 2).setValue(valor); return; }
   }
-  h.getRange(h.getLastRow() + 1, 1, 1, 3).setValues([[clave, valor, '']]);
+  // Alta: escribe clave+valor+descripción en UN solo setValues (antes la
+  // descripción se escribía después con una llamada getLastRow + setValue).
+  h.getRange(h.getLastRow() + 1, 1, 1, 3).setValues([[clave, valor, descripcion || '']]);
 }
 
 /** ¿La fuente ya fue importada? → existen pacientes con FUENTE que empieza
