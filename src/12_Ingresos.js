@@ -374,11 +374,16 @@ function Ingresos_escribirEstados(resultados) {
           : notaNueva;
       });
       hoja.getRange(ini, desde, ultima - ini + 1, ancho).setValues(bloque);
-      // Verificación post-escritura: re-lectura del mismo bloque para comprobar
-      // que el estado quedó donde los lectores (Form_leerFilaIngreso) lo buscan.
-      var verif = hoja.getRange(ini, desde, ultima - ini + 1, ancho).getValues();
+      // Verificación post-escritura: re-lectura acotada a las filas afectadas
+      // (no al bloque completo) para comprobar que el estado quedó donde los
+      // lectores (Form_leerFilaIngreso) lo buscan.
+      var filasHoja = porHoja[nombreHoja].map(function (r) { return Number(r.filaOrigen); }).filter(function (nf) { return !isNaN(nf); });
+      if (!filasHoja.length) return;
+      var iniVerif = Math.max(ini, Math.min.apply(null, filasHoja));
+      var finVerif = Math.min(ultima, Math.max.apply(null, filasHoja));
+      var verif = hoja.getRange(iniVerif, desde, finVerif - iniVerif + 1, ancho).getValues();
       porHoja[nombreHoja].forEach(function (r) {
-        var fi = Number(r.filaOrigen) - ini;
+        var fi = Number(r.filaOrigen) - iniVerif;
         if (isNaN(fi) || fi < 0 || fi >= verif.length) return;
         console.log('[PIPE] escribirEstados verif ' + nombreHoja + ' fila=' + r.filaOrigen +
           ' estado=' + Utl_texto(verif[fi][offsetEstado]).toUpperCase() +

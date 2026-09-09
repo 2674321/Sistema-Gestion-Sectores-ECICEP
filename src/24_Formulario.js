@@ -1146,21 +1146,17 @@ function Form_leerMarcas() {
     var desde = Modelo_dataStartRow(HOJAS.EVENTOS);
     var n = ultima - desde + 1;
     if (n < 1) return salida;
-    function leerCol(nombre) {
-      var p = pos[nombre];
-      if (p === undefined || p === null) return [];
-      return hoja.getRange(desde, p + 1, n, 1).getValues();
-    }
-    var fuentes = leerCol('FUENTE');
-    if (!fuentes.length) return salida;
-    var internos = leerCol('ID_INTERNO');
-    var evs = leerCol('ID_EVENTO');
-    for (var i = 0; i < fuentes.length; i++) {
-      var f = Utl_texto(fuentes[i] && fuentes[i][0]);
+    var pFuente = pos.FUENTE;
+    var pInterno = pos.ID_INTERNO;
+    var pEvento = pos.ID_EVENTO;
+    if (pFuente === undefined || pFuente === null) return salida;
+    var bloque = hoja.getRange(desde, 1, n, ancho).getValues();
+    for (var i = 0; i < bloque.length; i++) {
+      var f = Utl_texto(bloque[i][pFuente]);
       if (f.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0) {
         salida[f] = {
-          idInterno: Utl_texto((internos[i] && internos[i][0]) || ''),
-          idEvento: Utl_texto((evs[i] && evs[i][0]) || '')
+          idInterno: pInterno !== undefined && pInterno !== null ? Utl_texto(bloque[i][pInterno]) : '',
+          idEvento: pEvento !== undefined && pEvento !== null ? Utl_texto(bloque[i][pEvento]) : ''
         };
       }
     }
