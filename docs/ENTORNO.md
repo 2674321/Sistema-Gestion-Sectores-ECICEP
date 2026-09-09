@@ -70,9 +70,14 @@ No se debe asumir que una URL es correcta por aparecer en un documento históric
 4. actualizar ese deployment si corresponde;
 5. verificar la URL real mediante E2E.
 
-## Deployment histórico `@63`
+## Deployments históricos eliminados
 
-`@63` fue un deployment antiguo. Fue eliminado después de verificar que no tenía dependencias operativas activas.
+`@63`, `@89` (legacy) y `@86` (test) fueron deployments antiguos. Fueron eliminados después de verificar que no tenían dependencias operativas activas.
+
+## Deployments vigentes
+
+- **Operativo (publicación real)**: `@108`, servido por `ECICEP.WEB_APP_URL` (`src/00_Config.js`), QR y menú "Abrir formulario".
+- **`/dev` (`@HEAD`)**: usado por `tools/push_y_abrir.sh` para revisión rápida tras cada `clasp push` (antes de publicar en el operativo).
 
 ## Regla de código
 

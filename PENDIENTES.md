@@ -48,6 +48,8 @@ Las tareas de publicación deben:
 
 El deployment histórico `@63` fue eliminado después de verificar que no tenía dependencias operativas activas.
 
+Limpieza de deployments aplicada: `@89` (legacy) y `@86` (test) fueron eliminados después de verificar que ninguna URL, configuración, QR, automatización o herramienta dependía de ellos. Quedaron solo el deployment operativo (`@108`, `/exec`, el que sirve `ECICEP.WEB_APP_URL`) y `/dev` (`@HEAD`, usado por `tools/push_y_abrir.sh` para revisión rápida tras cada push).
+
 ## 4. Limitaciones conocidas
 
 Las limitaciones antiguas de acceso/API o URLs obsoletas deben volver a verificarse antes de considerarse vigentes. Un diagnóstico histórico no debe tratarse como estado actual sin evidencia.
