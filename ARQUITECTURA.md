@@ -250,18 +250,22 @@ Cero colores literales fuera de la configuración (verificado por grep).
   aseguran la carga previa. `QRFormulario.html` (sidebar) conserva su copia
   propia de la librería.
 - **Guía interactiva**: motor reutilizable `ECICEP_guia` en `00_Tokens.html`
-  (CSS `.guia-*` + JS). Toma pasos `{sel, titulo, texto}`. Atenuación **parcial**
-  (mask clara `rgba(15,23,42,.14)` + spotlight de color sobre el objetivo) en
-  lugar de oscurecer toda la página. Panel lateral derecho (400px, hoja inferior
-  en móvil) con navegación Atrás/Siguiente/Terminar, cierre por `Escape`/clic
-  fuera/`✕`, y una **réplica interactiva bidireccional** del control real:
-  botón replicado (`click` → ejecuta la acción real), selects/campos/textarea
-  espejo (`input`/`change` → se aplican al control real), y bloque
-  "**Resultado actual**" que muestra el valor en vivo. Se invoca desde
-  `#btnGuia` en `CapturaWeb.html` (12 pasos sobre el formulario) y en el demo
-  `examples/formulario_demo.html` (réplica estática del motor). Excluida del
-  anti doble-clic global (`.guia-panel`). No-op sin pasos, sin `document`, o si
-  ya hay una guía en curso.
+  (CSS `.guia-*` + JS). Toma pasos `{sel, titulo, texto, sugerencia, replicas}`.
+  Atenuación **parcial** (mask clara `rgba(15,23,42,.14)` + spotlight de color
+  sobre el objetivo) en lugar de oscurecer toda la página. Panel lateral derecho
+  (400px, hoja inferior en móvil) con navegación Atrás/Siguiente/Terminar,
+  cierre por `Escape`/clic fuera/`✕`, y una **réplica interactiva bidireccional**
+  del control real que hereda sus clases CSS reales (apariencia idéntica al
+  original): botones (`click` → acción real), selects/campos/textarea espejo
+  (`input`/`change` → control real), réplica de **grupos de radios tipo tarjeta**
+  (`.action-card`), réplicas extra por paso (`paso.replicas`, p.ej. dupla), y
+  bloque "**Resultado actual**" en vivo. Cada paso puede mostrar una
+  **sugerencia breve** resaltada (`.guia-sug`). La guía recorre los 4 tipos de
+  formulario (Nuevo ingreso/Control/Seguimiento/Actualizar) antes del resto del
+  formulario. Se invoca desde `#btnGuia` en `CapturaWeb.html` (16 pasos) y en el
+  demo `examples/formulario_demo.html` (motor y pasos equivalentes a
+  producción). Excluida del anti doble-clic global (`.guia-panel`). No-op sin
+  pasos, sin `document`, o si ya hay una guía en curso.
 
 ## Hojas
 
