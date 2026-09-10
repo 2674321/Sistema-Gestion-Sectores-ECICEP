@@ -14,6 +14,7 @@
       --c-ok:#0A7B5F;--c-ok-bg:#E8F8F1;--c-ok-border:#A7E4CC;
       --c-err:#C42828;--c-err-bg:#FDF0F0;--c-err-border:#F0BABA;
       --c-warn:#B45309;--c-warn-bg:#FEF6E6;
+      --c-tip-bg:#FEF6E6;--c-tip-border:#EFDCA9;--c-tip-text:#6B4A10;
       --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;
       --sh-sm:0 1px 2px rgba(0,0,0,.05);
       --sh-md:0 2px 8px rgba(0,0,0,.07);
@@ -124,22 +125,24 @@
     .f-lblwrap .f-label{margin-bottom:0}
     .tip{position:relative;display:inline-flex;align-items:center}
     .tip-ico{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
-      border-radius:50%;border:1px solid var(--c-border);background:var(--c-surface);
-      color:var(--c-text-3);cursor:pointer;padding:0;transition:border-color var(--transition),background-color var(--transition),box-shadow var(--transition),color var(--transition)}
-    .tip-ico:hover,.tip-ico:focus-visible{color:var(--c-primary-mid);border-color:var(--c-primary-mid);
-      background:var(--c-surface-alt);outline:none}
-    .tip-bub{position:absolute;top:calc(100% + 7px);left:0;z-index:30;max-width:252px;width:max-content;
-      padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);border:1px solid var(--c-border);
-      background:var(--c-surface);color:var(--c-text-2);font-size:var(--fs-xs);font-weight:var(--fw-regular);
+      border-radius:50%;border:1px solid var(--c-tip-border);background:var(--c-tip-bg);
+      color:var(--c-tip-text);cursor:pointer;padding:0;transition:border-color var(--transition),background-color var(--transition),color var(--transition)}
+    .tip-ico:hover,.tip-ico:focus-visible{color:var(--c-warn);border-color:var(--c-warn);
+      background:var(--c-warn-bg);outline:none}
+    .tip-bub{position:absolute;top:calc(100% + 7px);left:0;z-index:30;max-width:230px;width:max-content;
+      padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);border:1px solid var(--c-tip-border);
+      background:var(--c-tip-bg);color:var(--c-tip-text);font-size:var(--fs-xs);font-weight:var(--fw-regular);
       line-height:1.45;text-align:left;box-shadow:var(--sh-md);
       opacity:0;visibility:hidden;pointer-events:none;
       transition:opacity var(--transition),transform var(--transition),visibility var(--transition);
       transform:translateY(2px)}
+    /* El globo aparece solo al pasar/apuntar al ícono o enfocarlo (teclado/tap),
+       nunca al enfocar el campo: no interfiere con el picker de fecha ni con la
+       escritura. pointer-events:none siempre: jamás bloquea clics sobre campos. */
     .tip-ico:hover + .tip-bub,.tip-ico:focus-visible + .tip-bub,
-    .tip:focus-within .tip-bub,.f:focus-within .tip-bub{opacity:1;visibility:visible;pointer-events:auto;
-      transform:translateY(0)}
+    .tip:focus-within .tip-bub{opacity:1;visibility:visible;transform:translateY(0)}
     .tip-bub::before{content:'';position:absolute;top:-5px;left:9px;width:8px;height:8px;
-      background:var(--c-surface);border-top:1px solid var(--c-border);border-left:1px solid var(--c-border);
+      background:var(--c-tip-bg);border-top:1px solid var(--c-tip-border);border-left:1px solid var(--c-tip-border);
       transform:rotate(45deg)}
     .f-input{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--c-border);
       border-radius:var(--r-sm);font-size:var(--fs-base);font-family:var(--ff);
@@ -1544,7 +1547,11 @@
   });
   $('btnNuevaCaptura').addEventListener('click',function(){limpiarFormulario(true);});
   $('duplaToggle').addEventListener('click',toggleDupla);
-  ['rut','nombre','fnac','fecha_evento','telefonos','obs','profesional','profesional2'].forEach(function(id){
+  /* actualizarLimpiar sobre TODOS los campos (incl. select y fechas: sector,
+     sexo, estrat, fingreso) para que la barra de progreso avance con cualquier
+     campo obligatorio, no solo los de texto. */
+  ['rut','nombre','sexo','fnac','sector','estrat','fingreso','fecha_evento',
+   'telefonos','obs','profesional','profesional2'].forEach(function(id){
     $(id).addEventListener('input',actualizarLimpiar);
     $(id).addEventListener('change',actualizarLimpiar);
   });
