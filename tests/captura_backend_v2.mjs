@@ -438,6 +438,70 @@ t('B5 A2 §23: registro en ERROR reintentable → reenvío con payload idéntico
   igual(ctx.registros.get(cid).reintentos, 2, 'reintento incrementado');
 });
 
+t('B5b A2 fast-path §23: fila ya INGRESADO → PROCESADO sin re-ejecutar pipeline', () => {
+  const ctx = makeCtx({ entregarFn: () => { throw new Error('NO_DEBE_ENTREGAR'); } });
+  ctx.precargar(nuevoIngreso(), 'ERROR', { reintentos: 1 });
+  const reg = ctx.registros.get(cid);
+  reg.ingresoHoja = 'INGRESO_AMARILLO';
+  reg.ingresoFila = '101';
+  const prevFila = sandbox.Form_leerFilaIngreso;
+  const prevId = sandbox.Captura_v2_buscarIdInternoPorRut;
+  sandbox.Form_leerFilaIngreso = () => ({ estado: 'INGRESADO', nota: '' });
+  sandbox.Captura_v2_buscarIdInternoPorRut = () => 'EC-TEST-1001';
+  try {
+    const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+    A(r.ok, 'debe ser ok');
+    igual(r.data.estado, 'PROCESADO');
+    igual(r.data.idInterno, 'EC-TEST-1001');
+    igual(ctx.entregas.length, 0, 'pipeline NO se re-ejecutó');
+    igual(ctx.registros.get(cid).estado, 'PROCESADO', 'trailer actualizado');
+    igual(ctx.registros.get(cid).reintentos, 2, 'reintento incrementado');
+  } finally {
+    sandbox.Form_leerFilaIngreso = prevFila;
+    sandbox.Captura_v2_buscarIdInternoPorRut = prevId;
+  }
+});
+
+t('B5c A2 fast-path §23: fila ya DUPLICADO → REQUIERE_REVISION sin re-ejecutar pipeline', () => {
+  const ctx = makeCtx({ entregarFn: () => { throw new Error('NO_DEBE_ENTREGAR'); } });
+  ctx.precargar(nuevoIngreso(), 'ERROR', { reintentos: 1 });
+  const reg = ctx.registros.get(cid);
+  reg.ingresoHoja = 'INGRESO_AMARILLO';
+  reg.ingresoFila = '102';
+  const prevFila = sandbox.Form_leerFilaIngreso;
+  const prevId = sandbox.Captura_v2_buscarIdInternoPorRut;
+  sandbox.Form_leerFilaIngreso = () => ({ estado: 'DUPLICADO', nota: 'Ya existe ingreso para este RUT' });
+  sandbox.Captura_v2_buscarIdInternoPorRut = () => '';
+  try {
+    const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+    A(r.ok, 'REQUIERE_REVISION es resultado válido (no error)');
+    igual(r.data.estado, 'REQUIERE_REVISION');
+    igual(r.data.motivo, 'Ya existe ingreso para este RUT');
+    igual(ctx.entregas.length, 0, 'pipeline NO se re-ejecutó');
+  } finally {
+    sandbox.Form_leerFilaIngreso = prevFila;
+    sandbox.Captura_v2_buscarIdInternoPorRut = prevId;
+  }
+});
+
+t('B5d A2 fallthrough §23: fila SIN estado → re-ejecuta pipeline completo', () => {
+  const ctx = makeCtx({ entregarFn: () => ({ estado: 'PROCESADO', motivo: '', idInterno: 'EC-TEST-2002', idEvento: '' }) });
+  ctx.precargar(nuevoIngreso(), 'ERROR', { reintentos: 1 });
+  const reg = ctx.registros.get(cid);
+  reg.ingresoHoja = 'INGRESO_AMARILLO';
+  reg.ingresoFila = '103';
+  const prevFila = sandbox.Form_leerFilaIngreso;
+  sandbox.Form_leerFilaIngreso = () => ({ estado: '', nota: '' });
+  try {
+    const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+    A(r.ok);
+    igual(r.data.estado, 'PROCESADO');
+    igual(ctx.entregas.length, 1, 'pipeline completa SÍ se ejecutó');
+  } finally {
+    sandbox.Form_leerFilaIngreso = prevFila;
+  }
+});
+
 t('B6 A2 tope §23: cargo = maxReintentos → ERROR_INTERNO REINTENTOS_AGOTADOS', () => {
   const ctx = makeCtx();
   ctx.precargar(nuevoIngreso(), 'ERROR', { reintentos: 3 });

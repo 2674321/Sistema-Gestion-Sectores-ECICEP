@@ -224,3 +224,41 @@ red → **todo envío costaba 2 round-trips**, incluso cuando el segundo no apor
 - Batería completa verde: validar HTML 17 · formulario web 27 · payload V2 19 ·
   backend V2 65 · cola 33 · aceptación 50 · contrato captura OK · contrato datos 20 ·
   núcleo 553.
+
+## 11. PASADA 6 — REINTENTO A2: fast-path cuando la fila de INGRESO ya está procesada
+
+Fecha de ejecución: 2026-09-10.
+Alcance: backend de captura V2 (`src/26_Captura.js`) — camino A2 (§23) del envío.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Problema
+
+Cuando un envío volvía por el camino A2 (el primer intento quedó `VALIDANDO`/`RECIBIDO`
+y el usuario reintenta), `Captura_v2_enviar` re-ejecutaba el pipeline completo
+(`Captura_v2_ejecutarEntrega` → `entregarIngreso` → `Ingresos_procesarTodasLasHojas`):
+lectura del INGRESO completo, barrera RUT+fecha, posible re-escritura de estados y
+confirmación. Todo eso aunque la fila ya hubiera sido procesada por el primer intento
+con su `ESTADO_INGRESO` escrito.
+
+### Cambio
+
+| Archivo | Cambio |
+|---|---|
+| `src/26_Captura.js` | En el camino A2, si el registro trae `ingresoHoja` + `ingresoFila`, se lee SOLO esa fila (`Form_leerFilaIngreso`). Si tiene `ESTADO_INGRESO` terminal (≠ vacío/ERROR), se mapea con `Form_mapearResultadoFila`, se actualiza el trailer del registro y se responde sin re-ejecutar el pipeline (2 lecturas: fila INGRESO + idInterno por RUT). El runway A2 completo solo se usa si la fila aún no tiene estado o está en ERROR. |
+| `tests/captura_backend_v2.mjs` | +3 tests: B5b (fila `INGRESADO` → `PROCESADO` sin re-entrega), B5c (fila `DUPLICADO` → `REQUIERE_REVISION` sin re-entrega), B5d (fila sin estado → fallthrough al pipeline completo). |
+
+### Justificación de seguridad
+
+- El fast-path solo actúa cuando la fila de INGRESO ya quedó **persistida y con estado
+  terminal** del pipeline previo; es el mismo estado que la re-ejecución devolvería.
+- Si el trailer aun no puede leerse, se cae en excepción → `try/catch` → pipeline
+  completo (comportamiento previo exacto).
+- El incremento de `reintentos` y el estado `VALIDANDO` se persisten antes del check,
+  por lo que la trazabilidad §23 se mantiene.
+
+### Impacto
+
+- Reintentos A2 del mismo `captureId` que ya tiene fila procesada (el caso reportado
+  en vivo: RECIBIDO → reintento → confirmación): **6–8 RPC Sheets → 2** (fila de
+  INGRESO + PACIENTES), sin tocar la primera entrega.
+- Batería completa verde: backend V2 68 (antes 65) y resto sin cambios.

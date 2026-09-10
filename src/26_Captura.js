@@ -482,7 +482,30 @@ function Captura_v2_enviar(payload, ctx) {
       reg.estado = CAPTURA_V2.ESTADOS.VALIDANDO;
       reg.reintentos = reint + 1;
       Captura_v2_trailerSeguro(c, captureId, { estado: CAPTURA_V2.ESTADOS.VALIDANDO, reintentos: reg.reintentos }, reg);
-      var previoA2 = (reg.ingresoHoja && reg.ingresoFila) ? { hoja: reg.ingresoHoja, fila: reg.ingresoFila, regExiste: true } : { regExiste: true };
+      if (reg.ingresoHoja && reg.ingresoFila) {
+        try {
+          var est = Form_leerFilaIngreso(reg.ingresoHoja, Number(reg.ingresoFila));
+          if (est && est.estado && est.estado !== '' && est.estado !== 'ERROR') {
+            var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
+            var idInt = Captura_v2_buscarIdInternoPorRut(norm.rut);
+            var entregaFast = {
+              estado: mapeado.estado, motivo: mapeado.motivo || '',
+              idInterno: idInt, idEvento: '',
+              ingresoHoja: reg.ingresoHoja, ingresoFila: reg.ingresoFila,
+              resultadoTrailer: { ok: true }
+            };
+            Captura_v2_trailerSeguro(c, captureId, {
+              estado: mapeado.estado, motivo: mapeado.motivo || '',
+              idInterno: idInt, idEvento: '',
+              ingresoHoja: reg.ingresoHoja, ingresoFila: reg.ingresoFila
+            }, reg);
+            Captura_v2_medida(c, 'T5_entrega_fin');
+            Captura_v2_logInfo('CapturaV2', 'enviar', captureId + ': A2 fast-path (fila ya procesada: ' + est.estado + ')');
+            return Captura_v2_respuestaEntrega(norm, entregaFast);
+          }
+        } catch (_eFast) { /* fallthrough: re-ejecutar pipeline completo */ }
+      }
+      var previoA2 = { hoja: reg.ingresoHoja, fila: reg.ingresoFila, regExiste: true };
       var entregaA2 = Captura_v2_ejecutarEntrega(norm, c, captureId, previoA2, reg);
       Captura_v2_medida(c, 'T5_entrega_fin');
       if (entregaA2.estado === CAPTURA_V2.ESTADOS.ERROR) {
