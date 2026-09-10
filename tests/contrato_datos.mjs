@@ -70,7 +70,7 @@ sandbox.SpreadsheetApp = {
   getActiveSpreadsheet: function () { return { getSheetByName: function () { return null; } }; },
   getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }
 };
-sandbox.Session = { getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; } };
+sandbox.Session = { getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }, getScriptTimeZone: function () { return 'America/Santiago'; } };
 sandbox.Logger = { log: function () {}, logToConsole: function () {} };
 sandbox.CacheService = { getScriptCache: function () { return { get: function () { return null; }, put: function () {} }; } };
 sandbox.LockService = { getScriptLock: function () { return { tryLock: function () { return true; }, releaseLock: function () {} }; } };
@@ -101,6 +101,12 @@ function t(nombre, fn) {
 }
 function A(cond, msg) { if (!cond) throw new Error(msg || 'aserto falso'); }
 function igual(a, b, msg) { if (a !== b) throw new Error((msg || 'igual') + ' (recibido ' + JSON.stringify(a) + ', esperado ' + JSON.stringify(b) + ')'); }
+function equalish(a, b, msg) {
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return igual(a, b, msg);
+  const ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) throw new Error((msg || 'equalish claves') + ' (recibido ' + ka.join(',') + ', esperado ' + kb.join(',') + ')');
+  ka.forEach((k) => igual(a[k], b[k], (msg || 'equalish') + '.' + k));
+}
 
 const CSP = sandbox;
 CSP.Modelo_layoutHoja; // referencia cargada
@@ -684,6 +690,62 @@ t('R5: _centro_resumen calcula KPIs/sectores/últimos en una sola pasada', () =>
   A(r.ultimos.every((u) => u.fechaIso && u.tipo), 'cada item tiene fechaIso y tipo');
   A(r._ultimaActF instanceof Date && r._ultimaActF.getTime() === new Date('2026-09-01T10:00:00').getTime(),
     'FECHA_ACTUALIZACION máxima preservada como Date');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R6/R7 — PERF pasada 10: las listas de campos de los lectores ligeros cubren
+// EXACTAMENTE lo que consumen sus funciones (REM normalizador + panel control).
+// Una lista incompleta no tira error: silenciosamente vacía campos → los tests
+// detectan esa deriva campo a campo.
+// ─────────────────────────────────────────────────────────────────────────────
+t('R6: _EVENTOS_CAMPOS_REM cubre el input de _rem_normalizarEventos', () => {
+  const filas = [
+    ['ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION', 'CANTIDAD', 'OBSERVACIONES'],
+    ['EV-1', 'EC-0001', '11111111-1', 'JUAN PÉREZ', '2026-09-05', 'CONTROL', 'NARANJO', 'G2', 'DRA.', 'Consulta', '1', 'nota']
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.EVENTOS ? hojaLigeraPara('EVENTOS', filas, 1) : null);
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const norm = CSP._rem_normalizarEventos(CSP.Modelo_leerEventosCampos(CSP._EVENTOS_CAMPOS_REM));
+    equalish(norm[0], {
+      ID_EVENTO: 'EV-1', ID_INTERNO: 'EC-0001', RUT: '11111111-1', NOMBRE: 'JUAN PÉREZ',
+      FECHA_EVENTO: '2026-09-05', TIPO_EVENTO: 'CONTROL', SECTOR: 'NARANJO',
+      RIESGO_G: 'G2', PROFESIONAL: 'DRA.', DESCRIPCION: 'Consulta', CANTIDAD: 1
+    });
+    A(!('OBSERVACIONES' in norm[0]), 'campos fuera del set REM no se materializan');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+t('R7: _CONTROL_CAMPOS_PACIENTES alimenta Control_consultarControles sin perder campos', () => {
+  const filas = [
+    ['ID_INTERNO', 'NOMBRE', 'RUT', 'SECTOR', 'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO', 'REQUIERE_REVISION'],
+    ['EC-0001', 'JUAN PÉREZ', '11111111-1', 'NARANJO', 'G2', '2026-01-10', '', '1988-03-12', true],
+    ['EC-0002', 'ANA SOTO', '22222222-2', 'AMARILLO', 'G1', '', '', '1995-07-22', false]
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  // PACIENTES es hoja VISUAL (encabezados en fila 3).
+  CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const lista = CSP.Modelo_leerPacientesCampos(CSP._CONTROL_CAMPOS_PACIENTES);
+    const res = CSP.Control_consultarControles(lista, {}, '2026-09-10', { sector: 'NARANJO' });
+    igual(res.total, 1, 'filtro sector NARANJO');
+    const f = res.filas[0];
+    igual(f.nombre, 'JUAN PÉREZ');
+    igual(f.rut, '11111111-1');
+    igual(f.sector, 'NARANJO');
+    igual(f.estrat, 'G2');
+    igual(f.ultimoControl, '2026-01-10');
+    igual(f.ultimoSeguimiento, '');
+    A(f.edad !== undefined && f.edad !== '', 'edad calculada desde FECHA_NACIMIENTO');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

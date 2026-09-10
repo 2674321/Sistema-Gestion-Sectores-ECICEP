@@ -81,10 +81,10 @@ function Calidad_filaCola(tipoEntidad, idEntidad, pac, problemas) {
 
 /** GAS: auditoría READ ONLY de PACIENTES + EVENTOS. */
 function Calidad_auditarTodo() {
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR']);
   /* eventos normalizados: FECHA_EVENTO como string ISO (el clasificador es
      puro y espera strings; los Date crudos de la hoja fallan al 100%) */
-  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
+  var eventos = _rem_normalizarEventos(Modelo_leerEventosCampos(_EVENTOS_CAMPOS_REM));
 
   /* duplicados de RUT en PACIENTES */
   var conteo = {};

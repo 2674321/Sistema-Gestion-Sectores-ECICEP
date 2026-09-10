@@ -408,10 +408,11 @@ function Rem9_construir(datos, opciones) {
 // ---------------------------------------------------------------------------
 
 /** Normaliza eventos/pacientes a contratos serializables planos. */
+var _REM9_CAMPOS_PACIENTES = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'SECTOR', 'FECHA_NACIMIENTO'];
 function _rem9_datos(anio, mes, sectorFiltro) {
   var tz = Session.getScriptTimeZone();
-  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
-  var pacientes = Modelo_leerPacientes().map(function (p) {
+  var eventos = _rem_normalizarEventos(Modelo_leerEventosCampos(_EVENTOS_CAMPOS_REM));
+  var pacientes = Modelo_leerPacientesCampos(_REM9_CAMPOS_PACIENTES).map(function (p) {
     return { ID_INTERNO: Utl_texto(p.ID_INTERNO), RUT: Utl_texto(p.RUT),
              NOMBRE: Utl_texto(p.NOMBRE), SEXO: Utl_texto(p.SEXO),
              SECTOR: Utl_texto(p.SECTOR),

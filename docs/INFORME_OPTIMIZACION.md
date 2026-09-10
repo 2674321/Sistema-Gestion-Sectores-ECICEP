@@ -433,3 +433,61 @@ agregación sobre el dataset completo.
 Batería completa verde: núcleo 553 · contrato datos **24** (antes 21, +R4a/R4b/R5) ·
 aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
 formulario_web 27 · `validar_html` 17/17.
+
+## 15. PASADA 10 — LECTORES LIGEROS en cómputo REM, Panel de Control, ficha y auditoría
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/07_UI.js`, `src/14_REM.js`, `src/15_RemExcel.js`, `src/16_Amarillo.js`,
+`src/18_Calidad.js`, `tests/contrato_datos.mjs`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Problema
+
+El cómputo REM (generador, exportador PDF, vista de trabajo, .xlsx del navegador),
+la auditoría de Calidad y la importación histórica de Amarillo normalizan **todos**
+los eventos con `Modelo_leerEventos()` (objetos con ~20 columnas) solo para después
+quedarse con **11 campos**. Igual en pacientes: REM9 y auditoría usan 4–6 campos de ~30.
+
+### Cambios implementados
+
+| Archivo | Cambio |
+|---|---|
+| `src/14_REM.js` | Nueva lista modular **`_EVENTOS_CAMPOS_REM`** (los 11 campos que consume `_rem_normalizarEventos`). `_rem_calcula` (generador + PDF) lee `Modelo_leerEventosCampos(_EVENTOS_CAMPOS_REM)` en lugar de `Modelo_leerEventos()`. |
+| `src/15_RemExcel.js` | `_rem9_datos` (vista de trabajo + .xlsx navegador): eventos ligeros y pacientes con **`_REM9_CAMPOS_PACIENTES`** (6 campos) en lugar de la lectura completa. |
+| `src/16_Amarillo.js` | `Amarillo_aplicarHistorico` (importe histórico): eventos normalizados vía lector ligero (mismo invariante del normalizador); pacientes completos se conservan porque el importe escribe filas. |
+| `src/18_Calidad.js` | `Calidad_auditarTodo`: pacientes con **4 campos** (ID_INTERNO, RUT, NOMBRE, SECTOR — los únicos que consumen `Calidad_problemasPaciente`/`Calidad_filaCola`) y eventos vía lector ligero. |
+| `src/07_UI.js` | `api_controlPanel` (Controles por persona) con **`_CONTROL_CAMPOS_PACIENTES`** (8 campos: los que consumen `Control_filasPanel`/`Control_consultarControles`). `api_ficha` lee eventos ligeros (7 campos) conservando pacientes completos (la ficha usa casi todas las columnas). |
+| `tests/contrato_datos.mjs` | **R6**: `_EVENTOS_CAMPOS_REM` cubre el input de `_rem_normalizarEventos` (11 campos exactos, sin prop extras). **R7**: `_CONTROL_CAMPOS_PACIENTES` alimenta `Control_consultarControles` sin perder campos (nombre/rut/sector/estrat/últimos/edad). |
+
+### Por qué es seguro
+
+- Invariante reutilizado: `_rem_normalizarEventos` NO puede leer más campos que los
+  que produce, porque su entrada son los objetos normalizados (no los crudos). Por
+  tanto alimentarla con el lector ligero de los mismos campos preserva el contrato.
+- La única vía de romper esto es una **deriva silenciosa** (una lista incompleta o
+  un campo nuevo leído): la cubren R6/R7, que verifican el set de campos frente al
+  consumidor real. Un campo perdido no lanza error — vacía columnas en la UI — por
+  eso el test compara campo a campo contra la salida esperada.
+- `api_ficha`, `_amarillo_escribirPacientes`, `api_controlActualizarUltimo` y otros
+  que escriben filas o muestran casi todas las columnas conservan lectores completos.
+
+### Impacto estimado
+
+| Función | Antes | Ahora |
+|---|---|---|
+| `_rem_calcula` (Rem_generar, exportador PDF) | EVENTOS completos (~20 cols) → 11 | 11 campos por fila |
+| `_rem9_datos` (vista trabajo + .xlsx navegador) | PACIENTES (~30) + EVENTOS (~20) completos | 6 + 11 campos por fila |
+| `Amarillo_aplicarHistorico` | EVENTOS completos (~20 cols) | 11 campos por fila |
+| `Calidad_auditarTodo` | PACIENTES (~30) + EVENTOS (~20) completos | 4 + 11 campos por fila |
+| `api_controlPanel` | PACIENTES completos (~30 cols) | 8 campos por fila |
+| `api_ficha` (eventos) | EVENTOS completos (~20 cols) | 7 campos por fila |
+
+Las constantes de campos (`_EVENTOS_CAMPOS_REM`, `_REM9_CAMPOS_PACIENTES`,
+`_CONTROL_CAMPOS_PACIENTES`) son globales del proyecto para permitir la verificación
+cruzada desde tests y mantener la lista en un solo lugar.
+
+### Tests
+
+Batería completa verde: núcleo 553 · contrato datos **26** (antes 24, +R6/R7) ·
+aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+formulario_web 27 · `validar_html` 17/17.

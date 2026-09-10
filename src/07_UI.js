@@ -836,6 +836,8 @@ function _ui_isoFecha(v, tz) {
  *  barrido de AVISO_CONTROL_DIAS. Sin caché módulo: la administración puede
  *  escribir CONFIG en la misma sesión. Fallback idéntico a la versión doble
  *  (frecuencia por defecto y aviso=7 cuando CONFIG no existe o no define). */
+var _CONTROL_CAMPOS_PACIENTES = ['ID_INTERNO', 'NOMBRE', 'RUT', 'SECTOR',
+  'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO'];
 function _UI_controlConfig() {
   var aviso = 7, bloque = [];
   try {
@@ -865,7 +867,7 @@ function api_controlPanel(opts) {
     if (typeof p === 'string') p = { sector: p }; // compat con firma antigua
     var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-    var pacientes = Modelo_leerPacientes();
+    var pacientes = Modelo_leerPacientesCampos(_CONTROL_CAMPOS_PACIENTES);
     var cfg = _UI_controlConfig();
     var freq = cfg.freq;
     var aviso = cfg.aviso;
@@ -1112,7 +1114,8 @@ function api_ficha(idInterno) {
 
     var eventos = [];
     try {
-      eventos = Modelo_leerEventos().filter(function (e) {
+      eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO',
+        'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION']).filter(function (e) {
         return Utl_texto(e.ID_INTERNO) === Utl_texto(idNormalizado);
       }).sort(function (a, b) {
         return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 :

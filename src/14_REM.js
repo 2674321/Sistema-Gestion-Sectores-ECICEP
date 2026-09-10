@@ -220,10 +220,14 @@ function _rem_aplanarAncho(filas) {
 
 /**
  * GAS: núcleo de cálculo compartido entre Rem_generar y el exportador PDF.
- * Lectura única → normalización → filtro sector → núcleo puro.
+ * Lectura ligera (SOLO los campos que normaliza el REM) → normalización →
+ * filtro sector → núcleo puro.
  */
+var _EVENTOS_CAMPOS_REM = ['ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE',
+  'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G',
+  'PROFESIONAL', 'DESCRIPCION', 'CANTIDAD'];
 function _rem_calcula(anio, mes, filtro) {
-  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
+  var eventos = _rem_normalizarEventos(Modelo_leerEventosCampos(_EVENTOS_CAMPOS_REM));
   var lote = eventos.filter(function (e) {
     return filtro === 'TODOS' ? true : Rem_bucketSector(e.SECTOR) === filtro;
   });

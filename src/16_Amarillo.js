@@ -233,7 +233,7 @@ function Amarillo_calcularHistorico(pacientes, eventos, filas, freqConfig) {
 function Amarillo_aplicarHistorico(filas) {
   var t0 = Date.now(), tm = { config: 0, calculo: 0, escritura: 0 };
   var pacientes = Modelo_leerPacientes();
-  var eventos = _rem_normalizarEventos(Modelo_leerEventos());
+  var eventos = _rem_normalizarEventos(Modelo_leerEventosCampos(_EVENTOS_CAMPOS_REM));
   var configRows = _amarillo_leerConfig();
   tm.config = Date.now() - t0;
   var freqConfig = Control_frecuenciaConfig(configRows);
