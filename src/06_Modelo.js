@@ -230,6 +230,9 @@ function Modelo_asegurarEsquemaPacientes() {
     hoja.insertColumns(ins.indiceFinal + 1);
     hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), ins.indiceFinal + 1).setValue(ins.campo);
   }
+  // insertColumns desplazó los índices de columnas: cualquier lectura memoizada
+  // de PACIENTES de esta invocación quedó vieja → invalidar antes de continuar.
+  Modelo_invalidarLecturas();
   var repar = Modelo_repararCamposTecnicos();
   Log_warning('Modelo', 'asegurarEsquema',
     'Migración PACIENTES: +' + plan.insertar.map(function (x) { return x.campo; }).join(',') +
@@ -1251,7 +1254,12 @@ function Modelo_agregarPacientes(objetos, contexto) {
     return Modelo_filaDesdeObjeto(_modelo_estamparActualizacion(o, ahora));
   });
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
+  var n = Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
+  // El append agregó filas: invalidar el memo para que cualquier lectura
+  // posterior de PACIENTES en la misma invocación vea las filas nuevas
+  // (no depender de que el llamador acabe llamando a refrescarVistas, que también invalida).
+  Modelo_invalidarLecturas();
+  return n;
 }
 
 /**
