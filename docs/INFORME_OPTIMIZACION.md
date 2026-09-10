@@ -491,3 +491,50 @@ cruzada desde tests y mantener la lista en un solo lugar.
 Batería completa verde: núcleo 553 · contrato datos **26** (antes 24, +R6/R7) ·
 aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
 formulario_web 27 · `validar_html` 17/17.
+
+## 16. PASADA 11 — LECTORES LIGEROS en dupla, patologías, diagnóstico y pruebas
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/07_UI.js`, `tests/contrato_datos.mjs`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Problema
+
+Tres endpoints del menú seguían leyendo PACIENTES completo (~30 cols) para
+usar 1–3 campos, y el Diagnóstico de control necesitaba solo 9 de ellos más 6
+de EVENTOS para el análisis de duplicados Amarillo.
+
+### Cambios implementados
+
+| Endpoint / función | Antes | Ahora |
+|---|---|---|
+| `api_duplaGuardar` (write 1 celda) | PACIENTES completo | **1 campo** (`ID_INTERNO`): solo ubica la fila física; la escritura usa la variable `dupla` directamente |
+| `api_patologiasAbrir` (read-only) | PACIENTES completo | **3 campos** (ID_INTERNO, CONDICIONES, OTRAS_PATOLOGIAS) |
+| `api_diagnosticoControl` | PACIENTES (~30) + EVENTOS (~20) completos | pacientes **9 campos** (`_DIAGNOSTICO_CAMPOS_PACIENTES` = `_CONTROL_CAMPOS_PACIENTES` + PROXIMO_CONTROL; los únicos que consumen Control_analizar, Control_filasPanel y el barrido de desalineados) + eventos **6 campos** (`_DIAGNOSTICO_CAMPOS_EVENTOS_AMARILLO`: los de Amarillo_analizarDuplicados) |
+| `_pruS_consistencia` (pruebas del Centro) | PACIENTES completo | **2 campos** (SECTOR, RUT) |
+
+Se conservan completos los que escriben la fila entera con `Modelo_filaDesdeObjeto`
+(`api_patologiasGuardar`, `api_registrarEvento`, `api_controlActualizarUltimo`).
+
+### Pruebas
+
+- **R8** (`api_patologiasAbrir` e2e con 3 campos) y **R9** (`api_diagnosticoControl`
+  con 9+6 campos: métricas, dedup Amarillo) → contrato datos **28** (antes 26, +2).
+- Ajuste del arnés de `contrato_datos.mjs`: `crearHojaFalsa`/`arnesActivo` sirven
+  ahora la **grilla física real de PACIENTES** (2 filas de título visual + encabezado
+  en fila 3 + datos) para que los lectores ligeros reales (memo) encuentren los
+  datos. Sin esto, `api_duplaGuardar` ya no podía resolver la fila en tests.
+- Stub `Utilities.formatDate` añadido al harness (lo usan los endpoints de fecha).
+
+### Nota de regresión detectada y cerrada
+
+El cambio de `api_duplaGuardar` a lector ligero rompió C4/R2 y C2 (tests existentes
+de la convención de fila física). Se repararon **haciendo el arnés más fiel a la
+hoja real** (grilla con layout visual), NO debilitando el aserto: las escrituras
+siguen verificándose contra `Modelo_filaFisica` y por encima de `dataStartRow`.
+
+### Tests
+
+Batería completa verde: núcleo 553 · contrato datos **28** (antes 26, +R8/R9) ·
+aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+formulario_web 27 · `validar_html` 17/17.

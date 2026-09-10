@@ -72,6 +72,7 @@ sandbox.SpreadsheetApp = {
 };
 sandbox.Session = { getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }, getScriptTimeZone: function () { return 'America/Santiago'; } };
 sandbox.Logger = { log: function () {}, logToConsole: function () {} };
+sandbox.Utilities = { formatDate: function (d) { return d.toISOString().slice(0, 10); } };
 sandbox.CacheService = { getScriptCache: function () { return { get: function () { return null; }, put: function () {} }; } };
 sandbox.LockService = { getScriptLock: function () { return { tryLock: function () { return true; }, releaseLock: function () {} }; } };
 
@@ -127,13 +128,13 @@ const PAC_MUESTRA = [
   { ID_INTERNO: 'EC-0002', RUT: '22222222-2', NOMBRE: 'ANA MARÍA SOTO', SEXO: 'F', FECHA_NACIMIENTO: '1995-07-22', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1', CONDICIONES: '', OTRAS_PATOLOGIAS: '', DUPLA_INGRESO: '', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', TELEFONOS: '+56922222222', FECHA_ACTUALIZACION: null }
 ];
 
-function crearHojaFalsa(nombre) {
+function crearHojaFalsa(nombre, grilla) {
   var hoja = {
     nombre: nombre,
     escrituras: []
   };
-  hoja.getLastRow = function () { return 4 + hoja.escrituras.length; };
-  hoja.getLastColumn = function () { return 25; };
+  hoja.getLastRow = function () { return Math.max(grilla ? grilla.length + 2 : 0, 4) + hoja.escrituras.length; };
+  hoja.getLastColumn = function () { return grilla ? grilla[0].length : 25; };
   hoja.getSheetName = function () { return nombre; };
   hoja.getRange = function (row, col, numRows, numCols) {
     var r = {
@@ -150,19 +151,38 @@ function crearHojaFalsa(nombre) {
       hoja.escrituras.push({ fila: r.fila, col: r.col, numFilas: vals.length, numCols: vals[0].length, valores: vals });
       return r;
     };
-    r.getValues = function () { return [new Array(r.numCols).fill('')]; };
+    r.getValues = function () {
+      if (grilla) {
+        var filas = grilla.slice(Math.max(r.fila - 1, 0), Math.max(r.fila - 1, 0) + r.numFilas);
+        return filas.map(function (f) { return f.slice(r.col - 1, r.col - 1 + r.numCols); });
+      }
+      return [new Array(r.numCols).fill('')];
+    };
     return r;
   };
   return hoja;
 }
 
-/** Activa el arnés de stubs y devuelve la hoja PACIENTES falsa (escrituras). */
+/** Activa el arnés de stubs y devuelve la hoja PACIENTES falsa (escrituras).
+ *  Sirve además una grilla real de PACIENTES (orden de MODELO_PACIENTE, encabezado
+ *  en fila 3) para que los lectores ligeros reales (memo) encuentren los datos. */
 function arnesActivo() {
-  var hojaP = crearHojaFalsa(NOMBRE_P);
   var salvados = {};
   SVC_DEP.forEach(function (k) { salvados[k] = CSP[k]; });
-
   function clone() { return JSON.parse(JSON.stringify(PAC_MUESTRA)); }
+  var campos = CSP.Modelo_campos();
+  var filasTitulo = CSP.Modelo_layoutHoja(NOMBRE_P).seccionesRow || 0;
+  var grilla = [];
+  for (var ti = 0; ti < filasTitulo; ti++) grilla.push(campos.map(function () { return ''; }));
+  grilla.push(campos);
+  grilla = grilla.concat(clone().map(function (p) {
+    return campos.map(function (k) {
+      var v = p[k];
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+      return v === undefined || v === null ? '' : v;
+    });
+  }));
+  var hojaP = crearHojaFalsa(NOMBRE_P, grilla);
   CSP.Modelo_leerPacientes = clone;
   CSP.Modelo_asegurarEsquemaPacientes = function () { return { ok: true }; };
   CSP.Modelo_agregarEventos = function () { return true; };
@@ -742,6 +762,65 @@ t('R7: _CONTROL_CAMPOS_PACIENTES alimenta Control_consultarControles sin perder 
     igual(f.ultimoControl, '2026-01-10');
     igual(f.ultimoSeguimiento, '');
     A(f.edad !== undefined && f.edad !== '', 'edad calculada desde FECHA_NACIMIENTO');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R8/R9 — PERF pasada 11: endpoints read-only con lectores ligeros.
+// R8: api_patologiasAbrir materializa solo ID/CONDICIONES/OTRAS_PATOLOGIAS.
+// R9: api_diagnosticoControl sigue completo con 9 campos de paciente.
+// ─────────────────────────────────────────────────────────────────────────────
+t('R8: api_patologiasAbrir funciona con solo 3 campos de paciente', () => {
+  const filas = [
+    ['ID_INTERNO', 'CONDICIONES', 'OTRAS_PATOLOGIAS', 'SECTOR'],
+    ['EC-0001', 'HTA;DM2', 'asma', 'NARANJO'],
+    ['EC-0002', '', '', 'AMARILLO']
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const r = CSP.api_patologiasAbrir('EC-0001');
+    A(r.catalogo && Array.isArray(r.catalogo), 'catálogo presente');
+    equalish(r.seleccionadas, ['HTA', 'DM2'], 'condiciones del paciente');
+    igual(r.otrasPatologias, 'asma');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+t('R9: api_diagnosticoControl completo con 9 campos de paciente + eventos ligeros', () => {
+  const filasP = [
+    ['ID_INTERNO', 'NOMBRE', 'RUT', 'SECTOR', 'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO', 'PROXIMO_CONTROL', 'REQUIERE_REVISION'],
+    ['EC-0001', 'JUAN PÉREZ', '11111111-1', 'NARANJO', 'G2', '2026-01-10', '', '1988-03-12', '2026-04-10', true],
+    ['EC-0002', 'ANA SOTO', '22222222-2', 'AMARILLO', 'G1', '', '', '1995-07-22', '', false],
+    ['EC-0003', 'BETO DÍAZ', '33333333-3', 'AMARILLO', 'G3', '2026-05-01', '2026-06-01', '1990-11-02', '2026-08-01', false]
+  ];
+  const filasE = [
+    ['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE', 'NOMBRE', 'SECTOR'],
+    ['EC-0002', 'INGRESO', '2026-08-01', 'AMARILLO|INGRESOS ECICEP', 'ANA SOTO', 'AMARILLO'],
+    ['EC-0002', 'INGRESO', '2026-08-01', 'AMARILLO|INGRESOS ECICEP', 'ANA SOTO', 'AMARILLO'],
+    ['EC-0001', 'CONTROL', '2026-01-10', 'UI_FICHA', 'JUAN PÉREZ', 'NARANJO']
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  CSP.Modelo_hoja = (nombre) => {
+    if (nombre === CSP.HOJAS.PACIENTES) return hojaLigeraPara('PACIENTES', filasP, 3);
+    if (nombre === CSP.HOJAS.EVENTOS) return hojaLigeraPara('EVENTOS', filasE, 1);
+    return null;
+  };
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const r = CSP.api_diagnosticoControl(true);
+    A(r.ok, 'diagnóstico ok');
+    igual(r.metricas.analizados, 3, 'tres pacientes analizados');
+    A(Array.isArray(r.inconsistentes), 'inconsistentes calculados desde panel');
+    igual(r.dedup.analizados, 2, 'solo eventos FUENTE Amarillo');
+    igual(r.dedup.gruposDuplicados, 1, 'par duplicado detectado');
+    igual(r.dedup.eliminar, 1, 'una fila a eliminar');
   } finally {
     CSP.Modelo_hoja = prevHoja;
     CSP.Modelo_invalidarLecturas();

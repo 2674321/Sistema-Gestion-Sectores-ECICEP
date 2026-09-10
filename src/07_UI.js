@@ -521,7 +521,7 @@ function api_duplaGuardar(idInterno, codigos) {
   try {
     codigos = (codigos || []).map(function (c) { return String(c).trim().toUpperCase(); }).filter(Boolean);
     var dupla = codigos.join('; ');
-    var pacientes = Modelo_leerPacientes();
+    var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO']);
     var idx = -1;
     for (var i = 0; i < pacientes.length; i++) {
       if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { idx = i; break; }
@@ -946,6 +946,13 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
   }
 }
 
+/** Campos mínimos del Diagnóstico de control: los que consumen
+ *  Control_analizar, Control_filasPanel y el barrido de desalineados
+ *  (= _CONTROL_CAMPOS_PACIENTES + PROXIMO_CONTROL). */
+var _DIAGNOSTICO_CAMPOS_PACIENTES = _CONTROL_CAMPOS_PACIENTES.concat(['PROXIMO_CONTROL']);
+/** Campos mínimos del análisis de duplicados Amarillo (FUENTE + entidad + fecha). */
+var _DIAGNOSTICO_CAMPOS_EVENTOS_AMARILLO = ['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE', 'NOMBRE', 'SECTOR'];
+
 /** Diagnóstico integral del modelo clínico de control (dry-run por defecto).
  *  NO modifica datos cuando dryRun=true (default). Devuelve métricas reales,
  *  alertas de PROXIMO_CONTROL, estado del sector Amarillo y acciones sugeridas. */
@@ -953,7 +960,7 @@ function api_diagnosticoControl(dryRun) {
   try {
     var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-    var pacientes = Modelo_leerPacientes();
+    var pacientes = Modelo_leerPacientesCampos(_DIAGNOSTICO_CAMPOS_PACIENTES);
     var cfg = _UI_controlConfig();
     var freq = cfg.freq;
     var aviso = cfg.aviso;
@@ -981,7 +988,7 @@ function api_diagnosticoControl(dryRun) {
 
     var dedupSr = null;
     try {
-      var eventoAmarillo = Modelo_leerEventos().filter(function (e) {
+      var eventoAmarillo = Modelo_leerEventosCampos(_DIAGNOSTICO_CAMPOS_EVENTOS_AMARILLO).filter(function (e) {
         return Utl_texto(e.SECTOR).toUpperCase() === 'AMARILLO';
       });
       dedupSr = Amarillo_analizarDuplicados(eventoAmarillo);
@@ -1604,7 +1611,7 @@ function api_patologiasAbrir(idInterno) {
   var catalogo = CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; }).map(function (c) {
     return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO, peso: c.PONDERACION };
   });
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'CONDICIONES', 'OTRAS_PATOLOGIAS']);
   var paciente = null;
   for (var i = 0; i < pacientes.length; i++) {
     if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { paciente = pacientes[i]; break; }
@@ -2017,7 +2024,7 @@ function _panel_iniciales(nombre) {
 /** Consistencia transversal entre sectores (#5): conteos, duplicados por RUT,
  *  pacientes sin sector y pendientes de importación Amarillo. */
 function _pruS_consistencia() {
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientesCampos(['SECTOR', 'RUT']);
   var porSector = {}, sinSector = 0, dups = {};
   var vistos = {};
   pacientes.forEach(function (p) {
