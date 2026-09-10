@@ -6,13 +6,28 @@
      Inter) o "none" (sin fuentes). Evita descargar webfonts que la página no usa. -->
 <script>
 (function () {
-  var attr = document.documentElement.getAttribute('data-ecicep-fuentes') || 'all';
+  var doc = document.documentElement;
+  var attr = doc.getAttribute('data-ecicep-fuentes') || 'all';
   var href;
   if (attr === 'sora') href = 'https://fonts.googleapis.com/css2?family=Sora:wght@600;700&display=swap';
   else if (attr === 'all') href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap';
+  /* Carga NO bloqueante del render: la hoja de fuentes se baja en baja prioridad
+     (media=print) y se aplica al cargar. Evita esperar la webfont para el primer
+     pintado; si falla, un temporizador la aplica igual (fallback de seguridad). */
   if (href) {
+    if (doc && doc.createElement('link') && window.location && window.location.protocol === 'https:') {
+      ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].forEach(function (o) {
+        var c = document.createElement('link');
+        c.rel = 'preconnect';
+        c.href = o;
+        if (o.indexOf('gstatic') !== -1) c.crossOrigin = 'anonymous';
+        document.head.appendChild(c);
+      });
+    }
     var l = document.createElement('link');
-    l.rel = 'stylesheet'; l.href = href;
+    l.rel = 'stylesheet'; l.href = href; l.media = 'print';
+    l.onload = l.onreadystatechange = function () { if (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete') { l.media = 'all'; if (l.onreadystatechange) l.onreadystatechange = null; } };
+    setTimeout(function () { try { l.media = 'all'; } catch (e) {} }, 3500);
     document.head.appendChild(l);
   }
 })();
