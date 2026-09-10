@@ -307,7 +307,7 @@ t('Ningún payload construido contiene claves fuera de PERMITIDAS', () => {
 console.log('\nPARTE H — BUG-E2E-002 (S10): el dropdown de profesionales se puebla tras la RPC única.');
 
 t('H1: _poblarDropdowns() se invoca en el success handler de WebApp_estadoInicial', () => {
-  const asignacion = 'PROF=r.profesionales;';
+  const asignacion = 'PROF=r.profesionales';
   const iAsign = html.indexOf(asignacion);
   const iLlamada = html.indexOf('_poblarDropdowns();', iAsign);
   const iFinRpc = html.indexOf('.WebApp_estadoInicial();');
