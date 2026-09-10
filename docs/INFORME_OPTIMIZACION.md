@@ -183,3 +183,44 @@ Los `setValue`/`appendRow` restantes corresponden al pintor instalador
    duplicaba), sin cambio visual.
 4. **Reglas documentadas** para no regresar (`ARQUITECTURA.md → Rendimiento →
    Invariantes consolidados`).
+
+## 10. PASADA 5 — RPC DEL ENVÍO: pre-flight de duplicados solo en NUEVO_INGRESO
+
+Fecha de ejecución: 2026-09-10.
+Alcance: Web App de captura (`src/CapturaWeb.html`) — envío de datos (S1/§24).
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Problema
+
+El cliente llamaba `WebApp_previaDuplicadosV2` antes de **cada** envío, aunque el
+server ya documentaba "*única RPC previa en NUEVO_INGRESO; resto 1 RPC*" y esa
+función devuelve `{ok:true, coincidencia:false}` sin leer hojas para las demás
+acciones. En Apps Script cada RPC implica serialización, invocación y latencia de
+red → **todo envío costaba 2 round-trips**, incluso cuando el segundo no aportaba nada.
+
+### Cambio
+
+| Archivo | Cambio |
+|---|---|
+| `src/CapturaWeb.html` | `enviar()`: para `REGISTRAR_CONTROL`, `REGISTRAR_SEGUIMIENTO` y `ACTUALIZAR_DATOS` salta el pre-flight y va directo a `WebApp_capturarEnviar` (1 RPC). `NUEVO_INGRESO` conserva exactamente su flujo actual (pre-flight → modal → envío), que es la puerta contra dobles registros. |
+| `tests/formulario_web.mjs` | +2 tests (I1/I2) con acción de formulario controlable: acciones ≠ nuevo ingreso disparan UNA RPC (`WebApp_capturarEnviar`) sin `previaDuplicados`, y `NUEVO_INGRESO` sigue pre-consultando duplicados. |
+
+### Justificación de seguridad (datos correctos y enviados donde corresponde)
+
+- Las validaciones §5–§18 siguen ejecutándose íntegras en `Captura_v2_enviar` (server).
+- El pre-flight de duplicados es una puerta de UX; la deduplicación de negocio vive
+  en el pipeline (`Ingresos_procesarTodasLasHojas` → `REVISION`/`REQUIERE_REVISION`
+  para `POSIBLE_DUPLICADO`) y no cambió.
+- `confirmarNuevoPaciente` solo se transmite en `nuevoIngreso` y solo por instrucción
+  explícita del usuario (tests F de `captura_ui_payload_v2.mjs`).
+- `WebApp_previaDuplicadosV2` se conserva en el backend sin cambios (tests C11).
+
+### Impacto
+
+- Control / Seguimiento (flujo de mayor frecuencia operativa) y Actualización de
+  datos: **2 RPC → 1 RPC** por envío (~mitad de latencia percibida y de superficie
+  de fallo de transporte).
+- `NUEVO_INGRESO`: sin cambio (sigue siendo el caso más completo y necesita la puerta).
+- Batería completa verde: validar HTML 17 · formulario web 27 · payload V2 19 ·
+  backend V2 65 · cola 33 · aceptación 50 · contrato captura OK · contrato datos 20 ·
+  núcleo 553.

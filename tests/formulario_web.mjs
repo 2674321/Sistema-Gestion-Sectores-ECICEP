@@ -11,6 +11,8 @@
  *     formulario (reintento idéntico es inocuo A1/A2).
  *   - El botón/spinner nunca quedan bloqueados (timeout cubre previa y envío).
  *   - La guardia de doble envío impide RPC duplicadas.
+ *   - UNA RPC por envío: el pre-flight de duplicados solo se usa en NUEVO_INGRESO;
+ *     Control/Seguimiento/Actualizar van directo a WebApp_capturarEnviar.
  *   - Se expone solo identificadores técnicos, nunca datos clínicos.
  *
  * El harness ejecuta el script inline REAL de CapturaWeb.html en un sandbox
@@ -103,9 +105,17 @@ const document = {
   createElement(tag) { return makeElement('<' + tag + '>'); },
   createTextNode(s) { return { nodeType: 3, textContent: s }; },
   querySelectorAll() { return []; },
-  querySelector() { return null; },
+  querySelector(sel) {
+    if (sel === 'input[name="accion"]:checked') return radioAccion;
+    return null;
+  },
   addEventListener() {}, removeEventListener() {}
 };
+
+// Radio de acción controlable: permite simular la acción activa del formulario.
+const radioAccion = makeElement('accion-radio');
+radioAccion.value = 'NUEVO_INGRESO';
+radioAccion.checked = true;
 
 // Stub de google.script.run: encadenable, registra llamadas, nunca resuelve.
 const rpcCalls = [];
@@ -409,6 +419,47 @@ t('G2 tras RECIBIDO (pendiente) el spinner no está activo', () => {
   poblarFormulario();
   U._envExito(PENDIENTE, 'NUEVO_INGRESO');
   A(!document.getElementById('spinEnviar').classList.contains('on'), 'spinner apagado tras pendiente');
+});
+
+console.log('PARTE I — UNA RPC por envío: pre-flight de duplicados solo en NUEVO_INGRESO.');
+
+// Formulario válido real (pasadoras de validación client-side) para poder
+// disparar el envío con datos completos.
+function poblarFormValido() {
+  const v = {
+    rut: '12.345.678-9', nombre: 'Paciente Test', sexo: 'M', fnac: '2000-01-01',
+    sector: 'VERDE', fingreso: '2026-01-01', fecha_evento: '2026-01-02',
+    telefonos: '+56911112222', obs: 'obs', profesional: 'MATRONA/O', profesional2: '', estrat: 'G1'
+  };
+  Object.keys(v).forEach((id) => { const el = document.getElementById(id); if (el) el.value = v[id]; });
+}
+
+t('I1 Control/Seguimiento/Actualizar: envío directo en UNA RPC (sin pre-flight de duplicados)', () => {
+  poblarFormValido();
+  U.enviando = false;
+  ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'].forEach((acc) => {
+    const antes = rpcCalls.length;
+    radioAccion.value = acc;
+    U.enviando = false;
+    U.enviar();
+    const nuevas = rpcCalls.slice(antes);
+    A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarEnviar',
+      acc + ': debe ser UNA RPC de captura directa, recibidas: ' + JSON.stringify(nuevas));
+    A(!nuevas.some((c) => c.name === 'WebApp_previaDuplicadosV2'),
+      acc + ': nunca debe pre-consultar duplicados (server ya lo documenta: resto 1 RPC)');
+  });
+});
+
+t('I2 NUEVO_INGRESO conserva el pre-flight de duplicados (puerta de dobles intacta)', () => {
+  poblarFormValido();
+  U.enviando = false;
+  const antes = rpcCalls.length;
+  radioAccion.value = 'NUEVO_INGRESO';
+  U.enviar();
+  const nuevas = rpcCalls.slice(antes);
+  A(nuevas.length === 1 && nuevas[0].name === 'WebApp_previaDuplicadosV2',
+    'nuevoIngreso sí debe pre-consultar duplicados primero, recibidas: ' + JSON.stringify(nuevas));
+  radioAccion.value = 'NUEVO_INGRESO';
 });
 
 // ── Resumen ──
