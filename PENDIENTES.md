@@ -31,7 +31,7 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 | 29 | Activar y validar estrategia de backups operativos | Operativo | ALTA |
 | 30 | Realizar validación visual manual integral del libro real tras los cambios correspondientes | Humano | ALTA |
 | 32 | Normalizar formato heredado mediante el reconciliador visual, sin limpieza destructiva manual | Dev | BAJA |
-| 33 | Migrar colores duplicados en HTML a tokens CSS de `00_Tokens` | Dev / cosmético | BAJA |
+| 33 | ~~Migrar colores duplicados en HTML a tokens CSS~~ — **cerrado**: auditoría por contexto (style/`:root`/script) en los 15 HTML. Ningún hex de regla iguala un token de `00_Tokens` sin tokenizar; los literales restantes son valores sin equivalente (`#A0A5AE`, `#096B50`, `#fff`) o paletas propias de la Web App (`--c-*`, self-contained, usadas por JS que no puede leer CSS vars). `QRFormulario.html` (única página sin include) espejaba la paleta `--c-*` como literales: migrado a `var(--c-*)` con `:root` local de la misma convención y sin include (evita colisiones con la tarjeta de impresión). Reversible y sin cambio visual | Dev / cosmético | BAJA |
 
 ## 3. Publicación / deployment
 
