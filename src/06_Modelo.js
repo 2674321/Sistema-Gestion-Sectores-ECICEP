@@ -399,6 +399,38 @@ function _modelo_formatoSencillo(hoja, columnas) {
   });
 }
 
+/** GAS: dropdowns ADVISORIOS en las columnas categóricas de PACIENTES.
+ *  Fuente de verdad = catálogos canónicos del backend (SEXOS.VALIDOS,
+ *  SECTORES territoriales, ESTRATIFICACION G1-G3, ESTADOS.VALIDOS).
+ *  allowInvalid=true: nunca bloquea la escritura directa de administración;
+ *  solo sugiere/advierte si el valor no coincide con el catálogo.
+ *  Idempotente: re-aplica la misma regla (una RPC por columna, tiempo de
+ *  instalación, no hot-path). */
+function _modelo_validacionesPacientes(hoja) {
+  var labels = hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), 1, 1,
+    Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0];
+  var catalogos = {
+    SEXO: SEXOS.VALIDOS, SECTOR: ['NARANJO', 'AMARILLO', 'VERDE', 'MULTIPLE'],
+    ESTRATIFICACION: ['G1', 'G2', 'G3'], ESTADO: ESTADOS.VALIDOS
+  };
+  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
+  var filas = Math.max(hoja.getMaxRows() - ini + 1, 1);
+  var aplicadas = 0;
+  labels.forEach(function (et, i) {
+    var clave = Utl_claveAlnum(et).toUpperCase();
+    var lista = catalogos[clave];
+    if (!lista || !hoja.getMaxRows() >= ini) return;
+    hoja.getRange(ini, i + 1, filas, 1)
+      .setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireValueInList(lista, true)
+        .setAllowInvalid(true)
+        .setHelpText('Valores válidos: ' + lista.join(' | '))
+        .build());
+    aplicadas++;
+  });
+  return aplicadas;
+}
+
 /**
  * Aplica el diseño visual del libro de forma IDEMPOTENTE:
  * color de pestaña por segmento, orden fijo, técnicas ocultas,
@@ -408,7 +440,7 @@ function _modelo_formatoSencillo(hoja, columnas) {
  */
 function Modelo_aplicarDiseno() {
   var ss = Modelo_ss();
-  var res = { coloreadas: 0, ocultas: [], ordenadas: 0, congeladas: [], bandas: 0, fallidas: [] };
+  var res = { coloreadas: 0, ocultas: [], ordenadas: 0, congeladas: [], bandas: 0, validaciones: 0, fallidas: [] };
   var activaOriginal = ss.getActiveSheet().getName();
 
   var porHoja = {};
@@ -458,7 +490,15 @@ function Modelo_aplicarDiseno() {
     }
   });
 
-  // Restaurar la hoja que el usuario tenía activa
+  // Dropdowns adyacentes (advisory) en las columnas categóricas de PACIENTES
+  try {
+    var hPac = porHoja[HOJAS.PACIENTES];
+    if (hPac) res.validaciones = _modelo_validacionesPacientes(hPac);
+  } catch (eV) {
+    res.fallidas.push('PACIENTES (validaciones): ' + (eV && eV.message || eV));
+  }
+
+  // Restaurar la hoja activa del usuario
   try {
     var back = ss.getSheetByName(activaOriginal);
     if (back) ss.setActiveSheet(back, false);
