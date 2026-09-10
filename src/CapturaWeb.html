@@ -222,6 +222,19 @@
       font-size:var(--fs-xs);font-weight:var(--fw-semibold);background:rgba(255,255,255,.5);
       border:1px solid rgba(0,0,0,.06)}
 
+    /* ── Progreso de campos obligatorios ── */
+    .prog{border:1px solid var(--c-border-light);border-radius:var(--r-md);
+      background:var(--c-surface-alt);padding:var(--sp-2) var(--sp-3);margin-top:var(--sp-3)}
+    .prog[hidden]{display:none}
+    .prog-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);margin-bottom:6px}
+    .prog-lbl{font-size:var(--fs-xs);color:var(--c-text-2);font-weight:var(--fw-semibold)}
+    .prog-pct{font-size:var(--fs-xs);color:var(--c-text-3);font-variant-numeric:tabular-nums}
+    .prog-track{height:6px;border-radius:999px;background:var(--c-border);overflow:hidden}
+    .prog-fill{height:100%;width:0%;border-radius:999px;background:var(--c-primary-mid);
+      transition:width .25s ease}
+    .prog.ok .prog-fill{background:var(--c-ok)}
+    .prog.ok .prog-lbl{color:var(--c-ok)}
+
     /* ── Footer ── */
     .ftr{text-align:center;padding-top:var(--sp-4);
       padding-bottom:calc(var(--sp-4) + env(safe-area-inset-bottom,0px));
@@ -452,6 +465,17 @@
             </div>
           </div>
         </fieldset>
+
+        <!-- Progreso de campos obligatorios -->
+        <div class="prog" id="progHidden" hidden>
+          <div class="prog-row">
+            <span class="prog-lbl" id="progLabel">0 de 0 campos obligatorios</span>
+            <span class="prog-pct" id="progPct">0%</span>
+          </div>
+          <div class="prog-track" role="progressbar" id="progBar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="prog-fill" id="progFill"></div>
+          </div>
+        </div>
 
         <!-- 2. Profesionales -->
         <fieldset class="sec hidden" id="secProf">
@@ -817,6 +841,7 @@
     $('duplaToggle').setAttribute('aria-expanded',duplaVisible);
     if(!duplaVisible){$('profesional2').value='';limpiarError('profesional2');}
     else{$('profesional2').focus();}
+    _actualizarProgreso();
   }
 
   function pintarCampos(){
@@ -1195,6 +1220,7 @@
       :'+ Agregar segundo profesional';
     $('duplaToggle').setAttribute('aria-expanded',duplaVisible);
     limpiarErrores();ocultarResumen();
+    _actualizarProgreso();
     $('btnsNueva').classList.remove('show');
     $('btnEnviar').classList.remove('hidden');
     $('btnLimpiar').classList.remove('show');
@@ -1222,6 +1248,45 @@
 
   function actualizarLimpiar(){
     $('btnLimpiar').classList.toggle('show',formTieneDatos());
+    _actualizarProgreso();
+  }
+
+  /* Progreso de campos obligatorios de la acción vigente. Cuenta solo los
+     campos REQUERIDOS visiblemente presentes (secciones ocultas excluidas),
+     con la misma lógica de {secN&&!esp.secciones[secN]} que la validación. */
+  function _progresoRequisitos(){
+    var esp=_esquemaAccion(getAccion());
+    var req=(esp.camposRequeridos||[]).slice();
+    if(req.indexOf('RUT')===-1)req.push('RUT');
+    var total=0,ok=0;
+    req.forEach(function(campo){
+      var id=CAMPO_A_DOM[campo];if(!id)return;
+      var el=$(id);
+      if(!el||el.offsetParent===null)return;
+      total++;
+      var val=(typeof el.value==='string'?el.value:'').trim();
+      var completo=false;
+      if(campo==='RUT'){completo=!validarRutBasico(val);}
+      else if(campo==='FECHA_NACIMIENTO'||campo==='FECHA_EVENTO'||campo==='FECHA_INGRESO'){
+        completo=!!val&&validarFecha(val);}
+      else{completo=!!val;}
+      if(completo)ok++;
+    });
+    return {total:total,ok:ok};
+  }
+
+  function _actualizarProgreso(){
+    var g=$('progHidden');
+    if(!g)return;
+    var p=_progresoRequisitos();
+    if(p.total<=0){g.hidden=true;return;}
+    g.hidden=false;
+    var pct=Math.round(p.ok/p.total*100);
+    $('progFill').style.width=pct+'%';
+    $('progLabel').textContent=p.ok+' de '+p.total+' campos obligatorios';
+    $('progPct').textContent=pct+'%';
+    $('progBar').setAttribute('aria-valuenow',String(pct));
+    g.classList.toggle('ok',p.ok===p.total);
   }
 
   function rutFormatoProgresivo(v){
@@ -1448,7 +1513,7 @@
 
   /* ── Eventos ── */
   document.querySelectorAll('input[name="accion"]').forEach(function(radio){
-    radio.addEventListener('change',function(){pintarCampos();ocultarResumen();});
+    radio.addEventListener('change',function(){pintarCampos();ocultarResumen();_actualizarProgreso();});
   });
   $('btnEnviar').addEventListener('click',enviar);
   $('btnLimpiar').addEventListener('click',function(){
