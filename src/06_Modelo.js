@@ -208,8 +208,17 @@ function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
 function Modelo_asegurarEsquemaPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, insertar: [], motivo: 'SIN_HOJA_PACIENTES' };
-  var ancho = Math.max(hoja.getLastColumn() || 0, MODELO_PACIENTE.length);
-  var fisicos = hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), 1, 1, ancho).getValues()[0];
+  // Si PACIENTES ya se leyó en esta invocación (path de escritura típico),
+  // reutilizar su encabezado del memo: evita 1 getLastColumn + 1 lectura de
+  // la fila de encabezados por cada lote de altas. Equivalente en ancho
+  // efectivo (Modelo_planMigracionEsquema recorta vacíos finales).
+  var fisicos;
+  if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, 'PACIENTES')) {
+    fisicos = _MEMO_HOJAS.PACIENTES[0] || [];
+  } else {
+    var ancho = Math.max(hoja.getLastColumn() || 0, MODELO_PACIENTE.length);
+    fisicos = hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), 1, 1, ancho).getValues()[0];
+  }
   var plan = Modelo_planMigracionEsquema(fisicos, Modelo_campos());
   if (plan.ok) return plan;
   if (!plan.insertar.length) {
