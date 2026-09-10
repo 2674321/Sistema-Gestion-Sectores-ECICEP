@@ -828,6 +828,43 @@ t('R9: api_diagnosticoControl completo con 9 campos de paciente + eventos ligero
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// R10 — PERF pasada 12: api_ficha se sirve del lector ligero con EXACTAMENTE
+// los 21 campos de _FICHA_CAMPOS_OPERATIVOS (cubre todo lo que la ficha lee).
+// ─────────────────────────────────────────────────────────────────────────────
+t('R10: api_ficha con 21 campos leídos no pierde datos (ficha/dupla/patologías/seguimiento)', () => {
+  const filasP = [
+    ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'COMPOSICION_CONTROL', 'OBSERVACIONES', 'CONDICIONES', 'OTRAS_PATOLOGIAS', 'EXTRA_COL'],
+    ['EC-0001', '11.111.111-1', 'JUAN PÉREZ', 'M', '1988-03-12', '+56911111111', '', 'NARANJO', 'G2', 'ACTIVO', 'COD-A;COD-B', 'DR.', '', '2026-01-01', '', '2026-01-10', '2026-04-10', '', 'obs', 'HTA;DM2', 'asma', 'x']
+  ];
+  const filasE = [
+    ['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION'],
+    ['EC-0001', '2026-01-10', 'CONTROL', 'NARANJO', 'G2', 'DRA.', 'Visita']
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  CSP.Modelo_hoja = (nombre) => {
+    if (nombre === CSP.HOJAS.PACIENTES) return hojaLigeraPara('PACIENTES', filasP, 3);
+    if (nombre === CSP.HOJAS.EVENTOS) return hojaLigeraPara('EVENTOS', filasE, 1);
+    return null;
+  };
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const r = CSP.api_ficha('EC-0001');
+    A(r.ok, 'ficha ok');
+    igual(r.ficha.ULTIMO_CONTROL, '2026-01-10', 'campo del set OPERATIVO presente');
+    igual(r.ficha.TELEFONOS, '+56911111111');
+    A(r.ficha.EDAD !== '' && r.ficha.EDAD !== undefined, 'EDAD calculada');
+    equalish(r.ficha.dupla.seleccionados, ['COD-A', 'COD-B'], 'dupla desde DUPLA_INGRESO');
+    equalish(r.ficha.patologias.seleccionadas, ['HTA', 'DM2'], 'condiciones desde CONDICIONES');
+    igual(r.ficha.patologias.otrasPatologias, 'asma');
+    A(r.ficha.seguimiento && r.ficha.seguimiento.nombre === 'JUAN PÉREZ', 'seguimiento desde Control_filasPanel');
+    igual(r.ficha.eventos.length, 1, 'eventos ligeros de la ficha');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resumen
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\nCONTRATO DE DATOS (S1) — Total: ${R.pass + R.fail + R.skip} · OK: ${R.pass} · FALLAN: ${R.fail} · SKIP: ${R.skip}`);

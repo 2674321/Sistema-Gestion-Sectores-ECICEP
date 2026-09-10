@@ -538,3 +538,49 @@ siguen verificándose contra `Modelo_filaFisica` y por encima de `dataStartRow`.
 Batería completa verde: núcleo 553 · contrato datos **28** (antes 26, +R8/R9) ·
 aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
 formulario_web 27 · `validar_html` 17/17.
+
+## 17. PASADA 12 — FICHA con lector ligero + cierre de la auditoría de lectores completos
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/07_UI.js`, `tests/contrato_datos.mjs`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Cambio
+
+`api_ficha` (sidebar de ficha clínica, una de las vistas más abiertas) leía
+PACIENTES completo (~30 columnas) para usar luego un conjunto cerrado. Ahora usa
+`Modelo_leerPacientesCampos(_FICHA_CAMPOS_OPERATIVOS)` (21 campos — exactamente lo
+que la ficha consume: operativos, dupla, patologías y el derivado del Panel de
+control). Eventos ya eran ligeros (7 campos, pasada 10).
+
+### Estado final de la auditoría de lectores completos en el menú
+
+Tras las pasadas 9–12, los únicos lectores completos que quedan en la superficie
+de menú están **justificados**:
+
+| Endpoint | Campo completo | Por qué NO se ligera |
+|---|---|---|
+| `api_registrarEvento` | PACIENTES | Reescribe la fila entera con `Modelo_filaDesdeObjeto(objetivo)` + `Ingresos_sincronizarCache` |
+| `api_controlActualizarUltimo` | PACIENTES | Escribe ÚLTIMO_C/SEGUIMIENTO/PROXIMO y el evento desde el objeto |
+| `api_patologiasGuardar` | PACIENTES | Reescribe la fila completa (CONDICIONES + estrat en una escritura) |
+| `Estrat_recalcularPaciente` / `Control_recalcularTodos` | PACIENTES | Escrituras por bloques sobre filas completas |
+| `api_duplicados*` | PACIENTES/EVENTOS | `Api_duplicadosUnirPorRut` reescribe filas y reasigna eventos |
+| `api_limpieza*` | PACIENTES/EVENTOS | Operación destructiva por fila física; fuera del alcance de solo-lectura |
+| `_rem_*`/`_rem9_datos`/`Calidad_*`/`Amarillo_aplicarHistorico` | — | Ya migrados a listas ligeras (pasadas 10–11) |
+
+`api_ficha` conserva eventos históricos ligeros y la lectura PACIENTES ligera; los
+catálogos (PROFESIONALES, CONDICIONES) ya se leen por bloque de valores.
+
+### Test
+
+**R10**: `api_ficha` con los 21 campos lectos no pierde datos — TELEFONOS/ULTIMO_CONTROL
+del set operativo, EDAD calculada, dupla desde DUPLA_INGRESO, patologías desde
+CONDICIONES/OTRAS_PATOLOGIAS y seguimiento derivado del Panel → contrato datos **29**.
+
+### Tests
+
+Batería completa verde (serial): núcleo 553 · contrato datos **29** (antes 28, +R10) ·
+aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+formulario_web 27 · `validar_html` 17/17.
+Nota: los micro-benchmarks de `10_Pruebas` (`ms < 100/1000/2000`) son sensibles a
+CPU compartida; si fallan al correr suites en paralelo, volver a ejecutar en serie.

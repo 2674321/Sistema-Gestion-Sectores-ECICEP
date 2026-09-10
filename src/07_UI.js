@@ -1101,7 +1101,7 @@ function api_buscar(termino) {
  */
 function api_ficha(idInterno) {
   try {
-    var pacientes = Modelo_leerPacientes();
+    var pacientes = Modelo_leerPacientesCampos(_FICHA_CAMPOS_OPERATIVOS);
     var paciente = null;
     var idNormalizado = Utl_texto(idInterno).trim();
 
