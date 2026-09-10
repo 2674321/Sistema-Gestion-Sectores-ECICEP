@@ -1183,8 +1183,9 @@ function _memoLeer(hoja, clave) {
 
 function Modelo_leerPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.PACIENTES)) return [];
+  if (!hoja) return [];
   var valores = _memoLeer(hoja, 'PACIENTES');
+  if (!valores.length) return [];
   var campos = valores[0];
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
@@ -1612,8 +1613,9 @@ function Modelo_refrescarVistasSectores(sectores) {
 /** Lee la hoja EVENTOS como objetos según COLUMNAS_EVENTOS. */
 function Modelo_leerEventos() {
   var hoja = Modelo_hoja(HOJAS.EVENTOS);
-  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.EVENTOS)) return [];
+  if (!hoja) return [];
   var valores = _memoLeer(hoja, 'EVENTOS');
+  if (!valores.length) return [];
   var campos = valores[0];
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
