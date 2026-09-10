@@ -155,7 +155,8 @@
       background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
     textarea.f-input{resize:vertical;min-height:72px}
     .f-err{font-size:var(--fs-xs);color:var(--c-err);margin-top:var(--sp-1);display:none;line-height:1.4}
-    .f-err.show{display:block}
+    .f-err.show{display:block;animation:fadeSlideIn .2s ease}
+    .f-input.err-flash{animation:errFlash .9s ease}
 
     /* ── Dupla ── */
     .dupla{border:1.5px solid var(--c-border);border-radius:var(--r-md);padding:var(--sp-3);
@@ -284,6 +285,7 @@
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
     @keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes errFlash{0%,55%{box-shadow:0 0 0 3px rgba(196,40,40,.22)}100%{box-shadow:none}}
 
     /* ── Mejoras visuales (solo apariencia) ── */
 
@@ -891,11 +893,13 @@
     return construirPayloadV2(estado);
   }
 
+  var _primerError=null;
   function mostrarError(campo,msg){
     var errEl=$(campo+'-err');
     var inpEl=$(campo);
     if(errEl){errEl.textContent=msg;errEl.classList.add('show');}
     if(inpEl){inpEl.setAttribute('aria-invalid','true');}
+    if(!_primerError)_primerError=campo;
     if(campo==='profesional'||campo==='profesional2'){
       $('duplaGroup').setAttribute('aria-invalid','true');
     }
@@ -905,10 +909,11 @@
     var errEl=$(campo+'-err');
     var inpEl=$(campo);
     if(errEl){errEl.textContent='';errEl.classList.remove('show');}
-    if(inpEl){inpEl.removeAttribute('aria-invalid');}
+    if(inpEl){inpEl.removeAttribute('aria-invalid');inpEl.classList.remove('err-flash');}
   }
 
   function limpiarErrores(){
+    _primerError=null;
     ['rut','nombre','fnac','sector','fingreso','fecha_evento','profesional','profesional2'].forEach(function(c){
       limpiarError(c);
     });
@@ -1118,10 +1123,22 @@
     if(e.target===this){var cb=_dupCb;cerrarDuplicados();if(cb&&cb.descartar)cb.descartar();}
   });
 
+  function _enfocarPrimerError(){
+    if(!_primerError)return;
+    var el=$(_primerError);
+    if(!el)return;
+    el.classList.add('err-flash');
+    setTimeout(function(){if(el.classList)el.classList.remove('err-flash');},950);
+    try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){el.scrollIntoView();}
+    var esTexto=(el.tagName==='TEXTAREA')||(el.tagName==='INPUT'&&(!el.type||el.type==='text'));
+    if(esTexto)try{el.focus();}catch(e){}
+  }
+
   function enviar(){
     if(_enviando)return;
     if(!validarFormulario()){
       mostrarResumen('err','Revise los campos indicados','');
+      _enfocarPrimerError();
       return;
     }
     ocultarResumen();
