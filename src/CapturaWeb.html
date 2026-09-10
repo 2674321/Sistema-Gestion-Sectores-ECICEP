@@ -119,6 +119,28 @@
     .f-label .req{color:var(--c-err);font-weight:var(--fw-bold)}
     .f-label .opt{font-weight:var(--fw-regular);color:var(--c-text-3);font-size:var(--fs-xs)}
     .f-hint{font-size:var(--fs-xs);color:var(--c-text-3);margin-top:2px}
+    /* Fila de etiqueta + tooltip de ayuda inline */
+    .f-lblwrap{display:flex;align-items:center;gap:6px;margin-bottom:var(--sp-1)}
+    .f-lblwrap .f-label{margin-bottom:0}
+    .tip{position:relative;display:inline-flex;align-items:center}
+    .tip-ico{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
+      border-radius:50%;border:1px solid var(--c-border);background:var(--c-surface);
+      color:var(--c-text-3);cursor:pointer;padding:0;transition:all var(--transition)}
+    .tip-ico:hover,.tip-ico:focus-visible{color:var(--c-primary-mid);border-color:var(--c-primary-mid);
+      background:var(--c-surface-alt);outline:none}
+    .tip-bub{position:absolute;top:calc(100% + 7px);left:0;z-index:30;max-width:252px;width:max-content;
+      padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);border:1px solid var(--c-border);
+      background:var(--c-surface);color:var(--c-text-2);font-size:var(--fs-xs);font-weight:var(--fw-regular);
+      line-height:1.45;text-align:left;box-shadow:var(--sh-md);
+      opacity:0;visibility:hidden;pointer-events:none;
+      transition:opacity var(--transition),transform var(--transition),visibility var(--transition);
+      transform:translateY(2px)}
+    .tip-ico:hover + .tip-bub,.tip-ico:focus-visible + .tip-bub,
+    .tip:focus-within .tip-bub,.f:focus-within .tip-bub{opacity:1;visibility:visible;pointer-events:auto;
+      transform:translateY(0)}
+    .tip-bub::before{content:'';position:absolute;top:-5px;left:9px;width:8px;height:8px;
+      background:var(--c-surface);border-top:1px solid var(--c-border);border-left:1px solid var(--c-border);
+      transform:rotate(45deg)}
     .f-input{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--c-border);
       border-radius:var(--r-sm);font-size:var(--fs-base);font-family:var(--ff);
       color:var(--c-text);background:var(--c-surface);transition:all var(--transition);
@@ -467,9 +489,17 @@
             Identificaci&oacute;n
           </legend>
           <div class="f">
-            <label class="f-label" for="rut">RUT <span class="req">*</span></label>
+            <div class="f-lblwrap">
+              <label class="f-label" for="rut">RUT <span class="req">*</span></label>
+              <span class="tip">
+                <button type="button" class="tip-ico" aria-label="Ayuda para el RUT">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+                <span class="tip-bub" role="tooltip" id="t-rut">Formato: 12.345.678-9. Sin puntos tambi&eacute;n es v&aacute;lido (12345678-9); el d&iacute;gito verificador se valida autom&aacute;ticamente.</span>
+              </span>
+            </div>
             <input class="f-input" id="rut" placeholder="12.345.678-9" inputmode="numeric"
-                   autocomplete="off" aria-required="true" aria-describedby="rut-err">
+                   autocomplete="off" aria-required="true" aria-describedby="rut-err t-rut">
             <div class="f-err" id="rut-err" role="alert"></div>
           </div>
         </fieldset>
@@ -497,17 +527,33 @@
               </select>
             </div>
             <div class="f">
-              <label class="f-label" for="fnac">Fecha de nacimiento <span class="req">*</span></label>
+              <div class="f-lblwrap">
+                <label class="f-label" for="fnac">Fecha de nacimiento <span class="req">*</span></label>
+                <span class="tip">
+                  <button type="button" class="tip-ico" aria-label="Ayuda para la fecha de nacimiento">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </button>
+                  <span class="tip-bub" role="tooltip" id="t-fnac">Se usa para calcular la edad de la persona. Debe ser una fecha pasada (hoy o anterior).</span>
+                </span>
+              </div>
               <input class="f-input" type="date" id="fnac"
-                     aria-required="true" aria-describedby="fnac-err">
+                     aria-required="true" aria-describedby="fnac-err t-fnac">
               <div class="f-err" id="fnac-err" role="alert"></div>
             </div>
           </div>
           <div class="f-row">
             <div class="f">
-              <label class="f-label" for="sector">Sector <span class="req">*</span></label>
+              <div class="f-lblwrap">
+                <label class="f-label" for="sector">Sector <span class="req">*</span></label>
+                <span class="tip">
+                  <button type="button" class="tip-ico" aria-label="Ayuda para el sector">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </button>
+                  <span class="tip-bub" role="tooltip" id="t-sector">Sector territorial donde reside la persona. Define el censo y las vistas por sector.</span>
+                </span>
+              </div>
               <select class="f-input" id="sector"
-                      aria-required="true" aria-describedby="sector-err">
+                      aria-required="true" aria-describedby="sector-err t-sector">
                 <option value="">Seleccionar</option>
                 <option value="NARANJO">Naranjo</option>
                 <option value="AMARILLO">Amarillo</option>
@@ -516,8 +562,16 @@
               <div class="f-err" id="sector-err" role="alert"></div>
             </div>
             <div class="f">
-              <label class="f-label" for="estrat">Estratificaci&oacute;n</label>
-              <select class="f-input" id="estrat">
+              <div class="f-lblwrap">
+                <label class="f-label" for="estrat">Estratificaci&oacute;n</label>
+                <span class="tip">
+                  <button type="button" class="tip-ico" aria-label="Ayuda para la estratificación">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </button>
+                  <span class="tip-bub" role="tooltip" id="t-estrat">Clasificaci&oacute;n de riesgo del programa (G1&ndash;G3). Puede dejarse en &laquo;Sin confirmar&raquo; si a&uacute;n no se decide.</span>
+                </span>
+              </div>
+              <select class="f-input" id="estrat" aria-describedby="t-estrat">
                 <option value="">Sin confirmar</option>
                 <option value="G1">G1</option>
                 <option value="G2">G2</option>
@@ -542,9 +596,17 @@
             Registro / evento
           </legend>
           <div class="f">
-            <label class="f-label" for="fecha_evento">Fecha del evento <span class="req">*</span></label>
+            <div class="f-lblwrap">
+              <label class="f-label" for="fecha_evento">Fecha del evento <span class="req">*</span></label>
+              <span class="tip">
+                <button type="button" class="tip-ico" aria-label="Ayuda para la fecha del evento">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+                <span class="tip-bub" role="tooltip" id="t-feve">Fecha en la que ocurri&oacute; el registro. Si es la jornada actual, deja la de hoy.</span>
+              </span>
+            </div>
             <input class="f-input" type="date" id="fecha_evento"
-                   aria-required="true" aria-describedby="fecha_evento-err">
+                   aria-required="true" aria-describedby="fecha_evento-err t-feve">
             <div class="f-err" id="fecha_evento-err" role="alert"></div>
           </div>
         </fieldset>
