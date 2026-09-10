@@ -891,8 +891,13 @@ function Form_refrescarControl() {
     hoja.clear();
 
     var columnas = FORM_CONFIG.CONTROL.COLUMNAS;
-    var listado = Form_listarControl();
-    var traz = listado.filas || [];
+    // Una sola lectura de FORM_RESPUESTAS, compartida entre la trazabilidad y
+    // las métricas operativas (antes se leía 2 veces: Form_listarControl + resumen).
+    var hojaFr = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+    var bloqueFr = (hojaFr && hojaFr.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS))
+      ? Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hojaFr) : [];
+    var mapaFr = bloqueFr.length ? Form_mapeoEncabezados(bloqueFr[0]) : { idx: {} };
+    var traz = Form_trazabilidad(bloqueFr, mapaFr, {});
 
     var filas = [columnas];
     traz.forEach(function (t) {
@@ -905,7 +910,7 @@ function Form_refrescarControl() {
     // Bloque de métricas operativas: una fila en blanco + cabecera + valores
     filas.push([]);
     filas.push(['MÉTRICAS OPERATIVAS', '']);
-    var oper = Form_metricasOperativas(_controlEventosResumen(), _controlRespuestasResumen());
+    var oper = Form_metricasOperativas(_controlEventosResumen(), _controlRespuestasResumen(bloqueFr));
     FORM_CONFIG.CONTROL.METRICAS.forEach(function (met) {
       filas.push([met.etiqueta, oper[met.clave] === undefined ? 0 : oper[met.clave]]);
     });
@@ -931,12 +936,19 @@ function Form_refrescarControl() {
   }
 }
 
-/** GAS: lee FORM_RESPUESTAS como objetos {ESTADO, ACCION, REINTENTOS} para métricas. */
-function _controlRespuestasResumen() {
+/**
+ * GAS: lee FORM_RESPUESTAS como objetos {ESTADO, ACCION, REINTENTOS} para métricas.
+ * Acepta un bloque YA leído (valores + filas con encabezado) para no re-leer la
+ * hoja cuando el llamador ya la tiene (Form_refrescarControl). Sin argumento,
+ * lo lee una sola vez igual que antes.
+ */
+function _controlRespuestasResumen(valores) {
   var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
   var salida = [];
-  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+  if (!valores && hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
+    valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+  }
+  if (valores && valores.length) {
     var mapa = Form_mapeoEncabezados(valores[0]);
     for (var f = 1; f < valores.length; f++) {
       salida.push({

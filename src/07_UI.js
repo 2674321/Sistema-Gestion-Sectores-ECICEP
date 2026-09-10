@@ -1678,12 +1678,10 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     if (idx < 0) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
 
     var anteriores = Utl_texto(pacientes[idx].CONDICIONES);
+    var ahora = new Date();
     pacientes[idx].CONDICIONES = val.validos.join(';');
     pacientes[idx].OTRAS_PATOLOGIAS = Utl_texto(otrasPatologias).trim();
-    pacientes[idx].FECHA_ACTUALIZACION = new Date();
-
-    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-         .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
+    pacientes[idx].FECHA_ACTUALIZACION = ahora;
 
     var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var estratValor = estratRes.estado === 'CALCULADO' ? String(estratRes.resultado) : '';
@@ -1691,7 +1689,10 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     pacientes[idx].ESTRATIFICACION = estratValor;
     pacientes[idx].ESTRAT_ORIGEN = String(antEstrat || '');
     pacientes[idx].ESTRAT_CALCULADA = String(estratRes.resultado || '');
-    pacientes[idx].ESTRAT_FECHA_CALCULO = new Date();
+    pacientes[idx].ESTRAT_FECHA_CALCULO = ahora;
+
+    // Condiciones + estratificación en UNA sola escritura de la fila física
+    // (antes: dos setValues consecutivos al mismo rango → 1 RPC extra).
     Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
 

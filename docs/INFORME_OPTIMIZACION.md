@@ -262,3 +262,65 @@ con su `ESTADO_INGRESO` escrito.
   en vivo: RECIBIDO → reintento → confirmación): **6–8 RPC Sheets → 2** (fila de
   INGRESO + PACIENTES), sin tocar la primera entrega.
 - Batería completa verde: backend V2 68 (antes 65) y resto sin cambios.
+
+## 12. PASADA 7 — MENÚ Y SIDEBARS: lecturas duplicadas de hojas en funciones de menú
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/15_RemExcel.js`, `src/17_Hojas.js`, `src/07_UI.js`, `src/24_Formulario.js`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO).
+
+### Problemas detectados (pasada completa, lectura de todas las funciones del menú)
+
+| Función | Ruta del menú | Coste medio (estimado) | Problema |
+|---|---|---|---|
+| `api_backupListar` | Sistema → Backups | **2 hojas completas** | `BACKUP_AUTO_ULTIMA` y `BACKUP_MANTENER` leían CONFIG por separado (`Utl_leerBloque`), dos barridos idénticos en la misma RPC. |
+| `api_patologiasGuardar` | sidebar → Ficha → Patologías | **2 escrituras** | Condiciones y estratificación se escribían en 2 `setValues` consecutivos sobre la misma celda (2 RPC de escritura). |
+| `Form_refrescarControl` | Sistema → Formularios → Control | **2 hojas completas** | `Form_listarControl()` lee FORM_RESPUESTAS y `_controlRespuestasResumen()` la leía una segunda vez; EVENTOS una tercera — se podía reutilizar el bloque ya leído. |
+
+### Ya correcto (sin cambio)
+
+| Función | Causa |
+|---|---|
+| `api_centroResumen` / `api_revisionListar` | Cada RPC lee CONFLICTOS una vez; no hay doble lectura dentro de la misma invocación. |
+| `api_buscar` | PACIENTES completo → búsqueda por substring; no se puede acotar sin índice. |
+| `_UI_controlConfig` | Ya consolidó freq + aviso en UNA lectura de CONFIG (comentario explícito en el código). |
+| `_MEMO_HOJAS` / `Modelo_leerPacientes/Eventos` | Memoización intra-RPC vigente; no se re-leen para funciones que las usan. |
+| `Log_flush()` en endpoints de lectura | Escritura de auditoría obligatoria: el búfer en memoria muere al terminar el request GAS; flush.sync es el único mecanismo. No se puede diferir sin perder logs. |
+| `Modelo_refrescarVistasSectores` | Se invoca después de toda escritura; leer PACIENTES + EVENTOS y reescribir 3 hojas de sector es coste fijo inherente a la consistencia de la vista. Optimizarlo requiere decisión arquitectónica (pipeline incremental), no es baja/media invasividad. |
+| `api_configListar` | Lee CONFIG una vez y empaqueta; es correcto. |
+| `api_responsablesListar` | Lee RESPONSABLES + catálogo PROFESIONALES + CONFIG legacy (3 hojas distintas), no duplicados. |
+| `api_ficha` | Lee PACIENTES + EVENTOS + PROFESIONALES + CONFIG, una cada una (memoizadas por _memoLeer). Correcto y no dupliqué. |
+| `api_rem9Datos` / `api_remVista` | Lee PACIENTES + EVENTOS + CONFIG (vía `_rem9_configValor`). Coste fijo del REM. |
+| `Form_obtenerEstado` | Lee FORM_RESPUESTAS una vez + EVENTOS una vez → métricas. Correcto. |
+| `Form_listarControl` | Lee FORM_RESPUESTAS una vez. Correcto como función pública independiente. |
+
+### Cambios implementados
+
+| Archivo | Cambio |
+|---|---|
+| `src/15_RemExcel.js` | **Nuevo helper** `_config_leerValores(claves)` — lee la hoja CONFIG UNA sola vez para N claves (si claves vacío → mapa completo). `_rem9_configValor(clave)` ahora delega en el helper (misma semántica, 1 lectura en vez de N). |
+| `src/17_Hojas.js` | `_backup_mantener()` delega en `_config_leerValores(['BACKUP_MANTENER'])`. `api_backupListar()` usa `_config_leerValores(['BACKUP_AUTO_ULTIMA','BACKUP_MANTENER'])` → **1 lectura de CONFIG en vez de 2**. |
+| `src/07_UI.js` | `api_patologiasGuardar` — cálculo de CONDICIONES + ESTRATIFICACIÓN *antes* de la escritura: un solo `setValues` en vez de dos. Un timestamp compartido (`ahora`) para ambos campos de fecha. |
+| `src/24_Formulario.js` | `_controlRespuestasResumen` acepta un bloque pre-leído (opcional); sin argumento se comporta como antes. `Form_refrescarControl` pasa el bloque ya leído → **2 lecturas de FORM_RESPUESTAS → 1**. |
+| `tests/contrato_datos.mjs` | C4/R2 ajustado (1 escritura fusionada, misma fila física 5 + verificación de campos en el mismo row). Nuevo test R3: regresión de `_config_leerValores` (UNA lectura → N claves, delegación de `_rem9_configValor` y `_backup_mantener`). |
+| `docs/INFORME_OPTIMIZACION.md` | Esta sección. |
+
+### Justificación de seguridad
+
+- `_config_leerValores` usa `indexOf` en un array de claves dadas; no filtra columnas innecesarias (se lee la fila completa, que es pequeña en CONFIG ≈ 30 filas). Si la lista de claves está vacía, entrega el mapa completo sin filtrar, idéntico a antes.
+- `_rem9_configValor` y `_backup_mantener` conservan su semántica pública exacta (return string / number).
+- `api_patologiasGuardar` fusionado: `Modelo_filaDesdeObjeto` ya recibía los campos SET en el objeto antes de la primera escritura; ahora recibe todos los campos y escribe una vez. El valor final de cada celda es idéntico; solo cambia la frecuencia de `setValues` (2 → 1).
+- `_controlRespuestasResumen` acepta un bloque pre-leído sin cambiar su retorno cuando no se le pasa nada (lectura lazy como antes).
+
+### Impacto estimado
+
+| Función | Antes | Ahora | Ahorro |
+|---|---|---|---|
+| `api_backupListar` | 2 × `Utl_leerBloque(CONFIG)` | 1 × `_config_leerValores` | **1 lectura de CONFIG completa** |
+| `api_patologiasGuardar` | 2 × `setValues` filas idénticas | 1 × `setValues` atómica | **1 RPC de escritura Sheets** |
+| `Form_refrescarControl` | 2 × `Modelo_leerBloqueCabecera(FORM_RESPUESTAS)` + EVENTOS | 1 × `Modelo_leerBloqueCabecera(FORM_RESPUESTAS)` + EVENTOS | **1 lectura de FORM_RESPUESTAS completa** |
+| `_rem9_configValor` / `_backup_mantener` | Lectura propia adicional (si se llaman solos) | Delega en helper; lectura propia per-call = 1 hoja | 0 (pero al llamar varias en la misma RPC → se amortiza) |
+
+### Tests
+
+Batería completa verde: contrato datos 21 (antes 20, +R3) + 553 · 50 · 27 · 19 · 68 · 33 · 17.

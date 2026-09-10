@@ -423,17 +423,31 @@ function _rem9_datos(anio, mes, sectorFiltro) {
            anio: anio, mes: mes, sector: sectorFiltro };
 }
 
-/** Lee un valor puntual de CONFIG (para Programa/Centro derivados). */
-function _rem9_configValor(clave) {
+/**
+ * Lee valores puntuales de CONFIG en UNA sola lectura de la hoja.
+ * `claves` vacío → devuelve el mapa completo. Fallback: {} ante error/ausencia.
+ */
+function _config_leerValores(claves) {
+  var mapa = {};
+  var deseadas = (claves || []).filter(function (c) { return !!c; });
   try {
     var h = Modelo_hoja(HOJAS.CONFIG);
-    if (!h || h.getLastRow() < 2) return '';
-    var vals = Utl_leerBloque(h);
-    for (var i = 1; i < vals.length; i++) {
-      if (Utl_texto(vals[i][0]) === clave) return Utl_texto(vals[i][1]);
+    if (h && h.getLastRow() >= 2) {
+      var vals = Utl_leerBloque(h);
+      for (var i = 1; i < vals.length; i++) {
+        var k = Utl_texto(vals[i][0]);
+        if (!k) continue;
+        if (deseadas.length && deseadas.indexOf(k) === -1) continue;
+        mapa[k] = Utl_texto(vals[i][1]);
+      }
     }
   } catch (e) {}
-  return '';
+  return mapa;
+}
+
+/** Lee un valor puntual de CONFIG (para Programa/Centro derivados). */
+function _rem9_configValor(clave) {
+  return _config_leerValores([clave])[clave] || '';
 }
 
 /**

@@ -242,15 +242,27 @@ t('C4/R2: api_registrarEvento (ruta actualizarDatos/controles V2) escribe en Mod
   } finally { a.restaura(); }
 });
 
-t('C4/R2: api_patologiasGuardar escribe (ambas escrituras) en Modelo_filaFisica', () => {
+t('C4/R2: api_patologiasGuardar escribe (una sola escritura fusionada) en Modelo_filaFisica', () => {
   const a = arnesActivo();
   try {
     const r = CSP.api_patologiasGuardar('EC-0002', [], '');
     A(r.ok, 'ok: ' + JSON.stringify(r));
     const filas = filasPacientes(a.hojaP);
-    igual(filas.length, 2, 'dos escrituras (condiciones + estratificación)');
-    igual(filas[0], 5, 'primera escritura fila física 5');
-    igual(filas[1], 5, 'segunda escritura fila física 5 (mismo paciente)');
+    // Condiciones + estratificación se escriben en UNA escritura atómica de la
+    // MISMA fila física (PERF pasada 7: antes eran dos setValues consecutivos).
+    igual(filas.length, 1, 'una sola escritura (condiciones + estratificación fusionadas)');
+    igual(filas[0], 5, 'fila física = 4+idx(1)');
+    const w = a.hojaP.escrituras[0];
+    A(w && w.valores, 'escritura con setValues');
+    const filaSalvada = w.valores[0];
+    const leerP = (k) => {
+      const campos = CSP.Modelo_campos();
+      const i = campos.indexOf(k);
+      if (i === -1) return 'SIN_COLUMNA';
+      return i < filaSalvada.length ? String(filaSalvada[i]) : '';
+    };
+    igual(leerP('CONDICIONES'), '', 'condiciones guardadas en la misma escritura');
+    igual(leerP('ESTRATIFICACION'), 'G2', 'estrat re-calculada en la misma escritura');
   } finally { a.restaura(); }
 });
 
@@ -530,6 +542,41 @@ t('R1: ninguna escritura con patrón 2+idx persiste en el código (regresión PF
   igual(mal === null ? 0 : mal.length, 0, 'patrón getRange(2 + idx eliminado');
   const usoCanonico = (texto.match(/Modelo_filaFisica\(HOJAS\.PACIENTES/g) || []).length;
   A(usoCanonico >= 5, 'las escrituras de PACIENTES usan Modelo_filaFisica (uso=' + usoCanonico + ')');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R3 — lectura acotada de CONFIG (PERF pasada 7): _config_leerValores lee la
+// hoja UNA vez y sirve N claves; _rem9_configValor/_backup_mantener delegan.
+// ─────────────────────────────────────────────────────────────────────────────
+t('R3: _config_leerValores entrega N claves con UNA sola lectura de CONFIG', () => {
+  const contador = { lecturas: 0 };
+  const filasConfig = [
+    ['CLAVE', 'VALOR', 'DESCRIPCION'],
+    ['BACKUP_AUTO_ULTIMA', '2026-09-10 08:00:00', ''],
+    ['BACKUP_MANTENER', '5', ''],
+    ['GENERAL_NOMBRE_SISTEMA', 'ECICEP', '']
+  ];
+  const hojaC = {
+    getLastRow: () => filasConfig.length,
+    getDataRange: () => ({ getNumRows: () => filasConfig.length,
+                          getValues: () => { contador.lecturas += 1; return filasConfig; } })
+  };
+  const prevHoja = CSP.Modelo_hoja;
+  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.CONFIG ? hojaC : null;
+  try {
+    const mapa = CSP._config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
+    igual(contador.lecturas, 1, 'una sola lectura para N claves');
+    igual(mapa['BACKUP_AUTO_ULTIMA'], '2026-09-10 08:00:00');
+    igual(mapa['BACKUP_MANTENER'], '5');
+    const antes = contador.lecturas;
+    igual(CSP._rem9_configValor('GENERAL_NOMBRE_SISTEMA'), 'ECICEP', 'delega en el helper');
+    A(contador.lecturas >= antes + 1, '_rem9_configValor usa una lectura');
+    igual(CSP._backup_mantener(), 5, '_backup_mantener delega en el helper');
+    igual(CSP._rem9_configValor('CLAVE_INEXISTENTE'), '', 'clave ausente → string vacío');
+    igual(CSP._backup_mantener(), 5, 'mantener estable tras lecturas múltiples');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

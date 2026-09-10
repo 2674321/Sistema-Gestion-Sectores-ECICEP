@@ -895,19 +895,8 @@ function _backup_folder() {
 
 /** Obtiene el límite de retención desde CONFIG (editable por el usuario). */
 function _backup_mantener() {
-  try {
-    var h = Modelo_hoja(HOJAS.CONFIG);
-    if (h && h.getLastRow() > 1) {
-      var vals = Utl_leerBloque(h);
-      for (var i = 1; i < vals.length; i++) {
-        if (Utl_texto(vals[i][0]) === 'BACKUP_MANTENER') {
-          var v = parseInt(vals[i][1], 10);
-          if (v > 0) return v;
-        }
-      }
-    }
-  } catch (e) {}
-  return BACKUP_DEFAULT_MANTENER;
+  var v = parseInt(_config_leerValores(['BACKUP_MANTENER'])['BACKUP_MANTENER'], 10);
+  return (v > 0) ? v : BACKUP_DEFAULT_MANTENER;
 }
 
 /** GAS: crea backup completo en carpeta dedicada. */
@@ -1025,17 +1014,21 @@ function Backup_quitarProgramacion() {
   });
 }
 
-/** Endpoint: estado + historial completo (para el HTML). */
+/** Endpoint: estado + historial completo (para el HTML).
+ *  UNA lectura de CONFIG para `BACKUP_AUTO_ULTIMA` y `BACKUP_MANTENER`
+ *  (antes eran dos lecturas completas de la misma hoja). */
 function api_backupListar() {
   var st = Backup_listar();
   var trigger = Backup_triggerInstalado();
-  var ultima = '';
-  try { ultima = _rem9_configValor('BACKUP_AUTO_ULTIMA') || ''; } catch (e) {}
+  var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
+  var ultima = cfg['BACKUP_AUTO_ULTIMA'] || '';
+  var mantener = parseInt(cfg['BACKUP_MANTENER'], 10);
+  if (!(mantener > 0)) mantener = BACKUP_DEFAULT_MANTENER;
   return {
     ok: true,
     trigger: trigger,
     ultima: ultima || 'nunca',
-    mantener: _backup_mantener(),
+    mantener: mantener,
     items: st.items || [],
     autoCount: st.autoCount || 0,
     manCount: st.manCount || 0
