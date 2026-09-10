@@ -342,6 +342,27 @@ El proyecto usa su propio `.clasp.json` local → script ligado, rootDir `src`
 - Presupuesto objetivo: importación completa (~3.000 filas × 12 columnas) < 60 s,
   dentro de límites de cuota de Apps Script (6 min/ejecución).
 
+### Invariantes consolidados (campaña de optimización, deploys @121–@130)
+
+- **CONFIG se lee una sola vez por endpoint** vía `_UI_controlConfig()` (devuelve
+  `{freq, aviso}`); no reintroducir `Control_leerFrecuencia()` + un barrido propio
+  de `AVISO_CONTROL_DIAS` en el mismo request, ni caché módulo (la administración
+  escribe CONFIG en la misma sesión).
+- **Autovalidación de RPC**: no hacer `getLastRow()`/`getLastColumn()` como guard
+  antes de un lector que ya los calcula (`_memoLeer`/`Modelo_leerBloqueCabecera`).
+  Los guards previos a `Utl_leerBloque` sí son legítimos (no se auto-vacía).
+- **Una lectura por hoja por invocación**: fila del caso derivada del bloque
+  (`indiceHoja-1`), hermanas del mismo bloque, `Form_leerMarcas` en 1 bloque,
+  escrituras contiguas en rangos `setValues` (p. ej. columnas 9–10 de CONFLICTOS).
+- **Higiene del memo** (`Modelo_invalidarLecturas()`): obligatoria tras append de
+  PACIENTES/EVENTOS y tras una migración de esquema (`insertColumns` desplaza
+  índices → un memo viejo en la misma invocación leería encabezados/filas stale).
+- **Confirmaciones contractuales** (§13/§15/§16 del contrato de captura) se
+  conservan como relecturas deliberadas: no "optimizar" verificaciones que el
+  contrato exige.
+- El telemetría `[PIPE]`/`[CAPTURA_V2]` (console.log de tiempos) es diagnóstica
+  deliberada del pipeline: conservar mientras se monitorice latencia.
+
 ## Modo simulación (DRY RUN)
 
 Toda operación de escritura masiva acepta `modoSimulacion=true`:

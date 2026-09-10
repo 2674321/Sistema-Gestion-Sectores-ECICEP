@@ -85,3 +85,52 @@ Batería completa ejecutada — **738 / 738 verdes** (baseline 735 + 3 nuevos):
 - Cambios de esta fase sin commitear hasta decisión del siguiente paso (regla: solo
   commit cuando el usuario lo solicita). `docs/hoja_de_vida.pdf` sigue excluido.
 - Deploy pendiente (no autorizado): `clasp push --force` → `clasp deploy --deploymentId AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (reutiliza @93).
+---
+
+## 8. FASE RPC / HIGIENE DE MEMO (deploys @121–@130)
+
+Segunda fase de optimización, enfocada en reducir llamadas RPC de Sheets en el
+path rutinario y blindar la coherencia del memo (`_MEMO_HOJAS`). Publicada en el
+deployment operativo (`/exec`), verificada tras cada deploy con HTTP 200 y los
+marcadores cliente (`beforeunload`, `formTieneDatos`, `capturaEnProgreso`,
+`aria-haspopup`).
+
+### Cambios por ronda
+
+| Ronda | Commit / deploy | Cambio |
+|---|---|---|
+| Formulario backend | `1fdeb87` @121 | `Captura_v2_confirmarEntregaIngreso` acepta `bloqueReusar` y devuelve el bloque; la confirmación de entrega deja de releer la hoja INGRESO completa por envío (TRIAL-01: 1 lectura grande > 2 lecturas chicas). |
+| Formulario backend | `2662bd4` @122 | `Form_leerMarcas` pasa de 3 lecturas de columna (5 RPC) a 1 lectura de bloque + extracción (3 RPC); verificación post-escritura de `Ingresos_escribirEstados` acotada a min–max de filas afectadas. |
+| Hoja de cálculo | `8b90503` @123 | `Modelo_restaurarFuente` (2 setValue→1 setValues de fila), `Form_reiniciarRespuesta` (3 setValue→1 setValues), `api_revisionResolver` columnas 9–10 contiguas (1 setValues 1×2). |
+| Hoja de cálculo | `3c1d3c2` @124 | `api_revisionResolver` en 1 lectura de bloque (fila del caso + hermanas del mismo bloque, sin getLastRow extra) y cierre de hermanas en 1 setValues por grupo (estado + trazabilidad). |
+| CONFIG | `abe06fe` @125 | `_UI_controlConfig()`: cada endpoint de controles (controlPanel, diagnosticoControl, fichaPaciente) leía CONFIG 2 veces (frecuencia + aviso); ahora 1 sola lectura devolviendo `{freq, aviso}`, sin caché módulo. |
+| CONFIG | `50c52d8` @126 | `api_actualizarUltimoControl` y `api_registrarEvento` unificados al mismo helper; `Control_leerFrecuencia()` queda solo para fallback puro de `Control_calcularProximo` y jobs por lote. |
+| Modelo | `4b6a41c` @127 | `Modelo_asegurarEsquemaPacientes` reutiliza el encabezado de PACIENTES del memo cuando existe (evita getLastColumn + lectura de encabezados por lote de altas). |
+| Modelo | `d9fef27` @128 | Eliminado el guard `getLastRow()` redundante de `Modelo_leerPacientes`/`Modelo_leerEventos` antes de lectores memoizados que ya lo calculan. |
+| Cosmético (#33) | `ded78dd` @129 | Auditoría de colores por contexto en los 15 HTML: ningún hex de regla duplica un token sin tokenizar; `QRFormulario.html` (única página sin include) migrado a `var(--c-*)` con `:root` local de la convención de la Web App. |
+| Higiene memo | `495a15f` @130 | `Modelo_invalidarLecturas()` tras migración de esquema (`insertColumns` desplaza índices) y tras append de PACIENTES (visibilidad inmediata de filas nuevas en la misma invocación). |
+
+### No tocados (decisiones documentadas)
+
+- Confirmaciones por relectura exigidas por contrato: `Captura_v2_actualizarTrailer`
+  (§15), `Captura_v2_confirmarEntregaIngreso` (§16), `Captura_v2_buscarRegistro`
+  (escaneo completo de idempotencia §13).
+- `Ingresos_leerHoja` mantiene 1 lectura de bloque completa aunque sea 1 fila
+  (1 RPC grande > 2 RPC chicos).
+- Pintor instalador `Hojas_crearInicio` (21 setValue, una sola vez) y
+  `Hojas_formatoCondicional` (API de reglas no batchable) intactos.
+- `Modelo_refrescarVistasSectores` (clear + setValues + setFormulas +
+  setNumberFormat por sector) y `Api_duplicadosUnirPorRut` son bloques legítimos.
+- Telemetría `[PIPE]` / `[CAPTURA_V2]` (console.log de tiempos) conservada: es
+  diagnóstica deliberada del pipeline.
+
+### Invariantes consolidados
+
+Ver `ARQUITECTURA.md → Rendimiento → Invariantes consolidados (campaña de
+optimización, deploys @121–@130)`.
+
+### Tests
+
+Batería completa verde en cada ronda: núcleo 553, aceptación formulario 50,
+formulario web 25, payload V2 19, backend V2 65, cola FORM_RESPUESTAS 33,
+contrato captura V2 36, HTML 16.

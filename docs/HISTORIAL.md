@@ -7,6 +7,29 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## Fase RPC / higiene de memo (deploys @121–@130)
+
+Campaña de optimización de llamadas RPC de Sheets en el path rutinario,
+publicada en el deployment operativo (`/exec`, verificado HTTP 200 + marcadores
+cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
+
+- **Captura/INGRESO**: confirmación de entrega sin releer la hoja completa por
+  envío (`bloqueReusar`), marcas de EVENTOS en 1 bloque, verificación de estados
+  acotada a filas afectadas.
+- **Hoja de cálculo**: celdas sueltas escritas como fila en 1 `setValues`;
+  `Modelo_restaurarFuente`/`Form_reiniciarRespuesta`/CONFLICTOS; `api_revisionResolver`
+  en 1 lectura de bloque con escritura 1×2 de hermanas.
+- **CONFIG**: `_UI_controlConfig()` — 1 lectura por endpoint de controles
+  (`{freq, aviso}`), sin caché módulo. `Control_leerFrecuencia()` queda solo para
+  fallback puro y jobs por lote.
+- **Memo**: reutilización del encabezado memoizado en la verificación de esquema,
+  guard `getLastRow()` redundante eliminado, e invalidación tras migración de
+  esquema (`insertColumns`) y tras append de PACIENTES.
+- **Cosmético (#33)**: `QRFormulario.html` migrado de literales a `var(--c-*)`
+  (única página que espejaba la paleta de la Web App; auditoría de los 15 HTML
+  confirmó que el resto ya usa tokens).
+- **Invariantes consolidados** documentados en `ARQUITECTURA.md → Rendimiento`.
+
 ## Qué incluye (v0.5.0 → v0.7.0)
 
 - **Panel de Control**: KPIs reales, tarjetas por sector con cobertura, última actividad, accesos.
