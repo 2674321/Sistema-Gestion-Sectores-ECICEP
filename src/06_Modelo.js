@@ -1243,6 +1243,34 @@ function Modelo_leerPacientes() {
   return salida;
 }
 
+/** LECTOR LIGERO (PERF menú): objetos de PACIENTES con SOLO los campos
+ *  pedidos. Reutiliza el bloque ya memoizado por _memoLeer (UNA lectura de
+ *  hoja igual que Modelo_leerPacientes) pero evita alocar los demás campos —
+ *  los endpoints de menú que solo necesitan 3-6 campos dejan de construir
+ *  objetos con ~30 columnas. Semántica idéntica a Modelo_leerPacientes
+ *  (booleanos → 'TRUE'/'FALSE'; campos ausentes en el encabezado → omitidos). */
+function Modelo_leerPacientesCampos(campos) {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return [];
+  var valores = _memoLeer(hoja, 'PACIENTES');
+  if (!valores.length) return [];
+  var enc = valores[0];
+  var pos = (campos || []).map(function (cam) { return enc.indexOf(cam); });
+  var salida = [];
+  for (var f = 1; f < valores.length; f++) {
+    var obj = {};
+    for (var k = 0; k < pos.length; k++) {
+      var i2 = pos[k];
+      if (i2 < 0) continue;
+      var v = valores[f][i2];
+      if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
+      obj[campos[k]] = v;
+    }
+    salida.push(obj);
+  }
+  return salida;
+}
+
 // ---------------------------------------------------------------------------
 // Escrituras por lotes (ETAPA 3b) — solo entorno GAS
 // ---------------------------------------------------------------------------
@@ -1669,6 +1697,29 @@ function Modelo_leerEventos() {
   for (var f = 1; f < valores.length; f++) {
     var o = {};
     for (var c = 0; c < campos.length; c++) o[campos[c]] = valores[f][c];
+    salida.push(o);
+  }
+  return salida;
+}
+
+/** LECTOR LIGERO de EVENTOS (PERF menú): objetos con SOLO los campos pedidos.
+ *  Reutiliza el bloque memoizado (UNA lectura de hoja); evita alocar todos los
+ *  campos. Campos ausentes en el encabezado → omitidos. */
+function Modelo_leerEventosCampos(campos) {
+  var hoja = Modelo_hoja(HOJAS.EVENTOS);
+  if (!hoja) return [];
+  var valores = _memoLeer(hoja, 'EVENTOS');
+  if (!valores.length) return [];
+  var enc = valores[0];
+  var pos = (campos || []).map(function (cam) { return enc.indexOf(cam); });
+  var salida = [];
+  for (var f = 1; f < valores.length; f++) {
+    var o = {};
+    for (var k = 0; k < pos.length; k++) {
+      var i2 = pos[k];
+      if (i2 < 0) continue;
+      o[campos[k]] = valores[f][i2];
+    }
     salida.push(o);
   }
   return salida;

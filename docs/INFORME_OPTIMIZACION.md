@@ -379,3 +379,57 @@ Estadísticas el rango de fechas queda acotado al mes en uso.
 
 Batería completa verde: `validar_html` **17/17** · núcleo 553 · contrato datos 21 · aceptación 50 ·
 contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33.
+
+## 14. PASADA 9 — LECTORES LIGEROS + AGREGACIÓN DE UNA PASADA en endpoints del menú
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/06_Modelo.js`, `src/07_UI.js`, `tests/contrato_datos.mjs`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Problema
+
+Los endpoints de menú que solo necesitan 3–6 campos leían cada paciente completo
+(y en varios casos cada evento completo) materializando objetos con todas las
+columnas (~30 en PACIENTES, ~20 en EVENTOS). Con miles de filas, esa alocación
+domina el CPU del request aunque la lectura de hoja ya sea única (memoizado).
+
+Además, `api_centroResumen` construía **dos arreglos intermedios completos**
+(`eventosMin` mapeando cada evento y `paxMin` mapeando cada paciente) para luego
+re-barrerlos en los conteos/secciones/últimos — duplicando el trabajo de
+agregación sobre el dataset completo.
+
+### Cambios implementados
+
+| Archivo | Cambio |
+|---|---|
+| `src/06_Modelo.js` | Nuevos **lectores ligeros** `Modelo_leerPacientesCampos(campos)` y `Modelo_leerEventosCampos(campos)`: materializan SOLO los campos pedidos reutilizando el bloque ya memoizado (`_memoLeer`), sin cambiar la semántica (booleanos → 'TRUE'/'FALSE'; campo ausente en encabezado → omitido). |
+| `src/07_UI.js` | **Observados** con campos mínimos: `api_buscar` (6), `api_revisionListar` (7), `api_duplaAbrir` (2), `api_centroResumen` (4 pacientes + 4 eventos), `api_dashboardDatos` (6 pacientes + 3 eventos). |
+| `src/07_UI.js` | `api_centroResumen` reescrito sobre el **agregador puro** `_centro_resumen(pacientes, eventos, hoyIso, tz)`: pases lineales sobre las filas en vez de arreglos intermedios completos. Se eliminan los helpers intermedios `_panel_resumenSectores` y `_panel_estratPendiente`. El contrato de retorno no cambia. |
+| `tests/contrato_datos.mjs` | **R4a/R4b**: los lectores ligeros entregan solo los campos pedidos con UNA lectura de hoja (memo), booleanos normalizados y campos ausentes omitidos. **R5**: `_centro_resumen` calcula KPIs/sectores/top-4 con el mismo resultado que la versión previa. |
+
+### Justificación de seguridad
+
+- Los lectores ligeros reusan `_memoLeer` (misma RPC de la hoja); solo reducen la
+  conversión objeto/columna del lado del CPU. Campos sin pedir **jamás** se alocan.
+- Todos los endpoints adoptados son de SOLA LECTURA. No se adoptó el lector ligero
+  en nada que escriba filas completas (`api_duplaGuardar`, `api_registrarEvento`,
+  `api_controlActualizarUltimo`), donde el objeto completo es necesario para reescribir.
+- `_centro_resumen` conserva exactamente: conteos, ventana de 7 días, cobertura
+  por tramos (50/operativo), comparador desc para top-4, `FECHA_ACTUALIZACION`
+  máxima, `fechaIso`/`horaIso` formateados en el endpoint (fuera del ámbito puro).
+
+### Impacto estimado
+
+| Endpoint | Antes | Ahora |
+|---|---|---|
+| `api_buscar` | PACIENTES completo → objetos (~30 cols) | 6 campos por fila |
+| `api_revisionListar` | PACIENTES completo (~30 cols) | 7 campos por fila |
+| `api_duplaAbrir` | PACIENTES completo (~30 cols) | 2 campos por fila |
+| `api_dashboardDatos` | PACIENTES (~30) + EVENTOS (~20) completos | 6 + 3 campos por fila |
+| `api_centroResumen` | PACIENTES (~30) + EVENTOS (~20) + 2 arreglos intermedios completos | 4 + 4 campos, agregación en pases lineales sin intermedios |
+
+### Tests
+
+Batería completa verde: núcleo 553 · contrato datos **24** (antes 21, +R4a/R4b/R5) ·
+aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+formulario_web 27 · `validar_html` 17/17.

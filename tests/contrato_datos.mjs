@@ -580,6 +580,113 @@ t('R3: _config_leerValores entrega N claves con UNA sola lectura de CONFIG', () 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// R4 — lectores ligeros (PERF pasada 9): Modelo_leerPacientes/EventosCampos
+// materializan SOLO los campos pedidos con UNA sola lectura de hoja (memo).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function hojaLigeraPara(nombre, filas, hr) {
+  return {
+    getLastRow: function () { return hr + filas.length - 1; },
+    getLastColumn: function () { return filas[0].length; },
+    getRange: function () {
+      return { getValues: () => {
+        lecturasContador += 1;
+        return filas;
+      } };
+    }
+  };
+}
+let lecturasContador = 0;
+
+t('R4a: Modelo_leerPacientesCampos entrega SOLO los campos pedidos (una lectura)', () => {
+  const filas = [
+    ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'REQUIERE_REVISION'],
+    ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'NARANJO', true],
+    ['EC-0002', '22222222-2', 'ANA SOTO', 'AMARILLO', false]
+  ];
+  lecturasContador = 0;
+  const prevHoja = CSP.Modelo_hoja;
+  // PACIENTES es hoja VISUAL (encabezados en fila 3).
+  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const r = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR', 'REQUIERE_REVISION', 'NOMBRE_INEXISTENTE']);
+    igual(lecturasContador, 1, 'una sola lectura de hoja');
+    igual(r.length, 2, 'mismas filas');
+    igual(r[0].ID_INTERNO, 'EC-0001');
+    igual(r[0].SECTOR, 'NARANJO');
+    igual(r[0].REQUIERE_REVISION, 'TRUE', 'boolean → TRUE');
+    igual(r[1].REQUIERE_REVISION, 'FALSE', 'boolean → FALSE');
+    A(!('NOMBRE_INEXISTENTE' in r[0]), 'campo ausente en encabezado → omitido');
+    A(!('NOMBRE' in r[0]), 'campo NO pedido no se materializa');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+t('R4b: Modelo_leerEventosCampos materializa solo los campos pedidos', () => {
+  const filas = [
+    ['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'SECTOR'],
+    ['EV-1', 'EC-0001', 'CONTROL', '2026-09-05', 'NARANJO'],
+    ['EV-2', 'EC-0002', 'INGRESO', '2026-09-10', 'AMARILLO']
+  ];
+  lecturasContador = 0;
+  const prevHoja = CSP.Modelo_hoja;
+  // EVENTOS es hoja simple (encabezados en fila 1).
+  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.EVENTOS ? hojaLigeraPara('EVENTOS', filas, 1) : null;
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const r = CSP.Modelo_leerEventosCampos(['TIPO_EVENTO', 'FECHA_EVENTO', 'SECTOR']);
+    igual(lecturasContador, 1, 'una sola lectura de hoja');
+    igual(r[0].TIPO_EVENTO, 'CONTROL');
+    igual(r[0].FECHA_EVENTO, '2026-09-05');
+    A(!('NOMBRE' in r[0]) && !('ID_EVENTO' in r[0]), 'solo campos pedidos');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R5 — agregador puro del Panel de Control (PERF pasada 9): _centro_resumen
+// calcula los KPIs en pases lineales sin arreglos intermedios (misma semántica
+// que la versión con eventosMin/paxMin).
+// ─────────────────────────────────────────────────────────────────────────────
+t('R5: _centro_resumen calcula KPIs/sectores/últimos en una sola pasada', () => {
+  const precisos = (arr) => arr.map((s) => `${s.sector}#${s.pacientes}#${s.porRevisar}#${s.ingresos7d}#${s.cobertura}`).join('|');
+  const pacientes = [
+    { SECTOR: 'NARANJO', REQUIERE_REVISION: true, ESTRATIFICACION: 'G3', FECHA_ACTUALIZACION: new Date('2026-09-01T10:00:00') },
+    { SECTOR: 'NARANJO', REQUIERE_REVISION: 'TRUE', ESTRATIFICACION: 'g2', FECHA_ACTUALIZACION: null },
+    { SECTOR: 'AMARILLO', REQUIERE_REVISION: false, ESTRATIFICACION: '', FECHA_ACTUALIZACION: null },
+    { SECTOR: 'VERDE', REQUIERE_REVISION: 'FALSE', ESTRATIFICACION: 'G', FECHA_ACTUALIZACION: null }
+  ];
+  const eventos = [
+    { TIPO_EVENTO: 'INGRESO', SECTOR: 'NARANJO', FECHA_EVENTO: '2026-09-10T09:30:00', NOMBRE: 'LUIS PÉREZ' },
+    { TIPO_EVENTO: 'CONTROL', SECTOR: 'NARANJO', FECHA_EVENTO: '2026-09-05', NOMBRE: 'LUIS PÉREZ' },
+    { TIPO_EVENTO: 'INGRESO', SECTOR: 'AMARILLO', FECHA_EVENTO: '2026-09-03', NOMBRE: '' },
+    { TIPO_EVENTO: 'INGRESO', SECTOR: 'AMARILLO', FECHA_EVENTO: '2026-09-08', NOMBRE: 'ANA SOTO' },
+    { TIPO_EVENTO: 'SEGUIMIENTO', SECTOR: 'VERDE', FECHA_EVENTO: '2026-08-30', NOMBRE: 'CARLA DÍAZ' },
+    { TIPO_EVENTO: 'INGRESO', SECTOR: 'VERDE', FECHA_EVENTO: '2026-09-07', NOMBRE: 'CARLA DÍAZ' }
+  ];
+  const r = CSP._centro_resumen(pacientes, eventos, '2026-09-10', 'America/Santiago');
+  igual(r.pacientes, 4);
+  igual(r.ingresosHoy, 1, 'solo INGRESO del 2026-09-10');
+  igual(r.eventosMes, 5, 'septiembre (5 de 6 eventos)');
+  igual(r.porRevisar, 2, 'REQUIERE_REVISION true/TRUE');
+  igual(r.estratPendiente, 2, 'ESTRAT vacío o G');
+  igual(precisos(r.sectores),
+    'NARANJO#2#2#1#Cobertura parcial|AMARILLO#1#0#1#Cobertura parcial|VERDE#1#0#1#Cobertura parcial');
+  igual(r.ultimos.length, 4, 'top-4 de actividad');
+  igual(r.ultimos[0].fechaIso, '2026-09-10', 'más reciente primero');
+  igual(r.ultimos[0].tipo, 'INGRESO');
+  igual(r.ultimos[0].iniciales, 'L. P.', 'iniciales desde NOMBRE');
+  A(r.ultimos.every((u) => u.fechaIso && u.tipo), 'cada item tiene fechaIso y tipo');
+  A(r._ultimaActF instanceof Date && r._ultimaActF.getTime() === new Date('2026-09-01T10:00:00').getTime(),
+    'FECHA_ACTUALIZACION máxima preservada como Date');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resumen
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\nCONTRATO DE DATOS (S1) — Total: ${R.pass + R.fail + R.skip} · OK: ${R.pass} · FALLAN: ${R.fail} · SKIP: ${R.skip}`);

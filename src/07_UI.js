@@ -497,7 +497,7 @@ function api_acercaDe() {
 /** Endpoint: catálogo de profesionales + selección del paciente. */
 function api_duplaAbrir(idInterno) {
   try {
-    var pacientes = Modelo_leerPacientes();
+    var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'DUPLA_INGRESO']);
     var p = null;
     for (var i = 0; i < pacientes.length; i++) {
       if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { p = pacientes[i]; break; }
@@ -776,29 +776,14 @@ function api_irA(nombreHoja) {
 /** Resumen operativo real para el Centro de Control (una llamada). */
 function api_centroResumen() {
   try {
-    var pacientes = Modelo_leerPacientes();
-    var eventos = Modelo_leerEventos();
     var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-    var mesActual = hoyIso.slice(0, 7);
-
-    var ingresosHoy = 0, eventosMes = 0;
-    var eventosMin = eventos.map(function (e) {
-      var f = _ui_isoFecha(e.FECHA_EVENTO, tz);
-      if (f === hoyIso && Utl_texto(e.TIPO_EVENTO).toUpperCase() === 'INGRESO') ingresosHoy++;
-      if (f.slice(0, 7) === mesActual) eventosMes++;
-      return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR), f: f,
-               nombre: Utl_texto(e.NOMBRE) };
-    });
-
-    var paxMin = pacientes.map(function (p) {
-      return { sector: Utl_texto(p.SECTOR),
-               rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),
-               est: Utl_texto(p.ESTRATIFICACION) };
-    });
-    var porRevisar = paxMin.filter(function (p) { return p.rev; }).length;
-    var estratPendiente = _panel_estratPendiente(paxMin);
-    var sectores = _panel_resumenSectores(paxMin, eventosMin, hoyIso);
+    // LECTORES LIGEROS: solo los campos que el panel necesita (evita alocar
+    // objetos completos de PACIENTES ~30 cols y EVENTOS ~20 por cada apertura).
+    var pacientes = Modelo_leerPacientesCampos(
+      ['SECTOR', 'REQUIERE_REVISION', 'ESTRATIFICACION', 'FECHA_ACTUALIZACION']);
+    var eventos = Modelo_leerEventosCampos(
+      ['TIPO_EVENTO', 'SECTOR', 'FECHA_EVENTO', 'NOMBRE']);
 
     /* Contar conflictos abiertos directamente desde CONFLICTOS (sin re-leer PACIENTES) */
     var cola = 0;
@@ -812,39 +797,16 @@ function api_centroResumen() {
       }
     } catch (eR) {}
 
-    var ultimaD = null;
-    pacientes.forEach(function (p) {
-      if (p.FECHA_ACTUALIZACION instanceof Date &&
-          (!ultimaD || p.FECHA_ACTUALIZACION > ultimaD)) ultimaD = p.FECHA_ACTUALIZACION;
-    });
-
-    // Última actividad: últimos 4 eventos (single pass O(E) — sin sort completo)
-    var ultimos = [];
-    eventosMin.forEach(function (e) {
-      var f = e.f;
-      if (f && f.length >= 10) {
-        if (ultimos.length < 4) {
-          ultimos.push(e);
-          ultimos.sort(function (a, b) { return b.f < a.f ? -1 : 1; });
-        } else if (f > ultimos[3].f) {
-          ultimos[3] = e;
-          ultimos.sort(function (a, b) { return b.f < a.f ? -1 : 1; });
-        }
-      }
-    });
-    ultimos = ultimos.map(function (e) {
-      return { fechaIso: e.f, hora: (e.f && e.f.length >= 16) ? e.f.slice(11, 16) : '',
-               tipo: e.tipo, iniciales: _panel_iniciales(e.nombre) };
-    });
-
-    return { ok: true,
-             pacientes: pacientes.length, ingresosHoy: ingresosHoy,
-             eventosMes: eventosMes, porRevisar: porRevisar,
-             estratPendiente: estratPendiente, colaRevision: cola,
-             sectores: sectores, ultimos: ultimos,
-             ultimaAct: ultimaD ? Utilities.formatDate(ultimaD, tz, 'dd/MM/yyyy HH:mm') : 'sin cambios',
-             fechaIso: hoyIso,
-             horaIso: Utilities.formatDate(new Date(), tz, 'HH:mm') };
+    var r = _centro_resumen(pacientes, eventos, hoyIso, tz);
+    r.ok = true;
+    r.colaRevision = cola;
+    r.ultimaAct = r._ultimaActF
+      ? Utilities.formatDate(r._ultimaActF, tz, 'dd/MM/yyyy HH:mm')
+      : 'sin cambios';
+    delete r._ultimaActF;
+    r.fechaIso = hoyIso;
+    r.horaIso = Utilities.formatDate(new Date(), tz, 'HH:mm');
+    return r;
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
@@ -1063,20 +1025,24 @@ function api_diagnosticoControl(dryRun) {
  */
 function api_dashboardDatos() {
   try {
-    var pacientes = Modelo_leerPacientes().map(function (p) {
-      return { sector: Utl_texto(p.SECTOR), est: Utl_texto(p.ESTRATIFICACION),
-               rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),
-               cond: Utl_texto(p.CONDICIONES), fi: _ui_isoFecha(p.FECHA_INGRESO),
-               pc: _ui_isoFecha(p.PROXIMO_CONTROL) };
-    });
-    var eventos = Modelo_leerEventos().map(function (e) {
-      return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR),
-               f: _ui_isoFecha(e.FECHA_EVENTO) };
-    });
+    var tz = _UI_tz();
+    var pacientes = Modelo_leerPacientesCampos(
+      ['SECTOR', 'ESTRATIFICACION', 'REQUIERE_REVISION', 'CONDICIONES', 'FECHA_INGRESO', 'PROXIMO_CONTROL'])
+      .map(function (p) {
+        return { sector: Utl_texto(p.SECTOR), est: Utl_texto(p.ESTRATIFICACION),
+                 rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),
+                 cond: Utl_texto(p.CONDICIONES), fi: _ui_isoFecha(p.FECHA_INGRESO, tz),
+                 pc: _ui_isoFecha(p.PROXIMO_CONTROL, tz) };
+      });
+    var eventos = Modelo_leerEventosCampos(['TIPO_EVENTO', 'SECTOR', 'FECHA_EVENTO'])
+      .map(function (e) {
+        return { tipo: Utl_texto(e.TIPO_EVENTO), sector: Utl_texto(e.SECTOR),
+                 f: _ui_isoFecha(e.FECHA_EVENTO, tz) };
+      });
     var catalogo = CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; })
       .map(function (c) { return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO }; });
     return { ok: true, pacientes: pacientes, eventos: eventos, catalogo: catalogo,
-             generadoEn: _ui_isoFecha(new Date()) };
+             generadoEn: _ui_isoFecha(new Date(), tz) };
   } catch (e) {
     Log_error('Dashboard', 'api_dashboardDatos', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1113,7 +1079,9 @@ function api_remVista(anio, mes, sector, modo, actividad) {
 
 /** Endpoint sidebar: búsqueda por RUT exacto o nombre (no agresiva). */
 function api_buscar(termino) {
-  return Bus_buscarPacientes(Modelo_leerPacientes(), termino, 25).map(function (p) {
+  return Bus_buscarPacientes(
+    Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTADO', 'ESTRATIFICACION']),
+    termino, 25).map(function (p) {
     return { id: p.ID_INTERNO, rut: p.RUT, nombre: p.NOMBRE,
              sector: p.SECTOR, estado: p.ESTADO, estrat: p.ESTRATIFICACION };
   });
@@ -1275,7 +1243,7 @@ function api_registrarEvento(payload) {
 function api_revisionListar() {
   var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
   if (!hoja || hoja.getLastRow() < 2) return { casos: [], metricas: {} };
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'TELEFONOS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO']);
   var porId = {};
   pacientes.forEach(function (p) { porId[Utl_texto(p.ID_INTERNO)] = p; });
 
@@ -1972,7 +1940,14 @@ var PANEL_SECTORES = ['NARANJO', 'AMARILLO', 'VERDE'];
  *  pacientes:[{sector,rev}] · eventos:[{tipo,sector,f}]
  *  Cobertura por volumen real (sin inventar importaciones):
  *  ≥50 Operativo · >0 Cobertura parcial · 0 Sin datos. */
-function _panel_resumenSectores(pacientes, eventos, hoyIso) {
+/** PURA: KPIs del Panel de Control en pases lineales sobre PACIENTES/EVENTOS
+ *  crudos (o "ligeros"). No construye arreglos intermedios completos: cada
+ *  conteo se agrega en una sola pasada sobre las filas originales (menos
+ *  alocaciones que mapear el dataset completo a objetos antes de contar).
+ *  Retorna {pacientes, ingresosHoy, eventosMes, porRevisar, estratPendiente,
+ *           sectores, ultimos, _ultimaActF} — ultimaAct se formatea en
+ *  api_centroResumen (necesita Utilities, fuera del alcance puro). */
+function _centro_resumen(pacientes, eventos, hoyIso, tz) {
   var secs = {};
   PANEL_SECTORES.forEach(function (s) {
     secs[s] = { sector: s, pacientes: 0, ingresos7d: 0, porRevisar: 0, cobertura: 'SIN DATOS' };
@@ -1984,33 +1959,50 @@ function _panel_resumenSectores(pacientes, eventos, hoyIso) {
     limite = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
              '-' + String(d.getDate()).padStart(2, '0');
   }
+  var mesActual = hoyIso ? hoyIso.slice(0, 7) : '';
+  var n = 0, porRevisar = 0, estratPendiente = 0, ultimaActF = null;
   (pacientes || []).forEach(function (p) {
-    var s = secs[Utl_texto(p.sector).toUpperCase()];
-    if (!s) return;
-    s.pacientes++;
-    if (p.rev === true || p.rev === 'TRUE') s.porRevisar++;
+    n++;
+    var rev = (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE');
+    if (rev) porRevisar++;
+    var sec = secs[Utl_texto(p.SECTOR).toUpperCase()];
+    if (sec) { sec.pacientes++; if (rev) sec.porRevisar++; }
+    var est = Utl_texto(p.ESTRATIFICACION).trim().toUpperCase();
+    if (est === '' || est === 'G') estratPendiente++;
+    if (p.FECHA_ACTUALIZACION instanceof Date &&
+        (!ultimaActF || p.FECHA_ACTUALIZACION > ultimaActF)) ultimaActF = p.FECHA_ACTUALIZACION;
   });
+  var ingresosHoy = 0, eventosMes = 0, top = [];
   (eventos || []).forEach(function (e) {
-    var s = secs[Utl_texto(e.sector).toUpperCase()];
-    if (!s) return;
-    if (Utl_texto(e.tipo).toUpperCase() === 'INGRESO' && limite &&
-        Utl_texto(e.f) >= limite && Utl_texto(e.f) <= hoyIso) s.ingresos7d++;
+    var f = _ui_isoFecha(e.FECHA_EVENTO, tz);
+    var tipo = Utl_texto(e.TIPO_EVENTO).toUpperCase();
+    if (f === hoyIso && tipo === 'INGRESO') ingresosHoy++;
+    if (f.slice(0, 7) === mesActual) eventosMes++;
+    var sec2 = secs[Utl_texto(e.SECTOR).toUpperCase()];
+    if (sec2 && tipo === 'INGRESO' && limite && f >= limite && f <= hoyIso) sec2.ingresos7d++;
+    if (f && f.length >= 10) {
+      var item = { f: f, tipo: tipo, hora: f.length >= 16 ? f.slice(11, 16) : '',
+                   iniciales: _panel_iniciales(e.NOMBRE) };
+      if (top.length < 4) { top.push(item); top.sort(_centro_topDesc); }
+      else if (f > top[3].f) { top[3] = item; top.sort(_centro_topDesc); }
+    }
   });
-  Object.keys(secs).forEach(function (k) {
+  PANEL_SECTORES.forEach(function (k) {
     var s = secs[k];
     s.cobertura = s.pacientes >= 50 ? 'Operativo'
                 : s.pacientes > 0 ? 'Cobertura parcial' : 'Sin datos';
   });
-  return PANEL_SECTORES.map(function (k) { return secs[k]; });
+  var ultimos = top.map(function (x) {
+    return { fechaIso: x.f, hora: x.hora, tipo: x.tipo, iniciales: x.iniciales };
+  });
+  return { pacientes: n, ingresosHoy: ingresosHoy, eventosMes: eventosMes,
+           porRevisar: porRevisar, estratPendiente: estratPendiente,
+           sectores: PANEL_SECTORES.map(function (k) { return secs[k]; }),
+           ultimos: ultimos, _ultimaActF: ultimaActF };
 }
 
-/** PURA: cantidad de pacientes con estratificación pendiente (vacío/'G'). */
-function _panel_estratPendiente(filas) {
-  return (filas || []).filter(function (e) {
-    var t = Utl_texto(e.est !== undefined ? e.est : e.ESTRATIFICACION).trim().toUpperCase();
-    return t === '' || t === 'G';
-  }).length;
-}
+/** PURA: comparador desc por fecha ISO para el top-4 de actividad reciente. */
+function _centro_topDesc(a, b) { return b.f < a.f ? -1 : 1; }
 
 /** PURA: iniciales discretas para actividad reciente (sin nombre completo). */
 function _panel_iniciales(nombre) {
