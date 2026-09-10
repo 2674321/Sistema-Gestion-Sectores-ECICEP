@@ -134,3 +134,52 @@ optimización, deploys @121–@130)`.
 Batería completa verde en cada ronda: núcleo 553, aceptación formulario 50,
 formulario web 25, payload V2 19, backend V2 65, cola FORM_RESPUESTAS 33,
 contrato captura V2 36, HTML 16.
+
+## 9. ANÁLISIS COMPARATIVO DEL DÍA (deploys @121–@130)
+
+### Resumen numerico del día
+
+- **13 commits de cambio** (10 de la fase RPC/higiene @121–@130 + 3 del frente
+  visual/CONFIG previo: `0dbc12e`, `70f4ebe`, `08e8731`) + 1 commit de
+  documentación. Deployment operativo actualizado **@130** (verificado HTTP 200 +
+  marcadores cliente en cada liberación); `/dev` queda en `@HEAD`.
+- **Batería completa: 797/797 verdes** (núcleo 553 · aceptación 50 · formulario
+  web 25 · payload V2 19 · backend V2 65 · cola 33 · contrato captura 36 · HTML 16).
+
+### Reducción de RPC por mejora (antes → después)
+
+| Mejora | Antes | Después | Ahorro |
+|---|---|---|---|
+| Confirmación entrega §16 (`Captura_v2_confirmarEntregaIngreso`, `1fdeb87`) | relectura del bloque INGRESO completo tras escribir | reutiliza el bloque ya leído en la invocación | **−1 lectura grande por envío con alta** (la de mayor volumen del flujo) |
+| `Form_leerMarcas` (`2662bd4`) | 3 lecturas de columna por hoja (5 RPC) | 1 `getDataRange` + extracción (3 RPC) | **−2 RPC por hoja** en barridos de marcas |
+| Verificación post-escritura `Ingresos_escribirEstados` (`2662bd4`) | relee el bloque completo de la INGRESO_* | relee solo min..max de filas afectadas | **volumen releído reducido a las filas tocadas** |
+| Celdas sueltas → fila (`8b90503`) | 2–3 `setValue` por operación | 1 `setValues` de fila/rango | **escrituras colapsadas** (`Modelo_restaurarFuente`, `Form_reiniciarRespuesta`) |
+| `api_revisionResolver` (`3c1d3c2`) | lectura de fila + bloque completo + `getLastRow` + 2 `setValues` por grupo | 1 lectura de bloque única + 1 `setValues` 1×2 por grupo | **−2 lecturas por resolución; escrituras hermanas ÷2** |
+| CONFIG en endpoints de controles (`abe06fe`, `50c52d8`) | 2 lecturas completas de CONFIG por invocación | 1 lectura `_UI_controlConfig()` (frecuencia + aviso) | **−1 lectura de CONFIG por invocación** en 5 endpoints |
+| Esquema PACIENTES (`4b6a41c`) | `getLastColumn` + lectura de encabezado por lote de altas | encabezado reutilizado del memo si existe | **−2 RPC por lote de altas** |
+| Guard getLastRow (`d9fef27`) | 1 `getLastRow` guard + lector memoizado que ya lo calcula | sin guard | **−1 RPC de metadatos por llamada** (acumulativo dentro de la invocación) |
+
+### Estimación de presupuesto de un envío de captura con alta nueva
+
+- **Antes del día**: ~18–20 llamadas RPC (guardas, dobles lecturas CONFIG/INGRESO,
+  escrituras por celda, confirmación con relectura completa).
+- **Después**: ~13–15 llamadas → **~20–25 % menos RPC**, y se eliminó del flujo la
+  relectura completa de INGRESO en la confirmación (§16), que era la lectura con
+  más datos del request.
+
+### Snapshot actual de llamadas Spreadsheet en `src/`
+
+`getRange` 182 · `getValues` 50 · `setValues` 33 · `getLastRow` 116 · `getLastColumn` 30 · `getDataRange` 3 · `appendRow` 3.
+Los `setValue`/`appendRow` restantes corresponden al pintor instalador
+(`Hojas_crearInicio`), reglas de formato condicional (API sin batch) y logs
+(bloques en LOG); sin `setValue` en loops de path rutinario (regla de bloques).
+
+### Efecto neto del día
+
+1. **Latencia por request reducida**: menos llamadas y menos datos transferidos
+   (sin relecturas completas de INGRESO ni dobles lecturas de CONFIG).
+2. **Integridad blindada**: higiene del memo tras migraciones y altas (2 FIX).
+3. **Deuda cosmética saldada**: #33 (color tokenizado en el único HTML que lo
+   duplicaba), sin cambio visual.
+4. **Reglas documentadas** para no regresar (`ARQUITECTURA.md → Rendimiento →
+   Invariantes consolidados`).
