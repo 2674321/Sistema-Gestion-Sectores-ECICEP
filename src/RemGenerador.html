@@ -39,6 +39,10 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 <header>
   <h1>Generar REM</h1>
   <div class="sub">Reporte mensual derivado de EVENTOS · Bloque A · solo lectura · build <?= BUILD ?></div>
+  <div class="acciones" style="margin-top:12px">
+    <button class="btn btn-ghost" onclick="consultar()"><i data-lucide="eye"></i> Vista de trabajo</button>
+    <button class="btn btn-ghost" onclick="irEstadisticas()"><i data-lucide="bar-chart-3"></i> Estadísticas</button>
+  </div>
 </header>
 
 <div class="card">
@@ -203,7 +207,18 @@ function informePdf(btn){
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
   .REM_exportarPdf(p.anio,p.mes,sectorSel());
 }
-function consultar(){google.script.run.UI_verRem();}
+function irEstadisticas(){
+  var p=periodoActual();
+  var sector=document.getElementById('selSector').value;
+  try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
+  google.script.run.UI_abrirDashboard();
+}
+function consultar(){
+  var p=periodoActual();
+  var sector=document.getElementById('selSector').value;
+  try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
+  google.script.run.UI_verRem();
+}
 
 function pintarValidacion(r1){
   document.getElementById('rCab').textContent=r1.cabecera||'—';
@@ -218,7 +233,6 @@ function pintarValidacion(r1){
   document.getElementById('rVwarn').textContent=v.warning;
   document.getElementById('rVERR').textContent=v.error;
 }
-function consultar(){google.script.run.UI_verRem();}
 _refrescarIconos();
 try{
   var ult=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');

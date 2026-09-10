@@ -94,7 +94,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       </select>
     </label>
     <button class="btn btn-pri" onclick="consultar(this)"><i data-lucide="search"></i> Consultar</button>
-    <button class="btn btn-ghost" onclick="google.script.host.close()">Volver</button>
+    <button class="btn btn-sec" onclick="irEstadisticas()"><i data-lucide="bar-chart-3"></i> Estadísticas</button>
+    <button class="btn btn-sec" onclick="irGenerar()"><i data-lucide="file-output"></i> Generar REM</button>
   </div>
 </header>
 <p class="hint" id="hintMes"><b>Mes:</b> atenciones del mes (Bloque A) + censo del sector con los indicadores «Tiene…» del propio mes. En «Censo: solo con actividad» se omiten los pacientes sin eventos en el mes.</p>
@@ -159,6 +160,28 @@ function pintar(tablas, meta, notas) {
   });
   wrap.innerHTML = html;
   _refrescarIconos();
+}
+function irEstadisticas() {
+  try {
+    localStorage.setItem('REM_ULTIMA', JSON.stringify({
+      mes: +document.getElementById('selMes').value,
+      anio: +document.getElementById('selAnio').value,
+      sector: document.getElementById('selSector').value,
+      act: document.getElementById('selAct').value
+    }));
+  } catch (e) {}
+  google.script.run.UI_abrirDashboard();
+}
+function irGenerar() {
+  try {
+    localStorage.setItem('REM_ULTIMA', JSON.stringify({
+      mes: +document.getElementById('selMes').value,
+      anio: +document.getElementById('selAnio').value,
+      sector: document.getElementById('selSector').value,
+      act: document.getElementById('selAct').value
+    }));
+  } catch (e) {}
+  google.script.run.UI_generarRem();
 }
 function consultar(btn) {
   var anio = +document.getElementById('selAnio').value;

@@ -324,3 +324,58 @@ No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO).
 ### Tests
 
 Batería completa verde: contrato datos 21 (antes 20, +R3) + 553 · 50 · 27 · 19 · 68 · 33 · 17.
+
+## 13. PASADA 8 — INTERCONEXIÓN DE DIÁLOGOS: Estadísticas ↔ REM (vista de trabajo / generador)
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/Dashboard.html`, `src/RemVista.html`, `src/RemGenerador.html`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Problema
+
+Los tres diálogos del menú eran islas: para saltar de Estadísticas a la REM (o a la vista de
+trabajo) había que `google.script.host.close()` y volver a abrir la otra desde el menú. Eso
+rompía el contexto del período y obligaba a re-seleccionar año/mes/sector en cada cruce.
+
+### Mecanismo
+
+Apps Script permite **un solo diálogo modal a la vez** (`showModalDialog` reemplaza al anterior).
+La interconexión se resuelve con navegación server-side: cada HTML invoca `google.script.run`
+sobre una función de apertura (`UI_abrirDashboard`, `UI_verRem`, `UI_generarRem`) que reabre el
+otro diálogo; antes de saltar, el HTML persiste el período en `localStorage` bajo la clave
+compartida `REM_ULTIMA` (la misma que ya usaban RemVista/RemGenerador para restaurar su estado).
+
+### Cambios implementados
+
+| Archivo | Cambio |
+|---|---|
+| `src/Dashboard.html` | Botón **«Ver REM»** en el header. Nueva `irRem()`: calcula el mes/año desde `fDesde` (y el sector si `DASH_OPS` tiene uno solo), escribe `REM_ULTIMA` y abre `UI_verRem()`. Al cargar, si existe `REM_ULTIMA` con `anio`/`mes`, recorta el rango de fechas a ese mes (primero a último día) — así el retorno desde la REM muestra el mismo período que se estaba viendo. |
+| `src/RemVista.html` | Reemplaza el botón «Volver» (cerraba el diálogo) por **«Estadísticas»** (`UI_abrirDashboard`) y agrega **«Generar REM»** (`UI_generarRem`). Ambos guardan el período actual en `REM_ULTIMA` antes de saltar. |
+| `src/RemGenerador.html` | Nuevo bloque en el header con **«Vista de trabajo»** y **«Estadísticas»**. `consultar()` (antes solo `UI_verRem()` sin contexto) y la nueva `irEstadisticas()` persisten el período en `REM_ULTIMA` antes de navegar. Se elimina la declaración duplicada de `consultar()`. |
+
+### Flujo operativo resultante
+
+```text
+Estadísticas ──Ver REM──▶ REM vista de trabajo ──Generar REM──▶ REM generador
+      ▲                       ▲                                      │
+      └──◀── Estadísticas ────┴──────── Estadísticas ◀───────────────┘
+                                     (contexto REM_ULTIMA compartido)
+```
+
+Ninguna ruta cierra el diálogo manualmente: el período seleccionado viaja y al volver a
+Estadísticas el rango de fechas queda acotado al mes en uso.
+
+### Seguridad / invariantes
+
+- No se agregó lógica backend; solo navegación entre funciones de apertura ya existentes
+  (`UI_abrirDashboard`, `UI_verRem`, `UI_generarRem`).
+- El contexto se comparte por `localStorage` (por si acaso el navegador, nunca se escribe en Sheets).
+- El recorte de fechas en Dashboard solo ocurre si `REM_ULTIMA.anio && REM_ULTIMA.mes`; `DASH_OPS`
+  (rango manual del usuario) se aplica primero y el contexto REM lo matiza al abrir desde las REM.
+- `google.script.run` con `UI_abrirDashboard`/`UI_verRem`/`UI_generarRem` reabre el diálogo modal
+  reemplazando el actual — comportamiento esperado de Apps Script.
+
+### Tests
+
+Batería completa verde: `validar_html` **17/17** · núcleo 553 · contrato datos 21 · aceptación 50 ·
+contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33.

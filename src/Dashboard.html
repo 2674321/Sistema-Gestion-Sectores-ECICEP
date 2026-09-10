@@ -55,6 +55,8 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <h1>Estadísticas</h1> <span class="build" style="font-size:10px;color:var(--border-strong)">build <?= BUILD ?></span><span class="chip rut" id="chipGen">…</span>
   <button class="btn btn-sec" id="btnActualizar" onclick="cargarDatos(this)" style="margin-left:auto">
     <i data-lucide="refresh-cw"></i> Actualizar</button>
+  <button class="btn btn-sec" id="btnVerRem" onclick="irRem()">
+    <i data-lucide="file-bar-chart"></i> Ver REM</button>
   <div class="sub">Los KPIs y gráficos reaccionan a los filtros · El rango de fechas define la ventana del gráfico de ingresos por mes</div>
   <div class="barra" id="barraWrap" style="display:none;margin-top:10px"><span></span></div>
 </header>
@@ -338,6 +340,17 @@ function errorFatal(msg){
     '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--danger)">'+
     '<b>Error cargando datos:</b> '+msg+'<br><small>Copia este mensaje y avisa para diagnóstico.</small></div>');
 }
+function irRem(){
+  var desde=document.getElementById('fDesde').value;
+  var hasta=document.getElementById('fHasta').value;
+  var mes=parseInt(desde.slice(5,7),10)||new Date().getMonth()+1;
+  var anio=parseInt(desde.slice(0,4),10)||new Date().getFullYear();
+  var sector='TODOS';
+  try{var sv=JSON.parse(localStorage.getItem('DASH_OPS')||'null');
+    if(sv&&sv.sectores&&sv.sectores.length===1)sector=sv.sectores[0];}catch(e){}
+  try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:mes,anio:anio,sector:sector}));}catch(e){}
+  google.script.run.UI_verRem();
+}
 function cargarDatos(btn){
   if(btn&&btn.disabled)return;
   if(btn){btn.disabled=true;btn.classList.add('refresh-spin');}
@@ -368,7 +381,22 @@ function cargarDatos(btn){
       document.getElementById('fDesde').value=sv.desde;
       document.getElementById('fHasta').value=sv.hasta;
     }
-  }catch(eL){}barraFin(true,'✓ Datos cargados');if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
+  }catch(eL){}
+  /* Contexto compartido REM (localStorage REM_ULTIMA): si existe, acota el rango
+     al mes del período rem visto/generado. Es la misma clave que leen RemVista y
+     RemGenerador, por eso "Ver REM" y el retorno muestran el mismo mes. */
+  try{
+    var rem=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');
+    if(rem&&rem.anio&&rem.mes){
+      var ini=new Date(+rem.anio,rem.mes-1,1);
+      var fin=new Date(+rem.anio,rem.mes,0);
+      document.getElementById('fDesde').value=ini.getFullYear()+'-'+
+        String(ini.getMonth()+1).padStart(2,'0')+'-01';
+      document.getElementById('fHasta').value=fin.getFullYear()+'-'+
+        String(fin.getMonth()+1).padStart(2,'0')+'-'+String(fin.getDate()).padStart(2,'0');
+    }
+  }catch(eR2){}
+  barraFin(true,'✓ Datos cargados');if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
   renderizarTodo();
   if(!_conteoAnim){
     Array.prototype.forEach.call(document.querySelectorAll('.kpi,.chart-card'),function(c,i2){
