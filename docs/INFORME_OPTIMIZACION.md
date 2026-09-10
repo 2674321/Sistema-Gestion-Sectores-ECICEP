@@ -584,3 +584,60 @@ aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · co
 formulario_web 27 · `validar_html` 17/17.
 Nota: los micro-benchmarks de `10_Pruebas` (`ms < 100/1000/2000`) son sensibles a
 CPU compartida; si fallan al correr suites en paralelo, volver a ejecutar en serie.
+
+## 18. PASADA 13 — AUDITORÍA con lectores ligeros + reparación de la sección RESPONSABLES
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/21_Auditoria.js`, `tests/contrato_datos.mjs`, `docs/INFORME_OPTIMIZACION.md`.
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Cambio de rendimiento
+
+`Auditoria_ejecutar` (menú Herramientas → ⚖️ Auditoría, dry-run de solo lectura)
+leía PACIENTES y EVENTOS completos. Ahora usa los lectores ligeros con dos listas
+modulares de campos, referenciadas también por el test R11:
+
+- `AUDITORIA_CAMPOS_PACIENTES` (10): ID_INTERNO, RUT, NOMBRE, SECTOR,
+  ESTRATIFICACION, FECHA_NACIMIENTO, ULTIMO_CONTROL, PROXIMO_CONTROL,
+  DUPLA_INGRESO, PROFESIONAL_SEGUIMIENTO — exactamente lo que consumen
+  `Aud_clasificarPoblacion`/`Aud_clasificarPersona`, `Aud_auditarAmarillo`
+  (lado paciente), `Aud_auditarProfesionales` y el barrido de RUT duplicados.
+- `AUDITORIA_CAMPOS_EVENTOS` (6): ID_INTERNO, NOMBRE, SECTOR, TIPO_EVENTO,
+  FECHA_EVENTO, FUENTE — los consumidos por `Aud_auditarAmarillo` +
+  `Amarillo_analizarDuplicados`.
+
+### Reparación coexistente (bug de run-time verificado al auditar)
+
+La sección RESPONSABLES de la auditoría estaba **rota en runtime**: `Aud_auditarResponsables`
+referenciaba `diag.mapeados` / `diag.codigosInexistentes` / `diag.inactivos`, campos
+que `Responsables_diagnostico` **no retorna** (retorna `porSector`, `sinCatalogo`,
+`inactivosCargo`, `totales`), y además recibía `pacientes` en lugar de las
+asociaciones de RESPONSABLES. El resultado: `api_auditoriaEjecutar` devolvía
+`{ok:false}` por TypeError en el informe completo.
+
+Corrección: `Aud_auditarResponsables` ahora recibe las asociaciones canónicas
+(`Responsables_mapear`), el catálogo de profesionales y los legacies de CONFIG, y
+computa los contadores directamente (asociaciones, únicos, multi-sector, duplicados,
+inexistentes, inactivos, correos inválidos, huérfanas, legacy). No cambia el modelo
+acumulable DEC-039 ni las escrituras.
+
+### Pruebas
+
+- **R11** (4 asertos-grupo): clasificación/completos == clasificación/ligeros;
+  Amarillo con campos completos == con campos `AUDITORIA_CAMPOS_EVENTOS`;
+  `Aud_auditarResponsables` con asociaciones canónicas (sin `mapeados`);
+  smoke de `Auditoria_ejecutar` con lectores ligeros reales → el informe de
+  RESPONSABLES ya no rompe → contrato datos **33** (antes 29, +4).
+
+### Tests
+
+Batería completa verde (serial): núcleo 553 · contrato datos **33** (antes 29, +R11) ·
+aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+formulario_web 27 · `validar_html` 17/17.
+
+### Estado del hilo de optimización lectores ligeros del menú
+
+Con la pasada 13 solo queda abierto el **costo arquitectónico** ya reportado: la
+conversión por fila de toda la tabla en cada RPC y las escrituras de fila completa
+no son reducibles con lectores ligeros sin caché entre requests (CacheService),
+decisión diferida pendiente de confirmación del usuario.

@@ -865,6 +865,114 @@ t('R10: api_ficha con 21 campos leídos no pierde datos (ficha/dupla/patologías
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// R11 — PERF pasada 13: AUDITORIA_* cubren EXACTAMENTE lo que consumen las
+// funciones Aud_* (clasificación, Amarillo, profesionales) y el smoke de
+// Auditoria_ejecutar con lectores ligeros ya no rompe por diag.mapeados
+// (regresión del run-time de la sección RESPONSABLES).
+// ─────────────────────────────────────────────────────────────────────────────
+t('R11: clasificación completa con campos completos == con campos AUDITORIA (métricas idénticas)', () => {
+  const completos = [
+    { ID_INTERNO: 'EC-0001', RUT: '11111111-1', NOMBRE: 'JUAN PÉREZ', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2', FECHA_NACIMIENTO: '1988-03-12', ULTIMO_CONTROL: '2026-01-10', PROXIMO_CONTROL: '2026-04-10', DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', EXTRA: 'x' },
+    { ID_INTERNO: 'EC-0002', RUT: '22222222-2', NOMBRE: 'ANA SOTO', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1', FECHA_NACIMIENTO: '1995-07-22', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '', DUPLA_INGRESO: 'COD-A;COD-B', PROFESIONAL_SEGUIMIENTO: 'DR.', EXTRA: 'y' }
+  ];
+  const freq = CSP.Control_frecuenciaDefault();
+  const ligeros = completos.map((p) => {
+    const o = {};
+    CSP.AUDITORIA_CAMPOS_PACIENTES.forEach((c) => { o[c] = p[c]; });
+    return o;
+  });
+  const mComp = CSP.Aud_clasificarPoblacion(completos, freq, '2026-09-10', 7).metricas;
+  const mLig = CSP.Aud_clasificarPoblacion(ligeros, freq, '2026-09-10', 7).metricas;
+  igual(JSON.stringify(mLig), JSON.stringify(mComp), 'métricas de clasificación idénticas');
+  const pComp = CSP.Aud_auditarProfesionales(completos);
+  const pLig = CSP.Aud_auditarProfesionales(ligeros);
+  A(JSON.stringify(pLig) === JSON.stringify(pComp), 'profesionales idénticos (DUPLA_INGRESO/PROFESIONAL_SEGUIMIENTO)');
+});
+
+t('R11: auditoría Amarillo == con campos AUDITORIA (eventos) y sin romper sin FUENTE', () => {
+  const eventosCompletos = [
+    { ID_INTERNO: 'EC-0002', NOMBRE: 'ANA SOTO', SECTOR: 'AMARILLO', TIPO_EVENTO: 'INGRESO', FECHA_EVENTO: '2026-08-01', FUENTE: 'AMARILLO|INGRESOS ECICEP', OTRAS: 'x' },
+    { ID_INTERNO: 'EC-0002', NOMBRE: 'ANA SOTO', SECTOR: 'AMARILLO', TIPO_EVENTO: 'INGRESO', FECHA_EVENTO: '2026-08-01', FUENTE: 'AMARILLO|INGRESOS ECICEP', OTRAS: 'x' },
+    { ID_INTERNO: 'EC-0001', NOMBRE: 'JUAN PÉREZ', SECTOR: 'NARANJO', TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-01-10', FUENTE: 'UI', OTRAS: '' }
+  ];
+  const pacientes = [
+    { ID_INTERNO: 'EC-0001', ESTRATIFICACION: 'G2', PROXIMO_CONTROL: '2026-04-10' },
+    { ID_INTERNO: 'EC-0002', ESTRATIFICACION: 'G1', PROXIMO_CONTROL: '' }
+  ];
+  const freq = CSP.Control_frecuenciaDefault();
+  const ligeros = eventosCompletos.map((e) => {
+    const o = {};
+    CSP.AUDITORIA_CAMPOS_EVENTOS.forEach((c) => { o[c] = e[c]; });
+    return o;
+  });
+  const aComp = CSP.Aud_auditarAmarillo(pacientes, eventosCompletos, freq, '2026-09-10', 7);
+  const aLig = CSP.Aud_auditarAmarillo(pacientes, ligeros, freq, '2026-09-10', 7);
+  igual(aLig.total, 2, 'solo eventos AMARILLO');
+  igual(aLig.gruposDuplicados, 1, 'par duplicado detectado');
+  igual(JSON.stringify(aLig), JSON.stringify(aComp), 'Amarillo idéntico entre completos y ligeros');
+});
+
+t('R11: Aud_auditarResponsables usa asociaciones canónicas (ya no diag.mapeados)', () => {
+  const lista = [
+    { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera', correo: 'enf@ecicep.cl', activo: true },
+    { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera', correo: 'enf@ecicep.cl', activo: true },
+    { sector: 'NARANJO', codigo: 'MED', nombre: 'Médico', correo: 'correo-mal', activo: false },
+    { sector: 'VERDE', codigo: 'NOEXISTE', nombre: 'Fantasma', correo: '', activo: true }
+  ];
+  const profesionales = [
+    { CODIGO: 'ENF', ACTIVO: true },
+    { CODIGO: 'MED', ACTIVO: false }
+  ];
+  const leg = { AMARILLO: 'legacy@ecicep.cl' };
+  const r = CSP.Aud_auditarResponsables(lista, profesionales, leg);
+  igual(r.asociaciones, 4);
+  igual(r.unicos, 3, 'tres códigos distintos (ENF,MED,NOEXISTE)');
+  igual(r.duplicados, 1, 'ENF repetido en dos asociaciones');
+  igual(r.multiSector, 0, 'ningún código en más de un sector');
+  igual(r.codigosInexistentes, 1, 'NOEXISTE fuera del catálogo');
+  igual(r.inactivos, 1, 'MED inactivo en catálogo');
+  igual(r.correosInvalidos, 1, 'correo mal formado');
+  igual(r.huerfanas, 1, 'código sin catálogo = huérfana');
+  igual(r.legacy, 1, 'una clave legacy');
+  igual(r.porSector.length, 3, 'tres sectores con asociaciones');
+});
+
+t('R11: Auditoria_ejecutar smoke con lectores ligeros reales (ya no rompe run-time)', () => {
+  const filasP = [
+    ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTRATIFICACION', 'FECHA_NACIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'EXTRA_COL'],
+    ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'AMARILLO', 'G2', '1988-03-12', '2026-01-10', '2026-04-10', '', '', 'x'],
+    ['EC-0002', '22222222-2', 'ANA SOTO', 'NARANJO', 'G1', '1995-07-22', '', '', 'COD-A;COD-B', 'DR.', 'y']
+  ];
+  const filasE = [
+    ['ID_INTERNO', 'NOMBRE', 'SECTOR', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE'],
+    ['EC-0002', 'ANA SOTO', 'AMARILLO', 'INGRESO', '2026-08-01', 'AMARILLO|INGRESOS ECICEP'],
+    ['EC-0002', 'ANA SOTO', 'AMARILLO', 'INGRESO', '2026-08-01', 'AMARILLO|INGRESOS ECICEP'],
+    ['EC-0001', 'JUAN PÉREZ', 'NARANJO', 'CONTROL', '2026-01-10', 'UI']
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  CSP.Modelo_hoja = (nombre) => {
+    if (nombre === CSP.HOJAS.PACIENTES) return hojaLigeraPara('PACIENTES', filasP, 3);
+    if (nombre === CSP.HOJAS.EVENTOS) return hojaLigeraPara('EVENTOS', filasE, 1);
+    return null;
+  };
+  CSP.Modelo_invalidarLecturas();
+  try {
+    const r = CSP.Auditoria_ejecutar();
+    A(r.ok === true, 'auditoría responde ok');
+    igual(r.datos.personas.total, 2, 'dos personas analizadas');
+    igual(r.datos.amarillo.total, 2, 'dos eventos Amarillo');
+    igual(r.datos.amarillo.gruposDuplicados, 1, 'un grupo duplicado Amarillo');
+    A(r.datos.responsables && typeof r.datos.responsables.asociaciones === 'number',
+      'sección RESPONSABLES calculada (sin TypeError)');
+    A(r.datos.profesionales && r.datos.profesionales.usados >= 2, 'profesionales desde DUPLA/PROFESIONAL_SEGUIMIENTO');
+    A(typeof r.texto === 'string' && r.texto.indexOf('PERSONAS') !== -1, 'informe texto renderizado');
+  } finally {
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resumen
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\nCONTRATO DE DATOS (S1) — Total: ${R.pass + R.fail + R.skip} · OK: ${R.pass} · FALLAN: ${R.fail} · SKIP: ${R.skip}`);

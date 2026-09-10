@@ -4,6 +4,19 @@
 // D (UX), E (correcciones), F (no corregido), G (tests), H (git/clasp), I (manual)
 // ===========================================================================
 
+// PERF pasada 13: conjuntos modulares de campos para los lectores ligeros.
+// La auditoría es ESTE y solo este subconjunto de columnas; al listarlas aquí
+// una derivación silenciosa (campo faltante que queda vacío) se detecta en el
+// test R11 campo a campo, igual que en R6/R7.
+var AUDITORIA_CAMPOS_PACIENTES = [
+  'ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTRATIFICACION',
+  'FECHA_NACIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
+  'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO'
+];
+var AUDITORIA_CAMPOS_EVENTOS = [
+  'ID_INTERNO', 'NOMBRE', 'SECTOR', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE'
+];
+
 /**
  * PURA: anonimiza un RUT para reportes (solo últimos 2 dígitos del cuerpo + DV).
  * @param {string} rut normalizado 'XXXXXXXX-X' o 'XXXXXXXXXX' o con puntos
@@ -162,30 +175,63 @@ function Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias) 
 }
 
 /**
- * PURA: auditoría RESPONSABLES (usa Responsables_diagnostico existente).
+ * PURA: auditoría RESPONSABLES (modelo acumulable v0.8.7.2, DEC-039).
+ * Las asociaciones canónicas vienen de Responsables_mapear (no de pacientes).
+ * @param {Array} lista asociaciones canónicas [{sector,codigo,nombre,correo,activo}]
+ * @param {Array} profesionales catálogo canónico (para activos/inexistentes)
+ * @param {Object} legacy correos legacy {SEC:'correo'} desde CONFIG
  */
-function Aud_auditarResponsables(pacientes) {
-  var diag = Responsables_diagnostico(pacientes);
-  var porSector = Responsables_correosDe(pacientes);
+function Aud_auditarResponsables(lista, profesionales, legacy) {
+  var catActivo = {};
+  (profesionales || []).forEach(function (p) {
+    catActivo[Utl_texto(p.CODIGO).toUpperCase()] = p.ACTIVO !== false;
+  });
+  var porSector = {}, porCodigo = {};
+  (lista || []).forEach(function (r) {
+    (porSector[r.sector] = porSector[r.sector] || []).push(r);
+    porCodigo[Utl_texto(r.codigo).toUpperCase()] = true;
+  });
+  var sectores = Object.keys(porSector);
+  var total = (lista || []).length;
+  var codigos = Object.keys(porCodigo);
+  var asociacionesPorCodigo = {}, sectoresPorCodigo = {};
+  (lista || []).forEach(function (r) {
+    var c = Utl_texto(r.codigo).toUpperCase();
+    asociacionesPorCodigo[c] = (asociacionesPorCodigo[c] || 0) + 1;
+    sectoresPorCodigo[c] = (sectoresPorCodigo[c] || {});
+    sectoresPorCodigo[c][Utl_texto(r.sector).toUpperCase()] = true;
+  });
+  var multiSector = codigos.filter(function (c) { return Object.keys(sectoresPorCodigo[c]).length > 1; }).length;
+  var duplicados = codigos.filter(function (c) { return asociacionesPorCodigo[c] > 1; }).length;
+  var inexistentes = [], inactivos = [], correosInvalidos = [], huerfanas = [];
+  (lista || []).forEach(function (r) {
+    var c = Utl_texto(r.codigo).toUpperCase();
+    if (catActivo[c] === undefined) {
+      inexistentes.push(r.sector + ' + ' + r.codigo + ' (' + (r.nombre || 'sin nombre') + ')');
+      huerfanas.push(r.sector + ' + ' + r.codigo);
+    } else if (catActivo[c] === false) {
+      inactivos.push(r.sector + ' + ' + r.codigo);
+    }
+    if (r.correo && !Responsables_emailValido(r.correo))
+      correosInvalidos.push(r.sector + ' + ' + r.codigo + ' → ' + r.correo);
+  });
   return {
-    asociaciones: diag.mapeados.length,
-    porSector: Object.keys(porSector).map(function (s) {
-      return { sector: s, correos: porSector[s].map(function (r) { return { codigo: r.CODIGO_RESPONSABLE, email: r.CORREO }; }) };
+    asociaciones: total,
+    porSector: sectores.map(function (s) {
+      return { sector: s, correos: porSector[s].map(function (r) { return { codigo: r.codigo, email: r.correo }; }) };
     }),
-    unicos: new Set(diag.mapeados.map(function (m) { return m.CODIGO_RESPONSABLE; })).size,
-    multiSector: diag.mapeados.filter(function (m) {
-      return diag.mapeados.filter(function (x) { return x.CODIGO_RESPONSABLE === m.CODIGO_RESPONSABLE; }).length > 1;
-    }).length,
-    duplicados: diag.mapeados.length - new Set(diag.mapeados.map(function (m) { return m.CODIGO_RESPONSABLE; })).size,
-    codigosInexistentes: diag.codigosInexistentes.length,
-    inactivos: diag.inactivos.length,
-    correosInvalidos: diag.correosInvalidos.length,
-    huerfanas: diag.mapeados.filter(function (m) { return m.ESTADO !== 'ACTIVO'; }).length,
-    legacy: diag.mapeados.filter(function (m) { return !m.ACTIVO; }).length,
+    unicos: codigos.length,
+    multiSector: multiSector,
+    duplicados: duplicados,
+    codigosInexistentes: inexistentes.length,
+    inactivos: inactivos.length,
+    correosInvalidos: correosInvalidos.length,
+    huerfanas: huerfanas.length,
+    legacy: Object.keys(legacy || {}).length,
     ejemplos: {
-      inactivos: diag.inactivos.slice(0, 3),
-      inexistentes: diag.codigosInexistentes.slice(0, 3),
-      correosInvalidos: diag.correosInvalidos.slice(0, 3)
+      inactivos: inactivos.slice(0, 3),
+      inexistentes: inexistentes.slice(0, 3),
+      correosInvalidos: correosInvalidos.slice(0, 3)
     }
   };
 }
@@ -313,14 +359,14 @@ function Auditoria_ejecutar() {
     });
   } catch (e) {}
 
-  var pacientes = Modelo_leerPacientes();
-  var eventos = Modelo_leerEventos();
+  var pacientes = Modelo_leerPacientesCampos(AUDITORIA_CAMPOS_PACIENTES);
+  var eventos = Modelo_leerEventosCampos(AUDITORIA_CAMPOS_EVENTOS);
   var freqConfig = Control_leerFrecuencia();
   var configRows = (hC && hC.getLastRow() > 1) ? Utl_leerBloque(hC).slice(1) : [];
 
   var clasif = Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias);
   var amarillo = Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias);
-  var resp = Aud_auditarResponsables(pacientes);
+  var resp = Aud_auditarResponsables(_responsables_leer(), Profesionales_catalogo(), _responsables_leerLegacy());
   var prof = Aud_auditarProfesionales(pacientes);
   var conf = Aud_auditarConfig(configRows);
 
