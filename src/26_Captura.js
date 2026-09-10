@@ -129,6 +129,13 @@ function Captura_v2_error(codigo, campo, mensaje, detalle) {
   return { codigo: codigo, campo: (campo === undefined ? null : campo), mensaje: mensaje || '', detalle: (detalle === undefined ? '' : detalle) };
 }
 
+/** §16.2 — error de entrega: conserva el mensaje estable y agrega el MOTIVO
+ * real del intento para diagnóstico operativo, sin cambiar el contrato (ok:false). */
+function Captura_v2_errorEntrega(motivo) {
+  return Captura_v2_error('ERROR_INTERNO', null,
+    'El procesamiento del envío falló; reintentable' + (motivo ? ' (' + motivo + ')' : ''), '§16.2');
+}
+
 /** PURA: ¿es una clave interna ó legacy (prohibida en el payload §6.1/§25)? */
 function Captura_v2_esInterna(k) {
   if (CAPTURA_V2.INTERNOS.indexOf(k) !== -1) return true;
@@ -479,7 +486,7 @@ function Captura_v2_enviar(payload, ctx) {
       var entregaA2 = Captura_v2_ejecutarEntrega(norm, c, captureId, previoA2, reg);
       Captura_v2_medida(c, 'T5_entrega_fin');
       if (entregaA2.estado === CAPTURA_V2.ESTADOS.ERROR) {
-        return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'El procesamiento del envío falló; reintentable', '§16.2')] };
+        return { ok: false, errors: [Captura_v2_errorEntrega(entregaA2.motivo)] };
       }
       return Captura_v2_respuestaEntrega(norm, entregaA2);
     }
@@ -512,7 +519,7 @@ function Captura_v2_enviar(payload, ctx) {
   var entrega = Captura_v2_ejecutarEntrega(norm, c, captureId, {}, null);
   Captura_v2_medida(c, 'T5_entrega_fin');
   if (entrega.estado === CAPTURA_V2.ESTADOS.ERROR) {
-    return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'El procesamiento del envío falló; reintentable', '§16.2')] };
+    return { ok: false, errors: [Captura_v2_errorEntrega(entrega.motivo)] };
   }
   return Captura_v2_respuestaEntrega(norm, entrega);
 }
@@ -594,7 +601,7 @@ function Captura_v2_retomarRegistro(captureId, ctx) {
   var entrega = Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg);
   Captura_v2_medida(c, 'T5_entrega_fin');
   if (entrega.estado === CAPTURA_V2.ESTADOS.ERROR) {
-    return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'El procesamiento del envío falló; reintentable', '§16.2')] };
+    return { ok: false, errors: [Captura_v2_errorEntrega(entrega.motivo)] };
   }
   return Captura_v2_respuestaEntrega(norm, entrega);
 }
@@ -624,7 +631,7 @@ function Captura_v2_respuestaAlmacenada(reg) {
  */
 function Captura_v2_respuestaEntrega(norm, entrega) {
   if (entrega.estado === CAPTURA_V2.ESTADOS.ERROR) {
-    return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'El procesamiento del envío falló; reintentable', '§16.2')] };
+    return { ok: false, errors: [Captura_v2_errorEntrega(entrega.motivo)] };
   }
   if (entrega.resultadoTrailer && entrega.resultadoTrailer.ok) {
     return {
@@ -1060,6 +1067,7 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
       ingresoFila: String(filaFisica)
     };
   } catch (e) {
+    Captura_v2_logError('CapturaV2', 'entregarIngreso', String(e));
     return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ENTREGA_INGRESO_FALLO' };
   }
 }
