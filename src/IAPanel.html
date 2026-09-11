@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('00_Tokens') ?>
+  <style>
+  .ia-wrap{padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-3);height:100%}
+  .ia-head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
+  .ia-head h2{margin:0;font:700 18px 'Sora';color:var(--text-primary);flex:1}
+  .ia-head .badge{background:var(--primary);color:#fff;font:600 10px 'Inter';padding:2px 8px;border-radius:var(--radius-full)}
+  
+  .ia-status{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:var(--radius-md);
+    font:500 12px 'Inter';margin-bottom:var(--space-2)}
+  .ia-status.ok{background:var(--success);color:#fff}
+  .ia-status.warn{background:var(--warning);color:#fff}
+  .ia-status.err{background:var(--danger);color:#fff}
+  .ia-status .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+  
+  .ia-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:var(--space-2)}
+  .ia-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;
+    border:1px solid var(--border-strong);border-radius:var(--radius-md);background:var(--surface);
+    font:600 12px 'Inter';color:var(--text-primary);cursor:pointer;transition:all .15s var(--ease-in);
+    min-height:44px}
+  .ia-btn:hover{border-color:var(--primary);box-shadow:var(--shadow-sm)}
+  .ia-btn:disabled{opacity:.5;cursor:not-allowed}
+  .ia-btn.pri{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .ia-btn.pri:hover:not(:disabled){background:var(--primary-strong)}
+  .ia-btn .spin{width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;
+    border-radius:50%;animation:girar .7s linear infinite;display:inline-block}
+  
+  .ia-chat{flex:1;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-md);
+    overflow:hidden;background:var(--surface)}
+  .ia-chat-msgs{flex:1;overflow-y:auto;padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2);
+    min-height:200px;max-height:400px}
+  .ia-msg{padding:8px 12px;border-radius:var(--radius-md);font:400 13px 'Inter';max-width:90%;
+    animation:tIn .2s var(--ease-in)}
+  .ia-msg.user{background:var(--primary-soft);color:var(--primary-strong);align-self:flex-end;
+    border-bottom-right-radius:2px}
+  .ia-msg.ia{background:var(--surface-alt);color:var(--text-primary);align-self:flex-start;
+    border-bottom-left-radius:2px}
+  .ia-msg.error{background:var(--danger);color:#fff;align-self:flex-start}
+  .ia-msg.system{background:transparent;color:var(--text-muted);font-size:11px;text-align:center;
+    align-self:center;padding:4px 8px}
+  
+  .ia-chat-input{display:flex;gap:6px;padding:var(--space-2);border-top:1px solid var(--border);
+    background:var(--surface-alt)}
+  .ia-chat-input input{flex:1;padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+    font:400 13px 'Inter';background:var(--surface);color:var(--text-primary);min-height:38px}
+  .ia-chat-input input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  .ia-chat-input button{padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--primary);
+    color:#fff;font:600 12px 'Inter';cursor:pointer;min-height:38px;transition:background .15s var(--ease-in)}
+  .ia-chat-input button:hover:not(:disabled){background:var(--primary-strong)}
+  .ia-chat-input button:disabled{opacity:.5;cursor:not-allowed}
+  
+  .ia-log{border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+  .ia-log-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+    background:var(--surface-alt);cursor:pointer}
+  .ia-log-head span{font:600 11px 'Inter';color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase}
+  .ia-log-body{max-height:150px;overflow-y:auto;padding:var(--space-2)}
+  .ia-log-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);
+    font:400 12px 'Inter';color:var(--text-secondary)}
+  .ia-log-item:last-child{border-bottom:none}
+  .ia-log-item .time{color:var(--text-muted);white-space:nowrap;font-size:11px}
+  .ia-log-item .tipo{font-weight:600;min-width:60px}
+  .ia-log-item .cant{color:var(--primary);font-weight:600}
+  
+  .ia-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:var(--space-5);
+    color:var(--text-muted);text-align:center}
+  .ia-empty .icon{font-size:32px;opacity:.5}
+
+  .ia-setup{border:1px solid var(--warning);border-radius:var(--radius-md);padding:var(--space-3);
+    background:var(--warning-soft);display:flex;flex-direction:column;gap:var(--space-2);
+    font:400 12px 'Inter';color:var(--text-secondary)}
+  .ia-setup b{color:var(--text-primary)}
+  .ia-setup a{color:var(--primary);font-weight:600}
+  .ia-setup input{padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+    font:400 13px 'Inter';background:var(--surface);color:var(--text-primary);min-height:38px}
+  .ia-setup input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  .ia-setup .row{display:flex;gap:6px}
+  .ia-setup button{padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--primary);
+    color:#fff;font:600 12px 'Inter';cursor:pointer;min-height:38px;transition:background .15s var(--ease-in)}
+  .ia-setup button:hover:not(:disabled){background:var(--primary-strong)}
+  
+  @keyframes girar{to{transform:rotate(360deg)}}
+  @keyframes tIn{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  </style>
+</head>
+<body>
+  <div class="ia-wrap">
+    <!-- Header -->
+    <div class="ia-head">
+      <h2>IA ECICEP</h2>
+      <span class="badge">Gemini Flash</span>
+    </div>
+    
+    <!-- Estado de la API -->
+    <div id="iaStatus" class="ia-status warn">
+      <span class="dot"></span>
+      <span>Verificando configuración...</span>
+    </div>
+    
+    <!-- Instrucciones de configuración (visible solo sin API key) -->
+    <div id="iaSetup" class="ia-setup" style="display:none">
+      <b>Cómo configurar la API key</b>
+      <div>1. Obtén una clave <b>gratuita</b> en
+        <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+        (botón &quot;Create API key&quot;).</div>
+      <div>2. Copia la clave y pégala aquí:</div>
+      <input type="password" id="iaKeyInput" placeholder="AIza..." autocomplete="off">
+      <div class="row">
+        <button type="button" id="btnGuardarKey" onclick="guardarApiKey()">Guardar API key</button>
+      </div>
+      <div>La clave queda guardada en <b>Script Properties</b> del proyecto, nunca en la hoja.</div>
+    </div>
+    
+    <!-- Botones de acción rápida -->
+    <div class="ia-actions">
+      <button class="ia-btn pri" onclick="analisisRapido()" id="btnAnalizar">
+        📊 Análisis Rápido
+      </button>
+      <button class="ia-btn" onclick="corregirTodo()" id="btnCorregir">
+        🔧 Corregir Todo
+      </button>
+      <button class="ia-btn" onclick="detectarDuplicados()" id="btnDuplicados">
+        🔍 Duplicados
+      </button>
+      <button class="ia-btn" onclick="verificarIntegridad()" id="btnIntegridad">
+        ✅ Integridad
+      </button>
+    </div>
+    
+    <!-- Chat -->
+    <div class="ia-chat">
+      <div class="ia-chat-msgs" id="chatMsgs">
+        <div class="ia-msg system">Escribe una instrucción o usa los botones de acción</div>
+      </div>
+      <div class="ia-chat-input">
+        <input type="text" id="chatInput" placeholder="Ej: Analizar duplicados, Corregir RUTs..."
+               onkeydown="if(event.key==='Enter')enviarMensaje()">
+        <button onclick="enviarMensaje()" id="btnEnviar">Enviar</button>
+      </div>
+    </div>
+    
+    <!-- Log de actividades -->
+    <div class="ia-log">
+      <div class="ia-log-head" onclick="toggleLog()">
+        <span>📋 Log de Actividades</span>
+        <span id="logToggle">▼</span>
+      </div>
+      <div class="ia-log-body" id="logBody" style="display:none">
+        <div class="ia-empty">
+          <span class="icon">📝</span>
+          <span>No hay actividades recientes</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // Estado
+  var historial = [];
+  var logEntries = [];
+  
+  // Verificar configuración al cargar
+  (function() {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        var el = document.getElementById('iaStatus');
+        var setup = document.getElementById('iaSetup');
+        if (res.configurada) {
+          el.className = 'ia-status ok';
+          el.innerHTML = '<span class="dot"></span><span>API configurada correctamente</span>';
+          setup.style.display = 'none';
+        } else {
+          el.className = 'ia-status err';
+          el.innerHTML = '<span class="dot"></span><span>API no configurada — configura tu API key</span>';
+          setup.style.display = 'flex';
+        }
+      })
+      .withFailureHandler(function(e) {
+        var el = document.getElementById('iaStatus');
+        el.className = 'ia-status err';
+        el.innerHTML = '<span class="dot"></span><span>Error verificando config: ' + e.message + '</span>';
+      })
+      .IA_verificarConfig();
+  })();
+  
+  // Guardar la API key desde el panel
+  function guardarApiKey() {
+    var input = document.getElementById('iaKeyInput');
+    var key = input.value.trim();
+    if (!key) {
+      toast('Pega tu API key primero', 'warn');
+      return;
+    }
+    
+    var btn = document.getElementById('btnGuardarKey');
+    setLoading(btn, true, 'Guardando...');
+    
+    google.script.run
+      .withSuccessHandler(function(resGuardado) {
+        setLoading(btn, false);
+        if (resGuardado) {
+          input.value = '';
+          toast('API key configurada correctamente', 'ok');
+          // Refrescar estado del panel
+          var el = document.getElementById('iaStatus');
+          el.className = 'ia-status ok';
+          el.innerHTML = '<span class="dot"></span><span>API configurada correctamente</span>';
+          document.getElementById('iaSetup').style.display = 'none';
+        } else {
+          toast('No se pudo guardar la API key', 'err');
+        }
+      })
+      .withFailureHandler(function(e) {
+        setLoading(btn, false);
+        toast('Error: ' + e.message, 'err');
+      })
+      .IA_guardarApiKey(key);
+  }
+  
+  // Enviar mensaje del chat
+  function enviarMensaje() {
+    var input = document.getElementById('chatInput');
+    var msg = input.value.trim();
+    if (!msg) return;
+    
+    input.value = '';
+    agregarMensaje('user', msg);
+    historial.push({ rol: 'usuario', texto: msg });
+    
+    // Mostrar cargando
+    var loadingId = agregarMensaje('ia', '<span class="spin"></span> Procesando...');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        var texto = '';
+        if (res && res.error) {
+          texto = 'Error: ' + res.error;
+          actualizarMensaje(loadingId, 'error', texto);
+        } else if (res && res.explicacion) {
+          texto = res.explicacion;
+          if (res.resultado) {
+            texto += '\n\nResultado: ' + JSON.stringify(res.resultado, null, 2).substring(0, 500);
+          }
+          actualizarMensaje(loadingId, 'ia', texto);
+        } else if (typeof res === 'string') {
+          actualizarMensaje(loadingId, 'ia', res);
+        } else {
+          actualizarMensaje(loadingId, 'ia', JSON.stringify(res, null, 2).substring(0, 800));
+        }
+        historial.push({ rol: 'ia', texto: texto });
+        agregarLog('CHAT', 1, msg.substring(0, 50));
+      })
+      .withFailureHandler(function(e) {
+        actualizarMensaje(loadingId, 'error', 'Error: ' + e.message);
+      })
+      .IA_procesarInstruccion(msg);
+  }
+  
+  // Agregar mensaje al chat
+  function agregarMensaje(tipo, contenido) {
+    var container = document.getElementById('chatMsgs');
+    var div = document.createElement('div');
+    div.className = 'ia-msg ' + tipo;
+    div.innerHTML = contenido;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+  }
+  
+  // Actualizar mensaje existente
+  function actualizarMensaje(elemento, tipo, contenido) {
+    if (typeof elemento === 'string') {
+      // Buscar por contenido
+      var msgs = document.querySelectorAll('.ia-msg');
+      for (var i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].innerHTML.indexOf('Procesando...') !== -1) {
+          elemento = msgs[i];
+          break;
+        }
+      }
+    }
+    if (elemento && elemento.className) {
+      elemento.className = 'ia-msg ' + tipo;
+      elemento.innerHTML = contenido;
+    }
+  }
+  
+  // Acciones rápidas
+  function analisisRapido() {
+    setLoading(document.getElementById('btnAnalizar'), true, 'Analizando...');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        setLoading(document.getElementById('btnAnalizar'), false);
+        var texto = '📊 **Análisis Completado**\n\n';
+        
+        if (res.pacientes && !res.pacientes.error) {
+          texto += 'Pacientes: ' + (res.pacientes.problemas ? res.pacientes.problemas.length : 0) + ' problemas encontrados\n';
+        }
+        if (res.eventos && !res.eventos.error) {
+          texto += 'Eventos: ' + (res.eventos.problemas ? res.eventos.problemas.length : 0) + ' problemas encontrados\n';
+        }
+        if (res.duplicados && !res.duplicados.error) {
+          texto += 'Duplicados: ' + res.duplicados.duplicadosEncontrados + ' encontrados\n';
+        }
+        if (res.integridad && !res.integridad.error) {
+          texto += 'Integridad: ' + res.integridad.problemasEncontrados + ' problemas\n';
+        }
+        
+        agregarMensaje('ia', texto);
+        agregarLog('ANÁLISIS', 1, 'Rápido');
+        toast('Análisis completado', 'ok');
+      })
+      .withFailureHandler(function(e) {
+        setLoading(document.getElementById('btnAnalizar'), false);
+        agregarMensaje('error', 'Error en análisis: ' + e.message);
+        toast('Error: ' + e.message, 'err');
+      })
+      .IA_analizarCompleto();
+  }
+  
+  function corregirTodo() {
+    setLoading(document.getElementById('btnCorregir'), true, 'Corrigiendo...');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        setLoading(document.getElementById('btnCorregir'), false);
+        var texto = '🔧 **Correcciones Aplicadas**\n\n';
+        texto += 'Total corregidos: ' + (res.total || 0) + '\n';
+        
+        if (res.porCategoria) {
+          Object.keys(res.porCategoria).forEach(function(k) {
+            var v = res.porCategoria[k];
+            if (v && !v.error) {
+              texto += '• ' + k + ': ' + (v.corregidos || 0) + '\n';
+            }
+          });
+        }
+        
+        agregarMensaje('ia', texto);
+        agregarLog('CORRECCIÓN', res.total || 0, 'Todo');
+        toast(res.total + ' registros corregidos', 'ok');
+      })
+      .withFailureHandler(function(e) {
+        setLoading(document.getElementById('btnCorregir'), false);
+        agregarMensaje('error', 'Error: ' + e.message);
+        toast('Error: ' + e.message, 'err');
+      })
+      .IA_corregirTodo();
+  }
+  
+  function detectarDuplicados() {
+    setLoading(document.getElementById('btnDuplicados'), true, 'Buscando...');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        setLoading(document.getElementById('btnDuplicados'), false);
+        var texto = '🔍 **Duplicados Detectados**\n\n';
+        texto += 'Total pacientes: ' + (res.totalPacientes || 0) + '\n';
+        texto += 'Duplicados: ' + (res.duplicadosEncontrados || 0) + '\n';
+        
+        agregarMensaje('ia', texto);
+        agregarLog('DUPLICADOS', res.duplicadosEncontrados || 0, '');
+        toast((res.duplicadosEncontrados || 0) + ' duplicados encontrados', 'info');
+      })
+      .withFailureHandler(function(e) {
+        setLoading(document.getElementById('btnDuplicados'), false);
+        agregarMensaje('error', 'Error: ' + e.message);
+        toast('Error: ' + e.message, 'err');
+      })
+      .IA_detectarDuplicados();
+  }
+  
+  function verificarIntegridad() {
+    setLoading(document.getElementById('btnIntegridad'), true, 'Verificando...');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        setLoading(document.getElementById('btnIntegridad'), false);
+        var texto = '✅ **Integridad Verificada**\n\n';
+        texto += 'Total eventos: ' + (res.totalEventos || 0) + '\n';
+        texto += 'Problemas: ' + (res.problemasEncontrados || 0) + '\n';
+        
+        agregarMensaje('ia', texto);
+        agregarLog('INTEGRIDAD', res.problemasEncontrados || 0, '');
+        toast((res.problemasEncontrados || 0) + ' problemas de integridad', res.problemasEncontrados > 0 ? 'warn' : 'ok');
+      })
+      .withFailureHandler(function(e) {
+        setLoading(document.getElementById('btnIntegridad'), false);
+        agregarMensaje('error', 'Error: ' + e.message);
+        toast('Error: ' + e.message, 'err');
+      })
+      .IA_verificarIntegridadEventos();
+  }
+  
+  // Log de actividades
+  function agregarLog(tipo, cantidad, detalle) {
+    var now = new Date();
+    var time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+    
+    logEntries.unshift({ time: time, tipo: tipo, cant: cantidad, det: detalle });
+    if (logEntries.length > 20) logEntries.pop();
+    
+    renderLog();
+  }
+  
+  function renderLog() {
+    var body = document.getElementById('logBody');
+    if (logEntries.length === 0) {
+      body.innerHTML = '<div class="ia-empty"><span class="icon">📝</span><span>No hay actividades recientes</span></div>';
+      return;
+    }
+    
+    var html = '';
+    logEntries.forEach(function(e) {
+      html += '<div class="ia-log-item">'
+        + '<span class="time">' + e.time + '</span>'
+        + '<span class="tipo">' + e.tipo + '</span>'
+        + '<span class="cant">' + e.cant + '</span>'
+        + (e.det ? '<span>' + e.det + '</span>' : '')
+        + '</div>';
+    });
+    body.innerHTML = html;
+  }
+  
+  function toggleLog() {
+    var body = document.getElementById('logBody');
+    var toggle = document.getElementById('logToggle');
+    if (body.style.display === 'none') {
+      body.style.display = 'block';
+      toggle.textContent = '▲';
+    } else {
+      body.style.display = 'none';
+      toggle.textContent = '▼';
+    }
+  }
+  
+  // Helper setLoading
+  function setLoading(btn, on, texto) {
+    if (!btn) return;
+    if (on) {
+      btn._prev = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> ' + (texto || 'Procesando...');
+    } else {
+      btn.disabled = false;
+      if (btn._prev) btn.innerHTML = btn._prev;
+    }
+  }
+  </script>
+</body>
+</html>

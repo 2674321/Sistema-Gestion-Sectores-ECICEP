@@ -971,4 +971,43 @@ idx/objeto-idéntico/1 lectura/`null`) → 38/38; baterías completas verdes
 (núcleo 553, aceptación 50, captura V2 36, payload 19, backend 68, cola 33,
 formulario_web 27, validar_html 17).
 
+## DEC-062
+**Título:** Primera integración de IA generativa (Google Gemini) como capacidad de asistencia técnica
+**Estado:** Aprobada / vigente
+**Motivo:** El usuario solicitó integrar IA gratuita para análisis y corrección
+asistida de datos dentro del sistema ECICEP (implantación publicada, `v0.9.3` sin
+cambio de versión). La IA se incorpora como **capacidad nueva de asistencia
+técnica** sobre estructura y calidad de datos, **no** como núcleo del sistema ni
+como autoridad clínica.
+
+1. **Proveedor y modelo**: Google Gemini API (`gemini-2.0-flash`) con API key en
+   **Script Properties** (`GEMINI_API_KEY`), nunca en código, hojas ni docs.
+   `IA_llamarGemini` con retry/backoff exponencial y manejo de `429`.
+2. **Alcance**: análisis de estructura/estadísticas, detección local de
+   duplicados por RUT e integridad de eventos (sin envío a la API), corrección
+   determinista (RUT, fechas, nombres, teléfonos, sexo) reutilizando los
+   normalizadores del sistema, chat/instrucciones en lenguaje natural y
+   ejecución de tests; todo con registro trazable en hoja `LOG_IA`.
+3. **Componentes**: `src/28_IA.js` (backend), `src/IAPanel.html` (sidebar),
+   menú `IA` en `onOpen()` (07_UI.js), registro `IAPanel` en `UICFG_DIALOGOS`
+   (00_Config.js).
+4. **Minimización de datos**: diseño orientado a enviar a la API solo
+   estructura, estadísticas y patrones; duplicados e integridad son 100%
+   locales. Riesgo residual documentado: ejemplos de columnas en
+   `IA_leerEstadisticas` pueden incluir valores de columnas sensibles →
+   pendiente de anonimizar (docs/INFORME_IA_GEMINI.md §5).
+5. **Regla estructural (robustez)**: toda lectura de columna debe resolverse por
+   **encabezado real** (`IA_columnaPorNombre`), nunca por índice fijo. Evita
+   regresión del falso positivo masivo (18 605/18 605) corregido en integridad.
+6. **Sin arquitectura paralela**: pipeline clínico, modelo de datos y contrato
+   de captura V2 permanecen intactos; la IA es una capa de asistencia que no
+   sustituye la fuente de verdad operativa.
+
+Documentación: `docs/INFORME_IA_GEMINI.md` (**vigente**). Verificación: la
+documentación IA no contiene secretos (API key no expuesta). Baterías verdes tras
+la integración (núcleo 553, contrato datos 38, aceptación 50, captura V2 36,
+payload 19, backend 68, cola 33, formulario_web 27, validar_html 18).
+
+**Fecha:** 2026-09-11
+
 **Fecha:** 2026-09-10

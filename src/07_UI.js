@@ -48,6 +48,13 @@ function onOpen() {
       .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 
+    ui.createMenu('IA')
+      .addItem('Abrir panel', 'IA_abrirPanel')
+      .addItem('Análisis rápido', 'IA_analizarCompleto')
+      .addItem('Corregir errores', 'IA_corregirTodo')
+      .addItem('Configurar API', 'IA_configurar')
+      .addToUi();
+
     Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
   } catch (e) { /* entorno sin UI */ }
 }

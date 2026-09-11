@@ -21,8 +21,9 @@
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
+| **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.3` · pruebas núcleo **552/552** · deploy `/exec` vigente |
+| **Estado** | Operativo · `v0.9.3` · pruebas núcleo **553/553** · deploy `/exec` vigente |
 
 ## Qué resuelve
 
@@ -81,6 +82,35 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 - Diseño visual del libro normalizado por un **design system** único (tokens en
   `00_Tokens`), contrastes accesibles y una sola tinta.
 
+## Integración de IA
+
+ECICEP incorpora su **primera integración de IA generativa** como capacidad de
+asistencia técnica para **análisis, automatización y calidad de datos**:
+Google **Gemini API** desde `Google Apps Script` sobre la base de `Google Sheets`.
+
+Qué hace hoy la capa de IA (detalle en `docs/INFORME_IA_GEMINI.md`):
+
+- **Análisis de calidad de datos** — estructura y estadísticas de las hojas,
+  detección de inconsistencias de formato y campos vacíos.
+- **Detección de duplicados** — por RUT, ejecutada **100% en memoria** (no envía
+  datos a la API).
+- **Verificación de integridad** — eventos huérfanos (evento sin paciente),
+  también local.
+- **Corrección asistida** — RUT, fechas, nombres, teléfonos y sexo reutilizando
+  los normalizadores deterministas del sistema, con registro en `LOG_IA`.
+- **Asistencia por lenguaje natural** — traducción de instrucciones a acciones
+  del sistema.
+- **Auditoría y trazabilidad** — cada cambio queda registrado y revisable.
+
+La IA **no realiza diagnóstico médico ni reemplaza el criterio profesional**:
+es una herramienta de validación, detección de patrones, consistencia y
+automatización de tareas de datos. Diseñada con un **enfoque de minimización de
+datos** (estructura, estadísticas y patrones; duplicados e integridad locales) y
+con la **API key fuera del código fuente** (Script Properties).
+
+> Acceso desde Google Sheets: menú **`IA`** → *Abrir panel · Análisis rápido ·
+> Corregir errores · Configurar API*.
+
 ## Demo interactiva
 
 Puedes probar una **réplica estática exacta** del formulario de captura (misma
@@ -122,12 +152,11 @@ Contrato de captura vigente (operaciones, payload, estados, errores):
 
 ## Stack
 
-`Google Apps Script · Google Sheets · HTML/CSS/JS (Web App) · Git · Clasp ·
-SheetJS (Excel) · Chart.js (gráficos) · PDF local`
+`Google Apps Script · Google Sheets · HTML/CSS/JS (Web App) · Gemini API ·
+Git · Clasp · SheetJS (Excel) · Chart.js (gráficos) · PDF local`
 
 Sin dependencias externas salvo beneficio demostrable. Código en paquetes
-planos numerados (`src/00_Config.js … src/27_Actualizacion.js`) sincronizados
-con `clasp`.
+planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`.
 
 ## Estado del proyecto
 
@@ -138,6 +167,7 @@ con `clasp`.
 | Instalador + motor de migraciones | ✅ Operativo (fase INST-1 cerrada) |
 | REM Excel / PDF · Estadísticas · Dashboard | ✅ Implementados |
 | Calidad, auditoría, backups | ✅ Implementados |
+| IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
 | E2E real | ✅ Verificado en libro operativo |
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción
@@ -158,6 +188,7 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 | `ARQUITECTURA.md` | Arquitectura técnica y funcional vigente |
 | `MODELO-DATOS.md` · `MODELO-EVENTOS.md` | Modelo PACIENTES y EVENTOS |
 | `docs/CONTRATO_CAPTURA_V2.md` | Contrato de captura V2 — **NORMATIVO** |
+| `docs/INFORME_IA_GEMINI.md` | Integración de IA generativa (Gemini) — vigente |
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
 | `docs/MIGRACIONES.md` | Motor de migraciones de esquema |
 | `docs/VERSIONADO.md` | Versionado del esquema |
@@ -171,13 +202,15 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 Sistema-Gestion-Sectores-ECICEP/
 ├── src/                   # Código Apps Script (sincronizado con clasp)
 │   ├── 00_Config.js …     # Config, tokens, núcleo, modelo, hojas, UI
-│   ├── 10_Pruebas.js      # Suites deterministas (552)
+│   ├── 10_Pruebas.js      # Suites deterministas (553)
 │   ├── 24_Formulario.js   # Backend de captura Web App
 │   ├── 26_Captura.js      # Backend contrato de captura V2
+│   ├── 28_IA.js           # Módulo IA (Gemini API): análisis, calidad, corrección asistida
+│   ├── IAPanel.html       # Panel lateral de IA (menú IA → Abrir panel)
 │   └── CapturaWeb.html    # Formulario Web App (canal de captura)
 ├── tests/                 # Baterías ejecutables: node tests/*.mjs
-│   ├── ejecutar_local.mjs # Núcleo (552 deterministas)
-│   ├── formulario_web.mjs # Lógica real de CapturaWeb.html (25)
+│   ├── ejecutar_local.mjs # Núcleo (553 deterministas)
+│   ├── formulario_web.mjs # Lógica real de CapturaWeb.html (27)
 │   ├── captura_ui_payload_v2.mjs, captura_backend_v2.mjs, contrato_*.mjs…
 │   └── validar_html.mjs   # Sintaxis de <script> embebidos en los HTML
 ├── examples/              # Réplicas/demos (ej. formulario_demo.html)

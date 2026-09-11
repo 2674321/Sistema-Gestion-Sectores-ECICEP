@@ -94,7 +94,8 @@ var UICFG_DIALOGOS = [
   { opener: 'UI_abrirBuscador', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirRevision', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_formularioPanel', plantilla: 'FormularioPanel', tipo: 'modal' }
+  { opener: 'UI_formularioPanel', plantilla: 'FormularioPanel', tipo: 'modal' },
+  { opener: 'IA_abrirPanel', plantilla: 'IAPanel', tipo: 'sidebar' }
 ];
 
 // ---------------------------------------------------------------------------

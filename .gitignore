@@ -35,3 +35,7 @@ src/BUILD.js
 # ===== ARCHIVOS PERSONALES =====
 # CV personal del propietario — nunca al repositorio (no borrar el archivo)
 docs/hoja_de_vida.pdf
+
+# ===== EXPORTACIONES DE SESIÓN (locales, no commiteables) =====
+SESION *.json
+SESION*.json
