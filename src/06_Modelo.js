@@ -191,6 +191,7 @@ function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
     valores[f][iFuente] = fuenteLimpia;
     if (iRev >= 0) valores[f][iRev] = false;
     hoja.getRange(filaFisica, 1, 1, valores[f].length).setValues([valores[f]]);
+    Modelo_invalidarLecturas();
     Log_info('Modelo', 'restaurarFuente',
       'rut=' + rutClave + ' fuente=[' + fuenteLimpia + '] fila=' + filaFisica);
     return { ok: true, fila: filaFisica, id: valores[f][campos.indexOf('ID_INTERNO')],
@@ -1206,7 +1207,7 @@ function Responsables_validarSector(sector, filas, profesionales) {
 }
 
 // ---------------------------------------------------------------------------
-// Lectura de la base (por bloques + índices en memoria)
+// Lectura de la base (por bloques + índices en memoria + caché entre requests)
 // ---------------------------------------------------------------------------
 
 /** Lee PACIENTES completo como array de objetos canónicos. */
@@ -1214,12 +1215,114 @@ function Responsables_validarSector(sector, filas, profesionales) {
  * dentro de una misma llamada RPC (api_ficha + patologías + dupla, etc.).
  * Se invalida con Modelo_invalidarLecturas(). Nunca persiste entre llamadas. */
 var _MEMO_HOJAS = {};
-function Modelo_invalidarLecturas() { _MEMO_HOJAS = {}; }
+
+/* Caché entre requests (DEC-015): los bloques ya leídos (PACIENTES, EVENTOS,
+ * PROFESIONALES) se reutilizan en RPCs posteriores dentro de un TTL corto
+ * (CONFIG TTL_CACHE_SEG; default CFG_CACHE.TTL_DEFECTO_SEG = 60s). Claves
+ * versionadas con CFG_CACHE.PREFIJO. Solo datos de LECTURA: toda escritura
+ * invalida vía Modelo_invalidarLecturas() (que borra las mismas claves, por
+ * eso no hay riesgo de servir datos en curso de modificación). Los bloques que
+ * al serializarse superan CFG_CACHE.MAX_BYTES no se guardan (solo-sesión). */
+var _CACHE_TTL_SEG = null;
+
+function _cacheService() {
+  try {
+    if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return null;
+    return CacheService.getScriptCache();
+  } catch (e) { return null; }
+}
+
+/** PURA: serializa un bloque 2D para CacheService preservando Date y booleanos.
+ *  Date → {__ECICEP_DATE__: ms} (pre-convertido porque JSON.stringify invoca
+ *  Date.toJSON antes que cualquier replacer); el resto viaja con JSON nativo.
+ *  Un bloque de hoja solo contiene escalares (string/number/boolean/Date/''). */
+function _cacheSerializarBloque(bloque) {
+  var copia = (bloque || []).map(function (fila) {
+    return fila.map(function (celda) {
+      return (celda instanceof Date) ? { __ECICEP_DATE__: celda.getTime() } : celda;
+    });
+  });
+  return JSON.stringify(copia);
+}
+
+/** PURA: revierte _cacheSerializarBloque (el Date revive desde ms). */
+function _cacheDeserializarBloque(json) {
+  return JSON.parse(json, function (k, v) {
+    if (v && typeof v === 'object' && typeof v.__ECICEP_DATE__ === 'number') return new Date(v.__ECICEP_DATE__);
+    return v;
+  });
+}
+
+/** TTL vigente: CONFIG TTL_CACHE_SEG (una lectura por invocación) o default. */
+function _cacheTTL() {
+  if (_CACHE_TTL_SEG != null) return _CACHE_TTL_SEG;
+  var ttl = CFG_CACHE.TTL_DEFECTO_SEG;
+  try {
+    var h = Modelo_hoja(HOJAS.CONFIG);
+    if (h) {
+      var filas = Modelo_leerBloqueCabecera(HOJAS.CONFIG, h);
+      for (var i = 1; i < filas.length; i++) {
+        if (Utl_texto(filas[i][0]) === 'TTL_CACHE_SEG') {
+          var n = parseInt(filas[i][1], 10);
+          if (!isNaN(n) && n > 0 && n <= 21600) ttl = n;
+          break;
+        }
+      }
+    }
+  } catch (e) {}
+  _CACHE_TTL_SEG = ttl;
+  return ttl;
+}
+
+/** Claves de bloques candidatos a persistir entre requests. */
+function _cacheClaves() { return ['PACIENTES', 'EVENTOS', 'PROFESIONALES']; }
+function _cacheClave(clave) { return CFG_CACHE.PREFIJO + 'BLOQUE:' + clave; }
+
+function _cacheBorrarClaves() {
+  var c = _cacheService();
+  if (!c) return;
+  _cacheClaves().forEach(function (k) {
+    if (typeof c.remove !== 'function') return;
+    try { c.remove(_cacheClave(k)); } catch (e) {}
+  });
+}
+
+function _cacheLeer(clave) {
+  var c = _cacheService();
+  if (!c) return null;
+  try {
+    var json = c.get(_cacheClave(clave));
+    return json ? _cacheDeserializarBloque(json) : null;
+  } catch (e) { return null; }
+}
+
+function _cacheEscribir(clave, bloque) {
+  var c = _cacheService();
+  if (!c || !bloque || !bloque.length) return;
+  try {
+    var json = _cacheSerializarBloque(bloque);
+    if (json.length > CFG_CACHE.MAX_BYTES) return; // bloque grande → solo-sesión
+    c.put(_cacheClave(clave), json, _cacheTTL());
+  } catch (e) { /* quota u otros: degrada a solo-sesión */ }
+}
+
+function Modelo_invalidarLecturas() {
+  _MEMO_HOJAS = {};
+  _cacheBorrarClaves();
+}
+
 function _memoLeer(hoja, clave) {
   if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, clave)) return _MEMO_HOJAS[clave];
+  var cacheado = _cacheLeer(clave);
+  if (cacheado) {
+    _MEMO_HOJAS[clave] = cacheado;
+    console.log('[CACHE] hit ' + clave + ' filas=' + cacheado.length + ' (entre requests)');
+    return cacheado;
+  }
   var _tM = Date.now();
   var v = Modelo_leerBloqueCabecera(clave, hoja);
   _MEMO_HOJAS[clave] = v;
+  _cacheEscribir(clave, v);
   console.log('[PIPE] _memoLeer ' + clave + ' t=' + (Date.now() - _tM) + 'ms filas=' + v.length + ' (1ª lectura; memoizada)');
   return v;
 }

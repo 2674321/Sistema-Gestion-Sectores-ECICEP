@@ -238,6 +238,7 @@ function Calidad_normalizarFormatoRuts() {
     var v = rango.getValues();
     filas.forEach(function (f) { v[f - fMin][0] = valores[f]; });
     rango.setValues(v);
+    Modelo_invalidarLecturas();
   }
   Log_info('Calidad', 'normalizarRuts', 'corregidos=' + corregidos);
   Log_flush();

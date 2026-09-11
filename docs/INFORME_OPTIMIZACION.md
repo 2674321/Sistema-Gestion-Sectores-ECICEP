@@ -641,3 +641,87 @@ Con la pasada 13 solo queda abierto el **costo arquitectónico** ya reportado: l
 conversión por fila de toda la tabla en cada RPC y las escrituras de fila completa
 no son reducibles con lectores ligeros sin caché entre requests (CacheService),
 decisión diferida pendiente de confirmación del usuario.
+
+---
+
+## 19. PASADA 14 — CACHÉ ENTRE REQUESTS (CacheService) en `_memoLeer`
+
+Fecha de ejecución: 2026-09-10.
+Alcance: `src/00_Config.js` (`CFG_CACHE.MAX_BYTES`), `src/06_Modelo.js`
+(`_memoLeer`, `Modelo_invalidarLecturas` + helpers `_cache*`), `tests/contrato_datos.mjs`
+(R12), `docs/INFORME_OPTIMIZACION.md`.
+Decisión arquitectónica **confirmada por el usuario** (efecto lector ligeros, pasada 14).
+No toca el contrato `docs/CONTRATO_CAPTURA_V2.md` (NORMATIVO) ni el pipeline.
+
+### Cambio de rendimiento
+
+El hub de lecturas en bloque `_memoLeer` (06_Modelo.js:1271) ahora, además del memo
+por invocación, consulta **CacheService** entre requests para los bloques crudos de
+PACIENTES, EVENTOS y PROFESIONALES:
+
+- Claves versionadas con `CFG_CACHE.PREFIJO` (`ECICEP:v<VERSION SIN PUNTOS>:BLOQUE:<HOJA>`),
+  de modo que una nueva versión del sistema descarta automáticamente las entradas viejas.
+- **TTL**: leído de CONFIG `TTL_CACHE_SEG` (clave que la auditoría marcaba "sin uso
+  real") con default `CFG_CACHE.TTL_DEFECTO_SEG` = 60 s (máx. 21600 s). Una lectura
+  de CONFIG por invocación, memoizada en `_CACHE_TTL_SEG`.
+- **Serialización fiel**: `_cacheSerializarBloque` pre-convierte `Date` → `{__ECICEP_DATE__: ms}`
+  antes de `JSON.stringify` (porque UI llama `Date.toJSON` antes que cualquier replacer),
+  y `_cacheDeserializarBloque` revive el `Date`. Booleanos y celdas vacías viajan con
+  JSON nativo. Son funciones PURAS testeadas en R12.
+- **Límite de tamaño**: si el bloque serializado supera `CFG_CACHE.MAX_BYTES` (90 KB,
+  el límite por entrada de CacheService es ~100 KB; EVENTOS con años de histórico
+  típicamente lo supera) la entrada NO se persiste y se degrada a solo-sesión.
+- **Invalidación garantizada**: `Modelo_invalidarLecturas()` también borra las
+  claves `BLOQUE:*` entre requests. Con la pasada 14 se auditaron TODAS las
+  escrituras de PACIENTES/EVENTOS/PROFESIONALES y se añadió la invalidación a las
+  que aún no llamaban a ese punto (hallazgo de la revisoría interna):
+  - `api_duplaGuardar` (07_UI.js) — operativa diaria (ficha dupla);
+  - `Modelo_restaurarFuente` (06_Modelo.js) — vía Webhook `restaurar_fuente`;
+  - `Form_actualizarDatosPaciente` (24_Formulario.js) — pipeline de captura V2
+    (ruta `actualizarDatos`, incluido el camino de error `ACTUALIZACION_FALLIDA`);
+  - `_amarillo_escribirPacientes` (16_Amarillo.js) — importación histórico Amarillo;
+  - `Calidad_normalizarFormatoRuts` (18_Calidad.js) — normalización de RUT.
+  Con esto, toda escritura de las tres hojas cacheadas pasa por
+  `Modelo_invalidarLecturas` (que borra memo + claves entre requests). La caché
+  nunca puede servir datos en curso de modificación.
+
+### Semántica
+
+Identidad de resultados con la versión sin caché: los lectores ligeros y
+`Modelo_leerPacientes`/`Modelo_leerEventos`/`Modelo_leerProfesionales` siguen
+consumiendo el mismo bloque crudo (encabezado + filas); el cacheado es un `Map`
+transparente entre RPC. En sandbox/tests, `CacheService` ausente o stub no-op →
+comportamiento idéntico al anterior (sin caché entre requests).
+
+### Pruebas
+
+- **R12** (3 asertos-grupo) → contrato datos **36** (antes 33, +3):
+  - redondez PURA de `_cacheSerializarBloque`/`_cacheDeserializarBloque` (Date revive,
+    booleanos, null y celdas vacías);
+  - `_memoLeer` con `CacheService` **con estado**: miss → 1 lectura de hoja y bloque
+    persistido; hit (memo limpio, caché presente) → 0 lecturas; `Modelo_invalidarLecturas`
+    → clave eliminada y se relee la hoja;
+  - `_cacheEscribir` respeta `CFG_CACHE.MAX_BYTES` (bloque enorme → solo-sesión).
+
+### Tests
+
+Batería completa verde (serial): núcleo 553 · contrato datos **36** (antes 33, +R12) ·
+aceptación 50 · contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+formulario_web 27 · `validar_html` 17/17.
+
+### Estado del hilo de optimización del menú
+
+El costo residual (conversión por fila en cada RPC y escrituras de fila completa)
+queda acotado: la caché entre requests reduce la re-lectura de PACIENTES/EVENTOS/
+PROFESIONALES en RPCs consecutivas con TTL corto e invalidación en toda escritura
+(DEC-015, ampliada en DECISIONES.md — DEC-041). 
+
+**Alcance real del TTL:** el riesgo documentado del TTL (60 s por defecto) no se
+limita a la edición manual de la hoja. Los bloques cacheados los consumen también
+funciones del pipeline que usan `_memoLeer` (p. ej. la barrera RUT+fecha de
+duplicados en 12_Ingresos.js, lecturas de 26_Captura.js y 03_Fuentes.js), por lo
+que una escritura desde fuera de los mutadores comunes puede verse reflejada con
+hasta `TTL_CACHE_SEG` de retraso en esas lecturas. En el flujo feliz de captura la
+escritura se auto-invalida al cierre (`Modelo_agregarEventos` → refresca vistas), y
+el TTL es corto; el contrato V2 no cambia. Queda documentado aquí como carácter del
+diseño, no como defecto.

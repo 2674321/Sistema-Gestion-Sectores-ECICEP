@@ -73,7 +73,7 @@ sandbox.SpreadsheetApp = {
 sandbox.Session = { getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }, getScriptTimeZone: function () { return 'America/Santiago'; } };
 sandbox.Logger = { log: function () {}, logToConsole: function () {} };
 sandbox.Utilities = { formatDate: function (d) { return d.toISOString().slice(0, 10); } };
-sandbox.CacheService = { getScriptCache: function () { return { get: function () { return null; }, put: function () {} }; } };
+sandbox.CacheService = { getScriptCache: function () { return { get: function () { return null; }, put: function () {}, remove: function () {} }; } };
 sandbox.LockService = { getScriptLock: function () { return { tryLock: function () { return true; }, releaseLock: function () {} }; } };
 
 vm.createContext(sandbox);
@@ -969,6 +969,104 @@ t('R11: Auditoria_ejecutar smoke con lectores ligeros reales (ya no rompe run-ti
   } finally {
     CSP.Modelo_hoja = prevHoja;
     CSP.Modelo_invalidarLecturas();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R12 — PERF pasada 14: caché entre requests vía CacheService (_memoLeer).
+// El bloque crudo de PACIENTES/EVENTOS/PROFESIONALES se reutiliza entre RPCs
+// dentro del TTL; toda escritura (Modelo_invalidarLecturas) borra las claves.
+// ─────────────────────────────────────────────────────────────────────────────
+function cacheConEstado() {
+  const store = {};
+  return {
+    store,
+    getScriptCache() {
+      return {
+        get: (k) => (k in store ? store[k] : null),
+        put: (k, v) => { store[k] = v; },
+        remove: (k) => { delete store[k]; }
+      };
+    }
+  };
+}
+
+t('R12: _cacheSerializarBloque/_cacheDeserializarBloque son redondos (Date, booleanos, vacío)', () => {
+  const bloque = [
+    ['ID_INTERNO', 'REQUIERE_REVISION', 'FECHA_ACTUALIZACION', 'VACIO'],
+    ['EC-0001', true, new Date(2026, 8, 10, 12, 30, 0), ''],
+    ['EC-0002', false, null, '']
+  ];
+  const json = CSP._cacheSerializarBloque(bloque);
+  const back = CSP._cacheDeserializarBloque(json);
+  igual(back[0][0], 'ID_INTERNO', 'encabezado presente');
+  igual(back[1][1], true, 'boolean true preservado');
+  igual(back[2][1], false, 'boolean false preservado');
+  A(back[1][2] instanceof Date, 'Date revive como Date');
+  igual(back[1][2].getTime(), new Date(2026, 8, 10, 12, 30, 0).getTime(), 'mismo instante');
+  igual(back[2][2], null, 'null preservado');
+  igual(back[1][3], '', 'vacío preservado');
+});
+
+t('R12: _memoLeer con CacheService con estado — miss re-lee hoja, hit reusa sin leer, invalidar borra clave', () => {
+  const filas = [
+    ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'REQUIERE_REVISION'],
+    ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'NARANJO', true],
+    ['EC-0002', '22222222-2', 'ANA SOTO', 'AMARILLO', false]
+  ];
+  const prevCache = CSP.CacheService;
+  const prevHoja = CSP.Modelo_hoja;
+  const cache = cacheConEstado();
+  CSP.CacheService = cache;
+  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
+  CSP.Modelo_invalidarLecturas();
+  const clave = CSP.CFG_CACHE.PREFIJO + 'BLOQUE:PACIENTES';
+  try {
+    // — MISS inicial — la hoja se lee y el bloque queda en CacheService.
+    lecturasContador = 0;
+    const r = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR', 'REQUIERE_REVISION']);
+    igual(lecturasContador, 1, '1ª lectura lee la hoja una sola vez (miss)');
+    igual(r.length, 2, 'filas mapeadas');
+    igual(r[0].REQUIERE_REVISION, 'TRUE', 'boolean → TRUE');
+    A(clave in cache.store, 'bloque crudo quedó en CacheService');
+    A(typeof cache.store[clave] === 'string', 'valor serializado (string)');
+
+    // — HIT — nueva request: memo limpio, CacheService conserva el bloque.
+    //   Simula una RPC posterior reasignando el memo de invocación.
+    CSP._MEMO_HOJAS = {};
+    lecturasContador = 0;
+    const rHit = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']);
+    igual(lecturasContador, 0, 'HIT reusa CacheService sin tocar la hoja');
+    igual(rHit[0].SECTOR, 'NARANJO', 'datos del bloque deserializado');
+    igual(rHit[1].SECTOR, 'AMARILLO', 'datos del bloque deserializado (2)');
+
+    // — INVALIDAR — toda escritura borra memo + claves entre requests.
+    CSP.Modelo_invalidarLecturas();
+    A(!(clave in cache.store), 'invalidar eliminó la clave entre requests');
+    lecturasContador = 0;
+    const r3 = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']);
+    igual(lecturasContador, 1, 'tras invalidar se relee la hoja');
+    igual(r3[0].SECTOR, 'NARANJO', 'relee datos correctos');
+  } finally {
+    CSP._MEMO_HOJAS = {};
+    CSP.CacheService = prevCache;
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+t('R12: _cacheEscribir respeta CFG_CACHE.MAX_BYTES (bloque enorme → solo-sesión)', () => {
+  const prevCache = CSP.CacheService;
+  const cache = cacheConEstado();
+  CSP.CacheService = cache;
+  try {
+    const filasGigantes = [];
+    const filaAncha = new Array(60).fill('x'.repeat(200));
+    for (let i = 0; i < 500; i++) filasGigantes.push(filaAncha.slice());
+    CSP._cacheEscribir('PACIENTES', filasGigantes);
+    A(Object.keys(cache.store).length === 0, 'bloque que supera MAX_BYTES no se persiste');
+  } finally {
+    CSP.CacheService = prevCache;
   }
 });
 

@@ -294,6 +294,7 @@ function _amarillo_escribirPacientes(actualizados, pacientes) {
     hojaP.getRange(iniP + desde, 1, hasta - desde + 1, MODELO_PACIENTE.length).setValues(filas);
     escritas += run.length;
   });
+  if (escritas > 0) Modelo_invalidarLecturas();
   return escritas;
 }
 

@@ -532,6 +532,7 @@ function api_duplaGuardar(idInterno, codigos) {
     var hoja = ss.getSheetByName(HOJAS.PACIENTES);
     var colDupla = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('DUPLA_INGRESO') + 1;
     hoja.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), colDupla).setValue(dupla);
+    Modelo_invalidarLecturas();
     Log_info('Dupla', 'guardar', idInterno + ' → ' + dupla);
     Log_flush();
     return { ok: true, cantidad: codigos.length, dupla: dupla };

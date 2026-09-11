@@ -900,3 +900,42 @@ baterías completas verdes (núcleo 549/549, aceptación 50/50, backend V2 65/65
 19/19, cola 33/33, contrato captura V2 36/36, contrato datos 20/20, formulario web 25/25).
 
 **Fecha:** 2026-09-08
+
+## DEC-060
+**Título:** Caché entre requests de bloques PACIENTES/EVENTOS/PROFESIONALES (pasada 14)
+**Estado:** Aprobada / vigente (confirmada por el usuario)
+**Motivo:** Amplía DEC-015. En las RPCs consecutivas del menú, la re-lectura de
+PACIENTES/EVENTOS/PROFESIONALES repetía `getValues` de bloques completos en cada
+request. La pasada 14 persiste el bloque leído por `_memoLeer` en CacheService
+entre requests (sesiones distintas):
+
+1. **Alcance**: bloques crudos de PACIENTES/EVENTOS/PROFESIONALES (hojas que ya
+   usaban `_memoLeer`), serializados con marcador `__ECICEP_DATE__` para preservar
+   los Date (UI convierte Date a `toJSON` antes de cualquier replacer).
+2. **Límite de tamaño**: bloques con serialización > `CFG_CACHE.MAX_BYTES` (90 KB,
+   bajo el límite de ~100 KB de CacheService) no se persisten → solo-sesión
+   (EVENTOS con histórico amplio suele caer en este caso).
+3. **Claves versionadas**: `ECICEP:v<N>:` + `BLOQUE:<HOJA>`; cualquier cambio de
+   esquema en el código cambia `VERSION` y por tanto invalida la caché por clave.
+4. **TTL**: desde CONFIG `TTL_CACHE_SEG` (por defecto 60 s, máximo 21600), leído
+   una sola vez por invocación (`_CACHE_TTL_SEG`).
+5. **Invalidación en toda escritura**: `Modelo_invalidarLecturas()` borra memo +
+   claves `BLOQUE:*`. Auditoría interna detectó 5 rutas de escritura de
+   PACIENTES/EVENTOS que no llamaban a ese punto (07_UI `api_duplaGuardar`,
+   06_Modelo `Modelo_restaurarFuente`, 24_Formulario `Form_actualizarDatosPaciente`,
+   16_Amarillo `_amarillo_escribirPacientes`, 18_Calidad
+   `Calidad_normalizarFormatoRuts`); todas fueron corregidas en la misma pasada.
+6. **Riesgo residual documentado**: el TTL (60 s) aplica también a consumidores
+   del pipeline que usan `_memoLeer` (barrera RUT+fecha en 12_Ingresos, lecturas
+   de 26_Captura y 03_Fuentes): una escritura externa a los mutadores comunes
+   puede verse reflejada con hasta `TTL_CACHE_SEG` de retraso en esas lecturas.
+   En el flujo feliz de captura la escritura se auto-invalida al cierre y el
+   contrato V2 no cambia. Alcance reducido por el TTL mínimo de CacheService (60 s).
+7. **Sin arquitectura paralela**: la caché es solo lectura de bloques ya canonizados
+   por el pipeline existente; no hay segunda lógica de negocio ni segunda base de datos.
+
+Tests: contrato datos +3 grupos (R12) → 36/36; baterías completas verdes
+(núcleo 553, aceptación 50, captura V2 36, payload 19, backend 68, cola 33,
+formulario_web 27, validar_html 17).
+
+**Fecha:** 2026-09-10

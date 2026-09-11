@@ -1698,6 +1698,7 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca) {
     if (idx === null) return false;
     hojaP.getRange(Modelo_dataStartRow(HOJAS.PACIENTES) + idx, 1, 1, MODELO_PACIENTE.length)
       .setValues([Modelo_filaDesdeObjeto(paciente)]);
+    Modelo_invalidarLecturas();
     return true;
   } catch (e) {
     Log_error('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));

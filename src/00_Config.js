@@ -1162,5 +1162,8 @@ var CFG_LOG = {
 // ---------------------------------------------------------------------------
 var CFG_CACHE = {
   PREFIJO: 'ECICEP:v' + ECICEP.VERSION.replace(/\./g, '') + ':',
-  TTL_DEFECTO_SEG: 60
+  TTL_DEFECTO_SEG: 60,
+  // Máximo de caracteres por bloque serializado admitido en CacheService.
+  // Bloques mayores (EVENTOS con años de histórico) se degradan a solo-memoria.
+  MAX_BYTES: 90 * 1024
 };
