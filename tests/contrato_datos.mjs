@@ -1071,6 +1071,55 @@ t('R12: _cacheEscribir respeta CFG_CACHE.MAX_BYTES (bloque enorme → solo-sesi�
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// R13 — PERF pasada 15: _filaAObjeto y busqueda puntual Modelo_buscarPaciente.
+// Los endpoints del menú que reescriben la fila completa de UN paciente ahora
+// construyen el objeto canónico SOLO de esa fila (reutilizando el bloque crudo
+// memoizado), en vez de alocar los N objetos completos de Modelo_leerPacientes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+t('R13: _filaAObjeto (PURA) convierte fila→objeto con semántica de Modelo_leerPacientes', () => {
+  const campos = ['ID_INTERNO', 'REQUIERE_REVISION', 'FECHA_ACTUALIZACION', 'NOMBRE'];
+  const fila = ['EC-0001', true, new Date(2026, 8, 10), 'JUAN PÉREZ'];
+  const obj = CSP._filaAObjeto(campos, fila);
+  igual(obj.ID_INTERNO, 'EC-0001', 'campo texto directo');
+  igual(obj.REQUIERE_REVISION, 'TRUE', 'boolean → TRUE');
+  A(obj.FECHA_ACTUALIZACION instanceof Date, 'Date se conserva como Date');
+  igual(obj.NOMBRE, 'JUAN PÉREZ', 'campo texto conservado');
+});
+
+t('R13: Modelo_buscarPaciente devuelve idx correcto y el mismo objeto que Modelo_leerPacientes (una lectura)', () => {
+  const filas = [
+    ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'REQUIERE_REVISION'],
+    ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'NARANJO', true],
+    ['EC-0002', '22222222-2', 'ANA SOTO', 'AMARILLO', false],
+    ['EC-0003', '33333333-3', 'LUIS ROJAS', 'VERDE', false]
+  ];
+  const prevHoja = CSP.Modelo_hoja;
+  lecturasContador = 0;
+  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
+  CSP.Modelo_invalidarLecturas();
+  try {
+    // Búsqueda por ID_INTERNO del 2º paciente → idx=2 (0-based sobre datos).
+    const r = CSP.Modelo_buscarPaciente('EC-0003');
+    A(r !== null, 'paciente encontrado');
+    igual(r.idx, 2, 'idx = posición 0-based dentro del bloque de datos');
+    igual(r.obj.ID_INTERNO, 'EC-0003', 'ID correcto');
+    igual(r.obj.NOMBRE, 'LUIS ROJAS', 'nombre correcto');
+    igual(r.obj.REQUIERE_REVISION, 'FALSE', 'boolean → FALSE');
+    igual(lecturasContador, 1, 'una sola lectura de hoja (bloque ya memoizado)');
+
+    // Equivalencia de objeto con Modelo_leerPacientes (mismo idx).
+    const todos = CSP.Modelo_leerPacientes();
+    equalish(r.obj, todos[r.idx], 'objeto idéntico al lector completo en esa fila');
+    A(CSP.Modelo_buscarPaciente('EC-9999') === null, 'idInterno inexistente → null');
+  } finally {
+    lecturasContador = 0;
+    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_invalidarLecturas();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resumen
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\nCONTRATO DE DATOS (S1) — Total: ${R.pass + R.fail + R.skip} · OK: ${R.pass} · FALLAN: ${R.fail} · SKIP: ${R.skip}`);

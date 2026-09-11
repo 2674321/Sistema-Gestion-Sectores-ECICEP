@@ -727,3 +727,64 @@ hasta `TTL_CACHE_SEG` de retraso en esas lecturas. En el flujo feliz de captura 
 escritura se auto-invalida al cierre (`Modelo_agregarEventos` → refresca vistas), y
 el TTL es corto; el contrato V2 no cambia. Queda documentado aquí como carácter del
 diseño, no como defecto.
+
+---
+
+## 20. PASADA 15 — BÚSQUEDA PUNTUAL POR ID_INTERNO en los endpoints de escritura
+
+### Problema
+
+Tres endpoints del menú reescriben la fila completa de UN paciente y por eso
+necesitan el objeto canónico completo: `api_controlActualizarUltimo`,
+`api_registrarEvento` y `api_patologiasGuardar`. Lo obtenían con
+`Modelo_leerPacientes()` que convierte TODAS las filas del bloque (N pacientes ×
+todos los campos) para luego buscar el que les interesa. Con la caché entre
+requests (pasada 14) la lectura de la hoja ya se evita entre RPCs, pero la
+**conversión por fila en memoria** seguía alocando N objetos canónicos por RPC.
+
+### Cambio
+
+1. **`_filaAObjeto(campos, fila)` (PURA, 06_Modelo.js)**: factoriza la conversión
+   fila cruda → objeto canónico (booleanos → TRUE/FALSE) que ya hacía
+   `Modelo_leerPacientes`, para reutilizarla sin duplicar semántica. El lector
+   completo ahora la usa internamente (resultado idéntico).
+2. **`Modelo_buscarPaciente(idInterno)` (06_Modelo.js)**: recorre el bloque crudo
+   ya memoizado (`_memoLeer` → UNA lectura de hoja, con caché entre requests de la
+   pasada 14) comparando SOLO la columna `ID_INTERNO`; al encontrar la fila
+   devuelve `{idx, obj}` construyendo el objeto canónico **de esa única fila**.
+   Sin coincidencia → `null` (misma semántica que "paciente no encontrado").
+3. **Endpoints migrados (07_UI.js)**: `api_controlActualizarUltimo`,
+   `api_registrarEvento` y `api_patologiasGuardar` usan `Modelo_buscarPaciente`
+   y reescriben la fila con `Modelo_filaFisica(HOJAS.PACIENTES, idx)` — la
+   escritura no cambia (una sola `setValues` de la fila completa, invalidación vía
+   `Modelo_refrescarVistasSectores`/`Modelo_invalidarLecturas` como antes).
+
+### Por qué es seguro
+
+- El objeto devuelto es **idéntico** al que producía `Modelo_leerPacientes()` para
+  esa fila (misma `_filaAObjeto`); las escrituras de fila completa quedan igual.
+- La identidad `idx` coincide con la posición de bloque (0-based desde `dataStartRow`);
+  `Modelo_filaFisica` no cambia.
+- No se toca el pipeline de captura ni `docs/CONTRATO_CAPTURA_V2.md`: las
+  funciones de 26_Captura, 03_Fuentes y 12_Ingresos que llaman
+  `Modelo_leerPacientes()`/`Modelo_leerEventos()` se mantienen intactas (usan
+  `_memoLeer`, ya cacheado).
+- Sin lecturas extra: mismo `_memoLeer(PACIENTES)` que usaba el lector completo.
+
+### Impacto estimado
+
+En los 3 endpoints migrados la conversión pasa de **N × todos los campos** a
+**N comparaciones de una columna + 1 conversión**, con la misma lectura de hoja
+(1, memo/caché). En PACIENTES de 1000+ filas el costo de alocar ~30 campos por
+fila se elimina por RPC de control/ficha/patologías.
+
+### Tests
+
+- **R13** (2 grupos) → contrato datos **38** (antes 36, +2):
+  - `_filaAObjeto` PURA: texto directo, boolean→TRUE/FALSE, Date conservado;
+  - `Modelo_buscarPaciente`: idx 0-based correcto, objeto idéntico al de
+    `Modelo_leerPacientes()[idx]`, una sola lectura (bloque memoizado),
+    `null` ante idInterno inexistente.
+- Batería completa verde (serial): núcleo 553 · contrato datos 38 · aceptación 50 ·
+  contrato captura V2 36 · payload V2 19 · backend V2 68 · cola 33 ·
+  formulario_web 27 · `validar_html` 17/17.

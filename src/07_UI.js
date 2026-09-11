@@ -899,12 +899,9 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     if (tipoUp !== 'CONTROL' && tipoUp !== 'SEGUIMIENTO') return { ok: false, motivo: 'TIPO_INVALIDO' };
     var nf = Norm_normalizarFecha(fechaIso);
     if (nf.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
-    var pacientes = Modelo_leerPacientes();
-    var objetivo = null, idx = -1;
-    for (var i = 0; i < pacientes.length; i++) {
-      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { objetivo = pacientes[i]; idx = i; break; }
-    }
-    if (!objetivo) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var encontrado = Modelo_buscarPaciente(idInterno);
+    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var objetivo = encontrado.obj, idx = encontrado.idx;
     var freq = _UI_controlConfig().freq;
     var evento = {
       ID_EVENTO: Ev_nuevoId(),
@@ -1202,12 +1199,10 @@ function api_registrarEvento(payload) {
     var fecha = Norm_normalizarFecha(p.fecha);
     if (fecha.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
 
-    var pacientes = Modelo_leerPacientes();
-    var objetivo = null;
-    for (var i = 0; i < pacientes.length; i++) {
-      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(p.idInterno)) { objetivo = pacientes[i]; break; }
-    }
-    if (!objetivo) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var encontrado = Modelo_buscarPaciente(p.idInterno);
+    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var objetivo = encontrado.obj;
+    var idx = encontrado.idx;
 
     var evento = {
       ID_EVENTO: Ev_nuevoId(),
@@ -1235,7 +1230,6 @@ function api_registrarEvento(payload) {
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    var idx = pacientes.indexOf(objetivo); // posición dentro del bloque de datos
     hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);
 
@@ -1649,31 +1643,29 @@ function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias)
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
 
-    var pacientes = Modelo_leerPacientes();
-    var idx = -1;
-    for (var i = 0; i < pacientes.length; i++) {
-      if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { idx = i; break; }
-    }
-    if (idx < 0) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var encontrado = Modelo_buscarPaciente(idInterno);
+    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var idx = encontrado.idx;
+    var paciente = encontrado.obj;
 
-    var anteriores = Utl_texto(pacientes[idx].CONDICIONES);
+    var anteriores = Utl_texto(paciente.CONDICIONES);
     var ahora = new Date();
-    pacientes[idx].CONDICIONES = val.validos.join(';');
-    pacientes[idx].OTRAS_PATOLOGIAS = Utl_texto(otrasPatologias).trim();
-    pacientes[idx].FECHA_ACTUALIZACION = ahora;
+    paciente.CONDICIONES = val.validos.join(';');
+    paciente.OTRAS_PATOLOGIAS = Utl_texto(otrasPatologias).trim();
+    paciente.FECHA_ACTUALIZACION = ahora;
 
     var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var estratValor = estratRes.estado === 'CALCULADO' ? String(estratRes.resultado) : '';
-    var antEstrat = Utl_texto(pacientes[idx].ESTRATIFICACION);
-    pacientes[idx].ESTRATIFICACION = estratValor;
-    pacientes[idx].ESTRAT_ORIGEN = String(antEstrat || '');
-    pacientes[idx].ESTRAT_CALCULADA = String(estratRes.resultado || '');
-    pacientes[idx].ESTRAT_FECHA_CALCULO = ahora;
+    var antEstrat = Utl_texto(paciente.ESTRATIFICACION);
+    paciente.ESTRATIFICACION = estratValor;
+    paciente.ESTRAT_ORIGEN = String(antEstrat || '');
+    paciente.ESTRAT_CALCULADA = String(estratRes.resultado || '');
+    paciente.ESTRAT_FECHA_CALCULO = ahora;
 
     // Condiciones + estratificación en UNA sola escritura de la fila física
     // (antes: dos setValues consecutivos al mismo rango → 1 RPC extra).
     Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-         .setValues([Modelo_filaDesdeObjeto(pacientes[idx])]);
+         .setValues([Modelo_filaDesdeObjeto(paciente)]);
 
     Log_info('Patologias', 'guardar', 'paciente=' + idInterno + ' anteriores=[' + anteriores + '] nuevas=[' + val.validos.join(';') + ']');
     Log_flush();

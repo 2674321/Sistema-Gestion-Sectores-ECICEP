@@ -940,3 +940,35 @@ Tests: contrato datos +3 grupos (R12) → 36/36; baterías completas verdes
 formulario_web 27, validar_html 17).
 
 **Fecha:** 2026-09-10
+
+## DEC-061
+**Título:** Búsqueda puntual por ID_INTERNO en endpoints de escritura del menú (pasada 15)
+**Estado:** Aprobada / vigente
+**Motivo:** Reducir el costo de "conversión por fila" residual en los 3 endpoints
+del menú que reescriben la fila completa de UN paciente y, por tanto, necesitan el
+objeto canónico completo (`api_controlActualizarUltimo`, `api_registrarEvento`,
+`api_patologiasGuardar`). Estos usaban `Modelo_leerPacientes()` que convierte TODAS
+las filas (N × campos) para luego usar una sola; con la caché entre requests la
+hoja ya no se relee, pero la alocación de N objetos por RPC persistía.
+
+1. **`_filaAObjeto(campos, fila)` (PURA)**: conversión fila cruda → objeto canónico
+   (booleanos → TRUE/FALSE) extraída de `Modelo_leerPacientes`, reutilizada sin
+   duplicación. El lector completo produce resultados idénticos.
+2. **`Modelo_buscarPaciente(idInterno)`**: busca sobre el bloque crudo ya memoizado
+   (`_memoLeer`, UNA lectura con caché entre requests) comparando solo la columna
+   `ID_INTERNO` y construye el objeto canónico SOLO de la fila encontrada
+   (`{idx, obj}` 0-based sobre el bloque; `null` si no existe). Sin accesos extra
+   a la hoja: mismo `_memoLeer(PACIENTES)`.
+3. **Migración**: los 3 endpoints reemplazan la lectura completa por la búsqueda
+   puntual; la escritura (una sola `setValues` de la fila física, invalidación vía
+   `Modelo_refrescarVistasSectores`/`Modelo_invalidarLecturas`) no cambia.
+4. **Sin arquitectura paralela**: no toca pipeline → 26_Captura/03_Fuentes/
+   12_Ingresos siguen con `Modelo_leerPacientes()`/`Modelo_leerEventos()` (ya
+   memoizados/cacheados); contrato V2 y `docs/CONTRATO_CAPTURA_V2.md` intactos.
+
+Tests: contrato datos +2 grupos (R13: PURA `_filaAObjeto`; `Modelo_buscarPaciente`
+idx/objeto-idéntico/1 lectura/`null`) → 38/38; baterías completas verdes
+(núcleo 553, aceptación 50, captura V2 36, payload 19, backend 68, cola 33,
+formulario_web 27, validar_html 17).
+
+**Fecha:** 2026-09-10

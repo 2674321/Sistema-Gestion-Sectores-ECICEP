@@ -1327,6 +1327,18 @@ function _memoLeer(hoja, clave) {
   return v;
 }
 
+/** PURA: convierte una fila cruda del bloque a objeto canónico (booleanos → TRUE/FALSE).
+ *  Misma semántica que Modelo_leerPacientes: campos ausentes quedan omitidos. */
+function _filaAObjeto(campos, fila) {
+  var obj = {};
+  for (var c = 0; c < campos.length; c++) {
+    var v = fila[c];
+    if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
+    obj[campos[c]] = v;
+  }
+  return obj;
+}
+
 function Modelo_leerPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return [];
@@ -1335,15 +1347,33 @@ function Modelo_leerPacientes() {
   var campos = valores[0];
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
-    var obj = {};
-    for (var c = 0; c < campos.length; c++) {
-      var v = valores[f][c];
-      if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
-      obj[campos[c]] = v;
-    }
-    salida.push(obj);
+    salida.push(_filaAObjeto(campos, valores[f]));
   }
   return salida;
+}
+
+/** BUSCADOR PUNTUAL (PERF menú): devuelve el objeto canónico de una SOLA fila
+ *  de PACIENTES (la del idInterno), sin alocar los N objetos completos que
+ *  alocaría Modelo_leerPacientes. Reutiliza el bloque crudo ya memoizado por
+ *  _memoLeer (UNA lectura de hoja, igual que el lector completo). Es la pieza
+ *  que cierra el costo residual "conversión por fila" en los endpoints del menú
+ *  que buscan 1 paciente y reescriben su fila completa (control, ficha, patologías).
+ *  @param {string} idInterno ID_INTERNO buscado
+ *  @returns {{idx:number, obj:Object}|null} idx = posición de datos (0-based), obj canónico */
+function Modelo_buscarPaciente(idInterno) {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return null;
+  var valores = _memoLeer(hoja, 'PACIENTES');
+  if (!valores.length) return null;
+  var campos = valores[0];
+  var iId = campos.indexOf('ID_INTERNO');
+  if (iId < 0) return null;
+  var buscado = Utl_texto(idInterno).trim();
+  for (var f = 1; f < valores.length; f++) {
+    if (Utl_texto(valores[f][iId]).trim() !== buscado) continue;
+    return { idx: f - 1, obj: _filaAObjeto(campos, valores[f]) };
+  }
+  return null;
 }
 
 /** LECTOR LIGERO (PERF menú): objetos de PACIENTES con SOLO los campos
