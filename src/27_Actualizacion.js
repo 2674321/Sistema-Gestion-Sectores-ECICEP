@@ -248,6 +248,7 @@ function Act_enriquecerPacientes(opciones) {
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
       pacientes.map(Modelo_filaDesdeObjeto));
+    Modelo_invalidarLecturas();
     Log_info('Actualizacion', 'enriquecerPacientes',
       JSON.stringify({
         dryRun: dryRun, totalPacientes: resumen.totalPacientes,

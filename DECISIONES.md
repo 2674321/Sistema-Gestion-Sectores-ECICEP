@@ -920,11 +920,12 @@ entre requests (sesiones distintas):
 4. **TTL**: desde CONFIG `TTL_CACHE_SEG` (por defecto 60 s, máximo 21600), leído
    una sola vez por invocación (`_CACHE_TTL_SEG`).
 5. **Invalidación en toda escritura**: `Modelo_invalidarLecturas()` borra memo +
-   claves `BLOQUE:*`. Auditoría interna detectó 5 rutas de escritura de
+   claves `BLOQUE:*`. Auditoría interna detectó 6 rutas de escritura de
    PACIENTES/EVENTOS que no llamaban a ese punto (07_UI `api_duplaGuardar`,
    06_Modelo `Modelo_restaurarFuente`, 24_Formulario `Form_actualizarDatosPaciente`,
    16_Amarillo `_amarillo_escribirPacientes`, 18_Calidad
-   `Calidad_normalizarFormatoRuts`); todas fueron corregidas en la misma pasada.
+   `Calidad_normalizarFormatoRuts`, 27_Actualizacion `Act_enriquecerPacientes`);
+   todas fueron corregidas en la misma pasada.
 6. **Riesgo residual documentado**: el TTL (60 s) aplica también a consumidores
    del pipeline que usan `_memoLeer` (barrera RUT+fecha en 12_Ingresos, lecturas
    de 26_Captura y 03_Fuentes): una escritura externa a los mutadores comunes

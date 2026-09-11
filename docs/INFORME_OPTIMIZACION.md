@@ -680,7 +680,9 @@ PACIENTES, EVENTOS y PROFESIONALES:
   - `Form_actualizarDatosPaciente` (24_Formulario.js) — pipeline de captura V2
     (ruta `actualizarDatos`, incluido el camino de error `ACTUALIZACION_FALLIDA`);
   - `_amarillo_escribirPacientes` (16_Amarillo.js) — importación histórico Amarillo;
-  - `Calidad_normalizarFormatoRuts` (18_Calidad.js) — normalización de RUT.
+  - `Calidad_normalizarFormatoRuts` (18_Calidad.js) — normalización de RUT;
+  - `Act_enriquecerPacientes` (27_Actualizacion.js) — enriquecimiento demográfico
+    (etapa `enriquecimiento` del instalador, `Instalar_pEnriquecimiento`).
   Con esto, toda escritura de las tres hojas cacheadas pasa por
   `Modelo_invalidarLecturas` (que borra memo + claves entre requests). La caché
   nunca puede servir datos en curso de modificación.
@@ -714,7 +716,7 @@ formulario_web 27 · `validar_html` 17/17.
 El costo residual (conversión por fila en cada RPC y escrituras de fila completa)
 queda acotado: la caché entre requests reduce la re-lectura de PACIENTES/EVENTOS/
 PROFESIONALES en RPCs consecutivas con TTL corto e invalidación en toda escritura
-(DEC-015, ampliada en DECISIONES.md — DEC-041). 
+(DEC-015, ampliada en DECISIONES.md — DEC-060). 
 
 **Alcance real del TTL:** el riesgo documentado del TTL (60 s por defecto) no se
 limita a la edición manual de la hoja. Los bloques cacheados los consumen también
