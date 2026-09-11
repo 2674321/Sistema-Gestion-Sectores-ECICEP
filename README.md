@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.3` · pruebas núcleo **553/553** · deploy `/exec` vigente |
+| **Estado** | Operativo · `v0.9.3` · pruebas núcleo **557/557** · deploy `/exec` vigente |
 
 ## Qué resuelve
 
@@ -202,14 +202,14 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 Sistema-Gestion-Sectores-ECICEP/
 ├── src/                   # Código Apps Script (sincronizado con clasp)
 │   ├── 00_Config.js …     # Config, tokens, núcleo, modelo, hojas, UI
-│   ├── 10_Pruebas.js      # Suites deterministas (553)
+│   ├── 10_Pruebas.js      # Suites deterministas (557)
 │   ├── 24_Formulario.js   # Backend de captura Web App
 │   ├── 26_Captura.js      # Backend contrato de captura V2
 │   ├── 28_IA.js           # Módulo IA (Gemini API): análisis, calidad, corrección asistida
 │   ├── IAPanel.html       # Panel lateral de IA (menú IA → Abrir panel)
 │   └── CapturaWeb.html    # Formulario Web App (canal de captura)
 ├── tests/                 # Baterías ejecutables: node tests/*.mjs
-│   ├── ejecutar_local.mjs # Núcleo (553 deterministas)
+│   ├── ejecutar_local.mjs # Núcleo (557 deterministas)
 │   ├── formulario_web.mjs # Lógica real de CapturaWeb.html (27)
 │   ├── captura_ui_payload_v2.mjs, captura_backend_v2.mjs, contrato_*.mjs…
 │   └── validar_html.mjs   # Sintaxis de <script> embebidos en los HTML

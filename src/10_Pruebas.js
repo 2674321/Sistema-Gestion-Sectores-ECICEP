@@ -85,6 +85,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_s10fix_esquema(t, A);
   _pruebas_inst1_versionado(t, A);
   _pruebas_inicio_formulas(t, A);
+  _pruebas_ia_privacidad(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -5076,5 +5077,47 @@ function _pruebas_inicio_formulas(t, A) {
     var src = Hojas_crearInicio.toString();
     A.cierto(src.indexOf('TEXT(MAX(PACIENTES!') !== -1 && src.indexOf('"dd/mm/yyyy hh:mm"') !== -1,
       'TEXT con dd/mm/yyyy hh:mm en la última actualización de datos');
+  });
+}
+
+function _pruebas_ia_privacidad(t, A) {
+  t('IA: campos sensibles detectados (RUT, NOMBRE, TELEFONOS)', function () {
+    A.igual(IA_esCampoSensible('RUT'), true, 'RUT');
+    A.igual(IA_esCampoSensible('NOMBRE'), true, 'NOMBRE');
+    A.igual(IA_esCampoSensible('NOMBRE_NORMALIZADO'), true, 'NOMBRE_NORMALIZADO');
+    A.igual(IA_esCampoSensible('TELEFONOS'), true, 'TELEFONOS');
+    A.igual(IA_esCampoSensible('TELEFONO_OBS'), true, 'TELEFONO_OBS');
+    A.igual(IA_esCampoSensible('FECHA_NACIMIENTO'), true, 'FECHA_NACIMIENTO');
+    A.igual(IA_esCampoSensible('OBSERVACIONES'), true, 'OBSERVACIONES');
+    A.igual(IA_esCampoSensible('EMAIL'), true, 'EMAIL');
+    A.igual(IA_esCampoSensible('DIRECCION'), true, 'DIRECCION');
+    A.igual(IA_esCampoSensible('PROFESIONAL'), true, 'PROFESIONAL');
+    A.igual(IA_esCampoSensible('REGISTRADO_POR'), true, 'REGISTRADO_POR');
+    A.igual(IA_esCampoSensible('NOTA_SISTEMA'), true, 'NOTA_SISTEMA');
+    A.igual(IA_esCampoSensible('DUPLA_INGRESO'), true, 'DUPLA_INGRESO');
+  });
+  t('IA: campos NO sensibles (técnicos/operativos)', function () {
+    A.igual(IA_esCampoSensible('ID_INTERNO'), false, 'ID_INTERNO');
+    A.igual(IA_esCampoSensible('ID_EVENTO'), false, 'ID_EVENTO');
+    A.igual(IA_esCampoSensible('SECTOR'), false, 'SECTOR');
+    A.igual(IA_esCampoSensible('ESTADO'), false, 'ESTADO');
+    A.igual(IA_esCampoSensible('FUENTE'), false, 'FUENTE');
+    A.igual(IA_esCampoSensible('FECHA_REGISTRO'), false, 'FECHA_REGISTRO');
+    A.igual(IA_esCampoSensible('FECHA_EVENTO'), false, 'FECHA_EVENTO');
+    A.igual(IA_esCampoSensible('ESTRATIFICACION'), false, 'ESTRATIFICACION');
+    A.igual(IA_esCampoSensible('SEXO'), false, 'SEXO');
+  });
+  t('IA: columnaPorNombre resuelve por encabezado', function () {
+    var datos = [
+      ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR'],
+      ['X-1', '1-1', 'ANA', 'NARANJO']
+    ];
+    A.igual(IA_columnaPorNombre(datos, 'RUT'), 1, 'RUT idx 1');
+    A.igual(IA_columnaPorNombre(datos, 'NOMBRE'), 2, 'NOMBRE idx 2');
+    A.igual(IA_columnaPorNombre(datos, 'INEXISTENTE'), -1, 'falta → -1');
+  });
+  t('IA: columnaPorNombre con datos vacíos o null', function () {
+    A.igual(IA_columnaPorNombre([], 'RUT'), -1, 'datos vacíos');
+    A.igual(IA_columnaPorNombre(null, 'RUT'), -1, 'null');
   });
 }

@@ -993,9 +993,9 @@ como autoridad clínica.
    (00_Config.js).
 4. **Minimización de datos**: diseño orientado a enviar a la API solo
    estructura, estadísticas y patrones; duplicados e integridad son 100%
-   locales. Riesgo residual documentado: ejemplos de columnas en
-   `IA_leerEstadisticas` pueden incluir valores de columnas sensibles →
-   pendiente de anonimizar (docs/INFORME_IA_GEMINI.md §5).
+   locales. Ejemplos de columnas sensibles (RUT, NOMBRE, TELEFONOS, etc.)
+   son **anonimizados** en `IA_leerEstadisticas`: solo se envían métricas
+   agregadas (vacíos/únicos), nunca valores crudos de campos personales.
 5. **Regla estructural (robustez)**: toda lectura de columna debe resolverse por
    **encabezado real** (`IA_columnaPorNombre`), nunca por índice fijo. Evita
    regresión del falso positivo masivo (18 605/18 605) corregido en integridad.

@@ -104,6 +104,35 @@ function IA_llamarGemini(prompt, opts) {
  * Lee una hoja y devuelve estadísticas anonimizadas para la IA.
  * NUNCA envía datos reales, solo estructura y patrones.
  */
+/**
+ * Detecta si un nombre de campo contiene datos personales identificables
+ * o datos clínicos libres. Para estos campos, IA_leerEstadisticas omite
+ * ejemplos del prompt de Gemini y solo envía métricas agregadas.
+ */
+function IA_esCampoSensible(nombre) {
+  var n = String(nombre).trim().toUpperCase();
+  return (
+    /RUT/.test(n) ||
+    /NOMBRE/.test(n) ||
+    /TELEFONO/.test(n) ||
+    /EMAIL|CORREO/.test(n) ||
+    /DIRECCION/.test(n) ||
+    /FECHA_NAC/.test(n) ||
+    /OBSERVA/.test(n) ||
+    /DESCRIPCION/.test(n) ||
+    /PROFESIONAL/.test(n) ||
+    /REGISTRADO_POR/.test(n) ||
+    /NOTA/.test(n) ||
+    /DUPLA/.test(n) ||
+    /COMPOSICION/.test(n)
+  );
+}
+
+/**
+ * Lee estadísticas descriptivas de una hoja.
+ * Los campos sensibles solo aportan métricas agregadas (vacíos/únicos);
+ * sus ejemplos concretos NO se envían a la API.
+ */
 function IA_leerEstadisticas(hojaNombre) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(hojaNombre);
@@ -122,8 +151,10 @@ function IA_leerEstadisticas(hojaNombre) {
   };
 
   for (var c = 0; c < encabezados.length; c++) {
+    var nombre = Utl_texto(encabezados[c]);
+    var sensible = IA_esCampoSensible(nombre);
     var campo = {
-      nombre: Utl_texto(encabezados[c]),
+      nombre: nombre,
       vacios: 0,
       unicos: 0,
       ejemplos: []
@@ -135,10 +166,11 @@ function IA_leerEstadisticas(hojaNombre) {
       if (val === '') campo.vacios++;
       else {
         valores.add(val);
-        if (campo.ejemplos.length < 3) campo.ejemplos.push(val);
+        if (!sensible && campo.ejemplos.length < 3) campo.ejemplos.push(val);
       }
     }
     campo.unicos = valores.size;
+    if (sensible) campo.ejemplos = ['[OCULTO]'];
     stats.campos.push(campo);
   }
 
@@ -361,13 +393,9 @@ function IA_corregirFechas() {
   var datos = Utl_leerBloque(hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  // Columnas de fecha conocidas
-  var colFechaNac = -1, colFechaIngreso = -1;
-  for (var c = 0; c < datos[0].length; c++) {
-    var nombre = Utl_texto(datos[0][c]).trim().toUpperCase();
-    if (nombre === 'FECHA_NACIMIENTO') colFechaNac = c;
-    if (nombre === 'FECHA_INGRESO') colFechaIngreso = c;
-  }
+  // Columnas de fecha conocidas (resolución por encabezado: ver IA_columnaPorNombre)
+  var colFechaNac = IA_columnaPorNombre(datos, 'FECHA_NACIMIENTO');
+  var colFechaIngreso = IA_columnaPorNombre(datos, 'FECHA_INGRESO');
 
   var correcciones = [];
   var valores = [];
@@ -437,13 +465,7 @@ function IA_corregirNombres() {
   var datos = Utl_leerBloque(hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  var colNombre = -1;
-  for (var c = 0; c < datos[0].length; c++) {
-    if (Utl_texto(datos[0][c]).trim().toUpperCase() === 'NOMBRE') {
-      colNombre = c;
-      break;
-    }
-  }
+  var colNombre = IA_columnaPorNombre(datos, 'NOMBRE');
   if (colNombre === -1) return { error: 'Columna NOMBRE no encontrada' };
 
   var correcciones = [];
@@ -488,13 +510,7 @@ function IA_corregirTelefonos() {
   var datos = Utl_leerBloque(hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  var colTel = -1;
-  for (var c = 0; c < datos[0].length; c++) {
-    if (Utl_texto(datos[0][c]).trim().toUpperCase() === 'TELEFONOS') {
-      colTel = c;
-      break;
-    }
-  }
+  var colTel = IA_columnaPorNombre(datos, 'TELEFONOS');
   if (colTel === -1) return { error: 'Columna TELEFONOS no encontrada' };
 
   var correcciones = [];
@@ -551,13 +567,7 @@ function IA_corregirSexo() {
   var datos = Utl_leerBloque(hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  var colSexo = -1;
-  for (var c = 0; c < datos[0].length; c++) {
-    if (Utl_texto(datos[0][c]).trim().toUpperCase() === 'SEXO') {
-      colSexo = c;
-      break;
-    }
-  }
+  var colSexo = IA_columnaPorNombre(datos, 'SEXO');
   if (colSexo === -1) return { error: 'Columna SEXO no encontrada' };
 
   var correcciones = [];

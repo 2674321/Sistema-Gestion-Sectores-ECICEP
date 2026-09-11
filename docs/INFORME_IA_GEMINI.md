@@ -158,10 +158,15 @@ Cada rutina registra el cambio en `LOG_IA` (ver §6).
   configuración y verificación de la API key.
 - **`IA_abrirPanel()`**: abre la sidebar `IAPanel`.
 
-### 4.7 Helper estructural
+### 4.7 Helpers estructurales
 
 - **`IA_columnaPorNombre(datos, nombre)`**: resuelve el índice de una columna por
-  su **encabezado real** (nunca por posición fija). Ver §7.
+  su **encabezado real** (nunca por posición fija). Ver §7. Es la única forma de
+  resolver columnas en los módulos de corrección (`IA_corregirFechas/Nombres/
+  Telefonos/Sexo`).
+- **`IA_esCampoSensible(nombre)`**: clasifica un nombre de campo como dato
+  personal/clínico (RUT, NOMBRE, TELEFONOS, FECHA_NACIMIENTO, OBSERVACIONES,
+  PROFESIONAL, etc.) para excluir sus valores del prompt. Ver §5.
 - **`IA_parsearJSON(texto)`**: normaliza la respuesta de Gemini (limpia *markdown*
   code blocks) y la convierte en estructuras utilizables.
 
@@ -185,13 +190,11 @@ Principios efectivos implementados en el código:
   (`GEMINI_API_KEY`), y nunca se escribe en hojas ni en documentación.
 - El prompt de análisis pide explícitamente trabajar con patrones y no con
   valores reales.
-
-**Riesgo residual documentado (pendiente de mejora):** `IA_leerEstadisticas`
-recolecta hasta **3 valores de ejemplo por columna** que se incluyen en el
-prompt de `IA_analizarHoja`. Si una hoja expone RUT, nombres o teléfonos en esas
-columnas, esos ejemplos podrían alcanzar la API. La mitigación es marcar o
-anonimizar los ejemplos de columnas sensibles. Este punto está registrado en los
-pendientes (§9).
+- Los **ejemplos de columnas sensibles** (RUT, NOMBRE, TELEFONOS, FECHA_NACIMIENTO,
+  OBSERVACIONES, PROFESIONAL, etc.) son **anonimizados** en `IA_leerEstadisticas`:
+  solo envían métricas agregadas (vacíos, únicos), nunca valores crudos
+  de campos personales o clínicos. La detección de sensibilidad se apoya en
+  `IA_esCampoSensible` (§4.7).
 
 **Límite de esta sección:** este documento describe una **intención de diseño**.
 No se afirma ni se documenta cumplimiento de HIPAA, GDPR, Ley 19.628 ni otra
@@ -292,29 +295,23 @@ Documentación honesta de las restricciones reales de la integración:
 
 ## 9. Pendientes de mejora
 
-1. **Anonimizar/marcar ejemplos** de columnas sensibles en
-   `IA_leerEstadisticas` antes de enviarlos a Gemini (§5).
-2. **Unificar** la resolución de columnas: `IA_corregirFechas/Nombres/Telefonos/
-   Sexo` aún resuelven sus columnas por iteración propia; migrarlas todas a
-   `IA_columnaPorNombre` elimina el riesgo residual de la misma clase que el
-   bug corregido (§7).
-3. **Verificar en vivo** integridad y duplicados con datos reales (esperado:
+1. **Verificar en vivo** integridad y duplicados con datos reales (esperado:
    problemas reales ≪ 18 605; duplicados 0 es plausible porque la consolidación
    del pipeline ya deduplica por RUT).
-4. **Confirmar cobertura** de `LOG_IA` en el instalador/reparador de hojas
+2. **Confirmar cobertura** de `LOG_IA` en el instalador/reparador de hojas
    (hoy se crea automáticamente al primer cambio).
-5. Re-evaluar **performance** del análisis sobre EVENTOS (~18 K filas) si se
+3. Re-evaluar **performance** del análisis sobre EVENTOS (~18 K filas) si se
    introduce uso masivo.
 
 ---
 
 ## 10. Validación
 
-Baterías ejecutadas tras la integración (verdes):
+Baterías ejecutadas tras la integración y los refuerzos de privacidad (verdes):
 
 | Batería (node) | Resultado |
 |---|---|
-| `tests/ejecutar_local.mjs` | **553/553** |
+| `tests/ejecutar_local.mjs` | **557/557** (incluye 4 tests IA: sensibilidad de campos y `IA_columnaPorNombre`) |
 | `tests/contrato_datos.mjs` | **38/38** |
 | `tests/aceptacion_formulario.mjs` | **50/50** |
 | `tests/contrato_captura_v2.mjs` | verificado |

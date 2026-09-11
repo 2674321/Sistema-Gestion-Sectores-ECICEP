@@ -40,7 +40,8 @@ const archivos = [
   'src/08_Dashboard.js',
   'src/11_DatosPrueba.js',
   'src/10_Pruebas.js',
-  'src/27_Actualizacion.js'
+  'src/27_Actualizacion.js',
+  'src/28_IA.js'
 ];
 
 let codigo = '';
