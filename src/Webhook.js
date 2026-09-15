@@ -16,8 +16,10 @@ var WEBHOOK_ACCIONES = [
   'refrescar', 'diagnosticar', 'limpiar_prueba',
   'diagnosticar_fuentes', 'importar_muestra',
   'carga_analisis', 'carga_ejecutar',
+  'amarillo', 'revisar',
   'diag_trazabilidad', 'restaurar_fuente', 'rem_mensual',
-  'pruebas_sistema', 'auditar_calidad'
+  'pruebas_sistema', 'auditar_calidad',
+  'inicio', 'limpiar_huerfanos'
 ];
 
 function doPost(e) { return _wh_despachar(e); }
@@ -53,6 +55,15 @@ function _wh_despachar(e) {
         };
         break;
       case 'instalar':    resultado = Instalar_ejecutarPolitica(); break;
+      case 'inicio':      resultado = Hojas_crearInicio(Modelo_ss()); break;
+      case 'limpiar_huerfanos':
+        // Destructiva: exige confirmar=1 (else dry-run informativo).
+        if (e.parameter.confirmar !== '1') {
+          resultado = IA_limpiarEventosHuerfanos({ prueba: true });
+        } else {
+          resultado = IA_limpiarEventosHuerfanos({ prueba: false });
+        }
+        break;
       case 'sembrar':     resultado = Sembrar_ficticios(); break;
       case 'procesar':    resultado = Ingresos_procesarTodasLasHojas({}); break;
       case 'refrescar':   resultado = Modelo_refrescarVistasSectores(); break;
@@ -86,6 +97,25 @@ function _wh_despachar(e) {
       case 'carga_ejecutar':
         resultado = Fuentes_cargaReal({ ejecutar: true });
         break;
+      case 'amarillo':
+        // Cierre del Sector Amarillo: puerta INGRESO_AMARILLO (idempotente por
+        // RUT) + histórico CONTROL/SEGUIMIENTO (dedup idempotente). Muta la
+        // operativa pero es no-duplicante por diseño.
+        resultado = Amarillo_importarTodo(true);
+        break;
+      case 'revisar':
+        // Revisión integral de datos (determinista, sin Gemini). Devuelve
+        // resumen legible para verificación E2E remota sin exponer arrays
+        // completos. Registra REVISION en LOG_IA (append, no destructivo).
+        var _rev = IA_revisarTodo();
+        resultado = {
+          totalPacientes: _rev.totalPacientes || 0,
+          totalEventos: _rev.totalEventos || 0,
+          totalProblemas: _rev.totalProblemas || 0,
+          porSeveridad: _rev.porSeveridad || {},
+          explicacion: _rev.explicacion || ''
+        };
+        break;
       case 'diag_trazabilidad':
         resultado = Modelo_diagnosticoTrazabilidad();
         break;
@@ -105,6 +135,9 @@ function _wh_despachar(e) {
                                 e.parameter.sector || 'TODOS');
         break;
       case 'limpiar_prueba':
+        if (Utl_texto(e.parameter.confirmacion).toUpperCase() !== 'OK') {
+          return _wh_salida({ ok: false, motivo: 'CONFIRMACION_REQUERIDA: limpiar_prueba exige confirmacion=OK (doble señal, DEC-012)' });
+        }
         resultado = Limpieza_ejecutar(Limpieza_colectar());
         break;
       default:

@@ -6,7 +6,7 @@
 > médica, diagnóstico ni sustitución del criterio profesional.
 >
 > Estado: implementada y publicada en el proyecto Apps Script · `v0.9.3`
-> (sin cambio de versión) · última actualización: 2026-09-11.
+> (sin cambio de versión) · última actualización: 2026-09-15.
 
 ---
 
@@ -21,6 +21,8 @@ La integración con la **API de Google Gemini** añade una capa de asistencia pa
 
 - analizar la **estructura** y calidad de las hojas de cálculo;
 - detectar **inconsistencias**, **duplicados** y problemas de **integridad**;
+- **revisar de forma integral** la base de datos: consistencia pacientes↔eventos,
+  cruce con las fuentes de ingreso y calidad de formato de los campos;
 - ejecutar **correcciones/normalizaciones** deterministas (RUT, fechas, nombres,
   teléfonos, sexo) de forma asistida y trazable;
 - interpretar **instrucciones en lenguaje natural** y traducirlas a acciones del
@@ -86,8 +88,8 @@ correcciones reutilizan validadores deterministas del sistema.
 | Archivo | Rol |
 |---|---|
 | `src/28_IA.js` | **Módulo backend de IA**: conexión Gemini, análisis, detección de duplicados/integridad, correcciones, chat/instrucciones, configuración y logging. |
-| `src/IAPanel.html` | **Sidebar del panel IA**: estado de configuración, acciones rápidas (Análisis rápido, Corregir todo, Duplicados, Integridad), chat en lenguaje natural y log de actividades. |
-| `src/07_UI.js` | Integración del **menú `IA`** en `onOpen()`: *Abrir panel · Análisis rápido · Corregir errores · Configurar API*. |
+| `src/IAPanel.html` | **Sidebar del panel IA**: estado de configuración, acciones rápidas (Revisar Todo, Análisis rápido, Corregir todo, Duplicados, Integridad), chat en lenguaje natural y log de actividades. |
+| `src/07_UI.js` | Integración del **menú `IA`** en `onOpen()`: *Abrir panel · Revisión completa · Análisis rápido · Corregir errores · Configurar API*. |
 | `src/00_Config.js` | Registro de `IAPanel` en `UICFG_DIALOGOS` (sidebar). |
 | Script Properties | Almacenamiento de la **API key** (`GEMINI_API_KEY`), fuera del código fuente. |
 | Hoja `LOG_IA` | Registro auditable de correcciones y ejecución de pruebas (se crea automáticamente si no existe). |
@@ -124,6 +126,61 @@ Solo capacidades presentes en el código (`src/28_IA.js`).
 - **`IA_verificarIntegridadEventos()`**: detecta **eventos huérfanos** (evento
   sin paciente asociado) comparando `ID_INTERNO` entre EVENTOS y PACIENTES;
   también **100% local**, sin llamadas a la API. Detalle limitado a 50 registros.
+- **`IA_revisarConsistencia(datosPacientes, datosEventos)`**: revisión integral
+  **pura** (testeable en node) de la consistencia entre pacientes y eventos:
+  `EVENTO_HUERFANO`, `PACIENTE_SIN_EVENTOS`, `RUT_EVENTO_DISTINTO`,
+  `SECTOR_EVENTO_DISTINTO`, `EVENTO_FECHA_ANTERIOR_INGRESO`,
+  `PACIENTE_RUT_DUPLICADO`, `PACIENTE_NOMBRE_DUPLICADO` (nombre normalizado).
+- **`IA_revisarCamposNuevos(datosPacientes)`**: calidad de formato de campos que
+  el módulo de Calidad no cubre: `RUT_INCOMPLETO`/`RUT_INVALIDO`, `SIN_NOMBRE`,
+  `SEXO_INVALIDO`, `FECHA_NACIMIENTO_INVALIDA` (rango `ANO_MIN_NACIMIENTO`),
+  `FECHA_INGRESO_INVALIDA`, `ESTRATIFICACION_INVALIDA`, `ESTADO_INVALIDO`,
+  `FUENTE_VACIA`, `REQUIERE_REVISION`.
+- **`IA_cruzarBloqueIngreso(rutsPacientes, nombreBloque, datosIngreso)`**:
+  contrasta los RUTs de PACIENTES contra **cada fuente de ingreso**
+  (`HOJAS_INGRESO`); devuelve `{totalFilas, totalConRut, faltantes, sinEstado}`.
+  Personas presentes en la fuente pero sin RUT en PACIENTES se reportan con su
+  fila física en la hoja fuente.
+- **`IA_textoRevision(reporte)`**: convierte el reporte en texto legible
+  estructurado para mostrarlo en el chat/sidebar.
+- **`IA_revisarConsistenciaYCampos()` / `IA_revisarFuentes()` / `IA_revisarTodo()`**:
+  orquestadores GAS (leyendo las hojas) que ensamblan un **reporte estructurado**
+  por categorías `CONSISTENCIA`/`CALIDAD`/`FUENTES`, cuentan problemas por
+  severidad (ERROR/WARNING/INFO), registran un `REVISION` en `LOG_IA` y devuelven
+  `{ ... , explicacion }` listo para el panel. **100% determinista: no requiere
+  `GEMINI_API_KEY` y no envía datos personales a la API.**
+- **`IA_revisarTodoUI()`**: acceso desde el menú *IA → Revisión completa*; ejecuta
+  la revisión y muestra el reporte en un **diálogo modal** (texto monospace,
+  con escape HTML del contenido). El botón `IA` del menú no se queda sin
+  respuesta visible.
+- Comparaciones en `IA_revisarConsistencia`: los RUTs se **normalizan** con
+  `Norm_normalizarRut` antes de comparar, de modo que variantes de formato
+  (`12345678-5` vs `12.345.678-5`) no generan falsos positivos.
+- **Robustez del despacho:** `IA_ejecutarAccion` normaliza el nombre de la
+  acción (`IA_normalizarNombreAccion`): tolera paréntesis literal
+  (`revisar_todo()`) y espacios que Gemini pueda copiar del prompt.
+- **Hoja EVENTOS ausente:** `IA_revisarConsistenciaYCampos` omite la
+  consistencia y emite un `AVISO` (INFO) en lugar de marcar a todos los
+  pacientes como "sin eventos" (protección ante falsa inundación).
+- **Fechas de celdas como `Date`:** `IA_parsearFecha` acepta objetos `Date`
+  y seriales numéricos (no solo strings). Sin esto, las celdas de fecha con
+  formato real (objetos `Date` en `getValues()`) se marcaban como inválidas
+  (detectado y corregido en la verificación E2E con datos reales).
+- **Ecos de encabezado en fuentes:** `IA_cruzarBloqueIngreso` ignora filas
+  cuyo valor de RUT duplica literalmente el encabezado (`RUT`), evitando falsos
+  "sin paciente" en hojas con doble encabezado.
+- **Verificación E2E:** la acción webhook `revisar` expone un resumen de
+  `IA_revisarTodo()` para validar remotamente el reporte sobre los datos reales
+  sin exponer arrays completos. Tras el E2E, la revisión sobre la base real
+  (2 667 pacientes / 20 471 eventos) bajó de 632 a **17 problemas**: los 143
+  eventos huérfanos fueron **eliminados** (`limpiar_huerfanos`), y por decisión
+  operativa (DEC-IA-2026-01) ya no se reportan eventos con fecha anterior al
+  ingreso (la fuente previa al sistema puede precederlo/sucederlo) ni sectores
+  de evento distintos al del paciente (heterogeneidad normal entre fuente y
+  consolidado). **`IA_eventosHuerfanos()`** separa huérfanos reales (ID_INTERNO
+  no nulo sin paciente) de eventos con ID vacío (que nunca se eliminan: pueden
+  ser capturas en curso). El borrado usa el patrón `Recuperar_ejecutar`
+  (leer → filtrar → limpiar → reescribir, nunca `deleteRow` en loop).
 
 ### 4.4 Corrección / normalización asistida
 
@@ -142,8 +199,8 @@ Cada rutina registra el cambio en `LOG_IA` (ver §6).
 ### 4.5 Interacción en lenguaje natural
 
 - **`IA_procesarInstruccion(texto)`**: interpreta la intención del usuario y la
-  traduce a una acción concreta (`analyse`, correcciones, duplicados,
-  integridad, estadísticas), ejecuta la acción y devuelve el resultado.
+  traduce a una acción concreta — incluidas `revisar_todo()`, `revisar_consistencia()`
+  y `revisar_fuentes()` —, ejecuta la acción y devuelve el resultado.
 - **`IA_chat(mensaje, historial)`**: chat multi-turno con historial.
 - **`IA_ejecutarAccion(nombre, params)`**: despacho seguro por nombre de acción.
 
@@ -213,7 +270,7 @@ Cada registro incluye:
 
 - fecha/hora (zona del sistema);
 - usuario activo (`Session.getActiveUser()`);
-- tipo de cambio (RUTS, FECHAS, NOMBRES, TELEFONOS, SEXO, TESTS, …);
+- tipo de cambio (RUTS, FECHAS, NOMBRES, TELEFONOS, SEXO, TESTS, REVISION, …);
 - cantidad de registros afectados;
 - detalle de las primeras correcciones (muestra acotada).
 
@@ -311,7 +368,7 @@ Baterías ejecutadas tras la integración y los refuerzos de privacidad (verdes)
 
 | Batería (node) | Resultado |
 |---|---|
-| `tests/ejecutar_local.mjs` | **557/557** (incluye 4 tests IA: sensibilidad de campos y `IA_columnaPorNombre`) |
+| `tests/ejecutar_local.mjs` | **591/591** (incluye 4 tests IA de sensibilidad/columnas + 24 tests de la revisión integral, el despacho, las fechas Date y los eventos huérfanos) |
 | `tests/contrato_datos.mjs` | **38/38** |
 | `tests/aceptacion_formulario.mjs` | **50/50** |
 | `tests/contrato_captura_v2.mjs` | verificado |
@@ -334,5 +391,7 @@ La API key **no está en el código** ni en este documento. Para activarla:
    (`GEMINI_API_KEY`) mediante `IA_guardarApiKey`.
 
 El panel indica visualmente si la API está configurada. Sin clave, las funciones
-que requieren Gemini informan el error de configuración; las detecciones locales
-(duplicados, integridad) no dependen de ella.
+que requieren Gemini informan el error de configuración; las revisiones integrales
+(`IA_revisarTodo`, `IA_revisarConsistenciaYCampos`, `IA_revisarFuentes`) y las
+detecciones locales (duplicados, integridad) **no dependen de la API**: son
+deterministas y operan 100% con los datos locales.

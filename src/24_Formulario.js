@@ -1395,20 +1395,37 @@ function Form_actualizarTrailer(actualizaciones) {
   var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
   if (!hoja) return;
   var cam = ['INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO'];
+  var desde = mapa['INGRESO_HOJA'], hasta = mapa['FECHA_PROCESO'];
+  if (desde === undefined || hasta === undefined) return;
+  var W = hasta - desde + 1;
+  var porFila = [];
   actualizaciones.forEach(function (u) {
+    if (u['ingresoHoja'] === undefined && u['estado'] === undefined) return;
     var arr = new Array(cols.length);
     cam.forEach(function (c) {
       if (mapa[c] === undefined) return;
       var val = u[c.toLowerCase()];
-      if (val === undefined) val = '';
-      arr[mapa[c]] = val;
+      arr[mapa[c]] = (val === undefined) ? '' : val;
     });
-    var desde = mapa['INGRESO_HOJA'], hasta = mapa['FECHA_PROCESO'];
-    var rango = u['ingresoHoja'] !== undefined || u['estado'] !== undefined;
-    if (!rango) return;
-    hoja.getRange(u.filaFisica, desde + 1, 1, hasta - desde + 1)
-      .setValues([arr.slice(desde, hasta + 1)]);
+    porFila.push({ fila: Number(u.filaFisica), val: arr.slice(desde, hasta + 1) });
   });
+  if (!porFila.length) return;
+  // Escritura por bloque: si las filas son contiguas, un solo setValues (span);
+  // si hay huecos (caso raro), fallback por fila. Nunca escribir 1×1 sin necesidad.
+  porFila.sort(function (a, b) { return a.fila - b.fila; });
+  var fMin = porFila[0].fila, fMax = porFila[porFila.length - 1].fila;
+  if (fMax - fMin + 1 === porFila.length) {
+    var matriz = [];
+    for (var r = fMin; r <= fMax; r++) matriz.push(new Array(W));
+    porFila.forEach(function (p) {
+      for (var c = 0; c < W; c++) matriz[p.fila - fMin][c] = p.val[c];
+    });
+    hoja.getRange(fMin, desde + 1, matriz.length, W).setValues(matriz);
+  } else {
+    porFila.forEach(function (p) {
+      hoja.getRange(p.fila, desde + 1, 1, W).setValues([p.val]);
+    });
+  }
 }
 
 /**
@@ -1493,16 +1510,22 @@ function Form_procesarPendientes(opciones) {
     var trailersAnexos = [];
     Object.keys(porHoja).forEach(function (nombreHoja) {
       var hojaI = Modelo_hoja(nombreHoja);
-      lote.decisiones.forEach(function (d) {
-        if (!(d.decision === 'ANEXAR' && d.ingreso && d.ingreso.hoja === nombreHoja)) return;
-        if (!hojaI) { d.motivo = 'HOJA_INGRESO_AUSENTE'; return; }
-        var filasNuevas = Form_filaCanonicaIngreso(d.normalizado, Form_marcadorFuente(d.responseId, 'INGRESO'), {});
-        var desde = hojaI.getLastRow() + 1;
-        var hrI = Modelo_headerRow(nombreHoja);
-        console.log('[PIPE] anexando '+d.responseId+' -> '+nombreHoja+' fila='+desde+' hr='+hrI+' lastRowAntes='+(desde-1));
-        hojaI.getRange(desde, 1, 1, filasNuevas.length).setValues([filasNuevas]);
-        d.ingreso.fila = String(desde);
-        trailersAnexos.push({ filaFisica: d.filaFisica, ingresoHoja: nombreHoja, ingresoFila: String(desde), reintentos: 0, estado: 'VALIDANDO', motivo: '', idInterno: '', idEvento: '', fechaProceso: '' });
+      var decisiones = porHoja[nombreHoja];
+      if (!hojaI) {
+        decisiones.forEach(function (d) { d.motivo = 'HOJA_INGRESO_AUSENTE'; });
+        return;
+      }
+      // Anexo en un solo setValues por hoja (nunca 1 fila × N llamadas).
+      var filas = decisiones.map(function (d) {
+        return Form_filaCanonicaIngreso(d.normalizado, Form_marcadorFuente(d.responseId, 'INGRESO'), {});
+      });
+      var desde = hojaI.getLastRow() + 1;
+      var hrI = Modelo_headerRow(nombreHoja);
+      console.log('[PIPE] anexando '+decisiones.length+' filas -> '+nombreHoja+' desde='+desde+' hr='+hrI+' lastRowAntes='+(desde-1));
+      hojaI.getRange(desde, 1, filas.length, filas[0].length).setValues(filas);
+      decisiones.forEach(function (d, i) {
+        d.ingreso.fila = String(desde + i);
+        trailersAnexos.push({ filaFisica: d.filaFisica, ingresoHoja: nombreHoja, ingresoFila: String(desde + i), reintentos: 0, estado: 'VALIDANDO', motivo: '', idInterno: '', idEvento: '', fechaProceso: '' });
       });
     });
     console.log('[PIPE] trailersAnexos='+JSON.stringify(trailersAnexos).substring(0,400));

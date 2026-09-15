@@ -162,6 +162,7 @@ function Calidad_sincronizarCola() {
   var creadas = 0, actualizadas = 0, resueltas = 0;
   var hoy = new Date();
   var detalleNuevo = {}, estadoNuevo = {}, resueltoNuevo = {};
+  var filasNuevas = [];
   audit.filasCola.forEach(function (f) {
     var detalleJson = JSON.stringify(f.motivos);
     var filaHoja = filasCalidad[f.idInterno];
@@ -170,11 +171,14 @@ function Calidad_sincronizarCola() {
       estadoNuevo[filaHoja] = 'PENDIENTE';
       actualizadas++;
     } else {
-      hoja.appendRow([hoy, 'CALIDAD_DATOS', f.idInterno, f.rut, f.nombre,
+      filasNuevas.push([hoy, 'CALIDAD_DATOS', f.idInterno, f.rut, f.nombre,
         detalleJson, 'CALIDAD', '', 'PENDIENTE', '']);
       creadas++;
     }
   });
+  if (filasNuevas.length) {
+    Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filasNuevas); // append en un solo setValues
+  }
   /* resolver automáticamente entidades que ya no tienen problemas */
   Object.keys(filasCalidad).forEach(function (id) {
     var sigue = audit.filasCola.some(function (f) { return f.idInterno === id; });

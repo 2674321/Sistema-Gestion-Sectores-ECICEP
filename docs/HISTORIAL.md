@@ -7,6 +7,79 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## Fase v0.9.4 — Reversión de estadísticas INICIO + lienzo compactado (deploys @173–@175)
+
+- **Gran mejora INICIO v3 aprobada y revertida del día (DEC-032)→revertida
+  (DEC-033)**: se implementó y desplegó (deploys @173–@174) una ampliación con
+  gráficos embebidos (pie sector / pie estratificación / columna de controles),
+  motor de datos COUNTIF en el margen azul y fila "Controles para HOY".
+- **Reversión (deploy @175) por decisión del usuario**: eliminar el bloque
+  VISUALIZACIÓN de INICIO y compactar el ancho del lienzo: `FILA_FIN` 92→**55**,
+  `COL_FIN` 40→**32**, `FILA_CONT` 66→**53**, `COL_CONT` 24→**24**; márgenes
+  azules panorámicos cerrados (margen derecho 400px→0 y aire azul 240px→0;
+  columnas decorativas 48px→30px). Se conservan: "Controles para HOY" (fila de
+  ESTADO DEL SISTEMA con fórmula inline `COUNTIF(PROXIMO_CONTROL;TODAY())`),
+  las descripciones geográficas de sector corregidas (NARANJO = más lejano,
+  AMARILLO = distancia media, VERDE = más cercano), y las fórmulas puras
+  `Hojas_formulaIngresosMes` y `Hojas_formulaSinControl` (reutilizadas en la
+  tabla ESTADO). Se retiraron `Hojas_motorDatos`, `Hojas_graficoPie`,
+  `Hojas_graficoColumna` y los 3 contadores de gráficos; verificación de INICIO
+  vuelve a **12 checks**.
+- **Tests**: núcleo **592/592** (sin gráficos/motor) · HTML **18/18** ·
+  aceptación **50/50** · contrato **36/36** · E2E post-deploy @175: mismo
+  snapshot **17 problemas** (sin regresión)
+- **Docs**: `DECISIONES.md` DEC-032 (parcial revertido) + **DEC-033** (nuevo);
+  `docs/HISTORIAL.md` (esta fase). No hubo git commit (no solicitado).
+
+## Fase v0.9.3 — Mejoras INICIO + estabilización IA (deploys @165–@172)
+
+- **V2 del rediseño INICIO**: alerta enriquecida con 3 categorías dinámicas
+  (por revisar · RUT inválidos · controles vencidos, solo conteos > 0, sin
+  separadores colgantes vía REGEXREPLACE); filas nuevas en ESTADO DEL SISTEMA
+  ("Ingresos del mes" con COUNTIFS+EOMONTH y "Sin próximo control agendado");
+  descripciones de botones de sector diferenciadas (Prioritario / En
+  seguimiento / Estable); 12 verificaciones automáticas de regeneración;
+  fórmulas extraídas a funciones puras testables (`Hojas_formulaAlerta`,
+  `Hojas_formulaIngresosMes`, `Hojas_formulaSinControl`).
+- **Política de revisión IA (DEC-031)**: los eventos huérfanos (143) se
+  **eliminaron en bloque** (`IA_limpiarEventosHuerfanos`, acción webhook
+  `limpiar_huerfanos` con `confirmar=1`; evento con ID vacío nunca se borra);
+  `EVENTO_FECHA_ANTERIOR_INGRESO` y `SECTOR_EVENTO_DISTINTO` NO se reportan más
+  (fuente previa al sistema: normal); `RUT_EVENTO_DISTINTO` se mantiene.
+  E2E final: 2667 pacientes / 20 471 eventos → **17 problemas** reales
+  (5 calidad + 12 fuente AMARILLO pendiente, que conservan estado PENDIENTE).
+- **INICIO revisado**: botón muerto `CONFIGURACIÓN` eliminado; botón engañoso
+  `SECTORES` reemplazado por 3 botones funcionales por sector
+  (`SECTOR_NARANJO/AMARILLO/VERDE`); botón `DIAGNÓSTICO` conservado (abre LOG).
+  Descripciones de módulos despojadas de instrucciones (`"Buscar · Ficha ·
+  Seguimiento"`, `"Menú → ⚙"` eliminados). Alerta dinámica limpia de texto
+  instruccional (`"— abrir Cola de Revisión →"` removido).
+- **INICIO más ancho**: lienzo de contenido ampliado de 20 a 24 columnas;
+  columnas de contenido de 58px a 72px; tarjetas de sector/estratificación
+  expandidas a 6 columnas para llenar la ventana. Aire a la derecha (240px) y
+  margen derecho reducido.
+- **Estabilización IA (revisión de datos)**: `totalProblemas` ahora cuenta el
+  arreglo completo (no la muestra de 100/15); `IA_textoRevision` muestra el
+  conteo real por categoría; `REQUIERE_REVISION` acepta `VERDADERO`, `SI` y
+  booleano además de `TRUE`; detalle RUT distingue "sin dígito verificador".
+- **E2E**: acción `revisar` vía webhook verificada (2667 pacientes / 20 471
+  eventos → **17 problemas** reales tras limpieza y política; antes 632).
+- **INICIO v3 (gran mejora) — deploys @173–@174**: 3 gráficos embebidos
+  (pie población por sector, pie por estratificación, columna de controles
+  vencidos/próximos 30d/últimos 30d) con motor de datos en el margen azul
+  (cols 30–31); tabla ESTADO ampliada a 11 filas con "Controles para HOY";
+  sección VISUALIZACIÓN; descripciones de sectores corregidas a significado
+  geográfico (NARANJO = más lejano, AMARILLO = distancia media, VERDE = más
+  cercano); regeneración idempotente (borra charts previos antes de insertar);
+  verificación ampliada a 16 checks (motorSector, motorEstrat, graficos,
+  infoHoy). Funciones puras añadidas: `Hojas_formulaCuentaSector`,
+  `Hojas_formulaCuentaEstrat`, `Hojas_formulaCuentaControl`, `Hojas_motorDatos`.
+  E2E post-deploy: mismo snapshot (17 problemas, sin regresión).
+- **Tests**: núcleo **592/592** + HTML **18/18** + aceptación **50/50** +
+  contrato **36/36** · deploys `@165`–`@174`.
+- **Acción requerida**: ejecutar **Instalar / Reparar Sistema** (menú → 🛠️)
+  para regenerar la hoja INICIO con el nuevo diseño.
+
 ## Fase RPC / higiene de memo (deploys @121–@130)
 
 Campaña de optimización de llamadas RPC de Sheets en el path rutinario,
@@ -440,6 +513,23 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   cálculo de edad; contrato REM Número/`''` preservado; tests de paridad).
 - **Tests**: núcleo **552/552** + aceptación 50/50 + backend V2 65/65 + UI V2 19/19 + cola 33/33 +
   contrato V2 36/36 + contrato datos 20/20 + formulario web 25/25 · deploy operativo `@103`.
+
+## Fase v0.97 — Auditoría rendimiento / IA / frontend + cierres
+
+> Informe completo: `docs/INFORME_V097.md`. Fase de auditoría sin cambio de versión.
+
+- **Correctores IA alineados al layout visual** de PACIENTES (helper `IA_leerBloque`,
+  filas físicas y escrituras en bloque) y normalizadores delegados en el pipeline
+  determinista (fechas solo VALIDA, teléfonos canónicos con `/`, sexo sin inventar OTRO).
+- **Frontend**: escapedados XSS en Controles/Sidebar/IAPanel y `_errSilencioso` compartido
+  en `00_Tokens.html`; fix de runtime en `RemGenerador.html` (sector fijo).
+- **Captura V2**: gate real de `confirmarNuevoPaciente` en `Captura_v2_entregarIngreso`
+  (POSIBLE_DUPLICADO → REVISION salvo confirmación explícita — DEC-024/025).
+- **Rendimiento**: borrados/append por fila → bloques (Limpieza INGRESO_*, Recuperar
+  EVENTOS, Amarillo dedup, Calidad cola, Formulario trailer/ANEXAR); índices de
+  identificación incrementales `Iden_indicesAgregar` (O(1)/alta en lotes).
+- **Tests**: núcleo **560/560** (+3 de regresión IA/índices) · batería completa **831/831** +
+  `validar_html` 18/18.
 
 ## Resumen del estado actual frente al historial
 

@@ -330,6 +330,7 @@ function HVis_normalizarLayout(hoja) {
   }
 
   // ===== FILA 1: TÍTULO (barra de identidad, full width) =====
+  if (escribibles) {
   try {
     // v0.8.9.6: color = RAMPA de la familia del sector (identidad vibrante);
     // tinta única TINTA_SECCION (≥4.5:1 sobre todas las rampas), altura
@@ -456,6 +457,7 @@ function HVis_normalizarLayout(hoja) {
   // ===== CONGELAR filas de encabezados y primera columna =====
   try { hoja.setFrozenRows(Modelo_headerRow(nombre)); } catch (eF1) { advertencias.push('FrozenRows: ' + (eF1 && eF1.message || eF1)); }
   try { hoja.setFrozenColumns(1); } catch (eF2) {}
+  }
 
   salida.secciones = seccionesAplicadas;
   salida.advertencias = advertencias;

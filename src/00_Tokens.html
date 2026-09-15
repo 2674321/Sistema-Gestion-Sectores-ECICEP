@@ -210,6 +210,10 @@ html{scroll-behavior:smooth}
 <script>
 /* Helpers compartidos (vanilla, sin dependencias salvo Lucide opcional) */
 function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _errSilencioso(nombre){return function(e){
+  if(window.console){console.error('[ECICEP] '+nombre,e);}
+  if(typeof toast==='function')toast('Error en '+nombre+': '+((e&&e.message)||e),'err');
+};}
 function _debounce(fn,ms){var t;return function(){clearTimeout(t);var a=arguments,c=this;t=setTimeout(function(){fn.apply(c,a);},ms||220);};}
 function _fmtFecha(iso){ /* SIEMPRE DD/MM/AAAA — parseo manual, nunca new Date('US') */
   var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||''));

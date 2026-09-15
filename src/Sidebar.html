@@ -3,9 +3,9 @@
 <head>
 <base target="_top">
 <? var MODO = (modo === 'pacientes' || modo === 'revision' || modo === 'ficha') ? modo : 'centro'; ?>
-<script>var MODO = <?!= JSON.stringify(MODO) ?>; /* modo visible para el JS del cliente */</script>
+<script>var MODO = <?!= JSON.stringify(MODO).replace(/</g,'\\u003c') ?>; /* modo visible para el JS del cliente */</script>
 <? var ID_INICIAL = (typeof ID_INICIAL !== 'undefined') ? ID_INICIAL : ''; ?>
-<script>var ID_INICIAL = <?!= JSON.stringify(ID_INICIAL) ?>; /* ficha directa (modo 'ficha') */</script>
+<script>var ID_INICIAL = <?!= JSON.stringify(ID_INICIAL).replace(/</g,'\\u003c') ?>; /* ficha directa (modo 'ficha') */</script>
 <?!= include('00_Tokens') ?>
 <style>
 /* Vista sidebar angosto (~300px): base 14px definida en tokens */
@@ -348,10 +348,6 @@ window._ECICEP_DEBUG=true;
 function _dbg(nombre,detalle){
   if(window._ECICEP_DEBUG&&window.console){console.debug('[ECICEP] '+nombre,detalle===undefined?'':detalle);}
 }
-function _errSilencioso(nombre){return function(e){
-  console.error('[ECICEP] '+nombre,e);
-  toast('Error en '+nombre+': '+((e&&e.message)||e),'err');
-};}
 var P_ACTUAL=null, PAT_CATALOGO=[], PAT_SELECCIONADAS=[], _animTimeline=false, _resIdx=-1;
 var SEG_ACTUAL=null;
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','CAMBIO_SECTOR','CAMBIO_ESTRATIFICACION','LLAMADO','OTRO'];

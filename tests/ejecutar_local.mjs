@@ -51,6 +51,11 @@ for (const a of archivos) {
 
 const sandbox = { console, JSON, Date, Math, RegExp, Object, Array, String, Number };
 sandbox.globalThis = sandbox;
+sandbox.Session = {
+  getActiveUser: function () {
+    return { getEmail: function () { return 'test@ecicep.local'; } };
+  }
+};
 vm.createContext(sandbox);
 
 try {

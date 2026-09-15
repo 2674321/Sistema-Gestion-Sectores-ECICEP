@@ -1011,3 +1011,63 @@ payload 19, backend 68, cola 33, formulario_web 27, validar_html 18).
 **Fecha:** 2026-09-11
 
 **Fecha:** 2026-09-10
+
+## DEC-031
+**Título:** Política de revisión IA sobre consistencia de eventos + eliminación de huérfanos
+**Estado:** Aprobada (ejecutada)
+**Motivo:** Tres ajustes de política en `IA_revisarConsistencia` ejecutados sobre la
+base real:
+1. **Eventos huérfanos eliminados (143):** eventos con ID_INTERNO no nulo sin paciente
+   asociado en PACIENTES se eliminan en bloque vía `IA_limpiarEventosHuerfanos()`
+   (patrón `Recuperar_ejecutar`: leer → filtrar → limpiar → reescribir, nunca
+   `deleteRow` en loop). Eventos con ID vacío NO se eliminan (pueden ser capturas
+   en curso).
+2. **`EVENTO_FECHA_ANTERIOR_INGRESO` ignorado:** la fuente previa al sistema puede
+   tener eventos antes y después del ingreso; es heterogeneidad normal.
+3. **`SECTOR_EVENTO_DISTINTO` ignorado:** el sector del evento puede diferir del
+   consolidado del paciente por la misma razón. `RUT_EVENTO_DISTINTO` SE MANTIENE
+   como WARNING.
+**Resultado:** 632 → **17** problemas reales (2667 pacientes / 20 471 eventos).
+**Fecha:** 2026-09-15
+
+## DEC-032
+**Título:** Sectores como zonas geográficas por cercanía + INICIO v3 con gráficos embebidos
+**Estado:** Aprobada en su parte normativa (sectores = distancia geográfica) ·
+**gráficos y motor de datos REVERTIDOS por DEC-033** (deploys @173–@175)
+**Motivo:** Los colores de sector representan **distancia geográfica desde la
+institución**, no prioridad clínica: NARANJO = más lejano, AMARILLO = distancia
+media, VERDE = más cercano. Las descripciones anteriores ("Prioritario" /
+"En seguimiento" / "Estable") eran incorrectas y fueron corregidas. Además, INICIO
+se amplió con:
+1. **3 gráficos embebidos:** pie de distribución por sector, pie por
+   estratificación, y columna de controles vencidos / próximos 30d / últimos 30d.
+2. **Motor de datos** en el margen azul (cols 30–31, invisible): 10 rangos con
+   COUNTIF derivados de PACIENTES, que alimentan los gráficos.
+3. **"Controles para HOY"** añadido a la tabla ESTADO del SISTEMA.
+4. Verificación ampliada a 16 checks (motorSector, motorEstrat, graficos, infoHoy).
+**Funciones puras nuevas (testables):** `Hojas_formulaCuentaSector`,
+`Hojas_formulaCuentaEstrat`, `Hojas_formulaCuentaControl`, `Hojas_motorDatos`.
+**Fecha:** 2026-09-15
+
+## DEC-033
+**Título:** Reversión de estadísticas y gráficos de INICIO + lienzo compactado
+**Estado:** Aprobada (ejecutada)
+**Reverte:** DEC-032 (parcial). Tras revisar INICIO en vivo el usuario pidió
+eliminar las estadísticas y compactar el ancho; los gráficos embebidos y su
+motor de datos eran percibidos como "ruido", no como valor operativo.
+**Ejecutado:**
+1. **Eliminado** el bloque VISUALIZACIÓN de INICIO (gráficos pie sector /
+   pie estrat / columna de controles), el motor de datos del margen (10 filas
+   COUNTIF en cols 30–31) y las funciones auxiliares (`Hojas_motorDatos`,
+   `Hojas_graficoPie`, `Hojas_graficoColumna`,
+   `Hojas_formulaCuentaSector/Estrat/Control`).
+2. **Lienzo compactado**: `FILA_FIN` 92→**55**, `COL_FIN` 40→**32**, `FILA_CONT`
+   66→**53**, `COL_CONT` 24→**24**; anchos de columna apretados (cierre del
+   margen azul derecho panorámico de 400px y del aire azul de cols 25–26;
+   columnas decorativas del margen 48px→30px).
+3. **"Controles para HOY"** se conserva como fila de ESTADO DEL SISTEMA
+   (fórmula inline `COUNTIF(PROXIMO_CONTROL;TODAY())`), sin motor de datos.
+4. Verificación de INICIO reducida a **12 checks** operativos.
+**Tests:** núcleo 591/591 (sin motor/gráficos) · HTML 18/18 · aceptación
+50/50 · contrato 36/36 · **deploys @173–@175**.
+**Fecha:** 2026-09-15

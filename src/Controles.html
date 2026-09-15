@@ -172,9 +172,9 @@ function mostrarEstado(){
   document.getElementById('contenido').style.display='none';
   document.getElementById('pie').style.display='none';
 }
-function estadoMsg(html){
+function estadoMsg(texto){
   document.getElementById('estadoInicial').innerHTML=
-    '<i data-lucide="search-x" style="width:30px;height:30px"></i><div>'+html+'</div>'+
+    '<i data-lucide="search-x" style="width:30px;height:30px"></i><div>'+_esc(texto)+'</div>'+
     '<div class="atajos"><button class="btn btn-sec" onclick="volverInicio()"><i data-lucide="refresh-cw"></i> Nueva consulta</button></div>';
   _refrescarIconos();
 }

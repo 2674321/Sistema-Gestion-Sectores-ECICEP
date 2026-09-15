@@ -205,19 +205,23 @@ function informePdf(btn){
     toast('\u2713 Informe PDF listo: '+r.nombre,'ok');
     window.open(r.url,'_blank');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-  .REM_exportarPdf(p.anio,p.mes,sectorSel());
+  .REM_exportarPdf(p.anio,p.mes,document.getElementById('selSector').value);
 }
 function irEstadisticas(){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
-  google.script.run.UI_abrirDashboard();
+  google.script.run
+    .withFailureHandler(function(){ toast('No fue posible abrir las estadísticas. Reintenta en unos segundos.','err'); })
+    .UI_abrirDashboard();
 }
 function consultar(){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
-  google.script.run.UI_verRem();
+  google.script.run
+    .withFailureHandler(function(){ toast('No fue posible abrir el visor REM. Reintenta en unos segundos.','err'); })
+    .UI_verRem();
 }
 
 function pintarValidacion(r1){

@@ -1647,13 +1647,23 @@ function Limpieza_ejecutar(colecta) {
     }
   }
 
-  // filas marcadas en INGRESO_* (de abajo hacia arriba para no desplazar índices)
+  // filas marcadas en INGRESO_* — borrado en bloque (nunca deleteRow en loop):
+  // relectura única + reescritura de lo que se conserva (§03-07 regla de bloques).
   Object.keys(colecta.hojas).forEach(function (nombreHoja) {
     var hoja = ss.getSheetByName(nombreHoja);
-    if (!hoja) return;
-    colecta.hojas[nombreHoja].sort(function (a, b) { return b - a; }).forEach(function (filaSheet) {
-      hoja.deleteRow(filaSheet);
-    });
+    if (!hoja || hoja.getLastRow() < 1) return;
+    var aEliminar = {};
+    colecta.hojas[nombreHoja].forEach(function (f) { aEliminar[Number(f)] = true; });
+    var ancho = Math.max(hoja.getLastColumn(), 1);
+    var bloque = hoja.getRange(1, 1, hoja.getLastRow(), ancho).getValues();
+    var conservar = [];
+    for (var i = 0; i < bloque.length; i++) {
+      if (aEliminar[i + 1]) continue;
+      conservar.push(bloque[i]);
+    }
+    if (conservar.length === bloque.length) return;
+    hoja.getRange(1, 1, bloque.length, ancho).clearContent();
+    if (conservar.length) Utl_escribirBloque(hoja, 1, 1, conservar);
   });
 
   Modelo_refrescarVistasSectores();
@@ -1944,7 +1954,7 @@ function Api_duplicadosUnirPorRut(rut, idConservar) {
       });
     }
     Modelo_invalidarLecturas();
-    Log_info('Duplicados','unir', rut+' conservar='+conservar.paciente.ID_INTERNO+' unidos='+idsDuplicados.length);
+    Log_info('Duplicados','unir', Aud_anonRut(rut)+' conservar='+conservar.paciente.ID_INTERNO+' unidos='+idsDuplicados.length);
     Log_flush();
     return {ok:true, conservado: conservar.paciente.ID_INTERNO, unidos: idsDuplicados};
   } catch(e){ return {ok:false, motivo: e && e.message ? e.message : String(e)}; }
@@ -2044,12 +2054,24 @@ function Recuperar_ejecutar(prefijoFuente) {
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var eliminadosP = 0, eliminadosE = 0;
 
-  // EVENTOS: eliminar filas de abajo hacia arriba
+  // EVENTOS: borrado en bloque (nunca deleteRow en loop)
   if (datos.eventos.length) {
     var hojaE = ss.getSheetByName(HOJAS.EVENTOS);
-    if (hojaE) {
-      var filasE = datos.eventos.map(function (e) { return e.fila; }).sort(function (a, b) { return b - a; });
-      filasE.forEach(function (f) { hojaE.deleteRow(f); eliminadosE++; });
+    if (hojaE && hojaE.getLastRow() >= 1) {
+      var aElim = {};
+      datos.eventos.forEach(function (e) { aElim[Number(e.fila)] = true; });
+      var anchoE = Math.max(hojaE.getLastColumn(), 1);
+      var bloqueE = hojaE.getRange(1, 1, hojaE.getLastRow(), anchoE).getValues();
+      var conservarE = [];
+      for (var i = 0; i < bloqueE.length; i++) {
+        if (aElim[i + 1]) continue;
+        conservarE.push(bloqueE[i]);
+      }
+      if (conservarE.length !== bloqueE.length) {
+        hojaE.getRange(1, 1, bloqueE.length, anchoE).clearContent();
+        if (conservarE.length) Utl_escribirBloque(hojaE, 1, 1, conservarE);
+      }
+      eliminadosE = datos.eventos.length;
     }
   }
 

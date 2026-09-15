@@ -122,7 +122,8 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   opciones = opciones || {};
   var _tPF = Date.now();
   var confirmarNuevos = !!opciones.confirmarNuevos;
-  var seqPac = 0, seqEv = (opciones.evSecuenciaInicial || 1) - 1;
+  var _useSeqEv = ('evSecuenciaInicial' in opciones);
+  var seqPac = 0, seqEv = _useSeqEv ? (opciones.evSecuenciaInicial || 1) - 1 : 0;
   var indices = Iden_construirIndices((store && store.pacientes) || []);
 
   var resultados = [], pacientesNuevos = [], eventos = [];
@@ -189,7 +190,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       fila.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
     }
     seqEv += 1;
-    var ev = Ev_desdeStaging(fila, { secuencia: seqEv });
+    var ev = Ev_desdeStaging(fila, _useSeqEv ? { secuencia: seqEv } : {});
     if (!ev.ok) {
       resumen.revision += 1;
       registrar(fila, 'REQUIERE_REVISION', ev.motivo);
@@ -207,7 +208,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       idInterno = paciente.ID_INTERNO;
       ev.evento.ID_INTERNO = idInterno; // enlazar el evento a la entidad recién creada
       resumen.nuevos += 1;
-      indices = Iden_construirIndices(store.pacientes); // índice al día para el resto del lote
+      indices = Iden_indicesAgregar(indices, paciente); // índice al día O(1) por paciente
     } else {
       idInterno = fila.RESULTADO_IDENTIFICACION.idPaciente;
       resumen.existentes += 1;
@@ -511,7 +512,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
       idInterno: (store.pacientes.filter(function(p){ return Utl_texto(p.RUT).toUpperCase().trim()+ '|' + Utl_texto(p.FECHA_INGRESO) === k; })[0] || {}).ID_INTERNO || '',
       idEvento: ''
     });
-    console.log('[PIPE] DUPLICADO por RUT+fecha: '+fila.HOJA_ORIGEN+'/'+fila.FILA_ORIGEN+' ' + Utl_texto(fila.NORMALIZADO.RUT));
+    console.log('[PIPE] DUPLICADO por RUT+fecha: '+fila.HOJA_ORIGEN+'/'+fila.FILA_ORIGEN+' ' + Aud_anonRut(Utl_texto(fila.NORMALIZADO.RUT)));
     return false;
   });
   staging = stagingFiltrado;

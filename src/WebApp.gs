@@ -23,6 +23,21 @@
  */
 
 // ---------------------------------------------------------------------------
+// CONTROL DE ACCESO
+// ---------------------------------------------------------------------------
+
+/** Devuelve el email del usuario activo o '' si no hay sesión autenticada. */
+function WebApp_usuarioActivo() {
+  try {
+    if (typeof Session !== 'undefined' && Session.getActiveUser) {
+      var u = Session.getActiveUser().getEmail();
+      return u || '';
+    }
+  } catch (e) { /* sin sesión → acceso denegado */ }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
 // ENTRYPOINT WEB (doGet único)
 // ---------------------------------------------------------------------------
 
@@ -66,6 +81,9 @@ function WebApp_esquemaFormulario() {
 function Form_capturarDesdeUI(datos) {
   var _tTotal = Date.now();
   try {
+    if (!WebApp_usuarioActivo()) {
+      return { ok: false, message: 'Sesión de usuario no detectada; acceso denegado', errors: [{ campo: '_', mensaje: 'ACCESO_DENEGADO' }] };
+    }
     console.log('[BACKEND] 01 entrada Form_capturarDesdeUI');
     if (typeof SpreadsheetApp === 'undefined') {
       console.error('[BACKEND] 01b SpreadsheetApp no disponible');

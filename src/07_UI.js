@@ -50,6 +50,7 @@ function onOpen() {
 
     ui.createMenu('IA')
       .addItem('Abrir panel', 'IA_abrirPanel')
+      .addItem('Revisión completa', 'IA_revisarTodoUI')
       .addItem('Análisis rápido', 'IA_analizarCompleto')
       .addItem('Corregir errores', 'IA_corregirTodo')
       .addItem('Configurar API', 'IA_configurar')
@@ -213,6 +214,7 @@ function UI_abrirLog() {
 /** Endpoint visor LOG: últimos registros + conteos por nivel. */
 function api_logLeer(limite) {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: true, registros: [], resumen: { total: 0, errores: 0, advertencias: 0, informacion: 0 } };
     var h = Modelo_hoja(HOJAS.LOG);
     if (!h || h.getLastRow() < 2) return { ok: true, registros: [], resumen: { total: 0, errores: 0, advertencias: 0, informacion: 0 } };
     var max = Math.min(Number(limite) || 500, 2000);
@@ -526,6 +528,7 @@ function api_duplaAbrir(idInterno) {
 /** Endpoint: guarda la dupla del paciente como códigos separados por ';'. */
 function api_duplaGuardar(idInterno, codigos) {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     codigos = (codigos || []).map(function (c) { return String(c).trim().toUpperCase(); }).filter(Boolean);
     var dupla = codigos.join('; ');
     var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO']);
@@ -591,6 +594,7 @@ function api_configListar() {
 /** Endpoint: guarda el valor de una clave NO protegida (con validación). */
 function api_configGuardar(clave, valor) {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
     if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
@@ -612,6 +616,7 @@ function api_configGuardar(clave, valor) {
 /** Endpoint: agrega una clave nueva (no puede duplicar). */
 function api_configAgregar(clave, valor, descripcion) {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
     if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
@@ -1093,6 +1098,7 @@ function api_remVista(anio, mes, sector, modo, actividad) {
 
 /** Endpoint sidebar: búsqueda por RUT exacto o nombre (no agresiva). */
 function api_buscar(termino) {
+  if (!WebApp_usuarioActivo()) return [];
   return Bus_buscarPacientes(
     Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTADO', 'ESTRATIFICACION']),
     termino, 25).map(function (p) {
@@ -1106,6 +1112,7 @@ function api_buscar(termino) {
  */
 function api_ficha(idInterno) {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     var pacientes = Modelo_leerPacientesCampos(_FICHA_CAMPOS_OPERATIVOS);
     var paciente = null;
     var idNormalizado = Utl_texto(idInterno).trim();

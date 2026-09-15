@@ -375,8 +375,23 @@ function Amarillo_dedupHistorico(dryRun) {
   var a = Amarillo_analizarDuplicados(Amarillo_leerEventosComoObjetos());
   if (!dryRun && a.eliminar > 0) {
     var hojaE = Modelo_hoja(HOJAS.EVENTOS);
+    // Borrado en bloque (nunca deleteRow en loop).
+    var aElim = {};
+    a.filas.forEach(function (f) { aElim[Number(f)] = true; });
+    if (hojaE.getLastRow() >= 1) {
+      var ancho = Math.max(hojaE.getLastColumn(), 1);
+      var bloque = hojaE.getRange(1, 1, hojaE.getLastRow(), ancho).getValues();
+      var conservar = [];
+      for (var i = 0; i < bloque.length; i++) {
+        if (aElim[i + 1]) continue;
+        conservar.push(bloque[i]);
+      }
+      if (conservar.length !== bloque.length) {
+        hojaE.getRange(1, 1, bloque.length, ancho).clearContent();
+        if (conservar.length) Utl_escribirBloque(hojaE, 1, 1, conservar);
+      }
+    }
     a.filas.forEach(function (fila) {
-      hojaE.deleteRow(fila);
       Log_warning('Amarillo', 'dedup', 'Evento duplicado eliminado (fila ' + fila + ')');
     });
     Log_warning('Amarillo', 'dedup', 'Eliminados ' + a.eliminar +

@@ -39,3 +39,9 @@ docs/hoja_de_vida.pdf
 # ===== EXPORTACIONES DE SESIÓN (locales, no commiteables) =====
 SESION *.json
 SESION*.json
+
+# ===== ARTEFACTOS LOCALES DE LA HERRAMIENTA (no del proyecto) =====
+.opencode/
+opencode.json
+"trabajo continuo/"
+.trabajo*/

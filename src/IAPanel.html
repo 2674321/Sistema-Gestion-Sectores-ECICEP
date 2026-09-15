@@ -25,6 +25,7 @@
   .ia-btn:disabled{opacity:.5;cursor:not-allowed}
   .ia-btn.pri{background:var(--primary);color:#fff;border-color:var(--primary)}
   .ia-btn.pri:hover:not(:disabled){background:var(--primary-strong)}
+  .ia-actions .wide{grid-column:1/-1}
   .ia-btn .spin{width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;
     border-radius:50%;animation:girar .7s linear infinite;display:inline-block}
   
@@ -33,7 +34,7 @@
   .ia-chat-msgs{flex:1;overflow-y:auto;padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2);
     min-height:200px;max-height:400px}
   .ia-msg{padding:8px 12px;border-radius:var(--radius-md);font:400 13px 'Inter';max-width:90%;
-    animation:tIn .2s var(--ease-in)}
+    white-space:pre-wrap;overflow-wrap:break-word;animation:tIn .2s var(--ease-in)}
   .ia-msg.user{background:var(--primary-soft);color:var(--primary-strong);align-self:flex-end;
     border-bottom-right-radius:2px}
   .ia-msg.ia{background:var(--surface-alt);color:var(--text-primary);align-self:flex-start;
@@ -115,7 +116,10 @@
     
     <!-- Botones de acción rápida -->
     <div class="ia-actions">
-      <button class="ia-btn pri" onclick="analisisRapido()" id="btnAnalizar">
+      <button class="ia-btn pri wide" onclick="revisarTodo()" id="btnRevisar">
+        🩺 Revisar Todo
+      </button>
+      <button class="ia-btn" onclick="analisisRapido()" id="btnAnalizar">
         📊 Análisis Rápido
       </button>
       <button class="ia-btn" onclick="corregirTodo()" id="btnCorregir">
@@ -132,10 +136,10 @@
     <!-- Chat -->
     <div class="ia-chat">
       <div class="ia-chat-msgs" id="chatMsgs">
-        <div class="ia-msg system">Escribe una instrucción o usa los botones de acción</div>
+        <div class="ia-msg system">Escribe una instrucción o usa los botones de acción (ej: "revisar todos los datos")</div>
       </div>
       <div class="ia-chat-input">
-        <input type="text" id="chatInput" placeholder="Ej: Analizar duplicados, Corregir RUTs..."
+        <input type="text" id="chatInput" placeholder="Ej: Revisar datos, corregir RUTs, detectar duplicados..."
                onkeydown="if(event.key==='Enter')enviarMensaje()">
         <button onclick="enviarMensaje()" id="btnEnviar">Enviar</button>
       </div>
@@ -180,7 +184,7 @@
       .withFailureHandler(function(e) {
         var el = document.getElementById('iaStatus');
         el.className = 'ia-status err';
-        el.innerHTML = '<span class="dot"></span><span>Error verificando config: ' + e.message + '</span>';
+        el.innerHTML = '<span class="dot"></span><span>Error verificando config: ' + _esc(e.message) + '</span>';
       })
       .IA_verificarConfig();
   })();
@@ -240,7 +244,9 @@
           actualizarMensaje(loadingId, 'error', texto);
         } else if (res && res.explicacion) {
           texto = res.explicacion;
-          if (res.resultado) {
+          // Si el reporte ya trae su propia `explicacion` (p. ej. revisión
+          // integral), no duplicar el bloque JSON crudo del resultado.
+          if (res.resultado && !res.resultado.explicacion) {
             texto += '\n\nResultado: ' + JSON.stringify(res.resultado, null, 2).substring(0, 500);
           }
           actualizarMensaje(loadingId, 'ia', texto);
@@ -263,7 +269,13 @@
     var container = document.getElementById('chatMsgs');
     var div = document.createElement('div');
     div.className = 'ia-msg ' + tipo;
-    div.innerHTML = contenido;
+    // Único HTML permitido: el spinner fijo de "procesando" (trusted). El resto
+    // se trata como texto plano para evitar XSS (IA/errores/tutoriales).
+    if (tipo === 'ia' && typeof contenido === 'string' && contenido.indexOf('<span class="spin">') === 0) {
+      div.innerHTML = contenido;
+    } else {
+      div.textContent = contenido == null ? '' : String(contenido);
+    }
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return div;
@@ -275,7 +287,7 @@
       // Buscar por contenido
       var msgs = document.querySelectorAll('.ia-msg');
       for (var i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].innerHTML.indexOf('Procesando...') !== -1) {
+        if ((msgs[i].textContent || '').indexOf('Procesando') !== -1) {
           elemento = msgs[i];
           break;
         }
@@ -283,11 +295,39 @@
     }
     if (elemento && elemento.className) {
       elemento.className = 'ia-msg ' + tipo;
-      elemento.innerHTML = contenido;
+      elemento.textContent = contenido == null ? '' : String(contenido);
     }
   }
   
   // Acciones rápidas
+  // Revisión integral (100% determinista, no requiere API key)
+  function revisarTodo() {
+    setLoading(document.getElementById('btnRevisar'), true, 'Revisando...');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        setLoading(document.getElementById('btnRevisar'), false);
+        if (res && res.error) {
+          agregarMensaje('error', 'Error: ' + res.error);
+          toast('Error: ' + res.error, 'err');
+          return;
+        }
+        var texto = res && res.explicacion
+          ? res.explicacion
+          : JSON.stringify(res, null, 2).substring(0, 800);
+        agregarMensaje('ia', texto);
+        agregarLog('REVISIÓN', res.totalProblemas || 0, 'Integral');
+        toast((res.totalProblemas ? res.totalProblemas + ' problemas encontrados' : 'Revisión sin hallazgos'),
+          res.totalProblemas ? 'warn' : 'ok');
+      })
+      .withFailureHandler(function(e) {
+        setLoading(document.getElementById('btnRevisar'), false);
+        agregarMensaje('error', 'Error: ' + e.message);
+        toast('Error: ' + e.message, 'err');
+      })
+      .IA_revisarTodo();
+  }
+  
   function analisisRapido() {
     setLoading(document.getElementById('btnAnalizar'), true, 'Analizando...');
     
@@ -416,10 +456,10 @@
     var html = '';
     logEntries.forEach(function(e) {
       html += '<div class="ia-log-item">'
-        + '<span class="time">' + e.time + '</span>'
-        + '<span class="tipo">' + e.tipo + '</span>'
-        + '<span class="cant">' + e.cant + '</span>'
-        + (e.det ? '<span>' + e.det + '</span>' : '')
+        + '<span class="time">' + _esc(e.time) + '</span>'
+        + '<span class="tipo">' + _esc(e.tipo) + '</span>'
+        + '<span class="cant">' + _esc(e.cant) + '</span>'
+        + (e.det ? '<span>' + _esc(e.det) + '</span>' : '')
         + '</div>';
     });
     body.innerHTML = html;

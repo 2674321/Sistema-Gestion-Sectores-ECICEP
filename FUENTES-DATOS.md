@@ -8,6 +8,26 @@ sin migración de datos. Los ejemplos de valores son categorías/estados, no dat
 
 ---
 
+## Actualización 2026-09-15 — fuentes vigentes (xlsx actualizados/)
+
+El 2026-09-15 se actualizaron las fuentes con los archivos de `xlsx actualizados/`
+(información al día). Resumen del delta vs. el análisis de 2026-08-21:
+
+| Fuente | Cambio | Estado |
+|--------|--------|--------|
+| NARANJO | Sin cambios de contenido | ID preservado |
+| PCTS Verde | Planilla sector verde 955→971 filas · hoja `CONTROLES PENDIENTES` retirada · hoja nueva `SACADOS DE PLANILLA` (28 filas, excluida) · INASISTENTES 39→47 | ID nuevo (re-importado) |
+| Amarillo | 1092→1144 filas (52 pacientes nuevos) · histórico re-movido | ID nuevo (re-importado) |
+
+Implicancias en `FUENTES_DRIVE`/`HOJAS_AUTORIZADAS_CARGA`:
+- `CONTROLES PENDIENTES` ya no existe en la fuente: se retiró de las hojas
+  autorizadas y quedó documentada en `FUENTES_EXCLUIDAS`.
+- `SACADOS DE PLANILLA` es registro de control (no ingresos vigentes): excluida.
+- Los ID de Drive de PCTS y Amarillo se actualizaron en `00_Config.js`.
+- Carga ejecutada vía webhook: +63 pacientes y +2002 eventos en la operativa.
+
+---
+
 ## 1. SEGUIMIENTO ECICEP Sector Amarillo.xlsx (159 KB)
 
 Sector **Amarillo**. Una sola hoja, la estructura más limpia de las tres fuentes.

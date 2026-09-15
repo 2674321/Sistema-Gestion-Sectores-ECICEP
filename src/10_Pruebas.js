@@ -86,6 +86,9 @@ function Pruebas_ejecutarTodo() {
   _pruebas_inst1_versionado(t, A);
   _pruebas_inicio_formulas(t, A);
   _pruebas_ia_privacidad(t, A);
+  _pruebas_ia_v097(t, A);
+  _pruebas_ia_revision(t, A);
+  _pruebas_p0_auditoria_v098(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
@@ -2277,6 +2280,28 @@ function _pruebas_hojas(t, A) {
 
   t('INICIO: protegida del limpiador incluso vacía', function () {
     A.cierto(!Modelo_esHojaResidual('INICIO', true), 'INICIO jamás residual');
+  });
+
+  t('INICIO: fórmulas auxiliares derivadas del contrato', function () {
+    var fa = Hojas_formulaAlerta();
+    // Alerta contiene REGEXREPLACE y las tres categorías
+    A.cierto(fa.indexOf('REGEXREPLACE') !== -1, 'alerta usa REGEXREPLACE para separador');
+    A.cierto(fa.indexOf('por revisar') !== -1, 'alerta menciona por revisar');
+    A.cierto(fa.indexOf('RUT inv') !== -1, 'alerta menciona RUT inválidos');
+    A.cierto(fa.indexOf('controles vencidos') !== -1, 'alerta menciona controles vencidos');
+    // Usa columnas reales del contrato (AD, W, AK=PROXIMO_CONTROL)
+    A.cierto(fa.indexOf('PACIENTES!AD') !== -1, 'alerta usa REQUIERE_REVISION en AD');
+    A.cierto(fa.indexOf('PACIENTES!W') !== -1, 'alerta usa RUT_DV_VALIDO en W');
+
+    var fm = Hojas_formulaIngresosMes();
+    A.cierto(fm.indexOf('COUNTIFS') !== -1, 'ingresos del mes usa COUNTIFS');
+    A.cierto(fm.indexOf('EOMONTH') !== -1, 'ingresos del mes usa EOMONTH');
+    A.cierto(fm.indexOf('PACIENTES!' + Hojas_rangoPaciente('FECHA_INGRESO')) !== -1, 'ingresos del mes usa rango de FECHA_INGRESO');
+
+    var fs = Hojas_formulaSinControl();
+    A.cierto(fs.indexOf('COUNTIF') !== -1, 'sin control usa COUNTIF');
+    A.cierto(fs.indexOf('NSP') !== -1, 'sin control cuenta NSP');
+    A.cierto(fs.indexOf('PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL')) !== -1, 'sin control usa rango de PROXIMO_CONTROL');
   });
 
   t('FUENTES: referencia estática = una fila por fuente configurada + hoja oculta', function () {
@@ -5119,5 +5144,343 @@ function _pruebas_ia_privacidad(t, A) {
   t('IA: columnaPorNombre con datos vacíos o null', function () {
     A.igual(IA_columnaPorNombre([], 'RUT'), -1, 'datos vacíos');
     A.igual(IA_columnaPorNombre(null, 'RUT'), -1, 'null');
+  });
+}
+
+function _pruebas_ia_v097(t, A) {
+  t('IA v0.97: parsearFecha solo devuelve ISO plenamente válida', function () {
+    A.igual(IA_parsearFecha('2026-03-14'), '2026-03-14', 'ISO válida');
+    A.igual(IA_parsearFecha('14/03/2026'), '2026-03-14', 'dd/mm/yyyy válida');
+    A.igual(IA_parsearFecha('2026-02-30'), null, 'calendario inexistente → null');
+    A.igual(IA_parsearFecha('03/2026'), null, 'mes/año ambiguo → null (no inventa)');
+    A.igual(IA_parsearFecha('28/13/2026'), null, 'mes 13 → null');
+    A.igual(IA_parsearFecha('cilantro'), null, 'texto → null');
+    A.igual(IA_parsearFecha(''), null, 'vacío → null');
+    A.igual(IA_parsearFecha(null), null, 'null → null');
+    A.igual(IA_parsearFecha(new Date(2026, 2, 14)), '2026-03-14', 'Date objeto válida');
+    A.igual(IA_parsearFecha(new Date(1960, 0, 1)), null, 'Date fuera de rango → null');
+  });
+  t('IA v0.97: normalizarTelefono reutiliza el pipeline canónico (unión con /)', function () {
+    A.igual(IA_normalizarTelefono('912345678'), '912345678', 'número único');
+    A.igual(IA_normalizarTelefono('987654321 / 912345678'), '912345678/987654321', 'varios ordenados');
+    A.igual(IA_normalizarTelefono('+56987654321'), '987654321', 'código país descartado');
+    A.igual(IA_normalizarTelefono('llamar despues'), 'llamar despues', 'sin números → conserva original');
+    A.igual(IA_normalizarTelefono(''), '', 'vacío');
+    A.igual(IA_normalizarTelefono(null), '', 'null');
+  });
+  t('IA v0.97: indicesAgregar es equivalente incremental a construirIndices', function () {
+    var p1 = { ID_INTERNO: 'P1', RUT: '12345678-5', NOMBRE: 'juan perez' };
+    var p2 = { ID_INTERNO: 'P2', RUT: '12345678-4', NOMBRE: 'juan perez' };
+    var p3 = { ID_INTERNO: 'P3', RUT: '98765432-1', NOMBRE: 'ana muñoz' };
+    var p4 = { ID_INTERNO: 'P4', RUT: '', NOMBRE: 'sin rut' };
+    var inc = Iden_indicesAgregar(null, p1);
+    inc = Iden_indicesAgregar(inc, p2);
+    inc = Iden_indicesAgregar(inc, p3);
+    inc = Iden_indicesAgregar(inc, p4);
+    var full = Iden_construirIndices([p1, p2, p3, p4]);
+    A.igual(JSON.stringify(inc), JSON.stringify(full), 'mismo índice que construirIndices');
+    A.cierto(!!inc.porRut['12345678-5'], 'rut indexado');
+    A.cierto(!inc.porRut['SIN RUT'], 'paciente sin rut no indexa');
+    A.cierto(!!inc.porCuerpo['12345678'], 'cuerpo indexado');
+    var clave = Norm_claveNombre('juan perez');
+    A.igual(inc.porNombre[clave].length, 2, 'dos con mismo nombre');
+  });
+}
+
+function _pruebas_ia_revision(t, A) {
+  var PAC_ENC = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'FECHA_INGRESO'];
+  var EV_ENC = ['ID_EVENTO', 'ID_INTERNO', 'RUT', 'SECTOR', 'FECHA_EVENTO'];
+
+  // CONSISTENCIA — paciente sin eventos
+  t('IA revisión: paciente sin eventos detectado', function () {
+    var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
+    var ev = [ EV_ENC.slice() ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.igual(probs.length, 1, 'un problema');
+    A.igual(probs[0].tipo, 'PACIENTE_SIN_EVENTOS', 'tipo');
+    A.igual(probs[0].fila, Modelo_dataStartRow(HOJAS.PACIENTES), 'fila física PACIENTES');
+  });
+  t('IA revisión: consistencia limpia con paciente y evento coincidente', function () {
+    var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
+    var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2026-02-10'] ];
+    A.igual(IA_revisarConsistencia(pac, ev).length, 0, 'sin problemas');
+  });
+  t('IA revisión: evento huérfano detectado', function () {
+    var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
+    var ev = [ EV_ENC.slice(), ['E1', 'NOEXISTE', '12345678-5', 'VERDE', '2026-02-10'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(probs.some(function (p) { return p.tipo === 'EVENTO_HUERFANO' && p.severidad === 'ERROR'; }),
+      'EVENTO_HUERFANO presente');
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS'; }),
+      'P1 no tiene eventos coincidentes → también SIN_EVENTOS');
+  });
+  t('IA revisión: IA_eventosHuerfanos separa huérfanos de IDs vacíos', function () {
+    var ev = [
+      EV_ENC.slice(),
+      ['E1', 'NOEXISTE', '12345678-5', 'VERDE', '2026-02-10'],   // huérfano (ID no existe)
+      ['E2', '', '12345678-5', 'VERDE', '2026-02-10'],            // sin ID (no borrado)
+      ['E3', 'P1', '12345678-5', 'VERDE', '2026-02-10']           // válido
+    ];
+    var res = IA_eventosHuerfanos(ev, { P1: true });
+    A.igual(res.huerfanos.length, 1, 'solo un huérfano real');
+    A.igual(res.huerfanos[0].id, 'NOEXISTE', 'ID del huérfano');
+    A.igual(res.huerfanos[0].fila, Modelo_dataStartRow(HOJAS.EVENTOS), 'fila física EVENTOS');
+    A.igual(res.sinId.length, 1, 'un evento sin ID_INTERNO aparte');
+    A.igual(res.sinId[0].fila, Modelo_dataStartRow(HOJAS.EVENTOS) + 1, 'fila física del sin ID');
+    // Con tabla de datos vacía no revienta
+    A.igual(IA_eventosHuerfanos(null, {}).huerfanos.length, 0, 'null sin romper');
+  });
+  t('IA revisión: fecha anterior al ingreso NO se reporta (DEC-IA-2026-01)', function () {
+    var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
+    var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2025-12-31'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(!probs.some(function (p) { return p.tipo === 'EVENTO_FECHA_ANTERIOR_INGRESO'; }),
+      'fecha anterior ignorada por política');
+    A.cierto(!probs.some(function (p) { return p.tipo === 'SECTOR_EVENTO_DISTINTO'; }),
+      'sector distinto no reportado');
+  });
+  t('IA revisión: RUT discordante se reporta, sector distinto NO (DEC-IA-2026-01)', function () {
+    var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
+    var ev = [ EV_ENC.slice(),
+      ['E1', 'P1', '99999999-9', 'AMARILLO', '2026-02-10'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(probs.some(function (p) { return p.tipo === 'RUT_EVENTO_DISTINTO'; }), 'RUT discordante');
+    A.cierto(!probs.some(function (p) { return p.tipo === 'SECTOR_EVENTO_DISTINTO'; }), 'sector distinto ignorado por política');
+  });
+  t('IA revisión: duplicados por RUT y por nombre normalizado', function () {
+    var pac = [
+      PAC_ENC.slice(),
+      ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'],
+      ['P2', '87654321-1', 'ANA MUNOZ', 'VERDE', '2026-02-10'],  // mismo nombre (normalizado) con otro RUT
+      ['P3', '12345678-5', 'LUIS PEREZ', 'VERDE', '2026-03-10']  // mismo RUT que P1
+    ];
+    var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2026-02-10'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_RUT_DUPLICADO'; }), 'RUT duplicado');
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_NOMBRE_DUPLICADO'; }), 'nombre duplicado');
+    A.cierto(!probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow(HOJAS.PACIENTES); }),
+      'P1 con evento no se marca sin eventos');
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS'; }),
+      'P2 y P3 sí se marcan sin eventos');
+  });
+  t('IA revisión: consistencia con datos vacíos no revienta', function () {
+    A.igual(IA_revisarConsistencia([], null).length, 0, 'vacíos');
+    A.igual(IA_revisarConsistencia(null, null).length, 0, 'null');
+    A.igual(IA_revisarConsistencia([['A']], [['A'], ['B']]).length, 0, 'sin ID_INTERNO');
+  });
+
+  // CAMPOS NUEVOS
+  var CAMPOS_ENC = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO',
+    'FECHA_INGRESO', 'ESTRATIFICACION', 'ESTADO', 'FUENTE', 'REQUIERE_REVISION'];
+  t('IA revisión: calidad de campos detecta los problemas nuevos', function () {
+    var filaMala = ['P1', '12345678-4', '', 'X', '2026-02-30', 'esto-no-es-fecha',
+      'G9', 'INEXISTENTE', '', 'TRUE'];
+    var probs = IA_revisarCamposNuevos([CAMPOS_ENC.slice(), filaMala]);
+    var tipos = probs.map(function (p) { return p.tipo; });
+    ['RUT_INVALIDO', 'SIN_NOMBRE', 'SEXO_INVALIDO', 'FECHA_NACIMIENTO_INVALIDA',
+      'FECHA_INGRESO_INVALIDA', 'ESTRATIFICACION_INVALIDA', 'ESTADO_INVALIDO',
+      'FUENTE_VACIA', 'REQUIERE_REVISION'].forEach(function (n) {
+      A.cierto(tipos.indexOf(n) !== -1, n + ' presente');
+    });
+  });
+  t('IA revisión: RUT sin DV se clasifica RUT_INCOMPLETO', function () {
+    var fila = CAMPOS_ENC.slice(); fila[0] = 'P1'; fila[1] = '12345678'; fila[2] = 'ANA';
+    var probs = IA_revisarCamposNuevos([CAMPOS_ENC.slice(), fila]);
+    A.cierto(probs.some(function (p) { return p.tipo === 'RUT_INCOMPLETO'; }), 'incompleto');
+  });
+  t('IA revisión: paciente limpio no genera problemas', function () {
+    var filaLimpia = ['P1', '12345678-5', 'ANA MUÑOZ', 'F', '1990-05-01', '2026-01-10',
+      'G1', 'INGRESADO', 'FUENTE|X|1', 'FALSE'];
+    A.igual(IA_revisarCamposNuevos([CAMPOS_ENC.slice(), filaLimpia]).length, 0, 'sin problemas');
+    A.igual(IA_revisarCamposNuevos([]).length, 0, 'bloque vacío');
+  });
+
+  // CRUCE CON FUENTES DE INGRESO
+  t('IA revisión: cruce de bloque INGRESO detecta faltantes', function () {
+    var rutsPac = { '12345678-5': true };
+    var ing = [
+      ['NOMBRE', 'RUT', 'ESTADO_INGRESO'],
+      ['ANA', '12.345.678-5', 'INGRESADO'],
+      ['OTRO', '7654321-3', 'PENDIENTE']
+    ];
+    var res = IA_cruzarBloqueIngreso(rutsPac, 'INGRESO_AMARILLO', ing);
+    A.igual(res.totalFilas, 2, 'total filas');
+    A.igual(res.totalConRut, 2, 'total con RUT');
+    A.igual(res.sinEstado, 0, 'sin estado');
+    A.igual(res.faltantes.length, 1, 'un faltante');
+    A.igual(res.faltantes[0].rut, '7654321-3', 'RUT normalizado');
+    A.igual(res.faltantes[0].estado, 'PENDIENTE', 'estado conservado');
+    A.igual(res.faltantes[0].fila, Modelo_dataStartRow('INGRESO_AMARILLO') + 1, 'fila física visual');
+  });
+  t('IA revisión: cruce cuenta estados vacíos', function () {
+    var ing = [
+      ['NOMBRE', 'RUT', 'ESTADO_INGRESO'],
+      ['X', '7654321-3', '']
+    ];
+    var res = IA_cruzarBloqueIngreso({}, 'INGRESO_AMARILLO', ing);
+    A.igual(res.sinEstado, 1, 'estado vacío contado');
+    A.igual(res.faltantes.length, 1, 'faltante con SIN_ESTADO');
+    A.igual(res.faltantes[0].estado, 'SIN_ESTADO', 'estado por defecto');
+  });
+  t('IA revisión: cruce con bloque vacío o sin RUT', function () {
+    A.igual(IA_cruzarBloqueIngreso({}, 'INGRESO_VERDE', []).totalFilas, 0, 'sin datos');
+    var sinRut = [['NOMBRE'], ['ANA']];
+    A.igual(IA_cruzarBloqueIngreso({}, 'INGRESO_VERDE', sinRut).totalConRut, 0, 'sin columna RUT');
+  });
+  t('IA revisión: cruce ignora ecos de encabezado duplicado', function () {
+    var ing = [
+      ['NOMBRE', 'RUT', 'ESTADO_INGRESO'],
+      ['RUT', 'RUT', 'ESTADO_INGRESO'],   // fila de encabezado duplicada (eco)
+      ['ANA', '12345678-5', 'INGRESADO']
+    ];
+    var res = IA_cruzarBloqueIngreso({ '12345678-5': true }, 'INGRESO_NARANJA', ing);
+    A.igual(res.totalFilas, 2, 'total filas incluye el eco');
+    A.igual(res.totalConRut, 1, 'el eco no se cuenta como RUT');
+    A.igual(res.faltantes.length, 0, 'sin faltantes del eco');
+  });
+
+  // FECHAS COMO OBJETO DATE (hallazgo E2E: celdas Date daban 100 falsos positivos)
+  t('IA revisión: celda de fecha como objeto Date no genera falso positivo', function () {
+    var fila = ['P1', '12345678-5', 'ANA MUÑOZ', 'F', '1990-05-01', new Date(2026, 0, 10),
+      'G1', 'INGRESADO', 'FUENTE|X|1', 'FALSE'];
+    A.igual(IA_revisarCamposNuevos([CAMPOS_ENC.slice(), fila]).length, 0,
+      'fecha Date válida no se marca inválida');
+  });
+  t('IA revisión: fecha Date fuera de rango sí se marca inválida', function () {
+    var fila = ['P1', '12345678-5', 'ANA MUÑOZ', 'F', '1990-05-01', new Date(1960, 5, 1),
+      'G1', 'INGRESADO', 'FUENTE|X|1', 'FALSE']; // FECHA_INGRESO 1960 < ANO_MIN
+    var probs = IA_revisarCamposNuevos([CAMPOS_ENC.slice(), fila]);
+    A.cierto(probs.some(function (p) { return p.tipo === 'FECHA_INGRESO_INVALIDA'; }),
+      'fecha Date fuera de rango marcada');
+  });
+
+  // NORMALIZACIÓN DE RUT EN CONSISTENCIA (mejora #1)
+  t('IA revisión: RUT con formato alternativo no genera falso positivo', function () {
+    var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
+    var ev = [ EV_ENC.slice(), ['E1', 'P1', '12.345.678-5', 'VERDE', '2026-02-10'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(!probs.some(function (p) { return p.tipo === 'RUT_EVENTO_DISTINTO'; }),
+      'RUT equivalente no se marca discordante');
+    A.cierto(!probs.some(function (p) { return p.tipo === 'RUT_EVENTO_DISTINTO' && p.detalle.indexOf('12345678-5') !== -1; }),
+      'RUT normalizado en detalle');
+  });
+  t('IA revisión: RUT normalizado en duplicados por RUT', function () {
+    var pac = [
+      PAC_ENC.slice(),
+      ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'],
+      ['P2', '12.345.678-5', 'ANA MUNOZ', 'VERDE', '2026-02-10']  // RUT con formato distinto, mismo normalizado
+    ];
+    var ev = [ EV_ENC.slice(), ['E1', 'P1', '12.345.678-5', 'VERDE', '2026-02-10'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_RUT_DUPLICADO'; }),
+      'RUTs con distinto formato sí se detectan como duplicados');
+  });
+
+  // TEXTO DEL REPORTE (mejora #2)
+  t('IA revisión: texto del reporte sin hallazgos muestra mensaje limpio', function () {
+    var rep = { fecha: '15/09/2026 10:00:00', totalPacientes: 10, totalEventos: 20,
+      totalProblemas: 0, porSeveridad: { ERROR: 0, WARNING: 0, INFO: 0 }, categorias: [] };
+    var txt = IA_textoRevision(rep);
+    A.cierto(txt.indexOf('Total problemas: 0') !== -1, 'resumen 0 problemas');
+    A.cierto(txt.indexOf('No se detectaron') !== -1, 'mensaje limpio presente');
+  });
+  t('IA revisión: texto del reporte con hallazgos lista tipos y filas', function () {
+    var rep = { fecha: '15/09/2026 10:00:00', totalPacientes: 10, totalEventos: 20,
+      totalProblemas: 2, porSeveridad: { ERROR: 1, WARNING: 1 },
+      categorias: [{ etiqueta: 'Consistencia Pacientes ↔ Eventos',
+        problemas: [
+          { tipo: 'EVENTO_HUERFANO', severidad: 'ERROR', fila: 3, detalle: 'evento sin paciente (ID: E9)' }
+        ] }] };
+    var txt = IA_textoRevision(rep);
+    A.cierto(txt.indexOf('EVENTO_HUERFANO') !== -1, 'tipo listado');
+    A.cierto(txt.indexOf('fila 3') !== -1, 'fila mostrada');
+  });
+  t('IA revisión: texto del reporte indica límite de muestra', function () {
+    var probs = [];
+    for (var i = 0; i < 100; i++) probs.push({ tipo: 'X', severidad: 'WARNING', fila: i, detalle: 'd' });
+    var rep = { fecha: 'f', totalPacientes: 0, totalEventos: 0, totalProblemas: 180,
+      porSeveridad: { ERROR: 0, WARNING: 180, INFO: 0 },
+      categorias: [{ etiqueta: 'C', total: 180, problemas: probs }] };
+    var txt = IA_textoRevision(rep);
+    A.cierto(txt.indexOf('detalle limitado') !== -1, 'aviso de límite incluido');
+  });
+
+  // COHERENCIA: Paciente con id conocido no aparece como SIN_EVENTOS cuando tiene al menos un evento
+  t('IA revisión: paciente con al menos 1 evento no se marca sin eventos', function () {
+    var pac = [
+      PAC_ENC.slice(),
+      ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'],
+      ['P2', '87654321-1', 'LUIS PEREZ', 'VERDE', '2026-03-10']
+    ];
+    var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2026-02-10'] ];
+    var probs = IA_revisarConsistencia(pac, ev);
+    A.cierto(!probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow(HOJAS.PACIENTES); }),
+      'P1 con evento no se marca sin eventos');
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow(HOJAS.PACIENTES) + 1; }),
+      'P2 sí se marca sin eventos');
+  });
+
+  // ESTABILIDAD DEL DESPACHO (mejora #1)
+  t('IA revisión: normalización de nombre de acción para el despacho', function () {
+    A.igual(IA_normalizarNombreAccion('revisar_todo()'), 'revisar_todo', 'con paréntesis');
+    A.igual(IA_normalizarNombreAccion('  corregir_ruts  '), 'corregir_ruts', 'con espacios');
+    A.igual(IA_normalizarNombreAccion('analizar_hoja(PACIENTES)'), 'analizar_hoja', 'con parámetros');
+    A.igual(IA_normalizarNombreAccion(''), '', 'vacío');
+    A.igual(IA_normalizarNombreAccion(null), '', 'null');
+    A.igual(IA_normalizarNombreAccion('revisar_consistencia()'), 'revisar_consistencia', 'nueva acción revisionista');
+  });
+}
+
+function _pruebas_p0_auditoria_v098(t, A) {
+  // P0: ID_EVENTO colisionaba en cada corrida (seqEv siempre arrancaba en 1)
+  t('P0 v0.98: Ev_nuevoId sin secuencia produce IDs random únicos', function () {
+    var ids = {};
+    for (var i = 0; i < 60; i++) {
+      var id = Ev_nuevoId();
+      A.cierto(!ids[id], 'sin colisión en ' + id);
+      ids[id] = true;
+      A.cierto(id.indexOf('EV-') === 0, 'prefijo EV-');
+      A.cierto(!/^EV-\d{4}$/.test(id), 'no es el secuencial viejo (EV-0001...)');
+    }
+  });
+  t('P0 v0.98: Ev_nuevoId con secuencia numérica conserva el modo tests', function () {
+    A.igual(Ev_nuevoId(5), 'EV-0005', 'secuencia 5');
+    A.igual(Ev_nuevoId(421), 'EV-0421', 'secuencia 421');
+  });
+  t('P0 v0.98: procesarFilas sin evSecuenciaInicial → ID_EVENTO random (no reinicia en 1)', function () {
+    var store = { pacientes: [], eventos: [] };
+    Ingresos_procesarFilas([_stagingCaso('nuevoOk', 1)], store, {});
+    A.igual(store.eventos.length, 1, 'evento creado');
+    var id = store.eventos[0].ID_EVENTO;
+    A.cierto(typeof id === 'string' && id.length > 4, 'ID_EVENTO no vacío');
+    A.cierto(!/^EV-\d{4}$/.test(id), 'no colisiona con corridas previas');
+  });
+  t('P0 v0.98: procesarFilas con evSecuenciaInicial → secuencial explícito (modo tests)', function () {
+    var store = { pacientes: [], eventos: [] };
+    Ingresos_procesarFilas([_stagingCaso('nuevoOk', 1)], store, { evSecuenciaInicial: 7 });
+    A.igual(store.eventos[0].ID_EVENTO, 'EV-0007', 'secuencia respetada');
+  });
+  // PII: Aud_anonRut existente se aplica a los logs (regresión)
+  t('P0 v0.98: Aud_anonRut enmascara RUT en logs', function () {
+    A.igual(Aud_anonRut('12345678-5'), '**.***.**78-5', 'RUT normalizado');
+    A.igual(Aud_anonRut('12.345.678-5'), '**.***.**78-5', 'RUT con puntos');
+    A.igual(Aud_anonRut('11111111-1'), '**.***.**11-1', 'DV explícito');
+    A.igual(Aud_anonRut(''), '', 'vacío');
+  });
+  // Access control: guards deniegan sin sesión y habilitan con sesión
+  t('P0 v0.98: guards de sesión deniegan acceso sin usuario activo', function () {
+    A.cierto(WebApp_usuarioActivo() !== '', 'con sesión (mock) hay usuario');
+    var original = globalThis.Session;
+    try {
+      globalThis.Session = undefined;
+      A.igual(WebApp_usuarioActivo(), '', 'sin sesión → vacío');
+      A.igual(JSON.stringify(api_buscar('EXISTE')), '[]', 'api_buscar sin sesión → []');
+      A.igual(api_ficha('X').ok, false, 'api_ficha sin sesión → denegado');
+      A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar sin sesión → denegado');
+      A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado');
+      A.igual(Form_capturarDesdeUI({}).ok, false, 'Form_capturarDesdeUI sin sesión → denegado');
+    } finally {
+      globalThis.Session = original;
+    }
   });
 }

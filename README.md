@@ -189,6 +189,7 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 | `MODELO-DATOS.md` · `MODELO-EVENTOS.md` | Modelo PACIENTES y EVENTOS |
 | `docs/CONTRATO_CAPTURA_V2.md` | Contrato de captura V2 — **NORMATIVO** |
 | `docs/INFORME_IA_GEMINI.md` | Integración de IA generativa (Gemini) — vigente |
+| `docs/INFORME_V097.md` | Fase v0.97: auditoría rendimiento/IA/frontend y cierres |
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
 | `docs/MIGRACIONES.md` | Motor de migraciones de esquema |
 | `docs/VERSIONADO.md` | Versionado del esquema |

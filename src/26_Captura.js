@@ -1052,13 +1052,14 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     }
 
     // Procesar SOLO la fila del envío actual (acotación §13 nunca re-procesa backlog).
+    // Gate §22/DEC-024-025: POSIBLE_DUPLICADO solo se auto-crea cuando el humano
+    // lo confirma explícitamente (confirmarNuevoPaciente=true); sin confirmar → REVISION.
     var soloFilas = {};
     soloFilas[hojaEntrega] = [String(filaFisica)];
     var proc = Ingresos_procesarTodasLasHojas({
       soloHojas: [hojaEntrega],
       soloFilas: soloFilas,
-      confirmarNuevos: true,
-      confirmarNuevoPaciente: norm.confirmarNuevoPaciente === true
+      confirmarNuevos: norm.confirmarNuevoPaciente === true
     });
     if (proc && proc.error) return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: Utl_texto(proc.error) };
 

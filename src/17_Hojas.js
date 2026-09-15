@@ -89,7 +89,35 @@ function Hojas_formulaIndicador(tipo) {
   }
 }
 
-/** GAS: INICIO v5 — lienzo azul EXTENDIDO con márgenes de seguridad.
+/** PURA: fórmula de la alerta dinámica de INICIO. Solo lista incidencias con
+ *  conteo > 0 (REGEXREPLACE elimina el separador final). Derivada del contrato. */
+function Hojas_formulaAlerta() {
+  var p = Hojas_rangoPaciente;
+  var nRev = 'COUNTIF(PACIENTES!' + p('REQUIERE_REVISION') + ';TRUE)';
+  var nRut = 'COUNTIF(PACIENTES!' + p('RUT_DV_VALIDO') + ';FALSE)';
+  var nCtr = 'COUNTIF(PACIENTES!' + p('PROXIMO_CONTROL') + ';"<"&TODAY())';
+  return '=IF(' + nRev + '+' + nRut + '+' + nCtr + '>0;' +
+    '"\u26a0 ATENCI\u00d3N REQUERIDA\n" & REGEXREPLACE(' +
+    'IF(' + nRev + '>0;' + nRev + '&" por revisar \u00b7 ";"") & ' +
+    'IF(' + nRut + '>0;' + nRut + '&" RUT inv\u00e1lidos \u00b7 ";"") & ' +
+    'IF(' + nCtr + '>0;' + nCtr + '&" controles vencidos \u00b7 ";"")' +
+    ';"\u00b7 $";"");' +
+    '"\u2713 TODO EN ORDEN\nNo existen incidencias pendientes")';
+}
+
+/** PURA: fórmula de ingresos del mes (FECHA_INGRESO dentro del mes actual). */
+function Hojas_formulaIngresosMes() {
+  var p = Hojas_rangoPaciente('FECHA_INGRESO');
+  return '=COUNTIFS(PACIENTES!' + p + ';">="&EOMONTH(TODAY();-1)+1;PACIENTES!' + p + ';"<"&EOMONTH(TODAY();0)+1)';
+}
+
+/** PURA: fórmula de pacientes sin próximo control agendado (vacío o NSP). */
+function Hojas_formulaSinControl() {
+  var p = Hojas_rangoPaciente('PROXIMO_CONTROL');
+  return '=COUNTIF(PACIENTES!' + p + ';"")+COUNTIF(PACIENTES!' + p + ';"NSP")';
+}
+
+/** GAS: INICIO v6 — lienzo COMPACTO con márgenes reducidos.
  *  Orden garantizado: medir → expandir filas → expandir columnas → pintar.
  *  Nunca opera sobre rangos inexistentes (#sin errores de límites). */
 function Hojas_crearInicio(ss) {
@@ -99,11 +127,11 @@ function Hojas_crearInicio(ss) {
   /* PASO 1-2: medir */
   var maxF = h.getMaxRows(), maxC = h.getMaxColumns();
 
-  /* PASO 2-3: dimensiones del lienzo (contenido + márgenes generosos) */
-  var FILA_FIN = 90;   // lienzo vertical: contenido hasta ~48 + margen azul 49..90
-  var COL_FIN = 40;    // lienzo horizontal: contenido + margen azul amplio (pantallas 21")
-  var FILA_CONT = 48;  // última fila de contenido
-  var COL_CONT = 20;   // última columna de contenido
+  /* PASO 2-3: dimensiones del lienzo COMPACTO (contenido + márgenes ajustados) */
+  var FILA_FIN = 55;   // lienzo vertical: contenido hasta ~53 + margen azul 54..55
+  var COL_FIN = 32;    // lienzo horizontal: contenido + banda azul reducida
+  var FILA_CONT = 53;  // última fila de contenido (fin tabla ESTADO + aire)
+  var COL_CONT = 24;   // última columna de contenido
 
   /* PASO 3-4: expandir ANTES de pintar */
   if (maxF < FILA_FIN) h.insertRowsAfter(maxF, FILA_FIN - maxF);
@@ -124,12 +152,14 @@ function Hojas_crearInicio(ss) {
   h.getRange(1, 1, FILA_FIN, COL_FIN).setBackground(AZUL);
 
   /* márgenes de seguridad: última col/fila del lienzo anchas y azules */
-  h.setColumnWidth(1, 140);           // margen azul izquierdo
-  h.setColumnWidth(2, 40);            // col 2: azul entre margen y ventana
-  h.setColumnWidth(COL_FIN, 400);     // margen azul derecho panorámico
+  h.setColumnWidth(1, 100);           // margen azul izquierdo reducido
+  h.setColumnWidth(2, 30);            // col 2: azul entre margen y ventana
+  h.setColumnWidth(COL_CONT + 1, 120); // aire ligero a la derecha de la ventana
+  h.setColumnWidth(COL_FIN, 120);     // margen azul derecho
   h.setRowHeight(1, 24);              // margen azul superior
   h.setRowHeight(FILA_FIN, 160);      // margen azul inferior amplio
-  for (var cm = 2; cm < COL_FIN; cm++) h.setColumnWidth(cm, 58);
+  for (var cm = 3; cm <= COL_CONT; cm++) h.setColumnWidth(cm, 54);
+  for (var cm = COL_CONT + 2; cm < COL_FIN; cm++) h.setColumnWidth(cm, 30);
 
   /* PASO 7: VENTANA central clara (cols 3..20, filas 3..44) */
   h.getRange(3, 3, FILA_CONT - 2, COL_CONT - 2).setBackground(VENTANA);
@@ -140,7 +170,7 @@ function Hojas_crearInicio(ss) {
   h.getRange(3, 3, 1, COL_CONT - 2).setBackground(AZUL_BAR);
   h.getRange(3, 4).setValue('\u25cf \u25cf \u25cf   ECICEP')
    .setFontWeight('bold').setFontSize(11).setFontColor(BLANCO);
-  h.getRange(3, 13, 1, 7).merge()
+  h.getRange(3, 13, 1, COL_CONT - 12).merge()
    .setValue('\u2713 Operativo   \u00b7   v' + ECICEP.VERSION + '   \u00b7   Build ' +
      (ECICEP_BUILD.commit || 'dev'))
    .setFontSize(10).setFontColor(M.agua).setHorizontalAlignment('right');
@@ -150,7 +180,7 @@ function Hojas_crearInicio(ss) {
   h.getRange(5, 4, 2, 6).merge().setValue('ECICEP')
    .setFontWeight('bold').setFontSize(30).setFontColor(PRIM).setFontFamily('Sora')
    .setVerticalAlignment('middle');
-  h.getRange(5, 12, 2, 8).merge()
+  h.getRange(5, 12, 2, COL_CONT - 11).merge()
    .setValue('Sistema de Gesti\u00f3n de Pacientes Cr\u00f3nicos por Sectores\nCESFAM San Juan')
    .setFontSize(11).setFontColor(GRIS).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
    .setHorizontalAlignment('right').setVerticalAlignment('middle');
@@ -160,10 +190,10 @@ function Hojas_crearInicio(ss) {
   h.getRange(8, 4).setValue('M\u00d3DULOS DEL SISTEMA').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
   var principales = [
-    { hoja:'PACIENTES',       icono:'\ud83d\udc65', nombre:'PERSONAS',        desc:'Buscar · Ficha · Seguimiento' },
+    { hoja:'PACIENTES',       icono:'\ud83d\udc65', nombre:'PERSONAS',        desc:'Base consolidada' },
     { hoja:'INGRESO_NARANJO', icono:'\ud83d\udce5', nombre:'INGRESOS',        desc:'Nuevos registros' },
-    { hoja:'CONFLICTOS',      icono:'\ud83d\udccb', nombre:'REVISI\u00d3N',   desc:'Requieren atenci\u00f3n' },
-    { hoja:'REM_SALIDA',      icono:'\ud83d\udcca', nombre:'REPORTES',        desc:'REM mensual \u00b7 men\u00fa \u2192 \ud83d\udcca' }
+    { hoja:'CONFLICTOS',      icono:'\ud83d\udccb', nombre:'REVISI\u00d3N',   desc:'Casos por confirmar' },
+    { hoja:'REM_SALIDA',      icono:'\ud83d\udcca', nombre:'REPORTES',        desc:'REM mensual' }
   ];
   principales.forEach(function (mod, ix) {
     var c0 = 4 + ix * 4;
@@ -187,37 +217,27 @@ function Hojas_crearInicio(ss) {
     h.setRowHeights(9, 3, 22);
   });
 
-  /* ===== MÓDULOS SECUNDARIOS (4 botones suaves) ===== */
+  /* ===== MÓDULOS SECUNDARIOS (4 botones funcionales: sectores + diagnóstico) ===== */
   var secundarios = [
-    { hoja:'SECTOR_NARANJO', icono:'\ud83d\udfe7', nombre:'SECTORES',   desc:'Naranjo \u00b7 Amarillo · Verde' },
-    { hoja:'FUENTES',        icono:'\ud83d\uddc2\ufe0f', nombre:'FUENTES', desc:'Informaci\u00f3n y sync' },
-    { hoja:'LOG',            icono:'\ud83e\uddea', nombre:'DIAGN\u00d3STICO', desc:'Centro de Pruebas · LOG' },
-    { info:true,             icono:'\u2699\ufe0f', nombre:'CONFIGURACI\u00d3N', desc:'Men\u00fa \u2192 \u2699 Configuraci\u00f3n \u00b7 Estratificaci\u00f3n \u00b7 Responsables' }
+    { hoja:'SECTOR_NARANJO',  nombre:'NARANJO' },
+    { hoja:'SECTOR_AMARILLO', nombre:'AMARILLO' },
+    { hoja:'SECTOR_VERDE',    nombre:'VERDE' },
+    { hoja:'LOG',             nombre:'DIAGN\u00d3STICO' }
   ];
   secundarios.forEach(function (mod, ix) {
     var c0 = 4 + ix * 4;
     var rng = h.getRange(13, c0, 3, 4).merge();
-    if (mod.info) {
-      // Bloque informativo: CONFIG se administra desde el menú (hoja oculta).
-      rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
+    var destino = ss.getSheetByName(mod.hoja);
+    if (!destino) {
+      rng.setValue(mod.nombre)
        .setFontWeight('bold').setFontSize(11).setFontColor(GRIS)
        .setBackground(BLANCO).setHorizontalAlignment('center')
-       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+       .setVerticalAlignment('middle');
     } else {
-      var destino = ss.getSheetByName(mod.hoja);
-      if (!destino) {
-        // Defensa: hoja aún no creada en este contrato → bloque informativo.
-        rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
-         .setFontWeight('bold').setFontSize(11).setFontColor(GRIS)
-         .setBackground(BLANCO).setHorizontalAlignment('center')
-         .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-      } else {
-        rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() +
-          '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-         .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
-         .setBackground(BLANCO).setHorizontalAlignment('center')
-         .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-      }
+      rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() + '";"' + mod.nombre + '")')
+       .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
+       .setBackground(BLANCO).setHorizontalAlignment('center')
+       .setVerticalAlignment('middle');
     }
     rng.setBorder(true, true, true, true, null, null, BORDE,
       SpreadsheetApp.BorderStyle.SOLID);
@@ -254,12 +274,8 @@ function Hojas_crearInicio(ss) {
   /* ===== ALERTA DINÁMICA (tarjeta con color condicional) ===== */
   h.getRange(25, 4).setValue('ALERTAS').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
-  var rA = h.getRange(26, 4, 2, 16).merge();
-  rA.setFormula('=IF(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('REQUIERE_REVISION') + ';TRUE)+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT_DV_VALIDO') + ';FALSE)>0;' +
-    '"\u26a0 ATENCI\u00d3N REQUERIDA\n" & COUNTIF(PACIENTES!' + Hojas_rangoPaciente('REQUIERE_REVISION') + ';TRUE) & ' +
-    '" pacientes por revisar \u00b7 " & COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT_DV_VALIDO') + ';FALSE) & ' +
-    '" RUT inv\u00e1lidos   \u2014   abrir Cola de Revisi\u00f3n \u2192";' +
-    '"\u2713 TODO EN ORDEN\nNo existen incidencias pendientes")')
+  var rA = h.getRange(26, 4, 2, COL_CONT - 3).merge();
+  rA.setFormula(Hojas_formulaAlerta())
    .setFontWeight('bold').setFontSize(12).setVerticalAlignment('middle')
    .setBackground(BLANCO)
    .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
@@ -284,19 +300,19 @@ function Hojas_crearInicio(ss) {
     { nombre:'VERDE',    color: IDENTIDAD.VERDE }
   ];
   sectores.forEach(function (s2, ix) {
-    var c0 = 4 + ix * 5 + (ix === 2 ? 1 : 0);
-    h.getRange(30, c0, 1, 4).merge().setValue('\u25cf ' + s2.nombre)
+    var c0 = 4 + ix * 6 + (ix === 2 ? 1 : 0);
+    h.getRange(30, c0, 1, 6).merge().setValue('\u25cf ' + s2.nombre)
      .setFontWeight('bold').setFontSize(10).setFontColor(s2.color).setBackground(BLANCO)
      .setHorizontalAlignment('center');
-    var rng = h.getRange(31, c0, 1, 4).merge()
+    var rng = h.getRange(31, c0, 1, 6).merge()
      .setFormula('=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('SECTOR') + ';"' + s2.nombre + '")&" pacientes"')
      .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    h.getRange(32, c0, 1, 4).merge()
+    h.getRange(32, c0, 1, 6).merge()
      .setFormula('=TEXT(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('SECTOR') + ';"' + s2.nombre + '")/MAX(COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ');1);"0%")&" del total"')
      .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
      .setHorizontalAlignment('center');
-    h.getRange(30, c0, 3, 4).setBorder(true, true, true, true, null, null,
+    h.getRange(30, c0, 3, 6).setBorder(true, true, true, true, null, null,
       s2.color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
     h.setRowHeight(30, 16); h.setRowHeight(31, 24); h.setRowHeight(32, 14);
   });
@@ -310,19 +326,19 @@ function Hojas_crearInicio(ss) {
     { nombre:'G3', color: DESIGN_SYSTEM.MARCA.sistemaProfundo, desc:'Alto'}
   ];
   estrates.forEach(function (g, ix) {
-    var c0 = 4 + ix * 5 + (ix === 2 ? 1 : 0);
-    h.getRange(35, c0, 1, 4).merge().setValue('\u25cf ' + g.nombre)
+    var c0 = 4 + ix * 6 + (ix === 2 ? 1 : 0);
+    h.getRange(35, c0, 1, 6).merge().setValue('\u25cf ' + g.nombre)
      .setFontWeight('bold').setFontSize(10).setFontColor(BLANCO).setBackground(g.color)
      .setHorizontalAlignment('center');
-    var r = h.getRange(36, c0, 1, 4).merge()
+    var r = h.getRange(36, c0, 1, 6).merge()
      .setFormula('=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")&" pacientes"')
      .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    h.getRange(37, c0, 1, 4).merge()
+    h.getRange(37, c0, 1, 6).merge()
      .setFormula('=TEXT(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")/MAX(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G1")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G2")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G3");1);"0%")&" · ' + g.desc + '"')
      .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
      .setHorizontalAlignment('center');
-    h.getRange(35, c0, 3, 4).setBorder(true, true, true, true, null, null,
+    h.getRange(35, c0, 3, 6).setBorder(true, true, true, true, null, null,
       g.color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
     h.setRowHeight(35, 16); h.setRowHeight(36, 24); h.setRowHeight(37, 14);
   });
@@ -330,7 +346,7 @@ function Hojas_crearInicio(ss) {
   /* ===== ESTADO DEL SISTEMA (tarjeta) ===== */
   h.getRange(39, 4).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
    .setFontSize(10).setFontColor(MUTED);
-  h.getRange(40, 4, 1, 16).merge().setValue('\u2713 SISTEMA OPERATIVO')
+  h.getRange(40, 4, 1, COL_CONT - 3).merge().setValue('\u2713 SISTEMA OPERATIVO')
    .setFontWeight('bold').setFontSize(13).setFontColor(OK).setBackground(BLANCO)
    .setHorizontalAlignment('center');
   var info = [
@@ -341,17 +357,21 @@ function Hojas_crearInicio(ss) {
       '=IF(COUNT(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ')=0;"\u2014";TEXT(MAX(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ');"dd/mm/yyyy hh:mm"))'],
     ['\u00daltima sincronización de fuentes',
       '=IFERROR(TEXT(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"dd/mm/yyyy hh:mm");"\u2014")'],
+    ['Ingresos del mes', Hojas_formulaIngresosMes()],
     ['Controles VENCIDOS',
       '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';"<"&TODAY())'],
     ['Controles por vencer (\u226430 d\u00edas)',
       '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY())-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY()+30)'],
+    ['Controles para HOY',
+      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';TODAY())'],
     ['Controles \u00faltimos 30 d\u00edas',
-      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY()-30)-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY())']
+      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY()-30)-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY())'],
+    ['Sin pr\u00f3ximo control agendado', Hojas_formulaSinControl()]
   ];
   info.forEach(function (par, ix) {
     h.getRange(41 + ix, 4, 1, 4).merge().setValue(par[0])
      .setFontColor(GRIS).setFontSize(10.5).setBackground(BLANCO);
-    h.getRange(41 + ix, 8, 1, 12).merge().setValue(par[1])
+    h.getRange(41 + ix, 8, 1, COL_CONT - 7).merge().setValue(par[1])
      .setFontWeight('bold').setFontSize(10.5).setFontColor(TXT).setBackground(BLANCO);
     h.setRowHeight(41 + ix, 16);
   });
@@ -371,7 +391,12 @@ function Hojas_crearInicio(ss) {
              String(h.getRange(5, 4).getBackground()).toLowerCase() === BLANCO.toLowerCase(),
     modulos: h.getRange(9, 4).getFormula().indexOf('HYPERLINK') !== -1,
     kpi: h.getRange(19, 4).getFormula().indexOf('COUNTA') !== -1,
-    estrat: h.getRange(36, 4).getFormula().indexOf('COUNTIF') !== -1
+    estrat: h.getRange(36, 4).getFormula().indexOf('COUNTIF') !== -1,
+    alerta: h.getRange(26, 4).getFormula().indexOf('REGEXREPLACE') !== -1,
+    sectores: h.getRange(31, 4).getFormula().indexOf('PACIENTES!' + Hojas_rangoPaciente('SECTOR')) !== -1,
+    infoIngresos: h.getRange(46, 8).getFormula().indexOf('EOMONTH') !== -1,
+    infoHoy: h.getRange(49, 8).getFormula().indexOf('TODAY()') !== -1,
+    infoSinControl: h.getRange(51, 8).getFormula().indexOf('COUNTIF') !== -1
   };
   var fallos = Object.keys(ver).filter(function (k) { return !ver[k]; });
   if (fallos.length) {
@@ -1018,6 +1043,7 @@ function Backup_quitarProgramacion() {
  *  UNA lectura de CONFIG para `BACKUP_AUTO_ULTIMA` y `BACKUP_MANTENER`
  *  (antes eran dos lecturas completas de la misma hoja). */
 function api_backupListar() {
+  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
   var st = Backup_listar();
   var trigger = Backup_triggerInstalado();
   var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
@@ -1037,12 +1063,14 @@ function api_backupListar() {
 
 /** Endpoint: crear backup manual. */
 function api_backupCrear(etiqueta) {
+  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
   return Backup_crear(etiqueta || 'MANUAL');
 }
 
 /** Endpoint: toggle automático (activar/desactivar). */
 function api_backupToggle() {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     if (Backup_triggerInstalado()) {
       Backup_quitarProgramacion();
       return { ok: true, mensaje: 'Backup automático desactivado' };
@@ -1060,6 +1088,7 @@ function api_backupToggle() {
 /** Endpoint: programar backup con día y hora específicos. */
 function api_backupProgramar(dia, hora) {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     Backup_programar(dia, hora);
     return { ok: true, mensaje: 'Backup programado: ' + dia + ' ' + hora + ':00' };
   } catch (e) {
@@ -1069,6 +1098,7 @@ function api_backupProgramar(dia, hora) {
 
 /** Endpoint: leer configuración actual de programación. */
 function api_backupConfigLeer() {
+  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
   return {
     ok: true,
     dia: _rem9_configValor('BACKUP_DIA') || 'DOMINGO',
@@ -1079,12 +1109,14 @@ function api_backupConfigLeer() {
 
 /** Endpoint: podar backups automáticos viejos. */
 function api_backupPodar() {
+  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
   return Backup_podar();
 }
 
 /** Endpoint: URL de la carpeta de backups. */
 function api_backupFolder() {
   try {
+    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
     var folder = _backup_folder();
     return { ok: true, url: folder.getUrl(), id: folder.getId() };
   } catch (e) {

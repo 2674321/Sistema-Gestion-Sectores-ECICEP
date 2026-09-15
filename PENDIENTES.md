@@ -149,3 +149,28 @@ convertirse en regla normativa. Ningún campo se asimila en silencio.
 - **E2E real**: no medible en esta ejecución (sin login Google). Pendiente explícito
   de verificación en vivo antes del commit/push/despliegue.
 - **Referencias**: `docs/INFORME_AUDITORIA_S9.md`, `ARQUITECTURA.md`, `README.md`.
+
+## 11. Fase v0.97 — Auditoría rendimiento/IA/frontend (cierres)
+
+Informe completo: `docs/INFORME_V097.md`. Batería final **831/831 + HTML 18/18**
+(núcleo 560, contrato datos 38, backend V2 68, payload V2 19, cola 33, aceptación 50,
+formulario web 27, contrato V2 OK).
+
+- **REM generador**: `RemGenerador.html:208` (`sectorSel` no definido) + failureHandlers
+  en `UI_abrirDashboard`/`UI_verRem` — cierre de runtime.
+- **IA Gemini (`src/28_IA.js`)**: lecturas/correctores alineados al layout visual de
+  PACIENTES (helper `IA_leerBloque` + `Modelo_dataStartRow`/`filaFisica`, escrituras en
+  bloque); normalizadores delegados en el pipeline (`IA_parsearFecha` solo VALIDA,
+  `IA_normalizarTelefono` canónico con `/`, `IA_corregirSexo` sin inventar OTRO).
+- **Frontend**: escapes XSS en `Controles.html` (`estadoMsg`), `Sidebar.html`
+  (MODO/ID_INICIAL), `IAPanel.html` (chat/log con `textContent`); `_errSilencioso`
+  compartido en `00_Tokens.html`.
+- **Captura V2**: gate real de `confirmarNuevoPaciente` en `Captura_v2_entregarIngreso`
+  (DEC-024/025) — POSIBLE_DUPLICADO → REVISION salvo confirmación explícita.
+- **P2 rendimiento**: borrados `deleteRow`→bloque (`06_Modelo` INGRESO_*/Recuperar,
+  `16_Amarillo` dedup), append cola en bloque (`18_Calidad`), trailer/anexos en bloque
+  (`24_Formulario`), índices de identificación incrementales `Iden_indicesAgregar`
+  (O(n²)→O(1) en lotes de altas; `04_Identificacion` + `12_Ingresos`).
+- **No tocados (documentado)**: `Form_buscarFilaIngresoPorMarca` (ya 1 lectura por hoja),
+  `Captura_v2_buscarRegistro` (escaneo intencional §13), `Control_estadoVigencia`
+  (lectura CONFIG solo sin `avisoDias` inyectado).

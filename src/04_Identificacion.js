@@ -35,6 +35,31 @@ function Iden_construirIndices(pacientes) {
 }
 
 /**
+ * Incremental: agrega UN paciente a unos índices ya construidos (misma
+ * semántica que Iden_construirIndices: última entrada gana por clave RUT,
+ * arrays por cuerpo/nombre). Evita reconstruir el índice completo por cada
+ * paciente creado dentro de un lote (O(n) de costo por inserción en vez de
+ * O(total)).
+ */
+function Iden_indicesAgregar(indices, p) {
+  indices = indices || { porRut: {}, porCuerpo: {}, porNombre: {} };
+  if (!p) return indices;
+  var rut = Utl_texto(p.RUT).toUpperCase().replace(/\s+/g, '');
+  if (rut) indices.porRut[rut] = p;
+  var cuerpo = rut.split('-')[0];
+  if (/^\d{6,9}$/.test(cuerpo)) {
+    if (!indices.porCuerpo[cuerpo]) indices.porCuerpo[cuerpo] = [];
+    indices.porCuerpo[cuerpo].push(p);
+  }
+  var clave = Norm_claveNombre(p.NOMBRE);
+  if (clave) {
+    if (!indices.porNombre[clave]) indices.porNombre[clave] = [];
+    indices.porNombre[clave].push(p);
+  }
+  return indices;
+}
+
+/**
  * Determina si el registro normalizado corresponde a un paciente existente.
  * @param {Object} n NORMALIZADO de una fila de staging
  * @param {Object} indices resultado de Iden_construirIndices

@@ -689,7 +689,7 @@ const SECTORES = {
 // ---------------------------------------------------------------------------
 const FUENTES_DRIVE = {
   'SEGUIMIENTO ECICEP Sector Amarillo': {
-    id: '1iAVwLW2JXf-hYKwZVWZvhGzbX6z21WAzCCWHUef8Zto',
+    id: '1_HUFzoPzg-g4tQLBK04XLohCpdgiYOGpt5hLfRbA8mc',
     sector: 'AMARILLO',
     hojas: ['INGRESOS ECICEP']
   },
@@ -699,24 +699,28 @@ const FUENTES_DRIVE = {
     hojas: ['LISTADO 2025', 'Ingresos 2025 - 2026', 'Ingresos Enero ', 'Ingreso Febrero']
   },
   'PCTS. ECICEP DESDE 2023': {
-    id: '1T9a8Z85iIvjZU1mq2wbGPTgrJo48e-CdkP95p5d0lSE',
+    id: '1kVH5gFWv8KN4mcdmRQo6hOv9ibdA8di2g8icMdCTjz8',
     sector: 'VERDE',
-    hojas: ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS', 'GESTOR DE CASO', 'CONTROLES PENDIENTES', 'INASISTENTES A INGRESOS'],
+    hojas: ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS', 'GESTOR DE CASO', 'INASISTENTES A INGRESOS', 'SACADOS DE PLANILLA'],
     excluir: ['NO LLENAR'] // duplicado histórico (DEC-009)
   }
 };
 
 // Hojas autorizadas para la primera carga real controlada (ETAPA 5)
-// Las excluidas (LISTADO 2025, INASISTENTES, GESTOR DE CASO) NO se procesan.
+// Las excluidas (LISTADO 2025, INASISTENTES, GESTOR DE CASO, SACADOS DE
+// PLANILLA) NO se procesan. CONTROLES PENDIENTES se retiró de la fuentes
+// desde la actualización sep-2026 (la hoja ya no existe en el xlsx).
 var HOJAS_AUTORIZADAS_CARGA = {
   'ECICEP NARANJO': ['Ingresos Enero ', 'Ingreso Febrero', 'Ingresos 2025 - 2026'],
-  'PCTS. ECICEP DESDE 2023': ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS', 'CONTROLES PENDIENTES']
+  'PCTS. ECICEP DESDE 2023': ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS']
 };
 
 const FUENTES_EXCLUIDAS = [
   { fuente: 'LISTADO 2025', motivo: 'RUTs sin DV — requieren tratamiento específico', condicion: 'Completar DVs o resolver vía cola de revisión' },
   { fuente: 'INASISTENTES A INGRESOS', motivo: 'Sin encabezados compatibles', condicion: 'Definir estructura o mapeo manual' },
-  { fuente: 'GESTOR DE CASO', motivo: 'Flujo diferente al ingreso estándar ECICEP', condicion: 'Analizar modelo de eventos para gestión de casos' }
+  { fuente: 'GESTOR DE CASO', motivo: 'Flujo diferente al ingreso estándar ECICEP', condicion: 'Analizar modelo de eventos para gestión de casos' },
+  { fuente: 'CONTROLES PENDIENTES', motivo: 'Hoja retirada de la fuente (sep-2026); controles suspendidos se gestionan en la operación diaria', condicion: 'Sin carga automática' },
+  { fuente: 'SACADOS DE PLANILLA', motivo: 'Registros retirados/aclarados, no son ingresos vigentes', condicion: 'Revisión manual si se requiere' }
 ];
 
 const TIPOS_EVENTO = {
