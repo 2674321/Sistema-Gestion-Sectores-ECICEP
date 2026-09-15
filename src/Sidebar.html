@@ -4,6 +4,7 @@
 <base target="_top">
 <? var MODO = (modo === 'pacientes' || modo === 'revision' || modo === 'ficha') ? modo : 'centro'; ?>
 <script>var MODO = <?!= JSON.stringify(MODO).replace(/</g,'\\u003c') ?>; /* modo visible para el JS del cliente */</script>
+<script>var TOKEN_INVITACION = <?!= JSON.stringify(TOKEN_INVITACION||'').replace(/</g,'\\u003c') ?>; /* token universal de invitacion */</script>
 <? var ID_INICIAL = (typeof ID_INICIAL !== 'undefined') ? ID_INICIAL : ''; ?>
 <script>var ID_INICIAL = <?!= JSON.stringify(ID_INICIAL).replace(/</g,'\\u003c') ?>; /* ficha directa (modo 'ficha') */</script>
 <?!= include('00_Tokens') ?>
@@ -380,7 +381,7 @@ function buscarAhora(){
         '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
     }).join('');
     _refrescarIconos();
-  }).api_buscar(t);
+  }).api_buscar(t, TOKEN_INVITACION);
 }
 var buscar=_debounce(buscarAhora,220);
 
@@ -437,7 +438,7 @@ function abrirFicha(id){
     if(!res.ok){toast((res.code||'ERROR')+': '+res.message,'err');return;}
     pintarFicha(res.ficha);
   }).withFailureHandler(function(err){toast('Error del servidor: '+(err&&err.message||err),'err');
-  }).api_ficha(id);
+  }).api_ficha(id, TOKEN_INVITACION);
 }
 
 function pintarFicha(f){

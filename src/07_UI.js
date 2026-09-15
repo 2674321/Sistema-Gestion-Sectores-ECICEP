@@ -388,6 +388,7 @@ function _ui_sidebar(modo, titulo, idInicial) {
   t.modo = modo;
   t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  t.TOKEN_INVITACION = WebApp_tokenInvitacion();
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
 
@@ -1097,8 +1098,8 @@ function api_remVista(anio, mes, sector, modo, actividad) {
 }
 
 /** Endpoint sidebar: búsqueda por RUT exacto o nombre (no agresiva). */
-function api_buscar(termino) {
-  if (!WebApp_usuarioActivo()) return [];
+function api_buscar(termino, token) {
+  if (!WebApp_autorizarBuscador(token)) return [];
   return Bus_buscarPacientes(
     Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTADO', 'ESTRATIFICACION']),
     termino, 25).map(function (p) {
@@ -1110,9 +1111,9 @@ function api_buscar(termino) {
 /** Endpoint sidebar: ficha consolidada + historial desde EVENTOS.
  *  Contrato: NUNCA retorna null/undefined. Siempre retorna {ok:true|false,...}
  */
-function api_ficha(idInterno) {
+function api_ficha(idInterno, token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'Sesión de usuario no detectada o invitación no válida; acceso denegado' };
     var pacientes = Modelo_leerPacientesCampos(_FICHA_CAMPOS_OPERATIVOS);
     var paciente = null;
     var idNormalizado = Utl_texto(idInterno).trim();
