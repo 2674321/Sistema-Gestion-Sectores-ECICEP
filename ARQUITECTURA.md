@@ -93,7 +93,7 @@ Las pruebas de integración con Spreadsheet real son manuales/documentadas (men�
 
 ## Entorno operativo
 
-El sistema funciona como **un único entorno operativo**: un proyecto Apps Script, un Spreadsheet, una Web App, un backend y un pipeline.
+El sistema funciona como **un único entorno operativo**: un proyecto Apps Script, un Spreadsheet y una Web App. **No existe backend, proveedor de datos, servicio de datos, API de datos propia ni base de datos operativa separada: el sistema ES el frontend** — la Web App (Apps Script) se comunica directamente con las hojas de cálculo operativas mediante un único pipeline.
 
 Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Script son mecanismos técnicos de publicación. No representan DEV/DEMO/PROD como arquitectura.
 
