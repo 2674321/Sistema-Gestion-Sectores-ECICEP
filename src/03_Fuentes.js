@@ -414,9 +414,17 @@ function Fuentes_cargaReal(opciones) {
         if (noVacios <= 3 && sect_re.test(primerValor)) continue;
 
         var v = {};
+        // Copia ADITIVA de campos: primero los 9 operativos canónicos (los que el
+        //  contrato SIEMPRE leyó) y luego CUALQUIER otro campo con sinónimo confirmado
+        //  que el mapa conozca y cuyo encabezado esté mapeado en la fuente real. Así un
+        //  campo como SEGUIMIENTO/PROXIMO_CONTROL/PROFESIONAL_SEGUIMIENTO presente en
+        //  la hoja NUNCA se descarta por no estar en la lista corta (causa raíz F1/F3).
         CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
           if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
         });
+        for (var ck in mapa.campos) {
+          if (v[ck] === undefined && mapa.campos[ck] !== undefined) v[ck] = filaVal[mapa.campos[ck]];
+        }
         // RUT sin encabezado (LISTADO Naranjo pattern)
         if (Utl_vacio(v.RUT)) {
           for (var ci = 0; ci < Math.min(filaVal.length, 3); ci++) {
@@ -508,7 +516,15 @@ function Fuentes_cargaReal(opciones) {
   var filasConflicto = [];
   staging.forEach(function (f) {
     var r = f.RESULTADO_IDENTIFICACION;
+    // idempotente y ADITIVO: además de los estados de identificación, encola
+    // cualquier fila cuyo EVENTO haya fallado por FECHA_EVENTO_AUSENTE (hoy quedaba
+    // en staging como ERROR pero NUNCA llegaba a la cola de revisión → el dato quedaba
+    // invisible para el operador pese a existir en la fuente). Solo lectura de staging;
+    // no modifica filas.
+    var ev = f.RESULTADO_EVENTO || f.EVENTO_RESULTADO;
     if (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION')) {
+      filasConflicto.push(Rev_filaConflicto(f));
+    } else if (ev && (ev.motivo === 'FECHA_EVENTO_AUSENTE' || (ev.estado === 'ERROR' && /FECHA.*AUSENTE|SIN_FECHA/.test(String(ev.motivo||''))))) {
       filasConflicto.push(Rev_filaConflicto(f));
     }
   });
