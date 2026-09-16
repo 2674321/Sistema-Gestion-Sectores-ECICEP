@@ -39,8 +39,6 @@ function ECICEP_autorizar() {
 
   paso('Triggers (crear/borrar)', function () {
     ScriptApp.newTrigger('ECICEP_noop').timeBased().after(60 * 1000).create();
-    /* deleteTrigger directo sobre el objeto recién creado lanza un quirk de
-       GAS; localizarlo vía getProjectTriggers (referencia fresca) sí funciona */
     var borrado = false;
     ScriptApp.getProjectTriggers().forEach(function (t) {
       if (t.getHandlerFunction() === 'ECICEP_noop') {
@@ -53,6 +51,29 @@ function ECICEP_autorizar() {
   paso('URL Fetch', function () {
     UrlFetchApp.fetch('https://www.googleapis.com/discovery/v1/apis',
       { muteHttpExceptions: true });
+  });
+
+  paso('Propiedades (script)', function () {
+    var p = PropertiesService.getScriptProperties();
+    p.setProperty('ECICEP_TEST', 'ok');
+    p.deleteProperty('ECICEP_TEST');
+  });
+
+  paso('Caché (script)', function () {
+    var c = CacheService.getScriptCache();
+    c.put('ECICEP_TEST', 'ok', 1);
+    c.get('ECICEP_TEST');
+    c.remove('ECICEP_TEST');
+  });
+
+  paso('Lock (bloqueo)', function () {
+    var lock = LockService.getScriptLock();
+    lock.tryLock(1000);
+    lock.releaseLock();
+  });
+
+  paso('HTML (servir templates)', function () {
+    HtmlService.createTemplate('ok').evaluate().getTitle();
   });
 
   paso('Zona horaria del proyecto', function () {

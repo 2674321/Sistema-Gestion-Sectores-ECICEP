@@ -619,6 +619,63 @@ function Ingresos_sincronizarCache(paciente, evento, freqConfig) {
   return paciente;
 }
 
+/**
+ * Sincroniza ESTRATIFICACION desde hojas INGRESO_* hacia PACIENTES.
+ * Solo actualiza pacientes existentes que tengan ESTRATIFICACION vacía.
+ * No crea pacientes ni eventos — es una operación ligera para INSTALAR.
+ * @returns {{ actualizados: number, hojas: number }}
+ */
+function Ingresos_sincronizarEstratificacion() {
+  var ss = Modelo_ss();
+  var hojaPacientes = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hojaPacientes) return { actualizados: 0, hojas: 0 };
+
+  // 1) Leer pacientes actuales
+  var pacientes = Modelo_leerPacientes();
+  if (!pacientes.length) return { actualizados: 0, hojas: 0 };
+
+  // 2) Indexar por RUT normalizado
+  var porRut = {};
+  pacientes.forEach(function (p, i) {
+    var rut = Utl_texto(p.RUT).toUpperCase().trim();
+    if (rut) porRut[rut] = i;
+  });
+
+  // 3) Leer ESTRATIFICACION de cada hoja INGRESO_*
+  var estratFuente = {};
+  var hojasProcesadas = 0;
+  Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
+    var resultado = Ingresos_leerHoja(nombreHoja);
+    hojasProcesadas++;
+    resultado.staging.forEach(function (f) {
+      var rut = Utl_texto(f.NORMALIZADO && f.NORMALIZADO.RUT).toUpperCase().trim();
+      var estrat = Utl_texto(f.NORMALIZADO && f.NORMALIZADO.ESTRATIFICACION);
+      if (rut && estrat && !estratFuente[rut]) {
+        estratFuente[rut] = estrat;
+      }
+    });
+  });
+
+  // 4) Actualizar pacientes con ESTRATIFICACION vacía
+  var actualizados = 0;
+  Object.keys(estratFuente).forEach(function (rut) {
+    var idx = porRut[rut];
+    if (idx === undefined) return;
+    var p = pacientes[idx];
+    if (Utl_texto(p.ESTRATIFICACION)) return; // ya tiene valor
+    p.ESTRATIFICACION = estratFuente[rut];
+    p.ESTRAT_ORIGEN = estratFuente[rut];
+    p.FECHA_ACTUALIZACION = new Date();
+    var fila = Modelo_filaDesdeObjeto(p);
+    var rowFisica = Modelo_dataStartRow(HOJAS.PACIENTES) + idx;
+    hojaPacientes.getRange(rowFisica, 1, 1, MODELO_PACIENTE.length).setValues([fila]);
+    actualizados++;
+  });
+
+  if (actualizados) Modelo_invalidarLecturas();
+  return { actualizados: actualizados, hojas: hojasProcesadas };
+}
+
 /** Semilla ficticia → nombres de hoja destino según sector del origen. */
 function Ingresos_hojaParaSector(sectorCanonica) {
   for (var hoja in HOJAS_INGRESO) {

@@ -356,13 +356,26 @@ function Instalar_pEstructura() {
 function Instalar_pFuentes() {
   var pend = Fuentes_pendientes();
   var ya = _rem9_configValor('CARGA_REAL_HECHA');
-  if (!pend.length) return { ok: true, linea: 'sin fuentes pendientes' };
-  if (ya) return { ok: true, omitida: true,
-    linea: 'ya importadas el ' + ya + ' (Herramientas → Cargar para re-importar)' };
-  var r = Fuentes_cargaReal({ ejecutar: true });
-  _config_set('CARGA_REAL_HECHA', Utilities.formatDate(new Date(),
-    Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
-  return { ok: true, importado: pend, detalle: r };
+  var resultado = { ok: true };
+  if (!pend.length) {
+    resultado.linea = 'sin fuentes pendientes';
+  } else if (ya) {
+    resultado.omitida = true;
+    resultado.linea = 'ya importadas el ' + ya + ' (Herramientas → Cargar para re-importar)';
+  } else {
+    var r = Fuentes_cargaReal({ ejecutar: true });
+    _config_set('CARGA_REAL_HECHA', Utilities.formatDate(new Date(),
+      Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
+    resultado.importado = pend;
+    resultado.detalle = r;
+  }
+  // Siempre sincronizar ESTRATIFICACION desde hojas INGRESO_* internas
+  try {
+    resultado.sincEstrat = Ingresos_sincronizarEstratificacion();
+  } catch (e) {
+    resultado.sincEstrat = { error: e && e.message ? e.message : String(e) };
+  }
+  return resultado;
 }
 function Instalar_pAmarillo() {
   var cfg = FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'];
