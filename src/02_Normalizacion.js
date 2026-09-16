@@ -570,13 +570,17 @@ function Estrat_recalcularTodos() {
     var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
     var anterior = Utl_texto(p.ESTRATIFICACION);
-    p.ESTRATIFICACION = nuevoValor;
-    p.ESTRAT_ORIGEN = String(anterior || '');
+    // Solo sobrescribir si el motor produce un resultado calculado.
+    // Si no (SIN_DATOS/NO_CALCULABLE), conservar el valor vigente (fuente o manual).
+    if (nuevoValor) {
+      p.ESTRATIFICACION = nuevoValor;
+      p.ESTRAT_ORIGEN = String(anterior || '');
+    }
     p.ESTRAT_CALCULADA = String(res.resultado || '');
     p.ESTRAT_FECHA_CALCULO = new Date();
     p.FECHA_ACTUALIZACION = new Date();
     filas.push(Modelo_filaDesdeObjeto(p));
-    if (nuevoValor !== anterior) recalculados++;
+    if (nuevoValor && nuevoValor !== anterior) recalculados++;
   });
   if (filas.length) {
     hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
