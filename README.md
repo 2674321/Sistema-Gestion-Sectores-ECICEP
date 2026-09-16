@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.3` · pruebas núcleo **557/557** · deploy `/exec` vigente |
+| **Estado** | Operativo · `v0.9.6` · pruebas núcleo **606/606** · deploy `/exec` vigente |
 
 ## Qué resuelve
 
@@ -169,6 +169,10 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | Calidad, auditoría, backups | ✅ Implementados |
 | IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
 | E2E real | ✅ Verificado en libro operativo |
+
+**Batería de pruebas (v0.9.6):** núcleo **606/606** + contrato de datos 38/38 +
+cola 33/33 + payload V2 19/19 + backend V2 68/68 + formulario web 27/27 + contrato
+V2 36/36 + aceptación 50/50 (**894/894**) + `validar_html` 17/17.
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción
 explícita (migración controlada: análisis → validación → simulación → reporte →

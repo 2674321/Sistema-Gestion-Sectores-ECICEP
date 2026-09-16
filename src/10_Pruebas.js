@@ -82,6 +82,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_enriquecimiento_s11(t, A);
   _pruebas_auditoria_s11r(t, A);
   _pruebas_separacion_s12(t, A);
+  _pruebas_actualizacion_v096(t, A);
   _pruebas_s10fix_esquema(t, A);
   _pruebas_inst1_versionado(t, A);
   _pruebas_inicio_formulas(t, A);
@@ -2828,7 +2829,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.3', 'versión esperada v0.9.3');
+    A.igual(v, '0.9.6', 'versión esperada v0.9.6');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3069,9 +3070,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.3', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.6', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.3', 'versión esperada v0.9.3');
+    A.igual(v, '0.9.6', 'versión esperada v0.9.6');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -4648,7 +4649,7 @@ function _pruebas_auditoria_s11r(t, A) {
     A.cierto(vista !== -1, 'EDAD aparece solo como columna derivada en SECTOR_*');
   });
 
-  t('S11R-2: (S12) "Actualizar" ya se comporta como vistas/derivados; "Instalar / reparar" conserva el panel completo', function () {
+  t('S11R-2: (S6) "Actualizar" delega en la cadena de mantenimiento; "Instalar / reparar" conserva el panel completo', function () {
     var act = UI_actualizarSistema.toString();
     var inst = UI_instalarSistema.toString();
     A.cierto(inst.indexOf("createTemplateFromFile('Instalador')") !== -1,
@@ -4659,13 +4660,24 @@ function _pruebas_auditoria_s11r(t, A) {
     A.cierto(act.indexOf('Instalar_diagnosticar') === -1,
       'Actualizar ya no diagnostica fases estructurales');
     A.cierto(act.indexOf('UI_actualizarTodo(') !== -1,
-      'Actualizar delega en UI_actualizarTodo (vistas/derivados)');
-    ['Act_enriquecerPacientes', 'act_enriquecer', 'Fuentes_cargaReal', 'api_instalarPaso'].forEach(function (f) {
-      A.cierto(act.indexOf(f) === -1, 'Actualizar no ejecuta ' + f);
-    });
+      'Actualizar delega en UI_actualizarTodo');
+    A.cierto(act.indexOf('api_instalarPaso') === -1,
+      'Actualizar no ejecuta la secuencia del instalador');
+    var todo = UI_actualizarTodo.toString();
+    A.cierto(todo.indexOf('Act_actualizarSistema(') !== -1,
+      'UI_actualizarTodo delega en la cadena única Act_actualizarSistema (sin duplicar lógica)');
+    var cadena = Act_actualizarSistema.toString();
+    A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes') !== -1,
+      'la cadena repara estructura (columna faltante, idempotente)');
+    A.cierto(cadena.indexOf('Fuentes_cargaReal') !== -1,
+      'la cadena importa registros nuevos + actualiza existentes desde las fuentes');
+    A.cierto(cadena.indexOf('Act_enriquecerPacientes') !== -1,
+      'la cadena aplica enriquecimiento demográfico');
+    A.cierto(cadena.indexOf('api_instalarPaso') === -1 && cadena.indexOf('Instalar_') === -1,
+      'la cadena no toca el instalador');
   });
 
-  t('S11R-3: el enriquecimiento corre SOLO como etapa del instalador (sin entrada suelta por botón)', function () {
+  t('S11R-3: el enriquecimiento usa una sola implementación compartida (etapa instalador + Actualizar)', function () {
     var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
     A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
     A.igual(enr[0].fn, 'Instalar_pEnriquecimiento', 'única función de la etapa');
@@ -4675,7 +4687,9 @@ function _pruebas_auditoria_s11r(t, A) {
     A.igual(etapasConEnriquecimiento.length, 1, 'ninguna otra etapa ejecuta enriquecimiento');
     var p = Instalar_pEnriquecimiento.toString();
     A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
-      'la etapa es la puerta de entrada al barrido por ambas rutas de menú');
+      'la etapa reutiliza Act_enriquecerPacientes (sin copia)');
+    A.cierto(Act_actualizarSistema.toString().indexOf('Act_enriquecerPacientes') !== -1,
+      'Actualizar reutiliza la misma implementación');
   });
 }
 
@@ -4685,39 +4699,42 @@ function _pruebas_auditoria_s11r(t, A) {
 // ---------------------------------------------------------------------------
 
 function _pruebas_separacion_s12(t, A) {
-  t('S12 U1: Actualizar no importa fuentes', function () {
+  t('S12 U1: Actualizar mantiene la separación Instalar vs mantenimiento (importa fuentes, sin instalador)', function () {
     var act = UI_actualizarSistema.toString();
-    var todo = UI_actualizarTodo.toString();
-    ['Fuentes_', 'Fuentes_cargaReal', 'Amarillo_', 'Instalar_', 'api_instalarPaso'].forEach(function (f) {
+    ['Amarillo_', 'Instalar_', 'api_instalarPaso'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar (delegación) no referencia ' + f);
-      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
     });
+    var cadena = Act_actualizarSistema.toString();
+    A.cierto(cadena.indexOf('Fuentes_') !== -1, 'la cadena importa fuentes (S6/DEC-064)');
+    A.cierto(cadena.indexOf('Instalar_') === -1 && cadena.indexOf('api_instalarPaso') === -1,
+      'la cadena no ejecuta el instalador');
   });
 
-  t('S12 U2·U3: Actualizar no crea pacientes ni eventos', function () {
+  t('S12 U2·U3: Actualizar no crea pacientes/eventos ni estructura directamente (lo gestiona la cadena)', function () {
     var act = UI_actualizarSistema.toString();
     var todo = UI_actualizarTodo.toString();
-    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura'].forEach(function (f) {
+    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura', 'EVENTOS'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no ' + f);
       A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no ' + f);
     });
-    A.cierto(todo.indexOf('EVENTOS') === -1 && todo.indexOf('Eventos') === -1,
-      'UI_actualizarTodo no crea ni referencia eventos');
-    A.cierto(act.indexOf('EVENTOS') === -1, 'Actualizar no referencia EVENTOS');
+    var cadena = Act_actualizarSistema.toString();
+    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura'].forEach(function (f) {
+      A.cierto(cadena.indexOf(f) === -1, 'la cadena no ejecuta ' + f + ' (lo hacen sus funciones)');
+    });
   });
 
   t('S12 U4: Actualizar recalcula derivados (estratificación + controles)', function () {
-    var todo = UI_actualizarTodo.toString();
-    A.cierto(todo.indexOf('Estrat_recalcularTodos') !== -1, 'recalcula estratificación');
-    A.cierto(todo.indexOf('Control_recalcularTodos') !== -1, 'recalcula próximos controles');
+    var cadena = Act_actualizarSistema.toString();
+    A.cierto(cadena.indexOf('Estrat_recalcularTodos') !== -1, 'recalcula estratificación');
+    A.cierto(cadena.indexOf('Control_recalcularTodos') !== -1, 'recalcula próximos controles');
     var act = UI_actualizarSistema.toString();
     A.cierto(act.indexOf('UI_actualizarTodo(') !== -1, 'Actualizar delega la lógica (sin duplicar)');
   });
 
   t('S12 U5: Actualizar refresca vistas y formato derivado', function () {
-    var todo = UI_actualizarTodo.toString();
+    var cadena = Act_actualizarSistema.toString();
     ['Modelo_refrescarVistasSectores', 'HVis_formatearIngresos', 'Hojas_formatoCondicional'].forEach(function (f) {
-      A.cierto(todo.indexOf(f) !== -1, 'refresca/deriva con ' + f);
+      A.cierto(cadena.indexOf(f) !== -1, 'refresca/deriva con ' + f);
     });
   });
 
@@ -4739,6 +4756,172 @@ function _pruebas_separacion_s12(t, A) {
     ['captureId', 'FORM_RESPUESTAS', 'Form_respuestas', 'api_webappCapturar'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
       A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S6 — Actualización de datos desde fuentes (merge conservador, v0.9.6).
+// Puras (Act_mergearPaciente / Act_mergearPacientesDesdeStaging) + contrato
+// de campos (CAMPOS_MERGE_FUENTE) + introspección de la cadena.
+// ---------------------------------------------------------------------------
+function _pruebas_actualizacion_v096(t, A) {
+  function pac(extra) {
+    var p = { ID_INTERNO: 'EC-X-1', RUT: '15987654-3', NOMBRE: 'ANA TEST',
+      SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '', TELEFONO_OBS: '', SECTOR: 'AMARILLO',
+      ESTRATIFICACION: '', ESTADO: 'PENDIENTE', DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '',
+      PREINGRESO: '', FECHA_INGRESO: '2026-01-10', ULTIMO_SEGUIMIENTO: '', ULTIMO_CONTROL: '',
+      PROXIMO_CONTROL: '', COMPOSICION_CONTROL: '', OBSERVACIONES: '', CONDICIONES: '',
+      NOMBRE_NORMALIZADO: '', RUT_DV_VALIDO: true, RUT_SIN_DV: false, ESTRAT_ORIGEN: '',
+      ESTRAT_CALCULADA: '', ESTRAT_FECHA_CALCULO: '', FUENTE: 'V|H|1',
+      FECHA_ACTUALIZACION: null, REQUIERE_REVISION: false };
+    if (extra) Object.keys(extra).forEach(function (k) { p[k] = extra[k]; });
+    return p;
+  }
+  function n(extra) {
+    var base = { RUT: '15987654-3', NOMBRE: 'ANA TEST', SEXO: '', FECHA_NACIMIENTO: '',
+      TELEFONOS: '', SECTOR: 'AMARILLO', ESTRATIFICACION: '', ESTADO: '',
+      DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', PREINGRESO: '', FECHA_INGRESO: '',
+      ULTIMO_SEGUIMIENTO: '', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '', OBSERVACIONES: '' };
+    if (extra) Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    return base;
+  }
+  function fila(norm, extra) {
+    var f = { ARCHIVO_ORIGEN: 'FUENTE A', HOJA_ORIGEN: 'HOJA 1', FILA_ORIGEN: '10',
+      ESTADO_VALIDACION: 'OK', NORMALIZADO: norm };
+    if (extra) Object.keys(extra).forEach(function (k) { f[k] = extra[k]; });
+    return f;
+  }
+
+  t('S6 A1: SEXO/FECHA_NACIMIENTO solo se completan con valor canónico válido (fill-only, nunca inferir)', function () {
+    var p = pac();
+    var r = Act_mergearPaciente(p, n({ SEXO: 'MASCULINO', FECHA_NACIMIENTO: '1990-05-10' }));
+    A.igual(p.SEXO, 'M', 'sinónimo MASCULINO → canónico M');
+    A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha completada');
+    A.igual(r.aplicados.length, 2, '2 campos aplicados');
+    A.igual(r.conflictos.length, 0, 'sin conflictos');
+    // el normalizador ya descartó el valor irreconocible → llega vacío → no se inventa
+    var p2 = pac();
+    var r2 = Act_mergearPaciente(p2, n({ SEXO: '', FECHA_NACIMIENTO: '' }));
+    A.igual(r2.aplicados.length, 0, 'fuente sin dato: nada aplicado');
+    A.igual(p2.SEXO, '', 'SEXO permanece vacío');
+    A.igual(Norm_normalizarSexo('X'), '', 'valor irreconocible → vacío por normalización');
+  });
+
+  t('S6 A2: una fuente vacía/inválida NUNCA destruye un dato vigente', function () {
+    var p = pac({ SEXO: 'M', FECHA_NACIMIENTO: '1990-05-10', ULTIMO_CONTROL: '2026-04-01',
+      PROXIMO_CONTROL: '2026-07-05', TELEFONOS: '912345678', PREINGRESO: 'NO_APLICA' });
+    var r = Act_mergearPaciente(p, n({ SEXO: '', FECHA_NACIMIENTO: '', ULTIMO_CONTROL: '',
+      PROXIMO_CONTROL: '', TELEFONOS: '', PREINGRESO: '' }));
+    A.igual(r.aplicados.length, 0, 'sin cambios');
+    A.igual(p.SEXO, 'M', 'SEXO conservado');
+    A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha conservada');
+    A.igual(p.ULTIMO_CONTROL, '2026-04-01', 'control conservado');
+    A.igual(p.PROXIMO_CONTROL, '2026-07-05', 'próximo conservado');
+    A.igual(p.TELEFONOS, '912345678', 'teléfono conservado');
+  });
+
+  t('S6 A3: ULTIMO_CONTROL/ULTIMO_SEGUIMIENTO conservan la fecha MÁS RECIENTE (nunca retroceden)', function () {
+    var p = pac({ ULTIMO_CONTROL: '2026-04-01', ULTIMO_SEGUIMIENTO: '2026-03-01' });
+    Act_mergearPaciente(p, n({ ULTIMO_CONTROL: '2026-06-10', ULTIMO_SEGUIMIENTO: '2026-01-01' }));
+    A.igual(p.ULTIMO_CONTROL, '2026-06-10', 'control avanza a la fecha más reciente');
+    A.igual(p.ULTIMO_SEGUIMIENTO, '2026-03-01', 'seguimiento NO retrocede');
+    var p2 = pac({ ULTIMO_CONTROL: '' });
+    Act_mergearPaciente(p2, n({ ULTIMO_CONTROL: '' }));
+    A.igual(p2.ULTIMO_CONTROL, '', 'punto de estado vacío sigue vacío');
+  });
+
+  t('S6 A4: divergencia demográfica (SEXO/FECHA_NACIMIENTO) → REQUIERE_REVISION sin sobrescribir', function () {
+    var p = pac({ SEXO: 'M', FECHA_NACIMIENTO: '1980-01-01' });
+    var r = Act_mergearPaciente(p, n({ SEXO: 'F', FECHA_NACIMIENTO: '1979-05-05' }));
+    A.igual(r.aplicados.length, 0, 'NUNCA sobrescribe el vigente');
+    A.igual(r.conflictos.length, 2, 'marca conflicto en ambos demográficos');
+    A.igual(p.SEXO, 'M', 'SEXO vigente intacto');
+    A.igual(p.FECHA_NACIMIENTO, '1980-01-01', 'fecha vigente intacta');
+  });
+
+  t('S6 A5: el merge por RUT cubre los campos de contexto (fill-only) y respeta protegidos', function () {
+    var p1 = pac();
+    var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
+    var fila1 = fila(n({ PROXIMO_CONTROL: '2026-07-01', PROFESIONAL_SEGUIMIENTO: 'DRA. ROJAS',
+      PREINGRESO: '2026-02-01', DUPLA_INGRESO: 'MEDICO+ENF', TELEFONOS: '933211445',
+      OBSERVACIONES: 'CONTROLA G3', NOMBRE: 'CAROLINA OTRA', SECTOR: 'VERDE',
+      ESTADO: 'INGRESADO', ESTRATIFICACION: 'G3', FECHA_INGRESO: '2025-01-01' }));
+    var filaError = fila(n({ SEXO: 'M' }), { ESTADO_VALIDACION: 'ERROR' });
+    var res = Act_mergearPacientesDesdeStaging([fila1, filaError], [p1, p2]);
+    A.igual(res.revisados, 1, 'solo la fila válida con match cuenta como revisada');
+    A.igual(res.sinCambios, 0, 'ninguna sin cambios');
+    A.igual(res.conflictos, 0, 'sin conflictos');
+    A.igual(res.actualizados, 1, '1 paciente actualizado');
+    A.igual(res.campos, 6, '6 campos aplicados (PROXIMO, PROFESIONAL, PREINGRESO, DUPLA, TELEFONOS, OBSERVACIONES)');
+    A.igual(p1.PROXIMO_CONTROL, '2026-07-01', 'próximo control completado');
+    A.igual(p1.PROFESIONAL_SEGUIMIENTO, 'DRA. ROJAS', 'profesional completado');
+    A.igual(p1.PREINGRESO, '2026-02-01', 'preingreso completado');
+    A.igual(p1.DUPLA_INGRESO, 'MEDICO+ENF', 'dupla completada');
+    A.igual(p1.TELEFONOS, '933211445', 'teléfono completado');
+    A.igual(p1.OBSERVACIONES, 'CONTROLA G3', 'observaciones completadas');
+    // campos protegidos jamás se escriben desde la fuente
+    A.igual(p1.NOMBRE, 'ANA TEST', 'NOMBRE intacto');
+    A.igual(p1.SECTOR, 'AMARILLO', 'SECTOR intacto');
+    A.igual(p1.ESTADO, 'PENDIENTE', 'ESTADO intacto');
+    A.igual(p1.ESTRATIFICACION, '', 'ESTRATIFICACION intacta');
+    A.igual(p1.FECHA_INGRESO, '2026-01-10', 'FECHA_INGRESO intacta');
+  });
+
+  t('S6 A6: idempotencia — segunda ejecución con la misma fuente no cambia nada', function () {
+    var p1 = pac();
+    var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
+    var fila1 = fila(n({ PROXIMO_CONTROL: '2026-07-01', SEXO: 'M' }));
+    var r1 = Act_mergearPacientesDesdeStaging([fila1], [p1, p2]);
+    A.igual(r1.actualizados, 1, '1ª corrida: actualiza');
+    A.igual(r1.campos, 2, '2 campos (PROXIMO + SEXO)');
+    var r2 = Act_mergearPacientesDesdeStaging([fila1], [p1, p2]);
+    A.igual(r2.actualizados, 0, '2ª corrida: sin cambios');
+    A.igual(r2.sinCambios, 1, 'cuenta como SIN CAMBIOS');
+    A.igual(r2.campos, 0, '0 campos nuevos');
+    A.igual(p1.SEXO, 'M', 'SEXO conservado en ambas corridas');
+  });
+
+  t('S6 A7: trazabilidad — FUENTE append sin duplicar + FECHA_ACTUALIZACION + REQUIERE_REVISION', function () {
+    var p = pac({ SEXO: 'M' }); // SEXO divergente vs fuente F → conflicto (puro, sin campos aplicados)
+    var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
+    var fila1 = fila(n({ SEXO: 'F' })); // match con p: SEXO conflictivo
+    var fila2 = fila(n({ RUT: '98765432-1', PROXIMO_CONTROL: '2026-07-01' }), {
+      ARCHIVO_ORIGEN: 'FUENTE B', HOJA_ORIGEN: 'HOJA 2', FILA_ORIGEN: '20' }); // match con p2
+    var res = Act_mergearPacientesDesdeStaging([fila1, fila2], [p, p2]);
+    A.igual(res.revisados, 2, '2 filas revisadas');
+    A.igual(res.conflictos, 1, 'conflicto en SEXO de p');
+    A.igual(res.actualizados, 1, 'p2 actualizado');
+    A.igual(res.campos, 1, '1 campo aplicado (PROXIMO_CONTROL en p2)');
+    A.igual(p.REQUIERE_REVISION, true, 'divergencia → REQUIERE_REVISION');
+    A.cierto(String(p.FUENTE).indexOf('FUENTE A|HOJA 1|10') !== -1, 'FUENTE anexa el origen del conflicto');
+    A.igual(String(p.FUENTE).split(';').filter(function (s) { return s === 'FUENTE A|HOJA 1|10'; }).length, 1,
+      'FUENTE no duplica segmentos');
+    A.igual(p.FECHA_ACTUALIZACION, null, 'conflicto puro sin aplicación no estampa fecha');
+    A.cierto(p2.FECHA_ACTUALIZACION !== null, 'aplicación estampa FECHA_ACTUALIZACION');
+  });
+
+  t('S6 A8: contrato de campos del merge (CAMPOS_MERGE_FUENTE)', function () {
+    var campos = Act_camposMerge();
+    A.arreglos(campos, CAMPOS_MERGE_FUENTE, 'campos exactos');
+    ['NOMBRE', 'RUT', 'SECTOR', 'ESTADO', 'ESTRATIFICACION', 'FECHA_INGRESO', 'ID_INTERNO',
+     'EDAD', 'TIPO_EVENTO'].forEach(function (c) {
+      A.cierto(campos.indexOf(c) === -1, c + ' nunca se mergea desde la fuente');
+    });
+  });
+
+  t('S6 A9: la cadena ACTUALIZAR es el mecanismo único de mantenimiento (estructura + datos + derivados + formato)', function () {
+    var cadena = Act_actualizarSistema.toString();
+    ['Modelo_asegurarEsquemaPacientes', 'Modelo_alinearVistasSectoriales', 'Fuentes_cargaReal',
+     'Act_enriquecerPacientes', 'Estrat_recalcularTodos', 'Control_recalcularTodos',
+     'Modelo_refrescarVistasSectores', 'HVis_formatearIngresos', 'Hojas_formatoCondicional']
+      .forEach(function (f) {
+        A.cierto(cadena.indexOf(f) !== -1, 'cadena integra ' + f);
+      });
+    var resumen = Act_actualizarSistema.toString();
+    ['fuentesRevisadas', 'nuevos', 'actualizados', 'conflictos', 'camposActualizados',
+     'enriquecidos'].forEach(function (k) {
+      A.cierto(resumen.indexOf(k) !== -1, 'reporta ' + k);
     });
   });
 }
@@ -4861,13 +5044,15 @@ function _pruebas_s10fix_esquema(t, A) {
     A.igual(nueva[10], '', 'FECHA INGRESO vacía (ausente en fila)');
   });
 
-  t('T12: Actualizar ejecuta la migración S10-FIX como paso EXPLÍCITO (no instalador)', function () {
-    var todo = UI_actualizarTodo.toString();
-    A.cierto(todo.indexOf('Modelo_alinearVistasSectoriales()') !== -1, 'migración explícita en Actualizar');
-    A.cierto(todo.indexOf('Modelo_crearEstructura') === -1, 'Actualizar no repara estructura');
-    A.cierto(todo.indexOf('appendRow') === -1 && todo.indexOf('insertRow') === -1, 'sin append/insert');
+  t('T12: Actualizar repara estructura y ejecuta la migración S10-FIX como paso EXPLÍCITO (no instalador)', function () {
+    var cadena = Act_actualizarSistema.toString();
+    A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales()') !== -1, 'migración explícita en Actualizar');
+    A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes') !== -1,
+      'repara columnas faltantes de forma idempotente');
+    A.cierto(cadena.indexOf('Modelo_crearEstructura') === -1, 'Actualizar no crea estructura desde cero');
+    A.cierto(cadena.indexOf('appendRow') === -1 && cadena.indexOf('insertRow') === -1, 'sin append/insert directos');
     ['captureId', 'FORM_RESPUESTAS', 'api_webappCapturar'].forEach(function (f) {
-      A.cierto(todo.indexOf(f) === -1, 'Actualizar no referencia ' + f);
+      A.cierto(cadena.indexOf(f) === -1, 'Actualizar no referencia ' + f);
     });
   });
 
@@ -4878,8 +5063,8 @@ function _pruebas_s10fix_esquema(t, A) {
     A.cierto(fn.indexOf('Modelo_reordenarFilaVista') !== -1, 'mapea por nombre');
     A.cierto(fn.indexOf('Modelo_headerRow') !== -1, 'usa headerRow del contrato');
     A.cierto(fn.indexOf('appendRow') === -1 && fn.indexOf('insertRow') === -1, 'sin append/insert');
-    var todo = UI_actualizarTodo.toString();
-    A.cierto(todo.indexOf('Modelo_alinearVistasSectoriales') !== -1, 'UI_actualizarTodo la invoca');
+    var cadena = Act_actualizarSistema.toString();
+    A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales') !== -1, 'la cadena la invoca');
   });
 }
 

@@ -283,3 +283,248 @@ function Act_diagnosticarEnriquecimiento() {
     }
   };
 }
+
+// ---------------------------------------------------------------------------
+// ACTUALIZACIÓN de datos desde fuentes (FASE S6, v0.9.6 — DEC-064)
+// "Actualizar" deja de limitarse a recalcular derivados y pasa a ser el
+// mecanismo de MANTENIMIENTO del sistema: estructura + datos (nuevos y
+// existentes) + formato + derivados + trazabilidad. Un dato vigente no se
+// sobrescribe jamás y nada se infiere (SEXO sigue M|F|OTRO|vacío; vacío =
+// sin información).
+//
+// REGLAS DEL MERGE (conservador, idempotente):
+//   1. fuente vacía/inválida NUNCA destruye un dato existente;
+//   2. campos de estado-fecha (ULTIMO_CONTROL/ULTIMO_SEGUIMIENTO): se conserva
+//      la fecha MÁS RECIENTE válida;
+//   3. campos demográficos (SEXO/FECHA_NACIMIENTO): fill-only; si la fuente
+//      diverge de un valor vigente → REQUIERE_REVISION, sin sobrescribir;
+//   4. campos de contexto (PROXIMO_CONTROL, PROFESIONAL_SEGUIMIENTO, PREINGRESO,
+//      DUPLA_INGRESO, TELEFONOS, OBSERVACIONES): fill-only;
+//   5. IDENTIDAD, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION y campos técnicos
+//      jamás se escriben desde una fuente (derivados/revisión humana);
+//   6. trazabilidad: append a FUENTE + FECHA_ACTUALIZACION.
+// ---------------------------------------------------------------------------
+
+var CAMPOS_MERGE_FUENTE = [
+  'SEXO', 'FECHA_NACIMIENTO',
+  'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO',
+  'PROXIMO_CONTROL', 'PROFESIONAL_SEGUIMIENTO',
+  'PREINGRESO', 'DUPLA_INGRESO', 'TELEFONOS', 'OBSERVACIONES'
+];
+
+function Act_camposMerge() {
+  return CAMPOS_MERGE_FUENTE.slice();
+}
+
+var _CAMPOS_MERGE_FECHA_MAX = ['ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO'];
+
+/**
+ * PURA: aplica el merge conservador de UNA fila normalizada sobre UN paciente.
+ * Si `paciente.FUENTE`/`FECHA_ACTUALIZACION` deben estamparse, lo hace el
+ * orquestador (mantiene PII y trazabilidad en un solo lugar).
+ * @param {Object} paciente objeto PACIENTES (mutable)
+ * @param {Object} n fila.NORMALIZADO (valores canónicos de la fuente)
+ * @returns {aplicados:[{campo, valor}], conflictos:[{campo}]}
+ */
+function Act_mergearPaciente(paciente, n) {
+  var aplicados = [], conflictos = [];
+  if (!paciente || !n) return { aplicados: aplicados, conflictos: conflictos };
+
+  // 2) fechas de estado: se conserva la MÁS RECIENTE válida (nunca borra)
+  _CAMPOS_MERGE_FECHA_MAX.forEach(function (campo) {
+    var actual = Utl_texto(paciente[campo]);
+    var can = Utl_texto(n[campo]);
+    if (!can) return; // fuente sin dato: no aporta ni destruye
+    if (can > actual) {
+      paciente[campo] = can;
+      aplicados.push({ campo: campo, valor: can });
+    }
+  });
+
+  // 3) demografía: fill-only; divergencia → conflicto (conserva el vigente)
+  ['SEXO', 'FECHA_NACIMIENTO'].forEach(function (campo) {
+    var actual = Utl_texto(paciente[campo]);
+    var can = Utl_texto(n[campo]);
+    if (campo === 'SEXO') can = Norm_normalizarSexo(can); // defensivo: canónicos, sin falsos conflictos
+    if (!can) return; // vacío o inválido en la fuente: no se inventa
+    if (Utl_texto(actual) === '') {
+      paciente[campo] = can;
+      aplicados.push({ campo: campo, valor: can });
+    } else if (actual !== can) {
+      conflictos.push({ campo: campo });
+    }
+  });
+
+  // 4) contexto: fill-only (jamás sobrescribe)
+  CAMPOS_MERGE_FUENTE.forEach(function (campo) {
+    if (campo === 'SEXO' || campo === 'FECHA_NACIMIENTO') return;
+    if (_CAMPOS_MERGE_FECHA_MAX.indexOf(campo) !== -1) return;
+    var actual = Utl_texto(paciente[campo]);
+    var can = Utl_texto(n[campo]);
+    if (!can) return;
+    if (actual === '') {
+      paciente[campo] = can;
+      aplicados.push({ campo: campo, valor: can });
+    }
+  });
+
+  return { aplicados: aplicados, conflictos: conflictos };
+}
+
+/**
+ * PURA: aplica el merge sobre TODAS las filas de staging contra los pacientes
+ * existentes (match por RUT canónico exacto, misma clave que S5). Solo filas
+ * validas (no ERROR) y no se tocan pacientes nuevos ni filas sin RUT.
+ * Registro: el `resultado` vuelve con revisados/actualizados/sinCambios/
+ * conflictos/campos y detalle mínimo (ID + campos), sin PII.
+ * @param {Array} staging filas normalizadas (Fuentes_leerStagingAutorizado)
+ * @param {Array} pacientes objetos PACIENTES (se mutan los tocados)
+ * @returns {revisados, actualizados, sinCambios, conflictos, campos, detalle}
+ */
+function Act_mergearPacientesDesdeStaging(staging, pacientes) {
+  var reporte = {
+    revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: []
+  };
+  var porRut = {};
+  (pacientes || []).forEach(function (p) {
+    var k = Utl_texto(p.RUT).toUpperCase();
+    if (k) porRut[k] = p;
+  });
+  (staging || []).forEach(function (fila) {
+    if (!fila || !fila.NORMALIZADO || !fila.NORMALIZADO.RUT) return;
+    if (fila.ESTADO_VALIDACION === 'ERROR') return; // inválidas jamás alimentan
+    var n = fila.NORMALIZADO;
+    var paciente = porRut[Utl_texto(n.RUT).toUpperCase()];
+    if (!paciente) return;
+    reporte.revisados++;
+    var fuente = Fuentes_fuenteOrigen(fila);
+    var res = Act_mergearPaciente(paciente, n);
+    if (res.aplicados.length) {
+      reporte.actualizados++;
+      reporte.campos += res.aplicados.length;
+      reporte.detalle.push({
+        id: Utl_texto(paciente.ID_INTERNO),
+        campos: res.aplicados.map(function (a) { return a.campo; })
+      });
+    }
+    if (res.conflictos.length) {
+      reporte.conflictos++;
+      reporte.detalle.push({
+        id: Utl_texto(paciente.ID_INTERNO),
+        conflictos: res.conflictos.map(function (c) { return c.campo + ':FUENTES_DIVERGENTES'; })
+      });
+    }
+    if (res.aplicados.length || res.conflictos.length) {
+      paciente.FUENTE = Act_appendFuente(paciente.FUENTE, [fuente]);
+      if (res.aplicados.length) paciente.FECHA_ACTUALIZACION = new Date();
+      if (res.conflictos.length && paciente.REQUIERE_REVISION !== true) paciente.REQUIERE_REVISION = true;
+    } else {
+      reporte.sinCambios++;
+    }
+  });
+  return reporte;
+}
+
+/** PURA: resumen breve para el toast del menú Actualizar. */
+function Act_resumenActualizacionTexto(reporte) {
+  var r = reporte || {};
+  var fu = r.fuentes || {};
+  var res = fu.resumen || {};
+  var m = res.merge || {};
+  var partes = [];
+  if (res.nuevos) partes.push('nuevos ' + res.nuevos);
+  if (m.actualizados) partes.push('actualizados ' + m.actualizados);
+  var enr = r.enriquecimiento || {};
+  if (enr.enriquecidos) partes.push('demografía ' + enr.enriquecidos);
+  if (m.conflictos) partes.push('revisión ' + m.conflictos);
+  return partes.length ? partes.join(' · ') : 'sin cambios';
+}
+
+/**
+ * GAS: ACTUALIZAR sistema — mecanismo de mantenimiento completo (v0.9.6).
+ * Cadena única, con una sola implementación compartida (sin duplicar lógica):
+ *  1. ESTRUCTURA: reparación idempotente (el instalador CREA; aquí se repara);
+ *  2. DATOS: fuentes autorizadas → nuevos registros + actualización de existentes;
+ *  3. DEMOGRAFÍA: enriquecimiento S5 (SEXO/FECHA_NACIMIENTO desde INGRESO_*);
+ *  4. DERIVADOS: estratificación + próximos controles;
+ *  5. VISTAS + FORMATO.
+ * ✓ Nunca sobrescribe un dato válido · nunca infiere · nunca crea estructura
+ * desde el instalador (separación S12) · idempotente.
+ * @param {Object} opciones {ejecutar:boolean=true}
+ * @returns {ok, ejecucion, estructura, fuentes, enriquecimiento, derivados,
+ *          vistas, formato, resumen}
+ */
+function Act_actualizarSistema(opciones) {
+  opciones = opciones || {};
+  var ejecutar = opciones.ejecutar !== false;
+  var t0 = Date.now();
+  var reporte = {
+    ok: true,
+    ejecucion: 'ACT-' + Date.now().toString(36).toUpperCase(),
+    dryRun: !ejecutar,
+    estructura: null, fuentes: null, enriquecimiento: null,
+    derivados: null, vistas: null, formato: null,
+    resumen: {}
+  };
+
+  // 1) ESTRUCTURA (reparación idempotente; nunca destructiva a datos)
+  try {
+    reporte.estructura = Modelo_asegurarEsquemaPacientes();
+    Modelo_alinearVistasSectoriales();
+  } catch (e) {
+    reporte.estructura = { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+
+  // 2) DATOS desde fuentes autorizadas
+  reporte.fuentes = Fuentes_cargaReal({ ejecutar: ejecutar, actualizar: true });
+
+  // 3) DEMOGRAFÍA (fill-only, S5)
+  if (typeof Act_enriquecerPacientes === 'function') {
+    reporte.enriquecimiento = Act_enriquecerPacientes({ dryRun: !ejecutar });
+  }
+
+  // 4) DERIVADOS
+  reporte.derivados = {
+    estratificacion: Estrat_recalcularTodos(),
+    controles: Control_recalcularTodos()
+  };
+
+  // 5) VISTAS + FORMATO (derivado repetible)
+  try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {
+    reporte.vistas = { ok: false, motivo: eV && eV.message ? eV.message : String(eV) };
+  }
+  if (typeof HVis_formatearIngresos === 'function') {
+    try { reporte.formato = HVis_formatearIngresos(); } catch (eF) {
+      reporte.formato = { ok: false, motivo: eF && eF.message ? eF.message : String(eF) };
+    }
+  }
+  try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
+
+  // 6) RESUMEN consolidado (trazabilidad)
+  var fu = reporte.fuentes || {};
+  var res = fu.resumen || {};
+  var m = res.merge || {};
+  var enr = reporte.enriquecimiento || {};
+  var deriv = reporte.derivados || {};
+  reporte.resumen = {
+    fuentesRevisadas: res.fuentesRevisadas || 0,
+    registros: res.registros || 0,
+    nuevos: res.nuevos || 0,
+    existentes: res.existentes || 0,
+    yaImportadas: res.yaImportadas || 0,
+    actualizados: m.actualizados || 0,
+    sinCambiosMerge: m.sinCambios || 0,
+    conflictos: (m.conflictos || 0) + (res.revision || 0) + (enr.conflictos || 0),
+    camposActualizados: m.campos || 0,
+    enriquecidos: enr.enriquecidos || 0,
+    estructuraMigrada: !!(reporte.estructura && reporte.estructura.migrada),
+    estratificaciones: (deriv.estratificacion && deriv.estratificacion.recalculados) || 0,
+    controlesRecalculados: (deriv.controles && deriv.controles.cambios) || 0,
+    ms: Date.now() - t0
+  };
+
+  Log_info('Actualizacion', 'actualizarSistema', JSON.stringify(reporte.resumen),
+    { ejecucion: reporte.ejecucion, dryRun: !ejecutar });
+  Log_flush();
+  return reporte;
+}

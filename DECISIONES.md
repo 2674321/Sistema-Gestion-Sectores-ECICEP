@@ -1120,3 +1120,70 @@ por estado/orden de `Control_consultarControles`), validar_html 17/17 (IAPanel.h
 eliminado). Publicado: **deploy @180** en el deployment operativo (smoke `GET /exec`
 → 200). Docs: `docs/INFORME_JORNADA_AUTONOMA_2.md`.
 **Fecha:** 2026-09-15
+
+## DEC-064
+**Título:** ACTUALIZAR pasa a ser el mecanismo real de mantenimiento (estructura + datos desde fuentes) — merge conservador e idempotente
+**Estado:** Aprobada / vigente
+**Motivo:** DEC-058 reservaba "Actualizar sistema" a derivados/vistas y relegaba la
+importación de fuentes y la creación de estructura al instalador, dejando inviable
+el ciclo operativo FUENTE → detectar registros nuevos → actualizar existentes →
+crear columnas faltantes → normalizar → derivados → vista (solo se volvía a cargar
+todo re-instalando). La v0.9.6 redefine ACTUALIZAR como mantenimiento completo con
+reglas explícitas de no-pérdida, sin que ninguna otra ruta duplique lógica.
+
+**Reglas del merge (idempotente y conservador):**
+1. Una fuente vacía o inválida **nunca** destruye un dato vigente.
+2. `ULTIMO_CONTROL`/`ULTIMO_SEGUIMIENTO`: se conserva la fecha MÁS RECIENTE válida
+   (ISO, comparación lexicográfica); la fuente nunca retrocede el punto de estado.
+3. `SEXO`/`FECHA_NACIMIENTO`: fill-only; el `SEXO` de fuente se normaliza de forma
+   defensiva (`Norm_normalizarSexo`) antes de comparar para evitar falsos conflictos
+   ("MASCULINO" vs "M"). Divergencia sobre valor vigente → `REQUIERE_REVISION` sin
+   sobrescribir. El vacío se conserva como **sin información**; no se infiere.
+4. Contexto (`PROXIMO_CONTROL`, `PROFESIONAL_SEGUIMIENTO`, `PREINGRESO`,
+   `DUPLA_INGRESO`, `TELEFONOS`, `OBSERVACIONES`): fill-only.
+5. `NOMBRE`, `RUT`, `SECTOR`, `ESTADO`, `ESTRATIFICACION`, `FECHA_INGRESO`,
+   `ID_INTERNO`, `EDAD` y campos técnicos jamás se escriben desde una fuente
+   (revisión humana / derivados). `ESTRATIFICACION` y `ESTADO` se excluyen porque
+   son derivados que `Estrat_recalcularTodos`/la lectura de EVENTOS ya recomputan;
+   `PROXIMO_CONTROL` de fuente se conserva cuando `Control_recalcularTodos` no lo
+   derivable (mantiene la doctrina FIX v0.8.5: la vigilancia se recalcula en vivo).
+6. Trazabilidad: `FUENTE` anexa el origen sin duplicar segmentos;
+   `FECHA_ACTUALIZACION` se estampa cuando se aplicaron campos; cualquier
+   conflicto marca `REQUIERE_REVISION`.
+
+**Implementación:**
+- `Fuentes_cargaReal({actualizar:true})` divide el staging en Nuevas/Reutilizables
+  y delega el merge en `Act_mergearPacientesDesdeStaging` (match por RUT canónico
+  exacto, filas `ERROR` jamás alimentan); persiste en UN único bloque homogéneo
+  (`Utl_escribirBloque` sobre `store.pacientes.map(Modelo_filaDesdeObjeto)` +
+  `Modelo_invalidarLecturas`), igual que el barrido de enriquecimiento. Si el
+  esquema es incompatible → `resumen.error='ESQUEMA_PACIENTES_INCOMPATIBLE'`.
+- `Act_actualizarSistema(opciones)` orquesta: estructura (`Modelo_asegurarEsquemaPacientes`
+  + `Modelo_alinearVistasSectoriales`) → datos (`Fuentes_cargaReal`) → demografía
+  (`Act_enriquecerPacientes`) → derivados (`Estrat_recalcularTodos` +
+  `Control_recalcularTodos`) → vistas + formato (`Modelo_refrescarVistasSectores`,
+  `HVis_formatearIngresos`, `Hojas_formatoCondicional`) → resumen trazable
+  (`fuentesRevisadas`, `nuevos`, `actualizados`, `sinCambios`, `conflictos`,
+  `camposActualizados`, `enriquecidos`).
+- `UI_actualizarSistema`/`UI_actualizarTodo` delegan en `Act_actualizarSistema`
+  (única lógica); el instalador **sigue siendo la única puerta** para creación
+  completa de estructura e instalación; ACTUALIZAR solo repara de forma
+  idempotente columnas faltantes y migra SECTOR_*.
+
+**Broken contract (migrado con test):** los tests S11R-2/S11R-3/S12 U1-U5 y T12/T13
+que exigían "Actualizar NO importa fuentes / NO toca estructura" se re-apuntan al
+nuevo contrato: ACTUALIZAR integra estructura + fuentes + derivados a través de
+`Act_actualizarSistema`, mantiene la separación frente al instalador
+(`api_instalarPaso`, creación completa), no crea pacientes/eventos directamente y
+no referencia captura (`captureId`/`FORM_RESPUESTAS`).
+
+**SEXO (auditoría de fuentes):** el campo ya existe y está normalizado
+(`M|F|OTRO|vacío`); sinónimos vigentes cubren las codificaciones documentadas.
+No se agregan sinónimos ni se infiere SEXO por nombre. El merge y el
+enriquecimiento preservan el vacío salvo dato válido de fuente (Caso D =
+sin información).
+
+Tests: `_pruebas_actualizacion_v096` (9: fila/merge/trazabilidad/contrato + cadena),
+migración S11R/S12/T12/T13. Núcleo **606/606** (597 + 9). Docs:
+`docs/INFORME_ACTUALIZACION_S6.md`.
+**Fecha:** 2026-09-15

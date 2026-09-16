@@ -154,45 +154,41 @@ function UI_instalarDiagnosticar() {
   _UI_get().alert('🔍 Diagnóstico', lineas.join('\n'), _UI_get().ButtonSet.OK);
 }
 
-/** 🔄 Actualizar sistema: actualiza datos derivados y vistas (S12, DEC-058).
- *  Responsabilidad RESERVADA a derivados: NO importa fuentes, NO repara
- *  estructura, NO enriquece, NO toca captura ni FORM_RESPUESTAS.
- *  Implementación: delega en UI_actualizarTodo() (única lógica, sin copiar).
- *  Estructura/importación/enriquecimiento → "Sistema → Instalar / reparar". */
+/** 🔄 Actualizar sistema: mantenimiento completo de datos y derivados (S6, DEC-064).
+ *  Mecanismo real de actualización: estructura + registros nuevos + campos de
+ *  pacientes existentes + derivados + vistas + formato. Nunca sobrescribe un
+ *  dato vigente ni infiere; la estructura la CREA el instalador (aquí se
+ *  repara de forma idempotente). Implementación única: Act_actualizarSistema().
+ *  Estructura/instalación completa → "Sistema → Instalar / reparar". */
 function UI_actualizarSistema() {
   var ui = _UI_get();
   var msg = 'Actualizar sistema\n\n' +
     'Actualiza:\n' +
-    '  · vistas (SECTOR_*);\n' +
-    '  · campos automáticos;\n' +
-    '  · cálculos (estratificación y próximos controles);\n' +
-    '  · indicadores/formato derivado.\n\n' +
-    'No importa fuentes, no crea ni modifica registros clínicos.\n' +
+    '  · pacientes nuevos desde las fuentes autorizadas;\n' +
+    '  · campos vacíos de pacientes existentes (solo desde dato válido);\n' +
+    '  · estructura del modelo (repara columnas faltantes, no destruye);\n' +
+    '  · demografía (sexo y fecha de nacimiento);\n' +
+    '  · derivados (estratificación y próximos controles);\n' +
+    '  · vistas sectoriales y formato.\n\n' +
+    'No sobrescribe un dato vigente y no infiere datos.\n' +
     '¿Desea ejecutar la actualización?';
   var resp = ui.alert('🔄 Actualizar sistema', msg, ui.ButtonSet.YES_NO);
   if (resp !== ui.Button.YES) return;
   UI_actualizarTodo();
 }
 
-/** 🔄 Actualizar todo (lógica real de "Actualizar sistema", S12): recalcula
- *  estratificación + controles + refresca SECTOR_* + re-aplica formato.
- *  Solo toca datos derivados; idempotente sobre la fuente. */
-function UI_actualizarTodo() {
+/** 🔄 Actualizar todo (lógica real de "Actualizar sistema", S6): ejecuta la
+ *  cadena de mantenimiento Act_actualizarSistema (estructura + fuentes +
+ *  enriquecimiento demográfico + derivados + vistas + formato) e informa el
+ *  resumen consolidado. La importancia del resumen vive en 27_Actualizacion. */
+function UI_actualizarTodo(opciones) {
   Utl_toast('info', 'Actualizando sistema…', 45);
-  // S10-FIX: alineación explícita del esquema de SECTOR_* (migración idempotente
-  // por nombre). Paso explícito de la fase, no un efecto lateral oculto: solo
-  // replica el esquema canónico de las vistas derivadas.
-  Modelo_alinearVistasSectoriales();
-  var r1 = Estrat_recalcularTodos();
-  var r2 = Control_recalcularTodos();
-  Utl_medir(Modelo_refrescarVistasSectores);
-  try {
-    if (typeof HVis_formatearIngresos === 'function') HVis_formatearIngresos();
-  } catch (e) { /* best effort */ }
-  Utl_medir(function () {
-    Hojas_formatoCondicional(SpreadsheetApp.getActiveSpreadsheet());
-  });
-  Utl_toast('ok', 'Actualizado — ' + r1.recalculados + ' estrat. · ' + r2.cambios + ' controles', 10);
+  var r = Act_actualizarSistema(opciones || {});
+  var msj = (r.ok === false)
+    ? 'Actualización incompleta — revisar el Registro'
+    : 'Actualizado — ' + Act_resumenActualizacionTexto(r);
+  Utl_toast(r.ok === false ? 'error' : 'ok', msj, 10);
+  return r;
 }
 
 /** 📄 Registro del Sistema: visor visual del LOG (la hoja queda interna). */

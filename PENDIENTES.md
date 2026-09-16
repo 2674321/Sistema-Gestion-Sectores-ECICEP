@@ -202,3 +202,28 @@ backend V2 68 · formulario web 27 · V2 contrato 36 · aceptación 50) + `valid
 - **Publicado**: `clasp push --force` (48 ficheros) + versión **@180** desplegada en el
   deployment operativo (reutilizado). Smoke `GET /exec` → 200. E2E interactivo en vivo
   pendiente de login (mismo límite que jornadas anteriores).
+
+## 13. S6 — Actualización de datos desde fuentes (v0.9.6, 2026-09-15)
+
+Informe completo: `docs/INFORME_ACTUALIZACION_S6.md`. Decisión vigente: **DEC-064**.
+Batería **894/894** (núcleo 606 [597 + 9 nuevos] · contrato datos 38 · cola 33 ·
+payload V2 19 · backend V2 68 · formulario web 27 · V2 contrato 36 · aceptación 50)
++ `validar_html` **17/17**.
+
+- **ACTUALIZAR = mantenimiento completo**: `Act_actualizarSistema` orquesta estructura
+  (reparación idempotente + migración SECTOR_*), importación de fuentes autorizadas,
+  actualización de pacientes existentes (merge), enriquecimiento demográfico,
+  derivados, vistas y formato. `UI_actualizarSistema`/`UI_actualizarTodo` delegan en
+  una única cadena. El instalador sigue siendo la única puerta de creación completa
+  de estructura.
+- **Merge conservador (DEC-064)**: fill-only para contexto y demografía; fechas de
+  estado conservan siempre la MÁS RECIENTE; `NOMBRE`/`RUT`/`SECTOR`/`ESTADO`/
+  `ESTRATIFICACION`/`FECHA_INGRESO` jamás se escriben desde la fuente; divergencia
+  demográfica → `REQUIERE_REVISION` sin sobrescribir; filas `ERROR` nunca alimentan;
+  idempotente (2ª corrida sin cambios); trazabilidad `FUENTE` (sin duplicar) +
+  `FECHA_ACTUALIZACION`.
+- **SEXO (auditoría)**: campo normalizado `M|F|OTRO|vacío`; sinónimos vigentes
+  suficientes; no se agregan sinónimos ni se infiere; el vacío = sin información y
+  lo preservan merge y enriquecimiento.
+- **Publicado**: `clasp push --force` + nueva versión desplegada en el deployment
+  operativo (reutilizado). E2E interactivo en vivo pendiente de login (mismo límite).

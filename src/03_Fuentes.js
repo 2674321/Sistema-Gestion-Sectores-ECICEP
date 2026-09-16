@@ -370,31 +370,18 @@ function Fuentes_guardarFilas(filas) {
 }
 
 // ---------------------------------------------------------------------------
-// ETAPA 5 — Carga real controlada (análisis + ejecución con idempotencia)
+// ETAPA 5 — Lectura de fuentes autorizadas (reutilizada por carga y actualización)
 // ---------------------------------------------------------------------------
 
 /**
- * Orquestador de carga real controlada desde las fuentes autorizadas.
- * @param {Object} opciones {ejecutar:boolean}
- *   ejecutar=false → DRY RUN: analiza, reporta, NO escribe
- *   ejecutar=true  → IMPORTA: escribe PACIENTES + EVENTOS con idempotencia
- * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
+ * GAS: lee TODAS las hojas autorizadas (HOJAS_AUTORIZADAS_CARGA) y produce
+ * filas de staging normalizadas. Detecta la fila de encabezado (≥2 campos
+ * reconocidos), salta separadores de sección, copia los campos operativos +
+ * ADICIONALES con sinónimo confirmado (copia ADITIVA FASE 5.1) y resuelve el
+ * caso LISTADO Naranjo (RUT sin encabezado en columnas A..C).
+ * @returns {Array} filas de staging ya normalizadas (Fuentes_normalizar)
  */
-function Fuentes_cargaReal(opciones) {
-  opciones = opciones || {};
-  var ejecucionId = 'CARGA-' + Date.now().toString(36).toUpperCase();
-  var t0 = Date.now();
-
-  // --- FASE 5.0: snapshot previo ---
-  var previo = { pacientes: 0, eventos: 0 };
-  if (typeof SpreadsheetApp !== 'undefined') {
-    var hp = Modelo_hoja(HOJAS.PACIENTES);
-    var he = Modelo_hoja(HOJAS.EVENTOS);
-    previo.pacientes = hp ? Math.max(hp.getLastRow() - 1, 0) : 0;
-    previo.eventos = he ? Math.max(he.getLastRow() - 1, 0) : 0;
-  }
-
-  // --- FASE 5.1: leer fuentes autorizadas → staging ---
+function Fuentes_leerStagingAutorizado() {
   var staging = [];
   Object.keys(HOJAS_AUTORIZADAS_CARGA).forEach(function (nombreArchivo) {
     var cfg = FUENTES_DRIVE[nombreArchivo];
@@ -446,8 +433,56 @@ function Fuentes_cargaReal(opciones) {
       }
     });
   });
+  return staging;
+}
 
-  // --- IDEMPOTENCIA: filtrar filas ya importadas ---
+/** Config solo lectura: conteo de fuentes/hojas autorizadas para reportes. */
+function Fuentes_contarHojasAutorizadas() {
+  var archivos = 0, hojas = 0;
+  Object.keys(HOJAS_AUTORIZADAS_CARGA).forEach(function (a) {
+    if (FUENTES_DRIVE[a] && FUENTES_DRIVE[a].id) {
+      archivos += 1;
+      hojas += (HOJAS_AUTORIZADAS_CARGA[a] || []).length;
+    }
+  });
+  return { archivos: archivos, hojas: hojas };
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 5 — Carga/actualización real controlada (análisis + ejecución)
+// ---------------------------------------------------------------------------
+
+/**
+ * Orquestador de carga real controlada desde las fuentes autorizadas.
+ * @param {Object} opciones {ejecutar:boolean, actualizar:boolean}
+ *   ejecutar=false → DRY RUN: analiza, reporta, NO escribe
+ *   ejecutar=true  → IMPORTA: escribe PACIENTES + EVENTOS con idempotencia
+ *   actualizar=true → además de incorporar registros nuevos, ACTUALIZA pacientes
+ *     existentes desde los datos vigentes de la fuente (merge conservador v0.9.6:
+ *     fill-only + fecha más reciente para ULTIMO_*; divergencia → REQUIERE_REVISION).
+ *     Las filas ya importadas NO vuelven a generar eventos (idempotencia por FUENTE).
+ * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
+ */
+function Fuentes_cargaReal(opciones) {
+  opciones = opciones || {};
+  var ejecucionId = (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
+  var t0 = Date.now();
+
+  // --- FASE 5.0: snapshot previo ---
+  var previo = { pacientes: 0, eventos: 0 };
+  if (typeof SpreadsheetApp !== 'undefined') {
+    var hp = Modelo_hoja(HOJAS.PACIENTES);
+    var he = Modelo_hoja(HOJAS.EVENTOS);
+    previo.pacientes = hp ? Math.max(hp.getLastRow() - 1, 0) : 0;
+    previo.eventos = he ? Math.max(he.getLastRow() - 1, 0) : 0;
+  }
+
+  // --- FASE 5.1: leer fuentes autorizadas → staging ---
+  var staging = Fuentes_leerStagingAutorizado();
+
+  // --- IDEMPOTENCIA: separar filas ya importadas (no generan evento) de las nuevas.
+  // Con `actualizar`, las ya importadas siguen disponibles para el MERGE de datos
+  // (actualizar existentes) aunque no vuelvan a producir eventos.
   var eventosExistentes = [];
   if (typeof Modelo_leerEventos === 'function') eventosExistentes = Modelo_leerEventos();
   var fuentesYaImportadas = {};
@@ -456,19 +491,30 @@ function Fuentes_cargaReal(opciones) {
     if (f) fuentesYaImportadas[f] = true;
   });
   var yaImportadas = 0;
-  staging = staging.filter(function (f) {
+  var stagingNuevas = [];
+  var stagingReutilizables = [];
+  staging.forEach(function (f) {
     var clave = Fuentes_fuenteOrigen(f);
-    if (fuentesYaImportadas[clave]) { yaImportadas += 1; return false; }
-    return true;
+    if (fuentesYaImportadas[clave]) { yaImportadas += 1; stagingReutilizables.push(f); }
+    else stagingNuevas.push(f);
   });
 
   // --- FASE 5.2-3: validación + identificación ---
+  // Con `actualizar` (análisis O ejecución) se cargan los pacientes reales: el
+  // pipeline puro identifica contra el estado vigente y el MERGE puede actuar.
   var store = { pacientes: [], eventos: [] };
-  if (opciones.ejecutar && typeof Modelo_leerPacientes === 'function') {
+  if ((opciones.ejecutar || opciones.actualizar) && typeof Modelo_leerPacientes === 'function') {
     store.pacientes = Modelo_leerPacientes();
   }
 
-  var salida = Ingresos_procesarFilas(staging, store, {
+  // MERGE conservador sobre pacientes existentes (v0.9.6). Puras y testeables:
+  // las funciones viven en 27_Actualizacion (Act_mergearPacientesDesdeStaging).
+  var merge = { revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] };
+  if (opciones.actualizar) {
+    merge = Act_mergearPacientesDesdeStaging(staging, store.pacientes);
+  }
+
+  var salida = Ingresos_procesarFilas(stagingNuevas, store, {
     nuevoId: typeof Modelo_nuevoIdInterno === 'function' ? Modelo_nuevoIdInterno : function (i) {
       return 'EC-' + ('000000' + i).slice(-6);
     }
@@ -476,10 +522,15 @@ function Fuentes_cargaReal(opciones) {
 
   // --- FASE 5.4: reporte ---
   var resumen = salida.resumen;
+  resumen.registros = staging.length;
   resumen.yaImportadas = yaImportadas;
+  if (opciones.actualizar) resumen.merge = merge;
   resumen.previo = previo;
   resumen.ejecucion = ejecucionId;
   resumen.ms = Date.now() - t0;
+
+  var fuentesInforme = Fuentes_contarHojasAutorizadas();
+  resumen.fuentesRevisadas = fuentesInforme.hojas;
 
   var resultado = {
     ok: true,
@@ -487,7 +538,7 @@ function Fuentes_cargaReal(opciones) {
     ejecucionId: ejecucionId,
     resumen: resumen,
     excluidas: FUENTES_EXCLUIDAS,
-    detalle: staging.map(function (f, i) {
+    detalle: stagingNuevas.map(function (f, i) {
       return {
         fuenteOrigen: Fuentes_fuenteOrigen(f),
         hoja: f.HOJA_ORIGEN,
@@ -503,27 +554,53 @@ function Fuentes_cargaReal(opciones) {
   };
 
   Log_info('Fuentes', opciones.ejecutar ? 'cargaReal' : 'cargaAnalisis',
-    JSON.stringify({ leidos: resumen.leidos, nuevos: resumen.nuevos, existentes: resumen.existentes,
-                     revision: resumen.revision, conError: resumen.conError, yaImportadas: yaImportadas }),
+    JSON.stringify({ registros: resumen.registros, nuevos: resumen.nuevos, existentes: resumen.existentes,
+                     revision: resumen.revision, conError: resumen.conError, yaImportadas: yaImportadas,
+                     merge: opciones.actualizar ? { revisados: merge.revisados, actualizados: merge.actualizados,
+                                                    sinCambios: merge.sinCambios, conflictos: merge.conflictos,
+                                                    campos: merge.campos } : undefined }),
     { ejecucion: ejecucionId });
 
   // --- FASE 5.5: GATE — solo escribir si explícitamente se pide ---
   if (!opciones.ejecutar) return resultado;
 
   // --- FASE 5.6: IMPORTACIÓN ---
-  if (typeof Modelo_agregarPacientes === 'function' && salida.pacientesNuevos.length) {
-    Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
-  }
+  var escritosPacientes = false;
+  var escritosEventos = false;
   if (typeof Modelo_agregarEventos === 'function' && salida.eventos.length) {
     Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
+    escritosEventos = true;
   }
+  if (opciones.actualizar) {
+    // Escritura UNIFICADA (nuevos + existentes actualizados por merge) en una sola
+    // llamada por bloque: precedente Act_enriquecerPacientes. Solo si hubo cambios.
+    if (merge.actualizados > 0 || merge.conflictos > 0 || salida.pacientesNuevos.length > 0) {
+      var esquema = Modelo_asegurarEsquemaPacientes();
+      if (!esquema.ok) {
+        resumen.error = 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + (esquema.motivo || '');
+        Log_error('Fuentes', 'cargaReal-merge', resumen.error);
+      } else {
+        var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+        Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
+          store.pacientes.map(Modelo_filaDesdeObjeto));
+        Modelo_invalidarLecturas();
+        escritosPacientes = true;
+      }
+    }
+  } else if (typeof Modelo_agregarPacientes === 'function' && salida.pacientesNuevos.length) {
+    Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
+    escritosPacientes = true;
+  }
+  resumen.escritosPacientes = escritosPacientes;
+  resumen.escritosEventos = escritosEventos;
 
-  // auditoría a STAGING_IMPORT
-  Fuentes_guardarFilas(staging);
+  // auditoría a STAGING_IMPORT (en modo actualizar se archiva TODO lo leído)
+  Fuentes_guardarFilas(opciones.actualizar ? staging : stagingNuevas);
 
   // casos ambiguos → cola de revisión (CONFLICTOS)
   var filasConflicto = [];
-  staging.forEach(function (f) {
+  var filasParaCola = opciones.actualizar ? staging : stagingNuevas;
+  filasParaCola.forEach(function (f) {
     var r = f.RESULTADO_IDENTIFICACION;
     // idempotente y ADITIVO: además de los estados de identificación, encola
     // cualquier fila cuyo EVENTO haya fallado por FECHA_EVENTO_AUSENTE (hoy quedaba
