@@ -5909,4 +5909,92 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(INSTALAR_ETAPAS[iDer].fn, 'Instalar_pDerivados', 'función correcta');
     A.cierto(typeof Instalar_pDerivados === 'function', 'Instalar_pDerivados existe');
   });
+
+  // --- S7c: Verificación de que ESTRATIFICACION fluye completo ---
+  t('S7c: ESTRATIFICACION fluye de fuente → paciente → fila (columna I)', function () {
+    var store = { pacientes: [], eventos: [] };
+    var staging = [{
+      NORMALIZADO: {
+        ID_INTERNO: '', RUT: '11111111-1', RUT_ESTADO: 'OK', RUT_SIN_DV: false,
+        NOMBRE: 'PRUEBA ESTRAT G2', NOMBRE_NORMALIZADO: 'PRUEBA ESTRAT G2',
+        SEXO: 'M', FECHA_NACIMIENTO: '', TELEFONOS: '', TELEFONO_OBS: '',
+        SECTOR: 'VERDE', ESTRATIFICACION: 'G2', ESTADO: 'PENDIENTE',
+        DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', PREINGRESO: '',
+        FECHA_INGRESO: '2026-01-01', ULTIMO_SEGUIMIENTO: '', ULTIMO_CONTROL: '',
+        PROXIMO_CONTROL: '', COMPOSICION_CONTROL: '', OBSERVACIONES: '',
+        CONDICIONES: '', OTRAS_PATOLOGIAS: '', RUT_DV_VALIDO: true
+      },
+      ERRORES: [], WARNINGS: [], ESTADO_VALIDACION: 'OK',
+      HOJA_ORIGEN: 'INGRESO_VERDE', FILA_ORIGEN: 2, FUENTE: 'TEST|INGRESO_VERDE|2'
+    }];
+    var r = Ingresos_procesarFilas(staging, store, {
+      nuevoId: function () { return 'EC-TEST-ESTRAT'; }
+    });
+    A.igual(r.resumen.nuevos, 1, '1 paciente nuevo');
+    var pac = store.pacientes[0];
+    A.igual(pac.ESTRATIFICACION, 'G2', 'paciente tiene ESTRATIFICACION=G2');
+    var fila = Modelo_filaDesdeObjeto(pac);
+    var idxEstr = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('ESTRATIFICACION');
+    A.igual(idxEstr, 8, 'ESTRATIFICACION en index 8');
+    A.igual(fila[idxEstr], 'G2', 'fila columna I = G2');
+    var col = Hojas_columnaPaciente('ESTRATIFICACION');
+    A.igual(col, 'I', 'columna PACIENTES = I');
+  });
+
+  t('S7c: ESTRATIFICACION vacía en fuente se conserva vacía (sin G0)', function () {
+    var store = { pacientes: [], eventos: [] };
+    var staging = [{
+      NORMALIZADO: {
+        ID_INTERNO: '', RUT: '22222222-2', RUT_ESTADO: 'OK', RUT_SIN_DV: false,
+        NOMBRE: 'PRUEBA SIN ESTRAT', NOMBRE_NORMALIZADO: 'PRUEBA SIN ESTRAT',
+        SEXO: 'F', FECHA_NACIMIENTO: '', TELEFONOS: '', TELEFONO_OBS: '',
+        SECTOR: 'AMARILLO', ESTRATIFICACION: '', ESTADO: 'PENDIENTE',
+        DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', PREINGRESO: '',
+        FECHA_INGRESO: '2026-01-01', ULTIMO_SEGUIMIENTO: '', ULTIMO_CONTROL: '',
+        PROXIMO_CONTROL: '', COMPOSICION_CONTROL: '', OBSERVACIONES: '',
+        CONDICIONES: '', OTRAS_PATOLOGIAS: '', RUT_DV_VALIDO: true
+      },
+      ERRORES: [], WARNINGS: [], ESTADO_VALIDACION: 'OK',
+      HOJA_ORIGEN: 'INGRESO_AMARILLO', FILA_ORIGEN: 3, FUENTE: 'TEST|INGRESO_AMARILLO|3'
+    }];
+    var r = Ingresos_procesarFilas(staging, store, {
+      nuevoId: function () { return 'EC-TEST-SINESTRAT'; }
+    });
+    A.igual(r.resumen.nuevos, 1, '1 paciente nuevo');
+    var pac = store.pacientes[0];
+    A.igual(pac.ESTRATIFICACION, '', 'paciente sin ESTRATIFICACION');
+    A.igual(pac.ESTRAT_ORIGEN, '', 'ESTRAT_ORIGEN vacío');
+  });
+
+  t('S7c: Estrat_recalcularTodos preserva ESTRATIFICACION de fuente cuando motor no puede calcular', function () {
+    var store = { pacientes: [], eventos: [] };
+    var staging = [{
+      NORMALIZADO: {
+        ID_INTERNO: '', RUT: '33333333-3', RUT_ESTADO: 'OK', RUT_SIN_DV: false,
+        NOMBRE: 'PRUEBA PRESERVAR G3', NOMBRE_NORMALIZADO: 'PRUEBA PRESERVAR G3',
+        SEXO: 'M', FECHA_NACIMIENTO: '', TELEFONOS: '', TELEFONO_OBS: '',
+        SECTOR: 'NARANJO', ESTRATIFICACION: 'G3', ESTADO: 'PENDIENTE',
+        DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', PREINGRESO: '',
+        FECHA_INGRESO: '2026-01-01', ULTIMO_SEGUIMIENTO: '', ULTIMO_CONTROL: '',
+        PROXIMO_CONTROL: '', COMPOSICION_CONTROL: '', OBSERVACIONES: '',
+        CONDICIONES: '', OTRAS_PATOLOGIAS: '', RUT_DV_VALIDO: true
+      },
+      ERRORES: [], WARNINGS: [], ESTADO_VALIDACION: 'OK',
+      HOJA_ORIGEN: 'INGRESO_NARANJO', FILA_ORIGEN: 4, FUENTE: 'TEST|INGRESO_NARANJO|4'
+    }];
+    var r = Ingresos_procesarFilas(staging, store, {
+      nuevoId: function () { return 'EC-TEST-PRESERVAR'; }
+    });
+    var pac = store.pacientes[0];
+    A.igual(pac.ESTRATIFICACION, 'G3', 'paciente tiene G3 de fuente');
+    A.igual(pac.CONDICIONES, '', 'CONDICIONES vacío (sin datos del motor)');
+    var res = Estrat_evaluar(pac.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    A.igual(res.estado, 'SIN_DATOS', 'motor no puede calcular (sin condiciones)');
+    A.igual(res.resultado, '', 'motor resultado vacío');
+    var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
+    if (nuevoValor) {
+      pac.ESTRATIFICACION = nuevoValor;
+    }
+    A.igual(pac.ESTRATIFICACION, 'G3', 'ESTRATIFICACION preservada después de intento de recálculo');
+  });
 }
