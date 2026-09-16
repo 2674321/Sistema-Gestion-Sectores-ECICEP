@@ -285,15 +285,17 @@ function Act_diagnosticarEnriquecimiento() {
 }
 
 // ---------------------------------------------------------------------------
-// ACTUALIZACIÓN de datos desde fuentes (FASE S6, v0.9.6 — DEC-064)
+// ACTUALIZACIÓN de datos desde fuentes (FASE S6, v0.9.7 — DEC-064)
 // "Actualizar" es el mecanismo de MANTENIMIENTO completo del sistema:
 //   1) estructura (reparación idempotente + alineación vistas sectoriales)
-//   2) datos desde fuentes autorizadas (merge conservador de existentes + nuevos)
-//   3) demografía (SEXO/FECHA_NACIMIENTO fill-only)
-//   4) derivados (estratificación + controles)
-//   5) vistas + formato visual + secciones + validaciones + diseño del libro
-//      + INICIO + importación Amarillo
-//   6) verificación final + resumen trazable
+//   2) limpieza de hojas residuales
+//   3) datos desde fuentes autorizadas (merge conservador de existentes + nuevos)
+//   4) Amarillo (importación desde Drive, ANTES de vistas e INICIO)
+//   5) demografía (SEXO/FECHA_NACIMIENTO fill-only)
+//   6) derivados (estratificación + controles)
+//   7) vistas + secciones visuales + formato condicional + validaciones + diseño
+//   8) INICIO + colorear RUT + rebuild menú
+//   9) verificación final (8 hojas críticas) + resumen trazable
 // Un dato vigente no se sobrescribe jamás y nada se infiere.
 //
 // REGLAS DEL MERGE (conservador, idempotente):
@@ -468,6 +470,7 @@ function Act_actualizarSistema(opciones) {
     dryRun: !ejecutar,
     estructura: null, fuentes: null, enriquecimiento: null,
     derivados: null, vistas: null, formato: null,
+    amarillo: null, verificacion: null,
     resumen: {}
   };
 
@@ -479,66 +482,90 @@ function Act_actualizarSistema(opciones) {
     reporte.estructura = { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 
-  // 2) DATOS desde fuentes autorizadas
+  // 2) LIMPIEZA DE HOJAS RESIDUALES (orphan sheets que no están en el catálogo)
+  if (ejecutar && typeof Modelo_limpiarHojasResiduales === 'function') {
+    try { Modelo_limpiarHojasResiduales(Modelo_ss()); } catch (eL) { /* best effort */ }
+  }
+
+  // 3) DATOS desde fuentes autorizadas
   reporte.fuentes = Fuentes_cargaReal({ ejecutar: ejecutar, actualizar: true });
 
-  // 3) DEMOGRAFÍA (fill-only, S5)
+  // 4) AMARILLO — importar desde Drive ANTES de vistas e INICIO (el orden importa)
+  if (ejecutar && typeof Amarillo_importarTodo === 'function') {
+    try { reporte.amarillo = Amarillo_importarTodo(true); } catch (eA) { /* best effort */ }
+  }
+
+  // 5) DEMOGRAFÍA (fill-only, S5)
   if (typeof Act_enriquecerPacientes === 'function') {
     reporte.enriquecimiento = Act_enriquecerPacientes({ dryRun: !ejecutar });
   }
 
-  // 4) DERIVADOS
+  // 6) DERIVADOS
   reporte.derivados = {
     estratificacion: Estrat_recalcularTodos(),
     controles: Control_recalcularTodos()
   };
 
-  // 5) VISTAS + FORMATO (derivado repetible)
+  // 7) VISTAS (refresh después de Amarillo + datos)
   try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {
-    reporte.vistas = { ok: false, motivo: eV && eV.message ? eV.message : String(eV) };
+    reporte.vistas = { ok: false, motivo: eV && eV.message ? eF.message : String(eV) };
   }
-  if (typeof HVis_formatearIngresos === 'function') {
-    try { reporte.formato = HVis_formatearIngresos(); } catch (eF) {
-      reporte.formato = { ok: false, motivo: eF && eF.message ? eF.message : String(eF) };
-    }
-  }
+
+  // 8) SECCIONES VISuales (barras de sección en fila 2 de todas las hojas visuales)
   if (typeof HVis_aplicarTodasLasSecciones === 'function') {
     try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); } catch (eSV) { /* best effort */ }
   }
-  try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
 
-  // 5b) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
-  //     reciban las mismas reglas que la instalación. Idempotente.
-  if (ejecutar && typeof Modelo_validarIngresos === 'function') {
-    try { Modelo_validarIngresos(); } catch (eVx) { /* best effort */ }
+  // 8b) FORMATO DE INGRESOS (formato específico para hojas INGRESO_* —不同于 secciones)
+  if (typeof HVis_formatearIngresos === 'function') {
+    try { reporte.formato = HVis_formatearIngresos(); } catch (eF) { /* best effort */ }
   }
 
-  // 5c) DISEÑO DEL LIBRO (colores pestaña, frozen, banding, encabezado, orden, ocultamiento)
+  // 9) FORMATO CONDICIONAL (reglas de color por campo)
+  try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
+
+  // 10) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
+  //     reciban las mismas reglas que la instalación. Idempotente.
+  if (ejecutar && typeof Modelo_validarIngresos === 'function') {
+    try { Modelo_validarIngresos(Modelo_ss()); } catch (eVx) { /* best effort */ }
+  }
+
+  // 11) DISEÑO DEL LIBRO (colores pestaña, frozen, banding, encabezado, orden, ocultamiento)
   if (ejecutar && typeof Modelo_aplicarDiseno === 'function') {
     try { Modelo_aplicarDiseno(); } catch (eD) { /* best effort */ }
   }
 
-  // 5d) INICIO (hoja dashboard) — refrescar para que los KPIs y conteos estén al día
+  // 12) INICIO (hoja dashboard) — refrescar después de Amarillo + derivados
   if (ejecutar && typeof Modelo_disenoHojas === 'function') {
     try { Modelo_disenoHojas(); } catch (eI) { /* best effort */ }
   }
 
-  // 5e) AMARILLO — importar desde Drive si la función está disponible (idempotente)
-  if (ejecutar && typeof Amarillo_importarTodo === 'function') {
-    try { reporte.amarillo = Amarillo_importarTodo(true); } catch (eA) { /* best effort */ }
+  // 12b) Colorear RUT en INGRESO_* (coherencia visual)
+  if (ejecutar && typeof Hojas_colorearRutIngresos === 'function') {
+    try { Hojas_colorearRutIngresos(); } catch (eR) { /* best effort */ }
   }
 
-  // 5f) VERIFICACIÓN FINAL — comprobar integridad mínima del sistema
+  // 13) REBUILD MENÚ (si hubo cambios en items, reflejarlos)
+  if (ejecutar && typeof onOpen === 'function') {
+    try { onOpen(); } catch (eM) { /* best effort */ }
+  }
+
+  // 14) VERIFICACIÓN FINAL — comprobar integridad de las 8 hojas críticas
   if (ejecutar) {
     try {
       var ss = Modelo_ss();
-      var hojasCriticas = [HOJAS.PACIENTES, HOJAS.EVENTOS];
-      var ok = true;
-      hojasCriticas.forEach(function (nombre) {
-        var h = ss.getSheetByName(nombre);
-        if (!h) { ok = false; reporte.error = 'HOJA_FALTANTE:' + nombre; }
+      var criticas = [HOJAS.PACIENTES, HOJAS.EVENTOS, HOJAS_SECTOR[0], HOJAS_SECTOR[1],
+        HOJAS_SECTOR[2], Object.keys(HOJAS_INGRESO)[0], Object.keys(HOJAS_INGRESO)[1],
+        Object.keys(HOJAS_INGRESO)[2]];
+      var faltan = [];
+      criticas.forEach(function (nombre) {
+        if (!ss.getSheetByName(nombre)) faltan.push(nombre);
       });
-      reporte.verificacion = { ok: ok, hojasCriticas: hojasCriticas.length };
+      if (faltan.length) {
+        reporte.verificacion = { ok: false, faltan: faltan };
+      } else {
+        reporte.verificacion = { ok: true, hojasCriticas: criticas.length };
+      }
     } catch (eVf) { reporte.verificacion = { ok: false, motivo: eVf && eVf.message || String(eVf) }; }
   }
 

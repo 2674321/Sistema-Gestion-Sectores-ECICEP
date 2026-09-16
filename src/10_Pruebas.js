@@ -5806,4 +5806,90 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(p.FECHA_NACIMIENTO, '1985-06-15', 'FECHA completada desde fuente');
     A.cierto(r.aplicados.length > 0, 'campos aplicados');
   });
+
+  // --- S7b: Segunda auditoría — gaps del pipeline ACTUALIZAR ---
+  t('S7b: ACTUALIZAR invoca Modelo_validarIngresos con Modelo_ss()', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('Modelo_validarIngresos(Modelo_ss())') !== -1,
+      'Modelo_validarIngresos recibiendo Modelo_ss() explícito');
+  });
+
+  t('S7b: ACTUALIZAR importa Amarillo ANTES de INICIO y vistas', function () {
+    var src = Act_actualizarSistema.toString();
+    var idxAmarillo = src.indexOf('Amarillo_importarTodo');
+    var idxInicio = src.indexOf('Modelo_disenoHojas');
+    var idxVistas = src.indexOf('Modelo_refrescarVistasSectores');
+    A.cierto(idxAmarillo !== -1, 'Amarillo_importarTodo presente');
+    A.cierto(idxAmarillo < idxInicio, 'Amarillo ANTES de INICIO');
+    A.cierto(idxAmarillo < idxVistas, 'Amarillo ANTES de vistas');
+  });
+
+  t('S7b: ACTUALIZAR tiene 8 hojas críticas en verificación', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('HOJAS_SECTOR[0]') !== -1, 'verifica SECTOR_NARANJO');
+    A.cierto(src.indexOf('HOJAS_SECTOR[1]') !== -1, 'verifica SECTOR_AMARILLO');
+    A.cierto(src.indexOf('HOJAS_SECTOR[2]') !== -1, 'verifica SECTOR_VERDE');
+    A.cierto(src.indexOf('HOJAS_INGRESO') !== -1, 'verifica INGRESO_*');
+  });
+
+  t('S7b: ACTUALIZAR reconstruye menú', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('onOpen()') !== -1, 'llama onOpen() para rebuild menú');
+  });
+
+  t('S7b: ACTUALIZAR limpia hojas residuales', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('Modelo_limpiarHojasResiduales') !== -1,
+      'llama Modelo_limpiarHojasResiduales');
+  });
+
+  t('S7b: ACTUALIZAR tiene HVis_formatearIngresos para INGRESO_*', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('HVis_formatearIngresos') !== -1,
+      'incluye HVis_formatearIngresos para hojas INGRESO');
+  });
+
+  t('S7b: ACTUALIZAR colorear RUT en INGRESO', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('Hojas_colorearRutIngresos') !== -1,
+      'llama Hojas_colorearRutIngresos después de INICIO');
+  });
+
+  t('S7b: ESTRATIFICACION - motor produce G1/G2/G3, nunca G0', function () {
+    var normG0 = Norm_normalizarEstratificacion('G0');
+    var normG1 = Norm_normalizarEstratificacion('G1');
+    var normG2 = Norm_normalizarEstratificacion('G2');
+    var normG3 = Norm_normalizarEstratificacion('G3');
+    A.igual(normG0, '', 'G0 normalizado a vacío (no canonical)');
+    A.igual(normG1, 'G1', 'G1 canonical');
+    A.igual(normG2, 'G2', 'G2 canonical');
+    A.igual(normG3, 'G3', 'G3 canonical');
+  });
+
+  t('S7b: ESTRATIFICACION - paciente sin condiciones → vacío (no G0)', function () {
+    var r = Estrat_evaluar('', CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    A.igual(r.estado, 'SIN_DATOS', 'estado SIN_DATOS');
+    A.igual(r.resultado, '', 'resultado vacío (no G0)');
+  });
+
+  t('S7b: SEXO dropdown permite vacío (setAllowInvalid true)', function () {
+    A.cierto(typeof Hojas_formatoCondicional === 'function', 'Hojas_formatoCondicional existe');
+    var src = Hojas_formatoCondicional.toString();
+    A.cierto(src.indexOf("setAllowInvalid(true)") !== -1,
+      'SEXO usa setAllowInvalid(true) — permite vacío');
+  });
+
+  t('S7b: OBSERVACIONES — columna incluida en sección visual identidad-observaciones', function () {
+    var secObs = SECCIONES_HOJAS.SECTOR_VISTA.find(function (s) { return s.id === 'observaciones'; });
+    A.cierto(secObs, 'sección observaciones existe');
+    A.igual(secObs.columnas.length, 1, 'una sola columna');
+    A.igual(secObs.columnas[0], 'OBSERVACIONES', 'columna OBSERVACIONES');
+  });
+
+  t('S7b: INSTALAR vs ACTUALIZAR — ambos tienen validaciones', function () {
+    var srcI = Instalar_pValidaciones.toString();
+    var srcA = Act_actualizarSistema.toString();
+    A.cierto(srcI.indexOf('Modelo_validarIngresos') !== -1, 'INSTALAR tiene validaciones');
+    A.cierto(srcA.indexOf('Modelo_validarIngresos') !== -1, 'ACTUALIZAR tiene validaciones');
+  });
 }

@@ -7,11 +7,12 @@
 ## 1. Concepto
 
 ```text
-CONDICIONES / PATOLOGÍAS del paciente   (PACIENTES.CONDICIONES)
+CONdiciones normalizadas del paciente
+(PACIENTES.CONDICIONES, resuelto vía CATALOGO_CONDICIONES_ECICEP)
         ↓
-REGLA DE ESTRATIFICACIÓN  (tabla de datos, editable sin código)
+REGLA DE ESTRATIFICACIÓN (umbrales ponderados en CFG_ESTRATIFICACION)
         ↓
-ESTRATIFICACION_CALCULADA → G1 / G2 / G3 / SIN_CLASIFICAR
+ESTRATIFICACION_CALCULADA → G1 / G2 / G3 / vacío (sin datos o no calculable)
 ```
 
 ## 2. Principios
@@ -65,11 +66,11 @@ impacto tienen peso 2; el resto peso 1.
 
 | Puntaje ponderado | Nivel | Descripción |
 |---|---|---|
-| 0 | G0 | Sin condiciones crónicas |
-| 1 | G1 | 1 condición (peso 1) o peso igual a 1 |
+| 0 | vacío | Sin condiciones registradas (SIN_DATOS) — nunca se escribe G0 |
+| 1 | G1 | 1 condición de peso 1 |
 | 2–4 | G2 | Varias condiciones o condición de peso 2 |
 | ≥5 | G3 | Múltiples condiciones de alto impacto |
 
-La tabla vive como datos editables (`CFG_ESTRATIFICACION.UMBRALLES`):
+La tabla vive como datos editables (`CFG_ESTRATIFICACION.UMBRALES`):
 si mañana el programa cambia los umbrales o agrega condiciones, se actualiza
 sin tocar código.
