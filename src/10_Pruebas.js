@@ -4311,11 +4311,16 @@ function _pruebas_enriquecimiento_s5(t, A) {
     A.cierto(f2.indexOf(',') === -1, 'f2 sin comas');
   });
   t('OPT B7: funciones referenciadas por el menú existen en el ámbito global', function () {
-    var refs = ['UI_abrirFormularioCaptura','UI_mostrarQR','UI_panelControl','UI_abrirBuscador',
-      'UI_abrirRevision','UI_procesarIngresos','UI_duplicados','UI_abrirControles','UI_abrirDashboard',
-      'UI_generarRem','UI_verRem','UI_configuracion','UI_configuracionEstratificacion',
-      'UI_configuracionResponsables','ECICEP_autorizar','UI_actualizarSistema','UI_instalarSistema',
-      'UI_backup','UI_formularioPanel','UI_abrirLog','UI_abrirAcercaDe'];
+    // Menú consolidado v0.9.8: ECICEP + Desarrollo / Administración (sin submenús)
+    var refs = [
+      // Centro de funciones (ECICEP)
+      'UI_abrirBuscador', 'UI_abrirControles', 'UI_abrirRevision',
+      'UI_procesarIngresos', 'UI_verRem', 'UI_abrirDashboard',
+      'UI_abrirFormularioCaptura', 'UI_mostrarQR', 'UI_configuracion',
+      // Desarrollo / Administración
+      'UI_actualizarSistema', 'UI_instalarSistema', 'ECICEP_autorizar',
+      'UI_backup', 'UI_abrirLog', 'UI_abrirAcercaDe'
+    ];
     refs.forEach(function (fn) {
       A.cierto(typeof globalThis[fn] === 'function', fn + ' existe');
     });

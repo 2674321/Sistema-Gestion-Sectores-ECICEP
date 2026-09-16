@@ -1,50 +1,35 @@
 /**
  * Sistema ECICEP — 07_UI
  * Interfaz DENTRO de Google Sheets (DEC-012: Sheets es la interfaz principal).
- * ETAPA 2: solo menú base con acciones existentes. La experiencia completa
- * (INICIO/DASHBOARD/FICHA/SEGUIMIENTO, búsquedas y botones) llega en ETAPA 4.
+ * Menú consolidado: dos puntos de entrada (Centro de funciones / Desarrollo).
  */
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
- *  Estructura oficial: un nombre = una función = una interfaz = una finalidad.
- *  Menús minimalistas (fase de optimización S8): tres grupos (Captura / ECICEP /
- *  Sistema) con nombres cortos y sin emojis en cada elemento. Las utilidades de
- *  desarrollo (Diagnóstico, Centro de Pruebas) no se exponen en el menú operativo. */
+ *  Estructura consolidada (v0.9.8): dos menús, sin submenús.
+ *  Centro de funciones = todo lo operativo del usuario.
+ *  Desarrollo / Administración = todo lo técnico. */
 function onOpen() {
   try {
     var ui = _UI_get();
 
-    ui.createMenu('Captura')
-      .addItem('Abrir formulario', 'UI_abrirFormularioCaptura')
-      .addItem('Mostrar QR', 'UI_mostrarQR')
-      .addToUi();
-
     ui.createMenu('ECICEP')
-      .addItem('Inicio', 'UI_panelControl')
-      .addSubMenu(ui.createMenu('Personas')
-        .addItem('Buscar / Ficha', 'UI_abrirBuscador')
-        .addItem('Cola de revisión', 'UI_abrirRevision')
-        .addItem('Ingresos', 'UI_procesarIngresos')
-        .addItem('Duplicados por RUT', 'UI_duplicados'))
-      .addSubMenu(ui.createMenu('Seguimiento')
-        .addItem('Controles por persona', 'UI_abrirControles'))
-      .addSubMenu(ui.createMenu('Reportes')
-        .addItem('Estadísticas', 'UI_abrirDashboard')
-        .addItem('Generar REM', 'UI_generarRem')
-        .addItem('Consultar REM', 'UI_verRem'))
-      .addSubMenu(ui.createMenu('Configuración')
-        .addItem('Configuración', 'UI_configuracion')
-        .addItem('Estratificación', 'UI_configuracionEstratificacion')
-        .addItem('Responsables y correos', 'UI_configuracionResponsables')
-        .addItem('Autorizar permisos', 'ECICEP_autorizar'))
+      .addItem('Buscar / Ficha', 'UI_abrirBuscador')
+      .addItem('Controles', 'UI_abrirControles')
+      .addItem('Cola de revisión', 'UI_abrirRevision')
+      .addItem('Ingresos', 'UI_procesarIngresos')
+      .addItem('REM', 'UI_verRem')
+      .addItem('Estadísticas', 'UI_abrirDashboard')
+      .addItem('Captura', 'UI_abrirFormularioCaptura')
+      .addItem('QR', 'UI_mostrarQR')
+      .addItem('Configuración', 'UI_configuracion')
       .addToUi();
 
-    ui.createMenu('Sistema')
+    ui.createMenu('Desarrollo / Administración')
       .addItem('Actualizar', 'UI_actualizarSistema')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
+      .addItem('Permisos', 'ECICEP_autorizar')
       .addItem('Backups', 'UI_backup')
-      .addItem('Formularios', 'UI_formularioPanel')
-      .addItem('Registro del sistema', 'UI_abrirLog')
+      .addItem('Registro', 'UI_abrirLog')
       .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 
