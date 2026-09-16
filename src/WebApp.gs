@@ -181,7 +181,7 @@ function Form_capturarDesdeUI(datos) {
       FORM_CONFIG.FORM_VERSION,
       (typeof Session !== 'undefined' && Session.getActiveUser()) ? Session.getActiveUser().getEmail() : ''
     ].concat(fila).concat([
-      JSON.stringify(crudo), '', '', 0, 'RECIBIDO', '', '', '', ''
+      JSON.stringify(crudo), '', '', 0, 'RECIBIDO', '', '', '', '', crudo.FECHA_INGRESO || ''
     ]);
 
     var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);

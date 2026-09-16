@@ -28,7 +28,11 @@
 // NÚCLEO PURO — config y mapeo
 // ---------------------------------------------------------------------------
 
-function Form_campos() { return FORM_CONFIG.CAMPOS; }
+function Form_campos() {
+  return FORM_CAMPOS_PERSISTIDOS.map(function (nombre) {
+    return FORM_CONFIG.CAMPOS.filter(function (c) { return c.campo === nombre; })[0];
+  });
+}
 
 /** Columnas físicas de FORM_RESPUESTAS (única especificación). */
 function Form_columnas() { return FORM_RESPUESTAS_COLUMNAS; }
@@ -200,7 +204,7 @@ function Form_esquemaFormulario() {
   var seccionNombres = ['ident', 'evento', 'tel', 'prof', 'obs'];
   var seccionDef = FORM_CONFIG.SECCIONES || {};
   var detalle = (FORM_CONFIG.ACCIONES.DETALLE) || {};
-  var campos = FORM_CONFIG.CAMPOS || [];
+  var campos = Form_campos();
   var acciones = FORM_CONFIG.ACCIONES.VALIDOS || [];
   var esquema = {};
 
@@ -221,6 +225,13 @@ function Form_esquemaFormulario() {
     // V2 lo exige como fechaIngreso (§5.1/§8).
     if (acc === 'NUEVO_INGRESO' && camposRequeridos.indexOf('FECHA_INGRESO') === -1) {
       camposRequeridos.push('FECHA_INGRESO');
+    }
+    // §5.1 V2: actualizarDatos solo captura contacto, profesional y observaciones.
+    // El catálogo administrativo ampliado no convierte identidad en obligatoria
+    // ni debe mostrar campos que el payload de captura no entrega al servidor.
+    if (acc === 'ACTUALIZAR_DATOS') {
+      secciones.ident = false;
+      camposRequeridos = ['RUT', 'PROFESIONAL'];
     }
     esquema[acc] = {
       secciones: secciones,
@@ -728,6 +739,9 @@ function Form_instalar() {
     cols.forEach(function (c, i) {
       if (Utl_claveAlnum(enc[i]) !== Utl_claveAlnum(c)) desalineado = true;
     });
+    if (desalineado && hoja.getLastRow() > 1) {
+      return { ok: false, motivo: 'ESQUEMA_CAPTURA_REQUIERE_REVISION', cambios: cambios };
+    }
     if (desalineado) {
       hoja.getRange(1, 1, 1, cols.length).setValues([cols]);
       cambios.push('Encabezados de FORM_RESPUESTAS realineados');
@@ -1129,7 +1143,7 @@ function Form_capturarRespuestas(opciones) {
       responseId,
       FORM_CONFIG.FORM_VERSION,
       (typeof Session !== 'undefined' && Session.getActiveUser()) ? Session.getActiveUser().getEmail() : ''
-    ].concat(fila).concat([traza, '', '', 0, 'RECIBIDO', '', '', '', '']));
+    ].concat(fila).concat([traza, '', '', 0, 'RECIBIDO', '', '', '', '', crudo.FECHA_INGRESO || '']));
     nuevas += 1;
   });
 

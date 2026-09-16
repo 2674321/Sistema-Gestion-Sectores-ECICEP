@@ -15,21 +15,14 @@ function onOpen() {
     ui.createMenu('ECICEP')
       .addItem('Buscar / Ficha', 'UI_abrirBuscador')
       .addItem('Controles', 'UI_abrirControles')
-      .addItem('Cola de revisión', 'UI_abrirRevision')
-      .addItem('Ingresos', 'UI_procesarIngresos')
-      .addItem('REM', 'UI_verRem')
       .addItem('Estadísticas', 'UI_abrirDashboard')
       .addItem('Captura', 'UI_abrirFormularioCaptura')
-      .addItem('QR', 'UI_mostrarQR')
-      .addItem('Configuración', 'UI_configuracion')
       .addToUi();
 
     ui.createMenu('Desarrollo / Administración')
       .addItem('Actualizar', 'UI_actualizarSistema')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
       .addItem('Permisos', 'ECICEP_autorizar')
-      .addItem('Backups', 'UI_backup')
-      .addItem('Registro', 'UI_abrirLog')
       .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 

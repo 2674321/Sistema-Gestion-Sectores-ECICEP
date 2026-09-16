@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.9.6',
+  VERSION: '0.9.10',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -901,10 +901,17 @@ FORM_CONFIG.CONTROL = {
   ]
 };
 
-// Columnas físicas de FORM_RESPUESTAS (derivadas del contrato CAMPOS).
+// Orden persistido: independiente del catálogo de edición administrativa.
+// Ampliar FORM_CONFIG.CAMPOS no debe desplazar filas ya guardadas ni confundir
+// ESTADO del paciente con ESTADO de procesamiento de la captura.
+var FORM_CAMPOS_PERSISTIDOS = [
+  'ACCION', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR',
+  'ESTRATIFICACION', 'TELEFONOS', 'FECHA_EVENTO', 'PROFESIONAL',
+  'PROFESIONAL2', 'OBSERVACIONES'
+];
 var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'USUARIO']
-  .concat(FORM_CONFIG.CAMPOS.map(function (c) { return c.campo; }))
-  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO']);
+  .concat(FORM_CAMPOS_PERSISTIDOS)
+  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO', 'FECHA_INGRESO']);
 
 // ---------------------------------------------------------------------------
 // Sexo (REM lo requiere; fuentes actuales no lo traen)

@@ -2829,7 +2829,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.6', 'versión esperada v0.9.6');
+    A.igual(v, '0.9.10', 'versión esperada v0.9.10');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3070,9 +3070,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.6', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.6', 'versión esperada v0.9.6');
+    A.igual(v, '0.9.10', 'versión esperada v0.9.10');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -4627,15 +4627,13 @@ function _pruebas_enriquecimiento_s11(t, A) {
     A.igual(p.RUT, '15987654-3', 'un solo registro, intacto');
   });
 
-  t('S11 UI: Instalar_pEnriquecimiento reporta métricas completas (S11.11)', function () {
+  t('S11 UI: Instalar_pEnriquecimiento es no-op post-entrega (S11.11)', function () {
     var etapa = Instalar_pEnriquecimiento.toString();
-    ['totalPacientes', 'revisados', 'enriquecidos', 'aplicados', 'sinCambios',
-     'sinVacias', 'conflictos', 'noEncontrados', 'errores'].forEach(function (k) {
-      A.cierto(etapa.indexOf(k) !== -1, 'reporta ' + k);
-    });
-    var res = Act_enriquecerPacientes.toString();
-    A.cierto(res.indexOf('totalPacientes') !== -1 && res.indexOf('errores') !== -1, 'resumen S11 en el barrido');
-    A.cierto(res.indexOf('sinVacias') !== -1, 'contador sin huecos');
+    A.cierto(etapa.indexOf('Act_enriquecerPacientes') === -1, 'NO llama Act_enriquecerPacientes');
+    A.cierto(etapa.indexOf('omitido') !== -1 || etapa.indexOf('reservada') !== -1, 'indica omitido/reservado');
+    // Act_enriquecerPacientes sigue existiendo para ACTUALIZAR
+    var act = Act_actualizarSistema.toString();
+    A.cierto(act.indexOf('Act_enriquecerPacientes') !== -1, 'Act_actualizarSistema SÍ usa Act_enriquecerPacientes');
   });
 }
 
@@ -4682,19 +4680,15 @@ function _pruebas_auditoria_s11r(t, A) {
       'la cadena no toca el instalador');
   });
 
-  t('S11R-3: el enriquecimiento usa una sola implementación compartida (etapa instalador + Actualizar)', function () {
+  t('S11R-3: enriquecimiento separado — INSTALAR no-op, ACTUALIZAR usa Act_enriquecerPacientes', function () {
     var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
     A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
     A.igual(enr[0].fn, 'Instalar_pEnriquecimiento', 'única función de la etapa');
-    var etapasConEnriquecimiento = INSTALAR_ETAPAS.filter(function (e) {
-      return e.fn.indexOf('Enriquec') !== -1;
-    });
-    A.igual(etapasConEnriquecimiento.length, 1, 'ninguna otra etapa ejecuta enriquecimiento');
     var p = Instalar_pEnriquecimiento.toString();
-    A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
-      'la etapa reutiliza Act_enriquecerPacientes (sin copia)');
+    A.cierto(p.indexOf('Act_enriquecerPacientes') === -1,
+      'Instalar NO llama Act_enriquecerPacientes (post-entrega)');
     A.cierto(Act_actualizarSistema.toString().indexOf('Act_enriquecerPacientes') !== -1,
-      'Actualizar reutiliza la misma implementación');
+      'Actualizar SÍ reutiliza Act_enriquecerPacientes');
   });
 }
 
@@ -6117,5 +6111,62 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(ids.indexOf('validaciones') !== -1, 'etapa validaciones existe');
     A.cierto(ids.indexOf('derivados') !== -1, 'etapa derivados existe');
     A.cierto(ids.indexOf('verificar') !== -1, 'etapa verificar existe');
+  });
+
+  // --- S10: Auditoría integral ---
+  t('S10: eF/eV bug corregido — catch de vistas usa eV.message', function () {
+    var src = Act_actualizarSistema.toString();
+    // Debe usar eV.message, NO eF.message, en el catch de vistas
+    var idxCatch = src.indexOf('catch (eV)');
+    A.cierto(idxCatch !== -1, 'catch (eV) existe en Act_actualizarSistema');
+    var bloque = src.substring(idxCatch, idxCatch + 300);
+    A.cierto(bloque.indexOf('eV.message') !== -1, 'usa eV.message (no eF.message)');
+    A.cierto(bloque.indexOf('eF.message') === -1, 'NO usa eF.message');
+  });
+
+  t('S10: Instalar_pEnriquecimiento no lee INGRESO_* (post-entrega)', function () {
+    var src = Instalar_pEnriquecimiento.toString();
+    A.cierto(src.indexOf('Act_enriquecerPacientes') === -1, 'NO llama Act_enriquecerPacientes');
+    A.cierto(src.indexOf('omitido') !== -1 || src.indexOf('reservada') !== -1, 'indica que es omitido');
+  });
+
+  t('S10: Instalar_pDerivados reporta errores (no solo best effort)', function () {
+    var src = Instalar_pDerivados.toString();
+    A.cierto(src.indexOf('errores') !== -1, 'array de errores existe');
+    A.cierto(src.indexOf('ok: errores.length === 0') !== -1, 'ok depende de errores');
+  });
+
+  t('S10: Act_actualizarSistema trackea errores críticos', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('_errores') !== -1, '_errores array existe');
+    A.cierto(src.indexOf('reporte._errores.push') !== -1, 'push a _errores en catches');
+    A.cierto(src.indexOf('reporte.ok = false') !== -1, 'ok se pone false si hay errores');
+  });
+
+  t('S10: Menú reducido — ECICEP tiene ≤5 items', function () {
+    var src = onOpen.toString();
+    // Contar items del menú ECICEP
+    var ecicepMatch = src.match(/createMenu\('ECICEP'\)([\s\S]*?)\.addToUi/);
+    A.cierto(ecicepMatch, 'menú ECICEP existe');
+    var items = ecicepMatch[1].match(/\.addItem/g);
+    A.cierto(items && items.length <= 5, 'ECICEP tiene ≤5 items (tiene ' + (items ? items.length : 0) + ')');
+  });
+
+  t('S10: Menú reducido — Desarrollo tiene ≤5 items', function () {
+    var src = onOpen.toString();
+    var devMatch = src.match(/createMenu\('Desarrollo[\s\S]*?'\)([\s\S]*?)\.addToUi/);
+    A.cierto(devMatch, 'menú Desarrollo existe');
+    var items = devMatch[1].match(/\.addItem/g);
+    A.cierto(items && items.length <= 5, 'Desarrollo tiene ≤5 items (tiene ' + (items ? items.length : 0) + ')');
+  });
+
+  t('S10: ECICEP.VERSION actualizado', function () {
+    A.cierto(ECICEP.VERSION === '0.9.10', 'VERSION es 0.9.10');
+  });
+
+  t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('reporte.fuentes.ok === false') !== -1, 'detecta fuentes.ok === false');
+    A.cierto(src.indexOf('_errores.push(\'fuentes\')') !== -1, 'push fuentes a _errores');
   });
 }

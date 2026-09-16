@@ -227,3 +227,12 @@ payload V2 19 · backend V2 68 · formulario web 27 · V2 contrato 36 · aceptac
   lo preservan merge y enriquecimiento.
 - **Publicado**: `clasp push --force` + nueva versión desplegada en el deployment
   operativo (reutilizado). E2E interactivo en vivo pendiente de login (mismo límite).
+
+
+## 14. Revisión post-entrega (2026-09-16)
+
+Se corrigieron regresiones reproducidas en captura, simulación y controles;
+se agregó verificación integral local/CI y una publicación con tests obligatorios.
+Ver `docs/INFORME_REVISION_2026_09_16.md` para evidencias, publicación y límites.
+Las decisiones funcionales del §1 y la validación de backups/accesos siguen
+pendientes; esta revisión no define reglas clínicas ni ejecuta importaciones reales.

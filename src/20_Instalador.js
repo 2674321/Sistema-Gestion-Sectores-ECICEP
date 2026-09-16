@@ -415,24 +415,9 @@ function Instalar_pVerificar() {
  *  sinCambios, conflictos (requieren revisión), noEncontrados (sin fuente) y
  *  errores. */
 function Instalar_pEnriquecimiento() {
-  var r = Act_enriquecerPacientes({ dryRun: false });
-  if (!r || r.ok === false) {
-    return { ok: false, linea: (r && r.motivo) ? r.motivo : 'error en enriquecimiento' };
-  }
-  var lineas = [];
-  lineas.push('Pacientes revisados: ' + (r.revisados || 0) + ' de ' + (r.totalPacientes || 0));
-  if (r.enriquecidos) lineas.push('Actualizados: ' + r.enriquecidos + ' (' + (r.aplicados || 0) + ' campos)');
-  else lineas.push('Actualizados: sin campos demográficos vacíos con fuente');
-  if (r.sinCambios) lineas.push('Sin cambio: ' + r.sinCambios);
-  if (r.sinVacias) lineas.push('Sin huecos que enriquecer: ' + r.sinVacias);
-  if (r.conflictos) lineas.push('Requieren revisión: ' + r.conflictos);
-  if (r.noEncontrados) lineas.push('Sin fuente (quedan faltantes): ' + r.noEncontrados);
-  lineas.push('Errores: ' + (r.errores || 0));
-  return { ok: true, totalPacientes: r.totalPacientes || 0, revisados: r.revisados || 0,
-           enriquecidos: r.enriquecidos || 0, aplicados: r.aplicados || 0,
-           sinCambios: r.sinCambios || 0, sinVacias: r.sinVacias || 0,
-           conflictos: r.conflictos || 0, noEncontrados: r.noEncontrados || 0,
-           errores: r.errores || 0, linea: lineas.join(' · ') };
+  // POST-ENTREGA: Instalar NO lee datos de staging (INGRESO_*) para enriquecer.
+  // La lectura de fuentes internas/externas es responsabilidad de ACTUALIZAR.
+  return { ok: true, linea: 'omitido — enriquecimiento reservado para ACTUALIZAR' };
 }
 
 /** Calcula derivados (estratificación + controles) para que INICIO muestre
@@ -440,12 +425,14 @@ function Instalar_pEnriquecimiento() {
 function Instalar_pDerivados() {
   var estrat = { recalculados: 0, total: 0 };
   var ctrl = { cambios: 0, total: 0 };
-  try { estrat = Estrat_recalcularTodos() || estrat; } catch (eE) { /* best effort */ }
-  try { ctrl = Control_recalcularTodos() || ctrl; } catch (eC) { /* best effort */ }
+  var errores = [];
+  try { estrat = Estrat_recalcularTodos() || estrat; } catch (eE) { errores.push('estratificación: ' + (eE && eE.message || eE)); }
+  try { ctrl = Control_recalcularTodos() || ctrl; } catch (eC) { errores.push('controles: ' + (eC && eC.message || eC)); }
   var lineas = [];
   lineas.push('Estratificación: ' + (estrat.recalculados || 0) + '/' + (estrat.total || 0) + ' recalculados');
   lineas.push('Controles: ' + (ctrl.cambios || 0) + '/' + (ctrl.total || 0) + ' actualizados');
-  return { ok: true, estrat: estrat, controles: ctrl, linea: lineas.join(' · ') };
+  if (errores.length) lineas.push('Errores: ' + errores.join('; '));
+  return { ok: errores.length === 0, estrat: estrat, controles: ctrl, errores: errores, linea: lineas.join(' · ') };
 }
 
 /**

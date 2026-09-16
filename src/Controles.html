@@ -92,9 +92,9 @@ td.est{white-space:nowrap}
       <button type="button" class="chip-btn" data-est="VIGENTE" onclick="setEstados('VIGENTE',this)">Vigentes</button>
       <button type="button" class="chip-btn" data-est="TODOS" onclick="setEstados('TODOS',this)">Todos</button>
     </div>
-    <div id="contenido" class="vista"></div>
+    <div id="contenido" class="vista" aria-busy="false"></div>
     <div id="pie" class="pie">
-      <span id="resumen" class="cont">—</span>
+      <span id="resumen" class="cont" role="status" aria-live="polite">—</span>
       <span style="flex:1"></span>
       <button id="btnMas" class="btn btn-sec" style="display:none" onclick="cargarMas(this)">
         <i data-lucide="chevrons-down"></i> Cargar más</button>
@@ -103,7 +103,7 @@ td.est{white-space:nowrap}
 
   <div class="col">
     <div class="busca">
-      <input id="fTermino" class="inp" placeholder="Buscar por ID, RUT o nombre" autocomplete="off">
+      <input id="fTermino" class="inp" aria-label="Buscar por ID, RUT o nombre" placeholder="Buscar por ID, RUT o nombre" autocomplete="off">
     </div>
     <div class="pista" id="pista"></div>
     <div id="detalle" class="detalle">
@@ -122,6 +122,8 @@ td.est{white-space:nowrap}
 var CTRL = { sector: '', termino: '', estados: ['VENCIDO', 'POR_VENCER', 'SIN_FECHA'],
              todos: false, inicio: 0, limite: 30, total: 0, filas: [], sel: '' };
 var _cargando = false;
+var _consultaPendiente = false;
+var _registrando = false;
 
 function _estadoChip(est) {
   var color = { VENCIDO: 'var(--danger)', POR_VENCER: 'var(--warning)', VIGENTE: 'var(--success)', SIN_FECHA: 'var(--text-muted)' }[est] || 'var(--text-muted)';
@@ -148,18 +150,30 @@ function estadosEnvio() {
 /* La ÚNICA carga automática del modal: la lista de personas con controles
    que requieren intervención. Todo lo demás es bajo demanda. */
 function consultar(reset, btn) {
-  if (_cargando) return;
+  // Agrupa cambios durante la RPC: solo se consulta el último filtro elegido.
+  if (_cargando) { if (reset) _consultaPendiente = true; return; }
   var fin = btn ? _btnCargando(btn, 'Consultando…') : null;
   _cargando = true;
+  document.getElementById('contenido').setAttribute('aria-busy', 'true');
   if (btn) btn.disabled = true;
   if (reset) { CTRL.inicio = 0; } else { showMas(false); }
   CTRL.sector = document.getElementById('fSec').value || '';
   CTRL.termino = document.getElementById('fTermino').value.trim();
   if (reset) mostrarSkeleton();
+  function finalizar() {
+    _cargando = false;
+    document.getElementById('contenido').setAttribute('aria-busy', 'false');
+    if (fin) setLoading(btn, false);
+    if (_consultaPendiente) {
+      _consultaPendiente = false;
+      consultar(true);
+      return false;
+    }
+    return true;
+  }
   google.script.run
     .withSuccessHandler(function (r) {
-      _cargando = false;
-      if (fin) { setLoading(btn, false); btn.disabled = false; }
+      if (!finalizar()) return;
       if (!r || !r.ok) { pintarError(r); return; }
       CTRL.filas = reset ? (r.filas || []) : CTRL.filas.concat(r.filas || []);
       CTRL.total = r.total || 0;
@@ -167,8 +181,7 @@ function consultar(reset, btn) {
       pintar(reset);
     })
     .withFailureHandler(function (e) {
-      _cargando = false;
-      if (fin) { setLoading(btn, false); btn.disabled = false; }
+      if (!finalizar()) return;
       pintarError({ motivo: (e && e.message) || e });
     })
     .api_controlPanel({ sector: CTRL.sector, termino: CTRL.termino, estados: estadosEnvio(),
@@ -177,9 +190,11 @@ function consultar(reset, btn) {
 
 function mostrarSkeleton() {
   var cont = document.getElementById('contenido');
-  cont.innerHTML = '<table><tbody>';
-  for (var i = 0; i < 8; i++) cont.innerHTML += '<tr><td class="skel-row"></td></tr>';
-  cont.innerHTML += '</tbody></table>';
+  var html = '<table aria-hidden="true"><tbody>';
+  for (var i = 0; i < 8; i++) html += '<tr><td class="skel-row"></td></tr>';
+  cont.innerHTML = html + '</tbody></table>';
+  hidePie();
+  limpiarDetalle();
 }
 
 function pintarError(r) {
@@ -187,6 +202,7 @@ function pintarError(r) {
     '<div class="placeholder" style="display:block">' + _esc((r && r.motivo) || 'No se pudo consultar') + '</div>';
   document.getElementById('resumen').textContent = '—';
   hidePie();
+  limpiarDetalle();
   toast('Error al consultar: ' + ((r && r.motivo) || 'respuesta vacía'), 'err');
 }
 
@@ -325,11 +341,17 @@ function verFicha() {
 }
 
 function registrar(tipo) {
-  if (!CTRL.sel) return;
-  var p = filaDe(CTRL.sel);
-  var hoy = new Date().toISOString().slice(0, 10);
+  if (!CTRL.sel || _registrando) return;
+  _registrando = true;
+  // Fecha civil de Chile: ISO UTC avanzaba el día durante la tarde/noche local.
+  var partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Santiago',
+    year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  var fecha = {};
+  partes.forEach(function (p) { fecha[p.type] = p.value; });
+  var hoy = fecha.year + '-' + fecha.month + '-' + fecha.day;
   google.script.run
     .withSuccessHandler(function (r) {
+      _registrando = false;
       if (r && r.ok) {
         toast('✓ ' + tipo + ' de hoy registrado' + (r.proximo ? ' · próximo ' + r.proximo : ''), 'ok');
         consultar(true);
@@ -338,6 +360,7 @@ function registrar(tipo) {
       }
     })
     .withFailureHandler(function (e) {
+      _registrando = false;
       toast('Error: ' + ((e && e.message) || e), 'err');
     })
     .api_controlActualizarUltimo(CTRL.sel, tipo, hoy);

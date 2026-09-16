@@ -2,6 +2,23 @@
 
 > Estado documental: consolidación de la arquitectura vigente. Los hitos ETAPA 2/2.5/3 y las versiones 0.x se conservan como historial; no describen por sí solos el estado operativo actual.
 
+## Estado vigente de mantenimiento (2026-09-16)
+
+- `Instalar / reparar`: prepara estructura, formato y validaciones; las etapas
+  de fuentes, Amarillo, enriquecimiento y derivados son diagnósticas tras la entrega.
+- `Actualizar`: ejecuta `Act_actualizarSistema` (fuentes autorizadas, merge,
+  enriquecimiento, derivados y vistas). El procesamiento masivo real sigue
+  requiriendo instrucción explícita. `ejecutar:false` simula sin escrituras ni
+  cambios en objetos memoizados; no aplica estructura, formato, vistas o logs.
+- La captura V2 mantiene su contrato normativo. Su esquema físico canónico tiene
+  26 columnas y no deriva del catálogo ampliado de edición administrativa.
+  Persistencia y trailer usan encabezados reales; las columnas adicionales o
+  reordenadas se conservan. Un esquema incompleto o ambiguo falla antes de escribir.
+- El instalador del formulario no reetiqueta una cola poblada que tenga otro
+  orden; reporta `ESQUEMA_CAPTURA_REQUIERE_REVISION` sin modificar sus datos.
+- Las secciones de etapas/versiones inferiores describen hitos históricos. Para
+  responsabilidades actuales prevalecen este resumen, el código y `AGENTS.md`.
+
 ## Visión general funcional
 
 ```text
@@ -93,7 +110,7 @@ Las pruebas de integración con Spreadsheet real son manuales/documentadas (men�
 
 ## Entorno operativo
 
-El sistema funciona como **un único entorno operativo**: un proyecto Apps Script, un Spreadsheet y una Web App. **No existe backend, proveedor de datos, servicio de datos, API de datos propia ni base de datos operativa separada: el sistema ES el frontend** — la Web App (Apps Script) se comunica directamente con las hojas de cálculo operativas mediante un único pipeline.
+El sistema funciona como **un único entorno operativo**: un proyecto Apps Script, un Spreadsheet y una Web App. El backend reside en el mismo proyecto Apps Script y accede al Spreadsheet configurado mediante un único pipeline. La Web App es la interfaz operativa de captura; Sheets conserva las herramientas administrativas.
 
 Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Script son mecanismos técnicos de publicación. No representan DEV/DEMO/PROD como arquitectura.
 

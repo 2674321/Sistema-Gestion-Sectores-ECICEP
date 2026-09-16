@@ -780,9 +780,8 @@ function Captura_v2_ahora() {
 function Captura_v2_buscarRegistro(captureId) {
   var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
   if (!hoja || hoja.getLastRow() < 2) return null;
-  var cols = Form_columnas();
   var ultima = hoja.getLastRow();
-  var ultimac = Math.min(hoja.getLastColumn(), cols.length);
+  var ultimac = hoja.getLastColumn();
   var datos = hoja.getRange(1, 1, ultima, ultimac).getValues();
   var headers = datos[0];
   var mapa = Form_mapeoEncabezados(headers);
@@ -813,12 +812,29 @@ function Captura_v2_buscarRegistro(captureId) {
   return null;
 }
 
+/** Esquema físico real: admite columnas adicionales sin mover datos existentes.
+ * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir. */
+function Captura_v2_columnasHoja(hoja) {
+  var columnas = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  var claves = columnas.map(Utl_claveAlnum);
+  Form_columnas().forEach(function (nombre) {
+    var clave = Utl_claveAlnum(nombre);
+    if (claves.indexOf(clave) === -1 || claves.indexOf(clave) !== claves.lastIndexOf(clave)) {
+      throw new Error('ESQUEMA_CAPTURA_INCOMPATIBLE: ' + nombre);
+    }
+  });
+  return columnas.map(function (nombre) {
+    var clave = Utl_claveAlnum(nombre);
+    return Form_columnas().filter(function (c) { return Utl_claveAlnum(c) === clave; })[0] || nombre;
+  });
+}
+
 /** GAS: persiste el registro de captura (fila RECIBIDO) con confirmación §15. */
 function Captura_v2_persistirRegistro(reg) {
   try {
     var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
     if (!hoja) return { ok: false, motivo: 'HOJA_FORM_RESPUESTAS_AUSENTE' };
-    var cols = Form_columnas();
+    var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
     var fila = new Array(cols.length);
@@ -849,8 +865,7 @@ function Captura_v2_persistirRegistro(reg) {
 function Captura_v2_confirmarFila(hoja, captureId) {
   try {
     var ultima = hoja.getLastRow();
-    var cols = Form_columnas();
-    var ultimac = Math.min(hoja.getLastColumn(), cols.length);
+    var ultimac = hoja.getLastColumn();
     var datos = hoja.getRange(ultima, 1, 1, ultimac).getValues()[0];
     var mapa = Form_mapeoEncabezados(hoja.getRange(1, 1, 1, ultimac).getValues()[0]);
     var colRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : 0);
@@ -872,11 +887,12 @@ function Captura_v2_actualizarTrailer(captureId, cambios, reg) {
       reg = (encontrado && encontrado.filaFisica) ? encontrado : reg;
       if (!reg || !reg.filaFisica) return { ok: false, motivo: 'SIN_REGISTRO' };
     }
-    var cols = Form_columnas();
+    var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
     var trailerCols = ['INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO'];
-    var ini = mapa.INGRESO_HOJA, fin = mapa.FECHA_PROCESO;
+    var indices = trailerCols.map(function (c) { return mapa[c]; });
+    var ini = Math.min.apply(null, indices), fin = Math.max.apply(null, indices);
     var ancho = fin - ini + 1;
     var bloque = hoja.getRange(reg.filaFisica, ini + 1, 1, ancho).getValues()[0];
     var offset = {};

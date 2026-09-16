@@ -22,18 +22,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Sintaxis src/*.js y *.gs
-        run: |
-          set -e
-          for f in src/*.js; do node --check "$f"; done
-          # node --check no conoce .gs: se valida como .js temporal.
-          for f in src/*.gs; do
-            tmp="$(mktemp --suffix=.js)"
-            cp "$f" "$tmp"
-            node --check "$tmp"
-            rm -f "$tmp"
-          done
-
       - name: Sin datos personales en el repositorio
         run: |
           set -e
@@ -47,29 +35,5 @@ jobs:
           fi
           echo "OK: sin archivos de datos fuera de datos_prueba/"
 
-      - name: Batería núcleo
-        run: node tests/ejecutar_local.mjs
-
-      - name: Sintaxis <script> embebidos en HTML (Web App, guía, paneles, demo)
-        run: node tests/validar_html.mjs
-
-      - name: Batería aceptación formulario
-        run: node tests/aceptacion_formulario.mjs
-
-      - name: Batería captura backend V2
-        run: node tests/captura_backend_v2.mjs
-
-      - name: Batería captura UI/payload V2
-        run: node tests/captura_ui_payload_v2.mjs
-
-      - name: Batería cola FORM_RESPUESTAS
-        run: node tests/cola_form_respuestas.mjs
-
-      - name: Batería contrato captura V2
-        run: node tests/contrato_captura_v2.mjs
-
-      - name: Batería contrato datos
-        run: node tests/contrato_datos.mjs
-
-      - name: Batería formulario web
-        run: node tests/formulario_web.mjs
+      - name: Sintaxis y todas las baterías (descubrimiento automático)
+        run: node tools/verificar.mjs

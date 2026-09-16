@@ -505,6 +505,10 @@ function Fuentes_cargaReal(opciones) {
   var store = { pacientes: [], eventos: [] };
   if ((opciones.ejecutar || opciones.actualizar) && typeof Modelo_leerPacientes === 'function') {
     store.pacientes = Modelo_leerPacientes();
+    // La simulación trabaja en copias: el lector comparte objetos memoizados.
+    if (!opciones.ejecutar) {
+      store.pacientes = store.pacientes.map(function (p) { return Object.assign({}, p); });
+    }
   }
 
   // MERGE conservador sobre pacientes existentes (v0.9.6). Puras y testeables:
@@ -553,7 +557,8 @@ function Fuentes_cargaReal(opciones) {
     })
   };
 
-  Log_info('Fuentes', opciones.ejecutar ? 'cargaReal' : 'cargaAnalisis',
+  // Ni siquiera el log debe provocar una escritura durante una simulación.
+  if (opciones.ejecutar) Log_info('Fuentes', 'cargaReal',
     JSON.stringify({ registros: resumen.registros, nuevos: resumen.nuevos, existentes: resumen.existentes,
                      revision: resumen.revision, conError: resumen.conError, yaImportadas: yaImportadas,
                      merge: opciones.actualizar ? { revisados: merge.revisados, actualizados: merge.actualizados,
@@ -567,6 +572,23 @@ function Fuentes_cargaReal(opciones) {
   // --- FASE 5.6: IMPORTACIÓN ---
   var escritosPacientes = false;
   var escritosEventos = false;
+  var actualizarPacientes = opciones.actualizar &&
+    (merge.actualizados > 0 || merge.conflictos > 0 || salida.pacientesNuevos.length > 0);
+  // Verificar el destino ANTES de anexar eventos. Un esquema incompatible no
+  // puede dejar eventos sin su paciente ni devolver un falso ok:true.
+  if (actualizarPacientes) {
+    var esquema = Modelo_asegurarEsquemaPacientes();
+    if (!esquema.ok) {
+      resultado.ok = false;
+      resultado.motivo = 'ESQUEMA_PACIENTES_INCOMPATIBLE';
+      resumen.error = resultado.motivo + ': ' + (esquema.motivo || '');
+      resumen.escritosPacientes = false;
+      resumen.escritosEventos = false;
+      Log_error('Fuentes', 'cargaReal-merge', resumen.error);
+      Log_flush();
+      return resultado;
+    }
+  }
   if (typeof Modelo_agregarEventos === 'function' && salida.eventos.length) {
     Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
     escritosEventos = true;
@@ -574,18 +596,12 @@ function Fuentes_cargaReal(opciones) {
   if (opciones.actualizar) {
     // Escritura UNIFICADA (nuevos + existentes actualizados por merge) en una sola
     // llamada por bloque: precedente Act_enriquecerPacientes. Solo si hubo cambios.
-    if (merge.actualizados > 0 || merge.conflictos > 0 || salida.pacientesNuevos.length > 0) {
-      var esquema = Modelo_asegurarEsquemaPacientes();
-      if (!esquema.ok) {
-        resumen.error = 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + (esquema.motivo || '');
-        Log_error('Fuentes', 'cargaReal-merge', resumen.error);
-      } else {
-        var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-        Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
-          store.pacientes.map(Modelo_filaDesdeObjeto));
-        Modelo_invalidarLecturas();
-        escritosPacientes = true;
-      }
+    if (actualizarPacientes) {
+      var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+      Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
+        store.pacientes.map(Modelo_filaDesdeObjeto));
+      Modelo_invalidarLecturas();
+      escritosPacientes = true;
     }
   } else if (typeof Modelo_agregarPacientes === 'function' && salida.pacientesNuevos.length) {
     Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
