@@ -12,8 +12,8 @@ var INSTALAR_ETAPAS = [
   { id: 'versionado',   nombre: 'Versionando el sistema',       fn: 'Instalar_pVersionado' },
   { id: 'migraciones',  nombre: 'Aplicando migraciones',        fn: 'Instalar_pMigraciones' },
   { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura' },
-  { id: 'fuentes',      nombre: 'Importando fuentes',           fn: 'Instalar_pFuentes' },
-  { id: 'amarillo',     nombre: 'Integrando sector amarillo',   fn: 'Instalar_pAmarillo' },
+  { id: 'fuentes',      nombre: 'Verificando fuentes',          fn: 'Instalar_pFuentes' },
+  { id: 'amarillo',     nombre: 'Verificando sector amarillo',  fn: 'Instalar_pAmarillo' },
   { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
   { id: 'limpieza',     nombre: 'Depurando datos residuales',   fn: 'Instalar_pLimpieza' },
@@ -354,36 +354,14 @@ function Instalar_pEstructura() {
            dashboardReparado: !!est.dashboardReparado };
 }
 function Instalar_pFuentes() {
-  var pend = Fuentes_pendientes();
-  var ya = _rem9_configValor('CARGA_REAL_HECHA');
-  var resultado = { ok: true };
-  if (!pend.length) {
-    resultado.linea = 'sin fuentes pendientes';
-  } else if (ya) {
-    resultado.omitida = true;
-    resultado.linea = 'ya importadas el ' + ya + ' (Herramientas → Cargar para re-importar)';
-  } else {
-    var r = Fuentes_cargaReal({ ejecutar: true });
-    _config_set('CARGA_REAL_HECHA', Utilities.formatDate(new Date(),
-      Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
-    resultado.importado = pend;
-    resultado.detalle = r;
-  }
-  // Siempre sincronizar ESTRATIFICACION desde hojas INGRESO_* internas
-  try {
-    resultado.sincEstrat = Ingresos_sincronizarEstratificacion();
-  } catch (e) {
-    resultado.sincEstrat = { error: e && e.message ? e.message : String(e) };
-  }
-  return resultado;
+  // POST-ENTREGA: Instalar NO importa datos externos.
+  // La carga de fuentes es responsabilidad exclusiva de ACTUALIZAR.
+  return { ok: true, linea: 'omitido — importación reservada para ACTUALIZAR' };
 }
 function Instalar_pAmarillo() {
-  var cfg = FUENTES_DRIVE['SEGUIMIENTO ECICEP Sector Amarillo'];
-  if (!(cfg && cfg.id)) return { ok: true, omitida: true, linea: 'sin ID en FUENTES_DRIVE' };
-  var r = Amarillo_importarTodo(true);
-  try { if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores(); } catch (e) {}
-  return { puerta: r.puerta, historico: r.historico,
-           pendientes: (r.pendientesSinPaciente || []).length };
+  // POST-ENTREGA: Instalar NO importa datos del sector amarillo.
+  // La integración de fuentes es responsabilidad exclusiva de ACTUALIZAR.
+  return { ok: true, omitida: true, linea: 'omitido — importación reservada para ACTUALIZAR' };
 }
 function Instalar_pValidaciones() {
   var r = Modelo_validarIngresos(Modelo_ss());

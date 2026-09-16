@@ -6079,10 +6079,43 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S8: Sidebar incluye código de edición de próximo control', function () {
-    // El sidebar se carga como archivo HTML; verificar que contiene las funciones clave
-    // (no se puede leer HtmlService en entorno local, pero la existencia de api_actualizarPaciente
-    // y _CAMPOS_EDITABLES_PACIENTE garantiza que el backend soporta la edición)
     A.cierto(typeof api_actualizarPaciente === 'function', 'api_actualizarPaciente disponible');
     A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROXIMO_CONTROL') !== -1, 'PROXIMO_CONTROL en campos editables');
+  });
+
+  // --- S9: INSTALAR no importa datos / ACTUALIZAR sí ---
+  t('S9: INSTALAR — etapa fuentes no importa datos externos', function () {
+    var src = Instalar_pFuentes.toString();
+    A.cierto(src.indexOf('Fuentes_cargaReal') === -1, 'Instalar_pFuentes NO llama Fuentes_cargaReal');
+    A.cierto(src.indexOf('Ingresos_sincronizarEstratificacion') === -1, 'Instalar_pFuentes NO llama Ingresos_sincronizarEstratificacion');
+    A.cierto(src.indexOf('omitido') !== -1 || src.indexOf('reservada') !== -1, 'Instalar_pFuentes indica que es omitido');
+  });
+
+  t('S9: INSTALAR — etapa amarillo no importa datos externos', function () {
+    var src = Instalar_pAmarillo.toString();
+    A.cierto(src.indexOf('Amarillo_importarTodo') === -1, 'Instalar_pAmarillo NO llama Amarillo_importarTodo');
+    A.cierto(src.indexOf('omitido') !== -1 || src.indexOf('reservada') !== -1, 'Instalar_pAmarillo indica que es omitido');
+  });
+
+  t('S9: INSTALAR — nombres de etapas reflejan propósito post-entrega', function () {
+    var fuentes = INSTALAR_ETAPAS.find(function (e) { return e.id === 'fuentes'; });
+    var amarillo = INSTALAR_ETAPAS.find(function (e) { return e.id === 'amarillo'; });
+    A.cierto(fuentes.nombre.indexOf('Importando') === -1, 'etapa fuentes no dice "Importando"');
+    A.cierto(amarillo.nombre.indexOf('Integrando') === -1, 'etapa amarillo no dice "Integrando"');
+  });
+
+  t('S9: ACTUALIZAR — mantiene carga de fuentes', function () {
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('Fuentes_cargaReal') !== -1, 'Act_actualizarSistema SÍ llama Fuentes_cargaReal');
+    A.cierto(src.indexOf('Amarillo_importarTodo') !== -1, 'Act_actualizarSistema SÍ llama Amarillo_importarTodo');
+  });
+
+  t('S9: INSTALAR etapas son idempotentes (sin carga de datos)', function () {
+    var ids = INSTALAR_ETAPAS.map(function (e) { return e.id; });
+    A.cierto(ids.indexOf('estructura') !== -1, 'etapa estructura existe');
+    A.cierto(ids.indexOf('visual') !== -1, 'etapa visual existe');
+    A.cierto(ids.indexOf('validaciones') !== -1, 'etapa validaciones existe');
+    A.cierto(ids.indexOf('derivados') !== -1, 'etapa derivados existe');
+    A.cierto(ids.indexOf('verificar') !== -1, 'etapa verificar existe');
   });
 }
