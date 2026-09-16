@@ -5897,4 +5897,16 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(srcI.indexOf('Modelo_validarIngresos') !== -1, 'INSTALAR tiene validaciones');
     A.cierto(srcA.indexOf('Modelo_validarIngresos') !== -1, 'ACTUALIZAR tiene validaciones');
   });
+
+  t('S7b: INSTALAR tiene etapa derivados (estratificación + controles)', function () {
+    var ids = INSTALAR_ETAPAS.map(function (e) { return e.id; });
+    A.cierto(ids.indexOf('derivados') !== -1, 'etapa derivados existe');
+    var iEnr = ids.indexOf('enriquecimiento');
+    var iDer = ids.indexOf('derivados');
+    var iVer = ids.indexOf('verificar');
+    A.cierto(iEnr < iDer, 'derivados después de enriquecimiento');
+    A.cierto(iDer < iVer, 'derivados antes de verificación');
+    A.igual(INSTALAR_ETAPAS[iDer].fn, 'Instalar_pDerivados', 'función correcta');
+    A.cierto(typeof Instalar_pDerivados === 'function', 'Instalar_pDerivados existe');
+  });
 }

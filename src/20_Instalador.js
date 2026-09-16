@@ -21,6 +21,7 @@ var INSTALAR_ETAPAS = [
   { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
   { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
+  { id: 'derivados',    nombre: 'Calculando estratificación y controles', fn: 'Instalar_pDerivados' },
   { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
 ];
 
@@ -28,7 +29,7 @@ var INSTALAR_ETAPAS = [
  *  versionado y verificar → en ellas NO se toma LockService. */
 var INSTALAR_ETAPAS_MUTAN = {};
 ['migraciones', 'estructura', 'fuentes', 'amarillo', 'visual', 'validaciones',
- 'limpieza', 'diseno', 'inicio', 'menu', 'enriquecimiento'].forEach(function (id) {
+  'limpieza', 'diseno', 'inicio', 'menu', 'enriquecimiento', 'derivados'].forEach(function (id) {
   INSTALAR_ETAPAS_MUTAN[id] = true;
 });
 
@@ -441,6 +442,19 @@ function Instalar_pEnriquecimiento() {
            sinCambios: r.sinCambios || 0, sinVacias: r.sinVacias || 0,
            conflictos: r.conflictos || 0, noEncontrados: r.noEncontrados || 0,
            errores: r.errores || 0, linea: lineas.join(' · ') };
+}
+
+/** Calcula derivados (estratificación + controles) para que INICIO muestre
+ *  datos reales desde la primera instalación. Idempotente. */
+function Instalar_pDerivados() {
+  var estrat = { recalculados: 0, total: 0 };
+  var ctrl = { cambios: 0, total: 0 };
+  try { estrat = Estrat_recalcularTodos() || estrat; } catch (eE) { /* best effort */ }
+  try { ctrl = Control_recalcularTodos() || ctrl; } catch (eC) { /* best effort */ }
+  var lineas = [];
+  lineas.push('Estratificación: ' + (estrat.recalculados || 0) + '/' + (estrat.total || 0) + ' recalculados');
+  lineas.push('Controles: ' + (ctrl.cambios || 0) + '/' + (ctrl.total || 0) + ' actualizados');
+  return { ok: true, estrat: estrat, controles: ctrl, linea: lineas.join(' · ') };
 }
 
 /**

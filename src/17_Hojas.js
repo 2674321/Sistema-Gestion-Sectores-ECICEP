@@ -321,9 +321,9 @@ function Hojas_crearInicio(ss) {
   h.getRange(34, 4).setValue('DISTRIBUCI\u00d3N POR ESTRATIFICACI\u00d3N')
    .setFontWeight('bold').setFontSize(10).setFontColor(MUTED);
   var estrates = [
-    { nombre:'G1', color: DESIGN_SYSTEM.MARCA.sistemaClaro, desc:'Alto'},
+    { nombre:'G1', color: DESIGN_SYSTEM.MARCA.sistemaClaro, desc:'Bajo'},
     { nombre:'G2', color: DESIGN_SYSTEM.MARCA.sistema, desc:'Medio'},
-    { nombre:'G3', color: DESIGN_SYSTEM.MARCA.sistemaProfundo, desc:'Bajo'}
+    { nombre:'G3', color: DESIGN_SYSTEM.MARCA.sistemaProfundo, desc:'Alto'}
   ];
   estrates.forEach(function (g, ix) {
     var c0 = 4 + ix * 6 + (ix === 2 ? 1 : 0);
