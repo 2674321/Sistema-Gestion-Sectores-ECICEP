@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.6` · pruebas núcleo **606/606** · deploy `/exec` vigente |
+| **Estado** | Operativo · `v0.9.6` · pruebas núcleo **894/894** · deploy `/exec` vigente |
 
 ## Qué resuelve
 
@@ -122,6 +122,13 @@ conexión a Apps Script) en línea:
 
 Incluye RUT de ejemplo que ya existen en la base demo (13.187.212-7,
 9.866.001-1, 15.798.443-8) para ver el comportamiento de personas registradas.
+
+## Captura de la Web App
+
+![Web App de captura ECICEP](docs/screenshots/webapp-captura.png)
+
+Vista del formulario de captura (réplica demo con datos ficticios). La interfaz
+operativa en producción es idéntica, servida por la Web App de Apps Script.
 
 ## Arquitectura
 
