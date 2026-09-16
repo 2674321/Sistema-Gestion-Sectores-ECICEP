@@ -231,7 +231,6 @@ textarea.inp{min-height:64px;resize:vertical}
     <div class="dato-grid" id="segDatos">
       <div class="dato-fila"><span class="k">Último seguimiento</span><span class="v" id="segUltSeguimiento">—</span></div>
       <div class="dato-fila"><span class="k">Último control</span><span class="v" id="segUltControl">—</span></div>
-      <div class="dato-fila"><span class="k">Próximo control</span><span class="v" id="segProximo">—</span></div>
     </div>
     <div id="segRecordatorio" class="chip" style="margin:10px 0 14px;display:flex;width:fit-content;max-width:100%"></div>
     <label class="etq">Registrar actividad de seguimiento</label>
@@ -240,6 +239,14 @@ textarea.inp{min-height:64px;resize:vertical}
         onclick="segActualizar(this,'SEGUIMIENTO')"><i data-lucide="clipboard-check" style="width:13px;height:13px"></i> Seguimiento hoy</button>
       <button class="btn btn-sec" style="flex:1;min-height:32px;font-size:11.5px" id="segBtnControl"
         onclick="segActualizar(this,'CONTROL')"><i data-lucide="stethoscope" style="width:13px;height:13px"></i> Control hoy</button>
+    </div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--borde)">
+      <label class="etq">Próximo control (editable)</label>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <input type="date" id="segProximoInput" class="inp" style="flex:1;min-height:32px;font-size:12px">
+        <button class="btn btn-prim" style="min-height:32px;font-size:11.5px;white-space:nowrap"
+          onclick="segGuardarProximo(this)"><i data-lucide="save" style="width:13px;height:13px"></i> Guardar</button>
+      </div>
     </div>
     <small style="color:var(--text-muted);display:block;margin-top:10px;line-height:1.4">
       Al actualizar el control, el próximo control y el estado se recalculan automáticamente según la
@@ -462,7 +469,10 @@ function pintarSeguimiento(sg){
   var set=function(id,txt){var el=document.getElementById(id);if(el)el.textContent=txt||'—';};
   set('segUltSeguimiento',(sg&&sg.ultimoSeguimiento&&sg.ultimoSeguimiento.slice(0,10))||'—');
   set('segUltControl',(sg&&sg.ultimoControl&&sg.ultimoControl.slice(0,10))||'—');
-  set('segProximo',(sg&&sg.proximo&&sg.proximo.slice(0,10))||'—');
+  // Próximo control: input editable
+  var proxVal=(sg&&sg.proximo&&sg.proximo.slice(0,10))||'';
+  var proxEl=document.getElementById('segProximoInput');
+  if(proxEl) proxEl.value=proxVal;
   var chipsEl=document.getElementById('segChips');
   if(chipsEl){
     chipsEl.innerHTML=''+
@@ -472,6 +482,18 @@ function pintarSeguimiento(sg){
   }
   var rec=document.getElementById('segRecordatorio');
   if(rec) rec.textContent=(sg&&sg.recordatorio)||'Sin registro de control';
+}
+function segGuardarProximo(btn){
+  if(!P_ACTUAL){toast('No hay paciente abierto','err');return;}
+  var inp=document.getElementById('segProximoInput');
+  if(!inp||!inp.value){toast('Ingrese una fecha','err');return;}
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    setLoading(btn,false);
+    if(r&&r.ok){toast('✓ Próximo control actualizado','ok');abrirFicha(P_ACTUAL);}
+    else toast(r.motivo||'No se pudo guardar','err');
+  }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+  .api_actualizarPaciente(P_ACTUAL,{PROXIMO_CONTROL:inp.value});
 }
 function segActualizar(btn,tipo){
   if(!P_ACTUAL){toast('No hay paciente abierto','err');return;}

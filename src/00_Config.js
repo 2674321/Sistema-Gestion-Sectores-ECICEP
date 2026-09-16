@@ -802,20 +802,45 @@ var FORM_CONFIG = {
     { pregunta: 'Acción a registrar', campo: 'ACCION', tipo: 'dropdown', requerido: true,
       opciones: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'RUT de la persona (ej: 12.345.678-5)', campo: 'RUT', tipo: 'texto', requerido: true },
-    { pregunta: 'Nombre completo', campo: 'NOMBRE', tipo: 'texto', requerido: true, acciones: ['NUEVO_INGRESO'] },
-    { pregunta: 'Sexo (M / F / OTRO)', campo: 'SEXO', tipo: 'dropdown', opciones: ['M', 'F', 'OTRO'], acciones: ['NUEVO_INGRESO'] },
-    { pregunta: 'Fecha de nacimiento', campo: 'FECHA_NACIMIENTO', tipo: 'fecha', requerido: true, acciones: ['NUEVO_INGRESO'] },
+    { pregunta: 'Nombre completo', campo: 'NOMBRE', tipo: 'texto', requerido: true,
+      acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Sexo (M / F / OTRO)', campo: 'SEXO', tipo: 'dropdown', opciones: ['M', 'F', 'OTRO'],
+      acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Fecha de nacimiento', campo: 'FECHA_NACIMIENTO', tipo: 'fecha', requerido: true,
+      acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Sector', campo: 'SECTOR', tipo: 'dropdown', requerido: true,
-      opciones: SECTORES_RESPONSABLES, acciones: ['NUEVO_INGRESO'] },
+      opciones: SECTORES_RESPONSABLES, acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Estratificación (solo si se conoce)', campo: 'ESTRATIFICACION', tipo: 'dropdown',
-      opciones: ['G1', 'G2', 'G3', ''], acciones: ['NUEVO_INGRESO'] },
-    { pregunta: 'Teléfono(s)', campo: 'TELEFONOS', tipo: 'texto', acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
+      opciones: ['G1', 'G2', 'G3', ''], acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Teléfono(s)', campo: 'TELEFONOS', tipo: 'texto',
+      acciones: ['NUEVO_INGRESO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Observaciones del teléfono', campo: 'TELEFONO_OBS', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
     { pregunta: 'Fecha del evento (control/seguimiento)', campo: 'FECHA_EVENTO', tipo: 'fecha', requerido: true,
       acciones: ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO'] },
     { pregunta: 'Profesional que registra', campo: 'PROFESIONAL', tipo: 'dropdown', requerido: true,
       acciones: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
     { pregunta: 'Segundo profesional (opcional)', campo: 'PROFESIONAL2', tipo: 'texto',
       acciones: ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'] },
+    { pregunta: 'Estado del paciente', campo: 'ESTADO', tipo: 'dropdown',
+      opciones: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR'],
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Dupla de ingreso', campo: 'DUPLA_INGRESO', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Profesional de seguimiento', campo: 'PROFESIONAL_SEGUIMIENTO', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Fecha de preingreso', campo: 'PREINGRESO', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Fecha de ingreso', campo: 'FECHA_INGRESO', tipo: 'fecha',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Condiciones / patologías', campo: 'CONDICIONES', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Otras patologías', campo: 'OTRAS_PATOLOGIAS', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Próximo control', campo: 'PROXIMO_CONTROL', tipo: 'fecha',
+      acciones: ['ACTUALIZAR_DATOS'] },
+    { pregunta: 'Composición del control', campo: 'COMPOSICION_CONTROL', tipo: 'texto',
+      acciones: ['ACTUALIZAR_DATOS'] },
     { pregunta: 'Descripción / observaciones', campo: 'OBSERVACIONES', tipo: 'texto' }
   ]
 };
@@ -826,9 +851,11 @@ var FORM_CONFIG = {
 FORM_CONFIG.SECCIONES = {
   ident: ['NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR', 'ESTRATIFICACION'],
   evento: ['FECHA_EVENTO'],
-  tel: ['TELEFONOS'],
+  tel: ['TELEFONOS', 'TELEFONO_OBS'],
   prof: ['PROFESIONAL', 'PROFESIONAL2'],
-  obs: ['OBSERVACIONES']
+  obs: ['OBSERVACIONES'],
+  estado: ['ESTADO', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO'],
+  clinico: ['CONDICIONES', 'OTRAS_PATOLOGIAS', 'PROXIMO_CONTROL', 'COMPOSICION_CONTROL']
 };
 
 // Detalle operativo por ACCION (mensajes y futuras reglas por tipo). El
@@ -877,7 +904,7 @@ FORM_CONFIG.CONTROL = {
 // Columnas físicas de FORM_RESPUESTAS (derivadas del contrato CAMPOS).
 var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'USUARIO']
   .concat(FORM_CONFIG.CAMPOS.map(function (c) { return c.campo; }))
-  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO', 'FECHA_INGRESO']);
+  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO']);
 
 // ---------------------------------------------------------------------------
 // Sexo (REM lo requiere; fuentes actuales no lo traen)

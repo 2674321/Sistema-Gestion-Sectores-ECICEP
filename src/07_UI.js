@@ -893,6 +893,187 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// API UNIFICADA — Actualización de campos de paciente
+// ---------------------------------------------------------------------------
+
+/** Campos que el usuario puede editar directamente. */
+var _CAMPOS_EDITABLES_PACIENTE = [
+  'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS',
+  'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO',
+  'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO',
+  'OBSERVACIONES', 'CONDICIONES', 'OTRAS_PATOLOGIAS',
+  'PROXIMO_CONTROL', 'COMPOSICION_CONTROL'
+];
+
+/**
+ * API unificada para actualizar campos editables de un paciente.
+ * Usada por: formulario web (ACTUALIZAR_DATOS), ficha de paciente,
+ * y cualquier otra interfaz que necesite modificar datos.
+ *
+ * @param {string} idInterno ID_INTERNO del paciente
+ * @param {Object} campos Campos a actualizar { CAMPO: valor, ... }
+ * @param {string} [token] Token de autorización (opcional)
+ * @returns {{ ok: boolean, motivo?: string, paciente?: Object }}
+ */
+function api_actualizarPaciente(idInterno, campos, token) {
+  try {
+    if (!WebApp_autorizarBuscador && typeof WebApp_autorizarBuscador !== 'function') {
+      // Entorno sin WebApp (tests) —.skip auth
+    } else if (typeof WebApp_autorizarBuscador === 'function' && !WebApp_autorizarBuscador(token)) {
+      return { ok: false, motivo: 'NO_AUTORIZADO' };
+    }
+
+    var encontrado = Modelo_buscarPaciente(idInterno);
+    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+    var paciente = encontrado.obj;
+    var idx = encontrado.idx;
+
+    // Validar y aplicar solo campos editables
+    var cambios = 0;
+    var errores = [];
+    var freq = null;
+
+    _CAMPOS_EDITABLES_PACIENTE.forEach(function (campo) {
+      if (!(campo in campos)) return;
+      var valor = campos[campo];
+      var v = Utl_texto(valor).trim();
+
+      switch (campo) {
+        case 'NOMBRE':
+          paciente.NOMBRE = v;
+          paciente.NOMBRE_NORMALIZADO = Norm_claveNombre(v);
+          cambios++;
+          break;
+
+        case 'SEXO':
+          var sexoNorm = Norm_normalizarSexo(v);
+          paciente.SEXO = sexoNorm;
+          cambios++;
+          break;
+
+        case 'FECHA_NACIMIENTO':
+          var fn = Norm_normalizarFecha(v);
+          paciente.FECHA_NACIMIENTO = fn.iso;
+          cambios++;
+          break;
+
+        case 'TELEFONOS':
+          var tel = Norm_normalizarTelefono(v);
+          paciente.TELEFONOS = tel.telefonos.join('/');
+          cambios++;
+          break;
+
+        case 'TELEFONO_OBS':
+          paciente.TELEFONO_OBS = v;
+          cambios++;
+          break;
+
+        case 'SECTOR':
+          var sec = Norm_normalizarSector(v);
+          if (sec.estado === 'OK') {
+            paciente.SECTOR = sec.sector;
+            cambios++;
+          } else {
+            errores.push({ campo: 'SECTOR', mensaje: 'Sector inválido: "' + v + '"' });
+          }
+          break;
+
+        case 'ESTRATIFICACION':
+          var est = Norm_normalizarEstratificacion(v);
+          if (v === '' || est) {
+            paciente.ESTRATIFICACION = est;
+            paciente.ESTRAT_ORIGEN = v;
+            cambios++;
+          } else {
+            errores.push({ campo: 'ESTRATIFICACION', mensaje: 'Valor no clasificable: "' + v + '"' });
+          }
+          break;
+
+        case 'ESTADO':
+          paciente.ESTADO = v || 'PENDIENTE';
+          cambios++;
+          break;
+
+        case 'DUPLA_INGRESO':
+          paciente.DUPLA_INGRESO = v;
+          cambios++;
+          break;
+
+        case 'PROFESIONAL_SEGUIMIENTO':
+          paciente.PROFESIONAL_SEGUIMIENTO = v;
+          cambios++;
+          break;
+
+        case 'PREINGRESO':
+          var pre = Norm_normalizarFecha(v);
+          paciente.PREINGRESO = (pre.estado === 'VALIDA' || pre.estado === 'MES_ANO') ? pre.iso : v;
+          cambios++;
+          break;
+
+        case 'FECHA_INGRESO':
+          var fi = Norm_normalizarFecha(v);
+          paciente.FECHA_INGRESO = fi.iso;
+          cambios++;
+          break;
+
+        case 'OBSERVACIONES':
+          paciente.OBSERVACIONES = v;
+          cambios++;
+          break;
+
+        case 'CONDICIONES':
+          paciente.CONDICIONES = v;
+          cambios++;
+          break;
+
+        case 'OTRAS_PATOLOGIAS':
+          paciente.OTRAS_PATOLOGIAS = v;
+          cambios++;
+          break;
+
+        case 'PROXIMO_CONTROL':
+          var pc = Norm_normalizarFecha(v);
+          paciente.PROXIMO_CONTROL = pc.iso;
+          cambios++;
+          break;
+
+        case 'COMPOSICION_CONTROL':
+          paciente.COMPOSICION_CONTROL = v;
+          cambios++;
+          break;
+      }
+    });
+
+    if (errores.length) return { ok: false, motivo: errores.map(function (e) { return e.mensaje; }).join('; ') };
+    if (!cambios) return { ok: false, motivo: 'SIN_CAMBIOS' };
+
+    // Si cambió ULTIMO_CONTROL (vía evento), recalcular PROXIMO_CONTROL
+    // Si cambió PROXIMO_CONTROL directamente, respetarlo
+    if (freq === null) {
+      try { freq = _UI_controlConfig().freq; } catch (e) { freq = null; }
+    }
+
+    paciente.FECHA_ACTUALIZACION = new Date();
+    var esquema = Modelo_asegurarEsquemaPacientes();
+    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_INCOMPATIBLE: ' + esquema.motivo };
+
+    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
+      .setValues([Modelo_filaDesdeObjeto(paciente)]);
+    Modelo_invalidarLecturas();
+
+    Log_info('Paciente', 'actualizar', 'campos=' + cambios + ' → ' + paciente.ID_INTERNO);
+    Log_flush();
+
+    return { ok: true, paciente: { ID_INTERNO: paciente.ID_INTERNO, NOMBRE: paciente.NOMBRE } };
+  } catch (e) {
+    Log_error('Paciente', 'actualizar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
 /** Campos mínimos del Diagnóstico de control: los que consumen
  *  Control_analizar, Control_filasPanel y el barrido de desalineados
  *  (= _CONTROL_CAMPOS_PACIENTES + PROXIMO_CONTROL). */

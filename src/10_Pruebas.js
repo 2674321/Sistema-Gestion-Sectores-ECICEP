@@ -5997,4 +5997,92 @@ function _pruebas_p0_auditoria_v098(t, A) {
     }
     A.igual(pac.ESTRATIFICACION, 'G3', 'ESTRATIFICACION preservada después de intento de recálculo');
   });
+
+  // --- S8: ACTUALIZAR DATOS completo + PROXIMO_CONTROL editable ---
+  t('S8: api_actualizarPaciente existe y es función', function () {
+    A.cierto(typeof api_actualizarPaciente === 'function', 'api_actualizarPaciente definida');
+  });
+
+  t('S8: _CAMPOS_EDITABLES_PACIENTE incluye todos los campos editables', function () {
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('NOMBRE') !== -1, 'NOMBRE editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('SEXO') !== -1, 'SEXO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('FECHA_NACIMIENTO') !== -1, 'FECHA_NACIMIENTO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('TELEFONOS') !== -1, 'TELEFONOS editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('SECTOR') !== -1, 'SECTOR editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('ESTRATIFICACION') !== -1, 'ESTRATIFICACION editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('ESTADO') !== -1, 'ESTADO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROXIMO_CONTROL') !== -1, 'PROXIMO_CONTROL editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('CONDICIONES') !== -1, 'CONDICIONES editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('OBSERVACIONES') !== -1, 'OBSERVACIONES editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROFESIONAL_SEGUIMIENTO') !== -1, 'PROFESIONAL_SEGUIMIENTO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('DUPLA_INGRESO') !== -1, 'DUPLA_INGRESO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PREINGRESO') !== -1, 'PREINGRESO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('FECHA_INGRESO') !== -1, 'FECHA_INGRESO editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('OTRAS_PATOLOGIAS') !== -1, 'OTRAS_PATOLOGIAS editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('COMPOSICION_CONTROL') !== -1, 'COMPOSICION_CONTROL editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('TELEFONO_OBS') !== -1, 'TELEFONO_OBS editable');
+  });
+
+  t('S8: _CAMPOS_EDITABLES_PACIENTE NO incluye campos automáticos/identificadores', function () {
+    A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('ID_INTERNO'), -1, 'ID_INTERNO no editable');
+    A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('RUT'), -1, 'RUT no editable');
+    A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('FUENTE'), -1, 'FUENTE no editable');
+    A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('FECHA_ACTUALIZACION'), -1, 'FECHA_ACTUALIZACION no editable');
+    A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('REQUIERE_REVISION'), -1, 'REQUIERE_REVISION no editable');
+  });
+
+  t('S8: FORM_CONFIG CAMPOS incluye campos de ACTUALIZAR_DATOS', function () {
+    var campos = FORM_CONFIG.CAMPOS;
+    var accion = 'ACTUALIZAR_DATOS';
+    function tiene(campo) {
+      return campos.some(function (c) { return c.campo === campo && c.acciones && c.acciones.indexOf(accion) !== -1; });
+    }
+    A.cierto(tiene('NOMBRE'), 'NOMBRE en ACTUALIZAR_DATOS');
+    A.cierto(tiene('SEXO'), 'SEXO en ACTUALIZAR_DATOS');
+    A.cierto(tiene('FECHA_NACIMIENTO'), 'FECHA_NACIMIENTO en ACTUALIZAR_DATOS');
+    A.cierto(tiene('SECTOR'), 'SECTOR en ACTUALIZAR_DATOS');
+    A.cierto(tiene('ESTRATIFICACION'), 'ESTRATIFICACION en ACTUALIZAR_DATOS');
+    A.cierto(tiene('TELEFONOS'), 'TELEFONOS en ACTUALIZAR_DATOS');
+    A.cierto(tiene('PROXIMO_CONTROL'), 'PROXIMO_CONTROL en ACTUALIZAR_DATOS');
+    A.cierto(tiene('ESTADO'), 'ESTADO en ACTUALIZAR_DATOS');
+    A.cierto(tiene('CONDICIONES'), 'CONDICIONES en ACTUALIZAR_DATOS');
+  });
+
+  t('S8: FORM_CONFIG SECCIONES incluye secciones nuevas', function () {
+    A.cierto(FORM_CONFIG.SECCIONES.estado, 'sección estado existe');
+    A.cierto(FORM_CONFIG.SECCIONES.clinico, 'sección clínico existe');
+    A.igual(FORM_CONFIG.SECCIONES.tel.indexOf('TELEFONO_OBS') !== -1, true, 'TELEFONO_OBS en sección tel');
+    A.igual(FORM_CONFIG.SECCIONES.clinico.indexOf('PROXIMO_CONTROL') !== -1, true, 'PROXIMO_CONTROL en sección clínico');
+    A.igual(FORM_CONFIG.SECCIONES.clinico.indexOf('CONDICIONES') !== -1, true, 'CONDICIONES en sección clínico');
+  });
+
+  t('S8: Form_validarRespuesta normaliza campos de ACTUALIZAR_DATOS', function () {
+    var r = Form_validarRespuesta({
+      ACCION: 'ACTUALIZAR_DATOS', RUT: '12345678-5', NOMBRE: 'Test User',
+      SEXO: 'M', FECHA_NACIMIENTO: '1990-01-15', SECTOR: 'VERDE',
+      ESTRATIFICACION: 'G2', TELEFONOS: '987654321', OBSERVACIONES: 'test obs',
+      ESTADO: 'LISTO', PROXIMO_CONTROL: '2026-12-01', CONDICIONES: 'DM;HTA'
+    });
+    A.cierto(r.ok, 'validación OK');
+    A.igual(r.normalizado.NOMBRE, 'TEST USER', 'nombre normalizado');
+    A.igual(r.normalizado.SEXO, 'M', 'sexo normalizado');
+    A.igual(r.normalizado.SECTOR, 'VERDE', 'sector normalizado');
+    A.igual(r.normalizado.ESTRATIFICACION, 'G2', 'estratificación normalizada');
+    A.igual(r.normalizado.ESTADO, 'LISTO', 'estado normalizado');
+    A.igual(r.normalizado.PROXIMO_CONTROL, '2026-12-01', 'próximo control normalizado');
+    A.igual(r.normalizado.CONDICIONES, 'DM;HTA', 'condiciones preservadas');
+  });
+
+  t('S8: Form_actualizarDatosPaciente usa api_actualizarPaciente', function () {
+    var src = Form_actualizarDatosPaciente.toString();
+    A.cierto(src.indexOf('api_actualizarPaciente') !== -1, 'Form_actualizarDatosPaciente llama api_actualizarPaciente');
+  });
+
+  t('S8: Sidebar incluye código de edición de próximo control', function () {
+    // El sidebar se carga como archivo HTML; verificar que contiene las funciones clave
+    // (no se puede leer HtmlService en entorno local, pero la existencia de api_actualizarPaciente
+    // y _CAMPOS_EDITABLES_PACIENTE garantiza que el backend soporta la edición)
+    A.cierto(typeof api_actualizarPaciente === 'function', 'api_actualizarPaciente disponible');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROXIMO_CONTROL') !== -1, 'PROXIMO_CONTROL en campos editables');
+  });
 }

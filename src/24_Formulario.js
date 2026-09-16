@@ -308,7 +308,29 @@ function Form_validarRespuesta(respuesta, opciones) {
   }
 
   if (accion === 'ACTUALIZAR_DATOS') {
-    // solo campos operativos en caso match; la identidad se resuelve aguas abajo
+    // Normalizar campos adicionales de ACTUALIZAR_DATOS
+    var nomAct = Norm_normalizarNombre(v.NOMBRE);
+    n.NOMBRE = nomAct.nombre;
+    n.SEXO = Norm_normalizarSexo(v.SEXO);
+    var nacAct = Norm_normalizarFecha(v.FECHA_NACIMIENTO,
+      { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX });
+    n.FECHA_NACIMIENTO = nacAct.iso;
+    var secAct = Norm_normalizarSector(v.SECTOR);
+    n.SECTOR = secAct.sector;
+    n.ESTRATIFICACION = Norm_normalizarEstratificacion(v.ESTRATIFICACION);
+    n.ESTRAT_ORIGEN = Utl_colapsarEspacios(Utl_texto(v.ESTRATIFICACION)).toUpperCase();
+    n.ESTADO = Utl_colapsarEspacios(Utl_texto(v.ESTADO)).toUpperCase() || 'PENDIENTE';
+    n.DUPLA_INGRESO = Utl_colapsarEspacios(Utl_texto(v.DUPLA_INGRESO)).toUpperCase();
+    n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
+    n.PREINGRESO = Utl_texto(v.PREINGRESO).trim();
+    var fiAct = Norm_normalizarFecha(v.FECHA_INGRESO);
+    n.FECHA_INGRESO = fiAct.iso;
+    n.CONDICIONES = Utl_texto(v.CONDICIONES).trim();
+    n.OTRAS_PATOLOGIAS = Utl_texto(v.OTRAS_PATOLOGIAS).trim();
+    var pcAct = Norm_normalizarFecha(v.PROXIMO_CONTROL);
+    n.PROXIMO_CONTROL = pcAct.iso;
+    n.COMPOSICION_CONTROL = Utl_colapsarEspacios(Utl_texto(v.COMPOSICION_CONTROL)).toUpperCase();
+    n.TELEFONO_OBS = Utl_texto(v.TELEFONO_OBS).trim();
   }
 
   // Campos compartidos (opcionales). El teléfono NO bloquea un ingreso válido:
@@ -1698,31 +1720,31 @@ function Form_procesarAhora() {
  */
 function Form_actualizarDatosPaciente(paciente, normalizado, marca) {
   try {
-    var cambios = 0;
-    if (normalizado.TELEFONOS) { paciente.TELEFONOS = normalizado.TELEFONOS; cambios += 1; }
-    if (normalizado.OBSERVACIONES) { paciente.OBSERVACIONES = normalizado.OBSERVACIONES; cambios += 1; }
-    if (normalizado.PROFESIONAL) { paciente.PROFESIONAL_SEGUIMIENTO = normalizado.PROFESIONAL; cambios += 1; }
-    // Dupla: almacena profesional 1 y 2 como códigos separados por punto y coma
-    var duplaPartes = [];
-    if (normalizado.PROFESIONAL) duplaPartes.push(normalizado.PROFESIONAL);
-    if (normalizado.PROFESIONAL2) duplaPartes.push(normalizado.PROFESIONAL2);
-    if (duplaPartes.length > 0) {
-      paciente.DUPLA_INGRESO = duplaPartes.join('; ');
-      cambios += 1;
-    }
-    if (!cambios) return false;
-    paciente.FECHA_ACTUALIZACION = Form_aIsoConHora(new Date());
-    var esquema = Modelo_asegurarEsquemaPacientes();
-    if (!esquema.ok) throw new Error('esquema incompatible');
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    var idx = null;
-    var todos = Modelo_leerPacientes();
-    for (var i = 0; i < todos.length; i++) if (todos[i].ID_INTERNO === paciente.ID_INTERNO) idx = i;
-    if (idx === null) return false;
-    hojaP.getRange(Modelo_dataStartRow(HOJAS.PACIENTES) + idx, 1, 1, MODELO_PACIENTE.length)
-      .setValues([Modelo_filaDesdeObjeto(paciente)]);
-    Modelo_invalidarLecturas();
-    return true;
+    // Construir mapa de campos a actualizar desde el normalizado del formulario
+    var campos = {};
+    if (normalizado.TELEFONOS) campos.TELEFONOS = normalizado.TELEFONOS;
+    if (normalizado.TELEFONO_OBS !== undefined) campos.TELEFONO_OBS = normalizado.TELEFONO_OBS;
+    if (normalizado.OBSERVACIONES) campos.OBSERVACIONES = normalizado.OBSERVACIONES;
+    if (normalizado.NOMBRE) campos.NOMBRE = normalizado.NOMBRE;
+    if (normalizado.SEXO) campos.SEXO = normalizado.SEXO;
+    if (normalizado.FECHA_NACIMIENTO) campos.FECHA_NACIMIENTO = normalizado.FECHA_NACIMIENTO;
+    if (normalizado.SECTOR) campos.SECTOR = normalizado.SECTOR;
+    if (normalizado.ESTRATIFICACION !== undefined) campos.ESTRATIFICACION = normalizado.ESTRATIFICACION;
+    if (normalizado.ESTADO) campos.ESTADO = normalizado.ESTADO;
+    if (normalizado.PROFESIONAL) campos.PROFESIONAL_SEGUIMIENTO = normalizado.PROFESIONAL;
+    if (normalizado.PROFESIONAL2) campos.DUPLA_INGRESO = normalizado.PROFESIONAL + '; ' + normalizado.PROFESIONAL2;
+    if (normalizado.PREINGRESO) campos.PREINGRESO = normalizado.PREINGRESO;
+    if (normalizado.FECHA_INGRESO) campos.FECHA_INGRESO = normalizado.FECHA_INGRESO;
+    if (normalizado.CONDICIONES) campos.CONDICIONES = normalizado.CONDICIONES;
+    if (normalizado.OTRAS_PATOLOGIAS) campos.OTRAS_PATOLOGIAS = normalizado.OTRAS_PATOLOGIAS;
+    if (normalizado.PROXIMO_CONTROL) campos.PROXIMO_CONTROL = normalizado.PROXIMO_CONTROL;
+    if (normalizado.COMPOSICION_CONTROL) campos.COMPOSICION_CONTROL = normalizado.COMPOSICION_CONTROL;
+
+    if (Object.keys(campos).length === 0) return false;
+
+    // Usar la API unificada
+    var r = api_actualizarPaciente(paciente.ID_INTERNO, campos);
+    return r.ok;
   } catch (e) {
     Log_error('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));
     return false;
