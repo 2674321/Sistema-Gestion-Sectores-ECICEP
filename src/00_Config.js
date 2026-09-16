@@ -590,7 +590,7 @@ const SECCIONES_HOJAS = {
       id: 'identidad',
       nombre: 'IDENTIDAD',
       color: COLORES_SECCION.IDENTIDAD,
-      columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO']
+      columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO']
     },
     {
       id: 'sectorizacion',

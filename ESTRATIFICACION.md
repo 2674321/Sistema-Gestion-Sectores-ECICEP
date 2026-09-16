@@ -1,9 +1,8 @@
 # ESTRATIFICACIÓN — Motor configurable (ETAPA 2.5)
 
-> Estado: DISEÑO. Confirmado por la cliente: **G1/G2/G3 son una segmentación
-> por PRIORIDAD según la CANTIDAD de patologías/condiciones del paciente**.
-> NO es una segmentación por sector ni territorial. La regla clínica exacta
-> (umbral cantidad→nivel) queda pendiente; no se inventa (requerimiento #15).
+> Estado: **OPERATIVO** (REGLA_DISPONIBLE = true). Motor activo con regla
+> por puntaje ponderado (v1.0-MINSAL). Ver `CFG_ESTRATIFICACION` en
+> `00_Config.js` y `CATALOGO_CONDICIONES_ECICEP` para el catálogo completo.
 
 ## 1. Concepto
 
@@ -22,9 +21,11 @@ ESTRATIFICACION_CALCULADA → G1 / G2 / G3 / SIN_CLASIFICAR
    reglas condición→nivel. Apps Script solo interpreta.
 2. **Nunca cambiar silenciosamente** una clasificación (auditoría, §4).
 3. **Dimensiones separadas**: sector geográfico no interviene jamás aquí.
-4. Mientras `CFG_ESTRATIFICACION.REGLA_DISPONIBLE === false` (estado actual),
-   el motor está APAGADO: la estratificación vigente proviene de la fuente o
-   digitación humana y queda registrada como `ESTRAT_ORIGEN`.
+4. `CFG_ESTRATIFICACION.REGLA_DISPONIBLE` controla si el motor está activo.
+   Cuando es `true`, `Estrat_recalcularTodos()` calcula `ESTRAT_CALCULADA`
+   usando la tabla de umbrales ponderados (ver §6). Cuando es `false`,
+   `ESTRAT_CALCULADA` queda vacía y la estratificación vigente proviene
+   exclusivamente de la fuente o digitación humana (`ESTRAT_ORIGEN`).
 
 ## 3. Campos en PACIENTES
 
@@ -55,21 +56,20 @@ REM pueden reconstruir cuándo y por qué cambió una clasificación.
 - Formato interno propuesto: lista de códigos canónicos separados por `;`
   (ej. `DM2;HTA;ERC3`) con alias tolerantes resueltos por el catálogo.
 
-## 6. Tabla de reglas (base CONFIRMADA, umbral PENDIENTE)
+## 6. Tabla de reglas (regla por puntaje ponderado — OPERATIVO)
 
-**Base confirmada por la cliente:** el nivel G se determina contando las
-patologías/condiciones crónicas del paciente → define PRIORIDAD de atención.
+**Regla vigente (v1.0-MINSAL):** el nivel G se determina con un puntaje
+ponderado: suma de `CONDICIONES.ponderacion` del catálogo
+(`CATALOGO_CONDICIONES_ECICEP` en `00_Config.js`). Patologías de mayor
+impacto tienen peso 2; el resto peso 1.
 
-| Cantidad de condiciones | Nivel | Estado |
+| Puntaje ponderado | Nivel | Descripción |
 |---|---|---|
-| *(umbral 1)* | G1 | ⏳ pendiente confirmación |
-| *(umbral 2)* | G2 | ⏳ pendiente confirmación |
-| *(umbral 3+)* | G3 | ⏳ pendiente confirmación |
+| 0 | G0 | Sin condiciones crónicas |
+| 1 | G1 | 1 condición (peso 1) o peso igual a 1 |
+| 2–4 | G2 | Varias condiciones o condición de peso 2 |
+| ≥5 | G3 | Múltiples condiciones de alto impacto |
 
-La tabla vivirá como datos editables (`REGLAS_ESTRATIFICACION`): si mañana el
-programa cambia los umbrales o agrega condiciones ponderadas, se actualiza la
-tabla sin tocar código. El motor también admitirá reglas por condición
-específica (ej: cierta patología fuerza nivel mínimo) si la regla oficial lo exige.
-
-**Pendientes derivadas:** catálogo/códigos de condiciones y mecanismo de captura
-(PENDIENTES #14) + umbrales exactos (#13).
+La tabla vive como datos editables (`CFG_ESTRATIFICACION.UMBRALLES`):
+si mañana el programa cambia los umbrales o agrega condiciones, se actualiza
+sin tocar código.

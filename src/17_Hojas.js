@@ -427,10 +427,10 @@ function Hojas_formatoCondicional(ss) {
     aplicadas += reglas.length;
   }
 
-  /* Dropdown SEXO (F/M) en PACIENTES, INGRESO_* y SECTOR_* (desde dataStartRow) */
+  /* Dropdown SEXO (M/F/OTRO) en PACIENTES, INGRESO_* y SECTOR_* (desde dataStartRow) */
   try {
     var ruleSexo = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['F', 'M'], true).setAllowInvalid(false).build();
+      .requireValueInList(['M', 'F', 'OTRO'], true).setAllowInvalid(false).build();
     var pSexo = ss.getSheetByName(HOJAS.PACIENTES);
     if (pSexo) {
       var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);

@@ -5735,4 +5735,75 @@ function _pruebas_p0_auditoria_v098(t, A) {
       globalThis.Session = original;
     }
   });
+
+  // --- S7: Corrección de bugs reportados (OBSERVACIONES, SEXO, ESTRATIFICACIÓN) ---
+  t('S7: SECTOR_VISTA identidad incluye FECHA_NACIMIENTO (columna visual)', function () {
+    var secId = SECCIONES_HOJAS.SECTOR_VISTA.find(function (s) { return s.id === 'identidad'; });
+    A.cierto(secId, 'sección identidad existe');
+    var colIdx = secId.columnas.indexOf('FECHA_NACIMIENTO');
+    A.cierto(colIdx !== -1, 'FECHA_NACIMIENTO en identidad');
+  });
+
+  t('S7: SEXO validation usa valores canónicos M/F/OTRO (no F/M excluyente)', function () {
+    var normM = Norm_normalizarSexo('M');
+    var normF = Norm_normalizarSexo('F');
+    var normO = Norm_normalizarSexo('OTRO');
+    var normEmpty = Norm_normalizarSexo('');
+    A.igual(normM, 'M', 'M → M');
+    A.igual(normF, 'F', 'F → F');
+    A.igual(normO, 'OTRO', 'OTRO → OTRO');
+    A.igual(normEmpty, '', 'vacío → vacío');
+    var normInvalido = Norm_normalizarSexo('X');
+    A.cierto(normInvalido !== 'X', 'valor inválido normalizado');
+  });
+
+  t('S7: MODELO_PACIENTE contiene SEXO en posición operativa (index 3)', function () {
+    var idxSexo = MODELO_PACIENTE.findIndex(function (c) { return c.campo === 'SEXO'; });
+    A.cierto(idxSexo !== -1, 'SEXO definido en MODELO_PACIENTE');
+    A.igual(MODELO_PACIENTE[idxSexo].campo, 'SEXO', 'campo SEXO correcto');
+    A.igual(idxSexo, 3, 'SEXO en index 3 (columna D)');
+  });
+
+  t('S7: COLUMNAS_SECTOR_VISTA incluye SEXO y FECHA_NACIMIENTO juntos', function () {
+    var iSexo = COLUMNAS_SECTOR_VISTA.indexOf('SEXO');
+    var iFecha = COLUMNAS_SECTOR_VISTA.indexOf('FECHA_NACIMIENTO');
+    A.cierto(iSexo !== -1, 'SEXO en COLUMNAS_SECTOR_VISTA');
+    A.cierto(iFecha !== -1, 'FECHA_NACIMIENTO en COLUMNAS_SECTOR_VISTA');
+    A.cierto(iFecha === iSexo + 1, 'FECHA_NACIMIENTO sigue a SEXO');
+  });
+
+  t('S7: CFG_ESTRATIFICACION tiene REGLA_DISPONIBLE=true y umbral G3>=5', function () {
+    A.cierto(CFG_ESTRATIFICACION.REGLA_DISPONIBLE, 'regla disponible activa');
+    A.igual(CFG_ESTRATIFICACION.VERSION_REGLA, 'v1.0-MINSAL', 'versión correcta');
+    var umbG3 = CFG_ESTRATIFICACION.UMBRALES.find(function (u) { return u.nivel === 'G3'; });
+    A.cierto(umbG3, 'umbral G3 definido');
+    A.igual(umbG3.minPuntaje, 5, 'G3 ≥ 5');
+  });
+
+  t('S7: Act_actualizarSistema tiene fases de diseño visual (secciones, validación, libro)', function () {
+    A.cierto(typeof Act_actualizarSistema === 'function', 'Act_actualizarSistema existe');
+    var src = Act_actualizarSistema.toString();
+    A.cierto(src.indexOf('HVis_aplicarTodasLasSecciones') !== -1, 'incluye HVis_aplicarTodasLasSecciones');
+    A.cierto(src.indexOf('Modelo_validarIngresos') !== -1, 'incluye Modelo_validarIngresos');
+    A.cierto(src.indexOf('Modelo_aplicarDiseno') !== -1, 'incluye Modelo_aplicarDiseno');
+    A.cierto(src.indexOf('Modelo_disenoHojas') !== -1, 'incluye Modelo_disenoHojas (INICIO)');
+    A.cierto(src.indexOf('verificacion') !== -1, 'incluye paso de verificación');
+  });
+
+  t('S7: merge SEXO preserva valores canónicos M/F/OTRO', function () {
+    var p = { ID_INTERNO:'E1', RUT:'11111111-1', NOMBRE:'TEST', SEXO:'M', FECHA_NACIMIENTO:'1990-01-01' };
+    var n = { SEXO:'F' };
+    var r = Act_mergearPaciente(p, n);
+    A.igual(p.SEXO, 'M', 'SEXO existente no sobrescrito por fuente');
+    A.igual(r.aplicados.length, 0, 'sin campos aplicados (dato existente)');
+  });
+
+  t('S7: merge SEXO fill-only desde fuente cuando destino vacío', function () {
+    var p = { ID_INTERNO:'E2', RUT:'22222222-2', NOMBRE:'TEST', SEXO:'', FECHA_NACIMIENTO:'' };
+    var n = { SEXO:'M', FECHA_NACIMIENTO:'1985-06-15' };
+    var r = Act_mergearPaciente(p, n);
+    A.igual(p.SEXO, 'M', 'SEXO completado desde fuente');
+    A.igual(p.FECHA_NACIMIENTO, '1985-06-15', 'FECHA completada desde fuente');
+    A.cierto(r.aplicados.length > 0, 'campos aplicados');
+  });
 }

@@ -286,11 +286,15 @@ function Act_diagnosticarEnriquecimiento() {
 
 // ---------------------------------------------------------------------------
 // ACTUALIZACIÓN de datos desde fuentes (FASE S6, v0.9.6 — DEC-064)
-// "Actualizar" deja de limitarse a recalcular derivados y pasa a ser el
-// mecanismo de MANTENIMIENTO del sistema: estructura + datos (nuevos y
-// existentes) + formato + derivados + trazabilidad. Un dato vigente no se
-// sobrescribe jamás y nada se infiere (SEXO sigue M|F|OTRO|vacío; vacío =
-// sin información).
+// "Actualizar" es el mecanismo de MANTENIMIENTO completo del sistema:
+//   1) estructura (reparación idempotente + alineación vistas sectoriales)
+//   2) datos desde fuentes autorizadas (merge conservador de existentes + nuevos)
+//   3) demografía (SEXO/FECHA_NACIMIENTO fill-only)
+//   4) derivados (estratificación + controles)
+//   5) vistas + formato visual + secciones + validaciones + diseño del libro
+//      + INICIO + importación Amarillo
+//   6) verificación final + resumen trazable
+// Un dato vigente no se sobrescribe jamás y nada se infiere.
 //
 // REGLAS DEL MERGE (conservador, idempotente):
 //   1. fuente vacía/inválida NUNCA destruye un dato existente;
@@ -498,7 +502,45 @@ function Act_actualizarSistema(opciones) {
       reporte.formato = { ok: false, motivo: eF && eF.message ? eF.message : String(eF) };
     }
   }
+  if (typeof HVis_aplicarTodasLasSecciones === 'function') {
+    try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); } catch (eSV) { /* best effort */ }
+  }
   try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
+
+  // 5b) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
+  //     reciban las mismas reglas que la instalación. Idempotente.
+  if (ejecutar && typeof Modelo_validarIngresos === 'function') {
+    try { Modelo_validarIngresos(); } catch (eVx) { /* best effort */ }
+  }
+
+  // 5c) DISEÑO DEL LIBRO (colores pestaña, frozen, banding, encabezado, orden, ocultamiento)
+  if (ejecutar && typeof Modelo_aplicarDiseno === 'function') {
+    try { Modelo_aplicarDiseno(); } catch (eD) { /* best effort */ }
+  }
+
+  // 5d) INICIO (hoja dashboard) — refrescar para que los KPIs y conteos estén al día
+  if (ejecutar && typeof Modelo_disenoHojas === 'function') {
+    try { Modelo_disenoHojas(); } catch (eI) { /* best effort */ }
+  }
+
+  // 5e) AMARILLO — importar desde Drive si la función está disponible (idempotente)
+  if (ejecutar && typeof Amarillo_importarTodo === 'function') {
+    try { reporte.amarillo = Amarillo_importarTodo(true); } catch (eA) { /* best effort */ }
+  }
+
+  // 5f) VERIFICACIÓN FINAL — comprobar integridad mínima del sistema
+  if (ejecutar) {
+    try {
+      var ss = Modelo_ss();
+      var hojasCriticas = [HOJAS.PACIENTES, HOJAS.EVENTOS];
+      var ok = true;
+      hojasCriticas.forEach(function (nombre) {
+        var h = ss.getSheetByName(nombre);
+        if (!h) { ok = false; reporte.error = 'HOJA_FALTANTE:' + nombre; }
+      });
+      reporte.verificacion = { ok: ok, hojasCriticas: hojasCriticas.length };
+    } catch (eVf) { reporte.verificacion = { ok: false, motivo: eVf && eVf.message || String(eVf) }; }
+  }
 
   // 6) RESUMEN consolidado (trazabilidad)
   var fu = reporte.fuentes || {};
