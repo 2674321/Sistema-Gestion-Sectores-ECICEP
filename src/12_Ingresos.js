@@ -37,6 +37,7 @@ function Ingresos_columnasHoja() {
  */
 function Ingresos_mapearEncabezadosHoja(encabezados) {
   var campos = {}, estadoIdx = -1, notaIdx = -1, desconocidos = [];
+  var captura = CAMPOS_INGRESO_OPERATIVOS.concat(CAMPOS_INGRESO_ADICIONALES);
   (encabezados || []).forEach(function (h, i) {
     var clave = Utl_claveAlnum(h);
     if (estadoIdx < 0 && (clave === 'ESTADOINGRESO' || clave === 'INGRESOESTADO' || clave === 'ESTADO')) { estadoIdx = i; return; }
@@ -45,7 +46,10 @@ function Ingresos_mapearEncabezadosHoja(encabezados) {
     var m = Norm_mapearEncabezado(h);
     // traducción encabezado→modelo: TELEFONO (canonico de FONO/CELULAR/TELEFONOS)
     var campo = (m.canonico === 'TELEFONO') ? 'TELEFONOS' : m.canonico;
-    if (m.conocido && CAMPOS_INGRESO_OPERATIVOS.indexOf(campo) !== -1) {
+    // Captura aditiva: operativos + adicionales con sinónimo confirmado
+    // (ULTIMO_CONTROL / ULTIMO_SEGUIMIENTO / PROXIMO_CONTROL /
+    //  PROFESIONAL_SEGUIMIENTO / PREINGRESO). El resto → desconocidos.
+    if (m.conocido && captura.indexOf(campo) !== -1) {
       if (campos[campo] === undefined) campos[campo] = i;
     } else {
       desconocidos.push({ col: i + 1, texto: Utl_texto(h) });
@@ -78,8 +82,8 @@ function Ingresos_pacienteDesdeNormalizado(n, fila, idInterno) {
     PROFESIONAL_SEGUIMIENTO: n.PROFESIONAL_SEGUIMIENTO || '',
     PREINGRESO: n.PREINGRESO || '',
     FECHA_INGRESO: n.FECHA_INGRESO || '',
-    ULTIMO_SEGUIMIENTO: '',
-    ULTIMO_CONTROL: '',
+    ULTIMO_SEGUIMIENTO: n.ULTIMO_SEGUIMIENTO || '',
+    ULTIMO_CONTROL: n.ULTIMO_CONTROL || '',
     PROXIMO_CONTROL: n.PROXIMO_CONTROL || '',
     COMPOSICION_CONTROL: '',
     OBSERVACIONES: n.OBSERVACIONES || '',
@@ -306,6 +310,12 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (idxCampos[c] !== undefined) v[c] = filaVal[idxCampos[c]];
     });
+    // Copia ADITIVA: campos adicionales con sinónimo confirmado (SEGUIMIENTO,
+    // CONTROL, PRÓXIMO CONTROL, PROFESIONAL, PRE INGRESO) presentes en la hoja
+    // nunca se descartan por no estar en la lista corta operativa.
+    for (var ck in idxCampos) {
+      if (v[ck] === undefined && idxCampos[ck] !== undefined) v[ck] = filaVal[idxCampos[ck]];
+    }
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
     staging.push(Fuentes_normalizar(Fuentes_crearFila(

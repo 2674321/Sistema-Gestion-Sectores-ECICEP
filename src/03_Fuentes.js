@@ -118,7 +118,10 @@ function Fuentes_normalizar(fila) {
   n.ESTADO = Norm_normalizarEstado(v.ESTADO);
 
   // --- FECHAS ---
-  ['FECHA_NACIMIENTO', 'FECHA_INGRESO', 'PROXIMO_CONTROL'].forEach(function (campo) {
+  // ULTIMO_CONTROL / ULTIMO_SEGUIMIENTO son fechas de estado (última vigencia),
+  // tolerantes: malformadas no bloquean el ingreso del paciente (warn).
+  ['FECHA_NACIMIENTO', 'FECHA_INGRESO', 'PROXIMO_CONTROL',
+   'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO'].forEach(function (campo) {
     // Los nacimientos admiten años mucho más antiguos que los eventos
     var rango = (campo === 'FECHA_NACIMIENTO')
       ? { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX }
@@ -289,6 +292,12 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (mapa.campos[c] !== undefined) v[c] = filaVal[mapa.campos[c]];
     });
+    // Copia ADITIVA: mismo criterio que la carga real (FASE 5.1): cualquier
+    // campo adicional con sinónimo confirmado (SEGUIMIENTO / CONTROL /
+    // PRÓXIMO CONTROL / PROFESIONAL / PRE INGRESO) se conserva.
+    for (var ck in mapa.campos) {
+      if (v[ck] === undefined && mapa.campos[ck] !== undefined) v[ck] = filaVal[mapa.campos[ck]];
+    }
     // Si no hay RUT mapeado pero la primera columna tiene valores tipo RUT,
     // asignarla (caso LISTADO 2025 de Naranjo donde la col A no tiene encabezado)
     if (v.RUT === undefined || Utl_vacio(v.RUT)) {

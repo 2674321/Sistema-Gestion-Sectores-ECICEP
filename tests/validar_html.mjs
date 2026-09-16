@@ -17,6 +17,16 @@
  *   - Se valida el resto, incluidos los `type="text/plain"` que se inyectan
  *     luego como <script> real (p.ej. la librería QR en CapturaWeb.html).
  *
+ * Además de los <script>, se valida la INTEGRIDAD de los scriptlets GAS
+ * `<? … ?>` del template completo: el cierre `?>` no degrada la sintaxis que
+ * un `<script>` embebido pierde cuando la corrupción rompe la compilación del
+ * template en el servidor (caso real: `<?<? if … ?>` y `%= VAR %` en
+ * Sidebar.html rompían el sidebar de INICIO con "Unexpected token" sin que el
+ * pipeline lo detectara).
+ *   - Balance de aperturas `<?` y cierres `?>` por archivo.
+ *   - Prohibido el doble-open `<?<?` / `<?<`.
+ *   - Prohibido `%= IDENT %` como texto (debe ser `<?= IDENT ?>`).
+ *
  * Uso: node tests/validar_html.mjs
  */
 import { readFileSync, readdirSync, existsSync } from 'fs';
@@ -60,8 +70,28 @@ function validar(html, rel) {
       errores.push(`  script ${i + 1}: ${e.message}`);
     }
   });
+  validarScriptlets(html, rel, errores);
+  ok -= errores.length;
   console.log(`  ${rel}: scripts=${scripts.length} ok=${ok} fail=${errores.length}`);
   return { nombre: rel, ok, fail: errores.length, errores };
+}
+
+/** Integridad de los scriptlets GAS `<? … ?>` que el chequeo de <script> omite.
+ *  Una corrupción aquí rompe la compilación del template en el servidor sin que
+ *  el navegador llegue a ver HTML válido (regresión real en Sidebar.html). */
+function validarScriptlets(html, rel, errores) {
+  const aperturas = (html.match(/<\?/g) || []).length;
+  const cierres = (html.match(/\?>/g) || []).length;
+  if (aperturas !== cierres) {
+    errores.push(`  template: <? = ${aperturas} ¿? = ${cierres} (desbalanceado)`);
+  }
+  const patrones = [
+    [/<\?</, 'doble apertura de scriptlet (<?<?)'],
+    [/%=\s*[A-Za-z_]\w*\s*%/, 'scriptlet degradado a texto (%= VAR %) → usar <?= VAR ?>'],
+  ];
+  for (const [re, desc] of patrones) {
+    if (re.test(html)) errores.push(`  template: ${desc}`);
+  }
 }
 
 const candidatos = [

@@ -155,81 +155,29 @@ textarea.inp{min-height:64px;resize:vertical}
 
 <!-- ============ CENTRO DE CONTROL + BÚSQUEDA ============ -->
 <div id="panelBuscar" class="wrap">
-<?<? if (MODO === 'centro') { ?>
+<? if (MODO === 'centro') { ?>
 
   <div class="cc-head">
-    <div>
-      <div class="pc-marca">ECICEP</div>
-      <div class="pc-tit">Centro de funciones</div>
-      <div class="pc-estado"><span class="dot-ok"></span> Elige una función para comenzar</div>
-    </div>
-    <div class="build">build %= BUILD %</div>
+    <div class="pc-tit">Funciones ECICEP</div>
+    <div class="pc-estado"><span class="dot-ok"></span> Elige una función para comenzar</div>
   </div>
 
   <div class="card cc-card">
-    <div class="card-t">Funciones operativas</div>
-
-    <button class="btn btn-pri btn-block" onclick="abrirBuscadorPac(this)">
-      <i data-lucide="search"></i> Buscar / abrir paciente
-    </button>
-    <small class="fc-desc">Busca por nombre o RUT y abre la ficha directamente.</small>
-
-    <button class="btn btn-sec btn-block" onclick="verRevisionDesdePanel(this)">
-      <i data-lucide="clipboard-check"></i> Cola de revisión
-      <span id="cntCola" class="chip pc-badge" style="margin-left:auto;display:none">0</span>
-    </button>
-    <small class="fc-desc">Revisa y resuelve los pendientes de la cola.</small>
-
-    <button class="btn btn-sec btn-block" onclick="abrirControles(this)">
-      <i data-lucide="stethoscope"></i> Controles por persona
-    </button>
-    <small class="fc-desc">Registra o consulta controles de una persona.</small>
-
-    <button class="btn btn-sec btn-block" onclick="abrirGenerador(this)">
-      <i data-lucide="file-bar-chart"></i> Generar REM
-    </button>
-    <small class="fc-desc">Genera el reporte estadístico mensual (REM).</small>
-  </div>
-
-  <div class="card cc-card">
-    <div class="card-t">Administración</div>
-
-    <button class="btn btn-sec btn-block" onclick="abrirPanel(this)">
-      <i data-lucide="settings"></i> Estadísticas y configuración
-    </button>
-    <small class="fc-desc">Estadísticas del sistema, permisos y configuración general.</small>
-  </div>
-
-  <div class="card cc-card">
-    <div id="sectoresGrid"><div class="skel" style="height:150px"></div></div>
-  </div>
-
-  <div class="card cc-card">
-    <div class="card-t">Controles por persona</div>
-    <div class="vacio" style="padding:var(--space-3)">
-      <i data-lucide="stethoscope"></i>
-      Consulta bajo demanda: elige sector o busca a una persona.
-    </div>
-    <button class="btn btn-pri btn-block" style="margin-top:6px" onclick="abrirControles(this)">
-      <i data-lucide="stethoscope"></i> Abrir controles
-    </button>
-  </div>
-
-  <div class="card cc-card">
-    <div class="card-t">Última actividad</div>
-    <div id="actLista"><div class="skel" style="height:70px"></div></div>
-  </div>
-
-  <div class="card cc-card">
-    <div class="card-t">Bases y reportes</div>
-    <div class="mini-links">
-      <button class="mini-link" onclick="irA('PACIENTES')">PACIENTES</button>
-      <button class="mini-link" onclick="irA('EVENTOS')">EVENTOS</button>
-      <button class="mini-link" onclick="irA('LOG')">LOG</button>
+    <div style="display:grid;gap:var(--space-3)">
+      <button class="btn btn-pri btn-block" onclick="abrirBuscadorPac(this)">
+        <i data-lucide="search"></i> Buscar / abrir paciente
+      </button>
+      <button class="btn btn-sec btn-block" onclick="verRevisionDesdePanel(this)">
+        <i data-lucide="clipboard-check"></i> Cola de revisión
+      </button>
+      <button class="btn btn-sec btn-block" onclick="abrirControles(this)">
+        <i data-lucide="stethoscope"></i> Controles por persona
+      </button>
+      <button class="btn btn-sec btn-block" onclick="abrirGenerador(this)">
+        <i data-lucide="file-bar-chart"></i> Generar REM
+      </button>
     </div>
   </div>
-
-  <div class="pc-sys"><span class="dot-ok"></span> Estado del sistema: operativo · <span id="ccFecha">—</span></div>
 
 <? } else if (MODO === 'pacientes') { ?>
   <div class="cc-head"><h1>Buscar paciente ECICEP</h1>
@@ -766,68 +714,7 @@ function volver(){
   if(pb)pb.style.display='flex';
 }
 
-/* ================= Panel de Control ================= */
-var DIAS_ES=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-var MESES_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-function fechaEsLarga(d){
-  return DIAS_ES[d.getDay()].charAt(0).toUpperCase()+DIAS_ES[d.getDay()].slice(1)+', '+
-    d.getDate()+' de '+MESES_ES[d.getMonth()]+' de '+d.getFullYear();
-}
-function cargarPanel(btn){
-  if(btn){
-    if(btn.dataset.cargando==='1')return;
-    btn.dataset.cargando='1';btn.disabled=true;btn.classList.add('refresh-spin');
-  }
-  google.script.run.withSuccessHandler(function(r){
-    if(btn){btn.dataset.cargando='0';btn.disabled=false;btn.classList.remove('refresh-spin');}
-    if(!r||!r.ok){toast((r&&r.motivo)||'Sin resumen','err');
-      document.getElementById('ccKpis').innerHTML='<div class="vacio" style="grid-column:1/-1"><i data-lucide="alert-triangle"></i>Sin datos — ejecuta Instalar / Reparar Sistema</div>';
-      _refrescarIconos();return;}
-    var partes=(r.fechaIso||'').split('-');
-    document.getElementById('ccFecha').textContent=partes.length===3?
-      fechaEsLarga(new Date(+partes[0],+partes[1]-1,+partes[2])):'\u2014';
-    document.getElementById('ccUltAct').textContent=r.ultimaAct;
-    var k=document.getElementById('ccKpis');
-    k.innerHTML=
-      '<div class="kpi-mini"><span class="num">'+r.pacientes+'</span><small>Pacientes \u00b7 base consolidada</small></div>'+
-      '<div class="kpi-mini"><span class="num" style="color:var(--success)">'+r.ingresosHoy+'</span><small>Ingresos de hoy</small></div>'+
-      '<div class="kpi-mini"><span class="num">'+r.eventosMes+'</span><small>Eventos del mes</small></div>'+
-      '<div class="kpi-mini" style="cursor:pointer" onclick="verRevisionDesdePanel()"><span class="num" style="color:'+(r.porRevisar?'var(--warning)':'var(--success)')+'">'+ '\u25cf '+r.porRevisar+'</span><small>Por revisar</small></div>'+
-      (r.estratPendiente>0?'<div class="kpi-mini"><span class="num">'+r.estratPendiente+'</span><small>Estratificaci\u00f3n pendiente</small></div>':'');
-    var cnt=document.getElementById('cntCola');
-    if(r.colaRevision>0){cnt.style.display='inline-flex';cnt.textContent=r.colaRevision;}
-    var kEl=document.getElementById('ccKpis');
-    Array.prototype.forEach.call(kEl.children,function(c,i2){
-      c.classList.add('fade-in');c.style.animationDelay=(i2*60)+'ms';});
-    var sgEl=document.getElementById('sectoresGrid');
-    Array.prototype.forEach.call(sgEl.children,function(c,i2){
-      c.classList.add('fade-in');c.style.animationDelay=(i2*70)+'ms';});
-    document.getElementById('sectoresGrid').innerHTML=(r.sectores||[]).map(function(sec){
-      var dot={NARANJO:'#E8730A',AMARILLO:'#C79A00',VERDE:'#2E8B57'}[sec.sector]||'#8A93A3';
-      return '<div class="sec-card" style="border-left-color:'+dot+'">'+
-        '<div class="sec-nombre"><span class="n-dot" style="background:'+dot+'"></span>SECTOR '+sec.sector+
-        ' <span class="cob" style="color:'+(sec.cobertura==='Operativo'?'var(--success)':'var(--warning)')+'">\u25cf '+sec.cobertura+'</span></div>'+
-        '<div class="sec-datos num"><span><b>'+sec.pacientes+'</b> pacientes</span>'+
-        '<span>Ingresos 7d: <b>'+sec.ingresos7d+'</b></span>'+
-        '<span>Por revisar: <b>'+sec.porRevisar+'</b></span></div>'+
-        '<div style="display:flex;gap:6px">'+
-        '<button class="btn btn-pri" style="flex:1;justify-content:center;min-height:34px;padding:6px" onclick=\'irA("SECTOR_'+sec.sector+'")\'>Ver sector</button>'+
-        '<button class="btn btn-sec" style="flex:1;justify-content:center;min-height:34px;padding:6px" onclick=\'irA("INGRESO_'+sec.sector+'")\'>Registrar ingreso</button>'+
-        '</div></div>';
-    }).join('');
-    var al=document.getElementById('actLista');
-    al.innerHTML=(r.ultimos&&r.ultimos.length)?r.ultimos.map(function(e){
-      return '<div class="act-item"><span class="act-hora">'+(e.hora||'\u2014')+'</span>'+
-        '<span class="act-tipo">'+e.tipo+'</span>'+
-        (e.iniciales?'<span class="act-init">'+e.iniciales+'</span>':'')+'</div>';
-    }).join(''):'<div class="vacio"><i data-lucide="activity"></i>Sin actividad registrada</div>';
-    _refrescarIconos();
-  }).withFailureHandler(function(e){
-    if(btn){btn.dataset.cargando='0';btn.disabled=false;btn.classList.remove('refresh-spin');}
-    _errSilencioso('api_centroResumen')(e);
-  })
-  .api_centroResumen();
-}
+/* ================= Accesos de funciones ================= */
 function abrirBuscadorPac(btn){ var fin=_btnPulso(btn,'Abriendo…'); google.script.run.UI_abrirBuscador(); }
 function verRevisionDesdePanel(btn){
   var fin=btn?_btnPulso(btn,'Abriendo…'):null;
@@ -835,18 +722,6 @@ function verRevisionDesdePanel(btn){
     .withSuccessHandler(function(){if(fin)fin();})
     .withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_abrirRevision')(e);})
     .UI_abrirRevision();
-}
-function irA(nombre){
-  google.script.run.withSuccessHandler(function(r){
-    if(!r||!r.ok){toast('No se pudo abrir '+(r&&r.motivo==='HOJA_NO_EXISTE'?nombre:'la hoja'),'err');return;}
-    toast('Hoja abierta: '+nombre,'ok'); /* el panel permanece disponible */
-  }).withFailureHandler(_errSilencioso('api_irA')).api_irA(nombre);
-}
-function abrirPanel(btn){
-  var fin=_btnPulso(btn,'Abriendo…'); /* auto-restaura: el dialog cancela el RPC */
-  google.script.run.withSuccessHandler(function(){setLoading(btn,false);})
-    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('UI_abrirDashboard')(e);})
-    .UI_abrirDashboard();
 }
 function abrirGenerador(btn){
   var fin=_btnPulso(btn,'Abriendo…');
@@ -881,14 +756,7 @@ if(MODO==='revision'){
 }else if(MODO==='ficha'){
   abrirFicha(ID_INICIAL);
 }else if(MODO==='centro'){
-  var lanz=document.getElementById('lanzadorBusqueda');
-  if(lanz){
-    var abrirPac=function(){google.script.run.UI_abrirBuscador();};
-    lanz.addEventListener('click',abrirPac);
-    lanz.addEventListener('focus',abrirPac);
-  }
-  cargarPanel(); /* centro: KPIs reales + accesos. Los controles NO se cargan
-                    al abrir: se consultan bajo demanda en su propio modal. */
+  /* Centro de funciones: listado simple de accesos. Sin cargas al abrir. */
 }
 }catch(eInit){
   console.error('[ECICEP] init',eInit);

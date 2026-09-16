@@ -174,3 +174,31 @@ formulario web 27, contrato V2 OK).
 - **No tocados (documentado)**: `Form_buscarFilaIngresoPorMarca` (ya 1 lectura por hoja),
   `Captura_v2_buscarRegistro` (escaneo intencional §13), `Control_estadoVigencia`
   (lectura CONFIG solo sin `avisoDias` inyectado).
+
+## 12. Jornada autónoma 2 — cierres (2026-09-15)
+
+Informe completo: `docs/INFORME_JORNADA_AUTONOMA_2.md`. Decisión vigente: **DEC-063**.
+Batería final **868/868** (núcleo 597 · contrato datos 38 · cola 33 · payload V2 19 ·
+backend V2 68 · formulario web 27 · V2 contrato 36 · aceptación 50) + `validar_html` **17/17**.
+
+- **Controles por persona 50/50**: rediseño de `Controles.html` (modal 1160×760) con
+  planilla de pendientes auto-cargada (VENCIDO/POR_VENCER/SIN_FECHA), chips de estado,
+  búsqueda bajo filtro y acciones (control/seguimiento del día, abrir ficha). Reemplaza
+  la consulta pura bajo demanda; el `PENDIENTES #11 (CONTROLES PENDIENTES) de negocio`
+  sigue abierto en §1 (destino de flujos auxiliares).
+- **Captura aditiva de controles/seguimientos**: `CAMPOS_INGRESO_ADICIONALES` (5 campos),
+  mapeo/lectores aditivos (`Ingresos_mapearEncabezadosHoja`, `Fuentes_importarMuestra`,
+  `Ingresos_leerHoja`), `Fuentes_normalizar` con fecha ULTIMO_*, paciente conserva los
+  valores reales. Cierra el foco §2/#28 (revisión de fuentes): los 5 sinónimos ya no se
+  descartan. La columna 4 de §1 (**semántica de ESTADO vs SEGUIMIENTO vs CONTROL
+  vs PROFESIONAL**) sigue abierta como consulta cliente: se preservan los valores, la
+  semántica canónica no se decide por sistema.
+- **IA frontend retirada**: sin menú `IA`, sin entrada `IAPanel` en `UICFG_DIALOGOS`,
+  sin `src/IAPanel.html`. Backend `28_IA.js` intacto (webhook y tests dependen de él).
+  La línea histórica de §11 que menciona `IAPanel.html` queda como historial de la fase
+  v0.97 (el archivo ya no existe y no hay que re-crearlo).
+- **Código muerto**: eliminada `api_centroResumen`; `_centro_resumen` se conserva bajo
+  test (`tests/contrato_datos.mjs`).
+- **Publicado**: `clasp push --force` (48 ficheros) + versión **@180** desplegada en el
+  deployment operativo (reutilizado). Smoke `GET /exec` → 200. E2E interactivo en vivo
+  pendiente de login (mismo límite que jornadas anteriores).

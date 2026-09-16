@@ -94,8 +94,7 @@ var UICFG_DIALOGOS = [
   { opener: 'UI_abrirBuscador', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirRevision', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_formularioPanel', plantilla: 'FormularioPanel', tipo: 'modal' },
-  { opener: 'IA_abrirPanel', plantilla: 'IAPanel', tipo: 'sidebar' }
+  { opener: 'UI_formularioPanel', plantilla: 'FormularioPanel', tipo: 'modal' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -179,6 +178,17 @@ const INGRESO_COLUMNAS = [
 const CAMPOS_INGRESO_OPERATIVOS = [
   'NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS',
   'ESTRATIFICACION', 'FECHA_INGRESO', 'DUPLA_INGRESO', 'OBSERVACIONES'
+];
+
+// Campos ADICIONALES confirmados en las fuentes reales (sinónimos en
+// SINONIMOS_ENCABEZADOS) que el modelo conserva pero NO son críticos para
+// validar un ingreso (si faltan, el ingreso sigue siendo procesable). Amplían
+// el mapeo de Ingresos_mapearEncabezadosHoja para que SEGUIMIENTO / CONTROL /
+// PRÓXIMO CONTROL / PROFESIONAL / PRE INGRESO nunca se descarten de la fuente
+// (causa raíz: la lista corta operativa los enviaba a `desconocidos`).
+const CAMPOS_INGRESO_ADICIONALES = [
+  'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
+  'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO'
 ];
 
 // Columnas de la hoja EVENTOS (orden compartido por instalador y escritor)

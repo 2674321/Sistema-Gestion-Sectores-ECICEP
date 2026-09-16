@@ -811,6 +811,40 @@ function _pruebas_contrato_ingreso(t, A) {
     A.igual(f.ESTADO_VALIDACION, 'OK', 'fila de plantilla oficial procesa limpia');
     A.igual(f.NORMALIZADO.SECTOR, 'VERDE', 'sector heredado de la hoja');
   });
+  t('CONTRATO f3: campos adicionales con sinónimo confirmado ya se mapean (no se pierden)', function () {
+    // Causa raíz: la lista corta operativa descartaba SEGUIMIENTO/CONTROL/
+    // PRÓXIMO CONTROL/PROFESIONAL/PRE INGRESO de las fuentes reales.
+    var encabezados = ['NOMBRE', 'RUT', 'SEGUIMIENTO', 'CONTROL', 'PROXIMO CONTROL', 'PROFESIONAL', 'PRE INGRESO'];
+    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    A.cierto(mapa.campos.ULTIMO_SEGUIMIENTO !== undefined, 'SEGUIMIENTO → ULTIMO_SEGUIMIENTO');
+    A.cierto(mapa.campos.ULTIMO_CONTROL !== undefined, 'CONTROL → ULTIMO_CONTROL');
+    A.cierto(mapa.campos.PROXIMO_CONTROL !== undefined, 'PROXIMO CONTROL → PROXIMO_CONTROL');
+    A.cierto(mapa.campos.PROFESIONAL_SEGUIMIENTO !== undefined, 'PROFESIONAL → PROFESIONAL_SEGUIMIENTO');
+    A.cierto(mapa.campos.PREINGRESO !== undefined, 'PRE INGRESO → PREINGRESO');
+    A.igual(mapa.desconocidos.length, 0, 'sin encabezados desconocidos');
+  });
+  t('CONTRATO f3: fila fuente con controles/seguimientos conserva el estado en PACIENTES', function () {
+    var encabezados = ['NOMBRE', 'RUT', 'FECHA NACIMIENTO', 'TELEFONO(S)', 'FECHA INGRESO',
+      'ESTRATIFICACION', 'SEGUIMIENTO', 'CONTROL', 'PROXIMO CONTROL', 'PROFESIONAL',
+      'PRE INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA'];
+    var valores = ['Carla Adicional', '15234987-4', '1985-01-01', '968112233', '05/03/2026',
+      'G2', '01/04/2026', '01/04/2026', '01/07/2026', 'Dra. Rojas', '01/04/2026', 'PENDIENTE', 'PRUEBA'];
+    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var v = {};
+    Object.keys(mapa.campos).forEach(function (c) { v[c] = valores[mapa.campos[c]]; });
+    var f = Fuentes_normalizar(Fuentes_crearFila(
+      { archivo: 'FUENTE-X', hoja: 'HOJA 1', fila: 3, sector: 'NARANJO' }, v));
+    A.igual(f.ESTADO_VALIDACION, 'OK', 'fila fuente procesada sin ERROR');
+    var salida = Ingresos_procesarFilas([f], { pacientes: [], eventos: [] },
+      { nuevoId: function () { return 'EC-000001'; } });
+    A.igual(salida.resumen.nuevos, 1, 'crea paciente nuevo');
+    var p = salida.pacientesNuevos[0];
+    A.igual(p.ULTIMO_CONTROL, '2026-04-01', 'ULTIMO_CONTROL ISO conservado');
+    A.igual(p.ULTIMO_SEGUIMIENTO, '2026-04-01', 'ULTIMO_SEGUIMIENTO ISO conservado');
+    A.igual(p.PROXIMO_CONTROL, '2026-07-01', 'PROXIMO_CONTROL ISO conservado');
+    A.igual(p.PREINGRESO, '2026-04-01', 'PREINGRESO conservado');
+    A.igual(p.PROFESIONAL_SEGUIMIENTO, 'DRA. ROJAS', 'PROFESIONAL_SEGUIMIENTO conservado');
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -2724,6 +2758,39 @@ function _pruebas_controles_v087(t, A) {
     A.igual(una.filas[0].idInterno, 'I001');
     var sg = Control_filasPanel([PAC[0]], FR, HOY).filas[0];
     A.igual(sg.nombre, 'María Pérez', 'fila individual');
+  });
+
+  t('CONTROL v0.9.x: pendientes=true lista solo intervención (VENCIDO/POR_VENCER/SIN_FECHA)', function () {
+    // I001 (G1, 2026-06-01) → próximo 2026-08-30 → POR_VENCER; I002 vence 2027 → VIGENTE;
+    // I003 vence 2027 → VIGENTE; I004 sin control → SIN_FECHA.
+    var r = Control_consultarControles(PAC, FR, HOY, { pendientes: true });
+    A.igual(r.total, 2, 'pendientes');
+    var estados = r.filas.map(function (f) { return f.estado; });
+    A.cierto(estados.indexOf('VENCIDO') === -1 && estados.indexOf('POR_VENCER') !== -1 &&
+      estados.indexOf('SIN_FECHA') !== -1 && estados.indexOf('VIGENTE') === -1,
+      'solo estados de intervención');
+    A.cierto(r.filas[0].estado === 'POR_VENCER' && r.filas[1].estado === 'SIN_FECHA',
+      'orden por urgencia (próximo primero)');
+  });
+
+  t('CONTROL v0.9.x: filtro por estados explícito y por estado individual', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { estados: ['VENCIDO'] });
+    A.igual(r.total, 0, 'sin vencidos en este dataset');
+    r = Control_consultarControles(PAC, FR, HOY, { estado: 'SIN_FECHA' });
+    A.igual(r.total, 1, 'estado individual');
+    A.igual(r.filas[0].idInterno, 'I004');
+  });
+
+  t('CONTROL v0.9.x: sectores se recalculan sobre el subconjunto filtrado', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { pendientes: true });
+    var personas = 0;
+    r.sectores.forEach(function (s) { personas += s.personas; });
+    A.igual(personas, r.total, 'conteo de sectores = total filtrado');
+  });
+
+  t('CONTROL v0.9.x: estados inválidos se ignoran (sin romper la consulta)', function () {
+    var r = Control_consultarControles(PAC, FR, HOY, { estados: ['BASURA', 'VIGENTE'] });
+    A.igual(r.total, 2, 'solo VIGENTE aplicado (I002, I003)');
   });
 }
 

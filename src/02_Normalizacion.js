@@ -820,14 +820,20 @@ function Control_filasPanel(pacientes, freqConfig, hoyIso, avisoDias) {
  *  - sector: filtra por sector ('AMARILLO'|'NARANJO'|'VERDE'|'').
  *  - termino: busca por ID interno, RUT o nombre (insensible a mayúsculas
  *    y tildes; substring).
+ *  - estados: filtra por estado de vigencia (['VENCIDO','POR_VENCER',...]);
+ *    acepta también 'estado' (string) y 'pendientes: true' (atajo que equivale
+ *    a ['VENCIDO','POR_VENCER','SIN_FECHA']). Con filtro de estados activo,
+ *    ordena por URGENCIA (VENCIDO → POR_VENCER → SIN_FECHA → VIGENTE y dentro
+ *    de cada grupo por fecha de próximo control ascendente) y recalcula los
+ *    sectores sobre el subconjunto filtrado.
  *  - inicio: desplazamiento (pag 1 = 0). limite: filas a devolver (máx 100,
- *    default 25). Devuelve total real + desde/hasta. Orden sector→nombre
- *    (mismo criterio que Control_filasPanel).
+ *    default 25). Devuelve total real + desde/hasta.
  */
 function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDias) {
   var o = opts || {};
   var sec = Utl_texto(o.sector).toUpperCase();
   var term = Utl_texto(o.termino).trim();
+  var estados = Control_estadosCriterio(o);
   function numPos(v, def) {
     var n = Math.floor(Number(v));
     return isFinite(n) && n >= 0 ? n : def;
@@ -854,12 +860,56 @@ function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDi
   }
 
   var res = Control_filasPanel(filtrados, freqConfig, hoyIso, avisoDias);
-  var total = res.filas.length;
+  var filas = res.filas;
+  if (estados.length) {
+    filas = filas.filter(function (f) { return estados.indexOf(f.estado) !== -1; });
+    // Orden por urgencia: vencido → pronto → sin control → vigente;
+    // mismo estado → próximo control más cercano primero (sin fecha al final).
+    var rank = { VENCIDO: 0, POR_VENCER: 1, SIN_FECHA: 2, VIGENTE: 3 };
+    filas.sort(function (a, b) {
+      var d = rank[a.estado] - rank[b.estado];
+      if (d) return d;
+      var pa = a.proximo || '9999-12-31', pb = b.proximo || '9999-12-31';
+      if (pa !== pb) return pa < pb ? -1 : 1;
+      return Utl_texto(a.nombre) < Utl_texto(b.nombre) ? -1 : 1;
+    });
+  }
+  var total = filas.length;
   var desde = inicio < total ? inicio : total;
-  var pedazo = res.filas.slice(desde, inicio + limite);
+  var pedazo = filas.slice(desde, inicio + limite);
   var hasta = desde + pedazo.length;
+  var sectores = res.sectores;
+  if (estados.length) {
+    var cnt = {}, ordenSec = function (s) {
+      return { AMARILLO: 0, NARANJO: 1, VERDE: 2 }[Utl_texto(s).toUpperCase()] ?? 3;
+    };
+    filas.forEach(function (f) { cnt[f.sector] = (cnt[f.sector] || 0) + 1; });
+    sectores = Object.keys(cnt).map(function (s) {
+      return { sector: s, personas: cnt[s] };
+    }).sort(function (a, b) { return ordenSec(a.sector) - ordenSec(b.sector); });
+  }
   return { filas: pedazo, total: total, desde: desde, hasta: hasta,
-           inicio: desde, limite: limite, sectores: res.sectores };
+           inicio: desde, limite: limite, sectores: sectores };
+}
+
+/** PURA: estados a filtrar desde las opciones de consulta.
+ *  'pendientes: true' → ['VENCIDO','POR_VENCER','SIN_FECHA'] (intervención).
+ *  También acepta 'estados' (array) o 'estado' (string). Invalida ruido. */
+function Control_estadosCriterio(o) {
+  var lista;
+  if (o.pendientes === true) {
+    lista = ['VENCIDO', 'POR_VENCER', 'SIN_FECHA'];
+  } else {
+    var e = o.estados || o.estado || '';
+    lista = Array.isArray(e) ? e : [e];
+  }
+  var ok = ['SIN_FECHA', 'VENCIDO', 'POR_VENCER', 'VIGENTE'];
+  var res = [];
+  lista.forEach(function (x) {
+    var v = Utl_texto(x).toUpperCase();
+    if (ok.indexOf(v) !== -1 && res.indexOf(v) === -1) res.push(v);
+  });
+  return res;
 }
 
 /** PURA: ¿el término coincide con ID interno, RUT o nombre? Clave normalizada

@@ -1071,3 +1071,52 @@ motor de datos eran percibidos como "ruido", no como valor operativo.
 **Tests:** núcleo 591/591 (sin motor/gráficos) · HTML 18/18 · aceptación
 50/50 · contrato 36/36 · **deploys @173–@175**.
 **Fecha:** 2026-09-15
+
+## DEC-063
+**Título:** Controles por persona en vista 50/50 + captura aditiva de controles/ seguimientos desde fuentes
+**Estado:** Aprobada / vigente
+**Motivo:** (1) El panel "Controles por persona" era una consulta bajo demanda sin
+lista inicial ni orientación al operador; se rediseña como herramienta operativa
+50/50: planilla densa de personas con controles **pendientes** (VENCIDO /
+POR_VENCER / SIN_FECHA) auto-cargada al abrir la única lectura automática del
+modal, chips de estado, búsqueda acotada al filtro activo y detalle + acciones
+(registrar control/seguimiento del día, abrir ficha). Sin KPIs ni estadísticas;
+la vigencia siempre se deriva en vivo (`Control_calcularProximo`) y el PROXIMO_CONTROL
+de fuente se conserva como dato sin gobernar la vigilancia (doctrina FIX v0.8.5).
+(2) Se corrige la pérdida real de datos: `Ingresos_mapearEncabezadosHoja` descartaba
+SEGUIMIENTO / CONTROL / PRÓXIMO CONTROL / PROFESIONAL / PRE INGRESO de las fuentes
+(sinónimos confirmados → ULTIMO_SEGUIMIENTO, ULTIMO_CONTROL, PROXIMO_CONTROL,
+PROFESIONAL_SEGUIMIENTO, PREINGRESO) dejándolos en `desconocidos`, y
+`Ingresos_pacienteDesdeNormalizado`/los lectores copiaban solo los 9 campos
+operativos.
+
+1. **Rediseño 50/50** `Controles.html`: izquierda = sector + chips de estado
+   (Pendientes/Vencidos/Próximos/Sin control/Vigentes/Todos) + tabla densa
+   paginada ("Cargar más") + búsqueda que re-consulta bajo el filtro activo;
+   derecha = detalle de la persona (vigencia, últ. control/seguimiento,
+   recordatorio) y acciones: registrar control/seguimiento (hoy vía
+   `api_controlActualizarUltimo`) o abrir ficha (`UI_abrirFicha`). Modal 1160×760.
+2. **Filtro por estado en el endpoint**: `Control_consultarControles` acepta
+   `estados[]`, `estado`, `pendientes` y ordena por urgencia
+   VENCIDO→POR_VENCER→SIN_FECHA→VIGENTE (proximo asc, nombre) con cálculo puro
+   `Control_estadosCriterio`; `sectores` se recalculan sobre el subconjunto filtrado.
+3. **Captura aditiva**: nuevo `CAMPOS_INGRESO_ADICIONALES` (5 campos). El mapeo
+   de encabezados y los lectores (`Fuentes_importarMuestra`, `Ingresos_leerHoja`)
+   conservan por INDEX/CONTROL cualquier campo adicional con sinónimo confirmado
+   (mismo criterio aditivo que `Fuentes_cargaReal`); `Fuentes_normalizar` normaliza
+   las fechas de ULTIMO_CONTROL/ULTIMO_SEGUIMIENTO como las de PROXIMO_CONTROL
+   (warn, no bloquea). `Ingresos_pacienteDesdeNormalizado` preserva los valores
+   reales (`ULTIMO_SEGUIMIENTO`/`ULTIMO_CONTROL` dejan de fijarse en `''`).
+   ER de `Ingresos_mapearEncabezadosHoja` sin cierre erróneo y `desconocidos`
+   plana (sin nested) — no cambia el ER histórico de INTEGRIDAD.
+4. **Ocultamiento completo de IA frontend**: se elimina el menú `IA` de `onOpen()`,
+   el registro `IAPanel` de `UICFG_DIALOGOS` y **`src/IAPanel.html`**. Se conserva
+   integro `28_IA.js` (backend de asistencia, webhook `IA_revisarTodo()`, tests).
+5. **Limpieza de código muerto**: eliminada `api_centroResumen` (nadie la llamaba
+   tras simplificar Sidebar); se conserva `_centro_resumen` (su función pura, bajo test).
+
+Tests: núcleo 597/597 (6 nuevos: mapeo aditivo + pipeline de controles + filtro
+por estado/orden de `Control_consultarControles`), validar_html 17/17 (IAPanel.html
+eliminado). Publicado: **deploy @180** en el deployment operativo (smoke `GET /exec`
+→ 200). Docs: `docs/INFORME_JORNADA_AUTONOMA_2.md`.
+**Fecha:** 2026-09-15

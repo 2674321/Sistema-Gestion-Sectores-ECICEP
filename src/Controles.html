@@ -5,47 +5,60 @@
 <?!= include('00_Tokens') ?>
 <style>
 html,body{height:100%}
-body{padding:var(--space-4);display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}
-header{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3);flex-shrink:0}
+body{padding:var(--space-4);display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;gap:var(--space-3)}
+header{display:flex;align-items:center;gap:var(--space-3);flex-shrink:0}
 header h1{font:700 17px 'Sora';margin:0;color:var(--text-primary)}
 header .sub{font-size:12px;color:var(--text-muted)}
-.acciones{margin-left:auto;display:flex;gap:var(--space-2)}
 
-.filtros{display:grid;grid-template-columns:230px 1fr auto;gap:var(--space-2);
-  align-items:end;margin-bottom:var(--space-3);flex-shrink:0}
+.layout{display:flex;gap:var(--space-4);flex:1;min-height:0}
+.col{flex:1 1 50%;min-width:0;display:flex;flex-direction:column;gap:var(--space-2);min-height:0}
 
-.estado{padding:var(--space-5) var(--space-4);text-align:center;color:var(--text-secondary);
-  font-size:13px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);
-  background:var(--surface-alt);flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:10px;min-height:0}
-.estado .lucide{opacity:.55}
-.estado .atajos{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.estado .atajos .btn{min-height:34px}
+/* ---------------- izquierda: lista tipo planilla ---------------- */
+.barra{display:flex;gap:var(--space-2);align-items:center;flex-shrink:0}
+.barra select{width:160px;min-height:36px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0}
+.chip-btn{border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);
+  border-radius:var(--radius-full);padding:4px 11px;font:600 11px 'Inter';cursor:pointer;
+  transition:border-color .15s var(--ease-in),color .15s var(--ease-in)}
+.chip-btn:hover{border-color:var(--primary);color:var(--primary)}
+.chip-btn.act{background:var(--primary);border-color:var(--primary);color:#fff}
 
-.contenido{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);
+.vista{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);
   background:var(--surface);min-height:0}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{position:sticky;top:0;background:var(--surface-alt);font:600 10.5px 'Inter';letter-spacing:.05em;
-  text-transform:uppercase;color:var(--text-muted);text-align:left;padding:9px 10px;
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{position:sticky;top:0;background:var(--surface-alt);font:600 10px 'Inter';letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-muted);text-align:left;padding:7px 9px;
   border-bottom:1px solid var(--border);z-index:1}
-td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:var(--surface-alt)}
-td.persona b{display:block;font-size:13px}
+td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface-alt)}
+tbody tr.sel td{background:var(--primary-soft)}
+td.persona b{display:block;font-size:12.5px;color:var(--text-primary)}
 td.persona small{color:var(--text-muted);font-variant-numeric:tabular-nums}
-td.acc{white-space:nowrap;display:table-cell}
-.r-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:var(--radius-sm);
-  border:1px solid var(--border);background:var(--surface);font:500 11px 'Inter';
-  color:var(--text-primary);cursor:pointer;min-height:28px;transition:all .15s var(--ease-in);margin-right:4px}
-.r-btn:hover{border-color:var(--primary)}
-.r-btn.ctr{border-color:var(--primary);color:var(--primary)}
-.r-btn[disabled]{opacity:.55;cursor:default}
+td.est{white-space:nowrap}
 .num{font-variant-numeric:tabular-nums}
-
-.pie{display:flex;align-items:center;gap:var(--space-3);padding-top:var(--space-3);flex-shrink:0}
+.pie{display:flex;align-items:center;gap:var(--space-3);flex-shrink:0}
 .pie .cont{font-size:12px;color:var(--text-muted)}
-.skel-row{height:44px;background:linear-gradient(90deg,var(--surface-alt) 25%,var(--border) 50%,var(--surface-alt) 75%);
+.skel-row{height:32px;background:linear-gradient(90deg,var(--surface-alt) 25%,var(--border) 50%,var(--surface-alt) 75%);
   background-size:200% 100%;animation:skel 1.2s infinite;border-bottom:1px solid var(--border)}
+
+/* ---------------- derecha: búsqueda + acciones + detalle ---------------- */
+.busca{flex-shrink:0}
+.busca .inp{width:100%;box-sizing:border-box;min-height:38px}
+.pista{font-size:11.5px;color:var(--text-muted);flex-shrink:0;line-height:1.35}
+.detalle{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);
+  background:var(--surface);padding:var(--space-4);min-height:0}
+.detalle h3{margin:0 0 2px;font:700 16px 'Inter';color:var(--text-primary)}
+.detalle .rut{color:var(--text-muted);font-size:12px;font-variant-numeric:tabular-nums}
+.detalle .fila-chips{display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap;align-items:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12.5px}
+.kv dt{color:var(--text-muted)}
+.kv dd{margin:0;color:var(--text-primary);font-variant-numeric:tabular-nums}
+.acciones{display:flex;flex-direction:column;gap:8px;margin-top:14px;border-top:1px solid var(--border);
+  padding-top:12px}
+.acciones .btn{justify-content:center;min-height:38px}
+.placeholder{display:none;text-align:center;color:var(--text-muted);font-size:12.5px;
+  padding:var(--space-4);line-height:1.5}
 </style>
 </head>
 <body>
@@ -53,242 +66,298 @@ td.acc{white-space:nowrap;display:table-cell}
 
 <header>
   <h1>🩺 Controles por persona</h1>
-  <span class="sub">Consulta bajo demanda · sector y/o búsqueda</span>
-  <div class="acciones">
-    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
-  </div>
+  <span class="sub">Pendientes automáticos · búsqueda bajo demanda</span>
+  <div style="flex:1"></div>
+  <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
 </header>
 
-<div class="filtros">
-  <div>
-    <label class="etq" for="fSec">Sector</label>
-    <select id="fSec" class="inp" style="min-height:40px">
-      <option value="">Todos los sectores</option>
-      <option value="AMARILLO">AMARILLO</option>
-      <option value="NARANJO">NARANJO</option>
-      <option value="VERDE">VERDE</option>
-    </select>
+<div class="layout">
+  <div class="col">
+    <div class="barra">
+      <label class="etq" for="fSec" style="margin:0">Sector</label>
+      <select id="fSec" class="inp">
+        <option value="">Todos</option>
+        <option value="AMARILLO">AMARILLO</option>
+        <option value="NARANJO">NARANJO</option>
+        <option value="VERDE">VERDE</option>
+      </select>
+      <button id="btnConsultar" class="btn btn-ghost" style="min-height:36px" onclick="consultar(true,this)">
+        <i data-lucide="refresh-cw"></i> Reconsultar</button>
+    </div>
+    <div class="chips" id="chips">
+      <button type="button" class="chip-btn act" data-est="PEND" onclick="setEstados('PEND',this)">Pendientes</button>
+      <button type="button" class="chip-btn" data-est="VENCIDO" onclick="setEstados('VENCIDO',this)">Vencidos</button>
+      <button type="button" class="chip-btn" data-est="POR_VENCER" onclick="setEstados('POR_VENCER',this)">Próximos</button>
+      <button type="button" class="chip-btn" data-est="SIN_FECHA" onclick="setEstados('SIN_FECHA',this)">Sin control</button>
+      <button type="button" class="chip-btn" data-est="VIGENTE" onclick="setEstados('VIGENTE',this)">Vigentes</button>
+      <button type="button" class="chip-btn" data-est="TODOS" onclick="setEstados('TODOS',this)">Todos</button>
+    </div>
+    <div id="contenido" class="vista"></div>
+    <div id="pie" class="pie">
+      <span id="resumen" class="cont">—</span>
+      <span style="flex:1"></span>
+      <button id="btnMas" class="btn btn-sec" style="display:none" onclick="cargarMas(this)">
+        <i data-lucide="chevrons-down"></i> Cargar más</button>
+    </div>
   </div>
-  <div>
-    <label class="etq" for="fTermino">Buscar por ID, RUT o nombre</label>
-    <input id="fTermino" class="inp" placeholder="Ej: 8031158-3, Silvia…" autocomplete="off" style="min-height:40px">
-  </div>
-  <div>
-    <label class="etq">&nbsp;</label>
-    <button id="btnConsultar" class="btn btn-pri" style="min-height:40px" onclick="consultar(true,this)">
-      <i data-lucide="search"></i> Consultar</button>
-  </div>
-</div>
 
-<div id="estadoInicial" class="estado">
-  <i data-lucide="stethoscope" style="width:34px;height:34px"></i>
-  <div>Selecciona un sector o escribe una búsqueda para consultar controles.</div>
-  <div class="atajos">
-    <button class="btn btn-sec" onclick="consultarSector('')"><i data-lucide="layout-grid"></i> Ver todos</button>
-    <button class="btn btn-sec" onclick="consultarSector('AMARILLO')">AMARILLO</button>
-    <button class="btn btn-sec" onclick="consultarSector('NARANJO')">NARANJO</button>
-    <button class="btn btn-sec" onclick="consultarSector('VERDE')">VERDE</button>
+  <div class="col">
+    <div class="busca">
+      <input id="fTermino" class="inp" placeholder="Buscar por ID, RUT o nombre" autocomplete="off">
+    </div>
+    <div class="pista" id="pista"></div>
+    <div id="detalle" class="detalle">
+      <div class="placeholder" id="phVacio" style="display:block">
+        Selecciona una persona de la lista para ver su estado y acciones.<br>
+        El panel izquierdo muestra automáticamente los controles pendientes.
+      </div>
+      <div id="detContenido"></div>
+    </div>
   </div>
-</div>
-
-<div id="contenido" class="contenido" style="display:none"></div>
-
-<div id="pie" class="pie" style="display:none">
-  <span id="resumen" class="cont">—</span>
-  <span style="flex:1"></span>
-  <button id="btnMas" class="btn btn-sec" style="display:none" onclick="cargarMas(this)">
-    <i data-lucide="chevrons-down"></i> Cargar más</button>
 </div>
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 /* ================= estado de la consulta ================= */
-var CTRL={sector:'',termino:'',inicio:0,limite:25,total:0,filas:[]};
-var _cargando=false;
+var CTRL = { sector: '', termino: '', estados: ['VENCIDO', 'POR_VENCER', 'SIN_FECHA'],
+             todos: false, inicio: 0, limite: 30, total: 0, filas: [], sel: '' };
+var _cargando = false;
 
-function _estadoChip(est){
-  var color={VENCIDO:'var(--danger)',POR_VENCER:'var(--warning)',VIGENTE:'var(--success)',SIN_FECHA:'var(--text-muted)'}[est]||'var(--text-muted)';
-  var etq={VENCIDO:'Vencido',POR_VENCER:'Próximo',VIGENTE:'Vigente',SIN_FECHA:'Sin control'}[est]||est;
-  return '<span class="chip" style="color:'+color+';border:1px solid '+color+'">'+etq+'</span>';
+function _estadoChip(est) {
+  var color = { VENCIDO: 'var(--danger)', POR_VENCER: 'var(--warning)', VIGENTE: 'var(--success)', SIN_FECHA: 'var(--text-muted)' }[est] || 'var(--text-muted)';
+  var etq = { VENCIDO: 'Vencido', POR_VENCER: 'Próximo', VIGENTE: 'Vigente', SIN_FECHA: 'Sin control' }[est] || est;
+  return '<span class="chip" style="color:' + color + ';border:1px solid ' + color + '">' + etq + '</span>';
 }
 
-function consultarSector(sec){
-  document.getElementById('fSec').value=sec;
+/* Chips de estado: controlan el filtro enviado al servidor. */
+function setEstados(est, btn) {
+  if (est === 'PEND') { CTRL.estados = ['VENCIDO', 'POR_VENCER', 'SIN_FECHA']; CTRL.todos = false; }
+  else if (est === 'TODOS') { CTRL.estados = []; CTRL.todos = true; }
+  else { CTRL.estados = [est]; CTRL.todos = false; }
+  var chips = document.querySelectorAll('#chips .chip-btn');
+  for (var i = 0; i < chips.length; i++) {
+    chips[i].classList.toggle('act', chips[i] === btn);
+  }
   consultar(true);
 }
 
-/* Solo se consulta cuando el usuario lo dispara: nunca al abrir el modal. */
-function consultar(reset,btn){
-  if(_cargando)return;
-  var fin=btn?_btnCargando(btn,'Consultando…'):null;
-  _cargando=true;
-  if(btn)btn.disabled=true;
-  if(reset){CTRL.inicio=0;}
-  else{showMas(false);}
-  var sec=document.getElementById('fSec').value||'';
-  var ter=document.getElementById('fTermino').value.trim();
-  CTRL.sector=sec;CTRL.termino=ter;
-  if(reset)mostrarSkeleton();
+function estadosEnvio() {
+  return CTRL.todos ? [] : CTRL.estados;
+}
+
+/* La ÚNICA carga automática del modal: la lista de personas con controles
+   que requieren intervención. Todo lo demás es bajo demanda. */
+function consultar(reset, btn) {
+  if (_cargando) return;
+  var fin = btn ? _btnCargando(btn, 'Consultando…') : null;
+  _cargando = true;
+  if (btn) btn.disabled = true;
+  if (reset) { CTRL.inicio = 0; } else { showMas(false); }
+  CTRL.sector = document.getElementById('fSec').value || '';
+  CTRL.termino = document.getElementById('fTermino').value.trim();
+  if (reset) mostrarSkeleton();
   google.script.run
-    .withSuccessHandler(function(r){
-      _cargando=false;
-      if(fin){setLoading(btn,false);btn.disabled=false;}
-      if(!r||!r.ok){
-        ocultar(true);
-        estadoMsg((r&&r.motivo)||'No se pudo consultar');
-        toast('Error al consultar: '+((r&&r.motivo)||'respuesta vacía'),'err');
-        return;
-      }
-      CTRL.filas = reset ? (r.filas||[]) : CTRL.filas.concat(r.filas||[]);
-      CTRL.total = r.total||0;
-      CTRL.inicio = reset ? (r.filas||[]).length : CTRL.inicio + (r.filas||[]).length;
+    .withSuccessHandler(function (r) {
+      _cargando = false;
+      if (fin) { setLoading(btn, false); btn.disabled = false; }
+      if (!r || !r.ok) { pintarError(r); return; }
+      CTRL.filas = reset ? (r.filas || []) : CTRL.filas.concat(r.filas || []);
+      CTRL.total = r.total || 0;
+      CTRL.inicio = reset ? (r.filas || []).length : CTRL.inicio + (r.filas || []).length;
       pintar(reset);
     })
-    .withFailureHandler(function(e){
-      _cargando=false;
-      if(fin){setLoading(btn,false);btn.disabled=false;}
-      ocultar(true);
-      estadoMsg('Error: '+((e&&e.message)||e));
-      toast('Error consultando controles','err');
+    .withFailureHandler(function (e) {
+      _cargando = false;
+      if (fin) { setLoading(btn, false); btn.disabled = false; }
+      pintarError({ motivo: (e && e.message) || e });
     })
-    .api_controlPanel({sector:sec,termino:ter,inicio:reset?0:CTRL.inicio,limite:CTRL.limite});
+    .api_controlPanel({ sector: CTRL.sector, termino: CTRL.termino, estados: estadosEnvio(),
+                        inicio: reset ? 0 : CTRL.inicio, limite: CTRL.limite });
 }
 
-function mostrarSkeleton(){
-  var cont=document.getElementById('contenido');
-  cont.style.display='block';
-  var filas='';
-  for(var i=0;i<6;i++)filas+='<div class="skel-row"></div>';
-  cont.innerHTML='<table><tbody>'+filas+'</tbody></table>';
+function mostrarSkeleton() {
+  var cont = document.getElementById('contenido');
+  cont.innerHTML = '<table><tbody>';
+  for (var i = 0; i < 8; i++) cont.innerHTML += '<tr><td class="skel-row"></td></tr>';
+  cont.innerHTML += '</tbody></table>';
 }
 
-function ocultar(bool){
-  document.getElementById('estadoInicial').style.display=bool?'none':'';
-  document.getElementById('contenido').style.display=bool?'none':'';
-  document.getElementById('pie').style.display=bool?'none':'';
-}
-function mostrarEstado(){
-  document.getElementById('estadoInicial').style.display='flex';
-  document.getElementById('contenido').style.display='none';
-  document.getElementById('pie').style.display='none';
-}
-function estadoMsg(texto){
-  document.getElementById('estadoInicial').innerHTML=
-    '<i data-lucide="search-x" style="width:30px;height:30px"></i><div>'+_esc(texto)+'</div>'+
-    '<div class="atajos"><button class="btn btn-sec" onclick="volverInicio()"><i data-lucide="refresh-cw"></i> Nueva consulta</button></div>';
-  _refrescarIconos();
-}
-function volverInicio(){
-  document.getElementById('estadoInicial').innerHTML=''+
-    '<i data-lucide="stethoscope" style="width:34px;height:34px"></i>'+
-    '<div>Selecciona un sector o escribe una búsqueda para consultar controles.</div>'+
-    '<div class="atajos">'+
-      '<button class="btn btn-sec" onclick="consultarSector(\'\')"><i data-lucide="layout-grid"></i> Ver todos</button>'+
-      '<button class="btn btn-sec" onclick="consultarSector(\'AMARILLO\')">AMARILLO</button>'+
-      '<button class="btn btn-sec" onclick="consultarSector(\'NARANJO\')">NARANJO</button>'+
-      '<button class="btn btn-sec" onclick="consultarSector(\'VERDE\')">VERDE</button>'+
-    '</div>';
-  _refrescarIconos();
-  document.getElementById('estadoInicial').style.display='flex';
-  document.getElementById('contenido').style.display='none';
-  document.getElementById('pie').style.display='none';
+function pintarError(r) {
+  document.getElementById('contenido').innerHTML =
+    '<div class="placeholder" style="display:block">' + _esc((r && r.motivo) || 'No se pudo consultar') + '</div>';
+  document.getElementById('resumen').textContent = '—';
+  hidePie();
+  toast('Error al consultar: ' + ((r && r.motivo) || 'respuesta vacía'), 'err');
 }
 
-function pintar(reset){
-  var filas=CTRL.filas;
-  var cont=document.getElementById('contenido');
-  cont.style.display='block';
-  if(!filas.length){
-    mostrarEstado();
-    estadoMsg('Sin resultados para la consulta actual.');
+function pintar(reset) {
+  var filas = CTRL.filas;
+  var cont = document.getElementById('contenido');
+  if (!filas.length) {
+    cont.innerHTML = '<div class="placeholder" style="display:block">Sin resultados para esta consulta.</div>';
+    document.getElementById('resumen').textContent = '0 personas';
+    hidePie();
+    limpiarDetalle();
     return;
   }
-  var rows=filas.map(function(f){
-    return '<tr>'+
-      '<td class="persona"><b>'+_esc(f.nombre)+'</b><small>'+_esc(f.rut||'sin RUT')+'</small></td>'+
-      '<td>'+_chipSector(f.sector)+'</td>'+
-      '<td><span class="chip rut">'+_esc(f.estrat||'—')+'</span></td>'+
-      '<td class="num">'+(_fmtFecha(f.ultimoControl)||'—')+'</td>'+
-      '<td class="num">'+(_fmtFecha(f.proximo)||'—')+'</td>'+
-      '<td>'+_estadoChip(f.estado)+'</td>'+
-      '<td class="acc">'+
-        '<button class="r-btn ctr" data-acc="CONTROL" data-id="'+_esc(f.idInterno)+'"><i data-lucide="stethoscope" style="width:13px;height:13px"></i> Control</button>'+
-        '<button class="r-btn" data-acc="SEGUIMIENTO" data-id="'+_esc(f.idInterno)+'"><i data-lucide="clipboard-check" style="width:13px;height:13px"></i> Seguimiento</button>'+
-        '<button class="r-btn" data-acc="FICHA" data-id="'+_esc(f.idInterno)+'"><i data-lucide="external-link" style="width:13px;height:13px"></i> Ver ficha</button>'+
-      '</td></tr>';
+  var rows = filas.map(function (f) {
+    var sel = f.idInterno === CTRL.sel ? ' sel' : '';
+    return '<tr class="' + sel + '" data-id="' + _esc(f.idInterno) + '">' +
+      '<td class="est">' + _estadoChip(f.estado) + '</td>' +
+      '<td class="persona"><b>' + _esc(f.nombre) + '</b>' +
+        '<small>' + _esc(f.rut || 'sin RUT') + ' · ' + _esc(f.sector || '—') + '</small></td>' +
+      '<td>' + _esc(f.estrat || '—') + '</td>' +
+      '<td class="num">' + (_fmtFecha(f.ultimoControl) || '—') + '</td>' +
+      '<td class="num">' + (_fmtFecha(f.proximo) || '—') + '</td>' +
+      '</tr>';
   }).join('');
-  cont.innerHTML='<table><thead><tr><th>Persona</th><th>Sector</th><th>Estrat.</th>'+
-    '<th>Últ. control</th><th>Próx. control</th><th>Estado</th><th>Acciones</th></tr></thead>'+
-    '<tbody>'+rows+'</tbody></table>';
+  cont.innerHTML = '<table><thead><tr><th>Estado</th><th>Persona</th><th>Estrat.</th>' +
+    '<th>Últ. control</th><th>Próx. control</th></tr></thead><tbody>' + rows + '</tbody></table>';
   _refrescarIconos();
-  var resumen=document.getElementById('resumen');
-  if(CTRL.total>filas.length){ /* página intermedia/última: no sabemos el desplazamiento global truncado */
-    resumen.textContent='Mostrando '+CTRL.filas.length+' de '+CTRL.total+' personas';
-  }else if(CTRL.filas.length===CTRL.total){
-    resumen.textContent='Mostrando '+CTRL.total+' '+(CTRL.total===1?'persona':'personas');
-  }else{
-    resumen.textContent='Mostrando '+CTRL.filas.length+' de '+CTRL.total+' personas';
+  pistaConsulta();
+  if (CTRL.total > filas.length) {
+    document.getElementById('resumen').textContent = 'Mostrando ' + filas.length + ' de ' + CTRL.total + ' personas';
+  } else {
+    document.getElementById('resumen').textContent = CTRL.total + (CTRL.total === 1 ? ' persona' : ' personas');
   }
-  showMas(filas.length<CTRL.total);
-  document.getElementById('pie').style.display='flex';
+  showMas(filas.length < CTRL.total);
+  document.getElementById('pie').style.display = 'flex';
+  // refrescar detalle si la persona seleccionada sigue en la lista
+  var sel = filaDe(CTRL.sel);
+  if (sel) montarDetalle(sel);
+  else if (CTRL.sel) limpiarDetalle();
 }
 
-function showMas(visible){
-  document.getElementById('btnMas').style.display=visible?'inline-flex':'none';
-  document.getElementById('btnMas').disabled=false;
-}
-function cargarMas(btn){
-  if(btn)btn.disabled=true;
-  consultar(false);
+function hidePie() {
+  document.getElementById('pie').style.display = 'none';
+  showMas(false);
 }
 
-/* Delegación de acciones por fila */
-document.getElementById('contenido').addEventListener('click',function(e){
-  var btn=e.target.closest('.r-btn');
-  if(!btn||btn.disabled)return;
-  var id=btn.getAttribute('data-id');
-  var acc=btn.getAttribute('data-acc');
-  if(acc==='FICHA'){ verFicha(id); return; }
-  actualizarUltimo(btn,id,acc);
+function showMas(visible) {
+  var b = document.getElementById('btnMas');
+  b.style.display = visible ? 'inline-flex' : 'none';
+  b.disabled = false;
+}
+function cargarMas(btn) { consultar(false, btn); }
+
+function pistaConsulta() {
+  var t = extendida(CTRL.termino);
+  if (t) {
+    document.getElementById('pista').textContent =
+      'Búsqueda: "' + t + '" dentro del filtro activo.';
+    return;
+  }
+  if (CTRL.todos) {
+    document.getElementById('pista').textContent =
+      'Mostrando todas las personas del universo disponible.';
+  } else if (CTRL.estados.length === 3) {
+    document.getElementById('pista').textContent =
+      'Lista automática de personas con controles vencidos, próximos o sin control.';
+  } else if (CTRL.estados.length === 1) {
+    var etq = { VENCIDO: 'controles vencidos', POR_VENCER: 'controles próximos a vencer',
+                SIN_FECHA: 'personas sin control registrado', VIGENTE: 'controles vigentes' }[CTRL.estados[0]] || '';
+    document.getElementById('pista').textContent = 'Filtrando por ' + etq + '.';
+  }
+}
+function extendida(s) { return String(s == null ? '' : s).trim(); }
+
+/* ================= selección y panel derecho ================= */
+function filaDe(id) {
+  for (var i = 0; i < CTRL.filas.length; i++) {
+    if (CTRL.filas[i].idInterno === id) return CTRL.filas[i];
+  }
+  return null;
+}
+
+document.getElementById('contenido').addEventListener('click', function (e) {
+  var tr = e.target.closest('tr[data-id]');
+  if (!tr || !tr.classList || tr.classList.contains('skel')) return;
+  var id = tr.getAttribute('data-id');
+  if (id === CTRL.sel) return;
+  // resaltar solo la fila seleccionada (sin re-consultar)
+  var rows = document.querySelectorAll('#contenido tbody tr');
+  for (var i = 0; i < rows.length; i++) rows[i].classList.remove('sel');
+  tr.classList.add('sel');
+  CTRL.sel = id;
+  var f = filaDe(id);
+  if (f) montarDetalle(f);
 });
 
-function verFicha(id){
-  google.script.run
-    .withSuccessHandler(function(){ google.script.host.close(); })
-    .withFailureHandler(function(){ google.script.host.close(); })
-    .UI_abrirFicha(id);
+function montarDetalle(f) {
+  document.getElementById('phVacio').style.display = 'none';
+  document.getElementById('detContenido').innerHTML =
+    '<h3>' + _esc(f.nombre) + '</h3>' +
+    '<div class="rut">' + _esc(f.rut || 'sin RUT') + '</div>' +
+    '<div class="fila-chips">' + _chipSector(f.sector) + '<span class="chip">' + _esc(f.estrat || '—') + '</span>' +
+      _estadoChip(f.estado) + '</div>' +
+    '<dl class="kv">' +
+      kvRow('Edad', f.edad ? f.edad + ' año(s)' : '—') +
+      kvRow('Último control', _fmtFecha(f.ultimoControl) || '—') +
+      kvRow('Próximo control', _fmtFecha(f.proximo) || '—') +
+      kvRow('Último seguimiento', _fmtFecha(f.ultimoSeguimiento) || '—') +
+      kvRow('Recordatorio', f.recordatorio || '—') +
+    '</dl>' +
+    '<div class="acciones">' +
+      '<button class="btn btn-pri" onclick="registrar(\'CONTROL\')"><i data-lucide="stethoscope"></i> Registrar control (hoy)</button>' +
+      '<button class="btn btn-sec" onclick="registrar(\'SEGUIMIENTO\')"><i data-lucide="clipboard-check"></i> Registrar seguimiento (hoy)</button>' +
+      '<button class="btn btn-ghost" onclick="verFicha()"><i data-lucide="external-link"></i> Abrir ficha completa</button>' +
+    '</div>';
+  _refrescarIconos();
 }
 
-function actualizarUltimo(btn,idInterno,tipo){
-  var fin=_btnCargando(btn,'Guardando…');btn.disabled=true;
-  var hoy=new Date().toISOString().slice(0,10);
+function kvRow(k, v) {
+  return '<dt>' + _esc(k) + '</dt><dd>' + _esc(String(v == null ? '' : v)) + '</dd>';
+}
+
+function limpiarDetalle() {
+  CTRL.sel = '';
+  document.getElementById('phVacio').style.display = 'block';
+  document.getElementById('detContenido').innerHTML = '';
+}
+
+/* ================= acciones ================= */
+function verFicha() {
+  if (!CTRL.sel) return;
   google.script.run
-    .withSuccessHandler(function(r){
-      btn.disabled=false;setLoading(btn,false);
-      if(r&&r.ok){
-        toast('✓ '+tipo+' de hoy registrado'+(r.proximo?' · próximo '+r.proximo:''),'ok');
+    .withSuccessHandler(function () { google.script.host.close(); })
+    .withFailureHandler(function () { google.script.host.close(); })
+    .UI_abrirFicha(CTRL.sel);
+}
+
+function registrar(tipo) {
+  if (!CTRL.sel) return;
+  var p = filaDe(CTRL.sel);
+  var hoy = new Date().toISOString().slice(0, 10);
+  google.script.run
+    .withSuccessHandler(function (r) {
+      if (r && r.ok) {
+        toast('✓ ' + tipo + ' de hoy registrado' + (r.proximo ? ' · próximo ' + r.proximo : ''), 'ok');
         consultar(true);
-      }else toast(r.motivo||'No se pudo actualizar','err');
+      } else {
+        toast((r && r.motivo) || 'No se pudo actualizar', 'err');
+      }
     })
-    .withFailureHandler(function(e){
-      btn.disabled=false;setLoading(btn,false);
-      toast('Error: '+((e&&e.message)||e),'err');
+    .withFailureHandler(function (e) {
+      toast('Error: ' + ((e && e.message) || e), 'err');
     })
-    .api_controlActualizarUltimo(idInterno,tipo,hoy);
+    .api_controlActualizarUltimo(CTRL.sel, tipo, hoy);
 }
 
-/* Filtros: escritura (mín 2 caracteres) y cambio de sector disparan consulta */
-document.getElementById('fTermino').addEventListener('input',(function(){
-  var timer=null;
-  return function(){
+/* ================= filtros ================= */
+document.getElementById('fTermino').addEventListener('input', (function () {
+  var timer = null;
+  return function () {
     clearTimeout(timer);
-    timer=setTimeout(function(){
-      var v=document.getElementById('fTermino').value.trim();
-      if(v.length>=2||v.length===0)consultar(true);
-    },350);
+    timer = setTimeout(function () {
+      var v = document.getElementById('fTermino').value.trim();
+      if (v.length >= 2 || v.length === 0) consultar(true);
+    }, 350);
   };
 })());
-document.getElementById('fSec').addEventListener('change',function(){ consultar(true); });
+document.getElementById('fSec').addEventListener('change', function () { consultar(true); });
+
+/* Al abrir el modal: carga automática de la lista de pendientes (única). */
+consultar(true);
 </script>
 </body>
 </html>

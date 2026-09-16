@@ -48,14 +48,6 @@ function onOpen() {
       .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 
-    ui.createMenu('IA')
-      .addItem('Abrir panel', 'IA_abrirPanel')
-      .addItem('Revisión completa', 'IA_revisarTodoUI')
-      .addItem('Análisis rápido', 'IA_analizarCompleto')
-      .addItem('Corregir errores', 'IA_corregirTodo')
-      .addItem('Configurar API', 'IA_configurar')
-      .addToUi();
-
     Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
   } catch (e) { /* entorno sin UI */ }
 }
@@ -392,8 +384,8 @@ function _ui_sidebar(modo, titulo, idInicial) {
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
 
-/** 🏠 Panel de Control: dashboard principal con accesos y estado general. */
-function UI_panelControl() { _ui_sidebar('centro', 'Panel de Control'); }
+/** 🏠 Centro de funciones: accesos directos (listado simple, sin cargas). */
+function UI_panelControl() { _ui_sidebar('centro', 'Funciones ECICEP'); }
 
 /** 👤 Pacientes ECICEP: buscador + ficha. */
 function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Pacientes ECICEP'); }
@@ -450,14 +442,16 @@ function UI_generarRem() { _ui_dialogo('RemGenerador', 'Generar REM'); }
 /** Acerca de: dialog con datos del sistema. */
 function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
 
-/** 🩺 Controles por persona: modal independiente de consulta BAJO DEMANDA.
- *  No lista población al abrir: se consulta solo cuando el usuario elige
- *  sector y/o escribe búsqueda. */
+/** 🩺 Controles por persona: modal 50/50 (tabla de personas con controles
+ *  pendientes a la izquierda; búsqueda + acciones + detalle a la derecha).
+ *  Al abrir carga automáticamente la lista de personas pendientes
+ *  (VENCIDO / POR_VENCER / SIN_FECHA): es la única lectura automática del
+ *  modal, luego todo es bajo demanda. Sin KPIs ni estadísticas. */
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
   var html = t.evaluate().setTitle('Controles por persona')
-    .setWidth(840).setHeight(680);
+    .setWidth(1160).setHeight(760);
   _UI_get().showModalDialog(html, 'Controles por persona');
 }
 
@@ -787,45 +781,6 @@ function api_irA(nombreHoja) {
   }
 }
 
-/** Resumen operativo real para el Centro de Control (una llamada). */
-function api_centroResumen() {
-  try {
-    var tz = _UI_tz();
-    var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-    // LECTORES LIGEROS: solo los campos que el panel necesita (evita alocar
-    // objetos completos de PACIENTES ~30 cols y EVENTOS ~20 por cada apertura).
-    var pacientes = Modelo_leerPacientesCampos(
-      ['SECTOR', 'REQUIERE_REVISION', 'ESTRATIFICACION', 'FECHA_ACTUALIZACION']);
-    var eventos = Modelo_leerEventosCampos(
-      ['TIPO_EVENTO', 'SECTOR', 'FECHA_EVENTO', 'NOMBRE']);
-
-    /* Contar conflictos abiertos directamente desde CONFLICTOS (sin re-leer PACIENTES) */
-    var cola = 0;
-    try {
-      var hojaC = Modelo_hoja(HOJAS.CONFLICTOS);
-      if (hojaC && hojaC.getLastRow() >= 2) {
-        var filasC = Utl_leerBloque(hojaC).slice(1);
-        for (var ci = 0; ci < filasC.length; ci++) {
-          if (Utl_texto(filasC[ci][8]) === 'ABIERTO') cola++;
-        }
-      }
-    } catch (eR) {}
-
-    var r = _centro_resumen(pacientes, eventos, hoyIso, tz);
-    r.ok = true;
-    r.colaRevision = cola;
-    r.ultimaAct = r._ultimaActF
-      ? Utilities.formatDate(r._ultimaActF, tz, 'dd/MM/yyyy HH:mm')
-      : 'sin cambios';
-    delete r._ultimaActF;
-    r.fechaIso = hoyIso;
-    r.horaIso = Utilities.formatDate(new Date(), tz, 'HH:mm');
-    return r;
-  } catch (e) {
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
-}
-
 /** Zona horaria del script cacheada por invocación (getScriptTimeZone() es
  *  un RPC; cachear la evita en maps masivos sobre pacientes/eventos).
  *  Mismo patrón que _MEMO_HOJAS y _UI_CACHE. */
@@ -869,10 +824,10 @@ function _UI_controlConfig() {
 
 /* ---------------------- Panel de Control: controles por persona ---------------------- */
 
-/** Endpoint: consulta "Controles por persona" BAJO DEMANDA y paginada.
- *  No lista población al inicializar: hace falta sector y/o término explícito.
- *  Filtros sobre paciente (sector + término por ID/RUT/nombre) y luego límite.
- *  @param {Object} [opts] — {sector, termino, inicio, limite}
+/** Endpoint: consulta "Controles por persona" paginada.
+ *  Filtros sobre paciente (sector + término por ID/RUT/nombre) + estados de
+ *  vigencia (opts.estados / opts.pendientes) y luego límite.
+ *  @param {Object} [opts] — {sector, termino, estados, pendientes, inicio, limite}
  *  @returns {{ok:boolean, filas:Array, total:number, desde:number, hasta:number,
  *             limite:number, sectores:Array, fechaIso:string}} */
 function api_controlPanel(opts) {
@@ -1963,8 +1918,8 @@ var PANEL_SECTORES = ['NARANJO', 'AMARILLO', 'VERDE'];
  *  conteo se agrega en una sola pasada sobre las filas originales (menos
  *  alocaciones que mapear el dataset completo a objetos antes de contar).
  *  Retorna {pacientes, ingresosHoy, eventosMes, porRevisar, estratPendiente,
- *           sectores, ultimos, _ultimaActF} — ultimaAct se formatea en
- *  api_centroResumen (necesita Utilities, fuera del alcance puro). */
+ *           sectores, ultimos, _ultimaActF} — ultimaAct se formatea en el
+ *  llamador GAS (necesita Utilities, fuera del alcance puro). */
 function _centro_resumen(pacientes, eventos, hoyIso, tz) {
   var secs = {};
   PANEL_SECTORES.forEach(function (s) {
