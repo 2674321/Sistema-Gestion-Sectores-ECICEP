@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+// Acceso compartido sin cuenta Google: el enlace base no sirve HTML de captura.
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import vm from 'node:vm';
+const root=new URL('../src/',import.meta.url);
+const c=vm.createContext({console:{log(){},warn(){},error(){}}});
+for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())vm.runInContext(readFileSync(new URL(f,root),'utf8'),c,{filename:f});
+const props=new Map(),uuid='12345678-1234-4123-8123-123456789abc';
+c.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
+c.Utilities={getUuid:()=>uuid};
+c.Session={getActiveUser:()=>({getEmail:()=>''})};
+c.ContentService={createTextOutput:text=>({tipo:'texto',texto:text})};
+let plantillas=0;
+c.HtmlService={createTemplateFromFile:n=>{plantillas++;assert.equal(n,'CapturaWeb');return {evaluate(){return {tipo:'html',setTitle(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}},XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
+let pruebas=0;function t(nombre,fn){fn();pruebas++;console.log('[PASS] '+nombre);}
+t('La URL base y una clave inválida no sirven HTML ni ficha',()=>{
+  assert.equal(c.doGet({parameter:{}}).tipo,'texto');
+  assert.equal(plantillas,0);
+  assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1').ok,false);
+  assert.equal(c.WebApp_estadoInicial('').ok,false);
+  assert.equal(c.WebApp_capturarEnviar({}).ok,false);
+  assert.equal(c.WebApp_previaDuplicadosV2({accion:'nuevoIngreso'},'x').ok,false);
+  assert.equal(c.WebApp_capturarEstado('Cp4-'+'a'.repeat(32),'x').ok,false);
+});
+t('El QR genera clave propia y el mismo enlace funciona sin cuenta',()=>{
+  const url=c.WebApp_urlCompartida_(),clave=props.get('CAPTURA_ACCESS_TOKEN');
+  assert.match(clave,/^[0-9a-f]{64}$/);
+  assert.equal(props.has('WEBHOOK_TOKEN'),false);
+  assert.equal(url,c.ECICEP_webAppUrl()+'?acceso='+clave);
+  assert.equal(c.WebApp_urlCompartida_(),url);
+  assert.equal(c.doGet({parameter:{acceso:clave}}).tipo,'html');
+  assert.equal(plantillas,1);
+  assert.equal(c.Captura_v2_ctx(clave).usuario,'ACCESO_COMPARTIDO');
+  assert.equal(c.Captura_v2_ctx('').usuario,'');
+});
+t('La ficha de Sheets usa la misma clave para buscar y actualizar la agenda',()=>{
+  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+  let plantilla;
+  c.Utilities.formatDate=()=>'';c._UI_tz=()=>'';
+  c._UI_get=()=>({showSidebar(){}});
+  c.HtmlService.createTemplateFromFile=()=>plantilla={evaluate(){return {setTitle(){return this;}};}};
+  c._ui_sidebar('pacientes','Pacientes ECICEP');
+  assert.equal(plantilla.TOKEN_INVITACION,clave);
+  const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
+  assert.match(sidebar,/\.api_actualizarPaciente\(P_ACTUAL,\{PROXIMO_CONTROL:inp\.value\},TOKEN_INVITACION\)/);
+});
+t('La autorización se comprueba en cada RPC de captura',()=>{
+  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+  let capturas=0;c.LockService={getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})};
+  c.Captura_v2_enviar=(payload,ctx)=>{capturas++;assert.equal(ctx.usuario,'ACCESO_COMPARTIDO');return {ok:true};};
+  assert.equal(c.WebApp_capturarEnviar({},clave).ok,true);
+  assert.equal(c.WebApp_capturarEnviar({},'').ok,false);
+  assert.equal(capturas,1);
+  assert.equal(c.WebApp_estadoInicial(clave).url,c.WebApp_urlCompartida_());
+  assert.equal(c.api_webappEstado(clave).url,c.WebApp_urlCompartida_());
+  assert.equal(c.api_webappEstado('').ok,false);
+});
+t('La ficha carga y actualiza desde otra cuenta sin email con enlace válido',()=>{
+  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+  const pac={ID_INTERNO:'P-FICTICIO',RUT:'11111111-1',NOMBRE:'PERSONA FICTICIA',PROXIMO_CONTROL:''};
+  c.Modelo_leerPacientes=()=>[pac];c.Modelo_leerEventos=()=>[];
+  assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1','').ok,false);
+  assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1',clave).ok,true);
+  c.Modelo_buscarPaciente=()=>({obj:pac,idx:0});c.Modelo_asegurarEsquemaPacientes=()=>({ok:true});
+  let filas=0;c.Modelo_hoja=()=>({getRange:()=>({setValues(){filas++;}})});
+  c.Modelo_filaFisica=()=>2;c.Modelo_filaDesdeObjeto=o=>[o.PROXIMO_CONTROL];
+  c.Modelo_invalidarLecturas=()=>{};c.Log_info=()=>{};c.Log_flush=()=>{};
+  assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'}).ok,false);
+  assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'},clave).ok,true);
+  assert.equal(filas,1);
+});
+console.log('Acceso Web App: '+pruebas+'/'+pruebas);

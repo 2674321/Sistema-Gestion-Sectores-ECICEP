@@ -1,5 +1,11 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.14):** el deployment sigue siendo único y
+> ejecuta como propietario. Para acceso sin cuenta Google, Captura distribuye
+> desde el menú Sheets un enlace con clave independiente del webhook. La Web
+> App exige ese enlace para servir HTML anónimo y revalida la clave en sus RPC;
+> no depende del email oculto por Apps Script.
+
 > **Actualización 2026-09-17 (v0.9.13):** las fechas de último control y
 > seguimiento no retroceden al registrar atenciones históricas. Después de
 > importar fuentes, las correcciones V4 auditadas restauran la caché de
@@ -163,9 +169,9 @@ registro de prueba descartable: FORMULARIO → FORM_RESPUESTAS (captureId
 `Cp2-55cac2c87ab08e34541ba94ab82590c4`, una sola fila) → `INGRESO_AMARILLO`
 → PACIENTES (`EC-MTR7FJY3-B6NB`) → EVENTOS (`EV-0001`, ingreso). La
 **idempotencia A1/A2** se verificó en vivo: el reenvío idéntico devuelve el mismo
-captureId sin duplicar efectos. La Web App exige sesión de Google autenticada
-(§24.1 `Sesión de usuario no detectada; acceso denegado` en anónimo), consistente
-con su rol de canal operativo. Evidencia y detalle: `AUDITORIA_ESTABILIZACION.md` §9.
+captureId sin duplicar efectos. En esa versión la Web App exigía sesión de Google
+autenticada (comportamiento histórico sustituido por el enlace compartido en
+v0.9.14). Evidencia y detalle: `AUDITORIA_ESTABILIZACION.md` §9.
 
 ### S5 — Instalar/reparar sistema: instalación + enriquecimiento seguro de PACIENTES
 

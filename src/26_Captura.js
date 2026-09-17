@@ -748,6 +748,7 @@ function Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg) {
     marca: Captura_v2_marca(norm),
     captureId: captureId,
     usuario: c.usuario,
+    acceso: c.acceso || '',
     previo: previo || {},
     regExiste: !!(previo && previo.regExiste)
   };
@@ -1191,7 +1192,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
       if (typeof Form_actualizarDatosPaciente !== 'function') {
         return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ACTUALIZACION_FALLIDA', idInterno: persona.ID_INTERNO, idEvento: '' };
       }
-      var upd = Form_actualizarDatosPaciente(persona, internos, marca);
+      var upd = Form_actualizarDatosPaciente(persona, internos, marca, opciones && opciones.acceso);
       if (!upd) {
         return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ACTUALIZACION_FALLIDA', idInterno: persona.ID_INTERNO, idEvento: '' };
       }
@@ -1259,9 +1260,10 @@ function Captura_v2_catalogo() {
 }
 
 /** Construye el ctx real de GAS. Inyectable en tests. */
-function Captura_v2_ctx() {
+function Captura_v2_ctx(acceso) {
   return {
-    usuario: Captura_v2_usuarioActual(),
+    usuario: Captura_v2_usuarioActual() || (WebApp_accesoCompartidoValido_(acceso) ? 'ACCESO_COMPARTIDO' : ''),
+    acceso: acceso || '',
     ahora: Captura_v2_ahora,
     maxReintentos: FORM_CONFIG.MAX_REINTENTOS,
     catalogo: Captura_v2_catalogo(),
@@ -1270,21 +1272,22 @@ function Captura_v2_ctx() {
     actualizarTrailer: Captura_v2_actualizarTrailer,
     entregar: Captura_v2_entregar,
     aplicarAgenda: function (idInterno, fecha) {
-      return api_actualizarPaciente(idInterno, { PROXIMO_CONTROL: fecha });
+      return api_actualizarPaciente(idInterno, { PROXIMO_CONTROL: fecha }, acceso);
     },
     medir: Captura_v2_marcaMedida
   };
 }
 
 /** Entrypoint Web App: envío de captura V2 (único canal operativo). */
-function WebApp_capturarEnviar(payload) {
+function WebApp_capturarEnviar(payload, acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   var lock = null;
   try {
     lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) {
       return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Servicio ocupado; reintente en unos segundos', 'S2-LockService')] };
     }
-    var ctx = Captura_v2_ctx();
+    var ctx = Captura_v2_ctx(acceso);
     Captura_v2_medida(ctx, 'T0_recepcion');
     var res = Captura_v2_enviar(payload || {}, ctx);
     Captura_v2_medida(ctx, 'T6_respuesta');
@@ -1356,14 +1359,16 @@ function Captura_v2_previaDuplicados(datos) {
 }
 
 /** Alias Web App: pre-flight de duplicados V2. */
-function WebApp_previaDuplicadosV2(datos) {
+function WebApp_previaDuplicadosV2(datos, acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return Captura_v2_previaDuplicados(datos);
 }
 
 /** Entrypoint Web App: consulta de estado de un envío V2. */
-function WebApp_capturarEstado(captureId) {
+function WebApp_capturarEstado(captureId, acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   try {
-    return Captura_v2_estado(captureId, Captura_v2_ctx());
+    return Captura_v2_estado(captureId, Captura_v2_ctx(acceso));
   } catch (e) {
     Captura_v2_logError('WebApp', 'capturarEstado', String(e));
     return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Falla interna al consultar el envío', '§16.2')] };
@@ -1371,7 +1376,8 @@ function WebApp_capturarEstado(captureId) {
 }
 
 /** Entrypoint Web App: retoma administrativa de un pendiente V2 (procesador V2). */
-function WebApp_capturarRetomar(payload) {
+function WebApp_capturarRetomar(payload, acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   var lock = null;
   try {
     lock = LockService.getScriptLock();
@@ -1379,7 +1385,7 @@ function WebApp_capturarRetomar(payload) {
       return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Servicio ocupado; reintente en unos segundos', 'S2-LockService')] };
     }
     var captureId = (payload && typeof payload === 'object' && payload.captureId) ? payload.captureId : null;
-    return Captura_v2_retomarRegistro(captureId, Captura_v2_ctx());
+    return Captura_v2_retomarRegistro(captureId, Captura_v2_ctx(acceso));
   } catch (e) {
     Captura_v2_logError('WebApp', 'capturarRetomar', String(e));
     return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Falla interna al retomar el envío', '§16.2')] };

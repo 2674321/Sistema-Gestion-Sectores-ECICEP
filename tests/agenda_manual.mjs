@@ -89,10 +89,24 @@ test('Panel y auditoría usan agenda aun sin control o riesgo; sincronizar nunca
   for(const tipo of ['CONTROL','SEGUIMIENTO']){c.Ingresos_sincronizarCache(p,{TIPO_EVENTO:tipo,FECHA_EVENTO:'2026-09-16'});assert.equal(p.PROXIMO_CONTROL,'2026-10-20');}
   p.PROXIMO_CONTROL='';c.Ingresos_sincronizarCache(p,{TIPO_EVENTO:'CONTROL',FECHA_EVENTO:'2026-09-17'});assert.equal(p.PROXIMO_CONTROL,'');assert.equal(c.Control_recalcularTodos().cambios,0);
 });
+test('Panel conserva el último control al registrar una atención histórica', () => {
+  const c=backend(),pac={ID_INTERNO:'FICTICIO',RUT:'11111111-1',NOMBRE:'PERSONA FICTICIA',SECTOR:'VERDE',ULTIMO_CONTROL:'2026-09-10',PROXIMO_CONTROL:'2026-10-20'},eventos=[];
+  c.Modelo_buscarPaciente=()=>({obj:pac,idx:0});
+  c.Modelo_agregarEventos=filas=>{eventos.push(...filas);};
+  c.Modelo_hoja=()=>({getRange:()=>({setValues(){}})});
+  c.Modelo_filaFisica=()=>2;c.Modelo_filaDesdeObjeto=o=>[o.ID_INTERNO];
+  c.Modelo_refrescarVistasSectores=()=>({ok:true});c.Log_info=()=>{};c.Log_flush=()=>{};
+  const r=c.api_controlActualizarUltimo('FICTICIO','CONTROL','2026-09-01');
+  assert.equal(r.ok,true,JSON.stringify(r));assert.equal(eventos.length,1);
+  assert.equal(pac.ULTIMO_CONTROL,'2026-09-10');assert.equal(pac.PROXIMO_CONTROL,'2026-10-20');
+});
 test('Captura y alias QR abren la misma pantalla con enlace explícito', () => {
   const c=backend(),calls=[];const output={setWidth(){return this;},setHeight(){return this;}};
+  const props=new Map();c.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
+  c.Utilities={getUuid:()=> 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
   let template;c.HtmlService={createTemplateFromFile:name=>{assert.equal(name,'QRFormulario');return template={evaluate:()=>output};}};c._UI_get=()=>({showModalDialog:(o,t)=>calls.push(t)});
-  c.UI_abrirFormularioCaptura();assert.equal(template.WEB_APP_URL,c.ECICEP_webAppUrl());c.UI_mostrarQR();assert.deepEqual(calls,['Captura','Captura']);
+  c.UI_abrirFormularioCaptura();assert.ok(template.WEB_APP_URL.startsWith(c.ECICEP_webAppUrl()+'?acceso='));
+  assert.equal(props.has('CAPTURA_ACCESS_TOKEN'),true);c.UI_mostrarQR();assert.deepEqual(calls,['Captura','Captura']);
   const html=read('src/QRFormulario.html');assert.match(html,/<a[^>]+id="abrirFormulario"[^>]+href="<\?= WEB_APP_URL \?>"[^>]+target="_blank"/);assert.match(html,/qrCanvas/);assert.doesNotMatch(c.UI_abrirFormularioCaptura.toString(),/window.open|\.click\(/);
 });
 test('Ficha retira acción redundante, conserva representación histórica y Patologías', () => {

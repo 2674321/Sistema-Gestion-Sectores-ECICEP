@@ -26,27 +26,43 @@
 // CONTROL DE ACCESO
 // ---------------------------------------------------------------------------
 
-/** Autoriza el BUSCADOR/FORMULARIO de forma UNIVERSAL (no atado a una cuenta
- *  Google específica): se concede acceso si hay sesión activa (panel/administración)
- *  O si se presenta el token de invitación universal (WEBHOOK_TOKEN de Script
- *  Properties). Así una cuenta distinta a la propietaria puede buscar y capturar.
+/** Autoriza la Web App con sesión activa o enlace compartido independiente.
+ *  El enlace no depende de una cuenta de Google. El token del webhook no sirve
+ *  para Captura ni se comparte en el QR.
  */
-/** Token universal de invitación (WEBHOOK_TOKEN de Script Properties), memoizado
- *  para no leer Properties en cada llamada. '' si no está configurado. */
-var _tokInvitacionMemo = null;
-function WebApp_tokenInvitacion() {
-  if (_tokInvitacionMemo !== null) return _tokInvitacionMemo;
-  _tokInvitacionMemo = PropertiesService.getScriptProperties().getProperty('WEBHOOK_TOKEN') || '';
-  return _tokInvitacionMemo;
-}
-
 function WebApp_autorizarBuscador(token) {
   if (WebApp_usuarioActivo()) return true;
+  return WebApp_accesoCompartidoValido_(token);
+}
+
+/** Clave independiente del webhook: solo se entrega desde el menú de Sheets. */
+function WebApp_claveCompartida_() {
   try {
-    var esperado = PropertiesService.getScriptProperties().getProperty('WEBHOOK_TOKEN');
-    if (!esperado) return false; // sin token configurado → solo sesión
-    return Utl_texto(token) === esperado;
-  } catch (e) { return false; }
+    var props = PropertiesService.getScriptProperties();
+    var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    if (clave) return clave;
+    var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
+    if (lock && !lock.tryLock(5000)) return '';
+    try {
+      clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+      if (clave) return clave;
+      // 256 bits, sin exponer ni reutilizar el token del webhook.
+      clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+      props.setProperty('CAPTURA_ACCESS_TOKEN', clave);
+      return clave;
+    } finally { if (lock) lock.releaseLock(); }
+  } catch (e) { return ''; }
+}
+
+function WebApp_accesoCompartidoValido_(token) {
+  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
+  var esperado = WebApp_claveCompartida_();
+  return !!esperado && token === esperado;
+}
+
+function WebApp_urlCompartida_() {
+  var clave = WebApp_claveCompartida_();
+  return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
 }
 
 /** Devuelve el email del usuario activo o '' si no hay sesión autenticada. */
@@ -69,7 +85,13 @@ function doGet(e) {
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
     return _wh_despachar(e);
   }
-  return HtmlService.createTemplateFromFile('CapturaWeb').evaluate()
+  var acceso = e && e.parameter && e.parameter.acceso || '';
+  if (!WebApp_autorizarBuscador(acceso)) {
+    return ContentService.createTextOutput('Enlace de Captura no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
+  }
+  var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
+  plantilla.CAPTURA_ACCESO = WebApp_accesoCompartidoValido_(acceso) ? acceso : WebApp_claveCompartida_();
+  return plantilla.evaluate()
     .setTitle('ECICEP — Captura')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -344,23 +366,25 @@ function WebApp_resumenPaciente(p) {
   };
 }
 
-function api_webappEstado() {
+function api_webappEstado(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return {
     ok: true,
     version: ECICEP.VERSION,
     entorno: typeof Entorno_actualGAS !== 'undefined' ? Entorno_actualGAS().entorno : 'DESCONOCIDO',
-    url: typeof ECICEP_webAppUrl === 'function' ? ECICEP_webAppUrl() : ''
+    url: WebApp_urlCompartida_()
   };
 }
 
 /** GAS: estado inicial de la WebApp (esquema + catálogo profesionales + url).
  *  Unifica en una sola RPC las llamadas que el formulario realizaba por separado
  *  al cargar (esquema, catálogo y url), reduciendo la latencia inicial a 1 viaje. */
-function WebApp_estadoInicial() {
+function WebApp_estadoInicial(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return {
     esquema: Form_esquemaFormulario(),
     profesionales: WebApp_profesionalesDropdown(),
-    url: typeof ECICEP_webAppUrl === 'function' ? ECICEP_webAppUrl() : ''
+    url: WebApp_urlCompartida_()
   };
 }
 

@@ -770,6 +770,7 @@ t('C10e captura rápida FASE 4: el request NO barre todas los hojas INGRESO_* ni
 });
 
 t('C11 previa duplicados V2: acepta payload camelCase y detecta coincidencias', () => {
+  sandbox.WebApp_autorizarBuscador = () => true; // acceso ya validado; se prueba el pre-flight
   const alias = sandbox.WebApp_previaDuplicadosV2({ accion: 'registrarControl', rut: RUT1, nombre: 'A B' });
   A(alias && alias.ok === true && alias.coincidencia === false, 'alias evita chequeo fuera de nuevoIngreso');
   const sinGAS = sandbox.Captura_v2_previaDuplicados(nuevoIngreso());

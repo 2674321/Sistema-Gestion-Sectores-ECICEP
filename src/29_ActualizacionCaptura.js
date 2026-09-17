@@ -68,9 +68,9 @@ function Captura_validarEdicion_(a) {
   return {ok:true,valor:out};
 }
 
-/** Solo sesión autenticada; no publica fichas ni admite búsquedas anónimas. */
-function WebApp_cargarPacienteEdicion(rut) {
-  if(!Captura_v2_usuarioActual())return {ok:false,motivo:'Se requiere una sesión autorizada para abrir la ficha.'};
+/** Ficha accesible con sesión activa o enlace compartido válido. */
+function WebApp_cargarPacienteEdicion(rut,acceso) {
+  if(!WebApp_autorizarBuscador(acceso))return {ok:false,motivo:'Enlace de Captura no válido. Solicita el QR actualizado.'};
   var nr=Norm_normalizarRut(rut);
   if(nr.estado!=='OK')return {ok:false,motivo:'RUT inválido'};
   var lista=Modelo_leerPacientes().filter(function(p){return Norm_normalizarRut(p.RUT).rut===nr.rut;});
@@ -146,7 +146,7 @@ function Captura_reconciliarFechasCorregidas_() {
 function Captura_entregarEdicion_(norm,marca,opciones) {
   var a=norm.actualizacion,encontrado=Modelo_buscarPaciente(a.id);
   function fail(m){return {estado:'ERROR',motivo:m,idInterno:a.id,idEvento:''};}
-  if(!Captura_v2_usuarioActual() || a.rutOriginal!==norm.rut)return fail('NO_AUTORIZADO_O_IDENTIDAD_INVALIDA');
+  if(!opciones.usuario || a.rutOriginal!==norm.rut)return fail('NO_AUTORIZADO_O_IDENTIDAD_INVALIDA');
   if(!encontrado)return fail('PACIENTE_NO_ENCONTRADO');
   var p=encontrado.obj,fin=Captura_v2_marcaEnEventos(marca);
   if(fin && fin.idEvento)return {estado:'PROCESADO',idInterno:a.id,idEvento:fin.idEvento};
@@ -173,7 +173,7 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
   if(!esquema.ok)return fail('ESQUEMA_PACIENTES_INCOMPATIBLE');
   var codigos=Object.prototype.hasOwnProperty.call(campos,'CONDICIONES')?campos.CONDICIONES.split(';').filter(Boolean):null;
   if(codigos!==null)delete campos.CONDICIONES;
-  if(Object.keys(campos).length) {var upd=api_actualizarPaciente(a.id,campos);if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');}
+  if(Object.keys(campos).length) {var upd=api_actualizarPaciente(a.id,campos,opciones.acceso);if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');}
   if(codigos!==null) {
     var otras=Object.prototype.hasOwnProperty.call(campos,'OTRAS_PATOLOGIAS')?campos.OTRAS_PATOLOGIAS:Captura_edicionTexto_(p,'OTRAS_PATOLOGIAS');
     var pat=api_patologiasGuardar(a.id,codigos,otras);

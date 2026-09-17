@@ -49,7 +49,8 @@ function UI_abrirFormularioCaptura() {
 
 /** Alias conservado para accesos anteriores; una única pantalla de Captura. */
 function UI_mostrarQR() {
-  var url = ECICEP_webAppUrl();
+  var url = WebApp_urlCompartida_();
+  if (!url) throw new Error('No se pudo preparar el enlace compartido de Captura');
   var t = HtmlService.createTemplateFromFile('QRFormulario');
   t.QR_URL = url;
   t.WEB_APP_URL = url;
@@ -349,7 +350,7 @@ function _ui_sidebar(modo, titulo, idInicial) {
   t.modo = modo;
   t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_INVITACION = WebApp_tokenInvitacion();
+  t.TOKEN_INVITACION = WebApp_claveCompartida_();
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
 
@@ -858,11 +859,10 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
       FECHA_REGISTRO: null
     };
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'panel-control' });
-    if (tipoUp === 'CONTROL') {
-      objetivo.ULTIMO_CONTROL = nf.iso;
-    } else {
-      objetivo.ULTIMO_SEGUIMIENTO = nf.iso;
-    }
+    // Una atención histórica se conserva en EVENTOS, pero no debe desplazar
+    // la fecha vigente más reciente de la ficha.
+    var campoUltimo = tipoUp === 'CONTROL' ? 'ULTIMO_CONTROL' : 'ULTIMO_SEGUIMIENTO';
+    if (nf.iso > Control_aIso(objetivo[campoUltimo])) objetivo[campoUltimo] = nf.iso;
     objetivo.FECHA_ACTUALIZACION = new Date();
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
@@ -903,9 +903,7 @@ var _CAMPOS_EDITABLES_PACIENTE = [
  */
 function api_actualizarPaciente(idInterno, campos, token) {
   try {
-    if (!WebApp_autorizarBuscador && typeof WebApp_autorizarBuscador !== 'function') {
-      // Entorno sin WebApp (tests) —.skip auth
-    } else if (typeof WebApp_autorizarBuscador === 'function' && !WebApp_autorizarBuscador(token)) {
+    if (typeof WebApp_autorizarBuscador === 'function' && !WebApp_autorizarBuscador(token)) {
       return { ok: false, motivo: 'NO_AUTORIZADO' };
     }
 

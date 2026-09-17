@@ -1732,7 +1732,7 @@ function Form_procesarAhora() {
  * GAS: actualiza campos OPERATIVOS de un paciente existente (identidad intacta)
  * y registra la marca de trazabilidad. Nunca toca identidad ni reglas clínicas.
  */
-function Form_actualizarDatosPaciente(paciente, normalizado, marca) {
+function Form_actualizarDatosPaciente(paciente, normalizado, marca, acceso) {
   try {
     // Construir mapa de campos a actualizar desde el normalizado del formulario
     var campos = {};
@@ -1757,7 +1757,7 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca) {
     if (Object.keys(campos).length === 0) return false;
 
     // Usar la API unificada
-    var r = api_actualizarPaciente(paciente.ID_INTERNO, campos);
+    var r = api_actualizarPaciente(paciente.ID_INTERNO, campos, acceso);
     return r.ok;
   } catch (e) {
     Log_error('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));

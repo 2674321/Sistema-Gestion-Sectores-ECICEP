@@ -20,6 +20,9 @@ público. Regla aplicada por diseño:
 - Sin claves, tokens, credenciales ni secrets en el código o en Git.
 - La configuración real (IDs de Spreadsheet/deployments) se mantiene en
   `src/00_Config.js`, nunca hardcodeada en el repositorio.
+- El enlace compartido de Captura contiene una clave de acceso a datos clínicos.
+  Solo debe distribuirse a operadores autorizados y puede revocarse reemplazando
+  `CAPTURA_ACCESS_TOKEN` en Script Properties y generando un QR nuevo.
 
 ## Reportar una vulnerabilidad
 

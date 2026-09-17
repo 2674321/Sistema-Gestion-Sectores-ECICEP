@@ -499,7 +499,7 @@ function segGuardarProximo(btn){
     if(r&&r.ok){toast('✓ Próxima atención actualizada','ok');abrirFicha(P_ACTUAL);}
     else toast((r&&r.motivo)||'No se pudo guardar','err');
   }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-  .api_actualizarPaciente(P_ACTUAL,{PROXIMO_CONTROL:inp.value});
+  .api_actualizarPaciente(P_ACTUAL,{PROXIMO_CONTROL:inp.value},TOKEN_INVITACION);
 }
 function segActualizar(btn,tipo){
   if(!P_ACTUAL){toast('No hay paciente abierto','err');return;}

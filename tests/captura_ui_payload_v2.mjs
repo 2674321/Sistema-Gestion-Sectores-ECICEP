@@ -310,7 +310,7 @@ t('H1: _poblarDropdowns() se invoca en el success handler de WebApp_estadoInicia
   const asignacion = 'PROF=r.profesionales';
   const iAsign = html.indexOf(asignacion);
   const iLlamada = html.indexOf('_poblarDropdowns();', iAsign);
-  const iFinRpc = html.indexOf('.WebApp_estadoInicial();');
+  const iFinRpc = html.indexOf('.WebApp_estadoInicial(window.ECICEP_ACCESO);');
   A(iAsign !== -1, 'asignación de PROF presente en init');
   A(iLlamada !== -1 && iLlamada > iAsign && iLlamada < iFinRpc,
     'la llamada debe existir entre PROF=r.profesionales y el envío de la RPC (regresión S8: se eliminó)');

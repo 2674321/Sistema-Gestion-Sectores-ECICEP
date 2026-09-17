@@ -92,10 +92,11 @@ aplican la corrección al mostrar y calcular la fecha efectiva; no se crea otro
 CONTROL/SEGUIMIENTO. La caché de último control/seguimiento en PACIENTES se
 sincroniza con el historial efectivo. La próxima atención permanece manual.
 
-La lectura `WebApp_cargarPacienteEdicion(rut)` requiere usuario activo, RUT válido
-y coincidencia única, y entrega los campos vigentes y IDs de últimas atenciones.
+La lectura `WebApp_cargarPacienteEdicion(rut, acceso)` requiere sesión activa o
+enlace compartido válido, RUT válido y coincidencia única, y entrega los campos
+vigentes y IDs de últimas atenciones.
 El envío rechaza un campo alterado por otra persona entre la carga y la guarda
-(`FICHA_CAMBIO`), una atención reemplazada (`ATENCION_CAMBIO`), o falta de sesión.
+(`FICHA_CAMBIO`), una atención reemplazada (`ATENCION_CAMBIO`), o acceso inválido.
 Las marcas derivadas del mismo `captureId` hacen idempotentes atenciones y auditoría
 en los reintentos. La forma canónica V4 agrega al final `actualizacion` como JSON
 con claves ordenadas; `FORM_VERSION=4` y la traza permanecen en la misma
@@ -643,10 +644,16 @@ FORM_RESPUESTAS (registro de captura: cabecera + crudo normalizado + trailer de 
 
 ## 24. Seguridad / autorización
 
-1. La Web App opera con el acceso de publicación; `google.script.run` ejecuta bajo el usuario activo.
-   El backend verifica que la sesión esté activa; si no hay usuario autorizado, **rechaza** con
-   `ERROR_INTERNO` + motivo de acceso (sin lanzar detalles técnicos al cliente no autorizado).
-   **[DECISIÓN — evidencia: `Session.getActiveUser()` puede ser vacío; limitación conocida]**
+1. El deployment permite abrir Captura sin cuenta de Google. Apps Script se
+   ejecuta como quien publica y puede ocultar el email de otras cuentas: el
+   email vacío **no** es una prueba de acceso denegado. La Web App acepta una
+   sesión activa o un enlace de invitación generado desde el menú Captura en
+   Sheets. El enlace lleva una clave aleatoria independiente del webhook,
+   guardada solo en Script Properties; el enlace base y claves incorrectas no
+   sirven HTML con `google.script.run`. Cada RPC de captura verifica la clave
+   nuevamente. El QR, la copia y el botón de apertura comparten el mismo enlace.
+   Los envíos sin email registran `ACCESO_COMPARTIDO` como origen, sin atribuir
+   falsamente la acción a una persona concreta.
 2. **No se confía en banderas del cliente.** `confirmarNuevoPaciente` es una **instrucción** validada
    y acotada (solo `nuevoIngreso`, `boolean`), jamás una acreditación; el backend revalida todo
    (duplicados, identidad, enums).

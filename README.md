@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.13` · pruebas núcleo **653/653** · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.14` · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -77,6 +77,10 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   de reenvíos** y trazabilidad por envío — especificado en
   `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**).
 - QR para compartir el acceso al canal de captura.
+- El botón Captura del menú Sheets genera un enlace con clave compartida para
+  abrir la Web App desde cualquier dispositivo, sin cuenta Google. Conviene
+  compartir ese enlace solo con operadores autorizados; la URL base no abre
+  fichas para visitantes anónimos.
 
 **Operación y confiabilidad**
 - Instalador/reparador por **etapas** con diagnóstico de solo lectura,
