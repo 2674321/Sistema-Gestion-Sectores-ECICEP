@@ -102,7 +102,7 @@ function doGet(e) {
     captura: 'CapturaWeb', portal: 'PortalWeb', pacientes: 'Sidebar',
     revision: 'Sidebar', ficha: 'Sidebar', controles: 'Controles',
     estadisticas: 'Dashboard', configuracion: 'Configuracion',
-    backups: 'Backup', registro: 'LogVisor', rem: 'RemVista',
+    backups: 'Backup', registro: 'LogVisor', instalar: 'Instalador', rem: 'RemVista',
     generarRem: 'RemGenerador'
   };
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
@@ -127,7 +127,8 @@ function doGet(e) {
       ['Controles', 'controles'], ['Estadísticas', 'estadisticas'],
       ['REM', 'rem'], ['Generar REM', 'generarRem'],
       ['Cola de revisión', 'revision'], ['Configuración', 'configuracion'],
-      ['Backups', 'backups'], ['Registro', 'registro']
+      ['Backups', 'backups'], ['Registro', 'registro'],
+      ['Instalar / reparar', 'instalar']
     ].map(function (item) { return { titulo: item[0], url: WebApp_urlVista_(item[1]) }; });
   }
   return plantilla.evaluate()

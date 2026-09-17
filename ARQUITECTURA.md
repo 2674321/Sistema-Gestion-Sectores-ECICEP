@@ -1,9 +1,9 @@
 # ARQUITECTURA — Sistema ECICEP
 
-> **Actualización 2026-09-17 (v0.9.16):** el deployment Web App sirve las
+> **Actualización 2026-09-17 (v0.9.17):** el deployment Web App sirve las
 > interfaces existentes mediante rutas `vista` protegidas por la misma clave
 > compartida: Pacientes/ficha, Controles, Estadísticas, REM, Configuración,
-> Backups y Registro. El botón Funciones en Captura abre el portal. El backend,
+> Backups, Registro e Instalación/reparación. El botón Funciones en Captura abre el portal. El backend,
 > Spreadsheet y pipeline no se duplican; Sheets conserva su interfaz propia.
 
 > **Actualización 2026-09-17 (v0.9.15):** los paneles de ficha/dupla,
@@ -246,7 +246,13 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
 - **Diagnóstico no-mutante**: `Instalar_diagnosticar` usa `Modelo_escanearEstructura`
   (solo lecturas) en lugar de `Modelo_crearEstructura()`, e imprime el bloque
   VERSIONADO (instalador, esquema leído→esperado, estado, pendientes, sectores).
-  `Instalar_pVerificar` reporta `schemaVersion`/`esquemaOK`/`estado`.
+  La ventana del instalador muestra este diagnóstico al abrirse y solo inicia
+  las etapas cuando el usuario pulsa **Instalar / reparar**. Los RPC exigen la
+  misma clave de acceso compartido que el resto de la Web App; la ruta
+  `?vista=instalar` permite abrirla sin una cuenta de Google. En Sheets se
+  conserva el diálogo del menú. `Instalar_pVerificar` informa fallo si el
+  esquema no queda VIGENTE; la etapa visual también falla si alguna hoja no
+  pudo formatearse.
 - **Webhook**: `action:'instalar'` → `Instalar_ejecutarPolitica()` (DIVERGENTE/
   DESCONOCIDA → error sin mutar; INCOMPLETA → repara estructura; luego
   `Mig_ejecutarPersistente()`).

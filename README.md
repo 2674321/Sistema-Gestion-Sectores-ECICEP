@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.16` · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.17` · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -84,7 +84,10 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 - La ficha y los paneles de registro, configuración y Backups reutilizan la
   misma clave para funcionar desde distintas cuentas con acceso a Sheets.
   El botón **Funciones** de la Web App abre Pacientes, Controles, Estadísticas,
-  REM, Configuración, Backups y Registro con ese mismo enlace, sin cuenta Google.
+  REM, Configuración, Backups, Registro e Instalación/reparación con ese mismo
+  enlace, sin cuenta Google. Al abrir Instalación/reparación se muestra primero
+  un diagnóstico; las etapas que modifican el libro solo comienzan al pulsar
+  **Instalar / reparar**.
   Cada función se abre en una pestaña nueva por las restricciones de navegación
   de Google Apps Script.
   Google Sheets sigue requiriendo una cuenta para abrir la hoja directamente.

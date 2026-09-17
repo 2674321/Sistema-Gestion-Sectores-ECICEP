@@ -36,15 +36,22 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 .pie{text-align:center;font-size:11px;color:var(--text-muted);margin-top:auto;padding-top:var(--space-3)}
 #btnCancelarWrap{display:none;margin-top:var(--space-2)}
 #btnCancelarWrap .btn{width:100%;justify-content:center}
+.preparacion{display:none;text-align:center;margin:var(--space-4) 0}
+.preparacion p{color:var(--text-secondary);line-height:1.5}
+.preparacion .btn{margin-top:var(--space-2)}
 </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>" data-portal="<?= PORTAL_URL ?>">
 <script>var VER='v<?= ECICEP.VERSION ?>';var BUILD='<?= BUILD ?>';</script>
 <div class="marca">
   <div class="sys">ECICEP</div>
-  <div class="sub">Instalando el sistema</div>
+  <div class="sub">Instalación y reparación del sistema</div>
 </div>
 
+<div class="preparacion" id="preparacion">
+  <p id="diagResumen">Revisando el estado del sistema…</p>
+  <button class="btn btn-pri" id="btnIniciar" onclick="iniciarInstalacion()">Instalar / reparar</button>
+</div>
 <div class="pct" id="pct">0%</div>
 <div class="barra"><span id="fill"></span></div>
 <div class="etapa-actual" id="etapaActual">
@@ -63,15 +70,17 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
   <div class="pruebas" id="finDatos"></div>
   <div class="aviso-final" id="finAvisos"></div>
   <div class="botones" style="display:flex">
-    <button class="btn btn-pri" onclick="google.script.host.close()">Continuar</button>
+    <button class="btn btn-pri" onclick="cerrarVista()">Continuar</button>
   </div>
 </div>
 
-<div class="pie">No cierres esta ventana hasta que finalice</div>
+<div class="pie" id="pie">El diagnóstico no modifica datos.</div>
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false;
+var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
+var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
 /* Peso relativo por etapa: las importaciones de fuentes dominan el tiempo.
    versionado (lectura) y migraciones (escritura) son las etapas INST-1. */
@@ -82,7 +91,43 @@ function cancelarInstalacion(){
   if(_CANCELADO)return;
   _CANCELADO=true;
   document.getElementById('btnCancelarWrap').style.display='none';
-  document.getElementById('etapaTxt').textContent='Proceso detenido — puedes cerrar esta ventana';
+  document.getElementById('etapaTxt').textContent=_enCurso
+    ? 'Se detendrá al terminar la etapa actual. Espera antes de cerrar.'
+    : 'Proceso detenido. Puedes cerrar esta ventana.';
+}
+
+function cerrarVista(){
+  if(ECICEP_PORTAL){window.open(ECICEP_PORTAL,'_blank','noopener,noreferrer');return;}
+  google.script.host.close();
+}
+
+function cargarDiagnostico(){
+  google.script.run.withSuccessHandler(function(r){
+    var pendientes=r&&r.ok&&r.diagnostico&&r.diagnostico.resumen
+      ? r.diagnostico.resumen.fasesPendientes : null;
+    if(r&&r.motivo==='ACCESO_DENEGADO')document.getElementById('btnIniciar').disabled=true;
+    document.getElementById('diagResumen').textContent=pendientes
+      ? (pendientes.length ? 'Se detectaron '+pendientes.length+' áreas pendientes: '+pendientes.join('; ')+'.'
+        : 'El sistema está al día. Puedes ejecutar una reparación si es necesario.')
+      : r&&r.motivo==='ACCESO_DENEGADO'
+        ? 'El enlace de acceso no es válido. Solicita uno actualizado desde Captura.'
+        : 'No se pudo completar el diagnóstico. Puedes intentar la reparación manualmente.';
+    document.getElementById('preparacion').style.display='block';
+    document.getElementById('etapaActual').style.display='none';
+  }).withFailureHandler(function(e){
+    document.getElementById('diagResumen').textContent='Diagnóstico no disponible: '+(e&&e.message||e);
+    document.getElementById('preparacion').style.display='block';
+    document.getElementById('etapaActual').style.display='none';
+  }).api_instalarDiagnostico(ECICEP_ACCESO);
+}
+
+function iniciarInstalacion(){
+  if(_enCurso||!ETAPAS.length)return;
+  _CANCELADO=false;RESULTADOS=[];ERRORES=[];
+  document.getElementById('preparacion').style.display='none';
+  document.getElementById('etapaActual').style.display='flex';
+  document.getElementById('pie').textContent='Espera a que termine la etapa actual antes de cerrar.';
+  ejecutarSecuencia(0);
 }
 
 function cargarEtapas(){
@@ -94,10 +139,10 @@ function cargarEtapas(){
       return '<div class="item pen" id="it_'+e.id+'"><span class="ic">'+ICON.pen+'</span>'+
         '<span>'+e.nombre+'</span></div>';
     }).join('');
-    ejecutarSecuencia(0);
+    cargarDiagnostico();
   }).withFailureHandler(function(e){
     document.getElementById('etapaTxt').textContent='Error: '+(e&&e.message||e);
-  }).api_instalarEtapas();
+  }).api_instalarEtapas(ECICEP_ACCESO);
 }
 
 function marcar(id,estado){
@@ -126,8 +171,12 @@ function ejecutarSecuencia(ix){
   document.getElementById('fill').style.width=pct+'%';
 
   google.script.run.withSuccessHandler(function(r){
-    if(_CANCELADO)return;
     _enCurso=false;
+    if(_CANCELADO){
+      document.getElementById('btnCancelarWrap').style.display='none';
+      document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
+      return;
+    }
     if(!r||r.ok===false){
       marcar(etapa.id,'err');
       ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&r.motivo)||'error'});
@@ -140,14 +189,18 @@ function ejecutarSecuencia(ix){
     RESULTADOS.push(r);
     ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
   }).withFailureHandler(function(e){
-    if(_CANCELADO)return;
     _enCurso=false;
+    if(_CANCELADO){
+      document.getElementById('btnCancelarWrap').style.display='none';
+      document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
+      return;
+    }
     marcar(etapa.id,'err');
     ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(e&&e.message)||e});
     document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
     document.getElementById('btnCancelarWrap').style.display='none';
     mostrarFinal(false);
-  }).api_instalarPaso(etapa.id);
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO);
 }
 
 function reintentarDesde(ix){
@@ -206,8 +259,8 @@ function mostrarFinal(ok){
   document.getElementById('finDatos').textContent=txt;
   var av=document.getElementById('finAvisos');
   if(ERRORES.length){av.style.display='block';
-    av.innerHTML='⚠ Completado con avisos:<br>'+ERRORES.map(function(e){
-      return '· '+e.nombre+': '+e.motivo;}).join('<br>');}
+    av.textContent='⚠ Completado con avisos: '+ERRORES.map(function(e){
+      return '· '+e.nombre+': '+e.motivo;}).join('; ');}
   document.getElementById('final').style.display='block';
   _refrescarIconos();
 }

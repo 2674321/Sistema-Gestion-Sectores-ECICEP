@@ -61,6 +61,8 @@ function UI_mostrarQR() {
 function UI_instalarSistema() {
   var t = HtmlService.createTemplateFromFile('Instalador');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
     'Instalaci\u00f3n del sistema');

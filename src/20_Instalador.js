@@ -34,17 +34,26 @@ var INSTALAR_ETAPAS_MUTAN = {};
 });
 
 /** Registro para el cliente. */
-function api_instalarEtapas() {
+function api_instalarEtapas(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return { ok: true, etapas: INSTALAR_ETAPAS,
            version: 'v' + ECICEP.VERSION, build: (ECICEP_BUILD && ECICEP_BUILD.commit) || 'dev',
            instalador: SISTEMA_VERSION_INSTALADOR,
            schemaVersion: String(SISTEMA_VERSION_SCHEMA_ACTUAL) };
 }
 
+/** Previa de solo lectura antes de ofrecer una reparación. */
+function api_instalarDiagnostico(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  try { return Instalar_diagnosticar(); }
+  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
+}
+
 /** Dispatcher de etapa: ejecuta SOLO la etapa pedida.
  *  Etapas mutantes toman LockService (requiere exclusividad; si está ocupado
  *  por otro proceso responde CONCURRENCIA y el cliente reintenta). */
-function api_instalarPaso(id) {
+function api_instalarPaso(id, acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var reg = null;
   INSTALAR_ETAPAS.forEach(function (e) { if (e.id === id) reg = e; });
   if (!reg) return { ok: false, motivo: 'ETAPA_DESCONOCIDA' };
@@ -66,7 +75,8 @@ function api_instalarPaso(id) {
     var r = fn() || {};
     r.etapa = id; r.nombre = reg.nombre; r.ms = Date.now() - t0;
     if (typeof r.ok === 'undefined') r.ok = true;
-    Log_info('Instalador', id, 'ok', null, r.ms);
+    if (r.ok === false) Log_error('Instalador', id, r.motivo || r.linea || 'La etapa informó error');
+    else Log_info('Instalador', id, 'ok', null, r.ms);
     Log_flush();
     return r;
   } catch (e) {
@@ -377,7 +387,9 @@ function Instalar_pDiseno() {
 function Instalar_pVisual() {
   // Usa HVis_aplicarTodasLasSecciones que ya incluye buscador y es idempotente real
   var r = HVis_aplicarTodasLasSecciones();
-  return { ok: true, hojas: r.resultados };
+  var fallos = (r.resultados || []).filter(function (x) { return x.ok === false; });
+  return { ok: r.ok !== false && fallos.length === 0, hojas: r.resultados,
+           motivo: fallos.length ? 'Diseño incompleto en: ' + fallos.map(function (x) { return x.hoja; }).join(', ') : (r.motivo || '') };
 }
 function Instalar_pInicio() {
   var r = Modelo_disenoHojas();
@@ -404,8 +416,9 @@ function Instalar_pVerificar() {
   if (faltan.length) return { ok: false, faltan: faltan,
     linea: 'faltan hojas: ' + faltan.join(', ') };
   var v = Mig_clasificarInstalacion(Modelo_escanearEstructura(), null, REGISTRO_MIGRACIONES);
-  return { ok: true, pacientes: pacientes, eventos: eventos,
-           schemaVersion: v.version, esquemaOK: v.estado === 'VIGENTE', estado: v.estado };
+  return { ok: v.estado === 'VIGENTE', pacientes: pacientes, eventos: eventos,
+           schemaVersion: v.version, esquemaOK: v.estado === 'VIGENTE', estado: v.estado,
+           motivo: v.estado === 'VIGENTE' ? '' : 'Esquema no vigente: ' + v.estado };
 }
 
 /** (S5/S11, DEC-057) Etapa de enriquecimiento demográfico de PACIENTES dentro

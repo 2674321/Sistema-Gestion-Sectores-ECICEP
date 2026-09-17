@@ -37,7 +37,7 @@ t('El QR genera clave propia y el mismo enlace funciona sin cuenta',()=>{
 });
 t('El mismo enlace abre funciones clínicas y paneles sin cuenta Google',()=>{
   const clave=props.get('CAPTURA_ACCESS_TOKEN');
-  const rutas={portal:'PortalWeb',pacientes:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',rem:'RemVista',generarRem:'RemGenerador'};
+  const rutas={portal:'PortalWeb',pacientes:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',instalar:'Instalador',rem:'RemVista',generarRem:'RemGenerador'};
   for(const [vista,archivo] of Object.entries(rutas)){
     assert.equal(c.doGet({parameter:{acceso:clave,vista}}).tipo,'html',vista);
     assert.equal(plantillaArchivo,archivo,vista);
