@@ -1842,13 +1842,28 @@ function Modelo_leerEventos() {
     for (var c = 0; c < campos.length; c++) o[campos[c]] = valores[f][c];
     salida.push(o);
   }
-  return salida;
+  return typeof Captura_eventosVigentes_ === 'function' ? Captura_eventosVigentes_(salida) : salida;
 }
 
 /** LECTOR LIGERO de EVENTOS (PERF menú): objetos con SOLO los campos pedidos.
  *  Reutiliza el bloque memoizado (UNA lectura de hoja); evita alocar todos los
  *  campos. Campos ausentes en el encabezado → omitidos. */
+function Modelo_hayCorreccionesFecha_() {
+  var hoja=Modelo_hoja(HOJAS.EVENTOS);
+  if(!hoja)return false;
+  var filas=_memoLeer(hoja,'EVENTOS');
+  if(!filas.length)return false;
+  var col=filas[0].indexOf('DESCRIPCION');
+  if(col<0)return false;
+  for(var i=1;i<filas.length;i++)if(Utl_texto(filas[i][col]).indexOf('CORRECCION_FECHA_V4:')===0)return true;
+  return false;
+}
+
 function Modelo_leerEventosCampos(campos) {
+  if ((campos || []).indexOf('FECHA_EVENTO') !== -1 && typeof Captura_eventosVigentes_ === 'function' && Modelo_hayCorreccionesFecha_()) {
+    return Modelo_leerEventos().map(function(e){var o={};campos.forEach(function(k){if(k in e)o[k]=e[k];});return o;});
+  }
+
   var hoja = Modelo_hoja(HOJAS.EVENTOS);
   if (!hoja) return [];
   var valores = _memoLeer(hoja, 'EVENTOS');

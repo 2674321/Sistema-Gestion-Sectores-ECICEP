@@ -2828,7 +2828,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.11', 'versión esperada v0.9.10');
+    A.igual(v, '0.9.12', 'versión esperada v0.9.10');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3068,7 +3068,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.11', 'versión esperada v0.9.10');
+    A.igual(v, '0.9.12', 'versión esperada v0.9.10');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -6014,9 +6014,9 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('TELEFONO_OBS') !== -1, 'TELEFONO_OBS editable');
   });
 
-  t('S8: _CAMPOS_EDITABLES_PACIENTE NO incluye campos automáticos/identificadores', function () {
+  t('S8: _CAMPOS_EDITABLES_PACIENTE protege identificador interno y metadatos', function () {
     A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('ID_INTERNO'), -1, 'ID_INTERNO no editable');
-    A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('RUT'), -1, 'RUT no editable');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('RUT') !== -1, 'RUT corregible con validación y unicidad');
     A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('FUENTE'), -1, 'FUENTE no editable');
     A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('FECHA_ACTUALIZACION'), -1, 'FECHA_ACTUALIZACION no editable');
     A.igual(_CAMPOS_EDITABLES_PACIENTE.indexOf('REQUIERE_REVISION'), -1, 'REQUIERE_REVISION no editable');
@@ -6158,7 +6158,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.11', 'VERSION es 0.9.10');
+    A.cierto(ECICEP.VERSION === '0.9.12', 'VERSION es 0.9.10');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

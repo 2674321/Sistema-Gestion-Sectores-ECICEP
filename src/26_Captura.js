@@ -48,13 +48,13 @@ var CAPTURA_V2 = {
   SECTORES: ['AMARILLO', 'NARANJO', 'VERDE'],
   SEXOS: ['M', 'F', 'OTRO'],
   ESTRATIFICACIONES: ['G1', 'G2', 'G3'],
-  /** Formato de captureId §0/§12: `Cp3-` (vigente) o `Cp2-` (anterior) + 32 hex. */
-  RE_CAPTURE_ID: /^Cp[23]-[a-f0-9]{32}$/,
+  /** Formato de captureId §0/§12: `Cp4-` (vigente), `Cp3-` o `Cp2-` (anteriores) + 32 hex. */
+  RE_CAPTURE_ID: /^Cp[234]-[a-f0-9]{32}$/,
   /** Orden canónico de campos §6 (define la forma canónica §11). */
   CAMPOS: [
     'captureId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
     'fechaIngreso', 'estratificacion', 'telefonos', 'fechaEvento', 'profesional',
-    'profesionalSecundario', 'observaciones', 'confirmarNuevoPaciente', 'proximoControl'
+    'profesionalSecundario', 'observaciones', 'confirmarNuevoPaciente', 'proximoControl', 'actualizacion'
   ],
   /** Tipo JSON declarado §7. */
   CAMPO_TIPO: {
@@ -62,7 +62,7 @@ var CAPTURA_V2 = {
     sexo: 'string', fechaNacimiento: 'string', sector: 'string',
     fechaIngreso: 'string', estratificacion: 'string', telefonos: 'string', fechaEvento: 'string',
     profesional: 'string', profesionalSecundario: 'string',
-    observaciones: 'string', confirmarNuevoPaciente: 'boolean', proximoControl: 'string'
+    observaciones: 'string', confirmarNuevoPaciente: 'boolean', proximoControl: 'string', actualizacion: 'object'
   },
   /** Matriz REQ/OPC/NP §5.1. */
   MATRIZ: {
@@ -81,6 +81,7 @@ var CAPTURA_V2 = {
     profesionalSecundario: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] },
     observaciones: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] },
     confirmarNuevoPaciente: { REQ: [], OPC: ['nuevoIngreso'] },
+    actualizacion: { REQ: [], OPC: ['actualizarDatos'] },
     proximoControl: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] }
   },
   /** Nombres internos/generados por el backend §6.1 (no pueden venir del cliente). */
@@ -178,15 +179,16 @@ function Captura_v2_canonica(norm) {
   for (var i = 0; i < CAPTURA_V2.CAMPOS.length; i++) {
     var c = CAPTURA_V2.CAMPOS[i];
     if (c === 'accion') continue;
+    if (c === 'actualizacion' && !/^Cp4-/.test(norm.captureId || '')) continue;
     // Mantener idéntica la huella de capturas V2 que ya están persistidas.
-    if (c === 'proximoControl' && !/^Cp3-/.test(norm.captureId || '')) continue;
+    if (c === 'proximoControl' && !/^Cp[34]-/.test(norm.captureId || '')) continue;
     var m = CAPTURA_V2.MATRIZ[c];
     var aplica = m.REQ.indexOf(accion) !== -1 || m.OPC.indexOf(accion) !== -1;
     if (!aplica) continue;
     var v = norm[c];
     if (v === undefined || v === null) v = '';
     if (c === 'confirmarNuevoPaciente') v = v ? 'true' : 'false';
-    partes.push(c + '=' + String(v));
+    partes.push(c + '=' + (c === 'actualizacion' && v ? Captura_jsonOrdenado_(v) : String(v)));
   }
   return accion + '|' + partes.join('|');
 }
@@ -215,7 +217,7 @@ function Captura_v2_validar(payload, opciones) {
   // Capa 1 — sintaxis
   var captureId = payload.captureId;
   if (typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    eSint.push(Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12'));
+    eSint.push(Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp4- (o Cp3-/Cp2- anteriores) seguido de 32 caracteres hex minúsculos', '§12'));
   }
 
   // Capa 2 — estructural: accion (operación)
@@ -258,11 +260,14 @@ function Captura_v2_validar(payload, opciones) {
     var presente = Object.prototype.hasOwnProperty.call(payload, campo);
     var valor = payload[campo];
     var indM = CAPTURA_V2.MATRIZ[campo];
-    if (campo === 'proximoControl' && presente && !/^Cp3-/.test(captureId || '')) {
+    if (campo === 'proximoControl' && presente && !/^Cp[34]-/.test(captureId || '')) {
       eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO', campo, 'La agenda manual requiere captura versión 3', '§26'));
       continue;
     }
 
+    if (campo === 'actualizacion' && presente && !/^Cp4-/.test(captureId || '')) {
+      eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO', campo, 'La edición de ficha requiere captura V4', '§0.1'));continue;
+    }
     // NP para esta operación §5.1
     if (presente && indM.REQ.indexOf(accion) === -1 && indM.OPC.indexOf(accion) === -1) {
       eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO', campo, 'No permitido para la operación ' + accion, '§5.1'));
@@ -283,6 +288,12 @@ function Captura_v2_validar(payload, opciones) {
 
     // Tipo §7
     var tipo = CAPTURA_V2.CAMPO_TIPO[campo];
+    if (campo === 'actualizacion') {
+      var ed = Captura_validarEdicion_(valor);
+      if (!ed.ok) eSem.push(Captura_v2_error('CAMPO_INVALIDO', campo, ed.motivo, '§0.1'));
+      else norm.actualizacion = ed.valor;
+      continue;
+    }
     if (tipo === 'boolean') {
       if (typeof valor !== 'boolean') {
         eTipos.push(Captura_v2_error('TIPO_INCORRECTO', campo, 'Debe ser booleano (true/false)', '§7'));
@@ -367,6 +378,10 @@ function Captura_v2_validar(payload, opciones) {
     }
   }
 
+  if (/^Cp4-/.test(captureId || '') && accion === 'actualizarDatos') {
+    if (!norm.actualizacion) eOblig.push(Captura_v2_error('CAMPO_OBLIGATORIO_AUSENTE','actualizacion','Cargue y modifique la ficha antes de guardar','§0.1'));
+    if (payload.proximoControl !== undefined || payload.telefonos !== undefined) eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO',null,'Use los campos de la ficha para editar contacto y agenda','§0.1'));
+  }
   var errores = eSint.concat(eClaves).concat(eTipos).concat(eOblig).concat(eSem);
   return {
     ok: errores.length === 0,
@@ -562,7 +577,7 @@ function Captura_v2_enviar(payload, ctx) {
 function Captura_v2_estado(captureId, ctx) {
   var c = ctx || Captura_v2_ctx();
   if (!captureId || typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12')] };
+    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp4- (o Cp3-/Cp2- anteriores) seguido de 32 caracteres hex minúsculos', '§12')] };
   }
   var reg = Captura_v2_leerSeguro(c, captureId);
   if (!reg) {
@@ -578,7 +593,7 @@ function Captura_v2_estado(captureId, ctx) {
 function Captura_v2_reprocesar(captureId, ctx) {
   var c = ctx || Captura_v2_ctx();
   if (!captureId || typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12')] };
+    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp4- (o Cp3-/Cp2- anteriores) seguido de 32 caracteres hex minúsculos', '§12')] };
   }
   var reg = Captura_v2_leerSeguro(c, captureId);
   if (!reg) {
@@ -614,7 +629,7 @@ function Captura_v2_reprocesar(captureId, ctx) {
 function Captura_v2_retomarRegistro(captureId, ctx) {
   var c = ctx || Captura_v2_ctx();
   if (!captureId || typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12')] };
+    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp4- (o Cp3-/Cp2- anteriores) seguido de 32 caracteres hex minúsculos', '§12')] };
   }
   var reg = Captura_v2_leerSeguro(c, captureId);
   if (!reg) {
@@ -862,7 +877,7 @@ function Captura_v2_persistirRegistro(reg) {
     for (var i2 = 0; i2 < cols.length; i2++) fila[i2] = '';
     fila[mapa.FECHA_FORMS] = reg.fechaRecepcion || Captura_v2_ahora();
     fila[mapa.RESPONSE_ID] = reg.captureId;
-    fila[mapa.FORM_VERSION] = /^Cp3-/.test(reg.captureId) ? 3 : 2;
+    fila[mapa.FORM_VERSION] = Number(reg.captureId.charAt(2));
     fila[mapa.USUARIO] = reg.usuario || '';
     var internos = Captura_v2_normalizadoAInterno(reg.normalizado, {});
     var parEs = [['ACCION', internos.ACCION], ['RUT', internos.RUT], ['NOMBRE', internos.NOMBRE], ['SEXO', internos.SEXO], ['FECHA_NACIMIENTO', internos.FECHA_NACIMIENTO], ['SECTOR', internos.SECTOR], ['FECHA_INGRESO', internos.FECHA_INGRESO], ['ESTRATIFICACION', internos.ESTRATIFICACION], ['TELEFONOS', internos.TELEFONOS], ['FECHA_EVENTO', internos.FECHA_EVENTO], ['PROFESIONAL', internos.PROFESIONAL], ['PROFESIONAL2', internos.PROFESIONAL2], ['OBSERVACIONES', internos.OBSERVACIONES]];
@@ -973,6 +988,7 @@ function Captura_v2_marcaEnEventos(marca) {
 function Captura_v2_entregar(norm, opciones) {
   opciones = opciones || {};
   var marca = opciones.marca || Captura_v2_marca(norm);
+  if (norm.actualizacion) return Captura_entregarEdicion_(norm, marca, opciones);
   if (norm.accion === 'nuevoIngreso') return Captura_v2_entregarIngreso(norm, marca, opciones);
   return Captura_v2_entregarEvento(norm, marca, opciones);
 }

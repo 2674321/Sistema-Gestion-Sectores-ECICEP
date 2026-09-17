@@ -1,11 +1,11 @@
-# CONTRATO DE CAPTURA — ECICEP (V3 vigente, compatibilidad V2)
+# CONTRATO DE CAPTURA — ECICEP (V4 vigente, compatibilidad V2/V3)
 
 > **Estado: NORMATIVO.** Este documento es la **única fuente normativa** del contrato de captura de
 > datos en ECICEP. Reemplaza (por definición) a `FORMULARIO.md` y `docs/CONTRATOS.md`, que fueron
 > **invalidados** y no tienen contenido normativo.
 >
-> **Contrato vigente: versión 3** — `CAPTURE_CONTRACT_VERSION = 3`. Extensión normativa de agenda manual en §0.
-> Las secciones posteriores conservan el contrato V2 como base; §0 prevalece en los puntos indicados.
+> **Contrato vigente: versión 4** — `CAPTURE_CONTRACT_VERSION = 4`. Extensión normativa de edición en §0.1.
+> §0 conserva la agenda manual V3 y las secciones posteriores la base V2; las extensiones prevalecen en los puntos indicados.
 >
 > Este contrato rige lo que la **Web App** (único canal operativo de captura) envía y recibe, y lo que
 > el backend acepta, persiste y devuelve. **No rige** el procesamiento clínico posterior (identidad,
@@ -30,7 +30,7 @@ campo existente `PACIENTES.PROXIMO_CONTROL`, presentado como **Próximo control 
 No se crea otra hoja, fuente de verdad ni pipeline. Esta sección prevalece sobre las referencias
 anteriores al cálculo automático y sobre §5.1, §6, §11, §12, §21 y §26 en lo siguiente:
 
-- El cliente nuevo emite `Cp3-` seguido de 32 hex minúsculas. La versión vigente es 3.
+- La extensión de agenda manual introdujo `Cp3-` seguido de 32 hex minúsculas; V4 la conserva.
 - Se añade `proximoControl` (string, OPC para las cuatro operaciones), al final del orden canónico.
   Fecha ISO estricta `yyyy-MM-dd`, calendario válido, entre 2015-01-01 y 2040-12-31.
   Ausente, `null` o cadena vacía significan **conservar la agenda existente**, nunca calcularla.
@@ -55,6 +55,46 @@ anteriores al cálculo automático y sobre §5.1, §6, §11, §12, §21 y §26 e
 
 El resto de validaciones, autenticación, estados, errores, idempotencia y protección clínica de
 V2 permanece vigente. Los nombres internos `Captura_v2_*` se conservan por compatibilidad.
+
+## 0.1. Extensión normativa V4 — edición de ficha (2026-09-17)
+
+El cliente nuevo emite `Cp4-` más 32 hex minúsculas. `actualizarDatos` requiere
+`actualizacion` (objeto), además de `captureId`, `accion`, `rut` y `profesional`.
+Los demás campos V2/V3 mantienen su semántica; `telefono` y `proximoControl`
+planos no se aceptan en `actualizarDatos` V4. El mismo procesador acepta reintentos
+V2/V3 con sus huellas y comportamiento anteriores.
+
+`actualizacion` contiene `id` (ID_INTERNO consultado por RUT), `rutOriginal`,
+`campos` y `atenciones`. Cada elemento de `campos` usa una clave editable de
+PACIENTES y `{anterior: string, valor: string}`. Solo se envían claves modificadas.
+Claves permitidas: `RUT`, `NOMBRE`, `SEXO`, `FECHA_NACIMIENTO`, `TELEFONOS`,
+`TELEFONO_OBS`, `SECTOR`, `ESTADO`, `FECHA_INGRESO`, `PREINGRESO`,
+`DUPLA_INGRESO`, `PROFESIONAL_SEGUIMIENTO`, `CONDICIONES`,
+`OTRAS_PATOLOGIAS`, `PROXIMO_CONTROL`, `COMPOSICION_CONTROL`,
+`OBSERVACIONES`. Los IDs técnicos, `FUENTE`, fechas de sistema y estratificación
+calculada no son editables por este campo. La estratificación se actualiza
+mediante el escritor vigente de Patologías cuando cambia `CONDICIONES`.
+Vaciar `PROXIMO_CONTROL` la elimina; omitirla la conserva. `RUT` solo se cambia
+con dígito verificador válido y sin colisión con otro paciente. Las fechas son
+ISO estrictas; una fecha de atención no puede ser futura.
+
+`atenciones` tiene máximo una entrada por tipo `CONTROL` o `SEGUIMIENTO`, de forma
+`{tipo, modo, fecha, idEvento, anterior}`. `REGISTRAR` agrega un evento clínico
+nuevo; `CORREGIR` exige el ID y fecha anterior del último evento de ese tipo.
+La corrección agrega un evento de auditoría `OTRO` que referencia el evento
+original, conservando EVENTOS físico append-only. Los lectores del modelo
+aplican la corrección al mostrar y calcular la fecha efectiva; no se crea otro
+CONTROL/SEGUIMIENTO. La caché de último control/seguimiento en PACIENTES se
+sincroniza con el historial efectivo. La próxima atención permanece manual.
+
+La lectura `WebApp_cargarPacienteEdicion(rut)` requiere usuario activo, RUT válido
+y coincidencia única, y entrega los campos vigentes y IDs de últimas atenciones.
+El envío rechaza un campo alterado por otra persona entre la carga y la guarda
+(`FICHA_CAMBIO`), una atención reemplazada (`ATENCION_CAMBIO`), o falta de sesión.
+Las marcas derivadas del mismo `captureId` hacen idempotentes atenciones y auditoría
+en los reintentos. La forma canónica V4 agrega al final `actualizacion` como JSON
+con claves ordenadas; `FORM_VERSION=4` y la traza permanecen en la misma
+`FORM_RESPUESTAS`. No se crea otra hoja ni un pipeline nuevo.
 
 ## 1. Propósito
 
@@ -81,9 +121,9 @@ PACIENTES, eventos y cachés), la estratificación automática, el REM, los dash
 sector, y cualquier otra regla interna de negocio no mencionada en este documento. Esas reglas
 consumen los datos entregados por la captura, no forman parte de este contrato.
 
-**Fuera de alcance en esta fase:** la implementación de la nueva captura (`26_Captura.js` o
-equivalente, nuevo frontend, endpoint, persistencia o procesamiento nuevos). Esta fase termina con
-este documento + `tests/contrato_captura_v2.mjs`.
+**Nota histórica:** la definición original V2 precedió a la implementación de
+`26_Captura.js`. Las extensiones V3 y V4 del encabezado están implementadas y
+probadas; la referencia a la fase de diseño ya no limita el alcance vigente.
 
 ## 3. Fuente única de captura
 

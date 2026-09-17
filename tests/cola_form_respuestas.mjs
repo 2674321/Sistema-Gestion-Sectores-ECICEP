@@ -344,13 +344,13 @@ t('Q4a dos envíos idénticos → 1 fila, 1 entrega, estado PROCESADO', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 console.log('\nQ5 — Namespace V2');
 
-t('Q5a CAPTURE_CONTRACT_VERSION === 3', () => {
-  igual(sandbox.CAPTURE_CONTRACT_VERSION, 3);
+t('Q5a CAPTURE_CONTRACT_VERSION === 4', () => {
+  igual(sandbox.CAPTURE_CONTRACT_VERSION, 4);
 });
 
 t('Q5b FORM_VERSION existe para registrar V2 o V3 por prefijo', () => {
   cont(sandbox.FORM_RESPUESTAS_COLUMNAS, 'FORM_VERSION');
-  igual(sandbox.CAPTURE_CONTRACT_VERSION, 3);
+  igual(sandbox.CAPTURE_CONTRACT_VERSION, 4);
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

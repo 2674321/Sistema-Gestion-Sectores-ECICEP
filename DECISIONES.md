@@ -1201,3 +1201,13 @@ Captura abre una ventana con enlace por clic, QR, copia y descarga, evitando dep
 exclusivamente de un popup disparado tras una RPC. `UI_mostrarQR` permanece como alias.
 El selector de eventos de ficha deja de ofrecer CAMBIO_ESTRATIFICACION; su historial
 sigue legible y la edición se realiza en la sección Patologías / Estratificación.
+
+
+## Edición de ficha desde Captura V4 — 2026-09-17
+
+La operación `actualizarDatos` de la Web App carga la ficha por RUT único y
+envía solo campos modificados, con valores anteriores para detectar ediciones
+concurrentes. Las patologías se guardan por su escritor vigente y la
+estratificación continúa derivada. El último control/seguimiento puede recibir
+un nuevo evento o una corrección auditada; EVENTOS sigue append-only. Una agenda
+futura se guarda manualmente en `PROXIMO_CONTROL`. Véase §0.1 del contrato.

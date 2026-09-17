@@ -1,5 +1,10 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.12):** la Web App edita la ficha existente
+> mediante Captura V4, con lectura autenticada, escritura por cambios y protección
+> ante modificaciones simultáneas. La misma fuente PACIENTES/EVENTOS conserva
+> el historial de correcciones y la agenda exclusivamente manual.
+
 > **Actualización 2026-09-16 (v0.9.11):** próxima atención exclusivamente manual en
 > `PROXIMO_CONTROL`, editable desde Captura (V3, compatible con V2) y ficha.
 > Registrar atenciones, actualizar o importar no recalcula la agenda. Captura

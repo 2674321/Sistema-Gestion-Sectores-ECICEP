@@ -884,7 +884,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
 
 /** Campos que el usuario puede editar directamente. */
 var _CAMPOS_EDITABLES_PACIENTE = [
-  'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS',
+  'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS',
   'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO',
   'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO',
   'OBSERVACIONES', 'CONDICIONES', 'OTRAS_PATOLOGIAS',
@@ -924,6 +924,12 @@ function api_actualizarPaciente(idInterno, campos, token) {
       var v = Utl_texto(valor).trim();
 
       switch (campo) {
+        case 'RUT':
+          var rutNorm = Norm_normalizarRut(v);
+          if (rutNorm.estado !== 'OK' || Modelo_leerPacientes().some(function(q){return q.ID_INTERNO !== paciente.ID_INTERNO && Norm_normalizarRut(q.RUT).rut === rutNorm.rut;})) {
+            errores.push({campo:campo,mensaje:'RUT inválido o asignado a otro paciente'});break;
+          }
+          paciente.RUT=rutNorm.rut;paciente.RUT_DV_VALIDO=true;paciente.RUT_SIN_DV=false;cambios++;break;
         case 'NOMBRE':
           paciente.NOMBRE = v;
           paciente.NOMBRE_NORMALIZADO = Norm_claveNombre(v);
@@ -1329,11 +1335,10 @@ function api_registrarEvento(payload) {
         ? p.registradoPor : _ingresosUsuarioActual(),
       FECHA_REGISTRO: null
     };
-    Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
-
-    Ingresos_sincronizarCache(objetivo, evento);
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
+    Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
+    Ingresos_sincronizarCache(objetivo, evento);
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);

@@ -126,7 +126,27 @@ node tests/validar_html.mjs
 Los tests de aceptación no deben representar el flujo histórico de Google Forms; el contrato de captura vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**), al cual se ajustarán los tests al implementarlo (hasta entonces, la batería existente sigue siendo la red de seguridad).
 
 ---
+---
 
+## EFICIENCIA DE CONTEXTO
+
+Los comandos de este proyecto (`clasp push`, `clasp deploy`, `clasp deployments`,
+`git diff`, y los 4 scripts de `tests/`) pueden producir salida extensa que no
+aporta información nueva al agente. Acotar siempre que la salida completa no
+sea necesaria para la tarea:
+
+```bash
+COMMAND 2>&1 | tail -c 4000
+```
+
+Para `git diff` en cambios grandes, preferir `git diff --stat` primero y pedir
+el diff completo solo del archivo relevante si hace falta inspeccionarlo.
+
+No aplicar esto a la salida de tests que resulte en fallo: en ese caso mostrar
+el fallo completo, sin truncar, ya que ocultar el stack trace viola la regla
+de "no ocultar fallos" de la sección TESTS.
+
+---
 ## WORKFLOW ESTÁNDAR
 
 ```text

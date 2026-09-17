@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.9.11',
+  VERSION: '0.9.12',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -777,7 +777,7 @@ const ESTADOS_INGRESO = {
 // NORMATIVO). El backend 26_Captura.js la registra en cada fila de
 // FORM_RESPUESTAS (columna FORM_VERSION) y la expone al frontend para
 // sincronización de versiones. Cambios sustantivos requieren major++.
-var CAPTURE_CONTRACT_VERSION = 3;
+var CAPTURE_CONTRACT_VERSION = 4;
 
 var FORM_CONFIG = {
   FORM_ID: '',

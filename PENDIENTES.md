@@ -1,5 +1,9 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-17:** Captura V4 habilita edición de ficha, agenda y
+> atenciones; continuar observando correcciones reales y compatibilidad de
+> fuentes históricas por RUT tras un cambio de identidad.
+
 > **Actualización 2026-09-16 (v0.9.11):** próxima atención exclusivamente manual en
 > `PROXIMO_CONTROL`, editable desde Captura (V3, compatible con V2) y ficha.
 > Registrar atenciones, actualizar o importar no recalcula la agenda. Captura

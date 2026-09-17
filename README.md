@@ -17,13 +17,13 @@
 | | |
 |---|---|
 | **Modelo de datos** | `PACIENTES` (estado vigente) + `EVENTOS` (historial inmutable) + vistas derivadas |
-| **Canal de captura** | Web App (contrato de captura V2, idempotente) |
+| **Canal de captura** | Web App (contrato de captura V4, compatible con V2/V3 e idempotente) |
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.11` · pruebas núcleo **651/651** · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.12` · pruebas núcleo **651/651** · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -56,6 +56,11 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 - **Estratificación de riesgo** `G1/G2/G3` desde patologías.
 - Agenda manual de próxima atención. **Estado** (VENCIDO / POR VENCER /
   VIGENTE / SIN FECHA) y **recordatorio** derivados de la fecha guardada.
+
+**Edición desde la Web App**
+- La acción Actualizar carga una ficha por RUT y permite corregir datos personales,
+  contacto, sector, estado, ingreso, patologías y agenda manual. Permite registrar
+  una nueva atención o corregir la fecha de la última con trazabilidad.
 
 **Seguimiento y controles**
 - Registro de controles y seguimientos, fecha de próximo control manual, editable desde Captura y ficha.

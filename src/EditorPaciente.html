@@ -1,0 +1,68 @@
+<section class="sec" id="editorPaciente" hidden aria-label="Actualizar ficha del paciente">
+  <h3 class="sec-title">Ficha del paciente</h3>
+  <p class="f-hint">Escribe el RUT arriba y carga la ficha. Solo se guardan los campos que modifiques.</p>
+  <button type="button" class="btn btn-s" id="edCargar">Cargar paciente</button>
+  <p id="edEstado" role="status" aria-live="polite" style="margin:12px 0"></p>
+  <div id="edCampos" hidden></div>
+  <p id="edResumen" role="status" aria-live="polite" style="margin-top:12px;font-weight:600"></p>
+</section>
+<style>
+#editorPaciente[hidden],#edCampos[hidden]{display:none!important}
+.ed-grupo{border:0;border-top:1px solid var(--c-border);padding:16px 0;margin-top:16px}
+.ed-grupo legend{font-weight:600;padding-right:8px;color:var(--c-primary)}
+.ed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ed-ancho{grid-column:1/-1}.ed-patologias{display:grid;gap:8px;max-height:250px;overflow:auto;padding:8px;border:1px solid var(--c-border);border-radius:6px}
+.ed-patologias label{display:flex;gap:8px;align-items:center}
+.ed-cambio{border-color:var(--c-primary)!important;box-shadow:0 0 0 1px var(--c-primary)}
+@media(max-width:520px){.ed-grid{grid-template-columns:1fr}}
+</style>
+<script>
+(function(){
+  var base=null,secuencia=0,temporizador=null;
+  var $=function(id){return document.getElementById(id);};
+  var grupos=[
+    ['Datos personales',[['RUT','RUT'],['NOMBRE','Nombre completo'],['SEXO','Sexo',['','M','F','OTRO']],['FECHA_NACIMIENTO','Fecha de nacimiento','date']]],
+    ['Contacto y situación',[['TELEFONOS','Teléfonos'],['TELEFONO_OBS','Detalle de contacto'],['SECTOR','Sector',['AMARILLO','NARANJO','VERDE']],['ESTADO','Estado',['PENDIENTE','AGENDADO','INGRESADO','NO_CONTESTA','FALLECIDO','NSP']]]],
+    ['Ingreso y equipo',[['FECHA_INGRESO','Fecha de ingreso','date'],['PREINGRESO','Preingreso','date'],['DUPLA_INGRESO','Dupla de ingreso'],['PROFESIONAL_SEGUIMIENTO','Profesional de seguimiento']]],
+    ['Agenda manual',[['PROXIMO_CONTROL','Próximo control / seguimiento','date'],['COMPOSICION_CONTROL','Composición del próximo control']]],
+    ['Información clínica',[['CONDICIONES','Patologías ECICEP','condiciones'],['OTRAS_PATOLOGIAS','Otras patologías','textarea'],['OBSERVACIONES','Observaciones del paciente','textarea']]]
+  ];
+  function activo(){var r=document.querySelector('input[name="accion"]:checked');return r&&r.value==='ACTUALIZAR_DATOS';}
+  function estado(t){$('edEstado').textContent=t;}
+  function reset(){base=null;secuencia++;clearTimeout(temporizador);$('edCargar').disabled=false;$('edCampos').replaceChildren();$('edCampos').hidden=true;$('edResumen').textContent='';estado('Carga la ficha para editarla.');}
+  function ajustar(){var on=activo();$('editorPaciente').hidden=!on;['secTel','secAgenda','secObs'].forEach(function(id){var el=$(id);if(el)el.style.display=on?'none':'';});}
+  function nodo(tag,text,cls){var e=document.createElement(tag);if(text)e.textContent=text;if(cls)e.className=cls;return e;}
+  function valor(k){var el=$('ed_'+k);if(k==='CONDICIONES')return Array.from(el.querySelectorAll('input:checked')).map(function(x){return x.value;}).sort().join(';');return el.value;}
+  function original(k){var s=base.campos[k]||'';return k==='CONDICIONES'?s.split(';').filter(Boolean).sort().join(';'):s;}
+  function payload(){
+    if(!base||!activo())return null;
+    var campos={};grupos.forEach(function(g){g[1].forEach(function(f){var k=f[0],v=valor(k);if(v!==original(k))campos[k]={anterior:base.campos[k]||'',valor:v};});});
+    var atenciones=[];['CONTROL','SEGUIMIENTO'].forEach(function(tipo){var modo=$('ed_modo_'+tipo).value;if(!modo)return;var ant=base.ultimos[tipo]||{};atenciones.push({tipo:tipo,modo:modo,fecha:$('ed_fecha_'+tipo).value,idEvento:modo==='CORREGIR'?ant.idEvento||'':'',anterior:modo==='CORREGIR'?ant.fecha||'':''});});
+    return {id:base.id,rutOriginal:base.rutOriginal,campos:campos,atenciones:atenciones};
+  }
+  function resumen(){var a=payload();if(!a)return;var n=Object.keys(a.campos).length,m=a.atenciones.length;$('edResumen').textContent=n+' campo(s) modificado(s) · '+m+' cambio(s) de atención';Object.keys(base.campos).forEach(function(k){var el=$('ed_'+k);if(el)el.classList.toggle('ed-cambio',Object.prototype.hasOwnProperty.call(a.campos,k));});}
+  function render(r){
+    base=r;var root=$('edCampos');root.replaceChildren();root.hidden=false;
+    grupos.forEach(function(g){var fs=nodo('fieldset',null,'ed-grupo');fs.appendChild(nodo('legend',g[0]));var grid=nodo('div',null,'ed-grid');
+      g[1].forEach(function(f){var k=f[0],tipo=f[2],wrap=nodo('div',null,tipo==='textarea'||tipo==='condiciones'?'ed-ancho':'');var label=nodo('label',f[1],'f-label');label.htmlFor='ed_'+k;wrap.appendChild(label);var el;
+        if(Array.isArray(tipo)){el=nodo('select',null,'f-select');tipo.forEach(function(v){var o=nodo('option',v||'Sin especificar');o.value=v;el.appendChild(o);});if(r.campos[k]&&tipo.indexOf(r.campos[k])<0){var old=nodo('option',r.campos[k]);old.value=r.campos[k];el.appendChild(old);}}
+        else if(tipo==='condiciones'){el=nodo('div',null,'ed-patologias');(r.condiciones||[]).forEach(function(c){var l=nodo('label'),ch=nodo('input');ch.type='checkbox';ch.value=c.codigo;ch.checked=(r.campos[k]||'').split(';').indexOf(c.codigo)>=0;l.appendChild(ch);l.appendChild(nodo('span',c.nombre));el.appendChild(l);});var hint=nodo('p','La estratificación se actualiza desde las patologías. Actual: '+(r.estratificacion||'Sin confirmar'),'f-hint');wrap.appendChild(hint);(r.campos[k]||'').split(';').filter(Boolean).forEach(function(code){if(!(r.condiciones||[]).some(function(c){return c.codigo===code;})){var l=nodo('label'),ch=nodo('input');ch.type='checkbox';ch.value=code;ch.checked=true;l.appendChild(ch);l.appendChild(nodo('span',code+' (dato existente)'));el.appendChild(l);}});}
+        else{el=nodo(tipo==='textarea'?'textarea':'input',null,'f-input');if(tipo!=='textarea'){el.type=tipo==='date'?'date':'text';}if(tipo==='date'&&r.campos[k]&&!/^\d{4}-\d{2}-\d{2}$/.test(r.campos[k]))el.type='text';if(tipo==='date'){el.min=k==='FECHA_NACIMIENTO'?'1900-01-01':'2015-01-01';el.max='2040-12-31';}if(tipo==='textarea')el.rows=3;el.maxLength=5000;}
+        el.id='ed_'+k;if(tipo!=='condiciones')el.value=r.campos[k]||'';wrap.appendChild(el);
+        if(k==='PROXIMO_CONTROL')wrap.appendChild(nodo('p','Vaciar este campo elimina la fecha agendada. No se calcula automáticamente.','f-hint'));
+        grid.appendChild(wrap);
+      });fs.appendChild(grid);root.appendChild(fs);
+    });
+    var fs=nodo('fieldset',null,'ed-grupo');fs.appendChild(nodo('legend','Controles y seguimientos'));
+    ['CONTROL','SEGUIMIENTO'].forEach(function(tipo){var actual=r.ultimos[tipo],titulo=tipo==='CONTROL'?'Control':'Seguimiento',g=nodo('div',null,'f');g.appendChild(nodo('p',titulo+' registrado: '+(actual?actual.fecha:(tipo==='CONTROL'?r.ultimoControl:r.ultimoSeguimiento)||'Sin fecha')));var l=nodo('label','Acción de '+titulo.toLowerCase(),'f-label');l.htmlFor='ed_modo_'+tipo;g.appendChild(l);var select=nodo('select',null,'f-select');select.id=l.htmlFor;[['','Conservar'],['REGISTRAR','Registrar nueva atención'],['CORREGIR','Corregir fecha de la última atención']].forEach(function(o){var opt=nodo('option',o[1]);opt.value=o[0];if(o[0]==='CORREGIR'&&!actual)opt.disabled=true;select.appendChild(opt);});g.appendChild(select);var fl=nodo('label','Fecha de '+titulo.toLowerCase(),'f-label');fl.htmlFor='ed_fecha_'+tipo;g.appendChild(fl);var fecha=nodo('input',null,'f-input');fecha.id=fl.htmlFor;fecha.type='date';fecha.min='2015-01-01';fecha.max='2040-12-31';fecha.disabled=true;g.appendChild(fecha);select.addEventListener('change',function(){fecha.disabled=!select.value;fecha.value=select.value==='CORREGIR'&&actual?actual.fecha:'';resumen();});fs.appendChild(g);});
+    fs.appendChild(nodo('p','Una nueva atención se agrega al historial. Corregir mantiene la trazabilidad del registro original. Para una cita futura usa Agenda manual.','f-hint'));root.appendChild(fs);
+    estado('Ficha cargada: '+r.campos.NOMBRE+'. Revisa los cambios antes de guardar.');resumen();
+  }
+  function cargar(){var rut=$('rut').value,turno=++secuencia;base=null;$('edCampos').hidden=true;$('edResumen').textContent='';$('edCargar').disabled=true;estado('Cargando ficha…');clearTimeout(temporizador);temporizador=setTimeout(function(){if(turno!==secuencia)return;secuencia++;$('edCargar').disabled=false;estado('La consulta tardó demasiado. Intenta cargar nuevamente.');},30000);
+    google.script.run.withSuccessHandler(function(r){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;if(r&&r.ok)render(r);else estado(r&&r.motivo||'No se pudo cargar la ficha.');}).withFailureHandler(function(e){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;estado(e&&e.message||'Error al cargar la ficha');}).WebApp_cargarPacienteEdicion(rut);
+  }
+  function validar(){if(!activo())return true;if(!base){estado('Carga primero el paciente que deseas actualizar.');$('edCargar').focus();return false;}var a=payload();if(!Object.keys(a.campos).length&&!a.atenciones.length){estado('No has realizado cambios.');return false;}var invalid=Array.from($('edCampos').querySelectorAll('input,select,textarea')).find(function(el){return !el.disabled&&!el.checkValidity();});if(invalid){invalid.reportValidity();return false;}if(a.atenciones.some(function(e){return !e.fecha;})){estado('Indica la fecha de la atención.');return false;}return true;}
+  window.ECICEP_EDITOR={payload:payload,validar:validar,reset:reset,ajustar:ajustar,hayCambios:function(){var a=payload();return !!(a&&(Object.keys(a.campos).length||a.atenciones.length));}};
+  document.addEventListener('DOMContentLoaded',function(){$('edCargar').addEventListener('click',cargar);$('edCampos').addEventListener('input',resumen);$('edCampos').addEventListener('change',resumen);$('rut').addEventListener('input',reset);document.querySelectorAll('input[name="accion"]').forEach(function(el){el.addEventListener('change',function(){setTimeout(ajustar,0);});});ajustar();});
+})();
+</script>

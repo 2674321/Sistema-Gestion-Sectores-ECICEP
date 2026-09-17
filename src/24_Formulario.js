@@ -687,7 +687,7 @@ function Form_filasPendientes(valores, mapa, maxReintentos, max) {
     var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto(fila[idx['RESPONSEID']]) : '';
     if (!responseId) continue;
     var formVersion = idx['FORMVERSION'] !== undefined ? Utl_texto(fila[idx['FORMVERSION']]) : '';
-    if (formVersion === '2' || formVersion === '3' || /^Cp[23]-/.test(responseId)) continue; // namespace V2
+    if (formVersion === '2' || formVersion === '3' || formVersion === '4' || /^Cp[234]-/.test(responseId)) continue; // namespace V2
     if (estado === 'PROCESADO') continue;
     if (estado === 'REQUIERE_REVISION') continue; // requieren decisión humana, no se reintentan
     if (estado === 'ERROR') {
@@ -1041,7 +1041,7 @@ function Form_reiniciarRespuesta(responseId) {
     // S1: las respuestas V2 no se reinician desde el panel legacy; su retoma
     // pertenece al procesador V2 (Captura_v2_retomarRegistro, 26_Captura).
     var formVersion = mapa.idx['FORMVERSION'] !== undefined ? Utl_texto(valores[f][mapa.idx['FORMVERSION']]) : '';
-    if (formVersion === '2' || formVersion === '3' || /^Cp[23]-/.test(rid)) {
+    if (formVersion === '2' || formVersion === '3' || formVersion === '4' || /^Cp[234]-/.test(rid)) {
       return { ok: false, motivo: 'NAMESPACE_V2_USA_PROCESADOR_V2' };
     }
     var estado = (mapa.idx['ESTADO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ESTADO']]) : '').toUpperCase();

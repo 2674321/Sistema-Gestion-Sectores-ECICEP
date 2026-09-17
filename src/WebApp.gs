@@ -4,10 +4,10 @@
  * interfaz de captura. NO es una segunda implementación: reutiliza el 100%
  * del backend existente (validación, decisión, efectos, idempotencia).
  *
- * Flujo vigente (captura V2 — único canal, contrato docs/CONTRATO_CAPTURA_V2.md NORMATIVO):
+ * Flujo vigente (captura V4 — único canal, contrato docs/CONTRATO_CAPTURA_V2.md NORMATIVO):
  *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
  *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
- *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2, TRAZA_CRUDA JSON) + entrega acotada + trailer.
+ *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2/3/4, TRAZA_CRUDA JSON) + entrega acotada + trailer.
  *   El puente legacy Form_capturarDesdeUI se conserva solo como compatibilidad interna
  *   (sin consumidor en la UI vigente); el pipeline legacy NO procesa filas del namespace V2.
  *
