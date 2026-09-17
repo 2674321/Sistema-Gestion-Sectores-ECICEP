@@ -2845,7 +2845,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.17', 'versión esperada v0.9.17');
+    A.igual(v, '0.9.18', 'versión esperada v0.9.18');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3085,7 +3085,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.17', 'versión esperada v0.9.17');
+    A.igual(v, '0.9.18', 'versión esperada v0.9.18');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5850,10 +5850,10 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(src.indexOf('onOpen()') !== -1, 'llama onOpen() para rebuild menú');
   });
 
-  t('S7b: ACTUALIZAR limpia hojas residuales', function () {
+  t('S7b: ACTUALIZAR inspecciona hojas adicionales sin borrarlas', function () {
     var src = Act_actualizarSistema.toString();
     A.cierto(src.indexOf('Modelo_limpiarHojasResiduales') !== -1,
-      'llama Modelo_limpiarHojasResiduales');
+      'consulta Modelo_limpiarHojasResiduales');
   });
 
   t('S7b: ACTUALIZAR tiene HVis_formatearIngresos para INGRESO_*', function () {
@@ -6175,7 +6175,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.17', 'VERSION es 0.9.17');
+    A.cierto(ECICEP.VERSION === '0.9.18', 'VERSION es 0.9.18');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

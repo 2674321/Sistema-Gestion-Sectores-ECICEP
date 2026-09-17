@@ -780,13 +780,8 @@ function Modelo_crearEstructura() {
   _modelo_sembrarProfesionales(ss.getSheetByName(HOJAS.PROFESIONALES), res);
   _modelo_sembrarFuentes(ss.getSheetByName(HOJAS.FUENTES), res);
 
-  // Hoja predeterminada: eliminar solo si vacía (regla de no destrucción)
-  var hoja0 = ss.getSheetByName(HOJAS.HOJA_PREDETERMINADA);
-  if (hoja0 && ss.getSheets().length > 1) {
-    var datos = hoja0.getDataRange().getValues();
-    var vacia = datos.every(function (fila) { return fila.every(function (c) { return c === ''; }); });
-    if (vacia) { ss.deleteSheet(hoja0); res.hojaPredeterminadaEliminada = true; }
-  }
+  // Una hoja vacía puede ser un borrador del usuario. La instalación conserva
+  // incluso la hoja predeterminada; su eliminación requiere una acción aparte.
 
   Log_info('Modelo', 'crearEstructura', 'creadas=' + res.creadas.join(',') + ' existentes=' + res.existentes.join(','));
   Log_flush();
@@ -2253,29 +2248,23 @@ function Modelo_esHojaResidual(nombre, estaVacia) {
   return false;
 }
 
-/** GAS: elimina hojas residuales de desarrollo. Con datos de diagnóstico se
- *  eliminan igual (se regeneran); hojas desconocidas SOLO si están vacías. */
+/** GAS: inventario de posibles hojas residuales. Instalar y Actualizar lo
+ *  consultan sin borrar hojas: el nombre o la ausencia de datos no acreditan
+ *  que una hoja no tenga dependencias de usuarios, fórmulas o automatizaciones. */
 function Modelo_limpiarHojasResiduales(ss) {
-  var res = { eliminadas: [], conservadas: 0 };
-  var activa = ss.getActiveSheet().getName();
+  var res = { candidatas: [], eliminadas: [], conservadas: 0 };
   ss.getSheets().forEach(function (sh) {
     var nombre = sh.getName();
-    res.conservadas++;
-    if (nombre === activa) { return; }
     if (_MODELO_HOJAS_DEF.hasOwnProperty(nombre) || HOJAS_SECTOR.indexOf(nombre) !== -1 ||
         HOJAS_INGRESO.hasOwnProperty(nombre) || nombre === 'REM_SALIDA' ||
-        nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'INICIO') return;
-    var vacia = true;
-    try {
-      var d = sh.getDataRange().getValues();
-      vacia = d.every(function (f) { return f.every(function (c) { return c === ''; }); });
-    } catch (e) {}
+        nombre === 'CAT_VIGENCIA_EXAMENES' || nombre === 'INICIO') {
+      res.conservadas++;
+      return;
+    }
+    var vacia = false;
+    try { vacia = sh.getLastRow() === 0; } catch (e) { /* conservar si no se puede leer */ }
     if (Modelo_esHojaResidual(nombre, vacia)) {
-      try {
-        ss.deleteSheet(sh);
-        res.eliminadas.push(nombre + (vacia ? ' (vacía)' : ' (regenerable)'));
-        Log_info('Instalador', 'limpieza', 'Hoja eliminada: ' + nombre);
-      } catch (e2) { /* única hoja visible u otra protección */ }
+      res.candidatas.push(nombre);
     } else {
       res.conservadas++;
     }

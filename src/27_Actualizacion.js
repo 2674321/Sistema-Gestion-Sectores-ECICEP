@@ -486,7 +486,7 @@ function Act_actualizarSistema(opciones) {
     reporte._errores.push('estructura');
   }
 
-  // 2) LIMPIEZA DE HOJAS RESIDUALES (orphan sheets que no están en el catálogo)
+  // 2) INVENTARIO de hojas adicionales: no elimina hojas del usuario.
   if (ejecutar && typeof Modelo_limpiarHojasResiduales === 'function') {
     try { Modelo_limpiarHojasResiduales(Modelo_ss()); } catch (eL) { /* best effort */ }
   }

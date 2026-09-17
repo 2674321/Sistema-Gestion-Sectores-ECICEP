@@ -1,5 +1,10 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.18):** el instalador detiene las etapas de
+> escritura ante un esquema ilegible o posterior al código. Los fallos de
+> validación y diseño se informan al operador. La revisión de hojas adicionales
+> es de solo lectura y la instalación conserva también `Hoja 1`.
+
 > **Actualización 2026-09-17 (v0.9.17):** el deployment Web App sirve las
 > interfaces existentes mediante rutas `vista` protegidas por la misma clave
 > compartida: Pacientes/ficha, Controles, Estadísticas, REM, Configuración,
@@ -252,7 +257,9 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
   `?vista=instalar` permite abrirla sin una cuenta de Google. En Sheets se
   conserva el diálogo del menú. `Instalar_pVerificar` informa fallo si el
   esquema no queda VIGENTE; la etapa visual también falla si alguna hoja no
-  pudo formatearse.
+  pudo formatearse. Validaciones y diseño también propagan fallos por hoja.
+  La etapa de revisión de hojas adicionales solo informa candidatas: ni
+  Instalar ni Actualizar las borran por su nombre o por estar vacías.
 - **Webhook**: `action:'instalar'` → `Instalar_ejecutarPolitica()` (DIVERGENTE/
   DESCONOCIDA → error sin mutar; INCOMPLETA → repara estructura; luego
   `Mig_ejecutarPersistente()`).

@@ -16,7 +16,7 @@ var INSTALAR_ETAPAS = [
   { id: 'amarillo',     nombre: 'Verificando sector amarillo',  fn: 'Instalar_pAmarillo' },
   { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
-  { id: 'limpieza',     nombre: 'Depurando datos residuales',   fn: 'Instalar_pLimpieza' },
+  { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza' },
   { id: 'diseno',       nombre: 'Ajustando el libro',           fn: 'Instalar_pDiseno' },
   { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
@@ -57,6 +57,11 @@ function api_instalarPaso(id, acceso) {
   var reg = null;
   INSTALAR_ETAPAS.forEach(function (e) { if (e.id === id) reg = e; });
   if (!reg) return { ok: false, motivo: 'ETAPA_DESCONOCIDA' };
+  if (INSTALAR_ETAPAS_MUTAN[id]) {
+    var incompatible = Instalar_versionIncompatible_({ version: Mig_schemaLeido(),
+      objetivo: String(SISTEMA_VERSION_SCHEMA_ACTUAL) });
+    if (incompatible) return { ok: false, etapa: id, nombre: reg.nombre, motivo: incompatible };
+  }
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
   var lock = null;
   if (INSTALAR_ETAPAS_MUTAN[id] && typeof LockService !== 'undefined') {
@@ -255,6 +260,9 @@ function _inst_configEscribir(clave, valor) {
 function Mig_ejecutarPersistente() {
   var snap = Modelo_escanearEstructura();
   var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
+  var incompatible = Instalar_versionIncompatible_(v);
+  if (incompatible) return { ok: false, motivo: incompatible, versionInicial: v.version,
+    versionFinal: v.version, aplicadas: [] };
   var pendientes = v.pendientes.slice();
   if (v.estado === 'ANTIGUA' && v.version === v.objetivo && v.sectoresDivergentes.length) {
     REGISTRO_MIGRACIONES.forEach(function (m) {
@@ -263,6 +271,15 @@ function Mig_ejecutarPersistente() {
   }
   return Mig_ejecutarDeclaradas(REGISTRO_MIGRACIONES,
     { schemaVersion: v.version, pendientes: pendientes, persistir: true });
+}
+
+/** No escribir con una versión ilegible o más nueva, aun si faltan hojas y
+ *  la clasificación principal informa INCOMPLETA. */
+function Instalar_versionIncompatible_(v) {
+  var version = String(v.version);
+  if (!/^\d+$/.test(version)) return 'VERSION_DESCONOCIDA';
+  if (Number(version) > Number(v.objetivo)) return 'ESQUEMA_DIVERGENTE';
+  return '';
 }
 
 /** GAS: MIG-001 — alinear vistas SECTOR_* al esquema canónico (15→16, S10-FIX).
@@ -296,11 +313,12 @@ function Instalar_ejecutarPolitica() {
   try {
     var snap = Modelo_escanearEstructura();
     var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
-    if (v.estado === 'DIVERGENTE') {
+    var incompatible = Instalar_versionIncompatible_(v);
+    if (incompatible === 'ESQUEMA_DIVERGENTE') {
       return { ok: false, motivo: 'ESQUEMA_DIVERGENTE', estado: v.estado, detalle: v,
         linea: 'El esquema instalado (' + v.version + ') es más nuevo que este código (' + v.objetivo + '); no se modifica nada.' };
     }
-    if (v.estado === 'DESCONOCIDA') {
+    if (incompatible === 'VERSION_DESCONOCIDA') {
       return { ok: false, motivo: 'VERSION_DESCONOCIDA', estado: v.estado, detalle: v,
         linea: 'SCHEMA_VERSION ilegible (' + v.version + '); se requiere revisión manual.' };
     }
@@ -332,13 +350,14 @@ function Instalar_pRuntime() {
 
 function Instalar_pDiagnostico() {
   var r = Instalar_diagnosticar();
-  return { ok: true, diagnostico: r.diagnostico };
+  return { ok: r.ok !== false, diagnostico: r.diagnostico, motivo: r.motivo || '' };
 }
 
 function Instalar_pVersionado() {
   var snap = Modelo_escanearEstructura();
   var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
-  return { ok: true, versionado: {
+  var incompatible = Instalar_versionIncompatible_(v);
+  return { ok: !incompatible, motivo: incompatible, versionado: {
     app: ECICEP.VERSION,
     instalador: SISTEMA_VERSION_INSTALADOR,
     esquemaLeido: v.version,
@@ -375,14 +394,20 @@ function Instalar_pAmarillo() {
 }
 function Instalar_pValidaciones() {
   var r = Modelo_validarIngresos(Modelo_ss());
-  return { validaciones: r.validaciones, puertas: r.hojas, protegidas: r.protegidas };
+  return { ok: r.ok !== false && !(r.fallidas || []).length,
+           validaciones: r.validaciones, puertas: r.hojas, protegidas: r.protegidas,
+           motivo: (r.fallidas || []).join('; ') || r.motivo || '' };
 }
 function Instalar_pLimpieza() {
   var r = Modelo_limpiarHojasResiduales(Modelo_ss());
-  return { eliminadas: r.eliminadas, conservadas: r.conservadas };
+  return { ok: true, candidatas: r.candidatas, eliminadas: r.eliminadas,
+           conservadas: r.conservadas, linea: 'No se eliminaron hojas en la instalación' };
 }
 function Instalar_pDiseno() {
-  return Modelo_aplicarDiseno();
+  var r = Modelo_aplicarDiseno();
+  r.ok = r.ok !== false && !(r.fallidas || []).length;
+  if (!r.ok) r.motivo = (r.fallidas || []).join('; ') || r.motivo || 'Diseño incompleto';
+  return r;
 }
 function Instalar_pVisual() {
   // Usa HVis_aplicarTodasLasSecciones que ya incluye buscador y es idempotente real
@@ -441,11 +466,14 @@ function Instalar_pDerivados() {
   var errores = [];
   try { estrat = Estrat_recalcularTodos() || estrat; } catch (eE) { errores.push('estratificación: ' + (eE && eE.message || eE)); }
   try { ctrl = Control_recalcularTodos() || ctrl; } catch (eC) { errores.push('controles: ' + (eC && eC.message || eC)); }
+  if (estrat.ok === false) errores.push('estratificación: ' + (estrat.motivo || 'error'));
+  if (ctrl.ok === false) errores.push('controles: ' + (ctrl.motivo || 'error'));
   var lineas = [];
   lineas.push('Estratificación: ' + (estrat.recalculados || 0) + '/' + (estrat.total || 0) + ' recalculados');
   lineas.push('Controles: ' + (ctrl.cambios || 0) + '/' + (ctrl.total || 0) + ' actualizados');
   if (errores.length) lineas.push('Errores: ' + errores.join('; '));
-  return { ok: errores.length === 0, estrat: estrat, controles: ctrl, errores: errores, linea: lineas.join(' · ') };
+  return { ok: errores.length === 0, estrat: estrat, controles: ctrl, errores: errores,
+           motivo: errores.join('; '), linea: lineas.join(' · ') };
 }
 
 /**
@@ -489,9 +517,10 @@ function Instalar_diagnosticar() {
   // 2. VERSIONADO (INST-1): versión de esquema, estado y migraciones pendientes
   try {
     var ver = Mig_clasificarInstalacion(Modelo_escanearEstructura(ss), null, REGISTRO_MIGRACIONES);
+    ver.bloqueo = Instalar_versionIncompatible_(ver);
     diagnostico.versionado = ver;
-    if (ver.estado !== 'VIGENTE') {
-      diagnostico.resumen.fasesPendientes.push('versionado: ' + ver.estado +
+    if (ver.estado !== 'VIGENTE' || ver.bloqueo) {
+      diagnostico.resumen.fasesPendientes.push('versionado: ' + (ver.bloqueo || ver.estado) +
         (ver.pendientes.length ? ' (' + ver.pendientes.join(', ') + ')' : ''));
     } else {
       diagnostico.resumen.fasesCompletas.push('versionado');

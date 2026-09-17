@@ -82,10 +82,8 @@ var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false;
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
-/* Peso relativo por etapa: las importaciones de fuentes dominan el tiempo.
-   versionado (lectura) y migraciones (escritura) son las etapas INST-1. */
-var PESO_ETAPA={versionado:1,migraciones:2,estructura:1,fuentes:8,amarillo:6,validaciones:2,limpieza:1,diseno:2,inicio:3,menu:1,verificar:1};
-function pesoTotal(){return ETAPAS.reduce(function(s,e){return s+(PESO_ETAPA[e.id]||1);},0);}
+/* Progreso = etapas terminadas / etapas totales; las etapas omitidas no inflan el avance. */
+function pesoTotal(){return ETAPAS.length||1;}
 
 function cancelarInstalacion(){
   if(_CANCELADO)return;
@@ -105,9 +103,12 @@ function cargarDiagnostico(){
   google.script.run.withSuccessHandler(function(r){
     var pendientes=r&&r.ok&&r.diagnostico&&r.diagnostico.resumen
       ? r.diagnostico.resumen.fasesPendientes : null;
-    if(r&&r.motivo==='ACCESO_DENEGADO')document.getElementById('btnIniciar').disabled=true;
+    var bloqueo=r&&r.diagnostico&&r.diagnostico.versionado
+      ? r.diagnostico.versionado.bloqueo : '';
+    document.getElementById('btnIniciar').disabled=!!bloqueo||!!(r&&r.motivo==='ACCESO_DENEGADO');
     document.getElementById('diagResumen').textContent=pendientes
-      ? (pendientes.length ? 'Se detectaron '+pendientes.length+' áreas pendientes: '+pendientes.join('; ')+'.'
+      ? (bloqueo ? 'Instalación bloqueada por esquema incompatible: '+bloqueo+'. Requiere revisión técnica.'
+        : pendientes.length ? 'Se detectaron '+pendientes.length+' áreas pendientes: '+pendientes.join('; ')+'.'
         : 'El sistema está al día. Puedes ejecutar una reparación si es necesario.')
       : r&&r.motivo==='ACCESO_DENEGADO'
         ? 'El enlace de acceso no es válido. Solicita uno actualizado desde Captura.'
@@ -124,6 +125,9 @@ function cargarDiagnostico(){
 function iniciarInstalacion(){
   if(_enCurso||!ETAPAS.length)return;
   _CANCELADO=false;RESULTADOS=[];ERRORES=[];
+  ETAPAS.forEach(function(e){marcar(e.id,'pen');});
+  document.getElementById('final').style.display='none';
+  document.getElementById('btnCancelarWrap').style.display='none';
   document.getElementById('preparacion').style.display='none';
   document.getElementById('etapaActual').style.display='flex';
   document.getElementById('pie').textContent='Espera a que termine la etapa actual antes de cerrar.';
@@ -161,11 +165,7 @@ function ejecutarSecuencia(ix){
   var et=document.getElementById('etapaTxt');
   et.textContent='Instalando ECICEP…';
   et.setAttribute('data-etapa',etapa.nombre);
-  var hecho=0;
-  RESULTADOS.forEach(function(r){
-    var e=ETAPAS.filter(function(x){return x.id===r.etapa;})[0];
-    if(e)hecho+=(PESO_ETAPA[e.id]||1);
-  });
+  var hecho=RESULTADOS.length;
   var pct=Math.round((hecho/pesoTotal())*100);
   document.getElementById('pct').textContent=pct+'%';
   document.getElementById('fill').style.width=pct+'%';
@@ -175,11 +175,12 @@ function ejecutarSecuencia(ix){
     if(_CANCELADO){
       document.getElementById('btnCancelarWrap').style.display='none';
       document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
+      cargarDiagnostico();
       return;
     }
     if(!r||r.ok===false){
       marcar(etapa.id,'err');
-      ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&r.motivo)||'error'});
+      ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&(r.motivo||r.linea))||'error'});
       document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
       document.getElementById('btnCancelarWrap').style.display='none';
       mostrarFinal(false); /* pantalla de error con reintentar */
@@ -193,6 +194,7 @@ function ejecutarSecuencia(ix){
     if(_CANCELADO){
       document.getElementById('btnCancelarWrap').style.display='none';
       document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
+      cargarDiagnostico();
       return;
     }
     marcar(etapa.id,'err');
@@ -227,7 +229,7 @@ function mostrarFinal(ok){
     btn.innerHTML='↻ Reintentar etapa';
     btn.onclick=function(){
       var ix=ETAPAS.findIndex(function(e){return e.id===er.etapa;});
-      L.removeChild(btn);ejecutarSecuencia(ix);
+      L.removeChild(btn);reintentarDesde(ix);
     };
     L.appendChild(btn);
     return;

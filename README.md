@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.17` · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.18` · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -94,7 +94,9 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 
 **Operación y confiabilidad**
 - Instalador/reparador por **etapas** con diagnóstico de solo lectura,
-  **versionado de esquema y motor de migraciones** (idempotente).
+  **versionado de esquema y motor de migraciones** (idempotente). Bloquea
+  versiones incompatibles antes de escribir, informa fallos por hoja y conserva
+  todas las hojas adicionales; su revisión no borra datos.
 - Backups manuales y automáticos, cola de calidad, auditoría integral,
   protección por categoría de hojas, filtros y buscador por hoja.
 - Diseño visual del libro normalizado por un **design system** único (tokens en

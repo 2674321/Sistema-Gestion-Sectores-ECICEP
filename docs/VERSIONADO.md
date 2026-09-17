@@ -66,6 +66,11 @@ Reporta también `schemaVersion` (leído), `esquemaOK` (bool) y `estado`
 (clasificación), de modo que la verificación final del panel y la política del
 Webhook sepan si la instalación quedó VIGENTE.
 
+La instalación bloquea las etapas mutantes si `SCHEMA_VERSION` no es numérica
+o supera la versión que conoce el código, incluso cuando faltan hojas y la
+clasificación general es INCOMPLETA. No intenta reparar ni retroceder ese
+esquema. La verificación final devuelve `ok:false` si no queda VIGENTE.
+
 ## Política del Webhook (`action: instalar`)
 
 `Instalar_ejecutarPolitica()` decide en tiempo real:

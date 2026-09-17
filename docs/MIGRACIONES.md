@@ -69,6 +69,13 @@ reescribir el instalador ni crear lógica paralela.
 - **Solo estructura**: una migración solo toca hojas/estructura; no crea
   pacientes ni eventos (verificado por test de "no duplicación").
 - **Diagnóstico y versión** nunca mutan: `Modelo_escanearEstructura` solo lee.
+- **Compatibilidad antes de escribir**: el instalador y
+  `Mig_ejecutarPersistente()` rechazan una `SCHEMA_VERSION` ilegible o superior
+  al objetivo, incluso si también faltan hojas. Las etapas no intentan reparar
+  a ciegas ese caso.
+- **Conservación de hojas**: la revisión de hojas adicionales solo informa
+  candidatas. Instalar/Actualizar no eliminan hojas por nombre o por estar
+  vacías; `Hoja 1` también se conserva.
 
 ## Pruebas
 

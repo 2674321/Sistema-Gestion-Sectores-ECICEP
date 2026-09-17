@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.9.17',
+  VERSION: '0.9.18',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -115,7 +115,7 @@ var HOJAS = {
   PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
   RESPONSABLES: 'RESPONSABLES',   // responsables por sector (acumulables, hoja oculta)
   REM_SALIDA: 'REM_SALIDA',       // reporte REM generado (interna; la construye 14_REM.js)
-  HOJA_PREDETERMINADA: 'Hoja 1' // la elimina el instalador solo si está vacía
+  HOJA_PREDETERMINADA: 'Hoja 1' // la instalación la conserva, incluso vacía
 };
 
 // Columnas del catálogo central de profesionales (fuente de verdad para
