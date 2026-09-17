@@ -39,4 +39,21 @@ nueva regla solicitada; se conservan las pruebas de la función matemática hist
 
 ## Publicación
 
-Se reutiliza el deployment operativo y su URL. Versión y evidencia web se completan al publicar.
+Publicado **v0.9.11 / @194**, reutilizando el deployment operativo y su URL.
+Código publicado: `2fcd18b`. PR #5 integrado en `master` mediante `4e62ca7`.
+CI del PR y de master en verde; ejecución master: 35170420821.
+
+Verificación en navegador de la URL /exec: título ECICEP — Captura, pie v0.9.11,
+catálogo de profesionales cargado, campo Próximo control / seguimiento vacío y
+opcional. Al seleccionar Actualizar, muestra 0 de 2 campos obligatorios (RUT y
+profesional). Vista local de QR: botón Abrir formulario, canvas, copia y descarga
+con la misma URL operativa. No se realizó captura clínica positiva ni prueba
+con sesiones de otras cuentas.
+
+Los tres fallos de CI previos de master (35098926466, 35099780573 y 35118825465)
+tenían la misma causa: el esquema de ACTUALIZAR_DATOS exigía identidad en lugar de
+RUT y profesional. Esa regresión está corregida; las ejecuciones históricas fallidas
+permanecen como historial y no representan el estado actual.
+
+El historial local conserva el .deb previo de 399 MB. La rama publicable integra
+los cambios de código sin ese binario; no se reescribió ni eliminó el historial local.
