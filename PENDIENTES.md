@@ -51,10 +51,11 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 ## 3. Publicación / deployment
 
 **Estado 2026-09-17:** el límite de 200 versiones bloqueó inicialmente
-`v0.9.18`. Tras eliminar manualmente 24 versiones sin deployment, la versión
-quedó publicada en el deployment operativo existente como `@201` (commit de
-código `1398873`). El usuario solicitó eliminar las versiones 1–40: en la
-última inspección previa a `@201` solo faltaba la 40; **1–39 seguían presentes**.
+`v0.9.18`. Tras eliminar manualmente 24 versiones sin deployment, se publicaron
+`v0.9.18` (`@201`, commit de código `1398873`) y `v0.9.19` (`@202`, commit de
+código `4911d3c`) en el mismo deployment operativo. El usuario solicitó
+eliminar las versiones 1–40: en la última inspección solo faltaba la 40;
+**1–39 seguían presentes**.
 Los únicos deployments eran `@HEAD` y el operativo. Google solo ofrece el
 borrado de versiones desde **Project History** del editor, no desde la API
 pública ni `clasp`. La limpieza 1–39 requiere una sesión del editor con acceso
