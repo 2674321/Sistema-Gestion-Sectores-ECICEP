@@ -50,7 +50,17 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 
 ## 3. Publicación / deployment
 
-No existe un pendiente activo que obligue a crear un nuevo entorno o un nuevo deployment.
+**Bloqueo activo 2026-09-17:** `v0.9.18` (commit `1398873`) pasó las 15 suites
+y `clasp push --force` actualizó `@HEAD`, pero `clasp deploy` rechazó crear
+una nueva versión: el proyecto alcanzó 200/200 versiones. El deployment
+operativo sigue en `@200` (`v0.9.17`). Los únicos deployments son `@HEAD` y
+`@200`; ninguna versión anterior está vinculada a un deployment activo. Google
+solo permite borrar versiones desde **Project History** del editor (no existe
+`projects.versions.delete` en la API pública). Con la cuenta propietaria,
+eliminar una versión antigua sin deployment —por ejemplo `176`, sin descripción—
+y volver a ejecutar `clasp deploy --deploymentId` sobre el ID operativo; después
+verificar `/exec`, CI y actualizar el estado de README/PENDIENTES. No crear
+otro proyecto, Spreadsheet ni deployment para evadir este límite.
 
 Las tareas de publicación deben:
 
