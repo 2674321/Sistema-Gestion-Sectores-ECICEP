@@ -1,5 +1,10 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-17 (v0.9.13):** se cerraron la regresión de
+> cachés de atención que retrocedían al registrar eventos antiguos, la pérdida
+> de fecha corregida tras el merge de fuentes y la edición incompleta de
+> `PREINGRESO`. Sin cambio en la agenda manual ni en el historial físico.
+
 > **Actualización 2026-09-17:** Captura V4 habilita edición de ficha, agenda y
 > atenciones; continuar observando correcciones reales y compatibilidad de
 > fuentes históricas por RUT tras un cambio de identidad.

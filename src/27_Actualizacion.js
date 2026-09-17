@@ -471,7 +471,7 @@ function Act_actualizarSistema(opciones) {
     ejecucion: 'ACT-' + Date.now().toString(36).toUpperCase(),
     dryRun: !ejecutar,
     estructura: null, fuentes: null, enriquecimiento: null,
-    derivados: null, vistas: null, formato: null,
+    derivados: null, correcciones: null, vistas: null, formato: null,
     amarillo: null, verificacion: null,
     resumen: {},
     _errores: []
@@ -510,6 +510,13 @@ function Act_actualizarSistema(opciones) {
   if (ejecutar) try { reporte.derivados = { estratificacion: Estrat_recalcularTodos() }; } catch (eE) { derivErrores.push('estratificación: ' + (eE && eE.message || eE)); }
   if (ejecutar) try { reporte.derivados = reporte.derivados || {}; reporte.derivados.controles = Control_recalcularTodos(); } catch (eC) { derivErrores.push('controles: ' + (eC && eC.message || eC)); }
   if (derivErrores.length) reporte._errores.push('derivados');
+
+  // Las fuentes pueden volver a adelantar la caché de una atención cuya fecha
+  // fue corregida. EVENTOS auditado conserva la fecha efectiva de referencia.
+  if (ejecutar) try { reporte.correcciones = Captura_reconciliarFechasCorregidas_(); } catch (eR) {
+    reporte.correcciones = { ok: false, motivo: eR && eR.message ? eR.message : String(eR) };
+    reporte._errores.push('correcciones');
+  }
 
   // 7) VISTAS (refresh después de Amarillo + datos)
   if (ejecutar) try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {

@@ -1,5 +1,11 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.13):** las fechas de último control y
+> seguimiento no retroceden al registrar atenciones históricas. Después de
+> importar fuentes, las correcciones V4 auditadas restauran la caché de
+> PACIENTES desde EVENTOS efectivo antes de refrescar vistas; la agenda manual
+> se conserva. `PREINGRESO` admite fecha o estado canónico en la Web App.
+
 > **Actualización 2026-09-17 (v0.9.12):** la Web App edita la ficha existente
 > mediante Captura V4, con lectura autenticada, escritura por cambios y protección
 > ante modificaciones simultáneas. La misma fuente PACIENTES/EVENTOS conserva

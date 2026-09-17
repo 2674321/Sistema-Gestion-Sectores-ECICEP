@@ -1,6 +1,6 @@
 /** Actualización V4: mismo registro de captura, PACIENTES y EVENTOS. */
 var CAPTURA_EDICION_CAMPOS = ['RUT','NOMBRE','SEXO','FECHA_NACIMIENTO','TELEFONOS','TELEFONO_OBS','SECTOR','ESTADO','FECHA_INGRESO','PREINGRESO','DUPLA_INGRESO','PROFESIONAL_SEGUIMIENTO','CONDICIONES','OTRAS_PATOLOGIAS','PROXIMO_CONTROL','COMPOSICION_CONTROL','OBSERVACIONES'];
-var CAPTURA_EDICION_FECHAS = ['FECHA_NACIMIENTO','FECHA_INGRESO','PREINGRESO','PROXIMO_CONTROL'];
+var CAPTURA_EDICION_FECHAS = ['FECHA_NACIMIENTO','FECHA_INGRESO','PROXIMO_CONTROL'];
 var CAPTURA_CORRECCION_PREFIJO = 'CORRECCION_FECHA_V4:';
 
 function Captura_edicionTexto_(p, campo) {
@@ -35,6 +35,15 @@ function Captura_validarEdicion_(a) {
     if(CAPTURA_EDICION_FECHAS.indexOf(k)>=0 && v) {
       var d=Captura_v2_validarIsoFecha(v,{min:k==='FECHA_NACIMIENTO'?1900:2015,max:2040});
       if(!d.ok)return fallo('Fecha inválida: '+k);v=d.iso;
+    }
+    if(k==='PREINGRESO' && v) {
+      var pre=v.toUpperCase().replace(/\s+/g,'_');
+      if(['NO_APLICA','PENDIENTE'].indexOf(pre)>=0)v=pre;
+      else {
+        var dp=Captura_v2_validarIsoFecha(v,{min:2015,max:2040});
+        if(!dp.ok)return fallo('Preingreso: use fecha ISO, NO_APLICA o PENDIENTE');
+        v=dp.iso;
+      }
     }
     if(k==='TELEFONOS')v=Norm_normalizarTelefono(v).telefonos.join('/');
     if(k==='FECHA_NACIMIENTO' && v && v>Captura_v2_fechaOperacion({}))return fallo('Nacimiento no puede estar en el futuro');
@@ -94,6 +103,45 @@ function Captura_eventosVigentes_(eventos) {
   return salida;
 }
 
+/** Tras importar fuentes, restaura las cachés afectadas por correcciones V4.
+ * La fecha efectiva se calcula desde EVENTOS; la agenda manual no se toca. */
+function Captura_reconciliarFechasCorregidas_() {
+  if (!Modelo_hayCorreccionesFecha_()) return {ok:true,actualizados:0};
+  var eventos=Modelo_leerEventos(),porEvento={},afectados={};
+  eventos.forEach(function(e){porEvento[Utl_texto(e.ID_EVENTO)]=e;});
+  eventos.forEach(function(e){
+    if(e.TIPO_EVENTO!=='OTRO' || !/^FORM\|Cp4-/.test(Utl_texto(e.FUENTE)) || Utl_texto(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)!==0)return;
+    try {
+      var c=JSON.parse(e.DESCRIPCION.slice(CAPTURA_CORRECCION_PREFIJO.length)),dest=porEvento[c.idEvento];
+      if(dest && dest.ID_INTERNO===e.ID_INTERNO && ['CONTROL','SEGUIMIENTO'].indexOf(dest.TIPO_EVENTO)>=0)afectados[dest.ID_INTERNO+'|'+dest.TIPO_EVENTO]=true;
+    }catch(err){/* Una nota inválida no modifica cachés. */}
+  });
+  if(!Object.keys(afectados).length)return {ok:true,actualizados:0};
+  var fechas={};
+  eventos.forEach(function(e){
+    var clave=e.ID_INTERNO+'|'+e.TIPO_EVENTO,fecha=Control_aIso(e.FECHA_EVENTO);
+    if(afectados[clave] && fecha && (!fechas[clave] || fecha>fechas[clave]))fechas[clave]=fecha;
+  });
+  var cambios=0,hoja=Modelo_hoja(HOJAS.PACIENTES);
+  Modelo_leerPacientes().forEach(function(p,idx){
+    var nuevo=null;
+    ['CONTROL','SEGUIMIENTO'].forEach(function(tipo){
+      var clave=p.ID_INTERNO+'|'+tipo,campo=tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO';
+      if(!afectados[clave])return;
+      var fecha=fechas[clave]||'';
+      if(Control_aIso(p[campo])===fecha)return;
+      if(!nuevo)nuevo=Object.assign({},p);
+      nuevo[campo]=fecha;
+    });
+    if(!nuevo)return;
+    nuevo.FECHA_ACTUALIZACION=new Date();
+    hoja.getRange(Modelo_filaFisica(HOJAS.PACIENTES,idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);
+    cambios++;
+  });
+  if(cambios)Modelo_invalidarLecturas();
+  return {ok:true,actualizados:cambios};
+}
+
 /** Entrega V4 bajo el mismo ScriptLock/registro de captura que V2/V3. */
 function Captura_entregarEdicion_(norm,marca,opciones) {
   var a=norm.actualizacion,encontrado=Modelo_buscarPaciente(a.id);
@@ -145,6 +193,7 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     Modelo_invalidarLecturas();var actualP=Modelo_buscarPaciente(a.id),nuevo=Object.assign({},actualP.obj),vigentes=Modelo_leerEventos();
     a.atenciones.forEach(function(ac){var fechas=vigentes.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===ac.tipo;}).map(function(e){return Control_aIso(e.FECHA_EVENTO);}).filter(Boolean).sort();nuevo[ac.tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO']=fechas.length?fechas[fechas.length-1]:'';});
     nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);Modelo_invalidarLecturas();
+    Modelo_refrescarVistasSectores();
   }
   var audit=api_registrarEvento({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''});
   if(!audit.ok)return fail(audit.motivo||'AUDITORIA_NO_GUARDADA');

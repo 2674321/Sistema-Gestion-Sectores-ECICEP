@@ -77,6 +77,11 @@ mediante el escritor vigente de Patologías cuando cambia `CONDICIONES`.
 Vaciar `PROXIMO_CONTROL` la elimina; omitirla la conserva. `RUT` solo se cambia
 con dígito verificador válido y sin colisión con otro paciente. Las fechas son
 ISO estrictas; una fecha de atención no puede ser futura.
+`PREINGRESO` admite una fecha ISO, `NO_APLICA` o `PENDIENTE`, de acuerdo con
+el modelo `fecha|texto`; otros textos se rechazan. Registrar una atención
+histórica no hace retroceder `ULTIMO_CONTROL` ni `ULTIMO_SEGUIMIENTO`.
+Tras actualizar desde fuentes, las cachés de pacientes con fechas corregidas
+se vuelven a derivar de EVENTOS efectivo, conservando `PROXIMO_CONTROL` manual.
 
 `atenciones` tiene máximo una entrada por tipo `CONTROL` o `SEGUIMIENTO`, de forma
 `{tipo, modo, fecha, idEvento, anterior}`. `REGISTRAR` agrega un evento clínico

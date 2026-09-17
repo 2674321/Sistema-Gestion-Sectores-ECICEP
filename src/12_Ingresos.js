@@ -606,11 +606,11 @@ function Ingresos_procesarTodasLasHojas(opciones) {
  */
 function Ingresos_sincronizarCache(paciente, evento, freqConfig) {
   if (!paciente || !evento) return paciente;
-  var fecha = Utl_texto(evento.FECHA_EVENTO);
+  var fecha = Control_aIso(evento.FECHA_EVENTO);
   if (evento.TIPO_EVENTO === 'CONTROL') {
-    paciente.ULTIMO_CONTROL = fecha;
+    if (fecha && fecha > Control_aIso(paciente.ULTIMO_CONTROL)) paciente.ULTIMO_CONTROL = fecha;
   }
-  if (evento.TIPO_EVENTO === 'SEGUIMIENTO') paciente.ULTIMO_SEGUIMIENTO = fecha;
+  if (evento.TIPO_EVENTO === 'SEGUIMIENTO' && fecha && fecha > Control_aIso(paciente.ULTIMO_SEGUIMIENTO)) paciente.ULTIMO_SEGUIMIENTO = fecha;
   if (evento.TIPO_EVENTO === 'INGRESO' && !Utl_vacio(fecha)) paciente.FECHA_INGRESO = paciente.FECHA_INGRESO || fecha;
   paciente.FECHA_ACTUALIZACION = new Date();
   return paciente;

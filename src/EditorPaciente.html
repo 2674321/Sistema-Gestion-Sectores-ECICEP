@@ -23,7 +23,7 @@
   var grupos=[
     ['Datos personales',[['RUT','RUT'],['NOMBRE','Nombre completo'],['SEXO','Sexo',['','M','F','OTRO']],['FECHA_NACIMIENTO','Fecha de nacimiento','date']]],
     ['Contacto y situación',[['TELEFONOS','Teléfonos'],['TELEFONO_OBS','Detalle de contacto'],['SECTOR','Sector',['AMARILLO','NARANJO','VERDE']],['ESTADO','Estado',['PENDIENTE','AGENDADO','INGRESADO','NO_CONTESTA','FALLECIDO','NSP']]]],
-    ['Ingreso y equipo',[['FECHA_INGRESO','Fecha de ingreso','date'],['PREINGRESO','Preingreso','date'],['DUPLA_INGRESO','Dupla de ingreso'],['PROFESIONAL_SEGUIMIENTO','Profesional de seguimiento']]],
+    ['Ingreso y equipo',[['FECHA_INGRESO','Fecha de ingreso','date'],['PREINGRESO','Preingreso'],['DUPLA_INGRESO','Dupla de ingreso'],['PROFESIONAL_SEGUIMIENTO','Profesional de seguimiento']]],
     ['Agenda manual',[['PROXIMO_CONTROL','Próximo control / seguimiento','date'],['COMPOSICION_CONTROL','Composición del próximo control']]],
     ['Información clínica',[['CONDICIONES','Patologías ECICEP','condiciones'],['OTRAS_PATOLOGIAS','Otras patologías','textarea'],['OBSERVACIONES','Observaciones del paciente','textarea']]]
   ];
@@ -49,6 +49,7 @@
         else if(tipo==='condiciones'){el=nodo('div',null,'ed-patologias');(r.condiciones||[]).forEach(function(c){var l=nodo('label'),ch=nodo('input');ch.type='checkbox';ch.value=c.codigo;ch.checked=(r.campos[k]||'').split(';').indexOf(c.codigo)>=0;l.appendChild(ch);l.appendChild(nodo('span',c.nombre));el.appendChild(l);});var hint=nodo('p','La estratificación se actualiza desde las patologías. Actual: '+(r.estratificacion||'Sin confirmar'),'f-hint');wrap.appendChild(hint);(r.campos[k]||'').split(';').filter(Boolean).forEach(function(code){if(!(r.condiciones||[]).some(function(c){return c.codigo===code;})){var l=nodo('label'),ch=nodo('input');ch.type='checkbox';ch.value=code;ch.checked=true;l.appendChild(ch);l.appendChild(nodo('span',code+' (dato existente)'));el.appendChild(l);}});}
         else{el=nodo(tipo==='textarea'?'textarea':'input',null,'f-input');if(tipo!=='textarea'){el.type=tipo==='date'?'date':'text';}if(tipo==='date'&&r.campos[k]&&!/^\d{4}-\d{2}-\d{2}$/.test(r.campos[k]))el.type='text';if(tipo==='date'){el.min=k==='FECHA_NACIMIENTO'?'1900-01-01':'2015-01-01';el.max='2040-12-31';}if(tipo==='textarea')el.rows=3;el.maxLength=5000;}
         el.id='ed_'+k;if(tipo!=='condiciones')el.value=r.campos[k]||'';wrap.appendChild(el);
+        if(k==='PREINGRESO')wrap.appendChild(nodo('p','Fecha AAAA-MM-DD, NO_APLICA o PENDIENTE.','f-hint'));
         if(k==='PROXIMO_CONTROL')wrap.appendChild(nodo('p','Vaciar este campo elimina la fecha agendada. No se calcula automáticamente.','f-hint'));
         grid.appendChild(wrap);
       });fs.appendChild(grid);root.appendChild(fs);

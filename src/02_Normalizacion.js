@@ -606,9 +606,10 @@ function Control_aIso(v) {
   var s = Utl_texto(v).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
   if (/^\d+(\.\d+)?$/.test(s)) { // serial
-    var f = new Date((Math.round(+s)) * 86400000);
-    if (!isNaN(f.getTime()) && f.getFullYear() > 1900)
-      return f.getFullYear() + '-' + ('0' + (f.getMonth() + 1)).slice(-2) + '-' + ('0' + f.getDate()).slice(-2);
+    // Sheets cuenta días desde 1899-12-30; Unix parte en 1970-01-01.
+    var f = new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 86400000);
+    if (!isNaN(f.getTime()) && f.getUTCFullYear() > 1900)
+      return f.getUTCFullYear() + '-' + ('0' + (f.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + f.getUTCDate()).slice(-2);
   }
   return '';
 }

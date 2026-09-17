@@ -2651,6 +2651,23 @@ function _pruebas_control_v085(t, A) {
     A.igual(pac.PROXIMO_CONTROL, '2026-12-05', 'la fecha manual se conserva');
   });
 
+  t('CONTROL: una atención histórica no hace retroceder último control o seguimiento', function () {
+    var pac = { ULTIMO_CONTROL: '2026-09-10', ULTIMO_SEGUIMIENTO: '2026-09-08', PROXIMO_CONTROL: '2026-10-01' };
+    Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-08-01' });
+    Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-08-02' });
+    A.igual(pac.ULTIMO_CONTROL, '2026-09-10');
+    A.igual(pac.ULTIMO_SEGUIMIENTO, '2026-09-08');
+    A.igual(pac.PROXIMO_CONTROL, '2026-10-01');
+    Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-09-11' });
+    A.igual(pac.ULTIMO_CONTROL, '2026-09-11', 'un control posterior sí avanza la fecha');
+  });
+
+  t('CONTROL: un serial de fecha de Sheets usa la época de Sheets', function () {
+    A.igual(Control_aIso(45292), '2024-01-01');
+    A.igual(Control_aIso(45292.75), '2024-01-01', 'la hora no desplaza la fecha');
+    A.igual(Control_aIso('46000'), '2025-12-09');
+  });
+
   t('CONTROL v0.8.5: idempotencia de filasPanel (pura, sin efectos)', function () {
     var pac = [{ ID_INTERNO: 'P1', SECTOR: 'VERDE', ESTRATIFICACION: 'G3', ULTIMO_CONTROL: '2026-01-01', FECHA_NACIMIENTO: '' }];
     var d1 = JSON.stringify(Control_filasPanel(pac, Control_frecuenciaDefault(), '2026-08-27'));
@@ -2828,7 +2845,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.12', 'versión esperada v0.9.10');
+    A.igual(v, '0.9.13', 'versión esperada v0.9.13');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3068,7 +3085,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.12', 'versión esperada v0.9.10');
+    A.igual(v, '0.9.13', 'versión esperada v0.9.13');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -6158,7 +6175,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.12', 'VERSION es 0.9.10');
+    A.cierto(ECICEP.VERSION === '0.9.13', 'VERSION es 0.9.13');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {
