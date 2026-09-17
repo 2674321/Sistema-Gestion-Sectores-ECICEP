@@ -50,17 +50,16 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 
 ## 3. Publicación / deployment
 
-**Bloqueo activo 2026-09-17:** `v0.9.18` (commit `1398873`) pasó las 15 suites
-y `clasp push --force` actualizó `@HEAD`, pero `clasp deploy` rechazó crear
-una nueva versión: el proyecto alcanzó 200/200 versiones. El deployment
-operativo sigue en `@200` (`v0.9.17`). Los únicos deployments son `@HEAD` y
-`@200`; ninguna versión anterior está vinculada a un deployment activo. Google
-solo permite borrar versiones desde **Project History** del editor (no existe
-`projects.versions.delete` en la API pública). Con la cuenta propietaria,
-eliminar una versión antigua sin deployment —por ejemplo `176`, sin descripción—
-y volver a ejecutar `clasp deploy --deploymentId` sobre el ID operativo; después
-verificar `/exec`, CI y actualizar el estado de README/PENDIENTES. No crear
-otro proyecto, Spreadsheet ni deployment para evadir este límite.
+**Estado 2026-09-17:** el límite de 200 versiones bloqueó inicialmente
+`v0.9.18`. Tras eliminar manualmente 24 versiones sin deployment, la versión
+quedó publicada en el deployment operativo existente como `@201` (commit de
+código `1398873`). El usuario solicitó eliminar las versiones 1–40: en la
+última inspección previa a `@201` solo faltaba la 40; **1–39 seguían presentes**.
+Los únicos deployments eran `@HEAD` y el operativo. Google solo ofrece el
+borrado de versiones desde **Project History** del editor, no desde la API
+pública ni `clasp`. La limpieza 1–39 requiere una sesión del editor con acceso
+al proyecto; no crear otro proyecto, Spreadsheet ni deployment para evadir el
+límite.
 
 Las tareas de publicación deben:
 

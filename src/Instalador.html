@@ -23,6 +23,7 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 .item .ic{width:18px;text-align:center;flex-shrink:0}
 .item.ok .ic{color:var(--success)} .item.err .ic{color:var(--danger)}
 .item.run .ic{color:var(--primary)} .item.pen .ic{color:var(--border-strong)}
+.item.skip .ic{color:var(--text-muted)} .item.skip{color:var(--text-muted)}
 .item.err{color:var(--danger)}
 .final{text-align:center;display:none}
 .final .big-check{font-size:44px;color:var(--success);line-height:1}
@@ -81,7 +82,7 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false;
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
-var ICON={ok:'✓',run:'●',pen:'○',err:'✕'};
+var ICON={ok:'✓',run:'●',pen:'○',err:'✕',skip:'—'};
 /* Progreso = etapas terminadas / etapas totales; las etapas omitidas no inflan el avance. */
 function pesoTotal(){return ETAPAS.length||1;}
 
@@ -186,7 +187,7 @@ function ejecutarSecuencia(ix){
       mostrarFinal(false); /* pantalla de error con reintentar */
       return;
     }
-    marcar(etapa.id,'ok');
+    marcar(etapa.id,r.omitida?'skip':'ok');
     RESULTADOS.push(r);
     ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
   }).withFailureHandler(function(e){
@@ -258,6 +259,11 @@ function mostrarFinal(ok){
       : 'sin pendientes';
     txt+=(txt?' · ':'')+'Migraciones: '+migTxt;
   }
+  var omitidas=RESULTADOS.filter(function(x){return x.omitida;}).length;
+  if(omitidas)txt+=(txt?' · ':'')+'Etapas omitidas: '+omitidas;
+  var limpieza=RESULTADOS.filter(function(x){return x.etapa==='limpieza';})[0];
+  if(limpieza&&limpieza.candidatas&&limpieza.candidatas.length)
+    txt+=(txt?' · ':'')+'Hojas adicionales conservadas: '+limpieza.candidatas.length;
   document.getElementById('finDatos').textContent=txt;
   var av=document.getElementById('finAvisos');
   if(ERRORES.length){av.style.display='block';

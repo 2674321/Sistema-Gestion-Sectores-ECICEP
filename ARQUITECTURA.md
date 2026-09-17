@@ -1,5 +1,11 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.19):** el instalador distingue las etapas
+> omitidas y el inventario de solo lectura de las etapas que modifican el libro.
+> Las primeras no bloquean otras escrituras ni se presentan como trabajo
+> realizado. El progreso cuenta etapas terminadas y muestra las hojas
+> adicionales conservadas.
+
 > **Actualización 2026-09-17 (v0.9.18):** el instalador detiene las etapas de
 > escritura ante un esquema ilegible o posterior al código. Los fallos de
 > validación y diseño se informan al operador. La revisión de hojas adicionales

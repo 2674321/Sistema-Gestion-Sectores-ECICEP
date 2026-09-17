@@ -2845,7 +2845,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.18', 'versión esperada v0.9.18');
+    A.igual(v, '0.9.19', 'versión esperada v0.9.19');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3085,7 +3085,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.18', 'versión esperada v0.9.18');
+    A.igual(v, '0.9.19', 'versión esperada v0.9.19');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5275,11 +5275,12 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(fn.indexOf('LockService') !== -1, 'usa LockService');
     A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
     A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
-    ['migraciones', 'estructura', 'fuentes', 'amarillo', 'visual', 'validaciones',
-     'limpieza', 'diseno', 'inicio', 'menu', 'enriquecimiento'].forEach(function (id) {
+    ['migraciones', 'estructura', 'visual', 'validaciones',
+     'diseno', 'inicio', 'menu', 'derivados'].forEach(function (id) {
       A.cierto(!!INSTALAR_ETAPAS_MUTAN[id], id + ' figura como mutante');
     });
-    ['runtime', 'diagnostico', 'versionado', 'verificar'].forEach(function (id) {
+    ['runtime', 'diagnostico', 'versionado', 'fuentes', 'amarillo',
+     'limpieza', 'enriquecimiento', 'verificar'].forEach(function (id) {
       A.cierto(!INSTALAR_ETAPAS_MUTAN[id], id + ' es solo lectura (sin lock)');
     });
     A.cierto(INSTALAR_ETAPAS.filter(function (e) { return e.id === 'versionado'; }).length === 1,
@@ -6175,7 +6176,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.18', 'VERSION es 0.9.18');
+    A.cierto(ECICEP.VERSION === '0.9.19', 'VERSION es 0.9.19');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

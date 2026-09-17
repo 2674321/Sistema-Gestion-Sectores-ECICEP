@@ -55,8 +55,9 @@ corresponde en cada fase (ver `MIGRACIONES.md` y la política de instalación).
 ## Concurrencia
 
 `api_instalarPaso` toma **LockService** (`tryLock(30000)`) para cada etapa en
-`INSTALAR_ETAPAS_MUTAN` (migraciones, estructura, fuentes, amarillo, visual,
-validaciones, limpieza, diseño, inicio, menú, enriquecimiento). Si el lock está
+`INSTALAR_ETAPAS_MUTAN` (migraciones, estructura, visual, validaciones,
+diseño, inicio, menú, derivados). Las fases omitidas (fuentes, amarillo,
+enriquecimiento) y el inventario de hojas adicionales no toman lock. Si está
 ocupado devuelve `{ok:false, motivo:'CONCURRENCIA'}`; `releaseLock` en `finally`.
 En node (`LockService` ausente) no bloquea, para no romper las pruebas.
 

@@ -21,15 +21,15 @@ var INSTALAR_ETAPAS = [
   { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
   { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
-  { id: 'derivados',    nombre: 'Calculando estratificación y controles', fn: 'Instalar_pDerivados' },
+  { id: 'derivados',    nombre: 'Actualizando estratificación', fn: 'Instalar_pDerivados' },
   { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
 ];
 
-/** Etapas que MODIFICAN el libro (mutan). Solo lectura: runtime, diagnostico,
- *  versionado y verificar → en ellas NO se toma LockService. */
+/** Solo las etapas que realmente escriben toman LockService. Las fases
+ *  omitidas y el inventario de hojas adicionales son de solo lectura. */
 var INSTALAR_ETAPAS_MUTAN = {};
-['migraciones', 'estructura', 'fuentes', 'amarillo', 'visual', 'validaciones',
-  'limpieza', 'diseno', 'inicio', 'menu', 'enriquecimiento', 'derivados'].forEach(function (id) {
+['migraciones', 'estructura', 'visual', 'validaciones',
+  'diseno', 'inicio', 'menu', 'derivados'].forEach(function (id) {
   INSTALAR_ETAPAS_MUTAN[id] = true;
 });
 
@@ -385,7 +385,7 @@ function Instalar_pEstructura() {
 function Instalar_pFuentes() {
   // POST-ENTREGA: Instalar NO importa datos externos.
   // La carga de fuentes es responsabilidad exclusiva de ACTUALIZAR.
-  return { ok: true, linea: 'omitido — importación reservada para ACTUALIZAR' };
+  return { ok: true, omitida: true, linea: 'omitido — importación reservada para ACTUALIZAR' };
 }
 function Instalar_pAmarillo() {
   // POST-ENTREGA: Instalar NO importa datos del sector amarillo.
@@ -455,7 +455,7 @@ function Instalar_pVerificar() {
 function Instalar_pEnriquecimiento() {
   // POST-ENTREGA: Instalar NO lee datos de staging (INGRESO_*) para enriquecer.
   // La lectura de fuentes internas/externas es responsabilidad de ACTUALIZAR.
-  return { ok: true, linea: 'omitido — enriquecimiento reservado para ACTUALIZAR' };
+  return { ok: true, omitida: true, linea: 'omitido — enriquecimiento reservado para ACTUALIZAR' };
 }
 
 /** Calcula derivados (estratificación + controles) para que INICIO muestre
