@@ -122,6 +122,13 @@ conexión a Apps Script) en línea:
 Incluye RUT de ejemplo que ya existen en la base demo (13.187.212-7,
 9.866.001-1, 15.798.443-8) para ver el comportamiento de personas registradas.
 
+## Captura de la Web App
+
+![Web App de captura ECICEP](docs/screenshots/webapp-captura.png)
+
+Captura ilustrativa anterior a v0.9.11, con datos ficticios. La Web App operativa
+añade el campo manual Próximo control / seguimiento.
+
 ## Arquitectura
 
 Un solo sistema operativo (una Web App, un backend, un pipeline, una fuente de
