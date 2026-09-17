@@ -557,17 +557,19 @@ function HVis_colorPorSector(sector) {
 function HVis_formatearIngresos() {
   var _tF = Date.now();
   var ss = Modelo_ss();
-  var estados = {};
+  var estados = {}, fallidas = [];
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     var _tHojaF = Date.now();
     var hoja = ss.getSheetByName(nombre);
     if (hoja && hoja.getLastRow() >= Modelo_headerRow(nombre)) {
       var r = HVis_aplicarSecciones(hoja);
       estados[nombre] = r.estado || 'OK';
+      if (r.ok === false) fallidas.push(nombre + ': ' + (r.motivo || r.estado || 'formato incompleto'));
       console.log('[PIPE] formatearIngresos ' + nombre + ': ' + (Date.now() - _tHojaF) + 'ms estado=' + estados[nombre] + ' fast=' + (r.fast ? 'si' : 'no'));;
     }
   });
   console.log('[PIPE] formatearIngresos total: ' + (Date.now() - _tF) + 'ms');
+  estados._fallidas = fallidas;
   Log_info('HojasVisual', 'formatearIngresos', JSON.stringify(estados));
   Log_flush();
   return estados;

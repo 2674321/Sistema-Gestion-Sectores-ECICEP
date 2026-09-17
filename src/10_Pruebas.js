@@ -2845,7 +2845,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.19', 'versión esperada v0.9.19');
+    A.igual(v, '0.9.20', 'versión esperada v0.9.20');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3085,7 +3085,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.19', 'versión esperada v0.9.19');
+    A.igual(v, '0.9.20', 'versión esperada v0.9.20');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -6154,7 +6154,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   t('S10: Act_actualizarSistema trackea errores críticos', function () {
     var src = Act_actualizarSistema.toString();
     A.cierto(src.indexOf('_errores') !== -1, '_errores array existe');
-    A.cierto(src.indexOf('reporte._errores.push') !== -1, 'push a _errores en catches');
+    A.cierto(src.indexOf('reporte._errores.push(fase)') !== -1, 'registra cada fase fallida');
     A.cierto(src.indexOf('reporte.ok = false') !== -1, 'ok se pone false si hay errores');
   });
 
@@ -6176,12 +6176,12 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.19', 'VERSION es 0.9.19');
+    A.cierto(ECICEP.VERSION === '0.9.20', 'VERSION es 0.9.20');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {
     var src = Act_actualizarSistema.toString();
     A.cierto(src.indexOf('reporte.fuentes.ok === false') !== -1, 'detecta fuentes.ok === false');
-    A.cierto(src.indexOf('_errores.push(\'fuentes\')') !== -1, 'push fuentes a _errores');
+    A.cierto(src.indexOf('registrarFallo(\'fuentes\'') !== -1, 'registra fuentes como fase fallida');
   });
 }

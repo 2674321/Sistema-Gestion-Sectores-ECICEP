@@ -160,8 +160,10 @@ function UI_actualizarSistema() {
 function UI_actualizarTodo(opciones) {
   Utl_toast('info', 'Actualizando sistema…', 45);
   var r = Act_actualizarSistema(opciones || {});
+  var fases = r.resumen && r.resumen.errores || [];
   var msj = (r.ok === false)
-    ? 'Actualización incompleta — revisar el Registro'
+    ? 'Actualización incompleta (' + fases.slice(0, 3).join(', ') +
+      (fases.length > 3 ? ' y ' + (fases.length - 3) + ' más' : '') + ') — revisar el Registro'
     : 'Actualizado — ' + Act_resumenActualizacionTexto(r);
   Utl_toast(r.ok === false ? 'error' : 'ok', msj, 10);
   return r;

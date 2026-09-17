@@ -92,6 +92,85 @@ test('Simulación del orquestador no llama a ningún escritor', () => {
   assert.equal(r.ok, true); assert.equal(r.dryRun, true);
   assert.deepEqual(calls, []);
 });
+function actualizacionSimulada() {
+  const c = backend();
+  c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
+  c.Modelo_asegurarEsquemaPacientes = () => ({ ok: true });
+  c.Modelo_alinearVistasSectoriales = () => ({ errores: [] });
+  c.Modelo_limpiarHojasResiduales = () => ({ candidatas: [], eliminadas: [] });
+  c.Fuentes_cargaReal = () => ({ ok: true, resumen: {} });
+  c.Amarillo_importarTodo = () => ({ ok: true });
+  c.Act_enriquecerPacientes = () => ({ ok: true, errores: 0 });
+  c.Estrat_recalcularTodos = () => ({ ok: true, recalculados: 0 });
+  c.Control_recalcularTodos = () => ({ ok: true, cambios: 0 });
+  c.Captura_reconciliarFechasCorregidas_ = () => ({ ok: true });
+  c.Modelo_refrescarVistasSectores = () => ({});
+  c.HVis_aplicarTodasLasSecciones = () => ({ ok: true, resultados: [] });
+  c.HVis_formatearIngresos = () => ({});
+  c.Hojas_formatoCondicional = () => ({ errores: [] });
+  c.Modelo_validarIngresos = () => ({ fallidas: [] });
+  c.Modelo_aplicarDiseno = () => ({ fallidas: [] });
+  c.Modelo_disenoHojas = () => ({ ok: true });
+  c.Hojas_colorearRutIngresos = () => 0;
+  c.onOpen = () => {};
+  c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
+  return c;
+}
+test('Actualizar informa fallo devuelto por Amarillo, sin éxito falso', () => {
+  const c = actualizacionSimulada();
+  const logs = [];
+  c.Log_error = (_, __, detail) => logs.push(JSON.parse(detail));
+  c.Amarillo_importarTodo = () => ({ ok: false, motivo: 'FUENTE_NO_DISPONIBLE' });
+  const r = c.Act_actualizarSistema({ ejecutar: true });
+  assert.equal(r.ok, false);
+  assert.ok(r.resumen.errores.includes('amarillo'));
+  assert.equal(r.resumen.detalleErrores.amarillo, 'FUENTE_NO_DISPONIBLE');
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].detalleErrores.amarillo, 'FUENTE_NO_DISPONIBLE');
+});
+test('Actualizar informa excepciones de vistas y fallos parciales de diseño', () => {
+  const c = actualizacionSimulada();
+  c.Modelo_refrescarVistasSectores = () => { throw Error('VISTA_SIMULADA'); };
+  c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: DISEÑO_SIMULADO'] });
+  const r = c.Act_actualizarSistema({ ejecutar: true });
+  assert.equal(r.ok, false);
+  assert.deepEqual(Array.from(r.resumen.errores), ['vistas', 'diseno']);
+  assert.equal(r.resumen.detalleErrores.vistas, 'VISTA_SIMULADA');
+  assert.match(r.resumen.detalleErrores.diseno, /DISEÑO_SIMULADO/);
+});
+test('Actualizar informa fallos parciales de validación y secciones', () => {
+  const c = actualizacionSimulada();
+  c.Modelo_validarIngresos = () => ({ fallidas: ['INGRESO_VERDE: REGLA_SIMULADA'] });
+  c.HVis_aplicarTodasLasSecciones = () => ({ ok: true, resultados: [{ hoja: 'PACIENTES', ok: false, motivo: 'SECCION_SIMULADA' }] });
+  const r = c.Act_actualizarSistema({ ejecutar: true });
+  assert.equal(r.ok, false);
+  assert.ok(r.resumen.errores.includes('validaciones'));
+  assert.ok(r.resumen.errores.includes('seccionesVisuales'));
+  assert.match(r.resumen.detalleErrores.seccionesVisuales, /PACIENTES/);
+});
+test('Actualizar informa formato de ingreso incompleto', () => {
+  const c = actualizacionSimulada();
+  c.HVis_formatearIngresos = () => ({ INGRESO_VERDE: 'LEGADO → ERROR', _fallidas: ['INGRESO_VERDE: FORMATO_SIMULADO'] });
+  const r = c.Act_actualizarSistema({ ejecutar: true });
+  assert.equal(r.ok, false);
+  assert.equal(r.resumen.detalleErrores.formato, 'INGRESO_VERDE: FORMATO_SIMULADO');
+});
+test('Actualizar captura fallo de fuentes también en simulación', () => {
+  const c = actualizacionSimulada();
+  c.Fuentes_cargaReal = () => { throw Error('FUENTE_SIMULADA'); };
+  const r = c.Act_actualizarSistema({ ejecutar: false });
+  assert.equal(r.ok, false);
+  assert.deepEqual(Array.from(r.resumen.errores), ['fuentes']);
+  assert.equal(r.resumen.detalleErrores.fuentes, 'FUENTE_SIMULADA');
+});
+test('La interfaz identifica las fases que fallaron', () => {
+  const c = actualizacionSimulada(), mensajes = [];
+  c.Act_actualizarSistema = () => ({ ok: false, resumen: { errores: ['vistas', 'diseno'] } });
+  c.Utl_toast = (tipo, mensaje) => mensajes.push({ tipo, mensaje });
+  c.UI_actualizarTodo();
+  assert.equal(mensajes.at(-1).tipo, 'error');
+  assert.match(mensajes.at(-1).mensaje, /vistas, diseno/);
+});
 test('Enriquecimiento simulado conserva el objeto memoizado', () => {
   const c = backend(); const p = { ID_INTERNO: 'FICTICIO', RUT: '12345678-5', SEXO: '', FECHA_NACIMIENTO: '' };
   const before = JSON.stringify(p);

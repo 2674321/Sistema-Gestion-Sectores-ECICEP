@@ -1,5 +1,12 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.20):** Actualizar sistema conserva el
+> procesamiento por etapas, pero devuelve un error global si una etapa falla,
+> incluida una aplicación parcial de formato, diseño o validaciones. El resumen
+> identifica cada etapa y su motivo, la interfaz lo muestra y el Registro deja
+> una entrada de error. El libro clínico no se modifica para comprobarlo: la
+> regresión se prueba con servicios simulados.
+
 > **Actualización 2026-09-17 (v0.9.19):** el instalador distingue las etapas
 > omitidas y el inventario de solo lectura de las etapas que modifican el libro.
 > Las primeras no bloquean otras escrituras ni se presentan como trabajo

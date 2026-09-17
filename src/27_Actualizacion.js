@@ -473,88 +473,147 @@ function Act_actualizarSistema(opciones) {
     estructura: null, fuentes: null, enriquecimiento: null,
     derivados: null, correcciones: null, vistas: null, formato: null,
     amarillo: null, verificacion: null,
-    resumen: {},
+    resumen: {}, detalleErrores: {},
     _errores: []
   };
+  function registrarFallo(fase, detalle) {
+    if (reporte._errores.indexOf(fase) === -1) reporte._errores.push(fase);
+    reporte.detalleErrores[fase] = detalle && detalle.message
+      ? detalle.message : String(detalle || 'Error no detallado');
+  }
 
   // 1) ESTRUCTURA (reparación idempotente; nunca destructiva a datos)
   if (ejecutar) try {
     reporte.estructura = Modelo_asegurarEsquemaPacientes();
-    Modelo_alinearVistasSectoriales();
+    if (reporte.estructura && reporte.estructura.ok === false)
+      registrarFallo('estructura', reporte.estructura.motivo);
+    reporte.alineacion = Modelo_alinearVistasSectoriales();
+    if (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length)
+      registrarFallo('estructura', reporte.alineacion.errores.join('; '));
   } catch (e) {
     reporte.estructura = { ok: false, motivo: e && e.message ? e.message : String(e) };
-    reporte._errores.push('estructura');
+    registrarFallo('estructura', e);
   }
 
   // 2) INVENTARIO de hojas adicionales: no elimina hojas del usuario.
   if (ejecutar && typeof Modelo_limpiarHojasResiduales === 'function') {
-    try { Modelo_limpiarHojasResiduales(Modelo_ss()); } catch (eL) { /* best effort */ }
+    try { reporte.inventario = Modelo_limpiarHojasResiduales(Modelo_ss()); }
+    catch (eL) { registrarFallo('inventario', eL); }
   }
 
   // 3) DATOS desde fuentes autorizadas
-  reporte.fuentes = Fuentes_cargaReal({ ejecutar: ejecutar, actualizar: true });
-  if (reporte.fuentes && reporte.fuentes.ok === false) reporte._errores.push('fuentes');
+  try { reporte.fuentes = Fuentes_cargaReal({ ejecutar: ejecutar, actualizar: true }); }
+  catch (eF) { reporte.fuentes = { ok: false, motivo: eF && eF.message || String(eF) }; }
+  if (reporte.fuentes && reporte.fuentes.ok === false)
+    registrarFallo('fuentes', reporte.fuentes.motivo);
 
   // 4) AMARILLO — importar desde Drive ANTES de vistas e INICIO (el orden importa)
   if (ejecutar && typeof Amarillo_importarTodo === 'function') {
-    try { reporte.amarillo = Amarillo_importarTodo(true); } catch (eA) { /* best effort */ }
+    try { reporte.amarillo = Amarillo_importarTodo(true); }
+    catch (eA) { reporte.amarillo = { ok: false, motivo: eA && eA.message || String(eA) }; }
+    if (reporte.amarillo && reporte.amarillo.ok === false)
+      registrarFallo('amarillo', reporte.amarillo.motivo);
   }
 
   // 5) DEMOGRAFÍA (fill-only, S5)
   if (typeof Act_enriquecerPacientes === 'function') {
-    reporte.enriquecimiento = Act_enriquecerPacientes({ dryRun: !ejecutar });
+    try { reporte.enriquecimiento = Act_enriquecerPacientes({ dryRun: !ejecutar }); }
+    catch (eEn) { reporte.enriquecimiento = { ok: false, motivo: eEn && eEn.message || String(eEn) }; }
+    if (reporte.enriquecimiento &&
+        (reporte.enriquecimiento.ok === false || reporte.enriquecimiento.errores > 0))
+      registrarFallo('enriquecimiento', reporte.enriquecimiento.motivo ||
+        (reporte.enriquecimiento.errores + ' pacientes con error'));
   }
 
   // 6) DERIVADOS
   var derivErrores = [];
   if (ejecutar) try { reporte.derivados = { estratificacion: Estrat_recalcularTodos() }; } catch (eE) { derivErrores.push('estratificación: ' + (eE && eE.message || eE)); }
   if (ejecutar) try { reporte.derivados = reporte.derivados || {}; reporte.derivados.controles = Control_recalcularTodos(); } catch (eC) { derivErrores.push('controles: ' + (eC && eC.message || eC)); }
-  if (derivErrores.length) reporte._errores.push('derivados');
+  if (reporte.derivados && reporte.derivados.estratificacion && reporte.derivados.estratificacion.ok === false)
+    derivErrores.push('estratificación: ' + (reporte.derivados.estratificacion.motivo || 'error'));
+  if (reporte.derivados && reporte.derivados.controles && reporte.derivados.controles.ok === false)
+    derivErrores.push('controles: ' + (reporte.derivados.controles.motivo || 'error'));
+  if (derivErrores.length) registrarFallo('derivados', derivErrores.join('; '));
 
   // Las fuentes pueden volver a adelantar la caché de una atención cuya fecha
   // fue corregida. EVENTOS auditado conserva la fecha efectiva de referencia.
   if (ejecutar) try { reporte.correcciones = Captura_reconciliarFechasCorregidas_(); } catch (eR) {
     reporte.correcciones = { ok: false, motivo: eR && eR.message ? eR.message : String(eR) };
-    reporte._errores.push('correcciones');
+    registrarFallo('correcciones', eR);
   }
+  if (reporte.correcciones && reporte.correcciones.ok === false)
+    registrarFallo('correcciones', reporte.correcciones.motivo);
 
   // 7) VISTAS (refresh después de Amarillo + datos)
   if (ejecutar) try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {
     reporte.vistas = { ok: false, motivo: eV && eV.message ? eV.message : String(eV) };
+    registrarFallo('vistas', eV);
   }
+  if (reporte.vistas && reporte.vistas.ok === false)
+    registrarFallo('vistas', reporte.vistas.motivo);
 
   // 8) SECCIONES VISuales (barras de sección en fila 2 de todas las hojas visuales)
   if (ejecutar && typeof HVis_aplicarTodasLasSecciones === 'function') {
-    try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); } catch (eSV) { /* best effort */ }
+    try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); }
+    catch (eSV) { reporte.seccionesVisuales = { ok: false, motivo: eSV && eSV.message || String(eSV) }; }
+    var seccionesFallidas = (reporte.seccionesVisuales && reporte.seccionesVisuales.resultados || [])
+      .filter(function (x) { return x.ok === false; });
+    if (reporte.seccionesVisuales && (reporte.seccionesVisuales.ok === false || seccionesFallidas.length))
+      registrarFallo('seccionesVisuales', reporte.seccionesVisuales.motivo ||
+        seccionesFallidas.map(function (x) { return x.hoja + ': ' + (x.motivo || 'error'); }).join('; '));
   }
 
   // 8b) FORMATO DE INGRESOS (formato específico para hojas INGRESO_* —不同于 secciones)
   if (ejecutar && typeof HVis_formatearIngresos === 'function') {
-    try { reporte.formato = HVis_formatearIngresos(); } catch (eF) { /* best effort */ }
+    try { reporte.formato = HVis_formatearIngresos(); }
+    catch (eF) { reporte.formato = { ok: false, motivo: eF && eF.message || String(eF) }; }
+    if (reporte.formato &&
+        (reporte.formato.ok === false || (reporte.formato._fallidas || []).length))
+      registrarFallo('formato', reporte.formato.motivo ||
+        (reporte.formato._fallidas || []).join('; '));
   }
 
   // 9) FORMATO CONDICIONAL (reglas de color por campo)
-  if (ejecutar) try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
+  if (ejecutar) {
+    try { reporte.formatoCondicional = Hojas_formatoCondicional(Modelo_ss()); }
+    catch (eC) { reporte.formatoCondicional = { ok: false, motivo: eC && eC.message || String(eC) }; }
+    if (reporte.formatoCondicional &&
+        (reporte.formatoCondicional.ok === false || (reporte.formatoCondicional.errores || []).length))
+      registrarFallo('formatoCondicional', reporte.formatoCondicional.motivo ||
+        (reporte.formatoCondicional.errores || []).join('; '));
+  }
 
   // 10) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
   //     reciban las mismas reglas que la instalación. Idempotente.
   if (ejecutar && typeof Modelo_validarIngresos === 'function') {
-    try { Modelo_validarIngresos(Modelo_ss()); } catch (eVx) { /* best effort */ }
+    try { reporte.validaciones = Modelo_validarIngresos(Modelo_ss()); }
+    catch (eVx) { reporte.validaciones = { ok: false, motivo: eVx && eVx.message || String(eVx) }; }
+    if (reporte.validaciones &&
+        (reporte.validaciones.ok === false || (reporte.validaciones.fallidas || []).length))
+      registrarFallo('validaciones', reporte.validaciones.motivo ||
+        (reporte.validaciones.fallidas || []).join('; '));
   }
 
   // 11) DISEÑO DEL LIBRO (colores pestaña, frozen, banding, encabezado, orden, ocultamiento)
   if (ejecutar && typeof Modelo_aplicarDiseno === 'function') {
-    try { Modelo_aplicarDiseno(); } catch (eD) { /* best effort */ }
+    try { reporte.diseno = Modelo_aplicarDiseno(); }
+    catch (eD) { reporte.diseno = { ok: false, motivo: eD && eD.message || String(eD) }; }
+    if (reporte.diseno && (reporte.diseno.ok === false || (reporte.diseno.fallidas || []).length))
+      registrarFallo('diseno', reporte.diseno.motivo || (reporte.diseno.fallidas || []).join('; '));
   }
 
   // 12) INICIO (hoja dashboard) — refrescar después de Amarillo + derivados
   if (ejecutar && typeof Modelo_disenoHojas === 'function') {
-    try { Modelo_disenoHojas(); } catch (eI) { /* best effort */ }
+    try { reporte.inicio = Modelo_disenoHojas(); }
+    catch (eI) { reporte.inicio = { ok: false, motivo: eI && eI.message || String(eI) }; }
+    if (reporte.inicio && reporte.inicio.ok === false)
+      registrarFallo('inicio', reporte.inicio.motivo);
   }
 
   // 12b) Colorear RUT en INGRESO_* (coherencia visual)
   if (ejecutar && typeof Hojas_colorearRutIngresos === 'function') {
-    try { Hojas_colorearRutIngresos(); } catch (eR) { /* best effort */ }
+    try { reporte.rutColoreados = Hojas_colorearRutIngresos(); }
+    catch (eR) { registrarFallo('rutColoreados', eR); }
   }
 
   // 13) REBUILD MENÚ (si hubo cambios en items, reflejarlos)
@@ -575,11 +634,11 @@ function Act_actualizarSistema(opciones) {
       });
       if (faltan.length) {
         reporte.verificacion = { ok: false, faltan: faltan };
-        reporte._errores.push('verificación');
+        registrarFallo('verificación', 'Faltan hojas: ' + faltan.join(', '));
       } else {
         reporte.verificacion = { ok: true, hojasCriticas: criticas.length };
       }
-    } catch (eVf) { reporte.verificacion = { ok: false, motivo: eVf && eVf.message || String(eVf) }; reporte._errores.push('verificación'); }
+    } catch (eVf) { reporte.verificacion = { ok: false, motivo: eVf && eVf.message || String(eVf) }; registrarFallo('verificación', eVf); }
   }
 
   // Consolidar ok global
@@ -606,11 +665,13 @@ function Act_actualizarSistema(opciones) {
     estratificaciones: (deriv.estratificacion && deriv.estratificacion.recalculados) || 0,
     controlesRecalculados: (deriv.controles && deriv.controles.cambios) || 0,
     errores: reporte._errores,
+    detalleErrores: reporte.detalleErrores,
     ms: Date.now() - t0
   };
 
   if (ejecutar) {
-    Log_info('Actualizacion', 'actualizarSistema', JSON.stringify(reporte.resumen),
+    var registrar = reporte.ok ? Log_info : Log_error;
+    registrar('Actualizacion', 'actualizarSistema', JSON.stringify(reporte.resumen),
       { ejecucion: reporte.ejecucion, dryRun: false });
     Log_flush();
   }
