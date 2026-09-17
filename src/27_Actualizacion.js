@@ -305,17 +305,18 @@ function Act_diagnosticarEnriquecimiento() {
 //      la fecha MÁS RECIENTE válida;
 //   3. campos demográficos (SEXO/FECHA_NACIMIENTO): fill-only; si la fuente
 //      diverge de un valor vigente → REQUIERE_REVISION, sin sobrescribir;
-//   4. campos de contexto (PROXIMO_CONTROL, PROFESIONAL_SEGUIMIENTO, PREINGRESO,
+//   4. campos de contexto (PROFESIONAL_SEGUIMIENTO, PREINGRESO,
 //      DUPLA_INGRESO, TELEFONOS, OBSERVACIONES): fill-only;
 //   5. IDENTIDAD, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION y campos técnicos
 //      jamás se escriben desde una fuente (derivados/revisión humana);
 //   6. trazabilidad: append a FUENTE + FECHA_ACTUALIZACION.
+//   7. PROXIMO_CONTROL es manual: una fuente no rellena una agenda borrada.
 // ---------------------------------------------------------------------------
 
 var CAMPOS_MERGE_FUENTE = [
   'SEXO', 'FECHA_NACIMIENTO',
   'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO',
-  'PROXIMO_CONTROL', 'PROFESIONAL_SEGUIMIENTO',
+  'PROFESIONAL_SEGUIMIENTO',
   'PREINGRESO', 'DUPLA_INGRESO', 'TELEFONOS', 'OBSERVACIONES'
 ];
 

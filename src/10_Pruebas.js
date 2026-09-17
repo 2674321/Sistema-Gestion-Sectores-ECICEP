@@ -2206,8 +2206,7 @@ function _pruebas_amarillo(t, A) {
     A.cierto(aa === pacientes[0], 'el mismo objeto (mutación en sitio, sin filter por fila)');
     A.igual(aa.ULTIMO_CONTROL, '2026-04-19', 'último control sincronizado');
     A.igual(aa.PREINGRESO, '2024-01-24', 'PREINGRESO seteado');
-    var esperado = Control_calcularProximo('2026-04-19', 'G1', freq);
-    A.igual(aa.PROXIMO_CONTROL, esperado, 'PRÓXIMO derivado de la regla (NO la fuente 2026-08-01)');
+    A.igual(aa.PROXIMO_CONTROL, '', 'La importación histórica no agenda una fecha automáticamente');
   });
 
   t('AMARILLO: calcularHistorico — escala 100/1.000/3.000 (G1/G2/G3 + duplicados), idempotente', function () {
@@ -2609,21 +2608,21 @@ function _pruebas_control_v085(t, A) {
     A.igual(Control_colorEstado('VIGENTE'), 'verde');
     A.igual(Control_colorEstado('SIN_FECHA'), 'gris');
     A.cierto(Control_recordatorio('VENCIDO').indexOf('VENCIDO') !== -1, 'recordatorio vencido');
-    A.cierto(Control_recordatorio('SIN_FECHA').indexOf('Sin control') !== -1, 'sin control');
+    A.cierto(Control_recordatorio('SIN_FECHA').indexOf('Sin próxima atención') !== -1, 'sin control');
   });
 
   t('CONTROL v0.8.5: filasPanel por persona con estado/edad', function () {
     var hoy = '2026-08-27';
     var pac = [
       { ID_INTERNO: 'P1', NOMBRE: 'Ana', RUT: '1-4', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1',
-        ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '2026-07-01', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1990-05-15' },
+        ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '2026-07-01', PROXIMO_CONTROL: '2026-08-30', FECHA_NACIMIENTO: '1990-05-15' },
       { ID_INTERNO: 'P2', NOMBRE: 'Luis', RUT: '2-5', SECTOR: 'VERDE', ESTRATIFICACION: 'G3',
         ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '2000-01-01' }
     ];
     var d = Control_filasPanel(pac, Control_frecuenciaDefault(), hoy);
     A.igual(d.filas.length, 2, 'dos filas');
     var ana = d.filas.filter(function (f) { return f.idInterno === 'P1'; })[0];
-    A.igual(ana.proximo, Control_calcularProximo('2026-06-01', 'G1', Control_frecuenciaDefault()), 'próximo G1');
+    A.igual(ana.proximo, '2026-08-30', 'próxima fecha manual');
     A.igual(ana.estado, 'POR_VENCER', 'estado Ana (90 días desde 1-jun ≈ fin agosto)');
     A.igual(ana.color, 'ambar', 'color Ana');
     A.igual(ana.edad, '36', 'edad Ana en 2026');
@@ -2644,12 +2643,12 @@ function _pruebas_control_v085(t, A) {
     A.igual(r.porSector['AMARILLO'].total, 2, 'sector amarillo');
   });
 
-  t('CONTROL v0.8.5: sincronizarCache recalcula PRÓXIMO en CONTROL', function () {
-    var pac = { ID_INTERNO: 'P1', ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '' };
+  t('CONTROL v0.8.5: sincronizarCache conserva la agenda manual en CONTROL', function () {
+    var pac = { ID_INTERNO: 'P1', ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '2026-12-05' };
     var ev = { FECHA_EVENTO: '2026-01-01', TIPO_EVENTO: 'CONTROL' };
     Ingresos_sincronizarCache(pac, ev, Control_frecuenciaDefault());
     A.igual(pac.ULTIMO_CONTROL, '2026-01-01');
-    A.igual(pac.PROXIMO_CONTROL, '2026-06-30', 'G2 180 días → jun 30');
+    A.igual(pac.PROXIMO_CONTROL, '2026-12-05', 'la fecha manual se conserva');
   });
 
   t('CONTROL v0.8.5: idempotencia de filasPanel (pura, sin efectos)', function () {
@@ -2673,11 +2672,11 @@ function _pruebas_control_v085(t, A) {
 function _pruebas_controles_v087(t, A) {
   var PAC = [
     { ID_INTERNO: 'I001', NOMBRE: 'María Pérez', RUT: '8031158-3', SECTOR: 'AMARILLO',
-      ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1990-05-15' },
+      ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '2026-08-30', FECHA_NACIMIENTO: '1990-05-15' },
     { ID_INTERNO: 'I002', NOMBRE: 'Luis Soto', RUT: '12.345.678-9', SECTOR: 'VERDE',
-      ESTRATIFICACION: 'G3', ULTIMO_CONTROL: '2026-01-01', ULTIMO_SEGUIMIENTO: '2026-07-01', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '2000-01-01' },
+      ESTRATIFICACION: 'G3', ULTIMO_CONTROL: '2026-01-01', ULTIMO_SEGUIMIENTO: '2026-07-01', PROXIMO_CONTROL: '2027-01-01', FECHA_NACIMIENTO: '2000-01-01' },
     { ID_INTERNO: 'I003', NOMBRE: 'Ana Silva', RUT: '9.876.543-2', SECTOR: 'NARANJO',
-      ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '2026-08-10', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1985-03-03' },
+      ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '2026-08-10', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '2027-02-06', FECHA_NACIMIENTO: '1985-03-03' },
     { ID_INTERNO: 'I004', NOMBRE: 'Pedro Gónzalez', RUT: '5.555.555-5', SECTOR: 'AMARILLO',
       ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1978-11-11' }
   ];
@@ -2829,7 +2828,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.10', 'versión esperada v0.9.10');
+    A.igual(v, '0.9.11', 'versión esperada v0.9.10');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2987,16 +2986,13 @@ function _pruebas_auditoria_v088(t, A) {
     A.igual(r.metricas.G3, 1, 'G3=1');
     A.igual(r.metricas.GPend, 2, 'GPend=2');
     A.igual(r.metricas.sinUltimoControl, 1, 'I004 sin último control');
-    A.igual(r.metricas.vencidos, 1, 'I005 vencido');
+    A.igual(r.metricas.vencidos, 2, 'I005 e I007 con fecha manual vencida');
     A.igual(r.metricas.proximos, 0, 'nadie próximo (≤7d)');
-    A.igual(r.metricas.vigentes, 4, 'I001, I002, I003, I006 vigentes');
-    A.igual(r.metricas.desalineados, 1, 'I008 desalineado (almacenado 09-15 ≠ derivado 08-18)');
-    A.igual(r.metricas.sinFecha, 2, 'I004 sin último + I007 sin estrat');
+    A.igual(r.metricas.vigentes, 5, 'incluye I008 con fecha manual vigente');
+    A.igual(r.metricas.desalineados, 0, 'la fecha manual no se compara con frecuencias');
+    A.igual(r.metricas.sinFecha, 1, 'solo I004 sin agenda');
     A.igual(r.metricas.fechaInvalida, 1, 'I006 fecha inválida');
-    A.igual(r.desalineados.length, 1, 'un desalineado en lista');
-    A.igual(r.desalineados[0].id, '•••I008', 'anonimización ID');
-    A.igual(r.desalineados[0].almacenado, '2026-09-15', 'valor almacenado');
-    A.igual(r.desalineados[0].derivado, '2026-08-18', 'valor derivado (G1 90d desde 05-20)');
+    A.igual(r.desalineados.length, 0, 'ninguna fecha manual se considera desalineada');
   });
 
   t('AUDITORÍA v0.8.8: anonimización RUT/NOMBRE/ID', function () {
@@ -3072,7 +3068,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.10', 'versión esperada v0.9.10');
+    A.igual(v, '0.9.11', 'versión esperada v0.9.10');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -4742,8 +4738,9 @@ function _pruebas_separacion_s12(t, A) {
     var c = Control_recalcularTodos.toString();
     A.cierto(e.indexOf('setValues') !== -1 && e.indexOf('appendRow') === -1,
       'Estrat reescribe en sitio (setValues), sin añadir filas');
-    A.cierto(c.indexOf('setValues') !== -1 && c.indexOf('appendRow') === -1,
-      'Control reescribe en sitio (setValues), sin añadir filas');
+    A.cierto(c.indexOf('setValues') === -1 && c.indexOf('appendRow') === -1,
+      'Control no escribe fechas: agenda exclusivamente manual');
+    A.igual(Control_recalcularTodos().modo, 'AGENDA_MANUAL');
     ['Fuentes_', 'Amarillo_', 'Act_enriquecer'].forEach(function (f) {
       A.cierto(e.indexOf(f) === -1 && c.indexOf(f) === -1, 'derivados no enganchan ' + f);
     });
@@ -4852,8 +4849,8 @@ function _pruebas_actualizacion_v096(t, A) {
     A.igual(res.sinCambios, 0, 'ninguna sin cambios');
     A.igual(res.conflictos, 0, 'sin conflictos');
     A.igual(res.actualizados, 1, '1 paciente actualizado');
-    A.igual(res.campos, 6, '6 campos aplicados (PROXIMO, PROFESIONAL, PREINGRESO, DUPLA, TELEFONOS, OBSERVACIONES)');
-    A.igual(p1.PROXIMO_CONTROL, '2026-07-01', 'próximo control completado');
+    A.igual(res.campos, 5, '5 campos aplicados; agenda manual excluida');
+    A.igual(p1.PROXIMO_CONTROL, '', 'agenda borrada no se repone desde fuente');
     A.igual(p1.PROFESIONAL_SEGUIMIENTO, 'DRA. ROJAS', 'profesional completado');
     A.igual(p1.PREINGRESO, '2026-02-01', 'preingreso completado');
     A.igual(p1.DUPLA_INGRESO, 'MEDICO+ENF', 'dupla completada');
@@ -4873,7 +4870,7 @@ function _pruebas_actualizacion_v096(t, A) {
     var fila1 = fila(n({ PROXIMO_CONTROL: '2026-07-01', SEXO: 'M' }));
     var r1 = Act_mergearPacientesDesdeStaging([fila1], [p1, p2]);
     A.igual(r1.actualizados, 1, '1ª corrida: actualiza');
-    A.igual(r1.campos, 2, '2 campos (PROXIMO + SEXO)');
+    A.igual(r1.campos, 1, 'solo SEXO: agenda manual protegida');
     var r2 = Act_mergearPacientesDesdeStaging([fila1], [p1, p2]);
     A.igual(r2.actualizados, 0, '2ª corrida: sin cambios');
     A.igual(r2.sinCambios, 1, 'cuenta como SIN CAMBIOS');
@@ -4885,13 +4882,13 @@ function _pruebas_actualizacion_v096(t, A) {
     var p = pac({ SEXO: 'M' }); // SEXO divergente vs fuente F → conflicto (puro, sin campos aplicados)
     var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
     var fila1 = fila(n({ SEXO: 'F' })); // match con p: SEXO conflictivo
-    var fila2 = fila(n({ RUT: '98765432-1', PROXIMO_CONTROL: '2026-07-01' }), {
+    var fila2 = fila(n({ RUT: '98765432-1', PREINGRESO: '2026-07-01' }), {
       ARCHIVO_ORIGEN: 'FUENTE B', HOJA_ORIGEN: 'HOJA 2', FILA_ORIGEN: '20' }); // match con p2
     var res = Act_mergearPacientesDesdeStaging([fila1, fila2], [p, p2]);
     A.igual(res.revisados, 2, '2 filas revisadas');
     A.igual(res.conflictos, 1, 'conflicto en SEXO de p');
     A.igual(res.actualizados, 1, 'p2 actualizado');
-    A.igual(res.campos, 1, '1 campo aplicado (PROXIMO_CONTROL en p2)');
+    A.igual(res.campos, 1, '1 campo aplicado (PREINGRESO en p2)');
     A.igual(p.REQUIERE_REVISION, true, 'divergencia → REQUIERE_REVISION');
     A.cierto(String(p.FUENTE).indexOf('FUENTE A|HOJA 1|10') !== -1, 'FUENTE anexa el origen del conflicto');
     A.igual(String(p.FUENTE).split(';').filter(function (s) { return s === 'FUENTE A|HOJA 1|10'; }).length, 1,
@@ -4904,7 +4901,7 @@ function _pruebas_actualizacion_v096(t, A) {
     var campos = Act_camposMerge();
     A.arreglos(campos, CAMPOS_MERGE_FUENTE, 'campos exactos');
     ['NOMBRE', 'RUT', 'SECTOR', 'ESTADO', 'ESTRATIFICACION', 'FECHA_INGRESO', 'ID_INTERNO',
-     'EDAD', 'TIPO_EVENTO'].forEach(function (c) {
+     'EDAD', 'TIPO_EVENTO', 'PROXIMO_CONTROL'].forEach(function (c) {
       A.cierto(campos.indexOf(c) === -1, c + ' nunca se mergea desde la fuente');
     });
   });
@@ -6161,7 +6158,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.10', 'VERSION es 0.9.10');
+    A.cierto(ECICEP.VERSION === '0.9.11', 'VERSION es 0.9.10');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

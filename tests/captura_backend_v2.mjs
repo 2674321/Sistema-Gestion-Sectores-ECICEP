@@ -656,8 +656,8 @@ t('C2b la marca NO la provee el cliente (solo backend) — payload no trae marca
   nohay(p, 'MARCA');
 });
 
-t('C3 §26: CAPTURE_CONTRACT_VERSION === 2 declarado en 00_Config.js', () => {
-  igual(sandbox.CAPTURE_CONTRACT_VERSION, 2);
+t('C3 §26: CAPTURE_CONTRACT_VERSION === 3 declarado en 00_Config.js', () => {
+  igual(sandbox.CAPTURE_CONTRACT_VERSION, 3);
 });
 
 t('C4 §25/Anexo B.4: sin colisión de identificadores entre legacy y V2', () => {
@@ -665,7 +665,7 @@ t('C4 §25/Anexo B.4: sin colisión de identificadores entre legacy y V2', () =>
   function FORM_CONFIG_LEGACY_CHECK() { return sandbox.FORM_CONFIG.ACCIONES.VALIDOS; }
   A(sandbox.FORM_CONFIG.ACCIONES.VALIDOS.indexOf('nuevoIngreso') === -1, 'legacy no acepta camelCase');
   A(sandbox.CAPTURA_V2.OPERACIONES.indexOf('NUEVO_INGRESO') === -1, 'V2 no acepta etiquetas legacy');
-  igual(sandbox.CAPTURA_V2.CAMPOS.length, 15, '§6 define 15 campos (fechaIngreso incluido)');
+  igual(sandbox.CAPTURA_V2.CAMPOS.length, 16, 'V3 añade proximoControl; V2 conserva sus 15 campos');
   cont(sandbox.CAPTURA_V2.CAMPOS, 'captureId');
   cont(sandbox.CAPTURA_V2.CAMPOS, 'fechaIngreso');
   cont(sandbox.CAPTURA_V2.CAMPOS, 'confirmarNuevoPaciente');

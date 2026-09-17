@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.10` · pruebas núcleo **651/651** · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.11` · pruebas núcleo **651/651** · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -53,14 +53,13 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   teléfonos, fechas, nombres sin tildes y estados canónicos.
 
 **Modelo clínico por persona**
-- **Estratificación de riesgo** `G1/G2/G3` con **frecuencia de control
-  configurable** por nivel (días/meses).
-- Cálculo centralizado de `PRÓXIMO CONTROL`, **estado** (VENCIDO / POR VENCER /
-  VIGENTE / SIN FECHA) y **recordatorio** — una única fuente de verdad.
+- **Estratificación de riesgo** `G1/G2/G3` desde patologías.
+- Agenda manual de próxima atención. **Estado** (VENCIDO / POR VENCER /
+  VIGENTE / SIN FECHA) y **recordatorio** derivados de la fecha guardada.
 
 **Seguimiento y controles**
-- Registro de controles y seguimientos, fecha de próximo control recalculada al
-  instante, panel *Controles por persona* con búsqueda y paginación.
+- Registro de controles y seguimientos, fecha de próximo control manual, editable desde Captura y ficha.
+  Panel *Controles por persona* con búsqueda y paginación.
 
 **Reportes**
 - **REM mensual** derivado de EVENTOS: resumen por censo + detalle por atención,

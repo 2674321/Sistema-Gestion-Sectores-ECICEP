@@ -88,7 +88,7 @@ td.est{white-space:nowrap}
       <button type="button" class="chip-btn act" data-est="PEND" onclick="setEstados('PEND',this)">Pendientes</button>
       <button type="button" class="chip-btn" data-est="VENCIDO" onclick="setEstados('VENCIDO',this)">Vencidos</button>
       <button type="button" class="chip-btn" data-est="POR_VENCER" onclick="setEstados('POR_VENCER',this)">Próximos</button>
-      <button type="button" class="chip-btn" data-est="SIN_FECHA" onclick="setEstados('SIN_FECHA',this)">Sin control</button>
+      <button type="button" class="chip-btn" data-est="SIN_FECHA" onclick="setEstados('SIN_FECHA',this)">Sin agenda</button>
       <button type="button" class="chip-btn" data-est="VIGENTE" onclick="setEstados('VIGENTE',this)">Vigentes</button>
       <button type="button" class="chip-btn" data-est="TODOS" onclick="setEstados('TODOS',this)">Todos</button>
     </div>
@@ -127,7 +127,7 @@ var _registrando = false;
 
 function _estadoChip(est) {
   var color = { VENCIDO: 'var(--danger)', POR_VENCER: 'var(--warning)', VIGENTE: 'var(--success)', SIN_FECHA: 'var(--text-muted)' }[est] || 'var(--text-muted)';
-  var etq = { VENCIDO: 'Vencido', POR_VENCER: 'Próximo', VIGENTE: 'Vigente', SIN_FECHA: 'Sin control' }[est] || est;
+  var etq = { VENCIDO: 'Vencido', POR_VENCER: 'Próximo', VIGENTE: 'Vigente', SIN_FECHA: 'Sin agenda' }[est] || est;
   return '<span class="chip" style="color:' + color + ';border:1px solid ' + color + '">' + etq + '</span>';
 }
 
@@ -268,10 +268,10 @@ function pistaConsulta() {
       'Mostrando todas las personas del universo disponible.';
   } else if (CTRL.estados.length === 3) {
     document.getElementById('pista').textContent =
-      'Lista automática de personas con controles vencidos, próximos o sin control.';
+      'Lista automática de personas con controles vencidos, próximos o sin próxima atención agendada.';
   } else if (CTRL.estados.length === 1) {
     var etq = { VENCIDO: 'controles vencidos', POR_VENCER: 'controles próximos a vencer',
-                SIN_FECHA: 'personas sin control registrado', VIGENTE: 'controles vigentes' }[CTRL.estados[0]] || '';
+                SIN_FECHA: 'personas sin próxima atención agendada', VIGENTE: 'controles vigentes' }[CTRL.estados[0]] || '';
     document.getElementById('pista').textContent = 'Filtrando por ' + etq + '.';
   }
 }

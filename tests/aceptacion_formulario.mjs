@@ -302,18 +302,19 @@ registrar('ingreso: fecha/sexo/sector — nacimiento inválida y sector desconoc
   return { ok: bNac && bSec && sexoV, causa: 'validaciones de fecha/sector/sexo incoherentes' };
 });
 
-registrar('control: REGISTRAR_CONTROL deriva ULTIMO_CONTROL → PROXIMO_CONTROL → ESTADO → COLOR', () => {
+registrar('control: REGISTRAR_CONTROL actualiza último control y conserva agenda manual', () => {
   const store = { pacientes: [], eventos: [] };
   const rut = rutOk(13569753);
   ingresarPorForm({ responseId: 'ACE-N-004', crudo: nuevoIngreso(rut, { ESTRATIFICACION: 'G2' }) }, store);
   const pac = store.pacientes[0];
+  pac.PROXIMO_CONTROL = '2026-12-05';
   const lote = procesarLote([{ responseId: 'ACE-C-001', crudo: control(rut) }], store);
   const dec = lote.decisiones[0];
   // efecto clínico real que el entorno GAS aplica al registrar el evento:
   const freq = T.Control_frecuenciaDefault();
   const ev = { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-07-10' };
   T.Ingresos_sincronizarCache(pac, ev, freq);
-  const esperado = T.Control_calcularProximo('2026-07-10', 'G2', freq);
+  const esperado = '2026-12-05';
   const estado = T.Control_estadoVigencia(pac.PROXIMO_CONTROL, HOY, 7);
   const color = T.Control_colorEstado(estado);
   const ok = dec.decision === 'CLINICA'

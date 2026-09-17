@@ -1,5 +1,11 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-16 (v0.9.11):** próxima atención exclusivamente manual en
+> `PROXIMO_CONTROL`, editable desde Captura (V3, compatible con V2) y ficha.
+> Registrar atenciones, actualizar o importar no recalcula la agenda. Captura
+> reúne botón de apertura, QR y copia de URL. Estratificación se gestiona en Patologías.
+> Esta regla sustituye cualquier descripción histórica de agenda automática.
+
 Este documento contiene únicamente asuntos que siguen siendo accionables. Los trabajos históricos ya resueltos se mantienen fuera de la cola activa para evitar que un agente los reabra por error.
 
 ## 1. Decisiones funcionales abiertas

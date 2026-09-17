@@ -210,13 +210,8 @@ function Amarillo_calcularHistorico(pacientes, eventos, filas, freqConfig) {
     nuevosEv = nuevosEv.concat(evs);
     if (hist.preingreso && Utl_vacio(Utl_texto(pac.PREINGRESO))) { pac.PREINGRESO = hist.preingreso; }
     evs.forEach(function (e) { Ingresos_sincronizarCache(pac, e, freqConfig); });
-    /* FIX v0.8.5 (regla clínica vigente): NO se copia el PRÓXIMO CONTROL de la
-       fuente (vacío, desalineado o sin respetar la frecuencia). Se DERIVA de
-       ÚLTIMO_CONTROL + estratificación + frecuencia de CONFIG. */
-    var proxDerivado = pac.ULTIMO_CONTROL
-      ? Control_calcularProximo(pac.ULTIMO_CONTROL, pac.ESTRATIFICACION, freqConfig) : '';
-    if (proxDerivado) pac.PROXIMO_CONTROL = proxDerivado;
-    if (evs.length || hist.preingreso || proxDerivado) {
+    // El histórico no recalcula ni reemplaza una fecha agendada manualmente.
+    if (evs.length || hist.preingreso) {
       actualizadosMap[Utl_texto(pac.ID_INTERNO)] = { idx: ent.idx, obj: pac };
     }
   });

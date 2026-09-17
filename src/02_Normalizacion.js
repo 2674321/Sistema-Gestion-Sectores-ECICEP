@@ -710,7 +710,7 @@ function Control_colorEstado(estado) {
 
 /** PURA: recordatorio legible a partir del estado y fechas. */
 function Control_recordatorio(estado, proximoIso, hoyIso) {
-  if (estado === 'SIN_FECHA') return 'Sin control registrado';
+  if (estado === 'SIN_FECHA') return 'Sin próxima atención agendada';
   if (estado === 'VENCIDO') return 'Control VENCIDO — agenda su control';
   var d = 0;
   if (proximoIso && hoyIso) {
@@ -744,24 +744,15 @@ function Control_analizar(pacientes, freqConfig, hoyIso, avisoDias) {
     porSector[sec] = porSector[sec] || { total: 0, G1: 0, G2: 0, G3: 0, GPend: 0 };
     porSector[sec].total++; porSector[sec][nivel]++;
     var uc = p.ULTIMO_CONTROL;
-    var estado, prox;
-    if (Utl_vacio(uc)) {
-      m.sinUltimoControl++;
-      estado = 'SIN_FECHA';
-      inconsistencias.push(p.ID_INTERNO + ': sin último control');
-    } else {
-      m.conControles++;
-      prox = Control_calcularProximo(uc, g, freqConfig);
-      if (!prox) { m.configFaltante++; }
-      estado = prox ? Control_estadoVigencia(prox, hoyIso, aviso) : 'SIN_FECHA';
-      if (prox) {
-        m.conProximo++;
-        if (estado === 'VENCIDO') m.vencidos++;
-        else if (estado === 'POR_VENCER') m.proximos++;
-        else m.vigentes++;
-      }
-    }
-    if (estado === 'SIN_FECHA') m.sinFecha++;
+    if (Utl_vacio(uc)) m.sinUltimoControl++;
+    else m.conControles++;
+    var prox = Control_aIso(p.PROXIMO_CONTROL);
+    var estado = Control_estadoVigencia(prox, hoyIso, aviso);
+    if (prox) m.conProximo++;
+    if (estado === 'SIN_FECHA') { m.sinFecha++; inconsistencias.push(p.ID_INTERNO + ': sin próxima atención agendada'); }
+    else if (estado === 'VENCIDO') m.vencidos++;
+    else if (estado === 'POR_VENCER') m.proximos++;
+    else m.vigentes++;
     var nac = Utl_edadDesde(Utl_texto(p.FECHA_NACIMIENTO), hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined);
     if (Utl_vacio(p.FECHA_NACIMIENTO)) m.sinNacimiento++;
     else if (nac === '' && !Utl_vacio(p.FECHA_NACIMIENTO)) m.fechaInvalida++;
@@ -785,9 +776,8 @@ function Control_filasPanel(pacientes, freqConfig, hoyIso, avisoDias) {
   var filas = (pacientes || []).map(function (p) {
     var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
     var uc = Utl_texto(p.ULTIMO_CONTROL);
-    var prox = Control_calcularProximo(p.ULTIMO_CONTROL, g, freqConfig);
-    var estado = prox ? Control_estadoVigencia(prox, hoyIso, aviso) : (uc ? 'SIN_FECHA' : 'SIN_FECHA');
-    if (!uc && prox) estado = 'SIN_FECHA';
+    var prox = Control_aIso(p.PROXIMO_CONTROL);
+    var estado = Control_estadoVigencia(prox, hoyIso, aviso);
     return {
       idInterno: Utl_texto(p.ID_INTERNO),
       nombre: Utl_texto(p.NOMBRE),
@@ -927,35 +917,8 @@ function Control_coincideTermino(p, termino) {
   return clave.indexOf(q) !== -1;
 }
 
-/** Escribe PRÓXIMO_CONTROL derivado (idempotente: solo si cambia y deja de
- *  quedar vacío). Recalculo por persona según su estratificación + CONFIG. */
+/** Compatibilidad de mantenimiento: las próximas fechas son manuales.
+ * No leer ni escribir hojas para derivar una fecha a partir de la estratificación. */
 function Control_recalcularTodos() {
-  var t0 = new Date();
-  var ss = Modelo_ss();
-  var hoja = ss.getSheetByName(HOJAS.PACIENTES);
-  if (!hoja || hoja.getLastRow() < 2) return { ok: true, total: 0, cambios: 0, tiempo: 0 };
-  var pacientes = Modelo_leerPacientes();
-  var freq = Control_leerFrecuencia();
-  var colProxCtrl = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('PROXIMO_CONTROL') + 1;
-  var cambios = 0;
-  var pendientes = []; // {fila, valor}
-  pacientes.forEach(function (p, i) {
-    var n = Control_calcularProximo(p.ULTIMO_CONTROL, p.ESTRATIFICACION, freq);
-    if (n && n !== Utl_texto(p.PROXIMO_CONTROL)) {
-      pendientes.push({ fila: 2 + i, valor: n });
-    }
-  });
-  if (pendientes.length) {
-    var fMin = Math.min.apply(null, pendientes.map(function (x) { return x.fila; }));
-    var fMax = Math.max.apply(null, pendientes.map(function (x) { return x.fila; }));
-    var rango = hoja.getRange(fMin, colProxCtrl, fMax - fMin + 1, 1);
-    var v = rango.getValues();
-    pendientes.forEach(function (x) { v[x.fila - fMin][0] = x.valor; cambios++; });
-    rango.setValues(v);
-  }
-  var ms = new Date() - t0;
-  Log_info('Control', 'recalcularTodos', 'total=' + pacientes.length +
-    ' cambios=' + cambios + ' frecuencia=' + JSON.stringify(freq), null, ms);
-  Log_flush();
-  return { ok: true, total: pacientes.length, cambios: cambios, frecuencia: freq, tiempo: ms };
+  return { ok: true, total: 0, cambios: 0, tiempo: 0, modo: 'AGENDA_MANUAL' };
 }

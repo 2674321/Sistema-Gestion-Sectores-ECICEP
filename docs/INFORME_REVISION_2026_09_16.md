@@ -42,7 +42,14 @@ No se ejecutó INSTALAR, ACTUALIZAR, limpieza, migración ni importación sobre 
 
 ## Publicación y Git
 
-Pendiente de registrar el resultado final de publicación, comprobación web y push.
+Publicado en el deployment operativo existente como **@192** (v0.9.10), código
+`745e29d` en la rama publicable `codex/revision-postentrega-20260916` y PR #5.
+CI verde. El formulario abrió y cargó catálogo; no se registraron pacientes de prueba.
+La revisión posterior de agenda manual continúa en `INFORME_AGENDA_MANUAL_2026_09_16.md`.
+
+El historial local contiene un paquete .deb de 399 MB en un commit anterior del usuario.
+La rama publicable incorpora sus cambios de código excluyendo únicamente ese binario,
+sin borrar el archivo ni reescribir el historial local.
 
 ## Límites y decisiones pendientes
 

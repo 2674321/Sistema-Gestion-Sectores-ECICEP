@@ -40,25 +40,20 @@ function ECICEP_webAppUrl() {
   return ScriptApp.getService().getUrl();
 }
 
-/** 📋 Abrir formulario de captura en nueva pestaña. */
+/** Captura: acceso explícito por clic, QR y copia de la misma URL operativa.
+ * Abrir automáticamente una pestaña desde la RPC pierde el gesto del usuario
+ * y es bloqueado por navegadores de otras cuentas. */
 function UI_abrirFormularioCaptura() {
-  var url = ECICEP_webAppUrl();
-  var html = '<html><body><script>'
-    + 'var a=document.createElement("a");a.href="' + url + '";a.target="_blank";'
-    + 'document.body.appendChild(a);a.click();google.script.host.close();'
-    + '</script></body></html>';
-  _UI_get().showModalDialog(
-    HtmlService.createHtmlOutput(html).setWidth(10).setHeight(10),
-    'Abriendo formulario...');
+  return UI_mostrarQR();
 }
 
-/** 📱 Mostrar QR del formulario de captura en sidebar. */
+/** Alias conservado para accesos anteriores; una única pantalla de Captura. */
 function UI_mostrarQR() {
   var url = ECICEP_webAppUrl();
   var t = HtmlService.createTemplateFromFile('QRFormulario');
   t.QR_URL = url;
   t.WEB_APP_URL = url;
-  _UI_get().showSidebar(t.evaluate().setTitle('📱 QR — Formulario ECICEP'));
+  _UI_get().showModalDialog(t.evaluate().setWidth(440).setHeight(640), 'Captura');
 }
 
 /** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
@@ -146,7 +141,7 @@ function UI_actualizarSistema() {
     '  · campos vacíos de pacientes existentes (solo desde dato válido);\n' +
     '  · estructura del modelo (repara columnas faltantes, no destruye);\n' +
     '  · demografía (sexo y fecha de nacimiento);\n' +
-    '  · derivados (estratificación y próximos controles);\n' +
+    '  · estratificación y vistas (conserva las fechas agendadas);\n' +
     '  · vistas sectoriales y formato.\n\n' +
     'No sobrescribe un dato vigente y no infiere datos.\n' +
     '¿Desea ejecutar la actualización?';
@@ -780,7 +775,7 @@ function _ui_isoFecha(v, tz) {
  *  escribir CONFIG en la misma sesión. Fallback idéntico a la versión doble
  *  (frecuencia por defecto y aviso=7 cuando CONFIG no existe o no define). */
 var _CONTROL_CAMPOS_PACIENTES = ['ID_INTERNO', 'NOMBRE', 'RUT', 'SECTOR',
-  'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO'];
+  'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO', 'PROXIMO_CONTROL'];
 function _UI_controlConfig() {
   var aviso = 7, bloque = [];
   try {
@@ -833,7 +828,7 @@ function api_controlPanel(opts) {
 }
 
 /** Endpoint: actualiza ÚLTIMO CONTROL / ÚLTIMO SEGUIMIENTO de una persona y
- *  recalcula PRÓXIMO_CONTROL si corresponde (frecuencia de CONFIG).
+ *  conserva PRÓXIMO_CONTROL: la agenda se edita manualmente.
  *  Además, crea el EVENTO correspondiente (fuente de verdad única). */
 function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
   try {
@@ -844,7 +839,6 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     var encontrado = Modelo_buscarPaciente(idInterno);
     if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
     var objetivo = encontrado.obj, idx = encontrado.idx;
-    var freq = _UI_controlConfig().freq;
     var evento = {
       ID_EVENTO: Ev_nuevoId(),
       ID_INTERNO: objetivo.ID_INTERNO,
@@ -866,8 +860,6 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'panel-control' });
     if (tipoUp === 'CONTROL') {
       objetivo.ULTIMO_CONTROL = nf.iso;
-      var prox = Control_calcularProximo(nf.iso, objetivo.ESTRATIFICACION, freq);
-      if (prox) objetivo.PROXIMO_CONTROL = prox;
     } else {
       objetivo.ULTIMO_SEGUIMIENTO = nf.iso;
     }
@@ -919,13 +911,12 @@ function api_actualizarPaciente(idInterno, campos, token) {
 
     var encontrado = Modelo_buscarPaciente(idInterno);
     if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-    var paciente = encontrado.obj;
+    var paciente = Object.assign({}, encontrado.obj);
     var idx = encontrado.idx;
 
-    // Validar y aplicar solo campos editables
+    // Validar sobre copia: un error no altera el objeto memoizado.
     var cambios = 0;
     var errores = [];
-    var freq = null;
 
     _CAMPOS_EDITABLES_PACIENTE.forEach(function (campo) {
       if (!(campo in campos)) return;
@@ -1026,8 +1017,12 @@ function api_actualizarPaciente(idInterno, campos, token) {
           break;
 
         case 'PROXIMO_CONTROL':
-          var pc = Norm_normalizarFecha(v);
-          paciente.PROXIMO_CONTROL = pc.iso;
+          var pc = Norm_normalizarFecha(v, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
+          if (v && (!/^\d{4}-\d{2}-\d{2}$/.test(v) || pc.estado !== 'VALIDA')) {
+            errores.push({ campo: campo, mensaje: 'Fecha de próxima atención inválida' });
+            break;
+          }
+          paciente.PROXIMO_CONTROL = v ? pc.iso : '';
           cambios++;
           break;
 
@@ -1040,12 +1035,6 @@ function api_actualizarPaciente(idInterno, campos, token) {
 
     if (errores.length) return { ok: false, motivo: errores.map(function (e) { return e.mensaje; }).join('; ') };
     if (!cambios) return { ok: false, motivo: 'SIN_CAMBIOS' };
-
-    // Si cambió ULTIMO_CONTROL (vía evento), recalcular PROXIMO_CONTROL
-    // Si cambió PROXIMO_CONTROL directamente, respetarlo
-    if (freq === null) {
-      try { freq = _UI_controlConfig().freq; } catch (e) { freq = null; }
-    }
 
     paciente.FECHA_ACTUALIZACION = new Date();
     var esquema = Modelo_asegurarEsquemaPacientes();
@@ -1070,7 +1059,7 @@ function api_actualizarPaciente(idInterno, campos, token) {
 /** Campos mínimos del Diagnóstico de control: los que consumen
  *  Control_analizar, Control_filasPanel y el barrido de desalineados
  *  (= _CONTROL_CAMPOS_PACIENTES + PROXIMO_CONTROL). */
-var _DIAGNOSTICO_CAMPOS_PACIENTES = _CONTROL_CAMPOS_PACIENTES.concat(['PROXIMO_CONTROL']);
+var _DIAGNOSTICO_CAMPOS_PACIENTES = _CONTROL_CAMPOS_PACIENTES.slice();
 /** Campos mínimos del análisis de duplicados Amarillo (FUENTE + entidad + fecha). */
 var _DIAGNOSTICO_CAMPOS_EVENTOS_AMARILLO = ['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE', 'NOMBRE', 'SECTOR'];
 
@@ -1092,20 +1081,12 @@ function api_diagnosticoControl(dryRun) {
     panel.filas.forEach(function (f) {
       if (!f.ultimoControl) return;
       if (f.estado === 'SIN_FECHA' && !f.proximo) {
-        inconsistentes.push(f.idInterno + ': con último control pero sin próximo calculable');
+        inconsistentes.push(f.idInterno + ': con último control pero sin próxima atención agendada');
       }
     });
 
-    /* Alertas de PROXIMO_CONTROL desalineado: el actual difiere del derivado */
+    // La fecha agendada manualmente no tiene que coincidir con una frecuencia.
     var desalineados = 0, ejemplosDes = [];
-    pacientes.forEach(function (p) {
-      var deriv = Control_calcularProximo(p.ULTIMO_CONTROL, p.ESTRATIFICACION, freq);
-      var actual = Utl_texto(p.PROXIMO_CONTROL).slice(0, 10);
-      if (p.ULTIMO_CONTROL && deriv && actual && actual !== deriv) {
-        desalineados++;
-        if (ejemplosDes.length < 5) ejemplosDes.push(p.ID_INTERNO + ': ' + actual + ' ≠ ' + deriv);
-      }
-    });
 
     var dedupSr = null;
     try {
@@ -1120,8 +1101,8 @@ function api_diagnosticoControl(dryRun) {
     var m = anal.metricas;
     if (m.sinUltimoControl > 0) acciones.push('Registrar últimos controles de ' + m.sinUltimoControl + ' persona(s) sin último control.');
     if (m.vencidos > 0) acciones.push(m.vencidos + ' control(es) vencidos: priorizar gestión por sector.');
-    if (m.configFaltante > 0) acciones.push('Revisar frecuencia configurada (hay ' + m.configFaltante + ' cálculo(s) sin próximo control).');
-    if (desalineados > 0) acciones.push(desalineados + ' PRÓXIMO_CONTROL desalineado(s) con la frecuencia configurada — ejecutar «🔄 Actualizar todo».');
+    if (m.sinFecha > 0) acciones.push('Agendar manualmente la próxima atención desde Captura o ficha.');
+
     if (dedupSr && dedupSr.gruposDuplicados > 0) acciones.push(dedupSr.gruposDuplicados + ' grupo(s) de duplicados en eventos Amarillo — revisar dedup.');
     if (!acciones.length) acciones.push('Modelo clínico de control consistente: sin acciones pendientes.');
 
@@ -1291,7 +1272,7 @@ function api_ficha(idInterno, token) {
     };
 
     /* Seguimiento y controles consolidados (misma fuente que el Panel).
-       Recalcula PRÓXIMO_CONTROL derivado, estado, color y recordatorio. */
+       Usa la fecha agendada manualmente para estado, color y recordatorio. */
     try {
       var tz = _UI_tz();
       var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
@@ -1350,8 +1331,7 @@ function api_registrarEvento(payload) {
     };
     Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
 
-    var freqReg = _UI_controlConfig().freq;
-    Ingresos_sincronizarCache(objetivo, evento, freqReg);
+    Ingresos_sincronizarCache(objetivo, evento);
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);

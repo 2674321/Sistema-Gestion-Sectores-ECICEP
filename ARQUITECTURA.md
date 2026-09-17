@@ -1,5 +1,11 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-16 (v0.9.11):** próxima atención exclusivamente manual en
+> `PROXIMO_CONTROL`, editable desde Captura (V3, compatible con V2) y ficha.
+> Registrar atenciones, actualizar o importar no recalcula la agenda. Captura
+> reúne botón de apertura, QR y copia de URL. Estratificación se gestiona en Patologías.
+> Esta regla sustituye cualquier descripción histórica de agenda automática.
+
 > Estado documental: consolidación de la arquitectura vigente. Los hitos ETAPA 2/2.5/3 y las versiones 0.x se conservan como historial; no describen por sí solos el estado operativo actual.
 
 ## Estado vigente de mantenimiento (2026-09-16)
