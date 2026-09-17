@@ -192,6 +192,7 @@ function Act_enriquecerPacientes(opciones) {
   };
 
   var pacientes = Modelo_leerPacientes();
+  if (dryRun) pacientes = pacientes.map(function (p) { return Object.assign({}, p); });
   resumen.totalPacientes = pacientes.length;
   var porRut = Act_leerOrigenesDemograficos();
   var escrituras = []; // {idxDato, paciente}
@@ -304,17 +305,18 @@ function Act_diagnosticarEnriquecimiento() {
 //      la fecha MÁS RECIENTE válida;
 //   3. campos demográficos (SEXO/FECHA_NACIMIENTO): fill-only; si la fuente
 //      diverge de un valor vigente → REQUIERE_REVISION, sin sobrescribir;
-//   4. campos de contexto (PROXIMO_CONTROL, PROFESIONAL_SEGUIMIENTO, PREINGRESO,
+//   4. campos de contexto (PROFESIONAL_SEGUIMIENTO, PREINGRESO,
 //      DUPLA_INGRESO, TELEFONOS, OBSERVACIONES): fill-only;
 //   5. IDENTIDAD, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION y campos técnicos
 //      jamás se escriben desde una fuente (derivados/revisión humana);
 //   6. trazabilidad: append a FUENTE + FECHA_ACTUALIZACION.
+//   7. PROXIMO_CONTROL es manual: una fuente no rellena una agenda borrada.
 // ---------------------------------------------------------------------------
 
 var CAMPOS_MERGE_FUENTE = [
   'SEXO', 'FECHA_NACIMIENTO',
   'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO',
-  'PROXIMO_CONTROL', 'PROFESIONAL_SEGUIMIENTO',
+  'PROFESIONAL_SEGUIMIENTO',
   'PREINGRESO', 'DUPLA_INGRESO', 'TELEFONOS', 'OBSERVACIONES'
 ];
 
@@ -471,15 +473,17 @@ function Act_actualizarSistema(opciones) {
     estructura: null, fuentes: null, enriquecimiento: null,
     derivados: null, vistas: null, formato: null,
     amarillo: null, verificacion: null,
-    resumen: {}
+    resumen: {},
+    _errores: []
   };
 
   // 1) ESTRUCTURA (reparación idempotente; nunca destructiva a datos)
-  try {
+  if (ejecutar) try {
     reporte.estructura = Modelo_asegurarEsquemaPacientes();
     Modelo_alinearVistasSectoriales();
   } catch (e) {
     reporte.estructura = { ok: false, motivo: e && e.message ? e.message : String(e) };
+    reporte._errores.push('estructura');
   }
 
   // 2) LIMPIEZA DE HOJAS RESIDUALES (orphan sheets que no están en el catálogo)
@@ -489,6 +493,7 @@ function Act_actualizarSistema(opciones) {
 
   // 3) DATOS desde fuentes autorizadas
   reporte.fuentes = Fuentes_cargaReal({ ejecutar: ejecutar, actualizar: true });
+  if (reporte.fuentes && reporte.fuentes.ok === false) reporte._errores.push('fuentes');
 
   // 4) AMARILLO — importar desde Drive ANTES de vistas e INICIO (el orden importa)
   if (ejecutar && typeof Amarillo_importarTodo === 'function') {
@@ -501,28 +506,28 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 6) DERIVADOS
-  reporte.derivados = {
-    estratificacion: Estrat_recalcularTodos(),
-    controles: Control_recalcularTodos()
-  };
+  var derivErrores = [];
+  if (ejecutar) try { reporte.derivados = { estratificacion: Estrat_recalcularTodos() }; } catch (eE) { derivErrores.push('estratificación: ' + (eE && eE.message || eE)); }
+  if (ejecutar) try { reporte.derivados = reporte.derivados || {}; reporte.derivados.controles = Control_recalcularTodos(); } catch (eC) { derivErrores.push('controles: ' + (eC && eC.message || eC)); }
+  if (derivErrores.length) reporte._errores.push('derivados');
 
   // 7) VISTAS (refresh después de Amarillo + datos)
-  try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {
-    reporte.vistas = { ok: false, motivo: eV && eV.message ? eF.message : String(eV) };
+  if (ejecutar) try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {
+    reporte.vistas = { ok: false, motivo: eV && eV.message ? eV.message : String(eV) };
   }
 
   // 8) SECCIONES VISuales (barras de sección en fila 2 de todas las hojas visuales)
-  if (typeof HVis_aplicarTodasLasSecciones === 'function') {
+  if (ejecutar && typeof HVis_aplicarTodasLasSecciones === 'function') {
     try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); } catch (eSV) { /* best effort */ }
   }
 
   // 8b) FORMATO DE INGRESOS (formato específico para hojas INGRESO_* —不同于 secciones)
-  if (typeof HVis_formatearIngresos === 'function') {
+  if (ejecutar && typeof HVis_formatearIngresos === 'function') {
     try { reporte.formato = HVis_formatearIngresos(); } catch (eF) { /* best effort */ }
   }
 
   // 9) FORMATO CONDICIONAL (reglas de color por campo)
-  try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
+  if (ejecutar) try { Hojas_formatoCondicional(Modelo_ss()); } catch (eC) { /* best effort */ }
 
   // 10) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
   //     reciban las mismas reglas que la instalación. Idempotente.
@@ -563,11 +568,15 @@ function Act_actualizarSistema(opciones) {
       });
       if (faltan.length) {
         reporte.verificacion = { ok: false, faltan: faltan };
+        reporte._errores.push('verificación');
       } else {
         reporte.verificacion = { ok: true, hojasCriticas: criticas.length };
       }
-    } catch (eVf) { reporte.verificacion = { ok: false, motivo: eVf && eVf.message || String(eVf) }; }
+    } catch (eVf) { reporte.verificacion = { ok: false, motivo: eVf && eVf.message || String(eVf) }; reporte._errores.push('verificación'); }
   }
+
+  // Consolidar ok global
+  if (reporte._errores.length) reporte.ok = false;
 
   // 6) RESUMEN consolidado (trazabilidad)
   var fu = reporte.fuentes || {};
@@ -589,11 +598,14 @@ function Act_actualizarSistema(opciones) {
     estructuraMigrada: !!(reporte.estructura && reporte.estructura.migrada),
     estratificaciones: (deriv.estratificacion && deriv.estratificacion.recalculados) || 0,
     controlesRecalculados: (deriv.controles && deriv.controles.cambios) || 0,
+    errores: reporte._errores,
     ms: Date.now() - t0
   };
 
-  Log_info('Actualizacion', 'actualizarSistema', JSON.stringify(reporte.resumen),
-    { ejecucion: reporte.ejecucion, dryRun: !ejecutar });
-  Log_flush();
+  if (ejecutar) {
+    Log_info('Actualizacion', 'actualizarSistema', JSON.stringify(reporte.resumen),
+      { ejecucion: reporte.ejecucion, dryRun: false });
+    Log_flush();
+  }
   return reporte;
 }

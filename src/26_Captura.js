@@ -1,5 +1,5 @@
 /**
- * ECICEP — BACKEND DE CAPTURA V2 (docs/CONTRATO_CAPTURA_V2.md, NORMATIVO).
+ * ECICEP — BACKEND DE CAPTURA V3 / COMPATIBILIDAD V2 (docs/CONTRATO_CAPTURA_V2.md, NORMATIVO).
  *
  * Fase 3: backend de captura del contrato V2, aislado del frontend. Este
  * archivo es el ÚNICO punto de entrada del contrato de captura V2:
@@ -48,13 +48,13 @@ var CAPTURA_V2 = {
   SECTORES: ['AMARILLO', 'NARANJO', 'VERDE'],
   SEXOS: ['M', 'F', 'OTRO'],
   ESTRATIFICACIONES: ['G1', 'G2', 'G3'],
-  /** Formato de captureId §12: `Cp2-` + 32 hex minúsculas. */
-  RE_CAPTURE_ID: /^Cp2-[a-f0-9]{32}$/,
+  /** Formato de captureId §0/§12: `Cp3-` (vigente) o `Cp2-` (anterior) + 32 hex. */
+  RE_CAPTURE_ID: /^Cp[23]-[a-f0-9]{32}$/,
   /** Orden canónico de campos §6 (define la forma canónica §11). */
   CAMPOS: [
     'captureId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
     'fechaIngreso', 'estratificacion', 'telefonos', 'fechaEvento', 'profesional',
-    'profesionalSecundario', 'observaciones', 'confirmarNuevoPaciente'
+    'profesionalSecundario', 'observaciones', 'confirmarNuevoPaciente', 'proximoControl'
   ],
   /** Tipo JSON declarado §7. */
   CAMPO_TIPO: {
@@ -62,7 +62,7 @@ var CAPTURA_V2 = {
     sexo: 'string', fechaNacimiento: 'string', sector: 'string',
     fechaIngreso: 'string', estratificacion: 'string', telefonos: 'string', fechaEvento: 'string',
     profesional: 'string', profesionalSecundario: 'string',
-    observaciones: 'string', confirmarNuevoPaciente: 'boolean'
+    observaciones: 'string', confirmarNuevoPaciente: 'boolean', proximoControl: 'string'
   },
   /** Matriz REQ/OPC/NP §5.1. */
   MATRIZ: {
@@ -80,7 +80,8 @@ var CAPTURA_V2 = {
     profesional: { REQ: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'], OPC: [] },
     profesionalSecundario: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] },
     observaciones: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] },
-    confirmarNuevoPaciente: { REQ: [], OPC: ['nuevoIngreso'] }
+    confirmarNuevoPaciente: { REQ: [], OPC: ['nuevoIngreso'] },
+    proximoControl: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] }
   },
   /** Nombres internos/generados por el backend §6.1 (no pueden venir del cliente). */
   INTERNOS: [
@@ -177,6 +178,8 @@ function Captura_v2_canonica(norm) {
   for (var i = 0; i < CAPTURA_V2.CAMPOS.length; i++) {
     var c = CAPTURA_V2.CAMPOS[i];
     if (c === 'accion') continue;
+    // Mantener idéntica la huella de capturas V2 que ya están persistidas.
+    if (c === 'proximoControl' && !/^Cp3-/.test(norm.captureId || '')) continue;
     var m = CAPTURA_V2.MATRIZ[c];
     var aplica = m.REQ.indexOf(accion) !== -1 || m.OPC.indexOf(accion) !== -1;
     if (!aplica) continue;
@@ -212,7 +215,7 @@ function Captura_v2_validar(payload, opciones) {
   // Capa 1 — sintaxis
   var captureId = payload.captureId;
   if (typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    eSint.push(Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp2- seguido de 32 caracteres hex minúsculos', '§12'));
+    eSint.push(Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12'));
   }
 
   // Capa 2 — estructural: accion (operación)
@@ -255,6 +258,10 @@ function Captura_v2_validar(payload, opciones) {
     var presente = Object.prototype.hasOwnProperty.call(payload, campo);
     var valor = payload[campo];
     var indM = CAPTURA_V2.MATRIZ[campo];
+    if (campo === 'proximoControl' && presente && !/^Cp3-/.test(captureId || '')) {
+      eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO', campo, 'La agenda manual requiere captura versión 3', '§26'));
+      continue;
+    }
 
     // NP para esta operación §5.1
     if (presente && indM.REQ.indexOf(accion) === -1 && indM.OPC.indexOf(accion) === -1) {
@@ -334,6 +341,10 @@ function Captura_v2_validar(payload, opciones) {
     } else if (campo === 'telefonos') {
       var nt = Norm_normalizarTelefono(valor);
       norm.telefonos = (nt && nt.telefonos && nt.telefonos.length) ? nt.telefonos.join('/') : '';
+    } else if (campo === 'proximoControl') {
+      var agenda = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
+      if (!agenda.ok) eSem.push(Captura_v2_error('FECHA_INVALIDA', campo, 'Fecha de próxima atención inválida', agenda.detalle));
+      else norm.proximoControl = agenda.iso;
     } else if (campo === 'fechaEvento') {
       var rEv = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
       if (!rEv.ok) {
@@ -482,7 +493,7 @@ function Captura_v2_enviar(payload, ctx) {
       reg.estado = CAPTURA_V2.ESTADOS.VALIDANDO;
       reg.reintentos = reint + 1;
       Captura_v2_trailerSeguro(c, captureId, { estado: CAPTURA_V2.ESTADOS.VALIDANDO, reintentos: reg.reintentos }, reg);
-      if (reg.ingresoHoja && reg.ingresoFila) {
+      if (reg.ingresoHoja && reg.ingresoFila && !norm.proximoControl) {
         try {
           var est = Form_leerFilaIngreso(reg.ingresoHoja, Number(reg.ingresoFila));
           if (est && est.estado && est.estado !== '' && est.estado !== 'ERROR') {
@@ -551,7 +562,7 @@ function Captura_v2_enviar(payload, ctx) {
 function Captura_v2_estado(captureId, ctx) {
   var c = ctx || Captura_v2_ctx();
   if (!captureId || typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp2- seguido de 32 caracteres hex minúsculos', '§12')] };
+    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12')] };
   }
   var reg = Captura_v2_leerSeguro(c, captureId);
   if (!reg) {
@@ -567,7 +578,7 @@ function Captura_v2_estado(captureId, ctx) {
 function Captura_v2_reprocesar(captureId, ctx) {
   var c = ctx || Captura_v2_ctx();
   if (!captureId || typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp2- seguido de 32 caracteres hex minúsculos', '§12')] };
+    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12')] };
   }
   var reg = Captura_v2_leerSeguro(c, captureId);
   if (!reg) {
@@ -603,7 +614,7 @@ function Captura_v2_reprocesar(captureId, ctx) {
 function Captura_v2_retomarRegistro(captureId, ctx) {
   var c = ctx || Captura_v2_ctx();
   if (!captureId || typeof captureId !== 'string' || !CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
-    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp2- seguido de 32 caracteres hex minúsculos', '§12')] };
+    return { ok: false, errors: [Captura_v2_error('SINTAXIS_INVALIDA', 'captureId', 'Formato válido: Cp3- (o Cp2- anterior) seguido de 32 caracteres hex minúsculos', '§12')] };
   }
   var reg = Captura_v2_leerSeguro(c, captureId);
   if (!reg) {
@@ -732,6 +743,16 @@ function Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg) {
     Captura_v2_logError('CapturaV2', 'entregar', String(e));
     resultado = { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ENTREGA_FALLO_INTERNO' };
   }
+  // Agenda manual en la misma entrega: si falla queda reintentable, nunca un
+  // falso PROCESADO. La marca existente evita recrear paciente/evento al retomar.
+  if (resultado.estado === CAPTURA_V2.ESTADOS.PROCESADO && norm.proximoControl) {
+    var agendaOk = false;
+    try {
+      var agenda = c.aplicarAgenda && c.aplicarAgenda(resultado.idInterno, norm.proximoControl);
+      agendaOk = !!(agenda && agenda.ok);
+    } catch (eAgenda) { agendaOk = false; }
+    if (!agendaOk) { resultado.estado = CAPTURA_V2.ESTADOS.ERROR; resultado.motivo = 'AGENDA_NO_GUARDADA'; }
+  }
   var estado = resultado.estado || CAPTURA_V2.ESTADOS.ERROR;
   var trailer = {
     estado: estado,
@@ -780,9 +801,8 @@ function Captura_v2_ahora() {
 function Captura_v2_buscarRegistro(captureId) {
   var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
   if (!hoja || hoja.getLastRow() < 2) return null;
-  var cols = Form_columnas();
   var ultima = hoja.getLastRow();
-  var ultimac = Math.min(hoja.getLastColumn(), cols.length);
+  var ultimac = hoja.getLastColumn();
   var datos = hoja.getRange(1, 1, ultima, ultimac).getValues();
   var headers = datos[0];
   var mapa = Form_mapeoEncabezados(headers);
@@ -813,19 +833,36 @@ function Captura_v2_buscarRegistro(captureId) {
   return null;
 }
 
+/** Esquema físico real: admite columnas adicionales sin mover datos existentes.
+ * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir. */
+function Captura_v2_columnasHoja(hoja) {
+  var columnas = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  var claves = columnas.map(Utl_claveAlnum);
+  Form_columnas().forEach(function (nombre) {
+    var clave = Utl_claveAlnum(nombre);
+    if (claves.indexOf(clave) === -1 || claves.indexOf(clave) !== claves.lastIndexOf(clave)) {
+      throw new Error('ESQUEMA_CAPTURA_INCOMPATIBLE: ' + nombre);
+    }
+  });
+  return columnas.map(function (nombre) {
+    var clave = Utl_claveAlnum(nombre);
+    return Form_columnas().filter(function (c) { return Utl_claveAlnum(c) === clave; })[0] || nombre;
+  });
+}
+
 /** GAS: persiste el registro de captura (fila RECIBIDO) con confirmación §15. */
 function Captura_v2_persistirRegistro(reg) {
   try {
     var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
     if (!hoja) return { ok: false, motivo: 'HOJA_FORM_RESPUESTAS_AUSENTE' };
-    var cols = Form_columnas();
+    var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
     var fila = new Array(cols.length);
     for (var i2 = 0; i2 < cols.length; i2++) fila[i2] = '';
     fila[mapa.FECHA_FORMS] = reg.fechaRecepcion || Captura_v2_ahora();
     fila[mapa.RESPONSE_ID] = reg.captureId;
-    fila[mapa.FORM_VERSION] = CAPTURE_CONTRACT_VERSION;
+    fila[mapa.FORM_VERSION] = /^Cp3-/.test(reg.captureId) ? 3 : 2;
     fila[mapa.USUARIO] = reg.usuario || '';
     var internos = Captura_v2_normalizadoAInterno(reg.normalizado, {});
     var parEs = [['ACCION', internos.ACCION], ['RUT', internos.RUT], ['NOMBRE', internos.NOMBRE], ['SEXO', internos.SEXO], ['FECHA_NACIMIENTO', internos.FECHA_NACIMIENTO], ['SECTOR', internos.SECTOR], ['FECHA_INGRESO', internos.FECHA_INGRESO], ['ESTRATIFICACION', internos.ESTRATIFICACION], ['TELEFONOS', internos.TELEFONOS], ['FECHA_EVENTO', internos.FECHA_EVENTO], ['PROFESIONAL', internos.PROFESIONAL], ['PROFESIONAL2', internos.PROFESIONAL2], ['OBSERVACIONES', internos.OBSERVACIONES]];
@@ -849,8 +886,7 @@ function Captura_v2_persistirRegistro(reg) {
 function Captura_v2_confirmarFila(hoja, captureId) {
   try {
     var ultima = hoja.getLastRow();
-    var cols = Form_columnas();
-    var ultimac = Math.min(hoja.getLastColumn(), cols.length);
+    var ultimac = hoja.getLastColumn();
     var datos = hoja.getRange(ultima, 1, 1, ultimac).getValues()[0];
     var mapa = Form_mapeoEncabezados(hoja.getRange(1, 1, 1, ultimac).getValues()[0]);
     var colRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : 0);
@@ -872,11 +908,12 @@ function Captura_v2_actualizarTrailer(captureId, cambios, reg) {
       reg = (encontrado && encontrado.filaFisica) ? encontrado : reg;
       if (!reg || !reg.filaFisica) return { ok: false, motivo: 'SIN_REGISTRO' };
     }
-    var cols = Form_columnas();
+    var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
     var trailerCols = ['INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO'];
-    var ini = mapa.INGRESO_HOJA, fin = mapa.FECHA_PROCESO;
+    var indices = trailerCols.map(function (c) { return mapa[c]; });
+    var ini = Math.min.apply(null, indices), fin = Math.max.apply(null, indices);
     var ancho = fin - ini + 1;
     var bloque = hoja.getRange(reg.filaFisica, ini + 1, 1, ancho).getValues()[0];
     var offset = {};
@@ -1216,6 +1253,9 @@ function Captura_v2_ctx() {
     persistirRegistro: Captura_v2_persistirRegistro,
     actualizarTrailer: Captura_v2_actualizarTrailer,
     entregar: Captura_v2_entregar,
+    aplicarAgenda: function (idInterno, fecha) {
+      return api_actualizarPaciente(idInterno, { PROXIMO_CONTROL: fecha });
+    },
     medir: Captura_v2_marcaMedida
   };
 }

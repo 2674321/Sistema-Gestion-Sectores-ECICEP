@@ -60,20 +60,8 @@ function Aud_anonId(idInterno) {
  * estados: VIGENTE|PRÓXIMO|VENCIDO|SIN_ÚLTIMO_CONTROL|SIN_ESTRATIFICACIÓN|SIN_CONFIGURACIÓN|FECHA_INVÁLIDA|DESALINEADO
  */
 function Aud_clasificarPersona(p, freqConfig, hoyIso, avisoDias) {
-  var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
-  var nivel = /^G[123]$/.test(g) ? g : 'GPend';
-  var uc = Utl_texto(p.ULTIMO_CONTROL);
-  var proxAlmacenado = Utl_texto(p.PROXIMO_CONTROL).slice(0, 10);
-  var proxDerivado = uc ? Control_calcularProximo(uc, g, freqConfig) : '';
-  var desalineado = (uc && proxDerivado && proxAlmacenado && proxAlmacenado !== proxDerivado);
-
-  if (!uc) return { estado: 'SIN_ÚLTIMO_CONTROL', esDesalineado: false };
-  if (!proxDerivado) return { estado: 'SIN_CONFIGURACIÓN', esDesalineado: false };
-  if (nivel === 'GPend') return { estado: 'SIN_ESTRATIFICACIÓN', esDesalineado: false };
-
-  var est = Control_estadoVigencia(proxDerivado, hoyIso, avisoDias);
-  if (desalineado) return { estado: 'DESALINEADO', esDesalineado: true, desalineadoActual: proxAlmacenado, desalineadoDerivado: proxDerivado };
-  return { estado: est, esDesalineado: false };
+  var proximo = Control_aIso(p.PROXIMO_CONTROL);
+  return { estado: Control_estadoVigencia(proximo, hoyIso, avisoDias), esDesalineado: false };
 }
 
 /**
@@ -100,21 +88,13 @@ function Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias) {
     porSector[sec].total++; porSector[sec][nivel]++;
 
     var c = Aud_clasificarPersona(p, freqConfig, hoyIso, avisoDias);
-    if (c.estado === 'SIN_ÚLTIMO_CONTROL') {
-      m.sinUltimoControl++;
-      m.sinFecha++; // SIN_ÚLTIMO_CONTROL también cuenta como sin fecha (coherente con Control_analizar)
-    } else {
-      m.conControles++;
-      if (c.estado !== 'SIN_CONFIGURACIÓN' && c.estado !== 'SIN_ESTRATIFICACIÓN') {
-        m.conProximo++;
-        if (c.estado === 'VENCIDO') m.vencidos++;
-        else if (c.estado === 'POR_VENCER') m.proximos++;
-        else if (c.estado === 'VIGENTE') m.vigentes++;
-        else if (c.estado === 'SIN_FECHA') m.sinFecha++;
-      }
-      if (c.estado === 'SIN_CONFIGURACIÓN') m.configFaltante++;
-      if (c.estado === 'SIN_ESTRATIFICACIÓN') m.sinFecha++;
-    }
+    if (Utl_vacio(p.ULTIMO_CONTROL)) m.sinUltimoControl++;
+    else m.conControles++;
+    if (Control_aIso(p.PROXIMO_CONTROL)) m.conProximo++;
+    if (c.estado === 'SIN_FECHA') m.sinFecha++;
+    else if (c.estado === 'VENCIDO') m.vencidos++;
+    else if (c.estado === 'POR_VENCER') m.proximos++;
+    else if (c.estado === 'VIGENTE') m.vigentes++;
     if (c.esDesalineado) {
       m.desalineados++;
       desalineados.push({
@@ -163,13 +143,11 @@ function Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias) 
     else res.sinEstrat++;
     var ultCtrl = porPac[pid].filter(function (e) { return Utl_texto(e.TIPO_EVENTO) === 'CONTROL'; })
       .sort(function (a, b) { return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? 1 : -1; })[0];
-    if (!ultCtrl) { res.sinUltimo++; return; }
-    var proxDer = Control_calcularProximo(Utl_texto(ultCtrl.FECHA_EVENTO), g, freqConfig);
+    if (!ultCtrl) res.sinUltimo++;
+    var proxDer = Control_aIso(p.PROXIMO_CONTROL);
     if (!proxDer) { res.sinProximo++; return; }
     var est = Control_estadoVigencia(proxDer, hoyIso, avisoDias);
     if (est === 'VENCIDO') res.vencidos++; else if (est === 'POR_VENCER') res.proximos++;
-    var proxAlm = Utl_texto(p.PROXIMO_CONTROL).slice(0, 10);
-    if (proxAlm && proxDer && proxAlm !== proxDer) res.desalineados++;
   });
   return res;
 }
@@ -395,7 +373,7 @@ function Auditoria_ejecutar() {
         'Total analizadas: ' + clasif.metricas.total + ' · G1: ' + clasif.metricas.G1 + ' · G2: ' + clasif.metricas.G2 +
           ' · G3: ' + clasif.metricas.G3 + ' · Sin estratificar: ' + clasif.metricas.GPend,
         'Con último control: ' + clasif.metricas.conControles + ' · Sin último control: ' + clasif.metricas.sinUltimoControl,
-        'Con PRÓXIMO_CONTROL derivado: ' + clasif.metricas.conProximo + ' · Sin PRÓXIMO (config faltante): ' + clasif.metricas.configFaltante,
+        'Con próxima atención agendada: ' + clasif.metricas.conProximo + ' · Sin agenda: ' + clasif.metricas.sinFecha,
         'VIGENTE: ' + clasif.metricas.vigentes + ' · PRÓXIMO (≤' + avisoDias + 'd): ' + clasif.metricas.proximos +
           ' · VENCIDO: ' + clasif.metricas.vencidos + ' · SIN_FECHA: ' + clasif.metricas.sinFecha,
         'DESALINEADOS (PROXIMO_CONTROL almacenado ≠ derivado): ' + clasif.metricas.desalineados +

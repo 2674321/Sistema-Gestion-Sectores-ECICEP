@@ -333,5 +333,10 @@ t('H3: el catálogo que recibe el dropdown son nombres canónicos (strings de ac
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('');
+for (const accionUI of Object.keys(ACCION_CAMEL)) t('V3 UI transmite fecha manual en '+accionUI, () => {
+  const p=build(estadoUIActualizar({accionUI,captureId:'Cp3-'+ 'a'.repeat(32),proximoControl:'2027-02-20'}));
+  A(p.proximoControl==='2027-02-20','fecha manual incluida');
+  A(sandbox.Captura_v2_validar(p,{catalogo:CATALOGO}).ok,'backend acepta payload del cliente');
+});
 console.log('Captura UI Payload V2 — TOTAL: ' + (PASS + FAIL) + ' · PASS: ' + PASS + ' · FAIL: ' + FAIL);
 if (FAIL > 0) process.exit(1);

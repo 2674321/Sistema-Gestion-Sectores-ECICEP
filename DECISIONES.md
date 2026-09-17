@@ -1187,3 +1187,17 @@ Tests: `_pruebas_actualizacion_v096` (9: fila/merge/trazabilidad/contrato + cade
 migración S11R/S12/T12/T13. Núcleo **606/606** (597 + 9). Docs:
 `docs/INFORME_ACTUALIZACION_S6.md`.
 **Fecha:** 2026-09-15
+
+
+## Agenda manual y acceso unificado a Captura — 2026-09-16
+
+**Decisión solicitada por el usuario:** sustituir el cálculo automático de próxima atención
+por edición manual desde Web App y ficha, conservando el campo `PROXIMO_CONTROL`.
+La extensión de payload requiere contrato V3 conforme a §26; mantiene adaptador V2 en
+el mismo procesador. Véase §0 de `docs/CONTRATO_CAPTURA_V2.md` para ausencia, borrado,
+reintentos y preservación de fechas. No hay migración masiva ni cambio de permisos.
+
+Captura abre una ventana con enlace por clic, QR, copia y descarga, evitando depender
+exclusivamente de un popup disparado tras una RPC. `UI_mostrarQR` permanece como alias.
+El selector de eventos de ficha deja de ofrecer CAMBIO_ESTRATIFICACION; su historial
+sigue legible y la edición se realiza en la sección Patologías / Estratificación.

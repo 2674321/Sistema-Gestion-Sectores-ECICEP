@@ -18,7 +18,7 @@
     .qr-header h2{font-size:16px;font-weight:700;color:var(--c-primary);margin:0}
     .qr-header p{font-size:13px;color:var(--c-text-2);margin:4px 0 0}
     .qr-img{padding:20px;display:flex;justify-content:center}
-    .qr-img canvas{border:1px solid var(--c-border-light);border-radius:8px}
+    .qr-img canvas{max-width:100%;height:auto;border:1px solid var(--c-border-light);border-radius:8px}
     .qr-url{padding:0 20px 8px}
     .qr-url-box{background:var(--c-surface-alt);border:1px solid var(--c-border);border-radius:6px;
       padding:8px 12px;font-size:11px;color:var(--c-text-2);word-break:break-all;
@@ -29,6 +29,8 @@
       padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;
       font-family:inherit;cursor:pointer;border:1.5px solid var(--c-border);
       background:#fff;color:var(--c-text);transition:all .15s}
+    .btn-open{display:flex;justify-content:center;margin:16px 20px 0;padding:12px;border-radius:6px;background:var(--c-primary);color:white;font-weight:600;text-decoration:none}
+    .btn-open:focus-visible{outline:3px solid var(--c-primary-mid);outline-offset:3px}
     .btn-copy:hover{background:var(--c-surface-alt);border-color:#A0A5AE}
     .btn-copy:focus-visible{outline:2px solid var(--c-primary-mid);outline-offset:2px}
     .qr-footer .btn-copy + .btn-copy{margin-left:8px}
@@ -38,11 +40,12 @@
 <body>
   <div class="qr-card">
     <div class="qr-header">
-      <h2>Acceso al formulario ECICEP</h2>
-      <p>Escanea este c&oacute;digo para abrir el formulario de captura.</p>
+      <h2>Captura ECICEP</h2>
+      <p>Abre el formulario aqu&iacute; o escanea el QR desde otro dispositivo.</p>
     </div>
+    <a class="btn-open" id="abrirFormulario" href="<?= WEB_APP_URL ?>" target="_blank" rel="noopener noreferrer">Abrir formulario ↗</a>
     <div class="qr-img">
-      <canvas id="qrCanvas" width="240" height="240"></canvas>
+      <canvas id="qrCanvas" width="240" height="240" role="img" aria-label="QR para abrir el formulario ECICEP"></canvas>
     </div>
     <div class="qr-url">
       <div class="qr-url-box" id="urlBox"><?= WEB_APP_URL ?></div>
@@ -54,7 +57,7 @@
       <button class="btn-copy" id="btnCopy" type="button" onclick="copiarURL()">
         &#128203; Copiar URL
       </button>
-      <div class="copied" id="copiedMsg">&#10003; URL copiada al portapapeles</div>
+      <div class="copied" id="copiedMsg" role="status" aria-live="polite">&#10003; URL copiada al portapapeles</div>
       <p style="margin-top:10px">Esta URL apunta al formulario oficial de captura ECICEP.</p>
     </div>
   </div>
@@ -2381,7 +2384,7 @@ var qrcode = function() {
       }
     }
 
-    generateQR('<?= WEB_APP_URL ?>', document.getElementById('qrCanvas'), 240);
+    generateQR(document.getElementById('urlBox').textContent.trim(), document.getElementById('qrCanvas'), 240);
 
     function descargarQR(){
       try {
@@ -2397,27 +2400,31 @@ var qrcode = function() {
         document.body.removeChild(a);
       } catch(e){
         var box = document.getElementById('urlBox');
-        box.innerHTML = '<span style="color:#B3261E">No fue posible descargar la imagen. Copie la URL.</span>';
+        avisoCaptura('No fue posible descargar el QR. Puede abrir el formulario o copiar su enlace.');
       }
     }
 
+    function avisoCaptura(mensaje){
+      var el=document.getElementById('copiedMsg');
+      el.textContent=mensaje;
+      el.style.display='block';
+    }
     function copiarURL(){
-      var url = document.getElementById('urlBox').textContent;
-      if(navigator.clipboard){
-        navigator.clipboard.writeText(url).then(function(){
-          document.getElementById('copiedMsg').style.display='block';
-          setTimeout(function(){document.getElementById('copiedMsg').style.display='none';},2000);
-        });
-      } else {
+      var url=document.getElementById('urlBox').textContent.trim();
+      function alternativa(){
         var t=document.createElement('textarea');
         t.value=url;t.style.position='fixed';t.style.left='-9999px';
         document.body.appendChild(t);t.select();
-        try{document.execCommand('copy');
-          document.getElementById('copiedMsg').style.display='block';
-          setTimeout(function(){document.getElementById('copiedMsg').style.display='none';},2000);
-        }catch(e){}
+        var ok=false;
+        try{ok=document.execCommand('copy');}catch(e){}
         document.body.removeChild(t);
+        avisoCaptura(ok?'URL copiada al portapapeles':'Seleccione y copie el enlace que aparece arriba.');
       }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(function(){
+          avisoCaptura('URL copiada al portapapeles');
+        }).catch(alternativa);
+      }else alternativa();
     }
   </script>
 </body>

@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.6` · pruebas núcleo **894/894** · deploy `/exec` vigente |
+| **Estado** | Operativo · `v0.9.11` · pruebas núcleo **651/651** · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -53,14 +53,13 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   teléfonos, fechas, nombres sin tildes y estados canónicos.
 
 **Modelo clínico por persona**
-- **Estratificación de riesgo** `G1/G2/G3` con **frecuencia de control
-  configurable** por nivel (días/meses).
-- Cálculo centralizado de `PRÓXIMO CONTROL`, **estado** (VENCIDO / POR VENCER /
-  VIGENTE / SIN FECHA) y **recordatorio** — una única fuente de verdad.
+- **Estratificación de riesgo** `G1/G2/G3` desde patologías.
+- Agenda manual de próxima atención. **Estado** (VENCIDO / POR VENCER /
+  VIGENTE / SIN FECHA) y **recordatorio** derivados de la fecha guardada.
 
 **Seguimiento y controles**
-- Registro de controles y seguimientos, fecha de próximo control recalculada al
-  instante, panel *Controles por persona* con búsqueda y paginación.
+- Registro de controles y seguimientos, fecha de próximo control manual, editable desde Captura y ficha.
+  Panel *Controles por persona* con búsqueda y paginación.
 
 **Reportes**
 - **REM mensual** derivado de EVENTOS: resumen por censo + detalle por atención,
@@ -108,8 +107,8 @@ automatización de tareas de datos. Diseñada con un **enfoque de minimización 
 datos** (estructura, estadísticas y patrones; duplicados e integridad locales) y
 con la **API key fuera del código fuente** (Script Properties).
 
-> Acceso desde Google Sheets: menú **`IA`** → *Abrir panel · Análisis rápido ·
-> Corregir errores · Configurar API*.
+> El panel y el menú de IA fueron retirados. El módulo `src/28_IA.js` se conserva
+> como soporte técnico interno; no hay una interfaz de IA operativa para la cliente.
 
 ## Demo interactiva
 
@@ -127,8 +126,8 @@ Incluye RUT de ejemplo que ya existen en la base demo (13.187.212-7,
 
 ![Web App de captura ECICEP](docs/screenshots/webapp-captura.png)
 
-Vista del formulario de captura (réplica demo con datos ficticios). La interfaz
-operativa en producción es idéntica, servida por la Web App de Apps Script.
+Captura ilustrativa anterior a v0.9.11, con datos ficticios. La Web App operativa
+añade el campo manual Próximo control / seguimiento.
 
 ## Arquitectura
 
@@ -177,9 +176,10 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
 | E2E real | ✅ Verificado en libro operativo |
 
-**Batería de pruebas (v0.9.6):** núcleo **606/606** + contrato de datos 38/38 +
-cola 33/33 + payload V2 19/19 + backend V2 68/68 + formulario web 27/27 + contrato
-V2 36/36 + aceptación 50/50 (**894/894**) + `validar_html` 17/17.
+**Verificación vigente:** `node tools/verificar.mjs` comprueba sintaxis JS/GS y
+las 11 suites disponibles: **941 pruebas** y **17 scripts HTML**. Incluye 19 casos
+nuevos de regresión y publicación. Detalle y límites de verificación real en
+[`docs/INFORME_REVISION_2026_09_16.md`](docs/INFORME_REVISION_2026_09_16.md).
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción
 explícita (migración controlada: análisis → validación → simulación → reporte →
@@ -214,7 +214,7 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 Sistema-Gestion-Sectores-ECICEP/
 ├── src/                   # Código Apps Script (sincronizado con clasp)
 │   ├── 00_Config.js …     # Config, tokens, núcleo, modelo, hojas, UI
-│   ├── 10_Pruebas.js      # Suites deterministas (597)
+│   ├── 10_Pruebas.js      # Suites deterministas (651)
 │   ├── 24_Formulario.js   # Backend de captura Web App
 │   ├── 26_Captura.js      # Backend contrato de captura V2
 │   ├── 28_IA.js           # Módulo IA (Gemini API): análisis, calidad, corrección asistida

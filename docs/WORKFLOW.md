@@ -27,7 +27,13 @@ No pedir confirmación para pasos rutinarios. Solicitar intervención humana sol
 
 ## Tests
 
-Ejecutar los tests que correspondan al alcance:
+Verificación integral (misma entrada que CI; descubre todas las suites):
+
+```bash
+node tools/verificar.mjs
+```
+
+También se pueden ejecutar los tests correspondientes al alcance:
 
 ```bash
 node tests/ejecutar_local.mjs
@@ -104,7 +110,7 @@ No crear deployments nuevos por cada push. Reutilizar el deployment operativo ex
 
 **`/dev`** es la URL de desarrollo que refleja HEAD sin necesidad de crear una versión.
 
-**`@HEAD` / deployment operativo** es el que sirve `/exec` (verificar con `clasp deployments` cuál es el operativo actual; `@85` fue histórico).
+**`@HEAD`** identifica el código actual. El deployment operativo identificado por `ECICEP.WEB_APP_URL` sirve una versión numerada en `/exec`; comprobarla con `clasp deployments`.
 
 **`/exec`** es la URL estable que utilizan los usuarios finales.
 
@@ -132,9 +138,14 @@ Verificar que `/exec` carga la versión esperada.
 ### Script automatizado
 
 ```bash
-bash tools/push_y_abrir.sh            # push + abrir /dev
-bash tools/push_y_abrir.sh --publish  # push + deploy @85 + abrir /exec
+bash tools/push_y_abrir.sh            # tests + push + abrir /dev
+bash tools/push_y_abrir.sh --publish  # tests + push + actualizar deployment configurado + abrir /exec
 ```
+
+El script obtiene la URL operativa de `00_Config.js`, verifica su deployment y
+resuelve HEAD desde `clasp deployments`. Se detiene si fallan los tests, los
+argumentos o la identificación del deployment. BUILD marca `-dirty` cuando hay
+cambios de código no incluidos en el commit.
 
 ## E2E mínimo después de un cambio de Web App
 

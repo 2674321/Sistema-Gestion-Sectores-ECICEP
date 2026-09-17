@@ -403,7 +403,7 @@ t('F1 mismo contenido → mismo captureId; cambio de contenido → captureId nue
   A(a === b, 'reintento idéntico conserva captureId');
   const c = U._asignarCaptureId('sig2');
   A(c !== b, 'contenido editado genera captureId nuevo');
-  A(/^Cp2-[a-f0-9]{32}$/.test(a), 'formato §12: Cp2- + exactamente 32 hex minúsculas (recibido: ' + a + ')');
+  A(/^Cp3-[a-f0-9]{32}$/.test(a), 'formato V3: Cp3- + exactamente 32 hex minúsculas (recibido: ' + a + ')');
 });
 
 console.log('PARTE G — estadoEnviando se restablece al responder (nunca queda el spinner fijo).');

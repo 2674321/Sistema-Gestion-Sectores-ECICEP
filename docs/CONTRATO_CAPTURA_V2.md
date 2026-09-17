@@ -1,11 +1,11 @@
-# CONTRATO DE CAPTURA V2 — ECICEP
+# CONTRATO DE CAPTURA — ECICEP (V3 vigente, compatibilidad V2)
 
 > **Estado: NORMATIVO.** Este documento es la **única fuente normativa** del contrato de captura de
 > datos en ECICEP. Reemplaza (por definición) a `FORMULARIO.md` y `docs/CONTRATOS.md`, que fueron
 > **invalidados** y no tienen contenido normativo.
 >
-> **Contrato de captura: versión 2** — `CAPTURE_CONTRACT_VERSION = 2`. Revisión **v2.1**
-> (cronología del delta y versionado en §26).
+> **Contrato vigente: versión 3** — `CAPTURE_CONTRACT_VERSION = 3`. Extensión normativa de agenda manual en §0.
+> Las secciones posteriores conservan el contrato V2 como base; §0 prevalece en los puntos indicados.
 >
 > Este contrato rige lo que la **Web App** (único canal operativo de captura) envía y recibe, y lo que
 > el backend acepta, persiste y devuelve. **No rige** el procesamiento clínico posterior (identidad,
@@ -19,9 +19,42 @@
 > - **[INFERENCIA]** — lectura razonable a partir de la implementación; debe verificarse al implementar.
 > - **[PENDIENTE]** — punto abierto; no tiene valor normativo hasta que se cierre.
 >
-> El alcance de esta fase es el **contrato + sus tests**; no introduce implementación nueva de captura.
+> La revisión del 2026-09-16 implementa y prueba la extensión V3 en el mismo backend y pipeline.
 
 ---
+
+## 0. Extensión normativa V3 — agenda manual (2026-09-16)
+
+Por solicitud explícita del usuario, la próxima atención es **manual**. Se conserva un único
+campo existente `PACIENTES.PROXIMO_CONTROL`, presentado como **Próximo control / seguimiento**.
+No se crea otra hoja, fuente de verdad ni pipeline. Esta sección prevalece sobre las referencias
+anteriores al cálculo automático y sobre §5.1, §6, §11, §12, §21 y §26 en lo siguiente:
+
+- El cliente nuevo emite `Cp3-` seguido de 32 hex minúsculas. La versión vigente es 3.
+- Se añade `proximoControl` (string, OPC para las cuatro operaciones), al final del orden canónico.
+  Fecha ISO estricta `yyyy-MM-dd`, calendario válido, entre 2015-01-01 y 2040-12-31.
+  Ausente, `null` o cadena vacía significan **conservar la agenda existente**, nunca calcularla.
+  Para retirar una fecha, la ficha permite guardar explícitamente `PROXIMO_CONTROL: ''`.
+- La forma canónica V3 incorpora `proximoControl` (vacío cuando se omite). Cambiar esta fecha
+  requiere un nuevo `captureId`, como cualquier cambio de contenido.
+- El adaptador de compatibilidad acepta envíos/reintentos `Cp2-` con sus 15 campos originales:
+  rechaza `proximoControl` con `CAMPO_NO_PERMITIDO` incluso si es vacío; conserva exactamente
+  la forma canónica y los marcadores anteriores. Comparte el mismo procesador, sin duplicar lógica.
+- `FORM_VERSION` persiste 2 o 3 según el prefijo recibido. La fecha manual queda en
+  `TRAZA_CRUDA.normalizado`; no se altera el esquema de `FORM_RESPUESTAS`.
+- Tras una entrega clínica confirmada, se aplica la fecha mediante el escritor existente de ficha.
+  Solo es `PROCESADO` si ambas escrituras terminan correctamente. Si falla la agenda, permanece
+  `ERROR` con motivo `AGENDA_NO_GUARDADA` y respuesta `ERROR_INTERNO`: el mismo envío puede
+  reintentarse, usando las marcas/coordenadas existentes para no duplicar paciente ni evento.
+- Capturas anteriores ya procesadas no se reejecutan ni cambian de versión. Ningún recálculo,
+  importación histórica o registro de control/seguimiento sobrescribe una fecha manual. Los
+  paneles, recordatorios y auditorías clasifican la fecha almacenada, incluso sin último control.
+- Se conservan todas las fechas existentes, aunque antes fueran calculadas. No hay migración
+  masiva ni borrado de agendas. La estratificación sigue su lógica actual de patologías y deja
+  de intervenir en la fecha de próxima atención.
+
+El resto de validaciones, autenticación, estados, errores, idempotencia y protección clínica de
+V2 permanece vigente. Los nombres internos `Captura_v2_*` se conservan por compatibilidad.
 
 ## 1. Propósito
 
@@ -599,11 +632,11 @@ traduce:
 
 ## 26. Versionado
 
-- Constante normativa: **`CAPTURE_CONTRACT_VERSION = 2`** (a declarar en `src/00_Config.js` al
-  implementar). **[DECISIÓN]**
+- Constante vigente: **`CAPTURE_CONTRACT_VERSION = 3`**. La base histórica V2 declaró
+  `CAPTURE_CONTRACT_VERSION = 2`; §0 especifica la transición y compatibilidad.
 - La versión viaja implícita en el prefijo del `captureId` (`Cp2-`), de modo que identificadores de
   versiones distintas **no colisionan**. El payload **no** lleva campo de versión: el backend de ese
-  deployment sirve exactamente una versión de contrato.
+  deployment sirve la versión vigente y su adaptador de compatibilidad V2 (§0).
 - Cambios incompatibles (nuevas operaciones, campos, semántica, estado, formato) incrementan la
   versión y requieren un nuevo prefijo y un adaptador. Cambios aditivos retrocompatibles pueden
   convivir bajo la misma versión únicamente si no alteran el §5.1 ni el §6.
