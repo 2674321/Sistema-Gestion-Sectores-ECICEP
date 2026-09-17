@@ -1,5 +1,12 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.15):** los paneles de ficha/dupla,
+> registro, configuración y Backups reciben la clave compartida en su propia
+> interfaz y la validan en cada operación protegida. La ausencia de email en
+> otras cuentas de Sheets ya no bloquea esas funciones. La hoja de cálculo
+> sigue siendo una interfaz de Google; el acceso sin cuenta se realiza por la
+> Web App y su enlace compartido.
+
 > **Actualización 2026-09-17 (v0.9.14):** el deployment sigue siendo único y
 > ejecuta como propietario. Para acceso sin cuenta Google, Captura distribuye
 > desde el menú Sheets un enlace con clave independiente del webhook. La Web

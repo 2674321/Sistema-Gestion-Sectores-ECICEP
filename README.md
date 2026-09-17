@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.14` · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.15` · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -81,6 +81,10 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   abrir la Web App desde cualquier dispositivo, sin cuenta Google. Conviene
   compartir ese enlace solo con operadores autorizados; la URL base no abre
   fichas para visitantes anónimos.
+- La ficha y los paneles de registro, configuración y Backups reutilizan la
+  misma clave para funcionar desde distintas cuentas con acceso a Sheets.
+  Google Sheets requiere una cuenta Google para abrir la hoja; el acceso sin
+  cuenta a Captura se realiza desde la Web App.
 
 **Operación y confiabilidad**
 - Instalador/reparador por **etapas** con diagnóstico de solo lectura,

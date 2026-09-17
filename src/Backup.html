@@ -48,7 +48,7 @@
     .sch-preview{margin-top:var(--space-3);padding:var(--space-3);background:var(--primary-soft);border-radius:var(--radius-md);font-size:12px;color:var(--primary);text-align:center;font-weight:500}
   </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>">
 <div style="max-width:800px;margin:0 auto">
   <h2>💾 Backups del sistema</h2>
 
@@ -143,6 +143,7 @@
 <div id="toastZone"></div>
 
 <script>
+var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
 function fmtBytes(b){if(!b||b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
 function fmtFecha(iso){if(!iso)return '—';try{var d=new Date(iso);return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
 
@@ -155,7 +156,7 @@ function toggleCollap(headerId,bodyId){
 
 function cargarBackups(){
   document.getElementById('bkTabla').innerHTML='<div class="skel"></div><div class="skel" style="margin-top:8px"></div>';
-  google.script.run.withSuccessHandler(pintarBackups).withFailureHandler(function(e){document.getElementById('bkTabla').innerHTML='<div class="empty">Error al cargar</div>';console.error(e);}).api_backupListar();
+  google.script.run.withSuccessHandler(pintarBackups).withFailureHandler(function(e){document.getElementById('bkTabla').innerHTML='<div class="empty">Error al cargar</div>';console.error(e);}).api_backupListar(ECICEP_ACCESO);
 }
 
 function pintarBackups(r){
@@ -191,7 +192,7 @@ function crearBackup(btn){
     fin();
     if(r&&r.ok){toast('Backup creado: '+r.nombre,'ok');cargarBackups();}
     else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL');
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupCrear('MANUAL',ECICEP_ACCESO);
 }
 
 function toggleProgramacion(btn){
@@ -200,7 +201,7 @@ function toggleProgramacion(btn){
     fin();
     if(r&&r.ok){toast(r.mensaje||'Actualizado','ok');cargarBackups();}
     else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupToggle();
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupToggle(ECICEP_ACCESO);
 }
 
 function podarAuto(btn){
@@ -210,11 +211,11 @@ function podarAuto(btn){
     fin();
     if(r&&r.ok){toast(r.borrados+' backups eliminados','ok');cargarBackups();}
     else toast('Error','err');
-  }).withFailureHandler(function(e){fin();toast('Error','err');}).api_backupPodar();
+  }).withFailureHandler(function(e){fin();toast('Error','err');}).api_backupPodar(ECICEP_ACCESO);
 }
 
 function abrirCarpeta(){
-  google.script.run.withSuccessHandler(function(r){if(r&&r.url)window.open(r.url,'_blank');}).api_backupFolder();
+  google.script.run.withSuccessHandler(function(r){if(r&&r.url)window.open(r.url,'_blank');}).api_backupFolder(ECICEP_ACCESO);
 }
 
 /* Programación */
@@ -235,7 +236,7 @@ function cargarConfig(){
     document.getElementById('schDia').value=r.dia||'DOMINGO';
     document.getElementById('schHora').value=String(parseInt(r.hora,10)||3);
     actualizarPreview();
-  }).api_backupConfigLeer();
+  }).api_backupConfigLeer(ECICEP_ACCESO);
 }
 
 function actualizarPreview(){
@@ -256,7 +257,7 @@ function programarBackup(btn){
     fin();
     if(r&&r.ok){toast(r.mensaje||'Programado','ok');cargarBackups();}
     else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
-  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupProgramar(dia,hora);
+  }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');}).api_backupProgramar(dia,hora,ECICEP_ACCESO);
 }
 
 initHoras();

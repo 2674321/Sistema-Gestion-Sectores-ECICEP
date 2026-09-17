@@ -70,4 +70,35 @@ t('La ficha carga y actualiza desde otra cuenta sin email con enlace válido',()
   assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'},clave).ok,true);
   assert.equal(filas,1);
 });
+t('Dupla, registro, configuración y backups usan el acceso compartido',()=>{
+  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+  assert.equal(c.api_duplaGuardar('P-FICTICIO',[]).motivo,'ACCESO_DENEGADO');
+  assert.equal(c.api_logLeer(10).motivo,'ACCESO_DENEGADO');
+  assert.equal(c.api_configGuardar('CLAVE','VALOR').motivo,'ACCESO_DENEGADO');
+  assert.equal(c.api_configAgregar('CLAVE','VALOR','').motivo,'ACCESO_DENEGADO');
+  assert.equal(c.api_configEliminar('CLAVE').motivo,'ACCESO_DENEGADO');
+  for(const nombre of ['api_backupListar','api_backupToggle','api_backupConfigLeer','api_backupPodar','api_backupFolder'])
+    assert.equal(c[nombre]().motivo,'ACCESO_DENEGADO',nombre);
+  assert.equal(c.api_backupCrear('MANUAL').motivo,'ACCESO_DENEGADO');
+  assert.equal(c.api_backupProgramar('LUNES',3).motivo,'ACCESO_DENEGADO');
+  c.Modelo_hoja=()=>null;
+  assert.equal(c.api_logLeer(10,clave).ok,true);
+  c.Backup_listar=()=>({items:[],autoCount:0,manCount:0});
+  c.Backup_triggerInstalado=()=>false;
+  c._config_leerValores=()=>({});
+  assert.equal(c.api_backupListar(clave).ok,true);
+  c.Backup_crear=()=>({ok:true});
+  assert.equal(c.api_backupCrear('MANUAL',clave).ok,true);
+  const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
+  assert.match(sidebar,/\.api_duplaGuardar\(pid,DUPLA_SELECCIONADAS\.slice\(\),TOKEN_INVITACION\)/);
+  for(const [archivo, llamadas] of [
+    ['LogVisor.html',['api_logLeer']],
+    ['Configuracion.html',['api_configGuardar','api_configAgregar','api_configEliminar']],
+    ['Backup.html',['api_backupListar','api_backupCrear','api_backupToggle','api_backupProgramar','api_backupConfigLeer','api_backupPodar','api_backupFolder']]
+  ]){
+    const html=readFileSync(new URL(archivo,root),'utf8');
+    assert.match(html,/data-acceso="<\?= TOKEN_ACCESO \?>"/);
+    for(const llamada of llamadas)assert.match(html,new RegExp('\\.'+llamada+'\\([^;]*ECICEP_ACCESO\\)'));
+  }
+});
 console.log('Acceso Web App: '+pruebas+'/'+pruebas);

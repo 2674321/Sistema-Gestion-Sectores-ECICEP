@@ -35,7 +35,7 @@ tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--prima
 .detalle dd{margin:2px 0 0;font:400 13px ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
 </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>">
 <header>
   <h1>📄 Registro del Sistema</h1><span class="build">build <?= BUILD ?></span>
   <div class="acciones-log" style="margin-left:auto">
@@ -86,6 +86,7 @@ tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--prima
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
+var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
 var DATOS=[],SEL=null;
 var DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -105,7 +106,7 @@ function cargar(){
     sel.value=actual;
     render();
   }).withFailureHandler(function(e){toast('Error cargando LOG: '+(e&&e.message||e),'err');})
-  .api_logLeer(800);
+  .api_logLeer(800,ECICEP_ACCESO);
 }
 
 function filtrados(){

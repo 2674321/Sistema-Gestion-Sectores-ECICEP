@@ -1044,8 +1044,8 @@ function Backup_quitarProgramacion() {
 /** Endpoint: estado + historial completo (para el HTML).
  *  UNA lectura de CONFIG para `BACKUP_AUTO_ULTIMA` y `BACKUP_MANTENER`
  *  (antes eran dos lecturas completas de la misma hoja). */
-function api_backupListar() {
-  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+function api_backupListar(token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var st = Backup_listar();
   var trigger = Backup_triggerInstalado();
   var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
@@ -1064,15 +1064,15 @@ function api_backupListar() {
 }
 
 /** Endpoint: crear backup manual. */
-function api_backupCrear(etiqueta) {
-  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+function api_backupCrear(etiqueta, token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Backup_crear(etiqueta || 'MANUAL');
 }
 
 /** Endpoint: toggle automático (activar/desactivar). */
-function api_backupToggle() {
+function api_backupToggle(token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     if (Backup_triggerInstalado()) {
       Backup_quitarProgramacion();
       return { ok: true, mensaje: 'Backup automático desactivado' };
@@ -1088,9 +1088,9 @@ function api_backupToggle() {
 }
 
 /** Endpoint: programar backup con día y hora específicos. */
-function api_backupProgramar(dia, hora) {
+function api_backupProgramar(dia, hora, token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     Backup_programar(dia, hora);
     return { ok: true, mensaje: 'Backup programado: ' + dia + ' ' + hora + ':00' };
   } catch (e) {
@@ -1099,8 +1099,8 @@ function api_backupProgramar(dia, hora) {
 }
 
 /** Endpoint: leer configuración actual de programación. */
-function api_backupConfigLeer() {
-  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+function api_backupConfigLeer(token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return {
     ok: true,
     dia: _rem9_configValor('BACKUP_DIA') || 'DOMINGO',
@@ -1110,15 +1110,15 @@ function api_backupConfigLeer() {
 }
 
 /** Endpoint: podar backups automáticos viejos. */
-function api_backupPodar() {
-  if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+function api_backupPodar(token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Backup_podar();
 }
 
 /** Endpoint: URL de la carpeta de backups. */
-function api_backupFolder() {
+function api_backupFolder(token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var folder = _backup_folder();
     return { ok: true, url: folder.getUrl(), id: folder.getId() };
   } catch (e) {

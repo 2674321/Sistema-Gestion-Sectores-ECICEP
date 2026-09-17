@@ -673,7 +673,7 @@ function guardarDupla(btn){
       else toast((r&&r.motivo)||'No se pudo guardar','err');
     })
     .withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-    .api_duplaGuardar(pid,DUPLA_SELECCIONADAS.slice());
+    .api_duplaGuardar(pid,DUPLA_SELECCIONADAS.slice(),TOKEN_INVITACION);
 }
 
 /* Conteo silencioso para el chip — NO abre ningún panel */

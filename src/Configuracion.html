@@ -86,7 +86,7 @@ span.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transform
 @media(max-width:760px){.res-form{grid-template-columns:1fr 1fr}}
 </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>" data-seccion="<?= SECCION ?>">
 <header>
   <h1>⚙️ Configuración</h1>
   <span class="sub">Administración por secciones · la hoja CONFIG queda oculta</span>
@@ -108,9 +108,11 @@ span.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transform
 </div>
 
 <script>
+var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
 var CONFIG_actual = [];
 var SECCIONES = ['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'];
-var FILTRO = SECCIONES.indexOf('<?= SECCION ?>') !== -1 ? '<?= SECCION ?>' : 'TODAS';
+var seccionInicial = document.body.getAttribute('data-seccion') || '';
+var FILTRO = SECCIONES.indexOf(seccionInicial) !== -1 ? seccionInicial : 'TODAS';
 var ARMED = {}; // clave → indentificador para doble confirmación (sin confirm() nativo)
 
 // Estado de RESPONSABLES por sector (acumulables, DEC-039)
@@ -444,7 +446,7 @@ function guardarFila(btn,clave){
       if(r&&r.ok){toast('✓ '+clave+' guardada','ok');cargar();}
       else toast(r.motivo||'No se pudo guardar','err');})
     .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-    .api_configGuardar(clave,valorDe(clave));
+    .api_configGuardar(clave,valorDe(clave),ECICEP_ACCESO);
 }
 
 /* Eliminación con doble confirmación INLINE (confirm() nativo está deshabilitado
@@ -457,7 +459,7 @@ function pedirEliminar(btn,clave){
         if(r&&r.ok){toast('✓ '+clave+' eliminada','ok');cargar();}
         else toast(r.motivo||'No se pudo eliminar','err');})
       .withFailureHandler(function(e){setLoading(btn,false);ARMED[clave]=false;toast('Error: '+(e&&e.message||e),'err');})
-      .api_configEliminar(clave);
+      .api_configEliminar(clave,ECICEP_ACCESO);
   } else {
     ARMED[clave]=true;
     btn.classList.add('armado');
@@ -481,7 +483,7 @@ function agregarClave(btn){
         cargar();}
       else toast(r.motivo||'No se pudo agregar','err');})
     .withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-    .api_configAgregar(k,v,d);
+    .api_configAgregar(k,v,d,ECICEP_ACCESO);
 }
 
 cargar();

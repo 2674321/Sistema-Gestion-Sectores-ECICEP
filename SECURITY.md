@@ -23,6 +23,9 @@ público. Regla aplicada por diseño:
 - El enlace compartido de Captura contiene una clave de acceso a datos clínicos.
   Solo debe distribuirse a operadores autorizados y puede revocarse reemplazando
   `CAPTURA_ACCESS_TOKEN` en Script Properties y generando un QR nuevo.
+- Los paneles de Sheets usan esa misma clave para sus funciones protegidas;
+  compartirla concede acceso operativo amplio, incluida la configuración y
+  los backups.
 
 ## Reportar una vulnerabilidad
 

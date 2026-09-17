@@ -169,14 +169,15 @@ function UI_actualizarTodo(opciones) {
 function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  t.TOKEN_ACCESO = WebApp_claveCompartida_();
   _UI_get().showModalDialog(t.evaluate().setTitle('Registro del Sistema')
     .setWidth(1180).setHeight(720), 'Registro del Sistema');
 }
 
 /** Endpoint visor LOG: últimos registros + conteos por nivel. */
-function api_logLeer(limite) {
+function api_logLeer(limite, token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: true, registros: [], resumen: { total: 0, errores: 0, advertencias: 0, informacion: 0 } };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var h = Modelo_hoja(HOJAS.LOG);
     if (!h || h.getLastRow() < 2) return { ok: true, registros: [], resumen: { total: 0, errores: 0, advertencias: 0, informacion: 0 } };
     var max = Math.min(Number(limite) || 500, 2000);
@@ -339,6 +340,7 @@ function include(nombre) {
 function _ui_dialogo(nombre, titulo) {
   var t = HtmlService.createTemplateFromFile(nombre);
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  t.TOKEN_ACCESO = WebApp_claveCompartida_();
   var html = t.evaluate().setTitle(titulo).setWidth(1180).setHeight(720);
   _UI_get().showModalDialog(html, titulo);
 }
@@ -389,6 +391,7 @@ function _ui_configuracion(seccion) {
   } catch (e) {}
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
+  t.TOKEN_ACCESO = WebApp_claveCompartida_();
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
 }
@@ -491,9 +494,9 @@ function api_duplaAbrir(idInterno) {
 }
 
 /** Endpoint: guarda la dupla del paciente como códigos separados por ';'. */
-function api_duplaGuardar(idInterno, codigos) {
+function api_duplaGuardar(idInterno, codigos, token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     codigos = (codigos || []).map(function (c) { return String(c).trim().toUpperCase(); }).filter(Boolean);
     var dupla = codigos.join('; ');
     var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO']);
@@ -557,9 +560,9 @@ function api_configListar() {
 }
 
 /** Endpoint: guarda el valor de una clave NO protegida (con validación). */
-function api_configGuardar(clave, valor) {
+function api_configGuardar(clave, valor, token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
     if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
@@ -579,9 +582,9 @@ function api_configGuardar(clave, valor) {
 }
 
 /** Endpoint: agrega una clave nueva (no puede duplicar). */
-function api_configAgregar(clave, valor, descripcion) {
+function api_configAgregar(clave, valor, descripcion, token) {
   try {
-    if (!WebApp_usuarioActivo()) return { ok: false, motivo: 'Sesión de usuario no detectada; acceso denegado' };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
     if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
@@ -610,8 +613,9 @@ function api_configAgregar(clave, valor, descripcion) {
 }
 
 /** Endpoint: elimina una clave NO protegida de CONFIG. */
-function api_configEliminar(clave) {
+function api_configEliminar(clave, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
     if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
