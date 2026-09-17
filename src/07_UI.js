@@ -170,6 +170,10 @@ function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
   t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.PORTAL_URL = '';
+  t.REM_URL = '';
+  t.DASH_URL = '';
+  t.GENERAR_REM_URL = '';
   _UI_get().showModalDialog(t.evaluate().setTitle('Registro del Sistema')
     .setWidth(1180).setHeight(720), 'Registro del Sistema');
 }
@@ -341,6 +345,10 @@ function _ui_dialogo(nombre, titulo) {
   var t = HtmlService.createTemplateFromFile(nombre);
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
   t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.PORTAL_URL = '';
+  t.REM_URL = '';
+  t.DASH_URL = '';
+  t.GENERAR_REM_URL = '';
   var html = t.evaluate().setTitle(titulo).setWidth(1180).setHeight(720);
   _UI_get().showModalDialog(html, titulo);
 }
@@ -353,6 +361,7 @@ function _ui_sidebar(modo, titulo, idInicial) {
   t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
   t.TOKEN_INVITACION = WebApp_claveCompartida_();
+  t.PORTAL_URL = '';
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
 
@@ -392,6 +401,7 @@ function _ui_configuracion(seccion) {
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
   t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
 }
@@ -423,6 +433,8 @@ function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  t.PORTAL_URL = '';
+  t.FICHA_URL = '';
   var html = t.evaluate().setTitle('Controles por persona')
     .setWidth(1160).setHeight(760);
   _UI_get().showModalDialog(html, 'Controles por persona');
@@ -506,8 +518,7 @@ function api_duplaGuardar(idInterno, codigos, token) {
     }
     if (idx === -1) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
     pacientes[idx].DUPLA_INGRESO = dupla;
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var hoja = ss.getSheetByName(HOJAS.PACIENTES);
+    var hoja = Modelo_hoja(HOJAS.PACIENTES);
     var colDupla = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('DUPLA_INGRESO') + 1;
     hoja.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), colDupla).setValue(dupla);
     Modelo_invalidarLecturas();

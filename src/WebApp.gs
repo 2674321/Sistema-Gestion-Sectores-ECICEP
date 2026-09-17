@@ -65,6 +65,11 @@ function WebApp_urlCompartida_() {
   return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
 }
 
+function WebApp_urlVista_(vista) {
+  var url = WebApp_urlCompartida_();
+  return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
+}
+
 /** Devuelve el email del usuario activo o '' si no hay sesión autenticada. */
 function WebApp_usuarioActivo() {
   try {
@@ -89,10 +94,44 @@ function doGet(e) {
   if (!WebApp_autorizarBuscador(acceso)) {
     return ContentService.createTextOutput('Enlace de Captura no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
   }
-  var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  plantilla.CAPTURA_ACCESO = WebApp_accesoCompartidoValido_(acceso) ? acceso : WebApp_claveCompartida_();
+  var vista = e && e.parameter && e.parameter.vista || 'captura';
+  if (vista !== 'captura' && !WebApp_accesoCompartidoValido_(acceso)) {
+    return ContentService.createTextOutput('Función no disponible sin el enlace compartido vigente.');
+  }
+  var archivos = {
+    captura: 'CapturaWeb', portal: 'PortalWeb', pacientes: 'Sidebar',
+    revision: 'Sidebar', ficha: 'Sidebar', controles: 'Controles',
+    estadisticas: 'Dashboard', configuracion: 'Configuracion',
+    backups: 'Backup', registro: 'LogVisor', rem: 'RemVista',
+    generarRem: 'RemGenerador'
+  };
+  var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
+  if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de Captura.');
+  var plantilla = HtmlService.createTemplateFromFile(archivo);
+  var clave = WebApp_accesoCompartidoValido_(acceso) ? acceso : WebApp_claveCompartida_();
+  plantilla.CAPTURA_ACCESO = clave;
+  plantilla.TOKEN_ACCESO = clave;
+  plantilla.TOKEN_INVITACION = clave;
+  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
+  plantilla.FICHA_URL = WebApp_urlVista_('ficha');
+  plantilla.REM_URL = WebApp_urlVista_('rem');
+  plantilla.DASH_URL = WebApp_urlVista_('estadisticas');
+  plantilla.GENERAR_REM_URL = WebApp_urlVista_('generarRem');
+  plantilla.BUILD = Utilities.formatDate(new Date(), ECICEP.TZ, 'yyyyMMdd-HHmm');
+  plantilla.SECCION = 'TODAS';
+  plantilla.modo = vista === 'pacientes' ? 'pacientes' : vista === 'revision' ? 'revision' : 'ficha';
+  plantilla.ID_INICIAL = vista === 'ficha' && e.parameter.id ? String(e.parameter.id) : '';
+  if (vista === 'portal') {
+    plantilla.LINKS = [
+      ['Captura', 'captura'], ['Pacientes y ficha', 'pacientes'],
+      ['Controles', 'controles'], ['Estadísticas', 'estadisticas'],
+      ['REM', 'rem'], ['Generar REM', 'generarRem'],
+      ['Cola de revisión', 'revision'], ['Configuración', 'configuracion'],
+      ['Backups', 'backups'], ['Registro', 'registro']
+    ].map(function (item) { return { titulo: item[0], url: WebApp_urlVista_(item[1]) }; });
+  }
   return plantilla.evaluate()
-    .setTitle('ECICEP — Captura')
+    .setTitle('ECICEP — ' + vista)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }

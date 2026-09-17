@@ -61,14 +61,15 @@ td.est{white-space:nowrap}
   padding:var(--space-4);line-height:1.5}
 </style>
 </head>
-<body>
+<body data-portal="<?= PORTAL_URL ?>" data-ficha-base="<?= FICHA_URL ?>">
+<? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <div id="toastZone"></div>
 
 <header>
   <h1>🩺 Controles por persona</h1>
   <span class="sub">Pendientes automáticos · búsqueda bajo demanda</span>
   <div style="flex:1"></div>
-  <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+  <button class="btn btn-ghost" onclick="cerrarVista()"><i data-lucide="x"></i> Cerrar</button>
 </header>
 
 <div class="layout">
@@ -334,11 +335,14 @@ function limpiarDetalle() {
 /* ================= acciones ================= */
 function verFicha() {
   if (!CTRL.sel) return;
+  var base=document.body.getAttribute('data-ficha-base');
+  if(base){window.open(base+'&id='+encodeURIComponent(CTRL.sel),'_blank');return;}
   google.script.run
     .withSuccessHandler(function () { google.script.host.close(); })
     .withFailureHandler(function () { google.script.host.close(); })
     .UI_abrirFicha(CTRL.sel);
 }
+function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 
 function registrar(tipo) {
   if (!CTRL.sel || _registrando) return;

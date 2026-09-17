@@ -35,7 +35,8 @@ tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--prima
 .detalle dd{margin:2px 0 0;font:400 13px ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
 </style>
 </head>
-<body data-acceso="<?= TOKEN_ACCESO ?>">
+<body data-acceso="<?= TOKEN_ACCESO ?>" data-portal="<?= PORTAL_URL ?>">
+<? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>📄 Registro del Sistema</h1><span class="build">build <?= BUILD ?></span>
   <div class="acciones-log" style="margin-left:auto">
@@ -45,7 +46,7 @@ tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--prima
     <button class="btn btn-sec" onclick="copiarDetalle()"><i data-lucide="copy"></i> Copiar detalle</button>
     <button class="btn btn-pri" onclick="exportarCsv()"><i data-lucide="download"></i> Exportar LOG</button>
     <button class="btn btn-ghost" onclick="verHoja()"><i data-lucide="table"></i> Hoja LOG</button>
-    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+    <button class="btn btn-ghost" onclick="cerrarVista()"><i data-lucide="x"></i> Cerrar</button>
   </div>
 </header>
 
@@ -87,6 +88,7 @@ tbody tr.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--prima
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
+function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 var DATOS=[],SEL=null;
 var DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];

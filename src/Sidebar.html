@@ -150,7 +150,8 @@ textarea.inp{min-height:64px;resize:vertical}
 
 </style>
 </head>
-<body>
+<body data-portal="<?= PORTAL_URL ?>">
+<? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <div id="toastZone"></div>
 
 <!-- ============ CENTRO DE CONTROL + BÚSQUEDA ============ -->
@@ -726,6 +727,8 @@ function resolver(idx,dec,btn){
 }
 
 function volver(){
+  var portal=document.body.getAttribute('data-portal');
+  if(portal&&(MODO==='ficha'||MODO==='revision')){window.open(portal,'_blank');return;}
   if(MODO==='ficha'){ google.script.host.close(); return; }
   if(MODO==='revision'){
     /* La cola es un módulo propio: volver = Panel de Control */

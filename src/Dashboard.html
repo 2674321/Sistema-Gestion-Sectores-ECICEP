@@ -50,7 +50,8 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 
 </style>
 </head>
-<body>
+<body data-rem-url="<?= REM_URL ?>">
+<? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>Estadísticas</h1> <span class="build" style="font-size:10px;color:var(--border-strong)">build <?= BUILD ?></span><span class="chip rut" id="chipGen">…</span>
   <button class="btn btn-sec" id="btnActualizar" onclick="cargarDatos(this)" style="margin-left:auto">
@@ -349,7 +350,8 @@ function irRem(){
   try{var sv=JSON.parse(localStorage.getItem('DASH_OPS')||'null');
     if(sv&&sv.sectores&&sv.sectores.length===1)sector=sv.sectores[0];}catch(e){}
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:mes,anio:anio,sector:sector}));}catch(e){}
-  google.script.run.UI_verRem();
+  var remUrl=document.body.getAttribute('data-rem-url');
+  if(remUrl)window.open(remUrl,'_blank');else google.script.run.UI_verRem();
 }
 function cargarDatos(btn){
   if(btn&&btn.disabled)return;

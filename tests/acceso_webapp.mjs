@@ -8,11 +8,11 @@ const c=vm.createContext({console:{log(){},warn(){},error(){}}});
 for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())vm.runInContext(readFileSync(new URL(f,root),'utf8'),c,{filename:f});
 const props=new Map(),uuid='12345678-1234-4123-8123-123456789abc';
 c.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
-c.Utilities={getUuid:()=>uuid};
+c.Utilities={getUuid:()=>uuid,formatDate:()=>''};
 c.Session={getActiveUser:()=>({getEmail:()=>''})};
 c.ContentService={createTextOutput:text=>({tipo:'texto',texto:text})};
-let plantillas=0;
-c.HtmlService={createTemplateFromFile:n=>{plantillas++;assert.equal(n,'CapturaWeb');return {evaluate(){return {tipo:'html',setTitle(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}},XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
+let plantillas=0,plantillaArchivo='';
+c.HtmlService={createTemplateFromFile:n=>{plantillas++;plantillaArchivo=n;return {evaluate(){return {tipo:'html',setTitle(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}},XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
 let pruebas=0;function t(nombre,fn){fn();pruebas++;console.log('[PASS] '+nombre);}
 t('La URL base y una clave inválida no sirven HTML ni ficha',()=>{
   assert.equal(c.doGet({parameter:{}}).tipo,'texto');
@@ -30,9 +30,24 @@ t('El QR genera clave propia y el mismo enlace funciona sin cuenta',()=>{
   assert.equal(url,c.ECICEP_webAppUrl()+'?acceso='+clave);
   assert.equal(c.WebApp_urlCompartida_(),url);
   assert.equal(c.doGet({parameter:{acceso:clave}}).tipo,'html');
+  assert.equal(plantillaArchivo,'CapturaWeb');
   assert.equal(plantillas,1);
   assert.equal(c.Captura_v2_ctx(clave).usuario,'ACCESO_COMPARTIDO');
   assert.equal(c.Captura_v2_ctx('').usuario,'');
+});
+t('El mismo enlace abre funciones clínicas y paneles sin cuenta Google',()=>{
+  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+  const rutas={portal:'PortalWeb',pacientes:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',rem:'RemVista',generarRem:'RemGenerador'};
+  for(const [vista,archivo] of Object.entries(rutas)){
+    assert.equal(c.doGet({parameter:{acceso:clave,vista}}).tipo,'html',vista);
+    assert.equal(plantillaArchivo,archivo,vista);
+    assert.equal(c.doGet({parameter:{vista}}).tipo,'texto',vista+' sin clave');
+  }
+  assert.equal(c.doGet({parameter:{acceso:clave,vista:'noExiste'}}).tipo,'texto');
+  c.Session={getActiveUser:()=>({getEmail:()=> 'otra-cuenta@example.org'})};
+  assert.equal(c.doGet({parameter:{vista:'configuracion'}}).tipo,'texto');
+  c.Session={getActiveUser:()=>({getEmail:()=>''})};
+  assert.equal(c.WebApp_urlVista_('controles'),c.WebApp_urlCompartida_()+'&vista=controles');
 });
 t('La ficha de Sheets usa la misma clave para buscar y actualizar la agenda',()=>{
   const clave=props.get('CAPTURA_ACCESS_TOKEN');

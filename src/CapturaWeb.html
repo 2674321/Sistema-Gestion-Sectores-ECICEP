@@ -49,7 +49,7 @@
     .hdr-brand h1{font-size:var(--fs-lg);font-weight:var(--fw-bold);letter-spacing:-.3px;line-height:1.15;margin:0}
     .hdr-brand p{font-size:var(--fs-xs);font-weight:var(--fw-regular);opacity:.78;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .hdr-actions{display:flex;gap:var(--sp-2);flex-shrink:0}
-    .hdr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-sm);
+    .hdr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-sm);text-decoration:none;
       font-size:var(--fs-sm);font-weight:var(--fw-semibold);font-family:var(--ff);cursor:pointer;
       border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;
       transition:border-color var(--transition),background-color var(--transition),box-shadow var(--transition),color var(--transition);min-height:36px}
@@ -405,6 +405,7 @@
         <p>Aplicaci&oacute;n de captura de datos</p>
       </div>
       <div class="hdr-actions">
+        <a class="hdr-btn" href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer" aria-label="Abrir funciones ECICEP" title="Abrir funciones ECICEP">Funciones</a>
         <button class="hdr-btn" id="btnGuia" type="button" aria-label="Guía de uso" aria-haspopup="dialog" title="Guía de uso">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
           <span>Guía</span>

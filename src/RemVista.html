@@ -56,7 +56,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 }
 </style>
 </head>
-<body>
+<body data-dash-url="<?= DASH_URL ?>" data-generar-url="<?= GENERAR_REM_URL ?>">
+<? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <div class="tit">
     <h1>REM — vista de trabajo</h1>
@@ -170,7 +171,8 @@ function irEstadisticas() {
       act: document.getElementById('selAct').value
     }));
   } catch (e) {}
-  google.script.run.UI_abrirDashboard();
+  var url=document.body.getAttribute('data-dash-url');
+  if(url)window.open(url,'_blank');else google.script.run.UI_abrirDashboard();
 }
 function irGenerar() {
   try {
@@ -181,7 +183,8 @@ function irGenerar() {
       act: document.getElementById('selAct').value
     }));
   } catch (e) {}
-  google.script.run.UI_generarRem();
+  var url=document.body.getAttribute('data-generar-url');
+  if(url)window.open(url,'_blank');else google.script.run.UI_generarRem();
 }
 function consultar(btn) {
   var anio = +document.getElementById('selAnio').value;

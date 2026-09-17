@@ -26,6 +26,9 @@ público. Regla aplicada por diseño:
 - Los paneles de Sheets usan esa misma clave para sus funciones protegidas;
   compartirla concede acceso operativo amplio, incluida la configuración y
   los backups.
+- Las rutas de funciones de la Web App requieren la clave incluso cuando Apps
+  Script detecta una sesión Google. Trata el enlace completo como una
+  credencial de acceso operativo.
 
 ## Reportar una vulnerabilidad
 

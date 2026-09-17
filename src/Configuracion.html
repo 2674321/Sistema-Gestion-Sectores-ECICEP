@@ -86,12 +86,13 @@ span.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transform
 @media(max-width:760px){.res-form{grid-template-columns:1fr 1fr}}
 </style>
 </head>
-<body data-acceso="<?= TOKEN_ACCESO ?>" data-seccion="<?= SECCION ?>">
+<body data-acceso="<?= TOKEN_ACCESO ?>" data-seccion="<?= SECCION ?>" data-portal="<?= PORTAL_URL ?>">
+<? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>⚙️ Configuración</h1>
   <span class="sub">Administración por secciones · la hoja CONFIG queda oculta</span>
   <div class="acciones" style="margin-left:auto">
-    <button class="btn btn-ghost" onclick="google.script.host.close()"><i data-lucide="x"></i> Cerrar</button>
+    <button class="btn btn-ghost" onclick="cerrarVista()"><i data-lucide="x"></i> Cerrar</button>
   </div>
 </header>
 
@@ -109,6 +110,7 @@ span.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transform
 
 <script>
 var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
+function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 var CONFIG_actual = [];
 var SECCIONES = ['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'];
 var seccionInicial = document.body.getAttribute('data-seccion') || '';

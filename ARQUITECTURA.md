@@ -1,5 +1,11 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.16):** el deployment Web App sirve las
+> interfaces existentes mediante rutas `vista` protegidas por la misma clave
+> compartida: Pacientes/ficha, Controles, Estadísticas, REM, Configuración,
+> Backups y Registro. El botón Funciones en Captura abre el portal. El backend,
+> Spreadsheet y pipeline no se duplican; Sheets conserva su interfaz propia.
+
 > **Actualización 2026-09-17 (v0.9.15):** los paneles de ficha/dupla,
 > registro, configuración y Backups reciben la clave compartida en su propia
 > interfaz y la validan en cada operación protegida. La ausencia de email en
