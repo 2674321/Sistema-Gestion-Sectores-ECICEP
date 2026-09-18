@@ -16,6 +16,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 .chip-filtro.on.naranjo{background:var(--sector-naranjo)}
 .chip-filtro.on.amarillo{background:var(--sector-amarillo)}
 .chip-filtro.on.verde{background:var(--sector-verde)}
+.chip-filtro.on[data-s="MULTIPLE"]{background:#64748B}
 .rango{display:flex;gap:8px;align-items:center;margin-left:auto;color:var(--text-secondary);font-size:13px}
 .grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--space-3);margin-bottom:var(--space-4)}
 .kpi .etq{margin-bottom:6px}
@@ -74,7 +75,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
       <label class="opt"><input type="checkbox" id="opConPat">
         Solo pacientes con patologías registradas</label>
       <label class="opt"><input type="checkbox" id="opSinSector">
-        Incluir atenciones sin sector definido</label>
+        Incluir pacientes y atenciones sin sector definido</label>
       <label class="opt">Próximos controles:
         <select id="opDias" class="inp" style="width:90px;min-height:34px">
           <option value="30" selected>30 días</option>
@@ -90,6 +91,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
   <span class="chip chip-filtro on naranjo" data-s="NARANJO">Naranjo</span>
   <span class="chip chip-filtro on amarillo" data-s="AMARILLO">Amarillo</span>
   <span class="chip chip-filtro on verde" data-s="VERDE">Verde</span>
+  <span class="chip chip-filtro on" data-s="MULTIPLE">Múltiple</span>
   <div class="rango">
     <i data-lucide="calendar-range" style="width:16px;height:16px"></i>
     <input type="date" id="fDesde" class="inp" style="width:150px;min-height:36px">
@@ -119,8 +121,8 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var D=null, CH={}, SECTORES=['NARANJO','AMARILLO','VERDE'];
-var COL_SEC={NARANJO:'#E8730A',AMARILLO:'#C79A00',VERDE:'#2E8B57'};
+var D=null, CH={}, SECTORES=['NARANJO','AMARILLO','VERDE','MULTIPLE'];
+var COL_SEC={NARANJO:'#E8730A',AMARILLO:'#C79A00',VERDE:'#2E8B57',MULTIPLE:'#64748B',SIN_SECTOR:'#B9C0CC'};
 var COL_EST={'G1':'#3E8A96','G2':'#0E5C68','G3':'#08414A','PENDIENTE':'#B9C0CC'};
 var _conteoAnim=false;
 
@@ -151,9 +153,9 @@ var _rebRenderT=null;
 
 function activos(){return SECTORES.filter(function(s){
   return document.querySelector('.chip-filtro[data-s="'+s+'"]').classList.contains('on');});}
-function paxFiltrados(){var s=activos();return D.pacientes.filter(function(p){return s.indexOf(p.sector)!==-1;});}
-function evFiltrados(){var s=activos();return D.eventos.filter(function(e){return s.indexOf(e.sector)!==-1;});}
-function esPendiente(est){est=String(est||'').trim().toUpperCase();return est===''||est==='G'||est==='PENDIENTE';}
+function paxFiltrados(){var s=activos();return D.pacientes.filter(function(p){return s.indexOf(String(p.sector||'').trim().toUpperCase())!==-1;});}
+function evFiltrados(){var s=activos();return D.eventos.filter(function(e){return s.indexOf(String(e.sector||'').trim().toUpperCase())!==-1;});}
+function esPendiente(est){return !/^G[123]$/.test(String(est||'').trim().toUpperCase());}
 
 function animNum(el,val,sufijo){
   sufijo=sufijo||'';
@@ -169,18 +171,25 @@ function renderizarTodo(){
 try{
   if(!D){toast('Datos aún no cargados — espera o presiona Actualizar','info');return;}
   var op=opcionesCalc();
-  var pax=paxFiltrados();
+  var paxBase=paxFiltrados();
+  if(op.sinSector&&activos().length===SECTORES.length)
+    paxBase=paxBase.concat(D.pacientes.filter(function(p){return !String(p.sector||'').trim();}));
+  if(op.conPat)paxBase=paxBase.filter(function(p){return String(p.cond||'').split(';').filter(Boolean).length>0;});
+  var pax=paxBase;
   if(op.sinPend)pax=pax.filter(function(p){return !esPendiente(p.est);});
-  if(op.conPat)pax=pax.filter(function(p){return String(p.cond||'').split(';').filter(Boolean).length>0;});
   var evs=evFiltrados();
   if(op.sinSector)evs=evs.concat(D.eventos.filter(function(e){
     return e.sector===''&&activos().length===SECTORES.length;}));
 
   /* --- KPIs --- */
   animNum(document.getElementById('kTotal'),pax.length);
-  var pend=pax.filter(function(p){return esPendiente(p.est);}).length;
-  animNum(document.getElementById('kPend'),pax.length?Math.round(100*pend/pax.length):0,'%');
-  var hoy=new Date(),mesAct=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
+  var pend=paxBase.filter(function(p){return esPendiente(p.est);}).length;
+  animNum(document.getElementById('kPend'),paxBase.length?Math.round(100*pend/paxBase.length):0,'%');
+  document.getElementById('kPend').parentElement.querySelector('.delta').textContent=
+    pend+' de '+paxBase.length+' pacientes del sector seleccionado';
+  var hoyIso=/^\d{4}-\d{2}-\d{2}$/.test(String(D.generadoEn||''))
+    ? D.generadoEn : new Date().toISOString().slice(0,10);
+  var hoy=new Date(hoyIso+'T12:00:00'),mesAct=hoyIso.slice(0,7);
   var mesAnt=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);
   var mesAntK=mesAnt.getFullYear()+'-'+String(mesAnt.getMonth()+1).padStart(2,'0');
   var ingMes=evs.filter(function(e){return e.tipo==='INGRESO'&&e.f.slice(0,7)===mesAct;}).length;
@@ -192,7 +201,6 @@ try{
   else{d.textContent='sin base de comparación';d.className='delta neu';}
   animNum(document.getElementById('kRev'),pax.filter(function(p){return p.rev;}).length);
 
-  var hoyIso=hoy.toISOString().slice(0,10);
   var mesIso=hoyIso.slice(0,7);
 
   /* Estados vacíos: hoja sin datos ≠ filtros sin resultados */
@@ -219,7 +227,9 @@ try{
   if(ctrlAnt>0){var pc=Math.round(100*(ctrlMes-ctrlAnt)/ctrlAnt);
     dC.textContent=(pc>=0?'▲ +':'▼ ')+pc+'% vs mes anterior';dC.className='delta '+(pc>=0?'up':'down');}
   else{dC.textContent='sin base de comparación';dC.className='delta neu';}
-  var lim30=new Date(hoy.getTime()+op.dias*864e5).toISOString().slice(0,10);
+  var fechaLimite=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()+op.dias);
+  var lim30=fechaLimite.getFullYear()+'-'+String(fechaLimite.getMonth()+1).padStart(2,'0')+
+    '-'+String(fechaLimite.getDate()).padStart(2,'0');
   var prox=pax.filter(function(p){return p.pc>=hoyIso&&p.pc<=lim30;}).length;
   document.getElementById('kProx').parentElement.querySelector('.etq').textContent='Próximos controles ('+op.dias+' días)';
   animNum(document.getElementById('kProx'),prox);
@@ -246,10 +256,12 @@ try{
   });
 
   /* --- Donut sector --- */
+  var sectoresGraf=activos();
+  if(op.sinSector&&activos().length===SECTORES.length)sectoresGraf=sectoresGraf.concat(['SIN_SECTOR']);
   grafico('chSector','doughnut',{
-    labels:SECTORES.map(function(s){return s.charAt(0)+s.slice(1).toLowerCase();}),
-    datasets:[{data:SECTORES.map(function(s){return pax.filter(function(p){return p.sector===s;}).length;}),
-      backgroundColor:SECTORES.map(function(s){return COL_SEC[s];}),borderWidth:2,borderColor:'#fff'}]
+    labels:sectoresGraf.map(function(s){return s==='SIN_SECTOR'?'Sin sector':s.charAt(0)+s.slice(1).toLowerCase();}),
+    datasets:[{data:sectoresGraf.map(function(s){return pax.filter(function(p){return (String(p.sector||'').trim().toUpperCase()||'SIN_SECTOR')===s;}).length;}),
+      backgroundColor:sectoresGraf.map(function(s){return COL_SEC[s];}),borderWidth:2,borderColor:'#fff'}]
   });
 
   /* --- Barra estratificación (escala primaria, nunca semáforo) --- */
@@ -366,16 +378,19 @@ function cargarDatos(btn){
     return;}
   D=r;D.catalogoObj={};(r.catalogo||[]).forEach(function(c){D.catalogoObj[c.codigo]=c.nombre;});
   D.catalogo=D.catalogoObj;
-  var hoy=new Date();
-  document.getElementById('fDesde').value=new Date(hoy.getFullYear(),0,1).toISOString().slice(0,10);
-  document.getElementById('fHasta').value=hoy.toISOString().slice(0,10);
+  var anioActual=String(r.generadoEn||'').slice(0,4);
+  document.getElementById('fDesde').value=anioActual+'-01-01';
+  document.getElementById('fHasta').value=r.generadoEn;
   document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);
 
   try{
     var sv=JSON.parse(localStorage.getItem('DASH_OPS')||'null');
     if(sv){
+      var seleccion=Array.isArray(sv.sectores)?sv.sectores.slice():SECTORES.slice();
+      if(['NARANJO','AMARILLO','VERDE'].every(function(s){return seleccion.indexOf(s)!==-1;})&&
+         seleccion.indexOf('MULTIPLE')===-1)seleccion.push('MULTIPLE');
       document.querySelectorAll('.chip-filtro').forEach(function(ch){
-        ch.classList.toggle('on',sv.sectores.indexOf(ch.dataset.s)!==-1);});
+        ch.classList.toggle('on',seleccion.indexOf(ch.dataset.s)!==-1);});
       document.getElementById('opSinPend').checked=!!sv.ops.sinPend;
       document.getElementById('opConPat').checked=!!sv.ops.conPat;
       document.getElementById('opSinSector').checked=!!sv.ops.sinSector;

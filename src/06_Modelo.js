@@ -359,7 +359,7 @@ function _modelo_anchosHoja(hoja) {
 
 /** Estiliza la fila de encabezado real de una hoja (headerRow según contrato).
  *  Parte 2: fuente mayor, bold, WRAP y altura suficiente para nombres largos. */
-function _modelo_estilizarEncabezado(hoja) {
+function _modelo_estilizarEncabezado(hoja, colorAcento) {
   var cols = hoja.getLastColumn();
   if (!cols) return;
   var hr = Modelo_headerRow(hoja.getName());
@@ -370,7 +370,9 @@ function _modelo_estilizarEncabezado(hoja) {
       .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta)
       .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
       .setVerticalAlignment(DESIGN_SYSTEM.ENCABEZADOS.vertical)
-      .setHorizontalAlignment(DESIGN_SYSTEM.ENCABEZADOS.horizontal);
+      .setHorizontalAlignment(DESIGN_SYSTEM.ENCABEZADOS.horizontal)
+      .setBorder(null, null, true, null, null, null,
+        colorAcento || DESIGN_SYSTEM.MARCA.sistema, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   hoja.setRowHeight(hr, Modelo_esHojaVisual(hoja.getName())
     ? PULIDO_ENCABEZADO.alturaVisual : PULIDO_ENCABEZADO.alturaSimple);
   _modelo_anchosHoja(hoja);
@@ -456,8 +458,15 @@ function Modelo_aplicarDiseno() {
       h.setFrozenRows(Modelo_headerRow(h.getName())); // visuales: 3 (título+secciones+headers); simples: 1
       if (d.congelarCols) h.setFrozenColumns(d.congelarCols);
       res.congeladas.push(d.nombre);
-      if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h);
-      if (d.banda) { _modelo_aplicarBanda(h); res.bandas++; }
+      if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h, d.color);
+      if (d.banda) {
+        _modelo_aplicarBanda(h);
+        h.setHiddenGridlines(true);
+        var iniDatos = Modelo_dataStartRow(h.getName());
+        if (h.getLastRow() >= iniDatos)
+          h.setRowHeights(iniDatos, h.getLastRow() - iniDatos + 1, PULIDO_ENCABEZADO.alturaDato);
+        res.bandas++;
+      }
       if (d.formato && d.formato.length) _modelo_formatoSencillo(h, d.formato);
       if (d.oculta) { if (!h.isSheetHidden()) { h.hideSheet(); res.ocultas.push(d.nombre); } }
       else if (h.isSheetHidden()) h.showSheet();

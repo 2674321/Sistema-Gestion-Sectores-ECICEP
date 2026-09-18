@@ -418,15 +418,17 @@ function Instalar_pVisual() {
 }
 function Instalar_pInicio() {
   var r = Modelo_disenoHojas();
-  Hojas_colorearRutIngresos();
+  var rut = Hojas_colorearRutIngresos();
+  var errores = (r.cond && r.cond.errores || []).slice();
+  (rut.fallidas || []).forEach(function (fallo) { errores.push('RUT: ' + fallo); });
   if (r.inicio && r.inicio.verificacion) {
     var fallos = Object.keys(r.inicio.verificacion)
       .filter(function (k) { return !r.inicio.verificacion[k]; });
-    if (fallos.length) return { ok: false,
-      motivo: 'verificación INICIO falló en: ' + fallos.join(', ') };
+    if (fallos.length) errores.push('verificación INICIO: ' + fallos.join(', '));
   }
-  return { inicio: r.inicio, cond: r.cond, filtros: r.filtros,
-           ocultas: r.ocultas, protecciones: r.protecciones };
+  return { ok: errores.length === 0, motivo: errores.join('; '), inicio: r.inicio,
+           cond: r.cond, rut: rut, filtros: r.filtros, ocultas: r.ocultas,
+           protecciones: r.protecciones };
 }
 function Instalar_pMenu() {
   onOpen();

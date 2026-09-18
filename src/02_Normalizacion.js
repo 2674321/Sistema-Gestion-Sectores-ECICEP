@@ -543,15 +543,20 @@ function Estrat_recalcularPaciente(idInterno) {
   var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
   var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
   var anterior = Utl_texto(p.ESTRATIFICACION);
-  p.ESTRATIFICACION = nuevoValor;
-  p.ESTRAT_ORIGEN = String(anterior || '');
+  // Igual que el recálculo masivo: sin regla calculable se conserva el nivel
+  // de fuente o de ficha; falta de patologías no equivale a nivel vacío.
+  if (nuevoValor) {
+    p.ESTRATIFICACION = nuevoValor;
+    p.ESTRAT_ORIGEN = String(anterior || '');
+  }
   p.ESTRAT_CALCULADA = String(res.resultado || '');
   p.ESTRAT_FECHA_CALCULO = new Date();
   p.FECHA_ACTUALIZACION = new Date();
   Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
     .setValues([Modelo_filaDesdeObjeto(p)]);
+  Modelo_invalidarLecturas();
   try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
-  return { ok: true, resultado: nuevoValor || 'pendiente', puntaje: res.puntaje,
+  return { ok: true, resultado: p.ESTRATIFICACION || 'pendiente', puntaje: res.puntaje,
            regla: res.regla, version: res.version };
 }
 
@@ -584,6 +589,7 @@ function Estrat_recalcularTodos() {
   });
   if (filas.length) {
     hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
+    Modelo_invalidarLecturas();
   }
   try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
   var ms = new Date() - t0;

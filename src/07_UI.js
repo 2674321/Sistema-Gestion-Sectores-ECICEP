@@ -1161,7 +1161,8 @@ function api_dashboardDatos() {
   try {
     var tz = _UI_tz();
     var pacientes = Modelo_leerPacientesCampos(
-      ['SECTOR', 'ESTRATIFICACION', 'REQUIERE_REVISION', 'CONDICIONES', 'FECHA_INGRESO', 'PROXIMO_CONTROL'])
+      ['ID_INTERNO', 'SECTOR', 'ESTRATIFICACION', 'REQUIERE_REVISION', 'CONDICIONES', 'FECHA_INGRESO', 'PROXIMO_CONTROL'])
+      .filter(function (p) { return Utl_texto(p.ID_INTERNO).trim() !== ''; })
       .map(function (p) {
         return { sector: Utl_texto(p.SECTOR), est: Utl_texto(p.ESTRATIFICACION),
                  rev: (p.REQUIERE_REVISION === true || p.REQUIERE_REVISION === 'TRUE'),

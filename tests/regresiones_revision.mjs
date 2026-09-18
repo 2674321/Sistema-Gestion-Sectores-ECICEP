@@ -171,6 +171,98 @@ test('La interfaz identifica las fases que fallaron', () => {
   assert.equal(mensajes.at(-1).tipo, 'error');
   assert.match(mensajes.at(-1).mensaje, /vistas, diseno/);
 });
+test('Estratificación de ficha conserva nivel de fuente si no hay cálculo y limpia caché', () => {
+  const c = backend(), p = { ID_INTERNO: 'P-1', ESTRATIFICACION: 'G2', CONDICIONES: '' };
+  let guardado, invalidaciones = 0;
+  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
+  c.Modelo_leerPacientes = () => [p];
+  c.Modelo_filaFisica = () => 4;
+  c.Modelo_filaDesdeObjeto = obj => [obj.ESTRATIFICACION];
+  c.Modelo_invalidarLecturas = () => { invalidaciones++; };
+  c.Modelo_refrescarVistasSectores = () => {};
+  c.Estrat_evaluar = () => ({ estado: 'SIN_DATOS', resultado: '', puntaje: 0, regla: '' });
+  const r = c.Estrat_recalcularPaciente('P-1');
+  assert.equal(r.resultado, 'G2'); assert.equal(guardado, 'G2');
+  assert.equal(invalidaciones, 1);
+});
+test('Recálculo masivo invalida lectura para Estadísticas después de escribir', () => {
+  const c = backend(), p = { ID_INTERNO: 'P-1', ESTRATIFICACION: '', CONDICIONES: 'HTA' };
+  let guardado, invalidaciones = 0;
+  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
+  c.Modelo_leerPacientes = () => [p];
+  c.Modelo_filaDesdeObjeto = obj => [obj.ESTRATIFICACION];
+  c.Modelo_invalidarLecturas = () => { invalidaciones++; };
+  c.Modelo_refrescarVistasSectores = () => {};
+  c.Log_info = () => {}; c.Log_flush = () => {};
+  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G1' });
+  const r = c.Estrat_recalcularTodos();
+  assert.equal(r.recalculados, 1); assert.equal(guardado, 'G1');
+  assert.equal(invalidaciones, 1);
+});
+test('INICIO cuenta pendientes solo en filas con paciente y usa total real en porcentajes', () => {
+  const c = backend();
+  const formula = c.Hojas_formulaIndicador('ESTRAT_PEND');
+  assert.match(formula, /^=MAX\(0;COUNTA\(PACIENTES!A4:A\)/);
+  for (const nivel of ['G1', 'G2', 'G3'])
+    assert.ok(formula.includes('COUNTIFS(PACIENTES!A4:A;"<>";PACIENTES!I4:I;"' + nivel + '")'));
+  const hoja = read('src/17_Hojas.js');
+  assert.match(hoja, /MAX\(COUNTA\(PACIENTES!/);
+  assert.equal(c.Dash_calidadDatos([
+    { ESTRATIFICACION: 'G1' }, { ESTRATIFICACION: '' },
+    { ESTRATIFICACION: 'G' }, { ESTRATIFICACION: 'G0' }
+  ]).estratPendiente, 3);
+});
+test('Estadísticas omite filas vacías de PACIENTES y conserva estratificación válida', () => {
+  const c = backend();
+  c.Modelo_leerPacientesCampos = () => [
+    { ID_INTERNO: 'P-1', SECTOR: 'VERDE', ESTRATIFICACION: 'G2' },
+    { ID_INTERNO: '', SECTOR: '', ESTRATIFICACION: '' }
+  ];
+  c.Modelo_leerEventosCampos = () => [];
+  c._UI_tz = () => 'America/Santiago';
+  c._ui_isoFecha = () => '';
+  const r = c.api_dashboardDatos();
+  assert.equal(r.ok, true); assert.equal(r.pacientes.length, 1);
+  assert.equal(r.pacientes[0].est, 'G2');
+});
+test('Estadísticas considera pendientes los niveles no canónicos en la interfaz', () => {
+  const html = read('src/Dashboard.html');
+  const funcion = html.match(/function esPendiente\(est\)\{[^\n]+\}/)?.[0];
+  assert.ok(funcion);
+  const esPendiente = vm.runInNewContext('(' + funcion + ')');
+  for (const valor of ['', 'G', 'G0', 'PENDIENTE', 'G4']) assert.equal(esPendiente(valor), true, valor);
+  for (const valor of ['G1', 'g2', ' G3 ']) assert.equal(esPendiente(valor), false, valor);
+});
+test('El diseño de instalación oculta cuadrícula y ajusta filas ocupadas', () => {
+  const c = backend(), calls = [];
+  c.MODELO_DISENO = [{ nombre: 'EVENTOS', color: '#123456', banda: true }];
+  const hoja = {
+    getName: () => 'EVENTOS', getLastColumn: () => 2, getLastRow: () => 5,
+    setTabColor: v => calls.push(['tab',v]), setFrozenRows: () => {},
+    setHiddenGridlines: v => calls.push(['grid',v]),
+    setRowHeights: (...v) => calls.push(['rows',...v]), isSheetHidden: () => false
+  };
+  c.Modelo_ss = () => ({ getActiveSheet: () => hoja,
+    getSheetByName: name => name === 'EVENTOS' ? hoja : null,
+    setActiveSheet: () => {}, moveActiveSheet: () => {} });
+  c._modelo_estilizarEncabezado = (_, color) => calls.push(['header',color]);
+  c._modelo_aplicarBanda = () => calls.push(['band']);
+  const r = c.Modelo_aplicarDiseno();
+  assert.equal(r.fallidas.length, 0);
+  assert.ok(calls.some(x => x[0] === 'header' && x[1] === '#123456'));
+  assert.ok(calls.some(x => x[0] === 'grid' && x[1] === true));
+  assert.ok(calls.some(x => x[0] === 'rows' && x[1] === 2 && x[2] === 4));
+});
+test('La coloración de RUT informa el fallo de una hoja sin ocultarlo', () => {
+  const c = backend();
+  const hoja = { getLastRow: () => 4, getRange: () => { throw Error('FORMATO_RUT_SIMULADO'); } };
+  c.SpreadsheetApp = { getActiveSpreadsheet: () => ({
+    getSheetByName: nombre => nombre === 'INGRESO_VERDE' ? hoja : null
+  }) };
+  const r = c.Hojas_colorearRutIngresos();
+  assert.equal(r.coloreadas, 0);
+  assert.match(r.fallidas.join('; '), /INGRESO_VERDE: FORMATO_RUT_SIMULADO/);
+});
 test('Enriquecimiento simulado conserva el objeto memoizado', () => {
   const c = backend(); const p = { ID_INTERNO: 'FICTICIO', RUT: '12345678-5', SEXO: '', FECHA_NACIMIENTO: '' };
   const before = JSON.stringify(p);

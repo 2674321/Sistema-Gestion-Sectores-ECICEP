@@ -56,6 +56,14 @@ c.Modelo_ss = () => ({});
 assert.equal(c.Instalar_pValidaciones().ok, false);
 c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
 assert.equal(c.Instalar_pDiseno().ok, false);
+c.Modelo_disenoHojas = () => ({ inicio: { verificacion: { titulo: true } },
+  cond: { errores: ['SECTOR_VERDE: formato simulado'] }, filtros: {}, ocultas: {}, protecciones: {} });
+c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: [] });
+assert.match(c.Instalar_pInicio().motivo, /SECTOR_VERDE/);
+c.Modelo_disenoHojas = () => ({ inicio: { verificacion: { titulo: true } },
+  cond: { errores: [] }, filtros: {}, ocultas: {}, protecciones: {} });
+c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: ['INGRESO_VERDE: RUT simulado'] });
+assert.match(c.Instalar_pInicio().motivo, /INGRESO_VERDE/);
 c.Estrat_recalcularTodos = () => ({ ok: false, motivo: 'SIN_HOJA_PACIENTES' });
 c.Control_recalcularTodos = () => ({ ok: true, cambios: 0, total: 0 });
 assert.equal(c.Instalar_pDerivados().ok, false);

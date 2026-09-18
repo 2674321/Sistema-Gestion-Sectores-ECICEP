@@ -614,6 +614,8 @@ function Act_actualizarSistema(opciones) {
   if (ejecutar && typeof Hojas_colorearRutIngresos === 'function') {
     try { reporte.rutColoreados = Hojas_colorearRutIngresos(); }
     catch (eR) { registrarFallo('rutColoreados', eR); }
+    if (reporte.rutColoreados && (reporte.rutColoreados.fallidas || []).length)
+      registrarFallo('rutColoreados', reporte.rutColoreados.fallidas.join('; '));
   }
 
   // 13) REBUILD MENÚ (si hubo cambios en items, reflejarlos)

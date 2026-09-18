@@ -81,7 +81,10 @@ function Hojas_formulaIndicador(tipo) {
     case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!' + p('ID_INTERNO') + ')';
     case 'EVENTOS':     return '=COUNTA(EVENTOS!' + Hojas_rangoHoja(HOJAS.EVENTOS, 'ID_EVENTO') + ')';
     case 'POR_REVISAR': return '=COUNTIF(PACIENTES!' + p('REQUIERE_REVISION') + ';TRUE)';
-    case 'ESTRAT_PEND': return '=COUNTIF(PACIENTES!' + p('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + p('ESTRATIFICACION') + ';"G")';
+    case 'ESTRAT_PEND': return '=MAX(0;COUNTA(PACIENTES!' + p('ID_INTERNO') + ')' +
+      '-COUNTIFS(PACIENTES!' + p('ID_INTERNO') + ';"<>";PACIENTES!' + p('ESTRATIFICACION') + ';"G1")' +
+      '-COUNTIFS(PACIENTES!' + p('ID_INTERNO') + ';"<>";PACIENTES!' + p('ESTRATIFICACION') + ';"G2")' +
+      '-COUNTIFS(PACIENTES!' + p('ID_INTERNO') + ';"<>";PACIENTES!' + p('ESTRATIFICACION') + ';"G3"))';
     case 'RUT_INVALIDOS': return '=COUNTIF(PACIENTES!' + p('RUT_DV_VALIDO') + ';FALSE)';
     case 'DUPLICADOS':  return '=SUMPRODUCT((PACIENTES!' + p('RUT') + '<>"")*(COUNTIF(PACIENTES!' + p('RUT') + ';PACIENTES!' + p('RUT') + ')>1))';
     case 'ULT_ACT':     return '=IF(COUNT(PACIENTES!' + p('FECHA_ACTUALIZACION') + ')=0;"sin datos";MAX(PACIENTES!' + p('FECHA_ACTUALIZACION') + '))';
@@ -331,11 +334,11 @@ function Hojas_crearInicio(ss) {
      .setFontWeight('bold').setFontSize(10).setFontColor(BLANCO).setBackground(g.color)
      .setHorizontalAlignment('center');
     var r = h.getRange(36, c0, 1, 6).merge()
-     .setFormula('=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")&" pacientes"')
+     .setFormula('=COUNTIFS(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ';"<>";PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")&" pacientes"')
      .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
      .setHorizontalAlignment('center').setVerticalAlignment('middle');
     h.getRange(37, c0, 1, 6).merge()
-     .setFormula('=TEXT(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")/MAX(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G1")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G2")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G3");1);"0%")&" · ' + g.desc + '"')
+     .setFormula('=TEXT(COUNTIFS(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ';"<>";PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")/MAX(COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ');1);"0%")&" · ' + g.desc + '"')
      .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
      .setHorizontalAlignment('center');
     h.getRange(35, c0, 3, 6).setBorder(true, true, true, true, null, null,
@@ -744,7 +747,7 @@ function Modelo_disenoHojas() {
 /** Colorea todas las celdas RUT en INGRESO_* según validación (persistente). */
 function Hojas_colorearRutIngresos(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
-  var ok = 0;
+  var ok = 0, fallidas = [];
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
@@ -762,9 +765,9 @@ function Hojas_colorearRutIngresos(ss) {
       }
       h.getRange(ini, colRut, backgrounds.length, 1).setBackgrounds(backgrounds);
       ok++;
-    } catch (e) {}
+    } catch (e) { fallidas.push(nombre + ': ' + (e && e.message || e)); }
   });
-  return ok;
+  return { coloreadas: ok, fallidas: fallidas };
 }
 
 /**

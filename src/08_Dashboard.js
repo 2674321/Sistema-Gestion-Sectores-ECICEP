@@ -104,7 +104,7 @@ function Dash_calidadDatos(pacientes) {
     if (Utl_vacio(p.RUT)) sinRut++;
     else if (p.RUT_DV_VALIDO === false || p.RUT_SIN_DV === true) rutInvalido++;
     if (Utl_vacio(p.SECTOR)) sinSector++;
-    if (Utl_vacio(p.ESTRATIFICACION)) sinEstrat++;
+    if (!/^G[123]$/.test(Utl_texto(p.ESTRATIFICACION).trim().toUpperCase())) sinEstrat++;
     if (p.REQUIERE_REVISION === true) requiereRev++;
   });
   return { sinRut: sinRut, rutInvalido: rutInvalido, sinSector: sinSector,

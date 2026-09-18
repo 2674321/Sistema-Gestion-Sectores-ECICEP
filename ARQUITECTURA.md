@@ -1,5 +1,16 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-17 (v0.9.21):** Instalar aplica una línea de acento
+> por pestaña, oculta la cuadrícula de las hojas con bandas y ajusta la altura
+> de filas ocupadas; informa los fallos de formato condicional y coloración
+> de RUT en lugar de declarar la etapa completa. INICIO calcula estratificación pendiente sobre pacientes
+> reales (ID presente) y usa ese mismo total para porcentajes. Estadísticas
+> excluye filas vacías, incluye el sector MÚLTIPLE y clasifica todo valor ajeno
+> a G1/G2/G3 como pendiente; el mes vigente usa la fecha del servidor en Chile.
+> Recalcular estratificación invalida la caché tras
+> escribir; el recálculo individual conserva el nivel de fuente si no hay
+> cálculo, igual que el masivo. La próxima atención permanece manual.
+
 > **Actualización 2026-09-17 (v0.9.20):** Actualizar sistema conserva el
 > procesamiento por etapas, pero devuelve un error global si una etapa falla,
 > incluida una aplicación parcial de formato, diseño o validaciones. El resumen
