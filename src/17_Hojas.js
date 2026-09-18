@@ -412,6 +412,15 @@ function Hojas_crearInicio(ss) {
 // Formato condicional, filtros, ocultamiento y protecciones
 // ---------------------------------------------------------------------------
 
+/** Fórmula compartida del semáforo de la agenda manual. */
+function Hojas_formulaProximoControl(letra, fila, estado) {
+  var celda = '$' + letra + fila;
+  if (estado === 'VENCIDO') return '=AND(' + celda + '<>"",' + celda + '<TODAY())';
+  if (estado === 'PROXIMO') return '=AND(' + celda + '<>"",' + celda + '>=TODAY(),' + celda + '<=TODAY()+7)';
+  if (estado === 'VIGENTE') return '=AND(' + celda + '<>"",' + celda + '>TODAY()+7)';
+  throw new Error('Estado de agenda desconocido: ' + estado);
+}
+
 /** GAS: reglas de formato condicional por hoja.
  *  API a nivel SHEET (get/setConditionalFormatRules — Range no las tiene).
  *  Estas hojas son del sistema: se reemplazan TODAS sus reglas por las del
@@ -567,11 +576,11 @@ function Hojas_formatoCondicional(ss) {
         regla('=$I' + iniP + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 9, filas, 1)),
         regla('=$I' + iniP + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 9, filas, 1)),
         regla('=OR($I' + iniP + '="",$I' + iniP + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 9, filas, 1)),
-        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '<TODAY())',
+        regla(Hojas_formulaProximoControl('Q', iniP, 'VENCIDO'),
           DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 17, filas, 1)),
-        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>=TODAY(),$Q' + iniP + '<=TODAY()+7)',
+        regla(Hojas_formulaProximoControl('Q', iniP, 'PROXIMO'),
           DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 17, filas, 1)),
-        regla('=$Q' + iniP + '<>"",AND($Q' + iniP + '>TODAY()+7)',
+        regla(Hojas_formulaProximoControl('Q', iniP, 'VIGENTE'),
           DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, 17, filas, 1))
       ]);
     }
@@ -622,11 +631,11 @@ function Hojas_formatoCondicional(ss) {
              h.getRange(ini, colEst, filas, 1)),
         regla('=OR($' + letraEst + ini + '="",$' + letraEst + ini + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo,
              h.getRange(ini, colEst, filas, 1)),
-        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '<TODAY())',
+        regla(Hojas_formulaProximoControl(letraProx, ini, 'VENCIDO'),
              DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, h.getRange(ini, colProx, filas, 1)),
-        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>=TODAY(),$' + letraProx + ini + '<=TODAY()+7)',
+        regla(Hojas_formulaProximoControl(letraProx, ini, 'PROXIMO'),
              DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, h.getRange(ini, colProx, filas, 1)),
-        regla('=$' + letraProx + ini + '<>"",AND($' + letraProx + ini + '>TODAY()+7)',
+        regla(Hojas_formulaProximoControl(letraProx, ini, 'VIGENTE'),
              DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, h.getRange(ini, colProx, filas, 1))
       ]);
     } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }

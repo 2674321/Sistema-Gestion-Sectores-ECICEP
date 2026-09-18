@@ -278,6 +278,67 @@ test('Instalar no inmoviliza parcialmente las barras de título combinadas', () 
   assert.equal(r.fallidas.length, 0);
   assert.deepEqual(llamadas, [['SECTOR_NARANJO', 0], ['EVENTOS', 2]]);
 });
+test('Instalar formatea fechas por encabezado físico y conserva otras columnas', () => {
+  const c = backend(), fechas = [];
+  const hoja = { getName: () => 'CONFLICTOS', getLastRow: () => 1,
+    getLastColumn: () => 3, getMaxRows: () => 10,
+    getRange(fila, col) { return {
+      getValues: () => [['RUT', 'FECHA_DETECCION', 'TIPO']],
+      setNumberFormat: formato => fechas.push([fila, col, formato])
+    }; }
+  };
+  c._modelo_formatoSencillo(hoja, ['FECHA_DETECCION', 'TIPO', 'RUT']);
+  assert.deepEqual(fechas, [[2, 2, 'dd/MM/yyyy']]);
+});
+test('Instalar no oculta datos clínicos al formatear PACIENTES', () => {
+  const c = backend(), ocultas = [], anchos = [], fechas = [];
+  const cadena = { setFontWeight: () => cadena, setBackground: () => cadena,
+    setFontColor: () => cadena };
+  const hoja = { setFrozenRows: () => {}, getRange: (_, col) => ({
+    ...cadena, setNumberFormat: formato => fechas.push([col, formato]) }),
+    getMaxRows: () => 20, setColumnWidth: col => anchos.push(col),
+    hideColumns: (...args) => ocultas.push(args) };
+  c._modelo_formatearPacientes(hoja);
+  assert.equal(anchos.length, 30);
+  assert.deepEqual(ocultas, []);
+  assert.ok(fechas.some(([col, formato]) => col === 5 && formato === 'dd/MM/yyyy'));
+  assert.ok(fechas.some(([col, formato]) => col === 29 && formato === 'dd/MM/yyyy HH:mm'));
+});
+test('Instalar reabre solo el bloque clínico ocultado por el grupo heredado', () => {
+  const c = backend(), visibles = [];
+  const hoja = { isColumnHiddenByUser: col => col <= 12,
+    showColumns: (col, cantidad) => visibles.push([col, cantidad]) };
+  assert.equal(c._modelo_repararGrupoPacientes(hoja), true);
+  assert.deepEqual(visibles, [[2, 5], [8, 5]]);
+  visibles.length = 0;
+  hoja.isColumnHiddenByUser = col => col === 1;
+  assert.equal(c._modelo_repararGrupoPacientes(hoja), false);
+  assert.deepEqual(visibles, []);
+});
+test('Instalar retira un grupo heredado solo si coincide exactamente', () => {
+  const c = backend(), operaciones = [];
+  const grupo = { getRange: () => ({ getColumn: () => 1, getNumColumns: () => 12 }),
+    expand: () => operaciones.push('expand'), remove: () => operaciones.push('remove') };
+  const hoja = { getColumnGroupDepth: () => 1, getColumnGroup: () => grupo,
+    showColumns: (col, n) => operaciones.push([col, n]) };
+  assert.equal(c._modelo_repararGrupoPacientes(hoja), true);
+  assert.deepEqual(operaciones, ['expand', 'remove', [2, 5], [8, 5]]);
+});
+test('Validaciones de PACIENTES respetan el tamaño de la hoja', () => {
+  const c = backend(); let escritas = 0;
+  c.SpreadsheetApp = { newDataValidation: () => { throw Error('No debe validar fuera de la hoja'); } };
+  const hoja = { getLastColumn: () => 2, getMaxRows: () => 3,
+    getRange: () => ({ getValues: () => [['SEXO', 'SECTOR']],
+      setDataValidation: () => { escritas++; } }) };
+  assert.equal(c._modelo_validacionesPacientes(hoja), 0);
+  assert.equal(escritas, 0);
+});
+test('Semáforo de próximo control genera fórmulas válidas para ambas vistas', () => {
+  const c = backend();
+  assert.equal(c.Hojas_formulaProximoControl('Q', 4, 'VENCIDO'), '=AND($Q4<>"",$Q4<TODAY())');
+  assert.equal(c.Hojas_formulaProximoControl('N', 4, 'PROXIMO'), '=AND($N4<>"",$N4>=TODAY(),$N4<=TODAY()+7)');
+  assert.equal(c.Hojas_formulaProximoControl('N', 4, 'VIGENTE'), '=AND($N4<>"",$N4>TODAY()+7)');
+});
 test('La coloración de RUT informa el fallo de una hoja sin ocultarlo', () => {
   const c = backend();
   const hoja = { getLastRow: () => 4, getRange: () => { throw Error('FORMATO_RUT_SIMULADO'); } };

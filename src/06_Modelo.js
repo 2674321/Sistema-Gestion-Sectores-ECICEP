@@ -390,15 +390,19 @@ function _modelo_aplicarBanda(hoja) {
        .setSecondRowColor(DESIGN_SYSTEM.SUPERFICIE.datosAlterno)
 }
 
-/** Formatos de fecha para hojas de columnas conocidas (desde dataStartRow).
+/** Formatos de fecha según los encabezados físicos, no posiciones supuestas.
  *  Los ANCHOS los centraliza _modelo_anchosHoja (única fuente de verdad). */
 function _modelo_formatoSencillo(hoja, columnas) {
   var ini = Modelo_dataStartRow(hoja.getName());
-  columnas.forEach(function (nombreCol, i) {
-    var esFecha = /FECHA/.test(nombreCol);
-    if (esFecha && hoja.getMaxRows() >= ini) {
-      hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1).setNumberFormat('dd/MM/yyyy');
-    }
+  var hr = Modelo_headerRow(hoja.getName());
+  if (hoja.getLastRow() < hr || hoja.getMaxRows() < ini) return;
+  var fechas = columnas.filter(function (col) { return /FECHA/.test(col); });
+  if (!fechas.length) return;
+  var fisicas = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
+  fisicas.forEach(function (etiqueta, i) {
+    if (fechas.indexOf(Utl_texto(etiqueta).trim().toUpperCase()) < 0) return;
+    hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1)
+      .setNumberFormat('dd/MM/yyyy');
   });
 }
 
@@ -422,7 +426,7 @@ function _modelo_validacionesPacientes(hoja) {
   labels.forEach(function (et, i) {
     var clave = Utl_claveAlnum(et).toUpperCase();
     var lista = catalogos[clave];
-    if (!lista || !hoja.getMaxRows() >= ini) return;
+    if (!lista || hoja.getMaxRows() < ini) return;
     hoja.getRange(ini, i + 1, filas, 1)
       .setDataValidation(SpreadsheetApp.newDataValidation()
         .requireValueInList(lista, true)
@@ -432,6 +436,37 @@ function _modelo_validacionesPacientes(hoja) {
     aplicadas++;
   });
   return aplicadas;
+}
+
+/** Repara únicamente la firma del grupo defectuoso 1..N creado por versiones
+ * anteriores. Si el fallback ocultó todo ese mismo bloque, recupera las
+ * columnas clínicas; conserva cualquier ocultamiento distinto del usuario. */
+function _modelo_repararGrupoPacientes(hoja) {
+  var n = MODELO_PACIENTE.filter(function (campo) { return campo.tecnico; }).length;
+  var legado = false;
+  if (hoja.getColumnGroupDepth && hoja.getColumnGroup) {
+    var profundidad = hoja.getColumnGroupDepth(1);
+    if (profundidad > 0) {
+      var grupo = hoja.getColumnGroup(1, profundidad);
+      var rango = grupo && grupo.getRange();
+      if (rango && rango.getColumn() === 1 && rango.getNumColumns() === n) {
+        grupo.expand();
+        grupo.remove();
+        legado = true;
+      }
+    }
+  }
+  if (!legado && hoja.isColumnHiddenByUser) {
+    legado = true;
+    for (var col = 1; col <= n; col++) {
+      if (!hoja.isColumnHiddenByUser(col)) { legado = false; break; }
+    }
+  }
+  if (legado) {
+    hoja.showColumns(2, 5); // RUT, NOMBRE, SEXO, FECHA_NACIMIENTO, TELEFONOS
+    hoja.showColumns(8, 5); // SECTOR, ESTRATIFICACION, ESTADO, DUPLA, PROFESIONAL
+  }
+  return legado;
 }
 
 /**
@@ -870,6 +905,7 @@ function Modelo_escanearEstructura(ss) {
 /** Formato base de PACIENTES: encabezado fijo, anchos, fechas, técnicas ocultas. */
 function _modelo_formatearPacientes(hoja) {
   if (!hoja) return;
+  _modelo_repararGrupoPacientes(hoja);
   var hr = Modelo_headerRow(HOJAS.PACIENTES);
   var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
   hoja.setFrozenRows(Modelo_headerRow(HOJAS.PACIENTES));
@@ -881,29 +917,17 @@ function _modelo_formatearPacientes(hoja) {
     var ancho = Modelo_anchoColumna(MODELO_PACIENTE[i].campo);
     var tipo = MODELO_PACIENTE[i].tipo;
     hoja.setColumnWidth(i + 1, ancho);
-    if (tipo === 'fecha') {
-      hoja.getRange(ini, i + 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), 1)
-        .setNumberFormat(CFG_FECHAS.FORMATO_HOJA);
+    if (tipo === 'fecha' && hoja.getMaxRows() >= ini) {
+      var formato = (MODELO_PACIENTE[i].campo === 'ESTRAT_FECHA_CALCULO' ||
+        MODELO_PACIENTE[i].campo === 'FECHA_ACTUALIZACION')
+        ? CFG_FECHAS.FORMATO_FECHA_HORA : CFG_FECHAS.FORMATO_HOJA;
+      hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1)
+        .setNumberFormat(formato);
     }
   }
-
-  // Columnas técnicas: agrupadas y ocultas (visibles solo si el usuario expande)
-  var primeraTecnica = -1, contador = 0;
-  for (var j = 0; j < MODELO_PACIENTE.length; j++) {
-    if (MODELO_PACIENTE[j].tecnico) {
-      if (primeraTecnica === -1) primeraTecnica = j + 1;
-      contador++;
-    }
-  }
-  if (primeraTecnica > 0 && contador > 0) {
-    try {
-      hoja.getRange(hr, primeraTecnica, 1, contador).shiftColumnGroupDepth(1);
-      var grupo = hoja.getColumnGroup(primeraTecnica, contador);
-      grupo.collapse();
-    } catch (e) {
-      hoja.hideColumns(primeraTecnica, contador); // fallback seguro
-    }
-  }
+  // Las columnas técnicas no son contiguas: no agrupar desde ID_INTERNO
+  // porque ese bloque también ocultaría RUT, NOMBRE y otros datos clínicos.
+  // La etapa de diseño usa Hojas_ocultarTecnicas para ocultar índices exactos.
 }
 
 /** Siembra CONFIG solo si la hoja es nueva o no tiene las claves base. */

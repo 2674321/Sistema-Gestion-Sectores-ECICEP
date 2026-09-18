@@ -1,5 +1,13 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-18 (v0.9.24):** instalar y reparar ya no agrupa
+> columnas técnicas no contiguas de PACIENTES, que podían ocultar RUT y
+> NOMBRE; repara únicamente el grupo heredado 1..12 o ese mismo bloque
+> completamente oculto. Los formatos de fecha de otras hojas siguen el encabezado físico,
+> aunque cambie el orden de columnas; las marcas de auditoría muestran hora.
+> Las validaciones respetan las filas disponibles y el semáforo de próximo
+> control usa fórmulas válidas en PACIENTES y SECTOR_*.
+
 > **Actualización 2026-09-18 (v0.9.23):** el diagnóstico previo del
 > instalador inspecciona validaciones, formato condicional y columnas técnicas
 > sin modificarlas. Una etapa escritora se detiene si no puede obtener el
