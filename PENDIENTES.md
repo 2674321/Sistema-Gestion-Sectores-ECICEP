@@ -37,6 +37,14 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 
 ## 2. Desarrollo / operación
 
+**Aplicación visual v0.9.21:** el código y la Web App están publicados en `@204`.
+Para que el formato nuevo y las fórmulas corregidas de INICIO queden escritos
+en el Spreadsheet existente, ejecutar **Instalar / Reparar Sistema** desde una
+sesión autorizada y revisar Estadísticas e INICIO. La CLI `clasp run` respondió
+`Unable to run script function` por permisos en este host; no se ejecutó una
+reparación directa sobre el libro clínico durante esta publicación. La Web App
+ya utiliza los conteos corregidos al abrirse o pulsar Actualizar.
+
 | # | Pendiente | Tipo | Prioridad |
 |---|---|---|---|
 | 25 | Completar captura de campos REM actualmente ausentes sin inventar datos | Captura nueva | ALTA |
