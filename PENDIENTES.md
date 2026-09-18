@@ -38,6 +38,10 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 ## 2. Desarrollo / operación
 
 **Aplicación visual v0.9.21:** el código y la Web App están publicados en `@204`.
+Al ejecutar la instalación real, la etapa «Ajustando el libro» informó que las
+celdas de título combinadas impedían inmovilizar parcialmente columnas. La
+corrección v0.9.22 está publicada en `@205`; **repetir Instalar / Reparar Sistema**
+y comprobar la etapa y las cifras de INICIO sigue pendiente.
 Para que el formato nuevo y las fórmulas corregidas de INICIO queden escritos
 en el Spreadsheet existente, ejecutar **Instalar / Reparar Sistema** desde una
 sesión autorizada y revisar Estadísticas e INICIO. La CLI `clasp run` respondió
