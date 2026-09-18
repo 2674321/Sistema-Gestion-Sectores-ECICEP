@@ -1,5 +1,11 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-18 (v0.9.23):** el diagnóstico previo del
+> instalador inspecciona validaciones, formato condicional y columnas técnicas
+> sin modificarlas. Una etapa escritora se detiene si no puede obtener el
+> bloqueo exclusivo. El menú de Sheets se omite desde la Web App, donde no
+> existe interfaz para crearlo, y su fallo se informa al ejecutarse en Sheets.
+
 > **Actualización 2026-09-18 (v0.9.22):** al ajustar el libro, las hojas
 > visuales conservan las filas inmovilizadas y liberan cualquier inmovilización
 > de columnas: su título combinado cruza todo el ancho y Google Sheets rechaza

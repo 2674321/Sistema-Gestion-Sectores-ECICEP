@@ -64,14 +64,22 @@ function api_instalarPaso(id, acceso) {
   }
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
   var lock = null;
-  if (INSTALAR_ETAPAS_MUTAN[id] && typeof LockService !== 'undefined') {
+  if (INSTALAR_ETAPAS_MUTAN[id]) {
+    if (typeof LockService === 'undefined') {
+      return { ok: false, etapa: id, nombre: reg.nombre, motivo: 'LOCK_NO_DISPONIBLE',
+        linea: 'No se pudo asegurar el acceso exclusivo al libro' };
+    }
     try {
       lock = LockService.getScriptLock();
       if (!lock.tryLock(30000)) {
         return { ok: false, etapa: id, nombre: reg.nombre, motivo: 'CONCURRENCIA',
                  linea: 'Otro proceso está modificando el sistema; reintente en unos segundos' };
       }
-    } catch (eLock) { lock = null; } // sin LockService (node/pruebas) → avanza
+    } catch (eLock) {
+      if (lock) { try { lock.releaseLock(); } catch (eR) {} }
+      return { ok: false, etapa: id, nombre: reg.nombre, motivo: 'LOCK_NO_DISPONIBLE',
+        linea: 'No se pudo asegurar el acceso exclusivo al libro: ' + (eLock && eLock.message || eLock) };
+    }
   }
   var t0 = Date.now();
   try {
@@ -431,7 +439,13 @@ function Instalar_pInicio() {
            protecciones: r.protecciones };
 }
 function Instalar_pMenu() {
-  onOpen();
+  // La Web App no tiene interfaz de Sheets: allí el menú se crea al abrir el
+  // libro, no durante esta RPC. No informar una configuración inexistente.
+  try { SpreadsheetApp.getUi(); }
+  catch (e) { return { ok: true, omitida: true,
+    linea: 'Menú de Sheets omitido; se crea al abrir la hoja de cálculo' }; }
+  var resultado = onOpen();
+  if (resultado && resultado.ok === false) return resultado;
   return { ok: true };
 }
 function Instalar_pVerificar() {
@@ -567,43 +581,70 @@ function Instalar_diagnosticar() {
     else diagnostico.resumen.fasesCompletas.push('conflictos');
   } catch (e) { diagnostico.resumen.fasesPendientes.push('conflictos'); }
 
-  // 6. VALIDACIONES INGRESO
+  // 6. VALIDACIONES INGRESO: inspeccionar la regla de la primera fila de
+  // datos. Nunca ejecutar Modelo_validarIngresos desde un diagnóstico.
   try {
-    var v = Modelo_validarIngresos(ss);
-    diagnostico.validaciones.aplicadas = v.validaciones || 0;
-    diagnostico.validaciones.puertas = v.hojas || 0;
-    // Verificar columnas clave: SEXO, ESTADO_INGRESO, FECHA_NACIMIENTO
-    ['SEXO', 'ESTADO_INGRESO', 'FECHA DE NACIMIENTO'].forEach(function (col) {
-      var faltante = true;
-      Object.keys(HOJAS_INGRESO).forEach(function (h) {
-        var hoja = ss.getSheetByName(h);
-        if (hoja) {
-          var enc = hoja.getRange(Modelo_headerRow(h), 1, 1, hoja.getLastColumn()).getValues()[0];
-          if (enc.some(function (e) { return Utl_texto(e).toUpperCase() === col; })) faltante = false;
+    var columnasConRegla = ['ESTADO_INGRESO', 'ESTRATIFICACION', 'SEXO',
+      'FECHA DE NACIMIENTO', 'FECHA DE INGRESO'];
+    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+      var hoja = ss.getSheetByName(nombre);
+      if (!hoja || hoja.isSheetHidden()) return;
+      diagnostico.validaciones.puertas = (diagnostico.validaciones.puertas || 0) + 1;
+      var ini = Modelo_dataStartRow(nombre);
+      columnasConRegla.forEach(function (col) {
+        var idx = INGRESO_COLUMNAS.indexOf(col) + 1;
+        var tiene = idx > 0 && hoja.getMaxRows() >= ini &&
+          !!hoja.getRange(ini, idx).getDataValidation();
+        if (tiene) diagnostico.validaciones.aplicadas++;
+        else {
+          diagnostico.validaciones.pendientes++;
+          diagnostico.validaciones.detalles.push(nombre + ': ' + col);
         }
       });
-      if (faltante) {
-        diagnostico.validaciones.pendientes++;
-        diagnostico.validaciones.detalles.push('falta validación ' + col);
-      }
     });
     if (diagnostico.validaciones.pendientes === 0) diagnostico.resumen.fasesCompletas.push('validaciones');
     else diagnostico.resumen.fasesPendientes.push('validaciones: ' + diagnostico.validaciones.pendientes + ' pendientes');
   } catch (e) { diagnostico.resumen.fasesPendientes.push('validaciones: error'); }
 
-  // 7. FORMATO CONDICIONAL
+  // 7. FORMATO CONDICIONAL: contar reglas existentes, sin reescribirlas.
   try {
-    var f = Hojas_formatoCondicional(ss);
-    diagnostico.formato.aplicados = f.aplicadas || 0;
-    diagnostico.resumen.fasesCompletas.push('formato');
-  } catch (e) { diagnostico.resumen.fasesPendientes.push('formato'); }
+    var hojasFormato = [HOJAS.PACIENTES].concat(Object.keys(HOJAS_INGRESO), HOJAS_SECTOR, [HOJAS.CONFLICTOS]);
+    hojasFormato.forEach(function (nombre) {
+      var hoja = ss.getSheetByName(nombre);
+      if (!hoja) return;
+      var umbral = nombre === HOJAS.PACIENTES ? Modelo_dataStartRow(nombre) : Modelo_headerRow(nombre);
+      if (hoja.getLastRow() < umbral) return;
+      var cantidad = hoja.getConditionalFormatRules().length;
+      var esperadas = nombre === HOJAS.PACIENTES ? 10
+        : nombre === HOJAS.CONFLICTOS ? 2
+        : Object.prototype.hasOwnProperty.call(HOJAS_INGRESO, nombre) ? 3 : 9;
+      diagnostico.formato.aplicados += cantidad;
+      if (cantidad < esperadas) {
+        diagnostico.formato.pendientes++;
+        diagnostico.formato.detalles.push(nombre + ': ' + cantidad + '/' + esperadas + ' reglas');
+      }
+    });
+    if (diagnostico.formato.pendientes) diagnostico.resumen.fasesPendientes.push('formato: ' + diagnostico.formato.pendientes + ' hojas');
+    else diagnostico.resumen.fasesCompletas.push('formato');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('formato: error'); }
 
-  // 8. OCULTAS TÉCNICAS + CONFLICTOS
+  // 8. COLUMNAS TÉCNICAS: solo consultar visibilidad.
   try {
-    var o = Hojas_ocultarTecnicas(ss);
-    diagnostico.ocultas.ocultadas = o.ocultas || 0;
-    diagnostico.resumen.fasesCompletas.push('ocultas');
-  } catch (e) { diagnostico.resumen.fasesPendientes.push('ocultas'); }
+    [{ nombre: HOJAS.PACIENTES, cols: [1, 7, 22, 23, 24, 25, 26, 27, 28] },
+     { nombre: HOJAS.EVENTOS, cols: [1, 2, 14, 15, 16] }].forEach(function (cfg) {
+      var hoja = ss.getSheetByName(cfg.nombre);
+      if (!hoja) return;
+      cfg.cols.forEach(function (col) {
+        if (hoja.isColumnHiddenByUser(col)) diagnostico.ocultas.ocultadas++;
+        else {
+          diagnostico.ocultas.pendientes++;
+          diagnostico.ocultas.detalles.push(cfg.nombre + ': columna ' + col);
+        }
+      });
+    });
+    if (diagnostico.ocultas.pendientes) diagnostico.resumen.fasesPendientes.push('ocultas: ' + diagnostico.ocultas.pendientes + ' columnas');
+    else diagnostico.resumen.fasesCompletas.push('ocultas');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('ocultas: error'); }
 
   // 9. MENÚ - always safe to re-apply, not a diagnostic item
   diagnostico.menu.necesitaActualizar = false;

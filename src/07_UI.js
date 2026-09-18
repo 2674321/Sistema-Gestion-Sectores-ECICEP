@@ -27,7 +27,12 @@ function onOpen() {
       .addToUi();
 
     Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
-  } catch (e) { /* entorno sin UI */ }
+    return { ok: true };
+  } catch (e) {
+    // Los disparadores simples no tienen dónde mostrar el error, pero el
+    // instalador sí necesita saber si el menú realmente quedó disponible.
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
 }
 
 /** URL centralizada de la Web App de captura. Única fuente de verdad.
