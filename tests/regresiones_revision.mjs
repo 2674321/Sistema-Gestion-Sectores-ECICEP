@@ -40,6 +40,8 @@ const FORMATORULE_METODOS = ['copy', 'whenCellIsEmpty', 'whenCellNotEmpty', 'whe
 const SPREADSHEETAPP_MOCK = {
   getActiveSpreadsheet: () => ({ getSheetByName: () => null }),
   openById: () => null,
+  BorderStyle: { SOLID_THICK: 'SOLID_THICK', SOLID: 'SOLID', DOTTED: 'DOTTED', DASHED: 'DASHED', DOUBLE: 'DOUBLE' },
+  WrapStrategy: { WRAP: 'WRAP', OVERFLOW: 'OVERFLOW', CLIP: 'CLIP', CLAMP: 'CLAMP' },
   newDataValidation: () => _builderEstricto('DataValidationBuilder', DATAVALIDATION_METODOS),
   newConditionalFormatRule: () => _builderEstricto('ConditionalFormatRuleBuilder', FORMATORULE_METODOS)
 };
@@ -53,6 +55,9 @@ function backend() {
 }
 let passed = 0;
 function test(name, run) { run(); passed++; console.log('[PASS] ' + name); }
+// Las constantes top-level (const/let) del contexto VM NO son propiedades del
+// objeto ctx (solo las function lo son). Se leen con vm.runInContext.
+const ctxExpr = (c, expr) => vm.runInContext(expr, c);
 function sheet(headers) {
   const rows = [Array.from(headers)];
   return { rows, getLastRow: () => rows.length, getLastColumn: () => rows[0].length,
@@ -68,6 +73,77 @@ function sheet(headers) {
       }
     }; }
   };
+}
+// Hoja visual genérica: rejilla de valores en memoria + estilos separados,
+// con registro de operaciones para verificar qué se escribe y qué se salta.
+// Soporta el flujo completo de HVis_normalizarLayout en estado 'OK' (sin
+// insertRows/deleteRows) y las lecturas de HVis_pendientesVisual.
+function hojaVisual(nombre, opts) {
+  const filas = (opts.filas || []).map(f => Array.from(f));
+  const ancho = opts.ancho || Math.max(1, ...filas.map(f => f.length));
+  const estilo = { bg: {}, fc: {}, fw: {}, fs: {}, rh: {} };
+  const ops = [];
+  const vacio = v => v === '' || v == null;
+  const bg = (r, c) => estilo.bg[r + ':' + c] ?? '#ffffff';
+  const fc = (r, c) => estilo.fc[r + ':' + c] ?? '#000000';
+  const fw = (r, c) => estilo.fw[r + ':' + c] ?? 'normal';
+  const fs = (r, c) => estilo.fs[r + ':' + c] ?? 10;
+  function rango(r, c, h, w) {
+    const numR = h === undefined ? 1 : h;
+    const numC = w === undefined ? 1 : w;
+    const rg = {
+      getValues: () => Array.from({ length: numR }, (_, i) =>
+        Array.from({ length: numC }, (_, j) => (filas[r - 1 + i] || [])[c - 1 + j] ?? '')),
+      setValues(vals) {
+        vals.forEach((row, i) => {
+          (filas[r - 1 + i] = filas[r - 1 + i] || []);
+          row.forEach((v, j) => { filas[r - 1 + i][c - 1 + j] = v; });
+        });
+        ops.push(['setValues', r, c, numR, numC]);
+        return rg;
+      },
+      setValue(v) { (filas[r - 1] = filas[r - 1] || [])[c - 1] = v; ops.push(['setValue', r, c, v]); return rg; },
+      merge() { ops.push(['merge', r, c, numR, numC]); return rg; },
+      breakApart() { ops.push(['breakApart', r, c]); return rg; },
+      clear() { for (let i = 0; i < numR; i++) for (let j = 0; j < numC; j++) delete (filas[r - 1 + i] || [])[c - 1 + j]; ops.push(['clear', r, c]); return rg; },
+      setBackground(v) { estilo.bg[r + ':' + c] = v; return rg; },
+      setBackgrounds(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.bg[(r + i) + ':' + (c + j)] = v; })); return rg; },
+      getBackground: () => bg(r, c),
+      getBackgrounds: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => bg(r + i, c + j))),
+      setFontColor(v) { estilo.fc[r + ':' + c] = v; return rg; },
+      setFontColors(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.fc[(r + i) + ':' + (c + j)] = v; })); return rg; },
+      getFontColor: () => fc(r, c),
+      getFontColors: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => fc(r + i, c + j))),
+      setFontWeight(v) { estilo.fw[r + ':' + c] = v; return rg; },
+      setFontWeights(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.fw[(r + i) + ':' + (c + j)] = v; })); return rg; },
+      getFontWeight: () => fw(r, c),
+      getFontWeights: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => fw(r + i, c + j))),
+      setFontSize(v) { estilo.fs[r + ':' + c] = v; return rg; },
+      setFontSizes(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.fs[(r + i) + ':' + (c + j)] = v; })); return rg; },
+      getFontSize: () => fs(r, c),
+      getFontSizes: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => fs(r + i, c + j))),
+      setHorizontalAlignment() { return rg; }, setVerticalAlignment() { return rg; },
+      setHorizontalAlignments() { return rg; }, setVerticalAlignments() { return rg; },
+      setBorder() { ops.push(['border', r, c, numR, numC]); return rg; },
+      setBorders() { ops.push(['borders', r, c, numR, numC]); return rg; },
+      setNumberFormat() { return rg; }, setWrapStrategy() { return rg; }
+    };
+    return rg;
+  }
+  const hoja = {
+    getName: () => nombre,
+    getLastRow: () => { for (let i = filas.length; i > 0; i--) if (filas[i - 1].some(v => !vacio(v))) return i; return 0; },
+    getLastColumn: () => ancho,
+    getRange: rango,
+    insertRowsBefore() { ops.push(['insertBefore']); },
+    deleteRows() { ops.push(['deleteRows']); },
+    setRowHeight(row, h) { estilo.rh[row] = h; ops.push(['rowH', row, h]); },
+    getRowHeight: row => estilo.rh[row] ?? 28,
+    setFrozenRows(n) { ops.push(['frozen', 'rows', n]); },
+    setFrozenColumns(n) { ops.push(['frozen', 'cols', n]); },
+    _filas: filas, _ops: ops, _estilo: estilo
+  };
+  return hoja;
 }
 const payload = { captureId: 'Cp2-' + 'a'.repeat(32), accion: 'nuevoIngreso', rut: '12345678-5',
   nombre: 'PERSONA FICTICIA', fechaNacimiento: '1990-01-01', sector: 'VERDE',
@@ -397,6 +473,128 @@ test('Portada: picker FECHA_NACIMIENTO completa Hojas_formatoCondicional sin API
   const r = c.Hojas_formatoCondicional({ getSheetByName: () => hoja });
   assert.equal(r.errores.length, 0, 'errores: ' + r.errores.join(' | '));
   assert.ok(r.aplicadas >= 1, 'aplicó al menos una regla/validación');
+});
+// --- SAS-025: vista SECTOR migrada 15→16 sin formatear la columna OBSERVACIONES ---
+function sectorMigrada(nombre, sector, conObs) {
+  const fila2 = new Array(16).fill('');
+  fila2[0] = 'IDENTIDAD';
+  fila2[8] = 'SECTORIZACIÓN';
+  fila2[11] = 'CONTROLES';
+  if (conObs) fila2[15] = 'OBSERVACIONES';
+  const filas = [
+    ['SECTOR ' + sector],
+    fila2,
+    ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
+      'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL',
+      'PROXIMO_CONTROL', 'ULTIMO_EVENTO', 'OBSERVACIONES'],
+    ['P-1', '12345678-5', 'PERSONA FICTICIA', 'F', '01/01/1990',
+      '', '', '', 'G1', 'VIGENTE', '01/09/2026',
+      '', '', '', '', 'nota clínica']
+  ];
+  return hojaVisual(nombre, { filas });
+}
+for (const sector of ['NARANJO', 'AMARILLO', 'VERDE'])
+  test('SAS-025: ' + sector + ' migrado 15→16 repara la sección OBSERVACIONES col 16', () => {
+    const c = backend();
+    const nombre = 'SECTOR_' + sector;
+    const hoja = sectorMigrada(nombre, sector, false);
+    // Cadena equivalente a Instalar_pVisual → HVis_aplicarTodasLasSecciones({forzar:true})
+    // → HVis_aplicarSecciones(hoja, {forzar:true}) para la hoja del sector.
+    const r = c.HVis_aplicarSecciones(hoja, { forzar: true });
+    assert.equal(r.ok, true, 'ok=' + r.ok + ' advertencias=' + JSON.stringify(r.advertencias));
+    assert.equal(r.advertencias.length, 0, 'sin advertencias: ' + JSON.stringify(r.advertencias));
+    const fila2 = hoja.getRange(2, 1, 1, 16).getValues()[0];
+    assert.equal(fila2[0], 'IDENTIDAD');
+    assert.equal(fila2[8], 'SECTORIZACIÓN');
+    assert.equal(fila2[11], 'CONTROLES');
+    assert.equal(fila2[15], 'OBSERVACIONES', sector + ' col16 debe pintarse');
+    const rampa = ctxExpr(c, 'PALETA_SECCION')[sector].seccion;
+    const esperado = rampa[3 % rampa.length];
+    assert.equal(hoja.getRange(2, 16).getBackground().toUpperCase(), esperado.toUpperCase());
+    assert.equal(hoja.getRange(4, 1).getValues()[0][0], 'P-1', 'datos intactos');
+    assert.equal(hoja.getRange(4, 16).getValues()[0][0], 'nota clínica', 'datos intactos');
+    assert.equal(hoja._ops.filter(o => o[0] === 'insertBefore').length, 0);
+    assert.equal(hoja._ops.filter(o => o[0] === 'deleteRows').length, 0);
+  });
+test('SAS-025: Instalar/reparar fuerza el formato visual (forzar:true)', () => {
+  const c = backend();
+  let optsRecibidas = null;
+  c.HVis_aplicarTodasLasSecciones = opts => { optsRecibidas = opts; return { ok: true, resultados: [] }; };
+  assert.equal(c.Instalar_pVisual().ok, true);
+  assert.equal(optsRecibidas.forzar, true);
+  assert.deepEqual(Array.from(Object.keys(optsRecibidas)).sort(), ['forzar']);
+});
+test('SAS-025: HVis_yaFormateada devuelve false si falta la sección OBSERVACIONES', () => {
+  const c = backend();
+  const incompleta = sectorMigrada('SECTOR_NARANJO', 'NARANJO', false);
+  assert.equal(c.HVis_yaFormateada(incompleta), false, 'migrada sin OBSERVACIONES → false');
+  const completa = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
+  assert.equal(c.HVis_yaFormateada(completa), true, 'canónica completa → true');
+});
+test('SAS-025: hoja completa usa fast-path sin reescribir y forzar la reformatea', () => {
+  const c = backend();
+  const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
+  const r = c.HVis_normalizarLayout(hoja);
+  assert.equal(r.fast, true);
+  assert.equal(r.secciones, 4);
+  assert.equal(hoja._ops.filter(o => o[0] === 'setValues').length, 0, 'fast-path no reescribe');
+  const rf = c.HVis_normalizarLayout(hoja, { forzar: true });
+  assert.equal(rf.fast, undefined);
+  assert.ok(hoja._ops.some(o => o[0] === 'setValues'), 'forzar reescribe filas');
+  assert.equal(rf.secciones, 4);
+});
+test('SAS-025: HVis_pendientesVisual detecta la ÚLTIMA columna de una sección multicolumna', () => {
+  const c = backend();
+  const sector = 'NARANJO';
+  const nombre = 'SECTOR_NARANJO';
+  const hoja = sectorMigrada(nombre, sector, true);
+  const rampa = ctxExpr(c, 'PALETA_SECCION')[sector].seccion;
+  const secciones = c.HVis_obtenerSecciones(nombre);
+  const plan = c.HVis_calcularPlan(nombre, secciones, c.HVis_mapaColumnas(hoja.getRange(3, 1, 1, 16).getValues()[0]));
+  hoja.getRange(1, 1).setBackground(ctxExpr(c, 'COLORES_SECTOR')[sector]);
+  hoja.getRange(1, 1).setFontColor(ctxExpr(c, 'TINTA_SECCION'));
+  hoja.getRange(1, 1).setFontSize(ctxExpr(c, 'PULIDO_BARRAS').titulo);
+  hoja.setRowHeight(1, ctxExpr(c, 'DESIGN_SYSTEM').ALTURAS.barra);
+  plan.secciones.forEach((sec, ix) => {
+    const color = rampa[ix % rampa.length];
+    for (let col = sec.colInicio; col <= sec.colFin; col++) {
+      hoja.getRange(2, col).setBackground(col === 15 ? '#000000' : color);
+    }
+  });
+  hoja.setRowHeight(2, ctxExpr(c, 'DESIGN_SYSTEM').ALTURAS.seccion);
+  for (let col = 1; col <= 16; col++) {
+    hoja.getRange(3, col).setBackground(ctxExpr(c, 'PULIDO_ENCABEZADO').fondo);
+    hoja.getRange(3, col).setFontColor(ctxExpr(c, 'PULIDO_ENCABEZADO').tinta);
+    hoja.getRange(3, col).setFontWeight('bold');
+    hoja.getRange(3, col).setFontSize(ctxExpr(c, 'PULIDO_ENCABEZADO').fuente);
+  }
+  hoja.setRowHeight(3, ctxExpr(c, 'PULIDO_ENCABEZADO').alturaVisual);
+  const r = c.HVis_pendientesVisual(hoja);
+  assert.ok(r.pendientes.length >= 1, 'debe reportar pendientes: ' + JSON.stringify(r.pendientes));
+  assert.ok(r.pendientes.some(m => m.indexOf('cols 15') !== -1),
+    'debe detectar la col 15 aunque la 12 sea correcta: ' + JSON.stringify(r.pendientes));
+  // y NO debe reportar un falso positivo por col 12/13/14 (correctas)
+  assert.ok(!r.pendientes.some(m => /cols.*(1[2-4])/.test(m)), JSON.stringify(r.pendientes));
+});
+test('SAS-025: aplicar forzar dos veces es idempotente (sin duplicar filas/secciones/datos)', () => {
+  const c = backend();
+  const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', false);
+  const datosAntes = JSON.stringify(hoja.getRange(4, 1, 1, 16).getValues()[0]);
+  const r1 = c.HVis_aplicarSecciones(hoja, { forzar: true });
+  assert.equal(r1.ok, true);
+  assert.equal(r1.insertadas || 0, 0);
+  assert.equal(r1.borradas || 0, 0);
+  const fila2_1 = hoja.getRange(2, 1, 1, 16).getValues()[0];
+  const r2 = c.HVis_aplicarSecciones(hoja, { forzar: true });
+  assert.equal(r2.ok, true);
+  assert.equal(r2.insertadas || 0, 0);
+  assert.equal(r2.borradas || 0, 0);
+  assert.deepEqual(hoja.getRange(2, 1, 1, 16).getValues()[0], fila2_1);
+  assert.equal(JSON.stringify(hoja.getRange(4, 1, 1, 16).getValues()[0]), datosAntes);
+  // 2 ejecuciones × (1 merge título + 4 merges de sección) = 10 merges, sin duplicar.
+  assert.equal(hoja._ops.filter(o => o[0] === 'merge').length, 10);
+  assert.equal(hoja._ops.filter(o => o[0] === 'insertBefore').length, 0);
+  assert.equal(hoja._ops.filter(o => o[0] === 'deleteRows').length, 0);
 });
 test('La coloración de RUT informa el fallo de una hoja sin ocultarlo', () => {
   const c = backend();

@@ -418,8 +418,10 @@ function Instalar_pDiseno() {
   return r;
 }
 function Instalar_pVisual() {
-  // Usa HVis_aplicarTodasLasSecciones que ya incluye buscador y es idempotente real
-  var r = HVis_aplicarTodasLasSecciones();
+  // Instalar/reparar es responsable de REPARAR inconsistencias existentes:
+  // fuerza el formato aunque HVis_yaFormateada identifique un fast-path
+  // (SAS-025: vista migrada 15→16 con la sección OBSERVACIONES sin pintar).
+  var r = HVis_aplicarTodasLasSecciones({ forzar: true });
   var fallos = (r.resultados || []).filter(function (x) { return x.ok === false; });
   return { ok: r.ok !== false && fallos.length === 0, hojas: r.resultados,
            motivo: fallos.length ? 'Diseño incompleto en: ' + fallos.map(function (x) { return x.hoja; }).join(', ') : (r.motivo || '') };
@@ -557,9 +559,15 @@ function Instalar_diagnosticar() {
       var detectadas = est.seccionesDetectadas || 0;
       var filaEnc = est.filaEncabezadosReal || 0;
       var filaEncEsperada = est.filaEncabezadosEsperada || 0;
+      // SAS-025: HVis_diagnosticarDisenio ya expone est.visual (pendientesVisual):
+      // una hoja con la última columna de una sección sin color debe quedar
+      // pendiente aunque estructura y secciones detectadas coincidan.
+      var pendientesVisuales = (est.visual && Array.isArray(est.visual.pendientes))
+        ? est.visual.pendientes : [];
       if (est.estructura !== 'OK' ||
           detectadas < esperadas ||
-          (filaEncEsperada && filaEnc !== filaEncEsperada)) {
+          (filaEncEsperada && filaEnc !== filaEncEsperada) ||
+          pendientesVisuales.length > 0) {
         seccionesPendientes++;
         diagnostico.resumen.fasesPendientes.push('visual:' + h);
       }

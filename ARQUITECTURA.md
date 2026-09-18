@@ -1,5 +1,18 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-18 (v0.9.26):** hotfix de producción: las vistas
+> `SECTOR_NARANJO`/`SECTOR_AMARILLO`/`SECTOR_VERDE` migradas de 15 a 16
+> columnas quedaban sin formatear la sección `OBSERVACIONES` (columna 16)
+> tras «Instalar / reparar». MIG-001 alineaba los encabezados (fila 3) pero
+> no repintaba la fila 2, y el fast-path `HVis_yaFormateada` aceptaba la
+> vista como formateada con solo 3 de 4 secciones. «Instalar / reparar»
+> fuerza ahora el formato visual (`HVis_aplicarTodasLasSecciones({forzar:true})`),
+> `HVis_yaFormateada` valida la etiqueta real de cada sección sobre las
+> columnas reales y `HVis_pendientesVisual` verifica todo el intervalo
+> `colInicio..colFin` de cada sección. El fast-path se conserva para el
+> uso cotidiano: solo se fuerza al instalar/reparar. No cambia datos ni
+> esquema (`COLUMNAS_SECTOR_VISTA` intacto, MIG-001 intacto).
+
 > **Actualización 2026-09-18 (v0.9.25):** hotfix de producción: el picker de
 > FECHA_NACIMIENTO de la fase «Preparando la portada» usaba
 > `DataValidationBuilder.setDateValid`, API inexistente en Apps Script, que

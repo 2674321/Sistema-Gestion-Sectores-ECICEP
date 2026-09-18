@@ -2845,7 +2845,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.25', 'versión esperada v0.9.25');
+    A.igual(v, '0.9.26', 'versión esperada v0.9.26');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3085,7 +3085,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.25', 'versión esperada v0.9.25');
+    A.igual(v, '0.9.26', 'versión esperada v0.9.26');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -6176,7 +6176,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.25', 'VERSION es 0.9.25');
+    A.cierto(ECICEP.VERSION === '0.9.26', 'VERSION es 0.9.26');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

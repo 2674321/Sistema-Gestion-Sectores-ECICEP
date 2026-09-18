@@ -253,13 +253,25 @@ function HVis_yaFormateada(hoja) {
     var bloque = hoja.getRange(1, 1, hr, ancho).getValues();
     if (bloque[0] == null || bloque[1] == null) return false;
     if (Utl_claveAlnum(Utl_texto(bloque[0][0])) !== Utl_claveAlnum(esperado)) return false;
-    if (!bloque[1].some(function (x) { return !Utl_vacio(x); })) return false;
+    // SAS-025: todas las secciones DECLARADAS deben estar pintadas en la fila de
+    // secciones. Una vista migrada 15→16 (MIG-001) que pinta solo 3 de 4
+    // secciones (la columna OBSERVACIONES quedó sin etiqueta) devuelve false →
+    // se fuerza el formateo real. No hay RPC extra: los datos ya están en bloque.
     var hdr = bloque[hr - 1];
-    return hdr.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
+    var secciones = HVis_obtenerSecciones(nombre) || [];
+    var plan = HVis_calcularPlan(nombre, secciones, HVis_mapaColumnas(hdr));
+    if (plan.secciones.length !== secciones.length) return false;
+    for (var i = 0; i < plan.secciones.length; i++) {
+      var sec = plan.secciones[i];
+      var actual = bloque[1][sec.colInicio - 1];
+      if (Utl_claveAlnum(actual) !== Utl_claveAlnum(sec.nombre)) return false;
+    }
+    return true;
   } catch (e) { return false; }
 }
 
-function HVis_normalizarLayout(hoja) {
+function HVis_normalizarLayout(hoja, opciones) {
+  opciones = opciones || {};
   var nombre = hoja.getName();
   var secciones = HVis_obtenerSecciones(nombre);
   var ultimaCol = Math.max(hoja.getLastColumn() || 0, 1);
@@ -301,8 +313,9 @@ function HVis_normalizarLayout(hoja) {
     salida.post = 'OK';
     // Fast-path rendimiento: hoja ya con DESIGN_SYSTEM aplicado → no reescribir
     // título/secciones/encabezados (el pipeline formatea en cada envío; de aquí
-    // venían gran parte de los ~15s por submit).
-    if (HVis_yaFormateada(hoja)) {
+    // venían gran parte de los ~15s por submit). `forzar:true` (Instalar/reparar)
+    // salta el fast-path para que una hoja con secciones incompletas se repare.
+    if (!opciones.forzar && HVis_yaFormateada(hoja)) {
       salida.secciones = secciones.length;
       salida.advertencias = advertencias;
       salida.filaEncabezados = hr;
@@ -476,13 +489,13 @@ function Utils_similarEtiqueta(canonica, actual) {
 /**
  * GAS: aplica el diseño visual a UNA hoja (idempotente real).
  */
-function HVis_aplicarSecciones(hoja) {
+function HVis_aplicarSecciones(hoja, opciones) {
   if (!hoja) return { ok: false, motivo: 'Hoja no proporcionada' };
   var nombre = hoja.getName();
   var secciones = HVis_obtenerSecciones(nombre);
   if (!secciones) return { ok: true, seccionesAplicadas: 0, motivo: 'Sin configuración para ' + nombre };
 
-  var r = HVis_normalizarLayout(hoja);
+  var r = HVis_normalizarLayout(hoja, opciones);
   if (r.pre === 'NO_VISUAL') {
     return { ok: true, hoja: nombre, seccionesAplicadas: 0, motivo: 'layout simple (no aplica)' };
   }
@@ -578,13 +591,13 @@ function HVis_formatearIngresos() {
 /**
  * GAS: aplica el sistema visual a todas las hojas con secciones.
  */
-function HVis_aplicarTodasLasSecciones() {
+function HVis_aplicarTodasLasSecciones(opciones) {
   var ss = Modelo_ss();
   var resultados = [];
   HOJAS_CON_SECCIONES.forEach(function (nombre) {
     var hoja = ss.getSheetByName(nombre);
     if (hoja) {
-      var r = HVis_aplicarSecciones(hoja);
+      var r = HVis_aplicarSecciones(hoja, opciones);
       r.hoja = nombre;
       resultados.push(r);
     } else {
@@ -737,10 +750,18 @@ function HVis_pendientesVisual(hoja) {
         if (plan) {
           var bgSecc = hoja.getRange(plan.seccionesRow, 1, 1, lastC).getBackgrounds()[0];
           esp.colorSecciones.forEach(function (esperado, i) {
-            var col = plan.secciones[i] ? plan.secciones[i].colInicio : null;
-            if (col == null || col < 1 || col > lastC) return;
-            if (!HVis_mismosColor(bgSecc[col - 1], esperado))
-              pendientes.push('sección ' + plan.secciones[i].id + ' color=' + bgSecc[col - 1] + ' → ' + esperado);
+            var sec = plan.secciones[i];
+            if (!sec) return;
+            // SAS-025: validar TODO el intervalo colInicio..colFin (antes solo la
+            // primera columna). De lo contrario, CONTROLES 12..15 con la 12
+            // correcta pero la 15 sin color pasaba como si estuviera formateada.
+            var malas = [];
+            for (var col = sec.colInicio; col <= sec.colFin; col++) {
+              if (col < 1 || col > lastC) continue;
+              if (!HVis_mismosColor(bgSecc[col - 1], esperado)) malas.push(col);
+            }
+            if (malas.length)
+              pendientes.push('sección ' + sec.id + ' cols ' + malas.join(',') + ' color→' + esperado);
           });
         }
       }
