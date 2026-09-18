@@ -5,11 +5,50 @@ import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 const root = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
+// Valida cada método, pero REVENTA cualquier método inexistente: así una API
+// inventada (p.ej. DataValidationBuilder.setDateValid) no puede pasar en local
+// mientras el runtime real de Apps Script la rechaza.
+function _builderEstricto(nombre, metodos) {
+  const base = {};
+  for (const m of metodos) base[m] = undefined;
+  const p = new Proxy(base, {
+    get(t, prop) {
+      if (typeof prop === 'symbol') return t[prop];
+      if (prop === 'build') return () => ({});
+      if (prop in t) return () => p;
+      throw new Error(nombre + '.' + String(prop) + ' no existe en la API de Apps Script');
+    }
+  });
+  return p;
+}
+const DATAVALIDATION_METODOS = ['copy', 'requireCheckbox', 'requireDate', 'requireDateAfter',
+  'requireDateBefore', 'requireDateBetween', 'requireDateEqualTo', 'requireDateNotBetween',
+  'requireDateOnOrAfter', 'requireDateOnOrBefore', 'requireFormulaSatisfied',
+  'requireNumberBetween', 'requireNumberEqualTo', 'requireNumberGreaterThan',
+  'requireNumberGreaterThanOrEqualTo', 'requireNumberLessThan', 'requireNumberLessThanOrEqualTo',
+  'requireNumberNotBetween', 'requireNumberNotEqualTo', 'requireTextContains',
+  'requireTextDoesNotContain', 'requireTextDoesNotMatchRegex', 'requireTextEquals',
+  'requireTextMatchesRegex', 'requireValueInList', 'requireValueInRange',
+  'setAllowInvalid', 'setHelpText', 'build'];
+const FORMATORULE_METODOS = ['copy', 'whenCellIsEmpty', 'whenCellNotEmpty', 'whenDateAfter',
+  'whenDateBefore', 'whenDateBetween', 'whenDateEqualTo', 'whenFormulaSatisfied',
+  'whenNumberBetween', 'whenNumberEqualTo', 'whenNumberGreaterThan',
+  'whenNumberGreaterThanOrEqualTo', 'whenNumberLessThan', 'whenNumberLessThanOrEqualTo',
+  'whenTextContains', 'whenTextDoesNotContain', 'whenTextEndsWith', 'whenTextEqualTo',
+  'whenTextStartsWith', 'setBackground', 'setBold', 'setFontColor', 'setFontFamily',
+  'setFontStyle', 'setItalic', 'setRanges', 'setStrikethrough', 'setUnderline', 'build'];
+const SPREADSHEETAPP_MOCK = {
+  getActiveSpreadsheet: () => ({ getSheetByName: () => null }),
+  openById: () => null,
+  newDataValidation: () => _builderEstricto('DataValidationBuilder', DATAVALIDATION_METODOS),
+  newConditionalFormatRule: () => _builderEstricto('ConditionalFormatRuleBuilder', FORMATORULE_METODOS)
+};
 function backend() {
   const ctx = vm.createContext({ console: { log() {}, error() {} } });
   for (const f of readdirSync(new URL('src/', root)).filter(f => /\.(js|gs)$/.test(f)).sort()) {
     vm.runInContext(read('src/' + f), ctx, { filename: f });
   }
+  ctx.SpreadsheetApp = SPREADSHEETAPP_MOCK;
   return ctx;
 }
 let passed = 0;
@@ -338,6 +377,26 @@ test('Semáforo de próximo control genera fórmulas válidas para ambas vistas'
   assert.equal(c.Hojas_formulaProximoControl('Q', 4, 'VENCIDO'), '=AND($Q4<>"",$Q4<TODAY())');
   assert.equal(c.Hojas_formulaProximoControl('N', 4, 'PROXIMO'), '=AND($N4<>"",$N4>=TODAY(),$N4<=TODAY()+7)');
   assert.equal(c.Hojas_formulaProximoControl('N', 4, 'VIGENTE'), '=AND($N4<>"",$N4>TODAY()+7)');
+});
+test('DataValidationBuilder del harness rechaza APIs inexistentes (setDateValid)', () => {
+  const c = backend();
+  const b = c.SpreadsheetApp.newDataValidation();
+  assert.ok(b.requireDate() === b);
+  assert.ok(b.requireValueInList(['A']) === b);
+  assert.ok(b.build());
+  assert.throws(() => c.SpreadsheetApp.newDataValidation().setDateValid(true),
+    /DataValidationBuilder\.setDateValid no existe en la API de Apps Script/);
+  assert.throws(() => c.SpreadsheetApp.newDataValidation().metodoInexistente(),
+    /DataValidationBuilder/);
+});
+test('Portada: picker FECHA_NACIMIENTO completa Hojas_formatoCondicional sin API inventada', () => {
+  const c = backend();
+  const rango = { setDataValidation: () => {}, setNote: () => {}, setNumberFormat: () => {} };
+  const hoja = { getLastRow: () => 10, getMaxRows: () => 100, getLastColumn: () => 30,
+    getRange: () => rango, setConditionalFormatRules: () => {} };
+  const r = c.Hojas_formatoCondicional({ getSheetByName: () => hoja });
+  assert.equal(r.errores.length, 0, 'errores: ' + r.errores.join(' | '));
+  assert.ok(r.aplicadas >= 1, 'aplicó al menos una regla/validación');
 });
 test('La coloración de RUT informa el fallo de una hoja sin ocultarlo', () => {
   const c = backend();

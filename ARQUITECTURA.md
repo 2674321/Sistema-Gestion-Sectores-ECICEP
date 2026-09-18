@@ -1,5 +1,13 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-18 (v0.9.25):** hotfix de producción: el picker de
+> FECHA_NACIMIENTO de la fase «Preparando la portada» usaba
+> `DataValidationBuilder.setDateValid`, API inexistente en Apps Script, que
+> hacía fallar «Instalar / reparar» en Sheets reales. Se reemplaza por
+> `requireDate()` y el harness de pruebas ahora monta un builder estricto que
+> rechaza cualquier método inexistente, con regresión específica sobre la
+> portada.
+
 > **Actualización 2026-09-18 (v0.9.24):** instalar y reparar ya no agrupa
 > columnas técnicas no contiguas de PACIENTES, que podían ocultar RUT y
 > NOMBRE; repara únicamente el grupo heredado 1..12 o ese mismo bloque

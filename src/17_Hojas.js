@@ -479,7 +479,7 @@ function Hojas_formatoCondicional(ss) {
   /* Date picker FECHA_NACIMIENTO en INGRESO_* (desde dataStartRow) */
   try {
     var ruleFecha = SpreadsheetApp.newDataValidation()
-      .setDateValid(true).setAllowInvalid(false).build();
+      .requireDate().setAllowInvalid(false).build();
     Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
       var h = ss.getSheetByName(nombre);
       var ini = Modelo_dataStartRow(nombre);
