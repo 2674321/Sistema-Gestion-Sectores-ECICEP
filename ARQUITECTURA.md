@@ -1,5 +1,12 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-18 (v0.9.22):** al ajustar el libro, las hojas
+> visuales conservan las filas inmovilizadas y liberan cualquier inmovilización
+> de columnas: su título combinado cruza todo el ancho y Google Sheets rechaza
+> inmovilizar solo parte de esa celda. Las hojas simples, como EVENTOS, siguen
+> inmovilizando las columnas configuradas. Corrige el fallo observado en la
+> etapa «Ajustando el libro» de la instalación operativa.
+
 > **Actualización 2026-09-17 (v0.9.21):** Instalar aplica una línea de acento
 > por pestaña, oculta la cuadrícula de las hojas con bandas y ajusta la altura
 > de filas ocupadas; informa los fallos de formato condicional y coloración

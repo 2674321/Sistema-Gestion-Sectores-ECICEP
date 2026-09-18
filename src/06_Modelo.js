@@ -301,13 +301,13 @@ var MODELO_DISENO = [
   { nombre: 'INICIO',           color: DESIGN_SYSTEM.MARCA.sistema, estilo: false },
 
   // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
-{ nombre: 'SECTOR_NARANJO',   color: IDENTIDAD.NARANJO, banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
-  { nombre: 'INGRESO_NARANJO',  color: IDENTIDAD.NARANJO, banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
-  { nombre: 'SECTOR_AMARILLO',  color: IDENTIDAD.AMARILLO, banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
-  { nombre: 'INGRESO_AMARILLO', color: IDENTIDAD.AMARILLO, banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
-  { nombre: 'SECTOR_VERDE',     color: IDENTIDAD.VERDE, banda: true, formato: COLUMNAS_SECTOR_VISTA, congelarCols: 3 },
-  { nombre: 'INGRESO_VERDE',    color: IDENTIDAD.VERDE, banda: true, formato: INGRESO_COLUMNAS, congelarCols: 2 },
-  { nombre: 'PACIENTES',        color: DESIGN_SYSTEM.MARCA.sistema, congelarCols: 3, banda: true }, // ID·RUT·NOMBRE
+{ nombre: 'SECTOR_NARANJO',   color: IDENTIDAD.NARANJO, banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'INGRESO_NARANJO',  color: IDENTIDAD.NARANJO, banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'SECTOR_AMARILLO',  color: IDENTIDAD.AMARILLO, banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'INGRESO_AMARILLO', color: IDENTIDAD.AMARILLO, banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'SECTOR_VERDE',     color: IDENTIDAD.VERDE, banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'INGRESO_VERDE',    color: IDENTIDAD.VERDE, banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'PACIENTES',        color: DESIGN_SYSTEM.MARCA.sistema, banda: true },
   { nombre: 'EVENTOS',          color: DESIGN_SYSTEM.MARCA.sistemaClaro, congelarCols: 2, banda: true },
   // Reportes (REM_SALIDA es interna: el usuario consulta vía "Consultar REM")
   { nombre: 'REM_SALIDA',       color: DESIGN_SYSTEM.MARCA.reporte, estilo: false, oculta: true },
@@ -456,7 +456,13 @@ function Modelo_aplicarDiseno() {
       h.setTabColor(d.color);
       res.coloreadas++;
       h.setFrozenRows(Modelo_headerRow(h.getName())); // visuales: 3 (título+secciones+headers); simples: 1
-      if (d.congelarCols) h.setFrozenColumns(d.congelarCols);
+      // En el layout visual la barra de título está combinada a lo ancho:
+      // inmovilizar solo algunas columnas partiría esa celda combinada.
+      if (Modelo_esHojaVisual(h.getName())) {
+        if (h.getFrozenColumns && h.getFrozenColumns() > 0) h.setFrozenColumns(0);
+      } else if (d.congelarCols) {
+        h.setFrozenColumns(d.congelarCols);
+      }
       res.congeladas.push(d.nombre);
       if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h, d.color);
       if (d.banda) {

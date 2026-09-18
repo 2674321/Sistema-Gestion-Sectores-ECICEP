@@ -253,6 +253,31 @@ test('El diseño de instalación oculta cuadrícula y ajusta filas ocupadas', ()
   assert.ok(calls.some(x => x[0] === 'grid' && x[1] === true));
   assert.ok(calls.some(x => x[0] === 'rows' && x[1] === 2 && x[2] === 4));
 });
+test('Instalar no inmoviliza parcialmente las barras de título combinadas', () => {
+  const c = backend(), llamadas = [];
+  c.MODELO_DISENO = [
+    { nombre: 'SECTOR_NARANJO', color: '#aabbcc', congelarCols: 3 },
+    { nombre: 'EVENTOS', color: '#123456', congelarCols: 2 }
+  ];
+  function hoja(nombre, congeladas) {
+    return { getName: () => nombre, getLastColumn: () => 0,
+      setTabColor: () => {}, setFrozenRows: () => {},
+      getFrozenColumns: () => congeladas,
+      setFrozenColumns: n => {
+        llamadas.push([nombre, n]);
+        if (nombre === 'SECTOR_NARANJO' && n > 0)
+          throw Error('No se pueden inmovilizar columnas que solo contengan parte de una celda combinada');
+      },
+      isSheetHidden: () => false };
+  }
+  const hojas = { SECTOR_NARANJO: hoja('SECTOR_NARANJO', 2), EVENTOS: hoja('EVENTOS', 0) };
+  c.Modelo_ss = () => ({ getActiveSheet: () => hojas.EVENTOS,
+    getSheetByName: nombre => hojas[nombre] || null,
+    setActiveSheet: () => {}, moveActiveSheet: () => {} });
+  const r = c.Modelo_aplicarDiseno();
+  assert.equal(r.fallidas.length, 0);
+  assert.deepEqual(llamadas, [['SECTOR_NARANJO', 0], ['EVENTOS', 2]]);
+});
 test('La coloración de RUT informa el fallo de una hoja sin ocultarlo', () => {
   const c = backend();
   const hoja = { getLastRow: () => 4, getRange: () => { throw Error('FORMATO_RUT_SIMULADO'); } };
