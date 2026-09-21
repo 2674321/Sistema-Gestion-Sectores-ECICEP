@@ -2293,7 +2293,7 @@ function _pruebas_hojas(t, A) {
     var fUlt = Hojas_formulaIndicador('ULT_ACT');
     var fEstr = Hojas_formulaIndicador('ESTRAT_PEND');
     var fRut = Hojas_formulaIndicador('RUT_INVALIDOS');
-    
+
     // ID_INTERNO sigue en columna A — datos desde dataStartRow (4)
     A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO en A desde fila 4');
     // REQUIERE_REVISION en AD

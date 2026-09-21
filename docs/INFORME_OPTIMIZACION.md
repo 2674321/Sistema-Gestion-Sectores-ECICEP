@@ -716,7 +716,7 @@ formulario_web 27 · `validar_html` 17/17.
 El costo residual (conversión por fila en cada RPC y escrituras de fila completa)
 queda acotado: la caché entre requests reduce la re-lectura de PACIENTES/EVENTOS/
 PROFESIONALES en RPCs consecutivas con TTL corto e invalidación en toda escritura
-(DEC-015, ampliada en DECISIONES.md — DEC-060). 
+(DEC-015, ampliada en DECISIONES.md — DEC-060).
 
 **Alcance real del TTL:** el riesgo documentado del TTL (60 s por defecto) no se
 limita a la edición manual de la hoja. Los bloques cacheados los consumen también

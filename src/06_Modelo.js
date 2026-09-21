@@ -345,7 +345,7 @@ function _modelo_camposHoja(nombre) {
 
 /** GAS: aplica los anchos por campo a una hoja. Fuente de verdad = ETIQUETA
  *  real de la fila de encabezados (hr del contrato), no el orden supuesto:
- *  así los anchos SIEMPRE coinciden con las columnas existentes. */ 
+ *  así los anchos SIEMPRE coinciden con las columnas existentes. */
 function _modelo_anchosHoja(hoja) {
   var nombre = hoja.getName();
   var hr = Modelo_headerRow(nombre);

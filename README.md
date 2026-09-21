@@ -17,13 +17,13 @@
 | | |
 |---|---|
 | **Modelo de datos** | `PACIENTES` (estado vigente) + `EVENTOS` (historial inmutable) + vistas derivadas |
-| **Canal de captura** | Web App (contrato de captura V4, compatible con V2/V3 e idempotente) |
+| **Canal de captura** | Web App (pipeline V4 idempotente, compatible V2/V3; contrato de captura **V2** normativo en `docs/CONTRATO_CAPTURA_V2.md`) |
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.28` (`@212`) · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.28` (`@213`) · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 

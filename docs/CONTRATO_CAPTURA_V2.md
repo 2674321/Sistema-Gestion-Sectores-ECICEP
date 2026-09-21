@@ -415,7 +415,7 @@ satisfacen las reglas y no hay campos rechazados.
    duradera** en el registro de capturas. **[DECISIÓN — evidencia: fila `RECIBIDO` en
    `FORM_RESPUESTAS` previo a procesar]**
 2. No hay efecto clínico sin registro de captura persistido: el procesamiento se ancla al registro. **[DECISIÓN]**
-3. El backend devuelve la respuesta **después de** completar el intento síncrono de persistencia + 
+3. El backend devuelve la respuesta **después de** completar el intento síncrono de persistencia +
    procesamiento del envío (estado final del trailer §21). Si el intento síncrono no puede completar
    (tiempo máximo), el registro queda en `RECIBIDO`/`VALIDANDO` y un reprocesamiento por lote lo
    retoma (eventualidad documentada, §23); la respuesta refleja el estado **en ese momento**. **[INFERENCIA —
@@ -747,7 +747,7 @@ indica.
     "accion": "nuevoIngreso",
     "estado": "PROCESADO",
     "motivo": "",
-    "idInterno": "EC-KXS2MP90", 
+    "idInterno": "EC-KXS2MP90",
     "idEvento": ""
   }
 }
@@ -789,7 +789,7 @@ respuesta del §27.2 **sin crear efectos nuevos** (misma `idInterno`, ningún ev
 
 ### 27.6 Conflicto de idempotencia (Caso B)
 
-El mismo `captureId` del §27.1 con `observaciones: "cambio el comentario"`. → 
+El mismo `captureId` del §27.1 con `observaciones: "cambio el comentario"`. →
 `errors[0] = { codigo: "CONFLICTO_IDEMPOTENCIA", campo: null, … }`, `ok:false`, sin efectos.
 
 ### 27.7 Payload válido — `actualizarDatos` (sin `fechaEvento`)
@@ -884,7 +884,7 @@ implementación existente y verifica **solo lo verificable**:
 
 1. **Modelo referenciado**: los enums/rangos/estados citados en §9–§10 existen tal cual en
    `src/00_Config.js` (`SECTORES_RESPONSABLES`, `SEXOS.VALIDOS`, `ESTRATIFICACION`, `CFG_FECHAS`,
-   `TIPOS_EVENTO.VALIDOS` ⊇ {CONTROL, SEGUIMIENTO, OTRO}). 
+   `TIPOS_EVENTO.VALIDOS` ⊇ {CONTROL, SEGUIMIENTO, OTRO}).
 2. **Puertas y columnas**: `INGRESO_COLUMNAS` (ubicación y orden) y `COLUMNAS_EVENTOS` soportan TR-1/TR-2.
 3. **Separación de estado**: `ESTADOS_INGRESO` y `MODELO_PACIENTE` existen como conjuntos distintos
    del estado de captura (§18.2).
