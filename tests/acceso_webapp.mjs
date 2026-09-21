@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Acceso compartido sin cuenta Google: el enlace base no sirve HTML de captura.
+// Acceso compartido sin cuenta Google: la URL base abre el canal de captura
+// (QR impreso permanente); las demás vistas exigen el enlace compartido vigente.
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import vm from 'node:vm';
@@ -12,11 +13,14 @@ c.Utilities={getUuid:()=>uuid,formatDate:()=>''};
 c.Session={getActiveUser:()=>({getEmail:()=>''})};
 c.ContentService={createTextOutput:text=>({tipo:'texto',texto:text})};
 let plantillas=0,plantillaArchivo='';
-c.HtmlService={createTemplateFromFile:n=>{plantillas++;plantillaArchivo=n;return {evaluate(){return {tipo:'html',setTitle(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}},XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
+c.HtmlService={createTemplateFromFile:n=>{plantillas++;plantillaArchivo=n;return {evaluate(){return {tipo:'html',vars:this,setTitle(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}},XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
 let pruebas=0;function t(nombre,fn){fn();pruebas++;console.log('[PASS] '+nombre);}
-t('La URL base y una clave inválida no sirven HTML ni ficha',()=>{
-  assert.equal(c.doGet({parameter:{}}).tipo,'texto');
-  assert.equal(plantillas,0);
+t('La URL base abre la captura (sin cuenta ni token); ficha y RPC exigen enlace vigente',()=>{
+  const html=c.doGet({parameter:{}});
+  assert.equal(html.tipo,'html');
+  assert.equal(plantillaArchivo,'CapturaWeb');
+  assert.equal(html.vars.CAPTURA_ACCESO,props.get('CAPTURA_ACCESS_TOKEN'));
+  assert.equal(c.doGet({parameter:{vista:'captura'}}).tipo,'html');
   assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1').ok,false);
   assert.equal(c.WebApp_estadoInicial('').ok,false);
   assert.equal(c.WebApp_capturarEnviar({}).ok,false);
@@ -29,9 +33,10 @@ t('El QR genera clave propia y el mismo enlace funciona sin cuenta',()=>{
   assert.equal(props.has('WEBHOOK_TOKEN'),false);
   assert.equal(url,c.ECICEP_webAppUrl()+'?acceso='+clave);
   assert.equal(c.WebApp_urlCompartida_(),url);
+  const baseTpl=plantillas;
   assert.equal(c.doGet({parameter:{acceso:clave}}).tipo,'html');
   assert.equal(plantillaArchivo,'CapturaWeb');
-  assert.equal(plantillas,1);
+  assert.equal(plantillas,baseTpl+1);
   assert.equal(c.Captura_v2_ctx(clave).usuario,'ACCESO_COMPARTIDO');
   assert.equal(c.Captura_v2_ctx('').usuario,'');
 });

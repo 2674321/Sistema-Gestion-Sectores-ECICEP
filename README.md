@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.28` (`@213`) · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.29` (`@214`) · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -83,15 +83,16 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   la página, el formulario se actualiza solo a la última versión al detectar que
   el sello del código servido (`BUILD`) difiere del backend (o alerta antes de
   recargar si hay datos sin guardar o el almacenamiento está bloqueado).
-- **El QR es permanente**: su contenido es solo la URL fija del deployment
-  operativo más la clave de acceso estable (`CAPTURA_ACCESS_TOKEN`, creada una
-  sola vez). Un QR impreso no se invalida al publicar nuevas versiones mientras
-  se reutilice el mismo deployment y no se rote el token; la estabilidad está
-  protegida por un test de regresión.
-- El botón Captura del menú Sheets genera un enlace con clave compartida para
-  abrir la Web App desde cualquier dispositivo, sin cuenta Google. Conviene
-  compartir ese enlace solo con operadores autorizados; la URL base no abre
-  fichas para visitantes anónimos.
+- **El QR es permanente y abierto**: su contenido es solo la URL fija del deployment
+  operativo. La **URL base abre la captura para cualquier persona** (sin cuenta
+  Google ni token, desde v0.9.29): un QR impreso no se invalida al publicar
+  versiones mientras se reutilice el mismo deployment; los paneles, la ficha,
+  Backups y REM siguen exigiendo el enlace compartido vigente. La estabilidad
+  está protegida por un test de regresión.
+- El botón Captura del menú Sheets abre la misma Web App desde cualquier
+  dispositivo, sin cuenta Google. La URL base **abre la captura a cualquier
+  persona**; las funciones internas (paneles, ficha, Backups, REM) requieren el
+  enlace compartido vigente.
 - La ficha y los paneles de registro, configuración y Backups reutilizan la
   misma clave para funcionar desde distintas cuentas con acceso a Sheets.
   El botón **Funciones** de la Web App abre Pacientes, Controles, Estadísticas,

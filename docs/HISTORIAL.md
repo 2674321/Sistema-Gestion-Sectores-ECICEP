@@ -7,6 +7,20 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.9.29 — QR permanente: captura abierta desde la URL base (deploy `@214`)
+
+- **Canal de captura abierto en la URL base**: `doGet` deja de exigir token para
+  la vista `captura`; la URL `…/exec` (el QR impreso) carga el formulario para
+  **cualquier persona, sin cuenta Google ni clave**. Las demás vistas (paneles,
+  ficha, Backups, REM…) siguen exigiendo el enlace compartido vigente.
+- **Reactivación de QRs impresos**: el deployment operativo ya no cambia al
+  publicar; un QR que apunte a la URL base queda **permanente** y las copias ya
+  distribuidas (historias de impresión masiva) vuelven a funcionar sin reimprimir.
+- **Garantía por test**: `tests/acceso_webapp.mjs` fija el nuevo contrato
+  (URL base → HTML de captura + token inyectado por plantilla; vistas internas →
+  texto sin clave) y el test de QR permanente valida que `WebApp_urlCompartida_()`
+  deriva solo de la URL configurada + token estable.
+
 ## v0.9.28 — Auto-recarga ante caché antigua en Captura (deploy `@212`)
 
 - **Watchdog de versión** (`_autoReloadSiVersion` en `CapturaWeb.html`): `doGet`

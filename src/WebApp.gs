@@ -104,10 +104,14 @@ function doGet(e) {
     return _wh_despachar(e);
   }
   var acceso = e && e.parameter && e.parameter.acceso || '';
-  if (!WebApp_autorizarBuscador(acceso)) {
+  var vista = e && e.parameter && e.parameter.vista || 'captura';
+  // Canal de captura abierto desde la URL base (QR impreso permanente): cualquiera
+  // puede cargar el formulario sin cuenta ni token. Cada página recibirá la clave
+  // compartida para operar las RPC (líneas abajo). Las demás vistas (paneles, ficha,
+  // backups, REM…) siguen exigiendo el enlace compartido vigente.
+  if (vista !== 'captura' && !WebApp_autorizarBuscador(acceso)) {
     return ContentService.createTextOutput('Enlace de Captura no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
   }
-  var vista = e && e.parameter && e.parameter.vista || 'captura';
   if (vista !== 'captura' && !WebApp_accesoCompartidoValido_(acceso)) {
     return ContentService.createTextOutput('Función no disponible sin el enlace compartido vigente.');
   }
