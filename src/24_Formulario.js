@@ -768,18 +768,12 @@ function Form_instalar() {
   }
 }
 
-/** GAS: trigger instalado (idempotente por handler). */
+/** GAS: instalación de trigger de envío — BLOQUEADA por contrato (AGENTS.md):
+ * Google Forms es canal abandonado; no se instalan ni planifican triggers
+ * onFormSubmit aunque se completara FORM_ID. Solo se conserva el acceso de
+ * diagnóstico (Form_triggerInstalado) para constatar que no exista. */
 function Form_instalarTrigger() {
-  if (typeof ScriptApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
-  try {
-    if (Form_triggerInstalado()) return { ok: true, activado: false, motivo: 'Ya instalado' };
-    if (Utl_vacio(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
-    var ss = Modelo_ss();
-    ScriptApp.newTrigger('Form_onFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
-    return { ok: true, activado: true };
-  } catch (e) {
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
+  return { ok: false, activado: false, motivo: 'GOOGLE_FORMS_INHABILITADO' };
 }
 
 /** GAS: ¿hay un trigger de envío instalado para nuestro manejador? */

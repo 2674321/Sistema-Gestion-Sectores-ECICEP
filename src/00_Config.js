@@ -45,9 +45,9 @@ var SISTEMA_VERSION_INSTALADOR = 'INST-1';
 // debe usarse para bifurcar lógica de negocio (if DEV/DEMO/PROD).
 // Identidad histórica determinada por el Spreadsheet activo (getId()),
 // NUNCA por el nombre visible de la hoja. DEV → @HEAD / DEMO → estable.
-// FORM_ID y BACKUP_FOLDER_ID reales de DEMO son recursos que se crean
-// manualmente (DEC-047/48/50); mientras estén vacíos, la captura queda pendiente
-// y el diagnóstico lo reporta (la estructura del formulario sí se prepara).
+// Google Forms es canal abandonado (AGENTS.md): FORM_ID se conserva vacío y
+// no debe completarse ni referenciarse en flujos operativos; el bloque se
+// mantiene únicamente para diagnóstico y tests de compatibilidad.
 // ---------------------------------------------------------------------------
 var ENTORNOS = {
   DEV: {
@@ -110,7 +110,7 @@ var HOJAS = {
   LOG: 'LOG',
   CONFLICTOS: 'CONFLICTOS',
   FUENTES: 'FUENTES',
-  FORM_RESPUESTAS: 'FORM_RESPUESTAS', // zona técnica del formulario (captura + estados; oculta)
+  FORM_RESPUESTAS: 'FORM_RESPUESTAS', // zona técnica (captura + estados; oculta); implementación sujeta a redefinición contractual (AGENTS.md)
   FORM_CONTROL: 'FORM_CONTROL',       // control administrativo del formulario (visible; trazabilidad + métricas operativas — v0.9.2)
   PROFESIONALES: 'PROFESIONALES', // catálogo central de profesionales (fuente de verdad)
   RESPONSABLES: 'RESPONSABLES',   // responsables por sector (acumulables, hoja oculta)

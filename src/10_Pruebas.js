@@ -5781,6 +5781,31 @@ function _pruebas_p0_auditoria_v098(t, A) {
     }
   });
 
+  // AGENTS.md: Google Forms es canal abandonado — nunca debe instalarse un
+  // trigger onFormSubmit aunque se completara FORM_ID. El instalador heredado
+  // queda bloqueado por diseño; la captura opera bajo demanda (Web App).
+  t('P0 v0.9.29: Google Forms abandonado — sin instalación de triggers de envío', function () {
+    var originalScriptApp = globalThis.ScriptApp;
+    var formIdOriginal = FORM_CONFIG.FORM_ID;
+    var llamados = 0;
+    globalThis.ScriptApp = {
+      newTrigger: function () { llamados++; throw new Error('NO_DEBE_INSTALARSE_TRIGGER'); },
+      getProjectTriggers: function () { return []; }
+    };
+    FORM_CONFIG.FORM_ID = 'a'.repeat(44) + 'X'; // aunque estuviera configurado…
+    try {
+      var res = Form_instalarTrigger();
+      A.igual(res.ok, false, 'el instalador de trigger está bloqueado');
+      A.igual(res.motivo, 'GOOGLE_FORMS_INHABILITADO', 'motivo explícito (AGENTS)');
+      A.igual(llamados, 0, 'no se invocó ScriptApp.newTrigger');
+      A.igual(Form_triggerInstalado(), false, 'sin trigger onFormSubmit activo');
+      A.cierto(typeof Form_onFormSubmit === 'function', 'el manejador heredado permanece solo como referencia inerte');
+    } finally {
+      FORM_CONFIG.FORM_ID = formIdOriginal;
+      if (originalScriptApp === undefined) { delete globalThis.ScriptApp; } else { globalThis.ScriptApp = originalScriptApp; }
+    }
+  });
+
   // --- S7: Corrección de bugs reportados (OBSERVACIONES, SEXO, ESTRATIFICACIÓN) ---
   t('S7: SECTOR_VISTA identidad incluye FECHA_NACIMIENTO (columna visual)', function () {
     var secId = SECCIONES_HOJAS.SECTOR_VISTA.find(function (s) { return s.id === 'identidad'; });

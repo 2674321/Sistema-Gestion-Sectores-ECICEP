@@ -20,6 +20,11 @@
   (URL base → HTML de captura + token inyectado por plantilla; vistas internas →
   texto sin clave) y el test de QR permanente valida que `WebApp_urlCompartida_()`
   deriva solo de la URL configurada + token estable.
+- **Defensa contractual**: el instalador heredado de Google Forms queda
+  bloqueado por diseño (`GOOGLE_FORMS_INHABILITADO`): aunque se completara
+  `FORM_ID` no se instala ningún trigger `onFormSubmit`; test P0 que lo fija.
+  El panel de formulario ya no presenta "canal legado" ni referencia funciones
+  inexistentes.
 
 ## v0.9.28 — Auto-recarga ante caché antigua en Captura (deploy `@212`)
 
