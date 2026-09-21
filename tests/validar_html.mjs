@@ -71,9 +71,45 @@ function validar(html, rel) {
     }
   });
   validarScriptlets(html, rel, errores);
+  validarPuenteAcceso(html, rel, errores);
   ok -= errores.length;
   console.log(`  ${rel}: scripts=${scripts.length} ok=${ok} fail=${errores.length}`);
   return { nombre: rel, ok, fail: errores.length, errores };
+}
+
+/** Contrato de Acceso Universal — CapturaWeb.html.
+ *  El QR «acceso universal sin permisos» depende de que el template sirva el
+ *  token compartido en dos sitios que DEBEN quedar unidos:
+ *    1) <body data-acceso="<?= CAPTURA_ACCESO ?>">  (inyección server-side)
+ *    2) el bundle lee window.ECICEP_ACCESO en cada RPC.
+ *  Si falta el puente `window.ECICEP_ACCESO = document.body.getAttribute('data-acceso')`,
+ *  un visitante anónimo (que escanea el QR sin cuenta Google) envía undefined
+ *  como `acceso`, el backend lo niega (ACCESO_DENEGADO) y el QR «no funciona»
+ *  aunque el operador con sesión sí vea la página. Regresión real detectada en
+ *  la fase de diagnóstico del QR (v0.9.26): el bundle leía la variable 4 veces
+ *  sin que nadie la asignara. Esta regla impide que reaparezca. */
+function validarPuenteAcceso(html, rel, errores) {
+  const inyectaTokenEnBody = /<body[^>]*data-acceso\s*=\s*["']<\?=\s*CAPTURA_ACCESO\s*\?>["']/;
+  const leeTokenJs = /window\.ECICEP_ACCESO/;
+  if (!inyectaTokenEnBody.test(html) || !leeTokenJs.test(html)) return;
+  const puente =
+    /window\.ECICEP_ACCESO\s*=\s*document\.body\s*&&\s*document\.body\.getAttribute\s*\(\s*["']data-acceso["']\s*\)\s*\|\|\s*["']{2}|window\.ECICEP_ACCESO\s*=\s*document\.body\.getAttribute\s*\(\s*["']data-acceso["']\s*\)\s*\|\|\s*["']{2}/;
+  if (!puente.test(html)) {
+    errores.push(
+      `  contrato acceso universal: body sirve data-acceso pero el bundle nunca asigna ` +
+        `window.ECICEP_ACCESO (el QR anónimo quedará denegado). ` +
+        `Añade el puente tras <body> antes del primer google.script.run.`,
+    );
+    return;
+  }
+  const primerUso = html.search(/window\.ECICEP_ACCESO/);
+  const primerPuente = html.search(/window\.ECICEP_ACCESO\s*=\s*document\.body/);
+  if (primerPuente === -1 || primerPuente > primerUso) {
+    errores.push(
+      `  contrato acceso universal: el puente window.ECICEP_ACCESO=… debe ejecutarse ` +
+        `antes de la primera lectura (${primerUso}) pero aparece en ${primerPuente}.`,
+    );
+  }
 }
 
 /** Integridad de los scriptlets GAS `<? … ?>` que el chequeo de <script> omite.

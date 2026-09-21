@@ -1,5 +1,21 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-21 (v0.9.27):** se restauró el **acceso universal del
+> QR de Captura sin permisos ni cuenta Google**. Causa raíz: `CapturaWeb.html`
+> sirve el token compartido en `<body data-acceso="<?= CAPTURA_ACCESO ?>">` pero
+> el bundle leía `window.ECICEP_ACCESO` en sus 4 RPC (`estadoInicial`,
+> `previaDuplicadosV2`, `estado`, `enviar`) sin que nadie asignara la variable:
+> un visitante anónimo enviaba `undefined` y `WebApp_autorizarBuscador(undefined)`
+> respondía `ACCESO_DENEGADO` (el operador con sesión sí veía la página, por eso
+> "en la oficina parecía que iba"). Corrección: puente JS inyectado justo tras
+> `<body>` — `<script>window.ECICEP_ACCESO=document.body.getAttribute("data-acceso")||"";</script>`
+> — ejecutado antes de la primera lectura. Se añadió la guarda `validarPuenteAcceso()`
+> en `tests/validar_html.mjs` (FALLA si el HTML sirve `data-acceso` y el bundle
+> lee `ECICEP_ACCESO` sin puente, o si el puente no precede al uso) y se endureció
+> `tests/formulario_web.mjs` para extraer el IIFE del bundle en vez del primer
+> `<script>` (el puente es ahora un segundo script inline legítimo). No cambia
+> backend ni contrato de captura (`docs/CONTRATO_CAPTURA_V2.md` intacto).
+
 > **Actualización 2026-09-18 (v0.9.26):** hotfix de producción: las vistas
 > `SECTOR_NARANJO`/`SECTOR_AMARILLO`/`SECTOR_VERDE` migradas de 15 a 16
 > columnas quedaban sin formatear la sección `OBSERVACIONES` (columna 16)

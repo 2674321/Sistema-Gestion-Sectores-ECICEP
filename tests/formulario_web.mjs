@@ -30,11 +30,22 @@ const raiz = path.join(__dirname, '..');
 const htmlFile = path.join(raiz, 'src/CapturaWeb.html');
 const html = readFileSync(htmlFile, 'utf8');
 
-// ── 1. Extracción del script inline principal (primer <script>) ──
-const ini = html.indexOf('<script>');
-const fin = html.indexOf('</script>', ini);
-if (ini === -1 || fin === -1) { console.error('ERROR: <script> inline no encontrado'); process.exit(2); }
-let script = html.slice(ini + '<script>'.length, fin);
+// ── 1. Extracción del script inline principal (IIFE del bundle) ──
+// CapturaWeb.html puede contener varios <script> inline (el puente de acceso
+// window.ECICEP_ACCESO=… tras <body>, el include del template, el bundle y la
+// fuente del QR como text/plain). El harness apunta al IIFE del bundle, que es
+// el que implementa la lógica real de la Web App.
+let ini = -1, fin = -1, script = '';
+for (let cursor = 0; cursor < html.length; ) {
+  ini = html.indexOf('<script>', cursor);
+  if (ini === -1) break;
+  fin = html.indexOf('</script>', ini);
+  if (fin === -1) break;
+  const candidato = html.slice(ini + '<script>'.length, fin);
+  if (candidato.indexOf('})();') !== -1) { script = candidato; break; }
+  cursor = fin + '</script>'.length;
+}
+if (!script) { console.error('ERROR: <script> inline IIFE no encontrado'); process.exit(2); }
 const cierre = script.lastIndexOf('})();');
 if (cierre === -1) { console.error('ERROR: cierre IIFE no encontrado'); process.exit(2); }
 
