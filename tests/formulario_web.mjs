@@ -56,7 +56,8 @@ const exportBlock = `
     _envTimeoutOff: _envTimeoutOff, _envFallo: _envFallo, enviarFinal: enviarFinal,
     enviar: enviar, estadoListo: estadoListo, estadoEnviando: estadoEnviando,
     limpiarCampos: limpiarCampos, limpiarFormulario: limpiarFormulario,
-    _asignarCaptureId: _asignarCaptureId, get $(){ return $; },
+    _asignarCaptureId: _asignarCaptureId, _autoReloadSiVersion: _autoReloadSiVersion,
+    get $(){ return $; },
     get accion(){ return getAccion(); },
     get ultimoSig(){ return _ultimoSig; }, set ultimoSig(v){ _ultimoSig = v; },
     get enviando(){ return _enviando; }, set enviando(v){ _enviando = v; },
@@ -141,12 +142,25 @@ const timers = new Map(); let nextTimer = 1;
 function setTimeout(fn, ms) { timers.set(nextTimer, { fn, ms }); return nextTimer++; }
 function clearTimeout(id) { timers.delete(id); }
 
+// Watchdog de versión obsoleta: estado del sandbox observable por el test.
+const reloads = [];
+const alertas = [];
+const sesStore = new Map();
+const sessionStorage = {
+  getItem(k) { return sesStore.has(k) ? sesStore.get(k) : null; },
+  setItem(k, v) { sesStore.set(k, String(v)); },
+  removeItem(k) { sesStore.delete(k); }
+};
+
 const sandbox = {
   console, JSON, Date, Math, RegExp, Object, Array, String, Number, Boolean, Error,
   parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent,
   document, window: null,
   addEventListener() {}, removeEventListener() {},
   localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+  sessionStorage,
+  location: { reload() { reloads.push(1); } },
+  alert(msg) { alertas.push(msg); },
   google: { script: { run: gsr } },
   setTimeout, clearTimeout,
   RPC_CALLOUTS: rpcCalls,
@@ -403,6 +417,59 @@ t('E4 _envTimeoutOff limpia el timer pendiente', () => {
   const n = sandbox.UI_TIMERS.count();
   U._envTimeoutOff();
   A(sandbox.UI_TIMERS.count() === n - 1, 'timer cancelado');
+});
+
+console.log('PARTE J — Watchdog de versión obsoleta (caché/navegador antiguo).');
+
+function resetWatchdog() {
+  sesStore.clear(); reloads.length = 0; alertas.length = 0;
+  sandbox.UI_TIMERS.fireAll();
+  delete sandbox.ECICEP_PAGE_BUILD;
+}
+
+t('J1 versión servida == versión backend → NO recarga y limpia el flag de recarga', () => {
+  resetWatchdog();
+  sandbox.ECICEP_PAGE_BUILD = 'abc';
+  sesStore.set('ecicep_reload_once', '1');
+  U._autoReloadSiVersion({ build: 'abc' });
+  A(reloads.length === 0, 'no debe recargar si el sello coincide');
+  A(alertas.length === 0, 'no debe alertar si está al día');
+  A(!sesStore.has('ecicep_reload_once'), 'página al día: se quita el flag de recarga previa');
+});
+
+t('J2 página antigua + formulario vacío → se arma la recarga automática (1 única vez por pestaña)', () => {
+  resetWatchdog();
+  sandbox.ECICEP_PAGE_BUILD = 'abcVieja';
+  U.limpiarFormulario(false);
+  U._autoReloadSiVersion({ build: 'abcNueva' });
+  A(sesStore.get('ecicep_reload_once') === '1', 'debe marcar la recarga como intentada');
+  A(U.resumen && U.resumen.tipo === 'warn' && U.resumen.titulo.indexOf('actualizando') !== -1,
+    'aviso visible previo a recargar');
+  A(reloads.length === 0, 'la recarga es diferida (timer), no inmediata');
+  sandbox.UI_TIMERS.fireAll();
+  A(reloads.length === 1, 'al disparar el timer, la página se recarga exactamente una vez');
+});
+
+t('J3 página antigua + ya se intentó recargar antes → alerta y NO recarga (evita bucle)', () => {
+  resetWatchdog();
+  sandbox.ECICEP_PAGE_BUILD = 'abcVieja';
+  sesStore.set('ecicep_reload_once', '1');
+  U._autoReloadSiVersion({ build: 'abcNueva' });
+  A(reloads.length === 0, 'sin segunda recarga (guardia anti-bucle)');
+  A(alertas.length === 1 && alertas[0].indexOf('versión anterior') !== -1, 'alerta de versión obsoleta');
+  sandbox.UI_TIMERS.fireAll();
+  A(reloads.length === 0, 'el timer residual no recarga');
+});
+
+t('J4 página antigua + hay datos sin guardar → alerta, NUNCA recarga (no pierde captura)', () => {
+  resetWatchdog();
+  sandbox.ECICEP_PAGE_BUILD = 'abcVieja';
+  poblarFormulario();
+  U._autoReloadSiVersion({ build: 'abcNueva' });
+  A(reloads.length === 0, 'no recarga con datos en el formulario');
+  A(alertas.length === 1 && alertas[0].indexOf('Guarda o copia') !== -1, 'alerta pidiendo guardar primero');
+  sandbox.UI_TIMERS.fireAll();
+  A(reloads.length === 0, 'timers residuales tampoco recargan');
 });
 
 console.log('PARTE F — captureId: reintento idéntico conserva el identificador (§13 A1).');

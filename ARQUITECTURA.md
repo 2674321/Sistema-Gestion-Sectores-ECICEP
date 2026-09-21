@@ -1,5 +1,23 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-21 (v0.9.28):** la Web App de Captura deja de ejecutarse
+> desde versiones en caché. Cada `doGet` incrusta el sello `PAGE_BUILD` =
+> `ECICEP_BUILD.commit` (BUILD.js se regenera en cada push) en
+> `window.ECICEP_PAGE_BUILD`, y los endpoints `WebApp_estadoInicial` y
+> `api_webappEstado` devuelven `build` con ese mismo sello. El watchdog del
+> bundle (`_autoReloadSiVersion`) compara ambos: si coinciden (o alguno está
+> vacío) no hace nada y limpia el flag `sessionStorage "ecicep_reload_once"`;
+> si la página servida es vieja, muestra un aviso y **auto-recarga** vía
+> `location.reload` (única vez por pestaña) SIN perder datos: si hay captura en
+> progreso (`capturaEnProgreso()`) o ya se intentó recargar, solo alerta pidiendo
+> reabrir el enlace actualizado. Se añadieron además metas anti-cache
+> (`Cache-Control: no-cache, no-store, must-revalidate` + `Pragma: no-cache`) y
+> la batería de tests PARTE J en `tests/formulario_web.mjs` (J1–J4) que cubre:
+> sello al día sin recarga, recarga única con formulario vacío, anti-bucle si ya
+> se recargó, y bloqueo por datos sin guardar. `ECICEP.VERSION` sube a 0.9.28 y
+> los tests anclados a la versión se re-validan. No cambia contrato ni pipeline
+> (`docs/CONTRATO_CAPTURA_V2.md` intacto).
+
 > **Actualización 2026-09-21 (v0.9.27):** se restauró el **acceso universal del
 > QR de Captura sin permisos ni cuenta Google**. Causa raíz: `CapturaWeb.html`
 > sirve el token compartido en `<body data-acceso="<?= CAPTURA_ACCESO ?>">` pero

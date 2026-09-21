@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.27` (`@210`) · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.9.28` (`@211`) · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -78,7 +78,11 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**).
 - QR para compartir el acceso al canal de captura. El QR apunta a la Web App con
   **acceso universal sin permisos** (restaurado en v0.9.27): quien escanea el QR
-  captura sin cuenta Google ni configuración previa.
+  captura sin cuenta Google ni configuración previa. Desde v0.9.28 la captura
+  **anti-cache + auto-recarga**: si el navegador conserva una versión antigua de
+  la página, el formulario se actualiza solo a la última versión al detectar que
+  el sello del código servido (`BUILD`) difiere del backend (o alerta antes de
+  recargar si hay datos sin guardar).
 - El botón Captura del menú Sheets genera un enlace con clave compartida para
   abrir la Web App desde cualquier dispositivo, sin cuenta Google. Conviene
   compartir ese enlace solo con operadores autorizados; la URL base no abre

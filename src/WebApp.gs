@@ -70,6 +70,19 @@ function WebApp_urlVista_(vista) {
   return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
 }
 
+/** Identidad del código servido (sello BUILD.js regenerado en cada push).
+ *  CapturaWeb.html lo usa como contravalor: si el sello incrustado en la página
+ *  difiere del que devuelve el backend, la página está en caché/obsoleta y se
+ *  auto-recarga para no ejecutar RPC contra una plantilla antigua. */
+function WebApp_buildActual_() {
+  try {
+    if (typeof ECICEP_BUILD !== 'undefined' && ECICEP_BUILD && ECICEP_BUILD.commit) {
+      return String(ECICEP_BUILD.commit);
+    }
+    return '';
+  } catch (e) { return ''; }
+}
+
 /** Devuelve el email del usuario activo o '' si no hay sesión autenticada. */
 function WebApp_usuarioActivo() {
   try {
@@ -118,6 +131,7 @@ function doGet(e) {
   plantilla.DASH_URL = WebApp_urlVista_('estadisticas');
   plantilla.GENERAR_REM_URL = WebApp_urlVista_('generarRem');
   plantilla.BUILD = Utilities.formatDate(new Date(), ECICEP.TZ, 'yyyyMMdd-HHmm');
+  plantilla.PAGE_BUILD = WebApp_buildActual_();
   plantilla.SECCION = 'TODAS';
   plantilla.modo = vista === 'pacientes' ? 'pacientes' : vista === 'revision' ? 'revision' : 'ficha';
   plantilla.ID_INICIAL = vista === 'ficha' && e.parameter.id ? String(e.parameter.id) : '';
@@ -411,6 +425,7 @@ function api_webappEstado(acceso) {
   return {
     ok: true,
     version: ECICEP.VERSION,
+    build: WebApp_buildActual_(),
     entorno: typeof Entorno_actualGAS !== 'undefined' ? Entorno_actualGAS().entorno : 'DESCONOCIDO',
     url: WebApp_urlCompartida_()
   };
@@ -424,7 +439,8 @@ function WebApp_estadoInicial(acceso) {
   return {
     esquema: Form_esquemaFormulario(),
     profesionales: WebApp_profesionalesDropdown(),
-    url: WebApp_urlCompartida_()
+    url: WebApp_urlCompartida_(),
+    build: WebApp_buildActual_()
   };
 }
 
