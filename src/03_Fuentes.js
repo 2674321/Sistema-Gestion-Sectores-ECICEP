@@ -151,6 +151,14 @@ function Fuentes_normalizar(fila) {
   if (tel.estado === 'PARCIAL') nota(warn, 'TELEFONOS', tel.detalle);
   else if (tel.telefonos.length === 0) nota(warn, 'TELEFONOS', 'Sin teléfono válido');
 
+  // --- SALUD MENTAL (indicador de la dupla; nunca se infiere) ---
+  var sm = Norm_normalizarSaludMental(v.SALUD_MENTAL);
+  n.SALUD_MENTAL = sm.valor;
+  if (sm.estado === 'NO_RECONOCIDO') {
+    nota(warn, 'SALUD_MENTAL',
+      'Valor no reconocido ("' + Utl_texto(v.SALUD_MENTAL) + '"), se descarta');
+  }
+
   // --- Texto libre normalizado ---
   n.DUPLA_INGRESO = Utl_colapsarEspacios(Utl_texto(v.DUPLA_INGRESO)).toUpperCase();
   n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
@@ -172,6 +180,25 @@ function Fuentes_normalizar(fila) {
 // ---------------------------------------------------------------------------
 // ETAPA 5 — Conexión a fuentes reales en Drive
 // ---------------------------------------------------------------------------
+
+/**
+ * PURA/GAS: resuelve una hoja por nombre exacto; si no existe, tolerante a
+ * diferencias de espaciado/mayúsculas/tildes (defensa contra nombres del
+ * código con/n sin espacio final, p.ej. 'Ingresos Enero'). Devuelve null si
+ * no hay coincidencia.
+ */
+function Fuentes_resolverHoja(ss, nombre) {
+  if (!ss || !nombre) return null;
+  var exacta = ss.getSheetByName(nombre);
+  if (exacta) return exacta;
+  var objetivo = Utl_sinTildes(Utl_colapsarEspacios(String(nombre))).toUpperCase();
+  var hojas = ss.getSheets ? ss.getSheets() : [];
+  for (var i = 0; i < hojas.length; i++) {
+    var propia = Utl_sinTildes(Utl_colapsarEspacios(String(hojas[i].getName()))).toUpperCase();
+    if (propia === objetivo) return hojas[i];
+  }
+  return null;
+}
 
 /**
  * Diagnóstico estructural de TODAS las fuentes reales sin procesar datos.
@@ -199,7 +226,7 @@ function Fuentes_diagnosticarFuentes() {
       info.accesible = true;
       info.nombreReal = ss.getName();
       cfg.hojas.forEach(function (nombreHoja) {
-        var hoja = ss.getSheetByName(nombreHoja);
+        var hoja = Fuentes_resolverHoja(ss, nombreHoja);
         if (!hoja) {
           info.hojas.push({ nombre: nombreHoja, existe: false });
           return;
@@ -260,7 +287,7 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
   if (!cfg.id) return { ok: false, motivo: 'SIN_ID_DRIVE' };
 
   var ss = SpreadsheetApp.openById(cfg.id);
-  var hoja = ss.getSheetByName(nombreHoja);
+  var hoja = Fuentes_resolverHoja(ss, nombreHoja);
   if (!hoja) return { ok: false, motivo: 'HOJA_NO_EXISTE', disponible: ss.getSheets().map(function(s){return s.getName();}) };
 
   var valores = Utl_leerBloque(hoja);
@@ -388,7 +415,7 @@ function Fuentes_leerStagingAutorizado() {
     if (!cfg || !cfg.id) return;
     var ss = SpreadsheetApp.openById(cfg.id);
     HOJAS_AUTORIZADAS_CARGA[nombreArchivo].forEach(function (nombreHoja) {
-      var hoja = ss.getSheetByName(nombreHoja);
+      var hoja = Fuentes_resolverHoja(ss, nombreHoja);
       if (!hoja) return;
       var valores = Utl_leerBloque(hoja);
       if (valores.length < 2) return;
@@ -454,13 +481,15 @@ function Fuentes_contarHojasAutorizadas() {
 
 /**
  * Orquestador de carga real controlada desde las fuentes autorizadas.
- * @param {Object} opciones {ejecutar:boolean, actualizar:boolean}
+ * @param {Object} opciones {ejecutar:boolean, actualizar:boolean, modo:string}
  *   ejecutar=false → DRY RUN: analiza, reporta, NO escribe
  *   ejecutar=true  → IMPORTA: escribe PACIENTES + EVENTOS con idempotencia
  *   actualizar=true → además de incorporar registros nuevos, ACTUALIZA pacientes
  *     existentes desde los datos vigentes de la fuente (merge conservador v0.9.6:
  *     fill-only + fecha más reciente para ULTIMO_*; divergencia → REQUIERE_REVISION).
  *     Las filas ya importadas NO vuelven a generar eventos (idempotencia por FUENTE).
+ *   modo='SNAPSHOT_ACTUAL' → política de Instalar (ver 27_Actualizacion): reemplaza
+ *     TELEFONOS/ESTRATIFICACION vigentes; el resto idéntico al merge cotidiano.
  * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
  */
 function Fuentes_cargaReal(opciones) {
@@ -515,7 +544,7 @@ function Fuentes_cargaReal(opciones) {
   // las funciones viven en 27_Actualizacion (Act_mergearPacientesDesdeStaging).
   var merge = { revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] };
   if (opciones.actualizar) {
-    merge = Act_mergearPacientesDesdeStaging(staging, store.pacientes);
+    merge = Act_mergearPacientesDesdeStaging(staging, store.pacientes, { modo: opciones.modo });
   }
 
   var salida = Ingresos_procesarFilas(stagingNuevas, store, {

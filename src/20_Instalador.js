@@ -12,8 +12,8 @@ var INSTALAR_ETAPAS = [
   { id: 'versionado',   nombre: 'Versionando el sistema',       fn: 'Instalar_pVersionado' },
   { id: 'migraciones',  nombre: 'Aplicando migraciones',        fn: 'Instalar_pMigraciones' },
   { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura' },
-  { id: 'fuentes',      nombre: 'Verificando fuentes',          fn: 'Instalar_pFuentes' },
-  { id: 'amarillo',     nombre: 'Verificando sector amarillo',  fn: 'Instalar_pAmarillo' },
+  { id: 'fuentes',      nombre: 'Cargando datos de fuentes',   fn: 'Instalar_pFuentes' },
+  { id: 'amarillo',     nombre: 'Cargando sector amarillo',    fn: 'Instalar_pAmarillo' },
   { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
   { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza' },
@@ -28,7 +28,7 @@ var INSTALAR_ETAPAS = [
 /** Solo las etapas que realmente escriben toman LockService. Las fases
  *  omitidas y el inventario de hojas adicionales son de solo lectura. */
 var INSTALAR_ETAPAS_MUTAN = {};
-['migraciones', 'estructura', 'visual', 'validaciones',
+['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'visual', 'validaciones',
   'diseno', 'inicio', 'menu', 'derivados'].forEach(function (id) {
   INSTALAR_ETAPAS_MUTAN[id] = true;
 });
@@ -121,6 +121,14 @@ var REGISTRO_MIGRACIONES = [
     fn: 'Mig_run001',
     descripcion: 'Alinear vistas SECTOR_* al esquema canónico (15→16 columnas, ' +
       'S10-FIX). Protege la regresión BUG-E2E-003 en instalaciones heredadas.'
+  },
+  {
+    id: 'MIG-002',
+    desde: '1',
+    hasta: '2',
+    fn: 'Mig_run002',
+    descripcion: 'Campo SALUD_MENTAL (SI | NO | vacío) en PACIENTES (30→31 ' +
+      'columnas), vistas SECTOR_* (16→17) y columna SALUD_MENTAL en INGRESO_*.'
   }
 ];
 
@@ -290,7 +298,59 @@ function Instalar_versionIncompatible_(v) {
   return '';
 }
 
-/** GAS: MIG-001 — alinear vistas SECTOR_* al esquema canónico (15→16, S10-FIX).
+/** GAS: MIG-002 — campo SALUD_MENTAL en PACIENTES (30→31), vistas SECTOR_*
+ *  (16→17) y columna SALUD_MENTAL en INGRESO_*. Idempotente y por nombre:
+ *  reutiliza asegurarEsquemaPacientes / alinearVistasSectoriales y solo agrega
+ *  el encabezado cuando la hoja lo tiene ausente. Se tolera INGRESO_* sin hoja
+ *  (la estructura la crea con INGRESO_COLUMNAS vigente). */
+function Mig_run002() {
+  var res = { ok: true, esquema: null, alineadas: [], yaCanonicas: [],
+    ingresosActualizados: [], ingresosSinHoja: [] };
+  var e = Modelo_asegurarEsquemaPacientes();
+  if (!e.ok) {
+    if (e.motivo === 'SIN_HOJA_PACIENTES') {
+      res.ok = false; res.motivo = 'MIG-002:SIN_HOJA_PACIENTES';
+      return res;
+    }
+    if (!e.insertar || !e.insertar.length) {
+      res.ok = false; res.motivo = 'MIG-002:' + (e.motivo || 'ESQUEMA_INCOMPATIBLE');
+      return res;
+    }
+  }
+  res.esquema = e;
+  var v = Modelo_alinearVistasSectoriales();
+  res.alineadas = v.alineadas;
+  res.yaCanonicas = v.yaCanonicas;
+  if (v.errores.length) {
+    res.ok = false; res.motivo = 'MIG-002:SECTOR:' + v.errores.join(',');
+    return res;
+  }
+  var a = _mig002_asegurarIngresosSaludMental();
+  res.ingresosActualizados = a.actualizadas;
+  res.ingresosSinHoja = a.sinHoja;
+  Log_info('Instalador', 'MIG-002',
+    'PACIENTES 31 campos · SECTOR_* 17 · INGRESO_* SALUD_MENTAL');
+  return res;
+}
+
+/** GAS (helper MIG-002): agrega el encabezado SALUD_MENTAL al final de las
+ *  hojas INGRESO_* existentes que no lo tengan. Idempotente: no hace append de
+ *  filas ni reescribe datos; solo el encabezado ausente. */
+function _mig002_asegurarIngresosSaludMental() {
+  var res = { ok: true, actualizadas: [], sinHoja: [] };
+  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    var hoja = Modelo_hoja(nombre);
+    if (!hoja) { res.sinHoja.push(nombre); return; }
+    var hr = Modelo_headerRow(nombre);
+    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+    var fila = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+    if (fila.indexOf('SALUD_MENTAL') !== -1) return;
+    hoja.getRange(hr, ancho + 1).setValue('SALUD_MENTAL');
+    res.actualizadas.push(nombre);
+  });
+  return res;
+}
+ /** GAS: MIG-001 — alinear vistas SECTOR_* al esquema canónico (15→16, S10-FIX).
  *  Idempotente y por nombre. Se tolera HOJA_NO_EXISTE (estructura la crea);
  *  encabezados irreconocibles → falla (requiere revisión, no se adivina nada). */
 function Mig_run001() {
@@ -391,14 +451,33 @@ function Instalar_pEstructura() {
            dashboardReparado: !!est.dashboardReparado };
 }
 function Instalar_pFuentes() {
-  // POST-ENTREGA: Instalar NO importa datos externos.
-  // La carga de fuentes es responsabilidad exclusiva de ACTUALIZAR.
-  return { ok: true, omitida: true, linea: 'omitido — importación reservada para ACTUALIZAR' };
+  // Instalar CARGA los datos reales vigentes de los sectores reutilizando el
+  // pipeline de Fuentes_cargaReal (única fuente de verdad). Secuencia de
+  // seguridad: análisis dry-run (sin escrituras) → si la fuente es válida,
+  // ejecución con política SNAPSHOT_ACTUAL (reinstalación / carga inicial).
+  var analisis;
+  try { analisis = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: 'SNAPSHOT_ACTUAL' }); }
+  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
+  if (analisis.ok === false) return { ok: false, motivo: analisis.motivo, resumen: analisis.resumen };
+  var ejecucion;
+  try {
+    ejecucion = Fuentes_cargaReal({ ejecutar: true, actualizar: true, modo: 'SNAPSHOT_ACTUAL' });
+  } catch (e2) { return { ok: false, motivo: e2 && e2.message ? e2.message : String(e2) }; }
+  if (ejecucion.ok === false) return { ok: false, motivo: ejecucion.motivo, resumen: ejecucion.resumen };
+  var res = ejecucion.resumen || {};
+  return { ok: true, modo: 'SNAPSHOT_ACTUAL', resumen: res,
+    linea: 'registros ' + res.registros + ' · nuevos ' + res.nuevos +
+      ' · existentes ' + res.existentes + ' · en revisión ' + res.revision };
 }
 function Instalar_pAmarillo() {
-  // POST-ENTREGA: Instalar NO importa datos del sector amarillo.
-  // La integración de fuentes es responsabilidad exclusiva de ACTUALIZAR.
-  return { ok: true, omitida: true, linea: 'omitido — importación reservada para ACTUALIZAR' };
+  // Sector Amarillo desde Drive (Amarillo_importarTodo: puerta INGRESO_AMARILLO
+  // + histórico idempotente). La fuente ausente no es un fallo bloqueante: se
+  // informa para diagnóstico sin duplicar lógica.
+  var r;
+  try { r = Amarillo_importarTodo(true); }
+  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
+  if (!r || r.ok === false) return { ok: false, motivo: r.motivo || (r && r.linea) || 'No se pudo cargar el sector amarillo' };
+  return { ok: true, aplicaHistorico: true, puerta: r.puerta, historico: r.historico };
 }
 function Instalar_pValidaciones() {
   var r = Modelo_validarIngresos(Modelo_ss());
@@ -471,9 +550,13 @@ function Instalar_pVerificar() {
  *  sinCambios, conflictos (requieren revisión), noEncontrados (sin fuente) y
  *  errores. */
 function Instalar_pEnriquecimiento() {
-  // POST-ENTREGA: Instalar NO lee datos de staging (INGRESO_*) para enriquecer.
-  // La lectura de fuentes internas/externas es responsabilidad de ACTUALIZAR.
-  return { ok: true, omitida: true, linea: 'omitido — enriquecimiento reservado para ACTUALIZAR' };
+  // Enriquecimiento demográfico de PACIENTES reutilizando Act_enriquecerPacientes
+  // (fill-only SEXO/FECHA_NACIMIENTO desde INGRESO_*; no crea pacientes ni
+  // eventos; idempotente). Misma implementación que ACTUALIZAR.
+  var r;
+  try { r = Act_enriquecerPacientes({ dryRun: false }); }
+  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
+  return { ok: r.ok !== false, resumen: r };
 }
 
 /** Calcula derivados (estratificación + controles) para que INICIO muestre

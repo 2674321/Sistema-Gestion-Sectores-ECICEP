@@ -1211,3 +1211,52 @@ concurrentes. Las patologías se guardan por su escritor vigente y la
 estratificación continúa derivada. El último control/seguimiento puede recibir
 un nuevo evento o una corrección auditada; EVENTOS sigue append-only. Una agenda
 futura se guarda manualmente en `PROXIMO_CONTROL`. Véase §0.1 del contrato.
+
+
+## DEC-065
+**Título:** Indicador de salud mental (`SALUD_MENTAL`) extremo a extremo + MIG-002 (esquema 1→2) + reactivación de Instalar/reparar con carga real
+**Estado:** Aprobada / vigente (v0.10.0)
+**Motivo:** CESFAM requiere registrar, desde la captura y la ficha, si la persona
+presenta un indicador de salud mental (`SI`/`NO`/vacío) sin inferirlo de texto
+libre. El modelo carecía del campo y las etapas de mantenimiento
+(fuentes/amarillo/enriquecimiento) solo corrían en modo diagnóstico tras la
+entrega S6, dejando `Instalar / reparar sistema` inutilizable como ciclo real de
+captura de datos. La v0.10.0 cubre ambos: campo nuevo con contrato V4 y un
+instalador que vuelve a mutar datos reales con snapshot de respaldo.
+
+**SALUD_MENTAL — reglas:**
+1. `PACIENTES.SALUD_MENTAL`: string `SI` · `NO` · vacío (sin información). El
+   vacío **no** se interpreta como `NO`; **prohibido inferir** de textos libres
+   (`PS`, `PSM`, `PSICOLOGA`, `DEPRESION`, `APOYO PSICOLOGICO`…) — se conservan en
+   `OBSERVACIONES`, no se copian.
+2. Captura V4 añade el campo `saludMental` **OPC solo para `nuevoIngreso`**
+   (§0.2/§5.1/§6/§9). Si aparece en envíos `Cp2-`/`Cp3-` → `CAMPO_NO_PERMITIDO`
+   ("El indicador de salud mental requiere captura V4"). Valor distinto de
+   `SI`/`NO`/vacío → `CAMPO_INVALIDO` ("Solo SI, NO o vacío (sin información)").
+3. En la ficha se edita vía `actualizacion.campos.SALUD_MENTAL` (clave permitida,
+   enum `['','SI','NO']`); no viaja como plano del payload.
+4. Huella canónica: incluye `saludMental` **solo** en `Cp4-`; las huellas
+   `Cp2-`/`Cp3-` persistidas no cambian ni se reescriben.
+5. TR-1 → `SALUD_MENTAL`; TR-2 `nuevoIngreso` → columna 12 del orden
+   `INGRESO_COLUMNAS` (por encabezado, no por índice fijo).
+
+**MIG-002 (esquema 1→2):** reutiliza `Modelo_asegurarEsquemaPacientes`,
+`Modelo_alinearVistasSectoriales` y `_mig002_asegurarIngresosSaludMental`.
+`SISTEMA_VERSION_SCHEMA_ACTUAL = 2`. Fila de migración única en `docs/MIGRACIONES.md`
+(`Mig_run002()`), sin segunda hoja ni pipeline paralelo.
+
+**Instalar reactivado:** `INSTALAR_ETAPAS_MUTAN` vuelve a declarar
+fuentes/amarillo/enriquecimiento (mismo `INST-1`); toman `LockService` de forma
+explícita, `SNAPSHOT_ACTUAL` se respalda **antes** del lock, y el guard de
+versión (`Instalar_versionIncompatible_`) se registra antes de tomar el lock.
+`SNAPSHOT_ACTUAL` **nunca** toca `PROXIMO_CONTROL` ni `SALUD_MENTAL` de existentes
+(reglas de no-pérdida DEC-064 / doctrina FIX v0.8.5). Caracteres mínimos de
+unidad: `>` si hay respaldo, `P`/`B` si hay paciente o bloque — `z` = layouts
+substituibles, `r/h/q/R/H` = respaldos selectivos.
+
+**Tests:** núcleo `tests/ejecutar_local.mjs` **671/671** (incl. MIG-002, así
+canónica, gates y huella Cp4); baterías externas: aceptación 50/50, contrato
+36/36, captura_backend_v2 73/73 (carga `29_ActualizacionCaptura.js`),
+regresiones 44/44, instalador_estabilidad PASS, validar_html 21/21. Docs:
+`docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`.
+**Fecha:** 2026-09-21

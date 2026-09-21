@@ -1,5 +1,14 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-21 (v0.10.0):** se implementó `SALUD_MENTAL`
+> (`SI`/`NO`/vacío, sin inferencia) extremo a extremo (modelo + MIG-002 esquema
+> 1→2 + captura V4 + ficha + Web App + vistas 16→17) y se **reactivó
+> `Instalar / Reparar Sistema`** con etapas mutantes (fuentes/amarillo/
+> enriquecimiento) y respaldo `SNAPSHOT_ACTUAL`. El instalador vuelve a ser el
+> ciclo real de captura; la verificación E2E en vivo (incluida la etapa
+> «Ajustando el libro» de v0.9.22 y las cifras de INICIO) sigue pendiente de
+> ejecutar contra el libro real. Ver DEC-065 y `docs/INFORME_...v0.10.0`.
+
 > **Actualización 2026-09-17 (v0.9.13):** se cerraron la regresión de
 > cachés de atención que retrocedían al registrar eventos antiguos, la pérdida
 > de fecha corregida tras el merge de fuentes y la edición incompleta de
@@ -37,16 +46,16 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 
 ## 2. Desarrollo / operación
 
-**Aplicación visual v0.9.21:** el código y la Web App están publicados en `@204`.
-Al ejecutar la instalación real, la etapa «Ajustando el libro» informó que las
-celdas de título combinadas impedían inmovilizar parcialmente columnas. La
-corrección v0.9.22 está publicada en `@205`; **repetir Instalar / Reparar Sistema**
-y comprobar la etapa y las cifras de INICIO sigue pendiente.
-Para que el formato nuevo y las fórmulas corregidas de INICIO queden escritos
-en el Spreadsheet existente, ejecutar **Instalar / Reparar Sistema** desde una
-sesión autorizada y revisar Estadísticas e INICIO. La CLI `clasp run` respondió
+**Aplicación visual v0.9.21/22:** el código y la Web App están publicados en `@204`
+(`v0.9.21`) y `@205` (`v0.9.22`). El bloqueo operativo se resolvió en **v0.10.0
+(DEC-065)**: `Instalar / Reparar Sistema` vuelve a declarar las etapas mutantes de
+fuentes/amarillo/enriquecimiento (mismo `INST-1`) y ejecuta respaldo
+`SNAPSHOT_ACTUAL` antes de mutar, por lo que **volver a ejecutar Instalar ya es
+seguro y posible**. Queda pendiente **ejecutar Instalar** contra el libro real y
+comprobar la etapa «Ajustando el libro» (inmovilización de columnas con celdas
+título combinadas) y las cifras de INICIO. La CLI `clasp run` respondió
 `Unable to run script function` por permisos en este host; no se ejecutó una
-reparación directa sobre el libro clínico durante esta publicación. La Web App
+reparación directa sobre el libro clínico durante esa publicación. La Web App
 ya utiliza los conteos corregidos al abrirse o pulsar Actualizar.
 
 | # | Pendiente | Tipo | Prioridad |
@@ -273,3 +282,34 @@ se agregó verificación integral local/CI y una publicación con tests obligato
 Ver `docs/INFORME_REVISION_2026_09_16.md` para evidencias, publicación y límites.
 Las decisiones funcionales del §1 y la validación de backups/accesos siguen
 pendientes; esta revisión no define reglas clínicas ni ejecuta importaciones reales.
+
+
+## 15. v0.10.0 — SALUD_MENTAL + MIG-002 + Instalar reactivado (2026-09-21)
+
+Informe completo: `docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`. Decisión vigente: **DEC-065**.
+Batería: núcleo **671/671** + aceptación 50/50 + contrato 36/36 +
+captura_backend_v2 73/73 + regresiones 44/44 + instalador_estabilidad PASS +
+`validar_html` **21/21**.
+
+- **`SALUD_MENTAL` extremo a extremo**: modelo y vistas (16 → 17 columnas),
+  captura V4 (`saludMental` OPC solo `nuevoIngreso`, gate Cp4- con
+  `CAMPO_NO_PERMITIDO`, enum `SI`/`NO`/vacío), ficha (`actualizacion.campos.
+  SALUD_MENTAL`), fuentes/borrado con normalizador sin inferencia, Web App y
+  Sector 16 → 17. Descripción Definición de Completo (DDC) se conserva.
+- **MIG-002 (esquema 1 → 2)**: fila única en `docs/MIGRACIONES.md`
+  (`Mig_run002()`), reutiliza aseguradores de esquema/vistas +
+  `_mig002_asegurarIngresosSaludMental`; `SISTEMA_VERSION_SCHEMA_ACTUAL = 2`.
+- **Instalar reactivado**: `INSTALAR_ETAPAS_MUTAN` vuelve a incluir
+  fuentes/amarillo/enriquecimiento; toman `LockService`, respaldo
+  `SNAPSHOT_ACTUAL` antes del lock y guard de versión antes del lock.
+  `SNAPSHOT_ACTUAL` no toca `PROXIMO_CONTROL` ni `SALUD_MENTAL` de existentes
+  (no-pérdida DEC-064). Caracteres de unidad: `>`/`P`/`B` contra `z/r/h/q/R/H`.
+  Cierra el foco de §2 (Instalar re-ejecutable); **la ejecución viva contra el
+  libro real** sigue pendiente (misma causa: sin sesión Google en este host).
+- **Pendiente que permanece**: E2E en vivo (login Google) para instalación
+  completa, etapa «Ajustando el libro», captura y ficha con `SALUD_MENTAL`.
+- **Publicado**: `clasp push --force` + versión **`@215`** desplegada en el
+  deployment operativo (reutilizado); smoke `GET /exec` → 200 con la vista de
+  captura sirviendo `saludMental`. El siguiente paso de DEFINITION OF DONE
+  (E2E interactivo en vivo + commit/push Git) queda explicitado en
+  `docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`.

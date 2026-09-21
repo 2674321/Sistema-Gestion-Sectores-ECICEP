@@ -30,6 +30,7 @@ reescribir el instalador ni crear lógica paralela.
 | ID | desde | hasta | Función | Descripción |
 | --- | --- | --- | --- | --- |
 | MIG-001 | `0` | `1` | `Mig_run001` | Alinear las hojas `SECTOR_*` de **15** a las **16** columnas canónicas (`COLUMNAS_SECTOR_VISTA`, `FECHA_NACIMIENTO`) por nombre de encabezado: `HOJA_NO_EXISTE`/`SIN_ENCABEZADOS` → `sinObjeto`; `ENCABEZADOS_INCOMPATIBLES` → la migración **falla, no adivina**. Sin append/insert de filas ni columnas; solo reescritura en sitio de datos alineados. Es el camino por-registro de la protección ya validada en S10-FIX.3/BUG-E2E-003. |
+| MIG-002 | `1` | `2` | `Mig_run002` | Campo `SALUD_MENTAL` (SI \| NO \| vacío): agrega la columna en `PACIENTES` (**30 → 31**, índice 21 tras `OTRAS_PATOLOGIAS`), en `COLUMNAS_SECTOR_VISTA` (**16 → 17**, al final tras `OBSERVACIONES`) y el encabezado `SALUD_MENTAL` ausente en `INGRESO_*` (`_mig002_asegurarIngresosSaludMental`, solo el encabezado faltante, sin filas). Reutiliza `Modelo_asegurarEsquemaPacientes`/`Modelo_alinearVistasSectoriales`; idempotente y por nombre; tolera `INGRESO_*` sin hoja. |
 
 ## API (todas en `src/20_Instalador.js`)
 
@@ -51,6 +52,8 @@ reescribir el instalador ni crear lógica paralela.
   pendientes con persistencia y devuelve `{versionInicial, versionFinal,
   aplicadas, estado}`.
 - `Mig_run001()` — implementación de MIG-001 (idempotente, defensiva).
+- `Mig_run002()` — implementación de MIG-002 (`SALUD_MENTAL`; idempotente, por
+  nombre, toca solo esquema/encabezados).
 - `Instalar_pVersionado` / `Instalar_pMigraciones` — etapas del instalador:
   **versionado** = solo lectura (clasifica y reporta); **migraciones** =
   `Mig_ejecutarPersistente()`. Orden de `INSTALAR_ETAPAS`: `runtime, diagnostico,
@@ -66,8 +69,11 @@ reescribir el instalador ni crear lógica paralela.
   (`FUNCION_AUSENTE`), no silencioso.
 - **Idempotencia**: ejecutar dos veces la misma cadena no duplica nada; la
   segunda clasificación reporta `aplicadas: []`.
-- **Solo estructura**: una migración solo toca hojas/estructura; no crea
-  pacientes ni eventos (verificado por test de "no duplicación").
+- **Solo estructura**: una migración solo toca hojas/estructura/encabezados; no
+  crea pacientes ni eventos. MIG-001 es puro de vistas `SECTOR_*`; MIG-002 ajusta
+  el esquema de `PACIENTES` y el encabezado de `INGRESO_*` (sin filas ni datos).
+  El motor de migraciones (runner, clasificación, persistencia) jamás crea hojas
+  o filas (verificado por test de "no duplicación"/T14-T15).
 - **Diagnóstico y versión** nunca mutan: `Modelo_escanearEstructura` solo lee.
 - **Compatibilidad antes de escribir**: el instalador y
   `Mig_ejecutarPersistente()` rechazan una `SCHEMA_VERSION` ilegible o superior
@@ -79,11 +85,13 @@ reescribir el instalador ni crear lógica paralela.
 
 ## Pruebas
 
-Suite `_pruebas_inst1_versionado` (T1–T15) en `src/10_Pruebas.js`, +15 casos
-verdes (núcleo **534 → 549**): constantes canónicas, clasificación (ausente/
-ilegible/mayor/incompleta), NUEVA/VIGENTE/ANTIGUA, cadena determinista
+Suite `_pruebas_inst1_versionado` (T1–T15) en `src/10_Pruebas.js` (núcleo
+**671** casos verdes): constantes canónicas (esquema 2, MIG-001→MIG-002
+encadenadas), clasificación (ausente/ilegible/mayor/incompleta),
+NUEVA/VIGENTE/ANTIGUA (cadena desde 0 = MIG-001+MIG-002), cadena determinista
 (con objetivo parametrizable para simular cadenas multi-versión), contrato de
 persistencia (fuente única), detención ante fallo con versión sin avanzar,
-diagnóstico no-mutante, LockService en mutantes y ausente en solo-lectura,
-Actualizar sin referencias al motor, defensa BUG-E2E-003 protegida por MIG-001,
-ejecución declarada idempotente con stub.
+diagnóstico no-mutante, LockService en mutantes (incluida la carga de datos
+real, v0.10) y ausente en solo-lectura, Actualizar sin referencias al motor,
+defensa BUG-E2E-003 protegida por MIG-001, ejecución declarada idempotente con
+stub.

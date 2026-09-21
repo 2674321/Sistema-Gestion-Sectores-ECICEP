@@ -4,6 +4,9 @@
 > demográficos para REM (`SEXO`, `FECHA_NACIMIENTO`), soporte del motor de
 > estratificación (`CONDICIONES`, `ESTRAT_ORIGEN/ESTRAT_CALCULADA`),
 > `FECHA_LLAMADO` migrada a eventos tipo LLAMADO.
+> v0.10: campo `SALUD_MENTAL` (SI | NO | vacío) insertado tras `OTRAS_PATOLOGIAS`
+> (columna V, índice 21 técnico); RUT_DV_VALIDO/NOMBRE_NORMALIZADO/
+> FECHA_ACTUALIZACION/REQUIERE_REVISION desplazadas +1 (MIG-002).
 > Los cambios al modelo se hacen en `src/00_Config.js` primero y se reflejan aquí.
 
 ## Principios
@@ -43,15 +46,17 @@ Orden = orden de columnas en la hoja. `Téc` = columna técnica.
 | 18 | COMPOSICION_CONTROL | texto | | | M+E, M+N… |
 | 19 | OBSERVACIONES | texto | | | Conservado |
 | 20 | CONDICIONES | texto | | ✔ | Lista de códigos de condiciones `;` — entrada del motor G |
-| 21 | NOMBRE_NORMALIZADO | texto | | ✔ | Sin tildes para búsqueda/matching |
-| 22 | RUT_DV_VALIDO | bool | | ✔ | false → DV erróneo módulo 11 |
-| 23 | RUT_SIN_DV | bool | | ✔ | true → fuente sin DV |
-| 24 | ESTRAT_ORIGEN | texto | | ✔ | Valor original de la fuente |
-| 25 | ESTRAT_CALCULADA | texto | | ✔ | Salida del motor ('' si regla no disponible) |
-| 26 | ESTRAT_FECHA_CALCULO | fecha | | ✔ | Cuándo/qué versión de regla |
-| 27 | FUENTE | texto | ✔ | ✔ | `archivo\|hoja\|fila`; múltiples por `;` |
-| 28 | FECHA_ACTUALIZACION | fecha | ✔ | ✔ | Última modificación del sistema |
-| 29 | REQUIERE_REVISION | bool | | ✔ | Conflictos, fechas inválidas, DV erróneo, discrepancia G |
+| 21 | OTRAS_PATOLOGIAS | texto | | ✔ | Otras condiciones fuera de catálogo; sin ponderación automática |
+| 22 | SALUD_MENTAL | enum | | | SI \| NO \| vacío (sin información); capturado por la dupla; NO inferir desde texto libre |
+| 23 | NOMBRE_NORMALIZADO | texto | | ✔ | Sin tildes para búsqueda/matching |
+| 24 | RUT_DV_VALIDO | bool | | ✔ | false → DV erróneo módulo 11 |
+| 25 | RUT_SIN_DV | bool | | ✔ | true → fuente sin DV |
+| 26 | ESTRAT_ORIGEN | texto | | ✔ | Valor original de la fuente |
+| 27 | ESTRAT_CALCULADA | texto | | ✔ | Salida del motor ('' si regla no disponible) |
+| 28 | ESTRAT_FECHA_CALCULO | fecha | | ✔ | Cuándo/qué versión de regla |
+| 29 | FUENTE | texto | ✔ | ✔ | `archivo\|hoja\|fila`; múltiples por `;` |
+| 30 | FECHA_ACTUALIZACION | fecha | ✔ | ✔ | Última modificación del sistema |
+| 31 | REQUIERE_REVISION | bool | | ✔ | Conflictos, fechas inválidas, DV erróneo, discrepancia G |
 
 ## Estados canónicos (paciente)
 

@@ -8,7 +8,7 @@ versión del instalador.
 
 - **`SISTEMA_VERSION_SCHEMA_ACTUAL`** (constante en `src/00_Config.js`): número
   entero de la versión estructural vigente del sistema (hojas + layout + vistas).
-  Actualmente **`1`**.
+  Actualmente **`2`** (v0.10 · MIG-002: campo `SALUD_MENTAL`).
 - **Regla de semejanza**: si la clave `SCHEMA_VERSION` en CONFIG **está ausente,
   vacía o ilegible**, la instalación se considera esquema **legacy `'0'`** (no se
   asume VIGENTE por omisión). Esta regla también protege contra migraciones que
@@ -55,11 +55,13 @@ corresponde en cada fase (ver `MIGRACIONES.md` y la política de instalación).
 ## Concurrencia
 
 `api_instalarPaso` toma **LockService** (`tryLock(30000)`) para cada etapa en
-`INSTALAR_ETAPAS_MUTAN` (migraciones, estructura, visual, validaciones,
-diseño, inicio, menú, derivados). Las fases omitidas (fuentes, amarillo,
-enriquecimiento) y el inventario de hojas adicionales no toman lock. Si está
-ocupado devuelve `{ok:false, motivo:'CONCURRENCIA'}`; `releaseLock` en `finally`.
-En node (`LockService` ausente) no bloquea, para no romper las pruebas.
+`INSTALAR_ETAPAS_MUTAN` (migraciones, estructura, fuentes, amarillo,
+enriquecimiento, visual, validaciones, diseño, inicio, menú, derivados) — desde
+v0.10 las etapas de carga de datos reales son mutantes y toman el lock. Las fases
+de solo lectura (runtime, diagnóstico, versionado, limpieza, verificar) no toman
+lock. Si está ocupado devuelve `{ok:false, motivo:'CONCURRENCIA'}`;
+`releaseLock` en `finally`. En node (`LockService` ausente) una etapa mutante
+responde `LOCK_NO_DISPONIBLE` sin ejecutar (las pruebas inyectan un lock real).
 
 ## Diagnóstico del verificador (`Instalar_pVerificar`)
 

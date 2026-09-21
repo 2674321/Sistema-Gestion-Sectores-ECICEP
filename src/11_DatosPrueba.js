@@ -128,6 +128,26 @@ const DATASET_NORMALIZACION = {
     ['OTRO', 'OTRO'], ['X', ''], ['','']
   ],
 
+  saludMental: [
+    // [entrada, estado, valor] — vacío = sin información (nunca un NO implícito)
+    ['', 'VACIO', ''],
+    ['   ', 'VACIO', ''],
+    ['SI', 'SI', 'SI'],
+    ['SÍ', 'SI', 'SI'],
+    [' si ', 'SI', 'SI'],
+    ['Si', 'SI', 'SI'],
+    ['NO', 'NO', 'NO'],
+    [' no ', 'NO', 'NO'],
+    ['No', 'NO', 'NO'],
+    // NO se infiere desde texto libre ni abreviaturas: queda NO_RECONOCIDO
+    ['PSM', 'NO_RECONOCIDO', ''],
+    ['PS', 'NO_RECONOCIDO', ''],
+    ['DEPRESION', 'NO_RECONOCIDO', ''],
+    ['DEPRESIÓN', 'NO_RECONOCIDO', ''],
+    ['APOYO PSICOLOGICO', 'NO_RECONOCIDO', ''],
+    ['NO REFIERE', 'NO_RECONOCIDO', '']
+  ],
+
   tiposEvento: [
     // [entrada, esperado]
     ['INGRESO', 'INGRESO'],

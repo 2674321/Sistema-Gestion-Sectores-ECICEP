@@ -26,7 +26,7 @@
     ['Contacto y situación',[['TELEFONOS','Teléfonos'],['TELEFONO_OBS','Detalle de contacto'],['SECTOR','Sector',['AMARILLO','NARANJO','VERDE']],['ESTADO','Estado',['PENDIENTE','AGENDADO','INGRESADO','NO_CONTESTA','FALLECIDO','NSP']]]],
     ['Ingreso y equipo',[['FECHA_INGRESO','Fecha de ingreso','date'],['PREINGRESO','Preingreso'],['DUPLA_INGRESO','Dupla de ingreso'],['PROFESIONAL_SEGUIMIENTO','Profesional de seguimiento']]],
     ['Agenda manual',[['PROXIMO_CONTROL','Próximo control / seguimiento','date'],['COMPOSICION_CONTROL','Composición del próximo control']]],
-    ['Información clínica',[['CONDICIONES','Patologías ECICEP','condiciones'],['OTRAS_PATOLOGIAS','Otras patologías','textarea'],['OBSERVACIONES','Observaciones del paciente','textarea']]]
+    ['Información clínica',[['CONDICIONES','Patologías ECICEP','condiciones'],['OTRAS_PATOLOGIAS','Otras patologías','textarea'],['SALUD_MENTAL','Salud mental',['','SI','NO']],['OBSERVACIONES','Observaciones del paciente','textarea']]]
   ];
   function activo(){var r=document.querySelector('input[name="accion"]:checked');return r&&r.value==='ACTUALIZAR_DATOS';}
   function estado(t){$('edEstado').textContent=t;}

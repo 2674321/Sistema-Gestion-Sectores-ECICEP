@@ -380,7 +380,8 @@ function Form_filaCanonicaIngreso(normalizado, marca, opciones) {
     dupla,
     normalizado.OBSERVACIONES || '',
     '',
-    marca || ''
+    marca || '',
+    normalizado.SALUD_MENTAL || ''
   ];
 }
 

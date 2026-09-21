@@ -9,21 +9,21 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.9.3-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/releases/tag/v0.9.3)
+[![Release](https://img.shields.io/badge/release-v0.10.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/releases/tag/v0.10.0)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
 
 | | |
 |---|---|
-| **Modelo de datos** | `PACIENTES` (estado vigente) + `EVENTOS` (historial inmutable) + vistas derivadas |
-| **Canal de captura** | Web App (pipeline V4 idempotente, compatible V2/V3; contrato de captura **V2** normativo en `docs/CONTRATO_CAPTURA_V2.md`) |
+| **Modelo de datos** | `PACIENTES` (estado vigente) + `EVENTOS` (historial inmutable) + vistas derivadas · esquema 2 (MIG-002) |
+| **Canal de captura** | Web App (pipeline V4 idempotente, compatible V2/V3; contrato de captura **V4** normativo en `docs/CONTRATO_CAPTURA_V2.md`) |
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.9.29` (`@214`) · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.10.0` · verificación completa con `node tools/verificar.mjs` |
 
 ## Qué resuelve
 
@@ -54,6 +54,9 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 
 **Modelo clínico por persona**
 - **Estratificación de riesgo** `G1/G2/G3` desde patologías.
+- **Indicador de salud mental** (`SALUD_MENTAL`): `SI` / `NO` / vacío = sin
+  información, registrado por la dupla desde captura V4 y ficha. **Nunca se
+  infiere** de texto libre.
 - Agenda manual de próxima atención. **Estado** (VENCIDO / POR VENCER /
   VIGENTE / SIN FECHA) y **recordatorio** derivados de la fecha guardada.
 
@@ -110,6 +113,10 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   versiones incompatibles antes de escribir, informa fallos por hoja y conserva
   todas las hojas adicionales; su revisión no borra datos. Las fases omitidas
   se identifican en el progreso y no toman un bloqueo de escritura.
+  **Instalar/reparar muta datos reales con respaldo previo** (`SNAPSHOT_ACTUAL`,
+  antes del bloqueo y con guard de versión): importa fuentes, actualiza
+  pacientes, enriquece y registra; `SNAPSHOT_ACTUAL` no toca la agenda manual
+  (`PROXIMO_CONTROL`) ni `SALUD_MENTAL` de personas existentes.
 - Backups manuales y automáticos, cola de calidad, auditoría integral,
   protección por categoría de hojas, filtros y buscador por hoja.
 - Diseño visual del libro normalizado por un **design system** único (tokens en
@@ -203,17 +210,19 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | Componente | Estado |
 |---|---|
 | Núcleo (normalización, modelo, pipeline) | ✅ Implementado |
-| Web App de captura (contrato V2) | ✅ Operativo |
-| Instalador + motor de migraciones | ✅ Operativo (fase INST-1 cerrada) |
+| Web App de captura (contrato V4, compatible V2/V3) | ✅ Operativo |
+| Instalador + motor de migraciones | ✅ Operativo (schemas 1→2, MIG-002; etapas mutantes activas) |
+| `SALUD_MENTAL` (SI/NO/vacío, sin inferencia) | ✅ Implementado (modelo, captura V4, ficha, Web App, vistas) |
 | REM Excel / PDF · Estadísticas · Dashboard | ✅ Implementados |
 | Calidad, auditoría, backups | ✅ Implementados |
 | IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
 | E2E real | ✅ Verificado en libro operativo |
 
 **Verificación vigente:** `node tools/verificar.mjs` comprueba sintaxis JS/GS y
-las 11 suites disponibles: **941 pruebas** y **17 scripts HTML**. Incluye 19 casos
-nuevos de regresión y publicación. Detalle y límites de verificación real en
-[`docs/INFORME_REVISION_2026_09_16.md`](docs/INFORME_REVISION_2026_09_16.md).
+las 11 suites disponibles. Batería v0.10.0: núcleo **671/671** · aceptación 50/50 ·
+contrato 36/36 · captura backend V2 73/73 · regresiones 44/44 ·
+instalador_estabilidad PASS · **21 scripts HTML**. Detalle y límites de
+verificación real en [`docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`](docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md).
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción
 explícita (migración controlada: análisis → validación → simulación → reporte →
@@ -248,13 +257,14 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 Sistema-Gestion-Sectores-ECICEP/
 ├── src/                   # Código Apps Script (sincronizado con clasp)
 │   ├── 00_Config.js …     # Config, tokens, núcleo, modelo, hojas, UI
-│   ├── 10_Pruebas.js      # Suites deterministas (651)
+│   ├── 10_Pruebas.js      # Suites deterministas (671)
 │   ├── 24_Formulario.js   # Backend de captura Web App
-│   ├── 26_Captura.js      # Backend contrato de captura V2
+│   ├── 26_Captura.js      # Backend contrato de captura V2/V3/V4
 │   ├── 28_IA.js           # Módulo IA (Gemini API): análisis, calidad, corrección asistida
+│   ├── 29_ActualizacionCaptura.js  # Edición/ficha desde captura V4 (actualizacion.campos)
 │   └── CapturaWeb.html    # Formulario Web App (canal de captura)
 ├── tests/                 # Baterías ejecutables: node tests/*.mjs
-│   ├── ejecutar_local.mjs # Núcleo (597 deterministas)
+│   ├── ejecutar_local.mjs # Núcleo (671 deterministas)
 │   ├── formulario_web.mjs # Lógica real de CapturaWeb.html (27)
 │   ├── captura_ui_payload_v2.mjs, captura_backend_v2.mjs, contrato_*.mjs…
 │   └── validar_html.mjs   # Sintaxis de <script> embebidos en los HTML

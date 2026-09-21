@@ -307,10 +307,21 @@ function Act_diagnosticarEnriquecimiento() {
 //      diverge de un valor vigente → REQUIERE_REVISION, sin sobrescribir;
 //   4. campos de contexto (PROFESIONAL_SEGUIMIENTO, PREINGRESO,
 //      DUPLA_INGRESO, TELEFONOS, OBSERVACIONES): fill-only;
-//   5. IDENTIDAD, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION y campos técnicos
-//      jamás se escriben desde una fuente (derivados/revisión humana);
+//   5. IDENTIDAD, NOMBRE, SECTOR, ESTADO y campos técnicos jamás se escriben
+//      desde una fuente (derivados/revisión humana);
 //   6. trazabilidad: append a FUENTE + FECHA_ACTUALIZACION.
 //   7. PROXIMO_CONTROL es manual: una fuente no rellena una agenda borrada.
+//
+// MODO SNAPSHOT_ACTUAL (opciones.modo, usado por Instalar): política de CARGA
+// inicial/reinstalación que además permite:
+//   a. TELEFONOS: REEMPLAZA el consolidado cuando la fuente trae un teléfono
+//      válido no vacío (el teléfono vigente de la dupla es la fuente de verdad);
+//   b. ESTRATIFICACION: REEMPLAZA cuando la fuente trae una G1/G2/G3 válida.
+// NUNCA aplica a SEXO/FECHA_NACIMIENTO (siguen fill-only) ni a SALUD_MENTAL.
+//
+// SALUD_MENTAL: campo de captura clínica de la dupla. El merge JAMÁS lo escribe
+// ni modifica en pacientes existentes (no se infiere, no se sobrescribe); solo
+// llega a pacientes NUEVOS a través del pipeline (INGRESO_* → PACIENTES).
 // ---------------------------------------------------------------------------
 
 var CAMPOS_MERGE_FUENTE = [
@@ -332,10 +343,15 @@ var _CAMPOS_MERGE_FECHA_MAX = ['ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO'];
  * orquestador (mantiene PII y trazabilidad en un solo lugar).
  * @param {Object} paciente objeto PACIENTES (mutable)
  * @param {Object} n fila.NORMALIZADO (valores canónicos de la fuente)
+ * @param {Object} [opciones] {modo:'NORMAL_COTIDIANO'|'SNAPSHOT_ACTUAL'}
+ *   SNAPSHOT_ACTUAL (Instalar): reemplaza TELEFONOS y ESTRATIFICACION (G válida)
+ *   vigentes de la fuente; el resto se comporta igual que el modo cotidiano.
  * @returns {aplicados:[{campo, valor}], conflictos:[{campo}]}
  */
-function Act_mergearPaciente(paciente, n) {
+function Act_mergearPaciente(paciente, n, opciones) {
   var aplicados = [], conflictos = [];
+  opciones = opciones || {};
+  var snapshot = opciones.modo === 'SNAPSHOT_ACTUAL';
   if (!paciente || !n) return { aplicados: aplicados, conflictos: conflictos };
 
   // 2) fechas de estado: se conserva la MÁS RECIENTE válida (nunca borra)
@@ -350,6 +366,7 @@ function Act_mergearPaciente(paciente, n) {
   });
 
   // 3) demografía: fill-only; divergencia → conflicto (conserva el vigente)
+  //    En SNAPSHOT_ACTUAL sigue siendo fill-only: jamás se pisa un valor.
   ['SEXO', 'FECHA_NACIMIENTO'].forEach(function (campo) {
     var actual = Utl_texto(paciente[campo]);
     var can = Utl_texto(n[campo]);
@@ -363,18 +380,35 @@ function Act_mergearPaciente(paciente, n) {
     }
   });
 
-  // 4) contexto: fill-only (jamás sobrescribe)
+  // 4) contexto: fill-only; en SNAPSHOT_ACTUAL TELEFONOS vigente de la fuente
+  //    reemplaza al consolidado (única excepción explícita de la política).
   CAMPOS_MERGE_FUENTE.forEach(function (campo) {
     if (campo === 'SEXO' || campo === 'FECHA_NACIMIENTO') return;
     if (_CAMPOS_MERGE_FECHA_MAX.indexOf(campo) !== -1) return;
+    if (campo === 'SALUD_MENTAL') return; // defensivo: jamás se escribe en existentes
     var actual = Utl_texto(paciente[campo]);
     var can = Utl_texto(n[campo]);
     if (!can) return;
+    if (snapshot && campo === 'TELEFONOS') {
+      paciente[campo] = can;
+      aplicados.push({ campo: campo, valor: can });
+      return;
+    }
     if (actual === '') {
       paciente[campo] = can;
       aplicados.push({ campo: campo, valor: can });
     }
   });
+
+  // 5) SNAPSHOT_ACTUAL: ESTRATIFICACION vigente de la fuente (solo G1/G2/G3
+  //    válidas) reemplaza a la consolidada. En modo cotidiano jamás se toca.
+  if (snapshot) {
+    var canE = Norm_normalizarEstratificacion(n.ESTRATIFICACION);
+    if (canE && Utl_texto(paciente.ESTRATIFICACION) !== canE) {
+      paciente.ESTRATIFICACION = canE;
+      aplicados.push({ campo: 'ESTRATIFICACION', valor: canE });
+    }
+  }
 
   return { aplicados: aplicados, conflictos: conflictos };
 }
@@ -387,9 +421,10 @@ function Act_mergearPaciente(paciente, n) {
  * conflictos/campos y detalle mínimo (ID + campos), sin PII.
  * @param {Array} staging filas normalizadas (Fuentes_leerStagingAutorizado)
  * @param {Array} pacientes objetos PACIENTES (se mutan los tocados)
+ * @param {Object} [opciones] {modo} — se propaga a Act_mergearPaciente
  * @returns {revisados, actualizados, sinCambios, conflictos, campos, detalle}
  */
-function Act_mergearPacientesDesdeStaging(staging, pacientes) {
+function Act_mergearPacientesDesdeStaging(staging, pacientes, opciones) {
   var reporte = {
     revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: []
   };
@@ -406,7 +441,7 @@ function Act_mergearPacientesDesdeStaging(staging, pacientes) {
     if (!paciente) return;
     reporte.revisados++;
     var fuente = Fuentes_fuenteOrigen(fila);
-    var res = Act_mergearPaciente(paciente, n);
+    var res = Act_mergearPaciente(paciente, n, opciones);
     if (res.aplicados.length) {
       reporte.actualizados++;
       reporte.campos += res.aplicados.length;

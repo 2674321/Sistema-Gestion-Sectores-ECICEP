@@ -53,7 +53,8 @@ const archivos = [
   'src/11_DatosPrueba.js',
   'src/10_Pruebas.js',
   'src/26_Captura.js',
-  'src/27_Actualizacion.js'
+  'src/27_Actualizacion.js',
+  'src/29_ActualizacionCaptura.js'
 ];
 const texto26 = readFileSync(path.join(raiz, 'src/26_Captura.js'), 'utf8');
 
@@ -103,6 +104,7 @@ function profundoIgual(a, b, msg) {
 // Datos de prueba (payloads §27)
 // ─────────────────────────────────────────────────────────────────────────────
 const cid = 'Cp2-a1b2c3d4e5f60718293a4b5c6d7e8f90';
+const cid4 = 'Cp4-a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const RUT1 = '11111111-1';
 const RUT2 = '22222222-2';
 const CATALOGO = ['MEDICO/A', 'ENFERMERA/O', 'TENS', 'MATRONA/O', 'PSICOLOGO/A', 'ASISTENTE SOCIAL'];
@@ -665,7 +667,7 @@ t('C4 §25/Anexo B.4: sin colisión de identificadores entre legacy y V2', () =>
   function FORM_CONFIG_LEGACY_CHECK() { return sandbox.FORM_CONFIG.ACCIONES.VALIDOS; }
   A(sandbox.FORM_CONFIG.ACCIONES.VALIDOS.indexOf('nuevoIngreso') === -1, 'legacy no acepta camelCase');
   A(sandbox.CAPTURA_V2.OPERACIONES.indexOf('NUEVO_INGRESO') === -1, 'V2 no acepta etiquetas legacy');
-  igual(sandbox.CAPTURA_V2.CAMPOS.length, 17, 'V4 añade actualizacion; adaptadores preservan vocabulario previo');
+  igual(sandbox.CAPTURA_V2.CAMPOS.length, 18, 'V4 añade actualizacion y saludMental; adaptadores preservan vocabulario previo');
   cont(sandbox.CAPTURA_V2.CAMPOS, 'captureId');
   cont(sandbox.CAPTURA_V2.CAMPOS, 'fechaIngreso');
   cont(sandbox.CAPTURA_V2.CAMPOS, 'confirmarNuevoPaciente');
@@ -723,14 +725,15 @@ t('C9 estados §18.1 y terminales §18/§19 en la implementación', () => {
   A(sandbox.CAPTURA_V2.REINTENTABLES.indexOf('ERROR') !== -1);
 });
 
-t('C10 §6/§21.1: TR-1 asigna PROFESIONAL2 a la dupla; TR-2 fila canónica usa 11 columnas', () => {
+t('C10 §6/§21.1: TR-1 asigna PROFESIONAL2 a la dupla; TR-2 fila canónica usa 12 columnas', () => {
   const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
   const i = sandbox.Captura_v2_normalizadoAInterno(v.normalizado, { marca: 'M' });
   const fila = sandbox.Form_filaCanonicaIngreso(i, 'M', {});
-  igual(fila.length, 11, 'INGRESO_COLUMNAS');
+  igual(fila.length, 12, 'INGRESO_COLUMNAS');
   igual(fila[5], '2026-09-01', 'FECHA DE INGRESO = fechaIngreso (columna 5, §21.1)');
   igual(fila[7], 'MATRONA/O; MEDICO/A', 'dupla con ; ');
   igual(fila[10], 'M', 'marca en NOTA_SISTEMA');
+  igual(fila[11], '', 'SALUD_MENTAL al final (vacío si no se informa)');
 });
 
 t('C10b §21.1: columna FECHA DE INGRESO por ENCABEZADO (variantes FECHA DE ING…)', () => {
@@ -920,6 +923,59 @@ t('D8 idempotencia sobre actualizarDatos: A1 reintento idéntico → sin re-entr
   A(ctx.entregas.filter((e) => e.norm.captureId === cidAct).length === 1, 'A1: un solo efecto');
   const rB = sandbox.Captura_v2_enviar(payloadActualizar({ captureId: cidAct, observaciones: 'otra observación' }), ctx);
   A(!rB.ok && rB.errors.some((e) => e.codigo === 'CONFLICTO_IDEMPOTENCIA'), 'B: payload distinto → CONFLICTO_IDEMPOTENCIA');
+});
+
+t('Cp4 saludMental: enum SI/NO/vacío — no se infiere desde texto libre', () => {
+  const okSi = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'SÍ' }), { catalogo: CATALOGO });
+  A(okSi.ok, 'SÍ aceptado');
+  igual(okSi.normalizado.saludMental, 'SI', 'SÍ → SI');
+  const okNo = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'NO' }), { catalogo: CATALOGO });
+  A(okNo.ok, 'NO aceptado');
+  igual(okNo.normalizado.saludMental, 'NO', 'NO → NO');
+  const okVac = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: '' }), { catalogo: CATALOGO });
+  A(okVac.ok, 'vacío aceptado (sin información ≠ NO)');
+  igual(okVac.normalizado.saludMental, '', 'vacío → vacío');
+  for (const libre of ['PSM', 'PS', 'DEPRESION', 'DEPRESIÓN', 'APOYO PSICOLÓGICO']) {
+    const r = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: libre }), { catalogo: CATALOGO });
+    A(!r.ok, libre + ' NO se infiere → rechazado');
+    A(r.errores.some((e) => e.campo === 'saludMental' && e.codigo === 'CAMPO_INVALIDO'),
+      libre + ' → CAMPO_INVALIDO');
+  }
+});
+
+t('Cp4 saludMental: solo captura V4 (Cp4-); cara Cp2/Cp3 → CAMPO_NO_PERMITIDO', () => {
+  const legado = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid, saludMental: 'SI' }), { catalogo: CATALOGO });
+  A(!legado.ok, 'Cp2 con saludMental rechazado');
+  A(legado.errores.some((e) => e.campo === 'saludMental' && e.codigo === 'CAMPO_NO_PERMITIDO'),
+    'código CAMPO_NO_PERMITIDO en Cp2/Cp3');
+});
+
+t('Cp4 saludMental: TR-1 lo lleva al modelo interno y a la fila canónica (columna 12)', () => {
+  const v = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'SI' }), { catalogo: CATALOGO });
+  const i = sandbox.Captura_v2_normalizadoAInterno(v.normalizado, { marca: 'M' });
+  igual(i.SALUD_MENTAL, 'SI', 'TR-1 → SALUD_MENTAL = SI');
+  const fila = sandbox.Form_filaCanonicaIngreso(i, 'M', {});
+  igual(fila[11], 'SI', 'SALUD_MENTAL en la columna 12 de INGRESO_*');
+  igual(fila[10], 'M', 'NOTA_SISTEMA sigue en la columna 11');
+});
+
+t('Cp4 saludMental: la huella canónica lo incluye (Cp4) y respeta las huellas Cp2/Cp3', () => {
+  const cp4 = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'NO' }), { catalogo: CATALOGO });
+  A(sandbox.Captura_v2_canonica(cp4.normalizado).indexOf('saludMental=NO') !== -1,
+    'huella Cp4 incluye saludMental=NO');
+  const cp3 = sandbox.Captura_v2_validar(nuevoIngreso({}), { catalogo: CATALOGO });
+  A(sandbox.Captura_v2_canonica(cp3.normalizado).indexOf('saludMental') === -1,
+    'huella Cp2/Cp3 existente NO cambia (sin saludMental)');
+});
+
+t('Cp4 actualizarDatos: SALUD_MENTAL en la ficha valida enum SI/NO/vacío', () => {
+  const ed = (valor) => sandbox.Captura_validarEdicion_({
+    id: 'f1', rutOriginal: RUT1,
+    campos: { SALUD_MENTAL: { anterior: '', valor } }, atenciones: []
+  });
+  for (const okVal of ['SI', 'NO', '']) A(ed(okVal).ok, 'ficha acepta ' + JSON.stringify(okVal));
+  const bad = ed('PSM');
+  A(!bad.ok && String(bad.motivo).indexOf('Solo SI, NO o vacío') !== -1, 'texto libre rechazado en la ficha');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

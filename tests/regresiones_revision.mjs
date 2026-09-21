@@ -414,10 +414,10 @@ test('Instalar no oculta datos clínicos al formatear PACIENTES', () => {
     getMaxRows: () => 20, setColumnWidth: col => anchos.push(col),
     hideColumns: (...args) => ocultas.push(args) };
   c._modelo_formatearPacientes(hoja);
-  assert.equal(anchos.length, 30);
+  assert.equal(anchos.length, 31);
   assert.deepEqual(ocultas, []);
   assert.ok(fechas.some(([col, formato]) => col === 5 && formato === 'dd/MM/yyyy'));
-  assert.ok(fechas.some(([col, formato]) => col === 29 && formato === 'dd/MM/yyyy HH:mm'));
+  assert.ok(fechas.some(([col, formato]) => col === 30 && formato === 'dd/MM/yyyy HH:mm'));
 });
 test('Instalar reabre solo el bloque clínico ocultado por el grupo heredado', () => {
   const c = backend(), visibles = [];

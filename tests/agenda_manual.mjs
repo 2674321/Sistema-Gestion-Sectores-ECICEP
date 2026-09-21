@@ -73,7 +73,7 @@ test('Persistencia real por encabezados distingue versión y recupera agenda des
     const reg=c.Captura_v2_nuevoRegistro(norm,{usuario:'FICTICIO',fechaRecepcion:'2026-09-16'});
     assert.equal(c.Captura_v2_persistirRegistro(reg).ok,true);
     assert.equal(rows[1][headers.indexOf('FORM_VERSION')],version);
-    assert.equal(c.Captura_v2_buscarRegistro(p.captureId).normalizado.proximoControl,p.proximoControl);
+    assert.equal(c.Captura_v2_buscarRegistro(p.captureId).normalizado.proximoControl,p.proximoControl||'');
   }
 });
 test('Ficha guarda/borra agenda y rechaza fecha inválida sin mutar caché', () => {

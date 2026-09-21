@@ -1,5 +1,33 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-21 (v0.10.0):**
+> - **`SALUD_MENTAL` extremo a extremo**: el modelo clínico incorpora
+>   `PACIENTES.SALUD_MENTAL` (`SI`/`NO`/vacío = sin información), registrado por
+>   la dupla y **prohibido de inferir** desde texto libre. Esquema **2** (MIG-002):
+>   `MODELO_PACIENTE` pasa a 31 columnas (índice 21 tras `OTRAS_PATOLOGIAS`);
+>   las vistas `SECTOR_*` pasan de 16 a **17 columnas** (`COLUMNAS_SECTOR_VISTA`
+>   índice 16, al final); `INGRESO_COLUMNAS` incorpora `SALUD_MENTAL`
+>   (índice 11 → columna física 12). Extensión normativa del contrato de captura
+>   **V4** en `docs/CONTRATO_CAPTURA_V2.md §0.2`: campo `saludMental` OPC solo
+>   para `nuevoIngreso`, gate por `captureId` (`Cp4-`; `Cp2-`/`Cp3-` →
+>   `CAMPO_NO_PERMITIDO`; enum `SI`·`NO`·vacío → si no, `CAMPO_INVALIDO`). La
+>   ficha lo edita vía `actualizacion.campos.SALUD_MENTAL` (clave permitida,
+>   enum `['','SI','NO']`). La huella canónica V4 lo incluye; las huellas
+>   `Cp2-`/`Cp3-` ya persistidas **no cambian**. `normalizador`
+>   `Norm_normalizarSaludMental` en fuentes/borrado sin inferencia. TR-1 →
+>   `SALUD_MENTAL`; TR-2 `nuevoIngreso` → columna 12 del orden `INGRESO_COLUMNAS`
+>   (por encabezado, no por índice fijo).
+> - **Instalar/reparar reactivado** (`INSTALAR_ETAPAS_MUTAN` vuelve a declarar
+>   fuentes/amarillo/enriquecimiento, mismo `INST-1`): las etapas toman
+>   `LockService`, respaldan `SNAPSHOT_ACTUAL` **antes** del lock y registran el
+>   guard `Instalar_versionIncompatible_` antes del lock. `SNAPSHOT_ACTUAL` no
+>   toca `PROXIMO_CONTROL` ni `SALUD_MENTAL` de existentes (no-pérdida DEC-064 /
+>   doctrina FIX v0.8.5). Caracteres de unidad `>`/`P`/`B` frente a `z/r/h/q/R/H`.
+> - Estructura `src/` añade `29_ActualizacionCaptura.js` (edición/ficha desde
+>   captura V4). Batería verde: núcleo 671/671, aceptación 50/50, contrato 36/36,
+>   captura_backend_v2 73/73, regresiones 44/44, instalador_estabilidad PASS,
+>   `validar_html` 21/21. Decisión **DEC-065**; Historia en `docs/HISTORIAL.md`.
+
 > **Actualización 2026-09-21 (v0.9.28):** la Web App de Captura deja de ejecutarse
 > desde versiones en caché. Cada `doGet` incrusta el sello `PAGE_BUILD` =
 > `ECICEP_BUILD.commit` (BUILD.js se regenera en cada push) en
@@ -148,16 +176,21 @@
 
 > Estado documental: consolidación de la arquitectura vigente. Los hitos ETAPA 2/2.5/3 y las versiones 0.x se conservan como historial; no describen por sí solos el estado operativo actual.
 
-## Estado vigente de mantenimiento (2026-09-16)
+## Estado vigente de mantenimiento (2026-09-21)
 
-- `Instalar / reparar`: prepara estructura, formato y validaciones; las etapas
-  de fuentes, Amarillo, enriquecimiento y derivados son diagnósticas tras la entrega.
+- `Instalar / reparar` (**reactivado v0.10.0**): ejecuta el pipeline estructural
+  completo y las etapas de **fuentes, Amarillo, enriquecimiento y derivados vuelven
+  a mutar datos reales** (mismo `INST-1`), siempre con respaldo `SNAPSHOT_ACTUAL`
+  previo al bloqueo y guard de versión. `SNAPSHOT_ACTUAL` no toca `PROXIMO_CONTROL`
+  ni `SALUD_MENTAL` de pacientes existentes (no-pérdida DEC-064 / doctrina FIX
+  v0.8.5).
 - `Actualizar`: ejecuta `Act_actualizarSistema` (fuentes autorizadas, merge,
   enriquecimiento, derivados y vistas). El procesamiento masivo real sigue
   requiriendo instrucción explícita. `ejecutar:false` simula sin escrituras ni
   cambios en objetos memoizados; no aplica estructura, formato, vistas o logs.
-- La captura V2 mantiene su contrato normativo. Su esquema físico canónico tiene
-  26 columnas y no deriva del catálogo ampliado de edición administrativa.
+- La captura mantiene su contrato normativo **V4** (`docs/CONTRATO_CAPTURA_V2.md`),
+  compatible con V2/V3 (prefijos `Cp2-`/`Cp3-`/`Cp4-`). Su esquema físico canónico
+  tiene 26 columnas y no deriva del catálogo ampliado de edición administrativa.
   Persistencia y trailer usan encabezados reales; las columnas adicionales o
   reordenadas se conservan. Un esquema incompleto o ambiguo falla antes de escribir.
 - El instalador del formulario no reetiqueta una cola poblada que tenga otro
@@ -205,6 +238,9 @@ Detalle del modelo paciente/evento: **MODELO-EVENTOS.md**.
 | `11_DatosPrueba.js` | Dataset ficticio único para las pruebas (sin datos reales) | — |
 | `24_Formulario.js` | Backend de captura Web App: validación, decisión, persistencia en `FORM_RESPUESTAS`, procesamiento idempotente, métricas/trazabilidad y wrappers GAS | escritura clínica fuera del pipeline |
 | `25_Entorno.js` | Utilidades históricas o de transición relacionadas con identidad/configuración del proyecto, si todavía existen en el código | crear ambientes operativos paralelos |
+| `26_Captura.js` | Backend contrato de captura V2/V3/V4: validación §5.1/§14, idempotencia §13, estados §18, TR-1/TR-2 §21, entrypoints `WebApp_capturarEnviar`/`WebApp_capturarRetomar`, gate `saludMental` solo `Cp4-` | lógica fuera del contrato |
+| `27_Actualizacion.js` | Mantenimiento de datos: `Act_actualizarSistema`, merge conservador (DEC-064), enriquecimiento demográfico | decidir clínica |
+| `29_ActualizacionCaptura.js` | Edición de ficha desde captura V4: `actualizacion.campos` (claves permitidas, incl. `SALUD_MENTAL`), `api_actualizarPaciente`, `WebApp_cargarPacienteEdicion` | captura desde canales paralelos |
 
 **Roadmap de módulos futuros** (se crean en su etapa, no antes):
 `03b_ValidadorEstructura` (reporte APTO/ADVERTENCIAS/REVISIÓN), `12_Ingresos`
@@ -264,7 +300,7 @@ Los deployments, `/dev`, `/exec`, `@HEAD` y los números de versión de Apps Scr
 
 Una referencia histórica como `@63` no debe documentarse como "producción" ni utilizarse para reconstruir el sistema. `@63` fue eliminado después de verificar sus dependencias reales.
 
-**Versión canónica vigente:** `ECICEP.VERSION` en `src/00_Config.js:19` (single source of truth). El sistema operativo actual incluye el módulo de captura **V2** (`src/26_Captura.js`, contrato `docs/CONTRATO_CAPTURA_V2.md`), la Web App 100% V2 (`src/CapturaWeb.html`) y el layout visual de `PACIENTES` (`CONTRATO_LAYOUT_VISUAL`); sus invariantes de datos se definen en `CONTRATO_DATOS.md` (**NORMATIVO**). Stack `Google Sheets + Apps Script + CapturaWeb.html + 00_Tokens.html + WebApp.gs + 26_Captura.js + 24_Formulario.js` sin dependencias externas; `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`.
+**Versión canónica vigente:** `ECICEP.VERSION` en `src/00_Config.js:19` (single source of truth). El sistema operativo actual incluye el módulo de captura **V4** (`src/26_Captura.js`, contrato `docs/CONTRATO_CAPTURA_V2.md`), la Web App 100% V2/V3/V4 (`src/CapturaWeb.html`), la edición de ficha desde captura (`src/29_ActualizacionCaptura.js`) y el layout visual de `PACIENTES` (`CONTRATO_LAYOUT_VISUAL`); sus invariantes de datos se definen en `CONTRATO_DATOS.md` (**NORMATIVO**). Stack `Google Sheets + Apps Script + CapturaWeb.html + 00_Tokens.html + WebApp.gs + 26_Captura.js + 29_ActualizacionCaptura.js + 24_Formulario.js` sin dependencias externas; `ECICEP.WEB_APP_URL` centralizada con fallback `ScriptApp.getService().getUrl()`.
 
 ## Canal de captura
 
@@ -336,23 +372,31 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
 
 ### S6 — Versionado del esquema y motor de migraciones (INST-1, DEC-059)
 
-- **Fuente única de versiones**: `SISTEMA_VERSION_SCHEMA_ACTUAL` (=**1**) y
-  `SISTEMA_VERSION_INSTALADOR` (=**'INST-1'**) en `src/00_Config.js`. Clave
-  `SCHEMA_VERSION` ausente/vacía ≡ esquema legacy **`'0'`** (nunca se asume
-  VIGENTE); **solo el motor de migraciones** escribe `SCHEMA_VERSION`/`LAST_MIGRATION`
-  en CONFIG (no se siembra en `_CONFIG_SEMILLA`).
+- **Fuente única de versiones**: `SISTEMA_VERSION_SCHEMA_ACTUAL` (=**`2`**,
+  MIG-002 v0.10.0: `PACIENTES.SALUD_MENTAL` + vistas `SECTOR_*` 16→17 +
+  `INGRESO_*` columna 12) y `SISTEMA_VERSION_INSTALADOR` (=**'INST-1'**) en
+  `src/00_Config.js`. Clave `SCHEMA_VERSION` ausente/vacía ≡ esquema legacy
+  **`'0'`** (nunca se asume VIGENTE); **solo el motor de migraciones** escribe
+  `SCHEMA_VERSION`/`LAST_MIGRATION` en CONFIG (no se siembra en `_CONFIG_SEMILLA`).
 - **Declarativo e idempotente**: `REGISTRO_MIGRACIONES` (MIG-001 `0→1`, alinear
   `SECTOR_*` 15→16 con `COLUMNAS_SECTOR_VISTA`; defiende la regresión de
-  BUG-E2E-003 por el camino del instalador). `Mig_pendientesPura` (cadena
-  determinista, objetiva canónico), `Mig_clasificarInstalacion` (NUEVA/VIGENTE/
-  ANTIGUA/DIVERGENTE/INCOMPLETA/DESCONOCIDA), `Mig_ejecutarDeclaradas`
-  (`persistir:true` → única autora de la versión; fallo → detiene sin avanzar
-  versión), `Mig_ejecutarPersistente` (GAS). Detalle: `docs/MIGRACIONES.md`.
+  BUG-E2E-003 por el camino del instalador; MIG-002 `1→2`, añade `SALUD_MENTAL`
+  a PACIENTES/vistas/INGRESO_* con `_mig002_asegurarIngresosSaludMental`).
+  `Mig_pendientesPura` (cadena determinista, objetiva canónico),
+  `Mig_clasificarInstalacion` (NUEVA/VIGENTE/ANTIGUA/DIVERGENTE/INCOMPLETA/
+  DESCONOCIDA), `Mig_ejecutarDeclaradas` (`persistir:true` → única autora de la
+  versión; fallo → detiene sin avanzar versión), `Mig_ejecutarPersistente` (GAS).
+  Detalle: `docs/MIGRACIONES.md`.
 - **Etapas nuevas** en `INSTALAR_ETAPAS`: **`versionado`** (solo lectura,
   diagnosticar) y **`migraciones`** (mutante, aplica pendientes) entre
   `diagnostico` y `estructura`. `api_instalarPaso` toma **LockService**
   (`tryLock(30000)`, `releaseLock` en `finally`) para las etapas de
   `INSTALAR_ETAPAS_MUTAN`; `{ok:false, motivo:'CONCURRENCIA'}` si está ocupado.
+  Desde **v0.10.0**, `INSTALAR_ETAPAS_MUTAN` vuelve a declarar
+  **fuentes/amarillo/enriquecimiento** (importan datos reales) con respaldo
+  `SNAPSHOT_ACTUAL` antes del lock y guard `Instalar_versionIncompatible_`
+  antes del lock; un carácter `>`/`P`/`B` en el paso indica unidad con respaldo
+  disponible (`z/p` son layouts substituibles, `r/h/q/R/H` respaldos selectivos).
 - **Diagnóstico no-mutante**: `Instalar_diagnosticar` usa `Modelo_escanearEstructura`
   (solo lecturas) en lugar de `Modelo_crearEstructura()`, e imprime el bloque
   VERSIONADO (instalador, esquema leído→esperado, estado, pendientes, sectores).

@@ -8,6 +8,21 @@ sin migración de datos. Los ejemplos de valores son categorías/estados, no dat
 
 ---
 
+## Actualización 2026-09-21 (v0.10.0) — SALUD_MENTAL en fuentes
+
+El campo clínico `SALUD_MENTAL` (`SI` / `NO` / vacío = sin información) se
+registra por la **dupla** desde la captura V4 y la ficha, **no** desde las
+fuentes: ninguna columna de origen alimenta el campo. Las fuentes pueden
+mencionar salud mental en texto libre (`OBSERVACIONES`, `OTROS`,
+`EXAMENES SOLICITADOS`, `PROFESIONAL`…): ese texto **se conserva tal cual y no
+se copia ni se infiere** (`PS`, `PSM`, `PSICOLOGA`, `DEPRESION`,
+`APOYO PSICOLOGICO` quedan como observación). La importación/borrado
+normalizan el campo con `Norm_normalizarSaludMental` únicamente cuando ya existe
+un valor previo legítimo; ante un valor no reconocido se emite `warn` y el
+campo se deja vacío (sin inventar dato).
+
+---
+
 ## Actualización 2026-09-15 — fuentes vigentes (xlsx actualizados/)
 
 El 2026-09-15 se actualizaron las fuentes con los archivos de `xlsx actualizados/`

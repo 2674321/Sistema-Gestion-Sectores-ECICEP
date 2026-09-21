@@ -63,7 +63,7 @@ function Ingresos_mapearEncabezadosHoja(encabezados) {
 // ---------------------------------------------------------------------------
 
 /**
- * Construye el objeto PACIENTE completo (30 campos del modelo v2) desde la
+ * Construye el objeto PACIENTE completo (31 campos del modelo v3) desde la
  * fila normalizada. FECHA_ACTUALIZACION queda null: la fija el escritor real.
  */
 function Ingresos_pacienteDesdeNormalizado(n, fila, idInterno) {
@@ -88,6 +88,8 @@ function Ingresos_pacienteDesdeNormalizado(n, fila, idInterno) {
     COMPOSICION_CONTROL: '',
     OBSERVACIONES: n.OBSERVACIONES || '',
     CONDICIONES: '',
+    OTRAS_PATOLOGIAS: '',
+    SALUD_MENTAL: n.SALUD_MENTAL || '',
     NOMBRE_NORMALIZADO: n.NOMBRE_CLAVE || Norm_claveNombre(n.NOMBRE),
     RUT_DV_VALIDO: n.RUT_ESTADO === 'OK',
     RUT_SIN_DV: n.RUT_ESTADO === 'SIN_DV',

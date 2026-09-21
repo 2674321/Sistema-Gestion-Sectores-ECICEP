@@ -7,6 +7,35 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.0 — SALUD_MENTAL extremo a extremo + MIG-002 + Instalar reactivado (deploy `@215`)
+
+- **`SALUD_MENTAL` (SI/NO/vacío)**: nuevo campo clínico registrado por la dupla,
+  **sin inferencia desde texto libre**. Modelo `PACIENTES` (índice 21, tras
+  `OTRAS_PATOLOGIAS`), vistas `SECTOR_*` (16 → 17 columnas) y `INGRESO_*`
+  (columna 12 del orden `INGRESO_COLUMNAS`). Contrato de captura **V4**:
+  campo `saludMental` OPC solo para `nuevoIngreso` (§0.2/§5.1/§6/§9), gate por
+  `captureId` (`Cp4-`; `Cp2-`/`Cp3-` → `CAMPO_NO_PERMITIDO`), enum validado
+  (`SI`·`NO`·vacío → `CAMPO_INVALIDO` si otro). Ficha: edición vía
+  `actualizacion.campos.SALUD_MENTAL` (clave permitida). Huella canónica V4 lo
+  incluye; las huellas `Cp2-`/`Cp3-` persistidas no cambian. TR-1 → `SALUD_MENTAL`;
+  fuentes/borrado normalizan con `Norm_normalizarSaludMental` (sin inferencia).
+- **MIG-002 (esquema 1 → 2)**: `Mig_run002()` en `docs/MIGRACIONES.md`, reutiliza
+  `Modelo_asegurarEsquemaPacientes` + `Modelo_alinearVistasSectoriales` +
+  `_mig002_asegurarIngresosSaludMental`. `SISTEMA_VERSION_SCHEMA_ACTUAL = 2`.
+- **Instalar/reparar reactivado**: `INSTALAR_ETAPAS_MUTAN` vuelve a incluir
+  fuentes/amarillo/enriquecimiento (mismo `INST-1`); toman `LockService`,
+  respaldo `SNAPSHOT_ACTUAL` antes del lock y guard `Instalar_versionIncompatible_`
+  antes del lock. `SNAPSHOT_ACTUAL` no toca `PROXIMO_CONTROL` ni `SALUD_MENTAL`
+  de existentes. Caracteres de unidad `>`/`P`/`B` frente a `z/r/h/q/R/H`.
+- **Tests**: núcleo 671/671 (MIG-002, así canónica, gates Cp4, huella), aceptación
+  50/50, contrato 36/36, captura_backend_v2 73/73 (carga `29_ActualizacionCaptura.js`),
+  regresiones 44/44, instalador_estabilidad PASS, `validar_html` 21/21.
+- **Docs vigentes actualizadas**: `docs/CONTRATO_CAPTURA_V2.md` (V4/§0.2 +
+  matriz + enums + TR-1/TR-2 + versionado), `DECISIONES.md` (DEC-065),
+  `ARQUITECTURA.md`, `README.md`, `PENDIENTES.md`, `FUENTES-DATOS.md`,
+  `MODELO-DATOS.md`, `docs/VERSIONADO.md`, `docs/MIGRACIONES.md`.
+- **Decisión**: DEC-065. Informe: `docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`.
+
 ## v0.9.29 — QR permanente: captura abierta desde la URL base (deploy `@214`)
 
 - **Canal de captura abierto en la URL base**: `doGet` deja de exigir token para

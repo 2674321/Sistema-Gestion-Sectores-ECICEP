@@ -76,7 +76,11 @@ No se debe asumir que una URL es correcta por aparecer en un documento históric
 
 ## Deployments vigentes
 
-- **Operativo (publicación real)**: `@194` (v0.9.11, verificado 2026-09-16), servido por `ECICEP.WEB_APP_URL` (`src/00_Config.js`), QR y menú "Captura" (botón de apertura + QR).
+- **Operativo (publicación real)**: el deployment que sirve `ECICEP.WEB_APP_URL`
+  (`src/00_Config.js`), usado por QR y menú "Captura" (botón de apertura + QR).
+  Se **reutiliza** en cada publicación (incluida v0.10.0): `clasp push --force` +
+  nueva versión sobre el mismo deployment. Verificar la versión publicada y la
+  URL real mediante E2E antes de declarar una tarea terminada.
 - **`/dev` (`@HEAD`)**: usado por `tools/push_y_abrir.sh` para revisión rápida tras cada `clasp push` (antes de publicar en el operativo).
 
 ## Regla de código

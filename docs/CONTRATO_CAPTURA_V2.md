@@ -102,6 +102,31 @@ en los reintentos. La forma canónica V4 agrega al final `actualizacion` como JS
 con claves ordenadas; `FORM_VERSION=4` y la traza permanecen en la misma
 `FORM_RESPUESTAS`. No se crea otra hoja ni un pipeline nuevo.
 
+La clave `SALUD_MENTAL` forma parte de las claves permitidas de `actualizacion.campos`
+(valida `['', 'SI', 'NO']`); junto con `CONDICIONES`, se persiste con el escritor
+vigente de la ficha.
+
+### 0.2 Extensión normativa V4 — indicador de salud mental (`saludMental`, 2026-09-21)
+
+El modelo clínico incorpora `PACIENTES.SALUD_MENTAL` como indicador **SI / NO /
+vacío** registrado por la dupla (esquema 2, MIG-002, índice 21 tras
+`OTRAS_PATOLOGIAS`). La captura V4 lo transporta como **campo nuevo**:
+
+- `saludMental`: `string`, **OPC solo para `nuevoIngreso`** (NP en las otras tres
+  operaciones, §5.1). Valores aceptados: `SI`, `NO` o ausencia/`null`/`''` (sin
+  información; los tres son equivalentes, §11). Cualquier otro valor → `CAMPO_INVALIDO`.
+- **Prohibido inferir**: textos libres como `PS`, `PSM`, `PSICOLOGA`, `DEPRESION`,
+  `APOYO PSICOLOGICO` se rechazan (§9); el vacío **no** se interpreta como `NO`.
+- **Solo captura V4**: si `saludMental` aparece en un envío con `captureId` `Cp2-`
+  o `Cp3-` → `CAMPO_NO_PERMITIDO` (§0, §26). En `actualizarDatos` V4 se edita vía
+  `actualizacion.campos.SALUD_MENTAL` (§0.1), nunca como plano del payload.
+- **Huella canónica**: la forma canónica V4 agrega `saludMental` (vacío si se omite);
+  las huellas `Cp2-`/`Cp3-` ya persistidas **no cambian** (no se reescriben).
+- **TR-1/TR-2**: TR-1 lo mapea a `SALUD_MENTAL` (§21.1); `nuevoIngreso` TR-2 lo
+  escribe en la **columna 12** del orden `INGRESO_COLUMNAS` (tras `NOTA_SISTEMA`).
+  El ensamblado de fila canónica y la huella de idempotencia lo incluyen (§13).
+- Se conserva intacta la idempotencia por `captureId` y el contrato V2/V3 previo.
+
 ## 1. Propósito
 
 Definir, desde cero y de forma mínima y explícita, el contrato único de captura de datos de ECICEP:
@@ -195,6 +220,7 @@ capturarlas, se agregan como nuevas operaciones V2 mediante el versionado de §2
 | `profesionalSecundario` | OPC | OPC | OPC | OPC |
 | `observaciones` | OPC | OPC | OPC | OPC |
 | `confirmarNuevoPaciente` | OPC | NP | NP | NP |
+| `saludMental` (§0.2) | OPC | NP | NP | NP |
 
 Los campos `REQ` son obligatorios y no nulos. Los campos `NP` **no pueden estar presentes**; si están,
 el backend rechaza el envío (§17). **[DECISIÓN]**
@@ -263,6 +289,7 @@ concepto tiene **un solo nombre** en el payload. Se rechaza cualquier campo desc
 | `profesionalSecundario` | `string` | OPC | Sí | Mismo dominio que `profesional`; **debe ser distinto** de `profesional` | Cliente | Segundo profesional (dupla). |
 | `observaciones` | `string` | OPC | Sí | Texto libre, `trim`; vacío = omitido | Cliente | Observaciones del envío. |
 | `confirmarNuevoPaciente` | `boolean` | OPC | No (ausencia ≡ `false`) | `true` · `false` | Cliente | Instrucción: el operador verificó que este `nuevoIngreso` corresponde a una persona nueva pese a coincidencia en la base. No es dato clínico y **no** anula la detección de duplicados del backend (§24). |
+| `saludMental` (§0.2) | `string` | OPC (`nuevoIngreso`) | Sí | `SI` · `NO` · vacío = sin información; **no inferir** desde texto libre | Cliente | Indicador de salud mental registrado por la dupla. Cualquier valor fuera de `SI`/`NO` (o no vacío) → `CAMPO_INVALIDO`. Solo captura V4 (`Cp4-`). |
 
 **[CONFIRMADO]** derivado del catálogo real: `SEXOS.VALIDOS = [M, F, OTRO]`,
 `SECTORES_RESPONSABLES = [AMARILLO, NARANJO, VERDE]`, rangos `CFG_FECHAS.ANO_MIN=2015`,
@@ -282,6 +309,11 @@ existente, que los escribe/deriva en el procesamiento, no en la captura. **[CONF
 
 > Regla de cierre: el payload V2 contiene **exactamente** las 15 claves de la tabla §6. Cualquier otra
 > clave es desconocida (`CAMPO_DESCONOCIDO`) o internal (`CAMPO_NO_PERMITIDO`).
+
+> Regla de cierre V4: la forma canónica V4 añade `proximoControl` (§0), `actualizacion`
+> (solo `actualizarDatos`, §0.1) y `saludMental` (solo `nuevoIngreso`, §0.2). El conjunto
+> total de claves válidas es el de §6 más estas tres extensiones; cualquier otra clave es
+> `CAMPO_DESCONOCIDO` o `CAMPO_NO_PERMITIDO` según §6.1.
 
 ## 7. Tipos
 
@@ -317,6 +349,7 @@ Conjuntos cerrados, centralizados en `src/00_Config.js` como datos (no duplicado
 | `SECTOR` | `AMARILLO` · `NARANJO` · `VERDE` |
 | `SEXO` | `M` · `F` · `OTRO` |
 | `ESTRATIFICACION` | `G1` · `G2` · `G3` |
+| `SALUD_MENTAL` (§0.2) | `SI` · `NO` · vacío (sin información; **no** se infiere, **no** hay sinónimos) |
 
 Un valor fuera del conjunto → `ENUM_INVALIDO` (§20). Sin sinónimos en el payload: `NARANJA` solo se
 acepta como alias interno de hoja (§25), nunca en el payload. **[DECISIÓN]**
@@ -582,7 +615,7 @@ PAYLOAD V2 (camelCase, §6)
 MODELO INTERNO NORMALIZADO
    │ TR-2  a) nuevoIngreso   → fila INGRESO_<SECTOR> (orden INGRESO_COLUMNAS; ESTADO_INGRESO vacío;
    │          FECHA DE INGRESO = fechaIngreso, escrita por encabezado;
-   │          NOTA_SISTEMA = marca interna)
+   │          NOTA_SISTEMA = marca interna; SALUD_MENTAL → columna 12, por encabezado)
    │       b) control/seguimiento → registro EVENTO (orden COLUMNAS_EVENTOS) vía api_registrarEvento
    │       c) actualizarDatos → campos operativos PACIENTES + evento OTRO (fecha del evento OTRO
     │          generada por el backend como fecha de la operación, §5.2)
@@ -615,6 +648,7 @@ FORM_RESPUESTAS (registro de captura: cabecera + crudo normalizado + trailer de 
 | `profesionalSecundario` | `PROFESIONAL2` / dupla | Debe diferir de `profesional`. |
 | `observaciones` | `OBSERVACIONES` | `trim`. |
 | `confirmarNuevoPaciente` | Bandera de gate del pipeline (confirma creación) | No es dato clínico. |
+| `saludMental` | `SALUD_MENTAL` | `Norm_normalizarSaludMental` (`SI`/`NO`/vacío; `NO_RECONOCIDO` → rechazo en captura, warn en fuentes). Solo V4. |
 
 ## 22. Relación con el procesamiento clínico
 
@@ -684,8 +718,10 @@ traduce:
 
 ## 26. Versionado
 
-- Constante vigente: **`CAPTURE_CONTRACT_VERSION = 3`**. La base histórica V2 declaró
-  `CAPTURE_CONTRACT_VERSION = 2`; §0 especifica la transición y compatibilidad.
+- Constante vigente: **`CAPTURE_CONTRACT_VERSION = 4`** (§0.1/§0.2). La base histórica V2 declaró
+  `CAPTURE_CONTRACT_VERSION = 2`; §0 y §0.1 especifican la transición y compatibilidad. La V3 añadió el
+  prefijo `Cp3-` y el campo `proximoControl`; la V4 añade `Cp4-`, `actualizacion` (§0.1) y `saludMental`
+  (§0.2). Los tres prefijos coexisten; el backend sirve el contrato vigente con su adaptador (§0, §25).
 - La versión viaja implícita en el prefijo del `captureId` (`Cp2-`), de modo que identificadores de
   versiones distintas **no colisionan**. El payload **no** lleva campo de versión: el backend de ese
   deployment sirve la versión vigente y su adaptador de compatibilidad V2 (§0).
@@ -854,7 +890,9 @@ Este documento es aceptable si responde **sin ambigüedad** (sin consultar otro 
 
 ## Anexo A — Correspondencia regla ↔ test (§37)
 
-Cada regla normativa debe estar cubierta por al menos un test de `tests/contrato_captura_v2.mjs`:
+Cada regla normativa debe estar cubierta por al menos un test de `tests/contrato_captura_v2.mjs`.
+Las extensiones V3/V4 (§0/§0.1/§0.2) se verifican además con `tests/captura_backend_v2.mjs` y
+`tests/edicion_paciente_v4.mjs` (C3 §26, Cp3/Cp4, gate `saludMental`):
 
 | Regla | Test(es) |
 |---|---|
@@ -876,6 +914,8 @@ Cada regla normativa debe estar cubierta por al menos un test de `tests/contrato
 | §18/§19 estados y transiciones | `estados_cerrados` · `transicion_terminal_no_reinicia` |
 | §26 versionado | `version_constante` |
 | §25 adaptador | `sin_identificadores_historicos_en_payload` |
+| §0.1 claves permitidas de `actualizacion.campos` (incl. `SALUD_MENTAL`) | `edicion_paciente_v4.mjs` (enum `['','SI','NO']`, V2/V3 conservados) |
+| §0.2 `saludMental` solo Cp4- y enum SI/NO/vacío | `captura_backend_v2.mjs` (gate `CAMPO_NO_PERMITIDO` Cp2/Cp3; `CAMPO_INVALIDO`; TR-1→`SALUD_MENTAL`; huella Cp2/Cp3 estable) |
 
 ## Anexo B — Verificación implementación ↔ contrato (§38)
 

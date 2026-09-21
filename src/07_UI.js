@@ -912,7 +912,7 @@ var _CAMPOS_EDITABLES_PACIENTE = [
   'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO',
   'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO',
   'OBSERVACIONES', 'CONDICIONES', 'OTRAS_PATOLOGIAS',
-  'PROXIMO_CONTROL', 'COMPOSICION_CONTROL'
+  'PROXIMO_CONTROL', 'COMPOSICION_CONTROL', 'SALUD_MENTAL'
 ];
 
 /**
@@ -1056,6 +1056,16 @@ function api_actualizarPaciente(idInterno, campos, token) {
 
         case 'COMPOSICION_CONTROL':
           paciente.COMPOSICION_CONTROL = v;
+          cambios++;
+          break;
+
+        case 'SALUD_MENTAL':
+          var sm = Norm_normalizarSaludMental(v);
+          if (sm.estado === 'NO_RECONOCIDO') {
+            errores.push({ campo: 'SALUD_MENTAL', mensaje: 'Solo SI, NO o vacío (sin información)' });
+            break;
+          }
+          paciente.SALUD_MENTAL = sm.valor;
           cambios++;
           break;
       }

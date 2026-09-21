@@ -54,7 +54,8 @@ var CAPTURA_V2 = {
   CAMPOS: [
     'captureId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
     'fechaIngreso', 'estratificacion', 'telefonos', 'fechaEvento', 'profesional',
-    'profesionalSecundario', 'observaciones', 'confirmarNuevoPaciente', 'proximoControl', 'actualizacion'
+    'profesionalSecundario', 'observaciones', 'confirmarNuevoPaciente', 'proximoControl', 'actualizacion',
+    'saludMental'
   ],
   /** Tipo JSON declarado §7. */
   CAMPO_TIPO: {
@@ -62,7 +63,8 @@ var CAPTURA_V2 = {
     sexo: 'string', fechaNacimiento: 'string', sector: 'string',
     fechaIngreso: 'string', estratificacion: 'string', telefonos: 'string', fechaEvento: 'string',
     profesional: 'string', profesionalSecundario: 'string',
-    observaciones: 'string', confirmarNuevoPaciente: 'boolean', proximoControl: 'string', actualizacion: 'object'
+    observaciones: 'string', confirmarNuevoPaciente: 'boolean', proximoControl: 'string', actualizacion: 'object',
+    saludMental: 'string'
   },
   /** Matriz REQ/OPC/NP §5.1. */
   MATRIZ: {
@@ -82,7 +84,8 @@ var CAPTURA_V2 = {
     observaciones: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] },
     confirmarNuevoPaciente: { REQ: [], OPC: ['nuevoIngreso'] },
     actualizacion: { REQ: [], OPC: ['actualizarDatos'] },
-    proximoControl: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] }
+    proximoControl: { REQ: [], OPC: ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos'] },
+    saludMental: { REQ: [], OPC: ['nuevoIngreso'] }
   },
   /** Nombres internos/generados por el backend §6.1 (no pueden venir del cliente). */
   INTERNOS: [
@@ -182,6 +185,9 @@ function Captura_v2_canonica(norm) {
     if (c === 'actualizacion' && !/^Cp4-/.test(norm.captureId || '')) continue;
     // Mantener idéntica la huella de capturas V2 que ya están persistidas.
     if (c === 'proximoControl' && !/^Cp[34]-/.test(norm.captureId || '')) continue;
+    // El indicador de salud mental es solo captura V4; las huellas Cp2/Cp3
+    // (ya persistidas) no deben cambiar.
+    if (c === 'saludMental' && !/^Cp4-/.test(norm.captureId || '')) continue;
     var m = CAPTURA_V2.MATRIZ[c];
     var aplica = m.REQ.indexOf(accion) !== -1 || m.OPC.indexOf(accion) !== -1;
     if (!aplica) continue;
@@ -250,7 +256,8 @@ function Captura_v2_validar(payload, opciones) {
     captureId: captureId, accion: accion,
     rut: '', nombre: '', sexo: '', fechaNacimiento: '', sector: '',
     fechaIngreso: '', estratificacion: '', telefonos: '', fechaEvento: '', profesional: '',
-    profesionalSecundario: '', observaciones: '', confirmarNuevoPaciente: false
+    profesionalSecundario: '', observaciones: '', confirmarNuevoPaciente: false,
+    proximoControl: '', actualizacion: null, saludMental: ''
   };
 
   // Capa 2 (tipos + obligatoriedad) y Capa 3 (semántica) por campo §5.1
@@ -267,6 +274,11 @@ function Captura_v2_validar(payload, opciones) {
 
     if (campo === 'actualizacion' && presente && !/^Cp4-/.test(captureId || '')) {
       eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO', campo, 'La edición de ficha requiere captura V4', '§0.1'));continue;
+    }
+
+    if (campo === 'saludMental' && presente && !/^Cp4-/.test(captureId || '')) {
+      eClaves.push(Captura_v2_error('CAMPO_NO_PERMITIDO', campo, 'El indicador de salud mental requiere captura V4', '§0.1'));
+      continue;
     }
     // NP para esta operación §5.1
     if (presente && indM.REQ.indexOf(accion) === -1 && indM.OPC.indexOf(accion) === -1) {
@@ -375,6 +387,13 @@ function Captura_v2_validar(payload, opciones) {
       }
     } else if (campo === 'observaciones') {
       norm.observaciones = String(valor).trim();
+    } else if (campo === 'saludMental') {
+      var sm = Norm_normalizarSaludMental(valor);
+      if (sm.estado === 'NO_RECONOCIDO') {
+        eSem.push(Captura_v2_error('CAMPO_INVALIDO', 'saludMental', 'Solo SI, NO o vacío (sin información)', '§9'));
+      } else {
+        norm.saludMental = sm.valor;
+      }
     }
   }
 
@@ -418,6 +437,7 @@ function Captura_v2_normalizadoAInterno(norm, opciones) {
     PROFESIONAL: norm.profesional || '',
     PROFESIONAL2: norm.profesionalSecundario || '',
     OBSERVACIONES: norm.observaciones || '',
+    SALUD_MENTAL: norm.saludMental || '',
     MARCA: marca,
     marca: marca
   };

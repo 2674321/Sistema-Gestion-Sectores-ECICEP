@@ -35,6 +35,7 @@ function Pruebas_ejecutarTodo() {
   _pruebas_estratificacion(t, A);
   _pruebas_sectores(t, A);
   _pruebas_sexos(t, A);
+  _pruebas_salud_mental(t, A);
   _pruebas_tipos_evento(t, A);
   _pruebas_staging(t, A);
   _pruebas_identificacion(t, A);
@@ -219,6 +220,46 @@ function _pruebas_sexos(t, A) {
     t('SEXO: ' + JSON.stringify(caso[0]), function () {
       A.igual(Norm_normalizarSexo(caso[0]), caso[1], 'sexo normalizado');
     });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 2B — indicador de salud mental (SI | NO | vacío = sin información).
+// No se infiere desde texto libre: cualquier abreviatura o frase queda
+// NO_RECONOCIDO para que el negocio decida (no se convierte a un NO implícito).
+// ---------------------------------------------------------------------------
+function _pruebas_salud_mental(t, A) {
+  DATASET_NORMALIZACION.saludMental.forEach(function (caso) {
+    t('SALUD MENTAL: ' + JSON.stringify(caso[0]), function () {
+      var r = Norm_normalizarSaludMental(caso[0]);
+      A.igual(r.estado, caso[1], 'estado (' + caso[0] + ')');
+      A.igual(r.valor, caso[2], 'valor normalizado (' + caso[0] + ')');
+      if (caso[1] === 'NO_RECONOCIDO') {
+        A.cierto(String(r.detalle).indexOf('Solo SI, NO o vacío') !== -1,
+          'detalle normativo en NO_RECONOCIDO');
+      }
+    });
+  });
+  t('SALUD MENTAL: el campo vive en los tres esquemas (PACIENTES idx 21, SECTOR v16, INGRESO c12)', function () {
+    A.igual(MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('SALUD_MENTAL'), 21,
+      'PACIENTES índice 21 (col V)');
+    A.igual(COLUMNAS_SECTOR_VISTA.indexOf('SALUD_MENTAL'), 16,
+      'SECTOR_VISTA columna 16 (17 columnas)');
+    A.igual(COLUMNAS_SECTOR_VISTA.length, 17, 'SECTOR_VISTA tiene 17 columnas');
+    A.igual(INGRESO_COLUMNAS.indexOf('SALUD_MENTAL'), 11,
+      'INGRESO_COLUMNAS índice 11 (columna 12)');
+    A.igual(INGRESO_COLUMNAS.length, 12, 'INGRESO_COLUMNAS tiene 12 columnas');
+    A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('SALUD_MENTAL') !== -1,
+      'SALUD_MENTAL editable en la ficha');
+    A.cierto(_FICHA_CAMPOS_OPERATIVOS.indexOf('SALUD_MENTAL') !== -1,
+      'SALUD_MENTAL en la ficha operativa');
+    var src = api_actualizarPaciente.toString();
+    A.cierto(src.indexOf("case 'SALUD_MENTAL'") !== -1,
+      'api_actualizarPaciente maneja SALUD_MENTAL');
+    A.cierto(src.indexOf('Norm_normalizarSaludMental') !== -1,
+      'api_actualizarPaciente usa Norm_normalizarSaludMental');
+    A.cierto(src.indexOf('errores.push') !== -1,
+      'valor no reconocido → error de negocio');
   });
 }
 
@@ -1363,7 +1404,7 @@ function _pruebas_migracion_esquema(t, A) {
     A.igual(p.insertar[0].campo, 'OTRAS_PATOLOGIAS', 'campo a insertar');
     A.igual(p.insertar[0].indiceFinal, 20, 'posición final: tras CONDICIONES (0-based)');
     A.igual(campos.indexOf('CONDICIONES'), 19, 'CONDICIONES en 19');
-    A.igual(campos.indexOf('NOMBRE_NORMALIZADO'), 21, 'NOMBRE_NORMALIZADO queda en 21');
+    A.igual(campos.indexOf('NOMBRE_NORMALIZADO'), 22, 'NOMBRE_NORMALIZADO queda en 22 (tras SALUD_MENTAL)');
   });
 
   t('ESQUEMA: múltiples columnas faltantes intercaladas', function () {
@@ -2296,19 +2337,19 @@ function _pruebas_hojas(t, A) {
 
     // ID_INTERNO sigue en columna A — datos desde dataStartRow (4)
     A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO en A desde fila 4');
-    // REQUIERE_REVISION en AD
-    A.cierto(fRev.indexOf('COUNTIF(PACIENTES!AD') === 1, 'revisión usa AD');
+    // REQUIERE_REVISION en AE (desplazada +1 por SALUD_MENTAL)
+    A.cierto(fRev.indexOf('COUNTIF(PACIENTES!AE') === 1, 'revisión usa AE');
     // Duplicados usa SUMPRODUCT con RUT (columna B)
     A.cierto(fDup.indexOf('SUMPRODUCT') === 1 && fDup.indexOf('PACIENTES!B4:B') !== -1, 'duplicados usa RUT en B desde fila 4');
-    // FECHA_ACTUALIZACION en AC
-    A.cierto(fUlt.indexOf('MAX(PACIENTES!AC') !== -1, 'última act usa AC desde fila 4');
+    // FECHA_ACTUALIZACION en AD
+    A.cierto(fUlt.indexOf('MAX(PACIENTES!AD') !== -1, 'última act usa AD desde fila 4');
     // ESTRATIFICACION en I
     A.cierto(fEstr.indexOf('PACIENTES!I4:I') !== -1, 'estratificación pendiente usa I desde fila 4');
-    // RUT_DV_VALIDO en W
-    A.cierto(fRut.indexOf('PACIENTES!W4:W') !== -1, 'rut inválidos usa W desde fila 4');
+    // RUT_DV_VALIDO en X
+    A.cierto(fRut.indexOf('PACIENTES!X4:X') !== -1, 'rut inválidos usa X desde fila 4');
     // Sin anclas heredadas en fila 2
     A.cierto(fTotal.indexOf('A2:A') === -1, 'sin ancla A2:A');
-    A.cierto(fRut.indexOf('W2:W') === -1, 'sin ancla W2:W');
+    A.cierto(fRut.indexOf('X2:X') === -1, 'sin ancla X2:X');
     A.igual(Hojas_formulaIndicador('DESCONOCIDO'), '', 'desconocido vacío');
   });
 
@@ -2323,9 +2364,9 @@ function _pruebas_hojas(t, A) {
     A.cierto(fa.indexOf('por revisar') !== -1, 'alerta menciona por revisar');
     A.cierto(fa.indexOf('RUT inv') !== -1, 'alerta menciona RUT inválidos');
     A.cierto(fa.indexOf('controles vencidos') !== -1, 'alerta menciona controles vencidos');
-    // Usa columnas reales del contrato (AD, W, AK=PROXIMO_CONTROL)
-    A.cierto(fa.indexOf('PACIENTES!AD') !== -1, 'alerta usa REQUIERE_REVISION en AD');
-    A.cierto(fa.indexOf('PACIENTES!W') !== -1, 'alerta usa RUT_DV_VALIDO en W');
+    // Usa columnas reales del contrato (AE, X, AK=PROXIMO_CONTROL)
+    A.cierto(fa.indexOf('PACIENTES!AE') !== -1, 'alerta usa REQUIERE_REVISION en AE');
+    A.cierto(fa.indexOf('PACIENTES!X') !== -1, 'alerta usa RUT_DV_VALIDO en X');
 
     var fm = Hojas_formulaIngresosMes();
     A.cierto(fm.indexOf('COUNTIFS') !== -1, 'ingresos del mes usa COUNTIFS');
@@ -2845,7 +2886,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.29', 'versión esperada v0.9.29');
+    A.igual(v, '0.10.0', 'versión esperada v0.10.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3083,9 +3124,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.9.10', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.0', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.9.29', 'versión esperada v0.9.29');
+    A.igual(v, '0.10.0', 'versión esperada v0.10.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3422,8 +3463,8 @@ function _pruebas_hojasvisual_v0883(t, A) {
     A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO (A) desde fila 4');
     A.cierto(fDup.indexOf('SUMPRODUCT') === 1 && fDup.indexOf('PACIENTES!B4:B') !== -1, 'duplicados usa RUT en B desde fila 4');
     A.cierto(fEstr.indexOf('PACIENTES!I4:I') !== -1, 'estratificación pendiente usa I desde fila 4');
-    A.cierto(fRut.indexOf('PACIENTES!W4:W') !== -1, 'rut inválidos usa W desde fila 4');
-    A.cierto(fUlt.indexOf('PACIENTES!AC4:AC') !== -1, 'última actualización usa AC desde fila 4');
+    A.cierto(fRut.indexOf('PACIENTES!X4:X') !== -1, 'rut inválidos usa X desde fila 4');
+    A.cierto(fUlt.indexOf('PACIENTES!AD4:AD') !== -1, 'última actualización usa AD desde fila 4');
     A.igual(fEve, '=COUNTA(EVENTOS!A2:A)', 'eventos (simple) sigue en fila 2');
     A.cierto(fTotal.indexOf('A2:A') === -1, 'sin anclas A2:A');
     A.cierto(fRut.indexOf('W2:W') === -1, 'sin anclas W2:W');
@@ -4640,10 +4681,10 @@ function _pruebas_enriquecimiento_s11(t, A) {
     A.igual(p.RUT, '15987654-3', 'un solo registro, intacto');
   });
 
-  t('S11 UI: Instalar_pEnriquecimiento es no-op post-entrega (S11.11)', function () {
+  t('S11 UI: Instalar_pEnriquecimiento aplica enriquecimiento real (v0.10.0)', function () {
     var etapa = Instalar_pEnriquecimiento.toString();
-    A.cierto(etapa.indexOf('Act_enriquecerPacientes') === -1, 'NO llama Act_enriquecerPacientes');
-    A.cierto(etapa.indexOf('omitido') !== -1 || etapa.indexOf('reservada') !== -1, 'indica omitido/reservado');
+    A.cierto(etapa.indexOf('Act_enriquecerPacientes') !== -1, 'SÍ llama Act_enriquecerPacientes');
+    A.cierto(etapa.indexOf('dryRun: false') !== -1, 'ejecuta con dryRun:false (escribe)');
     // Act_enriquecerPacientes sigue existiendo para ACTUALIZAR
     var act = Act_actualizarSistema.toString();
     A.cierto(act.indexOf('Act_enriquecerPacientes') !== -1, 'Act_actualizarSistema SÍ usa Act_enriquecerPacientes');
@@ -4693,13 +4734,13 @@ function _pruebas_auditoria_s11r(t, A) {
       'la cadena no toca el instalador');
   });
 
-  t('S11R-3: enriquecimiento separado — INSTALAR no-op, ACTUALIZAR usa Act_enriquecerPacientes', function () {
+  t('S11R-3: enriquecimiento separado — INSTALAR y ACTUALIZAR reutilizan Act_enriquecerPacientes (v0.10.0)', function () {
     var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
     A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
     A.igual(enr[0].fn, 'Instalar_pEnriquecimiento', 'única función de la etapa');
     var p = Instalar_pEnriquecimiento.toString();
-    A.cierto(p.indexOf('Act_enriquecerPacientes') === -1,
-      'Instalar NO llama Act_enriquecerPacientes (post-entrega)');
+    A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
+      'Instalar SÍ llama Act_enriquecerPacientes (reinstalación real)');
     A.cierto(Act_actualizarSistema.toString().indexOf('Act_enriquecerPacientes') !== -1,
       'Actualizar SÍ reutiliza Act_enriquecerPacientes');
   });
@@ -4944,12 +4985,13 @@ function _pruebas_actualizacion_v096(t, A) {
 // explícita 15→16 (BUG-E2E). Helper 100% puros + introspección de fuente.
 // ---------------------------------------------------------------------------
 function _pruebas_s10fix_esquema(t, A) {
-  t('T1: esquema canónico SECTOR_* = 16 columnas con FECHA_NACIMIENTO idx4 y EDAD idx5', function () {
-    A.igual(COLUMNAS_SECTOR_VISTA.length, 16, '16 columnas');
+  t('T1: esquema canónico SECTOR_* = 17 columnas con FECHA_NACIMIENTO idx4 y EDAD idx5', function () {
+    A.igual(COLUMNAS_SECTOR_VISTA.length, 17, '17 columnas');
     A.igual(COLUMNAS_SECTOR_VISTA[4], 'FECHA_NACIMIENTO', 'FECHA_NACIMIENTO en índice 4');
     A.igual(COLUMNAS_SECTOR_VISTA[5], 'EDAD', 'EDAD en índice 5');
     A.igual(COLUMNAS_SECTOR_VISTA[6], 'TELEFONOS', 'TELEFONOS tras EDAD');
     A.igual(COLUMNAS_SECTOR_VISTA[7], 'RUT_DV_VALIDO', 'RUT_DV_VALIDO tras TELEFONOS');
+    A.igual(COLUMNAS_SECTOR_VISTA[16], 'SALUD_MENTAL', 'SALUD_MENTAL al final (OBSERVACIONES sigue última sección)');
   });
 
   t('T2: COLUMNAS_SECTOR_VISTA sin duplicados y con identidad al inicio', function () {
@@ -4971,13 +5013,13 @@ function _pruebas_s10fix_esquema(t, A) {
     A.cierto(!Modelo_esquemaVistaDivergente(COLUMNAS_SECTOR_VISTA.slice()), 'esquema canónico bajo divergente');
   });
 
-  t('T4: reordenar migra fila 15→16 sin corrimiento (FECHA_NACIMIENTO→EDAD→TELEFONOS→RUT_DV)', function () {
+  t('T4: reordenar migra fila 15→17 sin corrimiento (FECHA_NACIMIENTO→EDAD→TELEFONOS→RUT_DV)', function () {
     var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
       'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
     var fila = ['X-1','12345678-5','PACIENTE A','F','35','+56 9 5555 6666','TRUE','G','PENDIENTE',
       '10/01/2024','5/06/2026','8/06/2026','2/01/2027','INGRESO (x)','obs'];
     var nueva = Modelo_reordenarFilaVista(fila, viejo15);
-    A.igual(nueva.length, 16, 'largo canónico');
+    A.igual(nueva.length, 17, 'largo canónico');
     A.igual(nueva[0], 'X-1', 'ID_INTERNO');
     A.igual(nueva[1], '12345678-5', 'RUT');
     A.igual(nueva[2], 'PACIENTE A', 'NOMBRE');
@@ -4986,7 +5028,8 @@ function _pruebas_s10fix_esquema(t, A) {
     A.igual(nueva[5], '35', 'EDAD bajo su columna (nombre, no posición)');
     A.igual(nueva[6], '+56 9 5555 6666', 'TELEFONOS tras EDAD');
     A.igual(nueva[7], 'TRUE', 'RUT_DV_VALIDO');
-    A.igual(nueva[15], 'obs', 'OBSERVACIONES al final');
+    A.igual(nueva[15], 'obs', 'OBSERVACIONES al final de su orden');
+    A.igual(nueva[16], '', 'SALUD_MENTAL (nuevo) vacío');
   });
 
   t('T5: EDAD fórmula con separador ÚNICO ";" (sin "," entre argumentos)', function () {
@@ -5031,7 +5074,7 @@ function _pruebas_s10fix_esquema(t, A) {
   });
 
   t('T9: idempotente: encabezados canónicos → identidad (sin tocar datos)', function () {
-    var filaCanonica = ['X-5','55555555-5','PACIENTE E','','','','','','','','','','','','',''];
+    var filaCanonica = ['X-5','55555555-5','PACIENTE E','','','','','','','','','','','','','',''];
     var nueva = Modelo_reordenarFilaVista(filaCanonica, COLUMNAS_SECTOR_VISTA.slice());
     A.arreglos(nueva, filaCanonica, 'identidad sobre esquema canónico');
   });
@@ -5042,19 +5085,20 @@ function _pruebas_s10fix_esquema(t, A) {
       'ULTIMO_EVENTO','OBSERVACIONES','COLUMNA_FANTASMA_X'];
     var fila = ['X-6','66666666-6','PACIENTE F','','2000-05-10','','989','','','','','','','','','','fantasma'];
     var nueva = Modelo_reordenarFilaVista(fila, extra);
-    A.igual(nueva.length, 16, 'solo canónicas');
+    A.igual(nueva.length, 17, 'solo canónicas');
     A.igual(nueva.indexOf('fantasma'), -1, 'valor de columna desconocida descartado');
   });
 
   t('T11: equivalencia clave (mayúsculas/tildes/espacios/"_" ignorados) por nombre', function () {
     var variantes = ['ID_INTERNO','RUT','NOMBRE','SEXO','fecha_nacimiento','EDAD','TELEFONOS','RUT_DV_VALIDO',
       'ESTRATIFICACION','ESTADO','FECHA INGRESO','ULTIMO SEGUIMIENTO','ULTIMO CONTROL','PROXIMO CONTROL',
-      'ULTIMO EVENTO','OBSERVACIONES'];
+      'ULTIMO EVENTO','OBSERVACIONES','SALUD MENTAL'];
     A.cierto(!Modelo_esquemaVistaDivergente(variantes), 'mismas claves normalizadas → no divergente');
-    var fila = ['X-7','77777777-7','PACIENTE G','F','2001-02-03','25','','TRUE','','','','','','','',''];
+    var fila = ['X-7','77777777-7','PACIENTE G','F','2001-02-03','25','','TRUE','','','','','','','','','NO'];
     var nueva = Modelo_reordenarFilaVista(fila, variantes);
     A.igual(nueva[4], '2001-02-03', 'FECHA_NACIMIENTO mapeada desde variante');
     A.igual(nueva[10], '', 'FECHA INGRESO vacía (ausente en fila)');
+    A.igual(nueva[16], 'NO', 'SALUD_MENTAL mapeada al final');
   });
 
   t('T12: Actualizar repara estructura y ejecuta la migración S10-FIX como paso EXPLÍCITO (no instalador)', function () {
@@ -5117,24 +5161,31 @@ function _pruebas_inst1_versionado(t, A) {
     };
   }
 
-  t('T1: versión canónica única (esquema 1, instalador INST-1) y registro MIG-001 alineado', function () {
-    A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 1, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 1');
-    A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '1', 'esquema objetivo serializa a "1"');
+  t('T1: versión canónica única (esquema 2, instalador INST-1) y registro MIG-001/MIG-002 alineado', function () {
+    A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
+    A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.9'), 0, 'versión de aplicación coherente (0.9.x)');
-    A.cierto(REGISTRO_MIGRACIONES.length >= 1, 'hay al menos una migración');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.10'), 0, 'versión de aplicación coherente (0.10.x)');
+    A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
-    REGISTRO_MIGRACIONES.forEach(function (m) {
+    var ultimoHasta = null;
+    REGISTRO_MIGRACIONES.slice().sort(function (a, b) { return Number(a.desde) - Number(b.desde); }).forEach(function (m, ix, arr) {
       A.igual(typeof m.id, 'string', 'id string');
       A.cierto(!vistos[m.id], 'id único: ' + m.id);
       vistos[m.id] = true;
       A.cierto(typeof m.fn === 'string' && m.fn.length > 0, 'fn declarada en ' + m.id);
-      var hasta = String(m.hasta);
-      A.igual(hasta, String(SISTEMA_VERSION_SCHEMA_ACTUAL), m.id + ' termina en el objetivo canónico (' + hasta + ')');
+      if (ix > 0) A.igual(m.desde, arr[ix - 1].hasta, m.id + ' encadena desde el hasta previo (' + m.desde + ')');
+      ultimoHasta = String(m.hasta);
     });
+    A.igual(ultimoHasta, String(SISTEMA_VERSION_SCHEMA_ACTUAL), 'la cadena termina en el objetivo canónico (' + ultimoHasta + ')');
     var m001 = REGISTRO_MIGRACIONES.filter(function (m) { return m.id === 'MIG-001'; })[0];
     A.igual(m001.desde, '0', 'MIG-001 parte de esquema legado (0)');
+    A.igual(m001.hasta, '1', 'MIG-001 llega a esquema 1');
     A.igual(m001.fn, 'Mig_run001', 'MIG-001 ejecuta Mig_run001');
+    var m002 = REGISTRO_MIGRACIONES.filter(function (m) { return m.id === 'MIG-002'; })[0];
+    A.igual(m002.desde, '1', 'MIG-002 parte de esquema 1');
+    A.igual(m002.hasta, '2', 'MIG-002 llega a esquema 2');
+    A.igual(m002.fn, 'Mig_run002', 'MIG-002 ejecuta Mig_run002');
     var api = api_instalarEtapas.toString();
     A.cierto(api.indexOf('SISTEMA_VERSION_INSTALADOR') !== -1 && api.indexOf('SISTEMA_VERSION_SCHEMA_ACTUAL') !== -1,
       'api_instalarEtapas expone instalador y esquema');
@@ -5147,13 +5198,13 @@ function _pruebas_inst1_versionado(t, A) {
     var ilegible = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: 'abc' } }), null, REGISTRO_MIGRACIONES);
     A.igual(ilegible.estado, 'DESCONOCIDA', 'versión ilegible → DESCONOCIDA');
     A.igual(ilegible.accion, 'manual', 'no se auto-migra ilegible');
-    var mayor = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '2' } }), null, REGISTRO_MIGRACIONES);
+    var mayor = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '3' } }), null, REGISTRO_MIGRACIONES);
     A.igual(mayor.estado, 'DIVERGENTE', 'esquema superior al código → DIVERGENTE');
     A.igual(mayor.accion, 'manual', 'requiere atención humana');
     var incompleta = Mig_clasificarInstalacion(_snap({ datos: true, faltantes: ['PACIENTES'] }), null, REGISTRO_MIGRACIONES);
     A.igual(incompleta.estado, 'INCOMPLETA', 'faltan hojas críticas → INCOMPLETA');
     A.igual(incompleta.accion, 'reparar', 'accion de reparación');
-    var vigenteComoParametro = Mig_clasificarInstalacion(_snap({ datos: true }), '1', REGISTRO_MIGRACIONES);
+    var vigenteComoParametro = Mig_clasificarInstalacion(_snap({ datos: true }), '2', REGISTRO_MIGRACIONES);
     A.igual(vigenteComoParametro.estado, 'VIGENTE', 'parámetro explícito respeta snapshot');
   });
 
@@ -5166,24 +5217,25 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(v.accion, 'migrar', 'accion migrar');
   });
 
-  t('T4: instalación VIGENTE (esquema 1 canónico) sin migraciones pendientes', function () {
-    var v = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '1' } }), null, REGISTRO_MIGRACIONES);
+  t('T4: instalación VIGENTE (esquema 2 canónico) sin migraciones pendientes', function () {
+    var v = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '2' } }), null, REGISTRO_MIGRACIONES);
     A.igual(v.estado, 'VIGENTE', 'estado VIGENTE');
-    A.igual(v.version, '1', 'esquema 1');
+    A.igual(v.version, '2', 'esquema 2');
     A.arreglos(v.pendientes, [], 'sin pendientes');
     A.arreglos(v.sectoresDivergentes, [], 'sectores canónicos');
     A.igual(v.accion, 'ninguna', 'accion ninguna');
-    A.arreglos(Mig_pendientesPura('1', REGISTRO_MIGRACIONES), [], 'desde 1 no hay pendientes');
+    A.arreglos(Mig_pendientesPura('2', REGISTRO_MIGRACIONES), [], 'desde 2 no hay pendientes');
   });
 
-  t('T5: instalación ANTIGUA legada (0) con vistas SECTOR_* divergentes → MIG-001 pendiente', function () {
+  t('T5: instalación ANTIGUA legada (0) con vistas SECTOR_* divergentes → MIG-001 y MIG-002 pendientes', function () {
     var v = Mig_clasificarInstalacion(_snap({ datos: true, divergente: true }), null, REGISTRO_MIGRACIONES);
     A.igual(v.estado, 'ANTIGUA', 'estado ANTIGUA');
     A.igual(v.version, '0', 'esquema 0');
     A.cierto(v.pendientes.indexOf('MIG-001') !== -1, 'MIG-001 pendiente');
+    A.cierto(v.pendientes.indexOf('MIG-002') !== -1, 'MIG-002 pendiente');
     A.cierto(v.sectoresDivergentes.length === 3, 'las tres vistas SECTOR_* divergentes');
     A.igual(v.accion, 'migrar', 'accion migrar');
-    A.arreglos(Mig_pendientesPura('0', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }), ['MIG-001'], 'cadena desde 0');
+    A.arreglos(Mig_pendientesPura('0', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }), ['MIG-001', 'MIG-002'], 'cadena desde 0');
   });
 
   t('T6: la clasificación y las pendientes son idempotentes (doble ejecución idéntica)', function () {
@@ -5275,12 +5327,12 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(fn.indexOf('LockService') !== -1, 'usa LockService');
     A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
     A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
-    ['migraciones', 'estructura', 'visual', 'validaciones',
+    ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'visual', 'validaciones',
      'diseno', 'inicio', 'menu', 'derivados'].forEach(function (id) {
       A.cierto(!!INSTALAR_ETAPAS_MUTAN[id], id + ' figura como mutante');
     });
-    ['runtime', 'diagnostico', 'versionado', 'fuentes', 'amarillo',
-     'limpieza', 'enriquecimiento', 'verificar'].forEach(function (id) {
+    ['runtime', 'diagnostico', 'versionado',
+     'limpieza', 'verificar'].forEach(function (id) {
       A.cierto(!INSTALAR_ETAPAS_MUTAN[id], id + ' es solo lectura (sin lock)');
     });
     A.cierto(INSTALAR_ETAPAS.filter(function (e) { return e.id === 'versionado'; }).length === 1,
@@ -5312,18 +5364,35 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(run.indexOf('ENCABEZADOS_INCOMPATIBLES') === -1, 'no oculta la incompatibilidad');
   });
 
-  t('T14: el motor de migraciones toca SOLO estructura de vistas (sin PACIENTES/EVENTOS/append/insert)', function () {
-    var fns = ['Mig_pendientesPura', 'Mig_clasificarInstalacion', 'Mig_ejecutarDeclaradas',
-      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Mig_run001',
-      'Instalar_pMigraciones'];
+  t('T14: el motor de migraciones no crea hojas ni filas; MIG-002 muta SOLO esquema (por nombre)', function () {
     var G = (typeof globalThis !== 'undefined') ? globalThis : this;
-    fns.forEach(function (name) {
+    var motor = ['Mig_pendientesPura', 'Mig_clasificarInstalacion', 'Mig_ejecutarDeclaradas',
+      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Instalar_pMigraciones'];
+    motor.forEach(function (name) {
       var fn = G[name];
       A.cierto(typeof fn === 'function', name + ' existe');
       var src = fn.toString();
       ['PACIENTES', 'EVENTOS', 'appendRow', 'insertRow', 'insertRowsAfter', 'insertSheet'].forEach(function (pal) {
         A.cierto(src.indexOf(pal) === -1, name + ' sin ' + pal);
       });
+    });
+    var run001 = G['Mig_run001'];
+    A.cierto(typeof run001 === 'function', 'Mig_run001 existe');
+    ['appendRow', 'insertRow', 'insertRows', 'insertRowsAfter', 'insertSheet',
+     'deleteRow', 'deleteRows', 'Modelo_crearEstructura', 'PACIENTES', 'EVENTOS'].forEach(function (pal) {
+      A.cierto(run001.toString().indexOf(pal) === -1, 'Mig_run001 sin ' + pal + ' (puro de vistas)');
+    });
+    var run002 = G['Mig_run002'];
+    A.cierto(typeof run002 === 'function', 'Mig_run002 existe');
+    A.cierto(run002.toString().indexOf('Modelo_asegurarEsquemaPacientes') !== -1,
+      'MIG-002 asegura esquema PACIENTES por nombre');
+    A.cierto(run002.toString().indexOf('Modelo_alinearVistasSectoriales') !== -1,
+      'MIG-002 alinea vistas SECTOR_* por nombre');
+    A.cierto(run002.toString().indexOf('_mig002_asegurarIngresosSaludMental') !== -1,
+      'MIG-002 agrega encabezado SALUD_MENTAL en INGRESO_*');
+    ['appendRow', 'insertRow', 'insertRowsAfter', 'insertSheet',
+     'deleteRow', 'deleteRows', 'Modelo_crearEstructura'].forEach(function (pal) {
+      A.cierto(run002.toString().indexOf(pal) === -1, 'Mig_run002 sin ' + pal);
     });
   });
 
@@ -5332,12 +5401,17 @@ function _pruebas_inst1_versionado(t, A) {
     ['appendRow', 'insertRow', 'insertRows', 'insertSheet', 'deleteRow', 'Modelo_crearEstructura'].forEach(function (pal) {
       A.cierto(dec.indexOf(pal) === -1, 'Mig_ejecutarDeclaradas sin ' + pal);
     });
-    var run = Mig_run001.toString();
-    ['insertSheet', 'appendRow', 'insertRow', 'deleteRow', 'append'].forEach(function (pal) {
-      A.cierto(run.indexOf(pal) === -1, 'Mig_run001 sin ' + pal);
+    ['Mig_run001', 'Mig_run002'].forEach(function (fn) {
+      var src = globalThis[fn].toString();
+      ['insertSheet', 'appendRow', 'insertRow', 'deleteRow', 'append'].forEach(function (pal) {
+        A.cierto(src.indexOf(pal) === -1, fn + ' sin ' + pal);
+      });
     });
-    // Doble aplicación de las pendientes desde 0 → 1 está vacía
-    A.arreglos(Mig_pendientesPura('1', REGISTRO_MIGRACIONES), [], 'tras llegar a 1 no queda nada que migrar');
+    // La cadena desde 1 solo deja MIG-002; al llegar al objetivo canónico no queda nada
+    A.arreglos(Mig_pendientesPura('1', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }),
+      ['MIG-002'], 'desde 1 solo queda MIG-002');
+    A.arreglos(Mig_pendientesPura(String(SISTEMA_VERSION_SCHEMA_ACTUAL), REGISTRO_MIGRACIONES),
+      [], 'tras llegar al objetivo no queda nada que migrar');
     globalThis.Mig_stubA = function () { return { ok: true }; };
     try {
       var reg = [{ id: 'MIG-STUB', desde: '0', hasta: String(SISTEMA_VERSION_SCHEMA_ACTUAL), fn: 'Mig_stubA' }];
@@ -5949,11 +6023,12 @@ function _pruebas_p0_auditoria_v098(t, A) {
       'SEXO usa setAllowInvalid(true) — permite vacío');
   });
 
-  t('S7b: OBSERVACIONES — columna incluida en sección visual identidad-observaciones', function () {
+  t('S7b: OBSERVACIONES — columnas incluidas en sección visual identidad-observaciones', function () {
     var secObs = SECCIONES_HOJAS.SECTOR_VISTA.find(function (s) { return s.id === 'observaciones'; });
     A.cierto(secObs, 'sección observaciones existe');
-    A.igual(secObs.columnas.length, 1, 'una sola columna');
-    A.igual(secObs.columnas[0], 'OBSERVACIONES', 'columna OBSERVACIONES');
+    A.igual(secObs.columnas.length, 2, 'dos columnas en la sección');
+    A.igual(secObs.columnas[0], 'OBSERVACIONES', 'primera columna OBSERVACIONES');
+    A.igual(secObs.columnas[1], 'SALUD_MENTAL', 'segunda columna SALUD_MENTAL');
   });
 
   t('S7b: INSTALAR vs ACTUALIZAR — ambos tienen validaciones', function () {
@@ -6148,18 +6223,27 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROXIMO_CONTROL') !== -1, 'PROXIMO_CONTROL en campos editables');
   });
 
-  // --- S9: INSTALAR no importa datos / ACTUALIZAR sí ---
-  t('S9: INSTALAR — etapa fuentes no importa datos externos', function () {
+  // --- S9: INSTALAR carga datos reales (SNAPSHOT_ACTUAL) / ACTUALIZAR también ---
+  t('S9: INSTALAR — etapa fuentes carga datos reales en modo SNAPSHOT_ACTUAL', function () {
     var src = Instalar_pFuentes.toString();
-    A.cierto(src.indexOf('Fuentes_cargaReal') === -1, 'Instalar_pFuentes NO llama Fuentes_cargaReal');
-    A.cierto(src.indexOf('Ingresos_sincronizarEstratificacion') === -1, 'Instalar_pFuentes NO llama Ingresos_sincronizarEstratificacion');
-    A.cierto(src.indexOf('omitido') !== -1 || src.indexOf('reservada') !== -1, 'Instalar_pFuentes indica que es omitido');
+    A.cierto(src.indexOf('Fuentes_cargaReal') !== -1,
+      'Instalar_pFuentes SÍ llama Fuentes_cargaReal');
+    A.cierto(src.indexOf("modo: 'SNAPSHOT_ACTUAL'") !== -1,
+      'carga bajo política SNAPSHOT_ACTUAL');
+    var idxDry = src.indexOf('ejecutar: false');
+    var idxEjec = src.indexOf('ejecutar: true');
+    A.cierto(idxDry !== -1 && idxEjec !== -1 && idxDry < idxEjec,
+      'análisis dry-run antes de la ejecución con escritura');
+    A.cierto(src.indexOf('Ingresos_sincronizarEstratificacion') === -1,
+      'no sincroniza estratificación dentro de fuentes');
   });
 
-  t('S9: INSTALAR — etapa amarillo no importa datos externos', function () {
+  t('S9: INSTALAR — etapa amarillo carga el sector desde Drive (puerta + histórico)', function () {
     var src = Instalar_pAmarillo.toString();
-    A.cierto(src.indexOf('Amarillo_importarTodo') === -1, 'Instalar_pAmarillo NO llama Amarillo_importarTodo');
-    A.cierto(src.indexOf('omitido') !== -1 || src.indexOf('reservada') !== -1, 'Instalar_pAmarillo indica que es omitido');
+    A.cierto(src.indexOf('Amarillo_importarTodo') !== -1,
+      'Instalar_pAmarillo SÍ llama Amarillo_importarTodo');
+    A.cierto(src.indexOf('aplicaHistorico') === -1 || src.indexOf('puerta') !== -1,
+      'reporta resultado de puerta/histórico');
   });
 
   t('S9: INSTALAR — nombres de etapas reflejan propósito post-entrega', function () {
@@ -6195,10 +6279,12 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(bloque.indexOf('eF.message') === -1, 'NO usa eF.message');
   });
 
-  t('S10: Instalar_pEnriquecimiento no lee INGRESO_* (post-entrega)', function () {
+  t('S10: Instalar_pEnriquecimiento reutiliza Act_enriquecerPacientes (fill-only, idempotente)', function () {
     var src = Instalar_pEnriquecimiento.toString();
-    A.cierto(src.indexOf('Act_enriquecerPacientes') === -1, 'NO llama Act_enriquecerPacientes');
-    A.cierto(src.indexOf('omitido') !== -1 || src.indexOf('reservada') !== -1, 'indica que es omitido');
+    A.cierto(src.indexOf('Act_enriquecerPacientes') !== -1,
+      'Instalar_pEnriquecimiento SÍ llama Act_enriquecerPacientes');
+    A.cierto(src.indexOf('dryRun: false') !== -1,
+      'ejecuta enriquecimiento real (fill-only SEXO/FECHA_NACIMIENTO)');
   });
 
   t('S10: Instalar_pDerivados reporta errores (no solo best effort)', function () {
@@ -6232,7 +6318,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.9.29', 'VERSION es 0.9.29');
+    A.cierto(ECICEP.VERSION === '0.10.0', 'VERSION es 0.10.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

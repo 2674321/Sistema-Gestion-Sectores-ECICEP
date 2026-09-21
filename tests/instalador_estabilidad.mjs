@@ -49,7 +49,7 @@ let estructuraEscrita = 0;
 c.Modelo_crearEstructura = () => { estructuraEscrita++; return { creadas: [], existentes: [] }; };
 assert.equal(c.Instalar_ejecutarPolitica().motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(estructuraEscrita, 0);
-c.Mig_schemaLeido = () => '2';
+c.Mig_schemaLeido = () => '3';
 assert.equal(c.api_instalarPaso('estructura', clave).motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(estructuraEscrita, 0);
 c.Modelo_validarIngresos = () => ({ fallidas: ['INGRESO_VERDE: error'] });
@@ -80,14 +80,19 @@ assert.deepEqual(Array.from(inventario.candidatas), ['DASHBOARD', 'Borrador']);
 c.Modelo_ss = () => libro;
 assert.equal(c.Instalar_pLimpieza().eliminadas.length, 0);
 assert.doesNotMatch(readFileSync(new URL('06_Modelo.js', root), 'utf8').match(/function Modelo_crearEstructura\(\)\s*\{[\s\S]*?\n\}/)[0], /deleteSheet\(/);
+// Las etapas de carga de datos reales (fuentes, amarillo, enriquecimiento)
+// son MUTANTES: toman LockService. limpieza es de solo lectura.
+c.Mig_schemaLeido = () => '2';
 let bloqueos = 0;
 c.LockService = { getScriptLock: () => { bloqueos++; return { tryLock: () => true, releaseLock() {} }; } };
-for (const id of ['fuentes', 'amarillo', 'limpieza', 'enriquecimiento'])
+c.Fuentes_cargaReal = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
+c.Amarillo_importarTodo = () => ({ ok: true, puerta: {}, historico: {} });
+c.Act_enriquecerPacientes = () => ({ ok: true, totalPacientes: 0, revisados: 0, enriquecidos: 0, sinCambios: 0 });
+for (const id of ['fuentes', 'amarillo', 'enriquecimiento'])
   assert.equal(c.api_instalarPaso(id, clave).ok, true, id);
-assert.equal(bloqueos, 0);
-assert.equal(c.Instalar_pFuentes().omitida, true);
-assert.equal(c.Instalar_pAmarillo().omitida, true);
-assert.equal(c.Instalar_pEnriquecimiento().omitida, true);
+assert.equal(bloqueos, 3, 'las etapas de carga de datos toman LockService');
+assert.equal(c.api_instalarPaso('limpieza', clave).ok, true, 'limpieza');
+assert.equal(bloqueos, 3, 'limpieza no toma lock');
 // Si falla el bloqueo, ninguna etapa escritora puede continuar sin exclusividad.
 c.Mig_schemaLeido = () => '1';
 c.LockService = { getScriptLock: () => { throw Error('bloqueo no disponible'); } };

@@ -1,5 +1,5 @@
 /** Actualización V4: mismo registro de captura, PACIENTES y EVENTOS. */
-var CAPTURA_EDICION_CAMPOS = ['RUT','NOMBRE','SEXO','FECHA_NACIMIENTO','TELEFONOS','TELEFONO_OBS','SECTOR','ESTADO','FECHA_INGRESO','PREINGRESO','DUPLA_INGRESO','PROFESIONAL_SEGUIMIENTO','CONDICIONES','OTRAS_PATOLOGIAS','PROXIMO_CONTROL','COMPOSICION_CONTROL','OBSERVACIONES'];
+var CAPTURA_EDICION_CAMPOS = ['RUT','NOMBRE','SEXO','FECHA_NACIMIENTO','TELEFONOS','TELEFONO_OBS','SECTOR','ESTADO','FECHA_INGRESO','PREINGRESO','DUPLA_INGRESO','PROFESIONAL_SEGUIMIENTO','CONDICIONES','OTRAS_PATOLOGIAS','PROXIMO_CONTROL','COMPOSICION_CONTROL','OBSERVACIONES','SALUD_MENTAL'];
 var CAPTURA_EDICION_FECHAS = ['FECHA_NACIMIENTO','FECHA_INGRESO','PROXIMO_CONTROL'];
 var CAPTURA_CORRECCION_PREFIJO = 'CORRECCION_FECHA_V4:';
 
@@ -29,6 +29,7 @@ function Captura_validarEdicion_(a) {
     if(['RUT','NOMBRE','SECTOR'].indexOf(k)>=0 && !v) return fallo('No puede vaciar '+k);
     if(k==='RUT') {var r=Norm_normalizarRut(v);if(r.estado!=='OK')return fallo('RUT inválido');v=r.rut;}
     if(k==='SEXO' && ['', 'M','F','OTRO'].indexOf(v)<0)return fallo('Sexo inválido');
+    if(k==='SALUD_MENTAL' && ['','SI','NO'].indexOf(v)<0)return fallo('Solo SI, NO o vacío (sin información)');
     if(k==='SECTOR' && ['AMARILLO','NARANJO','VERDE'].indexOf(v)<0)return fallo('Sector inválido');
     if(k==='ESTADO' && !v)v='PENDIENTE';
     if(k==='ESTADO' && v && ESTADOS.VALIDOS.indexOf(v)<0)return fallo('Estado inválido');

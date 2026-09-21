@@ -342,6 +342,29 @@ function Norm_normalizarSexo(raw) {
   return ''; // desconocido: no se inventa
 }
 
+/**
+ * Indicador de salud mental registrado por la dupla.
+ * Vacío = sin información (≠ NO). No se infiere desde texto libre: cualquier
+ * texto que no sea literalmente SI/SÍ/NO queda NO_RECONOCIDO para que el
+ * negocio decida (captura rechaza; fuentes descartan con aviso).
+ * @returns {estado:'VACIO'|'SI'|'NO'|'NO_RECONOCIDO', valor:'', detalle, original}
+ */
+function Norm_normalizarSaludMental(raw) {
+  var original = Utl_texto(raw);
+  var res = { estado: 'VACIO', valor: '', detalle: '', original: original };
+  if (Utl_vacio(original)) return res;
+  var t = Utl_sinTildes(Utl_colapsarEspacios(original)).toUpperCase();
+  if (t === 'SI' || t === 'SÍ') {
+    res.estado = 'SI'; res.valor = 'SI';
+  } else if (t === 'NO') {
+    res.estado = 'NO'; res.valor = 'NO';
+  } else {
+    res.estado = 'NO_RECONOCIDO';
+    res.detalle = 'Solo SI, NO o vacío (sin información)';
+  }
+  return res;
+}
+
 /** Tipo de evento canónico; desconocidos quedan visibles tal cual (mayúsculas). */
 function Norm_normalizarTipoEvento(raw) {
   var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();

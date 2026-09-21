@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.9.29',
+  VERSION: '0.10.0',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -34,7 +34,7 @@ var ECICEP = {
 // LAST_MIGRATION), gestionadas EXCLUSIVAMENTE por el motor de migraciones.
 // No debe existir otra constante contradictoria para ninguno de estos valores.
 // ---------------------------------------------------------------------------
-var SISTEMA_VERSION_SCHEMA_ACTUAL = 1; // 0 = esquema heredado sin versionar (legacy)
+var SISTEMA_VERSION_SCHEMA_ACTUAL = 2; // 0 = esquema heredado sin versionar (legacy)
 var SISTEMA_VERSION_INSTALADOR = 'INST-1';
 
 // ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ var LAYOUT_HOJAS_VISUALES = [HOJAS.PACIENTES]
 const INGRESO_COLUMNAS = [
   'NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)',
   'FECHA DE INGRESO', 'ESTRATIFICACION', 'DUPLA INGRESO', 'OBSERVACIONES',
-  'ESTADO_INGRESO', 'NOTA_SISTEMA'
+  'ESTADO_INGRESO', 'NOTA_SISTEMA', 'SALUD_MENTAL'
 ];
 
 // Campos operativos que el usuario completa en una hoja de ingreso.
@@ -188,7 +188,7 @@ const CAMPOS_INGRESO_OPERATIVOS = [
 // (causa raíz: la lista corta operativa los enviaba a `desconocidos`).
 const CAMPOS_INGRESO_ADICIONALES = [
   'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
-  'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO'
+  'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'SALUD_MENTAL'
 ];
 
 // Columnas de la hoja EVENTOS (orden compartido por instalador y escritor)
@@ -206,7 +206,7 @@ var COLUMNAS_SECTOR_VISTA = [
   'ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
   'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO',
   'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
-  'ULTIMO_EVENTO', 'OBSERVACIONES'
+  'ULTIMO_EVENTO', 'OBSERVACIONES', 'SALUD_MENTAL'
 ];
 
 // ---------------------------------------------------------------------------
@@ -544,7 +544,7 @@ const SECCIONES_HOJAS = {
       id: 'controlesSeguimiento',
       nombre: 'CONTROLES / SEGUIMIENTO',
       color: COLORES_SECCION.CONTROLES,
-      columnas: ['DUPLA INGRESO', 'OBSERVACIONES']
+      columnas: ['DUPLA INGRESO', 'OBSERVACIONES', 'SALUD_MENTAL']
     }
   ],
   PACIENTES: [
@@ -576,7 +576,7 @@ const SECCIONES_HOJAS = {
       id: 'clinico',
       nombre: 'CLÍNICO',
       color: COLORES_SECCION.CLINICO,
-      columnas: ['CONDICIONES', 'OTRAS_PATOLOGIAS', 'OBSERVACIONES']
+      columnas: ['CONDICIONES', 'OTRAS_PATOLOGIAS', 'SALUD_MENTAL', 'OBSERVACIONES']
     },
     {
       id: 'tecnico',
@@ -605,10 +605,10 @@ const SECCIONES_HOJAS = {
       columnas: ['ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'ULTIMO_EVENTO']
     },
     {
-      id: 'observaciones',
-      nombre: 'OBSERVACIONES',
-      color: COLORES_SECCION.TECNICO,
-      columnas: ['OBSERVACIONES']
+id: 'observaciones',
+    nombre: 'OBSERVACIONES',
+    color: COLORES_SECCION.TECNICO,
+    columnas: ['OBSERVACIONES', 'SALUD_MENTAL']
     }
   ],
   EVENTOS: [
@@ -706,7 +706,7 @@ const FUENTES_DRIVE = {
   'ECICEP NARANJO': {
     id: '17cNcOTdn8qupYchtc10ouMG45ve_BpaZZmTGEdos-4Q',
     sector: 'NARANJO',
-    hojas: ['LISTADO 2025', 'Ingresos 2025 - 2026', 'Ingresos Enero ', 'Ingreso Febrero']
+    hojas: ['LISTADO 2025', 'Ingresos 2025 - 2026', 'Ingresos Enero', 'Ingreso Febrero']
   },
   'PCTS. ECICEP DESDE 2023': {
     id: '1kVH5gFWv8KN4mcdmRQo6hOv9ibdA8di2g8icMdCTjz8',
@@ -721,7 +721,7 @@ const FUENTES_DRIVE = {
 // PLANILLA) NO se procesan. CONTROLES PENDIENTES se retiró de la fuentes
 // desde la actualización sep-2026 (la hoja ya no existe en el xlsx).
 var HOJAS_AUTORIZADAS_CARGA = {
-  'ECICEP NARANJO': ['Ingresos Enero ', 'Ingreso Febrero', 'Ingresos 2025 - 2026'],
+  'ECICEP NARANJO': ['Ingresos Enero', 'Ingreso Febrero', 'Ingresos 2025 - 2026'],
   'PCTS. ECICEP DESDE 2023': ['PLANILLA ECICEP SECTOR VERDE', 'PLANILLA PRE INGRESOS']
 };
 
@@ -951,6 +951,7 @@ var MODELO_PACIENTE = [
   { campo: 'OBSERVACIONES',          tipo: 'texto',  obligatorio: false, tecnico: false, descripcion: 'Observaciones libres', regla: 'Texto conservado' },
   { campo: 'CONDICIONES',            tipo: 'lista',  obligatorio: false, tecnico: true,  descripcion: 'Patologías ECICEP seleccionadas del catálogo', regla: 'Códigos canónicos separados por ";" — provienen de CATALOGO_CONDICIONES_ECICEP' },
   { campo: 'OTRAS_PATOLOGIAS',       tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Otras condiciones NO incluidas en catálogo ECICEP', regla: 'Texto libre separado por salto de línea; no reciben ponderación automática' },
+  { campo: 'SALUD_MENTAL',           tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Indicador de salud mental registrado por la dupla', regla: 'SI | NO | vacío (sin información); NO inferir desde texto libre' },
   { campo: 'NOMBRE_NORMALIZADO',     tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Nombre sin tildes para búsqueda y matching', regla: 'Utl_sinTildes(NOMBRE)' },
   { campo: 'RUT_DV_VALIDO',          tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'false → DV incorrecto según módulo 11', regla: 'Norm_validarRut' },
   { campo: 'RUT_SIN_DV',             tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'true → la fuente no traía DV (ej: LISTADO Naranjo)', regla: 'Norm_normalizarRut' },
@@ -1029,7 +1030,10 @@ const SINONIMOS_ENCABEZADOS = {
   'PREFESIONAL': 'PROFESIONAL_SEGUIMIENTO', // typo confirmado en Verde (preingresos)
   'OBSERVACIONES': 'OBSERVACIONES',
   'OTROS': 'OBSERVACIONES',
-  'OBSERVACION': 'OBSERVACIONES'
+  'OBSERVACION': 'OBSERVACIONES',
+  'SALUD MENTAL': 'SALUD_MENTAL',
+  'SALUD MENTAL SI NO': 'SALUD_MENTAL',
+  'SM': 'SALUD_MENTAL'
 };
 
 // Encabezados presentes en las fuentes pero aún sin destino definido
