@@ -86,7 +86,7 @@ function validar(html, rel) {
  *  un visitante anónimo (que escanea el QR sin cuenta Google) envía undefined
  *  como `acceso`, el backend lo niega (ACCESO_DENEGADO) y el QR «no funciona»
  *  aunque el operador con sesión sí vea la página. Regresión real detectada en
- *  la fase de diagnóstico del QR (v0.9.26): el bundle leía la variable 4 veces
+ *  la fase de diagnóstico del QR (v0.9.27): el bundle leía la variable 4 veces
  *  sin que nadie la asignara. Esta regla impide que reaparezca. */
 function validarPuenteAcceso(html, rel, errores) {
   const inyectaTokenEnBody = /<body[^>]*data-acceso\s*=\s*["']<\?=\s*CAPTURA_ACCESO\s*\?>["']/;

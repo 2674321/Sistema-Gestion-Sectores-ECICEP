@@ -7,6 +7,52 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.9.28 — Auto-recarga ante caché antigua en Captura (deploy `@212`)
+
+- **Watchdog de versión** (`_autoReloadSiVersion` en `CapturaWeb.html`): `doGet`
+  incrusta `PAGE_BUILD` (`ECICEP_BUILD.commit`) en `window.ECICEP_PAGE_BUILD` y
+  `WebApp_estadoInicial`/`api_webappEstado` devuelven `build` con el mismo sello.
+  Si difieren, la página muestra un aviso y se **auto-recarga** (única vez por
+  pestaña vía `sessionStorage` `"ecicep_reload_once"`); si hay datos sin guardar,
+  alerta en vez de recargar (no pierde captura). Acceso seguro a `sessionStorage`
+  (`_sesGet/_sesSet/_sesRemove`) con degradación a alerta si el almacenamiento
+  está bloqueado, evitando bucles infinitos.
+- **Anti-cache**: metas `Cache-Control: no-cache, no-store, must-revalidate`,
+  `Pragma: no-cache` y `Expires: 0` en la plantilla de Captura.
+- **Tests**: PARTE J1–J5 en `tests/formulario_web.mjs` (sello al día sin recarga,
+  recarga única, anti-bucle, bloqueo por datos sin guardar, storage bloqueado);
+  anclajes de versión a `0.9.28`. Batería completa verde.
+- **Publicado**: deployment operativo reutilizado, nueva versión `@212`
+  (primero `@211` con la versión básica del watchdog). `ECICEP.VERSION = 0.9.28`.
+  `docs/CONTRATO_CAPTURA_V2.md` intacto.
+
+## v0.9.27 — Acceso universal del QR de Captura sin cuenta Google (deploy `@210`)
+
+- **Causa raíz**: `CapturaWeb.html` sirve el token compartido en
+  `<body data-acceso="<?= CAPTURA_ACCESO ?>">` pero el bundle leía
+  `window.ECICEP_ACCESO` en sus 4 RPC (`estadoInicial`, `previaDuplicadosV2`,
+  `estado`, `enviar`) sin que nadie asignara la variable: un visitante anónimo
+  enviaba `undefined` y `WebApp_autorizarBuscador` respondía `ACCESO_DENEGADO`
+  (con sesión de Google sí entraba, por eso no se detectaba en la oficina).
+- **Corrección**: puente JS justo tras `<body>` que asigna
+  `window.ECICEP_ACCESO` desde `data-acceso`. Guarda `validarPuenteAcceso()` en
+  `tests/validar_html.mjs` (FALLA si el HTML sirve `data-acceso` y el bundle lee
+  `ECICEP_ACCESO` sin puente) y `tests/formulario_web.mjs` extrae el IIFE del
+  bundle en vez del primer `<script>`.
+- **Publicado**: deployment operativo reutilizado, `@210`. No cambia backend ni
+  contrato de captura.
+
+## v0.9.26 — Hotfix formato de vistas SECTOR_* migradas 15→16 columnas (deploy `@209`)
+
+- **Fallback**: al migrar `SECTOR_*` a 16 columnas se perdía el formato visual de
+  la sección `OBSERVACIONES` (col 16) tras Implementar/Reparar; el fast-path de
+  `HVis_yaFormateada` aceptaba la vista como formateada con 3 de 4 secciones.
+- **Corrección**: «Instalar / reparar» fuerza ahora
+  `HVis_aplicarTodasLasSecciones({forzar:true})`, `HVis_yaFormateada` valida la
+  etiqueta real de cada sección sobre las columnas reales y
+  `HVis_pendientesVisual` verifica todo el intervalo `colInicio..colFin`. No
+  cambia datos ni esquema (MIG-001 intacto).
+
 ## Fase v0.9.4 — Reversión de estadísticas INICIO + lienzo compactado (deploys @173–@175)
 
 - **Gran mejora INICIO v3 aprobada y revertida del día (DEC-032)→revertida
