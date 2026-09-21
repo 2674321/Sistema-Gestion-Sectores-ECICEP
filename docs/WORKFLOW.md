@@ -149,6 +149,23 @@ cambios de código no incluidos en el commit.
 
 ## E2E mínimo después de un cambio de Web App
 
+### Contexto de ejecución recomendado
+
+- Ejecutar la Web App **en modo anónimo** como contexto por defecto (ventana de
+  incógnito del navegador): es como accede la mayoría de los usuarios operativos
+  y expone fallos de autorización o de sesión que una cuenta logueada ocultaría.
+- Usar una **cuenta de Google solo cuando la verificación lo exija** (menú
+  Sheets, paneles con enlace compartido, instalación/reparación, REM):
+  no por rutina.
+- Tras publicar un cambio que afecte autorización o `doGet`, comprobar en
+  anónimo los dos frentes: la URL base abre lo que debe abrir y las vistas
+  restringidas se siguen rechazando. Verificación rápida sin navegador:
+
+  ```bash
+  curl -sL "<URL_OPERATIVA>/exec" | grep -c "Enlace de Captura no válido"  # 0
+  curl -sL "<URL_OPERATIVA>/exec?vista=configuracion" | grep -c "Enlace de Captura no válido"  # ≥1
+  ```
+
 Verificar, según corresponda:
 
 1. la URL operativa `/exec` carga la versión esperada;

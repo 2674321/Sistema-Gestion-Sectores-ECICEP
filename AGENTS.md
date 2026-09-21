@@ -161,7 +161,7 @@ de "no ocultar fallos" de la sección TESTS.
 9. actualizar documentación vigente
 10. clasp push
 11. actualizar el deployment operativo cuando corresponda
-12. E2E / verificación real cuando corresponda
+12. E2E / verificación real cuando corresponda (preferir acceso anónimo; cuenta de Google solo si el alcance lo exige)
 13. git commit
 14. git push
 ```
