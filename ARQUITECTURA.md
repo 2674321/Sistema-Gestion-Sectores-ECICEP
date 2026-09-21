@@ -10,11 +10,16 @@
 > si la página servida es vieja, muestra un aviso y **auto-recarga** vía
 > `location.reload` (única vez por pestaña) SIN perder datos: si hay captura en
 > progreso (`capturaEnProgreso()`) o ya se intentó recargar, solo alerta pidiendo
-> reabrir el enlace actualizado. Se añadieron además metas anti-cache
-> (`Cache-Control: no-cache, no-store, must-revalidate` + `Pragma: no-cache`) y
-> la batería de tests PARTE J en `tests/formulario_web.mjs` (J1–J4) que cubre:
-> sello al día sin recarga, recarga única con formulario vacío, anti-bucle si ya
-> se recargó, y bloqueo por datos sin guardar. `ECICEP.VERSION` sube a 0.9.28 y
+> reabrir el enlace actualizado. El acceso a `sessionStorage` es seguro frente a
+> contextos con almacenamiento bloqueado (privacidad estricta): los helpers
+> `_sesGet/_sesSet/_sesRemove` degradan a alerta en lugar de recargar, evitando
+> bucles infinitos y protegiendo la inicialización del formulario. Se añadieron
+> además metas anti-cache
+> (`Cache-Control: no-cache, no-store, must-revalidate` + `Pragma: no-cache` +
+> `Expires: 0`) y la batería de tests PARTE J en `tests/formulario_web.mjs`
+> (J1–J5) que cubre: sello al día sin recarga, recarga única con formulario
+> vacío, anti-bucle si ya se recargó, bloqueo por datos sin guardar, y
+> `sessionStorage` bloqueado con alerta sin recarga. `ECICEP.VERSION` sube a 0.9.28 y
 > los tests anclados a la versión se re-validan. No cambia contrato ni pipeline
 > (`docs/CONTRATO_CAPTURA_V2.md` intacto).
 

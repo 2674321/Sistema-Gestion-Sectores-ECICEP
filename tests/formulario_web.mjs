@@ -145,11 +145,12 @@ function clearTimeout(id) { timers.delete(id); }
 // Watchdog de versión obsoleta: estado del sandbox observable por el test.
 const reloads = [];
 const alertas = [];
+let sesBloqueado = false;
 const sesStore = new Map();
 const sessionStorage = {
-  getItem(k) { return sesStore.has(k) ? sesStore.get(k) : null; },
-  setItem(k, v) { sesStore.set(k, String(v)); },
-  removeItem(k) { sesStore.delete(k); }
+  getItem(k) { if (sesBloqueado) throw new Error('sesion storage bloqueado'); return sesStore.has(k) ? sesStore.get(k) : null; },
+  setItem(k, v) { if (sesBloqueado) throw new Error('sesion storage bloqueado'); sesStore.set(k, String(v)); },
+  removeItem(k) { if (sesBloqueado) throw new Error('sesion storage bloqueado'); sesStore.delete(k); }
 };
 
 const sandbox = {
@@ -468,6 +469,22 @@ t('J4 página antigua + hay datos sin guardar → alerta, NUNCA recarga (no pier
   U._autoReloadSiVersion({ build: 'abcNueva' });
   A(reloads.length === 0, 'no recarga con datos en el formulario');
   A(alertas.length === 1 && alertas[0].indexOf('Guarda o copia') !== -1, 'alerta pidiendo guardar primero');
+  sandbox.UI_TIMERS.fireAll();
+  A(reloads.length === 0, 'timers residuales tampoco recargan');
+});
+
+t('J5 sessionStorage bloqueado (privacidad estricta) → alerta, NO recarga y no rompe la inicialización', () => {
+  resetWatchdog();
+  U.limpiarFormulario(false);
+  sandbox.ECICEP_PAGE_BUILD = 'abcVieja';
+  sesBloqueado = true;
+  try {
+    U._autoReloadSiVersion({ build: 'abcNueva' });
+  } finally {
+    sesBloqueado = false;
+  }
+  A(reloads.length === 0, 'con almacenamiento bloqueado NO recarga (evita bucle infinito)');
+  A(alertas.length === 1 && alertas[0].indexOf('versión anterior') !== -1, 'alerta de versión obsoleta en vez de recargar');
   sandbox.UI_TIMERS.fireAll();
   A(reloads.length === 0, 'timers residuales tampoco recargan');
 });
