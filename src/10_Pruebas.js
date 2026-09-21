@@ -5750,6 +5750,37 @@ function _pruebas_p0_auditoria_v098(t, A) {
     }
   });
 
+  // QR permanente: el contenido del QR es la URL compartida, derivada solo de
+  // ECICEP.WEB_APP_URL (deployment operativo fijo) + CAPTURA_ACCESS_TOKEN estable.
+  // Regresión: si un push cambiara la URL base (nuevo deployment) o rotara el
+  // token, el QR impreso dejaría de apuntar al formulario; este test lo detecta.
+  t('P0 v0.9.28: QR de Captura permanente — URL compartida fija y token estable', function () {
+    var original = globalThis.PropertiesService;
+    var almacen = { CAPTURA_ACCESS_TOKEN: 'e'.repeat(64) };
+    globalThis.PropertiesService = {
+      getScriptProperties: function () {
+        return {
+          getProperty: function (k) { return Object.prototype.hasOwnProperty.call(almacen, k) ? almacen[k] : null; },
+          setProperty: function (k, v) { almacen[k] = String(v); }
+        };
+      }
+    };
+    try {
+      var base = ECICEP.WEB_APP_URL;
+      A.igual(base, 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec', 'URL base = deployment operativo fijo (no debe cambiar)');
+      var esperado = base + '?acceso=' + almacen['CAPTURA_ACCESS_TOKEN'];
+      var una = WebApp_urlCompartida_();
+      A.igual(una, esperado, 'URL compartida = base configurada + token estable');
+      A.igual(WebApp_urlCompartida_(), una, 'estable entre llamadas');
+      A.igual(api_webappEstado(almacen['CAPTURA_ACCESS_TOKEN']).url, una, 'la RPC del botón Compartir/QR entrega la misma URL');
+      var token = una.slice(una.indexOf('?acceso=') + 8);
+      A.cierto(/^[0-9a-f]{64}$/.test(token), 'token de 64 hex en la URL');
+      A.igual(token, almacen['CAPTURA_ACCESS_TOKEN'], 'es exactamente la clave guardada, sin regenerarse');
+    } finally {
+      if (original === undefined) { delete globalThis.PropertiesService; } else { globalThis.PropertiesService = original; }
+    }
+  });
+
   // --- S7: Corrección de bugs reportados (OBSERVACIONES, SEXO, ESTRATIFICACIÓN) ---
   t('S7: SECTOR_VISTA identidad incluye FECHA_NACIMIENTO (columna visual)', function () {
     var secId = SECCIONES_HOJAS.SECTOR_VISTA.find(function (s) { return s.id === 'identidad'; });
