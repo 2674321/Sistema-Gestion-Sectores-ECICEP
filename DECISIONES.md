@@ -1260,3 +1260,49 @@ canónica, gates y huella Cp4); baterías externas: aceptación 50/50, contrato
 regresiones 44/44, instalador_estabilidad PASS, validar_html 21/21. Docs:
 `docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`.
 **Fecha:** 2026-09-21
+
+
+## DEC-066
+**Título:** Ficha de paciente 2.0 + incorporación controlada de ingresos pendientes con write-back corregido y guards de token en la interfaz
+**Estado:** Aprobada / vigente (v0.10.2)
+**Motivo:** el flujo operativo de captura dejaba muerto el write-back de
+`ESTADO_INGRESO`/`NOTA_SISTEMA` (bug de `Object.keys(Map)` introducido en
+ETAPA 3b) y la ficha seguía siendo un único bloque de edición. Era necesario
+darle a la ficha estructura (pestañas) e incorporar el circuito de verificación
+de ingresos pendientes sin crear un segundo canal: **el panel de ingresos
+pendientes del Sidebar reutiliza el pipeline único** (`api_ingresoIncorporar`
+→ promoción con el mismo motor que la captura).
+
+**Ficha 2.0 — reglas:**
+1. `src/Sidebar.html` se reorganiza en pestañas: Resumen / Datos / Seguimiento /
+   Clínico / Historial / Equipo. `_ECICEP_DEBUG=false` en producción.
+2. Edición de ficha delega en el dominio (`src/31_Ficha.js`);
+   `api_actualizarPaciente` pasa a delegar en `Paciente_actualizarCampos_` y a
+   validar por campo con `Paciente_validarCampo_` (errores
+   `CAMPO_INVALIDO:<campo>`, `motivo` humano por mensaje de contrato; ya no hay
+   `switch` histórico duplicado). `SALUD_MENTAL` se valida estricto
+   (`SI`/`NO`/vacío → error si otro).
+3. Ingresos pendientes: `api_ingresosPendientes(opciones,token)` (paginado,
+   sólo hojas visuales `INGRESO_*`, estados pendientes), `api_ingresoDetalle`
+   (lee `VALOR_*` y `PROFESIONALES` para pintar la pre-ficha) y
+   `api_ingresoIncorporar` (promoción única con `Ecicep_conLock_`: vuelve a
+   leer la fila bajo lock, arma/actualiza PACIENTES, agrega EVENTOS, apropia
+   `ESTADO_INGRESO`/`NOTA_SISTEMA` y activa `MODELO_*` idempotentemente —
+   segundo intento → `{ok:true}` sin duplicar evento).
+4. Guards por token: todas las RPC `api_*` de ficha rechazan sin token
+   compartido (`ACCESO_DENEGADO`). Se propagó el token a los paneles que lo
+   omitían (Controles, Dashboard, Configuracion, RemVista, CentroPruebas):
+   con los guards activos esas llamadas estaban rotas en producción y se
+   repararon en esta misma decisión.
+
+**Write-back corregido:** `Ingresos_escribirEstados` itera
+`Array.from(porHoja.entries())` (no `Object.keys`) y usa `resHoja` para
+`getRange(...)`. Regresión cubierta en `tests/ficha_ingresos_v0102.mjs` C8
+(marcado en la hoja visual) y en las fixtures de Amarillo.
+
+**Tests:** nueva suite `tests/ficha_ingresos_v0102.mjs` **13/13**; batería total
+**17 suites · 0 fallos** (núcleo 671/671, contrato 38/38, regresiones 44/44,
+validar_html 21/21). `api_*` de panel (cambio en Controles/Dashboard/
+Configuracion/RemVista/CentroPruebas) cubiertas por regresiones_revision +
+acceso_webapp. Docs: `docs/INFORME_2026-09-22_FICHA_V2.md`.
+**Fecha:** 2026-09-22

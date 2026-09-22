@@ -51,7 +51,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 
 </style>
 </head>
-<body data-rem-url="<?= REM_URL ?>">
+<body data-rem-url="<?= REM_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>Estadísticas</h1> <span class="build" style="font-size:10px;color:var(--border-strong)">build <?= BUILD ?></span><span class="chip rut" id="chipGen">…</span>
@@ -122,6 +122,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 var D=null, CH={}, SECTORES=['NARANJO','AMARILLO','VERDE','MULTIPLE'];
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 var COL_SEC={NARANJO:'#E8730A',AMARILLO:'#C79A00',VERDE:'#2E8B57',MULTIPLE:'#64748B',SIN_SECTOR:'#B9C0CC'};
 var COL_EST={'G1':'#3E8A96','G2':'#0E5C68','G3':'#08414A','PENDIENTE':'#B9C0CC'};
 var _conteoAnim=false;
@@ -423,7 +424,7 @@ function cargarDatos(btn){
 }).withFailureHandler(function(e){barraFin(false);var b2=document.getElementById('btnActualizar');
   if(b2){b2.disabled=false;b2.classList.remove('refresh-spin');}
   toast('Error cargando datos: '+(e&&e.message||e),'err');})
-.api_dashboardDatos();
+.api_dashboardDatos(ECICEP_ACCESO);
 }
 
 cargarDatos();

@@ -42,7 +42,7 @@ header .sub{color:var(--text-muted);font-size:13px}
 .h-estado{display:block;font:600 12px 'Inter';margin-top:8px;min-height:16px}
 </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>">
 <header>
   <h1>🧪 Centro de Pruebas</h1>
   <span class="sub">Diagnóstico del sistema · ejecuta solo lo seleccionado</span>
@@ -152,6 +152,7 @@ header .sub{color:var(--text-muted);font-size:13px}
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 var REGISTRO=[];
 var ICONOS={OK:'check-circle-2',WARN:'alert-triangle',ERROR:'x-circle',SKIP:'skip-forward',EJEC:'loader'};
 var COLORES={OK:'var(--success)',WARN:'var(--warning)',ERROR:'var(--danger)',SKIP:'var(--text-muted)',EJEC:'var(--primary)'};
@@ -181,7 +182,7 @@ function cargarRegistro(){
     document.getElementById('listaChecks').innerHTML=html;
     _refrescarIconos();
   }).withFailureHandler(function(e){toast('Error: '+(e&&e.message||e),'err');})
-  .api_pruebasRegistro();
+  .api_pruebasRegistro(ECICEP_ACCESO);
 }
 
 /* Herramientas avanzadas: pulso auto-restaurable (los prompts del servidor
@@ -231,7 +232,7 @@ function ejecutar(btn){
   }).withFailureHandler(function(e){
     clearInterval(rotador);fin();prog.style.display='none';
     toast('Error ejecutando pruebas: '+(e&&e.message||e),'err');
-  }).api_pruebasSistema(ids);
+  }).api_pruebasSistema(ids, ECICEP_ACCESO);
 }
 function pintarInforme(r){
   var rs=r.resumen;
@@ -360,7 +361,7 @@ function _diagControl(btn,dryRun){
       if(window.console)console.debug('[ECICEP] diagnosticoControl',r);
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('api_diagnosticoControl')(e);})
-    .api_diagnosticoControl(dryRun);
+    .api_diagnosticoControl(dryRun, ECICEP_ACCESO);
 }
 function _auditoria(btn){
   var fin=_btnCargando(btn,'Auditando…');

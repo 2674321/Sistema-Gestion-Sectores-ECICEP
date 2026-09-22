@@ -336,6 +336,7 @@ test('Estadísticas omite filas vacías de PACIENTES y conserva estratificación
   c.Modelo_leerEventosCampos = () => [];
   c._UI_tz = () => 'America/Santiago';
   c._ui_isoFecha = () => '';
+  c.WebApp_autorizarBuscador = () => true;
   const r = c.api_dashboardDatos();
   assert.equal(r.ok, true); assert.equal(r.pacientes.length, 1);
   assert.equal(r.pacientes[0].est, 'G2');

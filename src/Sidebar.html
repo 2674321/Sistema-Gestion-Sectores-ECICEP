@@ -13,11 +13,11 @@
 .wrap{padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-3)}
 .cc-head h1{font:700 19px 'Sora';margin:0;color:var(--text-primary)}
 .cc-fecha{font-size:12px;color:var(--text-muted);text-transform:capitalize}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpis-4{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .kpi-mini{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
-  padding:10px 12px;display:flex;flex-direction:column;gap:2px}
-.kpi-mini .num{font-size:22px;font-weight:700;color:var(--primary)}
-.kpi-mini small{color:var(--text-muted);font-size:11px}
+  padding:9px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi-mini .num{font-size:19px;font-weight:700;color:var(--primary);word-break:break-word}
+.kpi-mini small{color:var(--text-muted);font-size:10.5px;line-height:1.2}
 .cc-card .card-t{font:600 11px 'Inter';letter-spacing:.05em;text-transform:uppercase;
   color:var(--text-muted);margin-bottom:8px}
 .btn-block{width:100%;justify-content:flex-start;margin-bottom:6px}
@@ -60,7 +60,7 @@
   scrollbar-color:var(--border-strong) transparent;-webkit-overflow-scrolling:touch}
 .tabs::-webkit-scrollbar{height:6px}
 .tabs::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:var(--radius-full)}
-.tab{flex:0 0 auto;text-align:center;padding:10px 14px;font:600 12.5px 'Inter';color:var(--text-muted);
+.tab{flex:0 0 auto;text-align:center;padding:10px 13px;font:600 12.5px 'Inter';color:var(--text-muted);
   cursor:pointer;background:none;border:none;border-radius:0;min-height:40px;position:relative;
   white-space:nowrap;transition:color .15s var(--ease-in)}
 .tab:hover{color:var(--text-primary)}
@@ -75,7 +75,7 @@
 .dato-grid{display:flex;flex-direction:column;gap:2px}
 .dato-fila{display:flex;justify-content:space-between;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border)}
 .dato-fila .k{color:var(--text-muted);font-size:12px}
-.dato-fila .v{font-weight:500;text-align:right}
+.dato-fila .v{font-weight:500;text-align:right;min-width:0}
 
 .timeline{list-style:none;margin:0;padding:0 0 0 18px;position:relative}
 .timeline::before{content:'';position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)}
@@ -118,7 +118,7 @@ textarea.inp{min-height:64px;resize:vertical}
 .rev-acciones .btn{flex:1;justify-content:center}
 .chip.mut{background:var(--surface-alt);color:var(--text-muted);font-size:11px;flex:1;justify-content:center}
 
-/* ====== Panel de Control ====== */
+/* ====== Panel de Control / Centro ====== */
 .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;
   padding-bottom:var(--space-3);border-bottom:2px solid var(--primary)}
 .pc-marca{font:700 11px 'Inter';letter-spacing:.14em;color:var(--text-muted)}
@@ -129,7 +129,6 @@ textarea.inp{min-height:64px;resize:vertical}
 .pc-ult b{font-size:13px;color:var(--text-secondary)}
 .build{font-size:9.5px;color:var(--border-strong)}
 .pc-kpis{margin-top:var(--space-3)}
-.kpi-mini small{font-size:10.5px;line-height:1.25;color:var(--text-muted)}
 .pc-badge{background:var(--warning)!important;color:#fff!important}
 .sec-card{border:1px solid var(--border);border-left:4px solid var(--border-strong);
   border-radius:var(--radius-md);background:var(--surface);padding:10px 12px;margin-bottom:8px}
@@ -148,6 +147,34 @@ textarea.inp{min-height:64px;resize:vertical}
 .mini-link:hover{border-color:var(--primary);color:var(--primary)}
 @media(min-width:420px){.kpis-4{grid-template-columns:repeat(4,1fr)}}
 
+/* ====== Ficha 2.0: edición de datos, ingresos pendientes ====== */
+.ed-grid{display:flex;flex-direction:column;gap:10px}
+.ed-row{display:flex;flex-direction:column;gap:5px}
+.ed-row .k{font:600 11px 'Inter';letter-spacing:.04em;color:var(--text-muted);text-transform:uppercase}
+.ed-row .inp,.ed-row select.inp{width:100%;min-height:36px;font-size:13px}
+.ed-hint{font-size:10.5px;color:var(--text-muted);margin-top:2px;line-height:1.35}
+.botonera{display:flex;gap:8px;margin-top:12px}
+.botonera .btn{flex:1;justify-content:center}
+
+.ing-banner{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--radius-md);
+  border:1px solid var(--warning);background:var(--surface-alt);margin-bottom:var(--space-2);
+  font-size:12px;flex-wrap:wrap}
+.ing-banner.warn{border-color:var(--warning)}
+.ing-banner.ok{border-color:var(--success)}
+.ing-banner .btn{margin-left:auto}
+.ing-card{border-left:3px solid var(--border-strong)}
+.ing-card.error{border-left-color:var(--danger)}
+.ing-card.warning{border-left-color:var(--warning)}
+.ing-card.ok{border-left-color:var(--success)}
+.ing-fila-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted)}
+.pagbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.pagbar .chip{min-height:0}
+.pfc-grid{display:flex;flex-direction:column;gap:2px}
+.pfc-fila{display:flex;justify-content:space-between;gap:8px;padding:6px 2px;border-bottom:1px solid var(--border)}
+.pfc-fila .k{color:var(--text-muted);font-size:12px}
+.pfc-fila .v{font-weight:500;text-align:right}
+.verif-list{margin-top:6px;font-size:12px;color:var(--text-secondary);display:flex;flex-direction:column;gap:3px}
+@media(max-width:340px){.tab{padding:8px 6px;font-size:11px}.kpi-mini .num{font-size:17px}}
 </style>
 </head>
 <body data-portal="<?= PORTAL_URL ?>">
@@ -167,6 +194,9 @@ textarea.inp{min-height:64px;resize:vertical}
     <div style="display:grid;gap:var(--space-3)">
       <button class="btn btn-pri btn-block" onclick="abrirBuscadorPac(this)">
         <i data-lucide="search"></i> Buscar / abrir paciente
+      </button>
+      <button class="btn btn-sec btn-block" onclick="abrirIngresosPendientes(this)">
+        <i data-lucide="tray"></i> Ingresos pendientes
       </button>
       <button class="btn btn-sec btn-block" onclick="verRevisionDesdePanel(this)">
         <i data-lucide="clipboard-check"></i> Cola de revisión
@@ -196,11 +226,40 @@ textarea.inp{min-height:64px;resize:vertical}
 <? } /* cierre else-if pacientes */ ?>
 </div>
 
-<!-- ============ FICHA ============ -->
+<!-- ============ INGRESOS PENDIENTES ============ -->
+<div id="panelIngreso" class="wrap" style="display:none">
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px;flex-shrink:0" onclick="ingVolver()">
+      <i data-lucide="arrow-left"></i> Volver
+    </button>
+    <h2 style="font-size:16px;margin:0">Ingresos pendientes</h2>
+  </div>
+  <div id="ingCinta" class="ficha-chips"></div>
+  <div id="ingDetalle" style="display:none"></div>
+  <div id="ingLista"></div>
+</div>
+
+<!-- ============ REVISIÓN ============ -->
+<? if (MODO === 'revision') { ?>
+<div id="panelRev" class="wrap" style="display:flex">
+<? } else { ?>
+<div id="panelRev" class="wrap" style="display:none">
+<? } ?>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px;flex-shrink:0" onclick="volver()">
+      <i data-lucide="arrow-left"></i> Panel de Control
+    </button>
+    <h2 style="font-size:16px;margin:0">Cola de revisión</h2>
+  </div>
+  <div id="revMetricas" class="ficha-chips"></div>
+  <div id="revLista"></div>
+</div>
+
+<!-- ============ FICHA 2.0 ============ -->
 <div id="vista" class="wrap" style="display:none">
   <div class="ficha-head">
     <button class="btn btn-ghost" style="padding:4px 8px;min-height:30px;margin-left:-8px" onclick="volver()" title="<?= MODO==='ficha' ? 'Cierra esta ficha y conserva tu panel' : 'Conserva tu búsqueda y resultados' ?>">
-      <i data-lucide="arrow-left"></i> <?= MODO==='ficha' ? 'Cerrar' : 'Volver al buscador' ?>
+      <i data-lucide="arrow-left"></i> <?= MODO==='ficha' ? 'Cerrar' : 'Volver' ?>
     </button>
     <div class="nombre" id="fNombre">—</div>
     <div class="ficha-chips">
@@ -208,25 +267,41 @@ textarea.inp{min-height:64px;resize:vertical}
       <span class="chip rut" id="fRut"></span>
     </div>
     <nav class="tabs" id="tabsNav">
-      <button class="tab activa" data-pane="paneDatos">Datos</button>
+      <button class="tab activa" data-pane="paneResumen">Resumen</button>
+      <button class="tab" data-pane="paneDatos">Datos</button>
       <button class="tab" data-pane="paneSeg">Seguimiento</button>
+      <button class="tab" data-pane="paneClin">Clínico</button>
       <button class="tab" data-pane="paneHist">Historial</button>
-      <button class="tab" data-pane="panePat">Patologías / Estratificación</button>
-      <button class="tab" data-pane="paneDupla">Dupla</button>
+      <button class="tab" data-pane="paneEquipo">Equipo</button>
     </nav>
   </div>
 
-  <section id="paneDatos" class="pane activa">
-    <div class="dato-grid" id="fDatos"></div>
-    <label class="etq"><i data-lucide="stethoscope" style="width:12px;height:12px;vertical-align:-2px"></i> Registrar gestión</label>
-    <select id="evTipo" class="inp"></select>
-    <input id="evFecha" type="date" class="inp" style="margin-top:8px">
-    <input id="evProf" class="inp" placeholder="Profesional (opcional)" style="margin-top:8px">
-    <input id="evDesc" class="inp" placeholder="Descripción (opcional)" style="margin-top:8px">
-    <button id="btnRegEv" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:10px"
-      onclick="registrarEvento(this)"><i data-lucide="check"></i> Registrar</button>
+  <!-- Resumen -->
+  <section id="paneResumen" class="pane activa">
+    <div class="kpis-4">
+      <div class="kpi-mini"><small>ESTADO</small><span class="num" id="rsEstado">—</span></div>
+      <div class="kpi-mini"><small>SECTOR</small><span class="num" id="rsSector">—</span></div>
+      <div class="kpi-mini"><small>ESTRATIFICACIÓN</small><span class="num" id="rsEstrat">—</span></div>
+      <div class="kpi-mini"><small>EDAD</small><span class="num" id="rsEdad">—</span></div>
+    </div>
+    <div id="ingBanner" class="ing-banner" style="display:none"></div>
+    <div id="reqBanner" class="ing-banner warn" style="display:none"></div>
+    <div class="dato-grid" id="fResumen"></div>
   </section>
 
+  <!-- Datos (edición optimista con {anterior, valor}) -->
+  <section id="paneDatos" class="pane">
+    <div class="ed-grid" id="datosForm"></div>
+    <div class="botonera">
+      <button class="btn btn-pri" onclick="guardarDatosFicha(this)"><i data-lucide="save"></i> Guardar cambios</button>
+    </div>
+    <small class="ed-hint" style="display:block;margin-top:8px">
+      Guardado de todo-o-nada. Si otra persona modificó el paciente en paralelo se
+      recargará la ficha antes de reaplicar tus cambios.
+    </small>
+  </section>
+
+  <!-- Seguimiento -->
   <section id="paneSeg" class="pane">
     <div id="segChips" class="ficha-chips" style="margin-bottom:10px"></div>
     <div class="dato-grid" id="segDatos">
@@ -255,11 +330,23 @@ textarea.inp{min-height:64px;resize:vertical}
     </small>
   </section>
 
-  <section id="paneHist" class="pane">
-    <ul class="timeline" id="fTimeline"></ul>
-  </section>
-
-  <section id="panePat" class="pane">
+<!-- Clínico: salud mental, composición, patologías -->
+   <section id="paneClin" class="pane">
+     <label class="etq" style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)">Patologías / Estratificación</label>
+     <div class="ed-grid">
+      <div class="ed-row">
+        <label class="k" for="cinSaludMental">Salud mental</label>
+        <select id="cinSaludMental" class="inp">
+          <option value="">Sin información</option><option value="SI">SI</option><option value="NO">NO</option>
+        </select>
+      </div>
+      <div class="ed-row">
+        <label class="k" for="cinComposicion">Composición del control</label>
+        <input id="cinComposicion" class="inp" placeholder="Ej: 2 personas (paciente y cuidador)">
+      </div>
+      <button class="btn btn-pri" onclick="guardarClinico(this)"><i data-lucide="save"></i> Guardar clínico</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:var(--space-3) 0">
     <label class="etq" for="patBuscar">Catálogo ECICEP</label>
     <input id="patBuscar" class="inp" placeholder="Buscar condición…" autocomplete="off">
     <div class="chip est-pendiente" style="margin:10px 0;border-style:solid">
@@ -272,14 +359,34 @@ textarea.inp{min-height:64px;resize:vertical}
       <small>No reciben ponderación ECICEP automáticamente</small>
       <textarea id="otrasPatologias" class="inp" placeholder="Escriba aquí…" style="margin-top:8px"></textarea>
     </div>
-    <button id="btnGuardarPat" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:12px"
-      onclick="guardarPatologias(this)"><i data-lucide="save"></i> Guardar patologías</button>
-    <button id="btnRecalcEstrat" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:6px;font-size:12px"
-      onclick="recalcularEstrat(this)"><i data-lucide="refresh-cw"></i> Recalcular estratificación</button>
+    <div class="botonera">
+      <button id="btnGuardarPat" class="btn btn-pri" onclick="guardarPatologias(this)"><i data-lucide="save"></i> Guardar patologías</button>
+      <button id="btnRecalcEstrat" class="btn btn-ghost" onclick="recalcularEstrat(this)"><i data-lucide="refresh-cw"></i> Recalcular</button>
+    </div>
   </section>
 
-  <section id="paneDupla" class="pane">
-    <label class="etq">Equipo de cabecera</label>
+  <!-- Historial + registrar gestión -->
+  <section id="paneHist" class="pane">
+    <label class="etq"><i data-lucide="stethoscope" style="width:12px;height:12px;vertical-align:-2px"></i> Registrar gestión</label>
+    <select id="evTipo" class="inp"></select>
+    <input id="evFecha" type="date" class="inp" style="margin-top:8px">
+    <input id="evProf" class="inp" placeholder="Profesional (opcional)" style="margin-top:8px">
+    <input id="evDesc" class="inp" placeholder="Descripción (opcional)" style="margin-top:8px">
+    <button id="btnRegEv" class="btn btn-pri" style="width:100%;justify-content:center;margin-top:10px"
+      onclick="registrarEvento(this)"><i data-lucide="check"></i> Registrar</button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:var(--space-3) 0">
+    <ul class="timeline" id="fTimeline"></ul>
+  </section>
+
+  <!-- Equipo de cabecera -->
+  <section id="paneEquipo" class="pane">
+    <label class="etq" for="eqProfSeg">Profesional de seguimiento</label>
+    <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+      <input id="eqProfSeg" class="inp" placeholder="Código o nombre del profesional" style="flex:1;min-height:36px">
+      <button class="btn btn-sec" style="min-height:36px;white-space:nowrap"
+        onclick="guardarProfSeg(this)"><i data-lucide="save" style="width:13px;height:13px"></i> Guardar</button>
+    </div>
+    <label class="etq" style="margin-top:14px">Dupla de ingreso</label>
     <div id="dupSeleccion" class="dup-seleccion" style="margin-bottom:10px"></div>
     <label class="etq" style="margin-top:4px">Todos los profesionales</label>
     <div id="dupLista" class="pat-chips"></div>
@@ -288,32 +395,17 @@ textarea.inp{min-height:64px;resize:vertical}
   </section>
 </div>
 
-<!-- ============ REVISIÓN ============ -->
-<? if (MODO === 'revision') { ?>
-<div id="panelRev" class="wrap" style="display:flex">
-<? } else { ?>
-<div id="panelRev" class="wrap" style="display:none">
-<? } ?>
-  <div style="display:flex;align-items:center;gap:8px">
-    <button class="btn btn-ghost" style="padding:4px 8px;margin-left:-8px;flex-shrink:0" onclick="volver()">
-      <i data-lucide="arrow-left"></i> Panel de Control
-    </button>
-    <h2 style="font-size:16px;margin:0">Cola de revisión</h2>
-  </div>
-  <div id="revMetricas" class="ficha-chips"></div>
-  <div id="revLista"></div>
-</div>
-
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 /* ================= estado ================= */
-/* Diagnóstico (#24): activo durante estabilización. Ver consola del navegador. */
-window._ECICEP_DEBUG=true;
+/* Diagnóstico (#24): apagado tras estabilización. Ver consola del navegador. */
+window._ECICEP_DEBUG=false;
 function _dbg(nombre,detalle){
   if(window._ECICEP_DEBUG&&window.console){console.debug('[ECICEP] '+nombre,detalle===undefined?'':detalle);}
 }
-var P_ACTUAL=null, PAT_CATALOGO=[], PAT_SELECCIONADAS=[], _animTimeline=false, _resIdx=-1;
+var P_ACTUAL=null, _FICHA_ACTUAL=null, _animTimeline=false, _resIdx=-1;
 var SEG_ACTUAL=null;
+var PAT_CATALOGO=[], PAT_SELECCIONADAS=[];
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','CAMBIO_SECTOR','LLAMADO','OTRO'];
 var TL_ESTILO={
   INGRESO:{c:'#0E5C68',i:'log-in'}, CONTROL:{c:'#6B5CA8',i:'stethoscope'},
@@ -375,6 +467,119 @@ if(_elTermino){
   });
 }
 
+/* ================= navegación de paneles ================= */
+function mostrarPanel(id){
+  ['panelBuscar','panelIngreso','panelRev','vista'].forEach(function(x){
+    var el=document.getElementById(x);
+    if(el)el.style.display=(x===id)?(x==='panelRev'?'flex':'flex'):'none';});
+}
+function mostrarIngresoDetalle(z){
+  document.getElementById('ingDetalle').style.display=z?'block':'none';
+  document.getElementById('ingLista').style.display=z?'none':'block';
+}
+
+/* ================= ingresos pendientes ================= */
+var _ingDesdeFicha=false;
+var _ingPaginacion={inicio:0,limite:20,total:0};
+
+function abrirIngresosPendientes(btn){
+  var fin=btn?_btnPulso(btn,'Abriendo…'):null;
+  _ingDesdeFicha=false;
+  mostrarPanel('panelIngreso');
+  if(fin)fin();
+  cargarIngresos(0);
+}
+function ingVolver(){
+  if(document.getElementById('ingDetalle').style.display==='block'){
+    mostrarIngresoDetalle(false);
+    cargarIngresos(_ingPaginacion.inicio);
+    return;
+  }
+  if(_ingDesdeFicha&&P_ACTUAL){mostrarPanel('vista');return;}
+  _ingDesdeFicha=false;
+  mostrarPanel('panelBuscar');
+}
+function cargarIngresos(inicio){
+  _ingPaginacion.inicio=Math.max(inicio||0,0);
+  document.getElementById('ingLista').innerHTML='<div class="skel" style="height:80px;margin-bottom:8px"></div><div class="skel" style="height:80px"></div>';
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||r.ok===false){document.getElementById('ingLista').innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo listar')+'</div>';return;}
+    _ingPaginacion.total=r.total||0;
+    document.getElementById('ingCinta').innerHTML=
+      '<span class="chip fade-in">Pendientes <b class="num">'+_esc(r.total)+'</b></span>'+
+      '<span class="chip">Mostrando '+(_ingPaginacion.inicio+1)+'–'+(r.filas.length+_ingPaginacion.inicio)+'</span>';
+    var filas=r.filas||[];
+    document.getElementById('ingLista').innerHTML=
+      (filas.length?filas.map(function(f){
+        return '<div class="res-card ing-card '+(f.estado==='ERROR'?'error':(f.estado==='WARNING'?'warning':'ok'))+'" onclick="ingAbrirDetalle(\''+_esc(f.hoja)+'\','+f.fila+')">'+
+          '<div class="res-nombre">'+_esc(f.nombre||'Sin nombre')+'</div>'+
+          '<div class="res-linea"><span class="rut">'+_esc(f.rut||'')+'</span>'+_chipSector(f.sector)+estadoIng(f.estado)+
+          '<span class="rut">'+_fmtFecha(f.fechaIngreso)+'</span></div>'+
+          '<div class="ing-fila-meta" style="margin-top:4px">'+_esc(f.hoja)+' · fila '+f.fila+(f.errores?' · '+f.errores+' error(es)':'')+'</div></div>';
+      }).join(''):'<div class="vacio"><i data-lucide="party-popper"></i>No hay ingresos pendientes</div>')+
+      '<div class="pagbar">'+
+        '<button class="btn btn-ghost" style="min-height:30px;font-size:11.5px" onclick="cargarIngresos('+(_ingPaginacion.inicio-_ingPaginacion.limite)+')" '+(_ingPaginacion.inicio===0?'disabled':'')+'><i data-lucide="chevron-left" style="width:13px;height:13px"></i> Anterior</button>'+
+        '<span class="chip est-pendiente">Página '+Math.floor(_ingPaginacion.inicio/_ingPaginacion.limite+1)+'</span>'+
+        '<button class="btn btn-ghost" style="min-height:30px;font-size:11.5px" onclick="cargarIngresos('+(_ingPaginacion.inicio+_ingPaginacion.limite)+')" '+((_ingPaginacion.inicio+_ingPaginacion.limite)>=_ingPaginacion.total?'disabled':'')+'>Siguiente <i data-lucide="chevron-right" style="width:13px;height:13px"></i></button>'+
+      '</div>';
+    _refrescarIconos();
+  }).withFailureHandler(function(e){
+    document.getElementById('ingLista').innerHTML='<div class="vacio">Error: '+_esc(e&&e.message||e)+'</div>';
+  }).api_ingresosPendientes({inicio:_ingPaginacion.inicio,limite:_ingPaginacion.limite},TOKEN_INVITACION);
+}
+function estadoIng(est){
+  var col={ERROR:'var(--danger)',WARNING:'var(--warning)',PENDIENTE:'var(--success)'}[est]||'var(--text-muted)';
+  return '<span class="chip" style="color:'+col+';border:1px solid '+col+'">'+_esc(est||'PENDIENTE')+'</span>';
+}
+function ingAbrirDetalle(hoja,fila){
+  mostrarIngresoDetalle(true);
+  var d=document.getElementById('ingDetalle');
+  d.innerHTML='<div class="skel" style="height:160px"></div>';
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok){d.innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo leer la fila')+'</div>';return;}
+    var pf=r.preFicha||{};
+    var filas=[['Nombre',pf.nombre],['RUT',pf.rut],['Sector',pf.sector],['Fec. ingreso',pf.fechaIngreso],
+      ['Sexo',pf.sexo],['Fec. nacimiento',pf.fechaNacimiento],['Teléfono',pf.telefono],['Estratificación',pf.estratificacion],
+      ['Salud mental',pf.saludMental],['Dupla',pf.dupla],['Prof. seguimiento',pf.profesionalSeguimiento],['Observaciones',pf.observaciones]];
+    d.innerHTML='<div class="res-card ing-card '+(pf.estadoValidacion==='ERROR'?'error':(pf.estadoValidacion==='WARNING'?'warning':'ok'))+'">'+
+      '<div class="res-nombre">'+_esc(pf.nombre||'Sin nombre')+'</div>'+
+      '<div class="res-linea" style="margin:6px 0 8px"><span class="rut">'+_esc(pf.rut||'')+'</span>'+_chipSector(pf.sector)+estadoIng(pf.estadoValidacion)+'</div>'+
+      '<div class="pfc-grid">'+filas.map(function(x){
+        return '<div class="pfc-fila"><span class="k">'+x[0]+'</span><span class="v">'+((x[1]===''||x[1]==null)?'—':_esc(x[1]))+'</span></div>';
+      }).join('')+'</div>'+
+      ((pf.errores&&pf.errores.length)?'<div class="verif-list"><span class="k" style="color:var(--danger);font-weight:600">Errores de validación</span>'+pf.errores.map(function(e){return '<span>· '+_esc(e)+'</span>';}).join('')+'</div>':'')+
+      ((pf.warnings&&pf.warnings.length)?'<div class="verif-list"><span class="k" style="color:var(--warning);font-weight:600">Advertencias</span>'+pf.warnings.map(function(w){return '<span>· '+_esc(w)+'</span>';}).join('')+'</div>':'')+
+      '<div class="botonera">'+
+        '<button class="btn btn-pri" onclick="ingIncorporar(this,\''+_esc(r.hoja)+'\','+r.fila+')"><i data-lucide="user-plus"></i> Incorporar</button>'+
+        '<button class="btn btn-ghost" onclick="ingVolver()">Volver</button>'+
+      '</div></div>';
+    _refrescarIconos();
+  }).withFailureHandler(function(e){
+    d.innerHTML='<div class="vacio">Error: '+_esc(e&&e.message||e)+'</div>';
+  }).api_ingresoDetalle(hoja,fila,TOKEN_INVITACION);
+}
+function ingIncorporar(btn,hoja,fila){
+  var fin=_btnCargando(btn,'Incorporando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo incorporar','err');return;}
+    if(r.resultado&&r.resultado.estado==='INGRESADO'&&r.resultado.idInterno){
+      toast('✓ Ingreso incorporado','ok');
+      mostrarPanel('vista');
+      abrirFicha(r.resultado.idInterno);
+      return;
+    }
+    if(r.resultado&&r.resultado.estado){
+      toast('Ingreso: '+r.resultado.estado,'info');
+    }else{
+      toast('Ya incorporado (sin cambios)','info');
+    }
+    mostrarIngresoDetalle(false);
+    cargarIngresos(_ingPaginacion.inicio);
+  }).withFailureHandler(function(e){fin();toast('Error: '+_esc(e&&e.message||e),'err');
+  }).api_ingresoIncorporar(hoja,fila,false,TOKEN_INVITACION);
+}
+
 /* ================= ficha con tabs ================= */
 function activarTab(id){
   document.querySelectorAll('.tab').forEach(function(tb){
@@ -390,12 +595,13 @@ document.querySelectorAll('.tab').forEach(function(tb){
 
 function abrirFicha(id){
   if(!id){toast('ERROR: ID vacío','err');return;}
-  var cont=document.getElementById('vista');
-  document.getElementById('panelBuscar').style.display='none';
-  document.getElementById('panelRev').style.display='none';
-  cont.style.display='flex';cont.setAttribute('data-id',id);
-  ['fDatos','fTimeline','patLista'].forEach(function(x){document.getElementById(x).innerHTML='<div class="skel" style="height:52px"></div>';});
-  activarTab('paneDatos');
+  P_ACTUAL=id;
+  _ingDesdeFicha=false;
+  mostrarPanel('vista');
+  document.getElementById('vista').setAttribute('data-id',id);
+  ['fResumen','fTimeline','patLista'].forEach(function(x){
+    var el=document.getElementById(x);if(el)el.innerHTML='<div class="skel" style="height:52px"></div>';});
+  activarTab('paneResumen');
   google.script.run.withSuccessHandler(function(res){
     if(!res){toast('Respuesta vacía del servidor','err');return;}
     if(!res.ok){toast((res.code||'ERROR')+': '+res.message,'err');return;}
@@ -405,6 +611,7 @@ function abrirFicha(id){
 }
 
 function pintarFicha(f){
+  _FICHA_ACTUAL=f;
   P_ACTUAL=f.ID_INTERNO;
   document.getElementById('vista').setAttribute('data-id',f.ID_INTERNO);
   document.getElementById('fNombre').textContent=f.NOMBRE||'—';
@@ -423,20 +630,9 @@ function pintarFicha(f){
   Array.prototype.forEach.call(document.querySelectorAll('.ficha-chips > .chip'),function(c,i){
     c.classList.add('fade-in');c.style.animationDelay=(i*50)+'ms';});
 
-  var duplaTexto=f.DUPLA_INGRESO||'';
-  var duplaCat=(f.dupla&&f.dupla.catalogo)||[];
-  var duplaNames=duplaTexto?duplaTexto.split(';').map(function(c){
-    c=c.trim().toUpperCase();
-    var found=duplaCat.filter(function(p){return p.CODIGO===c;});
-    return found.length?found[0].NOMBRE:c;
-  }).filter(function(s){return s;}).join(', '):'';
-  var d=[['Sexo',f.SEXO],['Edad',f.EDAD],['Teléfono',f.TELEFONOS],
-         ['Dupla',duplaNames||duplaTexto],
-         ['Próx. control',_fmtFecha(f.PROXIMO_CONTROL)||f.PROXIMO_CONTROL],
-         ['Último control',_fmtFecha(f.ULTIMO_CONTROL)],['Ingreso',_fmtFecha(f.FECHA_INGRESO)]];
-  document.getElementById('fDatos').innerHTML=d.map(function(x){
-    return '<div class="dato-fila"><span class="k">'+x[0]+'</span><span class="v">'+
-      ((x[1]===''||x[1]==null)?'—':_esc(x[1]))+'</span></div>';}).join('');
+  pintarResumen(f);
+  pintarDatos(f);
+  pintarSeguimiento(f.seguimiento);
 
   /* historial timeline */
   var tl=document.getElementById('fTimeline'),evs=f.eventos||[];
@@ -448,6 +644,7 @@ function pintarFicha(f){
     li.innerHTML='<span class="punto" style="border-color:'+st.c+'"></span>'+
       '<div class="tl-top"><span class="tl-tipo" style="color:'+st.c+'">'+_esc(e.tipo)+'</span>'+
       '<span class="tl-fecha" title="'+ex+'">'+_rel(e.fecha)+'</span></div>'+
+      (e.sector?'<div class="tl-detalle">Sector: '+_esc(e.sector)+'</div>':'')+
       (e.profesional?'<div class="tl-detalle">'+_esc(e.profesional)+'</div>':'')+
       (e.descripcion?'<div class="tl-detalle">'+_esc(e.descripcion)+'</div>':'')+
       (e.riesgo?'<span class="chip rut" style="margin-top:4px;display:inline-flex">G: '+_esc(e.riesgo)+'</span>':'');
@@ -455,22 +652,168 @@ function pintarFicha(f){
   });
   _animTimeline=true;
 
-  /* patologías resumen en chips dentro del propio tab Patologías */
   var s=document.getElementById('evTipo');
   s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
   s.value='CONTROL';
   cargarSelectorPatologias(f.ID_INTERNO,false,f.patologias);
   cargarSelectorDupla(f.ID_INTERNO,f.dupla);
-  pintarSeguimiento(f.seguimiento);
+  document.getElementById('cinSaludMental').value=f.SALUD_MENTAL||'';
+  document.getElementById('cinComposicion').value=f.COMPOSICION_CONTROL||'';
+  document.getElementById('eqProfSeg').value=f.PROFESIONAL_SEGUIMIENTO||'';
   _refrescarIconos();
 }
-/* Seguimiento y controles: vista consolidada por persona (misma fuente que el Panel). */
+
+/* ================= resumen ================= */
+function pintarResumen(f){
+  var setTxt=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v||'—';};
+  setTxt('rsEstado',f.ESTADO||'—');
+  setTxt('rsSector',f.SECTOR||'—');
+  setTxt('rsEstrat',f.ESTRATIFICACION||'—');
+  setTxt('rsEdad',(f.EDAD===undefined||f.EDAD===null||f.EDAD==='')?'—':f.EDAD+' años');
+  var d=[['Sexo',f.SEXO],['Teléfono',f.TELEFONOS],['Fecha de nacimiento',_fmtFecha(f.FECHA_NACIMIENTO)||f.FECHA_NACIMIENTO],
+    ['Ingreso',_fmtFecha(f.FECHA_INGRESO)||f.FECHA_INGRESO],['Salud mental',f.SALUD_MENTAL],
+    ['Próx. control',_fmtFecha(f.PROXIMO_CONTROL)||f.PROXIMO_CONTROL],['Último control',_fmtFecha(f.ULTIMO_CONTROL)||f.ULTIMO_CONTROL],
+    ['Último seguimiento',_fmtFecha(f.ULTIMO_SEGUIMIENTO)||f.ULTIMO_SEGUIMIENTO]];
+  document.getElementById('fResumen').innerHTML=d.map(function(x){
+    return '<div class="dato-fila"><span class="k">'+x[0]+'</span><span class="v">'+
+      ((x[1]===''||x[1]===null)?'—':_esc(x[1]))+'</span></div>';}).join('');
+
+  var meta=f.meta||{};
+  var ingB=document.getElementById('ingBanner');
+  if(meta.tieneIngresoPendiente&&meta.ingresoPendiente&&meta.ingresoPendiente.length){
+    var ip=meta.ingresoPendiente[0];
+    ingB.style.display='flex';
+    ingB.innerHTML='<i data-lucide="tray" style="width:15px;height:15px;flex-shrink:0"></i>'+
+      '<span>Hay <b>'+_esc(meta.ingresoPendiente.length)+'</b> ingreso pendiente en '+_esc(ip.hoja)+' (fila '+_esc(ip.fila)+')'+
+      '<button class="btn btn-sec" style="min-height:30px;font-size:11.5px;margin-left:auto" onclick="abrirIngFromFicha(\''+_esc(ip.hoja)+'\','+ip.fila+')">Revisar</button></span>';
+  }else{
+    ingB.style.display='none';ingB.innerHTML='';
+  }
+  var reqB=document.getElementById('reqBanner');
+  if(meta.requiereRevision){
+    reqB.style.display='flex';
+    reqB.innerHTML='<i data-lucide="alert-triangle" style="width:15px;height:15px;flex-shrink:0"></i><span>Paciente marcado como <b>requiere revisión</b></span>';
+  }else{
+    reqB.style.display='none';reqB.innerHTML='';
+  }
+  if(meta.fuente||meta.ultimaActualizacion){
+    var pie=(meta.fuente?'Fuente: '+_esc(meta.fuente):'')+(meta.ultimaActualizacion?((meta.fuente?' · ':'')+'Actualizado: '+_esc(meta.ultimaActualizacion)):'');
+    var extra=document.getElementById('fResumen').querySelector('.dato-fila:last-child');
+    if(pie){document.getElementById('fResumen').insertAdjacentHTML('beforeend',
+      '<div class="dato-fila"><span class="k">Trazabilidad</span><span class="v">'+_esc(pie)+'</span></div>');}
+  }
+  _refrescarIconos();
+}
+function abrirIngFromFicha(hoja,fila){
+  _ingDesdeFicha=true;
+  mostrarPanel('panelIngreso');
+  mostrarIngresoDetalle(true);
+  ingAbrirDetalle(hoja,fila);
+}
+
+/* ================= datos editables (contrato {anterior,valor}) ================= */
+var _DATOS_CAMPOS=[
+  {campo:'NOMBRE',label:'Nombre',tipo:'text'},
+  {campo:'RUT',label:'RUT',tipo:'text'},
+  {campo:'SEXO',label:'Sexo',tipo:'select',opciones:['','M','F','OTRO']},
+  {campo:'FECHA_NACIMIENTO',label:'Fecha de nacimiento',tipo:'date',min:'1900-01-01',max:'2099-12-31'},
+  {campo:'TELEFONOS',label:'Teléfono(s)',tipo:'text'},
+  {campo:'TELEFONO_OBS',label:'Nota teléfono',tipo:'text'},
+  {campo:'SECTOR',label:'Sector',tipo:'select',opciones:['NARANJO','AMARILLO','VERDE']},
+  {campo:'ESTRATIFICACION',label:'Estratificación',tipo:'select',opciones:['','G1','G2','G3']},
+  {campo:'ESTADO',label:'Estado',tipo:'select',opciones:['','PENDIENTE','AGENDADO','INGRESADO','NO_CONTESTA','FALLECIDO','NSP']},
+  {campo:'FECHA_INGRESO',label:'Fecha de ingreso',tipo:'date',min:'2015-01-01',max:'2040-12-31'},
+  {campo:'PREINGRESO',label:'Preingreso',tipo:'text'},
+  {campo:'OBSERVACIONES',label:'Observaciones',tipo:'textarea'}
+];
+function campoControl(c){
+  var id='inp_'+c.campo, val=_FICHA_ACTUAL[c.campo]||'';
+  if(c.tipo==='select'){
+    return '<select id="'+id+'" class="inp">'+c.opciones.map(function(o){
+      return '<option value="'+_esc(o)+'"'+(String(val).toUpperCase()===o?' selected':'')+'>'+_esc(o||'Sin información')+'</option>';
+    }).join('')+'</select>';
+  }
+  if(c.tipo==='date'){
+    return '<input id="'+id+'" type="date" class="inp" value="'+_esc(String(val).slice(0,10))+
+      '" min="'+(c.min||'')+'" max="'+(c.max||'')+'">';
+  }
+  if(c.tipo==='textarea'){
+    return '<textarea id="'+id+'" class="inp">'+_esc(val)+'</textarea>';
+  }
+  return '<input id="'+id+'" class="inp" value="'+_esc(val)+'" autocomplete="off">';
+}
+function pintarDatos(f){
+  document.getElementById('datosForm').innerHTML=_DATOS_CAMPOS.filter(function(c){
+    return c.campo==='SECTOR'||c.campo==='NOMBRE'||c.campo==='RUT'||c.campo==='SEXO'||
+      c.campo==='FECHA_NACIMIENTO'||c.campo==='TELEFONOS'||c.campo==='TELEFONO_OBS'||
+      c.campo==='ESTRATIFICACION'||c.campo==='ESTADO'||c.campo==='FECHA_INGRESO'||c.campo==='OBSERVACIONES';
+  }).map(function(c){
+    return '<div class="ed-row"><label class="k" for="inp_'+c.campo+'">'+c.label+'</label>'+campoControl(c)+
+      (c.campo==='SECTOR'?'<small class="ed-hint">Cambiar sector genera el evento CAMBIO_SECTOR.</small>':'')+
+      (c.campo==='RUT'?'<small class="ed-hint">Debe ser único; se valida contra duplicados.</small>':'')+
+      '</div>';
+  }).join('');
+}
+function guardarDatosFicha(btn){
+  if(!_FICHA_ACTUAL){toast('No hay ficha abierta','err');return;}
+  var cambios={};
+  _DATOS_CAMPOS.forEach(function(c){
+    var el=document.getElementById('inp_'+c.campo);
+    if(!el)return;
+    var nuevo=el.value;
+    var original=_FICHA_ACTUAL[c.campo]||'';
+    if(String(nuevo).trim()!==String(original).trim())cambios[c.campo]={anterior:String(original),valor:String(nuevo).trim()};
+  });
+  if(!Object.keys(cambios).length){toast('Sin cambios que guardar','info');return;}
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('✓ Ficha actualizada','ok');abrirFicha(P_ACTUAL);}
+    else if(r&&r.motivo&&String(r.motivo).indexOf('FICHA_CAMBIO')===0){toast(r.motivo,'warn');abrirFicha(P_ACTUAL);}
+    else toast((r&&(r.codigo||r.motivo))||'No se pudo guardar','err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+_esc(e&&e.message||e),'err');})
+  .api_fichaGuardarCambios(P_ACTUAL,cambios,TOKEN_INVITACION);
+}
+
+/* ================= clínico: salud mental + composición ================= */
+function guardarClinico(btn){
+  if(!_FICHA_ACTUAL){toast('No hay ficha abierta','err');return;}
+  var cambios={};
+  var sm=document.getElementById('cinSaludMental').value;
+  var cp=document.getElementById('cinComposicion').value;
+  if(sm!==(_FICHA_ACTUAL.SALUD_MENTAL||''))cambios.SALUD_MENTAL={anterior:_FICHA_ACTUAL.SALUD_MENTAL||'',valor:sm};
+  if(cp!==(_FICHA_ACTUAL.COMPOSICION_CONTROL||''))cambios.COMPOSICION_CONTROL={anterior:_FICHA_ACTUAL.COMPOSICION_CONTROL||'',valor:cp};
+  if(!Object.keys(cambios).length){toast('Sin cambios que guardar','info');return;}
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('✓ Clínico actualizado','ok');abrirFicha(P_ACTUAL);}
+    else if(r&&r.motivo&&String(r.motivo).indexOf('FICHA_CAMBIO')===0){toast(r.motivo,'warn');abrirFicha(P_ACTUAL);}
+    else toast((r&&(r.codigo||r.motivo))||'No se pudo guardar','err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+_esc(e&&e.message||e),'err');})
+  .api_fichaGuardarCambios(P_ACTUAL,cambios,TOKEN_INVITACION);
+}
+
+/* ================= equipo: profesional de seguimiento ================= */
+function guardarProfSeg(btn){
+  if(!_FICHA_ACTUAL){toast('No hay ficha abierta','err');return;}
+  var val=document.getElementById('eqProfSeg').value;
+  if(String(val).trim()===String(_FICHA_ACTUAL.PROFESIONAL_SEGUIMIENTO||'').trim()){toast('Sin cambios que guardar','info');return;}
+  var fin=_btnCargando(btn,'Guardando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(r&&r.ok){toast('✓ Profesional actualizado','ok');abrirFicha(P_ACTUAL);}
+    else toast((r&&(r.codigo||r.motivo))||'No se pudo guardar','err');
+  }).withFailureHandler(function(e){fin();toast('Error: '+_esc(e&&e.message||e),'err');})
+  .api_fichaGuardarCambios(P_ACTUAL,{PROFESIONAL_SEGUIMIENTO:{anterior:_FICHA_ACTUAL.PROFESIONAL_SEGUIMIENTO||'',valor:String(val).trim()}},TOKEN_INVITACION);
+}
+
+/* ================= seguimiento ================= */
 function pintarSeguimiento(sg){
   SEG_ACTUAL=sg||null;
   var set=function(id,txt){var el=document.getElementById(id);if(el)el.textContent=txt||'—';};
   set('segUltSeguimiento',(sg&&sg.ultimoSeguimiento&&sg.ultimoSeguimiento.slice(0,10))||'—');
   set('segUltControl',(sg&&sg.ultimoControl&&sg.ultimoControl.slice(0,10))||'—');
-  // Próximo control: input editable
   var proxVal=(sg&&sg.proximo&&sg.proximo.slice(0,10))||'';
   var proxEl=document.getElementById('segProximoInput');
   if(proxEl) proxEl.value=proxVal;
@@ -511,18 +854,16 @@ function segActualizar(btn,tipo){
     if(r&&r.ok){toast('✓ '+tipo+' de hoy registrado'+(r.proximo?' · próximo '+r.proximo:''),'ok');abrirFicha(P_ACTUAL);}
     else toast((r&&r.motivo)||'No se pudo actualizar','err');
   }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-  .api_controlActualizarUltimo(P_ACTUAL,tipo,hoy);
+  .api_controlActualizarUltimo(P_ACTUAL,tipo,hoy,TOKEN_INVITACION);
 }
-/* Auto-fill: CONTROL selecciona hoy como fecha */
-document.getElementById('evTipo').addEventListener('change',function(e){
-  if(e.target.value==='CONTROL'){
-    var hoy=fechaHoyFicha();
-    document.getElementById('evFecha').value=hoy;
-  }
-});
-
-/* El catálogo de profesionales proviene del servidor (hoja oculta
-   PROFESIONALES) embebido en ficha.dupla.catalogo — sin copia en cliente. */
+var _evTipoSel=document.getElementById('evTipo');
+if(_evTipoSel){
+  _evTipoSel.addEventListener('change',function(e){
+    if(e.target.value==='CONTROL'){
+      document.getElementById('evFecha').value=fechaHoyFicha();
+    }
+  });
+}
 
 /* ================= registrar gestión ================= */
 function registrarEvento(btn){
@@ -538,10 +879,10 @@ function registrarEvento(btn){
   .api_registrarEvento({idInterno:P_ACTUAL,tipoEvento:document.getElementById('evTipo').value,
     fecha:document.getElementById('evFecha').value,
     profesional:document.getElementById('evProf').value,
-    descripcion:document.getElementById('evDesc').value});
+    descripcion:document.getElementById('evDesc').value},TOKEN_INVITACION);
 }
 
-/* ================= patologías (selector en tab) ================= */
+/* ================= patologías ================= */
 var _patTimer=null;
 function cargarSelectorPatologias(pid,forzar,datosEmbebidos){
   if(!pid)return;
@@ -555,13 +896,15 @@ function cargarSelectorPatologias(pid,forzar,datosEmbebidos){
     PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
     document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
     renderizarPats('');actualizarContador();_refrescarIconos();
-  }).withFailureHandler(_errSilencioso('api_patologiasAbrir')).api_patologiasAbrir(pid);
+  }).withFailureHandler(_errSilencioso('api_patologiasAbrir')).api_patologiasAbrir(pid,TOKEN_INVITACION);
 }
-document.addEventListener('input',function(e){
-  if(e.target.id==='patBuscar'){var v=e.target.value;clearTimeout(_patTimer);
-    _patTimer=setTimeout(function(){renderizarPats(v);},220);}
-});
-
+var _patBuscarEl=document.getElementById('patBuscar');
+if(_patBuscarEl){
+  _patBuscarEl.addEventListener('input',function(){
+    var v=_patBuscarEl.value;clearTimeout(_patTimer);
+    _patTimer=setTimeout(function(){renderizarPats(v);},220);
+  });
+}
 function renderizarPats(filtro){
   var f=(filtro||'').toLowerCase(),nf=function(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');};
   var lista=PAT_CATALOGO.filter(function(p){
@@ -595,7 +938,7 @@ function guardarPatologias(btn){
       abrirFicha(pid);}
     else toast((r&&r.motivo)||'No se pudo guardar','err');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-  .api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),document.getElementById('otrasPatologias').value);
+  .api_patologiasGuardar(pid,PAT_SELECCIONADAS.slice(),document.getElementById('otrasPatologias').value,TOKEN_INVITACION);
 }
 function recalcularEstrat(btn){
   var pid=document.getElementById('vista').getAttribute('data-id')||'';
@@ -628,7 +971,7 @@ function cargarSelectorDupla(pid,datosEmbebidos){
       renderizarDupla();
     })
     .withFailureHandler(_errSilencioso('api_duplaAbrir'))
-    .api_duplaAbrir(pid);
+    .api_duplaAbrir(pid,TOKEN_INVITACION);
 }
 
 function renderizarDupla(){
@@ -677,13 +1020,14 @@ function guardarDupla(btn){
     .api_duplaGuardar(pid,DUPLA_SELECCIONADAS.slice(),TOKEN_INVITACION);
 }
 
-/* Conteo silencioso para el chip — NO abre ningún panel */
 /* ================= cola de revisión ================= */
 function verRevision(){
   var pb=document.getElementById('panelBuscar');
   if(pb)pb.style.display='none';
   var v=document.getElementById('vista');
   if(v)v.style.display='none';
+  var pi=document.getElementById('panelIngreso');
+  if(pi)pi.style.display='none';
   var pr=document.getElementById('panelRev');
   if(pr)pr.style.display='flex';
   document.getElementById('revLista').innerHTML='<div class="skel" style="height:120px"></div>';
@@ -712,7 +1056,7 @@ function verRevision(){
         '</div></div>';}).join('')
       :'<div class="vacio"><i data-lucide="party-popper"></i>No hay casos pendientes</div>';
     _refrescarIconos();
-  }).withFailureHandler(_errSilencioso('api_revisionListar')).api_revisionListar();
+  }).withFailureHandler(_errSilencioso('api_revisionListar')).api_revisionListar(TOKEN_INVITACION);
 }
 function resolver(idx,dec,btn){
   var fin=_btnCargando(btn,'Procesando…');
@@ -723,7 +1067,7 @@ function resolver(idx,dec,btn){
     else toast(r.motivo||'No se pudo resolver','err');
     verRevision();
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-  .api_revisionResolver(idx,dec);
+  .api_revisionResolver(idx,dec,TOKEN_INVITACION);
 }
 
 function volver(){
@@ -731,7 +1075,6 @@ function volver(){
   if(portal&&(MODO==='ficha'||MODO==='revision')){window.open(portal,'_blank');return;}
   if(MODO==='ficha'){ google.script.host.close(); return; }
   if(MODO==='revision'){
-    /* La cola es un módulo propio: volver = Panel de Control */
     google.script.run
       .withFailureHandler(_errSilencioso('UI_panelControl'))
       .UI_panelControl();
@@ -741,6 +1084,8 @@ function volver(){
   if(v)v.style.display='none';
   var pr=document.getElementById('panelRev');
   if(pr)pr.style.display='none';
+  var pi=document.getElementById('panelIngreso');
+  if(pi)pi.style.display='none';
   var pb=document.getElementById('panelBuscar');
   if(pb)pb.style.display='flex';
 }
@@ -762,8 +1107,6 @@ function abrirGenerador(btn){
 }
 
 /* ================= Panel de Control: controles por persona ================= */
-/* La consulta vive en el modal Controles.html (bajo demanda, paginado). El
-   panel solo ofrece el acceso; NO carga la población al abrirse. */
 function abrirControles(btn){
   var fin=btn?_btnPulso(btn,'Abriendo…'):null;
   google.script.run
@@ -780,15 +1123,16 @@ function estadoChip(est){
 
 /* ================= init ================= */
 try{
-document.getElementById('evFecha').value=fechaHoyFicha();
-_refrescarIconos();
-if(MODO==='revision'){
-  verRevision();
-}else if(MODO==='ficha'){
-  abrirFicha(ID_INICIAL);
-}else if(MODO==='centro'){
-  /* Centro de funciones: listado simple de accesos. Sin cargas al abrir. */
-}
+  var evF=document.getElementById('evFecha');
+  if(evF)evF.value=fechaHoyFicha();
+  _refrescarIconos();
+  if(MODO==='revision'){
+    verRevision();
+  }else if(MODO==='ficha'){
+    abrirFicha(ID_INICIAL);
+  }else if(MODO==='centro'){
+    /* Centro de funciones: listado simple de accesos. Sin cargas al abrir. */
+  }
 }catch(eInit){
   console.error('[ECICEP] init',eInit);
   toast('Error inicializando: '+((eInit&&eInit.message)||eInit),'err');

@@ -1,5 +1,14 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-22 (v0.10.2):** la ficha de paciente pasó a **ficha
+> 2.0** (pestañas, edición dirigida al dominio en `31_Ficha.js` y write-back
+> corregido de `ESTADO_INGRESO`/`NOTA_SISTEMA` que era código muerto) y se
+> incorpora el flujo **ingresos pendientes → detalle pre-ficha → incorporar**
+> (idempotente). Además todas las RPC de interfaz ahora pasan su token
+> compartido (los paneles Controles/Dashboard/Configuracion/RemVista/
+> CentroPruebas siguen operativos frente a los guards de `ACCESO_DENEGADO`).
+> Detalle: §17 y `docs/INFORME_2026-09-22_FICHA_V2.md`.
+
 > **Actualización 2026-09-22 (v0.10.1):** el instalador crea un **respaldo
 > real del libro en Drive** (`PRE_INSTALAR`) en la primera etapa mutante de cada
 > ejecución (token/ejecución), refuerza la idempotencia por FUENTE (clave
@@ -338,3 +347,28 @@ Batería: **16 suites · 0 fallos** (núcleo 671/671 + `tests/regresiones_audito
 - **Publicado**: `clasp push --force` + actualización del deployment operativo
   reutilizado (URL base/QR intactos). **E2E en vivo sobre el libro real sigue
   pendiente** de la sesión Google (bloqueador 1).
+
+## 17. Ficha 2.0 + incorporación controlada de ingresos v0.10.2 (2026-09-22)
+
+Informe: este documento (§17) + `docs/INFORME_2026-09-22_FICHA_V2.md`.
+Batería: **17 suites · 0 fallos** (agrega `tests/ficha_ingresos_v0102.mjs`
+**13/13**; núcleo 671/671, contrato 38/38, regresiones 44/44, validar_html 21/21).
+
+- **Corrección pre-existente**: `Ingresos_escribirEstados` iteraba con
+  `Object.keys(porHoja)` sobre un `Map` (rotura introducida en ETAPA 3b) → el
+  write-back de `ESTADO_INGRESO`/`NOTA_SISTEMA` era **código muerto** en
+  producción. Corregido con `Array.from(porHoja.entries())` y la variable de
+  grupo `resHoja` (`src/12_Ingresos.js`).
+- **Ficha de paciente 2.0** (`src/Sidebar.html`): pestañas Resumen / Datos /
+  Seguimiento / Clínico / Historial / Equipo; módulo **ingresos pendientes**
+  (lista paginada `api_ingresosPendientes` + detalle pre-ficha
+  `api_ingresoDetalle` + incorporación idempotente `api_ingresoIncorporar`);
+  edición de ficha redirigida al modelo (`Paciente_actualizarCampos_` +
+  `Paciente_validarCampo_` en `src/31_Ficha.js`).
+- **Guards por token en la interfaz**: las RPC de ficha regresan
+  `ACCESO_DENEGADO` si el cliente no envía el token compartido; se propagó el
+  token a paneles que lo omitían (`Controles`, `Dashboard`, `Configuracion`,
+  `RemVista`, `CentroPruebas`) para que sigan operativos con los nuevos guards.
+  `_ECICEP_DEBUG=false` en producción.
+- **Pendiente que permanece**: E2E en vivo (sin sesión Google en el host) para
+  recorrer ingresos pendientes → incorporar → ficha sobre el libro real.

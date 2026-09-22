@@ -55,6 +55,8 @@ const archivos = [
   'src/11_DatosPrueba.js',
   'src/10_Pruebas.js',
 'src/26_Captura.js',
+  'src/29_ActualizacionCaptura.js',
+  'src/31_Ficha.js',
   'src/27_Actualizacion.js',
   'src/07_UI.js'
 ];

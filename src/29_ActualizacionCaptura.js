@@ -177,7 +177,7 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
   if(Object.keys(campos).length) {var upd=api_actualizarPaciente(a.id,campos,opciones.acceso);if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');}
   if(codigos!==null) {
     var otras=Object.prototype.hasOwnProperty.call(campos,'OTRAS_PATOLOGIAS')?campos.OTRAS_PATOLOGIAS:Captura_edicionTexto_(p,'OTRAS_PATOLOGIAS');
-    var pat=api_patologiasGuardar(a.id,codigos,otras);
+    var pat=api_patologiasGuardar(a.id,codigos,otras,opciones.acceso);
     if(!pat.ok)return fail(pat.motivo||'PATOLOGIAS_NO_GUARDADAS');
     Modelo_invalidarLecturas();
   }
@@ -186,7 +186,7 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     if(!Captura_v2_marcaEnEventos(submarca)) {
       var r=api_registrarEvento({idInterno:a.id,tipoEvento:ac.modo==='CORREGIR'?'OTRO':ac.tipo,fecha:ac.modo==='CORREGIR'?hoy:ac.fecha,
         profesional:norm.profesional,fuente:submarca,registradoPor:opciones.usuario,
-        descripcion:ac.modo==='CORREGIR'?CAPTURA_CORRECCION_PREFIJO+JSON.stringify({idEvento:ac.idEvento,anterior:ac.anterior,fecha:ac.fecha}):'ATENCION_VIA_ACTUALIZACION',observaciones:norm.observaciones||''});
+        descripcion:ac.modo==='CORREGIR'?CAPTURA_CORRECCION_PREFIJO+JSON.stringify({idEvento:ac.idEvento,anterior:ac.anterior,fecha:ac.fecha}):'ATENCION_VIA_ACTUALIZACION',observaciones:norm.observaciones||''},opciones.acceso);
       if(!r.ok)return fail(r.motivo||'ATENCION_NO_GUARDADA');
     }
   }
@@ -196,7 +196,7 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);Modelo_invalidarLecturas();
     Modelo_refrescarVistasSectores();
   }
-  var audit=api_registrarEvento({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''});
+  var audit=api_registrarEvento({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''},opciones.acceso);
   if(!audit.ok)return fail(audit.motivo||'AUDITORIA_NO_GUARDADA');
   var guardado=Captura_v2_marcaEnEventos(marca);
   return {estado:'PROCESADO',idInterno:a.id,idEvento:guardado&&guardado.idEvento||''};

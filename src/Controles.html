@@ -61,7 +61,7 @@ td.est{white-space:nowrap}
   padding:var(--space-4);line-height:1.5}
 </style>
 </head>
-<body data-portal="<?= PORTAL_URL ?>" data-ficha-base="<?= FICHA_URL ?>">
+<body data-portal="<?= PORTAL_URL ?>" data-ficha-base="<?= FICHA_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <div id="toastZone"></div>
 
@@ -120,6 +120,7 @@ td.est{white-space:nowrap}
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
 /* ================= estado de la consulta ================= */
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 var CTRL = { sector: '', termino: '', estados: ['VENCIDO', 'POR_VENCER', 'SIN_FECHA'],
              todos: false, inicio: 0, limite: 30, total: 0, filas: [], sel: '' };
 var _cargando = false;
@@ -186,7 +187,7 @@ function consultar(reset, btn) {
       pintarError({ motivo: (e && e.message) || e });
     })
     .api_controlPanel({ sector: CTRL.sector, termino: CTRL.termino, estados: estadosEnvio(),
-                        inicio: reset ? 0 : CTRL.inicio, limite: CTRL.limite });
+                        inicio: reset ? 0 : CTRL.inicio, limite: CTRL.limite }, ECICEP_ACCESO);
 }
 
 function mostrarSkeleton() {
@@ -367,7 +368,7 @@ function registrar(tipo) {
       _registrando = false;
       toast('Error: ' + ((e && e.message) || e), 'err');
     })
-    .api_controlActualizarUltimo(CTRL.sel, tipo, hoy);
+    .api_controlActualizarUltimo(CTRL.sel, tipo, hoy, ECICEP_ACCESO);
 }
 
 /* ================= filtros ================= */

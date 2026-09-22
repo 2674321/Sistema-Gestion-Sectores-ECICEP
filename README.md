@@ -215,17 +215,19 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | Web App de captura (contrato V4, compatible V2/V3) | ✅ Operativo |
 | Instalador + motor de migraciones | ✅ Operativo (schemas 1→2, MIG-002; etapas mutantes activas) |
 | `SALUD_MENTAL` (SI/NO/vacío, sin inferencia) | ✅ Implementado (modelo, captura V4, ficha, Web App, vistas) |
+| Ficha de paciente 2.0 + incorporación de ingresos | ✅ Implementado (pestañas, ingresos pendientes → detalle → incorporar idempotente) |
 | REM Excel / PDF · Estadísticas · Dashboard | ✅ Implementados |
 | Calidad, auditoría, backups | ✅ Implementados |
 | IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
 | E2E real de Instalar/reparar sobre el libro operativo | ⏳ Pendiente (requiere sesión Google autorizada) |
 
 **Verificación vigente:** `node tools/verificar.mjs` comprueba sintaxis JS/GS y
-las 16 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
-contrato 36/36 · captura backend V2 73/73 · regresiones 44/44 ·
-auditoría v0.10 15/15 · instalador_estabilidad PASS · **21 scripts HTML**.
+las 17 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
+contrato 38/38 · captura backend V2 73/73 · regresiones 44/44 ·
+auditoría v0.10.1 15/15 · ficha-ingresos v0.10.2 **13/13** · instalador_estabilidad PASS ·
+**21 scripts HTML**.
 Detalle y límites de
-verificación real en [`docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`](docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md).
+verificación real en [`docs/INFORME_2026-09-22_FICHA_V2.md`](docs/INFORME_2026-09-22_FICHA_V2.md).
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción
 explícita (migración controlada: análisis → validación → simulación → reporte →

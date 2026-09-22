@@ -493,8 +493,9 @@ function api_acercaDe() {
 }
 
 /** Endpoint: catálogo de profesionales + selección del paciente. */
-function api_duplaAbrir(idInterno) {
+function api_duplaAbrir(idInterno, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'DUPLA_INGRESO']);
     var p = null;
     for (var i = 0; i < pacientes.length; i++) {
@@ -550,8 +551,9 @@ var CONFIG_PROTEGIDAS = {
 };
 
 /** Endpoint: lista las claves de CONFIG con sección, tipo, descripción y protección. */
-function api_configListar() {
+function api_configListar(token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var hoja = Modelo_hoja(HOJAS.CONFIG);
     var filas = [];
     if (hoja && hoja.getLastRow() > 1) {
@@ -713,8 +715,9 @@ function _responsables_escribirTodo(lista) {
 /** Endpoint: lectura + diagnóstico/dry-run de responsables (NO modifica datos).
  *  No carga PACIENTES/EVENTOS: solo la hoja RESPONSABLES, el catálogo
  *  PROFESIONALES y las claves legacy de CONFIG. */
-function api_responsablesListar() {
+function api_responsablesListar(token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var lista = _responsables_leer();
     var profesionales = Profesionales_catalogo();
     var legacy = _responsables_leerLegacy();
@@ -732,8 +735,9 @@ function api_responsablesListar() {
  *  sector. filas = [{codigo, nombre, correo, activo}] (reemplazan las del
  *  sector). Eliminar una asociación aquí NO elimina al profesional del catálogo
  *  PROFESIONALES. No sobreescribe otros sectores. */
-function api_responsablesGuardarSector(sector, filas) {
+function api_responsablesGuardarSector(sector, filas, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var sec = Utl_texto(sector).toUpperCase();
     var profesionales = Profesionales_catalogo();
     var val = Responsables_validarSector(sec, filas, profesionales);
@@ -824,8 +828,9 @@ function _UI_controlConfig() {
  *  @param {Object} [opts] — {sector, termino, estados, pendientes, inicio, limite}
  *  @returns {{ok:boolean, filas:Array, total:number, desde:number, hasta:number,
  *             limite:number, sectores:Array, fechaIso:string}} */
-function api_controlPanel(opts) {
+function api_controlPanel(opts, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var p = opts || {};
     if (typeof p === 'string') p = { sector: p }; // compat con firma antigua
     var tz = _UI_tz();
@@ -855,8 +860,9 @@ function api_controlPanel(opts) {
 /** Endpoint: actualiza ÚLTIMO CONTROL / ÚLTIMO SEGUIMIENTO de una persona y
  *  conserva PRÓXIMO_CONTROL: la agenda se edita manualmente.
  *  Además, crea el EVENTO correspondiente (fuente de verdad única). */
-function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
+function api_controlActualizarUltimo(idInterno, tipo, fechaIso, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var tipoUp = Utl_texto(tipo).toUpperCase();
     if (tipoUp !== 'CONTROL' && tipoUp !== 'SEGUIMIENTO') return { ok: false, motivo: 'TIPO_INVALIDO' };
     var nf = Norm_normalizarFecha(fechaIso);
@@ -864,6 +870,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     var encontrado = Modelo_buscarPaciente(idInterno);
     if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
     var objetivo = encontrado.obj, idx = encontrado.idx;
+    var sectorObjetivo = Utl_texto(objetivo.SECTOR).toUpperCase();
     var evento = {
       ID_EVENTO: Ev_nuevoId(),
       ID_INTERNO: objetivo.ID_INTERNO,
@@ -891,7 +898,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso) {
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);
-    Modelo_refrescarVistasSectores();
+    Modelo_refrescarVistasSectores([sectorObjetivo]);
     Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO + ' (evento ' + evento.ID_EVENTO + ')');
     Log_flush();
     return { ok: true, proximo: objetivo.PROXIMO_CONTROL || '', evento: { id: evento.ID_EVENTO, fecha: evento.FECHA_EVENTO, tipo: evento.TIPO_EVENTO } };
@@ -930,163 +937,49 @@ function api_actualizarPaciente(idInterno, campos, token) {
     if (typeof WebApp_autorizarBuscador === 'function' && !WebApp_autorizarBuscador(token)) {
       return { ok: false, motivo: 'NO_AUTORIZADO' };
     }
-
-    var encontrado = Modelo_buscarPaciente(idInterno);
-    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-    var paciente = Object.assign({}, encontrado.obj);
-    var idx = encontrado.idx;
-
-    // Validar sobre copia: un error no altera el objeto memoizado.
-    var cambios = 0;
-    var errores = [];
-
-    _CAMPOS_EDITABLES_PACIENTE.forEach(function (campo) {
-      if (!(campo in campos)) return;
-      var valor = campos[campo];
-      var v = Utl_texto(valor).trim();
-
-      switch (campo) {
-        case 'RUT':
-          var rutNorm = Norm_normalizarRut(v);
-          if (rutNorm.estado !== 'OK' || Modelo_leerPacientes().some(function(q){return q.ID_INTERNO !== paciente.ID_INTERNO && Norm_normalizarRut(q.RUT).rut === rutNorm.rut;})) {
-            errores.push({campo:campo,mensaje:'RUT inválido o asignado a otro paciente'});break;
-          }
-          paciente.RUT=rutNorm.rut;paciente.RUT_DV_VALIDO=true;paciente.RUT_SIN_DV=false;cambios++;break;
-        case 'NOMBRE':
-          paciente.NOMBRE = v;
-          paciente.NOMBRE_NORMALIZADO = Norm_claveNombre(v);
-          cambios++;
-          break;
-
-        case 'SEXO':
-          var sexoNorm = Norm_normalizarSexo(v);
-          paciente.SEXO = sexoNorm;
-          cambios++;
-          break;
-
-        case 'FECHA_NACIMIENTO':
-          var fn = Norm_normalizarFecha(v);
-          paciente.FECHA_NACIMIENTO = fn.iso;
-          cambios++;
-          break;
-
-        case 'TELEFONOS':
-          var tel = Norm_normalizarTelefono(v);
-          paciente.TELEFONOS = tel.telefonos.join('/');
-          cambios++;
-          break;
-
-        case 'TELEFONO_OBS':
-          paciente.TELEFONO_OBS = v;
-          cambios++;
-          break;
-
-        case 'SECTOR':
-          var sec = Norm_normalizarSector(v);
-          if (sec.estado === 'OK') {
-            paciente.SECTOR = sec.sector;
-            cambios++;
-          } else {
-            errores.push({ campo: 'SECTOR', mensaje: 'Sector inválido: "' + v + '"' });
-          }
-          break;
-
-        case 'ESTRATIFICACION':
-          var est = Norm_normalizarEstratificacion(v);
-          if (v === '' || est) {
-            paciente.ESTRATIFICACION = est;
-            paciente.ESTRAT_ORIGEN = v;
-            cambios++;
-          } else {
-            errores.push({ campo: 'ESTRATIFICACION', mensaje: 'Valor no clasificable: "' + v + '"' });
-          }
-          break;
-
-        case 'ESTADO':
-          paciente.ESTADO = v || 'PENDIENTE';
-          cambios++;
-          break;
-
-        case 'DUPLA_INGRESO':
-          paciente.DUPLA_INGRESO = v;
-          cambios++;
-          break;
-
-        case 'PROFESIONAL_SEGUIMIENTO':
-          paciente.PROFESIONAL_SEGUIMIENTO = v;
-          cambios++;
-          break;
-
-        case 'PREINGRESO':
-          var pre = Norm_normalizarFecha(v);
-          paciente.PREINGRESO = (pre.estado === 'VALIDA' || pre.estado === 'MES_ANO') ? pre.iso : v;
-          cambios++;
-          break;
-
-        case 'FECHA_INGRESO':
-          var fi = Norm_normalizarFecha(v);
-          paciente.FECHA_INGRESO = fi.iso;
-          cambios++;
-          break;
-
-        case 'OBSERVACIONES':
-          paciente.OBSERVACIONES = v;
-          cambios++;
-          break;
-
-        case 'CONDICIONES':
-          paciente.CONDICIONES = v;
-          cambios++;
-          break;
-
-        case 'OTRAS_PATOLOGIAS':
-          paciente.OTRAS_PATOLOGIAS = v;
-          cambios++;
-          break;
-
-        case 'PROXIMO_CONTROL':
-          var pc = Norm_normalizarFecha(v, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
-          if (v && (!/^\d{4}-\d{2}-\d{2}$/.test(v) || pc.estado !== 'VALIDA')) {
-            errores.push({ campo: campo, mensaje: 'Fecha de próxima atención inválida' });
-            break;
-          }
-          paciente.PROXIMO_CONTROL = v ? pc.iso : '';
-          cambios++;
-          break;
-
-        case 'COMPOSICION_CONTROL':
-          paciente.COMPOSICION_CONTROL = v;
-          cambios++;
-          break;
-
-        case 'SALUD_MENTAL':
-          var sm = Norm_normalizarSaludMental(v);
-          if (sm.estado === 'NO_RECONOCIDO') {
-            errores.push({ campo: 'SALUD_MENTAL', mensaje: 'Solo SI, NO o vacío (sin información)' });
-            break;
-          }
-          paciente.SALUD_MENTAL = sm.valor;
-          cambios++;
-          break;
-      }
+    campos = campos || {};
+    var esSector = ('SECTOR' in campos);
+    var directos = {};
+    var sectorValor = null;
+    Object.keys(campos).forEach(function (k) {
+      if (k === 'SECTOR') sectorValor = campos[k];
+      else directos[k] = campos[k];
     });
 
-    if (errores.length) return { ok: false, motivo: errores.map(function (e) { return e.mensaje; }).join('; ') };
-    if (!cambios) return { ok: false, motivo: 'SIN_CAMBIOS' };
+    // SECTOR se descompone: es un EVENTO CAMBIO_SECTOR, no un campo más.
+    var sectorCambio = false;
+    if (esSector) {
+      var cs = Paciente_cambiarSector_(idInterno, sectorValor, {
+        fuente: 'UI_FICHA',
+        registradoPor: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''
+      });
+      if (!cs.ok) {
+        // Compatibilidad de mensajes históricos: 'SIN_CAMBIOS' para no-op.
+        if (cs.sinCambios) return { ok: true, sinCambios: true, sector: cs.sector };
+        return cs;
+      }
+      sectorCambio = !cs.sinCambios;
+    }
 
-    paciente.FECHA_ACTUALIZACION = new Date();
-    var esquema = Modelo_asegurarEsquemaPacientes();
-    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_INCOMPATIBLE: ' + esquema.motivo };
+    if (Object.keys(directos).length) {
+      var upd = Paciente_actualizarCampos_(idInterno, directos, { fuente: 'UI_FICHA' });
+      if (!upd.ok) return upd;
+      var pacienteParcial = upd.paciente;
+      return {
+        ok: true,
+        paciente: { ID_INTERNO: pacienteParcial.ID_INTERNO, NOMBRE: pacienteParcial.NOMBRE, SECTOR: pacienteParcial.SECTOR },
+        sectorCambio: sectorCambio, campos: upd.campos
+      };
+    }
 
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-      .setValues([Modelo_filaDesdeObjeto(paciente)]);
-    Modelo_invalidarLecturas();
-
-    Log_info('Paciente', 'actualizar', 'campos=' + cambios + ' → ' + paciente.ID_INTERNO);
-    Log_flush();
-
-    return { ok: true, paciente: { ID_INTERNO: paciente.ID_INTERNO, NOMBRE: paciente.NOMBRE } };
+    if (!esSector) return { ok: false, motivo: 'SIN_CAMBIOS' };
+    // Solo cambió el sector: devolver el paciente refrescado.
+    var resSec = Modelo_buscarPaciente(idInterno);
+    return {
+      ok: true,
+      paciente: resSec ? { ID_INTERNO: resSec.obj.ID_INTERNO, NOMBRE: resSec.obj.NOMBRE, SECTOR: resSec.obj.SECTOR } : { ID_INTERNO: idInterno },
+      sectorCambio: sectorCambio, campos: ['SECTOR']
+    };
   } catch (e) {
     Log_error('Paciente', 'actualizar', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1104,8 +997,9 @@ var _DIAGNOSTICO_CAMPOS_EVENTOS_AMARILLO = ['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_
 /** Diagnóstico integral del modelo clínico de control (dry-run por defecto).
  *  NO modifica datos cuando dryRun=true (default). Devuelve métricas reales,
  *  alertas de PROXIMO_CONTROL, estado del sector Amarillo y acciones sugeridas. */
-function api_diagnosticoControl(dryRun) {
+function api_diagnosticoControl(dryRun, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var tz = _UI_tz();
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
     var pacientes = Modelo_leerPacientesCampos(_DIAGNOSTICO_CAMPOS_PACIENTES);
@@ -1172,8 +1066,9 @@ function api_diagnosticoControl(dryRun) {
  * cliente filtre localmente y la UI reaccione instantánea. Payload mínimo
  * por fila; sin datos derivados precalculados (#25: se computan en cliente).
  */
-function api_dashboardDatos() {
+function api_dashboardDatos(token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var tz = _UI_tz();
     var pacientes = Modelo_leerPacientesCampos(
       ['ID_INTERNO', 'SECTOR', 'ESTRATIFICACION', 'REQUIERE_REVISION', 'CONDICIONES', 'FECHA_INGRESO', 'PROXIMO_CONTROL'])
@@ -1205,8 +1100,9 @@ function api_dashboardDatos() {
  *  EVENTOS; 100% serializable. Modo 'MES' → Bloque A + censo con indicadores
  *  del mes; 'GENERAL' → censo histórico del sector. `actividad` restringe el
  *  censo a pacientes con al menos un evento en el período ('' = todos). */
-function api_remVista(anio, mes, sector, modo, actividad) {
+function api_remVista(anio, mes, sector, modo, actividad, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     anio = Number(anio); mes = Number(mes);
     if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
     var filtro = Rem_bucketSector(Utl_texto(sector).trim() === '' ? 'todos' : sector);
@@ -1244,88 +1140,18 @@ function api_buscar(termino, token) {
 function api_ficha(idInterno, token) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'Sesión de usuario no detectada o invitación no válida; acceso denegado' };
-    var pacientes = Modelo_leerPacientesCampos(_FICHA_CAMPOS_OPERATIVOS);
-    var paciente = null;
-    var idNormalizado = Utl_texto(idInterno).trim();
-
-    for (var i = 0; i < pacientes.length; i++) {
-      var idSheet = Utl_texto(pacientes[i].ID_INTERNO).trim();
-      if (idSheet === idNormalizado) { paciente = pacientes[i]; break; }
-    }
-
-    if (!paciente) {
+    // Construcción UNIFICADA de la ficha (dominio 31_Ficha): datos operativos,
+    // eventos vigentes corregidos, seguimiento, patologías, dupla y META
+    // (fuente, última actualización, revisión pendiente, ingreso pendiente).
+    try {
+      return Ficha_construir_(idInterno, { incluirIngresoPendiente: true });
+    } catch (errFicha) {
       return {
         ok: false,
-        code: 'PACIENTE_NO_ENCONTRADO',
-        message: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idNormalizado),
-        totalLeidos: pacientes.length
+        code: 'ERROR_BACKEND',
+        message: errFicha && errFicha.message ? errFicha.message : String(errFicha)
       };
     }
-
-    var eventos = [];
-    try {
-      eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO',
-        'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION']).filter(function (e) {
-        return Utl_texto(e.ID_INTERNO) === Utl_texto(idNormalizado);
-      }).sort(function (a, b) {
-        return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? -1 :
-               Utl_texto(a.FECHA_EVENTO) > Utl_texto(b.FECHA_EVENTO) ? 1 : 0;
-      });
-    } catch (evErr) {
-      console.warn('Error leyendo eventos para ficha:', evErr.message);
-      // continuar sin eventos pero con datos del paciente
-    }
-
-    var ficha = {};
-    _FICHA_CAMPOS_OPERATIVOS.forEach(function (c) {
-      var v = paciente[c];
-      // convertir Date objects a ISO string para serialización
-      if (v instanceof Date) {
-        v = v.getFullYear() + '-' + ('0'+(v.getMonth()+1)).slice(-2) + '-' + ('0'+v.getDate()).slice(-2);
-      }
-      ficha[c] = v !== undefined && v !== null ? v : '';
-    });
-
-    ficha.EDAD = Utl_edadDesde(paciente.FECHA_NACIMIENTO);
-    ficha.eventos = eventos.map(function (e) {
-      var fechaEv = e.FECHA_EVENTO;
-      if (fechaEv instanceof Date) {
-        fechaEv = fechaEv.getFullYear() + '-' + ('0'+(fechaEv.getMonth()+1)).slice(-2) + '-' + ('0'+fechaEv.getDate()).slice(-2);
-      }
-      return { fecha: fechaEv, tipo: e.TIPO_EVENTO, sector: e.SECTOR,
-               riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION };
-    });
-
-    /* Catálogo e información de selección en la MISMA llamada (menos RPC) */
-    ficha.dupla = {
-      catalogo: Profesionales_catalogo().filter(function (c) { return c.ACTIVO; })
-        .map(function (c) { return { CODIGO: c.CODIGO, NOMBRE: c.NOMBRE }; }),
-      seleccionados: (Utl_texto(paciente.DUPLA_INGRESO).split(';').map(function (s) {
-        return s.trim().toUpperCase(); }).filter(function (s) { return s; }))
-    };
-    ficha.patologias = {
-      catalogo: CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; }).map(function (c) {
-        return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO, peso: c.PONDERACION }; }),
-      seleccionadas: paciente.CONDICIONES ? Utl_texto(paciente.CONDICIONES).split(';').filter(Boolean) : [],
-      otrasPatologias: paciente.OTRAS_PATOLOGIAS ? Utl_texto(paciente.OTRAS_PATOLOGIAS) : ''
-    };
-
-    /* Seguimiento y controles consolidados (misma fuente que el Panel).
-       Usa la fecha agendada manualmente para estado, color y recordatorio. */
-    try {
-      var tz = _UI_tz();
-      var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-      var cfg = _UI_controlConfig();
-      var freq = cfg.freq;
-      var aviso = cfg.aviso;
-      var filasSeg = Control_filasPanel([paciente], freq, hoyIso, aviso).filas;
-      ficha.seguimiento = (filasSeg && filasSeg[0]) || null;
-    } catch (e) {
-      ficha.seguimiento = null;
-    }
-
-    return { ok: true, ficha: ficha };
-
   } catch (e) {
     return {
       ok: false,
@@ -1335,51 +1161,84 @@ function api_ficha(idInterno, token) {
   }
 }
 
+/**
+ * Endpoint ingresos pendientes (módulo ficha 2.0): listado paginado con
+ * filtros sector/término/estado. Reutiliza el pipeline de staging existente
+ * (Ingresos_listarPendientes) — nunca una segunda normalización.
+ */
+function api_ingresosPendientes(opciones, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    var r = Ingresos_listarPendientes(opciones || {});
+    return { ok: true, filas: r.filas, total: r.total, inicio: r.inicio, limite: r.limite };
+  } catch (e) {
+    Log_error('Ingresos', 'pendientes', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/**
+ * Endpoint detalle de un ingreso pendiente (pre-ficha): UNA lectura acotada a
+ * la fila pedida, sin escanear la hoja completa.
+ */
+function api_ingresoDetalle(nombreHoja, filaFisica, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    return Ingresos_detallePendiente(nombreHoja, filaFisica);
+  } catch (e) {
+    Log_error('Ingresos', 'detalle', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/**
+ * Endpoint incorporar un ingreso pendiente (ficha 2.0): procesa SOLO esa fila
+ * vía el pipeline único (INGRESO → PACIENTES → EVENTOS → vistas SECTOR_*).
+ * Idempotente y con exclusión mutua (Ecicep_conLock_): el 2º clic obtiene
+ * resultado null (motivo 'SIN_PENDIENTE') sin duplicar nada.
+ */
+function api_ingresoIncorporar(nombreHoja, filaFisica, confirmarNuevo, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    return Ecicep_conLock_(function () {
+      return Ingresos_procesarFila(nombreHoja, filaFisica, { confirmarNuevo: confirmarNuevo === true });
+    });
+  } catch (e) {
+    Log_error('Ingresos', 'incorporar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/**
+ * Endpoint guardado OPTIMISTA de la ficha (concurrencia, #76/#77):
+ * cambios = {CAMPO: {anterior, valor}}. Valida contra el valor actual antes
+ * de escribir; SECTOR se descompone hacia CAMBIO_SECTOR. Lock de exclusión
+ * mutua para las operaciones compuestas.
+ */
+function api_fichaGuardarCambios(idInterno, cambios, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    return Ecicep_conLock_(function () {
+      return Ficha_guardarCambios_(idInterno, cambios);
+    });
+  } catch (e) {
+    Log_error('Ficha', 'guardarCambios', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
 /** Endpoint sidebar: registra un evento para un paciente existente y
  *  sincroniza la caché de estado vigente en PACIENTES. */
-function api_registrarEvento(payload) {
+function api_registrarEvento(payload, token) {
   try {
-    var p = payload || {};
-    if (TIPOS_EVENTO.VALIDOS.indexOf(p.tipoEvento) === -1) return { ok: false, motivo: 'TIPO_INVALIDO' };
-    var fecha = Norm_normalizarFecha(p.fecha);
-    if (fecha.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
-
-    var encontrado = Modelo_buscarPaciente(p.idInterno);
-    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-    var objetivo = encontrado.obj;
-    var idx = encontrado.idx;
-
-    var evento = {
-      ID_EVENTO: Ev_nuevoId(),
-      ID_INTERNO: objetivo.ID_INTERNO,
-      RUT: objetivo.RUT,
-      NOMBRE: objetivo.NOMBRE,
-      FECHA_EVENTO: fecha.iso,
-      TIPO_EVENTO: p.tipoEvento,
-      SECTOR: objetivo.SECTOR,
-      RIESGO_G: objetivo.ESTRATIFICACION || '',
-      PROFESIONAL: p.profesional || '',
-      PROFESIONAL_TIPO: '',
-      DESCRIPCION: p.descripcion || '',
-      CANTIDAD: '',
-      OBSERVACIONES: p.observaciones || '',
-      FUENTE: p.fuente || 'UI_FICHA',
-      REGISTRADO_POR: (p.registradoPor !== undefined && p.registradoPor !== null)
-        ? p.registradoPor : _ingresosUsuarioActual(),
-      FECHA_REGISTRO: null
-    };
-    var esquema = Modelo_asegurarEsquemaPacientes();
-    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
-    Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
-    Ingresos_sincronizarCache(objetivo, evento);
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-         .setValues([Modelo_filaDesdeObjeto(objetivo)]);
-
-    Modelo_refrescarVistasSectores();
-    Log_info('Ficha', 'registrarEvento', evento.TIPO_EVENTO + ' → ' + evento.ID_INTERNO);
-    Log_flush();
-    return { ok: true, evento: { tipo: evento.TIPO_EVENTO, fecha: evento.FECHA_EVENTO } };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    // Delegación al dominio (31_Ficha): ayuda de tiempo real dentro del mismo
+    // pipeline de eventos, con refresco ACOTADO al sector del objetivo.
+    return Eventos_registrarPaciente_(payload, { fuenteTransporte: 'api_registrarEvento' });
   } catch (e) {
     Log_error('Ficha', 'registrarEvento', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1388,7 +1247,8 @@ function api_registrarEvento(payload) {
 }
 
 /** Endpoint sidebar: lista casos ABIERTOS con comparación origen vs candidato. */
-function api_revisionListar() {
+function api_revisionListar(token) {
+  if (!WebApp_autorizarBuscador(token)) return { casos: [], metricas: {} };
   var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
   if (!hoja || hoja.getLastRow() < 2) return { casos: [], metricas: {} };
   var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'TELEFONOS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO']);
@@ -1439,10 +1299,23 @@ function api_revisionListar() {
 }
 
 /** Endpoint sidebar: aplica la decisión humana sobre un caso ABIERTO. */
-function api_revisionResolver(indiceHoja, decision) {
+function api_revisionResolver(indiceHoja, decision, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
     if (!hoja) return { ok: false, motivo: 'SIN_HOJA' };
+    // Mutación compuesta (PACIENTES + EVENTOS + CONFLICTOS): exclusión mutua.
+    return Ecicep_conLock_(function () { return _api_revisionResolverLocked_(indiceHoja, decision); });
+  } catch (e) {
+    Log_error('Revision', 'resolver', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/** LOCK-INTERNO: cuerpo real de api_revisionResolver (nunca lockea). */
+function _api_revisionResolverLocked_(indiceHoja, decision) {
+    var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
     // Lectura única del bloque: la fila del caso y (si aplica) las hermanas del
     // mismo origen se derivan del mismo getDataRange (una lectura por acción).
     var bloqueConflictos = Utl_leerBloque(hoja);
@@ -1509,11 +1382,6 @@ function api_revisionResolver(indiceHoja, decision) {
       (hermanas ? ' · +' + hermanas + ' hermanas del mismo origen' : ''));
     Log_flush();
     return { ok: true, accion: prep.accion, destinoId: destinoId };
-  } catch (e) {
-    Log_error('Revision', decision, e && e.message ? e.message : String(e));
-    Log_flush();
-    return { ok: false, motivo: e && e.message ? e.message : String(e) };
-  }
 }
 
 /** FASE 4.0 — limpieza segura del dataset ficticio. */
@@ -1745,7 +1613,8 @@ function UI_diagnosticoTrazabilidad() {
 // ===========================================================================
 
 /** Endpoint sidebar: devuelve catálogo + condiciones actuales del paciente. */
-function api_patologiasAbrir(idInterno) {
+function api_patologiasAbrir(idInterno, token) {
+  if (!WebApp_autorizarBuscador(token)) return { catalogo: [], seleccionadas: [], otrasPatologias: '', error: 'ACCESO_DENEGADO' };
   var catalogo = CATALOGO_CONDICIONES_ECICEP.filter(function (c) { return c.ACTIVA; }).map(function (c) {
     return { codigo: c.CODIGO, nombre: c.NOMBRE_CANONICO, peso: c.PONDERACION };
   });
@@ -1778,48 +1647,12 @@ function Condiciones_validarSeleccion(codigos, catalogo) {
 }
 
 /** Endpoint sidebar: valida y guarda las patologías del paciente. */
-function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias) {
+function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias, token) {
   try {
-    var val = Condiciones_validarSeleccion(codigosSeleccionados, CATALOGO_CONDICIONES_ECICEP);
-    if (val.invalidos.length) return { ok: false, motivo: 'CÓDIGOS_INVALIDOS', invalidos: val.invalidos };
-
-    var esquema = Modelo_asegurarEsquemaPacientes();
-    if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
-
-    var encontrado = Modelo_buscarPaciente(idInterno);
-    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-    var idx = encontrado.idx;
-    var paciente = encontrado.obj;
-
-    var anteriores = Utl_texto(paciente.CONDICIONES);
-    var ahora = new Date();
-    paciente.CONDICIONES = val.validos.join(';');
-    paciente.OTRAS_PATOLOGIAS = Utl_texto(otrasPatologias).trim();
-    paciente.FECHA_ACTUALIZACION = ahora;
-
-    var estratRes = Estrat_evaluar(val.validos.join(';'), CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
-    var estratValor = estratRes.estado === 'CALCULADO' ? String(estratRes.resultado) : '';
-    var antEstrat = Utl_texto(paciente.ESTRATIFICACION);
-    paciente.ESTRATIFICACION = estratValor;
-    paciente.ESTRAT_ORIGEN = String(antEstrat || '');
-    paciente.ESTRAT_CALCULADA = String(estratRes.resultado || '');
-    paciente.ESTRAT_FECHA_CALCULO = ahora;
-
-    // Condiciones + estratificación en UNA sola escritura de la fila física
-    // (antes: dos setValues consecutivos al mismo rango → 1 RPC extra).
-    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-         .setValues([Modelo_filaDesdeObjeto(paciente)]);
-
-    Log_info('Patologias', 'guardar', 'paciente=' + idInterno + ' anteriores=[' + anteriores + '] nuevas=[' + val.validos.join(';') + ']');
-    Log_flush();
-
-    try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
-
-    return { ok: true, condiciones: val.validos, cantidad: val.validos.length,
-             puntaje: _calcularPuntaje(val.validos),
-             estratificacion: estratValor || 'pendiente',
-             estratRegla: estratRes.regla || '',
-             esquemaMigrado: !!esquema.migrada };
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    // Delegación al dominio (31_Ficha): validación única + escritura única +
+    // recálculo de estratificación + refresco acotado del sector.
+    return Patologias_guardarPaciente_(idInterno, codigosSeleccionados, otrasPatologias);
   } catch (e) {
     Log_error('Patologias', 'guardar', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1863,13 +1696,15 @@ var PRUEBAS_SISTEMA = [
 ];
 
 /** Registro para el cliente (checkboxes agrupados por módulo). */
-function api_pruebasRegistro() {
+function api_pruebasRegistro(token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO', pruebas: [] };
   return { ok: true, pruebas: PRUEBAS_SISTEMA };
 }
 
 /** Ejecuta SOLO las pruebas pedidas (#9). Cada check es inteligente cuando
  *  puede (#11): evalúa funcionamiento real, no solo existencia. Registra en LOG (#10). */
-function api_pruebasSistema(ids) {
+function api_pruebasSistema(ids, token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO', resultados: [], resumen: { total: 0 } };
   var t0 = Date.now();
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
   var pedidos = (ids && ids.length) ? ids : PRUEBAS_SISTEMA.map(function (p) { return p.id; });

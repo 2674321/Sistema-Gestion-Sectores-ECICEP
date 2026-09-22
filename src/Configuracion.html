@@ -109,7 +109,7 @@ span.etq{display:block;font:600 11px 'Inter';letter-spacing:.04em;text-transform
 </div>
 
 <script>
-var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 var CONFIG_actual = [];
 var SECCIONES = ['TODAS','ESTRATIFICACION','CORREOS_RESPONSABLES','COMUNES','ADMINISTRADOR','OTRAS'];
@@ -136,7 +136,7 @@ function cargar(){
       cargarResponsables();
     })
     .withFailureHandler(function(e){st.innerHTML='<span class="chip warn">Error: '+_esc(e&&e.message||e)+'</span>';})
-    .api_configListar();
+    .api_configListar(ECICEP_ACCESO);
 }
 
 function cargarResponsables(){
@@ -151,7 +151,7 @@ function cargarResponsables(){
       renderRespList(); renderRespDiag(); buildRespOptions();
     })
     .withFailureHandler(function(e){toast('Error: '+(e&&e.message||e),'err');})
-    .api_responsablesListar();
+    .api_responsablesListar(ECICEP_ACCESO);
 }
 
 function pintarFiltros(){
@@ -403,7 +403,7 @@ function guardarResponsables(btn){
       cargar();
     })
     .withFailureHandler(function(e){_restaurarBot(btn);toast('Error: '+(e&&e.message||e),'err');})
-    .api_responsablesGuardarSector(RESP_sec, RESP_draft);
+    .api_responsablesGuardarSector(RESP_sec, RESP_draft, ECICEP_ACCESO);
 }
 
 /* ---- Tabla genérica de CONFIG (resto de secciones) ---- */

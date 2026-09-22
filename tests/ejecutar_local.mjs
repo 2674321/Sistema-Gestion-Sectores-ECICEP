@@ -41,7 +41,9 @@ const archivos = [
   'src/11_DatosPrueba.js',
   'src/10_Pruebas.js',
   'src/27_Actualizacion.js',
-  'src/28_IA.js'
+  'src/28_IA.js',
+  'src/29_ActualizacionCaptura.js',
+  'src/31_Ficha.js'
 ];
 
 let codigo = '';

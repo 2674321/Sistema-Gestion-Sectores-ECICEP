@@ -7,6 +7,38 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.2 — Ficha de paciente 2.0 + incorporación controlada de ingresos (deploy @217, URL reutilizada)
+
+- **Corrección de código muerto pre-existente**: `Ingresos_escribirEstados`
+  recorría un `Map` de `Utl_agruparPor` con `Object.keys(porHoja)` (rotura
+  introducida en ETAPA 3b) → el write-back de `ESTADO_INGRESO`/`NOTA_SISTEMA`
+  era **código muerto** en producción. Corregido con `Array.from(porHoja.entries())`
+  y la variable de grupo `resHoja` (`src/12_Ingresos.js`). Regresión cubierta en
+  la nueva suite.
+- **Ficha de paciente 2.0** (`src/Sidebar.html` reescrita): pestañas Resumen /
+  Datos / Seguimiento / Clínico / Historial / Equipo; módulo **ingresos
+  pendientes** (`api_ingresosPendientes` paginado → `api_ingresoDetalle`
+  pre-ficha → `api_ingresoIncorporar` idempotente vía `Ecicep_conLock_`);
+  edición centralizada en el dominio (`Paciente_actualizarCampos_` +
+  `Paciente_validarCampo_` en `src/31_Ficha.js`, validación estricta
+  `CAMPO_INVALIDO`). `_ECICEP_DEBUG=false`.
+- **Guards por token en la interfaz**: las RPC `api_*` de ficha exigen el token
+  compartido (`ACCESO_DENEGADO` sin él). Se propagó el token a los paneles que
+  lo omitían (Controles, Dashboard, Configuracion, RemVista, CentroPruebas)
+  — esas llamadas estaban rotas en producción con los guards activos y quedaron
+  reparadas. Los tests del harness VM reciben la lectura defensiva de `body`.
+- **Tests**: nueva suite `tests/ficha_ingresos_v0102.mjs` (**13/13**); batería
+  `node tools/verificar.mjs` → **17 suites · 0 fallos** (núcleo 671/671,
+  contrato 38/38, regresiones 44/44, captura backend V2 73/73, aceptación
+  50/50, auditoría v0.10.1 15/15, validar_html 21/21).
+- **Docs vigentes actualizadas**: ARQUITECTURA.md, README.md, PENDIENTES.md,
+  DECISIONES.md (DEC-066), `docs/INFORME_2026-09-22_FICHA_V2.md`.
+- **Pendiente que permanece**: E2E en vivo (sin sesión Google en el host) para
+  recorrer ingresos pendientes → incorporar → ficha sobre el libro real;
+  verificación de páginas panel en navegador anónimo.
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado @217 (URL base/QR intactos).
+
 ## v0.10.1 — Auditoría de source sync, backup e idempotencia (deploy que mantiene la URL)
 
 - **Endurecimientos de la auditoría v0.10.0** (informe

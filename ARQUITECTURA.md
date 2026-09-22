@@ -1,5 +1,31 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-22 (v0.10.2):**
+> - **Corrección de código muerto**: `Ingresos_escribirEstados` recorría un
+>   `Map` (retorno de `Utl_agruparPor`, introducido en ETAPA 3b) con
+>   `Object.keys(porHoja)` → el write-back de `ESTADO_INGRESO`/`NOTA_SISTEMA`
+>   nunca llegaba a las hojas `INGRESO_*` en producción. Corregido con
+>   `Array.from(porHoja.entries())` + variable de grupo `resHoja`
+>   (`src/12_Ingresos.js`).
+> - **Ficha de paciente 2.0** (`src/Sidebar.html`): pestañas Resumen / Datos /
+>   Seguimiento / Clínico / Historial / Equipo; módulo **ingresos pendientes**
+>   (lista paginada `api_ingresosPendientes` → detalle pre-ficha
+>   `api_ingresoDetalle` → incorporación idempotente `api_ingresoIncorporar`).
+>   La edición de ficha delega en el dominio (`31_Ficha.js`):
+>   `Paciente_actualizarCampos_` + validación estricta `Paciente_validarCampo_`
+>   (reemplaza el `switch` histórico de `api_actualizarPaciente`; errores
+>   `CAMPO_INVALIDO:<campo>` con `motivo` humano). `_ECICEP_DEBUG=false`.
+> - **Guards por token en la interfaz**: todas las RPC `api_*` de ficha exigen
+>   el token compartido (`WebApp_autorizarBuscador`) y devuelven
+>   `ACCESO_DENEGADO` sin él. Se propagó el token a todos los paneles que lo
+>   omitían (`Controles`, `Dashboard`, `Configuracion`, `RemVista`,
+>   `CentroPruebas`) para que sigan operativos con los guards — antes esas
+>   llamadas estaban rotas en producción. Mutaciones compuestas usan
+>   `Ecicep_conLock_` (ScriptLock; contención → `SERVICIO_OCUPADO`).
+> - Batería: **17 suites · 0 fallos** (núcleo 671/671, contrato 38/38,
+>   regresiones 44/44, ficha-ingresos v0.10.2 13/13, validar_html 21/21).
+>   Historia en `docs/HISTORIAL.md`; informe `docs/INFORME_2026-09-22_FICHA_V2.md`.
+
 > **Actualización 2026-09-21 (v0.10.0):**
 > - **`SALUD_MENTAL` extremo a extremo**: el modelo clínico incorpora
 >   `PACIENTES.SALUD_MENTAL` (`SI`/`NO`/vacío = sin información), registrado por

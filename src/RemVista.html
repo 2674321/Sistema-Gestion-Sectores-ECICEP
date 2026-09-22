@@ -56,7 +56,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 }
 </style>
 </head>
-<body data-dash-url="<?= DASH_URL ?>" data-generar-url="<?= GENERAR_REM_URL ?>">
+<body data-dash-url="<?= DASH_URL ?>" data-generar-url="<?= GENERAR_REM_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <div class="tit">
@@ -110,6 +110,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 var MODO = 'MES';
 function setModo(m) {
   MODO = m;
@@ -207,7 +208,7 @@ function consultar(btn) {
       if (btn) { btn.disabled = false; }
       pintarError(e && e.message || e);
     })
-    .api_remVista(anio, mes, sector, MODO, act);
+    .api_remVista(anio, mes, sector, MODO, act, ECICEP_ACCESO);
 }
 (function init() {
   var h = new Date();

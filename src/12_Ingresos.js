@@ -337,7 +337,12 @@ function Ingresos_escribirEstados(resultados) {
     if (typeof SpreadsheetApp === 'undefined' || !resultados || !resultados.length) return;
     var ss = Modelo_ss();
     var porHoja = Utl_agruparPor(resultados, function (r) { return r.hoja; });
-    Object.keys(porHoja).forEach(function (nombreHoja) {
+    // Utl_agruparPor devuelve un Map (no un objeto): Object.keys no lo puede
+    // recorrer. FIX: reescritura del estado en las hojas INGRESO_* era código
+    // muerto (ETAPA 3b) — ESTADO_INGRESO/NOTA_SISTEMA nunca se marcaban.
+    var gruposHoja = Array.from(porHoja.entries());
+    gruposHoja.forEach(function (grupo) {
+      var nombreHoja = grupo[0], resHoja = grupo[1];
       var hoja = ss.getSheetByName(nombreHoja);
       if (!hoja) return;
       var ini = Modelo_dataStartRow(nombreHoja);
@@ -367,12 +372,12 @@ function Ingresos_escribirEstados(resultados) {
       var desde = Math.min(colEstado, colNota), ancho = Math.abs(colEstado - colNota) + 1;
       var bloque = hoja.getRange(ini, desde, ultima - ini + 1, ancho).getValues();
       var offsetEstado = colEstado - desde, offsetNota = colNota - desde;
-      console.log('[PIPE] escribirEstados ' + nombreHoja + ' n=' + porHoja[nombreHoja].length +
+      console.log('[PIPE] escribirEstados ' + nombreHoja + ' n=' + resHoja.length +
         ' ini=' + ini + ' hr=' + hr + ' ultima=' + ultima + ' desde=' + desde + ' ancho=' + ancho +
         ' colEstado=' + colEstado + ' colNota=' + colNota +
-        ' filas=' + JSON.stringify(porHoja[nombreHoja].map(function (r) { return r.filaOrigen; })) +
-        ' estados=' + JSON.stringify(porHoja[nombreHoja].map(function (r) { return r.estado; })));
-      porHoja[nombreHoja].forEach(function (r) {
+        ' filas=' + JSON.stringify(resHoja.map(function (r) { return r.filaOrigen; })) +
+        ' estados=' + JSON.stringify(resHoja.map(function (r) { return r.estado; })));
+      resHoja.forEach(function (r) {
         var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
         if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
         bloque[filaHoja][offsetEstado] = r.estado;
@@ -390,12 +395,12 @@ function Ingresos_escribirEstados(resultados) {
       // Verificación post-escritura: re-lectura acotada a las filas afectadas
       // (no al bloque completo) para comprobar que el estado quedó donde los
       // lectores (Form_leerFilaIngreso) lo buscan.
-      var filasHoja = porHoja[nombreHoja].map(function (r) { return Number(r.filaOrigen); }).filter(function (nf) { return !isNaN(nf); });
+      var filasHoja = resHoja.map(function (r) { return Number(r.filaOrigen); }).filter(function (nf) { return !isNaN(nf); });
       if (!filasHoja.length) return;
       var iniVerif = Math.max(ini, Math.min.apply(null, filasHoja));
       var finVerif = Math.min(ultima, Math.max.apply(null, filasHoja));
       var verif = hoja.getRange(iniVerif, desde, finVerif - iniVerif + 1, ancho).getValues();
-      porHoja[nombreHoja].forEach(function (r) {
+      resHoja.forEach(function (r) {
         var fi = Number(r.filaOrigen) - iniVerif;
         if (isNaN(fi) || fi < 0 || fi >= verif.length) return;
         console.log('[PIPE] escribirEstados verif ' + nombreHoja + ' fila=' + r.filaOrigen +
@@ -425,6 +430,176 @@ function Ingresos_acotarStaging(staging, hojaNombre, soloHojas, soloFilas) {
   var set = {};
   soloFilas[hojaNombre].forEach(function (nf) { set[String(nf)] = true; });
   return staging.filter(function (f) { return set[Utl_texto(f.FILA_ORIGEN)]; });
+}
+
+// ---------------------------------------------------------------------------
+// Ingresos pendientes — módulo de la ficha 2.0 (ETAPA 3c)
+// Reutiliza ÍNTEGRAMENTE el pipeline existente: nunca una segunda
+// normalización ni una segunda lógica. Solo lectura de staging + filtros.
+// ---------------------------------------------------------------------------
+
+/**
+ * PURA: respuesta unificada del procesamiento. Mantiene el contrato histórico
+ * (resumen plano) y, SOLO si `opciones.incluirResultados === true`, agrega el
+ * detalle por fila (hoja, filaOrigen, estado, nota, idInterno, idEvento).
+ * Aplica en todos los retornos (sin pendientes, duplicados, éxito).
+ */
+function Ingresos_respuesta_(salida, opciones) {
+  var base = salida && typeof salida === 'object' && ('resumen' in salida)
+    ? salida.resumen : salida;
+  var r = Object.assign({}, base || {});
+  if (opciones && opciones.incluirResultados) {
+    r.resultados = ((salida && salida.resultados) || []).map(function (x) {
+      return {
+        hoja: x.hoja, filaOrigen: x.filaOrigen, estado: x.estado, nota: x.nota,
+        idInterno: x.idInterno || '', idEvento: x.idEvento || ''
+      };
+    });
+  }
+  return r;
+}
+
+/** PURA: resuelve la clave de HOJAS_INGRESO desde un nombre de hoja. */
+function Ingresos_claveHojaNombre_(nombreHoja) {
+  var k = Utl_texto(nombreHoja).toUpperCase().replace(/\s+/g, '_');
+  if (HOJAS_INGRESO.hasOwnProperty(k)) return k;
+  return HOJAS_INGRESO.hasOwnProperty(nombreHoja) ? nombreHoja : k;
+}
+
+/** PURA: mapeo mínimo de una fila de staging pendiente para el listado. */
+function Ingresos_filaPendientePublica_(fila) {
+  var n = fila.NORMALIZADO || {};
+  var ev = Utl_texto(fila.ESTADO_VALIDACION);
+  var errores = (fila.ERRORES || []).length;
+  var warnings = (fila.WARNINGS || []).length;
+  var estado = ev === 'ERROR' || errores > 0 ? 'ERROR'
+    : (warnings > 0 ? 'WARNING' : 'PENDIENTE');
+  return {
+    hoja: fila.HOJA_ORIGEN, fila: Number(fila.FILA_ORIGEN),
+    sector: n.SECTOR || Ingresos_hojaASector(fila.HOJA_ORIGEN) || '',
+    rut: n.RUT || '', nombre: n.NOMBRE || '',
+    fechaIngreso: n.FECHA_INGRESO || '',
+    estratificacion: n.ESTRATIFICACION || '',
+    estado: estado, errores: errores, warnings: warnings
+  };
+}
+
+/**
+ * GAS: lista las filas pendientes (todo lo no procesado: ESTADO_INGRESO !=
+ * INGRESADO) de las hojas INGRESO_*, reutilizando Ingresos_leerHoja() (que ya
+ * descarta lo INGRESADO). Filtros: sector, término (RUT/nombre), estado
+ * (ERROR/WARNING/PENDIENTE). Paginación inicio+limite y orden hoja/fila.
+ */
+function Ingresos_listarPendientes(opciones) {
+  opciones = opciones || {};
+  var termino = Utl_texto(opciones.termino).toUpperCase().trim();
+  var sector = Utl_texto(opciones.sector).toUpperCase().trim();
+  var porEstado = Utl_texto(opciones.estado).toUpperCase().trim();
+  var inicio = Math.max(Number(opciones.inicio) || 0, 0);
+  var limite = Math.min(Math.max(Number(opciones.limite) || 100, 1), 500);
+  var filas = [];
+  Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
+    if (sector && Ingresos_hojaASector(nombreHoja) !== sector) return;
+    var leida = Ingresos_leerHoja(nombreHoja);
+    (leida.staging || []).forEach(function (fila) {
+      var publica = Ingresos_filaPendientePublica_(fila);
+      if (sector && publica.sector.toUpperCase() !== sector) return;
+      if (porEstado === 'ERROR' || porEstado === 'WARNING' || porEstado === 'PENDIENTE') {
+        if (publica.estado !== porEstado) return;
+      }
+      if (termino && (publica.rut + ' ' + publica.nombre).toUpperCase().indexOf(termino) === -1) return;
+      filas.push(publica);
+    });
+  });
+  filas.sort(function (a, b) {
+    return a.hoja === b.hoja ? (a.fila - b.fila) : (a.hoja < b.hoja ? -1 : 1);
+  });
+  var total = filas.length;
+  return { filas: filas.slice(inicio, inicio + limite), total: total, inicio: inicio, limite: limite };
+}
+
+/** PURA: pre-ficha de un ingreso pendiente (mismo lenguaje visual que la ficha). */
+function Ingresos_preFicha_(fila) {
+  var n = fila.NORMALIZADO || {};
+  return {
+    nombre: n.NOMBRE || '', rut: n.RUT || '',
+    sector: n.SECTOR || Ingresos_hojaASector(fila.HOJA_ORIGEN) || '',
+    fechaIngreso: n.FECHA_INGRESO || '', sexo: n.SEXO || '',
+    fechaNacimiento: n.FECHA_NACIMIENTO || '',
+    telefono: n.TELEFONOS || '', telefonoObs: n.TELEFONO_OBS || '',
+    estratificacion: n.ESTRATIFICACION || '', dupla: n.DUPLA_INGRESO || '',
+    profesionalSeguimiento: n.PROFESIONAL_SEGUIMIENTO || '',
+    saludMental: n.SALUD_MENTAL || '', observaciones: n.OBSERVACIONES || '',
+    estadoValidacion: fila.ESTADO_VALIDACION || '',
+    warnings: (fila.WARNINGS || []).map(function (w) { return w.campo + ': ' + w.mensaje; }),
+    errores: (fila.ERRORES || []).map(function (e) { return e.campo + ': ' + e.mensaje; })
+  };
+}
+
+/**
+ * GAS: detalle de UNA fila pendiente (pre-ficha). Una sola lectura acotada a
+ * esa fila (Ingresos_leerHoja con filasPermitidas): no escanea la hoja entera.
+ */
+function Ingresos_detallePendiente(nombreHoja, filaFisica) {
+  var k = Ingresos_claveHojaNombre_(nombreHoja);
+  if (!HOJAS_INGRESO[k]) return { ok: false, motivo: 'HOJA_INGRESO_INVALIDA' };
+  var nf = Number(filaFisica);
+  if (!nf || nf < 1) return { ok: false, motivo: 'FILA_INVALIDA' };
+  var leida = Ingresos_leerHoja(k, [String(nf)]);
+  var fila = (leida.staging || []).filter(function (f) {
+    return Utl_texto(f.FILA_ORIGEN) === String(nf);
+  })[0] || null;
+  if (!fila) return { ok: false, motivo: 'FILA_SIN_DATOS_O_YA_INGRESADA' };
+  return { ok: true, preFicha: Ingresos_preFicha_(fila), hoja: k, fila: Number(fila.FILA_ORIGEN) };
+}
+
+/**
+ * GAS (ficha 2.0): busca filas pendientes de un RUT en las hojas INGRESO_*.
+ * Se ejecuta SOLO al abrir la ficha (una lectura por hoja INGRESO_*).
+ */
+function Ingresos_buscarPendientesPorRut(rut) {
+  var nr = Norm_normalizarRut(rut);
+  if (!nr.rut) return [];
+  var resultado = [];
+  Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
+    var leida = Ingresos_leerHoja(nombreHoja);
+    (leida.staging || []).forEach(function (fila) {
+      var n = fila.NORMALIZADO || {};
+      if (!n.RUT) return;
+      var nrFila = Norm_normalizarRut(n.RUT);
+      if (nrFila.rut !== nr.rut) return;
+      resultado.push({
+        hoja: nombreHoja, fila: Number(fila.FILA_ORIGEN),
+        sector: n.SECTOR || Ingresos_hojaASector(nombreHoja),
+        fechaIngreso: n.FECHA_INGRESO || '', estado: fila.ESTADO_VALIDACION || ''
+      });
+    });
+  });
+  return resultado;
+}
+
+/**
+ * GAS: procesa UNA sola fila de INGRESO_* reutilizando el pipeline existente
+ * (nunca copia a SECTOR_*; la vista sectorial se actualiza por derivación).
+ * Idempotente: si la fila ya está INGRESADO, el pipeline la ignora → leidos 0.
+ */
+function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
+  opciones = opciones || {};
+  var k = Ingresos_claveHojaNombre_(nombreHoja);
+  if (!HOJAS_INGRESO[k]) return { ok: false, motivo: 'HOJA_INGRESO_INVALIDA' };
+  var nf = Number(filaFisica);
+  if (!nf || nf < 1) return { ok: false, motivo: 'FILA_INVALIDA' };
+  var soloFilas = {};
+  soloFilas[k] = [String(nf)];
+  var resumen = Ingresos_procesarTodasLasHojas({
+    soloHojas: [k], soloFilas: soloFilas,
+    confirmarNuevos: opciones.confirmarNuevo === true,
+    incluirResultados: true
+  });
+  var primer = (resumen.resultados || []).filter(function (r) {
+    return Utl_texto(r.filaOrigen) === String(nf);
+  })[0] || null;
+  return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
 }
 
 /**
@@ -495,7 +670,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   if (!staging.length) {
     Log_info('Ingresos', 'procesar', 'sin pendientes', null, null);
     Log_flush();
-    return vacio;
+    return Ingresos_respuesta_(Object.assign({}, vacio, { resultados: [] }), opciones);
   }
 
   // 2) auditoría completa en STAGING_IMPORT (valores originales incluidos)
@@ -535,7 +710,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
     salidaDuplicada.resumen.ejecucion = ejecucion;
     Log_info('Ingresos', 'procesar', JSON.stringify({ leidos: salidaDuplicada.resumen.leidos, duplicados: salidaDuplicada.resumen.duplicados }));
     Log_flush();
-    return salidaDuplicada.resumen;
+    return Ingresos_respuesta_(salidaDuplicada, opciones);
   }
 
   // 3) pipeline puro sobre el store real
@@ -595,7 +770,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   }), { ejecucion: ejecucion });
   Log_flush();
 
-  return salida.resumen;
+  return Ingresos_respuesta_(salida, opciones);
 }
 
 /**

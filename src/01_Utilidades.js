@@ -177,3 +177,22 @@ function _UI_get() {
   }
   return _UI_CACHE;
 }
+
+/**
+ * GAS: mutación con exclusión mutua (ScriptLock) para operaciones compuestas
+ * (incorporar ingreso, cambiar sector, resolver revisión, guardar patologías).
+ * En node/tests sin LockService ejecuta directo (sin exclusión real).
+ * Ante contención (lock tomado) devuelve {ok:false, motivo:'SERVICIO_OCUPADO'}
+ * para que el llamador lo propague igual que cualquier error de API.
+ */
+function Ecicep_conLock_(fn) {
+  if (typeof LockService === 'undefined') return fn();
+  var lock = null;
+  try { lock = LockService.getScriptLock(); } catch (e) { return fn(); }
+  if (!lock.tryLock(12000)) {
+    try { lock.releaseLock(); } catch (e2) {}
+    return { ok: false, motivo: 'SERVICIO_OCUPADO' };
+  }
+  try { return fn(); }
+  finally { try { lock.releaseLock(); } catch (e3) {} }
+}

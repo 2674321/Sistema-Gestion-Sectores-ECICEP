@@ -254,12 +254,18 @@ function _pruebas_salud_mental(t, A) {
     A.cierto(_FICHA_CAMPOS_OPERATIVOS.indexOf('SALUD_MENTAL') !== -1,
       'SALUD_MENTAL en la ficha operativa');
     var src = api_actualizarPaciente.toString();
-    A.cierto(src.indexOf("case 'SALUD_MENTAL'") !== -1,
-      'api_actualizarPaciente maneja SALUD_MENTAL');
-    A.cierto(src.indexOf('Norm_normalizarSaludMental') !== -1,
-      'api_actualizarPaciente usa Norm_normalizarSaludMental');
-    A.cierto(src.indexOf('errores.push') !== -1,
-      'valor no reconocido → error de negocio');
+    A.cierto(src.indexOf('Paciente_actualizarCampos_(') !== -1,
+      'api_actualizarPaciente delega en el dominio (ficha 2.0)');
+    A.cierto(typeof Paciente_validarCampo_ === 'function',
+      'validación estricta vive en 31_Ficha');
+    var vSi = Paciente_validarCampo_('SALUD_MENTAL', 'SI');
+    var vNo = Paciente_validarCampo_('SALUD_MENTAL', 'no');
+    var vMal = Paciente_validarCampo_('SALUD_MENTAL', 'QUIZAS');
+    A.igual(vSi.valor, 'SI', 'SI normalizado');
+    A.igual(vNo.valor, 'NO', 'NO normalizado');
+    A.igual(vMal.ok, false, 'valor no reconocido → error (no cae a best-effort)');
+    A.cierto(Paciente_validarCampo_.toString().indexOf('case \'SALUD_MENTAL\'') !== -1,
+      'el VALIDADOR estricto maneja SALUD_MENTAL');
   });
 }
 
@@ -2886,7 +2892,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.10.1', 'versión esperada v0.10.1');
+    A.igual(v, '0.10.2', 'versión esperada v0.10.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3124,9 +3130,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.1', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.2', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.10.1', 'versión esperada v0.10.1');
+    A.igual(v, '0.10.2', 'versión esperada v0.10.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -6318,7 +6324,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.10.1', 'VERSION es 0.10.1');
+    A.cierto(ECICEP.VERSION === '0.10.2', 'VERSION es 0.10.2');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {
