@@ -7,6 +7,45 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.1 — Auditoría de source sync, backup e idempotencia (deploy que mantiene la URL)
+
+- **Endurecimientos de la auditoría v0.10.0** (informe
+  `docs/INFORME_2026-09-22_AUDITORIA_V0101.md`):
+  - **Respaldo previo real en Drive** (`Instalar_asegurarBackup_`): la primera
+    etapa mutante de una ejecución crea `Backup_crear('PRE_INSTALAR')` (una copia
+    por token de ejecución, reutilizada por las etapas siguientes; clave
+    `ECICEP_INST_BK|<token>` en CacheService TTL 1800 + memo; llamadas legacy sin
+    token → fallback). Si el respaldo falla → `BACKUP_FALLIDO` y cero escrituras.
+    `api_instalarPaso(id, acceso, ejecucion)`; el cliente genera `_EJEC` en
+    `iniciarInstalacion()`. El webhook `Instalar_ejecutarPolitica` también
+    respalda antes de mutar.
+  - **Idempotencia por FUENTE con clave canónica** (`Fuentes_claveDedupe_`):
+    la comparación ignora mayúsculas/espacios/tildes y el formato de la fila; la
+    cadena FUENTE almacenada se conserva RAW. Un drift de literal en la config
+    entre ejecuciones no vuelve a generar eventos.
+  - **Preflight estructural** (`Fuentes_preflightFuentes` + `Fuentes_preflightInforme_`):
+    hoja autorizada ausente o archivo inaccesible/desconfigurado BLOQUEA la carga
+    (`HOJA_FUENTE_FALTANTE`) en dry-run y ejecución, sin leer ni escribir.
+  - **Una sola lectura real de fuentes entre dry-run y ejecución**
+    (`_Fuentes_analizar_` + `_Fuentes_escribir_` con memo `_FUENTES_ANALISIS_MEMO`
+    TTL 1h, poda y descarte al escribir); `Instalar_pFuentes` reutiliza el
+    análisis vía `ejecucionId`.
+  - **Merge conservador sin inflar trazabilidad**: guard de snapshot en TELEFONOS
+    (`if (can === actual) return`) → repetir Instalar no hace crecer `FUENTE` ni
+    `FECHA_ACTUALIZACION`; `Fuentes_guardarFilas` dedupe por origen → STAGING_IMPORT
+    archiva cada fila física UNA sola vez.
+  - **MIG-002 por nombre, sin pisar columnas**: `_mig002_asegurarIngresosSaludMental`
+    inserta `SALUD_MENTAL` tras `NOTA_SISTEMA` solo con celda libre y orden
+    canónico intacto; columna ocupada/encabezado ausente/desorden → `revision[]`
+    y BLOQUEO (`MIG-002:INGRESOS_REVISION:...`). Eliminado el alias `'SM'`.
+- **Tests**: nueva suite `tests/regresiones_auditoria_v010.mjs` (**15/15**) +
+  stubs de preflight en `tests/regresiones_revision.mjs`; `node tools/verificar.mjs`
+  → **16 suites · 0 fallos** (núcleo 671/671, contrato 36/36, regresiones 44/44…).
+- **Docs vigentes actualizadas**: ARQUITECTURA.md, README.md, PENDIENTES.md,
+  docs/MIGRACIONES.md, docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md.
+- **Pendiente que permanece**: E2E en vivo (sin sesión Google en el host) para
+  ejecutar Instalar sobre el libro real; README refleja "E2E real ⏳ pendiente".
+
 ## v0.10.0 — SALUD_MENTAL extremo a extremo + MIG-002 + Instalar reactivado (deploy `@215`)
 
 - **`SALUD_MENTAL` (SI/NO/vacío)**: nuevo campo clínico registrado por la dupla,

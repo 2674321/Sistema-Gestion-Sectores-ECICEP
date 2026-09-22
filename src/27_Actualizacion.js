@@ -390,6 +390,10 @@ function Act_mergearPaciente(paciente, n, opciones) {
     var can = Utl_texto(n[campo]);
     if (!can) return;
     if (snapshot && campo === 'TELEFONOS') {
+      // Reemplaza el consolidado solo cuando la fuente trae un valor distinto:
+      // reescribir el mismo valor marca la fila como "actualizada" y hace crecer
+      // FUENTE en cada Instalar repetido sin producir cambio real (B9).
+      if (can === actual) return;
       paciente[campo] = can;
       aplicados.push({ campo: campo, valor: can });
       return;

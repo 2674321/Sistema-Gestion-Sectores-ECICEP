@@ -622,6 +622,7 @@ test('Carga de fuentes simulada conserva memo y no registra logs persistentes', 
   c.Modelo_leerPacientes = () => [p]; c.Modelo_leerEventos = () => [];
   c.Fuentes_leerStagingAutorizado = () => [];
   c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 0 });
+  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
   c.Act_mergearPacientesDesdeStaging = (_, patients) => { patients[0].SEXO = 'F'; return {}; };
   c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [] });
   c.Log_info = () => { throw Error('No escribir logs'); };
@@ -633,6 +634,7 @@ test('Esquema incompatible detiene importación antes de anexar eventos', () => 
   c.Modelo_leerPacientes = () => []; c.Modelo_leerEventos = () => [];
   c.Fuentes_leerStagingAutorizado = () => [];
   c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 0 });
+  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
   c.Act_mergearPacientesDesdeStaging = () => ({ actualizados: 0, conflictos: 0 });
   c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [], pacientesNuevos: [{}], eventos: [{}] });
   c.Modelo_asegurarEsquemaPacientes = () => ({ ok: false, motivo: 'prueba' });

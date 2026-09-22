@@ -49,10 +49,49 @@ function api_instalarDiagnostico(acceso) {
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
 
+/** Memoria de respaldo dentro de la misma invocación (fallback a CacheService
+ *  entre RPC del cliente secuencial). */
+var _INSTALAR_BACKUP_MEMO = {};
+
+/** Asegura UN respaldo completo del libro ANTES de la primera etapa mutante de
+ *  una ejecución de instalación (B4). Idempotente por clave de ejecución
+ *  (CacheService 30 min + memo de invocación): si la clave ya existe, no crea
+ *  otro. Si el respaldo real falla → {ok:false} y NINGUNA etapa escribe.
+ *  En entornos sin GAS (pruebas node) se omite sin bloquear. */
+function Instalar_asegurarBackup_(ejecucion) {
+  var clave = 'ECICEP_INST_BK|' + Utl_texto(ejecucion);
+  if (!ejecucion) clave = 'ECICEP_INST_BK|LEGACY_' + Math.floor(Date.now() / 60000);
+  var cache = null;
+  if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+    try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+  }
+  var previo = null;
+  if (cache && cache.get) { try { previo = cache.get(clave); } catch (e) { previo = null; } }
+  if (previo) return { ok: true, skip: true, nombre: String(previo) };
+  if (_INSTALAR_BACKUP_MEMO[clave]) return { ok: true, skip: true, nombre: _INSTALAR_BACKUP_MEMO[clave] };
+  if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
+    return { ok: true, skip: true, sinRespaldo: true };
+  }
+  try {
+    var r = Backup_crear('PRE_INSTALAR');
+    if (!r || r.ok === false) {
+      return { ok: false, motivo: r && r.motivo ? r.motivo : 'BACKUP_FALLIDO' };
+    }
+    var nombre = r.nombre || 'PRE_INSTALAR';
+    _INSTALAR_BACKUP_MEMO[clave] = nombre;
+    if (cache && cache.put) { try { cache.put(clave, String(nombre), 1800); } catch (e) { /* best effort */ } }
+    return { ok: true, creado: true, nombre: nombre };
+  } catch (e) {
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
 /** Dispatcher de etapa: ejecuta SOLO la etapa pedida.
  *  Etapas mutantes toman LockService (requiere exclusividad; si está ocupado
- *  por otro proceso responde CONCURRENCIA y el cliente reintenta). */
-function api_instalarPaso(id, acceso) {
+ *  por otro proceso responde CONCURRENCIA y el cliente reintenta). Además, la
+ *  PRIMERA etapa mutante de una ejecución crea un respaldo real previo
+ *  (B4): si el respaldo falla, la etapa responde BACKUP_FALLIDO sin escribir. */
+function api_instalarPaso(id, acceso, ejecucion) {
   if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var reg = null;
   INSTALAR_ETAPAS.forEach(function (e) { if (e.id === id) reg = e; });
@@ -61,6 +100,15 @@ function api_instalarPaso(id, acceso) {
     var incompatible = Instalar_versionIncompatible_({ version: Mig_schemaLeido(),
       objetivo: String(SISTEMA_VERSION_SCHEMA_ACTUAL) });
     if (incompatible) return { ok: false, etapa: id, nombre: reg.nombre, motivo: incompatible };
+  }
+  var respaldo = null;
+  if (INSTALAR_ETAPAS_MUTAN[id]) {
+    var bk = Instalar_asegurarBackup_(ejecucion);
+    if (!bk.ok) {
+      return { ok: false, etapa: id, nombre: reg.nombre, motivo: 'BACKUP_FALLIDO',
+        linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
+    }
+    respaldo = bk.creado ? bk.nombre : null;
   }
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
   var lock = null;
@@ -87,6 +135,7 @@ function api_instalarPaso(id, acceso) {
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
     var r = fn() || {};
     r.etapa = id; r.nombre = reg.nombre; r.ms = Date.now() - t0;
+    if (respaldo) r.respaldo = respaldo;
     if (typeof r.ok === 'undefined') r.ok = true;
     if (r.ok === false) Log_error('Instalador', id, r.motivo || r.linea || 'La etapa informó error');
     else Log_info('Instalador', id, 'ok', null, r.ms);
@@ -328,24 +377,59 @@ function Mig_run002() {
   var a = _mig002_asegurarIngresosSaludMental();
   res.ingresosActualizados = a.actualizadas;
   res.ingresosSinHoja = a.sinHoja;
+  res.ingresosRevision = a.revision;
+  if (!a.ok) {
+    res.ok = false;
+    res.motivo = 'MIG-002:INGRESOS_REVISION:' + (a.revision || []).join(';');
+    return res;
+  }
   Log_info('Instalador', 'MIG-002',
     'PACIENTES 31 campos · SECTOR_* 17 · INGRESO_* SALUD_MENTAL');
   return res;
 }
 
-/** GAS (helper MIG-002): agrega el encabezado SALUD_MENTAL al final de las
- *  hojas INGRESO_* existentes que no lo tengan. Idempotente: no hace append de
- *  filas ni reescribe datos; solo el encabezado ausente. */
+/** GAS (helper MIG-002): asegura el encabezado SALUD_MENTAL en las hojas
+ *  INGRESO_* POR NOMBRE y orden canónico (nunca por posición mágica, B5).
+ *  Casos:
+ *   - ya existe SALUD_MENTAL        → idempotente, no toca nada;
+ *   - solo falta la SALUD_MENTAL final y la celda posterior a NOTA_SISTEMA
+ *     está vacía                     → escribe el encabezado;
+ *   - cualquier otra divergencia (encabezado canónico ausente o desordenado,
+ *     o columna ocupada tras NOTA_SISTEMA) → `revision` y BLOQUEA la
+ *     migración: no se escribe a ciegas sobre una columna ajena. */
 function _mig002_asegurarIngresosSaludMental() {
-  var res = { ok: true, actualizadas: [], sinHoja: [] };
+  var res = { ok: true, actualizadas: [], sinHoja: [], revision: [] };
+  var canonicos = INGRESO_COLUMNAS.slice(0, INGRESO_COLUMNAS.length - 1);
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     var hoja = Modelo_hoja(nombre);
     if (!hoja) { res.sinHoja.push(nombre); return; }
     var hr = Modelo_headerRow(nombre);
     var ancho = Math.max(hoja.getLastColumn() || 0, 1);
     var fila = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
-    if (fila.indexOf('SALUD_MENTAL') !== -1) return;
-    hoja.getRange(hr, ancho + 1).setValue('SALUD_MENTAL');
+    var headers = fila.map(function (v) { return Utl_colapsarEspacios(Utl_texto(v)).toUpperCase(); });
+    if (headers.indexOf('SALUD_MENTAL') !== -1) return;
+    var indice = {};
+    canonicos.forEach(function (cm, i) { indice[cm] = headers.indexOf(cm.toUpperCase()); });
+    for (var i = 0; i < canonicos.length; i++) {
+      if (indice[canonicos[i]] === -1) {
+        res.revision.push(nombre + ': ausente el encabezado canónico "' + canonicos[i] + '"');
+        res.ok = false;
+        return;
+      }
+      if (i > 0 && indice[canonicos[i]] < indice[canonicos[i - 1]]) {
+        res.revision.push(nombre + ': orden canónico alterado en "' + canonicos[i] + '"');
+        res.ok = false;
+        return;
+      }
+    }
+    var posSM = indice.NOTA_SISTEMA + 1;
+    var ocupado = Utl_texto(fila[posSM]).trim() !== '';
+    if (ocupado) {
+      res.revision.push(nombre + ': columna posterior a NOTA_SISTEMA ocupada ("' + Utl_texto(fila[posSM]) + '")');
+      res.ok = false;
+      return;
+    }
+    hoja.getRange(hr, posSM + 1).setValue('SALUD_MENTAL');
     res.actualizadas.push(nombre);
   });
   return res;
@@ -379,6 +463,13 @@ function Mig_run001() {
  *  mismo pipeline del instalador (única fuente de verdad). */
 function Instalar_ejecutarPolitica() {
   try {
+    // Respaldo completo previo a cualquier mutación (B4). Si falla → se aborta
+    // sin escribir: nada se arriesga en una reparación automática.
+    var bk = Instalar_asegurarBackup_('WEBHOOK_INSTALAR');
+    if (!bk.ok) {
+      return { ok: false, motivo: 'BACKUP_FALLIDO',
+        linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
+    }
     var snap = Modelo_escanearEstructura();
     var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
     var incompatible = Instalar_versionIncompatible_(v);
@@ -455,13 +546,16 @@ function Instalar_pFuentes() {
   // pipeline de Fuentes_cargaReal (única fuente de verdad). Secuencia de
   // seguridad: análisis dry-run (sin escrituras) → si la fuente es válida,
   // ejecución con política SNAPSHOT_ACTUAL (reinstalación / carga inicial).
+  // La ejecución REUTILIZA el análisis dry-run (ejecucionId → UNA lectura real
+  // de fuentes; evita drift entre la previa y la escritura).
   var analisis;
   try { analisis = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: 'SNAPSHOT_ACTUAL' }); }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
   if (analisis.ok === false) return { ok: false, motivo: analisis.motivo, resumen: analisis.resumen };
   var ejecucion;
   try {
-    ejecucion = Fuentes_cargaReal({ ejecutar: true, actualizar: true, modo: 'SNAPSHOT_ACTUAL' });
+    ejecucion = Fuentes_cargaReal({ ejecutar: true, actualizar: true, modo: 'SNAPSHOT_ACTUAL',
+      ejecucionId: analisis.ejecucionId });
   } catch (e2) { return { ok: false, motivo: e2 && e2.message ? e2.message : String(e2) }; }
   if (ejecucion.ok === false) return { ok: false, motivo: ejecucion.motivo, resumen: ejecucion.resumen };
   var res = ejecucion.resumen || {};

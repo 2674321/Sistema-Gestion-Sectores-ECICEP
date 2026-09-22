@@ -113,9 +113,11 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   versiones incompatibles antes de escribir, informa fallos por hoja y conserva
   todas las hojas adicionales; su revisión no borra datos. Las fases omitidas
   se identifican en el progreso y no toman un bloqueo de escritura.
-  **Instalar/reparar muta datos reales con respaldo previo** (`SNAPSHOT_ACTUAL`,
-  antes del bloqueo y con guard de versión): importa fuentes, actualiza
-  pacientes, enriquece y registra; `SNAPSHOT_ACTUAL` no toca la agenda manual
+  **Instalar/reparar muta datos reales con respaldo previo del libro en Drive**
+  (`PRE_INSTALAR`, una copia recuperable por ejecución antes de la primera
+  mutación y con guard de versión; si el respaldo falla la etapa responde
+  `BACKUP_FALLIDO` sin escribir): importa fuentes, actualiza pacientes,
+  enriquece y registra; el modo `SNAPSHOT_ACTUAL` no toca la agenda manual
   (`PROXIMO_CONTROL`) ni `SALUD_MENTAL` de personas existentes.
 - Backups manuales y automáticos, cola de calidad, auditoría integral,
   protección por categoría de hojas, filtros y buscador por hoja.
@@ -216,12 +218,13 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | REM Excel / PDF · Estadísticas · Dashboard | ✅ Implementados |
 | Calidad, auditoría, backups | ✅ Implementados |
 | IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
-| E2E real | ✅ Verificado en libro operativo |
+| E2E real de Instalar/reparar sobre el libro operativo | ⏳ Pendiente (requiere sesión Google autorizada) |
 
 **Verificación vigente:** `node tools/verificar.mjs` comprueba sintaxis JS/GS y
-las 11 suites disponibles. Batería v0.10.0: núcleo **671/671** · aceptación 50/50 ·
+las 16 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
 contrato 36/36 · captura backend V2 73/73 · regresiones 44/44 ·
-instalador_estabilidad PASS · **21 scripts HTML**. Detalle y límites de
+auditoría v0.10 15/15 · instalador_estabilidad PASS · **21 scripts HTML**.
+Detalle y límites de
 verificación real en [`docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`](docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md).
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción

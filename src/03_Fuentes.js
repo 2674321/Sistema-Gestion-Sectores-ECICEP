@@ -46,6 +46,23 @@ function Fuentes_fuenteOrigen(filaStaging) {
   return Utl_texto(filaStaging.ARCHIVO_ORIGEN) + '|' + Utl_texto(filaStaging.HOJA_ORIGEN) + '|' + Utl_texto(filaStaging.FILA_ORIGEN);
 }
 
+/** PURA: clave CANÓNICA de comparación para la idempotencia por FUENTE
+ *  (B2). Insensible a mayúsculas/espacios/tildes de archivo y hoja y al
+ *  formato numérico de la fila. La cadena FUENTE almacenada se conserva RAW
+ *  para trazabilidad; SOLO la igualdad de comparación se normaliza, de modo
+ *  que una hoja escrita 'Ingresos Enero ' vs 'Ingresos Enero' (drift de
+ *  literal en config entre ejecuciones) no vuelva a generar eventos. */
+function Fuentes_claveDedupe_(filaOString) {
+  var s = Utl_texto(filaOString);
+  var partes = s.split('|'), partesNorm = [];
+  for (var i = 0; i < 3; i++) {
+    var p = Utl_texto(partes[i]).trim();
+    if (i === 2 && /^\d+$/.test(p)) p = String(Number(p));
+    partesNorm.push(Utl_claveAlnum(p));
+  }
+  return partesNorm.join('|');
+}
+
 /**
  * Verificación estructural previa: presencia de campos críticos crudos.
  * @returns {ok:boolean, faltantes:[]}
@@ -371,14 +388,36 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
   };
 }
 
-/** Guarda filas de staging por lotes. Solo GAS; en node devuelve 0. */
+/** Guarda filas de staging por lotes. Solo GAS; en node devuelve 0.
+ *  DEDUPE de auditoría (B9): un mismo origen físico (ARCHIVO|HOJA|FILA) se
+ *  archiva una sola vez en STAGING_IMPORT; repetir la instalación sobre los
+ *  mismos datos NO hace crecer la trazabilidad sin límite. */
 function Fuentes_guardarFilas(filas) {
   try {
     if (typeof SpreadsheetApp === 'undefined' || !filas || !filas.length) return 0;
     var ss = Modelo_ss();
     var hoja = ss.getSheetByName(HOJAS.STAGING_IMPORT);
     if (!hoja) return 0;
-    var salida = filas.map(function (f) {
+    var ultima = hoja.getLastRow() || 0;
+    var existentes = {};
+    if (ultima > 0) {
+      var colFuente = 12; // FUENTE = posición 11 (0-based) → columna 12
+      var vals = hoja.getRange(1, colFuente, ultima, 1).getValues();
+      for (var k = 0; k < vals.length; k++) {
+        var v = Utl_texto(vals[k][0]);
+        if (v) existentes[v] = true;
+      }
+    }
+    var aGuardar = [];
+    for (var i = 0; i < filas.length; i++) {
+      var f = filas[i];
+      var clave = Fuentes_fuenteOrigen(f);
+      if (existentes[clave]) continue;
+      existentes[clave] = true;
+      aGuardar.push(f);
+    }
+    if (!aGuardar.length) return 0;
+    var salida = aGuardar.map(function (f) {
       return [
         f.ID_PROVISIONAL, f.ARCHIVO_ORIGEN, f.HOJA_ORIGEN, f.FILA_ORIGEN, f.SECTOR_ORIGEN,
         f.ESTADO_VALIDACION,
@@ -475,28 +514,107 @@ function Fuentes_contarHojasAutorizadas() {
   return { archivos: archivos, hojas: hojas };
 }
 
+/** PURA/GAS: preflight estructurado de las fuentes autorizadas ANTES de tocar
+ *  el libro (B3): accesibilidad de cada archivo, hojas esperadas vs
+ *  encontradas y motivos. Una hoja autorizada ausente (o un archivo
+ *  inaccesible/desconfigurado) BLOQUEA la carga: el pipeline no puede leer en
+ *  silencio y procesar un subconjunto mintiendo en los conteos.
+ *  @param {Function} [abridor] inyectable en pruebas (default: SpreadsheetApp.openById)
+ *  @returns {ok, fuentes:[{archivo,id,accesible,hojasEsperadas,hojasEncontradas,faltantes,errores}], bloqueantes:[...]} */
+function Fuentes_preflightFuentes(abridor) {
+  var abrir = abridor;
+  if (!abrir && typeof SpreadsheetApp !== 'undefined') {
+    abrir = function (id) { return SpreadsheetApp.openById(id); };
+  }
+  var fuentes = [];
+  Object.keys(HOJAS_AUTORIZADAS_CARGA).forEach(function (nombreArchivo) {
+    var cfg = FUENTES_DRIVE[nombreArchivo];
+    var info = {
+      archivo: nombreArchivo,
+      sector: (cfg && cfg.sector) || '',
+      id: (cfg && cfg.id) || '',
+      accesible: false,
+      hojasEsperadas: (HOJAS_AUTORIZADAS_CARGA[nombreArchivo] || []).slice(),
+      hojasEncontradas: [],
+      faltantes: [],
+      errores: []
+    };
+    if (!cfg) { info.errores.push('ARCHIVO_DESCONFIGURADO'); fuentes.push(info); return; }
+    if (!cfg.id) { info.errores.push('SIN_ID_DRIVE'); fuentes.push(info); return; }
+    if (!abrir) { info.errores.push('SIN_ENTORNO_GAS'); fuentes.push(info); return; }
+    try {
+      var ss = abrir(cfg.id);
+      if (!ss) { info.errores.push('ARCHIVO_INACCESIBLE'); fuentes.push(info); return; }
+      info.accesible = true;
+      info.nombreReal = typeof ss.getName === 'function' ? Utl_texto(ss.getName()) : '';
+      info.hojasEsperadas.forEach(function (nombreHoja) {
+        var h = Fuentes_resolverHoja(ss, nombreHoja);
+        if (h) info.hojasEncontradas.push(nombreHoja);
+        else info.faltantes.push(nombreHoja);
+      });
+    } catch (e) {
+      info.errores.push(e && e.message ? e.message : String(e));
+    }
+    fuentes.push(info);
+  });
+  var bloqueantes = fuentes.filter(function (f) {
+    return f.faltantes.length > 0 || (f.errores.length > 0 && f.errores.indexOf('SIN_ENTORNO_GAS') === -1);
+  });
+  return { ok: bloqueantes.length === 0, fuentes: fuentes, bloqueantes: bloqueantes };
+}
+
+/** PURA: informe compacto y serializable del preflight (sin datos sensibles). */
+function Fuentes_preflightInforme_(preflight) {
+  return (preflight.fuentes || []).map(function (f) {
+    return {
+      archivo: f.archivo,
+      sector: f.sector,
+      accesible: f.accesible,
+      hojasEsperadas: f.hojasEsperadas,
+      hojasEncontradas: f.hojasEncontradas,
+      faltantes: f.faltantes,
+      errores: f.errores
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // ETAPA 5 — Carga/actualización real controlada (análisis + ejecución)
 // ---------------------------------------------------------------------------
 
-/**
- * Orquestador de carga real controlada desde las fuentes autorizadas.
- * @param {Object} opciones {ejecutar:boolean, actualizar:boolean, modo:string}
- *   ejecutar=false → DRY RUN: analiza, reporta, NO escribe
- *   ejecutar=true  → IMPORTA: escribe PACIENTES + EVENTOS con idempotencia
- *   actualizar=true → además de incorporar registros nuevos, ACTUALIZA pacientes
- *     existentes desde los datos vigentes de la fuente (merge conservador v0.9.6:
- *     fill-only + fecha más reciente para ULTIMO_*; divergencia → REQUIERE_REVISION).
- *     Las filas ya importadas NO vuelven a generar eventos (idempotencia por FUENTE).
- *   modo='SNAPSHOT_ACTUAL' → política de Instalar (ver 27_Actualizacion): reemplaza
- *     TELEFONOS/ESTRATIFICACION vigentes; el resto idéntico al merge cotidiano.
- * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
- */
-function Fuentes_cargaReal(opciones) {
-  opciones = opciones || {};
-  var ejecucionId = (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
-  var t0 = Date.now();
+/** Memoria de análisis EN LA MISMA invocación (proceso GAS y pruebas node):
+ *  la ejecución de Instalar reutiliza el análisis dry-run (UNA lectura real de
+ *  fuentes) en lugar de volver a leer Drive entre previa y ejecución. Crítica
+ *  limitada: se poda por antigüedad (>1h) y cada clave se elimina al usarla en
+ *  ejecución. Sin PII retenida fuera de la invocación. */
+var _FUENTES_ANALISIS_MEMO = {};
+var _FUENTES_ANALISIS_TTL = 60 * 60 * 1000;
 
+function _Fuentes_guardarAnalisis_(a) {
+  _Fuentes_podarMemo_();
+  _FUENTES_ANALISIS_MEMO[a.ejecucionId] = { ts: Date.now(), analisis: a };
+}
+
+function _Fuentes_recuperarAnalisis_(ejecucionId) {
+  _Fuentes_podarMemo_();
+  var e = _FUENTES_ANALISIS_MEMO[ejecucionId];
+  if (!e) return null;
+  return e.analisis;
+}
+
+function _Fuentes_podarMemo_() {
+  var limite = Date.now() - _FUENTES_ANALISIS_TTL;
+  Object.keys(_FUENTES_ANALISIS_MEMO).forEach(function (k) {
+    if (_FUENTES_ANALISIS_MEMO[k].ts < limite) delete _FUENTES_ANALISIS_MEMO[k];
+  });
+}
+
+/** PURA/GAS: análisis de la carga real sin efectos de escritura. Lee una sola
+ *  vez las fuentes autorizadas, aplica la idempotencia por FUENTE (clave
+ *  canónica B2), identifica contra el estado vigente, aplica el merge y deja
+ *  `resultado` listo para reportar o ejecutar. En preflight fallido (hoja
+ *  autorizada ausente/archivo inaccesible) devuelve {ok:false} y NUNCA escribe. */
+function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   // --- FASE 5.0: snapshot previo ---
   var previo = { pacientes: 0, eventos: 0 };
   if (typeof SpreadsheetApp !== 'undefined') {
@@ -506,31 +624,56 @@ function Fuentes_cargaReal(opciones) {
     previo.eventos = he ? Math.max(he.getLastRow() - 1, 0) : 0;
   }
 
+  // --- FASE 5.0b: preflight estructural de las fuentes (B3) ---
+  var preflight = Fuentes_preflightFuentes();
+  if (!preflight.ok) {
+    var infPre = Fuentes_preflightInforme_(preflight);
+    Log_error('Fuentes', 'preflight',
+      'Bloqueada carga: ' + infPre.map(function (f) {
+        return f.archivo + '·' + f.faltantes.join(',') + (f.errores.length ? '·' + f.errores.join(',') : '');
+      }).join(' | '));
+    return {
+      ok: false,
+      ejecucionId: ejecucionId,
+      resultado: {
+        ok: false,
+        dryRun: !opciones.ejecutar,
+        ejecucionId: ejecucionId,
+        motivo: 'HOJA_FUENTE_FALTANTE',
+        preflight: infPre,
+        resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0,
+                   previo: previo, ejecucion: ejecucionId, ms: Date.now() - t0,
+                   preflight: infPre }
+      }
+    };
+  }
+
   // --- FASE 5.1: leer fuentes autorizadas → staging ---
   var staging = Fuentes_leerStagingAutorizado();
 
   // --- IDEMPOTENCIA: separar filas ya importadas (no generan evento) de las nuevas.
-  // Con `actualizar`, las ya importadas siguen disponibles para el MERGE de datos
-  // (actualizar existentes) aunque no vuelvan a producir eventos.
+  // Con `actualizar`, las ya importadas siguen disponibles para el MERGE de datos.
+  // Comparación por clave CANÓNICA (B2): la cadena FUENTE almacenada se conserva
+  // RAW para trazabilidad, pero la igualdad ignora mayúsculas/espacios/tildes y el
+  // formato de la fila, de modo que un drift de literal en la config entre
+  // ejecuciones no vuelve a generar eventos para la misma fila física.
   var eventosExistentes = [];
   if (typeof Modelo_leerEventos === 'function') eventosExistentes = Modelo_leerEventos();
   var fuentesYaImportadas = {};
   eventosExistentes.forEach(function (e) {
     var f = Utl_texto(e.FUENTE);
-    if (f) fuentesYaImportadas[f] = true;
+    if (f) fuentesYaImportadas[Fuentes_claveDedupe_(f)] = true;
   });
   var yaImportadas = 0;
   var stagingNuevas = [];
   var stagingReutilizables = [];
   staging.forEach(function (f) {
-    var clave = Fuentes_fuenteOrigen(f);
+    var clave = Fuentes_claveDedupe_(Fuentes_fuenteOrigen(f));
     if (fuentesYaImportadas[clave]) { yaImportadas += 1; stagingReutilizables.push(f); }
     else stagingNuevas.push(f);
   });
 
   // --- FASE 5.2-3: validación + identificación ---
-  // Con `actualizar` (análisis O ejecución) se cargan los pacientes reales: el
-  // pipeline puro identifica contra el estado vigente y el MERGE puede actuar.
   var store = { pacientes: [], eventos: [] };
   if ((opciones.ejecutar || opciones.actualizar) && typeof Modelo_leerPacientes === 'function') {
     store.pacientes = Modelo_leerPacientes();
@@ -540,8 +683,7 @@ function Fuentes_cargaReal(opciones) {
     }
   }
 
-  // MERGE conservador sobre pacientes existentes (v0.9.6). Puras y testeables:
-  // las funciones viven en 27_Actualizacion (Act_mergearPacientesDesdeStaging).
+  // MERGE conservador sobre pacientes existentes (v0.9.6). Puras y testeables.
   var merge = { revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] };
   if (opciones.actualizar) {
     merge = Act_mergearPacientesDesdeStaging(staging, store.pacientes, { modo: opciones.modo });
@@ -564,6 +706,7 @@ function Fuentes_cargaReal(opciones) {
 
   var fuentesInforme = Fuentes_contarHojasAutorizadas();
   resumen.fuentesRevisadas = fuentesInforme.hojas;
+  resumen.preflight = Fuentes_preflightInforme_(preflight);
 
   var resultado = {
     ok: true,
@@ -586,25 +729,43 @@ function Fuentes_cargaReal(opciones) {
     })
   };
 
-  // Ni siquiera el log debe provocar una escritura durante una simulación.
+  return {
+    ok: true, ejecucionId: ejecucionId,
+    resultado: resultado, staging: staging,
+    stagingNuevas: stagingNuevas, stagingReutilizables: stagingReutilizables,
+    store: store, merge: merge, salida: salida, yaImportadas: yaImportadas
+  };
+}
+
+/** PURA/GAS: escritura efectiva de la carga real (FASE 5.5-5.8). Recibe el
+ *  análisis (nuevo o reutilizado de la previa) y devuelve el resultado final. */
+function _Fuentes_escribir_(a, opciones, t0) {
+  a = a || {};
+  var resultado = a.resultado || { ok: true };
+  var resumen = resultado.resumen || {};
+  var merge = a.merge || { actualizados: 0, conflictos: 0 };
+  var salida = a.salida || {};
+
   if (opciones.ejecutar) Log_info('Fuentes', 'cargaReal',
     JSON.stringify({ registros: resumen.registros, nuevos: resumen.nuevos, existentes: resumen.existentes,
-                     revision: resumen.revision, conError: resumen.conError, yaImportadas: yaImportadas,
+                     revision: resumen.revision, conError: resumen.conError,
+                     yaImportadas: a.yaImportadas || 0,
                      merge: opciones.actualizar ? { revisados: merge.revisados, actualizados: merge.actualizados,
                                                     sinCambios: merge.sinCambios, conflictos: merge.conflictos,
                                                     campos: merge.campos } : undefined }),
-    { ejecucion: ejecucionId });
+    { ejecucion: resultado.ejecucionId || '' });
 
   // --- FASE 5.5: GATE — solo escribir si explícitamente se pide ---
   if (!opciones.ejecutar) return resultado;
+
+  // eliminar el análisis reutilizado: ya no se necesita y evita retención
+  if (resumen.ejecucion) delete _FUENTES_ANALISIS_MEMO[resumen.ejecucion];
 
   // --- FASE 5.6: IMPORTACIÓN ---
   var escritosPacientes = false;
   var escritosEventos = false;
   var actualizarPacientes = opciones.actualizar &&
-    (merge.actualizados > 0 || merge.conflictos > 0 || salida.pacientesNuevos.length > 0);
-  // Verificar el destino ANTES de anexar eventos. Un esquema incompatible no
-  // puede dejar eventos sin su paciente ni devolver un falso ok:true.
+    (merge.actualizados > 0 || merge.conflictos > 0 || (salida.pacientesNuevos || []).length > 0);
   if (actualizarPacientes) {
     var esquema = Modelo_asegurarEsquemaPacientes();
     if (!esquema.ok) {
@@ -618,40 +779,33 @@ function Fuentes_cargaReal(opciones) {
       return resultado;
     }
   }
-  if (typeof Modelo_agregarEventos === 'function' && salida.eventos.length) {
+  if (typeof Modelo_agregarEventos === 'function' && (salida.eventos || []).length) {
     Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
     escritosEventos = true;
   }
   if (opciones.actualizar) {
-    // Escritura UNIFICADA (nuevos + existentes actualizados por merge) en una sola
-    // llamada por bloque: precedente Act_enriquecerPacientes. Solo si hubo cambios.
     if (actualizarPacientes) {
       var hojaP = Modelo_hoja(HOJAS.PACIENTES);
       Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
-        store.pacientes.map(Modelo_filaDesdeObjeto));
+        a.store.pacientes.map(Modelo_filaDesdeObjeto));
       Modelo_invalidarLecturas();
       escritosPacientes = true;
     }
-  } else if (typeof Modelo_agregarPacientes === 'function' && salida.pacientesNuevos.length) {
+  } else if (typeof Modelo_agregarPacientes === 'function' && (salida.pacientesNuevos || []).length) {
     Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
     escritosPacientes = true;
   }
   resumen.escritosPacientes = escritosPacientes;
   resumen.escritosEventos = escritosEventos;
 
-  // auditoría a STAGING_IMPORT (en modo actualizar se archiva TODO lo leído)
-  Fuentes_guardarFilas(opciones.actualizar ? staging : stagingNuevas);
+  // auditoría a STAGING_IMPORT (dedupe: un mismo origen físico solo se archiva una vez)
+  Fuentes_guardarFilas(opciones.actualizar ? a.staging : a.stagingNuevas);
 
   // casos ambiguos → cola de revisión (CONFLICTOS)
   var filasConflicto = [];
-  var filasParaCola = opciones.actualizar ? staging : stagingNuevas;
-  filasParaCola.forEach(function (f) {
+  var filasParaCola = opciones.actualizar ? a.staging : a.stagingNuevas;
+  (filasParaCola || []).forEach(function (f) {
     var r = f.RESULTADO_IDENTIFICACION;
-    // idempotente y ADITIVO: además de los estados de identificación, encola
-    // cualquier fila cuyo EVENTO haya fallado por FECHA_EVENTO_AUSENTE (hoy quedaba
-    // en staging como ERROR pero NUNCA llegaba a la cola de revisión → el dato quedaba
-    // invisible para el operador pese a existir en la fuente). Solo lectura de staging;
-    // no modifica filas.
     var ev = f.RESULTADO_EVENTO || f.EVENTO_RESULTADO;
     if (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION')) {
       filasConflicto.push(Rev_filaConflicto(f));
@@ -671,4 +825,39 @@ function Fuentes_cargaReal(opciones) {
 
   Log_flush();
   return resultado;
+}
+
+/**
+ * Orquestador de carga real controlada desde las fuentes autorizadas.
+ * @param {Object} opciones {ejecutar:boolean, actualizar:boolean, modo:string,
+ *   ejecucionId? (reutiliza el análisis de una dry-run previa en la misma invocación)}
+ *   ejecutar=false → DRY RUN: analiza, reporta, NO escribe
+ *   ejecutar=true  → IMPORTA: escribe PACIENTES + EVENTOS con idempotencia
+ *   actualizar=true → además de incorporar registros nuevos, ACTUALIZA pacientes
+ *     existentes desde los datos vigentes de la fuente (merge conservador v0.9.6).
+ *     Las filas ya importadas NO vuelven a generar eventos (idempotencia por FUENTE,
+ *     comparación canónica insensible a espacios/caja del literal).
+ *   modo='SNAPSHOT_ACTUAL' → política de Instalar (ver 27_Actualizacion).
+ * Huella de escritura: antes de escribir, el preflight estructural (B3) garantiza
+ * que TODAS las hojas autorizadas existen; en caso contrario devuelve
+ * HOJA_FUENTE_FALTANTE sin tocar el libro.
+ * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
+ */
+function Fuentes_cargaReal(opciones) {
+  opciones = opciones || {};
+  var ejecucionId = opciones.ejecucionId ||
+    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
+  var t0 = Date.now();
+
+  // Reutilizar el análisis dry-run previo (UNA lectura real de fuentes) cuando
+  // el llamador pasa su ejecucionId en la misma invocación (Instalar_pFuentes).
+  var a = null;
+  if (opciones.ejecucionId) a = _Fuentes_recuperarAnalisis_(ejecucionId);
+  if (!a) {
+    var analisis = _Fuentes_analizar_(opciones, ejecucionId, t0);
+    if (!analisis.ok) return analisis.resultado;
+    if (!opciones.ejecutar) _Fuentes_guardarAnalisis_(analisis);
+    a = analisis;
+  }
+  return _Fuentes_escribir_(a, opciones, t0);
 }

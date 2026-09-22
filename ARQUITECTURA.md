@@ -180,10 +180,12 @@
 
 - `Instalar / reparar` (**reactivado v0.10.0**): ejecuta el pipeline estructural
   completo y las etapas de **fuentes, Amarillo, enriquecimiento y derivados vuelven
-  a mutar datos reales** (mismo `INST-1`), siempre con respaldo `SNAPSHOT_ACTUAL`
-  previo al bloqueo y guard de versión. `SNAPSHOT_ACTUAL` no toca `PROXIMO_CONTROL`
-  ni `SALUD_MENTAL` de pacientes existentes (no-pérdida DEC-064 / doctrina FIX
-  v0.8.5).
+  a mutar datos reales** (mismo `INST-1`). Antes de la primera mutación de una
+  ejecución crea un **respaldo real del libro en Drive** (`Backup_crear('PRE_INSTALAR')`,
+  token/ejecución, reutilizado por el resto de etapas; si falla → `BACKUP_FALLIDO`
+  y cero escrituras) con guard de versión. El merge usa `SNAPSHOT_ACTUAL` y no toca
+  `PROXIMO_CONTROL` ni `SALUD_MENTAL` de pacientes existentes (no-pérdida DEC-064 /
+  doctrina FIX v0.8.5).
 - `Actualizar`: ejecuta `Act_actualizarSistema` (fuentes autorizadas, merge,
   enriquecimiento, derivados y vistas). El procesamiento masivo real sigue
   requiriendo instrucción explícita. `ejecutar:false` simula sin escrituras ni
@@ -394,7 +396,9 @@ y del pipeline real. Corre como la penúltima etapa, antes de `verificar`, y su 
   `INSTALAR_ETAPAS_MUTAN`; `{ok:false, motivo:'CONCURRENCIA'}` si está ocupado.
   Desde **v0.10.0**, `INSTALAR_ETAPAS_MUTAN` vuelve a declarar
   **fuentes/amarillo/enriquecimiento** (importan datos reales) con respaldo
-  `SNAPSHOT_ACTUAL` antes del lock y guard `Instalar_versionIncompatible_`
+  previo real `PRE_INSTALAR` (`Instalar_asegurarBackup_`: una copia Drive por
+  token de ejecución, reutilizada por las etapas siguientes; si falla →
+  `BACKUP_FALLIDO` y cero escrituras) y guard `Instalar_versionIncompatible_`
   antes del lock; un carácter `>`/`P`/`B` en el paso indica unidad con respaldo
   disponible (`z/p` son layouts substituibles, `r/h/q/R/H` respaldos selectivos).
 - **Diagnóstico no-mutante**: `Instalar_diagnosticar` usa `Modelo_escanearEstructura`

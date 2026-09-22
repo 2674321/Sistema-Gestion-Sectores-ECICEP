@@ -79,12 +79,15 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false;
+var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false,_EJEC='';
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕',skip:'—'};
 /* Progreso = etapas terminadas / etapas totales; las etapas omitidas no inflan el avance. */
 function pesoTotal(){return ETAPAS.length||1;}
+/* Token de ejecución de instalación: identifica un correr completo del cliente
+   ante el servidor para crear UN respaldo previo por ejecución (B4). */
+function nuevoEjecucion(){return 'INST-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1296).toString(36);}
 
 function cancelarInstalacion(){
   if(_CANCELADO)return;
@@ -125,7 +128,7 @@ function cargarDiagnostico(){
 
 function iniciarInstalacion(){
   if(_enCurso||!ETAPAS.length)return;
-  _CANCELADO=false;RESULTADOS=[];ERRORES=[];
+  _CANCELADO=false;RESULTADOS=[];ERRORES=[];_EJEC=nuevoEjecucion();
   ETAPAS.forEach(function(e){marcar(e.id,'pen');});
   document.getElementById('final').style.display='none';
   document.getElementById('btnCancelarWrap').style.display='none';
@@ -203,7 +206,7 @@ function ejecutarSecuencia(ix){
     document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
     document.getElementById('btnCancelarWrap').style.display='none';
     mostrarFinal(false);
-  }).api_instalarPaso(etapa.id,ECICEP_ACCESO);
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC);
 }
 
 function reintentarDesde(ix){

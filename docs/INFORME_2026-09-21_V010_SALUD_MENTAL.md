@@ -4,7 +4,10 @@ Fecha de ejecución: 2026-09-21.
 Alcance: campo clínico `SALUD_MENTAL` (`SI`/`NO`/vacío) de extremo a extremo
 (modelo, migración, captura V4, ficha, Web App, vistas sectoriales), migración
 de esquema 1 → 2 (MIG-002) y reactivación de `Instalar / Reparar Sistema` con
-etapas mutantes reales y respaldo `SNAPSHOT_ACTUAL`. Decisión vigente:
+etapas mutantes reales. El respaldo previo real del libro (`PRE_INSTALAR` en
+Drive), la idempotencia reforzada por FUENTE, el preflight de hojas autorizadas
+y el endurecimiento por nombre de MIG-002 se documentan en
+`docs/INFORME_2026-09-22_AUDITORIA_V0101.md`. Decisión vigente:
 **DEC-065** (`DECISIONES.md`).
 
 > E2E en vivo: **no medible en esta ejecución** (sin login/Spreadsheet desde el
@@ -42,6 +45,11 @@ etapas mutantes reales y respaldo `SNAPSHOT_ACTUAL`. Decisión vigente:
 2. **MIG-002 (esquema 1 → 2)**: `Mig_run002()` en `docs/MIGRACIONES.md`;
    reutiliza `Modelo_asegurarEsquemaPacientes` + `Modelo_alinearVistasSectoriales`
    + `_mig002_asegurarIngresosSaludMental`. `SISTEMA_VERSION_SCHEMA_ACTUAL = 2`.
+   `_mig002_asegurarIngresosSaludMental` es por **nombre** y orden canónico, no
+   por posición: inserta `SALUD_MENTAL` después de `NOTA_SISTEMA` solo si la
+   celda siguiente está libre y una hoja con esa columna queda intacta; cualquier
+   divergencia (encabezado ausente, orden alterado o columna ya ocupada) BLOQUEA
+   la migración en revisión sin escribir (endurecido en la auditoría v0.10.1).
    Ruta única; mismo backend, mismo Spreadsheet, mismo pipeline.
 3. **Captura V4**: `src/26_Captura.js` (`saludMental` en `CAPTURA_V2.CAMPOS` 18,
    gate Cp4-, enum por `Norm_normalizarSaludMental`, huella estable).
@@ -54,12 +62,14 @@ etapas mutantes reales y respaldo `SNAPSHOT_ACTUAL`. Decisión vigente:
 6. **Web App / vistas**: `CapturaWeb.html`, `EditorPaciente.html` y `07_UI.js`
    exponen el indicador; Sector 16 → 17 columnas.
 7. **Instalar reactivado** (`src/20_Instalador.js`): `INSTALAR_ETAPAS_MUTAN`
-   vuelve a declarar fuentes/amarillo/enriquecimiento (mismo `INST-1`); las
-   etapas toman `LockService`, respaldan `SNAPSHOT_ACTUAL` **antes** del lock y
-   registran `Instalar_versionIncompatible_` antes del lock. `SNAPSHOT_ACTUAL`
-   no toca `PROXIMO_CONTROL` ni `SALUD_MENTAL` de existentes (no-pérdida
-   DEC-064 / doctrina FIX v0.8.5). Caracteres de unidad `>`/`P`/`B` frente a
-   `z/r/h/q/R/H`.
+   vuelve a declarar fuentes/amarillo/enriquecimiento (mismo `INST-1`); cada
+   ejecución crea un **respaldo real del libro en Drive** (`Backup_crear('PRE_INSTALAR')`
+   en la primera etapa mutante, reutilizado por el token de la ejecución; si
+   falla → `BACKUP_FALLIDO` y cero escrituras), las etapas toman `LockService`,
+   registran `Instalar_versionIncompatible_` antes del lock y usan el merge
+   `SNAPSHOT_ACTUAL`. `SNAPSHOT_ACTUAL` no toca `PROXIMO_CONTROL` ni
+   `SALUD_MENTAL` de existentes (no-pérdida DEC-064 / doctrina FIX v0.8.5).
+   Caracteres de unidad `>`/`P`/`B` frente a `z/r/h/q/R/H`.
 
 ## D. Verificación
 
@@ -72,8 +82,9 @@ etapas mutantes reales y respaldo `SNAPSHOT_ACTUAL`. Decisión vigente:
 | `tests/agenda_manual.mjs` | 21/21 |
 | `tests/regresiones_revision.mjs` | 44/44 |
 | `tests/instalador_estabilidad.mjs` | PASS |
+| `tests/regresiones_auditoria_v010.mjs` | 15/15 |
 | `tests/validar_html.mjs` | 21/21 |
-| `node tools/verificar.mjs` (15 suites) | **0 fallos** |
+| `node tools/verificar.mjs` (16 suites) | **0 fallos** |
 
 ### Alineación de `tests/agenda_manual.mjs`
 

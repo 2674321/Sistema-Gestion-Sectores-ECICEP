@@ -1,10 +1,18 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-22 (v0.10.1):** el instalador crea un **respaldo
+> real del libro en Drive** (`PRE_INSTALAR`) en la primera etapa mutante de cada
+> ejecución (token/ejecución), refuerza la idempotencia por FUENTE (clave
+> canónica, sin duplicar eventos ante drift de literal), bloquea la carga si una
+> hoja autorizada ausente (preflight `HOJA_FUENTE_FALTANTE`) y endurece MIG-002
+> por nombre (nunca escribe sobre una columna ocupada). Detalle:
+> `docs/INFORME_2026-09-22_AUDITORIA_V0101.md`.
+
 > **Actualización 2026-09-21 (v0.10.0):** se implementó `SALUD_MENTAL`
 > (`SI`/`NO`/vacío, sin inferencia) extremo a extremo (modelo + MIG-002 esquema
 > 1→2 + captura V4 + ficha + Web App + vistas 16→17) y se **reactivó
 > `Instalar / Reparar Sistema`** con etapas mutantes (fuentes/amarillo/
-> enriquecimiento) y respaldo `SNAPSHOT_ACTUAL`. El instalador vuelve a ser el
+> enriquecimiento). El instalador vuelve a ser el
 > ciclo real de captura; la verificación E2E en vivo (incluida la etapa
 > «Ajustando el libro» de v0.9.22 y las cifras de INICIO) sigue pendiente de
 > ejecutar contra el libro real. Ver DEC-065 y `docs/INFORME_...v0.10.0`.
@@ -49,8 +57,8 @@ Este documento contiene únicamente asuntos que siguen siendo accionables. Los t
 **Aplicación visual v0.9.21/22:** el código y la Web App están publicados en `@204`
 (`v0.9.21`) y `@205` (`v0.9.22`). El bloqueo operativo se resolvió en **v0.10.0
 (DEC-065)**: `Instalar / Reparar Sistema` vuelve a declarar las etapas mutantes de
-fuentes/amarillo/enriquecimiento (mismo `INST-1`) y ejecuta respaldo
-`SNAPSHOT_ACTUAL` antes de mutar, por lo que **volver a ejecutar Instalar ya es
+fuentes/amarillo/enriquecimiento (mismo `INST-1`) y crea un respaldo real
+`PRE_INSTALAR` (copia Drive del libro, una por ejecución) antes de mutar, por lo que **volver a ejecutar Instalar ya es
 seguro y posible**. Queda pendiente **ejecutar Instalar** contra el libro real y
 comprobar la etapa «Ajustando el libro» (inmovilización de columnas con celdas
 título combinadas) y las cifras de INICIO. La CLI `clasp run` respondió
@@ -313,3 +321,20 @@ captura_backend_v2 73/73 + regresiones 44/44 + instalador_estabilidad PASS +
   captura sirviendo `saludMental`. El siguiente paso de DEFINITION OF DONE
   (E2E interactivo en vivo + commit/push Git) queda explicitado en
   `docs/INFORME_2026-09-21_V010_SALUD_MENTAL.md`.
+
+## 16. Auditoría v0.10.1 — source sync, backup e idempotencia (2026-09-22)
+
+Informe completo: `docs/INFORME_2026-09-22_AUDITORIA_V0101.md`.
+Batería: **16 suites · 0 fallos** (núcleo 671/671 + `tests/regresiones_auditoria_v010.mjs` 15/15
++ resto de la batería verde).
+
+- **Respaldo real previo en Drive** (`PRE_INSTALAR`, uno por token de ejecución,
+  `BACKUP_FALLIDO` sin escritura), **idempotencia por FUENTE con clave canónica**
+  (sin duplicar eventos ante drift de literal), **preflight estructural**
+  (`HOJA_FUENTE_FALTANTE` en dry-run y ejecutar), **una sola lectura real de
+  fuentes** entre dry-run y ejecución, **guard de snapshot en TELEFONOS** (no
+  infla FUENTE en Instalar repetido), **dedupe en STAGING_IMPORT**, y **MIG-002
+  por nombre sin pisar columnas ocupadas** (bloqueo `MIG-002:INGRESOS_REVISION`).
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado (URL base/QR intactos). **E2E en vivo sobre el libro real sigue
+  pendiente** de la sesión Google (bloqueador 1).
