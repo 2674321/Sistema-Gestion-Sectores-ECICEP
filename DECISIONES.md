@@ -1309,7 +1309,11 @@ acceso_webapp. Docs: `docs/INFORME_2026-09-22_FICHA_V2.md`.
 
 ## DEC-067
 **Título:** Separación de capacidades: CAPTURA ≠ OPERADOR (hardening v0.10.3)
-**Estado:** Aprobada / vigente (v0.10.3)
+**Estado:** SUPERADA por DEC-068 (ACCESO UNIVERSAL ECICEP, hotfix v0.10.4).
+Se conserva como historial; sus objetivos de seguridad compatibles se mantienen
+(superficie RPC mínima, guards por RPC, mutaciones atómicas/idempotentes,
+`CONFIG_SECRETOS`), pero la separación de tokens con capacidades disjuntas se
+retira: no representa el requisito real del propietario.
 **Motivo:** la auditoría de la pasada v0.10.3 confirmó que una página pública
 jamás debe entregar una credencial privilegiada y que una función interna no
 debe volverse RPC pública solo por estar declarada `function` en Apps Script.
@@ -1349,4 +1353,49 @@ RPC a wrappers `api_*` con capacidad **OPERADOR**.
 `tests/regresiones_revision.mjs` actualizada con el contrato del evento de
 estratificación (**44/44**). Batería total **20 suites · 0 fallos** (verifier
 2026-09-22; núcleo 671/671, validar_html 22/22).
+**Fecha:** 2026-09-22
+
+## DEC-068
+**Título:** ACCESO UNIVERSAL ECICEP: una sola credencial habilita todas las funciones operativas (hotfix v0.10.4)
+**Estado:** Aprobada / vigente (v0.10.4) — SUPERA a DEC-067
+**Motivo:** incidente real de producción "El procesamiento del envío falló;
+reintentable (ACCESO_DENEGADO)". Requisito del propietario: ECICEP lo usan
+trabajadores autorizados con el enlace del sistema; mínima fricción, máxima
+disponibilidad. La separación de capacidades de v0.10.3 (DEC-067) contradice
+ese requisito: una página operativa abierta con el enlace del sistema podía
+mostrar la ficha (MODO_OPERADOR activo) pero sus RPC internas se autorizaban
+con el token CAPTURA y fallaban ACCESO_DENEGADO; además
+`WebApp_servirCaptura_` podía entregar `TOKEN_ACCESO = ''` (token vacío por
+contención de lock), rompiendo las páginas operativas.
+
+**Reglas:**
+1. **UNA credencial canónica**: `CAPTURA_ACCESS_TOKEN` habilita TODAS las
+   funciones operativas (captura, ficha, Controles, Dashboard, REM, Revisión,
+   Configuración, Backups, CentroPruebas). Su valor se conserva: el QR/URL
+   vigente NO se invalida con el hotfix.
+2. **`OPERADOR_ACCESS_TOKEN` queda OBSOLETO** pero se acepta como legacy de
+   transición (no rompe pestañas/enlaces abiertos durante v0.10.3); no crea
+   una segunda capacidad.
+3. **`WebApp_claveUniversal_` nunca devuelve ''**: devuelve la clave existente
+   sin consultar el lock; toma el lock SOLO para crear la clave; ante
+   contención relee sin lock; si realmente no existe, falla (nunca inyecta
+   credencial vacía en una página).
+4. **Toda página se sirve con la credencial universal** (`CAPTURA_ACCESO` /
+   `TOKEN_ACCESO` / `TOKEN_INVITACION`) y `MODO_OPERADOR = true`;
+   `PORTAL_URL` siempre disponible. `CapturaWeb.html` deja de ocultar
+   ACTUALIZAR_DATOS por falta de capacidad y se auto-recupera de
+   `ACCESO_DESACTUALIZADO` (recarga 1 vez preservando `captureId`).
+5. **Se mantienen los hardening compatibles de DEC-067**: superficie RPC mínima
+   (wrappers `api_*`, helpers internos con `_`), guards de autorización en cada
+   RPC (token inválido/ausente → `ACCESO_DENEGADO`), mutaciones atómicas e
+   idempotentes, `CONFIG_SECRETOS`, schema en **2** (sin MIG-003).
+6. **El pipeline de entrega no re-autentica**: la autorización ocurre en el
+   entrypoint (`WebApp_autorizarCaptura`) y bajo lock; la capa de dominio se
+   usa directamente, sin wrappers `api_*` internos (auditado).
+
+**Tests:** nueva `tests/acceso_universal_v0104.mjs` (**7/7**);
+`tests/acceso_webapp.mjs` reescrita al contrato universal (**8/8**);
+`tests/seguridad_capacidades_v0103.mjs` y `tests/rpc_surface_v0103.mjs`
+ajustadas al contrato de credencial única (**10/10** y **4/4**). Batería total
+**21 suites · 0 fallos** (verifier 2026-09-22; `validar_html` 21/21).
 **Fecha:** 2026-09-22

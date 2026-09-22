@@ -23,102 +23,99 @@
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — DOS CAPACIDADES DISTINTAS
-//   - CAPTURA  : capacidad pública de captura (QR/URL base). Solo escribe.
-//   - OPERADOR : capacidad privilegiada (Consultar/administrar). Nunca se
-//                inyecta en una página pública (ver §11).
-// El token del webhook sigue siendo independiente y no se comparte en el QR.
-// La propiedad CAPTURA_ACCESS_TOKEN conserva su valor (el QR actual no se
-// invalida), pero ya NO concede acceso a funciones privilegiadas.
+// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP
+//   v0.10.4 (DEC-068 supera DEC-067): una sola credencial habilita TODAS las
+//   funciones operativas del sistema (captura, actualizar ficha, Controles,
+//   Dashboard, REM, Revisión, Configuración, Backups…). Se elimina la
+//   separación de capacidades CAPTURA ≠ OPERADOR: el enlace de trabajo del
+//   sistema otorga el mismo acceso a cualquier trabajador autorizado.
+//
+//   Credencial canónica: CAPTURA_ACCESS_TOKEN. Su valor se CONSERVA: el
+//   QR/URL vigente no se invalida con este hotfix.
+//   OPERADOR_ACCESS_TOKEN queda OBSOLETO pero se acepta como token legacy de
+//   transición (no rompe pestañas/enlaces abiertos durante v0.10.3).
+//   El token del webhook sigue siendo independiente y no se comparte en el QR.
 // ---------------------------------------------------------------------------
 
-/** Autoriza la capacidad de OPERADOR: sesión activa o token de operador. */
-function WebApp_autorizarBuscador(token) {
+/** Autoriza el acceso universal: sesión activa o token universal válido. */
+function WebApp_autorizar(token) {
   if (WebApp_usuarioActivo()) return true;
-  return WebApp_accesoOperadorValido_(token);
+  return WebApp_accesoUniversalValido_(token);
 }
 
-/** Autoriza la capacidad de CAPTURA: sesión activa o token de captura. */
-function WebApp_autorizarCaptura(token) {
-  if (WebApp_usuarioActivo()) return true;
-  return WebApp_accesoCapturaValido_(token);
-}
+/** Aliases heredados de la superficie RPC: todos autorizan el acceso universal. */
+function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
+function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
 
-/** Clave de captura (pública por diseño). Conserva CAPTURA_ACCESS_TOKEN. */
-function WebApp_claveCaptura_() {
+/**
+ * Clave universal del sistema (credencial canónica CAPTURA_ACCESS_TOKEN).
+ * Devuelve de inmediato el valor existente; solo toma el lock para CREAR la
+ * clave cuando la propiedad falta. Nunca devuelve '' si la clave existe:
+ * ante contención o fallo relee sin lock y solo falla si realmente no existe.
+ */
+function WebApp_claveUniversal_() {
+  var props = PropertiesService.getScriptProperties();
+  var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+  if (clave) return clave;
+  var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
+  if (lock && !lock.tryLock(5000)) {
+    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    if (!clave) throw new Error('ACCESO_UNIVERSAL_NO_INICIALIZADO');
+    return clave;
+  }
   try {
-    var props = PropertiesService.getScriptProperties();
-    var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-    if (clave) return clave;
-    var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
-    if (lock && !lock.tryLock(5000)) return '';
-    try {
-      clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-      if (clave) return clave;
+    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    if (!clave) {
       clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
       props.setProperty('CAPTURA_ACCESS_TOKEN', clave);
-      return clave;
-    } finally { if (lock) lock.releaseLock(); }
-  } catch (e) { return ''; }
+    }
+    return clave;
+  } catch (e) {
+    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    if (!clave) throw e;
+    return clave;
+  } finally {
+    if (lock) { try { lock.releaseLock(); } catch (ign) {} }
+  }
 }
 
-/** Clave de operador: separada de captura. Solo se entrega desde el menú de Sheets. */
-function WebApp_claveOperador_() {
-  try {
-    var props = PropertiesService.getScriptProperties();
-    var clave = props.getProperty('OPERADOR_ACCESS_TOKEN');
-    if (clave) return clave;
-    var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
-    if (lock && !lock.tryLock(5000)) return '';
-    try {
-      clave = props.getProperty('OPERADOR_ACCESS_TOKEN');
-      if (clave) return clave;
-      clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-      props.setProperty('OPERADOR_ACCESS_TOKEN', clave);
-      return clave;
-    } finally { if (lock) lock.releaseLock(); }
-  } catch (e) { return ''; }
-}
-
-function WebApp_accesoCapturaValido_(token) {
+/** Valida un token contra la credencial universal (con legacy OPERADOR v0.10.3). */
+function WebApp_accesoUniversalValido_(token) {
   if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = WebApp_claveCaptura_();
-  return !!esperado && token === esperado;
+  var esperado = WebApp_claveUniversal_();
+  if (token === esperado) return true;
+  var legacy = PropertiesService.getScriptProperties().getProperty('OPERADOR_ACCESS_TOKEN');
+  return !!legacy && token === legacy;
 }
 
-function WebApp_accesoOperadorValido_(token) {
-  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = WebApp_claveOperador_();
-  return !!esperado && token === esperado;
-}
+// ---- Alias de compatibilidad (contrato heredado) — todos delegan en la
+// capacidad universal, no se añade lógica de capacidades separadas. ----
 
-/** URL del canal de captura (QR y URL base). No concede acceso privilegiado. */
-function WebApp_urlCaptura_() {
-  var clave = WebApp_claveCaptura_();
+function WebApp_claveCaptura_() { return WebApp_claveUniversal_(); }
+function WebApp_claveOperador_() { return WebApp_claveUniversal_(); }
+function WebApp_claveCompartida_() { return WebApp_claveUniversal_(); }
+
+function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValido_(token); }
+function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
+function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
+
+/** URL universal del sistema (QR y enlace de distribución). */
+function WebApp_urlCompartida_() {
+  var clave = WebApp_claveUniversal_();
   return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
 }
 
-/** URL de una vista de operador (paneles, ficha, REM…). Solo desde Sheets/UI autorizada. */
-function WebApp_urlOperadorVista_(vista) {
-  var base = ECICEP_webAppUrl();
-  var token = WebApp_claveOperador_();
-  if (!token) return '';
-  return base + '?acceso=' + encodeURIComponent(token) +
-    (vista ? '&vista=' + encodeURIComponent(vista) : '');
+/** URL de una vista operativa. Usa la misma credencial universal del sistema. */
+function WebApp_urlVista_(vista) {
+  var url = WebApp_urlCompartida_();
+  return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
 }
 
-// ---- Alias de compatibilidad (contrato heredado). ----
-// WebApp_claveCompartida_ / WebApp_accesoCompartidoValido_ / WebApp_urlCompartida_
-// representan la CAPACIDAD DE CAPTURA (misma propiedad CAPTURA_ACCESS_TOKEN,
-// misma URL del QR). WebApp_urlVista_ pasó a representar una vista de OPERADOR.
+/** Alias heredado de URL de vista: misma URL universal. */
+function WebApp_urlOperadorVista_(vista) { return WebApp_urlVista_(vista); }
 
-function WebApp_claveCompartida_() { return WebApp_claveCaptura_(); }
-
-function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoCapturaValido_(token); }
-
-function WebApp_urlCompartida_() { return WebApp_urlCaptura_(); }
-
-function WebApp_urlVista_(vista) { return WebApp_urlOperadorVista_(vista); }
+/** Alias heredado de URL de captura: misma URL universal. */
+function WebApp_urlCaptura_() { return WebApp_urlCompartida_(); }
 
 /** Identidad del código servido (sello BUILD.js regenerado en cada push).
  *  CapturaWeb.html lo usa como contravalor: si el sello incrustado en la página
@@ -156,12 +153,11 @@ function doGet(e) {
   var p = e && e.parameter || {};
   var acceso = String(p.acceso || '').trim();
   var vista = String(p.vista || 'captura').trim();
-  var esOperador = WebApp_usuarioActivo() || WebApp_accesoOperadorValido_(acceso);
   if (vista === 'captura') {
-    return WebApp_servirCaptura_(esOperador);
+    return WebApp_servirCaptura_();
   }
-  if (!WebApp_accesoOperadorValido_(acceso)) {
-    return ContentService.createTextOutput('Enlace de Captura no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
+  if (!WebApp_autorizar(acceso)) {
+    return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
   }
   var archivos = {
     portal: 'PortalWeb', pacientes: 'Sidebar',
@@ -171,13 +167,13 @@ function doGet(e) {
     generarRem: 'RemGenerador'
   };
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
-  if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de Captura.');
+  if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de ECICEP.');
   var plantilla = HtmlService.createTemplateFromFile(archivo);
-  var operador = WebApp_claveOperador_();
-  // Página de OPERADOR: recibe el token de operador (privilegiado) para RPC.
-  plantilla.CAPTURA_ACCESO = operador;
-  plantilla.TOKEN_ACCESO = operador;
-  plantilla.TOKEN_INVITACION = operador;
+  var universal = WebApp_claveUniversal_();
+  // Todas las vistas operativas reciben la credencial universal (ACCESO UNIVERSAL).
+  plantilla.CAPTURA_ACCESO = universal;
+  plantilla.TOKEN_ACCESO = universal;
+  plantilla.TOKEN_INVITACION = universal;
   plantilla.MODO_OPERADOR = true;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
@@ -205,18 +201,18 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura (público). CAPTURA_ACCESO = clave de captura;
- *  TOKEN_ACCESO / TOKEN_INVITACION quedan VACÍOS: la página pública nunca
- *  recibe credenciales privilegiadas. MODO_OPERADOR=true solo si quien abre
- *  la URL es un operador (sesión o token de operador). */
-function WebApp_servirCaptura_(esOperador) {
+/** Sirve el canal de captura. CAPTURA_ACCESO = credencial universal; la
+ *  página operativa recibe la MISMA credencial en TOKEN_ACCESO /
+ *  TOKEN_INVITACION y siempre opera como MODO_OPERADOR: con el enlace del
+ *  sistema se puede capturar y administrar (ACCESO UNIVERSAL, DEC-068). */
+function WebApp_servirCaptura_() {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  var clave = WebApp_claveCaptura_();
-  plantilla.CAPTURA_ACCESO = clave;
-  plantilla.TOKEN_ACCESO = '';
-  plantilla.TOKEN_INVITACION = '';
-  plantilla.MODO_OPERADOR = !!esOperador;
-  plantilla.PORTAL_URL = esOperador ? WebApp_urlVista_('portal') : '';
+  var universal = WebApp_claveUniversal_();
+  plantilla.CAPTURA_ACCESO = universal;
+  plantilla.TOKEN_ACCESO = universal;
+  plantilla.TOKEN_INVITACION = universal;
+  plantilla.MODO_OPERADOR = true;
+  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = '';
   plantilla.REM_URL = '';
   plantilla.DASH_URL = '';

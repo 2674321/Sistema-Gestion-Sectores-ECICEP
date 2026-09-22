@@ -1,5 +1,32 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-22 (v0.10.4):**
+> - **ACCESO UNIVERSAL ECICEP (DEC-068, supera DEC-067)**: una sola credencial
+>   (`CAPTURA_ACCESS_TOKEN`, valor conservado) habilita **todas** las funciones
+>   operativas: captura, ficha, Controles, Dashboard, REM, Revisión,
+>   Configuración, Backups y CentroPruebas. Se elimina la separación
+>   CAPTURA ≠ OPERADOR (no representaba el requisito real: con el enlace del
+>   sistema se captura **y** se administra). `OPERADOR_ACCESS_TOKEN` queda
+>   obsoleto y se acepta solo como legacy de transición (enlaces v0.10.3
+>   abiertos). Resuelve el incidente de producción «El procesamiento del envío
+>   falló; reintentable (ACCESO_DENEGADO)» (página operativa con token CAPTURA,
+>   más bug de token `''` por contención de lock).
+> - **`WebApp_claveUniversal_` nunca devuelve `''`**: devuelve la credencial
+>   existente sin lock; toma el lock **solo** para crearla; ante contención
+>   relee sin lock; si realmente no existe, falla. Todas las páginas se sirven
+>   con `CAPTURA_ACCESO`/`TOKEN_ACCESO`/`TOKEN_INVITACION` = credencial universal
+>   y `MODO_OPERADOR=true`; `CapturaWeb.html` ya no oculta ACTUALIZAR_DATOS y se
+>   auto-recupera de `ACCESO_DESACTUALIZADO` (recarga 1 vez preservando
+>   `captureId`). El pipeline de entrega no re-autentica (auditado).
+> - **Se mantienen los hardening de DEC-067 compatibles**: superficie RPC mínima
+>   (wrappers `api_*`, helpers `_`), guards por RPC (token inválido/ausente →
+>   `ACCESO_DENEGADO`), mutaciones atómicas e idempotentes, `CONFIG_SECRETOS`,
+>   schema **2** (sin MIG-003).
+> - Batería: **21 suites · 0 fallos** (validar_html 21/21, seguridad ACCESO
+>   UNIVERSAL 10/10, rpc surface 4/4, acceso universal v0.10.4 7/7, acceso
+>   webapp 8/8). `ECICEP.VERSION` → `0.10.4`, **schema 2**.
+>   Informe `docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md`.
+
 > **Actualización 2026-09-22 (v0.10.3):**
 > - **Separación de capacidades CAPTURA ≠ OPERADOR**: dos tokens disjuntos en
 >   PropertiesService. La página pública (`CapturaWeb.html`) entrega solo

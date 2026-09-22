@@ -1217,7 +1217,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
         return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ACTUALIZACION_FALLIDA', idInterno: persona.ID_INTERNO, idEvento: '' };
       }
       // §40/§42: la captura ya está autorizada y bajo lock; se usa la capa de
-      // dominio directamente (nunca un wrapper api_* con token de operador).
+      // dominio directamente (nunca un wrapper api_* ni una re-autorización).
       var resOtro = Eventos_registrarPaciente_({
         tipoEvento: 'OTRO',
         fecha: Captura_v2_fechaOperacion({}),
@@ -1294,7 +1294,7 @@ function Captura_v2_ctx(acceso) {
     entregar: Captura_v2_entregar,
     // La captura YA está autorizada (entrypoint WebApp_autorizarCaptura) y bajo
     // lock; aquí se usa la capa de dominio directamente (nunca un wrapper api_*
-    // que exigiría token de operador ni re-lockearía). §40-§42.
+    // ni una re-autorización). §40-§42.
     aplicarAgenda: function (idInterno, fecha) {
       return Paciente_actualizarCampos_(idInterno, { PROXIMO_CONTROL: fecha }, { fuente: 'CAPTURA_V2' });
     },

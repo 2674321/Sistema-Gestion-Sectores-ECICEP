@@ -1,5 +1,17 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-22 (v0.10.4):** hotfix **ACCESO UNIVERSAL ECICEP**
+> (DEC-068, supera DEC-067): una sola credencial (`CAPTURA_ACCESS_TOKEN`,
+> valor conservado) habilita todas las funciones operativas (captura, ficha,
+> paneles, admin). Se retira la separación CAPTURA ≠ OPERADOR (la página
+> operativa podía abrir la ficha pero sus RPC fallaban `ACCESO_DENEGADO`; se
+> añade además el fix de token `''` por contención de lock y la
+> auto-recuperación del cliente `ACCESO_DESACTUALIZADO`). `OPERADOR_ACCESS_TOKEN`
+> queda como legacy de transición. Se mantienen superficie RPC mínima, guards
+> por RPC, mutaciones atómicas/idempotentes y `CONFIG_SECRETOS`. Esquema sigue
+> en **2**; **schema no cambia**. Detalle:
+> `docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md`.
+
 > **Actualización 2026-09-22 (v0.10.3):** pasada de **hardening** completa:
 > separación de capacidades **CAPTURA ≠ OPERADOR** (tokens disjuntos; la URL
 > pública nunca entrega el token de operador ni expone ficha/PII), superficie

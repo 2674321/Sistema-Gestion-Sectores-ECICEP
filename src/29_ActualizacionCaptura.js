@@ -145,8 +145,8 @@ function Captura_reconciliarFechasCorregidas_() {
 
 /** Entrega V4 bajo el mismo ScriptLock/registro de captura que V2/V3.
  *  La edición ya está autorizada (WebApp_capturarEnviar + opciones.usuario) y
- *  bajo lock: usa la capa de dominio directamente (nunca un wrapper api_*, que
- *  exigiría token de operador o re-lockearía). §40-§42. */
+ *  bajo lock: usa la capa de dominio directamente (nunca un wrapper api_* ni
+ *  una re-autorización). §40-§42. */
 function Captura_aplicarCamposDominio_(idInterno, campos) {
   return Paciente_aplicarCampos_(idInterno, campos, { fuente: 'CAPTURA_V4' });
 }

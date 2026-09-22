@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// RPC surface v0.10.3 — funciones críticas NO accesibles directamente a
+// RPC surface v0.10.3/0.10.4 — funciones críticas NO accesibles directamente a
 // google.script.run (§93). Mecanismo: las funciones internas llevan sufijo `_`;
 // si un nombre crítico existiera SIN sufijo, quedaría expuesto a google.script.run.
 // El test detecta: (1) ausencia de exponer sin `_`, (2) que ninguna página llame
 // a esas funciones por su nombre crítico, (3) que el acceso pasa solo por api_*
-// con capacidad OPERADOR.
+// con credencial válida (ACCESO UNIVERSAL v0.10.4; OPERADOR legacy v0.10.3).
 import assert from 'node:assert/strict';
 import {readdirSync,readFileSync} from 'node:fs';
 import vm from 'node:vm';
@@ -51,8 +51,9 @@ t('Ningún HTML llama a google.script.run.<critica> ni al nombre interno directo
   }
 });
 
-// (3) Los endpoints públicos equivalentes existen, toman token y exigen OPERADOR.
-t('El acceso a las críticas pasa solo por api_* públicos con capacidad OPERADOR',()=>{
+// (3) Los endpoints públicos equivalentes existen, toman token y exigen
+//     credencial válida (ACCESO UNIVERSAL v0.10.4; OPERADOR solo como legacy).
+t('El acceso a las críticas pasa solo por api_* públicos con credencial válida',()=>{
   const map={
     Hojas_resetFabrica:'api_instalarPaso',
     Recuperar_ejecutar:'api_registrarEvento',
@@ -65,22 +66,23 @@ t('El acceso a las críticas pasa solo por api_* públicos con capacidad OPERADO
   const ctx=vm.createContext({console:{log(){},warn(){},error(){}}});
   for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())
     vm.runInContext(readFileSync(new URL(f,root),'utf8'),ctx,{filename:f});
-  const CAPTURA='a'.repeat(64),OPERADOR='b'.repeat(64);
+  const UNIVERSAL='a'.repeat(64),LEGACY='b'.repeat(64);
   const props=new Map();
-  props.set('CAPTURA_ACCESS_TOKEN',CAPTURA);
-  props.set('OPERADOR_ACCESS_TOKEN',OPERADOR);
+  props.set('CAPTURA_ACCESS_TOKEN',UNIVERSAL);
+  props.set('OPERADOR_ACCESS_TOKEN',LEGACY);
   ctx.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
   ctx.Utilities={getUuid:()=> 'abcd1234-ef56-7890-abcd-ef1234567890',formatDate:()=>''};
   ctx.Session={getActiveUser:()=>({getEmail:()=>''})};
   ctx.SpreadsheetApp={getActiveSpreadsheet:()=>({getSheetByName:()=>null}),openById:()=>null};
   ctx.Modelo_leerPacientes=()=>[];ctx.Modelo_hoja=()=>null;
   ctx.Log_info=()=>{};ctx.Log_warning=()=>{};ctx.Log_error=()=>{};ctx.Log_flush=()=>{};
-  // Todos los wrappers de la superficie exigen WebApp_autorizarBuscador (OPERADOR).
+  // Todos los wrappers de la superficie exigen WebApp_autorizarBuscador
+  // (credencial válida universal; legacy v0.10.3 aceptado en transición).
   const presentes=Object.values(map).filter(n=>typeof ctx[n]==='function');
   assert.ok(presentes.length>=4,'hay wrappers api_* verificables');
   for(const nombre of presentes){
     try{
-      const r=ctx[nombre](OPERADOR);
+      const r=ctx[nombre](LEGACY);
       // no debe explotar la falta de backend: o negó por datos ausentes o quedó ok.
       assert.ok(typeof r==='object','wrappers devuelven objeto');
     }catch(e){
@@ -91,14 +93,14 @@ t('El acceso a las críticas pasa solo por api_* públicos con capacidad OPERADO
   }
 });
 
-t('Los wrappers api_* de las críticas se niegan con token de CAPTURA y sin token',()=>{
+t('Los wrappers api_* de las críticas se niegan con token inválido y sin token',()=>{
   const ctx=vm.createContext({console:{log(){},warn(){},error(){}}});
   for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())
     vm.runInContext(readFileSync(new URL(f,root),'utf8'),ctx,{filename:f});
-  const CAPTURA='a'.repeat(64),OPERADOR='b'.repeat(64);
+  const UNIVERSAL='a'.repeat(64),INVALIDO='0'.repeat(64);
   const props=new Map();
-  props.set('CAPTURA_ACCESS_TOKEN',CAPTURA);
-  props.set('OPERADOR_ACCESS_TOKEN',OPERADOR);
+  props.set('CAPTURA_ACCESS_TOKEN',UNIVERSAL);
+  props.set('OPERADOR_ACCESS_TOKEN','c'.repeat(64));
   ctx.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
   ctx.Utilities={getUuid:()=> 'abcd1234-ef56-7890-abcd-ef1234567890',formatDate:()=>''};
   ctx.Session={getActiveUser:()=>({getEmail:()=>''})};
@@ -108,10 +110,13 @@ t('Los wrappers api_* de las críticas se niegan con token de CAPTURA y sin toke
   const casos=[['api_estratRecalcularPaciente','P-FICTICIO'],['api_registrarEvento',{}]];
   for(const [nombre,...args] of casos){
     if(typeof ctx[nombre]!=='function')continue;
-    const cap=ctx[nombre](...args,CAPTURA);
-    assert.equal(cap.ok,false,nombre+' con CAPTURA negado');
+    const mal=ctx[nombre](...args,INVALIDO);
+    assert.equal(mal.ok,false,nombre+' con token inválido negado');
+    assert.equal(mal.motivo,'ACCESO_DENEGADO',nombre+' con token inválido: ACCESO_DENEGADO');
     const sin=ctx[nombre](...args);
     assert.equal(sin.ok,false,nombre+' sin token negado');
+    const ok=ctx[nombre](...args,UNIVERSAL);
+    assert.notEqual(ok.motivo,'ACCESO_DENEGADO',nombre+' con credencial universal autoriza (falla de negocio, no de acceso)');
   }
 });
 console.log('RPC surface v0.10.3: '+pruebas+'/'+pruebas+(faltas.length?' — FALTAS: '+faltas.join(', '):''));

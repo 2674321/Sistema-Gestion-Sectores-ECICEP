@@ -7,6 +7,36 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.4 — ACCESO UNIVERSAL ECICEP (hotfix, deploy reutilizado, URL y QR intactos)
+
+- **Incidente resuelto**: «El procesamiento del envío falló; reintentable
+  (ACCESO_DENEGADO)». Causa: la capacidad disjunta de v0.10.3 servía páginas
+  operativas con token CAPTURA (las RPC de ficha/panel fallaban
+  `ACCESO_DENEGADO`) y `WebApp_servirCaptura_` podía inyectar `TOKEN_ACCESO=''`
+  por contención de lock.
+- **ACCESO UNIVERSAL (DEC-068, supera DEC-067)**: una sola credencial
+  (`CAPTURA_ACCESS_TOKEN`, valor conservado) habilita captura, ficha, Controles,
+  Dashboard, REM, Revisión, Configuración, Backups y CentroPruebas.
+  `OPERADOR_ACCESS_TOKEN` queda obsoleto como legacy de transición.
+- **`WebApp_claveUniversal_` nunca devuelve `''`**: devuelve la clave existente
+  sin lock, toma lock solo para crear, relee bajo contención y falla si no
+  existe. Todas las páginas se sirven con la credencial universal y
+  `MODO_OPERADOR=true`; `CapturaWeb.html` deja de ocultar ACTUALIZAR_DATOS y se
+  auto-recupera de `ACCESO_DESACTUALIZADO` (recarga 1 vez preservando
+  `captureId`).
+- **Se conservan** los hardening compatibles de v0.10.3: superficie RPC mínima,
+  guards por RPC (token inválido/ausente → `ACCESO_DENEGADO`), mutaciones
+  atómicas/idempotentes, `CONFIG_SECRETOS`; schema **2** sin MIG-003.
+- **Tests**: nueva `acceso_universal_v0104` (**7/7**); `acceso_webapp`
+  reescrita (**8/8**); `seguridad_capacidades_v0103` (**10/10**) y
+  `rpc_surface_v0103` (**4/4**) ajustadas al contrato universal.
+  Batería `node tools/verificar.mjs` → **21 suites · 0 fallos**.
+  `ECICEP.VERSION` → `0.10.4`, **schema 2**.
+- **Docs**: ARQUITECTURA.md, README.md, PENDIENTES.md, DECISIONES.md (DEC-068),
+  `docs/CONTRATO_CAPTURA_V2.md`, `docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md`.
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado (misma URL `/exec` y QR, sin deployments por rutina).
+
 ## v0.10.3 — Separación de capacidades CAPTURA ≠ OPERADOR y trazabilidad de estratificación (deploy reutilizado, URL intacta)
 
 - **Tokens disjuntos**: se separaron `CAPTURA_ACCESS_TOKEN` y
