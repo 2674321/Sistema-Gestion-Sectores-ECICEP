@@ -335,13 +335,28 @@ function limpiarDetalle() {
 
 /* ================= acciones ================= */
 function verFicha() {
-  if (!CTRL.sel) return;
-  var base=document.body.getAttribute('data-ficha-base');
-  if(base){window.open(base+'&id='+encodeURIComponent(CTRL.sel),'_blank');return;}
+  var id = String(CTRL.sel || '').trim();
+  if (!id) {
+    toast('Selecciona una persona antes de abrir la ficha', 'warn');
+    return;
+  }
+  var base = document.body.getAttribute('data-ficha-base') || '';
+  if (base) {
+    window.open(base + '&id=' + encodeURIComponent(id), '_blank');
+    return;
+  }
   google.script.run
-    .withSuccessHandler(function () { google.script.host.close(); })
-    .withFailureHandler(function () { google.script.host.close(); })
-    .UI_abrirFicha(CTRL.sel);
+    .withSuccessHandler(function (r) {
+      if (r === false) {
+        toast('No se pudo abrir la ficha: ID inválido', 'err');
+        return;
+      }
+      google.script.host.close();
+    })
+    .withFailureHandler(function (e) {
+      toast('Error al abrir ficha: ' + ((e && e.message) || e), 'err');
+    })
+    .UI_abrirFicha(id);
 }
 function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 

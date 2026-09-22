@@ -452,8 +452,9 @@ function UI_abrirControles() {
 
 /** 🔎 Abre la ficha de una persona directamente (sidebar modo 'ficha'). */
 function UI_abrirFicha(idInterno) {
-  if (!idInterno) return false;
-  _ui_sidebar('ficha', 'Pacientes ECICEP', String(idInterno));
+  var id = Utl_texto(idInterno).trim();
+  if (!id) return false;
+  _ui_sidebar('ficha', 'Pacientes ECICEP', id);
   return true;
 }
 

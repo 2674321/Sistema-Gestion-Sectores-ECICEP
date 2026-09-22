@@ -141,5 +141,9 @@ t('Regresión: todo constructor inyecta el token antes de evaluate()',()=>{
   const controles=readFileSync(new URL('Controles.html',root),'utf8');
   assert.match(controles,/\.api_controlPanel\(\{[^}]*\},\s*ECICEP_ACCESO\)/);
   assert.match(controles,/\.api_controlActualizarUltimo\([^;]*,\s*ECICEP_ACCESO\)/);
+  const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
+  assert.ok(!/var ID_INICIAL = \(typeof ID_INICIAL !== 'undefined'\) \? ID_INICIAL : '';/.test(sidebar),
+    'Sidebar.html no debe auto-sombrar ID_INICIAL (hoisting)');
+  assert.match(sidebar,/id_inicial_safe|ID_INICIAL_SAFE/);
 });
 console.log('Acceso Web App: '+pruebas+'/'+pruebas);

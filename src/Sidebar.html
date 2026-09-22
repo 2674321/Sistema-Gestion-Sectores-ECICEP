@@ -5,8 +5,11 @@
 <? var MODO = (modo === 'pacientes' || modo === 'revision' || modo === 'ficha') ? modo : 'centro'; ?>
 <script>var MODO = <?!= JSON.stringify(MODO).replace(/</g,'\\u003c') ?>; /* modo visible para el JS del cliente */</script>
 <script>var TOKEN_INVITACION = <?!= JSON.stringify(TOKEN_INVITACION||'').replace(/</g,'\\u003c') ?>; /* token universal de invitacion */</script>
-<? var ID_INICIAL = (typeof ID_INICIAL !== 'undefined') ? ID_INICIAL : ''; ?>
-<script>var ID_INICIAL = <?!= JSON.stringify(ID_INICIAL).replace(/</g,'\\u003c') ?>; /* ficha directa (modo 'ficha') */</script>
+<? var ID_INICIAL_SAFE = (typeof ID_INICIAL !== 'undefined' && ID_INICIAL !== null) ? String(ID_INICIAL) : ''; ?>
+<script>
+var ID_INICIAL = <?!= JSON.stringify(ID_INICIAL_SAFE).replace(/</g,'\\u003c') ?>;
+/* ficha directa (modo 'ficha') */
+</script>
 <?!= include('00_Tokens') ?>
 <style>
 /* Vista sidebar angosto (~300px): base 14px definida en tokens */
