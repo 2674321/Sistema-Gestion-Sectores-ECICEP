@@ -20,6 +20,12 @@
 > - **[PENDIENTE]** — punto abierto; no tiene valor normativo hasta que se cierre.
 >
 > La revisión del 2026-09-16 implementa y prueba la extensión V3 en el mismo backend y pipeline.
+> La pasada v0.10.3 (2026-09-22) endureció el canal de captura con **capacidades
+> disjuntas de tokens**: `CAPTURA_ACCESS_TOKEN` autoriza únicamente
+> `WebApp_capturarEnviar` y el preflight de captura; `OPERADOR_ACCESS_TOKEN`
+> autoriza la operación de ficha y todo lo administrativo. Un token de CAPTURA
+> **no** abre ficha/revisión/asistencia REM/configuración/backups y el preflight
+> público nunca filtra datos identificables de candidatos (DEC-067).
 
 ---
 

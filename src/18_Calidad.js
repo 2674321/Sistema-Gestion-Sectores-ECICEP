@@ -143,7 +143,7 @@ function Calidad_auditarTodo() {
  * - Entidad sin problemas con fila PENDIENTE previa → RESUELTO_AUTO.
  * - Jamás elimina filas (trazabilidad) ni toca PACIENTES/EVENTOS.
  */
-function Calidad_sincronizarCola() {
+function Calidad_sincronizarCola_() {
   var audit = Calidad_auditarTodo();
   var ss = Modelo_ss();
   var hoja = ss.getSheetByName(HOJAS.CONFLICTOS);
@@ -219,7 +219,7 @@ function Calidad_sincronizarCola() {
  * PACIENTES (puntos/espacios/minúsculas) sin tocar dígitos ni DV.
  * Solo aplica si el valor normalizado pasa módulo 11 (evidencia total).
  */
-function Calidad_normalizarFormatoRuts() {
+function Calidad_normalizarFormatoRuts_() {
   var pacientes = Modelo_leerPacientes();
   var hojaP = Modelo_hoja(HOJAS.PACIENTES);
   var colRut = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('RUT') + 1;
@@ -247,4 +247,27 @@ function Calidad_normalizarFormatoRuts() {
   Log_info('Calidad', 'normalizarRuts', 'corregidos=' + corregidos);
   Log_flush();
   return { ok: true, corregidos: corregidos, detalles: detalles.slice(0, 20) };
+}
+
+/**
+ * RPC: wrapper autenticado + serializado del Centro de Pruebas.
+ * Solo OPERADOR; NUNCA se expone la lógica interna directa.
+ */
+function api_calidadSincronizarCola(token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    return Ecicep_conLock_(function () { return Calidad_sincronizarCola_(); });
+  } catch (e) {
+    return Api_error_('CALIDAD_SINCRONIZAR', e && e.message ? e.message : String(e));
+  }
+}
+
+/** RPC: wrapper autenticado + serializado de normalización de RUTs. */
+function api_calidadNormalizarFormatoRuts(token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    return Ecicep_conLock_(function () { return Calidad_normalizarFormatoRuts_(); });
+  } catch (e) {
+    return Api_error_('CALIDAD_NORMALIZAR_RUTS', e && e.message ? e.message : String(e));
+  }
 }

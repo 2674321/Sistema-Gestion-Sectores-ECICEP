@@ -355,7 +355,7 @@ function Instalar_versionIncompatible_(v) {
 function Mig_run002() {
   var res = { ok: true, esquema: null, alineadas: [], yaCanonicas: [],
     ingresosActualizados: [], ingresosSinHoja: [] };
-  var e = Modelo_asegurarEsquemaPacientes();
+  var e = Modelo_asegurarEsquemaPacientes_();
   if (!e.ok) {
     if (e.motivo === 'SIN_HOJA_PACIENTES') {
       res.ok = false; res.motivo = 'MIG-002:SIN_HOJA_PACIENTES';
@@ -367,7 +367,7 @@ function Mig_run002() {
     }
   }
   res.esquema = e;
-  var v = Modelo_alinearVistasSectoriales();
+  var v = Modelo_alinearVistasSectoriales_();
   res.alineadas = v.alineadas;
   res.yaCanonicas = v.yaCanonicas;
   if (v.errores.length) {
@@ -440,7 +440,7 @@ function _mig002_asegurarIngresosSaludMental() {
 function Mig_run001() {
   var res = { ok: true, alineadas: [], yaCanonicas: [], sinObjeto: [] };
   HOJAS_SECTOR.forEach(function (n) {
-    var r = Modelo_alinearVistaSector(n);
+    var r = Modelo_alinearVistaSector_(n);
     if (!r.ok) {
       if (r.motivo === 'HOJA_NO_EXISTE' || r.motivo === 'SIN_ENCABEZADOS') {
         res.sinObjeto.push(n);
@@ -482,7 +482,7 @@ function Instalar_ejecutarPolitica() {
         linea: 'SCHEMA_VERSION ilegible (' + v.version + '); se requiere revisión manual.' };
     }
     if (v.estado === 'INCOMPLETA') {
-      var est = Modelo_crearEstructura();
+      var est = Modelo_crearEstructura_();
       snap = Modelo_escanearEstructura();
       v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
       v.estructuraReparada = est.creadas || [];
@@ -537,7 +537,7 @@ function Instalar_pMigraciones() {
 }
 
 function Instalar_pEstructura() {
-  var est = Modelo_crearEstructura();
+  var est = Modelo_crearEstructura_();
   return { creadas: est.creadas.length, existentes: est.existentes.length,
            dashboardReparado: !!est.dashboardReparado };
 }
@@ -564,11 +564,11 @@ function Instalar_pFuentes() {
       ' · existentes ' + res.existentes + ' · en revisión ' + res.revision };
 }
 function Instalar_pAmarillo() {
-  // Sector Amarillo desde Drive (Amarillo_importarTodo: puerta INGRESO_AMARILLO
+  // Sector Amarillo desde Drive (Amarillo_importarTodo_: puerta INGRESO_AMARILLO
   // + histórico idempotente). La fuente ausente no es un fallo bloqueante: se
   // informa para diagnóstico sin duplicar lógica.
   var r;
-  try { r = Amarillo_importarTodo(true); }
+  try { r = Amarillo_importarTodo_(true); }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
   if (!r || r.ok === false) return { ok: false, motivo: r.motivo || (r && r.linea) || 'No se pudo cargar el sector amarillo' };
   return { ok: true, aplicaHistorico: true, puerta: r.puerta, historico: r.historico };
@@ -659,7 +659,7 @@ function Instalar_pDerivados() {
   var estrat = { recalculados: 0, total: 0 };
   var ctrl = { cambios: 0, total: 0 };
   var errores = [];
-  try { estrat = Estrat_recalcularTodos() || estrat; } catch (eE) { errores.push('estratificación: ' + (eE && eE.message || eE)); }
+  try { estrat = Estrat_recalcularTodos_() || estrat; } catch (eE) { errores.push('estratificación: ' + (eE && eE.message || eE)); }
   try { ctrl = Control_recalcularTodos() || ctrl; } catch (eC) { errores.push('controles: ' + (eC && eC.message || eC)); }
   if (estrat.ok === false) errores.push('estratificación: ' + (estrat.motivo || 'error'));
   if (ctrl.ok === false) errores.push('controles: ' + (ctrl.motivo || 'error'));

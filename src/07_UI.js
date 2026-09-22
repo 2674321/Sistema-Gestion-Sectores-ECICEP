@@ -52,10 +52,12 @@ function UI_abrirFormularioCaptura() {
   return UI_mostrarQR();
 }
 
-/** Alias conservado para accesos anteriores; una única pantalla de Captura. */
+/** Alias conservado para accesos anteriores; una única pantalla de Captura.
+ *  El QR apunta exclusivamente al canal de CAPTURA (nunca a una vista
+ *  privilegiada de operador). */
 function UI_mostrarQR() {
-  var url = WebApp_urlCompartida_();
-  if (!url) throw new Error('No se pudo preparar el enlace compartido de Captura');
+  var url = WebApp_urlCaptura_();
+  if (!url) throw new Error('No se pudo preparar el enlace de Captura');
   var t = HtmlService.createTemplateFromFile('QRFormulario');
   t.QR_URL = url;
   t.WEB_APP_URL = url;
@@ -66,7 +68,7 @@ function UI_mostrarQR() {
 function UI_instalarSistema() {
   var t = HtmlService.createTemplateFromFile('Instalador');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.TOKEN_ACCESO = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
@@ -178,7 +180,7 @@ function UI_actualizarTodo(opciones) {
 function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.TOKEN_ACCESO = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   t.REM_URL = '';
   t.DASH_URL = '';
@@ -224,7 +226,7 @@ function api_logLeer(limite, token) {
 
 /** Flujo INGRESO_* → PACIENTES + EVENTOS con resumen comprensible (Parte 3.7). */
 function UI_procesarIngresos() {
-  var r = Utl_medir(Ingresos_procesarTodasLasHojas);
+  var r = Utl_medir(Ingresos_procesarTodasLasHojas_);
   Log_info('UI', 'procesarIngresos', JSON.stringify(r.resultado), null, r.ms);
   Log_flush();
   var texto = Ingresos_resumenTexto(r.resultado);
@@ -256,10 +258,10 @@ function UI_sembrarFicticios() {
 function UI_demoCompleta() {
   Utl_toast('info', 'Preparando demostración…', 15);
   var pasos = {};
-  pasos.estructura = Modelo_crearEstructura();
+  pasos.estructura = Modelo_crearEstructura_();
   pasos.sembradas = Sembrar_ficticios();
-  pasos.proceso = Ingresos_procesarTodasLasHojas({});
-  pasos.vistas = Modelo_refrescarVistasSectores();
+  pasos.proceso = Ingresos_procesarTodasLasHojas_({});
+  pasos.vistas = Modelo_refrescarVistasSectores_();
   Log_info('UI', 'demoCompleta', JSON.stringify(pasos.proceso));
   Log_flush();
   Utl_toast('ok', 'Demo lista · Sembradas: ' + pasos.sembradas +
@@ -353,7 +355,7 @@ function include(nombre) {
 function _ui_dialogo(nombre, titulo) {
   var t = HtmlService.createTemplateFromFile(nombre);
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.TOKEN_ACCESO = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   t.REM_URL = '';
   t.DASH_URL = '';
@@ -369,7 +371,7 @@ function _ui_sidebar(modo, titulo, idInicial) {
   t.modo = modo;
   t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_INVITACION = WebApp_claveCompartida_();
+  t.TOKEN_INVITACION = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
@@ -393,7 +395,7 @@ function UI_duplicados(){
     msg+=g.rut+' x'+g.cantidad+' -> '+g.registros.map(function(x){return x.paciente.NOMBRE.substring(0,20)+'['+x.paciente.ID_INTERNO+']';}).join(' | ')+'\n';
   });
   if(r.totalGrupos>10) msg+='... y '+(r.totalGrupos-10)+' grupos mas. Ver LOG para detalle.\n';
-  msg+='\nPara unir: ECICEP > Personas > Duplicados guarda el primero y reasigna eventos de los otros (marca REQUIERE_REVISION). Ejecuta Api_duplicadosUnirPorRut(rut, idConservar) desde script si necesitas elegir.';
+  msg+='\nPara unir: ECICEP > Personas > Duplicados guarda el primero y reasigna eventos de los otros (marca REQUIERE_REVISION).';
   Log_info('Duplicados','listar', JSON.stringify(r.grupos.slice(0,5).map(function(g){return g.rut+':'+g.cantidad;})));
   Log_flush();
   _UI_get().alert('Duplicados por RUT', msg, _UI_get().ButtonSet.OK);
@@ -409,7 +411,7 @@ function _ui_configuracion(seccion) {
   } catch (e) {}
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
-  t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.TOKEN_ACCESO = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
@@ -442,7 +444,7 @@ function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveCompartida_();
+  t.TOKEN_ACCESO = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   t.FICHA_URL = '';
   var html = t.evaluate().setTitle('Controles por persona')
@@ -458,8 +460,9 @@ function UI_abrirFicha(idInterno) {
   return true;
 }
 
-/** Endpoint: datos para la vista "Acerca de". */
-function api_acercaDe() {
+/** Endpoint: datos para la vista "Acerca de". Solo OPERADOR. */
+function api_acercaDe(token) {
+  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var tz = _UI_tz();
   var pacHoja = ss.getSheetByName(HOJAS.PACIENTES);
@@ -567,9 +570,12 @@ function api_configListar(token) {
         // de la sección CORREOS_RESPONSABLES: aquí se ocultan para no editarlos
         // como texto plano y duplicar el mantenimiento (#13 → DEC-039).
         if (/^RESPONSABLE_(NARANJO|AMARILLO|VERDE)$/.test(k)) continue;
-        filas.push({ clave: k, valor: Utl_texto(vals[i][1]),
+        var esSecreta = Config_esSecreto_(k);
+        filas.push({ clave: k, valor: Config_valorPublico_(k, vals[i][1]),
+                     valorPresente: Utl_texto(vals[i][1]) ? true : false,
                      descripcion: Utl_texto(vals[i][2]),
-                     protegida: Config_estaProtegida(k),
+                     protegida: Config_estaProtegida(k) || esSecreta,
+                     secreta: esSecreta,
                      seccion: Config_seccionDe(k),
                      tipo: Config_tipoDe(k),
                      opciones: Config_opcionesDe(k) });
@@ -589,7 +595,7 @@ function api_configGuardar(clave, valor, token) {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
-    if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    if (Config_estaProtegida(k) || Config_esSecreto_(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
     var v = String(valor == null ? '' : valor);
     var problema = Config_validarValor(k, v);
     if (problema) return { ok: false, motivo: 'Valor inválido (' + k + '): ' + problema };
@@ -611,7 +617,7 @@ function api_configAgregar(clave, valor, descripcion, token) {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var k = Utl_texto(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
-    if (Config_estaProtegida(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    if (Config_estaProtegida(k) || Config_esSecreto_(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
     var v = String(valor == null ? '' : valor);
     var problema = Config_validarValor(k, v);
     if (problema) return { ok: false, motivo: 'Valor inválido (' + k + '): ' + problema };
@@ -891,7 +897,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso, token) {
       REGISTRADO_POR: _ingresosUsuarioActual(),
       FECHA_REGISTRO: null
     };
-    Modelo_agregarEventos([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'panel-control' });
+    Modelo_agregarEventos_([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'panel-control' });
     // Una atención histórica se conserva en EVENTOS, pero no debe desplazar
     // la fecha vigente más reciente de la ficha.
     var campoUltimo = tipoUp === 'CONTROL' ? 'ULTIMO_CONTROL' : 'ULTIMO_SEGUIMIENTO';
@@ -900,7 +906,7 @@ function api_controlActualizarUltimo(idInterno, tipo, fechaIso, token) {
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
          .setValues([Modelo_filaDesdeObjeto(objetivo)]);
-    Modelo_refrescarVistasSectores([sectorObjetivo]);
+    Modelo_refrescarVistasSectores_([sectorObjetivo]);
     Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO + ' (evento ' + evento.ID_EVENTO + ')');
     Log_flush();
     return { ok: true, proximo: objetivo.PROXIMO_CONTROL || '', evento: { id: evento.ID_EVENTO, fecha: evento.FECHA_EVENTO, tipo: evento.TIPO_EVENTO } };
@@ -939,49 +945,9 @@ function api_actualizarPaciente(idInterno, campos, token) {
     if (typeof WebApp_autorizarBuscador === 'function' && !WebApp_autorizarBuscador(token)) {
       return { ok: false, motivo: 'NO_AUTORIZADO' };
     }
-    campos = campos || {};
-    var esSector = ('SECTOR' in campos);
-    var directos = {};
-    var sectorValor = null;
-    Object.keys(campos).forEach(function (k) {
-      if (k === 'SECTOR') sectorValor = campos[k];
-      else directos[k] = campos[k];
-    });
-
-    // SECTOR se descompone: es un EVENTO CAMBIO_SECTOR, no un campo más.
-    var sectorCambio = false;
-    if (esSector) {
-      var cs = Paciente_cambiarSector_(idInterno, sectorValor, {
-        fuente: 'UI_FICHA',
-        registradoPor: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''
-      });
-      if (!cs.ok) {
-        // Compatibilidad de mensajes históricos: 'SIN_CAMBIOS' para no-op.
-        if (cs.sinCambios) return { ok: true, sinCambios: true, sector: cs.sector };
-        return cs;
-      }
-      sectorCambio = !cs.sinCambios;
-    }
-
-    if (Object.keys(directos).length) {
-      var upd = Paciente_actualizarCampos_(idInterno, directos, { fuente: 'UI_FICHA' });
-      if (!upd.ok) return upd;
-      var pacienteParcial = upd.paciente;
-      return {
-        ok: true,
-        paciente: { ID_INTERNO: pacienteParcial.ID_INTERNO, NOMBRE: pacienteParcial.NOMBRE, SECTOR: pacienteParcial.SECTOR },
-        sectorCambio: sectorCambio, campos: upd.campos
-      };
-    }
-
-    if (!esSector) return { ok: false, motivo: 'SIN_CAMBIOS' };
-    // Solo cambió el sector: devolver el paciente refrescado.
-    var resSec = Modelo_buscarPaciente(idInterno);
-    return {
-      ok: true,
-      paciente: resSec ? { ID_INTERNO: resSec.obj.ID_INTERNO, NOMBRE: resSec.obj.NOMBRE, SECTOR: resSec.obj.SECTOR } : { ID_INTERNO: idInterno },
-      sectorCambio: sectorCambio, campos: ['SECTOR']
-    };
+    // Delegación al dominio (31_Ficha): SECTOR = EVENTO CAMBIO_SECTOR;
+    // no-op (SIN_CAMBIOS) cuando el sector no cambia (§21, OkV-c3).
+    return Paciente_aplicarCampos_(idInterno, campos, { fuente: 'UI_FICHA' });
   } catch (e) {
     Log_error('Paciente', 'actualizar', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1335,12 +1301,12 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
     var contexto = { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'revision-' + decision.toLowerCase() };
     var destinoId = '';
     if (prep.accion === 'CREAR') {
-      Modelo_agregarPacientes([prep.pacienteNuevo], contexto);
+      Modelo_agregarPacientes_([prep.pacienteNuevo], contexto);
       destinoId = prep.pacienteNuevo.ID_INTERNO;
     } else {
       destinoId = datos.candidatoId;
     }
-    Modelo_agregarEventos([prep.evento], _ingresosUsuarioActual(), contexto);
+    Modelo_agregarEventos_([prep.evento], _ingresosUsuarioActual(), contexto);
 
     // trazabilidad completa (columnas 9-10 contiguas: una escritura)
     var ahora = new Date();
@@ -1379,7 +1345,7 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
       });
     }
 
-    Modelo_refrescarVistasSectores();
+    Modelo_refrescarVistasSectores_();
     Log_info('Revision', decision, prep.accion + ' · caso fila ' + indiceHoja + ' → ' + destinoId +
       (hermanas ? ' · +' + hermanas + ' hermanas del mismo origen' : ''));
     Log_flush();
@@ -1532,7 +1498,7 @@ function UI_recuperarEjecutar() {
     ui.ButtonSet.YES_NO);
   if (conf !== ui.Button.YES) return;
 
-  var r = Recuperar_ejecutar(prefijo);
+  var r = Recuperar_ejecutar_(prefijo);
   ui.alert(
     'REVERSIÓN COMPLETADA\n\n' +
     'Pacientes eliminados: ' + r.pacientesEliminados + '\n' +
@@ -1547,13 +1513,13 @@ function UI_recuperarEjecutar() {
 function UI_migrarEsquemaPacientes() {
   var ui = _UI_get();
   try {
-    var r = Modelo_asegurarEsquemaPacientes();
+    var r = Modelo_asegurarEsquemaPacientes_();
     if (!r.ok) {
       ui.alert('❌ ESQUEMA INCOMPATIBLE\n\n' + r.motivo +
         '\n\nNO se modificó nada.\nRevisar los encabezados de PACIENTES manualmente.');
       return;
     }
-    var repar = Modelo_repararCamposTecnicos();
+    var repar = Modelo_repararCamposTecnicos_();
     if (!r.migrada && repar.reparados === 0 && repar.marcadosRevision === 0) {
       ui.alert('✅ TODO LIMPIO\n\nEsquema alineado (' + Modelo_campos().length +
         ' columnas) y sin filas con datos inconsistentes.\nNo se requiere ninguna acción.');
@@ -1905,8 +1871,8 @@ function _pruS_remDatos() {
 }
 function _pruS_pdf() {
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
-  if (typeof G.REM_exportarPdf !== 'function')
-    return { estado: 'ERROR', detalle: 'REM_exportarPdf ausente' };
+  if (typeof G.REM_exportarPdf_ !== 'function')
+    return { estado: 'ERROR', detalle: 'REM_exportarPdf_ ausente' };
   return { estado: 'SKIP',
            detalle: 'Exportación manual: Consultar REM → Descargar PDF (evita archivos de prueba)' };
 }

@@ -1,25 +1,36 @@
 #!/usr/bin/env node
-// Acceso compartido sin cuenta Google: la URL base abre el canal de captura
-// (QR impreso permanente); las demás vistas exigen el enlace compartido vigente.
+// Acceso compartido sin cuenta Google — CONTRATO V2 (§80-88):
+//   - CAPTURA  : solo escribe en el canal de captura (QR/URL base).
+//   - OPERADOR : capacidad privilegiada (ficha, paneles, RPC administrativa).
+// Los tokens son DISTINTOS (el mock usa uuid diferente por propiedad): el token
+// de captura NO debe abrir vistas de operador ni funciones privilegiadas.
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import vm from 'node:vm';
 const root=new URL('../src/',import.meta.url);
 const c=vm.createContext({console:{log(){},warn(){},error(){}}});
 for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())vm.runInContext(readFileSync(new URL(f,root),'utf8'),c,{filename:f});
-const props=new Map(),uuid='12345678-1234-4123-8123-123456789abc';
+const TOKEN_CAPTURA='a'.repeat(64);
+const TOKEN_OPERADOR='b'.repeat(64);
+assert.notEqual(TOKEN_CAPTURA,TOKEN_OPERADOR,'tokens mock distintos');
+const props=new Map();
+props.set('CAPTURA_ACCESS_TOKEN',TOKEN_CAPTURA);
+props.set('OPERADOR_ACCESS_TOKEN',TOKEN_OPERADOR);
 c.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
-c.Utilities={getUuid:()=>uuid,formatDate:()=>''};
+c.Utilities={getUuid:()=> 'c7c0d1e1-cafe-4bad-8ead-' + 'arrowofdmg',formatDate:()=>''};
 c.Session={getActiveUser:()=>({getEmail:()=>''})};
 c.ContentService={createTextOutput:text=>({tipo:'texto',texto:text})};
 let plantillas=0,plantillaArchivo='';
 c.HtmlService={createTemplateFromFile:n=>{plantillas++;plantillaArchivo=n;return {evaluate(){return {tipo:'html',vars:this,setTitle(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}},XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
 let pruebas=0;function t(nombre,fn){fn();pruebas++;console.log('[PASS] '+nombre);}
-t('La URL base abre la captura (sin cuenta ni token); ficha y RPC exigen enlace vigente',()=>{
+
+t('La URL base abre la captura (sin cuenta ni token); ficha y RPC exigen enlace de operador',()=>{
   const html=c.doGet({parameter:{}});
   assert.equal(html.tipo,'html');
   assert.equal(plantillaArchivo,'CapturaWeb');
-  assert.equal(html.vars.CAPTURA_ACCESO,props.get('CAPTURA_ACCESS_TOKEN'));
+  assert.equal(html.vars.CAPTURA_ACCESO,TOKEN_CAPTURA);
+  assert.equal(html.vars.TOKEN_ACCESO,'','página de captura sin token privilegiado');
+  assert.equal(html.vars.TOKEN_INVITACION,'','página de captura sin token privilegiado');
   assert.equal(c.doGet({parameter:{vista:'captura'}}).tipo,'html');
   assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1').ok,false);
   assert.equal(c.WebApp_estadoInicial('').ok,false);
@@ -27,88 +38,110 @@ t('La URL base abre la captura (sin cuenta ni token); ficha y RPC exigen enlace 
   assert.equal(c.WebApp_previaDuplicadosV2({accion:'nuevoIngreso'},'x').ok,false);
   assert.equal(c.WebApp_capturarEstado('Cp4-'+'a'.repeat(32),'x').ok,false);
 });
-t('El QR genera clave propia y el mismo enlace funciona sin cuenta',()=>{
-  const url=c.WebApp_urlCompartida_(),clave=props.get('CAPTURA_ACCESS_TOKEN');
-  assert.match(clave,/^[0-9a-f]{64}$/);
-  assert.equal(props.has('WEBHOOK_TOKEN'),false);
-  assert.equal(url,c.ECICEP_webAppUrl()+'?acceso='+clave);
-  assert.equal(c.WebApp_urlCompartida_(),url);
+
+t('El QR genera clave propia de captura, distinta del token de operador',()=>{
+  const url=c.WebApp_urlCompartida_();
+  assert.match(TOKEN_CAPTURA,/^[0-9a-f]{64}$/);
+  assert.match(TOKEN_OPERADOR,/^[0-9a-f]{64}$/);
+  assert.notEqual(TOKEN_CAPTURA,TOKEN_OPERADOR,'CAPTURA ≠ OPERADOR en producción y en mock');
+  assert.equal(url,c.ECICEP_webAppUrl()+'?acceso='+TOKEN_CAPTURA);
+  assert.equal(c.WebApp_urlCompartida_(),c.ECICEP_webAppUrl()+'?acceso='+TOKEN_CAPTURA);
+  assert.match(c.WebApp_urlVista_('controles'),new RegExp('acceso='+TOKEN_OPERADOR),
+    'vista de operador usa el token de operador, no el de captura');
   const baseTpl=plantillas;
-  assert.equal(c.doGet({parameter:{acceso:clave}}).tipo,'html');
+  assert.equal(c.doGet({parameter:{acceso:TOKEN_CAPTURA}}).tipo,'html');
   assert.equal(plantillaArchivo,'CapturaWeb');
   assert.equal(plantillas,baseTpl+1);
-  assert.equal(c.Captura_v2_ctx(clave).usuario,'ACCESO_COMPARTIDO');
+  assert.equal(c.Captura_v2_ctx(TOKEN_CAPTURA).usuario,'ACCESO_COMPARTIDO');
   assert.equal(c.Captura_v2_ctx('').usuario,'');
 });
-t('El mismo enlace abre funciones clínicas y paneles sin cuenta Google',()=>{
-  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+
+t('Token de CAPTURA NO abre vistas de operador; el token de OPERADOR sí',()=>{
   const rutas={portal:'PortalWeb',pacientes:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',instalar:'Instalador',rem:'RemVista',generarRem:'RemGenerador'};
-  for(const [vista,archivo] of Object.entries(rutas)){
-    assert.equal(c.doGet({parameter:{acceso:clave,vista}}).tipo,'html',vista);
-    assert.equal(plantillaArchivo,archivo,vista);
-    assert.equal(c.doGet({parameter:{vista}}).tipo,'texto',vista+' sin clave');
+  for(const vista of Object.keys(rutas)){
+    const denied=c.doGet({parameter:{acceso:TOKEN_CAPTURA,vista}});
+    assert.equal(denied.tipo,'texto',vista+' con token de CAPTURA debe negarse');
+    const ok=c.doGet({parameter:{acceso:TOKEN_OPERADOR,vista}});
+    assert.equal(ok.tipo,'html',vista+' con token de OPERADOR abre');
+    assert.equal(plantillaArchivo,rutas[vista],vista);
+    assert.equal(ok.vars.TOKEN_ACCESO,TOKEN_OPERADOR,vista+'→ TOKEN_ACCESO operador');
   }
-  assert.equal(c.doGet({parameter:{acceso:clave,vista:'noExiste'}}).tipo,'texto');
+  assert.equal(c.doGet({parameter:{acceso:TOKEN_CAPTURA,vista:'noExiste'}}).tipo,'texto');
+  assert.equal(c.doGet({parameter:{acceso:TOKEN_OPERADOR,vista:'noExiste'}}).tipo,'texto');
   c.Session={getActiveUser:()=>({getEmail:()=> 'otra-cuenta@example.org'})};
   assert.equal(c.doGet({parameter:{vista:'configuracion'}}).tipo,'texto');
   c.Session={getActiveUser:()=>({getEmail:()=>''})};
-  assert.equal(c.WebApp_urlVista_('controles'),c.WebApp_urlCompartida_()+'&vista=controles');
+  assert.equal(c.WebApp_urlVista_('controles'),c.ECICEP_webAppUrl()+'?acceso='+TOKEN_OPERADOR+'&vista=controles');
 });
-t('La ficha de Sheets usa la misma clave para buscar y actualizar la agenda',()=>{
-  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+
+t('La ficha de Sheets usa el token de operador para buscar y actualizar la agenda',()=>{
   let plantilla;
   c.Utilities.formatDate=()=>'';c._UI_tz=()=>'';
   c._UI_get=()=>({showSidebar(){}});
   c.HtmlService.createTemplateFromFile=()=>plantilla={evaluate(){return {setTitle(){return this;}};}};
   c._ui_sidebar('pacientes','Pacientes ECICEP');
-  assert.equal(plantilla.TOKEN_INVITACION,clave);
+  assert.equal(plantilla.TOKEN_INVITACION,TOKEN_OPERADOR,'sidebar recibe token de OPERADOR');
+  assert.notEqual(plantilla.TOKEN_INVITACION,TOKEN_CAPTURA);
   const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
   assert.match(sidebar,/\.api_actualizarPaciente\(P_ACTUAL,\{PROXIMO_CONTROL:inp\.value\},TOKEN_INVITACION\)/);
 });
-t('La autorización se comprueba en cada RPC de captura',()=>{
-  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+
+t('La autorización se comprueba en cada RPC: captura con token de captura, paneles con operador',()=>{
   let capturas=0;c.LockService={getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})};
   c.Captura_v2_enviar=(payload,ctx)=>{capturas++;assert.equal(ctx.usuario,'ACCESO_COMPARTIDO');return {ok:true};};
-  assert.equal(c.WebApp_capturarEnviar({},clave).ok,true);
+  assert.equal(c.WebApp_capturarEnviar({},TOKEN_CAPTURA).ok,true);
+  assert.equal(c.WebApp_capturarEnviar({},TOKEN_OPERADOR).ok,false,'token de operador NO autoriza captura (capacidades separadas)');
   assert.equal(c.WebApp_capturarEnviar({},'').ok,false);
   assert.equal(capturas,1);
-  assert.equal(c.WebApp_estadoInicial(clave).url,c.WebApp_urlCompartida_());
-  assert.equal(c.api_webappEstado(clave).url,c.WebApp_urlCompartida_());
+  assert.equal(c.WebApp_estadoInicial(TOKEN_CAPTURA).url,c.WebApp_urlCompartida_());
+  assert.equal(c.api_webappEstado(TOKEN_CAPTURA).url,c.WebApp_urlCompartida_());
   assert.equal(c.api_webappEstado('').ok,false);
 });
-t('La ficha carga y actualiza desde otra cuenta sin email con enlace válido',()=>{
-  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+
+t('La ficha carga solo con token de operador; la captura no concede acceso a la ficha',()=>{
   const pac={ID_INTERNO:'P-FICTICIO',RUT:'11111111-1',NOMBRE:'PERSONA FICTICIA',PROXIMO_CONTROL:''};
   c.Modelo_leerPacientes=()=>[pac];c.Modelo_leerEventos=()=>[];
+  assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1',TOKEN_CAPTURA).ok,false,
+    'ficha NO abre con token de captura');
+  assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1',TOKEN_OPERADOR).ok,true,
+    'ficha abre con token de operador');
   assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1','').ok,false);
-  assert.equal(c.WebApp_cargarPacienteEdicion('11111111-1',clave).ok,true);
-  c.Modelo_buscarPaciente=()=>({obj:pac,idx:0});c.Modelo_asegurarEsquemaPacientes=()=>({ok:true});
+  c.Modelo_buscarPaciente=()=>({obj:pac,idx:0});c.Modelo_asegurarEsquemaPacientes_=()=>({ok:true});
   let filas=0;c.Modelo_hoja=()=>({getRange:()=>({setValues(){filas++;}})});
   c.Modelo_filaFisica=()=>2;c.Modelo_filaDesdeObjeto=o=>[o.PROXIMO_CONTROL];
   c.Modelo_invalidarLecturas=()=>{};c.Log_info=()=>{};c.Log_flush=()=>{};
   assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'}).ok,false);
-  assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'},clave).ok,true);
+  assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'},TOKEN_CAPTURA).ok,false,
+    'api_actualizarPaciente NO acepta token de captura');
+  assert.equal(c.api_actualizarPaciente(pac.ID_INTERNO,{PROXIMO_CONTROL:'2026-10-20'},TOKEN_OPERADOR).ok,true);
   assert.equal(filas,1);
 });
-t('Dupla, registro, configuración y backups usan el acceso compartido',()=>{
-  const clave=props.get('CAPTURA_ACCESS_TOKEN');
-  assert.equal(c.api_duplaGuardar('P-FICTICIO',[]).motivo,'ACCESO_DENEGADO');
-  assert.equal(c.api_logLeer(10).motivo,'ACCESO_DENEGADO');
-  assert.equal(c.api_configGuardar('CLAVE','VALOR').motivo,'ACCESO_DENEGADO');
-  assert.equal(c.api_configAgregar('CLAVE','VALOR','').motivo,'ACCESO_DENEGADO');
-  assert.equal(c.api_configEliminar('CLAVE').motivo,'ACCESO_DENEGADO');
+
+t('RPC administrativas (dupla, log, configuración, backups) exigen token de operador',()=>{
+  for(const [nombre,args] of [
+    ['api_duplaGuardar',['P-FICTICIO',[]]],
+    ['api_logLeer',[10]],
+    ['api_configGuardar',['CLAVE','VALOR']],
+    ['api_configAgregar',['CLAVE','VALOR','']],
+    ['api_configEliminar',['CLAVE']]
+  ]) assert.equal(c[nombre](...args).motivo,'ACCESO_DENEGADO',nombre+' sin token');
   for(const nombre of ['api_backupListar','api_backupToggle','api_backupConfigLeer','api_backupPodar','api_backupFolder'])
     assert.equal(c[nombre]().motivo,'ACCESO_DENEGADO',nombre);
   assert.equal(c.api_backupCrear('MANUAL').motivo,'ACCESO_DENEGADO');
   assert.equal(c.api_backupProgramar('LUNES',3).motivo,'ACCESO_DENEGADO');
+  for(const [nombre,args] of [
+    ['api_logLeer',[10]],
+    ['api_backupCrear',['MANUAL']],
+    ['api_backupListar',[]]
+  ]) assert.equal(c[nombre](...args,TOKEN_CAPTURA).motivo,'ACCESO_DENEGADO',nombre+' con token de CAPTURA');
   c.Modelo_hoja=()=>null;
-  assert.equal(c.api_logLeer(10,clave).ok,true);
+  assert.equal(c.api_logLeer(10,TOKEN_OPERADOR).ok,true);
   c.Backup_listar=()=>({items:[],autoCount:0,manCount:0});
   c.Backup_triggerInstalado=()=>false;
   c._config_leerValores=()=>({});
-  assert.equal(c.api_backupListar(clave).ok,true);
+  assert.equal(c.api_backupListar(TOKEN_OPERADOR).ok,true);
   c.Backup_crear=()=>({ok:true});
-  assert.equal(c.api_backupCrear('MANUAL',clave).ok,true);
+  assert.equal(c.api_backupCrear('MANUAL',TOKEN_OPERADOR).ok,true);
   const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
   assert.match(sidebar,/\.api_duplaGuardar\(pid,DUPLA_SELECCIONADAS\.slice\(\),TOKEN_INVITACION\)/);
   for(const [archivo, llamadas] of [
@@ -121,9 +154,8 @@ t('Dupla, registro, configuración y backups usan el acceso compartido',()=>{
     for(const llamada of llamadas)assert.match(html,new RegExp('\\.'+llamada+'\\([^;]*ECICEP_ACCESO\\)'));
   }
 });
-t('Regresión: todo constructor inyecta el token antes de evaluate()',()=>{
-  const clave=props.get('CAPTURA_ACCESS_TOKEN');
-  assert.ok(clave);
+
+t('Regresión: todo constructor de dialogo inyecta el token de operador antes de evaluate()',()=>{
   const ui={showModalDialog(){},showSidebar(){}};
   c._UI_get=()=>ui;
   for(const d of c.UICFG_DIALOGOS){
@@ -135,8 +167,8 @@ t('Regresión: todo constructor inyecta el token antes de evaluate()',()=>{
     c.HtmlService={createTemplateFromFile:()=>({evaluate(){vars=this;return {setTitle(){return this;},setWidth(){return this;},setHeight(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}),XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
     c[d.opener](d.opener==='UI_abrirFicha'?'11111111-1':undefined);
     assert.ok(vars, d.opener+' debió crear plantilla '+d.plantilla);
-    if(necesitaAcceso)assert.equal(vars.TOKEN_ACCESO,clave,d.opener+' → TOKEN_ACCESO en '+d.plantilla);
-    if(necesitaInvitacion)assert.equal(vars.TOKEN_INVITACION,clave,d.opener+' → TOKEN_INVITACION en '+d.plantilla);
+    if(necesitaAcceso)assert.equal(vars.TOKEN_ACCESO,TOKEN_OPERADOR,d.opener+' → TOKEN_ACCESO en '+d.plantilla);
+    if(necesitaInvitacion)assert.equal(vars.TOKEN_INVITACION,TOKEN_OPERADOR,d.opener+' → TOKEN_INVITACION en '+d.plantilla);
   }
   const controles=readFileSync(new URL('Controles.html',root),'utf8');
   assert.match(controles,/\.api_controlPanel\(\{[^}]*\},\s*ECICEP_ACCESO\)/);

@@ -518,13 +518,13 @@ function IA_eventosHuerfanos(datosEventos, idsPacientes) {
 }
 
 /**
- * GAS: elimina eventos huérfanos en bloque (patrón Recuperar_ejecutar:
+ * GAS: elimina eventos huérfanos en bloque (patrón Recuperar_ejecutar_:
  * leer → filtrar → limpiar → reescribir; NUNCA deleteRow en loop).
  * Solo borra eventos con ID_INTERNO no nulo y sin paciente asociado.
  * @param {Object} opts { prueba/DRY_RUN } — si truthy, NO borra, solo informa.
  * @returns {{ok, huerfanos, sinId, conservados, borrados, dryRun}}
  */
-function IA_limpiarEventosHuerfanos(opts) {
+function IA_limpiarEventosHuerfanos_(opts) {
   var ss = Modelo_ss();
   var hojaE = ss.getSheetByName(HOJAS.EVENTOS);
   var hojaP = ss.getSheetByName(HOJAS.PACIENTES);

@@ -332,7 +332,7 @@ function Rem_generar(anio, mes, sectorFiltro) {
  * fila de encabezado sombreada. Nombre automático REM_<Sector>_<AAAA-MM>.pdf.
  * @returns {ok, url?, nombre?, motivo?}
  */
-function REM_exportarPdf(anio, mes, sectorFiltro) {
+function REM_exportarPdf_(anio, mes, sectorFiltro) {
   var nombre = '';
   try {
     anio = Number(anio); mes = Number(mes);
@@ -416,6 +416,21 @@ function REM_exportarPdf(anio, mes, sectorFiltro) {
     Log_error('REM', 'exportarPdf', (nombre || '') + ' → ' + (e && e.message || e));
     Log_flush();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/**
+ * RPC: exportación del REM a PDF (RemGenerador). Solo OPERADOR; serializado.
+ * La lógica vive en REM_exportarPdf_ (dominio, nunca expuesta directa).
+ */
+function api_remExportarPdf(anio, mes, sector, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    return Ecicep_conLock_(function () {
+      return REM_exportarPdf_(anio, mes, sector);
+    });
+  } catch (e) {
+    return Api_error_('REM_EXPORTAR_PDF', e && e.message ? e.message : String(e));
   }
 }
 

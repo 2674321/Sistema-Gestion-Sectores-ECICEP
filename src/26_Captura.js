@@ -1130,7 +1130,7 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     // lo confirma explícitamente (confirmarNuevoPaciente=true); sin confirmar → REVISION.
     var soloFilas = {};
     soloFilas[hojaEntrega] = [String(filaFisica)];
-    var proc = Ingresos_procesarTodasLasHojas({
+    var proc = Ingresos_procesarTodasLasHojas_({
       soloHojas: [hojaEntrega],
       soloFilas: soloFilas,
       confirmarNuevos: norm.confirmarNuevoPaciente === true
@@ -1216,8 +1216,9 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
       if (!upd) {
         return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ACTUALIZACION_FALLIDA', idInterno: persona.ID_INTERNO, idEvento: '' };
       }
-      // §5.2: fecha del evento OTRO = fecha de la operación (backend), nunca vacía.
-      var resOtro = api_registrarEvento({
+      // §40/§42: la captura ya está autorizada y bajo lock; se usa la capa de
+      // dominio directamente (nunca un wrapper api_* con token de operador).
+      var resOtro = Eventos_registrarPaciente_({
         tipoEvento: 'OTRO',
         fecha: Captura_v2_fechaOperacion({}),
         idInterno: persona.ID_INTERNO,
@@ -1226,7 +1227,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
         observaciones: norm.observaciones || '',
         fuente: marca,
         registradoPor: registradoPor
-      });
+      }, { fuenteTransporte: 'CapturaV2' });
       if (!resOtro || !resOtro.ok) {
         Captura_v2_logError('CapturaV2', 'entregarEvento', marca + ': evento OTRO no registrado (actualizarDatos): ' + ((resOtro && resOtro.motivo) || 'EVENTO_NO_REGISTRADO'));
         return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: (resOtro && resOtro.motivo) || 'EVENTO_NO_REGISTRADO', idInterno: persona.ID_INTERNO, idEvento: '' };
@@ -1241,7 +1242,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
     }
 
     var tipoEvento = norm.accion === 'registrarControl' ? 'CONTROL' : 'SEGUIMIENTO';
-    var res = api_registrarEvento({
+    var res = Eventos_registrarPaciente_({
       tipoEvento: tipoEvento,
       fecha: norm.fechaEvento || '',
       idInterno: persona.ID_INTERNO,
@@ -1250,7 +1251,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
       observaciones: norm.observaciones || '',
       fuente: marca,
       registradoPor: registradoPor
-    });
+    }, { fuenteTransporte: 'CapturaV2' });
     if (!res || !res.ok) {
       return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: (res && res.motivo) || 'EVENTO_NO_REGISTRADO', idInterno: persona.ID_INTERNO, idEvento: '' };
     }
@@ -1291,8 +1292,11 @@ function Captura_v2_ctx(acceso) {
     persistirRegistro: Captura_v2_persistirRegistro,
     actualizarTrailer: Captura_v2_actualizarTrailer,
     entregar: Captura_v2_entregar,
+    // La captura YA está autorizada (entrypoint WebApp_autorizarCaptura) y bajo
+    // lock; aquí se usa la capa de dominio directamente (nunca un wrapper api_*
+    // que exigiría token de operador ni re-lockearía). §40-§42.
     aplicarAgenda: function (idInterno, fecha) {
-      return api_actualizarPaciente(idInterno, { PROXIMO_CONTROL: fecha }, acceso);
+      return Paciente_actualizarCampos_(idInterno, { PROXIMO_CONTROL: fecha }, { fuente: 'CAPTURA_V2' });
     },
     medir: Captura_v2_marcaMedida
   };
@@ -1300,7 +1304,7 @@ function Captura_v2_ctx(acceso) {
 
 /** Entrypoint Web App: envío de captura V2 (único canal operativo). */
 function WebApp_capturarEnviar(payload, acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
+  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   var lock = null;
   try {
     lock = LockService.getScriptLock();
@@ -1331,11 +1335,18 @@ function WebApp_capturarEnviar(payload, acceso) {
  * Solo se consulta en `nuevoIngreso` desde la UI; su costo es una RPC extra
  * únicamente en ese caso (informe FASE 4). Las demás acciones no pre-consultan.
  */
-function Captura_v2_previaDuplicados(datos) {
+function Captura_v2_previaDuplicados(datos, esOperador) {
   try {
     datos = datos || {};
     if (Utl_texto(datos.accion).toLowerCase() !== 'nuevoingreso') {
       return { ok: true, coincidencia: false, candidatos: [], motivo: 'Solo se checan coincidencias en nuevoIngreso' };
+    }
+    // §17 P0 PRIVACIDAD: en captura pública NO se hace pre-flight detallado ni
+    // se exponen candidatos (nombre/RUT/sexo/nacimiento/ingreso/estratificación).
+    // El pipeline resuelve MATCH / POSIBLE_DUPLICADO / REQUIERE_REVISION en backend.
+    // El detalle queda reservado a modo OPERADOR.
+    if (!esOperador) {
+      return { ok: true, coincidencia: false, candidatos: [], motivo: 'PREVIEW_OMITIDO_EN_PUBLICO' };
     }
     var n = {};
     var rut = Norm_normalizarRut(datos.rut);
@@ -1380,13 +1391,13 @@ function Captura_v2_previaDuplicados(datos) {
 
 /** Alias Web App: pre-flight de duplicados V2. */
 function WebApp_previaDuplicadosV2(datos, acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
-  return Captura_v2_previaDuplicados(datos);
+  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
+  return Captura_v2_previaDuplicados(datos, WebApp_accesoOperadorValido_(acceso));
 }
 
 /** Entrypoint Web App: consulta de estado de un envío V2. */
 function WebApp_capturarEstado(captureId, acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
+  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   try {
     return Captura_v2_estado(captureId, Captura_v2_ctx(acceso));
   } catch (e) {
@@ -1397,7 +1408,7 @@ function WebApp_capturarEstado(captureId, acceso) {
 
 /** Entrypoint Web App: retoma administrativa de un pendiente V2 (procesador V2). */
 function WebApp_capturarRetomar(payload, acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
+  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   var lock = null;
   try {
     lock = LockService.getScriptLock();

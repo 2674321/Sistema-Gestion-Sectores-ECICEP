@@ -237,7 +237,7 @@ function Amarillo_aplicarHistorico(filas) {
   tm.calculo = Date.now() - t0 - tm.config;
 
   if (core.nuevosEv.length) {
-    Modelo_agregarEventos(core.nuevosEv, 'IMPORT_AMARILLO',
+    Modelo_agregarEventos_(core.nuevosEv, 'IMPORT_AMARILLO',
       { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'amarillo-historico' });
   }
   var filasEscritas = _amarillo_escribirPacientes(core.actualizados, pacientes);
@@ -294,14 +294,14 @@ function _amarillo_escribirPacientes(actualizados, pacientes) {
 }
 
 /** Orquestador: puerta + (opcional) histórico. Devuelve resumen para el UI. */
-function Amarillo_importarTodo(aplicarHistorico) {
+function Amarillo_importarTodo_(aplicarHistorico) {
   var fuente = Amarillo_leerFuente();
   if (!fuente.ok) return fuente;
   var puerta = Amarillo_volcarPuerta(fuente.filas);
   var hist = { eventosCreados: 0, pacientesActualizados: 0, yaConHistorico: 0, pendientesSinPaciente: [] };
   if (aplicarHistorico) {
     hist = Amarillo_aplicarHistorico(fuente.filas);
-    if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores();
+    if (typeof Modelo_refrescarVistasSectores_ === 'function') Modelo_refrescarVistasSectores_();
   }
   Log_info('Amarillo', 'importar', 'puertaNuevas=' + puerta.nuevas +
     ' eventos=' + hist.eventosCreados + ' actualizados=' + hist.pacientesActualizados);
@@ -366,7 +366,7 @@ function Amarillo_leerEventosComoObjetos() {
  * @param {boolean} [dryRun]
  * @returns {ok, dryRun, analizados, gruposDuplicados, eliminar, filas, ejemplos}
  */
-function Amarillo_dedupHistorico(dryRun) {
+function Amarillo_dedupHistorico_(dryRun) {
   var a = Amarillo_analizarDuplicados(Amarillo_leerEventosComoObjetos());
   if (!dryRun && a.eliminar > 0) {
     var hojaE = Modelo_hoja(HOJAS.EVENTOS);
@@ -396,4 +396,32 @@ function Amarillo_dedupHistorico(dryRun) {
   return { ok: true, dryRun: !!dryRun, analizados: a.analizados,
            gruposDuplicados: a.gruposDuplicados, eliminar: a.eliminar,
            filas: a.filas, ejemplos: a.ejemplos };
+}
+
+/**
+ * RPC: wrapper autenticado + serializado del Centro de Pruebas.
+ * Capa fina sobre Amarillo_importarTodo_ (la lógica vive en el dominio).
+ * Solo OPERADOR.
+ */
+function api_amarilloImportarTodo(aplicarHistorico, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    return Ecicep_conLock_(function () {
+      return Amarillo_importarTodo_(aplicarHistorico === true);
+    });
+  } catch (e) {
+    return Api_error_('AMARILLO_IMPORTAR', e && e.message ? e.message : String(e));
+  }
+}
+
+/** RPC: wrapper autenticado + serializado de deduplicación histórica Amarillo. */
+function api_amarilloDedupHistorico(dryRun, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    return Ecicep_conLock_(function () {
+      return Amarillo_dedupHistorico_(dryRun === true);
+    });
+  } catch (e) {
+    return Api_error_('AMARILLO_DEDUP', e && e.message ? e.message : String(e));
+  }
 }

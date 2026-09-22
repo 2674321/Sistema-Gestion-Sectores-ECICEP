@@ -550,10 +550,54 @@ function Estrat_evaluar(rawCondiciones, catalogo, config) {
 // ---------------------------------------------------------------------------
 
 /**
+ * PURA: prepara el cambio de estratificación vigente de un paciente.
+ * Centraliza la trazabilidad (ESTRATIFICACION.md §4): todo cambio del valor
+ * vigente genera un EVENTO CAMBIO_ESTRATIFICACION. Si el nuevo valor no difiere
+ * del vigente devuelve sinCambios (sin evento). Se usa en Patologías, ficha y
+ * recálculo individual/masivo para no duplicar la construcción del evento.
+ * @param {Object} paciente  paciente actual (con ESTRATIFICACION vigente)
+ * @param {string} nuevo     valor deseado (G1/G2/G3/vacío)
+ * @param {Object} [contexto] {motivo, fuente}
+ * @returns {{ok:boolean, sinCambios:boolean, anterior?:string, nuevo?:string, evento?:Object}}
+ */
+function Estrat_prepararCambio_(paciente, nuevo, contexto) {
+  paciente = paciente || {};
+  contexto = contexto || {};
+  var anterior = Utl_texto(paciente.ESTRATIFICACION).toUpperCase();
+  var nb = Norm_normalizarEstratificacion(nuevo);
+  if (anterior === nb) return { ok: true, sinCambios: true };
+  return {
+    ok: true,
+    sinCambios: false,
+    anterior: anterior,
+    nuevo: nb,
+    evento: {
+      ID_EVENTO: Ev_nuevoId(),
+      ID_INTERNO: Utl_texto(paciente.ID_INTERNO),
+      RUT: Utl_texto(paciente.RUT),
+      NOMBRE: Utl_texto(paciente.NOMBRE),
+      FECHA_EVENTO: _fichaHoyIso_(),
+      TIPO_EVENTO: 'CAMBIO_ESTRATIFICACION',
+      SECTOR: Utl_texto(paciente.SECTOR),
+      RIESGO_G: nb,
+      PROFESIONAL: '',
+      PROFESIONAL_TIPO: '',
+      CANTIDAD: '',
+      DESCRIPCION: anterior + ' → ' + nb + ' · ' + (contexto.motivo || 'MANUAL'),
+      OBSERVACIONES: '',
+      FUENTE: contexto.fuente || 'SISTEMA',
+      REGISTRADO_POR: contexto.registradoPor !== undefined ? contexto.registradoPor
+        : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''),
+      FECHA_REGISTRO: null
+    }
+  };
+}
+
+/**
  * Recalcula la estratificación de UN paciente y guarda en PACIENTES.
  * @returns {{ok:boolean, resultado:string, puntaje:number, regla:string}}
  */
-function Estrat_recalcularPaciente(idInterno) {
+function Estrat_recalcularPaciente_(idInterno) {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
   var pacientes = Modelo_leerPacientes();
@@ -566,6 +610,10 @@ function Estrat_recalcularPaciente(idInterno) {
   var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
   var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
   var anterior = Utl_texto(p.ESTRATIFICACION);
+  var cambio = Estrat_prepararCambio_(p, nuevoValor || anterior, {
+    motivo: 'RECALCULO', fuente: 'SISTEMA',
+    registradoPor: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''
+  });
   // Igual que el recálculo masivo: sin regla calculable se conserva el nivel
   // de fuente o de ficha; falta de patologías no equivale a nivel vacío.
   if (nuevoValor) {
@@ -577,27 +625,56 @@ function Estrat_recalcularPaciente(idInterno) {
   p.FECHA_ACTUALIZACION = new Date();
   Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
     .setValues([Modelo_filaDesdeObjeto(p)]);
+  if (!cambio.sinCambios && cambio.evento) {
+    try {
+      Modelo_agregarEventos_([cambio.evento], cambio.evento.REGISTRADO_POR, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-estratificacion' });
+    } catch (eEv) {
+      try { Modelo_refrescarVistasSectores_(); } catch (e2) {}
+      return { ok: false, motivo: 'CAMBIO_ESTRATIFICACION_FALLIDO: revisión requerida' };
+    }
+  }
   Modelo_invalidarLecturas();
-  try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
+  try { Modelo_refrescarVistasSectores_(); } catch (eSec) { /* best effort */ }
   return { ok: true, resultado: p.ESTRATIFICACION || 'pendiente', puntaje: res.puntaje,
-           regla: res.regla, version: res.version };
+           regla: res.regla, version: res.version, cambio: cambio.sinCambios ? 'SIN_CAMBIOS' : 'REGISTRADO' };
+}
+
+/**
+ * RPC: recálculo de estratificación de un paciente (Sidebar). Cero escritura
+ * si el token no es OPERADOR; serializado con lock. La lógica vive en
+ * Estrat_recalcularPaciente_ (dominio, nunca expuesta directa).
+ */
+function api_estratRecalcularPaciente(idInterno, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    return Ecicep_conLock_(function () {
+      return Estrat_recalcularPaciente_(idInterno);
+    });
+  } catch (e) {
+    return Api_error_('ESTRAT_RECALCULAR', e && e.message ? e.message : String(e));
+  }
 }
 
 /**
  * Recalcula la estratificación de TODOS los pacientes.
  * @returns {{ok:boolean, total:number, recalculados:number, tiempo:number}}
  */
-function Estrat_recalcularTodos() {
+function Estrat_recalcularTodos_() {
   var t0 = new Date();
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
   var pacientes = Modelo_leerPacientes();
   var recalculados = 0;
   var filas = [];
+  var eventosCambios = [];
+  var usuario = typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '';
   pacientes.forEach(function (p) {
     var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
     var anterior = Utl_texto(p.ESTRATIFICACION);
+    var cambio = Estrat_prepararCambio_(p, nuevoValor || anterior, {
+      motivo: 'RECALCULO_MASIVO', fuente: 'SISTEMA', registradoPor: usuario
+    });
     // Solo sobrescribir si el motor produce un resultado calculado.
     // Si no (SIN_DATOS/NO_CALCULABLE), conservar el valor vigente (fuente o manual).
     if (nuevoValor) {
@@ -609,12 +686,23 @@ function Estrat_recalcularTodos() {
     p.FECHA_ACTUALIZACION = new Date();
     filas.push(Modelo_filaDesdeObjeto(p));
     if (nuevoValor && nuevoValor !== anterior) recalculados++;
+    if (!cambio.sinCambios && cambio.evento) {
+      cambio.evento.RIESGO_G = nuevoValor || p.ESTRATIFICACION || '';
+      eventosCambios.push(cambio.evento);
+    }
   });
   if (filas.length) {
     hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
     Modelo_invalidarLecturas();
+    if (eventosCambios.length) {
+      try {
+        Modelo_agregarEventos_(eventosCambios, usuario, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'recalcular-todos' });
+      } catch (eEv) {
+        return { ok: false, motivo: 'CAMBIO_ESTRATIFICACION_FALLIDO: revisión requerida', total: pacientes.length, recalculados: recalculados };
+      }
+    }
   }
-  try { Modelo_refrescarVistasSectores(); } catch (eSec) { /* best effort */ }
+  try { Modelo_refrescarVistasSectores_(); } catch (eSec) { /* best effort */ }
   var ms = new Date() - t0;
   Log_info('Estrat', 'recalcularTodos', 'total=' + pacientes.length +
     ' recalculados=' + recalculados, null, ms);

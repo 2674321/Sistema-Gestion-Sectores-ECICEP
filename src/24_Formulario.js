@@ -5,9 +5,9 @@
  * El formulario es SOLO captura + validación + normalización; NUNCA una base
  * paralela ni acceso directo a PACIENTES. Tras validarse:
  *   - NUEVO_INGRESO      → fila canónica en INGRESO_<SECTOR> y el pipeline
- *                          existente (Ingresos_procesarTodasLasHojas) decide
+ *                          existente (Ingresos_procesarTodasLasHojas_) decide
  *                          CREAR_PACIENTE / ENLAZAR_EXISTENTE / REVISION.
- *   - CONTROL/SEGUIMIENTO→ reusan api_registrarEvento (recalcula próximo control).
+ *   - CONTROL/SEGUIMIENTO→ reusan Eventos_registrarPaciente_ (recalcula próximo control).
  *   - ACTUALIZAR_DATOS   → campos operativos (teletono/observaciones) + evento OTRO.
  *
  * Núcleo puro (testeable en node, determinista): Form_validarRespuesta,
@@ -1564,7 +1564,7 @@ function Form_procesarPendientes(opciones) {
     if (trailersAnexos.length) Form_actualizarTrailer(trailersAnexos);
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (anexo filas INGRESO, paso 1)');
 
-    // (2) acciones clínicas (reuso completo de api_registrarEvento)
+    // (2) acciones clínicas (reuso completo de la capa de dominio)
     lote.decisiones.forEach(function (d) {
       if (d.decision !== 'CLINICA') return;
       var eventoClave = (d.accion === 'REGISTRAR_CONTROL') ? 'CONTROL' : 'SEGUIMIENTO';
@@ -1572,20 +1572,20 @@ function Form_procesarPendientes(opciones) {
       if (d.accion === 'ACTUALIZAR_DATOS') {
         var pac = indiceRut[Utl_texto(d.normalizado.RUT).toUpperCase()];
         var okAct = pac ? Form_actualizarDatosPaciente(pac, d.normalizado, marca) : false;
-        var evOtro = api_registrarEvento({
+        var evOtro = Eventos_registrarPaciente_({
           idInterno: d.idInterno, tipoEvento: 'OTRO', fecha: Form_hoy({}),
           profesional: d.normalizado.PROFESIONAL, descripcion: 'ACTUALIZACION_VIA_FORM',
           observaciones: d.normalizado.OBSERVACIONES, fuente: marca, registradoPor: 'FORM v' + FORM_CONFIG.FORM_VERSION
-        });
+        }, { fuenteTransporte: 'pipeline-form' });
         d._ok = okAct && evOtro.ok;
         d._motivo = evOtro.ok ? (okAct ? '' : 'fallo de actualización de campos') : (evOtro.motivo || '');
       } else {
-        var resp = api_registrarEvento({
+        var resp = Eventos_registrarPaciente_({
           idInterno: d.idInterno, tipoEvento: eventoClave, fecha: d.normalizado.FECHA_EVENTO,
           profesional: d.normalizado.PROFESIONAL, descripcion: '',
           observaciones: d.normalizado.OBSERVACIONES, fuente: marca,
           registradoPor: 'FORM v' + FORM_CONFIG.FORM_VERSION
-        });
+        }, { fuenteTransporte: 'pipeline-form' });
         d._ok = resp.ok;
         d._motivo = resp.ok ? '' : (resp.motivo || '');
       }
@@ -1612,8 +1612,8 @@ function Form_procesarPendientes(opciones) {
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (acotación paso 3 + búsqueda marcas) acotacion=' + JSON.stringify(acotacion));
     var resumenPipeline = null;
     if (hayAnexos || filasAnexadas.length) {
-      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
-      resumenPipeline = Ingresos_procesarTodasLasHojas({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null, soloFilas: soloFilas });
+      console.log('[PIPE] antes Ingresos_procesarTodasLasHojas_ anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
+      resumenPipeline = Ingresos_procesarTodasLasHojas_({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null, soloFilas: soloFilas });
       console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3, anexos=' + hayAnexos + ')');
       console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
     } else {
@@ -1751,8 +1751,8 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca, acceso) {
 
     if (Object.keys(campos).length === 0) return false;
 
-    // Usar la API unificada
-    var r = api_actualizarPaciente(paciente.ID_INTERNO, campos, acceso);
+    // Usar la capa de dominio (el pipeline ya autoriza y lockea)
+    var r = Paciente_aplicarCampos_(paciente.ID_INTERNO, campos, { fuente: 'FORM_' + marca });
     return r.ok;
   } catch (e) {
     Log_error('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));

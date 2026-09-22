@@ -35,7 +35,7 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 
 </style>
 </head>
-<body data-portal="<?= PORTAL_URL ?>" data-dash-url="<?= DASH_URL ?>" data-rem-url="<?= REM_URL ?>">
+<body data-portal="<?= PORTAL_URL ?>" data-dash-url="<?= DASH_URL ?>" data-rem-url="<?= REM_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>Generar REM</h1>
@@ -102,6 +102,7 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 var MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 var hoy=new Date();
 document.getElementById('selMes').innerHTML=MESES.map(function(m,i){
@@ -195,7 +196,7 @@ function generar(btn){
       toast('✕ Error al obtener los datos: '+((e&&e.message)||e),'err');
       console.error('[ECICEP] datos',e);
     })
-    .api_rem9Datos(p.anio,p.mes,sector,_ULT_OPTS);
+    .api_rem9Datos(p.anio,p.mes,sector,_ULT_OPTS,ECICEP_ACCESO);
 }
 function informePdf(btn){
   var p=periodoActual();
@@ -206,7 +207,7 @@ function informePdf(btn){
     toast('\u2713 Informe PDF listo: '+r.nombre,'ok');
     window.open(r.url,'_blank');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-  .REM_exportarPdf(p.anio,p.mes,document.getElementById('selSector').value);
+  .api_remExportarPdf(p.anio,p.mes,document.getElementById('selSector').value,ECICEP_ACCESO);
 }
 function irEstadisticas(){
   var p=periodoActual();

@@ -59,14 +59,14 @@ function _wh_despachar(e) {
       case 'limpiar_huerfanos':
         // Destructiva: exige confirmar=1 (else dry-run informativo).
         if (e.parameter.confirmar !== '1') {
-          resultado = IA_limpiarEventosHuerfanos({ prueba: true });
+          resultado = IA_limpiarEventosHuerfanos_({ prueba: true });
         } else {
-          resultado = IA_limpiarEventosHuerfanos({ prueba: false });
+          resultado = IA_limpiarEventosHuerfanos_({ prueba: false });
         }
         break;
       case 'sembrar':     resultado = Sembrar_ficticios(); break;
-      case 'procesar':    resultado = Ingresos_procesarTodasLasHojas({}); break;
-      case 'refrescar':   resultado = Modelo_refrescarVistasSectores(); break;
+      case 'procesar':    resultado = Ingresos_procesarTodasLasHojas_({}); break;
+      case 'refrescar':   resultado = Modelo_refrescarVistasSectores_(); break;
       case 'diagnosticar': resultado = Ingresos_diagnosticar(); break;
       case 'diagnosticar_fuentes': resultado = Fuentes_diagnosticarFuentes(); break;
       case 'diag_ficha':
@@ -101,7 +101,7 @@ function _wh_despachar(e) {
         // Cierre del Sector Amarillo: puerta INGRESO_AMARILLO (idempotente por
         // RUT) + histórico CONTROL/SEGUIMIENTO (dedup idempotente). Muta la
         // operativa pero es no-duplicante por diseño.
-        resultado = Amarillo_importarTodo(true);
+        resultado = Amarillo_importarTodo_(true);
         break;
       case 'revisar':
         // Revisión integral de datos (determinista, sin Gemini). Devuelve
@@ -122,7 +122,7 @@ function _wh_despachar(e) {
       case 'restaurar_fuente':
         // Solo restaura si FUENTE está vacía (jamás sobrescribe evidencia).
         // Requiere fuente verificada contra el Excel original. NO toca fechas.
-        resultado = Modelo_restaurarFuente(e.parameter.rut || '', e.parameter.fuente || '');
+        resultado = Modelo_restaurarFuente_(e.parameter.rut || '', e.parameter.fuente || '');
         break;
       case 'pruebas_sistema':
         resultado = api_pruebasSistema(null); // todas, SOLO LECTURA

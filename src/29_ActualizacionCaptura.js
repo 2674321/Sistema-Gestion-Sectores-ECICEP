@@ -143,7 +143,14 @@ function Captura_reconciliarFechasCorregidas_() {
   return {ok:true,actualizados:cambios};
 }
 
-/** Entrega V4 bajo el mismo ScriptLock/registro de captura que V2/V3. */
+/** Entrega V4 bajo el mismo ScriptLock/registro de captura que V2/V3.
+ *  La edición ya está autorizada (WebApp_capturarEnviar + opciones.usuario) y
+ *  bajo lock: usa la capa de dominio directamente (nunca un wrapper api_*, que
+ *  exigiría token de operador o re-lockearía). §40-§42. */
+function Captura_aplicarCamposDominio_(idInterno, campos) {
+  return Paciente_aplicarCampos_(idInterno, campos, { fuente: 'CAPTURA_V4' });
+}
+
 function Captura_entregarEdicion_(norm,marca,opciones) {
   var a=norm.actualizacion,encontrado=Modelo_buscarPaciente(a.id);
   function fail(m){return {estado:'ERROR',motivo:m,idInterno:a.id,idEvento:''};}
@@ -170,23 +177,23 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
       if(!destino || !masNueva || masNueva.ID_EVENTO!==destino.ID_EVENTO || (Control_aIso(destino.FECHA_EVENTO)!==at.anterior && Control_aIso(destino.FECHA_EVENTO)!==at.fecha))return fail('ATENCION_CAMBIO: vuelva a cargar la ficha');
     }
   }
-  var esquema=Modelo_asegurarEsquemaPacientes();
+  var esquema=Modelo_asegurarEsquemaPacientes_();
   if(!esquema.ok)return fail('ESQUEMA_PACIENTES_INCOMPATIBLE');
   var codigos=Object.prototype.hasOwnProperty.call(campos,'CONDICIONES')?campos.CONDICIONES.split(';').filter(Boolean):null;
   if(codigos!==null)delete campos.CONDICIONES;
-  if(Object.keys(campos).length) {var upd=api_actualizarPaciente(a.id,campos,opciones.acceso);if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');}
+  if(Object.keys(campos).length) {var upd=Captura_aplicarCamposDominio_(a.id,campos);if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');}
   if(codigos!==null) {
     var otras=Object.prototype.hasOwnProperty.call(campos,'OTRAS_PATOLOGIAS')?campos.OTRAS_PATOLOGIAS:Captura_edicionTexto_(p,'OTRAS_PATOLOGIAS');
-    var pat=api_patologiasGuardar(a.id,codigos,otras,opciones.acceso);
+    var pat=Patologias_guardarPaciente_(a.id,codigos,otras);
     if(!pat.ok)return fail(pat.motivo||'PATOLOGIAS_NO_GUARDADAS');
     Modelo_invalidarLecturas();
   }
   for(var z=0;z<a.atenciones.length;z++) {
     var ac=a.atenciones[z],submarca=marca+'|ATENCION|'+ac.tipo;
     if(!Captura_v2_marcaEnEventos(submarca)) {
-      var r=api_registrarEvento({idInterno:a.id,tipoEvento:ac.modo==='CORREGIR'?'OTRO':ac.tipo,fecha:ac.modo==='CORREGIR'?hoy:ac.fecha,
+      var r=Eventos_registrarPaciente_({idInterno:a.id,tipoEvento:ac.modo==='CORREGIR'?'OTRO':ac.tipo,fecha:ac.modo==='CORREGIR'?hoy:ac.fecha,
         profesional:norm.profesional,fuente:submarca,registradoPor:opciones.usuario,
-        descripcion:ac.modo==='CORREGIR'?CAPTURA_CORRECCION_PREFIJO+JSON.stringify({idEvento:ac.idEvento,anterior:ac.anterior,fecha:ac.fecha}):'ATENCION_VIA_ACTUALIZACION',observaciones:norm.observaciones||''},opciones.acceso);
+        descripcion:ac.modo==='CORREGIR'?CAPTURA_CORRECCION_PREFIJO+JSON.stringify({idEvento:ac.idEvento,anterior:ac.anterior,fecha:ac.fecha}):'ATENCION_VIA_ACTUALIZACION',observaciones:norm.observaciones||''},{fuenteTransporte:'CapturaV4'});
       if(!r.ok)return fail(r.motivo||'ATENCION_NO_GUARDADA');
     }
   }
@@ -194,9 +201,9 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     Modelo_invalidarLecturas();var actualP=Modelo_buscarPaciente(a.id),nuevo=Object.assign({},actualP.obj),vigentes=Modelo_leerEventos();
     a.atenciones.forEach(function(ac){var fechas=vigentes.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===ac.tipo;}).map(function(e){return Control_aIso(e.FECHA_EVENTO);}).filter(Boolean).sort();nuevo[ac.tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO']=fechas.length?fechas[fechas.length-1]:'';});
     nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);Modelo_invalidarLecturas();
-    Modelo_refrescarVistasSectores();
+    Modelo_refrescarVistasSectores_();
   }
-  var audit=api_registrarEvento({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''},opciones.acceso);
+  var audit=Eventos_registrarPaciente_({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''},{fuenteTransporte:'CapturaV4'});
   if(!audit.ok)return fail(audit.motivo||'AUDITORIA_NO_GUARDADA');
   var guardado=Captura_v2_marcaEnEventos(marca);
   return {estado:'PROCESADO',idInterno:a.id,idEvento:guardado&&guardado.idEvento||''};

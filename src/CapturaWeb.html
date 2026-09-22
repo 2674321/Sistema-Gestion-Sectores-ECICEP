@@ -398,7 +398,8 @@
     <meta http-equiv="Expires" content="0">
   </head>
 <body data-acceso="<?= CAPTURA_ACCESO ?>"><script>window.ECICEP_ACCESO=document.body.getAttribute("data-acceso")||"";</script>
-<script>window.ECICEP_PAGE_BUILD="<?= PAGE_BUILD ?>";</script>
+<script>window.ECICEP_PAGE_BUILD="<?= PAGE_BUILD ?>";window.ECICEP_MODO_OPERADOR=<?!= MODO_OPERADOR ? 'true' : 'false' ?>;</script>
+<script>if(!window.ECICEP_MODO_OPERADOR){var d=document;var a=d.getElementById("cardActualizar");if(a)a.style.display="none";var f=d.querySelector(".hdr .hdr-btn[href]");if(f&&!f.getAttribute("href"))f.style.display="none";}</script>
 
   <!-- Header -->
   <header class="hdr" role="banner">
@@ -470,7 +471,7 @@
                 <span class="ac-desc">Seguimiento a persona registrada</span>
               </label>
             </div>
-            <div class="action-card">
+            <div class="action-card" id="cardActualizar">
               <input type="radio" name="accion" id="acc4" value="ACTUALIZAR_DATOS">
               <label for="acc4">
                 <span class="ac-head"><span class="ac-dot"></span><span class="ac-name">Actualizar</span></span>

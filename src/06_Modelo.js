@@ -171,7 +171,7 @@ function Modelo_diagnosticoTrazabilidad() {
  * fue puesta únicamente por la ausencia de FUENTE). NO toca FECHA_ACTUALIZACION.
  * @returns {ok, fila?, id?, nombre?, motivo?}
  */
-function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
+function Modelo_restaurarFuente_(rutBuscado, fuenteRestaurada) {
   var fuenteLimpia = Utl_texto(fuenteRestaurada).trim();
   if (!fuenteLimpia) return { ok: false, motivo: 'FUENTE_VACIA' };
   var rutClave = Utl_texto(rutBuscado).trim().toUpperCase();
@@ -206,7 +206,7 @@ function Modelo_restaurarFuente(rutBuscado, fuenteRestaurada) {
  *  (orden distinto, columnas desconocidas) no toca nada y reporta motivo.
  *  Ruta sana = 1 lectura de encabezados (barata para llamar pre-escritura).
  *  @returns plan.ok=true sin cambios | resultado de migración | ok=false */
-function Modelo_asegurarEsquemaPacientes() {
+function Modelo_asegurarEsquemaPacientes_() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, insertar: [], motivo: 'SIN_HOJA_PACIENTES' };
   // Si PACIENTES ya se leyó en esta invocación (path de escritura típico),
@@ -234,7 +234,7 @@ function Modelo_asegurarEsquemaPacientes() {
   // insertColumns desplazó los índices de columnas: cualquier lectura memoizada
   // de PACIENTES de esta invocación quedó vieja → invalidar antes de continuar.
   Modelo_invalidarLecturas();
-  var repar = Modelo_repararCamposTecnicos();
+  var repar = Modelo_repararCamposTecnicos_();
   Log_warning('Modelo', 'asegurarEsquema',
     'Migración PACIENTES: +' + plan.insertar.map(function (x) { return x.campo; }).join(',') +
     ' · filas reparadas=' + repar.reparados + ' · marcadas revisión=' + repar.marcadosRevision);
@@ -248,7 +248,7 @@ function Modelo_asegurarEsquemaPacientes() {
  *  REQUIERE_REVISION donde FUENTE quedó vacía (trazabilidad irrecuperable).
  *  Reescritura completa solo si hubo cambios (precedente: Limpieza_ejecutar).
  *  @returns {reparados, marcadosRevision, sospechosas:[{fila,id,rut,nombre}]} */
-function Modelo_repararCamposTecnicos() {
+function Modelo_repararCamposTecnicos_() {
   var res = { reparados: 0, marcadosRevision: 0, sospechosas: [] };
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.PACIENTES)) return res;
@@ -730,6 +730,33 @@ var CONFIG_PROTEGIDAS_DEFAULTS = {
   TTL_CACHE_SEG: true, ANO_MIN_FECHAS: true, ANO_MAX_FECHAS: true
 };
 
+/** Claves cuyos valores son SECRETOS: nunca se devuelven por RPC, ni en
+ *  api_configListar ni en ningún endpoint. Nunca escribir en el informe. */
+var CONFIG_SECRETOS = {
+  WEBHOOK_TOKEN: true,
+  GEMINI_API_KEY: true,
+  OPERADOR_ACCESS_TOKEN: true,
+  CAPTURA_ACCESS_TOKEN: true
+};
+
+/** Patrones que marcan una clave como secreta aunque no esté en CONFIG_SECRETOS. */
+var CONFIG_SECRETO_PATRONES = ['_TOKEN', '_SECRET', '_API_KEY', '_PASSWORD'];
+
+/** PURA: ¿la clave contiene un secreto? (lista explícita + patrones). */
+function Config_esSecreto_(clave) {
+  var k = Utl_texto(clave).toUpperCase();
+  if (CONFIG_SECRETOS[k]) return true;
+  return CONFIG_SECRETO_PATRONES.some(function (p) { return k.indexOf(p) !== -1; });
+}
+
+/** PURA: valor público de una clave CONFIG (nunca devuelve el secreto real). */
+function Config_valorPublico_(clave, valor) {
+  if (Config_esSecreto_(clave)) {
+    return Utl_texto(valor) ? '••••••••' : '';
+  }
+  return Utl_texto(valor);
+}
+
 /** ¿Es una clave protegida? (unifica CONFIG_PROTEGIDAS de UI + defaults).
  *  Definida en 06_Modelo para ser testeable en node (07_UI no se carga). */
 function Config_estaProtegida(clave) {
@@ -742,7 +769,7 @@ function Config_estaProtegida(clave) {
  * Elimina "Hoja 1" SOLO si existe y está completamente vacía.
  * @returns {creadas:[], existentes:[], hojaPredeterminadaEliminada:boolean}
  */
-function Modelo_crearEstructura() {
+function Modelo_crearEstructura_() {
   var res = { creadas: [], existentes: [], configActualizadas: [], hojaPredeterminadaEliminada: false };
   var ss = Modelo_ss();
 
@@ -812,7 +839,7 @@ function Modelo_crearEstructura() {
             // S10-FIX: SECTOR_* con datos y encabezados divergentes se migra
             // EXPLÍCITAMENTE al esquema canónico (por nombre, idempotente).
             // El resto de hojas visuales conserva el comportamiento histórico (HVis).
-            var mig = Modelo_alinearVistaSector(nombre);
+            var mig = Modelo_alinearVistaSector_(nombre);
             if (mig.ok && mig.alineado) {
               Log_warning('Modelo', 'crearEstructura', 'Vista SECTOR_* migrada: ' + nombre);
             } else {
@@ -841,7 +868,7 @@ function Modelo_crearEstructura() {
 /**
  * GAS: escaneo SOLO LECTURA del estado estructural real del libro (INST-1,
  * DEC-059). NO crea hojas, NO repara, NO escribe, NO formatea — a diferencia
- * de Modelo_crearEstructura. Es la fuente del diagnóstico dry-run del
+ * de Modelo_crearEstructura_. Es la fuente del diagnóstico dry-run del
  * instalador y de la etapa 'versionado'.
  *
  * Config: NO inocula SCHEMA_VERSION (clave ausente ≡ esquema '0' heredado
@@ -1471,7 +1498,7 @@ function Modelo_guardEscritura(contexto) {
  * @param {Array} objetos pacientes canónicos
  * @param {Object} [contexto] REQUERIDO: {autorizacion:'IMPORT_AUTORIZADO', operacion:'...'}
  */
-function Modelo_agregarPacientes(objetos, contexto) {
+function Modelo_agregarPacientes_(objetos, contexto) {
   Modelo_guardEscritura(contexto || {});
   if (!objetos || !objetos.length) return 0;
   // Contrato de trazabilidad (DEC trazabilidad): toda alta con FUENTE de origen.
@@ -1482,7 +1509,7 @@ function Modelo_agregarPacientes(objetos, contexto) {
         ' sin ' + traza.faltantes.join(', '));
     }
   }
-  var esquema = Modelo_asegurarEsquemaPacientes();
+  var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var ahora = new Date();
   var filas = objetos.map(function (o) {
@@ -1503,7 +1530,7 @@ function Modelo_agregarPacientes(objetos, contexto) {
  * @param {string} registradoPor
  * @param {Object} [contexto] REQUERIDO: {autorizacion:'IMPORT_AUTORIZADO'}
  */
-function Modelo_agregarEventos(eventos, registradoPor, contexto) {
+function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
   Modelo_guardEscritura(contexto || {});
   if (!eventos || !eventos.length) return 0;
   var ss = Modelo_ss();
@@ -1532,7 +1559,7 @@ function Modelo_agregarEventos(eventos, registradoPor, contexto) {
  * jamás genera un segundo ABIERTO para la misma fila (dedupe intra-lote + vs
  * lo ya escrito). Sin clave fiable la fila se descarta.
  */
-function Modelo_agregarConflictos(filas, claveFunc) {
+function Modelo_agregarConflictos_(filas, claveFunc) {
   if (!filas || !filas.length) return 0;
   var ss = Modelo_ss();
   var hoja = ss.getSheetByName(HOJAS.CONFLICTOS);
@@ -1640,7 +1667,7 @@ function Limpieza_colectar() {
 function Limpieza_ejecutar(colecta) {
   var resumen = { pacientes: 0, eventos: 0, filasIngreso: colecta.totalFilas };
   var ss = Modelo_ss();
-  var esquema = Modelo_asegurarEsquemaPacientes();
+  var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
 
   // PACIENTES: reescribe sin los de prueba
@@ -1700,7 +1727,7 @@ function Limpieza_ejecutar(colecta) {
     if (conservar.length) Utl_escribirBloque(hoja, 1, 1, conservar);
   });
 
-  Modelo_refrescarVistasSectores();
+  Modelo_refrescarVistasSectores_();
   Log_info('Limpieza', 'ejecutar', JSON.stringify(resumen));
   Log_flush();
   return resumen;
@@ -1766,7 +1793,7 @@ function Modelo_reordenarFilaVista(fila, encabezadosActuales) {
  * desde la fuente). SOLO toca SECTOR_*; nunca usa append/insert ni posiciones
  * ciegas. Devuelve {ok, alineado, motivo?, filas?}.
  */
-function Modelo_alinearVistaSector(nombreHoja) {
+function Modelo_alinearVistaSector_(nombreHoja) {
   if (HOJAS_SECTOR.indexOf(nombreHoja) === -1) return { ok: false, motivo: 'NO_ES_VISTA_SECTOR' };
   var hoja = Modelo_hoja(nombreHoja);
   if (!hoja) return { ok: false, motivo: 'HOJA_NO_EXISTE' };
@@ -1801,10 +1828,10 @@ function Modelo_alinearVistaSector(nombreHoja) {
 
 /** GAS: aplica la alineación del esquema a todas las vistas SECTOR_*
  *  (S10-FIX). Idempotente: replica el estado canónico. */
-function Modelo_alinearVistasSectoriales() {
+function Modelo_alinearVistasSectoriales_() {
   var res = { alineadas: [], yaCanonicas: [], errores: [] };
   HOJAS_SECTOR.forEach(function (n) {
-    var r = Modelo_alinearVistaSector(n);
+    var r = Modelo_alinearVistaSector_(n);
     if (r.ok && r.alineado) res.alineadas.push(n);
     else if (r.ok) res.yaCanonicas.push(n);
     else res.errores.push(n + ':' + r.motivo);
@@ -1824,7 +1851,7 @@ function Modelo_alinearVistasSectoriales() {
  * la captura; antes reescribía las N vistas en cada envío — parte de los ~15s
  * de latencia). Sin argumentos refresca todas (comportamiento histórico).
  */
-function Modelo_refrescarVistasSectores(sectores) {
+function Modelo_refrescarVistasSectores_(sectores) {
   Modelo_invalidarLecturas();
   var pacientes = Modelo_leerPacientes();
   var eventos = Modelo_leerEventos();
@@ -1942,7 +1969,7 @@ function Api_duplicadosListar() {
     return {ok:true, grupos: grupos, totalGrupos: grupos.length, totalDuplicados: grupos.reduce(function(s,g){return s+g.cantidad;},0)};
   } catch(e){ return {ok:false, motivo: e && e.message ? e.message : String(e)}; }
 }
-function Api_duplicadosUnirPorRut(rut, idConservar) {
+function Api_duplicadosUnirPorRut_(rut, idConservar) {
   try {
     rut = Utl_texto(rut).toUpperCase().trim();
     if (!rut) return {ok:false, motivo:'RUT_VACIO'};
@@ -2096,10 +2123,10 @@ function Recuperar_inventario(prefijoFuente) {
  * Ejecuta la recuperación selectiva: elimina SOLO los registros identificados.
  * NO toca registros que no estén en el inventario. Requiere confirmación previa.
  */
-function Recuperar_ejecutar(prefijoFuente) {
+function Recuperar_ejecutar_(prefijoFuente) {
   var datos = Recuperar_identificar(prefijoFuente);
   var ss = Modelo_ss();
-  var esquema = Modelo_asegurarEsquemaPacientes();
+  var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var eliminadosP = 0, eliminadosE = 0;
 
@@ -2142,7 +2169,7 @@ function Recuperar_ejecutar(prefijoFuente) {
   }
 
   // refrescar vistas
-  if (typeof Modelo_refrescarVistasSectores === 'function') Modelo_refrescarVistasSectores();
+  if (typeof Modelo_refrescarVistasSectores_ === 'function') Modelo_refrescarVistasSectores_();
 
   Log_info('Recuperar', 'ejecutar', JSON.stringify({ pacientes: eliminadosP, eventos: eliminadosE }));
   Log_flush();

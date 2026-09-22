@@ -410,6 +410,7 @@ var P_ACTUAL=null, _FICHA_ACTUAL=null, _animTimeline=false, _resIdx=-1;
 var SEG_ACTUAL=null;
 var PAT_CATALOGO=[], PAT_SELECCIONADAS=[];
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','CAMBIO_SECTOR','LLAMADO','OTRO'];
+var TIP_MANUALES=['CONTROL','SEGUIMIENTO','LLAMADO','OTRO'];
 var TL_ESTILO={
   INGRESO:{c:'#0E5C68',i:'log-in'}, CONTROL:{c:'#6B5CA8',i:'stethoscope'},
   SEGUIMIENTO:{c:'#5B6472',i:'phone'}, PLAN_CUIDADO:{c:'#3E7CA6',i:'clipboard-list'},
@@ -656,7 +657,7 @@ function pintarFicha(f){
   _animTimeline=true;
 
   var s=document.getElementById('evTipo');
-  s.innerHTML=TIP.map(function(t){return '<option>'+t+'</option>';}).join('');
+  s.innerHTML=TIP_MANUALES.map(function(t){return '<option>'+t+'</option>';}).join('');
   s.value='CONTROL';
   cargarSelectorPatologias(f.ID_INTERNO,false,f.patologias);
   cargarSelectorDupla(f.ID_INTERNO,f.dupla);
@@ -953,7 +954,7 @@ function recalcularEstrat(btn){
       abrirFicha(pid);}
     else toast(r.motivo||'No se pudo recalcular','err');
   }).withFailureHandler(function(e){fin();toast('Error: '+(e&&e.message||e),'err');})
-  .Estrat_recalcularPaciente(pid);
+  .api_estratRecalcularPaciente(pid, TOKEN_INVITACION);
 }
 
 /* ================= dupla ================= */

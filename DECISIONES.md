@@ -1306,3 +1306,47 @@ validar_html 21/21). `api_*` de panel (cambio en Controles/Dashboard/
 Configuracion/RemVista/CentroPruebas) cubiertas por regresiones_revision +
 acceso_webapp. Docs: `docs/INFORME_2026-09-22_FICHA_V2.md`.
 **Fecha:** 2026-09-22
+
+## DEC-067
+**Título:** Separación de capacidades: CAPTURA ≠ OPERADOR (hardening v0.10.3)
+**Estado:** Aprobada / vigente (v0.10.3)
+**Motivo:** la auditoría de la pasada v0.10.3 confirmó que una página pública
+jamás debe entregar una credencial privilegiada y que una función interna no
+debe volverse RPC pública solo por estar declarada `function` en Apps Script.
+Se separaron los tokens con capacidades disjuntas y se encogió la superficie
+RPC a wrappers `api_*` con capacidad **OPERADOR**.
+
+**Reglas:**
+1. **DOS tokens distintos en PropertiesService**: `CAPTURA_ACCESS_TOKEN`
+   (página pública: únicamente `WebApp_capturarEnviar` y el preflight de captura)
+   y `OPERADOR_ACCESS_TOKEN` (paneles, ficha, revisión, REM, calidad, auditoría,
+   configuración, backups, CentroPruebas). La base URL pública **nunca** expone
+   ni entrega el token de operador; el preflight público no filtra datos
+   identificables de candidatos.
+2. **CAPTURA ≠ OPERADOR disjuntas**: un token de CAPTURA no abre vistas ni RPC
+   administrativas; un token de OPERADOR no autoriza operaciones de captura
+   (`WebApp_capturarEnviar`). Verificado por tests.
+3. **Helpers críticos privados**: `Hojas_resetFabrica_`, `Recuperar_ejecutar_`,
+   `IA_limpiarEventosHuerfanos_`, `Modelo_agregarPacientes_`,
+   `Modelo_agregarEventos_`, `Estrat_recalcularPaciente_`,
+   `Ingresos_procesarTodasLasHojas_` solo existen con sufijo `_` (no invocables
+   por `google.script.run`); su acceso pasa por wrappers `api_*` con token de
+   OPERADOR. CentroPruebas.html dejó de llamar mutadores internos directamente.
+4. **Mutaciones atómicas e idempotentes**: ficha valida todo antes de escribir
+   (0 cambios si un campo es inválido); revisión→INGRESO cierra el caso y
+   reintentar no duplica; eventos reservados no son creables genéricamente
+   (`TIPO_EVENTO_RESERVADO`); todo cambio del valor vigente de estratificación
+   genera `CAMBIO_ESTRATIFICACION` trazable (no-op no crea evento).
+5. **CONFIG sin secretos**: `CONFIG_SECRETOS` enmascara valores secretos en
+   `api_configListar` y en auditoría; los guards de `api_configGuardar/Agregar`
+   rechazan persistir secretos por API.
+6. **No se sacrifican** las correcciones @218 (`TOKEN_ACCESO`) y @219
+   (`ID_INICIAL_SAFE`); el schema continúa en **2** (no se creó MIG-003).
+
+**Tests:** nuevas suites `tests/seguridad_capacidades_v0103.mjs` (**10/10**),
+`tests/rpc_surface_v0103.mjs` (**4/4**) y `tests/integridad_mutaciones_v0103.mjs`
+(**9/9**); `tests/acceso_webapp.mjs` reescrita (**8/8**) y
+`tests/regresiones_revision.mjs` actualizada con el contrato del evento de
+estratificación (**44/44**). Batería total **20 suites · 0 fallos** (verifier
+2026-09-22; núcleo 671/671, validar_html 22/22).
+**Fecha:** 2026-09-22

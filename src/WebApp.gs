@@ -23,20 +23,29 @@
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO
+// CONTROL DE ACCESO — DOS CAPACIDADES DISTINTAS
+//   - CAPTURA  : capacidad pública de captura (QR/URL base). Solo escribe.
+//   - OPERADOR : capacidad privilegiada (Consultar/administrar). Nunca se
+//                inyecta en una página pública (ver §11).
+// El token del webhook sigue siendo independiente y no se comparte en el QR.
+// La propiedad CAPTURA_ACCESS_TOKEN conserva su valor (el QR actual no se
+// invalida), pero ya NO concede acceso a funciones privilegiadas.
 // ---------------------------------------------------------------------------
 
-/** Autoriza la Web App con sesión activa o enlace compartido independiente.
- *  El enlace no depende de una cuenta de Google. El token del webhook no sirve
- *  para Captura ni se comparte en el QR.
- */
+/** Autoriza la capacidad de OPERADOR: sesión activa o token de operador. */
 function WebApp_autorizarBuscador(token) {
   if (WebApp_usuarioActivo()) return true;
-  return WebApp_accesoCompartidoValido_(token);
+  return WebApp_accesoOperadorValido_(token);
 }
 
-/** Clave independiente del webhook: solo se entrega desde el menú de Sheets. */
-function WebApp_claveCompartida_() {
+/** Autoriza la capacidad de CAPTURA: sesión activa o token de captura. */
+function WebApp_autorizarCaptura(token) {
+  if (WebApp_usuarioActivo()) return true;
+  return WebApp_accesoCapturaValido_(token);
+}
+
+/** Clave de captura (pública por diseño). Conserva CAPTURA_ACCESS_TOKEN. */
+function WebApp_claveCaptura_() {
   try {
     var props = PropertiesService.getScriptProperties();
     var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
@@ -46,7 +55,6 @@ function WebApp_claveCompartida_() {
     try {
       clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
       if (clave) return clave;
-      // 256 bits, sin exponer ni reutilizar el token del webhook.
       clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
       props.setProperty('CAPTURA_ACCESS_TOKEN', clave);
       return clave;
@@ -54,21 +62,63 @@ function WebApp_claveCompartida_() {
   } catch (e) { return ''; }
 }
 
-function WebApp_accesoCompartidoValido_(token) {
+/** Clave de operador: separada de captura. Solo se entrega desde el menú de Sheets. */
+function WebApp_claveOperador_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var clave = props.getProperty('OPERADOR_ACCESS_TOKEN');
+    if (clave) return clave;
+    var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
+    if (lock && !lock.tryLock(5000)) return '';
+    try {
+      clave = props.getProperty('OPERADOR_ACCESS_TOKEN');
+      if (clave) return clave;
+      clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+      props.setProperty('OPERADOR_ACCESS_TOKEN', clave);
+      return clave;
+    } finally { if (lock) lock.releaseLock(); }
+  } catch (e) { return ''; }
+}
+
+function WebApp_accesoCapturaValido_(token) {
   if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = WebApp_claveCompartida_();
+  var esperado = WebApp_claveCaptura_();
   return !!esperado && token === esperado;
 }
 
-function WebApp_urlCompartida_() {
-  var clave = WebApp_claveCompartida_();
+function WebApp_accesoOperadorValido_(token) {
+  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
+  var esperado = WebApp_claveOperador_();
+  return !!esperado && token === esperado;
+}
+
+/** URL del canal de captura (QR y URL base). No concede acceso privilegiado. */
+function WebApp_urlCaptura_() {
+  var clave = WebApp_claveCaptura_();
   return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
 }
 
-function WebApp_urlVista_(vista) {
-  var url = WebApp_urlCompartida_();
-  return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
+/** URL de una vista de operador (paneles, ficha, REM…). Solo desde Sheets/UI autorizada. */
+function WebApp_urlOperadorVista_(vista) {
+  var base = ECICEP_webAppUrl();
+  var token = WebApp_claveOperador_();
+  if (!token) return '';
+  return base + '?acceso=' + encodeURIComponent(token) +
+    (vista ? '&vista=' + encodeURIComponent(vista) : '');
 }
+
+// ---- Alias de compatibilidad (contrato heredado). ----
+// WebApp_claveCompartida_ / WebApp_accesoCompartidoValido_ / WebApp_urlCompartida_
+// representan la CAPACIDAD DE CAPTURA (misma propiedad CAPTURA_ACCESS_TOKEN,
+// misma URL del QR). WebApp_urlVista_ pasó a representar una vista de OPERADOR.
+
+function WebApp_claveCompartida_() { return WebApp_claveCaptura_(); }
+
+function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoCapturaValido_(token); }
+
+function WebApp_urlCompartida_() { return WebApp_urlCaptura_(); }
+
+function WebApp_urlVista_(vista) { return WebApp_urlOperadorVista_(vista); }
 
 /** Identidad del código servido (sello BUILD.js regenerado en cada push).
  *  CapturaWeb.html lo usa como contravalor: si el sello incrustado en la página
@@ -103,20 +153,18 @@ function doGet(e) {
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
     return _wh_despachar(e);
   }
-  var acceso = e && e.parameter && e.parameter.acceso || '';
-  var vista = e && e.parameter && e.parameter.vista || 'captura';
-  // Canal de captura abierto desde la URL base (QR impreso permanente): cualquiera
-  // puede cargar el formulario sin cuenta ni token. Cada página recibirá la clave
-  // compartida para operar las RPC (líneas abajo). Las demás vistas (paneles, ficha,
-  // backups, REM…) siguen exigiendo el enlace compartido vigente.
-  if (vista !== 'captura' && !WebApp_autorizarBuscador(acceso)) {
+  var p = e && e.parameter || {};
+  var acceso = String(p.acceso || '').trim();
+  var vista = String(p.vista || 'captura').trim();
+  var esOperador = WebApp_usuarioActivo() || WebApp_accesoOperadorValido_(acceso);
+  if (vista === 'captura') {
+    return WebApp_servirCaptura_(esOperador);
+  }
+  if (!WebApp_accesoOperadorValido_(acceso)) {
     return ContentService.createTextOutput('Enlace de Captura no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
   }
-  if (vista !== 'captura' && !WebApp_accesoCompartidoValido_(acceso)) {
-    return ContentService.createTextOutput('Función no disponible sin el enlace compartido vigente.');
-  }
   var archivos = {
-    captura: 'CapturaWeb', portal: 'PortalWeb', pacientes: 'Sidebar',
+    portal: 'PortalWeb', pacientes: 'Sidebar',
     revision: 'Sidebar', ficha: 'Sidebar', controles: 'Controles',
     estadisticas: 'Dashboard', configuracion: 'Configuracion',
     backups: 'Backup', registro: 'LogVisor', instalar: 'Instalador', rem: 'RemVista',
@@ -125,10 +173,12 @@ function doGet(e) {
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
   if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de Captura.');
   var plantilla = HtmlService.createTemplateFromFile(archivo);
-  var clave = WebApp_accesoCompartidoValido_(acceso) ? acceso : WebApp_claveCompartida_();
-  plantilla.CAPTURA_ACCESO = clave;
-  plantilla.TOKEN_ACCESO = clave;
-  plantilla.TOKEN_INVITACION = clave;
+  var operador = WebApp_claveOperador_();
+  // Página de OPERADOR: recibe el token de operador (privilegiado) para RPC.
+  plantilla.CAPTURA_ACCESO = operador;
+  plantilla.TOKEN_ACCESO = operador;
+  plantilla.TOKEN_INVITACION = operador;
+  plantilla.MODO_OPERADOR = true;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
   plantilla.REM_URL = WebApp_urlVista_('rem');
@@ -138,7 +188,7 @@ function doGet(e) {
   plantilla.PAGE_BUILD = WebApp_buildActual_();
   plantilla.SECCION = 'TODAS';
   plantilla.modo = vista === 'pacientes' ? 'pacientes' : vista === 'revision' ? 'revision' : 'ficha';
-  plantilla.ID_INICIAL = vista === 'ficha' && e.parameter.id ? String(e.parameter.id) : '';
+  plantilla.ID_INICIAL = vista === 'ficha' && p.id ? String(p.id) : '';
   if (vista === 'portal') {
     plantilla.LINKS = [
       ['Captura', 'captura'], ['Pacientes y ficha', 'pacientes'],
@@ -151,6 +201,33 @@ function doGet(e) {
   }
   return plantilla.evaluate()
     .setTitle('ECICEP — ' + vista)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/** Sirve el canal de captura (público). CAPTURA_ACCESO = clave de captura;
+ *  TOKEN_ACCESO / TOKEN_INVITACION quedan VACÍOS: la página pública nunca
+ *  recibe credenciales privilegiadas. MODO_OPERADOR=true solo si quien abre
+ *  la URL es un operador (sesión o token de operador). */
+function WebApp_servirCaptura_(esOperador) {
+  var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
+  var clave = WebApp_claveCaptura_();
+  plantilla.CAPTURA_ACCESO = clave;
+  plantilla.TOKEN_ACCESO = '';
+  plantilla.TOKEN_INVITACION = '';
+  plantilla.MODO_OPERADOR = !!esOperador;
+  plantilla.PORTAL_URL = esOperador ? WebApp_urlVista_('portal') : '';
+  plantilla.FICHA_URL = '';
+  plantilla.REM_URL = '';
+  plantilla.DASH_URL = '';
+  plantilla.GENERAR_REM_URL = '';
+  plantilla.BUILD = Utilities.formatDate(new Date(), ECICEP.TZ, 'yyyyMMdd-HHmm');
+  plantilla.PAGE_BUILD = WebApp_buildActual_();
+  plantilla.SECCION = 'TODAS';
+  plantilla.modo = 'ficha';
+  plantilla.ID_INICIAL = '';
+  return plantilla.evaluate()
+    .setTitle('ECICEP — Captura de datos')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -425,7 +502,7 @@ function WebApp_resumenPaciente(p) {
 }
 
 function api_webappEstado(acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
+  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return {
     ok: true,
     version: ECICEP.VERSION,
@@ -439,7 +516,7 @@ function api_webappEstado(acceso) {
  *  Unifica en una sola RPC las llamadas que el formulario realizaba por separado
  *  al cargar (esquema, catálogo y url), reduciendo la latencia inicial a 1 viaje. */
 function WebApp_estadoInicial(acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
+  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return {
     esquema: Form_esquemaFormulario(),
     profesionales: WebApp_profesionalesDropdown(),

@@ -842,7 +842,7 @@ function onEdit(e) {
  *        antes de borrar (RECOMENDADO: es la única red de seguridad).
  * @returns {ok, backupUrl?, hojasEliminadas}
  */
-function Hojas_resetFabrica(conBackup) {
+function Hojas_resetFabrica_(conBackup) {
   var ss = Modelo_ss();
   var backupUrl = null;
   if (conBackup) {
@@ -892,7 +892,7 @@ function UI_resetFabrica(conBackup) {
     ui.alert('Respuesta inválida — operación cancelada.');
     return;
   }
-  var r = Hojas_resetFabrica(resp === 'SI');
+  var r = Hojas_resetFabrica_(resp === 'SI');
   ui.alert('🏭 RESET COMPLETADO\n\n' +
     (r.backupUrl ? 'Backup creado en Drive.\n' : 'SIN backup.\n') +
     '\nSiguiente paso:\nECICEP → ⚙️ Sistema → 🔧 Instalar / Reparar Sistema\n' +

@@ -22,7 +22,7 @@
     .footer{margin-top:var(--space-5);font-size:11px;color:var(--text-muted);}
   </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>">
 <div class="acerca-card">
   <div class="logo">&#x1F3E5;</div>
   <h1 class="nombre" id="acrNombre">ECICEP</h1>
@@ -57,6 +57,7 @@
 </div>
 
 <script>
+var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 function pintar(r){
   if(!r)return;
   document.getElementById('acrNombre').textContent=r.nombre||'ECICEP';
@@ -73,7 +74,7 @@ function pintar(r){
 google.script.run
   .withSuccessHandler(pintar)
   .withFailureHandler(function(e){document.getElementById('acrPac').textContent='Error';console.error(e);})
-  .api_acercaDe();
+  .api_acercaDe(ECICEP_ACCESO);
 </script>
 </body>
 </html>

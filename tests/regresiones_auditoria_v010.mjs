@@ -105,7 +105,7 @@ test('B3: Fuentes_cargaReal bloquea con HOJA_FUENTE_FALTANTE sin leer ni escribi
   c.Fuentes_preflightFuentes = () => ({ ok: false, fuentes: [{ archivo: 'X', faltantes: ['Y'], errores: [] }], bloqueantes: [{}] });
   c.Modelo_leerEventos = () => [];
   c.Modelo_leerPacientes = () => [];
-  c.Modelo_agregarEventos = () => { eventos++; return 0; };
+  c.Modelo_agregarEventos_ = () => { eventos++; return 0; };
   const r = c.Fuentes_cargaReal({ ejecutar: true, actualizar: true });
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'HOJA_FUENTE_FALTANTE');
@@ -126,7 +126,7 @@ test('B4: la primera etapa mutante crea UN respaldo por ejecución; el resto lo 
   c.DriveApp = { getFileById: () => ({ makeCopy: () => null }) };
   let backups = 0, nombres = [];
   c.Backup_crear = (et) => { backups++; const n = 'MANUAL_ECICEP_BACKUP_' + backups; nombres.push(n); return { ok: true, nombre: n, id: 'x', url: 'u', tamano: 0 }; };
-  c.Modelo_crearEstructura = () => ({ creadas: [], existentes: [], dashboardReparado: false });
+  c.Modelo_crearEstructura_ = () => ({ creadas: [], existentes: [], dashboardReparado: false });
   c.Fuentes_cargaReal = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
   const clave = c.WebApp_claveCompartida_();
@@ -271,12 +271,12 @@ test('B9: 10× Instalar sobre el mismo origen no duplica eventos ni archiva stag
   c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
   c.Modelo_leerEventos = () => [{ FUENTE: 'ECICEP NARANJO|Ingresos Enero|2' }];
   c.Modelo_leerPacientes = () => [];
-  c.Modelo_asegurarEsquemaPacientes = () => ({ ok: true });
+  c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: true });
   c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [], pacientesNuevos: [], eventos: [] });
-  c.Modelo_refrescarVistasSectores = () => ({});
+  c.Modelo_refrescarVistasSectores_ = () => ({});
   c.Act_mergearPacientesDesdeStaging = () => ({ revisados: 1, actualizados: 0, sinCambios: 1, conflictos: 0, campos: 0, detalle: [] });
   let eventos = 0;
-  c.Modelo_agregarEventos = () => { eventos++; return 0; };
+  c.Modelo_agregarEventos_ = () => { eventos++; return 0; };
   // STAGING_IMPORT fake para verificar dedupe de auditoría
   let filasStaging = [];
   const ST_NOMBRE = expr(c, 'HOJAS.STAGING_IMPORT');
@@ -336,8 +336,8 @@ test('SNAPSHOT: la ejecución reutiliza el análisis dry-run (UNA lectura de fue
   c.Modelo_leerPacientes = () => [];
   c.Modelo_leerEventos = () => [];
   c.Ingresos_procesarFilas = () => ({ resumen: { nuevos: 1, existentes: 0, revision: 0, conError: 0 }, resultados: [], pacientesNuevos: [], eventos: [] });
-  c.Modelo_agregarEventos = () => 0;
-  c.Modelo_refrescarVistasSectores = () => ({});
+  c.Modelo_agregarEventos_ = () => 0;
+  c.Modelo_refrescarVistasSectores_ = () => ({});
   c.Act_mergearPacientesDesdeStaging = () => ({ revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] });
   const a = c.Fuentes_cargaReal({ ejecutar: false, actualizar: true });
   assert.equal(lecturas, 1);

@@ -7,7 +7,7 @@
  * {pacientes:[], eventos:[]} con idGen inyectable → determinista y testeable
  * en node. El store es APPEND-ONLY: nunca modifica registros previos.
  *
- * Wrapper GAS (Ingresos_procesarTodasLasHojas): adapta Sheets↔store,
+ * Wrapper GAS (Ingresos_procesarTodasLasHojas_): adapta Sheets↔store,
  * escribe por lotes y registra la ejecución con el Log existente.
  * La decisión de escritura (gate) es explícita por fila (DEC-024/025):
  *   BLOQUEADO | REVISION | CREAR_PACIENTE | ENLAZAR_EXISTENTE.
@@ -332,7 +332,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
  * Escribe de vuelta los estados de procesamiento en las hojas INGRESO_*.
  * Lectura y escritura por bloques (nunca setValue por celda).
  */
-function Ingresos_escribirEstados(resultados) {
+function Ingresos_escribirEstados_(resultados) {
   try {
     if (typeof SpreadsheetApp === 'undefined' || !resultados || !resultados.length) return;
     var ss = Modelo_ss();
@@ -591,7 +591,7 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
   if (!nf || nf < 1) return { ok: false, motivo: 'FILA_INVALIDA' };
   var soloFilas = {};
   soloFilas[k] = [String(nf)];
-  var resumen = Ingresos_procesarTodasLasHojas({
+  var resumen = Ingresos_procesarTodasLasHojas_({
     soloHojas: [k], soloFilas: soloFilas,
     confirmarNuevos: opciones.confirmarNuevo === true,
     incluirResultados: true
@@ -608,7 +608,7 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
  * exclusivamente sobre lo que el usuario haya digitado ahí (dataset ficticio
  * en pruebas). Nunca lee los Excel completos.
  */
-function Ingresos_procesarTodasLasHojas(opciones) {
+function Ingresos_procesarTodasLasHojas_(opciones) {
   opciones = opciones || {};
   var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase();
   var _tIni = Date.now();
@@ -617,7 +617,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   // 0) NORMALIZAR el layout visual ANTES de leer/escribir: HVis_normalizarLayout
   //    puede insertar filas al inicio (MIGRABLE_ABRIR) cuando la hoja aún está
   //    en el layout legacy (header fila 1). Correrlo al final invalidaba las
-  //    coordenadas (filaOrigen) en las que Ingresos_escribirEstados ya había
+  //    coordenadas (filaOrigen) en las que Ingresos_escribirEstados_ ya había
   //    escrito el ESTADO_INGRESO → SIN_ESTADO en la Web App. Ejecutado aquí,
   //    todo el pipeline trabaja sobre un layout estable.
   var normaLayout = {};
@@ -705,7 +705,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   staging = stagingFiltrado;
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (barrera RUT+fecha, paso 2b) staging tras barrera=' + staging.length + ' duplicadosDia=' + duplicadosDia.length);
   if (!staging.length) {
-    Ingresos_escribirEstados(duplicadosDia);
+    Ingresos_escribirEstados_(duplicadosDia);
     var salidaDuplicada = { resultados: duplicadosDia, resumen: { leidos: duplicadosDia.length, validos: 0, conError: 0, nuevos: 0, existentes: 0, revision: 0, duplicados: duplicadosDia.length, eventosCreados: 0 }, pacientesNuevos: [], eventos: [] };
     salidaDuplicada.resumen.ejecucion = ejecucion;
     Log_info('Ingresos', 'procesar', JSON.stringify({ leidos: salidaDuplicada.resumen.leidos, duplicados: salidaDuplicada.resumen.duplicados }));
@@ -724,12 +724,12 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (pipeline puro, paso 3)');
 
   // 4) persistencia por lotes
-  Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
-  Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-eventos' });
+  Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
+  Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-eventos' });
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (persistencia pacientes/eventos, paso 4)');
 
   // 5) estados de vuelta en las hojas de ingreso
-  Ingresos_escribirEstados(salida.resultados);
+  Ingresos_escribirEstados_(salida.resultados);
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (estados en hojas, paso 5)');
 
   // 5b) casos ambiguos → cola de revisión (CONFLICTOS)
@@ -743,7 +743,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
       }
     });
     if (filasConflicto.length) {
-      conflicto = Modelo_agregarConflictos(filasConflicto);
+      conflicto = Modelo_agregarConflictos_(filasConflicto);
     }
   } catch (e) {
     Log_warning('Ingresos', 'colaRevision', e && e.message ? e.message : String(e));
@@ -754,7 +754,7 @@ function Ingresos_procesarTodasLasHojas(opciones) {
   //    Solo se reescriben las vistas de los sectores tocados por la captura.
   var vistas = null;
   try {
-    if (typeof Modelo_refrescarVistasSectores === 'function') vistas = Modelo_refrescarVistasSectores(sectoresAfectados);
+    if (typeof Modelo_refrescarVistasSectores_ === 'function') vistas = Modelo_refrescarVistasSectores_(sectoresAfectados);
   } catch (e) {
     Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
   }
@@ -799,7 +799,7 @@ function Ingresos_sincronizarCache(paciente, evento, freqConfig) {
  * No crea pacientes ni eventos — es una operación ligera para INSTALAR.
  * @returns {{ actualizados: number, hojas: number }}
  */
-function Ingresos_sincronizarEstratificacion() {
+function Ingresos_sincronizarEstratificacion_() {
   var ss = Modelo_ss();
   var hojaPacientes = Modelo_hoja(HOJAS.PACIENTES);
   if (!hojaPacientes) return { actualizados: 0, hojas: 0 };

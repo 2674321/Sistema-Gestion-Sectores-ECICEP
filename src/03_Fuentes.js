@@ -767,7 +767,7 @@ function _Fuentes_escribir_(a, opciones, t0) {
   var actualizarPacientes = opciones.actualizar &&
     (merge.actualizados > 0 || merge.conflictos > 0 || (salida.pacientesNuevos || []).length > 0);
   if (actualizarPacientes) {
-    var esquema = Modelo_asegurarEsquemaPacientes();
+    var esquema = Modelo_asegurarEsquemaPacientes_();
     if (!esquema.ok) {
       resultado.ok = false;
       resultado.motivo = 'ESQUEMA_PACIENTES_INCOMPATIBLE';
@@ -779,8 +779,8 @@ function _Fuentes_escribir_(a, opciones, t0) {
       return resultado;
     }
   }
-  if (typeof Modelo_agregarEventos === 'function' && (salida.eventos || []).length) {
-    Modelo_agregarEventos(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
+  if (typeof Modelo_agregarEventos_ === 'function' && (salida.eventos || []).length) {
+    Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
     escritosEventos = true;
   }
   if (opciones.actualizar) {
@@ -791,8 +791,8 @@ function _Fuentes_escribir_(a, opciones, t0) {
       Modelo_invalidarLecturas();
       escritosPacientes = true;
     }
-  } else if (typeof Modelo_agregarPacientes === 'function' && (salida.pacientesNuevos || []).length) {
-    Modelo_agregarPacientes(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
+  } else if (typeof Modelo_agregarPacientes_ === 'function' && (salida.pacientesNuevos || []).length) {
+    Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
     escritosPacientes = true;
   }
   resumen.escritosPacientes = escritosPacientes;
@@ -813,14 +813,14 @@ function _Fuentes_escribir_(a, opciones, t0) {
       filasConflicto.push(Rev_filaConflicto(f));
     }
   });
-  if (filasConflicto.length && typeof Modelo_agregarConflictos === 'function') {
-    resultado.aColaRevision = Modelo_agregarConflictos(filasConflicto);
+  if (filasConflicto.length && typeof Modelo_agregarConflictos_ === 'function') {
+    resultado.aColaRevision = Modelo_agregarConflictos_(filasConflicto);
     Log_info('Fuentes', 'colaRevision', filasConflicto.length + ' enviados a CONFLICTOS');
   }
 
   // --- FASE 5.8: refrescar vistas sectoriales ---
-  if (typeof Modelo_refrescarVistasSectores === 'function') {
-    resultado.vistasSector = Modelo_refrescarVistasSectores();
+  if (typeof Modelo_refrescarVistasSectores_ === 'function') {
+    resultado.vistasSector = Modelo_refrescarVistasSectores_();
   }
 
   Log_flush();

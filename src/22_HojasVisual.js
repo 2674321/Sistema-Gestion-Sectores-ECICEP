@@ -291,7 +291,7 @@ function HVis_normalizarLayout(hoja, opciones) {
 
   // --- Migración segura (sin delete/insert a ciegas) ---
   if (estado === 'VACIA' || estado === 'AMBIGUA') {
-    // Modelo_crearEstructura crea el andamiaje en hojas vacías; en ambigua
+    // Modelo_crearEstructura_ crea el andamiaje en hojas vacías; en ambigua
     // NO tocamos nada: la fila de encabezados está desplazada con datos
     // que no permite inferir cabida → instrucción visual pendiente.
     salida.post = estado;

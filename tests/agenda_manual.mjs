@@ -43,7 +43,7 @@ function memory(c) {
     entregar:c.Captura_v2_entregar,aplicarAgenda:(id,date)=>{writes++;return {ok:!fail};}};
   c.Captura_v2_buscarPersonaPorRut=()=>({ID_INTERNO:'FICTICIO'});
   c.Captura_v2_marcaEnEventos=marca=>events.get(marca);
-  c.api_registrarEvento=p=>{events.set(p.fuente,{idInterno:p.idInterno,idEvento:'EVENTO-FICTICIO'});return {ok:true};};
+  c.Eventos_registrarPaciente_=p=>{events.set(p.fuente,{idInterno:p.idInterno,idEvento:'EVENTO-FICTICIO'});return {ok:true};};
   return {ctx,rows,events,get writes(){return writes;},recover(){fail=false;}};
 }
 test('Fallo de agenda y reintento usan entrega real sin duplicar evento; terminal no reescribe', () => {
@@ -78,7 +78,7 @@ test('Persistencia real por encabezados distingue versión y recupera agenda des
 });
 test('Ficha guarda/borra agenda y rechaza fecha inválida sin mutar caché', () => {
   const c=backend(),p={ID_INTERNO:'FICTICIO',PROXIMO_CONTROL:'2026-12-05'}; const rows=[];
-  c.WebApp_autorizarBuscador=()=>true;c.Modelo_buscarPaciente=()=>({obj:p,idx:0});c.Modelo_asegurarEsquemaPacientes=()=>({ok:true});c.Modelo_filaFisica=()=>2;
+  c.WebApp_autorizarBuscador=()=>true;c.Modelo_buscarPaciente=()=>({obj:p,idx:0});c.Modelo_asegurarEsquemaPacientes_=()=>({ok:true});c.Modelo_filaFisica=()=>2;
   c.Modelo_hoja=()=>({getRange:()=>({setValues:v=>rows.push(v)})});c.Modelo_invalidarLecturas=()=>{};c.Log_flush=()=>{};c.Log_info=()=>{};
   assert.equal(c.api_actualizarPaciente(p.ID_INTERNO,{PROXIMO_CONTROL:'2026-02-30'}).ok,false);assert.equal(rows.length,0);assert.equal(p.PROXIMO_CONTROL,'2026-12-05');
   for(const date of ['2027-02-20','']){assert.equal(c.api_actualizarPaciente(p.ID_INTERNO,{PROXIMO_CONTROL:date}).ok,true); const pos=c.MODELO_PACIENTE.findIndex(x=>x.campo==='PROXIMO_CONTROL'); assert.ok(pos>=0); assert.equal(rows.at(-1)[0][pos],date);}
@@ -92,10 +92,10 @@ test('Panel y auditoría usan agenda aun sin control o riesgo; sincronizar nunca
 test('Panel conserva el último control al registrar una atención histórica', () => {
   const c=backend(),pac={ID_INTERNO:'FICTICIO',RUT:'11111111-1',NOMBRE:'PERSONA FICTICIA',SECTOR:'VERDE',ULTIMO_CONTROL:'2026-09-10',PROXIMO_CONTROL:'2026-10-20'},eventos=[];
   c.Modelo_buscarPaciente=()=>({obj:pac,idx:0});
-  c.Modelo_agregarEventos=filas=>{eventos.push(...filas);};
+  c.Modelo_agregarEventos_=filas=>{eventos.push(...filas);};
   c.Modelo_hoja=()=>({getRange:()=>({setValues(){}})});
   c.Modelo_filaFisica=()=>2;c.Modelo_filaDesdeObjeto=o=>[o.ID_INTERNO];
-  c.Modelo_refrescarVistasSectores=()=>({ok:true});c.Log_info=()=>{};c.Log_flush=()=>{};
+  c.Modelo_refrescarVistasSectores_=()=>({ok:true});c.Log_info=()=>{};c.Log_flush=()=>{};
   c.WebApp_autorizarBuscador=()=>true;
   const r=c.api_controlActualizarUltimo('FICTICIO','CONTROL','2026-09-01');
   assert.equal(r.ok,true,JSON.stringify(r));assert.equal(eventos.length,1);

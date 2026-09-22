@@ -271,7 +271,7 @@ function Aud_auditarConfig(configRows) {
     if (vistos[k]) { duplicadas++; }
     vistos[k] = (vistos[k] || 0) + 1;
     var grupo = clavesConocidas[k] || 'DESCONOCIDA';
-    grupos[grupo].push({ clave: k, valor: v });
+    grupos[grupo].push({ clave: k, valor: Config_valorPublico_(k, v) });
     if (grupo === 'ESTRATIFICACIÓN' && k.endsWith('_CANT')) {
       var c = parseInt(v, 10);
       if (isNaN(c) || c <= 0) freqNegZero++;
@@ -472,8 +472,9 @@ function Auditoria_ejecutar() {
  * GAS: wrapper para Centro de Pruebas (botón ⚖️ Auditoría v0.8.8).
  * Devuelve {ok, texto, datos} para UI.
  */
-function api_auditoriaEjecutar() {
+function api_auditoriaEjecutar(token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
     return Auditoria_ejecutar();
   } catch (e) {
     Log_error('Auditoria', 'ejecutar', e && e.message ? e.message : String(e));

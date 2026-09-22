@@ -194,9 +194,9 @@ test('Actualizar contacto no solicita identidad que el payload V2 omite', () => 
 });
 test('Simulación del orquestador no llama a ningún escritor', () => {
   const c = backend(); const calls = [];
-  for (const name of ['Modelo_asegurarEsquemaPacientes','Modelo_alinearVistasSectoriales',
-    'Modelo_limpiarHojasResiduales','Amarillo_importarTodo','Estrat_recalcularTodos',
-    'Control_recalcularTodos','Modelo_refrescarVistasSectores','HVis_aplicarTodasLasSecciones',
+  for (const name of ['Modelo_asegurarEsquemaPacientes_','Modelo_alinearVistasSectoriales_',
+    'Modelo_limpiarHojasResiduales','Amarillo_importarTodo_','Estrat_recalcularTodos_',
+    'Control_recalcularTodos','Modelo_refrescarVistasSectores_','HVis_aplicarTodasLasSecciones',
     'HVis_formatearIngresos','Hojas_formatoCondicional','Modelo_validarIngresos',
     'Modelo_aplicarDiseno','Modelo_disenoHojas','Hojas_colorearRutIngresos','onOpen','Log_info','Log_flush']) {
     c[name] = () => { calls.push(name); return { ok: true }; };
@@ -210,16 +210,16 @@ test('Simulación del orquestador no llama a ningún escritor', () => {
 function actualizacionSimulada() {
   const c = backend();
   c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
-  c.Modelo_asegurarEsquemaPacientes = () => ({ ok: true });
-  c.Modelo_alinearVistasSectoriales = () => ({ errores: [] });
+  c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: true });
+  c.Modelo_alinearVistasSectoriales_ = () => ({ errores: [] });
   c.Modelo_limpiarHojasResiduales = () => ({ candidatas: [], eliminadas: [] });
   c.Fuentes_cargaReal = () => ({ ok: true, resumen: {} });
-  c.Amarillo_importarTodo = () => ({ ok: true });
+  c.Amarillo_importarTodo_ = () => ({ ok: true });
   c.Act_enriquecerPacientes = () => ({ ok: true, errores: 0 });
-  c.Estrat_recalcularTodos = () => ({ ok: true, recalculados: 0 });
+  c.Estrat_recalcularTodos_ = () => ({ ok: true, recalculados: 0 });
   c.Control_recalcularTodos = () => ({ ok: true, cambios: 0 });
   c.Captura_reconciliarFechasCorregidas_ = () => ({ ok: true });
-  c.Modelo_refrescarVistasSectores = () => ({});
+  c.Modelo_refrescarVistasSectores_ = () => ({});
   c.HVis_aplicarTodasLasSecciones = () => ({ ok: true, resultados: [] });
   c.HVis_formatearIngresos = () => ({});
   c.Hojas_formatoCondicional = () => ({ errores: [] });
@@ -235,7 +235,7 @@ test('Actualizar informa fallo devuelto por Amarillo, sin éxito falso', () => {
   const c = actualizacionSimulada();
   const logs = [];
   c.Log_error = (_, __, detail) => logs.push(JSON.parse(detail));
-  c.Amarillo_importarTodo = () => ({ ok: false, motivo: 'FUENTE_NO_DISPONIBLE' });
+  c.Amarillo_importarTodo_ = () => ({ ok: false, motivo: 'FUENTE_NO_DISPONIBLE' });
   const r = c.Act_actualizarSistema({ ejecutar: true });
   assert.equal(r.ok, false);
   assert.ok(r.resumen.errores.includes('amarillo'));
@@ -245,7 +245,7 @@ test('Actualizar informa fallo devuelto por Amarillo, sin éxito falso', () => {
 });
 test('Actualizar informa excepciones de vistas y fallos parciales de diseño', () => {
   const c = actualizacionSimulada();
-  c.Modelo_refrescarVistasSectores = () => { throw Error('VISTA_SIMULADA'); };
+  c.Modelo_refrescarVistasSectores_ = () => { throw Error('VISTA_SIMULADA'); };
   c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: DISEÑO_SIMULADO'] });
   const r = c.Act_actualizarSistema({ ejecutar: true });
   assert.equal(r.ok, false);
@@ -294,25 +294,29 @@ test('Estratificación de ficha conserva nivel de fuente si no hay cálculo y li
   c.Modelo_filaFisica = () => 4;
   c.Modelo_filaDesdeObjeto = obj => [obj.ESTRATIFICACION];
   c.Modelo_invalidarLecturas = () => { invalidaciones++; };
-  c.Modelo_refrescarVistasSectores = () => {};
+  c.Modelo_refrescarVistasSectores_ = () => {};
   c.Estrat_evaluar = () => ({ estado: 'SIN_DATOS', resultado: '', puntaje: 0, regla: '' });
-  const r = c.Estrat_recalcularPaciente('P-1');
+  const r = c.Estrat_recalcularPaciente_('P-1');
   assert.equal(r.resultado, 'G2'); assert.equal(guardado, 'G2');
   assert.equal(invalidaciones, 1);
 });
-test('Recálculo masivo invalida lectura para Estadísticas después de escribir', () => {
+test('Recálculo masivo invalida lectura y registra cambio de estratificación', () => {
   const c = backend(), p = { ID_INTERNO: 'P-1', ESTRATIFICACION: '', CONDICIONES: 'HTA' };
-  let guardado, invalidaciones = 0;
+  let guardado, invalidaciones = 0, guardadoEvento = null;
   c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
   c.Modelo_leerPacientes = () => [p];
   c.Modelo_filaDesdeObjeto = obj => [obj.ESTRATIFICACION];
   c.Modelo_invalidarLecturas = () => { invalidaciones++; };
-  c.Modelo_refrescarVistasSectores = () => {};
+  c.Modelo_refrescarVistasSectores_ = () => {};
   c.Log_info = () => {}; c.Log_flush = () => {};
   c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G1' });
-  const r = c.Estrat_recalcularTodos();
+  c.Modelo_agregarEventos_ = eventos => { guardadoEvento = eventos[0]; return 1; };
+  const r = c.Estrat_recalcularTodos_();
   assert.equal(r.recalculados, 1); assert.equal(guardado, 'G1');
   assert.equal(invalidaciones, 1);
+  assert.equal(guardadoEvento.TIPO_EVENTO, 'CAMBIO_ESTRATIFICACION');
+  assert.equal(guardadoEvento.RIESGO_G, 'G1');
+  assert.equal(guardadoEvento.DESCRIPCION, ' → G1 · RECALCULO_MASIVO');
 });
 test('INICIO cuenta pendientes solo en filas con paciente y usa total real en porcentajes', () => {
   const c = backend();
@@ -638,8 +642,8 @@ test('Esquema incompatible detiene importación antes de anexar eventos', () => 
   c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
   c.Act_mergearPacientesDesdeStaging = () => ({ actualizados: 0, conflictos: 0 });
   c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [], pacientesNuevos: [{}], eventos: [{}] });
-  c.Modelo_asegurarEsquemaPacientes = () => ({ ok: false, motivo: 'prueba' });
-  c.Modelo_agregarEventos = () => { eventos++; };
+  c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: false, motivo: 'prueba' });
+  c.Modelo_agregarEventos_ = () => { eventos++; };
   const r = c.Fuentes_cargaReal({ ejecutar: true, actualizar: true });
   assert.equal(r.ok, false); assert.equal(r.motivo, 'ESQUEMA_PACIENTES_INCOMPATIBLE');
   assert.equal(eventos, 0); assert.equal(r.resumen.escritosPacientes, false);

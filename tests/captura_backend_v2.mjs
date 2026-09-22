@@ -772,12 +772,18 @@ t('C10e captura rápida FASE 4: el request NO barre todas los hojas INGRESO_* ni
   A(texto26.indexOf('Form_procesarPendientes') === -1, '26_Captura.js jamás procesa lote en el request');
 });
 
-t('C11 previa duplicados V2: acepta payload camelCase y detecta coincidencias', () => {
-  sandbox.WebApp_autorizarBuscador = () => true; // acceso ya validado; se prueba el pre-flight
+t('C11 previa duplicados V2: acepta payload camelCase y NO expone datos en modo público (§17 P0)', () => {
+  sandbox.WebApp_autorizarCaptura = () => true; // acceso de captura ya validado; se prueba el pre-flight
+  sandbox.WebApp_accesoOperadorValido_ = () => true;
   const alias = sandbox.WebApp_previaDuplicadosV2({ accion: 'registrarControl', rut: RUT1, nombre: 'A B' });
   A(alias && alias.ok === true && alias.coincidencia === false, 'alias evita chequeo fuera de nuevoIngreso');
-  const sinGAS = sandbox.Captura_v2_previaDuplicados(nuevoIngreso());
-  A(sinGAS && sinGAS.ok === false, 'en node sin hoja → fallo controlado (en GAS resuelve con PACIENTES reales)');
+  const v = sandbox.Captura_v2_previaDuplicados(nuevoIngreso());
+  A(v && v.ok === true, 'modo público no falla (preview omitido, no error)');
+  A(v.coincidencia === false && Array.isArray(v.candidatos) && v.candidatos.length === 0,
+    'modo público NO devuelve candidatos ni PII');
+  A(v.motivo === 'PREVIEW_OMITIDO_EN_PUBLICO', 'motivo explícito del preview omitido');
+  A(JSON.stringify(v).indexOf('JUAN PÉREZ GÓMEZ') === -1, 'sin nombre en la respuesta pública');
+  A(JSON.stringify(v).indexOf('Amarillo') === -1, 'sin sector/estratificación en la respuesta pública');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -825,13 +831,13 @@ t('D4 TR-2c §21: entregarEvento actualiza PACIENTES PRIMERO y crea OTRO con fec
   let llamadas = { update: 0, evento: null };
   const prevBuscar = sandbox.Captura_v2_buscarPersonaPorRut;
   const prevMarca = sandbox.Captura_v2_marcaEnEventos;
-  const prevReg = sandbox.api_registrarEvento;
+  const prevReg = sandbox.Eventos_registrarPaciente_;
   const prevUpd = sandbox.Form_actualizarDatosPaciente;
   try {
     sandbox.Captura_v2_buscarPersonaPorRut = () => ({ RUT: RUT1, NOMBRE: 'JUAN PÉREZ GÓMEZ', ID_INTERNO: 'EC-TEST-5001', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2' });
     sandbox.Captura_v2_marcaEnEventos = (m) => (llamadas.evento ? { idInterno: 'EC-TEST-5001', idEvento: 'EV-OTRO-TEST' } : null);
     sandbox.Form_actualizarDatosPaciente = (pac, interno, marca) => { orden.push('actualizar'); llamadas.update += 1; return true; };
-    sandbox.api_registrarEvento = (payload) => {
+    sandbox.Eventos_registrarPaciente_ = (payload) => {
       orden.push('otro');
       llamadas.evento = payload;
       igual(payload.tipoEvento, 'OTRO', 'tipoEvento');
@@ -852,7 +858,7 @@ t('D4 TR-2c §21: entregarEvento actualiza PACIENTES PRIMERO y crea OTRO con fec
   } finally {
     sandbox.Captura_v2_buscarPersonaPorRut = prevBuscar;
     sandbox.Captura_v2_marcaEnEventos = prevMarca;
-    sandbox.api_registrarEvento = prevReg;
+    sandbox.Eventos_registrarPaciente_ = prevReg;
     sandbox.Form_actualizarDatosPaciente = prevUpd;
   }
 });
@@ -861,13 +867,13 @@ t('D5 actualizarDatos: si la actualización falla → ERROR y NO se registra OTR
   const orden = [];
   const prevBuscar = sandbox.Captura_v2_buscarPersonaPorRut;
   const prevMarca = sandbox.Captura_v2_marcaEnEventos;
-  const prevReg = sandbox.api_registrarEvento;
+  const prevReg = sandbox.Eventos_registrarPaciente_;
   const prevUpd = sandbox.Form_actualizarDatosPaciente;
   try {
     sandbox.Captura_v2_buscarPersonaPorRut = () => ({ RUT: RUT1, ID_INTERNO: 'EC-TEST-5002' });
     sandbox.Captura_v2_marcaEnEventos = () => null;
     sandbox.Form_actualizarDatosPaciente = () => false;
-    sandbox.api_registrarEvento = (p) => { orden.push('otro'); return { ok: true }; };
+    sandbox.Eventos_registrarPaciente_ = (p) => { orden.push('otro'); return { ok: true }; };
     const v = sandbox.Captura_v2_validar(payloadActualizar(), { catalogo: CATALOGO });
     const r = sandbox.Captura_v2_entregarEvento(v.normalizado, 'FORM|' + cid + '|ACTUALIZAR_DATOS', {});
     igual(r.estado, 'ERROR');
@@ -876,7 +882,7 @@ t('D5 actualizarDatos: si la actualización falla → ERROR y NO se registra OTR
   } finally {
     sandbox.Captura_v2_buscarPersonaPorRut = prevBuscar;
     sandbox.Captura_v2_marcaEnEventos = prevMarca;
-    sandbox.api_registrarEvento = prevReg;
+    sandbox.Eventos_registrarPaciente_ = prevReg;
     sandbox.Form_actualizarDatosPaciente = prevUpd;
   }
 });

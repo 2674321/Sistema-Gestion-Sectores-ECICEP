@@ -9,6 +9,12 @@ versión del instalador.
 - **`SISTEMA_VERSION_SCHEMA_ACTUAL`** (constante en `src/00_Config.js`): número
   entero de la versión estructural vigente del sistema (hojas + layout + vistas).
   Actualmente **`2`** (v0.10 · MIG-002: campo `SALUD_MENTAL`).
+- **Aplicación (v0.10.3, 2026-09-22):** la pasada de hardening
+  (capacidades CAPTURA ≠ OPERADOR, superficie RPC mínima, estratificación
+  trazable) **no** introdujo columnas, hojas ni layout nuevos → **schema sigue
+  en `2`**; no corresponde MIG-003. Aplicación y esquema se versionan por
+  separado: `ECICEP.VERSION` (aplicación) ≠ `SISTEMA_VERSION_SCHEMA_ACTUAL`
+  (estructura).
 - **Regla de semejanza**: si la clave `SCHEMA_VERSION` en CONFIG **está ausente,
   vacía o ilegible**, la instalación se considera esquema **legacy `'0'`** (no se
   asume VIGENTE por omisión). Esta regla también protege contra migraciones que

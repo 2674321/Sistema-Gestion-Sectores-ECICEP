@@ -1,5 +1,44 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-22 (v0.10.3):**
+> - **Separación de capacidades CAPTURA ≠ OPERADOR**: dos tokens disjuntos en
+>   PropertiesService. La página pública (`CapturaWeb.html`) entrega solo
+>   capacidad de captura (`WebApp_capturarEnviar`, preflight de captura) y nunca
+>   recibe ni expone el token de operador; ficha, paneles, admin, REM, calidad,
+>   auditoría, configuración, backups y CentroPruebas exigen
+>   `OPERADOR_ACCESS_TOKEN`. Capacidades disjuntas y verificadas por tests.
+> - **Superficie RPC mínima**: helpers críticos `Hojas_resetFabrica_`,
+>   `Recuperar_ejecutar_`, `IA_limpiarEventosHuerfanos_`,
+>   `Modelo_agregarPacientes_`, `Modelo_agregarEventos_`,
+>   `Estrat_recalcularPaciente_`, `Ingresos_procesarTodasLasHojas_` solo existen
+>   con sufijo `_` (inaccesibles por `google.script.run`); el acceso pasa por
+>   wrappers `api_*` de dominio con token de OPERADOR (patrón
+>   `Dominio_operacion_` + `Ecicep_conLock_`). CentroPruebas.html ya no llama
+>   mutadores internos.
+> - **CONFIG sin secretos**: `CONFIG_SECRETOS`/`Config_esSecreto_`/
+>   `Config_valorPublico_` enmascaran valores secretos en `api_configListar` y
+>   auditoría; los guards de escritura rechazan secretos por API.
+> - **Estratificación trazable (NORMATIVO `docs/ESTRATIFICACION.md:46`)**: todo
+>   cambio del valor vigente genera `CAMBIO_ESTRATIFICACION` (ID_EVENTO,
+>   FECHA_EVENTO, RIESGO_G, DESCRIPCION `anterior → nuevo · motivo`, FUENTE,
+>   REGISTRADO_POR) desde `Patologias_guardarPaciente_` (31_Ficha.js:372),
+>   `Estrat_recalcularPaciente_` (02_Normalizacion.js:600) y
+>   `Estrat_recalcularTodos_` (:662, eventos de lote en una escritura; fallo →
+>   `CAMBIO_ESTRATIFICACION_FALLIDO`/`PATOLOGIAS_NO_TRACEABLES` = revisión).
+>   No-op no crea evento.
+> - **Integridad de mutaciones**: ficha atómica (campo inválido → 0 cambios);
+>   revisión→INGRESO cierra caso y es idempotente (`CONFLICTO_YA_RESUELTO`);
+>   eventos reservados (`INGRESO`, `CAMBIO_SECTOR`, `CAMBIO_ESTRATIFICACION`,
+>   `EGRESO`, `GESTION_CASO_*`, `PLAN_CUIDADO`) rechazados por el registrador
+>   genérico (`TIPO_EVENTO_RESERVADO`, 31_Ficha.js:449) y no seleccionables en
+>   el Sidebar; mutaciones compuestas con `Ecicep_conLock_`; fallo de vista
+>   derivada acotado (fuente primaria no silenciada).
+> - Batería: **20 suites · 0 fallos** (núcleo 671/671, contrato 38/38,
+>   regresiones 44/44, ficha-ingresos 13/13, validar_html 22/22, seguridad
+>   capacidades 10/10, rpc surface 4/4, integridad mutaciones 9/9, acceso
+>   webapp 8/8). `ECICEP.VERSION` → `0.10.3`, **schema 2** (sin MIG-003).
+>   Historia en `docs/HISTORIAL.md`; informe `docs/INFORME_2026-09-22_HARDENING_V0103.md`.
+
 > **Actualización 2026-09-22 (v0.10.2):**
 > - **Corrección de código muerto**: `Ingresos_escribirEstados` recorría un
 >   `Map` (retorno de `Utl_agruparPor`, introducido en ETAPA 3b) con

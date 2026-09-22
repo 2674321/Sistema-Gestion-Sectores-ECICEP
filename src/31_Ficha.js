@@ -231,7 +231,7 @@ function Paciente_actualizarCampos_(idInterno, campos, contexto) {
   }
   // La vista del sector refleja estos campos: refresco acotado (una hoja).
   if (escrito) {
-    try { Modelo_refrescarVistasSectores([sectorPaciente || paciente.SECTOR]); } catch (eR) {}
+    try { Modelo_refrescarVistasSectores_([sectorPaciente || paciente.SECTOR]); } catch (eR) {}
   }
   return {
     ok: true,
@@ -243,10 +243,56 @@ function Paciente_actualizarCampos_(idInterno, campos, contexto) {
 /**
  * GAS: cambio de sector como operación de dominio con EVENTO CAMBIO_SECTOR
  * + refresco acotado de las DOS vistas (anterior y nuevo). NO escribe SECTOR_*
- * directamente: la derivación la hace Modelo_refrescarVistasSectores.
+ * directamente: la derivación la hace Modelo_refrescarVistasSectores_.
  * Ante fallo de EVENTOS aplica rollback best-effort del sector (PACIENTES se
  * mantiene coherente: nunca hay sector nuevo sin su evento).
  */
+/**
+ * Aplica campos editables vía capa de dominio (sin auth ni lock: el llamador
+ * ya autorizó y lockeó — patrón §40-§42). SECTOR se descompone en EVENTO
+ * CAMBIO_SECTOR (no es un campo más). Devuelve resumen compatible.
+ */
+function Paciente_aplicarCampos_(idInterno, campos, contexto) {
+  contexto = contexto || {};
+  campos = campos || {};
+  var esSector = ('SECTOR' in campos);
+  var directos = {};
+  var sectorValor = null;
+  Object.keys(campos).forEach(function (k) {
+    if (k === 'SECTOR') sectorValor = campos[k];
+    else directos[k] = campos[k];
+  });
+
+  var sectorCambio = false;
+  if (esSector) {
+    var cs = Paciente_cambiarSector_(idInterno, sectorValor, {
+      fuente: contexto.fuente || 'UI_FICHA',
+      registradoPor: contexto.registradoPor !== undefined ? contexto.registradoPor
+        : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '')
+    });
+    if (!cs.ok) return cs.sinCambios ? { ok: true, sinCambios: true, sector: cs.sector } : cs;
+    sectorCambio = !cs.sinCambios;
+  }
+
+  if (Object.keys(directos).length) {
+    var upd = Paciente_actualizarCampos_(idInterno, directos, { fuente: contexto.fuente || 'UI_FICHA' });
+    if (!upd.ok) return upd;
+    return {
+      ok: true,
+      paciente: { ID_INTERNO: upd.paciente.ID_INTERNO, NOMBRE: upd.paciente.NOMBRE, SECTOR: upd.paciente.SECTOR },
+      sectorCambio: sectorCambio, campos: upd.campos
+    };
+  }
+
+  if (!esSector) return { ok: false, motivo: 'SIN_CAMBIOS' };
+  var resSec = Modelo_buscarPaciente(idInterno);
+  return {
+    ok: true,
+    paciente: resSec ? { ID_INTERNO: resSec.obj.ID_INTERNO, NOMBRE: resSec.obj.NOMBRE, SECTOR: resSec.obj.SECTOR } : { ID_INTERNO: idInterno },
+    sectorCambio: sectorCambio, campos: ['SECTOR']
+  };
+}
+
 function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
   contexto = contexto || {};
   var encontrado = Modelo_buscarPaciente(idInterno);
@@ -293,7 +339,7 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
   // 2) EVENTO CAMBIO_SECTOR
   var idEvento = null;
   try {
-    Modelo_agregarEventos([evento], _ingresosUsuarioActual() || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-sector' });
+    Modelo_agregarEventos_([evento], _ingresosUsuarioActual() || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-sector' });
     idEvento = evento.ID_EVENTO;
   } catch (eE) {
     try {
@@ -303,14 +349,14 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
         .setValues([Modelo_filaDesdeObjeto(paciente)]);
       Modelo_invalidarLecturas();
     } catch (eR) {}
-    try { Modelo_refrescarVistasSectores([anterior, sec.sector]); } catch (eV) {}
+    try { Modelo_refrescarVistasSectores_([anterior, sec.sector]); } catch (eV) {}
     Log_error('Paciente', 'cambiarSector', 'CAMBIO_SECTOR_FALLIDO; rollback aplicado a ' + anterior);
     Log_flush();
     return { ok: false, motivo: 'CAMBIO_SECTOR_FALLIDO: rollback aplicado, revisión requerida' };
   }
 
   // 3) Vistas sectoriales: SOLO las implicadas
-  try { Modelo_refrescarVistasSectores([anterior, sec.sector]); } catch (eF) {}
+  try { Modelo_refrescarVistasSectores_([anterior, sec.sector]); } catch (eF) {}
 
   Log_info('Paciente', 'cambiarSector', anterior + ' → ' + sec.sector + ' · ' + idEvento, null, null);
   Log_flush();
@@ -328,7 +374,7 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
   if (val.invalidos && val.invalidos.length) {
     return { ok: false, motivo: 'CODIGOS_INVALIDOS', invalidos: val.invalidos };
   }
-  var esquema = Modelo_asegurarEsquemaPacientes();
+  var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
   var encontrado = Modelo_buscarPaciente(idInterno);
   if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
@@ -344,6 +390,10 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
     OTRAS_PATOLOGIAS: paciente.OTRAS_PATOLOGIAS || '',
     ESTRATIFICACION: paciente.ESTRATIFICACION || ''
   };
+  var cambioEstrat = Estrat_prepararCambio_(paciente, estratValor, {
+    motivo: 'PATOLOGIAS', fuente: 'SISTEMA',
+    registradoPor: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''
+  });
   paciente.CONDICIONES = condiciones;
   paciente.OTRAS_PATOLOGIAS = otras;
   paciente.ESTRATIFICACION = estratValor;
@@ -357,10 +407,13 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
     Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos().length)
       .setValues([Modelo_filaDesdeObjeto(paciente)]);
     Modelo_invalidarLecturas();
+    if (!cambioEstrat.sinCambios && cambioEstrat.evento) {
+      Modelo_agregarEventos_([cambioEstrat.evento], cambioEstrat.evento.REGISTRADO_POR, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-estratificacion' });
+    }
   } catch (eW) {
-    return { ok: false, motivo: 'PATOLOGIAS_NO_ESCRITAS' };
+    return { ok: false, motivo: 'PATOLOGIAS_NO_TRACEABLES: escritura o CAMBIO_ESTRATIFICACION fallido, revisión requerida' };
   }
-  try { Modelo_refrescarVistasSectores([sectorPaciente || paciente.SECTOR]); } catch (eV) {}
+  try { Modelo_refrescarVistasSectores_([sectorPaciente || paciente.SECTOR]); } catch (eV) {}
 
   return {
     ok: true,
@@ -374,6 +427,15 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
 }
 
 /**
+ * Tipos de evento permitidos desde el registrador genérico de la ficha
+ * (CONTROL/SEGUIMIENTO/LLAMADO/OTRO). Los reservados (INGRESO, CAMBIO_SECTOR,
+ * CAMBIO_ESTRATIFICACION, EGRESO, GESTION_CASO_*) solo se crean por sus propias
+ * operaciones de dominio, que además actualizan el estado vigente de PACIENTES.
+ * No basta ocultar el <option>: el backend también rechaza.
+ */
+var EVENTOS_FICHA_MANUALES = ['CONTROL', 'SEGUIMIENTO', 'LLAMADO', 'OTRO'];
+
+/**
  * GAS: registro de un evento de paciente (CONTROL/SEGUIMIENTO/OTRO) a través
  * del pipeline de eventos único (misma semántica que api_registrarEvento V2,
  * incluida la sincronización de la caché ultimo_* / FECHA_INGRESO en PACIENTES).
@@ -383,6 +445,9 @@ function Eventos_registrarPaciente_(payload, contexto) {
   payload = payload || {};
   var p = payload;
   if (TIPOS_EVENTO.VALIDOS.indexOf(p.tipoEvento) === -1) return { ok: false, motivo: 'TIPO_INVALIDO' };
+  if (EVENTOS_FICHA_MANUALES.indexOf(p.tipoEvento) === -1) {
+    return { ok: false, motivo: 'TIPO_EVENTO_RESERVADO' };
+  }
   var fecha = Norm_normalizarFecha(p.fecha);
   if (fecha.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
 
@@ -414,16 +479,16 @@ function Eventos_registrarPaciente_(payload, contexto) {
         ? p.registradoPor : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''),
       FECHA_REGISTRO: null
     };
-    var esquema = Modelo_asegurarEsquemaPacientes();
+    var esquema = Modelo_asegurarEsquemaPacientes_();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
-    Modelo_agregarEventos([evento], (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '') || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
+    Modelo_agregarEventos_([evento], (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '') || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
     Ingresos_sincronizarCache(objetivo, evento);
     var hojaP = Modelo_hoja(HOJAS.PACIENTES);
     hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, encontrado.idx), 1, 1, Modelo_campos().length)
       .setValues([Modelo_filaDesdeObjeto(objetivo)]);
     if (!enEspera) {
       var sectorPaciente = Utl_texto(objetivo.SECTOR).toUpperCase();
-      try { Modelo_refrescarVistasSectores([sectorPaciente]); } catch (eV) {}
+      try { Modelo_refrescarVistasSectores_([sectorPaciente]); } catch (eV) {}
     }
     Log_info('Ficha', 'evento', evento.TIPO_EVENTO + ' → ' + evento.ID_INTERNO, null, null);
     Log_flush();

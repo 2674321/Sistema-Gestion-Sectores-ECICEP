@@ -119,8 +119,8 @@ CSP.Modelo_layoutHoja; // referencia cargada
 // ─────────────────────────────────────────────────────────────────────────────
 const NOMBRE_P = 'PACIENTES';
 const SVC_DEP = [
-  'Modelo_leerPacientes', 'Modelo_asegurarEsquemaPacientes', 'Modelo_agregarEventos',
-  'Modelo_refrescarVistasSectores', 'Ingresos_sincronizarCache', 'Control_leerFrecuencia',
+  'Modelo_leerPacientes', 'Modelo_asegurarEsquemaPacientes_', 'Modelo_agregarEventos_',
+  'Modelo_refrescarVistasSectores_', 'Ingresos_sincronizarCache', 'Control_leerFrecuencia',
   'Control_calcularProximo', 'Estrat_evaluar', '_ingresosUsuarioActual',
   'Log_info', 'Log_error', 'Log_warning', 'Log_flush', 'Modelo_hoja', 'SpreadsheetApp'
 ];
@@ -186,9 +186,9 @@ function arnesActivo() {
   }));
   var hojaP = crearHojaFalsa(NOMBRE_P, grilla);
   CSP.Modelo_leerPacientes = clone;
-  CSP.Modelo_asegurarEsquemaPacientes = function () { return { ok: true }; };
-  CSP.Modelo_agregarEventos = function () { return true; };
-  CSP.Modelo_refrescarVistasSectores = function () {};
+  CSP.Modelo_asegurarEsquemaPacientes_ = function () { return { ok: true }; };
+  CSP.Modelo_agregarEventos_ = function () { return true; };
+  CSP.Modelo_refrescarVistasSectores_ = function () {};
   CSP.Ingresos_sincronizarCache = function () {};
   CSP.Control_leerFrecuencia = function () { return {}; };
   CSP.Control_calcularProximo = function () { return '2026-12-01'; };
@@ -294,10 +294,10 @@ t('C4/R2: api_patologiasGuardar escribe (una sola escritura fusionada) en Modelo
   } finally { a.restaura(); }
 });
 
-t('C4/R2: Estrat_recalcularPaciente escribe en Modelo_filaFisica', () => {
+t('C4/R2: Estrat_recalcularPaciente_ escribe en Modelo_filaFisica', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.Estrat_recalcularPaciente('EC-0002');
+    const r = CSP.Estrat_recalcularPaciente_('EC-0002');
     A(r.ok, 'ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
@@ -308,7 +308,7 @@ t('C2: ninguna escritura de PACIENTES del arnés ocurre bajo la primera fila de 
   try {
     CSP.api_duplaGuardar('EC-0002', ['TENS']);
     CSP.api_registrarEvento({ tipoEvento: 'SEGUIMIENTO', fecha: '2026-09-01', idInterno: 'EC-0001', fuente: 'UI_FICHA' });
-    CSP.Estrat_recalcularPaciente('EC-0001');
+    CSP.Estrat_recalcularPaciente_('EC-0001');
     const filas = filasPacientes(a.hojaP);
     const minimo = primeraFilaDatosP();
     filas.forEach((f, i) => { if (f < minimo) throw new Error('escritura ' + i + ' bajo fila de datos: ' + f); });

@@ -457,8 +457,9 @@ function _rem9_configValor(clave) {
  * localmente con SheetJS. Sin hojas temporales ni export endpoints frágiles.
  * READ ONLY sobre PACIENTES/EVENTOS (#38). Idempotente.
  */
-function api_rem9Datos(anio, mes, sectorFiltro, opts) {
+function api_rem9Datos(anio, mes, sectorFiltro, opts, token) {
   try {
+    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
     anio = Number(anio); mes = Number(mes);
     if (!anio || !mes || mes < 1 || mes > 12) throw new Error('PERIODO_INVALIDO');
     var filtro = Rem_bucketSector(Utl_texto(sectorFiltro).trim() === '' ? 'todos' : sectorFiltro);

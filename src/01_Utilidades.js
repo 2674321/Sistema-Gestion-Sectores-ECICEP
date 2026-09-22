@@ -196,3 +196,8 @@ function Ecicep_conLock_(fn) {
   try { return fn(); }
   finally { try { lock.releaseLock(); } catch (e3) {} }
 }
+
+/** Helper unificado de error de API (contrato V2: ok:false + codigo + motivo). */
+function Api_error_(codigo, mensaje) {
+  return { ok: false, codigo: codigo, motivo: mensaje || codigo };
+}

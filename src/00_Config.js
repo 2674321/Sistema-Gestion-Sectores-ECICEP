@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.10.2',
+  VERSION: '0.10.3',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -762,7 +762,7 @@ const ESTADOS_INGRESO = {
 // FORMULARIO COMPLEMENTARIO (v0.9.0 — DEC-048). Puerta de entrada controlada:
 // el formulario es SOLO captura + validación + normalización; NUNCA una base
 // paralela. Los datos válidos NUEVO_INGRESO entran por el pipeline existente
-// (INGRESO_<SECTOR> → Ingresos_procesarTodasLasHojas); CONTROL/SEGUIMIENTO/
+// (INGRESO_<SECTOR> → Ingresos_procesarTodasLasHojas_); CONTROL/SEGUIMIENTO/
 // ACTUALIZAR reusan api_registrarEvento. CAMPOS es el contrato pregunta↔campo
 // y define además las columnas de la hoja técnica FORM_RESPUESTAS (se leen y
 // escriben por ENCABEZADO, jamás por número de columna fijo).

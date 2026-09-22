@@ -141,7 +141,6 @@ header .sub{color:var(--text-muted);font-size:13px}
     <button class="btn btn-sec" onclick="_herr(this,'UI_configurarWebhook')"><i data-lucide="key-round"></i> Acceso remoto</button>
     <button class="btn btn-sec" onclick="_herr(this,'UI_recuperarInventario')"><i data-lucide="clipboard-list"></i> Recuperación: inventario</button>
     <button class="btn btn-danger" onclick="_herr(this,'UI_recuperarEjecutar')"><i data-lucide="undo-2"></i> Recuperación: reversión</button>
-    <button class="btn btn-danger" onclick="_resetFabrica(this)"><i data-lucide="factory"></i> ⚠️ Reset de fábrica (borra TODO)</button>
     <button class="btn btn-pri" onclick="_herr(this,'UI_backup')"><i data-lucide="save"></i> 💾 Backups (menú)</button>
     <button class="btn btn-pri" onclick="_diagControl(this,true)"><i data-lucide="stethoscope"></i> Control clínico · diagnóstico (dry-run)</button>
     <button class="btn btn-sec" onclick="_diagControl(this,false)"><i data-lucide="refresh-cw"></i> Control clínico · aplicar próximos</button>
@@ -271,7 +270,7 @@ function _calidad(btn){
       if(window.console)console.debug('[ECICEP] calidad',r);
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('calidad')(e);})
-    .Calidad_sincronizarCola();
+    .api_calidadSincronizarCola(ECICEP_ACCESO);
 }
 function _normalizar(btn){
   var fin=_btnPulso(btn,'Normalizando…',2000);
@@ -283,16 +282,7 @@ function _normalizar(btn){
       if(r.detalles&&r.detalles.length)console.debug('[ECICEP] normalizados',r.detalles);
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('normalizar')(e);})
-    .Calidad_normalizarFormatoRuts();
-}
-function _resetFabrica(btn){
-  if(!confirm('RESET DE FÁBRICA\n\nSe borrarán TODAS las hojas y datos (pacientes, eventos, CONFIG).\nSe te pedirá confirmación y se ofrecerá backup en Drive.\n\n¿Continuar?'))return;
-  var fin=_btnPulso(btn,'Esperando confirmación…',3000);
-  google.script.run
-    .withSuccessHandler(function(){setLoading(btn,false);
-      toast('Reset completado — ahora ejecuta Instalar / Reparar Sistema','ok');})
-    .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('reset')(e);})
-    .UI_resetFabrica(true);
+    .api_calidadNormalizarFormatoRuts(ECICEP_ACCESO);
 }
 function _amarillo(btn,conHistorico){
   _btnPulso(btn,'Importando…',2500);
@@ -310,7 +300,7 @@ function _amarillo(btn,conHistorico){
         toast(r.pendientesSinPaciente.length+' filas sin paciente: procesa la puerta y re-ejecuta el hist\u00f3rico','warn');
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('Amarillo')(e);})
-    .Amarillo_importarTodo(conHistorico);
+    .api_amarilloImportarTodo(conHistorico, ECICEP_ACCESO);
 }
 function _amarilloAuditar(btn){
   _btnCargando(btn,'Analizando…');
@@ -325,7 +315,7 @@ function _amarilloAuditar(btn){
       if(window.console)console.debug('[ECICEP] dedup amarillo (dry-run)',r);
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('AmarilloAuditar')(e);})
-    .Amarillo_dedupHistorico(true);
+    .api_amarilloDedupHistorico(true, ECICEP_ACCESO);
 }
 function _amarilloEliminar(btn){
   if(!confirm('Eliminar duplicados del histórico Amarillo\n\nSe borrarán SOLO los eventos repetidos '+
@@ -339,7 +329,7 @@ function _amarilloEliminar(btn){
       toast(r.eliminar+' eventos duplicados eliminados (idempotente: re-ejecutar no borra más)',r.eliminar?'ok':'info');
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('AmarilloEliminar')(e);})
-    .Amarillo_dedupHistorico(false);
+    .api_amarilloDedupHistorico(false, ECICEP_ACCESO);
 }
 function _diagControl(btn,dryRun){
   var fin=_btnCargando(btn,dryRun?'Analizando…':'Aplicando…');
@@ -378,7 +368,7 @@ function _auditoria(btn){
       }
     })
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('api_auditoriaEjecutar')(e);})
-    .api_auditoriaEjecutar();
+    .api_auditoriaEjecutar(ECICEP_ACCESO);
 }
 _refrescarIconos();
 </script>

@@ -254,7 +254,7 @@ function _pruebas_salud_mental(t, A) {
     A.cierto(_FICHA_CAMPOS_OPERATIVOS.indexOf('SALUD_MENTAL') !== -1,
       'SALUD_MENTAL en la ficha operativa');
     var src = api_actualizarPaciente.toString();
-    A.cierto(src.indexOf('Paciente_actualizarCampos_(') !== -1,
+    A.cierto(src.indexOf('Paciente_aplicarCampos_(') !== -1,
       'api_actualizarPaciente delega en el dominio (ficha 2.0)');
     A.cierto(typeof Paciente_validarCampo_ === 'function',
       'validación estricta vive en 31_Ficha');
@@ -1107,7 +1107,7 @@ function _pruebas_hardguard(t, A) {
     // Fuentes_cargaReal({ejecutar:false}) debe retornar ANTES de llegar
     // a cualquier función de persistencia. Verificamos por diseño:
     // el gate `if (!opciones.ejecutar) return resultado;` está ANTES de
-    // las llamadas a Modelo_agregarPacientes/Modelo_agregarEventos.
+    // las llamadas a Modelo_agregarPacientes_/Modelo_agregarEventos_.
     // Este test documenta la posición del gate en el código.
     A.cierto(true, 'gate verificado por inspección: return antes de writes');
   });
@@ -2892,7 +2892,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.10.2', 'versión esperada v0.10.2');
+    A.igual(v, '0.10.3', 'versión esperada v0.10.3');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3130,9 +3130,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.2', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.3', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.10.2', 'versión esperada v0.10.2');
+    A.igual(v, '0.10.3', 'versión esperada v0.10.3');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -4730,7 +4730,7 @@ function _pruebas_auditoria_s11r(t, A) {
     A.cierto(todo.indexOf('Act_actualizarSistema(') !== -1,
       'UI_actualizarTodo delega en la cadena única Act_actualizarSistema (sin duplicar lógica)');
     var cadena = Act_actualizarSistema.toString();
-    A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes') !== -1,
+    A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes_') !== -1,
       'la cadena repara estructura (columna faltante, idempotente)');
     A.cierto(cadena.indexOf('Fuentes_cargaReal') !== -1,
       'la cadena importa registros nuevos + actualiza existentes desde las fuentes');
@@ -4772,19 +4772,19 @@ function _pruebas_separacion_s12(t, A) {
   t('S12 U2·U3: Actualizar no crea pacientes/eventos ni estructura directamente (lo gestiona la cadena)', function () {
     var act = UI_actualizarSistema.toString();
     var todo = UI_actualizarTodo.toString();
-    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura', 'EVENTOS'].forEach(function (f) {
+    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura_', 'EVENTOS'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no ' + f);
       A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no ' + f);
     });
     var cadena = Act_actualizarSistema.toString();
-    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura'].forEach(function (f) {
+    ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura_'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) === -1, 'la cadena no ejecuta ' + f + ' (lo hacen sus funciones)');
     });
   });
 
   t('S12 U4: Actualizar recalcula derivados (estratificación + controles)', function () {
     var cadena = Act_actualizarSistema.toString();
-    A.cierto(cadena.indexOf('Estrat_recalcularTodos') !== -1, 'recalcula estratificación');
+    A.cierto(cadena.indexOf('Estrat_recalcularTodos_') !== -1, 'recalcula estratificación');
     A.cierto(cadena.indexOf('Control_recalcularTodos') !== -1, 'recalcula próximos controles');
     var act = UI_actualizarSistema.toString();
     A.cierto(act.indexOf('UI_actualizarTodo(') !== -1, 'Actualizar delega la lógica (sin duplicar)');
@@ -4792,13 +4792,13 @@ function _pruebas_separacion_s12(t, A) {
 
   t('S12 U5: Actualizar refresca vistas y formato derivado', function () {
     var cadena = Act_actualizarSistema.toString();
-    ['Modelo_refrescarVistasSectores', 'HVis_formatearIngresos', 'Hojas_formatoCondicional'].forEach(function (f) {
+    ['Modelo_refrescarVistasSectores_', 'HVis_formatearIngresos', 'Hojas_formatoCondicional'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) !== -1, 'refresca/deriva con ' + f);
     });
   });
 
   t('S12 U6: recálculo de derivados idempotente (mismas filas, sin duplicar)', function () {
-    var e = Estrat_recalcularTodos.toString();
+    var e = Estrat_recalcularTodos_.toString();
     var c = Control_recalcularTodos.toString();
     A.cierto(e.indexOf('setValues') !== -1 && e.indexOf('appendRow') === -1,
       'Estrat reescribe en sitio (setValues), sin añadir filas');
@@ -4972,9 +4972,9 @@ function _pruebas_actualizacion_v096(t, A) {
 
   t('S6 A9: la cadena ACTUALIZAR es el mecanismo único de mantenimiento (estructura + datos + derivados + formato)', function () {
     var cadena = Act_actualizarSistema.toString();
-    ['Modelo_asegurarEsquemaPacientes', 'Modelo_alinearVistasSectoriales', 'Fuentes_cargaReal',
-     'Act_enriquecerPacientes', 'Estrat_recalcularTodos', 'Control_recalcularTodos',
-     'Modelo_refrescarVistasSectores', 'HVis_formatearIngresos', 'Hojas_formatoCondicional']
+    ['Modelo_asegurarEsquemaPacientes_', 'Modelo_alinearVistasSectoriales_', 'Fuentes_cargaReal',
+     'Act_enriquecerPacientes', 'Estrat_recalcularTodos_', 'Control_recalcularTodos',
+     'Modelo_refrescarVistasSectores_', 'HVis_formatearIngresos', 'Hojas_formatoCondicional']
       .forEach(function (f) {
         A.cierto(cadena.indexOf(f) !== -1, 'cadena integra ' + f);
       });
@@ -5109,10 +5109,10 @@ function _pruebas_s10fix_esquema(t, A) {
 
   t('T12: Actualizar repara estructura y ejecuta la migración S10-FIX como paso EXPLÍCITO (no instalador)', function () {
     var cadena = Act_actualizarSistema.toString();
-    A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales()') !== -1, 'migración explícita en Actualizar');
-    A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes') !== -1,
+    A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales_()') !== -1, 'migración explícita en Actualizar');
+    A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes_') !== -1,
       'repara columnas faltantes de forma idempotente');
-    A.cierto(cadena.indexOf('Modelo_crearEstructura') === -1, 'Actualizar no crea estructura desde cero');
+    A.cierto(cadena.indexOf('Modelo_crearEstructura_') === -1, 'Actualizar no crea estructura desde cero');
     A.cierto(cadena.indexOf('appendRow') === -1 && cadena.indexOf('insertRow') === -1, 'sin append/insert directos');
     ['captureId', 'FORM_RESPUESTAS', 'api_webappCapturar'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) === -1, 'Actualizar no referencia ' + f);
@@ -5120,14 +5120,14 @@ function _pruebas_s10fix_esquema(t, A) {
   });
 
   t('T13: migración restringida a SECTOR_*, por nombre (sin posiciones ciegas ni append)', function () {
-    var fn = Modelo_alinearVistaSector.toString();
+    var fn = Modelo_alinearVistaSector_.toString();
     A.cierto(fn.indexOf('HOJAS_SECTOR') !== -1, 'restringida a SECTOR_*');
     A.cierto(fn.indexOf('COLUMNAS_SECTOR_VISTA') !== -1, 'usa fuente única de verdad');
     A.cierto(fn.indexOf('Modelo_reordenarFilaVista') !== -1, 'mapea por nombre');
     A.cierto(fn.indexOf('Modelo_headerRow') !== -1, 'usa headerRow del contrato');
     A.cierto(fn.indexOf('appendRow') === -1 && fn.indexOf('insertRow') === -1, 'sin append/insert');
     var cadena = Act_actualizarSistema.toString();
-    A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales') !== -1, 'la cadena la invoca');
+    A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales_') !== -1, 'la cadena la invoca');
   });
 }
 
@@ -5321,10 +5321,10 @@ function _pruebas_inst1_versionado(t, A) {
     }
   });
 
-  t('T10: el diagnóstico es SOLO LECTURA (escanea, nunca Modelo_crearEstructura)', function () {
+  t('T10: el diagnóstico es SOLO LECTURA (escanea, nunca Modelo_crearEstructura_)', function () {
     var fn = Instalar_diagnosticar.toString();
     A.cierto(fn.indexOf('Modelo_escanearEstructura') !== -1, 'usa escaneo de solo lectura');
-    A.cierto(fn.indexOf('Modelo_crearEstructura') === -1, 'el diagnóstico NO repara estructura');
+    A.cierto(fn.indexOf('Modelo_crearEstructura_') === -1, 'el diagnóstico NO repara estructura');
     A.cierto(fn.indexOf('versionado') !== -1, 'incluye el bloque versionado');
   });
 
@@ -5366,7 +5366,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(persistente.indexOf('sectoresDivergentes') !== -1, 'defensa lee divergencia');
     A.cierto(persistente.indexOf("'MIG-001'") !== -1, 're-aplica MIG-001');
     var run = Mig_run001.toString();
-    A.cierto(run.indexOf('Modelo_alinearVistaSector') !== -1, 'MIG-001 migra por nombre (S10-FIX)');
+    A.cierto(run.indexOf('Modelo_alinearVistaSector_') !== -1, 'MIG-001 migra por nombre (S10-FIX)');
     A.cierto(run.indexOf('ENCABEZADOS_INCOMPATIBLES') === -1, 'no oculta la incompatibilidad');
   });
 
@@ -5385,26 +5385,26 @@ function _pruebas_inst1_versionado(t, A) {
     var run001 = G['Mig_run001'];
     A.cierto(typeof run001 === 'function', 'Mig_run001 existe');
     ['appendRow', 'insertRow', 'insertRows', 'insertRowsAfter', 'insertSheet',
-     'deleteRow', 'deleteRows', 'Modelo_crearEstructura', 'PACIENTES', 'EVENTOS'].forEach(function (pal) {
+     'deleteRow', 'deleteRows', 'Modelo_crearEstructura_', 'PACIENTES', 'EVENTOS'].forEach(function (pal) {
       A.cierto(run001.toString().indexOf(pal) === -1, 'Mig_run001 sin ' + pal + ' (puro de vistas)');
     });
     var run002 = G['Mig_run002'];
     A.cierto(typeof run002 === 'function', 'Mig_run002 existe');
-    A.cierto(run002.toString().indexOf('Modelo_asegurarEsquemaPacientes') !== -1,
+    A.cierto(run002.toString().indexOf('Modelo_asegurarEsquemaPacientes_') !== -1,
       'MIG-002 asegura esquema PACIENTES por nombre');
-    A.cierto(run002.toString().indexOf('Modelo_alinearVistasSectoriales') !== -1,
+    A.cierto(run002.toString().indexOf('Modelo_alinearVistasSectoriales_') !== -1,
       'MIG-002 alinea vistas SECTOR_* por nombre');
     A.cierto(run002.toString().indexOf('_mig002_asegurarIngresosSaludMental') !== -1,
       'MIG-002 agrega encabezado SALUD_MENTAL en INGRESO_*');
     ['appendRow', 'insertRow', 'insertRowsAfter', 'insertSheet',
-     'deleteRow', 'deleteRows', 'Modelo_crearEstructura'].forEach(function (pal) {
+     'deleteRow', 'deleteRows', 'Modelo_crearEstructura_'].forEach(function (pal) {
       A.cierto(run002.toString().indexOf(pal) === -1, 'Mig_run002 sin ' + pal);
     });
   });
 
   t('T15: sin duplicación: el runner no crea hojas ni filas y respeta idempotencia', function () {
     var dec = Mig_ejecutarDeclaradas.toString();
-    ['appendRow', 'insertRow', 'insertRows', 'insertSheet', 'deleteRow', 'Modelo_crearEstructura'].forEach(function (pal) {
+    ['appendRow', 'insertRow', 'insertRows', 'insertSheet', 'deleteRow', 'Modelo_crearEstructura_'].forEach(function (pal) {
       A.cierto(dec.indexOf(pal) === -1, 'Mig_ejecutarDeclaradas sin ' + pal);
     });
     ['Mig_run001', 'Mig_run002'].forEach(function (fn) {
@@ -5966,10 +5966,10 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   t('S7b: ACTUALIZAR importa Amarillo ANTES de INICIO y vistas', function () {
     var src = Act_actualizarSistema.toString();
-    var idxAmarillo = src.indexOf('Amarillo_importarTodo');
+    var idxAmarillo = src.indexOf('Amarillo_importarTodo_');
     var idxInicio = src.indexOf('Modelo_disenoHojas');
-    var idxVistas = src.indexOf('Modelo_refrescarVistasSectores');
-    A.cierto(idxAmarillo !== -1, 'Amarillo_importarTodo presente');
+    var idxVistas = src.indexOf('Modelo_refrescarVistasSectores_');
+    A.cierto(idxAmarillo !== -1, 'Amarillo_importarTodo_ presente');
     A.cierto(idxAmarillo < idxInicio, 'Amarillo ANTES de INICIO');
     A.cierto(idxAmarillo < idxVistas, 'Amarillo ANTES de vistas');
   });
@@ -6112,7 +6112,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(pac.ESTRAT_ORIGEN, '', 'ESTRAT_ORIGEN vacío');
   });
 
-  t('S7c: Estrat_recalcularTodos preserva ESTRATIFICACION de fuente cuando motor no puede calcular', function () {
+  t('S7c: Estrat_recalcularTodos_ preserva ESTRATIFICACION de fuente cuando motor no puede calcular', function () {
     var store = { pacientes: [], eventos: [] };
     var staging = [{
       NORMALIZADO: {
@@ -6219,9 +6219,10 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(r.normalizado.CONDICIONES, 'DM;HTA', 'condiciones preservadas');
   });
 
-  t('S8: Form_actualizarDatosPaciente usa api_actualizarPaciente', function () {
+  t('S8: Form_actualizarDatosPaciente usa la capa de dominio (no un wrapper api_*)', function () {
     var src = Form_actualizarDatosPaciente.toString();
-    A.cierto(src.indexOf('api_actualizarPaciente') !== -1, 'Form_actualizarDatosPaciente llama api_actualizarPaciente');
+    A.cierto(src.indexOf('Paciente_aplicarCampos_(') !== -1, 'Form_actualizarDatosPaciente llama Paciente_aplicarCampos_ (dominio, §42)');
+    A.cierto(src.indexOf('api_actualizarPaciente') === -1, 'el pipeline no depende de un wrapper api_* con token');
   });
 
   t('S8: Sidebar incluye código de edición de próximo control', function () {
@@ -6240,14 +6241,14 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var idxEjec = src.indexOf('ejecutar: true');
     A.cierto(idxDry !== -1 && idxEjec !== -1 && idxDry < idxEjec,
       'análisis dry-run antes de la ejecución con escritura');
-    A.cierto(src.indexOf('Ingresos_sincronizarEstratificacion') === -1,
+    A.cierto(src.indexOf('Ingresos_sincronizarEstratificacion_') === -1,
       'no sincroniza estratificación dentro de fuentes');
   });
 
   t('S9: INSTALAR — etapa amarillo carga el sector desde Drive (puerta + histórico)', function () {
     var src = Instalar_pAmarillo.toString();
-    A.cierto(src.indexOf('Amarillo_importarTodo') !== -1,
-      'Instalar_pAmarillo SÍ llama Amarillo_importarTodo');
+    A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1,
+      'Instalar_pAmarillo SÍ llama Amarillo_importarTodo_');
     A.cierto(src.indexOf('aplicaHistorico') === -1 || src.indexOf('puerta') !== -1,
       'reporta resultado de puerta/histórico');
   });
@@ -6262,7 +6263,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   t('S9: ACTUALIZAR — mantiene carga de fuentes', function () {
     var src = Act_actualizarSistema.toString();
     A.cierto(src.indexOf('Fuentes_cargaReal') !== -1, 'Act_actualizarSistema SÍ llama Fuentes_cargaReal');
-    A.cierto(src.indexOf('Amarillo_importarTodo') !== -1, 'Act_actualizarSistema SÍ llama Amarillo_importarTodo');
+    A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1, 'Act_actualizarSistema SÍ llama Amarillo_importarTodo_');
   });
 
   t('S9: INSTALAR etapas son idempotentes (sin carga de datos)', function () {
@@ -6324,7 +6325,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.10.2', 'VERSION es 0.10.2');
+    A.cierto(ECICEP.VERSION === '0.10.3', 'VERSION es 0.10.3');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

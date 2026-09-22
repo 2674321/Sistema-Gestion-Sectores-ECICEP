@@ -46,7 +46,7 @@ c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: '2', objet
 assert.equal(c.Mig_ejecutarPersistente().motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(migraciones, 0);
 let estructuraEscrita = 0;
-c.Modelo_crearEstructura = () => { estructuraEscrita++; return { creadas: [], existentes: [] }; };
+c.Modelo_crearEstructura_ = () => { estructuraEscrita++; return { creadas: [], existentes: [] }; };
 assert.equal(c.Instalar_ejecutarPolitica().motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(estructuraEscrita, 0);
 c.Mig_schemaLeido = () => '3';
@@ -65,7 +65,7 @@ c.Modelo_disenoHojas = () => ({ inicio: { verificacion: { titulo: true } },
   cond: { errores: [] }, filtros: {}, ocultas: {}, protecciones: {} });
 c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: ['INGRESO_VERDE: RUT simulado'] });
 assert.match(c.Instalar_pInicio().motivo, /INGRESO_VERDE/);
-c.Estrat_recalcularTodos = () => ({ ok: false, motivo: 'SIN_HOJA_PACIENTES' });
+c.Estrat_recalcularTodos_ = () => ({ ok: false, motivo: 'SIN_HOJA_PACIENTES' });
 c.Control_recalcularTodos = () => ({ ok: true, cambios: 0, total: 0 });
 assert.equal(c.Instalar_pDerivados().ok, false);
 // Los nombres y las hojas vacías solo se reportan; ningún paso de instalar borra.
@@ -79,14 +79,14 @@ assert.equal(borradas, 0);
 assert.deepEqual(Array.from(inventario.candidatas), ['DASHBOARD', 'Borrador']);
 c.Modelo_ss = () => libro;
 assert.equal(c.Instalar_pLimpieza().eliminadas.length, 0);
-assert.doesNotMatch(readFileSync(new URL('06_Modelo.js', root), 'utf8').match(/function Modelo_crearEstructura\(\)\s*\{[\s\S]*?\n\}/)[0], /deleteSheet\(/);
+assert.doesNotMatch(readFileSync(new URL('06_Modelo.js', root), 'utf8').match(/function Modelo_crearEstructura_\(\)\s*\{[\s\S]*?\n\}/)[0], /deleteSheet\(/);
 // Las etapas de carga de datos reales (fuentes, amarillo, enriquecimiento)
 // son MUTANTES: toman LockService. limpieza es de solo lectura.
 c.Mig_schemaLeido = () => '2';
 let bloqueos = 0;
 c.LockService = { getScriptLock: () => { bloqueos++; return { tryLock: () => true, releaseLock() {} }; } };
 c.Fuentes_cargaReal = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
-c.Amarillo_importarTodo = () => ({ ok: true, puerta: {}, historico: {} });
+c.Amarillo_importarTodo_ = () => ({ ok: true, puerta: {}, historico: {} });
 c.Act_enriquecerPacientes = () => ({ ok: true, totalPacientes: 0, revisados: 0, enriquecidos: 0, sinCambios: 0 });
 for (const id of ['fuentes', 'amarillo', 'enriquecimiento'])
   assert.equal(c.api_instalarPaso(id, clave).ok, true, id);

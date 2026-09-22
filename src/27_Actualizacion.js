@@ -239,7 +239,7 @@ function Act_enriquecerPacientes(opciones) {
   resumen.sinCambios = resumen.revisados - resumen.enriquecidos - resumen.conflictos;
 
   if (!dryRun && escrituras.length) {
-    var esquema = Modelo_asegurarEsquemaPacientes();
+    var esquema = Modelo_asegurarEsquemaPacientes_();
     if (!esquema.ok) {
       resumen.ok = false;
       resumen.errores = 1;
@@ -523,10 +523,10 @@ function Act_actualizarSistema(opciones) {
 
   // 1) ESTRUCTURA (reparación idempotente; nunca destructiva a datos)
   if (ejecutar) try {
-    reporte.estructura = Modelo_asegurarEsquemaPacientes();
+    reporte.estructura = Modelo_asegurarEsquemaPacientes_();
     if (reporte.estructura && reporte.estructura.ok === false)
       registrarFallo('estructura', reporte.estructura.motivo);
-    reporte.alineacion = Modelo_alinearVistasSectoriales();
+    reporte.alineacion = Modelo_alinearVistasSectoriales_();
     if (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length)
       registrarFallo('estructura', reporte.alineacion.errores.join('; '));
   } catch (e) {
@@ -547,8 +547,8 @@ function Act_actualizarSistema(opciones) {
     registrarFallo('fuentes', reporte.fuentes.motivo);
 
   // 4) AMARILLO — importar desde Drive ANTES de vistas e INICIO (el orden importa)
-  if (ejecutar && typeof Amarillo_importarTodo === 'function') {
-    try { reporte.amarillo = Amarillo_importarTodo(true); }
+  if (ejecutar && typeof Amarillo_importarTodo_ === 'function') {
+    try { reporte.amarillo = Amarillo_importarTodo_(true); }
     catch (eA) { reporte.amarillo = { ok: false, motivo: eA && eA.message || String(eA) }; }
     if (reporte.amarillo && reporte.amarillo.ok === false)
       registrarFallo('amarillo', reporte.amarillo.motivo);
@@ -566,7 +566,7 @@ function Act_actualizarSistema(opciones) {
 
   // 6) DERIVADOS
   var derivErrores = [];
-  if (ejecutar) try { reporte.derivados = { estratificacion: Estrat_recalcularTodos() }; } catch (eE) { derivErrores.push('estratificación: ' + (eE && eE.message || eE)); }
+  if (ejecutar) try { reporte.derivados = { estratificacion: Estrat_recalcularTodos_() }; } catch (eE) { derivErrores.push('estratificación: ' + (eE && eE.message || eE)); }
   if (ejecutar) try { reporte.derivados = reporte.derivados || {}; reporte.derivados.controles = Control_recalcularTodos(); } catch (eC) { derivErrores.push('controles: ' + (eC && eC.message || eC)); }
   if (reporte.derivados && reporte.derivados.estratificacion && reporte.derivados.estratificacion.ok === false)
     derivErrores.push('estratificación: ' + (reporte.derivados.estratificacion.motivo || 'error'));
@@ -584,7 +584,7 @@ function Act_actualizarSistema(opciones) {
     registrarFallo('correcciones', reporte.correcciones.motivo);
 
   // 7) VISTAS (refresh después de Amarillo + datos)
-  if (ejecutar) try { reporte.vistas = Modelo_refrescarVistasSectores(); } catch (eV) {
+  if (ejecutar) try { reporte.vistas = Modelo_refrescarVistasSectores_(); } catch (eV) {
     reporte.vistas = { ok: false, motivo: eV && eV.message ? eV.message : String(eV) };
     registrarFallo('vistas', eV);
   }

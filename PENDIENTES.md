@@ -1,5 +1,14 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-22 (v0.10.3):** pasada de **hardening** completa:
+> separación de capacidades **CAPTURA ≠ OPERADOR** (tokens disjuntos; la URL
+> pública nunca entrega el token de operador ni expone ficha/PII), superficie
+> RPC mínima (helpers críticos privados detrás de wrappers `api_*` con OPERADOR;
+> CentroPruebas dejó de invocar mutadores internos), CONFIG sin secretos y
+> estratificación trazable (`CAMBIO_ESTRATIFICACION` en todo cambio del valor
+> vigente). Esquema sigue en **2**; **schema no cambia**. Detalle:
+> §19 y `docs/INFORME_2026-09-22_HARDENING_V0103.md`.
+
 > **Actualización 2026-09-22 (v0.10.2):** la ficha de paciente pasó a **ficha
 > 2.0** (pestañas, edición dirigida al dominio en `31_Ficha.js` y write-back
 > corregido de `ESTADO_INGRESO`/`NOTA_SISTEMA` que era código muerto) y se
@@ -372,3 +381,30 @@ Batería: **17 suites · 0 fallos** (agrega `tests/ficha_ingresos_v0102.mjs`
   `_ECICEP_DEBUG=false` en producción.
 - **Pendiente que permanece**: E2E en vivo (sin sesión Google en el host) para
   recorrer ingresos pendientes → incorporar → ficha sobre el libro real.
+
+## 18. Hardening v0.10.3 — separación de capacidades y trazabilidad de estratificación (2026-09-22)
+
+Informe: `docs/INFORME_2026-09-22_HARDENING_V0103.md`; decisión DEC-067.
+Batería: **20 suites · 0 fallos** (agrega `tests/seguridad_capacidades_v0103.mjs`
+**10/10**, `tests/rpc_surface_v0103.mjs` **4/4**,
+`tests/integridad_mutaciones_v0103.mjs` **9/9**; `tests/acceso_webapp.mjs`
+reescrita **8/8**; `regresiones_revision` actualizada **44/44**; núcleo
+671/671, contrato 38/38, validar_html 22/22). `ECICEP.VERSION` → `0.10.3`,
+**schema 2** (sin MIG-003).
+
+- **CAPTURA ≠ OPERADOR**: tokens disjuntos (`CAPTURA_ACCESS_TOKEN` /
+  `OPERADOR_ACCESS_TOKEN`); la URL pública nunca entrega el token de operador y
+  el preflight público no filtra PII de candidatos.
+- **Superficie RPC mínima**: `Hojas_resetFabrica_`, `Recuperar_ejecutar_`,
+  `IA_limpiarEventosHuerfanos_`, `Modelo_agregarPacientes_`,
+  `Modelo_agregarEventos_`, `Estrat_recalcularPaciente_`,
+  `Ingresos_procesarTodasLasHojas_` son privados; acceso vía wrappers `api_*`
+  con OPERADOR. Wrappers administrativos alineados a `ACCESO_DENEGADO`;
+  CentroPruebas sin mutadores internos.
+- **CONFIG sin secretos** (`CONFIG_SECRETOS`); **estratificación trazable**
+  (`CAMBIO_ESTRATIFICACION` en todo cambio del valor vigente, no-op sin evento);
+  **ficha atómica**; **revisión→INGRESO idempotente**; **eventos reservados**
+  no creables genéricamente; locks en mutaciones compuestas.
+- **Pendiente que permanece**: E2E en vivo sobre el libro real (sin sesión
+  Google en el host) — ficha 2.0, panels con operador y CAPTURA pública en
+  navegador anónimo. Se verificó por tests/página V2 en esta pasada.

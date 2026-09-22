@@ -7,6 +7,45 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.3 — Separación de capacidades CAPTURA ≠ OPERADOR y trazabilidad de estratificación (deploy reutilizado, URL intacta)
+
+- **Tokens disjuntos**: se separaron `CAPTURA_ACCESS_TOKEN` y
+  `OPERADOR_ACCESS_TOKEN` con capacidades disjuntas — la página pública entrega
+  solo capacidad de captura, y la ficha/paneles/admin exigen operador. La URL
+  base nunca expone el token de operador; el preflight público no filtra datos
+  identificables de candidatos.
+- **Superficie RPC mínima**: helpers críticos (`Hojas_resetFabrica_`,
+  `Recuperar_ejecutar_`, `IA_limpiarEventosHuerfanos_`, `Modelo_agregarPacientes_`,
+  `Modelo_agregarEventos_`, `Estrat_recalcularPaciente_`,
+  `Ingresos_procesarTodasLasHojas_`) dejaron de ser invocables por
+  `google.script.run`; su acceso pasa solo por wrappers `api_*` de dominio con
+  token de OPERADOR. Wrappers administrativos alineados a
+  `Api_error_('ACCESO_DENEGADO')` (calidad, amarillo, estrat, rem9, exportar PDF,
+  auditoría). CentroPruebas.html ya no llama mutadores internos.
+- **CONFIG sin secretos**: `CONFIG_SECRETOS` + `Config_esSecreto_` +
+  `Config_valorPublico_`; `api_configListar`/auditoría enmascaran, guards de
+  guardado rechazan secretos.
+- **Estratificación trazable (NORMATIVO `ESTRATIFICACION.md:46`)**: todo cambio
+  del valor vigente genera `CAMBIO_ESTRATIFICACION` con ID/FECHA/RIESGO_G/
+  DESCRIPCION/FUENTE/REGISTRADO_POR — desde patologías, recáculo de un paciente
+  y recáculo masivo (eventos de lote en una sola escritura; fallo de escritura →
+  `CAMBIO_ESTRATIFICACION_FALLIDO`/`PATOLOGIAS_NO_TRACEABLES`, revisión). No-op
+  no crea evento.
+- **Misiones de integridad**: ficha atómica (0 cambios si un campo es inválido),
+  revisión→INGRESO que cierra caso y es idempotente, eventos reservados
+  rechazados por el registrador genérico (`TIPO_EVENTO_RESERVADO`), locks en
+  mutaciones compuestas, fallo de vista derivada acotado (no silenciado).
+- **Tests**: suites nuevas `seguridad_capacidades_v0103` (**10/10**),
+  `rpc_surface_v0103` (**4/4**) e `integridad_mutaciones_v0103` (**9/9**);
+  `acceso_webapp` reescrita (**8/8**); `regresiones_revision` actualizada
+  (**44/44**). Batería `node tools/verificar.mjs` → **20 suites · 0 fallos**
+  (núcleo 671/671, contrato 38/38, aceptación 50/50, captura V2 73/73,
+  validar_html 22/22). `ECICEP.VERSION` → `0.10.3`, **schema 2** sin MIG-003.
+- **Docs**: ARQUITECTURA.md, README.md, PENDIENTES.md, DECISIONES.md (DEC-067),
+  `docs/INFORME_2026-09-22_HARDENING_V0103.md`.
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado (misma URL `/exec` y QR, sin deployments por rutina).
+
 ## v0.10.2 — Ficha de paciente 2.0 + incorporación controlada de ingresos (deploy @217, URL reutilizada)
 
 - **Corrección de código muerto pre-existente**: `Ingresos_escribirEstados`
