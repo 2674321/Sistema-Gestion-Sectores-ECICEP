@@ -442,6 +442,7 @@ function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
+  t.TOKEN_ACCESO = WebApp_claveCompartida_();
   t.PORTAL_URL = '';
   t.FICHA_URL = '';
   var html = t.evaluate().setTitle('Controles por persona')
@@ -1784,6 +1785,10 @@ function _pruS_plantillas() {
     try {
       var t = HtmlService.createTemplateFromFile(d.plantilla);
       t.modo = 'centro'; t.BUILD = ''; t.ID_INICIAL = '';
+      t.TOKEN_ACCESO = ''; t.TOKEN_INVITACION = ''; t.CAPTURA_ACCESO = '';
+      t.PORTAL_URL = ''; t.FICHA_URL = ''; t.REM_URL = '';
+      t.DASH_URL = ''; t.GENERAR_REM_URL = ''; t.SECCION = '';
+      t.QR_URL = ''; t.WEB_APP_URL = ''; t.LINKS = []; t.PAGE_BUILD = '';
       t.evaluate().getContent();
     } catch (e) { errores.push(d.plantilla + ': ' + (e && e.message || e)); }
   });
@@ -1795,6 +1800,7 @@ function _pruS_ficha() {
   try {
     var t = HtmlService.createTemplateFromFile('Sidebar');
     t.modo = 'pacientes'; t.BUILD = ''; t.ID_INICIAL = '';
+    t.TOKEN_INVITACION = ''; t.PORTAL_URL = '';
     var cont = t.evaluate().getContent();
     var tabs = (cont.match(/class="tab/g) || []).length;
     var panes = (cont.match(/class="pane/g) || []).length;

@@ -121,4 +121,25 @@ t('Dupla, registro, configuración y backups usan el acceso compartido',()=>{
     for(const llamada of llamadas)assert.match(html,new RegExp('\\.'+llamada+'\\([^;]*ECICEP_ACCESO\\)'));
   }
 });
+t('Regresión: todo constructor inyecta el token antes de evaluate()',()=>{
+  const clave=props.get('CAPTURA_ACCESS_TOKEN');
+  assert.ok(clave);
+  const ui={showModalDialog(){},showSidebar(){}};
+  c._UI_get=()=>ui;
+  for(const d of c.UICFG_DIALOGOS){
+    const html=readFileSync(new URL(d.plantilla+'.html',root),'utf8');
+    const necesitaAcceso=/TOKEN_ACCESO/.test(html);
+    const necesitaInvitacion=/TOKEN_INVITACION/.test(html);
+    if(!necesitaAcceso && !necesitaInvitacion)continue;
+    let vars=null;
+    c.HtmlService={createTemplateFromFile:()=>({evaluate(){vars=this;return {setTitle(){return this;},setWidth(){return this;},setHeight(){return this;},setXFrameOptionsMode(){return this;},addMetaTag(){return this;}};}}),XFrameOptionsMode:{ALLOWALL:'ALLOWALL'}};
+    c[d.opener](d.opener==='UI_abrirFicha'?'11111111-1':undefined);
+    assert.ok(vars, d.opener+' debió crear plantilla '+d.plantilla);
+    if(necesitaAcceso)assert.equal(vars.TOKEN_ACCESO,clave,d.opener+' → TOKEN_ACCESO en '+d.plantilla);
+    if(necesitaInvitacion)assert.equal(vars.TOKEN_INVITACION,clave,d.opener+' → TOKEN_INVITACION en '+d.plantilla);
+  }
+  const controles=readFileSync(new URL('Controles.html',root),'utf8');
+  assert.match(controles,/\.api_controlPanel\(\{[^}]*\},\s*ECICEP_ACCESO\)/);
+  assert.match(controles,/\.api_controlActualizarUltimo\([^;]*,\s*ECICEP_ACCESO\)/);
+});
 console.log('Acceso Web App: '+pruebas+'/'+pruebas);
