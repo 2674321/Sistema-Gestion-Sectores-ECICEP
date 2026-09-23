@@ -25,6 +25,8 @@
 
 // ---------------------------------------------------------------------------
 // CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP
+//   v0.10.7 (DEC-071): Incorporación de ingresos clara para el operador —
+//     incorporación individual y masiva de válidos reutilizando el pipeline único;
 //   v0.10.6 (DEC-070): Controles y seguimientos por persona (selector 100% cliente) + REM sin loader falso;
 //   v0.10.5 (DEC-069 supera DEC-068/DEC-067): fiabilidad operativa + lecturas acotadas;
 //   v0.10.4 (DEC-068 supera DEC-067): una sola credencial habilita TODAS las

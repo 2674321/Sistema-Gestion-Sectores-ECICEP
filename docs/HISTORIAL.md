@@ -7,6 +7,41 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.7 — INCORPORACIÓN DE INGRESOS CLARA PARA EL OPERADOR (deploy reutilizado, URL y QR intactos)
+
+- **Panel de ingresos → "Incorporación de ingresos"**: subtítulo explicativo
+  ("Revisa e incorpora al sistema…"), tarjeta "¿Qué significa incorporar?" y
+  eliminación de la promesa de "copia" a sectores. El listado gana filtros por
+  **Sector** (Todos/Naranjo/Amarillo/Verde) y **Estado**
+  (PENDIENTE/WARNING/ERROR) con chips de conteo sin RPC extra (`conteos` en
+  `api_ingresosPendientes`). El detalle muestra el **Sector destino** real, el
+  checklist "Al incorporar", errores y advertencias; en ERROR el botón queda
+  deshabilitado ("No incorporable"), con advertencias se incorpora con aviso.
+  Tras incorporar: mensaje traducido por estado (INGRESADO "Incorporado
+  correctamente", REQUIERE_REVISION "Requiere revisión antes de incorporar",
+  DUPLICADO "Ya existe un ingreso equivalente", ERROR "No pudo incorporarse",
+  nota nuevo paciente / paciente existente), la ficha se abre y volver retorna
+  a la lista recargada (paginación retrocede si la página quedó vacía).
+- **Incorporación masiva de válidos en UNA RPC**: `api_ingresosIncorporarValidos
+  ({sector})` bajo el lock existente reutiliza literalmente
+  `Ingresos_procesarTodasLasHojas_` (`soloHojas` del sector + alias
+  INGRESO_NARANJA, `confirmarNuevos:false`) — nunca N RPC por fila.
+  `Ingresos_incorporarValidos_` recompone el resumen plano en `{resumen,
+  resultados}` con contadores de agrupación derivados de `resultados`. El
+  cliente confirma, pinta el resumen estructurado (Ingresados / Revisar /
+  Errores / Sin cambios) y refresca.
+- **Tests**: nueva `tests/incorporacion_ingresos_vNEXT.mjs` (**12/12**: T1-T10
+  flujo individual, vista derivada SECTOR_*, idempotencia de doble clic, ERROR
+  sin escritura + botón deshabilitado, WARNING incorporable, POSIBLE_DUPLICADO
+  → revisión, paciente existente, masivo 4+1+1+ya-Ingresado, masivo por sector,
+  pendientes que desaparecen; T11-T12 textos UI y guardas de token + KPI).
+  Batería total `node tools/verificar.mjs` → **25 suites · 0 fallos**
+  (`validar_html` 22/22). `ECICEP.VERSION` → `0.10.7`, **schema 2**.
+- **Docs**: ARQUITECTURA.md, README.md, DECISIONES.md (DEC-071),
+  `docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado (misma URL `/exec` y QR, sin deployments por rutina).
+
 ## v0.10.6 — CONTROLES Y SEGUIMIENTOS POR PERSONA + REM SIN LOADER FALSO (deploy reutilizado, URL y QR intactos)
 
 - **Controles por persona → Controles y seguimientos por persona**: selector

@@ -1507,3 +1507,57 @@ controles/seguimientos; T7-T9 REM). Batería total **24 suites · 0 fallos**
 (verifier 2026-09-22; `validar_html` 22/22). Informe
 `docs/INFORME_2026-09-22_CONTROLES_SEGUIMIENTOS_REM_V0106.md`.
 **Fecha:** 2026-09-22
+
+## DEC-071
+
+**v0.10.7 — Incorporación de ingresos clara para el operador (Web App única).**
+
+**Motivo:** el panel de ingresos pendientes repetía la leyenda de "copia" a
+sectores ("Al incluirlo se copiará al sector…"), prometía copia directa y no
+explicaba lo que realmente hace la única operación vigente: incorporar la fila
+al sistema a través del pipeline único
+`INGRESO_* → PACIENTES → EVENTO INGRESO → INGRESADO → SECTOR_*`. El operador
+no sabía qué pasaba al confirmar ni con cada fila (qué es válido, qué puede
+incorporarse con advertencias y qué no, y por qué).
+
+**Reglas:**
+1. **Incorporar es el único verbo.** Se eliminan textos de "Copiar al sector"
+   y la promesa de copia directa. Incorporar = correr el pipeline único con el
+   gate ya existente (validación/normalización/identificación). No existe
+   "copiar fila a SECTOR_X".
+2. **Flujo individual:** el detalle explica "Al incorporar" (crear/actualizar
+   paciente, registrar ingreso, actualizar sector) y muestra cuál es el destino
+   real ("Sector destino: X"), los errores y advertencias. ERROR renderiza el
+   botón de incorporar deshabilitado ("No incorporable"); con advertencias se
+   permite incorporar con aviso visible. La confirmación es ligera (sector en
+   el botón y en el diálogo), nada de "copiar".
+3. **Resultados traducidos (§13):** tras incorporar, un mensaje claro por
+   estado: INGRESADO ("Incorporado correctamente"), REQUIERE_REVISION
+   ("Requiere revisión antes de incorporar"), DUPLICADO ("Ya existe un ingreso
+   equivalente"), ERROR ("No pudo incorporarse") y el aviso de nuevo
+   paciente/paciente existente. La ficha se abre y volver regresa a la lista
+   recargada.
+4. **Incorporación masiva de válidos (UNA RPC):** nuevo
+   `api_ingresosIncorporarValidos({sector})` bajo el mismo lock, que reutiliza
+   íntegramente `Ingresos_procesarTodasLasHojas_` con `soloHojas` del sector
+   (canónico + alias INGRESO_NARANJA) y `confirmarNuevos:false`. NUNCA N RPC
+   por fila. El cliente pide confirmación, pinta el resumen estructurado
+   (Ingresados / Revisar / Errores / Sin cambios) y refresca la lista.
+   `Ingresos_incorporarValidos_` recompone el resumen plano del pipeline en
+   `{resumen, resultados}` congruentes (contadores de agrupación derivados de
+   `resultados` por `estado` para que coincidan con lo que la UI pinta).
+5. **Filtros y KPIs:** listado con filtro por SECTOR y por ESTADO
+   (PENDIENTE/WARNING/ERROR) y chips de conteo sin RPC extra (`conteos` en
+   `api_ingresosPendientes`). Paginación retrocede si la incorporación dejó la
+   página vacía (§38).
+6. **No se toca** acceso/seguridad/roles/tokens/migraciones/schema (**2**) ni
+   se crea arquitectura paralela: el pipeline es literalmente el mismo
+   (`Ingresos_procesarTodasLasHojas_`), solo se añaden entradas claras y KPI
+   aguas arriba. Deployment: mismo deployment operativo (URL/QR intactos).
+
+**Tests:** nueva `tests/incorporacion_ingresos_vNEXT.mjs` (**12/12**: T1-T10
+flujo/masivo/vista derivada/idempotencia/exclusiones; T11-T12 textos UI y
+guardas de token + KPI). Batería total **25 suites · 0 fallos** (verifier
+2026-09-23; `validar_html` 22/22). Informe
+`docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
+**Fecha:** 2026-09-23

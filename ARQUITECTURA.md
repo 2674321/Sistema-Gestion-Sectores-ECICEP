@@ -1,5 +1,33 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-23 (v0.10.7):**
+> - **INCORPORACIÓN DE INGRESOS CLARA PARA EL OPERADOR (DEC-071)**:
+>   el panel de `Sidebar.html` pasa a "Incorporación de ingresos" con
+>   explicación "¿Qué significa incorporar?", filtros por **Sector** y
+>   **Estado** (PENDIENTE/WARNING/ERROR) y chips de conteo sin RPC extra
+>   (`conteos` en `api_ingresosPendientes`). Se elimina la promesa de
+>   "copia" a sectores: incorporar ejecuta el **único pipeline**
+>   `INGRESO_* → PACIENTES → EVENTO INGRESO → INGRESADO → SECTOR_*`.
+>   El detalle muestra el **destino real** ("Sector destino"), un checklist
+>   "Al incorporar", errores/advertencias y el botón deshabilitado
+>   "No incorporable" en ERROR (las filas con advertencias sí se pueden
+>   incorporar, con aviso). Resultados traducidos por estado (§13) y ficha
+>   abre con volver→lista recargada.
+> - **Incorporación masiva en UNA RPC**: `api_ingresosIncorporarValidos
+>   ({sector})` bajo el lock existente reutiliza íntegramente
+>   `Ingresos_procesarTodasLasHojas_` (`soloHojas` del sector + alias
+>   INGRESO_NARANJA, `confirmarNuevos:false`): nunca N RPC por fila.
+>   `Ingresos_incorporarValidos_` recompone el resumen plano del pipeline en
+>   `{resumen, resultados}` con contadores de agrupación derivados de
+>   `resultados`. El cliente confirma, pinta el resumen estructurado y
+>   refresca. Paginación retrocede automáticamente si la página quedó vacía.
+> - Se conservan acceso/seguridad/roles/tokens (cero cambios), **schema 2**
+>   sin migración, deployment operativo reutilizado (misma URL/QR).
+>   `ECICEP.VERSION` → `0.10.7`.
+> - Batería: **25 suites · 0 fallos** (`validar_html` 22/22,
+>   incorporación de ingresos v0.10.7 12/12). Informe
+>   `docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
+
 > **Actualización 2026-09-22 (v0.10.6):**
 > - **CONTROLES Y SEGUIMIENTOS POR PERSONA (DEC-070)**: el panel
 >   `Controles.html` pasa a "Controles y seguimientos por persona" con un

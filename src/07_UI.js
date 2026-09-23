@@ -1146,7 +1146,7 @@ function api_ingresosPendientes(opciones, token) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var r = Ingresos_listarPendientes(opciones || {});
-    return { ok: true, filas: r.filas, total: r.total, inicio: r.inicio, limite: r.limite };
+    return { ok: true, filas: r.filas, total: r.total, inicio: r.inicio, limite: r.limite, conteos: r.conteos };
   } catch (e) {
     Log_error('Ingresos', 'pendientes', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1183,6 +1183,31 @@ function api_ingresoIncorporar(nombreHoja, filaFisica, confirmarNuevo, token) {
     });
   } catch (e) {
     Log_error('Ingresos', 'incorporar', e && e.message ? e.message : String(e));
+    Log_flush();
+    return { ok: false, motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
+/**
+ * Endpoint incorporación MASIVA de los ingresos pendientes VÁLIDOS (v0.10.7).
+ * Un solo pipeline (Ingresos_incorporarValidos_ → Ingresos_procesarTodasLasHojas_)
+ * bajo un solo lock: NUNCA N RPC desde el cliente. `opciones.sector` acota a
+ * las hojas INGRESO_* de ese sector. Devuelve un resumen estructurado (no
+ * texto) para pintar el resultado real de cada fila ("qué pasó con cada fila").
+ */
+function api_ingresosIncorporarValidos(opciones, token) {
+  try {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    return Ecicep_conLock_(function () {
+      var salida = Ingresos_incorporarValidos_(opciones || {});
+      return {
+        ok: true,
+        resumen: salida.resumen || {},
+        resultados: salida.resultados || []
+      };
+    });
+  } catch (e) {
+    Log_error('Ingresos', 'incorporarValidos', e && e.message ? e.message : String(e));
     Log_flush();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }

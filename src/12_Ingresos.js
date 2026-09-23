@@ -536,6 +536,7 @@ function Ingresos_listarPendientes(opciones) {
   var inicio = Math.max(Number(opciones.inicio) || 0, 0);
   var limite = Math.min(Math.max(Number(opciones.limite) || 100, 1), 500);
   var filas = [];
+  var conteos = { total: 0, validos: 0, advertencias: 0, errores: 0 };
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     if (sector && Ingresos_hojaASector(nombreHoja) !== sector) return;
     var leida = Ingresos_leerHoja(nombreHoja);
@@ -547,13 +548,17 @@ function Ingresos_listarPendientes(opciones) {
       }
       if (termino && (publica.rut + ' ' + publica.nombre).toUpperCase().indexOf(termino) === -1) return;
       filas.push(publica);
+      conteos.total += 1;
+      if (publica.estado === 'ERROR') conteos.errores += 1;
+      else if (publica.estado === 'WARNING') conteos.advertencias += 1;
+      else conteos.validos += 1;
     });
   });
   filas.sort(function (a, b) {
     return a.hoja === b.hoja ? (a.fila - b.fila) : (a.hoja < b.hoja ? -1 : 1);
   });
   var total = filas.length;
-  return { filas: filas.slice(inicio, inicio + limite), total: total, inicio: inicio, limite: limite };
+  return { filas: filas.slice(inicio, inicio + limite), total: total, inicio: inicio, limite: limite, conteos: conteos };
 }
 
 /** PURA: pre-ficha de un ingreso pendiente (mismo lenguaje visual que la ficha). */
@@ -638,6 +643,66 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
     return Utl_texto(r.filaOrigen) === String(nf);
   })[0] || null;
   return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
+}
+
+/**
+ * GAS: incorporación MASIVA de las filas pendientes VÁLIDAS (v0.10.7).
+ * Reutiliza ÍNTEGRAMENTE Ingresos_procesarTodasLasHojas_ (un solo pipeline,
+ * un solo lock): nunca N RPC desde el cliente. Las exclusiones ya viven en el
+ * pipeline existente y NO se duplican filtros aquí:
+ *   - ERROR / BLOQUEADO      → gate de escritura (no entra a PACIENTES/EVENTOS);
+ *   - INGRESADO              → Ingresos_leerHoja lo descarta de la lectura;
+ *   - DUPLICADO (RUT+fecha)  → barrera 2b de procesarTodasLasHojas_;
+ *   - REQUIERE_REVISION / POSIBLE_DUPLICADO → gate REVISION (no se escribe).
+ * `opciones.sector` acota a las hojas INGRESO_* de ese sector (canónico).
+ * @param {Object} opciones {sector?: 'NARANJO'|'AMARILLO'|'VERDE'}
+ * @returns {resumen, resultados} misma salida del pipeline (incluirResultados)
+ */
+function Ingresos_incorporarValidos_(opciones) {
+  opciones = opciones || {};
+  var soloHojas = null;
+  if (opciones.sector) {
+    soloHojas = Ingresos_hojasParaSector_(opciones.sector);
+    if (!soloHojas.length) {
+      // Sector sin hojas INGRESO_*: vacío limpio (no procesar todas por error).
+      return {
+        resumen: {
+          leidos: 0, validos: 0, conError: 0, nuevos: 0, existentes: 0,
+          revision: 0, duplicados: 0, eventosCreados: 0
+        },
+        resultados: []
+      };
+    }
+  }
+  // El pipeline devuelve el resumen PLANO (Ingresos_respuesta_ aplana los
+  // contadores al nivel superior). Aquí se recompone el contrato estructurado
+  // {resumen, resultados} que consume el endpoint de la Web App. Los contadores
+  // de agrupación (revision, errores, duplicados, ingresados) se derivan de
+  // `resultados` para que el resumen coincida exactamente con lo que la UI
+  // pinta por fila (el `duplicados` plano del pipeline incluye POSIBLE_DUPLICADO).
+  var salida = Ingresos_procesarTodasLasHojas_({
+    soloHojas: soloHojas,
+    confirmarNuevos: false,
+    incluirResultados: true
+  });
+  var resultados = salida.resultados || [];
+  function contar(estado) {
+    return resultados.filter(function (x) { return x.estado === estado; }).length;
+  }
+  return {
+    resumen: {
+      leidos: salida.leidos || 0,
+      validos: salida.validos || 0,
+      ingresados: contar('INGRESADO'),
+      nuevos: salida.nuevos || 0,
+      existentes: salida.existentes || 0,
+      revision: contar('REQUIERE_REVISION'),
+      errores: contar('ERROR'),
+      duplicados: contar('DUPLICADO'),
+      eventos: salida.eventosCreados || 0
+    },
+    resultados: resultados
+  };
 }
 
 /**
@@ -894,6 +959,23 @@ function Ingresos_hojaParaSector(sectorCanonica) {
     if (HOJAS_INGRESO.hasOwnProperty(hoja) && HOJAS_INGRESO[hoja] === sectorCanonica) return hoja;
   }
   return '';
+}
+
+/**
+ * PURA: lista TODAS las hojas INGRESO_* que pertenecen a un sector (canónico
+ * incluido su alias, p.ej. INGRESO_NARANJO + INGRESO_NARANJA → NARANJO).
+ * Se usa para acotar el procesamiento masivo por sector sin duplicar mapeos.
+ * @param {string} sector 'NARANJO' | 'AMARILLO' | 'VERDE'
+ * @returns {string[]} nombres de hoja (vacío si el sector no existe o es nulo)
+ */
+function Ingresos_hojasParaSector_(sector) {
+  var s = Utl_texto(sector).toUpperCase().trim();
+  if (!s) return [];
+  var hojas = [];
+  Object.keys(HOJAS_INGRESO).forEach(function (hoja) {
+    if (HOJAS_INGRESO[hoja] === s) hojas.push(hoja);
+  });
+  return hojas;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,18 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-23 (v0.10.7):** la incorporación de ingresos
+> pendientes aclara la operación para el operador sin tocar el pipeline único.
+> Deja de prometer "copia" a sectores: el panel pasa a "Incorporación de
+> ingresos" con tarjeta "¿Qué significa incorporar?", filtros por Sector y
+> Estado con conteos sin RPC extra, detalle con "Sector destino" real y botón
+> de incorporar deshabilitado en ERROR; incorporación masiva de válidos en UNA
+> RPC (`api_ingresosIncorporarValidos`) reutilizando
+> `Ingresos_procesarTodasLasHojas_` (`soloHojas` + alias INGRESO_NARANJA). El
+> flujo individual conserva idempotencia (doble clic no duplica; ficha abre y
+> volver regresa a la lista recargada). Schema **2**, accesos intactos,
+> deployment operativo reutilizado. Batería **25 suites · 0 fallos**. Detalle:
+> `docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
+
 > **Actualización 2026-09-22 (v0.10.6):** "Controles por persona" → **Controles
 > y seguimientos por persona**: selector `[Control] [Seguimiento]` que alterna
 > la presentación 100 % en cliente (0 RPC; conserva sector/estados/búsqueda/
