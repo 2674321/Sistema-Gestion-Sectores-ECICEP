@@ -828,12 +828,26 @@ function ECICEP_onEditIngreso(e) {
 }
 
 function Triggers_diagnosticarIngresoOnEdit_() {
-  var handler = 'ECICEP_onEditIngreso', total = 0;
-  if (typeof ScriptApp === 'undefined') return { ok: false, estado: 'NO_DISPONIBLE', total: 0 };
+  var handler = 'ECICEP_onEditIngreso', coinciden = [], esperado = '';
+  if (typeof ScriptApp === 'undefined') return { ok: false, estado: 'NO_DISPONIBLE', total: 0,
+    handler: handler, tipo: 'ON_EDIT', asociado: false, duplicado: false };
+  try { esperado = Modelo_ss().getId(); } catch (eSs) { esperado = ''; }
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === handler && t.getEventType() === ScriptApp.EventType.ON_EDIT) total++;
+    var esHandler = false, esTipo = false, fuenteId = '';
+    try { esHandler = t.getHandlerFunction() === handler; } catch (eH) {}
+    try { esTipo = t.getEventType() === ScriptApp.EventType.ON_EDIT; } catch (eT) {}
+    if (!esHandler || !esTipo) return;
+    try { fuenteId = t.getTriggerSourceId ? Utl_texto(t.getTriggerSourceId()) : ''; } catch (eF) {}
+    coinciden.push({ fuenteId: fuenteId, asociado: !esperado || !fuenteId || fuenteId === esperado });
   });
-  return { ok: total === 1, estado: total === 0 ? 'FALTA' : (total === 1 ? 'OK' : 'DUPLICADO'), total: total };
+  var asociados = coinciden.filter(function (x) { return x.asociado; }).length;
+  var estado = coinciden.length === 0 ? 'FALTA'
+    : (coinciden.length > 1 ? 'DUPLICADO' : (asociados === 1 ? 'OK' : 'FUENTE_INCORRECTA'));
+  return { ok: estado === 'OK', estado: estado, total: coinciden.length,
+    cantidad: coinciden.length, handler: handler, tipo: 'ON_EDIT',
+    spreadsheetEsperado: esperado, asociados: asociados,
+    asociado: asociados === 1 && coinciden.length === 1, duplicado: coinciden.length > 1,
+    fuentes: coinciden.map(function (x) { return x.fuenteId || 'NO_INFORMADA'; }) };
 }
 
 /** Instala uno y elimina exclusivamente duplicados del mismo handler. */

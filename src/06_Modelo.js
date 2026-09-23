@@ -1382,6 +1382,11 @@ function Modelo_invalidarLecturas(claves) {
     if (lista.indexOf('EVENTOS') !== -1) delete _MODELO_INDICES.EVENTOS_POR_ID_INTERNO;
   }
   _cacheBorrarClaves(lista);
+  // Toda mutación canónica invalida la última auditoría profunda. La
+  // marca solo contiene estado técnico; nunca persiste datos de pacientes.
+  try {
+    if (typeof Sistema_marcarAuditoriaStale_ === 'function') Sistema_marcarAuditoriaStale_();
+  } catch (e) { /* observabilidad best effort: no bloquear la operación clínica */ }
 }
 
 function _memoLeer(hoja, clave) {

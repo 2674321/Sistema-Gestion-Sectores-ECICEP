@@ -105,14 +105,6 @@ function api_instalarPaso(id, acceso, ejecucion) {
     if (incompatible) return { ok: false, etapa: id, nombre: reg.nombre, motivo: incompatible };
   }
   var respaldo = null;
-  if (INSTALAR_ETAPAS_MUTAN[id]) {
-    var bk = Instalar_asegurarBackup_(ejecucion);
-    if (!bk.ok) {
-      return { ok: false, etapa: id, nombre: reg.nombre, motivo: 'BACKUP_FALLIDO',
-        linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
-    }
-    respaldo = bk.creado ? bk.nombre : null;
-  }
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
   var lock = null;
   if (INSTALAR_ETAPAS_MUTAN[id]) {
@@ -134,6 +126,13 @@ function api_instalarPaso(id, acceso, ejecucion) {
   }
   var t0 = Date.now();
   try {
+    // Orden transaccional obligatorio: lock -> respaldo -> primera mutación.
+    if (INSTALAR_ETAPAS_MUTAN[id]) {
+      var bk = Instalar_asegurarBackup_(ejecucion);
+      if (!bk.ok) return { ok: false, etapa: id, nombre: reg.nombre, motivo: 'BACKUP_FALLIDO',
+        linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
+      respaldo = bk.creado ? (bk.nombre || null) : null;
+    }
     var fn = G[reg.fn];
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
     var r = fn(ejecucion) || {};
@@ -540,11 +539,8 @@ function Instalar_pMigraciones() {
 }
 
 function Instalar_pRespaldo(ejecucion) {
-  var r = Instalar_asegurarBackup_(ejecucion);
-  return { ok: !!(r && r.ok), nombre: r && r.nombre,
-    creado: !!(r && r.creado), reutilizado: !!(r && r.skip),
-    motivo: r && r.motivo || '', linea: r && r.ok
-      ? (r.creado ? 'Respaldo creado antes de reparar' : 'Respaldo previo verificado') : '' };
+  return { ok: true, pendiente: true, omitida: true,
+    linea: 'El respaldo se creará bajo bloqueo justo antes de la primera modificación' };
 }
 
 function Instalar_pEstructura() {
@@ -639,25 +635,16 @@ function Instalar_pMenu() {
   return { ok: true };
 }
 function Instalar_pVerificar() {
-  var pacientes = Modelo_leerPacientes().length;
-  var eventos = Modelo_leerEventos().length;
-  var criticas = ['PACIENTES', 'EVENTOS', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
-    'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
-  var faltan = criticas.filter(function (n) { return !Modelo_hoja(n); });
-  if (faltan.length) return { ok: false, faltan: faltan,
-    linea: 'faltan hojas: ' + faltan.join(', ') };
-  var v = Mig_clasificarInstalacion(Modelo_escanearEstructura(), null, REGISTRO_MIGRACIONES);
-  var tr = Triggers_diagnosticarIngresoOnEdit_();
-  var integridad;
-  try { integridad = Integridad_diagnosticarDerivados_(); }
-  catch (eI) { integridad = { ok: false, motivo: eI && eI.message ? eI.message : String(eI) }; }
-  return { ok: v.estado === 'VIGENTE' && tr.estado === 'OK' && integridad.ok,
-           pacientes: pacientes, eventos: eventos,
-           schemaVersion: v.version, esquemaOK: v.estado === 'VIGENTE', estado: v.estado,
-           triggerIngreso: tr.estado, integridad: integridad,
-           motivo: v.estado !== 'VIGENTE' ? 'Esquema no vigente: ' + v.estado
-             : (tr.estado !== 'OK' ? 'Trigger de ingreso manual: ' + tr.estado
-               : (!integridad.ok ? 'Integridad derivada pendiente' : '')) };
+  var salud;
+  try { salud = Sistema_estadoSalud_({ profundo: true }); }
+  catch (e) { return { ok: false, resultado: 'ERROR', estado: 'ERROR',
+    motivo: e && e.message ? e.message : String(e) }; }
+  return { ok: salud.operativo, resultado: salud.estado, salud: salud,
+    pacientes: salud.integridad.pacientes || 0, eventos: salud.integridad.eventos || 0,
+    schemaVersion: salud.datos.schemaLeido, esquemaOK: salud.datos.ok,
+    estado: salud.estado, triggerIngreso: salud.automatizaciones.ingreso.estado,
+    integridad: salud.integridad,
+    motivo: salud.operativo ? '' : (salud.avisos || []).join('; ') };
 }
 
 /** (S5/S11, DEC-057) Etapa de enriquecimiento demográfico de PACIENTES dentro

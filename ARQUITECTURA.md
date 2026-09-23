@@ -1,5 +1,18 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-23 (v0.11.1):**
+> - `Sistema_estadoSalud_({profundo})` separa datos/esquema, integridad,
+>   automatizaciones y respaldo. La ruta rápida no barre datos; la profunda
+>   persiste un resumen técnico sin PII y toda mutación lo marca `stale`.
+> - El trigger `ECICEP_onEditIngreso` solo está sano si existe exactamente una
+>   vez, es `ON_EDIT` y pertenece al Spreadsheet operativo. Su ausencia hace
+>   `operativo=false`; un backup pendiente queda como advertencia explícita.
+> - Instalar/Reparar ejecuta `lock → backup → mutación`; la reparación es
+>   selectiva por evidencia y nunca elimina huérfanos ni duplicados.
+> - Captura resuelve `captureId` y `NOTA_SISTEMA` con `TextFinder.findNext`; la
+>   auditoría separada cuenta duplicados. Esquema 2 y captura V4 se conservan.
+>
+
 > **Actualización 2026-09-23 (v0.11.0, deployment @228):**
 > - `INGRESADO` manual en hojas `INGRESO_*` dejó de ser una etiqueta: el trigger
 >   instalable `ECICEP_onEditIngreso` invoca el pipeline único, exige evidencia

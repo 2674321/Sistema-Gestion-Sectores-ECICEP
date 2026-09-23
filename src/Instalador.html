@@ -40,6 +40,13 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 .preparacion{display:none;text-align:center;margin:var(--space-4) 0}
 .preparacion p{color:var(--text-secondary);line-height:1.5}
 .preparacion .btn{margin-top:var(--space-2)}
+.salud{border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-4);background:var(--surface-alt)}
+.salud-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
+.salud-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px;text-align:center}
+.salud-card b{display:block;font-size:11px}.salud-card span{font-size:11px;color:var(--text-muted)}
+.salud-acciones{display:flex;gap:6px}.salud-acciones .btn{flex:1;justify-content:center;font-size:11px;padding:6px}
+.salud-msg{font-size:11px;color:var(--text-secondary);min-height:15px}
+@media(max-width:540px){.salud-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body data-acceso="<?= TOKEN_ACCESO ?>" data-portal="<?= PORTAL_URL ?>">
@@ -48,6 +55,20 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
   <div class="sys">ECICEP</div>
   <div class="sub">Instalación y reparación del sistema</div>
 </div>
+
+<section class="salud" aria-live="polite">
+  <div class="salud-msg" id="saludMsg">Consultando estado operativo…</div>
+  <div class="salud-grid">
+    <div class="salud-card"><b>Datos</b><span id="saludDatos">—</span></div>
+    <div class="salud-card"><b>Integridad</b><span id="saludIntegridad">—</span></div>
+    <div class="salud-card"><b>Ingreso</b><span id="saludIngreso">—</span></div>
+    <div class="salud-card"><b>Respaldo</b><span id="saludBackup">—</span></div>
+  </div>
+  <div class="salud-acciones">
+    <button class="btn btn-ghost" id="btnSalud" onclick="cargarSalud(true,this)">Auditoría profunda</button>
+    <button class="btn btn-sec" id="btnReparar" onclick="repararIntegridad(this)">Reparar derivados</button>
+  </div>
+</section>
 
 <div class="preparacion" id="preparacion">
   <p id="diagResumen">Revisando el estado del sistema…</p>
@@ -103,7 +124,40 @@ function cerrarVista(){
   google.script.host.close();
 }
 
+function cargarSalud(profundo,btn){
+  var fin=btn?setLoading(btn,true,'Revisando…'):function(){};
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(!r||r.motivo){document.getElementById('saludMsg').textContent='Estado no disponible: '+((r&&r.motivo)||'sin respuesta');return;}
+    document.getElementById('saludDatos').textContent=r.datos&&r.datos.ok?'OK':'REVISAR';
+    var integ=r.integridad||{};
+    document.getElementById('saludIntegridad').textContent=integ.ok===true?'OK':(integ.ok===false?'REVISAR':'PENDIENTE');
+    document.getElementById('saludIngreso').textContent=r.automatizaciones&&r.automatizaciones.ingreso
+      ? r.automatizaciones.ingreso.estado:'PENDIENTE';
+    document.getElementById('saludBackup').textContent=r.automatizaciones&&r.automatizaciones.backup
+      ? r.automatizaciones.backup.estado:'PENDIENTE';
+    var fecha=r.ultimaAuditoria&&r.ultimaAuditoria.fecha?' · auditoría '+new Date(r.ultimaAuditoria.fecha).toLocaleString('es-CL'):'';
+    document.getElementById('saludMsg').textContent='Estado: '+r.estado+fecha+
+      ((r.avisos&&r.avisos.length)?' · '+r.avisos.join(', '):'');
+  }).withFailureHandler(function(e){fin();document.getElementById('saludMsg').textContent='Error de diagnóstico: '+(e&&e.message||e);})
+    .api_sistemaEstadoSalud({profundo:!!profundo},ECICEP_ACCESO);
+}
+
+function repararIntegridad(btn){
+  if(!confirm('Se creará un respaldo y se repararán solo los derivados con diferencias comprobadas. ¿Continuar?'))return;
+  var fin=setLoading(btn,true,'Reparando…');
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    document.getElementById('saludMsg').textContent=r&&r.ok
+      ? 'Reparación verificada. Acciones: '+((r.acciones||[]).join(', ')||'ninguna necesaria')
+      : 'Reparación pendiente: '+((r&&(r.motivo||r.detalle))||'revise el diagnóstico');
+    cargarSalud(true);
+  }).withFailureHandler(function(e){fin();document.getElementById('saludMsg').textContent='Error: '+(e&&e.message||e);})
+    .api_integridadReparar(ECICEP_ACCESO);
+}
+
 function cargarDiagnostico(){
+  cargarSalud(false);
   google.script.run.withSuccessHandler(function(r){
     var pendientes=r&&r.ok&&r.diagnostico&&r.diagnostico.resumen
       ? r.diagnostico.resumen.fasesPendientes : null;

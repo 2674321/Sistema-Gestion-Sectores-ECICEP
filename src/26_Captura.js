@@ -868,10 +868,10 @@ function Captura_v2_buscarRegistroRapido_(captureId) {
     : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : -1);
   if (colRid < 0) return null;
   var n = hoja.getLastRow() - 1;
-  var hallados = hoja.getRange(2, colRid + 1, n, 1).createTextFinder(captureId)
-    .matchEntireCell(true).findAll();
-  if (!hallados || !hallados.length) return null;
-  var nf = hallados[hallados.length - 1].getRow();
+  var hallado = hoja.getRange(2, colRid + 1, n, 1).createTextFinder(captureId)
+    .matchEntireCell(true).findNext();
+  if (!hallado) return null;
+  var nf = hallado.getRow();
   var fila = hoja.getRange(nf, 1, 1, ultimac).getValues()[0];
   return Captura_v2_registroDesdeFila_(captureId, fila, headers, nf);
 }
@@ -879,6 +879,27 @@ function Captura_v2_buscarRegistroRapido_(captureId) {
 /** GAS: lee el registro por captureId mediante la ruta puntual obligatoria. */
 function Captura_v2_buscarRegistro(captureId) {
   return Captura_v2_buscarRegistroRapido_(captureId);
+}
+
+/** Auditoría administrativa separada del camino caliente de captura. */
+function Captura_diagnosticarCaptureIdsDuplicados_() {
+  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  if (!hoja || hoja.getLastRow() < 2) return { total: 0, duplicados: 0, filasDuplicadas: 0 };
+  var headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  var mapa = Form_mapeoEncabezados(headers);
+  var idx = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID
+    : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : -1);
+  if (idx < 0) return { total: 0, duplicados: 0, filasDuplicadas: 0, esquemaIncompleto: true };
+  var n = hoja.getLastRow() - 1, vistos = {}, grupos = 0, filas = 0;
+  hoja.getRange(2, idx + 1, n, 1).getValues().forEach(function (r) {
+    var id = Utl_texto(r[0]);
+    if (!id) return;
+    vistos[id] = (vistos[id] || 0) + 1;
+  });
+  Object.keys(vistos).forEach(function (id) {
+    if (vistos[id] > 1) { grupos++; filas += vistos[id] - 1; }
+  });
+  return { total: Object.keys(vistos).length, duplicados: grupos, filasDuplicadas: filas };
 }
 
 /** Esquema físico real: admite columnas adicionales sin mover datos existentes.
@@ -1049,19 +1070,24 @@ function Captura_v2_indiceColumnaFecha(encabezados) {
  * trailer (ventana de ida-y-vuelta). JAMÁS barre todas las hojas INGRESO_*.
  */
 function Captura_v2_buscarMarcaEnHoja(nombreHoja, marca) {
-  try {
-    var hoja = Modelo_hoja(nombreHoja);
-    if (!hoja || hoja.getLastRow() < 2) return null;
-    var ultimac = Math.min(hoja.getLastColumn(), 40);
-    var bloque = hoja.getRange(1, 1, hoja.getLastRow(), ultimac).getValues();
-    if (bloque.length < 2 || bloque[0].join('|') == null || bloque[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) return null;
-    var mapa = Ingresos_mapearEncabezadosHoja(bloque[0]);
-    if (mapa.notaIdx < 0) return null;
-    var hr = Modelo_headerRow(nombreHoja);
-    for (var f = hr; f < bloque.length; f++) {
-      if (Utl_texto(bloque[f][mapa.notaIdx]) === marca) return { hoja: nombreHoja, fila: String(f + 1) };
+  var hoja = Modelo_hoja(nombreHoja);
+  if (!hoja || hoja.getLastRow() < 2) return null;
+  var loc = Ingresos_layoutHoja_(hoja, nombreHoja, true);
+  if (loc && loc.mapa && loc.mapa.notaIdx >= 0) {
+    var n = hoja.getLastRow() - loc.hr;
+    if (n <= 0) return null;
+    var celda = hoja.getRange(loc.hr + 1, loc.mapa.notaIdx + 1, n, 1)
+      .createTextFinder(marca).matchEntireCell(true).findNext();
+    return celda ? { hoja: nombreHoja, fila: String(celda.getRow()) } : null;
+  }
+  // Compatibilidad exclusiva con hojas heredadas sin NOTA_SISTEMA.
+  var ultimac = Math.min(hoja.getLastColumn(), 40);
+  var bloque = hoja.getRange(1, 1, hoja.getLastRow(), ultimac).getValues();
+  for (var f = Modelo_headerRow(nombreHoja); f < bloque.length; f++) {
+    for (var c = 0; c < bloque[f].length; c++) {
+      if (Utl_texto(bloque[f][c]) === marca) return { hoja: nombreHoja, fila: String(f + 1) };
     }
-  } catch (e) { /* best effort; si falla se anexa (dedupe de negocio protege) */ }
+  }
   return null;
 }
 

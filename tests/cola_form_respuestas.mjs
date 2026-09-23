@@ -200,16 +200,15 @@ function makeHojaFake(headers, filas) {
           let exacto = false;
           return {
             matchEntireCell(v) { exacto = !!v; return this; },
-            findAll() {
-              const encontrados = [];
+            findNext() {
               for (let r = 0; r < vals.length; r++) {
                 for (let c = 0; c < vals[r].length; c++) {
                   const actual = String(vals[r][c] ?? '');
                   const coincide = exacto ? actual === String(buscado) : actual.includes(String(buscado));
-                  if (coincide) encontrados.push({ getRow: () => row + r, getColumn: () => col + c });
+                  if (coincide) return { getRow: () => row + r, getColumn: () => col + c };
                 }
               }
-              return encontrados;
+              return null;
             }
           };
         },
@@ -549,9 +548,9 @@ t('Q12b grep 2+idx en src/ no debe tener coincidencias en escrituras', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Q13 — Reverse scan: buscarRegistro retorna la coincidencia más reciente
+// Q13 — Lookup puntual: la unicidad se audita por separado
 // ═════════════════════════════════════════════════════════════════════════════
-console.log('\nQ13 — Reverse scan');
+console.log('\nQ13 — Lookup puntual');
 
 t('Q13a buscarRegistro real retorna null para hoja vacía', () => {
   sandbox.HOJAS = sandbox.HOJAS || {};
@@ -591,7 +590,7 @@ t('Q13b buscarRegistro real encuentra registro por captureId (bottom-up)', () =>
   igual(r2.estado, 'RECIBIDO');
 });
 
-t('Q13c reverse scan: con duplicado teórico, retorna el más reciente (abajo)', () => {
+t('Q13c ante duplicado teórico retorna la primera coincidencia puntual', () => {
   const cols = sandbox.FORM_RESPUESTAS_COLUMNAS;
   const mapa = {};
   for (let i = 0; i < cols.length; i++) mapa[cols[i]] = i;
@@ -611,8 +610,7 @@ t('Q13c reverse scan: con duplicado teórico, retorna el más reciente (abajo)',
 
   const r = sandbox.Captura_v2_buscarRegistro(id);
   A(r !== null);
-  // reverse scan retorna la última coincidencia (fila 2)
-  igual(r.estado, 'PROCESADO', 'retorna la más reciente, no la primera');
+  igual(r.estado, 'ERROR', 'el camino caliente no barre duplicados');
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

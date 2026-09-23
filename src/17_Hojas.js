@@ -906,6 +906,7 @@ function UI_resetFabrica(conBackup) {
 var BACKUP_PREFIJO = 'ECICEP_BACKUP';
 var BACKUP_PREFIJO_AUTO = 'AUTO_ECICEP_BACKUP';
 var BACKUP_PREFIJO_MAN = 'MANUAL_ECICEP_BACKUP';
+var BACKUP_PREFIJO_PRE = 'PRE_ECICEP_BACKUP';
 var BACKUP_DEFAULT_MANTENER = 8;
 var BACKUP_FOLDER_NOMBRE = 'ECICEP_Backups';
 
@@ -932,6 +933,16 @@ function _backup_folder() {
   return creada;
 }
 
+/** Solo lectura: busca la carpeta sin crear recursos durante un diagnóstico. */
+function _backup_folderExistente_() {
+  var cur = Entorno_actualGAS();
+  var id = Entorno_recursoEsperado(cur.entorno, 'BACKUP_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  var nombre = cur.entorno === 'DESCONOCIDO' ? BACKUP_FOLDER_NOMBRE : Entorno_carpetaEsperada(cur.entorno);
+  var folders = DriveApp.getFoldersByName(nombre);
+  return folders.hasNext() ? folders.next() : null;
+}
+
 /** Obtiene el límite de retención desde CONFIG (editable por el usuario). */
 function _backup_mantener() {
   var v = parseInt(_config_leerValores(['BACKUP_MANTENER'])['BACKUP_MANTENER'], 10);
@@ -944,8 +955,10 @@ function Backup_crear(etiqueta) {
     var ss = Modelo_ss();
     var tz = Session.getScriptTimeZone();
     var ts = Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss');
-    var prefijo = etiqueta === 'AUTO' ? BACKUP_PREFIJO_AUTO : BACKUP_PREFIJO_MAN;
-    var nombre = prefijo + '_' + ts;
+    etiqueta = Utl_texto(etiqueta || 'MANUAL').toUpperCase();
+    var prefijo = etiqueta === 'AUTO' ? BACKUP_PREFIJO_AUTO
+      : (etiqueta.indexOf('PRE_') === 0 ? BACKUP_PREFIJO_PRE : BACKUP_PREFIJO_MAN);
+    var nombre = prefijo + (etiqueta.indexOf('PRE_') === 0 ? '_' + etiqueta : '') + '_' + ts;
     var folder = _backup_folder();
     var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombre, folder);
     var tamano = copia.getSize();
@@ -968,14 +981,16 @@ function Backup_listar() {
   while (files.hasNext()) {
     var f = files.next();
     var nombre = f.getName();
-    if (nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0 || nombre.indexOf(BACKUP_PREFIJO_MAN) === 0) {
+    if (nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0 || nombre.indexOf(BACKUP_PREFIJO_MAN) === 0 ||
+        nombre.indexOf(BACKUP_PREFIJO_PRE) === 0) {
       items.push({
         nombre: nombre,
         url: f.getUrl(),
         id: f.getId(),
         tamano: f.getSize(),
         fecha: f.getDateCreated().toISOString(),
-        esAuto: nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0
+        esAuto: nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0,
+        esPrevio: nombre.indexOf(BACKUP_PREFIJO_PRE) === 0
       });
     }
   }
@@ -1028,6 +1043,35 @@ function Backup_triggerInstalado() {
   });
 }
 
+/** Estado real y de solo lectura del respaldo. No crea carpeta ni archivos. */
+function Backup_estadoOperativo_() {
+  var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
+  var mantener = parseInt(cfg.BACKUP_MANTENER, 10);
+  if (!(mantener > 0)) mantener = BACKUP_DEFAULT_MANTENER;
+  var trigger = false, folder = null, listado = { items: [], autoCount: 0, manCount: 0 };
+  try { trigger = Backup_triggerInstalado(); } catch (eT) {}
+  try { folder = _backup_folderExistente_(); } catch (eF) {}
+  if (folder) {
+    var files = folder.getFiles();
+    while (files.hasNext()) {
+      var f = files.next(), nombre = f.getName();
+      if (nombre.indexOf(BACKUP_PREFIJO_AUTO) !== 0 && nombre.indexOf(BACKUP_PREFIJO_MAN) !== 0 &&
+          nombre.indexOf(BACKUP_PREFIJO_PRE) !== 0) continue;
+      listado.items.push({ nombre: nombre, fecha: f.getDateCreated().toISOString() });
+      if (nombre.indexOf(BACKUP_PREFIJO_AUTO) === 0) listado.autoCount++;
+      else listado.manCount++;
+    }
+  }
+  listado.items.sort(function (a, b) { return a.fecha < b.fecha ? 1 : -1; });
+  var ultima = listado.items.length ? listado.items[0].fecha : '';
+  var configurado = !!cfg.BACKUP_DIA && cfg.BACKUP_HORA !== '';
+  var estado = !folder ? 'PENDIENTE_VALIDACION' : (!trigger ? 'INACTIVO' : (!ultima ? 'SIN_EJECUCION' : 'OK'));
+  return { ok: !!folder && trigger && !!ultima, estado: estado, configurado: configurado,
+    triggerActivo: trigger, carpetaAccesible: !!folder, ultima: ultima || cfg.BACKUP_AUTO_ULTIMA || '',
+    total: listado.items.length, autoCount: listado.autoCount, manCount: listado.manCount,
+    mantener: mantener, dia: cfg.BACKUP_DIA || 'DOMINGO', hora: cfg.BACKUP_HORA || '3' };
+}
+
 /** GAS: instala trigger con parámetros configurables, idempotente. */
 function Backup_programar(dia, hora) {
   Backup_quitarProgramacion();
@@ -1060,7 +1104,7 @@ function api_backupListar(token) {
   if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var st = Backup_listar();
   var trigger = Backup_triggerInstalado();
-  var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
+  var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
   var ultima = cfg['BACKUP_AUTO_ULTIMA'] || '';
   var mantener = parseInt(cfg['BACKUP_MANTENER'], 10);
   if (!(mantener > 0)) mantener = BACKUP_DEFAULT_MANTENER;
@@ -1069,6 +1113,8 @@ function api_backupListar(token) {
     trigger: trigger,
     ultima: ultima || 'nunca',
     mantener: mantener,
+    dia: cfg['BACKUP_DIA'] || 'DOMINGO',
+    hora: cfg['BACKUP_HORA'] || '3',
     items: st.items || [],
     autoCount: st.autoCount || 0,
     manCount: st.manCount || 0

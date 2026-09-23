@@ -67,7 +67,7 @@ test('Ingreso reintentado con agenda no utiliza fast-path que omite la escritura
 test('Persistencia real por encabezados distingue versión y recupera agenda desde traza', () => {
   for(const version of [2,3]) {
     const c=backend(),headers=Array.from(c.Form_columnas()),rows=[headers];
-    c.Modelo_hoja=()=>({getLastRow:()=>rows.length,getLastColumn:()=>headers.length,getRange:(r,col,h,w)=>({getValues:()=>Array.from({length:h},(_,i)=>Array.from({length:w},(_,j)=>rows[r+i-1]?.[col+j-1]??'')),createTextFinder:buscado=>({matchEntireCell:()=>({findAll:()=>rows.slice(r-1,r-1+h).map((fila,i)=>fila[col-1]===buscado?{getRow:()=>r+i}:null).filter(Boolean)})}),setValues:vals=>vals.forEach((row,i)=>{rows[r+i-1]??=Array(headers.length).fill('');row.forEach((v,j)=>rows[r+i-1][col+j-1]=v);})})});
+    c.Modelo_hoja=()=>({getLastRow:()=>rows.length,getLastColumn:()=>headers.length,getRange:(r,col,h,w)=>({getValues:()=>Array.from({length:h},(_,i)=>Array.from({length:w},(_,j)=>rows[r+i-1]?.[col+j-1]??'')),createTextFinder:buscado=>({matchEntireCell:()=>({findNext:()=>{const i=rows.slice(r-1,r-1+h).findIndex(fila=>fila[col-1]===buscado);return i<0?null:{getRow:()=>r+i};}})}),setValues:vals=>vals.forEach((row,i)=>{rows[r+i-1]??=Array(headers.length).fill('');row.forEach((v,j)=>rows[r+i-1][col+j-1]=v);})})});
     const p={...base,captureId:base.captureId.replace('Cp3','Cp'+version)};if(version===3)p.proximoControl='2027-02-20';
     const norm=c.Captura_v2_validar(p,{catalogo}).normalizado;
     const reg=c.Captura_v2_nuevoRegistro(norm,{usuario:'FICTICIO',fechaRecepcion:'2026-09-16'});

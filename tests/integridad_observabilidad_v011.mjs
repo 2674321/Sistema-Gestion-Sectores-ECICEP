@@ -31,8 +31,10 @@ test('estado de salud expone versión, schema, hojas, integridad y triggers', ()
     'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE']);
   c.Modelo_ss = () => ({ getSheetByName: n => nombres.has(n) ? {} : null });
   c.Integridad_diagnosticarDerivados_ = () => ({ ok: true, ingresosFalsos: 0, eventosHuerfanos: 0, vistasPendientes: 0, cachesPendientes: 0 });
-  c.Triggers_diagnosticarIngresoOnEdit_ = () => ({ estado: 'OK' }); c.Backup_triggerInstalado = () => false;
-  const r = c.Sistema_estadoSalud_();
+  c.Mig_schemaLeido = () => '2';
+  c.Triggers_diagnosticarIngresoOnEdit_ = () => ({ ok: true, estado: 'OK' });
+  c.Backup_estadoOperativo_ = () => ({ ok: false, estado: 'INACTIVO', triggerActivo: false });
+  const r = c.Sistema_estadoSalud_({ profundo: true });
   assert.equal(r.ok, true); assert.equal(r.schema, 2); assert.equal(r.hojas.ingresos, 3); assert.equal(r.hojas.sectores, 3);
 });
 

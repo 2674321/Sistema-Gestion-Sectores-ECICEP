@@ -7,6 +7,23 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.11.1 — ESTABILIZACIÓN DE OPERACIÓN REAL
+
+- Salud rápida al abrir y auditoría profunda bajo demanda, con estados separados
+  de datos, integridad, trigger de ingreso y respaldo. El resumen persistido no
+  contiene PII y se invalida al mutar el modelo.
+- Diagnóstico del trigger por handler, evento, cantidad y Spreadsheet asociado.
+  Ausente, duplicado o con fuente incorrecta impide declarar operación sana.
+- Backups con estado observable, retención/horario dinámicos y nombres explícitos
+  para copias previas. Instalar/Reparar respeta `lock → backup → mutación`.
+- Reparación selectiva: solo recalcula derivados afectados; huérfanos y
+  duplicados quedan como evidencia para revisión.
+- Lookup interactivo con `findNext()` en `RESPONSE_ID` y `NOTA_SISTEMA`; el
+  recuento de duplicados queda en la auditoría administrativa.
+- `ECICEP.VERSION = 0.11.1`; esquema **2**; captura **V4**. Validación local:
+  **32 suites, 0 fallos**. Publicación y smoke se registran en el commit de
+  cierre de release.
+
 ## v0.11.0 — FIABILIDAD, RENDIMIENTO Y RECONCILIACIÓN (deployment @228)
 
 - `ESTADO_INGRESO = INGRESADO` manual activa un trigger instalable e idempotente

@@ -1596,3 +1596,36 @@ anónimo `/exec` HTTP 200 con `0.11.0` y build `ca94c64`. Publicado en el mismo
 deployment operativo, versión **@228**.
 
 **Fecha:** 2026-09-23
+
+## DEC-073
+
+**v0.11.1 — Salud operativa explícita y mutaciones respaldadas.**
+
+**Motivo:** un estado global podía parecer sano aunque faltara el trigger de
+incorporación, el backup no se hubiera validado o la auditoría estuviera
+obsoleta. Además, el respaldo del instalador se solicitaba antes de adquirir el
+lock, dejando una ventana entre copia y mutación.
+
+**Reglas:**
+1. La salud separa datos/esquema, integridad derivada, automatización de ingreso
+y respaldo. `operativo` requiere datos válidos, integridad no fallida y un único
+trigger `ON_EDIT` asociado al Spreadsheet operativo. El backup se comunica por
+separado como OK, inactivo o pendiente de validación.
+2. El diagnóstico rápido no recorre tablas clínicas. La auditoría profunda es
+explícita, guarda solo fecha, estado y conteos técnicos sin PII; toda invalidación
+del modelo la marca `stale`.
+3. Toda reparación administrativa sigue `lock → backup real → mutación`. Si la
+copia falla no escribe. El instalador crea una sola copia por ejecución, bajo el
+lock de la primera etapa mutante.
+4. La reparación compara antes/después y actúa solo sobre derivados con evidencia
+de diferencia. Eventos huérfanos, `FUENTE` duplicada y `captureId` duplicado se
+reportan; no se eliminan automáticamente.
+5. Las rutas interactivas usan búsqueda puntual por `RESPONSE_ID` y
+`NOTA_SISTEMA`. La detección de duplicados pertenece a la auditoría profunda.
+6. Se conserva un proyecto, un Spreadsheet, una Web App, un pipeline, esquema 2
+y contrato de captura V4.
+
+**Validación:** tres suites nuevas (`operacion_real_v0111`,
+`salud_sistema_v0111`, `performance_v0111`) y batería total de 32 suites.
+
+**Fecha:** 2026-09-23

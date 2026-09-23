@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';import vm from 'node:vm';
+const root=new URL('../src/',import.meta.url);function ctx(){const c=vm.createContext({console:{log(){},warn(){},error(){}}});for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())vm.runInContext(readFileSync(new URL(f,root),'utf8'),c,{filename:f});return c;}
+let n=0;const test=(name,fn)=>{fn();n++;console.log('[PASS] '+name);};
+function base(c){c.Sistema_datosBasicos_=()=>({ok:true,hojas:{pacientes:true,eventos:true,ingresos:3,sectores:3},schemaLeido:'2',schemaEsperado:'2'});c.Triggers_diagnosticarIngresoOnEdit_=()=>({ok:true,estado:'OK'});c.Backup_estadoOperativo_=()=>({ok:true,estado:'OK',triggerActivo:true});c.Sistema_ultimaAuditoria_=()=>({ok:true,stale:false,fecha:'2026-09-23T00:00:00.000Z'});}
+test('salud rápida no ejecuta auditoría profunda',()=>{const c=ctx();base(c);c.Integridad_diagnosticarDerivados_=()=>{throw Error('no debe ejecutarse');};assert.equal(c.Sistema_estadoSalud_().operativo,true);});
+test('trigger faltante vuelve el sistema no operativo',()=>{const c=ctx();base(c);c.Triggers_diagnosticarIngresoOnEdit_=()=>({ok:false,estado:'FALTA'});const r=c.Sistema_estadoSalud_();assert.equal(r.operativo,false);assert.equal(r.estado,'ERROR');});
+test('backup pendiente genera advertencia sin falsear datos',()=>{const c=ctx();base(c);c.Backup_estadoOperativo_=()=>({ok:false,estado:'INACTIVO',triggerActivo:false});const r=c.Sistema_estadoSalud_();assert.equal(r.operativo,true);assert.equal(r.estado,'ADVERTENCIA');});
+test('auditoría profunda persiste solo resumen técnico',()=>{const c=ctx();base(c);let guardado='';c.PropertiesService={getScriptProperties:()=>({getProperty:()=>'',setProperty:(k,v)=>{guardado=v;}})};c.Integridad_diagnosticarDerivados_=()=>({ok:false,pacientes:1,eventos:2,eventosHuerfanos:1,vistas:{sectoresAfectados:['VERDE']},nombre:'PERSONA FICTICIA',rut:'1-9'});const r=c.Sistema_estadoSalud_({profundo:true});assert.equal(r.operativo,false);assert.ok(guardado);assert.doesNotMatch(guardado,/PERSONA FICTICIA|rut/i);});
+test('mutación marca auditoría previa como stale',()=>{const c=ctx();let raw=JSON.stringify({ok:true,stale:false,fecha:'x'});c.PropertiesService={getScriptProperties:()=>({getProperty:()=>raw,setProperty:(k,v)=>{raw=v;}})};c._cacheBorrarClaves=()=>{};c.Modelo_invalidarLecturas(['PACIENTES']);assert.equal(JSON.parse(raw).stale,true);});
+console.log('Salud sistema v0.11.1 — '+n+'/'+n+' PASS');

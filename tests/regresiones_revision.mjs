@@ -65,14 +65,13 @@ function sheet(headers) {
       getValues: () => Array.from({ length: h }, (_, i) => Array.from({ length: w }, (_, j) => rows[r+i-1]?.[c+j-1] ?? '')),
       createTextFinder(buscado) { let exacto = false; return {
         matchEntireCell(v) { exacto = !!v; return this; },
-        findAll() {
-          const encontrados = [];
+        findNext() {
           for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) {
             const actual = String(rows[r + i - 1]?.[c + j - 1] ?? '');
             if (exacto ? actual === String(buscado) : actual.includes(String(buscado)))
-              encontrados.push({ getRow: () => r + i, getColumn: () => c + j });
+              return { getRow: () => r + i, getColumn: () => c + j };
           }
-          return encontrados;
+          return null;
         }
       }; },
       setValues(values) {

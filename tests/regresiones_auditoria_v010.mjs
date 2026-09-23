@@ -149,6 +149,7 @@ test('B4: si el respaldo falla, la etapa responde BACKUP_FALLIDO y no se ejecuta
   c.Mig_schemaLeido = () => '2';
   c.SISTEMA_VERSION_SCHEMA_ACTUAL = '2';
   c.DriveApp = {};
+  c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
   c.Backup_crear = () => ({ ok: false, motivo: 'drive_lleno_simulado' });
   let invocada = 0;
   c.Instalar_pMigraciones = () => { invocada++; return { ok: true }; };

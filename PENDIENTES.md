@@ -1,5 +1,14 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-23 (v0.11.1):** código y pruebas de estabilización
+> operativa completados: salud rápida/profunda, trigger validado por fuente,
+> backup observable, reparación selectiva y búsquedas puntuales. La validación
+> local suma **32 suites, 0 fallos** una vez publicada. Continúan como validación
+> operativa pendiente la ejecución autorizada en el Spreadsheet de la auditoría
+> profunda, la creación/verificación real del trigger y del backup; este host no
+> dispone de una sesión Google autorizada para `clasp run`. Ver
+> `docs/VALIDACION_OPERATIVA_V0111.md`.
+
 > **Actualización 2026-09-23 (v0.11.0, @228):** mejora integral publicada sobre
 > el mismo deployment. Cerrados en código y pruebas: `INGRESADO` manual con
 > incorporación real, detección/reconciliación de falsos ingresados, hot paths

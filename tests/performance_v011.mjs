@@ -20,8 +20,8 @@ test('captureId en 20.000 filas usa TextFinder y lee solo la fila objetivo', () 
       lecturas.push([r, col, nr, nc]);
       if (r === 1) return { getValues: () => [headers] };
       if (nc === 1 && col === headers.indexOf('RESPONSE_ID') + 1) return {
-        createTextFinder: buscado => ({ matchEntireCell: exacta => ({ findAll: () => {
-          assert.equal(buscado, id); assert.equal(exacta, true); return [{ getRow: () => objetivo }];
+        createTextFinder: buscado => ({ matchEntireCell: exacta => ({ findNext: () => {
+          assert.equal(buscado, id); assert.equal(exacta, true); return { getRow: () => objetivo };
         } }) }) };
       return { getValues: () => [fila] };
     } };

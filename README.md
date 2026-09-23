@@ -23,7 +23,23 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.11.0` (fiabilidad, rendimiento y reconciliación) · deployment operativo `@228` · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | `v0.11.1` · estabilización operativa con salud rápida/profunda, respaldo transaccional y reparación selectiva · publicación operativa en curso · `node tools/verificar.mjs` |
+
+## v0.11.1 — operación real verificable
+
+El Centro de instalación separa cuatro dimensiones: datos/esquema, integridad
+derivada, automatización de ingresos y respaldo. Al abrir realiza un diagnóstico
+rápido; la auditoría profunda es explícita, guarda solo conteos técnicos sin PII
+y queda marcada como desactualizada tras cualquier mutación. Un trigger de
+ingreso ausente, duplicado o asociado a otro Spreadsheet impide declarar el
+sistema operativo. Un respaldo no validado se muestra como advertencia separada.
+
+Instalar/Reparar adquiere el bloqueo antes de crear el respaldo y antes de la
+primera escritura. La reparación administrativa crea su propio respaldo y actúa
+solo sobre derivados con diferencias comprobadas; eventos huérfanos y fuentes o
+`captureId` duplicados se reportan, sin borrado automático. La captura usa
+`TextFinder.findNext()` en `RESPONSE_ID` y en la columna física
+`NOTA_SISTEMA`. Esquema **2**, captura **V4**, URL y QR se mantienen.
 
 ## v0.11.0 — mejora integral
 

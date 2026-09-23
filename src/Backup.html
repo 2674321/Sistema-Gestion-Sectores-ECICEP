@@ -76,7 +76,7 @@
   <div class="collap-body" id="collapCfgBody">
     <div class="collap-inner">
       <div class="cfg-row">
-        <div class="cfg-label">Backup automático<small>Domingo 03:00 — crea backup y poda viejos</small></div>
+        <div class="cfg-label">Backup automático<small id="bkProgramaDetalle">Horario configurado — crea backup y poda viejos</small></div>
         <button class="btn btn-sec" id="btnToggle" onclick="toggleProgramacion(this)" style="font-size:12px;padding:6px 14px">
           <i data-lucide="clock"></i> <span id="txtToggle">—</span>
         </button>
@@ -89,7 +89,7 @@
       </div>
       <div class="cfg-row">
         <div class="cfg-label">Retención automática<small>Cuántos backups auto conservar (editable en CONFIG)</small></div>
-        <div class="cfg-valor"><span id="bkRetencion">8</span> backups</div>
+        <div class="cfg-valor"><span id="bkRetencion">—</span> backups</div>
       </div>
       <div class="cfg-row">
         <div class="cfg-label">Carpeta en Drive<small>ECICEP_Backups — todos los backups se guardan aquí</small></div>
@@ -138,13 +138,14 @@
   <div class="section-title"><i data-lucide="list"></i> Historial de backups</div>
   <div id="bkTabla"><div class="skel"></div><div class="skel" style="margin-top:8px"></div></div>
 
-  <div class="footer">Se conservan los últimos <b id="bkRetencionFoot">8</b> backups automáticos. Los manuales se conservan indefinidamente.</div>
+  <div class="footer">Se conservan los últimos <b id="bkRetencionFoot">—</b> backups automáticos. Los manuales y previos a reparaciones se conservan indefinidamente.</div>
 </div>
 
 <div id="toastZone"></div>
 
 <script>
 var ECICEP_ACCESO = document.body.getAttribute('data-acceso') || '';
+var _BK_RETENCION=0;
 function fmtBytes(b){if(!b||b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
 function fmtFecha(iso){if(!iso)return '—';try{var d=new Date(iso);return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
 
@@ -162,21 +163,26 @@ function cargarBackups(){
 
 function pintarBackups(r){
   if(!r||!r.ok){document.getElementById('bkTabla').innerHTML='<div class="empty">'+((r&&r.motivo)||'Sin datos')+'</div>';return;}
-  document.getElementById('bkProg').textContent=r.trigger?'Activa (domingo 03:00)':'Inactiva';
+  var hora=String(parseInt(r.hora,10)||0).padStart(2,'0')+':00';
+  var dia=_DIAS_NOMBRE[r.dia]||r.dia||'Sin día';
+  document.getElementById('bkProg').textContent=r.trigger?'Activa ('+dia+' '+hora+')':'Inactiva';
   document.getElementById('bkProg').className='value '+(r.trigger?'ok':'off');
   document.getElementById('bkUltima').textContent=r.ultima||'nunca';
   document.getElementById('bkAutoCount').textContent=r.autoCount||0;
   document.getElementById('bkManCount').textContent=r.manCount||0;
   document.getElementById('txtToggle').textContent=r.trigger?'Desactivar automático':'Activar automático';
-  document.getElementById('bkRetencion').textContent=r.mantener||8;
-  document.getElementById('bkRetencionFoot').textContent=r.mantener||8;
+  _BK_RETENCION=Number(r.mantener)||0;
+  document.getElementById('bkRetencion').textContent=_BK_RETENCION||'—';
+  document.getElementById('bkRetencionFoot').textContent=_BK_RETENCION||'—';
+  document.getElementById('bkProgramaDetalle').textContent=dia+' '+hora+' — crea backup y poda viejos';
   _refrescarIconos();
   if(!r.items||!r.items.length){document.getElementById('bkTabla').innerHTML='<div class="empty">No hay backups registrados</div>';return;}
   var h='<table><thead><tr><th>Nombre</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th><th>Estado</th><th></th></tr></thead><tbody>';
   r.items.forEach(function(b){
     var tipo=b.nombre.indexOf('AUTO_')===0?'auto':'manual';
+    var etiqueta=b.nombre.indexOf('PRE_')===0?'previo':tipo;
     h+='<tr><td style="max-width:280px;word-break:break-all">'+_esc(b.nombre)+'</td>';
-    h+='<td><span class="badge badge-'+tipo+'">'+tipo+'</span></td>';
+    h+='<td><span class="badge badge-'+tipo+'">'+etiqueta+'</span></td>';
     h+='<td>'+fmtFecha(b.fecha)+'</td>';
     h+='<td>'+fmtBytes(b.tamano)+'</td>';
     h+='<td><span class="badge badge-ok">OK</span></td>';
@@ -206,7 +212,7 @@ function toggleProgramacion(btn){
 }
 
 function podarAuto(btn){
-  if(!confirm('Esto eliminar\u00e1 los backups autom\u00e1ticos antiguos (se conservan los \u00faltimos 8).'))return;
+  if(!confirm('Esto eliminar\u00e1 los backups autom\u00e1ticos antiguos (se conservan los \u00faltimos '+(_BK_RETENCION||'configurados')+').'))return;
   var fin=setLoading(btn,true,'Podando\u2026');
   google.script.run.withSuccessHandler(function(r){
     fin();
