@@ -1,5 +1,17 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-23 (v0.11.0, @228):** mejora integral publicada sobre
+> el mismo deployment. Cerrados en código y pruebas: `INGRESADO` manual con
+> incorporación real, detección/reconciliación de falsos ingresados, hot paths
+> puntuales de captura, retorno directo de `ID_EVENTO`, escritura por bloque,
+> índices efímeros, estado de salud, métricas sin PII y post-check del instalador.
+> `node tools/verificar.mjs`: **29 suites, 0 fallos**. `/exec` respondió 200 sin
+> cuenta y sirvió `0.11.0` / build `ca94c64`. La instalación real del nuevo
+> trigger y la validación del backup siguen incluidas en los pendientes
+> operativos **#29/#30**: `clasp run` no dispone de permiso de ejecución en este
+> host, por lo que deben validarse al ejecutar **Instalar / reparar** en el libro.
+
+
 > **Actualización 2026-09-23 (v0.10.7-fix2):** reporte de operador: desde el
 > **código QR en celular no se podía escribir el RUT terminado en K** (dígito
 > verificador). Causa: `inputmode="numeric"` en el campo RUT del formulario

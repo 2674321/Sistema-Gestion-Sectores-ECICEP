@@ -23,7 +23,23 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | Operativo · `v0.10.7` (incorporación de ingresos robusta) · verificación completa con `node tools/verificar.mjs` |
+| **Estado** | Operativo · `v0.11.0` (fiabilidad, rendimiento y reconciliación) · deployment operativo `@228` · verificación completa con `node tools/verificar.mjs` |
+
+## v0.11.0 — mejora integral
+
+La edición manual de `ESTADO_INGRESO = INGRESADO` ahora ejecuta el pipeline
+canónico y solo conserva ese estado cuando existen paciente, evento `INGRESO` y
+fuente hoja/fila consistentes. El instalador crea de forma idempotente el trigger
+`ECICEP_onEditIngreso`, diagnostica falsos ingresados, reconcilia derivados y
+realiza un post-check de integridad.
+
+La captura dejó de barrer `FORM_RESPUESTAS` y `EVENTOS` en operaciones
+interactivas: usa búsquedas puntuales por `captureId` y `FUENTE`, retorna el ID
+del evento recién creado y escribe nuevos ingresos con `setValues`. Se añadieron
+índices efímeros, invalidación selectiva, métricas técnicas sin PII y estado de
+salud. La agenda `PROXIMO_CONTROL` sigue siendo manual, el esquema continúa en
+**2** y el contrato de captura continúa en **V4**. La publicación reutiliza el
+mismo deployment operativo en **@228**, por lo que la URL y el QR no cambian.
 
 ## Qué resuelve
 

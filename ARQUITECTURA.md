@@ -1,5 +1,21 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-23 (v0.11.0, deployment @228):**
+> - `INGRESADO` manual en hojas `INGRESO_*` dejó de ser una etiqueta: el trigger
+>   instalable `ECICEP_onEditIngreso` invoca el pipeline único, exige evidencia
+>   `PACIENTES + EVENTO INGRESO + FUENTE hoja/fila` y conserva el estado real
+>   (`INGRESADO`, `ERROR`, `REQUIERE_REVISION` o `DUPLICADO`).
+> - Captura interactiva usa lookup puntual para `captureId` y `FUENTE`, devuelve
+>   `ID_EVENTO` desde la escritura y usa `setValues` en el alta de ingreso.
+> - `Integridad_diagnosticarDerivados_`, `Integridad_repararDerivados_` y
+>   `Sistema_estadoSalud_` revisan ingresos, vistas sectoriales, cachés de últimas
+>   atenciones, eventos huérfanos, estratificación calculable y triggers sin PII.
+> - Instalar/Reparar conserva un único backup previo, instala el trigger de forma
+>   idempotente, reconcilia derivados y falla el post-check si queda un P0.
+> - Agenda manual, salud mental, esquema **2**, contrato de captura **V4**,
+>   Spreadsheet, proyecto, URL y QR se conservan. Batería: **29 suites, 0 fallos**.
+
+
 > **Actualización 2026-09-23 (v0.10.7):**
 > - **INCORPORACIÓN DE INGRESOS CLARA PARA EL OPERADOR (DEC-071)**:
 >   el panel de `Sidebar.html` pasa a "Incorporación de ingresos" con

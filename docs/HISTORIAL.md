@@ -7,6 +7,30 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.11.0 — FIABILIDAD, RENDIMIENTO Y RECONCILIACIÓN (deployment @228)
+
+- `ESTADO_INGRESO = INGRESADO` manual activa un trigger instalable e idempotente
+  que procesa una sola fila por el pipeline canónico. La etiqueta solo queda
+  `INGRESADO` con evidencia de paciente, evento `INGRESO` y `FUENTE` hoja/fila.
+- Diagnóstico y reconciliación histórica distinguen `OK_REAL`,
+  `INGRESADO_FALSO`, `DERIVADO_DESACTUALIZADO` e `INCONSISTENTE`; no inventan
+  eventos, fechas, patologías ni sectores.
+- La captura busca `captureId` con `TextFinder` sobre `RESPONSE_ID`, busca marcas
+  por `FUENTE`, usa el `ID_EVENTO` retornado y reemplaza `appendRow` por
+  `setValues`. La ficha usa lookup puntual de paciente.
+- Índices efímeros por ID/RUT, invalidación selectiva, `Log_perf` sin PII y
+  `Sistema_estadoSalud_`. El log reutiliza el lock ya adquirido y conserva el
+  recorte por `deleteRows`.
+- Instalar/Reparar verifica un único backup previo, instala el trigger, ejecuta
+  reconciliación y repite diagnóstico en el post-check.
+- Control/Seguimiento recuerda la vista por pestaña, mantiene 0 RPC al alternar,
+  expone `aria-pressed` y prioriza la acción activa.
+- `ECICEP.VERSION = 0.11.0`; esquema **2**; captura **V4**; URL y QR intactos.
+  Publicado con build `ca94c64` en el deployment operativo **@228**. Smoke
+  anónimo: HTTP 200 y sellos `0.11.0`/`ca94c64` presentes.
+- Verificación: **29 suites, 0 fallos**, incluyendo arquitectura, ingreso manual,
+  integridad/observabilidad, rendimiento estructural y HTML 22/22.
+
 ## v0.10.7-fix2 — RUT CON DÍGITO VERIFICADOR K EN CELULARES (QR) (deploy reutilizado, URL y QR intactos)
 
 El formulario de captura abierto desde el **código QR** en un celular no permitía

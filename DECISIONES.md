@@ -1566,3 +1566,33 @@ total **25 suites · 0 fallos** (verifier
 2026-09-23; `validar_html` 22/22). Informe
 `docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
 **Fecha:** 2026-09-23
+
+## DEC-072
+
+**v0.11.0 — `INGRESADO` es un resultado canónico y la captura interactiva usa búsquedas puntuales.**
+
+**Motivo:** una edición manual podía dejar `INGRESADO` sin crear paciente ni
+evento, y dos rutas críticas de captura barrían tablas completas. Ambas
+conductas producían estados falsos y latencia creciente.
+
+**Reglas:**
+1. Editar una única celda `ESTADO_INGRESO` a `INGRESADO` en `INGRESO_*` ejecuta
+   `ECICEP_onEditIngreso`; el trigger llama al pipeline único bajo lock.
+2. `INGRESADO` exige evidencia `PACIENTES + EVENTO INGRESO + FUENTE hoja/fila`.
+   Un resultado fallido conserva su estado real. La doble edición es idempotente.
+3. Diagnóstico y reparación distinguen evidencia canónica de vistas derivadas;
+   solo regeneran derivados o reprocesan una fuente existente.
+4. Las operaciones interactivas de una entidad usan lookup puntual. Los lotes,
+   REM y dashboard pueden seguir usando lecturas por bloques.
+5. Instalar/Reparar asegura un único backup previo, instala exactamente un
+   trigger propio, reconcilia derivados y repite el diagnóstico. No elimina
+   triggers ajenos ni hojas adicionales.
+6. `PROXIMO_CONTROL` continúa siendo agenda manual; no existe
+   `PROXIMO_SEGUIMIENTO`. Salud mental, estratificación clínica, contrato V4 y
+   esquema 2 conservan su semántica.
+
+**Validación:** `node tools/verificar.mjs` → **29 suites, 0 fallos**; smoke
+anónimo `/exec` HTTP 200 con `0.11.0` y build `ca94c64`. Publicado en el mismo
+deployment operativo, versión **@228**.
+
+**Fecha:** 2026-09-23
