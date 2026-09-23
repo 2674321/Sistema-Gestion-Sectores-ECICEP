@@ -21,6 +21,10 @@
 >   `{resumen, resultados}` con contadores de agrupación derivados de
 >   `resultados`. El cliente confirma, pinta el resumen estructurado y
 >   refresca. Paginación retrocede automáticamente si la página quedó vacía.
+> - **Entrada en el menú ECICEP de Sheets**: `onOpen()` agrega **"Incorporar
+>   ingresos"** (`UI_abrirIngresos`), que abre la sidebar directamente en el
+>   modo `ingresos` (el panel de incorporación se auto-carga); el orquestador
+>   legacy "📥 Procesar ingresos" queda solo como función interna.
 > - Se conservan acceso/seguridad/roles/tokens (cero cambios), **schema 2**
 >   sin migración, deployment operativo reutilizado (misma URL/QR).
 >   `ECICEP.VERSION` → `0.10.7`.

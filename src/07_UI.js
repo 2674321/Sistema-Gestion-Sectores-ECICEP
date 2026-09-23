@@ -17,6 +17,7 @@ function onOpen() {
       .addItem('Controles', 'UI_abrirControles')
       .addItem('Estadísticas', 'UI_abrirDashboard')
       .addItem('Captura', 'UI_abrirFormularioCaptura')
+      .addItem('Incorporar ingresos', 'UI_abrirIngresos')
       .addToUi();
 
     ui.createMenu('Desarrollo / Administración')
@@ -381,6 +382,10 @@ function UI_panelControl() { _ui_sidebar('centro', 'Funciones ECICEP'); }
 
 /** 👤 Pacientes ECICEP: buscador + ficha. */
 function UI_abrirBuscador() { _ui_sidebar('pacientes', 'Pacientes ECICEP'); }
+
+/** 📥 Incorporación de ingresos: sidebar directamente en el panel de
+ *  incorporación (individual + "Incorporar todos los válidos"). */
+function UI_abrirIngresos() { _ui_sidebar('ingresos', 'Incorporación de ingresos'); }
 
 /** 📋 Cola de Revisión: sidebar exclusivo del módulo de revisión. */
 function UI_abrirRevision() { _ui_sidebar('revision', 'Cola de Revisión'); }

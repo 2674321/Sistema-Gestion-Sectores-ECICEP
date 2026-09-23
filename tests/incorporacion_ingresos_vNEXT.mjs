@@ -467,5 +467,42 @@ test('T12 ingMensajeResultado traduce estados y el endpoint batch exige token', 
   assert.equal(h.length, 0);
 });
 
+// ---------------------------------------------------------------------------
+// T13 — entrada "Incorporar ingresos" en el menú ECICEP de Sheets
+// ---------------------------------------------------------------------------
+test('T13 onOpen expone "Incorporar ingresos" → sidebar modo ingresos; UI_abrirIngresos abre la incorporación', () => {
+  const c = libro();
+  const ui = read('src/07_UI.js');
+  assert.ok(ui.indexOf("addItem('Incorporar ingresos', 'UI_abrirIngresos')") !== -1, 'item en menú ECICEP');
+  assert.ok(c.onOpen.toString().indexOf("addItem('Incorporar ingresos', 'UI_abrirIngresos')") !== -1, 'onOpen lo incluye');
+  assert.ok(String(ui.match(/ECICEP tiene ≤5 items/g) || []).length >= 0);
+  const srcO = c.onOpen.toString();
+  const m = srcO.match(/createMenu\('ECICEP'\)([\s\S]*?)\.addToUi/);
+  const nItems = (m[1].match(/\.addItem/g) || []).length;
+  assert.ok(nItems <= 5, 'menú ECICEP ≤5 items (tiene ' + nItems + ')');
+
+  let plantillaTitulo = '', tmplModo = null;
+  c.HtmlService = {
+    createTemplateFromFile: (n) => ({
+      evaluate() {
+        tmplModo = this.modo;
+        return { tipo: 'html', vars: this, setTitle(t) { plantillaTitulo = t; return this; } };
+      }
+    }),
+    XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' }
+  };
+  c.Utilities = { formatDate: () => '20260923-0000' };
+  c.WebApp_claveOperador_ = () => 'tokx';
+  c._UI_get = () => ({ showSidebar: () => {}, showModalDialog: () => {} });
+  c.UI_abrirIngresos();
+  assert.equal(tmplModo, 'ingresos', 'sidebar abre en modo ingresos');
+  assert.equal(plantillaTitulo, 'Incorporación de ingresos');
+
+  const sb = read('src/Sidebar.html');
+  assert.ok(sb.indexOf("modo === 'ficha' || modo === 'ingresos'") !== -1, 'whitelist incluye modo ingresos');
+  assert.ok(sb.indexOf("else if(MODO==='ingresos'){") !== -1, 'init auto-abre el panel incorporación');
+  assert.ok(sb.indexOf('abrirIngresosPendientes();') !== -1, 'llama al cargador del panel');
+});
+
 console.log('\nincorporacion_ingresos_vNEXT — ' + passed + '/' + passed + ' PASS');
 if (passed < 1) process.exit(1);

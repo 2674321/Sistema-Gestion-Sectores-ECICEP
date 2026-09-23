@@ -80,6 +80,11 @@ refactor del pipeline de ingresos (se reutiliza literalmente).
   existente" y "Paciente incorporado a {sector}".
 - Tras incorporar se abre la ficha (`_ingDesdeFicha = true` después de
   `abrirFicha`, que resetea el flag) y `volver()` regresa a la lista recargada.
+- **Menú ECICEP de Sheets** (`src/07_UI.js`): entrada **"Incorporar ingresos"**
+  (`UI_abrirIngresos`) que abre la sidebar directamente en el panel de
+  incorporación (modo `ingresos` auto-cargado); menú ECICEP pasa de 4 a **5
+  items** (límite testado ≤5). El orquestador legacy "📥 Procesar ingresos"
+  sigue existiendo solo como función interna de batch completo.
 
 ## 4. Tests
 

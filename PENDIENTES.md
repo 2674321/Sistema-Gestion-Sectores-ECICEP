@@ -9,7 +9,9 @@
 > RPC (`api_ingresosIncorporarValidos`) reutilizando
 > `Ingresos_procesarTodasLasHojas_` (`soloHojas` + alias INGRESO_NARANJA). El
 > flujo individual conserva idempotencia (doble clic no duplica; ficha abre y
-> volver regresa a la lista recargada). Schema **2**, accesos intactos,
+> volver regresa a la lista recargada). El menú **ECICEP** de Sheets incluye la
+> entrada **"Incorporar ingresos"** (`UI_abrirIngresos` → sidebar modo
+> `ingresos`). Schema **2**, accesos intactos,
 > deployment operativo reutilizado. Batería **25 suites · 0 fallos**. Detalle:
 > `docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
 

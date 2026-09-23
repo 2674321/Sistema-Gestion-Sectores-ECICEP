@@ -30,11 +30,17 @@
   resultados}` con contadores de agrupación derivados de `resultados`. El
   cliente confirma, pinta el resumen estructurado (Ingresados / Revisar /
   Errores / Sin cambios) y refresca.
-- **Tests**: nueva `tests/incorporacion_ingresos_vNEXT.mjs` (**12/12**: T1-T10
+- **Menú ECICEP de Sheets**: entrada **"Incorporar ingresos"**
+  (`UI_abrirIngresos` → sidebar modo `ingresos` con el panel auto-cargado):
+  la operación grupal deja de estar oculta en el menú operativo. Menú ECICEP
+  pasa de 4 a **5 items** (límite testado ≤5); el orquestador legacy
+  "📥 Procesar ingresos" permanece como función interna.
+- **Tests**: nueva `tests/incorporacion_ingresos_vNEXT.mjs` (**13/13**: T1-T10
   flujo individual, vista derivada SECTOR_*, idempotencia de doble clic, ERROR
   sin escritura + botón deshabilitado, WARNING incorporable, POSIBLE_DUPLICADO
   → revisión, paciente existente, masivo 4+1+1+ya-Ingresado, masivo por sector,
-  pendientes que desaparecen; T11-T12 textos UI y guardas de token + KPI).
+  pendientes que desaparecen; T11-T12 textos UI y guardas de token + KPI; T13
+  entrada de menú "Incorporar ingresos" abre sidebar modo `ingresos`).
   Batería total `node tools/verificar.mjs` → **25 suites · 0 fallos**
   (`validar_html` 22/22). `ECICEP.VERSION` → `0.10.7`, **schema 2**.
 - **Docs**: ARQUITECTURA.md, README.md, DECISIONES.md (DEC-071),

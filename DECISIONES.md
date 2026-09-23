@@ -1553,11 +1553,16 @@ incorporarse con advertencias y qué no, y por qué).
 6. **No se toca** acceso/seguridad/roles/tokens/migraciones/schema (**2**) ni
    se crea arquitectura paralela: el pipeline es literalmente el mismo
    (`Ingresos_procesarTodasLasHojas_`), solo se añaden entradas claras y KPI
-   aguas arriba. Deployment: mismo deployment operativo (URL/QR intactos).
+   aguas arriba. Para que la operación grupal quede visible, el menú
+   **ECICEP** de Sheets incluye la entrada **"Incorporar ingresos"**
+   (`UI_abrirIngresos` → sidebar modo `ingresos` que auto-carga el panel); el
+   orquestador legacy "📥 Procesar ingresos" permanece solo como función
+   interna. Deployment: mismo deployment operativo (URL/QR intactos).
 
-**Tests:** nueva `tests/incorporacion_ingresos_vNEXT.mjs` (**12/12**: T1-T10
+**Tests:** nueva `tests/incorporacion_ingresos_vNEXT.mjs` (**13/13**: T1-T10
 flujo/masivo/vista derivada/idempotencia/exclusiones; T11-T12 textos UI y
-guardas de token + KPI). Batería total **25 suites · 0 fallos** (verifier
+guardas de token + KPI; T13 entrada de menú "Incorporar ingresos"). Batería
+total **25 suites · 0 fallos** (verifier
 2026-09-23; `validar_html` 22/22). Informe
 `docs/INFORME_2026-09-23_INCORPORACION_INGRESOS_V0107.md`.
 **Fecha:** 2026-09-23
