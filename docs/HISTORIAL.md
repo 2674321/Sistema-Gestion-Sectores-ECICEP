@@ -7,6 +7,36 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.6 — CONTROLES Y SEGUIMIENTOS POR PERSONA + REM SIN LOADER FALSO (deploy reutilizado, URL y QR intactos)
+
+- **Controles por persona → Controles y seguimientos por persona**: selector
+  `[Control] [Seguimiento]` que alterna la presentación **100 % en cliente**
+  (0 RPC extra, sin tocar sector/estados/búsqueda/paginación/selección). La
+  vista CONTROL muestra "Últ. control"; la vista SEGUIMIENTO muestra
+  "Últ. seguimiento"; ambas usan `proximo` como **Próxima atención**
+  compartida (no se crea `PROXIMO_SEGUIMIENTO`). Default `CONTROL`. El detalle
+  conserva ambos últimos registros y ordena primero el tipo activo
+  (Recordatorio sin formateo de fecha). Tras registrar, la vista elegida no se
+  resetea. Backend sin cambios (`api_controlPanel`,
+  `Control_consultarControles`, `Control_filasPanel` intactos).
+- **REM — vista de trabajo**: al abrir queda en estado neutro ("Selecciona los
+  filtros y pulsa Consultar") **sin animación ni "Calculando el informe…"**; el
+  loader real solo aparece dentro de `consultar(btn)`, antes de ejecutar
+  `api_remVista`. No auto-consulta en `init()`; `REM_ULTIMA` se conserva.
+  `api_remVista`/`_rem9_datos`/`Rem9_armarVistaDatos`/`REM_exportarPdf_`
+  intactos.
+- **Tests**: nueva `tests/controles_seguimientos_rem_v0106.mjs` (**9/9**:
+  T1 backend entrega ambos últimos registros + `proximo` + `estado`; T2 selector
+  y default; T3/T5 cambio de tipo sin RPC y sin tocar filtros; T4 vista según
+  tipo con columna Próxima atención compartida; T6 registrar no resetea vista;
+  T7-T9 REM sin loader inicial, loader solo en consultar, sin auto-consulta).
+  Batería total `node tools/verificar.mjs` → **24 suites · 0 fallos**
+  (`validar_html` 22/22). `ECICEP.VERSION` → `0.10.6`, **schema 2**.
+- **Docs**: ARQUITECTURA.md, README.md, PENDIENTES.md, DECISIONES.md (DEC-070),
+  `docs/INFORME_2026-09-22_CONTROLES_SEGUIMIENTOS_REM_V0106.md`.
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado (misma URL `/exec` y QR, sin deployments por rutina).
+
 ## v0.10.5 — FIABILIDAD OPERATIVA + LECTURAS ACOTADAS (deploy reutilizado, URL y QR intactos)
 
 - **Batería nueva** `tests/operador_resiliencia_vNEXT.mjs` (**32/32**): estado

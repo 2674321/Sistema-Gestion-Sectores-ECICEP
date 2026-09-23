@@ -1,5 +1,16 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-22 (v0.10.6):** "Controles por persona" → **Controles
+> y seguimientos por persona**: selector `[Control] [Seguimiento]` que alterna
+> la presentación 100 % en cliente (0 RPC; conserva sector/estados/búsqueda/
+> paginación/selección; Próxima atención compartida; sin `PROXIMO_SEGUIMIENTO`).
+> REM vista de trabajo abre en estado neutro sin loader falso; el loader real
+> aparece solo en Consultar (antes de `api_remVista`); sin auto-consulta.
+> Backend sin cambios para ambas mejoras. Acceso/seguridad/roles/schema **2**
+> intactos; deployment operativo reutilizado (misma URL/QR). Batería **24
+> suites · 0 fallos**. Detalle:
+> `docs/INFORME_2026-09-22_CONTROLES_SEGUIMIENTOS_REM_V0106.md`.
+
 > **Actualización 2026-09-22 (v0.10.5):** pasada de **fiabilidad operativa +
 > lecturas acotadas** (DEC-069): estado de envío por las 4 acciones con una
 > sola RPC, preflight de `NUEVO_INGRESO`, timeout de entrega que desbloquea,

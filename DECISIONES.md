@@ -1463,3 +1463,47 @@ App siempre acota a filas concretas.
 núcleo 671/671). Informe
 `docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
 **Fecha:** 2026-09-22
+
+## DEC-070
+**Título:** CONTROLES Y SEGUIMIENTOS POR PERSONA + REM SIN LOADER FALSO: alternar vista en cliente, sin RPC ni backend nuevos (v0.10.6)
+**Estado:** Aprobada / vigente (v0.10.6) — aditiva, UI-only
+**Motivo:** el panel ya recibía `ultimoControl` Y `ultimoSeguimiento` en cada
+fila, pero la interfaz solo mostraba "control" (columnas/títulos/detalle) y
+presentaba toda la agenda como "control". Aparte, la vista de trabajo REM
+mostraba una animación "Calculando el informe…" al abrir sin que existiera
+ninguna RPC. Ambas mejoras se resuelven 100 % en cliente.
+
+**Reglas:**
+1. **Selector CONTROL/SEGUIMIENTO sin RPC**: el cambio de vista es solo
+   presentación sobre las filas ya cargadas. `setTipoVista()` re-pinta
+   (`pintar(false)`) y NO invoca `consultar`, `api_controlPanel` ni
+   `ECICEP_lectura`; conserva sector, estados, búsqueda, paginación y persona
+   seleccionada. Default `CONTROL` (comportamiento previo preservado).
+2. **Columnas y textos neutros**: vista CONTROL muestra "Últ. control"
+   (`ultimoControl`); vista SEGUIMIENTO muestra "Últ. seguimiento"
+   (`ultimoSeguimiento`); ambas usan `proximo` como **Próxima atención**
+   compartida. NO se crea `PROXIMO_SEGUIMIENTO` ni columnas equivalentes; el
+   filtro de vigencia (VENCIDO/POR_VENCER/SIN_FECHA/VIGENTE) sigue calculándose
+   sobre la agenda manual `PROXIMO_CONTROL`. Textos de apoyo hablan de
+   "atenciones", no de "controles".
+3. **Detalle sin pérdida**: el panel derecho conserva AMBOS últimos registros,
+   ordenando primero el del tipo activo; "Recordatorio" se muestra sin
+   formateo de fecha. Ambos botones de registro subsisten. Tras registrar y
+   reconsultar (`consultar(true)`), la vista elegida se conserva
+   (última lectura de `CTRL.tipo`; nada lo resetea).
+4. **Backend intacto**: `api_controlPanel`, `Control_consultarControles`,
+   `Control_filasPanel` sin cambios (una lectura, cero RPC al alternar).
+5. **REM — sin loader falso**: `init()` NO auto-consulta; el HTML inicial de
+   `#wrap` es neutro (sin `class="prog"` ni "Calculando el informe…"). El
+   loader real vive solo en `consultar(btn)`, inmediatamente antes de ejecutar
+   `api_remVista`. `REM_ULTIMA` (año/mes/sector/MODO/actividad) se conserva.
+   `api_remVista`/`_rem9_datos`/`Rem9_armarVistaDatos`/`REM_exportarPdf_`
+   intactos.
+6. **No se toca** acceso/seguridad/roles/tokens/migraciones/schema (**2**) ni
+   deployment (mismo deployment operativo; URL/QR intactos).
+
+**Tests:** nueva `tests/controles_seguimientos_rem_v0106.mjs` (**9/9**: T1-T6
+controles/seguimientos; T7-T9 REM). Batería total **24 suites · 0 fallos**
+(verifier 2026-09-22; `validar_html` 22/22). Informe
+`docs/INFORME_2026-09-22_CONTROLES_SEGUIMIENTOS_REM_V0106.md`.
+**Fecha:** 2026-09-22

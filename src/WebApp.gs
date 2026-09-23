@@ -25,6 +25,7 @@
 
 // ---------------------------------------------------------------------------
 // CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP
+//   v0.10.6 (DEC-070): Controles y seguimientos por persona (selector 100% cliente) + REM sin loader falso;
 //   v0.10.5 (DEC-069 supera DEC-068/DEC-067): fiabilidad operativa + lecturas acotadas;
 //   v0.10.4 (DEC-068 supera DEC-067): una sola credencial habilita TODAS las
 //   funciones operativas del sistema (captura, actualizar ficha, Controles,

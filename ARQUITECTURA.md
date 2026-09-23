@@ -1,5 +1,31 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-22 (v0.10.6):**
+> - **CONTROLES Y SEGUIMIENTOS POR PERSONA (DEC-070)**: el panel
+>   `Controles.html` pasa a "Controles y seguimientos por persona" con un
+>   selector `[Control] [Seguimiento]` que alterna la presentación **100 % en
+>   cliente** — 0 RPC extra, sin tocar sector/estados/búsqueda/paginación/
+>   selección. Vista CONTROL → "Últ. control" (`ultimoControl`); vista
+>   SEGUIMIENTO → "Últ. seguimiento" (`ultimoSeguimiento`); ambas usan
+>   `proximo` como **Próxima atención** compartida (no se crea
+>   `PROXIMO_SEGUIMIENTO`). Default `CONTROL`. Detalle con ambos últimos
+>   registros y orden del tipo activo; tras registrar, la vista elegida no se
+>   resetea. **Backend sin cambios**: `api_controlPanel`,
+>   `Control_consultarControles`, `Control_filasPanel` intactos (los datos ya
+>   venían `ultimoControl`/`ultimoSeguimiento`/`proximo`/`estado`).
+> - **REM — sin loader falso**: la vista de trabajo abre en estado neutro
+>   ("Selecciona los filtros y pulsa Consultar"), sin animación ni
+>   "Calculando el informe…"; el loader real aparece solo en `consultar(btn)`
+>   antes de `api_remVista`; sin auto-consulta en `init()`. `REM_ULTIMA` se
+>   conserva. `api_remVista`/`_rem9_datos`/`Rem9_armarVistaDatos`/
+>   `REM_exportarPdf_` intactos.
+> - Se conservan acceso/seguridad/roles/tokens (cero cambios), **schema 2**
+>   sin migración, deployment operativo reutilizado (misma URL/QR).
+>   `ECICEP.VERSION` → `0.10.6`.
+> - Batería: **24 suites · 0 fallos** (`validar_html` 22/22, controles/
+>   seguimientos/REM v0.10.6 9/9). Informe
+>   `docs/INFORME_2026-09-22_CONTROLES_SEGUIMIENTOS_REM_V0106.md`.
+
 > **Actualización 2026-09-22 (v0.10.5):**
 > - **FIABILIDAD OPERATIVA (DEC-069)**: estado de envío por las 4 acciones
 >   (NUEVO_INGRESO/ACTUALIZAR_DATOS/SEGUIMIENTO/CAMBIO_SECTOR) con UNA RPC y

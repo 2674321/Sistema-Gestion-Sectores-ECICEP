@@ -23,6 +23,13 @@ header .sub{font-size:12px;color:var(--text-muted)}
 .chip-btn:hover{border-color:var(--primary);color:var(--primary)}
 .chip-btn.act{background:var(--primary);border-color:var(--primary);color:#fff}
 
+.seg-tipo{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border);
+  border-radius:var(--radius-full);background:var(--surface-alt);flex-shrink:0}
+.tipo-btn{border:0;background:transparent;color:var(--text-secondary);
+  border-radius:var(--radius-full);padding:6px 12px;min-height:30px;font:600 11.5px 'Inter';
+  cursor:pointer}
+.tipo-btn.act{background:var(--surface);color:var(--primary);box-shadow:var(--shadow-sm)}
+
 .vista{flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md);
   background:var(--surface);min-height:0}
 table{width:100%;border-collapse:collapse;font-size:12px}
@@ -67,8 +74,8 @@ td.est{white-space:nowrap}
 <div id="toastZone"></div>
 
 <header>
-  <h1>🩺 Controles por persona</h1>
-  <span class="sub">Pendientes automáticos · búsqueda bajo demanda</span>
+  <h1 id="tituloPanel">🩺 Controles y seguimientos por persona</h1>
+  <span class="sub">Agenda y actividad por persona · búsqueda bajo demanda</span>
   <div style="flex:1"></div>
   <button class="btn btn-ghost" onclick="cerrarVista()"><i data-lucide="x"></i> Cerrar</button>
 </header>
@@ -76,6 +83,10 @@ td.est{white-space:nowrap}
 <div class="layout">
   <div class="col">
     <div class="barra">
+      <div class="seg-tipo" role="group" aria-label="Tipo de atención">
+        <button type="button" id="tipoControl" class="tipo-btn act" data-tipo="CONTROL" onclick="setTipoVista('CONTROL', this)">Control</button>
+        <button type="button" id="tipoSeguimiento" class="tipo-btn" data-tipo="SEGUIMIENTO" onclick="setTipoVista('SEGUIMIENTO', this)">Seguimiento</button>
+      </div>
       <label class="etq" for="fSec" style="margin:0">Sector</label>
       <select id="fSec" class="inp">
         <option value="">Todos</option>
@@ -111,7 +122,7 @@ td.est{white-space:nowrap}
     <div id="detalle" class="detalle">
       <div class="placeholder" id="phVacio" style="display:block">
         Selecciona una persona de la lista para ver su estado y acciones.<br>
-        El panel izquierdo muestra automáticamente los controles pendientes.
+        El panel izquierdo muestra automáticamente las atenciones pendientes.
       </div>
       <div id="detContenido"></div>
     </div>
@@ -123,7 +134,7 @@ td.est{white-space:nowrap}
 /* ================= estado de la consulta ================= */
 var ECICEP_ACCESO = (typeof document != 'undefined' && document.body) ? (document.body.getAttribute('data-acceso') || '') : '';
 var CTRL = { sector: '', termino: '', estados: ['VENCIDO', 'POR_VENCER', 'SIN_FECHA'],
-             todos: false, inicio: 0, limite: 30, total: 0, filas: [], sel: '' };
+             todos: false, inicio: 0, limite: 30, total: 0, filas: [], sel: '', tipo: 'CONTROL' };
 var _cargando = false;
 var _consultaPendiente = false;
 var _registrando = false;
@@ -132,6 +143,26 @@ function _estadoChip(est) {
   var color = { VENCIDO: 'var(--danger)', POR_VENCER: 'var(--warning)', VIGENTE: 'var(--success)', SIN_FECHA: 'var(--text-muted)' }[est] || 'var(--text-muted)';
   var etq = { VENCIDO: 'Vencido', POR_VENCER: 'Próximo', VIGENTE: 'Vigente', SIN_FECHA: 'Sin agenda' }[est] || est;
   return '<span class="chip" style="color:' + color + ';border:1px solid ' + color + '">' + etq + '</span>';
+}
+
+/* Selector CONTROL/SEGUIMIENTO: SOLO vista en cliente sobre las filas ya
+   cargadas. Nunca dispara una RPC ni modifica filtros/búsqueda/paginación. */
+function ultimoSegunVista(fila) {
+  if (!fila) return '';
+  return CTRL.tipo === 'SEGUIMIENTO' ? fila.ultimoSeguimiento : fila.ultimoControl;
+}
+function etiquetaUltimo() {
+  return CTRL.tipo === 'SEGUIMIENTO' ? 'Últ. seguimiento' : 'Últ. control';
+}
+function setTipoVista(tipo, btn) {
+  tipo = String(tipo || '').toUpperCase();
+  if (tipo !== 'CONTROL' && tipo !== 'SEGUIMIENTO') return;
+  CTRL.tipo = tipo;
+  var botones = document.querySelectorAll('.tipo-btn');
+  for (var i = 0; i < botones.length; i++) {
+    botones[i].classList.toggle('act', botones[i] === btn);
+  }
+  pintar(false);
 }
 
 /* Chips de estado: controlan el filtro enviado al servidor. */
@@ -220,19 +251,21 @@ function pintar(reset) {
     limpiarDetalle();
     return;
   }
+  var etiquetaUlt = etiquetaUltimo();
   var rows = filas.map(function (f) {
     var sel = f.idInterno === CTRL.sel ? ' sel' : '';
+    var ultimo = ultimoSegunVista(f);
     return '<tr class="' + sel + '" data-id="' + _esc(f.idInterno) + '">' +
       '<td class="est">' + _estadoChip(f.estado) + '</td>' +
       '<td class="persona"><b>' + _esc(f.nombre) + '</b>' +
         '<small>' + _esc(f.rut || 'sin RUT') + ' · ' + _esc(f.sector || '—') + '</small></td>' +
       '<td>' + _esc(f.estrat || '—') + '</td>' +
-      '<td class="num">' + (_fmtFecha(f.ultimoControl) || '—') + '</td>' +
+      '<td class="num">' + (_fmtFecha(ultimo) || '—') + '</td>' +
       '<td class="num">' + (_fmtFecha(f.proximo) || '—') + '</td>' +
       '</tr>';
   }).join('');
   cont.innerHTML = '<table><thead><tr><th>Estado</th><th>Persona</th><th>Estrat.</th>' +
-    '<th>Últ. control</th><th>Próx. control</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    '<th>' + etiquetaUlt + '</th><th>Próxima atención</th></tr></thead><tbody>' + rows + '</tbody></table>';
   _refrescarIconos();
   pistaConsulta();
   if (CTRL.total > filas.length) {
@@ -272,10 +305,10 @@ function pistaConsulta() {
       'Mostrando todas las personas del universo disponible.';
   } else if (CTRL.estados.length === 3) {
     document.getElementById('pista').textContent =
-      'Lista automática de personas con controles vencidos, próximos o sin próxima atención agendada.';
+      'Lista automática de personas con atención vencida, próxima o sin próxima atención agendada.';
   } else if (CTRL.estados.length === 1) {
-    var etq = { VENCIDO: 'controles vencidos', POR_VENCER: 'controles próximos a vencer',
-                SIN_FECHA: 'personas sin próxima atención agendada', VIGENTE: 'controles vigentes' }[CTRL.estados[0]] || '';
+    var etq = { VENCIDO: 'atenciones vencidas', POR_VENCER: 'atenciones próximas a vencer',
+                SIN_FECHA: 'personas sin próxima atención agendada', VIGENTE: 'atenciones vigentes' }[CTRL.estados[0]] || '';
     document.getElementById('pista').textContent = 'Filtrando por ' + etq + '.';
   }
 }
@@ -304,6 +337,19 @@ document.getElementById('contenido').addEventListener('click', function (e) {
 });
 
 function montarDetalle(f) {
+  var filasDetalle = CTRL.tipo === 'SEGUIMIENTO'
+    ? [
+        ['Último seguimiento', f.ultimoSeguimiento],
+        ['Último control', f.ultimoControl],
+        ['Próxima atención', f.proximo],
+        ['Recordatorio', f.recordatorio]
+      ]
+    : [
+        ['Último control', f.ultimoControl],
+        ['Último seguimiento', f.ultimoSeguimiento],
+        ['Próxima atención', f.proximo],
+        ['Recordatorio', f.recordatorio]
+      ];
   document.getElementById('phVacio').style.display = 'none';
   document.getElementById('detContenido').innerHTML =
     '<h3>' + _esc(f.nombre) + '</h3>' +
@@ -312,10 +358,12 @@ function montarDetalle(f) {
       _estadoChip(f.estado) + '</div>' +
     '<dl class="kv">' +
       kvRow('Edad', f.edad ? f.edad + ' año(s)' : '—') +
-      kvRow('Último control', _fmtFecha(f.ultimoControl) || '—') +
-      kvRow('Próximo control', _fmtFecha(f.proximo) || '—') +
-      kvRow('Último seguimiento', _fmtFecha(f.ultimoSeguimiento) || '—') +
-      kvRow('Recordatorio', f.recordatorio || '—') +
+      filasDetalle.map(function (kv) {
+        var v = kv[0] === 'Recordatorio'
+          ? (kv[1] || '—')
+          : (_fmtFecha(kv[1]) || '—');
+        return kvRow(kv[0], v);
+      }).join('') +
     '</dl>' +
     '<div class="acciones">' +
       '<button class="btn btn-pri" onclick="registrar(\'CONTROL\')"><i data-lucide="stethoscope"></i> Registrar control (hoy)</button>' +
