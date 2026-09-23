@@ -540,11 +540,12 @@
                 <button type="button" class="tip-ico" aria-label="Ayuda para el RUT">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
-                <span class="tip-bub" role="tooltip" id="t-rut">Formato: 12.345.678-9. Sin puntos tambi&eacute;n es v&aacute;lido (12345678-9); el d&iacute;gito verificador se valida autom&aacute;ticamente.</span>
+                <span class="tip-bub" role="tooltip" id="t-rut">Formato: 12.345.678-9. Sin puntos tambi&eacute;n es v&aacute;lido (12345678-9). El d&iacute;gito verificador puede ser un n&uacute;mero o la letra K (ej: 12.345.678-K) y se valida autom&aacute;ticamente.</span>
               </span>
             </div>
-            <input class="f-input" id="rut" placeholder="12.345.678-9" inputmode="numeric"
-                   autocomplete="off" aria-required="true" aria-describedby="rut-err t-rut">
+            <input class="f-input" id="rut" placeholder="12.345.678-9" inputmode="text"
+                   autocomplete="off" autocapitalize="characters"
+                   aria-required="true" aria-describedby="rut-err t-rut">
             <div class="f-err" id="rut-err" role="alert"></div>
           </div>
         </fieldset>

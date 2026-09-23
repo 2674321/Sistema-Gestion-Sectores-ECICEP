@@ -1,5 +1,12 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-23 (v0.10.7-fix2):** reporte de operador: desde el
+> **código QR en celular no se podía escribir el RUT terminado en K** (dígito
+> verificador). Causa: `inputmode="numeric"` en el campo RUT del formulario
+> (teclado numérico sin letras). Corregido a `inputmode="text"` +
+> `autocapitalize="characters"` y K documentada en el tooltip. Sin cambio de
+> contrato ni de versión (0.10.7); publish @227. Batería: **25 suites · 0 fallos**.
+
 > **Actualización 2026-09-23 (v0.10.7-fix):** corrección post-publicación de la
 > incorporación de ingresos (reporte del operador: "1 error paciente vacío",
 > batch sin feedback, buscador incompleto). **Lector de hojas INGRESO_* más

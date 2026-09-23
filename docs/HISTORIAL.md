@@ -7,6 +7,18 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.7-fix2 — RUT CON DÍGITO VERIFICADOR K EN CELULARES (QR) (deploy reutilizado, URL y QR intactos)
+
+El formulario de captura abierto desde el **código QR** en un celular no permitía
+escribir el dígito verificador de RUT terminado en la letra **K** (ej: `12.345.678-K`):
+el campo usaba `inputmode="numeric"`, que abre el teclado numérico del celular, sin
+letras. Se cambió a `inputmode="text"` (`autocapitalize="characters"` para sugerir la
+mayúscula) y se documentó la K en el tooltip de ayuda. La normalización
+(`rutFormatoProgresivo`) ya aceptaba `k`/`K` y el validador del contrato también;
+el problema era exclusivamente de entrada en pantalla táctil. Sin cambio de versión
+(`ECICEP.VERSION` → 0.10.7, schema 2, sin MIG); nueva versión **@227** en el
+deployment operativo reutilizado. Batería completa: **25 suites · 0 fallos**.
+
 ## v0.10.7-fix — ROBUSTEZ DE LECTURA DE INGRESOS + BUSCADOR POR RUT (deploy reutilizado, URL y QR intactos)
 
 Corrección de la incorporación de ingresos reportada tras publicar v0.10.7:
