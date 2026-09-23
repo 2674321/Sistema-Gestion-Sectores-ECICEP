@@ -1,0 +1,121 @@
+<!-- ECICEP — Runtime común de RPC operativas. Incluir DESPUÉS de 00_Tokens:
+     <?!= include('00_OperadorRuntime') ?>
+
+     Centraliza para CapturaWeb, EditorPaciente, Sidebar, Controles, Dashboard,
+     RemVista y RemGenerador:
+       - extraer código/motivo legible de una respuesta
+       - detectar acceso desactualizado (recarga única)
+       - clasificar SERVICIO_OCUPADO (reintentable)
+       - error de transporte y respuesta vacía
+       - 1 reintento automático SOLO de lecturas (§35); mutaciones jamás a ciegas
+    No sustituye los flujos de cada página: solo les da criterios comunes. -->
+<script>
+(function () {
+  if (typeof window.ECICEP_errorTexto === 'function') return;
+
+  function _sesGet(k) { try { if (window.sessionStorage) return sessionStorage.getItem(k); } catch (e) {} return null; }
+  function _sesSet(k, v) { try { if (window.sessionStorage) { sessionStorage.setItem(k, v); return true; } } catch (e) {} return false; }
+  function _sesRemove(k) { try { if (window.sessionStorage) sessionStorage.removeItem(k); } catch (e) {} }
+  function _alerta(msg) { if (typeof alert === 'function') alert(msg); }
+  function _recargar() { try { location.reload(true); } catch (e) { try { location.reload(); } catch (e2) {} } }
+
+  /* Texto legible de cualquier forma de respuesta (molde del prompt §28). */
+  function ECICEP_errorTexto(r) {
+    if (!r) return 'Sin respuesta del servidor';
+    return r.motivo || r.message || r.codigo || r.code ||
+      (r.errors && r.errors[0] && (r.errors[0].mensaje || r.errors[0].message)) ||
+      'Error desconocido';
+  }
+
+  function _claves(r) {
+    var out = [];
+    function add(v) { if (v) out.push(String(v)); }
+    if (!r) return out;
+    add(r.codigo); add(r.code); add(r.motivo); add(r.message);
+    if (r.data) { add(r.data.codigo); add(r.data.code); add(r.data.motivo); add(r.data.message); }
+    if (r.errors) r.errors.forEach(function (e) { if (e) { add(e.codigo); add(e.code); add(e.motivo); add(e.mensaje); add(e.message); } });
+    return out;
+  }
+  function _tiene(r, token) {
+    var u = token.toUpperCase();
+    return _claves(r).some(function (c) { return c.toUpperCase().indexOf(u) !== -1; });
+  }
+
+  /* ~true si la credencial/URL ya no sirve y la página debe renovarse. */
+  function ECICEP_requiereRecarga(r) {
+    return !r || _tiene(r, 'ACCESO_DENEGADO') || _tiene(r, 'ACCESO_DESACTUALIZADO') ||
+      _tiene(r, 'ENLACE DE CAPTURA NO VÁLIDO') || _tiene(r, 'ENLACE NO VÁLIDO') || _tiene(r, 'NO AUTORIZADO');
+  }
+
+  /* Clasificación SERVICIO_OCUPADO (§34): reintentable, no mezclar con acceso/validación. */
+  function ECICEP_esServicioOcupado(r) {
+    return !!r && !r.ok && _tiene(r, 'SERVICIO_OCUPADO');
+  }
+  function ECICEP_textoServicioOcupado() {
+    return 'El sistema está procesando otro registro. Intenta nuevamente.';
+  }
+
+  /* Recarga única por pestaña cuando el acceso quedó obsoleto; devuelve false
+     cuando ya se intentó (no bucear en bucle). SessionStorage bloqueada -> alerta. */
+  function ECICEP_reloadUnaVez() {
+    if (_sesGet('ecicep_reload_acceso')) { _alerta('Tu acceso no pudo renovarse automáticamente. Cierra esta pestaña y abre el enlace actualizado.'); return false; }
+    if (!_sesSet('ecicep_reload_acceso', '1')) { _alerta('Tu acceso está desactualizado. Cierra esta pestaña y reabre el enlace actualizado.'); return false; }
+    setTimeout(_recargar, 250);
+    return true;
+  }
+
+  /* Cuando una página servida por doGet espera una credencial y la respuesta
+     muestra acceso obsoleto: pide recarga y avisa al operador. Devuelve true si pidió recarga. */
+  function ECICEP_marcarReload() {
+    return ECICEP_reloadUnaVez();
+  }
+
+  /* Navegación entre vistas (§27). Devuelve true si navegó.
+     - url presente -> abre en pestaña nueva.
+     - sin url en add-in de Sheets (google.script.host) -> legacy UI_* para templates de Sheets.
+     - sin url en Web App  -> error recuperable, JAMÁS tocar UI de Sheets. */
+  function ECICEP_navegar(url, etiqueta, legacyFn) {
+    if (url) { window.open(url, '_blank'); return true; }
+    var enSheets = typeof google !== 'undefined' && google.script && google.script.host;
+    if (enSheets && typeof legacyFn === 'function') { legacyFn(); return true; }
+    var msg = 'No fue posible abrir ' + (etiqueta || 'la vista') + '. Reintenta en unos segundos.';
+    if (typeof toast === 'function') toast(msg, 'err');
+    else if (typeof alert === 'function') alert(msg);
+    return false;
+  }
+
+  /* Lectura con 1 reintento automático ante transporte transitorio (§35).
+     SOLO para RPC de lectura (inocuas por diseño); las mutaciones jamás se
+     reintentan a ciegas: repiten únicamente vía idempotencia (captureId/
+     operacionId/FUENTE) en el backend. Cada intento vuelve a fijar success/
+     failure inmediatamente antes de invocar, sin contaminar otras llamadas. */
+  function ECICEP_esLecturaAuto(nombre) {
+    return ['api_buscar', 'api_ficha', 'api_controlPanel', 'api_dashboardDatos',
+      'api_remVista', 'api_ingresosPendientes', 'api_ingresoDetalle'].indexOf(nombre) !== -1;
+  }
+  function ECICEP_lectura(nombre, args, ok, fail) {
+    var intentos = 0;
+    function intentar() {
+      intentos++;
+      var g = google.script.run
+        .withSuccessHandler(function (r) { if (ok) ok(r); })
+        .withFailureHandler(function (e) {
+          if (intentos < 2 && ECICEP_esLecturaAuto(nombre)) intentar();
+          else if (fail) fail(e);
+        });
+      g[nombre].apply(g, args || []);
+    }
+    intentar();
+  }
+
+  window.ECICEP_errorTexto = ECICEP_errorTexto;
+  window.ECICEP_requiereRecarga = ECICEP_requiereRecarga;
+  window.ECICEP_esServicioOcupado = ECICEP_esServicioOcupado;
+  window.ECICEP_textoServicioOcupado = ECICEP_textoServicioOcupado;
+  window.ECICEP_reloadUnaVez = ECICEP_reloadUnaVez;
+  window.ECICEP_marcarReload = ECICEP_marcarReload;
+  window.ECICEP_navegar = ECICEP_navegar;
+  window.ECICEP_esLecturaAuto = ECICEP_esLecturaAuto;
+  window.ECICEP_lectura = ECICEP_lectura;
+})();
+</script>

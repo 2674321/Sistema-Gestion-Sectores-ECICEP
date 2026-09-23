@@ -392,16 +392,32 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
  *  DEDUPE de auditoría (B9): un mismo origen físico (ARCHIVO|HOJA|FILA) se
  *  archiva una sola vez en STAGING_IMPORT; repetir la instalación sobre los
  *  mismos datos NO hace crecer la trazabilidad sin límite. */
+/** GAS: ¿existe una FUENTE exacta en STAGING_IMPORT? (v0.10.5 §18) Lookup
+ *  puntual por TextFinder sobre la columna FUENTE — sin releer el progreso
+ *  completo. Devuelve true solo con coincidencia EXACTA de celda. */
+function Fuentes_fuenteExiste_(hoja, colFuente, clave) {
+  if (!clave) return false;
+  var ultima = hoja.getLastRow();
+  if (ultima < 1) return false;
+  return !!hoja.getRange(1, colFuente, ultima, 1)
+    .createTextFinder(clave)
+    .matchEntireCell(true)
+    .findNext();
+}
+
 function Fuentes_guardarFilas(filas) {
   try {
     if (typeof SpreadsheetApp === 'undefined' || !filas || !filas.length) return 0;
     var ss = Modelo_ss();
     var hoja = ss.getSheetByName(HOJAS.STAGING_IMPORT);
     if (!hoja) return 0;
-    var ultima = hoja.getLastRow() || 0;
+    var colFuente = 12; // FUENTE = posición 11 (0-based) → columna 12
+    var porIndice = filas.length <= 5;
+    // §18: lotes pequeños (rutas interactivas: una captura) → lookup puntual por
+    // TextFinder por clave; lotes grandes (import masivo) → índice masivo actual.
     var existentes = {};
-    if (ultima > 0) {
-      var colFuente = 12; // FUENTE = posición 11 (0-based) → columna 12
+    var ultima = hoja.getLastRow() || 0;
+    if (!porIndice && ultima > 0) {
       var vals = hoja.getRange(1, colFuente, ultima, 1).getValues();
       for (var k = 0; k < vals.length; k++) {
         var v = Utl_texto(vals[k][0]);
@@ -412,8 +428,13 @@ function Fuentes_guardarFilas(filas) {
     for (var i = 0; i < filas.length; i++) {
       var f = filas[i];
       var clave = Fuentes_fuenteOrigen(f);
-      if (existentes[clave]) continue;
-      existentes[clave] = true;
+      if (porIndice) {
+        if (Fuentes_fuenteExiste_(hoja, colFuente, clave)) continue;
+        existentes[clave] = true;
+      } else {
+        if (existentes[clave]) continue;
+        existentes[clave] = true;
+      }
       aGuardar.push(f);
     }
     if (!aGuardar.length) return 0;

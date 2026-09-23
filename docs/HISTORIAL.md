@@ -7,6 +7,47 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.5 — FIABILIDAD OPERATIVA + LECTURAS ACOTADAS (deploy reutilizado, URL y QR intactos)
+
+- **Batería nueva** `tests/operador_resiliencia_vNEXT.mjs` (**32/32**): estado
+  de envío por las 4 acciones (una sola RPC, fase correcta), desbloqueo por
+  timeout, guard de secuencia (el callback de una solicitud vieja nunca toca la
+  nueva), modal de duplicados (pausa el timeout humano y conserva el envío
+  activo), descarte sin RPC, continuar/registrar-como-nuevo (conserva payload;
+  `confirmarNuevoPaciente` solo cuando el operador lo confirma), recuperación de
+  acceso (una sola recarga, anti-bucle, captureId conservado en sessionStorage y
+  restaurado/consumido una vez), bootstrap (catálogo vacío reintenta y bloquea
+  sin habilitar jamás el envío; errores temporales reintentan; botón Reintentar
+  recupera), contrato RPC de dataset vacío ≠ fallo (`api_buscar`,
+  `api_revisionListar`, `api_ficha` nunca nula, dashboard, remVista
+  `PERIODO_INVALIDO`, accesos rechazados `ok:false`), idempotencia del operador
+  (`CONFLICTO_IDEMPOTENCIA` §13B, retry convergente, seguimiento idempotente),
+  lock `SERVICIO_OCUPADO` sin ejecutar la mutación (acceso/ficha), ficha
+  todo-o-nada con advertencia `VISTA_SECTOR_PENDIENTE` y retry convergente
+  `FICHA_CAMBIO`.
+- **Batería nueva** `tests/captura_rendimiento_acotado_vNEXT.mjs` (**9/9**):
+  la captura y la pre-ficha del sidebar nunca escanean una hoja `INGRESO_*`
+  completa (fixture de 10.000 filas, objetivo fila 9.876): `Ingresos_leerFilasAcotadas_`
+  lee solo la fila de encabezados + las filas físicas permitidas (getRange de
+  UNA fila cada una), nunca `getDataRange` ni `getRange(1,1,getLastRow(),...)`;
+  umbral de 50 filas en el lector (con 51+ delega en `Modelo_leerBloqueCabecera`);
+  `api_ingresoDetalle` = una única lectura acotada.
+- **Backend/frontend** ya incorporados en esta versión (estado de envío por
+  acción, preflight `NUEVO_INGRESO`, timeout de entrega, captura de duplicados
+  con intención explícita, guards de secuencia y anti-bucle de recarga, catálogo
+  bloqueante `CATALOGO_PROFESIONALES_NO_DISPONIBLE`, esquema de catálogo en
+  `100_Entorno.js`, `WebApp_estadoInicial` con contrato v0.10.5, lectura acotada
+  de `INGRESO_*`, endpoint uniforme de RPC con dataset vacío ≠ fallo).
+- **Se conservan** hardening de DEC-067/DEC-068: superficie RPC mínima, guards
+  por RPC, mutaciones atómicas/idempotentes, `CONFIG_SECRETOS`; schema **2** sin
+  migración; mismo deployment @221; URL/QR intactos (sin deployments por rutina).
+- **Tests**: batería total `node tools/verificar.mjs` → **23 suites · 0 fallos**
+  (`validar_html` 22/22). `ECICEP.VERSION` → `0.10.5`, **schema 2**.
+- **Docs**: ARQUITECTURA.md, README.md, PENDIENTES.md, DECISIONES.md (DEC-069),
+  `docs/CONTRATO_CAPTURA_V2.md`, `docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
+- **Publicado**: `clasp push --force` + actualización del deployment operativo
+  reutilizado @221 (misma URL `/exec` y QR).
+
 ## v0.10.4 — ACCESO UNIVERSAL ECICEP (hotfix, deploy reutilizado, URL y QR intactos)
 
 - **Incidente resuelto**: «El procesamiento del envío falló; reintentable

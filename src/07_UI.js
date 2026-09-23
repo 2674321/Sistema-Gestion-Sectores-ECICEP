@@ -865,51 +865,51 @@ function api_controlPanel(opts, token) {
   }
 }
 
+/** LOCK-INTERNO (v0.10.5 §19/§20): registra CONTROL/SEGUIMIENTO desde Panel con
+ *  idempotencia por operacionId. El FUENTE transporta UI_PANEL_CONTROL|<opId>;
+ *  un reintento con el MISMO opId encuentra el evento ya creado y reusa. La
+ *  agenda (PRÓXIMO_CONTROL) sigue siendo manual: nunca se toca aquí. */
+function Control_registrarDesdePanel_(idInterno, tipo, fechaIso, operacionId) {
+  var fuente = 'UI_PANEL_CONTROL' + (operacionId ? '|' + operacionId : '');
+  var objetivo = Modelo_buscarPaciente(idInterno);
+  var proximo = (objetivo && objetivo.obj) ? (objetivo.obj.PROXIMO_CONTROL || '') : '';
+  var previo = Eventos_buscarPorFuente_(fuente);
+  if (previo && previo.idEvento) {
+    return { ok: true, reusado: true, proximo: proximo, evento: { id: previo.idEvento, tipo: tipo, fecha: fechaIso } };
+  }
+  var r = Eventos_registrarPaciente_({
+    idInterno: idInterno,
+    tipoEvento: tipo,
+    fecha: fechaIso,
+    profesional: '',
+    descripcion: tipo === 'CONTROL' ? 'Control registrado desde Panel' : 'Seguimiento registrado desde Panel',
+    observaciones: '',
+    fuente: fuente
+  }, { fuenteTransporte: 'api_controlActualizarUltimo' });
+  if (r && r.ok === false) return r;
+  return {
+    ok: true,
+    reusado: false,
+    proximo: proximo,
+    evento: (r && r.evento) ? r.evento : { tipo: tipo, fecha: fechaIso }
+  };
+}
+
 /** Endpoint: actualiza ÚLTIMO CONTROL / ÚLTIMO SEGUIMIENTO de una persona y
  *  conserva PRÓXIMO_CONTROL: la agenda se edita manualmente.
- *  Además, crea el EVENTO correspondiente (fuente de verdad única). */
-function api_controlActualizarUltimo(idInterno, tipo, fechaIso, token) {
+ *  Además, crea el EVENTO correspondiente (fuente de verdad única).
+ *  Serializado (Ecicep_conLock_) e idempotente por operacionId (v0.10.5 §19/§20):
+ *  tras guardar, un fallo de vista derivada NO devuelve error (§23). */
+function api_controlActualizarUltimo(idInterno, tipo, fechaIso, token, operacionId) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var tipoUp = Utl_texto(tipo).toUpperCase();
     if (tipoUp !== 'CONTROL' && tipoUp !== 'SEGUIMIENTO') return { ok: false, motivo: 'TIPO_INVALIDO' };
     var nf = Norm_normalizarFecha(fechaIso);
     if (nf.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
-    var encontrado = Modelo_buscarPaciente(idInterno);
-    if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-    var objetivo = encontrado.obj, idx = encontrado.idx;
-    var sectorObjetivo = Utl_texto(objetivo.SECTOR).toUpperCase();
-    var evento = {
-      ID_EVENTO: Ev_nuevoId(),
-      ID_INTERNO: objetivo.ID_INTERNO,
-      RUT: objetivo.RUT,
-      NOMBRE: objetivo.NOMBRE,
-      FECHA_EVENTO: nf.iso,
-      TIPO_EVENTO: tipoUp,
-      SECTOR: objetivo.SECTOR,
-      RIESGO_G: objetivo.ESTRATIFICACION || '',
-      PROFESIONAL: '',
-      PROFESIONAL_TIPO: '',
-      DESCRIPCION: tipoUp === 'CONTROL' ? 'Control agendado desde Panel' : 'Seguimiento agendado desde Panel',
-      CANTIDAD: '',
-      OBSERVACIONES: '',
-      FUENTE: 'UI_PANEL_CONTROL',
-      REGISTRADO_POR: _ingresosUsuarioActual(),
-      FECHA_REGISTRO: null
-    };
-    Modelo_agregarEventos_([evento], _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'panel-control' });
-    // Una atención histórica se conserva en EVENTOS, pero no debe desplazar
-    // la fecha vigente más reciente de la ficha.
-    var campoUltimo = tipoUp === 'CONTROL' ? 'ULTIMO_CONTROL' : 'ULTIMO_SEGUIMIENTO';
-    if (nf.iso > Control_aIso(objetivo[campoUltimo])) objetivo[campoUltimo] = nf.iso;
-    objetivo.FECHA_ACTUALIZACION = new Date();
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-         .setValues([Modelo_filaDesdeObjeto(objetivo)]);
-    Modelo_refrescarVistasSectores_([sectorObjetivo]);
-    Log_info('PanelControl', 'actualizarUltimo', tipoUp + ' → ' + objetivo.ID_INTERNO + ' (evento ' + evento.ID_EVENTO + ')');
-    Log_flush();
-    return { ok: true, proximo: objetivo.PROXIMO_CONTROL || '', evento: { id: evento.ID_EVENTO, fecha: evento.FECHA_EVENTO, tipo: evento.TIPO_EVENTO } };
+    return Ecicep_conLock_(function () {
+      return Control_registrarDesdePanel_(idInterno, tipoUp, nf.iso, operacionId);
+    });
   } catch (e) {
     Log_error('PanelControl', 'actualizarUltimo', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1092,39 +1092,47 @@ function api_remVista(anio, mes, sector, modo, actividad, token) {
 }
 
 /** Endpoint sidebar: búsqueda por RUT exacto o nombre (no agresiva). */
+/** Endpoint sidebar: búsqueda de pacientes.
+ *  Contrato común RPC (v0.10.5): distingue "sin resultados" ({ok:true,filas:[]})
+ *  de "la RPC falló" ({ok:false,codigo,motivo,filas:[]}). */
 function api_buscar(termino, token) {
-  if (!WebApp_autorizarBuscador(token)) return [];
-  return Bus_buscarPacientes(
-    Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTADO', 'ESTRATIFICACION']),
-    termino, 25).map(function (p) {
-    return { id: p.ID_INTERNO, rut: p.RUT, nombre: p.NOMBRE,
-             sector: p.SECTOR, estado: p.ESTADO, estrat: p.ESTRATIFICACION };
-  });
+  try {
+    if (!WebApp_autorizarBuscador(token)) {
+      return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO', filas: [] };
+    }
+    var filas = Bus_buscarPacientes(
+      Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTADO', 'ESTRATIFICACION']),
+      termino, 25).map(function (p) {
+      return { id: p.ID_INTERNO, rut: p.RUT, nombre: p.NOMBRE,
+               sector: p.SECTOR, estado: p.ESTADO, estrat: p.ESTRATIFICACION };
+    });
+    return { ok: true, filas: filas };
+  } catch (e) {
+    Log_error('Buscar', 'api_buscar', e && e.message ? e.message : String(e));
+    return { ok: false, codigo: 'BUSQUEDA_FALLO', motivo: e && e.message ? e.message : String(e), filas: [] };
+  }
 }
 
 /** Endpoint sidebar: ficha consolidada + historial desde EVENTOS.
- *  Contrato: NUNCA retorna null/undefined. Siempre retorna {ok:true|false,...}
- */
+ *  Contrato: NUNCA retorna null/undefined. Siempre retorna {ok:true|false,...},
+ *  con error unificado en {ok:false, codigo, motivo}. */
 function api_ficha(idInterno, token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'Sesión de usuario no detectada o invitación no válida; acceso denegado' };
-    // Construcción UNIFICADA de la ficha (dominio 31_Ficha): datos operativos,
-    // eventos vigentes corregidos, seguimiento, patologías, dupla y META
-    // (fuente, última actualización, revisión pendiente, ingreso pendiente).
-    try {
-      return Ficha_construir_(idInterno, { incluirIngresoPendiente: true });
-    } catch (errFicha) {
+    if (!WebApp_autorizarBuscador(token)) return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO' };
+    var r = Ficha_construir_(idInterno, { incluirIngresoPendiente: true });
+    if (r && r.ok === false) {
       return {
         ok: false,
-        code: 'ERROR_BACKEND',
-        message: errFicha && errFicha.message ? errFicha.message : String(errFicha)
+        codigo: Utl_texto(r.code || 'FICHA_FALLO'),
+        motivo: Utl_texto(r.message || r.motivo || 'FICHA_FALLO')
       };
     }
+    return r;
   } catch (e) {
     return {
       ok: false,
-      code: 'ERROR_BACKEND',
-      message: e && e.message ? e.message : String(e)
+      codigo: 'FICHA_FALLO',
+      motivo: e && e.message ? e.message : String(e)
     };
   }
 }
@@ -1200,13 +1208,28 @@ function api_fichaGuardarCambios(idInterno, cambios, token) {
 }
 
 /** Endpoint sidebar: registra un evento para un paciente existente y
- *  sincroniza la caché de estado vigente en PACIENTES. */
+ *  sincroniza la caché de estado vigente en PACIENTES.
+ *  v0.10.5 §21: serializado (Ecicep_conLock_) e idempotente — si el payload
+ *  trae operacionId, FUENTE=fuente|operacionId y un retry con el mismo ID
+ *  reusa el evento ya creado en lugar de duplicar. */
 function api_registrarEvento(payload, token) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-    // Delegación al dominio (31_Ficha): ayuda de tiempo real dentro del mismo
-    // pipeline de eventos, con refresco ACOTADO al sector del objetivo.
-    return Eventos_registrarPaciente_(payload, { fuenteTransporte: 'api_registrarEvento' });
+    payload = payload || {};
+    var opId = payload.operacionId;
+    if (opId) {
+      var fu = Utl_texto(payload.fuente || 'UI_FICHA');
+      if (fu.indexOf(opId) === -1) payload.fuente = fu + '|' + opId;
+    }
+    return Ecicep_conLock_(function () {
+      if (opId) {
+        var previo = Eventos_buscarPorFuente_(payload.fuente);
+        if (previo && previo.idEvento) {
+          return { ok: true, reusado: true, evento: { id: previo.idEvento, tipo: payload.tipoEvento, fecha: payload.fecha } };
+        }
+      }
+      return Eventos_registrarPaciente_(payload, { fuenteTransporte: 'api_registrarEvento' });
+    });
   } catch (e) {
     Log_error('Ficha', 'registrarEvento', e && e.message ? e.message : String(e));
     Log_flush();
@@ -1215,55 +1238,79 @@ function api_registrarEvento(payload, token) {
 }
 
 /** Endpoint sidebar: lista casos ABIERTOS con comparación origen vs candidato. */
+/** GAS: índice de columnas de CONFLICTOS por encabezado (evita magic numbers). */
+function Revision_indiceColumnas_(encabezados) {
+  var idx = {};
+  (encabezados || []).forEach(function (h, i) { idx[Utl_claveAlnum(h)] = i; });
+  return idx;
+}
+
+/** Endpoint cola de revisión.
+ *  Contrato común RPC (v0.10.5): distingue "cola vacía" ({ok:true,casos:[],metricas:{}})
+ *  de "la RPC falló" ({ok:false,codigo,motivo,casos:[],metricas:{}}).
+ *  Columnas de CONFLICTOS resueltas por encabezado (no f[5]/f[6]/f[8]/f[9]). */
 function api_revisionListar(token) {
-  if (!WebApp_autorizarBuscador(token)) return { casos: [], metricas: {} };
-  var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
-  if (!hoja || hoja.getLastRow() < 2) return { casos: [], metricas: {} };
-  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'TELEFONOS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO']);
-  var porId = {};
-  pacientes.forEach(function (p) { porId[Utl_texto(p.ID_INTERNO)] = p; });
-
-  var casos = [], metricas = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0 };
-  Utl_leerBloque(hoja).slice(1).forEach(function (f, i) {
-    var estado = Utl_texto(f[8]);
-    if (estado === 'RESUELTO') {
-      metricas.resueltos += 1;
-      var dec = Utl_texto(f[6]).indexOf('CONFIRMAR') !== -1 ? 'esMismo' : 'esOtro';
-      metricas[dec] += 1;
-      return;
+  var metricasVacias = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0 };
+  try {
+    if (!WebApp_autorizarBuscador(token)) {
+      return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO', casos: [], metricas: metricasVacias };
     }
-    if (estado !== 'ABIERTO') return;
-    var datos = null;
-    try { datos = JSON.parse(f[5]); } catch (e) { return; }
-    if (!datos) return;
-    metricas.abiertos += 1;
+    var hoja = Modelo_hoja(HOJAS.CONFLICTOS);
+    if (!hoja || hoja.getLastRow() < 2) return { ok: true, casos: [], metricas: metricasVacias };
+    var bloque = Utl_leerBloque(hoja);
+    if (bloque.length < 2) return { ok: true, casos: [], metricas: metricasVacias };
+    var idx = Revision_indiceColumnas_(bloque[0]);
+    var cEstado = idx['ESTADOREVISION'];
+    var cDetalle = idx['DETALLE'];
+    var cResuelto = idx['RESUELTOPOR'];
+    var cTipo = idx['TIPO'];
+    var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'TELEFONOS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO']);
+    var porId = {};
+    pacientes.forEach(function (p) { porId[Utl_texto(p.ID_INTERNO)] = p; });
 
-    // buscar candidato
-    var cand = datos.candidatoId ? porId[datos.candidatoId] : null;
-    var vo = datos.valoresOriginales || {};
-    casos.push({
-      indice: i + 2,
-      tipo: f[1],
-      criterio: datos.criterio || '',
-      confianza: datos.confianza || '',
-      idProvisional: datos.idProvisional || '',
-      // lado A: registro origen
-      origen: {
-        nombre: vo.NOMBRE || '', rut: vo.RUT || '', telefono: vo.TELEFONOS || '',
-        sector: datos.sectorOrigen || '', estrat: vo.ESTRATIFICACION || '',
-        fechaIngreso: vo.FECHA_INGRESO || '',
-        fuente: (datos.origen ? datos.origen.hoja : '') + ' fila ' + (datos.origen ? datos.origen.fila : '')
-      },
-      // lado B: paciente candidato existente
-      candidato: cand ? {
-        id: cand.ID_INTERNO, nombre: cand.NOMBRE, rut: cand.RUT,
-        telefono: cand.TELEFONOS, sector: cand.SECTOR,
-        estrat: cand.ESTRATIFICACION, estado: cand.ESTADO
-      } : null
+    var casos = [], metricas = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0 };
+    bloque.slice(1).forEach(function (f, i) {
+      var estado = Utl_texto(cEstado >= 0 ? f[cEstado] : '');
+      if (estado === 'RESUELTO') {
+        metricas.resueltos += 1;
+        // La decisión (CONFIRMAR_MATCH / RECHAZAR_MATCH) queda en RESUELTO_POR.
+        var resueltoPor = Utl_texto(cResuelto >= 0 ? f[cResuelto] : '');
+        metricas[resueltoPor.indexOf('CONFIRMAR') !== -1 ? 'esMismo' : 'esOtro'] += 1;
+        return;
+      }
+      if (estado !== 'ABIERTO') return;
+      var datos = null;
+      try { datos = JSON.parse(cDetalle >= 0 ? f[cDetalle] : ''); } catch (e) { return; }
+      if (!datos) return;
+      metricas.abiertos += 1;
+
+      var cand = datos.candidatoId ? porId[datos.candidatoId] : null;
+      var vo = datos.valoresOriginales || {};
+      casos.push({
+        indice: i + 2,
+        tipo: cTipo >= 0 ? Utl_texto(f[cTipo]) : '',
+        criterio: datos.criterio || '',
+        confianza: datos.confianza || '',
+        idProvisional: datos.idProvisional || '',
+        origen: {
+          nombre: vo.NOMBRE || '', rut: vo.RUT || '', telefono: vo.TELEFONOS || '',
+          sector: datos.sectorOrigen || '', estrat: vo.ESTRATIFICACION || '',
+          fechaIngreso: vo.FECHA_INGRESO || '',
+          fuente: (datos.origen ? datos.origen.hoja : '') + ' fila ' + (datos.origen ? datos.origen.fila : '')
+        },
+        candidato: cand ? {
+          id: cand.ID_INTERNO, nombre: cand.NOMBRE, rut: cand.RUT,
+          telefono: cand.TELEFONOS, sector: cand.SECTOR,
+          estrat: cand.ESTRATIFICACION, estado: cand.ESTADO
+        } : null
+      });
     });
-  });
-  metricas.pendientes = metricas.abiertos;
-  return { casos: casos, metricas: metricas };
+    metricas.pendientes = metricas.abiertos;
+    return { ok: true, casos: casos, metricas: metricas };
+  } catch (e) {
+    Log_error('Revision', 'listar', e && e.message ? e.message : String(e));
+    return { ok: false, codigo: 'REVISION_FALLO', motivo: e && e.message ? e.message : String(e), casos: [], metricas: metricasVacias };
+  }
 }
 
 /** Endpoint sidebar: aplica la decisión humana sobre un caso ABIERTO. */
@@ -1288,9 +1335,14 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
     // mismo origen se derivan del mismo getDataRange (una lectura por acción).
     var bloqueConflictos = Utl_leerBloque(hoja);
     if (!bloqueConflictos.length) return { ok: false, motivo: 'SIN_DATOS' };
+    var idxC = Revision_indiceColumnas_(bloqueConflictos[0]);
+    var cEstado = idxC['ESTADOREVISION'];
+    var cDetalle = idxC['DETALLE'];
+    var cResuelto = idxC['RESUELTOPOR'];
+    if (cEstado < 0 || cDetalle < 0 || cResuelto < 0) return { ok: false, motivo: 'COLUMNAS_INVALIDAS' };
     var filaVal = bloqueConflictos[indiceHoja - 1] || [];
-    if (Utl_texto(filaVal[8]) !== 'ABIERTO') return { ok: false, motivo: 'CONFLICTO_YA_RESUELTO' };
-    var datos = JSON.parse(filaVal[5]);
+    if (Utl_texto(filaVal[cEstado]) !== 'ABIERTO') return { ok: false, motivo: 'CONFLICTO_YA_RESUELTO' };
+    var datos = JSON.parse(filaVal[cDetalle]);
     if (decision !== 'CONFIRMAR_MATCH' && decision !== 'RECHAZAR_MATCH') {
       return { ok: false, motivo: 'DECISION_INVALIDA' };
     }
@@ -1308,12 +1360,19 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
     }
     Modelo_agregarEventos_([prep.evento], _ingresosUsuarioActual(), contexto);
 
-    // trazabilidad completa (columnas 9-10 contiguas: una escritura)
+    // trazabilidad completa (ESTADO_REVISION + RESUELTO_POR por encabezado)
     var ahora = new Date();
-    hoja.getRange(indiceHoja, 9, 1, 2).setValues([
-      ['RESUELTO', _ingresosUsuarioActual() + ' · ' + decision +
-        ' · ' + ahora.toISOString() + ' → ' + destinoId]
-    ]);
+    var celdaEstado = cEstado + 1, celdaResuelto = cResuelto + 1;
+    if (Math.abs(cEstado - cResuelto) === 1) {
+      var cMin = Math.min(cEstado, cResuelto);
+      var par = cEstado < cResuelto
+        ? ['RESUELTO', _ingresosUsuarioActual() + ' · ' + decision + ' · ' + ahora.toISOString() + ' → ' + destinoId]
+        : [_ingresosUsuarioActual() + ' · ' + decision + ' · ' + ahora.toISOString() + ' → ' + destinoId, 'RESUELTO'];
+      hoja.getRange(indiceHoja, cMin + 1, 1, 2).setValues([par]);
+    } else {
+      hoja.getRange(indiceHoja, celdaEstado).setValue('RESUELTO');
+      hoja.getRange(indiceHoja, celdaResuelto).setValue(_ingresosUsuarioActual() + ' · ' + decision + ' · ' + ahora.toISOString() + ' → ' + destinoId);
+    }
 
     // hermanas duplicadas de la MISMA fila origen (idempotencia por origen):
     // se cierran sin reprocesar — la decisión ya se aplicó una sola vez.
@@ -1325,7 +1384,7 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
       bloqueConflictos.slice(1).forEach(function (sf, i) {
         var filaAbs = i + 2;
         if (filaAbs === indiceHoja) return;
-        if (Utl_texto(sf[8]) !== 'ABIERTO') return;
+        if (Utl_texto(sf[cEstado]) !== 'ABIERTO') return;
         if (Rev_claveOrigenDesdeFila(sf) !== claveOrig) return;
         filasHermana.push(filaAbs);
         hermanas++;
@@ -1335,13 +1394,20 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
       var usuarioRev = _ingresosUsuarioActual();
       Utl_gruposContiguosFilas(filasHermana).forEach(function (grupo) {
         var n = grupo.length;
-        // columnas 9-10 contiguas (estado + trazabilidad): un solo setValues
         var traza2 = [];
         for (var i = 0; i < n; i++) {
           traza2.push(['RESUELTO', usuarioRev + ' · ' + decision + ' · ' + ahora.toISOString() +
             ' → ' + destinoId + ' (hermana del mismo origen)']);
         }
-        hoja.getRange(grupo[0], 9, n, 2).setValues(traza2);
+        if (Math.abs(cEstado - cResuelto) === 1) {
+          var cMin2 = Math.min(cEstado, cResuelto);
+          var par2 = cEstado < cResuelto ? traza2 : traza2.map(function (fila) { return [fila[1], fila[0]]; });
+          hoja.getRange(grupo[0], cMin2 + 1, n, 2).setValues(par2);
+        } else {
+          hoja.getRange(grupo[0], celdaEstado, n, 1).setValue('RESUELTO');
+          hoja.getRange(grupo[0], celdaResuelto, n, 1).setValue(usuarioRev + ' · ' + decision + ' · ' + ahora.toISOString() +
+            ' → ' + destinoId + ' (hermana del mismo origen)');
+        }
       });
     }
 
@@ -1614,13 +1680,17 @@ function Condiciones_validarSeleccion(codigos, catalogo) {
   return { validos: validos, invalidos: invalidos };
 }
 
-/** Endpoint sidebar: valida y guarda las patologías del paciente. */
+/** Endpoint sidebar: valida y guarda las patologías del paciente.
+ *  v0.10.5 §22: serializado (Ecicep_conLock_) igual que el resto de mutaciones
+ *  compuestas del operador; no crea locks anidados (el dominio nunca lockea). */
 function api_patologiasGuardar(idInterno, codigosSeleccionados, otrasPatologias, token) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     // Delegación al dominio (31_Ficha): validación única + escritura única +
     // recálculo de estratificación + refresco acotado del sector.
-    return Patologias_guardarPaciente_(idInterno, codigosSeleccionados, otrasPatologias);
+    return Ecicep_conLock_(function () {
+      return Patologias_guardarPaciente_(idInterno, codigosSeleccionados, otrasPatologias);
+    });
   } catch (e) {
     Log_error('Patologias', 'guardar', e && e.message ? e.message : String(e));
     Log_flush();

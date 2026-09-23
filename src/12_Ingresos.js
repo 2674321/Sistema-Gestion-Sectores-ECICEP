@@ -263,15 +263,49 @@ function _ingresosUsuarioActual() {
 }
 
 /**
+ * GAS: lectura ACOTADA de una hoja INGRESO_* (fiabilidad operativa v0.10.5).
+ * Cuando la captura en curso acota a filas concretas (filasPermitidas), leer
+ * solo la fila de encabezados (con detección de header visual real) y esas
+ * filas físicas específicas — nunca el bloque completo con getDataRange.
+ * Devuelve el MISMO shape que Modelo_leerBloqueCabecera: [encabezados, ...filas].
+ * No reordena ni renumera: las filas salen en el orden de filasPermitidas.
+ * Si ninguna fila es válida, devuelve solo [encabezados] (resta querer que el
+ * caller decida con valores.length < 2, igual que el bloque completo vacío).
+ */
+function Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas) {
+  var hr = Modelo_headerRow(nombreHoja);
+  var ultima = hoja.getLastRow();
+  var ancho = Math.max(hoja.getLastColumn(), 1);
+  var encabezados = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+  var hdrOk = encabezados.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
+  if (!hdrOk) {
+    var alt = hoja.getRange(1, 1, 1, ancho).getValues()[0];
+    if (alt.join('|').toUpperCase().indexOf('NOMBRE') !== -1) { hr = 1; encabezados = alt; }
+  }
+  var filas = [];
+  (filasPermitidas || []).forEach(function (nf) {
+    var fi = Number(nf);
+    if (!fi || fi < 1 || fi > ultima || fi <= hr) return;
+    filas.push(hoja.getRange(fi, 1, 1, ancho).getValues()[0]);
+  });
+  return [encabezados].concat(filas);
+}
+
+/**
  * Lee una hoja INGRESO_* y produce filas de staging normalizadas.
  * Ignora filas vacías y las ya procesadas (ESTADO_INGRESO = INGRESADO).
+ * Con `filasPermitidas` acotada y pequeña (y en la Web App siempre lo es)
+ * NO escanea la hoja entera: lee solo encabezados + filas listadas.
  * @returns {staging:[], hoja:Object|null}
  */
 function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
   var _tHoja = Date.now();
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
-  var valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
+  var acotado = filasPermitidas && filasPermitidas.length && filasPermitidas.length <= 50;
+  var valores = acotado
+    ? Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas)
+    : Modelo_leerBloqueCabecera(nombreHoja, hoja);
   var hrDetect = Modelo_headerRow(nombreHoja);
   var hrOrig = hrDetect;
   // Fallback para hojas aún no reconciliadas al layout visual (header en fila 1)
@@ -296,12 +330,16 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
   var idxEstado = mapa.estadoIdx, idxNota = mapa.notaIdx;
   var sector = Ingresos_hojaASector(nombreHoja);
   var staging = [];
+  // En modo acotado, la fila física real es la filaPermitida correspondiente
+  // (valores[f] == filasPermitidas[f-1]): NO vale hrDetect+f, porque las filas
+  // leídas no son contiguas y un número inventado reencuadraría filas ajenas.
+  var filasFis = (acotado && filasPermitidas) ? filasPermitidas.slice(0, valores.length - 1) : null;
   for (var f = 1; f < valores.length; f++) {
     var filaVal = valores[f];
     // Acotado: si hay lista de filas permitidas para esta hoja, saltar TODO lo
     // demás ANTES de normalizar (el costo real está en Fuentes_normalizar, no
     // en el filtro posterior de Ingresos_acotarStaging).
-    var filaFis = hrDetect + f;
+    var filaFis = filasFis ? Number(filasFis[f - 1]) : (hrDetect + f);
     if (filasPermitidas && filasPermitidas.length && filasPermitidas.indexOf(String(filaFis)) === -1) continue;
     var nombreRaw = idxCampos.NOMBRE !== undefined ? filaVal[idxCampos.NOMBRE] : '';
     var rutRaw = idxCampos.RUT !== undefined ? filaVal[idxCampos.RUT] : '';

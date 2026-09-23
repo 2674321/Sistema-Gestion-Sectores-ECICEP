@@ -2892,7 +2892,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.10.4', 'versión esperada v0.10.4');
+    A.igual(v, '0.10.5', 'versión esperada v0.10.5');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3130,9 +3130,9 @@ function _pruebas_auditoria_v088(t, A) {
     A.cierto(txt.indexOf('╚') !== -1, 'cierre marco');
   });
 
-  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.4', function () {
+  t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.5', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.10.4', 'versión esperada v0.10.4');
+    A.igual(v, '0.10.5', 'versión esperada v0.10.5');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5820,11 +5820,12 @@ function _pruebas_p0_auditoria_v098(t, A) {
     try {
       globalThis.Session = undefined;
       A.igual(WebApp_usuarioActivo(), '', 'sin sesión → vacío');
-      A.igual(JSON.stringify(api_buscar('EXISTE')), '[]', 'api_buscar sin sesión → []');
+      // v0.10.5 §12: api_buscar denegado → {ok:false,codigo:'ACCESO_DENEGADO',motivo,filas:[]}
+      A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar sin sesión → denegado con filas vacías');
       A.igual(api_ficha('X').ok, false, 'api_ficha sin sesión → denegado');
       A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar sin sesión → denegado');
       A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado');
-      A.igual(Form_capturarDesdeUI({}).ok, false, 'Form_capturarDesdeUI sin sesión → denegado');
+      A.igual(Form_capturarDesdeUI_legacy_({}).ok, false, 'Form_capturarDesdeUI_legacy_ sin sesión → denegado');
     } finally {
       globalThis.Session = original;
     }
@@ -6325,7 +6326,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.10.4', 'VERSION es 0.10.4');
+    A.cierto(ECICEP.VERSION === '0.10.5', 'VERSION es 0.10.5');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

@@ -222,14 +222,15 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | E2E real de Instalar/reparar sobre el libro operativo | ⏳ Pendiente (requiere sesión Google autorizada) |
 
 **Verificación vigente:** `node tools/verificar.mjs` comprueba sintaxis JS/GS y
-las 21 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
+las 23 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
 contrato 38/38 · captura backend V2 73/73 · regresiones 44/44 ·
 auditoría v0.10.1 15/15 · ficha-ingresos v0.10.2 **13/13** · instalador_estabilidad PASS ·
 seguridad ACCESO UNIVERSAL **10/10** · rpc surface **4/4** ·
 integridad mutaciones v0.10.3 **9/9** · acceso universal v0.10.4 **7/7** ·
-acceso webapp **8/8** · **21 scripts HTML**.
+acceso webapp **8/8** · operador resiliencia vNEXT **32/32** ·
+captura lecturas acotadas vNEXT **9/9** · **22 scripts HTML**.
 Detalle y límites de
-verificación real en [`docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md`](docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md).
+verificación real en [`docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`](docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md).
 
 **Regla vigente:** el procesamiento masivo de datos reales requiere instrucción
 explícita (migración controlada: análisis → validación → simulación → reporte →

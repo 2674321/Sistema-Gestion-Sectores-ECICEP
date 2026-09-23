@@ -96,6 +96,7 @@ test('Panel conserva el último control al registrar una atención histórica', 
   c.Modelo_hoja=()=>({getRange:()=>({setValues(){}})});
   c.Modelo_filaFisica=()=>2;c.Modelo_filaDesdeObjeto=o=>[o.ID_INTERNO];
   c.Modelo_refrescarVistasSectores_=()=>({ok:true});c.Log_info=()=>{};c.Log_flush=()=>{};
+  c.Modelo_asegurarEsquemaPacientes_=()=>({ok:true});c.Modelo_campos=()=>Object.keys(pac).map(k=>({campo:k}));
   c.WebApp_autorizarBuscador=()=>true;
   const r=c.api_controlActualizarUltimo('FICTICIO','CONTROL','2026-09-01');
   assert.equal(r.ok,true,JSON.stringify(r));assert.equal(eventos.length,1);

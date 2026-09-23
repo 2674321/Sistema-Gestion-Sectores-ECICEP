@@ -22,19 +22,20 @@ test('Entrega modifica solo lo pedido y reintento no crea segundo evento',()=>{c
 test('Edición concurrente de un campo se rechaza antes de escribir',()=>{const m=memoria(),n=validar(m.c,p).normalizado;m.pac.NOMBRE='CAMBIO DE OTRA PERSONA';assert.match(m.c.Captura_entregarEdicion_(n,m.c.Captura_v2_marca(n),{usuario:'tester'}).motivo,/FICHA_CAMBIO/);assert.equal(m.actualizar,0);assert.equal(m.eventos.length,1);});
 test('Corrección del último control agrega auditoría y muestra fecha corregida sin duplicar CONTROL',()=>{const m=memoria(),ed={...a,campos:{},atenciones:[{tipo:'CONTROL',modo:'CORREGIR',fecha:'2026-09-05',anterior:'2026-09-01',idEvento:'EV-ANTERIOR'}]},n=validar(m.c,{...p,actualizacion:ed}).normalizado;assert.equal(m.c.Captura_entregarEdicion_(n,m.c.Captura_v2_marca(n),{usuario:'tester'}).estado,'PROCESADO');assert.equal(m.eventos.filter(e=>e.TIPO_EVENTO==='CONTROL').length,1);assert.equal(m.pac.ULTIMO_CONTROL,'2026-09-05');assert.equal(m.vistas,1,'la vista se refresca después de sincronizar la caché');assert.equal(m.c.Modelo_leerEventos().find(e=>e.ID_EVENTO==='EV-ANTERIOR').FECHA_EVENTO,'2026-09-05');assert.equal(m.eventos.find(e=>e.ID_EVENTO==='EV-ANTERIOR').FECHA_EVENTO,'2026-09-01');});
 test('Una nueva atención suma exactamente un CONTROL y conserva agenda manual',()=>{const m=memoria(),ed={...a,campos:{},atenciones:[{tipo:'CONTROL',modo:'REGISTRAR',fecha:'2026-09-17',anterior:'',idEvento:''}]},n=validar(m.c,{...p,actualizacion:ed}).normalizado;assert.equal(m.c.Captura_entregarEdicion_(n,m.c.Captura_v2_marca(n),{usuario:'tester'}).estado,'PROCESADO');assert.equal(m.eventos.filter(e=>e.TIPO_EVENTO==='CONTROL').length,2);assert.equal(m.pac.ULTIMO_CONTROL,'2026-09-17');assert.equal(m.pac.PROXIMO_CONTROL,'');});
-test('Fallo de auditoría se recupera por captureId sin duplicar la atención',()=>{
+test('Fallo de auditoría no degrada el guardado (§25) y el retry no duplica la atención',()=>{
   const m=memoria(),ed={...a,atenciones:[{tipo:'CONTROL',modo:'REGISTRAR',fecha:'2026-09-17',anterior:'',idEvento:''}]},entrada={...p,actualizacion:ed};
   const registros=new Map(),real=m.c.Eventos_registrarPaciente_,marca=m.c.Captura_v2_marca(validar(m.c,entrada).normalizado);let fallar=true;
   m.c.Eventos_registrarPaciente_=q=>{if(q.fuente===marca&&fallar){fallar=false;return{ok:false,motivo:'AUDITORIA_TEMPORAL'};}return real(q);};
   const ctx={usuario:'ficticio@example.test',catalogo:['MEDICO/A'],ahora:()=> '2026-09-17 10:00',maxReintentos:3,
     buscarRegistro:id=>registros.get(id),persistirRegistro:r=>{registros.set(r.captureId,JSON.parse(JSON.stringify(r)));return{ok:true};},
     actualizarTrailer:(id,cam)=>{Object.assign(registros.get(id),cam);return{ok:true};},entregar:m.c.Captura_v2_entregar};
-  assert.equal(m.c.Captura_v2_enviar(entrada,ctx).ok,false);
+  const r1=m.c.Captura_v2_enviar(entrada,ctx);
+  assert.equal(r1.ok,true,JSON.stringify(r1));
+  assert.equal(r1.data.estado,'PROCESADO','fallo de trazabilidad no degrada el guardado (§25)');
   assert.equal(m.eventos.filter(e=>e.TIPO_EVENTO==='CONTROL').length,2);
-  assert.equal(registros.get(entrada.captureId).estado,'ERROR');
-  const r=m.c.Captura_v2_enviar(entrada,ctx);assert.equal(r.ok,true);assert.equal(r.data.estado,'PROCESADO');
-  assert.equal(m.eventos.filter(e=>e.TIPO_EVENTO==='CONTROL').length,2);assert.equal(m.eventos.filter(e=>e.FUENTE===marca).length,1);
-  m.c.Captura_v2_enviar(entrada,ctx);assert.equal(m.eventos.length,3);
+  const r2=m.c.Captura_v2_enviar(entrada,ctx);
+  assert.equal(r2.ok,true);assert.equal(r2.data.estado,'PROCESADO');
+  assert.equal(m.eventos.filter(e=>e.TIPO_EVENTO==='CONTROL').length,2,'reintento no duplica la atención');
 });
 test('Paneles leen fecha corregida; evento físico y otros campos conservan su valor',()=>{
   const m=memoria(),ed={...a,campos:{},atenciones:[{tipo:'CONTROL',modo:'CORREGIR',fecha:'2026-09-05',anterior:'2026-09-01',idEvento:'EV-ANTERIOR'}]},n=validar(m.c,{...p,actualizacion:ed}).normalizado;

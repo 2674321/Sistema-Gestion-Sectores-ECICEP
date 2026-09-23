@@ -57,6 +57,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body data-dash-url="<?= DASH_URL ?>" data-generar-url="<?= GENERAR_REM_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
+<?!= include('00_OperadorRuntime') ?>
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <div class="tit">
@@ -173,7 +174,7 @@ function irEstadisticas() {
     }));
   } catch (e) {}
   var url=document.body.getAttribute('data-dash-url');
-  if(url)window.open(url,'_blank');else google.script.run.UI_abrirDashboard();
+  ECICEP_navegar(url,'las estadísticas',function(){google.script.run.UI_abrirDashboard();});
 }
 function irGenerar() {
   try {
@@ -185,7 +186,7 @@ function irGenerar() {
     }));
   } catch (e) {}
   var url=document.body.getAttribute('data-generar-url');
-  if(url)window.open(url,'_blank');else google.script.run.UI_generarRem();
+  ECICEP_navegar(url,'el generador de REM',function(){google.script.run.UI_generarRem();});
 }
 function consultar(btn) {
   var anio = +document.getElementById('selAnio').value;
@@ -198,17 +199,17 @@ function consultar(btn) {
   try {
     localStorage.setItem('REM_ULTIMA', JSON.stringify({ mes: mes, anio: anio, sector: sector, MODO: MODO, act: act }));
   } catch (e) {}
-  google.script.run
-    .withSuccessHandler(function (r) {
+  /* §35: lectura con 1 reintento automático ante transporte transitorio. */
+  ECICEP_lectura('api_remVista', [anio, mes, sector, MODO, act, ECICEP_ACCESO],
+    function (r) {
       if (btn) { btn.disabled = false; }
       if (!r || !r.ok) { pintarError((r && r.motivo) || 'error'); return; }
       pintar(r.tablas, r.meta, r.notas);
-    })
-    .withFailureHandler(function (e) {
+    },
+    function (e) {
       if (btn) { btn.disabled = false; }
       pintarError(e && e.message || e);
-    })
-    .api_remVista(anio, mes, sector, MODO, act, ECICEP_ACCESO);
+    });
 }
 (function init() {
   var h = new Date();

@@ -191,7 +191,9 @@ function Ecicep_conLock_(fn) {
   try { lock = LockService.getScriptLock(); } catch (e) { return fn(); }
   if (!lock.tryLock(12000)) {
     try { lock.releaseLock(); } catch (e2) {}
-    return { ok: false, motivo: 'SERVICIO_OCUPADO' };
+    // §34: SERVICIO_OCUPADO es explícitamente reintentable y no se mezcla con
+    // acceso/validación/backend: otro operador está escribiendo en este instante.
+    return { ok: false, codigo: 'SERVICIO_OCUPADO', motivo: 'SERVICIO_OCUPADO', reintentable: true };
   }
   try { return fn(); }
   finally { try { lock.releaseLock(); } catch (e3) {} }

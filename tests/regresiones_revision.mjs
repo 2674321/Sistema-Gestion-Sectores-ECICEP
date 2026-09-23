@@ -666,6 +666,11 @@ function ui() {
       api_controlActualizarUltimo(...args) { writes.push({ ...req, args }); }
     }; } } }
   });
+  /* Runtime común §28/§35: stub del wrapper de lectura (1 reintento en transporte). */
+  vm.runInContext(`globalThis.ECICEP_lectura = function (nombre, args, ok, fail) {
+    var run = google.script.run.withSuccessHandler(ok).withFailureHandler(fail);
+    run[nombre].apply(run, args || []);
+  };`, c);
   const script = [...read('src/Controles.html').matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
   vm.runInContext(script, c);
   return { c, requests, writes, el };

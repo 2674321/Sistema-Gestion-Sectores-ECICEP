@@ -8,8 +8,9 @@
  *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
  *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
  *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2/3/4, TRAZA_CRUDA JSON) + entrega acotada + trailer.
- *   El puente legacy Form_capturarDesdeUI se conserva solo como compatibilidad interna
- *   (sin consumidor en la UI vigente); el pipeline legacy NO procesa filas del namespace V2.
+ *   El puente legacy Form_capturarDesdeUI_legacy_ se conserva solo como compatibilidad interna
+ *   (sin consumidor en la UI vigente; no expuesto como RPC operativa); el pipeline
+ *   legacy NO procesa filas del namespace V2.
  *
  * AISLAMIENTO: este módulo NO crea bases ni lógica paralela. El código es
  * autónomo y portátil: utiliza el contexto del proyecto (SpreadsheetApp.getActive()
@@ -24,6 +25,7 @@
 
 // ---------------------------------------------------------------------------
 // CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP
+//   v0.10.5 (DEC-069 supera DEC-068/DEC-067): fiabilidad operativa + lecturas acotadas;
 //   v0.10.4 (DEC-068 supera DEC-067): una sola credencial habilita TODAS las
 //   funciones operativas del sistema (captura, actualizar ficha, Controles,
 //   Dashboard, REM, Revisión, Configuración, Backups…). Se elimina la
@@ -254,13 +256,13 @@ function WebApp_esquemaFormulario() {
  *                         PROFESIONAL2,OBSERVACIONES}
  * @returns {{ok:boolean, data?:Object, message:string, errors?:Array}}
  */
-function Form_capturarDesdeUI(datos) {
+function Form_capturarDesdeUI_legacy_(datos) {
   var _tTotal = Date.now();
   try {
     if (!WebApp_usuarioActivo()) {
       return { ok: false, message: 'Sesión de usuario no detectada; acceso denegado', errors: [{ campo: '_', mensaje: 'ACCESO_DENEGADO' }] };
     }
-    console.log('[BACKEND] 01 entrada Form_capturarDesdeUI');
+    console.log('[BACKEND] 01 entrada Form_capturarDesdeUI_legacy_');
     if (typeof SpreadsheetApp === 'undefined') {
       console.error('[BACKEND] 01b SpreadsheetApp no disponible');
       return { ok: false, message: 'Entorno no disponible (GAS)', errors: [{ campo: '_', mensaje: 'SOLO_GAS' }] };
@@ -510,15 +512,30 @@ function api_webappEstado(acceso) {
 
 /** GAS: estado inicial de la WebApp (esquema + catálogo profesionales + url).
  *  Unifica en una sola RPC las llamadas que el formulario realizaba por separado
- *  al cargar (esquema, catálogo y url), reduciendo la latencia inicial a 1 viaje. */
+ *  al cargar (esquema, catálogo y url), reduciendo la latencia inicial a 1 viaje.
+ *
+ *  Contrato explícito (v0.10.5): éxito SIEMPRE incluye ok:true; error
+ *  ok:false + codigo + motivo. Un catálogo vacío NO se considera éxito:
+ *  el formulario no debe quedar semihabilitado sin profesionales cargables. */
 function WebApp_estadoInicial(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
-  return {
-    esquema: Form_esquemaFormulario(),
-    profesionales: WebApp_profesionalesDropdown(),
-    url: WebApp_urlCompartida_(),
-    build: WebApp_buildActual_()
-  };
+  if (!WebApp_autorizarCaptura(acceso)) {
+    return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO' };
+  }
+  try {
+    var profesionales = WebApp_profesionalesDropdown();
+    if (!profesionales || !profesionales.length) {
+      return { ok: false, codigo: 'CATALOGO_PROFESIONALES_NO_DISPONIBLE', motivo: 'No fue posible cargar el catálogo de profesionales' };
+    }
+    return {
+      ok: true,
+      esquema: Form_esquemaFormulario(),
+      profesionales: profesionales,
+      url: WebApp_urlCompartida_(),
+      build: WebApp_buildActual_()
+    };
+  } catch (e) {
+    return { ok: false, codigo: 'BOOTSTRAP_FALLO', motivo: (e && e.message) ? e.message : String(e) };
+  }
 }
 
 /** GAS: catálogo PROFESIONALES para el dropdown de la Web App.

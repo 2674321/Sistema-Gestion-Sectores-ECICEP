@@ -1399,3 +1399,67 @@ contención de lock), rompiendo las páginas operativas.
 ajustadas al contrato de credencial única (**10/10** y **4/4**). Batería total
 **21 suites · 0 fallos** (verifier 2026-09-22; `validar_html` 21/21).
 **Fecha:** 2026-09-22
+
+## DEC-069
+**Título:** FIABILIDAD OPERATIVA + LECTURAS ACOTADAS: el envío no se cuelga, el retry no duplica y la captura no barre hojas de 10.000 filas (v0.10.5)
+**Estado:** Aprobada / vigente (v0.10.5) — aditiva sobre DEC-067/DEC-068
+**Motivo:** el backend y el pipeline ya eran idempotentes (CONTRATO_CAPTURA_V2
+§13), pero el operador podía quedar colgado ante latencia o timeouts (entregaba
+el payload sin saber si el backend lo recibió; un reintento manual del usuario
+y la repetición AJAX tras timeout podían duplicar la percepción del evento), y
+la lectura de `INGRESO_*` (bloque completo vía `getDataRange`) penalizaba cada
+request de captura/pre-ficha al crecer la hoja, sin necesidad técnica: la Web
+App siempre acota a filas concretas.
+
+**Reglas:**
+1. **Estado de envío por acción**: cada acción fija `_enviando=true` con fase
+   correcta (`entrega` / `preflight`) y produce exactamente UNA RPC. El botón
+   se bloquea durante el envío y se desbloquea siempre: por respuesta, por
+   timeout (mensaje compartido "tardando más de lo esperado") o por modal de
+   duplicados (que pausa el timeout humano y conserva el envío activo).
+2. **Guard de secuencia**: un callback de una solicitud vieja (timeout que
+   llegó tarde) jamás toca una solicitud nueva (`secuencia` en sessionStorage).
+3. **Intención explícita de duplicado**: continuar desde el modal de duplicados
+   conserva el payload sin `confirmarNuevoPaciente`; "Registrar de todos modos"
+   lo fija. El backend usa `confirmarNuevoPaciente` como confirmación de la
+   intención humana y mantiene la idempotencia por `captureId` (§13B:
+   `CONFLICTO_IDEMPOTENCIA` ante el mismo `captureId` con payload distinto;
+   reenvío del mismo control con el MODO payload no duplica el evento).
+4. **Recuperación de acceso anti-bucle**: ante `ACCESO_DESACTUALIZADO` recarga
+   UNA vez (`ecicep_reload_acceso` consumido), conservando `captureId`
+   (sessionStorage `ecicep_captureId`) y restaurándolo sin reenviar el envío.
+   Si algo no marcó sano el intento, la siguiente incidencia avisa y NO recarga
+   otra vez.
+5. **Bootstrap bloqueante**: acceso con catálogo de profesionales vacío no
+   habilita el envío (`CATALOGO_PROFESIONALES_NO_DISPONIBLE`); ante
+   `ok:false`/error de transporte reintenta (máx. configurado) y ofrece botón
+   Reintentar. Invariante: el backend NUNCA responde `ok:true` de
+   `WebApp_estadoInicial` sin `profesionales` cargados.
+6. **Contrato RPC uniforme**: **dataset vacío ≠ RPC fallida**. Conjuntos sin
+   datos responden `ok:true` con colecciones vacías (`api_buscar` `filas:[]`,
+   `api_revisionListar` `casos:[]` con métricas en cero); fallos reales y
+   accesos rechazados responden `ok:false` con `codigo/motivo`; `api_ficha`
+   nunca devuelve `null`.
+7. **Concurrencia del operador**: las mutaciones críticas usan
+   `Ecicep_conLock_`; bajo contención responden `SERVICIO_OCUPADO`
+   (reintentable) y NO ejecutan la mutación. La ficha es todo-o-nada: guarda
+   PACIENTES + EVENTO; un fallo de vista derivada solo avisa
+   `VISTA_SECTOR_PENDIENTE` (no rompe el guardado). Retry del mismo cambio de
+   sector converge (un solo evento CAMBIO_SECTOR; dato obsoleto → `FICHA_CAMBIO`).
+8. **Lecturas acotadas (§41)**: la captura en la Web App y la pre-ficha leen
+   solo la fila de encabezados + filas físicas permitidas
+   (`Ingresos_leerFilasAcotadas_`), nunca `getDataRange` ni
+   `getRange(1,1,getLastRow(),...)`; el umbral de 50 filas vive en el lector
+   (con 51+ delega en `Modelo_leerBloqueCabecera`). Una hoja `INGRESO_*` de
+   10.000 filas no se barre en ningún request de captura/pre-ficha.
+9. **Versionado**: `ECICEP.VERSION` → `0.10.5`, **schema 2 sin migración**;
+   deployment operativo reutilizado @221 (misma URL/QR, sin deployments por
+   rutina). Se conservan superficie RPC mínima, guards por RPC, mutaciones
+   atómicas/idempotentes y `CONFIG_SECRETOS`.
+
+**Tests:** nuevas `tests/operador_resiliencia_vNEXT.mjs` (**32/32**) y
+`tests/captura_rendimiento_acotado_vNEXT.mjs` (**9/9**). Batería total
+**23 suites · 0 fallos** (verifier 2026-09-22; `validar_html` 22/22,
+núcleo 671/671). Informe
+`docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
+**Fecha:** 2026-09-22

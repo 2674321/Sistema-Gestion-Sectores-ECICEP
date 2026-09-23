@@ -62,6 +62,7 @@ td.est{white-space:nowrap}
 </style>
 </head>
 <body data-portal="<?= PORTAL_URL ?>" data-ficha-base="<?= FICHA_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
+<?!= include('00_OperadorRuntime') ?>
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <div id="toastZone"></div>
 
@@ -173,21 +174,22 @@ function consultar(reset, btn) {
     }
     return true;
   }
-  google.script.run
-    .withSuccessHandler(function (r) {
+  /* §35: lectura con 1 reintento automático ante transporte transitorio. */
+  ECICEP_lectura('api_controlPanel',
+    [{ sector: CTRL.sector, termino: CTRL.termino, estados: estadosEnvio(),
+       inicio: reset ? 0 : CTRL.inicio, limite: CTRL.limite }, ECICEP_ACCESO],
+    function (r) {
       if (!finalizar()) return;
       if (!r || !r.ok) { pintarError(r); return; }
       CTRL.filas = reset ? (r.filas || []) : CTRL.filas.concat(r.filas || []);
       CTRL.total = r.total || 0;
       CTRL.inicio = reset ? (r.filas || []).length : CTRL.inicio + (r.filas || []).length;
       pintar(reset);
-    })
-    .withFailureHandler(function (e) {
+    },
+    function (e) {
       if (!finalizar()) return;
       pintarError({ motivo: (e && e.message) || e });
-    })
-    .api_controlPanel({ sector: CTRL.sector, termino: CTRL.termino, estados: estadosEnvio(),
-                        inicio: reset ? 0 : CTRL.inicio, limite: CTRL.limite }, ECICEP_ACCESO);
+    });
 }
 
 function mostrarSkeleton() {
@@ -345,18 +347,20 @@ function verFicha() {
     window.open(base + '&id=' + encodeURIComponent(id), '_blank');
     return;
   }
-  google.script.run
-    .withSuccessHandler(function (r) {
-      if (r === false) {
-        toast('No se pudo abrir la ficha: ID inválido', 'err');
-        return;
-      }
-      google.script.host.close();
-    })
-    .withFailureHandler(function (e) {
-      toast('Error al abrir ficha: ' + ((e && e.message) || e), 'err');
-    })
-    .UI_abrirFicha(id);
+  ECICEP_navegar('', 'la ficha', function () {
+    google.script.run
+      .withSuccessHandler(function (r) {
+        if (r === false) {
+          toast('No se pudo abrir la ficha: ID inválido', 'err');
+          return;
+        }
+        google.script.host.close();
+      })
+      .withFailureHandler(function (e) {
+        toast('Error al abrir ficha: ' + ((e && e.message) || e), 'err');
+      })
+      .UI_abrirFicha(id);
+  });
 }
 function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 

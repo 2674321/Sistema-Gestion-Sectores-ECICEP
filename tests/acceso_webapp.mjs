@@ -83,7 +83,7 @@ t('La ficha de Sheets usa la credencial universal para buscar y actualizar la ag
   c._ui_sidebar('pacientes','Pacientes ECICEP');
   assert.equal(plantilla.TOKEN_INVITACION,TOKEN_UNIVERSAL,'sidebar recibe la credencial universal');
   const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
-  assert.match(sidebar,/\.api_actualizarPaciente\(P_ACTUAL,\{PROXIMO_CONTROL:inp\.value\},TOKEN_INVITACION\)/);
+  assert.match(sidebar,/\.api_fichaGuardarCambios\(P_ACTUAL,\{PROXIMO_CONTROL:\{anterior:[^,]*,valor:inp\.value\}\},TOKEN_INVITACION\)/);
 });
 
 t('Cada RPC se autoriza: con la credencial universal pasa, sin token o inválido se niega',()=>{
@@ -94,6 +94,9 @@ t('Cada RPC se autoriza: con la credencial universal pasa, sin token o inválido
   assert.equal(c.WebApp_capturarEnviar({},'').ok,false);
   assert.equal(c.WebApp_capturarEnviar({},TOKEN_INVALIDO).ok,false);
   assert.equal(capturas,2);
+  // v0.10.5 §8: estadoInicial requiere catálogo de profesionales no vacío
+  c.WebApp_profesionalesDropdown=()=>[{nombre:'Pro.'+'f',profesion:'MEDICO',id:1}];
+  assert.equal(c.WebApp_estadoInicial(TOKEN_UNIVERSAL).ok,true);
   assert.equal(c.WebApp_estadoInicial(TOKEN_UNIVERSAL).url,c.WebApp_urlCompartida_());
   assert.equal(c.api_webappEstado(TOKEN_UNIVERSAL).url,c.WebApp_urlCompartida_());
   assert.equal(c.api_webappEstado(TOKEN_LEGACY).url,c.WebApp_urlCompartida_());
@@ -173,7 +176,7 @@ t('Todo constructor de dialogo inyecta la credencial universal antes de evaluate
     if(necesitaInvitacion)assert.equal(vars.TOKEN_INVITACION,TOKEN_UNIVERSAL,d.opener+' → TOKEN_INVITACION en '+d.plantilla);
   }
   const controles=readFileSync(new URL('Controles.html',root),'utf8');
-  assert.match(controles,/\.api_controlPanel\(\{[^}]*\},\s*ECICEP_ACCESO\)/);
+  assert.match(controles,/ECICEP_lectura\('api_controlPanel',\s*\[\{[\s\S]*?ECICEP_ACCESO\],/);
   assert.match(controles,/\.api_controlActualizarUltimo\([^;]*,\s*ECICEP_ACCESO\)/);
   const sidebar=readFileSync(new URL('Sidebar.html',root),'utf8');
   assert.ok(!/var ID_INICIAL = \(typeof ID_INICIAL !== 'undefined'\) \? ID_INICIAL : '';/.test(sidebar),

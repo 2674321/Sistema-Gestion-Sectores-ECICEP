@@ -52,6 +52,7 @@ header .sub{color:var(--text-muted);font-size:13px;width:100%;margin-top:2px}
 </style>
 </head>
 <body data-rem-url="<?= REM_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
+<?!= include('00_OperadorRuntime') ?>
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>Estadísticas</h1> <span class="build" style="font-size:10px;color:var(--border-strong)">build <?= BUILD ?></span><span class="chip rut" id="chipGen">…</span>
@@ -364,67 +365,79 @@ function irRem(){
     if(sv&&sv.sectores&&sv.sectores.length===1)sector=sv.sectores[0];}catch(e){}
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:mes,anio:anio,sector:sector}));}catch(e){}
   var remUrl=document.body.getAttribute('data-rem-url');
-  if(remUrl)window.open(remUrl,'_blank');else google.script.run.UI_verRem();
+  ECICEP_navegar(remUrl,'el visor REM',function(){google.script.run.UI_verRem();});
 }
 function cargarDatos(btn){
   if(btn&&btn.disabled)return;
   if(btn){btn.disabled=true;btn.classList.add('refresh-spin');}
   if(!document.getElementById('barraTxt'))barraMsg('');
   barraMsg('Solicitando datos al servidor…');barraIndet(['Solicitando datos…','Leyendo pacientes…','Leyendo eventos…','Serializando…']);
-  google.script.run.withSuccessHandler(function(r){
-  ['kTotal','kPend','kIng','kRev'].forEach(function(id){
-    document.getElementById(id).textContent='…';});
-  if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');
-    barraFin(false);if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
-    return;}
-  D=r;D.catalogoObj={};(r.catalogo||[]).forEach(function(c){D.catalogoObj[c.codigo]=c.nombre;});
-  D.catalogo=D.catalogoObj;
-  var anioActual=String(r.generadoEn||'').slice(0,4);
-  document.getElementById('fDesde').value=anioActual+'-01-01';
-  document.getElementById('fHasta').value=r.generadoEn;
-  document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);
+  /* Lectura CON 1 reintento ante transporte transitorio (§35): 2 intentos, luego error definitivo. */
+  function leerDatos(_intento){
+    if(_intento>2){
+      var bz=document.getElementById('btnActualizar');
+      if(bz){bz.disabled=false;bz.classList.remove('refresh-spin');}
+      barraFin(false,'No fue posible cargar los datos.');return;
+    }
+    google.script.run.withSuccessHandler(function(r){
+    ['kTotal','kPend','kIng','kRev'].forEach(function(id){
+      document.getElementById(id).textContent='…';});
+    if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');
+      barraFin(false);if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
+      return;}
+    D=r;D.catalogoObj={};(r.catalogo||[]).forEach(function(c){D.catalogoObj[c.codigo]=c.nombre;});
+    D.catalogo=D.catalogoObj;
+    var anioActual=String(r.generadoEn||'').slice(0,4);
+    document.getElementById('fDesde').value=anioActual+'-01-01';
+    document.getElementById('fHasta').value=r.generadoEn;
+    document.getElementById('chipGen').textContent='Generado '+_fmtFecha(r.generadoEn);
 
-  try{
-    var sv=JSON.parse(localStorage.getItem('DASH_OPS')||'null');
-    if(sv){
-      var seleccion=Array.isArray(sv.sectores)?sv.sectores.slice():SECTORES.slice();
-      if(['NARANJO','AMARILLO','VERDE'].every(function(s){return seleccion.indexOf(s)!==-1;})&&
-         seleccion.indexOf('MULTIPLE')===-1)seleccion.push('MULTIPLE');
-      document.querySelectorAll('.chip-filtro').forEach(function(ch){
-        ch.classList.toggle('on',seleccion.indexOf(ch.dataset.s)!==-1);});
-      document.getElementById('opSinPend').checked=!!sv.ops.sinPend;
-      document.getElementById('opConPat').checked=!!sv.ops.conPat;
-      document.getElementById('opSinSector').checked=!!sv.ops.sinSector;
-      document.getElementById('opDias').value=sv.ops.dias;
-      document.getElementById('fDesde').value=sv.desde;
-      document.getElementById('fHasta').value=sv.hasta;
+    try{
+      var sv=JSON.parse(localStorage.getItem('DASH_OPS')||'null');
+      if(sv){
+        var seleccion=Array.isArray(sv.sectores)?sv.sectores.slice():SECTORES.slice();
+        if(['NARANJO','AMARILLO','VERDE'].every(function(s){return seleccion.indexOf(s)!==-1;})&&
+           seleccion.indexOf('MULTIPLE')===-1)seleccion.push('MULTIPLE');
+        document.querySelectorAll('.chip-filtro').forEach(function(ch){
+          ch.classList.toggle('on',seleccion.indexOf(ch.dataset.s)!==-1);});
+        document.getElementById('opSinPend').checked=!!sv.ops.sinPend;
+        document.getElementById('opConPat').checked=!!sv.ops.conPat;
+        document.getElementById('opSinSector').checked=!!sv.ops.sinSector;
+        document.getElementById('opDias').value=sv.ops.dias;
+        document.getElementById('fDesde').value=sv.desde;
+        document.getElementById('fHasta').value=sv.hasta;
+      }
+    }catch(eL){}
+    /* Contexto compartido REM (localStorage REM_ULTIMA): si existe, acota el rango
+       al mes del período rem visto/generado. Es la misma clave que leen RemVista y
+       RemGenerador, por eso "Ver REM" y el retorno muestran el mismo mes. */
+    try{
+      var rem=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');
+      if(rem&&rem.anio&&rem.mes){
+        var ini=new Date(+rem.anio,rem.mes-1,1);
+        var fin=new Date(+rem.anio,rem.mes,0);
+        document.getElementById('fDesde').value=ini.getFullYear()+'-'+
+          String(ini.getMonth()+1).padStart(2,'0')+'-01';
+        document.getElementById('fHasta').value=fin.getFullYear()+'-'+
+          String(fin.getMonth()+1).padStart(2,'0')+'-'+String(fin.getDate()).padStart(2,'0');
+      }
+    }catch(eR2){}
+    barraFin(true,'✓ Datos cargados');if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
+    renderizarTodo();
+    if(!_conteoAnim){
+      Array.prototype.forEach.call(document.querySelectorAll('.kpi,.chart-card'),function(c,i2){
+        c.classList.add('fade-in');c.style.animationDelay=(i2*50)+'ms';});
     }
-  }catch(eL){}
-  /* Contexto compartido REM (localStorage REM_ULTIMA): si existe, acota el rango
-     al mes del período rem visto/generado. Es la misma clave que leen RemVista y
-     RemGenerador, por eso "Ver REM" y el retorno muestran el mismo mes. */
-  try{
-    var rem=JSON.parse(localStorage.getItem('REM_ULTIMA')||'null');
-    if(rem&&rem.anio&&rem.mes){
-      var ini=new Date(+rem.anio,rem.mes-1,1);
-      var fin=new Date(+rem.anio,rem.mes,0);
-      document.getElementById('fDesde').value=ini.getFullYear()+'-'+
-        String(ini.getMonth()+1).padStart(2,'0')+'-01';
-      document.getElementById('fHasta').value=fin.getFullYear()+'-'+
-        String(fin.getMonth()+1).padStart(2,'0')+'-'+String(fin.getDate()).padStart(2,'0');
-    }
-  }catch(eR2){}
-  barraFin(true,'✓ Datos cargados');if(btn){btn.disabled=false;btn.classList.remove('refresh-spin');}
-  renderizarTodo();
-  if(!_conteoAnim){
-    Array.prototype.forEach.call(document.querySelectorAll('.kpi,.chart-card'),function(c,i2){
-      c.classList.add('fade-in');c.style.animationDelay=(i2*50)+'ms';});
+    _refrescarIconos();
+    }).withFailureHandler(function(e){
+      if(_intento<2){leerDatos(_intento+1);return;}
+      var b2=document.getElementById('btnActualizar');
+      if(b2){b2.disabled=false;b2.classList.remove('refresh-spin');}
+      barraFin(false);
+      toast('Error cargando datos: '+(e&&e.message||e),'err');
+    }).api_dashboardDatos(ECICEP_ACCESO);
   }
-  _refrescarIconos();
-}).withFailureHandler(function(e){barraFin(false);var b2=document.getElementById('btnActualizar');
-  if(b2){b2.disabled=false;b2.classList.remove('refresh-spin');}
-  toast('Error cargando datos: '+(e&&e.message||e),'err');})
-.api_dashboardDatos(ECICEP_ACCESO);
+  leerDatos(1);
 }
 
 cargarDatos();

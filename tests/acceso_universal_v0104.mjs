@@ -122,6 +122,7 @@ t('RPC y flujo de captura: con la credencial universal todo opera; inválido se 
   sembrarTokens(true,true);sembrarLock(false);
   c.Modelo_leerPacientes=()=>[];c.Modelo_leerEventos=()=>[];
   c.Form_esquemaFormulario=()=>({});
+  c.WebApp_profesionalesDropdown=()=>[{nombre:'Pro.'+'f',profesion:'MEDICO',id:1}];
   const ei=c.WebApp_estadoInicial(CANONICO);
   assert.equal(ei.url,c.WebApp_urlCompartida_(),'estadoInicial con universal autorizado (devuelve url)');
   assert.ok(Array.isArray(ei.profesionales),'estadoInicial con universal entrega catálogo');

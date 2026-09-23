@@ -1,5 +1,39 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-22 (v0.10.5):**
+> - **FIABILIDAD OPERATIVA (DEC-069)**: estado de envío por las 4 acciones
+>   (NUEVO_INGRESO/ACTUALIZAR_DATOS/SEGUIMIENTO/CAMBIO_SECTOR) con UNA RPC y
+>   fase correcta, preflight de `NUEVO_INGRESO`, timeout de entrega que
+>   desbloquea el formulario con mensaje compartido, guard de secuencia (el
+>   callback de una solicitud vieja jamás toca la actual), modal de duplicados
+>   que pausa el timeout humano y conserva la intención
+>   (`confirmarNuevoPaciente` solo cuando el operador confirma
+>   explícitamente), descarte sin RPC, recuperación de acceso con anti-bucle
+>   (una sola recarga; captureId conservado en `sessionStorage` y restaurado),
+>   bootstrap bloqueante: catálogo vacío → `CATALOGO_PROFESIONALES_NO_DISPONIBLE`
+>   reintenta y jamás habilita el envío (invariante: `ok:true` implica
+>   profesionales cargados), errores temporales reintentan y el botón
+>   Reintentar recupera. Contrato RPC uniforme: **dataset vacío ≠ RPC fallida**
+>   (`api_buscar` `ok:true filas:[]`, `api_revisionListar` métricas vacías,
+>   `api_ficha` nunca nula, `api_remVista` `PERIODO_INVALIDO`, accesos
+>   rechazados siempre `ok:false`). Idempotencia del operador vigente
+>   (`CONFLICTO_IDEMPOTENCIA` §13B del contrato), lock `SERVICIO_OCUPADO` sin
+>   ejecutar la mutación, y ficha todo-o-nada (PACIENTES + EVENTO; fallo de
+>   vista derivada solo avisa `VISTA_SECTOR_PENDIENTE`); retry convergente
+>   `FICHA_CAMBIO`.
+> - **LECTURAS ACOTADAS (§41)**: la captura en la Web App y la pre-ficha del
+>   sidebar leen solo encabezados + filas físicas permitidas
+>   (`Ingresos_leerFilasAcotadas_`, getRange de UNA fila, nunca
+>   `getDataRange`), con umbral de 50 filas en el lector; una hoja `INGRESO_*`
+>   de 10.000 filas ya no se barre en ningún request de captura/pre-ficha.
+> - **Se conservan** superficie RPC mínima, guards por RPC, mutaciones
+>   atómicas/idempotentes, `CONFIG_SECRETOS`; **schema 2 sin migración**;
+>   deployment operativo reutilizado @221 (misma URL/QR, sin deployments por
+>   rutina). `ECICEP.VERSION` → `0.10.5`.
+> - Batería: **23 suites · 0 fallos** (`validar_html` 22/22, operador
+>   resiliencia vNEXT 32/32, captura lecturas acotadas vNEXT 9/9).
+>   Informe `docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
+
 > **Actualización 2026-09-22 (v0.10.4):**
 > - **ACCESO UNIVERSAL ECICEP (DEC-068, supera DEC-067)**: una sola credencial
 >   (`CAPTURA_ACCESS_TOKEN`, valor conservado) habilita **todas** las funciones

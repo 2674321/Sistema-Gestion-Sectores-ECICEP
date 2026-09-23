@@ -362,7 +362,12 @@ test('E: endpoints de la ficha/ingresos exigen token válido', () => {
   assert.equal(c.api_ingresoIncorporar('INGRESO_NARANJO', 2, false, 'bad').motivo, 'ACCESO_DENEGADO');
   assert.equal(c.api_fichaGuardarCambios('x', {}, 'bad').motivo, 'ACCESO_DENEGADO');
   assert.equal(c.api_ficha('x', 'bad').ok, false);
-  assert.equal(JSON.stringify(c.api_revisionListar('bad')), '{"casos":[],"metricas":{}}');
+  // v0.10.5 §13: denegado → {ok:false,codigo,motivo,casos:[],metricas:{...}} (contrato común RPC)
+  const rev = c.api_revisionListar('bad');
+  assert.equal(rev.ok, false);
+  assert.equal(rev.codigo, 'ACCESO_DENEGADO');
+  assert.equal(rev.casos.length, 0);
+  assert.equal(rev.metricas.abiertos, 0);
 });
 
 console.log('\nficha_ingresos_v0102 — ' + passed + '/' + passed + ' PASS');

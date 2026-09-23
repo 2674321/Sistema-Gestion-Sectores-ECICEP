@@ -1053,29 +1053,37 @@ function Captura_v2_buscarMarcaEnHoja(nombreHoja, marca) {
  * GAS: confirmación REAL de la fila de ingreso (§16) en el intento síncrono:
  * relee la fila y verifica por encabezado que FECHA DE INGRESO = fechaIngreso y
  * que el pipeline dejó ESTADO_INGRESO marcado. Devuelve {ok:true} o {ok:false,motivo}.
+ * LECTURA ACOTADA (v0.10.5 §15): 1 fila de encabezados + 1 fila objetivo, NUNCA
+ * el bloque completo de la hoja.
  */
-function Captura_v2_confirmarEntregaIngreso(nombreHoja, filaFisica, fechaIso, bloqueReusar) {
+function Captura_v2_confirmarEntregaIngreso(nombreHoja, filaFisica, fechaIso) {
   try {
     var hoja = Modelo_hoja(nombreHoja);
     if (!hoja) return { ok: false, motivo: 'HOJA_AUSENTE' };
-    var ultimac = Math.min(hoja.getLastColumn(), 40);
-    var bloque = (bloqueReusar && bloqueReusar.length) ? bloqueReusar
-      : hoja.getRange(1, 1, hoja.getLastRow(), ultimac).getValues();
-    if (!bloque.length || bloque[0].join('|') == null || bloque[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) {
+    var nf = Number(filaFisica);
+    if (!nf || nf < 1 || nf > hoja.getLastRow()) return { ok: false, motivo: 'FILA_FUERA_DE_RANGO' };
+    var hr = Modelo_headerRow(nombreHoja);
+    var ancho = Math.min(hoja.getLastColumn(), 40);
+    var encabezados = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+    if (encabezados.join('|') == null || encabezados.join('|').toUpperCase().indexOf('NOMBRE') === -1) {
       return { ok: false, motivo: 'BLOQUE_DESALINEADO' };
     }
-    var hr = Modelo_headerRow(nombreHoja);
-    var idx = Number(filaFisica) - hr;
-    if (isNaN(idx) || idx < 1 || idx >= bloque.length) return { ok: false, motivo: 'FILA_FUERA_DE_RANGO' };
-    var colFecha = Captura_v2_indiceColumnaFecha(bloque[0]);
+    if (nf <= hr) return { ok: false, motivo: 'FILA_FUERA_DE_RANGO' };
+    var colFecha = Captura_v2_indiceColumnaFecha(encabezados);
     if (colFecha < 0) return { ok: false, motivo: 'COLUMNA_FECHA_INGRESO_NO_ENCONTRADA' };
-    var mapa = Ingresos_mapearEncabezadosHoja(bloque[0]);
-    var escrito = Utl_texto(bloque[idx][colFecha]);
+    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var fila = hoja.getRange(nf, 1, 1, ancho).getValues()[0];
+    var escrito = Utl_texto(fila[colFecha]);
     var okFecha = escrito === Utl_texto(fechaIso);
-    var okEstado = mapa.estadoIdx >= 0 && Utl_texto(bloque[idx][mapa.estadoIdx]).toUpperCase() !== '';
+    var okEstado = mapa.estadoIdx >= 0 && Utl_texto(fila[mapa.estadoIdx]).toUpperCase() !== '';
     if (!okFecha) return { ok: false, motivo: 'FECHA_INGRESO_DIVERGENTE', actual: escrito };
     if (!okEstado) return { ok: false, motivo: 'SIN_ESTADO_PIPELINE' };
-    return { ok: true, fila: filaFisica, bloque: bloque };
+    return {
+      ok: true,
+      fila: filaFisica,
+      estado: mapa.estadoIdx >= 0 ? Utl_texto(fila[mapa.estadoIdx]).toUpperCase() : '',
+      nota: mapa.notaIdx >= 0 ? Utl_texto(fila[mapa.notaIdx]) : ''
+    };
   } catch (e) {
     return { ok: false, motivo: 'EXCEPCION' };
   }
@@ -1151,9 +1159,9 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
       };
     }
 
-    var est = (conf && conf.bloque)
-      ? Form_leerFilaIngresoDesdeBloque(hojaEntrega, filaFisica, conf.bloque)
-      : Form_leerFilaIngreso(hojaEntrega, filaFisica);
+    // Estado real de la fila: fast-path acotado (1 header + 1 fila), nunca el
+    // bloque completo de la hoja (v0.10.5 §16).
+    var est = Form_leerFilaIngreso_rapida_(hojaEntrega, filaFisica);
     var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
     var idInterno = Captura_v2_buscarIdInternoPorRut(norm.rut);
     return {
@@ -1435,13 +1443,15 @@ function Captura_v2_medida(c, etiqueta) {
   try { c.medir(etiqueta); } catch (e) { /* no bloquear nunca */ }
 }
 
-/** GAS: acumula la medida en el ctx (base = primera llamada del request). */
+/** GAS: acumula la medida en el ctx (T0 = primera llamada del request).
+ *  v0.10.5 §32: el origen de tiempo vive en el contexto (`this._t0`), NO en un
+ *  estático compartido, para no mezclar bases entre requests concurrentes. */
 function Captura_v2_marcaMedida(etiqueta) {
   try {
     var t = Date.now();
-    Captura_v2_marcaMedida._base = Captura_v2_marcaMedida._base || t;
+    if (!this._t0) this._t0 = t;
     if (!this.medidas) this.medidas = [];
-    this.medidas.push({ n: etiqueta, d: t - Captura_v2_marcaMedida._base });
+    this.medidas.push({ n: etiqueta, d: t - this._t0 });
   } catch (e) { /* no bloquear nunca */ }
 }
 

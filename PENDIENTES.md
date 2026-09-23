@@ -1,5 +1,22 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-22 (v0.10.5):** pasada de **fiabilidad operativa +
+> lecturas acotadas** (DEC-069): estado de envío por las 4 acciones con una
+> sola RPC, preflight de `NUEVO_INGRESO`, timeout de entrega que desbloquea,
+> guard de secuencia, modal de duplicados con intención explícita
+> (`confirmarNuevoPaciente`), recuperación de acceso con anti-bucle y
+> captureId conservado, bootstrap bloqueante ante catálogo vacío
+> (`CATALOGO_PROFESIONALES_NO_DISPONIBLE`, invariante `ok:true` ⇒ profesionales
+> cargados) y contrato RPC uniforme (dataset vacío ≠ fallo; `api_ficha` nunca
+> nula; accesos rechazados `ok:false`). Idempotencia del operador
+> (`CONFLICTO_IDEMPOTENCIA`), lock `SERVICIO_OCUPADO`, ficha todo-o-nada
+> (`VISTA_SECTOR_PENDIENTE`) y lecturas acotadas de `INGRESO_*` (nunca
+> `getDataRange`; umbral 50 filas en el lector). Se mantienen superficie RPC
+> mínima, guards por RPC y mutaciones atómicas/idempotentes. Esquema sigue en
+> **2**; **schema no cambia**; deployment operativo reutilizado @221 (misma
+> URL/QR). Batería **23 suites · 0 fallos**. Detalle:
+> `docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
+
 > **Actualización 2026-09-22 (v0.10.4):** hotfix **ACCESO UNIVERSAL ECICEP**
 > (DEC-068, supera DEC-067): una sola credencial (`CAPTURA_ACCESS_TOKEN`,
 > valor conservado) habilita todas las funciones operativas (captura, ficha,

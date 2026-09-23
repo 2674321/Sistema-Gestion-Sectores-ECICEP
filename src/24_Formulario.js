@@ -1255,6 +1255,35 @@ function Form_leerFilaIngreso(nombreHoja, filaFisica) {
   };
 }
 
+/** GAS: FAST PATH (v0.10.5 §16) — estado de UNA fila de ingreso leyendo SOLO
+ *  1 fila de encabezados + 1 fila objetivo, nunca el bloque completo de la hoja.
+ *  Mismo contrato de retorno que Form_leerFilaIngreso (rutas interactivas);
+ *  la versión masiva (bloque completo) se conserva para procesos batch. */
+function Form_leerFilaIngreso_rapida_(nombreHoja, filaFisica) {
+  try {
+    var hojaEst = Modelo_hoja(nombreHoja);
+    if (!hojaEst) return { estado: 'ERROR', nota: 'HOJA_INGRESO_AUSENTE' };
+    var nf = Number(filaFisica);
+    if (!nf || nf < 1 || nf > hojaEst.getLastRow()) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
+    var hr = Modelo_headerRow(nombreHoja);
+    var ancho = Math.max(hojaEst.getLastColumn(), 1);
+    var encabezados = hojaEst.getRange(hr, 1, 1, ancho).getValues()[0];
+    if (encabezados.join('|').toUpperCase().indexOf('NOMBRE') === -1) {
+      var alt = hojaEst.getRange(1, 1, 1, ancho).getValues()[0];
+      if (alt.join('|').toUpperCase().indexOf('NOMBRE') !== -1) { hr = 1; encabezados = alt; }
+    }
+    if (nf <= hr) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
+    var fila = hojaEst.getRange(nf, 1, 1, ancho).getValues()[0];
+    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    return {
+      estado: mapa.estadoIdx >= 0 ? Utl_texto(fila[mapa.estadoIdx]).toUpperCase() : '',
+      nota: mapa.notaIdx >= 0 ? Utl_texto(fila[mapa.notaIdx]) : ''
+    };
+  } catch (e) {
+    return { estado: 'ERROR', nota: 'SIN_DATOS' };
+  }
+}
+
 /**
  * GAS: manejador del trigger onFormSubmit. Captura y procesa.
  * El evento `e` NO se usa para los datos (los lee FormApp por idempotencia).

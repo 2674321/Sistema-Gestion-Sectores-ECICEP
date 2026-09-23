@@ -36,6 +36,7 @@ header .sub{color:var(--text-muted);font-size:13px;margin-top:2px}
 </style>
 </head>
 <body data-portal="<?= PORTAL_URL ?>" data-dash-url="<?= DASH_URL ?>" data-rem-url="<?= REM_URL ?>" data-acceso="<?= TOKEN_ACCESO ?>">
+<?!= include('00_OperadorRuntime') ?>
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <header>
   <h1>Generar REM</h1>
@@ -214,20 +215,24 @@ function irEstadisticas(){
   var sector=document.getElementById('selSector').value;
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
   var url=document.body.getAttribute('data-dash-url');
-  if(url){window.open(url,'_blank');return;}
-  google.script.run
-    .withFailureHandler(function(){ toast('No fue posible abrir las estadísticas. Reintenta en unos segundos.','err'); })
-    .UI_abrirDashboard();
+  if(url){ECICEP_navegar(url,'las estadísticas');return;}
+  ECICEP_navegar('','las estadísticas',function(){
+    google.script.run
+      .withFailureHandler(function(){ toast('No fue posible abrir las estadísticas. Reintenta en unos segundos.','err'); })
+      .UI_abrirDashboard();
+  });
 }
 function consultar(){
   var p=periodoActual();
   var sector=document.getElementById('selSector').value;
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
   var url=document.body.getAttribute('data-rem-url');
-  if(url){window.open(url,'_blank');return;}
-  google.script.run
-    .withFailureHandler(function(){ toast('No fue posible abrir el visor REM. Reintenta en unos segundos.','err'); })
-    .UI_verRem();
+  if(url){ECICEP_navegar(url,'el visor REM');return;}
+  ECICEP_navegar('','el visor REM',function(){
+    google.script.run
+      .withFailureHandler(function(){ toast('No fue posible abrir el visor REM. Reintenta en unos segundos.','err'); })
+      .UI_verRem();
+  });
 }
 function cerrarVista(){var url=document.body.getAttribute('data-portal');if(url)window.open(url,'_blank');else google.script.host.close();}
 

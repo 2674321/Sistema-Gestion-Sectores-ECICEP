@@ -181,6 +181,7 @@ textarea.inp{min-height:64px;resize:vertical}
 </style>
 </head>
 <body data-portal="<?= PORTAL_URL ?>">
+<?!= include('00_OperadorRuntime') ?>
 <? if (PORTAL_URL) { ?><a href="<?= PORTAL_URL ?>" target="_blank" rel="noopener noreferrer">← Funciones ECICEP</a><? } ?>
 <div id="toastZone"></div>
 
@@ -430,17 +431,19 @@ function buscarAhora(){
   _dbg('api_buscar',{termino:t});
   document.getElementById('resultados').innerHTML=
     '<div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div>';
-  google.script.run.withFailureHandler(_errSilencioso('api_buscar')).withSuccessHandler(function(l){
-    _dbg('api_buscar OK',(l&&l.length||0)+' resultados');
-    var cont=document.getElementById('resultados');_resIdx=-1;
-    if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
-    cont.innerHTML=l.map(function(p,i){
-      return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
-        '<div class="res-nombre">'+_esc(p.nombre)+'</div>'+
-        '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
-    }).join('');
-    _refrescarIconos();
-  }).api_buscar(t, TOKEN_INVITACION);
+  ECICEP_lectura('api_buscar', [t, TOKEN_INVITACION],
+    function(l){
+      _dbg('api_buscar OK',(l&&l.length||0)+' resultados');
+      var cont=document.getElementById('resultados');_resIdx=-1;
+      if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
+      cont.innerHTML=l.map(function(p,i){
+        return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
+          '<div class="res-nombre">'+_esc(p.nombre)+'</div>'+
+          '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
+      }).join('');
+      _refrescarIconos();
+    },
+    _errSilencioso('api_buscar'));
 }
 var buscar=_debounce(buscarAhora,220);
 
@@ -506,8 +509,10 @@ function ingVolver(){
 function cargarIngresos(inicio){
   _ingPaginacion.inicio=Math.max(inicio||0,0);
   document.getElementById('ingLista').innerHTML='<div class="skel" style="height:80px;margin-bottom:8px"></div><div class="skel" style="height:80px"></div>';
-  google.script.run.withSuccessHandler(function(r){
-    if(!r||r.ok===false){document.getElementById('ingLista').innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo listar')+'</div>';return;}
+  ECICEP_lectura('api_ingresosPendientes',
+    [{ inicio: _ingPaginacion.inicio, limite: _ingPaginacion.limite }, TOKEN_INVITACION],
+    function(r){
+      if(!r||r.ok===false){document.getElementById('ingLista').innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo listar')+'</div>';return;}
     _ingPaginacion.total=r.total||0;
     document.getElementById('ingCinta').innerHTML=
       '<span class="chip fade-in">Pendientes <b class="num">'+_esc(r.total)+'</b></span>'+
@@ -527,9 +532,10 @@ function cargarIngresos(inicio){
         '<button class="btn btn-ghost" style="min-height:30px;font-size:11.5px" onclick="cargarIngresos('+(_ingPaginacion.inicio+_ingPaginacion.limite)+')" '+((_ingPaginacion.inicio+_ingPaginacion.limite)>=_ingPaginacion.total?'disabled':'')+'>Siguiente <i data-lucide="chevron-right" style="width:13px;height:13px"></i></button>'+
       '</div>';
     _refrescarIconos();
-  }).withFailureHandler(function(e){
-    document.getElementById('ingLista').innerHTML='<div class="vacio">Error: '+_esc(e&&e.message||e)+'</div>';
-  }).api_ingresosPendientes({inicio:_ingPaginacion.inicio,limite:_ingPaginacion.limite},TOKEN_INVITACION);
+    },
+    function(e){
+      document.getElementById('ingLista').innerHTML='<div class="vacio">Error: '+_esc(e&&e.message||e)+'</div>';
+    });
 }
 function estadoIng(est){
   var col={ERROR:'var(--danger)',WARNING:'var(--warning)',PENDIENTE:'var(--success)'}[est]||'var(--text-muted)';
@@ -539,8 +545,9 @@ function ingAbrirDetalle(hoja,fila){
   mostrarIngresoDetalle(true);
   var d=document.getElementById('ingDetalle');
   d.innerHTML='<div class="skel" style="height:160px"></div>';
-  google.script.run.withSuccessHandler(function(r){
-    if(!r||!r.ok){d.innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo leer la fila')+'</div>';return;}
+  ECICEP_lectura('api_ingresoDetalle', [hoja, fila, TOKEN_INVITACION],
+    function(r){
+      if(!r||!r.ok){d.innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo leer la fila')+'</div>';return;}
     var pf=r.preFicha||{};
     var filas=[['Nombre',pf.nombre],['RUT',pf.rut],['Sector',pf.sector],['Fec. ingreso',pf.fechaIngreso],
       ['Sexo',pf.sexo],['Fec. nacimiento',pf.fechaNacimiento],['Teléfono',pf.telefono],['Estratificación',pf.estratificacion],
@@ -557,10 +564,11 @@ function ingAbrirDetalle(hoja,fila){
         '<button class="btn btn-pri" onclick="ingIncorporar(this,\''+_esc(r.hoja)+'\','+r.fila+')"><i data-lucide="user-plus"></i> Incorporar</button>'+
         '<button class="btn btn-ghost" onclick="ingVolver()">Volver</button>'+
       '</div></div>';
-    _refrescarIconos();
-  }).withFailureHandler(function(e){
-    d.innerHTML='<div class="vacio">Error: '+_esc(e&&e.message||e)+'</div>';
-  }).api_ingresoDetalle(hoja,fila,TOKEN_INVITACION);
+      _refrescarIconos();
+    },
+    function(e){
+      d.innerHTML='<div class="vacio">Error: '+_esc(e&&e.message||e)+'</div>';
+    });
 }
 function ingIncorporar(btn,hoja,fila){
   var fin=_btnCargando(btn,'Incorporando…');
@@ -606,12 +614,14 @@ function abrirFicha(id){
   ['fResumen','fTimeline','patLista'].forEach(function(x){
     var el=document.getElementById(x);if(el)el.innerHTML='<div class="skel" style="height:52px"></div>';});
   activarTab('paneResumen');
-  google.script.run.withSuccessHandler(function(res){
+  ECICEP_lectura('api_ficha', [id, TOKEN_INVITACION],
+  function(res){
     if(!res){toast('Respuesta vacía del servidor','err');return;}
     if(!res.ok){toast((res.code||'ERROR')+': '+res.message,'err');return;}
     pintarFicha(res.ficha);
-  }).withFailureHandler(function(err){toast('Error del servidor: '+(err&&err.message||err),'err');
-  }).api_ficha(id, TOKEN_INVITACION);
+  },
+  function(err){toast('Error del servidor: '+(err&&err.message||err),'err');
+  });
 }
 
 function pintarFicha(f){
@@ -843,11 +853,12 @@ function segGuardarProximo(btn){
   if(!inp.checkValidity()){inp.reportValidity();return;}
   var fin=_btnCargando(btn,'Guardando…');
   google.script.run.withSuccessHandler(function(r){
-    setLoading(btn,false);
+    fin();setLoading(btn,false);
     if(r&&r.ok){toast('✓ Próxima atención actualizada','ok');abrirFicha(P_ACTUAL);}
-    else toast((r&&r.motivo)||'No se pudo guardar','err');
-  }).withFailureHandler(function(e){setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
-  .api_actualizarPaciente(P_ACTUAL,{PROXIMO_CONTROL:inp.value},TOKEN_INVITACION);
+    else if(r&&r.motivo&&String(r.motivo).indexOf('FICHA_CAMBIO')===0){toast(r.motivo,'warn');abrirFicha(P_ACTUAL);}
+    else toast((r&&(r.codigo||r.motivo))||'No se pudo guardar','err');
+  }).withFailureHandler(function(e){fin();setLoading(btn,false);toast('Error: '+(e&&e.message||e),'err');})
+  .api_fichaGuardarCambios(P_ACTUAL,{PROXIMO_CONTROL:{anterior:_FICHA_ACTUAL&&_FICHA_ACTUAL.PROXIMO_CONTROL||'',valor:inp.value}},TOKEN_INVITACION);
 }
 function segActualizar(btn,tipo){
   if(!P_ACTUAL){toast('No hay paciente abierto','err');return;}

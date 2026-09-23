@@ -153,6 +153,7 @@ function Captura_aplicarCamposDominio_(idInterno, campos) {
 
 function Captura_entregarEdicion_(norm,marca,opciones) {
   var a=norm.actualizacion,encontrado=Modelo_buscarPaciente(a.id);
+  var advertencias=[];
   function fail(m){return {estado:'ERROR',motivo:m,idInterno:a.id,idEvento:''};}
   if(!opciones.usuario || a.rutOriginal!==norm.rut)return fail('NO_AUTORIZADO_O_IDENTIDAD_INVALIDA');
   if(!encontrado)return fail('PACIENTE_NO_ENCONTRADO');
@@ -181,7 +182,12 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
   if(!esquema.ok)return fail('ESQUEMA_PACIENTES_INCOMPATIBLE');
   var codigos=Object.prototype.hasOwnProperty.call(campos,'CONDICIONES')?campos.CONDICIONES.split(';').filter(Boolean):null;
   if(codigos!==null)delete campos.CONDICIONES;
-  if(Object.keys(campos).length) {var upd=Captura_aplicarCamposDominio_(a.id,campos);if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');}
+  // Fase APLICAR: cada fase es idempotente por FUENTE/submarca (§25): si una
+  // fase posterior falla, el reintento converge sin duplicar.
+  if(Object.keys(campos).length) {
+    var upd=Captura_aplicarCamposDominio_(a.id,campos);
+    if(!upd.ok)return fail(upd.motivo||'ACTUALIZACION_FALLIDA');
+  }
   if(codigos!==null) {
     var otras=Object.prototype.hasOwnProperty.call(campos,'OTRAS_PATOLOGIAS')?campos.OTRAS_PATOLOGIAS:Captura_edicionTexto_(p,'OTRAS_PATOLOGIAS');
     var pat=Patologias_guardarPaciente_(a.id,codigos,otras);
@@ -198,13 +204,19 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     }
   }
   if(a.atenciones.length) {
-    Modelo_invalidarLecturas();var actualP=Modelo_buscarPaciente(a.id),nuevo=Object.assign({},actualP.obj),vigentes=Modelo_leerEventos();
-    a.atenciones.forEach(function(ac){var fechas=vigentes.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===ac.tipo;}).map(function(e){return Control_aIso(e.FECHA_EVENTO);}).filter(Boolean).sort();nuevo[ac.tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO']=fechas.length?fechas[fechas.length-1]:'';});
-    nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);Modelo_invalidarLecturas();
-    Modelo_refrescarVistasSectores_();
+    // Caché derivada ULTIMO_* y vista sectorial: BEST EFFORT (§23/§25) — un
+    // fallo aquí no convierte el guardado en error.
+    try {
+      Modelo_invalidarLecturas();var actualP=Modelo_buscarPaciente(a.id),nuevo=Object.assign({},actualP.obj),vigentes=Modelo_leerEventos();
+      a.atenciones.forEach(function(ac){var fechas=vigentes.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===ac.tipo;}).map(function(e){return Control_aIso(e.FECHA_EVENTO);}).filter(Boolean).sort();nuevo[ac.tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO']=fechas.length?fechas[fechas.length-1]:'';});
+      nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);Modelo_invalidarLecturas();
+      Modelo_refrescarVistasSectores_();
+    } catch(eD) { advertencias.push('CACHE_DERIVADA_PENDIENTE'); }
   }
+  // Auditoría best effort: es el marcador de idempotencia; si falla, reportamos
+  // advertencia y el retry converge (marcaEnEventos) sin dejar un falso error.
   var audit=Eventos_registrarPaciente_({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''},{fuenteTransporte:'CapturaV4'});
-  if(!audit.ok)return fail(audit.motivo||'AUDITORIA_NO_GUARDADA');
+  if(!audit || !audit.ok) advertencias.push('AUDITORIA_FICHA_PENDIENTE');
   var guardado=Captura_v2_marcaEnEventos(marca);
-  return {estado:'PROCESADO',idInterno:a.id,idEvento:guardado&&guardado.idEvento||''};
+  return {estado:'PROCESADO',idInterno:a.id,idEvento:guardado&&guardado.idEvento||'',advertencias:advertencias};
 }
