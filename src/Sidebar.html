@@ -764,6 +764,10 @@ function ingIncorporarValidos(btn){
     if(rs.leidos===0){
       filasR.push('<span>Sin ingresos pendientes válidos para incorporar</span>');
     }
+    var procesados=(rs.ingresados||0)+(rs.revision||0)+(rs.errores||0)+(rs.duplicados||0);
+    if(rs.leidos>0&&procesados===0){
+      filasR.push('<span style="color:var(--text-muted)">Ninguna fila pendiente procesable: vacías, ya ingresadas o fuera del filtro actual</span>');
+    }
     if(rs.ingresados)filasR.push('<span style="color:var(--success)">✓ Incorporados: <b class="num">'+_esc(rs.ingresados)+'</b></span>');
     if(rs.revision)filasR.push('<span style="color:var(--warning)">⚠ Revisión: <b class="num">'+_esc(rs.revision)+'</b></span>');
     if(rs.errores)filasR.push('<span style="color:var(--danger)">⛔ Errores: <b class="num">'+_esc(rs.errores)+'</b></span>');

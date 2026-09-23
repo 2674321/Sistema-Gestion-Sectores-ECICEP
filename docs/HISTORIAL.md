@@ -7,6 +7,48 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.10.7-fix — ROBUSTEZ DE LECTURA DE INGRESOS + BUSCADOR POR RUT (deploy reutilizado, URL y QR intactos)
+
+Corrección de la incorporación de ingresos reportada tras publicar v0.10.7:
+el panel marcaba **1 error "paciente vacío"** en filas aparentemente sin datos,
+el batch "Incorporar todos los válidos" terminaba **sin feedback** cuando no
+había nada procesable, y el **buscador no encontraba todos los RUT** de la hoja.
+
+- **Filtro de filas sin identidad** (`src/12_Ingresos.js`,
+  `Ingresos_leerHoja`): una fila solo es candidata a pendiente si la celda RUT
+  tiene **al menos un dígito** o la celda NOMBRE tiene **al menos una letra**.
+  Cierra el fantasma real: filas con caracteres invisibles (U+200B, que
+  sobrevive a `String.trim()`), guiones/puntuación sueltos o un dato ajeno en
+  otra columna ya no generan el ERROR "paciente vacío" ni se leen como datos.
+- **Localizador determinista de encabezados** (`Ingresos_localizarEncabezados_`
+  + `Ingresos_layoutHoja_`, PURA+GAS con cache): fila de encabezados real entre
+  las primeras 10 filas (NOMBRE+RUT, máxima coincidencia de columnas; empate →
+  menor fila; por defecto la del contrato, sin cambio de comportamiento en el
+  layout visual). Compartido por la **lectura completa** (listado/batch), la
+  **lectura acotada** (detalle/incorporación individual, mantiene el invariante
+  de 1 fila de alto, O pruebas de rendimiento verdes) y la **escritura de
+  ESTADO_INGRESO/NOTA_SISTEMA**. Si la hoja real no está en la fila de contrato
+  sigue leyéndose, listándose y escribiéndose en las MISMAS coordenadas físicas.
+- **Normalización del RUT en el buscador** (`src/04_Identificacion.js`,
+  `Bus_buscarPacientes`): ambos lados se normalizan (`Norm_normalizarRut`); un
+  RUT almacenado con puntos/espacios (imports previos) se encuentra por el RUT
+  canónico, y un RUT sin DV se encuentra por cuerpo (con DV se exige
+  coincidencia de DV cuando ambos lo traen). La búsqueda por nombre queda
+  intacta.
+- **Feedback explícito del batch** (`src/Sidebar.html`,
+  `ingIncorporarValidos`): cuando hay pendientes leídos pero **ninguno
+  procesable** se muestra "Ninguna fila pendiente procesable: vacías, ya
+  ingresadas o fuera del filtro actual" — nunca más una banda de resumen vacía
+  que parecía "no pasó nada".
+- **Tests**: `tests/incorporacion_ingresos_vNEXT.mjs` → **17/17** (T14 filas
+  fantasma U+200B/guiones no generan pendiente ni ERROR; T15 encabezados reales
+  fuera de la fila de contrato: listado/detalle/incorporar/estado coherentes;
+  T15b fantasma con encabezados fuera de contrato; T16 buscador con RUT con
+  puntos y SIN_DV). Batería `node tools/verificar.mjs` → **25 suites · 0 fallos**
+  (`validar_html` 22/22). `ECICEP.VERSION` → `0.10.7`, **schema 2** (sin MIG).
+- **Publicado**: `clasp push --force` + nueva versión **@226** en el deployment
+  operativo reutilizado (misma URL `/exec` y QR).
+
 ## v0.10.7 — INCORPORACIÓN DE INGRESOS CLARA PARA EL OPERADOR (deploy reutilizado, URL y QR intactos)
 
 - **Panel de ingresos → "Incorporación de ingresos"**: subtítulo explicativo

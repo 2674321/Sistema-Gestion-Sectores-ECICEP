@@ -1,5 +1,19 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-23 (v0.10.7-fix):** corrección post-publicación de la
+> incorporación de ingresos (reporte del operador: "1 error paciente vacío",
+> batch sin feedback, buscador incompleto). **Lector de hojas INGRESO_* más
+> robusto**: una fila solo es pendiente si el RUT tiene un dígito o el NOMBRE
+> una letra (elimina el fantasma de filas "vacías" con caracteres invisibles
+> como U+200B o guiones sueltos); **localizador determinista de encabezados**
+> (fila real entre las primeras 10, compartido por listado, detalle acotado y
+> escritura de ESTADO_INGRESO — sin cambio de comportamiento en layout visual
+> ni en la ruta acotada de 1 fila de alto); **buscador normaliza el RUT
+> almacenado** (puntos/espacios y SIN_DV); **feedback explícito** del batch
+> cuando no hay nada procesable (nunca banda vacía). **25 suites · 0 fallos**
+> (`incorporacion_ingresos` **17/17**). Deployment operativo reutilizado. Ver
+> `docs/HISTORIAL.md` (v0.10.7-fix).
+
 > **Actualización 2026-09-23 (v0.10.7):** la incorporación de ingresos
 > pendientes aclara la operación para el operador sin tocar el pipeline único.
 > Deja de prometer "copia" a sectores: el panel pasa a "Incorporación de

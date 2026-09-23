@@ -23,6 +23,12 @@
  *       ausencia de "Copiar al sector" y del flujo histórico).
  *   T12 helpers de la UI (ingMensajeResultado / confirm) y guardas de token
  *       del endpoint batch + conteos del listado.
+ *   T13 onOpen expone "Incorporar ingresos" → sidebar modo ingresos.
+ *   T14 filas "completamente vacías" (caracteres invisibles / guiones sin
+ *       identidad) NO generan pendiente ni ERROR fantasma (fix v0.10.7).
+ *   T15 encabezados reales fuera de la fila de contrato: listado, detalle,
+ *       incorporación y escritura de ESTADO_INGRESO comparten el MISMO layout.
+ *   T16 api_buscar normaliza el RUT almacenado (puntos/espacios y SIN_DV).
  *
  * Uso: node tests/incorporacion_ingresos_vNEXT.mjs
  */
@@ -502,6 +508,95 @@ test('T13 onOpen expone "Incorporar ingresos" → sidebar modo ingresos; UI_abri
   assert.ok(sb.indexOf("modo === 'ficha' || modo === 'ingresos'") !== -1, 'whitelist incluye modo ingresos');
   assert.ok(sb.indexOf("else if(MODO==='ingresos'){") !== -1, 'init auto-abre el panel incorporación');
   assert.ok(sb.indexOf('abrirIngresosPendientes();') !== -1, 'llama al cargador del panel');
+});
+
+// ---------------------------------------------------------------------------
+// T14 — filas fantasma sin identidad: nunca pendiente ni ERROR
+// ---------------------------------------------------------------------------
+test('T14 una fila "completamente vacía" (U+200B, guiones) NO genera pendiente ni ERROR', () => {
+  const c = libro();
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  c.hojas['INGRESO_NARANJO'].val[4] = ['\u200b\u200b', '', '', '', '', '', '', '', '', '', '', ''];
+  c.hojas['INGRESO_NARANJO'].val[5] = ['', '---', '', '', '', '', '', '', '', '', '', ''];
+
+  const listado = c.api_ingresosPendientes({}, 'tok');
+  assert.equal(listado.total, 1, 'solo la fila real está pendiente');
+  assert.equal(listado.conteos.errores, 0, 'sin ERROR fantasma');
+  assert.equal(listado.filas[0].nombre, 'ANA PEREZ');
+
+  const r = c.api_ingresosIncorporarValidos({}, 'tok');
+  assert.equal(r.resumen.ingresados, 1, 'incorpora el único pendiente real');
+  assert.equal(r.resumen.errores, 0, 'el batch no cuenta filas sin identidad');
+  assert.equal(r.resumen.leidos, 1, 'solo la fila candidata real se lee');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], 'INGRESADO');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[4][9], '', 'la fila invisible no recibe estado');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[5][9], '', 'la fila de guiones no recibe estado');
+});
+
+// ---------------------------------------------------------------------------
+// T15 — encabezados reales fuera de la fila de contrato
+// ---------------------------------------------------------------------------
+test('T15 encabezados reales en fila 2: listado/detalle/incorporar/estado comparten el MISMO layout', () => {
+  const c = libro();
+  const headers = c.Ingresos_columnasHoja();
+  const f = hojaFake([
+    headers.map(() => 'TITULO HOJA'),
+    headers.slice(),
+    filaIngresoValida(),
+    filaIngresoValida({ nombre: 'ROSA LOPEZ', rut: rutOk('22334455') })
+  ]);
+  c.hojas['INGRESO_NARANJO'] = f;
+
+  const listado = c.api_ingresosPendientes({}, 'tok');
+  assert.equal(listado.total, 2, 'ambas filas reales se listan');
+  assert.equal(listado.filas[0].fila, 3, 'fila física real (encabezado en fila 2)');
+
+  const detalle = c.api_ingresoDetalle('INGRESO_NARANJO', 3, 'tok');
+  assert.equal(detalle.ok, true, JSON.stringify(detalle));
+  assert.equal(detalle.fila, 3);
+  assert.equal(detalle.preFicha.nombre, 'ANA PEREZ');
+
+  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 3, false, 'tok');
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.resultado.estado, 'INGRESADO');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[2][9], 'INGRESADO', 'estado escrito en la fila física correcta');
+});
+
+test('T15b con encabezados en fila 2, una fila fantasma se ignora igual (no ERROR)', () => {
+  const c = libro();
+  const headers = c.Ingresos_columnasHoja();
+  const f = hojaFake([
+    headers.map(() => 'TITULO HOJA'),
+    headers.slice(),
+    filaIngresoValida(),
+    ['\u200b', '-', '', '', '', '', '', '', '', '', '', '']
+  ]);
+  c.hojas['INGRESO_NARANJO'] = f;
+  const listado = c.api_ingresosPendientes({}, 'tok');
+  assert.equal(listado.total, 1, 'solo la fila real');
+  assert.equal(listado.conteos.errores, 0);
+});
+
+// ---------------------------------------------------------------------------
+// T16 — buscador: RUT almacenado con puntos/espacios y RUT sin DV
+// ---------------------------------------------------------------------------
+test('T16 api_buscar normaliza el RUT almacenado (puntos/espacios y SIN_DV)', () => {
+  const c = libro({ paciente: { ID_INTERNO: 'EC-DOTS-01', RUT: '12.345.678-5', NOMBRE: 'MARIA DOTS', SECTOR: 'VERDE', ESTADO: 'VIGENTE', ESTRATIFICACION: 'G1' } });
+  const r = c.api_buscar('12345678-5', 'tok');
+  assert.equal(r.ok, true);
+  assert.equal(r.filas.some((x) => x.id === 'EC-DOTS-01'), true, 'RUT con puntos encontrado por RUT normalizado');
+
+  const c2 = libro({ paciente: { ID_INTERNO: 'EC-SINDV-01', RUT: '98765432', NOMBRE: 'ROSA SIN DV', SECTOR: 'AMARILLO', ESTADO: 'VIGENTE', ESTRATIFICACION: 'G1' } });
+  const r2 = c2.api_buscar('98765432-5', 'tok');
+  assert.equal(r2.ok, true);
+  assert.equal(r2.filas.some((x) => x.id === 'EC-SINDV-01'), true, 'RUT sin DV encontrado por cuerpo+DV');
+
+  const r3 = c2.api_buscar('ROSA', 'tok');
+  assert.equal(r3.ok, true);
+  assert.equal(r3.filas.some((x) => x.id === 'EC-SINDV-01'), true, 'búsqueda por nombre intacta');
+
+  const r4 = c2.api_buscar('acnoexiste-9', 'tok');
+  assert.equal(r4.filas.length, 0, 'RUT válido inexistente → sin resultados');
 });
 
 console.log('\nincorporacion_ingresos_vNEXT — ' + passed + '/' + passed + ' PASS');

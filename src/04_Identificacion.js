@@ -216,9 +216,17 @@ function Bus_buscarPacientes(pacientes, termino, limite) {
   var tope = limite || 25;
   var salida = [];
   var rut = Norm_normalizarRut(t);
-  if (rut.estado === 'OK') {
+  // Pasa a búsqueda por RUT también cuando el término es un RUT sin DV (el
+  // operador no recuerda/tiene el dígito verificador): '12345678' y el RUT
+  // almacenado se comparan por CUERPO cuando falte el DV en cualquiera de los
+  // lados, y por cuerpo+DV cuando ambos lo traen (nunca se empareja un RUT
+  // almacenado válido contra otro válido de DV distinto).
+  if (rut.estado === 'OK' || rut.estado === 'SIN_DV') {
     for (var i = 0; i < (pacientes || []).length && salida.length < tope; i++) {
-      if (Utl_texto(pacientes[i].RUT).toUpperCase() === rut.rut) salida.push(pacientes[i]);
+      var prut = Norm_normalizarRut(pacientes[i].RUT);
+      if (!prut.cuerpo || prut.cuerpo !== rut.cuerpo) continue;
+      if (rut.dv && prut.dv && rut.dv !== prut.dv) continue;
+      salida.push(pacientes[i]);
     }
     return salida;
   }

@@ -58,6 +58,75 @@ function Ingresos_mapearEncabezadosHoja(encabezados) {
   return { campos: campos, estadoIdx: estadoIdx, notaIdx: notaIdx, desconocidos: desconocidos };
 }
 
+/**
+ * PURA: ubica la fila física real de encabezados de una hoja INGRESO_* dentro
+ * de las primeras 10 filas, de forma DETERMINISTA (mismo input → mismo hr).
+ * Debe coincidir entre listado (lectura completa), detalle/incorporación
+ * (lectura acotada) y escritura de ESTADO_INGRESO: el FILA_ORIGEN de una fila
+ * solo es re-localizable si todos leen el mismo encabezado.
+ * Prioridades:
+ *   1) la fila esperada por el contrato (hrEsperado = Modelo_headerRow) si
+ *      mapea NOMBRE+RUT (caso normal/visual → cero cambio de comportamiento);
+ *   2) la PRIMERA fila (ascendente) que mapee NOMBRE+RUT; a igual cantidad de
+ *      campos reconocidos gana la de fila menor.
+ * Si nada mapea NOMBRE+RUT se conserva hrEsperado (el lector descartará las
+ * filas sin identidad, comportamiento histórico de layout legado).
+ * @param {Array[]} filasSuperior filas crudas de la parte superior de la hoja
+ * @param {number} hrEsperado fila esperada por contrato (1-based)
+ * @returns {{hr:number, mapa:Object, encabezados:Array}}
+ */
+function Ingresos_localizarEncabezados_(filasSuperior, hrEsperado) {
+  var lista = (filasSuperior || []).slice(0, 10);
+  var esperado = Ingresos_mapearEncabezadosHoja(lista[hrEsperado - 1] || []);
+  if (esperado.campos.NOMBRE !== undefined && esperado.campos.RUT !== undefined) {
+    return { hr: hrEsperado, mapa: esperado, encabezados: lista[hrEsperado - 1] || [] };
+  }
+  var mejor = null, mejorScore = -1;
+  for (var i = 0; i < lista.length; i++) {
+    var m = Ingresos_mapearEncabezadosHoja(lista[i]);
+    if (m.campos.NOMBRE === undefined || m.campos.RUT === undefined) continue;
+    var score = Object.keys(m.campos).length;
+    if (score > mejorScore) {
+      mejorScore = score;
+      mejor = { hr: i + 1, mapa: m, encabezados: lista[i] || [] };
+    }
+  }
+  return mejor || { hr: hrEsperado, mapa: esperado, encabezados: lista[hrEsperado - 1] || [] };
+}
+
+var _cacheLayoutIngresos_ = {};
+
+/**
+ * GAS: encabezados reales de una hoja INGRESO_* con cache por (hoja, última
+ * fila) dentro de la ejecución. `ligera` (ruta acotada) lee UNA fila a la vez
+ * para no romper el invariante de la ruta acotada (ninguna lectura de bloque);
+ * en la ruta completa lee las primeras filas de una vez. Devuelve {hr, mapa,
+ * encabezados}: las TRES rutas (lista, detalle, escritura) deben usar este
+ * resultado para leer/escribir en las mismas coordenadas físicas.
+ */
+function Ingresos_layoutHoja_(hoja, nombreHoja, ligera) {
+  var ultima = hoja.getLastRow();
+  var clave = nombreHoja + '#' + ultima;
+  if (_cacheLayoutIngresos_[clave]) return _cacheLayoutIngresos_[clave];
+  var hrEsperado = Modelo_headerRow(nombreHoja);
+  var ancho = Math.max(hoja.getLastColumn(), 1);
+  var nTop = Math.min(10, Math.max(ultima, 1));
+  var superiores = [];
+  if (ligera) {
+    for (var i = 1; i <= nTop; i++) {
+      var una = hoja.getRange(i, 1, 1, ancho).getValues()[0];
+      superiores.push(una);
+      var mUno = Ingresos_mapearEncabezadosHoja(una);
+      if (mUno.campos.NOMBRE !== undefined && mUno.campos.RUT !== undefined) break;
+    }
+  } else {
+    superiores = hoja.getRange(1, 1, nTop, ancho).getValues();
+  }
+  var res = Ingresos_localizarEncabezados_(superiores, hrEsperado);
+  _cacheLayoutIngresos_[clave] = res;
+  return res;
+}
+
 // ---------------------------------------------------------------------------
 // Capa pura
 // ---------------------------------------------------------------------------
@@ -272,16 +341,14 @@ function _ingresosUsuarioActual() {
  * Si ninguna fila es válida, devuelve solo [encabezados] (resta querer que el
  * caller decida con valores.length < 2, igual que el bloque completo vacío).
  */
-function Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas) {
-  var hr = Modelo_headerRow(nombreHoja);
+function Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas, loc) {
+  if (!loc) loc = Ingresos_layoutHoja_(hoja, nombreHoja, true);
+  var hr = loc.hr;
   var ultima = hoja.getLastRow();
   var ancho = Math.max(hoja.getLastColumn(), 1);
-  var encabezados = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
-  var hdrOk = encabezados.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
-  if (!hdrOk) {
-    var alt = hoja.getRange(1, 1, 1, ancho).getValues()[0];
-    if (alt.join('|').toUpperCase().indexOf('NOMBRE') !== -1) { hr = 1; encabezados = alt; }
-  }
+  var encabezados = loc.encabezados && loc.encabezados.length
+    ? loc.encabezados
+    : hoja.getRange(hr, 1, 1, ancho).getValues()[0];
   var filas = [];
   (filasPermitidas || []).forEach(function (nf) {
     var fi = Number(nf);
@@ -303,29 +370,25 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
   if (!hoja) return { staging: [], hoja: null };
   var acotado = filasPermitidas && filasPermitidas.length && filasPermitidas.length <= 50;
-  var valores = acotado
-    ? Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas)
-    : Modelo_leerBloqueCabecera(nombreHoja, hoja);
-  var hrDetect = Modelo_headerRow(nombreHoja);
-  var hrOrig = hrDetect;
-  // Fallback para hojas aún no reconciliadas al layout visual (header en fila 1)
-  if (valores.length) {
-    var hdrOk = valores[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1;
-    if (!hdrOk && hoja.getLastRow() >= 1) {
-      var alt = hoja.getRange(1, 1, hoja.getLastRow(), Math.max(hoja.getLastColumn(),1)).getValues();
-      if (alt.length && alt[0].join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
-        console.log('[PIPE] Ingresos_leerHoja '+nombreHoja+' fallback hr '+hrOrig+'->1 valores visual sin NOMBRE, usando alt fila1');
-        valores = alt;
-        hrDetect = 1;
-      } else {
-        console.log('[PIPE] Ingresos_leerHoja '+nombreHoja+' hrDet='+hrDetect+' hdrOk='+hdrOk+' sin alt valido');
-      }
+  var ultima = hoja.getLastRow();
+  var ancho = Math.max(hoja.getLastColumn(), 1);
+  var loc;
+  var valores;
+  if (acotado) {
+    loc = Ingresos_layoutHoja_(hoja, nombreHoja, true);
+    valores = Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas, loc);
+  } else {
+    loc = Ingresos_layoutHoja_(hoja, nombreHoja, false);
+    if (loc.hr === Modelo_headerRow(nombreHoja)) {
+      valores = Modelo_leerBloqueCabecera(nombreHoja, hoja);
+    } else if (ultima < loc.hr) {
+      valores = (loc.encabezados || []).some(function (c) { return !Utl_vacio(c); }) ? [loc.encabezados] : [];
     } else {
-      console.log('[PIPE] Ingresos_leerHoja '+nombreHoja+' hrDet='+hrDetect+' hdrOk='+hdrOk+' valoresLen='+valores.length);
+      valores = hoja.getRange(loc.hr, 1, ultima - loc.hr + 1, ancho).getValues();
     }
   }
   if (valores.length < 2) return { staging: [], hoja: hoja };
-  var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
+  var mapa = loc.mapa;
   var idxCampos = mapa.campos;
   var idxEstado = mapa.estadoIdx, idxNota = mapa.notaIdx;
   var sector = Ingresos_hojaASector(nombreHoja);
@@ -339,11 +402,19 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     // Acotado: si hay lista de filas permitidas para esta hoja, saltar TODO lo
     // demás ANTES de normalizar (el costo real está en Fuentes_normalizar, no
     // en el filtro posterior de Ingresos_acotarStaging).
-    var filaFis = filasFis ? Number(filasFis[f - 1]) : (hrDetect + f);
+    var filaFis = filasFis ? Number(filasFis[f - 1]) : (loc.hr + f);
     if (filasPermitidas && filasPermitidas.length && filasPermitidas.indexOf(String(filaFis)) === -1) continue;
     var nombreRaw = idxCampos.NOMBRE !== undefined ? filaVal[idxCampos.NOMBRE] : '';
     var rutRaw = idxCampos.RUT !== undefined ? filaVal[idxCampos.RUT] : '';
-    if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue;
+    // Fila SIN identidad real → no es un pendiente (vacía, caracteres invisibles
+    // como U+200B, puntuación suelta, o una celda ajena con texto). Se exige al
+    // menos UN dígito en el RUT O UNA letra en el NOMBRE para considerarla
+    // candidata: así una fila "completamente vacía" (o rellena solo con cosas
+    // sin identidad) nunca produce el fantasma 'ERROR' que veía el operador.
+    var tieneRut = /[0-9]/.test(rutRaw);
+    var tieneNombre = /[A-Za-zÀ-ÖØ-öø-ÿÑñ]/.test(nombreRaw);
+    if (!tieneRut && !tieneNombre) continue;
+    if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue; // defensa redundante
     var estadoPrevio = idxEstado >= 0 ? Utl_texto(filaVal[idxEstado]).toUpperCase() : '';
     if (estadoPrevio === 'INGRESADO') continue; // idempotencia del procesamiento
     var v = {};
@@ -362,7 +433,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v)));
   }
-  console.log('[PIPE] leerHoja ' + nombreHoja + ' t=' + (Date.now() - _tHoja) + 'ms valores=' + valores.length + ' staging=' + staging.length);
+  console.log('[PIPE] leerHoja ' + nombreHoja + ' t=' + (Date.now() - _tHoja) + 'ms valores=' + valores.length + ' staging=' + staging.length + ' hr=' + loc.hr);
   return { staging: staging, hoja: hoja };
 }
 
@@ -383,25 +454,19 @@ function Ingresos_escribirEstados_(resultados) {
       var nombreHoja = grupo[0], resHoja = grupo[1];
       var hoja = ss.getSheetByName(nombreHoja);
       if (!hoja) return;
-      var ini = Modelo_dataStartRow(nombreHoja);
-      var hr = Modelo_headerRow(nombreHoja);
+      // Mismo localizador que el lector (listado/acotado): el FILA_ORIGEN de
+      // cada fila se re-posiciona sobre el MISMO encabezado real detectado.
+      var loc = Ingresos_layoutHoja_(hoja, nombreHoja, false);
+      var hr = loc.hr;
+      var ini = hr + 1;
       var ultima = hoja.getLastRow();
-      // Detectar header real (visual hr vs legacy fila1)
-      var encabezados = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
-      var hdrOk = encabezados.join('|').toUpperCase().indexOf('NOMBRE') !== -1;
-      if (!hdrOk && hoja.getLastRow() >= 1) {
-        var altHdr = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
-        if (altHdr.join('|').toUpperCase().indexOf('NOMBRE') !== -1) {
-          hr = 1; ini = 2;
-          encabezados = altHdr;
-        }
-      }
+      var encabezados = loc.encabezados || [];
       if (ultima < ini) return;
       var colEstado = -1, colNota = -1;
       encabezados.forEach(function (h, i) {
         var clave = Utl_claveAlnum(h);
-        if (clave === 'ESTADOINGRESO' || clave === 'INGRESOESTADO' || clave === 'ESTADO') colEstado = i + 1;
-        else if (clave === 'NOTASISTEMA' || clave === 'NOTASISTEMAS' || clave === 'NOTA') colNota = i + 1;
+        if (colEstado < 0 && (clave === 'ESTADOINGRESO' || clave === 'INGRESOESTADO' || clave === 'ESTADO')) colEstado = i + 1;
+        else if (colNota < 0 && (clave === 'NOTASISTEMA' || clave === 'NOTASISTEMAS' || clave === 'NOTA')) colNota = i + 1;
       });
       if (colEstado < 0 || colNota < 0) {
         console.log('[PIPE] escribirEstados '+nombreHoja+' hr='+hr+' colEstado='+colEstado+' colNota='+colNota+' enc='+JSON.stringify(encabezados));
