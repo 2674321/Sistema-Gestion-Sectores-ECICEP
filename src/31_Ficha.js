@@ -454,32 +454,31 @@ var EVENTOS_FICHA_MANUALES = ['CONTROL', 'SEGUIMIENTO', 'LLAMADO', 'OTRO'];
  */
 function Eventos_buscarPorFuente_(fuente) {
   if (!fuente) return null;
-  try {
-    var hoja = Modelo_hoja(HOJAS.EVENTOS);
-    if (!hoja) return null;
-    var hr = Modelo_headerRow(HOJAS.EVENTOS);
-    var ancho = hoja.getLastColumn();
-    var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
-    var idxFuente = enc.indexOf('FUENTE');
-    if (idxFuente < 0) return null;
-    var idxId = enc.indexOf('ID_EVENTO');
-    var idxPaciente = enc.indexOf('ID_INTERNO');
-    var ini = Modelo_dataStartRow(HOJAS.EVENTOS);
-    var n = hoja.getLastRow() - ini + 1;
-    if (n < 1) return null;
-    var celda = hoja.getRange(ini, idxFuente + 1, n, 1)
-      .createTextFinder(fuente)
-      .matchEntireCell(true)
-      .findNext();
-    if (!celda) return null;
-    var fila = celda.getRow();
-    return {
-      idEvento: idxId >= 0 ? Utl_texto(hoja.getRange(fila, idxId + 1).getValue()) : '',
-      idInterno: idxPaciente >= 0 ? Utl_texto(hoja.getRange(fila, idxPaciente + 1).getValue()) : ''
-    };
-  } catch (e) {
-    return null; // best effort: sin índice no hay idempotencia, se re-intentará con lock
-  }
+  var hoja = Modelo_hoja(HOJAS.EVENTOS);
+  if (!hoja) return null;
+  var hr = Modelo_headerRow(HOJAS.EVENTOS);
+  var ancho = hoja.getLastColumn();
+  var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
+  var idxFuente = enc.indexOf('FUENTE');
+  if (idxFuente < 0) throw new Error('EVENTOS_SIN_COLUMNA_FUENTE');
+  var idxId = enc.indexOf('ID_EVENTO');
+  var idxPaciente = enc.indexOf('ID_INTERNO');
+  var idxTipo = enc.indexOf('TIPO_EVENTO');
+  var ini = Modelo_dataStartRow(HOJAS.EVENTOS);
+  var n = hoja.getLastRow() - ini + 1;
+  if (n < 1) return null;
+  var celda = hoja.getRange(ini, idxFuente + 1, n, 1)
+    .createTextFinder(fuente)
+    .matchEntireCell(true)
+    .findNext();
+  if (!celda) return null;
+  var fila = celda.getRow();
+  var valores = hoja.getRange(fila, 1, 1, ancho).getValues()[0];
+  return {
+    idEvento: idxId >= 0 ? Utl_texto(valores[idxId]) : '',
+    idInterno: idxPaciente >= 0 ? Utl_texto(valores[idxPaciente]) : '',
+    tipo: idxTipo >= 0 ? Utl_texto(valores[idxTipo]).toUpperCase() : ''
+  };
 }
 
 /**
@@ -546,7 +545,8 @@ function Eventos_registrarPaciente_(payload, contexto) {
   }
   // §23/§31: LOG es best effort — ya guardado, la observabilidad no rompe la operación.
   try { Log_info('Ficha', 'evento', 'CONTROL_SEGUIMIENTO → ' + objetivo.ID_INTERNO); Log_flush(); } catch (eL) {}
-  return { ok: true, evento: { tipo: evento.TIPO_EVENTO, fecha: evento.FECHA_EVENTO, enEspera: enEspera }, advertencias: advertencias };
+  return { ok: true, evento: { id: evento.ID_EVENTO, tipo: evento.TIPO_EVENTO,
+    fecha: evento.FECHA_EVENTO, enEspera: enEspera }, advertencias: advertencias };
 }
 
 /**
@@ -558,14 +558,11 @@ function Eventos_registrarPaciente_(payload, contexto) {
  */
 function Ficha_construir_(idInterno, opciones) {
   opciones = opciones || {};
-  var pacientes = Modelo_leerPacientesCampos(_FICHA_CAMPOS_OPERATIVOS.concat(['FECHA_ACTUALIZACION', 'REQUIERE_REVISION', 'FUENTE', 'FECHA_INGRESO']));
   var idBus = Utl_texto(idInterno).trim();
-  var paciente = null;
-  for (var i = 0; i < pacientes.length; i++) {
-    if (Utl_texto(pacientes[i].ID_INTERNO).trim() === idBus) { paciente = pacientes[i]; break; }
-  }
+  var encontrado = Modelo_buscarPaciente(idBus);
+  var paciente = encontrado && encontrado.obj;
   if (!paciente) {
-    return { ok: false, code: 'PACIENTE_NO_ENCONTRADO', message: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idBus), totalLeidos: pacientes.length };
+    return { ok: false, code: 'PACIENTE_NO_ENCONTRADO', message: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idBus) };
   }
 
   var eventos = [];

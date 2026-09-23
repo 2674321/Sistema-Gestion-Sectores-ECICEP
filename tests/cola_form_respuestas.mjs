@@ -196,6 +196,23 @@ function makeHojaFake(headers, filas) {
       }
       return {
         getValues() { return vals; },
+        createTextFinder(buscado) {
+          let exacto = false;
+          return {
+            matchEntireCell(v) { exacto = !!v; return this; },
+            findAll() {
+              const encontrados = [];
+              for (let r = 0; r < vals.length; r++) {
+                for (let c = 0; c < vals[r].length; c++) {
+                  const actual = String(vals[r][c] ?? '');
+                  const coincide = exacto ? actual === String(buscado) : actual.includes(String(buscado));
+                  if (coincide) encontrados.push({ getRow: () => row + r, getColumn: () => col + c });
+                }
+              }
+              return encontrados;
+            }
+          };
+        },
         setValues(nuevas) {
           for (let r = 0; r < nuevas.length; r++) {
             const idx = row - 1 + r;

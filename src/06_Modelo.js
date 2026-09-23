@@ -1276,6 +1276,7 @@ function Responsables_validarSector(sector, filas, profesionales) {
  * dentro de una misma llamada RPC (api_ficha + patologías + dupla, etc.).
  * Se invalida con Modelo_invalidarLecturas(). Nunca persiste entre llamadas. */
 var _MEMO_HOJAS = {};
+var _MODELO_INDICES = {};
 
 /* Caché entre requests (DEC-015): los bloques ya leídos (PACIENTES, EVENTOS,
  * PROFESIONALES) se reutilizan en RPCs posteriores dentro de un TTL corto
@@ -1339,10 +1340,10 @@ function _cacheTTL() {
 function _cacheClaves() { return ['PACIENTES', 'EVENTOS', 'PROFESIONALES']; }
 function _cacheClave(clave) { return CFG_CACHE.PREFIJO + 'BLOQUE:' + clave; }
 
-function _cacheBorrarClaves() {
+function _cacheBorrarClaves(claves) {
   var c = _cacheService();
   if (!c) return;
-  _cacheClaves().forEach(function (k) {
+  (claves && claves.length ? claves : _cacheClaves()).forEach(function (k) {
     if (typeof c.remove !== 'function') return;
     try { c.remove(_cacheClave(k)); } catch (e) {}
   });
@@ -1367,9 +1368,20 @@ function _cacheEscribir(clave, bloque) {
   } catch (e) { /* quota u otros: degrada a solo-sesión */ }
 }
 
-function Modelo_invalidarLecturas() {
-  _MEMO_HOJAS = {};
-  _cacheBorrarClaves();
+function Modelo_invalidarLecturas(claves) {
+  var lista = claves && claves.length ? claves.slice() : null;
+  if (!lista) {
+    _MEMO_HOJAS = {};
+    _MODELO_INDICES = {};
+  } else {
+    lista.forEach(function (k) { delete _MEMO_HOJAS[k]; });
+    if (lista.indexOf('PACIENTES') !== -1) {
+      delete _MODELO_INDICES.PACIENTES_POR_ID;
+      delete _MODELO_INDICES.PACIENTES_POR_RUT;
+    }
+    if (lista.indexOf('EVENTOS') !== -1) delete _MODELO_INDICES.EVENTOS_POR_ID_INTERNO;
+  }
+  _cacheBorrarClaves(lista);
 }
 
 function _memoLeer(hoja, clave) {
@@ -1430,11 +1442,37 @@ function Modelo_buscarPaciente(idInterno) {
   var iId = campos.indexOf('ID_INTERNO');
   if (iId < 0) return null;
   var buscado = Utl_texto(idInterno).trim();
-  for (var f = 1; f < valores.length; f++) {
-    if (Utl_texto(valores[f][iId]).trim() !== buscado) continue;
-    return { idx: f - 1, obj: _filaAObjeto(campos, valores[f]) };
+  if (!_MODELO_INDICES.PACIENTES_POR_ID) {
+    _MODELO_INDICES.PACIENTES_POR_ID = {};
+    for (var f = 1; f < valores.length; f++) {
+      var clave = Utl_texto(valores[f][iId]).trim();
+      if (clave && _MODELO_INDICES.PACIENTES_POR_ID[clave] === undefined)
+        _MODELO_INDICES.PACIENTES_POR_ID[clave] = f;
+    }
   }
+  var fila = _MODELO_INDICES.PACIENTES_POR_ID[buscado];
+  if (fila !== undefined) return { idx: fila - 1, obj: _filaAObjeto(campos, valores[fila]) };
   return null;
+}
+
+/** Lookup por RUT sobre el bloque crudo; evita construir todos los pacientes. */
+function Modelo_buscarPacientePorRut_(rut) {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return null;
+  var valores = _memoLeer(hoja, 'PACIENTES');
+  if (!valores.length) return null;
+  var campos = valores[0], iRut = campos.indexOf('RUT');
+  if (iRut < 0) return null;
+  if (!_MODELO_INDICES.PACIENTES_POR_RUT) {
+    _MODELO_INDICES.PACIENTES_POR_RUT = {};
+    for (var f = 1; f < valores.length; f++) {
+      var clave = Utl_texto(valores[f][iRut]).trim().toUpperCase();
+      if (clave && _MODELO_INDICES.PACIENTES_POR_RUT[clave] === undefined)
+        _MODELO_INDICES.PACIENTES_POR_RUT[clave] = f;
+    }
+  }
+  var fila = _MODELO_INDICES.PACIENTES_POR_RUT[Utl_texto(rut).trim().toUpperCase()];
+  return fila === undefined ? null : { idx: fila - 1, obj: _filaAObjeto(campos, valores[fila]) };
 }
 
 /** LECTOR LIGERO (PERF menú): objetos de PACIENTES con SOLO los campos

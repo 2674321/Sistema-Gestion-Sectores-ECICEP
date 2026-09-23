@@ -84,8 +84,8 @@ td.est{white-space:nowrap}
   <div class="col">
     <div class="barra">
       <div class="seg-tipo" role="group" aria-label="Tipo de atención">
-        <button type="button" id="tipoControl" class="tipo-btn act" data-tipo="CONTROL" onclick="setTipoVista('CONTROL', this)">Control</button>
-        <button type="button" id="tipoSeguimiento" class="tipo-btn" data-tipo="SEGUIMIENTO" onclick="setTipoVista('SEGUIMIENTO', this)">Seguimiento</button>
+        <button type="button" id="tipoControl" class="tipo-btn act" data-tipo="CONTROL" aria-pressed="true" onclick="setTipoVista('CONTROL', this)">Control</button>
+        <button type="button" id="tipoSeguimiento" class="tipo-btn" data-tipo="SEGUIMIENTO" aria-pressed="false" onclick="setTipoVista('SEGUIMIENTO', this)">Seguimiento</button>
       </div>
       <label class="etq" for="fSec" style="margin:0">Sector</label>
       <select id="fSec" class="inp">
@@ -161,7 +161,9 @@ function setTipoVista(tipo, btn) {
   var botones = document.querySelectorAll('.tipo-btn');
   for (var i = 0; i < botones.length; i++) {
     botones[i].classList.toggle('act', botones[i] === btn);
+    botones[i].setAttribute('aria-pressed', botones[i] === btn ? 'true' : 'false');
   }
+  try { sessionStorage.setItem('ECICEP_CTRL_TIPO', tipo); } catch (e) {}
   pintar(false);
 }
 
@@ -350,6 +352,12 @@ function montarDetalle(f) {
         ['Próxima atención', f.proximo],
         ['Recordatorio', f.recordatorio]
       ];
+  var accionControl = '<button class="btn ' + (CTRL.tipo === 'CONTROL' ? 'btn-pri' : 'btn-sec') +
+    '" onclick="registrar(\'CONTROL\')"><i data-lucide="stethoscope"></i> Registrar control (hoy)</button>';
+  var accionSeguimiento = '<button class="btn ' + (CTRL.tipo === 'SEGUIMIENTO' ? 'btn-pri' : 'btn-sec') +
+    '" onclick="registrar(\'SEGUIMIENTO\')"><i data-lucide="clipboard-check"></i> Registrar seguimiento (hoy)</button>';
+  var accionesOrdenadas = CTRL.tipo === 'SEGUIMIENTO'
+    ? accionSeguimiento + accionControl : accionControl + accionSeguimiento;
   document.getElementById('phVacio').style.display = 'none';
   document.getElementById('detContenido').innerHTML =
     '<h3>' + _esc(f.nombre) + '</h3>' +
@@ -366,8 +374,7 @@ function montarDetalle(f) {
       }).join('') +
     '</dl>' +
     '<div class="acciones">' +
-      '<button class="btn btn-pri" onclick="registrar(\'CONTROL\')"><i data-lucide="stethoscope"></i> Registrar control (hoy)</button>' +
-      '<button class="btn btn-sec" onclick="registrar(\'SEGUIMIENTO\')"><i data-lucide="clipboard-check"></i> Registrar seguimiento (hoy)</button>' +
+      accionesOrdenadas +
       '<button class="btn btn-ghost" onclick="verFicha()"><i data-lucide="external-link"></i> Abrir ficha completa</button>' +
     '</div>';
   _refrescarIconos();
@@ -451,6 +458,10 @@ document.getElementById('fTermino').addEventListener('input', (function () {
 })());
 document.getElementById('fSec').addEventListener('change', function () { consultar(true); });
 
+try {
+  var tipoGuardado = String(sessionStorage.getItem('ECICEP_CTRL_TIPO') || '').toUpperCase();
+  if (tipoGuardado === 'SEGUIMIENTO') setTipoVista('SEGUIMIENTO', document.getElementById('tipoSeguimiento'));
+} catch (e) {}
 /* Al abrir el modal: carga automática de la lista de pendientes (única). */
 consultar(true);
 </script>

@@ -67,7 +67,7 @@ test('Ingreso reintentado con agenda no utiliza fast-path que omite la escritura
 test('Persistencia real por encabezados distingue versión y recupera agenda desde traza', () => {
   for(const version of [2,3]) {
     const c=backend(),headers=Array.from(c.Form_columnas()),rows=[headers];
-    c.Modelo_hoja=()=>({getLastRow:()=>rows.length,getLastColumn:()=>headers.length,getRange:(r,col,h,w)=>({getValues:()=>Array.from({length:h},(_,i)=>Array.from({length:w},(_,j)=>rows[r+i-1]?.[col+j-1]??'')),setValues:vals=>vals.forEach((row,i)=>{rows[r+i-1]??=Array(headers.length).fill('');row.forEach((v,j)=>rows[r+i-1][col+j-1]=v);})})});
+    c.Modelo_hoja=()=>({getLastRow:()=>rows.length,getLastColumn:()=>headers.length,getRange:(r,col,h,w)=>({getValues:()=>Array.from({length:h},(_,i)=>Array.from({length:w},(_,j)=>rows[r+i-1]?.[col+j-1]??'')),createTextFinder:buscado=>({matchEntireCell:()=>({findAll:()=>rows.slice(r-1,r-1+h).map((fila,i)=>fila[col-1]===buscado?{getRow:()=>r+i}:null).filter(Boolean)})}),setValues:vals=>vals.forEach((row,i)=>{rows[r+i-1]??=Array(headers.length).fill('');row.forEach((v,j)=>rows[r+i-1][col+j-1]=v);})})});
     const p={...base,captureId:base.captureId.replace('Cp3','Cp'+version)};if(version===3)p.proximoControl='2027-02-20';
     const norm=c.Captura_v2_validar(p,{catalogo}).normalizado;
     const reg=c.Captura_v2_nuevoRegistro(norm,{usuario:'FICTICIO',fechaRecepcion:'2026-09-16'});
@@ -96,6 +96,7 @@ test('Panel conserva el último control al registrar una atención histórica', 
   c.Modelo_hoja=()=>({getRange:()=>({setValues(){}})});
   c.Modelo_filaFisica=()=>2;c.Modelo_filaDesdeObjeto=o=>[o.ID_INTERNO];
   c.Modelo_refrescarVistasSectores_=()=>({ok:true});c.Log_info=()=>{};c.Log_flush=()=>{};
+  c.Eventos_buscarPorFuente_=()=>null;
   c.Modelo_asegurarEsquemaPacientes_=()=>({ok:true});c.Modelo_campos=()=>Object.keys(pac).map(k=>({campo:k}));
   c.WebApp_autorizarBuscador=()=>true;
   const r=c.api_controlActualizarUltimo('FICTICIO','CONTROL','2026-09-01');

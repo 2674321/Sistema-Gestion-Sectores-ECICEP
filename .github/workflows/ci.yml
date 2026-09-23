@@ -36,4 +36,6 @@ jobs:
           echo "OK: sin archivos de datos fuera de datos_prueba/"
 
       - name: Sintaxis y todas las baterías (descubrimiento automático)
-        run: node tools/verificar.mjs
+        run: |
+          git diff --check
+          node tools/verificar.mjs

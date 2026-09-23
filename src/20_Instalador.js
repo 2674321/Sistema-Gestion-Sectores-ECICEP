@@ -10,18 +10,21 @@ var INSTALAR_ETAPAS = [
   { id: 'runtime',      nombre: 'Verificando el entorno',       fn: 'Instalar_pRuntime' },
   { id: 'diagnostico',  nombre: 'Diagnóstico previo',           fn: 'Instalar_pDiagnostico' },
   { id: 'versionado',   nombre: 'Versionando el sistema',       fn: 'Instalar_pVersionado' },
+  { id: 'respaldo',     nombre: 'Respaldando el libro',         fn: 'Instalar_pRespaldo' },
   { id: 'migraciones',  nombre: 'Aplicando migraciones',        fn: 'Instalar_pMigraciones' },
   { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura' },
   { id: 'fuentes',      nombre: 'Cargando datos de fuentes',   fn: 'Instalar_pFuentes' },
   { id: 'amarillo',     nombre: 'Cargando sector amarillo',    fn: 'Instalar_pAmarillo' },
   { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
+  { id: 'triggers',     nombre: 'Activando ingreso manual',      fn: 'Instalar_pTriggers' },
   { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza' },
   { id: 'diseno',       nombre: 'Ajustando el libro',           fn: 'Instalar_pDiseno' },
   { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
   { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
   { id: 'derivados',    nombre: 'Actualizando estratificación', fn: 'Instalar_pDerivados' },
+  { id: 'integridad',   nombre: 'Reconciliando derivados',      fn: 'Instalar_pIntegridad' },
   { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
 ];
 
@@ -29,7 +32,7 @@ var INSTALAR_ETAPAS = [
  *  omitidas y el inventario de hojas adicionales son de solo lectura. */
 var INSTALAR_ETAPAS_MUTAN = {};
 ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'visual', 'validaciones',
-  'diseno', 'inicio', 'menu', 'derivados'].forEach(function (id) {
+  'diseno', 'inicio', 'menu', 'derivados', 'triggers', 'integridad'].forEach(function (id) {
   INSTALAR_ETAPAS_MUTAN[id] = true;
 });
 
@@ -133,7 +136,7 @@ function api_instalarPaso(id, acceso, ejecucion) {
   try {
     var fn = G[reg.fn];
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
-    var r = fn() || {};
+    var r = fn(ejecucion) || {};
     r.etapa = id; r.nombre = reg.nombre; r.ms = Date.now() - t0;
     if (respaldo) r.respaldo = respaldo;
     if (typeof r.ok === 'undefined') r.ok = true;
@@ -536,6 +539,14 @@ function Instalar_pMigraciones() {
            motivo: r.motivo, migracion: r.migracion };
 }
 
+function Instalar_pRespaldo(ejecucion) {
+  var r = Instalar_asegurarBackup_(ejecucion);
+  return { ok: !!(r && r.ok), nombre: r && r.nombre,
+    creado: !!(r && r.creado), reutilizado: !!(r && r.skip),
+    motivo: r && r.motivo || '', linea: r && r.ok
+      ? (r.creado ? 'Respaldo creado antes de reparar' : 'Respaldo previo verificado') : '' };
+}
+
 function Instalar_pEstructura() {
   var est = Modelo_crearEstructura_();
   return { creadas: est.creadas.length, existentes: est.existentes.length,
@@ -578,6 +589,10 @@ function Instalar_pValidaciones() {
   return { ok: r.ok !== false && !(r.fallidas || []).length,
            validaciones: r.validaciones, puertas: r.hojas, protegidas: r.protegidas,
            motivo: (r.fallidas || []).join('; ') || r.motivo || '' };
+}
+function Instalar_pTriggers() {
+  try { return Triggers_asegurarIngresoOnEdit_(); }
+  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
 function Instalar_pLimpieza() {
   var r = Modelo_limpiarHojasResiduales(Modelo_ss());
@@ -632,9 +647,17 @@ function Instalar_pVerificar() {
   if (faltan.length) return { ok: false, faltan: faltan,
     linea: 'faltan hojas: ' + faltan.join(', ') };
   var v = Mig_clasificarInstalacion(Modelo_escanearEstructura(), null, REGISTRO_MIGRACIONES);
-  return { ok: v.estado === 'VIGENTE', pacientes: pacientes, eventos: eventos,
+  var tr = Triggers_diagnosticarIngresoOnEdit_();
+  var integridad;
+  try { integridad = Integridad_diagnosticarDerivados_(); }
+  catch (eI) { integridad = { ok: false, motivo: eI && eI.message ? eI.message : String(eI) }; }
+  return { ok: v.estado === 'VIGENTE' && tr.estado === 'OK' && integridad.ok,
+           pacientes: pacientes, eventos: eventos,
            schemaVersion: v.version, esquemaOK: v.estado === 'VIGENTE', estado: v.estado,
-           motivo: v.estado === 'VIGENTE' ? '' : 'Esquema no vigente: ' + v.estado };
+           triggerIngreso: tr.estado, integridad: integridad,
+           motivo: v.estado !== 'VIGENTE' ? 'Esquema no vigente: ' + v.estado
+             : (tr.estado !== 'OK' ? 'Trigger de ingreso manual: ' + tr.estado
+               : (!integridad.ok ? 'Integridad derivada pendiente' : '')) };
 }
 
 /** (S5/S11, DEC-057) Etapa de enriquecimiento demográfico de PACIENTES dentro
@@ -671,6 +694,11 @@ function Instalar_pDerivados() {
            motivo: errores.join('; '), linea: lineas.join(' · ') };
 }
 
+function Instalar_pIntegridad() {
+  try { return Integridad_repararDerivados_({ reparar: true, bajoLock: true }); }
+  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
+}
+
 /**
  * Dry-run: informa qué cambios haría la instalación sin aplicarlos.
  * Compara estado actual vs deseado para cada fase.
@@ -688,6 +716,7 @@ function Instalar_diagnosticar() {
     formato: { pendientes: 0, aplicados: 0, detalles: [] },
     ocultas: { pendientes: 0, ocultadas: 0, detalles: [] },
     menu: { necesitaActualizar: false },
+    triggers: { ingresoOnEdit: 'NO_DISPONIBLE', total: 0 },
     resumen: { fasesPendientes: [], fasesCompletas: [] }
   };
 
@@ -834,8 +863,17 @@ function Instalar_diagnosticar() {
   // 9. MENÚ - always safe to re-apply, not a diagnostic item
   diagnostico.menu.necesitaActualizar = false;
 
+  // 10. TRIGGER INGRESO MANUAL: inspección de solo lectura.
+  try {
+    var tr = Triggers_diagnosticarIngresoOnEdit_();
+    diagnostico.triggers.ingresoOnEdit = tr.estado;
+    diagnostico.triggers.total = tr.total;
+    if (tr.estado === 'OK') diagnostico.resumen.fasesCompletas.push('trigger ingreso manual');
+    else diagnostico.resumen.fasesPendientes.push('trigger ingreso manual: ' + tr.estado);
+  } catch (eT) { diagnostico.resumen.fasesPendientes.push('trigger ingreso manual: error'); }
+
   // Resumen general
-  diagnostico.resumen.totalFases = 7;
+  diagnostico.resumen.totalFases = 8;
   diagnostico.resumen.completas = diagnostico.resumen.fasesCompletas.length;
   diagnostico.resumen.pendientes = diagnostico.resumen.fasesPendientes.length;
 

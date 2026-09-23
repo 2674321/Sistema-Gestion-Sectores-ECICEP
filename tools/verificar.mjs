@@ -5,19 +5,21 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 let failures = 0;
+const totalInicio = Date.now();
 for (const f of readdirSync(new URL('../src/', import.meta.url)).filter(f => /\.(js|gs)$/.test(f)).sort()) {
   const r = spawnSync(process.execPath, ['--check'], { cwd: root, input: readFileSync(root + 'src/' + f), encoding: 'utf8' });
   if (r.status !== 0) { failures++; console.error('Sintaxis: ' + f, r.error || r.stderr); }
 }
 const suites = readdirSync(new URL('../tests/', import.meta.url)).filter(f => f.endsWith('.mjs')).sort();
 for (const f of suites) {
+  const inicio = Date.now();
   const r = spawnSync(process.execPath, ['tests/' + f], { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   const ok = r.status === 0;
   if (!ok) failures++;
-  console.log(`\n${ok ? 'OK' : 'ERROR'} tests/${f}`);
+  console.log(`\n${ok ? 'OK' : 'ERROR'} tests/${f} ${Date.now() - inicio} ms`);
   const output = (r.stdout || '') + (r.stderr || '');
   console.log(ok ? output.trim().split('\n').slice(-3).join('\n') : output);
   if (r.error) console.error(r.error);
 }
-console.log(`\n${suites.length} suites; ${failures} fallos (incluye sintaxis JS/GS).`);
+console.log(`\n${suites.length} suites; ${failures} fallos; ${Date.now() - totalInicio} ms total (incluye sintaxis JS/GS).`);
 process.exitCode = failures ? 1 : 0;

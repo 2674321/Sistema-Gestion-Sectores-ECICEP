@@ -61,8 +61,20 @@ const ctxExpr = (c, expr) => vm.runInContext(expr, c);
 function sheet(headers) {
   const rows = [Array.from(headers)];
   return { rows, getLastRow: () => rows.length, getLastColumn: () => rows[0].length,
-    getRange(r, c, h, w) { return {
+    getRange(r, c, h, w) { const rango = {
       getValues: () => Array.from({ length: h }, (_, i) => Array.from({ length: w }, (_, j) => rows[r+i-1]?.[c+j-1] ?? '')),
+      createTextFinder(buscado) { let exacto = false; return {
+        matchEntireCell(v) { exacto = !!v; return this; },
+        findAll() {
+          const encontrados = [];
+          for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) {
+            const actual = String(rows[r + i - 1]?.[c + j - 1] ?? '');
+            if (exacto ? actual === String(buscado) : actual.includes(String(buscado)))
+              encontrados.push({ getRow: () => r + i, getColumn: () => c + j });
+          }
+          return encontrados;
+        }
+      }; },
       setValues(values) {
         assert.equal(values.length, h);
         values.forEach((row, i) => {
@@ -71,7 +83,7 @@ function sheet(headers) {
           row.forEach((v,j) => { rows[r+i-1][c+j-1] = v; });
         });
       }
-    }; }
+    }; return rango; }
   };
 }
 // Hoja visual genérica: rejilla de valores en memoria + estilos separados,

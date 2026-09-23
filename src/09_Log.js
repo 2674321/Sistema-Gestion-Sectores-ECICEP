@@ -29,6 +29,18 @@ function Log_info(modulo, operacion, mensaje, contexto) { Log_registrar('INFO', 
 function Log_warning(modulo, operacion, mensaje, contexto) { Log_registrar('WARNING', modulo, operacion, mensaje, contexto); }
 function Log_error(modulo, operacion, mensaje, contexto) { Log_registrar('ERROR', modulo, operacion, mensaje, contexto); }
 
+/** Métricas técnicas sin PII. Ignora cualquier clave fuera de la lista. */
+function Log_perf(modulo, accion, metricas) {
+  var permitidas = ['sector', 'modo', 'cantidad', 'filasFisicas', 'filasIdentidad',
+    'pendientes', 'errores', 'warnings', 'duracionMs', 'cacheHit', 'captureId',
+    'operacionId', 'ejecucion'];
+  var seguras = {};
+  Object.keys(metricas || {}).forEach(function (k) {
+    if (permitidas.indexOf(k) !== -1) seguras[k] = metricas[k];
+  });
+  Log_registrar('INFO', modulo, accion, 'PERF', seguras, Number(seguras.duracionMs) || '');
+}
+
 /**
  * Vuelca el búfer a la hoja LOG en una sola escritura.
  * En entornos sin SpreadsheetApp (pruebas node) es no-op silencioso.
@@ -49,10 +61,13 @@ function Log_flush() {
       hoja.appendRow(['FECHA', 'NIVEL', 'MODULO', 'OPERACION', 'MENSAJE', 'DURACION_MS', 'CONTEXTO']);
     }
     var lock = LockService.getScriptLock();
-    if (!lock.tryLock(5000)) { // si no hay lock, reencola y sale
+    var yaBloqueado = typeof lock.hasLock === 'function' && lock.hasLock();
+    var adquiridoAqui = false;
+    if (!yaBloqueado && !lock.tryLock(5000)) { // si no hay lock, reencola y sale
       _LOG_BUFFER = entradas.concat(_LOG_BUFFER);
       return;
     }
+    adquiridoAqui = !yaBloqueado;
     try {
       var ultimaFila = hoja.getLastRow();
       // Recorte del histórico: conserva las últimas MAX_FILAS_HOJA
@@ -63,7 +78,7 @@ function Log_flush() {
       }
       Utl_escribirBloque(hoja, ultimaFila + 1, 1, entradas);
     } finally {
-      lock.releaseLock();
+      if (adquiridoAqui) lock.releaseLock();
     }
   } catch (e) {
     // Último recurso: consola/Logger para no perder trazabilidad

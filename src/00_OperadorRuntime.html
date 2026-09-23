@@ -52,8 +52,23 @@
     return !!r && !r.ok && _tiene(r, 'SERVICIO_OCUPADO');
   }
   function ECICEP_textoServicioOcupado() {
-    return 'El sistema está procesando otro registro. Intenta nuevamente.';
+    return 'El sistema está procesando otra operación. Intenta nuevamente.';
   }
+
+  function ECICEP_errorDe(r) {
+    var codigo = (r && (r.codigo || r.code)) ||
+      (r && r.errors && r.errors[0] && (r.errors[0].codigo || r.errors[0].code)) || '';
+    return { codigo: codigo, motivo: ECICEP_errorTexto(r),
+      reintentable: !!(r && r.reintentable) || ECICEP_esServicioOcupado(r) };
+  }
+  function ECICEP_mensajeUsuario(r) {
+    if (!r) return 'No hubo respuesta del servidor. Revisa tu conexión e intenta nuevamente.';
+    if (ECICEP_esServicioOcupado(r)) return ECICEP_textoServicioOcupado();
+    if (ECICEP_requiereRecarga(r)) return 'El enlace de acceso está desactualizado. Vuelve a abrir el enlace vigente.';
+    return ECICEP_errorTexto(r);
+  }
+  function ECICEP_esReintentable(r) { return ECICEP_errorDe(r).reintentable; }
+  function ECICEP_esAccesoDesactualizado(r) { return ECICEP_requiereRecarga(r); }
 
   /* Recarga única por pestaña cuando el acceso quedó obsoleto; devuelve false
      cuando ya se intentó (no bucear en bucle). SessionStorage bloqueada -> alerta. */
@@ -109,6 +124,10 @@
   }
 
   window.ECICEP_errorTexto = ECICEP_errorTexto;
+  window.ECICEP_errorDe = ECICEP_errorDe;
+  window.ECICEP_mensajeUsuario = ECICEP_mensajeUsuario;
+  window.ECICEP_esReintentable = ECICEP_esReintentable;
+  window.ECICEP_esAccesoDesactualizado = ECICEP_esAccesoDesactualizado;
   window.ECICEP_requiereRecarga = ECICEP_requiereRecarga;
   window.ECICEP_esServicioOcupado = ECICEP_esServicioOcupado;
   window.ECICEP_textoServicioOcupado = ECICEP_textoServicioOcupado;

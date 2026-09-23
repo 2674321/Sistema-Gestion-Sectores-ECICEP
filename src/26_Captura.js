@@ -833,40 +833,52 @@ function Captura_v2_ahora() {
   return Form_aIsoConHora(new Date());
 }
 
-/** GAS: lee el registro de captura por captureId (RESPONSE_ID) en FORM_RESPUESTAS. */
-function Captura_v2_buscarRegistro(captureId) {
+/** Construye el registro de captura desde una única fila física. */
+function Captura_v2_registroDesdeFila_(captureId, fila, headers, filaFisica) {
+  var mapa = Form_mapeoEncabezados(headers);
+  var crudo = '';
+  if (mapa.idx.TRAZACRUDA !== undefined) crudo = Utl_texto(fila[mapa.idx.TRAZACRUDA]);
+  var normalizado = null;
+  try { if (crudo) normalizado = JSON.parse(crudo); } catch (e) { normalizado = null; }
+  return {
+    captureId: captureId,
+    accion: (normalizado && normalizado.accion) ? normalizado.accion : CAPTURA_V2.V2[Utl_texto(fila[mapa.idx.ACCION !== undefined ? mapa.idx.ACCION : 0])] || '',
+    normalizado: normalizado,
+    canonical: normalizado ? Captura_v2_canonica(normalizado) : '',
+    estado: mapa.idx.ESTADO !== undefined ? Utl_texto(fila[mapa.idx.ESTADO]).toUpperCase() : CAPTURA_V2.ESTADOS.RECIBIDO,
+    motivo: mapa.idx.MOTIVO !== undefined ? Utl_texto(fila[mapa.idx.MOTIVO]) : '',
+    idInterno: mapa.idx.IDINTERNO !== undefined ? Utl_texto(fila[mapa.idx.IDINTERNO]) : '',
+    idEvento: mapa.idx.IDEVENTO !== undefined ? Utl_texto(fila[mapa.idx.IDEVENTO]) : '',
+    reintentos: mapa.idx.REINTENTOS !== undefined ? (Number(fila[mapa.idx.REINTENTOS]) || 0) : 0,
+    ingresoHoja: mapa.idx.INGRESOHOJA !== undefined ? Utl_texto(fila[mapa.idx.INGRESOHOJA]) : '',
+    ingresoFila: mapa.idx.INGRESOFILA !== undefined ? Utl_texto(fila[mapa.idx.INGRESOFILA]) : '',
+    filaFisica: filaFisica,
+    fechaIngreso: mapa.idx.FECHAINGRESO !== undefined ? Utl_texto(fila[mapa.idx.FECHAINGRESO]) : ''
+  };
+}
+
+/** Lookup puntual normal: header + TextFinder en RESPONSE_ID + fila objetivo. */
+function Captura_v2_buscarRegistroRapido_(captureId) {
   var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
   if (!hoja || hoja.getLastRow() < 2) return null;
-  var ultima = hoja.getLastRow();
   var ultimac = hoja.getLastColumn();
-  var datos = hoja.getRange(1, 1, ultima, ultimac).getValues();
-  var headers = datos[0];
+  var headers = hoja.getRange(1, 1, 1, ultimac).getValues()[0];
   var mapa = Form_mapeoEncabezados(headers);
-  for (var f = datos.length - 1; f >= 1; f--) {
-    var colRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : 0);
-    if (Utl_texto(datos[f][colRid]) === captureId) {
-      var crudo = '';
-      if (mapa.idx.TRAZACRUDA !== undefined) crudo = Utl_texto(datos[f][mapa.idx.TRAZACRUDA]);
-      var normalizado = null;
-      try { if (crudo) normalizado = JSON.parse(crudo); } catch (e) { normalizado = null; }
-      return {
-        captureId: captureId,
-        accion: (normalizado && normalizado.accion) ? normalizado.accion : CAPTURA_V2.V2[Utl_texto(datos[f][mapa.idx.ACCION !== undefined ? mapa.idx.ACCION : 0])] || '',
-        normalizado: normalizado,
-        canonical: normalizado ? Captura_v2_canonica(normalizado) : '',
-        estado: mapa.idx.ESTADO !== undefined ? Utl_texto(datos[f][mapa.idx.ESTADO]).toUpperCase() : CAPTURA_V2.ESTADOS.RECIBIDO,
-        motivo: mapa.idx.MOTIVO !== undefined ? Utl_texto(datos[f][mapa.idx.MOTIVO]) : '',
-        idInterno: mapa.idx.IDINTERNO !== undefined ? Utl_texto(datos[f][mapa.idx.IDINTERNO]) : '',
-        idEvento: mapa.idx.IDEVENTO !== undefined ? Utl_texto(datos[f][mapa.idx.IDEVENTO]) : '',
-        reintentos: mapa.idx.REINTENTOS !== undefined ? (Number(datos[f][mapa.idx.REINTENTOS]) || 0) : 0,
-        ingresoHoja: mapa.idx.INGRESOHOJA !== undefined ? Utl_texto(datos[f][mapa.idx.INGRESOHOJA]) : '',
-        ingresoFila: mapa.idx.INGRESOFILA !== undefined ? Utl_texto(datos[f][mapa.idx.INGRESOFILA]) : '',
-        filaFisica: f + 1,
-        fechaIngreso: mapa.idx.FECHAINGRESO !== undefined ? Utl_texto(datos[f][mapa.idx.FECHAINGRESO]) : ''
-      };
-    }
-  }
-  return null;
+  var colRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID
+    : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : -1);
+  if (colRid < 0) return null;
+  var n = hoja.getLastRow() - 1;
+  var hallados = hoja.getRange(2, colRid + 1, n, 1).createTextFinder(captureId)
+    .matchEntireCell(true).findAll();
+  if (!hallados || !hallados.length) return null;
+  var nf = hallados[hallados.length - 1].getRow();
+  var fila = hoja.getRange(nf, 1, 1, ultimac).getValues()[0];
+  return Captura_v2_registroDesdeFila_(captureId, fila, headers, nf);
+}
+
+/** GAS: lee el registro por captureId mediante la ruta puntual obligatoria. */
+function Captura_v2_buscarRegistro(captureId) {
+  return Captura_v2_buscarRegistroRapido_(captureId);
 }
 
 /** Esquema físico real: admite columnas adicionales sin mover datos existentes.
@@ -984,6 +996,10 @@ function Captura_v2_pacientesEnMemoria() {
 
 /** GAS: busca persona en PACIENTES por RUT canónico exacto. */
 function Captura_v2_buscarPersonaPorRut(rut) {
+  if (typeof Modelo_buscarPacientePorRut_ === 'function') {
+    var puntual = Modelo_buscarPacientePorRut_(rut);
+    return puntual ? puntual.obj : null;
+  }
   var pacientes = Captura_v2_pacientesEnMemoria();
   var objetivo = Utl_texto(rut);
   for (var i = 0; i < pacientes.length; i++) {
@@ -1000,9 +1016,9 @@ function Captura_v2_buscarIdInternoPorRut(rut) {
 
 /** GAS: evento ya entregado para esta marca (§22 protección de efectos). */
 function Captura_v2_marcaEnEventos(marca) {
-  if (!marca || typeof Form_leerMarcas !== 'function') return null;
-  var leidas = Form_leerMarcas();
-  return (leidas && leidas[marca]) ? { idInterno: leidas[marca].idInterno || '', idEvento: leidas[marca].idEvento || '' } : null;
+  if (!marca) return null;
+  return typeof Eventos_buscarPorFuente_ === 'function'
+    ? Eventos_buscarPorFuente_(marca) : null;
 }
 
 /** GAS: entrega TR-2 según operación (§21/§22). */
@@ -1128,9 +1144,10 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
       }
     }
     if (!hojaEntrega || !filaFisica) {
-      hoja.appendRow(Form_filaCanonicaIngreso(internos, marca, { hoy: norm.fechaIngreso }));
+      var filaIngreso = Form_filaCanonicaIngreso(internos, marca, { hoy: norm.fechaIngreso });
+      filaFisica = hoja.getLastRow() + 1;
+      hoja.getRange(filaFisica, 1, 1, filaIngreso.length).setValues([filaIngreso]);
       hojaEntrega = hojaNombre;
-      filaFisica = hoja.getLastRow();
     }
 
     // Procesar SOLO la fila del envío actual (acotación §13 nunca re-procesa backlog).
@@ -1240,12 +1257,12 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
         Captura_v2_logError('CapturaV2', 'entregarEvento', marca + ': evento OTRO no registrado (actualizarDatos): ' + ((resOtro && resOtro.motivo) || 'EVENTO_NO_REGISTRADO'));
         return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: (resOtro && resOtro.motivo) || 'EVENTO_NO_REGISTRADO', idInterno: persona.ID_INTERNO, idEvento: '' };
       }
-      var halladoAct = Captura_v2_marcaEnEventos(marca);
       return {
         estado: CAPTURA_V2.ESTADOS.PROCESADO,
         motivo: '',
         idInterno: persona.ID_INTERNO,
-        idEvento: (halladoAct && halladoAct.idEvento) ? halladoAct.idEvento : ''
+        idEvento: resOtro.evento && resOtro.evento.id ? resOtro.evento.id
+          : ((Captura_v2_marcaEnEventos(marca) || {}).idEvento || '')
       };
     }
 
@@ -1263,12 +1280,12 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
     if (!res || !res.ok) {
       return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: (res && res.motivo) || 'EVENTO_NO_REGISTRADO', idInterno: persona.ID_INTERNO, idEvento: '' };
     }
-    var hallado = Captura_v2_marcaEnEventos(marca);
     return {
       estado: CAPTURA_V2.ESTADOS.PROCESADO,
       motivo: '',
       idInterno: persona.ID_INTERNO,
-      idEvento: (hallado && hallado.idEvento) ? hallado.idEvento : ''
+      idEvento: res.evento && res.evento.id ? res.evento.id
+        : ((Captura_v2_marcaEnEventos(marca) || {}).idEvento || '')
     };
   } catch (e) {
     Captura_v2_logError('CapturaV2', 'entregarEvento', String(e));

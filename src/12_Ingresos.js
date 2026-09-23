@@ -387,12 +387,20 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
       valores = hoja.getRange(loc.hr, 1, ultima - loc.hr + 1, ancho).getValues();
     }
   }
-  if (valores.length < 2) return { staging: [], hoja: hoja };
+  if (valores.length < 2) {
+    if (typeof Log_perf === 'function') Log_perf('Ingresos', 'leerHoja', {
+      sector: Ingresos_hojaASector(nombreHoja), modo: acotado ? 'ACOTADO' : 'LOTE',
+      filasFisicas: 0, filasIdentidad: 0, pendientes: 0, errores: 0, warnings: 0,
+      duracionMs: Date.now() - _tHoja
+    });
+    return { staging: [], hoja: hoja };
+  }
   var mapa = loc.mapa;
   var idxCampos = mapa.campos;
   var idxEstado = mapa.estadoIdx, idxNota = mapa.notaIdx;
   var sector = Ingresos_hojaASector(nombreHoja);
   var staging = [];
+  var filasIdentidad = 0;
   // En modo acotado, la fila física real es la filaPermitida correspondiente
   // (valores[f] == filasPermitidas[f-1]): NO vale hrDetect+f, porque las filas
   // leídas no son contiguas y un número inventado reencuadraría filas ajenas.
@@ -414,6 +422,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     var tieneRut = /[0-9]/.test(rutRaw);
     var tieneNombre = /[A-Za-zÀ-ÖØ-öø-ÿÑñ]/.test(nombreRaw);
     if (!tieneRut && !tieneNombre) continue;
+    filasIdentidad++;
     if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue; // defensa redundante
     var estadoPrevio = idxEstado >= 0 ? Utl_texto(filaVal[idxEstado]).toUpperCase() : '';
     if (estadoPrevio === 'INGRESADO') continue; // idempotencia del procesamiento
@@ -433,6 +442,14 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v)));
   }
+  if (typeof Log_perf === 'function') Log_perf('Ingresos', 'leerHoja', {
+    sector: sector, modo: acotado ? 'ACOTADO' : 'LOTE',
+    filasFisicas: Math.max(0, valores.length - 1), filasIdentidad: filasIdentidad,
+    pendientes: staging.length,
+    errores: staging.filter(function (x) { return (x.ERRORES || []).length > 0; }).length,
+    warnings: staging.filter(function (x) { return (x.WARNINGS || []).length > 0; }).length,
+    duracionMs: Date.now() - _tHoja
+  });
   console.log('[PIPE] leerHoja ' + nombreHoja + ' t=' + (Date.now() - _tHoja) + 'ms valores=' + valores.length + ' staging=' + staging.length + ' hr=' + loc.hr);
   return { staging: staging, hoja: hoja };
 }
@@ -708,6 +725,190 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
     return Utl_texto(r.filaOrigen) === String(nf);
   })[0] || null;
   return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
+}
+
+/** Evidencia canónica de que una fila INGRESO_* fue incorporada realmente. */
+function Ingresos_evidenciaFila_(nombreHoja, filaFisica) {
+  var fuente = Fuentes_fuenteOrigen({ ARCHIVO_ORIGEN: 'HOJA_INGRESO',
+    HOJA_ORIGEN: nombreHoja, FILA_ORIGEN: String(filaFisica) });
+  var evento = typeof Eventos_buscarPorFuente_ === 'function'
+    ? Eventos_buscarPorFuente_(fuente) : null;
+  if (!evento || !evento.idEvento) return { ok: false, fuente: fuente, motivo: 'SIN_EVENTO_INGRESO' };
+  if (evento.tipo && evento.tipo !== 'INGRESO')
+    return { ok: false, fuente: fuente, motivo: 'EVENTO_NO_INGRESO', evento: evento };
+  var paciente = evento.idInterno ? Modelo_buscarPaciente(evento.idInterno) : null;
+  if (!paciente || !paciente.obj)
+    return { ok: false, fuente: fuente, motivo: 'PACIENTE_NO_ENCONTRADO', evento: evento };
+  return { ok: true, fuente: fuente, idInterno: evento.idInterno,
+    idEvento: evento.idEvento, paciente: paciente.obj };
+}
+
+/** Ruta de dominio para convertir una selección manual INGRESADO en una
+ * incorporación real. Con `bajoLock:true` reutiliza el lock del reconciliador. */
+function Ingresos_incorporarPorEstadoManual_(nombreHoja, filaFisica, opciones) {
+  opciones = opciones || {};
+  var ejecutar = function () {
+    var k = Ingresos_claveHojaNombre_(nombreHoja);
+    if (!HOJAS_INGRESO[k]) return { ok: false, motivo: 'HOJA_INGRESO_INVALIDA' };
+    var nf = Number(filaFisica);
+    if (!nf || nf <= Modelo_headerRow(k)) return { ok: false, motivo: 'FILA_INVALIDA' };
+    var hoja = Modelo_hoja(k);
+    if (!hoja || nf > hoja.getLastRow()) return { ok: false, motivo: 'FILA_INVALIDA' };
+    var loc = Ingresos_layoutHoja_(hoja, k, true);
+    if (loc.mapa.estadoIdx < 0) return { ok: false, motivo: 'COLUMNA_ESTADO_AUSENTE' };
+    var estado = Utl_texto(hoja.getRange(nf, loc.mapa.estadoIdx + 1).getValue()).toUpperCase().trim();
+    if (estado !== 'INGRESADO') return { ok: false, motivo: 'ESTADO_NO_INGRESADO' };
+
+    var evidencia = Ingresos_evidenciaFila_(k, nf);
+    if (evidencia.ok) {
+      var advertenciasExistente = [];
+      try { Modelo_refrescarVistasSectores_([Ingresos_hojaASector(k)]); }
+      catch (eV0) { advertenciasExistente.push('VISTA_SECTOR_PENDIENTE'); }
+      return { ok: true, yaIncorporado: true, estado: 'INGRESADO',
+        idInterno: evidencia.idInterno, idEvento: evidencia.idEvento,
+        advertencias: advertenciasExistente };
+    }
+
+    // El lector omite INGRESADO por idempotencia. Solo esta ruta explícita lo
+    // vuelve temporalmente procesable; el write-back deja el resultado real.
+    var marcar = function (estadoNuevo, notaNueva) {
+      var colEstado = loc.mapa.estadoIdx + 1;
+      var colNota = typeof loc.mapa.notaIdx === 'number' && loc.mapa.notaIdx >= 0
+        ? loc.mapa.notaIdx + 1 : -1;
+      if (colNota < 1 || colNota === colEstado) {
+        hoja.getRange(nf, colEstado, 1, 1).setValues([[estadoNuevo]]);
+        return;
+      }
+      var desde = Math.min(colEstado, colNota), ancho = Math.abs(colEstado - colNota) + 1;
+      var bloque = hoja.getRange(nf, desde, 1, ancho).getValues();
+      bloque[0][colEstado - desde] = estadoNuevo;
+      bloque[0][colNota - desde] = notaNueva;
+      hoja.getRange(nf, desde, 1, ancho).setValues(bloque);
+    };
+    marcar('PENDIENTE', 'Procesando incorporación…');
+    var r;
+    try {
+      r = Ingresos_procesarFila(k, nf, { confirmarNuevo: opciones.confirmarNuevo === true });
+    } catch (eP) {
+      marcar('ERROR', 'No se pudo completar la incorporación. Reintenta desde Incorporación de ingresos.');
+      return { ok: false, estado: 'ERROR', motivo: eP && eP.message ? eP.message : String(eP) };
+    }
+    var resultado = r && r.resultado;
+    if (!resultado) {
+      marcar('ERROR', 'No se obtuvo confirmación del sistema. Reintenta desde Incorporación de ingresos.');
+      return { ok: false, estado: 'ERROR', motivo: 'SIN_RESULTADO_PIPELINE' };
+    }
+    var estadoFinal = Utl_texto(resultado.estado).toUpperCase();
+    var evidenciaFinal = estadoFinal === 'INGRESADO' ? Ingresos_evidenciaFila_(k, nf) : null;
+    return {
+      ok: estadoFinal === 'INGRESADO' && !!(evidenciaFinal && evidenciaFinal.ok),
+      estado: estadoFinal,
+      motivo: resultado.nota || ((evidenciaFinal && evidenciaFinal.motivo) || ''),
+      idInterno: resultado.idInterno || '', idEvento: resultado.idEvento || '',
+      advertencias: r.resumen && r.resumen.vistasSector === null ? ['VISTA_SECTOR_PENDIENTE'] : []
+    };
+  };
+  return opciones.bajoLock ? ejecutar() : Ecicep_conLock_(ejecutar);
+}
+
+/** Trigger instalable: solo una edición humana de ESTADO_INGRESO=INGRESADO. */
+function ECICEP_onEditIngreso(e) {
+  try {
+    if (!e || !e.range || Utl_texto(e.value).toUpperCase().trim() !== 'INGRESADO') return;
+    if (e.range.getNumRows() !== 1 || e.range.getNumColumns() !== 1) return;
+    var hoja = e.range.getSheet(), nombre = hoja.getName();
+    if (!HOJAS_INGRESO[nombre]) return;
+    var loc = Ingresos_layoutHoja_(hoja, nombre, true);
+    if (e.range.getRow() <= loc.hr || e.range.getColumn() !== loc.mapa.estadoIdx + 1) return;
+    return Ingresos_incorporarPorEstadoManual_(nombre, e.range.getRow(), {});
+  } catch (err) {
+    try { Log_error('Ingresos', 'onEditIngreso', err && err.message ? err.message : String(err)); Log_flush(); } catch (ign) {}
+    return { ok: false, motivo: err && err.message ? err.message : String(err) };
+  }
+}
+
+function Triggers_diagnosticarIngresoOnEdit_() {
+  var handler = 'ECICEP_onEditIngreso', total = 0;
+  if (typeof ScriptApp === 'undefined') return { ok: false, estado: 'NO_DISPONIBLE', total: 0 };
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === handler && t.getEventType() === ScriptApp.EventType.ON_EDIT) total++;
+  });
+  return { ok: total === 1, estado: total === 0 ? 'FALTA' : (total === 1 ? 'OK' : 'DUPLICADO'), total: total };
+}
+
+/** Instala uno y elimina exclusivamente duplicados del mismo handler. */
+function Triggers_asegurarIngresoOnEdit_() {
+  var handler = 'ECICEP_onEditIngreso';
+  var coinciden = ScriptApp.getProjectTriggers().filter(function (t) {
+    return t.getHandlerFunction() === handler && t.getEventType() === ScriptApp.EventType.ON_EDIT;
+  });
+  for (var i = 1; i < coinciden.length; i++) ScriptApp.deleteTrigger(coinciden[i]);
+  if (coinciden.length) return { ok: true, existente: true, eliminados: Math.max(0, coinciden.length - 1), total: 1 };
+  ScriptApp.newTrigger(handler).forSpreadsheet(Modelo_ss()).onEdit().create();
+  return { ok: true, creado: true, eliminados: 0, total: 1 };
+}
+
+/** Diagnóstico de filas etiquetadas INGRESADO; solo lectura. */
+function Ingresos_diagnosticarIngresados_() {
+  var casos = [], conteos = { OK_REAL: 0, INGRESADO_FALSO: 0, DERIVADO_DESACTUALIZADO: 0, INCONSISTENTE: 0 };
+  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    var hoja = Modelo_hoja(nombre);
+    if (!hoja || hoja.isSheetHidden()) return;
+    var loc = Ingresos_layoutHoja_(hoja, nombre, false);
+    if (loc.mapa.estadoIdx < 0 || hoja.getLastRow() <= loc.hr) return;
+    var n = hoja.getLastRow() - loc.hr;
+    var estados = hoja.getRange(loc.hr + 1, loc.mapa.estadoIdx + 1, n, 1).getValues();
+    estados.forEach(function (fila, i) {
+      if (Utl_texto(fila[0]).toUpperCase().trim() !== 'INGRESADO') return;
+      var nf = loc.hr + 1 + i, ev = Ingresos_evidenciaFila_(nombre, nf), clasificacion;
+      if (!ev.ok) clasificacion = ev.motivo === 'EVENTO_NO_INGRESO' || ev.motivo === 'PACIENTE_NO_ENCONTRADO'
+        ? 'INCONSISTENTE' : 'INGRESADO_FALSO';
+      else {
+        clasificacion = 'OK_REAL';
+        try {
+          var sector = Utl_texto(ev.paciente.SECTOR).toUpperCase();
+          var vista = Modelo_hoja('SECTOR_' + sector);
+          if (!vista) clasificacion = 'DERIVADO_DESACTUALIZADO';
+          else {
+            var colId = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
+            var ini = Modelo_dataStartRow(vista.getName());
+            var nv = vista.getLastRow() - ini + 1;
+            var celda = nv > 0 ? vista.getRange(ini, colId, nv, 1)
+              .createTextFinder(ev.idInterno).matchEntireCell(true).findNext() : null;
+            if (!celda) clasificacion = 'DERIVADO_DESACTUALIZADO';
+          }
+        } catch (eVista) { clasificacion = 'DERIVADO_DESACTUALIZADO'; }
+      }
+      conteos[clasificacion]++;
+      casos.push({ hoja: nombre, fila: nf, clasificacion: clasificacion,
+        sector: Ingresos_hojaASector(nombre) });
+    });
+  });
+  return { ok: conteos.INGRESADO_FALSO === 0 && conteos.INCONSISTENTE === 0,
+    conteos: conteos, casos: casos };
+}
+
+/** Repara falsos por el pipeline y regenera únicamente sectores stale. */
+function Ingresos_reconciliarIngresados_(opciones) {
+  opciones = opciones || {};
+  var diagnostico = Ingresos_diagnosticarIngresados_();
+  if (!opciones.reparar) return diagnostico;
+  var reparar = function () {
+    var resultados = [], sectores = [];
+    diagnostico.casos.forEach(function (caso) {
+      if (caso.clasificacion === 'INGRESADO_FALSO') {
+        resultados.push(Ingresos_incorporarPorEstadoManual_(caso.hoja, caso.fila,
+          { bajoLock: true, confirmarNuevo: opciones.confirmarNuevo === true }));
+      } else if (caso.clasificacion === 'DERIVADO_DESACTUALIZADO' && sectores.indexOf(caso.sector) < 0) {
+        sectores.push(caso.sector);
+      }
+    });
+    var vistas = null;
+    if (sectores.length) vistas = Modelo_refrescarVistasSectores_(sectores);
+    return { ok: resultados.every(function (r) { return r && r.ok; }),
+      diagnostico: diagnostico, resultados: resultados, vistas: vistas };
+  };
+  return opciones.bajoLock ? reparar() : Ecicep_conLock_(reparar);
 }
 
 /**
