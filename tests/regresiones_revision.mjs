@@ -552,13 +552,13 @@ test('MIG-001 recupera una vista derivada con encabezados incompatibles', () => 
   const mig = c.Mig_run001();
   assert.equal(mig.ok, true); assert.deepEqual(sectores, ['NARANJO']);
 });
-test('SAS-025: Instalar/reparar fuerza el formato visual (forzar:true)', () => {
+test('SAS-025: Instalar/reparar aplica el diseño SIN fuerza global (las hojas sin pintar se detectan)', () => {
   const c = backend();
-  let optsRecibidas = null;
+  let optsRecibidas = undefined;
   c.HVis_aplicarTodasLasSecciones = opts => { optsRecibidas = opts; return { ok: true, resultados: [] }; };
   assert.equal(c.Instalar_pVisual().ok, true);
-  assert.equal(optsRecibidas.forzar, true);
-  assert.deepEqual(Array.from(Object.keys(optsRecibidas)).sort(), ['forzar']);
+  assert.equal(optsRecibidas, undefined,
+    'el instalador ya no fuerza la reescritura del libro (hotfix 0.12.1); una hoja migrada sin OBSERVACIONES se detecta por pendientes');
 });
 test('SAS-025: HVis_yaFormateada devuelve false si falta la sección OBSERVACIONES', () => {
   const c = backend();

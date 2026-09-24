@@ -606,20 +606,20 @@ function Instalar_pLimpieza() {
   return { ok: true, candidatas: r.candidatas, eliminadas: r.eliminadas,
            conservadas: r.conservadas, linea: 'No se eliminaron hojas en la instalación' };
 }
-function Instalar_pDiseno() {
-  var r = Modelo_aplicarDiseno();
-  r.ok = r.ok !== false && !(r.fallidas || []).length;
-  if (!r.ok) r.motivo = (r.fallidas || []).join('; ') || r.motivo || 'Diseño incompleto';
-  if (!r.ok) return r;
-  var presentacion = Libro_repararPresentacion_({ forzar: true, omitirModelo: true });
-  presentacion.diseno = r;
-  return presentacion;
+function Instalar_pDiseno(ejecucion) {
+  // Hotfix 0.12.1: la "Presentación del libro" se ejecuta por SUBTAREAS
+  // REANUDABLES entre RPC (presupuesto de tiempo por llamada; cursor persistido
+  // por clave de EJECUCION en CacheService). El cliente re-invoca la misma etapa
+  // mientras la respuesta indique {continuar:true}. Ver 35_Presentacion.js.
+  return Presentacion_ejecutarPaso_('diseno', ejecucion);
 }
 function Instalar_pVisual() {
-  // Instalar/reparar es responsable de REPARAR inconsistencias existentes:
-  // fuerza el formato aunque HVis_yaFormateada identifique un fast-path
-  // (SAS-025: vista migrada 15→16 con la sección OBSERVACIONES sin pintar).
-  var r = HVis_aplicarTodasLasSecciones({ forzar: true });
+  // Repara las hojas con inconsistencias visuales REALES (SAS-025): una hoja
+  // con secciones sin pintar se detecta por pendientes y se reformatea solo
+  // esa hoja. Hoja alineada al DESIGN_SYSTEM = cero escrituras (fast-path).
+  // Se eliminó la fuerza global {forzar:true}: reinstalar no debe reescribir
+  // el libro completo sin que exista un problema detectado.
+  var r = HVis_aplicarTodasLasSecciones();
   var fallos = (r.resultados || []).filter(function (x) { return x.ok === false; });
   return { ok: r.ok !== false && fallos.length === 0, hojas: r.resultados,
            motivo: fallos.length ? 'Diseño incompleto en: ' + fallos.map(function (x) { return x.hoja; }).join(', ') : (r.motivo || '') };

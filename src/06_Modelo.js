@@ -343,7 +343,8 @@ function _modelo_camposHoja(nombre) {
 
 /** GAS: aplica los anchos por campo a una hoja. Fuente de verdad = ETIQUETA
  *  real de la fila de encabezados (hr del contrato), no el orden supuesto:
- *  así los anchos SIEMPRE coinciden con las columnas existentes. */
+ *  así los anchos SIEMPRE coinciden con las columnas existentes.
+ *  Fast-path 0.12.1: columna con ancho correcto = cero escrituras. */
 function _modelo_anchosHoja(hoja) {
   var nombre = hoja.getName();
   var hr = Modelo_headerRow(nombre);
@@ -351,55 +352,103 @@ function _modelo_anchosHoja(hoja) {
   var labels = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
   labels.forEach(function (etiqueta, i) {
     if (Utl_texto(etiqueta) === '') return;
-    hoja.setColumnWidth(i + 1, Modelo_anchoColumna(etiqueta));
+    var ancho = Modelo_anchoColumna(etiqueta);
+    if (typeof hoja.getColumnWidth === 'function') {
+      try { if (hoja.getColumnWidth(i + 1) === ancho) return; } catch (eW) {}
+    }
+    hoja.setColumnWidth(i + 1, ancho);
   });
 }
 
 /** Estiliza la fila de encabezado real de una hoja (headerRow según contrato).
- *  Parte 2: fuente mayor, bold, WRAP y altura suficiente para nombres largos. */
+ *  Parte 2: fuente mayor, bold, WRAP y altura suficiente para nombres largos.
+ *  Fast-path 0.12.1: si la fila ya cumple el DESIGN_SYSTEM (fondo, tinta, peso,
+ *  tamaño y altura) se omiten todas las escrituras. */
 function _modelo_estilizarEncabezado(hoja, colorAcento) {
   var cols = hoja.getLastColumn();
   if (!cols) return;
-  var hr = Modelo_headerRow(hoja.getName());
+  var nombre = hoja.getName();
+  var hr = Modelo_headerRow(nombre);
   if (hoja.getLastRow() < hr) return;
-  hoja.getRange(hr, 1, 1, cols)
-      .setFontWeight(PULIDO_ENCABEZADO.peso)
-      .setFontSize(PULIDO_ENCABEZADO.fuente)
-      .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta)
-      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
-      .setVerticalAlignment(DESIGN_SYSTEM.ENCABEZADOS.vertical)
-      .setHorizontalAlignment(DESIGN_SYSTEM.ENCABEZADOS.horizontal)
-      .setBorder(null, null, true, null, null, null,
-        colorAcento || DESIGN_SYSTEM.MARCA.sistema, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  hoja.setRowHeight(hr, Modelo_esHojaVisual(hoja.getName())
-    ? PULIDO_ENCABEZADO.alturaVisual : PULIDO_ENCABEZADO.alturaSimple);
+  var rEnc = hoja.getRange(hr, 1, 1, cols);
+  var altura = Modelo_esHojaVisual(nombre)
+    ? PULIDO_ENCABEZADO.alturaVisual : PULIDO_ENCABEZADO.alturaSimple;
+  var yaCorrecto = false;
+  try {
+    yaCorrecto =
+      typeof rEnc.getBackgrounds === 'function' &&
+      rEnc.getBackgrounds()[0].every(function (b) { return b === PULIDO_ENCABEZADO.fondo; }) &&
+      typeof rEnc.getFontColors === 'function' &&
+      rEnc.getFontColors()[0].every(function (c) { return c === PULIDO_ENCABEZADO.tinta; }) &&
+      typeof rEnc.getFontWeights === 'function' &&
+      rEnc.getFontWeights()[0].every(function (w) { return w === PULIDO_ENCABEZADO.peso; }) &&
+      typeof rEnc.getFontSizes === 'function' &&
+      rEnc.getFontSizes()[0].every(function (s) { return s === PULIDO_ENCABEZADO.fuente; }) &&
+      typeof hoja.getRowHeight === 'function' && hoja.getRowHeight(hr) === altura;
+  } catch (eH) { yaCorrecto = false; }
+  if (!yaCorrecto) {
+    rEnc.setFontWeight(PULIDO_ENCABEZADO.peso)
+        .setFontSize(PULIDO_ENCABEZADO.fuente)
+        .setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta)
+        .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
+        .setVerticalAlignment(DESIGN_SYSTEM.ENCABEZADOS.vertical)
+        .setHorizontalAlignment(DESIGN_SYSTEM.ENCABEZADOS.horizontal)
+        .setBorder(null, null, true, null, null, null,
+          colorAcento || DESIGN_SYSTEM.MARCA.sistema, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    hoja.setRowHeight(hr, altura);
+  }
   _modelo_anchosHoja(hoja);
 }
 
-/** Banding (filas intercaladas) idempotente SOLO sobre la zona de datos (dataStartRow). */
+/** Banding (filas intercaladas) idempotente SOLO sobre la zona de datos (dataStartRow).
+ *  Fast-path 0.12.1: si la banda existente ya cubre la zona de datos con los
+ *  colores del sistema, cero escrituras (no re-aplica ni elimina bandings). */
 function _modelo_aplicarBanda(hoja) {
   var cols = Math.max(hoja.getLastColumn(), 1);
   var ini = Modelo_dataStartRow(hoja.getName());
-  var rango = hoja.getRange(1, 1, hoja.getMaxRows(), cols);
-  rango.getBandings().forEach(function (b) { b.remove(); });
-  if (hoja.getMaxRows() < ini) return;
-  var banda = hoja.getRange(ini, 1, hoja.getMaxRows() - ini + 1, cols).applyRowBanding();
+  var maxFilas = (typeof hoja.getMaxRows === 'function') ? hoja.getMaxRows() : 0;
+  var yaAplicada = false;
+  try {
+    var existentes = hoja.getRange(1, 1, Math.max(maxFilas, 1), cols).getBandings() || [];
+    if (existentes.length) {
+      var b0 = existentes[0], ran = b0.getRange ? b0.getRange() : null;
+      yaAplicada = !!ran && ran.getRow() === ini &&
+        typeof b0.getFirstRowColor === 'function' &&
+        b0.getFirstRowColor() === DESIGN_SYSTEM.SUPERFICIE.datos &&
+        typeof b0.getSecondRowColor === 'function' &&
+        b0.getSecondRowColor() === DESIGN_SYSTEM.SUPERFICIE.datosAlterno;
+    }
+  } catch (eB) { yaAplicada = false; }
+  if (yaAplicada) return;
+  try {
+    hoja.getRange(1, 1, Math.max(maxFilas, 1), cols).getBandings().forEach(function (b) { b.remove(); });
+  } catch (eR2) {}
+  if (!maxFilas || maxFilas < ini) return;
+  var banda = hoja.getRange(ini, 1, maxFilas - ini + 1, cols).applyRowBanding();
   banda.setFirstRowColor(DESIGN_SYSTEM.SUPERFICIE.datos)
        .setSecondRowColor(DESIGN_SYSTEM.SUPERFICIE.datosAlterno)
 }
 
 /** Formatos de fecha según los encabezados físicos, no posiciones supuestas.
- *  Los ANCHOS los centraliza _modelo_anchosHoja (única fuente de verdad). */
+ *  Los ANCHOS los centraliza _modelo_anchosHoja (única fuente de verdad).
+ *  Fast-path 0.12.1: celda de datos ya con 'dd/MM/yyyy' = cero escrituras;
+ *  el rango se acota a las filas gestionadas. */
 function _modelo_formatoSencillo(hoja, columnas) {
   var ini = Modelo_dataStartRow(hoja.getName());
   var hr = Modelo_headerRow(hoja.getName());
   if (hoja.getLastRow() < hr || hoja.getMaxRows() < ini) return;
   var fechas = columnas.filter(function (col) { return /FECHA/.test(col); });
   if (!fechas.length) return;
+  var filas = Math.max(Hojas_filasGestionadas_(hoja, hoja.getName()), 1);
   var fisicas = hoja.getRange(hr, 1, 1, hoja.getLastColumn()).getValues()[0];
   fisicas.forEach(function (etiqueta, i) {
     if (fechas.indexOf(Utl_texto(etiqueta).trim().toUpperCase()) < 0) return;
-    hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1)
+    var celda = hoja.getRange(ini, i + 1);
+    var ya = false;
+    try { ya = typeof celda.getNumberFormat === 'function' && celda.getNumberFormat() === 'dd/MM/yyyy'; }
+    catch (eF) { ya = false; }
+    if (ya) return;
+    hoja.getRange(ini, i + 1, filas, 1)
       .setNumberFormat('dd/MM/yyyy');
   });
 }
@@ -412,19 +461,39 @@ function _modelo_formatoSencillo(hoja, columnas) {
  *  Idempotente: re-aplica la misma regla (una RPC por columna, tiempo de
  *  instalación, no hot-path). */
 function _modelo_validacionesPacientes(hoja) {
-  var labels = hoja.getRange(Modelo_headerRow(HOJAS.PACIENTES), 1, 1,
+  var hr = Modelo_headerRow(HOJAS.PACIENTES);
+  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
+  if (hoja.getMaxRows() < ini) return 0;
+  var labels = hoja.getRange(hr, 1, 1,
     Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0];
   var catalogos = {
     SEXO: SEXOS.VALIDOS, SECTOR: ['NARANJO', 'AMARILLO', 'VERDE', 'MULTIPLE'],
     ESTRATIFICACION: ['G1', 'G2', 'G3'], ESTADO: ESTADOS.VALIDOS
   };
-  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
-  var filas = Math.max(hoja.getMaxRows() - ini + 1, 1);
+  var filas = Math.max(Hojas_filasGestionadas_(hoja, HOJAS.PACIENTES), 1);
   var aplicadas = 0;
   labels.forEach(function (et, i) {
     var clave = Utl_claveAlnum(et).toUpperCase();
     var lista = catalogos[clave];
-    if (!lista || hoja.getMaxRows() < ini) return;
+    if (!lista) return;
+    // Fast-path: la primera celda de datos ya tiene la misma lista → skip.
+    var ya = false;
+    try {
+      var celda = hoja.getRange(ini, i + 1);
+      if (typeof celda.getDataValidation === 'function') {
+        var dv = celda.getDataValidation();
+        if (dv && typeof dv.getCriteria === 'function' && dv.getCriteria() === 'VALUE_IN_LIST') {
+          var cv = dv.getCriteriaValues();
+          var actual = cv && cv[0];
+          if (Array.isArray(actual) && actual.length === lista.length) {
+            var set = {};
+            actual.forEach(function (v) { set[String(v)] = 1; });
+            ya = lista.every(function (v) { return set[String(v)] === 1; });
+          }
+        }
+      }
+    } catch (eD) { ya = false; }
+    if (ya) return;
     hoja.getRange(ini, i + 1, filas, 1)
       .setDataValidation(SpreadsheetApp.newDataValidation()
         .requireValueInList(lista, true)
@@ -486,15 +555,23 @@ function Modelo_aplicarDiseno() {
     try {
       var h = porHoja[d.nombre];
       if (!h) return;
-      h.setTabColor(d.color);
+      // Fast-path 0.12.1: valores ya correctos = cero escrituras.
+      if (typeof h.getTabColor !== 'function' || h.getTabColor() !== d.color) {
+        h.setTabColor(d.color);
+      }
       res.coloreadas++;
-      h.setFrozenRows(Modelo_headerRow(h.getName())); // visuales: 3 (título+secciones+headers); simples: 1
+      var frozenDeseado = Modelo_headerRow(h.getName());
+      if (typeof h.getFrozenRows !== 'function' || h.getFrozenRows() !== frozenDeseado) {
+        h.setFrozenRows(frozenDeseado); // visuales: 3 (título+secciones+headers); simples: 1
+      }
       // En el layout visual la barra de título está combinada a lo ancho:
       // inmovilizar solo algunas columnas partiría esa celda combinada.
       if (Modelo_esHojaVisual(h.getName())) {
-        if (h.getFrozenColumns && h.getFrozenColumns() > 0) h.setFrozenColumns(0);
+        if (h.getFrozenColumns && h.getFrozenColumns() !== 0) h.setFrozenColumns(0);
       } else if (d.congelarCols) {
-        h.setFrozenColumns(d.congelarCols);
+        var yaCongelado = typeof h.getFrozenColumns === 'function' &&
+          h.getFrozenColumns() === d.congelarCols;
+        if (!yaCongelado) h.setFrozenColumns(d.congelarCols);
       }
       res.congeladas.push(d.nombre);
       if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h, d.color);
@@ -502,8 +579,15 @@ function Modelo_aplicarDiseno() {
         _modelo_aplicarBanda(h);
         h.setHiddenGridlines(true);
         var iniDatos = Modelo_dataStartRow(h.getName());
-        if (h.getLastRow() >= iniDatos)
-          h.setRowHeights(iniDatos, h.getLastRow() - iniDatos + 1, PULIDO_ENCABEZADO.alturaDato);
+        if (h.getLastRow() >= iniDatos) {
+          var alturaOk = typeof h.getRowHeight === 'function';
+          if (alturaOk) {
+            try { alturaOk = h.getRowHeight(iniDatos) === PULIDO_ENCABEZADO.alturaDato; }
+            catch (eH) { alturaOk = false; }
+          }
+          if (!alturaOk)
+            h.setRowHeights(iniDatos, h.getLastRow() - iniDatos + 1, PULIDO_ENCABEZADO.alturaDato);
+        }
         res.bandas++;
       }
       if (d.formato && d.formato.length) _modelo_formatoSencillo(h, d.formato);
@@ -525,8 +609,28 @@ function Modelo_aplicarDiseno() {
   } catch (eAlias) {}
 
   // Orden fijo de segmentos — las ocultas se omiten (patrón PADI)
+  // Fast-path 0.12.1: si el orden VISIBLE actual ya es el contractual, se omite
+  // el barrido setActiveSheet/moveActiveSheet por hoja.
+  var ordenVisible = [];
+  MODELO_DISENO.forEach(function (d) {
+    var h = porHoja[d.nombre];
+    if (h && !h.isSheetHidden()) ordenVisible.push(d.nombre);
+  });
+  var enOrden = false;
+  if (typeof ss.getSheets === 'function') {
+    try {
+      var actuales = ss.getSheets()
+        .filter(function (sh) {
+          return typeof sh.isSheetHidden === 'function' ? !sh.isSheetHidden() : true;
+        })
+        .map(function (sh) { return sh.getName(); });
+      enOrden = actuales.length === ordenVisible.length &&
+        actuales.every(function (n, i) { return n === ordenVisible[i]; });
+    } catch (eO) { enOrden = false; }
+  }
   var pos = 1;
   MODELO_DISENO.forEach(function (d) {
+    if (enOrden) return;
     try {
       var h = porHoja[d.nombre];
       if (!h || h.isSheetHidden()) return;
@@ -2305,7 +2409,7 @@ function Modelo_validarIngresos(ss) {
       INGRESO_COLUMNAS.forEach(function (c, i) { idx[c] = i + 1; });
       var ini = Modelo_dataStartRow(nombre);
       var hr = Modelo_headerRow(nombre);
-      var filasDatos = Math.max(h.getMaxRows() - (ini - 1), 0);
+      var filasDatos = Math.max(Hojas_filasGestionadas_(h, nombre), 0);
 
       function lista(colNombre, opciones) {
         if (!idx[colNombre] || filasDatos < 1) return;

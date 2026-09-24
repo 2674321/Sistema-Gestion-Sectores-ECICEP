@@ -996,3 +996,21 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
 - Protecciones ajenas preservadas; sin filtros compartidos automáticos.
 - Esquema 2, contrato V4, agenda manual, URL y pipeline único sin cambios.
 - Informe: `docs/INFORME_2026-09-23_REDISENO_VISUAL_AUTOMATIZACION_V012.md`.
+
+## v0.12.1 — Hotfix de timeout en la presentación del libro (2026-09-24)
+
+- La fase `Presentación del libro` se ejecuta por **8 subtareas reanudables**
+  (`src/35_Presentacion.js`): presupuesto de 20 s por RPC, cursor persistido por
+  clave de EJECUCION en CacheService y respuesta `{continuar:true}` que el
+  instalador re-invoca con el mismo `_EJEC`. Una subtarea fallida no persiste el
+  cursor (reintento idempotente).
+- **Fast-paths cero escrituras** acotados a filas gestionadas en
+  `06_Modelo`/`17_Hojas`/`34_LibroUX`: encabezados, banding, anchos, formatos
+  numéricos, validaciones, notas, semántica de columnas y color de RUT omiten la
+  escritura si el estado ya coincide. Se eliminó la fuerza global
+  `{forzar:true}` de `Instalar_pVisual`; `Hojas_filasGestionadas_` limita los
+  rangos a dataStart + 250 filas (o `getMaxRows()`).
+- Suite nueva `tests/instalador_presentacion_timeout_v0121.mjs` (19/19);
+  `node tools/verificar.mjs` **37 suites, 0 fallos**.
+- Sin cambio de esquema (2), contrato V4, agenda manual ni canal de captura.
+- Informe: `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.

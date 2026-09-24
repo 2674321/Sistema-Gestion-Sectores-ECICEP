@@ -1,5 +1,20 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-24 (v0.12.1):** hotfix de timeout de la fase
+> `Presentación del libro`. La presentación ahora corre por **8 subtareas
+> reanudables** (presupuesto 20 s/RPC + cursor por clave de EJECUCION en
+> CacheService, `Instalar_pDiseno` → `Presentacion_ejecutarPaso_('diseno')`), y todos
+> los formatos usan **fast-paths cero escrituras** acotados a filas gestionadas
+> (encabezados, banding, anchos, formatos, validaciones, notas, semántica y
+> color de RUT). Se eliminó la fuerza global `{forzar:true}` de
+> `Instalar_pVisual`. Esquema 2 y captura V4 sin cambios. Validación local:
+> **37 suites, 0 fallos** (suite nueva `instalador_presentacion_timeout_v0121`).
+> Pendiente de validación operativa: ejecutar **Instalar / reparar** en el
+> Spreadsheet para confirmar que la fase de presentación ya no reporta timeout
+> en el libro real (requiere la Web App de instalación; este host no dispone de
+> sesión Google autorizada para `clasp run`). Ver
+> `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.
+
 > **Actualización 2026-09-23 (v0.12.0):** corregido el fallo genérico de
 > `Reconciliando derivados`; la evidencia histórica de solo reporte queda como
 > advertencia. Se implementaron INICIO por snapshots, presentación declarativa,

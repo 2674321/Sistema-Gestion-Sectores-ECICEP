@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.12.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.12.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,19 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.12.0` · rediseño profesional de Sheets, INICIO por snapshots y mantenimiento selectivo · esquema 2 · `node tools/verificar.mjs` |
+| **Estado** | `v0.12.1` · presentación del libro por subtareas reanudables y formatos sin reescritura · esquema 2 · `node tools/verificar.mjs` |
+
+## v0.12.1 — presentación del libro sin timeout (hotfix)
+
+La fase **Presentación del libro** del instalador dejó de exceder el límite de
+ejecución de Apps Script: ahora corre por **8 subtareas reanudables** (presupuesto
+de 20 s por RPC, cursor persistido por clave de EJECUCION en CacheService y
+`{continuar:true}` que el instalador re-invoca con el mismo `_EJEC`). Todos los
+formatos aplican **fast-paths "cero escrituras"** acotados a filas gestionadas y
+se eliminó la fuerza global `forzar` de la reparación visual: reinstalar ya no
+reescribe el libro completo. Esquema 2, contrato V4 y canal de captura intactos.
+Detalle en
+[`docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`](docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md).
 
 ## v0.12.0 — rediseño visual y automatización de Sheets
 

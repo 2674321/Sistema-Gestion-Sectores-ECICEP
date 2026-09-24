@@ -55,7 +55,7 @@ test('selector Control/Seguimiento no hace RPC', () => {
 
 test('schema y versión son los de v0.12.0', () => {
   const cfg = read('00_Config.js');
-  assert.match(cfg, /VERSION:\s*'0\.12\.0'/);
+  assert.match(cfg, /VERSION:\s*'0\.12\.1'/);
   assert.match(cfg, /SISTEMA_VERSION_SCHEMA_ACTUAL\s*=\s*2/);
 });
 

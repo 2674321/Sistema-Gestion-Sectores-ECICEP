@@ -68,6 +68,28 @@ function Hojas_columnaPaciente(campo) {
   return Hojas_indiceAColumna(idx + 1);
 }
 
+/** GAS helper: cantidad de FILAS GESTIONADAS de una hoja de datos, acotada por
+ *  getMaxRows(). Es el rango real sobre el que el sistema aplica formato,
+ *  banding y reglas: dataStartRow + reserva (buffer) de filas vacías.
+ *  Antes del hotfix 0.12.1 los formatos barrian getMaxRows() completos
+ *  (miles de filas) en cada reinstalación, causa del timeout de presentación. */
+function Hojas_filasGestionadas_(hoja, nombreHoja, opciones) {
+  opciones = opciones || {};
+  if (!hoja || typeof hoja.getMaxRows !== 'function' ||
+      typeof hoja.getLastRow !== 'function') return 0;
+  var dataStart = Number(opciones.filaInicial) > 0
+    ? Number(opciones.filaInicial)
+    : Modelo_dataStartRow(nombreHoja);
+  var buffer = (opciones.buffer === undefined) ? 250 : Number(opciones.buffer);
+  if (!(buffer >= 0)) buffer = 250;
+  var max = hoja.getMaxRows();
+  if (max < dataStart) return 0;
+  var ultimo = Math.max(hoja.getLastRow() || 0, dataStart);
+  var gestionadas = Math.min(ultimo + buffer, max);
+  var filas = gestionadas - dataStart + 1;
+  return filas > 0 ? filas : 0;
+}
+
 /** PURA: rango de DATOS (col desde dataStartRow) para un campo de PACIENTES.
  *  Siempre deriva del contrato: jamás "A2:A" hardcoded. */
 function Hojas_rangoPaciente(campo) {
@@ -180,7 +202,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
     var p = ss.getSheetByName(HOJAS.PACIENTES);
     var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
     if (p && p.getLastRow() >= iniP) {
-      var filas = Math.max(p.getMaxRows() - iniP + 1, 1);
+      var filas = Math.max(Hojas_filasGestionadas_(p, HOJAS.PACIENTES), 1);
       var cRut = Hojas_columnaCampo_(HOJAS.PACIENTES, 'RUT'),
           cRutOk = Hojas_columnaCampo_(HOJAS.PACIENTES, 'RUT_DV_VALIDO'),
           cRev = Hojas_columnaCampo_(HOJAS.PACIENTES, 'REQUIERE_REVISION'),
@@ -216,7 +238,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
       if (!h || h.getLastRow() < hr) return;
       var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
       var L = Hojas_columnaA1_(colEstado);
-      var rEstado = h.getRange(ini, colEstado, Math.max(h.getMaxRows() - ini + 1, 1), 1);
+      var rEstado = h.getRange(ini, colEstado, Math.max(Hojas_filasGestionadas_(h, nombre), 1), 1);
       aplicar(h, [
         regla('=$' + L + ini + '="PENDIENTE"', DESIGN_SYSTEM.ESTADOS.ALERTA.fondo, rEstado),
         regla('=$' + L + ini + '="AGENDADO"', DESIGN_SYSTEM.ESTADOS.INFO.fondo, rEstado),
@@ -243,7 +265,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
       var letraRut = Hojas_columnaA1_(colRut);
       var letraEst = Hojas_columnaA1_(colEst);
       var letraProx = Hojas_columnaA1_(colProx);
-      var filas = Math.max(h.getMaxRows() - ini + 1, 1);
+      var filas = Math.max(Hojas_filasGestionadas_(h, nombre), 1);
       aplicar(h, [
         regla('=$' + letraRut + ini + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo,
              h.getRange(ini, colRut, filas, 1), true),
@@ -273,7 +295,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
     var iniC = Modelo_dataStartRow(HOJAS.CONFLICTOS);
     var hrC = Modelo_headerRow(HOJAS.CONFLICTOS);
     if (con && con.getLastRow() >= hrC) {
-      var rC = con.getRange(iniC, 9, Math.max(con.getMaxRows() - iniC + 1, 1), 1);
+      var rC = con.getRange(iniC, 9, Math.max(Hojas_filasGestionadas_(con, HOJAS.CONFLICTOS), 1), 1);
       aplicar(con, [
         regla('=$I' + iniC + '="PENDIENTE"', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, rC, true),
         regla('=$I' + iniC + '="RESUELTO"', DESIGN_SYSTEM.ESTADOS.OK.fondo, rC)
@@ -286,7 +308,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
     var ev = ss.getSheetByName(HOJAS.EVENTOS), iniEv = Modelo_dataStartRow(HOJAS.EVENTOS);
     var colTipo = Hojas_columnaCampo_(HOJAS.EVENTOS, 'TIPO_EVENTO');
     if (ev && ev.getLastRow() >= Modelo_headerRow(HOJAS.EVENTOS) && colTipo > 0) {
-      var filasEv = Math.max(ev.getMaxRows() - iniEv + 1, 1), letraTipo = Hojas_columnaA1_(colTipo);
+      var filasEv = Math.max(Hojas_filasGestionadas_(ev, HOJAS.EVENTOS), 1), letraTipo = Hojas_columnaA1_(colTipo);
       var rangoTipo = ev.getRange(iniEv, colTipo, filasEv, 1);
       aplicar(ev, [
         regla('=$' + letraTipo + iniEv + '="INGRESO"', DESIGN_SYSTEM.ESTADOS.INFO.fondo, rangoTipo),
@@ -391,7 +413,8 @@ function Modelo_disenoHojas() {
   return res;
 }
 
-/** Colorea todas las celdas RUT en INGRESO_* según validación (persistente). */
+/** Colorea todas las celdas RUT en INGRESO_* según validación (idempotente).
+ *  Fast-path 0.12.1: si la coloración actual ya coincide, cero escrituras. */
 function Hojas_colorearRutIngresos(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var ok = 0, fallidas = [];
@@ -401,7 +424,10 @@ function Hojas_colorearRutIngresos(ss) {
       var ini = Modelo_dataStartRow(nombre);
       if (!h || h.getLastRow() < ini) return;
       var colRut = INGRESO_COLUMNAS.indexOf('RUT') + 1;
-      var vals = h.getRange(ini, colRut, h.getLastRow() - ini + 1, 1).getValues();
+      var cantidad = Hojas_filasGestionadas_(h, nombre);
+      if (!cantidad && h.getLastRow() >= ini) cantidad = h.getLastRow() - ini + 1;
+      if (cantidad < 1) return;
+      var vals = h.getRange(ini, colRut, cantidad, 1).getValues();
       var backgrounds = [];
       for (var i = 0; i < vals.length; i++) {
         var rut = Utl_texto(vals[i][0]);
@@ -410,11 +436,22 @@ function Hojas_colorearRutIngresos(ss) {
         var valido = norm.rut && Norm_validarRut(norm.rut);
         backgrounds.push([valido ? DESIGN_SYSTEM.ESTADOS.OK.fondo : DESIGN_SYSTEM.ESTADOS.ERROR.fondo]);
       }
-      h.getRange(ini, colRut, backgrounds.length, 1).setBackgrounds(backgrounds);
+      var r = h.getRange(ini, colRut, backgrounds.length, 1);
+      var yaCoincide = false;
+      try {
+        if (typeof r.getBackgrounds === 'function') {
+          var actuales = r.getBackgrounds();
+          yaCoincide = actuales.length === backgrounds.length &&
+            actuales.every(function (fila, fi) {
+              return fila && fila[0] === backgrounds[fi][0];
+            });
+        }
+      } catch (eBg) { yaCoincide = false; }
+      if (!yaCoincide) r.setBackgrounds(backgrounds);
       ok++;
     } catch (e) { fallidas.push(nombre + ': ' + (e && e.message || e)); }
   });
-  return { coloreadas: ok, fallidas: fallidas };
+  return { coloreadas: ok, fallidas: fallidas, reescritas: ok };
 }
 
 /**

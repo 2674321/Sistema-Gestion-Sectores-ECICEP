@@ -1652,3 +1652,40 @@ convertir advertencias no reparables automáticamente en un fallo genérico.
    único se conservan.
 
 **Fecha:** 2026-09-23
+
+
+## DEC-075
+
+**v0.12.1 — Presentación del libro por subtareas reanudables y formatos sin
+reescritura.**
+
+**Motivo:** la fase `Presentación del libro` (etapa `diseno`) excedía el límite
+de ejecución de Apps Script: corría en un solo RPC la reescritura visual completa
+del libro (`Modelo_aplicarDiseno` + `Libro_repararPresentacion_({forzar:true})`)
+recorriendo `getMaxRows()` completo de cada hoja en cada reinstalación.
+
+**Reglas:**
+1. La etapa `diseno` se ejecuta por `PRESENTACION_SUBPLAN_DISENO` (8 subtareas)
+   con `PRESUPUESTO_PRESENTACION_MS` por RPC; el cursor se persiste en
+   `CacheService` (clave `ECICEP_INST_PRES|<ejecucion>`) y el cliente re-invoca
+   la misma etapa con el mismo `_EJEC` mientras responda `continuar:true`.
+2. Una subtarea que falla **no persiste el cursor**: el reintento ejecuta
+   exactamente la misma subtarea (idempotencia, sin duplicar efectos).
+3. `Instalar_pDiseno(ejecucion)` delega en `Presentacion_ejecutarPaso_('diseno')`;
+   `api_instalarPaso` mantiene la entrega de `ejecucion` al handler.
+4. Solo `diseno` es reanudable; `visual`, `validaciones`, `inicio` y las demás
+   etapas conservan su RPC único.
+5. Todos los formatos se acotan a `Hojas_filasGestionadas_` (dataStart + reserva,
+   limitada por `getMaxRows()`) y omiten la escritura si el estado ya coincide
+   (encabezados, banding, anchos, formatos, validaciones, notas, semántica y
+   color de RUT).
+6. Se elimina la fuerza global `{forzar:true}` de `Instalar_pVisual`: se repara
+   solo la hoja con pendientes reales detectados; la expansión de filas nueva
+   sigue siendo explícita (`cantidad`) y ajena a la presentación global.
+7. No cambia el modelo clínico: esquema 2, captura V4, agenda manual y pipeline
+   único se conservan.
+
+**Validación:** `tests/instalador_presentacion_timeout_v0121.mjs` (19/19) y
+batería total de 37 suites, 0 fallos.
+
+**Fecha:** 2026-09-24

@@ -227,16 +227,25 @@ function ejecutarSecuencia(ix){
   var pct=Math.round((hecho/pesoTotal())*100);
   document.getElementById('pct').textContent=pct+'%';
   document.getElementById('fill').style.width=pct+'%';
+  llamarPaso(etapa,ix);
+}
 
+/* Etapa REANUDABLE (hotfix presentación): el servidor puede responder
+   {continuar:true} para que la MISMA etapa vuelva a invocarse con el mismo
+   _EJEC y continúe exactamente donde quedó (subtareas + presupuesto de tiempo
+   + cursor persistido por clave de EJECUCION). Solo se considera completada
+   cuando el servidor responde sin continuar. */
+function llamarPaso(etapa,ix){
   google.script.run.withSuccessHandler(function(r){
-    _enCurso=false;
     if(_CANCELADO){
+      _enCurso=false;
       document.getElementById('btnCancelarWrap').style.display='none';
       document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
       cargarDiagnostico();
       return;
     }
     if(!r||r.ok===false){
+      _enCurso=false;
       marcar(etapa.id,'err');
       ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&(r.motivo||r.linea))||'error'});
       document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
@@ -244,6 +253,14 @@ function ejecutarSecuencia(ix){
       mostrarFinal(false); /* pantalla de error con reintentar */
       return;
     }
+    if(r.continuar===true){
+      var sb=r.subetapa||{};
+      document.getElementById('etapaTxt').textContent=(r.nombre||etapa.nombre)+' · '+(sb.nombre||'avanzando…')+
+        (r.progreso?' ('+r.progreso.actual+'/'+r.progreso.total+')':'');
+      llamarPaso(etapa,ix);
+      return;
+    }
+    _enCurso=false;
     marcar(etapa.id,r.omitida?'skip':'ok');
     if(r.advertencia||r.avisos&&r.avisos.length) AVISOS.push({nombre:etapa.nombre,
       motivo:(r.avisos&&r.avisos.join(', '))||r.linea||'Advertencia'});

@@ -283,23 +283,61 @@ function Hojas_validacionCampo_(etiqueta) {
   return null;
 }
 
-/** Aplica formatos de dato por significado, incluso a filas aún vacías. */
+/** PURA: ¿la validación existente de una celda coincide con la configurada?
+ *  Lista → misma lista (mismo orden no exigido); Fecha → criterio de fecha. */
+function Hojas_validacionCoincide_(dv, cfg) {
+  if (!dv || typeof dv.getCriteria !== 'function') return false;
+  try {
+    var cr = dv.getCriteria();
+    if (cfg.tipo === 'FECHA') {
+      return String(cr) === 'DATE_IS_VALID_DATE';
+    }
+    if (cfg.tipo === 'LISTA') {
+      if (String(cr) !== 'VALUE_IN_LIST') return false;
+      var cv = typeof dv.getCriteriaValues === 'function' ? dv.getCriteriaValues() : [];
+      var actual = cv && cv[0];
+      if (!Array.isArray(actual)) return false;
+      var esperados = cfg.valores || [];
+      if (actual.length !== esperados.length) return false;
+      var set = {};
+      esperados.forEach(function (v) { set[String(v)] = 1; });
+      return actual.every(function (v) { return set[String(v)] === 1; });
+    }
+    return false;
+  } catch (eX) { return false; }
+}
+
+/** Aplica formatos de dato por significado, incluso a filas aún vacías.
+ *  Fast-path 0.12.1: rango acotado a filas gestionadas; si la primera celda
+ *  de datos ya tiene el formato, cero escrituras para esa columna. Cuando el
+ *  llamador pasa `cantidad` explícita (expansión de filas) siempre se escribe. */
 function Hojas_aplicarFormatosNumero_(ss, opciones) {
   opciones = opciones || {}; ss = ss || Modelo_ss();
   var nombres = opciones.hojas || Object.keys(_MODELO_HOJAS_DEF), aplicados = 0, errores = [];
+  var forzado = (opciones.cantidad !== undefined && opciones.cantidad !== null);
   nombres.forEach(function (nombre) {
     var h = ss.getSheetByName(nombre); if (!h) return;
     try {
       var hr = Modelo_headerRow(nombre), ini = opciones.filaInicial || Modelo_dataStartRow(nombre);
       if (h.getLastRow() < hr || h.getMaxRows() < ini) return;
-      var cantidad = opciones.cantidad || (h.getMaxRows() - ini + 1);
+      var cantidad = forzado ? Number(opciones.cantidad)
+        : Math.max(Hojas_filasGestionadas_(h, nombre, opciones), 1);
       var labels = h.getRange(hr, 1, 1, Math.max(h.getLastColumn(), 1)).getValues()[0];
       labels.forEach(function (et, i) {
         var n = Utl_claveAlnum(et).toUpperCase(), formato = '';
         if (n.indexOf('RUT') !== -1 || n.indexOf('TELEFON') !== -1 || n.indexOf('ID') === 0) formato = '@';
         else if (n.indexOf('FECHA') !== -1) formato = (n === 'FECHAREGISTRO' || n === 'FECHAPROCESO')
           ? DESIGN_SYSTEM.FORMATOS.FECHA_HORA : DESIGN_SYSTEM.FORMATOS.FECHA;
-        if (formato) { h.getRange(ini, i + 1, cantidad, 1).setNumberFormat(formato); aplicados++; }
+        if (!formato) return;
+        var ya = false;
+        try {
+          if (!forzado) {
+            var cell = h.getRange(ini, i + 1);
+            ya = typeof cell.getNumberFormat === 'function' && cell.getNumberFormat() === formato;
+          }
+        } catch (eN) { ya = false; }
+        if (ya) return;
+        h.getRange(ini, i + 1, cantidad, 1).setNumberFormat(formato); aplicados++;
       });
     } catch (e) { errores.push(nombre + ': ' + (e && e.message || e)); }
   });
@@ -309,16 +347,25 @@ function Hojas_aplicarFormatosNumero_(ss, opciones) {
 function Hojas_aplicarValidaciones_(ss, opciones) {
   opciones = opciones || {}; ss = ss || Modelo_ss();
   var nombres = opciones.hojas || [HOJAS.PACIENTES].concat(Object.keys(HOJAS_INGRESO), HOJAS_SECTOR);
+  var forzado = (opciones.cantidad !== undefined && opciones.cantidad !== null);
   var aplicadas = 0, errores = [];
   nombres.forEach(function (nombre) {
     var h = ss.getSheetByName(nombre); if (!h) return;
     try {
       var hr = Modelo_headerRow(nombre), ini = opciones.filaInicial || Modelo_dataStartRow(nombre);
       if (h.getLastRow() < hr || h.getMaxRows() < ini) return;
-      var cantidad = opciones.cantidad || (h.getMaxRows() - ini + 1);
+      var cantidad = forzado ? Number(opciones.cantidad)
+        : Math.max(Hojas_filasGestionadas_(h, nombre, opciones), 1);
       var labels = h.getRange(hr, 1, 1, Math.max(h.getLastColumn(), 1)).getValues()[0];
       labels.forEach(function (et, i) {
         var cfg = Hojas_validacionCampo_(et); if (!cfg) return;
+        if (!forzado) {
+          try {
+            var cell = h.getRange(ini, i + 1);
+            if (typeof cell.getDataValidation === 'function' &&
+                Hojas_validacionCoincide_(cell.getDataValidation(), cfg)) return;
+          } catch (eV) {}
+        }
         var b = SpreadsheetApp.newDataValidation();
         if (cfg.tipo === 'LISTA') b.requireValueInList(cfg.valores, true);
         else if (cfg.tipo === 'FECHA') b.requireDate();
@@ -341,7 +388,15 @@ function Hojas_aplicarNotas_(ss) {
   [HOJAS.PACIENTES].concat(Object.keys(HOJAS_INGRESO), HOJAS_SECTOR).forEach(function (nombre) {
     var h = ss.getSheetByName(nombre); if (!h || h.getLastRow() < Modelo_headerRow(nombre)) return;
     var hr = Modelo_headerRow(nombre), labels = h.getRange(hr, 1, 1, h.getLastColumn()).getValues()[0];
-    labels.forEach(function (et, i) { var nota = notas[Utl_texto(et).toUpperCase()]; if (nota) { h.getRange(hr, i + 1).setNote(nota); aplicadas++; } });
+    labels.forEach(function (et, i) {
+      var nota = notas[Utl_texto(et).toUpperCase()]; if (!nota) return;
+      var celda = h.getRange(hr, i + 1);
+      var ya = false;
+      try { ya = typeof celda.getNote === 'function' && celda.getNote() === nota; }
+      catch (eN) { ya = false; }
+      if (ya) return;
+      h.getRange(hr, i + 1).setNote(nota); aplicadas++;
+    });
   });
   return { ok: true, aplicadas: aplicadas };
 }
@@ -370,13 +425,15 @@ function Hojas_prepararRangoDatos_(nombreHoja, filaInicial, cantidad) {
   return { ok: true, hoja: nombreHoja, filaInicial: filaInicial, cantidad: cantidad };
 }
 
-/** Diferencia visualmente columnas editables, derivadas y técnicas por nombre. */
+/** Diferencia visualmente columnas editables, derivadas y técnicas por nombre.
+ *  Fast-path 0.12.1: rango acotado a filas gestionadas; columna cuya primera
+ *  celda de datos ya tiene fondo/tinta correctos = cero escrituras. */
 function Hojas_aplicarSemanticaColumnas_(hoja) {
   var nombre = hoja.getName(), ux = HOJAS_UX[nombre] || {}, hr = Modelo_headerRow(nombre);
   var ini = Modelo_dataStartRow(nombre);
   if (hoja.getLastRow() < hr || hoja.getMaxRows() < ini) return { ok:true, columnas:0 };
   var labels = hoja.getRange(hr, 1, 1, Math.max(hoja.getLastColumn(), 1)).getValues()[0];
-  var filas = hoja.getMaxRows() - ini + 1, aplicadas = 0;
+  var filas = Math.max(Hojas_filasGestionadas_(hoja, nombre), 1), aplicadas = 0;
   var tecnicasPac = {};
   MODELO_PACIENTE.forEach(function (c) { if (c.tecnico) tecnicasPac[c.campo] = true; });
   labels.forEach(function (et, i) {
@@ -385,6 +442,13 @@ function Hojas_aplicarSemanticaColumnas_(hoja) {
     else if (ux.familia === 'tecnica' || ux.familia === 'historial') estilo = DESIGN_SYSTEM.HOJAS.tecnico;
     else if (nombre === HOJAS.PACIENTES && tecnicasPac[campo]) estilo = DESIGN_SYSTEM.HOJAS.sistema;
     else if (ux.familia === 'entrada' && campo === 'NOTA_SISTEMA') estilo = DESIGN_SYSTEM.HOJAS.sistema;
+    var ya = false;
+    try {
+      var c0 = hoja.getRange(ini, i + 1);
+      ya = typeof c0.getBackground === 'function' && c0.getBackground() === estilo.fondo &&
+        typeof c0.getFontColor === 'function' && c0.getFontColor() === estilo.tinta;
+    } catch (eS) { ya = false; }
+    if (ya) return;
     var r = hoja.getRange(ini, i + 1, filas, 1).setBackground(estilo.fondo).setFontColor(estilo.tinta);
     if (/NOMBRE|OBSERVACION|PROFESIONAL|NOTA_SISTEMA/.test(campo)) r.setHorizontalAlignment('left').setWrap(true);
     else if (/FECHA|SEXO|ESTADO|ESTRAT|EDAD/.test(campo)) r.setHorizontalAlignment('center').setWrap(false);

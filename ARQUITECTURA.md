@@ -1,5 +1,14 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-24 (v0.12.1):**
+> - La fase `Presentación del libro` es **reanudable**: 8 subtareas con
+>   presupuesto de tiempo por RPC y cursor persistido en CacheService por clave de
+>   EJECUCION (`Instalar_pDiseno` → `Presentacion_ejecutarPaso_('diseno')`).
+> - Todos los formatos usan **fast-paths cero escrituras** acotados a filas
+>   gestionadas (`Hojas_filasGestionadas_`); se eliminó la fuerza global
+>   `{forzar:true}` de la reparación visual.
+> - Esquema 2, captura V4, Web App, Spreadsheet y pipeline se conservan.
+>
 > **Actualización 2026-09-23 (v0.12.0):**
 > - `DESIGN_SYSTEM` y `HOJAS_UX` gobiernan tokens, anchos, formatos, orden,
 >   visibilidad e inmovilización del único libro operativo.
