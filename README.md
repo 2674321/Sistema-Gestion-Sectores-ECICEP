@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.12.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.12.2-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,29 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.12.1` · presentación del libro reanudable, formatos sin reescritura, portada con freeze robusto y derivados con caches reparados · esquema 2 · `node tools/verificar.mjs` |
+| **Estado** | `v0.12.2` · instalador con progreso real, formato canónico de celdas, reparación visual idempotente y portada inmune a merges/freeze · esquema 2 · 40 suites sin fallos |
+
+## v0.12.2 — instalador visual y formato canónico de celdas
+
+El instalador muestra **estado general, fase y subtarea**, calcula el progreso
+desde trabajo real, distingue advertencias de errores y permite reintentar la
+subtarea exacta conservando ejecución, cursor y respaldo. También incorpora un
+diagnóstico previo legible, una acción explícita para reparar la presentación y
+un resumen final con duración.
+
+El formato de datos ahora parte de una sola especificación declarativa por tipo
+y campo. RUT, teléfonos e IDs permanecen como texto; fechas y fechas-hora usan
+formatos coherentes; los anchos, alineación, wrap y superficies de edición se
+aplican sobre rangos gestionados. Una hoja correcta omite anchos, formatos,
+validaciones, notas, reglas condicionales y movimientos que ya coinciden. La
+fase estructural dejó de reescribir toda la hoja `PACIENTES`.
+
+El error real de `INICIO` al congelar una parte de `A1:X2` combinada quedó
+cerrado: el diseño genérico nunca administra su freeze y la portada conserva la
+secuencia `unlock 0/0 → construir → freeze 2/0`. Un fingerprint evita reconstruir
+la portada cuando su layout sigue vigente. Se mantienen el esquema 2, captura
+V4, agenda manual, URL y deployment operativo. Detalle en
+[`docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md`](docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md).
 
 ## v0.12.1 — presentación del libro sin timeout y portada robusta (hotfix)
 

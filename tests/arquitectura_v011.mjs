@@ -53,9 +53,9 @@ test('selector Control/Seguimiento no hace RPC', () => {
   assert.match(fn, /aria-pressed/);
 });
 
-test('schema y versión son los de v0.12.0', () => {
+test('schema estable y versión son los de v0.12.2', () => {
   const cfg = read('00_Config.js');
-  assert.match(cfg, /VERSION:\s*'0\.12\.1'/);
+  assert.match(cfg, /VERSION:\s*'0\.12\.2'/);
   assert.match(cfg, /SISTEMA_VERSION_SCHEMA_ACTUAL\s*=\s*2/);
 });
 
@@ -66,4 +66,4 @@ test('log evita lock anidado y recorta por bloque', () => {
   assert.doesNotMatch(cuerpo(log, 'Log_flush'), /deleteRow\(/);
 });
 
-console.log('Arquitectura v0.12.0 — ' + n + '/' + n + ' PASS');
+console.log('Arquitectura v0.12.2 — ' + n + '/' + n + ' PASS');

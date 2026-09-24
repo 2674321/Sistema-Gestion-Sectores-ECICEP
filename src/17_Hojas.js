@@ -180,8 +180,40 @@ function Hojas_formulaProximoControl(letra, fila, estado) {
  *  API a nivel SHEET (get/setConditionalFormatRules — Range no las tiene).
  *  Estas hojas son del sistema: se reemplazan TODAS sus reglas por las del
  *  estándar (idempotente). Errores aislados por hoja. */
+function Hojas_firmaReglaCondicional_(regla) {
+  try {
+    var condicion = regla.getBooleanCondition && regla.getBooleanCondition();
+    if (!condicion) return '';
+    var rangos = (regla.getRanges ? regla.getRanges() : []).map(function (r) {
+      var hoja = r.getSheet && r.getSheet();
+      return (hoja && hoja.getName ? hoja.getName() + '!' : '') + r.getA1Notation();
+    });
+    var valores = condicion.getCriteriaValues ? condicion.getCriteriaValues() : [];
+    return JSON.stringify({
+      criterio: String(condicion.getCriteriaType ? condicion.getCriteriaType() : ''),
+      valores: valores.map(function (v) { return String(v); }), rangos: rangos,
+      fondo: condicion.getBackground ? condicion.getBackground() : '',
+      tinta: condicion.getFontColor ? condicion.getFontColor() : '',
+      negrita: condicion.getBold ? condicion.getBold() === true : false,
+      cursiva: condicion.getItalic ? condicion.getItalic() === true : false,
+      tachado: condicion.getStrikethrough ? condicion.getStrikethrough() === true : false,
+      subrayado: condicion.getUnderline ? condicion.getUnderline() === true : false
+    });
+  } catch (e) { return ''; }
+}
+
+function Hojas_reglasCondicionalesCoinciden_(actuales, deseadas) {
+  if (!actuales || actuales.length !== deseadas.length) return false;
+  for (var i = 0; i < deseadas.length; i++) {
+    var a = Hojas_firmaReglaCondicional_(actuales[i]);
+    var d = Hojas_firmaReglaCondicional_(deseadas[i]);
+    if (!a || !d || a !== d) return false;
+  }
+  return true;
+}
+
 function Hojas_aplicarFormatoCondicional_(ss) {
-  var aplicadas = 0, errores = [];
+  var aplicadas = 0, omitidas = 0, errores = [];
 
   function regla(formula, fondo, rango, negrita) {
     var b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula)
@@ -190,6 +222,12 @@ function Hojas_aplicarFormatoCondicional_(ss) {
     return b.build();
   }
   function aplicar(hoja, reglas) {
+    try {
+      if (typeof hoja.getConditionalFormatRules === 'function' &&
+          Hojas_reglasCondicionalesCoinciden_(hoja.getConditionalFormatRules(), reglas)) {
+        omitidas += reglas.length; return;
+      }
+    } catch (eC) { /* reescritura segura si la API no permite comparar */ }
     hoja.setConditionalFormatRules(reglas);
     aplicadas += reglas.length;
   }
@@ -321,7 +359,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
     }
   } catch (eEv) { errores.push('EVENTOS: ' + (eEv && eEv.message || eEv)); }
 
-  return { aplicadas: aplicadas, errores: errores };
+  return { aplicadas: aplicadas, omitidas: omitidas, errores: errores };
 }
 
 /** GAS: filtros básicos en hojas de datos, anclados en headerRow del contrato
@@ -380,7 +418,7 @@ function Hojas_proteger(ss) {
 
   /* Solo se eliminan protecciones propiedad de ECICEP. Las protecciones de
      usuarios o administradores siempre se preservan. */
-  HOJAS_SECTOR.concat(Object.keys(HOJAS_INGRESO)).forEach(function (nombre) {
+  HOJAS_SECTOR.forEach(function (nombre) {
     var h = ss.getSheetByName(nombre);
     if (h) h.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (pr) {
       try { if (Hojas_esProteccionEcicep_(pr)) pr.remove(); } catch (eR) { /* best effort */ }
@@ -397,18 +435,16 @@ function Hojas_proteger(ss) {
   return { protecciones: n };
 }
 
-/** Orquestador: aplica TODO el diseño de hojas. Lo llama Instalar sistema. */
+/** Compatibilidad histórica: la fase INICIO es dueña exclusiva de la
+ *  portada. El resto de la presentación vive en 35_Presentacion.js. */
 function Modelo_disenoHojas() {
   var ss = Modelo_ss();
-  var res = {};
-  res.inicio = Hojas_crearInicio(ss);
-  res.cond = Hojas_formatoCondicional(ss);
-  res.filtros = Hojas_filtros(ss);
-  res.ocultas = Hojas_ocultarTecnicas(ss);
-  res.protecciones = Hojas_proteger(ss);
-  Log_info('Hojas', 'diseno', JSON.stringify({ cond: res.cond.aplicadas,
-    filtros: res.filtros.filtros, ocultas: res.ocultas.ocultas,
-    protecciones: res.protecciones.protecciones }));
+  var res = { inicio: Hojas_crearInicio(ss),
+    cond: { aplicadas: 0, omitida: true, errores: [] },
+    filtros: { filtros: 0, omitida: true },
+    ocultas: { ocultas: 0, omitida: true },
+    protecciones: { protecciones: 0, omitida: true } };
+  Log_info('Hojas', 'inicio', JSON.stringify({ ok: res.inicio.ok !== false }));
   Log_flush();
   return res;
 }

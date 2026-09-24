@@ -94,7 +94,8 @@ function Instalar_asegurarBackup_(ejecucion) {
  *  por otro proceso responde CONCURRENCIA y el cliente reintenta). Además, la
  *  PRIMERA etapa mutante de una ejecución crea un respaldo real previo
  *  (B4): si el respaldo falla, la etapa responde BACKUP_FALLIDO sin escribir. */
-function api_instalarPaso(id, acceso, ejecucion) {
+function api_instalarPaso(id, acceso, ejecucion, opciones) {
+  opciones = opciones || {};
   if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var reg = null;
   INSTALAR_ETAPAS.forEach(function (e) { if (e.id === id) reg = e; });
@@ -133,6 +134,8 @@ function api_instalarPaso(id, acceso, ejecucion) {
         linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
       respaldo = bk.creado ? (bk.nombre || null) : null;
     }
+    if (id === 'diseno' && opciones.forzarPresentacion === true &&
+        typeof Presentacion_invalidarLayout_ === 'function') Presentacion_invalidarLayout_();
     var fn = G[reg.fn];
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
     var r = fn(ejecucion) || {};
@@ -626,16 +629,14 @@ function Instalar_pVisual() {
 }
 function Instalar_pInicio() {
   var r = Modelo_disenoHojas();
-  var rut = Hojas_colorearRutIngresos();
   var errores = (r.cond && r.cond.errores || []).slice();
-  (rut.fallidas || []).forEach(function (fallo) { errores.push('RUT: ' + fallo); });
   if (r.inicio && r.inicio.verificacion) {
     var fallos = Object.keys(r.inicio.verificacion)
       .filter(function (k) { return !r.inicio.verificacion[k]; });
     if (fallos.length) errores.push('verificación INICIO: ' + fallos.join(', '));
   }
   return { ok: errores.length === 0, motivo: errores.join('; '), inicio: r.inicio,
-           cond: r.cond, rut: rut, filtros: r.filtros, ocultas: r.ocultas,
+           cond: r.cond, filtros: r.filtros, ocultas: r.ocultas,
            protecciones: r.protecciones };
 }
 function Instalar_pMenu() {

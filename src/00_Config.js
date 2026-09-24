@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.12.1',
+  VERSION: '0.12.2',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -256,7 +256,7 @@ const DESIGN_SYSTEM = {
     buscador: 24,         // (legacy, INICIO)
     encabezadoVisual: 42, // encabezados en hojas visuales
     encabezadoSimple: 30, // encabezados en hojas simples
-    dato: 21              // fila de datos
+    dato: 23              // fila de datos: legible sin autoajuste por textos largos
   },
   // --- Alineación y envoltura comunes ---
   CENTRO: 'CENTER',
@@ -282,16 +282,6 @@ const DESIGN_SYSTEM = {
     derivado:  { fondo: '#F7F8FA', tinta: '#1C2430' },
     tecnico:   { fondo: '#EEF1F4', tinta: '#5B6472' },
     seleccion: { fondo: '#E5F1F2', tinta: '#0B3C49' }
-  },
-  ANCHOS: {
-    ID: 90, RUT: 115, NOMBRE: 210, SEXO: 70, FECHA: 105, EDAD: 65,
-    TELEFONO: 135, ESTADO: 125, ESTRATIFICACION: 105,
-    PROFESIONAL: 170, OBSERVACIONES: 280, NOTA_SISTEMA: 250,
-    SALUD_MENTAL: 110
-  },
-  FORMATOS: {
-    RUT: '@', TELEFONO: '@', ID: '@', FECHA: 'dd/MM/yyyy',
-    FECHA_HORA: 'dd/MM/yyyy HH:mm'
   },
   // --- Encabezados (Parte 6): especificación única, una fuente de verdad ---
   ENCABEZADOS: {
@@ -338,7 +328,9 @@ const DESIGN_SYSTEM = {
 // Especificación de experiencia. Describe presentación y navegación, sin
 // duplicar contratos de datos ni convertir vistas derivadas en fuentes.
 const HOJAS_UX = {
-  INICIO:           { familia: 'inicio', visible: true, frozenRows: 0, frozenColumns: 0 },
+  // Inicio_construir_ es el único owner del freeze de la portada. El estado
+  // final contractual es 2/0; durante el rebuild se destraba temporalmente.
+  INICIO:           { familia: 'inicio', visible: true, frozenRows: 2, frozenColumns: 0 },
   PACIENTES:        { familia: 'canonica', visible: true, frozenRows: 3, frozenColumns: 0 },
   INGRESO_NARANJO:  { familia: 'entrada', sector: 'NARANJO', visible: true, frozenRows: 3, frozenColumns: 0 },
   INGRESO_AMARILLO: { familia: 'entrada', sector: 'AMARILLO', visible: true, frozenRows: 3, frozenColumns: 0 },
@@ -351,6 +343,89 @@ const HOJAS_UX = {
   CONFIG:           { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 },
   LOG:              { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 },
   FORM_RESPUESTAS:  { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 }
+};
+
+// Contrato canónico de CELDAS (v0.12.2). Esta es la única fuente para tipo,
+// formato numérico, ancho, alineación y wrap. Los nombres se comparan mediante
+// Utl_claveAlnum, por lo que cubre las etiquetas físicas con espacios de
+// INGRESO_* sin inventar columnas nuevas.
+const FORMATO_TIPOS = {
+  ID:          { ancho: 90,  formato: '@',                  alineacion: 'LEFT',   wrap: false },
+  TEXTO:       { ancho: 130, formato: '@',                  alineacion: 'LEFT',   wrap: false },
+  TEXTO_LARGO: { ancho: 280, formato: '@',                  alineacion: 'LEFT',   wrap: true  },
+  ENUM:        { ancho: 105, formato: '@',                  alineacion: 'CENTER', wrap: false },
+  FECHA:       { ancho: 110, formato: 'dd/MM/yyyy',         alineacion: 'CENTER', wrap: false },
+  FECHA_HORA:  { ancho: 145, formato: 'dd/MM/yyyy HH:mm',   alineacion: 'CENTER', wrap: false },
+  BOOLEANO:    { ancho: 85,  formato: '',                   alineacion: 'CENTER', wrap: false },
+  NUMERO:      { ancho: 90,  formato: '0',                  alineacion: 'CENTER', wrap: false },
+  SISTEMA:     { ancho: 130, formato: '@',                  alineacion: 'LEFT',   wrap: false }
+};
+
+const FORMATO_CAMPOS = {
+  RUT:                    { tipo: 'TEXTO', ancho: 115, formato: '@' },
+  IDPROVISIONAL:          { tipo: 'ID', ancho: 150 },
+  NOMBRE:                 { tipo: 'TEXTO', ancho: 220, wrap: true },
+  NOMBRENORMALIZADO:      { tipo: 'SISTEMA', ancho: 150 },
+  RUTDVVALIDO:            { tipo: 'BOOLEANO', ancho: 85 },
+  RUTSINDV:               { tipo: 'BOOLEANO', ancho: 85 },
+  REQUIEREREVISION:       { tipo: 'BOOLEANO', ancho: 95 },
+  SEXO:                   { tipo: 'ENUM', ancho: 70 },
+  FECHANACIMIENTO:        { tipo: 'FECHA', ancho: 105 },
+  TELEFONOS:              { tipo: 'TEXTO', ancho: 135, formato: '@' },
+  TELEFONOOBS:            { tipo: 'TEXTO_LARGO', ancho: 210 },
+  SECTOR:                 { tipo: 'ENUM', ancho: 105 },
+  ESTRATIFICACION:        { tipo: 'ENUM', ancho: 110 },
+  ESTADO:                 { tipo: 'ENUM', ancho: 125 },
+  ESTADOINGRESO:          { tipo: 'ENUM', ancho: 125 },
+  SALUDMENTAL:            { tipo: 'ENUM', ancho: 110 },
+  FECHAINGRESO:           { tipo: 'FECHA', ancho: 110 },
+  ULTIMOSEGUIMIENTO:      { tipo: 'FECHA', ancho: 110 },
+  ULTIMOCONTROL:          { tipo: 'FECHA', ancho: 110 },
+  PROXIMOCONTROL:         { tipo: 'FECHA', ancho: 115 },
+  ULTIMOEVENTO:           { tipo: 'FECHA', ancho: 110 },
+  FECHAEVENTO:            { tipo: 'FECHA', ancho: 110 },
+  FECHAREGISTRO:          { tipo: 'FECHA_HORA' },
+  FECHAPROCESO:           { tipo: 'FECHA_HORA' },
+  FECHAACTUALIZACION:     { tipo: 'FECHA_HORA' },
+  FECHADETECCION:         { tipo: 'FECHA_HORA' },
+  ULTIMALECTURA:          { tipo: 'FECHA_HORA' },
+  ESTRATFECHACALCULO:     { tipo: 'FECHA_HORA' },
+  EDAD:                   { tipo: 'NUMERO', ancho: 65, formato: '0' },
+  OBSERVACIONES:          { tipo: 'TEXTO_LARGO', ancho: 280 },
+  OBSERVACIONESINGRESO:   { tipo: 'TEXTO_LARGO', ancho: 280 },
+  NOTASISTEMA:            { tipo: 'SISTEMA', ancho: 250, wrap: true },
+  PROFESIONAL:            { tipo: 'TEXTO', ancho: 170, wrap: true },
+  PROFESIONALSEGUIMIENTO: { tipo: 'TEXTO', ancho: 170, wrap: true },
+  DESCRIPCION:            { tipo: 'TEXTO_LARGO', ancho: 220 },
+  DETALLE:                { tipo: 'TEXTO_LARGO', ancho: 220 },
+  CONDICIONES:            { tipo: 'TEXTO_LARGO', ancho: 200 },
+  OTRASPATOLOGIAS:        { tipo: 'TEXTO_LARGO', ancho: 220 },
+  DUPLAINGRESO:           { tipo: 'TEXTO', ancho: 150 },
+  COMPOSICIONCONTROL:     { tipo: 'TEXTO', ancho: 150 },
+  CANTIDAD:               { tipo: 'NUMERO', ancho: 90 },
+  DURACIONMS:             { tipo: 'NUMERO', ancho: 100 },
+  EMAIL:                  { tipo: 'TEXTO', ancho: 180 },
+  CORREO:                 { tipo: 'TEXTO', ancho: 180 },
+  NOTA:                   { tipo: 'TEXTO_LARGO', ancho: 210 },
+  NORMALIZADO:            { tipo: 'SISTEMA', ancho: 170 },
+  ERRORES:                { tipo: 'SISTEMA', ancho: 170, wrap: true },
+  WARNINGS:               { tipo: 'SISTEMA', ancho: 170, wrap: true },
+  MENSAJE:                { tipo: 'TEXTO_LARGO', ancho: 280 },
+  CONTEXTO:               { tipo: 'SISTEMA', ancho: 240, wrap: true },
+  VALORESORIGINALES:      { tipo: 'SISTEMA', ancho: 180, wrap: true },
+  IDENTIFICACION:         { tipo: 'SISTEMA', ancho: 170 },
+  ARCHIVO:                { tipo: 'SISTEMA', ancho: 180 },
+  FUENTE:                 { tipo: 'SISTEMA', ancho: 170 },
+  HOJAS:                  { tipo: 'SISTEMA', ancho: 160 },
+  EXAMEN:                 { tipo: 'TEXTO', ancho: 170 },
+  VIGENCIA:               { tipo: 'NUMERO', ancho: 100 },
+  UNIDAD:                 { tipo: 'ENUM', ancho: 90 },
+  ACTIVO:                 { tipo: 'BOOLEANO', ancho: 80 },
+  CODIGO:                 { tipo: 'ID', ancho: 100 },
+  CLAVE:                  { tipo: 'ID', ancho: 160 },
+  VALOR:                  { tipo: 'TEXTO_LARGO', ancho: 360 },
+  TIPO:                   { tipo: 'ENUM', ancho: 100 },
+  REGISTRO:               { tipo: 'TEXTO', ancho: 115 }
 };
 
 const VALIDACIONES_CAMPOS = {
@@ -483,61 +558,11 @@ const PULIDO_ENCABEZADO = {
   fondo: DESIGN_SYSTEM.ENCABEZADOS.fondo,
   alturaVisual: DESIGN_SYSTEM.ALTURAS.encabezadoVisual, // 42
   alturaSimple: DESIGN_SYSTEM.ALTURAS.encabezadoSimple, // 30
-  alturaDato: DESIGN_SYSTEM.ALTURAS.dato            // 21
+  alturaDato: DESIGN_SYSTEM.ALTURAS.dato            // 23
 };
 
-// Anchos de columna por tipo de campo (Parte 2.4/2.5): el primer patrón que
-// coincida por substring (en orden) gana. 'NOMBRE' amplio para lectura;
-// campos técnicos compactos; fechas con ancho para 'dd/MM/yyyy'.
-const ANCHOS_COLUMNA = [
-  { clave: 'NOMBRE_NORMALIZADO', ancho: 150 },
-  { clave: 'NOMBRE', ancho: DESIGN_SYSTEM.ANCHOS.NOMBRE },
-  { clave: 'RUT', ancho: DESIGN_SYSTEM.ANCHOS.RUT },
-  { clave: 'ID_INTERNO', ancho: DESIGN_SYSTEM.ANCHOS.ID },
-  { clave: 'ID_EVENTO', ancho: DESIGN_SYSTEM.ANCHOS.ID },
-  { clave: 'ID_PROVISIONAL', ancho: 150 },
-  { clave: 'FECHA', ancho: DESIGN_SYSTEM.ANCHOS.FECHA },
-  { clave: 'TELEFON', ancho: DESIGN_SYSTEM.ANCHOS.TELEFONO },
-  { clave: 'OBSERVACION', ancho: DESIGN_SYSTEM.ANCHOS.OBSERVACIONES },
-  { clave: 'NOTA_SISTEMA', ancho: DESIGN_SYSTEM.ANCHOS.NOTA_SISTEMA },
-  { clave: 'SALUD_MENTAL', ancho: DESIGN_SYSTEM.ANCHOS.SALUD_MENTAL },
-  { clave: 'ESTRATIFICACION', ancho: DESIGN_SYSTEM.ANCHOS.ESTRATIFICACION },
-  { clave: 'ESTRAT_', ancho: DESIGN_SYSTEM.ANCHOS.ESTRATIFICACION },
-  { clave: 'PROXIMO_CONTROL', ancho: DESIGN_SYSTEM.ANCHOS.FECHA },
-  { clave: 'ULTIMO', ancho: DESIGN_SYSTEM.ANCHOS.FECHA },
-  { clave: 'COMPOSICION_CONTROL', ancho: 150 },
-  { clave: 'CONDICIONES', ancho: 200 },
-  { clave: 'PATOLOG', ancho: 220 },
-  { clave: 'DUPLA', ancho: 150 },
-  { clave: 'PROFESIONAL', ancho: DESIGN_SYSTEM.ANCHOS.PROFESIONAL },
-  { clave: 'EMAIL', ancho: 180 },
-  { clave: 'CORREO', ancho: 180 },
-  { clave: 'DESCRIPCION', ancho: 220 },
-  { clave: 'NOTA', ancho: 210 },
-  { clave: 'DETALLE', ancho: 210 },
-  { clave: 'NORMALIZADO', ancho: 170 },
-  { clave: 'ERRORES', ancho: 170 },
-  { clave: 'WARNINGS', ancho: 170 },
-  { clave: 'VALORES_ORIGINALES', ancho: 180 },
-  { clave: 'IDENTIFICACION', ancho: 170 },
-  { clave: 'ARCHIVO', ancho: 180 },
-  { clave: 'FUENTE', ancho: 170 },
-  { clave: 'HOJAS', ancho: 160 },
-  { clave: 'EXAMEN', ancho: 170 },
-  { clave: 'VIGENCIA', ancho: 100 },
-  { clave: 'UNIDAD', ancho: 90 },
-  { clave: 'ACTIVO', ancho: 80 },
-  { clave: 'CODIGO', ancho: 100 },
-  { clave: 'CLAVE', ancho: 160 },
-  { clave: 'VALOR', ancho: 360 },
-  { clave: 'SECTOR', ancho: 100 },
-  { clave: 'SEXO', ancho: DESIGN_SYSTEM.ANCHOS.SEXO },
-  { clave: 'EDAD', ancho: DESIGN_SYSTEM.ANCHOS.EDAD },
-  { clave: 'ESTADO', ancho: DESIGN_SYSTEM.ANCHOS.ESTADO },
-  { clave: 'TIPO', ancho: 100 },
-  { clave: 'REGISTRO', ancho: 115 },
-  { clave: 'DEFAULT', ancho: 130 }
-];
+// Los anchos dejaron de tener una tabla paralela: FORMATO_CAMPOS y
+// FORMATO_TIPOS son la fuente canónica consumida por Modelo_anchoColumna.
 
 // ---------------------------------------------------------------------------
 // TERMINOLOGÍA OFICIAL v0.8.9.5 (Parte 6): diccionario de términos del

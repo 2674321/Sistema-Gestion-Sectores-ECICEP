@@ -2888,7 +2888,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.12.1', 'versión esperada v0.12.1');
+    A.igual(v, '0.12.2', 'versión esperada v0.12.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3128,7 +3128,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.12.1', 'versión esperada v0.12.1');
+    A.igual(v, '0.12.2', 'versión esperada v0.12.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3605,9 +3605,9 @@ function _pruebas_pulido_v0895(t, A) {
 
   t('PULIDO v0.8.9.5: Modelo_anchoColumna centralizado (orden=precedencia)', function () {
     A.igual(Modelo_anchoColumna('NOMBRE_NORMALIZADO'), 150, 'normalizado gana a NOMBRE');
-    A.igual(Modelo_anchoColumna('NOMBRE'), 210, 'nombre amplio');
+    A.igual(Modelo_anchoColumna('NOMBRE'), 220, 'nombre amplio');
     A.igual(Modelo_anchoColumna('RUT'), 115, 'rut');
-    A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 105, 'fecha');
+    A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 110, 'fecha');
     A.igual(Modelo_anchoColumna('SEXO'), 70, 'sexo compacto');
     A.igual(Modelo_anchoColumna('CAMPORARO'), 130, 'default');
   });
@@ -3779,8 +3779,8 @@ function _pruebas_designsystem_v0896(t, A) {
 
   t('DESIGN SYSTEM v0.8.9.6: anchos con fallback por tipo (Parte 10)', function () {
     A.igual(Modelo_anchoColumna('ID_INTERNO'), 90, 'identificador');
-    A.igual(Modelo_anchoColumna('FECHA_EVENTO'), 105, 'fecha');
-    A.igual(Modelo_anchoColumna('CANTIDAD'), 130, 'numérico → default');
+    A.igual(Modelo_anchoColumna('FECHA_EVENTO'), 110, 'fecha');
+    A.igual(Modelo_anchoColumna('CANTIDAD'), 90, 'numérico');
     A.igual(Modelo_anchoColumna('DESCRIPCION'), 220, 'texto largo');
     A.igual(Modelo_anchoColumna('SEXO'), 70, 'enum compacto');
     A.igual(Modelo_anchoColumna('ALGO_INVENTADO'), 130, 'default 130');
@@ -6319,7 +6319,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.12.1', 'VERSION es 0.12.1');
+    A.cierto(ECICEP.VERSION === '0.12.2', 'VERSION es 0.12.2');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

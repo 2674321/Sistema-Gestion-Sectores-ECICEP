@@ -18,14 +18,15 @@ const fecha = c.Modelo_headerRow('EVENTOS') === 1 ? '' : '';
 
 // --- T1: plan de la etapa diseno ---
 const plan = c.PRESENTACION_SUBPLAN_DISENO;
-assert.ok(Array.isArray(plan) && plan.length === 8, '8 subtareas');
+assert.ok(Array.isArray(plan) && plan.length === 10, '10 subtareas');
 assert.equal(plan[0].id, 'base');
-assert.equal(plan[7].id, 'verificar');
+assert.equal(plan[9].id, 'verificar');
 assert.deepEqual(Array.from(plan, t => t.id), [
   'base', 'formato:PACIENTES', 'formato:INGRESO', 'formato:SECTOR',
-  'formato:EVENTOS', 'validaciones:extras', 'notas', 'verificar'
+  'formato:EVENTOS', 'validaciones:extras', 'condicionales', 'notas',
+  'accesorios', 'verificar'
 ]);
-ok('T1 plan: 8 subtareas en orden, base primero y verificar al final');
+ok('T1 plan: 10 subtareas en orden, base primero y verificar al final');
 
 // --- T2: presupuesto y reanudabilidad ---
 assert.equal(c.PRESUPUESTO_PRESENTACION_MS, 20000);
@@ -44,7 +45,7 @@ ok('T4 clave de ejecución normalizada y con respaldo VACIA');
 
 // --- T5: caché null-safe sin CacheService ---
 assert.equal(c.Presentacion_cacheLeer_('x'), null);
-assert.doesNotThrow(() => c.Presentacion_cacheGuardar_('x', 'diseno', 1, 8));
+assert.doesNotThrow(() => c.Presentacion_cacheGuardar_('x', 'diseno', 1, 10));
 assert.doesNotThrow(() => c.Presentacion_cacheLimpiar_('x'));
 ok('T5 sin CacheService el motor no falla (pruebas node)');
 
@@ -56,34 +57,60 @@ const cacheSingleton = {
   remove: function (k) { this.map.delete(k); }
 };
 c.CacheService = { getScriptCache: () => cacheSingleton };
-let seqBase = 0, seqVer = 0, msjApl = 0;
+let seqBase = 0, seqVer = 0, seqCond = 0;
+const seqAcc = { rut: 0, ocultas: 0, protecciones: 0, filtros: 0 };
+const subtareasOriginales = {
+  condicionales: c.Hojas_formatoCondicional,
+  rut: c.Hojas_colorearRutIngresos,
+  ocultas: c.Hojas_ocultarTecnicas,
+  protecciones: c.Hojas_proteger,
+  filtros: c.Hojas_filtros
+};
 c.Modelo_aplicarDiseno = () => { seqBase++; return { ok: true }; };
 c.HVis_diagnosticarTodas = () => { seqVer++; return { diagnostico: {} }; };
+c.Hojas_formatoCondicional = () => { seqCond++; return { ok: true, aplicadas: 0, errores: [] }; };
+c.Hojas_colorearRutIngresos = () => { seqAcc.rut++; return { coloreadas: 0, fallidas: [] }; };
+c.Hojas_ocultarTecnicas = () => { seqAcc.ocultas++; return { ocultas: 0 }; };
+c.Hojas_proteger = () => { seqAcc.protecciones++; return { protecciones: 0 }; };
+c.Hojas_filtros = () => { seqAcc.filtros++; return { filtros: 0 }; };
 c.Modelo_ss = () => ({ getSheetByName: () => null });
 const presupOriginal = c.PRESUPUESTO_PRESENTACION_MS;
 c.PRESUPUESTO_PRESENTACION_MS = 0; // forzar UNA subtarea por RPC
 const ejec = 'INST-reanudable-1';
-for (let k = 1; k <= 8; k++) {
+for (let k = 1; k <= 10; k++) {
   const r = c.Instalar_pDiseno(ejec);
   assert.equal(r.ok, true, 'llamada ' + k);
-  if (k < 8) {
+  if (k < 10) {
     assert.equal(r.continuar, true, 'continúa tras llamada ' + k);
     assert.equal(r.cursor, k, 'cursor ' + k);
-    assert.equal(r.progreso.actual, k + 1);
-    assert.equal(r.progreso.total, 8);
+    assert.equal(r.progreso.actual, k, 'actual = subtareas completadas');
+    assert.equal(r.progreso.enCurso, k + 1, 'enCurso = siguiente subtarea');
+    assert.equal(r.progreso.total, 10);
     assert.equal(r.subetapa.id, plan[k].id, 'subetapa ' + k);
     assert.equal(r.tareasEjecutadas, 1, 'una subtarea por RPC en ' + k);
   } else {
     assert.equal(r.continuar, false, 'finaliza');
-    assert.equal(r.cursor, 8);
-    assert.equal(r.progreso.actual, 8);
+    assert.equal(r.cursor, 10);
+    assert.equal(r.progreso.actual, 10);
+    assert.equal(r.progreso.enCurso, 10);
+    assert.equal(r.progreso.total, 10);
     assert.equal(r.subetapa, null);
   }
 }
 assert.equal(seqBase, 1, 'base se ejecuta una sola vez');
+assert.equal(seqCond, 1, 'condicionales se ejecuta una sola vez');
+assert.deepEqual(seqAcc, { rut: 1, ocultas: 1, protecciones: 1, filtros: 1 },
+  'accesorios ejecuta cada responsabilidad una sola vez');
 assert.equal(seqVer, 1, 'verificar se ejecuta una sola vez');
 assert.equal(cacheSingleton.map.size, 0, 'cursor limpio al terminar');
-ok('T6 reanudación: 8 RPC con {continuar:true} y caché limpiada al final');
+Object.assign(c, {
+  Hojas_formatoCondicional: subtareasOriginales.condicionales,
+  Hojas_colorearRutIngresos: subtareasOriginales.rut,
+  Hojas_ocultarTecnicas: subtareasOriginales.ocultas,
+  Hojas_proteger: subtareasOriginales.protecciones,
+  Hojas_filtros: subtareasOriginales.filtros
+});
+ok('T6 reanudación: 10 RPC, progreso real y caché limpiada al final');
 
 // --- T7: subtarea que falla NO persiste el cursor ni avanza ---
 const cacheFallida = new Map();
@@ -100,7 +127,9 @@ assert.equal(rf.ok, false);
 assert.match(rf.motivo, /PACIENTES: error/);
 assert.equal(rf.cursor, 0, 'no avanza');
 assert.equal(rf.subetapa.id, 'base');
-assert.equal(rf.progreso.actual, 1);
+assert.equal(rf.progreso.actual, 0, 'ninguna subtarea completada');
+assert.equal(rf.progreso.enCurso, 1, 'primera subtarea en curso');
+assert.equal(rf.progreso.total, 10);
 assert.equal(cacheFallida.size, 0, 'fallo no persiste cursor');
 ok('T7 fallo en base: ok=false, cursor 0 y caché intacta (reintento idempotente)');
 
@@ -181,7 +210,7 @@ const bandaOk = {
 };
 let removidos = 0, aplicados = 0;
 const hoja12 = {
-  getName: () => 'EVENTOS', getLastColumn: () => 1, getMaxRows: () => 100,
+  getName: () => 'EVENTOS', getLastColumn: () => 1, getLastRow: () => 100, getMaxRows: () => 100,
   getRange: () => ({ getBandings: () => [bandaOk, { remove: () => { removidos++; } }] }),
   applyRowBanding() { aplicados++; return { setFirstRowColor() { return this; }, setSecondRowColor() { return this; } }; }
 };
@@ -191,7 +220,7 @@ const bandaRoja = { getRange: () => ({ getRow: () => 3 }),
   getFirstRowColor: () => cc.datos, getSecondRowColor: () => cc.datosAlterno,
   remove: () => { removidos++; } };
 const hoja12b = {
-  getName: () => 'EVENTOS', getLastColumn: () => 1, getMaxRows: () => 100,
+  getName: () => 'EVENTOS', getLastColumn: () => 1, getLastRow: () => 100, getMaxRows: () => 100,
   getRange: () => ({
     getBandings: () => [bandaRoja, { remove: () => { removidos++; } }],
     applyRowBanding() { aplicados++; return { setFirstRowColor() { return this; }, setSecondRowColor() { return this; } }; }
@@ -233,6 +262,10 @@ const hoja14 = {
   getLastRow: () => 3, getMaxRows: () => 100, getLastColumn: () => 1,
   getRange: (...args) => {
     if (args.length === 4 && args[0] === 1) return { getValues: () => [['FECHA_DETECCION']] };
+    if (args.length === 4) return {
+      getNumberFormats: () => Array.from({ length: args[2] }, () => ['dd/MM/yyyy HH:mm']),
+      setNumberFormat: () => { f14++; }
+    };
     if (args.length === 2) return { getNumberFormat: () => 'dd/MM/yyyy' };
     return { setNumberFormat: () => { f14++; } };
   }
@@ -314,7 +347,11 @@ const notaRut = Object.create(null);
 const hoja17 = {
   getLastRow: () => 3, getLastColumn: () => 1,
   getRange: (...args) => {
-    if (args.length === 4) return { getValues: () => [['RUT']] };
+    if (args.length === 4) return {
+      getValues: () => [['RUT']],
+      getNotes: () => [['Formato: 12345678-5. ECICEP valida el dígito verificador.']],
+      setNotes: () => { notaRut.set = true; }
+    };
     return { getNote: () => 'Formato: 12345678-5. ECICEP valida el dígito verificador.', setNote: () => { notaRut.set = true; } };
   }
 };
@@ -330,8 +367,10 @@ assert.match(html, /function llamarPaso\(/);
 assert.match(html, /r\.continuar===true/);
 assert.match(html, /api_instalarPaso\(etapa\.id,ECICEP_ACCESO,_EJEC\)/);
 assert.match(html, /_EJEC=nuevoEjecucion\(\);/);
-assert.match(html, /marcar\(etapa\.id,r\.omitida\?'skip':'ok'\)/);
-assert.match(html, /L\.removeChild\(btn\);reintentarDesde\(ix\)/);
+assert.match(html, /marcar\(etapa\.id,aviso\?'ADVERTENCIA':'OK'\)/);
+assert.match(html, /function reintentarUltimoError\(\)/);
+assert.match(html, /Se conserva la ejecución, el cursor y el respaldo existente/);
+assert.match(html, /llamarPresentacion\(er\.etapa,er\.ix,false\)/);
 ok('T18 HTML: etapa reanudable con continuar y literales guardados');
 
 // --- T19: invariantes de fuente del hotfix ---
@@ -344,7 +383,7 @@ const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion\);/);
 assert.match(src20, /var r = fn\(ejecucion\)/);
 const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
-assert.match(cfg, /VERSION:\s*'0\.12\.1'/);
-ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.12.1');
+assert.match(cfg, /VERSION:\s*'0\.12\.2'/);
+ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.12.2');
 
-console.log('Hotfix presentación v0.12.1 — ' + n + '/' + n + ' PASS');
+console.log('Presentación reanudable v0.12.2 — ' + n + '/' + n + ' PASS');

@@ -1766,3 +1766,37 @@ sector = advertencia (no error); renovable persistiendo = error explícito.
 Batería total: 39 suites, 0 fallos.
 
 **Fecha:** 2026-09-24
+
+## DEC-078
+
+**v0.12.2 — Una especificación de celdas y un owner por propiedad visual.**
+
+**Motivo:** la instalación todavía podía reescribir formato ya correcto desde
+rutas distintas y el diseño genérico intentaba congelar una fila que atravesaba
+la celda combinada `INICIO!A1:X2`. Esto causó el fallo real de Presentación del
+libro y hacía costosa una segunda instalación.
+
+**Reglas:**
+1. `FORMATO_TIPOS` y `FORMATO_CAMPOS` son la fuente única para formato numérico,
+   ancho, alineación y wrap por nombre real de campo.
+2. HVis administra título, secciones, encabezado y freeze de hojas visuales;
+   `Modelo_validarIngresos` administra las validaciones `INGRESO_*`;
+   Presentación/LibroUX aplica formatos y superficies; `Inicio_construir_`
+   administra en exclusiva el layout y freeze de `INICIO`.
+3. `INICIO` nunca recibe freeze desde `Modelo_aplicarDiseno`. Su construcción
+   siempre ocurre con `0/0` y termina en `2/0`; si versión y fingerprint
+   coinciden, se omite el rebuild y solo se actualiza el snapshot necesario.
+4. Toda escritura visual repetible compara el estado actual antes de mutar y se
+   limita a las filas gestionadas. Notas de encabezado se escriben por bloque y
+   reglas condicionales equivalentes no se reinstalan.
+5. La fase `estructura` no da formato a `PACIENTES`; únicamente repara el grupo
+   legacy que podía ocultar columnas clínicas. La presentación tiene su propia
+   fase reanudable con presupuesto de 20 segundos.
+6. `ESTADO_INGRESO` permanece editable y transaccional. La presentación no
+   modifica datos clínicos, no elimina protecciones ajenas y no cambia esquema
+   2, captura V4 ni agenda manual.
+
+**Validación:** `tests/instalador_formato_visual_v0122.mjs` (20/20), regresiones
+de portada/presentación y `node tools/verificar.mjs` (40 suites, 0 fallos).
+
+**Fecha:** 2026-09-24

@@ -4,57 +4,114 @@
 <base target="_top">
 <?!= include('00_Tokens') ?>
 <style>
-body{font-size:15px;padding:var(--space-5);background:var(--surface);
-  display:flex;flex-direction:column;min-height:90vh;box-sizing:border-box}
+body{font-size:15px;padding:var(--space-5);background:var(--surface);display:flex;
+  flex-direction:column;min-height:90vh;box-sizing:border-box;color:var(--text-primary)}
 .marca{text-align:center;margin-bottom:var(--space-4)}
 .marca .sys{font:700 24px 'Sora';color:var(--primary)}
 .marca .sub{font-size:13px;color:var(--text-muted)}
+.estado-panel,.salud,.diagnostico,.error-panel,.final{border:1px solid var(--border);
+  border-radius:var(--radius-md);background:var(--surface);padding:var(--space-3);
+  margin-bottom:var(--space-3)}
+.nivel{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:10px;align-items:center;
+  padding:7px 0;border-bottom:1px solid var(--surface-alt)}
+.nivel:last-child{border-bottom:0}.nivel-etiqueta{font-size:11px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.nivel-contenido{min-width:0}.nivel-contenido b{display:block;font-size:13px;color:var(--text-primary)}
+.nivel-contenido span{display:block;font-size:11px;color:var(--text-muted);margin-top:2px}
+.estado-chip,.diag-estado{display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  border-radius:var(--radius-full);font-size:10px;font-weight:700;letter-spacing:.025em;
+  padding:4px 8px;border:1px solid currentColor;white-space:nowrap}
+.estado-pendiente{color:var(--text-muted);background:var(--surface-alt)}
+.estado-ejecutando{color:var(--primary);background:var(--surface-alt)}
+.estado-ok{color:var(--success);background:var(--surface-alt)}
+.estado-advertencia{color:#7A5400;background:#FFF3CD}
+.estado-error{color:var(--danger);background:#FBE4E4}
+.progreso-cabecera{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pct{font:700 15px 'Sora';color:var(--primary)}
+.progreso-ayuda{font-size:11px;color:var(--text-muted);text-align:right}
 .barra{height:12px;background:var(--surface-alt);border-radius:var(--radius-full);
-  overflow:hidden;border:1px solid var(--border);margin:var(--space-3) 0}
+  overflow:hidden;border:1px solid var(--border);margin:8px 0 var(--space-3)}
 .barra>span{display:block;height:100%;width:0;background:var(--primary);
-  border-radius:var(--radius-full);transition:width .5s var(--ease-in)}
-.pct{text-align:center;font:700 15px 'Sora';color:var(--primary);margin-bottom:var(--space-2)}
-.etapa-actual{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);
-  margin-bottom:var(--space-3);min-height:20px}
-.etapa-actual .spin{width:14px;height:14px;border:2px solid var(--primary);
-  border-top-color:transparent;border-radius:50%;display:inline-block;animation:girar .7s linear infinite}
-.lista{flex:1;overflow:auto;font-size:13.5px}
-.item{display:flex;align-items:center;gap:9px;padding:6px 4px;border-bottom:1px solid var(--surface-alt)}
-.item .ic{width:18px;text-align:center;flex-shrink:0}
-.item.ok .ic{color:var(--success)} .item.err .ic{color:var(--danger)}
-.item.run .ic{color:var(--primary)} .item.pen .ic{color:var(--border-strong)}
-.item.skip .ic{color:var(--text-muted)} .item.skip{color:var(--text-muted)}
-.item.err{color:var(--danger)}
-.final{text-align:center;display:none}
-.final .big-check{font-size:44px;color:var(--success);line-height:1}
-.final h2{font:700 20px 'Sora';margin:8px 0 2px;color:var(--text-primary)}
-.final .ver{font:600 13px 'Inter';color:var(--text-secondary)}
-.final .pruebas{font-size:12px;color:var(--text-muted);margin-top:4px}
-.aviso-final{background:var(--warning);color:#fff;border-radius:var(--radius-md);
-  padding:8px 12px;font-size:12.5px;margin-top:var(--space-3);display:none;text-align:left}
-.botones{display:none;gap:10px;margin-top:var(--space-4)}
-.botones .btn{flex:1;justify-content:center}
+  border-radius:var(--radius-full);transition:width .35s var(--ease-in)}
+.lista{max-height:230px;overflow:auto;font-size:12.5px;margin-bottom:var(--space-3)}
+.item{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:7px;align-items:center;
+  padding:6px 4px;border-bottom:1px solid var(--surface-alt)}
+.item .ic{text-align:center;font-weight:700}.item .estado-item{font-size:9px;font-weight:700;
+  letter-spacing:.03em}.item.estado-ok .ic,.item.estado-ok .estado-item{color:var(--success)}
+.item.estado-error .ic,.item.estado-error .estado-item{color:var(--danger)}
+.item.estado-ejecutando .ic,.item.estado-ejecutando .estado-item{color:var(--primary)}
+.item.estado-advertencia .ic,.item.estado-advertencia .estado-item{color:#7A5400}
+.item.estado-pendiente .ic,.item.estado-pendiente .estado-item{color:var(--text-muted)}
+.salud{background:var(--surface-alt)}.salud-grid{display:grid;grid-template-columns:repeat(4,1fr);
+  gap:6px;margin:8px 0}.salud-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:7px;text-align:center}.salud-card b{display:block;font-size:11px}
+.salud-card span{font-size:11px;color:var(--text-muted)}
+.salud-acciones,.acciones{display:flex;flex-wrap:wrap;gap:7px}.salud-acciones .btn{flex:1;
+  justify-content:center;font-size:11px;padding:6px}.salud-msg{font-size:11px;
+  color:var(--text-secondary);min-height:15px}
+.diagnostico{display:none}.diagnostico h2{font:700 14px 'Sora';margin:0}
+.diagnostico-cabecera{display:flex;justify-content:space-between;gap:10px;align-items:center;
+  margin-bottom:8px}.diagnostico-tabla{display:grid;gap:0;border:1px solid var(--border);
+  border-radius:8px;overflow:hidden}.diag-fila{display:grid;grid-template-columns:120px minmax(0,1fr) auto;
+  gap:8px;align-items:center;padding:7px 9px;background:var(--surface);
+  border-bottom:1px solid var(--surface-alt)}.diag-fila:last-child{border-bottom:0}
+.diag-fila b{font-size:11px}.diag-valor{font-size:11px;color:var(--text-secondary);
+  overflow-wrap:anywhere}.diag-resumen{font-size:11px;color:var(--text-secondary);line-height:1.45;
+  margin:8px 0 0}.preparacion{display:none;margin-bottom:var(--space-3)}
+.acciones .btn{flex:1;min-width:125px;justify-content:center}.acciones-secundarias{margin-top:7px}
+#btnCancelarWrap{display:none;margin-bottom:var(--space-3)}#btnCancelarWrap .btn{width:100%;justify-content:center}
+.error-panel{display:none;border-color:var(--danger);background:#FFF8F8}.error-panel h2{font:700 16px 'Sora';
+  margin:0 0 5px;color:var(--danger)}.error-panel p{font-size:12px;line-height:1.45;margin:4px 0}
+.error-panel details{font-size:11px;margin:10px 0;color:var(--text-secondary)}
+.error-panel summary{cursor:pointer;font-weight:700}.error-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px}
+.final{display:none;text-align:center}.final .big-check{font-size:42px;color:var(--success);line-height:1}
+.final h2{font:700 19px 'Sora';margin:7px 0 2px}.final .ver{font:600 12px 'Inter';
+  color:var(--text-secondary)}.resumen-final{display:grid;grid-template-columns:repeat(3,1fr);
+  gap:6px;margin:12px 0}.resumen-final div{border:1px solid var(--border);border-radius:8px;
+  padding:8px;background:var(--surface-alt)}.resumen-final b{display:block;font:700 18px 'Sora'}
+.resumen-final span{font-size:10px;color:var(--text-muted)}.final .pruebas{font-size:11px;
+  color:var(--text-secondary);line-height:1.5}.duracion{font-size:11px;color:var(--text-muted);
+  margin-top:6px}.aviso-final{background:#FFF3CD;color:#664D03;border-radius:var(--radius-md);
+  padding:8px 12px;font-size:11px;margin-top:var(--space-3);display:none;text-align:left}
+.botones{display:flex;gap:8px;margin-top:var(--space-3)}.botones .btn{flex:1;justify-content:center}
 .pie{text-align:center;font-size:11px;color:var(--text-muted);margin-top:auto;padding-top:var(--space-3)}
-#btnCancelarWrap{display:none;margin-top:var(--space-2)}
-#btnCancelarWrap .btn{width:100%;justify-content:center}
-.preparacion{display:none;text-align:center;margin:var(--space-4) 0}
-.preparacion p{color:var(--text-secondary);line-height:1.5}
-.preparacion .btn{margin-top:var(--space-2)}
-.salud{border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-4);background:var(--surface-alt)}
-.salud-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
-.salud-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px;text-align:center}
-.salud-card b{display:block;font-size:11px}.salud-card span{font-size:11px;color:var(--text-muted)}
-.salud-acciones{display:flex;gap:6px}.salud-acciones .btn{flex:1;justify-content:center;font-size:11px;padding:6px}
-.salud-msg{font-size:11px;color:var(--text-secondary);min-height:15px}
-@media(max-width:540px){.salud-grid{grid-template-columns:1fr 1fr}}
+body[aria-busy="true"] .barra>span{background:var(--primary)}
+@media(max-width:540px){.salud-grid{grid-template-columns:1fr 1fr}.nivel{grid-template-columns:92px minmax(0,1fr)}
+  .nivel .estado-chip{grid-column:2;justify-self:start}.diag-fila{grid-template-columns:90px minmax(0,1fr)}
+  .diag-estado{grid-column:2;justify-self:start}.resumen-final{grid-template-columns:1fr}}
 </style>
 </head>
-<body data-acceso="<?= TOKEN_ACCESO ?>" data-portal="<?= PORTAL_URL ?>">
+<body data-acceso="<?= TOKEN_ACCESO ?>" data-portal="<?= PORTAL_URL ?>" aria-busy="false">
 <script>var VER='v<?= ECICEP.VERSION ?>';var BUILD='<?= BUILD ?>';</script>
 <div class="marca">
   <div class="sys">ECICEP</div>
-  <div class="sub">Instalación y reparación del sistema</div>
+  <div class="sub">Instalar o reparar el sistema</div>
 </div>
+
+<section class="estado-panel" id="etapaActual" aria-live="polite" aria-label="Progreso de instalación">
+  <div class="nivel">
+    <span class="nivel-etiqueta">Estado general</span>
+    <div class="nivel-contenido"><b id="estadoGeneralNombre">Listo para diagnosticar</b><span id="estadoGeneralDetalle">No se han realizado cambios.</span></div>
+    <span class="estado-chip estado-pendiente" id="estadoGeneral"><span aria-hidden="true">○</span><span>PENDIENTE</span></span>
+  </div>
+  <div class="nivel">
+    <span class="nivel-etiqueta">Fase actual</span>
+    <div class="nivel-contenido"><b id="faseNombre">—</b><span id="faseProgreso">Esperando inicio</span></div>
+    <span class="estado-chip estado-pendiente" id="faseEstado"><span aria-hidden="true">○</span><span>PENDIENTE</span></span>
+  </div>
+  <div class="nivel">
+    <span class="nivel-etiqueta">Subtarea</span>
+    <div class="nivel-contenido"><b id="subtareaNombre">—</b><span id="subtareaProgreso">Sin subtarea activa</span></div>
+    <span class="estado-chip estado-pendiente" id="subtareaEstado"><span aria-hidden="true">○</span><span>PENDIENTE</span></span>
+  </div>
+</section>
+
+<div class="progreso-cabecera">
+  <div class="pct" id="pct">0 %</div>
+  <div class="progreso-ayuda" id="progresoAyuda">El porcentaje avanza solo al completar trabajo real.</div>
+</div>
+<div class="barra" id="barra" role="progressbar" aria-label="Avance de la instalación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fill"></span></div>
 
 <section class="salud" aria-live="polite">
   <div class="salud-msg" id="saludMsg">Consultando estado operativo…</div>
@@ -65,299 +122,464 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
     <div class="salud-card"><b>Respaldo</b><span id="saludBackup">—</span></div>
   </div>
   <div class="salud-acciones">
-    <button class="btn btn-ghost" id="btnSalud" onclick="cargarSalud(true,this)">Auditoría profunda</button>
-    <button class="btn btn-sec" id="btnReparar" onclick="repararIntegridad(this)">Reparar derivados</button>
+    <button class="btn btn-ghost" id="btnSalud" data-action="principal" onclick="cargarSalud(true,this)">Auditoría profunda</button>
+    <button class="btn btn-sec" id="btnReparar" data-action="principal" onclick="repararIntegridad(this)">Reparar derivados</button>
   </div>
 </section>
 
+<section class="diagnostico" id="diagnosticoPanel" aria-labelledby="diagnosticoTitulo">
+  <div class="diagnostico-cabecera">
+    <h2 id="diagnosticoTitulo">Diagnóstico previo</h2>
+    <button class="btn btn-ghost" id="btnDiagnosticar" data-action="principal" onclick="cargarDiagnostico(this)">Diagnosticar</button>
+  </div>
+  <div class="diagnostico-tabla" role="table" aria-label="Estado previo del sistema">
+    <div class="diag-fila" role="row"><b role="rowheader">Versión</b><span class="diag-valor" id="diagVersion">—</span><span class="diag-estado estado-pendiente" id="diagVersionEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Schema</b><span class="diag-valor" id="diagSchema">—</span><span class="diag-estado estado-pendiente" id="diagSchemaEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Backup</b><span class="diag-valor" id="diagBackup">—</span><span class="diag-estado estado-pendiente" id="diagBackupEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Ingreso manual</b><span class="diag-valor" id="diagIngreso">—</span><span class="diag-estado estado-pendiente" id="diagIngresoEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Integridad</b><span class="diag-valor" id="diagIntegridad">—</span><span class="diag-estado estado-pendiente" id="diagIntegridadEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Presentación</b><span class="diag-valor" id="diagPresentacion">—</span><span class="diag-estado estado-pendiente" id="diagPresentacionEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">INICIO</b><span class="diag-valor" id="diagInicio">—</span><span class="diag-estado estado-pendiente" id="diagInicioEstado">PENDIENTE</span></div>
+  </div>
+  <p class="diag-resumen" id="diagResumen">Revisando el estado del sistema…</p>
+</section>
+
 <div class="preparacion" id="preparacion">
-  <p id="diagResumen">Revisando el estado del sistema…</p>
-  <button class="btn btn-pri" id="btnIniciar" onclick="iniciarInstalacion()">Instalar / reparar</button>
-</div>
-<div class="pct" id="pct">0%</div>
-<div class="barra"><span id="fill"></span></div>
-<div class="etapa-actual" id="etapaActual">
-  <span class="spin"></span><span id="etapaTxt">Preparando…</span>
-</div>
-<div id="btnCancelarWrap">
-  <button class="btn btn-ghost" onclick="cancelarInstalacion()">Detener proceso</button>
-</div>
-
-<div class="lista" id="lista"></div>
-
-<div class="final" id="final">
-  <div class="big-check">✓</div>
-  <h2>SISTEMA ACTUALIZADO</h2>
-  <div class="ver" id="finVer"></div>
-  <div class="pruebas" id="finDatos"></div>
-  <div class="aviso-final" id="finAvisos"></div>
-  <div class="botones" style="display:flex">
-    <button class="btn btn-pri" onclick="cerrarVista()">Continuar</button>
+  <div class="acciones">
+    <button class="btn btn-pri" id="btnIniciar" data-action="principal" onclick="iniciarInstalacion()">Instalar / reparar</button>
+    <button class="btn btn-sec" id="btnPresentacion" data-action="principal" onclick="repararPresentacion()">Reparar presentación</button>
+  </div>
+  <div class="acciones acciones-secundarias">
+    <button class="btn btn-ghost" data-action="principal" onclick="cerrarVista()">Cerrar</button>
   </div>
 </div>
+
+<div id="btnCancelarWrap">
+  <button class="btn btn-ghost" id="btnCancelar" onclick="cancelarInstalacion()">Detener después de esta subtarea</button>
+</div>
+
+<section class="error-panel" id="errorPanel" role="alert" aria-labelledby="errorTitulo">
+  <h2 id="errorTitulo">No se pudo completar la operación.</h2>
+  <p id="errorResumen">La ejecución se detuvo sin continuar con las fases siguientes.</p>
+  <p id="errorSubtarea"></p>
+  <details>
+    <summary>Detalle técnico</summary>
+    <pre id="errorTecnico"></pre>
+  </details>
+  <div class="acciones">
+    <button class="btn btn-pri" id="btnRetry" onclick="reintentarUltimoError()">Reintentar esta subtarea</button>
+    <button class="btn btn-ghost" onclick="cargarDiagnostico(this)">Volver a diagnosticar</button>
+  </div>
+</section>
+
+<div class="lista" id="lista" aria-label="Fases de instalación"></div>
+
+<section class="final" id="final" aria-live="polite">
+  <div class="big-check" aria-hidden="true">✓</div>
+  <h2 id="finTitulo">INSTALACIÓN COMPLETADA</h2>
+  <div class="ver" id="finVer"></div>
+  <div class="resumen-final">
+    <div><b id="finOk">0</b><span>fases correctas</span></div>
+    <div><b id="finWarn">0</b><span>advertencias</span></div>
+    <div><b id="finError">0</b><span>errores</span></div>
+  </div>
+  <div class="pruebas" id="finDatos"></div>
+  <div class="duracion" id="finDuracion"></div>
+  <div class="aviso-final" id="finAvisos"></div>
+  <div class="botones">
+    <button class="btn btn-sec" data-action="principal" onclick="cargarDiagnostico(this)">Diagnosticar de nuevo</button>
+    <button class="btn btn-pri" data-action="principal" onclick="cerrarVista()">Cerrar</button>
+  </div>
+</section>
 
 <div class="pie" id="pie">El diagnóstico no modifica datos.</div>
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var ETAPAS=[],RESULTADOS=[],ERRORES=[],AVISOS=[],_CANCELADO=false,_enCurso=false,_EJEC='';
+var ETAPAS=[],RESULTADOS=[],ERRORES=[],AVISOS=[],META={},_DIAGNOSTICO=null,_ULTIMA_SALUD=null;
+var _CANCELADO=false,_enCurso=false,_EJEC='',_MODO='instalacion',_INICIO_MS=0,_DURACIONES={};
+var _ULTIMO_ERROR=null,_IX_ACTUAL=-1,_BLOQUEO='';
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
-var ICON={ok:'✓',run:'●',pen:'○',err:'✕',skip:'—'};
-/* Progreso = etapas terminadas / etapas totales; las etapas omitidas no inflan el avance. */
-function pesoTotal(){return ETAPAS.length||1;}
-/* Token de ejecución de instalación: identifica un correr completo del cliente
-   ante el servidor para crear UN respaldo previo por ejecución (B4). */
+var ESTADOS={
+  PENDIENTE:{clase:'estado-pendiente',icono:'○'},
+  EJECUTANDO:{clase:'estado-ejecutando',icono:'●'},
+  OK:{clase:'estado-ok',icono:'✓'},
+  ADVERTENCIA:{clase:'estado-advertencia',icono:'⚠'},
+  ERROR:{clase:'estado-error',icono:'✕'}
+};
+
+function porId(id){return document.getElementById(id);}
+function texto(id,valor){var el=porId(id);if(el)el.textContent=valor===undefined||valor===null?'':String(valor);}
 function nuevoEjecucion(){return 'INST-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1296).toString(36);}
+function seguroNumero(v,alterno){v=Number(v);return isFinite(v)?v:(alterno||0);}
+
+function aplicarEstadoChip(id,estado){
+  estado=ESTADOS[estado]?estado:'PENDIENTE';
+  var el=porId(id),cfg=ESTADOS[estado];if(!el)return;
+  el.className=(el.classList.contains('diag-estado')?'diag-estado':'estado-chip')+' '+cfg.clase;
+  el.textContent='';
+  var ic=document.createElement('span');ic.setAttribute('aria-hidden','true');ic.textContent=cfg.icono;
+  var tx=document.createElement('span');tx.textContent=estado;
+  el.appendChild(ic);el.appendChild(tx);
+}
+
+function setEstadoGeneral(estado,nombre,detalle){
+  aplicarEstadoChip('estadoGeneral',estado);texto('estadoGeneralNombre',nombre);texto('estadoGeneralDetalle',detalle);
+}
+
+function setFase(ix,etapa,estado){
+  etapa=etapa||{};aplicarEstadoChip('faseEstado',estado||'PENDIENTE');
+  texto('faseNombre',etapa.nombre||'—');
+  texto('faseProgreso',_MODO==='presentacion'?'Acción administrativa de presentación':
+    (ix>=0&&ETAPAS.length?'Fase '+(ix+1)+' de '+ETAPAS.length:'Esperando inicio'));
+}
+
+function setSubtarea(sub,progreso,estado){
+  sub=sub||{};aplicarEstadoChip('subtareaEstado',estado||'PENDIENTE');
+  texto('subtareaNombre',sub.nombre||'—');
+  if(progreso&&seguroNumero(progreso.total,0)>0)
+    texto('subtareaProgreso','Subtarea '+seguroNumero(progreso.enCurso,progreso.actual||0)+' de '+seguroNumero(progreso.total,0));
+  else texto('subtareaProgreso',sub.nombre?'Trabajo en curso':'Sin subtarea activa');
+}
+
+function establecerProgreso(valor,ayuda){
+  valor=Math.max(0,Math.min(100,Math.round(seguroNumero(valor,0))));
+  texto('pct',valor+' %');porId('fill').style.width=valor+'%';
+  porId('barra').setAttribute('aria-valuenow',String(valor));
+  if(ayuda)texto('progresoAyuda',ayuda);
+}
+
+function fraccionRetornada(r){
+  r=r||{};var p=r.progreso||{},total=seguroNumero(p.total,0);
+  if(!total)return 0;
+  if(r.cursor!==undefined&&r.cursor!==null)return Math.max(0,Math.min(1,seguroNumero(r.cursor,0)/total));
+  return Math.max(0,Math.min(1,seguroNumero(p.actual,0)/total));
+}
+
+function progresoFase(ix,r){
+  var total=ETAPAS.length||1,fraccion=r?fraccionRetornada(r):0;
+  establecerProgreso(((ix+fraccion)/total)*100,'Fases completas y avance real de la subtarea actual.');
+}
+
+function bloquearAcciones(bloquear){
+  _enCurso=!!bloquear;document.body.setAttribute('aria-busy',bloquear?'true':'false');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-action="principal"]'),function(btn){btn.disabled=!!bloquear;});
+  if(!bloquear)aplicarBloqueoAcciones();
+  porId('btnCancelarWrap').style.display=bloquear?'block':'none';
+}
+
+function aplicarBloqueoAcciones(){
+  var bloqueado=!!_BLOQUEO||!ETAPAS.length;
+  ['btnIniciar','btnPresentacion','btnReparar'].forEach(function(id){if(porId(id))porId(id).disabled=bloqueado;});
+}
+
+function respuestaEsAdvertencia(r){
+  r=r||{};var estado=String(r.estado||r.resultado||'').toUpperCase();
+  return !!(r.advertencia||(r.avisos&&r.avisos.length)||(r.advertencias&&r.advertencias.length)||
+    estado==='ADVERTENCIA');
+}
+
+function detalleAdvertencia(r){
+  r=r||{};
+  if(r.avisos&&r.avisos.length)return r.avisos.join(', ');
+  if(r.advertencias&&r.advertencias.length)return r.advertencias.join(', ');
+  return r.linea||r.motivo||'Advertencia';
+}
+
+function marcar(id,estado,detalle){
+  var el=porId('it_'+id);if(!el)return;
+  estado=ESTADOS[estado]?estado:'PENDIENTE';
+  el.className='item '+ESTADOS[estado].clase;
+  var ic=el.querySelector('.ic'),st=el.querySelector('.estado-item');
+  if(ic)ic.textContent=ESTADOS[estado].icono;if(st)st.textContent=estado;
+  if(detalle)el.setAttribute('title',detalle);else el.removeAttribute('title');
+}
+
+function renderEtapas(){
+  var lista=porId('lista');lista.textContent='';
+  ETAPAS.forEach(function(e){
+    var fila=document.createElement('div');fila.className='item estado-pendiente';fila.id='it_'+e.id;
+    var ic=document.createElement('span');ic.className='ic';ic.setAttribute('aria-hidden','true');ic.textContent='○';
+    var nombre=document.createElement('span');nombre.textContent=e.nombre;
+    var estado=document.createElement('span');estado.className='estado-item';estado.textContent='PENDIENTE';
+    fila.appendChild(ic);fila.appendChild(nombre);fila.appendChild(estado);lista.appendChild(fila);
+  });
+}
+
+function estadoDeValor(valor,pendienteEsAdvertencia){
+  var v=String(valor===undefined||valor===null?'':valor).toUpperCase();
+  if(v==='OK'||v==='ACTIVO'||v==='VIGENTE'||v==='CORRECTA'||v==='TRUE')return 'OK';
+  if(v==='ERROR'||v==='FALLA'||v==='FALSE'||v==='BLOQUEADO')return 'ERROR';
+  if(v.indexOf('ERROR')!==-1||v.indexOf('FALL')!==-1)return 'ERROR';
+  if(v.indexOf('ADVERT')!==-1||v.indexOf('REVIS')!==-1||v.indexOf('DUPLIC')!==-1||
+     v.indexOf('FALTA')!==-1||v.indexOf('PENDIENTE')!==-1)return pendienteEsAdvertencia?'ADVERTENCIA':'PENDIENTE';
+  return v?'ADVERTENCIA':'PENDIENTE';
+}
+
+function pintarDiagnostico(id,valor,estado){
+  texto('diag'+id,valor||'—');aplicarEstadoChip('diag'+id+'Estado',estado||'PENDIENTE');
+}
+
+function renderDiagnostico(){
+  var d=_DIAGNOSTICO||{},salud=_ULTIMA_SALUD||{},ver=d.versionado||{},tr=d.triggers||{},pres=d.presentacion||{};
+  var version=META.version||VER||'—';pintarDiagnostico('Version',version,'OK');
+  var schemaActual=ver.version!==undefined?ver.version:(ver.schemaVersion!==undefined?ver.schemaVersion:META.schemaVersion);
+  var schemaObjetivo=ver.objetivo!==undefined?ver.objetivo:META.schemaVersion;
+  var schemaTxt=schemaActual!==undefined&&schemaActual!==null&&String(schemaActual)!==''
+    ? String(schemaActual)+(schemaObjetivo!==undefined&&String(schemaObjetivo)!==String(schemaActual)?' → '+schemaObjetivo:'')
+    : (schemaObjetivo||'—');
+  pintarDiagnostico('Schema',schemaTxt,ver.bloqueo?'ERROR':(ver.estado==='VIGENTE'||String(schemaActual)===String(schemaObjetivo)?'OK':'ADVERTENCIA'));
+  var bk=salud.automatizaciones&&salud.automatizaciones.backup?salud.automatizaciones.backup:{};
+  pintarDiagnostico('Backup',bk.estado||'sin diagnóstico',estadoDeValor(bk.estado,true));
+  var ingreso=tr.ingresoOnEdit||(salud.automatizaciones&&salud.automatizaciones.ingreso&&salud.automatizaciones.ingreso.estado)||'sin diagnóstico';
+  pintarDiagnostico('Ingreso',ingreso,estadoDeValor(ingreso,true));
+  var integ=salud.integridad||{};
+  pintarDiagnostico('Integridad',integ.ok===true?'correcta':(integ.ok===false?'requiere revisión':'sin diagnóstico'),
+    integ.ok===true?'OK':(integ.ok===false?'ADVERTENCIA':'PENDIENTE'));
+  var pendientes=seguroNumero(pres.hojasPendientes,0),correctas=seguroNumero(pres.hojasCorrectas,0);
+  var hayPres=pres.hojasPendientes!==undefined||pres.hojasCorrectas!==undefined;
+  pintarDiagnostico('Presentacion',hayPres?(pendientes?pendientes+' hojas con ajustes':correctas+' hojas correctas'):'sin diagnóstico',
+    hayPres?(pendientes?'ADVERTENCIA':'OK'):'PENDIENTE');
+  var existentes=d.estructura&&d.estructura.existentes||[];
+  var inicioOk=Array.isArray(existentes)&&existentes.indexOf('INICIO')!==-1;
+  var inicioPropio=d.inicio||null;
+  if(inicioPropio&&inicioPropio.ok!==undefined)inicioOk=inicioPropio.ok===true;
+  pintarDiagnostico('Inicio',inicioOk?'presente':'requiere revisión',inicioOk?'OK':'ADVERTENCIA');
+}
 
 function cancelarInstalacion(){
-  if(_CANCELADO)return;
-  _CANCELADO=true;
-  document.getElementById('btnCancelarWrap').style.display='none';
-  document.getElementById('etapaTxt').textContent=_enCurso
-    ? 'Se detendrá al terminar la etapa actual. Espera antes de cerrar.'
-    : 'Proceso detenido. Puedes cerrar esta ventana.';
+  if(_CANCELADO||!_enCurso)return;_CANCELADO=true;
+  porId('btnCancelar').disabled=true;
+  setEstadoGeneral('ADVERTENCIA','Detención solicitada','El proceso se detendrá cuando termine la llamada actual.');
+}
+
+function terminarCancelacion(){
+  bloquearAcciones(false);porId('btnCancelar').disabled=false;
+  setEstadoGeneral('ADVERTENCIA','Proceso detenido','Ejecuta un diagnóstico antes de continuar.');
+  setSubtarea(null,null,'PENDIENTE');texto('pie','Proceso detenido sin iniciar nuevas fases.');
+  cargarDiagnostico();
 }
 
 function cerrarVista(){
+  if(_enCurso)return;
   if(ECICEP_PORTAL){window.open(ECICEP_PORTAL,'_blank','noopener,noreferrer');return;}
   google.script.host.close();
 }
 
 function cargarSalud(profundo,btn){
-  var fin=btn?setLoading(btn,true,'Revisando…'):function(){};
+  if(_enCurso)return;var fin=btn?setLoading(btn,true,'Revisando…'):function(){};
   google.script.run.withSuccessHandler(function(r){
-    fin();
-    if(!r||r.motivo){document.getElementById('saludMsg').textContent='Estado no disponible: '+((r&&r.motivo)||'sin respuesta');return;}
-    document.getElementById('saludDatos').textContent=r.datos&&r.datos.ok?'OK':'REVISAR';
-    var integ=r.integridad||{};
-    document.getElementById('saludIntegridad').textContent=integ.ok===true?'OK':(integ.ok===false?'REVISAR':'PENDIENTE');
-    document.getElementById('saludIngreso').textContent=r.automatizaciones&&r.automatizaciones.ingreso
-      ? r.automatizaciones.ingreso.estado:'PENDIENTE';
-    document.getElementById('saludBackup').textContent=r.automatizaciones&&r.automatizaciones.backup
-      ? r.automatizaciones.backup.estado:'PENDIENTE';
+    fin();_ULTIMA_SALUD=r||null;
+    if(!r||r.motivo){texto('saludMsg','Estado no disponible: '+((r&&r.motivo)||'sin respuesta'));renderDiagnostico();return;}
+    texto('saludDatos',r.datos&&r.datos.ok?'OK':'ADVERTENCIA');
+    var integ=r.integridad||{};texto('saludIntegridad',integ.ok===true?'OK':(integ.ok===false?'ADVERTENCIA':'PENDIENTE'));
+    var estadoIngreso=r.automatizaciones&&r.automatizaciones.ingreso?r.automatizaciones.ingreso.estado:'';
+    var estadoBackup=r.automatizaciones&&r.automatizaciones.backup?r.automatizaciones.backup.estado:'';
+    texto('saludIngreso',estadoDeValor(estadoIngreso,true));
+    texto('saludBackup',estadoDeValor(estadoBackup,true));
     var fecha=r.ultimaAuditoria&&r.ultimaAuditoria.fecha?' · auditoría '+new Date(r.ultimaAuditoria.fecha).toLocaleString('es-CL'):'';
-    document.getElementById('saludMsg').textContent='Estado: '+r.estado+fecha+
-      ((r.avisos&&r.avisos.length)?' · '+r.avisos.join(', '):'');
-  }).withFailureHandler(function(e){fin();document.getElementById('saludMsg').textContent='Error de diagnóstico: '+(e&&e.message||e);})
+    texto('saludMsg','Estado: '+(r.estado||'PENDIENTE')+fecha+((r.avisos&&r.avisos.length)?' · '+r.avisos.join(', '):''));
+    renderDiagnostico();
+  }).withFailureHandler(function(e){fin();texto('saludMsg','Error de diagnóstico: '+(e&&e.message||e));})
     .api_sistemaEstadoSalud({profundo:!!profundo},ECICEP_ACCESO);
 }
 
 function repararIntegridad(btn){
+  if(_enCurso||_BLOQUEO)return;
   if(!confirm('Se creará un respaldo y se repararán solo los derivados con diferencias comprobadas. ¿Continuar?'))return;
+  bloquearAcciones(true);porId('btnCancelarWrap').style.display='none';
   var fin=setLoading(btn,true,'Reparando…');
   google.script.run.withSuccessHandler(function(r){
-    fin();
-    document.getElementById('saludMsg').textContent=r&&r.ok
-      ? 'Reparación verificada. Acciones: '+((r.acciones||[]).join(', ')||'ninguna necesaria')
-      : 'Reparación pendiente: '+((r&&(r.motivo||r.detalle))||'revise el diagnóstico');
-    cargarSalud(true);
-  }).withFailureHandler(function(e){fin();document.getElementById('saludMsg').textContent='Error: '+(e&&e.message||e);})
+    fin();bloquearAcciones(false);
+    texto('saludMsg',r&&r.ok?'Reparación verificada. Acciones: '+((r.acciones||[]).join(', ')||'ninguna necesaria')
+      :'Reparación pendiente: '+((r&&(r.motivo||r.detalle))||'revise el diagnóstico'));
+    cargarSalud(true);cargarDiagnostico();
+  }).withFailureHandler(function(e){fin();bloquearAcciones(false);texto('saludMsg','Error: '+(e&&e.message||e));})
     .api_integridadReparar(ECICEP_ACCESO);
 }
 
-function cargarDiagnostico(){
+function cargarDiagnostico(btn){
+  if(_enCurso)return;var fin=btn?setLoading(btn,true,'Diagnosticando…'):function(){};
+  porId('diagnosticoPanel').style.display='block';texto('diagResumen','Revisando el estado del sistema…');
   cargarSalud(false);
   google.script.run.withSuccessHandler(function(r){
-    var pendientes=r&&r.ok&&r.diagnostico&&r.diagnostico.resumen
-      ? r.diagnostico.resumen.fasesPendientes : null;
-    var bloqueo=r&&r.diagnostico&&r.diagnostico.versionado
-      ? r.diagnostico.versionado.bloqueo : '';
-    document.getElementById('btnIniciar').disabled=!!bloqueo||!!(r&&r.motivo==='ACCESO_DENEGADO');
-    document.getElementById('diagResumen').textContent=pendientes
-      ? (bloqueo ? 'Instalación bloqueada por esquema incompatible: '+bloqueo+'. Requiere revisión técnica.'
-        : pendientes.length ? 'Se detectaron '+pendientes.length+' áreas pendientes: '+pendientes.join('; ')+'.'
-        : 'El sistema está al día. Puedes ejecutar una reparación si es necesario.')
-      : r&&r.motivo==='ACCESO_DENEGADO'
-        ? 'El enlace de acceso no es válido. Solicita uno actualizado desde Captura.'
-        : 'No se pudo completar el diagnóstico. Puedes intentar la reparación manualmente.';
-    document.getElementById('preparacion').style.display='block';
-    document.getElementById('etapaActual').style.display='none';
+    fin();_DIAGNOSTICO=r&&r.diagnostico?r.diagnostico:null;
+    var pendientes=_DIAGNOSTICO&&_DIAGNOSTICO.resumen?_DIAGNOSTICO.resumen.fasesPendientes:null;
+    _BLOQUEO=_DIAGNOSTICO&&_DIAGNOSTICO.versionado?_DIAGNOSTICO.versionado.bloqueo||'':'';
+    if(r&&r.motivo==='ACCESO_DENEGADO')_BLOQUEO='ACCESO_DENEGADO';
+    aplicarBloqueoAcciones();
+    texto('diagResumen',pendientes
+      ? (_BLOQUEO?'Instalación bloqueada por esquema incompatible: '+_BLOQUEO+'. Requiere revisión técnica.'
+        : pendientes.length?'Se detectaron '+pendientes.length+' áreas que requieren atención: '+pendientes.join('; ')+'.'
+        :'El sistema está al día. La reparación selectiva seguirá comprobando cada propiedad antes de escribir.')
+      : r&&r.motivo==='ACCESO_DENEGADO'?'El enlace de acceso no es válido. Solicita uno actualizado desde Captura.'
+      :'No se pudo completar el diagnóstico. Puedes volver a intentarlo.');
+    renderDiagnostico();porId('preparacion').style.display='block';
   }).withFailureHandler(function(e){
-    document.getElementById('diagResumen').textContent='Diagnóstico no disponible: '+(e&&e.message||e);
-    document.getElementById('preparacion').style.display='block';
-    document.getElementById('etapaActual').style.display='none';
+    fin();texto('diagResumen','Diagnóstico no disponible: '+(e&&e.message||e));
+    porId('preparacion').style.display='block';renderDiagnostico();
   }).api_instalarDiagnostico(ECICEP_ACCESO);
 }
 
+function reiniciarEjecucion(modo){
+  _MODO=modo||'instalacion';_CANCELADO=false;RESULTADOS=[];ERRORES=[];AVISOS=[];
+  _EJEC=nuevoEjecucion();_INICIO_MS=Date.now();_DURACIONES={};_ULTIMO_ERROR=null;_IX_ACTUAL=-1;
+  porId('final').style.display='none';porId('errorPanel').style.display='none';
+  porId('finAvisos').style.display='none';porId('btnCancelar').disabled=false;
+  bloquearAcciones(true);texto('pie','Espera a que termine la subtarea actual antes de cerrar.');
+}
+
 function iniciarInstalacion(){
-  if(_enCurso||!ETAPAS.length)return;
-  _CANCELADO=false;RESULTADOS=[];ERRORES=[];AVISOS=[];_EJEC=nuevoEjecucion();
-  ETAPAS.forEach(function(e){marcar(e.id,'pen');});
-  document.getElementById('final').style.display='none';
-  document.getElementById('btnCancelarWrap').style.display='none';
-  document.getElementById('preparacion').style.display='none';
-  document.getElementById('etapaActual').style.display='flex';
-  document.getElementById('pie').textContent='Espera a que termine la etapa actual antes de cerrar.';
+  if(_enCurso||!ETAPAS.length||_BLOQUEO)return;reiniciarEjecucion('instalacion');
+  ETAPAS.forEach(function(e){marcar(e.id,'PENDIENTE');});
+  setEstadoGeneral('EJECUTANDO','Reparando ECICEP','La instalación avanza por fases reales y reanudables.');
+  establecerProgreso(0,'Fases completas y avance real de la subtarea actual.');
   ejecutarSecuencia(0);
 }
 
 function cargarEtapas(){
   google.script.run.withSuccessHandler(function(r){
-    if(!r||!r.ok){document.getElementById('etapaTxt').textContent='Error cargando etapas';return;}
-    ETAPAS=r.etapas||[];
-    var L=document.getElementById('lista');
-    L.innerHTML=ETAPAS.map(function(e){
-      return '<div class="item pen" id="it_'+e.id+'"><span class="ic">'+ICON.pen+'</span>'+
-        '<span>'+e.nombre+'</span></div>';
-    }).join('');
-    cargarDiagnostico();
-  }).withFailureHandler(function(e){
-    document.getElementById('etapaTxt').textContent='Error: '+(e&&e.message||e);
-  }).api_instalarEtapas(ECICEP_ACCESO);
+    if(!r||!r.ok){setEstadoGeneral('ERROR','No se pudieron cargar las fases',(r&&r.motivo)||'Sin respuesta');return;}
+    META=r;ETAPAS=r.etapas||[];renderEtapas();cargarDiagnostico();
+  }).withFailureHandler(function(e){setEstadoGeneral('ERROR','No se pudieron cargar las fases',(e&&e.message)||e);})
+    .api_instalarEtapas(ECICEP_ACCESO);
 }
 
-function marcar(id,estado){
-  var el=document.getElementById('it_'+id);
-  if(el){el.className='item '+estado;
-    el.querySelector('.ic').textContent=ICON[estado]||'○';}
+function registrarDuracion(id,r,inicioRpc){
+  var ms=seguroNumero(r&&r.ms,Date.now()-inicioRpc);_DURACIONES[id]=(_DURACIONES[id]||0)+Math.max(ms,0);
 }
 
 function ejecutarSecuencia(ix){
-  if(_CANCELADO)return;
+  if(_CANCELADO){terminarCancelacion();return;}
   if(ix>=ETAPAS.length){finalizar();return;}
-  var etapa=ETAPAS[ix];
-  _enCurso=true;
-  document.getElementById('btnCancelarWrap').style.display='block';
-  marcar(etapa.id,'run');
-  var et=document.getElementById('etapaTxt');
-  et.textContent='Instalando ECICEP…';
-  et.setAttribute('data-etapa',etapa.nombre);
-  var hecho=RESULTADOS.length;
-  var pct=Math.round((hecho/pesoTotal())*100);
-  document.getElementById('pct').textContent=pct+'%';
-  document.getElementById('fill').style.width=pct+'%';
-  llamarPaso(etapa,ix);
+  var etapa=ETAPAS[ix];_IX_ACTUAL=ix;marcar(etapa.id,'EJECUTANDO');setFase(ix,etapa,'EJECUTANDO');
+  setSubtarea({nombre:'Iniciando fase'},null,'EJECUTANDO');progresoFase(ix,null);llamarPaso(etapa,ix);
 }
 
-/* Etapa REANUDABLE (hotfix presentación): el servidor puede responder
-   {continuar:true} para que la MISMA etapa vuelva a invocarse con el mismo
-   _EJEC y continúe exactamente donde quedó (subtareas + presupuesto de tiempo
-   + cursor persistido por clave de EJECUCION). Solo se considera completada
-   cuando el servidor responde sin continuar. */
 function llamarPaso(etapa,ix){
+  var inicioRpc=Date.now();
   google.script.run.withSuccessHandler(function(r){
-    if(_CANCELADO){
-      _enCurso=false;
-      document.getElementById('btnCancelarWrap').style.display='none';
-      document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
-      cargarDiagnostico();
-      return;
-    }
-    if(!r||r.ok===false){
-      _enCurso=false;
-      marcar(etapa.id,'err');
-      ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(r&&(r.motivo||r.linea))||'error'});
-      document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
-      document.getElementById('btnCancelarWrap').style.display='none';
-      mostrarFinal(false); /* pantalla de error con reintentar */
-      return;
-    }
+    registrarDuracion(etapa.id,r,inicioRpc);
+    if(_CANCELADO){terminarCancelacion();return;}
+    if(!r||r.ok===false){fallarEtapa(etapa,ix,r||{},null);return;}
     if(r.continuar===true){
-      var sb=r.subetapa||{};
-      document.getElementById('etapaTxt').textContent=(r.nombre||etapa.nombre)+' · '+(sb.nombre||'avanzando…')+
-        (r.progreso?' ('+r.progreso.actual+'/'+r.progreso.total+')':'');
-      llamarPaso(etapa,ix);
-      return;
+      setSubtarea(r.subetapa||{nombre:'Avanzando'},r.progreso,'EJECUTANDO');progresoFase(ix,r);
+      llamarPaso(etapa,ix);return;
     }
-    _enCurso=false;
-    marcar(etapa.id,r.omitida?'skip':'ok');
-    if(r.advertencia||r.avisos&&r.avisos.length) AVISOS.push({nombre:etapa.nombre,
-      motivo:(r.avisos&&r.avisos.join(', '))||r.linea||'Advertencia'});
-    RESULTADOS.push(r);
-    ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
+    var aviso=respuestaEsAdvertencia(r);
+    marcar(etapa.id,aviso?'ADVERTENCIA':'OK');setFase(ix,etapa,aviso?'ADVERTENCIA':'OK');
+    setSubtarea({nombre:'Fase completada'},null,aviso?'ADVERTENCIA':'OK');
+    if(aviso)AVISOS.push({nombre:etapa.nombre,motivo:detalleAdvertencia(r)});
+    RESULTADOS.push(r);progresoFase(ix+1,null);ejecutarSecuencia(ix+1);
   }).withFailureHandler(function(e){
-    _enCurso=false;
-    if(_CANCELADO){
-      document.getElementById('btnCancelarWrap').style.display='none';
-      document.getElementById('etapaTxt').textContent='Proceso detenido. Ejecuta nuevamente para verificar el estado.';
-      cargarDiagnostico();
-      return;
-    }
-    marcar(etapa.id,'err');
-    ERRORES.push({etapa:etapa.id,nombre:etapa.nombre,motivo:(e&&e.message)||e});
-    document.getElementById('etapaTxt').textContent='✕ No se pudo completar la instalación.';
-    document.getElementById('btnCancelarWrap').style.display='none';
-    mostrarFinal(false);
+    registrarDuracion(etapa.id,null,inicioRpc);if(_CANCELADO){terminarCancelacion();return;}
+    fallarEtapa(etapa,ix,null,e);
   }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC);
 }
 
-function reintentarDesde(ix){
-  ERRORES=ERRORES.filter(function(e){return e.etapa!==ETAPAS[ix].id;});
-  marcar(ETAPAS[ix].id,'pen');
-  ejecutarSecuencia(ix);
+function repararPresentacion(){
+  if(_enCurso||_BLOQUEO)return;var ix=ETAPAS.findIndex(function(e){return e.id==='diseno';});
+  var etapa=ix>=0?ETAPAS[ix]:{id:'diseno',nombre:'Presentación del libro'};
+  reiniciarEjecucion('presentacion');_IX_ACTUAL=ix;marcar(etapa.id,'EJECUTANDO');
+  setEstadoGeneral('EJECUTANDO','Reparando presentación','Se revisarán solo las propiedades visuales administradas por ECICEP.');
+  setFase(ix,etapa,'EJECUTANDO');setSubtarea({nombre:'Iniciando revisión selectiva'},null,'EJECUTANDO');
+  establecerProgreso(0,'Avance real de las subtareas de presentación.');
+  llamarPresentacion(etapa,ix,true);
+}
+
+function llamarPresentacion(etapa,ix,forzar){
+  var inicioRpc=Date.now();
+  google.script.run.withSuccessHandler(function(r){
+    registrarDuracion(etapa.id,r,inicioRpc);
+    if(_CANCELADO){terminarCancelacion();return;}
+    if(!r||r.ok===false){fallarEtapa(etapa,ix,r||{},null);return;}
+    if(r.continuar===true){
+      setSubtarea(r.subetapa||{nombre:'Avanzando'},r.progreso,'EJECUTANDO');
+      establecerProgreso(fraccionRetornada(r)*100,'Avance real de las subtareas de presentación.');
+      llamarPresentacion(etapa,ix,false);return;
+    }
+    var aviso=respuestaEsAdvertencia(r);
+    if(aviso)AVISOS.push({nombre:etapa.nombre,motivo:detalleAdvertencia(r)});
+    RESULTADOS.push(r);marcar(etapa.id,aviso?'ADVERTENCIA':'OK');setFase(ix,etapa,aviso?'ADVERTENCIA':'OK');
+    setSubtarea({nombre:'Revisión completada'},null,aviso?'ADVERTENCIA':'OK');establecerProgreso(100,'Presentación revisada.');
+    mostrarFinal(true);
+  }).withFailureHandler(function(e){
+    registrarDuracion(etapa.id,null,inicioRpc);if(_CANCELADO){terminarCancelacion();return;}
+    fallarEtapa(etapa,ix,null,e);
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,{forzarPresentacion:forzar===true});
+}
+
+function fallarEtapa(etapa,ix,r,e){
+  var motivo=e&&e.message?e.message:(e?String(e):((r&&(r.motivo||r.linea))||'Error sin detalle'));
+  var sub=r&&r.subetapa?r.subetapa:null;
+  _ULTIMO_ERROR={etapa:etapa,ix:ix,motivo:motivo,subetapa:sub,modo:_MODO};
+  ERRORES.push(_ULTIMO_ERROR);marcar(etapa.id,'ERROR',motivo);setFase(ix,etapa,'ERROR');
+  setSubtarea(sub||{nombre:'Subtarea interrumpida'},r&&r.progreso,'ERROR');
+  setEstadoGeneral('ERROR','Reparación interrumpida','No se ejecutaron las fases siguientes.');
+  texto('errorTitulo','No se pudo completar “'+(etapa.nombre||'esta fase')+'”.');
+  texto('errorResumen','La ejecución quedó guardada para reintentar exactamente el trabajo interrumpido.');
+  texto('errorSubtarea',sub&&sub.nombre?'Subtarea: '+sub.nombre:'');texto('errorTecnico',motivo);
+  porId('errorPanel').style.display='block';bloquearAcciones(false);porId('btnCancelarWrap').style.display='none';
+  texto('pie','Revisa el detalle técnico o reintenta la misma subtarea.');
+}
+
+function reintentarUltimoError(){
+  if(_enCurso||!_ULTIMO_ERROR)return;var er=_ULTIMO_ERROR;
+  ERRORES=ERRORES.filter(function(x){return x!==er;});porId('errorPanel').style.display='none';
+  bloquearAcciones(true);setEstadoGeneral('EJECUTANDO','Reintentando','Se conserva la ejecución, el cursor y el respaldo existente.');
+  marcar(er.etapa.id,'EJECUTANDO');setFase(er.ix,er.etapa,'EJECUTANDO');
+  setSubtarea(er.subetapa||{nombre:'Reintentando subtarea'},null,'EJECUTANDO');
+  if(er.modo==='presentacion')llamarPresentacion(er.etapa,er.ix,false);else llamarPaso(er.etapa,er.ix);
+}
+
+function duracionHumana(ms){
+  var seg=Math.max(0,Math.round(seguroNumero(ms,0)/1000));
+  if(seg<60)return seg+' s';var min=Math.floor(seg/60),resto=seg%60;return min+' min'+(resto?' '+resto+' s':'');
+}
+
+function resumenResultado(){
+  var partes=[],datos=RESULTADOS.filter(function(x){return x.etapa==='verificar';})[0];
+  var mig=RESULTADOS.filter(function(x){return x.etapa==='migraciones';})[0];
+  var visual=RESULTADOS.filter(function(x){return x.etapa==='visual';})[0];
+  var integ=RESULTADOS.filter(function(x){return x.etapa==='integridad';})[0];
+  var backup=RESULTADOS.filter(function(x){return x.respaldo;})[0];
+  if(datos&&datos.pacientes!==undefined)partes.push('Pacientes: '+datos.pacientes+' · Eventos: '+(datos.eventos||0));
+  if(datos&&datos.schemaVersion)partes.push('Schema: '+datos.schemaVersion+(datos.esquemaOK?' ✓':' · '+(datos.estado||'REVISAR')));
+  if(visual&&visual.hojas)partes.push('Presentación: '+visual.hojas.length+' hojas revisadas');
+  if(backup&&backup.respaldo)partes.push('Backup: '+backup.respaldo);
+  if(integ&&integ.linea)partes.push('Integridad: '+integ.linea);
+  if(mig)partes.push('Migraciones: '+((mig.aplicadas&&mig.aplicadas.length)?mig.aplicadas.join(', '):'sin pendientes'));
+  var omitidas=RESULTADOS.filter(function(x){return x.omitida;}).length;if(omitidas)partes.push('Etapas omitidas: '+omitidas);
+  return partes.join(' · ');
 }
 
 function mostrarFinal(ok){
-  var pct=ok?100:Math.round((RESULTADOS.length/ETAPAS.length)*100);
-  document.getElementById('pct').textContent=pct+'%';
-  document.getElementById('fill').style.width=pct+'%';
-  document.getElementById('etapaActual').style.display=ok?'none':'flex';
-  if(!ok){
-    var er=ERRORES[ERRORES.length-1];
-    var et=document.getElementById('etapaTxt');
-    et.textContent='✕ No se pudo completar la instalación.';
-    var det=document.createElement('br');
-    et.appendChild(det);
-    et.append('Fase: '+er.nombre+' · Detalle: '+er.motivo);
-    var L=document.getElementById('lista');
-    var btn=document.createElement('button');
-    btn.className='btn btn-pri';btn.style.width='100%';btn.style.marginTop='8px';
-    btn.innerHTML='↻ Reintentar etapa';
-    btn.onclick=function(){
-      var ix=ETAPAS.findIndex(function(e){return e.id===er.etapa;});
-      L.removeChild(btn);reintentarDesde(ix);
-    };
-    L.appendChild(btn);
-    return;
-  }
-  document.getElementById('finVer').textContent='ECICEP '+VER+' \u00b7 Build '+BUILD;
-  var datos=RESULTADOS.filter(function(x){return x.etapa==='verificar';})[0];
-  var enr=RESULTADOS.filter(function(x){return x.etapa==='enriquecimiento';})[0];
-  var mig=RESULTADOS.filter(function(x){return x.etapa==='migraciones';})[0];
-  var txt='';
-  if(datos)txt+='Pacientes: '+datos.pacientes+' · Eventos: '+datos.eventos;
-  if(datos&&datos.schemaVersion)
-    txt+=(txt?' · ':'')+'Esquema: v'+datos.schemaVersion+(datos.esquemaOK?' ✓':' ('+datos.estado+')');
-  if(enr){
-    if(txt)txt+=' · ';
-    txt+='Revisados: '+(enr.revisados||0)+'/'+(enr.totalPacientes||0)
-      +' · Actualizados: '+(enr.enriquecidos||0)+' ('+(enr.aplicados||0)+' campos)';
-    if(enr.sinCambios)txt+=' · Sin cambio: '+(enr.sinCambios||0);
-    if(enr.sinVacias)txt+=' · Sin huecos: '+(enr.sinVacias||0);
-    if(enr.conflictos)txt+=' · Revisión: '+(enr.conflictos||0);
-    if(enr.noEncontrados)txt+=' · Sin fuente: '+(enr.noEncontrados||0);
-    txt+=' · Errores: '+(enr.errores||0);
-  }
-  if(mig){
-    var migTxt=(mig.aplicadas&&mig.aplicadas.length)
-      ? mig.aplicadas.join(', ')+' (esquema '+mig.versionInicial+'→'+mig.versionFinal+')'
-      : 'sin pendientes';
-    txt+=(txt?' · ':'')+'Migraciones: '+migTxt;
-  }
-  var omitidas=RESULTADOS.filter(function(x){return x.omitida;}).length;
-  if(omitidas)txt+=(txt?' · ':'')+'Etapas omitidas: '+omitidas;
-  var limpieza=RESULTADOS.filter(function(x){return x.etapa==='limpieza';})[0];
-  if(limpieza&&limpieza.candidatas&&limpieza.candidatas.length)
-    txt+=(txt?' · ':'')+'Hojas adicionales conservadas: '+limpieza.candidatas.length;
-  document.getElementById('finDatos').textContent=txt;
-  var av=document.getElementById('finAvisos');
-  if(AVISOS.length){av.style.display='block';
-    av.textContent='⚠ Completado con avisos: '+AVISOS.map(function(e){
-      return '· '+e.nombre+': '+e.motivo;}).join('; ');}
-  document.getElementById('final').style.display='block';
-  _refrescarIconos();
+  if(!ok)return;bloquearAcciones(false);porId('btnCancelarWrap').style.display='none';
+  var advertencias=AVISOS.length,errores=ERRORES.length,correctas=Math.max(RESULTADOS.length-advertencias,0);
+  setEstadoGeneral(advertencias?'ADVERTENCIA':'OK',_MODO==='presentacion'?'Presentación revisada':'Instalación completada',
+    advertencias?'Finalizó con avisos que requieren revisión.':'Todas las operaciones solicitadas terminaron.');
+  texto('finTitulo',_MODO==='presentacion'?'PRESENTACIÓN REVISADA':'INSTALACIÓN COMPLETADA');
+  texto('finVer','ECICEP '+VER+' · Build '+BUILD);texto('finOk',correctas);texto('finWarn',advertencias);texto('finError',errores);
+  texto('finDatos',resumenResultado()||(_MODO==='presentacion'?'Las propiedades visuales administradas fueron revisadas.':'La verificación terminó sin métricas adicionales.'));
+  var total=Date.now()-_INICIO_MS,lenta='',msLenta=0;
+  Object.keys(_DURACIONES).forEach(function(id){if(_DURACIONES[id]>msLenta){msLenta=_DURACIONES[id];lenta=id;}});
+  var etapaLenta=ETAPAS.filter(function(e){return e.id===lenta;})[0];
+  texto('finDuracion','Duración total: '+duracionHumana(total)+(etapaLenta?' · Fase más lenta: '+etapaLenta.nombre+' ('+duracionHumana(msLenta)+')':''));
+  var av=porId('finAvisos');
+  if(AVISOS.length){av.style.display='block';av.textContent='⚠ Completado con avisos: '+AVISOS.map(function(x){return x.nombre+': '+x.motivo;}).join('; ');}
+  else av.style.display='none';
+  porId('final').style.display='block';texto('pie','Puedes cerrar o ejecutar un diagnóstico de confirmación.');
+  if(typeof _refrescarIconos==='function')_refrescarIconos();
 }
 
 function finalizar(){
-  document.getElementById('pct').textContent='100%';
-  document.getElementById('fill').style.width='100%';
-  document.getElementById('etapaActual').style.display='none';
-  mostrarFinal(true);
+  establecerProgreso(100,'Todas las fases terminaron.');setFase(ETAPAS.length-1,ETAPAS[ETAPAS.length-1],'OK');
+  setSubtarea({nombre:'Proceso completado'},null,AVISOS.length?'ADVERTENCIA':'OK');mostrarFinal(true);
 }
 
 cargarEtapas();
-_refrescarIconos();
+if(typeof _refrescarIconos==='function')_refrescarIconos();
 </script>
 </body>
 </html>

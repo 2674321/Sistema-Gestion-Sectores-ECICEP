@@ -942,7 +942,8 @@ function Captura_v2_persistirRegistro(reg) {
     if (mapa.REINTENTOS !== undefined) fila[mapa.REINTENTOS] = reg.reintentos || 0;
     fila[mapa.ESTADO] = reg.estado || CAPTURA_V2.ESTADOS.RECIBIDO;
     var filaNueva = hoja.getLastRow() + 1;
-    if (typeof Hojas_asegurarCapacidad_ === 'function') Hojas_asegurarCapacidad_(hoja, filaNueva, { bloque: 200 });
+    if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
+      Hojas_asegurarCapacidadGestionada_(hoja, filaNueva, { bloque: 200 });
     hoja.getRange(filaNueva, 1, 1, cols.length).setValues([fila]);
     // Confirmación durable §15: releer la última fila y verificar header + estado.
     var ok = Captura_v2_confirmarFila(hoja, reg.captureId);
@@ -1170,7 +1171,8 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     if (!hojaEntrega || !filaFisica) {
       var filaIngreso = Form_filaCanonicaIngreso(internos, marca, { hoy: norm.fechaIngreso });
       filaFisica = hoja.getLastRow() + 1;
-      if (typeof Hojas_asegurarCapacidad_ === 'function') Hojas_asegurarCapacidad_(hoja, filaFisica, { bloque: 200 });
+      if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
+        Hojas_asegurarCapacidadGestionada_(hoja, filaFisica, { bloque: 200 });
       hoja.getRange(filaFisica, 1, 1, filaIngreso.length).setValues([filaIngreso]);
       hojaEntrega = hojaNombre;
     }

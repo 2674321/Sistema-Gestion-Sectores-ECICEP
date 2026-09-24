@@ -92,7 +92,7 @@ function sheet(headers) {
 function hojaVisual(nombre, opts) {
   const filas = (opts.filas || []).map(f => Array.from(f));
   const ancho = opts.ancho || Math.max(1, ...filas.map(f => f.length));
-  const estilo = { bg: {}, fc: {}, fw: {}, fs: {}, rh: {} };
+  const estilo = { bg: {}, fc: {}, fw: {}, fs: {}, rh: {}, frozenRows: 0, frozenColumns: 0 };
   const ops = [];
   const vacio = v => v === '' || v == null;
   const bg = (r, c) => estilo.bg[r + ':' + c] ?? '#ffffff';
@@ -118,19 +118,19 @@ function hojaVisual(nombre, opts) {
       breakApart() { ops.push(['breakApart', r, c]); return rg; },
       clear() { for (let i = 0; i < numR; i++) for (let j = 0; j < numC; j++) delete (filas[r - 1 + i] || [])[c - 1 + j]; ops.push(['clear', r, c]); return rg; },
       clearContent() { for (let i = 0; i < numR; i++) for (let j = 0; j < numC; j++) (filas[r - 1 + i] || [])[c - 1 + j] = ''; ops.push(['clearContent', r, c]); return rg; },
-      setBackground(v) { estilo.bg[r + ':' + c] = v; return rg; },
+      setBackground(v) { for (let i=0;i<numR;i++) for(let j=0;j<numC;j++) estilo.bg[(r+i)+':'+(c+j)]=v; return rg; },
       setBackgrounds(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.bg[(r + i) + ':' + (c + j)] = v; })); return rg; },
       getBackground: () => bg(r, c),
       getBackgrounds: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => bg(r + i, c + j))),
-      setFontColor(v) { estilo.fc[r + ':' + c] = v; return rg; },
+      setFontColor(v) { for (let i=0;i<numR;i++) for(let j=0;j<numC;j++) estilo.fc[(r+i)+':'+(c+j)]=v; return rg; },
       setFontColors(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.fc[(r + i) + ':' + (c + j)] = v; })); return rg; },
       getFontColor: () => fc(r, c),
       getFontColors: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => fc(r + i, c + j))),
-      setFontWeight(v) { estilo.fw[r + ':' + c] = v; return rg; },
+      setFontWeight(v) { for (let i=0;i<numR;i++) for(let j=0;j<numC;j++) estilo.fw[(r+i)+':'+(c+j)]=v; return rg; },
       setFontWeights(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.fw[(r + i) + ':' + (c + j)] = v; })); return rg; },
       getFontWeight: () => fw(r, c),
       getFontWeights: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => fw(r + i, c + j))),
-      setFontSize(v) { estilo.fs[r + ':' + c] = v; return rg; },
+      setFontSize(v) { for (let i=0;i<numR;i++) for(let j=0;j<numC;j++) estilo.fs[(r+i)+':'+(c+j)]=v; return rg; },
       setFontSizes(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.fs[(r + i) + ':' + (c + j)] = v; })); return rg; },
       getFontSize: () => fs(r, c),
       getFontSizes: () => Array.from({ length: numR }, (_, i) => Array.from({ length: numC }, (_, j) => fs(r + i, c + j))),
@@ -152,8 +152,10 @@ function hojaVisual(nombre, opts) {
     deleteRows() { ops.push(['deleteRows']); },
     setRowHeight(row, h) { estilo.rh[row] = h; ops.push(['rowH', row, h]); },
     getRowHeight: row => estilo.rh[row] ?? 28,
-    setFrozenRows(n) { ops.push(['frozen', 'rows', n]); },
-    setFrozenColumns(n) { ops.push(['frozen', 'cols', n]); },
+    setFrozenRows(n) { estilo.frozenRows=n; ops.push(['frozen', 'rows', n]); },
+    setFrozenColumns(n) { estilo.frozenColumns=n; ops.push(['frozen', 'cols', n]); },
+    getFrozenRows() { return estilo.frozenRows; },
+    getFrozenColumns() { return estilo.frozenColumns; },
     _filas: filas, _ops: ops, _estilo: estilo
   };
   return hoja;
@@ -387,7 +389,7 @@ test('El diseño de instalación oculta cuadrícula y ajusta filas ocupadas', ()
   assert.ok(calls.some(x => x[0] === 'grid' && x[1] === true));
   assert.ok(calls.some(x => x[0] === 'rows' && x[1] === 2 && x[2] === 4));
 });
-test('Instalar no inmoviliza parcialmente las barras de título combinadas', () => {
+test('Instalar deja el freeze visual a HVis y respeta HOJAS_UX en hojas simples', () => {
   const c = backend(), llamadas = [];
   c.MODELO_DISENO = [
     { nombre: 'SECTOR_NARANJO', color: '#aabbcc', congelarCols: 3 },
@@ -410,7 +412,7 @@ test('Instalar no inmoviliza parcialmente las barras de título combinadas', () 
     setActiveSheet: () => {}, moveActiveSheet: () => {} });
   const r = c.Modelo_aplicarDiseno();
   assert.equal(r.fallidas.length, 0);
-  assert.deepEqual(llamadas, [['SECTOR_NARANJO', 0], ['EVENTOS', 2]]);
+  assert.deepEqual(llamadas, [['EVENTOS', 1]]);
 });
 test('Instalar formatea fechas por encabezado físico y conserva otras columnas', () => {
   const c = backend(), fechas = [];
@@ -424,19 +426,19 @@ test('Instalar formatea fechas por encabezado físico y conserva otras columnas'
   c._modelo_formatoSencillo(hoja, ['FECHA_DETECCION', 'TIPO', 'RUT']);
   assert.deepEqual(fechas, [[2, 2, 'dd/MM/yyyy']]);
 });
-test('Instalar no oculta datos clínicos al formatear PACIENTES', () => {
-  const c = backend(), ocultas = [], anchos = [], fechas = [];
-  const cadena = { setFontWeight: () => cadena, setBackground: () => cadena,
-    setFontColor: () => cadena };
-  const hoja = { setFrozenRows: () => {}, getRange: (_, col) => ({
-    ...cadena, setNumberFormat: formato => fechas.push([col, formato]) }),
-    getMaxRows: () => 20, setColumnWidth: col => anchos.push(col),
-    hideColumns: (...args) => ocultas.push(args) };
-  c._modelo_formatearPacientes(hoja);
-  assert.equal(anchos.length, 31);
-  assert.deepEqual(ocultas, []);
-  assert.ok(fechas.some(([col, formato]) => col === 5 && formato === 'dd/MM/yyyy'));
-  assert.ok(fechas.some(([col, formato]) => col === 30 && formato === 'dd/MM/yyyy HH:mm'));
+test('La fase estructura no reescribe presentación de PACIENTES', () => {
+  const c = backend(), escrituras = [];
+  const hoja = {
+    getColumnGroupDepth: () => 0,
+    isColumnHiddenByUser: () => false,
+    setFrozenRows: v => escrituras.push(['freeze', v]),
+    setColumnWidth: (...v) => escrituras.push(['ancho', ...v]),
+    getRange: () => ({ setNumberFormat: v => escrituras.push(['formato', v]) })
+  };
+  const r = c._modelo_formatearPacientes(hoja);
+  assert.equal(r.ok, true);
+  assert.equal(r.grupoLegacyReparado, false);
+  assert.deepEqual(escrituras, []);
 });
 test('Instalar reabre solo el bloque clínico ocultado por el grupo heredado', () => {
   const c = backend(), visibles = [];
@@ -501,7 +503,7 @@ function sectorMigrada(nombre, sector, conObs) {
   fila2[11] = 'CONTROLES';
   if (conObs) fila2[15] = 'OBSERVACIONES';
   const filas = [
-    ['SECTOR ' + sector],
+    ['SECTOR ' + sector + ' · VISTA AUTOMÁTICA · datos derivados'],
     fila2,
     ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD', 'TELEFONOS', 'RUT_DV_VALIDO',
       'ESTRATIFICACION', 'ESTADO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL',
@@ -565,11 +567,29 @@ test('SAS-025: HVis_yaFormateada devuelve false si falta la sección OBSERVACION
   const incompleta = sectorMigrada('SECTOR_NARANJO', 'NARANJO', false);
   assert.equal(c.HVis_yaFormateada(incompleta), false, 'migrada sin OBSERVACIONES → false');
   const completa = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
+  c.HVis_aplicarSecciones(completa, { forzar: true });
   assert.equal(c.HVis_yaFormateada(completa), true, 'canónica completa → true');
+});
+test('v0.12.2: título escrito y fast-path comparten la misma especificación', () => {
+  const c = backend();
+  assert.equal(c.HVis_tituloEsperado_('INGRESO_NARANJO'),
+    'INGRESOS — NARANJO · v' + ctxExpr(c, 'ECICEP').VERSION + ' · ← INICIO');
+  assert.equal(c.HVis_tituloEsperado_('SECTOR_VERDE'),
+    'SECTOR VERDE · VISTA AUTOMÁTICA · datos derivados');
+  assert.equal(c.HVis_tituloEsperado_('PACIENTES'), 'SISTEMA ECICEP');
+
+  const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
+  const aplicado = c.HVis_aplicarSecciones(hoja, { forzar: true });
+  assert.equal(aplicado.ok, true);
+  assert.equal(hoja.getRange(1, 1).getValues()[0][0], c.HVis_tituloEsperado_('SECTOR_NARANJO'));
+  assert.equal(c.HVis_yaFormateada(hoja), true,
+    'el título producido por el writer debe activar el fast-path en la siguiente pasada');
 });
 test('SAS-025: hoja completa usa fast-path sin reescribir y forzar la reformatea', () => {
   const c = backend();
   const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
+  c.HVis_aplicarSecciones(hoja, { forzar: true });
+  hoja._ops.length = 0;
   const r = c.HVis_normalizarLayout(hoja);
   assert.equal(r.fast, true);
   assert.equal(r.secciones, 4);

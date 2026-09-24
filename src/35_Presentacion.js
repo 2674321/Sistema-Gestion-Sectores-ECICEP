@@ -31,6 +31,8 @@
 var PRESUPUESTO_PRESENTACION_MS = 20000;
 
 var PRESENTACION_CACHE_PREFIJO = 'ECICEP_INST_PRES';
+var PRESENTACION_LAYOUT_PROP = 'ECICEP_PRESENTACION_LAYOUT_V0122';
+var PRESENTACION_LAYOUT_VERSION = '0.12.2';
 var PRESENTACION_ETAPAS_REANUDABLES = { diseno: true };
 
 /** Plan de la etapa "Presentación del libro", en orden de ejecución. La
@@ -44,7 +46,9 @@ var PRESENTACION_SUBPLAN_DISENO = [
   { id: 'formato:SECTOR',     nombre: 'Formato de datos · vistas SECTOR' },
   { id: 'formato:EVENTOS',    nombre: 'Formato de datos · EVENTOS y auxiliares' },
   { id: 'validaciones:extras', nombre: 'Reglas complementarias (no puertas)' },
+  { id: 'condicionales',       nombre: 'Indicadores y estados visuales' },
   { id: 'notas',              nombre: 'Notas de ayuda en encabezados' },
+  { id: 'accesorios',         nombre: 'Protecciones, visibilidad y ayudas' },
   { id: 'verificar',          nombre: 'Verificación final de presentación' }
 ];
 
@@ -53,7 +57,44 @@ function Presentacion_esReanudable_(etapaId) {
 }
 
 function Presentacion_progreso_(cursor, total) {
-  return { actual: Math.min(Math.max(cursor + 1, 0), total), total: total };
+  var completadas = Math.min(Math.max(cursor, 0), total);
+  return { actual: completadas, total: total,
+    enCurso: completadas < total ? completadas + 1 : total };
+}
+
+function Presentacion_fingerprintEsperado_() {
+  return PRESENTACION_SUBPLAN_DISENO.map(function (t) { return t.id; }).join('|') +
+    '|FORMATO_CAMPOS|' + PRESENTACION_LAYOUT_VERSION;
+}
+function Presentacion_layoutVigente_() {
+  var props = Libro_propiedades_(), raw = '';
+  try { raw = props && props.getProperty(PRESENTACION_LAYOUT_PROP); } catch (eP) {}
+  if (!raw) return false;
+  var meta;
+  try { meta = JSON.parse(raw); } catch (eJ) { return false; }
+  if (!meta || meta.version !== PRESENTACION_LAYOUT_VERSION ||
+      meta.fingerprint !== Presentacion_fingerprintEsperado_()) return false;
+  var d = Libro_leerDirty_();
+  if (d.VISUAL || d.VALIDACIONES || d.ESTRUCTURA) return false;
+  try {
+    var diag = HVis_diagnosticarTodas(), pendientes = 0;
+    Object.keys(diag.diagnostico || {}).forEach(function (k) {
+      var v = diag.diagnostico[k], p = v && v.estadoActual && v.estadoActual.visual;
+      pendientes += p ? (p.cantidadPendientes || 0) : 0;
+    });
+    return pendientes === 0;
+  } catch (eD) { return false; }
+}
+function Presentacion_guardarLayout_() {
+  var props = Libro_propiedades_(); if (!props) return;
+  try { props.setProperty(PRESENTACION_LAYOUT_PROP, JSON.stringify({
+    version: PRESENTACION_LAYOUT_VERSION,
+    fingerprint: Presentacion_fingerprintEsperado_()
+  })); } catch (e) {}
+}
+function Presentacion_invalidarLayout_() {
+  var props = Libro_propiedades_();
+  try { if (props) props.deleteProperty(PRESENTACION_LAYOUT_PROP); } catch (e) {}
 }
 
 /* ------------------------- Persistencia del cursor ------------------------ */
@@ -132,6 +173,16 @@ function Presentacion_ejecutarTarea_(tarea) {
       case 'notas':
         r = Hojas_aplicarNotas_(Modelo_ss());
         break;
+      case 'condicionales':
+        r = Hojas_formatoCondicional(Modelo_ss());
+        break;
+      case 'accesorios':
+        var ss = Modelo_ss();
+        var rut = Hojas_colorearRutIngresos(ss);
+        r = { ok: !(rut.fallidas || []).length, rut: rut,
+          ocultas: Hojas_ocultarTecnicas(ss), protecciones: Hojas_proteger(ss),
+          filtros: Hojas_filtros(ss), motivo: (rut.fallidas || []).join('; ') };
+        break;
       case 'verificar':
         r = Presentacion_verificar_();
         break;
@@ -166,6 +217,7 @@ function Presentacion_formatearGrupo_(nombres) {
 function Presentacion_formatearHoja_(nombre) {
   var ss = Modelo_ss(), h = ss.getSheetByName(nombre);
   if (!h) return { ok: true, aplicados: 0, motivo: 'sin hoja' };
+  _modelo_anchosHoja(h);
   var f = Hojas_aplicarFormatosNumero_(ss, { hojas: [nombre] });
   var s = Hojas_aplicarSemanticaColumnas_(h);
   return {
@@ -202,6 +254,14 @@ function Presentacion_ejecutarPaso_(etapaId, ejecucion) {
   var cursor = (estado && estado.etapa === etapaId) ? (Number(estado.cursor) || 0) : 0;
   if (cursor < 0 || cursor >= plan.length) cursor = 0;
 
+  if (cursor === 0 && Presentacion_layoutVigente_()) {
+    Presentacion_cacheLimpiar_(ejecucion);
+    return { ok: true, etapa: etapaId, nombre: 'Presentación del libro',
+      continuar: false, cursor: plan.length,
+      progreso: Presentacion_progreso_(plan.length, plan.length), subetapa: null,
+      tareasEjecutadas: 0, omitida: true, motivo: 'PRESENTACION_VIGENTE', ms: 0 };
+  }
+
   var t0 = Date.now(), emitidas = 0;
   while (cursor < plan.length) {
     var tarea = plan[cursor];
@@ -222,7 +282,12 @@ function Presentacion_ejecutarPaso_(etapaId, ejecucion) {
   }
 
   var fin = cursor >= plan.length;
-  if (fin) Presentacion_cacheLimpiar_(ejecucion);
+  if (fin) {
+    Presentacion_cacheLimpiar_(ejecucion);
+    Presentacion_guardarLayout_();
+    Libro_limpiarDirty_('VISUAL'); Libro_limpiarDirty_('VALIDACIONES');
+    Libro_limpiarDirty_('ESTRUCTURA');
+  }
   else Presentacion_cacheGuardar_(ejecucion, etapaId, cursor, plan.length);
   return {
     ok: true, etapa: etapaId, nombre: 'Presentación del libro',

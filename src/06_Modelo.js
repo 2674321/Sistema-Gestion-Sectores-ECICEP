@@ -308,7 +308,7 @@ var MODELO_DISENO = [
   { nombre: 'SECTOR_AMARILLO',  color: PALETA_SECCION.AMARILLO.encabezado, banda: true, formato: COLUMNAS_SECTOR_VISTA },
   { nombre: 'SECTOR_VERDE',     color: PALETA_SECCION.VERDE.encabezado, banda: true, formato: COLUMNAS_SECTOR_VISTA },
   { nombre: 'REM_SALIDA',       color: DESIGN_SYSTEM.MARCA.reporte, estilo: false },
-  { nombre: 'EVENTOS',          color: DESIGN_SYSTEM.MARCA.sistemaClaro, congelarCols: 1, banda: true },
+  { nombre: 'EVENTOS',          color: DESIGN_SYSTEM.MARCA.sistema, congelarCols: 1, banda: true },
   // Catálogos y configuración (internas)
   { nombre: 'CAT_VIGENCIA_EXAMENES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
   { nombre: 'PROFESIONALES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
@@ -322,15 +322,55 @@ var MODELO_DISENO = [
   { nombre: 'STAGING_IMPORT',   color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true }
 ];
 
-/** PURA: ancho de columna según el tipo de campo (ANCHOS_COLUMNA, Parte 2.4/2.5).
- *  Primer patrón que coincide por substring gana; default 130. */
+/** PURA: clave normalizada de un campo físico. Los alias solo resuelven
+ *  etiquetas reales del contrato (INGRESO_* usa espacios y paréntesis). */
+function Formato_claveCampo_(nombreCol) {
+  var clave = Utl_claveAlnum(nombreCol);
+  var alias = {
+    FECHADENACIMIENTO: 'FECHANACIMIENTO',
+    FECHADEINGRESO: 'FECHAINGRESO',
+    TELEFONO: 'TELEFONOS'
+  };
+  return alias[clave] || clave;
+}
+
+/** PURA: tipo visual inferido para campos sin sobrescritura explícita. */
+function Formato_tipoCampo_(nombreCol) {
+  var clave = Formato_claveCampo_(nombreCol);
+  if (FORMATO_CAMPOS[clave] && FORMATO_CAMPOS[clave].tipo)
+    return FORMATO_CAMPOS[clave].tipo;
+  if (/^(ID|IDINTERNO|IDEVENTO)/.test(clave) || /ID$/.test(clave)) return 'ID';
+  if (/RUT|TELEFON|FONO|CELULAR/.test(clave)) return 'TEXTO';
+  if (/FECHA.*(REGISTRO|PROCESO|ACTUALIZACION|CALCULO)|TIMESTAMP/.test(clave)) return 'FECHA_HORA';
+  if (/FECHA|ULTIMO(SEGUIMIENTO|CONTROL|EVENTO)|PROXIMOCONTROL/.test(clave)) return 'FECHA';
+  if (/EDAD|CANTIDAD|DURACIONMS|TOTAL|CONTEO/.test(clave)) return 'NUMERO';
+  if (/VALIDO|REVISION|ACTIVO|RESUELTO/.test(clave)) return 'BOOLEANO';
+  if (/OBSERVACION|DESCRIPCION|DETALLE|NOTA|CONDICION|PATOLOGIA/.test(clave)) return 'TEXTO_LARGO';
+  if (/ESTADO|SECTOR|ESTRAT|SEXO|TIPO|ORIGEN/.test(clave)) return 'ENUM';
+  if (/FUENTE|REGISTRADOPOR|NOMBRENORMALIZADO/.test(clave)) return 'SISTEMA';
+  return 'TEXTO';
+}
+
+/** PURA: especificación canónica completa. Devuelve una copia para impedir
+ *  que un consumidor modifique las constantes compartidas. */
+function Formato_especificacionCampo_(nombreCol) {
+  var clave = Formato_claveCampo_(nombreCol);
+  var propia = FORMATO_CAMPOS[clave] || {};
+  var tipo = propia.tipo || Formato_tipoCampo_(clave);
+  var base = FORMATO_TIPOS[tipo] || FORMATO_TIPOS.TEXTO;
+  return {
+    clave: clave,
+    tipo: tipo,
+    ancho: propia.ancho === undefined ? base.ancho : propia.ancho,
+    formato: propia.formato === undefined ? base.formato : propia.formato,
+    alineacion: propia.alineacion || base.alineacion,
+    wrap: propia.wrap === undefined ? base.wrap : propia.wrap
+  };
+}
+
+/** PURA: ancho de columna resuelto por nombre desde el contrato canónico. */
 function Modelo_anchoColumna(nombreCol) {
-  var n = Utl_texto(nombreCol).toUpperCase();
-  for (var i = 0; i < ANCHOS_COLUMNA.length; i++) {
-    var k = ANCHOS_COLUMNA[i].clave;
-    if (n === k || n.indexOf(k) !== -1) return ANCHOS_COLUMNA[i].ancho;
-  }
-  return 130;
+  return Formato_especificacionCampo_(nombreCol).ancho;
 }
 
 /** PURA: lista de campos por hoja según el contrato (_MODELO_HOJAS_DEF).
@@ -406,13 +446,16 @@ function _modelo_estilizarEncabezado(hoja, colorAcento) {
 function _modelo_aplicarBanda(hoja) {
   var cols = Math.max(hoja.getLastColumn(), 1);
   var ini = Modelo_dataStartRow(hoja.getName());
-  var maxFilas = (typeof hoja.getMaxRows === 'function') ? hoja.getMaxRows() : 0;
+  var cantidad = typeof Hojas_filasGestionadas_ === 'function'
+    ? Hojas_filasGestionadas_(hoja, hoja.getName()) : 0;
   var yaAplicada = false;
   try {
-    var existentes = hoja.getRange(1, 1, Math.max(maxFilas, 1), cols).getBandings() || [];
+    var existentes = cantidad > 0
+      ? (hoja.getRange(ini, 1, cantidad, cols).getBandings() || []) : [];
     if (existentes.length) {
       var b0 = existentes[0], ran = b0.getRange ? b0.getRange() : null;
       yaAplicada = !!ran && ran.getRow() === ini &&
+        (typeof ran.getNumRows !== 'function' || ran.getNumRows() === cantidad) &&
         typeof b0.getFirstRowColor === 'function' &&
         b0.getFirstRowColor() === DESIGN_SYSTEM.SUPERFICIE.datos &&
         typeof b0.getSecondRowColor === 'function' &&
@@ -421,10 +464,11 @@ function _modelo_aplicarBanda(hoja) {
   } catch (eB) { yaAplicada = false; }
   if (yaAplicada) return;
   try {
-    hoja.getRange(1, 1, Math.max(maxFilas, 1), cols).getBandings().forEach(function (b) { b.remove(); });
+    if (cantidad > 0) hoja.getRange(ini, 1, cantidad, cols).getBandings()
+      .forEach(function (b) { b.remove(); });
   } catch (eR2) {}
-  if (!maxFilas || maxFilas < ini) return;
-  var banda = hoja.getRange(ini, 1, maxFilas - ini + 1, cols).applyRowBanding();
+  if (!cantidad) return;
+  var banda = hoja.getRange(ini, 1, cantidad, cols).applyRowBanding();
   banda.setFirstRowColor(DESIGN_SYSTEM.SUPERFICIE.datos)
        .setSecondRowColor(DESIGN_SYSTEM.SUPERFICIE.datosAlterno)
 }
@@ -558,26 +602,36 @@ function Modelo_aplicarDiseno() {
       // Fast-path 0.12.1: valores ya correctos = cero escrituras.
       if (typeof h.getTabColor !== 'function' || h.getTabColor() !== d.color) {
         h.setTabColor(d.color);
+        res.coloreadas++;
       }
-      res.coloreadas++;
-      var frozenDeseado = Modelo_headerRow(h.getName());
-      if (typeof h.getFrozenRows !== 'function' || h.getFrozenRows() !== frozenDeseado) {
-        h.setFrozenRows(frozenDeseado); // visuales: 3 (título+secciones+headers); simples: 1
+      // INICIO tiene portada propia y A1:X2 combinada. Inicio_construir_ es el
+      // owner exclusivo de su freeze (unlock 0/0 -> construir -> freeze 2/0).
+      // Tratarla como layout simple intentaría congelar solo la fila 1 y
+      // partiría la celda combinada durante la fase Presentación del libro.
+      if (h.getName() !== 'INICIO' && !Modelo_esHojaVisual(h.getName())) {
+        var uxFreeze = HOJAS_UX[h.getName()] || {};
+        var frozenDeseado = uxFreeze.frozenRows === undefined
+          ? Modelo_headerRow(h.getName()) : uxFreeze.frozenRows;
+        var frozenColsDeseado = uxFreeze.frozenColumns === undefined
+          ? (d.congelarCols || 0) : uxFreeze.frozenColumns;
+        var cambioFreeze = false;
+        if (typeof h.setFrozenRows === 'function' &&
+            (typeof h.getFrozenRows !== 'function' || h.getFrozenRows() !== frozenDeseado)) {
+          h.setFrozenRows(frozenDeseado); cambioFreeze = true;
+        }
+        if (typeof h.setFrozenColumns === 'function' &&
+            (typeof h.getFrozenColumns !== 'function' || h.getFrozenColumns() !== frozenColsDeseado)) {
+          h.setFrozenColumns(frozenColsDeseado); cambioFreeze = true;
+        }
+        if (cambioFreeze) res.congeladas.push(d.nombre);
       }
-      // En el layout visual la barra de título está combinada a lo ancho:
-      // inmovilizar solo algunas columnas partiría esa celda combinada.
-      if (Modelo_esHojaVisual(h.getName())) {
-        if (h.getFrozenColumns && h.getFrozenColumns() !== 0) h.setFrozenColumns(0);
-      } else if (d.congelarCols) {
-        var yaCongelado = typeof h.getFrozenColumns === 'function' &&
-          h.getFrozenColumns() === d.congelarCols;
-        if (!yaCongelado) h.setFrozenColumns(d.congelarCols);
-      }
-      res.congeladas.push(d.nombre);
-      if (d.estilo !== false && h.getLastColumn() > 0) _modelo_estilizarEncabezado(h, d.color);
+      // En hojas visuales, HVis es el único owner de la estructura superior.
+      if (d.estilo !== false && !Modelo_esHojaVisual(h.getName()) && h.getLastColumn() > 0)
+        _modelo_estilizarEncabezado(h, d.color);
       if (d.banda) {
         _modelo_aplicarBanda(h);
-        h.setHiddenGridlines(true);
+        if (typeof h.hasHiddenGridlines !== 'function' || !h.hasHiddenGridlines())
+          h.setHiddenGridlines(true);
         var iniDatos = Modelo_dataStartRow(h.getName());
         if (h.getLastRow() >= iniDatos) {
           var alturaOk = typeof h.getRowHeight === 'function';
@@ -590,7 +644,6 @@ function Modelo_aplicarDiseno() {
         }
         res.bandas++;
       }
-      if (d.formato && d.formato.length) _modelo_formatoSencillo(h, d.formato);
       if (d.oculta) { if (!h.isSheetHidden()) { h.hideSheet(); res.ocultas.push(d.nombre); } }
       else if (h.isSheetHidden()) h.showSheet();
     } catch (e) {
@@ -642,14 +695,6 @@ function Modelo_aplicarDiseno() {
       res.fallidas.push(d.nombre + ' (orden): ' + (e2 && e2.message || e2));
     }
   });
-
-  // Dropdowns adyacentes (advisory) en las columnas categóricas de PACIENTES
-  try {
-    var hPac = porHoja[HOJAS.PACIENTES];
-    if (hPac) res.validaciones = _modelo_validacionesPacientes(hPac);
-  } catch (eV) {
-    res.fallidas.push('PACIENTES (validaciones): ' + (eV && eV.message || eV));
-  }
 
   // Restaurar la hoja activa del usuario
   try {
@@ -1031,32 +1076,17 @@ function Modelo_escanearEstructura(ss) {
   return snapshot;
 }
 
-/** Formato base de PACIENTES: encabezado fijo, anchos, fechas, técnicas ocultas. */
+/** Compatibilidad estructural de PACIENTES.
+ *
+ * La fase `estructura` ya no aplica presentación. Históricamente esta función
+ * recorría getMaxRows(), reescribía todos los formatos de fecha, los 31 anchos
+ * y el freeze en cada instalación. Los owners vigentes son HVis (estructura
+ * superior) y 35_Presentacion + 34_LibroUX (anchos, formatos y semántica sobre
+ * el rango gestionado). Aquí solo se corrige el grupo legacy que podía ocultar
+ * columnas clínicas; esa reparación es estructural y no tiene otro owner. */
 function _modelo_formatearPacientes(hoja) {
-  if (!hoja) return;
-  _modelo_repararGrupoPacientes(hoja);
-  var hr = Modelo_headerRow(HOJAS.PACIENTES);
-  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
-  hoja.setFrozenRows(Modelo_headerRow(HOJAS.PACIENTES));
-  var rangoEnc = hoja.getRange(hr, 1, 1, MODELO_PACIENTE.length);
-  rangoEnc.setFontWeight('bold').setBackground(PULIDO_ENCABEZADO.fondo).setFontColor(PULIDO_ENCABEZADO.tinta);
-
-  // Anchos razonables según tipo de campo (centralizado en ANCHOS_COLUMNA)
-  for (var i = 0; i < MODELO_PACIENTE.length; i++) {
-    var ancho = Modelo_anchoColumna(MODELO_PACIENTE[i].campo);
-    var tipo = MODELO_PACIENTE[i].tipo;
-    hoja.setColumnWidth(i + 1, ancho);
-    if (tipo === 'fecha' && hoja.getMaxRows() >= ini) {
-      var formato = (MODELO_PACIENTE[i].campo === 'ESTRAT_FECHA_CALCULO' ||
-        MODELO_PACIENTE[i].campo === 'FECHA_ACTUALIZACION')
-        ? CFG_FECHAS.FORMATO_FECHA_HORA : CFG_FECHAS.FORMATO_HOJA;
-      hoja.getRange(ini, i + 1, hoja.getMaxRows() - ini + 1, 1)
-        .setNumberFormat(formato);
-    }
-  }
-  // Las columnas técnicas no son contiguas: no agrupar desde ID_INTERNO
-  // porque ese bloque también ocultaría RUT, NOMBRE y otros datos clínicos.
-  // La etapa de diseño usa Hojas_ocultarTecnicas para ocultar índices exactos.
+  if (!hoja) return { ok: true, omitida: true };
+  return { ok: true, grupoLegacyReparado: _modelo_repararGrupoPacientes(hoja) };
 }
 
 /** Siembra CONFIG solo si la hoja es nueva o no tiene las claves base. */
@@ -1663,8 +1693,8 @@ function Modelo_agregarPacientes_(objetos, contexto) {
     return Modelo_filaDesdeObjeto(_modelo_estamparActualizacion(o, ahora));
   });
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (typeof Hojas_asegurarCapacidad_ === 'function')
-    Hojas_asegurarCapacidad_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
+  if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
+    Hojas_asegurarCapacidadGestionada_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
   var n = Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
   // El append agregó filas: invalidar el memo para que cualquier lectura
   // posterior de PACIENTES en la misma invocación vea las filas nuevas
@@ -1697,8 +1727,8 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
       return (v === undefined || v === null) ? '' : v;
     });
   });
-  if (typeof Hojas_asegurarCapacidad_ === 'function')
-    Hojas_asegurarCapacidad_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
+  if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
+    Hojas_asegurarCapacidadGestionada_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
   var N = Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
   Modelo_invalidarLecturas();
   return N;
@@ -2399,23 +2429,32 @@ function Vigencia_estado(fechaExamenISO, cantidad, unidad, hoyRef) {
  * desplegables para ESTADO/ESTRATIFICACIÓN/SEXO, fechas reales con formato,
  * y marca de advertencia en columnas del sistema. Idempotente.
  */
-function Modelo_validarIngresos(ss) {
+function Modelo_validarIngresos(ss, opciones) {
+  opciones = opciones || {};
   var res = { hojas: 0, validaciones: 0, protegidas: 0, fallidas: [] };
-  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+  var nombres = opciones.hoja ? [opciones.hoja] : Object.keys(HOJAS_INGRESO);
+  var forzado = opciones.cantidad !== undefined && opciones.cantidad !== null;
+  nombres.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
       if (!h || h.isSheetHidden()) return; // alias oculto se ignora
       var idx = {};
       INGRESO_COLUMNAS.forEach(function (c, i) { idx[c] = i + 1; });
-      var ini = Modelo_dataStartRow(nombre);
+      var ini = opciones.filaInicial || Modelo_dataStartRow(nombre);
       var hr = Modelo_headerRow(nombre);
-      var filasDatos = Math.max(Hojas_filasGestionadas_(h, nombre), 0);
+      var filasDatos = forzado ? Number(opciones.cantidad)
+        : Math.max(Hojas_filasGestionadas_(h, nombre), 0);
 
-      function lista(colNombre, opciones) {
+      function lista(colNombre, valores) {
         if (!idx[colNombre] || filasDatos < 1) return;
         var r = h.getRange(ini, idx[colNombre], filasDatos, 1);
+        var cfg = { tipo: 'LISTA', valores: valores };
+        if (!forzado && typeof r.getCell === 'function') {
+          try { if (Hojas_validacionCoincide_(r.getCell(1, 1).getDataValidation(), cfg)) return; }
+          catch (eV) {}
+        }
         r.setDataValidation(SpreadsheetApp.newDataValidation()
-          .requireValueInList(opciones, true).setAllowInvalid(true)
+          .requireValueInList(valores, true).setAllowInvalid(true)
           .setHelpText('Selecciona un valor de la lista').build());
         res.validaciones++;
       }
@@ -2424,10 +2463,13 @@ function Modelo_validarIngresos(ss) {
         var c = idx[colNombre];
         if (filasDatos >= 1) {
           var r = h.getRange(ini, c, Math.max(filasDatos, 1), 1);
+          if (!forzado && typeof r.getCell === 'function') {
+            try { if (Hojas_validacionCoincide_(r.getCell(1, 1).getDataValidation(), { tipo: 'FECHA' })) return; }
+            catch (eV) {}
+          }
           r.setDataValidation(SpreadsheetApp.newDataValidation()
             .requireDate().setAllowInvalid(true)
             .setHelpText('Ingresa una fecha válida').build());
-          r.setNumberFormat('dd/MM/yyyy');
           res.validaciones++;
         }
       }
@@ -2438,8 +2480,9 @@ function Modelo_validarIngresos(ss) {
       fecha('FECHA DE NACIMIENTO');
       fecha('FECHA DE INGRESO');
 
-      // Columnas del sistema: advertencia al usuario (no bloqueo duro)
-      ['NOTA_SISTEMA', 'ESTADO_INGRESO'].forEach(function (colNombre) {
+      // NOTA_SISTEMA es generada. ESTADO_INGRESO se conserva editable porque
+      // es el disparador transaccional de la puerta de ingreso.
+      ['NOTA_SISTEMA'].forEach(function (colNombre) {
         if (!idx[colNombre]) return;
         var col = idx[colNombre];
         var yaTiene = h
@@ -2447,17 +2490,30 @@ function Modelo_validarIngresos(ss) {
           .some(function (pr) {
             try {
               var r = pr.getRange();
-              return pr.getDescription() === 'ECICEP-SISTEMA' &&
+              var desc = pr.getDescription();
+              return (desc === 'ECICEP-SISTEMA' || desc === 'ECICEP:SISTEMA:NOTA_SISTEMA') &&
                      r.getColumn() === col;
             } catch (eP) { return false; }
           });
         if (!yaTiene) {
-          var pr = h.getRange(hr, col, Math.max(h.getMaxRows() - (hr - 1), 1), 1)
-                     .protect().setDescription('ECICEP-SISTEMA');
+          var filasProtegidas = Math.max((ini - hr) + filasDatos, 1);
+          var pr = h.getRange(hr, col, filasProtegidas, 1)
+                     .protect().setDescription('ECICEP:SISTEMA:NOTA_SISTEMA');
           pr.setWarningOnly(true);
           res.protegidas++;
         }
       });
+
+      // Retira solo la protección legacy propia que marcaba por error el
+      // ESTADO_INGRESO como campo de sistema. Las protecciones manuales quedan.
+      if (idx.ESTADO_INGRESO) h.getProtections(SpreadsheetApp.ProtectionType.RANGE)
+        .forEach(function (pr) {
+          try {
+            var rp = pr.getRange();
+            if (pr.getDescription() === 'ECICEP-SISTEMA' &&
+                rp.getColumn() === idx.ESTADO_INGRESO) pr.remove();
+          } catch (eLegacy) {}
+        });
 
       res.hojas++;
     } catch (e) {

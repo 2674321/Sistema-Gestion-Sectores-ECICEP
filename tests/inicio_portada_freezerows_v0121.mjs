@@ -179,4 +179,54 @@ for (let i = 0; i < opsB.length; i++) {
 }
 ok('T7 hoja nueva: ningún write con filas inmovilizadas (invariante mantenida)');
 
+// --- T8: Presentación NO es dueña del freeze de INICIO ---
+// Simula la portada real ya construida: A1:X2 está combinada y el freeze
+// contractual es 2/0. Google Sheets rechaza setFrozenRows(1) porque dejaría
+// solo una parte de la celda combinada dentro de las filas inmovilizadas.
+const freezePresentacion = [];
+const combinacionesInicio = [{ a1: 'A1:X2', fila: 1, filas: 2, col: 1, cols: 24 }];
+const cruzaLimite = (inicio, cantidad, limite) =>
+  limite > 0 && inicio <= limite && inicio + cantidad - 1 > limite;
+const hojaC = {
+  getName: () => 'INICIO',
+  getTabColor: () => '#0E5C68',
+  setTabColor: () => {},
+  getFrozenRows: () => 2,
+  getFrozenColumns: () => 0,
+  setFrozenRows(v) {
+    freezePresentacion.push(['rows', v]);
+    if (combinacionesInicio.some(m => cruzaLimite(m.fila, m.filas, v)))
+      throw new Error('No se pueden inmovilizar filas que solo contengan parte de una celda combinada');
+  },
+  setFrozenColumns(v) {
+    freezePresentacion.push(['columns', v]);
+    if (combinacionesInicio.some(m => cruzaLimite(m.col, m.cols, v)))
+      throw new Error('No se pueden inmovilizar columnas que solo contengan parte de una celda combinada');
+  },
+  getLastColumn: () => 24,
+  getLastRow: () => 44,
+  isSheetHidden: () => false,
+  showSheet: () => {}
+};
+const disenoOriginal = c.MODELO_DISENO;
+const modeloSsOriginal = c.Modelo_ss;
+c.MODELO_DISENO = [{ nombre: 'INICIO', color: '#0E5C68', estilo: false }];
+c.Modelo_ss = () => ({
+  getActiveSheet: () => hojaC,
+  getSheetByName: nombre => nombre === 'INICIO' ? hojaC : null,
+  getSheets: () => [hojaC],
+  setActiveSheet: () => {},
+  moveActiveSheet: () => {}
+});
+const resC = c.Modelo_aplicarDiseno();
+c.MODELO_DISENO = disenoOriginal;
+c.Modelo_ss = modeloSsOriginal;
+assert.deepEqual(freezePresentacion, [],
+  'Modelo_aplicarDiseno no escribe frozen rows/columns en INICIO');
+assert.deepEqual(Array.from(resC.fallidas), [],
+  'la presentación no falla sobre A1:X2 combinada');
+assert.equal(resC.congeladas.includes('INICIO'), false,
+  'INICIO no se atribuye al owner genérico de freeze');
+ok('T8 presentación: A1:X2 combinada conserva freeze 2/0 sin escrituras desde Modelo');
+
 console.log('\nInicio portada freeze — ' + n + '/' + n + ' PASS');

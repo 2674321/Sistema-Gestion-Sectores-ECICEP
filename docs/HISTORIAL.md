@@ -1057,3 +1057,26 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   reparar sigue siendo `DERIVADOS_PENDIENTES` (no se ocultan fallos).
 - Suite nueva `tests/integridad_derivados_v0121.mjs` (7/7); batería local
   **39 suites, 0 fallos**. Alcance: `src/02_Normalizacion.js`, `src/33_Integridad.js`.
+
+## v0.12.2 — Instalador visual y formato canónico de celdas (2026-09-24)
+
+- Corregido el fallo de producción `Presentación del libro · INICIO: No se
+  pueden inmovilizar filas que solo contengan parte de una celda combinada`.
+  `Modelo_aplicarDiseno` excluye `INICIO` del freeze genérico y la portada es el
+  único owner de su secuencia `0/0 → construcción → 2/0`.
+- El instalador presenta estado general, fase, subtarea, progreso real,
+  diagnóstico previo, errores con detalle secundario, reintento puntual con la
+  misma ejecución/cursor/respaldo y resumen final con duración.
+- `FORMATO_TIPOS` + `FORMATO_CAMPOS` centralizan formatos, anchos, alineación y
+  wrap. RUT/teléfonos/IDs son texto, fechas y fechas-hora usan formatos
+  canónicos y EDAD usa `0`; las filas normales quedan en 23 px.
+- Owners separados: HVis administra la estructura superior de hojas visuales;
+  `Modelo_validarIngresos` las reglas de `INGRESO_*`; Presentación/LibroUX los
+  formatos declarativos; `Inicio_construir_` la portada.
+- Fast paths para anchos, formatos, banding, validaciones, notas por bloque,
+  reglas condicionales, orden y fingerprints de Presentación/INICIO. La fase
+  estructura ya no reescribe los 31 anchos ni `getMaxRows()` de `PACIENTES`.
+- Suite nueva `tests/instalador_formato_visual_v0122.mjs` (20/20). Batería
+  completa: **40 suites, 0 fallos**. Esquema 2, captura V4, agenda manual y
+  fuente única sin cambios.
+- Informe: `docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md`.

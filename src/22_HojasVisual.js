@@ -234,6 +234,24 @@ function HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja) {
  * Devuelve {pre, post, advertencias}. NUNCA toca datos.
  */
 /**
+ * PURA: título contractual de la barra superior de una hoja visual.
+ * El escritor y el fast-path deben consumir esta misma función; si cada uno
+ * deriva el texto por separado, una portada correcta puede parecer desfasada y
+ * provocar la reescritura completa del layout en cada instalación.
+ */
+function HVis_tituloEsperado_(nombre) {
+  nombre = Utl_texto(nombre).toUpperCase();
+  var sector = HVis_detectarSectorHoja(nombre);
+  if (nombre.indexOf('INGRESO_') === 0) {
+    return 'INGRESOS — ' + sector + ' · v' + ECICEP.VERSION + ' · ← INICIO';
+  }
+  if (nombre.indexOf('SECTOR_') === 0) {
+    return 'SECTOR ' + sector + ' · VISTA AUTOMÁTICA · datos derivados';
+  }
+  return 'SISTEMA ECICEP';
+}
+
+/**
  * GAS: ¿la hoja ya tiene el DESIGN_SYSTEM visual aplicado? Chequeo barato
  * (3 lecturas: título, fila de secciones, encabezados) para que el pipeline no
  * reescriba estilos en CADA envío de la Web App (re-estilizar todas las
@@ -243,8 +261,7 @@ function HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja) {
 function HVis_yaFormateada(hoja) {
   try {
     var nombre = hoja.getName();
-    var sector = HVis_detectarSectorHoja(nombre);
-    var esperado = sector ? ('SECTOR ' + sector) : 'SISTEMA ECICEP';
+    var esperado = HVis_tituloEsperado_(nombre);
     var hr = Modelo_headerRow(nombre);
     if (hr < 1) return false;
     // LECTURA ÚNICA del bloque completo 1..hr (antes 3 lecturas separadas:
@@ -266,6 +283,17 @@ function HVis_yaFormateada(hoja) {
       var actual = bloque[1][sec.colInicio - 1];
       if (Utl_claveAlnum(actual) !== Utl_claveAlnum(sec.nombre)) return false;
     }
+    var esp = HVis_especVisual(nombre);
+    if (typeof hoja.getFrozenRows === 'function' && hoja.getFrozenRows() !== esp.frozenRows) return false;
+    if (typeof hoja.getFrozenColumns === 'function' && hoja.getFrozenColumns() !== esp.frozenColumns) return false;
+    var titulo = hoja.getRange(1, 1);
+    if (typeof titulo.getBackground === 'function' &&
+        !HVis_mismosColor(titulo.getBackground(), esp.colorTitulo)) return false;
+    if (typeof titulo.getFontColor === 'function' &&
+        !HVis_mismosColor(titulo.getFontColor(), esp.tintaTitulo)) return false;
+    var enc = hoja.getRange(hr, 1, 1, ancho);
+    if (typeof enc.getBackgrounds === 'function' && !enc.getBackgrounds()[0]
+      .every(function (b) { return HVis_mismosColor(b, esp.encabezados.fondo); })) return false;
     return true;
   } catch (e) { return false; }
 }
@@ -351,11 +379,7 @@ function HVis_normalizarLayout(hoja, opciones) {
     var rTitulo = hoja.getRange(1, 1, 1, ultimaCol);
     try { rTitulo.breakApart(); } catch (eB) {}
     rTitulo.merge();
-    var esIngreso = nombre.indexOf('INGRESO_') === 0;
-    var esVista = nombre.indexOf('SECTOR_') === 0;
-    var textoTitulo = esIngreso ? 'INGRESOS — ' + sectorHoja + ' · v' + ECICEP.VERSION + ' · ← INICIO'
-      : (esVista ? 'SECTOR ' + sectorHoja + ' · VISTA AUTOMÁTICA · datos derivados' : 'SISTEMA ECICEP');
-    rTitulo.setValue(textoTitulo);
+    rTitulo.setValue(HVis_tituloEsperado_(nombre));
     rTitulo.setBackground(colorSector);
     rTitulo.setFontColor(TINTA_SECCION);
     rTitulo.setFontWeight('bold');
@@ -810,10 +834,7 @@ function HVis_pendientesVisual(hoja) {
       etiquetas.forEach(function (et, i) {
         var campo = Utl_texto(et).toUpperCase(), celda = hoja.getRange(iniDatos, i + 1);
         if (typeof celda.getNumberFormat === 'function') {
-          var esperado = '';
-          if (campo.indexOf('RUT') !== -1 || campo.indexOf('TELEFON') !== -1 || campo.indexOf('ID') === 0) esperado = '@';
-          else if (campo.indexOf('FECHA') !== -1) esperado = (Utl_claveAlnum(campo) === 'FECHAREGISTRO' || Utl_claveAlnum(campo) === 'FECHAPROCESO')
-            ? DESIGN_SYSTEM.FORMATOS.FECHA_HORA : DESIGN_SYSTEM.FORMATOS.FECHA;
+          var esperado = Formato_especificacionCampo_(campo).formato;
           if (esperado && celda.getNumberFormat() !== esperado) pendientes.push('FORMATO:' + campo);
         }
         if (Hojas_validacionCampo_(campo) &&
@@ -845,7 +866,9 @@ function HVis_pendientesVisual(hoja) {
  */
 function HVis_reconciliarHoja(hoja, opciones) {
   if (!hoja) return { hoja: '', ok: false, motivo: 'Hoja inexistente' };
-  opciones = opciones || { layout: true, columnas: true, validaciones: true, formato: true, tabs: true };
+  // HVis es owner exclusivo de la estructura superior; formatos, anchos,
+  // validaciones y pestañas pertenecen a sus fases declarativas.
+  opciones = opciones || { layout: true };
   var nombre = hoja.getName();
   if (!HVis_obtenerSecciones(nombre)) {
     return { hoja: nombre, ok: true, sinConfig: true, pendientes: 0 };
@@ -858,23 +881,16 @@ function HVis_reconciliarHoja(hoja, opciones) {
   if (aplicado.estado && aplicado.estado !== 'OK') {
     return { hoja: nombre, ok: false, motivo: aplicado.estado };
   }
-  try {
-    if (opciones.tabs !== false) {
-      hoja.setTabColor(Hojas_colorPestana_(nombre));
-      var ux = HOJAS_UX[nombre] || {};
-      if (ux.frozenRows !== undefined) hoja.setFrozenRows(ux.frozenRows);
-      if (ux.frozenColumns !== undefined) hoja.setFrozenColumns(ux.frozenColumns);
-    }
-    if (opciones.columnas !== false) { _modelo_anchosHoja(hoja); Hojas_aplicarSemanticaColumnas_(hoja); }
-    if (opciones.validaciones !== false) Hojas_aplicarValidaciones_(Modelo_ss(), { hojas:[nombre] });
-    if (opciones.formato !== false) Hojas_aplicarFormatosNumero_(Modelo_ss(), { hojas:[nombre] });
-  } catch (eA) { return { hoja:nombre, ok:false, motivo:eA && eA.message || String(eA) }; }
   var verificado = HVis_pendientesVisual(hoja);
+  var pendientesLayout = (verificado.pendientes || []).filter(function (p) {
+    return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 ||
+      p.indexOf('encabezados') === 0 || p.indexOf('FREEZE_') === 0;
+  });
   return {
     hoja: nombre,
-    ok: verificado.cantidadPendientes === 0,
-    pendientes: verificado.cantidadPendientes,
-    detalles: verificado.pendientes,
+    ok: pendientesLayout.length === 0,
+    pendientes: pendientesLayout.length,
+    detalles: pendientesLayout,
     seccionesAplicadas: aplicado.secciones
   };
 }

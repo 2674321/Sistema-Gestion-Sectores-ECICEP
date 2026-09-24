@@ -4,6 +4,8 @@
  */
 var LIBRO_DIRTY_PROP = 'ECICEP_LIBRO_DIRTY_V012';
 var INICIO_SNAPSHOT_PROP = 'ECICEP_INICIO_SNAPSHOT_V012';
+var INICIO_LAYOUT_PROP = 'ECICEP_INICIO_LAYOUT_V0122';
+var INICIO_LAYOUT_VERSION = '0.12.2';
 var _LIBRO_DIRTY_MEMO = null;
 
 function Libro_propiedades_() {
@@ -37,6 +39,10 @@ function Libro_marcarDirty_(tipo) {
   var d = Libro_leerDirty_(), t = Utl_texto(tipo).toUpperCase();
   if (!Object.prototype.hasOwnProperty.call(d, t)) return d;
   if (!d[t]) { d[t] = true; Libro_guardarDirty_(); }
+  if (t === 'VISUAL' || t === 'VALIDACIONES' || t === 'ESTRUCTURA') {
+    var props = Libro_propiedades_();
+    try { if (props) props.deleteProperty('ECICEP_PRESENTACION_LAYOUT_V0122'); } catch (e) {}
+  }
   return d;
 }
 function Libro_estaDirty_(tipo) {
@@ -180,9 +186,51 @@ function Inicio_refrescarSiNecesario_() {
     ? Inicio_refrescar_({ forzar: true }) : { ok: true, omitida: true, snapshot: snap };
 }
 
-function Inicio_construir_(ss) {
+function Inicio_fingerprintEsperado_() {
+  return ['CENTRO_OPERATIVO', INICIO_RANGO_GESTIONADO, 'A1:X2', 'A8:X10',
+    'SECTORES_3', 'ESTADO_4', 'PENDIENTES_4', 'FREEZE_2_0'].join('|');
+}
+function Inicio_layoutVigente_(h) {
+  if (!h) return false;
+  var props = Libro_propiedades_(), raw = '';
+  try { raw = props && props.getProperty(INICIO_LAYOUT_PROP); } catch (eP) {}
+  if (!raw) return false;
+  var meta;
+  try { meta = JSON.parse(raw); } catch (eJ) { return false; }
+  if (!meta || meta.version !== INICIO_LAYOUT_VERSION ||
+      meta.fingerprint !== Inicio_fingerprintEsperado_()) return false;
+  try {
+    return h.getFrozenRows() === 2 && h.getFrozenColumns() === 0 &&
+      Utl_texto(h.getRange('A1').getValue()).indexOf('ECICEP') !== -1 &&
+      Utl_texto(h.getRange('A8').getFormula()).indexOf('HYPERLINK') !== -1 &&
+      h.getRange('F15').getFormula() === '';
+  } catch (e) { return false; }
+}
+function Inicio_guardarLayout_() {
+  var props = Libro_propiedades_(); if (!props) return;
+  try { props.setProperty(INICIO_LAYOUT_PROP, JSON.stringify({
+    version: INICIO_LAYOUT_VERSION, fingerprint: Inicio_fingerprintEsperado_()
+  })); } catch (e) {}
+}
+
+function Inicio_construir_(ss, opciones) {
+  opciones = opciones || {};
   var h = ss.getSheetByName('INICIO');
   if (!h) h = ss.insertSheet('INICIO');
+  if (opciones.forzar !== true && Inicio_layoutVigente_(h)) {
+    var tituloActual = 'ECICEP                                            v' + ECICEP.VERSION +
+      ' · Build ' + (ECICEP_BUILD.commit || 'dev');
+    var tituloRango = h.getRange('A1');
+    if (Utl_texto(tituloRango.getValue()) !== tituloActual) tituloRango.setValue(tituloActual);
+    try {
+      if (!h.getTabColor || h.getTabColor() !== DESIGN_SYSTEM.MARCA.sistemaProfundo)
+        h.setTabColor(DESIGN_SYSTEM.MARCA.sistemaProfundo);
+    } catch (eT) {}
+    var refresco = Inicio_refrescarSiNecesario_();
+    return { ok: refresco.ok !== false, omitida: true, layoutVigente: true,
+      refresco: refresco, verificacion: { hoja: true, titulo: true, accesos: true,
+        snapshot: true, rangoGestionado: true, freeze: true } };
+  }
   // Hotfix 0.12.1: si la hoja hereda filas/columnas inmovilizadas de una
   // instalación anterior, cualquier escritura cuyo rango cruce el límite
   // congelado/no-congelado falla ("No se pueden combinar filas inmovilizadas
@@ -269,7 +317,6 @@ function Inicio_construir_(ss) {
   h.setFrozenRows(2); h.setFrozenColumns(0);
   var metricas = Inicio_calcularMetricas_();
   Inicio_guardarSnapshot_(metricas); Inicio_escribirMetricas_(metricas, h);
-  Libro_limpiarDirty_('INICIO');
   var ver = { hoja: !!ss.getSheetByName('INICIO'), filas: h.getMaxRows() >= filas,
     columnas: h.getMaxColumns() >= cols,
     titulo: Utl_texto(h.getRange('A1').getValue()).indexOf('ECICEP') !== -1,
@@ -278,6 +325,8 @@ function Inicio_construir_(ss) {
     freeze: (typeof h.getFrozenRows === 'function') && h.getFrozenRows() === 2 };
   var fallos = Object.keys(ver).filter(function (k) { return !ver[k]; });
   if (fallos.length) throw new Error('Verificación INICIO falló en: ' + fallos.join(', '));
+  Inicio_guardarLayout_();
+  Libro_limpiarDirty_('INICIO');
   return { ok: true, verificacion: ver, lienzo: { filas: filas, columnas: cols }, metricas: metricas };
 }
 
@@ -315,10 +364,9 @@ function Hojas_validacionCoincide_(dv, cfg) {
   } catch (eX) { return false; }
 }
 
-/** Aplica formatos de dato por significado, incluso a filas aún vacías.
- *  Fast-path 0.12.1: rango acotado a filas gestionadas; si la primera celda
- *  de datos ya tiene el formato, cero escrituras para esa columna. Cuando el
- *  llamador pasa `cantidad` explícita (expansión de filas) siempre se escribe. */
+/** Aplica formatos de dato desde FORMATO_CAMPOS/FORMATO_TIPOS, incluso a
+ *  filas aún vacías. El rango se acota a filas gestionadas y se compara
+ *  completo: una columna correcta produce cero escrituras. */
 function Hojas_aplicarFormatosNumero_(ss, opciones) {
   opciones = opciones || {}; ss = ss || Modelo_ss();
   var nombres = opciones.hojas || Object.keys(_MODELO_HOJAS_DEF), aplicados = 0, errores = [];
@@ -332,16 +380,20 @@ function Hojas_aplicarFormatosNumero_(ss, opciones) {
         : Math.max(Hojas_filasGestionadas_(h, nombre, opciones), 1);
       var labels = h.getRange(hr, 1, 1, Math.max(h.getLastColumn(), 1)).getValues()[0];
       labels.forEach(function (et, i) {
-        var n = Utl_claveAlnum(et).toUpperCase(), formato = '';
-        if (n.indexOf('RUT') !== -1 || n.indexOf('TELEFON') !== -1 || n.indexOf('ID') === 0) formato = '@';
-        else if (n.indexOf('FECHA') !== -1) formato = (n === 'FECHAREGISTRO' || n === 'FECHAPROCESO')
-          ? DESIGN_SYSTEM.FORMATOS.FECHA_HORA : DESIGN_SYSTEM.FORMATOS.FECHA;
+        if (!Utl_texto(et)) return;
+        var formato = Formato_especificacionCampo_(et).formato;
         if (!formato) return;
         var ya = false;
         try {
           if (!forzado) {
-            var cell = h.getRange(ini, i + 1);
-            ya = typeof cell.getNumberFormat === 'function' && cell.getNumberFormat() === formato;
+            var actual = h.getRange(ini, i + 1, cantidad, 1);
+            if (typeof actual.getNumberFormats === 'function') {
+              ya = actual.getNumberFormats().every(function (fila) {
+                return fila[0] === formato;
+              });
+            } else if (typeof actual.getNumberFormat === 'function') {
+              ya = actual.getNumberFormat() === formato;
+            }
           }
         } catch (eN) { ya = false; }
         if (ya) return;
@@ -354,7 +406,8 @@ function Hojas_aplicarFormatosNumero_(ss, opciones) {
 
 function Hojas_aplicarValidaciones_(ss, opciones) {
   opciones = opciones || {}; ss = ss || Modelo_ss();
-  var nombres = opciones.hojas || [HOJAS.PACIENTES].concat(Object.keys(HOJAS_INGRESO), HOJAS_SECTOR);
+  // Las puertas INGRESO_* pertenecen exclusivamente a Modelo_validarIngresos.
+  var nombres = opciones.hojas || [HOJAS.PACIENTES].concat(HOJAS_SECTOR);
   var forzado = (opciones.cantidad !== undefined && opciones.cantidad !== null);
   var aplicadas = 0, errores = [];
   nombres.forEach(function (nombre) {
@@ -395,15 +448,19 @@ function Hojas_aplicarNotas_(ss) {
   }, aplicadas = 0;
   [HOJAS.PACIENTES].concat(Object.keys(HOJAS_INGRESO), HOJAS_SECTOR).forEach(function (nombre) {
     var h = ss.getSheetByName(nombre); if (!h || h.getLastRow() < Modelo_headerRow(nombre)) return;
-    var hr = Modelo_headerRow(nombre), labels = h.getRange(hr, 1, 1, h.getLastColumn()).getValues()[0];
+    var hr = Modelo_headerRow(nombre), rango = h.getRange(hr, 1, 1, h.getLastColumn());
+    var labels = rango.getValues()[0], actuales;
+    try { actuales = typeof rango.getNotes === 'function' ? rango.getNotes()[0] : labels.map(function () { return ''; }); }
+    catch (eN) { actuales = labels.map(function () { return ''; }); }
+    var deseadas = actuales.slice(), cambio = false;
     labels.forEach(function (et, i) {
-      var nota = notas[Utl_texto(et).toUpperCase()]; if (!nota) return;
-      var celda = h.getRange(hr, i + 1);
-      var ya = false;
-      try { ya = typeof celda.getNote === 'function' && celda.getNote() === nota; }
-      catch (eN) { ya = false; }
-      if (ya) return;
-      h.getRange(hr, i + 1).setNote(nota); aplicadas++;
+      var nota = notas[Utl_texto(et).toUpperCase()];
+      if (!nota || actuales[i] === nota) return;
+      deseadas[i] = nota; cambio = true; aplicadas++;
+    });
+    if (cambio && typeof rango.setNotes === 'function') rango.setNotes([deseadas]);
+    else if (cambio) labels.forEach(function (et, i) {
+      if (deseadas[i] !== actuales[i]) h.getRange(hr, i + 1).setNote(deseadas[i]);
     });
   });
   return { ok: true, aplicadas: aplicadas };
@@ -412,11 +469,7 @@ function Hojas_aplicarNotas_(ss) {
 /** Wrapper compatible: las reglas condicionales ECICEP son system-managed. */
 function Hojas_formatoCondicional(ss) {
   ss = ss || Modelo_ss();
-  var reglas = Hojas_aplicarFormatoCondicional_(ss);
-  var formatos = Hojas_aplicarFormatosNumero_(ss);
-  reglas.formatosNumero = formatos.aplicados;
-  (formatos.errores || []).forEach(function (e) { reglas.errores.push(e); });
-  return reglas;
+  return Hojas_aplicarFormatoCondicional_(ss);
 }
 
 function Hojas_prepararRangoDatos_(nombreHoja, filaInicial, cantidad) {
@@ -427,8 +480,12 @@ function Hojas_prepararRangoDatos_(nombreHoja, filaInicial, cantidad) {
   h.getRange(filaInicial, 1, cantidad, Math.max(h.getLastColumn(), 1))
     .setBackground(fondo).setFontSize(DESIGN_SYSTEM.TIPOGRAFIA.datos)
     .setVerticalAlignment(DESIGN_SYSTEM.MEDIO);
-  Hojas_aplicarValidaciones_(ss, { hojas: [nombreHoja], filaInicial: filaInicial, cantidad: cantidad });
+  // Modelo_validarIngresos es el owner exclusivo de reglas de INGRESO_*.
+  if (familia === 'entrada') Modelo_validarIngresos(ss, { hoja: nombreHoja,
+    filaInicial: filaInicial, cantidad: cantidad });
+  else Hojas_aplicarValidaciones_(ss, { hojas: [nombreHoja], filaInicial: filaInicial, cantidad: cantidad });
   Hojas_aplicarFormatosNumero_(ss, { hojas: [nombreHoja], filaInicial: filaInicial, cantidad: cantidad });
+  Hojas_aplicarSemanticaColumnas_(h, { filaInicial: filaInicial, cantidad: cantidad });
   try { h.setRowHeights(filaInicial, cantidad, DESIGN_SYSTEM.ALTURAS.dato); } catch (e) {}
   return { ok: true, hoja: nombreHoja, filaInicial: filaInicial, cantidad: cantidad };
 }
@@ -436,12 +493,15 @@ function Hojas_prepararRangoDatos_(nombreHoja, filaInicial, cantidad) {
 /** Diferencia visualmente columnas editables, derivadas y técnicas por nombre.
  *  Fast-path 0.12.1: rango acotado a filas gestionadas; columna cuya primera
  *  celda de datos ya tiene fondo/tinta correctos = cero escrituras. */
-function Hojas_aplicarSemanticaColumnas_(hoja) {
+function Hojas_aplicarSemanticaColumnas_(hoja, opciones) {
+  opciones = opciones || {};
   var nombre = hoja.getName(), ux = HOJAS_UX[nombre] || {}, hr = Modelo_headerRow(nombre);
-  var ini = Modelo_dataStartRow(nombre);
+  var ini = opciones.filaInicial || Modelo_dataStartRow(nombre);
   if (hoja.getLastRow() < hr || hoja.getMaxRows() < ini) return { ok:true, columnas:0 };
   var labels = hoja.getRange(hr, 1, 1, Math.max(hoja.getLastColumn(), 1)).getValues()[0];
-  var filas = Math.max(Hojas_filasGestionadas_(hoja, nombre), 1), aplicadas = 0;
+  var filas = opciones.cantidad === undefined
+    ? Math.max(Hojas_filasGestionadas_(hoja, nombre), 1) : Number(opciones.cantidad);
+  var aplicadas = 0;
   var tecnicasPac = {};
   MODELO_PACIENTE.forEach(function (c) { if (c.tecnico) tecnicasPac[c.campo] = true; });
   labels.forEach(function (et, i) {
@@ -450,17 +510,20 @@ function Hojas_aplicarSemanticaColumnas_(hoja) {
     else if (ux.familia === 'tecnica' || ux.familia === 'historial') estilo = DESIGN_SYSTEM.HOJAS.tecnico;
     else if (nombre === HOJAS.PACIENTES && tecnicasPac[campo]) estilo = DESIGN_SYSTEM.HOJAS.sistema;
     else if (ux.familia === 'entrada' && campo === 'NOTA_SISTEMA') estilo = DESIGN_SYSTEM.HOJAS.sistema;
-    var ya = false;
+    var especificacion = Formato_especificacionCampo_(et);
+    var alineacion = String(especificacion.alineacion || 'LEFT').toUpperCase();
+    var wrap = especificacion.wrap === true, ya = false;
     try {
-      var c0 = hoja.getRange(ini, i + 1);
-      ya = typeof c0.getBackground === 'function' && c0.getBackground() === estilo.fondo &&
-        typeof c0.getFontColor === 'function' && c0.getFontColor() === estilo.tinta;
+      var actual = hoja.getRange(ini, i + 1, filas, 1);
+      ya = typeof actual.getBackgrounds === 'function' && actual.getBackgrounds().every(function (f) { return f[0] === estilo.fondo; }) &&
+        typeof actual.getFontColors === 'function' && actual.getFontColors().every(function (f) { return f[0] === estilo.tinta; }) &&
+        typeof actual.getHorizontalAlignments === 'function' && actual.getHorizontalAlignments().every(function (f) {
+          return String(f[0] || '').toUpperCase() === alineacion;
+        }) && typeof actual.getWraps === 'function' && actual.getWraps().every(function (f) { return f[0] === wrap; });
     } catch (eS) { ya = false; }
     if (ya) return;
-    var r = hoja.getRange(ini, i + 1, filas, 1).setBackground(estilo.fondo).setFontColor(estilo.tinta);
-    if (/NOMBRE|OBSERVACION|PROFESIONAL|NOTA_SISTEMA/.test(campo)) r.setHorizontalAlignment('left').setWrap(true);
-    else if (/FECHA|SEXO|ESTADO|ESTRAT|EDAD/.test(campo)) r.setHorizontalAlignment('center').setWrap(false);
-    else r.setHorizontalAlignment('left').setWrap(false);
+    hoja.getRange(ini, i + 1, filas, 1).setBackground(estilo.fondo).setFontColor(estilo.tinta)
+      .setHorizontalAlignment(alineacion.toLowerCase()).setWrap(wrap);
     aplicadas++;
   });
   return { ok:true, columnas:aplicadas };
@@ -476,6 +539,11 @@ function Hojas_asegurarCapacidad_(hoja, filaNecesaria, opciones) {
   hoja.insertRowsAfter(max, bloque);
   Hojas_prepararRangoDatos_(hoja.getName(), max + 1, bloque);
   return { ok: true, expandida: true, agregadas: bloque, maxRows: max + bloque };
+}
+
+/** Nombre explícito v0.12.2; conserva el helper histórico como contrato. */
+function Hojas_asegurarCapacidadGestionada_(hoja, filaNecesaria, opciones) {
+  return Hojas_asegurarCapacidad_(hoja, filaNecesaria, opciones);
 }
 
 function Hojas_colorPestana_(nombre) {
@@ -494,9 +562,16 @@ function Hojas_ordenObjetivo_() {
 }
 function Hojas_ordenar_(ss) {
   ss = ss || Modelo_ss(); var activa = ss.getActiveSheet(), ordenadas = 0, pos = 1;
+  var visibles = ss.getSheets().filter(function (h) { return !h.isSheetHidden(); });
+  var indices = {}; visibles.forEach(function (h, i) { indices[h.getName()] = i + 1; });
   Hojas_ordenObjetivo_().forEach(function (n) {
     var h = ss.getSheetByName(n); if (!h || h.isSheetHidden()) return;
-    ss.setActiveSheet(h, false); ss.moveActiveSheet(pos++); ordenadas++;
+    if (indices[n] !== pos) {
+      ss.setActiveSheet(h, false); ss.moveActiveSheet(pos); ordenadas++;
+      visibles = ss.getSheets().filter(function (x) { return !x.isSheetHidden(); });
+      indices = {}; visibles.forEach(function (x, i) { indices[x.getName()] = i + 1; });
+    }
+    pos++;
   });
   try { if (activa) ss.setActiveSheet(activa, false); } catch (e) {}
   return { ok: true, ordenadas: ordenadas };
@@ -519,7 +594,7 @@ function Triggers_asegurarOnChangeLibro_() {
 }
 function ECICEP_onChangeLibro(e) {
   var tipo = e && e.changeType || '';
-  if (['INSERT_ROW','INSERT_COLUMN','REMOVE_ROW','REMOVE_COLUMN','INSERT_GRID','REMOVE_GRID'].indexOf(tipo) < 0)
+  if (['INSERT_ROW','INSERT_COLUMN','REMOVE_ROW','REMOVE_COLUMN','INSERT_GRID','REMOVE_GRID','FORMAT'].indexOf(tipo) < 0)
     return { ok: true, omitido: true };
   Libro_marcarDirty_('ESTRUCTURA'); Libro_marcarDirty_('VISUAL');
   Libro_marcarDirty_('VALIDACIONES'); Libro_marcarDirty_('INICIO');
@@ -533,7 +608,7 @@ function Libro_repararPresentacion_(opciones) {
     try {
       var antes = typeof HVis_pendientesVisual === 'function' ? HVis_pendientesVisual(h) : { pendientes: [] };
       if ((antes.pendientes || []).length || opciones.forzar) {
-        if (HVis_obtenerSecciones(nombre)) HVis_reconciliarHoja(h, { layout:true, columnas:true, validaciones:true, formato:true, tabs:true });
+        if (HVis_obtenerSecciones(nombre)) HVis_reconciliarHoja(h, { layout:true });
         h.setTabColor(Hojas_colorPestana_(nombre));
         var ux = HOJAS_UX[nombre] || {};
         if (ux.frozenRows !== undefined) h.setFrozenRows(ux.frozenRows);
@@ -545,11 +620,12 @@ function Libro_repararPresentacion_(opciones) {
   });
   var diseno = opciones.omitirModelo ? { fallidas: [] } : Modelo_aplicarDiseno();
   (diseno.fallidas || []).forEach(function (x) { fallos.push(x); });
-  var val = Hojas_aplicarValidaciones_(ss), notas = Hojas_aplicarNotas_(ss), formatos = Hojas_aplicarFormatosNumero_(ss);
+  var val = Hojas_aplicarValidaciones_(ss), valIngreso = Modelo_validarIngresos(ss);
+  var notas = Hojas_aplicarNotas_(ss), formatos = Hojas_aplicarFormatosNumero_(ss);
   var orden = Hojas_ordenar_(ss);
   if (fallos.length === 0) { Libro_limpiarDirty_('VISUAL'); Libro_limpiarDirty_('VALIDACIONES'); Libro_limpiarDirty_('ESTRUCTURA'); }
   return { ok: fallos.length === 0, hojasRevisadas: resultados.length, hojasAjustadas: ajustadas,
-    validacionesCorregidas: val.aplicadas || 0, anchosCorregidos: ajustadas,
+    validacionesCorregidas: (val.aplicadas || 0) + (valIngreso.validaciones || 0), anchosCorregidos: ajustadas,
     tabsCorregidos: ajustadas, resultados: resultados, orden: orden, fallidas: fallos,
     motivo: fallos.join('; '), notas: notas.aplicadas || 0, formatos: formatos.aplicados || 0 };
 }
