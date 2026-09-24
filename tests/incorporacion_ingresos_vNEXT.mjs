@@ -485,7 +485,7 @@ test('T13 onOpen expone "Incorporar ingresos" → sidebar modo ingresos; UI_abri
   const srcO = c.onOpen.toString();
   const m = srcO.match(/createMenu\('ECICEP'\)([\s\S]*?)\.addToUi/);
   const nItems = (m[1].match(/\.addItem/g) || []).length;
-  assert.ok(nItems <= 5, 'menú ECICEP ≤5 items (tiene ' + nItems + ')');
+  assert.ok(nItems <= 6, 'menú ECICEP ≤6 items (tiene ' + nItems + ')');
 
   let plantillaTitulo = '', tmplModo = null;
   c.HtmlService = {

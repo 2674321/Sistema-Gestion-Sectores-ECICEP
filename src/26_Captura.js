@@ -941,7 +941,9 @@ function Captura_v2_persistirRegistro(reg) {
     fila[mapa.TRAZA_CRUDA] = JSON.stringify(reg.normalizado);
     if (mapa.REINTENTOS !== undefined) fila[mapa.REINTENTOS] = reg.reintentos || 0;
     fila[mapa.ESTADO] = reg.estado || CAPTURA_V2.ESTADOS.RECIBIDO;
-    hoja.getRange(hoja.getLastRow() + 1, 1, 1, cols.length).setValues([fila]);
+    var filaNueva = hoja.getLastRow() + 1;
+    if (typeof Hojas_asegurarCapacidad_ === 'function') Hojas_asegurarCapacidad_(hoja, filaNueva, { bloque: 200 });
+    hoja.getRange(filaNueva, 1, 1, cols.length).setValues([fila]);
     // Confirmación durable §15: releer la última fila y verificar header + estado.
     var ok = Captura_v2_confirmarFila(hoja, reg.captureId);
     return ok ? { ok: true, filaFisica: hoja.getLastRow() } : { ok: false, motivo: 'CONFIRMACION_FALLIDA' };
@@ -1147,10 +1149,6 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     var hoja = Modelo_hoja(hojaNombre);
     if (!hoja) return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'INGRESO_HOJA_NO_DISPONIBLE' };
 
-    // Normalizar layout visual ANTES de calcular coordenadas (v0.8.9.5 fast-path:
-    // HVis_yaFormateada deja esto en ~cero cuando ya está formateado).
-    try { if (typeof HVis_formatearIngresos === 'function') HVis_formatearIngresos(); } catch (e) { /* best effort */ }
-
     var internos = Captura_v2_normalizadoAInterno(norm, { marca: marca });
     var previo = opciones.previo || {};
     var filaFisica = 0, hojaEntrega = '';
@@ -1172,6 +1170,7 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     if (!hojaEntrega || !filaFisica) {
       var filaIngreso = Form_filaCanonicaIngreso(internos, marca, { hoy: norm.fechaIngreso });
       filaFisica = hoja.getLastRow() + 1;
+      if (typeof Hojas_asegurarCapacidad_ === 'function') Hojas_asegurarCapacidad_(hoja, filaFisica, { bloque: 200 });
       hoja.getRange(filaFisica, 1, 1, filaIngreso.length).setValues([filaIngreso]);
       hojaEntrega = hojaNombre;
     }

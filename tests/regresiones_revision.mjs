@@ -337,8 +337,9 @@ test('INICIO cuenta pendientes solo en filas con paciente y usa total real en po
   assert.match(formula, /^=MAX\(0;COUNTA\(PACIENTES!A4:A\)/);
   for (const nivel of ['G1', 'G2', 'G3'])
     assert.ok(formula.includes('COUNTIFS(PACIENTES!A4:A;"<>";PACIENTES!I4:I;"' + nivel + '")'));
-  const hoja = read('src/17_Hojas.js');
-  assert.match(hoja, /MAX\(COUNTA\(PACIENTES!/);
+  const inicio = read('src/34_LibroUX.js');
+  assert.match(inicio, /function Inicio_calcularMetricas_/);
+  assert.doesNotMatch(inicio.match(/function Inicio_construir_[\s\S]*?\n}/)?.[0] || '', /COUNTIF|VLOOKUP|MAX\(PACIENTES/);
   assert.equal(c.Dash_calidadDatos([
     { ESTRATIFICACION: 'G1' }, { ESTRATIFICACION: '' },
     { ESTRATIFICACION: 'G' }, { ESTRATIFICACION: 'G0' }
@@ -485,7 +486,7 @@ test('DataValidationBuilder del harness rechaza APIs inexistentes (setDateValid)
 });
 test('Portada: picker FECHA_NACIMIENTO completa Hojas_formatoCondicional sin API inventada', () => {
   const c = backend();
-  const rango = { setDataValidation: () => {}, setNote: () => {}, setNumberFormat: () => {} };
+  const rango = { getValues: () => [['SEXO']], setDataValidation: () => rango, setNote: () => rango, setNumberFormat: () => rango };
   const hoja = { getLastRow: () => 10, getMaxRows: () => 100, getLastColumn: () => 30,
     getRange: () => rango, setConditionalFormatRules: () => {} };
   const r = c.Hojas_formatoCondicional({ getSheetByName: () => hoja });

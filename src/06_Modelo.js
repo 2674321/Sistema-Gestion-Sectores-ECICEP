@@ -299,18 +299,16 @@ function Modelo_nuevoIdInterno() {
 var MODELO_DISENO = [
   // Navegación
   { nombre: 'INICIO',           color: DESIGN_SYSTEM.MARCA.sistema, estilo: false },
-
-  // Pares por sector: la vista y su puerta de ingreso SIEMPRE juntas
-{ nombre: 'SECTOR_NARANJO',   color: IDENTIDAD.NARANJO, banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'INGRESO_NARANJO',  color: IDENTIDAD.NARANJO, banda: true, formato: INGRESO_COLUMNAS },
-  { nombre: 'SECTOR_AMARILLO',  color: IDENTIDAD.AMARILLO, banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'INGRESO_AMARILLO', color: IDENTIDAD.AMARILLO, banda: true, formato: INGRESO_COLUMNAS },
-  { nombre: 'SECTOR_VERDE',     color: IDENTIDAD.VERDE, banda: true, formato: COLUMNAS_SECTOR_VISTA },
-  { nombre: 'INGRESO_VERDE',    color: IDENTIDAD.VERDE, banda: true, formato: INGRESO_COLUMNAS },
   { nombre: 'PACIENTES',        color: DESIGN_SYSTEM.MARCA.sistema, banda: true },
-  { nombre: 'EVENTOS',          color: DESIGN_SYSTEM.MARCA.sistemaClaro, congelarCols: 2, banda: true },
-  // Reportes (REM_SALIDA es interna: el usuario consulta vía "Consultar REM")
-  { nombre: 'REM_SALIDA',       color: DESIGN_SYSTEM.MARCA.reporte, estilo: false, oculta: true },
+  // Puertas de ingreso primero; luego vistas automáticas por sector.
+  { nombre: 'INGRESO_NARANJO',  color: IDENTIDAD.NARANJO, banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'INGRESO_AMARILLO', color: IDENTIDAD.AMARILLO, banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'INGRESO_VERDE',    color: IDENTIDAD.VERDE, banda: true, formato: INGRESO_COLUMNAS },
+  { nombre: 'SECTOR_NARANJO',   color: PALETA_SECCION.NARANJO.encabezado, banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'SECTOR_AMARILLO',  color: PALETA_SECCION.AMARILLO.encabezado, banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'SECTOR_VERDE',     color: PALETA_SECCION.VERDE.encabezado, banda: true, formato: COLUMNAS_SECTOR_VISTA },
+  { nombre: 'REM_SALIDA',       color: DESIGN_SYSTEM.MARCA.reporte, estilo: false },
+  { nombre: 'EVENTOS',          color: DESIGN_SYSTEM.MARCA.sistemaClaro, congelarCols: 1, banda: true },
   // Catálogos y configuración (internas)
   { nombre: 'CAT_VIGENCIA_EXAMENES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
   { nombre: 'PROFESIONALES', color: DESIGN_SYSTEM.MARCA.tecnico, oculta: true, banda: true },
@@ -1387,6 +1385,8 @@ function Modelo_invalidarLecturas(claves) {
   try {
     if (typeof Sistema_marcarAuditoriaStale_ === 'function') Sistema_marcarAuditoriaStale_();
   } catch (e) { /* observabilidad best effort: no bloquear la operación clínica */ }
+  try { if (typeof Inicio_marcarDirty_ === 'function') Inicio_marcarDirty_(); }
+  catch (e2) { /* presentación eventual: no bloquear la mutación clínica */ }
 }
 
 function _memoLeer(hoja, clave) {
@@ -1559,6 +1559,8 @@ function Modelo_agregarPacientes_(objetos, contexto) {
     return Modelo_filaDesdeObjeto(_modelo_estamparActualizacion(o, ahora));
   });
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (typeof Hojas_asegurarCapacidad_ === 'function')
+    Hojas_asegurarCapacidad_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
   var n = Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
   // El append agregó filas: invalidar el memo para que cualquier lectura
   // posterior de PACIENTES en la misma invocación vea las filas nuevas
@@ -1591,6 +1593,8 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
       return (v === undefined || v === null) ? '' : v;
     });
   });
+  if (typeof Hojas_asegurarCapacidad_ === 'function')
+    Hojas_asegurarCapacidad_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
   var N = Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filas);
   Modelo_invalidarLecturas();
   return N;

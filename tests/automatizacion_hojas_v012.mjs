@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const root = new URL('../src/', import.meta.url);
+const ux = readFileSync(new URL('34_LibroUX.js', root), 'utf8');
+const modelo = readFileSync(new URL('06_Modelo.js', root), 'utf8');
+const captura = readFileSync(new URL('26_Captura.js', root), 'utf8');
+const actualizar = readFileSync(new URL('27_Actualizacion.js', root), 'utf8');
+const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
+const onChange = ux.match(/function ECICEP_onChangeLibro\([\s\S]*?\n}/)?.[0] || '';
+assert.match(onChange, /changeType/); assert.match(onChange, /Libro_marcarDirty_/);
+assert.doesNotMatch(onChange, /Libro_repararPresentacion_|HVis_reconciliar|Inicio_refrescar_/);
+assert.match(ux, /function Hojas_asegurarCapacidad_/);
+assert.match(modelo, /Hojas_asegurarCapacidad_/);
+assert.match(captura, /Hojas_asegurarCapacidad_/);
+assert.doesNotMatch(captura, /HVis_formatearIngresos/);
+assert.match(actualizar, /Libro_mantenimiento_/);
+assert.match(cfg, /VERSION:\s*'0\.12\.0'/);
+assert.match(cfg, /SISTEMA_VERSION_SCHEMA_ACTUAL\s*=\s*2/);
+assert.match(ux, /if \(!d\[t\]\) \{ d\[t\] = true; Libro_guardarDirty_\(\); \}/);
+console.log('Automatización hojas v0.12 — 11/11 PASS');

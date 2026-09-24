@@ -13,6 +13,7 @@ function onOpen() {
     var ui = _UI_get();
 
     ui.createMenu('ECICEP')
+      .addItem('Inicio', 'UI_irInicio')
       .addItem('Buscar / Ficha', 'UI_abrirBuscador')
       .addItem('Controles', 'UI_abrirControles')
       .addItem('Estadísticas', 'UI_abrirDashboard')
@@ -22,12 +23,25 @@ function onOpen() {
 
     ui.createMenu('Desarrollo / Administración')
       .addItem('Actualizar', 'UI_actualizarSistema')
+      .addItem('Actualizar Inicio', 'UI_actualizarInicio')
+      .addItem('Reparar presentación', 'UI_repararPresentacion')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
       .addItem('Permisos', 'ECICEP_autorizar')
       .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 
-    Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
+    try {
+      var hInicio = Modelo_ss().getSheetByName('INICIO');
+      if (hInicio) hInicio.getRange('A1').setValue('ECICEP                                            v' +
+        ECICEP.VERSION + ' · Build ' + (ECICEP_BUILD.commit || 'dev'));
+    } catch (eI) { /* metadata ligera, nunca bloquea onOpen */ }
+    var mostrarToast = true;
+    try {
+      var up = PropertiesService.getUserProperties(), clave = 'ECICEP_TOAST_VERSION';
+      mostrarToast = up.getProperty(clave) !== ECICEP.VERSION;
+      if (mostrarToast) up.setProperty(clave, ECICEP.VERSION);
+    } catch (eP) {}
+    if (mostrarToast) Utl_toast('info', 'v' + ECICEP.VERSION + ' listo — menú disponible arriba a la derecha', 4);
     return { ok: true };
   } catch (e) {
     // Los disparadores simples no tienen dónde mostrar el error, pero el
@@ -121,6 +135,13 @@ function UI_instalarDiagnosticar() {
     }
   });
   if (seccPend === 0) lineas.push('  Todas correctas');
+  if (d.presentacion) {
+    lineas.push('PRESENTACIÓN: ' + d.presentacion.hojasCorrectas + ' hojas correctas, ' +
+      d.presentacion.hojasPendientes + ' con ajustes pendientes');
+    lineas.push('  Layout ' + d.presentacion.categorias.layout + ' · Validaciones ' +
+      d.presentacion.categorias.validaciones + ' · Pestañas ' + d.presentacion.categorias.tabs +
+      ' · Anchos ' + d.presentacion.categorias.anchos + ' · Freeze ' + d.presentacion.categorias.freeze);
+  }
   lineas.push('');
   lineas.push('CONFLICTOS: ' + (d.conflictos.oculta ? 'oculta (OK)' : 'visible (requiere ocultar)'));
   lineas.push('VALIDACIONES: ' + d.validaciones.aplicadas + ' aplicadas');

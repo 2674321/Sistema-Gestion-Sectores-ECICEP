@@ -351,7 +351,11 @@ function HVis_normalizarLayout(hoja, opciones) {
     var rTitulo = hoja.getRange(1, 1, 1, ultimaCol);
     try { rTitulo.breakApart(); } catch (eB) {}
     rTitulo.merge();
-    rTitulo.setValue(sectorHoja ? 'SECTOR ' + sectorHoja : 'SISTEMA ECICEP');
+    var esIngreso = nombre.indexOf('INGRESO_') === 0;
+    var esVista = nombre.indexOf('SECTOR_') === 0;
+    var textoTitulo = esIngreso ? 'INGRESOS — ' + sectorHoja + ' · v' + ECICEP.VERSION + ' · ← INICIO'
+      : (esVista ? 'SECTOR ' + sectorHoja + ' · VISTA AUTOMÁTICA · datos derivados' : 'SISTEMA ECICEP');
+    rTitulo.setValue(textoTitulo);
     rTitulo.setBackground(colorSector);
     rTitulo.setFontColor(TINTA_SECCION);
     rTitulo.setFontWeight('bold');
@@ -469,7 +473,9 @@ function HVis_normalizarLayout(hoja, opciones) {
 
   // ===== CONGELAR filas de encabezados y primera columna =====
   try { hoja.setFrozenRows(Modelo_headerRow(nombre)); } catch (eF1) { advertencias.push('FrozenRows: ' + (eF1 && eF1.message || eF1)); }
-  try { hoja.setFrozenColumns(1); } catch (eF2) {}
+  // La fila 1 está combinada a lo ancho; congelar una parte de esa celda
+  // provoca el error de Google Sheets "parte de una celda combinada".
+  try { hoja.setFrozenColumns(0); } catch (eF2) {}
   }
 
   salida.secciones = seccionesAplicadas;
@@ -705,6 +711,11 @@ function HVis_especVisual(nombre) {
     colorTitulo: colorTitulo,
     tintaTitulo: TINTA_SECCION,
     colorSecciones: colorSecciones,
+    tabColor: typeof Hojas_colorPestana_ === 'function' ? Hojas_colorPestana_(nombre) : colorTitulo,
+    frozenRows: HOJAS_UX[nombre] && HOJAS_UX[nombre].frozenRows !== undefined
+      ? HOJAS_UX[nombre].frozenRows : Modelo_headerRow(nombre),
+    frozenColumns: HOJAS_UX[nombre] && HOJAS_UX[nombre].frozenColumns !== undefined
+      ? HOJAS_UX[nombre].frozenColumns : 0,
     encabezados: {
       fila: Modelo_headerRow(nombre),
       fondo: PULIDO_ENCABEZADO.fondo,
@@ -782,6 +793,44 @@ function HVis_pendientesVisual(hoja) {
       if (hoja.getRowHeight(hrA) !== esp.encabezados.altura)
         pendientes.push('encabezados altura=' + hoja.getRowHeight(hrA) + ' → ' + esp.encabezados.altura);
     }
+    if (typeof hoja.getTabColor === 'function' &&
+        !HVis_mismosColor(hoja.getTabColor(), esp.tabColor)) pendientes.push('TAB_COLOR');
+    if (typeof hoja.getFrozenRows === 'function' && hoja.getFrozenRows() !== esp.frozenRows)
+      pendientes.push('FREEZE_ROWS');
+    if (typeof hoja.getFrozenColumns === 'function' && hoja.getFrozenColumns() !== esp.frozenColumns)
+      pendientes.push('FREEZE_COLUMNS');
+    if (typeof hoja.getColumnWidth === 'function' && hoja.getLastRow() >= hrA) {
+      var etiquetas = rEnc.getValues()[0];
+      etiquetas.forEach(function (et, i) {
+        if (!Utl_texto(et)) return;
+        var ancho = Modelo_anchoColumna(et);
+        if (hoja.getColumnWidth(i + 1) !== ancho) pendientes.push('ANCHO:' + Utl_texto(et));
+      });
+      var iniDatos = Modelo_dataStartRow(nombre);
+      etiquetas.forEach(function (et, i) {
+        var campo = Utl_texto(et).toUpperCase(), celda = hoja.getRange(iniDatos, i + 1);
+        if (typeof celda.getNumberFormat === 'function') {
+          var esperado = '';
+          if (campo.indexOf('RUT') !== -1 || campo.indexOf('TELEFON') !== -1 || campo.indexOf('ID') === 0) esperado = '@';
+          else if (campo.indexOf('FECHA') !== -1) esperado = (Utl_claveAlnum(campo) === 'FECHAREGISTRO' || Utl_claveAlnum(campo) === 'FECHAPROCESO')
+            ? DESIGN_SYSTEM.FORMATOS.FECHA_HORA : DESIGN_SYSTEM.FORMATOS.FECHA;
+          if (esperado && celda.getNumberFormat() !== esperado) pendientes.push('FORMATO:' + campo);
+        }
+        if (Hojas_validacionCampo_(campo) &&
+            typeof celda.getDataValidation === 'function' && !celda.getDataValidation())
+          pendientes.push('VALIDACION:' + campo);
+        if ((campo === 'ESTADO_INGRESO' || campo === 'PROXIMO_CONTROL') &&
+            typeof hoja.getRange(hrA, i + 1).getNote === 'function' && !hoja.getRange(hrA, i + 1).getNote())
+          pendientes.push('NOTA:' + campo);
+      });
+      if (nombre === HOJAS.PACIENTES && typeof hoja.isColumnHiddenByUser === 'function') {
+        ['ID_INTERNO','NOMBRE_NORMALIZADO','RUT_DV_VALIDO','RUT_SIN_DV','FUENTE','FECHA_ACTUALIZACION']
+          .forEach(function (campo) {
+            var colT = Hojas_columnaCampo_(nombre, campo);
+            if (colT > 0 && !hoja.isColumnHiddenByUser(colT)) pendientes.push('OCULTA:' + campo);
+          });
+      }
+    }
   } catch (eD) {
     pendientes.push('no inspeccionable: ' + (eD && eD.message || eD));
   }
@@ -794,16 +843,32 @@ function HVis_pendientesVisual(hoja) {
  * → APLICAR (aplicarSecciones) → VERIFICAR (pendientesVisual).
  * Devuelve CAMBIOS PENDIENTES tras aplicar; 0 = hoja alineada al DESIGN_SYSTEM.
  */
-function HVis_reconciliarHoja(hoja) {
+function HVis_reconciliarHoja(hoja, opciones) {
   if (!hoja) return { hoja: '', ok: false, motivo: 'Hoja inexistente' };
+  opciones = opciones || { layout: true, columnas: true, validaciones: true, formato: true, tabs: true };
   var nombre = hoja.getName();
   if (!HVis_obtenerSecciones(nombre)) {
     return { hoja: nombre, ok: true, sinConfig: true, pendientes: 0 };
   }
-  var aplicado = HVis_aplicarSecciones(hoja);
+  var antes = HVis_pendientesVisual(hoja);
+  var requiereLayout = opciones.layout !== false && (antes.pendientes || []).some(function (p) {
+    return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 || p.indexOf('encabezados') === 0;
+  });
+  var aplicado = requiereLayout ? HVis_aplicarSecciones(hoja) : { estado: 'OK', secciones: 0 };
   if (aplicado.estado && aplicado.estado !== 'OK') {
     return { hoja: nombre, ok: false, motivo: aplicado.estado };
   }
+  try {
+    if (opciones.tabs !== false) {
+      hoja.setTabColor(Hojas_colorPestana_(nombre));
+      var ux = HOJAS_UX[nombre] || {};
+      if (ux.frozenRows !== undefined) hoja.setFrozenRows(ux.frozenRows);
+      if (ux.frozenColumns !== undefined) hoja.setFrozenColumns(ux.frozenColumns);
+    }
+    if (opciones.columnas !== false) { _modelo_anchosHoja(hoja); Hojas_aplicarSemanticaColumnas_(hoja); }
+    if (opciones.validaciones !== false) Hojas_aplicarValidaciones_(Modelo_ss(), { hojas:[nombre] });
+    if (opciones.formato !== false) Hojas_aplicarFormatosNumero_(Modelo_ss(), { hojas:[nombre] });
+  } catch (eA) { return { hoja:nombre, ok:false, motivo:eA && eA.message || String(eA) }; }
   var verificado = HVis_pendientesVisual(hoja);
   return {
     hoja: nombre,

@@ -15,6 +15,7 @@ function Sistema_ultimaAuditoria_() {
 function Sistema_guardarAuditoria_(d) {
   d = d || {};
   var r = { fecha: new Date().toISOString(), stale: false, ok: d.ok === true,
+    derivadosOk: d.derivadosOk === true, evidenciaSoloReporte: d.evidenciaSoloReporte === true,
     pacientes: Number(d.pacientes || 0), eventos: Number(d.eventos || 0),
     eventosHuerfanos: Number(d.eventosHuerfanos || 0), cachesPendientes: Number(d.cachesPendientes || 0),
     ingresosFalsos: Number(d.ingresosFalsos || 0), ingresosInconsistentes: Number(d.ingresosInconsistentes || 0),
@@ -77,10 +78,13 @@ function Integridad_diagnosticarDerivados_() {
   var captura = { duplicados: 0 };
   try { captura = Captura_diagnosticarCaptureIdsDuplicados_(); } catch (eC) { captura.error = true; }
   var vistasPendientes = Math.max(vistas.pendientes || 0, ingresos.conteos.DERIVADO_DESACTUALIZADO || 0);
-  return { ok: !ingresos.error && !vistas.error && !captura.error && eventosHuerfanos === 0 &&
-      cachesPendientes === 0 && fuentesDuplicadas === 0 && (captura.duplicados || 0) === 0 &&
+  var derivadosOk = !ingresos.error && !vistas.error && !captura.error &&
+      cachesPendientes === 0 &&
       (ingresos.conteos.INGRESADO_FALSO || 0) === 0 && (ingresos.conteos.INCONSISTENTE || 0) === 0 &&
-      vistasPendientes === 0 && estratificacionPendiente === 0,
+      vistasPendientes === 0 && estratificacionPendiente === 0;
+  var evidenciaSoloReporte = eventosHuerfanos > 0 || fuentesDuplicadas > 0 || (captura.duplicados || 0) > 0;
+  return { ok: derivadosOk && !evidenciaSoloReporte,
+    derivadosOk: derivadosOk, evidenciaSoloReporte: evidenciaSoloReporte,
     pacientes: pacientes.length, eventos: eventos.length, eventosHuerfanos: eventosHuerfanos,
     cachesPendientes: cachesPendientes, ingresosFalsos: ingresos.conteos.INGRESADO_FALSO || 0,
     ingresosInconsistentes: ingresos.conteos.INCONSISTENTE || 0, vistasPendientes: vistasPendientes,
@@ -135,7 +139,20 @@ function Integridad_repararDerivados_(opciones) {
     if (antes.eventosHuerfanos) acciones.push('HUERFANOS_SOLO_REPORTE');
     if (antes.captureIdsDuplicados || antes.fuentesDuplicadas) acciones.push('DUPLICADOS_SOLO_REPORTE');
     var despues = Integridad_diagnosticarDerivados_(); Sistema_guardarAuditoria_(despues);
-    return { ok: despues.ok, antes: antes, despues: despues, acciones: acciones,
+    var avisos = [];
+    if (despues.eventosHuerfanos) avisos.push('EVENTOS_HUERFANOS:' + despues.eventosHuerfanos);
+    if (despues.captureIdsDuplicados) avisos.push('CAPTURE_IDS_DUPLICADOS:' + despues.captureIdsDuplicados);
+    if (despues.fuentesDuplicadas) avisos.push('FUENTES_DUPLICADAS:' + despues.fuentesDuplicadas);
+    var motivo = despues.derivadosOk ? '' : ['DERIVADOS_PENDIENTES',
+      'ingresosFalsos=' + despues.ingresosFalsos,
+      'ingresosInconsistentes=' + despues.ingresosInconsistentes,
+      'vistasPendientes=' + despues.vistasPendientes,
+      'cachesPendientes=' + despues.cachesPendientes,
+      'estratificacionPendiente=' + despues.estratificacionPendiente].join('; ');
+    return { ok: despues.derivadosOk, integridadCompleta: despues.ok,
+      advertencia: avisos.length > 0, avisos: avisos, motivo: motivo,
+      linea: avisos.length ? 'Derivados reconciliados · evidencia histórica solo reportada: ' + avisos.join(', ') : 'Derivados reconciliados',
+      antes: antes, despues: despues, acciones: acciones,
       ingresos: resultado.ingresos || null, estratificacion: resultado.estratificacion || null,
       controles: resultado.controles || null, vistas: resultado.vistas || null };
   };
@@ -162,13 +179,16 @@ function Sistema_estadoSalud_(opciones) {
   var auditoria = Sistema_ultimaAuditoria_(), diag = null;
   if (opciones.profundo === true) { diag = Integridad_diagnosticarDerivados_(); auditoria = Sistema_guardarAuditoria_(diag); }
   var integridad = diag || auditoria;
-  var integridadOk = integridad ? (integridad.ok === true && !integridad.stale) : null;
+  var integridadOk = integridad ? (((integridad.derivadosOk === true) ||
+    (integridad.derivadosOk === undefined && integridad.ok === true)) && !integridad.stale) : null;
   var operativo = datos.ok && trigger.ok && integridadOk !== false, avisos = [];
   if (!datos.ok) avisos.push('DATOS_O_ESQUEMA_INCOMPLETOS');
   if (!trigger.ok) avisos.push('TRIGGER_INGRESO_' + trigger.estado);
   if (!integridad) avisos.push('AUDITORIA_PROFUNDA_PENDIENTE');
   else if (integridad.stale) avisos.push('AUDITORIA_PROFUNDA_DESACTUALIZADA');
-  else if (!integridad.ok) avisos.push('INTEGRIDAD_DERIVADA_PENDIENTE');
+  else if (integridad.derivadosOk === false ||
+      (integridad.derivadosOk === undefined && !integridad.ok)) avisos.push('INTEGRIDAD_DERIVADA_PENDIENTE');
+  else if (!integridad.ok || integridad.evidenciaSoloReporte) avisos.push('EVIDENCIA_HISTORICA_REQUIERE_REVISION');
   if (!backup.ok) avisos.push('RESPALDO_' + (backup.estado || 'PENDIENTE'));
   var estado = !datos.ok || !trigger.ok || integridadOk === false ? 'ERROR' : (avisos.length ? 'ADVERTENCIA' : 'OK');
   return { ok: operativo, operativo: operativo, estado: estado, profundo: opciones.profundo === true,

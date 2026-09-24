@@ -100,7 +100,7 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);
 
 <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <script>
-var ETAPAS=[],RESULTADOS=[],ERRORES=[],_CANCELADO=false,_enCurso=false,_EJEC='';
+var ETAPAS=[],RESULTADOS=[],ERRORES=[],AVISOS=[],_CANCELADO=false,_enCurso=false,_EJEC='';
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
 var ICON={ok:'✓',run:'●',pen:'○',err:'✕',skip:'—'};
@@ -182,7 +182,7 @@ function cargarDiagnostico(){
 
 function iniciarInstalacion(){
   if(_enCurso||!ETAPAS.length)return;
-  _CANCELADO=false;RESULTADOS=[];ERRORES=[];_EJEC=nuevoEjecucion();
+  _CANCELADO=false;RESULTADOS=[];ERRORES=[];AVISOS=[];_EJEC=nuevoEjecucion();
   ETAPAS.forEach(function(e){marcar(e.id,'pen');});
   document.getElementById('final').style.display='none';
   document.getElementById('btnCancelarWrap').style.display='none';
@@ -245,6 +245,8 @@ function ejecutarSecuencia(ix){
       return;
     }
     marcar(etapa.id,r.omitida?'skip':'ok');
+    if(r.advertencia||r.avisos&&r.avisos.length) AVISOS.push({nombre:etapa.nombre,
+      motivo:(r.avisos&&r.avisos.join(', '))||r.linea||'Advertencia'});
     RESULTADOS.push(r);
     ejecutarSecuencia(ix+1); /* progreso REAL: solo avanza al completar la etapa */
   }).withFailureHandler(function(e){
@@ -323,8 +325,8 @@ function mostrarFinal(ok){
     txt+=(txt?' · ':'')+'Hojas adicionales conservadas: '+limpieza.candidatas.length;
   document.getElementById('finDatos').textContent=txt;
   var av=document.getElementById('finAvisos');
-  if(ERRORES.length){av.style.display='block';
-    av.textContent='⚠ Completado con avisos: '+ERRORES.map(function(e){
+  if(AVISOS.length){av.style.display='block';
+    av.textContent='⚠ Completado con avisos: '+AVISOS.map(function(e){
       return '· '+e.nombre+': '+e.motivo;}).join('; ');}
   document.getElementById('final').style.display='block';
   _refrescarIconos();

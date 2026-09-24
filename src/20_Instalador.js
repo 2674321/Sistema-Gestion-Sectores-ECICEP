@@ -17,9 +17,9 @@ var INSTALAR_ETAPAS = [
   { id: 'amarillo',     nombre: 'Cargando sector amarillo',    fn: 'Instalar_pAmarillo' },
   { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
-  { id: 'triggers',     nombre: 'Activando ingreso manual',      fn: 'Instalar_pTriggers' },
+  { id: 'triggers',     nombre: 'Activando automatizaciones',     fn: 'Instalar_pTriggers' },
   { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza' },
-  { id: 'diseno',       nombre: 'Ajustando el libro',           fn: 'Instalar_pDiseno' },
+  { id: 'diseno',       nombre: 'Presentación del libro',        fn: 'Instalar_pDiseno' },
   { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
   { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
@@ -592,7 +592,13 @@ function Instalar_pValidaciones() {
            motivo: (r.fallidas || []).join('; ') || r.motivo || '' };
 }
 function Instalar_pTriggers() {
-  try { return Triggers_asegurarIngresoOnEdit_(); }
+  try {
+    var ingreso = Triggers_asegurarIngresoOnEdit_();
+    if (ingreso && ingreso.ok === false) return ingreso;
+    var libro = Triggers_asegurarOnChangeLibro_();
+    return { ok: libro.ok !== false, ingreso: ingreso, libro: libro,
+      estado: (ingreso.estado || 'OK') + ' · LIBRO_' + (libro.estado || 'OK') };
+  }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
 function Instalar_pLimpieza() {
@@ -604,7 +610,10 @@ function Instalar_pDiseno() {
   var r = Modelo_aplicarDiseno();
   r.ok = r.ok !== false && !(r.fallidas || []).length;
   if (!r.ok) r.motivo = (r.fallidas || []).join('; ') || r.motivo || 'Diseño incompleto';
-  return r;
+  if (!r.ok) return r;
+  var presentacion = Libro_repararPresentacion_({ forzar: true, omitirModelo: true });
+  presentacion.diseno = r;
+  return presentacion;
 }
 function Instalar_pVisual() {
   // Instalar/reparar es responsable de REPARAR inconsistencias existentes:
@@ -706,6 +715,8 @@ function Instalar_diagnosticar() {
     versionado: null,
     validaciones: { pendientes: 0, aplicadas: 0, detalles: [] },
     formato: { pendientes: 0, aplicados: 0, detalles: [] },
+    presentacion: { hojasCorrectas: 0, hojasPendientes: 0, categorias: {
+      layout: 0, validaciones: 0, tabs: 0, anchos: 0, freeze: 0 } },
     ocultas: { pendientes: 0, ocultadas: 0, detalles: [] },
     menu: { necesitaActualizar: false },
     triggers: { ingresoOnEdit: 'NO_DISPONIBLE', total: 0 },
@@ -762,6 +773,14 @@ function Instalar_diagnosticar() {
       // pendiente aunque estructura y secciones detectadas coincidan.
       var pendientesVisuales = (est.visual && Array.isArray(est.visual.pendientes))
         ? est.visual.pendientes : [];
+      if (pendientesVisuales.length) diagnostico.presentacion.hojasPendientes++;
+      else diagnostico.presentacion.hojasCorrectas++;
+      pendientesVisuales.forEach(function (p) {
+        if (p.indexOf('TAB_COLOR') === 0) diagnostico.presentacion.categorias.tabs++;
+        else if (p.indexOf('ANCHO:') === 0) diagnostico.presentacion.categorias.anchos++;
+        else if (p.indexOf('FREEZE_') === 0) diagnostico.presentacion.categorias.freeze++;
+        else diagnostico.presentacion.categorias.layout++;
+      });
       if (est.estructura !== 'OK' ||
           detectadas < esperadas ||
           (filaEncEsperada && filaEnc !== filaEncEsperada) ||

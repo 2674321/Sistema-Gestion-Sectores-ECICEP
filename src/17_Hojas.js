@@ -45,6 +45,22 @@ function Hojas_indiceAColumna(idx) {
   return letra;
 }
 
+/** Alias v0.12, explícito y testeable, para columnas A1 más allá de Z. */
+function Hojas_columnaA1_(numero) { return Hojas_indiceAColumna(numero); }
+
+/** Resuelve una columna por nombre de campo desde el contrato vigente. */
+function Hojas_columnaCampo_(nombreHoja, campo) {
+  var columnas = nombreHoja === HOJAS.PACIENTES
+    ? MODELO_PACIENTE.map(function (c) { return c.campo; })
+    : (_MODELO_HOJAS_DEF[nombreHoja] || []);
+  var buscada = Utl_claveAlnum(campo), idx = -1;
+  columnas.some(function (c, i) {
+    if (Utl_claveAlnum(c) === buscada) { idx = i + 1; return true; }
+    return false;
+  });
+  return idx;
+}
+
 /** PURA: obtiene la letra de columna para un campo en MODELO_PACIENTE. */
 function Hojas_columnaPaciente(campo) {
   var idx = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf(campo);
@@ -120,292 +136,9 @@ function Hojas_formulaSinControl() {
   return '=COUNTIF(PACIENTES!' + p + ';"")+COUNTIF(PACIENTES!' + p + ';"NSP")';
 }
 
-/** GAS: INICIO v6 — lienzo COMPACTO con márgenes reducidos.
- *  Orden garantizado: medir → expandir filas → expandir columnas → pintar.
- *  Nunca opera sobre rangos inexistentes (#sin errores de límites). */
+/** GAS: INICIO v0.12 — delega en el centro operativo basado en snapshot. */
 function Hojas_crearInicio(ss) {
-  var h = ss.getSheetByName('INICIO');
-  if (!h) h = ss.insertSheet('INICIO');
-
-  /* PASO 1-2: medir */
-  var maxF = h.getMaxRows(), maxC = h.getMaxColumns();
-
-  /* PASO 2-3: dimensiones del lienzo COMPACTO (contenido + márgenes ajustados) */
-  var FILA_FIN = 55;   // lienzo vertical: contenido hasta ~53 + margen azul 54..55
-  var COL_FIN = 32;    // lienzo horizontal: contenido + banda azul reducida
-  var FILA_CONT = 53;  // última fila de contenido (fin tabla ESTADO + aire)
-  var COL_CONT = 24;   // última columna de contenido
-
-  /* PASO 3-4: expandir ANTES de pintar */
-  if (maxF < FILA_FIN) h.insertRowsAfter(maxF, FILA_FIN - maxF);
-  if (maxC < COL_FIN) h.insertColumnsAfter(maxC, COL_FIN - maxC);
-
-  h.clear();
-  h.setHiddenGridlines(true);
-
-  // v0.8.9.6: paleta INICIO = DESIGN_SYSTEM.MARCA (una fuente de verdad).
-  var M = DESIGN_SYSTEM.MARCA;
-  var AZUL = M.sistemaProfundo, AZUL_BAR = M.sistemaBarra, PRIM = M.sistema,
-      PRIM_BR = M.sistemaBorde, VENTANA = M.ventana, BLANCO = M.blanco,
-      TXT = M.texto, GRIS = M.gris, MUTED = M.muted,
-      BORDE = M.borde, SUAVE = DESIGN_SYSTEM.SUPERFICIE.datosAlterno,
-      OK = M.indicador, WARN_BG = DESIGN_SYSTEM.ESTADOS.REVISION.fondo;
-
-  /* PASO 5-6: FUNDO AZUL COMPLETO (todo el lienzo, incluidos márgenes) */
-  h.getRange(1, 1, FILA_FIN, COL_FIN).setBackground(AZUL);
-
-  /* márgenes de seguridad: última col/fila del lienzo anchas y azules */
-  h.setColumnWidth(1, 100);           // margen azul izquierdo reducido
-  h.setColumnWidth(2, 30);            // col 2: azul entre margen y ventana
-  h.setColumnWidth(COL_CONT + 1, 120); // aire ligero a la derecha de la ventana
-  h.setColumnWidth(COL_FIN, 120);     // margen azul derecho
-  h.setRowHeight(1, 24);              // margen azul superior
-  h.setRowHeight(FILA_FIN, 160);      // margen azul inferior amplio
-  for (var cm = 3; cm <= COL_CONT; cm++) h.setColumnWidth(cm, 54);
-  for (var cm = COL_CONT + 2; cm < COL_FIN; cm++) h.setColumnWidth(cm, 30);
-
-  /* PASO 7: VENTANA central clara (cols 3..20, filas 3..44) */
-  h.getRange(3, 3, FILA_CONT - 2, COL_CONT - 2).setBackground(VENTANA);
-
-  var vC0 = 4, vC1 = 19; // columnas de contenido dentro de la ventana
-
-  /* ===== BARRA SUPERIOR DE APLICACIÓN ===== */
-  h.getRange(3, 3, 1, COL_CONT - 2).setBackground(AZUL_BAR);
-  h.getRange(3, 4).setValue('\u25cf \u25cf \u25cf   ECICEP')
-   .setFontWeight('bold').setFontSize(11).setFontColor(BLANCO);
-  h.getRange(3, 13, 1, COL_CONT - 12).merge()
-   .setValue('\u2713 Operativo   \u00b7   v' + ECICEP.VERSION + '   \u00b7   Build ' +
-     (ECICEP_BUILD.commit || 'dev'))
-   .setFontSize(10).setFontColor(M.agua).setHorizontalAlignment('right');
-  h.setRowHeight(3, DESIGN_SYSTEM.ALTURAS.barra);
-
-  /* ===== CABECERA ===== */
-  h.getRange(5, 4, 2, 6).merge().setValue('ECICEP')
-   .setFontWeight('bold').setFontSize(30).setFontColor(PRIM).setFontFamily('Sora')
-   .setVerticalAlignment('middle');
-  h.getRange(5, 12, 2, COL_CONT - 11).merge()
-   .setValue('Sistema de Gesti\u00f3n de Pacientes Cr\u00f3nicos por Sectores\nCESFAM San Juan')
-   .setFontSize(11).setFontColor(GRIS).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
-   .setHorizontalAlignment('right').setVerticalAlignment('middle');
-  h.setRowHeight(5, DESIGN_SYSTEM.ALTURAS.buscador); h.setRowHeight(6, DESIGN_SYSTEM.ALTURAS.buscador);
-
-  /* ===== MÓDULOS PRINCIPALES (4 botones, 4 cols c/u) ===== */
-  h.getRange(8, 4).setValue('M\u00d3DULOS DEL SISTEMA').setFontWeight('bold')
-   .setFontSize(10).setFontColor(MUTED);
-  var principales = [
-    { hoja:'PACIENTES',       icono:'\ud83d\udc65', nombre:'PERSONAS',        desc:'Base consolidada' },
-    { hoja:'INGRESO_NARANJO', icono:'\ud83d\udce5', nombre:'INGRESOS',        desc:'Nuevos registros' },
-    { hoja:'CONFLICTOS',      icono:'\ud83d\udccb', nombre:'REVISI\u00d3N',   desc:'Casos por confirmar' },
-    { hoja:'REM_SALIDA',      icono:'\ud83d\udcca', nombre:'REPORTES',        desc:'REM mensual' }
-  ];
-  principales.forEach(function (mod, ix) {
-    var c0 = 4 + ix * 4;
-    var rng = h.getRange(9, c0, 3, 4).merge();
-    var destino = ss.getSheetByName(mod.hoja);
-    if (!destino) {
-      // Defensa: hoja aún no creada en este contrato → botón informativo.
-      rng.setValue(mod.icono + '\n' + mod.nombre + '\n' + mod.desc)
-       .setFontWeight('bold').setFontSize(DESIGN_SYSTEM.TIPOGRAFIA.encabezado).setFontColor(GRIS)
-       .setBackground(BLANCO).setHorizontalAlignment('center')
-       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-    } else {
-      rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() +
-        '";"' + mod.icono + '\n' + mod.nombre + '\n' + mod.desc + '")')
-       .setFontWeight('bold').setFontSize(DESIGN_SYSTEM.TIPOGRAFIA.encabezado).setFontColor(BLANCO)
-       .setBackground(PRIM).setHorizontalAlignment('center')
-       .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-    }
-    rng.setBorder(true, true, true, true, null, null, PRIM_BR,
-      SpreadsheetApp.BorderStyle.SOLID);
-    h.setRowHeights(9, 3, 22);
-  });
-
-  /* ===== MÓDULOS SECUNDARIOS (4 botones funcionales: sectores + diagnóstico) ===== */
-  var secundarios = [
-    { hoja:'SECTOR_NARANJO',  nombre:'NARANJO' },
-    { hoja:'SECTOR_AMARILLO', nombre:'AMARILLO' },
-    { hoja:'SECTOR_VERDE',    nombre:'VERDE' },
-    { hoja:'LOG',             nombre:'DIAGN\u00d3STICO' }
-  ];
-  secundarios.forEach(function (mod, ix) {
-    var c0 = 4 + ix * 4;
-    var rng = h.getRange(13, c0, 3, 4).merge();
-    var destino = ss.getSheetByName(mod.hoja);
-    if (!destino) {
-      rng.setValue(mod.nombre)
-       .setFontWeight('bold').setFontSize(11).setFontColor(GRIS)
-       .setBackground(BLANCO).setHorizontalAlignment('center')
-       .setVerticalAlignment('middle');
-    } else {
-      rng.setFormula('=HYPERLINK("#gid=' + destino.getSheetId() + '";"' + mod.nombre + '")')
-       .setFontWeight('bold').setFontSize(11).setFontColor(PRIM)
-       .setBackground(BLANCO).setHorizontalAlignment('center')
-       .setVerticalAlignment('middle');
-    }
-    rng.setBorder(true, true, true, true, null, null, BORDE,
-      SpreadsheetApp.BorderStyle.SOLID);
-    h.setRowHeights(13, 3, 20);
-  });
-
-  /* ===== INDICADORES (6 tarjetas, 2 filas × 3) ===== */
-  h.getRange(17, 4).setValue('INDICADORES').setFontWeight('bold')
-   .setFontSize(10).setFontColor(MUTED);
-  var kpis = [
-    ['=COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ')', 'PACIENTES', 'Total registrados'],
-    ['=COUNTA(EVENTOS!' + Hojas_rangoHoja(HOJAS.EVENTOS, 'ID_EVENTO') + ')', 'EVENTOS', 'Historial del sistema'],
-    ['=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('REQUIERE_REVISION') + ';TRUE)', 'POR REVISAR', 'Requieren atención'],
-    ['=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"")+COUNTIF(PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"G")', 'ESTRAT. PENDIENTE', 'Sin confirmar'],
-    ['=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT_DV_VALIDO') + ';FALSE)', 'RUT INV\u00c1LIDOS', 'DV incorrecto'],
-    ['=SUMPRODUCT((PACIENTES!' + Hojas_rangoPaciente('RUT') + '<>"")*(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('RUT') + ';PACIENTES!' + Hojas_rangoPaciente('RUT') + ')>1))', 'DUPLICADOS', 'Detectados']
-  ];
-  kpis.forEach(function (k, ix) {
-    var fila = 18 + Math.floor(ix / 3) * 3;
-    var c0 = 4 + (ix % 3) * 4 + (ix % 3) * 0;
-    if (ix % 3 === 1) c0 = 9; if (ix % 3 === 2) c0 = 14; // 4-7 · 9-12 · 14-17
-    h.getRange(fila, c0, 1, 4).merge().setValue(k[1])
-     .setFontSize(9).setFontWeight('bold').setFontColor(MUTED).setBackground(BLANCO);
-    var rngV = h.getRange(fila + 1, c0, 1, 4).merge().setFormula(k[0])
-     .setFontWeight('bold').setFontSize(22).setFontFamily('Sora').setFontColor(PRIM)
-     .setBackground(BLANCO).setHorizontalAlignment('center');
-    h.getRange(fila + 2, c0, 1, 4).merge().setValue(k[2])
-     .setFontSize(9.5).setFontColor(GRIS).setBackground(BLANCO);
-    h.getRange(fila, c0, 3, 4).setBorder(true, true, true, true, null, null,
-      BORDE, SpreadsheetApp.BorderStyle.SOLID);
-    h.setRowHeight(fila, 14); h.setRowHeight(fila + 1, 32); h.setRowHeight(fila + 2, 14);
-  });
-
-  /* ===== ALERTA DINÁMICA (tarjeta con color condicional) ===== */
-  h.getRange(25, 4).setValue('ALERTAS').setFontWeight('bold')
-   .setFontSize(10).setFontColor(MUTED);
-  var rA = h.getRange(26, 4, 2, COL_CONT - 3).merge();
-  rA.setFormula(Hojas_formulaAlerta())
-   .setFontWeight('bold').setFontSize(12).setVerticalAlignment('middle')
-   .setBackground(BLANCO)
-   .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-  rA.setBorder(true, true, true, true, null, null, BORDE,
-    SpreadsheetApp.BorderStyle.SOLID);
-  /* color semáforo automático: ⚠ fondo ámbar, ✓ fondo verde */
-  var reglaAlerta = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=LEFT(D26;1)="\u26a0"')
-    .setBackground(DESIGN_SYSTEM.ESTADOS.ALERTA.fondo).setFontColor(DESIGN_SYSTEM.ESTADOS.ALERTA.tinta).setRanges([rA]).build();
-  var reglaOk = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=LEFT(D26;1)="\u2713"')
-    .setBackground(DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo).setFontColor(DESIGN_SYSTEM.ESTADOS.VIGENTE.tinta).setRanges([rA]).build();
-  h.setConditionalFormatRules([reglaAlerta, reglaOk]);
-  h.setRowHeights(26, 2, 18);
-
-  /* ===== DISTRIBUCIÓN POR SECTOR (3 tarjetas) ===== */
-  h.getRange(29, 4).setValue('DISTRIBUCI\u00d3N POR SECTOR').setFontWeight('bold')
-   .setFontSize(10).setFontColor(MUTED);
-  var sectores = [
-    { nombre:'NARANJO',  color: IDENTIDAD.NARANJO },
-    { nombre:'AMARILLO', color: IDENTIDAD.AMARILLO },
-    { nombre:'VERDE',    color: IDENTIDAD.VERDE }
-  ];
-  sectores.forEach(function (s2, ix) {
-    var c0 = 4 + ix * 6 + (ix === 2 ? 1 : 0);
-    h.getRange(30, c0, 1, 6).merge().setValue('\u25cf ' + s2.nombre)
-     .setFontWeight('bold').setFontSize(10).setFontColor(s2.color).setBackground(BLANCO)
-     .setHorizontalAlignment('center');
-    var rng = h.getRange(31, c0, 1, 6).merge()
-     .setFormula('=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('SECTOR') + ';"' + s2.nombre + '")&" pacientes"')
-     .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
-     .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    h.getRange(32, c0, 1, 6).merge()
-     .setFormula('=TEXT(COUNTIF(PACIENTES!' + Hojas_rangoPaciente('SECTOR') + ';"' + s2.nombre + '")/MAX(COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ');1);"0%")&" del total"')
-     .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
-     .setHorizontalAlignment('center');
-    h.getRange(30, c0, 3, 6).setBorder(true, true, true, true, null, null,
-      s2.color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-    h.setRowHeight(30, 16); h.setRowHeight(31, 24); h.setRowHeight(32, 14);
-  });
-
-  /* ===== DISTRIBUCIÓN POR ESTRATIFICACIÓN (3 tarjetas, NUEVO) ===== */
-  h.getRange(34, 4).setValue('DISTRIBUCI\u00d3N POR ESTRATIFICACI\u00d3N')
-   .setFontWeight('bold').setFontSize(10).setFontColor(MUTED);
-  var estrates = [
-    { nombre:'G1', color: DESIGN_SYSTEM.MARCA.sistemaClaro, desc:'Bajo'},
-    { nombre:'G2', color: DESIGN_SYSTEM.MARCA.sistema, desc:'Medio'},
-    { nombre:'G3', color: DESIGN_SYSTEM.MARCA.sistemaProfundo, desc:'Alto'}
-  ];
-  estrates.forEach(function (g, ix) {
-    var c0 = 4 + ix * 6 + (ix === 2 ? 1 : 0);
-    h.getRange(35, c0, 1, 6).merge().setValue('\u25cf ' + g.nombre)
-     .setFontWeight('bold').setFontSize(10).setFontColor(BLANCO).setBackground(g.color)
-     .setHorizontalAlignment('center');
-    var r = h.getRange(36, c0, 1, 6).merge()
-     .setFormula('=COUNTIFS(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ';"<>";PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")&" pacientes"')
-     .setFontWeight('bold').setFontSize(13).setFontColor(TXT).setBackground(SUAVE)
-     .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    h.getRange(37, c0, 1, 6).merge()
-     .setFormula('=TEXT(COUNTIFS(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ';"<>";PACIENTES!' + Hojas_rangoPaciente('ESTRATIFICACION') + ';"' + g.nombre + '")/MAX(COUNTA(PACIENTES!' + Hojas_rangoPaciente('ID_INTERNO') + ');1);"0%")&" · ' + g.desc + '"')
-     .setFontSize(9).setFontColor(MUTED).setBackground(BLANCO)
-     .setHorizontalAlignment('center');
-    h.getRange(35, c0, 3, 6).setBorder(true, true, true, true, null, null,
-      g.color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-    h.setRowHeight(35, 16); h.setRowHeight(36, 24); h.setRowHeight(37, 14);
-  });
-
-  /* ===== ESTADO DEL SISTEMA (tarjeta) ===== */
-  h.getRange(39, 4).setValue('ESTADO DEL SISTEMA').setFontWeight('bold')
-   .setFontSize(10).setFontColor(MUTED);
-  h.getRange(40, 4, 1, COL_CONT - 3).merge().setValue('\u2713 SISTEMA OPERATIVO')
-   .setFontWeight('bold').setFontSize(13).setFontColor(OK).setBackground(BLANCO)
-   .setHorizontalAlignment('center');
-  var info = [
-    ['Versión', 'ECICEP v' + ECICEP.VERSION],
-    ['Build', (ECICEP_BUILD.commit || 'dev')],
-    ['Actualización del sistema', ECICEP_BUILD.fecha || '\u2014'],
-    ['\u00daltima actualización de datos',
-      '=IF(COUNT(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ')=0;"\u2014";TEXT(MAX(PACIENTES!' + Hojas_rangoPaciente('FECHA_ACTUALIZACION') + ');"dd/mm/yyyy hh:mm"))'],
-    ['\u00daltima sincronización de fuentes',
-      '=IFERROR(TEXT(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0);"dd/mm/yyyy hh:mm");"\u2014")'],
-    ['Ingresos del mes', Hojas_formulaIngresosMes()],
-    ['Controles VENCIDOS',
-      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';"<"&TODAY())'],
-    ['Controles por vencer (\u226430 d\u00edas)',
-      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY())-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY()+30)'],
-    ['Controles para HOY',
-      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';TODAY())'],
-    ['Controles \u00faltimos 30 d\u00edas',
-      '=COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">="&TODAY()-30)-COUNTIF(PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL') + ';">"&TODAY())'],
-    ['Sin pr\u00f3ximo control agendado', Hojas_formulaSinControl()]
-  ];
-  info.forEach(function (par, ix) {
-    h.getRange(41 + ix, 4, 1, 4).merge().setValue(par[0])
-     .setFontColor(GRIS).setFontSize(10.5).setBackground(BLANCO);
-    h.getRange(41 + ix, 8, 1, COL_CONT - 7).merge().setValue(par[1])
-     .setFontWeight('bold').setFontSize(10.5).setFontColor(TXT).setBackground(BLANCO);
-    h.setRowHeight(41 + ix, 16);
-  });
-
-  /* ===== PASO 14: ocultar SOLO excedentes fuera del lienzo ===== */
-  if (h.getMaxRows() > FILA_FIN) h.hideRows(FILA_FIN + 1, h.getMaxRows() - FILA_FIN);
-  if (h.getMaxColumns() > COL_FIN) h.hideColumns(COL_FIN + 1, h.getMaxColumns() - COL_FIN);
-  h.setTabColor(AZUL);
-
-  /* ===== PASO 15: verificación final automática ===== */
-  var ver = {
-    hoja: !!ss.getSheetByName('INICIO'),
-    filas: h.getMaxRows() >= FILA_FIN,
-    columnas: h.getMaxColumns() >= COL_FIN,
-    fondo: String(h.getRange(1, 1).getBackground()).toLowerCase() === AZUL.toLowerCase(),
-    ventana: String(h.getRange(5, 4).getBackground()).toLowerCase() === VENTANA.toLowerCase() ||
-             String(h.getRange(5, 4).getBackground()).toLowerCase() === BLANCO.toLowerCase(),
-    modulos: h.getRange(9, 4).getFormula().indexOf('HYPERLINK') !== -1,
-    kpi: h.getRange(19, 4).getFormula().indexOf('COUNTA') !== -1,
-    estrat: h.getRange(36, 4).getFormula().indexOf('COUNTIF') !== -1,
-    alerta: h.getRange(26, 4).getFormula().indexOf('REGEXREPLACE') !== -1,
-    sectores: h.getRange(31, 4).getFormula().indexOf('PACIENTES!' + Hojas_rangoPaciente('SECTOR')) !== -1,
-    infoIngresos: h.getRange(46, 8).getFormula().indexOf('EOMONTH') !== -1,
-    infoHoy: h.getRange(49, 8).getFormula().indexOf('TODAY()') !== -1,
-    infoSinControl: h.getRange(51, 8).getFormula().indexOf('COUNTIF') !== -1
-  };
-  var fallos = Object.keys(ver).filter(function (k) { return !ver[k]; });
-  if (fallos.length) {
-    throw new Error('Verificación INICIO falló en: ' + fallos.join(', '));
-  }
-  return { ok: true, verificacion: ver, lienzo: { filas: FILA_FIN, columnas: COL_FIN } };
+  return Inicio_construir_(ss || Modelo_ss());
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +158,7 @@ function Hojas_formulaProximoControl(letra, fila, estado) {
  *  API a nivel SHEET (get/setConditionalFormatRules — Range no las tiene).
  *  Estas hojas son del sistema: se reemplazan TODAS sus reglas por las del
  *  estándar (idempotente). Errores aislados por hoja. */
-function Hojas_formatoCondicional(ss) {
+function Hojas_aplicarFormatoCondicional_(ss) {
   var aplicadas = 0, errores = [];
 
   function regla(formula, fondo, rango, negrita) {
@@ -439,127 +172,7 @@ function Hojas_formatoCondicional(ss) {
     aplicadas += reglas.length;
   }
 
-  /* Dropdown SEXO (M/F/OTRO) en PACIENTES, INGRESO_* y SECTOR_* (desde dataStartRow).
-     setAllowInvalid(true) porque SEXO es opcional (obligatorio:false) y el normalizador
-     puede producir vacío para valores no reconocidos. */
-  try {
-    var ruleSexo = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['M', 'F', 'OTRO'], true).setAllowInvalid(true).build();
-    var pSexo = ss.getSheetByName(HOJAS.PACIENTES);
-    if (pSexo) {
-      var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
-      if (pSexo.getLastRow() >= iniP) {
-        var colSexoP = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('SEXO') + 1;
-        pSexo.getRange(iniP, colSexoP, Math.max(pSexo.getMaxRows() - iniP + 1, 1), 1).setDataValidation(ruleSexo);
-        aplicadas++;
-      }
-    }
-    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
-      var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      if (h && h.getLastRow() >= ini) {
-        var colSexo = INGRESO_COLUMNAS.indexOf('SEXO') + 1;
-        h.getRange(ini, colSexo, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleSexo);
-        aplicadas++;
-      }
-    });
-    HOJAS_SECTOR.forEach(function (nombre) {
-      var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      if (h && h.getLastRow() >= ini) {
-        var colSexoS = COLUMNAS_SECTOR_VISTA.indexOf('SEXO') + 1;
-        if (colSexoS > 0) {
-          h.getRange(ini, colSexoS, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleSexo);
-          aplicadas++;
-        }
-      }
-    });
-  } catch (eSx) { errores.push('SEXO dropdown: ' + (eSx && eSx.message || eSx)); }
-
-  /* Date picker FECHA_NACIMIENTO en INGRESO_* (desde dataStartRow) */
-  try {
-    var ruleFecha = SpreadsheetApp.newDataValidation()
-      .requireDate().setAllowInvalid(false).build();
-    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
-      var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      if (h && h.getLastRow() >= ini) {
-        var colFnac = INGRESO_COLUMNAS.indexOf('FECHA DE NACIMIENTO') + 1;
-        if (colFnac > 0) {
-          h.getRange(ini, colFnac, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleFecha);
-          aplicadas++;
-        }
-      }
-    });
-  } catch (eFn) { errores.push('FECHA_NACIMIENTO date picker: ' + (eFn && eFn.message || eFn)); }
-
-  /* Dropdown ESTADO en INGRESO_* (desde dataStartRow) */
-  try {
-    var ruleEstado = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['PENDIENTE', 'AGENDADO', 'INGRESADO', 'NO_CONTESTA', 'FALLECIDO', 'NSP'], true)
-      .setAllowInvalid(false).build();
-    Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
-      var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      if (h && h.getLastRow() >= ini) {
-        var colEst = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-        h.getRange(ini, colEst, Math.max(h.getMaxRows() - ini + 1, 1), 1).setDataValidation(ruleEstado);
-        aplicadas++;
-      }
-    });
-  } catch (eEs) { errores.push('ESTADO dropdown: ' + (eEs && eEs.message || eEs)); }
-
-  /* Notas guía en encabezados de TODAS las hojas */
-  try {
-    var N = {
-      'RUT': 'Formato: 12345678-5 (se valida automáticamente)',
-      'NOMBRE': 'Apellido Paterno + Materno + Nombre',
-      'SEXO': 'F = Femenino · M = Masculino',
-      'FECHA DE NACIMIENTO': 'Formato: dd/mm/aaaa (usar date picker)',
-      'TELEFONO': 'Un solo teléfono de contacto',
-      'TELEFONO1': 'Teléfono principal',
-      'TELEFONO2': 'Teléfono secundario (opcional)',
-      'TELEFONO(S)': 'Separe múltiples con / (ej: 912345678/987654321)',
-      'SECTOR': 'Naranjo · Amarillo · Verde (se asigna automáticamente)',
-      'ESTRATIFICACION': 'G1 (alto) · G2 (medio) · G3 (bajo) · G (sin calcular)',
-      'ULTIMO_CONTROL': 'Fecha del último control registrado',
-      'PROXIMO_CONTROL': 'Fecha agendada manualmente desde Captura o la ficha del paciente',
-      'ESTADO': 'Estado actual del paciente',
-      'PROFESIONAL': 'Profesional asignado al seguimiento',
-      'CONDICIONES': 'Condiciones crónicas del paciente (ej: HTA, DM)',
-      'OTRAS_PATOLOGÍAS': 'Patologías adicionales registradas',
-      'OBSERVACIONES': 'Notas y observaciones del seguimiento',
-      'DUPLA': 'Pareja o duplica del paciente (si aplica)',
-      'FUENTE': 'Origen de los datos (INGRESO / HISTÓRICO / EDITOR)',
-      'FECHA DE INGRESO': 'Fecha de ingreso al programa ECICEP',
-      'ESTADO_INGRESO': 'PENDIENTE · AGENDADO · INGRESADO · NO_CONTESTA · FALLECIDO · NSP',
-      'OBSERVACIONES_INGRESO': 'Notas del proceso de ingreso',
-      'RUT_DV_VALIDO': 'TRUE = RUT correcto · FALSE = necesita revisión',
-      'ULTIMO_EVENTO': 'Fecha del último evento registrado',
-      'ULTIMO_CONTROL': 'Fecha del último control (se actualiza con eventos CONTROL)',
-      'PROXIMO_CONTROL': 'Fecha agendada manualmente. Registrar un control no la modifica.',
-      'PRÓXIMO_SEGUIMIENTO': 'Fecha programada para próximo seguimiento',
-      'FECHA_CONSULTA': 'Fecha de la consulta realizada',
-      'CONFLICTO': 'Descripción del conflicto identificado',
-      'ESTADO_CONFLICTO': 'PENDIENTE · RESUELTO',
-      'RESOLUCIÓN': 'Acción tomada para resolver el conflicto',
-      'RESULTADO': 'Resultado del análisis o evaluación'
-    };
-    function _aplicarNotas(nombre, columnas) {
-      var hoja = ss.getSheetByName(nombre);
-      if (!hoja) return;
-      var hr = Modelo_headerRow(nombre);
-      if (hoja.getLastRow() < hr) return;
-      columnas.forEach(function (col, ix) {
-        if (N[col]) hoja.getRange(hr, ix + 1).setNote(N[col]);
-      });
-    }
-    _aplicarNotas(HOJAS.PACIENTES, MODELO_PACIENTE.map(function (c) { return c.campo; }));
-    HOJAS_SECTOR.forEach(function (n) { _aplicarNotas(n, COLUMNAS_SECTOR_VISTA); });
-    Object.keys(HOJAS_INGRESO).forEach(function (n) { _aplicarNotas(n, INGRESO_COLUMNAS); });
-    if (HOJAS.CONFLICTOS) _aplicarNotas(HOJAS.CONFLICTOS, ['FECHA_DETECCION','TIPO','ID_INTERNO','RUT','NOMBRE','DETALLE','FUENTE_A','FUENTE_B','ESTADO_REVISION','RESUELTO_POR']);
-    if (HOJAS.CONSULTA) _aplicarNotas(HOJAS.CONSULTA, ['FECHA_CONSULTA','RUT','NOMBRE','SEXO','SECTOR','ESTRATIFICACION']);
-  } catch (eNt) { errores.push('Notas encabezados: ' + (eNt && eNt.message || eNt)); }
+  // Validaciones, notas y formatos numéricos se aplican en funciones separadas.
 
   /* PACIENTES: RUT inválido (rojo), revisión (ámbar), estrat por nivel.
    *  Fórmulas y rangos derivados del contrato (dataStartRow). */
@@ -568,20 +181,28 @@ function Hojas_formatoCondicional(ss) {
     var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
     if (p && p.getLastRow() >= iniP) {
       var filas = Math.max(p.getMaxRows() - iniP + 1, 1);
+      var cRut = Hojas_columnaCampo_(HOJAS.PACIENTES, 'RUT'),
+          cRutOk = Hojas_columnaCampo_(HOJAS.PACIENTES, 'RUT_DV_VALIDO'),
+          cRev = Hojas_columnaCampo_(HOJAS.PACIENTES, 'REQUIERE_REVISION'),
+          cSinDv = Hojas_columnaCampo_(HOJAS.PACIENTES, 'RUT_SIN_DV'),
+          cEst = Hojas_columnaCampo_(HOJAS.PACIENTES, 'ESTRATIFICACION'),
+          cProx = Hojas_columnaCampo_(HOJAS.PACIENTES, 'PROXIMO_CONTROL');
+      var lRutOk = Hojas_columnaA1_(cRutOk), lRev = Hojas_columnaA1_(cRev),
+          lSinDv = Hojas_columnaA1_(cSinDv), lEst = Hojas_columnaA1_(cEst), lProx = Hojas_columnaA1_(cProx);
       aplicar(p, [
-        regla('=$W' + iniP + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo, p.getRange(iniP, 2, filas, 1), true),
-        regla('=$X' + iniP + '=TRUE', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 2, filas, 1)),
-        regla('=$AD' + iniP + '=TRUE', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 30, filas, 1), true),
-        regla('=$I' + iniP + '="G1"', DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, 9, filas, 1)),
-        regla('=$I' + iniP + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 9, filas, 1)),
-        regla('=$I' + iniP + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 9, filas, 1)),
-        regla('=OR($I' + iniP + '="",$I' + iniP + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, 9, filas, 1)),
-        regla(Hojas_formulaProximoControl('Q', iniP, 'VENCIDO'),
-          DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, 17, filas, 1)),
-        regla(Hojas_formulaProximoControl('Q', iniP, 'PROXIMO'),
-          DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, 17, filas, 1)),
-        regla(Hojas_formulaProximoControl('Q', iniP, 'VIGENTE'),
-          DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, 17, filas, 1))
+        regla('=$' + lRutOk + iniP + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo, p.getRange(iniP, cRut, filas, 1), true),
+        regla('=$' + lSinDv + iniP + '=TRUE', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, cRut, filas, 1)),
+        regla('=$' + lRev + iniP + '=TRUE', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, cRev, filas, 1), true),
+        regla('=$' + lEst + iniP + '="G1"', DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, cEst, filas, 1)),
+        regla('=$' + lEst + iniP + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, cEst, filas, 1)),
+        regla('=$' + lEst + iniP + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, cEst, filas, 1)),
+        regla('=OR($' + lEst + iniP + '="",$' + lEst + iniP + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, cEst, filas, 1)),
+        regla(Hojas_formulaProximoControl(lProx, iniP, 'VENCIDO'),
+          DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, cProx, filas, 1)),
+        regla(Hojas_formulaProximoControl(lProx, iniP, 'PROXIMO'),
+          DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, cProx, filas, 1)),
+        regla(Hojas_formulaProximoControl(lProx, iniP, 'VIGENTE'),
+          DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, cProx, filas, 1))
       ]);
     }
   } catch (eP) { errores.push('PACIENTES: ' + (eP && eP.message || eP)); }
@@ -594,12 +215,17 @@ function Hojas_formatoCondicional(ss) {
       var hr = Modelo_headerRow(nombre);
       if (!h || h.getLastRow() < hr) return;
       var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
-      var L = String.fromCharCode(64 + colEstado);
+      var L = Hojas_columnaA1_(colEstado);
       var rEstado = h.getRange(ini, colEstado, Math.max(h.getMaxRows() - ini + 1, 1), 1);
       aplicar(h, [
+        regla('=$' + L + ini + '="PENDIENTE"', DESIGN_SYSTEM.ESTADOS.ALERTA.fondo, rEstado),
+        regla('=$' + L + ini + '="AGENDADO"', DESIGN_SYSTEM.ESTADOS.INFO.fondo, rEstado),
         regla('=$' + L + ini + '="ERROR"', DESIGN_SYSTEM.ESTADOS.ERROR.fondo, rEstado, true),
         regla('=$' + L + ini + '="REQUIERE_REVISION"', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, rEstado),
-        regla('=$' + L + ini + '="INGRESADO"', DESIGN_SYSTEM.ESTADOS.OK.fondo, rEstado)
+        regla('=$' + L + ini + '="INGRESADO"', DESIGN_SYSTEM.ESTADOS.OK.fondo, rEstado),
+        regla('=$' + L + ini + '="NO_CONTESTA"', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, rEstado),
+        regla('=$' + L + ini + '="FALLECIDO"', DESIGN_SYSTEM.HOJAS.tecnico.fondo, rEstado),
+        regla('=$' + L + ini + '="NSP"', DESIGN_SYSTEM.ESTADOS.ERROR.fondo, rEstado)
       ]);
     } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
@@ -614,9 +240,9 @@ function Hojas_formatoCondicional(ss) {
       var colRut = COLUMNAS_SECTOR_VISTA.indexOf('RUT_DV_VALIDO') + 1;
       var colEst = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
       var colProx = COLUMNAS_SECTOR_VISTA.indexOf('PROXIMO_CONTROL') + 1;
-      var letraRut = String.fromCharCode(64 + colRut);
-      var letraEst = String.fromCharCode(64 + colEst);
-      var letraProx = String.fromCharCode(64 + colProx);
+      var letraRut = Hojas_columnaA1_(colRut);
+      var letraEst = Hojas_columnaA1_(colEst);
+      var letraProx = Hojas_columnaA1_(colProx);
       var filas = Math.max(h.getMaxRows() - ini + 1, 1);
       aplicar(h, [
         regla('=$' + letraRut + ini + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo,
@@ -655,41 +281,51 @@ function Hojas_formatoCondicional(ss) {
     }
   } catch (eC2) { errores.push('CONFLICTOS: ' + (eC2 && eC2.message || eC2)); }
 
+  /* EVENTOS: color discreto únicamente en TIPO_EVENTO. */
+  try {
+    var ev = ss.getSheetByName(HOJAS.EVENTOS), iniEv = Modelo_dataStartRow(HOJAS.EVENTOS);
+    var colTipo = Hojas_columnaCampo_(HOJAS.EVENTOS, 'TIPO_EVENTO');
+    if (ev && ev.getLastRow() >= Modelo_headerRow(HOJAS.EVENTOS) && colTipo > 0) {
+      var filasEv = Math.max(ev.getMaxRows() - iniEv + 1, 1), letraTipo = Hojas_columnaA1_(colTipo);
+      var rangoTipo = ev.getRange(iniEv, colTipo, filasEv, 1);
+      aplicar(ev, [
+        regla('=$' + letraTipo + iniEv + '="INGRESO"', DESIGN_SYSTEM.ESTADOS.INFO.fondo, rangoTipo),
+        regla('=$' + letraTipo + iniEv + '="CONTROL"', DESIGN_SYSTEM.ESTADOS.OK.fondo, rangoTipo),
+        regla('=$' + letraTipo + iniEv + '="SEGUIMIENTO"', DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, rangoTipo),
+        regla('=$' + letraTipo + iniEv + '="CAMBIO_SECTOR"', DESIGN_SYSTEM.HOJAS.seleccion.fondo, rangoTipo),
+        regla('=$' + letraTipo + iniEv + '="CAMBIO_ESTRATIFICACION"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, rangoTipo),
+        regla('=$' + letraTipo + iniEv + '="OTRO"', DESIGN_SYSTEM.HOJAS.tecnico.fondo, rangoTipo)
+      ]);
+    }
+  } catch (eEv) { errores.push('EVENTOS: ' + (eEv && eEv.message || eEv)); }
+
   return { aplicadas: aplicadas, errores: errores };
 }
 
 /** GAS: filtros básicos en hojas de datos, anclados en headerRow del contrato
  *  (idempotente; si existe un filtro heredado mal anclado, se recrea). */
 function Hojas_filtros(ss) {
-  var n = 0;
-  ['PACIENTES', 'EVENTOS', 'CONFLICTOS'].concat(HOJAS_SECTOR, Object.keys(HOJAS_INGRESO))
-    .forEach(function (nombre) {
-      var h = ss.getSheetByName(nombre);
-      var hr = Modelo_headerRow(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      if (!h || h.getLastRow() < ini) return;
-      var filtro = h.getFilter();
-      if (!filtro || filtro.getRange().getRow() !== hr) {
-        if (filtro) { try { filtro.remove(); } catch (eR) {} }
-        h.getRange(hr, 1, h.getLastRow() - hr + 1, Math.max(h.getLastColumn(), 1)).createFilter();
-        n++;
-      }
-    });
-  return { filtros: n };
+  // Un filtro compartido cambia la vista de todos los colaboradores. v0.12
+  // conserva los existentes y deja búsqueda/filtrado operativo en la Web App.
+  return { filtros: 0, omitida: true, motivo: 'FILTROS_COMPARTIDOS_NO_AUTOMATICOS' };
 }
 
 /** GAS: oculta columnas técnicas (idempotente) — no cambia índices. */
 function Hojas_ocultarTecnicas(ss) {
   var ocultas = 0;
-  function ocultar(hoja, indices) {
-    indices.forEach(function (col) {
+  function ocultar(hoja, campos) {
+    var nombre = hoja.getName();
+    campos.forEach(function (campo) {
+      var col = Hojas_columnaCampo_(nombre, campo);
+      if (col < 1) return;
       if (!hoja.isColumnHiddenByUser(col)) { hoja.hideColumns(col); ocultas++; }
     });
   }
   var p = ss.getSheetByName(HOJAS.PACIENTES);
-  if (p) ocultar(p, [1, 7, 22, 23, 24, 25, 26, 27, 28]); // ID_INTERNO·TEL_OBS·NOMBRE_NORM·RUT_SIN_DV·ESTRAT_ORIGEN·ESTRAT_CALC·ESTRAT_FECHA·FECHA_ACT·REVISION
+  if (p) ocultar(p, ['ID_INTERNO','TELEFONO_OBS','NOMBRE_NORMALIZADO','RUT_DV_VALIDO',
+    'RUT_SIN_DV','ESTRAT_ORIGEN','ESTRAT_CALCULADA','ESTRAT_FECHA_CALCULO','FUENTE','FECHA_ACTUALIZACION']);
   var e = ss.getSheetByName(HOJAS.EVENTOS);
-  if (e) ocultar(e, [1, 2, 14, 15, 16]); // ID_EVENTO·ID_INTERNO·FUENTE·REGISTRADO_POR·FECHA_REG
+  if (e) ocultar(e, ['ID_EVENTO','ID_INTERNO','FUENTE','REGISTRADO_POR','FECHA_REGISTRO']);
 
   // Ocultar hoja CONFLICTOS (se accede vía Cola de revisión)
   var c = ss.getSheetByName(HOJAS.CONFLICTOS);
@@ -702,6 +338,7 @@ function Hojas_ocultarTecnicas(ss) {
 function Hojas_proteger(ss) {
   var n = 0;
   function advertir(hoja, a1, desc) {
+    desc = 'ECICEP:' + desc;
     var rango = hoja.getRange(a1);
     var ya = hoja.getProtections(SpreadsheetApp.ProtectionType.RANGE)
       .some(function (pr) {
@@ -719,11 +356,12 @@ function Hojas_proteger(ss) {
   var rem = ss.getSheetByName(HOJAS.REM_SALIDA);
   if (rem) advertir(rem, 'A1', '🔵 Hoja generada automáticamente — los cambios se sobrescriben al refrescar');
 
-  /* Limpiar protecciones previas de SECTOR_* e INGRESO_* (ya no se protegen) */
+  /* Solo se eliminan protecciones propiedad de ECICEP. Las protecciones de
+     usuarios o administradores siempre se preservan. */
   HOJAS_SECTOR.concat(Object.keys(HOJAS_INGRESO)).forEach(function (nombre) {
     var h = ss.getSheetByName(nombre);
     if (h) h.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (pr) {
-      try { pr.remove(); } catch (eR) { /* best effort */ }
+      try { if (Hojas_esProteccionEcicep_(pr)) pr.remove(); } catch (eR) { /* best effort */ }
     });
   });
 

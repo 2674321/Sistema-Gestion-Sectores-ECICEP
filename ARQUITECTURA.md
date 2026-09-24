@@ -1,5 +1,18 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-23 (v0.12.0):**
+> - `DESIGN_SYSTEM` y `HOJAS_UX` gobiernan tokens, anchos, formatos, orden,
+>   visibilidad e inmovilización del único libro operativo.
+> - `INICIO` administra `A1:AF60` y escribe snapshots agregados sin PII; no usa
+>   fórmulas de columna completa.
+> - `ECICEP_onChangeLibro` solo marca flags ante cambios estructurales. El
+>   mantenimiento posterior repara presentación y refresca INICIO selectivamente.
+> - Validaciones, notas, formatos numéricos y reglas condicionales son operaciones
+>   independientes. Solo se eliminan protecciones con prefijo `ECICEP:`.
+> - Integridad separa derivados reparables de evidencia histórica de solo reporte.
+>   Esquema 2, captura V4, Web App, Spreadsheet y pipeline se conservan.
+>
+
 > **Actualización 2026-09-23 (v0.11.1):**
 > - `Sistema_estadoSalud_({profundo})` separa datos/esquema, integridad,
 >   automatizaciones y respaldo. La ruta rápida no barre datos; la profunda

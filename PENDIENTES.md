@@ -1,5 +1,13 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-23 (v0.12.0):** corregido el fallo genérico de
+> `Reconciliando derivados`; la evidencia histórica de solo reporte queda como
+> advertencia. Se implementaron INICIO por snapshots, presentación declarativa,
+> reparación selectiva, trigger estructural ligero y preservación de protecciones
+> ajenas. Esquema 2 y captura V4 se conservan. Tras publicar, queda como validación
+> operativa ejecutar nuevamente **Instalar / reparar** en el Spreadsheet y revisar
+> el diagnóstico final de presentación/automatizaciones.
+
 > **Actualización 2026-09-23 (v0.11.1):** código y pruebas de estabilización
 > operativa completados. El error real
 > `MIG-001:SECTOR_NARANJO:ENCABEZADOS_INCOMPATIBLES` quedó corregido: las vistas

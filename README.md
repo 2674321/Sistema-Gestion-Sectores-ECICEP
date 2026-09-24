@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.10.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/releases/tag/v0.10.0)
+[![Release](https://img.shields.io/badge/release-v0.12.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,22 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.11.1` · estabilización operativa con salud rápida/profunda, respaldo transaccional y reparación selectiva · deployment operativo `@230` · `node tools/verificar.mjs` |
+| **Estado** | `v0.12.0` · rediseño profesional de Sheets, INICIO por snapshots y mantenimiento selectivo · esquema 2 · `node tools/verificar.mjs` |
+
+## v0.12.0 — rediseño visual y automatización de Sheets
+
+La instalación distingue derivados reparables de evidencia histórica de solo
+reporte, por lo que ya no falla con `Reconciliando derivados · Detalle: error`
+cuando las vistas quedaron consistentes. La nueva fase **Presentación del libro**
+repara formato, validaciones, notas, pestañas, orden e inmovilización de forma
+idempotente y preserva protecciones ajenas.
+
+`INICIO` usa snapshots agregados sin PII dentro de `A1:AF60`, sin fórmulas
+pesadas. Los cambios estructurales solo marcan flags; el mantenimiento se ejecuta
+selectivamente. La agenda `PROXIMO_CONTROL` continúa siendo manual, el esquema
+sigue en **2**, el contrato de captura en **V4** y la Web App continúa como único
+canal de captura. Detalle en
+[`docs/INFORME_2026-09-23_REDISENO_VISUAL_AUTOMATIZACION_V012.md`](docs/INFORME_2026-09-23_REDISENO_VISUAL_AUTOMATIZACION_V012.md).
 
 ## v0.11.1 — operación real verificable
 

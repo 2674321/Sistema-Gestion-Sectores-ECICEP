@@ -1629,3 +1629,26 @@ y contrato de captura V4.
 `salud_sistema_v0111`, `performance_v0111`) y batería total de 32 suites.
 
 **Fecha:** 2026-09-23
+
+
+## DEC-074
+
+**v0.12.0 — Presentación declarativa y mantenimiento selectivo del único libro.**
+
+**Motivo:** el instalador mezclaba reparaciones visuales, validaciones y evidencia
+histórica en operaciones globales. Esto aumentaba el tiempo de ejecución y podía
+convertir advertencias no reparables automáticamente en un fallo genérico.
+
+**Reglas:**
+1. `DESIGN_SYSTEM` y `HOJAS_UX` son la fuente de verdad visual.
+2. `INICIO` administra solo `A1:AF60` y usa snapshots agregados sin PII.
+3. Los triggers ligeros solo marcan flags; no recorren ni formatean el libro.
+4. Validaciones, notas, formatos y reglas condicionales se aplican por separado.
+5. Las protecciones ajenas se preservan; ECICEP solo administra las que llevan
+   el prefijo `ECICEP:`.
+6. Evidencia histórica no destructivamente reparable se informa como advertencia
+   y no impide declarar consistentes los derivados.
+7. No cambia el modelo clínico: esquema 2, captura V4, agenda manual y pipeline
+   único se conservan.
+
+**Fecha:** 2026-09-23

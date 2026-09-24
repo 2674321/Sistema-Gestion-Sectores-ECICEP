@@ -1821,20 +1821,16 @@ function _pruebas_diseno(t, A) {
       A.cierto(d && d.oculta === true, n + ' debe estar oculta');
       A.igual(d.color, DESIGN_SYSTEM.MARCA.tecnico, n + ' gris técnica');
     });
-    A.igual(MODELO_DISENO.filter(function (d) { return d.nombre === 'REM_SALIDA'; })[0].oculta, true,
-      'REM_SALIDA es interna: el usuario consulta vía Consultar REM');
+    A.cierto(MODELO_DISENO.filter(function (d) { return d.nombre === 'REM_SALIDA'; })[0].oculta !== true,
+      'REM_SALIDA permanece visible como salida operativa');
   });
 
-  t('DISEÑO: pares sector-ingreso adyacentes y segmentos en secuencia', function () {
+  t('DISEÑO v0.12: navegación, puertas, vistas y reportes siguen el orden operativo', function () {
     var nombres = MODELO_DISENO.map(function (d) { return d.nombre; });
-    var pos = function (n) { return nombres.indexOf(n); };
-    A.igual(pos('INGRESO_NARANJO'), pos('SECTOR_NARANJO') + 1, 'par Naranjo junto');
-    A.igual(pos('INGRESO_AMARILLO'), pos('SECTOR_AMARILLO') + 1, 'par Amarillo junto');
-    A.igual(pos('INGRESO_VERDE'), pos('SECTOR_VERDE') + 1, 'par Verde junto');
-    A.cierto(pos('DASHBOARD') < pos('SECTOR_NARANJO'), 'operación primero');
-    A.cierto(pos('INGRESO_VERDE') < pos('PACIENTES'), 'sectores antes que bases');
-    A.cierto(pos('EVENTOS') < pos('REM_SALIDA'), 'bases antes que reportes');
-    A.cierto(pos('REM_SALIDA') < pos('CONFLICTOS'), 'reportes antes que sistema');
+    var esperado = ['INICIO','PACIENTES','INGRESO_NARANJO','INGRESO_AMARILLO','INGRESO_VERDE',
+      'SECTOR_NARANJO','SECTOR_AMARILLO','SECTOR_VERDE','REM_SALIDA','EVENTOS'];
+    A.arreglos(nombres.slice(0, esperado.length), esperado, 'orden operativo visible');
+    A.cierto(nombres.indexOf('EVENTOS') < nombres.indexOf('CONFLICTOS'), 'historial antes que soporte técnico');
   });
 }
 
@@ -2892,7 +2888,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.11.1', 'versión esperada v0.11.1');
+    A.igual(v, '0.12.0', 'versión esperada v0.12.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3132,7 +3128,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada a 0.10.6', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.11.1', 'versión esperada v0.11.1');
+    A.igual(v, '0.12.0', 'versión esperada v0.12.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3609,10 +3605,10 @@ function _pruebas_pulido_v0895(t, A) {
 
   t('PULIDO v0.8.9.5: Modelo_anchoColumna centralizado (orden=precedencia)', function () {
     A.igual(Modelo_anchoColumna('NOMBRE_NORMALIZADO'), 150, 'normalizado gana a NOMBRE');
-    A.igual(Modelo_anchoColumna('NOMBRE'), 240, 'nombre amplio');
-    A.igual(Modelo_anchoColumna('RUT'), 110, 'rut');
-    A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 110, 'fecha');
-    A.igual(Modelo_anchoColumna('SEXO'), 55, 'sexo compacto');
+    A.igual(Modelo_anchoColumna('NOMBRE'), 210, 'nombre amplio');
+    A.igual(Modelo_anchoColumna('RUT'), 115, 'rut');
+    A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 105, 'fecha');
+    A.igual(Modelo_anchoColumna('SEXO'), 70, 'sexo compacto');
     A.igual(Modelo_anchoColumna('CAMPORARO'), 130, 'default');
   });
 
@@ -3782,11 +3778,11 @@ function _pruebas_designsystem_v0896(t, A) {
   });
 
   t('DESIGN SYSTEM v0.8.9.6: anchos con fallback por tipo (Parte 10)', function () {
-    A.igual(Modelo_anchoColumna('ID_INTERNO'), 135, 'identificador');
-    A.igual(Modelo_anchoColumna('FECHA_EVENTO'), 110, 'fecha');
+    A.igual(Modelo_anchoColumna('ID_INTERNO'), 90, 'identificador');
+    A.igual(Modelo_anchoColumna('FECHA_EVENTO'), 105, 'fecha');
     A.igual(Modelo_anchoColumna('CANTIDAD'), 130, 'numérico → default');
     A.igual(Modelo_anchoColumna('DESCRIPCION'), 220, 'texto largo');
-    A.igual(Modelo_anchoColumna('SEXO'), 55, 'enum compacto');
+    A.igual(Modelo_anchoColumna('SEXO'), 70, 'enum compacto');
     A.igual(Modelo_anchoColumna('ALGO_INVENTADO'), 130, 'default 130');
   });
 
@@ -5171,7 +5167,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.11'), 0, 'versión de aplicación coherente (0.11.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.12'), 0, 'versión de aplicación coherente (0.12.x)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -5435,19 +5431,16 @@ function _pruebas_inst1_versionado(t, A) {
 // ---------------------------------------------------------------------------
 // INST-1.1 — Dashboard/INICIO: fórmulas legibles (fecha, sin serial crudo).
 function _pruebas_inicio_formulas(t, A) {
-  t('INI-1: "Última sincronización de fuentes" arma la fecha con TEXT() (no serial crudo)', function () {
+  t('INI-1 v0.12: INICIO delega en la portada administrada por snapshots', function () {
     var src = Hojas_crearInicio.toString();
-    A.cierto(src.indexOf('CARGA_REAL_HECHA') !== -1, 'la consulta a CONFIG existe');
-    A.cierto(src.indexOf('IFERROR(TEXT(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0)') !== -1,
-      'CARGA_REAL_HECHA se envuelve en TEXT(...)');
-    A.cierto(src.indexOf('IFERROR(VLOOKUP("CARGA_REAL_HECHA";CONFIG!A:B;2;0)') === -1,
-      'no queda la variante sin formato (regresión del serial 46262,xxxx)');
-    A.cierto(src.indexOf('"dd/mm/yyyy hh:mm"') !== -1, 'formato de fecha legible aplicado');
+    A.cierto(src.indexOf('Inicio_construir_') !== -1, 'delega en Inicio_construir_');
+    A.cierto(typeof Inicio_calcularMetricas_ === 'function', 'calculador agregado disponible');
   });
-  t('INI-2: la fecha de "Última actualización de datos" continúa formateada como fecha', function () {
-    var src = Hojas_crearInicio.toString();
-    A.cierto(src.indexOf('TEXT(MAX(PACIENTES!') !== -1 && src.indexOf('"dd/mm/yyyy hh:mm"') !== -1,
-      'TEXT con dd/mm/yyyy hh:mm en la última actualización de datos');
+  t('INI-2 v0.12: la portada no instala fórmulas pesadas sobre las tablas clínicas', function () {
+    var src = Inicio_construir_.toString();
+    A.cierto(src.indexOf('COUNTIF') === -1 && src.indexOf('VLOOKUP') === -1 && src.indexOf('MAX(PACIENTES') === -1,
+      'la portada escribe snapshots y evita fórmulas de hoja completas');
+    A.cierto(src.indexOf('Inicio_calcularMetricas_') !== -1 && src.indexOf('Inicio_escribirMetricas_') !== -1, 'calcula y escribe el snapshot al construir');
   });
 }
 
@@ -6025,8 +6018,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   t('S7b: SEXO dropdown permite vacío (setAllowInvalid true)', function () {
     A.cierto(typeof Hojas_formatoCondicional === 'function', 'Hojas_formatoCondicional existe');
-    var src = Hojas_formatoCondicional.toString();
-    A.cierto(src.indexOf("setAllowInvalid(true)") !== -1,
+    var src = Hojas_aplicarValidaciones_.toString() + Hojas_validacionCampo_.toString();
+    A.cierto(src.indexOf("setAllowInvalid(cfg.permitirVacio === true)") !== -1,
       'SEXO usa setAllowInvalid(true) — permite vacío');
   });
 
@@ -6308,25 +6301,25 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(src.indexOf('reporte.ok = false') !== -1, 'ok se pone false si hay errores');
   });
 
-  t('S10: Menú reducido — ECICEP tiene ≤5 items', function () {
+  t('S10: Menú operativo — ECICEP tiene ≤6 items', function () {
     var src = onOpen.toString();
     // Contar items del menú ECICEP
     var ecicepMatch = src.match(/createMenu\('ECICEP'\)([\s\S]*?)\.addToUi/);
     A.cierto(ecicepMatch, 'menú ECICEP existe');
     var items = ecicepMatch[1].match(/\.addItem/g);
-    A.cierto(items && items.length <= 5, 'ECICEP tiene ≤5 items (tiene ' + (items ? items.length : 0) + ')');
+    A.cierto(items && items.length <= 6, 'ECICEP tiene ≤6 items (tiene ' + (items ? items.length : 0) + ')');
   });
 
-  t('S10: Menú reducido — Desarrollo tiene ≤5 items', function () {
+  t('S10: Menú técnico — Desarrollo tiene ≤6 items', function () {
     var src = onOpen.toString();
     var devMatch = src.match(/createMenu\('Desarrollo[\s\S]*?'\)([\s\S]*?)\.addToUi/);
     A.cierto(devMatch, 'menú Desarrollo existe');
     var items = devMatch[1].match(/\.addItem/g);
-    A.cierto(items && items.length <= 5, 'Desarrollo tiene ≤5 items (tiene ' + (items ? items.length : 0) + ')');
+    A.cierto(items && items.length <= 6, 'Desarrollo tiene ≤6 items (tiene ' + (items ? items.length : 0) + ')');
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.11.1', 'VERSION es 0.11.1');
+    A.cierto(ECICEP.VERSION === '0.12.0', 'VERSION es 0.12.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

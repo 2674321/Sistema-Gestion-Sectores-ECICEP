@@ -591,8 +591,14 @@ function Act_actualizarSistema(opciones) {
   if (reporte.vistas && reporte.vistas.ok === false)
     registrarFallo('vistas', reporte.vistas.motivo);
 
+  // La presentación se mantiene por flags técnicos. En pruebas/entornos sin
+  // PropertiesService se conserva el recorrido completo como fallback seguro.
+  var dirtyLibro = typeof Libro_leerDirty_ === 'function' ? Libro_leerDirty_() : { _disponible:false };
+  var repararPresentacion = !dirtyLibro._disponible || opciones.repararPresentacion === true ||
+    dirtyLibro.VISUAL || dirtyLibro.VALIDACIONES || dirtyLibro.ESTRUCTURA;
+
   // 8) SECCIONES VISuales (barras de sección en fila 2 de todas las hojas visuales)
-  if (ejecutar && typeof HVis_aplicarTodasLasSecciones === 'function') {
+  if (ejecutar && repararPresentacion && typeof HVis_aplicarTodasLasSecciones === 'function') {
     try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); }
     catch (eSV) { reporte.seccionesVisuales = { ok: false, motivo: eSV && eSV.message || String(eSV) }; }
     var seccionesFallidas = (reporte.seccionesVisuales && reporte.seccionesVisuales.resultados || [])
@@ -603,7 +609,7 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 8b) FORMATO DE INGRESOS (formato específico para hojas INGRESO_* —不同于 secciones)
-  if (ejecutar && typeof HVis_formatearIngresos === 'function') {
+  if (ejecutar && repararPresentacion && typeof HVis_formatearIngresos === 'function') {
     try { reporte.formato = HVis_formatearIngresos(); }
     catch (eF) { reporte.formato = { ok: false, motivo: eF && eF.message || String(eF) }; }
     if (reporte.formato &&
@@ -613,7 +619,7 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 9) FORMATO CONDICIONAL (reglas de color por campo)
-  if (ejecutar) {
+  if (ejecutar && repararPresentacion) {
     try { reporte.formatoCondicional = Hojas_formatoCondicional(Modelo_ss()); }
     catch (eC) { reporte.formatoCondicional = { ok: false, motivo: eC && eC.message || String(eC) }; }
     if (reporte.formatoCondicional &&
@@ -624,7 +630,7 @@ function Act_actualizarSistema(opciones) {
 
   // 10) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
   //     reciban las mismas reglas que la instalación. Idempotente.
-  if (ejecutar && typeof Modelo_validarIngresos === 'function') {
+  if (ejecutar && repararPresentacion && typeof Modelo_validarIngresos === 'function') {
     try { reporte.validaciones = Modelo_validarIngresos(Modelo_ss()); }
     catch (eVx) { reporte.validaciones = { ok: false, motivo: eVx && eVx.message || String(eVx) }; }
     if (reporte.validaciones &&
@@ -634,7 +640,7 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 11) DISEÑO DEL LIBRO (colores pestaña, frozen, banding, encabezado, orden, ocultamiento)
-  if (ejecutar && typeof Modelo_aplicarDiseno === 'function') {
+  if (ejecutar && repararPresentacion && typeof Modelo_aplicarDiseno === 'function') {
     try { reporte.diseno = Modelo_aplicarDiseno(); }
     catch (eD) { reporte.diseno = { ok: false, motivo: eD && eD.message || String(eD) }; }
     if (reporte.diseno && (reporte.diseno.ok === false || (reporte.diseno.fallidas || []).length))
@@ -643,7 +649,11 @@ function Act_actualizarSistema(opciones) {
 
   // 12) INICIO (hoja dashboard) — refrescar después de Amarillo + derivados
   if (ejecutar && typeof Modelo_disenoHojas === 'function') {
-    try { reporte.inicio = Modelo_disenoHojas(); }
+    try {
+      if (dirtyLibro._disponible && Modelo_ss().getSheetByName('INICIO'))
+        reporte.inicio = Inicio_refrescarSiNecesario_();
+      else reporte.inicio = Modelo_disenoHojas();
+    }
     catch (eI) { reporte.inicio = { ok: false, motivo: eI && eI.message || String(eI) }; }
     if (reporte.inicio && reporte.inicio.ok === false)
       registrarFallo('inicio', reporte.inicio.motivo);
@@ -660,6 +670,17 @@ function Act_actualizarSistema(opciones) {
   // 13) REBUILD MENÚ (si hubo cambios en items, reflejarlos)
   if (ejecutar && typeof onOpen === 'function') {
     try { onOpen(); } catch (eM) { /* best effort */ }
+  }
+
+  if (ejecutar && dirtyLibro._disponible) {
+    try {
+      reporte.mantenimiento = Libro_mantenimiento_({ visualYaProcesado: repararPresentacion,
+        refrescarInicio: true });
+      if (repararPresentacion && reporte._errores.indexOf('diseno') < 0 &&
+          reporte._errores.indexOf('seccionesVisuales') < 0) {
+        Libro_limpiarDirty_('VISUAL'); Libro_limpiarDirty_('VALIDACIONES'); Libro_limpiarDirty_('ESTRUCTURA');
+      }
+    } catch (eLM) { registrarFallo('mantenimiento', eLM); }
   }
 
   // 14) VERIFICACIÓN FINAL — comprobar integridad de las 8 hojas críticas

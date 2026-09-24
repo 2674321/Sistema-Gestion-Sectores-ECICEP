@@ -984,3 +984,15 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
 - Los deployments son **mecanismos técnicos de publicación**, no entornos.
 - No existe segunda base de datos ni segundo pipeline; una sola fuente de verdad.
 - El contrato de captura se define únicamente en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**).
+
+## v0.12.0 — Rediseño visual y automatización de Sheets (2026-09-23)
+
+- Corregido el falso fallo `Reconciliando derivados · Detalle: error`: los
+  hallazgos históricos de solo reporte ya no invalidan una conciliación exitosa.
+- Sistema visual declarativo, INICIO por snapshots, orden operativo de pestañas,
+  anchos/formatos semánticos y reparación selectiva.
+- Trigger estructural ligero, capacidad por bloques y hot paths sin formateo
+  global. Validaciones, notas, formatos y reglas condicionales separados.
+- Protecciones ajenas preservadas; sin filtros compartidos automáticos.
+- Esquema 2, contrato V4, agenda manual, URL y pipeline único sin cambios.
+- Informe: `docs/INFORME_2026-09-23_REDISENO_VISUAL_AUTOMATIZACION_V012.md`.

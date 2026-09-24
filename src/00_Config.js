@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.11.1',
+  VERSION: '0.12.0',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -224,6 +224,14 @@ var COLUMNAS_SECTOR_VISTA = [
 
 // Tipografía: una única fuente por semántica (Parte 3).
 const DESIGN_SYSTEM = {
+  // Tokens compartidos con 00_Tokens.html. El test de sincronización v0.12
+  // evita que la Web App y el libro evolucionen con paletas distintas.
+  TOKENS_UI: {
+    primary: '#0E5C68', surface: '#FFFFFF', background: '#F7F8FA',
+    border: '#E3E6EB', text: '#1C2430', naranjo: '#E8730A',
+    amarillo: '#C79A00', verde: '#2E8B57', success: '#1F9D6B',
+    warning: '#D48806', danger: '#D64545'
+  },
   // --- Tipografía ---
   FUENTES: {
     encabezados: 'Arial',   // hojas de datos (lectura densa)
@@ -266,6 +274,25 @@ const DESIGN_SYSTEM = {
     residuo: '#F4F6F8',        // restos de secciones previas (al limpiar)
     total: '#E5F1F2'           // filas de totales (REM, cuadros)
   },
+  // Superficies según responsabilidad de la hoja/campo. Estos colores no
+  // expresan estado clínico; únicamente distinguen edición y datos generados.
+  HOJAS: {
+    editable:  { fondo: '#FFFFFF', tinta: '#1C2430' },
+    sistema:   { fondo: '#F1F3F6', tinta: '#5B6472' },
+    derivado:  { fondo: '#F7F8FA', tinta: '#1C2430' },
+    tecnico:   { fondo: '#EEF1F4', tinta: '#5B6472' },
+    seleccion: { fondo: '#E5F1F2', tinta: '#0B3C49' }
+  },
+  ANCHOS: {
+    ID: 90, RUT: 115, NOMBRE: 210, SEXO: 70, FECHA: 105, EDAD: 65,
+    TELEFONO: 135, ESTADO: 125, ESTRATIFICACION: 105,
+    PROFESIONAL: 170, OBSERVACIONES: 280, NOTA_SISTEMA: 250,
+    SALUD_MENTAL: 110
+  },
+  FORMATOS: {
+    RUT: '@', TELEFONO: '@', ID: '@', FECHA: 'dd/MM/yyyy',
+    FECHA_HORA: 'dd/MM/yyyy HH:mm'
+  },
   // --- Encabezados (Parte 6): especificación única, una fuente de verdad ---
   ENCABEZADOS: {
     fondo: '#0E5C68',       // barra de encabezado (idéntica en TODAS las hojas)
@@ -307,6 +334,34 @@ const DESIGN_SYSTEM = {
     INFO:     { fondo: '#EAF3FA', tinta: '#0B3C49' }
   }
 };
+
+// Especificación de experiencia. Describe presentación y navegación, sin
+// duplicar contratos de datos ni convertir vistas derivadas en fuentes.
+const HOJAS_UX = {
+  INICIO:           { familia: 'inicio', visible: true, frozenRows: 0, frozenColumns: 0 },
+  PACIENTES:        { familia: 'canonica', visible: true, frozenRows: 3, frozenColumns: 0 },
+  INGRESO_NARANJO:  { familia: 'entrada', sector: 'NARANJO', visible: true, frozenRows: 3, frozenColumns: 0 },
+  INGRESO_AMARILLO: { familia: 'entrada', sector: 'AMARILLO', visible: true, frozenRows: 3, frozenColumns: 0 },
+  INGRESO_VERDE:    { familia: 'entrada', sector: 'VERDE', visible: true, frozenRows: 3, frozenColumns: 0 },
+  SECTOR_NARANJO:   { familia: 'vista', sector: 'NARANJO', visible: true, frozenRows: 3, frozenColumns: 0 },
+  SECTOR_AMARILLO:  { familia: 'vista', sector: 'AMARILLO', visible: true, frozenRows: 3, frozenColumns: 0 },
+  SECTOR_VERDE:     { familia: 'vista', sector: 'VERDE', visible: true, frozenRows: 3, frozenColumns: 0 },
+  EVENTOS:          { familia: 'historial', frozenRows: 1, frozenColumns: 1 },
+  REM_SALIDA:       { familia: 'reporte', visible: true, frozenRows: 2, frozenColumns: 1 },
+  CONFIG:           { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 },
+  LOG:              { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 },
+  FORM_RESPUESTAS:  { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 }
+};
+
+const VALIDACIONES_CAMPOS = {
+  SEXO: { tipo: 'LISTA', valores: ['M', 'F', 'OTRO'], permitirVacio: true },
+  ESTADO_INGRESO: { tipo: 'LISTA', valores: ['PENDIENTE', 'AGENDADO', 'INGRESADO', 'NO_CONTESTA', 'FALLECIDO', 'NSP'], permitirVacio: false },
+  SALUD_MENTAL: { tipo: 'LISTA', valores: ['SI', 'NO'], permitirVacio: true },
+  ESTRATIFICACION: { tipo: 'LISTA', valores: ['G', 'G1', 'G2', 'G3'], permitirVacio: true },
+  FECHA_NACIMIENTO: { tipo: 'FECHA', permitirVacio: true }
+};
+
+var INICIO_RANGO_GESTIONADO = 'A1:AF60';
 
 // Pestañas / identidad por familia (Parte 4) — profundidad constante por matiz.
 const IDENTIDAD = {
@@ -436,23 +491,25 @@ const PULIDO_ENCABEZADO = {
 // campos técnicos compactos; fechas con ancho para 'dd/MM/yyyy'.
 const ANCHOS_COLUMNA = [
   { clave: 'NOMBRE_NORMALIZADO', ancho: 150 },
-  { clave: 'NOMBRE', ancho: 240 },
-  { clave: 'RUT', ancho: 110 },
-  { clave: 'ID_INTERNO', ancho: 135 },
-  { clave: 'ID_EVENTO', ancho: 135 },
+  { clave: 'NOMBRE', ancho: DESIGN_SYSTEM.ANCHOS.NOMBRE },
+  { clave: 'RUT', ancho: DESIGN_SYSTEM.ANCHOS.RUT },
+  { clave: 'ID_INTERNO', ancho: DESIGN_SYSTEM.ANCHOS.ID },
+  { clave: 'ID_EVENTO', ancho: DESIGN_SYSTEM.ANCHOS.ID },
   { clave: 'ID_PROVISIONAL', ancho: 150 },
-  { clave: 'FECHA', ancho: 110 },
-  { clave: 'TELEFON', ancho: 135 },
-  { clave: 'OBSERVACION', ancho: 270 },
-  { clave: 'ESTRATIFICACION', ancho: 130 },
-  { clave: 'ESTRAT_', ancho: 130 },
-  { clave: 'PROXIMO_CONTROL', ancho: 115 },
-  { clave: 'ULTIMO', ancho: 115 },
+  { clave: 'FECHA', ancho: DESIGN_SYSTEM.ANCHOS.FECHA },
+  { clave: 'TELEFON', ancho: DESIGN_SYSTEM.ANCHOS.TELEFONO },
+  { clave: 'OBSERVACION', ancho: DESIGN_SYSTEM.ANCHOS.OBSERVACIONES },
+  { clave: 'NOTA_SISTEMA', ancho: DESIGN_SYSTEM.ANCHOS.NOTA_SISTEMA },
+  { clave: 'SALUD_MENTAL', ancho: DESIGN_SYSTEM.ANCHOS.SALUD_MENTAL },
+  { clave: 'ESTRATIFICACION', ancho: DESIGN_SYSTEM.ANCHOS.ESTRATIFICACION },
+  { clave: 'ESTRAT_', ancho: DESIGN_SYSTEM.ANCHOS.ESTRATIFICACION },
+  { clave: 'PROXIMO_CONTROL', ancho: DESIGN_SYSTEM.ANCHOS.FECHA },
+  { clave: 'ULTIMO', ancho: DESIGN_SYSTEM.ANCHOS.FECHA },
   { clave: 'COMPOSICION_CONTROL', ancho: 150 },
   { clave: 'CONDICIONES', ancho: 200 },
   { clave: 'PATOLOG', ancho: 220 },
   { clave: 'DUPLA', ancho: 150 },
-  { clave: 'PROFESIONAL', ancho: 165 },
+  { clave: 'PROFESIONAL', ancho: DESIGN_SYSTEM.ANCHOS.PROFESIONAL },
   { clave: 'EMAIL', ancho: 180 },
   { clave: 'CORREO', ancho: 180 },
   { clave: 'DESCRIPCION', ancho: 220 },
@@ -474,9 +531,9 @@ const ANCHOS_COLUMNA = [
   { clave: 'CLAVE', ancho: 160 },
   { clave: 'VALOR', ancho: 360 },
   { clave: 'SECTOR', ancho: 100 },
-  { clave: 'SEXO', ancho: 55 },
-  { clave: 'EDAD', ancho: 55 },
-  { clave: 'ESTADO', ancho: 125 },
+  { clave: 'SEXO', ancho: DESIGN_SYSTEM.ANCHOS.SEXO },
+  { clave: 'EDAD', ancho: DESIGN_SYSTEM.ANCHOS.EDAD },
+  { clave: 'ESTADO', ancho: DESIGN_SYSTEM.ANCHOS.ESTADO },
   { clave: 'TIPO', ancho: 100 },
   { clave: 'REGISTRO', ancho: 115 },
   { clave: 'DEFAULT', ancho: 130 }
