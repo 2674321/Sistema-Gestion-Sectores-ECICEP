@@ -111,6 +111,11 @@ gestionado, notas batch, firma condicional, orden sin movimientos, preservación
 de protecciones manuales, secuencia de freeze, fingerprint, retry y ausencia de
 escrituras clínicas desde el motor visual.
 
+La verificación E2E en la Web App detectó y corrigió además una excepción del
+token visual compartido: el preconnect de fuentes llamaba `createElement` sobre
+`document.documentElement`. Ahora usa `document.createElement`, por lo que las
+vistas dejan de emitir el error sin cambiar su carga no bloqueante.
+
 ## Contratos preservados
 
 - un único proyecto Apps Script y un único Spreadsheet operativo;

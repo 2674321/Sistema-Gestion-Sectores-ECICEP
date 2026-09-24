@@ -440,6 +440,11 @@ test('La fase estructura no reescribe presentación de PACIENTES', () => {
   assert.equal(r.grupoLegacyReparado, false);
   assert.deepEqual(escrituras, []);
 });
+test('Tokens compartidos crean enlaces de fuente desde document, no documentElement', () => {
+  const tokens = read('src/00_Tokens.html');
+  assert.doesNotMatch(tokens, /doc\s*&&\s*doc\.createElement/);
+  assert.match(tokens, /typeof document\.createElement === 'function'/);
+});
 test('Instalar reabre solo el bloque clínico ocultado por el grupo heredado', () => {
   const c = backend(), visibles = [];
   const hoja = { isColumnHiddenByUser: col => col <= 12,

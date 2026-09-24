@@ -1079,4 +1079,7 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
 - Suite nueva `tests/instalador_formato_visual_v0122.mjs` (20/20). Batería
   completa: **40 suites, 0 fallos**. Esquema 2, captura V4, agenda manual y
   fuente única sin cambios.
+- E2E Web App: corregido el preconnect compartido que invocaba `createElement`
+  sobre `document.documentElement`; todas las vistas crean ahora los enlaces de
+  fuente desde `document` sin excepción de consola.
 - Informe: `docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md`.
