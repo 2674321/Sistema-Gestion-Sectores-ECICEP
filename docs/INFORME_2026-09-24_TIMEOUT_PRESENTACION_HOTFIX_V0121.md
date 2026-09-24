@@ -67,13 +67,54 @@ completo de cada hoja.
 
 ## Validación
 
-`node tools/verificar.mjs`: **37 suites, 0 fallos** (incluye `ejecutar_local`
-671/671, `regresiones_revision` 45/45, `validar_html` 22/22 y la suite nueva
-19/19).
+`node tools/verificar.mjs`: **38 suites, 0 fallos** (incluye `ejecutar_local`
+671/671, `regresiones_revision` 45/45, `validar_html` 22/22, la suite
+`instalador_presentacion_timeout_v0121` 19/19 y la nueva
+`inicio_portada_freezerows_v0121` 7/7).
+
+## Segundo hallazgo — freeze residual en la portada (reparación real)
+
+Durante la primera ejecución real de `Instalar / reparar` con la v0.12.1 (la que
+confirmó el fin del timeout de `Presentación del libro`), la etapa `inicio`
+(`Preparando la portada`) falló con:
+
+> `No se pueden combinar filas inmovilizadas con filas no inmovilizadas.`
+
+### Causa
+
+`Inicio_construir_` (34_LibroUX.js) redibuja la hoja `INICIO` por completo
+(`breakApart` + `clear` + merges + estilos sobre `A1:AF60`) y solo al final
+congelaba 2 filas. Si la hoja **heredaba filas/columnas inmovilizadas** de una
+instalación anterior (v0.12.0 parcial o legado), cualquier escritura cuyo rango
+cruzaba el límite congelado/no-congelado disparaba la validación de Sheets. La
+fase `inicio` nunca se había ejercitado en producción desde el rediseño porque la
+fase anterior (`diseno`) siempre había agotado el timeout primero.
+
+### Solución (invariante)
+
+Construir la portada **siempre sin freeze residual** y congelar solo al final:
+
+- `h.setFrozenRows(0); h.setFrozenColumns(0);` inmediatamente después de asegurar
+  la hoja, antes de cualquier operación estructural o de contenido (idempotente:
+  sobre una hoja nueva no tiene efecto neto).
+- `setConditionalFormatRules([])` y `setTabColor` se aplican antes del freeze.
+- El freeze final `setFrozenRows(2); setFrozenColumns(0)` queda como última
+  mutación visual.
+- La verificación `ver` ahora incluye `freeze: getFrozenRows() === 2`, de modo que
+  una portada que no termine correctamente congelada se informa como fallo real
+  de la fase.
+
+Suite nueva `tests/inicio_portada_freezerows_v0121.mjs` (7/7): una hoja heredada
+con freeze 2/1 y otra nueva se reconstruyen sin lanzar, todo `write` ocurre con
+`freeze=0` (orden `unlock → escrituras → freeze final` verificado por registro de
+operaciones) y termina con freeze 2/columnas 0. Alcance del cambio: solo
+`src/34_LibroUX.js` (función `Inicio_construir_`).
 
 ## Pendiente operativo
 
 El smoke E2E real de `Instalar / reparar` en el Spreadsheet lo ejecuta el
 operador desde la Web App de instalación (esta estación no dispone de una sesión
-Google autorizada para `clasp run`); se espera de él también el confirm de que la
-fase `Presentación del libro` ya no reporta timeout en el libro real.
+Google autorizada para `clasp run`). Con la v0.12.1 completa (presentación
+reanudable + freeze de portada), se espera el confirm de que la instalación
+termina las etapas `Presentación del libro` (sin timeout) y `Preparando la
+portada` (sin el error de filas inmovilizadas).

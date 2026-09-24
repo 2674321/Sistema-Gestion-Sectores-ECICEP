@@ -1014,3 +1014,18 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   `node tools/verificar.mjs` **37 suites, 0 fallos**.
 - Sin cambio de esquema (2), contrato V4, agenda manual ni canal de captura.
 - Informe: `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.
+
+## v0.12.1 — freeze residual de la portada (arreglo en la reparación real, 2026-09-24)
+
+- Confirmado el fin del timeout de `Presentación del libro`, la reparación real
+  expuso un segundo fallo en la etapa `inicio` (`Preparando la portada`):
+  `No se pueden combinar filas inmovilizadas con filas no inmovilizadas`.
+- Causa: `Inicio_construir_` redibuja `A1:AF60` y solo congelaba al final; si
+  `INICIO` heredaba filas/columnas inmovilizadas de una instalación anterior, toda
+  escritura que cruzaba el límite congelado/no-congelado era rechazada por Sheets.
+- Solución (invariante): `setFrozenRows(0)`/`setFrozenColumns(0)` al inicio de la
+  construcción, `setConditionalFormatRules`/`setTabColor` antes del freeze, y el
+  freeze final `2/0` como última mutación visual; `ver.freeze` audita que termine
+  congelada.
+- Suite nueva `tests/inicio_portada_freezerows_v0121.mjs` (7/7); batería local
+  **38 suites, 0 fallos**. Solo cambió `src/34_LibroUX.js`.

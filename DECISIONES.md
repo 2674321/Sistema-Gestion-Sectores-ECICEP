@@ -1689,3 +1689,38 @@ recorriendo `getMaxRows()` completo de cada hoja en cada reinstalación.
 batería total de 37 suites, 0 fallos.
 
 **Fecha:** 2026-09-24
+
+## DEC-076
+
+**v0.12.1 — La portada (INICIO) se construye SIEMPRE sin filas/columnas
+inmovilizadas residuales.**
+
+**Motivo:** la primera reparación real con la v0.12.1 confirmó el fin del timeout
+de `Presentación del libro`, pero la etapa siguiente (`inicio`, `Preparando la
+portada`) falló en el libro operativo con `No se pueden combinar filas
+inmovilizadas con filas no inmovilizadas`. Causa: `Inicio_construir_` redibuja el
+rango gestionado `A1:AF60` (breakApart + clear + merges + estilos) y solo
+congelaba al final; si `INICIO` heredaba freeze de una instalación anterior,
+cualquier escritura cuyo rango cruzaba el límite congelado/no-congelado era
+rechazada por Sheets. La fase nunca se había ejercitado en producción desde el
+rediseño v0.12.0 porque la fase `diseno` anterior siempre agotaba el timeout.
+
+**Reglas:**
+1. `Inicio_construir_` ejecuta `setFrozenRows(0)` y `setFrozenColumns(0)`
+   inmediatamente después de asegurar la hoja, antes de cualquier operación
+   estructural o de contenido (idempotente sobre hoja nueva).
+2. `setConditionalFormatRules([])` y `setTabColor` se aplican ANTES del freeze;
+   el freeze final (`setFrozenRows(2); setFrozenColumns(0)`) es la última
+   mutación visual de la construcción.
+3. La verificación `ver` incluye `freeze: getFrozenRows() === 2`: una portada
+   que no termine correctamente congelada se reporta como fallo de la fase, no se
+   oculta.
+4. No cambia el diseño de la portada, el modelo clínico ni el resto del
+   instalador: solo la función `Inicio_construir_`.
+
+**Validación:** `tests/inicio_portada_freezerows_v0121.mjs` (7/7) — una hoja
+heredada con freeze 2/1 y una hoja nueva se reconstruyen sin lanzar; por registro
+de operaciones se verifica el orden `unlock → escrituras → freeze final` y que
+todo `write` ocurre con `freeze=0`. Batería total: 38 suites, 0 fallos.
+
+**Fecha:** 2026-09-24

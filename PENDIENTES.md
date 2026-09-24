@@ -7,11 +7,18 @@
 > los formatos usan **fast-paths cero escrituras** acotados a filas gestionadas
 > (encabezados, banding, anchos, formatos, validaciones, notas, semántica y
 > color de RUT). Se eliminó la fuerza global `{forzar:true}` de
-> `Instalar_pVisual`. Esquema 2 y captura V4 sin cambios. Validación local:
-> **37 suites, 0 fallos** (suite nueva `instalador_presentacion_timeout_v0121`).
+> `Instalar_pVisual`. La primera reparación real confirmó el fin del timeout y
+> expuso un segundo fallo ya corregido: `Preparando la portada` fallaba por
+> **freeze residual** heredado en `INICIO` (`No se pueden combinar filas
+> inmovilizadas con filas no inmovilizadas`); ahora la portada se construye
+> siempre sin freeze y se congela al final (`ver.freeze` audita el resultado).
+> Esquema 2 y captura V4 sin cambios. Validación local: **38 suites, 0 fallos**
+> (suites nuevas `instalador_presentacion_timeout_v0121` 19/19 y
+> `inicio_portada_freezerows_v0121` 7/7).
 > Pendiente de validación operativa: ejecutar **Instalar / reparar** en el
-> Spreadsheet para confirmar que la fase de presentación ya no reporta timeout
-> en el libro real (requiere la Web App de instalación; este host no dispone de
+> Spreadsheet para confirmar que las etapas `Presentación del libro` ya no
+> reportan timeout y `Preparando la portada` termina sin error de filas
+> inmovilizadas (requiere la Web App de instalación; este host no dispone de
 > sesión Google autorizada para `clasp run`). Ver
 > `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.
 

@@ -183,6 +183,12 @@ function Inicio_refrescarSiNecesario_() {
 function Inicio_construir_(ss) {
   var h = ss.getSheetByName('INICIO');
   if (!h) h = ss.insertSheet('INICIO');
+  // Hotfix 0.12.1: si la hoja hereda filas/columnas inmovilizadas de una
+  // instalación anterior, cualquier escritura cuyo rango cruce el límite
+  // congelado/no-congelado falla ("No se pueden combinar filas inmovilizadas
+  // con filas no inmovilizadas"). Invariante: la portada se construye SIEMPRE
+  // sin freeze residual y se congela solo al final, idempotente.
+  h.setFrozenRows(0); h.setFrozenColumns(0);
   var filas = 60, cols = 32;
   if (h.getMaxRows() < filas) h.insertRowsAfter(h.getMaxRows(), filas - h.getMaxRows());
   if (h.getMaxColumns() < cols) h.insertColumnsAfter(h.getMaxColumns(), cols - h.getMaxColumns());
@@ -258,8 +264,9 @@ function Inicio_construir_(ss) {
   ['A38:X38','A39:X39','A40:X40'].forEach(function (a1) { h.getRange(a1).merge().setBackground(blanco).setFontColor(M.gris); });
   h.getRange('A42:X44').merge().setValue('La Web App es el canal operativo de captura. Las hojas de sector son vistas automáticas.')
     .setBackground(DESIGN_SYSTEM.HOJAS.derivado.fondo).setFontColor(M.muted).setFontStyle('italic').setVerticalAlignment('middle');
-  h.setFrozenRows(2); h.setFrozenColumns(0); h.setTabColor(M.sistemaProfundo);
+  h.setTabColor(M.sistemaProfundo);
   try { h.setConditionalFormatRules([]); } catch (eCF) {}
+  h.setFrozenRows(2); h.setFrozenColumns(0);
   var metricas = Inicio_calcularMetricas_();
   Inicio_guardarSnapshot_(metricas); Inicio_escribirMetricas_(metricas, h);
   Libro_limpiarDirty_('INICIO');
@@ -267,7 +274,8 @@ function Inicio_construir_(ss) {
     columnas: h.getMaxColumns() >= cols,
     titulo: Utl_texto(h.getRange('A1').getValue()).indexOf('ECICEP') !== -1,
     accesos: Utl_texto(h.getRange('A8').getFormula()).indexOf('HYPERLINK') !== -1,
-    snapshot: h.getRange('F15').getFormula() === '', rangoGestionado: INICIO_RANGO_GESTIONADO === 'A1:AF60' };
+    snapshot: h.getRange('F15').getFormula() === '', rangoGestionado: INICIO_RANGO_GESTIONADO === 'A1:AF60',
+    freeze: (typeof h.getFrozenRows === 'function') && h.getFrozenRows() === 2 };
   var fallos = Object.keys(ver).filter(function (k) { return !ver[k]; });
   if (fallos.length) throw new Error('Verificación INICIO falló en: ' + fallos.join(', '));
   return { ok: true, verificacion: ver, lienzo: { filas: filas, columnas: cols }, metricas: metricas };

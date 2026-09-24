@@ -7,6 +7,12 @@
 > - Todos los formatos usan **fast-paths cero escrituras** acotados a filas
 >   gestionadas (`Hojas_filasGestionadas_`); se eliminó la fuerza global
 >   `{forzar:true}` de la reparación visual.
+> - La portada `INICIO` se construye **siempre sin freeze residual**: `unlock`
+>   inicial (`setFrozenRows(0)`/`setFrozenColumns(0)`), reglas condicionales y tab
+>   color antes del freeze, y `setFrozenRows(2)` final como última mutación; la
+>   verificación `ver.freeze` audita el resultado (evita
+>   `No se pueden combinar filas inmovilizadas con filas no inmovilizadas` al
+>   reparar sobre una instalación previa).
 > - Esquema 2, captura V4, Web App, Spreadsheet y pipeline se conservan.
 >
 > **Actualización 2026-09-23 (v0.12.0):**
