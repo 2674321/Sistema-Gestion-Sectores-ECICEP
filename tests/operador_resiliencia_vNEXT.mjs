@@ -694,6 +694,13 @@ t('E7 retry del mismo cambio de sector NO duplica el evento; cambio obsoleto da 
   A(eventos.length === 1 && espejo.SECTOR === 'VERDE', 'no hay escrituras concurrentes perdidas ni eventos duplicados');
 });
 
+t('E8 buscador UI consume el contrato {ok,filas} y conserva compatibilidad con arreglo', () => {
+  const html = readFileSync(path.join(raiz, 'src/Sidebar.html'), 'utf8');
+  A(/var l=Array\.isArray\(res\)\?res:\(res\.filas\|\|\[\]\)/.test(html),
+    'Sidebar extrae filas del contrato RPC vigente');
+  A(/if\(!res\|\|res\.ok===false\)/.test(html), 'Sidebar comunica el fallo lógico de la búsqueda');
+});
+
 // ── Resumen ──
 console.log('');
 console.log('Operador / Resiliencia vNEXT — TOTAL: ' + (PASS + FAIL) + ' · PASS: ' + PASS + ' · FAIL: ' + FAIL);

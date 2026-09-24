@@ -483,8 +483,14 @@ function buscarAhora(){
   document.getElementById('resultados').innerHTML=
     '<div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div>';
   ECICEP_lectura('api_buscar', [t, TOKEN_INVITACION],
-    function(l){
-      _dbg('api_buscar OK',(l&&l.length||0)+' resultados');
+    function(res){
+      if(!res||res.ok===false){
+        document.getElementById('resultados').innerHTML='<div class="vacio"><i data-lucide="circle-alert"></i>No fue posible buscar: '+
+          _esc((res&&(res.motivo||res.codigo))||'respuesta no disponible')+'</div>';
+        _refrescarIconos();return;
+      }
+      var l=Array.isArray(res)?res:(res.filas||[]); /* compatibilidad con contrato anterior */
+      _dbg('api_buscar OK',l.length+' resultados');
       var cont=document.getElementById('resultados');_resIdx=-1;
       if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
       cont.innerHTML=l.map(function(p,i){
