@@ -20,6 +20,7 @@ function Sistema_guardarAuditoria_(d) {
     eventosHuerfanos: Number(d.eventosHuerfanos || 0), cachesPendientes: Number(d.cachesPendientes || 0),
     ingresosFalsos: Number(d.ingresosFalsos || 0), ingresosInconsistentes: Number(d.ingresosInconsistentes || 0),
     vistasPendientes: Number(d.vistasPendientes || 0), estratificacionPendiente: Number(d.estratificacionPendiente || 0),
+    pacientesSinSector: Number(d.pacientesSinSector || 0),
     captureIdsDuplicados: Number(d.captureIdsDuplicados || 0), fuentesDuplicadas: Number(d.fuentesDuplicadas || 0),
     sectoresAfectados: (d.vistas && d.vistas.sectoresAfectados || []).slice() };
   _SISTEMA_AUDITORIA_MEMO = r;
@@ -39,7 +40,7 @@ function Integridad_diagnosticarDerivados_() {
   var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO',
     'CONDICIONES', 'ESTRATIFICACION']);
   var eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE']);
-  var porId = {}, maximos = {}, fuentes = {};
+  var porId = {}, fuentes = {};
   pacientes.forEach(function (p) { if (p.ID_INTERNO) porId[Utl_texto(p.ID_INTERNO)] = p; });
   var eventosHuerfanos = 0, fuentesDuplicadas = 0;
   eventos.forEach(function (e) {
@@ -47,26 +48,35 @@ function Integridad_diagnosticarDerivados_() {
     if (fuente.indexOf('FORM|') === 0 || fuente.indexOf('HOJA_INGRESO|') === 0)
       fuentes[fuente] = (fuentes[fuente] || 0) + 1;
     var id = Utl_texto(e.ID_INTERNO);
-    if (!id || !porId[id]) { eventosHuerfanos++; return; }
-    var tipo = Utl_texto(e.TIPO_EVENTO).toUpperCase();
-    if (tipo !== 'CONTROL' && tipo !== 'SEGUIMIENTO') return;
-    var fecha = Control_aIso(e.FECHA_EVENTO); if (!fecha) return;
-    if (!maximos[id]) maximos[id] = { CONTROL: '', SEGUIMIENTO: '' };
-    if (fecha > maximos[id][tipo]) maximos[id][tipo] = fecha;
+    if (!id || !porId[id]) { eventosHuerfanos++; }
   });
   Object.keys(fuentes).forEach(function (f) { if (fuentes[f] > 1) fuentesDuplicadas++; });
+  var maximos = Control_maximosEventoPorPaciente_(eventos);
   var cachesPendientes = 0;
   pacientes.forEach(function (p) {
     var m = maximos[Utl_texto(p.ID_INTERNO)] || { CONTROL: '', SEGUIMIENTO: '' };
     if (Control_aIso(p.ULTIMO_CONTROL) !== m.CONTROL || Control_aIso(p.ULTIMO_SEGUIMIENTO) !== m.SEGUIMIENTO)
       cachesPendientes++;
   });
-  var ingresos = { conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 0 } };
+  var ingresos = { errores: 0, conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 0 } };
   try { ingresos = Ingresos_diagnosticarIngresados_(); } catch (eI) { ingresos.error = true; }
-  var vistas = { pendientes: ingresos.conteos.DERIVADO_DESACTUALIZADO || 0, sectoresAfectados: [], omitida: true };
+  var vistas = { pendientes: ingresos.conteos.DERIVADO_DESACTUALIZADO || 0, sectoresAfectados: [], omitida: true, sinSector: 0 };
   if (typeof SpreadsheetApp !== 'undefined') {
     try { vistas = Integridad_diagnosticarVistas_(pacientes); }
-    catch (eV) { vistas = { pendientes: 0, sectoresAfectados: [], error: true }; }
+    catch (eV) { vistas = { pendientes: 0, sectoresAfectados: [], error: true, sinSector: 0 }; }
+  }
+  // DERIVADOS de filas INGRESADO: solo bloquean los RENOVABLES (el sector tiene
+  // vista para regenerar). Filas cuyo paciente no tiene sector asignado son
+  // estado clínico (solo reporte): no hay vista derivable que reparar.
+  var ingresosRenovables = 0, ingresosSinSector = 0;
+  if (ingresos && !ingresos.error && Array.isArray(ingresos.casos)) {
+    ingresos.casos.forEach(function (caso) {
+      if (caso.clasificacion !== 'DERIVADO_DESACTUALIZADO') return;
+      if (HOJAS_SECTOR.indexOf('SECTOR_' + Utl_texto(caso.sector).toUpperCase()) >= 0) ingresosRenovables++;
+      else ingresosSinSector++;
+    });
+  } else if (ingresos && !ingresos.error) {
+    ingresosRenovables = ingresos.conteos.DERIVADO_DESACTUALIZADO || 0;
   }
   var estratificacionPendiente = 0;
   if (typeof CFG_ESTRATIFICACION !== 'undefined' && CFG_ESTRATIFICACION.REGLA_DISPONIBLE &&
@@ -77,23 +87,26 @@ function Integridad_diagnosticarDerivados_() {
   });
   var captura = { duplicados: 0 };
   try { captura = Captura_diagnosticarCaptureIdsDuplicados_(); } catch (eC) { captura.error = true; }
-  var vistasPendientes = Math.max(vistas.pendientes || 0, ingresos.conteos.DERIVADO_DESACTUALIZADO || 0);
+  var vistasPendientes = Math.max(vistas.pendientes || 0, ingresosRenovables);
+  var pacientesSinSector = Math.max(vistas.sinSector || 0, ingresosSinSector);
   var derivadosOk = !ingresos.error && !vistas.error && !captura.error &&
       cachesPendientes === 0 &&
       (ingresos.conteos.INGRESADO_FALSO || 0) === 0 && (ingresos.conteos.INCONSISTENTE || 0) === 0 &&
       vistasPendientes === 0 && estratificacionPendiente === 0;
-  var evidenciaSoloReporte = eventosHuerfanos > 0 || fuentesDuplicadas > 0 || (captura.duplicados || 0) > 0;
+  var evidenciaSoloReporte = eventosHuerfanos > 0 || fuentesDuplicadas > 0 || (captura.duplicados || 0) > 0 ||
+      pacientesSinSector > 0;
   return { ok: derivadosOk && !evidenciaSoloReporte,
     derivadosOk: derivadosOk, evidenciaSoloReporte: evidenciaSoloReporte,
     pacientes: pacientes.length, eventos: eventos.length, eventosHuerfanos: eventosHuerfanos,
     cachesPendientes: cachesPendientes, ingresosFalsos: ingresos.conteos.INGRESADO_FALSO || 0,
     ingresosInconsistentes: ingresos.conteos.INCONSISTENTE || 0, vistasPendientes: vistasPendientes,
     estratificacionPendiente: estratificacionPendiente, captureIdsDuplicados: captura.duplicados || 0,
-    fuentesDuplicadas: fuentesDuplicadas, captura: captura, vistas: vistas, ingresos: ingresos };
+    fuentesDuplicadas: fuentesDuplicadas, pacientesSinSector: pacientesSinSector,
+    captura: captura, vistas: vistas, ingresos: ingresos };
 }
 
 function Integridad_diagnosticarVistas_(pacientes) {
-  var ss = Modelo_ss(), porSector = {}, inconsistentes = {}, afectados = {};
+  var ss = Modelo_ss(), porSector = {}, inconsistentes = {}, afectados = {}, sinSector = {};
   HOJAS_SECTOR.forEach(function (nombre) {
     var sector = nombre.replace('SECTOR_', ''), ids = {}; porSector[sector] = ids;
     var hoja = ss.getSheetByName(nombre); if (!hoja) { afectados[sector] = true; return; }
@@ -106,16 +119,18 @@ function Integridad_diagnosticarVistas_(pacientes) {
   });
   (pacientes || []).forEach(function (p) {
     var id = Utl_texto(p.ID_INTERNO), sector = Utl_texto(p.SECTOR).toUpperCase();
-    if (!id || !porSector[sector] || !porSector[sector][id]) {
-      inconsistentes[id || 'SIN_ID'] = true; if (sector) afectados[sector] = true;
-    }
+    if (!id) return;
+    // Sin sector (vacío, MULTIPLE u otro no cartografiado): estado clínico de
+    // reporte, no regenerable por la vista sectorial (no existe SECTOR_*).
+    if (!porSector[sector]) { if (sector) afectados[sector] = true; sinSector[id] = true; return; }
+    if (!porSector[sector][id]) { inconsistentes[id] = true; if (sector) afectados[sector] = true; }
     Object.keys(porSector).forEach(function (s) {
       if (s !== sector && id && porSector[s][id]) {
         inconsistentes[id] = true; afectados[s] = true; if (sector) afectados[sector] = true;
       }
     });
   });
-  return { pendientes: Object.keys(inconsistentes).length,
+  return { pendientes: Object.keys(inconsistentes).length, sinSector: Object.keys(sinSector).length,
     sectoresAfectados: Object.keys(afectados).sort(), omitida: false };
 }
 
@@ -130,7 +145,7 @@ function Integridad_repararDerivados_(opciones) {
     if (antes.estratificacionPendiente && typeof Estrat_recalcularTodos_ === 'function') {
       resultado.estratificacion = Estrat_recalcularTodos_(); acciones.push('ESTRATIFICACION');
     }
-    if (antes.cachesPendientes) { resultado.controles = Control_recalcularTodos(); acciones.push('CONTROLES'); }
+    if (antes.cachesPendientes) { resultado.caches = Control_recalcularCaches_(); acciones.push('CACHES'); }
     var sectores = antes.vistas && antes.vistas.sectoresAfectados || [];
     if (sectores.length) {
       resultado.vistas = Modelo_refrescarVistasSectores_(sectores);
@@ -143,6 +158,7 @@ function Integridad_repararDerivados_(opciones) {
     if (despues.eventosHuerfanos) avisos.push('EVENTOS_HUERFANOS:' + despues.eventosHuerfanos);
     if (despues.captureIdsDuplicados) avisos.push('CAPTURE_IDS_DUPLICADOS:' + despues.captureIdsDuplicados);
     if (despues.fuentesDuplicadas) avisos.push('FUENTES_DUPLICADAS:' + despues.fuentesDuplicadas);
+    if (despues.pacientesSinSector) avisos.push('PACIENTES_SIN_SECTOR:' + despues.pacientesSinSector);
     var motivo = despues.derivadosOk ? '' : ['DERIVADOS_PENDIENTES',
       'ingresosFalsos=' + despues.ingresosFalsos,
       'ingresosInconsistentes=' + despues.ingresosInconsistentes,
@@ -154,7 +170,7 @@ function Integridad_repararDerivados_(opciones) {
       linea: avisos.length ? 'Derivados reconciliados · evidencia histórica solo reportada: ' + avisos.join(', ') : 'Derivados reconciliados',
       antes: antes, despues: despues, acciones: acciones,
       ingresos: resultado.ingresos || null, estratificacion: resultado.estratificacion || null,
-      controles: resultado.controles || null, vistas: resultado.vistas || null };
+      caches: resultado.caches || null, controles: resultado.controles || null, vistas: resultado.vistas || null };
   };
   return opciones.bajoLock ? reparar() : Ecicep_conLock_(reparar);
 }
@@ -189,6 +205,7 @@ function Sistema_estadoSalud_(opciones) {
   else if (integridad.derivadosOk === false ||
       (integridad.derivadosOk === undefined && !integridad.ok)) avisos.push('INTEGRIDAD_DERIVADA_PENDIENTE');
   else if (!integridad.ok || integridad.evidenciaSoloReporte) avisos.push('EVIDENCIA_HISTORICA_REQUIERE_REVISION');
+  if (integridad && integridad.pacientesSinSector) avisos.push('PACIENTES_SIN_SECTOR:' + integridad.pacientesSinSector);
   if (!backup.ok) avisos.push('RESPALDO_' + (backup.estado || 'PENDIENTE'));
   var estado = !datos.ok || !trigger.ok || integridadOk === false ? 'ERROR' : (avisos.length ? 'ADVERTENCIA' : 'OK');
   return { ok: operativo, operativo: operativo, estado: estado, profundo: opciones.profundo === true,

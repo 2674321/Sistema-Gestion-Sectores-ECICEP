@@ -1029,3 +1029,31 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   congelada.
 - Suite nueva `tests/inicio_portada_freezerows_v0121.mjs` (7/7); batería local
   **38 suites, 0 fallos**. Solo cambió `src/34_LibroUX.js`.
+
+## v0.12.1 — Reconciliando derivados repara caches y libera pacientes sin sector (arreglo en la reparación real, 2026-09-24)
+
+- La reparación real avanzó hasta la etapa `integridad` (`Reconciliando
+  derivados`), que fallaba con `DERIVADOS_PENDIENTES; ... vistasPendientes=3;
+  cachesPendientes=530; ...`.
+- Causa 1: la reparación de los caches era un no-op. `Integridad_repararDerivados_`
+  llamaba a `Control_recalcularTodos` (no-op `AGENDA_MANUAL` desde v0.9.11, que
+  solo protege la agenda de `PROXIMO_CONTROL`), pero los caches
+  `ULTIMO_CONTROL`/`ULTIMO_SEGUIMIENTO` son derivación pura de los máximos de
+  EVENTOS y no tenían mecanismo perdurable de re-sincronización: un libro migrado
+  quedaba bloqueado para siempre.
+- Solución 1: `Control_recalcularCaches_` + `Control_maximosEventoPorPaciente_`
+  (src/02_Normalizacion.js): centraliza la derivación máxima por paciente (misma
+  lógica que el diagnóstico), reescribe solo filas desincronizadas y estampa
+  `FECHA_ACTUALIZACION` únicamente en ellas; idempotente; no toca la agenda.
+  `Integridad_repararDerivados_` dispara la acción `CACHES`.
+- Causa 2: `vistasPendientes=3` persistente = pacientes sin sector asignado
+  (vacío/MULTIPLE/no cartografiado). No hay vista derivable; era estado clínico
+  tratado como bloqueante e imposible de autoreparar.
+- Solución 2: `Integridad_diagnosticarVistas_` separa `pendientes` (regenerable:
+  sector con vista) de `sinSector` (solo reporte), y los `DERIVADO_DESACTUALIZADO`
+  se clasifican por `casos.sector`. Solo los renovables alimentan
+  `vistasPendientes` (bloqueante); los pacientes sin sector quedan como aviso
+  `PACIENTES_SIN_SECTOR` + `evidenciaSoloReporte`. Un renovable que persiste tras
+  reparar sigue siendo `DERIVADOS_PENDIENTES` (no se ocultan fallos).
+- Suite nueva `tests/integridad_derivados_v0121.mjs` (7/7); batería local
+  **39 suites, 0 fallos**. Alcance: `src/02_Normalizacion.js`, `src/33_Integridad.js`.

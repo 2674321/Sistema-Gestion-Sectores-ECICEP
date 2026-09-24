@@ -67,10 +67,11 @@ completo de cada hoja.
 
 ## Validación
 
-`node tools/verificar.mjs`: **38 suites, 0 fallos** (incluye `ejecutar_local`
+`node tools/verificar.mjs`: **39 suites, 0 fallos** (incluye `ejecutar_local`
 671/671, `regresiones_revision` 45/45, `validar_html` 22/22, la suite
-`instalador_presentacion_timeout_v0121` 19/19 y la nueva
-`inicio_portada_freezerows_v0121` 7/7).
+`instalador_presentacion_timeout_v0121` 19/19,
+`inicio_portada_freezerows_v0121` 7/7 y la nueva
+`integridad_derivados_v0121` 7/7).
 
 ## Segundo hallazgo — freeze residual en la portada (reparación real)
 
@@ -110,11 +111,69 @@ con freeze 2/1 y otra nueva se reconstruyen sin lanzar, todo `write` ocurre con
 operaciones) y termina con freeze 2/columnas 0. Alcance del cambio: solo
 `src/34_LibroUX.js` (función `Inicio_construir_`).
 
+## Tercer hallazgo — Reconciliando derivados (reparación real)
+
+La segunda pasada real de `Instalar / reparar` pasó presentación y portada, pero
+la etapa `integridad` (`Reconciliando derivados`) falló con:
+
+> `DERIVADOS_PENDIENTES; ingresosFalsos=0; ingresosInconsistentes=0;
+> vistasPendientes=3; cachesPendientes=530; estratificacionPendiente=0`
+
+### Causa 1 — la reparación de caches era un no-op
+
+`Integridad_repararDerivados_` llamaba a `Control_recalcularTodos`, que desde
+v0.9.11 es deliberadamente un no-op (`AGENDA_MANUAL`, `cambios:0`): protege la
+**agenda** de `PROXIMO_CONTROL`, pero dejó sin mecanismo de reparación a los
+**caches** `ULTIMO_CONTROL`/`ULTIMO_SEGUIMIENTO`, que son derivación pura de los
+máximos de EVENTOS. Un libro migrado con 530 pacientes sin caches re-sincronizados
+quedaba permanentemente en `DERIVADOS_PENDIENTES` y bloqueaba la instalación sin
+posibilidad de autoreparación.
+
+### Solución 1 — backfill real de caches
+
+Nueva función `Control_recalcularCaches_` en `src/02_Normalizacion.js`, con la
+derivación **centralizada** en `Control_maximosEventoPorPaciente_` (máximo
+CONTROL/SEGUIMIENTO por paciente desde EVENTOS, misma lógica que el diagnóstico,
+para que "reparado" siempre converge a cero pendientes):
+
+- Solo reescribe las filas que difieren; estampa `FECHA_ACTUALIZACION`
+  únicamente en esas. Idempotente.
+- No toca la agenda: `PROXIMO_CONTROL` sigue manual (`AGENDA_MANUAL` intacto).
+- `Integridad_repararDerivados_` ahora dispara la acción `CACHES` cuando
+  `antes.cachesPendientes > 0`.
+
+### Causa 2 — pacientes sin SECTOR bloqueaban la instalación para siempre
+
+`vistasPendientes=3` persistía tras el refresco: corresponde a **pacientes sin
+sector asignado** (vacío, `MULTIPLE` u otro no cartografiado). No existe
+`SECTOR_*` derivable para ellos: es estado clínico que exige acción humana, no una
+derivación atascada. La fase la trataba como `DERIVADOS_PENDIENTES` y bloqueaba la
+instalación indefinidamente.
+
+### Solución 2 — clasificación renovable vs solo-reporte
+
+- `Integridad_diagnosticarVistas_` distingue `pendientes` (sector con vista pero
+  ID faltante/duplicado → regenerable por refresco) de `sinSector` (sin vista
+  posible → solo reporte). Lo mismo se aplica a los `DERIVADO_DESACTUALIZADO` de
+  `Ingresos_diagnosticarIngresados_` por `casos.sector`.
+- `vistasPendientes` (bloqueante) solo contabiliza los renovables; los pacientes
+  sin sector salen como `pacientesSinSector` + aviso
+  `PACIENTES_SIN_SECTOR:<n>` y `evidenciaSoloReporte`.
+- Un `DERIVADO_DESACTUALIZADO` renovable que persiste tras la reparación sigue
+  bloqueando (`DERIVADOS_PENDIENTES`): no se oculta un fallo real.
+
+Suite nueva `tests/integridad_derivados_v0121.mjs` (7/7): backfill solo
+desincronizados e idempotente, reparación converge con acción `CACHES`, sin
+sector = advertencia no error, renovable persistiendo = error explícito. Alcance:
+`src/02_Normalizacion.js`, `src/33_Integridad.js`.
+
 ## Pendiente operativo
 
 El smoke E2E real de `Instalar / reparar` en el Spreadsheet lo ejecuta el
 operador desde la Web App de instalación (esta estación no dispone de una sesión
 Google autorizada para `clasp run`). Con la v0.12.1 completa (presentación
-reanudable + freeze de portada), se espera el confirm de que la instalación
-termina las etapas `Presentación del libro` (sin timeout) y `Preparando la
-portada` (sin el error de filas inmovilizadas).
+reanudable + freeze de portada + caches recalculados + sin sector como
+advertencia), se espera el confirm de que la instalación termina `Presentación
+del libro` (sin timeout), `Preparando la portada` (sin el error de filas
+inmovilizadas) y `Reconciliando derivados` (sin `DERIVADOS_PENDIENTES`, o con
+aviso `PACIENTES_SIN_SECTOR` en lugar de error).

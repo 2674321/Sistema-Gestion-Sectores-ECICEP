@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.12.1` · presentación del libro reanudable, formatos sin reescritura y portada con freeze robusto · esquema 2 · `node tools/verificar.mjs` |
+| **Estado** | `v0.12.1` · presentación del libro reanudable, formatos sin reescritura, portada con freeze robusto y derivados con caches reparados · esquema 2 · `node tools/verificar.mjs` |
 
 ## v0.12.1 — presentación del libro sin timeout y portada robusta (hotfix)
 
@@ -36,8 +36,11 @@ se eliminó la fuerza global `forzar` de la reparación visual: reinstalar ya no
 reescribe el libro completo. La reparación real detectó además que **Preparando la
 portada** fallaba si `INICIO` heredaba filas inmovilizadas; la portada ahora se
 construye siempre sin freeze residual (`setFrozenRows(0)` inicial) y congela 2
-filas al final, con la verificación `ver.freeze`. Esquema 2, contrato V4 y canal
-de captura intactos. Detalle en
+filas al final, con la verificación `ver.freeze`. También **Reconciliando
+derivados** repara ahora los caches `ULTIMO_CONTROL`/`ULTIMO_SEGUIMIENTO` desde
+EVENTOS (`Control_recalcularCaches_`) y deja de bloquear la instalación por
+pacientes sin sector (aviso `PACIENTES_SIN_SECTOR`, solo reporte). Esquema 2,
+contrato V4 y canal de captura intactos. Detalle en
 [`docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`](docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md).
 
 ## v0.12.0 — rediseño visual y automatización de Sheets

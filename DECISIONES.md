@@ -1724,3 +1724,45 @@ de operaciones se verifica el orden `unlock → escrituras → freeze final` y q
 todo `write` ocurre con `freeze=0`. Batería total: 38 suites, 0 fallos.
 
 **Fecha:** 2026-09-24
+
+## DEC-077
+
+**v0.12.1 — Reconciliando derivados repara caches y considera "solo reporte" a
+los pacientes sin sector.**
+
+**Motivo:** una segunda reparación real con la v0.12.1 quedó bloqueada en la etapa
+`integridad` (`Reconciliando derivados`) con
+`DERIVADOS_PENDIENTES; vistasPendientes=3; cachesPendientes=530`. Dos causas:
+
+1. Los caches `ULTIMO_CONTROL`/`ULTIMO_SEGUIMIENTO` son derivación pura de los
+   máximos de EVENTOS, pero la reparación llamaba a `Control_recalcularTodos`,
+   no-op `AGENDA_MANUAL` desde v0.9.11 (que protege SOLO la agenda `PROXIMO_CONTROL`).
+   Un libro migrado sin caches re-sincronizados quedaba en pendiente para siempre,
+   sin mecanismo de autoreparación.
+2. `vistasPendientes=3` persistía tras el refresco: pacientes sin sector asignado
+   (vacío/MULTIPLE/no cartografiado). No existe `SECTOR_*` derivable; era un estado
+   clínico que exige acción humana tratado como bloqueante e imposible de reparar.
+
+**Reglas:**
+1. La derivación "máximo CONTROL/SEGUIMIENTO por paciente desde EVENTOS" vive en
+   `Control_maximosEventoPorPaciente_` (src/02_Normalizacion.js) y es la MISMA
+   para el diagnóstico y el backfill; así "reparado" siempre converge a cero.
+2. `Control_recalcularCaches_` reescribe solo filas desincronizadas, estampa
+   `FECHA_ACTUALIZACION` únicamente en esas, es idempotente y NO toca la agenda
+   (`PROXIMO_CONTROL` sigue manual). `Integridad_repararDerivados_` acciona `CACHES`
+   cuando `antes.cachesPendientes > 0`.
+3. `Integridad_diagnosticarVistas_` separa `pendientes` (renovables: sector con
+   vista pero ID faltante/duplicado) de `sinSector` (solo reporte). Los
+   `DERIVADO_DESACTUALIZADO` de INGRESO se clasifican igual por `casos.sector`.
+   Solo los renovables alimentan `vistasPendientes` (bloqueante).
+4. Pacientes sin sector se informan como `pacientesSinSector`,
+   `evidenciaSoloReporte` y aviso `PACIENTES_SIN_SECTOR:<n>` (advertencia, no
+   error). Un derivado renovable que persiste tras la reparación sigue siendo
+   `DERIVADOS_PENDIENTES`: no se ocultan fallos reales.
+
+**Validación:** `tests/integridad_derivados_v0121.mjs` (7/7) — backfill solo de
+desincronizados e idempotente; reparación converge con acción `CACHES`; sin
+sector = advertencia (no error); renovable persistiendo = error explícito.
+Batería total: 39 suites, 0 fallos.
+
+**Fecha:** 2026-09-24

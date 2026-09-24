@@ -13,6 +13,14 @@
 >   verificación `ver.freeze` audita el resultado (evita
 >   `No se pueden combinar filas inmovilizadas con filas no inmovilizadas` al
 >   reparar sobre una instalación previa).
+> - `Reconciliando derivados` (integridad) ahora **repara de verdad los caches**:
+>   `Control_recalcularCaches_` recalcula `ULTIMO_CONTROL`/`ULTIMO_SEGUIMIENTO`
+>   desde EVENTOS con la misma derivación que el diagnóstico
+>   (`Control_maximosEventoPorPaciente_`), solo reescribe filas desincronizadas y
+>   no toca la agenda manual. Los pacientes **sin sector** (vacío/MULTIPLE) dejan
+>   de bloquear la instalación: se clasifican `sinSector` (solo reporte +
+>   `PACIENTES_SIN_SECTOR`), mientras que las vistas renovables que persisten tras
+>   reparar siguen siendo `DERIVADOS_PENDIENTES`.
 > - Esquema 2, captura V4, Web App, Spreadsheet y pipeline se conservan.
 >
 > **Actualización 2026-09-23 (v0.12.0):**

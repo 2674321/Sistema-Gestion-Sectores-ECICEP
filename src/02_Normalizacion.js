@@ -1040,3 +1040,61 @@ function Control_coincideTermino(p, termino) {
 function Control_recalcularTodos() {
   return { ok: true, total: 0, cambios: 0, tiempo: 0, modo: 'AGENDA_MANUAL' };
 }
+
+/**
+ * PURA: máximo ISO de EVENTOS CONTROL/SEGUIMIENTO por paciente.
+ * Fuente única de los caches ULTIMO_CONTROL/ULTIMO_SEGUIMIENTO; el diagnóstico
+ * de integridad y el backfill usan EXACTAMENTE la misma derivación para que
+ * "reparado" siempre acabe en cero pendientes.
+ * @returns {Object} { '<id>': { CONTROL: 'yyyy-MM-dd'|'', SEGUIMIENTO: '...' } }
+ */
+function Control_maximosEventoPorPaciente_(eventos) {
+  var max = {};
+  (eventos || []).forEach(function (e) {
+    var id = Utl_texto(e.ID_INTERNO);
+    if (!id) return;
+    var tipo = Utl_texto(e.TIPO_EVENTO).toUpperCase();
+    if (tipo !== 'CONTROL' && tipo !== 'SEGUIMIENTO') return;
+    var fecha = Control_aIso(e.FECHA_EVENTO);
+    if (!fecha) return;
+    if (!max[id]) max[id] = { CONTROL: '', SEGUIMIENTO: '' };
+    if (fecha > max[id][tipo]) max[id][tipo] = fecha;
+  });
+  return max;
+}
+
+/**
+ * GAS: recalcula los caches ULTIMO_CONTROL / ULTIMO_SEGUIMIENTO de PACIENTES
+ * desde EVENTOS (máximo vigente por paciente y tipo). Es DERIVACIÓN, no agenda:
+ * PROXIMO_CONTROL sigue siendo manual (AGENDA_MANUAL). Solo reescribe las filas
+ * que realmente desincronizaron y estampa FECHA_ACTUALIZACION únicamente en esas.
+ * Idempotente: la segunda pasada no escribe nada.
+ * @returns {{ok:boolean, total:number, cambios:number, modo:string}}
+ */
+function Control_recalcularCaches_() {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES', total: 0, cambios: 0, modo: 'CACHE_CALCULADA' };
+  var pacientes = Modelo_leerPacientes();
+  var eventos = [];
+  try { eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO']) || []; }
+  catch (eE) { return { ok: false, motivo: 'SIN_LECTURA_EVENTOS', total: pacientes.length, cambios: 0, modo: 'CACHE_CALCULADA' }; }
+  var max = Control_maximosEventoPorPaciente_(eventos);
+  var cambios = 0, filas = [], t0 = new Date();
+  pacientes.forEach(function (p) {
+    var id = Utl_texto(p.ID_INTERNO), m = max[id] || { CONTROL: '', SEGUIMIENTO: '' };
+    var cambioFila = false;
+    if (Control_aIso(p.ULTIMO_CONTROL) !== m.CONTROL) { p.ULTIMO_CONTROL = m.CONTROL; cambioFila = true; }
+    if (Control_aIso(p.ULTIMO_SEGUIMIENTO) !== m.SEGUIMIENTO) { p.ULTIMO_SEGUIMIENTO = m.SEGUIMIENTO; cambioFila = true; }
+    if (cambioFila) { p.FECHA_ACTUALIZACION = new Date(); cambios++; }
+    filas.push(Modelo_filaDesdeObjeto(p));
+  });
+  if (cambios && filas.length) {
+    hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length)
+      .setValues(filas);
+    Modelo_invalidarLecturas();
+  }
+  var ms = new Date() - t0;
+  Log_info('Control', 'recalcularCaches', 'total=' + pacientes.length + ' cambios=' + cambios, null, ms);
+  Log_flush();
+  return { ok: true, total: pacientes.length, cambios: cambios, tiempo: ms, modo: 'CACHE_CALCULADA' };
+}

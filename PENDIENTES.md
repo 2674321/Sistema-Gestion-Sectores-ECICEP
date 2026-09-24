@@ -1,25 +1,33 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
-> **Actualización 2026-09-24 (v0.12.1):** hotfix de timeout de la fase
-> `Presentación del libro`. La presentación ahora corre por **8 subtareas
-> reanudables** (presupuesto 20 s/RPC + cursor por clave de EJECUCION en
-> CacheService, `Instalar_pDiseno` → `Presentacion_ejecutarPaso_('diseno')`), y todos
-> los formatos usan **fast-paths cero escrituras** acotados a filas gestionadas
-> (encabezados, banding, anchos, formatos, validaciones, notas, semántica y
-> color de RUT). Se eliminó la fuerza global `{forzar:true}` de
+> **Actualización 2026-09-24 (v0.12.1):**
+> hotfix de timeout de la fase `Presentación del libro`. La presentación ahora
+> corre por **8 subtareas reanudables** (presupuesto 20 s/RPC + cursor por clave
+> de EJECUCION en CacheService, `Instalar_pDiseno` → `Presentacion_ejecutarPaso_('diseno')`),
+> y todos los formatos usan **fast-paths cero escrituras** acotados a filas
+> gestionadas (encabezados, banding, anchos, formatos, validaciones, notas,
+> semántica y color de RUT). Se eliminó la fuerza global `{forzar:true}` de
 > `Instalar_pVisual`. La primera reparación real confirmó el fin del timeout y
 > expuso un segundo fallo ya corregido: `Preparando la portada` fallaba por
 > **freeze residual** heredado en `INICIO` (`No se pueden combinar filas
-> inmovilizadas con filas no inmovilizadas`); ahora la portada se construye
+> inmovilizadas con filas no inmovilizadas`); la portada ahora se construye
 > siempre sin freeze y se congela al final (`ver.freeze` audita el resultado).
-> Esquema 2 y captura V4 sin cambios. Validación local: **38 suites, 0 fallos**
-> (suites nuevas `instalador_presentacion_timeout_v0121` 19/19 y
-> `inicio_portada_freezerows_v0121` 7/7).
+> Una segunda pasada real expuso un tercer fallo ya corregido: `Reconciliando
+> derivados` fallaba con `DERIVADOS_PENDIENTES; cachesPendientes=530;
+> vistasPendientes=3`. Se añadió el **backfill de caches**
+> (`Control_recalcularCaches_`, derivación máxima desde EVENTOS centralizada en
+> `Control_maximosEventoPorPaciente_`) que la reparación ahora dispara (acción
+> `CACHES`), y los pacientes **sin sector** dejaron de bloquear la instalación:
+> pasan a `pacientesSinSector` + aviso `PACIENTES_SIN_SECTOR` (solo reporte), no
+> a `DERIVADOS_PENDIENTES`; un derivado renovable que persiste tras reparar sigue
+> siendo error explícito. Esquema 2 y captura V4 sin cambios. Validación local:
+> **39 suites, 0 fallos** (`instalador_presentacion_timeout_v0121` 19/19,
+> `inicio_portada_freezerows_v0121` 7/7 e `integridad_derivados_v0121` 7/7).
 > Pendiente de validación operativa: ejecutar **Instalar / reparar** en el
-> Spreadsheet para confirmar que las etapas `Presentación del libro` ya no
-> reportan timeout y `Preparando la portada` termina sin error de filas
-> inmovilizadas (requiere la Web App de instalación; este host no dispone de
-> sesión Google autorizada para `clasp run`). Ver
+> Spreadsheet para confirmar que las etapas `Presentación del libro`, `Preparando
+> la portada` y `Reconciliando derivados` terminan sin error (requiere la Web App
+> de instalación; este host no dispone de sesión Google autorizada para
+> `clasp run`). Ver
 > `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.
 
 > **Actualización 2026-09-23 (v0.12.0):** corregido el fallo genérico de
