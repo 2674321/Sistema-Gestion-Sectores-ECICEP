@@ -25,8 +25,8 @@
 - Lookup interactivo con `findNext()` en `RESPONSE_ID` y `NOTA_SISTEMA`; el
   recuento de duplicados queda en la auditoría administrativa.
 - `ECICEP.VERSION = 0.11.1`; esquema **2**; captura **V4**. Validación local:
-  **32 suites, 0 fallos**. Publicación y smoke se registran en el commit de
-  cierre de release.
+  **32 suites, 0 fallos**. Publicado en el mismo deployment operativo **@230**
+  con build `3fdeca6`; smoke anónimo HTTP 200 con `0.11.1` y build correctos.
 
 ## v0.11.0 — FIABILIDAD, RENDIMIENTO Y RECONCILIACIÓN (deployment @228)
 

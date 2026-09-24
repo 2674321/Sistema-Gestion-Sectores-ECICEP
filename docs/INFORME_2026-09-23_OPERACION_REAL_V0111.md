@@ -53,10 +53,17 @@ si no puede, reconstruye exclusivamente la vista `SECTOR_*` con el contrato
 canónico y la repuebla desde `PACIENTES + EVENTOS`. No interpreta ni elimina
 datos canónicos. La regresión quedó cubierta en `regresiones_revision` (45/45).
 
-## Límite de validación operativa
+## Publicación y validación operativa
 
-El host actual puede sincronizar y publicar con `clasp`, pero `clasp run` no
-dispone de autorización de ejecución sobre el Spreadsheet. Por ello la
+Publicado en el deployment operativo existente **@230**, sin cambiar URL ni QR.
+El smoke anónimo respondió HTTP 200 y confirmó `0.11.1` / build `3fdeca6`.
+
+`clasp run` no dispone de autorización de ejecución sobre el Spreadsheet. Por
+ello la
 instalación real del trigger, la creación de un backup y la auditoría profunda
 contra datos reales deben confirmarse desde **Instalar / reparar** con una sesión
 Google autorizada. Esto se informa como pendiente y no como éxito supuesto.
+
+## Corrección del buscador
+
+Se corrigió la incompatibilidad entre `api_buscar`, que devuelve `{ok, filas}`, y la interfaz, que aún esperaba un arreglo. La UI valida errores lógicos, extrae `filas` y conserva compatibilidad con la respuesta anterior. Regresión Operador/Resiliencia: 33/33.

@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.11.1` · estabilización operativa con salud rápida/profunda, respaldo transaccional y reparación selectiva · publicación operativa en curso · `node tools/verificar.mjs` |
+| **Estado** | `v0.11.1` · estabilización operativa con salud rápida/profunda, respaldo transaccional y reparación selectiva · deployment operativo `@230` · `node tools/verificar.mjs` |
 
 ## v0.11.1 — operación real verificable
 

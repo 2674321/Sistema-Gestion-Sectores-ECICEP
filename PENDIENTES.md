@@ -7,8 +7,8 @@
 > regeneran desde `PACIENTES + EVENTOS`, sin modificar datos canónicos.
 > Incluye salud rápida/profunda, backup observable, reparación selectiva y
 > búsquedas puntuales. La validación local suma **32 suites, 0 fallos**.
-> Continúan como validación
-> operativa pendiente la ejecución autorizada en el Spreadsheet de la auditoría
+> Publicado en el deployment operativo **@230** con build `3fdeca6`; smoke
+> anónimo HTTP 200 correcto. Continúan como validación operativa pendiente la ejecución autorizada en el Spreadsheet de la auditoría
 > profunda, la creación/verificación real del trigger y del backup; este host no
 > dispone de una sesión Google autorizada para `clasp run`. Ver
 > `docs/VALIDACION_OPERATIVA_V0111.md`.
