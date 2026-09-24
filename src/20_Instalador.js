@@ -440,7 +440,7 @@ function _mig002_asegurarIngresosSaludMental() {
  *  Idempotente y por nombre. Se tolera HOJA_NO_EXISTE (estructura la crea);
  *  encabezados irreconocibles → falla (requiere revisión, no se adivina nada). */
 function Mig_run001() {
-  var res = { ok: true, alineadas: [], yaCanonicas: [], sinObjeto: [] };
+  var res = { ok: true, alineadas: [], yaCanonicas: [], sinObjeto: [], regeneradas: [] };
   HOJAS_SECTOR.forEach(function (n) {
     var r = Modelo_alinearVistaSector_(n);
     if (!r.ok) {
@@ -453,8 +453,13 @@ function Mig_run001() {
       return;
     }
     if (r.alineado) res.alineadas.push(n); else res.yaCanonicas.push(n);
+    if (r.regenerar) res.regeneradas.push(n.replace('SECTOR_', ''));
   });
   if (!res.ok) return res;
+  if (res.regeneradas.length) {
+    try { res.refresco = Modelo_refrescarVistasSectores_(res.regeneradas); }
+    catch (eR) { res.ok = false; res.motivo = 'MIG-001:REGENERACION:' + (eR && eR.message || eR); return res; }
+  }
   Log_info('Instalador', 'MIG-001',
     'SECTOR_* alineados: ' + res.alineadas.join(',') + ' canónicas: ' + res.yaCanonicas.join(','));
   return res;

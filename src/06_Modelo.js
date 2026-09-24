@@ -1843,11 +1843,24 @@ function Modelo_alinearVistaSector_(nombreHoja) {
   var hr = Modelo_headerRow(nombreHoja);
   var ini = Modelo_dataStartRow(nombreHoja);
   var ancho = Math.max(hoja.getLastColumn(), COLUMNAS_SECTOR_VISTA.length);
-  var filasLeer = Math.max(hoja.getLastRow() - hr, 0) + 1;
+  // Instalaciones antiguas pueden conservar la cabecera real desplazada por
+  // una fila visual o una combinación residual. Localizarla por identidad
+  // evita declarar incompatible una vista derivada recuperable.
+  var limite = Math.min(Math.max(hoja.getLastRow(), hr), 10);
+  var muestra = hoja.getRange(1, 1, limite, ancho).getValues();
+  var hrOrigen = hr, mejor = -1;
+  for (var fm = 0; fm < muestra.length; fm++) {
+    var clavesM = muestra[fm].map(Utl_claveAlnum);
+    var score = ['ID_INTERNO', 'RUT', 'NOMBRE'].filter(function (c) {
+      return clavesM.indexOf(Utl_claveAlnum(c)) !== -1;
+    }).length;
+    if (score > mejor) { mejor = score; hrOrigen = fm + 1; }
+  }
+  var filasLeer = Math.max(hoja.getLastRow() - hrOrigen, 0) + 1;
   if (filasLeer <= 0) return { ok: false, motivo: 'SIN_ENCABEZADOS' };
-  var bloque = hoja.getRange(hr, 1, filasLeer, ancho).getValues();
+  var bloque = hoja.getRange(hrOrigen, 1, filasLeer, ancho).getValues();
   var encabezados = bloque[0];
-  if (!Modelo_esquemaVistaDivergente(encabezados)) {
+  if (hrOrigen === hr && !Modelo_esquemaVistaDivergente(encabezados)) {
     return { ok: true, alineado: false, motivo: 'YA_CANONICO' };
   }
   // Seguridad: exige la identidad mínima; encabezados irreconocibles → no migrar.
@@ -1855,18 +1868,25 @@ function Modelo_alinearVistaSector_(nombreHoja) {
   var identidad = ['ID_INTERNO', 'RUT', 'NOMBRE'].every(function (c) {
     return claves.indexOf(Utl_claveAlnum(c)) !== -1;
   });
-  if (!identidad) return { ok: false, motivo: 'ENCABEZADOS_INCOMPATIBLES' };
   var nuevas = [];
-  for (var f = 1; f < bloque.length; f++) nuevas.push(Modelo_reordenarFilaVista(bloque[f], encabezados));
+  if (identidad) {
+    for (var f = 1; f < bloque.length; f++) nuevas.push(Modelo_reordenarFilaVista(bloque[f], encabezados));
+  }
+  // SECTOR_* es una vista 100 % derivada. Si no hay identidad recuperable se
+  // reconstruye vacía con el contrato canónico y el instalador la repuebla
+  // desde PACIENTES+EVENTOS; nunca se intenta interpretar columnas ambiguas.
+  try { hoja.getRange(hr, 1, 1, ancho).breakApart(); } catch (eMerge) { /* no combinada */ }
   hoja.getRange(hr, 1, 1, COLUMNAS_SECTOR_VISTA.length).setValues([COLUMNAS_SECTOR_VISTA.slice()]);
+  hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1),
+    COLUMNAS_SECTOR_VISTA.length).clearContent();
   if (nuevas.length) {
     hoja.getRange(ini, 1, nuevas.length, COLUMNAS_SECTOR_VISTA.length).setValues(nuevas);
-  } else {
-    hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
   }
   try { _modelo_estilizarEncabezado(hoja); } catch (e) { /* best effort */ }
   Log_warning('Modelo', 'alinearVistaSector', nombreHoja + ' migrada a ' + COLUMNAS_SECTOR_VISTA.length + ' columnas (' + nuevas.length + ' filas)');
-  return { ok: true, alineado: true, filas: nuevas.length };
+  return { ok: true, alineado: true, filas: nuevas.length,
+    regenerar: !identidad, cabeceraOrigen: hrOrigen,
+    motivo: identidad ? 'ALINEADA_POR_NOMBRE' : 'REGENERAR_DESDE_CANONICO' };
 }
 
 /** GAS: aplica la alineación del esquema a todas las vistas SECTOR_*

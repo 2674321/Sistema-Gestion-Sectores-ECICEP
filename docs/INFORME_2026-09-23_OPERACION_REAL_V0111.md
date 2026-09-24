@@ -43,6 +43,16 @@ reparación.
 - Nuevas suites: operación real 6/6, salud 5/5 y rendimiento 3/3.
 - Verificador completo: 32 suites.
 
+## Corrección post-validación de MIG-001
+
+Una ejecución real informó `MIG-001:SECTOR_NARANJO:ENCABEZADOS_INCOMPATIBLES`.
+La causa era una vista derivada heredada cuya cabecera no estaba en la fila
+visual esperada o ya no conservaba la identidad mínima. La migración ahora busca
+la cabecera en las primeras diez filas. Si puede reconocerla, reordena por nombre;
+si no puede, reconstruye exclusivamente la vista `SECTOR_*` con el contrato
+canónico y la repuebla desde `PACIENTES + EVENTOS`. No interpreta ni elimina
+datos canónicos. La regresión quedó cubierta en `regresiones_revision` (45/45).
+
 ## Límite de validación operativa
 
 El host actual puede sincronizar y publicar con `clasp`, pero `clasp run` no

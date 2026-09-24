@@ -117,6 +117,7 @@ function hojaVisual(nombre, opts) {
       merge() { ops.push(['merge', r, c, numR, numC]); return rg; },
       breakApart() { ops.push(['breakApart', r, c]); return rg; },
       clear() { for (let i = 0; i < numR; i++) for (let j = 0; j < numC; j++) delete (filas[r - 1 + i] || [])[c - 1 + j]; ops.push(['clear', r, c]); return rg; },
+      clearContent() { for (let i = 0; i < numR; i++) for (let j = 0; j < numC; j++) (filas[r - 1 + i] || [])[c - 1 + j] = ''; ops.push(['clearContent', r, c]); return rg; },
       setBackground(v) { estilo.bg[r + ':' + c] = v; return rg; },
       setBackgrounds(vals) { vals.forEach((row, i) => row.forEach((v, j) => { estilo.bg[(r + i) + ':' + (c + j)] = v; })); return rg; },
       getBackground: () => bg(r, c),
@@ -145,6 +146,7 @@ function hojaVisual(nombre, opts) {
     getName: () => nombre,
     getLastRow: () => { for (let i = filas.length; i > 0; i--) if (filas[i - 1].some(v => !vacio(v))) return i; return 0; },
     getLastColumn: () => ancho,
+    getMaxRows: () => Math.max(filas.length, 20),
     getRange: rango,
     insertRowsBefore() { ops.push(['insertBefore']); },
     deleteRows() { ops.push(['deleteRows']); },
@@ -532,6 +534,23 @@ for (const sector of ['NARANJO', 'AMARILLO', 'VERDE'])
     assert.equal(hoja._ops.filter(o => o[0] === 'insertBefore').length, 0);
     assert.equal(hoja._ops.filter(o => o[0] === 'deleteRows').length, 0);
   });
+test('MIG-001 recupera una vista derivada con encabezados incompatibles', () => {
+  const c = backend();
+  const hoja = hojaVisual('SECTOR_NARANJO', { ancho: 17, filas: [
+    ['SECTOR NARANJO'], ['IDENTIDAD'], ['ENCABEZADO HEREDADO'], ['dato derivado ambiguo']
+  ] });
+  c.Modelo_hoja = () => hoja; c._modelo_estilizarEncabezado = () => {};
+  const r = c.Modelo_alinearVistaSector_('SECTOR_NARANJO');
+  assert.equal(r.ok, true); assert.equal(r.regenerar, true);
+  assert.deepEqual(Array.from(hoja.getRange(3, 1, 1, 17).getValues()[0]), Array.from(c.COLUMNAS_SECTOR_VISTA));
+  assert.equal(hoja.getRange(4, 1).getValues()[0][0], '', 'descarta solo la vista derivada ambigua');
+  let sectores = null;
+  c.Modelo_alinearVistaSector_ = n => ({ ok: true, alineado: n === 'SECTOR_NARANJO',
+    regenerar: n === 'SECTOR_NARANJO' });
+  c.Modelo_refrescarVistasSectores_ = s => { sectores = Array.from(s); return { NARANJO: 1 }; };
+  const mig = c.Mig_run001();
+  assert.equal(mig.ok, true); assert.deepEqual(sectores, ['NARANJO']);
+});
 test('SAS-025: Instalar/reparar fuerza el formato visual (forzar:true)', () => {
   const c = backend();
   let optsRecibidas = null;

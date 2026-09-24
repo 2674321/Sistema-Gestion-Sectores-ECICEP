@@ -1,9 +1,13 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
 > **Actualización 2026-09-23 (v0.11.1):** código y pruebas de estabilización
-> operativa completados: salud rápida/profunda, trigger validado por fuente,
-> backup observable, reparación selectiva y búsquedas puntuales. La validación
-> local suma **32 suites, 0 fallos** una vez publicada. Continúan como validación
+> operativa completados. El error real
+> `MIG-001:SECTOR_NARANJO:ENCABEZADOS_INCOMPATIBLES` quedó corregido: las vistas
+> derivadas con cabecera desplazada se reconocen y las irrecuperables se
+> regeneran desde `PACIENTES + EVENTOS`, sin modificar datos canónicos.
+> Incluye salud rápida/profunda, backup observable, reparación selectiva y
+> búsquedas puntuales. La validación local suma **32 suites, 0 fallos**.
+> Continúan como validación
 > operativa pendiente la ejecución autorizada en el Spreadsheet de la auditoría
 > profunda, la creación/verificación real del trigger y del backup; este host no
 > dispone de una sesión Google autorizada para `clasp run`. Ver

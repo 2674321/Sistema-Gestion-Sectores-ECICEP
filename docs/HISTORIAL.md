@@ -9,6 +9,10 @@
 
 ## v0.11.1 — ESTABILIZACIÓN DE OPERACIÓN REAL
 
+- Hotfix de instalación: `MIG-001` localiza cabeceras desplazadas y, ante
+  encabezados irrecuperables, regenera solo la vista derivada `SECTOR_*` desde
+  `PACIENTES + EVENTOS`; corrige `SECTOR_NARANJO:ENCABEZADOS_INCOMPATIBLES` sin
+  tocar la fuente canónica. Regresión local 45/45.
 - Salud rápida al abrir y auditoría profunda bajo demanda, con estados separados
   de datos, integridad, trigger de ingreso y respaldo. El resumen persistido no
   contiene PII y se invalida al mutar el modelo.
