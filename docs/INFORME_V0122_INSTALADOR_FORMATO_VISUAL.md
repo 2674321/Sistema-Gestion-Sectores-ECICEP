@@ -116,6 +116,17 @@ token visual compartido: el preconnect de fuentes llamaba `createElement` sobre
 `document.documentElement`. Ahora usa `document.createElement`, por lo que las
 vistas dejan de emitir el error sin cambiar su carga no bloqueante.
 
+La ejecución completa sobre el libro operativo superó Presentación e `INICIO` y
+expuso tres derivados que no convergían en Integridad. La vista se comprobaba
+con el sector vigente del paciente, pero el caso devolvía el sector histórico de
+`INGRESO_*`. Para pacientes vigentes `MULTIPLE` o sin sector, ese valor histórico
+los convertía erróneamente en reparables. El diagnóstico ahora conserva
+`sector` (vigente) y `sectorIngreso` (origen); Integridad deja los no
+cartografiados como advertencia y la reparación refresca la unión deduplicada de
+vistas válidas para agregar el sector vigente y retirar cualquier copia del
+histórico. Regresiones: `ingresado_manual_v011.mjs` 20/20 e
+`integridad_derivados_v0121.mjs` 8/8.
+
 ## Contratos preservados
 
 - un único proyecto Apps Script y un único Spreadsheet operativo;
@@ -125,4 +136,4 @@ vistas dejan de emitir el error sin cambiar su carga no bloqueante.
 - misma URL, QR y deployment operativo.
 
 La referencia de publicación final se registra después de actualizar el
-deployment operativo.
+deployment operativo y completar dos ejecuciones consecutivas del instalador.

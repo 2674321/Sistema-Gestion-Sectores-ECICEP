@@ -152,4 +152,23 @@ test('T7 DERIVADOS_PENDIENTES real tras reparar sigue siendo error explícito', 
   assert.match(r.motivo, /vistasPendientes=2/);
 });
 
+test('T8 derivado INGRESADO sin sector vigente es solo reporte', () => {
+  const c = contexto();
+  c.SpreadsheetApp = {};
+  c.Modelo_ss = () => ({ getSheetByName: () => null });
+  c.Modelo_leerPacientesCampos = () => [];
+  c.Modelo_leerEventosCampos = () => [];
+  c.Ingresos_diagnosticarIngresados_ = () => ({ ok: true, error: false,
+    conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 1 },
+    casos: [{ hoja: 'INGRESO_VERDE', fila: 4, clasificacion: 'DERIVADO_DESACTUALIZADO',
+      sector: 'MULTIPLE', sectorIngreso: 'VERDE' }] });
+  c.Captura_diagnosticarCaptureIdsDuplicados_ = () => ({ duplicados: 0 });
+  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G2' });
+  const r = c.Integridad_diagnosticarDerivados_();
+  assert.equal(r.vistasPendientes, 0);
+  assert.equal(r.pacientesSinSector, 1);
+  assert.equal(r.derivadosOk, true);
+  assert.equal(r.evidenciaSoloReporte, true);
+});
+
 console.log('Integridad derivados v0.12.1 — ' + n + '/' + n + ' PASS');

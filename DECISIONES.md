@@ -1800,3 +1800,32 @@ libro y hacía costosa una segunda instalación.
 de portada/presentación y `node tools/verificar.mjs` (40 suites, 0 fallos).
 
 **Fecha:** 2026-09-24
+
+## DEC-079
+
+**v0.12.2 — Los derivados de ingreso distinguen sector vigente y sector de
+origen.**
+
+**Motivo:** la instalación real posterior a DEC-077 aún terminaba con
+`vistasPendientes=3`. `Ingresos_diagnosticarIngresados_` buscaba al paciente en
+la vista de su sector vigente, pero devolvía el sector de la hoja `INGRESO_*`.
+Un paciente vigente `MULTIPLE` o sin sector quedaba así clasificado como si
+tuviera una vista renovable, y cada reparación regeneraba el sector histórico
+sin poder resolver el diagnóstico.
+
+**Reglas:**
+1. `casos.sector` representa el sector vigente del paciente cuando existe
+   evidencia canónica; `casos.sectorIngreso` conserva el origen histórico.
+2. Integridad solo bloquea por `DERIVADO_DESACTUALIZADO` cuando `casos.sector`
+   corresponde a una hoja `SECTOR_*` real.
+3. La reconciliación usa la unión deduplicada de sector vigente y sector de
+   ingreso, filtrada contra `HOJAS_SECTOR`: agrega la fila a su vista actual y
+   retira cualquier residuo de la vista histórica.
+4. Un paciente `MULTIPLE`, vacío o no cartografiado sigue siendo evidencia de
+   solo reporte y requiere decisión clínica; no se inventa una vista.
+
+**Validación:** `tests/ingresado_manual_v011.mjs` 20/20 y
+`tests/integridad_derivados_v0121.mjs` 8/8, incluidos movimiento entre sectores,
+paso a `MULTIPLE`, deduplicación y persistencia de fallos realmente renovables.
+
+**Fecha:** 2026-09-24

@@ -1083,3 +1083,18 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   sobre `document.documentElement`; todas las vistas crean ahora los enlaces de
   fuente desde `document` sin excepción de consola.
 - Informe: `docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md`.
+
+### Corrección de convergencia hallada durante la instalación real
+
+- `Ingresos_diagnosticarIngresados_` comprobaba la vista con el sector vigente,
+  pero publicaba `casos.sector` con el sector histórico de la hoja de ingreso.
+  Los pacientes `MULTIPLE` o sin sector se contaban como derivados renovables y
+  producían `vistasPendientes=3` de forma permanente.
+- Cada caso conserva ahora `sector` (vigente) y `sectorIngreso` (origen). La
+  reconciliación refresca la unión deduplicada de ambos cuando existe una
+  `SECTOR_*`, lo que agrega la fila vigente y elimina residuos históricos.
+- Los sectores no cartografiados siguen siendo una advertencia clínica
+  `PACIENTES_SIN_SECTOR`; un sector válido cuya vista no converge continúa
+  bloqueando la instalación.
+- Regresiones ampliadas: `ingresado_manual_v011.mjs` 20/20 e
+  `integridad_derivados_v0121.mjs` 8/8.

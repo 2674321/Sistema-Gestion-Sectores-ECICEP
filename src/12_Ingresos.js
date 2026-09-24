@@ -762,7 +762,14 @@ function Ingresos_incorporarPorEstadoManual_(nombreHoja, filaFisica, opciones) {
     var evidencia = Ingresos_evidenciaFila_(k, nf);
     if (evidencia.ok) {
       var advertenciasExistente = [];
-      try { Modelo_refrescarVistasSectores_([Ingresos_hojaASector(k)]); }
+      // La fila conserva su sector de origen, pero el paciente puede haber sido
+      // movido después. Refrescar ambos sectores reconocidos elimina una copia
+      // antigua y asegura la vista vigente; un sector sin vista no se inventa.
+      var sectoresExistente = [Ingresos_hojaASector(k)];
+      var sectorVigente = Utl_texto(evidencia.paciente && evidencia.paciente.SECTOR).toUpperCase();
+      if (HOJAS_SECTOR.indexOf('SECTOR_' + sectorVigente) >= 0 &&
+          sectoresExistente.indexOf(sectorVigente) < 0) sectoresExistente.push(sectorVigente);
+      try { Modelo_refrescarVistasSectores_(sectoresExistente); }
       catch (eV0) { advertenciasExistente.push('VISTA_SECTOR_PENDIENTE'); }
       return { ok: true, yaIncorporado: true, estado: 'INGRESADO',
         idInterno: evidencia.idInterno, idEvento: evidencia.idEvento,
@@ -875,13 +882,14 @@ function Ingresos_diagnosticarIngresados_() {
     estados.forEach(function (fila, i) {
       if (Utl_texto(fila[0]).toUpperCase().trim() !== 'INGRESADO') return;
       var nf = loc.hr + 1 + i, ev = Ingresos_evidenciaFila_(nombre, nf), clasificacion;
+      var sectorIngreso = Ingresos_hojaASector(nombre), sectorPaciente = '';
       if (!ev.ok) clasificacion = ev.motivo === 'EVENTO_NO_INGRESO' || ev.motivo === 'PACIENTE_NO_ENCONTRADO'
         ? 'INCONSISTENTE' : 'INGRESADO_FALSO';
       else {
         clasificacion = 'OK_REAL';
         try {
-          var sector = Utl_texto(ev.paciente.SECTOR).toUpperCase();
-          var vista = Modelo_hoja('SECTOR_' + sector);
+          sectorPaciente = Utl_texto(ev.paciente.SECTOR).toUpperCase();
+          var vista = Modelo_hoja('SECTOR_' + sectorPaciente);
           if (!vista) clasificacion = 'DERIVADO_DESACTUALIZADO';
           else {
             var colId = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
@@ -895,7 +903,12 @@ function Ingresos_diagnosticarIngresados_() {
       }
       conteos[clasificacion]++;
       casos.push({ hoja: nombre, fila: nf, clasificacion: clasificacion,
-        sector: Ingresos_hojaASector(nombre) });
+        // La vista derivada depende del sector VIGENTE del paciente. La hoja de
+        // ingreso conserva el origen histórico y puede no coincidir después de
+        // una reestratificación o quedar sin vista (vacío/MULTIPLE). Exponer
+        // ambos evita refrescar eternamente el sector histórico equivocado.
+        sector: ev.ok ? sectorPaciente : sectorIngreso,
+        sectorIngreso: sectorIngreso });
     });
   });
   return { ok: conteos.INGRESADO_FALSO === 0 && conteos.INCONSISTENTE === 0,
@@ -913,8 +926,14 @@ function Ingresos_reconciliarIngresados_(opciones) {
       if (caso.clasificacion === 'INGRESADO_FALSO') {
         resultados.push(Ingresos_incorporarPorEstadoManual_(caso.hoja, caso.fila,
           { bajoLock: true, confirmarNuevo: opciones.confirmarNuevo === true }));
-      } else if (caso.clasificacion === 'DERIVADO_DESACTUALIZADO' && sectores.indexOf(caso.sector) < 0) {
-        sectores.push(caso.sector);
+      } else if (caso.clasificacion === 'DERIVADO_DESACTUALIZADO') {
+        // La unión vigente + origen agrega donde corresponde y también elimina
+        // residuos de la vista histórica. Solo se aceptan vistas existentes.
+        [caso.sector, caso.sectorIngreso].forEach(function (valorSector) {
+          var sector = Utl_texto(valorSector).toUpperCase();
+          if (HOJAS_SECTOR.indexOf('SECTOR_' + sector) >= 0 && sectores.indexOf(sector) < 0)
+            sectores.push(sector);
+        });
       }
     });
     var vistas = null;

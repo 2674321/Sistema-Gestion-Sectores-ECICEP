@@ -117,4 +117,61 @@ test('T15 y T16 la ruta ya incorporada no duplica PACIENTES ni EVENTO INGRESO', 
   assert.equal(pacientes, 0); assert.equal(eventos, 0);
 });
 
+test('T17 diagnóstico conserva origen pero repara según sector vigente del paciente', () => {
+  const c = contexto();
+  const ingreso = { isSheetHidden: () => false, getLastRow: () => 4,
+    getRange: () => ({ getValues: () => [['INGRESADO']] }) };
+  c.Modelo_hoja = nombre => nombre === 'INGRESO_NARANJO' ? ingreso : null;
+  c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 9 } });
+  c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-1', paciente: { SECTOR: 'AMARILLO' } });
+  const r = c.Ingresos_diagnosticarIngresados_();
+  assert.equal(r.conteos.DERIVADO_DESACTUALIZADO, 1);
+  assert.equal(r.casos[0].sector, 'AMARILLO');
+  assert.equal(r.casos[0].sectorIngreso, 'NARANJO');
+});
+
+test('T18 diagnóstico no convierte MULTIPLE en el sector histórico de ingreso', () => {
+  const c = contexto();
+  const ingreso = { isSheetHidden: () => false, getLastRow: () => 4,
+    getRange: () => ({ getValues: () => [['INGRESADO']] }) };
+  c.Modelo_hoja = nombre => nombre === 'INGRESO_VERDE' ? ingreso : null;
+  c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 9 } });
+  c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-M', paciente: { SECTOR: 'MULTIPLE' } });
+  const r = c.Ingresos_diagnosticarIngresados_();
+  assert.equal(r.conteos.DERIVADO_DESACTUALIZADO, 1);
+  assert.equal(r.casos[0].sector, 'MULTIPLE');
+  assert.equal(r.casos[0].sectorIngreso, 'VERDE');
+});
+
+test('T19 reconciliar MULTIPLE limpia únicamente la vista histórica reconocida', () => {
+  const c = contexto(); let sectores = null;
+  c.Ingresos_diagnosticarIngresados_ = () => ({ casos: [{ hoja: 'INGRESO_VERDE', fila: 4,
+    clasificacion: 'DERIVADO_DESACTUALIZADO', sector: 'MULTIPLE', sectorIngreso: 'VERDE' }] });
+  c.Ecicep_conLock_ = fn => fn();
+  c.Modelo_refrescarVistasSectores_ = s => { sectores = Array.from(s); return {}; };
+  const r = c.Ingresos_reconciliarIngresados_({ reparar: true });
+  assert.equal(r.ok, true); assert.deepEqual(sectores, ['VERDE']);
+});
+
+test('T20 fila ya incorporada refresca sector histórico y sector vigente', () => {
+  const c = contexto(); let sectores = null;
+  c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 2 } });
+  c.Modelo_hoja = () => ({ getLastRow: () => 9, getRange: () => ({ getValue: () => 'INGRESADO' }) });
+  c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-1', idEvento: 'EV-1',
+    paciente: { SECTOR: 'AMARILLO' } });
+  c.Modelo_refrescarVistasSectores_ = s => { sectores = Array.from(s); return {}; };
+  const r = c.Ingresos_incorporarPorEstadoManual_('INGRESO_NARANJO', 8, { bajoLock: true });
+  assert.equal(r.ok, true); assert.deepEqual(sectores, ['NARANJO', 'AMARILLO']);
+});
+
+test('T21 reconciliar cambio de sector refresca vigente e histórico sin duplicarlos', () => {
+  const c = contexto(); let sectores = null;
+  c.Ingresos_diagnosticarIngresados_ = () => ({ casos: [{ hoja: 'INGRESO_NARANJO', fila: 4,
+    clasificacion: 'DERIVADO_DESACTUALIZADO', sector: 'AMARILLO', sectorIngreso: 'NARANJO' }] });
+  c.Ecicep_conLock_ = fn => fn();
+  c.Modelo_refrescarVistasSectores_ = s => { sectores = Array.from(s); return {}; };
+  c.Ingresos_reconciliarIngresados_({ reparar: true });
+  assert.deepEqual(sectores, ['AMARILLO', 'NARANJO']);
+});
+
 console.log('INGRESADO manual v0.11.0 — ' + n + '/' + n + ' PASS');
