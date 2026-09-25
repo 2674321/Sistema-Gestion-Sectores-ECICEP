@@ -1053,17 +1053,19 @@ function UI_irInicio() {
  *  fuera del presupuesto de un clic y la hoja no cambiaba). */
 function UI_reconstruirInicio() {
   var ui = _UI_get();
-  var r = Inicio_construir_(Modelo_ss(), { forzar: false });
+  // El ítem del menú es una acción EXPLÍCITA del usuario: fuerza la
+  // reconstrucción completa (marco, dimensiones, estilos y cifras). Si no se
+  // forzara, el fast path del layout vigente solo refrescaría las cifras y el
+  // marco de color nunca se redibujaría tras una corrección visual.
+  var r = Inicio_construir_(Modelo_ss(), { forzar: true });
   if (r.ok === false) {
     ui.alert('Portada INICIO', 'No se pudo reconstruir la portada: ' +
       (r.motivo || 'error desconocido') + '\n\nRepite la acción; es idempotente.', ui.ButtonSet.OK);
     return r;
   }
   var v = r.verificacion || {};
-  ui.alert('Portada INICIO', r.omitida
-    ? 'La portada ya estaba al día (contrato PANEL_OPERATIVO_V014). Se refrescaron las cifras.'
-    : 'Portada reconstruida: hero, KPIs, cards por sector, distribución, estado, '
-      + 'pendientes y alerta.\nVerificación: ' + (v.ok === true ? 'correcta' : (v.fallos || []).join(', ')),
+  ui.alert('Portada INICIO', 'Portada reconstruida: hero, KPIs, cards por sector, distribución, estado, '
+      + 'pendientes, alerta y marco de color.\nVerificación: ' + (v.ok === true ? 'correcta' : (v.fallos || []).join(', ')),
     ui.ButtonSet.OK);
   return r;
 }
