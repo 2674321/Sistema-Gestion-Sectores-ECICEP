@@ -773,33 +773,27 @@ function ECICEP_onChangeLibro(e) {
   return { ok: true, marcado: true, tipo: tipo };
 }
 
+function Libro_repararEjecucion_() {
+  // Clave estable por usuario para reanudar el MISMO cursor entre llamadas.
+  try {
+    var k = Utl_texto(Session.getTemporaryActiveUserKey()).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
+    return k ? 'MENU|' + k : 'MENU|ANON';
+  } catch (e) { return 'MENU|ANON'; }
+}
+
+/** §8: Reparar presentación = MISMO motor reanudable del instalador.
+ *  Wrapper fino sobre Presentacion_ejecutarPaso_: mismo plan, mismo cursor,
+ *  mismo post-check; sin orquestador paralelo. Reanuda entre clics. */
 function Libro_repararPresentacion_(opciones) {
-  opciones = opciones || {}; var ss = Modelo_ss(), resultados = [], ajustadas = 0, fallos = [];
-  Hojas_ordenObjetivo_().concat(['EVENTOS','CONFIG','LOG','FORM_RESPUESTAS']).forEach(function (nombre) {
-    var h = ss.getSheetByName(nombre); if (!h || nombre === 'INICIO') return;
-    try {
-      var antes = typeof HVis_pendientesVisual === 'function' ? HVis_pendientesVisual(h) : { pendientes: [] };
-      if ((antes.pendientes || []).length || opciones.forzar) {
-        if (HVis_obtenerSecciones(nombre)) HVis_reconciliarHoja(h, { layout:true });
-        h.setTabColor(Hojas_colorPestana_(nombre));
-        var ux = HOJAS_UX[nombre] || {};
-        if (ux.frozenRows !== undefined) h.setFrozenRows(ux.frozenRows);
-        if (ux.frozenColumns !== undefined) h.setFrozenColumns(ux.frozenColumns);
-        _modelo_anchosHoja(h); Hojas_aplicarSemanticaColumnas_(h); ajustadas++;
-      }
-      resultados.push({ hoja: nombre, ok: true, ajustes: (antes.pendientes || []).length });
-    } catch (e) { fallos.push(nombre + ': ' + (e && e.message || e)); resultados.push({ hoja:nombre, ok:false, motivo:String(e) }); }
-  });
-  var diseno = opciones.omitirModelo ? { fallidas: [] } : Modelo_aplicarDiseno();
-  (diseno.fallidas || []).forEach(function (x) { fallos.push(x); });
-  var val = Hojas_aplicarValidaciones_(ss), valIngreso = Modelo_validarIngresos(ss);
-  var notas = Hojas_aplicarNotas_(ss), formatos = Hojas_aplicarFormatosNumero_(ss);
-  var orden = Hojas_ordenar_(ss);
-  if (fallos.length === 0) { Libro_limpiarDirty_('VISUAL'); Libro_limpiarDirty_('VALIDACIONES'); Libro_limpiarDirty_('ESTRUCTURA'); }
-  return { ok: fallos.length === 0, hojasRevisadas: resultados.length, hojasAjustadas: ajustadas,
-    validacionesCorregidas: (val.aplicadas || 0) + (valIngreso.validaciones || 0), anchosCorregidos: ajustadas,
-    tabsCorregidos: ajustadas, resultados: resultados, orden: orden, fallidas: fallos,
-    motivo: fallos.join('; '), notas: notas.aplicadas || 0, formatos: formatos.aplicados || 0 };
+  opciones = opciones || {};
+  var clave = opciones.ejecucion || Libro_repararEjecucion_();
+  var r = Presentacion_ejecutarPaso_('diseno', clave);
+  var pasos = 1, MAX = 6; // ≈ 2 min por acción de menú; si queda trabajo, se reanuda.
+  while (r.ok !== false && r.continuar === true && pasos < MAX) {
+    r = Presentacion_ejecutarPaso_('diseno', clave);
+    pasos++;
+  }
+  return r;
 }
 function Libro_mantenimiento_(opciones) {
   opciones = opciones || {}; var d = Libro_leerDirty_(), r = { ok: true, presentacion: null, inicio: null };
@@ -821,15 +815,34 @@ function UI_irInicio() {
 }
 function UI_repararPresentacion() {
   var ui = _UI_get();
-  var d = HVis_diagnosticarTodas(), n = 0;
-  Object.keys(d.diagnostico || {}).forEach(function (k) {
-    var v = d.diagnostico[k], p = v && v.estadoActual && v.estadoActual.visual;
-    n += p && p.cantidadPendientes || 0;
-  });
-  var resp = ui.alert('Reparar presentación', 'Se detectaron ' + n + ' ajustes visuales. Esta acción no modifica datos clínicos. ¿Continuar?', ui.ButtonSet.YES_NO);
-  if (resp !== ui.Button.YES) return { ok: true, cancelada: true };
-  var r = Libro_repararPresentacion_({ forzar: false });
-  ui.alert(r.ok ? 'Presentación reparada' : 'Reparación incompleta',
-    r.resultados.map(function (x) { return x.hoja + ' ' + (x.ok ? '✓ ' + x.ajustes + ' ajustes' : '✕ ' + x.motivo); }).join('\n'), ui.ButtonSet.OK);
+  if (typeof Presentacion_layoutVigente_ !== 'function' || !Presentacion_layoutVigente_()) {
+    var resp = ui.alert('Reparar presentación',
+      'Se realineará el libro a v' + ECICEP.VERSION + ' (portada INICIO 30 columnas, formatos, validaciones y paridad INGRESO/SECTOR). No modifica datos clínicos. ¿Continuar?',
+      ui.ButtonSet.YES_NO);
+    if (resp !== ui.Button.YES) return { ok: true, cancelada: true };
+  }
+  var r = Libro_repararPresentacion_();
+  if (r.ok === false) {
+    ui.alert('Reparación incompleta',
+      (r.motivo || 'Subtarea de presentación fallida') + '\n\nEjecuta de nuevo Reparar presentación: reintenta la misma subtarea (idempotente).',
+      ui.ButtonSet.OK);
+    return r;
+  }
+  if (r.continuar === true) {
+    ui.alert('Presentación en proceso',
+      'La reparación es reanudable y aún no termina. Ejecuta de nuevo Reparar presentación para continuar.',
+      ui.ButtonSet.OK);
+    return r;
+  }
+  var v = r.verificacion, mensaje, titulo;
+  if (v && v.ok === true) {
+    titulo = 'Presentación reparada';
+    mensaje = 'Presentación alineada al diseño vigente: 0 pendientes y paridad INGRESO/SECTOR convergente.';
+  } else {
+    titulo = 'Presentación reparada (presentación incompleta)';
+    var n = v && v.diferencias ? v.diferencias.length : (r.pendientes || 0);
+    mensaje = 'Sin errores de subtarea, pero restan ' + n + ' divergencia(s) visual(es).\nReintenta Reparar presentación o usa Instalar / reparar.';
+  }
+  ui.alert(titulo, mensaje, ui.ButtonSet.OK);
   return r;
 }

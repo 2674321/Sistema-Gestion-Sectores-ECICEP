@@ -1894,3 +1894,17 @@ sobre la celda de nacimiento y las vistas `SECTOR_*` muestran EDAD automáticame
 sin columna EDAD en `PACIENTES` (evita desincronización y datos redundantes).
 **Validación:** Núcleo ECICEP 673/673 (EDAD/FECHA_NACIMIENTO).
 **Fecha:** 2026-09-24
+
+## DEC-084
+**Título:** Reparar presentación en el menú Sistema usando el MISMO motor reanudable
+**Estado:** Aprobada
+**Motivo:** El spec §8 exige que Reparar presentación no sea un orquestador
+paralelo sino un wrapper fino sobre `Presentacion_ejecutarPaso_` (mismo plan,
+mismo cursor, mismo post-check). Además, el menú Sistema no lo exponía (decisión
+v0.12.2 de no duplicar acciones), por lo que la usuaria no encontraba la acción.
+Se añade `Reparar presentación` → `UI_repararPresentacion` al menú Sistema (3
+items) y se convierte `Libro_repararPresentacion_` en wrapper fino con reanudación
+entre clics y clave estable por usuario. Actualiza la decisión previa de "no
+duplicar en el menú" para Reparar presentación.
+**Validación:** `reparar_presentacion_v013` 6/6; batería completa pendiente.
+**Fecha:** 2026-09-24

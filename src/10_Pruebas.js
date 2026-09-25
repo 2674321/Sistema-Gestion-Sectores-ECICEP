@@ -6323,13 +6323,15 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(ecicepMatch[1].indexOf('UI_irInicio') === -1, 'Inicio no se duplica en menú');
   });
 
-  t('S10: Menú Sistema — solo actualizar e instalar/reparar', function () {
+  t('S10: Menú Sistema — actualizar, instalar/reparar y reparar presentación', function () {
     var src = onOpen.toString();
     var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
     A.cierto(sistemaMatch, 'menú Sistema existe');
     var items = sistemaMatch[1].match(/\.addItem/g);
-    A.igual(items ? items.length : 0, 2, 'Sistema tiene 2 items');
-    ['UI_actualizarInicio', 'UI_repararPresentacion', 'ECICEP_autorizar', 'UI_abrirAcercaDe']
+    A.igual(items ? items.length : 0, 3, 'Sistema tiene 3 items');
+    A.cierto(sistemaMatch[1].indexOf("addItem('Reparar presentación', 'UI_repararPresentacion')") !== -1,
+      'Reparar presentación está en el menú Sistema');
+    ['UI_actualizarInicio', 'ECICEP_autorizar', 'UI_abrirAcercaDe']
       .forEach(function (fn) {
         A.cierto(sistemaMatch[1].indexOf(fn) === -1, fn + ' no se duplica en menú');
       });

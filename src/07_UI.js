@@ -5,9 +5,10 @@
  */
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
- *  Superficie mínima: cinco flujos operativos y dos de mantenimiento.
- *  INICIO se abre desde su pestaña; su actualización y la reparación visual
- *  viven dentro de Instalar / reparar para no duplicar acciones. */
+ *  Superficie: cinco flujos operativos y mantenimiento.
+ *  Reparar presentación usa el MISMO motor reanudable del instalador (§8):
+ *  mismo plan, mismo cursor, mismo post-check. INICIO se abre desde su
+ *  pestaña (sin item propio). */
 function onOpen() {
   try {
     var ui = _UI_get();
@@ -23,6 +24,7 @@ function onOpen() {
     ui.createMenu('Sistema')
       .addItem('Actualizar sistema', 'UI_actualizarSistema')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
+      .addItem('Reparar presentación', 'UI_repararPresentacion')
       .addToUi();
 
     try {

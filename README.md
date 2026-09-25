@@ -31,7 +31,7 @@ La presentación dejó de verificar "sin pendientes y pasó" y ahora exige **con
 
 La portada `INICIO` se realineó al contrato de **30 columnas (`A1:AD38`)**: cinco accesos universales (PERSONAS, CAPTURA, INGRESOS, CONTROLES, REM), tres tarjetas por sector, bloques `ESTADO` y `PENDIENTES`, metadata y nota operativa, con fingerprint por contenido (`v013|fnv1a32`). El subplan de presentación es **una subtarea por hoja** (reanudable dentro del presupuesto) e incorpora `inicio`, `paridad:INGRESO` y `paridad:SECTOR` antes de la verificación final. La fase `INICIO` del instalador solo construye INICIO (`Instalar_pInicio`), sin tocar formato condicional, filtros o protecciones de otras hojas.
 
-EDAD se calcula automáticamente desde FECHA_NACIMIENTO en las vistas SECTOR, sin almacenarse (decisión de arquitectura "EDAD nunca se almacena"). Detalle en [`docs/INFORME_V013_CIERRE_VISUAL.md`](docs/INFORME_V013_CIERRE_VISUAL.md).
+EDAD se calcula automáticamente desde FECHA_NACIMIENTO en las vistas SECTOR, sin almacenarse (decisión de arquitectura "EDAD nunca se almacena"). El menú **Sistema** ahora incluye **Reparar presentación**, que usa el mismo motor reanudable del instalador (§8): mismo plan, mismo cursor y mismo post-check, con reanudación entre clics. Detalle en [`docs/INFORME_V013_CIERRE_VISUAL.md`](docs/INFORME_V013_CIERRE_VISUAL.md).
 
 ## v0.12.2 — instalador visual y formato canónico de celdas
 

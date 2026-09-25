@@ -46,6 +46,10 @@ contrato de captura **V4**, un único entorno operativo.
 - `verificacion.ok===false` → título `INSTALACIÓN FUNCIONAL / PRESENTACIÓN
   INCOMPLETA`, estado `ADVERTENCIA`, resumen con divergencias y botón
   **Reintentar presentación** (§21).
+- Menú **Sistema** incluye **Reparar presentación** → `UI_repararPresentacion`,
+  wrapper fino sobre `Presentacion_ejecutarPaso_` (mismo motor reanudable, §8):
+  reanuda con el mismo cursor y cierra según la verificación
+  (`Presentación reparada` / `presentación incompleta` / `Reparación incompleta`).
 
 ### 5. EDAD
 - EDAD se calcula desde FECHA_NACIMIENTO en las vistas `SECTOR_*`
@@ -59,6 +63,7 @@ contrato de captura **V4**, un único entorno operativo.
 | `paridad_visual_sectores_v013` | 7/7 PASS |
 | `presentacion_convergencia_v013` | 7/7 PASS |
 | `instalador_visual_v013` | 9/9 PASS |
+| `reparar_presentacion_v013` | 6/6 PASS |
 | `validar_html` | 22/22 PASS |
 | Batería completa (`tools/verificar.mjs`) | **44 suites · 0 fallos** |
 | Núcleo ECICEP (`ejecutar_local`) | 673/673 PASS |
