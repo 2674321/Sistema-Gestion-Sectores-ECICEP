@@ -2897,7 +2897,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.13.0', 'versión esperada v0.13.0');
+    A.igual(v, '0.14.0', 'versión esperada v0.14.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3137,7 +3137,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.13.0', 'versión esperada v0.13.0');
+    A.igual(v, '0.14.0', 'versión esperada v0.14.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -4799,10 +4799,17 @@ function _pruebas_separacion_s12(t, A) {
     A.cierto(act.indexOf('UI_actualizarTodo(') !== -1, 'Actualizar delega la lógica (sin duplicar)');
   });
 
-  t('S12 U5: Actualizar refresca vistas y formato derivado', function () {
+  t('S12 U5: Actualizar refresca vistas y delega el formato al motor único (v0.14)', function () {
     var cadena = Act_actualizarSistema.toString();
-    ['Modelo_refrescarVistasSectores_', 'HVis_formatearIngresos', 'Hojas_formatoCondicional'].forEach(function (f) {
+    ['Modelo_refrescarVistasSectores_', 'Libro_mantenimiento_', 'Libro_marcarDirty_'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) !== -1, 'refresca/deriva con ' + f);
+    });
+    // Contrato anterior obsoleto (pipeline visual paralelo en Actualizar):
+    // el formato vive en el motor (formato:*, validaciones:extras,
+    // condicionales, accesorios), no copiado aquí.
+    ['HVis_aplicarTodasLasSecciones', 'HVis_formatearIngresos', 'Hojas_formatoCondicional',
+     'Modelo_validarIngresos', 'Modelo_aplicarDiseno', 'Hojas_colorearRutIngresos'].forEach(function (f) {
+      A.cierto(cadena.indexOf(f) === -1, 'sin pipeline paralelo: ' + f + ' vive en el motor');
     });
   });
 
@@ -4979,11 +4986,11 @@ function _pruebas_actualizacion_v096(t, A) {
     });
   });
 
-  t('S6 A9: la cadena ACTUALIZAR es el mecanismo único de mantenimiento (estructura + datos + derivados + formato)', function () {
+  t('S6 A9: la cadena ACTUALIZAR es el mecanismo único de mantenimiento (v0.14: datos + motor visual único)', function () {
     var cadena = Act_actualizarSistema.toString();
     ['Modelo_asegurarEsquemaPacientes_', 'Modelo_alinearVistasSectoriales_', 'Fuentes_cargaReal',
      'Act_enriquecerPacientes', 'Estrat_recalcularTodos_', 'Control_recalcularTodos',
-     'Modelo_refrescarVistasSectores_', 'HVis_formatearIngresos', 'Hojas_formatoCondicional']
+     'Modelo_refrescarVistasSectores_', 'Libro_mantenimiento_', 'Libro_marcarDirty_']
       .forEach(function (f) {
         A.cierto(cadena.indexOf(f) !== -1, 'cadena integra ' + f);
       });
@@ -5180,7 +5187,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.13'), 0, 'versión de aplicación coherente (0.13.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.14'), 0, 'versión de aplicación coherente (0.14.x)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -5342,8 +5349,8 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(fn.indexOf('LockService') !== -1, 'usa LockService');
     A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
     A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
-    ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'visual', 'validaciones',
-     'diseno', 'inicio', 'menu', 'derivados'].forEach(function (id) {
+    ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'validaciones',
+     'diseno', 'menu', 'derivados'].forEach(function (id) {
       A.cierto(!!INSTALAR_ETAPAS_MUTAN[id], id + ' figura como mutante');
     });
     ['runtime', 'diagnostico', 'versionado',
@@ -5937,13 +5944,17 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(umbG3.minPuntaje, 5, 'G3 ≥ 5');
   });
 
-  t('S7: Act_actualizarSistema tiene fases de diseño visual (secciones, validación, libro)', function () {
+  t('S7: Act_actualizarSistema usa el motor único de presentación (v0.14, sin pipeline paralelo)', function () {
     A.cierto(typeof Act_actualizarSistema === 'function', 'Act_actualizarSistema existe');
     var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('HVis_aplicarTodasLasSecciones') !== -1, 'incluye HVis_aplicarTodasLasSecciones');
-    A.cierto(src.indexOf('Modelo_validarIngresos') !== -1, 'incluye Modelo_validarIngresos');
-    A.cierto(src.indexOf('Modelo_aplicarDiseno') !== -1, 'incluye Modelo_aplicarDiseno');
-    A.cierto(src.indexOf('Modelo_disenoHojas') !== -1, 'incluye Modelo_disenoHojas (INICIO)');
+    A.cierto(src.indexOf('Libro_mantenimiento_') !== -1, 'invoca el motor único de presentación');
+    A.cierto(src.indexOf('Libro_marcarDirty_') !== -1, 'marca dirty flags selectivos');
+    A.cierto(src.indexOf('PRESENTACION_PENDIENTE') !== -1, 'fallo visual = advertencia (nunca error)');
+    A.cierto(src.indexOf('HVis_aplicarTodasLasSecciones') === -1, 'sin secciones paralelas');
+    A.cierto(src.indexOf('Modelo_validarIngresos') === -1, 'sin validaciones paralelas');
+    A.cierto(src.indexOf('Modelo_aplicarDiseno') === -1, 'sin diseño paralelo');
+    A.cierto(src.indexOf('Modelo_disenoHojas') === -1, 'sin INICIO paralelo');
+    A.cierto(src.indexOf('Hojas_colorearRutIngresos') === -1, 'sin coloreo RUT paralelo');
     A.cierto(src.indexOf('verificacion') !== -1, 'incluye paso de verificación');
   });
 
@@ -5965,20 +5976,22 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   // --- S7b: Segunda auditoría — gaps del pipeline ACTUALIZAR ---
-  t('S7b: ACTUALIZAR invoca Modelo_validarIngresos con Modelo_ss()', function () {
+  t('S7b: ACTUALIZAR delega validaciones al motor (v0.14, sin pipeline paralelo)', function () {
     var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('Modelo_validarIngresos(Modelo_ss())') !== -1,
-      'Modelo_validarIngresos recibiendo Modelo_ss() explícito');
+    A.cierto(src.indexOf('Modelo_validarIngresos(Modelo_ss())') === -1,
+      'sin llamada directa a validaciones (owner: etapa validaciones + motor)');
+    A.cierto(src.indexOf('Libro_mantenimiento_') !== -1,
+      'la presentación corre en el motor único');
   });
 
-  t('S7b: ACTUALIZAR importa Amarillo ANTES de INICIO y vistas', function () {
+  t('S7b: ACTUALIZAR importa Amarillo ANTES de vistas y presentación (v0.14)', function () {
     var src = Act_actualizarSistema.toString();
     var idxAmarillo = src.indexOf('Amarillo_importarTodo_');
-    var idxInicio = src.indexOf('Modelo_disenoHojas');
     var idxVistas = src.indexOf('Modelo_refrescarVistasSectores_');
+    var idxMotor = src.indexOf('Libro_mantenimiento_');
     A.cierto(idxAmarillo !== -1, 'Amarillo_importarTodo_ presente');
-    A.cierto(idxAmarillo < idxInicio, 'Amarillo ANTES de INICIO');
     A.cierto(idxAmarillo < idxVistas, 'Amarillo ANTES de vistas');
+    A.cierto(idxVistas < idxMotor, 'vistas ANTES de la presentación (INICIO se refresca al final)');
   });
 
   t('S7b: ACTUALIZAR tiene 8 hojas críticas en verificación', function () {
@@ -6000,16 +6013,20 @@ function _pruebas_p0_auditoria_v098(t, A) {
       'consulta Modelo_limpiarHojasResiduales');
   });
 
-  t('S7b: ACTUALIZAR tiene HVis_formatearIngresos para INGRESO_*', function () {
+  t('S7b: ACTUALIZAR formatea INGRESO_* vía motor único (v0.14, sin HVis directo)', function () {
     var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('HVis_formatearIngresos') !== -1,
-      'incluye HVis_formatearIngresos para hojas INGRESO');
+    A.cierto(src.indexOf('HVis_formatearIngresos') === -1,
+      'sin HVis directo (formato:* del plan cubre INGRESO_* vía HVis_reconciliarHoja)');
+    var plan = PRESENTACION_SUBPLAN_DISENO.map(function (t) { return t.id; });
+    A.cierto(plan.indexOf('formato:INGRESO_NARANJO') !== -1, 'el plan cubre INGRESO_NARANJO');
+    A.cierto(plan.indexOf('formato:INGRESO_AMARILLO') !== -1, 'el plan cubre INGRESO_AMARILLO');
+    A.cierto(plan.indexOf('formato:INGRESO_VERDE') !== -1, 'el plan cubre INGRESO_VERDE');
   });
 
-  t('S7b: ACTUALIZAR colorear RUT en INGRESO', function () {
+  t('S7b: ACTUALIZAR colorea RUT vía motor único (v0.14, subtarea accesorios)', function () {
     var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('Hojas_colorearRutIngresos') !== -1,
-      'llama Hojas_colorearRutIngresos después de INICIO');
+    A.cierto(src.indexOf('Hojas_colorearRutIngresos') === -1,
+      'sin coloreo directo (subtarea accesorios del plan es el owner)');
   });
 
   t('S7b: ESTRATIFICACION - motor produce G1/G2/G3, nunca G0', function () {
@@ -6044,11 +6061,13 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(secObs.columnas[1], 'SALUD_MENTAL', 'segunda columna SALUD_MENTAL');
   });
 
-  t('S7b: INSTALAR vs ACTUALIZAR — ambos tienen validaciones', function () {
+  t('S7b: INSTALAR vs ACTUALIZAR — validaciones con owner único (v0.14)', function () {
     var srcI = Instalar_pValidaciones.toString();
     var srcA = Act_actualizarSistema.toString();
     A.cierto(srcI.indexOf('Modelo_validarIngresos') !== -1, 'INSTALAR tiene validaciones');
-    A.cierto(srcA.indexOf('Modelo_validarIngresos') !== -1, 'ACTUALIZAR tiene validaciones');
+    A.cierto(srcA.indexOf('Modelo_validarIngresos') === -1,
+      'ACTUALIZAR delega validaciones al motor (sin duplicar)');
+    A.cierto(srcA.indexOf('Libro_mantenimiento_') !== -1, 'ACTUALIZAR usa el motor único');
   });
 
   t('S7b: INSTALAR tiene etapa derivados (estratificación + controles)', function () {
@@ -6273,10 +6292,14 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1, 'Act_actualizarSistema SÍ llama Amarillo_importarTodo_');
   });
 
-  t('S9: INSTALAR etapas son idempotentes (sin carga de datos)', function () {
+  t('S9: INSTALAR tiene UNA fase principal de presentación (v0.14: visual/inicio absorbidas)', function () {
     var ids = INSTALAR_ETAPAS.map(function (e) { return e.id; });
     A.cierto(ids.indexOf('estructura') !== -1, 'etapa estructura existe');
-    A.cierto(ids.indexOf('visual') !== -1, 'etapa visual existe');
+    A.cierto(ids.indexOf('diseno') !== -1, 'etapa diseno (motor único) existe');
+    A.cierto(ids.indexOf('visual') === -1, 'sin fase principal visual separada (absorbida en formato:*)');
+    A.cierto(ids.indexOf('inicio') === -1, 'sin fase principal inicio separada (subtarea inicio del motor)');
+    A.cierto(typeof Instalar_pVisual === 'function', 'wrapper compat Instalar_pVisual conservado');
+    A.cierto(typeof Instalar_pInicio === 'function', 'wrapper compat Instalar_pInicio conservado');
     A.cierto(ids.indexOf('validaciones') !== -1, 'etapa validaciones existe');
     A.cierto(ids.indexOf('derivados') !== -1, 'etapa derivados existe');
     A.cierto(ids.indexOf('verificar') !== -1, 'etapa verificar existe');
@@ -6323,16 +6346,24 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(ecicepMatch[1].indexOf('UI_irInicio') === -1, 'Inicio no se duplica en menú');
   });
 
-  t('S10: Menú Sistema — actualizar, instalar/reparar y reparar presentación', function () {
+  t('S10: Menú Sistema — actualizar e instalar/reparar (v0.14: reparación visual e INICIO viven en el instalador)', function () {
     var src = onOpen.toString();
     var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
     A.cierto(sistemaMatch, 'menú Sistema existe');
     var items = sistemaMatch[1].match(/\.addItem/g);
-    A.igual(items ? items.length : 0, 4, 'Sistema tiene 4 items');
-    A.cierto(sistemaMatch[1].indexOf("addItem('Reparar presentación', 'UI_repararPresentacion')") !== -1,
-      'Reparar presentación está en el menú Sistema');
-    A.cierto(sistemaMatch[1].indexOf("addItem('Reconstruir portada INICIO', 'UI_reconstruirInicio')") !== -1,
-      'Reconstruir portada INICIO está en el menú Sistema');;
+    A.igual(items ? items.length : 0, 2, 'Sistema tiene 2 items');
+    A.cierto(sistemaMatch[1].indexOf("addItem('Actualizar sistema', 'UI_actualizarSistema')") !== -1,
+      'Actualizar sistema está en el menú Sistema');
+    A.cierto(sistemaMatch[1].indexOf("addItem('Instalar / reparar', 'UI_instalarSistema')") !== -1,
+      'Instalar / reparar está en el menú Sistema');
+    // Contrato v0.13 obsoleto: estas capacidades siguen como wrappers internos
+    // deprecated (34_LibroUX) pero ya no son acciones principales del menú.
+    A.cierto(sistemaMatch[1].indexOf('UI_repararPresentacion') === -1,
+      'Reparar presentación ya no es item del menú (vive en el instalador)');
+    A.cierto(sistemaMatch[1].indexOf('UI_reconstruirInicio') === -1,
+      'Reconstruir portada INICIO ya no es item del menú (vive en el instalador)');
+    A.cierto(typeof UI_repararPresentacion === 'function', 'wrapper interno UI_repararPresentacion conservado');
+    A.cierto(typeof UI_reconstruirInicio === 'function', 'wrapper interno UI_reconstruirInicio conservado');
     ['UI_actualizarInicio', 'ECICEP_autorizar', 'UI_abrirAcercaDe']
       .forEach(function (fn) {
         A.cierto(sistemaMatch[1].indexOf(fn) === -1, fn + ' no se duplica en menú');
@@ -6340,7 +6371,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.13.0', 'VERSION es 0.13.0');
+    A.cierto(ECICEP.VERSION === '0.14.0', 'VERSION es 0.14.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

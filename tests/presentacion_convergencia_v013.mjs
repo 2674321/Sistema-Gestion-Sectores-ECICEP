@@ -49,8 +49,8 @@ ok('T5 el paso diseno transporta la verificación al finalizador');
 
 // T6: fingerprint de presentación derivado por contenido.
 const pp = c.Presentacion_fingerprintEsperado_();
-assert.match(pp, /^pp013\|[0-9a-f]{8}$/);
-ok('T6 fingerprint de presentación pp013|fnv1a32 sobre contratos visuales');
+assert.match(pp, /^pp014\|[0-9a-f]{8}$/);
+ok('T6 fingerprint de presentación pp014|fnv1a32 sobre contratos visuales');
 
 // T7: integración — paridad real divergente mantiene ok:false en el plan completo.
 c.Modelo_aplicarDiseno = () => ({ ok: true });

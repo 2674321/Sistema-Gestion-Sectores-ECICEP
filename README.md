@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.13.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.14.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,11 +23,22 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.13.0` + layout de portada `v0.14.0` — panel operativo INICIO completo (hero, KPIs, distribución, alerta, marco, autocuración de dimensiones) · esquema 2 · batería completa sin fallos · publicado `@248` en el deployment operativo |
+| **Estado** | `v0.14.0` — motor único de presentación, instalador único (17 etapas, 7 grupos, opciones avanzadas), menú Sistema con 2 items, Actualizar vía motor + advertencias, `FORMATO_CAMPOS` extendido, INICIO sin copy provisional + snapshot G · esquema 2 · batería 49 suites sin fallos · publicado `@248` en el deployment operativo |
+
+## v0.14.0 — consolidación visual + instalador único
+
+Un solo motor de presentación (`diseno`, 17 subtareas), un solo contrato de formatos
+(`FORMATO_CAMPOS` + vertical/wrapStrategy/superficie), un instalador como centro de
+diagnóstico y reparación (17 etapas en 7 grupos, forzar INICIO y diagnóstico profundo
+integrados), menú Sistema con 2 items y `onOpen` sin escrituras, Actualizar con dirty
+flags y fallo visual como advertencia, INICIO sin copy provisional y snapshot G1/G2/G3.
+Fingerprint `pp014` (una reparación completa al actualizar). INICIO PRO gran formato y
+validación en Sheets real quedan PARTIAL documentado. Detalle en
+[`docs/INFORME_V014_CONSOLIDACION_VISUAL_INSTALADOR_INICIO_PRO.md`](docs/INFORME_V014_CONSOLIDACION_VISUAL_INSTALADOR_INICIO_PRO.md) (DEC-089).
 
 ## v0.14.0 (layout) — INICIO como panel operativo completo
 
-La portada dejó de ser un esqueleto y ahora es un **panel operativo** sobre el mismo lienzo `A1:AD38`, el mismo freeze `2/0` y los mismos valores agregados del snapshot (sin PII, sin fórmulas vivas): hero con semáforo general (`A3:AD3`), banda de **5 KPIs** —personas, eventos, revisión pendiente, controles vencidos y alertas operativas— (etiquetas fila 8, valores fila 9), cards por sector (filas 10-14), **distribución porcentual por sector** (filas 15-16), estado y pendientes (filas 18-23), **banda de alerta** (`A24:AD25`), metadata (`A27:AD29`) y nota (`A32:AD34`). El espacio blanco sobrante de la hoja se cubre con un **marco relleno**: una celda derecha alta y una banda inferior ancha pintadas con `M.sistemaBorde` (la portada se percibe como una tarjeta sobre color, sin blanco adyacente salvo arriba). La distribución porcentual se redondea con **mayor resto** para sumar 100 exacto. El contrato de layout pasa a `PANEL_OPERATIVO_V014` con fingerprint `v014|fnv1a32`, lo que fuerza una única reconstrucción y conserva el fast path posterior. La portada se construye dentro del presupuesto de un RPC (251 de servidor; DEC-088) y, si alguna columna/fila quedara desviada de su dimensión de contrato tras estilizar, el constructor la corrige y reverifica (autocuración idempotente) antes de declarar fallo. `ECICEP.VERSION` permanece en `0.13.0` (DEC-087).
+La portada dejó de ser un esqueleto y ahora es un **panel operativo** sobre el mismo lienzo `A1:AD38`, el mismo freeze `2/0` y los mismos valores agregados del snapshot (sin PII, sin fórmulas vivas): hero con semáforo general (`A3:AD3`), banda de **5 KPIs** —personas, eventos, revisión pendiente, controles vencidos y alertas operativas— (etiquetas fila 8, valores fila 9), cards por sector (filas 10-14), **distribución porcentual por sector** (filas 15-16), estado y pendientes (filas 18-23), **banda de alerta** (`A24:AD25`), metadata (`A27:AD29`) y nota (`A32:AD34`). El espacio blanco sobrante de la hoja se cubre con un **marco relleno**: una celda derecha alta y una banda inferior ancha pintadas con `M.sistemaBorde` (la portada se percibe como una tarjeta sobre color, sin blanco adyacente salvo arriba). La distribución porcentual se redondea con **mayor resto** para sumar 100 exacto. El contrato de layout pasa a `PANEL_OPERATIVO_V014` con fingerprint `v014|fnv1a32`, lo que fuerza una única reconstrucción y conserva el fast path posterior. La portada se construye dentro del presupuesto de un RPC (251 de servidor; DEC-088) y, si alguna columna/fila quedara desviada de su dimensión de contrato tras estilizar, el constructor la corrige y reverifica (autocuración idempotente) antes de declarar fallo. `ECICEP.VERSION` permanecía entonces en `0.13.0` (DEC-087); desde la consolidación visual la versión de producto es `0.14.0` (DEC-089).
 
 ## v0.13.0 — cierre visual: paridad, portada INICIO y presentación convergente
 

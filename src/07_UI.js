@@ -6,9 +6,14 @@
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
  *  Superficie: cinco flujos operativos y mantenimiento.
- *  Reparar presentación usa el MISMO motor reanudable del instalador (§8):
- *  mismo plan, mismo cursor, mismo post-check. INICIO se abre desde su
- *  pestaña (sin item propio). */
+ *  v0.14: el menú Sistema expone SOLO {Actualizar sistema, Instalar / reparar}.
+ *  La reparación visual y la reconstrucción de INICIO son capacidades internas
+ *  del instalador (motor único de Presentación), no acciones principales.
+ *  UI_reconstruirInicio / UI_repararPresentacion se conservan como wrappers
+ *  internos deprecated para compatibilidad (34_LibroUX).
+ *  onOpen NUNCA escribe celdas de INICIO (ni A1 ni Y1): solo menús + toast.
+ *  Todo mantenimiento de INICIO vive en Inicio_*.
+ *  INICIO se abre desde su pestaña (sin item propio). */
 function onOpen() {
   try {
     var ui = _UI_get();
@@ -23,21 +28,12 @@ function onOpen() {
 
     ui.createMenu('Sistema')
       .addItem('Actualizar sistema', 'UI_actualizarSistema')
-      .addItem('Reconstruir portada INICIO', 'UI_reconstruirInicio')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
-      .addItem('Reparar presentación', 'UI_repararPresentacion')
       .addToUi();
 
-    try {
-      var hInicio = Modelo_ss().getSheetByName('INICIO');
-      if (hInicio) {
-        var tituloInicio = hInicio.getRange('A1'), versionInicio = hInicio.getRange('Y1');
-        var tituloEsperado = 'ECICEP · CENTRO OPERATIVO';
-        var versionEsperada = 'v' + ECICEP.VERSION + ' · Build ' + (ECICEP_BUILD.commit || 'dev');
-        if (Utl_texto(tituloInicio.getValue()) !== tituloEsperado) tituloInicio.setValue(tituloEsperado);
-        if (Utl_texto(versionInicio.getValue()) !== versionEsperada) versionInicio.setValue(versionEsperada);
-      }
-    } catch (eI) { /* metadata ligera, nunca bloquea onOpen */ }
+    // v0.14: onOpen no muta INICIO. Sin lecturas ni escrituras sobre la
+    // portada (título/versión los gestiona Inicio_construir_ dentro del
+    // motor de Presentación). Solo menús + toast.
     var mostrarToast = true;
     try {
       var up = PropertiesService.getUserProperties(), clave = 'ECICEP_TOAST_VERSION';
@@ -89,7 +85,7 @@ function UI_instalarSistema() {
   t.TOKEN_ACCESO = WebApp_claveOperador_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
-    .setTitle('Instalaci\u00f3n del sistema').setWidth(560).setHeight(640),
+    .setTitle('Instalaci\u00f3n del sistema').setWidth(760).setHeight(720),
     'Instalaci\u00f3n del sistema');
 }
 
@@ -193,10 +189,14 @@ function UI_actualizarTodo(opciones) {
   Utl_toast('info', 'Actualizando sistema…', 45);
   var r = Act_actualizarSistema(opciones || {});
   var fases = r.resumen && r.resumen.errores || [];
+  // v0.14 §24/§99: datos OK + presentación pendiente NO es error.
+  var presentacionPendiente = r.advertencias && r.advertencias.indexOf('PRESENTACION_PENDIENTE') !== -1;
   var msj = (r.ok === false)
     ? 'Actualización incompleta (' + fases.slice(0, 3).join(', ') +
       (fases.length > 3 ? ' y ' + (fases.length - 3) + ' más' : '') + ') — revisar el Registro'
-    : 'Actualizado — ' + Act_resumenActualizacionTexto(r);
+    : (presentacionPendiente
+      ? 'Actualización completada · presentación pendiente de reparación — ' + Act_resumenActualizacionTexto(r)
+      : 'Actualizado — ' + Act_resumenActualizacionTexto(r));
   Utl_toast(r.ok === false ? 'error' : 'ok', msj, 10);
   return r;
 }

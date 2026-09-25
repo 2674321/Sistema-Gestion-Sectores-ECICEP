@@ -28,8 +28,13 @@ assert.equal(c.api_instalarPaso('runtime', clave).motivo, 'FALLO_SIMULADO');
 assert.equal(llamadas, 1);
 assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
 assert.equal(llamadas, 1);
-c.HVis_aplicarTodasLasSecciones = () => ({ ok: true, resultados: [{ hoja: 'PACIENTES', ok: false }] });
+// v0.14: Instalar_pVisual es wrapper del motor único (subtareas formato:* +
+// complementarias del plan, sin pipeline paralelo). Simula un fallo de subtarea.
+const tareaRealV = c.Presentacion_ejecutarTarea_;
+c.Presentacion_ejecutarTarea_ = t => t.id === 'formato:PACIENTES'
+  ? { ok: false, motivo: 'PACIENTES: fallo simulado' } : { ok: true, detalle: {} };
 assert.equal(c.Instalar_pVisual().ok, false);
+c.Presentacion_ejecutarTarea_ = tareaRealV;
 c.Modelo_leerPacientes = () => []; c.Modelo_leerEventos = () => [];
 c.Modelo_hoja = () => ({});
 c.Modelo_escanearEstructura = () => ({});
@@ -57,8 +62,9 @@ c.Modelo_ss = () => ({});
 assert.equal(c.Instalar_pValidaciones().ok, false);
 c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
 assert.equal(c.Instalar_pDiseno().ok, false);
-// §9: la fase INICIO usa Inicio_construir_ + Inicio_diagnosticarVisual_ y no
-// toca Modelo_disenoHojas (ni condicionales/filtros/protecciones de otras hojas).
+// v0.14 §9: INICIO pertenece al motor (subtarea 'inicio'): el wrapper delega en
+// Presentacion_ejecutarTarea_ (que usa Inicio_construir_) + verificación con
+// Inicio_diagnosticarVisual_, sin Modelo_disenoHojas ni toques a otras hojas.
 c.Modelo_ss = () => ({ getSheetByName: n => n === 'INICIO' ? { hoja: 'INICIO' } : null });
 c.Inicio_construir_ = () => ({ ok: true });
 c.Inicio_diagnosticarVisual_ = () => ({ ok: false, diferencias: ['SECTOR_VERDE: formato simulado'] });

@@ -162,19 +162,26 @@ assert.deepEqual(Array.from(visto), [['diseno', 'EJ-9']]);
 c.Presentacion_ejecutarPaso_ = realPaso;
 ok('T8 dispatcher entrega la ejecución del cliente al motor (diseno no mutante)');
 
-// --- T9: Instalar_pVisual sin fuerza global y agregando fallos ---
-let opcionesCapturadas = 'NO_LLAMADO';
-c.HVis_aplicarTodasLasSecciones = function (opciones) {
-  opcionesCapturadas = opciones;
-  return { ok: true, resultados: [{ hoja: 'CONFLICTOS', ok: false }] };
+// --- T9 (v0.14): Instalar_pVisual delega en el motor único, sin pipeline
+// paralelo ni fuerza global; agrega fallos de subtarea ---
+const tareaReal9 = c.Presentacion_ejecutarTarea_;
+let tareasVistas9 = [];
+c.Presentacion_ejecutarTarea_ = t => {
+  tareasVistas9.push(t.id);
+  return t.id === 'formato:PACIENTES'
+    ? { ok: false, motivo: 'PACIENTES: fallo simulado' } : { ok: true, detalle: {} };
 };
 const rv = c.Instalar_pVisual();
 assert.equal(rv.ok, false, 'repara y reporta hojas con fallos');
-assert.equal(rv.motivo.includes('CONFLICTOS'), true);
-assert.ok(opcionesCapturadas === undefined, 'sin {forzar:true}');
+assert.equal(rv.motivo.includes('formato:PACIENTES'), true);
+assert.ok(tareasVistas9.some(id => id.indexOf('formato:') === 0), 'ejecuta subtareas formato:* del plan');
+assert.ok(!tareasVistas9.includes('inicio'), 'no toca INICIO (owner del motor)');
+c.Presentacion_ejecutarTarea_ = tareaReal9;
 assert.doesNotMatch(readFileSync(new URL('20_Instalador.js', root), 'utf8'),
   /HVis_aplicarTodasLasSecciones\(\{/, 'Instalar_pVisual no fuerza globalmente');
-ok('T9 Instalar_pVisual: sin forzar y agrega hojas con pendientes reales');
+assert.doesNotMatch((readFileSync(new URL('20_Instalador.js', root), 'utf8').match(/function Instalar_pVisual\([\s\S]*?\n\}/) || [''])[0],
+  /HVis_aplicarTodasLasSecciones/, 'wrapper sin pipeline visual paralelo');
+ok('T9 Instalar_pVisual: delega en el motor, sin forzar y agrega fallos reales');
 
 // --- T10: filas gestionadas bounded (INGRESO_VERDE = tier visual: dataStart 4) ---
 const hja10 = { getMaxRows: () => 2000, getLastRow: () => 500 };
@@ -392,7 +399,7 @@ const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion\);/);
 assert.match(src20, /var r = fn\(ejecucion\)/);
 const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
-assert.match(cfg, /VERSION:\s*'0\.13\.0'/);
-ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.13.0');
+assert.match(cfg, /VERSION:\s*'0\.14\.0'/);
+ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.14.0');
 
 console.log('Presentación reanudable v0.13.0 — ' + n + '/' + n + ' PASS');

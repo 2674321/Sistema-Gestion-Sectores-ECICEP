@@ -620,6 +620,10 @@ function HVis_formatearIngresos() {
 }
 
 /**
+ * @deprecated v0.14 — compatibilidad. La reparación global de secciones vive
+ * en el motor único (subtareas formato:* → Presentacion_formatearHoja_ →
+ * HVis_reconciliarHoja). Para retoques puntuales usar HVis_aplicarSecciones
+ * (una hoja) o HVis_formatearIngresos (puertas INGRESO_*).
  * GAS: aplica el sistema visual a todas las hojas con secciones.
  */
 function HVis_aplicarTodasLasSecciones(opciones) {

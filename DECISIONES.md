@@ -2034,3 +2034,22 @@ repetida), `inicio_v012` PASS,
 `reparar_presentacion_v013` 6/6 (menú con 4 ítems), batería completa 46 suites 0
 fallos y `ejecutar_local` 673/673.
 **Fecha:** 2026-09-25
+
+## DEC-089
+**Título:** Consolidación visual v0.14 — un motor, un instalador, sin pipelines paralelos.
+**Estado:** Aprobada
+**Motivo:** La capa visual creció en tres pipelines (instalador `visual`+`diseno`+`inicio`,
+`Act_actualizarSistema` con secuencia propia, `Modelo_aplicarDiseno` como segundo motor) y un menú
+que exponía detalles internos (4 items). Se consolida en: fase única `diseno` (subtareas
+`formato:*` con `HVis_reconciliarHoja` absorbida + `inicio` + paridad + verificar), menú Sistema con
+2 items, `onOpen` sin escrituras en INICIO, Actualizar con dirty flags + `Libro_mantenimiento_` y
+fallo visual como advertencia `PRESENTACION_PENDIENTE`, `Modelo_aplicarDiseno` sin banding/header/freeze
+en visuales, modos `PRESENTACION_MODO`, instalador 760×720 con 7 grupos y opciones avanzadas,
+`FORMATO_CAMPOS` extendido (vertical/wrapStrategy/superficie/fontSize), INICIO sin copy provisional y
+snapshot G1/G2/G3 en el mismo recorrido, fingerprint `pp014` + prop `…_V014` (una reparación completa
+al actualizar). `ECICEP.VERSION` sube a `0.14.0` (schema 2, captura V4, sin MIG-003). INICIO PRO gran
+formato (AJ50/≤40 merges/≤190 RPC) queda PARTIAL con causa medida (251 RPC/72 merges actuales) para fase
+con Sheets real. Detalle en `docs/INFORME_V014_CONSOLIDACION_VISUAL_INSTALADOR_INICIO_PRO.md`.
+**Validación:** `tools/verificar.mjs` 49 suites 0 fallos, `ejecutar_local` 673/673, nuevas
+`arquitectura_visual_v014` 7/7, `formato_celdas_v014` 7/7, `inicio_snapshot_v014` 4/4.
+**Fecha:** 2026-09-25

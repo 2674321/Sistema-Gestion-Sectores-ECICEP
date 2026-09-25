@@ -213,7 +213,9 @@ test('Simulación del orquestador no llama a ningún escritor', () => {
     'Modelo_limpiarHojasResiduales','Amarillo_importarTodo_','Estrat_recalcularTodos_',
     'Control_recalcularTodos','Modelo_refrescarVistasSectores_','HVis_aplicarTodasLasSecciones',
     'HVis_formatearIngresos','Hojas_formatoCondicional','Modelo_validarIngresos',
-    'Modelo_aplicarDiseno','Modelo_disenoHojas','Hojas_colorearRutIngresos','onOpen','Log_info','Log_flush']) {
+    'Modelo_aplicarDiseno','Modelo_disenoHojas','Hojas_colorearRutIngresos',
+    'Libro_mantenimiento_','Libro_repararPresentacion_','Inicio_refrescarSiNecesario_',
+    'Libro_marcarDirty_','onOpen','Log_info','Log_flush']) {
     c[name] = () => { calls.push(name); return { ok: true }; };
   }
   c.Fuentes_cargaReal = o => { assert.equal(o.ejecutar, false); return { ok: true, resumen: {} }; };
@@ -243,6 +245,10 @@ function actualizacionSimulada() {
   c.Modelo_disenoHojas = () => ({ ok: true });
   c.Hojas_colorearRutIngresos = () => 0;
   c.onOpen = () => {};
+  // v0.14: la presentación corre en el motor único (mockeado aquí para aislar
+  // los tests de datos; los tests del motor cubren el camino visual).
+  c.Libro_marcarDirty_ = () => ({});
+  c.Libro_mantenimiento_ = () => ({ ok: true });
   c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
   return c;
 }
@@ -258,32 +264,34 @@ test('Actualizar informa fallo devuelto por Amarillo, sin éxito falso', () => {
   assert.equal(logs.length, 1);
   assert.equal(logs[0].detalleErrores.amarillo, 'FUENTE_NO_DISPONIBLE');
 });
-test('Actualizar informa excepciones de vistas y fallos parciales de diseño', () => {
+test('Actualizar informa excepciones de vistas; presentación pendiente es advertencia (v0.14)', () => {
   const c = actualizacionSimulada();
   c.Modelo_refrescarVistasSectores_ = () => { throw Error('VISTA_SIMULADA'); };
-  c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: DISEÑO_SIMULADO'] });
+  c.Libro_mantenimiento_ = () => ({ ok: false, motivo: 'DISEÑO_SIMULADO' });
   const r = c.Act_actualizarSistema({ ejecutar: true });
   assert.equal(r.ok, false);
-  assert.deepEqual(Array.from(r.resumen.errores), ['vistas', 'diseno']);
+  assert.deepEqual(Array.from(r.resumen.errores), ['vistas']);
   assert.equal(r.resumen.detalleErrores.vistas, 'VISTA_SIMULADA');
-  assert.match(r.resumen.detalleErrores.diseno, /DISEÑO_SIMULADO/);
+  assert.ok((r.advertencias || []).includes('PRESENTACION_PENDIENTE'),
+    'fallo visual con datos en error queda como advertencia, no como error extra');
+  assert.match(r.detalleErrores.presentacion, /DISEÑO_SIMULADO/);
 });
-test('Actualizar informa fallos parciales de validación y secciones', () => {
+test('Actualizar con datos OK y presentación pendiente NO falla (v0.14 §24)', () => {
   const c = actualizacionSimulada();
-  c.Modelo_validarIngresos = () => ({ fallidas: ['INGRESO_VERDE: REGLA_SIMULADA'] });
-  c.HVis_aplicarTodasLasSecciones = () => ({ ok: true, resultados: [{ hoja: 'PACIENTES', ok: false, motivo: 'SECCION_SIMULADA' }] });
+  c.Libro_mantenimiento_ = () => ({ ok: false, motivo: 'SECCION_SIMULADA' });
   const r = c.Act_actualizarSistema({ ejecutar: true });
-  assert.equal(r.ok, false);
-  assert.ok(r.resumen.errores.includes('validaciones'));
-  assert.ok(r.resumen.errores.includes('seccionesVisuales'));
-  assert.match(r.resumen.detalleErrores.seccionesVisuales, /PACIENTES/);
+  assert.equal(r.ok, true);
+  assert.deepEqual(Array.from(r.resumen.errores), []);
+  assert.ok((r.advertencias || []).includes('PRESENTACION_PENDIENTE'));
+  assert.match(r.detalleErrores.presentacion, /SECCION_SIMULADA/);
 });
-test('Actualizar informa formato de ingreso incompleto', () => {
+test('Actualizar informa excepción del motor como advertencia (v0.14 §24)', () => {
   const c = actualizacionSimulada();
-  c.HVis_formatearIngresos = () => ({ INGRESO_VERDE: 'LEGADO → ERROR', _fallidas: ['INGRESO_VERDE: FORMATO_SIMULADO'] });
+  c.Libro_mantenimiento_ = () => { throw Error('MOTOR_SIMULADO'); };
   const r = c.Act_actualizarSistema({ ejecutar: true });
-  assert.equal(r.ok, false);
-  assert.equal(r.resumen.detalleErrores.formato, 'INGRESO_VERDE: FORMATO_SIMULADO');
+  assert.equal(r.ok, true);
+  assert.ok((r.advertencias || []).includes('PRESENTACION_PENDIENTE'));
+  assert.match(r.detalleErrores.presentacion, /MOTOR_SIMULADO/);
 });
 test('Actualizar captura fallo de fuentes también en simulación', () => {
   const c = actualizacionSimulada();
@@ -388,6 +396,27 @@ test('El diseño de instalación oculta cuadrícula y ajusta filas ocupadas', ()
   assert.ok(calls.some(x => x[0] === 'header' && x[1] === '#123456'));
   assert.ok(calls.some(x => x[0] === 'grid' && x[1] === true));
   assert.ok(calls.some(x => x[0] === 'rows' && x[1] === 2 && x[2] === 4));
+});
+test('El diseño no aplica banding en hojas visuales (v0.14 §19: Presentación es owner)', () => {
+  const c = backend(), calls = [];
+  c.MODELO_DISENO = [{ nombre: 'SECTOR_NARANJO', color: '#aabbcc', banda: true }];
+  const hoja = {
+    getName: () => 'SECTOR_NARANJO', getLastColumn: () => 3, getLastRow: () => 5,
+    getTabColor: () => '#aabbcc', setTabColor: v => calls.push(['tab', v]),
+    hasHiddenGridlines: () => false,
+    setHiddenGridlines: v => calls.push(['grid', v]),
+    getRowHeight: () => 20,
+    setRowHeights: (...v) => calls.push(['rows', ...v]), isSheetHidden: () => false
+  };
+  c.Modelo_ss = () => ({ getActiveSheet: () => hoja,
+    getSheetByName: name => name === 'SECTOR_NARANJO' ? hoja : null,
+    setActiveSheet: () => {}, moveActiveSheet: () => {} });
+  c._modelo_aplicarBanda = () => calls.push(['band']);
+  const r = c.Modelo_aplicarDiseno();
+  assert.equal(r.fallidas.length, 0);
+  assert.ok(!calls.some(x => x[0] === 'band'), 'sin banding en hoja visual (preferencia banda:false)');
+  assert.ok(calls.some(x => x[0] === 'grid'), 'gridlines ocultas conservadas (sin otro owner)');
+  assert.ok(calls.some(x => x[0] === 'rows'), 'altura de datos conservada (sin otro owner)');
 });
 test('Instalar deja el freeze visual a HVis y respeta HOJAS_UX en hojas simples', () => {
   const c = backend(), llamadas = [];
@@ -524,8 +553,8 @@ for (const sector of ['NARANJO', 'AMARILLO', 'VERDE'])
     const c = backend();
     const nombre = 'SECTOR_' + sector;
     const hoja = sectorMigrada(nombre, sector, false);
-    // Cadena equivalente a Instalar_pVisual → HVis_aplicarTodasLasSecciones({forzar:true})
-    // → HVis_aplicarSecciones(hoja, {forzar:true}) para la hoja del sector.
+    // Cadena equivalente al motor único (formato:* → HVis_reconciliarHoja →
+    // HVis_aplicarSecciones) para la hoja del sector.
     const r = c.HVis_aplicarSecciones(hoja, { forzar: true });
     assert.equal(r.ok, true, 'ok=' + r.ok + ' advertencias=' + JSON.stringify(r.advertencias));
     assert.equal(r.advertencias.length, 0, 'sin advertencias: ' + JSON.stringify(r.advertencias));
@@ -559,13 +588,15 @@ test('MIG-001 recupera una vista derivada con encabezados incompatibles', () => 
   const mig = c.Mig_run001();
   assert.equal(mig.ok, true); assert.deepEqual(sectores, ['NARANJO']);
 });
-test('SAS-025: Instalar/reparar aplica el diseño SIN fuerza global (las hojas sin pintar se detectan)', () => {
+test('SAS-025: Instalar/reparar aplica el diseño SIN fuerza global (v0.14: wrapper sobre el motor único)', () => {
   const c = backend();
-  let optsRecibidas = undefined;
-  c.HVis_aplicarTodasLasSecciones = opts => { optsRecibidas = opts; return { ok: true, resultados: [] }; };
+  const tareaReal = c.Presentacion_ejecutarTarea_;
+  let tareas = [];
+  c.Presentacion_ejecutarTarea_ = t => { tareas.push(t.id); return { ok: true, detalle: {} }; };
   assert.equal(c.Instalar_pVisual().ok, true);
-  assert.equal(optsRecibidas, undefined,
-    'el instalador ya no fuerza la reescritura del libro (hotfix 0.12.1); una hoja migrada sin OBSERVACIONES se detecta por pendientes');
+  assert.ok(tareas.some(id => id.indexOf('formato:') === 0),
+    'el wrapper ejecuta las subtareas formato:* del plan único (sin pipeline paralelo)');
+  c.Presentacion_ejecutarTarea_ = tareaReal;
 });
 test('SAS-025: HVis_yaFormateada devuelve false si falta la sección OBSERVACIONES', () => {
   const c = backend();

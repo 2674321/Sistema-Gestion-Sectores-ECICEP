@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.13.0',
+  VERSION: '0.14.0',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -345,8 +345,12 @@ const HOJAS_UX = {
   FORM_RESPUESTAS:  { familia: 'tecnica', frozenRows: 1, frozenColumns: 0 }
 };
 
-// Contrato canónico de CELDAS (v0.12.2). Esta es la única fuente para tipo,
-// formato numérico, ancho, alineación y wrap. Los nombres se comparan mediante
+// Contrato canónico de CELDAS (v0.12.2, extendido v0.14 §59-60). Única fuente
+// para tipo, formato numérico, ancho, alineación y wrap. Campos nuevos
+// posibles por columna: vertical, wrapStrategy (WRAP/CLIP/OVERFLOW, con
+// compat temporal al booleano `wrap`), superficie (override explícito;
+// vacío = resolución contextual por hoja), fontSize y fontWeight (solo se
+// aplican si están definidos). Los nombres se comparan mediante
 // Utl_claveAlnum, por lo que cubre las etiquetas físicas con espacios de
 // INGRESO_* sin inventar columnas nuevas.
 const FORMATO_TIPOS = {
@@ -393,7 +397,7 @@ const FORMATO_CAMPOS = {
   EDAD:                   { tipo: 'NUMERO', ancho: 65, formato: '0' },
   OBSERVACIONES:          { tipo: 'TEXTO_LARGO', ancho: 280 },
   OBSERVACIONESINGRESO:   { tipo: 'TEXTO_LARGO', ancho: 280 },
-  NOTASISTEMA:            { tipo: 'SISTEMA', ancho: 250, wrap: true },
+  NOTASISTEMA:            { tipo: 'SISTEMA', ancho: 250, wrap: true, fontSize: 9 },
   PROFESIONAL:            { tipo: 'TEXTO', ancho: 170, wrap: true },
   PROFESIONALSEGUIMIENTO: { tipo: 'TEXTO', ancho: 170, wrap: true },
   DESCRIPCION:            { tipo: 'TEXTO_LARGO', ancho: 220 },

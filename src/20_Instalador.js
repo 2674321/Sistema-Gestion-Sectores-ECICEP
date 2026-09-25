@@ -15,24 +15,27 @@ var INSTALAR_ETAPAS = [
   { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura' },
   { id: 'fuentes',      nombre: 'Cargando datos de fuentes',   fn: 'Instalar_pFuentes' },
   { id: 'amarillo',     nombre: 'Cargando sector amarillo',    fn: 'Instalar_pAmarillo' },
-  { id: 'visual',       nombre: 'Aplicando diseño de hojas',    fn: 'Instalar_pVisual' },
   { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
   { id: 'triggers',     nombre: 'Activando automatizaciones',     fn: 'Instalar_pTriggers' },
   { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza' },
   { id: 'diseno',       nombre: 'Presentación del libro',        fn: 'Instalar_pDiseno' },
-  { id: 'inicio',       nombre: 'Preparando la portada',        fn: 'Instalar_pInicio' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
   { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
   { id: 'derivados',    nombre: 'Actualizando estratificación', fn: 'Instalar_pDerivados' },
   { id: 'integridad',   nombre: 'Reconciliando derivados',      fn: 'Instalar_pIntegridad' },
   { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
 ];
+// v0.14: UNA fase principal de presentación ('diseno', motor único en
+// 35_Presentacion). Las antiguas fases top-level 'visual' (HVis directo) e
+// 'inicio' (INICIO directo) fueron absorbidas por el plan: estructura superior
+// en formato:* e INICIO en la subtarea 'inicio'. Instalar_pVisual /
+// Instalar_pInicio quedan como wrappers deprecated (no forman parte del plan).
 
 /** Solo las etapas que realmente escriben toman LockService. Las fases
  *  omitidas y el inventario de hojas adicionales son de solo lectura. */
 var INSTALAR_ETAPAS_MUTAN = {};
-['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'visual', 'validaciones',
-  'diseno', 'inicio', 'menu', 'derivados', 'triggers', 'integridad'].forEach(function (id) {
+['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'validaciones',
+  'diseno', 'menu', 'derivados', 'triggers', 'integridad'].forEach(function (id) {
   INSTALAR_ETAPAS_MUTAN[id] = true;
 });
 
@@ -134,8 +137,15 @@ function api_instalarPaso(id, acceso, ejecucion, opciones) {
         linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
       respaldo = bk.creado ? (bk.nombre || null) : null;
     }
-    if (id === 'diseno' && opciones.forzarPresentacion === true &&
-        typeof Presentacion_invalidarLayout_ === 'function') Presentacion_invalidarLayout_();
+    // v0.14 §86 — opciones backward-compatible del motor de presentación:
+    // {modoPresentacion:'AUTO'|'REPARAR'|'FORZAR_INICIO'|'PROFUNDO',
+    //  forzarInicio, diagnosticoVisualProfundo}. Callers antiguos sin opciones
+    // siguen en AUTO. FORZAR_INICIO/PROFUNDO invalidan el layout vigente para
+    // forzar el recorrido completo; la etapa 'verificar' ya corre profunda.
+    if (id === 'diseno' && typeof Presentacion_invalidarLayout_ === 'function' &&
+        (opciones.forzarPresentacion === true || opciones.forzarInicio === true ||
+         opciones.modoPresentacion === 'FORZAR_INICIO' || opciones.modoPresentacion === 'PROFUNDO'))
+      Presentacion_invalidarLayout_();
     var fn = G[reg.fn];
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
     var r = fn(ejecucion) || {};
@@ -616,31 +626,43 @@ function Instalar_pDiseno(ejecucion) {
   // mientras la respuesta indique {continuar:true}. Ver 35_Presentacion.js.
   return Presentacion_ejecutarPaso_('diseno', ejecucion);
 }
+/** @deprecated v0.14 — wrapper de compatibilidad, FUERA del plan principal.
+ *  La estructura superior se repara en las subtareas formato:* del motor único
+ *  (Presentacion_formatearHoja_ → HVis_reconciliarHoja). Este wrapper ejecuta
+ *  esas mismas subtareas del plan (sin pipeline paralelo) para callers antiguos.
+ *  Sin fuerza global: hoja alineada = cero escrituras. */
 function Instalar_pVisual() {
-  // Repara las hojas con inconsistencias visuales REALES (SAS-025): una hoja
-  // con secciones sin pintar se detecta por pendientes y se reformatea solo
-  // esa hoja. Hoja alineada al DESIGN_SYSTEM = cero escrituras (fast-path).
-  // Se eliminó la fuerza global {forzar:true}: reinstalar no debe reescribir
-  // el libro completo sin que exista un problema detectado.
-  var r = HVis_aplicarTodasLasSecciones();
-  var fallos = (r.resultados || []).filter(function (x) { return x.ok === false; });
-  return { ok: r.ok !== false && fallos.length === 0, hojas: r.resultados,
-           motivo: fallos.length ? 'Diseño incompleto en: ' + fallos.map(function (x) { return x.hoja; }).join(', ') : (r.motivo || '') };
+  var tareas = (typeof PRESENTACION_SUBPLAN_DISENO !== 'undefined' ? PRESENTACION_SUBPLAN_DISENO : [])
+    .filter(function (t) { return t.id === 'base' || t.id.indexOf('formato:') === 0 ||
+      t.id === 'validaciones:extras' || t.id === 'condicionales' || t.id === 'notas' ||
+      t.id === 'accesorios'; });
+  var hojas = [], fallos = [];
+  tareas.forEach(function (t) {
+    var r = Presentacion_ejecutarTarea_(t);
+    if (r.ok === false) fallos.push(t.id + ': ' + (r.motivo || 'error'));
+    else if (t.id.indexOf('formato:') === 0) hojas.push({ hoja: t.id.slice(8), ok: true });
+  });
+  return { ok: fallos.length === 0, hojas: hojas,
+    motivo: fallos.length ? 'Diseño incompleto en: ' + fallos.join(', ') : '' };
 }
+/** @deprecated v0.14 — wrapper de compatibilidad, FUERA del plan principal.
+ *  INICIO pertenece exclusivamente al motor de Presentación (subtarea 'inicio'
+ *  del plan único). Este wrapper ejecuta esa misma subtarea + verificación,
+ *  sin Modelo_disenoHojas ni toques a otras hojas (§9). */
 function Instalar_pInicio() {
-  // §9: la fase INICIO hace SOLO INICIO. No invoca Modelo_disenoHojas ni toca
-  // formatos condicionales, filtros, ocultamientos o protecciones de otras hojas.
   var ss = Modelo_ss();
   var r, motivo = '';
-  try { r = Inicio_construir_(ss, { forzar: false }); }
+  try { var t = Presentacion_ejecutarTarea_({ id: 'inicio', nombre: 'Portada INICIO' });
+    r = { ok: t.ok !== false, detalle: t.detalle || t };
+  }
   catch (e) { return { ok: false, inicio: null, verificacion: { ok: false, diferencias: [] },
     motivo: e && e.message ? e.message : String(e) }; }
   var hInicio = ss.getSheetByName('INICIO');
   var v = hInicio ? Inicio_diagnosticarVisual_(hInicio)
     : { ok: false, diferencias: ['HOJA:INICIO'] };
-  if (r.ok === false) motivo = r.motivo || 'No se pudo construir INICIO';
+  if (r.ok === false) motivo = (r.detalle && r.detalle.motivo) || 'No se pudo construir INICIO';
   else if (!v.ok) motivo = v.diferencias.join('; ');
-  return { ok: r.ok !== false && v.ok === true, inicio: r,
+  return { ok: r.ok !== false && v.ok === true, inicio: r.detalle || r,
     verificacion: v, motivo: motivo };
 }
 function Instalar_pMenu() {

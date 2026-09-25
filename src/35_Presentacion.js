@@ -24,15 +24,34 @@
  *    secciones sin pintar se detecta (HVis_yaFormateada / HVis_pendientesVisual)
  *    y se repara solo esa hoja.
  *
- * La etapa 'validaciones' (puertas INGRESO_*) es dueña exclusiva de sus reglas;
- * este motor NO las duplica. INICIO se mantiene en su propia etapa ('inicio').
+ *  v0.14: el instalador tiene UNA fase principal de presentación ('diseno').
+ *  Las antiguas fases top-level 'visual' e 'inicio' fueron absorbidas: la
+ *  estructura superior vive en las subtareas formato:* (Presentacion_-
+ *  formatearHoja_ → HVis_reconciliarHoja) e INICIO es la subtarea 'inicio'
+ *  de este mismo plan. Instalar_pVisual / Instalar_pInicio quedan como
+ *  wrappers deprecated de compatibilidad (20_Instalador).
+ *
+ *  La etapa 'validaciones' (puertas INGRESO_*) es dueña exclusiva de sus reglas;
+ *  este motor NO las duplica.
  */
 
 var PRESUPUESTO_PRESENTACION_MS = 20000;
 
+/** v0.14 §81 — contrato de modos del motor único. AUTO (Instalar/Actualizar:
+ *  diagnostica y repara selectivamente) · REPARAR (botón del instalador) ·
+ *  FORZAR_INICIO (opción avanzada del instalador) · PROFUNDO (paridad +
+ *  validaciones/number-formats/condicionales profundas + verificación INICIO,
+ *  sin escribir si no hay drift). */
+var PRESENTACION_MODO = {
+  AUTO: 'AUTO',
+  REPARAR: 'REPARAR',
+  FORZAR_INICIO: 'FORZAR_INICIO',
+  PROFUNDO: 'PROFUNDO'
+};
+
 var PRESENTACION_CACHE_PREFIJO = 'ECICEP_INST_PRES';
-var PRESENTACION_LAYOUT_PROP = 'ECICEP_PRESENTACION_LAYOUT_V013';
-var PRESENTACION_LAYOUT_VERSION = '0.13.0';
+var PRESENTACION_LAYOUT_PROP = 'ECICEP_PRESENTACION_LAYOUT_V014';
+var PRESENTACION_LAYOUT_VERSION = '0.14.0';
 var PRESENTACION_ETAPAS_REANUDABLES = { diseno: true };
 
 /* --------------------------- Plan por hoja --------------------------- */
@@ -93,7 +112,7 @@ function Presentacion_fingerprintEsperado_() {
     plantillaIngreso: PLANTILLA_VISUAL_INGRESO || {},
     plantillaSector: PLANTILLA_VISUAL_SECTOR || {}
   };
-  return 'pp013|' + Utl_fnv1a32_(JSON.stringify(contrato));
+  return 'pp014|' + Utl_fnv1a32_(JSON.stringify(contrato));
 }
 function Presentacion_layoutVigente_() {
   var props = Libro_propiedades_(), raw = '';
@@ -267,18 +286,30 @@ function Presentacion_formatearGrupo_(nombres) {
   return { ok: errores.length === 0, aplicados: aplicados, errores: errores };
 }
 
-/** Formatos numéricos + semántica de columnas de UNA hoja (bounded, zero-write
- *  si el número de la primera fila de datos ya coincide). */
+/** Formatos + estructura superior de UNA hoja (bounded, zero-write si ya
+ *  coincide). v0.14: subtarea por hoja canónica — absorbe la antigua fase
+ *  top-level 'visual': primero reconcilia la estructura superior vía
+ *  HVis_reconciliarHoja_ (diagnose-first; solo repara drift de filas,
+ *  secciones o encabezados), luego anchos + formatos numéricos + semántica.
+ *  Un solo plan, un solo owner por propiedad (§17). */
 function Presentacion_formatearHoja_(nombre) {
   var ss = Modelo_ss(), h = ss.getSheetByName(nombre);
   if (!h) return { ok: true, aplicados: 0, motivo: 'sin hoja' };
+  var errores = [];
+  if (typeof HVis_reconciliarHoja === 'function') {
+    try {
+      var rec = HVis_reconciliarHoja(h);
+      if (rec && rec.ok === false) errores.push(nombre + ': estructura superior (' +
+        ((rec.detalles || []).join('; ') || rec.motivo || 'pendiente') + ')');
+    } catch (eR) { errores.push(nombre + ': estructura superior (' + (eR && eR.message || eR) + ')'); }
+  }
   _modelo_anchosHoja(h);
   var f = Hojas_aplicarFormatosNumero_(ss, { hojas: [nombre] });
   var s = Hojas_aplicarSemanticaColumnas_(h);
   return {
-    ok: f.ok !== false && s.ok !== false,
+    ok: errores.length === 0 && f.ok !== false && s.ok !== false,
     aplicados: (f.aplicados || 0) + (s.columnas || 0),
-    errores: (f.errores || []).concat(s.errores || [])
+    errores: errores.concat(f.errores || []).concat(s.errores || [])
   };
 }
 

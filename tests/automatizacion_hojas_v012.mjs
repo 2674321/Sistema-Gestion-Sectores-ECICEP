@@ -15,7 +15,7 @@ assert.match(modelo, /Hojas_asegurarCapacidadGestionada_/);
 assert.match(captura, /Hojas_asegurarCapacidadGestionada_/);
 assert.doesNotMatch(captura, /HVis_formatearIngresos/);
 assert.match(actualizar, /Libro_mantenimiento_/);
-assert.match(cfg, /VERSION:\s*'0\.13\.0'/);
+assert.match(cfg, /VERSION:\s*'0\.14\.0'/);
 assert.match(cfg, /SISTEMA_VERSION_SCHEMA_ACTUAL\s*=\s*2/);
 assert.match(ux, /if \(!d\[t\]\) \{ d\[t\] = true; Libro_guardarDirty_\(\); \}/);
 console.log('Automatización hojas v0.12 — 11/11 PASS');

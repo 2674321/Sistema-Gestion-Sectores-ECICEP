@@ -7,6 +7,24 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.14.0 — CONSOLIDACIÓN VISUAL + INSTALADOR ÚNICO
+
+- Motor único de presentación (fase `diseno`; ex-fases `visual`/`inicio`
+  absorbidas como subtareas, wrappers deprecated conservados), menú Sistema con
+  2 items, `onOpen` sin escrituras en INICIO, `Act_actualizarSistema` con dirty
+  flags + `Libro_mantenimiento_` y fallo visual como advertencia
+  `PRESENTACION_PENDIENTE`, `Modelo_aplicarDiseno` sin banding/header/freeze en
+  visuales, modos `PRESENTACION_MODO`, `api_instalarPaso` con opciones
+  backward-compatibles, instalador 760×720 con 7 grupos y opciones avanzadas,
+  `FORMATO_CAMPOS` extendido (vertical/wrapStrategy/superficie/fontSize;
+  `NOTA_SISTEMA` 9pt), INICIO sin copy provisional y snapshot G1/G2/G3 en el
+  mismo recorrido, fingerprint `pp014` + prop `ECICEP_PRESENTACION_LAYOUT_V014`.
+- Sin MIG-003 (schema 2, captura V4). Validación: 49 suites 0 fallos, núcleo
+  673/673, nuevas `arquitectura_visual_v014`/`formato_celdas_v014`/`inicio_snapshot_v014`.
+- PARTIAL: INICIO PRO gran formato (251 RPC/72 merges medidos; objetivo
+  ≤190/≤40) y validación en Sheets real, pendientes de fase con credenciales.
+  Detalle en `docs/INFORME_V014_CONSOLIDACION_VISUAL_INSTALADOR_INICIO_PRO.md` (DEC-089).
+
 ## v0.14.0 (layout) — PANEL OPERATIVO INICIO
 
 - `INICIO` recupera la riqueza de la portada anterior **dentro del mismo

@@ -88,6 +88,7 @@ function Inicio_calcularMetricas_() {
   var hoy = Inicio_hoyIso_(), limiteIso = Inicio_sumarDiasIso_(hoy, 30);
   var m = { fecha: new Date().toISOString(), stale: false, pacientes: 0,
     eventos: eventos.length, revision: 0, estratificacionPendiente: 0,
+    g1: 0, g2: 0, g3: 0,
     rutInvalidos: 0, duplicados: 0, pendientesIngreso: 0, vencidos: 0,
     porVencer: 0, sinProximaAtencion: 0, sectores: {} };
   ['NARANJO', 'AMARILLO', 'VERDE'].forEach(function (s) {
@@ -103,7 +104,12 @@ function Inicio_calcularMetricas_() {
     if (p.REQUIERE_REVISION === true || Utl_texto(p.REQUIERE_REVISION).toUpperCase() === 'TRUE') {
       m.revision++; if (sec) sec.revision++;
     }
-    if (['G1', 'G2', 'G3'].indexOf(Utl_texto(p.ESTRATIFICACION).toUpperCase()) < 0)
+    // v0.14 §51: conteos G1/G2/G3/G-pendiente en el MISMO recorrido (sin
+    // lecturas redundantes). Base del snapshot para la zona de
+    // estratificación de INICIO PRO.
+    var est = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    if (est === 'G1') m.g1++; else if (est === 'G2') m.g2++; else if (est === 'G3') m.g3++;
+    if (['G1', 'G2', 'G3'].indexOf(est) < 0)
       m.estratificacionPendiente++;
     if (p.RUT_DV_VALIDO === false || Utl_texto(p.RUT_DV_VALIDO).toUpperCase() === 'FALSE') m.rutInvalidos++;
     var rut = Utl_texto(p.RUT).replace(/\./g, '').toUpperCase();
@@ -587,7 +593,7 @@ function Inicio_construir_(ss, opciones) {
 
   // --- contenido: un merge + un valor por bloque del contrato ---
   h.getRange('A1:AD1').merge().setValue('ECICEP · CENTRO OPERATIVO · v' + ECICEP.VERSION);
-  h.getRange('A2:AD2').merge().setValue('Gestión por sectores · resumen operativo en preparación');
+  h.getRange('A2:AD2').merge().setValue('Gestión integrada por sectores · seguimiento, ingresos y controles');
   h.getRange('A3:AD3').merge().setValue('Panel operativo · datos agregados y verificables');
   accesos.forEach(function (a) {
     var rng = h.getRange(a.rango).merge(), formula = '';
@@ -620,7 +626,7 @@ function Inicio_construir_(ss, opciones) {
       h.getRange('AC' + (20 + i) + ':AD' + (20 + i)).merge();
   });
   h.getRange('A24:AD25').merge().setValue('Sin alertas operativas');
-  h.getRange('A27:AD29').merge().setValue('Estado y actualización en preparación');
+  h.getRange('A27:AD29').merge().setValue('Estado operativo · versión, auditoría y respaldo');
   h.getRange('A32:AD34').merge().setValue('Nota operativa: los valores mostrados son agregados; '
       + 'no reemplazan la verificación individual en PACIENTES ni el control clínico en el sector.');
 
@@ -942,17 +948,34 @@ function Hojas_aplicarSemanticaColumnas_(hoja, opciones) {
     var especificacion = Formato_especificacionCampo_(et);
     var alineacion = String(especificacion.alineacion || 'LEFT').toUpperCase();
     var wrap = especificacion.wrap === true, ya = false;
+    // v0.14 §60: estrategia de ajuste canónica con compat temporal al booleano.
+    var estrategia = String(especificacion.wrapStrategy || (wrap ? 'WRAP' : 'CLIP')).toUpperCase();
+    if (['WRAP', 'CLIP', 'OVERFLOW'].indexOf(estrategia) === -1) estrategia = wrap ? 'WRAP' : 'CLIP';
+    var vertical = String(especificacion.vertical || 'MIDDLE').toUpperCase();
     try {
       var actual = hoja.getRange(ini, i + 1, filas, 1);
       ya = typeof actual.getBackgrounds === 'function' && actual.getBackgrounds().every(function (f) { return f[0] === estilo.fondo; }) &&
         typeof actual.getFontColors === 'function' && actual.getFontColors().every(function (f) { return f[0] === estilo.tinta; }) &&
         typeof actual.getHorizontalAlignments === 'function' && actual.getHorizontalAlignments().every(function (f) {
           return String(f[0] || '').toUpperCase() === alineacion;
-        }) && typeof actual.getWraps === 'function' && actual.getWraps().every(function (f) { return f[0] === wrap; });
+        }) && typeof actual.getWraps === 'function' && actual.getWraps().every(function (f) { return f[0] === wrap; }) &&
+        (typeof actual.getVerticalAlignments !== 'function' || actual.getVerticalAlignments().every(function (f) {
+          return String(f[0] || '').toUpperCase() === vertical;
+        })) && (typeof actual.getWrapStrategies !== 'function' || actual.getWrapStrategies().every(function (f) {
+          return String(f && f[0]).toUpperCase().indexOf(estrategia) !== -1;
+        })) && (especificacion.fontSize === undefined || typeof actual.getFontSizes !== 'function' ||
+          actual.getFontSizes().every(function (f) { return Number(f[0]) === Number(especificacion.fontSize); }));
     } catch (eS) { ya = false; }
     if (ya) return;
-    hoja.getRange(ini, i + 1, filas, 1).setBackground(estilo.fondo).setFontColor(estilo.tinta)
-      .setHorizontalAlignment(alineacion.toLowerCase()).setWrap(wrap);
+    var destino = hoja.getRange(ini, i + 1, filas, 1).setBackground(estilo.fondo).setFontColor(estilo.tinta)
+      .setHorizontalAlignment(alineacion.toLowerCase());
+    if (typeof destino.setWrapStrategy === 'function' && typeof SpreadsheetApp !== 'undefined' &&
+        SpreadsheetApp.WrapStrategy && SpreadsheetApp.WrapStrategy[estrategia])
+      destino.setWrapStrategy(SpreadsheetApp.WrapStrategy[estrategia]);
+    else if (typeof destino.setWrap === 'function') destino.setWrap(wrap);
+    if (typeof destino.setVerticalAlignment === 'function') destino.setVerticalAlignment(vertical.toLowerCase());
+    if (especificacion.fontSize !== undefined && typeof destino.setFontSize === 'function')
+      destino.setFontSize(Number(especificacion.fontSize));
     aplicadas++;
   });
   return { ok:true, columnas:aplicadas };
@@ -1070,7 +1093,11 @@ function UI_irInicio() {
   if (h) ss.setActiveSheet(h, false);
   return { ok: !!h };
 }
-/** Reconstruye SOLO la portada, en una sola invocación y sin depender del plan de
+/** @deprecated v0.14 — wrapper interno, YA NO es acción principal del menú.
+ *  La reconstrucción de INICIO vive en el instalador (opción avanzada
+ *  "Forzar reconstrucción de INICIO" → motor único de Presentación).
+ *  Se conserva para compatibilidad (tests / callers internos).
+ *  Reconstruye SOLO la portada, en una sola invocación y sin depender del plan de
  *  presentación. Es la vía directa para dejar INICIO al día cuando el resto del
  *  libro ya está presentado (regresión 2026-09-25: la subtarea 'inicio' quedaba
  *  fuera del presupuesto de un clic y la hoja no cambiaba). */
@@ -1093,6 +1120,10 @@ function UI_reconstruirInicio() {
   return r;
 }
 function UI_repararPresentacion() {
+  // @deprecated v0.14 — wrapper interno, YA NO es acción principal del menú.
+  // La reparación visual vive en el instalador (botón "Reparar solo
+  // presentación" → Libro_repararPresentacion_ → motor único). Se conserva
+  // para compatibilidad (tests / callers internos).
   var ui = _UI_get();
   if (typeof Presentacion_layoutVigente_ !== 'function' || !Presentacion_layoutVigente_()) {
     var resp = ui.alert('Reparar presentación',

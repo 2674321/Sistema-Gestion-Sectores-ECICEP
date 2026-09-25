@@ -12,14 +12,23 @@ for (const f of readdirSync(root).filter(x => /\.(js|gs)$/.test(x)).sort())
 let n = 0;
 const ok = m => { n++; console.log('[PASS] ' + m); };
 
-// T1: el menú Sistema expone Reparar presentación → UI_repararPresentacion.
+// T1 (v0.14): el menú Sistema expone SOLO 2 items (Actualizar + Instalar/reparar).
+// Contrato v0.13 obsoleto (4 items con Reparar presentación / Reconstruir INICIO
+// como acciones principales): esas capacidades viven en el instalador; los
+// wrappers se conservan como internos deprecated. onOpen NO muta INICIO.
 const srcO = c.onOpen.toString();
 const mS = srcO.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
 assert.ok(mS, 'menú Sistema existe');
-assert.equal((mS[1].match(/\.addItem/g) || []).length, 4, 'Sistema tiene 4 items');
-assert.match(mS[1], /addItem\('Reparar presentación', 'UI_repararPresentacion'\)/);
-assert.match(mS[1], /addItem\('Reconstruir portada INICIO', 'UI_reconstruirInicio'\)/);
-ok('T1 menú Sistema incluye Reparar presentación y Reconstruir portada INICIO');
+assert.equal((mS[1].match(/\.addItem/g) || []).length, 2, 'Sistema tiene 2 items');
+assert.match(mS[1], /addItem\('Actualizar sistema', 'UI_actualizarSistema'\)/);
+assert.match(mS[1], /addItem\('Instalar \/ reparar', 'UI_instalarSistema'\)/);
+assert.ok(!/UI_repararPresentacion/.test(mS[1]), 'Reparar presentación fuera del menú');
+assert.ok(!/UI_reconstruirInicio/.test(mS[1]), 'Reconstruir INICIO fuera del menú');
+assert.equal(typeof c.UI_repararPresentacion, 'function', 'wrapper interno conservado');
+assert.equal(typeof c.UI_reconstruirInicio, 'function', 'wrapper interno conservado');
+assert.ok(!/getRange\('A1'\)/.test(srcO), 'onOpen no toca A1 de INICIO');
+assert.ok(!/getRange\('Y1'\)/.test(srcO), 'onOpen no toca Y1 de INICIO');
+ok('T1 menú Sistema con 2 items; wrappers internos; onOpen no muta INICIO');
 
 // T2: Libro_repararPresentacion_ delega en el motor reanudable con la clave.
 let llamado = 0, etapaCap, claveCap;

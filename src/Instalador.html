@@ -45,6 +45,13 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);display:fle
 .item.estado-ejecutando .ic,.item.estado-ejecutando .estado-item{color:var(--primary)}
 .item.estado-advertencia .ic,.item.estado-advertencia .estado-item{color:#7A5400}
 .item.estado-pendiente .ic,.item.estado-pendiente .estado-item{color:var(--text-muted)}
+.grupo{font:700 10px 'Inter';letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-muted);background:var(--surface-alt);padding:5px 9px;
+  border-bottom:1px solid var(--border)}
+.avanzadas{font-size:11px;margin-top:9px;color:var(--text-secondary)}
+.avanzadas summary{cursor:pointer;font-weight:700}
+.avanzadas label{display:flex;gap:7px;align-items:flex-start;margin:7px 2px;line-height:1.4}
+.avanzadas input{margin-top:2px}
 .acciones{display:flex;flex-wrap:wrap;gap:7px}
 .diagnostico h2{font:700 14px 'Sora';margin:0}
 .diagnostico-cabecera{display:flex;justify-content:space-between;gap:10px;align-items:center;
@@ -151,6 +158,11 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
     <button class="btn btn-ghost" id="btnReparar" data-action="principal" onclick="repararIntegridad(this)" hidden>Reparar derivados</button>
     <button class="btn btn-ghost" data-action="principal" onclick="cerrarVista()">Cerrar</button>
   </div>
+  <details class="avanzadas" id="opcionesAvanzadas">
+    <summary>Opciones avanzadas</summary>
+    <label><input type="checkbox" id="optForzarInicio"><span>Forzar reconstrucción completa de INICIO (re-dibuja marco, dimensiones y cifras aunque el layout esté vigente).</span></label>
+    <label><input type="checkbox" id="optProfundo"><span>Diagnóstico visual profundo (paridad + validaciones + formatos + INICIO, sin escribir si no hay drift).</span></label>
+  </details>
 </div>
 
 <div class="bloque-vista" id="btnCancelarWrap" hidden>
@@ -327,15 +339,40 @@ function marcar(id,estado,detalle){
   if(detalle)el.setAttribute('title',detalle);else el.removeAttribute('title');
 }
 
+/* v0.14 §93: el backend conserva las etapas técnicas; la vista las agrupa en
+ * 7 bloques (Entorno, Estructura, Datos, Automatizaciones, Presentación,
+ * Derivados, Verificación) para no mostrar 17 conceptos a la vez. */
+var GRUPOS_ETAPAS=[
+ {grupo:'1 · Entorno',ids:['runtime','diagnostico','versionado','respaldo']},
+ {grupo:'2 · Estructura',ids:['migraciones','estructura']},
+ {grupo:'3 · Datos',ids:['fuentes','amarillo','enriquecimiento']},
+ {grupo:'4 · Automatizaciones',ids:['validaciones','triggers','limpieza']},
+ {grupo:'5 · Presentación',ids:['diseno','menu']},
+ {grupo:'6 · Derivados',ids:['derivados','integridad']},
+ {grupo:'7 · Verificación',ids:['verificar']}
+];
 function renderEtapas(){
   var lista=porId('lista');lista.textContent='';
-  ETAPAS.forEach(function(e){
-    var fila=document.createElement('div');fila.className='item estado-pendiente';fila.id='it_'+e.id;
-    var ic=document.createElement('span');ic.className='ic';ic.setAttribute('aria-hidden','true');ic.textContent='○';
-    var nombre=document.createElement('span');nombre.textContent=e.nombre;
-    var estado=document.createElement('span');estado.className='estado-item';estado.textContent='PENDIENTE';
-    fila.appendChild(ic);fila.appendChild(nombre);fila.appendChild(estado);lista.appendChild(fila);
+  var porIdEtapa={};ETAPAS.forEach(function(e){porIdEtapa[e.id]=e;});
+  GRUPOS_ETAPAS.forEach(function(g){
+    var visibles=g.ids.filter(function(id){return !!porIdEtapa[id];});
+    if(!visibles.length)return;
+    var cab=document.createElement('div');cab.className='grupo';cab.textContent=g.grupo;
+    lista.appendChild(cab);
+    visibles.forEach(function(id){agregarFilaEtapa(lista,porIdEtapa[id]);});
   });
+  ETAPAS.forEach(function(e){
+    var agrupada=GRUPOS_ETAPAS.some(function(g){return g.ids.indexOf(e.id)!==-1;});
+    if(!agrupada)agregarFilaEtapa(lista,e);
+  });
+}
+
+function agregarFilaEtapa(lista,e){
+  var fila=document.createElement('div');fila.className='item estado-pendiente';fila.id='it_'+e.id;
+  var ic=document.createElement('span');ic.className='ic';ic.setAttribute('aria-hidden','true');ic.textContent='○';
+  var nombre=document.createElement('span');nombre.textContent=e.nombre;
+  var estado=document.createElement('span');estado.className='estado-item';estado.textContent='PENDIENTE';
+  fila.appendChild(ic);fila.appendChild(nombre);fila.appendChild(estado);lista.appendChild(fila);
 }
 
 function estadoDeValor(valor,pendienteEsAdvertencia){
@@ -559,6 +596,14 @@ function llamarPaso(etapa,ix){
   }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC);
 }
 
+function opcionesPresentacion(){
+  var forzar=porId('optForzarInicio')&&porId('optForzarInicio').checked;
+  var profundo=porId('optProfundo')&&porId('optProfundo').checked;
+  return {forzarPresentacion:forzar===true,forzarInicio:forzar===true,
+    diagnosticoVisualProfundo:profundo===true,
+    modoPresentacion:forzar?'FORZAR_INICIO':(profundo?'PROFUNDO':'REPARAR')};
+}
+
 function repararPresentacion(){
   if(_enCurso||_BLOQUEO)return;var ix=ETAPAS.findIndex(function(e){return e.id==='diseno';});
   var etapa=ix>=0?ETAPAS[ix]:{id:'diseno',nombre:'Presentación del libro'};
@@ -566,10 +611,10 @@ function repararPresentacion(){
   setEstadoGeneral('EJECUTANDO','Reparando presentación','Se revisarán solo las propiedades visuales administradas por ECICEP.');
   setFase(ix,etapa,'EJECUTANDO');setSubtarea({nombre:'Iniciando revisión selectiva'},null,'EJECUTANDO');
   establecerProgreso(0,'Avance real de las subtareas de presentación.');
-  llamarPresentacion(etapa,ix,false);
+  llamarPresentacion(etapa,ix,opcionesPresentacion());
 }
 
-function llamarPresentacion(etapa,ix,forzar){
+function llamarPresentacion(etapa,ix,opciones){
   var inicioRpc=Date.now();
   google.script.run.withSuccessHandler(function(r){
     registrarDuracion(etapa.id,r,inicioRpc);
@@ -579,7 +624,7 @@ function llamarPresentacion(etapa,ix,forzar){
     if(r.continuar===true){
       setSubtarea(r.subetapa||{nombre:'Avanzando'},r.progreso,'EJECUTANDO');
       establecerProgreso(fraccionRetornada(r)*100,'Avance real de las subtareas de presentación.');
-      llamarPresentacion(etapa,ix,false);return;
+      llamarPresentacion(etapa,ix,opciones);return;
     }
     var aviso=respuestaEsAdvertencia(r)||!!(r&&r.verificacion&&r.verificacion.ok===false);
     if(aviso)AVISOS.push({nombre:etapa.nombre,motivo:detalleAdvertencia(r)});
@@ -589,7 +634,7 @@ function llamarPresentacion(etapa,ix,forzar){
   }).withFailureHandler(function(e){
     registrarDuracion(etapa.id,null,inicioRpc);if(_CANCELADO){terminarCancelacion();return;}
     fallarEtapa(etapa,ix,null,e);
-  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,{forzarPresentacion:forzar===true});
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,opciones||{forzarPresentacion:false});
 }
 
 function fallarEtapa(etapa,ix,r,e){

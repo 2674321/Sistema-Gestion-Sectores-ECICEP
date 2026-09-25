@@ -40,7 +40,10 @@ for (const redundante of ['ABRIR ECICEP', 'NUEVA CAPTURA', 'BUSCAR PERSONA'])
 assert.match(fn, /getRange\('A18:O18'\)\.merge\(\)\.setValue\('ESTADO DEL SISTEMA'\)/);
 assert.match(fn, /Controles vencidos.*Próximos 30 días.*Sin próximo control.*Fichas por revisar/s);
 assert.match(fn, /getRange\('P18:AD18'\)\.merge\(\)\.setValue\('PENDIENTES'\)/);
-assert.match(fn, /getRange\('A27:AD29'\)\.merge\(\)\.setValue\('Estado y actualización en preparación'\)/);
+assert.match(fn, /getRange\('A27:AD29'\)\.merge\(\)\.setValue\('Estado operativo · versión, auditoría y respaldo'\)/,
+  'v0.14: sin copy provisional en la construcción (el escritor pinta el resumen real)');
+assert.doesNotMatch(src, /en preparación/,
+  'v0.14: ningún copy provisional en la portada');
 assert.match(fn, /h\.setFrozenRows\(2\); h\.setFrozenColumns\(0\)/);
 assert.match(src, /PANEL_OPERATIVO_V014/);
 assert.match(src, /acceso3: 'INGRESOS'/,

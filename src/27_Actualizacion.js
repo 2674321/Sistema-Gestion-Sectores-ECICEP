@@ -488,18 +488,21 @@ function Act_resumenActualizacionTexto(reporte) {
 }
 
 /**
- * GAS: ACTUALIZAR sistema — mecanismo de mantenimiento completo (v0.9.6).
+ * GAS: ACTUALIZAR sistema — mecanismo de mantenimiento completo (v0.9.6, v0.14).
  * Cadena única, con una sola implementación compartida (sin duplicar lógica):
  *  1. ESTRUCTURA: reparación idempotente (el instalador CREA; aquí se repara);
  *  2. DATOS: fuentes autorizadas → nuevos registros + actualización de existentes;
  *  3. DEMOGRAFÍA: enriquecimiento S5 (SEXO/FECHA_NACIMIENTO desde INGRESO_*);
  *  4. DERIVADOS: estratificación + próximos controles;
- *  5. VISTAS + FORMATO.
+ *  5. VISTAS; 6. DIRTY FLAGS selectivos; 7. PRESENTACIÓN vía motor único
+ *     (Libro_mantenimiento_ → Presentacion_ejecutarPaso_, sin pipeline paralelo).
  * ✓ Nunca sobrescribe un dato válido · nunca infiere · nunca crea estructura
  * desde el instalador (separación S12) · idempotente.
- * @param {Object} opciones {ejecutar:boolean=true}
+ * ✓ Datos OK + presentación pendiente → {ok:true, advertencias:
+ * ['PRESENTACION_PENDIENTE']} (nunca error de actualización).
+ * @param {Object} opciones {ejecutar:boolean=true, repararPresentacion:boolean}
  * @returns {ok, ejecucion, estructura, fuentes, enriquecimiento, derivados,
- *          vistas, formato, resumen}
+ *          vistas, mantenimiento, advertencias, resumen}
  */
 function Act_actualizarSistema(opciones) {
   opciones = opciones || {};
@@ -591,96 +594,55 @@ function Act_actualizarSistema(opciones) {
   if (reporte.vistas && reporte.vistas.ok === false)
     registrarFallo('vistas', reporte.vistas.motivo);
 
-  // La presentación se mantiene por flags técnicos. En pruebas/entornos sin
-  // PropertiesService se conserva el recorrido completo como fallback seguro.
-  var dirtyLibro = typeof Libro_leerDirty_ === 'function' ? Libro_leerDirty_() : { _disponible:false };
-  var repararPresentacion = !dirtyLibro._disponible || opciones.repararPresentacion === true ||
-    dirtyLibro.VISUAL || dirtyLibro.VALIDACIONES || dirtyLibro.ESTRUCTURA;
-
-  // 8) SECCIONES VISuales (barras de sección en fila 2 de todas las hojas visuales)
-  if (ejecutar && repararPresentacion && typeof HVis_aplicarTodasLasSecciones === 'function') {
-    try { reporte.seccionesVisuales = HVis_aplicarTodasLasSecciones(); }
-    catch (eSV) { reporte.seccionesVisuales = { ok: false, motivo: eSV && eSV.message || String(eSV) }; }
-    var seccionesFallidas = (reporte.seccionesVisuales && reporte.seccionesVisuales.resultados || [])
-      .filter(function (x) { return x.ok === false; });
-    if (reporte.seccionesVisuales && (reporte.seccionesVisuales.ok === false || seccionesFallidas.length))
-      registrarFallo('seccionesVisuales', reporte.seccionesVisuales.motivo ||
-        seccionesFallidas.map(function (x) { return x.hoja + ': ' + (x.motivo || 'error'); }).join('; '));
-  }
-
-  // 8b) FORMATO DE INGRESOS (formato específico para hojas INGRESO_* —不同于 secciones)
-  if (ejecutar && repararPresentacion && typeof HVis_formatearIngresos === 'function') {
-    try { reporte.formato = HVis_formatearIngresos(); }
-    catch (eF) { reporte.formato = { ok: false, motivo: eF && eF.message || String(eF) }; }
-    if (reporte.formato &&
-        (reporte.formato.ok === false || (reporte.formato._fallidas || []).length))
-      registrarFallo('formato', reporte.formato.motivo ||
-        (reporte.formato._fallidas || []).join('; '));
-  }
-
-  // 9) FORMATO CONDICIONAL (reglas de color por campo)
-  if (ejecutar && repararPresentacion) {
-    try { reporte.formatoCondicional = Hojas_formatoCondicional(Modelo_ss()); }
-    catch (eC) { reporte.formatoCondicional = { ok: false, motivo: eC && eC.message || String(eC) }; }
-    if (reporte.formatoCondicional &&
-        (reporte.formatoCondicional.ok === false || (reporte.formatoCondicional.errores || []).length))
-      registrarFallo('formatoCondicional', reporte.formatoCondicional.motivo ||
-        (reporte.formatoCondicional.errores || []).join('; '));
-  }
-
-  // 10) VALIDACIONES (dropdowns, date pickers) — re-aplicar para que nuevos registros
-  //     reciban las mismas reglas que la instalación. Idempotente.
-  if (ejecutar && repararPresentacion && typeof Modelo_validarIngresos === 'function') {
-    try { reporte.validaciones = Modelo_validarIngresos(Modelo_ss()); }
-    catch (eVx) { reporte.validaciones = { ok: false, motivo: eVx && eVx.message || String(eVx) }; }
-    if (reporte.validaciones &&
-        (reporte.validaciones.ok === false || (reporte.validaciones.fallidas || []).length))
-      registrarFallo('validaciones', reporte.validaciones.motivo ||
-        (reporte.validaciones.fallidas || []).join('; '));
-  }
-
-  // 11) DISEÑO DEL LIBRO (colores pestaña, frozen, banding, encabezado, orden, ocultamiento)
-  if (ejecutar && repararPresentacion && typeof Modelo_aplicarDiseno === 'function') {
-    try { reporte.diseno = Modelo_aplicarDiseno(); }
-    catch (eD) { reporte.diseno = { ok: false, motivo: eD && eD.message || String(eD) }; }
-    if (reporte.diseno && (reporte.diseno.ok === false || (reporte.diseno.fallidas || []).length))
-      registrarFallo('diseno', reporte.diseno.motivo || (reporte.diseno.fallidas || []).join('; '));
-  }
-
-  // 12) INICIO (hoja dashboard) — refrescar después de Amarillo + derivados
-  if (ejecutar && typeof Modelo_disenoHojas === 'function') {
+  // 8) DIRTY FLAGS selectivos (v0.14 §23): marcar solo lo que realmente cambió.
+  // Estructura → ESTRUCTURA + VISUAL + VALIDACIONES; datos/vistas → INICIO.
+  // opciones.repararPresentacion === true fuerza el recorrido visual completo.
+  // La presentación la ejecuta el motor único (paso 9); aquí NO hay pipeline
+  // visual paralelo.
+  if (ejecutar && typeof Libro_marcarDirty_ === 'function') {
     try {
-      if (dirtyLibro._disponible && Modelo_ss().getSheetByName('INICIO'))
-        reporte.inicio = Inicio_refrescarSiNecesario_();
-      else reporte.inicio = Modelo_disenoHojas();
-    }
-    catch (eI) { reporte.inicio = { ok: false, motivo: eI && eI.message || String(eI) }; }
-    if (reporte.inicio && reporte.inicio.ok === false)
-      registrarFallo('inicio', reporte.inicio.motivo);
+      var estructuraCambio = opciones.repararPresentacion === true ||
+        (reporte.estructura && reporte.estructura.ok === false) ||
+        (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length) ||
+        reporte._errores.indexOf('estructura') !== -1;
+      var datosCambiaron = (reporte.fuentes && reporte.fuentes.ok !== false) ||
+        (reporte.amarillo && reporte.amarillo.ok !== false) ||
+        (reporte.vistas && reporte.vistas.ok !== false);
+      if (estructuraCambio) {
+        Libro_marcarDirty_('ESTRUCTURA'); Libro_marcarDirty_('VISUAL'); Libro_marcarDirty_('VALIDACIONES');
+      }
+      if (datosCambiaron) Libro_marcarDirty_('INICIO');
+    } catch (eDirty) { /* best effort: el motor diagnostica de todos modos */ }
   }
 
-  // 12b) Colorear RUT en INGRESO_* (coherencia visual)
-  if (ejecutar && typeof Hojas_colorearRutIngresos === 'function') {
-    try { reporte.rutColoreados = Hojas_colorearRutIngresos(); }
-    catch (eR) { registrarFallo('rutColoreados', eR); }
-    if (reporte.rutColoreados && (reporte.rutColoreados.fallidas || []).length)
-      registrarFallo('rutColoreados', reporte.rutColoreados.fallidas.join('; '));
-  }
-
-  // 13) REBUILD MENÚ (si hubo cambios en items, reflejarlos)
-  if (ejecutar && typeof onOpen === 'function') {
-    try { onOpen(); } catch (eM) { /* best effort */ }
-  }
-
-  if (ejecutar && dirtyLibro._disponible) {
+  // 9) PRESENTACIÓN vía motor único (v0.14 §22 — Libro_mantenimiento_ →
+  // Libro_repararPresentacion_ → Presentacion_ejecutarPaso_). Sin secuencia
+  // visual paralela: no se copian HVis/Hojas/Modelo/Inicio aquí.
+  // Si los datos quedaron OK pero la presentación falla → advertencia
+  // PRESENTACION_PENDIENTE (ok:true), nunca error de actualización (§24).
+  reporte.advertencias = reporte.advertencias || [];
+  if (ejecutar && typeof Libro_mantenimiento_ === 'function') {
     try {
-      reporte.mantenimiento = Libro_mantenimiento_({ visualYaProcesado: repararPresentacion,
-        refrescarInicio: true });
-      if (repararPresentacion && reporte._errores.indexOf('diseno') < 0 &&
-          reporte._errores.indexOf('seccionesVisuales') < 0) {
+      reporte.mantenimiento = Libro_mantenimiento_({ refrescarInicio: true });
+      if (reporte.mantenimiento && reporte.mantenimiento.ok === false) {
+        if (reporte.advertencias.indexOf('PRESENTACION_PENDIENTE') === -1)
+          reporte.advertencias.push('PRESENTACION_PENDIENTE');
+        reporte.detalleErrores.presentacion = (reporte.mantenimiento.motivo ||
+          'presentación pendiente de reparación');
+      } else if (typeof Libro_leerDirty_ === 'function' && typeof Libro_limpiarDirty_ === 'function' &&
+          Libro_leerDirty_()._disponible) {
         Libro_limpiarDirty_('VISUAL'); Libro_limpiarDirty_('VALIDACIONES'); Libro_limpiarDirty_('ESTRUCTURA');
       }
-    } catch (eLM) { registrarFallo('mantenimiento', eLM); }
+    } catch (eLM) {
+      if (reporte.advertencias.indexOf('PRESENTACION_PENDIENTE') === -1)
+        reporte.advertencias.push('PRESENTACION_PENDIENTE');
+      reporte.detalleErrores.presentacion = eLM && eLM.message ? eLM.message : String(eLM);
+    }
+  }
+
+  // 10) REBUILD MENÚ (si hubo cambios en items, reflejarlos; best effort)
+  if (ejecutar && typeof onOpen === 'function') {
+    try { onOpen(); } catch (eM) { /* best effort */ }
   }
 
   // 14) VERIFICACIÓN FINAL — comprobar integridad de las 8 hojas críticas

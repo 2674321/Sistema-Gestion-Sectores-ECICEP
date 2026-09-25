@@ -11,13 +11,16 @@ for (const f of readdirSync(root).filter(x => /\.(js|gs)$/.test(x)).sort())
 let n = 0;
 const ok = m => { n++; console.log('[PASS] ' + m); };
 
-// T1: Instalar_pInicio usa SOLO el constructor de INICIO (delegación única).
+// T1 (v0.14): Instalar_pInicio delega en la subtarea 'inicio' del motor único
+// (sin pipeline propio, sin Modelo_disenoHojas, sin toques a otras hojas).
 const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 const pInicio = src20.match(/function Instalar_pInicio\([\s\S]*?\n\}/)?.[0] || '';
 assert.ok(pInicio, 'Instalar_pInicio existe');
-assert.match(pInicio, /Inicio_construir_\(ss/);
+assert.match(pInicio, /Presentacion_ejecutarTarea_/);
+assert.match(pInicio, /id: 'inicio'/);
 assert.doesNotMatch(pInicio, /Modelo_disenoHojas\(/, 'no hay llamada a Modelo_disenoHojas');
-ok('T1 Instalar_pInicio delega en Inicio_construir_ (sin Modelo_disenoHojas)');
+assert.doesNotMatch(pInicio, /HVis_aplicarTodasLasSecciones\(/, 'sin pipeline visual paralelo');
+ok('T1 Instalar_pInicio delega en la subtarea inicio del motor (sin Modelo_disenoHojas)');
 
 // T2: Instalar_pInicio devuelve {ok, inicio, verificacion, motivo}.
 c.Inicio_construir_ = () => ({ ok: true });

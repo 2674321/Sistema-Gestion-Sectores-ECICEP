@@ -352,19 +352,30 @@ function Formato_tipoCampo_(nombreCol) {
 }
 
 /** PURA: especificación canónica completa. Devuelve una copia para impedir
- *  que un consumidor modifique las constantes compartidas. */
+ *  que un consumidor modifique las constantes compartidas.
+ *  v0.14 §59-60: además de tipo/ancho/formato/alineación/wrap resuelve
+ *  wrapStrategy (WRAP/CLIP/OVERFLOW, con compat temporal al booleano `wrap`),
+ *  vertical (default MIDDLE), superficie explícita (override; vacío =
+ *  resolución contextual por hoja en Hojas_aplicarSemanticaColumnas_) y
+ *  fontSize/fontWeight opcionales (solo se aplican si están definidos). */
 function Formato_especificacionCampo_(nombreCol) {
   var clave = Formato_claveCampo_(nombreCol);
   var propia = FORMATO_CAMPOS[clave] || {};
   var tipo = propia.tipo || Formato_tipoCampo_(clave);
   var base = FORMATO_TIPOS[tipo] || FORMATO_TIPOS.TEXTO;
+  var wrap = propia.wrap === undefined ? base.wrap : propia.wrap;
   return {
     clave: clave,
     tipo: tipo,
     ancho: propia.ancho === undefined ? base.ancho : propia.ancho,
     formato: propia.formato === undefined ? base.formato : propia.formato,
     alineacion: propia.alineacion || base.alineacion,
-    wrap: propia.wrap === undefined ? base.wrap : propia.wrap
+    wrap: wrap,
+    wrapStrategy: propia.wrapStrategy || (wrap === true ? 'WRAP' : 'CLIP'),
+    vertical: propia.vertical || 'MIDDLE',
+    superficie: propia.superficie || '',
+    fontSize: propia.fontSize,
+    fontWeight: propia.fontWeight
   };
 }
 
@@ -581,9 +592,13 @@ function _modelo_repararGrupoPacientes(hoja) {
 }
 
 /**
- * Aplica el diseño visual del libro de forma IDEMPOTENTE:
- * color de pestaña por segmento, orden fijo, técnicas ocultas,
- * fila 1 congelada, encabezado estilizado, banding y formatos.
+ * Metadatos globales del libro, IDEMPOTENTE (v0.14 §19: responsabilidad
+ * reducida — NO es un motor visual). Aplica: tab color, orden fijo, técnicas
+ * ocultas/visibilidad y freeze/header/banding SOLO en hojas simples y técnicas.
+ * En hojas visuales la estructura superior, freeze, header y cuerpo los
+ * gestiona Presentación/HVis (ver owner map en docs/INFORME_V014_*):
+ * aquí solo tab + visibilidad + orden, más gridlines y altura de datos con
+ * fast-path (sin otro owner aún). INICIO es owner exclusivo de Inicio_*.
  * Robusto: fallo de una hoja no aborta el resto. Patrón probado en
  * CESFAM_SJ/PADI (saltar ocultas al ordenar; restaurar hoja activa).
  */
@@ -628,8 +643,16 @@ function Modelo_aplicarDiseno() {
       // En hojas visuales, HVis es el único owner de la estructura superior.
       if (d.estilo !== false && !Modelo_esHojaVisual(h.getName()) && h.getLastColumn() > 0)
         _modelo_estilizarEncabezado(h, d.color);
-      if (d.banda) {
+      // v0.14 §19 + §§54-56: en hojas visuales NO banding (preferencia
+      // banda:false: compite con editable/sistema/conditional; la superficie
+      // la resuelve el contrato + Presentación). Se conservan gridlines
+      // ocultas y altura de datos con fast-path (sin otro owner aún).
+      var esHojaVisualDiseno = Modelo_esHojaVisual(h.getName());
+      if (d.banda && !esHojaVisualDiseno) {
         _modelo_aplicarBanda(h);
+        res.bandas++;
+      }
+      if (d.banda) {
         if (typeof h.hasHiddenGridlines !== 'function' || !h.hasHiddenGridlines())
           h.setHiddenGridlines(true);
         var iniDatos = Modelo_dataStartRow(h.getName());
@@ -642,7 +665,6 @@ function Modelo_aplicarDiseno() {
           if (!alturaOk)
             h.setRowHeights(iniDatos, h.getLastRow() - iniDatos + 1, PULIDO_ENCABEZADO.alturaDato);
         }
-        res.bandas++;
       }
       if (d.oculta) { if (!h.isSheetHidden()) { h.hideSheet(); res.ocultas.push(d.nombre); } }
       else if (h.isSheetHidden()) h.showSheet();
