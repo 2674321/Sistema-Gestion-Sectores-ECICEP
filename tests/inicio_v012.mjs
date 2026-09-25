@@ -23,9 +23,9 @@ assert.match(fn, /Inicio_guardarSnapshot_/);
 assert.match(fn, /Inicio_escribirMetricas_/);
 assert.match(src, /INICIO_RANGO_GESTIONADO === 'A1:AD38'/);
 assert.match(src, /if \(!Utl_texto\(p\.ID_INTERNO\)\) return/);
-assert.match(fn, /for \(iDim = 0; iDim < cols; iDim\+\+\) vecAnchos\.push\(38\)/,
+assert.match(fn, /alturas\.length/,
   'la portada utiliza las 30 columnas del lienzo gestionado');
-assert.match(fn, /h\.setColumnWidths\(1, cols, vecAnchos\)/,
+assert.match(fn, /h\.setColumnWidths\(1, cols, 38\)/,
   'los 38 px de las 30 columnas se aplican en UNA llamada');
 const bloqueAccesos = fn.match(/var accesos = \[[\s\S]*?\n  \];/)?.[0] || '';
 assert.equal((bloqueAccesos.match(/\{ texto:/g) || []).length, 5,

@@ -20,8 +20,9 @@ assert.match(cfg, /INICIO_RANGO_GESTIONADO\s*=\s*'A1:AD38'/);
 const constr = src.match(/function Inicio_construir_\([\s\S]*?\n\}/)?.[0] || '';
 assert.ok(constr, 'Inicio_construir_ existe');
 assert.match(constr, /var filas = 38, cols = 30;/);
-assert.match(constr, /h\.setColumnWidths\(1, cols, vecAnchos\)/,
-  'los 38 px de las 30 columnas se aplican en UNA llamada (presupuesto de RPC)');
+assert.match(constr, /typeof h\.setColumnWidths === 'function'\).*setColumnWidths\(1, cols, 38\)/);
+assert.match(constr, /setRowHeights\(iniTramo, alturas\[iA - 1\]\[0\] - iniTramo \+ 1, alturas\[iA - 1\]\[1\]\)/,
+  'las 34 alturas se aplican por tramos contiguos de igual valor');
 assert.match(constr, /getRange\('A1:AD1'\)\.merge/);
 ok('T1 lienzo gestionado A1:AD38 (30 columnas × 38 filas) y anchos @38');
 

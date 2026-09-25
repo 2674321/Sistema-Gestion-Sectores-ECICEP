@@ -157,6 +157,25 @@ function Inicio_a1_(fila, col, ancho) {
   function letra(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
   return letra(col) + fila + ':' + letra(col + ancho - 1) + fila;
 }
+/** Redondea N porcentajes para que sumen exactamente 100 (método del mayor
+ *  resto). Si total es 0 devuelve ceros. Mantiene el orden de entrada. */
+function Inicio_porcentajesRedondeados_(valores, total) {
+  var n = valores.length, pcts = [], restos = [], suma = 0, i;
+  if (total > 0) {
+    for (i = 0; i < n; i++) {
+      var exacto = Number(valores[i] || 0) * 100 / total;
+      var piso = Math.floor(exacto);
+      pcts.push(piso); restos.push(exacto - piso); suma += piso;
+    }
+    var faltante = 100 - suma;
+    var orden = restos.map(function (r, j) { return { r: r, j: j }; })
+      .sort(function (a, b) { return b.r - a.r; });
+    for (i = 0; i < Math.min(faltante, n); i++) pcts[orden[i].j]++;
+  } else {
+    for (i = 0; i < n; i++) pcts.push(0);
+  }
+  return pcts;
+}
 /** Escribe N valores en una sola pasada (un setValue por ancla). Los anclas son
  *  rangos fusionados de anchos distintos; RangeList.setValues exige una matriz
  *  homogénea, así que no aplica. El coste total es pequeño frente a lo que
@@ -230,11 +249,16 @@ function Inicio_escribirMetricas_(m, hoja) {
       return { a1: k[0], valor: Inicio_numeroVisible_(k[1]) };
     }));
   var totalPersonas = Number(m.pacientes || 0);
-  Inicio_escribirValores_(hoja, ['NARANJO', 'AMARILLO', 'VERDE'].map(function (s, i) {
-    var personas = Number(((m.sectores || {})[s] || {}).pacientes || 0);
-    var porcentaje = totalPersonas > 0 ? Math.round(personas * 100 / totalPersonas) : 0;
+  var sectoresOrden = ['NARANJO', 'AMARILLO', 'VERDE'];
+  var personasSector = sectoresOrden.map(function (s) {
+    return Number(((m.sectores || {})[s] || {}).pacientes || 0);
+  });
+  // Redondeo con mayor resto: los porcentajes individuales suman 100 exacto.
+  var porcentajesSector = Inicio_porcentajesRedondeados_(personasSector, totalPersonas);
+  Inicio_escribirValores_(hoja, sectoresOrden.map(function (s, i) {
+    var porcentaje = porcentajesSector[i];
     return { a1: Inicio_a1_(16, iniciosSector[i], 10),
-      valor: Inicio_numeroVisible_(personas) + ' personas · ' + Inicio_numeroVisible_(porcentaje) + ' % del total' };
+      valor: Inicio_numeroVisible_(personasSector[i]) + ' personas · ' + Inicio_numeroVisible_(porcentaje) + ' % del total' };
   }));
   hoja.getRange('A24:AD25').setValue('ALERTA OPERATIVA · ' + estadoGeneral + ' · ' +
       Inicio_numeroVisible_(atencion) + ' alertas requieren atención · Revisión ' +
@@ -497,12 +521,23 @@ function Inicio_construir_(ss, opciones) {
   // invocación. Encadenar un setX por celda emitía ~720 idas a la API y la
   // subtarea moría por tiempo sin dejar cambios. Ahora las dimensiones van en 2
   // llamadas y cada token de estilo se aplica una vez sobre un RangeList.
-  var alturas = Inicio_alturasEsperadas_(), vecAlturas = [], vecAnchos = [], iDim;
-  for (iDim = 0; iDim < alturas.length; iDim++) vecAlturas.push(alturas[iDim][1]);
-  for (iDim = 0; iDim < cols; iDim++) vecAnchos.push(38);
-  if (typeof h.setRowHeights === 'function') h.setRowHeights(1, alturas.length, vecAlturas);
-  else if (typeof h.setRowHeight === 'function') alturas.forEach(function (x) { h.setRowHeight(x[0], x[1]); });
-  if (typeof h.setColumnWidths === 'function') h.setColumnWidths(1, cols, vecAnchos);
+  // Dimensiones. setRowHeights/setColumnWidths de Apps Script NO aceptan arrays:
+  // el tercer parámetro es una altura/ancho ÚNICA para el bloque, así que se
+  // agrupan las alturas en tramos contiguos de igual valor y los anchos (todos
+  // 38) en una sola llamada.
+  var alturas = Inicio_alturasEsperadas_();
+  if (typeof h.setRowHeights === 'function') {
+    var iniTramo = alturas[0][0], iA;
+    for (iA = 1; iA <= alturas.length; iA++) {
+      if (iA === alturas.length || alturas[iA][1] !== alturas[iA - 1][1]) {
+        h.setRowHeights(iniTramo, alturas[iA - 1][0] - iniTramo + 1, alturas[iA - 1][1]);
+        iniTramo = iA < alturas.length ? alturas[iA][0] : iniTramo;
+      }
+    }
+  } else if (typeof h.setRowHeight === 'function') {
+    alturas.forEach(function (x) { h.setRowHeight(x[0], x[1]); });
+  }
+  if (typeof h.setColumnWidths === 'function') h.setColumnWidths(1, cols, 38);
   else for (var c = 1; c <= cols; c++) h.setColumnWidth(c, 38);
 
   var FONDOS = {}, TINTAS = {}, PESOS = {}, TAMANOS = {}, HALIN = {}, VALIN = {};
@@ -675,6 +710,17 @@ function Inicio_construir_(ss, opciones) {
       h.getRange(a2).setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID); }); }
   }
   conWrap.forEach(function (a2) { h.getRange(a2).setWrap(true); });
+  // Marco de color alrededor de todo el panel: la portada se percibe como una
+  // tarjeta, no como bloques sueltos sobre blanco. Ocultar filas/columnas
+  // excedentes elimina el "espacio blanco" adyacente que se veía feo.
+  try {
+    h.getRange(INICIO_RANGO_GESTIONADO).setBorder(true, true, true, true, null, null,
+      M.sistemaBorde, SpreadsheetApp.BorderStyle.SOLID);
+  } catch (eM) {}
+  try {
+    if (h.getMaxRows() > filas && typeof h.hideRows === 'function') h.hideRows(filas + 1, h.getMaxRows() - filas);
+    if (h.getMaxColumns() > cols && typeof h.hideColumns === 'function') h.hideColumns(cols + 1, h.getMaxColumns() - cols);
+  } catch (eH) {}
   h.setTabColor(M.sistemaProfundo);
   try { h.setConditionalFormatRules([]); } catch (eCF) {}
   var metricas = Inicio_calcularMetricas_();

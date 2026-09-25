@@ -24,6 +24,19 @@
   versión identifica el contrato de layout de la portada, no una versión de
   producto. Validación: `inicio_visual_v014` 10/10, batería 45 suites 0 fallos,
   `ejecutar_local` 673/673 (DEC-087).
+- Ajuste dentro del presupuesto de un RPC (DEC-088): subtarea `inicio` reubicada
+  como inicio temprano del subplan y menu `Sistema → Reconstruir portada INICIO`.
+  Dimensiones al API real de Apps Script (`setRowHeights`/`setColumnWidths` no
+  aceptan arrays: 1 llamada de anchos @38 + 19 tramos contiguos de altura, sin
+  `setRowHeight`/`setColumnWidth` en bucle). RPC de servidor medido: 252 (antes
+  ~720) con techo 260; validado por `tests/inicio_rendimiento_v014.mjs`.
+- Mejora visual pedida por la usuaria: **marco de color** (`M.sistemaBorde`)
+  alrededor de `A1:AD38` para que la portada se perciba como una tarjeta, y se
+  ocultan filas/columnas excedentes de la hoja (sin borrar datos). La
+  distribución porcentual por sector se redondea con **mayor resto** para sumar
+  100 exacto en vez de 101 por redondeo independiente.
+  Validación: `inicio_rendimiento_v014` 4/4 (T1 252 RPC), `inicio_visual_v014`
+  10/10, `inicio_portada_freezerows_v0121` 8/8, batería 46 suites 0 fallos.
 
 ## v0.13.0 — CIERRE VISUAL: PARIDAD, PORTADA INICIO Y PRESENTACIÓN CONVERGENTE
 

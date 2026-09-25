@@ -118,11 +118,20 @@ const settersPorCelda = ['setValue', 'setValues', 'setFormula', 'setBackground',
   'setBorder', 'setWrap'];
 const setters = settersPorCelda.reduce((a, k) => a + (conteo.get(k) || 0), 0);
 assert.ok(setters <= 150, 'estilos y valores agrupados (setters=' + setters + ')');
-assert.equal(conteo.get('setRowHeights') || 0, 1, '34 alturas en UNA llamada');
 assert.equal(conteo.get('setColumnWidths') || 0, 1, '30 anchos en UNA llamada');
-assert.equal(conteo.get('setRowHeight') || 0, 0, 'sin bucle por fila');
-assert.equal(conteo.get('setColumnWidth') || 0, 0, 'sin bucle por columna');
-ok('T2 estilos/valores agrupados: ' + setters + ' llamadas y dimensiones en 2 (techo 150)');
+assert.equal((conteo.get('setRowHeight') || 0), 0, 'sin bucle por fila');
+
+// Las alturas se agrupan por tramos contiguos de igual valor: el array de
+// alturas (34 filas) tiene 18 tramos; cada tramo es UNA llamada.
+const setRowHeightCalls = conteo.get('setRowHeights') || 0;
+const alturasEsperadas = c.Inicio_alturasEsperadas_ ? c.Inicio_alturasEsperadas_() : [];
+let tramos = 0;
+for (let i = 0; i < alturasEsperadas.length; i++)
+  if (i === 0 || alturasEsperadas[i][1] !== alturasEsperadas[i - 1][1]) tramos++;
+assert.ok(tramos > 0 && tramos < alturasEsperadas.length, 'alturas del panel tienen tramos reutilizables (' + tramos + ')');
+assert.equal(setRowHeightCalls, tramos, 'setRowHeights usa ' + tramos + ' llamadas (un tramo contiguo por cambio) y NO el array');
+assert.equal((conteo.get('setColumnWidth') || 0), 0, 'sin bucle por columna');
+ok('T2 estilos/valores agrupados: ' + setters + ' llamadas, 1 ancho batch y ' + tramos + ' tramos de altura (techo 150)');
 
 // --- T3: los merges del panel se crean todos y una sola vez ------------------
 assert.equal(conteo.get('merge'), 72, '72 merges del contrato PANEL_OPERATIVO_V014');

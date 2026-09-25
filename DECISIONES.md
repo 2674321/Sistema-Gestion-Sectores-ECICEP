@@ -2001,14 +2001,25 @@ dimensión). Ahora: 34 alturas y 30 anchos en 2 llamadas (`setRowHeights` /
 `setColumnWidths`, con fallback defensivo), cada token de estilo se aplica una
 vez sobre un `RangeList` (con catch individual por token), los valores de
 métricas van en una sola pasada y la portada se audita al final. El constructor
-emite 231 RPC de servidor (medidos por `inicio_rendimiento_v014`), dentro del
+emite 252 RPC de servidor (medidos por `inicio_rendimiento_v014`), dentro del
 presupuesto.
 Se agrega además el ítem directo `Sistema → Reconstruir portada INICIO`
 (`UI_reconstruirInicio`) para alinear SOLO la hoja INICIO en un clic cuando el
 resto del libro ya está presentado.
+**Corrección visual posterior (mismo DEC):** la usuaria pidió que la portada no
+dejara "espacio blanco". `Inicio_construir_` añade ahora un **marco de color**
+`M.sistemaBorde` con `setBorder` sobre toda `A1:AD38` (una tarjeta, no bloques
+sueltos sobre blanco) y oculta filas/columnas excedentes de la hoja con
+`hideRows`/`hideColumns` guardado por `typeof` (sin borrar datos; las filas y
+columnas del lienzo gestionado quedan visibles). Además `setBorder` del marco
+es 1 RPC extra dentro del techo, y la distribución porcentual por sector dejó
+de redondear cada porcentaje por separado (sumaba 101 %): el helper
+`Inicio_porcentajesRedondeados_` aplica el **método del mayor resto** para que
+los tres sectores sumen 100 exacto.
 **Validación:** `inicio_rendimiento_v014` 4/4 (techo 260 RPC de servidor, sin
 bucles por fila/columna, 72 merges, reconstrucción repetida), `inicio_v012` PASS,
-`inicio_portada_freezerows_v0121` 8/8, `instalador_presentacion_timeout_v0121` Pass (17 subtareas, `inicio` en posición 2, `verificar` al final),
+`inicio_portada_freezerows_v0121` 8/8, `inicio_visual_v014` 10/10,
+`instalador_presentacion_timeout_v0121` Pass (17 subtareas, `inicio` en posición 2, `verificar` al final),
 `reparar_presentacion_v013` 6/6 (menú con 4 ítems), batería completa 46 suites 0
 fallos y `ejecutar_local` 673/673.
 **Fecha:** 2026-09-25
