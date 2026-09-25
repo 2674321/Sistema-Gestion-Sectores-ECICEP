@@ -253,10 +253,12 @@ alcanzar 200/200 versiones. La autocuración de dimensiones de `INICIO`
 (regresión "Verificación INICIO falló en: anchos") está **probada y pusheada a
 `@HEAD`** (batería 46 suites 0 fallos, `inicio_rendimiento_v014` 5/5), pero
 `clasp deploy --deploymentId` rechazó crear la versión @248: el deployment
-operativo sigue en `@247`. Para publicar: con la cuenta propietaria, eliminar
-en **Project History** del editor una versión antigua sin deployment activo y
-volver a ejecutar `clasp deploy --deploymentId AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`.
-Luego verificar `/exec`, E2E y el marco de color + distribución 100%.
+operativo seguía en `@247`. **Resuelto en la misma fecha:** tras liberar una
+versión sin deployment en Project History (cuenta propietaria) se creó la
+versión **@248** y se desplegó en el deployment operativo reutilizado. Smoke
+`GET /exec` → 200 sirviendo `v0.13.0` + portada v0.14. Pendiente: E2E visual
+del marco de color y distribución 100% por la usuaria (`Sistema → Reconstruir
+portada INICIO`).
 
 Las tareas de publicación deben:
 

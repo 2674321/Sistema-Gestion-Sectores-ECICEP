@@ -23,7 +23,7 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.13.0` + layout de portada `v0.14.0` — panel operativo INICIO completo (hero, KPIs, distribución, alerta, marco, autocuración de dimensiones) · esquema 2 · batería completa sin fallos · publicación `@HEAD` (operativo @247; límite 200 versiones bloquea nueva versión — ver `PENDIENTES.md` §3) |
+| **Estado** | `v0.13.0` + layout de portada `v0.14.0` — panel operativo INICIO completo (hero, KPIs, distribución, alerta, marco, autocuración de dimensiones) · esquema 2 · batería completa sin fallos · publicado `@248` en el deployment operativo |
 
 ## v0.14.0 (layout) — INICIO como panel operativo completo
 
