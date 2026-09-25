@@ -7,6 +7,23 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.14.1 — REPARAR ≠ RECARGAR (PROTECCIÓN DE PRODUCCIÓN)
+
+- `Instalar / reparar` ya no ejecuta `SNAPSHOT_ACTUAL` por defecto: en producción
+  (PACIENTES/EVENTOS con filas reales) el default es `CONSERVAR` (etapa omitida,
+  sin leer fuentes para escritura); en libro vacío se ofrece `INICIAL`.
+- Modos canónicos `FUENTES_MODO` (CONSERVAR/INICIAL/CONSERVADOR/SNAPSHOT_ACTUAL),
+  bloque DATOS en el instalador (conteos + radios + confirmación de snapshot +
+  preview de impacto en conteos sin PII), endpoint `api_fuentesImpacto`
+  (dry-run reutilizable por `ejecucionId`).
+- Snapshot avanzado: confirmación explícita + respaldo obligatorio
+  (`BACKUP_PRE_SNAPSHOT_FALLIDO` si falla), impacto con reemplazos destacados.
+- Merge tipado (`FILL_ONLY`/`FECHA_MAX`/`REEMPLAZO_SNAPSHOT`), `Act_resumenImpactoMerge_`
+  en conteos, idempotencia probada (teléfono, estratificación, sexo, nacimiento,
+  salud mental, observaciones, fechas-max, eventos, FUENTE estable, logs sin PII).
+- Reparar presentación y reconstruir INICIO implican 0 modificaciones de datos;
+  Actualizar sigue conservador (sin snapshot). Esquema 2, misma URL/QR (DEC-090).
+
 ## v0.14.0 — CONSOLIDACIÓN VISUAL + INSTALADOR ÚNICO
 
 - Motor único de presentación (fase `diseno`; ex-fases `visual`/`inicio`

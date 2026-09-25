@@ -2897,7 +2897,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.14.0', 'versión esperada v0.14.0');
+    A.igual(v, '0.14.1', 'versión esperada v0.14.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3137,7 +3137,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.14.0', 'versión esperada v0.14.0');
+    A.igual(v, '0.14.1', 'versión esperada v0.14.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -6256,13 +6256,20 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROXIMO_CONTROL') !== -1, 'PROXIMO_CONTROL en campos editables');
   });
 
-  // --- S9: INSTALAR carga datos reales (SNAPSHOT_ACTUAL) / ACTUALIZAR también ---
-  t('S9: INSTALAR — etapa fuentes carga datos reales en modo SNAPSHOT_ACTUAL', function () {
+  // --- S9: INSTALAR separa reparar de sincronizar (v0.14.1: CONSERVAR por defecto) ---
+  t('S9: INSTALAR — etapa fuentes con política de datos explícita (no snapshot por defecto)', function () {
     var src = Instalar_pFuentes.toString();
     A.cierto(src.indexOf('Fuentes_cargaReal') !== -1,
       'Instalar_pFuentes SÍ llama Fuentes_cargaReal');
-    A.cierto(src.indexOf("modo: 'SNAPSHOT_ACTUAL'") !== -1,
-      'carga bajo política SNAPSHOT_ACTUAL');
+    A.cierto(src.indexOf('CONSERVAR') !== -1, 'modo CONSERVAR existe');
+    A.cierto(src.indexOf('DATOS_EXISTENTES_CONSERVADOS') !== -1,
+      'producción + AUTO conserva sin escribir');
+    A.cierto(src.indexOf('SNAPSHOT_REQUIERE_CONFIRMACION') !== -1,
+      'snapshot exige confirmación explícita');
+    A.cierto(src.indexOf('BACKUP_PRE_SNAPSHOT_FALLIDO') !== -1,
+      'snapshot exige respaldo previo');
+    A.cierto(src.indexOf("modo: 'SNAPSHOT_ACTUAL'") === -1,
+      'sin snapshot unilateral por defecto');
     var idxDry = src.indexOf('ejecutar: false');
     var idxEjec = src.indexOf('ejecutar: true');
     A.cierto(idxDry !== -1 && idxEjec !== -1 && idxDry < idxEjec,
@@ -6371,7 +6378,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.14.0', 'VERSION es 0.14.0');
+    A.cierto(ECICEP.VERSION === '0.14.1', 'VERSION es 0.14.1');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

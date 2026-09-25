@@ -52,6 +52,11 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);display:fle
 .avanzadas summary{cursor:pointer;font-weight:700}
 .avanzadas label{display:flex;gap:7px;align-items:flex-start;margin:7px 2px;line-height:1.4}
 .avanzadas input{margin-top:2px}
+.modos{margin-top:9px;display:grid;gap:2px}
+.modos label{display:flex;gap:7px;align-items:flex-start;margin:5px 2px;line-height:1.4;
+  font-size:11px;color:var(--text-secondary)}
+.modos input{margin-top:2px}
+.modos b{color:var(--text-primary)}
 .acciones{display:flex;flex-wrap:wrap;gap:7px}
 .diagnostico h2{font:700 14px 'Sora';margin:0}
 .diagnostico-cabecera{display:flex;justify-content:space-between;gap:10px;align-items:center;
@@ -147,6 +152,25 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
     <summary>Detalle técnico</summary>
     <pre id="diagTecnico">Diagnóstico aún no disponible.</pre>
   </details>
+</section>
+
+<section class="diagnostico bloque-vista" id="datosPanel" aria-labelledby="datosTitulo">
+  <div class="diagnostico-cabecera">
+    <h2 id="datosTitulo">Datos actuales</h2>
+    <button class="btn btn-ghost" id="btnPreview" onclick="previsualizarImpacto(this)">Previsualizar</button>
+  </div>
+  <div class="diagnostico-tabla" role="table" aria-label="Datos actuales del libro">
+    <div class="diag-fila" role="row"><b role="rowheader">Pacientes</b><span class="diag-valor" id="datosPacientes">—</span><span class="diag-estado estado-pendiente" id="datosProduccionEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Eventos</b><span class="diag-valor" id="datosEventos">—</span><span class="diag-estado estado-pendiente" id="datosEventosEstado">PENDIENTE</span></div>
+  </div>
+  <div class="modos" role="radiogroup" aria-label="Política de datos">
+    <label><input type="radio" name="modoDatos" value="CONSERVAR" checked onclick="actualizarConfirmaSnapshot()"><span><b>Conservar datos actuales — RECOMENDADO.</b> No modifica PACIENTES ni EVENTOS. Solo repara estructura, automatizaciones y presentación.</span></label>
+    <label><input type="radio" name="modoDatos" value="CONSERVADOR" onclick="actualizarConfirmaSnapshot()"><span><b>Sincronización conservadora.</b> Completa campos vacíos e incorpora nuevos válidos. No reemplaza teléfonos, estratificación, sexo, nacimiento, observaciones ni salud mental existentes.</span></label>
+    <label><input type="radio" name="modoDatos" value="INICIAL" onclick="actualizarConfirmaSnapshot()"><span><b>Carga inicial.</b> Para libro vacío: incorpora pacientes y eventos nuevos.</span></label>
+    <label><input type="radio" name="modoDatos" value="SNAPSHOT_ACTUAL" onclick="actualizarConfirmaSnapshot()"><span><b>Recargar snapshot [AVANZADO].</b> Vuelve a tomar determinados valores desde las fuentes autorizadas. Puede reemplazar teléfonos y estratificación actuales. Pensada para recarga controlada, no para reparación rutinaria.</span></label>
+    <label id="confirmaSnapshotWrap" hidden><input type="checkbox" id="optSnapshotConfirma"><span>Entiendo que esta acción puede reemplazar datos existentes.</span></label>
+  </div>
+  <p class="diag-resumen" id="previewResumen">Previsualización sin escrituras: muestra conteos antes de ejecutar.</p>
 </section>
 
 <div class="preparacion bloque-vista" id="preparacion">
@@ -467,6 +491,7 @@ function renderDiagnostico(){
   if(inicioPropio&&inicioPropio.ok!==undefined)inicioOk=inicioPropio.ok===true;
   var diferenciasInicio=contarDiferenciasVisuales(inicioPropio);
   pintarDiagnostico('Inicio',inicioOk?'correcta':(diferenciasInicio?diferenciasInicio+' diferencias':'requiere revisión'),inicioOk?'OK':'ADVERTENCIA');
+  pintarDatos(d.datos);
   texto('diagTecnico',detalleTecnicoDiagnostico(d,salud));
   var btnPresentacion=porId('btnPresentacion');
   if(btnPresentacion)btnPresentacion.hidden=hayPres&&visual.ok;
@@ -593,7 +618,49 @@ function llamarPaso(etapa,ix){
   }).withFailureHandler(function(e){
     registrarDuracion(etapa.id,null,inicioRpc);if(_CANCELADO){terminarCancelacion();return;}
     fallarEtapa(etapa,ix,null,e);
-  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC);
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,opcionesDatos());
+}
+
+/* v0.14.1 §3-5/§42 — política de datos del instalador. El modo viaja en las
+ * opciones de cada etapa; la etapa `fuentes` lo consume, el resto lo ignora. */
+function modoDatosSeleccionado(){
+  var sel=document.querySelector('input[name="modoDatos"]:checked');
+  return sel?sel.value:'CONSERVAR';
+}
+function opcionesDatos(){
+  return {modoDatos:modoDatosSeleccionado(),
+    confirmarSnapshot:!!(porId('optSnapshotConfirma')&&porId('optSnapshotConfirma').checked)};
+}
+function actualizarConfirmaSnapshot(){
+  var snap=modoDatosSeleccionado()==='SNAPSHOT_ACTUAL';
+  var w=porId('confirmaSnapshotWrap');if(w)w.hidden=!snap;
+  if(!snap&&porId('optSnapshotConfirma'))porId('optSnapshotConfirma').checked=false;
+}
+function pintarDatos(d){
+  d=d||{};var prod=!!d.produccion;
+  texto('datosPacientes',String(d.pacientes||0)+' pacientes');
+  texto('datosEventos',String(d.eventos||0)+' eventos');
+  aplicarEstadoChip('datosProduccionEstado',prod?'ADVERTENCIA':'OK');
+  var chip=porId('datosProduccionEstado');
+  var tx=chip?chip.querySelectorAll('span')[1]:null;
+  if(tx)tx.textContent=prod?'Producción detectada':'Sin datos productivos';
+  aplicarEstadoChip('datosEventosEstado','OK');
+  var tx2=porId('datosEventosEstado')?porId('datosEventosEstado').querySelectorAll('span')[1]:null;
+  if(tx2)tx2.textContent='Registrados';
+  var rC=document.querySelector('input[name="modoDatos"][value="CONSERVAR"]');
+  var rI=document.querySelector('input[name="modoDatos"][value="INICIAL"]');
+  if(rC)rC.checked=!prod;if(rI)rI.checked=prod?false:true;
+  actualizarConfirmaSnapshot();
+}
+function previsualizarImpacto(btn){
+  if(_enCurso)return;var fin=btn?setLoading(btn,true,'Previsualizando…'):function(){};
+  var modo=modoDatosSeleccionado();
+  google.script.run.withSuccessHandler(function(r){
+    fin();
+    if(!r||r.ok!==true){texto('previewResumen','Previsualización no disponible: '+((r&&r.motivo)||'error'));return;}
+    texto('previewResumen','Impacto estimado ('+modo+'): '+(r.linea||'sin cambios'));
+  }).withFailureHandler(function(e){fin();texto('previewResumen','Previsualización no disponible: '+(e&&e.message||e));})
+  .api_fuentesImpacto(ECICEP_ACCESO,modo);
 }
 
 function opcionesPresentacion(){

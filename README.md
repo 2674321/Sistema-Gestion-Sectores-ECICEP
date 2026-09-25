@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.14.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.14.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,18 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.14.0` — motor único de presentación, instalador único (17 etapas, 7 grupos, opciones avanzadas), menú Sistema con 2 items, Actualizar vía motor + advertencias, `FORMATO_CAMPOS` extendido, INICIO sin copy provisional + snapshot G · esquema 2 · batería 49 suites sin fallos · publicado `@248` en el deployment operativo |
+| **Estado** | `v0.14.1` — Instalar/reparar conserva datos productivos por defecto (CONSERVAR), sincronización conservadora e INICIAL explícitas, snapshot avanzado confirmado y respaldado; merge tipado e idempotente · esquema 2 · batería sin fallos |
+
+## v0.14.1 — reparar no recarga datos en producción
+
+`Instalar / reparar` conserva `PACIENTES`/`EVENTOS` por defecto
+(`CONSERVAR`, con detección de producción por filas reales). La sincronización
+es explícita: `CONSERVADOR` (completa vacíos e incorpora nuevos sin reemplazar
+teléfonos, estratificación, sexo, nacimiento, observaciones ni salud mental),
+`INICIAL` (libro vacío) y `SNAPSHOT_ACTUAL` avanzado (confirmación explícita +
+respaldo obligatorio, dry-run con impacto en conteos sin PII). El merge clasifica
+`FILL_ONLY`/`FECHA_MAX`/`REEMPLAZO_SNAPSHOT`/`CONFLICTO` y es idempotente
+(segunda pasada = 0 cambios, `FUENTE` estable). Esquema 2, misma URL/QR (DEC-090).
 
 ## v0.14.0 — consolidación visual + instalador único
 

@@ -312,12 +312,13 @@ function Act_diagnosticarEnriquecimiento() {
 //   6. trazabilidad: append a FUENTE + FECHA_ACTUALIZACION.
 //   7. PROXIMO_CONTROL es manual: una fuente no rellena una agenda borrada.
 //
-// MODO SNAPSHOT_ACTUAL (opciones.modo, usado por Instalar): política de CARGA
-// inicial/reinstalación que además permite:
+// MODO SNAPSHOT_ACTUAL (v0.14.1: SOLO instalador avanzado, confirmado y
+// respaldado; ver FUENTES_MODO en 03_Fuentes): además de lo anterior permite:
 //   a. TELEFONOS: REEMPLAZA el consolidado cuando la fuente trae un teléfono
 //      válido no vacío (el teléfono vigente de la dupla es la fuente de verdad);
 //   b. ESTRATIFICACION: REEMPLAZA cuando la fuente trae una G1/G2/G3 válida.
 // NUNCA aplica a SEXO/FECHA_NACIMIENTO (siguen fill-only) ni a SALUD_MENTAL.
+// Los modos CONSERVADOR/INICIAL/cotidiano jamás reemplazan.
 //
 // SALUD_MENTAL: campo de captura clínica de la dupla. El merge JAMÁS lo escribe
 // ni modifica en pacientes existentes (no se infiere, no se sobrescribe); solo
@@ -343,10 +344,11 @@ var _CAMPOS_MERGE_FECHA_MAX = ['ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO'];
  * orquestador (mantiene PII y trazabilidad en un solo lugar).
  * @param {Object} paciente objeto PACIENTES (mutable)
  * @param {Object} n fila.NORMALIZADO (valores canónicos de la fuente)
- * @param {Object} [opciones] {modo:'NORMAL_COTIDIANO'|'SNAPSHOT_ACTUAL'}
- *   SNAPSHOT_ACTUAL (Instalar): reemplaza TELEFONOS y ESTRATIFICACION (G válida)
+ * @param {Object} [opciones] {modo:'NORMAL_COTIDIANO'|'CONSERVADOR'|'INICIAL'|'SNAPSHOT_ACTUAL'}
+ *   SNAPSHOT_ACTUAL (instalador avanzado): reemplaza TELEFONOS y ESTRATIFICACION (G válida)
  *   vigentes de la fuente; el resto se comporta igual que el modo cotidiano.
- * @returns {aplicados:[{campo, valor}], conflictos:[{campo}]}
+ * @returns {aplicados:[{campo, valor, tipo}], conflictos:[{campo}]}
+ *   tipo ∈ FILL_ONLY | FECHA_MAX | REEMPLAZO_SNAPSHOT (v0.14.1 §15).
  */
 function Act_mergearPaciente(paciente, n, opciones) {
   var aplicados = [], conflictos = [];
@@ -361,7 +363,7 @@ function Act_mergearPaciente(paciente, n, opciones) {
     if (!can) return; // fuente sin dato: no aporta ni destruye
     if (can > actual) {
       paciente[campo] = can;
-      aplicados.push({ campo: campo, valor: can });
+      aplicados.push({ campo: campo, valor: can, tipo: 'FECHA_MAX' });
     }
   });
 
@@ -374,7 +376,7 @@ function Act_mergearPaciente(paciente, n, opciones) {
     if (!can) return; // vacío o inválido en la fuente: no se inventa
     if (Utl_texto(actual) === '') {
       paciente[campo] = can;
-      aplicados.push({ campo: campo, valor: can });
+      aplicados.push({ campo: campo, valor: can, tipo: 'FILL_ONLY' });
     } else if (actual !== can) {
       conflictos.push({ campo: campo });
     }
@@ -395,12 +397,12 @@ function Act_mergearPaciente(paciente, n, opciones) {
       // FUENTE en cada Instalar repetido sin producir cambio real (B9).
       if (can === actual) return;
       paciente[campo] = can;
-      aplicados.push({ campo: campo, valor: can });
+      aplicados.push({ campo: campo, valor: can, tipo: 'REEMPLAZO_SNAPSHOT' });
       return;
     }
     if (actual === '') {
       paciente[campo] = can;
-      aplicados.push({ campo: campo, valor: can });
+      aplicados.push({ campo: campo, valor: can, tipo: 'FILL_ONLY' });
     }
   });
 
@@ -410,7 +412,7 @@ function Act_mergearPaciente(paciente, n, opciones) {
     var canE = Norm_normalizarEstratificacion(n.ESTRATIFICACION);
     if (canE && Utl_texto(paciente.ESTRATIFICACION) !== canE) {
       paciente.ESTRATIFICACION = canE;
-      aplicados.push({ campo: 'ESTRATIFICACION', valor: canE });
+      aplicados.push({ campo: 'ESTRATIFICACION', valor: canE, tipo: 'REEMPLAZO_SNAPSHOT' });
     }
   }
 
@@ -430,7 +432,8 @@ function Act_mergearPaciente(paciente, n, opciones) {
  */
 function Act_mergearPacientesDesdeStaging(staging, pacientes, opciones) {
   var reporte = {
-    revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: []
+    revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [],
+    tipos: { FILL_ONLY: 0, FECHA_MAX: 0, REEMPLAZO_SNAPSHOT: 0 }
   };
   var porRut = {};
   (pacientes || []).forEach(function (p) {
@@ -449,6 +452,9 @@ function Act_mergearPacientesDesdeStaging(staging, pacientes, opciones) {
     if (res.aplicados.length) {
       reporte.actualizados++;
       reporte.campos += res.aplicados.length;
+      res.aplicados.forEach(function (a) {
+        if (reporte.tipos[a.tipo] !== undefined) reporte.tipos[a.tipo]++;
+      });
       reporte.detalle.push({
         id: Utl_texto(paciente.ID_INTERNO),
         campos: res.aplicados.map(function (a) { return a.campo; })
@@ -470,6 +476,18 @@ function Act_mergearPacientesDesdeStaging(staging, pacientes, opciones) {
     }
   });
   return reporte;
+}
+
+/** PURA: resumen de impacto del merge por tipo de cambio (v0.14.1 §16).
+ *  Solo conteos (sin PII): apto para preview, instalador y logs. */
+function Act_resumenImpactoMerge_(merge) {
+  var mg = merge || {}, t = mg.tipos || {};
+  return {
+    fillOnly: Number(t.FILL_ONLY || 0),
+    fechasAdelantadas: Number(t.FECHA_MAX || 0),
+    reemplazosSnapshot: Number(t.REEMPLAZO_SNAPSHOT || 0),
+    conflictos: Number(mg.conflictos || 0)
+  };
 }
 
 /** PURA: resumen breve para el toast del menú Actualizar. */

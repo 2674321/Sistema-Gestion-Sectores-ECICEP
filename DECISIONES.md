@@ -2053,3 +2053,22 @@ con Sheets real. Detalle en `docs/INFORME_V014_CONSOLIDACION_VISUAL_INSTALADOR_I
 **Validación:** `tools/verificar.mjs` 49 suites 0 fallos, `ejecutar_local` 673/673, nuevas
 `arquitectura_visual_v014` 7/7, `formato_celdas_v014` 7/7, `inicio_snapshot_v014` 4/4.
 **Fecha:** 2026-09-25
+
+## DEC-090
+**Título:** Reparar no recarga datos en producción (modos CONSERVAR/CONSERVADOR/SNAPSHOT).
+**Estado:** Aprobada
+**Motivo:** `Instalar / reparar` ejecutaba `SNAPSHOT_ACTUAL` sobre PACIENTES existentes y podía
+reemplazar TELEFONOS/ESTRATIFICACION y adelantar fechas. Nueva política: producción (filas reales
+en PACIENTES/EVENTOS, `Datos_estadoProduccion_`) + AUTO → CONSERVAR (etapa omitida
+`DATOS_EXISTENTES_CONSERVADOS`); libro vacío → INICIAL; CONSERVADOR completa vacíos e incorpora
+nuevos sin reemplazar protegidos (teléfonos, estratificación, sexo, nacimiento, observaciones, salud
+mental; fechas solo max); SNAPSHOT_ACTUAL solo avanzado + confirmado (`SNAPSHOT_REQUIERE_CONFIRMACION`)
++ respaldado (`BACKUP_PRE_SNAPSHOT_FALLIDO`), con preview de impacto en conteos sin PII
+(`api_fuentesImpacto`, patrón dry-run→ejecucionId→write). Merge tipado FILL_ONLY/FECHA_MAX/
+REEMPLAZO_SNAPSHOT + `Act_resumenImpactoMerge_`; idempotente (2.ª pasada 0 cambios, FUENTE estable).
+Reparar presentación y reconstruir INICIO implican 0 modificaciones de datos; Actualizar sin snapshot.
+Instalador único conservado (bloque DATOS + radios + confirmación, sin modal paralelo).
+`ECICEP.VERSION` 0.14.1 (schema 2, captura V4, sin MIG-003).
+**Validación:** `tools/verificar.mjs` 51 suites 0 fallos, nuevas `fuentes_modos_produccion_v014` 11/11 e
+`instalador_datos_produccion_v014` 7/7.
+**Fecha:** 2026-09-25

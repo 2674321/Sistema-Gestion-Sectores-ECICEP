@@ -148,7 +148,10 @@ function api_instalarPaso(id, acceso, ejecucion, opciones) {
       Presentacion_invalidarLayout_();
     var fn = G[reg.fn];
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
-    var r = fn(ejecucion) || {};
+    // v0.14.1: las opciones bajan a la etapa (modoDatos/confirmarSnapshot para
+    // fuentes; modos de presentación para diseno). Etapas sin 2.º parámetro
+    // las ignoran: backward-compatible.
+    var r = fn(ejecucion, opciones) || {};
     r.etapa = id; r.nombre = reg.nombre; r.ms = Date.now() - t0;
     if (respaldo) r.respaldo = respaldo;
     if (typeof r.ok === 'undefined') r.ok = true;
@@ -566,27 +569,68 @@ function Instalar_pEstructura() {
   return { creadas: est.creadas.length, existentes: est.existentes.length,
            dashboardReparado: !!est.dashboardReparado };
 }
-function Instalar_pFuentes() {
-  // Instalar CARGA los datos reales vigentes de los sectores reutilizando el
-  // pipeline de Fuentes_cargaReal (única fuente de verdad). Secuencia de
-  // seguridad: análisis dry-run (sin escrituras) → si la fuente es válida,
-  // ejecución con política SNAPSHOT_ACTUAL (reinstalación / carga inicial).
-  // La ejecución REUTILIZA el análisis dry-run (ejecucionId → UNA lectura real
-  // de fuentes; evita drift entre la previa y la escritura).
+function Instalar_pFuentes(ejecucion, opciones) {
+  // v0.14.1: REPARAR EL SISTEMA ≠ RECARGAR LOS DATOS. Política explícita
+  // (FUENTES_MODO, ver 03_Fuentes): producción + AUTO → CONSERVAR (no toca
+  // PACIENTES/EVENTOS/STAGING); libro vacío + AUTO → INICIAL; la elección
+  // explícita del operador prevalece. CONSERVADOR/INICIAL comparten mecánica
+  // no destructiva; SNAPSHOT_ACTUAL solo avanzado + confirmado + respaldado.
+  opciones = opciones || {};
+  var pedido = Utl_texto(opciones.modoDatos).toUpperCase();
+  var estado = (typeof Datos_estadoProduccion_ === 'function')
+    ? Datos_estadoProduccion_() : { pacientes: 0, eventos: 0, produccion: false };
+  var modo = (pedido === 'CONSERVAR' || pedido === 'CONSERVADOR' ||
+    pedido === 'INICIAL' || pedido === 'SNAPSHOT_ACTUAL')
+    ? pedido : (estado.produccion ? 'CONSERVAR' : 'INICIAL');
+  if (modo === 'CONSERVAR') {
+    return { ok: true, omitida: true, modo: modo, produccion: estado,
+      motivo: 'DATOS_EXISTENTES_CONSERVADOS',
+      linea: 'Datos: conservados sin cambios (' + estado.pacientes + ' pacientes · ' +
+        estado.eventos + ' eventos). Solo estructura, automatizaciones y presentación.' };
+  }
+  if (modo === 'SNAPSHOT_ACTUAL' && opciones.confirmarSnapshot !== true) {
+    return { ok: false, modo: modo, produccion: estado,
+      motivo: 'SNAPSHOT_REQUIERE_CONFIRMACION',
+      linea: 'Recargar snapshot exige confirmación explícita: puede reemplazar teléfonos y estratificación.' };
+  }
+  var respaldoPrevio = null;
+  if (modo === 'SNAPSHOT_ACTUAL') {
+    // Backup obligatorio: reutiliza el respaldo PRE_INSTALAR de la ejecución
+    // si ya existe; si falla, NO se ejecuta snapshot.
+    try {
+      var bk = Instalar_asegurarBackup_(ejecucion);
+      if (!bk || bk.ok === false)
+        return { ok: false, modo: modo, motivo: 'BACKUP_PRE_SNAPSHOT_FALLIDO',
+          linea: 'Sin respaldo previo no se ejecuta snapshot.' };
+      respaldoPrevio = bk.nombre || null;
+    } catch (eBk) { return { ok: false, modo: modo, motivo: 'BACKUP_PRE_SNAPSHOT_FALLIDO' }; }
+  }
+  // Secuencia de seguridad: análisis dry-run (sin escrituras) → ejecución que
+  // REUTILIZA el análisis (ejecucionId → UNA lectura real de fuentes; evita
+  // drift entre la previa y la escritura).
+  var modoCarga = (modo === 'SNAPSHOT_ACTUAL') ? 'SNAPSHOT_ACTUAL' : 'CONSERVADOR';
   var analisis;
-  try { analisis = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: 'SNAPSHOT_ACTUAL' }); }
-  catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
-  if (analisis.ok === false) return { ok: false, motivo: analisis.motivo, resumen: analisis.resumen };
-  var ejecucion;
+  try { analisis = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: modoCarga }); }
+  catch (e) { return { ok: false, modo: modo, motivo: e && e.message ? e.message : String(e) }; }
+  if (analisis.ok === false) return { ok: false, modo: modo, motivo: analisis.motivo, resumen: analisis.resumen };
+  var ejecucionR;
   try {
-    ejecucion = Fuentes_cargaReal({ ejecutar: true, actualizar: true, modo: 'SNAPSHOT_ACTUAL',
+    ejecucionR = Fuentes_cargaReal({ ejecutar: true, actualizar: true, modo: modoCarga,
       ejecucionId: analisis.ejecucionId });
-  } catch (e2) { return { ok: false, motivo: e2 && e2.message ? e2.message : String(e2) }; }
-  if (ejecucion.ok === false) return { ok: false, motivo: ejecucion.motivo, resumen: ejecucion.resumen };
-  var res = ejecucion.resumen || {};
-  return { ok: true, modo: 'SNAPSHOT_ACTUAL', resumen: res,
-    linea: 'registros ' + res.registros + ' · nuevos ' + res.nuevos +
-      ' · existentes ' + res.existentes + ' · en revisión ' + res.revision };
+  } catch (e2) { return { ok: false, modo: modo, motivo: e2 && e2.message ? e2.message : String(e2) }; }
+  if (ejecucionR.ok === false) return { ok: false, modo: modo, motivo: ejecucionR.motivo, resumen: ejecucionR.resumen };
+  var res = ejecucionR.resumen || {};
+  var impacto = (typeof Act_resumenImpactoMerge_ === 'function')
+    ? Act_resumenImpactoMerge_(res.merge) : null;
+  var linea = 'registros ' + res.registros + ' · nuevos ' + res.nuevos +
+    ' · existentes ' + res.existentes + ' · completados ' + (impacto ? impacto.fillOnly : '?') +
+    ' · fechas ' + (impacto ? impacto.fechasAdelantadas : '?') +
+    ' · conflictos ' + (impacto ? impacto.conflictos : res.revision);
+  if (modo === 'SNAPSHOT_ACTUAL')
+    linea += ' · reemplazos ' + (impacto ? impacto.reemplazosSnapshot : '?') +
+      (respaldoPrevio ? ' · respaldo ' + respaldoPrevio : ' · respaldo de ejecución');
+  return { ok: true, modo: modo, produccion: estado, resumen: res, impacto: impacto,
+    respaldoPrevio: respaldoPrevio, linea: linea };
 }
 function Instalar_pAmarillo() {
   // Sector Amarillo desde Drive (Amarillo_importarTodo_: puerta INGRESO_AMARILLO
@@ -747,8 +791,16 @@ function Instalar_diagnosticar() {
     ocultas: { pendientes: 0, ocultadas: 0, detalles: [] },
     menu: { necesitaActualizar: false },
     triggers: { ingresoOnEdit: 'NO_DISPONIBLE', total: 0 },
+    datos: { pacientes: 0, eventos: 0, produccion: false },
     resumen: { fasesPendientes: [], fasesCompletas: [] }
   };
+
+  // v0.14.1 §2/§42: estado de producción para el bloque DATOS del instalador
+  // (solo conteos, sin PII). No es una fase diagnóstica: totalFases no cambia.
+  try {
+    if (typeof Datos_estadoProduccion_ === 'function')
+      diagnostico.datos = Datos_estadoProduccion_();
+  } catch (eDatos) {}
 
   var hojasCriticas = ['PACIENTES', 'EVENTOS', 'SECTOR_NARANJO', 'SECTOR_AMARILLO',
     'SECTOR_VERDE', 'INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];

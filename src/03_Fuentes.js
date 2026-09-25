@@ -11,6 +11,46 @@
 
 var _FUENTES_SEQ = 0;
 
+/** v0.14.1 §6 — Modos canónicos de datos (una sola fuente, sin strings
+ *  dispersos). CONSERVAR: no sincroniza fuentes (reparación técnica pura).
+ *  INICIAL: libro vacío, incorpora nuevos sin nada que proteger. CONSERVADOR:
+ *  sincroniza sin reemplazar valores protegidos (teléfonos, estratificación,
+ *  sexo, nacimiento, observaciones, salud mental). SNAPSHOT_ACTUAL: herramienta
+ *  avanzada, explícita, confirmada y respaldada; puede reemplazar TELEFONOS y
+ *  ESTRATIFICACION (G válida) vigentes desde las fuentes autorizadas. */
+var FUENTES_MODO = {
+  CONSERVAR: 'CONSERVAR',
+  INICIAL: 'INICIAL',
+  CONSERVADOR: 'CONSERVADOR',
+  SNAPSHOT_ACTUAL: 'SNAPSHOT_ACTUAL'
+};
+
+/** PURA: normaliza el modo de merge. Solo SNAPSHOT_ACTUAL activa reemplazos;
+ *  INICIAL/CONSERVADOR/cotidiano comparten la mecánica no destructiva. */
+function Fuentes_normalizarModo_(modo) {
+  var m = Utl_texto(modo).toUpperCase();
+  if (m === FUENTES_MODO.SNAPSHOT_ACTUAL) return FUENTES_MODO.SNAPSHOT_ACTUAL;
+  if (m === FUENTES_MODO.INICIAL) return FUENTES_MODO.INICIAL;
+  if (m === FUENTES_MODO.CONSERVAR) return FUENTES_MODO.CONSERVAR;
+  return FUENTES_MODO.CONSERVADOR;
+}
+
+/** Estado de producción del libro (v0.14.1 §2, criterio conservador):
+ *  PACIENTES o EVENTOS con filas reales → producción. No depende de versión.
+ *  Solo lecturas de conteo; nunca escribe. */
+function Datos_estadoProduccion_() {
+  var pacientes = 0, eventos = 0;
+  try {
+    var ss = Modelo_ss();
+    var hP = ss && ss.getSheetByName(HOJAS.PACIENTES);
+    if (hP) pacientes = Math.max(hP.getLastRow() - Modelo_dataStartRow(HOJAS.PACIENTES) + 1, 0);
+    var hE = ss && ss.getSheetByName(HOJAS.EVENTOS);
+    if (hE) eventos = Math.max(hE.getLastRow() - Modelo_dataStartRow(HOJAS.EVENTOS) + 1, 0);
+  } catch (e) { /* conservador: ante duda se informa lo contado */ }
+  return { tienePacientes: pacientes > 0, pacientes: pacientes, eventos: eventos,
+    produccion: pacientes > 0 || eventos > 0 };
+}
+
 /**
  * Crea una fila de staging con trazabilidad completa.
  * @param {Object} origen {archivo, hoja, fila, sector}
@@ -858,7 +898,10 @@ function _Fuentes_escribir_(a, opciones, t0) {
  *     existentes desde los datos vigentes de la fuente (merge conservador v0.9.6).
  *     Las filas ya importadas NO vuelven a generar eventos (idempotencia por FUENTE,
  *     comparación canónica insensible a espacios/caja del literal).
- *   modo='SNAPSHOT_ACTUAL' → política de Instalar (ver 27_Actualizacion).
+ *   modo: ver FUENTES_MODO (CONSERVADOR/INICIAL = mecánica cotidiana no
+ *     destructiva; SNAPSHOT_ACTUAL = reemplazos TELEFONOS/ESTRATIFICACION,
+ *     solo vía instalador avanzado confirmado y respaldado; CONSERVAR no
+ *     debe llegar aquí con ejecutar:true).
  * Huella de escritura: antes de escribir, el preflight estructural (B3) garantiza
  * que TODAS las hojas autorizadas existen; en caso contrario devuelve
  * HOJA_FUENTE_FALTANTE sin tocar el libro.
@@ -869,7 +912,6 @@ function Fuentes_cargaReal(opciones) {
   var ejecucionId = opciones.ejecucionId ||
     (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
   var t0 = Date.now();
-
   // Reutilizar el análisis dry-run previo (UNA lectura real de fuentes) cuando
   // el llamador pasa su ejecucionId en la misma invocación (Instalar_pFuentes).
   var a = null;
@@ -881,4 +923,32 @@ function Fuentes_cargaReal(opciones) {
     a = analisis;
   }
   return _Fuentes_escribir_(a, opciones, t0);
+}
+
+/** Endpoint de previsualización de impacto (v0.14.1 §39-41): dry-run SIEMPRE
+ *  no destructivo que devuelve SOLO conteos (nuevos, existentes, campos que
+ *  cambiarían por tipo, conflictos). Sin PII: nunca expone detalle por fila.
+ *  El análisis puede reutilizarse vía ejecucionId (mismo patrón dry-run→write). */
+function api_fuentesImpacto(acceso, modoDatos) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  var modo = Fuentes_normalizarModo_(modoDatos);
+  if (modo === FUENTES_MODO.CONSERVAR)
+    return { ok: true, modo: modo, impacto: { nuevos: 0, existentes: 0, fillOnly: 0,
+      fechasAdelantadas: 0, reemplazosSnapshot: 0, conflictos: 0 },
+      linea: 'Conservar datos actuales: sin lecturas de escritura ni cambios.' };
+  try {
+    var r = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: modo });
+    if (!r || r.ok === false) return { ok: false, modo: modo, motivo: (r && r.motivo) || 'ANALISIS_FALLIDO' };
+    var res = r.resumen || {}, mg = res.merge || {};
+    var impacto = (typeof Act_resumenImpactoMerge_ === 'function')
+      ? Act_resumenImpactoMerge_(mg)
+      : { fillOnly: mg.campos || 0, fechasAdelantadas: 0, reemplazosSnapshot: 0,
+          conflictos: mg.conflictos || 0 };
+    impacto.nuevos = res.nuevos || 0;
+    impacto.existentes = (res.registros || 0) - (res.nuevos || 0);
+    return { ok: true, modo: modo, ejecucionId: r.ejecucionId, impacto: impacto,
+      linea: '+' + impacto.nuevos + ' nuevos · +' + impacto.fillOnly + ' campos · +' +
+        impacto.fechasAdelantadas + ' fechas · +' + impacto.reemplazosSnapshot +
+        ' reemplazos · +' + impacto.conflictos + ' conflictos' };
+  } catch (e) { return { ok: false, modo: modo, motivo: e && e.message ? e.message : String(e) }; }
 }

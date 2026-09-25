@@ -19,5 +19,5 @@ for (const [clave, variable] of Object.entries(pares)) {
   assert.ok(m, 'token CSS ausente: ' + variable);
   assert.equal(m[1].toUpperCase(), String(t[clave]).toUpperCase(), variable + ' sincronizado'); n++;
 }
-assert.match(cfg, /VERSION:\s*'0\.14\.0'/); n++;
+assert.match(cfg, /VERSION:\s*'0\.14\.1'/); n++;
 console.log('Design system v0.12 — ' + n + '/' + n + ' PASS');
