@@ -717,17 +717,23 @@ function Inicio_construir_(ss, opciones) {
       h.getRange(a2).setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID); }); }
   }
   conWrap.forEach(function (a2) { h.getRange(a2).setWrap(true); });
-  // Marco de color alrededor de todo el panel: la portada se percibe como una
-  // tarjeta, no como bloques sueltos sobre blanco. Ocultar filas/columnas
-  // excedentes elimina el "espacio blanco" adyacente que se veía feo.
+  // Marco de color alrededor del panel: la portada se percibe como una tarjeta.
+  // En lugar de un borde fino sobre el lienzo gestionado, el blanco sobrante de
+  // la hoja se rellena con dos celdas reales pintadas: una columna derecha ALTA
+  // (columnas sobrantes, hasta la fila del panel) y una banda inferior ANCHA
+  // (filas sobrantes, todo el ancho), cubriendo también la esquina inferior
+  // derecha. Todo queda cubierto salvo la parte de arriba (sobre el hero).
   try {
-    h.getRange(INICIO_RANGO_GESTIONADO).setBorder(true, true, true, true, null, null,
-      M.sistemaBorde, SpreadsheetApp.BorderStyle.SOLID);
+    var maxF = h.getMaxRows(), maxC = h.getMaxColumns();
+    if (maxC > cols) {
+      var derecha = h.getRange(1, cols + 1, filas, maxC - cols);
+      derecha.merge(); derecha.setBackground(M.sistemaBorde);
+    }
+    if (maxF > filas) {
+      var inferior = h.getRange(filas + 1, 1, maxF - filas, maxC);
+      inferior.merge(); inferior.setBackground(M.sistemaBorde);
+    }
   } catch (eM) {}
-  try {
-    if (h.getMaxRows() > filas && typeof h.hideRows === 'function') h.hideRows(filas + 1, h.getMaxRows() - filas);
-    if (h.getMaxColumns() > cols && typeof h.hideColumns === 'function') h.hideColumns(cols + 1, h.getMaxColumns() - cols);
-  } catch (eH) {}
   h.setTabColor(M.sistemaProfundo);
   try { h.setConditionalFormatRules([]); } catch (eCF) {}
   var metricas = Inicio_calcularMetricas_();

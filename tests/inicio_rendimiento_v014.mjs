@@ -194,4 +194,34 @@ hoja.setRowHeight = originalSetRowHeight;
 hoja.getColumnWidth = originalGetColumnWidth;
 hoja.getRowHeight = originalGetRowHeight;
 
+// --- T6: el marco relleno usa 2 merges + 2 fondos, dentro del presupuesto ------
+// La hoja real es más grande que A1:AD38: mide la banda comparando el costo de
+// una hoja baseline (38x30, sin sobrante) contra una ampliada (45x34).
+const hojaGrande = Object.create(hoja);
+let marcoBackgrounds = 0;
+const getRangeOriginal = hoja.getRange;
+hojaGrande.getMaxRows = () => 45;
+hojaGrande.getMaxColumns = () => 34;
+hojaGrande.getRange = function (r, c2, nr, nc) {
+  conteo.set('getRange', (conteo.get('getRange') || 0) + 1);
+  const rg = getRangeOriginal(r, c2, nr, nc);
+  const origBg = rg.setBackground;
+  rg.setBackground = function (color) {
+    if (color === '#1B7A8A') marcoBackgrounds++;
+    conteo.set('setBackground', (conteo.get('setBackground') || 0) + 1);
+    return rg;
+  };
+  return rg;
+};
+// La construcción aplica 72 merges del panel + 2 del marco = 74.
+conteo.clear();
+c.Inicio_verificar_ = () => ({ ok: true, fallos: [] });
+const ssGrande = { getSheetByName: () => hojaGrande, insertSheet: () => hojaGrande,
+  getSheets: () => [hojaGrande], getActiveSheet: () => hojaGrande };
+const rMarco = c.Inicio_construir_(ssGrande, { forzar: true });
+assert.equal(rMarco.ok, true, 'hoja ampliada se construye');
+assert.equal(conteo.get('merge') || 0, 74, '74 merges = 72 del panel + 2 del marco');
+assert.equal(marcoBackgrounds, 2, '2 fondos del marco con M.sistemaBorde (banda derecha + inferior)');
+ok('T6 marco relleno sobre hoja ampliada: +2 merges y +2 fondos (A1:AD38 gestionado intacto)');
+
 console.log('Inicio rendimiento v0.14 — ' + n + '/' + n + ' PASS');

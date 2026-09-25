@@ -30,13 +30,17 @@
   aceptan arrays: 1 llamada de anchos @38 + 19 tramos contiguos de altura, sin
   `setRowHeight`/`setColumnWidth` en bucle). RPC de servidor medido: 252 (antes
   ~720) con techo 260; validado por `tests/inicio_rendimiento_v014.mjs`.
-- Mejora visual pedida por la usuaria: **marco de color** (`M.sistemaBorde`)
-  alrededor de `A1:AD38` para que la portada se perciba como una tarjeta, y se
-  ocultan filas/columnas excedentes de la hoja (sin borrar datos). La
-  distribución porcentual por sector se redondea con **mayor resto** para sumar
-  100 exacto en vez de 101 por redondeo independiente.
-  Validación: `inicio_rendimiento_v014` 4/4 (T1 252 RPC), `inicio_visual_v014`
-  10/10, `inicio_portada_freezerows_v0121` 8/8, batería 46 suites 0 fallos.
+- Mejora visual pedida por la usuaria: **marco relleno** alrededor de la
+  portada. En vez de un borde fino sobre el lienzo gestionado, el blanco
+  sobrante de la hoja se cubre con **dos celdas reales pintadas** con
+  `M.sistemaBorde`: una columna derecha **alta** (columnas sobrantes hasta la
+  fila del panel) y una banda inferior **ancha** (filas sobrantes, todo el
+  ancho) — la portada se percibe como una tarjeta sobre color, sin espacio
+  blanco adyacente salvo la parte de arriba (sobre el hero). La distribución
+  porcentual por sector se redondea con **mayor resto** para sumar 100 exacto.
+  Validación: `inicio_rendimiento_v014` 6/6 (T1 251 RPC, T6 marco +2 merges
+  y +2 fondos), `inicio_visual_v014` 11/11, `inicio_portada_freezerows_v0121`
+  8/8, batería 46 suites 0 fallos.
 - **Autocuración de dimensiones** en `Inicio_construir_`: si tras estilizar
   alguna columna 1..30 queda fuera de 38 px o alguna fila fuera de su altura de
   contrato, el constructor la corrige con `setColumnWidth`/`setRowHeight`

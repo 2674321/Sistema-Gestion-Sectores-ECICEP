@@ -104,4 +104,14 @@ assert.match(verSrc, /getRange\('A9'\)\.getFormula\(\) === '' && h\.getRange\('A
   'los valores del panel se escriben como snapshot, no como fórmula viva');
 ok('T10 hero/KPIs/distribución/alerta se construyen y verifican sin fórmulas vivas');
 
+// T11: marco relleno en lugar de borde fino — el blanco sobrante se cubre con
+// dos celdas reales pintadas (derecha alta + inferior ancha), salvo arriba.
+assert.doesNotMatch(constr, /INICIO_RANGO_GESTIONADO\)\.setBorder/, 'ya no hay borde fino sobre el rango gestionado');
+assert.doesNotMatch(constr, /hideRows|hideColumns/, 'ya no se ocultan las filas/columnas sobrantes');
+assert.match(constr, /var derecha = h\.getRange\(1, cols \+ 1, filas, maxC - cols\);\s*derecha\.merge\(\); derecha\.setBackground\(M\.sistemaBorde\)/,
+  'celda derecha ALTA: columnas sobrantes fusionadas y pintadas');
+assert.match(constr, /var inferior = h\.getRange\(filas \+ 1, 1, maxF - filas, maxC\);\s*inferior\.merge\(\); inferior\.setBackground\(M\.sistemaBorde\)/,
+  'celda inferior ANCHA: filas sobrantes fusionadas y pintadas');
+ok('T11 marco relleno: celda derecha alta + banda inferior ancha cubren el blanco sobrante');
+
 console.log('Inicio visual v0.14 — ' + n + '/' + n + ' PASS');

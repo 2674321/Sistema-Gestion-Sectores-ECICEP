@@ -2007,15 +2007,16 @@ Se agrega además el ítem directo `Sistema → Reconstruir portada INICIO`
 (`UI_reconstruirInicio`) para alinear SOLO la hoja INICIO en un clic cuando el
 resto del libro ya está presentado.
 **Corrección visual posterior (mismo DEC):** la usuaria pidió que la portada no
-dejara "espacio blanco". `Inicio_construir_` añade ahora un **marco de color**
-`M.sistemaBorde` con `setBorder` sobre toda `A1:AD38` (una tarjeta, no bloques
-sueltos sobre blanco) y oculta filas/columnas excedentes de la hoja con
-`hideRows`/`hideColumns` guardado por `typeof` (sin borrar datos; las filas y
-columnas del lienzo gestionado quedan visibles). Además `setBorder` del marco
-es 1 RPC extra dentro del techo, y la distribución porcentual por sector dejó
-de redondear cada porcentaje por separado (sumaba 101 %): el helper
-`Inicio_porcentajesRedondeados_` aplica el **método del mayor resto** para que
-los tres sectores sumen 100 exacto.
+dejara "espacio blanco". `Inicio_construir_` añade ahora un **marco relleno**:
+en lugar de un borde fino, el blanco sobrante de la hoja se cubre con **dos
+celdas reales pintadas** con `M.sistemaBorde` — una columna derecha alta
+(columnas sobrantes hasta la fila del panel) y una banda inferior ancha (filas
+sobrantes, todo el ancho)— y ya no se oculta nada. La portada se percibe como
+una tarjeta sobre color, sin blanco adyacente salvo la parte de arriba (sobre
+el hero). El marco añade 2 merges + 2 `setBackground` dentro del techo, y la
+distribución porcentual por sector dejó de redondear cada porcentaje por
+separado (sumaba 101 %): el helper `Inicio_porcentajesRedondeados_` aplica el
+**método del mayor resto** para que los tres sectores sumen 100 exacto.
 **Autocuración posterior (mismo DEC, 2026-09-25):** tras la corrección visual,
 la reconstrucción forzada falló en la hoja real con "Verificación INICIO falló
 en: anchos" (alguna columna 1..30 había quedado fuera de 38 px, caso que los
@@ -2025,9 +2026,10 @@ las desviaciones reportadas por el verifier y reverifica (autocuración
 idempotente); el verifier desglosa las desviaciones exactas
 (`anchos(colN=X)`/`alturas(filaN=Y)`) en el error para diagnóstico. La
 autocuración no añade RPC en el caso óptimo (solo actúa si hay desviación real).
-**Validación:** `inicio_rendimiento_v014` 5/5 (techo 260 RPC de servidor, sin
-bucles por fila/columna, 72 merges, reconstrucción repetida), `inicio_v012` PASS,
-`inicio_portada_freezerows_v0121` 8/8, `inicio_visual_v014` 10/10,
+**Validación:** `inicio_rendimiento_v014` 6/6 (T1 251 RPC de servidor, sin
+bucles por fila/columna, 72 merges del panel + 2 del marco, reconstrucción
+repetida), `inicio_v012` PASS,
+`inicio_portada_freezerows_v0121` 8/8, `inicio_visual_v014` 11/11,
 `instalador_presentacion_timeout_v0121` Pass (17 subtareas, `inicio` en posición 2, `verificar` al final),
 `reparar_presentacion_v013` 6/6 (menú con 4 ítems), batería completa 46 suites 0
 fallos y `ejecutar_local` 673/673.
