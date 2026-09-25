@@ -805,7 +805,9 @@ function Instalar_diagnosticar() {
   var visualProfundo = { ok: true, disponibles: false, diferencias: [],
     paridad: { ingreso: null, sector: null }, inicio: null };
   try {
-    var pi = HVis_compararFamilia_(Object.keys(HOJAS_INGRESO));
+    // Sin el alias INGRESO_NARANJA (sinónimo de captura, no hoja física): la
+    // paridad compara las 3 hojas INGRESO reales. DEC-086.
+    var pi = HVis_compararFamilia_(['INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE']);
     var ps = HVis_compararFamilia_(HOJAS_SECTOR);
     visualProfundo.disponibles = !!(pi && ps);
     visualProfundo.paridad.ingreso = pi;

@@ -73,4 +73,54 @@ assert.equal(verDiver.ok, false);
 assert.equal(verDiver.pendientes, 0, 'pendientes de celdas pueden ser 0');
 ok('T7 divergencia de paridad bloquea la convergencia aunque no haya pendientes');
 
+// T8: la firma se acota al ancho de la plantilla (DEC-086); columnas
+// residuales o datos fuera del diseño no inflan la paridad entre hojas.
+const mkHoja = nombre => ({
+  getName: () => nombre,
+  getLastColumn: () => c.HVis_plantillaParaHoja_(nombre).columnas.length + 7,
+  getColumnWidth: () => 100,
+  getRowHeight: () => 24,
+  getFrozenRows: () => 1,
+  getFrozenColumns: () => 0,
+  getConditionalFormatRules: () => [],
+  getTabColor: () => '#000000',
+  getRange: (row, col, rows, cols) => {
+    const llenar = v => Array.from({ length: rows }, () => Array.from({ length: cols }, () => v));
+    return {
+      getMergedRanges: () => [],
+      getValues: () => Array.from({ length: rows }, (_, r) =>
+        Array.from({ length: cols }, (_, i) => 'H' + (i + 1))),
+      getBackgrounds: () => llenar('#ffffff'),
+      getFontColors: () => llenar('#000000'),
+      getFontFamilies: () => llenar('Arial'),
+      getFontSizes: () => llenar(10),
+      getFontWeights: () => llenar('normal'),
+      getHorizontalAlignments: () => llenar('LEFT'),
+      getVerticalAlignments: () => llenar('MIDDLE'),
+      getWraps: () => llenar(false),
+      getNumberFormats: () => llenar('@'),
+      getDataValidations: () => llenar(null)
+    };
+  }
+});
+const pw = c.HVis_plantillaParaHoja_('INGRESO_NARANJO').columnas.length;
+const hojaFalsa = mkHoja('INGRESO_NARANJO');
+const sig = c.HVis_firmaVisualHoja_(hojaFalsa);
+assert.ok(hojaFalsa.getLastColumn() > pw, 'stub: hay columnas residuales más allá del diseño');
+assert.equal(sig.columnas.orden.length, pw, 'orden firma = ancho de plantilla');
+assert.equal(sig.filas.encabezado.fondos.length, pw, 'matrices de fila = ancho de plantilla');
+ok('T8 firma visual acotada al ancho de la plantilla (DEC-086)');
+
+// T9: la verificación paridad usa familias reales, sin el alias INGRESO_NARANJA.
+const srcPres = readFileSync(new URL('35_Presentacion.js', root), 'utf8');
+assert.ok(/['"]INGRESO_NARANJO['"], ['"]INGRESO_AMARILLO['"], ['"]INGRESO_VERDE['"]/.test(srcPres),
+  'lista fija de hojas reales');
+assert.ok(!/Object\.keys\(HOJAS_INGRESO/.test(srcPres), 'no deriva la familia del mapa con alias');
+ok('T9 paridad compara hojas reales sin alias INGRESO_NARANJA');
+
+// T10: presentación incompleta expone desglose topDivergencias.
+assert.equal(verDiver.porPropiedad.identidad, 2, 'agrupa por raíz: mismo motivo en INGRESO y SECTOR');
+assert.ok(verDiver.topDivergencias.includes('identidad×2'), 'expone principales divergencias');
+ok('T10 verificación incompleta desglosa principales divergencias');
+
 console.log('Paridad visual sectores v0.13 — ' + n + '/' + n + ' PASS');

@@ -1924,3 +1924,26 @@ El motor de paridad ya usaba `HVis_mismosColor` (mayúsculas), por eso solo INIC
 fallaba.
 **Validación:** `inicio_visual_v013` 9/9; batería completa 45 suites 0 fallos.
 **Fecha:** 2026-09-24
+
+## DEC-086
+**Título:** Paridad visual acotada al diseño y sin alias de captura
+**Estado:** Aprobada
+**Motivo:** "Reparar presentación" terminaba sin fallos pero la verificación final
+reportaba 256 divergencias en el libro real. Causa doble en la paridad:
+1) `HVis_firmaVisualHoja_` usaba `getLastColumn()` como ancho de firma; columnas
+residuales o datos fuera del rango gestionado en una sola hoja hacían divergir
+las matrices (fondos/tintas/fuentes/…) en `.length` + cada índice → el diff
+llenaba el tope de 250 por familia. Ahora la firma se acota al ancho de la
+PLANTILLA (rango gestionado; la paridad comprueba el diseño, no el volumen de
+datos).
+2) La paridad comparaba `Object.keys(HOJAS_INGRESO)` que incluye el alias
+`INGRESO_NARANJA` (sinónimo de captura, no hoja física) → `getSheetByName`
+devuelve null → diferencia `hoja:NO_EXISTE` permanente. Ahora `Presentacion_familiasParidad_`
+y el diagnóstico del instalador usan las 3 hojas reales, y el subplan de diseño
+pasa de 18 a 17 subtareas (se elimina `formato:INGRESO_NARANJA`).
+Se agrega además `topDivergencias` (desglose por raíz de propiedad) en la
+verificación y en el mensaje de la UI para diagnosticar futuras divergencias.
+**Validación:** `paridad_visual_sectores_v013` 10/10 (T8 firma por plantilla,
+T9 sin alias, T10 desglose), `instalador_presentacion_timeout_v0121` 19/19, una
+formato por hoja real sin alias; batería completa 45 suites 0 fallos.
+**Fecha:** 2026-09-25

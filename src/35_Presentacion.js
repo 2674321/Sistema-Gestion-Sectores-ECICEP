@@ -37,12 +37,15 @@ var PRESENTACION_ETAPAS_REANUDABLES = { diseno: true };
 
 /* --------------------------- Plan por hoja --------------------------- */
 
+var PRESENTACION_FAMILIAS_INGRESO = ['INGRESO_NARANJO', 'INGRESO_AMARILLO', 'INGRESO_VERDE'];
+
 /** (§6) UNA subtarea por hoja grande. Las hojas técnicas (LOG, CONFIG, …) se
  *  mantienen con formato mínimo en 'base'; aquí solo se formatean las hojas
- *  visuales por nombre exacto, para que el runner respete el presupuesto. */
+ *  visuales por nombre exacto, para que el runner respete el presupuesto.
+ *  Sin el alias INGRESO_NARANJA (sinónimo de captura, no hoja física). DEC-086. */
 var PRESENTACION_HOJAS_FORMATO =
   ['PACIENTES']
-    .concat(Object.keys(HOJAS_INGRESO || {}))
+    .concat(PRESENTACION_FAMILIAS_INGRESO)
     .concat(HOJAS_SECTOR || [])
     .concat(['EVENTOS']);
 
@@ -164,6 +167,15 @@ function Presentacion_cacheLimpiar_(ejecucion) {
 
 var _PRESENTACION_VERIFICACION_MEMO = null;
 
+/** Hojas físicas de cada familia para la paridad (sin el alias INGRESO_NARANJA,
+ *  que es sinónimo de captura, no una hoja). DEC-086. */
+function Presentacion_familiasParidad_() {
+  return {
+    ingreso: PRESENTACION_FAMILIAS_INGRESO,
+    sector: HOJAS_SECTOR || []
+  };
+}
+
 /** Resultado de la última verificación de presentación (leído por la UI para
  *  decidir el estado final). Se rellena en la subtarea 'verificar'. */
 function Presentacion_VerificacionResultado_() {
@@ -203,10 +215,10 @@ function Presentacion_ejecutarTarea_(tarea) {
         r = Inicio_construir_(Modelo_ss(), { forzar: false });
         break;
       case 'paridad:INGRESO':
-        r = HVis_compararFamilia_(Object.keys(HOJAS_INGRESO || {}));
+        r = HVis_compararFamilia_(Presentacion_familiasParidad_().ingreso);
         break;
       case 'paridad:SECTOR':
-        r = HVis_compararFamilia_(HOJAS_SECTOR || []);
+        r = HVis_compararFamilia_(Presentacion_familiasParidad_().sector);
         break;
       case 'verificar':
         _PRESENTACION_VERIFICACION_MEMO = Presentacion_verificar_();
@@ -278,11 +290,12 @@ function Presentacion_verificar_() {
     if (n) advertencias.push(k + ': ' + n + ' pendientes');
   });
   var ss = Modelo_ss();
+  var familias = Presentacion_familiasParidad_();
   var paridadIngreso = (typeof HVis_compararFamilia_ === 'function')
-    ? HVis_compararFamilia_(Object.keys(HOJAS_INGRESO || {}))
+    ? HVis_compararFamilia_(familias.ingreso)
     : { ok: true, cantidadDiferencias: 0, diferencias: [] };
   var paridadSector = (typeof HVis_compararFamilia_ === 'function')
-    ? HVis_compararFamilia_(HOJAS_SECTOR || [])
+    ? HVis_compararFamilia_(familias.sector)
     : { ok: true, cantidadDiferencias: 0, diferencias: [] };
   var hInicio = ss.getSheetByName ? ss.getSheetByName('INICIO') : null;
   var inicio = hInicio && typeof Inicio_diagnosticarVisual_ === 'function'
@@ -295,11 +308,23 @@ function Presentacion_verificar_() {
   });
   (inicio.diferencias || []).forEach(function (d) { diferencias.push('INICIO:' + d); });
   Object.keys(porHoja).forEach(function (k) { if (porHoja[k]) diferencias.push('HOJA:' + k); });
+  var porPropiedad = {}, topDivergencias = [];
+  diferencias.forEach(function (d) {
+    var root = Utl_texto(d).replace(/^(?:PARIDAD_(?:INGRESO|SECTOR):[^:]*|INICIO|HOJA):/, '').split('[')[0].split('.')[0] || 'otra';
+    if (!root) root = 'otra';
+    porPropiedad[root] = (porPropiedad[root] || 0) + 1;
+  });
+  topDivergencias = Object.keys(porPropiedad)
+    .filter(function (k) { return porPropiedad[k] > 0; })
+    .sort(function (a, b) { return porPropiedad[b] - porPropiedad[a]; })
+    .slice(0, 4)
+    .map(function (k) { return k + '×' + porPropiedad[k]; });
   var ok = pendientes === 0 && paridadIngreso.ok && paridadSector.ok && inicio.ok;
   return {
     ok: ok, pendientes: pendientes, porHoja: porHoja,
     paridadIngreso: paridadIngreso, paridadSector: paridadSector,
-    inicio: inicio, diferencias: diferencias, advertencias: advertencias
+    inicio: inicio, diferencias: diferencias, advertencias: advertencias,
+    porPropiedad: porPropiedad, topDivergencias: topDivergencias
   };
 }
 

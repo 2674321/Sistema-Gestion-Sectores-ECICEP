@@ -66,13 +66,14 @@ contrato de captura **V4**, un único entorno operativo.
 
 | Suite | Resultado |
 |---|---|
-| `inicio_visual_v013` | 7/7 PASS |
-| `paridad_visual_sectores_v013` | 7/7 PASS |
+| `inicio_visual_v013` | 9/9 PASS |
+| `paridad_visual_sectores_v013` | 10/10 PASS |
 | `presentacion_convergencia_v013` | 7/7 PASS |
 | `instalador_visual_v013` | 9/9 PASS |
 | `reparar_presentacion_v013` | 6/6 PASS |
+| `instalador_presentacion_timeout_v0121` | 19/19 PASS |
 | `validar_html` | 22/22 PASS |
-| Batería completa (`tools/verificar.mjs`) | **44 suites · 0 fallos** |
+| Batería completa (`tools/verificar.mjs`) | **45 suites · 0 fallos** |
 | Núcleo ECICEP (`ejecutar_local`) | 673/673 PASS |
 
 ## Publicación
@@ -81,8 +82,34 @@ contrato de captura **V4**, un único entorno operativo.
   (`AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`)
   → misma URL/QR; smoke anónimo HTTP 200 con `0.13.0`.
 
+## §7 — 256 divergencias en la verificación final
+
+Tras el fix de `coloresBase` (DEC-085), `Reparar presentación` terminaba sin
+fallos de subtarea pero la verificación reportaba **256 divergencias** en el
+libro real. Causa raíz (DEC-086):
+
+- **Ancho de firma por `getLastColumn()`**: columnas residuales o datos fuera
+  del rango gestionado en una sola hoja cambiaban el largo de las matrices de la
+  firma (fondos/tintas/fuentes/tamaños/pesos/…) → el diff en cascada
+  (`.length` + cada índice) llenaba el tope de 250 por familia.
+- **Alias `INGRESO_NARANJA` en la paridad**: `Object.keys(HOJAS_INGRESO)`
+  incluye el sinónimo de captura; al no existir la hoja, `getSheetByName`
+  devolvía null y se registraba `hoja:NO_EXISTE` permanente.
+
+Correcciones: firma acotada al ancho de la PLANTILLA (la paridad verifica el
+diseño, no el volumen de datos), familias de paridad = hojas reales
+(35_Presentacion y diagnóstico del instalador), subplan de diseño de 18 → 17
+subtareas (sin `formato:INGRESO_NARANJA`) y `topDivergencias` (desglose por raíz
+de propiedad) en la verificación y en el mensaje de la UI. Regresiones: T8–T10
+en `paridad_visual_sectores_v013` y ajuste de `instalador_presentacion_timeout_v0121`.
+
 ## Nota operativa
 
 La validación real del Spreadsheet (reparar presentación + instalar/reparar,
 2 pasadas) la ejecutó la usuaria con sesión de Google, confirmando la migración
-de la portada a 30 columnas y la convergencia de paridad.
+de la portada a 30 columnas y la paridad INGRESO/SECTOR. Con este fix (ancho de
+firma por plantilla + familias sin alias) se espera convergencia 0; si quedaran
+divergencias remanentes, el nuevo desglose `Principales:` del mensaje indica la
+raíz exacta. Tras publicar este deploy quedó el tope de 200 versiones alcanzado:
+**la próxima publicación requiere borrar versiones antiguas** (Apps Script →
+Historial del proyecto → Borrar versiones en lote).

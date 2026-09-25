@@ -18,17 +18,17 @@ const fecha = c.Modelo_headerRow('EVENTOS') === 1 ? '' : '';
 
 // --- T1: plan de la etapa diseno ---
 const plan = c.PRESENTACION_SUBPLAN_DISENO;
-assert.ok(Array.isArray(plan) && plan.length === 18, '18 subtareas');
+assert.ok(Array.isArray(plan) && plan.length === 17, '17 subtareas (sin alias INGRESO_NARANJA)');
 assert.equal(plan[0].id, 'base');
-assert.equal(plan[17].id, 'verificar');
+assert.equal(plan[16].id, 'verificar');
 assert.deepEqual(Array.from(plan, t => t.id), [
-  'base', 'formato:PACIENTES', 'formato:INGRESO_NARANJO', 'formato:INGRESO_NARANJA',
+  'base', 'formato:PACIENTES', 'formato:INGRESO_NARANJO',
   'formato:INGRESO_AMARILLO', 'formato:INGRESO_VERDE', 'formato:SECTOR_NARANJO',
   'formato:SECTOR_AMARILLO', 'formato:SECTOR_VERDE', 'formato:EVENTOS',
   'validaciones:extras', 'condicionales', 'notas', 'accesorios', 'inicio',
   'paridad:INGRESO', 'paridad:SECTOR', 'verificar'
 ]);
-ok('T1 plan: 18 subtareas (una por hoja, INGRESO incluye alias NARANJA), base primero y verificar al final');
+ok('T1 plan: 17 subtareas (una por hoja real, sin alias INGRESO_NARANJA), base primero y verificar al final');
 
 // --- T2: presupuesto y reanudabilidad ---
 assert.equal(c.PRESUPUESTO_PRESENTACION_MS, 20000);
@@ -83,23 +83,24 @@ c.HVis_compararFamilia_ = () => ({ ok: true, cantidadDiferencias: 0, diferencias
 const presupOriginal = c.PRESUPUESTO_PRESENTACION_MS;
 c.PRESUPUESTO_PRESENTACION_MS = 0; // forzar UNA subtarea por RPC
 const ejec = 'INST-reanudable-1';
-for (let k = 1; k <= 18; k++) {
+const T = plan.length;
+for (let k = 1; k <= T; k++) {
   const r = c.Instalar_pDiseno(ejec);
   assert.equal(r.ok, true, 'llamada ' + k);
-  if (k < 18) {
+  if (k < T) {
     assert.equal(r.continuar, true, 'continúa tras llamada ' + k);
     assert.equal(r.cursor, k, 'cursor ' + k);
     assert.equal(r.progreso.actual, k, 'actual = subtareas completadas');
     assert.equal(r.progreso.enCurso, k + 1, 'enCurso = siguiente subtarea');
-    assert.equal(r.progreso.total, 18);
+    assert.equal(r.progreso.total, T);
     assert.equal(r.subetapa.id, plan[k].id, 'subetapa ' + k);
     assert.equal(r.tareasEjecutadas, 1, 'una subtarea por RPC en ' + k);
   } else {
     assert.equal(r.continuar, false, 'finaliza');
-    assert.equal(r.cursor, 18);
-    assert.equal(r.progreso.actual, 18);
-    assert.equal(r.progreso.enCurso, 18);
-    assert.equal(r.progreso.total, 18);
+    assert.equal(r.cursor, T);
+    assert.equal(r.progreso.actual, T);
+    assert.equal(r.progreso.enCurso, T);
+    assert.equal(r.progreso.total, T);
     assert.equal(r.subetapa, null);
   }
 }
@@ -118,7 +119,7 @@ Object.assign(c, {
   Inicio_construir_: subtareasOriginales.inicio,
   HVis_compararFamilia_: subtareasOriginales.paridad
 });
-ok('T6 reanudación: 18 RPC (una por hoja + inicio + 2 paridades + verificar), progreso real y caché limpiada al final');
+ok('T6 reanudación: ' + T + ' RPC (una por hoja + inicio + 2 paridades + verificar), progreso real y caché limpiada al final');
 
 // --- T7: subtarea que falla NO persiste el cursor ni avanza ---
 const cacheFallida = new Map();
@@ -137,7 +138,7 @@ assert.equal(rf.cursor, 0, 'no avanza');
 assert.equal(rf.subetapa.id, 'base');
 assert.equal(rf.progreso.actual, 0, 'ninguna subtarea completada');
 assert.equal(rf.progreso.enCurso, 1, 'primera subtarea en curso');
-assert.equal(rf.progreso.total, 18);
+assert.equal(rf.progreso.total, T);
 assert.equal(cacheFallida.size, 0, 'fallo no persiste cursor');
 ok('T7 fallo en base: ok=false, cursor 0 y caché intacta (reintento idempotente)');
 

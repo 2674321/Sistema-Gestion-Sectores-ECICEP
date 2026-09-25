@@ -1123,7 +1123,12 @@ function HVis_firmaVisualHoja_(hoja, opciones) {
   var nombre = hoja.getName(), plantilla = HVis_plantillaParaHoja_(nombre);
   var familia = plantilla ? plantilla.familia : (HOJAS_UX[nombre] || {}).familia || 'OTRA';
   var hr = Modelo_headerRow(nombre), ini = Modelo_dataStartRow(nombre);
-  var columnas = Math.max(hoja.getLastColumn() || 0, plantilla ? plantilla.columnas.length : 1, 1);
+  // El ancho canónico de la firma es el de la PLANTILLA (rango gestionado),
+  // no getLastColumn(): columnas residuales o datos fuera del diseño en una
+  // sola hoja inflaban la comparación entre hojas de la misma familia con
+  // cientos de diferencias falsas (.length + cada índice). DEC-086.
+  var columnas = plantilla ? plantilla.columnas.length
+    : Math.max(hoja.getLastColumn() || 0, 1);
   var rEnc = hoja.getRange(hr, 1, 1, columnas);
   var etiquetas = HVis_filaMatriz_(rEnc, 'getValues', columnas, '');
   var rDatos = hoja.getRange(ini, 1, 1, columnas);

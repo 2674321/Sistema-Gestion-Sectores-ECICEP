@@ -843,7 +843,10 @@ function UI_repararPresentacion() {
   } else {
     titulo = 'Presentación reparada (presentación incompleta)';
     var n = v && v.diferencias ? v.diferencias.length : (r.pendientes || 0);
-    mensaje = 'Sin errores de subtarea, pero restan ' + n + ' divergencia(s) visual(es).\nReintenta Reparar presentación o usa Instalar / reparar.';
+    mensaje = 'Sin errores de subtarea, pero restan ' + n + ' divergencia(s) visual(es).\n';
+    if (v && v.topDivergencias && v.topDivergencias.length)
+      mensaje += 'Principales: ' + v.topDivergencias.join(', ') + '\n';
+    mensaje += 'Reintenta Reparar presentación o usa Instalar / reparar.';
   }
   ui.alert(titulo, mensaje, ui.ButtonSet.OK);
   return r;
