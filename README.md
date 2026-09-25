@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.14.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.14.2-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,17 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.14.1` — Instalar/reparar conserva datos productivos por defecto (CONSERVAR), sincronización conservadora e INICIAL explícitas, snapshot avanzado confirmado y respaldado; merge tipado e idempotente · esquema 2 · batería sin fallos |
+| **Estado** | `v0.14.2` — hotfix convergencia de Presentación (FREEZE reparable, errores útiles con causa exacta); reparar sigue sin recargar datos · esquema 2 · batería sin fallos |
+
+## v0.14.2 — hotfix convergencia de Presentación
+
+`HVis_reconciliarHoja` repara `FREEZE_ROWS`/`FREEZE_COLUMNS` contra el contrato
+(solo si difieren; respeta `frozenColumns 0`), con firma anti-no-convergencia
+(`PRESENTACION_SIN_CONVERGENCIA`) y fallos estructurados con `actual/esperado`.
+El motivo real (`r.errores`) llega a la UI con prioridad
+motivo→linea→errores→fallidas→fallback. Sin tocar datos, sin snapshot, mismo
+deployment/URL/QR. Detalle en
+[`docs/HOTFIX_V0142_PRESENTACION_CONVERGENCIA_INGRESO.md`](docs/HOTFIX_V0142_PRESENTACION_CONVERGENCIA_INGRESO.md) (DEC-091).
 
 ## v0.14.1 — reparar no recarga datos en producción
 

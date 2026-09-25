@@ -128,7 +128,7 @@ assert.equal(adv({ estado: 'ADVERTENCIA' }), true); assert.equal(adv({ ok: false
 assert.doesNotMatch(presentacion, /\.setValues?\s*\(/); assert.doesNotMatch(presentacion, /\.clear(Content)?\s*\(/); ok('presentación no altera datos clínicos');
 
 // 20. Versión/layout correctos, esquema estable y lienzo INICIO 30×38.
-assert.equal(E('ECICEP.VERSION'), '0.14.1'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
+assert.equal(E('ECICEP.VERSION'), '0.14.2'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
 assert.equal(E('HOJAS_UX.INICIO.frozenRows'), 2); assert.equal(E('HOJAS_UX.INICIO.frozenColumns'), 0);
 assert.equal(E('INICIO_RANGO_GESTIONADO'), 'A1:AD38');
 ok('v0.13.0 conserva schema 2, INICIO 2/0 y portada gestionada A1:AD38 (30 columnas × 38 filas)');

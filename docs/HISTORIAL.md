@@ -7,6 +7,15 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.14.2 — HOTFIX CONVERGENCIA PRESENTACIÓN
+
+- `HVis_reconciliarHoja` repara `FREEZE_*` contra `HVis_especVisual` (fast-path
+  0 setters; respeta `frozenColumns 0`), firma `HVis_firmaPendientes_` con código
+  `PRESENTACION_SIN_CONVERGENCIA`, fallos `{codigo, propiedad, motivo}` con
+  `actual/esperado`; prioridad motivo→linea→errores→fallidas→fallback y métricas
+  por fase en `Presentacion_formatearHoja_`. Sin datos tocados, sin snapshot,
+  mismo deployment/URL/QR. Nuevas suites freeze 8/8 y error-detalle 4/4 (DEC-091).
+
 ## v0.14.1 — REPARAR ≠ RECARGAR (PROTECCIÓN DE PRODUCCIÓN)
 
 - `Instalar / reparar` ya no ejecuta `SNAPSHOT_ACTUAL` por defecto: en producción

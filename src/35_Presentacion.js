@@ -265,8 +265,14 @@ function Presentacion_ejecutarTarea_(tarea) {
         _PRESENTACION_VERIFICACION_MEMO = r.detalle || r;
         return { ok: true, detalle: r.detalle || r };
       }
-      return { ok: false, motivo: r.motivo || r.linea ||
-        (r.fallidas && r.fallidas.join('; ')) || ('Falló la subtarea ' + tarea.nombre) };
+      // v0.14.2 §6: prioridad motivo → linea → errores → fallidas → fallback.
+      // r.errores antes se perdía y la UI mostraba solo el fallback genérico.
+      var motivoFallo = r.motivo || r.linea ||
+        (r.errores && r.errores.join('; ')) || (r.fallidas && r.fallidas.join('; ')) ||
+        ('Falló la subtarea ' + tarea.nombre);
+      var fallo = { ok: false, motivo: motivoFallo };
+      if (r.codigo) fallo.codigo = r.codigo;
+      return fallo;
     }
     return { ok: true, detalle: r };
   } catch (e) {
@@ -289,28 +295,47 @@ function Presentacion_formatearGrupo_(nombres) {
 /** Formatos + estructura superior de UNA hoja (bounded, zero-write si ya
  *  coincide). v0.14: subtarea por hoja canónica — absorbe la antigua fase
  *  top-level 'visual': primero reconcilia la estructura superior vía
- *  HVis_reconciliarHoja_ (diagnose-first; solo repara drift de filas,
- *  secciones o encabezados), luego anchos + formatos numéricos + semántica.
+ *  HVis_reconciliarHoja_ (diagnose-first; repara drift de filas, secciones,
+ *  encabezados y FREEZE, con firma anti-no-convergencia), luego anchos +
+ *  formatos numéricos + semántica. Devuelve motivo estructurado y métricas
+ *  por fase (estructuraMs/anchosMs/formatosMs/semanticaMs, no sensibles).
  *  Un solo plan, un solo owner por propiedad (§17). */
 function Presentacion_formatearHoja_(nombre) {
   var ss = Modelo_ss(), h = ss.getSheetByName(nombre);
   if (!h) return { ok: true, aplicados: 0, motivo: 'sin hoja' };
-  var errores = [];
+  var errores = [], codigoFallo = '', t0 = Date.now();
+  var ms = { estructuraMs: 0, anchosMs: 0, formatosMs: 0, semanticaMs: 0 };
   if (typeof HVis_reconciliarHoja === 'function') {
     try {
       var rec = HVis_reconciliarHoja(h);
-      if (rec && rec.ok === false) errores.push(nombre + ': estructura superior (' +
-        ((rec.detalles || []).join('; ') || rec.motivo || 'pendiente') + ')');
-    } catch (eR) { errores.push(nombre + ': estructura superior (' + (eR && eR.message || eR) + ')'); }
+      ms.estructuraMs = Date.now() - t0;
+      // v0.14.2 §6: el motivo estructurado del reconciliador (hoja · propiedad
+      // · actual/esperado) viaja tal cual; sin él la UI quedaba a ciegas.
+      if (rec && rec.ok === false) errores.push(rec.motivo || (nombre + ': estructura superior (' +
+        ((rec.detalles || []).join('; ') || 'pendiente') + ')'));
+      if (rec && rec.codigo) codigoFallo = rec.codigo;
+    } catch (eR) { ms.estructuraMs = Date.now() - t0; errores.push(nombre + ': estructura superior (' + (eR && eR.message || eR) + ')'); }
   }
+  var t1 = Date.now();
   _modelo_anchosHoja(h);
+  ms.anchosMs = Date.now() - t1;
+  var t2 = Date.now();
   var f = Hojas_aplicarFormatosNumero_(ss, { hojas: [nombre] });
+  ms.formatosMs = Date.now() - t2;
+  var t3 = Date.now();
   var s = Hojas_aplicarSemanticaColumnas_(h);
-  return {
+  ms.semanticaMs = Date.now() - t3;
+  var todos = errores.concat(f.errores || []).concat(s.errores || []);
+  var out = {
     ok: errores.length === 0 && f.ok !== false && s.ok !== false,
     aplicados: (f.aplicados || 0) + (s.columnas || 0),
-    errores: errores.concat(f.errores || []).concat(s.errores || [])
+    errores: todos,
+    motivo: todos.join('; '),
+    estructuraMs: ms.estructuraMs, anchosMs: ms.anchosMs,
+    formatosMs: ms.formatosMs, semanticaMs: ms.semanticaMs
   };
+  if (codigoFallo) out.codigo = codigoFallo;
+  return out;
 }
 
 /** Verificación final (§7): la presentación solo está OK cuando no quedan

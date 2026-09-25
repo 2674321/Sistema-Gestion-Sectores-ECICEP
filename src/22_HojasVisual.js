@@ -869,6 +869,16 @@ function HVis_pendientesVisual(hoja) {
  * → APLICAR (aplicarSecciones) → VERIFICAR (pendientesVisual).
  * Devuelve CAMBIOS PENDIENTES tras aplicar; 0 = hoja alineada al DESIGN_SYSTEM.
  */
+/** PURA: firma estable de pendientes para detectar no-convergencia (v0.14.2
+ *  §10): normaliza cada pending a su raíz (sin valores) y ordena, de modo que
+ *  el mismo drift produce siempre la misma firma. Sin PII (solo propiedades). */
+function HVis_firmaPendientes_(pendientes) {
+  return (pendientes || []).map(function (p) {
+    var t = Utl_texto(p).split('[')[0].split('.')[0].replace(/\s*[=→:].*$/, '').trim();
+    return t || 'otra';
+  }).sort().join('|');
+}
+
 function HVis_reconciliarHoja(hoja, opciones) {
   if (!hoja) return { hoja: '', ok: false, motivo: 'Hoja inexistente' };
   // HVis es owner exclusivo de la estructura superior; formatos, anchos,
@@ -878,7 +888,9 @@ function HVis_reconciliarHoja(hoja, opciones) {
   if (!HVis_obtenerSecciones(nombre)) {
     return { hoja: nombre, ok: true, sinConfig: true, pendientes: 0 };
   }
+  var esp = HVis_especVisual(nombre);
   var antes = HVis_pendientesVisual(hoja);
+  var firmaAntes = HVis_firmaPendientes_(antes.pendientes);
   var requiereLayout = opciones.layout !== false && (antes.pendientes || []).some(function (p) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 || p.indexOf('encabezados') === 0;
   });
@@ -886,18 +898,50 @@ function HVis_reconciliarHoja(hoja, opciones) {
   if (aplicado.estado && aplicado.estado !== 'OK') {
     return { hoja: nombre, ok: false, motivo: aplicado.estado };
   }
+  // v0.14.2 §1-2: FREEZE_ROWS/FREEZE_COLUMNS también se REPARAN aquí (antes
+  // solo se detectaban en la verificación → loop detectar-sin-converger).
+  // Solo si difieren del contrato (fast-path 0 setters); respeta la fuente
+  // canónica (frozenColumns 0 en visuales con barra fusionada: jamás se
+  // introduce un freeze mayor aquí).
+  var freezeReparado = [];
+  try {
+    if (typeof hoja.getFrozenRows === 'function' && typeof hoja.setFrozenRows === 'function' &&
+        hoja.getFrozenRows() !== esp.frozenRows) {
+      hoja.setFrozenRows(esp.frozenRows); freezeReparado.push('FREEZE_ROWS');
+    }
+    if (typeof hoja.getFrozenColumns === 'function' && typeof hoja.setFrozenColumns === 'function' &&
+        hoja.getFrozenColumns() !== esp.frozenColumns) {
+      hoja.setFrozenColumns(esp.frozenColumns); freezeReparado.push('FREEZE_COLUMNS');
+    }
+  } catch (eF) {
+    return { hoja: nombre, ok: false, codigo: 'PRESENTACION_FREEZE_BLOQUEADO',
+      propiedad: 'FREEZE', motivo: nombre + ' · FREEZE no reparable: ' + (eF && eF.message || eF) };
+  }
   var verificado = HVis_pendientesVisual(hoja);
   var pendientesLayout = (verificado.pendientes || []).filter(function (p) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 ||
       p.indexOf('encabezados') === 0 || p.indexOf('FREEZE_') === 0;
   });
-  return {
-    hoja: nombre,
-    ok: pendientesLayout.length === 0,
-    pendientes: pendientesLayout.length,
-    detalles: pendientesLayout,
-    seccionesAplicadas: aplicado.secciones
-  };
+  if (pendientesLayout.length === 0) {
+    return { hoja: nombre, ok: true, pendientes: 0,
+      seccionesAplicadas: aplicado.secciones, freezeReparado: freezeReparado };
+  }
+  var firmaDespues = HVis_firmaPendientes_(pendientesLayout);
+  var primer = pendientesLayout[0] || '';
+  var raiz = primer.replace(/\s*[=→:].*$/, '').trim() || 'otra';
+  var detalle = nombre + ' · ' + raiz +
+    (raiz.indexOf('FREEZE_ROWS') === 0 && typeof hoja.getFrozenRows === 'function'
+      ? ' actual=' + hoja.getFrozenRows() + ' esperado=' + esp.frozenRows :
+     raiz.indexOf('FREEZE_COLUMNS') === 0 && typeof hoja.getFrozenColumns === 'function'
+      ? ' actual=' + hoja.getFrozenColumns() + ' esperado=' + esp.frozenColumns : '') +
+    (pendientesLayout.length > 1 ? ' (+' + (pendientesLayout.length - 1) + ' más)' : '');
+  if ((requiereLayout || freezeReparado.length) && firmaDespues === firmaAntes)
+    return { hoja: nombre, ok: false, codigo: 'PRESENTACION_SIN_CONVERGENCIA',
+      propiedad: raiz, motivo: 'La reparación no modificó el drift detectado: ' + detalle };
+  return { hoja: nombre, ok: false, codigo: 'PRESENTACION_HOJA_NO_CONVERGE',
+    propiedad: raiz, motivo: detalle,
+    pendientes: pendientesLayout.length, detalles: pendientesLayout,
+    seccionesAplicadas: aplicado.secciones };
 }
 
 /** PURA: compara colores normalizados (case-insensitive; vacíos = iguales). */

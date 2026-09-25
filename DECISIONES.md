@@ -2072,3 +2072,18 @@ Instalador único conservado (bloque DATOS + radios + confirmación, sin modal p
 **Validación:** `tools/verificar.mjs` 51 suites 0 fallos, nuevas `fuentes_modos_produccion_v014` 11/11 e
 `instalador_datos_produccion_v014` 7/7.
 **Fecha:** 2026-09-25
+
+## DEC-091
+**Título:** Hotfix convergencia de Presentación (FREEZE reparable + errores útiles).
+**Estado:** Aprobada
+**Motivo:** `Formato visual · INGRESO_NARANJO` fallaba en loop: `HVis_reconciliarHoja` detectaba
+`FREEZE_*` en la verificación pero no lo reparaba (0 escrituras → mismo drift → retry idéntico), y
+`Presentacion_ejecutarTarea_` perdía `r.errores`, mostrando solo el fallback genérico. Se repara
+freeze contra `HVis_especVisual` solo si difiere (respeta `frozenColumns 0`, sin riesgo de merges);
+fallos estructurados `{codigo, propiedad, motivo}` con `actual/esperado`; firma `HVis_firmaPendientes_`
+con `PRESENTACION_SIN_CONVERGENCIA` si no hay mutación; prioridad
+motivo→linea→errores→fallidas→fallback; métricas por fase no sensibles. Sin tocar datos clínicos,
+sin snapshot, presupuesto 20 s/RPC intacto.
+**Validación:** nuevas `presentacion_convergencia_freeze_v0142` 8/8 y `presentacion_error_detalle_v0142`
+4/4; batería completa 0 fallos. Detalle en `docs/HOTFIX_V0142_PRESENTACION_CONVERGENCIA_INGRESO.md`.
+**Fecha:** 2026-09-25
