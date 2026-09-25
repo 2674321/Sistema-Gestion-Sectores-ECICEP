@@ -458,7 +458,7 @@ window._ECICEP_DEBUG=false;
 function _dbg(nombre,detalle){
   if(window._ECICEP_DEBUG&&window.console){console.debug('[ECICEP] '+nombre,detalle===undefined?'':detalle);}
 }
-var P_ACTUAL=null, _FICHA_ACTUAL=null, _animTimeline=false, _resIdx=-1;
+var P_ACTUAL=null, _FICHA_ACTUAL=null, _animTimeline=false, _resIdx=-1, _busquedaSeq=0;
 var SEG_ACTUAL=null;
 var PAT_CATALOGO=[], PAT_SELECCIONADAS=[];
 var TIP=['INGRESO','CONTROL','SEGUIMIENTO','PLAN_CUIDADO','GESTION_CASO_INGRESO','GESTION_CASO_EGRESO','EGRESO','CAMBIO_SECTOR','LLAMADO','OTRO'];
@@ -477,13 +477,14 @@ function estiloTL(t){return TL_ESTILO[String(t||'').toUpperCase()]||{c:'#8A93A3'
 
 /* ================= búsqueda en vivo ================= */
 function buscarAhora(){
-  var t=document.getElementById('termino').value.trim();
+  var seq=++_busquedaSeq,t=document.getElementById('termino').value.trim();
   if(t.length<2){document.getElementById('resultados').innerHTML='';_resIdx=-1;return;}
   _dbg('api_buscar',{termino:t});
   document.getElementById('resultados').innerHTML=
     '<div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div>';
   ECICEP_lectura('api_buscar', [t, TOKEN_INVITACION],
     function(res){
+      if(seq!==_busquedaSeq||document.getElementById('termino').value.trim()!==t)return;
       if(!res||res.ok===false){
         document.getElementById('resultados').innerHTML='<div class="vacio"><i data-lucide="circle-alert"></i>No fue posible buscar: '+
           _esc((res&&(res.motivo||res.codigo))||'respuesta no disponible')+'</div>';
@@ -500,7 +501,7 @@ function buscarAhora(){
       }).join('');
       _refrescarIconos();
     },
-    _errSilencioso('api_buscar'));
+    function(e){if(seq===_busquedaSeq)_errSilencioso('api_buscar')(e);});
 }
 var buscar=_debounce(buscarAhora,220);
 

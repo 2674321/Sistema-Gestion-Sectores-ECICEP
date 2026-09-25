@@ -699,6 +699,8 @@ t('E8 buscador UI consume el contrato {ok,filas} y conserva compatibilidad con a
   A(/var l=Array\.isArray\(res\)\?res:\(res\.filas\|\|\[\]\)/.test(html),
     'Sidebar extrae filas del contrato RPC vigente');
   A(/if\(!res\|\|res\.ok===false\)/.test(html), 'Sidebar comunica el fallo lógico de la búsqueda');
+  A(/seq!==_busquedaSeq/.test(html), 'Sidebar descarta respuestas obsoletas de búsquedas anteriores');
+  A(/value\.trim\(\)!==t/.test(html), 'Sidebar verifica que la respuesta corresponda al término visible');
 });
 
 // ── Resumen ──

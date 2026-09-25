@@ -1,39 +1,39 @@
 /**
  * Sistema ECICEP — 07_UI
  * Interfaz DENTRO de Google Sheets (DEC-012: Sheets es la interfaz principal).
- * Menú consolidado: dos puntos de entrada (Centro de funciones / Desarrollo).
+ * Menú consolidado: operación clínica y mantenimiento del sistema.
  */
 
 /** Menú principal. Se ejecuta automáticamente al abrir el spreadsheet.
- *  Estructura consolidada (v0.9.8): dos menús, sin submenús.
- *  Centro de funciones = todo lo operativo del usuario.
- *  Desarrollo / Administración = todo lo técnico. */
+ *  Superficie mínima: cinco flujos operativos y dos de mantenimiento.
+ *  INICIO se abre desde su pestaña; su actualización y la reparación visual
+ *  viven dentro de Instalar / reparar para no duplicar acciones. */
 function onOpen() {
   try {
     var ui = _UI_get();
 
     ui.createMenu('ECICEP')
-      .addItem('Inicio', 'UI_irInicio')
-      .addItem('Buscar / Ficha', 'UI_abrirBuscador')
+      .addItem('Captura', 'UI_abrirFormularioCaptura')
+      .addItem('Buscar paciente', 'UI_abrirBuscador')
       .addItem('Controles', 'UI_abrirControles')
       .addItem('Estadísticas', 'UI_abrirDashboard')
-      .addItem('Captura', 'UI_abrirFormularioCaptura')
       .addItem('Incorporar ingresos', 'UI_abrirIngresos')
       .addToUi();
 
-    ui.createMenu('Desarrollo / Administración')
-      .addItem('Actualizar', 'UI_actualizarSistema')
-      .addItem('Actualizar Inicio', 'UI_actualizarInicio')
-      .addItem('Reparar presentación', 'UI_repararPresentacion')
+    ui.createMenu('Sistema')
+      .addItem('Actualizar sistema', 'UI_actualizarSistema')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
-      .addItem('Permisos', 'ECICEP_autorizar')
-      .addItem('Acerca de', 'UI_abrirAcercaDe')
       .addToUi();
 
     try {
       var hInicio = Modelo_ss().getSheetByName('INICIO');
-      if (hInicio) hInicio.getRange('A1').setValue('ECICEP                                            v' +
-        ECICEP.VERSION + ' · Build ' + (ECICEP_BUILD.commit || 'dev'));
+      if (hInicio) {
+        var tituloInicio = hInicio.getRange('A1'), versionInicio = hInicio.getRange('Y1');
+        var tituloEsperado = 'ECICEP · CENTRO OPERATIVO';
+        var versionEsperada = 'v' + ECICEP.VERSION + ' · Build ' + (ECICEP_BUILD.commit || 'dev');
+        if (Utl_texto(tituloInicio.getValue()) !== tituloEsperado) tituloInicio.setValue(tituloEsperado);
+        if (Utl_texto(versionInicio.getValue()) !== versionEsperada) versionInicio.setValue(versionEsperada);
+      }
     } catch (eI) { /* metadata ligera, nunca bloquea onOpen */ }
     var mostrarToast = true;
     try {

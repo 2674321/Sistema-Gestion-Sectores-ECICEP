@@ -628,16 +628,20 @@ function Instalar_pVisual() {
            motivo: fallos.length ? 'Diseño incompleto en: ' + fallos.map(function (x) { return x.hoja; }).join(', ') : (r.motivo || '') };
 }
 function Instalar_pInicio() {
-  var r = Modelo_disenoHojas();
-  var errores = (r.cond && r.cond.errores || []).slice();
-  if (r.inicio && r.inicio.verificacion) {
-    var fallos = Object.keys(r.inicio.verificacion)
-      .filter(function (k) { return !r.inicio.verificacion[k]; });
-    if (fallos.length) errores.push('verificación INICIO: ' + fallos.join(', '));
-  }
-  return { ok: errores.length === 0, motivo: errores.join('; '), inicio: r.inicio,
-           cond: r.cond, filtros: r.filtros, ocultas: r.ocultas,
-           protecciones: r.protecciones };
+  // §9: la fase INICIO hace SOLO INICIO. No invoca Modelo_disenoHojas ni toca
+  // formatos condicionales, filtros, ocultamientos o protecciones de otras hojas.
+  var ss = Modelo_ss();
+  var r, motivo = '';
+  try { r = Inicio_construir_(ss, { forzar: false }); }
+  catch (e) { return { ok: false, inicio: null, verificacion: { ok: false, diferencias: [] },
+    motivo: e && e.message ? e.message : String(e) }; }
+  var hInicio = ss.getSheetByName('INICIO');
+  var v = hInicio ? Inicio_diagnosticarVisual_(hInicio)
+    : { ok: false, diferencias: ['HOJA:INICIO'] };
+  if (r.ok === false) motivo = r.motivo || 'No se pudo construir INICIO';
+  else if (!v.ok) motivo = v.diferencias.join('; ');
+  return { ok: r.ok !== false && v.ok === true, inicio: r,
+    verificacion: v, motivo: motivo };
 }
 function Instalar_pMenu() {
   // La Web App no tiene interfaz de Sheets: allí el menú se crea al abrir el
@@ -795,6 +799,44 @@ function Instalar_diagnosticar() {
     }
   } catch (e) { diagnostico.resumen.fasesPendientes.push('visual: error'); }
 
+  // 3.1 PARIDAD VISUAL (§20): comparar cada familia contra su plantilla única y
+  // diagnosticar la portada INICIO. SOLO LECTURA (HVis_compararFamilia_ e
+  // Inicio_diagnosticarVisual_ no escriben nada).
+  var visualProfundo = { ok: true, disponibles: false, diferencias: [],
+    paridad: { ingreso: null, sector: null }, inicio: null };
+  try {
+    var pi = HVis_compararFamilia_(Object.keys(HOJAS_INGRESO));
+    var ps = HVis_compararFamilia_(HOJAS_SECTOR);
+    visualProfundo.disponibles = !!(pi && ps);
+    visualProfundo.paridad.ingreso = pi;
+    visualProfundo.paridad.sector = ps;
+    visualProfundo.ok = !!(pi && pi.ok) && !!(ps && ps.ok);
+    (pi && pi.diferencias || []).forEach(function (d) {
+      visualProfundo.diferencias.push('PARIDAD_INGRESO:' + (d.hoja || '') + ':' + (d.propiedad || ''));
+    });
+    (ps && ps.diferencias || []).forEach(function (d) {
+      visualProfundo.diferencias.push('PARIDAD_SECTOR:' + (d.hoja || '') + ':' + (d.propiedad || ''));
+    });
+    var hInicio = ss.getSheetByName('INICIO');
+    visualProfundo.inicio = hInicio && typeof Inicio_diagnosticarVisual_ === 'function'
+      ? Inicio_diagnosticarVisual_(hInicio) : null;
+    if (visualProfundo.inicio) {
+      visualProfundo.ok = visualProfundo.ok && visualProfundo.inicio.ok;
+      (visualProfundo.inicio.diferencias || []).forEach(function (d) {
+        visualProfundo.diferencias.push('INICIO:' + d);
+      });
+    }
+    diagnostico.visualProfundo = visualProfundo;
+    if (!(pi && pi.ok)) diagnostico.resumen.fasesPendientes.push('paridad:INGRESO');
+    else diagnostico.resumen.fasesCompletas.push('paridad:INGRESO');
+    if (!(ps && ps.ok)) diagnostico.resumen.fasesPendientes.push('paridad:SECTOR');
+    else diagnostico.resumen.fasesCompletas.push('paridad:SECTOR');
+    if (!(visualProfundo.inicio && visualProfundo.inicio.ok)) {
+      diagnostico.resumen.fasesPendientes.push('inicio: ' +
+        ((visualProfundo.inicio && visualProfundo.inicio.diferencias || []).length) + ' diferencias');
+    } else diagnostico.resumen.fasesCompletas.push('inicio');
+  } catch (e) { diagnostico.resumen.fasesPendientes.push('paridad: error'); }
+
   // 4. BUSCADORES (integrado en visual, verificado arriba)
   // no requiere diagnóstico separado
 
@@ -885,7 +927,7 @@ function Instalar_diagnosticar() {
   } catch (eT) { diagnostico.resumen.fasesPendientes.push('trigger ingreso manual: error'); }
 
   // Resumen general
-  diagnostico.resumen.totalFases = 8;
+  diagnostico.resumen.totalFases = 11;
   diagnostico.resumen.completas = diagnostico.resumen.fasesCompletas.length;
   diagnostico.resumen.pendientes = diagnostico.resumen.fasesPendientes.length;
 

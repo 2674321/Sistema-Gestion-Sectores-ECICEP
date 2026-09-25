@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.12.2',
+  VERSION: '0.13.0',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -436,7 +436,7 @@ const VALIDACIONES_CAMPOS = {
   FECHA_NACIMIENTO: { tipo: 'FECHA', permitirVacio: true }
 };
 
-var INICIO_RANGO_GESTIONADO = 'A1:AF60';
+var INICIO_RANGO_GESTIONADO = 'A1:AD38';
 
 // Pestañas / identidad por familia (Parte 4) — profundidad constante por matiz.
 const IDENTIDAD = {
@@ -611,22 +611,28 @@ const SECCIONES_HOJAS = {
       columnas: ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)']
     },
     {
-      id: 'identificacion',
-      nombre: 'IDENTIFICACIÓN',
-      color: COLORES_SECCION.IDENTIFICACION,
-      columnas: ['FECHA DE INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']
+      id: 'ingreso',
+      nombre: 'INGRESO',
+      color: COLORES_SECCION.INGRESO,
+      columnas: ['FECHA DE INGRESO', 'ESTRATIFICACION']
     },
     {
-      id: 'sectorizacion',
-      nombre: 'SECTORIZACIÓN',
-      color: COLORES_SECCION.SECTORIZACION,
-      columnas: ['ESTRATIFICACION']
-    },
-    {
-      id: 'controlesSeguimiento',
-      nombre: 'CONTROLES / SEGUIMIENTO',
+      id: 'acompanamiento',
+      nombre: 'ACOMPAÑAMIENTO',
       color: COLORES_SECCION.CONTROLES,
-      columnas: ['DUPLA INGRESO', 'OBSERVACIONES', 'SALUD_MENTAL']
+      columnas: ['DUPLA INGRESO', 'OBSERVACIONES']
+    },
+    {
+      id: 'gestion',
+      nombre: 'GESTIÓN',
+      color: COLORES_SECCION.TECNICO,
+      columnas: ['ESTADO_INGRESO', 'NOTA_SISTEMA']
+    },
+    {
+      id: 'saludMental',
+      nombre: 'SALUD MENTAL',
+      color: COLORES_SECCION.CLINICO,
+      columnas: ['SALUD_MENTAL']
     }
   ],
   PACIENTES: [
@@ -687,7 +693,7 @@ const SECCIONES_HOJAS = {
       columnas: ['ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'ULTIMO_EVENTO']
     },
     {
-id: 'observaciones',
+      id: 'observaciones',
     nombre: 'OBSERVACIONES',
     color: COLORES_SECCION.TECNICO,
     columnas: ['OBSERVACIONES', 'SALUD_MENTAL']
@@ -1044,6 +1050,69 @@ var MODELO_PACIENTE = [
   { campo: 'FECHA_ACTUALIZACION',    tipo: 'fecha',  obligatorio: true,  tecnico: true,  descripcion: 'Última modificación hecha por el sistema', regla: 'ISO con hora' },
   { campo: 'REQUIERE_REVISION',      tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'Marca de calidad: conflictos, fechas inválidas, DV erróneo, discrepancia G', regla: 'La asigna integración/consolidación/motor' }
 ];
+
+// ---------------------------------------------------------------------------
+// PLANTILLAS VISUALES CANÓNICAS v0.13.0
+// ---------------------------------------------------------------------------
+// Una familia tiene una sola geometría. NARANJO/AMARILLO/VERDE inyectan
+// únicamente identidad (nombre, color principal/secundario y pestaña). Los
+// formatos concretos por columna se resuelven siempre desde FORMATO_CAMPOS /
+// FORMATO_TIPOS mediante Formato_especificacionCampo_().
+function _Plantilla_visual_(familia, columnas, secciones, opciones) {
+  opciones = opciones || {};
+  var visual = opciones.visual !== false;
+  var layout = visual ? CONTRATO_LAYOUT_VISUAL : CONTRATO_LAYOUT_SIMPLE;
+  return {
+    familia: familia,
+    layout: {
+      tituloRow: layout.tituloRow,
+      seccionesRow: layout.seccionesRow,
+      encabezadosRow: layout.encabezadosRow,
+      datosDesdeRow: layout.datosDesdeRow
+    },
+    columnas: columnas.slice(),
+    fuenteFormato: 'FORMATO_CAMPOS/FORMATO_TIPOS',
+    filas: {
+      titulo: visual ? DESIGN_SYSTEM.ALTURAS.barra : 0,
+      secciones: visual ? DESIGN_SYSTEM.ALTURAS.seccion : 0,
+      encabezado: visual ? DESIGN_SYSTEM.ALTURAS.encabezadoVisual : DESIGN_SYSTEM.ALTURAS.encabezadoSimple,
+      datos: DESIGN_SYSTEM.ALTURAS.dato
+    },
+    freeze: {
+      filas: visual ? CONTRATO_LAYOUT_VISUAL.encabezadosRow : 1,
+      columnas: opciones.frozenColumns || 0
+    },
+    encabezado: {
+      fuente: DESIGN_SYSTEM.FUENTES.encabezados,
+      tamanio: DESIGN_SYSTEM.TIPOGRAFIA.encabezado,
+      peso: DESIGN_SYSTEM.ENCABEZADOS.peso,
+      horizontal: DESIGN_SYSTEM.ENCABEZADOS.horizontal,
+      vertical: DESIGN_SYSTEM.ENCABEZADOS.vertical,
+      wrap: DESIGN_SYSTEM.ENCABEZADOS.wrap,
+      fondo: DESIGN_SYSTEM.ENCABEZADOS.fondo,
+      tinta: DESIGN_SYSTEM.ENCABEZADOS.tinta
+    },
+    secciones: (secciones || []).map(function (s) {
+      return { id: s.id, nombre: s.nombre, columnas: s.columnas.slice() };
+    }),
+    superficie: opciones.superficie || 'editable',
+    validacionOwner: opciones.validacionOwner || 'Hojas_aplicarValidaciones_',
+    condicionalOwner: 'Hojas_aplicarFormatoCondicional_'
+  };
+}
+
+var PLANTILLA_VISUAL_INGRESO = _Plantilla_visual_(
+  'INGRESO', INGRESO_COLUMNAS, SECCIONES_HOJAS.INGRESO,
+  { superficie: 'editable', validacionOwner: 'Modelo_validarIngresos' });
+var PLANTILLA_VISUAL_SECTOR = _Plantilla_visual_(
+  'SECTOR', COLUMNAS_SECTOR_VISTA, SECCIONES_HOJAS.SECTOR_VISTA,
+  { superficie: 'derivado' });
+var PLANTILLA_VISUAL_PACIENTES = _Plantilla_visual_(
+  'PACIENTES', MODELO_PACIENTE.map(function (c) { return c.campo; }),
+  SECCIONES_HOJAS.PACIENTES, { superficie: 'mixta' });
+var PLANTILLA_VISUAL_EVENTOS = _Plantilla_visual_(
+  'EVENTOS', COLUMNAS_EVENTOS, SECCIONES_HOJAS.EVENTOS,
+  { visual: false, superficie: 'tecnico', frozenColumns: 1 });
 
 // Columnas de fecha en formato hoja (dd/MM/yyyy al instalar)
 const MODELO_COLUMNAS_FECHA = [

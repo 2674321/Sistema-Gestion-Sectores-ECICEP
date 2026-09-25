@@ -570,15 +570,16 @@ function HVis_familiaHoja(nombre) {
 /**
  * PURA: identidad de diseño de una hoja (v0.8.9.6, DESIGN_SYSTEM).
  * Devuelve la CLAVE de RAMPA/COLORES_SECTOR que aplica: AMARILLO, NARANJO o
- * VERDE para las hojas del sector; EVENTOS hereda la identidad NARANJO
- * (naranja de sistema, mismo soporte físico); el resto (PACIENTES, INICIO,
- * hojas técnicas) es GENERAL (azul de sistema).
+ * VERDE para las hojas del sector; EVENTOS usa GENERAL (identidad neutra) —
+ * el legado que la asociaba a NARANJO fue corregido para evitar herencia
+ * de colores sectoriales; el resto (PACIENTES, INICIO, hojas técnicas) es
+ * GENERAL (azul de sistema).
  */
 function HVis_identidad(nombre) {
   var familia = HVis_familiaHoja(nombre);
   if (familia) return familia;
   var n = Utl_texto(nombre).toUpperCase();
-  if (n.indexOf('EVENTOS') !== -1) return 'NARANJO';
+  if (n.indexOf('EVENTOS') !== -1) return 'GENERAL';
   return 'GENERAL';
 }
 
@@ -916,4 +917,550 @@ function HVis_diagnosticarTodas() {
     else res[n] = { ok: false, motivo: 'No existe' };
   });
   return { ok: true, diagnostico: res };
+}
+
+// ---------------------------------------------------------------------------
+// PARIDAD VISUAL v0.13.0
+// ---------------------------------------------------------------------------
+
+/** Devuelve la plantilla única de la familia e inyecta solo la identidad. */
+function HVis_plantillaParaHoja_(nombreHoja) {
+  var nombre = HVis_normalizarNombreHoja(nombreHoja);
+  var base = null;
+  if (nombre.indexOf('INGRESO_') === 0) base = PLANTILLA_VISUAL_INGRESO;
+  else if (nombre.indexOf('SECTOR_') === 0) base = PLANTILLA_VISUAL_SECTOR;
+  else if (nombre === 'PACIENTES') base = PLANTILLA_VISUAL_PACIENTES;
+  else if (nombre === 'EVENTOS') base = PLANTILLA_VISUAL_EVENTOS;
+  if (!base) return null;
+  var sector = HVis_detectarSectorHoja(nombre), campos = {};
+  base.columnas.forEach(function (campo) {
+    var e = Formato_especificacionCampo_(campo);
+    campos[e.clave] = {
+      etiqueta: campo, ancho: e.ancho, numberFormat: e.formato,
+      alineacion: e.alineacion, wrap: e.wrap
+    };
+  });
+  return {
+    familia: base.familia,
+    layout: {
+      tituloRow: base.layout.tituloRow, seccionesRow: base.layout.seccionesRow,
+      encabezadosRow: base.layout.encabezadosRow, datosDesdeRow: base.layout.datosDesdeRow
+    },
+    columnas: base.columnas.slice(), campos: campos,
+    filas: {
+      titulo: base.filas.titulo, secciones: base.filas.secciones,
+      encabezado: base.filas.encabezado, datos: base.filas.datos
+    },
+    freeze: { filas: base.freeze.filas, columnas: base.freeze.columnas },
+    encabezado: base.encabezado,
+    secciones: base.secciones.map(function (s) {
+      return { id: s.id, nombre: s.nombre, columnas: s.columnas.slice() };
+    }),
+    superficie: base.superficie,
+    validacionOwner: base.validacionOwner,
+    condicionalOwner: base.condicionalOwner,
+    identidad: {
+      nombre: sector || 'GENERAL',
+      colorPrincipal: sector ? HVis_colorPorSector(sector) : DESIGN_SYSTEM.MARCA.sistema,
+      colorSecundario: sector && PALETA_SECCION[sector]
+        ? PALETA_SECCION[sector].seccion.slice() : RAMPA.GENERAL.seccion.slice(),
+      tabColor: typeof Hojas_colorPestana_ === 'function'
+        ? Hojas_colorPestana_(nombre) : HVis_colorPorSector(sector)
+    }
+  };
+}
+
+/** Comprueba que cada columna pertenezca exactamente a una sección contigua. */
+function HVis_auditarCoberturaSecciones_(columnas, secciones, excepciones) {
+  if (typeof columnas === 'string') {
+    var p = HVis_plantillaParaHoja_(columnas);
+    if (!p) return { ok: false, faltantes: [], duplicadas: [], desconocidas: [], noContiguas: [] };
+    secciones = p.secciones; columnas = p.columnas;
+  }
+  columnas = columnas || []; secciones = secciones || []; excepciones = excepciones || [];
+  var indices = {}, conteo = {}, desconocidas = [], noContiguas = [];
+  columnas.forEach(function (c, i) { indices[Utl_claveAlnum(c)] = i; });
+  secciones.forEach(function (s) {
+    var posiciones = [];
+    (s.columnas || []).forEach(function (c) {
+      var k = Utl_claveAlnum(c);
+      if (indices[k] === undefined) { desconocidas.push(c); return; }
+      conteo[k] = (conteo[k] || 0) + 1; posiciones.push(indices[k]);
+    });
+    posiciones.sort(function (a, b) { return a - b; });
+    for (var i = 1; i < posiciones.length; i++) {
+      if (posiciones[i] !== posiciones[i - 1] + 1) {
+        noContiguas.push(s.id || s.nombre || 'SIN_ID'); break;
+      }
+    }
+  });
+  var ex = {}; excepciones.forEach(function (c) { ex[Utl_claveAlnum(c)] = true; });
+  var faltantes = [], duplicadas = [];
+  columnas.forEach(function (c) {
+    var k = Utl_claveAlnum(c), n = conteo[k] || 0;
+    if (!n && !ex[k]) faltantes.push(c);
+    if (n > 1) duplicadas.push(c);
+  });
+  return {
+    ok: !faltantes.length && !duplicadas.length && !desconocidas.length && !noContiguas.length,
+    faltantes: faltantes, duplicadas: duplicadas,
+    desconocidas: desconocidas, noContiguas: noContiguas
+  };
+}
+
+function HVis_valorEstructural_(valor) {
+  if (valor === null || valor === undefined) return '';
+  if (Array.isArray(valor)) return valor.map(HVis_valorEstructural_);
+  if (valor && typeof valor.getA1Notation === 'function') {
+    try { return 'RANGO:' + valor.getA1Notation(); } catch (eR) { return 'RANGO'; }
+  }
+  if (Object.prototype.toString.call(valor) === '[object Date]')
+    return 'FECHA:' + valor.toISOString();
+  if (typeof valor === 'object') return String(valor);
+  return String(valor);
+}
+
+/** Firma de una validación sin leer el valor de la celda. */
+function HVis_firmaValidacion_(dv) {
+  if (!dv) return null;
+  try {
+    var criterio = typeof dv.getCriteria === 'function' ? String(dv.getCriteria()) : '';
+    var valores = typeof dv.getCriteriaValues === 'function'
+      ? (dv.getCriteriaValues() || []).map(HVis_valorEstructural_) : [];
+    // Las listas son conjuntos contractuales; el orden de presentación no
+    // constituye una divergencia visual.
+    valores = valores.map(function (v) {
+      return Array.isArray(v) ? v.slice().map(String).sort() : v;
+    });
+    return {
+      criterio: criterio, valores: valores,
+      permitirInvalido: typeof dv.getAllowInvalid === 'function' ? dv.getAllowInvalid() === true : null,
+      ayuda: typeof dv.getHelpText === 'function' ? Utl_texto(dv.getHelpText()) : ''
+    };
+  } catch (e) { return { error: 'VALIDACION_NO_INSPECCIONABLE' }; }
+}
+
+function HVis_firmaRangoRegla_(rango) {
+  try {
+    if (typeof rango.getColumn === 'function') {
+      return {
+        filaInicial: rango.getRow(), columnaInicial: rango.getColumn(),
+        columnas: typeof rango.getNumColumns === 'function' ? rango.getNumColumns() : 1
+      };
+    }
+    var a1 = typeof rango.getA1Notation === 'function' ? rango.getA1Notation() : '';
+    return { a1: Utl_texto(a1).replace(/^.*!/, '').replace(/[0-9]+$/g, '#') };
+  } catch (e) { return { error: 'RANGO_NO_INSPECCIONABLE' }; }
+}
+
+/** Firma estable de una regla condicional, independiente de cantidad de datos. */
+function HVis_firmaReglaCondicional_(regla) {
+  try {
+    var condicion = regla && regla.getBooleanCondition && regla.getBooleanCondition();
+    if (!condicion) return { criterio: 'SIN_CONDICION' };
+    return {
+      criterio: String(condicion.getCriteriaType ? condicion.getCriteriaType() : ''),
+      valores: (condicion.getCriteriaValues ? condicion.getCriteriaValues() : [])
+        .map(HVis_valorEstructural_),
+      rangos: (regla.getRanges ? regla.getRanges() : []).map(HVis_firmaRangoRegla_),
+      fondo: condicion.getBackground ? condicion.getBackground() : '',
+      tinta: condicion.getFontColor ? condicion.getFontColor() : '',
+      negrita: condicion.getBold ? condicion.getBold() === true : false,
+      cursiva: condicion.getItalic ? condicion.getItalic() === true : false
+    };
+  } catch (e) { return { error: 'REGLA_NO_INSPECCIONABLE' }; }
+}
+
+function HVis_filaMatriz_(rango, metodo, columnas, valorDefecto) {
+  try {
+    if (rango && typeof rango[metodo] === 'function') {
+      var m = rango[metodo]();
+      if (Array.isArray(m) && Array.isArray(m[0])) return m[0].slice(0, columnas);
+    }
+  } catch (e) {}
+  var r = []; for (var i = 0; i < columnas; i++) r.push(valorDefecto);
+  return r;
+}
+
+function HVis_firmaFila_(hoja, fila, columnas) {
+  if (!(fila > 0)) return null;
+  var r = hoja.getRange(fila, 1, 1, columnas);
+  return {
+    altura: typeof hoja.getRowHeight === 'function' ? hoja.getRowHeight(fila) : null,
+    fondos: HVis_filaMatriz_(r, 'getBackgrounds', columnas, ''),
+    tintas: HVis_filaMatriz_(r, 'getFontColors', columnas, ''),
+    fuentes: HVis_filaMatriz_(r, 'getFontFamilies', columnas, ''),
+    tamanios: HVis_filaMatriz_(r, 'getFontSizes', columnas, null),
+    pesos: HVis_filaMatriz_(r, 'getFontWeights', columnas, ''),
+    horizontal: HVis_filaMatriz_(r, 'getHorizontalAlignments', columnas, ''),
+    vertical: HVis_filaMatriz_(r, 'getVerticalAlignments', columnas, ''),
+    wrap: HVis_filaMatriz_(r, 'getWraps', columnas, null)
+  };
+}
+
+function HVis_firmaMerges_(hoja, filasSuperiores, columnas) {
+  try {
+    var rango = hoja.getRange(1, 1, filasSuperiores, columnas);
+    var merges = typeof rango.getMergedRanges === 'function' ? rango.getMergedRanges() : [];
+    return merges.map(function (r) {
+      return {
+        fila: typeof r.getRow === 'function' ? r.getRow() : 0,
+        columna: typeof r.getColumn === 'function' ? r.getColumn() : 0,
+        filas: typeof r.getNumRows === 'function' ? r.getNumRows() : 0,
+        columnas: typeof r.getNumColumns === 'function' ? r.getNumColumns() : 0
+      };
+    }).sort(function (a, b) { return a.fila - b.fila || a.columna - b.columna; });
+  } catch (e) { return []; }
+}
+
+/**
+ * Firma estructural completa. Solo inspecciona encabezados, estilos y reglas;
+ * nunca incorpora valores de pacientes ni eventos.
+ */
+function HVis_firmaVisualHoja_(hoja, opciones) {
+  opciones = opciones || {};
+  if (!hoja) return { ok: false, motivo: 'HOJA_INEXISTENTE' };
+  var nombre = hoja.getName(), plantilla = HVis_plantillaParaHoja_(nombre);
+  var familia = plantilla ? plantilla.familia : (HOJAS_UX[nombre] || {}).familia || 'OTRA';
+  var hr = Modelo_headerRow(nombre), ini = Modelo_dataStartRow(nombre);
+  var columnas = Math.max(hoja.getLastColumn() || 0, plantilla ? plantilla.columnas.length : 1, 1);
+  var rEnc = hoja.getRange(hr, 1, 1, columnas);
+  var etiquetas = HVis_filaMatriz_(rEnc, 'getValues', columnas, '');
+  var rDatos = hoja.getRange(ini, 1, 1, columnas);
+  var formatos = HVis_filaMatriz_(rDatos, 'getNumberFormats', columnas, '');
+  var alineaciones = HVis_filaMatriz_(rDatos, 'getHorizontalAlignments', columnas, '');
+  var wraps = HVis_filaMatriz_(rDatos, 'getWraps', columnas, null);
+  var fondos = HVis_filaMatriz_(rDatos, 'getBackgrounds', columnas, '');
+  var tintas = HVis_filaMatriz_(rDatos, 'getFontColors', columnas, '');
+  var dvs = HVis_filaMatriz_(rDatos, 'getDataValidations', columnas, null);
+  var orden = [], campos = {}, validaciones = {};
+  etiquetas.forEach(function (etiqueta, i) {
+    if (!Utl_texto(etiqueta)) return;
+    var clave = Formato_claveCampo_(etiqueta);
+    orden.push(clave);
+    campos[clave] = {
+      etiqueta: Utl_texto(etiqueta),
+      ancho: typeof hoja.getColumnWidth === 'function' ? hoja.getColumnWidth(i + 1) : null,
+      numberFormat: formatos[i], alineacion: Utl_texto(alineaciones[i]).toUpperCase(),
+      wrap: wraps[i], superficie: { fondo: fondos[i], tinta: tintas[i] }
+    };
+    var fv = HVis_firmaValidacion_(dvs[i]);
+    if (fv) validaciones[clave] = fv;
+  });
+  var secciones = [], cfg = HVis_obtenerSecciones(nombre) || [];
+  var plan = HVis_calcularPlan(nombre, cfg, HVis_mapaColumnas(etiquetas));
+  var valoresSeccion = plan.seccionesRow
+    ? HVis_filaMatriz_(hoja.getRange(plan.seccionesRow, 1, 1, columnas), 'getValues', columnas, '') : [];
+  plan.secciones.forEach(function (s) {
+    secciones.push({
+      id: s.id, nombre: Utl_texto(valoresSeccion[s.colInicio - 1] || s.nombre),
+      colInicio: s.colInicio, colFin: s.colFin
+    });
+  });
+  var reglas = [];
+  try {
+    reglas = (typeof hoja.getConditionalFormatRules === 'function'
+      ? hoja.getConditionalFormatRules() : []).map(HVis_firmaReglaCondicional_);
+  } catch (eR) { reglas = [{ error: 'REGLAS_NO_INSPECCIONABLES' }]; }
+  return {
+    ok: true, familia: familia,
+    layout: {
+      tituloRow: Modelo_esHojaVisual(nombre) ? 1 : 0,
+      seccionesRow: Modelo_esHojaVisual(nombre) ? 2 : 0,
+      encabezadosRow: hr, datosDesdeRow: ini
+    },
+    columnas: { orden: orden, campos: campos },
+    filas: {
+      titulo: Modelo_esHojaVisual(nombre) ? HVis_firmaFila_(hoja, 1, columnas) : null,
+      secciones: Modelo_esHojaVisual(nombre) ? HVis_firmaFila_(hoja, 2, columnas) : null,
+      encabezado: HVis_firmaFila_(hoja, hr, columnas),
+      datos: { altura: typeof hoja.getRowHeight === 'function' ? hoja.getRowHeight(ini) : null }
+    },
+    freeze: {
+      filas: typeof hoja.getFrozenRows === 'function' ? hoja.getFrozenRows() : null,
+      columnas: typeof hoja.getFrozenColumns === 'function' ? hoja.getFrozenColumns() : null
+    },
+    merges: HVis_firmaMerges_(hoja, Math.max(hr, 1), columnas),
+    secciones: secciones,
+    reglasCondicionales: reglas,
+    validaciones: validaciones,
+    tabColor: typeof hoja.getTabColor === 'function' ? hoja.getTabColor() : '',
+    cobertura: plantilla
+      ? HVis_auditarCoberturaSecciones_(plantilla.columnas, plantilla.secciones, [])
+      : { ok: true, faltantes: [], duplicadas: [], desconocidas: [], noContiguas: [] }
+  };
+}
+
+function HVis_colorTokenSector_(color, sector) {
+  var c = Utl_texto(color).toUpperCase();
+  if (!c || !sector || !PALETA_SECCION[sector]) return color;
+  var primarios = [HVis_colorPorSector(sector), IDENTIDAD[sector], PALETA_SECCION[sector].barra,
+    PALETA_SECCION[sector].encabezado];
+  for (var i = 0; i < primarios.length; i++)
+    if (c === Utl_texto(primarios[i]).toUpperCase()) return 'SECTOR_PRIMARY';
+  for (var j = 0; j < PALETA_SECCION[sector].seccion.length; j++)
+    if (c === Utl_texto(PALETA_SECCION[sector].seccion[j]).toUpperCase())
+      return 'SECTOR_SECONDARY_' + (j + 1);
+  return color;
+}
+
+function HVis_normalizarIdentidad_(valor, sector) {
+  if (Array.isArray(valor)) return valor.map(function (v) { return HVis_normalizarIdentidad_(v, sector); });
+  if (valor && typeof valor === 'object') {
+    var o = {};
+    Object.keys(valor).sort().forEach(function (k) { o[k] = HVis_normalizarIdentidad_(valor[k], sector); });
+    return o;
+  }
+  if (typeof valor !== 'string') return valor;
+  var color = HVis_colorTokenSector_(valor, sector);
+  if (color !== valor) return color;
+  return valor
+    .replace(new RegExp('INGRESO_' + sector, 'gi'), 'INGRESO_SECTOR')
+    .replace(new RegExp('SECTOR_' + sector, 'gi'), 'SECTOR_SECTOR')
+    .replace(new RegExp(sector, 'gi'), 'SECTOR');
+}
+
+/** Firma neutral: elimina nombre/color particular del sector, no la geometría. */
+function HVis_firmaVisualNormalizada_(hoja) {
+  if (!hoja) return { ok: false, motivo: 'HOJA_INEXISTENTE' };
+  var sector = HVis_detectarSectorHoja(hoja.getName());
+  return HVis_normalizarIdentidad_(HVis_firmaVisualHoja_(hoja), sector);
+}
+
+function HVis_diferenciasFirmas_(esperado, actual, ruta, salida, limite) {
+  salida = salida || []; ruta = ruta || ''; limite = limite || 250;
+  if (salida.length >= limite) return salida;
+  if (esperado === actual) return salida;
+  var ae = Array.isArray(esperado), aa = Array.isArray(actual);
+  if (ae || aa) {
+    if (!(ae && aa)) { salida.push({ propiedad: ruta, esperado: esperado, actual: actual }); return salida; }
+    if (esperado.length !== actual.length)
+      salida.push({ propiedad: ruta + '.length', esperado: esperado.length, actual: actual.length });
+    for (var i = 0; i < Math.max(esperado.length, actual.length) && salida.length < limite; i++)
+      HVis_diferenciasFirmas_(esperado[i], actual[i], ruta + '[' + i + ']', salida, limite);
+    return salida;
+  }
+  var oe = esperado && typeof esperado === 'object', oa = actual && typeof actual === 'object';
+  if (oe || oa) {
+    if (!(oe && oa)) { salida.push({ propiedad: ruta, esperado: esperado, actual: actual }); return salida; }
+    var claves = {};
+    Object.keys(esperado).concat(Object.keys(actual)).forEach(function (k) { claves[k] = true; });
+    Object.keys(claves).sort().forEach(function (k) {
+      if (salida.length < limite)
+        HVis_diferenciasFirmas_(esperado[k], actual[k], ruta ? ruta + '.' + k : k, salida, limite);
+    });
+    return salida;
+  }
+  salida.push({ propiedad: ruta, esperado: esperado, actual: actual });
+  return salida;
+}
+
+function HVis_serializarEstable_(valor) {
+  if (valor === null || typeof valor !== 'object') return JSON.stringify(valor);
+  if (Array.isArray(valor)) return '[' + valor.map(HVis_serializarEstable_).join(',') + ']';
+  return '{' + Object.keys(valor).sort().map(function (k) {
+    return JSON.stringify(k) + ':' + HVis_serializarEstable_(valor[k]);
+  }).join(',') + '}';
+}
+
+function HVis_hashEstructural_(valor) {
+  var s = HVis_serializarEstable_(valor), h = 2166136261;
+  for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+}
+
+/** Compara las hojas de una familia contra la primera, ya neutralizadas. */
+function HVis_compararFamilia_(nombres) {
+  nombres = nombres || [];
+  var ss = Modelo_ss(), referencia = nombres[0] || '', refHoja = ss.getSheetByName(referencia);
+  if (!refHoja) return {
+    ok: false, referencia: referencia, diferencias: [{ hoja: referencia, propiedad: 'hoja', esperado: 'EXISTE', actual: 'NO_EXISTE' }],
+    cantidadDiferencias: 1, hojasDivergentes: [referencia]
+  };
+  var firmaRef = HVis_firmaVisualNormalizada_(refHoja), diferencias = [], hashes = {};
+  hashes[referencia] = HVis_hashEstructural_(firmaRef);
+  nombres.slice(1).forEach(function (nombre) {
+    var hoja = ss.getSheetByName(nombre);
+    if (!hoja) {
+      diferencias.push({ hoja: nombre, propiedad: 'hoja', esperado: 'EXISTE', actual: 'NO_EXISTE' });
+      hashes[nombre] = 'AUSENTE'; return;
+    }
+    var firma = HVis_firmaVisualNormalizada_(hoja);
+    hashes[nombre] = HVis_hashEstructural_(firma);
+    HVis_diferenciasFirmas_(firmaRef, firma).forEach(function (d) {
+      diferencias.push({ hoja: nombre, propiedad: d.propiedad, esperado: d.esperado, actual: d.actual });
+    });
+  });
+  var grupos = {};
+  nombres.forEach(function (n) { var h = hashes[n] || 'AUSENTE'; (grupos[h] || (grupos[h] = [])).push(n); });
+  var mayores = Object.keys(grupos).sort(function (a, b) { return grupos[b].length - grupos[a].length; });
+  var base = mayores.length && grupos[mayores[0]].length > 1 ? mayores[0] : '';
+  var divergentes = base ? nombres.filter(function (n) { return hashes[n] !== base; })
+    : (diferencias.length ? nombres.slice() : []);
+  return {
+    ok: diferencias.length === 0, referencia: referencia,
+    diferencias: diferencias, cantidadDiferencias: diferencias.length,
+    hojasDivergentes: divergentes, firmas: hashes
+  };
+}
+
+function HVis_firmaProtecciones_(hoja) {
+  var salida = [];
+  if (!hoja || typeof hoja.getProtections !== 'function') return salida;
+  try {
+    var tipo = typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp.ProtectionType
+      ? SpreadsheetApp.ProtectionType.RANGE : 'RANGE';
+    (hoja.getProtections(tipo) || []).forEach(function (p) {
+      try {
+        var desc = Utl_texto(p.getDescription && p.getDescription());
+        var r = p.getRange && p.getRange();
+        salida.push({
+          owner: desc.indexOf('ECICEP') === 0 ? desc : 'MANUAL',
+          aviso: p.isWarningOnly ? p.isWarningOnly() === true : null,
+          fila: r && r.getRow ? r.getRow() : 0,
+          columna: r && r.getColumn ? r.getColumn() : 0,
+          columnas: r && r.getNumColumns ? r.getNumColumns() : 0
+        });
+      } catch (eP) { salida.push({ error: 'PROTECCION_NO_INSPECCIONABLE' }); }
+    });
+  } catch (e) { salida.push({ error: 'PROTECCIONES_NO_INSPECCIONABLES' }); }
+  return salida.sort(function (a, b) {
+    return HVis_serializarEstable_(a).localeCompare(HVis_serializarEstable_(b));
+  });
+}
+
+function HVis_diagnosticoInicio_(ss) {
+  var h = ss.getSheetByName('INICIO');
+  if (!h) return { ok: false, diferencias: 1, detalle: ['INICIO_NO_EXISTE'] };
+  try {
+    if (typeof Inicio_verificar_ === 'function') {
+      var v = Inicio_verificar_(h), ds = v.diferencias || v.fallos || [];
+      return { ok: v.ok !== false && !ds.length, diferencias: ds.length || (v.ok === false ? 1 : 0), detalle: ds };
+    }
+    var vigente = typeof Inicio_layoutVigente_ === 'function' && Inicio_layoutVigente_(h);
+    return { ok: !!vigente, diferencias: vigente ? 0 : 1,
+      detalle: vigente ? [] : ['INICIO_LAYOUT_DESACTUALIZADO'] };
+  } catch (e) { return { ok: false, diferencias: 1, detalle: ['INICIO_NO_INSPECCIONABLE'] }; }
+}
+
+/** Diagnóstico profundo, sin PII y estrictamente de solo lectura. */
+function Libro_diagnosticoVisualProfundo_(opciones) {
+  opciones = opciones || {};
+  var ss = Modelo_ss();
+  var ingreso = HVis_compararFamilia_(['INGRESO_NARANJO','INGRESO_AMARILLO','INGRESO_VERDE']);
+  var sector = HVis_compararFamilia_(['SECTOR_NARANJO','SECTOR_AMARILLO','SECTOR_VERDE']);
+  function resumen(comp) {
+    return { ok: comp.ok, diferencias: comp.cantidadDiferencias || 0,
+      detalle: comp.diferencias || [], hojasDivergentes: comp.hojasDivergentes || [],
+      firmas: comp.firmas || {} };
+  }
+  var inicio = opciones.omitirInicio ? { ok: true, diferencias: 0, detalle: [] }
+    : HVis_diagnosticoInicio_(ss);
+  var hojas = {}, detalle = [], total = ingreso.cantidadDiferencias + sector.cantidadDiferencias + inicio.diferencias;
+  ['PACIENTES','EVENTOS'].forEach(function (nombre) {
+    var h = ss.getSheetByName(nombre), d = h ? HVis_pendientesVisual(h) : { pendientes: ['NO_EXISTE'], cantidadPendientes: 1 };
+    var n = d.cantidadPendientes === undefined ? (d.pendientes || []).length : d.cantidadPendientes;
+    hojas[nombre] = { ok: n === 0, diferencias: n, detalle: d.pendientes || [] };
+    total += n;
+  });
+  var tabs = { ok: true, diferencias: 0, detalle: [] };
+  ['INICIO','PACIENTES','EVENTOS','INGRESO_NARANJO','INGRESO_AMARILLO','INGRESO_VERDE',
+   'SECTOR_NARANJO','SECTOR_AMARILLO','SECTOR_VERDE','REM_SALIDA'].forEach(function (nombre) {
+    var h = ss.getSheetByName(nombre); if (!h || typeof h.getTabColor !== 'function') return;
+    var esperado = Hojas_colorPestana_(nombre), actual = h.getTabColor();
+    if (!HVis_mismosColor(actual, esperado)) {
+      tabs.ok = false; tabs.diferencias++; tabs.detalle.push(nombre + ':TAB_COLOR');
+    }
+  });
+  total += tabs.diferencias;
+  var objetivo = Hojas_ordenObjetivo_(), actual = [];
+  try {
+    actual = ss.getSheets().filter(function (h) { return !h.isSheetHidden(); })
+      .map(function (h) { return h.getName(); }).filter(function (n) { return objetivo.indexOf(n) !== -1; });
+  } catch (eO) {}
+  var difOrden = HVis_diferenciasFirmas_(objetivo, actual);
+  var orden = { ok: difOrden.length === 0, diferencias: difOrden.length, esperado: objetivo, actual: actual };
+  total += orden.diferencias;
+  var protFirmas = {}, protHashes = {};
+  ['INGRESO_NARANJO','INGRESO_AMARILLO','INGRESO_VERDE'].forEach(function (n) {
+    protFirmas[n] = HVis_firmaProtecciones_(ss.getSheetByName(n));
+    protHashes[n] = HVis_hashEstructural_(protFirmas[n]);
+  });
+  var protOk = protHashes.INGRESO_NARANJO === protHashes.INGRESO_AMARILLO &&
+    protHashes.INGRESO_NARANJO === protHashes.INGRESO_VERDE;
+  var protecciones = { ok: protOk, diferencias: protOk ? 0 : 1, firmas: protHashes };
+  total += protecciones.diferencias;
+  var difIngreso = ingreso.diferencias || [], difSector = sector.diferencias || [];
+  var nVal = difIngreso.filter(function (d) { return d.propiedad.indexOf('validaciones') === 0; }).length;
+  var nReglas = difIngreso.concat(difSector).filter(function (d) {
+    return d.propiedad.indexOf('reglasCondicionales') === 0;
+  }).length;
+  var validaciones = { ok: nVal === 0, diferencias: nVal };
+  var reglas = { ok: nReglas === 0, diferencias: nReglas };
+  if (!ingreso.ok) detalle.push('paridad:INGRESO:' + ingreso.cantidadDiferencias);
+  if (!sector.ok) detalle.push('paridad:SECTOR:' + sector.cantidadDiferencias);
+  if (!inicio.ok) detalle.push('INICIO:' + inicio.diferencias);
+  Object.keys(hojas).forEach(function (n) { if (!hojas[n].ok) detalle.push(n + ':' + hojas[n].diferencias); });
+  if (!tabs.ok) detalle.push('tabs:' + tabs.diferencias);
+  if (!orden.ok) detalle.push('orden:' + orden.diferencias);
+  if (!protecciones.ok) detalle.push('protecciones:' + protecciones.diferencias);
+  return {
+    ok: total === 0,
+    paridad: { ingreso: resumen(ingreso), sector: resumen(sector) },
+    inicio: inicio, hojas: hojas, tabs: tabs, orden: orden,
+    protecciones: protecciones, validaciones: validaciones,
+    reglasCondicionales: reglas,
+    diferencias: total, totalDiferencias: total, detalle: detalle,
+    hojasConDiferencias: ingreso.hojasDivergentes.concat(sector.hojasDivergentes)
+      .concat(Object.keys(hojas).filter(function (n) { return !hojas[n].ok; }))
+  };
+}
+
+/** Reparación selectiva: si todo está correcto, retorna antes de toda escritura. */
+function HVis_repararDiferencias_(diagnostico, opciones) {
+  opciones = opciones || {};
+  var antes = diagnostico || Libro_diagnosticoVisualProfundo_();
+  if (antes.ok) return { ok: true, omitida: true, escrituras: 0, antes: antes, despues: antes };
+  var ss = Modelo_ss(), objetivos = {}, acciones = [];
+  (antes.hojasConDiferencias || []).forEach(function (n) { objetivos[n] = true; });
+  Object.keys(objetivos).forEach(function (nombre) {
+    var h = ss.getSheetByName(nombre); if (!h) return;
+    if (HVis_obtenerSecciones(nombre) && Modelo_esHojaVisual(nombre)) {
+      HVis_aplicarSecciones(h, { forzar: true }); acciones.push(nombre + ':layout');
+    }
+    if (typeof Presentacion_formatearHoja_ === 'function') {
+      Presentacion_formatearHoja_(nombre); acciones.push(nombre + ':formato');
+    }
+    var color = Hojas_colorPestana_(nombre);
+    if (typeof h.getTabColor !== 'function' || !HVis_mismosColor(h.getTabColor(), color)) {
+      h.setTabColor(color); acciones.push(nombre + ':tab');
+    }
+  });
+  if (antes.validaciones && !antes.validaciones.ok) {
+    Modelo_validarIngresos(ss);
+    Hojas_aplicarValidaciones_(ss, { hojas: [HOJAS.PACIENTES].concat(HOJAS_SECTOR) });
+    acciones.push('validaciones');
+  }
+  if (antes.reglasCondicionales && !antes.reglasCondicionales.ok) {
+    Hojas_formatoCondicional(ss); acciones.push('reglasCondicionales');
+  }
+  if (antes.protecciones && !antes.protecciones.ok) {
+    Modelo_validarIngresos(ss); acciones.push('protecciones');
+  }
+  if (antes.tabs && !antes.tabs.ok) {
+    (Hojas_ordenObjetivo_().concat(['EVENTOS'])).forEach(function (n) {
+      var h = ss.getSheetByName(n); if (!h) return;
+      var c = Hojas_colorPestana_(n);
+      if (typeof h.getTabColor !== 'function' || !HVis_mismosColor(h.getTabColor(), c)) h.setTabColor(c);
+    });
+    acciones.push('tabs');
+  }
+  if (antes.orden && !antes.orden.ok) { Hojas_ordenar_(ss); acciones.push('orden'); }
+  if (opciones.incluirInicio !== false && antes.inicio && !antes.inicio.ok &&
+      typeof Inicio_refrescar_ === 'function') {
+    Inicio_refrescar_({ forzar: true }); acciones.push('INICIO');
+  }
+  var despues = Libro_diagnosticoVisualProfundo_();
+  return { ok: despues.ok, omitida: false, escrituras: acciones.length,
+    acciones: acciones, antes: antes, despues: despues };
 }

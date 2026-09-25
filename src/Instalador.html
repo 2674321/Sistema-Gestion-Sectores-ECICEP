@@ -9,9 +9,10 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);display:fle
 .marca{text-align:center;margin-bottom:var(--space-4)}
 .marca .sys{font:700 24px 'Sora';color:var(--primary)}
 .marca .sub{font-size:13px;color:var(--text-muted)}
-.estado-panel,.salud,.diagnostico,.error-panel,.final{border:1px solid var(--border);
+.estado-panel,.diagnostico,.error-panel,.final{border:1px solid var(--border);
   border-radius:var(--radius-md);background:var(--surface);padding:var(--space-3);
   margin-bottom:var(--space-3)}
+.estado-panel{border-left:4px solid var(--primary);box-shadow:var(--shadow-sm)}
 .nivel{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:10px;align-items:center;
   padding:7px 0;border-bottom:1px solid var(--surface-alt)}
 .nivel:last-child{border-bottom:0}.nivel-etiqueta{font-size:11px;font-weight:700;
@@ -26,6 +27,7 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);display:fle
 .estado-ok{color:var(--success);background:var(--surface-alt)}
 .estado-advertencia{color:#7A5400;background:#FFF3CD}
 .estado-error{color:var(--danger);background:#FBE4E4}
+.progreso-panel{margin-bottom:var(--space-3)}
 .progreso-cabecera{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .pct{font:700 15px 'Sora';color:var(--primary)}
 .progreso-ayuda{font-size:11px;color:var(--text-muted);text-align:right}
@@ -33,23 +35,18 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);display:fle
   overflow:hidden;border:1px solid var(--border);margin:8px 0 var(--space-3)}
 .barra>span{display:block;height:100%;width:0;background:var(--primary);
   border-radius:var(--radius-full);transition:width .35s var(--ease-in)}
-.lista{max-height:230px;overflow:auto;font-size:12.5px;margin-bottom:var(--space-3)}
+.lista{max-height:210px;overflow:auto;font-size:12px;margin-bottom:var(--space-3);
+  border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
 .item{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:7px;align-items:center;
-  padding:6px 4px;border-bottom:1px solid var(--surface-alt)}
+  padding:5px 9px;border-bottom:1px solid var(--surface-alt)}
 .item .ic{text-align:center;font-weight:700}.item .estado-item{font-size:9px;font-weight:700;
   letter-spacing:.03em}.item.estado-ok .ic,.item.estado-ok .estado-item{color:var(--success)}
 .item.estado-error .ic,.item.estado-error .estado-item{color:var(--danger)}
 .item.estado-ejecutando .ic,.item.estado-ejecutando .estado-item{color:var(--primary)}
 .item.estado-advertencia .ic,.item.estado-advertencia .estado-item{color:#7A5400}
 .item.estado-pendiente .ic,.item.estado-pendiente .estado-item{color:var(--text-muted)}
-.salud{background:var(--surface-alt)}.salud-grid{display:grid;grid-template-columns:repeat(4,1fr);
-  gap:6px;margin:8px 0}.salud-card{background:var(--surface);border:1px solid var(--border);
-  border-radius:8px;padding:7px;text-align:center}.salud-card b{display:block;font-size:11px}
-.salud-card span{font-size:11px;color:var(--text-muted)}
-.salud-acciones,.acciones{display:flex;flex-wrap:wrap;gap:7px}.salud-acciones .btn{flex:1;
-  justify-content:center;font-size:11px;padding:6px}.salud-msg{font-size:11px;
-  color:var(--text-secondary);min-height:15px}
-.diagnostico{display:none}.diagnostico h2{font:700 14px 'Sora';margin:0}
+.acciones{display:flex;flex-wrap:wrap;gap:7px}
+.diagnostico h2{font:700 14px 'Sora';margin:0}
 .diagnostico-cabecera{display:flex;justify-content:space-between;gap:10px;align-items:center;
   margin-bottom:8px}.diagnostico-tabla{display:grid;gap:0;border:1px solid var(--border);
   border-radius:8px;overflow:hidden}.diag-fila{display:grid;grid-template-columns:120px minmax(0,1fr) auto;
@@ -57,29 +54,36 @@ body{font-size:15px;padding:var(--space-5);background:var(--surface);display:fle
   border-bottom:1px solid var(--surface-alt)}.diag-fila:last-child{border-bottom:0}
 .diag-fila b{font-size:11px}.diag-valor{font-size:11px;color:var(--text-secondary);
   overflow-wrap:anywhere}.diag-resumen{font-size:11px;color:var(--text-secondary);line-height:1.45;
-  margin:8px 0 0}.preparacion{display:none;margin-bottom:var(--space-3)}
+  margin:8px 0 0}.diagnostico details{font-size:11px;margin-top:9px;color:var(--text-secondary)}
+.diagnostico summary{cursor:pointer;font-weight:700}.diagnostico pre{white-space:pre-wrap;
+  overflow-wrap:anywhere;max-height:190px;overflow:auto;background:var(--surface-alt);
+  border:1px solid var(--border);border-radius:6px;padding:8px}.preparacion{margin-bottom:var(--space-3)}
 .acciones .btn{flex:1;min-width:125px;justify-content:center}.acciones-secundarias{margin-top:7px}
-#btnCancelarWrap{display:none;margin-bottom:var(--space-3)}#btnCancelarWrap .btn{width:100%;justify-content:center}
-.error-panel{display:none;border-color:var(--danger);background:#FFF8F8}.error-panel h2{font:700 16px 'Sora';
+#btnCancelarWrap{margin-bottom:var(--space-3)}#btnCancelarWrap .btn{width:100%;justify-content:center}
+.error-panel{border-color:var(--danger);background:#FFF8F8}.error-panel h2{font:700 16px 'Sora';
   margin:0 0 5px;color:var(--danger)}.error-panel p{font-size:12px;line-height:1.45;margin:4px 0}
 .error-panel details{font-size:11px;margin:10px 0;color:var(--text-secondary)}
 .error-panel summary{cursor:pointer;font-weight:700}.error-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;
   background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px}
-.final{display:none;text-align:center}.final .big-check{font-size:42px;color:var(--success);line-height:1}
+.final{text-align:center}.final .big-check{font-size:42px;color:var(--success);line-height:1}
 .final h2{font:700 19px 'Sora';margin:7px 0 2px}.final .ver{font:600 12px 'Inter';
   color:var(--text-secondary)}.resumen-final{display:grid;grid-template-columns:repeat(3,1fr);
   gap:6px;margin:12px 0}.resumen-final div{border:1px solid var(--border);border-radius:8px;
   padding:8px;background:var(--surface-alt)}.resumen-final b{display:block;font:700 18px 'Sora'}
 .resumen-final span{font-size:10px;color:var(--text-muted)}.final .pruebas{font-size:11px;
-  color:var(--text-secondary);line-height:1.5}.duracion{font-size:11px;color:var(--text-muted);
-  margin-top:6px}.aviso-final{background:#FFF3CD;color:#664D03;border-radius:var(--radius-md);
-  padding:8px 12px;font-size:11px;margin-top:var(--space-3);display:none;text-align:left}
+  color:var(--text-secondary);line-height:1.5}.meta-final{display:grid;grid-template-columns:1fr 1fr;
+  gap:6px;margin-top:10px;text-align:left}.meta-final div{border-top:1px solid var(--surface-alt);
+  padding:7px 2px}.meta-final b{display:block;font-size:10px;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--text-muted)}.meta-final span{font-size:11px;
+  color:var(--text-secondary);overflow-wrap:anywhere}.aviso-final{background:#FFF3CD;color:#664D03;
+  border-radius:var(--radius-md);padding:8px 12px;font-size:11px;margin-top:var(--space-3);text-align:left}
 .botones{display:flex;gap:8px;margin-top:var(--space-3)}.botones .btn{flex:1;justify-content:center}
 .pie{text-align:center;font-size:11px;color:var(--text-muted);margin-top:auto;padding-top:var(--space-3)}
 body[aria-busy="true"] .barra>span{background:var(--primary)}
-@media(max-width:540px){.salud-grid{grid-template-columns:1fr 1fr}.nivel{grid-template-columns:92px minmax(0,1fr)}
+.bloque-vista[hidden],#finAvisos[hidden],#btnPresentacion[hidden],#btnReparar[hidden]{display:none!important}
+@media(max-width:540px){.nivel{grid-template-columns:92px minmax(0,1fr)}
   .nivel .estado-chip{grid-column:2;justify-self:start}.diag-fila{grid-template-columns:90px minmax(0,1fr)}
-  .diag-estado{grid-column:2;justify-self:start}.resumen-final{grid-template-columns:1fr}}
+  .diag-estado{grid-column:2;justify-self:start}.resumen-final,.meta-final{grid-template-columns:1fr}}
 </style>
 </head>
 <body data-acceso="<?= TOKEN_ACCESO ?>" data-portal="<?= PORTAL_URL ?>" aria-busy="false">
@@ -89,7 +93,7 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
   <div class="sub">Instalar o reparar el sistema</div>
 </div>
 
-<section class="estado-panel" id="etapaActual" aria-live="polite" aria-label="Progreso de instalación">
+<section class="estado-panel bloque-vista" id="etapaActual" aria-live="polite" aria-label="Progreso de instalación" hidden>
   <div class="nivel">
     <span class="nivel-etiqueta">Estado general</span>
     <div class="nivel-contenido"><b id="estadoGeneralNombre">Listo para diagnosticar</b><span id="estadoGeneralDetalle">No se han realizado cambios.</span></div>
@@ -107,27 +111,15 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
   </div>
 </section>
 
-<div class="progreso-cabecera">
-  <div class="pct" id="pct">0 %</div>
-  <div class="progreso-ayuda" id="progresoAyuda">El porcentaje avanza solo al completar trabajo real.</div>
+<div class="progreso-panel bloque-vista" id="progresoPanel" hidden>
+  <div class="progreso-cabecera">
+    <div class="pct" id="pct">0 %</div>
+    <div class="progreso-ayuda" id="progresoAyuda">El porcentaje avanza solo al completar trabajo real.</div>
+  </div>
+  <div class="barra" id="barra" role="progressbar" aria-label="Avance de la instalación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fill"></span></div>
 </div>
-<div class="barra" id="barra" role="progressbar" aria-label="Avance de la instalación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fill"></span></div>
 
-<section class="salud" aria-live="polite">
-  <div class="salud-msg" id="saludMsg">Consultando estado operativo…</div>
-  <div class="salud-grid">
-    <div class="salud-card"><b>Datos</b><span id="saludDatos">—</span></div>
-    <div class="salud-card"><b>Integridad</b><span id="saludIntegridad">—</span></div>
-    <div class="salud-card"><b>Ingreso</b><span id="saludIngreso">—</span></div>
-    <div class="salud-card"><b>Respaldo</b><span id="saludBackup">—</span></div>
-  </div>
-  <div class="salud-acciones">
-    <button class="btn btn-ghost" id="btnSalud" data-action="principal" onclick="cargarSalud(true,this)">Auditoría profunda</button>
-    <button class="btn btn-sec" id="btnReparar" data-action="principal" onclick="repararIntegridad(this)">Reparar derivados</button>
-  </div>
-</section>
-
-<section class="diagnostico" id="diagnosticoPanel" aria-labelledby="diagnosticoTitulo">
+<section class="diagnostico bloque-vista" id="diagnosticoPanel" aria-labelledby="diagnosticoTitulo">
   <div class="diagnostico-cabecera">
     <h2 id="diagnosticoTitulo">Diagnóstico previo</h2>
     <button class="btn btn-ghost" id="btnDiagnosticar" data-action="principal" onclick="cargarDiagnostico(this)">Diagnosticar</button>
@@ -139,26 +131,33 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
     <div class="diag-fila" role="row"><b role="rowheader">Ingreso manual</b><span class="diag-valor" id="diagIngreso">—</span><span class="diag-estado estado-pendiente" id="diagIngresoEstado">PENDIENTE</span></div>
     <div class="diag-fila" role="row"><b role="rowheader">Integridad</b><span class="diag-valor" id="diagIntegridad">—</span><span class="diag-estado estado-pendiente" id="diagIntegridadEstado">PENDIENTE</span></div>
     <div class="diag-fila" role="row"><b role="rowheader">Presentación</b><span class="diag-valor" id="diagPresentacion">—</span><span class="diag-estado estado-pendiente" id="diagPresentacionEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Paridad INGRESO</b><span class="diag-valor" id="diagParidadIngreso">—</span><span class="diag-estado estado-pendiente" id="diagParidadIngresoEstado">PENDIENTE</span></div>
+    <div class="diag-fila" role="row"><b role="rowheader">Paridad SECTOR</b><span class="diag-valor" id="diagParidadSector">—</span><span class="diag-estado estado-pendiente" id="diagParidadSectorEstado">PENDIENTE</span></div>
     <div class="diag-fila" role="row"><b role="rowheader">INICIO</b><span class="diag-valor" id="diagInicio">—</span><span class="diag-estado estado-pendiente" id="diagInicioEstado">PENDIENTE</span></div>
   </div>
   <p class="diag-resumen" id="diagResumen">Revisando el estado del sistema…</p>
+  <details id="diagTecnicoWrap">
+    <summary>Detalle técnico</summary>
+    <pre id="diagTecnico">Diagnóstico aún no disponible.</pre>
+  </details>
 </section>
 
-<div class="preparacion" id="preparacion">
+<div class="preparacion bloque-vista" id="preparacion">
   <div class="acciones">
-    <button class="btn btn-pri" id="btnIniciar" data-action="principal" onclick="iniciarInstalacion()">Instalar / reparar</button>
-    <button class="btn btn-sec" id="btnPresentacion" data-action="principal" onclick="repararPresentacion()">Reparar presentación</button>
+    <button class="btn btn-pri" id="btnIniciar" data-action="principal" onclick="iniciarInstalacion()" disabled>Instalar / reparar</button>
+    <button class="btn btn-sec" id="btnPresentacion" data-action="principal" onclick="repararPresentacion()" disabled>Reparar presentación</button>
   </div>
   <div class="acciones acciones-secundarias">
+    <button class="btn btn-ghost" id="btnReparar" data-action="principal" onclick="repararIntegridad(this)" hidden>Reparar derivados</button>
     <button class="btn btn-ghost" data-action="principal" onclick="cerrarVista()">Cerrar</button>
   </div>
 </div>
 
-<div id="btnCancelarWrap">
+<div class="bloque-vista" id="btnCancelarWrap" hidden>
   <button class="btn btn-ghost" id="btnCancelar" onclick="cancelarInstalacion()">Detener después de esta subtarea</button>
 </div>
 
-<section class="error-panel" id="errorPanel" role="alert" aria-labelledby="errorTitulo">
+<section class="error-panel bloque-vista" id="errorPanel" role="alert" aria-labelledby="errorTitulo" hidden>
   <h2 id="errorTitulo">No se pudo completar la operación.</h2>
   <p id="errorResumen">La ejecución se detuvo sin continuar con las fases siguientes.</p>
   <p id="errorSubtarea"></p>
@@ -172,9 +171,9 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
   </div>
 </section>
 
-<div class="lista" id="lista" aria-label="Fases de instalación"></div>
+<div class="lista bloque-vista" id="lista" aria-label="Fases de instalación" hidden></div>
 
-<section class="final" id="final" aria-live="polite">
+<section class="final bloque-vista" id="final" aria-live="polite" hidden>
   <div class="big-check" aria-hidden="true">✓</div>
   <h2 id="finTitulo">INSTALACIÓN COMPLETADA</h2>
   <div class="ver" id="finVer"></div>
@@ -184,9 +183,13 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
     <div><b id="finError">0</b><span>errores</span></div>
   </div>
   <div class="pruebas" id="finDatos"></div>
-  <div class="duracion" id="finDuracion"></div>
-  <div class="aviso-final" id="finAvisos"></div>
+  <div class="meta-final">
+    <div><b>Duración</b><span id="finDuracion">—</span></div>
+    <div><b>Respaldo</b><span id="finBackup">—</span></div>
+  </div>
+  <div class="aviso-final" id="finAvisos" hidden></div>
   <div class="botones">
+    <button class="btn btn-pri" data-action="principal" id="btnRetryPresentacion" onclick="repararPresentacion()" hidden>Reintentar presentación</button>
     <button class="btn btn-sec" data-action="principal" onclick="cargarDiagnostico(this)">Diagnosticar de nuevo</button>
     <button class="btn btn-pri" data-action="principal" onclick="cerrarVista()">Cerrar</button>
   </div>
@@ -198,7 +201,7 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
 <script>
 var ETAPAS=[],RESULTADOS=[],ERRORES=[],AVISOS=[],META={},_DIAGNOSTICO=null,_ULTIMA_SALUD=null;
 var _CANCELADO=false,_enCurso=false,_EJEC='',_MODO='instalacion',_INICIO_MS=0,_DURACIONES={};
-var _ULTIMO_ERROR=null,_IX_ACTUAL=-1,_BLOQUEO='';
+var _ULTIMO_ERROR=null,_IX_ACTUAL=-1,_BLOQUEO='',_RESPALDO='';
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
 var ESTADOS={
@@ -213,6 +216,24 @@ function porId(id){return document.getElementById(id);}
 function texto(id,valor){var el=porId(id);if(el)el.textContent=valor===undefined||valor===null?'':String(valor);}
 function nuevoEjecucion(){return 'INST-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1296).toString(36);}
 function seguroNumero(v,alterno){v=Number(v);return isFinite(v)?v:(alterno||0);}
+
+var BLOQUES_VISTA=['etapaActual','progresoPanel','diagnosticoPanel','preparacion',
+  'errorPanel','lista','final','btnCancelarWrap'];
+var VISTAS_INSTALADOR={
+  inicial:['diagnosticoPanel','preparacion'],
+  ejecucion:['etapaActual','progresoPanel','lista','btnCancelarWrap'],
+  error:['etapaActual','progresoPanel','errorPanel','lista'],
+  final:['final']
+};
+
+/** Mantiene una sola jerarquía visible: diagnóstico, ejecución, error o final. */
+function establecerVista(vista){
+  vista=VISTAS_INSTALADOR[vista]?vista:'inicial';
+  var visibles=VISTAS_INSTALADOR[vista];
+  BLOQUES_VISTA.forEach(function(id){var el=porId(id);if(el)el.hidden=visibles.indexOf(id)===-1;});
+  document.body.setAttribute('data-vista',vista);
+  return vista;
+}
 
 function aplicarEstadoChip(id,estado){
   estado=ESTADOS[estado]?estado:'PENDIENTE';
@@ -266,7 +287,6 @@ function bloquearAcciones(bloquear){
   _enCurso=!!bloquear;document.body.setAttribute('aria-busy',bloquear?'true':'false');
   Array.prototype.forEach.call(document.querySelectorAll('[data-action="principal"]'),function(btn){btn.disabled=!!bloquear;});
   if(!bloquear)aplicarBloqueoAcciones();
-  porId('btnCancelarWrap').style.display=bloquear?'block':'none';
 }
 
 function aplicarBloqueoAcciones(){
@@ -284,6 +304,17 @@ function detalleAdvertencia(r){
   r=r||{};
   if(r.avisos&&r.avisos.length)return r.avisos.join(', ');
   if(r.advertencias&&r.advertencias.length)return r.advertencias.join(', ');
+  if(r.verificacion&&r.verificacion.ok===false){
+    var v=r.verificacion;
+    var partes=[];
+    if(v.pendientes)partes.push(v.pendientes+' ajustes de presentación pendientes');
+    if(v.paridadIngreso&&!v.paridadIngreso.ok)partes.push('paridad INGRESO divergente');
+    if(v.paridadSector&&!v.paridadSector.ok)partes.push('paridad SECTOR divergente');
+    if(v.inicio&&!v.inicio.ok)partes.push('INICIO con diferencias: '+
+      (Array.isArray(v.inicio.diferencias)?v.inicio.diferencias.length+'':'desconocidas'));
+    if(!partes.length)partes.push('presentación incompleta');
+    return partes.join(' · ');
+  }
   return r.linea||r.motivo||'Advertencia';
 }
 
@@ -321,6 +352,52 @@ function pintarDiagnostico(id,valor,estado){
   texto('diag'+id,valor||'—');aplicarEstadoChip('diag'+id+'Estado',estado||'PENDIENTE');
 }
 
+function contarDiferenciasVisuales(valor){
+  if(Array.isArray(valor))return valor.length;
+  if(valor&&typeof valor==='object')return contarDiferenciasVisuales(valor.diferencias);
+  var n=Number(valor);return isFinite(n)&&n>0?Math.floor(n):0;
+}
+
+function resumenParidadOk(p){
+  if(!p||p.ok===undefined)return false;
+  if(p.ok===true)return true;
+  return contarDiferenciasVisuales(p)===0&&p.cantidadDiferencias===0;
+}
+function resumenParidadTexto(p){
+  if(!p)return 'sin diagnóstico';
+  var n=typeof p.cantidadDiferencias==='number'?p.cantidadDiferencias:contarDiferenciasVisuales(p);
+  if(p.convergen!==undefined)return p.convergen?'convergente':n+(n===1?' diferencia':' diferencias');
+  return n?(n==='1'?1:n)+' '+(n===1?'diferencia':'diferencias'):'convergente';
+}
+
+/** Normaliza el contrato profundo v0.13 y conserva fallback v0.12.2. */
+function resumenVisualDiagnostico(d){
+  d=d||{};var pres=d.presentacion||{},prof=d.visualProfundo||{};
+  var disponible=prof.disponible!==false&&(prof.diferencias!==undefined||prof.paridad||prof.inicio);
+  if(disponible){
+    var ingreso=contarDiferenciasVisuales(prof.paridad&&prof.paridad.ingreso);
+    var sector=contarDiferenciasVisuales(prof.paridad&&prof.paridad.sector);
+    var inicio=contarDiferenciasVisuales(prof.inicio);
+    var total=contarDiferenciasVisuales(prof.diferencias);
+    if(!total)total=ingreso+sector+inicio;
+    return {disponible:true,total:total,ingreso:ingreso,sector:sector,inicio:inicio,
+      ok:prof.ok===true||total===0,texto:total+' '+(total===1?'diferencia':'diferencias')};
+  }
+  var pendientes=seguroNumero(pres.hojasPendientes,0),correctas=seguroNumero(pres.hojasCorrectas,0);
+  return {disponible:false,total:pendientes,ingreso:0,sector:0,inicio:0,ok:pendientes===0,
+    texto:pendientes?pendientes+' hojas con ajustes':correctas+' hojas correctas'};
+}
+
+function detalleTecnicoDiagnostico(d,salud){
+  d=d||{};salud=salud||{};
+  return JSON.stringify({
+    versionado:d.versionado||null,
+    presentacion:d.visualProfundo||d.presentacion||null,
+    pendientes:d.resumen&&d.resumen.fasesPendientes||[],
+    salud:{estado:salud.estado||'',avisos:salud.avisos||[]}
+  },null,2);
+}
+
 function renderDiagnostico(){
   var d=_DIAGNOSTICO||{},salud=_ULTIMA_SALUD||{},ver=d.versionado||{},tr=d.triggers||{},pres=d.presentacion||{};
   var version=META.version||VER||'—';pintarDiagnostico('Version',version,'OK');
@@ -337,15 +414,27 @@ function renderDiagnostico(){
   var integ=salud.integridad||{};
   pintarDiagnostico('Integridad',integ.ok===true?'correcta':(integ.ok===false?'requiere revisión':'sin diagnóstico'),
     integ.ok===true?'OK':(integ.ok===false?'ADVERTENCIA':'PENDIENTE'));
-  var pendientes=seguroNumero(pres.hojasPendientes,0),correctas=seguroNumero(pres.hojasCorrectas,0);
-  var hayPres=pres.hojasPendientes!==undefined||pres.hojasCorrectas!==undefined;
-  pintarDiagnostico('Presentacion',hayPres?(pendientes?pendientes+' hojas con ajustes':correctas+' hojas correctas'):'sin diagnóstico',
-    hayPres?(pendientes?'ADVERTENCIA':'OK'):'PENDIENTE');
+  var visual=resumenVisualDiagnostico(d);
+  var hayPres=visual.disponible||pres.hojasPendientes!==undefined||pres.hojasCorrectas!==undefined;
+  pintarDiagnostico('Presentacion',hayPres?visual.texto:'sin diagnóstico',
+    hayPres?(visual.ok?'OK':'ADVERTENCIA'):'PENDIENTE');
+  var prof=d.visualProfundo||{};
+  var pi=prof.paridad&&prof.paridad.ingreso,ps=prof.paridad&&prof.paridad.sector;
+  pintarDiagnostico('ParidadIngreso',pi?resumenParidadTexto(pi):'sin diagnóstico',
+    pi?(resumenParidadOk(pi)?'OK':'ADVERTENCIA'):'PENDIENTE');
+  pintarDiagnostico('ParidadSector',ps?resumenParidadTexto(ps):'sin diagnóstico',
+    ps?(resumenParidadOk(ps)?'OK':'ADVERTENCIA'):'PENDIENTE');
   var existentes=d.estructura&&d.estructura.existentes||[];
   var inicioOk=Array.isArray(existentes)&&existentes.indexOf('INICIO')!==-1;
-  var inicioPropio=d.inicio||null;
+  var inicioPropio=(d.visualProfundo&&d.visualProfundo.inicio)||d.inicio||null;
   if(inicioPropio&&inicioPropio.ok!==undefined)inicioOk=inicioPropio.ok===true;
-  pintarDiagnostico('Inicio',inicioOk?'presente':'requiere revisión',inicioOk?'OK':'ADVERTENCIA');
+  var diferenciasInicio=contarDiferenciasVisuales(inicioPropio);
+  pintarDiagnostico('Inicio',inicioOk?'correcta':(diferenciasInicio?diferenciasInicio+' diferencias':'requiere revisión'),inicioOk?'OK':'ADVERTENCIA');
+  texto('diagTecnico',detalleTecnicoDiagnostico(d,salud));
+  var btnPresentacion=porId('btnPresentacion');
+  if(btnPresentacion)btnPresentacion.hidden=hayPres&&visual.ok;
+  var btnReparar=porId('btnReparar');
+  if(btnReparar)btnReparar.hidden=integ.ok!==false;
 }
 
 function cancelarInstalacion(){
@@ -371,17 +460,8 @@ function cargarSalud(profundo,btn){
   if(_enCurso)return;var fin=btn?setLoading(btn,true,'Revisando…'):function(){};
   google.script.run.withSuccessHandler(function(r){
     fin();_ULTIMA_SALUD=r||null;
-    if(!r||r.motivo){texto('saludMsg','Estado no disponible: '+((r&&r.motivo)||'sin respuesta'));renderDiagnostico();return;}
-    texto('saludDatos',r.datos&&r.datos.ok?'OK':'ADVERTENCIA');
-    var integ=r.integridad||{};texto('saludIntegridad',integ.ok===true?'OK':(integ.ok===false?'ADVERTENCIA':'PENDIENTE'));
-    var estadoIngreso=r.automatizaciones&&r.automatizaciones.ingreso?r.automatizaciones.ingreso.estado:'';
-    var estadoBackup=r.automatizaciones&&r.automatizaciones.backup?r.automatizaciones.backup.estado:'';
-    texto('saludIngreso',estadoDeValor(estadoIngreso,true));
-    texto('saludBackup',estadoDeValor(estadoBackup,true));
-    var fecha=r.ultimaAuditoria&&r.ultimaAuditoria.fecha?' · auditoría '+new Date(r.ultimaAuditoria.fecha).toLocaleString('es-CL'):'';
-    texto('saludMsg','Estado: '+(r.estado||'PENDIENTE')+fecha+((r.avisos&&r.avisos.length)?' · '+r.avisos.join(', '):''));
     renderDiagnostico();
-  }).withFailureHandler(function(e){fin();texto('saludMsg','Error de diagnóstico: '+(e&&e.message||e));})
+  }).withFailureHandler(function(e){fin();_ULTIMA_SALUD={motivo:e&&e.message||String(e)};renderDiagnostico();})
     .api_sistemaEstadoSalud({profundo:!!profundo},ECICEP_ACCESO);
 }
 
@@ -392,16 +472,14 @@ function repararIntegridad(btn){
   var fin=setLoading(btn,true,'Reparando…');
   google.script.run.withSuccessHandler(function(r){
     fin();bloquearAcciones(false);
-    texto('saludMsg',r&&r.ok?'Reparación verificada. Acciones: '+((r.acciones||[]).join(', ')||'ninguna necesaria')
-      :'Reparación pendiente: '+((r&&(r.motivo||r.detalle))||'revise el diagnóstico'));
     cargarSalud(true);cargarDiagnostico();
-  }).withFailureHandler(function(e){fin();bloquearAcciones(false);texto('saludMsg','Error: '+(e&&e.message||e));})
+  }).withFailureHandler(function(e){fin();bloquearAcciones(false);_ULTIMA_SALUD={motivo:e&&e.message||String(e)};cargarDiagnostico();})
     .api_integridadReparar(ECICEP_ACCESO);
 }
 
 function cargarDiagnostico(btn){
   if(_enCurso)return;var fin=btn?setLoading(btn,true,'Diagnosticando…'):function(){};
-  porId('diagnosticoPanel').style.display='block';texto('diagResumen','Revisando el estado del sistema…');
+  establecerVista('inicial');texto('diagResumen','Revisando el estado del sistema…');
   cargarSalud(false);
   google.script.run.withSuccessHandler(function(r){
     fin();_DIAGNOSTICO=r&&r.diagnostico?r.diagnostico:null;
@@ -409,24 +487,26 @@ function cargarDiagnostico(btn){
     _BLOQUEO=_DIAGNOSTICO&&_DIAGNOSTICO.versionado?_DIAGNOSTICO.versionado.bloqueo||'':'';
     if(r&&r.motivo==='ACCESO_DENEGADO')_BLOQUEO='ACCESO_DENEGADO';
     aplicarBloqueoAcciones();
-    texto('diagResumen',pendientes
-      ? (_BLOQUEO?'Instalación bloqueada por esquema incompatible: '+_BLOQUEO+'. Requiere revisión técnica.'
-        : pendientes.length?'Se detectaron '+pendientes.length+' áreas que requieren atención: '+pendientes.join('; ')+'.'
-        :'El sistema está al día. La reparación selectiva seguirá comprobando cada propiedad antes de escribir.')
-      : r&&r.motivo==='ACCESO_DENEGADO'?'El enlace de acceso no es válido. Solicita uno actualizado desde Captura.'
-      :'No se pudo completar el diagnóstico. Puedes volver a intentarlo.');
-    renderDiagnostico();porId('preparacion').style.display='block';
+    var visual=resumenVisualDiagnostico(_DIAGNOSTICO||{});
+    var mensajeDiagnostico='No se pudo completar el diagnóstico. Puedes volver a intentarlo.';
+    if(_BLOQUEO)mensajeDiagnostico='Instalación bloqueada por esquema incompatible: '+_BLOQUEO+'. Requiere revisión técnica.';
+    else if(Array.isArray(pendientes)){
+      if(visual.total)mensajeDiagnostico='Presentación: '+visual.texto+'. Se repararán únicamente las diferencias detectadas.';
+      else if(pendientes.length)mensajeDiagnostico=pendientes.length+' comprobaciones requieren atención. Abre el detalle técnico para revisarlas.';
+      else mensajeDiagnostico='El sistema está al día. Cada reparación comprobará el estado antes de escribir.';
+    }else if(r&&r.motivo==='ACCESO_DENEGADO')mensajeDiagnostico='El enlace de acceso no es válido. Solicita uno actualizado desde Captura.';
+    texto('diagResumen',mensajeDiagnostico);
+    renderDiagnostico();
   }).withFailureHandler(function(e){
     fin();texto('diagResumen','Diagnóstico no disponible: '+(e&&e.message||e));
-    porId('preparacion').style.display='block';renderDiagnostico();
+    renderDiagnostico();
   }).api_instalarDiagnostico(ECICEP_ACCESO);
 }
 
 function reiniciarEjecucion(modo){
   _MODO=modo||'instalacion';_CANCELADO=false;RESULTADOS=[];ERRORES=[];AVISOS=[];
-  _EJEC=nuevoEjecucion();_INICIO_MS=Date.now();_DURACIONES={};_ULTIMO_ERROR=null;_IX_ACTUAL=-1;
-  porId('final').style.display='none';porId('errorPanel').style.display='none';
-  porId('finAvisos').style.display='none';porId('btnCancelar').disabled=false;
+  _EJEC=nuevoEjecucion();_INICIO_MS=Date.now();_DURACIONES={};_ULTIMO_ERROR=null;_IX_ACTUAL=-1;_RESPALDO='';
+  porId('finAvisos').hidden=true;porId('btnCancelar').disabled=false;establecerVista('ejecucion');
   bloquearAcciones(true);texto('pie','Espera a que termine la subtarea actual antes de cerrar.');
 }
 
@@ -461,6 +541,7 @@ function llamarPaso(etapa,ix){
   var inicioRpc=Date.now();
   google.script.run.withSuccessHandler(function(r){
     registrarDuracion(etapa.id,r,inicioRpc);
+    if(r&&r.respaldo)_RESPALDO=r.respaldo;
     if(_CANCELADO){terminarCancelacion();return;}
     if(!r||r.ok===false){fallarEtapa(etapa,ix,r||{},null);return;}
     if(r.continuar===true){
@@ -485,13 +566,14 @@ function repararPresentacion(){
   setEstadoGeneral('EJECUTANDO','Reparando presentación','Se revisarán solo las propiedades visuales administradas por ECICEP.');
   setFase(ix,etapa,'EJECUTANDO');setSubtarea({nombre:'Iniciando revisión selectiva'},null,'EJECUTANDO');
   establecerProgreso(0,'Avance real de las subtareas de presentación.');
-  llamarPresentacion(etapa,ix,true);
+  llamarPresentacion(etapa,ix,false);
 }
 
 function llamarPresentacion(etapa,ix,forzar){
   var inicioRpc=Date.now();
   google.script.run.withSuccessHandler(function(r){
     registrarDuracion(etapa.id,r,inicioRpc);
+    if(r&&r.respaldo)_RESPALDO=r.respaldo;
     if(_CANCELADO){terminarCancelacion();return;}
     if(!r||r.ok===false){fallarEtapa(etapa,ix,r||{},null);return;}
     if(r.continuar===true){
@@ -499,7 +581,7 @@ function llamarPresentacion(etapa,ix,forzar){
       establecerProgreso(fraccionRetornada(r)*100,'Avance real de las subtareas de presentación.');
       llamarPresentacion(etapa,ix,false);return;
     }
-    var aviso=respuestaEsAdvertencia(r);
+    var aviso=respuestaEsAdvertencia(r)||!!(r&&r.verificacion&&r.verificacion.ok===false);
     if(aviso)AVISOS.push({nombre:etapa.nombre,motivo:detalleAdvertencia(r)});
     RESULTADOS.push(r);marcar(etapa.id,aviso?'ADVERTENCIA':'OK');setFase(ix,etapa,aviso?'ADVERTENCIA':'OK');
     setSubtarea({nombre:'Revisión completada'},null,aviso?'ADVERTENCIA':'OK');establecerProgreso(100,'Presentación revisada.');
@@ -518,16 +600,27 @@ function fallarEtapa(etapa,ix,r,e){
   setSubtarea(sub||{nombre:'Subtarea interrumpida'},r&&r.progreso,'ERROR');
   setEstadoGeneral('ERROR','Reparación interrumpida','No se ejecutaron las fases siguientes.');
   texto('errorTitulo','No se pudo completar “'+(etapa.nombre||'esta fase')+'”.');
-  texto('errorResumen','La ejecución quedó guardada para reintentar exactamente el trabajo interrumpido.');
+  texto('errorResumen',mensajeErrorHumano(motivo));
   texto('errorSubtarea',sub&&sub.nombre?'Subtarea: '+sub.nombre:'');texto('errorTecnico',motivo);
-  porId('errorPanel').style.display='block';bloquearAcciones(false);porId('btnCancelarWrap').style.display='none';
+  bloquearAcciones(false);establecerVista('error');
   texto('pie','Revisa el detalle técnico o reintenta la misma subtarea.');
+}
+
+function mensajeErrorHumano(motivo){
+  var m=String(motivo||'');
+  if(m.indexOf('CONCURRENCIA')!==-1||m.indexOf('LOCK_')!==-1)
+    return 'Otro proceso está usando el libro. Espera unos segundos y reintenta esta subtarea.';
+  if(m.indexOf('BACKUP')!==-1)
+    return 'No se pudo asegurar el respaldo previo. No se aplicaron cambios en esta subtarea.';
+  if(m.toLowerCase().indexOf('combinad')!==-1||m.toLowerCase().indexOf('inmoviliz')!==-1)
+    return 'La estructura visual de una hoja impidió completar el formato. Puedes reintentar exactamente esta subtarea.';
+  return 'La ejecución se detuvo de forma segura. Puedes reintentar exactamente la subtarea interrumpida.';
 }
 
 function reintentarUltimoError(){
   if(_enCurso||!_ULTIMO_ERROR)return;var er=_ULTIMO_ERROR;
-  ERRORES=ERRORES.filter(function(x){return x!==er;});porId('errorPanel').style.display='none';
-  bloquearAcciones(true);setEstadoGeneral('EJECUTANDO','Reintentando','Se conserva la ejecución, el cursor y el respaldo existente.');
+  ERRORES=ERRORES.filter(function(x){return x!==er;});
+  bloquearAcciones(true);establecerVista('ejecucion');setEstadoGeneral('EJECUTANDO','Reintentando','Se conserva la ejecución, el cursor y el respaldo existente.');
   marcar(er.etapa.id,'EJECUTANDO');setFase(er.ix,er.etapa,'EJECUTANDO');
   setSubtarea(er.subetapa||{nombre:'Reintentando subtarea'},null,'EJECUTANDO');
   if(er.modo==='presentacion')llamarPresentacion(er.etapa,er.ix,false);else llamarPaso(er.etapa,er.ix);
@@ -543,33 +636,53 @@ function resumenResultado(){
   var mig=RESULTADOS.filter(function(x){return x.etapa==='migraciones';})[0];
   var visual=RESULTADOS.filter(function(x){return x.etapa==='visual';})[0];
   var integ=RESULTADOS.filter(function(x){return x.etapa==='integridad';})[0];
-  var backup=RESULTADOS.filter(function(x){return x.respaldo;})[0];
   if(datos&&datos.pacientes!==undefined)partes.push('Pacientes: '+datos.pacientes+' · Eventos: '+(datos.eventos||0));
   if(datos&&datos.schemaVersion)partes.push('Schema: '+datos.schemaVersion+(datos.esquemaOK?' ✓':' · '+(datos.estado||'REVISAR')));
   if(visual&&visual.hojas)partes.push('Presentación: '+visual.hojas.length+' hojas revisadas');
-  if(backup&&backup.respaldo)partes.push('Backup: '+backup.respaldo);
   if(integ&&integ.linea)partes.push('Integridad: '+integ.linea);
   if(mig)partes.push('Migraciones: '+((mig.aplicadas&&mig.aplicadas.length)?mig.aplicadas.join(', '):'sin pendientes'));
   var omitidas=RESULTADOS.filter(function(x){return x.omitida;}).length;if(omitidas)partes.push('Etapas omitidas: '+omitidas);
   return partes.join(' · ');
 }
 
+function resumenVerificacionIncompleta(v){
+  v=v||{};
+  var partes=[];
+  if(v.pendientes)partes.push(v.pendientes+' ajustes de celdas');
+  if(v.paridadIngreso&&!v.paridadIngreso.ok)partes.push('paridad INGRESO');
+  if(v.paridadSector&&!v.paridadSector.ok)partes.push('paridad SECTOR');
+  if(v.inicio&&!v.inicio.ok)partes.push('INICIO');
+  return partes.length?partes.join(', ')+' pendientes de convergencia':'presentación incompleta';
+}
+
 function mostrarFinal(ok){
-  if(!ok)return;bloquearAcciones(false);porId('btnCancelarWrap').style.display='none';
+  if(!ok)return;bloquearAcciones(false);
+  var pres=null;
+  RESULTADOS.forEach(function(x){if(!pres&&x.etapa==='diseno'&&x.verificacion)pres=x.verificacion;});
+  var incompleta=!!(pres&&pres.ok===false);
   var advertencias=AVISOS.length,errores=ERRORES.length,correctas=Math.max(RESULTADOS.length-advertencias,0);
-  setEstadoGeneral(advertencias?'ADVERTENCIA':'OK',_MODO==='presentacion'?'Presentación revisada':'Instalación completada',
-    advertencias?'Finalizó con avisos que requieren revisión.':'Todas las operaciones solicitadas terminaron.');
-  texto('finTitulo',_MODO==='presentacion'?'PRESENTACIÓN REVISADA':'INSTALACIÓN COMPLETADA');
+  var estadoFinal=advertencias||incompleta?'ADVERTENCIA':'OK';
+  var tituloFinal=_MODO==='presentacion'
+    ?(incompleta?'PRESENTACIÓN INCOMPLETA':'PRESENTACIÓN REVISADA')
+    :(incompleta?'INSTALACIÓN FUNCIONAL / PRESENTACIÓN INCOMPLETA':'INSTALACIÓN COMPLETADA');
+  var detalleFinal=incompleta
+    ?('La instalación quedó funcional, pero la presentación quedó incompleta: '+resumenVerificacionIncompleta(pres)+'. Pulsa «Reintentar presentación» para converger.')
+    :(advertencias?'Finalizó con avisos que requieren revisión.':'Todas las operaciones solicitadas terminaron.');
+  setEstadoGeneral(estadoFinal,_MODO==='presentacion'?'Presentación revisada':'Instalación completada',detalleFinal);
+  texto('finTitulo',tituloFinal);
   texto('finVer','ECICEP '+VER+' · Build '+BUILD);texto('finOk',correctas);texto('finWarn',advertencias);texto('finError',errores);
-  texto('finDatos',resumenResultado()||(_MODO==='presentacion'?'Las propiedades visuales administradas fueron revisadas.':'La verificación terminó sin métricas adicionales.'));
+  var base=resumenResultado()||(_MODO==='presentacion'?'Las propiedades visuales administradas fueron revisadas.':'La verificación terminó sin métricas adicionales.');
+  texto('finDatos',incompleta?'Presentación incompleta: '+resumenVerificacionIncompleta(pres)+' · '+base:base);
+  var btnRet=porId('btnRetryPresentacion');if(btnRet)btnRet.hidden=!incompleta;
   var total=Date.now()-_INICIO_MS,lenta='',msLenta=0;
   Object.keys(_DURACIONES).forEach(function(id){if(_DURACIONES[id]>msLenta){msLenta=_DURACIONES[id];lenta=id;}});
   var etapaLenta=ETAPAS.filter(function(e){return e.id===lenta;})[0];
-  texto('finDuracion','Duración total: '+duracionHumana(total)+(etapaLenta?' · Fase más lenta: '+etapaLenta.nombre+' ('+duracionHumana(msLenta)+')':''));
+  texto('finDuracion',duracionHumana(total)+(etapaLenta?' · Más lenta: '+etapaLenta.nombre+' ('+duracionHumana(msLenta)+')':''));
+  texto('finBackup',_RESPALDO||'No se creó uno nuevo');
   var av=porId('finAvisos');
-  if(AVISOS.length){av.style.display='block';av.textContent='⚠ Completado con avisos: '+AVISOS.map(function(x){return x.nombre+': '+x.motivo;}).join('; ');}
-  else av.style.display='none';
-  porId('final').style.display='block';texto('pie','Puedes cerrar o ejecutar un diagnóstico de confirmación.');
+  if(AVISOS.length){av.hidden=false;av.textContent='⚠ Completado con avisos: '+AVISOS.map(function(x){return x.nombre+': '+x.motivo;}).join('; ');}
+  else av.hidden=true;
+  establecerVista('final');texto('pie','Puedes cerrar o ejecutar un diagnóstico de confirmación.');
   if(typeof _refrescarIconos==='function')_refrescarIconos();
 }
 
@@ -578,6 +691,7 @@ function finalizar(){
   setSubtarea({nombre:'Proceso completado'},null,AVISOS.length?'ADVERTENCIA':'OK');mostrarFinal(true);
 }
 
+establecerVista('inicial');
 cargarEtapas();
 if(typeof _refrescarIconos==='function')_refrescarIconos();
 </script>

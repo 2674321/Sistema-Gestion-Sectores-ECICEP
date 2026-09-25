@@ -33,8 +33,12 @@ assert.ok(fn.indexOf('h.setFrozenRows(2); h.setFrozenColumns(0);') !== -1,
   'congela 2 filas al final');
 assert.ok(fn.indexOf('h.setFrozenRows(2)') > fn.indexOf('setFrozenRows(0)'),
   'el freeze final viene después del unlock inicial');
-assert.match(fn, /freeze:\s*\(typeof h\.getFrozenRows === 'function'\) && h\.getFrozenRows\(\) === 2/,
+const fnVerifica = src34.match(/function Inicio_verificar_\([\s\S]*?\n\}/)?.[0] || '';
+assert.ok(fnVerifica, 'Inicio_verificar_ existe');
+assert.match(fnVerifica, /ver\.freeze = h\.getFrozenRows\(\) === 2 && h\.getFrozenColumns\(\) === 0/,
   'verificación incluye freeze === 2');
+assert.match(fn, /var ver = Inicio_verificar_\(h\)/,
+  'Inicio_construir_ valida el estado final con la verificación estructural');
 ok('T1 fuente: unlock al inicio, escrituras en medio, freeze final y verificación');
 
 // --- Harness: hoja y rango falsos que registran el orden real de operaciones ---
@@ -125,6 +129,12 @@ c.Inicio_escribirMetricas_ = () => ({ ok: true });
 c.Libro_limpiarDirty_ = () => ({});
 c.WebApp_urlCaptura_ = () => '';
 c.WebApp_urlVista_ = () => '';
+// v0.13: Inicio_construir_ fuerza reconstrucción y audita al final con
+// Inicio_verificar_. Este harness evalúa el invariante de freezes (orden de
+// operaciones), no el audit estructural completo (cubierto por otras suites),
+// así que se fija la vía de construcción y se sinfesa la verificación final.
+c.Inicio_layoutVigente_ = () => false;
+c.Inicio_verificar_ = () => ({ ok: true, freeze: true, columnas: true, filas: true, fallos: [] });
 
 // --- T2/T3/T4/T5: escenario HEREDADO (hoja ya congelada en 2/1 y 10 filas) ---
 const hojaA = fabricarHoja({ frozenRows: 2, frozenCols: 1, maxRows: 10, maxCols: 5 });

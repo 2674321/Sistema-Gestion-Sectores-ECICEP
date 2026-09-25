@@ -84,7 +84,7 @@ assert.equal(c.Hojas_esProteccionEcicep_({ getDescription: () => 'ECICEP:generad
 
 // 15. INICIO: owner y secuencia unlock → escritura → freeze final; Modelo no congela.
 const inicioSrc = funcionFuente(ux, 'Inicio_construir_');
-const iUnlock = inicioSrc.indexOf('h.setFrozenRows(0)'), iWrite = inicioSrc.indexOf("h.getRange('A1:X2')"), iFreeze = inicioSrc.lastIndexOf('h.setFrozenRows(2)');
+const iUnlock = inicioSrc.indexOf('h.setFrozenRows(0)'), iWrite = inicioSrc.indexOf("getRange('A1:"), iFreeze = inicioSrc.lastIndexOf('h.setFrozenRows(2)');
 assert.ok(iUnlock >= 0 && iUnlock < iWrite && iWrite < iFreeze);
 const aplicarSrc = funcionFuente(modelo, 'Modelo_aplicarDiseno'); assert.match(aplicarSrc, /h\.getName\(\) !== 'INICIO'/); ok('INICIO conserva unlock→write→freeze 2/0 sin owner duplicado');
 
@@ -92,12 +92,27 @@ const aplicarSrc = funcionFuente(modelo, 'Modelo_aplicarDiseno'); assert.match(a
 const props = new Map();
 c.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props.get(k) || '', setProperty: (k,v) => props.set(k,v), deleteProperty: k => props.delete(k) }) };
 props.set(c.INICIO_LAYOUT_PROP, JSON.stringify({ version: c.INICIO_LAYOUT_VERSION, fingerprint: c.Inicio_fingerprintEsperado_() }));
-const titulo = 'ECICEP                                            v' + E('ECICEP.VERSION') + ' · Build ' + (c.ECICEP_BUILD.commit || 'dev');
+const titulo = 'ECICEP · CENTRO OPERATIVO · v' + E('ECICEP.VERSION');
+const version = 'v' + E('ECICEP.VERSION') + ' · Build ' + (c.ECICEP_BUILD.commit || 'dev');
 let mutacionesInicio = 0;
 const hi = { getFrozenRows: () => 2, getFrozenColumns: () => 0, getTabColor: () => E('DESIGN_SYSTEM.MARCA.sistemaProfundo'),
-  getRange: a1 => ({ getValue: () => a1 === 'A1' ? titulo : '', getFormula: () => a1 === 'A8' ? '=HYPERLINK("x";"CAPTURA")' : '', setValue: () => { mutacionesInicio++; } }),
-  setTabColor: () => { mutacionesInicio++; } };
+  getMaxRows: () => 60, getMaxColumns: () => 30, showRows: () => {}, showColumns: () => {}, setHiddenGridlines: () => {},
+  setColumnWidth: () => {}, setRowHeight: () => {},
+  getRange: a1 => ({
+    getValue: () => a1 === 'A1' ? titulo : a1 === 'Y1' ? version : '',
+    getFormula: () => a1 === 'A8' ? '=HYPERLINK("x";"ABRIR ECICEP")' : '',
+    setValue: () => { mutacionesInicio++; },
+    breakApart: () => {}, clear: () => {},
+    setBackground: function() { return this; }, setFontFamily: function() { return this; }, setFontColor: function() { return this; },
+    merge: function() { return this; }, setFontWeight: function() { return this; }, setFontSize: function() { return this; },
+    setHorizontalAlignment: function() { return this; }, setVerticalAlignment: function() { return this; },
+    setWrap: function() { return this; }, setBorder: function() { return this; }, setFormulas: () => {}, setNumberFormat: () => {}
+  }),
+  setTabColor: () => { mutacionesInicio++; },
+  setFrozenRows: () => {}, setFrozenColumns: () => {}, insertRowsAfter: () => {}, insertColumnsAfter: () => {} };
 c.Inicio_refrescarSiNecesario_ = () => ({ ok: true, omitida: true });
+c.Inicio_verificar_ = () => ({ ok: true, freeze: true, columnas: true, filas: true });
+c.Inicio_layoutVigente_ = () => true;
 const vigente = c.Inicio_construir_({ getSheetByName: () => hi });
 assert.equal(vigente.omitida, true); assert.equal(mutacionesInicio, 0); ok('INICIO vigente no se reconstruye');
 
@@ -112,9 +127,11 @@ assert.equal(adv({ estado: 'ADVERTENCIA' }), true); assert.equal(adv({ ok: false
 // 19. El motor visual no escribe valores clínicos.
 assert.doesNotMatch(presentacion, /\.setValues?\s*\(/); assert.doesNotMatch(presentacion, /\.clear(Content)?\s*\(/); ok('presentación no altera datos clínicos');
 
-// 20. Versión/layout correctos y esquema estable.
-assert.equal(E('ECICEP.VERSION'), '0.12.2'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
-assert.equal(E('HOJAS_UX.INICIO.frozenRows'), 2); assert.equal(E('HOJAS_UX.INICIO.frozenColumns'), 0); ok('v0.12.2 conserva schema 2 e INICIO 2/0');
+// 20. Versión/layout correctos, esquema estable y lienzo INICIO 30×38.
+assert.equal(E('ECICEP.VERSION'), '0.13.0'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
+assert.equal(E('HOJAS_UX.INICIO.frozenRows'), 2); assert.equal(E('HOJAS_UX.INICIO.frozenColumns'), 0);
+assert.equal(E('INICIO_RANGO_GESTIONADO'), 'A1:AD38');
+ok('v0.13.0 conserva schema 2, INICIO 2/0 y portada gestionada A1:AD38 (30 columnas × 38 filas)');
 
 assert.equal(n, 20);
-console.log('Instalador y formato visual v0.12.2 — 20/20 PASS');
+console.log('Instalador y formato visual v0.13.0 — 20/20 PASS');

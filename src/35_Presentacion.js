@@ -31,26 +31,35 @@
 var PRESUPUESTO_PRESENTACION_MS = 20000;
 
 var PRESENTACION_CACHE_PREFIJO = 'ECICEP_INST_PRES';
-var PRESENTACION_LAYOUT_PROP = 'ECICEP_PRESENTACION_LAYOUT_V0122';
-var PRESENTACION_LAYOUT_VERSION = '0.12.2';
+var PRESENTACION_LAYOUT_PROP = 'ECICEP_PRESENTACION_LAYOUT_V013';
+var PRESENTACION_LAYOUT_VERSION = '0.13.0';
 var PRESENTACION_ETAPAS_REANUDABLES = { diseno: true };
 
-/** Plan de la etapa "Presentación del libro", en orden de ejecución. La
- *  subtarea 'base' es la única que invoca Modelo_aplicarDiseno (ahora con
- *  fast-paths internos); el resto son responsabilidades únicas que históricamente
- *  ejecutaba Libro_repararPresentacion_ en un solo RPC. */
-var PRESENTACION_SUBPLAN_DISENO = [
-  { id: 'base',               nombre: 'Diseño base del libro' },
-  { id: 'formato:PACIENTES',  nombre: 'Formato de datos · PACIENTES' },
-  { id: 'formato:INGRESO',    nombre: 'Formato de datos · puertas INGRESO' },
-  { id: 'formato:SECTOR',     nombre: 'Formato de datos · vistas SECTOR' },
-  { id: 'formato:EVENTOS',    nombre: 'Formato de datos · EVENTOS y auxiliares' },
-  { id: 'validaciones:extras', nombre: 'Reglas complementarias (no puertas)' },
-  { id: 'condicionales',       nombre: 'Indicadores y estados visuales' },
-  { id: 'notas',              nombre: 'Notas de ayuda en encabezados' },
-  { id: 'accesorios',         nombre: 'Protecciones, visibilidad y ayudas' },
-  { id: 'verificar',          nombre: 'Verificación final de presentación' }
-];
+/* --------------------------- Plan por hoja --------------------------- */
+
+/** (§6) UNA subtarea por hoja grande. Las hojas técnicas (LOG, CONFIG, …) se
+ *  mantienen con formato mínimo en 'base'; aquí solo se formatean las hojas
+ *  visuales por nombre exacto, para que el runner respete el presupuesto. */
+var PRESENTACION_HOJAS_FORMATO =
+  ['PACIENTES']
+    .concat(Object.keys(HOJAS_INGRESO || {}))
+    .concat(HOJAS_SECTOR || [])
+    .concat(['EVENTOS']);
+
+var PRESENTACION_SUBPLAN_DISENO = [{ id: 'base', nombre: 'Diseño base del libro' }]
+  .concat(PRESENTACION_HOJAS_FORMATO.map(function (nombre) {
+    return { id: 'formato:' + nombre, nombre: 'Formato visual · ' + nombre };
+  }))
+  .concat([
+    { id: 'validaciones:extras', nombre: 'Reglas complementarias (no puertas)' },
+    { id: 'condicionales', nombre: 'Indicadores y estados visuales' },
+    { id: 'notas', nombre: 'Notas de ayuda en encabezados' },
+    { id: 'accesorios', nombre: 'Protecciones, visibilidad y ayudas' },
+    { id: 'inicio', nombre: 'Portada INICIO' },
+    { id: 'paridad:INGRESO', nombre: 'Paridad visual INGRESO' },
+    { id: 'paridad:SECTOR', nombre: 'Paridad visual SECTOR' },
+    { id: 'verificar', nombre: 'Verificación final de presentación' }
+  ]);
 
 function Presentacion_esReanudable_(etapaId) {
   return !!PRESENTACION_ETAPAS_REANUDABLES[etapaId];
@@ -62,9 +71,21 @@ function Presentacion_progreso_(cursor, total) {
     enCurso: completadas < total ? completadas + 1 : total };
 }
 
+/** (§10) Fingerprint derivado del contenido real del contrato visual: si cambia
+ *  FORMATO_CAMPOS, SECCIONES_HOJAS, HOJAS_UX, CONTRATO_LAYOUT_VISUAL o una
+ *  plantilla, el hash cambia. No es un literal. */
 function Presentacion_fingerprintEsperado_() {
-  return PRESENTACION_SUBPLAN_DISENO.map(function (t) { return t.id; }).join('|') +
-    '|FORMATO_CAMPOS|' + PRESENTACION_LAYOUT_VERSION;
+  var contrato = {
+    plan: PRESENTACION_SUBPLAN_DISENO.map(function (t) { return t.id; }),
+    formatoTipos: FORMATO_TIPOS || {},
+    formatoCampos: FORMATO_CAMPOS || {},
+    secciones: SECCIONES_HOJAS || {},
+    ux: HOJAS_UX || {},
+    layout: CONTRATO_LAYOUT_VISUAL || {},
+    plantillaIngreso: PLANTILLA_VISUAL_INGRESO || {},
+    plantillaSector: PLANTILLA_VISUAL_SECTOR || {}
+  };
+  return 'pp013|' + Utl_fnv1a32_(JSON.stringify(contrato));
 }
 function Presentacion_layoutVigente_() {
   var props = Libro_propiedades_(), raw = '';
@@ -141,6 +162,14 @@ function Presentacion_cacheLimpiar_(ejecucion) {
 
 /* ----------------------------- Subtareas ----------------------------- */
 
+var _PRESENTACION_VERIFICACION_MEMO = null;
+
+/** Resultado de la última verificación de presentación (leído por la UI para
+ *  decidir el estado final). Se rellena en la subtarea 'verificar'. */
+function Presentacion_VerificacionResultado_() {
+  return _PRESENTACION_VERIFICACION_MEMO;
+}
+
 /** Ejecuta UNA subtarea. Devuelve {ok, detalle} o {ok:false, motivo}. */
 function Presentacion_ejecutarTarea_(tarea) {
   if (!tarea || !tarea.id) return { ok: false, motivo: 'TAREA_SIN_ID' };
@@ -149,19 +178,6 @@ function Presentacion_ejecutarTarea_(tarea) {
     switch (tarea.id) {
       case 'base':
         r = Modelo_aplicarDiseno();
-        break;
-      case 'formato:PACIENTES':
-        r = Presentacion_formatearGrupo_(['PACIENTES']);
-        break;
-      case 'formato:INGRESO':
-        r = Presentacion_formatearGrupo_(Object.keys(HOJAS_INGRESO));
-        break;
-      case 'formato:SECTOR':
-        r = Presentacion_formatearGrupo_(HOJAS_SECTOR);
-        break;
-      case 'formato:EVENTOS':
-        r = Presentacion_formatearGrupo_(['EVENTOS', 'CONFLICTOS', 'REM_SALIDA',
-          'FUENTES', 'CONFIG', 'LOG', 'FORM_RESPUESTAS']);
         break;
       case 'validaciones:extras':
         // Complemento sin duplicar las puertas INGRESO_*, que son de la etapa
@@ -183,14 +199,36 @@ function Presentacion_ejecutarTarea_(tarea) {
           ocultas: Hojas_ocultarTecnicas(ss), protecciones: Hojas_proteger(ss),
           filtros: Hojas_filtros(ss), motivo: (rut.fallidas || []).join('; ') };
         break;
+      case 'inicio':
+        r = Inicio_construir_(Modelo_ss(), { forzar: false });
+        break;
+      case 'paridad:INGRESO':
+        r = HVis_compararFamilia_(Object.keys(HOJAS_INGRESO || {}));
+        break;
+      case 'paridad:SECTOR':
+        r = HVis_compararFamilia_(HOJAS_SECTOR || []);
+        break;
       case 'verificar':
-        r = Presentacion_verificar_();
+        _PRESENTACION_VERIFICACION_MEMO = Presentacion_verificar_();
+        r = { ok: true, detalle: _PRESENTACION_VERIFICACION_MEMO };
         break;
       default:
+        if (tarea.id.indexOf('formato:') === 0) {
+          r = Presentacion_formatearHoja_(tarea.id.slice('formato:'.length));
+          break;
+        }
         r = { ok: false, motivo: 'TAREA_DESCONOCIDA' };
     }
     if (!r) r = { ok: true };
+    // Las subtareas 'paridad:*' y 'verificar' NO fallan por divergencias: solo
+    // reportan (el estado final lo decide Presentacion_verificar_). Modelo igual
+    // que 'notas'/'condicionales'.
     if (r.ok === false || (r.fallidas && r.fallidas.length)) {
+      if (tarea.id === 'paridad:INGRESO' || tarea.id === 'paridad:SECTOR' ||
+          tarea.id === 'verificar') {
+        _PRESENTACION_VERIFICACION_MEMO = r.detalle || r;
+        return { ok: true, detalle: r.detalle || r };
+      }
       return { ok: false, motivo: r.motivo || r.linea ||
         (r.fallidas && r.fallidas.join('; ')) || ('Falló la subtarea ' + tarea.nombre) };
     }
@@ -227,19 +265,42 @@ function Presentacion_formatearHoja_(nombre) {
   };
 }
 
-/** Verificación final: solo lecturas (HVis_diagnosticarTodas). No reporta un
- *  fallo duro si quedan pendientes: los consolida como advertencia (la fase
- *  siguiente de verificación del instalador audita el estado global). */
+/** Verificación final (§7): la presentación solo está OK cuando no quedan
+ *  pendientes visuales Y la paridad INGRESO/SECTOR e INICIO convergen. NO
+ *  consulta: solo lecturas de diagnóstico (arrays batch). */
 function Presentacion_verificar_() {
   var diag = HVis_diagnosticarTodas();
-  var pendientes = 0, porHoja = {}, advertencias = [];
+  var pendientes = 0, porHoja = {}, advertencias = [], diferencias = [];
   Object.keys(diag.diagnostico || {}).forEach(function (k) {
     var v = diag.diagnostico[k], p = v && v.estadoActual && v.estadoActual.visual;
     var n = p ? (p.cantidadPendientes || 0) : 0;
     pendientes += n; porHoja[k] = n;
     if (n) advertencias.push(k + ': ' + n + ' pendientes');
   });
-  return { ok: true, pendientes: pendientes, porHoja: porHoja, advertencias: advertencias };
+  var ss = Modelo_ss();
+  var paridadIngreso = (typeof HVis_compararFamilia_ === 'function')
+    ? HVis_compararFamilia_(Object.keys(HOJAS_INGRESO || {}))
+    : { ok: true, cantidadDiferencias: 0, diferencias: [] };
+  var paridadSector = (typeof HVis_compararFamilia_ === 'function')
+    ? HVis_compararFamilia_(HOJAS_SECTOR || [])
+    : { ok: true, cantidadDiferencias: 0, diferencias: [] };
+  var hInicio = ss.getSheetByName ? ss.getSheetByName('INICIO') : null;
+  var inicio = hInicio && typeof Inicio_diagnosticarVisual_ === 'function'
+    ? Inicio_diagnosticarVisual_(hInicio) : { ok: true, diferencias: [] };
+  (paridadIngreso.diferencias || []).forEach(function (d) {
+    diferencias.push('PARIDAD_INGRESO:' + (d.hoja || '') + ':' + (d.propiedad || ''));
+  });
+  (paridadSector.diferencias || []).forEach(function (d) {
+    diferencias.push('PARIDAD_SECTOR:' + (d.hoja || '') + ':' + (d.propiedad || ''));
+  });
+  (inicio.diferencias || []).forEach(function (d) { diferencias.push('INICIO:' + d); });
+  Object.keys(porHoja).forEach(function (k) { if (porHoja[k]) diferencias.push('HOJA:' + k); });
+  var ok = pendientes === 0 && paridadIngreso.ok && paridadSector.ok && inicio.ok;
+  return {
+    ok: ok, pendientes: pendientes, porHoja: porHoja,
+    paridadIngreso: paridadIngreso, paridadSector: paridadSector,
+    inicio: inicio, diferencias: diferencias, advertencias: advertencias
+  };
 }
 
 /* ------------------------------ Runner ------------------------------ */
@@ -294,6 +355,7 @@ function Presentacion_ejecutarPaso_(etapaId, ejecucion) {
     continuar: !fin, cursor: cursor,
     progreso: Presentacion_progreso_(cursor, plan.length),
     subetapa: fin ? null : { id: plan[cursor].id, nombre: plan[cursor].nombre },
-    tareasEjecutadas: emitidas, ms: Date.now() - t0
+    tareasEjecutadas: emitidas, ms: Date.now() - t0,
+    verificacion: _PRESENTACION_VERIFICACION_MEMO
   };
 }

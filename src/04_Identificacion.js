@@ -205,8 +205,9 @@ function Iden_detectarDuplicadosLote(filas) {
 
 /**
  * Búsqueda NO agresiva para la interfaz:
- *   1. Si el término parece RUT → match exacto por RUT normalizado.
- *   2. Si no → pacientes cuyo nombre normalizado CONTIENE el término.
+ *   1. Si el término parece RUT completo → match exacto por RUT normalizado.
+ *   2. Si es un fragmento numérico corto → RUT que CONTIENE el fragmento.
+ *   3. Si no → pacientes cuyo nombre normalizado CONTIENE el término.
  * Nunca fusiona ni decide: solo lista candidatos.
  * @returns [{ID_INTERNO, RUT, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION}]
  */
@@ -230,7 +231,25 @@ function Bus_buscarPacientes(pacientes, termino, limite) {
     }
     return salida;
   }
+
+  // Un fragmento corto (por ejemplo, "12") no es un RUT normalizable, pero
+  // sí es una búsqueda operativa válida. Se compara únicamente contra el RUT
+  // visible, sin convertirlo en una clave de nombre vacía. Esto evita que una
+  // consulta compuesta solo por números coincida accidentalmente con las
+  // primeras filas del padrón (`texto.indexOf('') === 0`).
+  var fragmentoRut = t.replace(/[.\s-]/g, '');
+  if (/^\d{2,5}$/.test(fragmentoRut)) {
+    for (var k = 0; k < (pacientes || []).length && salida.length < tope; k++) {
+      var rutVisible = Utl_texto(pacientes[k].RUT).toUpperCase().replace(/[^0-9K]/g, '');
+      if (rutVisible.indexOf(fragmentoRut) !== -1) salida.push(pacientes[k]);
+    }
+    return salida;
+  }
+
   var clave = Norm_claveNombre(t);
+  // Términos sin letras que tampoco califican como RUT/fragmento nunca deben
+  // degenerar en `indexOf('')`, que devolvería pacientes ajenos a la consulta.
+  if (!clave) return [];
   for (var j = 0; j < (pacientes || []).length && salida.length < tope; j++) {
     var claveP = Norm_claveNombre(pacientes[j].NOMBRE);
     if (claveP && claveP.indexOf(clave) !== -1) salida.push(pacientes[j]);

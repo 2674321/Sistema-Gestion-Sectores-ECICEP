@@ -127,6 +127,19 @@ vistas válidas para agregar el sector vigente y retirar cualquier copia del
 histórico. Regresiones: `ingresado_manual_v011.mjs` 20/20 e
 `integridad_derivados_v0121.mjs` 8/8.
 
+La validación del usuario sobre el libro instalado produjo tres ajustes finales:
+
+- `INICIO` fue rediseñada sobre `A:AF` con cuatro accesos universales, resumen
+  por sector, prioridades de seguimiento, estado semántico y metadata. La
+  evidencia histórica de solo reporte se presenta como `ADVERTENCIA`, no como
+  `ERROR`.
+- El buscador dejó de tratar una consulta numérica corta como una clave de nombre
+  vacía. `12` solo devuelve RUT que contienen `12`; el navegador descarta además
+  respuestas asíncronas obsoletas.
+- El menú de Sheets quedó en cinco funciones clínicas y dos acciones de sistema.
+  La incorporación de ingresos se publicó también como `vista=ingresos`, usando
+  la misma credencial universal y sin exigir una cuenta específica de Google.
+
 ## Contratos preservados
 
 - un único proyecto Apps Script y un único Spreadsheet operativo;

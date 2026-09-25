@@ -37,7 +37,11 @@ identificadores, RUT y teléfonos se conservan como texto.
 
 ## INICIO
 
-`INICIO` administra exclusivamente `A1:AF60`. La reconstrucción separa las
+> **v0.13.0:** la portada migró al lienzo de 30 columnas `A1:AD38` (cinco accesos,
+> tres tarjetas, bloques ESTADO/PENDIENTES, metadata y nota operativa). Guía
+> vigente: `docs/INFORME_V013_CIERRE_VISUAL.md`.
+
+En v0.12.x `INICIO` administraba `A1:AF60`. La reconstrucción separa las
 celdas combinadas dentro de ese rango, lo limpia y vuelve a crear accesos,
 resumen por sector, estado del sistema, pendientes y metadatos. No borra el
 resto de la hoja.

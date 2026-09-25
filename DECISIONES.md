@@ -1829,3 +1829,68 @@ sin poder resolver el diagnóstico.
 paso a `MULTIPLE`, deduplicación y persistencia de fallos realmente renovables.
 
 **Fecha:** 2026-09-24
+
+## DEC-080
+
+**v0.12.2 — Portada operativa completa, búsqueda estricta y menú mínimo.**
+
+**Motivo:** la instalación terminó correctamente, pero la validación humana
+detectó que `INICIO` seguía viéndose incompleta, una consulta corta como `12`
+devolvía RUT sin relación y el menú exponía reparaciones técnicas redundantes.
+Además, Incorporar ingresos aún dependía del sidebar de Sheets pese al contrato
+de acceso universal.
+
+**Reglas:**
+1. `INICIO` usa cuatro accesos principales y muestra sectores, prioridades,
+   estado `OK/ADVERTENCIA/ERROR` y fechas operativas sin saturar el lienzo.
+   Evidencia histórica con derivados correctos es `ADVERTENCIA`.
+2. Un fragmento numérico de 2–5 dígitos se busca solo dentro del RUT. Una clave
+   de nombre vacía nunca coincide y una respuesta asíncrona anterior nunca puede
+   reemplazar los resultados del término visible.
+3. El menú `ECICEP` expone cinco flujos clínicos; `Sistema`, dos acciones de
+   mantenimiento. Actualizar Inicio, Reparar presentación, Permisos y Acerca de
+   no se duplican en el menú.
+4. `vista=ingresos` es una ruta Web App autorizada con la credencial universal y
+   abre directamente el modo `ingresos` del sidebar.
+
+**Validación:** `ejecutar_local` 672/672; `acceso_webapp` 8/8; `inicio_v012`
+20/20; `inicio_portada_freezerows` 8/8; `instalador_formato_visual_v0122`
+20/20; `operador_resiliencia_vNEXT` 33/33; `validar_html` 22/22.
+
+**Fecha:** 2026-09-24
+
+## DEC-081
+**Título:** Presentación con convergencia real: paridad INGRESO/SECTOR e INICIO
+**Estado:** Aprobada
+**Motivo:** `Presentacion_verificar_` devolvía siempre `ok:true` y solo agregaba
+advertencias, por lo que una instalación podía declararse completada con
+divergencias visuales. Ahora `ok = pendientes===0 && paridadIngreso.ok &&
+paridadSector.ok && inicio.ok`. La paridad compara cada hoja de una familia
+(INGRESO_*, SECTOR_*, con plantilla única) contra una firma visual neutralizada.
+La fase `diseno` termina como subtareas no fatales y el instalador muestra
+`INSTALACIÓN FUNCIONAL / PRESENTACIÓN INCOMPLETA` con botón de reintento (§7/§20/§21).
+**Validación:** `paridad_visual_sectores_v013` 7/7; `presentacion_convergencia_v013`
+7/7; `instalador_visual_v013` 9/9.
+**Fecha:** 2026-09-24
+
+## DEC-082
+**Título:** Portada INICIO realineada a 30 columnas `A1:AD38`
+**Estado:** Aprobada
+**Motivo:** La especificación de cierre (§13.1) exige 30 columnas: cinco accesos
+(PERSONAS, CAPTURA, INGRESOS, CONTROLES, REM), tres tarjetas, bloques ESTADO y
+PENDIENTES, metadata y nota operativa en 38 filas. El trabajo local intermedio de
+32 columnas (`A1:AF60`, v0.12.2) quedó obsoleto; se alineó al spec del prompt,
+fuente de autoridad inequívoca. Fingerprint por contenido (`v013|fnv1a32`) para
+forzar la migración desde la portada anterior.
+**Validación:** `inicio_v012` PASS; `inicio_visual_v013` 7/7;
+`instalador_formato_visual_v0122` 20/20 (incluye `A1:AD38`).
+**Fecha:** 2026-09-24
+
+## DEC-083
+**Título:** EDAD nunca se almacena; se calcula desde FECHA_NACIMIENTO
+**Estado:** Aprobada
+**Motivo:** `Utl_edadDesde` acepta `Date`, `Utl_formulaEdad` usa `DATEDIF` directo
+sobre la celda de nacimiento y las vistas `SECTOR_*` muestran EDAD automáticamente
+sin columna EDAD en `PACIENTES` (evita desincronización y datos redundantes).
+**Validación:** Núcleo ECICEP 673/673 (EDAD/FECHA_NACIMIENTO).
+**Fecha:** 2026-09-24

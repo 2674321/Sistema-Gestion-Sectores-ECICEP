@@ -290,7 +290,9 @@ function Hojas_aplicarFormatoCondicional_(ss) {
     } catch (eI) { errores.push(nombre + ': ' + (eI && eI.message || eI)); }
   });
 
-  /* SECTOR_*: RUT inválido (rojo) + estratificación por nivel de color */
+  /* SECTOR_*: RUT inválido SOLO sobre la celda RUT, estratificación y agenda.
+   * La firma es idéntica en las tres vistas; SIN_FECHA queda explícito para
+   * evitar que un vacío se confunda con una fecha vigente. */
   HOJAS_SECTOR.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
@@ -306,8 +308,6 @@ function Hojas_aplicarFormatoCondicional_(ss) {
       var filas = Math.max(Hojas_filasGestionadas_(h, nombre), 1);
       aplicar(h, [
         regla('=$' + letraRut + ini + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo,
-             h.getRange(ini, colRut, filas, 1), true),
-        regla('=$' + letraRut + ini + '=FALSE', DESIGN_SYSTEM.ESTADOS.ERROR.fondo,
              h.getRange(ini, 2, filas, 1), true),
         regla('=$' + letraEst + ini + '="G1"', DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo,
              h.getRange(ini, colEst, filas, 1)),
@@ -322,7 +322,9 @@ function Hojas_aplicarFormatoCondicional_(ss) {
         regla(Hojas_formulaProximoControl(letraProx, ini, 'PROXIMO'),
              DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, h.getRange(ini, colProx, filas, 1)),
         regla(Hojas_formulaProximoControl(letraProx, ini, 'VIGENTE'),
-             DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, h.getRange(ini, colProx, filas, 1))
+             DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, h.getRange(ini, colProx, filas, 1)),
+        regla('=OR($' + letraProx + ini + '="",$' + letraProx + ini + '="NSP")',
+             DESIGN_SYSTEM.ESTADOS.REVISION.fondo, h.getRange(ini, colProx, filas, 1))
       ]);
     } catch (eS2) { errores.push(nombre + ': ' + (eS2 && eS2.message || eS2)); }
   });

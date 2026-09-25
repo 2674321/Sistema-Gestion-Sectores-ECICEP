@@ -38,10 +38,18 @@ function Utl_claveAlnum(s) {
 }
 
 /**
- * Edad en años cumplidos desde fecha ISO de nacimiento.
- * Devuelve '' si no hay fecha o es inválida. refDate inyectable para pruebas.
+ * Edad en años cumplidos desde la fecha de nacimiento.
+ * Devuelve '' si no hay fecha o es inválida. Acepta texto ISO, objeto Date o
+ * serial de hoja de cálculo (la hoja real puede devolver cada forma según la
+ * celda); el Date se re-ISO antes de calcular para no dejar la edad en blanco.
+ * refDate inyectable para pruebas.
  */
 function Utl_edadDesde(isoNacimiento, refDate) {
+  if (isoNacimiento instanceof Date) {
+    if (isNaN(isoNacimiento.getTime())) return '';
+    var z = function (n) { return (n < 10 ? '0' : '') + n; };
+    isoNacimiento = isoNacimiento.getFullYear() + '-' + z(isoNacimiento.getMonth() + 1) + '-' + z(isoNacimiento.getDate());
+  }
   if (Utl_vacio(isoNacimiento)) return '';
   var m = Utl_texto(isoNacimiento).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return '';
@@ -62,13 +70,15 @@ function Utl_columnaLetra(n) {
 }
 
 /** PURA: fórmula EDAD en vivo para la vista SECTOR_*.
- *  Trabaja sobre texto ISO "yyyy-MM-dd" (locale-independiente).
- *  Separador ÚNICO ';' (estrategia centralizada del proyecto, ver 17_Hojas):
- *  mezclar ';' y ',' en una misma fórmula es erróneo de parseo (#ERROR!)
- *  en cualquier locale (S10-FIX). */
+ *  DATEDIF directo sobre la celda FECHA_NACIMIENTO: funciona tanto si la celda
+ *  es una fecha real (serial de hoja) como si es texto ISO "yyyy-MM-dd" (parsable
+ *  en cualquier locale). Se recalcula sola al editar la fecha o pasar el tiempo
+ *  (TODAY). Separador ÚNICO ';' (estrategia centralizada del proyecto, ver
+ *  17_Hojas): mezclar ';' y ',' en una misma fórmula es erróneo de parseo
+ *  (#ERROR!) en cualquier locale (S10-FIX). */
 function Utl_formulaEdad(colFecha, fila) {
   var c = Utl_columnaLetra(colFecha);
-  return '=IF(' + c + fila + '="";"";IFERROR(DATEDIF(DATE(MID(' + c + fila + ';1;4);MID(' + c + fila + ';6;2);MID(' + c + fila + ';9;2));TODAY();"Y");""))';
+  return '=IF(' + c + fila + '="";"";IFERROR(DATEDIF(' + c + fila + ';TODAY();"Y");""))';
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +166,20 @@ function Utl_toastIcono(tipo) {
   if (tipo === 'warn') return '⚠ ';
   if (tipo === 'err') return '✕ ';
   return '';
+}
+
+/** Hash FNV-1a 32-bit puro (entero 32 bits sin signo → hex de 8 dígitos).
+ *  Determinista en Apps Script y Node. Base para fingerprints de contenido:
+ *  un cambio en el contrato serializado produce un hash distinto. */
+function Utl_fnv1a32_(texto) {
+  var s = String(texto == null ? '' : texto), h = 0x811c9dc5;
+  for (var i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i) & 0xff;
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  var hex = (h >>> 0).toString(16);
+  while (hex.length < 8) hex = '0' + hex;
+  return hex;
 }
 
 /** GAS: toast breve con semántica central. No falla sin spreadsheet activo. */

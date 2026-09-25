@@ -972,6 +972,15 @@ function _pruebas_etapa4(t, A) {
     var r = Bus_buscarPacientes(base.concat([extra]), 'soto');
     A.igual(r.length, 2, 'dos Soto');
   });
+  t('BUSCAR: fragmento corto de RUT nunca devuelve filas ajenas', function () {
+    var extra = { ID_INTERNO: 'EC-P3', RUT: '7654123-0', NOMBRE: 'OTRA PERSONA', SECTOR: 'NARANJO' };
+    var r = Bus_buscarPacientes(base.concat([extra]), '12');
+    A.igual(r.length, 2, 'solo RUT que contienen 12');
+    A.igual(r[0].ID_INTERNO, 'EC-P1', 'primer RUT coincidente');
+    A.igual(r[1].ID_INTERNO, 'EC-P3', 'segundo RUT coincidente');
+    A.igual(Bus_buscarPacientes(base, '00').length, 0, 'fragmento ausente no lista filas arbitrarias');
+    A.igual(Bus_buscarPacientes(base, '1234567890').length, 0, 'término numérico inválido no lista filas arbitrarias');
+  });
   t('BUSCAR: sin resultados y término vacío', function () {
     A.igual(Bus_buscarPacientes(base, 'ZZZ Nadie').length, 0, 'sin match');
     A.igual(Bus_buscarPacientes(base, '').length, 0, 'término vacío');
@@ -2888,7 +2897,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.12.2', 'versión esperada v0.12.2');
+    A.igual(v, '0.13.0', 'versión esperada v0.13.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3128,7 +3137,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.12.2', 'versión esperada v0.12.2');
+    A.igual(v, '0.13.0', 'versión esperada v0.13.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3727,7 +3736,7 @@ function _pruebas_designsystem_v0896(t, A) {
     A.igual(HVis_identidad('SECTOR_AMARILLO'), 'AMARILLO');
     A.igual(HVis_identidad('INGRESO_NARANJO'), 'NARANJO');
     A.igual(HVis_identidad('SECTOR_VERDE'), 'VERDE');
-    A.igual(HVis_identidad('EVENTOS'), 'NARANJO', 'EVENTOS hereda naranja sistema');
+    A.igual(HVis_identidad('EVENTOS'), 'GENERAL', 'EVENTOS es identidad general (v0.13)');
     A.igual(HVis_identidad('PACIENTES'), 'GENERAL');
     A.igual(HVis_identidad('INICIO'), 'GENERAL');
     A.igual(HVis_identidad('LOG'), 'GENERAL');
@@ -3809,7 +3818,7 @@ function _pruebas_designsystem_v0896(t, A) {
     });
     A.cierto(usaPaleta, 'PACIENTES usa COLORES_SECCION');
 
-    A.igual(HVis_especVisual('EVENTOS').identidad, 'NARANJO', 'EVENTOS identidad naranja');
+    A.igual(HVis_especVisual('EVENTOS').identidad, 'GENERAL', 'EVENTOS identidad general (v0.13)');
     A.igual(HVis_especVisual('EVENTOS').visual, false, 'EVENTOS simple');
     A.igual(HVis_especVisual('EVENTOS').encabezados.altura, PULIDO_ENCABEZADO.alturaSimple,
       'EVENTOS encabezado a 30 (simple)');
@@ -4358,24 +4367,28 @@ function _pruebas_enriquecimiento_s5(t, A) {
     A.cierto(f1.indexOf('DATEDIF') !== -1, 'DATEDIF presente');
     A.cierto(f1.indexOf('TODAY()') !== -1, 'TODAY presente');
     A.cierto(f1.indexOf('IFERROR') !== -1, 'IFERROR para fechas inválidas');
-    A.cierto(f1.indexOf('MID(') !== -1, 'parsea ISO por partes (locale-independiente)');
+    A.cierto(f1.indexOf('MID(') === -1, 'DATEDIF directo sobre la celda (Date o ISO)');
+    A.cierto(f1.indexOf('DATE(') === -1, 'sin DATE(...MID(...)) que exige texto ISO');
     A.cierto(f1.indexOf(',') === -1 && f1.indexOf(';') !== -1,
       'separador ÚNICO ";" (S10-FIX: mezcla ; y , provoca #ERROR! de parseo)');
-    A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(DATE(MID(E4;1;4);MID(E4;6;2);MID(E4;9;2));TODAY();"Y");""))', 'fórmula canónica');
+    A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(E4;TODAY();"Y");""))', 'fórmula canónica');
     var f2 = Utl_formulaEdad(1, 12);
     A.cierto(f2.indexOf('A12') !== -1, 'referencia A12 con columna 1');
     A.cierto(f2.indexOf(',') === -1, 'f2 sin comas');
   });
-  t('OPT B7: funciones referenciadas por el menú existen en el ámbito global', function () {
-    // Menú consolidado v0.9.8: ECICEP + Desarrollo / Administración (sin submenús)
+  t('OPT B2: EDAD deriva de FECHA_NACIMIENTO aunque venga como Date (ficha nunca en blanco)', function () {
+    A.igual(Utl_edadDesde(new Date(1990, 4, 10), new Date(2011, 4, 9)), '20', 'Date antes de cumpleaños');
+    A.igual(Utl_edadDesde(new Date(1990, 4, 10), new Date(2011, 4, 11)), '21', 'Date tras cumpleaños');
+    A.igual(Utl_edadDesde(new Date(2026, 0, 1), new Date(2026, 8, 7)), '0', 'Date recién nacido');
+    A.igual(Utl_edadDesde(new Date('invalida'), new Date(2026, 8, 7)), '', 'Date inválido → vacío');
+    A.igual(Utl_edadDesde(1990, new Date(2011, 4, 11)), '', 'serial no ISO → vacío (no se adivina)');
+  });
+  t('OPT B7: funciones referenciadas por el menú mínimo existen en el ámbito global', function () {
+    // Menú mínimo: cinco flujos operativos + dos acciones de mantenimiento.
     var refs = [
-      // Centro de funciones (ECICEP)
-      'UI_abrirBuscador', 'UI_abrirControles', 'UI_abrirRevision',
-      'UI_procesarIngresos', 'UI_verRem', 'UI_abrirDashboard',
-      'UI_abrirFormularioCaptura', 'UI_mostrarQR', 'UI_configuracion',
-      // Desarrollo / Administración
-      'UI_actualizarSistema', 'UI_instalarSistema', 'ECICEP_autorizar',
-      'UI_backup', 'UI_abrirLog', 'UI_abrirAcercaDe'
+      'UI_abrirFormularioCaptura', 'UI_abrirBuscador', 'UI_abrirControles',
+      'UI_abrirDashboard', 'UI_abrirIngresos',
+      'UI_actualizarSistema', 'UI_instalarSistema'
     ];
     refs.forEach(function (fn) {
       A.cierto(typeof globalThis[fn] === 'function', fn + ' existe');
@@ -5036,11 +5049,11 @@ function _pruebas_s10fix_esquema(t, A) {
 
   t('T5: EDAD fórmula con separador ÚNICO ";" (sin "," entre argumentos)', function () {
     var f1 = Utl_formulaEdad(5, 4);
-    A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(DATE(MID(E4;1;4);MID(E4;6;2);MID(E4;9;2));TODAY();"Y");""))', 'fórmula canónica 5,4');
+    A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(E4;TODAY();"Y");""))', 'fórmula canónica 5,4');
     A.cierto(f1.indexOf(',') === -1, 'sin coma de separación de argumentos');
     A.cierto(f1.indexOf(';') !== -1, 'separador ; presente');
     var f2 = Utl_formulaEdad(1, 12);
-    A.igual(f2, '=IF(A12="";"";IFERROR(DATEDIF(DATE(MID(A12;1;4);MID(A12;6;2);MID(A12;9;2));TODAY();"Y");""))', 'fórmula canónica 1,12');
+    A.igual(f2, '=IF(A12="";"";IFERROR(DATEDIF(A12;TODAY();"Y");""))', 'fórmula canónica 1,12');
   });
 
   t('T6: migración conserva EDAD ya calculada bajo columna correcta', function () {
@@ -5167,7 +5180,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.12'), 0, 'versión de aplicación coherente (0.12.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.13'), 0, 'versión de aplicación coherente (0.13.x)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -6301,25 +6314,29 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(src.indexOf('reporte.ok = false') !== -1, 'ok se pone false si hay errores');
   });
 
-  t('S10: Menú operativo — ECICEP tiene ≤6 items', function () {
+  t('S10: Menú operativo — ECICEP expone solo los 5 flujos principales', function () {
     var src = onOpen.toString();
-    // Contar items del menú ECICEP
     var ecicepMatch = src.match(/createMenu\('ECICEP'\)([\s\S]*?)\.addToUi/);
     A.cierto(ecicepMatch, 'menú ECICEP existe');
     var items = ecicepMatch[1].match(/\.addItem/g);
-    A.cierto(items && items.length <= 6, 'ECICEP tiene ≤6 items (tiene ' + (items ? items.length : 0) + ')');
+    A.igual(items ? items.length : 0, 5, 'ECICEP tiene 5 items');
+    A.cierto(ecicepMatch[1].indexOf('UI_irInicio') === -1, 'Inicio no se duplica en menú');
   });
 
-  t('S10: Menú técnico — Desarrollo tiene ≤6 items', function () {
+  t('S10: Menú Sistema — solo actualizar e instalar/reparar', function () {
     var src = onOpen.toString();
-    var devMatch = src.match(/createMenu\('Desarrollo[\s\S]*?'\)([\s\S]*?)\.addToUi/);
-    A.cierto(devMatch, 'menú Desarrollo existe');
-    var items = devMatch[1].match(/\.addItem/g);
-    A.cierto(items && items.length <= 6, 'Desarrollo tiene ≤6 items (tiene ' + (items ? items.length : 0) + ')');
+    var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
+    A.cierto(sistemaMatch, 'menú Sistema existe');
+    var items = sistemaMatch[1].match(/\.addItem/g);
+    A.igual(items ? items.length : 0, 2, 'Sistema tiene 2 items');
+    ['UI_actualizarInicio', 'UI_repararPresentacion', 'ECICEP_autorizar', 'UI_abrirAcercaDe']
+      .forEach(function (fn) {
+        A.cierto(sistemaMatch[1].indexOf(fn) === -1, fn + ' no se duplica en menú');
+      });
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.12.2', 'VERSION es 0.12.2');
+    A.cierto(ECICEP.VERSION === '0.13.0', 'VERSION es 0.13.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

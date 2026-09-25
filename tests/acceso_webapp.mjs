@@ -58,7 +58,7 @@ t('La URL universal es única: QR, captura y vistas usan la misma credencial',()
 });
 
 t('Todas las vistas operativas abren con la credencial universal (y con el legacy v0.10.3)',()=>{
-  const rutas={portal:'PortalWeb',pacientes:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',instalar:'Instalador',rem:'RemVista',generarRem:'RemGenerador'};
+  const rutas={portal:'PortalWeb',pacientes:'Sidebar',ingresos:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',instalar:'Instalador',rem:'RemVista',generarRem:'RemGenerador'};
   for(const vista of Object.keys(rutas)){
     const ok=c.doGet({parameter:{acceso:TOKEN_UNIVERSAL,vista}});
     assert.equal(ok.tipo,'html',vista+' con credencial universal abre');
@@ -70,6 +70,8 @@ t('Todas las vistas operativas abren con la credencial universal (y con el legac
   assert.equal(c.doGet({parameter:{acceso:TOKEN_INVALIDO,vista:'controles'}}).tipo,'texto');
   assert.equal(c.doGet({parameter:{acceso:'',vista:'controles'}}).tipo,'texto');
   assert.equal(c.doGet({parameter:{acceso:TOKEN_UNIVERSAL,vista:'noExiste'}}).tipo,'texto');
+  const ingresos=c.doGet({parameter:{acceso:TOKEN_UNIVERSAL,vista:'ingresos'}});
+  assert.equal(ingresos.vars.modo,'ingresos','incorporación universal abre el modo correcto');
   c.Session={getActiveUser:()=>({getEmail:()=> 'otra-cuenta@example.org'})};
   assert.equal(c.doGet({parameter:{vista:'configuracion'}}).tipo,'html');
   c.Session={getActiveUser:()=>({getEmail:()=>''})};

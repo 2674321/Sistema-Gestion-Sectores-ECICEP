@@ -165,7 +165,7 @@ function doGet(e) {
     return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
   }
   var archivos = {
-    portal: 'PortalWeb', pacientes: 'Sidebar',
+    portal: 'PortalWeb', pacientes: 'Sidebar', ingresos: 'Sidebar',
     revision: 'Sidebar', ficha: 'Sidebar', controles: 'Controles',
     estadisticas: 'Dashboard', configuracion: 'Configuracion',
     backups: 'Backup', registro: 'LogVisor', instalar: 'Instalador', rem: 'RemVista',
@@ -188,11 +188,12 @@ function doGet(e) {
   plantilla.BUILD = Utilities.formatDate(new Date(), ECICEP.TZ, 'yyyyMMdd-HHmm');
   plantilla.PAGE_BUILD = WebApp_buildActual_();
   plantilla.SECCION = 'TODAS';
-  plantilla.modo = vista === 'pacientes' ? 'pacientes' : vista === 'revision' ? 'revision' : 'ficha';
+  plantilla.modo = vista === 'pacientes' ? 'pacientes' : vista === 'ingresos' ? 'ingresos' :
+    vista === 'revision' ? 'revision' : 'ficha';
   plantilla.ID_INICIAL = vista === 'ficha' && p.id ? String(p.id) : '';
   if (vista === 'portal') {
     plantilla.LINKS = [
-      ['Captura', 'captura'], ['Pacientes y ficha', 'pacientes'],
+      ['Captura', 'captura'], ['Pacientes y ficha', 'pacientes'], ['Incorporar ingresos', 'ingresos'],
       ['Controles', 'controles'], ['Estadísticas', 'estadisticas'],
       ['REM', 'rem'], ['Generar REM', 'generarRem'],
       ['Cola de revisión', 'revision'], ['Configuración', 'configuracion'],

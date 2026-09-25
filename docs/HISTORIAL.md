@@ -7,6 +7,26 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.13.0 — CIERRE VISUAL: PARIDAD, PORTADA INICIO Y PRESENTACIÓN CONVERGENTE
+
+- `INICIO` realineada a **30 columnas `A1:AD38`** (cinco accesos PERSONAS,
+  CAPTURA, INGRESOS, CONTROLES, REM; tres tarjetas por sector; bloques ESTADO y
+  PENDIENTES; metadata y nota operativa en 38 filas). Fingerprint por contenido
+  `v013|fnv1a32` migra desde la portada de 32 columnas de v0.12.2.
+- Motor de paridad visual: cada familia (`INGRESO_*`, `SECTOR_*`) compara su
+  firma neutralizada contra la hoja de referencia; `HVis_compararFamilia_` y
+  `Presentacion_verificar_` exigen convergencia real.
+- `Presentacion_verificar_` ya no devuelve `ok:true` por defecto:
+  `ok = pendientes===0 && paridadIngreso.ok && paridadSector.ok && inicio.ok`.
+- Subplan de presentación por **una subtarea por hoja** + `inicio`,
+  `paridad:INGRESO`, `paridad:SECTOR` y `verificar` (18 tareas en total),
+  reanudable dentro del presupuesto.
+- `Instalar_pInicio` solo construye INICIO; el diagnóstico muestra filas
+  Paridad INGRESO/SECTOR y la UI cierra con `INSTALACIÓN FUNCIONAL /
+  PRESENTACIÓN INCOMPLETA` y botón `Reintentar presentación`.
+- EDAD se calcula desde FECHA_NACIMIENTO en las vistas SECTOR (nunca se
+  almacena). `ECICEP.VERSION = 0.13.0`; esquema **2**; captura **V4**.
+
 ## v0.11.1 — ESTABILIZACIÓN DE OPERACIÓN REAL
 
 - Hotfix de instalación: `MIG-001` localiza cabeceras desplazadas y, ante
@@ -1098,3 +1118,19 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   bloqueando la instalación.
 - Regresiones ampliadas: `ingresado_manual_v011.mjs` 20/20 e
   `integridad_derivados_v0121.mjs` 8/8.
+
+### Portada, buscador y menú tras validación operativa
+
+- `INICIO` utiliza el lienzo `A:AF` con jerarquía compacta, cuatro accesos Web
+  universales, tarjetas de sector, prioridades clínicas, estados semánticos y
+  metadatos. Un fingerprint nuevo fuerza una sola reconstrucción y conserva el
+  fast path posterior y el freeze `2/0`.
+- La búsqueda `12` ya no genera una clave vacía que coincida con las primeras 25
+  personas. Los fragmentos numéricos de 2–5 dígitos buscan solo en el RUT, los
+  términos inválidos devuelven cero filas y el cliente ignora respuestas de una
+  consulta anterior.
+- Menú mínimo: `ECICEP` conserva Captura, Buscar paciente, Controles,
+  Estadísticas e Incorporar ingresos; `Sistema` conserva Actualizar sistema e
+  Instalar / reparar. Las funciones técnicas siguen disponibles internamente.
+- `vista=ingresos` publica el sidebar de incorporación con la misma credencial
+  universal, cerrando el acceso que antes dependía del menú de Sheets.

@@ -57,12 +57,17 @@ c.Modelo_ss = () => ({});
 assert.equal(c.Instalar_pValidaciones().ok, false);
 c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
 assert.equal(c.Instalar_pDiseno().ok, false);
-c.Modelo_disenoHojas = () => ({ inicio: { verificacion: { titulo: true } },
-  cond: { errores: ['SECTOR_VERDE: formato simulado'] }, filtros: {}, ocultas: {}, protecciones: {} });
-c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: [] });
+// §9: la fase INICIO usa Inicio_construir_ + Inicio_diagnosticarVisual_ y no
+// toca Modelo_disenoHojas (ni condicionales/filtros/protecciones de otras hojas).
+c.Modelo_ss = () => ({ getSheetByName: n => n === 'INICIO' ? { hoja: 'INICIO' } : null });
+c.Inicio_construir_ = () => ({ ok: true });
+c.Inicio_diagnosticarVisual_ = () => ({ ok: false, diferencias: ['SECTOR_VERDE: formato simulado'] });
 assert.match(c.Instalar_pInicio().motivo, /SECTOR_VERDE/);
-c.Modelo_disenoHojas = () => ({ inicio: { verificacion: { titulo: true } },
-  cond: { errores: [] }, filtros: {}, ocultas: {}, protecciones: {} });
+c.Inicio_diagnosticarVisual_ = () => ({ ok: true, diferencias: [] });
+c.Inicio_construir_ = () => ({ ok: false, motivo: 'Inicio_construir_ falló' });
+assert.match(c.Instalar_pInicio().motivo, /Inicio_construir_/);
+c.Inicio_construir_ = () => ({ ok: true });
+assert.equal(c.Instalar_pInicio().ok, true);
 c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: ['INGRESO_VERDE: RUT simulado'] });
 c.Hojas_ocultarTecnicas = () => ({}); c.Hojas_proteger = () => ({}); c.Hojas_filtros = () => ({});
 assert.match(c.Presentacion_ejecutarTarea_({ id: 'accesorios', nombre: 'Ayudas' }).motivo, /INGRESO_VERDE/);

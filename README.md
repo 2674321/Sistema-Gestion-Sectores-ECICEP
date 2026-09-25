@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.12.2-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.13.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,15 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.12.2` · instalador con progreso real, formato canónico de celdas, reparación visual idempotente y portada inmune a merges/freeze · esquema 2 · 40 suites sin fallos |
+| **Estado** | `v0.13.0` · cierre visual: paridad INGRESO/SECTOR, portada INICIO de 30 columnas, presentación convergente y diagnóstico con instalación funcional/incompleta · esquema 2 · batería completa sin fallos |
+
+## v0.13.0 — cierre visual: paridad, portada INICIO y presentación convergente
+
+La presentación dejó de verificar "sin pendientes y pasó" y ahora exige **convergencia real**: la fase `diseno` termina pero el instalador muestra `INSTALACIÓN FUNCIONAL / PRESENTACIÓN INCOMPLETA` cuando la **paridad visual INGRESO/SECTOR** (comparación de cada hoja contra la plantilla única de su familia) o la **portada INICIO** no convergen, con botón `Reintentar presentación`. El diagnóstico muestra filas por familia (`Paridad INGRESO`, `Paridad SECTOR`).
+
+La portada `INICIO` se realineó al contrato de **30 columnas (`A1:AD38`)**: cinco accesos universales (PERSONAS, CAPTURA, INGRESOS, CONTROLES, REM), tres tarjetas por sector, bloques `ESTADO` y `PENDIENTES`, metadata y nota operativa, con fingerprint por contenido (`v013|fnv1a32`). El subplan de presentación es **una subtarea por hoja** (reanudable dentro del presupuesto) e incorpora `inicio`, `paridad:INGRESO` y `paridad:SECTOR` antes de la verificación final. La fase `INICIO` del instalador solo construye INICIO (`Instalar_pInicio`), sin tocar formato condicional, filtros o protecciones de otras hojas.
+
+EDAD se calcula automáticamente desde FECHA_NACIMIENTO en las vistas SECTOR, sin almacenarse (decisión de arquitectura "EDAD nunca se almacena"). Detalle en [`docs/INFORME_V013_CIERRE_VISUAL.md`](docs/INFORME_V013_CIERRE_VISUAL.md).
 
 ## v0.12.2 — instalador visual y formato canónico de celdas
 
@@ -43,8 +51,13 @@ fase estructural dejó de reescribir toda la hoja `PACIENTES`.
 El error real de `INICIO` al congelar una parte de `A1:X2` combinada quedó
 cerrado: el diseño genérico nunca administra su freeze y la portada conserva la
 secuencia `unlock 0/0 → construir → freeze 2/0`. Un fingerprint evita reconstruir
-la portada cuando su layout sigue vigente. Se mantienen el esquema 2, captura
-V4, agenda manual, URL y deployment operativo. Detalle en
+la portada cuando su layout sigue vigente. La revisión operativa posterior amplió
+la portada a `A:AF` con cuatro accesos universales, prioridades clínicas, estado
+`OK/ADVERTENCIA/ERROR` y resumen por sector. El menú de Sheets quedó reducido a
+cinco flujos clínicos y dos acciones de sistema. El buscador admite fragmentos
+breves de RUT sin devolver personas ajenas y descarta respuestas obsoletas. La
+incorporación de ingresos ya cuenta también con una ruta Web App universal.
+Se mantienen el esquema 2, captura V4, agenda manual, URL y deployment operativo. Detalle en
 [`docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md`](docs/INFORME_V0122_INSTALADOR_FORMATO_VISUAL.md).
 
 ## v0.12.1 — presentación del libro sin timeout y portada robusta (hotfix)
