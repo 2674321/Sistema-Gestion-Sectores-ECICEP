@@ -6328,9 +6328,11 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
     A.cierto(sistemaMatch, 'menú Sistema existe');
     var items = sistemaMatch[1].match(/\.addItem/g);
-    A.igual(items ? items.length : 0, 3, 'Sistema tiene 3 items');
+    A.igual(items ? items.length : 0, 4, 'Sistema tiene 4 items');
     A.cierto(sistemaMatch[1].indexOf("addItem('Reparar presentación', 'UI_repararPresentacion')") !== -1,
       'Reparar presentación está en el menú Sistema');
+    A.cierto(sistemaMatch[1].indexOf("addItem('Reconstruir portada INICIO', 'UI_reconstruirInicio')") !== -1,
+      'Reconstruir portada INICIO está en el menú Sistema');;
     ['UI_actualizarInicio', 'ECICEP_autorizar', 'UI_abrirAcercaDe']
       .forEach(function (fn) {
         A.cierto(sistemaMatch[1].indexOf(fn) === -1, fn + ' no se duplica en menú');

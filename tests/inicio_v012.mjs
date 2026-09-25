@@ -23,8 +23,10 @@ assert.match(fn, /Inicio_guardarSnapshot_/);
 assert.match(fn, /Inicio_escribirMetricas_/);
 assert.match(src, /INICIO_RANGO_GESTIONADO === 'A1:AD38'/);
 assert.match(src, /if \(!Utl_texto\(p\.ID_INTERNO\)\) return/);
-assert.match(fn, /for \(var c = 1; c <= 30; c\+\+\)/,
+assert.match(fn, /for \(iDim = 0; iDim < cols; iDim\+\+\) vecAnchos\.push\(38\)/,
   'la portada utiliza las 30 columnas del lienzo gestionado');
+assert.match(fn, /h\.setColumnWidths\(1, cols, vecAnchos\)/,
+  'los 38 px de las 30 columnas se aplican en UNA llamada');
 const bloqueAccesos = fn.match(/var accesos = \[[\s\S]*?\n  \];/)?.[0] || '';
 assert.equal((bloqueAccesos.match(/\{ texto:/g) || []).length, 5,
   '5 accesos principales en el nuevo layout');
@@ -40,10 +42,10 @@ assert.match(fn, /Controles vencidos.*Próximos 30 días.*Sin próximo control.*
 assert.match(fn, /getRange\('P18:AD18'\)\.merge\(\)\.setValue\('PENDIENTES'\)/);
 assert.match(fn, /getRange\('A27:AD29'\)\.merge\(\)\.setValue\('Estado y actualización en preparación'\)/);
 assert.match(fn, /h\.setFrozenRows\(2\); h\.setFrozenColumns\(0\)/);
-assert.match(src, /PANEL_MINIMAL_V013/);
+assert.match(src, /PANEL_OPERATIVO_V014/);
 assert.match(src, /acceso3: 'INGRESOS'/,
   'el fingerprint por contenido obliga a migrar desde la portada anterior');
-assert.match(src, /'AC20:AD20', 'AC21:AD21', 'AC22:AD22', 'AC23:AD23'\]\.forEach/,
+assert.match(src, /'AC20:AD20', 'AC21:AD21', 'AC22:AD22', 'AC23:AD23'\]\.map/,
   'pendientes de la portada se escriben en AC..AD (columna de valores)');
 assert.match(src, /var rangosEstado = \['I20:O20', 'I21:O21', 'I22:O22', 'I23:O23'\]/,
   'estados del bloque ESTADO se escriben en las columnas de valor I..O');

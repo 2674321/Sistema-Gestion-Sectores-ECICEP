@@ -23,7 +23,11 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.13.0` · cierre visual: paridad INGRESO/SECTOR, portada INICIO de 30 columnas, presentación convergente y diagnóstico con instalación funcional/incompleta · esquema 2 · batería completa sin fallos |
+| **Estado** | `v0.13.0` + layout de portada `v0.14.0` — panel operativo INICIO completo (hero, KPIs, distribución, alerta) · esquema 2 · batería completa sin fallos |
+
+## v0.14.0 (layout) — INICIO como panel operativo completo
+
+La portada dejó de ser un esqueleto y ahora es un **panel operativo** sobre el mismo lienzo `A1:AD38`, el mismo freeze `2/0` y los mismos valores agregados del snapshot (sin PII, sin fórmulas vivas): hero con semáforo general (`A3:AD3`), banda de **5 KPIs** —personas, eventos, revisión pendiente, controles vencidos y alertas operativas— (etiquetas fila 8, valores fila 9), cards por sector (filas 10-14), **distribución porcentual por sector** (filas 15-16), estado y pendientes (filas 18-23), **banda de alerta** (`A24:AD25`), metadata (`A27:AD29`) y nota (`A32:AD34`). El contrato de layout pasa a `PANEL_OPERATIVO_V014` con fingerprint `v014|fnv1a32`, lo que fuerza una única reconstrucción y conserva el fast path posterior. `ECICEP.VERSION` permanece en `0.13.0` (DEC-087).
 
 ## v0.13.0 — cierre visual: paridad, portada INICIO y presentación convergente
 

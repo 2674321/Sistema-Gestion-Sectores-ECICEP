@@ -23,6 +23,7 @@ function onOpen() {
 
     ui.createMenu('Sistema')
       .addItem('Actualizar sistema', 'UI_actualizarSistema')
+      .addItem('Reconstruir portada INICIO', 'UI_reconstruirInicio')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
       .addItem('Reparar presentación', 'UI_repararPresentacion')
       .addToUi();

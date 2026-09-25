@@ -37,6 +37,13 @@ identificadores, RUT y teléfonos se conservan como texto.
 
 ## INICIO
 
+> **v0.14.0 (layout):** la portada es un **panel operativo** sobre el mismo lienzo
+> `A1:AD38` — hero con semáforo general (`A3:AD3`), accesos (filas 4-7), banda de
+> 5 KPIs (etiquetas fila 8, valores fila 9), cards por sector (filas 10-14),
+> distribución porcentual por sector (filas 15-16), estado y pendientes (filas
+> 18-23), banda de alerta (`A24:AD25`), metadata (`A27:AD29`) y nota (`A32:AD34`).
+> Contrato `PANEL_OPERATIVO_V014` (fingerprint `v014|fnv1a32`).
+>
 > **v0.13.0:** la portada migró al lienzo de 30 columnas `A1:AD38` (cinco accesos,
 > tres tarjetas, bloques ESTADO/PENDIENTES, metadata y nota operativa). Guía
 > vigente: `docs/INFORME_V013_CIERRE_VISUAL.md`.

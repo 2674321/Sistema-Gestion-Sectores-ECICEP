@@ -1947,3 +1947,68 @@ verificación y en el mensaje de la UI para diagnosticar futuras divergencias.
 T9 sin alias, T10 desglose), `instalador_presentacion_timeout_v0121` 19/19, una
 formato por hoja real sin alias; batería completa 45 suites 0 fallos.
 **Fecha:** 2026-09-25
+
+## DEC-087
+**Título:** Portada INICIO como panel operativo completo (contrato de layout v0.14.0)
+**Estado:** Aprobada
+**Motivo:** La portada había quedado como un esqueleto: título, accesos, cuatro
+tarjetas y un bloque de pendientes, con las filas 3, 8-9, 15-16 y 24-25 del lienzo
+libres y las zonas elites Informativas de la versión anterior perdidas. La dirección
+aprobada es recuperar esa riqueza **sin** abrir otra arquitectura: mismo Spreadsheet,
+mismo pipeline, mismo lienzo `A1:AD38`, mismo freeze `2/0`, mismas columnas de 38 px
+y los mismos valores agregados del snapshot (sin PII, sin fórmulas vivas).
+Concreto del contrato `PANEL_OPERATIVO_V014` (fingerprint `v014|fnv1a32`, propiedad
+`ECICEP_INICIO_LAYOUT_V014`):
+- hero `A3:AD3` con el semáforo general (OK / ADVERTENCIA / ERROR) y el foco en
+  alertas y personas en seguimiento;
+- banda de 5 KPIs: etiqueta en fila 8 (`A8:F8`, `G8:L8`, `M8:R8`, `S8:X8`, `Y8:AD8`)
+  y valor en fila 9 (misma división): personas, eventos, revisión pendiente,
+  controles vencidos y alertas operativas;
+- cards por sector en `A10:J10/K10:T10/U10:AD10` con métricas filas 11-14 (sin
+  cambio de contrato);
+- distribución porcentual por sector en filas 15-16 (`A15:J15…U15:AD15` y
+  `A16:J16…U16:AD16`), calculada con los conteos de pacientes que ya existían en el
+  snapshot — no se agregan lecturas ni campos nuevos al modelo;
+- estado `A18:O18` y pendientes `P18:AD18` con filas 20-23, banda de alerta
+  `A24:AD25` (detalle accionable de las alertas), metadata `A27:AD29` y nota
+  `A32:AD34` (sin cambio de contrato).
+Los recuadros de estado/pendientes se acortan a filas 18-23 y la card de sector a
+filas 10-14 para que las bandas nuevas no se solapen con los bordes existentes.
+La verificación contractual exige además `getFormula() === ''` en las celdas de
+KPIs y distribución, y el umbral `fondoClaro` (≤15 % de celdas oscuras en
+`A1:AD29`) se mantiene: solo la barra de KPIs usa el azul de marca y las bandas de
+estado/alerta usan fondos claros con tinta semántica.
+`ECICEP.VERSION` sigue en `0.13.0`: `0.14.0` es la versión del contrato de layout de
+la portada, no una versión de producto, por lo que no se toca la presentación
+(`PRESENTACION_LAYOUT_VERSION`, fingerprint `pp013`).
+**Validación:** `inicio_visual_v014` 10/10 (fingerprint v014, merges y alturas
+exactas del panel, constructor y verificador de las bandas nuevas, snapshot sin
+fórmulas), `inicio_v012` PASS, `instalador_formato_visual_v0122` 20/20, batería
+completa 45 suites 0 fallos y `ejecutar_local` 673/673.
+**Fecha:** 2026-09-25
+
+## DEC-088
+**Título:** La portada INICIO se construye dentro del presupuesto de un RPC.
+**Estado:** Aprobada
+**Motivo:** En el libro real "Reparar presentación" moría por "Se excedió el tiempo
+de ejecución" y la hoja INICIO quedaba sin cambios. Causa doble:
+1) El subplan de diseño ponía la subtarea `inicio` en la posición 15 de 17: el
+presupuesto de 20 s/RPC se agotaba formateando las hojas y la portada nunca se
+alcanzaba. `inicio` pasa a la posición 2, justo después de `base`, para que la
+portada quede construida en la PRIMERA invocación.
+2) `Inicio_construir_` encadenaba ~720 idas a la API (un setX por celda y
+dimensión). Ahora: 34 alturas y 30 anchos en 2 llamadas (`setRowHeights` /
+`setColumnWidths`, con fallback defensivo), cada token de estilo se aplica una
+vez sobre un `RangeList` (con catch individual por token), los valores de
+métricas van en una sola pasada y la portada se audita al final. El constructor
+emite 231 RPC de servidor (medidos por `inicio_rendimiento_v014`), dentro del
+presupuesto.
+Se agrega además el ítem directo `Sistema → Reconstruir portada INICIO`
+(`UI_reconstruirInicio`) para alinear SOLO la hoja INICIO en un clic cuando el
+resto del libro ya está presentado.
+**Validación:** `inicio_rendimiento_v014` 4/4 (techo 260 RPC de servidor, sin
+bucles por fila/columna, 72 merges, reconstrucción repetida), `inicio_v012` PASS,
+`inicio_portada_freezerows_v0121` 8/8, `instalador_presentacion_timeout_v0121` Pass (17 subtareas, `inicio` en posición 2, `verificar` al final),
+`reparar_presentacion_v013` 6/6 (menú con 4 ítems), batería completa 46 suites 0
+fallos y `ejecutar_local` 673/673.
+**Fecha:** 2026-09-25

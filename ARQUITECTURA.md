@@ -31,6 +31,27 @@
 > - El subplan de presentación es una subtarea por hoja; la fase `INICIO` del
 >   instalador solo construye la portada.
 >
+> **Actualización 2026-09-25 (v0.14.0 — panel operativo INICIO):**
+> - La portada deja de ser un esqueleto y pasa a **panel operativo completo** sobre
+>   el mismo lienzo `A1:AD38` (30 columnas × 38 filas), mismo freeze `2/0` y mismos
+>   38 px de columna: hero `A3:AD3` con semáforo general, accesos `A4:F7…Y4:AD7`,
+>   banda de 5 KPIs en `A8:F8…Y8:AD8` (etiqueta) y `A9:F9…Y9:AD9` (valor),
+>   cards por sector `A10:J10/K10:T10/U10:AD10` con métricas filas 11-14,
+>   distribución porcentual por sector en `A15:J15…U15:AD15` y `A16:J16…U16:AD16`,
+>   estado `A18:O18` + pendientes `P18:AD18` (filas 20-23), banda de alerta
+>   `A24:AD25`, metadata `A27:AD29` y nota `A32:AD34`.
+> - El contrato de layout sube a `PANEL_OPERATIVO_V014` con fingerprint
+>   `v014|fnv1a32` sobre el contenido real (merges, KPI, distribución y alerta),
+>   propiedad `ECICEP_INICIO_LAYOUT_V014`: un fingerprint nuevo obliga una única
+>   reconstrucción y conserva el fast path posterior.
+> - Todos los valores siguen siendo **snapshot agregado sin PII escrito con
+>   `setValue`**: la verificación exige `getFormula() === ''` en las celdas de
+>   KPIs, distribución y pendientes. El umbral `fondoClaro` (≤15 % de celdas
+>   oscuras en `A1:AD29`) se conserva; las bandas nuevas usan fondos claros con
+>   tinta de estado y solo la barra de KPIs usa el azul de marca.
+> - `ECICEP.VERSION` permanece en `0.13.0`: `0.14.0` identifica el contrato de
+>   layout de la portada, no una versión nueva de producto.
+>
 > **Actualización 2026-09-23 (v0.12.0):**
 > - `DESIGN_SYSTEM` y `HOJAS_UX` gobiernan tokens, anchos, formatos, orden,
 >   visibilidad e inmovilización del único libro operativo.

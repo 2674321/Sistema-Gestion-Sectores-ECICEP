@@ -22,13 +22,13 @@ assert.ok(Array.isArray(plan) && plan.length === 17, '17 subtareas (sin alias IN
 assert.equal(plan[0].id, 'base');
 assert.equal(plan[16].id, 'verificar');
 assert.deepEqual(Array.from(plan, t => t.id), [
-  'base', 'formato:PACIENTES', 'formato:INGRESO_NARANJO',
+  'base', 'inicio', 'formato:PACIENTES', 'formato:INGRESO_NARANJO',
   'formato:INGRESO_AMARILLO', 'formato:INGRESO_VERDE', 'formato:SECTOR_NARANJO',
   'formato:SECTOR_AMARILLO', 'formato:SECTOR_VERDE', 'formato:EVENTOS',
-  'validaciones:extras', 'condicionales', 'notas', 'accesorios', 'inicio',
+  'validaciones:extras', 'condicionales', 'notas', 'accesorios',
   'paridad:INGRESO', 'paridad:SECTOR', 'verificar'
 ]);
-ok('T1 plan: 17 subtareas (una por hoja real, sin alias INGRESO_NARANJA), base primero y verificar al final');
+ok('T1 plan: 17 subtareas, base e inicio primero (portada en la 1ª invocación), verificar al final');
 
 // --- T2: presupuesto y reanudabilidad ---
 assert.equal(c.PRESUPUESTO_PRESENTACION_MS, 20000);

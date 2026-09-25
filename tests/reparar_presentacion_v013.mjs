@@ -16,9 +16,10 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
 const srcO = c.onOpen.toString();
 const mS = srcO.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
 assert.ok(mS, 'menú Sistema existe');
-assert.equal((mS[1].match(/\.addItem/g) || []).length, 3, 'Sistema tiene 3 items');
+assert.equal((mS[1].match(/\.addItem/g) || []).length, 4, 'Sistema tiene 4 items');
 assert.match(mS[1], /addItem\('Reparar presentación', 'UI_repararPresentacion'\)/);
-ok('T1 menú Sistema incluye Reparar presentación');
+assert.match(mS[1], /addItem\('Reconstruir portada INICIO', 'UI_reconstruirInicio'\)/);
+ok('T1 menú Sistema incluye Reparar presentación y Reconstruir portada INICIO');
 
 // T2: Libro_repararPresentacion_ delega en el motor reanudable con la clave.
 let llamado = 0, etapaCap, claveCap;

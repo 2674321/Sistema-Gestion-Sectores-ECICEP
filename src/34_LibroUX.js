@@ -4,8 +4,8 @@
  */
 var LIBRO_DIRTY_PROP = 'ECICEP_LIBRO_DIRTY_V012';
 var INICIO_SNAPSHOT_PROP = 'ECICEP_INICIO_SNAPSHOT_V012';
-var INICIO_LAYOUT_PROP = 'ECICEP_INICIO_LAYOUT_V013';
-var INICIO_LAYOUT_VERSION = '0.13.0';
+var INICIO_LAYOUT_PROP = 'ECICEP_INICIO_LAYOUT_V014';
+var INICIO_LAYOUT_VERSION = '0.14.0';
 var _LIBRO_DIRTY_MEMO = null;
 
 function Libro_propiedades_() {
@@ -152,6 +152,21 @@ function Inicio_numeroVisible_(valor) {
   if (!isFinite(n)) n = 0;
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
+/** Notación A1 de un bloque horizontal: fila, columna inicial y ancho. */
+function Inicio_a1_(fila, col, ancho) {
+  function letra(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+  return letra(col) + fila + ':' + letra(col + ancho - 1) + fila;
+}
+/** Escribe N valores en una sola pasada (un setValue por ancla). Los anclas son
+ *  rangos fusionados de anchos distintos; RangeList.setValues exige una matriz
+ *  homogénea, así que no aplica. El coste total es pequeño frente a lo que
+ *  ahorran las dimensiones batched de Inicio_construir_ (64 idas → 2). */
+function Inicio_escribirValores_(hoja, pares) {
+  if (!hoja || !pares || !pares.length) return { ok: false, motivo: 'SIN_RANGOS' };
+  var escritas = 0;
+  pares.forEach(function (p) { hoja.getRange(p.a1).setValue(p.valor); escritas++; });
+  return { ok: true, escritas: escritas };
+}
 function Inicio_fechaVisible_(valor) {
   if (!valor) return 'Pendiente';
   try { return Utilities.formatDate(new Date(valor), ECICEP.TZ, 'dd-MM-yyyy HH:mm'); }
@@ -161,17 +176,20 @@ function Inicio_escribirMetricas_(m, hoja) {
   hoja = hoja || Modelo_ss().getSheetByName('INICIO');
   if (!hoja || !m) return { ok: false, motivo: 'INICIO_NO_DISPONIBLE' };
   var iniciosSector = [1, 11, 21];
-  ['NARANJO', 'AMARILLO', 'VERDE'].forEach(function (s, i) {
-    var c = iniciosSector[i], x = (m.sectores || {})[s] || {};
-    hoja.getRange(11, c + 7).setValue(x.pacientes || 0);
-    hoja.getRange(12, c + 7).setValue(x.pendientesIngreso || 0);
-    hoja.getRange(13, c + 7).setValue(x.revision || 0);
-    hoja.getRange(14, c + 7).setValue(x.proximaAtencion || 0);
+  var nombresSector = ['NARANJO', 'AMARILLO', 'VERDE'];
+  var clavesSector = ['pacientes', 'pendientesIngreso', 'revision', 'proximaAtencion'];
+  var rangosValor = [];
+  nombresSector.forEach(function (s, i) {
+    var x = (m.sectores || {})[s] || {};
+    clavesSector.forEach(function (clave, f) {
+      rangosValor.push({ a1: Inicio_a1_(11 + f, iniciosSector[i] + 7, 3), valor: x[clave] || 0 });
+    });
   });
+  Inicio_escribirValores_(hoja, rangosValor);
   var pendientes = [m.vencidos, m.porVencer, m.sinProximaAtencion, m.revision];
-  ['AC20:AD20', 'AC21:AD21', 'AC22:AD22', 'AC23:AD23'].forEach(function (a1, i) {
-    hoja.getRange(a1).setValue(pendientes[i] || 0);
-  });
+  Inicio_escribirValores_(hoja, ['AC20:AD20', 'AC21:AD21', 'AC22:AD22', 'AC23:AD23'].map(function (a2, i) {
+    return { a1: a2, valor: pendientes[i] || 0 };
+  }));
   var salud = m.salud || {};
   var integridad = salud.integridad || {};
   var estadoIntegridad = integridad.derivadosOk === false ? 'ERROR' :
@@ -204,6 +222,26 @@ function Inicio_escribirMetricas_(m, hoja) {
       Inicio_numeroVisible_(atencion) + ' alertas requieren atención operativa' :
     estadoGeneral === 'ADVERTENCIA' ? 'ADVERTENCIA · revisar la configuración operativa' :
       'OK · sistema listo para operar';
+  hoja.getRange('A3:AD3').setValue('● ' + estadoGeneral + ' · ' + Inicio_numeroVisible_(atencion) +
+      ' alertas operativas · ' + Inicio_numeroVisible_(m.pacientes) + ' personas en seguimiento')
+    .setBackground(tokenGeneral.fondo).setFontColor(tokenGeneral.tinta);
+  Inicio_escribirValores_(hoja, [['A9:F9', m.pacientes], ['G9:L9', m.eventos], ['M9:R9', m.revision],
+    ['S9:X9', m.vencidos], ['Y9:AD9', atencion]].map(function (k) {
+      return { a1: k[0], valor: Inicio_numeroVisible_(k[1]) };
+    }));
+  var totalPersonas = Number(m.pacientes || 0);
+  Inicio_escribirValores_(hoja, ['NARANJO', 'AMARILLO', 'VERDE'].map(function (s, i) {
+    var personas = Number(((m.sectores || {})[s] || {}).pacientes || 0);
+    var porcentaje = totalPersonas > 0 ? Math.round(personas * 100 / totalPersonas) : 0;
+    return { a1: Inicio_a1_(16, iniciosSector[i], 10),
+      valor: Inicio_numeroVisible_(personas) + ' personas · ' + Inicio_numeroVisible_(porcentaje) + ' % del total' };
+  }));
+  hoja.getRange('A24:AD25').setValue('ALERTA OPERATIVA · ' + estadoGeneral + ' · ' +
+      Inicio_numeroVisible_(atencion) + ' alertas requieren atención · Revisión ' +
+      Inicio_numeroVisible_(m.revision) + ' · Vencidos ' + Inicio_numeroVisible_(m.vencidos) +
+      ' · Sin próxima atención ' + Inicio_numeroVisible_(m.sinProximaAtencion) +
+      ' · Ingresos pendientes ' + Inicio_numeroVisible_(m.pendientesIngreso))
+    .setBackground(tokenGeneral.fondo).setFontColor(tokenGeneral.tinta);
   hoja.getRange('A2:AD2').setValue('Gestión por sectores · ' + Inicio_numeroVisible_(m.pacientes) + ' personas · ' +
     Inicio_numeroVisible_(m.eventos) + ' eventos · actualizado ' + Inicio_fechaVisible_(m.fecha));
   hoja.getRange('A27:AD29').setValue(resumen + '\nDatos ' + Inicio_fechaVisible_(m.fecha) +
@@ -229,20 +267,37 @@ function Inicio_refrescarSiNecesario_() {
 
 function Inicio_fingerprintEsperado_() {
   var contrato = {
-    panel: 'PANEL_MINIMAL_V013', rango: INICIO_RANGO_GESTIONADO,
+    panel: 'PANEL_OPERATIVO_V014', rango: INICIO_RANGO_GESTIONADO,
     header: ['A1:AD1', 'A2:AD2'],
+    hero: 'A3:AD3',
     accesos: ['A4:F7', 'G4:L7', 'M4:R7', 'S4:X7', 'Y4:AD7'],
     acceso3: 'INGRESOS',
+    kpiBand: ['A8:F8', 'G8:L8', 'M8:R8', 'S8:X8', 'Y8:AD8'],
+    kpiSub: ['A9:F9', 'G9:L9', 'M9:R9', 'S9:X9', 'Y9:AD9'],
     cards: ['A10:J10', 'K10:T10', 'U10:AD10'],
+    distribucion: ['A15:J15', 'K15:T15', 'U15:AD15'],
+    distribucionValor: ['A16:J16', 'K16:T16', 'U16:AD16'],
     estado: 'A18:O18', pendientes: 'P18:AD18',
+    alerta: 'A24:AD25',
     metadata: 'A27:AD29', nota: 'A32:AD34',
     ancho: 38, freeze: [2, 0]
   };
-  return 'v013|' + Utl_fnv1a32_(JSON.stringify(contrato));
+  return 'v014|' + Utl_fnv1a32_(JSON.stringify(contrato));
 }
 function Inicio_mergesEsperados_() {
-  var merges = ['A1:AD1', 'A2:AD2', 'A4:F7', 'G4:L7', 'M4:R7', 'S4:X7', 'Y4:AD7',
-    'A10:J10', 'K10:T10', 'U10:AD10', 'A18:O18', 'P18:AD18', 'A27:AD29', 'A32:AD34'];
+  var merges = ['A1:AD1', 'A2:AD2', 'A3:AD3', 'A4:F7', 'G4:L7', 'M4:R7', 'S4:X7', 'Y4:AD7'];
+  [['A8', 'F8', 'A9', 'F9'], ['G8', 'L8', 'G9', 'L9'], ['M8', 'R8', 'M9', 'R9'],
+    ['S8', 'X8', 'S9', 'X9'], ['Y8', 'AD8', 'Y9', 'AD9']].forEach(function (k) {
+      merges.push(k[0] + ':' + k[1]);
+      merges.push(k[2] + ':' + k[3]);
+    });
+  merges.push('A10:J10', 'K10:T10', 'U10:AD10');
+  [['A15', 'J15', 'A16', 'J16'], ['K15', 'T15', 'K16', 'T16'], ['U15', 'AD15', 'U16', 'AD16']]
+    .forEach(function (k) {
+      merges.push(k[0] + ':' + k[1]);
+      merges.push(k[2] + ':' + k[3]);
+    });
+  merges.push('A18:O18', 'P18:AD18', 'A24:AD25', 'A27:AD29', 'A32:AD34');
   [[1, 'A', 'G', 'H', 'J'], [11, 'K', 'Q', 'R', 'T'], [21, 'U', 'AA', 'AB', 'AD']]
     .forEach(function (s) {
       for (var fila = 11; fila <= 14; fila++) {
@@ -259,11 +314,11 @@ function Inicio_mergesEsperados_() {
   return merges.sort();
 }
 function Inicio_alturasEsperadas_() {
-  return [[1, 32], [2, 24], [3, 10], [4, 20], [5, 20], [6, 20], [7, 20],
-    [8, 10], [9, 10], [10, 28], [11, 22], [12, 22], [13, 22], [14, 22],
-    [15, 12], [16, 10], [17, 10], [18, 28], [19, 8], [20, 23], [21, 23],
-    [22, 23], [23, 23], [24, 12], [25, 10], [26, 10], [27, 22], [28, 22],
-    [29, 22], [30, 10], [31, 10], [32, 20], [33, 20], [34, 20]];
+  return [[1, 32], [2, 22], [3, 26], [4, 22], [5, 22], [6, 22], [7, 22],
+    [8, 16], [9, 30], [10, 30], [11, 20], [12, 20], [13, 20], [14, 20],
+    [15, 18], [16, 24], [17, 8], [18, 26], [19, 8], [20, 21], [21, 21],
+    [22, 21], [23, 21], [24, 14], [25, 20], [26, 8], [27, 22], [28, 22],
+    [29, 22], [30, 10], [31, 10], [32, 22], [33, 22], [34, 22]];
 }
 function Inicio_colorOscuro_(color) {
   var hex = Utl_texto(color).replace('#', '');
@@ -298,10 +353,19 @@ function Inicio_verificar_(h) {
     ver.tarjetas = ['A10', 'K10', 'U10'].map(function (a1) { return Utl_texto(h.getRange(a1).getValue()); })
       .join('|') === 'NARANJO|AMARILLO|VERDE' &&
       Utl_texto(h.getRange('A11').getValue()) === 'Personas' &&
-      Utl_texto(h.getRange('A14').getValue()) === 'Próxima atención';
+      Utl_texto(h.getRange('A14').getValue()) === 'Próxima atención' &&
+      ['OK', 'ADVERTENCIA', 'ERROR'].some(function (e) {
+        return Utl_texto(h.getRange('A3').getValue()).indexOf(e) !== -1;
+      }) &&
+      ['A8', 'G8', 'M8', 'S8', 'Y8'].map(function (a1) { return Utl_texto(h.getRange(a1).getValue()); })
+        .join('|') === 'PERSONAS|EVENTOS|REVISIÓN PENDIENTE|CONTROLES VENCIDOS|ALERTAS OPERATIVAS' &&
+      ['A15', 'K15', 'U15'].map(function (a1) { return Utl_texto(h.getRange(a1).getValue()); })
+        .join('|') === 'NARANJO|AMARILLO|VERDE' &&
+      !!Utl_texto(h.getRange('A24').getValue());
     ver.bloques = Utl_texto(h.getRange('A18').getValue()) === 'ESTADO DEL SISTEMA' &&
       Utl_texto(h.getRange('P18').getValue()) === 'PENDIENTES' && !!Utl_texto(h.getRange('A27').getValue());
-    ver.snapshot = h.getRange('H11').getFormula() === '' && h.getRange('AC20').getFormula() === '';
+    ver.snapshot = h.getRange('H11').getFormula() === '' && h.getRange('AC20').getFormula() === '' &&
+      h.getRange('A9').getFormula() === '' && h.getRange('A16').getFormula() === '';
   } catch (eC) {}
   try {
     var rangos = h.getRange(INICIO_RANGO_GESTIONADO).getMergedRanges();
@@ -330,7 +394,14 @@ function Inicio_verificar_(h) {
       Utl_colorIgual(h.getRange('P20').getBackground(), blanco) &&
       Utl_colorIgual(h.getRange('A10').getBackground(), IDENTIDAD.NARANJO) &&
       Utl_colorIgual(h.getRange('K10').getBackground(), IDENTIDAD.AMARILLO) &&
-      Utl_colorIgual(h.getRange('U10').getBackground(), IDENTIDAD.VERDE);
+      Utl_colorIgual(h.getRange('U10').getBackground(), IDENTIDAD.VERDE) &&
+      Utl_colorIgual(h.getRange('A8').getBackground(), M.sistema) &&
+      Utl_colorIgual(h.getRange('A9').getBackground(), blanco) &&
+      Utl_colorIgual(h.getRange('A15').getBackground(), IDENTIDAD.NARANJO) &&
+      Utl_colorIgual(h.getRange('A16').getBackground(), blanco) &&
+      ['OK', 'ALERTA', 'ERROR'].some(function (k) {
+        return Utl_colorIgual(h.getRange('A24').getBackground(), DESIGN_SYSTEM.ESTADOS[k].fondo);
+      });
     var fondos = h.getRange('A1:AD29').getBackgrounds(), oscuros = 0, total = 0;
     fondos.forEach(function (fila) { fila.forEach(function (color) {
       total++; if (Inicio_colorOscuro_(color)) oscuros++;
@@ -421,15 +492,41 @@ function Inicio_construir_(ss, opciones) {
   var M = DESIGN_SYSTEM.MARCA, blanco = DESIGN_SYSTEM.SUPERFICIE.datos;
   var fondo = DESIGN_SYSTEM.TOKENS_UI.background, borde = DESIGN_SYSTEM.TOKENS_UI.border;
   gestionado.setBackground(fondo).setFontFamily('Arial').setFontColor(DESIGN_SYSTEM.TOKENS_UI.text);
-  for (var c = 1; c <= 30; c++) h.setColumnWidth(c, 38);
-  function altura(fila, px) { if (typeof h.setRowHeight === 'function') h.setRowHeight(fila, px); }
-  Inicio_alturasEsperadas_().forEach(function (x) { altura(x[0], x[1]); });
-  h.getRange('A1:AD1').merge().setBackground(M.sistemaProfundo).setFontColor(blanco)
-    .setValue('ECICEP · CENTRO OPERATIVO · v' + ECICEP.VERSION).setFontFamily('Arial')
-    .setFontWeight('bold').setFontSize(14).setHorizontalAlignment('left').setVerticalAlignment('middle');
-  h.getRange('A2:AD2').merge().setValue('Gestión por sectores · resumen operativo en preparación')
-    .setBackground(DESIGN_SYSTEM.HOJAS.seleccion.fondo).setFontColor(M.gris).setFontFamily('Arial')
-    .setFontSize(9).setHorizontalAlignment('left').setVerticalAlignment('middle');
+  // Presupuesto de RPC (regresión 2026-09-25): la portada se construye dentro de
+  // una subtarea del plan de presentación y el límite de Apps Script es DURO por
+  // invocación. Encadenar un setX por celda emitía ~720 idas a la API y la
+  // subtarea moría por tiempo sin dejar cambios. Ahora las dimensiones van en 2
+  // llamadas y cada token de estilo se aplica una vez sobre un RangeList.
+  var alturas = Inicio_alturasEsperadas_(), vecAlturas = [], vecAnchos = [], iDim;
+  for (iDim = 0; iDim < alturas.length; iDim++) vecAlturas.push(alturas[iDim][1]);
+  for (iDim = 0; iDim < cols; iDim++) vecAnchos.push(38);
+  if (typeof h.setRowHeights === 'function') h.setRowHeights(1, alturas.length, vecAlturas);
+  else if (typeof h.setRowHeight === 'function') alturas.forEach(function (x) { h.setRowHeight(x[0], x[1]); });
+  if (typeof h.setColumnWidths === 'function') h.setColumnWidths(1, cols, vecAnchos);
+  else for (var c = 1; c <= cols; c++) h.setColumnWidth(c, 38);
+
+  var FONDOS = {}, TINTAS = {}, PESOS = {}, TAMANOS = {}, HALIN = {}, VALIN = {};
+  var conBorde = [], conWrap = [];
+  function g(mapa, valor) { if (!mapa[valor]) mapa[valor] = []; return mapa[valor]; }
+  var a1 = Inicio_a1_;
+  var SINGULAR = { setBackgrounds:'setBackground', setFontColors:'setFontColor',
+    setFontSizes:'setFontSize', setFontWeights:'setFontWeight',
+    setHorizontalAlignments:'setHorizontalAlignment', setVerticalAlignments:'setVerticalAlignment' };
+  function capa(mapa, orden, metodoPlural, convertir) {
+    var metodo = SINGULAR[metodoPlural];
+    orden.forEach(function (valor) {
+      var rangos = mapa[valor];
+      if (!rangos || !rangos.length) return;
+      var salida = convertir ? convertir(valor) : valor;
+      try {
+        h.getRangeList(rangos)[metodo](salida);
+      } catch (eG) {
+        rangos.forEach(function (a2) { h.getRange(a2)[metodo](salida); });
+      }
+    });
+  }
+  var sectores = [{ n:'NARANJO', c:IDENTIDAD.NARANJO, ini:1 }, { n:'AMARILLO', c:IDENTIDAD.AMARILLO, ini:11 },
+    { n:'VERDE', c:IDENTIDAD.VERDE, ini:21 }];
   var accesos = [
     { texto: 'PERSONAS', rango: 'A4:F7', url: typeof WebApp_urlVista_ === 'function' ? WebApp_urlVista_('pacientes') : '' },
     { texto: 'CAPTURA', rango: 'G4:L7', url: typeof WebApp_urlCaptura_ === 'function' ? WebApp_urlCaptura_() : '' },
@@ -437,58 +534,147 @@ function Inicio_construir_(ss, opciones) {
     { texto: 'CONTROLES', rango: 'S4:X7', url: typeof WebApp_urlVista_ === 'function' ? WebApp_urlVista_('controles') : '' },
     { texto: 'REM', rango: 'Y4:AD7', url: typeof WebApp_urlVista_ === 'function' ? WebApp_urlVista_('rem') : '' }
   ];
+  var kpis = [
+    { etiqueta: 'PERSONAS', rango: 'A8:F8', valor: 'A9:F9' },
+    { etiqueta: 'EVENTOS', rango: 'G8:L8', valor: 'G9:L9' },
+    { etiqueta: 'REVISIÓN PENDIENTE', rango: 'M8:R8', valor: 'M9:R9' },
+    { etiqueta: 'CONTROLES VENCIDOS', rango: 'S8:X8', valor: 'S9:X9' },
+    { etiqueta: 'ALERTAS OPERATIVAS', rango: 'Y8:AD8', valor: 'Y9:AD9' }
+  ];
+  var metricasSector = [['Personas',11], ['Ingresos pendientes',12], ['Revisión',13], ['Próxima atención',14]];
+
+  // --- contenido: un merge + un valor por bloque del contrato ---
+  h.getRange('A1:AD1').merge().setValue('ECICEP · CENTRO OPERATIVO · v' + ECICEP.VERSION);
+  h.getRange('A2:AD2').merge().setValue('Gestión por sectores · resumen operativo en preparación');
+  h.getRange('A3:AD3').merge().setValue('Panel operativo · datos agregados y verificables');
   accesos.forEach(function (a) {
     var rng = h.getRange(a.rango).merge(), formula = '';
     if (a.url) formula = '=HYPERLINK("' + String(a.url).replace(/"/g, '""') + '";"' + a.texto + '")';
     if (formula) rng.setFormula(formula); else rng.setValue(a.texto);
-    rng.setBackground(blanco).setFontColor(M.sistema).setFontWeight('bold').setFontSize(10)
-      .setHorizontalAlignment('center').setVerticalAlignment('middle')
-      .setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID);
   });
-  [{ n:'NARANJO', c:IDENTIDAD.NARANJO }, { n:'AMARILLO', c:IDENTIDAD.AMARILLO }, { n:'VERDE', c:IDENTIDAD.VERDE }]
-    .forEach(function (s, i) {
-      var c0 = [1, 11, 21][i];
-      h.getRange(10, c0, 1, 10).merge().setValue(s.n).setBackground(s.c).setFontColor(blanco)
-        .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center')
-        .setVerticalAlignment('middle');
-      [['Personas',11], ['Ingresos pendientes',12], ['Revisión',13], ['Próxima atención',14]].forEach(function (x) {
-        h.getRange(x[1], c0, 1, 7).merge().setValue(x[0]).setBackground(blanco).setFontColor(M.gris);
-        h.getRange(x[1], c0 + 7, 1, 3).merge().setBackground(blanco).setFontWeight('bold')
-          .setFontColor(M.texto).setHorizontalAlignment('right');
-      });
-      h.getRange(10, c0, 6, 10).setBackground(blanco)
-        .setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID);
-      h.getRange(10, c0, 1, 10).setBackground(s.c).setFontColor(blanco);
+  kpis.forEach(function (k) {
+    h.getRange(k.rango).merge().setValue(k.etiqueta);
+    h.getRange(k.valor).merge().setValue(0);
+  });
+  sectores.forEach(function (s) {
+    var c0 = s.ini;
+    h.getRange(10, c0, 1, 10).merge().setValue(s.n);
+    metricasSector.forEach(function (x) {
+      h.getRange(x[1], c0, 1, 7).merge().setValue(x[0]);
+      h.getRange(x[1], c0 + 7, 1, 3).merge();
     });
-  h.getRange('A18:O24').setBackground(blanco)
-    .setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID);
-  h.getRange('A18:O18').merge().setValue('ESTADO DEL SISTEMA').setBackground(M.sistema)
-    .setFontColor(blanco).setFontWeight('bold').setHorizontalAlignment('center');
-  ['Datos', 'Integridad', 'Ingreso manual', 'Backup'].forEach(function (texto, i) {
-    var fila = 20 + i;
-    h.getRange(fila, 1, 1, 8).merge().setValue(texto).setFontColor(M.gris).setFontWeight('bold');
-    h.getRange(fila, 9, 1, 7).merge().setHorizontalAlignment('center').setVerticalAlignment('middle');
+    h.getRange(15, c0, 1, 10).merge().setValue(s.n);
+    h.getRange(16, c0, 1, 10).merge().setValue('0 personas · 0 % del total');
   });
-  h.getRange('P18:AD24').setBackground(blanco)
-    .setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID);
-  h.getRange('P18:AD18').merge().setValue('PENDIENTES').setBackground(M.sistema)
-    .setFontColor(blanco).setFontWeight('bold').setHorizontalAlignment('center');
+  h.getRange('A18:O18').merge().setValue('ESTADO DEL SISTEMA');
+  ['Datos', 'Integridad', 'Ingreso manual', 'Backup'].forEach(function (texto, i) {
+    h.getRange(20 + i, 1, 1, 8).merge().setValue(texto);
+    h.getRange(20 + i, 9, 1, 7).merge();
+  });
+  h.getRange('P18:AD18').merge().setValue('PENDIENTES');
   ['Controles vencidos', 'Próximos 30 días', 'Sin próximo control', 'Fichas por revisar']
     .forEach(function (texto, i) {
-      var fila = 20 + i;
-      h.getRange('P' + fila + ':AB' + fila).merge().setValue(texto).setFontColor(M.gris).setFontWeight('bold');
-      h.getRange('AC' + fila + ':AD' + fila).merge().setFontColor(M.sistema).setFontWeight('bold')
-        .setHorizontalAlignment('right').setVerticalAlignment('middle');
+      h.getRange('P' + (20 + i) + ':AB' + (20 + i)).merge().setValue(texto);
+      h.getRange('AC' + (20 + i) + ':AD' + (20 + i)).merge();
   });
-  h.getRange('A27:AD29').merge().setValue('Estado y actualización en preparación')
-    .setBackground(DESIGN_SYSTEM.HOJAS.derivado.fondo).setFontColor(M.gris).setFontSize(9)
-    .setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
-    .setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID);
+  h.getRange('A24:AD25').merge().setValue('Sin alertas operativas');
+  h.getRange('A27:AD29').merge().setValue('Estado y actualización en preparación');
   h.getRange('A32:AD34').merge().setValue('Nota operativa: los valores mostrados son agregados; '
-      + 'no reemplazan la verificación individual en PACIENTES ni el control clínico en el sector.')
-    .setBackground(fondo).setFontColor(M.gris).setFontSize(9).setWrap(true)
-    .setHorizontalAlignment('left').setVerticalAlignment('top')
-    .setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID);
+      + 'no reemplazan la verificación individual en PACIENTES ni el control clínico en el sector.');
+
+  // --- estilos: un grupo por token; RangeList los aplica en una sola pasada ---
+  g(FONDOS, blanco);
+  accesos.forEach(function (a) { g(FONDOS, blanco).push(a.rango); g(TINTAS, M.sistema).push(a.rango);
+    g(PESOS, 'bold').push(a.rango); g(TAMANOS, 10).push(a.rango); g(HALIN, 'center').push(a.rango);
+    g(VALIN, 'middle').push(a.rango); conBorde.push(a.rango); });
+  kpis.forEach(function (k) {
+    g(FONDOS, M.sistema).push(k.rango); g(TINTAS, blanco).push(k.rango); g(PESOS, 'bold').push(k.rango);
+    g(TAMANOS, 8).push(k.rango); g(HALIN, 'center').push(k.rango); g(VALIN, 'middle').push(k.rango);
+    conBorde.push(k.rango);
+    g(FONDOS, blanco).push(k.valor); g(TINTAS, M.texto).push(k.valor); g(PESOS, 'bold').push(k.valor);
+    g(TAMANOS, 14).push(k.valor); g(HALIN, 'center').push(k.valor); g(VALIN, 'middle').push(k.valor);
+    conBorde.push(k.valor);
+  });
+  sectores.forEach(function (s) {
+    var c0 = s.ini, caja = a1(10, c0, 10), cabecera = a1(10, c0, 10), distCab = a1(15, c0, 10);
+    g(FONDOS, blanco).push(caja); conBorde.push(caja);
+    g(FONDOS, s.c).push(cabecera, distCab);
+    g(TINTAS, blanco).push(cabecera, distCab);
+    g(PESOS, 'bold').push(cabecera, distCab);
+    g(TAMANOS, 10).push(cabecera); g(TAMANOS, 9).push(distCab);
+    g(HALIN, 'center').push(cabecera, distCab); g(VALIN, 'middle').push(cabecera, distCab);
+    metricasSector.forEach(function (x) {
+      var etiqueta = a1(x[1], c0, 7), valor = a1(x[1], c0 + 7, 3);
+      g(FONDOS, blanco).push(etiqueta, valor);
+      g(TINTAS, M.gris).push(etiqueta); g(TINTAS, M.texto).push(valor);
+      g(PESOS, 'bold').push(valor); g(HALIN, 'right').push(valor);
+    });
+    var distValor = a1(16, c0, 10);
+    g(FONDOS, blanco).push(distValor); g(TINTAS, M.texto).push(distValor);
+    g(PESOS, 'bold').push(distValor); g(TAMANOS, 10).push(distValor);
+    g(HALIN, 'center').push(distValor); g(VALIN, 'middle').push(distValor); conBorde.push(distValor);
+  });
+  var CAJA_ESTADO = 'A18:O23', CAJA_PENDIENTES = 'P18:AD23';
+  g(FONDOS, blanco).push(CAJA_ESTADO, CAJA_PENDIENTES);
+  conBorde.push(CAJA_ESTADO, CAJA_PENDIENTES);
+  ['A18:O18', 'P18:AD18'].forEach(function (cab) {
+    g(FONDOS, M.sistema).push(cab); g(TINTAS, blanco).push(cab); g(PESOS, 'bold').push(cab);
+    g(HALIN, 'center').push(cab);
+  });
+  ['Datos', 'Integridad', 'Ingreso manual', 'Backup'].forEach(function (texto, i) {
+    var etiqueta = a1(20 + i, 1, 8), valor = a1(20 + i, 9, 7);
+    g(TINTAS, M.gris).push(etiqueta); g(PESOS, 'bold').push(etiqueta);
+    g(HALIN, 'center').push(valor); g(VALIN, 'middle').push(valor);
+  });
+  ['Controles vencidos', 'Próximos 30 días', 'Sin próximo control', 'Fichas por revisar']
+    .forEach(function (texto, i) {
+      var etiqueta = 'P' + (20 + i) + ':AB' + (20 + i), valor = 'AC' + (20 + i) + ':AD' + (20 + i);
+      g(TINTAS, M.gris).push(etiqueta); g(PESOS, 'bold').push(etiqueta);
+      g(TINTAS, M.sistema).push(valor); g(PESOS, 'bold').push(valor);
+      g(HALIN, 'right').push(valor); g(VALIN, 'middle').push(valor);
+    });
+  g(FONDOS, DESIGN_SYSTEM.HOJAS.seleccion.fondo).push('A2:AD2', 'A3:AD3');
+  g(TINTAS, M.gris).push('A2:AD2'); g(TAMANOS, 9).push('A2:AD2');
+  g(HALIN, 'left').push('A2:AD2'); g(VALIN, 'middle').push('A2:AD2');
+  g(TINTAS, M.texto).push('A3:AD3'); g(PESOS, 'bold').push('A3:AD3');
+  g(TAMANOS, 10).push('A3:AD3'); g(HALIN, 'left').push('A3:AD3');
+  g(VALIN, 'middle').push('A3:AD3'); conBorde.push('A3:AD3');
+  g(FONDOS, M.sistemaProfundo).push('A1:AD1');
+  g(TINTAS, blanco).push('A1:AD1'); g(PESOS, 'bold').push('A1:AD1');
+  g(TAMANOS, 14).push('A1:AD1'); g(HALIN, 'left').push('A1:AD1');
+  g(VALIN, 'middle').push('A1:AD1');
+  g(FONDOS, DESIGN_SYSTEM.ESTADOS.OK.fondo).push('A24:AD25');
+  g(TINTAS, DESIGN_SYSTEM.ESTADOS.OK.tinta).push('A24:AD25');
+  g(PESOS, 'bold').push('A24:AD25'); g(TAMANOS, 10).push('A24:AD25');
+  g(HALIN, 'left').push('A24:AD25'); g(VALIN, 'middle').push('A24:AD25');
+  conBorde.push('A24:AD25'); conWrap.push('A24:AD25');
+  g(FONDOS, DESIGN_SYSTEM.HOJAS.derivado.fondo).push('A27:AD29');
+  g(TINTAS, M.gris).push('A27:AD29'); g(PESOS, 'bold').push('A27:AD29');
+  g(TAMANOS, 9).push('A27:AD29'); g(HALIN, 'center').push('A27:AD29');
+  g(VALIN, 'middle').push('A27:AD29');
+  conBorde.push('A27:AD29'); conWrap.push('A27:AD29');
+  g(FONDOS, fondo).push('A32:AD34'); g(TINTAS, M.gris).push('A32:AD34');
+  g(TAMANOS, 9).push('A32:AD34'); g(HALIN, 'left').push('A32:AD34');
+  g(VALIN, 'top').push('A32:AD34');
+  conBorde.push('A32:AD34'); conWrap.push('A32:AD34');
+
+  // Fondos base primero y acentos al final: la cabecera de sector se pinta
+  // encima de la caja blanca de su tarjeta.
+  capa(FONDOS, [blanco, DESIGN_SYSTEM.HOJAS.seleccion.fondo, DESIGN_SYSTEM.HOJAS.derivado.fondo,
+    fondo, M.sistema, M.sistemaProfundo, DESIGN_SYSTEM.ESTADOS.OK.fondo]
+    .concat(sectores.map(function (s) { return s.c; })), 'setBackgrounds');
+  capa(TINTAS, [blanco, M.texto, M.gris, M.sistema, M.sistemaProfundo,
+    DESIGN_SYSTEM.ESTADOS.OK.tinta], 'setFontColors');
+  capa(PESOS, ['bold'], 'setFontWeights');
+  capa(TAMANOS, [14, 10, 9, 8], 'setFontSizes', Number);
+  capa(HALIN, ['center', 'right', 'left'], 'setHorizontalAlignments');
+  capa(VALIN, ['middle', 'top'], 'setVerticalAlignments');
+  if (conBorde.length) {
+    try { h.getRangeList(conBorde).setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID); }
+    catch (eB) { conBorde.forEach(function (a2) {
+      h.getRange(a2).setBorder(true, true, true, true, null, null, borde, SpreadsheetApp.BorderStyle.SOLID); }); }
+  }
+  conWrap.forEach(function (a2) { h.getRange(a2).setWrap(true); });
   h.setTabColor(M.sistemaProfundo);
   try { h.setConditionalFormatRules([]); } catch (eCF) {}
   var metricas = Inicio_calcularMetricas_();
@@ -814,6 +1000,26 @@ function UI_irInicio() {
   var ss = Modelo_ss(), h = ss.getSheetByName('INICIO');
   if (h) ss.setActiveSheet(h, false);
   return { ok: !!h };
+}
+/** Reconstruye SOLO la portada, en una sola invocación y sin depender del plan de
+ *  presentación. Es la vía directa para dejar INICIO al día cuando el resto del
+ *  libro ya está presentado (regresión 2026-09-25: la subtarea 'inicio' quedaba
+ *  fuera del presupuesto de un clic y la hoja no cambiaba). */
+function UI_reconstruirInicio() {
+  var ui = _UI_get();
+  var r = Inicio_construir_(Modelo_ss(), { forzar: false });
+  if (r.ok === false) {
+    ui.alert('Portada INICIO', 'No se pudo reconstruir la portada: ' +
+      (r.motivo || 'error desconocido') + '\n\nRepite la acción; es idempotente.', ui.ButtonSet.OK);
+    return r;
+  }
+  var v = r.verificacion || {};
+  ui.alert('Portada INICIO', r.omitida
+    ? 'La portada ya estaba al día (contrato PANEL_OPERATIVO_V014). Se refrescaron las cifras.'
+    : 'Portada reconstruida: hero, KPIs, cards por sector, distribución, estado, '
+      + 'pendientes y alerta.\nVerificación: ' + (v.ok === true ? 'correcta' : (v.fallos || []).join(', ')),
+    ui.ButtonSet.OK);
+  return r;
 }
 function UI_repararPresentacion() {
   var ui = _UI_get();

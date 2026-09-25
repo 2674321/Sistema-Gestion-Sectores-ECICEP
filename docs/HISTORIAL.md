@@ -7,6 +7,24 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.14.0 (layout) — PANEL OPERATIVO INICIO
+
+- `INICIO` recupera la riqueza de la portada anterior **dentro del mismo
+  lienzo** `A1:AD38` (30 columnas, 38 px, freeze `2/0`): hero con semáforo
+  general (`A3:AD3`), banda de 5 KPIs (etiquetas fila 8, valores fila 9), cards
+  por sector (filas 10-14), distribución porcentual por sector (filas 15-16),
+  estado y pendientes (filas 18-23), banda de alerta (`A24:AD25`), metadata
+  (`A27:AD29`) y nota (`A32:AD34`).
+- Contrato de layout `PANEL_OPERATIVO_V014`, fingerprint `v014|fnv1a32` y
+  propiedad `ECICEP_INICIO_LAYOUT_V014`; la distribución se calcula con los
+  conteos que ya existían en el snapshot (sin lecturas, campos ni arquitectura
+  nueva). El verificador exige `getFormula() === ''` en KPIs y distribución y
+  mantiene el umbral `fondoClaro` ≤15 % en `A1:AD29`.
+- `ECICEP.VERSION` sigue en `0.13.0` y la presentación conserva `pp013`: la
+  versión identifica el contrato de layout de la portada, no una versión de
+  producto. Validación: `inicio_visual_v014` 10/10, batería 45 suites 0 fallos,
+  `ejecutar_local` 673/673 (DEC-087).
+
 ## v0.13.0 — CIERRE VISUAL: PARIDAD, PORTADA INICIO Y PRESENTACIÓN CONVERGENTE
 
 - `INICIO` realineada a **30 columnas `A1:AD38`** (cinco accesos PERSONAS,

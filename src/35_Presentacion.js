@@ -49,7 +49,13 @@ var PRESENTACION_HOJAS_FORMATO =
     .concat(HOJAS_SECTOR || [])
     .concat(['EVENTOS']);
 
-var PRESENTACION_SUBPLAN_DISENO = [{ id: 'base', nombre: 'Diseño base del libro' }]
+// El presupuesto es de 20 s por RPC y se evalúa ENTRE subtareas: con 'inicio' al
+// final, una sola invocación agotaba el presupuesto formateando hojas y la
+// portada quedaba sin construir (regresión 2026-09-25: "Se excedió el tiempo de
+// ejecución" y la hoja INICIO sin cambios). 'inicio' va inmediatamente después de
+// 'base' para que la portada quede al día en la primera invocación.
+var PRESENTACION_SUBPLAN_DISENO = [{ id: 'base', nombre: 'Diseño base del libro' },
+  { id: 'inicio', nombre: 'Portada INICIO' }]
   .concat(PRESENTACION_HOJAS_FORMATO.map(function (nombre) {
     return { id: 'formato:' + nombre, nombre: 'Formato visual · ' + nombre };
   }))
@@ -58,7 +64,6 @@ var PRESENTACION_SUBPLAN_DISENO = [{ id: 'base', nombre: 'Diseño base del libro
     { id: 'condicionales', nombre: 'Indicadores y estados visuales' },
     { id: 'notas', nombre: 'Notas de ayuda en encabezados' },
     { id: 'accesorios', nombre: 'Protecciones, visibilidad y ayudas' },
-    { id: 'inicio', nombre: 'Portada INICIO' },
     { id: 'paridad:INGRESO', nombre: 'Paridad visual INGRESO' },
     { id: 'paridad:SECTOR', nombre: 'Paridad visual SECTOR' },
     { id: 'verificar', nombre: 'Verificación final de presentación' }
