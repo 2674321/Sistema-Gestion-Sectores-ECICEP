@@ -1908,3 +1908,19 @@ entre clics y clave estable por usuario. Actualiza la decisión previa de "no
 duplicar en el menú" para Reparar presentación.
 **Validación:** `reparar_presentacion_v013` 6/6; batería completa pendiente.
 **Fecha:** 2026-09-24
+
+## DEC-085
+**Título:** Comparación de colores normalizada en verificación visual
+**Estado:** Aprobada
+**Motivo:** En hojas reales `getBackground()` devuelve `#rrggbb` en minúsculas
+(o `rgb(...)`), mientras los tokens de `DESIGN_SYSTEM`/`IDENTIDAD` están en
+`#RRGGBB`. `Inicio_verificar_.coloresBase` comparaba con `===` crudo → fallaba
+siempre aunque el pincel pintara el color exacto, y `Reparar presentación`
+abortaba con "Verificación INICIO falló en: coloresBase" (los stubs de test
+devolvían el token tal cual y no detectaban el caso). Se añade `Utl_colorIgual`
+(normaliza hex minúsculas/mayúsculas y `rgb()`), se aplica a `coloresBase`, a
+`getTabColor()` de INICIO y a `Modelo_aplicarDiseno` (fast-path de coloreado).
+El motor de paridad ya usaba `HVis_mismosColor` (mayúsculas), por eso solo INICIO
+fallaba.
+**Validación:** `inicio_visual_v013` 9/9; batería completa 45 suites 0 fallos.
+**Fecha:** 2026-09-24

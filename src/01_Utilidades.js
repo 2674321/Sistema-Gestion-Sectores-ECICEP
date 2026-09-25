@@ -182,6 +182,30 @@ function Utl_fnv1a32_(texto) {
   return hex;
 }
 
+/** Normaliza un color a `rrggbb` minúsculas sin '#'. Acepta '#RRGGBB',
+ *  '#rrggbb' y 'rgb(r,g,b)'/'rgba(r,g,b,a)' (lo que devuelve getBackground
+ *  en hojas reales). Devuelve '' si no es reconocible. */
+function Utl_colorNormal_(color) {
+  var s = Utl_texto(color).trim().toLowerCase();
+  var m = s.match(/^#?([0-9a-f]{6})$/);
+  if (m) return m[1];
+  var rgb = s.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/);
+  if (rgb) {
+    function hex2(v) { var x = parseInt(v, 10).toString(16); return x.length < 2 ? '0' + x : x; }
+    return hex2(rgb[1]) + hex2(rgb[2]) + hex2(rgb[3]);
+  }
+  return '';
+}
+
+/** Comparación de colores insensible al formato (getBackground() puede
+ *  devolver '#rrggbb' minúsculas, '#RRGGBB' o 'rgb(...)' según la hoja).
+ *  Sin 6 dígitos comparables, cae a igualdad de texto normalizado. */
+function Utl_colorIgual(a, b) {
+  var na = Utl_colorNormal_(a), nb = Utl_colorNormal_(b);
+  if (na && nb) return na === nb;
+  return Utl_texto(a).toLowerCase() === Utl_texto(b).toLowerCase();
+}
+
 /** GAS: toast breve con semántica central. No falla sin spreadsheet activo. */
 function Utl_toast(tipo, texto, segundos) {
   try {

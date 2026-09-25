@@ -63,4 +63,22 @@ assert.match(constr, /getRange\('A27:AD29'\)\.merge\(\)\.setValue/);
 assert.match(constr, /getRange\('A32:AD34'\)\.merge\(\)\.setValue/);
 ok('T7 PENDIENTES P18:AD18, METADATA A27:AD29 y nota operativa A32:AD34');
 
+// T8: comparación de colores normalizada (regresión coloresBase en hoja real:
+// getBackground() devuelve '#rrggbb' minúsculas o 'rgb(...)'; los tokens están
+// en '#RRGGBB'. La igualdad cruda falla aunque el pincel pinte el color exacto).
+assert.equal(c.Utl_colorIgual('#0E5C68', '#0e5c68'), true, 'mismo color en hex distinto caso');
+assert.equal(c.Utl_colorIgual('#0B3C49', 'rgb(11,60,73)'), true, 'hex vs rgb');
+assert.equal(c.Utl_colorIgual('  #0e5c68 ', '#0E5C68'), true, 'espacios ignorados');
+assert.equal(c.Utl_colorIgual('#0E5C68', '#0F5C68'), false, 'colores distintos no igualan');
+assert.equal(c.Utl_colorIgual('transparent', 'transparent'), true, 'transparent coincide');
+assert.equal(c.Utl_colorIgual('transparent', '#FFFFFF'), false, 'transparent != blanco');
+ok('T8 Utl_colorIgual normaliza hex/rgb y no false-positiva');
+
+// T9: el verifier INICIO usa la comparación normalizada (coloresBase real).
+const verSrc = c.Inicio_verificar_.toString();
+assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('A1'\)\.getBackground\(\), M\.sistemaProfundo\)/);
+assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('U10'\)\.getBackground\(\), IDENTIDAD\.VERDE\)/);
+assert.doesNotMatch(verSrc, /getBackground\(\) === /);
+ok('T9 coloresBase del verifier usa Utl_colorIgual');
+
 console.log('Inicio visual v0.13 — ' + n + '/' + n + ' PASS');

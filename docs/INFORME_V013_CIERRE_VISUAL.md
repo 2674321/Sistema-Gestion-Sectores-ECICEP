@@ -55,6 +55,13 @@ contrato de captura **V4**, un único entorno operativo.
 - EDAD se calcula desde FECHA_NACIMIENTO en las vistas `SECTOR_*`
   (`Utl_formulaEdad` con `DATEDIF`); nunca se almacena en `PACIENTES`.
 
+### 6. Comparación de colores normalizada
+- `Utl_colorIgual`/`Utl_colorNormal_` normalizan hex (`#rrggbb`/`#RRGGBB`) y
+  `rgb(...)`; aplicados a `Inicio_verificar_.coloresBase`, al `getTabColor()` de
+  INICIO y al fast-path de `Modelo_aplicarDiseno`. Sin esto, `Reparar
+  presentación` abortaba con `Verificación INICIO falló en: coloresBase` en la
+  hoja real aunque los colores fueran correctos (DEC-085).
+
 ## Tests
 
 | Suite | Resultado |

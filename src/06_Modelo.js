@@ -600,7 +600,7 @@ function Modelo_aplicarDiseno() {
       var h = porHoja[d.nombre];
       if (!h) return;
       // Fast-path 0.12.1: valores ya correctos = cero escrituras.
-      if (typeof h.getTabColor !== 'function' || h.getTabColor() !== d.color) {
+      if (typeof h.getTabColor !== 'function' || !Utl_colorIgual(h.getTabColor(), d.color)) {
         h.setTabColor(d.color);
         res.coloreadas++;
       }

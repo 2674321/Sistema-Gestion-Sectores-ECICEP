@@ -322,13 +322,15 @@ function Inicio_verificar_(h) {
   } catch (eH) {}
   try {
     var M = DESIGN_SYSTEM.MARCA, blanco = DESIGN_SYSTEM.SUPERFICIE.datos;
-    ver.coloresBase = h.getRange('A1').getBackground() === M.sistemaProfundo &&
-      h.getRange('A4').getBackground() === blanco && h.getRange('A18').getBackground() === M.sistema &&
-      h.getRange('A20').getBackground() === blanco && h.getRange('P18').getBackground() === M.sistema &&
-      h.getRange('P20').getBackground() === blanco &&
-      h.getRange('A10').getBackground() === IDENTIDAD.NARANJO &&
-      h.getRange('K10').getBackground() === IDENTIDAD.AMARILLO &&
-      h.getRange('U10').getBackground() === IDENTIDAD.VERDE;
+    ver.coloresBase = Utl_colorIgual(h.getRange('A1').getBackground(), M.sistemaProfundo) &&
+      Utl_colorIgual(h.getRange('A4').getBackground(), blanco) &&
+      Utl_colorIgual(h.getRange('A18').getBackground(), M.sistema) &&
+      Utl_colorIgual(h.getRange('A20').getBackground(), blanco) &&
+      Utl_colorIgual(h.getRange('P18').getBackground(), M.sistema) &&
+      Utl_colorIgual(h.getRange('P20').getBackground(), blanco) &&
+      Utl_colorIgual(h.getRange('A10').getBackground(), IDENTIDAD.NARANJO) &&
+      Utl_colorIgual(h.getRange('K10').getBackground(), IDENTIDAD.AMARILLO) &&
+      Utl_colorIgual(h.getRange('U10').getBackground(), IDENTIDAD.VERDE);
     var fondos = h.getRange('A1:AD29').getBackgrounds(), oscuros = 0, total = 0;
     fondos.forEach(function (fila) { fila.forEach(function (color) {
       total++; if (Inicio_colorOscuro_(color)) oscuros++;
@@ -393,7 +395,7 @@ function Inicio_construir_(ss, opciones) {
     var tituloRango = h.getRange('A1');
     if (Utl_texto(tituloRango.getValue()) !== tituloActual) tituloRango.setValue(tituloActual);
     try {
-      if (!h.getTabColor || h.getTabColor() !== DESIGN_SYSTEM.MARCA.sistemaProfundo)
+      if (!h.getTabColor || !Utl_colorIgual(h.getTabColor(), DESIGN_SYSTEM.MARCA.sistemaProfundo))
         h.setTabColor(DESIGN_SYSTEM.MARCA.sistemaProfundo);
     } catch (eT) {}
     var refresco = Inicio_refrescarSiNecesario_();
