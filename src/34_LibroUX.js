@@ -402,12 +402,19 @@ function Inicio_verificar_(h) {
   } catch (eM) {}
   try { ver.freeze = h.getFrozenRows() === 2 && h.getFrozenColumns() === 0; } catch (eF) {}
   try {
-    ver.anchos = true;
-    for (var col = 1; col <= 30; col++) if (h.getColumnWidth(col) !== 38) { ver.anchos = false; break; }
+    ver.anchos = true; ver.detalleAnchos = [];
+    for (var col = 1; col <= 30; col++) {
+      var anchoReal = h.getColumnWidth(col);
+      if (anchoReal !== 38) { ver.anchos = false; ver.detalleAnchos.push({ col: col, ancho: anchoReal }); }
+    }
   } catch (eW) { ver.anchos = false; }
   try {
-    ver.alturas = Inicio_alturasEsperadas_().every(function (x) { return h.getRowHeight(x[0]) === x[1]; });
-  } catch (eH) {}
+    ver.alturas = true; ver.detalleAlturas = [];
+    Inicio_alturasEsperadas_().forEach(function (x) {
+      var altoReal = h.getRowHeight(x[0]);
+      if (altoReal !== x[1]) { ver.alturas = false; ver.detalleAlturas.push({ fila: x[0], alto: altoReal, esperado: x[1] }); }
+    });
+  } catch (eH) { ver.alturas = false; }
   try {
     var M = DESIGN_SYSTEM.MARCA, blanco = DESIGN_SYSTEM.SUPERFICIE.datos;
     ver.coloresBase = Utl_colorIgual(h.getRange('A1').getBackground(), M.sistemaProfundo) &&
@@ -433,7 +440,7 @@ function Inicio_verificar_(h) {
     ver.fondoClaro = total > 0 && oscuros / total <= 0.15;
   } catch (eB) {}
   ver.fallos = Object.keys(ver).filter(function (k) {
-    return k !== 'ok' && k !== 'fallos' && ver[k] !== true;
+    return k !== 'ok' && k !== 'fallos' && k !== 'detalleAnchos' && k !== 'detalleAlturas' && ver[k] !== true;
   });
   ver.ok = ver.fallos.length === 0;
   return ver;
@@ -728,9 +735,19 @@ function Inicio_construir_(ss, opciones) {
   h.setFrozenRows(2); h.setFrozenColumns(0);
   Inicio_guardarLayout_();
   var ver = Inicio_verificar_(h);
+  if (!ver.ok && (ver.detalleAnchos && ver.detalleAnchos.length || ver.detalleAlturas && ver.detalleAlturas.length)) {
+    try {
+      (ver.detalleAnchos || []).forEach(function (d) { h.setColumnWidth(d.col, 38); });
+      (ver.detalleAlturas || []).forEach(function (d) { h.setRowHeight(d.fila, d.esperado); });
+      ver = Inicio_verificar_(h);
+    } catch (eAuto) {}
+  }
   if (!ver.ok) {
+    var detalle = [];
+    if (ver.detalleAnchos && ver.detalleAnchos.length) detalle.push('anchos(' + ver.detalleAnchos.map(function (d) { return 'col' + d.col + '=' + d.ancho; }).join(',') + ')');
+    if (ver.detalleAlturas && ver.detalleAlturas.length) detalle.push('alturas(' + ver.detalleAlturas.map(function (d) { return 'fila' + d.fila + '=' + d.alto; }).join(',') + ')');
     Inicio_borrarLayout_();
-    throw new Error('Verificación INICIO falló en: ' + ver.fallos.join(', '));
+    throw new Error('Verificación INICIO falló en: ' + (detalle.length ? detalle.join(', ') : ver.fallos.join(', ')));
   }
   Libro_limpiarDirty_('INICIO');
   return { ok: true, verificacion: ver, lienzo: { filas: filas, columnas: cols }, metricas: metricas };

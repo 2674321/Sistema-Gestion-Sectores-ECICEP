@@ -2016,7 +2016,16 @@ es 1 RPC extra dentro del techo, y la distribución porcentual por sector dejó
 de redondear cada porcentaje por separado (sumaba 101 %): el helper
 `Inicio_porcentajesRedondeados_` aplica el **método del mayor resto** para que
 los tres sectores sumen 100 exacto.
-**Validación:** `inicio_rendimiento_v014` 4/4 (techo 260 RPC de servidor, sin
+**Autocuración posterior (mismo DEC, 2026-09-25):** tras la corrección visual,
+la reconstrucción forzada falló en la hoja real con "Verificación INICIO falló
+en: anchos" (alguna columna 1..30 había quedado fuera de 38 px, caso que los
+dobles de test no reproducen porque devuelven siempre 38). `Inicio_construir_`
+ahora, antes de lanzar, corrige con `setColumnWidth`/`setRowHeight` individual
+las desviaciones reportadas por el verifier y reverifica (autocuración
+idempotente); el verifier desglosa las desviaciones exactas
+(`anchos(colN=X)`/`alturas(filaN=Y)`) en el error para diagnóstico. La
+autocuración no añade RPC en el caso óptimo (solo actúa si hay desviación real).
+**Validación:** `inicio_rendimiento_v014` 5/5 (techo 260 RPC de servidor, sin
 bucles por fila/columna, 72 merges, reconstrucción repetida), `inicio_v012` PASS,
 `inicio_portada_freezerows_v0121` 8/8, `inicio_visual_v014` 10/10,
 `instalador_presentacion_timeout_v0121` Pass (17 subtareas, `inicio` en posición 2, `verificar` al final),

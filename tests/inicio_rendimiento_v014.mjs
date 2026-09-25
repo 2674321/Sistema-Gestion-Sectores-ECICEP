@@ -145,4 +145,53 @@ const reconstrucciones = contadorServidor();
 assert.ok(reconstrucciones <= 260, 'segunda reconstrucción dentro del techo (' + reconstrucciones + ')');
 ok('T4 reconstrucción completa repetida: ' + reconstrucciones + ' RPC (techo 260)');
 
+// --- T5: el constructor se autocura ante anchos/alturas desviadas -------------
+// Regresión 2026-09-25: "Verificación INICIO falló en: anchos" en la hoja real
+// (alguna columna 1..30 quedaba fuera de 38 px tras la reconstrucción forzada).
+// El doble que devuelve siempre 38 no la reproduce; este caso simula una hoja
+// donde una columna quedó desviada y comprueba que el constructor la corrige y
+// reverifica en lugar de lanzar el error.
+const correccionesC = [];
+const originalSetColumnWidth = hoja.setColumnWidth;
+const originalSetRowHeight = hoja.setRowHeight;
+const anchosHoja = new Map();
+for (let i = 1; i <= 30; i++) anchosHoja.set(i, 38);
+hoja.setColumnWidth = function (col, w) {
+  correccionesC.push(['ancho', col, w]);
+  anchosHoja.set(col, w);
+  return hoja;
+};
+const alturasHoja = new Map();
+c.Inicio_alturasEsperadas_().forEach(x => alturasHoja.set(x[0], x[1]));
+const originalGetColumnWidth = hoja.getColumnWidth;
+const originalGetRowHeight = hoja.getRowHeight;
+hoja.getColumnWidth = function (col) { return anchosHoja.get(col) ?? 38; };
+hoja.getRowHeight = function (fila) { return alturasHoja.get(fila) ?? 38; };
+hoja.setRowHeight = function (fila, alto) {
+  correccionesC.push(['alto', fila, alto]);
+  alturasHoja.set(fila, alto);
+  return hoja;
+};
+anchosHoja.set(9, 52); // columna desviada simulada
+conteo.clear();
+let llamaVerificador = 0;
+c.Inicio_verificar_ = () => {
+  llamaVerificador++;
+  if (llamaVerificador === 1)
+    return { ok: false, fallos: ['anchos'], detalleAnchos: [{ col: 9, ancho: 52 }], detalleAlturas: [] };
+  return { ok: true, fallos: [] };
+};
+const rAuto = c.Inicio_construir_(ss, { forzar: true });
+assert.equal(rAuto.ok, true, 'la reconstrucción autocura la desviación y termina ok');
+assert.equal(anchosHoja.get(9), 38, 'columna 9 corregida a 38');
+assert.equal(correccionesC.length >= 1, true, 'hubo al menos una corrección de ancho');
+const corregidas = correccionesC.some(x => x[0] === 'ancho' && x[1] === 9 && x[2] === 38);
+assert.equal(corregidas, true, 'se llamó setColumnWidth(9, 38)');
+assert.equal(llamaVerificador, 2, 'el verifier corre dos veces: primera falla, segunda ok tras corregir');
+ok('T5 la reconstrucción corrige columnas desviadas (setColumnWidth individual) y reverifica');
+hoja.setColumnWidth = originalSetColumnWidth;
+hoja.setRowHeight = originalSetRowHeight;
+hoja.getColumnWidth = originalGetColumnWidth;
+hoja.getRowHeight = originalGetRowHeight;
+
 console.log('Inicio rendimiento v0.14 — ' + n + '/' + n + ' PASS');

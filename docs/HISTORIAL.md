@@ -37,6 +37,14 @@
   100 exacto en vez de 101 por redondeo independiente.
   Validación: `inicio_rendimiento_v014` 4/4 (T1 252 RPC), `inicio_visual_v014`
   10/10, `inicio_portada_freezerows_v0121` 8/8, batería 46 suites 0 fallos.
+- **Autocuración de dimensiones** en `Inicio_construir_`: si tras estilizar
+  alguna columna 1..30 queda fuera de 38 px o alguna fila fuera de su altura de
+  contrato, el constructor la corrige con `setColumnWidth`/`setRowHeight`
+  individual y reverifica antes de lanzar. El error de verificación ahora
+  desglosa las desviaciones (`anchos(colN=X, ...)`/`alturas(filaN=Y, ...)`) en
+  lugar del nombre genérico. Regresión real detectada en 2026-09-25
+  ("Verificación INICIO falló en: anchos" tras reconstrucción forzada);
+  validado por `inicio_rendimiento_v014` T5 y batería 46 suites 0 fallos.
 
 ## v0.13.0 — CIERRE VISUAL: PARIDAD, PORTADA INICIO Y PRESENTACIÓN CONVERGENTE
 

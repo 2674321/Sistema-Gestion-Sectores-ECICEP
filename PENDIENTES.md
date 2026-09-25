@@ -248,6 +248,16 @@ pública ni `clasp`. La limpieza 1–39 requiere una sesión del editor con acce
 al proyecto; no crear otro proyecto, Spreadsheet ni deployment para evadir el
 límite.
 
+**Bloqueo reincidente 2026-09-25 (autocuración INICIO):** el proyecto volvió a
+alcanzar 200/200 versiones. La autocuración de dimensiones de `INICIO`
+(regresión "Verificación INICIO falló en: anchos") está **probada y pusheada a
+`@HEAD`** (batería 46 suites 0 fallos, `inicio_rendimiento_v014` 5/5), pero
+`clasp deploy --deploymentId` rechazó crear la versión @248: el deployment
+operativo sigue en `@247`. Para publicar: con la cuenta propietaria, eliminar
+en **Project History** del editor una versión antigua sin deployment activo y
+volver a ejecutar `clasp deploy --deploymentId AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`.
+Luego verificar `/exec`, E2E y el marco de color + distribución 100%.
+
 Las tareas de publicación deben:
 
 1. inspeccionar deployments reales;
