@@ -2097,3 +2097,13 @@ fast-path) y el reconciliador lo comparaba con `'OK'` → falso fallo en toda re
 Fix: señal de fallo = `aplicado.ok === false`. Test T9 de regresión. `ECICEP.VERSION` 0.14.3
 (schema 2, captura V4).
 **Fecha:** 2026-09-25
+
+## DEC-093
+**Título:** Fast-path sin perdón ante drift diagnosticado (forzar en reconciliador).
+**Estado:** Aprobada
+**Motivo:** Tras v0.14.3 el retry reportó `PRESENTACION_SIN_CONVERGENCIA · fila secciones
+altura`: el fast-path de `HVis_normalizarLayout` (`HVis_yaFormateada` no verifica alturas ni
+varios estilos) perdonaba drift real ya diagnosticado. El reconciliador ahora repara con
+`{forzar:true}` (solo salta ese fast-path; hojas sanas y hot path de ingresos intactos). Test T10.
+`ECICEP.VERSION` 0.14.4 (schema 2, captura V4).
+**Fecha:** 2026-09-26

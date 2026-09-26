@@ -894,7 +894,13 @@ function HVis_reconciliarHoja(hoja, opciones) {
   var requiereLayout = opciones.layout !== false && (antes.pendientes || []).some(function (p) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 || p.indexOf('encabezados') === 0;
   });
-  var aplicado = requiereLayout ? HVis_aplicarSecciones(hoja) : { estado: 'OK', secciones: 0 };
+  var aplicado = requiereLayout
+    // v0.14.4: con drift real diagnosticado se fuerza la reparación: el
+    // fast-path de normalizarLayout usa HVis_yaFormateada (no mira alturas,
+    // tintas/pesos/tamaños ni colores de sección) y saltaría dejando el drift
+    // que la verificación exige → loop. Hojas sanas no llegan aquí
+    // (requiereLayout=false) y otros callers conservan su fast-path.
+    ? HVis_aplicarSecciones(hoja, { forzar: true }) : { estado: 'OK', secciones: 0 };
   // v0.14.3: aplicarSecciones devuelve estado COMPUESTO 'pre → post' (más
   // 'OK' plano en fast-path); compararlo con 'OK' fallaba SIEMPRE que había
   // reparación real (ej. motivo 'OK → OK'). La señal de fallo es `ok`.

@@ -12,6 +12,15 @@ pasaba por fast-path; INGRESO_NARANJO con drift real fallaba). Fix: la señal de
 fallo es `aplicado.ok === false`. Test T9 (estado compuesto con `ok:true`
 converge). `ECICEP.VERSION` 0.14.3.
 
+## Addendum v0.14.4 — el fast-path perdonaba drift verificado
+El retry reportó `PRESENTACION_SIN_CONVERGENCIA · fila secciones altura`:
+`HVis_normalizarLayout()` tomaba su fast-path (`HVis_yaFormateada`, que no mira
+alturas, tintas/pesos/tamaños ni colores de sección) aunque el reconciliador ya
+había diagnosticado drift real → 0 escrituras → mismo drift. Fix: el
+reconciliador llama `HVis_aplicarSecciones(hoja, { forzar: true })` (`forzar`
+solo salta ese fast-path; hojas sanas no llegan aquí y el hot path de ingresos
+conserva el suyo). Test T10. `ECICEP.VERSION` 0.14.4 (DEC-093).
+
 ## Causa exacta
 1. `HVis_reconciliarHoja()` decidía `requiereLayout` solo por pendientes
    `fila*`/`sección*`/`encabezados*`, pero su verificación final también exigía

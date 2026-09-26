@@ -135,8 +135,25 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
   ok('T9 estado compuesto OK → OK con ok:true converge (sin falso fallo)');
 }
 
+// T10: con drift real, el reconciliador fuerza la reparación (el fast-path
+// con chequeo débil no debe perdonar drift que la verificación exige).
+{
+  const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 3, 0);
+  let reparado = false, forzarVisto = null;
+  c.HVis_pendientesVisual = () => ({ pendientes: reparado ? [] : ['fila secciones altura=20'] });
+  c.HVis_aplicarSecciones = (h, opciones) => {
+    forzarVisto = !!(opciones && opciones.forzar);
+    reparado = true;
+    return { ok: true, estado: 'REPARADO → OK', secciones: 4 };
+  };
+  const r = c.HVis_reconciliarHoja(hoja);
+  assert.equal(forzarVisto, true, 'reparación forzada ante drift diagnosticado');
+  assert.equal(r.ok, true, JSON.stringify(r));
+  ok('T10 drift real fuerza reparación completa de la hoja (sin perdón fast-path)');
+}
+
 c.HVis_pendientesVisual = realPendientes;
 c.HVis_aplicarSecciones = realSecciones;
 
-console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 9);
-if (n !== 9) process.exit(1);
+console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 10);
+if (n !== 10) process.exit(1);

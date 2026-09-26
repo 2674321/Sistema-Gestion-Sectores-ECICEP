@@ -18,6 +18,9 @@
 - **v0.14.3 (misma línea):** causa raíz del loop — el reconciliador comparaba el
   estado compuesto `'pre → post'` con `'OK'` (falso fallo en toda reparación
   real); señal correcta `aplicado.ok === false` + test T9 (DEC-092).
+- **v0.14.4 (misma línea):** el fast-path perdonaba drift verificado (ej.
+  `fila secciones altura`); el reconciliador repara con `{forzar:true}` + test
+  T10 (DEC-093).
 
 ## v0.14.1 — REPARAR ≠ RECARGAR (PROTECCIÓN DE PRODUCCIÓN)
 
