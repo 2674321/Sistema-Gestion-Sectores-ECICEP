@@ -123,8 +123,20 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
   ok('T8 firma de pendientes estable para detectar no-convergencia');
 }
 
+// T9: estado compuesto 'OK → OK' con ok:true NO es fallo (regresión del
+// retry de INGRESO_NARANJO: comparar el compuesto con 'OK' fallaba siempre).
+{
+  const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 3, 0);
+  let reparado = false;
+  c.HVis_pendientesVisual = () => ({ pendientes: reparado ? [] : ['encabezados fondo≠#000000'] });
+  c.HVis_aplicarSecciones = () => { reparado = true; return { ok: true, estado: 'OK → OK', secciones: 4 }; };
+  const r = c.HVis_reconciliarHoja(hoja);
+  assert.equal(r.ok, true, 'reparación real exitosa no se reporta como fallo: ' + JSON.stringify(r));
+  ok('T9 estado compuesto OK → OK con ok:true converge (sin falso fallo)');
+}
+
 c.HVis_pendientesVisual = realPendientes;
 c.HVis_aplicarSecciones = realSecciones;
 
-console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 8);
-if (n !== 8) process.exit(1);
+console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 9);
+if (n !== 9) process.exit(1);

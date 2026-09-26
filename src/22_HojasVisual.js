@@ -895,8 +895,11 @@ function HVis_reconciliarHoja(hoja, opciones) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 || p.indexOf('encabezados') === 0;
   });
   var aplicado = requiereLayout ? HVis_aplicarSecciones(hoja) : { estado: 'OK', secciones: 0 };
-  if (aplicado.estado && aplicado.estado !== 'OK') {
-    return { hoja: nombre, ok: false, motivo: aplicado.estado };
+  // v0.14.3: aplicarSecciones devuelve estado COMPUESTO 'pre → post' (más
+  // 'OK' plano en fast-path); compararlo con 'OK' fallaba SIEMPRE que había
+  // reparación real (ej. motivo 'OK → OK'). La señal de fallo es `ok`.
+  if (aplicado.ok === false) {
+    return { hoja: nombre, ok: false, motivo: aplicado.motivo || aplicado.estado };
   }
   // v0.14.2 §1-2: FREEZE_ROWS/FREEZE_COLUMNS también se REPARAN aquí (antes
   // solo se detectaban en la verificación → loop detectar-sin-converger).

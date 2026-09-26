@@ -15,6 +15,9 @@
   `actual/esperado`; prioridad motivo→linea→errores→fallidas→fallback y métricas
   por fase en `Presentacion_formatearHoja_`. Sin datos tocados, sin snapshot,
   mismo deployment/URL/QR. Nuevas suites freeze 8/8 y error-detalle 4/4 (DEC-091).
+- **v0.14.3 (misma línea):** causa raíz del loop — el reconciliador comparaba el
+  estado compuesto `'pre → post'` con `'OK'` (falso fallo en toda reparación
+  real); señal correcta `aplicado.ok === false` + test T9 (DEC-092).
 
 ## v0.14.1 — REPARAR ≠ RECARGAR (PROTECCIÓN DE PRODUCCIÓN)
 

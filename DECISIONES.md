@@ -2087,3 +2087,13 @@ sin snapshot, presupuesto 20 s/RPC intacto.
 **Validación:** nuevas `presentacion_convergencia_freeze_v0142` 8/8 y `presentacion_error_detalle_v0142`
 4/4; batería completa 0 fallos. Detalle en `docs/HOTFIX_V0142_PRESENTACION_CONVERGENCIA_INGRESO.md`.
 **Fecha:** 2026-09-25
+
+## DEC-092
+**Título:** Causa raíz del loop INGRESO_NARANJO: estado compuesto vs 'OK'.
+**Estado:** Aprobada
+**Motivo:** El hotfix v0.14.2 expuso el motivo real (`OK → OK`) y reveló la causa raíz:
+`HVis_aplicarSecciones()` devuelve `estado` compuesto `'pre → post'` (`'OK'` plano solo en
+fast-path) y el reconciliador lo comparaba con `'OK'` → falso fallo en toda reparación real.
+Fix: señal de fallo = `aplicado.ok === false`. Test T9 de regresión. `ECICEP.VERSION` 0.14.3
+(schema 2, captura V4).
+**Fecha:** 2026-09-25

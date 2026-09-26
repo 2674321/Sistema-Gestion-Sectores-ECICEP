@@ -1,7 +1,16 @@
-# HOTFIX V0.14.2 — Convergencia de Presentación (INGRESO_NARANJO / FREEZE)
+# HOTFIX V0.14.2/V0.14.3 — Convergencia de Presentación (INGRESO_NARANJO)
 
 > Reporte: `No se pudo completar "Presentación del libro" · Subtarea: Formato
-> visual · INGRESO_NARANJO · Detalle: Falló la subtarea…` (genérico, retry en loop).
+> visual · INGRESO_NARANJO` en loop; primer detalle genérico, segundo detalle
+> `OK → OK` tras exponer el motivo real (v0.14.2).
+
+## Addendum v0.14.3 — causa raíz real
+`HVis_aplicarSecciones()` devuelve `estado` COMPUESTO `'pre → post'` (`'OK → OK'`
+tras reparar, `'OK'` plano solo en fast-path). `HVis_reconciliarHoja()` lo
+comparaba con `'OK'` → falso fallo SIEMPRE que había reparación real (PACIENTES
+pasaba por fast-path; INGRESO_NARANJO con drift real fallaba). Fix: la señal de
+fallo es `aplicado.ok === false`. Test T9 (estado compuesto con `ok:true`
+converge). `ECICEP.VERSION` 0.14.3.
 
 ## Causa exacta
 1. `HVis_reconciliarHoja()` decidía `requiereLayout` solo por pendientes
