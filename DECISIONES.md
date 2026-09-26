@@ -2134,3 +2134,20 @@ Sin marco gigante ni SOBRANTE; snapshot sin PII; baseline §19 de formatos aplic
 `ECICEP.VERSION` 0.15.0 (schema 2, captura V4, sin MIG-003). Detalle en
 `docs/INFORME_V015_INSTALADOR_INICIO_PRO.md`.
 **Fecha:** 2026-09-26
+
+## DEC-096
+**Título:** Descombinar la hoja COMPLETA antes de construir INICIO (residuo del marco v0.14).
+**Estado:** Aprobada
+**Motivo:** Incidente real 2026-09-26 en producción: la subtarea «Portada INICIO» moría con
+«Debes seleccionar todas las celdas de un intervalo combinado para combinarlas o separarlas».
+Causa: el builder v0.14 pintaba el "marco de color" con DOS merges gigantes fuera del panel
+(`derecha`: columnas sobrantes × filas 1-38; `inferior`: filas sobrantes × ancho completo). Sheets
+exige seleccionar el intervalo combinado COMPLETO para separarlo, así que `breakApart()` sobre
+`A1:AJ50` fallaba (y el error se tragaba en un `catch` vacío) y luego `merge()` de `A49:AJ50`
+(choca con el marco por las filas 39-50) mataba la subtarea. Invariante v0.15.1:
+(1) se descombina la hoja completa ANTES de insertar/expandir y antes de cualquier merge;
+(2) si ni así se puede, error explícito `INICIO_NO_DESCOMBINABLE` (no silencioso);
+(3) el área física sobrante se limpia (el marco heredado es residuo visual propio, no dato);
+(4) el verifier exige cero combinaciones fuera del lienzo (`MERGE_FUERA`).
+Regresión cubierta por `inicio_pro_v015` T10/T10b con mock fiel a la regla de Sheets.
+**Fecha:** 2026-09-26

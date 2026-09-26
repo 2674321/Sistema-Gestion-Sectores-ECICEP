@@ -7,6 +7,14 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.15.1 — INCIDENTE «INTERVALO COMBINADO» EN PORTADA INICIO
+
+- El marco de color de v0.14 dejó dos merges gigantes FUERA del panel; Sheets rechaza
+  separarlos con una selección parcial, y el merge del footer chocaba con ellos: la subtarea
+  «Portada INICIO» moría en producción. Ahora se descombina la HOJA COMPLETA antes de
+  expandir/mergear (error explícito si no), se limpia el área física sobrante y el verifier
+  exige cero merges fuera del lienzo. Regresión T10/T10b (DEC-096).
+
 ## v0.15.0 — INSTALADOR CON OPCIONES REALES + INICIO PRO
 
 - Opciones congeladas datos+visual hasta el builder (`forzarInicio` funcional),

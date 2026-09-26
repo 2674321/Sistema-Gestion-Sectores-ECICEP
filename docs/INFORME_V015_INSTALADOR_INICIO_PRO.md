@@ -95,3 +95,42 @@
   si el tiempo real excede, fragmentar con evidencia (§13).
 - Afinos visuales §19 pendientes de ojo humano en producción.
 - `HVis_repararDiferencias_` y wrappers deprecated conservados explícitamente.
+
+## Hotfix v0.15.1 — «Debes seleccionar todas las celdas de un intervalo combinado» (incidente productive)
+
+**Síntoma**: en producción, `Instalar / reparar` → `Presentación del libro` →
+subtarea `Portada INICIO` → `No se pudo completar ... La estructura visual de una
+hoja impidió completar el formato`, con detalle técnico «Debes seleccionar todas
+las celdas de un intervalo combinado para combinarlas o separarlas».
+
+**Causa raíz** (confirmada contra el código de v0.14.x): el builder pintaba el
+"marco de color" de la tarjeta con dos `merge()` gigantes **fuera** del panel:
+
+| merge legacy v0.14 | rango real en producción | efecto |
+| --- | --- | --- |
+| `inferior` | filas 39..maxFilas × ancho completo (`A39:AD1000`) | cruza el borde inferior del lienzo gestionado |
+| `derecha` | columnas sobrantes × filas 1-38 | cruza el borde derecho del lienzo |
+
+Google Sheets exige seleccionar el intervalo combinado **completo** para
+separarlo o modificarlo. Por eso:
+
+1. `breakApart()` sobre `A1:AJ50` fallaba (y el error se tragaba en un `catch`
+   vacío, dejando los merges intactos);
+2. al llegar a `merge()` del footer `A49:AJ50`, el rango chocaba con el merge
+   `inferior` (filas 39-50) → excepción y muerte de la subtarea.
+
+**Corrección (DEC-096)**:
+- `Inicio_construir_` descombina la **hoja completa** (`A1:maxCols × maxFilas`)
+  **antes** de insertar/expandir y **antes** de cualquier `merge()`; si no logra
+  deshacerlo, lanza `INICIO_NO_DESCOMBINABLE` en vez de fallar en silencio.
+- limpia el área física sobrante (el marco heredado es residuo visual propio, no
+  dato) para que no queden bandas oscuras ni combinaciones parciales;
+- `Inicio_verificar_` exige cero combinaciones fuera del lienzo
+  (`ver.sinMergesFuera`, token `MERGE_FUERA`), de modo que cualquier resto
+ Similar fuerza reconstrucción en vez de pasar inadvertido.
+
+**Prueba de regresión**: `tests/inicio_pro_v015.mjs` T10/T10b siembran el marco
+heredado (`A39:AD1000` y `AE1:AN38`) sobre una hoja de 1000×30 y 1000×40; el mock
+del harness ahora **fielmente** reproduce la regla de Sheets (selección parcial
+sobre un merge lanza la misma excepción), y se comprobó que contra el código sin
+el fix la suite falla con el error exacto de producción (DEC-096).

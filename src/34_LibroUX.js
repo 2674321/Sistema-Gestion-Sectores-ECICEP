@@ -469,6 +469,12 @@ function Inicio_verificar_(h) {
     ver.freezeSeguro = rangos.every(function (r) {
       return !(r.getRow() <= 2 && r.getRow() + r.getNumRows() - 1 > 2);
     });
+    // v0.15.1: no debe quedar ninguna combinación fuera del lienzo gestionado
+    // (residuo del marco heredado v0.14); el físico extra no se fusiona.
+    var todos = h.getRange(1, 1, h.getMaxRows(), h.getMaxColumns()).getMergedRanges();
+    ver.mergesFuera = todos.map(function (r) { return r.getA1Notation(); })
+      .filter(function (a1) { return esperados.indexOf(a1) === -1; });
+    ver.sinMergesFuera = ver.mergesFuera.length === 0;
   } catch (eM) {}
   try { ver.freeze = h.getFrozenRows() === cto.freezeRows && h.getFrozenColumns() === cto.freezeColumns; } catch (eF) {}
   try {
@@ -507,7 +513,8 @@ function Inicio_verificar_(h) {
     ver.fondoClaro = total > 0 && oscuros / total <= 0.15;
   } catch (eB) {}
   ver.fallos = Object.keys(ver).filter(function (k) {
-    return k !== 'ok' && k !== 'fallos' && k !== 'detalleAnchos' && k !== 'detalleAlturas' && ver[k] !== true;
+    return k !== 'ok' && k !== 'fallos' && k !== 'detalleAnchos' && k !== 'detalleAlturas' &&
+      k !== 'mergesFuera' && ver[k] !== true;
   });
   ver.ok = ver.fallos.length === 0;
   return ver;
@@ -529,7 +536,8 @@ function Inicio_diagnosticarVisual_(hoja) {
       estadoGeneral: 'ESTADO_GENERAL', accesos: 'ACCESOS', kpis: 'KPIS',
       tarjetas: 'CARD', bloques: 'BLOQUES', merges: 'MERGE',
       freeze: 'FREEZE', freezeSeguro: 'MERGE:CRUZA_FREEZE', anchos: 'ANCHO',
-      alturas: 'ALTURA', coloresBase: 'COLOR_BASE', fondoClaro: 'FONDO', snapshot: 'SNAPSHOT'
+      alturas: 'ALTURA', coloresBase: 'COLOR_BASE', fondoClaro: 'FONDO', snapshot: 'SNAPSHOT',
+      sinMergesFuera: 'MERGE_FUERA'
     };
     (v.fallos || []).forEach(function (k) { if (mapa[k]) diag.diferencias.push(mapa[k]); });
     INICIO_CONTRATO.accesos.forEach(function (a) {
@@ -581,6 +589,19 @@ function Inicio_construir_(ss, opciones) {
   // con filas no inmovilizadas"). Invariante: la portada se construye SIEMPRE
   // sin freeze residual y se congela solo al final, idempotente.
   h.setFrozenRows(0); h.setFrozenColumns(0);
+  // v0.15.1 (incidente real 2026-09-26): el builder v0.14 pintaba un "marco de
+  // color" con DOS merges gigantes FUERA del panel (columnas sobrantes x filas
+  // 1-38 y filas sobrantes x ancho completo). Sheets exige seleccionar el
+  // intervalo combinado COMPLETO para separarlo: un breakApart() sobre el rango
+  // gestionado (A1:AJ50) lanza "Debes seleccionar todas las celdas de un
+  // intervalo combinado" y el merge del footer (A49:AJ50) chocaba con el marco,
+  // matando la subtarea "Portada INICIO". Invariante: se descombina la HOJA
+  // COMPLETA antes de insertar/expandir y antes de cualquier merge, y el área
+  // física sobrante se limpia (el marco heredado es residuo visual propio, no
+  // dato). Sin marco gigante desde v0.15.
+  var totalFilas = h.getMaxRows(), totalCols = h.getMaxColumns();
+  try { h.getRange(1, 1, totalFilas, totalCols).breakApart(); }
+  catch (eFull) { throw new Error('INICIO_NO_DESCOMBINABLE: ' + Utl_texto(eFull && eFull.message)); }
   // v0.15 §15: lienzo mínimo (filas/columnas del contrato); el físico extra NO
   // es drift y NO se fusiona ni se oculta (sin marco exterior gigante).
   var filas = cto.filas, cols = cto.columnas;
@@ -589,8 +610,10 @@ function Inicio_construir_(ss, opciones) {
   try { h.showRows(1, Math.min(filas, h.getMaxRows())); } catch (eSR) {}
   try { h.showColumns(1, Math.min(cols, h.getMaxColumns())); } catch (eSC) {}
   var gestionado = h.getRange(cto.rango);
-  try { gestionado.breakApart(); } catch (eM) {}
   gestionado.clear();
+  totalFilas = h.getMaxRows(); totalCols = h.getMaxColumns();
+  if (totalFilas > filas) { try { h.getRange(filas + 1, 1, totalFilas - filas, totalCols).clear(); } catch (eX1) {} }
+  if (totalCols > cols) { try { h.getRange(1, cols + 1, filas, totalCols - cols).clear(); } catch (eX2) {} }
   h.setHiddenGridlines(true);
   var M = DESIGN_SYSTEM.MARCA, blanco = DESIGN_SYSTEM.SUPERFICIE.datos;
   var fondo = DESIGN_SYSTEM.TOKENS_UI.background, borde = DESIGN_SYSTEM.TOKENS_UI.border;

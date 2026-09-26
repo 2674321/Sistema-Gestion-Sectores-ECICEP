@@ -23,7 +23,16 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.15.0` — instalador con opciones reales (INICIO se reconstruye, force funcional, persistencia solo tras PASS) + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+| **Estado** | `v0.15.1` — fix de producción: INICIO descombina la hoja completa (residuo del marco v0.14) y limpia el área extra; instalador con opciones reales + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+
+## v0.15.1 — fix «intervalo combinado» en Portada INICIO
+
+La subtarea «Portada INICIO» fallaba en producción porque el marco de color de
+v0.14 dejó merges gigantes fuera del panel: Sheets exige seleccionar el
+intervalo combinado completo para separarlo, y el footer (`A49:AJ50`) chocaba
+con ellos. Ahora se descombina la hoja completa antes de expandir/mergear, se
+limpia el área física sobrante y el verifier exige cero merges fuera del
+lienzo (`MERGE_FUERA`). Regresión `inicio_pro_v015` T10/T10b (DEC-096).
 
 ## v0.15.0 — instalador con opciones reales + INICIO PRO
 

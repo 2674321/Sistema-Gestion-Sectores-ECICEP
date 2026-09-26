@@ -50,11 +50,29 @@ function crearHoja(maxRows, maxCols) {
   }
   function rango(a, b, cc, d) {
     const rg = typeof a === 'string' ? parseA1(a) : { r1: a, c1: b, r2: a + (cc || 1) - 1, c2: b + (d || 1) - 1 };
+    // Sheets exige seleccionar el intervalo combinado COMPLETO: si el rango solo
+    // lo cruza parcialmente, merge()/breakApart() lanzan este error (incidente
+    // real 2026-09-26 con el marco heredado de v0.14).
+    const chocaParcial = () => st.merges.some(m => {
+      const B = parseA1(m);
+      const solapa = !(rg.c2 < B.c1 || B.c2 < rg.c1 || rg.r2 < B.r1 || B.r2 < rg.r1);
+      const cubre = rg.r1 <= B.r1 && rg.r2 >= B.r2 && rg.c1 <= B.c1 && rg.c2 >= B.c2;
+      return solapa && !cubre;
+    });
     const R = {
-      merge: () => { cuenta('merge'); merges.push(a1str(rg.r1, rg.c1, rg.r2, rg.c2)); return R; },
+      merge: () => {
+        cuenta('merge');
+        if (chocaParcial()) throw new Error('Debes seleccionar todas las celdas de un intervalo combinado para combinarlas o separarlas.');
+        merges.push(a1str(rg.r1, rg.c1, rg.r2, rg.c2));
+        return R;
+      },
       breakApart: () => {
         cuenta('breakApart');
-        for (let i = st.merges.length - 1; i >= 0; i--) st.merges.splice(i, 1);
+        if (chocaParcial()) throw new Error('Debes seleccionar todas las celdas de un intervalo combinado para combinarlas o separarlas.');
+        for (let i = merges.length - 1; i >= 0; i--) {
+          const B = parseA1(merges[i]);
+          if (rg.r1 <= B.r1 && rg.r2 >= B.r2 && rg.c1 <= B.c1 && rg.c2 >= B.c2) merges.splice(i, 1);
+        }
         return R;
       },
       clear: () => {
@@ -177,8 +195,8 @@ function crearHoja(maxRows, maxCols) {
     setHiddenGridlines: () => { cuenta('setHiddenGridlines'); },
     showRows: () => { cuenta('showRows'); },
     showColumns: () => { cuenta('showColumns'); },
-    insertRowsAfter: () => { cuenta('insertRowsAfter'); },
-    insertColumnsAfter: () => { cuenta('insertColumnsAfter'); },
+    insertRowsAfter: (a, n) => { cuenta('insertRowsAfter'); maxRows = Math.max(maxRows, a + n); },
+    insertColumnsAfter: (a, n) => { cuenta('insertColumnsAfter'); maxCols = Math.max(maxCols, a + n); },
     isSheetHidden: () => false
   };
   return { hoja, st };
@@ -394,5 +412,35 @@ const escrituras = () => [...RPC.entries()]
   ok('T9 autocuración corrige dimensiones desviadas y reverifica');
 }
 
-console.log('INICIO PRO v0.15 — %d/%d PASS', n, 10);
-if (n !== 10) process.exit(1);
+// T10 (incidente real 2026-09-26): la hoja hereda el "marco de color" de v0.14,
+// dos merges gigantes FUERA del panel gestionado. Sheets rechaza separarlos con
+// un rango parcial y el merge del footer (A49:AJ50) chocaba con ellos, matando la
+// subtarea "Portada INICIO" con «Debes seleccionar todas las celdas de un
+// intervalo combinado para combinarlas o separarlas».
+{
+  const pro = crearHoja(1000, 30);
+  const { c } = backend(pro);
+  pro.st.merges.push('A39:AD1000'); // marco v0.14 real: filas sobrantes x ancho completo
+  const r = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  assert.equal(r.ok, true, 'construye pese al marco heredado: ' + JSON.stringify(r.errores || r.detalle || ''));
+  const v = c.Inicio_verificar_(pro.hoja);
+  assert.equal(v.ok, true, 'verificación en verde tras limpiar el marco');
+  assert.deepEqual(v.mergesFuera || [], [], 'sin combinaciones fuera del lienzo');
+  assert.equal(pro.st.merges.length, 32, 'exactamente los 32 merges del contrato');
+  // Idempotencia: una segunda reconstrucción sobre la hoja ya limpia también pasa.
+  const r2 = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  assert.equal(r2.ok, true, 'reconstrucción idempotente');
+  ok('T10 marco heredado fuera del panel: se descombina la hoja completa y se limpia');
+
+  // Variante con marco lateral (hoja ensanchada): el merge cruzaba el borde derecho.
+  const pro2 = crearHoja(1000, 40);
+  const b2 = backend(pro2);
+  pro2.st.merges.push('AE1:AN38', 'A39:AN1000');
+  const r3 = b2.c.Inicio_construir_(b2.c.Modelo_ss(), { forzar: true });
+  assert.equal(r3.ok, true, 'construye con marco lateral heredado');
+  assert.deepEqual(b2.c.Inicio_verificar_(pro2.hoja).mergesFuera || [], [], 'sin marco lateral residual');
+  ok('T10b marco lateral heredado: se limpia y verifica sin residuo');
+}
+
+console.log('INICIO PRO v0.15 — %d/%d PASS', n, 12);
+if (n !== 12) process.exit(1);

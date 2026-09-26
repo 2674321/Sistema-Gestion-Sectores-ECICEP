@@ -25,10 +25,18 @@ assert.ok(fn.indexOf('h.setFrozenRows(0); h.setFrozenColumns(0);') !== -1,
   'destraba el freeze residual al inicio');
 const iUnlock = fn.indexOf('setFrozenRows(0)');
 const iInsert = fn.indexOf('insertRowsAfter');
-const iBreak = fn.indexOf('gestionado.breakApart');
+const iBreak = fn.indexOf('breakApart');
 const iClear = fn.indexOf('gestionado.clear');
+const iMerge = fn.indexOf('.merge()');
 assert.ok(iUnlock !== -1 && (iUnlock < iInsert) && (iUnlock < iBreak) && (iUnlock < iClear),
   'unlock ANTES de insertRowsAfter, breakApart y clear del rango gestionado');
+// v0.15.1: se descombina la HOJA COMPLETA (no el rango gestionado) y ANTES de
+// expandir, porque un merge heredado fuera del panel hace fallar cualquier
+// selección parcial (incidente real «intervalo combinado»).
+assert.match(fn, /getRange\(1, 1, totalFilas, totalCols\)\.breakApart\(\)/,
+  'descombina la hoja completa, no solo el rango gestionado');
+assert.ok(iBreak !== -1 && iBreak < iInsert && iBreak < iMerge,
+  'descombinar la hoja completa ANTES de insertar y de cualquier merge');
 assert.ok(fn.indexOf('h.setFrozenRows(2); h.setFrozenColumns(0);') !== -1,
   'congela 2 filas al final');
 assert.ok(fn.indexOf('h.setFrozenRows(2)') > fn.indexOf('setFrozenRows(0)'),
