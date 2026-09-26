@@ -45,6 +45,11 @@ assert.equal(m.porVencer, 1, 'próximos 30 días en el mismo recorrido');
 assert.equal(m.sinProximaAtencion, 1);
 assert.equal(m.revision, 1);
 assert.equal(m.rutInvalidos, 1);
+// v0.15 §17: vencidos/próximos/sin-próxima también por sector, mismo recorrido.
+assert.equal(m.sectores.NARANJO.vencidos, 1);
+assert.equal(m.sectores.AMARILLO.porVencer, 1);
+assert.equal(m.sectores.VERDE.sinProximaAtencion, 1);
+assert.equal(m.sectores.NARANJO.pacientes, 2);
 ok('T1 snapshot con G1/G2/G3/pendiente y próximos-30 en un solo recorrido');
 
 // T2: el snapshot NO incluye PII.

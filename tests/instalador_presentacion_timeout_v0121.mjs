@@ -381,13 +381,14 @@ ok('T17 notas: skip-if-equal');
 const html = readFileSync(new URL('Instalador.html', root), 'utf8');
 assert.match(html, /function llamarPaso\(/);
 assert.match(html, /r\.continuar===true/);
-assert.match(html, /api_instalarPaso\(etapa\.id,ECICEP_ACCESO,_EJEC,opcionesDatos\(\)\)/,
-  'llamarPaso entrega ejecución + política de datos');
+assert.match(html, /api_instalarPaso\(etapa\.id,ECICEP_ACCESO,_EJEC,_OPCIONES_EJECUCION\|\|opcionesDatos\(\)\)/,
+  'llamarPaso entrega ejecución + opciones congeladas');
 assert.match(html, /_EJEC=nuevoEjecucion\(\);/);
 assert.match(html, /marcar\(etapa\.id,aviso\?'ADVERTENCIA':'OK'\)/);
 assert.match(html, /function reintentarUltimoError\(\)/);
 assert.match(html, /Se conserva la ejecución, el cursor y el respaldo existente/);
-assert.match(html, /llamarPresentacion\(er\.etapa,er\.ix,false\)/);
+assert.match(html, /llamarPresentacion\(er\.etapa,er\.ix\)/);
+assert.match(html, /_OPCIONES_EJECUCION=opcionesInstalacion\(\)/);
 ok('T18 HTML: etapa reanudable con continuar y literales guardados');
 
 // --- T19: invariantes de fuente del hotfix ---
@@ -397,10 +398,10 @@ assert.match(src35, /ECICEP_INST_PRES/);
 assert.match(src35, /Modelo_aplicarDiseno\(\)/);
 assert.doesNotMatch(src35, /Libro_repararPresentacion_\(\)/ , 'el motor no repara forzando en un RPC');
 const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
-assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion\);/);
+assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion, opciones \|\| \{\}\);/);
 assert.match(src20, /var r = fn\(ejecucion, opciones\)/, 'dispatcher entrega ejecución y opciones a la etapa');
 const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
-assert.match(cfg, /VERSION:\s*'0\.14\.5'/);
-ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.14.5');
+assert.match(cfg, /VERSION:\s*'0\.15\.0'/);
+ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.15.0');
 
 console.log('Presentación reanudable v0.13.0 — ' + n + '/' + n + ' PASS');

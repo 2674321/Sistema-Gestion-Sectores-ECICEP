@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// v0.15.0 — Portada INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50). El contrato
+// cambió intencionalmente desde V014: lienzo 36×50, 6 accesos, 6 KPIs,
+// contrato único INICIO_CONTRATO, sin marco gigante ni SOBRANTE.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const src = readFileSync(new URL('../src/34_LibroUX.js', import.meta.url), 'utf8');
@@ -14,44 +17,27 @@ function extraer(nombre) {
 }
 const fn = extraer('Inicio_construir_');
 assert.ok(fn, 'Inicio_construir_ existe');
-assert.match(fn, /getRange\(INICIO_RANGO_GESTIONADO\)/);
+assert.match(fn, /getRange\(cto\.rango\)/);
 assert.match(fn, /gestionado\.clear\(\)/);
 assert.doesNotMatch(fn, /\bh\.clear\(|getDataRange\(\)\.clear/);
 assert.doesNotMatch(fn, /COUNTIF|COUNTIFS|VLOOKUP|MAX\(PACIENTES/);
 assert.match(fn, /Inicio_calcularMetricas_\(\)/);
 assert.match(fn, /Inicio_guardarSnapshot_/);
 assert.match(fn, /Inicio_escribirMetricas_/);
-assert.match(src, /INICIO_RANGO_GESTIONADO === 'A1:AD38'/);
+assert.match(src, /rango: 'A1:AJ50'/);
 assert.match(src, /if \(!Utl_texto\(p\.ID_INTERNO\)\) return/);
 assert.match(fn, /alturas\.length/,
-  'la portada utiliza las 30 columnas del lienzo gestionado');
-assert.match(fn, /h\.setColumnWidths\(1, cols, 38\)/,
-  'los 38 px de las 30 columnas se aplican en UNA llamada');
-const bloqueAccesos = fn.match(/var accesos = \[[\s\S]*?\n  \];/)?.[0] || '';
-assert.equal((bloqueAccesos.match(/\{ texto:/g) || []).length, 5,
-  '5 accesos principales en el nuevo layout');
-for (const acceso of ['PERSONAS', 'CAPTURA', 'INGRESOS', 'CONTROLES', 'REM'])
-  assert.match(bloqueAccesos, new RegExp(acceso));
-const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-for (const rango of ["rango: 'A4:F7'", "rango: 'G4:L7'", "rango: 'M4:R7'", "rango: 'S4:X7'", "rango: 'Y4:AD7'"])
-  assert.match(bloqueAccesos, new RegExp(esc(rango)));
-for (const redundante of ['ABRIR ECICEP', 'NUEVA CAPTURA', 'BUSCAR PERSONA'])
-  assert.doesNotMatch(bloqueAccesos, new RegExp(redundante));
-assert.match(fn, /getRange\('A18:O18'\)\.merge\(\)\.setValue\('ESTADO DEL SISTEMA'\)/);
-assert.match(fn, /Controles vencidos.*Próximos 30 días.*Sin próximo control.*Fichas por revisar/s);
-assert.match(fn, /getRange\('P18:AD18'\)\.merge\(\)\.setValue\('PENDIENTES'\)/);
-assert.match(fn, /getRange\('A27:AD29'\)\.merge\(\)\.setValue\('Estado operativo · versión, auditoría y respaldo'\)/,
-  'v0.14: sin copy provisional en la construcción (el escritor pinta el resumen real)');
-assert.doesNotMatch(src, /en preparación/,
-  'v0.14: ningún copy provisional en la portada');
+  'la portada utiliza las 36 columnas del lienzo gestionado');
+assert.match(fn, /h\.setColumnWidths\(1, cols, cto\.anchoColumna\)/,
+  'los anchos de las 36 columnas se aplican en UNA llamada');
+const cto = src.match(/var INICIO_CONTRATO = \{[\s\S]*?\n\};/)?.[0] || '';
+assert.ok(cto, 'contrato único INICIO_CONTRATO existe');
+assert.equal((cto.match(/texto: '/g) || []).length >= 6, true, '6 accesos en el contrato');
+assert.match(src, /PANEL_OPERATIVO_PRO_V015/);
+assert.doesNotMatch(src, /PANEL_OPERATIVO_V014[^0-9]/, 'V014 obsoleto (solo historial)');
+assert.doesNotMatch(fn, /sistemaBorde/, 'sin marco exterior gigante');
+assert.doesNotMatch(src, /COLUMNA:SOBRANTE/, 'SOBRANTE eliminado');
 assert.match(fn, /h\.setFrozenRows\(2\); h\.setFrozenColumns\(0\)/);
-assert.match(src, /PANEL_OPERATIVO_V014/);
-assert.match(src, /acceso3: 'INGRESOS'/,
-  'el fingerprint por contenido obliga a migrar desde la portada anterior');
-assert.match(src, /'AC20:AD20', 'AC21:AD21', 'AC22:AD22', 'AC23:AD23'\]\.map/,
-  'pendientes de la portada se escriben en AC..AD (columna de valores)');
-assert.match(src, /var rangosEstado = \['I20:O20', 'I21:O21', 'I22:O22', 'I23:O23'\]/,
-  'estados del bloque ESTADO se escriben en las columnas de valor I..O');
 assert.match(src, /integridad\.derivadosOk === false \? 'ERROR'/,
   'solo una divergencia reparable convierte Integridad en ERROR');
 assert.match(src, /integridad\.evidenciaSoloReporte/,

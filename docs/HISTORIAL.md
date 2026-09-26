@@ -7,6 +7,17 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.15.0 — INSTALADOR CON OPCIONES REALES + INICIO PRO
+
+- Opciones congeladas datos+visual hasta el builder (`forzarInicio` funcional),
+  fast-path y fingerprint con INICIO+paridad, persistencia solo tras PASS,
+  `pVerificar` certifica Presentación, retry exacto, sin legado `visual`.
+- INICIO PRO (`PANEL_OPERATIVO_PRO_V015`, A1:AJ50, 6 accesos, 6 KPIs, 3 cards,
+  estado, prioridades, estratificación, info, footer; 32 merges; RPC ~417 con
+  PARTIAL documentado); sin marco ni SOBRANTE; snapshot sin PII; baseline §19
+  de formatos (datos 24, header 36/Arial 11). Suites `inicio_pro_v015` 10/10 y
+  `instalador_presentacion_opciones_v015` 8/8 (DEC-095).
+
 ## v0.14.2 — HOTFIX CONVERGENCIA PRESENTACIÓN
 
 - `HVis_reconciliarHoja` repara `FREEZE_*` contra `HVis_especVisual` (fast-path

@@ -37,12 +37,14 @@ identificadores, RUT y teléfonos se conservan como texto.
 
 ## INICIO
 
-> **v0.14.0 (layout):** la portada es un **panel operativo** sobre el mismo lienzo
-> `A1:AD38` — hero con semáforo general (`A3:AD3`), accesos (filas 4-7), banda de
-> 5 KPIs (etiquetas fila 8, valores fila 9), cards por sector (filas 10-14),
-> distribución porcentual por sector (filas 15-16), estado y pendientes (filas
-> 18-23), banda de alerta (`A24:AD25`), metadata (`A27:AD29`) y nota (`A32:AD34`).
-> Contrato `PANEL_OPERATIVO_V014` (fingerprint `v014|fnv1a32`).
+> **v0.15.0:** la portada es `PANEL_OPERATIVO_PRO_V015` sobre `A1:AJ50`
+> (36×50): header, 6 accesos, 6 KPIs, 3 cards con 7 métricas, estado (6),
+> prioridades (6), estratificación G1/G2/G3/G-pendiente, info (versión/build/
+> fechas/paridad) y footer. Fingerprint `pro015|fnv1a32`. Guía vigente:
+> `docs/INFORME_V015_INSTALADOR_INICIO_PRO.md`.
+>
+> **v0.14.0 (layout, histórico):** panel sobre `A1:AD38` (contrato
+> `PANEL_OPERATIVO_V014`).
 >
 > **v0.13.0:** la portada migró al lienzo de 30 columnas `A1:AD38` (cinco accesos,
 > tres tarjetas, bloques ESTADO/PENDIENTES, metadata y nota operativa). Guía

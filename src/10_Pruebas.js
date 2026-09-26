@@ -2897,7 +2897,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.14.5', 'versión esperada v0.14.5');
+    A.igual(v, '0.15.0', 'versión esperada v0.15.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3137,7 +3137,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.14.5', 'versión esperada v0.14.5');
+    A.igual(v, '0.15.0', 'versión esperada v0.15.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3527,11 +3527,11 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(TERMINOLOGIA.ETIQUETAS.CONTROLES, 'Controles por persona');
   });
 
-  t('PULIDO v0.8.9.5: PULIDO_ENCABEZADO legible (12/bold/wrap/alturas)', function () {
-    A.igual(PULIDO_ENCABEZADO.fuente, 12, 'fuente');
+  t('PULIDO v0.8.9.5: PULIDO_ENCABEZADO legible (11/bold/wrap/alturas)', function () {
+    A.igual(PULIDO_ENCABEZADO.fuente, 11, 'fuente');
     A.igual(PULIDO_ENCABEZADO.peso, 'bold', 'peso');
     A.cierto(PULIDO_ENCABEZADO.wrap === true, 'wrap');
-    A.igual(PULIDO_ENCABEZADO.alturaVisual, 42, 'altura visual');
+    A.igual(PULIDO_ENCABEZADO.alturaVisual, 36, 'altura visual');
     A.igual(PULIDO_ENCABEZADO.alturaSimple, 30, 'altura simple');
   });
 
@@ -3598,7 +3598,7 @@ function _pruebas_pulido_v0895(t, A) {
   t('PULIDO v0.8.9.5: tamaños estandarizados de barras', function () {
     A.igual(PULIDO_BARRAS.titulo, 12, 'título 12');
     A.igual(PULIDO_BARRAS.seccion, 10, 'secciones 10');
-    A.igual(PULIDO_ENCABEZADO.fuente, 12, 'encabezado 12');
+    A.igual(PULIDO_ENCABEZADO.fuente, 11, 'encabezado 11');
   });
 
   t('PULIDO v0.8.9.5: SECCIONES_HOJAS referencian valores de COLORES_SECCION', function () {
@@ -3614,8 +3614,8 @@ function _pruebas_pulido_v0895(t, A) {
 
   t('PULIDO v0.8.9.5: Modelo_anchoColumna centralizado (orden=precedencia)', function () {
     A.igual(Modelo_anchoColumna('NOMBRE_NORMALIZADO'), 150, 'normalizado gana a NOMBRE');
-    A.igual(Modelo_anchoColumna('NOMBRE'), 220, 'nombre amplio');
-    A.igual(Modelo_anchoColumna('RUT'), 115, 'rut');
+    A.igual(Modelo_anchoColumna('NOMBRE'), 240, 'nombre amplio');
+    A.igual(Modelo_anchoColumna('RUT'), 118, 'rut');
     A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 110, 'fecha');
     A.igual(Modelo_anchoColumna('SEXO'), 70, 'sexo compacto');
     A.igual(Modelo_anchoColumna('CAMPORARO'), 130, 'default');
@@ -5187,7 +5187,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.14'), 0, 'versión de aplicación coherente (0.14.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.15'), 0, 'versión de aplicación coherente (0.15.x)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -6378,7 +6378,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.14.5', 'VERSION es 0.14.5');
+    A.cierto(ECICEP.VERSION === '0.15.0', 'VERSION es 0.15.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

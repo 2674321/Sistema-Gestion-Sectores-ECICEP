@@ -35,8 +35,8 @@ assert.ok(fn.indexOf('h.setFrozenRows(2)') > fn.indexOf('setFrozenRows(0)'),
   'el freeze final viene después del unlock inicial');
 const fnVerifica = src34.match(/function Inicio_verificar_\([\s\S]*?\n\}/)?.[0] || '';
 assert.ok(fnVerifica, 'Inicio_verificar_ existe');
-assert.match(fnVerifica, /ver\.freeze = h\.getFrozenRows\(\) === 2 && h\.getFrozenColumns\(\) === 0/,
-  'verificación incluye freeze === 2');
+assert.match(fnVerifica, /ver\.freeze = h\.getFrozenRows\(\) === cto\.freezeRows && h\.getFrozenColumns\(\) === cto\.freezeColumns/,
+  'verificación incluye freeze del contrato (2/0)');
 assert.match(fn, /var ver = Inicio_verificar_\(h\)/,
   'Inicio_construir_ valida el estado final con la verificación estructural');
 ok('T1 fuente: unlock al inicio, escrituras en medio, freeze final y verificación');
@@ -73,6 +73,19 @@ function fabricarHoja(estado) {
   sh.getFrozenColumns = () => sh.frozenCols;
   sh.setTabColor = () => { ops.push({ name: 'embellece' }); };
   sh.setConditionalFormatRules = () => { ops.push({ name: 'mutaR', v: 'cf' }); };
+  sh.getRangeList = () => {
+    const L = {};
+    for (const m of ['setBackgrounds', 'setFontColors', 'setFontWeights', 'setFontSizes',
+      'setHorizontalAlignments', 'setVerticalAlignments', 'setBorder', 'setBackground',
+      'setFontColor', 'setFontWeight', 'setFontSize', 'setHorizontalAlignment',
+      'setVerticalAlignment', 'setWrap'])
+      L[m] = () => { ops.push({ name: 'lista' }); return L; };
+    return L;
+  };
+  sh.setColumnWidths = () => { ops.push({ name: 'mutaR', v: 'anchos' }); };
+  sh.setRowHeights = () => { ops.push({ name: 'mutaR', v: 'altos' }); };
+  sh.getRowHeight = () => 20;
+  sh.getColumnWidth = () => 38;
   sh._ops = () => ops;
   sh._opsReset = () => { ops = []; };
   sh.getRange = (...args) => {
@@ -105,6 +118,7 @@ function fabricarHoja(estado) {
       setWrap(v) { escritura('escribe', 'wrap'); return this; },
       setBorder() { escritura('escribe', 'borde'); return this; },
       setValue(v) { escritura('escribe', 'valor', v); return this; },
+      setValues(m) { escritura('escribe', 'matriz', m.length + 'x' + (m[0] || []).length); return this; },
       setFormula(v) { escritura('escribe', 'formula', v); return this; },
       getValue() { return celdas.has(clave) ? celdas.get(clave) : ''; },
       getFormula() { return celdas.has(clave) ? celdas.get(clave) : ''; }

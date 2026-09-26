@@ -72,7 +72,8 @@ const g = nombre => vm.runInContext(nombre, c);
   for (const campo of ['ESTRATIFICACION', 'ESTADO', 'ESTADO_INGRESO'])
     assert.equal(esp(campo).alineacion, 'CENTER', campo);
   assert.equal(esp('NOTA_SISTEMA').fontSize, 9, 'NOTA_SISTEMA 9pt (superficie sistema)');
-  assert.equal(esp('NOMBRE').ancho, 220, 'nombre legible (columna amplia)');
+  assert.equal(esp('NOMBRE').ancho, 240, 'nombre legible (columna amplia)');
+  assert.equal(esp('NOMBRE').wrapStrategy, 'CLIP', 'nombre con CLIP (fila fija)');
   assert.ok(esp('OBSERVACIONES').ancho >= 280, 'observaciones amplias');
   ok('T5 EDAD/estados centrados, NOTA_SISTEMA 9pt, anchos legibles');
 }
@@ -80,8 +81,9 @@ const g = nombre => vm.runInContext(nombre, c);
 // T6: wrapStrategy migra desde `wrap` con compatibilidad temporal.
 {
   assert.equal(esp('RUT').wrapStrategy, 'CLIP', 'RUT sin wrap → CLIP');
-  assert.equal(esp('NOMBRE').wrapStrategy, 'WRAP', 'NOMBRE con wrap → WRAP');
-  assert.equal(esp('NOMBRE').wrap, true, 'booleano `wrap` conservado (compat)');
+  assert.equal(esp('NOMBRE').wrapStrategy, 'CLIP', 'NOMBRE con CLIP (v0.15 §19, fila fija)');
+  assert.equal(esp('OBSERVACIONES').wrapStrategy, 'CLIP', 'observaciones con CLIP (v0.15 §19)');
+  assert.equal(esp('NOTA_SISTEMA').wrapStrategy, 'WRAP', 'sistema largo conserva WRAP');
   ok('T6 wrapStrategy WRAP/CLIP derivada de `wrap` (migración gradual)');
 }
 

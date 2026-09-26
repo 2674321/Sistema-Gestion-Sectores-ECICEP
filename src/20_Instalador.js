@@ -137,15 +137,20 @@ function api_instalarPaso(id, acceso, ejecucion, opciones) {
         linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
       respaldo = bk.creado ? (bk.nombre || null) : null;
     }
-    // v0.14 §86 — opciones backward-compatible del motor de presentación:
+    // v0.14 §86 + v0.15 §4.5 — opciones backward-compatible del motor de presentación:
     // {modoPresentacion:'AUTO'|'REPARAR'|'FORZAR_INICIO'|'PROFUNDO',
     //  forzarInicio, diagnosticoVisualProfundo}. Callers antiguos sin opciones
     // siguen en AUTO. FORZAR_INICIO/PROFUNDO invalidan el layout vigente para
-    // forzar el recorrido completo; la etapa 'verificar' ya corre profunda.
+    // forzar el recorrido completo; forzarInicio invalida ADEMÁS el layout de
+    // INICIO (invalidar Presentación no basta: el builder haría fast-path).
+    // La etapa 'verificar' ya corre profunda.
     if (id === 'diseno' && typeof Presentacion_invalidarLayout_ === 'function' &&
         (opciones.forzarPresentacion === true || opciones.forzarInicio === true ||
-         opciones.modoPresentacion === 'FORZAR_INICIO' || opciones.modoPresentacion === 'PROFUNDO'))
+         opciones.modoPresentacion === 'FORZAR_INICIO' || opciones.modoPresentacion === 'PROFUNDO')) {
       Presentacion_invalidarLayout_();
+      if ((opciones.forzarInicio === true || opciones.modoPresentacion === 'FORZAR_INICIO') &&
+          typeof Inicio_borrarLayout_ === 'function') Inicio_borrarLayout_();
+    }
     var fn = G[reg.fn];
     if (typeof fn !== 'function') throw new Error('función ausente: ' + reg.fn);
     // v0.14.1: las opciones bajan a la etapa (modoDatos/confirmarSnapshot para
@@ -663,12 +668,14 @@ function Instalar_pLimpieza() {
   return { ok: true, candidatas: r.candidatas, eliminadas: r.eliminadas,
            conservadas: r.conservadas, linea: 'No se eliminaron hojas en la instalación' };
 }
-function Instalar_pDiseno(ejecucion) {
+function Instalar_pDiseno(ejecucion, opciones) {
   // Hotfix 0.12.1: la "Presentación del libro" se ejecuta por SUBTAREAS
   // REANUDABLES entre RPC (presupuesto de tiempo por llamada; cursor persistido
   // por clave de EJECUCION en CacheService). El cliente re-invoca la misma etapa
   // mientras la respuesta indique {continuar:true}. Ver 35_Presentacion.js.
-  return Presentacion_ejecutarPaso_('diseno', ejecucion);
+  // v0.15 §6: las opciones (datos + presentación) bajan al motor: la subtarea
+  // `inicio` necesita forzarInicio/modoPresentacion.
+  return Presentacion_ejecutarPaso_('diseno', ejecucion, opciones || {});
 }
 /** @deprecated v0.14 — wrapper de compatibilidad, FUERA del plan principal.
  *  La estructura superior se repara en las subtareas formato:* del motor único
@@ -724,10 +731,23 @@ function Instalar_pVerificar() {
   try { salud = Sistema_estadoSalud_({ profundo: true }); }
   catch (e) { return { ok: false, resultado: 'ERROR', estado: 'ERROR',
     motivo: e && e.message ? e.message : String(e) }; }
-  return { ok: salud.operativo, resultado: salud.estado, salud: salud,
+  // v0.15 §10: el cierre certifica Presentación (INICIO + paridad + drift).
+  // Salud operativa con visual incompleto = ADVERTENCIA, no éxito total.
+  var presentacion = null, presentacionCompleta = false;
+  try {
+    if (typeof Presentacion_verificar_ === 'function') {
+      presentacion = Presentacion_verificar_();
+      presentacionCompleta = presentacion && presentacion.ok === true;
+    }
+  } catch (eP) { presentacion = { ok: false, motivo: eP && eP.message ? eP.message : String(eP) }; }
+  var operativo = !!salud.operativo;
+  return { ok: salud.operativo, operativo: operativo,
+    presentacionCompleta: presentacionCompleta, presentacion: presentacion,
+    resultado: salud.estado, salud: salud,
     pacientes: salud.integridad.pacientes || 0, eventos: salud.integridad.eventos || 0,
     schemaVersion: salud.datos.schemaLeido, esquemaOK: salud.datos.ok,
-    estado: salud.estado, triggerIngreso: salud.automatizaciones.ingreso.estado,
+    estado: (salud.operativo && presentacionCompleta) ? salud.estado : 'ADVERTENCIA',
+    triggerIngreso: salud.automatizaciones.ingreso.estado,
     integridad: salud.integridad,
     motivo: salud.operativo ? '' : (salud.avisos || []).join('; ') };
 }

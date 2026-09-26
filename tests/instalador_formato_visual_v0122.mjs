@@ -40,9 +40,9 @@ assert.equal(c.Formato_especificacionCampo_('RUT').formato, '@'); ok('RUT se con
 assert.equal(c.Formato_especificacionCampo_('TELEFONO(S)').formato, '@'); ok('teléfono se conserva como texto');
 assert.equal(c.Formato_especificacionCampo_('FECHA_EVENTO').formato, 'dd/MM/yyyy'); ok('fecha usa dd/MM/yyyy');
 assert.equal(c.Formato_especificacionCampo_('FECHA_REGISTRO').formato, 'dd/MM/yyyy HH:mm'); ok('fecha-hora usa dd/MM/yyyy HH:mm');
-const obs = c.Formato_especificacionCampo_('OBSERVACIONES'); assert.equal(obs.wrap, true); assert.equal(obs.alineacion, 'LEFT'); ok('observaciones envuelven y alinean a la izquierda');
+const obs = c.Formato_especificacionCampo_('OBSERVACIONES'); assert.equal(obs.wrap, false); assert.equal(obs.wrapStrategy, 'CLIP'); assert.equal(obs.ancho, 320); assert.equal(obs.alineacion, 'LEFT'); ok('observaciones amplias con CLIP a la izquierda (v0.15 §19)');
 assert.equal(c.Formato_especificacionCampo_('ESTADO_INGRESO').alineacion, 'CENTER'); ok('estado queda centrado y editable');
-assert.equal(c.Modelo_anchoColumna('PROXIMO_CONTROL'), 115); assert.equal(c.Modelo_anchoColumna('NOMBRE'), 220); ok('anchos se resuelven por nombre');
+assert.equal(c.Modelo_anchoColumna('PROXIMO_CONTROL'), 115); assert.equal(c.Modelo_anchoColumna('NOMBRE'), 240); ok('anchos se resuelven por nombre');
 
 // 9. Las puertas tienen un único owner de validaciones.
 const fVal = funcionFuente(ux, 'Hojas_aplicarValidaciones_');
@@ -84,7 +84,7 @@ assert.equal(c.Hojas_esProteccionEcicep_({ getDescription: () => 'ECICEP:generad
 
 // 15. INICIO: owner y secuencia unlock → escritura → freeze final; Modelo no congela.
 const inicioSrc = funcionFuente(ux, 'Inicio_construir_');
-const iUnlock = inicioSrc.indexOf('h.setFrozenRows(0)'), iWrite = inicioSrc.indexOf("getRange('A1:"), iFreeze = inicioSrc.lastIndexOf('h.setFrozenRows(2)');
+const iUnlock = inicioSrc.indexOf('h.setFrozenRows(0)'), iWrite = inicioSrc.indexOf('cto.header.rango'), iFreeze = inicioSrc.lastIndexOf('h.setFrozenRows(2)');
 assert.ok(iUnlock >= 0 && iUnlock < iWrite && iWrite < iFreeze);
 const aplicarSrc = funcionFuente(modelo, 'Modelo_aplicarDiseno'); assert.match(aplicarSrc, /h\.getName\(\) !== 'INICIO'/); ok('INICIO conserva unlock→write→freeze 2/0 sin owner duplicado');
 
@@ -92,7 +92,7 @@ const aplicarSrc = funcionFuente(modelo, 'Modelo_aplicarDiseno'); assert.match(a
 const props = new Map();
 c.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props.get(k) || '', setProperty: (k,v) => props.set(k,v), deleteProperty: k => props.delete(k) }) };
 props.set(c.INICIO_LAYOUT_PROP, JSON.stringify({ version: c.INICIO_LAYOUT_VERSION, fingerprint: c.Inicio_fingerprintEsperado_() }));
-const titulo = 'ECICEP · CENTRO OPERATIVO · v' + E('ECICEP.VERSION');
+const titulo = 'ECICEP · CENTRO OPERATIVO';
 const version = 'v' + E('ECICEP.VERSION') + ' · Build ' + (c.ECICEP_BUILD.commit || 'dev');
 let mutacionesInicio = 0;
 const hi = { getFrozenRows: () => 2, getFrozenColumns: () => 0, getTabColor: () => E('DESIGN_SYSTEM.MARCA.sistemaProfundo'),
@@ -116,22 +116,32 @@ c.Inicio_layoutVigente_ = () => true;
 const vigente = c.Inicio_construir_({ getSheetByName: () => hi });
 assert.equal(vigente.omitida, true); assert.equal(mutacionesInicio, 0); ok('INICIO vigente no se reconstruye');
 
-// 17. Retry conserva ejecución/cursor/respaldo.
+// 17. Retry conserva ejecución/cursor/respaldo/opciones (v0.15 §4.7: reutiliza
+// _OPCIONES_EJECUCION exactas, nunca `false`).
 const retry = funcionFuente(html, 'reintentarUltimoError');
-assert.doesNotMatch(retry, /_EJEC\s*=/); assert.match(retry, /llamarPresentacion\(er\.etapa,er\.ix,false\)/); ok('retry conserva la ejecución y la subtarea');
+assert.doesNotMatch(retry, /_EJEC\s*=/); assert.doesNotMatch(retry, /,false\)/);
+assert.match(retry, /llamarPresentacion\(er\.etapa,er\.ix\)/);
+assert.match(html, /_OPCIONES_EJECUCION=opcionesInstalacion\(\)/);
+ok('retry conserva la ejecución, la subtarea y las opciones originales');
 
 // 18. Advertencia no equivale a error.
 const adv = vm.runInNewContext('(' + funcionFuente(html, 'respuestaEsAdvertencia') + ')');
 assert.equal(adv({ estado: 'ADVERTENCIA' }), true); assert.equal(adv({ ok: false, estado: 'ERROR' }), false); ok('advertencia se clasifica separada del error');
 
-// 19. El motor visual no escribe valores clínicos.
-assert.doesNotMatch(presentacion, /\.setValues?\s*\(/); assert.doesNotMatch(presentacion, /\.clear(Content)?\s*\(/); ok('presentación no altera datos clínicos');
+// 19. El motor visual no escribe valores clínicos (v0.15: única excepción
+// documentada, el refresh del bloque INFO de INICIO con skip-if-equal,
+// sin matrices ni clears).
+assert.doesNotMatch(presentacion, /\.setValues\s*\(/);
+assert.doesNotMatch(presentacion, /\.clear(Content)?\s*\(/);
+assert.match(presentacion, /if \(actual !== texto\) \{\s*try \{ celda\.setValue\(texto\); \} catch/);
+ok('presentación no altera datos clínicos (solo refresh INFO con skip)');
 
-// 20. Versión/layout correctos, esquema estable y lienzo INICIO 30×38.
-assert.equal(E('ECICEP.VERSION'), '0.14.5'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
+// 20. Versión/layout correctos, esquema estable y lienzo INICIO PRO 36×50.
+assert.equal(E('ECICEP.VERSION'), '0.15.0'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
 assert.equal(E('HOJAS_UX.INICIO.frozenRows'), 2); assert.equal(E('HOJAS_UX.INICIO.frozenColumns'), 0);
-assert.equal(E('INICIO_RANGO_GESTIONADO'), 'A1:AD38');
-ok('v0.13.0 conserva schema 2, INICIO 2/0 y portada gestionada A1:AD38 (30 columnas × 38 filas)');
+assert.equal(E('INICIO_RANGO_GESTIONADO'), 'A1:AJ50');
+assert.equal(E('INICIO_CONTRATO.version'), 'PANEL_OPERATIVO_PRO_V015');
+ok('v0.15.0 conserva schema 2, INICIO 2/0 y portada gestionada A1:AJ50 (36 columnas × 50 filas)');
 
 assert.equal(n, 20);
 console.log('Instalador y formato visual v0.13.0 — 20/20 PASS');

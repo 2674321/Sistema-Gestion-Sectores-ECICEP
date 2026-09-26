@@ -157,8 +157,8 @@ const html = readFileSync(new URL('Instalador.html', root), 'utf8');
 assert.match(html, /data-acceso="<\?= TOKEN_ACCESO \?>"/);
 assert.match(html, /\.api_instalarEtapas\(ECICEP_ACCESO\)/);
 assert.match(html, /\.api_instalarDiagnostico\(ECICEP_ACCESO\)/);
-assert.match(html, /\.api_instalarPaso\(etapa\.id,ECICEP_ACCESO,_EJEC,opcionesDatos\(\)\)/,
-  'llamarPaso entrega la política de datos a la etapa');
+assert.match(html, /\.api_instalarPaso\(etapa\.id,ECICEP_ACCESO,_EJEC,_OPCIONES_EJECUCION\|\|opcionesDatos\(\)\)/,
+  'llamarPaso entrega la ejecución y las opciones congeladas al iniciar');
 // v0.14.1 §3/§42: bloque DATOS con política explícita, confirmación y preview.
 assert.match(html, /id="datosPanel"/);
 assert.match(html, /name="modoDatos" value="CONSERVAR"/);

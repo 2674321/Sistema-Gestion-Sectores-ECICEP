@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.14.5',
+  VERSION: '0.15.0',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -243,7 +243,7 @@ const DESIGN_SYSTEM = {
   TIPOGRAFIA: {
     titulo: 12,      // barra de identidad (fila 1)
     seccion: 10,     // barra de sección (fila 2)
-    encabezado: 12,  // fila de encabezados (fila 3)
+    encabezado: 11,  // fila de encabezados (v0.15 §19: Arial 11)
     datos: 10,       // fila de datos
     nota: 9,         // notas guía / indicadores
     meta: 9,         // metadatos (REM, INICIO)
@@ -254,9 +254,9 @@ const DESIGN_SYSTEM = {
     barra: 28,            // barra de identidad
     seccion: 26,          // barra de sección
     buscador: 24,         // (legacy, INICIO)
-    encabezadoVisual: 42, // encabezados en hojas visuales
+    encabezadoVisual: 36, // encabezados en hojas visuales (v0.15 §19)
     encabezadoSimple: 30, // encabezados en hojas simples
-    dato: 23              // fila de datos: legible sin autoajuste por textos largos
+    dato: 24              // fila de datos (v0.15 §19: una sola altura por familia)
   },
   // --- Alineación y envoltura comunes ---
   CENTRO: 'CENTER',
@@ -359,28 +359,28 @@ const FORMATO_TIPOS = {
   TEXTO_LARGO: { ancho: 280, formato: '@',                  alineacion: 'LEFT',   wrap: true  },
   ENUM:        { ancho: 105, formato: '@',                  alineacion: 'CENTER', wrap: false },
   FECHA:       { ancho: 110, formato: 'dd/MM/yyyy',         alineacion: 'CENTER', wrap: false },
-  FECHA_HORA:  { ancho: 145, formato: 'dd/MM/yyyy HH:mm',   alineacion: 'CENTER', wrap: false },
+  FECHA_HORA:  { ancho: 150, formato: 'dd/MM/yyyy HH:mm',   alineacion: 'CENTER', wrap: false },
   BOOLEANO:    { ancho: 85,  formato: '',                   alineacion: 'CENTER', wrap: false },
   NUMERO:      { ancho: 90,  formato: '0',                  alineacion: 'CENTER', wrap: false },
   SISTEMA:     { ancho: 130, formato: '@',                  alineacion: 'LEFT',   wrap: false }
 };
 
 const FORMATO_CAMPOS = {
-  RUT:                    { tipo: 'TEXTO', ancho: 115, formato: '@' },
+  RUT:                    { tipo: 'TEXTO', ancho: 118, formato: '@' },
   IDPROVISIONAL:          { tipo: 'ID', ancho: 150 },
-  NOMBRE:                 { tipo: 'TEXTO', ancho: 220, wrap: true },
+  NOMBRE:                 { tipo: 'TEXTO', ancho: 240, wrap: false },
   NOMBRENORMALIZADO:      { tipo: 'SISTEMA', ancho: 150 },
   RUTDVVALIDO:            { tipo: 'BOOLEANO', ancho: 85 },
   RUTSINDV:               { tipo: 'BOOLEANO', ancho: 85 },
   REQUIEREREVISION:       { tipo: 'BOOLEANO', ancho: 95 },
   SEXO:                   { tipo: 'ENUM', ancho: 70 },
   FECHANACIMIENTO:        { tipo: 'FECHA', ancho: 105 },
-  TELEFONOS:              { tipo: 'TEXTO', ancho: 135, formato: '@' },
+  TELEFONOS:              { tipo: 'TEXTO', ancho: 140, formato: '@' },
   TELEFONOOBS:            { tipo: 'TEXTO_LARGO', ancho: 210 },
   SECTOR:                 { tipo: 'ENUM', ancho: 105 },
-  ESTRATIFICACION:        { tipo: 'ENUM', ancho: 110 },
-  ESTADO:                 { tipo: 'ENUM', ancho: 125 },
-  ESTADOINGRESO:          { tipo: 'ENUM', ancho: 125 },
+  ESTRATIFICACION:        { tipo: 'ENUM', ancho: 112 },
+  ESTADO:                 { tipo: 'ENUM', ancho: 130 },
+  ESTADOINGRESO:          { tipo: 'ENUM', ancho: 130 },
   SALUDMENTAL:            { tipo: 'ENUM', ancho: 110 },
   FECHAINGRESO:           { tipo: 'FECHA', ancho: 110 },
   ULTIMOSEGUIMIENTO:      { tipo: 'FECHA', ancho: 110 },
@@ -395,11 +395,11 @@ const FORMATO_CAMPOS = {
   ULTIMALECTURA:          { tipo: 'FECHA_HORA' },
   ESTRATFECHACALCULO:     { tipo: 'FECHA_HORA' },
   EDAD:                   { tipo: 'NUMERO', ancho: 65, formato: '0' },
-  OBSERVACIONES:          { tipo: 'TEXTO_LARGO', ancho: 280 },
-  OBSERVACIONESINGRESO:   { tipo: 'TEXTO_LARGO', ancho: 280 },
+  OBSERVACIONES:          { tipo: 'TEXTO_LARGO', ancho: 320, wrap: false },
+  OBSERVACIONESINGRESO:   { tipo: 'TEXTO_LARGO', ancho: 320, wrap: false },
   NOTASISTEMA:            { tipo: 'SISTEMA', ancho: 250, wrap: true, fontSize: 9 },
-  PROFESIONAL:            { tipo: 'TEXTO', ancho: 170, wrap: true },
-  PROFESIONALSEGUIMIENTO: { tipo: 'TEXTO', ancho: 170, wrap: true },
+  PROFESIONAL:            { tipo: 'TEXTO', ancho: 180, wrap: true },
+  PROFESIONALSEGUIMIENTO: { tipo: 'TEXTO', ancho: 180, wrap: true },
   DESCRIPCION:            { tipo: 'TEXTO_LARGO', ancho: 220 },
   DETALLE:                { tipo: 'TEXTO_LARGO', ancho: 220 },
   CONDICIONES:            { tipo: 'TEXTO_LARGO', ancho: 200 },
@@ -440,7 +440,7 @@ const VALIDACIONES_CAMPOS = {
   FECHA_NACIMIENTO: { tipo: 'FECHA', permitirVacio: true }
 };
 
-var INICIO_RANGO_GESTIONADO = 'A1:AD38';
+var INICIO_RANGO_GESTIONADO = 'A1:AJ50';
 
 // Pestañas / identidad por familia (Parte 4) — profundidad constante por matiz.
 const IDENTIDAD = {

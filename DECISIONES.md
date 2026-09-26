@@ -2118,3 +2118,19 @@ verificador, solo si difieren, y el fallo incluye contexto (advertencias del rep
 resoluble, alturas/freeze aplicados). Tests T11 (converge) y T12 (causa explícita). Sin tocar
 datos, mismo deployment/URL/QR. `ECICEP.VERSION` 0.14.5 (schema 2, captura V4).
 **Fecha:** 2026-09-26
+
+## DEC-095
+**Título:** Instalador con opciones reales + INICIO PRO A1:AJ50.
+**Estado:** Aprobada
+**Motivo:** `Instalar / reparar` podía terminar sin tocar INICIO: opciones perdidas
+(pDiseno/ejecutarPaso/inicio sin forzar), fast-path ciego a INICIO/paridad, fingerprint
+desacoplado, invalidación parcial, retry con `false`, persistencia sin PASS y cierre sin
+Presentación. Se propaga `opcionesInstalacion()` congelada (datos+visual) hasta
+`Inicio_construir_({forzar})`, fast-path y fingerprint exigen INICIO+paridad, persistencia
+solo tras PASS, `pVerificar` certifica Presentación, y se reconstruye INICIO PRO
+(`PANEL_OPERATIVO_PRO_V015`, A1:AJ50, 6 accesos, 6 KPIs, 3 cards, estado, prioridades,
+estratificación, info, footer; 32 merges; ~417 RPC con PARTIAL documentado vs 190).
+Sin marco gigante ni SOBRANTE; snapshot sin PII; baseline §19 de formatos aplicado.
+`ECICEP.VERSION` 0.15.0 (schema 2, captura V4, sin MIG-003). Detalle en
+`docs/INFORME_V015_INSTALADOR_INICIO_PRO.md`.
+**Fecha:** 2026-09-26

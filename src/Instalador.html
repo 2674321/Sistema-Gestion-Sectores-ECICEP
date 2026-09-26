@@ -237,6 +237,7 @@ body[aria-busy="true"] .barra>span{background:var(--primary)}
 <script>
 var ETAPAS=[],RESULTADOS=[],ERRORES=[],AVISOS=[],META={},_DIAGNOSTICO=null,_ULTIMA_SALUD=null;
 var _CANCELADO=false,_enCurso=false,_EJEC='',_MODO='instalacion',_INICIO_MS=0,_DURACIONES={};
+var _OPCIONES_EJECUCION={};
 var _ULTIMO_ERROR=null,_IX_ACTUAL=-1,_BLOQUEO='',_RESPALDO='';
 var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 var ECICEP_PORTAL=document.body.getAttribute('data-portal')||'';
@@ -574,6 +575,7 @@ function reiniciarEjecucion(modo){
 
 function iniciarInstalacion(){
   if(_enCurso||!ETAPAS.length||_BLOQUEO)return;reiniciarEjecucion('instalacion');
+  _OPCIONES_EJECUCION=opcionesInstalacion();
   ETAPAS.forEach(function(e){marcar(e.id,'PENDIENTE');});
   setEstadoGeneral('EJECUTANDO','Reparando ECICEP','La instalación avanza por fases reales y reanudables.');
   establecerProgreso(0,'Fases completas y avance real de la subtarea actual.');
@@ -618,7 +620,7 @@ function llamarPaso(etapa,ix){
   }).withFailureHandler(function(e){
     registrarDuracion(etapa.id,null,inicioRpc);if(_CANCELADO){terminarCancelacion();return;}
     fallarEtapa(etapa,ix,null,e);
-  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,opcionesDatos());
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,_OPCIONES_EJECUCION||opcionesDatos());
 }
 
 /* v0.14.1 §3-5/§42 — política de datos del instalador. El modo viaja en las
@@ -671,6 +673,15 @@ function opcionesPresentacion(){
     modoPresentacion:forzar?'FORZAR_INICIO':(profundo?'PROFUNDO':'REPARAR')};
 }
 
+/* v0.15 §5: UN solo objeto de opciones por ejecución (datos + presentación).
+ * Se congela al iniciar y el retry lo reutiliza EXACTO (nunca `false`). */
+function opcionesInstalacion(){
+  var d=opcionesDatos(),p=opcionesPresentacion();
+  return {modoDatos:d.modoDatos,confirmarSnapshot:d.confirmarSnapshot,
+    forzarPresentacion:p.forzarPresentacion,forzarInicio:p.forzarInicio,
+    diagnosticoVisualProfundo:p.diagnosticoVisualProfundo,modoPresentacion:p.modoPresentacion};
+}
+
 function repararPresentacion(){
   if(_enCurso||_BLOQUEO)return;var ix=ETAPAS.findIndex(function(e){return e.id==='diseno';});
   var etapa=ix>=0?ETAPAS[ix]:{id:'diseno',nombre:'Presentación del libro'};
@@ -678,11 +689,16 @@ function repararPresentacion(){
   setEstadoGeneral('EJECUTANDO','Reparando presentación','Se revisarán solo las propiedades visuales administradas por ECICEP.');
   setFase(ix,etapa,'EJECUTANDO');setSubtarea({nombre:'Iniciando revisión selectiva'},null,'EJECUTANDO');
   establecerProgreso(0,'Avance real de las subtareas de presentación.');
-  llamarPresentacion(etapa,ix,opcionesPresentacion());
+  // Reparar presentación nunca toca datos (CONSERVAR explícito, §32).
+  _OPCIONES_EJECUCION={modoDatos:'CONSERVAR',confirmarSnapshot:false};
+  var p=opcionesPresentacion();
+  for (var k in p)_OPCIONES_EJECUCION[k]=p[k];
+  llamarPresentacion(etapa,ix);
 }
 
-function llamarPresentacion(etapa,ix,opciones){
+function llamarPresentacion(etapa,ix){
   var inicioRpc=Date.now();
+  var opciones=_OPCIONES_EJECUCION||{forzarPresentacion:false};
   google.script.run.withSuccessHandler(function(r){
     registrarDuracion(etapa.id,r,inicioRpc);
     if(r&&r.respaldo)_RESPALDO=r.respaldo;
@@ -691,7 +707,7 @@ function llamarPresentacion(etapa,ix,opciones){
     if(r.continuar===true){
       setSubtarea(r.subetapa||{nombre:'Avanzando'},r.progreso,'EJECUTANDO');
       establecerProgreso(fraccionRetornada(r)*100,'Avance real de las subtareas de presentación.');
-      llamarPresentacion(etapa,ix,opciones);return;
+      llamarPresentacion(etapa,ix);return;
     }
     var aviso=respuestaEsAdvertencia(r)||!!(r&&r.verificacion&&r.verificacion.ok===false);
     if(aviso)AVISOS.push({nombre:etapa.nombre,motivo:detalleAdvertencia(r)});
@@ -701,7 +717,7 @@ function llamarPresentacion(etapa,ix,opciones){
   }).withFailureHandler(function(e){
     registrarDuracion(etapa.id,null,inicioRpc);if(_CANCELADO){terminarCancelacion();return;}
     fallarEtapa(etapa,ix,null,e);
-  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,opciones||{forzarPresentacion:false});
+  }).api_instalarPaso(etapa.id,ECICEP_ACCESO,_EJEC,_OPCIONES_EJECUCION||{forzarPresentacion:false});
 }
 
 function fallarEtapa(etapa,ix,r,e){
@@ -735,7 +751,7 @@ function reintentarUltimoError(){
   bloquearAcciones(true);establecerVista('ejecucion');setEstadoGeneral('EJECUTANDO','Reintentando','Se conserva la ejecución, el cursor y el respaldo existente.');
   marcar(er.etapa.id,'EJECUTANDO');setFase(er.ix,er.etapa,'EJECUTANDO');
   setSubtarea(er.subetapa||{nombre:'Reintentando subtarea'},null,'EJECUTANDO');
-  if(er.modo==='presentacion')llamarPresentacion(er.etapa,er.ix,false);else llamarPaso(er.etapa,er.ix);
+  if(er.modo==='presentacion')llamarPresentacion(er.etapa,er.ix);else llamarPaso(er.etapa,er.ix);
 }
 
 function duracionHumana(ms){
@@ -746,11 +762,14 @@ function duracionHumana(ms){
 function resumenResultado(){
   var partes=[],datos=RESULTADOS.filter(function(x){return x.etapa==='verificar';})[0];
   var mig=RESULTADOS.filter(function(x){return x.etapa==='migraciones';})[0];
-  var visual=RESULTADOS.filter(function(x){return x.etapa==='visual';})[0];
+  // v0.15 §4.10: la fase `visual` ya no existe; el resumen de Presentación
+  // sale de la etapa `diseno` (motor único).
+  var diseno=RESULTADOS.filter(function(x){return x.etapa==='diseno';})[0];
   var integ=RESULTADOS.filter(function(x){return x.etapa==='integridad';})[0];
   if(datos&&datos.pacientes!==undefined)partes.push('Pacientes: '+datos.pacientes+' · Eventos: '+(datos.eventos||0));
   if(datos&&datos.schemaVersion)partes.push('Schema: '+datos.schemaVersion+(datos.esquemaOK?' ✓':' · '+(datos.estado||'REVISAR')));
-  if(visual&&visual.hojas)partes.push('Presentación: '+visual.hojas.length+' hojas revisadas');
+  if(diseno)partes.push('Presentación: '+((diseno.verificacion&&diseno.verificacion.ok===true)?'convergente':
+    (diseno.omitida?'vigente':'en revisión'))+(diseno.presentacionCompleta===false?' · incompleta':''));
   if(integ&&integ.linea)partes.push('Integridad: '+integ.linea);
   if(mig)partes.push('Migraciones: '+((mig.aplicadas&&mig.aplicadas.length)?mig.aplicadas.join(', '):'sin pendientes'));
   var omitidas=RESULTADOS.filter(function(x){return x.omitida;}).length;if(omitidas)partes.push('Etapas omitidas: '+omitidas);

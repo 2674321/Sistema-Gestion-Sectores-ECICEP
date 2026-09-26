@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.14.5-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.15.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,17 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.14.5` — reconciliador fuerza alturas verificadas y explica el porqué si persiste; reparar sigue sin recargar datos · esquema 2 · batería sin fallos |
+| **Estado** | `v0.15.0` — instalador con opciones reales (INICIO se reconstruye, force funcional, persistencia solo tras PASS) + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+
+## v0.15.0 — instalador con opciones reales + INICIO PRO
+
+`Instalar / reparar` transmite opciones (datos+visual) hasta
+`Inicio_construir_({forzar})`, el fast-path exige INICIO+paridad, el
+fingerprint incluye INICIO, la persistencia exige PASS y el cierre certifica
+Presentación. Nueva portada PRO (`A1:AJ50`: 6 accesos, 6 KPIs, 3 cards,
+estado, prioridades, estratificación, info, footer; 32 merges; RPC en PARTIAL
+documentado). Sin marco gigante ni SOBRANTE; snapshot sin PII. Detalle en
+[`docs/INFORME_V015_INSTALADOR_INICIO_PRO.md`](docs/INFORME_V015_INSTALADOR_INICIO_PRO.md) (DEC-095).
 
 ## v0.14.2 — hotfix convergencia de Presentación
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// v0.14.0 — Portada INICIO como panel operativo completo (30 columnas A1:AD38):
-// hero, accesos, banda de KPIs, cards por sector, distribución, estado,
-// pendientes, alerta, metadata y nota. Fingerprint por contenido y
-// diagnóstico visual accionable.
+// v0.15.0 — Portada INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50). El contrato
+// cambió intencionalmente desde V014: contrato único INICIO_CONTRATO, 6
+// accesos, 6 KPIs, cards con matrices, sin marco gigante ni SOBRANTE.
+// Se conserva la cobertura de regresión (fingerprint, merges, alturas,
+// diagnóstico, colores, fórmulas).
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
@@ -16,44 +17,42 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
 // T1: contrato del lienzo gestionado y dimensiones del constructor.
 const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
 const src = readFileSync(new URL('34_LibroUX.js', root), 'utf8');
-assert.match(cfg, /INICIO_RANGO_GESTIONADO\s*=\s*'A1:AD38'/);
+assert.match(cfg, /INICIO_RANGO_GESTIONADO\s*=\s*'A1:AJ50'/);
 const constr = src.match(/function Inicio_construir_\([\s\S]*?\n\}/)?.[0] || '';
 assert.ok(constr, 'Inicio_construir_ existe');
-assert.match(constr, /var filas = 38, cols = 30;/);
-assert.match(constr, /typeof h\.setColumnWidths === 'function'\).*setColumnWidths\(1, cols, 38\)/);
+assert.match(constr, /var filas = cto\.filas, cols = cto\.columnas;/);
+assert.match(constr, /typeof h\.setColumnWidths === 'function'\).*setColumnWidths\(1, cols, cto\.anchoColumna\)/);
 assert.match(constr, /setRowHeights\(iniTramo, alturas\[iA - 1\]\[0\] - iniTramo \+ 1, alturas\[iA - 1\]\[1\]\)/,
-  'las 34 alturas se aplican por tramos contiguos de igual valor');
-assert.match(constr, /getRange\('A1:AD1'\)\.merge/);
-ok('T1 lienzo gestionado A1:AD38 (30 columnas × 38 filas) y anchos @38');
+  'las 50 alturas se aplican por tramos contiguos de igual valor');
+assert.match(constr, /getRange\(cto\.header\.rango\)\.merge/);
+ok('T1 lienzo gestionado A1:AJ50 (36 columnas × 50 filas) desde el contrato único');
 
-// T2: fingerprint derivado por contenido (no literal) y ligado a 30 columnas.
+// T2: fingerprint derivado por contenido (no literal), contrato PRO.
 const fp = c.Inicio_fingerprintEsperado_();
-assert.match(fp, /^v014\|[0-9a-f]{8}$/, 'fingerprint con hash FNV-1a 32 bits');
+assert.match(fp, /^pro015\|[0-9a-f]{8}$/, 'fingerprint con hash FNV-1a 32 bits');
 const contracts = JSON.stringify([c.INICIO_RANGO_GESTIONADO, c.Inicio_mergesEsperados_()]);
-assert.ok(contracts.indexOf('AD') !== -1 && contracts.indexOf('AF60') === -1,
-  'contracto de fingerprint describe el layout de 30 columnas');
-ok('T2 fingerprint por contenido v014|fnv1a32 sobre el contrato real');
+assert.ok(contracts.indexOf('AJ') !== -1 && contracts.indexOf('AF60') === -1,
+  'contracto de fingerprint describe el layout de 36 columnas');
+ok('T2 fingerprint por contenido pro015|fnv1a32 sobre el contrato real');
 
-// T3: merges esperados del panel operativo de 30 columnas.
+// T3: merges esperados PRO (32, sin mergear pares label/value).
 const merges = c.Inicio_mergesEsperados_();
-for (const m of ['A1:AD1', 'A2:AD2', 'A3:AD3', 'A4:F7', 'G4:L7', 'M4:R7', 'S4:X7', 'Y4:AD7',
-  'A8:F8', 'G8:L8', 'M8:R8', 'S8:X8', 'Y8:AD8',
-  'A9:F9', 'G9:L9', 'M9:R9', 'S9:X9', 'Y9:AD9',
-  'A10:J10', 'K10:T10', 'U10:AD10',
-  'A15:J15', 'K15:T15', 'U15:AD15', 'A16:J16', 'K16:T16', 'U16:AD16',
-  'A18:O18', 'P18:AD18', 'A24:AD25', 'A27:AD29', 'A32:AD34'])
+assert.equal(merges.length, 32, 'merges exactos del contrato');
+for (const m of ['A1:AJ1', 'A2:AJ2', 'A3:AJ3', 'A5:F8', 'AE5:AJ8',
+  'A10:F10', 'A11:F12', 'AE10:AJ10', 'AE11:AJ12',
+  'A15:L15', 'Y15:AJ15', 'A23:L23', 'Y23:AJ23',
+  'A29:R29', 'S29:AJ29', 'A41:R41', 'S41:AJ41', 'A49:AJ50'])
   assert.ok(merges.includes(m), 'merge ' + m);
 assert.ok(merges.every(x => /^[A-Z]/.test(x)), 'merges notación A1');
-ok('T3 merges esperados cubren hero/accesos/KPIs/cards/distribución/estado/alerta/metadata');
+ok('T3 merges PRO: header, accesos, KPIs, cards, bloques e info (32, sin pares label/value)');
 
-// T4: alturas declaradas de las 34 filas del panel operativo.
+// T4: alturas declaradas de las 50 filas del contrato.
 const alturas = c.Inicio_alturasEsperadas_();
-assert.equal(JSON.stringify(alturas), JSON.stringify([[1, 32], [2, 22], [3, 26], [4, 22], [5, 22], [6, 22], [7, 22],
-  [8, 16], [9, 30], [10, 30], [11, 20], [12, 20], [13, 20], [14, 20],
-  [15, 18], [16, 24], [17, 8], [18, 26], [19, 8], [20, 21], [21, 21],
-  [22, 21], [23, 21], [24, 14], [25, 20], [26, 8], [27, 22], [28, 22],
-  [29, 22], [30, 10], [31, 10], [32, 22], [33, 22], [34, 22]]), 'alturas del panel operativo');
-ok('T4 alturas: hero (3), KPIs (8-9), cards (10-14), distribución (15-16), alerta (24-25)');
+assert.equal(alturas.length, 50, '50 filas con altura declarada');
+assert.equal(JSON.stringify(alturas[0]), JSON.stringify([1, 30]));
+assert.equal(JSON.stringify(alturas[49]), JSON.stringify([50, 20]));
+assert.ok(alturas.every(x => x[1] > 0), 'alturas positivas');
+ok('T4 50 alturas del contrato (header 30, KPIs, cards, bloques, footer)');
 
 // T5: Inicio_diagnosticarVisual_ ante hoja ausente.
 const nulo = c.Inicio_diagnosticarVisual_(null);
@@ -67,12 +66,13 @@ assert.equal(minima.ok, false);
 assert.ok(Array.isArray(minima.diferencias) && minima.diferencias.length > 0);
 ok('T6 diagnóstico visual: hoja mínima → diferencias no vacías sin excepción');
 
-// T7: bloque PENDIENTES, ALERTA, METADATA y nota en el constructor.
-assert.match(constr, /getRange\('P18:AD18'\)\.merge\(\)\.setValue\('PENDIENTES'\)/);
-assert.match(constr, /getRange\('A24:AD25'\)\.merge\(\)\.setValue\('Sin alertas operativas'\)/);
-assert.match(constr, /getRange\('A27:AD29'\)\.merge\(\)\.setValue/);
-assert.match(constr, /getRange\('A32:AD34'\)\.merge\(\)\.setValue/);
-ok('T7 PENDIENTES P18:AD18, ALERTA A24:AD25, METADATA A27:AD29 y nota A32:AD34');
+// T7: bloques PRO (estado, prioridades, estratificación, info, footer).
+assert.match(constr, /cto\.estado\.tituloRango/);
+assert.match(constr, /cto\.prioridades\.tituloRango/);
+assert.match(constr, /cto\.estratificacion\.tituloRango/);
+assert.match(constr, /cto\.info\.tituloRango/);
+assert.match(constr, /cto\.footer\.rango/);
+ok('T7 ESTADO, PRIORIDADES, ESTRATIFICACIÓN, INFO y FOOTER desde el contrato');
 
 // T8: comparación de colores normalizada (regresión coloresBase en hoja real:
 // getBackground() devuelve '#rrggbb' minúsculas o 'rgb(...)'; los tokens están
@@ -88,30 +88,25 @@ ok('T8 Utl_colorIgual normaliza hex/rgb y no false-positiva');
 // T9: el verifier INICIO usa la comparación normalizada (coloresBase real).
 const verSrc = c.Inicio_verificar_.toString();
 assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('A1'\)\.getBackground\(\), M\.sistemaProfundo\)/);
-assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('U10'\)\.getBackground\(\), IDENTIDAD\.VERDE\)/);
+assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('Y15'\)\.getBackground\(\), IDENTIDAD\.VERDE\)/);
 assert.doesNotMatch(verSrc, /getBackground\(\) === /);
 ok('T9 coloresBase del verifier usa Utl_colorIgual');
 
-// T10: el panel operativo se construye, se verifica y no reintroduce fórmulas vivas.
-assert.match(constr, /getRange\('A3:AD3'\)\.merge\(\)\.setValue\('Panel operativo/);
-assert.match(constr, /PERSONAS', rango: 'A8:F8', valor: 'A9:F9'/);
-assert.match(constr, /ALERTAS OPERATIVAS', rango: 'Y8:AD8', valor: 'Y9:AD9'/);
-assert.match(constr, /getRange\(15, c0, 1, 10\)\.merge\(\)\.setValue\(s\.n\)/);
-assert.match(constr, /getRange\(16, c0, 1, 10\)\.merge\(\)/);
-assert.match(constr, /'A18:O23'/);
-assert.match(constr, /'P18:AD23'/);
-assert.match(verSrc, /getRange\('A9'\)\.getFormula\(\) === '' && h\.getRange\('A16'\)\.getFormula\(\) === ''/,
+// T10: el contrato PRO se construye y verifica sin fórmulas vivas.
+assert.match(constr, /getRange\(cto\.estadoGeneralRango\)\.merge\(\)\.setValue\('Panel operativo/);
+assert.match(src, /etiqueta: 'PERSONAS', etiquetaRango: 'A10:F10', valorRango: 'A11:F12'/);
+assert.match(src, /etiqueta: 'SIN PRÓXIMA ATENCIÓN', etiquetaRango: 'AE10:AJ10', valorRango: 'AE11:AJ12'/);
+assert.match(constr, /cardDistribucionFila/);
+assert.match(constr, /CAJA_ESTADO, CAJA_PEND, CAJA_ESTRAT, CAJA_INFO/);
+assert.match(verSrc, /'A11', 'A16', 'Y11', 'Q30', 'AI30', 'R42', 'AI42'/,
   'los valores del panel se escriben como snapshot, no como fórmula viva');
-ok('T10 hero/KPIs/distribución/alerta se construyen y verifican sin fórmulas vivas');
+ok('T10 estado general/KPIs/cards/cajas se construyen y verifican sin fórmulas vivas');
 
-// T11: marco relleno en lugar de borde fino — el blanco sobrante se cubre con
-// dos celdas reales pintadas (derecha alta + inferior ancha), salvo arriba.
-assert.doesNotMatch(constr, /INICIO_RANGO_GESTIONADO\)\.setBorder/, 'ya no hay borde fino sobre el rango gestionado');
-assert.doesNotMatch(constr, /hideRows|hideColumns/, 'ya no se ocultan las filas/columnas sobrantes');
-assert.match(constr, /var derecha = h\.getRange\(1, cols \+ 1, filas, maxC - cols\);\s*derecha\.merge\(\); derecha\.setBackground\(M\.sistemaBorde\)/,
-  'celda derecha ALTA: columnas sobrantes fusionadas y pintadas');
-assert.match(constr, /var inferior = h\.getRange\(filas \+ 1, 1, maxF - filas, maxC\);\s*inferior\.merge\(\); inferior\.setBackground\(M\.sistemaBorde\)/,
-  'celda inferior ANCHA: filas sobrantes fusionadas y pintadas');
-ok('T11 marco relleno: celda derecha alta + banda inferior ancha cubren el blanco sobrante');
+// T11: sin marco gigante ni SOBRANTE — el físico extra no es drift.
+assert.doesNotMatch(constr, /INICIO_RANGO_GESTIONADO\)\.setBorder/, 'sin borde sobre el rango gestionado');
+assert.doesNotMatch(constr, /hideRows|hideColumns/, 'no se ocultan las filas/columnas sobrantes');
+assert.doesNotMatch(constr, /sistemaBorde/, 'sin marco exterior gigante');
+assert.doesNotMatch(src, /COLUMNA:SOBRANTE/, 'SOBRANTE eliminado');
+ok('T11 sin marco gigante: el físico extra no es drift ni se oculta');
 
 console.log('Inicio visual v0.14 — ' + n + '/' + n + ' PASS');
