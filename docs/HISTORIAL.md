@@ -21,6 +21,9 @@
 - **v0.14.4 (misma línea):** el fast-path perdonaba drift verificado (ej.
   `fila secciones altura`); el reconciliador repara con `{forzar:true}` + test
   T10 (DEC-093).
+- **v0.14.5 (misma línea):** alturas verificadas forzadas con la fila del
+  verificador + contexto en el fallo (advertencias/plan/alturas/freeze) + tests
+  T11/T12 (DEC-094).
 
 ## v0.14.1 — REPARAR ≠ RECARGAR (PROTECCIÓN DE PRODUCCIÓN)
 

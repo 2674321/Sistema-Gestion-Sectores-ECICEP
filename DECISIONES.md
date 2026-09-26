@@ -2107,3 +2107,14 @@ varios estilos) perdonaba drift real ya diagnosticado. El reconciliador ahora re
 `{forzar:true}` (solo salta ese fast-path; hojas sanas y hot path de ingresos intactos). Test T10.
 `ECICEP.VERSION` 0.14.4 (schema 2, captura V4).
 **Fecha:** 2026-09-26
+
+## DEC-094
+**Título:** Alturas verificadas forzadas con la fila del verificador.
+**Estado:** Aprobada
+**Motivo:** Tras v0.14.4 el retry seguía en `SIN_CONVERGENCIA · fila secciones altura`:
+ni fast-path ni reparación forzada dejaban la altura que el verificador lee. El reconciliador
+fuerza ahora las alturas (1, secciones, encabezados) con la resolución de fila del propio
+verificador, solo si difieren, y el fallo incluye contexto (advertencias del reparador, plan no
+resoluble, alturas/freeze aplicados). Tests T11 (converge) y T12 (causa explícita). Sin tocar
+datos, mismo deployment/URL/QR. `ECICEP.VERSION` 0.14.5 (schema 2, captura V4).
+**Fecha:** 2026-09-26

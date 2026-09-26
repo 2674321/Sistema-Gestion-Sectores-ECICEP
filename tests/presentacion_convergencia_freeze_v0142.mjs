@@ -152,8 +152,60 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
   ok('T10 drift real fuerza reparación completa de la hoja (sin perdón fast-path)');
 }
 
+// T11: si el reparador salta las alturas, el reconciliador las fuerza con la
+// fila del verificador y converge (caso real INGRESO_NARANJO).
+{
+  const ALT = vm.runInContext('DESIGN_SYSTEM.ALTURAS', c);
+  const ENC = vm.runInContext('PULIDO_ENCABEZADO', c);
+  const alturas = { 1: ALT.barra, 2: 20, 3: ENC.alturaVisual };
+  const sets = [];
+  const hoja = {
+    getName: () => 'INGRESO_NARANJO',
+    getLastColumn: () => 12,
+    getRange: () => ({ getValues: () => [[ ]] }),
+    getRowHeight: f => alturas[f],
+    setRowHeight: (f, h) => { sets.push([f, h]); alturas[f] = h; },
+    getFrozenRows: () => 3, getFrozenColumns: () => 0,
+    setFrozenRows: () => {}, setFrozenColumns: () => {}
+  };
+  const realMapa = c.HVis_mapaColumnas, realPlan = c.HVis_calcularPlan;
+  c.HVis_mapaColumnas = () => ({});
+  c.HVis_calcularPlan = () => ({ seccionesRow: 2, secciones: [] });
+  c.HVis_pendientesVisual = () => ({ pendientes:
+    alturas[2] !== ALT.seccion ? ['fila secciones altura=' + alturas[2]] : [] });
+  c.HVis_aplicarSecciones = () => ({ ok: true, estado: 'OK', secciones: 0 });
+  const r = c.HVis_reconciliarHoja(hoja);
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.ok(sets.some(s => s[0] === 2 && s[1] === ALT.seccion), 'altura de secciones forzada al contrato');
+  assert.ok((r.alturasForzadas || []).includes('secciones'));
+  c.HVis_mapaColumnas = realMapa; c.HVis_calcularPlan = realPlan;
+  ok('T11 altura no reparada por el reparador → forzada por el reconciliador y converge');
+}
+
+// T12: plan no resoluble = causa explícita (no loop ciego).
+{
+  const hoja = {
+    getName: () => 'INGRESO_NARANJO',
+    getLastColumn: () => 12,
+    getRange: () => ({ getValues: () => [[ ]] }),
+    getRowHeight: () => 20, setRowHeight: () => {},
+    getFrozenRows: () => 3, getFrozenColumns: () => 0,
+    setFrozenRows: () => {}, setFrozenColumns: () => {}
+  };
+  const realMapa = c.HVis_mapaColumnas, realPlan = c.HVis_calcularPlan;
+  c.HVis_mapaColumnas = () => ({});
+  c.HVis_calcularPlan = () => null;
+  c.HVis_pendientesVisual = () => ({ pendientes: ['fila secciones altura=20'] });
+  c.HVis_aplicarSecciones = () => ({ ok: true, estado: 'OK', secciones: 0 });
+  const r = c.HVis_reconciliarHoja(hoja);
+  c.HVis_mapaColumnas = realMapa; c.HVis_calcularPlan = realPlan;
+  assert.equal(r.ok, false);
+  assert.ok(r.motivo.includes('plan de secciones no resoluble'), r.motivo);
+  ok('T12 plan no resoluble → causa explícita de intervención');
+}
+
 c.HVis_pendientesVisual = realPendientes;
 c.HVis_aplicarSecciones = realSecciones;
 
-console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 10);
-if (n !== 10) process.exit(1);
+console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 12);
+if (n !== 12) process.exit(1);

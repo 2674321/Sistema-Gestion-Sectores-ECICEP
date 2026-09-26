@@ -926,24 +926,56 @@ function HVis_reconciliarHoja(hoja, opciones) {
     return { hoja: nombre, ok: false, codigo: 'PRESENTACION_FREEZE_BLOQUEADO',
       propiedad: 'FREEZE', motivo: nombre + ' · FREEZE no reparable: ' + (eF && eF.message || eF) };
   }
-  var verificado = HVis_pendientesVisual(hoja);
+  var verificado;
+  // v0.14.4b: alturas verificadas forzadas con la resolución de fila DEL
+  // VERIFICADOR (plan.seccionesRow del check): si el reparador no las dejó
+  // (fast-path residual, plan divergente o setter perdido), aquí convergen.
+  // Solo si difieren; nunca se inventa fila si el plan no resuelve.
+  var planCheck = null, alturasForzadas = [];
+  try {
+    var hrC = Modelo_headerRow(nombre);
+    var valsC = hoja.getRange(hrC, 1, 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0];
+    planCheck = HVis_calcularPlan(nombre, HVis_obtenerSecciones(nombre) || [], HVis_mapaColumnas(valsC));
+  } catch (eP) { planCheck = null; }
+  if (planCheck && planCheck.seccionesRow) {
+    try {
+      var hrH = Modelo_headerRow(nombre);
+      if (typeof hoja.getRowHeight === 'function' && typeof hoja.setRowHeight === 'function') {
+        if (hoja.getRowHeight(1) !== DESIGN_SYSTEM.ALTURAS.barra)
+          { hoja.setRowHeight(1, DESIGN_SYSTEM.ALTURAS.barra); alturasForzadas.push('fila1'); }
+        if (hoja.getRowHeight(planCheck.seccionesRow) !== DESIGN_SYSTEM.ALTURAS.seccion)
+          { hoja.setRowHeight(planCheck.seccionesRow, DESIGN_SYSTEM.ALTURAS.seccion); alturasForzadas.push('secciones'); }
+        if (hoja.getRowHeight(hrH) !== PULIDO_ENCABEZADO.alturaVisual)
+          { hoja.setRowHeight(hrH, PULIDO_ENCABEZADO.alturaVisual); alturasForzadas.push('encabezados'); }
+      }
+    } catch (eH) { /* la verificación dirá si persiste */ }
+  }
+  verificado = HVis_pendientesVisual(hoja);
   var pendientesLayout = (verificado.pendientes || []).filter(function (p) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 ||
       p.indexOf('encabezados') === 0 || p.indexOf('FREEZE_') === 0;
   });
   if (pendientesLayout.length === 0) {
     return { hoja: nombre, ok: true, pendientes: 0,
-      seccionesAplicadas: aplicado.secciones, freezeReparado: freezeReparado };
+      seccionesAplicadas: aplicado.secciones, freezeReparado: freezeReparado,
+      alturasForzadas: alturasForzadas };
   }
   var firmaDespues = HVis_firmaPendientes_(pendientesLayout);
   var primer = pendientesLayout[0] || '';
   var raiz = primer.replace(/\s*[=→:].*$/, '').trim() || 'otra';
+  var contexto = [];
+  if (aplicado.advertencias && aplicado.advertencias.length)
+    contexto.push('reparador: ' + aplicado.advertencias.join('; '));
+  if (!planCheck) contexto.push('plan de secciones no resoluble (encabezados ilegibles)');
+  if (alturasForzadas.length) contexto.push('alturas forzadas: ' + alturasForzadas.join(','));
+  if (freezeReparado.length) contexto.push('freeze reparado: ' + freezeReparado.join(','));
   var detalle = nombre + ' · ' + raiz +
     (raiz.indexOf('FREEZE_ROWS') === 0 && typeof hoja.getFrozenRows === 'function'
       ? ' actual=' + hoja.getFrozenRows() + ' esperado=' + esp.frozenRows :
      raiz.indexOf('FREEZE_COLUMNS') === 0 && typeof hoja.getFrozenColumns === 'function'
       ? ' actual=' + hoja.getFrozenColumns() + ' esperado=' + esp.frozenColumns : '') +
-    (pendientesLayout.length > 1 ? ' (+' + (pendientesLayout.length - 1) + ' más)' : '');
+    (pendientesLayout.length > 1 ? ' (+' + (pendientesLayout.length - 1) + ' más)' : '') +
+    (contexto.length ? ' [' + contexto.join(' | ') + ']' : '');
   if ((requiereLayout || freezeReparado.length) && firmaDespues === firmaAntes)
     return { hoja: nombre, ok: false, codigo: 'PRESENTACION_SIN_CONVERGENCIA',
       propiedad: raiz, motivo: 'La reparación no modificó el drift detectado: ' + detalle };

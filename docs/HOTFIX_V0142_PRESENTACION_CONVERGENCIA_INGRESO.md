@@ -1,4 +1,4 @@
-# HOTFIX V0.14.2/V0.14.3 — Convergencia de Presentación (INGRESO_NARANJO)
+# HOTFIX V0.14.2→V0.14.5 — Convergencia de Presentación (INGRESO_NARANJO)
 
 > Reporte: `No se pudo completar "Presentación del libro" · Subtarea: Formato
 > visual · INGRESO_NARANJO` en loop; primer detalle genérico, segundo detalle
@@ -72,6 +72,17 @@ Sin casos `detectable + bloqueante + no reparable` en la ruta `formato:*`.
   `Formato visual · INGRESO_NARANJO` debe reparar el freeze, avanzar el cursor y
   continuar; segunda reparación visual completa: 0 divergencias / ~0 writes.
 - (Completar aquí con la medición real tras el retry en producción.)
+
+## Addendum v0.14.5 — forzar alturas con la fila del verificador
+El retry con v0.14.4 siguió en `PRESENTACION_SIN_CONVERGENCIA · fila secciones
+altura`: ni el fast-path ni la reparación forzada dejaban la altura que el
+verificador lee (plan divergente o setter perdido). El reconciliador ahora
+fuerza las alturas verificadas (filas 1, secciones, encabezados) con la
+resolución de fila DEL VERIFICADOR, solo si difieren, y el fallo incluye
+contexto (`reparador: … | plan no resoluble | alturas forzadas | freeze
+reparado`). Si el plan no resuelve, la causa exige intervención real
+(encabezados ilegibles). Tests T11 (converge) y T12 (causa explícita).
+`ECICEP.VERSION` 0.14.5 (DEC-094).
 
 ## Publicación
 - Commit + push + `clasp push --force` + deploy al mismo deployment/URL/QR.
