@@ -65,14 +65,17 @@ var _INSTALAR_BACKUP_MEMO = {};
  *  otro. Si el respaldo real falla → {ok:false} y NINGUNA etapa escribe.
  *  En entornos sin GAS (pruebas node) se omite sin bloquear. */
 function Instalar_asegurarBackup_(ejecucion) {
-  var clave = 'ECICEP_INST_BK|' + Utl_texto(ejecucion);
+  var clave = 'ECICEP_INST_BK|' + Utl_texto(ejecucion).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
   if (!ejecucion) clave = 'ECICEP_INST_BK|LEGACY_' + Math.floor(Date.now() / 60000);
   var cache = null;
+  var props = null;
   if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
     try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
   }
   var previo = null;
   if (cache && cache.get) { try { previo = cache.get(clave); } catch (e) { previo = null; } }
+  try { props = PropertiesService.getScriptProperties(); } catch (eP) { props = null; }
+  try { if (!previo && props) previo = props.getProperty(clave); } catch (eP2) { previo = null; }
   if (previo) return { ok: true, skip: true, nombre: String(previo) };
   if (_INSTALAR_BACKUP_MEMO[clave]) return { ok: true, skip: true, nombre: _INSTALAR_BACKUP_MEMO[clave] };
   if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
@@ -86,10 +89,19 @@ function Instalar_asegurarBackup_(ejecucion) {
     var nombre = r.nombre || 'PRE_INSTALAR';
     _INSTALAR_BACKUP_MEMO[clave] = nombre;
     if (cache && cache.put) { try { cache.put(clave, String(nombre), 1800); } catch (e) { /* best effort */ } }
+    if (props) { try { props.setProperty(clave, String(nombre)); } catch (eP3) { /* backup existe; metadata best effort */ } }
     return { ok: true, creado: true, nombre: nombre };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
+}
+
+function Instalar_limpiarBackupEjecucion_(ejecucion) {
+  if (!ejecucion) return;
+  var clave = 'ECICEP_INST_BK|' + Utl_texto(ejecucion).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
+  delete _INSTALAR_BACKUP_MEMO[clave];
+  try { CacheService.getScriptCache().remove(clave); } catch (e) {}
+  try { PropertiesService.getScriptProperties().deleteProperty(clave); } catch (eP) {}
 }
 
 /** Dispatcher de etapa: ejecuta SOLO la etapa pedida.
@@ -160,6 +172,7 @@ function api_instalarPaso(id, acceso, ejecucion, opciones) {
     r.etapa = id; r.nombre = reg.nombre; r.ms = Date.now() - t0;
     if (respaldo) r.respaldo = respaldo;
     if (typeof r.ok === 'undefined') r.ok = true;
+    if (id === 'verificar' && r.ok !== false && r.continuar !== true) Instalar_limpiarBackupEjecucion_(ejecucion);
     if (r.ok === false) Log_error('Instalador', id, r.motivo || r.linea || 'La etapa informó error');
     else Log_info('Instalador', id, 'ok', null, r.ms);
     Log_flush();

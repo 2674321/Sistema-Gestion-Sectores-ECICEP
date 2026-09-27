@@ -942,9 +942,12 @@ function Ingresos_reconciliarIngresados_(opciones) {
   var diagnostico = opciones.diagnostico || Ingresos_diagnosticarIngresados_(opciones.snapshot);
   if (!opciones.reparar) return diagnostico;
   var reparar = function () {
-    var resultados = [], sectores = [];
+    var resultados = [], sectores = [], falsosVistos = 0;
+    var limiteFalsos = Math.max(1, Number(opciones.limiteFalsos || 12));
     diagnostico.casos.forEach(function (caso) {
       if (caso.clasificacion === 'INGRESADO_FALSO') {
+        if (falsosVistos >= limiteFalsos) return;
+        falsosVistos++;
         resultados.push(Ingresos_incorporarPorEstadoManual_(caso.hoja, caso.fila,
           { bajoLock: true, confirmarNuevo: opciones.confirmarNuevo === true }));
       } else if (caso.clasificacion === 'DERIVADO_DESACTUALIZADO') {
@@ -957,10 +960,13 @@ function Ingresos_reconciliarIngresados_(opciones) {
         });
       }
     });
+    var totalFalsos = diagnostico.conteos && Number(diagnostico.conteos.INGRESADO_FALSO || 0) || 0;
+    var continuar = totalFalsos > falsosVistos;
     var vistas = null;
     if (sectores.length && opciones.deferirVistas !== true) vistas = Modelo_refrescarVistasSectores_(sectores);
     return { ok: resultados.every(function (r) { return r && r.ok; }),
-      diagnostico: diagnostico, resultados: resultados, vistas: vistas, sectoresAfectados: sectores };
+      diagnostico: diagnostico, resultados: resultados, vistas: vistas, sectoresAfectados: sectores,
+      procesados: falsosVistos, restantes: Math.max(0, totalFalsos - falsosVistos), continuar: continuar };
   };
   return opciones.bajoLock ? reparar() : Ecicep_conLock_(reparar);
 }

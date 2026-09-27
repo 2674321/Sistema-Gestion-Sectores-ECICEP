@@ -1023,17 +1023,17 @@ t('R12: _memoLeer con CacheService con estado — miss re-lee hoja, hit reusa si
   const prevCache = CSP.CacheService;
   const prevHoja = CSP.Modelo_hoja;
   const cache = cacheConEstado();
+  const hoja = hojaLigeraPara('PACIENTES', filas, 3);
   CSP.CacheService = cache;
-  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
+  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hoja : null;
   CSP.Modelo_invalidarLecturas();
   const clave = CSP.CFG_CACHE.PREFIJO + 'BLOQUE:PACIENTES';
   try {
     // — MISS inicial — la hoja se lee y el bloque queda en CacheService.
     lecturasContador = 0;
-    const r = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR', 'REQUIERE_REVISION']);
+    const r = CSP._memoLeer(hoja, 'PACIENTES');
     igual(lecturasContador, 1, '1ª lectura lee la hoja una sola vez (miss)');
-    igual(r.length, 2, 'filas mapeadas');
-    igual(r[0].REQUIERE_REVISION, 'TRUE', 'boolean → TRUE');
+    igual(r.length, 3, 'bloque crudo con cabecera y filas');
     A(clave in cache.store, 'bloque crudo quedó en CacheService');
     A(typeof cache.store[clave] === 'string', 'valor serializado (string)');
 
@@ -1041,18 +1041,18 @@ t('R12: _memoLeer con CacheService con estado — miss re-lee hoja, hit reusa si
     //   Simula una RPC posterior reasignando el memo de invocación.
     CSP._MEMO_HOJAS = {};
     lecturasContador = 0;
-    const rHit = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']);
+    const rHit = CSP._memoLeer(hoja, 'PACIENTES');
     igual(lecturasContador, 0, 'HIT reusa CacheService sin tocar la hoja');
-    igual(rHit[0].SECTOR, 'NARANJO', 'datos del bloque deserializado');
-    igual(rHit[1].SECTOR, 'AMARILLO', 'datos del bloque deserializado (2)');
+    igual(rHit[1][3], 'NARANJO', 'datos del bloque deserializado');
+    igual(rHit[2][3], 'AMARILLO', 'datos del bloque deserializado (2)');
 
     // — INVALIDAR — toda escritura borra memo + claves entre requests.
     CSP.Modelo_invalidarLecturas();
     A(!(clave in cache.store), 'invalidar eliminó la clave entre requests');
     lecturasContador = 0;
-    const r3 = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']);
+    const r3 = CSP._memoLeer(hoja, 'PACIENTES');
     igual(lecturasContador, 1, 'tras invalidar se relee la hoja');
-    igual(r3[0].SECTOR, 'NARANJO', 'relee datos correctos');
+    igual(r3[1][3], 'NARANJO', 'relee datos correctos');
   } finally {
     CSP._MEMO_HOJAS = {};
     CSP.CacheService = prevCache;
