@@ -1793,12 +1793,22 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca, acceso) {
 // ENDPOINTS del panel de administración (GAS)
 // ---------------------------------------------------------------------------
 
-function api_formularioEstado() { return Form_obtenerEstado(); }
+function api_formularioEstado(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  return Form_obtenerEstado();
+}
 
-function api_formularioProcesar() { return Form_procesarAhora(); }
+function api_formularioProcesar(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  return Form_procesarAhora();
+}
 
-function api_formularioControl() { return Form_refrescarControl(); }
+function api_formularioControl(acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  return Form_refrescarControl();
+}
 
-function api_formularioReprocesar(param) {
+function api_formularioReprocesar(param, acceso) {
+  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Form_reprocesar(param && param.respuestaId ? { respuestaId: param.respuestaId } : {});
 }

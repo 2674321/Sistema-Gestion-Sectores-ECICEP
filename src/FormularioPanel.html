@@ -23,7 +23,7 @@
     .frm-legacy{opacity:.5;font-style:italic;font-size:11px;margin-top:var(--space-2);color:var(--text-muted);}
   </style>
 </head>
-<body>
+<body data-acceso="<?= TOKEN_ACCESO ?>">
   <h1 class="frm-titulo">Panel de administraci&oacute;n</h1>
   <div class="frm-sub">Estado del sistema de captura ECICEP.</div>
 
@@ -66,6 +66,7 @@
   <div class="frm-consola" id="fxConsola">Listo.</div>
 
 <script>
+var ECICEP_ACCESO=document.body.getAttribute('data-acceso')||'';
 function frmSubir(){
   var s=document.getElementById('fxSpinProc');
   if(s)s.classList.add('on');
@@ -116,8 +117,8 @@ document.getElementById('fxBtnProcesar').addEventListener('click',function(){
       (r&&r.ok)?('Le\u00eddas '+res.leidos+' \u00b7 ingresos nuevos '+res.nuevosIngresos+' \u00b7 cl\u00ednicas '+res.clinicas+' \u00b7 procesadas '+res.procesados+' \u00b7 revisi\u00f3n '+res.revision+' \u00b7 errores '+res.errores+(res.pipeline?(' \u00b7 pipeline '+res.pipeline):''))
       :((r&&r.motivo)||'Sin resultados'));
     flashOk(document.getElementById('fxBtnProcesar'));
-    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
-  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Procesar: '+(e.message||String(e)));}).api_formularioProcesar();
+    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado(ECICEP_ACCESO);
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Procesar: '+(e.message||String(e)));}).api_formularioProcesar(ECICEP_ACCESO);
 });
 document.getElementById('fxBtnControl').addEventListener('click',function(){
   var s=document.getElementById('fxSpinCtrl');if(s)s.classList.add('on');
@@ -127,8 +128,8 @@ document.getElementById('fxBtnControl').addEventListener('click',function(){
       (r&&r.ok)?('Hoja de control actualizada: '+r.total+' env\u00edos con trazabilidad rastreables en FORM_CONTROL.')
       :((r&&r.motivo)||'Sin resultados'));
     if(r&&r.ok)flashOk(document.getElementById('fxBtnControl'));
-    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
-  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Control: '+(e.message||String(e)));}).api_formularioControl();
+    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado(ECICEP_ACCESO);
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Control: '+(e.message||String(e)));}).api_formularioControl(ECICEP_ACCESO);
 });
 document.getElementById('fxBtnReprocesar').addEventListener('click',function(){
   var s=document.getElementById('fxSpinRepr');if(s)s.classList.add('on');
@@ -139,10 +140,10 @@ document.getElementById('fxBtnReprocesar').addEventListener('click',function(){
       (r&&r.ok)?('Reproceso seguro ejecutado (idempotente por marca). Le\u00eddas '+res.leidos+' \u00b7 procesadas '+res.procesados+' \u00b7 revisi\u00f3n '+res.revision+' \u00b7 errores '+res.errores)
       :((r&&r.motivo)||'Sin resultados'));
     if(r&&r.ok)flashOk(document.getElementById('fxBtnReprocesar'));
-    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado();
-  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Reprocesar: '+(e.message||String(e)));}).api_formularioReprocesar({});
+    google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(){}).api_formularioEstado(ECICEP_ACCESO);
+  }).withFailureHandler(function(e){if(s)s.classList.remove('on');frmLog('err','Reprocesar: '+(e.message||String(e)));}).api_formularioReprocesar({},ECICEP_ACCESO);
 });
-google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(e){frmLog('err','Estado: '+e.message);}).api_formularioEstado();
+google.script.run.withSuccessHandler(pintarEstado).withFailureHandler(function(e){frmLog('err','Estado: '+e.message);}).api_formularioEstado(ECICEP_ACCESO);
 </script>
 </body>
 </html>

@@ -92,6 +92,7 @@ function UI_instalarSistema() {
 /** 📥 Panel de administración del formulario complementario (FormularioPanel.html). */
 function UI_formularioPanel() {
   var t = HtmlService.createTemplateFromFile('FormularioPanel');
+  t.TOKEN_ACCESO = WebApp_claveOperador_();
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('📥 Formularios').setWidth(520).setHeight(520),
     '📥 Formularios');

@@ -15,7 +15,8 @@ for(const archivo of archivos){
 assert.deepEqual([...new Set(funciones)].sort(),[...allow].sort(),'la superficie RPC cambió sin revisión de allowlist');
 for(const nombre of ['Instalar_pIntegridad','Instalar_pMigraciones','Instalar_pFuentes','Fuentes_cargaReal','Limpieza_ejecutar','Backup_podar'])
   assert.ok(!funciones.includes(nombre),nombre+' no puede ser RPC pública');
-for(const nombre of ['api_instalarPaso','api_backupPodar','api_configGuardar','api_integridadReparar']){
+for(const nombre of ['api_instalarPaso','api_backupPodar','api_configGuardar','api_integridadReparar',
+  'api_formularioEstado','api_formularioProcesar','api_formularioControl','api_formularioReprocesar']){
   const todo=Object.values(codigo).join('\n');
   const pos=todo.indexOf('function '+nombre+'(');assert.ok(pos>=0,nombre+' existe');
   assert.match(todo.slice(pos,pos+1200),/WebApp_autorizar(?:Buscador)?\(/,nombre+' debe guardar capacidad Operador');
