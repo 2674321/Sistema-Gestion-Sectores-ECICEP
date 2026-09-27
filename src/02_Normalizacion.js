@@ -659,16 +659,18 @@ function api_estratRecalcularPaciente(idInterno, token) {
  * Recalcula la estratificación de TODOS los pacientes.
  * @returns {{ok:boolean, total:number, recalculados:number, tiempo:number}}
  */
-function Estrat_recalcularTodos_() {
+function Estrat_recalcularTodos_(opciones) {
+  opciones = opciones || {};
   var t0 = new Date();
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
   var pacientes = Modelo_leerPacientes();
   var recalculados = 0;
-  var filas = [];
-  var eventosCambios = [];
+  var filasCambiadas = {}, filasFisicas = [];
+  var eventosCambios = [], sectoresAfectados = [];
   var usuario = typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '';
-  pacientes.forEach(function (p) {
+  var iniPacientes = Modelo_dataStartRow(HOJAS.PACIENTES);
+  pacientes.forEach(function (p, idxPaciente) {
     var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
     var anterior = Utl_texto(p.ESTRATIFICACION);
@@ -677,22 +679,35 @@ function Estrat_recalcularTodos_() {
     });
     // Solo sobrescribir si el motor produce un resultado calculado.
     // Si no (SIN_DATOS/NO_CALCULABLE), conservar el valor vigente (fuente o manual).
-    if (nuevoValor) {
+    var calculadaAnterior = Utl_texto(p.ESTRAT_CALCULADA);
+    var cambioDerivado = calculadaAnterior !== Utl_texto(res.resultado || '') ||
+      (nuevoValor && nuevoValor !== anterior);
+    if (nuevoValor && nuevoValor !== anterior) {
       p.ESTRATIFICACION = nuevoValor;
       p.ESTRAT_ORIGEN = String(anterior || '');
     }
-    p.ESTRAT_CALCULADA = String(res.resultado || '');
-    p.ESTRAT_FECHA_CALCULO = new Date();
-    p.FECHA_ACTUALIZACION = new Date();
-    filas.push(Modelo_filaDesdeObjeto(p));
+    if (cambioDerivado) {
+      p.ESTRAT_CALCULADA = String(res.resultado || '');
+      p.ESTRAT_FECHA_CALCULO = new Date();
+      p.FECHA_ACTUALIZACION = new Date();
+      var filaFisica = iniPacientes + idxPaciente;
+      filasFisicas.push(filaFisica);
+      filasCambiadas[filaFisica] = Modelo_filaDesdeObjeto(p);
+      var sectorCambio = Utl_texto(p.SECTOR).toUpperCase();
+      if (HOJAS_SECTOR.indexOf('SECTOR_' + sectorCambio) >= 0 && sectoresAfectados.indexOf(sectorCambio) < 0)
+        sectoresAfectados.push(sectorCambio);
+    }
     if (nuevoValor && nuevoValor !== anterior) recalculados++;
     if (!cambio.sinCambios && cambio.evento) {
       cambio.evento.RIESGO_G = nuevoValor || p.ESTRATIFICACION || '';
       eventosCambios.push(cambio.evento);
     }
   });
-  if (filas.length) {
-    hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length).setValues(filas);
+  if (filasFisicas.length) {
+    Utl_gruposContiguosFilas(filasFisicas).forEach(function (grupo) {
+      hoja.getRange(grupo[0], 1, grupo.length, MODELO_PACIENTE.length)
+        .setValues(grupo.map(function (fila) { return filasCambiadas[fila]; }));
+    });
     Modelo_invalidarLecturas();
     if (eventosCambios.length) {
       try {
@@ -702,12 +717,14 @@ function Estrat_recalcularTodos_() {
       }
     }
   }
-  try { Modelo_refrescarVistasSectores_(); } catch (eSec) { /* best effort */ }
+  if (filasFisicas.length && opciones.deferirVistas !== true)
+    try { Modelo_refrescarVistasSectores_(sectoresAfectados); } catch (eSec) { /* best effort */ }
   var ms = new Date() - t0;
   Log_info('Estrat', 'recalcularTodos', 'total=' + pacientes.length +
     ' recalculados=' + recalculados, null, ms);
   Log_flush();
-  return { ok: true, total: pacientes.length, recalculados: recalculados, tiempo: ms };
+  return { ok: true, total: pacientes.length, recalculados: recalculados,
+    cambios: filasFisicas.length, sectoresAfectados: sectoresAfectados, tiempo: ms };
 }
 
 // ---------------------------------------------------------------------------
@@ -1079,18 +1096,30 @@ function Control_recalcularCaches_() {
   try { eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO']) || []; }
   catch (eE) { return { ok: false, motivo: 'SIN_LECTURA_EVENTOS', total: pacientes.length, cambios: 0, modo: 'CACHE_CALCULADA' }; }
   var max = Control_maximosEventoPorPaciente_(eventos);
-  var cambios = 0, filas = [], t0 = new Date();
-  pacientes.forEach(function (p) {
+  var cambios = 0, cambiadas = {}, filasFisicas = [], t0 = new Date();
+  var iniPac = Modelo_dataStartRow(HOJAS.PACIENTES);
+  pacientes.forEach(function (p, idx) {
     var id = Utl_texto(p.ID_INTERNO), m = max[id] || { CONTROL: '', SEGUIMIENTO: '' };
     var cambioFila = false;
     if (Control_aIso(p.ULTIMO_CONTROL) !== m.CONTROL) { p.ULTIMO_CONTROL = m.CONTROL; cambioFila = true; }
     if (Control_aIso(p.ULTIMO_SEGUIMIENTO) !== m.SEGUIMIENTO) { p.ULTIMO_SEGUIMIENTO = m.SEGUIMIENTO; cambioFila = true; }
-    if (cambioFila) { p.FECHA_ACTUALIZACION = new Date(); cambios++; }
-    filas.push(Modelo_filaDesdeObjeto(p));
+    if (cambioFila) {
+      p.FECHA_ACTUALIZACION = new Date(); cambios++;
+      var filaFisica = iniPac + idx;
+      filasFisicas.push(filaFisica);
+      cambiadas[filaFisica] = p;
+    }
   });
-  if (cambios && filas.length) {
-    hoja.getRange(Modelo_dataStartRow(HOJAS.PACIENTES), 1, filas.length, MODELO_PACIENTE.length)
-      .setValues(filas);
+  if (cambios) {
+    var colControl = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('ULTIMO_CONTROL') + 1;
+    var colSeguimiento = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('ULTIMO_SEGUIMIENTO') + 1;
+    var colActualizacion = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('FECHA_ACTUALIZACION') + 1;
+    Utl_gruposContiguosFilas(filasFisicas).forEach(function (grupo) {
+      var primera = grupo[0], n = grupo.length;
+      hoja.getRange(primera, colControl, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].ULTIMO_CONTROL]; }));
+      hoja.getRange(primera, colSeguimiento, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].ULTIMO_SEGUIMIENTO]; }));
+      hoja.getRange(primera, colActualizacion, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].FECHA_ACTUALIZACION]; }));
+    });
     Modelo_invalidarLecturas();
   }
   var ms = new Date() - t0;

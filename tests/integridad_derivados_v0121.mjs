@@ -14,7 +14,7 @@ function test(nombre, fn) { fn(); n++; console.log('[PASS] ' + nombre); }
 function idxCampo(c, campo) { return c.Modelo_campos().indexOf(campo); }
 
 test('T1 backfill recalcula solo caches desincronizados (EVENTOS como fuente)', () => {
-  const c = contexto(); let escrito = null;
+  const c = contexto(); let escrituras = 0;
   const pacientes = [
     { ID_INTERNO: 'EC-1', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null },
     { ID_INTERNO: 'EC-2', ULTIMO_CONTROL: '2026-01-01', ULTIMO_SEGUIMIENTO: '2026-01-01', FECHA_ACTUALIZACION: null }
@@ -28,14 +28,14 @@ test('T1 backfill recalcula solo caches desincronizados (EVENTOS como fuente)', 
   ];
   c.Modelo_hayCorreccionesFecha_ = () => false;
   c.Modelo_dataStartRow = () => 2;
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { escrito = v; } }) });
+  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: () => { escrituras++; } }) });
   c.Modelo_invalidarLecturas = () => {};
   const r = c.Control_recalcularCaches_();
   assert.equal(r.ok, true); assert.equal(r.total, 2); assert.equal(r.cambios, 1);
   assert.equal(r.modo, 'CACHE_CALCULADA');
-  const ultC = idxCampo(c, 'ULTIMO_CONTROL'), ultS = idxCampo(c, 'ULTIMO_SEGUIMIENTO');
-  assert.equal(escrito[0][ultC], '2026-09-01'); assert.equal(escrito[0][ultS], '');
-  assert.equal(escrito[1][ultC], '2026-01-01'); assert.equal(escrito[1][ultS], '2026-01-01');
+  assert.equal(pacientes[0].ULTIMO_CONTROL, '2026-09-01'); assert.equal(pacientes[0].ULTIMO_SEGUIMIENTO, '');
+  assert.equal(pacientes[1].ULTIMO_CONTROL, '2026-01-01'); assert.equal(pacientes[1].ULTIMO_SEGUIMIENTO, '2026-01-01');
+  assert.equal(escrituras, 3, 'solo tres columnas derivadas del grupo cambiado');
 });
 
 test('T2 backfill es idempotente: segunda pasada sin cambios ni escritura', () => {
@@ -64,7 +64,9 @@ test('T3 reparación converge caches y acciona CACHES sin falsear derivados', ()
       : Object.assign({ ok: true, derivadosOk: true, cachesPendientes: 0 }, estadoBase);
   };
   c.Control_recalcularCaches_ = () => ({ ok: true, total: 530, cambios: 530, modo: 'CACHE_CALCULADA' });
+  c.Integridad_snapshotDerivados_ = () => ({});
   c.Sistema_guardarAuditoria_ = () => {};
+  c.Integridad_snapshotDerivados_ = () => ({});
   const r = c.Integridad_repararDerivados_({ reparar: true, bajoLock: true });
   assert.equal(r.ok, true); assert.equal(r.motivo, '');
   assert.ok(r.acciones.indexOf('CACHES') >= 0); assert.equal(r.caches.cambios, 530);
@@ -124,6 +126,8 @@ test('T6 reparación con sin-sector pendiente es advertencia, no error de instal
       : Object.assign({ ok: false, derivadosOk: true, pacientesSinSector: 3 }, estadoBase);
   };
   c.Sistema_guardarAuditoria_ = () => {};
+  c.Integridad_snapshotDerivados_ = () => ({});
+  c.Integridad_snapshotDerivados_ = () => ({});
   const r = c.Integridad_repararDerivados_({ reparar: true, bajoLock: true });
   assert.equal(r.ok, true); assert.equal(r.motivo, '');
   assert.equal(r.advertencia, true);
@@ -144,6 +148,7 @@ test('T7 DERIVADOS_PENDIENTES real tras reparar sigue siendo error explícito', 
       vistasPendientes: despues ? 2 : 0, cachesPendientes: despues ? 2 : 0 }, estadoBase);
   };
   c.Control_recalcularCaches_ = () => ({ ok: true, cambios: 0 });
+  c.Integridad_snapshotDerivados_ = () => ({});
   c.Sistema_guardarAuditoria_ = () => {};
   const r = c.Integridad_repararDerivados_({ reparar: true, bajoLock: true });
   assert.equal(r.ok, false); assert.equal(r.advertencia, false);

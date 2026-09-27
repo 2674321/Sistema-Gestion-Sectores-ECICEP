@@ -1835,7 +1835,7 @@ function Limpieza_esPacienteDePrueba(paciente, rutsPrueba) {
  * GAS: recolecta las filas de INGRESO_* marcadas con la marca de prueba.
  * @returns {ruts:[], hojas:{hoja:[filasSheet]}, totalFilas:number}
  */
-function Limpieza_colectar() {
+function Limpieza_colectar_() {
   var ruts = [], hojas = {}, totalFilas = 0;
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
@@ -1867,7 +1867,7 @@ function Limpieza_colectar() {
  * elimina SOLO pacientes/eventos identificados como prueba y las filas
  * marcadas en INGRESO_*. Refresca vistas al terminar.
  */
-function Limpieza_ejecutar(colecta) {
+function Limpieza_ejecutar_(colecta) {
   var resumen = { pacientes: 0, eventos: 0, filasIngreso: colecta.totalFilas };
   var ss = Modelo_ss();
   var esquema = Modelo_asegurarEsquemaPacientes_();
@@ -2091,9 +2091,13 @@ function Modelo_refrescarVistasSectores_(sectores) {
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
     if (!hoja) return;
     var ini = Modelo_dataStartRow(nombreHoja);
-    // limpia área de datos completa antes de reescribir (desde dataStartRow)
-    hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
     var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimo);
+    // Limpia solo el área gestionada: extensión usada previa o nueva. La
+    // capacidad física (getMaxRows) no representa datos y puede ser enorme.
+    var usadasPrevias = Math.max(hoja.getLastRow() - ini + 1, 0);
+    var filasGestionadas = Math.max(usadasPrevias, filas.length);
+    if (filasGestionadas > 0)
+      hoja.getRange(ini, 1, filasGestionadas, COLUMNAS_SECTOR_VISTA.length).clearContent();
     if (filas.length) {
       Utl_escribirBloque(hoja, ini, 1, filas);
       // EDAD: fórmula DATEDIF(viva sobre FECHA_NACIMIENTO, se actualiza con HOY()
