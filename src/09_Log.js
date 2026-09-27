@@ -8,6 +8,29 @@
 var _LOG_BUFFER = [];
 var _LOG_NIVELES = { DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40 };
 
+/** Redacción defensiva final: el log técnico nunca debe persistir credenciales
+ * ni identificadores personales aunque un caller entregue un error demasiado
+ * descriptivo. Los contextos quedan restringidos a métricas operativas. */
+function Log_sanitizarTexto_(valor) {
+  return Utl_texto(valor)
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL]')
+    .replace(/\b\d{1,2}\.\d{3}\.\d{3}-[0-9K]\b/gi, '[RUT]')
+    .replace(/\b\+?56\s?9\s?\d{4}\s?\d{4}\b/g, '[TELEFONO]')
+    .replace(/\b[0-9a-f]{32,}\b/gi, '[SECRETO]');
+}
+
+function Log_sanitizarContexto_(contexto) {
+  if (!contexto || typeof contexto !== 'object') return Log_sanitizarTexto_(contexto).substring(0, 500);
+  var permitidas = ['codigo', 'estado', 'modulo', 'operacion', 'sector', 'modo',
+    'cantidad', 'filas', 'filaFisica', 'pendientes', 'errores', 'warnings',
+    'duracionMs', 'cacheHit', 'captureId', 'operacionId', 'ejecucion'];
+  var seguro = {};
+  Object.keys(contexto).forEach(function (k) {
+    if (permitidas.indexOf(k) >= 0) seguro[k] = Log_sanitizarTexto_(contexto[k]).substring(0, 120);
+  });
+  return JSON.stringify(seguro);
+}
+
 /** Registra una entrada en el búfer. contexto puede ser objeto/string. */
 function Log_registrar(nivel, modulo, operacion, mensaje, contexto, duracionMs) {
   try {
@@ -17,9 +40,9 @@ function Log_registrar(nivel, modulo, operacion, mensaje, contexto, duracionMs) 
       nivel,
       Utl_texto(modulo).substring(0, 40),
       Utl_texto(operacion).substring(0, 60),
-      Utl_texto(mensaje).substring(0, 500),
+      Log_sanitizarTexto_(mensaje).substring(0, 500),
       duracionMs || '',
-      typeof contexto === 'object' ? JSON.stringify(contexto) : Utl_texto(contexto).substring(0, 500)
+      Log_sanitizarContexto_(contexto)
     ]);
     if (_LOG_BUFFER.length >= CFG_LOG.MAX_BUFFER) Log_flush();
   } catch (e) { /* el log nunca rompe el flujo */ }

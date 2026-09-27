@@ -495,10 +495,13 @@ function buscarAhora(){
       var cont=document.getElementById('resultados');_resIdx=-1;
       if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
       cont.innerHTML=l.map(function(p,i){
-        return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
+        return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" data-id="'+_esc(p.id)+'">'+
           '<div class="res-nombre">'+_esc(p.nombre)+'</div>'+
           '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
       }).join('');
+      cont.querySelectorAll('.res-card[data-id]').forEach(function(card){
+        card.addEventListener('click',function(){abrirFicha(card.dataset.id);});
+      });
       _refrescarIconos();
     },
     function(e){if(seq===_busquedaSeq)_errSilencioso('api_buscar')(e);});

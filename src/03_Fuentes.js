@@ -907,7 +907,7 @@ function _Fuentes_escribir_(a, opciones, t0) {
  * HOJA_FUENTE_FALTANTE sin tocar el libro.
  * @returns {ok, ejecucionId, dryRun, resumen, detalle[], excluidas[]}
  */
-function Fuentes_cargaReal(opciones) {
+function Fuentes_cargaReal_(opciones) {
   opciones = opciones || {};
   var ejecucionId = opciones.ejecucionId ||
     (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
@@ -937,7 +937,7 @@ function api_fuentesImpacto(acceso, modoDatos) {
       fechasAdelantadas: 0, reemplazosSnapshot: 0, conflictos: 0 },
       linea: 'Conservar datos actuales: sin lecturas de escritura ni cambios.' };
   try {
-    var r = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: modo });
+    var r = Fuentes_cargaReal_({ ejecutar: false, actualizar: true, modo: modo });
     if (!r || r.ok === false) return { ok: false, modo: modo, motivo: (r && r.motivo) || 'ANALISIS_FALLIDO' };
     var res = r.resumen || {}, mg = res.merge || {};
     var impacto = (typeof Act_resumenImpactoMerge_ === 'function')

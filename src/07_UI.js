@@ -1475,7 +1475,7 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
 /** FASE 4.0 — limpieza segura del dataset ficticio. */
 function UI_vaciarDatosPrueba() {
   var ui = _UI_get();
-  var colecta = Limpieza_colectar();
+  var colecta = Limpieza_colectar_();
 
   // cuenta pacientes/eventos afectados ANTES de borrar nada
   var ruts = colecta.ruts;
@@ -1500,7 +1500,7 @@ function UI_vaciarDatosPrueba() {
     ui.ButtonSet.YES_NO);
   if (resp !== ui.Button.YES) return;
 
-  var r = Limpieza_ejecutar(colecta);
+  var r = Limpieza_ejecutar_(colecta);
   Log_info('UI', 'vaciarDatosPrueba', JSON.stringify(r));
   Log_flush();
   ui.alert(
@@ -1518,7 +1518,7 @@ function UI_vaciarDatosPrueba() {
 function UI_analisisCarga() {
   Utl_toast('info', 'Analizando fuentes reales (no escribe nada)…', 15);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var r = Fuentes_cargaReal({ ejecutar: false });
+  var r = Fuentes_cargaReal_({ ejecutar: false });
   var res = r.resumen;
 
   var hojaR = ss.getSheetByName('CARGA_ANALISIS');
@@ -1560,7 +1560,7 @@ function UI_ejecutarCarga() {
 
   Utl_toast('info', 'Cargando…', 30);
 
-  var r = Fuentes_cargaReal({ ejecutar: true });
+  var r = Fuentes_cargaReal_({ ejecutar: true });
   var res = r.resumen;
 
   Log_info('UI', 'ejecutarCarga', JSON.stringify({

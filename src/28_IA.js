@@ -20,9 +20,8 @@
 // ---------------------------------------------------------------------------
 
 var IA_CONFIG = {
-  MODEL: 'gemini-2.0-flash',
+  MODEL: 'gemini-3.6-flash',
   MAX_RETRIES: 3,
-  TIMEOUT_MS: 30000,
   MODO_CORRECCION: 'auto',  // 'auto' | 'sugerir' | 'strict'
   LOG_SHEET: 'LOG_IA',
   BATCH_SIZE: 50  // filas por lote en procesamiento
@@ -38,7 +37,7 @@ var IA_CONFIG = {
  * @param {Object} [opts] - Opciones adicionales
  * @returns {string} Respuesta de la IA
  */
-function IA_llamarGemini(prompt, opts) {
+function IA_llamarGemini_(prompt, opts) {
   opts = opts || {};
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!apiKey) {
@@ -47,13 +46,13 @@ function IA_llamarGemini(prompt, opts) {
 
   var model = opts.model || IA_CONFIG.MODEL;
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
-    + model + ':generateContent?key=' + apiKey;
+    + model + ':generateContent';
 
   var payload = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: opts.temperature || 0.3,
-      maxOutputTokens: opts.maxTokens || 2048
+      temperature: opts.temperature === undefined ? 0.3 : opts.temperature,
+      maxOutputTokens: opts.maxTokens === undefined ? 2048 : opts.maxTokens
     }
   };
 
@@ -63,6 +62,7 @@ function IA_llamarGemini(prompt, opts) {
       var response = UrlFetchApp.fetch(url, {
         method: 'post',
         contentType: 'application/json',
+        headers: { 'x-goog-api-key': apiKey },
         payload: JSON.stringify(payload),
         muteHttpExceptions: true
       });
@@ -128,6 +128,13 @@ function IA_esCampoSensible(nombre) {
   );
 }
 
+/** Allowlist estricta de ejemplos aptos para egress. Los modelos clínicos
+ * PACIENTES/EVENTOS no autorizan ejemplos de valores bajo ninguna columna. */
+function IA_permiteEjemplosEgress_(hojaNombre, nombreCampo) {
+  if (hojaNombre === HOJAS.PACIENTES || hojaNombre === HOJAS.EVENTOS) return false;
+  return ['TIPO_HOJA', 'ESTADO_SISTEMA', 'VERSION_SCHEMA'].indexOf(String(nombreCampo).toUpperCase()) >= 0;
+}
+
 /**
  * Lee una hoja siempre alineada a su contrato de layout vigente.
  * - Hojas visuales (PACIENTES): lee desde los encabezados reales hacia abajo
@@ -169,7 +176,7 @@ function IA_leerEstadisticas(hojaNombre) {
 
   for (var c = 0; c < encabezados.length; c++) {
     var nombre = Utl_texto(encabezados[c]);
-    var sensible = IA_esCampoSensible(nombre);
+    var sensible = !IA_permiteEjemplosEgress_(hojaNombre, nombre);
     var campo = {
       nombre: nombre,
       vacios: 0,
@@ -187,7 +194,7 @@ function IA_leerEstadisticas(hojaNombre) {
       }
     }
     campo.unicos = valores.size;
-    if (sensible) campo.ejemplos = ['[OCULTO]'];
+    if (sensible) campo.ejemplos = [];
     stats.campos.push(campo);
   }
 
@@ -198,7 +205,7 @@ function IA_leerEstadisticas(hojaNombre) {
  * Lee datos de una columna específica (anonimizados).
  */
 function IA_leerColumna(hojaNombre, nombreColumna, maxFilas) {
-  if (!WebApp_usuarioActivo()) return [];
+  if (!WebApp_identidadOperadorAutorizada_()) return [];
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(hojaNombre);
   if (!hoja) return [];
@@ -249,7 +256,7 @@ function IA_analizarHoja(hojaNombre) {
     + 'Responde en JSON con el formato:\n'
     + '{ "problemas": [{ "tipo": "...", "campo": "...", "descripcion": "...", "severidad": "alta|media|baja", "correccion": "..." }], "resumen": "..." }';
 
-  var respuesta = IA_llamarGemini(prompt);
+  var respuesta = IA_llamarGemini_(prompt);
   return IA_parsearJSON(respuesta);
 }
 
@@ -957,7 +964,7 @@ function _IA_esc(s) {
  * Gemini) y muestra el reporte en un diálogo modal legible.
  */
 function IA_revisarTodoUI() {
-  if (!WebApp_usuarioActivo()) return;
+  if (!WebApp_identidadOperadorAutorizada_()) return;
   var reporte = IA_revisarTodo();
   if (!reporte) {
     Utl_toast('err', 'La revisión no devolvió resultados.', 5);
@@ -982,7 +989,7 @@ function IA_revisarTodoUI() {
  * Corrige RUTs: formatea con puntos y guión, valida DV.
  */
 function IA_corregirRuts() {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1027,7 +1034,7 @@ function IA_corregirRuts() {
  * Corrige fechas: unifica formato a ISO yyyy-MM-dd.
  */
 function IA_corregirFechas() {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1097,7 +1104,7 @@ function IA_parsearFecha(valor, rango) {
  * Corrige nombres: capitalización y espacios.
  */
 function IA_corregirNombres() {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1143,7 +1150,7 @@ function IA_normalizarNombre(nombre) {
  * Corrige teléfonos: formato estándar.
  */
 function IA_corregirTelefonos() {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1196,7 +1203,7 @@ function IA_normalizarTelefono(tel) {
  * Corrige campo SEXO: valores válidos M/F/OTRO.
  */
 function IA_corregirSexo() {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1237,7 +1244,7 @@ function IA_corregirSexo() {
  * Ejecuta todas las correcciones en orden.
  */
 function IA_corregirTodo() {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var resultados = {};
 
   try { resultados.ruts = IA_corregirRuts(); } catch (e) { resultados.ruts = { error: e.message }; }
@@ -1305,7 +1312,7 @@ function IA_analizarFallos(resultadoTests) {
     + '{ "analisis": "...", "sugerencias": [{ "archivo": "...", "problema": "...", "solucion": "..." }] }';
 
   try {
-    var respuesta = IA_llamarGemini(prompt);
+    var respuesta = IA_llamarGemini_(prompt);
     return IA_parsearJSON(respuesta);
   } catch (e) {
     return { error: e.message };
@@ -1342,7 +1349,7 @@ function IA_procesarInstruccion(texto) {
     + '{ "intencion": "...", "accion": "nombre_funcion", "parametros": [...], "explicacion": "..." }';
 
   try {
-    var respuesta = IA_llamarGemini(prompt);
+    var respuesta = IA_llamarGemini_(prompt);
     var parsed = IA_parsearJSON(respuesta);
 
     // Ejecutar la acción si es válida
@@ -1367,7 +1374,7 @@ function IA_procesarInstruccion(texto) {
  * Chat multi-turno con historial.
  */
 function IA_chat(mensaje, historial) {
-  if (!WebApp_usuarioActivo()) return 'Sesión de usuario no detectada; acceso denegado.';
+  if (!WebApp_identidadOperadorAutorizada_()) return 'Sesión de usuario no autorizada; acceso denegado.';
   historial = historial || [];
 
   var contexto = 'Eres un asistente amable del sistema ECICEP. '
@@ -1382,7 +1389,7 @@ function IA_chat(mensaje, historial) {
   contexto += '\nUsuario: ' + mensaje + '\nIA:';
 
   try {
-    var respuesta = IA_llamarGemini(contexto, { temperature: 0.7 });
+    var respuesta = IA_llamarGemini_(contexto, { temperature: 0.7 });
     return respuesta;
   } catch (e) {
     return 'Lo siento, hubo un error: ' + e.message;
@@ -1409,7 +1416,7 @@ function IA_normalizarNombreAccion(nombre) {
  * Ejecuta una acción por nombre.
  */
 function IA_ejecutarAccion(nombre, parametros) {
-  if (!WebApp_usuarioActivo()) return { error: 'Sesión de usuario no detectada; acceso denegado' };
+  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
   var clave = IA_normalizarNombreAccion(nombre);
   var acciones = {
     'revisar_todo': IA_revisarTodo,
@@ -1519,7 +1526,7 @@ function IA_configurar() {
  * Guarda la API key en Script Properties.
  */
 function IA_guardarApiKey(key) {
-  if (!WebApp_usuarioActivo()) return false;
+  if (!WebApp_identidadOperadorAutorizada_()) return false;
   if (key && key.trim()) {
     PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', key.trim());
     return true;

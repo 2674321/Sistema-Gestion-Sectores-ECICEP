@@ -1588,7 +1588,7 @@ function Form_procesarPendientes(opciones) {
         trailersAnexos.push({ filaFisica: d.filaFisica, ingresoHoja: nombreHoja, ingresoFila: String(desde + i), reintentos: 0, estado: 'VALIDANDO', motivo: '', idInterno: '', idEvento: '', fechaProceso: '' });
       });
     });
-    console.log('[PIPE] trailersAnexos='+JSON.stringify(trailersAnexos).substring(0,400));
+    console.log('[PIPE] trailersAnexos=' + trailersAnexos.length);
 
     if (trailersAnexos.length) Form_actualizarTrailer(trailersAnexos);
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (anexo filas INGRESO, paso 1)');
@@ -1644,7 +1644,7 @@ function Form_procesarPendientes(opciones) {
       console.log('[PIPE] antes Ingresos_procesarTodasLasHojas_ anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
       resumenPipeline = Ingresos_procesarTodasLasHojas_({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null, soloFilas: soloFilas });
       console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3, anexos=' + hayAnexos + ')');
-      console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
+      console.log('[PIPE] despues pipeline ok=' + !!(resumenPipeline && resumenPipeline.ok !== false));
     } else {
       console.log('[PIPE] sin anexos ni filas de ingreso pendientes, no se llama pipeline');
     }
@@ -1703,12 +1703,12 @@ function Form_procesarPendientes(opciones) {
           var map = Form_mapearResultadoFila(lf.estado, lf.nota);
           est = map.estado; mot = map.motivo;
           if (est === 'ERROR') {
-            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' lf='+JSON.stringify(lf)+' -> '+mot);
+            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' estado='+Utl_texto(lf.estado));
           }
         } else {
           est = 'ERROR';
           if (!mot) mot = 'SIN_FILA_INGRESO';
-          console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' SIN_ESTADO lf='+JSON.stringify(lf));
+          console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' SIN_ESTADO');
         }
       }
       var reint = Number(d.reintentos) || 0;

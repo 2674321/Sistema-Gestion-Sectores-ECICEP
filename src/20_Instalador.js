@@ -7,23 +7,23 @@
  */
 
 var INSTALAR_ETAPAS = [
-  { id: 'runtime',      nombre: 'Verificando el entorno',       fn: 'Instalar_pRuntime' },
-  { id: 'diagnostico',  nombre: 'Diagnóstico previo',           fn: 'Instalar_pDiagnostico' },
-  { id: 'versionado',   nombre: 'Versionando el sistema',       fn: 'Instalar_pVersionado' },
-  { id: 'respaldo',     nombre: 'Respaldando el libro',         fn: 'Instalar_pRespaldo' },
-  { id: 'migraciones',  nombre: 'Aplicando migraciones',        fn: 'Instalar_pMigraciones' },
-  { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura' },
-  { id: 'fuentes',      nombre: 'Cargando datos de fuentes',   fn: 'Instalar_pFuentes' },
-  { id: 'amarillo',     nombre: 'Cargando sector amarillo',    fn: 'Instalar_pAmarillo' },
-  { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones' },
-  { id: 'triggers',     nombre: 'Activando automatizaciones',     fn: 'Instalar_pTriggers' },
-  { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza' },
-  { id: 'diseno',       nombre: 'Presentación del libro',        fn: 'Instalar_pDiseno' },
-  { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu' },
-  { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento' },
-  { id: 'derivados',    nombre: 'Actualizando estratificación', fn: 'Instalar_pDerivados' },
-  { id: 'integridad',   nombre: 'Reconciliando derivados',      fn: 'Instalar_pIntegridad' },
-  { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar' }
+  { id: 'runtime',      nombre: 'Verificando el entorno',       fn: 'Instalar_pRuntime_' },
+  { id: 'diagnostico',  nombre: 'Diagnóstico previo',           fn: 'Instalar_pDiagnostico_' },
+  { id: 'versionado',   nombre: 'Versionando el sistema',       fn: 'Instalar_pVersionado_' },
+  { id: 'respaldo',     nombre: 'Respaldando el libro',         fn: 'Instalar_pRespaldo_' },
+  { id: 'migraciones',  nombre: 'Aplicando migraciones',        fn: 'Instalar_pMigraciones_' },
+  { id: 'estructura',   nombre: 'Preparando estructura',        fn: 'Instalar_pEstructura_' },
+  { id: 'fuentes',      nombre: 'Cargando datos de fuentes',   fn: 'Instalar_pFuentes_' },
+  { id: 'amarillo',     nombre: 'Cargando sector amarillo',    fn: 'Instalar_pAmarillo_' },
+  { id: 'validaciones', nombre: 'Activando reglas de ingreso',  fn: 'Instalar_pValidaciones_' },
+  { id: 'triggers',     nombre: 'Activando automatizaciones',     fn: 'Instalar_pTriggers_' },
+  { id: 'limpieza',     nombre: 'Revisando hojas adicionales',  fn: 'Instalar_pLimpieza_' },
+  { id: 'diseno',       nombre: 'Presentación del libro',        fn: 'Instalar_pDiseno_' },
+  { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu_' },
+  { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento_' },
+  { id: 'derivados',    nombre: 'Actualizando estratificación', fn: 'Instalar_pDerivados_' },
+  { id: 'integridad',   nombre: 'Reconciliando derivados',      fn: 'Instalar_pIntegridad_' },
+  { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar_' }
 ];
 // v0.14: UNA fase principal de presentación ('diseno', motor único en
 // 35_Presentacion). Las antiguas fases top-level 'visual' (HVis directo) e
@@ -79,7 +79,7 @@ function Instalar_asegurarBackup_(ejecucion) {
     return { ok: true, skip: true, sinRespaldo: true };
   }
   try {
-    var r = Backup_crear('PRE_INSTALAR');
+    var r = Backup_crear_('PRE_INSTALAR');
     if (!r || r.ok === false) {
       return { ok: false, motivo: r && r.motivo ? r.motivo : 'BACKUP_FALLIDO' };
     }
@@ -527,7 +527,7 @@ function Instalar_ejecutarPolitica() {
 
 /* ------------------------- ETAPAS (thin wrappers) ------------------------- */
 
-function Instalar_pRuntime() {
+function Instalar_pRuntime_() {
   var r = Modelo_validarDependenciasRuntime();
   if (!r.ok) {
     return { ok: false, motivo: r.detalle, faltantes: r.faltantes };
@@ -535,12 +535,12 @@ function Instalar_pRuntime() {
   return { ok: true, dependencias: r.total };
 }
 
-function Instalar_pDiagnostico() {
+function Instalar_pDiagnostico_() {
   var r = Instalar_diagnosticar();
   return { ok: r.ok !== false, diagnostico: r.diagnostico, motivo: r.motivo || '' };
 }
 
-function Instalar_pVersionado() {
+function Instalar_pVersionado_() {
   var snap = Modelo_escanearEstructura();
   var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
   var incompatible = Instalar_versionIncompatible_(v);
@@ -557,24 +557,24 @@ function Instalar_pVersionado() {
     accion: v.accion } };
 }
 
-function Instalar_pMigraciones() {
+function Instalar_pMigraciones_() {
   var r = Mig_ejecutarPersistente();
   return { ok: r.ok, linea: r.linea, aplicadas: r.aplicadas || [],
            versionInicial: r.versionInicial, versionFinal: r.versionFinal,
            motivo: r.motivo, migracion: r.migracion };
 }
 
-function Instalar_pRespaldo(ejecucion) {
+function Instalar_pRespaldo_(ejecucion) {
   return { ok: true, pendiente: true, omitida: true,
     linea: 'El respaldo se creará bajo bloqueo justo antes de la primera modificación' };
 }
 
-function Instalar_pEstructura() {
+function Instalar_pEstructura_() {
   var est = Modelo_crearEstructura_();
   return { creadas: est.creadas.length, existentes: est.existentes.length,
            dashboardReparado: !!est.dashboardReparado };
 }
-function Instalar_pFuentes(ejecucion, opciones) {
+function Instalar_pFuentes_(ejecucion, opciones) {
   // v0.14.1: REPARAR EL SISTEMA ≠ RECARGAR LOS DATOS. Política explícita
   // (FUENTES_MODO, ver 03_Fuentes): producción + AUTO → CONSERVAR (no toca
   // PACIENTES/EVENTOS/STAGING); libro vacío + AUTO → INICIAL; la elección
@@ -615,12 +615,12 @@ function Instalar_pFuentes(ejecucion, opciones) {
   // drift entre la previa y la escritura).
   var modoCarga = (modo === 'SNAPSHOT_ACTUAL') ? 'SNAPSHOT_ACTUAL' : 'CONSERVADOR';
   var analisis;
-  try { analisis = Fuentes_cargaReal({ ejecutar: false, actualizar: true, modo: modoCarga }); }
+  try { analisis = Fuentes_cargaReal_({ ejecutar: false, actualizar: true, modo: modoCarga }); }
   catch (e) { return { ok: false, modo: modo, motivo: e && e.message ? e.message : String(e) }; }
   if (analisis.ok === false) return { ok: false, modo: modo, motivo: analisis.motivo, resumen: analisis.resumen };
   var ejecucionR;
   try {
-    ejecucionR = Fuentes_cargaReal({ ejecutar: true, actualizar: true, modo: modoCarga,
+    ejecucionR = Fuentes_cargaReal_({ ejecutar: true, actualizar: true, modo: modoCarga,
       ejecucionId: analisis.ejecucionId });
   } catch (e2) { return { ok: false, modo: modo, motivo: e2 && e2.message ? e2.message : String(e2) }; }
   if (ejecucionR.ok === false) return { ok: false, modo: modo, motivo: ejecucionR.motivo, resumen: ejecucionR.resumen };
@@ -637,7 +637,7 @@ function Instalar_pFuentes(ejecucion, opciones) {
   return { ok: true, modo: modo, produccion: estado, resumen: res, impacto: impacto,
     respaldoPrevio: respaldoPrevio, linea: linea };
 }
-function Instalar_pAmarillo() {
+function Instalar_pAmarillo_() {
   // Sector Amarillo desde Drive (Amarillo_importarTodo_: puerta INGRESO_AMARILLO
   // + histórico idempotente). La fuente ausente no es un fallo bloqueante: se
   // informa para diagnóstico sin duplicar lógica.
@@ -647,13 +647,13 @@ function Instalar_pAmarillo() {
   if (!r || r.ok === false) return { ok: false, motivo: r.motivo || (r && r.linea) || 'No se pudo cargar el sector amarillo' };
   return { ok: true, aplicaHistorico: true, puerta: r.puerta, historico: r.historico };
 }
-function Instalar_pValidaciones() {
+function Instalar_pValidaciones_() {
   var r = Modelo_validarIngresos(Modelo_ss());
   return { ok: r.ok !== false && !(r.fallidas || []).length,
            validaciones: r.validaciones, puertas: r.hojas, protegidas: r.protegidas,
            motivo: (r.fallidas || []).join('; ') || r.motivo || '' };
 }
-function Instalar_pTriggers() {
+function Instalar_pTriggers_() {
   try {
     var ingreso = Triggers_asegurarIngresoOnEdit_();
     if (ingreso && ingreso.ok === false) return ingreso;
@@ -663,12 +663,12 @@ function Instalar_pTriggers() {
   }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
-function Instalar_pLimpieza() {
+function Instalar_pLimpieza_() {
   var r = Modelo_limpiarHojasResiduales(Modelo_ss());
   return { ok: true, candidatas: r.candidatas, eliminadas: r.eliminadas,
            conservadas: r.conservadas, linea: 'No se eliminaron hojas en la instalación' };
 }
-function Instalar_pDiseno(ejecucion, opciones) {
+function Instalar_pDiseno_(ejecucion, opciones) {
   // Hotfix 0.12.1: la "Presentación del libro" se ejecuta por SUBTAREAS
   // REANUDABLES entre RPC (presupuesto de tiempo por llamada; cursor persistido
   // por clave de EJECUCION en CacheService). El cliente re-invoca la misma etapa
@@ -682,7 +682,7 @@ function Instalar_pDiseno(ejecucion, opciones) {
  *  (Presentacion_formatearHoja_ → HVis_reconciliarHoja). Este wrapper ejecuta
  *  esas mismas subtareas del plan (sin pipeline paralelo) para callers antiguos.
  *  Sin fuerza global: hoja alineada = cero escrituras. */
-function Instalar_pVisual() {
+function Instalar_pVisual_() {
   var tareas = (typeof PRESENTACION_SUBPLAN_DISENO !== 'undefined' ? PRESENTACION_SUBPLAN_DISENO : [])
     .filter(function (t) { return t.id === 'base' || t.id.indexOf('formato:') === 0 ||
       t.id === 'validaciones:extras' || t.id === 'condicionales' || t.id === 'notas' ||
@@ -700,7 +700,7 @@ function Instalar_pVisual() {
  *  INICIO pertenece exclusivamente al motor de Presentación (subtarea 'inicio'
  *  del plan único). Este wrapper ejecuta esa misma subtarea + verificación,
  *  sin Modelo_disenoHojas ni toques a otras hojas (§9). */
-function Instalar_pInicio() {
+function Instalar_pInicio_() {
   var ss = Modelo_ss();
   var r, motivo = '';
   try { var t = Presentacion_ejecutarTarea_({ id: 'inicio', nombre: 'Portada INICIO' });
@@ -716,7 +716,7 @@ function Instalar_pInicio() {
   return { ok: r.ok !== false && v.ok === true, inicio: r.detalle || r,
     verificacion: v, motivo: motivo };
 }
-function Instalar_pMenu() {
+function Instalar_pMenu_() {
   // La Web App no tiene interfaz de Sheets: allí el menú se crea al abrir el
   // libro, no durante esta RPC. No informar una configuración inexistente.
   try { SpreadsheetApp.getUi(); }
@@ -726,7 +726,7 @@ function Instalar_pMenu() {
   if (resultado && resultado.ok === false) return resultado;
   return { ok: true };
 }
-function Instalar_pVerificar() {
+function Instalar_pVerificar_() {
   var salud;
   try { salud = Sistema_estadoSalud_({ profundo: true }); }
   catch (e) { return { ok: false, resultado: 'ERROR', estado: 'ERROR',
@@ -758,7 +758,7 @@ function Instalar_pVerificar() {
  *  eventos. Reporta métricas S11: totalPacientes, revisados, enriquecidos,
  *  sinCambios, conflictos (requieren revisión), noEncontrados (sin fuente) y
  *  errores. */
-function Instalar_pEnriquecimiento() {
+function Instalar_pEnriquecimiento_() {
   // Enriquecimiento demográfico de PACIENTES reutilizando Act_enriquecerPacientes
   // (fill-only SEXO/FECHA_NACIMIENTO desde INGRESO_*; no crea pacientes ni
   // eventos; idempotente). Misma implementación que ACTUALIZAR.
@@ -770,7 +770,7 @@ function Instalar_pEnriquecimiento() {
 
 /** Calcula derivados (estratificación + controles) para que INICIO muestre
  *  datos reales desde la primera instalación. Idempotente. */
-function Instalar_pDerivados() {
+function Instalar_pDerivados_() {
   var estrat = { recalculados: 0, total: 0 };
   var ctrl = { cambios: 0, total: 0 };
   var errores = [];
@@ -786,8 +786,8 @@ function Instalar_pDerivados() {
            motivo: errores.join('; '), linea: lineas.join(' · ') };
 }
 
-function Instalar_pIntegridad() {
-  try { return Integridad_repararDerivados_({ reparar: true, bajoLock: true }); }
+function Instalar_pIntegridad_(ejecucion) {
+  try { return Integridad_ejecutarPaso_(ejecucion); }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
 

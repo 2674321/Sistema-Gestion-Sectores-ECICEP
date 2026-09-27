@@ -562,7 +562,7 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 3) DATOS desde fuentes autorizadas
-  try { reporte.fuentes = Fuentes_cargaReal({ ejecutar: ejecutar, actualizar: true }); }
+  try { reporte.fuentes = Fuentes_cargaReal_({ ejecutar: ejecutar, actualizar: true }); }
   catch (eF) { reporte.fuentes = { ok: false, motivo: eF && eF.message || String(eF) }; }
   if (reporte.fuentes && reporte.fuentes.ok === false)
     registrarFallo('fuentes', reporte.fuentes.motivo);

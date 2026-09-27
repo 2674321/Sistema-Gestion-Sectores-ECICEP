@@ -18,47 +18,40 @@
  * IDs hardcodeados de DEMO ni de producción; el destino de escritura sigue la
  * lógica normal del proyecto Apps Script corriendo.
  *
- * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta:
- *   - llamada de webhook (GET con parámetros token/action) → Webhook.js (_wh_despachar)
- *   - cualquier otra → sirve el HTML de captura.
+ * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta las
+ * consultas de webhook de solo lectura y las vistas Web; toda mutación remota
+ * requiere doPost y habilitación explícita.
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP
+// CONTROL DE ACCESO — CAPACIDADES SEPARADAS
 //   v0.10.7 (DEC-071): Incorporación de ingresos clara para el operador —
 //     incorporación individual y masiva de válidos reutilizando el pipeline único;
 //   v0.10.6 (DEC-070): Controles y seguimientos por persona (selector 100% cliente) + REM sin loader falso;
 //   v0.10.5 (DEC-069 supera DEC-068/DEC-067): fiabilidad operativa + lecturas acotadas;
-//   v0.10.4 (DEC-068 supera DEC-067): una sola credencial habilita TODAS las
-//   funciones operativas del sistema (captura, actualizar ficha, Controles,
-//   Dashboard, REM, Revisión, Configuración, Backups…). Se elimina la
-//   separación de capacidades CAPTURA ≠ OPERADOR: el enlace de trabajo del
-//   sistema otorga el mismo acceso a cualquier trabajador autorizado.
-//
-//   Credencial canónica: CAPTURA_ACCESS_TOKEN. Su valor se CONSERVA: el
-//   QR/URL vigente no se invalida con este hotfix.
-//   OPERADOR_ACCESS_TOKEN queda OBSOLETO pero se acepta como token legacy de
-//   transición (no rompe pestañas/enlaces abiertos durante v0.10.3).
-//   El token del webhook sigue siendo independiente y no se comparte en el QR.
+//   v0.16.0 (DEC-097): CAPTURA y OPERADOR vuelven a ser capacidades distintas.
+//   CAPTURA_ACCESS_TOKEN solo permite registrar; OPERADOR_ACCESS_TOKEN o una
+//   identidad explícitamente permitida habilita vistas administrativas. El
+//   token del webhook es independiente y nunca se comparte en URLs públicas.
 // ---------------------------------------------------------------------------
 
-/** Autoriza el acceso universal: sesión activa o token universal válido. */
+/** Autoriza exclusivamente operaciones de operador/administración. */
 function WebApp_autorizar(token) {
-  if (WebApp_usuarioActivo()) return true;
-  return WebApp_accesoUniversalValido_(token);
+  return WebApp_accesoOperadorValido_(token) || WebApp_identidadOperadorAutorizada_();
 }
 
-/** Aliases heredados de la superficie RPC: todos autorizan el acceso universal. */
+/** Boundary de operador usado por todos los api_* administrativos. */
 function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
-function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
+/** Boundary mínimo del canal de captura: nunca acepta token de operador por alias. */
+function WebApp_autorizarCaptura(token) { return WebApp_accesoCapturaValido_(token); }
 
 /**
- * Clave universal del sistema (credencial canónica CAPTURA_ACCESS_TOKEN).
+ * Clave del canal de captura (CAPTURA_ACCESS_TOKEN).
  * Devuelve de inmediato el valor existente; solo toma el lock para CREAR la
  * clave cuando la propiedad falta. Nunca devuelve '' si la clave existe:
  * ante contención o fallo relee sin lock y solo falla si realmente no existe.
  */
-function WebApp_claveUniversal_() {
+function WebApp_claveCaptura_() {
   var props = PropertiesService.getScriptProperties();
   var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
   if (clave) return clave;
@@ -84,42 +77,73 @@ function WebApp_claveUniversal_() {
   }
 }
 
-/** Valida un token contra la credencial universal (con legacy OPERADOR v0.10.3). */
-function WebApp_accesoUniversalValido_(token) {
+/** Valida CAPTURA_ACCESS_TOKEN. La clave legacy universal solo conserva Captura. */
+function WebApp_accesoCapturaValido_(token) {
   if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = WebApp_claveUniversal_();
+  var esperado = PropertiesService.getScriptProperties().getProperty('CAPTURA_ACCESS_TOKEN');
+  if (!esperado) return false;
   if (token === esperado) return true;
-  var legacy = PropertiesService.getScriptProperties().getProperty('OPERADOR_ACCESS_TOKEN');
+  var legacy = PropertiesService.getScriptProperties().getProperty('LEGACY_ACCESS_TOKEN');
   return !!legacy && token === legacy;
 }
 
-// ---- Alias de compatibilidad (contrato heredado) — todos delegan en la
-// capacidad universal, no se añade lógica de capacidades separadas. ----
+/** OPERADOR_ACCESS_TOKEN nunca se crea ni se revela desde una ruta pública. */
+function WebApp_claveOperador_() {
+  return PropertiesService.getScriptProperties().getProperty('OPERADOR_ACCESS_TOKEN') || '';
+}
+function WebApp_accesoOperadorValido_(token) {
+  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
+  var esperado = WebApp_claveOperador_();
+  return !!esperado && token === esperado;
+}
+function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoCapturaValido_(token); }
 
-function WebApp_claveCaptura_() { return WebApp_claveUniversal_(); }
-function WebApp_claveOperador_() { return WebApp_claveUniversal_(); }
-function WebApp_claveCompartida_() { return WebApp_claveUniversal_(); }
+/** La sesión solo autoriza si su identidad figura explícitamente en propiedades.
+ *  OPERADOR_EMAILS: lista separada por coma; OPERADOR_DOMINIOS: dominios permitidos. */
+function WebApp_identidadOperadorAutorizada_() {
+  var email = WebApp_usuarioActivo_().toLowerCase();
+  if (!email || email.indexOf('@') < 1) return false;
+  var props = PropertiesService.getScriptProperties();
+  var emails = String(props.getProperty('OPERADOR_EMAILS') || '').toLowerCase().split(',')
+    .map(function (v) { return v.trim(); }).filter(Boolean);
+  if (emails.indexOf(email) >= 0) return true;
+  var dominio = email.split('@').pop();
+  var dominios = String(props.getProperty('OPERADOR_DOMINIOS') || '').toLowerCase().split(',')
+    .map(function (v) { return v.trim().replace(/^@/, ''); }).filter(Boolean);
+  return dominios.indexOf(dominio) >= 0;
+}
 
-function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValido_(token); }
-function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
-function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
+/** Diagnóstico sin secretos para instalación/soporte; no revela identidades. */
+function WebApp_diagnosticoSeguridad_() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    capturaConfigurada: !!props.getProperty('CAPTURA_ACCESS_TOKEN'),
+    operadorTokenConfigurado: !!props.getProperty('OPERADOR_ACCESS_TOKEN'),
+    operadorIdentidadesConfiguradas: !!(props.getProperty('OPERADOR_EMAILS') || props.getProperty('OPERADOR_DOMINIOS')),
+    webhookConfigurado: !!props.getProperty('WEBHOOK_TOKEN'),
+    webhookMutacionesHabilitadas: props.getProperty('WEBHOOK_MUTACIONES_HABILITADAS') === 'SI',
+    geminiConfigurado: !!props.getProperty('GEMINI_API_KEY'),
+    legacyPendienteRetiro: !!props.getProperty('LEGACY_ACCESS_TOKEN')
+  };
+}
 
-/** URL universal del sistema (QR y enlace de distribución). */
+/** URL de captura (QR y enlace de distribución). */
 function WebApp_urlCompartida_() {
-  var clave = WebApp_claveUniversal_();
+  var clave = WebApp_claveCaptura_();
   return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
 }
 
-/** URL de una vista operativa. Usa la misma credencial universal del sistema. */
+/** URL de una vista operativa. Usa exclusivamente la capacidad OPERADOR. */
 function WebApp_urlVista_(vista) {
-  var url = WebApp_urlCompartida_();
+  var clave = WebApp_claveOperador_();
+  var url = clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
   return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
 }
 
-/** Alias heredado de URL de vista: misma URL universal. */
+/** Alias heredado de URL de vista. */
 function WebApp_urlOperadorVista_(vista) { return WebApp_urlVista_(vista); }
 
-/** Alias heredado de URL de captura: misma URL universal. */
+/** Alias heredado de URL de captura. */
 function WebApp_urlCaptura_() { return WebApp_urlCompartida_(); }
 
 /** Identidad del código servido (sello BUILD.js regenerado en cada push).
@@ -136,7 +160,7 @@ function WebApp_buildActual_() {
 }
 
 /** Devuelve el email del usuario activo o '' si no hay sesión autenticada. */
-function WebApp_usuarioActivo() {
+function WebApp_usuarioActivo_() {
   try {
     if (typeof Session !== 'undefined' && Session.getActiveUser) {
       var u = Session.getActiveUser().getEmail();
@@ -151,15 +175,15 @@ function WebApp_usuarioActivo() {
 // ---------------------------------------------------------------------------
 
 function doGet(e) {
-  // Conserva la ruta de webhook (GET con token/action) existente en Webhook.js.
+  // GET del webhook queda limitado a acciones de solo lectura.
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
-    return _wh_despachar(e);
+    return _wh_despachar(e, 'GET');
   }
   var p = e && e.parameter || {};
   var acceso = String(p.acceso || '').trim();
   var vista = String(p.vista || 'captura').trim();
   if (vista === 'captura') {
-    return WebApp_servirCaptura_();
+    return WebApp_servirCaptura_(WebApp_accesoCapturaValido_(acceso) ? acceso : '');
   }
   if (!WebApp_autorizar(acceso)) {
     return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
@@ -174,11 +198,10 @@ function doGet(e) {
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
   if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de ECICEP.');
   var plantilla = HtmlService.createTemplateFromFile(archivo);
-  var universal = WebApp_claveUniversal_();
-  // Todas las vistas operativas reciben la credencial universal (ACCESO UNIVERSAL).
-  plantilla.CAPTURA_ACCESO = universal;
-  plantilla.TOKEN_ACCESO = universal;
-  plantilla.TOKEN_INVITACION = universal;
+  var operador = acceso;
+  plantilla.CAPTURA_ACCESO = '';
+  plantilla.TOKEN_ACCESO = operador;
+  plantilla.TOKEN_INVITACION = operador;
   plantilla.MODO_OPERADOR = true;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
@@ -203,22 +226,17 @@ function doGet(e) {
   }
   return plantilla.evaluate()
     .setTitle('ECICEP — ' + vista)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura. CAPTURA_ACCESO = credencial universal; la
- *  página operativa recibe la MISMA credencial en TOKEN_ACCESO /
- *  TOKEN_INVITACION y siempre opera como MODO_OPERADOR: con el enlace del
- *  sistema se puede capturar y administrar (ACCESO UNIVERSAL, DEC-068). */
-function WebApp_servirCaptura_() {
+/** Sirve el canal de captura sin enlaces, token ni modo de operador. */
+function WebApp_servirCaptura_(accesoCaptura) {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  var universal = WebApp_claveUniversal_();
-  plantilla.CAPTURA_ACCESO = universal;
-  plantilla.TOKEN_ACCESO = universal;
-  plantilla.TOKEN_INVITACION = universal;
-  plantilla.MODO_OPERADOR = true;
-  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
+  plantilla.CAPTURA_ACCESO = accesoCaptura || '';
+  plantilla.TOKEN_ACCESO = accesoCaptura || '';
+  plantilla.TOKEN_INVITACION = accesoCaptura || '';
+  plantilla.MODO_OPERADOR = false;
+  plantilla.PORTAL_URL = '';
   plantilla.FICHA_URL = '';
   plantilla.REM_URL = '';
   plantilla.DASH_URL = '';
@@ -230,7 +248,6 @@ function WebApp_servirCaptura_() {
   plantilla.ID_INICIAL = '';
   return plantilla.evaluate()
     .setTitle('ECICEP — Captura de datos')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -243,7 +260,8 @@ function WebApp_servirCaptura_() {
  * campos requeridos y mensajes de éxito) derivado de FORM_CONFIG. La UI pinta
  * y valida con LO MISMO que valida el backend — sin reglas duplicadas a mano.
  */
-function WebApp_esquemaFormulario() {
+function WebApp_esquemaFormulario(acceso) {
+  if (!WebApp_autorizarCaptura(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Form_esquemaFormulario();
 }
 
@@ -263,7 +281,7 @@ function WebApp_esquemaFormulario() {
 function Form_capturarDesdeUI_legacy_(datos) {
   var _tTotal = Date.now();
   try {
-    if (!WebApp_usuarioActivo()) {
+    if (!WebApp_identidadOperadorAutorizada_()) {
       return { ok: false, message: 'Sesión de usuario no detectada; acceso denegado', errors: [{ campo: '_', mensaje: 'ACCESO_DENEGADO' }] };
     }
     console.log('[BACKEND] 01 entrada Form_capturarDesdeUI_legacy_');
@@ -286,7 +304,7 @@ function Form_capturarDesdeUI_legacy_(datos) {
       PROFESIONAL2: datos.PROFESIONAL2 || '',
       OBSERVACIONES: datos.OBSERVACIONES
     };
-    console.log('[BACKEND] 02 crudo construido accion=' + crudo.ACCION + ' rut=' + (crudo.RUT || '').substring(0, 6) + '***');
+    console.log('[BACKEND] 02 crudo construido accion=' + Utl_texto(crudo.ACCION));
 
     // Valida en servidor con la MISMA regla del pipeline (nunca confiar en HTML).
     var val = Form_validarRespuesta(crudo, {});
@@ -358,11 +376,11 @@ function Form_capturarDesdeUI_legacy_(datos) {
     var t0 = new Date().getTime();
     var proc = Form_procesarPendientes(opcionesProc);
     var t1 = new Date().getTime();
-    console.log('[BACKEND] 07 fin Form_procesarPendientes duracion=' + (t1 - t0) + 'ms proc=' + JSON.stringify(proc).substring(0, 200));
+    console.log('[BACKEND] 07 fin Form_procesarPendientes duracion=' + (t1 - t0) + 'ms ok=' + !!(proc && proc.ok !== false));
 
     // Lee el resultado de este envío para responder al navegador.
     var estado = UI_lecturaEstadoRespuesta(responseId);
-    console.log('[BACKEND] 08 estado=' + JSON.stringify(estado));
+    console.log('[BACKEND] 08 estado=' + Utl_texto(estado.estado));
 
     var esError = estado.estado === 'ERROR';
     var esRevision = estado.estado === 'REQUIERE_REVISION';
@@ -401,7 +419,7 @@ function Form_capturarDesdeUI_legacy_(datos) {
       try {
         if (typeof Form_diagnosticoEnvio === 'function') {
           resultado.data.diagnostico = Form_diagnosticoEnvio(responseId);
-          console.log('[DIAG] t=' + (Date.now() - _tDiag) + 'ms ' + JSON.stringify(resultado.data.diagnostico).substring(0, 1500));
+          console.log('[DIAG] t=' + (Date.now() - _tDiag) + 'ms codigo=' + Utl_texto(resultado.data.diagnostico && resultado.data.diagnostico.codigo));
         }
       } catch (eDiag) {
         console.log('[DIAG] error capturando diagnóstico: ' + String(eDiag));
