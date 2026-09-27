@@ -53,6 +53,17 @@ La convergencia local prueba cursor, retry sin avance, datos de cache sin PII y
 post-check obligatorio. No mide segundos reales de Apps Script; ese dato requiere
 el libro operativo.
 
+### Evidencia operativa del 27-09-2026
+
+El deployment vigente agotó tiempo al 88 % en `Reconciliando derivados` con
+2.713 pacientes y 21.783 eventos. El refuerzo posterior elimina el recálculo
+duplicado de `Preparando derivados` y hace que Verificación reutilice la auditoría
+del post-check. El diagnóstico inicial permite omitir ingresos, estratificación o
+caches cuando están vigentes; cada sector se refresca en una RPC independiente.
+Si más de 24 grupos de cache están dispersos, se actualizan únicamente las tres
+columnas derivadas en tres escrituras batch, en vez de hasta tres escrituras por
+grupo. El cursor técnico se replica en Script Properties y no contiene PII.
+
 ## Superficie RPC
 
 El inventario estático contiene **695** funciones top-level sin sufijo `_`:

@@ -21,7 +21,7 @@ var INSTALAR_ETAPAS = [
   { id: 'diseno',       nombre: 'Presentación del libro',        fn: 'Instalar_pDiseno_' },
   { id: 'menu',         nombre: 'Configurando menú',            fn: 'Instalar_pMenu_' },
   { id: 'enriquecimiento', nombre: 'Enriqueciendo datos de pacientes', fn: 'Instalar_pEnriquecimiento_' },
-  { id: 'derivados',    nombre: 'Actualizando estratificación', fn: 'Instalar_pDerivados_' },
+  { id: 'derivados',    nombre: 'Preparando derivados',         fn: 'Instalar_pDerivados_' },
   { id: 'integridad',   nombre: 'Reconciliando derivados',      fn: 'Instalar_pIntegridad_' },
   { id: 'verificar',    nombre: 'Verificación final',           fn: 'Instalar_pVerificar_' }
 ];
@@ -35,7 +35,7 @@ var INSTALAR_ETAPAS = [
  *  omitidas y el inventario de hojas adicionales son de solo lectura. */
 var INSTALAR_ETAPAS_MUTAN = {};
 ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'validaciones',
-  'diseno', 'menu', 'derivados', 'triggers', 'integridad'].forEach(function (id) {
+  'diseno', 'menu', 'triggers', 'integridad'].forEach(function (id) {
   INSTALAR_ETAPAS_MUTAN[id] = true;
 });
 
@@ -143,7 +143,7 @@ function api_instalarPaso(id, acceso, ejecucion, opciones) {
     // siguen en AUTO. FORZAR_INICIO/PROFUNDO invalidan el layout vigente para
     // forzar el recorrido completo; forzarInicio invalida ADEMÁS el layout de
     // INICIO (invalidar Presentación no basta: el builder haría fast-path).
-    // La etapa 'verificar' ya corre profunda.
+    // La etapa 'verificar' reutiliza el post-check profundo de Integridad.
     if (id === 'diseno' && typeof Presentacion_invalidarLayout_ === 'function' &&
         (opciones.forzarPresentacion === true || opciones.forzarInicio === true ||
          opciones.modoPresentacion === 'FORZAR_INICIO' || opciones.modoPresentacion === 'PROFUNDO')) {
@@ -728,7 +728,9 @@ function Instalar_pMenu_() {
 }
 function Instalar_pVerificar_() {
   var salud;
-  try { salud = Sistema_estadoSalud_({ profundo: true }); }
+  // Integridad acaba de ejecutar y persistir su post-check. Reutilizarlo evita
+  // una cuarta lectura completa de PACIENTES/EVENTOS en la misma instalación.
+  try { salud = Sistema_estadoSalud_({ profundo: false }); }
   catch (e) { return { ok: false, resultado: 'ERROR', estado: 'ERROR',
     motivo: e && e.message ? e.message : String(e) }; }
   // v0.15 §10: el cierre certifica Presentación (INICIO + paridad + drift).
@@ -768,22 +770,12 @@ function Instalar_pEnriquecimiento_() {
   return { ok: r.ok !== false, resumen: r };
 }
 
-/** Calcula derivados (estratificación + controles) para que INICIO muestre
- *  datos reales desde la primera instalación. Idempotente. */
+/** Compatibilidad de fase. El trabajo derivado pertenece al motor reanudable
+ *  de Integridad inmediatamente posterior; ejecutarlo aquí lo duplicaba y era
+ *  una causa directa del timeout con libros productivos. */
 function Instalar_pDerivados_() {
-  var estrat = { recalculados: 0, total: 0 };
-  var ctrl = { cambios: 0, total: 0 };
-  var errores = [];
-  try { estrat = Estrat_recalcularTodos_() || estrat; } catch (eE) { errores.push('estratificación: ' + (eE && eE.message || eE)); }
-  try { ctrl = Control_recalcularTodos() || ctrl; } catch (eC) { errores.push('controles: ' + (eC && eC.message || eC)); }
-  if (estrat.ok === false) errores.push('estratificación: ' + (estrat.motivo || 'error'));
-  if (ctrl.ok === false) errores.push('controles: ' + (ctrl.motivo || 'error'));
-  var lineas = [];
-  lineas.push('Estratificación: ' + (estrat.recalculados || 0) + '/' + (estrat.total || 0) + ' recalculados');
-  lineas.push('Controles: ' + (ctrl.cambios || 0) + '/' + (ctrl.total || 0) + ' actualizados');
-  if (errores.length) lineas.push('Errores: ' + errores.join('; '));
-  return { ok: errores.length === 0, estrat: estrat, controles: ctrl, errores: errores,
-           motivo: errores.join('; '), linea: lineas.join(' · ') };
+  return { ok: true, omitida: true, delegadaA: 'integridad',
+    linea: 'Cálculo delegado a Integridad reanudable (sin trabajo duplicado)' };
 }
 
 function Instalar_pIntegridad_(ejecucion) {

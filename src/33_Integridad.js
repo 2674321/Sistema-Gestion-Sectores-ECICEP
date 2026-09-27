@@ -219,24 +219,28 @@ function Integridad_cursorClave_(ejecucion) {
   return 'ECICEP_INST_INT|' + Utl_texto(ejecucion || 'LEGACY').replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
 }
 function Integridad_cursorLeer_(ejecucion) {
-  var clave = Integridad_cursorClave_(ejecucion), raw = null;
+  var clave = Integridad_cursorClave_(ejecucion), raw = null, props = Sistema_propiedades_();
   try { raw = CacheService.getScriptCache().get(clave); } catch (e) {}
+  try { if (!raw && props) raw = props.getProperty(clave); } catch (eP) {}
   if (!raw && _INTEGRIDAD_CURSOR_MEMO[clave]) return _INTEGRIDAD_CURSOR_MEMO[clave];
   try { return raw ? JSON.parse(raw) : null; } catch (e2) { return null; }
 }
 function Integridad_cursorGuardar_(ejecucion, estado) {
-  var clave = Integridad_cursorClave_(ejecucion);
+  var clave = Integridad_cursorClave_(ejecucion), raw = JSON.stringify(estado), props = Sistema_propiedades_();
   _INTEGRIDAD_CURSOR_MEMO[clave] = estado;
-  try { CacheService.getScriptCache().put(clave, JSON.stringify(estado), 3600); } catch (e) {}
+  try { CacheService.getScriptCache().put(clave, raw, 3600); } catch (e) {}
+  try { if (props) props.setProperty(clave, raw); } catch (eP) {}
 }
 function Integridad_cursorLimpiar_(ejecucion) {
-  var clave = Integridad_cursorClave_(ejecucion);
+  var clave = Integridad_cursorClave_(ejecucion), props = Sistema_propiedades_();
   delete _INTEGRIDAD_CURSOR_MEMO[clave];
   try { CacheService.getScriptCache().remove(clave); } catch (e) {}
+  try { if (props) props.deleteProperty(clave); } catch (eP) {}
 }
 function Integridad_resumenSeguro_(d) {
   return { pacientes: Number(d.pacientes || 0), eventos: Number(d.eventos || 0),
     ingresosFalsos: Number(d.ingresosFalsos || 0), ingresosInconsistentes: Number(d.ingresosInconsistentes || 0),
+    ingresosDerivados: Number(d.ingresos && d.ingresos.conteos && d.ingresos.conteos.DERIVADO_DESACTUALIZADO || 0),
     cachesPendientes: Number(d.cachesPendientes || 0), vistasPendientes: Number(d.vistasPendientes || 0),
     estratificacionPendiente: Number(d.estratificacionPendiente || 0),
     sectoresAfectados: (d.vistas && d.vistas.sectoresAfectados || []).slice() };
@@ -254,20 +258,49 @@ function Integridad_ejecutarPaso_(ejecucion) {
       estado.sectores = estado.diagnostico.sectoresAfectados.slice();
       detalle = estado.diagnostico;
     } else if (tarea.id === 'ingresos') {
-      var snapI = Integridad_snapshotDerivados_(), diagI = Integridad_diagnosticarDerivados_(snapI);
-      detalle = Ingresos_reconciliarIngresados_({ reparar: true, bajoLock: true,
-        diagnostico: diagI.ingresos, snapshot: snapI, deferirVistas: true });
-      (detalle.sectoresAfectados || []).forEach(function (s) { if (estado.sectores.indexOf(s) < 0) estado.sectores.push(s); });
-      if (detalle.ok === false) throw new Error('INGRESOS_NO_CONVERGEN');
+      var requiereIngresos = estado.diagnostico && (estado.diagnostico.ingresosFalsos ||
+        estado.diagnostico.ingresosInconsistentes || estado.diagnostico.ingresosDerivados);
+      if (!requiereIngresos) detalle = { ok: true, omitida: true, motivo: 'SIN_INGRESOS_PENDIENTES' };
+      else {
+        var snapI = Integridad_snapshotDerivados_();
+        var diagIngresos = Ingresos_diagnosticarIngresados_(snapI);
+        detalle = Ingresos_reconciliarIngresados_({ reparar: true, bajoLock: true,
+          diagnostico: diagIngresos, snapshot: snapI, deferirVistas: true });
+        (detalle.sectoresAfectados || []).forEach(function (s) { if (estado.sectores.indexOf(s) < 0) estado.sectores.push(s); });
+        if (detalle.ok === false) throw new Error('INGRESOS_NO_CONVERGEN');
+      }
     } else if (tarea.id === 'estratificacion') {
-      detalle = Estrat_recalcularTodos_({ deferirVistas: true });
-      (detalle.sectoresAfectados || []).forEach(function (s) { if (estado.sectores.indexOf(s) < 0) estado.sectores.push(s); });
-      if (detalle.ok === false) throw new Error(detalle.motivo || 'ESTRATIFICACION_FALLO');
+      if (!estado.diagnostico || !estado.diagnostico.estratificacionPendiente)
+        detalle = { ok: true, omitida: true, motivo: 'ESTRATIFICACION_VIGENTE' };
+      else {
+        detalle = Estrat_recalcularTodos_({ deferirVistas: true });
+        (detalle.sectoresAfectados || []).forEach(function (s) { if (estado.sectores.indexOf(s) < 0) estado.sectores.push(s); });
+        if (detalle.ok === false) throw new Error(detalle.motivo || 'ESTRATIFICACION_FALLO');
+      }
     } else if (tarea.id === 'caches') {
-      detalle = Control_recalcularCaches_();
-      if (detalle.ok === false) throw new Error(detalle.motivo || 'CACHES_FALLO');
+      if (!estado.diagnostico || !estado.diagnostico.cachesPendientes)
+        detalle = { ok: true, omitida: true, motivo: 'CACHES_VIGENTES' };
+      else {
+        detalle = Control_recalcularCaches_();
+        if (detalle.ok === false) throw new Error(detalle.motivo || 'CACHES_FALLO');
+      }
     } else if (tarea.id === 'vistas') {
-      detalle = estado.sectores.length ? Modelo_refrescarVistasSectores_(estado.sectores) : { omitida: true };
+      var sectorIx = Number(estado.vistaCursor || 0);
+      if (!estado.sectores.length) detalle = { omitida: true, motivo: 'VISTAS_VIGENTES' };
+      else {
+        var sectorActual = estado.sectores[sectorIx];
+        detalle = Modelo_refrescarVistasSectores_([sectorActual]);
+        sectorIx++; estado.vistaCursor = sectorIx;
+        estado.metricas['vista:' + sectorActual] = { ms: Date.now() - t0 };
+        if (sectorIx < estado.sectores.length) {
+          Integridad_cursorGuardar_(ejecucion, estado);
+          return { ok: true, continuar: true, cursor: cursor,
+            progreso: { actual: cursor + sectorIx / estado.sectores.length, total: INTEGRIDAD_SUBPLAN.length },
+            subetapa: { id: 'vistas:' + estado.sectores[sectorIx], nombre: 'Vista ' + estado.sectores[sectorIx] },
+            tareaCompletada: { id: 'vistas:' + sectorActual, nombre: 'Vista ' + sectorActual },
+            diagnostico: detalle, metricas: estado.metricas, ms: Date.now() - t0 };
+        }
+      }
     } else if (tarea.id === 'postcheck') {
       var despues = Integridad_diagnosticarDerivados_();
       Sistema_guardarAuditoria_(despues);

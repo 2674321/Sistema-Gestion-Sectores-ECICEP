@@ -1,5 +1,14 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-27:** evidencia operativa recibida con **2.713
+> pacientes / 21.783 eventos**: el deployment vigente agotó tiempo en
+> `Reconciliando derivados` al 88 %. La rama v0.16 refuerza el arreglo: elimina
+> el recálculo duplicado previo y el diagnóstico profundo duplicado final; omite
+> subfases sanas; ejecuta cada vista en una RPC; persiste cursor técnico sin PII
+> en Cache + Script Properties; y limita caches dispersos a tres escrituras de
+> columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
+> para medir duración y convergencia reales.
+
 > **Actualización 2026-09-26 (v0.16.0):** corregidos los bypass críticos de
 > Captura→Operador, helpers mutantes de instalador/backup/limpieza/carga real,
 > webhook por GET, egress clínico hacia Gemini y el patrón N×`TextFinder` de

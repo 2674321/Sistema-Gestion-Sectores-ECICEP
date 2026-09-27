@@ -5350,10 +5350,10 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
     A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
     ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'validaciones',
-     'diseno', 'menu', 'derivados'].forEach(function (id) {
+     'diseno', 'menu', 'triggers', 'integridad'].forEach(function (id) {
       A.cierto(!!INSTALAR_ETAPAS_MUTAN[id], id + ' figura como mutante');
     });
-    ['runtime', 'diagnostico', 'versionado',
+    ['runtime', 'diagnostico', 'versionado', 'derivados',
      'limpieza', 'verificar'].forEach(function (id) {
       A.cierto(!INSTALAR_ETAPAS_MUTAN[id], id + ' es solo lectura (sin lock)');
     });
@@ -6331,10 +6331,10 @@ function _pruebas_p0_auditoria_v098(t, A) {
       'ejecuta enriquecimiento real (fill-only SEXO/FECHA_NACIMIENTO)');
   });
 
-  t('S10: Instalar_pDerivados reporta errores (no solo best effort)', function () {
+  t('S10: Instalar_pDerivados delega sin duplicar el motor reanudable', function () {
     var src = Instalar_pDerivados_.toString();
-    A.cierto(src.indexOf('errores') !== -1, 'array de errores existe');
-    A.cierto(src.indexOf('ok: errores.length === 0') !== -1, 'ok depende de errores');
+    A.cierto(src.indexOf("delegadaA: 'integridad'") !== -1, 'delega explícitamente');
+    A.cierto(src.indexOf('Estrat_recalcularTodos_') === -1, 'no recalcula antes de Integridad');
   });
 
   t('S10: Act_actualizarSistema trackea errores críticos', function () {

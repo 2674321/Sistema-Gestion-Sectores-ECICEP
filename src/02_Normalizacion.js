@@ -1114,7 +1114,19 @@ function Control_recalcularCaches_() {
     var colControl = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('ULTIMO_CONTROL') + 1;
     var colSeguimiento = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('ULTIMO_SEGUIMIENTO') + 1;
     var colActualizacion = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('FECHA_ACTUALIZACION') + 1;
-    Utl_gruposContiguosFilas(filasFisicas).forEach(function (grupo) {
+    var grupos = Utl_gruposContiguosFilas(filasFisicas);
+    // Muchos cambios dispersos convertían una reparación de 530 filas en hasta
+    // 1.590 RPC de escritura. Sobre el umbral se reescriben SOLO las tres
+    // columnas derivadas, en tres bloques; las filas sin cambio conservan sus
+    // mismos valores y nunca se toca información clínica canónica.
+    if (grupos.length > 24) {
+      hoja.getRange(iniPac, colControl, pacientes.length, 1)
+        .setValues(pacientes.map(function (p) { return [p.ULTIMO_CONTROL]; }));
+      hoja.getRange(iniPac, colSeguimiento, pacientes.length, 1)
+        .setValues(pacientes.map(function (p) { return [p.ULTIMO_SEGUIMIENTO]; }));
+      hoja.getRange(iniPac, colActualizacion, pacientes.length, 1)
+        .setValues(pacientes.map(function (p) { return [p.FECHA_ACTUALIZACION]; }));
+    } else grupos.forEach(function (grupo) {
       var primera = grupo[0], n = grupo.length;
       hoja.getRange(primera, colControl, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].ULTIMO_CONTROL]; }));
       hoja.getRange(primera, colSeguimiento, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].ULTIMO_SEGUIMIENTO]; }));
@@ -1125,5 +1137,6 @@ function Control_recalcularCaches_() {
   var ms = new Date() - t0;
   Log_info('Control', 'recalcularCaches', 'total=' + pacientes.length + ' cambios=' + cambios, null, ms);
   Log_flush();
-  return { ok: true, total: pacientes.length, cambios: cambios, tiempo: ms, modo: 'CACHE_CALCULADA' };
+  return { ok: true, total: pacientes.length, cambios: cambios, tiempo: ms, modo: 'CACHE_CALCULADA',
+    modoEscritura: cambios ? (Utl_gruposContiguosFilas(filasFisicas).length > 24 ? 'COLUMNAS_BATCH' : 'FILAS_CONTIGUAS') : 'SIN_ESCRITURAS' };
 }

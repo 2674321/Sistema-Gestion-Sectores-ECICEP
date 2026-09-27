@@ -79,7 +79,10 @@ c.Hojas_ocultarTecnicas = () => ({}); c.Hojas_proteger = () => ({}); c.Hojas_fil
 assert.match(c.Presentacion_ejecutarTarea_({ id: 'accesorios', nombre: 'Ayudas' }).motivo, /INGRESO_VERDE/);
 c.Estrat_recalcularTodos_ = () => ({ ok: false, motivo: 'SIN_HOJA_PACIENTES' });
 c.Control_recalcularTodos = () => ({ ok: true, cambios: 0, total: 0 });
-assert.equal(c.Instalar_pDerivados_().ok, false);
+const derivadosDelegados = c.Instalar_pDerivados_();
+assert.equal(derivadosDelegados.ok, true);
+assert.equal(derivadosDelegados.omitida, true);
+assert.equal(derivadosDelegados.delegadaA, 'integridad');
 // Los nombres y las hojas vacías solo se reportan; ningún paso de instalar borra.
 let borradas = 0;
 const hoja = (nombre, datos) => ({ getName: () => nombre,

@@ -2166,3 +2166,16 @@ logs aplican redacción defensiva. No cambia schema 2 ni Captura V4.
 **Validación:** suites vNEXT de capacidades, RPC, webhook, IA, XSS, logs,
 rendimiento, reanudación y versión; E2E operativo pendiente.
 **Fecha:** 2026-09-26
+
+## DEC-098
+**Título:** Integridad adaptativa por evidencia y cursor durable.
+**Estado:** Aprobada
+**Motivo:** Una instalación real con 2.713 pacientes y 21.783 eventos agotó el
+tiempo en `Reconciliando derivados` al 88 %. La reparación no debe repetir
+estratificación antes de Integridad ni otro diagnóstico profundo al verificar.
+El diagnóstico inicial decide qué subfases ejecutar; cada vista ocupa una RPC;
+cambios dispersos de caches se escriben en tres columnas batch; el cursor sin PII
+se conserva en CacheService y Script Properties. Un timeout deja reintento exacto.
+**Validación:** suites de Integridad reanudable/rendimiento y batería completa;
+medición en el libro real pendiente después de publicar.
+**Fecha:** 2026-09-27

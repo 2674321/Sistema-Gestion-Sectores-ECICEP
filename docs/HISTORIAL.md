@@ -1163,6 +1163,10 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   de logs, fixes XSS críticos y retiro de `ALLOWALL`.
 - Esquema 2 y Captura V4 sin cambios. E2E y publicación quedan condicionados a
   rotación de secretos; detalle en `docs/INFORME_AUDITORIA_VNEXT.md`.
+- Addendum 2026-09-27: tras observar timeout real al 88 % con 2.713 pacientes y
+  21.783 eventos, se eliminan dos barridos redundantes, se saltan subfases sin
+  pendientes, se procesa una vista por RPC, el cursor pasa a Cache + Script
+  Properties y caches dispersos usan tres escrituras batch de columnas derivadas.
 
 ## v0.12.1 — freeze residual de la portada (arreglo en la reparación real, 2026-09-24)
 

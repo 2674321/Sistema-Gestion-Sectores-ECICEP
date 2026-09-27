@@ -736,6 +736,8 @@ function fallarEtapa(etapa,ix,r,e){
 
 function mensajeErrorHumano(motivo){
   var m=String(motivo||'');
+  if(m.toLowerCase().indexOf('tiempo máximo')!==-1||m.toLowerCase().indexOf('maximum execution time')!==-1)
+    return 'Apps Script interrumpió esta llamada por tiempo. El último paso completo quedó guardado: reintenta y la reparación continuará desde esa subfase, sin repetir las anteriores.';
   if(m.indexOf('CONCURRENCIA')!==-1||m.indexOf('LOCK_')!==-1)
     return 'Otro proceso está usando el libro. Espera unos segundos y reintenta esta subtarea.';
   if(m.indexOf('BACKUP')!==-1)

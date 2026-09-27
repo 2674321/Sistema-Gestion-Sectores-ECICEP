@@ -36,6 +36,12 @@ Gemini usa `gemini-3.6-flash`, envía la clave por header y no exporta ejemplos 
 PACIENTES/EVENTOS. Migración y riesgos residuales:
 [`docs/INFORME_AUDITORIA_VNEXT.md`](docs/INFORME_AUDITORIA_VNEXT.md) (DEC-097).
 
+Addendum de instalación productiva (2.713 pacientes / 21.783 eventos): el motor
+omite subfases sin pendientes, procesa una vista sectorial por RPC, conserva el
+cursor también en Script Properties y colapsa cambios dispersos de caches a tres
+escrituras de columnas derivadas. `Preparando derivados` ya no recalcula antes de
+Integridad y Verificación reutiliza su post-check; se eliminan dos barridos completos.
+
 ## v0.15.1 — fix «intervalo combinado» en Portada INICIO
 
 La subtarea «Portada INICIO» fallaba en producción porque el marco de color de
