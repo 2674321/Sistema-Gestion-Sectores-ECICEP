@@ -2151,3 +2151,18 @@ exige seleccionar el intervalo combinado COMPLETO para separarlo, así que `brea
 (4) el verifier exige cero combinaciones fuera del lienzo (`MERGE_FUERA`).
 Regresión cubierta por `inicio_pro_v015` T10/T10b con mock fiel a la regla de Sheets.
 **Fecha:** 2026-09-26
+
+## DEC-097
+**Título:** v0.16.0 — capacidades separadas, RPC crítica privada e Integridad batch/reanudable.
+**Estado:** Aprobada con reducción RPC residual pendiente
+**Motivo:** La URL pública no puede conferir Operador; Captura, Operador y Webhook
+son credenciales independientes. La identidad Google solo autoriza mediante
+allowlist explícita. Mutaciones remotas requieren POST y opt-in. Los helpers
+críticos terminan en `_` y la superficie top-level restante queda congelada para
+reducción incremental. Integridad comparte un snapshot indexado, elimina búsquedas
+por fila, difiere un único refresco de vistas, escribe derivados selectivamente y
+se divide en seis pasos reanudables con post-check. IA usa allowlist de egress y
+logs aplican redacción defensiva. No cambia schema 2 ni Captura V4.
+**Validación:** suites vNEXT de capacidades, RPC, webhook, IA, XSS, logs,
+rendimiento, reanudación y versión; E2E operativo pendiente.
+**Fecha:** 2026-09-26

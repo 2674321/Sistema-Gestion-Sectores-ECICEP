@@ -19,8 +19,8 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
   assert.ok(!ids.includes('visual'), 'sin fase principal visual');
   assert.ok(!ids.includes('inicio'), 'sin fase principal inicio');
   assert.ok(ids.includes('diseno'), 'etapa diseno (motor único) existe');
-  assert.equal(typeof c.Instalar_pVisual, 'function', 'wrapper compat pVisual');
-  assert.equal(typeof c.Instalar_pInicio, 'function', 'wrapper compat pInicio');
+  assert.equal(typeof c.Instalar_pVisual_, 'function', 'wrapper compat pVisual');
+  assert.equal(typeof c.Instalar_pInicio_, 'function', 'wrapper compat pInicio');
   assert.ok(!c.INSTALAR_ETAPAS_MUTAN.visual && !c.INSTALAR_ETAPAS_MUTAN.inicio);
   ok('T1 instalador con UNA fase de presentación; wrappers compat conservados');
 }
@@ -64,7 +64,7 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
 
 // T6: api_instalarPaso backward-compatible con las opciones v0.14.
 {
-  const props = new Map();
+  const props = new Map([['OPERADOR_ACCESS_TOKEN','d'.repeat(64)]]);
   c.PropertiesService = { getScriptProperties: () => ({
     getProperty: k => props.get(k) || '', setProperty: (k, v) => props.set(k, v) }) };
   c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDate: () => '' };
@@ -75,7 +75,7 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
   let invalidados = 0;
   c.Presentacion_invalidarLayout_ = () => { invalidados++; };
   c.Presentacion_ejecutarPaso_ = () => ({ ok: true, continuar: false });
-  const clave = c.WebApp_claveCompartida_();
+  const clave = c.WebApp_claveOperador_();
   assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-A').ok, true, 'sin opciones (AUTO)');
   assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-B', { modoPresentacion: 'REPARAR' }).ok, true);
   assert.equal(invalidados, 0, 'REPARAR no invalida');

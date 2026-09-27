@@ -2,7 +2,7 @@
 // Regresión 0.12.1 — Portada (INICIO) construida SIEMPRE sin filas/columnas
 // inmovilizadas residuales.
 // Síntoma real: "No se pueden combinar filas inmovilizadas con filas no
-// inmovilizadas" en la fase "Preparando la portada" (Instalar_pInicio →
+// inmovilizadas" en la fase "Preparando la portada" (Instalar_pInicio_ →
 // Modelo_disenoHojas → Hojas_crearInicio → Inicio_construir_). Ocurre cuando
 // la hoja hereda freeze de una instalación anterior y las escrituras del
 // constructor cruzan el límite congelado/no-congelado.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v0.15.0 — INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50): contrato único,
+// v0.16.0 — INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50): contrato único,
 // 6 accesos, 6 KPIs, 3 cards, estado, prioridades, estratificación, info,
 // footer, ≤40 merges, ≤190 RPC, sin fórmulas vivas, sin marco gigante,
 // extra-dims no son drift. End-to-end con hoja simulada CON ESTADO.
@@ -222,7 +222,7 @@ function backend(proHoja) {
   });
   c.Libro_limpiarDirty_ = () => {};
   c.Libro_estaDirty_ = () => false;
-  c.ECICEP = { VERSION: '0.15.0', TZ: 'America/Santiago' };
+  c.ECICEP = { VERSION: '0.16.0', TZ: 'America/Santiago' };
   c.ECICEP_BUILD = { commit: 'test123' };
   c.WebApp_urlVista_ = v => '#vista-' + v;
   c.WebApp_urlCaptura_ = () => '#captura';
@@ -391,7 +391,7 @@ const escrituras = () => [...RPC.entries()]
     assert.equal(pro.hoja.getRange(a1).getFormula(), '', a1 + ' sin fórmula');
   assert.equal(pro.hoja.getRange('A11').getValue(), '5');
   assert.equal(pro.hoja.getRange('R42').getValue(), '1');
-  assert.equal(pro.hoja.getRange('AI42').getValue(), 'v0.15.0');
+  assert.equal(pro.hoja.getRange('AI42').getValue(), 'v0.16.0');
   ok('T8 valores agregados sin fórmulas vivas (KPIs, cards, estado, estratificación, info)');
 }
 

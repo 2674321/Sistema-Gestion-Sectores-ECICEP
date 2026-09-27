@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.15.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,18 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.15.1` — fix de producción: INICIO descombina la hoja completa (residuo del marco v0.14) y limpia el área extra; instalador con opciones reales + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+| **Estado** | `v0.16.0` — capacidades Captura/Operador separadas, webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+
+## v0.16.0 — hardening e integridad reanudable
+
+Captura y Operador vuelven a ser capacidades separadas: el QR público solo
+registra datos y nunca recibe privilegios administrativos. Los mutadores remotos
+requieren POST y opt-in explícito; los helpers críticos dejaron de ser RPC
+públicas. Integridad comparte un snapshot batch, escribe solo filas/columnas
+derivadas modificadas y se ejecuta en seis pasos reanudables con post-check.
+Gemini usa `gemini-3.6-flash`, envía la clave por header y no exporta ejemplos de
+PACIENTES/EVENTOS. Migración y riesgos residuales:
+[`docs/INFORME_AUDITORIA_VNEXT.md`](docs/INFORME_AUDITORIA_VNEXT.md) (DEC-097).
 
 ## v0.15.1 — fix «intervalo combinado» en Portada INICIO
 

@@ -20,7 +20,7 @@ function backend() {
   for (const f of readdirSync(new URL('src/', root)).filter((f) => /\.(js|gs)$/.test(f)).sort()) {
     vm.runInContext(read('src/' + f), ctx, { filename: f });
   }
-  const props = new Map();
+  const props = new Map([['OPERADOR_ACCESS_TOKEN','d'.repeat(64)]]);
   ctx.PropertiesService = { getScriptProperties: () => ({
     getProperty: (k) => props.get(k) || '',
     setProperty: (k, v) => props.set(k, v)
@@ -67,7 +67,7 @@ test('B2: la carga no vuelve a generar evento si el FUENTE del evento previo tie
   c.Modelo_leerEventos = () => [{ FUENTE: 'ECICEP NARANJO|Ingresos Enero|2' }];
   let procesadas = 0;
   c.Ingresos_procesarFilas = (nuevas) => { procesadas += nuevas.length; return { resumen: {}, resultados: [] }; };
-  const r = c.Fuentes_cargaReal({ ejecutar: false, actualizar: true });
+  const r = c.Fuentes_cargaReal_({ ejecutar: false, actualizar: true });
   assert.equal(r.ok, true);
   assert.equal(r.resumen.yaImportadas, 1);
   assert.equal(procesadas, 0);
@@ -98,7 +98,7 @@ test('B3: preflight detecta hoja autorizada ausente y archivo inaccesible', () =
   assert.equal(p2.ok, false);
   assert.ok(p2.bloqueantes.length > 0);
 });
-test('B3: Fuentes_cargaReal bloquea con HOJA_FUENTE_FALTANTE sin leer ni escribir', () => {
+test('B3: Fuentes_cargaReal_ bloquea con HOJA_FUENTE_FALTANTE sin leer ni escribir', () => {
   const c = backend();
   let leidas = 0, eventos = 0;
   c.Fuentes_leerStagingAutorizado = () => { leidas++; return []; };
@@ -106,7 +106,7 @@ test('B3: Fuentes_cargaReal bloquea con HOJA_FUENTE_FALTANTE sin leer ni escribi
   c.Modelo_leerEventos = () => [];
   c.Modelo_leerPacientes = () => [];
   c.Modelo_agregarEventos_ = () => { eventos++; return 0; };
-  const r = c.Fuentes_cargaReal({ ejecutar: true, actualizar: true });
+  const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true });
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'HOJA_FUENTE_FALTANTE');
   assert.ok(r.preflight && r.preflight.length === 1);
@@ -125,11 +125,11 @@ test('B4: la primera etapa mutante crea UN respaldo por ejecución; el resto lo 
   c.CacheService = { getScriptCache: () => ({ get: (k) => cache[k] || null, put: (k, v) => { cache[k] = String(v); } }) };
   c.DriveApp = { getFileById: () => ({ makeCopy: () => null }) };
   let backups = 0, nombres = [];
-  c.Backup_crear = (et) => { backups++; const n = 'MANUAL_ECICEP_BACKUP_' + backups; nombres.push(n); return { ok: true, nombre: n, id: 'x', url: 'u', tamano: 0 }; };
+  c.Backup_crear_ = (et) => { backups++; const n = 'MANUAL_ECICEP_BACKUP_' + backups; nombres.push(n); return { ok: true, nombre: n, id: 'x', url: 'u', tamano: 0 }; };
   c.Modelo_crearEstructura_ = () => ({ creadas: [], existentes: [], dashboardReparado: false });
-  c.Fuentes_cargaReal = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
+  c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
-  const clave = c.WebApp_claveCompartida_();
+  const clave = c.WebApp_claveOperador_();
   const r1 = c.api_instalarPaso('estructura', clave, 'EJEC-T1');
   assert.equal(r1.ok, true);
   assert.equal(r1.respaldo, 'MANUAL_ECICEP_BACKUP_1');
@@ -150,10 +150,10 @@ test('B4: si el respaldo falla, la etapa responde BACKUP_FALLIDO y no se ejecuta
   c.SISTEMA_VERSION_SCHEMA_ACTUAL = '2';
   c.DriveApp = {};
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
-  c.Backup_crear = () => ({ ok: false, motivo: 'drive_lleno_simulado' });
+  c.Backup_crear_ = () => ({ ok: false, motivo: 'drive_lleno_simulado' });
   let invocada = 0;
-  c.Instalar_pMigraciones = () => { invocada++; return { ok: true }; };
-  const clave = c.WebApp_claveCompartida_();
+  c.Instalar_pMigraciones_ = () => { invocada++; return { ok: true }; };
+  const clave = c.WebApp_claveOperador_();
   const r = c.api_instalarPaso('migraciones', clave, 'EJEC-F');
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'BACKUP_FALLIDO');
@@ -292,7 +292,7 @@ test('B9: 10× Instalar sobre el mismo origen no duplica eventos ni archiva stag
   } : null });
   c.Utl_escribirBloque = (hoja, fila, col, datos) => { filasStaging = filasStaging.concat(datos); return datos.length; };
   for (let i = 0; i < 10; i++) {
-    const r = c.Fuentes_cargaReal({ ejecutar: true, actualizar: true });
+    const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true });
     assert.equal(r.ok, true);
     assert.equal(r.resumen.yaImportadas, 1, 'fila ya importada cada vez');
     if (i === 0) assert.equal(r.resumen.escritosPacientes, false);
@@ -340,9 +340,9 @@ test('SNAPSHOT: la ejecución reutiliza el análisis dry-run (UNA lectura de fue
   c.Modelo_agregarEventos_ = () => 0;
   c.Modelo_refrescarVistasSectores_ = () => ({});
   c.Act_mergearPacientesDesdeStaging = () => ({ revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] });
-  const a = c.Fuentes_cargaReal({ ejecutar: false, actualizar: true });
+  const a = c.Fuentes_cargaReal_({ ejecutar: false, actualizar: true });
   assert.equal(lecturas, 1);
-  const r = c.Fuentes_cargaReal({ ejecutar: true, actualizar: true, ejecucionId: a.ejecucionId });
+  const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true, ejecucionId: a.ejecucionId });
   assert.equal(r.ok, true);
   assert.equal(lecturas, 1, 'la ejecución no vuelve a leer las fuentes');
 });

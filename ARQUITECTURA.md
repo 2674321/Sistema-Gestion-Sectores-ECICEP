@@ -1,5 +1,22 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-26 (v0.16.0):**
+> - El único sistema conserva un solo proyecto, Spreadsheet, Web App, backend y
+>   pipeline. No se agregaron ambientes ni almacenes paralelos.
+> - Límites de confianza: `CAPTURA_ACCESS_TOKEN` solo captura;
+>   `OPERADOR_ACCESS_TOKEN` o allowlist de identidad habilitan operación;
+>   `WEBHOOK_TOKEN` es independiente y sus mutaciones exigen POST + opt-in.
+> - Los helpers críticos de instalación, limpieza, backup y carga real terminan
+>   en `_`, por lo que no son invocables directamente con `google.script.run`.
+>   Una allowlist versionada congela toda la superficie RPC heredada restante.
+> - Integridad usa un snapshot batch común y una máquina reanudable de seis pasos
+>   (`diagnostico → ingresos → estratificacion → caches → vistas → postcheck`).
+>   Los cursores guardan solo conteos, sectores y tiempos, nunca PII.
+> - Los caches y la estratificación aplican fast-path cero escrituras y rangos
+>   contiguos mínimos; las vistas limpian solo su área usada.
+> - IA aplica minimización por allowlist, no envía muestras de PACIENTES/EVENTOS
+>   y transporta la API key en header. Esquema 2 y Captura V4 no cambian.
+
 > **Actualización 2026-09-24 (v0.12.1):**
 > - La fase `Presentación del libro` es **reanudable**: 8 subtareas con
 >   presupuesto de tiempo por RPC y cursor persistido en CacheService por clave de

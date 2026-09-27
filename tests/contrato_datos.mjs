@@ -73,6 +73,10 @@ sandbox.SpreadsheetApp = {
   getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }
 };
 sandbox.Session = { getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }, getScriptTimeZone: function () { return 'America/Santiago'; } };
+sandbox.PropertiesService = { getScriptProperties: function () { return {
+  getProperty: function (k) { return k === 'OPERADOR_EMAILS' ? 'test@ecicep.cl' : ''; },
+  setProperty: function () {}, deleteProperty: function () {}
+}; } };
 sandbox.Logger = { log: function () {}, logToConsole: function () {} };
 sandbox.Utilities = { formatDate: function (d) { return d.toISOString().slice(0, 10); } };
 sandbox.CacheService = { getScriptCache: function () { return { get: function () { return null; }, put: function () {}, remove: function () {} }; } };

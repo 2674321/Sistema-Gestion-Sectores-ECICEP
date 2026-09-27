@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v0.15.0 — Portada INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50). El contrato
+// v0.16.0 — Portada INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50). El contrato
 // cambió intencionalmente desde V014: contrato único INICIO_CONTRATO, 6
 // accesos, 6 KPIs, cards con matrices, sin marco gigante ni SOBRANTE.
 // Se conserva la cobertura de regresión (fingerprint, merges, alturas,

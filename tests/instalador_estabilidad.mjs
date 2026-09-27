@@ -7,13 +7,13 @@ const root = new URL('../src/', import.meta.url);
 const c = vm.createContext({ console: { log() {}, warn() {}, error() {} } });
 for (const f of readdirSync(root).filter(x => /\.(js|gs)$/.test(x)).sort())
   vm.runInContext(readFileSync(new URL(f, root), 'utf8'), c, { filename: f });
-const props = new Map();
+const props = new Map([['OPERADOR_ACCESS_TOKEN','d'.repeat(64)]]);
 c.PropertiesService = { getScriptProperties: () => ({
   getProperty: k => props.get(k) || '', setProperty: (k, v) => props.set(k, v)
 }) };
 c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDate: () => '' };
 c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
-const clave = c.WebApp_claveCompartida_();
+const clave = c.WebApp_claveOperador_();
 assert.equal(c.api_instalarEtapas('').motivo, 'ACCESO_DENEGADO');
 assert.equal(c.api_instalarDiagnostico('').motivo, 'ACCESO_DENEGADO');
 assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
@@ -22,29 +22,29 @@ const diagnosticarReal = c.Instalar_diagnosticar;
 c.Instalar_diagnosticar = () => ({ ok: true, diagnostico: { resumen: { fasesPendientes: [] } } });
 assert.equal(c.api_instalarDiagnostico(clave).ok, true);
 let llamadas = 0;
-c.Instalar_pRuntime = () => { llamadas++; return { ok: false, motivo: 'FALLO_SIMULADO' }; };
+c.Instalar_pRuntime_ = () => { llamadas++; return { ok: false, motivo: 'FALLO_SIMULADO' }; };
 c.Log_error = () => {}; c.Log_flush = () => {};
 assert.equal(c.api_instalarPaso('runtime', clave).motivo, 'FALLO_SIMULADO');
 assert.equal(llamadas, 1);
 assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
 assert.equal(llamadas, 1);
-// v0.14: Instalar_pVisual es wrapper del motor único (subtareas formato:* +
+// v0.14: Instalar_pVisual_ es wrapper del motor único (subtareas formato:* +
 // complementarias del plan, sin pipeline paralelo). Simula un fallo de subtarea.
 const tareaRealV = c.Presentacion_ejecutarTarea_;
 c.Presentacion_ejecutarTarea_ = t => t.id === 'formato:PACIENTES'
   ? { ok: false, motivo: 'PACIENTES: fallo simulado' } : { ok: true, detalle: {} };
-assert.equal(c.Instalar_pVisual().ok, false);
+assert.equal(c.Instalar_pVisual_().ok, false);
 c.Presentacion_ejecutarTarea_ = tareaRealV;
 c.Modelo_leerPacientes = () => []; c.Modelo_leerEventos = () => [];
 c.Modelo_hoja = () => ({});
 c.Modelo_escanearEstructura = () => ({});
 c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: '1' });
-assert.equal(c.Instalar_pVerificar().ok, false);
+assert.equal(c.Instalar_pVerificar_().ok, false);
 // Un esquema ilegible o posterior bloquea la migración aun si faltan hojas.
 c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: 'abc', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
 let migraciones = 0;
 c.Mig_ejecutarDeclaradas = () => { migraciones++; return { ok: true }; };
-assert.equal(c.Instalar_pVersionado().motivo, 'VERSION_DESCONOCIDA');
+assert.equal(c.Instalar_pVersionado_().motivo, 'VERSION_DESCONOCIDA');
 assert.equal(c.Mig_ejecutarPersistente().motivo, 'VERSION_DESCONOCIDA');
 assert.equal(migraciones, 0);
 c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: '2', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
@@ -59,27 +59,27 @@ assert.equal(c.api_instalarPaso('estructura', clave).motivo, 'ESQUEMA_DIVERGENTE
 assert.equal(estructuraEscrita, 0);
 c.Modelo_validarIngresos = () => ({ fallidas: ['INGRESO_VERDE: error'] });
 c.Modelo_ss = () => ({});
-assert.equal(c.Instalar_pValidaciones().ok, false);
+assert.equal(c.Instalar_pValidaciones_().ok, false);
 c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
-assert.equal(c.Instalar_pDiseno().ok, false);
+assert.equal(c.Instalar_pDiseno_().ok, false);
 // v0.14 §9: INICIO pertenece al motor (subtarea 'inicio'): el wrapper delega en
 // Presentacion_ejecutarTarea_ (que usa Inicio_construir_) + verificación con
 // Inicio_diagnosticarVisual_, sin Modelo_disenoHojas ni toques a otras hojas.
 c.Modelo_ss = () => ({ getSheetByName: n => n === 'INICIO' ? { hoja: 'INICIO' } : null });
 c.Inicio_construir_ = () => ({ ok: true });
 c.Inicio_diagnosticarVisual_ = () => ({ ok: false, diferencias: ['SECTOR_VERDE: formato simulado'] });
-assert.match(c.Instalar_pInicio().motivo, /SECTOR_VERDE/);
+assert.match(c.Instalar_pInicio_().motivo, /SECTOR_VERDE/);
 c.Inicio_diagnosticarVisual_ = () => ({ ok: true, diferencias: [] });
 c.Inicio_construir_ = () => ({ ok: false, motivo: 'Inicio_construir_ falló' });
-assert.match(c.Instalar_pInicio().motivo, /Inicio_construir_/);
+assert.match(c.Instalar_pInicio_().motivo, /Inicio_construir_/);
 c.Inicio_construir_ = () => ({ ok: true });
-assert.equal(c.Instalar_pInicio().ok, true);
+assert.equal(c.Instalar_pInicio_().ok, true);
 c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: ['INGRESO_VERDE: RUT simulado'] });
 c.Hojas_ocultarTecnicas = () => ({}); c.Hojas_proteger = () => ({}); c.Hojas_filtros = () => ({});
 assert.match(c.Presentacion_ejecutarTarea_({ id: 'accesorios', nombre: 'Ayudas' }).motivo, /INGRESO_VERDE/);
 c.Estrat_recalcularTodos_ = () => ({ ok: false, motivo: 'SIN_HOJA_PACIENTES' });
 c.Control_recalcularTodos = () => ({ ok: true, cambios: 0, total: 0 });
-assert.equal(c.Instalar_pDerivados().ok, false);
+assert.equal(c.Instalar_pDerivados_().ok, false);
 // Los nombres y las hojas vacías solo se reportan; ningún paso de instalar borra.
 let borradas = 0;
 const hoja = (nombre, datos) => ({ getName: () => nombre,
@@ -90,14 +90,14 @@ const inventario = c.Modelo_limpiarHojasResiduales(libro);
 assert.equal(borradas, 0);
 assert.deepEqual(Array.from(inventario.candidatas), ['DASHBOARD', 'Borrador']);
 c.Modelo_ss = () => libro;
-assert.equal(c.Instalar_pLimpieza().eliminadas.length, 0);
+assert.equal(c.Instalar_pLimpieza_().eliminadas.length, 0);
 assert.doesNotMatch(readFileSync(new URL('06_Modelo.js', root), 'utf8').match(/function Modelo_crearEstructura_\(\)\s*\{[\s\S]*?\n\}/)[0], /deleteSheet\(/);
 // Las etapas de carga de datos reales (fuentes, amarillo, enriquecimiento)
 // son MUTANTES: toman LockService. limpieza es de solo lectura.
 c.Mig_schemaLeido = () => '2';
 let bloqueos = 0;
 c.LockService = { getScriptLock: () => { bloqueos++; return { tryLock: () => true, releaseLock() {} }; } };
-c.Fuentes_cargaReal = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
+c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
 c.Amarillo_importarTodo_ = () => ({ ok: true, puerta: {}, historico: {} });
 c.Act_enriquecerPacientes = () => ({ ok: true, totalPacientes: 0, revisados: 0, enriquecidos: 0, sinCambios: 0 });
 for (const id of ['fuentes', 'amarillo', 'enriquecimiento'])
@@ -117,11 +117,11 @@ assert.equal(estructuraEscrita, 0);
 c.SpreadsheetApp = { getUi: () => { throw Error('sin UI'); } };
 let aperturasMenu = 0;
 c.onOpen = () => { aperturasMenu++; return { ok: true }; };
-assert.equal(c.Instalar_pMenu().omitida, true);
+assert.equal(c.Instalar_pMenu_().omitida, true);
 assert.equal(aperturasMenu, 0);
 c.SpreadsheetApp.getUi = () => ({});
 c.onOpen = () => ({ ok: false, motivo: 'menú fallido' });
-assert.equal(c.Instalar_pMenu().motivo, 'menú fallido');
+assert.equal(c.Instalar_pMenu_().motivo, 'menú fallido');
 // La previa debe consultar el libro sin invocar ninguna rutina que lo escriba.
 const ingreso = {
   isSheetHidden: () => false, getMaxRows: () => 100, getLastRow: () => 100,

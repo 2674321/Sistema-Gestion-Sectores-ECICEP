@@ -2897,7 +2897,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.15.0', 'versión esperada v0.15.0');
+    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3137,7 +3137,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.15.0', 'versión esperada v0.15.0');
+    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -4583,8 +4583,8 @@ function _pruebas_enriquecimiento_s5(t, A) {
     var iVer = ids.indexOf('verificar');
     A.cierto(iEnr !== -1 && iVer !== -1 && iEnr < iVer, 'la etapa corre antes de verificación final');
     var etapa = INSTALAR_ETAPAS[ids.indexOf('enriquecimiento')];
-    A.igual(etapa.fn, 'Instalar_pEnriquecimiento', 'función de la etapa');
-    A.cierto(typeof Instalar_pEnriquecimiento === 'function', 'Instalar_pEnriquecimiento existe');
+    A.igual(etapa.fn, 'Instalar_pEnriquecimiento_', 'función privada de la etapa');
+    A.cierto(typeof Instalar_pEnriquecimiento_ === 'function', 'Instalar_pEnriquecimiento_ existe');
   });
   t('S5 wiring: UI_actualizarSistema ya no ejecuta enriquecimiento inline', function () {
     var fu = UI_actualizarSistema.toString();
@@ -4680,7 +4680,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
     var fu = Act_enriquecerPacientes.toString();
     A.cierto(fu.indexOf('EVENTOS') === -1, 'Act_enriquecerPacientes no referencia EVENTOS');
     A.cierto(fu.indexOf('Eventos') === -1, 'sin funciones de eventos');
-    var etapa = Instalar_pEnriquecimiento.toString();
+    var etapa = Instalar_pEnriquecimiento_.toString();
     A.cierto(etapa.indexOf('EVENTOS') === -1 && etapa.indexOf('Eventos') === -1, 'etapa sin eventos');
     A.cierto(INSTALAR_ETAPAS.every(function (e) { return e.id !== 'eventos'; }), 'sin etapa que cree eventos');
   });
@@ -4697,7 +4697,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
   });
 
   t('S11 UI: Instalar_pEnriquecimiento aplica enriquecimiento real (v0.10.0)', function () {
-    var etapa = Instalar_pEnriquecimiento.toString();
+    var etapa = Instalar_pEnriquecimiento_.toString();
     A.cierto(etapa.indexOf('Act_enriquecerPacientes') !== -1, 'SÍ llama Act_enriquecerPacientes');
     A.cierto(etapa.indexOf('dryRun: false') !== -1, 'ejecuta con dryRun:false (escribe)');
     // Act_enriquecerPacientes sigue existiendo para ACTUALIZAR
@@ -4752,8 +4752,8 @@ function _pruebas_auditoria_s11r(t, A) {
   t('S11R-3: enriquecimiento separado — INSTALAR y ACTUALIZAR reutilizan Act_enriquecerPacientes (v0.10.0)', function () {
     var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
     A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
-    A.igual(enr[0].fn, 'Instalar_pEnriquecimiento', 'única función de la etapa');
-    var p = Instalar_pEnriquecimiento.toString();
+    A.igual(enr[0].fn, 'Instalar_pEnriquecimiento_', 'única función privada de la etapa');
+    var p = Instalar_pEnriquecimiento_.toString();
     A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
       'Instalar SÍ llama Act_enriquecerPacientes (reinstalación real)');
     A.cierto(Act_actualizarSistema.toString().indexOf('Act_enriquecerPacientes') !== -1,
@@ -5187,7 +5187,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.15'), 0, 'versión de aplicación coherente (0.15.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.16'), 0, 'versión de aplicación coherente (0.16.x)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -5365,11 +5365,11 @@ function _pruebas_inst1_versionado(t, A) {
 
   t('T12: Actualizar NO incorpora versionado ni ejecuta migraciones (separación S12/INST-1)', function () {
     var todo = UI_actualizarTodo.toString();
-    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones', 'SCHEMA_VERSION', '_inst_configEscribir'].forEach(function (f) {
+    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones_', 'SCHEMA_VERSION', '_inst_configEscribir'].forEach(function (f) {
       A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
     });
     var act = UI_actualizarSistema.toString();
-    ['Mig_', 'Instalar_pMigraciones', 'SCHEMA_VERSION'].forEach(function (f) {
+    ['Mig_', 'Instalar_pMigraciones_', 'SCHEMA_VERSION'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
     });
   });
@@ -5389,7 +5389,7 @@ function _pruebas_inst1_versionado(t, A) {
   t('T14: el motor de migraciones no crea hojas ni filas; MIG-002 muta SOLO esquema (por nombre)', function () {
     var G = (typeof globalThis !== 'undefined') ? globalThis : this;
     var motor = ['Mig_pendientesPura', 'Mig_clasificarInstalacion', 'Mig_ejecutarDeclaradas',
-      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Instalar_pMigraciones'];
+      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Instalar_pMigraciones_'];
     motor.forEach(function (name) {
       var fn = G[name];
       A.cierto(typeof fn === 'function', name + ' existe');
@@ -5828,11 +5828,11 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
   // Access control: guards deniegan sin sesión y habilitan con sesión
   t('P0 v0.98: guards de sesión deniegan acceso sin usuario activo', function () {
-    A.cierto(WebApp_usuarioActivo() !== '', 'con sesión (mock) hay usuario');
+    A.cierto(WebApp_usuarioActivo_() !== '', 'con sesión (mock) hay usuario');
     var original = globalThis.Session;
     try {
       globalThis.Session = undefined;
-      A.igual(WebApp_usuarioActivo(), '', 'sin sesión → vacío');
+      A.igual(WebApp_usuarioActivo_(), '', 'sin sesión → vacío');
       // v0.10.5 §12: api_buscar denegado → {ok:false,codigo:'ACCESO_DENEGADO',motivo,filas:[]}
       A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar sin sesión → denegado con filas vacías');
       A.igual(api_ficha('X').ok, false, 'api_ficha sin sesión → denegado');
@@ -6062,7 +6062,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7b: INSTALAR vs ACTUALIZAR — validaciones con owner único (v0.14)', function () {
-    var srcI = Instalar_pValidaciones.toString();
+    var srcI = Instalar_pValidaciones_.toString();
     var srcA = Act_actualizarSistema.toString();
     A.cierto(srcI.indexOf('Modelo_validarIngresos') !== -1, 'INSTALAR tiene validaciones');
     A.cierto(srcA.indexOf('Modelo_validarIngresos') === -1,
@@ -6078,8 +6078,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var iVer = ids.indexOf('verificar');
     A.cierto(iEnr < iDer, 'derivados después de enriquecimiento');
     A.cierto(iDer < iVer, 'derivados antes de verificación');
-    A.igual(INSTALAR_ETAPAS[iDer].fn, 'Instalar_pDerivados', 'función correcta');
-    A.cierto(typeof Instalar_pDerivados === 'function', 'Instalar_pDerivados existe');
+    A.igual(INSTALAR_ETAPAS[iDer].fn, 'Instalar_pDerivados_', 'función privada correcta');
+    A.cierto(typeof Instalar_pDerivados_ === 'function', 'Instalar_pDerivados_ existe');
   });
 
   // --- S7c: Verificación de que ESTRATIFICACION fluye completo ---
@@ -6258,7 +6258,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   // --- S9: INSTALAR separa reparar de sincronizar (v0.14.1: CONSERVAR por defecto) ---
   t('S9: INSTALAR — etapa fuentes con política de datos explícita (no snapshot por defecto)', function () {
-    var src = Instalar_pFuentes.toString();
+    var src = Instalar_pFuentes_.toString();
     A.cierto(src.indexOf('Fuentes_cargaReal') !== -1,
       'Instalar_pFuentes SÍ llama Fuentes_cargaReal');
     A.cierto(src.indexOf('CONSERVAR') !== -1, 'modo CONSERVAR existe');
@@ -6279,7 +6279,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S9: INSTALAR — etapa amarillo carga el sector desde Drive (puerta + histórico)', function () {
-    var src = Instalar_pAmarillo.toString();
+    var src = Instalar_pAmarillo_.toString();
     A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1,
       'Instalar_pAmarillo SÍ llama Amarillo_importarTodo_');
     A.cierto(src.indexOf('aplicaHistorico') === -1 || src.indexOf('puerta') !== -1,
@@ -6305,8 +6305,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(ids.indexOf('diseno') !== -1, 'etapa diseno (motor único) existe');
     A.cierto(ids.indexOf('visual') === -1, 'sin fase principal visual separada (absorbida en formato:*)');
     A.cierto(ids.indexOf('inicio') === -1, 'sin fase principal inicio separada (subtarea inicio del motor)');
-    A.cierto(typeof Instalar_pVisual === 'function', 'wrapper compat Instalar_pVisual conservado');
-    A.cierto(typeof Instalar_pInicio === 'function', 'wrapper compat Instalar_pInicio conservado');
+    A.cierto(typeof Instalar_pVisual_ === 'function', 'wrapper privado Instalar_pVisual_ conservado');
+    A.cierto(typeof Instalar_pInicio_ === 'function', 'wrapper privado Instalar_pInicio_ conservado');
     A.cierto(ids.indexOf('validaciones') !== -1, 'etapa validaciones existe');
     A.cierto(ids.indexOf('derivados') !== -1, 'etapa derivados existe');
     A.cierto(ids.indexOf('verificar') !== -1, 'etapa verificar existe');
@@ -6324,7 +6324,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: Instalar_pEnriquecimiento reutiliza Act_enriquecerPacientes (fill-only, idempotente)', function () {
-    var src = Instalar_pEnriquecimiento.toString();
+    var src = Instalar_pEnriquecimiento_.toString();
     A.cierto(src.indexOf('Act_enriquecerPacientes') !== -1,
       'Instalar_pEnriquecimiento SÍ llama Act_enriquecerPacientes');
     A.cierto(src.indexOf('dryRun: false') !== -1,
@@ -6332,7 +6332,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: Instalar_pDerivados reporta errores (no solo best effort)', function () {
-    var src = Instalar_pDerivados.toString();
+    var src = Instalar_pDerivados_.toString();
     A.cierto(src.indexOf('errores') !== -1, 'array de errores existe');
     A.cierto(src.indexOf('ok: errores.length === 0') !== -1, 'ok depende de errores');
   });
@@ -6378,7 +6378,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.15.0', 'VERSION es 0.15.0');
+    A.cierto(ECICEP.VERSION === '0.16.0', 'VERSION es 0.16.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

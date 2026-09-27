@@ -1,5 +1,21 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-26 (v0.16.0):** corregidos los bypass críticos de
+> Captura→Operador, helpers mutantes de instalador/backup/limpieza/carga real,
+> webhook por GET, egress clínico hacia Gemini y el patrón N×`TextFinder` de
+> Integridad. La etapa de integridad quedó batch y reanudable en seis pasos.
+> Pendientes reales antes de declarar cierre operativo: (1) reducir la superficie
+> RPC heredada congelada de **695** funciones top-level a los boundaries públicos
+> estrictamente necesarios (hoy 57 `api_*`, 12 `WebApp_*` y 4 entrypoints
+> conocidos; el resto sigue inventariado, no aprobado como mínimo); (2) ampliar
+> la auditoría XSS sink-by-sink más allá de los sinks críticos corregidos;
+> (3) publicar solo después de configurar/rotar tokens separados, regenerar el QR
+> y ejecutar Instalar/Reparar dos veces sobre el libro real con backup reciente;
+> (4) confirmar el warning real de Presentación —el código conserva
+> `PRESENTACION_PENDIENTE` / `INSTALACIÓN FUNCIONAL / PRESENTACIÓN INCOMPLETA`,
+> pero no se ejecutó contra datos productivos en esta rama—. Ver
+> `docs/INFORME_AUDITORIA_VNEXT.md`.
+
 > **Actualización 2026-09-24 (v0.12.1):**
 > hotfix de timeout de la fase `Presentación del libro`. La presentación ahora
 > corre por **8 subtareas reanudables** (presupuesto 20 s/RPC + cursor por clave

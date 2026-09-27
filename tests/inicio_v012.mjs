@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v0.15.0 — Portada INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50). El contrato
+// v0.16.0 — Portada INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50). El contrato
 // cambió intencionalmente desde V014: lienzo 36×50, 6 accesos, 6 KPIs,
 // contrato único INICIO_CONTRATO, sin marco gigante ni SOBRANTE.
 import assert from 'node:assert/strict';

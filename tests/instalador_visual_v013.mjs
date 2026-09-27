@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v0.13.0 — Instalador visual: Instalar_pInicio solo-INICIO (§9), diagnóstico
+// v0.13.0 — Instalador visual: Instalar_pInicio_ solo-INICIO (§9), diagnóstico
 // con paridad (§20) y cierre de UI con presentación incompleta (§21).
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -11,29 +11,29 @@ for (const f of readdirSync(root).filter(x => /\.(js|gs)$/.test(x)).sort())
 let n = 0;
 const ok = m => { n++; console.log('[PASS] ' + m); };
 
-// T1 (v0.14): Instalar_pInicio delega en la subtarea 'inicio' del motor único
+// T1 (v0.14): Instalar_pInicio_ delega en la subtarea 'inicio' del motor único
 // (sin pipeline propio, sin Modelo_disenoHojas, sin toques a otras hojas).
 const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
-const pInicio = src20.match(/function Instalar_pInicio\([\s\S]*?\n\}/)?.[0] || '';
-assert.ok(pInicio, 'Instalar_pInicio existe');
+const pInicio = src20.match(/function Instalar_pInicio_\([\s\S]*?\n\}/)?.[0] || '';
+assert.ok(pInicio, 'Instalar_pInicio_ existe');
 assert.match(pInicio, /Presentacion_ejecutarTarea_/);
 assert.match(pInicio, /id: 'inicio'/);
 assert.doesNotMatch(pInicio, /Modelo_disenoHojas\(/, 'no hay llamada a Modelo_disenoHojas');
 assert.doesNotMatch(pInicio, /HVis_aplicarTodasLasSecciones\(/, 'sin pipeline visual paralelo');
-ok('T1 Instalar_pInicio delega en la subtarea inicio del motor (sin Modelo_disenoHojas)');
+ok('T1 Instalar_pInicio_ delega en la subtarea inicio del motor (sin Modelo_disenoHojas)');
 
-// T2: Instalar_pInicio devuelve {ok, inicio, verificacion, motivo}.
+// T2: Instalar_pInicio_ devuelve {ok, inicio, verificacion, motivo}.
 c.Inicio_construir_ = () => ({ ok: true });
 c.Inicio_diagnosticarVisual_ = () => ({ ok: true, diferencias: [] });
 c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
-const rPi = c.Instalar_pInicio();
+const rPi = c.Instalar_pInicio_();
 assert.equal(rPi.ok, true);
 assert.ok(rPi.inicio && rPi.verificacion);
 ok('T2 retorno {ok,inicio,verificacion} sin errores');
 
 // T3: fallo del constructor de INICIO se reporta como motivo.
 c.Inicio_construir_ = () => { throw new Error('MERGE_CRUZA_FREEZE'); };
-const rFail = c.Instalar_pInicio();
+const rFail = c.Instalar_pInicio_();
 assert.equal(rFail.ok, false);
 assert.match(String(rFail.motivo || ''), /MERGE_CRUZA_FREEZE/);
 ok('T3 fallo de Inicio_construir_ llega como motivo del paso');

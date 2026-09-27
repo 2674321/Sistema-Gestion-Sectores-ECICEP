@@ -1150,6 +1150,20 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
 - Sin cambio de esquema (2), contrato V4, agenda manual ni canal de captura.
 - Informe: `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.
 
+## v0.16.0 — hardening e Integridad reanudable (2026-09-26)
+
+- Separación estricta Captura/Operador; allowlist de identidad y diagnóstico de
+  configuración sin valores secretos. La ruta pública no crea ni entrega
+  credenciales administrativas.
+- Helpers críticos de instalador, backup, limpieza y carga real privatizados;
+  inventario RPC versionado. Webhook mutante solo por POST + opt-in y sin PII.
+- Integridad usa snapshot batch, cero búsquedas por fila, un refresco de vistas,
+  escrituras selectivas y seis pasos reanudables con post-check.
+- Gemini 3.6 Flash con key en header y egress clínico deny-by-default. Redacción
+  de logs, fixes XSS críticos y retiro de `ALLOWALL`.
+- Esquema 2 y Captura V4 sin cambios. E2E y publicación quedan condicionados a
+  rotación de secretos; detalle en `docs/INFORME_AUDITORIA_VNEXT.md`.
+
 ## v0.12.1 — freeze residual de la portada (arreglo en la reparación real, 2026-09-24)
 
 - Confirmado el fin del timeout de `Presentación del libro`, la reparación real
