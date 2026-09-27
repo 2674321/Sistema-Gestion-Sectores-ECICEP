@@ -1,5 +1,15 @@
 # Política de seguridad de ECICEP
 
+## Hardening 2026-09-27
+
+Los RPC legacy `api_formularioEstado`, `api_formularioProcesar`,
+`api_formularioControl` y `api_formularioReprocesar` exigen capacidad Operador
+en backend. El panel legítimo recibe esa credencial desde Sheets; la página
+pública de Captura no la incluye. La suite conductual invoca los wrappers con
+ausencia de token, token Captura, token inválido y Operador, y comprueba que solo
+el último alcanza las mutaciones previstas. El inventario de 695 funciones
+globales sigue siendo un inventario congelado, no una allowlist mínima aprobada.
+
 ECICEP es un sistema de gestión **sanitaria**: maneja datos personales y
 clínicos. La protección de esos datos es prioridad absoluta.
 

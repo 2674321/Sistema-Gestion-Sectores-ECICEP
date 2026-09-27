@@ -2179,3 +2179,18 @@ se conserva en CacheService y Script Properties. Un timeout deja reintento exact
 **Validación:** suites de Integridad reanudable/rendimiento y batería completa;
 medición en el libro real pendiente después de publicar.
 **Fecha:** 2026-09-27
+
+## DEC-099
+**Título:** Checkpoints internos y lecturas físicamente proyectadas para Integridad.
+**Estado:** Aprobada; E2E operativo pendiente
+**Motivo:** El cursor de seis pasos seguía exponiendo dos unidades monolíticas
+(`diagnostico` y `postcheck`) y los lectores `Campos` reducían objetos, pero no
+I/O físico. Se adoptan cuatro checkpoints para cada diagnóstico, rangos agrupados
+por columnas, lotes de 12 para falsos `INGRESADO`, vistas de sector canónico una
+por RPC y auditoría histórica fuera del bloqueo. El cursor persiste solo versión,
+fase, conteos, sectores y métricas; no PII. Metadata de backup se guarda también
+en Script Properties hasta la verificación final.
+**Validación:** fake Spreadsheet con 2.713 pacientes, 21.783 eventos y contadores
+de I/O; suite de retry/cursor y ataque RPC. Publicación solo tras migrar
+credenciales y ejecutar dos pasadas `CONSERVAR` autorizadas.
+**Fecha:** 2026-09-27

@@ -5,6 +5,44 @@
 **Alcance:** código y pruebas locales. No se usaron datos reales ni se ejecutaron
 pruebas ofensivas o instalación contra el Spreadsheet operativo.
 
+## Continuación 2026-09-27 — timeout de «Reconciliando derivados»
+
+El smoke anónimo del deployment operativo @250 sirvió **v0.14.0**, build
+`9351dfb`; por tanto, esa es la versión que produjo la evidencia recibida y no
+v0.16. El HEAD previo de PR #6 tenía seis pasos, pero `diagnostico` y `postcheck`
+seguían siendo barridos monolíticos y los lectores `Campos` leían ancho completo.
+
+La corrección divide ambos barridos en eventos/cachés, ingresos, vistas y
+estratificación (ocho checkpoints), limita falsos `INGRESADO` a 12 por llamada,
+procesa una vista canónica por RPC y saca el scan histórico de `FORM_RESPUESTAS`
+de la decisión bloqueante. Los rangos por campos ahora son proyecciones físicas;
+si se solicita `FECHA_EVENTO`, se incluyen los campos mínimos para aplicar las
+correcciones V4 auditadas sin perder trazabilidad.
+
+Reproductor con fake Spreadsheet y datos totalmente ficticios:
+
+| Métrica | Antes auditado | Después | Evidencia |
+|---|---:|---:|---|
+| PACIENTES full-width | 6 | 2 | contador `getRange/getValues`; las 2 son reparación de caché + segunda pasada |
+| EVENTOS full-width | 6 | 0 | contador de rangos |
+| scans FORM_RESPUESTAS bloqueantes | 1 | 0 | plan de Integridad |
+| celdas leídas, escenario completo | 2.598.781 | 1.295.272 | `integridad_escala_productiva_vNEXT` |
+| unidad máxima | 435.391 | 195.936 | mismo test |
+| escrituras para 530 cachés dispersas | 3 | 3 | columnas batch; optimización ya presente en HEAD previo |
+| segunda pasada de cachés | — | 0 (`SIN_ESCRITURAS`) | mismo test |
+| RPC lógicas de vistas | 3 | 3 | una por sector canónico |
+| checkpoints diagnóstico/postcheck | 1 + 1 | 4 + 4 | cursor durable v2 |
+
+Seguridad adicional: los cuatro `api_formulario*` legacy ahora exigen Operador
+en backend; un test conductual confirma que ausencia de token, token Captura y
+token inválido no alcanzan mutaciones. El inventario de 695 globales no se
+presenta como allowlist mínima.
+
+No se publicó ni se ejecutó E2E sobre datos reales: faltan migración/rotación
+autorizada de credenciales, `clasp push/deploy` al deployment existente y dos
+ejecuciones `CONSERVAR`. Hasta entonces, el cierre demostrado es local/sintético,
+no una afirmación de producción.
+
 ## Resultado ejecutivo
 
 Se cerraron los bypass de mayor impacto y se rediseñó Integridad para que el

@@ -7,6 +7,21 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-09-27 — v0.16.0: cierre local del timeout de derivados
+
+- Se identificó el incidente operativo en v0.14.0/build `9351dfb` (@250).
+- Diagnóstico y postcheck pasaron de dos unidades globales a ocho checkpoints.
+- Lectores por campos ahora proyectan rangos físicos y conservan correcciones
+  auditadas de `FECHA_EVENTO`.
+- Ingresos falsos se reparan en lotes de 12; vistas, una por RPC y solo sectores
+  canónicos; metadata de backup sobrevive pérdida de CacheService.
+- Benchmark ficticio 2.713 pacientes/21.783 eventos: 2.598.781→1.295.272 celdas
+  leídas en el escenario instrumentado; unidad máxima 435.391→195.936; segunda
+  reparación de cachés sin escrituras.
+- Los cuatro RPC legacy de administración de formulario ahora exigen Operador.
+- Publicación y E2E productivo permanecen pendientes de migración autorizada de
+  credenciales; no se modificaron datos reales.
+
 ## v0.15.1 — INCIDENTE «INTERVALO COMBINADO» EN PORTADA INICIO
 
 - El marco de color de v0.14 dejó dos merges gigantes FUERA del panel; Sheets rechaza

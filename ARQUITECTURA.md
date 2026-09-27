@@ -1,5 +1,13 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-27 (v0.16.0, integridad acotada):** Integridad ya no
+> contiene diagnóstico/postcheck monolíticos: cada uno se divide en eventos y
+> cachés, ingresos, vistas y estratificación, con cursor durable técnico versión
+> 2. Las vistas continúan una por RPC y leen columnas proyectadas; ingresos falsos
+> usan lotes idempotentes de hasta 12. La auditoría histórica de `captureId` se
+> conserva fuera de la decisión bloqueante de derivados. No cambia el sistema
+> único, el Spreadsheet, la Web App, el pipeline clínico ni el schema 2.
+
 > **Actualización 2026-09-26 (v0.16.0):**
 > - El único sistema conserva un solo proyecto, Spreadsheet, Web App, backend y
 >   pipeline. No se agregaron ambientes ni almacenes paralelos.

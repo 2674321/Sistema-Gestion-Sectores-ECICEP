@@ -1,5 +1,16 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-27 (cierre local del timeout):** el build que mostró
+> el timeout fue identificado por smoke anónimo como **v0.14.0 / `9351dfb`**
+> en el deployment operativo @250; no era la rama v0.16. El motor v0.16 ahora
+> divide diagnóstico y postcheck en cuatro checkpoints cada uno, procesa falsos
+> `INGRESADO` en lotes de 12, usa lecturas físicamente proyectadas y excluye el
+> scan histórico de `FORM_RESPUESTAS` del camino bloqueante. Reproductor
+> 2.713/21.783: unidad máxima 435.391→195.936 celdas; EVENTOS full-width 6→0;
+> caches dispersas 530→3 escrituras y segunda pasada 0. Pendiente exclusivamente
+> operativo: migrar credenciales, publicar en el deployment existente y ejecutar
+> dos pasadas `CONSERVAR` con E2E autorizado.
+
 > **Actualización 2026-09-27:** evidencia operativa recibida con **2.713
 > pacientes / 21.783 eventos**: el deployment vigente agotó tiempo en
 > `Reconciliando derivados` al 88 %. La rama v0.16 refuerza el arreglo: elimina
