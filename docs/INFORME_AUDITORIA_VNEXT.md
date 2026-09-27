@@ -29,9 +29,10 @@ y la publicación necesita una migración de credenciales y E2E real.
 
 CI descubre automáticamente las suites vNEXT, incluye heurísticas de secretos,
 PII, `ALLOWALL`, query strings sensibles, mutadores públicos, I/O crítico, XSS y
-versión, y fija `actions/checkout`/`actions/setup-node` a SHA inmutable. La
-protección de `master` requiere configuración administrativa: exigir PR y CI,
-impedir force-push/delete y preferir squash o rebase.
+versión, y fija `actions/checkout`/`actions/setup-node` a SHA inmutable. Se
+configuró protección de `master`: PR y check `tests` obligatorios también para
+administradores, branch actualizada antes de merge, y force-push/eliminación
+bloqueados. No se exige aprobación de tercero para no bloquear el flujo unipersonal.
 
 ## Medición de complejidad e I/O
 
