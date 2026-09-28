@@ -264,6 +264,9 @@ textarea.inp{min-height:64px;resize:vertical}
     <span>La persona pasará desde la hoja de ingreso al sistema ECICEP.
       Se registrará en PACIENTES, se creará su evento de ingreso
       y aparecerá automáticamente en el sector correspondiente.</span>
+    <span>La fila permanece en INGRESO_* como trazabilidad. El estado
+      <b>INGRESADO</b> significa que ya fue incorporada; no se borra ni se copia
+      físicamente a la vista del sector.</span>
   </div>
   <div class="ing-filtros">
     <label class="etq" for="ingSector">Sector</label>
@@ -282,7 +285,7 @@ textarea.inp{min-height:64px;resize:vertical}
     </select>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-    <button class="btn btn-pri" onclick="ingIncorporarValidos(this)">
+    <button class="btn btn-pri" id="ingBtnLote" onclick="ingIncorporarValidos(this)">
       <i data-lucide="layers"></i> Incorporar todos los válidos
     </button>
     <button class="btn btn-ghost" id="ingRevAviso" style="display:none;min-height:32px;font-size:11.5px"
@@ -608,17 +611,28 @@ function cargarIngresos(inicio,despues){
     _ingPag_retro=false;
     var ct=r.conteos||null;
     _ingConteos=ct||{};
+    var procesables=ct?Number(ct.validos||0)+Number(ct.advertencias||0):0;
+    var btnLote=document.getElementById('ingBtnLote');
+    if(btnLote){
+      btnLote.disabled=procesables===0;
+      btnLote.title=procesables===0
+        ?'No hay filas nuevas válidas para incorporar con el filtro actual'
+        :'Incorporar '+procesables+' fila(s) válida(s)';
+    }
     document.getElementById('ingCinta').innerHTML=
-      '<span class="chip fade-in">Pendientes <b class="num">'+_esc(r.total)+'</b></span>'+
+      '<span class="chip fade-in">Por resolver <b class="num">'+_esc(r.total)+'</b></span>'+
       (ct?('<span class="chip">Válidos <b class="num">'+_esc(ct.validos)+'</b></span>'+
         '<span class="chip">Advertencias <b class="num">'+_esc(ct.advertencias)+'</b></span>'+
         '<span class="chip">Errores <b class="num">'+_esc(ct.errores)+'</b></span>'+
+        '<span class="chip">Ya incorporados <b class="num">'+_esc(ct.incorporados||0)+'</b></span>'+
         (ct.cambiosSector?'<span class="chip">Cambios sector <b class="num">'+_esc(ct.cambiosSector)+'</b></span>':'')+
         (ct.requierenRevision?'<span class="chip">Revisión <b class="num">'+_esc(ct.requierenRevision)+'</b></span>':'')+
         (ct.duplicados?'<span class="chip">Duplicados <b class="num">'+_esc(ct.duplicados)+'</b></span>':'')):'')+
-      '<span class="chip">Mostrando '+(_ingPaginacion.inicio+1)+'–'+(filas.length+_ingPaginacion.inicio)+'</span>';
+      '<span class="chip">Mostrando '+(filas.length?(_ingPaginacion.inicio+1):0)+'–'+(filas.length+_ingPaginacion.inicio)+'</span>';
     document.getElementById('ingLista').innerHTML=
-      (filas.length?filas.map(ingTarjeta).join(''):'<div class="vacio"><i data-lucide="party-popper"></i>No hay ingresos pendientes</div>')+
+      (filas.length?filas.map(ingTarjeta).join(''):
+        '<div class="vacio"><i data-lucide="party-popper"></i>No hay filas nuevas por resolver'+
+        (ct&&ct.incorporados?' · '+_esc(ct.incorporados)+' ya incorporadas permanecen en la hoja como historial':'')+'</div>')+
       '<div class="pagbar">'+
         '<button class="btn btn-ghost" style="min-height:30px;font-size:11.5px" onclick="cargarIngresos('+(_ingPaginacion.inicio-_ingPaginacion.limite)+')" '+(_ingPaginacion.inicio===0?'disabled':'')+'><i data-lucide="chevron-left" style="width:13px;height:13px"></i> Anterior</button>'+
         '<span class="chip est-pendiente">Página '+Math.floor(_ingPaginacion.inicio/_ingPaginacion.limite+1)+'</span>'+
@@ -800,6 +814,11 @@ function ingIncorporar(btn,hoja,fila){
   }).api_ingresoIncorporar(hoja,fila,false,TOKEN_INVITACION);
 }
 function ingIncorporarValidos(btn){
+  var procesables=Number(_ingConteos.validos||0)+Number(_ingConteos.advertencias||0);
+  if(procesables===0){
+    toast('No hay filas nuevas válidas. Las filas INGRESADO ya están en PACIENTES y en su sector vigente.','info');
+    return;
+  }
   var cambios=Number(_ingConteos.cambiosSector||0);
   var avisoCambios=cambios?'\n\nCambios territoriales previstos: '+cambios+' (se registrará CAMBIO_SECTOR).':'';
   if(!confirm('Se procesarán únicamente ingresos pendientes válidos.\nLas filas con errores o que requieran revisión no se incorporarán; tampoco las filas ya resueltas (INGRESADO, DUPLICADO, REQUIERE_REVISION).'+avisoCambios+'\n\n¿Confirmas la incorporación del lote?'))return;

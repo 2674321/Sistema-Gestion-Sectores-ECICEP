@@ -580,8 +580,10 @@ function Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas, loc) {
  */
 function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
   var _tHoja = Date.now();
+  var estadosIngreso = { totalIdentidad: 0, ingresados: 0, duplicados: 0,
+    requierenRevision: 0, errores: 0, otros: 0 };
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
-  if (!hoja) return { staging: [], hoja: null };
+  if (!hoja) return { staging: [], hoja: null, estadosIngreso: estadosIngreso };
   var acotado = filasPermitidas && filasPermitidas.length && filasPermitidas.length <= 50;
   var ultima = hoja.getLastRow();
   var ancho = Math.max(hoja.getLastColumn(), 1);
@@ -606,7 +608,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
       filasFisicas: 0, filasIdentidad: 0, pendientes: 0, errores: 0, warnings: 0,
       duracionMs: Date.now() - _tHoja
     });
-    return { staging: [], hoja: hoja };
+    return { staging: [], hoja: hoja, estadosIngreso: estadosIngreso };
   }
   var mapa = loc.mapa;
   var idxCampos = mapa.campos;
@@ -636,8 +638,14 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     var tieneNombre = /[A-Za-zÀ-ÖØ-öø-ÿÑñ]/.test(nombreRaw);
     if (!tieneRut && !tieneNombre) continue;
     filasIdentidad++;
+    estadosIngreso.totalIdentidad++;
     if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue; // defensa redundante
     var estadoPrevio = idxEstado >= 0 ? Utl_texto(filaVal[idxEstado]).toUpperCase() : '';
+    if (estadoPrevio === 'INGRESADO') estadosIngreso.ingresados++;
+    else if (estadoPrevio === 'DUPLICADO') estadosIngreso.duplicados++;
+    else if (estadoPrevio === 'REQUIERE_REVISION') estadosIngreso.requierenRevision++;
+    else if (estadoPrevio === 'ERROR') estadosIngreso.errores++;
+    else estadosIngreso.otros++;
     // INGRESADO se omite por idempotencia (T10): la fila incorporada sale del
     // listado pero permanece físicamente en la hoja. DUPLICADO y
     // REQUIERE_REVISION SÍ se leen (el operador debe verlos con su estado real)
@@ -677,7 +685,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     duracionMs: Date.now() - _tHoja
   });
   console.log('[PIPE] leerHoja ' + nombreHoja + ' t=' + (Date.now() - _tHoja) + 'ms valores=' + valores.length + ' staging=' + staging.length + ' hr=' + loc.hr);
-  return { staging: staging, hoja: hoja };
+  return { staging: staging, hoja: hoja, estadosIngreso: estadosIngreso };
 }
 
 /**
@@ -953,10 +961,13 @@ function Ingresos_listarPendientes(opciones) {
   var indices = Iden_construirIndices(pacientes), pacientesPorId = {};
   pacientes.forEach(function (p) { pacientesPorId[Utl_texto(p.ID_INTERNO)] = p; });
   var conteos = { total: 0, validos: 0, advertencias: 0, errores: 0,
-    cambiosSector: 0, requierenRevision: 0, duplicados: 0, terminales: 0 };
+    cambiosSector: 0, requierenRevision: 0, duplicados: 0, terminales: 0,
+    incorporados: 0, filasOrigen: 0 };
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     if (sector && Ingresos_hojaASector(nombreHoja) !== sector) return;
     var leida = Ingresos_leerHoja(nombreHoja);
+    conteos.incorporados += Number((leida.estadosIngreso || {}).ingresados || 0);
+    conteos.filasOrigen += Number((leida.estadosIngreso || {}).totalIdentidad || 0);
     (leida.staging || []).forEach(function (fila) {
       var publica = Ingresos_filaPendientePublica_(fila, indices, pacientesPorId);
       if (sector && publica.sector.toUpperCase() !== sector) return;

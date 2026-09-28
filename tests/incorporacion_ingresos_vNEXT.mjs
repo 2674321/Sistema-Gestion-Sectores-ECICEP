@@ -414,6 +414,8 @@ test('T10 tras incorporar, la fila sale de pendientes pero sigue en INGRESO_*', 
 
   const despues = c.api_ingresosPendientes({}, 'tok');
   assert.equal(despues.total, 1);
+  assert.equal(despues.conteos.incorporados, 1, 'la UI informa el historial ya incorporado');
+  assert.equal(despues.conteos.filasOrigen, 2, 'distingue origen físico de filas por resolver');
   assert.equal(despues.filas[0].nombre, 'PEDRO GOMEZ');
   // La fila sigue físicamente en la hoja (trazabilidad): nombre + INGRESADO
   assert.equal(c.hojas['INGRESO_NARANJO'].val[3][0], 'ANA PEREZ');
@@ -428,7 +430,8 @@ test('T11 UI: renombrado, subtítulo, Sector destino, Incorporar a; sin "Copiar 
   for (const txt of ['Incorporación de ingresos',
     'Revisa e incorpora al sistema las personas registradas en las hojas de ingreso.',
     '¿Qué significa incorporar?', 'Sector destino', 'Incorporar a ', 'Incorporar todos los válidos',
-    'Se procesarán únicamente ingresos pendientes válidos.']) {
+    'Se procesarán únicamente ingresos pendientes válidos.', 'La fila permanece en INGRESO_* como trazabilidad.',
+    'Ya incorporados', 'Por resolver', 'No hay filas nuevas válidas.']) {
     assert.ok(sb.indexOf(txt) !== -1, 'UI debe contener: ' + txt);
   }
   assert.ok(sb.indexOf('> Incorporar ingresos') !== -1, 'centro: Incorporated to rename button');
