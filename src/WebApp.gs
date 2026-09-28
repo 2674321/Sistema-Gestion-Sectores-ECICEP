@@ -127,10 +127,17 @@ function WebApp_diagnosticoSeguridad_() {
   };
 }
 
-/** URL de captura (QR y enlace de distribución). */
+/**
+ * URL permanente de captura (QR y enlace de distribución).
+ *
+ * El QR contiene solo el deployment operativo estable. La capacidad mínima
+ * de Captura se inyecta en servidor al servir esa ruta; por ello un QR
+ * impreso no depende de una propiedad ni deja de funcionar si la credencial
+ * interna se recupera o rota. Esto no eleva a Operador: las vistas distintas
+ * de `captura` siguen exigiendo exclusivamente la capacidad de administración.
+ */
 function WebApp_urlCompartida_() {
-  var clave = WebApp_claveCaptura_();
-  return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
+  return ECICEP_webAppUrl();
 }
 
 /** URL de una vista operativa. Usa exclusivamente la capacidad OPERADOR. */
@@ -183,7 +190,10 @@ function doGet(e) {
   var acceso = String(p.acceso || '').trim();
   var vista = String(p.vista || 'captura').trim();
   if (vista === 'captura') {
-    return WebApp_servirCaptura_(WebApp_accesoCapturaValido_(acceso) ? acceso : '');
+    // Captura es el canal público universal. No se confía en el token de la
+    // URL: se entrega la capacidad vigente desde Script Properties. Así la URL
+    // base y también los QR antiguos con un token obsoleto siguen funcionando.
+    return WebApp_servirCaptura_(WebApp_claveCaptura_());
   }
   if (!WebApp_autorizar(acceso)) {
     return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');

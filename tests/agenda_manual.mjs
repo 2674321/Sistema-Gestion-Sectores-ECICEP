@@ -108,8 +108,8 @@ test('Captura y alias QR abren la misma pantalla con enlace explícito', () => {
   const props=new Map();c.PropertiesService={getScriptProperties:()=>({getProperty:k=>props.get(k)||'',setProperty:(k,v)=>props.set(k,v)})};
   c.Utilities={getUuid:()=> 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
   let template;c.HtmlService={createTemplateFromFile:name=>{assert.equal(name,'QRFormulario');return template={evaluate:()=>output};}};c._UI_get=()=>({showModalDialog:(o,t)=>calls.push(t)});
-  c.UI_abrirFormularioCaptura();assert.ok(template.WEB_APP_URL.startsWith(c.ECICEP_webAppUrl()+'?acceso='));
-  assert.equal(props.has('CAPTURA_ACCESS_TOKEN'),true);c.UI_mostrarQR();assert.deepEqual(calls,['Captura','Captura']);
+  c.UI_abrirFormularioCaptura();assert.equal(template.WEB_APP_URL,c.ECICEP_webAppUrl());
+  assert.equal(props.has('CAPTURA_ACCESS_TOKEN'),false,'mostrar el QR no crea ni expone credenciales');c.UI_mostrarQR();assert.deepEqual(calls,['Captura','Captura']);
   const html=read('src/QRFormulario.html');assert.match(html,/<a[^>]+id="abrirFormulario"[^>]+href="<\?= WEB_APP_URL \?>"[^>]+target="_blank"/);assert.match(html,/qrCanvas/);assert.doesNotMatch(c.UI_abrirFormularioCaptura.toString(),/window.open|\.click\(/);
 });
 test('Ficha retira acción redundante, conserva representación histórica y Patologías', () => {

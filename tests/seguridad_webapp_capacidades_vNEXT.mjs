@@ -12,8 +12,10 @@ c.Session={getActiveUser:()=>({getEmail:()=>''})};c.Utilities={formatDate:()=>''
 c.ContentService={createTextOutput:text=>({tipo:'texto',texto:text})};
 c.HtmlService={createTemplateFromFile:n=>({archivo:n,evaluate(){return {tipo:'html',vars:this,setTitle(){return this},addMetaTag(){return this}}}})};
 const base=c.doGet({parameter:{}});assert.equal(base.tipo,'html');
-assert.equal(base.vars.CAPTURA_ACCESO,'');assert.equal(base.vars.TOKEN_ACCESO,'');assert.equal(base.vars.MODO_OPERADOR,false);assert.equal(base.vars.PORTAL_URL,'');
+assert.equal(base.vars.CAPTURA_ACCESO,CAP);assert.equal(base.vars.TOKEN_ACCESO,CAP);assert.equal(base.vars.MODO_OPERADOR,false);assert.equal(base.vars.PORTAL_URL,'');
 const captura=c.doGet({parameter:{acceso:CAP}});assert.equal(captura.vars.CAPTURA_ACCESO,CAP);assert.equal(captura.vars.TOKEN_ACCESO,CAP);assert.equal(captura.vars.MODO_OPERADOR,false);
+const qrAntiguo=c.doGet({parameter:{acceso:'d'.repeat(64)}});assert.equal(qrAntiguo.vars.CAPTURA_ACCESO,CAP,'un QR antiguo recupera la capacidad de captura vigente');
+assert.equal(c.WebApp_urlCompartida_(),c.ECICEP.WEB_APP_URL,'el QR contiene solo la URL base permanente');
 assert.equal(c.WebApp_autorizarCaptura(CAP),true);assert.equal(c.WebApp_autorizar(CAP),false,'Captura no eleva a Operador');
 assert.equal(c.WebApp_autorizar(OP),true);assert.equal(c.WebApp_autorizarCaptura(OP),false,'Operador no se inyecta como token Captura');
 assert.equal(c.WebApp_autorizarCaptura(LEG),true);assert.equal(c.WebApp_autorizar(LEG),false,'legacy queda limitado a Captura');

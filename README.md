@@ -261,7 +261,8 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   el sello del código servido (`BUILD`) difiere del backend (o alerta antes de
   recargar si hay datos sin guardar o el almacenamiento está bloqueado).
 - **El QR es permanente y abierto**: su contenido es solo la URL fija del deployment
-  operativo. La **URL base abre la captura para cualquier persona** (sin cuenta
+  operativo; la capacidad mínima de captura se inyecta en servidor y nunca forma
+  parte del QR. La **URL base abre la captura para cualquier persona** (sin cuenta
   Google ni token, desde v0.9.29): un QR impreso no se invalida al publicar
   versiones mientras se reutilice el mismo deployment; los paneles, la ficha,
   Backups y REM siguen exigiendo el enlace compartido vigente. La estabilidad
