@@ -26,6 +26,10 @@
   EVENTOS y la vista sectorial, la fila se elimina de origen; la trazabilidad
   permanente queda en `EVENTOS.FUENTE`. Errores y revisiones permanecen para
   corrección humana. El panel impide ejecutar un lote con cero procesables.
+- Limpieza operativa ejecutada: se retiraron las 1.112 filas confirmadas de
+  `INGRESO_AMARILLO`; quedaron 6 en revisión y 3 con error. Postcheck:
+  PACIENTES 2.721, EVENTOS 21.805, cero RUT/ID duplicados en PACIENTES y cero
+  ID duplicados en las tres vistas sectoriales.
 - Suite enfocada: 41/41; ficha 13/13; ingreso manual 20/20; núcleo 673/673;
   aceptación 50/50; contrato V2 36/36; HTML 21/21. Índice sintético de 2.713
   pacientes/21.783 eventos: 187 ms.
