@@ -21,9 +21,11 @@
   canónica antes de declarar éxito.
 - Verificación sobre el libro operativo: 1.112 filas `INGRESADO` de
   `INGRESO_AMARILLO` tienen paciente y evento; 1.102 conservan sector AMARILLO
-  y 10 tienen un cambio territorial posterior. El panel ahora separa
-  «Ya incorporados» de «Por resolver», explica que la fila de origen se conserva
-  como trazabilidad y desactiva el lote cuando no hay filas procesables.
+  y 10 tienen un cambio territorial posterior.
+- `INGRESO_*` queda definido como bandeja transitoria: tras confirmar PACIENTES,
+  EVENTOS y la vista sectorial, la fila se elimina de origen; la trazabilidad
+  permanente queda en `EVENTOS.FUENTE`. Errores y revisiones permanecen para
+  corrección humana. El panel impide ejecutar un lote con cero procesables.
 - Suite enfocada: 41/41; ficha 13/13; ingreso manual 20/20; núcleo 673/673;
   aceptación 50/50; contrato V2 36/36; HTML 21/21. Índice sintético de 2.713
   pacientes/21.783 eventos: 187 ms.

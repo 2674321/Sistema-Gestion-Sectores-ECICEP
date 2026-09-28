@@ -558,7 +558,9 @@ semántica queda **definida aquí**; no se hereda el contrato previo `FORM_CONFI
 Los estados del **registro de captura** (§18.1) son distintos de:
 
 - los estados del **procesamiento de la fila de ingreso** (`ESTADOS_INGRESO`: `PENDIENTE`, `VALIDANDO`,
-  `LISTO`, `INGRESADO`, `DUPLICADO`, `REQUIERE_REVISION`, `ERROR`) — que viven en `INGRESO_<SECTOR>`; y
+  `LISTO`, `INGRESADO`, `DUPLICADO`, `REQUIERE_REVISION`, `ERROR`) — transitorios en
+  `INGRESO_<SECTOR>`; una fila `INGRESADO` se retira tras confirmar PACIENTES,
+  EVENTOS y vista sectorial, mientras errores/revisión permanecen; y
 - los **estados canónicos del paciente** (`ESTADOS.VALIDOS`: `PENDIENTE`…`NSP`).
 
 Tres conjuntos, tres ámbitos, tres autoridades. La UI de captura muestra los estados de §18.1; el
@@ -630,6 +632,12 @@ MODELO INTERNO NORMALIZADO
    ▼
 FORM_RESPUESTAS (registro de captura: cabecera + crudo normalizado + trailer de resultado)
 ```
+
+`INGRESO_<SECTOR>` es una bandeja técnica transitoria, no una fuente de verdad
+ni una tercera copia permanente. La trazabilidad durable de un ingreso procesado
+vive en `EVENTOS` (`FUENTE` identifica hoja/fila de origen) y en el registro de
+captura; por eso la fila de ingreso se elimina únicamente después de confirmar
+la persistencia canónica y la vista sectorial.
 
 - El mapeo **por encabezado**, jamás por índice fijo, se mantiene como invariante operativo
   (`Form_mapeoEncabezados` / `Ingresos_mapearEncabezadosHoja`). **[CONFIRMADO]**

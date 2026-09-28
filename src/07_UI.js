@@ -1540,13 +1540,20 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
       return HOJAS_SECTOR.indexOf('SECTOR_' + s) >= 0 && vistasCrudas.indexOf(s) === i;
     });
     var advertencias = [];
+    var filasOrigenEliminadas = 0;
     try {
       if (vistas.length) Modelo_refrescarVistasSectores_(vistas);
       var verificacionVista = [{ estado: 'INGRESADO', idInterno: destinoId,
         sectorVigente: destinoSector, sectorDestino: destinoSector }];
       Ingresos_confirmarVistas_(verificacionVista);
-      if (verificacionVista[0].vistaSectorConfirmada !== true)
+      if (verificacionVista[0].vistaSectorConfirmada !== true) {
         advertencias.push('VISTA_SECTOR_PENDIENTE');
+      } else if (datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
+        filasOrigenEliminadas = Ingresos_eliminarOrigenConfirmado_([{
+          estado: 'INGRESADO', vistaSectorConfirmada: true,
+          hoja: datos.origen.hoja, filaOrigen: datos.origen.fila
+        }]).eliminadas || 0;
+      }
     } catch (errVista) {
       advertencias.push('VISTA_SECTOR_PENDIENTE');
       Log_warning('Revision', 'refrescar-sector',
@@ -1558,7 +1565,7 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
     Log_flush();
     return { ok: true, accion: prep.accion, destinoId: destinoId,
       sectorCambio: sectorCambio, sectorAnterior: sectorAnterior, sectorNuevo: sectorNuevo,
-      advertencias: advertencias };
+      advertencias: advertencias, filasOrigenEliminadas: filasOrigenEliminadas };
 }
 
 /** FASE 4.0 — limpieza segura del dataset ficticio. */

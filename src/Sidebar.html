@@ -264,9 +264,9 @@ textarea.inp{min-height:64px;resize:vertical}
     <span>La persona pasará desde la hoja de ingreso al sistema ECICEP.
       Se registrará en PACIENTES, se creará su evento de ingreso
       y aparecerá automáticamente en el sector correspondiente.</span>
-    <span>La fila permanece en INGRESO_* como trazabilidad. El estado
-      <b>INGRESADO</b> significa que ya fue incorporada; no se borra ni se copia
-      físicamente a la vista del sector.</span>
+    <span>INGRESO_* es una bandeja transitoria. Cuando PACIENTES, EVENTOS y la
+      vista del sector quedan confirmados, la fila se elimina automáticamente;
+      la trazabilidad permanece en el evento de ingreso.</span>
   </div>
   <div class="ing-filtros">
     <label class="etq" for="ingSector">Sector</label>
@@ -839,6 +839,7 @@ function ingIncorporarValidos(btn){
     if(rs.ingresados)filasR.push('<span style="color:var(--success)">✓ Incorporados: <b class="num">'+_esc(rs.ingresados)+'</b></span>');
     if(rs.cambiosSector)filasR.push('<span style="color:var(--info)">↔ Cambios de sector: <b class="num">'+_esc(rs.cambiosSector)+'</b></span>');
     if(rs.yaIncorporados)filasR.push('<span style="color:var(--text-muted)">↺ Ya incorporados: <b class="num">'+_esc(rs.yaIncorporados)+'</b></span>');
+    if(rs.filasOrigenEliminadas)filasR.push('<span style="color:var(--success)">✓ Retirados de ingreso: <b class="num">'+_esc(rs.filasOrigenEliminadas)+'</b></span>');
     if(rs.vistaSectorPendiente)filasR.push('<span style="color:var(--warning)">⚠ Vista sectorial pendiente</span>');
     if(rs.revision)filasR.push('<span style="color:var(--warning)">⚠ Revisión: <b class="num">'+_esc(rs.revision)+'</b></span>');
     if(rs.errores)filasR.push('<span style="color:var(--danger)">⛔ Errores: <b class="num">'+_esc(rs.errores)+'</b></span>');

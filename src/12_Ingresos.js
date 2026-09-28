@@ -843,6 +843,35 @@ function Ingresos_confirmarVistas_(resultados) {
 }
 
 /**
+ * Retira de INGRESO_* las filas cuya incorporación completa ya fue confirmada.
+ * INGRESO_* es una bandeja transitoria, no una tercera base: la trazabilidad
+ * permanente vive en PACIENTES + EVENTOS.FUENTE. Se elimina de abajo hacia
+ * arriba para no desplazar antes de tiempo las filas aún pendientes.
+ */
+function Ingresos_eliminarOrigenConfirmado_(resultados) {
+  var porHoja = {};
+  (resultados || []).forEach(function (r) {
+    if (r.estado !== 'INGRESADO' || r.vistaSectorConfirmada !== true) return;
+    var nombre = Ingresos_claveHojaNombre_(r.hoja);
+    var fila = Number(r.filaOrigen);
+    if (!HOJAS_INGRESO[nombre] || !fila || fila <= Modelo_headerRow(nombre)) return;
+    if (!porHoja[nombre]) porHoja[nombre] = [];
+    if (porHoja[nombre].indexOf(fila) < 0) porHoja[nombre].push(fila);
+  });
+  var eliminadas = 0;
+  Object.keys(porHoja).forEach(function (nombre) {
+    var hoja = Modelo_hoja(nombre);
+    if (!hoja || typeof hoja.deleteRows !== 'function') return;
+    var filas = porHoja[nombre].sort(function (a, b) { return a - b; });
+    Utl_gruposContiguosFilas(filas).reverse().forEach(function (grupo) {
+      hoja.deleteRows(grupo[0], grupo.length);
+      eliminadas += grupo.length;
+    });
+  });
+  return { eliminadas: eliminadas };
+}
+
+/**
  * PURA: acota el staging de una hoja INGRESO_* a la captura en curso
  * (DEC-054/055). Semántica explícita:
  *   - `soloHojas` set Y sin coincidencia de hoja → []
@@ -1426,7 +1455,8 @@ function Ingresos_incorporarValidos_(opciones) {
       eventos: salida.eventosCreados || 0,
       cambiosSector: salida.cambiosSector || 0,
       yaIncorporados: salida.yaIncorporados || 0,
-      vistaSectorPendiente: !!salida.vistaSectorPendiente
+      vistaSectorPendiente: !!salida.vistaSectorPendiente,
+      filasOrigenEliminadas: salida.filasOrigenEliminadas || 0
     },
     resultados: resultados
   };
@@ -1602,6 +1632,24 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
     });
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (vistas sectoriales, paso 6) TOTAL_pipeline_ms');
+
+  // 7) INGRESO_* es una cola transitoria. Solo después de confirmar entidad,
+  // evento y vista sectorial se retira la fila de origen. Si falla la limpieza,
+  // el canon clínico permanece correcto y el retry idempotente puede repetirla.
+  var limpiezaOrigen = { eliminadas: 0 };
+  try {
+    limpiezaOrigen = Ingresos_eliminarOrigenConfirmado_(salida.resultados);
+  } catch (eLimpieza) {
+    Log_warning('Ingresos', 'limpiarOrigen', eLimpieza && eLimpieza.message
+      ? eLimpieza.message : String(eLimpieza));
+    salida.resultados.forEach(function (r) {
+      if (r.estado !== 'INGRESADO' || r.vistaSectorConfirmada !== true) return;
+      r.advertencias = (r.advertencias || []).concat(['ORIGEN_PENDIENTE_LIMPIEZA']);
+    });
+  }
+  salida.resumen.filasOrigenEliminadas = limpiezaOrigen.eliminadas || 0;
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (limpieza origen, paso 7) eliminadas=' +
+    salida.resumen.filasOrigenEliminadas);
 
   salida.resumen.usuario = _ingresosUsuarioActual();
   salida.resumen.vistasSector = vistas;

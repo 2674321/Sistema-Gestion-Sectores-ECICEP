@@ -92,6 +92,7 @@ function hojaFake(estado) {
     getLastRow: () => vals.length,
     getLastColumn: () => vals.reduce((m, r) => Math.max(m, r.length), 0),
     getMaxRows: () => 1000,
+    deleteRows: (inicio, cantidad) => { vals.splice(inicio - 1, cantidad); },
     getRange: (a, b, c, d) => {
       if (typeof a === 'number') return mk(a, b, c ?? 1, d ?? 1);
       const m = /^([A-Z]+)(\d+)$/.exec(String(a));
@@ -162,6 +163,11 @@ function libro(opciones) {
     const hojaP = ctx.hojas['PACIENTES'];
     const fila = PAC.map((c) => p[c] !== undefined ? p[c] : '');
     hojaP.val.push(fila); // fila física 4 (visual layout)
+  }
+  // La mayoría de regresiones históricas inspeccionan el estado transitorio
+  // INGRESADO. La limpieza productiva se habilita explícitamente en T41.
+  if (!(opciones && opciones.eliminarOrigen)) {
+    ctx.Ingresos_eliminarOrigenConfirmado_ = () => ({ eliminadas: 0 });
   }
   return ctx;
 }
@@ -430,7 +436,7 @@ test('T11 UI: renombrado, subtítulo, Sector destino, Incorporar a; sin "Copiar 
   for (const txt of ['Incorporación de ingresos',
     'Revisa e incorpora al sistema las personas registradas en las hojas de ingreso.',
     '¿Qué significa incorporar?', 'Sector destino', 'Incorporar a ', 'Incorporar todos los válidos',
-    'Se procesarán únicamente ingresos pendientes válidos.', 'La fila permanece en INGRESO_* como trazabilidad.',
+    'Se procesarán únicamente ingresos pendientes válidos.', 'INGRESO_* es una bandeja transitoria.',
     'Ya incorporados', 'Por resolver', 'No hay filas nuevas válidas.']) {
     assert.ok(sb.indexOf(txt) !== -1, 'UI debe contener: ' + txt);
   }
@@ -1208,6 +1214,44 @@ test('T40 resolver conserva éxito clínico y advierte si la vista queda pendien
   assert.ok(Array.from(res.advertencias || []).includes('VISTA_SECTOR_PENDIENTE'));
   assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'NARANJO', 'el canon clínico sí quedó confirmado');
   assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], 'INGRESADO');
+});
+
+test('T41 la bandeja elimina solo filas con incorporación y vista confirmadas', () => {
+  const c = libro({ eliminarOrigen: true });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  c.hojas['INGRESO_NARANJO'].val[4] = filaIngresoValida({
+    nombre: 'X', rut: '12', fecha: '2026-02-02'
+  });
+
+  const r = c.api_ingresosIncorporarValidos({ sector: 'NARANJO' }, 'tok');
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.resumen.ingresados, 1);
+  assert.equal(r.resumen.filasOrigenEliminadas, 1, 'retira una fila confirmada');
+  assert.equal(c.Modelo_leerPacientes().length, 1, 'PACIENTES conserva el canon');
+  assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1,
+    'EVENTOS conserva la trazabilidad');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val.length, 4,
+    'encabezados + única excepción no incorporada');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[3][0], 'X', 'el error permanece en la bandeja');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], 'ERROR');
+});
+
+test('T42 resolver de revisión también retira la fila después de confirmar', () => {
+  const c = libro({ eliminarOrigen: true, paciente: {
+    ID_INTERNO: 'EC-SEED-12', RUT: rutOk('87654321'), NOMBRE: 'SOFIA RUIZ',
+    SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2'
+  } });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida({
+    nombre: 'SOFIA RUIZ', rut: rutOk('44445555'), tel: '', fecha: '2026-06-06'
+  });
+  assert.equal(c.api_ingresosIncorporarValidos({}, 'tok').resumen.revision, 1);
+  const caso = c.api_revisionListar('tok').casos[0];
+  const res = c.api_revisionResolver(caso.indice, 'CONFIRMAR_MATCH', 'tok');
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.equal(res.filasOrigenEliminadas, 1);
+  assert.equal(c.hojas['INGRESO_NARANJO'].val.length, 3, 'solo quedan encabezados');
+  assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'NARANJO');
+  assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1);
 });
 
 console.log('\nincorporacion_ingresos_vNEXT — ' + passed + '/' + passed + ' PASS');
