@@ -2194,3 +2194,20 @@ en Script Properties hasta la verificación final.
 de I/O; suite de retry/cursor y ataque RPC. Publicación solo tras migrar
 credenciales y ejecutar dos pasadas `CONSERVAR` autorizadas.
 **Fecha:** 2026-09-27
+
+## DEC-100
+**Título:** Incorporación de paciente existente y sector vigente.
+**Estado:** Aprobada; validación operativa pendiente
+**Motivo:** DEC-026 sigue impidiendo sobrescribir silenciosamente datos clínicos o
+demográficos, pero `SECTOR` es estado territorial de dominio. Una incorporación
+nueva desde `INGRESO_<SECTOR>` que enlaza a una persona de otro sector ejecuta la
+transición canónica `CAMBIO_SECTOR`, actualiza `PACIENTES.SECTOR` y registra tanto
+`CAMBIO_SECTOR` como `INGRESO`. Un sector vacío se asigna con la misma trazabilidad;
+`MULTIPLE` exige revisión humana. La idempotencia se demuestra con `EVENTOS`
+(`FUENTE` o paciente+fecha), nunca con la caché `PACIENTES.FECHA_INGRESO`. Un retry
+histórico repara estado/vistas, pero no revierte cambios territoriales posteriores.
+Individual, lote y trigger manual reutilizan el mismo pipeline. Un fallo de vista
+no falsea el resultado: devuelve `INCORPORADO_VISTA_PENDIENTE`.
+**Validación:** regresión conductual T17–T23 y batería completa; E2E sin datos reales
+pendiente. No cambia schema 2 ni contrato de captura V2.
+**Fecha:** 2026-09-27

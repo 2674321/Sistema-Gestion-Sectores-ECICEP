@@ -1,5 +1,13 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-27 (DEC-100):** cerrado localmente el incidente de
+> incorporación cross-sector y falsa duplicidad por `PACIENTES.FECHA_INGRESO`.
+> El pipeline único registra `CAMBIO_SECTOR` + `INGRESO`, conserva cambios
+> posteriores en retries, trata `MULTIPLE` como revisión y verifica la vista.
+> Prueba enfocada 25/25; snapshot 2.713/21.783 indexado en 187 ms local. Pendiente
+> únicamente E2E individual/lote en el libro operativo después de autorización
+> de publicación; esta corrección no fue desplegada ni fusionada.
+
 > **Actualización 2026-09-27 (cierre local del timeout):** el build que mostró
 > el timeout fue identificado por smoke anónimo como **v0.14.0 / `9351dfb`**
 > en el deployment operativo @250; no era la rama v0.16. El motor v0.16 ahora

@@ -118,6 +118,17 @@
 > - Agenda manual, salud mental, esquema **2**, contrato de captura **V4**,
 >   Spreadsheet, proyecto, URL y QR se conservan. Batería: **29 suites, 0 fallos**.
 
+> **Actualización 2026-09-27 (DEC-100, pendiente de despliegue):**
+> - La incorporación sectorial usa `EVENTOS` como evidencia canónica de
+>   idempotencia; `PACIENTES.FECHA_INGRESO` no bloquea altas por sí sola.
+> - Un paciente existente en otro sector pasa por la operación compartida
+>   `CAMBIO_SECTOR`: se conserva identidad/demografía, se actualiza el sector
+>   vigente y se anexan `CAMBIO_SECTOR` + `INGRESO` bajo el mismo pipeline.
+> - `MULTIPLE` y ambigüedades no mutan clínica; quedan en revisión humana. Los
+>   reintentos con ingreso ya demostrado no revierten cambios posteriores.
+> - Vistas anterior/destino se refrescan una vez y se verifican; una falla se
+>   comunica como `INCORPORADO_VISTA_PENDIENTE`, no como éxito total.
+
 
 > **Actualización 2026-09-23 (v0.10.7):**
 > - **INCORPORACIÓN DE INGRESOS CLARA PARA EL OPERADOR (DEC-071)**:

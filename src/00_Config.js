@@ -434,7 +434,7 @@ const FORMATO_CAMPOS = {
 
 const VALIDACIONES_CAMPOS = {
   SEXO: { tipo: 'LISTA', valores: ['M', 'F', 'OTRO'], permitirVacio: true },
-  ESTADO_INGRESO: { tipo: 'LISTA', valores: ['PENDIENTE', 'AGENDADO', 'INGRESADO', 'NO_CONTESTA', 'FALLECIDO', 'NSP'], permitirVacio: false },
+  ESTADO_INGRESO: { tipo: 'LISTA', valores: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR'], permitirVacio: false },
   SALUD_MENTAL: { tipo: 'LISTA', valores: ['SI', 'NO'], permitirVacio: true },
   ESTRATIFICACION: { tipo: 'LISTA', valores: ['G', 'G1', 'G2', 'G3'], permitirVacio: true },
   FECHA_NACIMIENTO: { tipo: 'FECHA', permitirVacio: true }

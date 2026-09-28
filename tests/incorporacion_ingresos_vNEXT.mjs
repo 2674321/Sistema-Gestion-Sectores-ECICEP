@@ -29,6 +29,8 @@
  *   T15 encabezados reales fuera de la fila de contrato: listado, detalle,
  *       incorporación y escritura de ESTADO_INGRESO comparten el MISMO layout.
  *   T16 api_buscar normaliza el RUT almacenado (puntos/espacios y SIN_DV).
+ *   T17–T23 transición territorial, falsa duplicidad, estados terminales,
+ *       MULTIPLE, advertencia de vista e índice lineal sobre volumen realista.
  *
  * Uso: node tests/incorporacion_ingresos_vNEXT.mjs
  */
@@ -597,6 +599,141 @@ test('T16 api_buscar normaliza el RUT almacenado (puntos/espacios y SIN_DV)', ()
 
   const r4 = c2.api_buscar('acnoexiste-9', 'tok');
   assert.equal(r4.filas.length, 0, 'RUT válido inexistente → sin resultados');
+});
+
+// ---------------------------------------------------------------------------
+// T17–T18 — regresión del incidente: existente cross-sector y falsa
+// barrera basada en PACIENTES.FECHA_INGRESO.
+// ---------------------------------------------------------------------------
+test('T17 existente cross-sector: crea INGRESO + CAMBIO_SECTOR y converge la vista destino', () => {
+  const c = libro({ paciente: {
+    ID_INTERNO: 'EC-SEED-01', RUT: '12345678-5', NOMBRE: 'ANA PEREZ',
+    SECTOR: 'AMARILLO', FECHA_INGRESO: '', ESTRATIFICACION: 'G2'
+  } });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+
+  const preview = c.api_ingresosPendientes({ sector: 'NARANJO' }, 'tok');
+  assert.equal(preview.conteos.cambiosSector, 1, JSON.stringify(preview));
+  assert.equal(preview.filas[0].sectorVigente, 'AMARILLO');
+  assert.equal(preview.filas[0].accionTerritorial, 'CAMBIAR_SECTOR');
+
+  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.resultado.estado, 'INGRESADO');
+  assert.equal(r.resultado.sectorAnterior, 'AMARILLO');
+  assert.equal(r.resultado.sectorDestino, 'NARANJO');
+  assert.equal(r.resultado.sectorCambio, true);
+  assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'NARANJO');
+  const eventos = c.Modelo_leerEventos();
+  assert.equal(eventos.filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1);
+  assert.equal(eventos.filter((e) => e.TIPO_EVENTO === 'CAMBIO_SECTOR').length, 1);
+  assert.equal(c.hojas['SECTOR_NARANJO'].val.slice(3).some((f) => f[0] === 'EC-SEED-01'), true);
+  assert.equal(c.hojas['SECTOR_AMARILLO'].val.slice(3).some((f) => f[0] === 'EC-SEED-01'), false);
+
+  c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(c.Modelo_leerEventos().length, 2, 'retry no duplica eventos');
+});
+
+test('T18 FECHA_INGRESO en PACIENTES sin EVENTO no es evidencia de duplicado', () => {
+  const c = libro({ paciente: {
+    ID_INTERNO: 'EC-SEED-02', RUT: '12345678-5', NOMBRE: 'ANA PEREZ',
+    SECTOR: 'AMARILLO', FECHA_INGRESO: '2026-01-15', ESTRATIFICACION: 'G2'
+  } });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida({ fecha: '2026-01-15' });
+
+  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(r.resultado.estado, 'INGRESADO', JSON.stringify(r));
+  assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1);
+  assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'NARANJO');
+});
+
+test('T19 retry por FUENTE no revierte un cambio territorial posterior', () => {
+  const c = libro({ paciente: {
+    ID_INTERNO: 'EC-SEED-03', RUT: '12345678-5', NOMBRE: 'ANA PEREZ',
+    SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2'
+  } });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(c.Paciente_cambiarSector_('EC-SEED-03', 'VERDE', { fuente: 'TEST_POSTERIOR' }).ok, true);
+  c.hojas['INGRESO_NARANJO'].val[3][9] = 'PENDIENTE';
+  c.Modelo_invalidarLecturas();
+
+  const retry = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(retry.resultado.yaIncorporado, true, JSON.stringify(retry));
+  assert.equal(retry.resultado.sectorVigente, 'VERDE');
+  assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'VERDE', 'no vuelve a NARANJO');
+  assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1);
+});
+
+test('T20 sector MULTIPLE exige revisión humana y no escribe', () => {
+  const c = libro({ paciente: {
+    ID_INTERNO: 'EC-MULTI-01', RUT: '12345678-5', NOMBRE: 'ANA PEREZ',
+    SECTOR: 'MULTIPLE', ESTRATIFICACION: 'G2'
+  } });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(r.resultado.estado, 'REQUIERE_REVISION', JSON.stringify(r));
+  assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'MULTIPLE');
+  assert.equal(c.Modelo_leerEventos().length, 0);
+});
+
+test('T21 DUPLICADO es terminal y REQUIERE_REVISION no reaparece como pendiente válido', () => {
+  const c = libro();
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida({ estado: 'DUPLICADO' });
+  c.hojas['INGRESO_NARANJO'].val[4] = filaIngresoValida({
+    nombre: 'ROSA LOPEZ', rut: rutOk('22334455'), estado: 'REQUIERE_REVISION'
+  });
+  const lista = c.api_ingresosPendientes({}, 'tok');
+  assert.equal(lista.total, 1, JSON.stringify(lista));
+  assert.equal(lista.filas[0].estado, 'REQUIERE_REVISION');
+  const lote = c.api_ingresosIncorporarValidos({}, 'tok');
+  assert.equal(lote.resumen.ingresados, 0);
+  assert.equal(lote.resumen.revision, 1);
+  assert.equal(c.Modelo_leerPacientes().length, 0);
+});
+
+test('T22 fallo de vista no falsea éxito: persiste canon y devuelve advertencia estructurada', () => {
+  const c = libro();
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  c.Modelo_refrescarVistasSectores_ = () => { throw new Error('vista no disponible'); };
+  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  assert.equal(r.resultado.estado, 'INGRESADO');
+  assert.equal(r.resultado.estadoOperacion, 'INCORPORADO_VISTA_PENDIENTE');
+  assert.deepEqual(Array.from(r.resultado.advertencias), ['VISTA_SECTOR_PENDIENTE']);
+  assert.equal(c.Modelo_leerPacientes().length, 1);
+  assert.equal(c.Modelo_leerEventos().length, 1);
+});
+
+test('T23 indexación de snapshot 2.713/21.783 es lineal y acotada', () => {
+  const c = libro();
+  const pacientes = Array.from({ length: 2713 }, (_, i) => ({
+    ID_INTERNO: 'EC-PERF-' + i, RUT: '', NOMBRE: 'PACIENTE ' + i, SECTOR: 'VERDE'
+  }));
+  const eventos = Array.from({ length: 21783 }, (_, i) => ({
+    ID_EVENTO: 'EV-PERF-' + i, ID_INTERNO: 'EC-PERF-' + (i % 2713),
+    TIPO_EVENTO: i % 3 === 0 ? 'INGRESO' : 'CONTROL', FECHA_EVENTO: '2026-01-15',
+    FUENTE: 'PERF|' + i
+  }));
+  const t0 = Date.now();
+  const salida = c.Ingresos_procesarFilas([], { pacientes, eventos }, {});
+  const ms = Date.now() - t0;
+  assert.equal(salida.resumen.leidos, 0);
+  assert.ok(ms < 2000, 'snapshot indexado en ' + ms + 'ms');
+  console.log('[PERF] snapshot 2713 pacientes / 21783 eventos: ' + ms + 'ms');
+});
+
+test('T24 lote reutiliza la misma transición territorial que el flujo individual', () => {
+  const c = libro({ paciente: {
+    ID_INTERNO: 'EC-BATCH-01', RUT: '12345678-5', NOMBRE: 'ANA PEREZ',
+    SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2'
+  } });
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  const r = c.api_ingresosIncorporarValidos({ sector: 'NARANJO' }, 'tok');
+  assert.equal(r.resumen.cambiosSector, 1, JSON.stringify(r));
+  assert.equal(r.resumen.ingresados, 1);
+  assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'NARANJO');
+  assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'CAMBIO_SECTOR').length, 1);
+  assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1);
 });
 
 console.log('\nincorporacion_ingresos_vNEXT — ' + passed + '/' + passed + ' PASS');

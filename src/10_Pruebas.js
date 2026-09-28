@@ -578,17 +578,21 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(s.resultados[0].estado, 'INGRESADO', 'resultado fila');
   });
 
-  // CASO B — existente exacto: +0 paciente / +1 evento / campos intactos
-  t('3B CASO B: existente MATCH_EXACTO → +0 pacientes, +1 evento, sin sobrescritura', function () {
+  // CASO B — existente cross-sector: transición territorial trazada (DEC-100)
+  t('3B CASO B: existente MATCH_EXACTO cross-sector → CAMBIO_SECTOR + INGRESO', function () {
     var base = DATASET_STAGING.base[0];
-    var snapshot = JSON.stringify(base);
+    var rut = base.RUT, nombre = base.NOMBRE, telefono = base.TELEFONOS;
     var store = { pacientes: [base], eventos: [] };
     var s = Ingresos_procesarFilas([_stagingCaso('existenteRut', 2)], store, {});
     A.igual(store.pacientes.length, 1, '+0 pacientes');
-    A.igual(store.eventos.length, 1, '+1 evento');
-    A.igual(store.eventos[0].ID_INTERNO, 'EC-TEST-0001', 'enlazado');
+    A.igual(store.eventos.length, 2, 'cambio + ingreso');
+    A.igual(store.eventos[1].ID_INTERNO, 'EC-TEST-0001', 'ingreso enlazado');
+    A.igual(store.eventos[0].TIPO_EVENTO, 'CAMBIO_SECTOR', 'transición trazada');
     A.igual(s.resumen.existentes, 1, 'resumen existentes');
-    A.igual(JSON.stringify(store.pacientes[0]), snapshot, 'paciente intacto');
+    A.igual(store.pacientes[0].SECTOR, 'AMARILLO', 'sector vigente actualizado');
+    A.igual(store.pacientes[0].RUT, rut, 'RUT intacto');
+    A.igual(store.pacientes[0].NOMBRE, nombre, 'nombre intacto');
+    A.igual(store.pacientes[0].TELEFONOS, telefono, 'teléfono intacto');
   });
 
   // CASO C — ambiguo: nada se escribe
@@ -730,7 +734,7 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(s.resumen.nuevos, 1, 'nuevos');
     A.igual(s.resumen.existentes, 1, 'existentes');
     A.igual(s.resumen.revision, 1, 'revisión');
-    A.igual(s.resumen.eventosCreados, 2, 'eventos creados');
+    A.igual(s.resumen.eventosCreados, 3, 'dos ingresos + cambio territorial');
     A.igual(s.resumen.validos, 2, 'válidos');
   });
 }
@@ -3668,7 +3672,7 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(s.resumen.duplicados, 1, 'duplicados');
     A.igual(s.resumen.revision, 1, 'revision contabilizada');
     A.igual(s.resumen.conError, 1, 'error no bloquea al lote');
-    A.igual(s.resumen.eventosCreados, 2, 'eventos de los dos válidos');
+    A.igual(s.resumen.eventosCreados, 3, 'dos ingresos + cambio territorial');
   });
 
   t('PULIDO v0.8.9.5: Ingresos_resumenTexto listo para el toast 3.7', function () {

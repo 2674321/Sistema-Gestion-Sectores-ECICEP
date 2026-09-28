@@ -293,25 +293,28 @@ function Paciente_aplicarCampos_(idInterno, campos, contexto) {
   };
 }
 
-function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
+/**
+ * PURA: prepara la transición territorial canónica compartida por Ficha e
+ * Incorporación. No escribe nada. La persistencia decide si difiere vistas o
+ * agrupa varias transiciones, pero nunca inventa otra semántica de
+ * CAMBIO_SECTOR.
+ */
+function Paciente_prepararCambioSector_(pacienteOrigen, nuevoSector, contexto) {
   contexto = contexto || {};
-  var encontrado = Modelo_buscarPaciente(idInterno);
-  if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-  var anterior = Utl_texto(encontrado.obj.SECTOR).toUpperCase();
+  if (!pacienteOrigen || !pacienteOrigen.ID_INTERNO)
+    return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+  var anterior = Utl_texto(pacienteOrigen.SECTOR).toUpperCase();
   var sec = Norm_normalizarSector(nuevoSector);
   if (sec.estado !== 'OK') return { ok: false, motivo: 'SECTOR_INVALIDO' };
   if (anterior === sec.sector) return { ok: true, sinCambios: true, sector: anterior };
-
-  var idx = encontrado.idx;
-  var paciente = Object.assign({}, encontrado.obj);
+  var paciente = Object.assign({}, pacienteOrigen);
   paciente.SECTOR = sec.sector;
-
   var evento = {
     ID_EVENTO: Ev_nuevoId(),
     ID_INTERNO: paciente.ID_INTERNO,
     RUT: paciente.RUT,
     NOMBRE: paciente.NOMBRE,
-    FECHA_EVENTO: _fichaHoyIso_(),
+    FECHA_EVENTO: contexto.fechaEvento || _fichaHoyIso_(),
     TIPO_EVENTO: 'CAMBIO_SECTOR',
     SECTOR: sec.sector,
     RIESGO_G: paciente.ESTRATIFICACION || '',
@@ -325,6 +328,22 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
       : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''),
     FECHA_REGISTRO: null
   };
+  return { ok: true, sinCambios: false, anterior: anterior, nuevo: sec.sector,
+    pacienteAnterior: Object.assign({}, pacienteOrigen), paciente: paciente,
+    evento: evento };
+}
+
+function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
+  contexto = contexto || {};
+  var encontrado = Modelo_buscarPaciente(idInterno);
+  if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
+  var plan = Paciente_prepararCambioSector_(encontrado.obj, nuevoSector, contexto);
+  if (!plan.ok || plan.sinCambios) return plan;
+
+  var anterior = plan.anterior;
+  var idx = encontrado.idx;
+  var paciente = plan.paciente;
+  var evento = plan.evento;
 
   // 1) PACIENTES (una fila)
   try {
@@ -349,19 +368,19 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
         .setValues([Modelo_filaDesdeObjeto(paciente)]);
       Modelo_invalidarLecturas();
     } catch (eR) {}
-    try { Modelo_refrescarVistasSectores_([anterior, sec.sector]); } catch (eV) {}
+    try { Modelo_refrescarVistasSectores_([anterior, plan.nuevo]); } catch (eV) {}
     Log_error('Paciente', 'cambiarSector', 'CAMBIO_SECTOR_FALLIDO; rollback aplicado a ' + anterior);
     Log_flush();
     return { ok: false, motivo: 'CAMBIO_SECTOR_FALLIDO: rollback aplicado, revisión requerida' };
   }
 
   // 3) Vistas sectoriales: SOLO las implicadas
-  try { Modelo_refrescarVistasSectores_([anterior, sec.sector]); } catch (eF) {}
+  try { Modelo_refrescarVistasSectores_([anterior, plan.nuevo]); } catch (eF) {}
 
-  Log_info('Paciente', 'cambiarSector', anterior + ' → ' + sec.sector + ' · ' + idEvento, null, null);
+  Log_info('Paciente', 'cambiarSector', anterior + ' → ' + plan.nuevo + ' · ' + idEvento, null, null);
   Log_flush();
 
-  return { ok: true, anterior: anterior, nuevo: sec.sector, idEvento: idEvento, sinCambios: false };
+  return { ok: true, anterior: anterior, nuevo: plan.nuevo, idEvento: idEvento, sinCambios: false };
 }
 
 /**

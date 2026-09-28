@@ -161,3 +161,15 @@ hojas. Conservar evidencias técnicas sin PII y abrir una corrección desde Git.
   Presentación y versión publicada.
 - Los IDs de Apps Script/Spreadsheet son identificadores de configuración, no
   secretos; la autorización nunca depende de ocultarlos.
+
+## Anexo 2026-09-27 — incorporación a sectores
+
+La auditoría confirmó una contradicción entre el rótulo UI “Sector destino” y la
+mutación real: el pipeline agregaba `INGRESO`, pero dejaba intacto
+`PACIENTES.SECTOR`. También bloqueaba incorporaciones legítimas usando la caché
+`PACIENTES.FECHA_INGRESO` como si fuera evidencia histórica. DEC-100 corrige
+ambas causas: transición compartida `CAMBIO_SECTOR`, idempotencia indexada desde
+`EVENTOS`, estados terminales estables y verificación de vistas con warning
+estructurado. La suite conductual cubre individual, lote, retry posterior,
+`MULTIPLE`, falsa duplicidad y fallo parcial de vista. Detalle y matriz en
+`docs/INFORME_2026-09-27_INCORPORACION_SECTORES.md`.

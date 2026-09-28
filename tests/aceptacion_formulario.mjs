@@ -275,15 +275,15 @@ registrar('ingreso: NUEVO_INGRESO válido crea 1 paciente + evento INGRESO + mar
   return { ok, detalle: 'paciente ' + pac.ID_INTERNO, causa: 'pipeline de ingreso no produjo el alta esperada (nuevos=' + r.salida.resumen.nuevos + ', pacientes=' + store.pacientes.length + ', eventos=' + store.eventos.length + ')' };
 });
 
-registrar('ingreso: dos respuestas iguales NUNCA crean dos pacientes (lo decide el pipeline)', () => {
+registrar('ingreso: dos respuestas iguales el mismo día crean una persona y un INGRESO', () => {
   const store = { pacientes: [], eventos: [] };
   const rut = rutOk(98765432);
   ingresarPorForm({ responseId: 'ACE-N-002', crudo: nuevoIngreso(rut) }, store);
   ingresarPorForm({ responseId: 'ACE-N-003', crudo: nuevoIngreso(rut) }, store);
   const ok = store.pacientes.length === 1
-    && store.eventos.length === 2
+    && store.eventos.length === 1
     && store.eventos.every(e => e.TIPO_EVENTO === 'INGRESO');
-  return { ok, causa: 'se creó un segundo paciente (hogar de duplicados violado), pacientes=' + store.pacientes.length + ' eventos=' + store.eventos.length };
+  return { ok, causa: 'se violó la idempotencia paciente+día, pacientes=' + store.pacientes.length + ' eventos=' + store.eventos.length };
 });
 
 registrar('ingreso: error de identificación — RUT inválido y sin DV son ERROR', () => {
