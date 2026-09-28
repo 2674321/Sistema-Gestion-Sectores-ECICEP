@@ -42,6 +42,16 @@ cursor también en Script Properties y colapsa cambios dispersos de caches a tre
 escrituras de columnas derivadas. `Preparando derivados` ya no recalcula antes de
 Integridad y Verificación reutiliza su post-check; se eliminan dos barridos completos.
 
+Segunda pasada de estabilidad: todas las funciones internas comparten la URL fija
+del único deployment, pero cada ruta administrativa conserva la autorización de
+Operador; la captura pública ya no muestra un enlace `Funciones` vacío. En
+incorporación de ingresos, solo `INGRESADO` es terminal por etiqueta: estados
+antiguos `DUPLICADO`/`REQUIERE_REVISION` se vuelven a validar contra la evidencia
+canónica de `EVENTOS`, de modo que una fila corregida puede cargarse. El lote aísla
+filas estructuralmente desplazadas (por ejemplo, sexo `F` leído como nombre),
+continúa con las válidas y las operaciones individual/masiva omiten el formateo
+global de hojas, sin cambiar el pipeline clínico ni inferir correcciones.
+
 ## v0.15.1 — fix «intervalo combinado» en Portada INICIO
 
 La subtarea «Portada INICIO» fallaba en producción porque el marco de color de

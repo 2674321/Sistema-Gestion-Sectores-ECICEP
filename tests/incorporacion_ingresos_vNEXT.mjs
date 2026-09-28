@@ -677,19 +677,20 @@ test('T20 sector MULTIPLE exige revisión humana y no escribe', () => {
   assert.equal(c.Modelo_leerEventos().length, 0);
 });
 
-test('T21 DUPLICADO es terminal y REQUIERE_REVISION no reaparece como pendiente válido', () => {
+test('T21 estados antiguos sin evidencia se revalidan y una fila corregida puede incorporarse', () => {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida({ estado: 'DUPLICADO' });
   c.hojas['INGRESO_NARANJO'].val[4] = filaIngresoValida({
     nombre: 'ROSA LOPEZ', rut: rutOk('22334455'), estado: 'REQUIERE_REVISION'
   });
   const lista = c.api_ingresosPendientes({}, 'tok');
-  assert.equal(lista.total, 1, JSON.stringify(lista));
-  assert.equal(lista.filas[0].estado, 'REQUIERE_REVISION');
+  assert.equal(lista.total, 2, JSON.stringify(lista));
+  assert.deepEqual(Array.from(lista.filas, (f) => f.estado), ['PENDIENTE', 'PENDIENTE']);
+  assert.deepEqual(Array.from(lista.filas, (f) => f.estadoPrevio), ['DUPLICADO', 'REQUIERE_REVISION']);
   const lote = c.api_ingresosIncorporarValidos({}, 'tok');
-  assert.equal(lote.resumen.ingresados, 0);
-  assert.equal(lote.resumen.revision, 1);
-  assert.equal(c.Modelo_leerPacientes().length, 0);
+  assert.equal(lote.resumen.ingresados, 2, JSON.stringify(lote));
+  assert.equal(lote.resumen.revision, 0);
+  assert.equal(c.Modelo_leerPacientes().length, 2);
 });
 
 test('T22 fallo de vista no falsea éxito: persiste canon y devuelve advertencia estructurada', () => {
@@ -734,6 +735,41 @@ test('T24 lote reutiliza la misma transición territorial que el flujo individua
   assert.equal(c.Modelo_leerPacientes()[0].SECTOR, 'NARANJO');
   assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'CAMBIO_SECTOR').length, 1);
   assert.equal(c.Modelo_leerEventos().filter((e) => e.TIPO_EVENTO === 'INGRESO').length, 1);
+});
+
+test('T25 fila desplazada con nombre F se bloquea, pero el lote incorpora los válidos', () => {
+  const c = libro();
+  c.hojas['INGRESO_NARANJO'].val[3] = [
+    'F', '1980-05-10', '900000000', '2026-01-15', 'G2', '', '', '', '', '', '', 'NO'
+  ];
+  c.hojas['INGRESO_NARANJO'].val[4] = filaIngresoValida({
+    nombre: 'MARTA SILVA', rut: rutOk('33445566'), fecha: '2026-02-15'
+  });
+  const lista = c.api_ingresosPendientes({}, 'tok');
+  assert.equal(lista.total, 2);
+  assert.equal(lista.filas[0].estado, 'ERROR');
+  const detalle = c.api_ingresoDetalle('INGRESO_NARANJO', 4, 'tok');
+  assert.ok(detalle.preFicha.errores.some((e) => e.includes('Posible corrimiento de columnas')), JSON.stringify(detalle));
+
+  const lote = c.api_ingresosIncorporarValidos({}, 'tok');
+  assert.equal(lote.resumen.ingresados, 1, JSON.stringify(lote));
+  assert.equal(lote.resumen.errores, 1);
+  assert.equal(c.Modelo_leerPacientes().length, 1);
+  assert.equal(c.Modelo_leerPacientes()[0].NOMBRE, 'MARTA SILVA');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], 'ERROR');
+  assert.equal(c.hojas['INGRESO_NARANJO'].val[4][9], 'INGRESADO');
+});
+
+test('T26 individual y lote omiten el formateo global de todas las hojas', () => {
+  const c = libro(); let formatos = 0;
+  c.HVis_formatearIngresos = () => { formatos++; return { ok: true }; };
+  c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
+  assert.equal(c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok').resultado.estado, 'INGRESADO');
+  c.hojas['INGRESO_NARANJO'].val[4] = filaIngresoValida({
+    nombre: 'ELENA ROJAS', rut: rutOk('44556677'), fecha: '2026-03-15'
+  });
+  assert.equal(c.api_ingresosIncorporarValidos({}, 'tok').resumen.ingresados, 1);
+  assert.equal(formatos, 0, 'cargar datos no debe reformatear todas las hojas');
 });
 
 console.log('\nincorporacion_ingresos_vNEXT — ' + passed + '/' + passed + ' PASS');

@@ -20,6 +20,15 @@ assert.equal(c.WebApp_autorizarCaptura(CAP),true);assert.equal(c.WebApp_autoriza
 assert.equal(c.WebApp_autorizar(OP),true);assert.equal(c.WebApp_autorizarCaptura(OP),false,'Operador no se inyecta como token Captura');
 assert.equal(c.WebApp_autorizarCaptura(LEG),true);assert.equal(c.WebApp_autorizar(LEG),false,'legacy queda limitado a Captura');
 assert.equal(c.api_instalarPaso('runtime',CAP,'x',{}).motivo,'ACCESO_DENEGADO');
+const rutas={portal:'PortalWeb',pacientes:'Sidebar',ingresos:'Sidebar',revision:'Sidebar',ficha:'Sidebar',controles:'Controles',estadisticas:'Dashboard',configuracion:'Configuracion',backups:'Backup',registro:'LogVisor',instalar:'Instalador',rem:'RemVista',generarRem:'RemGenerador'};
+for(const [vista,archivo] of Object.entries(rutas)){
+  const den=c.doGet({parameter:{vista,acceso:CAP}});assert.equal(den.tipo,'texto',vista+' no acepta capacidad pública');
+  const ok=c.doGet({parameter:{vista,acceso:OP}});assert.equal(ok.tipo,'html',vista+' carga con Operador');assert.equal(ok.vars.archivo,archivo);
+  assert.ok(c.WebApp_urlVista_(vista).startsWith(c.ECICEP.WEB_APP_URL+'?acceso='+OP+'&vista='),vista+' usa deployment fijo');
+}
+props.set('CAPTURA_ACCESS_TOKEN','f'.repeat(64));
+assert.equal(c.WebApp_urlVista_('portal'),c.ECICEP.WEB_APP_URL+'?acceso='+OP+'&vista=portal','rotar Captura no cambia enlaces de Operador');
+assert.match(readFileSync(new URL('CapturaWeb.html',src),'utf8'),/<\? if \(PORTAL_URL\) \{ \?><a class="hdr-btn"/,'Captura pública no muestra un enlace Funciones vacío');
 c.Session={getActiveUser:()=>({getEmail:()=> 'persona@otro.test'})};assert.equal(c.WebApp_autorizar(''),false,'email no listado no autoriza');
 props.set('OPERADOR_EMAILS','persona@otro.test');assert.equal(c.WebApp_autorizar(''),true,'allowlist explícita autoriza');
 const web=readFileSync(new URL('WebApp.gs',src),'utf8');assert.doesNotMatch(web,/XFrameOptionsMode\.ALLOWALL/);

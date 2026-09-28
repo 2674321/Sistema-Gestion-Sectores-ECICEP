@@ -175,11 +175,33 @@ function Ingresos_pacienteDesdeNormalizado(n, fila, idInterno) {
 function Ingresos_decidirEscritura(fila) {
   if (!fila || !fila.NORMALIZADO || !fila.NORMALIZADO.RUT_ESTADO) return 'BLOQUEADO';
   if (fila.ESTADO_VALIDACION === 'ERROR') return 'BLOQUEADO';
-  if (Utl_texto(fila.ESTADO_INGRESO_PREVIO).toUpperCase() === 'REQUIERE_REVISION') return 'REVISION';
   var r = fila.RESULTADO_IDENTIFICACION ? fila.RESULTADO_IDENTIFICACION.resultado : '';
   if (r === 'MATCH_EXACTO' || r === 'MATCH_PARCIAL') return 'ENLAZAR_EXISTENTE';
   if (r === 'SIN_MATCH') return 'CREAR_PACIENTE';
   return 'REVISION'; // POSIBLE_DUPLICADO sin confirmar · REQUIERE_REVISION · sin identificar
+}
+
+/**
+ * Detecta una fila probablemente desplazada sin corregir datos clínicos por
+ * inferencia. El patrón observado es sexo en NOMBRE, fecha en RUT y teléfono
+ * en SEXO. Se bloquea y se pide corregir las columnas en la hoja de ingreso.
+ */
+function Ingresos_detectarCorrimientoFila_(valores) {
+  valores = valores || {};
+  var nombre = Utl_colapsarEspacios(Utl_texto(valores.NOMBRE)).toUpperCase();
+  var rut = valores.RUT;
+  var sexoDigitos = Utl_texto(valores.SEXO).replace(/\D/g, '');
+  var nombreEsSexo = /^(?:F|M|FEMENINO|MASCULINO|OTRO)$/.test(nombre);
+  var rutPareceFecha = Object.prototype.toString.call(rut) === '[object Date]';
+  if (!rutPareceFecha) {
+    var textoRut = Utl_texto(rut).trim();
+    rutPareceFecha = /^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}$/.test(textoRut) ||
+      /^\d{1,2}[-\/]\d{1,2}[-\/]\d{4}$/.test(textoRut);
+  }
+  if (nombreEsSexo && (rutPareceFecha || sexoDigitos.length >= 8)) {
+    return { campo: 'FILA', mensaje: 'Posible corrimiento de columnas: revisa NOMBRE, RUT, SEXO y fechas' };
+  }
+  return null;
 }
 
 /**
@@ -524,7 +546,10 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     filasIdentidad++;
     if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue; // defensa redundante
     var estadoPrevio = idxEstado >= 0 ? Utl_texto(filaVal[idxEstado]).toUpperCase() : '';
-    if (estadoPrevio === 'INGRESADO' || estadoPrevio === 'DUPLICADO') continue;
+    // Solo INGRESADO es terminal por etiqueta. DUPLICADO y
+    // REQUIERE_REVISION antiguos se revalidan: la evidencia idempotente real
+    // vive en EVENTOS y una fila corregida debe poder incorporarse.
+    if (estadoPrevio === 'INGRESADO') continue;
     var v = {};
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (idxCampos[c] !== undefined) v[c] = filaVal[idxCampos[c]];
@@ -540,6 +565,12 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     var filaStaging = Fuentes_normalizar(Fuentes_crearFila(
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v));
+    var corrimiento = Ingresos_detectarCorrimientoFila_(v);
+    if (corrimiento) {
+      filaStaging.ERRORES = filaStaging.ERRORES || [];
+      filaStaging.ERRORES.push(corrimiento);
+      filaStaging.ESTADO_VALIDACION = 'ERROR';
+    }
     filaStaging.ESTADO_INGRESO_PREVIO = estadoPrevio;
     staging.push(filaStaging);
   }
@@ -766,8 +797,7 @@ function Ingresos_filaPendientePublica_(fila, indices, pacientesPorId) {
   var errores = (fila.ERRORES || []).length;
   var warnings = (fila.WARNINGS || []).length;
   var previo = Utl_texto(fila.ESTADO_INGRESO_PREVIO).toUpperCase();
-  var estado = previo === 'REQUIERE_REVISION' ? 'REQUIERE_REVISION'
-    : (ev === 'ERROR' || errores > 0 ? 'ERROR'
+  var estado = (ev === 'ERROR' || errores > 0 ? 'ERROR'
     : (warnings > 0 ? 'WARNING' : 'PENDIENTE'));
   var sectorVigente = '', accionTerritorial = '';
   if (indices) {
@@ -789,6 +819,7 @@ function Ingresos_filaPendientePublica_(fila, indices, pacientesPorId) {
     fechaIngreso: n.FECHA_INGRESO || '',
     estratificacion: n.ESTRATIFICACION || '',
     estado: estado, errores: errores, warnings: warnings,
+    estadoPrevio: previo,
     sectorVigente: sectorVigente, accionTerritorial: accionTerritorial
   };
 }
@@ -929,6 +960,7 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
   var resumen = Ingresos_procesarTodasLasHojas_({
     soloHojas: [k], soloFilas: soloFilas,
     confirmarNuevos: opciones.confirmarNuevo === true,
+    normalizarLayout: false,
     incluirResultados: true
   });
   var primer = (resumen.resultados || []).filter(function (r) {
@@ -1219,6 +1251,7 @@ function Ingresos_incorporarValidos_(opciones) {
   var salida = Ingresos_procesarTodasLasHojas_({
     soloHojas: soloHojas,
     confirmarNuevos: false,
+    normalizarLayout: false,
     incluirResultados: true
   });
   var resultados = salida.resultados || [];
@@ -1264,14 +1297,15 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   //    todo el pipeline trabaja sobre un layout estable.
   var normaLayout = {};
   try {
-    if (typeof HVis_formatearIngresos === 'function') {
+    if (opciones.normalizarLayout !== false && typeof HVis_formatearIngresos === 'function') {
       normaLayout = HVis_formatearIngresos();
       console.log('[PIPE] layout normalizado pre-pipeline: ' + JSON.stringify(normaLayout).substring(0, 300));
     }
   } catch (eN) {
     Log_warning('Ingresos', 'normalizarLayoutPre', eN && eN.message ? eN.message : String(eN));
   }
-  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (formato visual, paso 0)');
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (formato visual, paso 0' +
+    (opciones.normalizarLayout === false ? ', omitido en operación acotada' : '') + ')');
 
   // 1) leer todas las puertas de entrada
   //    Con `soloHojas`/`soloFilas` (Web App), el pipeline se acota a las hojas

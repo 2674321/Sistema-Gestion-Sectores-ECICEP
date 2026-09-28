@@ -118,7 +118,21 @@
 > - Agenda manual, salud mental, esquema **2**, contrato de captura **V4**,
 >   Spreadsheet, proyecto, URL y QR se conservan. Batería: **29 suites, 0 fallos**.
 
-> **Actualización 2026-09-27 (DEC-100, pendiente de despliegue):**
+> **Actualización 2026-09-28 (estabilidad de rutas e ingresos):**
+> - Todas las vistas de Operador (`portal`, pacientes, ingresos, revisión,
+>   ficha, controles, estadísticas, configuración, backups, registro,
+>   instalación y REM) derivan del mismo `ECICEP.WEB_APP_URL`; una capacidad
+>   pública de Captura no autoriza ninguna de ellas.
+> - El formulario público omite `Funciones` cuando no existe una URL autorizada,
+>   evitando enlaces vacíos o autorreferentes.
+> - En `INGRESO_*`, solo `INGRESADO` es terminal por etiqueta. Un estado histórico
+>   `DUPLICADO` o `REQUIERE_REVISION` se revalida contra `EVENTOS`, que sigue siendo
+>   la evidencia idempotente canónica, para permitir cargar filas corregidas.
+> - Una fila con señales de corrimiento de columnas se marca `ERROR` sin inferir
+>   datos; el lote continúa incorporando las demás filas válidas. Las operaciones
+>   acotadas individual y masiva no reformatean todas las hojas de ingreso.
+
+> **Actualización 2026-09-27 (DEC-100):**
 > - La incorporación sectorial usa `EVENTOS` como evidencia canónica de
 >   idempotencia; `PACIENTES.FECHA_INGRESO` no bloquea altas por sí sola.
 > - Un paciente existente en otro sector pasa por la operación compartida
