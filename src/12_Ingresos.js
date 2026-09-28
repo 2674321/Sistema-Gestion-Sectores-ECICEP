@@ -22,6 +22,18 @@ function Ingresos_hojaASector(nombreHoja) {
   return HOJAS_INGRESO[k] || '';
 }
 
+/**
+ * PURA: ¿el ESTADO_INGRESO almacenado es un estadio final?
+ * Única definición (ESTADOS_INGRESO.TERMINALES, 00_Config) compartida por el
+ * listado, el detalle y el lote: una fila terminal se MUESTRA con su estado
+ * real (nunca reetiquetada como PENDIENTE) y NUNCA entra sola al pipeline.
+ * ERROR no es terminal: una fila corregida sí se re-valida.
+ */
+function Ingresos_esEstadoTerminal_(estado) {
+  var e = Utl_texto(estado).toUpperCase().trim();
+  return e !== '' && ESTADOS_INGRESO.TERMINALES.indexOf(e) !== -1;
+}
+
 /** Contrato único de columnas físicas de las hojas INGRESO_* (DEC-029). */
 function Ingresos_columnasHoja() {
   return INGRESO_COLUMNAS.slice();
@@ -224,16 +236,25 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   var seqPac = 0, seqEv = _useSeqEv ? (opciones.evSecuenciaInicial || 1) - 1 : 0;
   var indices = Iden_construirIndices((store && store.pacientes) || []);
   var pacientesPorId = {}, ingresosPorFuente = {}, ingresosPorPacienteFecha = {};
+  // Posición (append-only) de cada EVENTO y del último CAMBIO_SECTOR por
+  // paciente: permite responder "¿hubo una decisión territorial posterior?"
+  // en O(1) sin recorrer el historial en cada retry.
+  var posPorEvento = {}, posUltimoCambioSector = {};
   (store.pacientes || []).forEach(function (p, idx) {
     var id = Utl_texto(p.ID_INTERNO); if (id) pacientesPorId[id] = { paciente: p, idx: idx };
   });
-  (store.eventos || []).forEach(function (e) {
-    if (Utl_texto(e.TIPO_EVENTO).toUpperCase() !== 'INGRESO') return;
-    var fuente = Utl_texto(e.FUENTE), id = Utl_texto(e.ID_INTERNO);
+  (store.eventos || []).forEach(function (e, i) {
+    var evId = Utl_texto(e.ID_EVENTO);
+    if (evId) posPorEvento[evId] = i;
+    var tipo = Utl_texto(e.TIPO_EVENTO).toUpperCase();
+    var idInt = Utl_texto(e.ID_INTERNO);
+    if (tipo === 'CAMBIO_SECTOR' && idInt) posUltimoCambioSector[idInt] = i;
+    if (tipo !== 'INGRESO') return;
+    var fuente = Utl_texto(e.FUENTE);
     var fecha = Control_aIso(e.FECHA_EVENTO) || Utl_texto(e.FECHA_EVENTO);
     if (fuente && !ingresosPorFuente[fuente]) ingresosPorFuente[fuente] = e;
-    if (id && fecha && !ingresosPorPacienteFecha[id + '|' + fecha])
-      ingresosPorPacienteFecha[id + '|' + fecha] = e;
+    if (idInt && fecha && !ingresosPorPacienteFecha[idInt + '|' + fecha])
+      ingresosPorPacienteFecha[idInt + '|' + fecha] = e;
   });
 
   var resultados = [], pacientesNuevos = [], pacientesActualizados = [], eventos = [];
@@ -255,6 +276,57 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       idInterno: idInterno || '',
       idEvento: idEvento || ''
     }, extra || {}));
+  }
+
+  /**
+   * RETRY RECONCILIADOR: si el EVENTO de INGRESO de ESTA fila ya existe pero
+   * PACIENTES.SECTOR no quedó en el sector de la fila (datos históricos, write-back
+   * parcial o sector editado a mano), repara la alineación aplicando la transición
+   * de sector SIN crear un segundo evento de INGRESO (el idempotente es el de INGRESO).
+   *
+   * Condiciones conservadoras (cualquier duda ⇒ no tocar):
+   *  - el evento de referencia debe corroborar el destino (SU SECTOR es el de la fila);
+   *  - no debe existir un CAMBIO_SECTOR del paciente POSTERIOR al evento de referencia
+   *    (decisión territorial posterior = respetarla; ver T19);
+   *  - el destino debe ser un sector operativo canónico.
+   *
+   * @param {Object} fila      fila de staging ya normalizada
+   * @param {Object} eventoRef EVENTO INGRESO existente que justifica "ya incorporado"
+   * @param {string} idInterno ID_INTERNO del paciente
+   * @returns {Object|null} plan de cambio aplicado al store, o null si no reparó
+   */
+  function repararSectorRetry_(fila, eventoRef, idInterno) {
+    var info = pacientesPorId[idInterno];
+    if (!info || !eventoRef) return null;
+    var destino = Utl_texto((fila.NORMALIZADO || {}).SECTOR).toUpperCase().trim();
+    var actual = Utl_texto(info.paciente.SECTOR).toUpperCase().trim();
+    if (!destino || destino === actual) return null;
+    if (['NARANJO', 'AMARILLO', 'VERDE'].indexOf(destino) < 0) return null;
+    var evSector = Utl_texto(eventoRef.SECTOR).toUpperCase().trim();
+    if (evSector && evSector !== destino) return null;   // evidencias en conflicto
+    var posRef = posPorEvento[Utl_texto(eventoRef.ID_EVENTO)];
+    if (posRef === undefined) return null;               // sin posición fiable ⇒ no tocar
+    var posCambio = posUltimoCambioSector[idInterno];
+    if (posCambio !== undefined && posCambio > posRef) return null; // decisión posterior
+    var plan = Paciente_prepararCambioSector_(info.paciente, destino, {
+      fuente: Fuentes_fuenteOrigen(fila) + '|CAMBIO_SECTOR',
+      fechaEvento: Control_aIso((fila.NORMALIZADO || {}).FECHA_INGRESO) ||
+        Utl_texto((fila.NORMALIZADO || {}).FECHA_INGRESO),
+      registradoPor: opciones.registradoPor !== undefined ? opciones.registradoPor : ''
+    });
+    if (!plan || !plan.ok || plan.sinCambios || !plan.evento) return null;
+    plan.idx = info.idx;
+    store.pacientes[info.idx] = plan.paciente;
+    pacientesPorId[idInterno] = { paciente: plan.paciente, idx: info.idx };
+    pacientesActualizados.push(plan);
+    store.eventos.push(plan.evento);
+    eventos.push(plan.evento);
+    posPorEvento[Utl_texto(plan.evento.ID_EVENTO)] = store.eventos.length - 1;
+    posUltimoCambioSector[idInterno] = store.eventos.length - 1;
+    resumen.cambiosSector += 1;
+    resumen.eventosCambioSector += 1;
+    resumen.eventosCreados += 1;
+    return plan;
   }
 
   filasStaging.forEach(function (fila) {
@@ -299,11 +371,19 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     var esIngreso = Utl_texto((fila.NORMALIZADO || {}).TIPO_EVENTO || 'INGRESO').toUpperCase() === 'INGRESO';
     var ingresoExistente = esIngreso ? (ingresosPorFuente[fuenteIngreso] || null) : null;
     if (ingresoExistente) {
+      // El evento es DE ESTA FILA (misma fuente) ⇒ la evidencia es inequívoca.
+      // Reintentar no debe dejar jamás un INGRESADO huérfano de sector: si
+      // PACIENTES.SECTOR no coincide, se repara hacia la evidencia.
+      var planRep = repararSectorRetry_(fila, ingresoExistente,
+        Utl_texto(ingresoExistente.ID_INTERNO));
       var pEv = pacientesPorId[Utl_texto(ingresoExistente.ID_INTERNO)];
       resumen.validos += 1; resumen.yaIncorporados += 1;
-      registrar(fila, 'INGRESADO', 'Ingreso ya incorporado; estado reparado',
+      registrar(fila, 'INGRESADO',
+        planRep ? 'Ingreso ya incorporado; sector reparado hacia la evidencia'
+                : 'Ingreso ya incorporado; estado reparado',
         ingresoExistente.ID_INTERNO, ingresoExistente.ID_EVENTO, {
-          yaIncorporado: true, sectorCambio: false,
+          yaIncorporado: true, sectorCambio: !!planRep,
+          sectorAnterior: planRep ? planRep.anterior : '',
           sectorDestino: fila.NORMALIZADO.SECTOR,
           sectorVigente: pEv ? Utl_texto(pEv.paciente.SECTOR).toUpperCase() : ''
         });
@@ -316,11 +396,18 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     var ingresoMismoDia = esIngreso && idExistente && fechaIngreso
       ? ingresosPorPacienteFecha[idExistente + '|' + fechaIngreso] : null;
     if (ingresoMismoDia) {
+      // Evento de OTRA fila del mismo paciente y día: solo se repara si esa
+      // evidencia confirma el MISMO sector que la fila actual; si los sectores
+      // difieren hay conflicto entre hojas y no se decide solo (queda sin cambio).
+      var planRepDia = repararSectorRetry_(fila, ingresoMismoDia, idExistente);
       var pDia = pacientesPorId[idExistente];
       resumen.validos += 1; resumen.yaIncorporados += 1;
-      registrar(fila, 'INGRESADO', 'Ingreso del mismo día ya incorporado; estado reparado',
+      registrar(fila, 'INGRESADO',
+        planRepDia ? 'Ingreso del mismo día ya incorporado; sector reparado hacia la evidencia'
+                   : 'Ingreso del mismo día ya incorporado; estado reparado',
         idExistente, ingresoMismoDia.ID_EVENTO, {
-          yaIncorporado: true, sectorCambio: false,
+          yaIncorporado: true, sectorCambio: !!planRepDia,
+          sectorAnterior: planRepDia ? planRepDia.anterior : '',
           sectorDestino: fila.NORMALIZADO.SECTOR,
           sectorVigente: pDia ? Utl_texto(pDia.paciente.SECTOR).toUpperCase() : ''
         });
@@ -389,6 +476,8 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
         store.pacientes[pInfo.idx] = planSector.paciente;
         pacientesPorId[idInterno] = { paciente: planSector.paciente, idx: pInfo.idx };
         store.eventos.push(planSector.evento); eventos.push(planSector.evento);
+        posPorEvento[Utl_texto(planSector.evento.ID_EVENTO)] = store.eventos.length - 1;
+        posUltimoCambioSector[idInterno] = store.eventos.length - 1;
         sectorCambio = true; idEventoCambio = planSector.evento.ID_EVENTO;
         resumen.cambiosSector += 1; resumen.eventosCambioSector += 1;
         resumen.eventosCreados += 1;
@@ -396,6 +485,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     }
     store.eventos.push(ev.evento); // nunca reemplaza eventos previos
     eventos.push(ev.evento);
+    posPorEvento[Utl_texto(ev.evento.ID_EVENTO)] = store.eventos.length - 1;
     if (esIngreso) {
       ingresosPorFuente[fuenteIngreso] = ev.evento;
       ingresosPorPacienteFecha[idInterno + '|' + fechaIngreso] = ev.evento;
@@ -481,7 +571,9 @@ function Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas, loc) {
 
 /**
  * Lee una hoja INGRESO_* y produce filas de staging normalizadas.
- * Ignora filas vacías y las ya procesadas (ESTADO_INGRESO = INGRESADO).
+ * Ignora filas vacías y las ya incorporadas (ESTADO_INGRESO = INGRESADO).
+ * Toda fila leída lleva ESTADO_INGRESO_PREVIO y ESTADO_INGRESO_TERMINAL
+ * (`Ingresos_esEstadoTerminal_`): quien filtre para procesar usa ese flag.
  * Con `filasPermitidas` acotada y pequeña (y en la Web App siempre lo es)
  * NO escanea la hoja entera: lee solo encabezados + filas listadas.
  * @returns {staging:[], hoja:Object|null}
@@ -546,9 +638,10 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     filasIdentidad++;
     if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue; // defensa redundante
     var estadoPrevio = idxEstado >= 0 ? Utl_texto(filaVal[idxEstado]).toUpperCase() : '';
-    // Solo INGRESADO es terminal por etiqueta. DUPLICADO y
-    // REQUIERE_REVISION antiguos se revalidan: la evidencia idempotente real
-    // vive en EVENTOS y una fila corregida debe poder incorporarse.
+    // INGRESADO se omite por idempotencia (T10): la fila incorporada sale del
+    // listado pero permanece físicamente en la hoja. DUPLICADO y
+    // REQUIERE_REVISION SÍ se leen (el operador debe verlos con su estado real)
+    // y quedan marcados como terminales para que el lote los excluya.
     if (estadoPrevio === 'INGRESADO') continue;
     var v = {};
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
@@ -572,6 +665,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
       filaStaging.ESTADO_VALIDACION = 'ERROR';
     }
     filaStaging.ESTADO_INGRESO_PREVIO = estadoPrevio;
+    filaStaging.ESTADO_INGRESO_TERMINAL = Ingresos_esEstadoTerminal_(estadoPrevio);
     staging.push(filaStaging);
   }
   if (typeof Log_perf === 'function') Log_perf('Ingresos', 'leerHoja', {
@@ -630,9 +724,17 @@ function Ingresos_escribirEstados_(resultados) {
         ' filas=' + JSON.stringify(resHoja.map(function (r) { return r.filaOrigen; })) +
         ' estados=' + JSON.stringify(resHoja.map(function (r) { return r.estado; })));
       resHoja.forEach(function (r) {
+        // Canon único de estados (ESTADOS_INGRESO.VALIDOS): un estado no
+        // reconocido jamás se escribe en la hoja (no borra un estado real).
+        var estadoNuevo = Utl_texto(r.estado).toUpperCase().trim();
+        if (ESTADOS_INGRESO.VALIDOS.indexOf(estadoNuevo) < 0) {
+          console.log('[PIPE] escribirEstados OMITIDO (estado fuera de catálogo) ' +
+            nombreHoja + ' fila=' + r.filaOrigen + ' estado=' + JSON.stringify(r.estado));
+          return;
+        }
         var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
         if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
-        bloque[filaHoja][offsetEstado] = r.estado;
+        bloque[filaHoja][offsetEstado] = estadoNuevo;
         // Preservar la marca de trazabilidad 'FORM|<responseId>|INGRESO' que el
         // anexo dejó en NOTA_SISTEMA: la resolución de la Web App y la
         // idempotencia del re-proceso dependen de que la marca siga presente
@@ -797,6 +899,7 @@ function Ingresos_filaPendientePublica_(fila, indices, pacientesPorId) {
   var errores = (fila.ERRORES || []).length;
   var warnings = (fila.WARNINGS || []).length;
   var previo = Utl_texto(fila.ESTADO_INGRESO_PREVIO).toUpperCase();
+  var terminal = Ingresos_esEstadoTerminal_(previo);
   var estado = (ev === 'ERROR' || errores > 0 ? 'ERROR'
     : (warnings > 0 ? 'WARNING' : 'PENDIENTE'));
   var sectorVigente = '', accionTerritorial = '';
@@ -812,6 +915,13 @@ function Ingresos_filaPendientePublica_(fila, indices, pacientesPorId) {
     else accionTerritorial = 'CAMBIAR_SECTOR';
     if (accionTerritorial === 'REQUIERE_REVISION') estado = 'REQUIERE_REVISION';
   }
+  // El estado ALMACENADO manda sobre el recomputado: una fila terminal se
+  // muestra con su estadio real (nunca "Listo para incorporar") y no propone
+  // ninguna transición territorial. Sigue visible para trazabilidad humana.
+  if (terminal) {
+    estado = previo;
+    accionTerritorial = 'NO_INCORPORABLE';
+  }
   return {
     hoja: fila.HOJA_ORIGEN, fila: Number(fila.FILA_ORIGEN),
     sector: n.SECTOR || Ingresos_hojaASector(fila.HOJA_ORIGEN) || '',
@@ -819,16 +929,17 @@ function Ingresos_filaPendientePublica_(fila, indices, pacientesPorId) {
     fechaIngreso: n.FECHA_INGRESO || '',
     estratificacion: n.ESTRATIFICACION || '',
     estado: estado, errores: errores, warnings: warnings,
-    estadoPrevio: previo,
+    estadoPrevio: previo, terminal: terminal,
     sectorVigente: sectorVigente, accionTerritorial: accionTerritorial
   };
 }
 
 /**
- * GAS: lista las filas pendientes (todo lo no procesado: ESTADO_INGRESO !=
- * INGRESADO) de las hojas INGRESO_*, reutilizando Ingresos_leerHoja() (que ya
- * descarta lo INGRESADO). Filtros: sector, término (RUT/nombre), estado
- * (ERROR/WARNING/PENDIENTE). Paginación inicio+limite y orden hoja/fila.
+ * GAS: lista las filas INGRESO_* aún en hoja (Ingresos_leerHoja omite lo ya
+ * INGRESADO). Una fila terminal (DUPLICADO / REQUIERE_REVISION) se lista con su
+ * estado real y queda fuera de `conteos.validos`: jamás aparece como "lista
+ * para incorporar". Filtros: sector, término (RUT/nombre), estado
+ * (ERROR/WARNING/PENDIENTE/…). Paginación inicio+limite y orden hoja/fila.
  */
 function Ingresos_listarPendientes(opciones) {
   opciones = opciones || {};
@@ -842,7 +953,7 @@ function Ingresos_listarPendientes(opciones) {
   var indices = Iden_construirIndices(pacientes), pacientesPorId = {};
   pacientes.forEach(function (p) { pacientesPorId[Utl_texto(p.ID_INTERNO)] = p; });
   var conteos = { total: 0, validos: 0, advertencias: 0, errores: 0,
-    cambiosSector: 0, requierenRevision: 0 };
+    cambiosSector: 0, requierenRevision: 0, duplicados: 0, terminales: 0 };
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     if (sector && Ingresos_hojaASector(nombreHoja) !== sector) return;
     var leida = Ingresos_leerHoja(nombreHoja);
@@ -855,9 +966,11 @@ function Ingresos_listarPendientes(opciones) {
       if (termino && (publica.rut + ' ' + publica.nombre).toUpperCase().indexOf(termino) === -1) return;
       filas.push(publica);
       conteos.total += 1;
+      if (publica.terminal) conteos.terminales += 1;
       if (publica.estado === 'ERROR') conteos.errores += 1;
       else if (publica.estado === 'WARNING') conteos.advertencias += 1;
       else if (publica.estado === 'REQUIERE_REVISION') conteos.requierenRevision += 1;
+      else if (publica.estado === 'DUPLICADO') conteos.duplicados += 1;
       else conteos.validos += 1;
       if (publica.accionTerritorial === 'CAMBIAR_SECTOR' &&
           publica.estado !== 'ERROR' && publica.estado !== 'REQUIERE_REVISION') conteos.cambiosSector += 1;
@@ -930,6 +1043,9 @@ function Ingresos_buscarPendientesPorRut(rut) {
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     var leida = Ingresos_leerHoja(nombreHoja);
     (leida.staging || []).forEach(function (fila) {
+      // "pendiente" = aún no resuelto: un estado terminal no se anuncia como
+      // ingreso pendiente en la ficha del paciente.
+      if (fila.ESTADO_INGRESO_TERMINAL) return;
       var n = fila.NORMALIZADO || {};
       if (!n.RUT) return;
       var nrFila = Norm_normalizarRut(n.RUT);
@@ -949,6 +1065,24 @@ function Ingresos_buscarPendientesPorRut(rut) {
  * (nunca copia a SECTOR_*; la vista sectorial se actualiza por derivación).
  * Idempotente: si la fila ya está INGRESADO, el pipeline la ignora → leidos 0.
  */
+/**
+ * Lee el ESTADO_INGRESO crudo de una fila física de INGRESO_* (incluye
+ * INGRESADO, que el listado omite) para poder explicar por qué no se procesó.
+ */
+function Ingresos_leerEstadoFila_(nombreHoja, filaFisica) {
+  var k = Ingresos_claveHojaNombre_(nombreHoja);
+  if (!HOJAS_INGRESO[k]) return '';
+  var hoja = Modelo_ss().getSheetByName(k);
+  if (!hoja) return '';
+  var loc = Ingresos_layoutHoja_(hoja, k, true);
+  var idxEstado = loc && loc.mapa ? loc.mapa.estadoIdx : -1;
+  if (idxEstado < 0) return '';
+  var nf = Number(filaFisica);
+  if (!nf || nf <= loc.hr || nf > hoja.getLastRow()) return '';
+  var crudo = hoja.getRange(nf, idxEstado + 1, 1, 1).getValues();
+  return Utl_texto(crudo && crudo[0] ? crudo[0][0] : '').toUpperCase().trim();
+}
+
 function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
   opciones = opciones || {};
   var k = Ingresos_claveHojaNombre_(nombreHoja);
@@ -966,7 +1100,17 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
   var primer = (resumen.resultados || []).filter(function (r) {
     return Utl_texto(r.filaOrigen) === String(nf);
   })[0] || null;
-  return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
+  if (primer) {
+    return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
+  }
+  // Sin resultado: la fila estaba fuera del lote. Se MOTIVA para que la UI no
+  // muestre un "Sin cambios" engañoso cuando el motivo es un estado terminal.
+  var estadoPrevio = Ingresos_leerEstadoFila_(k, nf);
+  return {
+    ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: null,
+    motivo: Ingresos_esEstadoTerminal_(estadoPrevio) ? 'FILA_TERMINAL' : 'SIN_PENDIENTE',
+    estadoPrevio: estadoPrevio
+  };
 }
 
 /** Evidencia canónica de que una fila INGRESO_* fue incorporada realmente. */
@@ -1329,6 +1473,19 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (lectura hojas ingreso, paso 1)');
 
+  // 1b) FILAS TERMINALES fuera del lote. DUPLICADO / REQUIERE_REVISION ya
+  //     fueron decididos: reprocesarlos a ciegas reabriría un caso cerrado (o
+  //     re-encolaría un conflicto ya resuelto). Ingresos_leerHoja los entrega
+  //     marcados con ESTADO_INGRESO_TERMINAL para que el listado pueda mostrarlos.
+  //     Escape hatch: la celda se limpia a mano (p. ej. PENDIENTE) y la fila
+  //     vuelve a ser procesable; el trigger INGRESADO usa la ruta manual.
+  var leidosAntesFiltro = staging.length;
+  staging = staging.filter(function (f) { return !f.ESTADO_INGRESO_TERMINAL; });
+  if (staging.length !== leidosAntesFiltro) {
+    console.log('[PIPE] filas terminales excluidas del lote: ' +
+      (leidosAntesFiltro - staging.length));
+  }
+
   // Sectores tocados por esta captura (para refrescar SOLO sus vistas).
   var sectoresAfectados = [];
   staging.forEach(function (f) {
@@ -1643,6 +1800,9 @@ function Rev_prepararResolucion(datos, decision, opciones) {
     fila: datos.origen.fila || '',
     sector: datos.sectorOrigen || ''
   }, datos.valoresOriginales));
+  // la fila reconstruida queda disponible: quien resuelve necesita su SECTOR
+  // de destino (y su fuente) para cerrar el ciclo fila → PACIENTES → vistas.
+  res.filaStaging = fila;
 
   if (fila.ESTADO_VALIDACION === 'ERROR') {
     res.motivo = 'VALIDACION_ERROR: ' + (fila.ERRORES[0] ? fila.ERRORES[0].campo : '');

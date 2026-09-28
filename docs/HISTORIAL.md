@@ -7,7 +7,7 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
-## 2026-09-27 — corrección local de incorporación territorial (DEC-100)
+## 2026-09-28 — cierre de incorporación territorial (DEC-100)
 
 - Causa raíz: el ingreso de una persona existente no actualizaba el sector
   vigente y una barrera infería duplicidad desde `PACIENTES.FECHA_INGRESO`.
@@ -16,8 +16,12 @@
   revisión; retries no revierten movimientos posteriores.
 - Estados `DUPLICADO` y `REQUIERE_REVISION` dejan de presentarse como pendientes
   válidos. La UI anticipa y reporta cambios; una vista fallida devuelve warning.
-- Suite enfocada: 25/25. Índice sintético 2.713 pacientes/21.783 eventos: 187 ms.
-- Cambio local en PR #6; sin merge ni deployment.
+- La cola de revisión cierra la fila de origen y realiza la misma transición de
+  sector; el append de eventos tiene rollback compensatorio y verificación
+  canónica antes de declarar éxito.
+- Suite enfocada: 41/41; ficha 13/13; ingreso manual 20/20; núcleo 673/673;
+  aceptación 50/50; contrato V2 36/36; HTML 21/21. Índice sintético de 2.713
+  pacientes/21.783 eventos: 187 ms.
 
 ## 2026-09-27 — v0.16.0: cierre local del timeout de derivados
 

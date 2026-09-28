@@ -136,8 +136,16 @@ test('revisión RECHAZAR_MATCH (CREAR) promueve a INGRESO y cierra el caso', () 
   };
   const c = libro({ casoReview: ['2026-09-01', 'INGRESO_DOBLE', '', '12345678-5', 'ANA PEREZ', JSON.stringify(datos), 'INGRESO_NARANJO|4', '', 'ABIERTO', ''] });
   let eventosAgregados = null, pacientesAgregados = null;
-  c.Modelo_agregarEventos_ = (evs, usu, ctx) => { eventosAgregados = evs; return 1; };
-  c.Modelo_agregarPacientes_ = (objs, ctx) => { pacientesAgregados = objs; return 1; };
+  const agregarEventosReal = c.Modelo_agregarEventos_;
+  const agregarPacientesReal = c.Modelo_agregarPacientes_;
+  c.Modelo_agregarEventos_ = (evs, usu, ctx) => {
+    eventosAgregados = evs;
+    return agregarEventosReal(evs, usu, ctx);
+  };
+  c.Modelo_agregarPacientes_ = (objs, ctx) => {
+    pacientesAgregados = objs;
+    return agregarPacientesReal(objs, ctx);
+  };
   const r = c.api_revisionResolver(2, 'RECHAZAR_MATCH', 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.accion, 'CREAR');

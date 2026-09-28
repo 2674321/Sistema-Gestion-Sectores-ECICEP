@@ -846,7 +846,12 @@ const TIPOS_EVENTO = {
 };
 
 const ESTADOS_INGRESO = {
-  VALIDOS: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR']
+  VALIDOS: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR'],
+  // Estadios FINALES de una fila INGRESO_*: el pipeline ya decidió y no se
+  // vuelve a procesar solo. UNA única definición para listado, detalle y lote.
+  // Escape hatch operativo: el humano limpia la celda (p. ej. a PENDIENTE)
+  // cuando la fila fue corregida y debe re-procesarse.
+  TERMINALES: ['INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION']
 };
 
 // ---------------------------------------------------------------------------

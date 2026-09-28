@@ -44,8 +44,9 @@ trazable y no un merge silencioso.
 
 La prueba roja inicial falló porque `sectorAnterior` no existía y el paciente
 seguía en el sector antiguo. Tras la corrección, `incorporacion_ingresos_vNEXT`
-queda 25/25 e incluye T17–T24: cross-sector, falsa duplicidad, retry que no
-revierte, `MULTIPLE`, estados terminales, fallo de vista, lote y volumen realista.
+queda 41/41: cubre individual y lote, cross-sector, falsa duplicidad, retry que
+no revierte, `MULTIPLE`, estados terminales, fallo de vista, cola de revisión,
+rollback ante fallo de EVENTOS y volumen realista.
 
 Benchmark local del índice puro: 2.713 pacientes + 21.783 eventos en 187 ms. El
 algoritmo previo de la barrera recorría PACIENTES y luego volvía a filtrar la
@@ -53,7 +54,9 @@ colección por cada duplicado; además no leía EVENTOS. La nueva ruta es O(P+E+
 
 ## Estado operativo
 
-Código y documentación preparados en la rama de PR #6. No se hizo merge ni
-deployment. E2E pendiente: probar una fila individual cross-sector, un lote
-mixto, verificar `PACIENTES.SECTOR`, los dos tipos de EVENTOS, ambas vistas y un
-segundo intento sin eventos ni reversión territorial.
+Validación local completa: núcleo 673/673, aceptación 50/50, contrato V2 36/36,
+HTML 21/21, ficha 13/13 e ingreso manual 20/20. La operación valida evidencia
+canónica (`PACIENTES` + `EVENTOS`) antes de cerrar una revisión y distingue el
+éxito clínico de una vista derivada pendiente. El E2E con datos clínicos reales
+no se automatiza: requiere una fila controlada y autorización explícita para
+mutarla.
