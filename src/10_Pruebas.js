@@ -5842,7 +5842,6 @@ function _pruebas_p0_auditoria_v098(t, A) {
       A.igual(api_ficha('X').ok, false, 'api_ficha sin sesión → denegado');
       A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar sin sesión → denegado');
       A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado');
-      A.igual(Form_capturarDesdeUI_legacy_({}).ok, false, 'Form_capturarDesdeUI_legacy_ sin sesión → denegado');
     } finally {
       globalThis.Session = original;
     }
@@ -5896,7 +5895,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
       A.igual(res.motivo, 'GOOGLE_FORMS_INHABILITADO', 'motivo explícito (AGENTS)');
       A.igual(llamados, 0, 'no se invocó ScriptApp.newTrigger');
       A.igual(Form_triggerInstalado(), false, 'sin trigger onFormSubmit activo');
-      A.cierto(typeof Form_onFormSubmit === 'function', 'el manejador heredado permanece solo como referencia inerte');
+      A.cierto(typeof globalThis.Form_onFormSubmit === 'undefined', 'el manejador heredado fue retirado');
     } finally {
       FORM_CONFIG.FORM_ID = formIdOriginal;
       if (originalScriptApp === undefined) { delete globalThis.ScriptApp; } else { globalThis.ScriptApp = originalScriptApp; }

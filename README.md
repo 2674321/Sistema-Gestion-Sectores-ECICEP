@@ -52,6 +52,11 @@ filas estructuralmente desplazadas (por ejemplo, sexo `F` leído como nombre),
 continúa con las válidas y las operaciones individual/masiva omiten el formateo
 global de hojas, sin cambiar el pipeline clínico ni inferir correcciones.
 
+La captura de **Nuevo ingreso** reutiliza esa misma operación individual: escribe
+la fila técnica, procesa solo esa fila y exige confirmación clínica antes de
+mostrar éxito. Se retiraron el panel, el trigger, los RPC y el puente Web de
+Google Forms que ya no tenían consumidores y podían ejecutar el pipeline antiguo.
+
 ## v0.15.1 — fix «intervalo combinado» en Portada INICIO
 
 La subtarea «Portada INICIO» fallaba en producción porque el marco de color de

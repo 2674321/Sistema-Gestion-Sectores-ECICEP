@@ -89,15 +89,6 @@ function UI_instalarSistema() {
     'Instalaci\u00f3n del sistema');
 }
 
-/** 📥 Panel de administración del formulario complementario (FormularioPanel.html). */
-function UI_formularioPanel() {
-  var t = HtmlService.createTemplateFromFile('FormularioPanel');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
-  _UI_get().showModalDialog(t.evaluate()
-    .setTitle('📥 Formularios').setWidth(520).setHeight(520),
-    '📥 Formularios');
-}
-
 /** 🔍 Diagnóstico de instalación (dry-run): informa qué cambiaría sin aplicarlo. */
 function UI_instalarDiagnosticar() {
   var r = Instalar_diagnosticar();

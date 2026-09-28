@@ -1180,14 +1180,17 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     // Procesar SOLO la fila del envío actual (acotación §13 nunca re-procesa backlog).
     // Gate §22/DEC-024-025: POSIBLE_DUPLICADO solo se auto-crea cuando el humano
     // lo confirma explícitamente (confirmarNuevoPaciente=true); sin confirmar → REVISION.
-    var soloFilas = {};
-    soloFilas[hojaEntrega] = [String(filaFisica)];
-    var proc = Ingresos_procesarTodasLasHojas_({
-      soloHojas: [hojaEntrega],
-      soloFilas: soloFilas,
-      confirmarNuevos: norm.confirmarNuevoPaciente === true
+    // Una captura es exactamente la misma operación acotada que "Cargar" una
+    // fila desde el panel. No debe ejecutar el formateo global de INGRESO_* ni
+    // mantener una segunda composición del pipeline: ambos fueron causas de
+    // timeout/falso "ejecutado" sin alta clínica.
+    var proc = Ingresos_procesarFila(hojaEntrega, filaFisica, {
+      confirmarNuevo: norm.confirmarNuevoPaciente === true
     });
-    if (proc && proc.error) return { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: Utl_texto(proc.error) };
+    if (!proc || proc.ok === false) {
+      return { estado: CAPTURA_V2.ESTADOS.ERROR,
+        motivo: Utl_texto(proc && (proc.motivo || proc.error)) || 'PIPELINE_INGRESO_NO_CONFIRMADO' };
+    }
 
     // Confirmación real §16: fila con FECHA DE INGRESO = fechaIngreso y estado del pipeline.
     var conf = Captura_v2_confirmarEntregaIngreso(hojaEntrega, filaFisica, norm.fechaIngreso);

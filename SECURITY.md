@@ -2,13 +2,13 @@
 
 ## Hardening 2026-09-27
 
-Los RPC legacy `api_formularioEstado`, `api_formularioProcesar`,
-`api_formularioControl` y `api_formularioReprocesar` exigen capacidad Operador
-en backend. El panel legítimo recibe esa credencial desde Sheets; la página
-pública de Captura no la incluye. La suite conductual invoca los wrappers con
-ausencia de token, token Captura, token inválido y Operador, y comprueba que solo
-el último alcanza las mutaciones previstas. El inventario de 695 funciones
-globales sigue siendo un inventario congelado, no una allowlist mínima aprobada.
+El panel administrativo de Google Forms, su trigger `Form_onFormSubmit` y los
+cuatro RPC `api_formulario*` fueron retirados: no tenían consumidores vigentes y
+mantenían una segunda superficie de procesamiento incompatible con el contrato
+de captura actual. `FORM_RESPUESTAS` permanece únicamente como persistencia
+técnica durable de la Web App. La Captura pública no incluye capacidad Operador.
+El inventario de funciones globales es una superficie congelada en reducción,
+no una allowlist mínima aprobada.
 
 ECICEP es un sistema de gestión **sanitaria**: maneja datos personales y
 clínicos. La protección de esos datos es prioridad absoluta.
