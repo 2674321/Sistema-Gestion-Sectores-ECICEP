@@ -36,9 +36,9 @@ const vacio = () => ({ getSheetByName: () => null });
 // T2: producción + AUTO = CONSERVAR sin tocar fuentes.
 {
   let llamadas = 0;
-  c.Fuentes_cargaReal = () => { llamadas++; return { ok: true }; };
+  c.Fuentes_cargaReal_ = () => { llamadas++; return { ok: true }; };
   c.Datos_estadoProduccion_ = () => ({ pacientes: 10, eventos: 20, produccion: true });
-  const r = c.Instalar_pFuentes('EJ-1');
+  const r = c.Instalar_pFuentes_('EJ-1');
   assert.equal(r.ok, true);
   assert.equal(r.omitida, true);
   assert.equal(r.modo, 'CONSERVAR');
@@ -51,13 +51,13 @@ const vacio = () => ({ getSheetByName: () => null });
 {
   const seq = [];
   c.Datos_estadoProduccion_ = () => ({ pacientes: 0, eventos: 0, produccion: false });
-  c.Fuentes_cargaReal = o => {
+  c.Fuentes_cargaReal_ = o => {
     seq.push([o.ejecutar, o.modo]);
     return o.ejecutar
       ? { ok: true, resumen: { registros: 3, nuevos: 3, existentes: 0, revision: 0 } }
       : { ok: true, ejecucionId: 'EJ-I', resumen: {} };
   };
-  const r = c.Instalar_pFuentes('EJ-2');
+  const r = c.Instalar_pFuentes_('EJ-2');
   assert.equal(r.ok, true);
   assert.equal(r.modo, 'INICIAL');
   assert.deepEqual(seq.map(s => s[0]), [false, true], 'dry-run antes de escribir');
@@ -69,13 +69,13 @@ const vacio = () => ({ getSheetByName: () => null });
 {
   let modoVisto = '';
   c.Datos_estadoProduccion_ = () => ({ pacientes: 5, eventos: 5, produccion: true });
-  c.Fuentes_cargaReal = o => {
+  c.Fuentes_cargaReal_ = o => {
     modoVisto = o.modo;
     return o.ejecutar
       ? { ok: true, resumen: { registros: 1, nuevos: 1, existentes: 0, revision: 0, merge: {} } }
       : { ok: true, ejecucionId: 'EJ-C', resumen: {} };
   };
-  const r = c.Instalar_pFuentes('EJ-3', { modoDatos: 'CONSERVADOR' });
+  const r = c.Instalar_pFuentes_('EJ-3', { modoDatos: 'CONSERVADOR' });
   assert.equal(r.ok, true);
   assert.equal(r.modo, 'CONSERVADOR');
   assert.equal(modoVisto, 'CONSERVADOR');
@@ -85,12 +85,12 @@ const vacio = () => ({ getSheetByName: () => null });
 // T5: SNAPSHOT sin confirmación y sin backup queda bloqueado.
 {
   let llamadas = 0;
-  c.Fuentes_cargaReal = () => { llamadas++; return { ok: true }; };
-  const r1 = c.Instalar_pFuentes('EJ-4', { modoDatos: 'SNAPSHOT_ACTUAL' });
+  c.Fuentes_cargaReal_ = () => { llamadas++; return { ok: true }; };
+  const r1 = c.Instalar_pFuentes_('EJ-4', { modoDatos: 'SNAPSHOT_ACTUAL' });
   assert.equal(r1.ok, false);
   assert.equal(r1.motivo, 'SNAPSHOT_REQUIERE_CONFIRMACION');
   c.Instalar_asegurarBackup_ = () => ({ ok: false, motivo: 'DISCO_LLENO' });
-  const r2 = c.Instalar_pFuentes('EJ-5', { modoDatos: 'SNAPSHOT_ACTUAL', confirmarSnapshot: true });
+  const r2 = c.Instalar_pFuentes_('EJ-5', { modoDatos: 'SNAPSHOT_ACTUAL', confirmarSnapshot: true });
   assert.equal(r2.ok, false);
   assert.equal(r2.motivo, 'BACKUP_PRE_SNAPSHOT_FALLIDO');
   assert.equal(llamadas, 0, 'bloqueado antes de tocar fuentes');
@@ -100,11 +100,11 @@ const vacio = () => ({ getSheetByName: () => null });
 // T6: SNAPSHOT confirmado + respaldado procede con impacto.
 {
   c.Instalar_asegurarBackup_ = () => ({ ok: true, skip: true, nombre: 'PRE_INSTALAR_X' });
-  c.Fuentes_cargaReal = o => o.ejecutar
+  c.Fuentes_cargaReal_ = o => o.ejecutar
     ? { ok: true, resumen: { registros: 4, nuevos: 1, existentes: 3, revision: 1,
         merge: { tipos: { FILL_ONLY: 2, FECHA_MAX: 1, REEMPLAZO_SNAPSHOT: 1 }, conflictos: 0 } } }
     : { ok: true, ejecucionId: 'EJ-S', resumen: {} };
-  const r = c.Instalar_pFuentes('EJ-6', { modoDatos: 'SNAPSHOT_ACTUAL', confirmarSnapshot: true });
+  const r = c.Instalar_pFuentes_('EJ-6', { modoDatos: 'SNAPSHOT_ACTUAL', confirmarSnapshot: true });
   assert.equal(r.ok, true);
   assert.equal(r.modo, 'SNAPSHOT_ACTUAL');
   assert.equal(JSON.stringify(r.impacto),

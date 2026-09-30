@@ -2153,56 +2153,97 @@ Regresión cubierta por `inicio_pro_v015` T10/T10b con mock fiel a la regla de S
 **Fecha:** 2026-09-26
 
 ## DEC-097
-**Título:** ACCESO LIBRE — el sistema no pide permisos ni credenciales (supera DEC-068/067).
+**Título:** v0.16.0 — capacidades separadas, RPC crítica privada e Integridad batch/reanudable.
+**Estado:** Aprobada con reducción RPC residual pendiente
+**Motivo:** La URL pública no puede conferir Operador; Captura, Operador y Webhook
+son credenciales independientes. La identidad Google solo autoriza mediante
+allowlist explícita. Mutaciones remotas requieren POST y opt-in. Los helpers
+críticos terminan en `_` y la superficie top-level restante queda congelada para
+reducción incremental. Integridad comparte un snapshot indexado, elimina búsquedas
+por fila, difiere un único refresco de vistas, escribe derivados selectivamente y
+se divide en seis pasos reanudables con post-check. IA usa allowlist de egress y
+logs aplican redacción defensiva. No cambia schema 2 ni Captura V4.
+**Validación:** suites vNEXT de capacidades, RPC, webhook, IA, XSS, logs,
+rendimiento, reanudación y versión; E2E operativo pendiente.
+**Fecha:** 2026-09-26
+
+## DEC-098
+**Título:** Integridad adaptativa por evidencia y cursor durable.
 **Estado:** Aprobada
-**Requisito del propietario:** el sistema pedía permisos "para todo"; debe ser universal en
-accesos, libre, y actualizarse sin cambiar la URL.
+**Motivo:** Una instalación real con 2.713 pacientes y 21.783 eventos agotó el
+tiempo en `Reconciliando derivados` al 88 %. La reparación no debe repetir
+estratificación antes de Integridad ni otro diagnóstico profundo al verificar.
+El diagnóstico inicial decide qué subfases ejecutar; cada vista ocupa una RPC;
+cambios dispersos de caches se escriben en tres columnas batch; el cursor sin PII
+se conserva en CacheService y Script Properties. Un timeout deja reintento exacto.
+**Validación:** suites de Integridad reanudable/rendimiento y batería completa;
+medición en el libro real pendiente después de publicar.
+**Fecha:** 2026-09-27
 
-**Causa raíz del error reportado.** `Captura_v2_ctx` (`src/26_Captura.js:1338`) derivaba la
-atribución así: `Session.getActiveUser().getEmail()` **o** un token válido. Quien abría
-el QR sin iniciar sesión de Google se quedaba con `usuario=''`, y `Captura_v2_enviar` rechazaba
-el envío con *"Sesión de usuario no detectada; acceso denegado"* — el registro se perdía. Sobre
-eso se apilaba el token: 60 guards `WebApp_autorizarBuscador` que devolvían `ACCESO_DENEGADO`
-ante cualquier enlace que no coincidiera, y mensajes al usuario pidiendo "el QR actualizado".
+## DEC-099
+**Título:** Checkpoints internos y lecturas físicamente proyectadas para Integridad.
+**Estado:** Aprobada; E2E operativo pendiente
+**Motivo:** El cursor de seis pasos seguía exponiendo dos unidades monolíticas
+(`diagnostico` y `postcheck`) y los lectores `Campos` reducían objetos, pero no
+I/O físico. Se adoptan cuatro checkpoints para cada diagnóstico, rangos agrupados
+por columnas, lotes de 12 para falsos `INGRESADO`, vistas de sector canónico una
+por RPC y auditoría histórica fuera del bloqueo. El cursor persiste solo versión,
+fase, conteos, sectores y métricas; no PII. Metadata de backup se guarda también
+en Script Properties hasta la verificación final.
+**Validación:** fake Spreadsheet con 2.713 pacientes, 21.783 eventos y contadores
+de I/O; suite de retry/cursor y ataque RPC. Publicación solo tras migrar
+credenciales y ejecutar dos pasadas `CONSERVAR` autorizadas.
+**Fecha:** 2026-09-27
 
-**Solución.** La decisión de acceso se centraliza y concede siempre:
-- `WebApp_accesoLibre_()` (nuevo, `src/WebApp.gs`): el sistema es libre por defecto. La propiedad
-  de Script Properties `ACCESO_LIBRE` **no se crea ni se inicializa desde el código**; si no
-  existe, es libre. Solo un `0/false/no/off/cerrado` explícito lo cierra. Es la única válvula
-  para volver a exigir credenciales, y es deliberada.
-- `WebApp_autorizar(token)`: en acceso libre concede sin inspeccionar el token. Se conservan los
-  60 guards existentes (no se borra una sola línea de denegación): son la válvula, y ahora son
-  inalcanzables en el estado de fábrica. `WebApp_autorizarBuscador`/`WebApp_autorizarCaptura`
-  siguen delegando — cero cambios en los ~60 call sites.
-- Atribución nunca bloquea: `Captura_v2_ctx` usa el correo si hay sesión (Sheets) y si no la
-  etiqueta estable `ACCESO_LIBRE` (sustituye a `ACCESO_COMPARTIDO`, mismo propósito de seudónimo).
-- `WebApp_claveUniversal_()` **nunca lanza**: degradaba a cadena vacía en vez de abortar la
-  request con `ACCESO_UNIVERSAL_NO_INICIALIZADO`.
-- `WebApp_urlCompartida_()` devuelve la URL desnuda si no hay clave (nunca cadena vacía) y
-  `WebApp_urlVista_()` elige `?` o `&` según exista cadena de consulta.
+## DEC-100
+**Título:** Incorporación de paciente existente y sector vigente.
+**Estado:** Aprobada; validación operativa pendiente
+**Motivo:** DEC-026 sigue impidiendo sobrescribir silenciosamente datos clínicos o
+demográficos, pero `SECTOR` es estado territorial de dominio. Una incorporación
+nueva desde `INGRESO_<SECTOR>` que enlaza a una persona de otro sector ejecuta la
+transición canónica `CAMBIO_SECTOR`, actualiza `PACIENTES.SECTOR` y registra tanto
+`CAMBIO_SECTOR` como `INGRESO`. Un sector vacío se asigna con la misma trazabilidad;
+`MULTIPLE` exige revisión humana. La idempotencia se demuestra con `EVENTOS`
+(`FUENTE` o paciente+fecha), nunca con la caché `PACIENTES.FECHA_INGRESO`. Un retry
+histórico repara estado/vistas, pero no revierte cambios territoriales posteriores.
+Individual, lote y trigger manual reutilizan el mismo pipeline. Un fallo de vista
+no falsea el resultado: devuelve `INCORPORADO_VISTA_PENDIENTE`.
+**Validación:** regresión conductual T17–T23 y batería completa; E2E sin datos reales
+pendiente. No cambia schema 2 ni contrato de captura V2.
+**Fecha:** 2026-09-27
 
-**Lo que NO cambia.**
-- **La URL y el QR no cambian.** `ECICEP.WEB_APP_URL` intacto; el parámetro `?acceso=` se sigue
-  emitiendo con el mismo valor, así que los enlaces y QR ya impresos siguen sirviendo igual. Solo
-  deja de decidir: es un valor inerte. Se reutiliza el deployment operativo (v0.15.x lo hizo
-  igual), sin deployment nuevo.
-- `SPREADSHEET_ID`, schema `2`, captura V4, `INICIO_LAYOUT_VERSION` y
-  `PRESENTACION_LAYOUT_VERSION` (siguen en 0.15.0 a propósito: tocarlos reconstruiría el libro).
-  Sin migración, sin cambios de datos.
-- El token del webhook sigue siendo secreto propio: es de integración, no de personas.
-- Las herramientas de IA (`src/28_IA.js`) y el pipeline legacy de Sheets siguen exigiendo sesión
-  real: lo necesitan por naturaleza (`getActiveSpreadsheet`, `showModalDialog`), no por control
-  de acceso. Entre ellas `IA_guardarApiKey`, que escribe un secreto.
-- `ECICEP_autorizar` (`src/19_Permisos.js`) deja de presentarse como paso del sistema: es una
-  utilidad **opcional del propietario** para el consentimiento de scopes de Google, que ocurre
-  una vez al desplegar y no lo ve ningún usuario. Los scopes ya están declarados en
-  `appsscript.json`.
+## DEC-101
+**Título:** v0.16.1 — acceso universal: una sola credencial abre todo el sistema.
+**Estado:** Aprobada
+**Motivo:** DEC-097 separó CAPTURA de OPERADOR y exigía `OPERADOR_ACCESS_TOKEN` o
+una allowlist `OPERADOR_EMAILS`/`OPERADOR_DOMINIOS`. Ninguna de las dos existe
+por código: la credencial nunca se creaba y la allowlist nunca se configuró, por
+lo que `WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista no
+captura. Resultado: bloqueo total — nadie podía abrir el portal, pacientes,
+controles, estadísticas, REM, revisión, configuración, backups ni instalador, y
+las funciones de `28_IA.js` (que dependían de la allowlist de identidades)
+quedaban denegadas. Revertido: el sistema solo lo manejan los trabajadores del
+CESFAM y todos operan, así que no existe distinción entre operador y usuario.
 
-**Tests.** `tests/acceso_libre_v0160.mjs` (nuevo, 12/12) y
-`tests/acceso_libre_superficie_v0160.mjs` (nuevo, 7/7) reescriben el contrato; se retiran
-`acceso_universal_v0104.mjs` y `seguridad_capacidades_v0103.mjs` (superados); se ajustan
-`acceso_webapp.mjs`, `rpc_surface_v0103.mjs`, `edicion_paciente_v4.mjs`,
-`instalador_estabilidad.mjs`, `fuentes_modos_produccion_v014.mjs` y el arnes en GAS
-`src/10_Pruebas.js` (P0 v0.98 → dos tests: acceso libre + válvula). Batería: 54 suites, 0
-fallos atribuibles al cambio. `ECICEP.VERSION` 0.16.0 (schema 2, captura V4).
+Una sola credencial universal habilita todas las funciones. Vive en
+`ECICEP_ACCESS_TOKEN` y se **autoaprovisiona** si falta (lock + relectura), de
+modo que una credencial ausente ya no puede dejar el sistema inaccesible.
+`CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+aceptan como alias equivalentes, para no invalidar QR impresos, enlaces abiertos
+ni pestañas en curso. La credencial **nunca viaja en la URL**: `doGet` la inyecta
+al servir cada vista, y `WebApp_urlVista_` devuelve `…?vista=<x>`; por eso la URL
+base del QR abre el sistema completo sin parámetros y sobrevive a cualquier
+rotación. Los guards de RPC (`WebApp_autorizar`, `…Buscador`, `…Captura`) son
+aliases de la misma verificación; `WebApp_accesoUniversalActivo_` reemplaza la
+allowlist de identidades en las funciones internas sin credencial. Se conserva
+intacto lo que no dependía del modelo de roles: allowlist de superficie RPC,
+redacción de logs y secretos, egress de IA, y `WEBHOOK_TOKEN` con mutaciones
+opt-in. El pre-flight de duplicados vuelve a mostrarse a todo el sistema —evitar
+pacientes duplicados es parte del trabajo de correcciones— y sigue exponiendo
+solo campos que la ficha ya muestra.
+**Validación:** `seguridad_webapp_capacidades_vNEXT` reescrito (13 vistas
+abiertas sin credencial, alias heredados, autoaprovisión, rotación sin invalidar
+enlaces, diagnóstico sin secretos), núcleo `10_Pruebas` 674/674 y batería completa
+66/66 sin fallos. E2E anónimo sobre el deployment operativo. No cambia schema 2
+ni el contrato de captura V4.
 **Fecha:** 2026-09-30

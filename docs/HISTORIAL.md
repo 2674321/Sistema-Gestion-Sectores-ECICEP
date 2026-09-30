@@ -7,24 +7,47 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
-## v0.16.0 — ACCESO LIBRE (SUPERA DEC-068/067)
+## 2026-09-28 — cierre de incorporación territorial (DEC-100)
 
-- **Error reportado:** el sistema pedía permisos "para todo". Causa raíz: `Captura_v2_ctx`
-  exigía sesión de Google **o** token válido para atribuir; sin sesión (el caso del QR)
-  el envío se rechazaba con "acceso denegado" y el registro se perdía. Encima, 60 guards
-  `WebApp_autorizarBuscador` rechazaban cualquier enlace que no coincidiera.
-- **Ahora:** la decisión de acceso está centralizada y concede siempre
-  (`WebApp_accesoLibre_` + `WebApp_autorizar`). Los guards no se borran: son la válvula
-  `ACCESO_LIBRE`, inalcanzables en el estado de fábrica. La atribución usa el correo si hay
-  sesión y si no la etiqueta `ACCESO_LIBRE`; nunca bloquea.
-- **Sin cambio de URL ni QR:** `?acceso=` se sigue emitiendo con el mismo valor y queda
-  inerte; mismo deployment operativo, sin deployment nuevo. Schema 2, captura V4,
-  `INICIO_LAYOUT_VERSION`/`PRESENTACION_LAYOUT_VERSION` intactas, sin migración.
-- **Permisos de Google:** los concede el propietario una vez al desplegar (scopes ya
-  declarados en `appsscript.json`). `ECICEP_autorizar` queda como utilidad opcional del
-  propietario, no como paso del sistema, y no lo ve ningún usuario.
-- Tests nuevos `acceso_libre_v0160` (12/12) y `acceso_libre_superficie_v0160` (7/7);
-  retirados `acceso_universal_v0104` y `seguridad_capacidades_v0103` (DEC-097).
+- Causa raíz: el ingreso de una persona existente no actualizaba el sector
+  vigente y una barrera infería duplicidad desde `PACIENTES.FECHA_INGRESO`.
+- `EVENTOS` pasa a ser la evidencia idempotente. Cross-sector crea
+  `CAMBIO_SECTOR` + `INGRESO`; vacío se asigna con trazabilidad; `MULTIPLE` va a
+  revisión; retries no revierten movimientos posteriores.
+- Estados `DUPLICADO` y `REQUIERE_REVISION` dejan de presentarse como pendientes
+  válidos. La UI anticipa y reporta cambios; una vista fallida devuelve warning.
+- La cola de revisión cierra la fila de origen y realiza la misma transición de
+  sector; el append de eventos tiene rollback compensatorio y verificación
+  canónica antes de declarar éxito.
+- Verificación sobre el libro operativo: 1.112 filas `INGRESADO` de
+  `INGRESO_AMARILLO` tienen paciente y evento; 1.102 conservan sector AMARILLO
+  y 10 tienen un cambio territorial posterior.
+- `INGRESO_*` queda definido como bandeja transitoria: tras confirmar PACIENTES,
+  EVENTOS y la vista sectorial, la fila se elimina de origen; la trazabilidad
+  permanente queda en `EVENTOS.FUENTE`. Errores y revisiones permanecen para
+  corrección humana. El panel impide ejecutar un lote con cero procesables.
+- Limpieza operativa ejecutada: se retiraron las 1.112 filas confirmadas de
+  `INGRESO_AMARILLO`; quedaron 6 en revisión y 3 con error. Postcheck:
+  PACIENTES 2.721, EVENTOS 21.805, cero RUT/ID duplicados en PACIENTES y cero
+  ID duplicados en las tres vistas sectoriales.
+- Suite enfocada: 41/41; ficha 13/13; ingreso manual 20/20; núcleo 673/673;
+  aceptación 50/50; contrato V2 36/36; HTML 21/21. Índice sintético de 2.713
+  pacientes/21.783 eventos: 187 ms.
+
+## 2026-09-27 — v0.16.0: cierre local del timeout de derivados
+
+- Se identificó el incidente operativo en v0.14.0/build `9351dfb` (@250).
+- Diagnóstico y postcheck pasaron de dos unidades globales a ocho checkpoints.
+- Lectores por campos ahora proyectan rangos físicos y conservan correcciones
+  auditadas de `FECHA_EVENTO`.
+- Ingresos falsos se reparan en lotes de 12; vistas, una por RPC y solo sectores
+  canónicos; metadata de backup sobrevive pérdida de CacheService.
+- Benchmark ficticio 2.713 pacientes/21.783 eventos: 2.598.781→1.295.272 celdas
+  leídas en el escenario instrumentado; unidad máxima 435.391→195.936; segunda
+  reparación de cachés sin escrituras.
+- Los cuatro RPC legacy de administración de formulario ahora exigen Operador.
+- Publicación y E2E productivo permanecen pendientes de migración autorizada de
+  credenciales; no se modificaron datos reales.
 
 ## v0.15.1 — INCIDENTE «INTERVALO COMBINADO» EN PORTADA INICIO
 
@@ -1168,6 +1191,24 @@ cliente en cada deploy). Detalle completo en `docs/INFORME_OPTIMIZACION.md §8`.
   `node tools/verificar.mjs` **37 suites, 0 fallos**.
 - Sin cambio de esquema (2), contrato V4, agenda manual ni canal de captura.
 - Informe: `docs/INFORME_2026-09-24_TIMEOUT_PRESENTACION_HOTFIX_V0121.md`.
+
+## v0.16.0 — hardening e Integridad reanudable (2026-09-26)
+
+- Separación estricta Captura/Operador; allowlist de identidad y diagnóstico de
+  configuración sin valores secretos. La ruta pública no crea ni entrega
+  credenciales administrativas.
+- Helpers críticos de instalador, backup, limpieza y carga real privatizados;
+  inventario RPC versionado. Webhook mutante solo por POST + opt-in y sin PII.
+- Integridad usa snapshot batch, cero búsquedas por fila, un refresco de vistas,
+  escrituras selectivas y seis pasos reanudables con post-check.
+- Gemini 3.6 Flash con key en header y egress clínico deny-by-default. Redacción
+  de logs, fixes XSS críticos y retiro de `ALLOWALL`.
+- Esquema 2 y Captura V4 sin cambios. E2E y publicación quedan condicionados a
+  rotación de secretos; detalle en `docs/INFORME_AUDITORIA_VNEXT.md`.
+- Addendum 2026-09-27: tras observar timeout real al 88 % con 2.713 pacientes y
+  21.783 eventos, se eliminan dos barridos redundantes, se saltan subfases sin
+  pendientes, se procesa una vista por RPC, el cursor pasa a Cache + Script
+  Properties y caches dispersos usan tres escrituras batch de columnas derivadas.
 
 ## v0.12.1 — freeze residual de la portada (arreglo en la reparación real, 2026-09-24)
 

@@ -770,6 +770,9 @@ t('C10d idempotencia: mismo captureId + SOLO fechaIngreso distinta → CONFLICTO
 t('C10e captura rápida FASE 4: el request NO barre todas los hojas INGRESO_* ni procesa lote', () => {
   A(texto26.indexOf('Form_buscarFilaIngresoPorMarca') === -1, '26_Captura.js no barre por marca (sweep retirado)');
   A(texto26.indexOf('Form_procesarPendientes') === -1, '26_Captura.js jamás procesa lote en el request');
+  const entrega = sandbox.Captura_v2_entregarIngreso.toString();
+  A(entrega.indexOf('Ingresos_procesarFila') !== -1, 'nuevo ingreso reutiliza la operación individual canónica');
+  A(entrega.indexOf('Ingresos_procesarTodasLasHojas_') === -1, 'nuevo ingreso no recompone ni formatea el pipeline global');
 });
 
 t('C11 previa duplicados V2: acepta payload camelCase y NO expone datos en modo público (§17 P0)', () => {

@@ -123,8 +123,10 @@ test('T17 diagnóstico conserva origen pero repara según sector vigente del pac
     getRange: () => ({ getValues: () => [['INGRESADO']] }) };
   c.Modelo_hoja = nombre => nombre === 'INGRESO_NARANJO' ? ingreso : null;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 9 } });
-  c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-1', paciente: { SECTOR: 'AMARILLO' } });
-  const r = c.Ingresos_diagnosticarIngresados_();
+  const fuente=c.Fuentes_fuenteOrigen({ARCHIVO_ORIGEN:'HOJA_INGRESO',HOJA_ORIGEN:'INGRESO_NARANJO',FILA_ORIGEN:'4'});
+  const r = c.Ingresos_diagnosticarIngresados_({pacientes:[{ID_INTERNO:'EC-1',SECTOR:'AMARILLO'}],
+    eventos:[{ID_EVENTO:'EV-1',ID_INTERNO:'EC-1',TIPO_EVENTO:'INGRESO',FUENTE:fuente}],
+    vistasPorSector:{NARANJO:{},AMARILLO:{},VERDE:{}}});
   assert.equal(r.conteos.DERIVADO_DESACTUALIZADO, 1);
   assert.equal(r.casos[0].sector, 'AMARILLO');
   assert.equal(r.casos[0].sectorIngreso, 'NARANJO');
@@ -136,8 +138,10 @@ test('T18 diagnóstico no convierte MULTIPLE en el sector histórico de ingreso'
     getRange: () => ({ getValues: () => [['INGRESADO']] }) };
   c.Modelo_hoja = nombre => nombre === 'INGRESO_VERDE' ? ingreso : null;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 9 } });
-  c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-M', paciente: { SECTOR: 'MULTIPLE' } });
-  const r = c.Ingresos_diagnosticarIngresados_();
+  const fuente=c.Fuentes_fuenteOrigen({ARCHIVO_ORIGEN:'HOJA_INGRESO',HOJA_ORIGEN:'INGRESO_VERDE',FILA_ORIGEN:'4'});
+  const r = c.Ingresos_diagnosticarIngresados_({pacientes:[{ID_INTERNO:'EC-M',SECTOR:'MULTIPLE'}],
+    eventos:[{ID_EVENTO:'EV-M',ID_INTERNO:'EC-M',TIPO_EVENTO:'INGRESO',FUENTE:fuente}],
+    vistasPorSector:{NARANJO:{},AMARILLO:{},VERDE:{}}});
   assert.equal(r.conteos.DERIVADO_DESACTUALIZADO, 1);
   assert.equal(r.casos[0].sector, 'MULTIPLE');
   assert.equal(r.casos[0].sectorIngreso, 'VERDE');

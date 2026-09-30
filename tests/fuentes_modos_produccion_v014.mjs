@@ -119,20 +119,17 @@ ok('T5 salud mental y observaciones existentes protegidas');
 
 // T9: preview del endpoint sin PII y sin escribir.
 {
-  // En ACCESO LIBRE no hay credencial que comprobar: el preview se resuelve
-  // siempre y no escribe nada. El rechazo solo existe con la valvula cerrada.
-  c.WebApp_autorizarBuscador = () => false;
   assert.equal(c.api_fuentesImpacto('', 'CONSERVADOR').motivo, 'ACCESO_DENEGADO');
   c.WebApp_autorizarBuscador = t => t === 'x';
   // (comparación por JSON: el objeto nace en el realm vm)
   assert.equal(JSON.stringify(c.api_fuentesImpacto('x', 'CONSERVAR').impacto),
     JSON.stringify({ nuevos: 0, existentes: 0, fillOnly: 0, fechasAdelantadas: 0,
       reemplazosSnapshot: 0, conflictos: 0 }));
-  const real = c.Fuentes_cargaReal;
-  c.Fuentes_cargaReal = () => ({ ok: true, ejecucionId: 'EJ-1',
+  const real = c.Fuentes_cargaReal_;
+  c.Fuentes_cargaReal_ = () => ({ ok: true, ejecucionId: 'EJ-1',
     resumen: { nuevos: 2, registros: 5, merge: { tipos: { FILL_ONLY: 3, FECHA_MAX: 1, REEMPLAZO_SNAPSHOT: 0 }, conflictos: 1 } } });
   const pv = c.api_fuentesImpacto('x', 'CONSERVADOR');
-  c.Fuentes_cargaReal = real;
+  c.Fuentes_cargaReal_ = real;
   assert.equal(pv.ok, true);
   assert.equal(pv.impacto.nuevos, 2);
   assert.equal(pv.impacto.fillOnly, 3);
@@ -143,7 +140,7 @@ ok('T5 salud mental y observaciones existentes protegidas');
 // T10: reparar presentación / reconstruir INICIO no tocan datos.
 for (const fn of ['Libro_repararPresentacion_', 'UI_reconstruirInicio']) {
   const s = c[fn].toString();
-  for (const w of ['Fuentes_cargaReal', 'Amarillo_importarTodo_', 'Modelo_agregarPacientes_',
+  for (const w of ['Fuentes_cargaReal_', 'Amarillo_importarTodo_', 'Modelo_agregarPacientes_',
     'Ingresos_procesarTodasLasHojas_', 'Act_mergearPaciente'])
     assert.ok(!s.includes(w), fn + ' sin ' + w);
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Hotfix 0.12.1 — Presentación del libro por subtareas REANUDABLES.
 // Cubre: plan y presupuesto, caché de cursor (null-safe), reanudación por
-// RPC con {continuar:true}, fallo que NO persiste cursor, Instalar_pVisual
+// RPC con {continuar:true}, fallo que NO persiste cursor, Instalar_pVisual_
 // sin fuerza global, fast-paths "cero escrituras" y literales del instalador.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -85,7 +85,7 @@ c.PRESUPUESTO_PRESENTACION_MS = 0; // forzar UNA subtarea por RPC
 const ejec = 'INST-reanudable-1';
 const T = plan.length;
 for (let k = 1; k <= T; k++) {
-  const r = c.Instalar_pDiseno(ejec);
+  const r = c.Instalar_pDiseno_(ejec);
   assert.equal(r.ok, true, 'llamada ' + k);
   if (k < T) {
     assert.equal(r.continuar, true, 'continúa tras llamada ' + k);
@@ -131,7 +131,7 @@ const cacheSingleton2 = {
 };
 c.CacheService = { getScriptCache: () => cacheSingleton2 };
 c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
-const rf = c.Instalar_pDiseno(ejec);
+const rf = c.Instalar_pDiseno_(ejec);
 assert.equal(rf.ok, false);
 assert.match(rf.motivo, /PACIENTES: error/);
 assert.equal(rf.cursor, 0, 'no avanza');
@@ -144,7 +144,7 @@ ok('T7 fallo en base: ok=false, cursor 0 y caché intacta (reintento idempotente
 
 // --- T8: api_instalarPaso pasa el _EJEC al motor reanudable ---
 c.PRESUPUESTO_PRESENTACION_MS = presupOriginal;
-const props8 = new Map();
+const props8 = new Map([['OPERADOR_ACCESS_TOKEN','d'.repeat(64)]]);
 c.PropertiesService = { getScriptProperties: () => ({
   getProperty: k => props8.get(k) || '', setProperty: (k, v) => props8.set(k, v)
 }) };
@@ -153,7 +153,7 @@ c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
 const visto = [];
 const realPaso = c.Presentacion_ejecutarPaso_;
 c.Presentacion_ejecutarPaso_ = function (etapa, ej) { visto.push([etapa, ej]); return { ok: true }; };
-const clave = c.WebApp_claveCompartida_();
+const clave = c.WebApp_claveOperador_();
 c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
 c.Instalar_asegurarBackup_ = () => ({ ok: true, creado: false });
 const rd = c.api_instalarPaso('diseno', clave, 'EJ-9');
@@ -162,7 +162,7 @@ assert.deepEqual(Array.from(visto), [['diseno', 'EJ-9']]);
 c.Presentacion_ejecutarPaso_ = realPaso;
 ok('T8 dispatcher entrega la ejecución del cliente al motor (diseno no mutante)');
 
-// --- T9 (v0.14): Instalar_pVisual delega en el motor único, sin pipeline
+// --- T9 (v0.14): Instalar_pVisual_ delega en el motor único, sin pipeline
 // paralelo ni fuerza global; agrega fallos de subtarea ---
 const tareaReal9 = c.Presentacion_ejecutarTarea_;
 let tareasVistas9 = [];
@@ -171,17 +171,17 @@ c.Presentacion_ejecutarTarea_ = t => {
   return t.id === 'formato:PACIENTES'
     ? { ok: false, motivo: 'PACIENTES: fallo simulado' } : { ok: true, detalle: {} };
 };
-const rv = c.Instalar_pVisual();
+const rv = c.Instalar_pVisual_();
 assert.equal(rv.ok, false, 'repara y reporta hojas con fallos');
 assert.equal(rv.motivo.includes('formato:PACIENTES'), true);
 assert.ok(tareasVistas9.some(id => id.indexOf('formato:') === 0), 'ejecuta subtareas formato:* del plan');
 assert.ok(!tareasVistas9.includes('inicio'), 'no toca INICIO (owner del motor)');
 c.Presentacion_ejecutarTarea_ = tareaReal9;
 assert.doesNotMatch(readFileSync(new URL('20_Instalador.js', root), 'utf8'),
-  /HVis_aplicarTodasLasSecciones\(\{/, 'Instalar_pVisual no fuerza globalmente');
-assert.doesNotMatch((readFileSync(new URL('20_Instalador.js', root), 'utf8').match(/function Instalar_pVisual\([\s\S]*?\n\}/) || [''])[0],
+  /HVis_aplicarTodasLasSecciones\(\{/, 'Instalar_pVisual_ no fuerza globalmente');
+assert.doesNotMatch((readFileSync(new URL('20_Instalador.js', root), 'utf8').match(/function Instalar_pVisual_\([\s\S]*?\n\}/) || [''])[0],
   /HVis_aplicarTodasLasSecciones/, 'wrapper sin pipeline visual paralelo');
-ok('T9 Instalar_pVisual: delega en el motor, sin forzar y agrega fallos reales');
+ok('T9 Instalar_pVisual_: delega en el motor, sin forzar y agrega fallos reales');
 
 // --- T10: filas gestionadas bounded (INGRESO_VERDE = tier visual: dataStart 4) ---
 const hja10 = { getMaxRows: () => 2000, getLastRow: () => 500 };
@@ -401,7 +401,7 @@ const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion, opciones \|\| \{\}\);/);
 assert.match(src20, /var r = fn\(ejecucion, opciones\)/, 'dispatcher entrega ejecución y opciones a la etapa');
 const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
-assert.match(cfg, /VERSION:\s*'0\.16\.0'/);
-ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.16.0');
+assert.match(cfg, /VERSION:\s*'0\.16\.1'/);
+ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.16.1');
 
 console.log('Presentación reanudable v0.13.0 — ' + n + '/' + n + ' PASS');

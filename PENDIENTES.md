@@ -1,5 +1,59 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-09-27 (DEC-100):** cerrado localmente el incidente de
+> incorporación cross-sector y falsa duplicidad por `PACIENTES.FECHA_INGRESO`.
+> El pipeline único registra `CAMBIO_SECTOR` + `INGRESO`, conserva cambios
+> posteriores en retries, trata `MULTIPLE` como revisión y verifica la vista.
+> Prueba enfocada 25/25; snapshot 2.713/21.783 indexado en 187 ms local. Pendiente
+> únicamente E2E individual/lote en el libro operativo después de autorización
+> de publicación; esta corrección no fue desplegada ni fusionada.
+
+> **Actualización 2026-09-27 (cierre local del timeout):** el build que mostró
+> el timeout fue identificado por smoke anónimo como **v0.14.0 / `9351dfb`**
+> en el deployment operativo @250; no era la rama v0.16. El motor v0.16 ahora
+> divide diagnóstico y postcheck en cuatro checkpoints cada uno, procesa falsos
+> `INGRESADO` en lotes de 12, usa lecturas físicamente proyectadas y excluye el
+> scan histórico de `FORM_RESPUESTAS` del camino bloqueante. Reproductor
+> 2.713/21.783: unidad máxima 435.391→195.936 celdas; EVENTOS full-width 6→0;
+> caches dispersas 530→3 escrituras y segunda pasada 0. Pendiente exclusivamente
+> operativo: migrar credenciales, publicar en el deployment existente y ejecutar
+> dos pasadas `CONSERVAR` con E2E autorizado.
+
+> **Actualización 2026-09-27:** evidencia operativa recibida con **2.713
+> pacientes / 21.783 eventos**: el deployment vigente agotó tiempo en
+> `Reconciliando derivados` al 88 %. La rama v0.16 refuerza el arreglo: elimina
+> el recálculo duplicado previo y el diagnóstico profundo duplicado final; omite
+> subfases sanas; ejecuta cada vista en una RPC; persiste cursor técnico sin PII
+> en Cache + Script Properties; y limita caches dispersos a tres escrituras de
+> columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
+> para medir duración y convergencia reales.
+
+> **Actualización 2026-09-30 (v0.16.1 — DEC-101):** revertido el bloqueo total de
+> acceso. La separación CAPTURA ≠ OPERADOR de DEC-097 exigía credencial y
+> allowlist que nunca se configuraron, y dejó inaccesibles todas las vistas no
+> captura (incluida la IA). Acceso universal con `ECICEP_ACCESS_TOKEN`
+> autoaprovisionado y alias heredados; la credencial no viaja en la URL. Queda
+> **descartado** el pendiente de «configurar/rotar tokens separados»: ya no
+> existen capacidades separadas. Siguen pendientes reales: reducir la superficie
+> RPC heredada congelada, ampliar la auditoría XSS sink-by-sink y ejecutar
+> Instalar/Reparar dos veces sobre el libro real con backup reciente.
+
+> **Actualización 2026-09-26 (v0.16.0):** corregidos los bypass críticos de
+> Captura→Operador, helpers mutantes de instalador/backup/limpieza/carga real,
+> webhook por GET, egress clínico hacia Gemini y el patrón N×`TextFinder` de
+> Integridad. La etapa de integridad quedó batch y reanudable en seis pasos.
+> Pendientes reales antes de declarar cierre operativo: (1) reducir la superficie
+> RPC heredada congelada de **695** funciones top-level a los boundaries públicos
+> estrictamente necesarios (hoy 57 `api_*`, 12 `WebApp_*` y 4 entrypoints
+> conocidos; el resto sigue inventariado, no aprobado como mínimo); (2) ampliar
+> la auditoría XSS sink-by-sink más allá de los sinks críticos corregidos;
+> (3) publicar solo después de configurar/rotar tokens separados, regenerar el QR
+> y ejecutar Instalar/Reparar dos veces sobre el libro real con backup reciente;
+> (4) confirmar el warning real de Presentación —el código conserva
+> `PRESENTACION_PENDIENTE` / `INSTALACIÓN FUNCIONAL / PRESENTACIÓN INCOMPLETA`,
+> pero no se ejecutó contra datos productivos en esta rama—. Ver
+> `docs/INFORME_AUDITORIA_VNEXT.md`.
+
 > **Actualización 2026-09-24 (v0.12.1):**
 > hotfix de timeout de la fase `Presentación del libro`. La presentación ahora
 > corre por **8 subtareas reanudables** (presupuesto 20 s/RPC + cursor por clave
@@ -127,12 +181,6 @@
 > URL/QR). Batería **23 suites · 0 fallos**. Detalle:
 > `docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
 
-> **Actualización 2026-09-30 (v0.16.0, DEC-097):** **ACCESO LIBRE**, supera
-> DEC-068. Los puntos sobre `ACCESO_DENEGADO` por token compartido quedan
-> **cerrados**: ninguna RPC exige credencial y los guards son la válvula
-> `ACCESO_LIBRE`, inalcanzables en el estado de fábrica. El texto histórico
-> siguiente describe el estado hasta v0.10.4.
->
 > **Actualización 2026-09-22 (v0.10.4):** hotfix **ACCESO UNIVERSAL ECICEP**
 > (DEC-068, supera DEC-067): una sola credencial (`CAPTURA_ACCESS_TOKEN`,
 > valor conservado) habilita todas las funciones operativas (captura, ficha,

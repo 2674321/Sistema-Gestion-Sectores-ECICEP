@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v0.15.0 — P0 opciones/persistencia/verificación (§21 casos 1-19):
+// v0.16.0 — P0 opciones/persistencia/verificación (§21 casos 1-19):
 // propagación forzarInicio, fast-path con INICIO viejo, fingerprint global,
 // persistencia solo tras PASS, pVerificar con Presentación, UI sin legado.
 import assert from 'node:assert/strict';
@@ -13,10 +13,10 @@ const src = n => readFileSync(new URL(n, root), 'utf8');
 let n = 0;
 const ok = m => { n++; console.log('[PASS] ' + m); };
 c.PropertiesService = { getScriptProperties: () => ({
-  getProperty: () => '', setProperty: () => {}, deleteProperty: () => {} }) };
+  getProperty: k => k === 'OPERADOR_ACCESS_TOKEN' ? 'd'.repeat(64) : '', setProperty: () => {}, deleteProperty: () => {} }) };
 c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDate: () => '' };
 c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
-const clave = c.WebApp_claveCompartida_();
+const clave = c.WebApp_claveOperador_();
 c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
 c.Mig_schemaLeido = () => '2';
 c.Instalar_asegurarBackup_ = () => ({ ok: true, creado: false });
@@ -142,13 +142,13 @@ c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
     datos: { schemaLeido: '2', ok: true }, automatizaciones: { ingreso: { estado: 'OK' } }, avisos: [] };
   c.Sistema_estadoSalud_ = () => salud;
   c.Presentacion_verificar_ = () => ({ ok: false, diferencias: ['INICIO:X'] });
-  const r = c.Instalar_pVerificar();
+  const r = c.Instalar_pVerificar_();
   assert.equal(r.ok, true, 'salud manda en ok');
   assert.equal(r.presentacionCompleta, false);
   assert.equal(r.estado, 'ADVERTENCIA', 'visual incompleto => ADVERTENCIA');
   assert.ok(r.presentacion && r.presentacion.diferencias, 'incluye INICIO/paridad');
   c.Presentacion_verificar_ = () => ({ ok: true });
-  const r2 = c.Instalar_pVerificar();
+  const r2 = c.Instalar_pVerificar_();
   assert.equal(r2.presentacionCompleta, true);
   assert.equal(r2.estado, 'OK');
   ok('T14/T15/T16 verificar certifica INICIO+paridad; incompleto => ADVERTENCIA');

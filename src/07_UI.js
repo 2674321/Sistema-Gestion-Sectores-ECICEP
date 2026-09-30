@@ -67,8 +67,8 @@ function UI_abrirFormularioCaptura() {
 }
 
 /** Alias conservado para accesos anteriores; una única pantalla de Captura.
- *  El QR apunta exclusivamente al canal de CAPTURA (nunca a una vista
- *  privilegiada de operador). */
+ *  El QR apunta al enlace permanente del sistema, sin credencial en la URL:
+ *  el servidor inyecta el acceso universal al servir CUALQUIER vista. */
 function UI_mostrarQR() {
   var url = WebApp_urlCaptura_();
   if (!url) throw new Error('No se pudo preparar el enlace de Captura');
@@ -82,19 +82,11 @@ function UI_mostrarQR() {
 function UI_instalarSistema() {
   var t = HtmlService.createTemplateFromFile('Instalador');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(760).setHeight(720),
     'Instalaci\u00f3n del sistema');
-}
-
-/** 📥 Panel de administración del formulario complementario (FormularioPanel.html). */
-function UI_formularioPanel() {
-  var t = HtmlService.createTemplateFromFile('FormularioPanel');
-  _UI_get().showModalDialog(t.evaluate()
-    .setTitle('📥 Formularios').setWidth(520).setHeight(520),
-    '📥 Formularios');
 }
 
 /** 🔍 Diagnóstico de instalación (dry-run): informa qué cambiaría sin aplicarlo. */
@@ -205,7 +197,7 @@ function UI_actualizarTodo(opciones) {
 function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   t.REM_URL = '';
   t.DASH_URL = '';
@@ -380,7 +372,7 @@ function include(nombre) {
 function _ui_dialogo(nombre, titulo) {
   var t = HtmlService.createTemplateFromFile(nombre);
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   t.REM_URL = '';
   t.DASH_URL = '';
@@ -396,7 +388,7 @@ function _ui_sidebar(modo, titulo, idInicial) {
   t.modo = modo;
   t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_INVITACION = WebApp_claveOperador_();
+  t.TOKEN_INVITACION = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
@@ -440,7 +432,7 @@ function _ui_configuracion(seccion) {
   } catch (e) {}
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
@@ -473,7 +465,7 @@ function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   t.FICHA_URL = '';
   var html = t.evaluate().setTitle('Controles por persona')
@@ -1412,7 +1404,68 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
     } else {
       destinoId = datos.candidatoId;
     }
-    Modelo_agregarEventos_([prep.evento], _ingresosUsuarioActual(), contexto);
+
+    // CICLO CERRADO: además del EVENTO de INGRESO, el resolver debe dejar el
+    // paciente en el sector de la fila de origen. Antes solo se registraba el
+    // evento y PACIENTES.SECTOR quedaba en el sector anterior (fila huérfana).
+    // El CAMBIO_SECTOR viaja en la MISMA escritura (lote único) y solo aplica si
+    // el destino es un sector operativo y el paciente no está ya en él.
+    var destinoSector = Utl_texto(prep.filaStaging && prep.filaStaging.NORMALIZADO
+      ? prep.filaStaging.NORMALIZADO.SECTOR : datos.sectorOrigen).toUpperCase().trim();
+    var eventosResolucion = [prep.evento];
+    var sectorAnterior = '', sectorNuevo = '', sectorCambio = false;
+    var planCambio = null;
+    var pacDestino = destinoId ? Modelo_buscarPaciente(destinoId) : null;
+    if (pacDestino && pacDestino.obj && destinoSector &&
+        HOJAS_SECTOR.indexOf('SECTOR_' + destinoSector) >= 0 &&
+        Utl_texto(pacDestino.obj.SECTOR).toUpperCase() !== destinoSector) {
+      planCambio = Paciente_prepararCambioSector_(pacDestino.obj, destinoSector, {
+        fuente: (prep.filaStaging ? Fuentes_fuenteOrigen(prep.filaStaging) : 'REVISION') + '|CAMBIO_SECTOR',
+        fechaEvento: prep.filaStaging
+          ? (Control_aIso(prep.filaStaging.NORMALIZADO.FECHA_INGRESO) ||
+             Utl_texto(prep.filaStaging.NORMALIZADO.FECHA_INGRESO)) : '',
+        registradoPor: _ingresosUsuarioActual()
+      });
+      if (planCambio && planCambio.ok && !planCambio.sinCambios && planCambio.evento) {
+        planCambio.idx = pacDestino.idx;
+        eventosResolucion.push(planCambio.evento);
+        sectorAnterior = planCambio.anterior;
+        sectorNuevo = planCambio.nuevo;
+        sectorCambio = true;
+      } else planCambio = null;
+    }
+    // Misma atomicidad compensatoria del pipeline principal: si el append de
+    // EVENTOS falla, PACIENTES vuelve a su sector anterior.
+    if (planCambio) Ingresos_persistirCambiosSector_([planCambio], false);
+    try {
+      Modelo_agregarEventos_(eventosResolucion, _ingresosUsuarioActual(), contexto);
+    } catch (errEventos) {
+      if (planCambio) {
+        try { Ingresos_persistirCambiosSector_([planCambio], true); }
+        catch (errRollback) {
+          Log_error('Revision', 'rollback-sector',
+            errRollback && errRollback.message ? errRollback.message : String(errRollback));
+        }
+      }
+      throw errEventos;
+    }
+
+    // No cerrar el caso como resuelto hasta comprobar evidencia canónica y
+    // sector vigente. Una ejecución "Completada" sin estas pruebas no es éxito.
+    var fuenteResolucion = prep.filaStaging ? Fuentes_fuenteOrigen(prep.filaStaging) : '';
+    var evidenciaResolucion = fuenteResolucion && Modelo_leerEventosCampos([
+      'ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FUENTE'
+    ]).some(function (ev) {
+      return Utl_texto(ev.FUENTE) === fuenteResolucion &&
+        Utl_texto(ev.ID_INTERNO) === destinoId &&
+        Utl_texto(ev.TIPO_EVENTO).toUpperCase() === 'INGRESO';
+    });
+    var pacienteConfirmado = destinoId ? Modelo_buscarPaciente(destinoId) : null;
+    if (!evidenciaResolucion ||
+        !pacienteConfirmado || !pacienteConfirmado.obj ||
+        Utl_texto(pacienteConfirmado.obj.SECTOR).toUpperCase() !== destinoSector) {
+      throw new Error('INCORPORACION_REVISION_NO_CONFIRMADA');
+    }
 
     // trazabilidad completa (ESTADO_REVISION + RESUELTO_POR por encabezado)
     var ahora = new Date();
@@ -1465,17 +1518,60 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
       });
     }
 
-    Modelo_refrescarVistasSectores_();
+    // FILA DE ORIGEN: queda INGRESADO en su hoja INGRESO_* para no quedar
+    // huérfana (ya resuelta) en la cola de revisión ni en el listado de lote.
+    if (datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
+      try {
+        Ingresos_escribirEstados_([{
+          hoja: datos.origen.hoja, filaOrigen: datos.origen.fila,
+          estado: 'INGRESADO', nota: 'Ingresado vía cola de revisión (' + decision + ')'
+        }]);
+      } catch (errEstado) {
+        Log_error('Revision', 'resolver-estado',
+          errEstado && errEstado.message ? errEstado.message : String(errEstado));
+      }
+    }
+
+    // Solo las vistas afectadas (origen y destino): nunca un refresh total.
+    var vistasCrudas = [];
+    if (sectorCambio && sectorAnterior) vistasCrudas.push(sectorAnterior);
+    if (destinoSector) vistasCrudas.push(destinoSector);
+    var vistas = vistasCrudas.filter(function (s, i) {
+      return HOJAS_SECTOR.indexOf('SECTOR_' + s) >= 0 && vistasCrudas.indexOf(s) === i;
+    });
+    var advertencias = [];
+    var filasOrigenEliminadas = 0;
+    try {
+      if (vistas.length) Modelo_refrescarVistasSectores_(vistas);
+      var verificacionVista = [{ estado: 'INGRESADO', idInterno: destinoId,
+        sectorVigente: destinoSector, sectorDestino: destinoSector }];
+      Ingresos_confirmarVistas_(verificacionVista);
+      if (verificacionVista[0].vistaSectorConfirmada !== true) {
+        advertencias.push('VISTA_SECTOR_PENDIENTE');
+      } else if (datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
+        filasOrigenEliminadas = Ingresos_eliminarOrigenConfirmado_([{
+          estado: 'INGRESADO', vistaSectorConfirmada: true,
+          hoja: datos.origen.hoja, filaOrigen: datos.origen.fila
+        }]).eliminadas || 0;
+      }
+    } catch (errVista) {
+      advertencias.push('VISTA_SECTOR_PENDIENTE');
+      Log_warning('Revision', 'refrescar-sector',
+        errVista && errVista.message ? errVista.message : String(errVista));
+    }
     Log_info('Revision', decision, prep.accion + ' · caso fila ' + indiceHoja + ' → ' + destinoId +
+      (sectorCambio ? ' · ' + sectorAnterior + ' → ' + sectorNuevo : '') +
       (hermanas ? ' · +' + hermanas + ' hermanas del mismo origen' : ''));
     Log_flush();
-    return { ok: true, accion: prep.accion, destinoId: destinoId };
+    return { ok: true, accion: prep.accion, destinoId: destinoId,
+      sectorCambio: sectorCambio, sectorAnterior: sectorAnterior, sectorNuevo: sectorNuevo,
+      advertencias: advertencias, filasOrigenEliminadas: filasOrigenEliminadas };
 }
 
 /** FASE 4.0 — limpieza segura del dataset ficticio. */
 function UI_vaciarDatosPrueba() {
   var ui = _UI_get();
-  var colecta = Limpieza_colectar();
+  var colecta = Limpieza_colectar_();
 
   // cuenta pacientes/eventos afectados ANTES de borrar nada
   var ruts = colecta.ruts;
@@ -1500,7 +1596,7 @@ function UI_vaciarDatosPrueba() {
     ui.ButtonSet.YES_NO);
   if (resp !== ui.Button.YES) return;
 
-  var r = Limpieza_ejecutar(colecta);
+  var r = Limpieza_ejecutar_(colecta);
   Log_info('UI', 'vaciarDatosPrueba', JSON.stringify(r));
   Log_flush();
   ui.alert(
@@ -1518,7 +1614,7 @@ function UI_vaciarDatosPrueba() {
 function UI_analisisCarga() {
   Utl_toast('info', 'Analizando fuentes reales (no escribe nada)…', 15);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var r = Fuentes_cargaReal({ ejecutar: false });
+  var r = Fuentes_cargaReal_({ ejecutar: false });
   var res = r.resumen;
 
   var hojaR = ss.getSheetByName('CARGA_ANALISIS');
@@ -1560,7 +1656,7 @@ function UI_ejecutarCarga() {
 
   Utl_toast('info', 'Cargando…', 30);
 
-  var r = Fuentes_cargaReal({ ejecutar: true });
+  var r = Fuentes_cargaReal_({ ejecutar: true });
   var res = r.resumen;
 
   Log_info('UI', 'ejecutarCarga', JSON.stringify({

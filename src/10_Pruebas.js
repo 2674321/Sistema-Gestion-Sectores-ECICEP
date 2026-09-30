@@ -578,17 +578,21 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(s.resultados[0].estado, 'INGRESADO', 'resultado fila');
   });
 
-  // CASO B — existente exacto: +0 paciente / +1 evento / campos intactos
-  t('3B CASO B: existente MATCH_EXACTO → +0 pacientes, +1 evento, sin sobrescritura', function () {
+  // CASO B — existente cross-sector: transición territorial trazada (DEC-100)
+  t('3B CASO B: existente MATCH_EXACTO cross-sector → CAMBIO_SECTOR + INGRESO', function () {
     var base = DATASET_STAGING.base[0];
-    var snapshot = JSON.stringify(base);
+    var rut = base.RUT, nombre = base.NOMBRE, telefono = base.TELEFONOS;
     var store = { pacientes: [base], eventos: [] };
     var s = Ingresos_procesarFilas([_stagingCaso('existenteRut', 2)], store, {});
     A.igual(store.pacientes.length, 1, '+0 pacientes');
-    A.igual(store.eventos.length, 1, '+1 evento');
-    A.igual(store.eventos[0].ID_INTERNO, 'EC-TEST-0001', 'enlazado');
+    A.igual(store.eventos.length, 2, 'cambio + ingreso');
+    A.igual(store.eventos[1].ID_INTERNO, 'EC-TEST-0001', 'ingreso enlazado');
+    A.igual(store.eventos[0].TIPO_EVENTO, 'CAMBIO_SECTOR', 'transición trazada');
     A.igual(s.resumen.existentes, 1, 'resumen existentes');
-    A.igual(JSON.stringify(store.pacientes[0]), snapshot, 'paciente intacto');
+    A.igual(store.pacientes[0].SECTOR, 'AMARILLO', 'sector vigente actualizado');
+    A.igual(store.pacientes[0].RUT, rut, 'RUT intacto');
+    A.igual(store.pacientes[0].NOMBRE, nombre, 'nombre intacto');
+    A.igual(store.pacientes[0].TELEFONOS, telefono, 'teléfono intacto');
   });
 
   // CASO C — ambiguo: nada se escribe
@@ -730,7 +734,7 @@ function _pruebas_ingresos_3b(t, A) {
     A.igual(s.resumen.nuevos, 1, 'nuevos');
     A.igual(s.resumen.existentes, 1, 'existentes');
     A.igual(s.resumen.revision, 1, 'revisión');
-    A.igual(s.resumen.eventosCreados, 2, 'eventos creados');
+    A.igual(s.resumen.eventosCreados, 3, 'dos ingresos + cambio territorial');
     A.igual(s.resumen.validos, 2, 'válidos');
   });
 }
@@ -2897,7 +2901,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
+    A.igual(v, '0.16.1', 'versión esperada v0.16.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3137,7 +3141,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
+    A.igual(v, '0.16.1', 'versión esperada v0.16.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3668,7 +3672,7 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(s.resumen.duplicados, 1, 'duplicados');
     A.igual(s.resumen.revision, 1, 'revision contabilizada');
     A.igual(s.resumen.conError, 1, 'error no bloquea al lote');
-    A.igual(s.resumen.eventosCreados, 2, 'eventos de los dos válidos');
+    A.igual(s.resumen.eventosCreados, 3, 'dos ingresos + cambio territorial');
   });
 
   t('PULIDO v0.8.9.5: Ingresos_resumenTexto listo para el toast 3.7', function () {
@@ -4583,8 +4587,8 @@ function _pruebas_enriquecimiento_s5(t, A) {
     var iVer = ids.indexOf('verificar');
     A.cierto(iEnr !== -1 && iVer !== -1 && iEnr < iVer, 'la etapa corre antes de verificación final');
     var etapa = INSTALAR_ETAPAS[ids.indexOf('enriquecimiento')];
-    A.igual(etapa.fn, 'Instalar_pEnriquecimiento', 'función de la etapa');
-    A.cierto(typeof Instalar_pEnriquecimiento === 'function', 'Instalar_pEnriquecimiento existe');
+    A.igual(etapa.fn, 'Instalar_pEnriquecimiento_', 'función privada de la etapa');
+    A.cierto(typeof Instalar_pEnriquecimiento_ === 'function', 'Instalar_pEnriquecimiento_ existe');
   });
   t('S5 wiring: UI_actualizarSistema ya no ejecuta enriquecimiento inline', function () {
     var fu = UI_actualizarSistema.toString();
@@ -4680,7 +4684,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
     var fu = Act_enriquecerPacientes.toString();
     A.cierto(fu.indexOf('EVENTOS') === -1, 'Act_enriquecerPacientes no referencia EVENTOS');
     A.cierto(fu.indexOf('Eventos') === -1, 'sin funciones de eventos');
-    var etapa = Instalar_pEnriquecimiento.toString();
+    var etapa = Instalar_pEnriquecimiento_.toString();
     A.cierto(etapa.indexOf('EVENTOS') === -1 && etapa.indexOf('Eventos') === -1, 'etapa sin eventos');
     A.cierto(INSTALAR_ETAPAS.every(function (e) { return e.id !== 'eventos'; }), 'sin etapa que cree eventos');
   });
@@ -4697,7 +4701,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
   });
 
   t('S11 UI: Instalar_pEnriquecimiento aplica enriquecimiento real (v0.10.0)', function () {
-    var etapa = Instalar_pEnriquecimiento.toString();
+    var etapa = Instalar_pEnriquecimiento_.toString();
     A.cierto(etapa.indexOf('Act_enriquecerPacientes') !== -1, 'SÍ llama Act_enriquecerPacientes');
     A.cierto(etapa.indexOf('dryRun: false') !== -1, 'ejecuta con dryRun:false (escribe)');
     // Act_enriquecerPacientes sigue existiendo para ACTUALIZAR
@@ -4752,8 +4756,8 @@ function _pruebas_auditoria_s11r(t, A) {
   t('S11R-3: enriquecimiento separado — INSTALAR y ACTUALIZAR reutilizan Act_enriquecerPacientes (v0.10.0)', function () {
     var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
     A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
-    A.igual(enr[0].fn, 'Instalar_pEnriquecimiento', 'única función de la etapa');
-    var p = Instalar_pEnriquecimiento.toString();
+    A.igual(enr[0].fn, 'Instalar_pEnriquecimiento_', 'única función privada de la etapa');
+    var p = Instalar_pEnriquecimiento_.toString();
     A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
       'Instalar SÍ llama Act_enriquecerPacientes (reinstalación real)');
     A.cierto(Act_actualizarSistema.toString().indexOf('Act_enriquecerPacientes') !== -1,
@@ -5350,10 +5354,10 @@ function _pruebas_inst1_versionado(t, A) {
     A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
     A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
     ['migraciones', 'estructura', 'fuentes', 'amarillo', 'enriquecimiento', 'validaciones',
-     'diseno', 'menu', 'derivados'].forEach(function (id) {
+     'diseno', 'menu', 'triggers', 'integridad'].forEach(function (id) {
       A.cierto(!!INSTALAR_ETAPAS_MUTAN[id], id + ' figura como mutante');
     });
-    ['runtime', 'diagnostico', 'versionado',
+    ['runtime', 'diagnostico', 'versionado', 'derivados',
      'limpieza', 'verificar'].forEach(function (id) {
       A.cierto(!INSTALAR_ETAPAS_MUTAN[id], id + ' es solo lectura (sin lock)');
     });
@@ -5365,11 +5369,11 @@ function _pruebas_inst1_versionado(t, A) {
 
   t('T12: Actualizar NO incorpora versionado ni ejecuta migraciones (separación S12/INST-1)', function () {
     var todo = UI_actualizarTodo.toString();
-    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones', 'SCHEMA_VERSION', '_inst_configEscribir'].forEach(function (f) {
+    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones_', 'SCHEMA_VERSION', '_inst_configEscribir'].forEach(function (f) {
       A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
     });
     var act = UI_actualizarSistema.toString();
-    ['Mig_', 'Instalar_pMigraciones', 'SCHEMA_VERSION'].forEach(function (f) {
+    ['Mig_', 'Instalar_pMigraciones_', 'SCHEMA_VERSION'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
     });
   });
@@ -5389,7 +5393,7 @@ function _pruebas_inst1_versionado(t, A) {
   t('T14: el motor de migraciones no crea hojas ni filas; MIG-002 muta SOLO esquema (por nombre)', function () {
     var G = (typeof globalThis !== 'undefined') ? globalThis : this;
     var motor = ['Mig_pendientesPura', 'Mig_clasificarInstalacion', 'Mig_ejecutarDeclaradas',
-      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Instalar_pMigraciones'];
+      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Instalar_pMigraciones_'];
     motor.forEach(function (name) {
       var fn = G[name];
       A.cierto(typeof fn === 'function', name + ' existe');
@@ -5826,67 +5830,65 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(Aud_anonRut('11111111-1'), '**.***.**11-1', 'DV explícito');
     A.igual(Aud_anonRut(''), '', 'vacío');
   });
-  // ACCESO LIBRE (DEC-097, v0.16.0): el sistema no pide credenciales. Este test
-  // sustituye al de v0.10.3 ("guards de sesión deniegan"), que ya no describe el
-  // comportamiento: ahora la decisión de acceso concede siempre y lo único que
-  // se comprueba es la válvula ACCESO_LIBRE, que es deliberada.
-  t('P0 v0.16: acceso libre — sin sesión ni token la decisión de acceso concede', function () {
-    A.cierto(WebApp_usuarioActivo() !== '', 'con sesión (mock) hay usuario');
-    var original = globalThis.Session;
-    try {
-      globalThis.Session = undefined;
-      A.igual(WebApp_usuarioActivo(), '', 'sin sesión → vacío');
-      A.igual(WebApp_accesoLibre_(), true, 'sin ACCESO_LIBRE el sistema es libre');
-      A.igual(WebApp_autorizar(''), true, 'sin token se concede');
-      A.igual(WebApp_autorizar(undefined), true, 'token ausente se concede');
-      A.igual(WebApp_autorizar('token-inventado'), true, 'token inventado se concede: no es credencial');
-      A.igual(WebApp_autorizarBuscador(''), true, 'alias de buscador concede');
-      A.igual(WebApp_autorizarCaptura(''), true, 'alias de captura concede');
-      // Lo que sigue exigiendo sesión real lo hace por necesidad propia, no por
-      // control de acceso: escribir un secreto y el pipeline legacy de Sheets.
-      A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado (escribe un secreto)');
-      A.igual(Form_capturarDesdeUI_legacy_({}).ok, false, 'Form_capturarDesdeUI_legacy_ sin sesión → denegado');
-    } finally {
-      globalThis.Session = original;
-    }
-  });
-
-  t('P0 v0.16: la válvula ACCESO_LIBRE es la única forma de volver a pedir credencial', function () {
-    var original = globalThis.PropertiesService;
-    var originalSession = globalThis.Session;
-    var almacen = { CAPTURA_ACCESS_TOKEN: 'e'.repeat(64), ACCESO_LIBRE: '0' };
+  // ACCESO UNIVERSAL (DEC-101): una sola credencial abre todo el sistema.
+  // Los guards niegan cualquier credencial que no sea la vigente —incluida la
+  // ausencia de credencial— y autorizan con cualquiera de las claves canónicas
+  // o heredadas. No existe separación entre operador y usuario.
+  t('P0 v0.16.1: acceso universal — guards niegan credencial ausente o ajena', function () {
+    A.cierto(WebApp_usuarioActivo_() !== '', 'con sesión (mock) hay usuario');
+    var originalProps = globalThis.PropertiesService;
+    var originalUtils = globalThis.Utilities;
+    var almacen = { ECICEP_ACCESS_TOKEN: 'a'.repeat(64) };
+    globalThis.Utilities = { getUuid: function () { return '0123456789abcdef0123456789abcdef'; } };
     globalThis.PropertiesService = {
       getScriptProperties: function () {
         return {
-          getProperty: function (k) { return Object.prototype.hasOwnProperty.call(almacen, k) ? almacen[k] : null; },
+          getProperty: function (k) {
+            return Object.prototype.hasOwnProperty.call(almacen, k) ? almacen[k] : null;
+          },
           setProperty: function (k, v) { almacen[k] = String(v); }
         };
       }
     };
     try {
-      // Sin sesión: así se ejercita la credencial, no el atajo de sesión activa.
-      globalThis.Session = undefined;
-      A.igual(WebApp_accesoLibre_(), false, 'ACCESO_LIBRE=0 cierra el sistema');
-      A.igual(WebApp_autorizar(''), false, 'sin token → denegado con la válvula cerrada');
-      A.igual(WebApp_autorizar('basura'), false, 'token inválido → denegado');
-      A.igual(WebApp_autorizar(almacen['CAPTURA_ACCESS_TOKEN']), true, 'el token universal entra');
-      A.igual(JSON.stringify(api_buscar('EXISTE')),
-        '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}',
-        'api_buscar sin token → denegado con filas vacías (válvula cerrada)');
-      delete almacen.ACCESO_LIBRE;
-      A.igual(WebApp_accesoLibre_(), true, 'sin la propiedad: libre otra vez (comportamiento de fábrica)');
-      A.igual(WebApp_autorizar(''), true, 'y concede sin token');
+      var vigente = almacen.ECICEP_ACCESS_TOKEN;
+      A.cierto(!WebApp_autorizar(''), 'sin credencial no se autoriza');
+      A.cierto(!WebApp_autorizar('EXISTE'), 'credencial arbitraria no se autoriza');
+      A.cierto(WebApp_autorizar(vigente), 'la credencial universal abre todo');
+      A.cierto(WebApp_autorizarBuscador(vigente), 'alias de operador acepta la universal');
+      A.cierto(WebApp_autorizarCaptura(vigente), 'alias de captura acepta la universal');
+      // Alias heredados vigentes siguen siendo equivalentes (QR/enlaces viejos).
+      almacen.OPERADOR_ACCESS_TOKEN = 'b'.repeat(64);
+      almacen.CAPTURA_ACCESS_TOKEN = 'c'.repeat(64);
+      A.cierto(WebApp_autorizar('b'.repeat(64)), 'alias heredado OPERADOR sigue autorizando');
+      A.cierto(WebApp_autorizar('c'.repeat(64)), 'alias heredado CAPTURA sigue autorizando');
+      A.cierto(!WebApp_autorizar('d'.repeat(64)), 'una clave no vigente nunca autoriza');
+      delete almacen.ECICEP_ACCESS_TOKEN;
+      delete almacen.OPERADOR_ACCESS_TOKEN;
+      delete almacen.CAPTURA_ACCESS_TOKEN;
+      var creada = WebApp_claveUniversal_();
+      A.igual(creada.length, 64, 'la credencial se autoaprovisiona si falta');
+      A.igual(almacen.ECICEP_ACCESS_TOKEN, creada, 'queda persistida en la clave canónica');
+      A.cierto(WebApp_autorizar(creada), 'la recién creada autoriza');
     } finally {
-      globalThis.PropertiesService = original;
-      globalThis.Session = originalSession;
+      if (originalProps === undefined) { delete globalThis.PropertiesService; }
+      else { globalThis.PropertiesService = originalProps; }
+      if (originalUtils === undefined) { delete globalThis.Utilities; }
+      else { globalThis.Utilities = originalUtils; }
     }
   });
+  // v0.10.5 §12: los guards de RPC niegan con estructura estable ante una
+  // credencial no válida, para que la UI pueda explicar el rechazo.
+  t('P0 v0.16.1: guards RPC responden ACCESO_DENEGADO con estructura estable', function () {
+    A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar → denegado con filas vacías');
+    A.igual(api_ficha('X').ok, false, 'api_ficha → denegado');
+    A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar → denegado');
+  });
 
-  // QR permanente: el contenido del QR es la URL compartida, derivada solo de
-  // ECICEP.WEB_APP_URL (deployment operativo fijo) + CAPTURA_ACCESS_TOKEN estable.
-  // Regresión: si un push cambiara la URL base (nuevo deployment) o rotara el
-  // token, el QR impreso dejaría de apuntar al formulario; este test lo detecta.
-  t('P0 v0.9.28: QR de Captura permanente — URL compartida fija y token estable', function () {
+  // QR permanente: el contenido es exclusivamente ECICEP.WEB_APP_URL. La
+  // credencial universal se inyecta al servir cada vista, por lo que una
+  // credencial interna recuperada o rotada nunca invalida un QR impreso.
+  t('P0: QR de Captura permanente — URL base fija y credencial universal', function () {
     var original = globalThis.PropertiesService;
     var almacen = { CAPTURA_ACCESS_TOKEN: 'e'.repeat(64) };
     globalThis.PropertiesService = {
@@ -5900,14 +5902,14 @@ function _pruebas_p0_auditoria_v098(t, A) {
     try {
       var base = ECICEP.WEB_APP_URL;
       A.igual(base, 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec', 'URL base = deployment operativo fijo (no debe cambiar)');
-      var esperado = base + '?acceso=' + almacen['CAPTURA_ACCESS_TOKEN'];
       var una = WebApp_urlCompartida_();
-      A.igual(una, esperado, 'URL compartida = base configurada + token estable');
+      A.igual(una, base, 'URL compartida = deployment operativo sin credenciales');
       A.igual(WebApp_urlCompartida_(), una, 'estable entre llamadas');
       A.igual(api_webappEstado(almacen['CAPTURA_ACCESS_TOKEN']).url, una, 'la RPC del botón Compartir/QR entrega la misma URL');
-      var token = una.slice(una.indexOf('?acceso=') + 8);
-      A.cierto(/^[0-9a-f]{64}$/.test(token), 'token de 64 hex en la URL');
-      A.igual(token, almacen['CAPTURA_ACCESS_TOKEN'], 'es exactamente la clave guardada, sin regenerarse');
+      A.igual(WebApp_claveCaptura_(), almacen['CAPTURA_ACCESS_TOKEN'], 'la capacidad vigente se conserva internamente');
+      almacen['CAPTURA_ACCESS_TOKEN'] = 'f'.repeat(64);
+      A.igual(WebApp_urlCompartida_(), una, 'rotar la capacidad interna no cambia el QR');
+      A.igual(WebApp_claveCaptura_(), almacen['CAPTURA_ACCESS_TOKEN'], 'la capacidad interna puede rotar sin cambiar la URL');
     } finally {
       if (original === undefined) { delete globalThis.PropertiesService; } else { globalThis.PropertiesService = original; }
     }
@@ -5931,7 +5933,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
       A.igual(res.motivo, 'GOOGLE_FORMS_INHABILITADO', 'motivo explícito (AGENTS)');
       A.igual(llamados, 0, 'no se invocó ScriptApp.newTrigger');
       A.igual(Form_triggerInstalado(), false, 'sin trigger onFormSubmit activo');
-      A.cierto(typeof Form_onFormSubmit === 'function', 'el manejador heredado permanece solo como referencia inerte');
+      A.cierto(typeof globalThis.Form_onFormSubmit === 'undefined', 'el manejador heredado fue retirado');
     } finally {
       FORM_CONFIG.FORM_ID = formIdOriginal;
       if (originalScriptApp === undefined) { delete globalThis.ScriptApp; } else { globalThis.ScriptApp = originalScriptApp; }
@@ -6100,7 +6102,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7b: INSTALAR vs ACTUALIZAR — validaciones con owner único (v0.14)', function () {
-    var srcI = Instalar_pValidaciones.toString();
+    var srcI = Instalar_pValidaciones_.toString();
     var srcA = Act_actualizarSistema.toString();
     A.cierto(srcI.indexOf('Modelo_validarIngresos') !== -1, 'INSTALAR tiene validaciones');
     A.cierto(srcA.indexOf('Modelo_validarIngresos') === -1,
@@ -6116,8 +6118,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var iVer = ids.indexOf('verificar');
     A.cierto(iEnr < iDer, 'derivados después de enriquecimiento');
     A.cierto(iDer < iVer, 'derivados antes de verificación');
-    A.igual(INSTALAR_ETAPAS[iDer].fn, 'Instalar_pDerivados', 'función correcta');
-    A.cierto(typeof Instalar_pDerivados === 'function', 'Instalar_pDerivados existe');
+    A.igual(INSTALAR_ETAPAS[iDer].fn, 'Instalar_pDerivados_', 'función privada correcta');
+    A.cierto(typeof Instalar_pDerivados_ === 'function', 'Instalar_pDerivados_ existe');
   });
 
   // --- S7c: Verificación de que ESTRATIFICACION fluye completo ---
@@ -6296,7 +6298,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   // --- S9: INSTALAR separa reparar de sincronizar (v0.14.1: CONSERVAR por defecto) ---
   t('S9: INSTALAR — etapa fuentes con política de datos explícita (no snapshot por defecto)', function () {
-    var src = Instalar_pFuentes.toString();
+    var src = Instalar_pFuentes_.toString();
     A.cierto(src.indexOf('Fuentes_cargaReal') !== -1,
       'Instalar_pFuentes SÍ llama Fuentes_cargaReal');
     A.cierto(src.indexOf('CONSERVAR') !== -1, 'modo CONSERVAR existe');
@@ -6317,7 +6319,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S9: INSTALAR — etapa amarillo carga el sector desde Drive (puerta + histórico)', function () {
-    var src = Instalar_pAmarillo.toString();
+    var src = Instalar_pAmarillo_.toString();
     A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1,
       'Instalar_pAmarillo SÍ llama Amarillo_importarTodo_');
     A.cierto(src.indexOf('aplicaHistorico') === -1 || src.indexOf('puerta') !== -1,
@@ -6343,8 +6345,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(ids.indexOf('diseno') !== -1, 'etapa diseno (motor único) existe');
     A.cierto(ids.indexOf('visual') === -1, 'sin fase principal visual separada (absorbida en formato:*)');
     A.cierto(ids.indexOf('inicio') === -1, 'sin fase principal inicio separada (subtarea inicio del motor)');
-    A.cierto(typeof Instalar_pVisual === 'function', 'wrapper compat Instalar_pVisual conservado');
-    A.cierto(typeof Instalar_pInicio === 'function', 'wrapper compat Instalar_pInicio conservado');
+    A.cierto(typeof Instalar_pVisual_ === 'function', 'wrapper privado Instalar_pVisual_ conservado');
+    A.cierto(typeof Instalar_pInicio_ === 'function', 'wrapper privado Instalar_pInicio_ conservado');
     A.cierto(ids.indexOf('validaciones') !== -1, 'etapa validaciones existe');
     A.cierto(ids.indexOf('derivados') !== -1, 'etapa derivados existe');
     A.cierto(ids.indexOf('verificar') !== -1, 'etapa verificar existe');
@@ -6362,17 +6364,17 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: Instalar_pEnriquecimiento reutiliza Act_enriquecerPacientes (fill-only, idempotente)', function () {
-    var src = Instalar_pEnriquecimiento.toString();
+    var src = Instalar_pEnriquecimiento_.toString();
     A.cierto(src.indexOf('Act_enriquecerPacientes') !== -1,
       'Instalar_pEnriquecimiento SÍ llama Act_enriquecerPacientes');
     A.cierto(src.indexOf('dryRun: false') !== -1,
       'ejecuta enriquecimiento real (fill-only SEXO/FECHA_NACIMIENTO)');
   });
 
-  t('S10: Instalar_pDerivados reporta errores (no solo best effort)', function () {
-    var src = Instalar_pDerivados.toString();
-    A.cierto(src.indexOf('errores') !== -1, 'array de errores existe');
-    A.cierto(src.indexOf('ok: errores.length === 0') !== -1, 'ok depende de errores');
+  t('S10: Instalar_pDerivados delega sin duplicar el motor reanudable', function () {
+    var src = Instalar_pDerivados_.toString();
+    A.cierto(src.indexOf("delegadaA: 'integridad'") !== -1, 'delega explícitamente');
+    A.cierto(src.indexOf('Estrat_recalcularTodos_') === -1, 'no recalcula antes de Integridad');
   });
 
   t('S10: Act_actualizarSistema trackea errores críticos', function () {
@@ -6416,7 +6418,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.0', 'VERSION es 0.16.0');
+    A.cierto(ECICEP.VERSION === '0.16.1', 'VERSION es 0.16.1');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

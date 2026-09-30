@@ -264,6 +264,9 @@ textarea.inp{min-height:64px;resize:vertical}
     <span>La persona pasará desde la hoja de ingreso al sistema ECICEP.
       Se registrará en PACIENTES, se creará su evento de ingreso
       y aparecerá automáticamente en el sector correspondiente.</span>
+    <span>INGRESO_* es una bandeja transitoria. Cuando PACIENTES, EVENTOS y la
+      vista del sector quedan confirmados, la fila se elimina automáticamente;
+      la trazabilidad permanece en el evento de ingreso.</span>
   </div>
   <div class="ing-filtros">
     <label class="etq" for="ingSector">Sector</label>
@@ -282,7 +285,7 @@ textarea.inp{min-height:64px;resize:vertical}
     </select>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-    <button class="btn btn-pri" onclick="ingIncorporarValidos(this)">
+    <button class="btn btn-pri" id="ingBtnLote" onclick="ingIncorporarValidos(this)">
       <i data-lucide="layers"></i> Incorporar todos los válidos
     </button>
     <button class="btn btn-ghost" id="ingRevAviso" style="display:none;min-height:32px;font-size:11.5px"
@@ -495,10 +498,13 @@ function buscarAhora(){
       var cont=document.getElementById('resultados');_resIdx=-1;
       if(!l||!l.length){cont.innerHTML='<div class="vacio"><i data-lucide="search-x"></i>Sin resultados para “'+_esc(t)+'”</div>';_refrescarIconos();return;}
       cont.innerHTML=l.map(function(p,i){
-        return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" onclick="abrirFicha(\''+_esc(p.id)+'\')" data-id="'+_esc(p.id)+'">'+
+        return '<div class="res-card fade-in" style="animation-delay:'+Math.min(i,12)*35+'ms" data-id="'+_esc(p.id)+'">'+
           '<div class="res-nombre">'+_esc(p.nombre)+'</div>'+
           '<div class="res-linea"><span class="rut">'+_esc(p.rut)+'</span>'+_chipSector(p.sector)+_estIndicador(p.estrat)+'</div></div>';
       }).join('');
+      cont.querySelectorAll('.res-card[data-id]').forEach(function(card){
+        card.addEventListener('click',function(){abrirFicha(card.dataset.id);});
+      });
       _refrescarIconos();
     },
     function(e){if(seq===_busquedaSeq)_errSilencioso('api_buscar')(e);});
@@ -548,6 +554,9 @@ var _ingDesdeFicha=false;
 var _ingPaginacion={inicio:0,limite:20,total:0};
 var _ingFiltros={sector:'',estado:''};
 var _ingSector='';
+var _ingSectorVigente='';
+var _ingAccionTerritorial='';
+var _ingConteos={};
 var _ingPag_retro=false;
 
 function abrirIngresosPendientes(btn){
@@ -601,14 +610,29 @@ function cargarIngresos(inicio,despues){
     }
     _ingPag_retro=false;
     var ct=r.conteos||null;
+    _ingConteos=ct||{};
+    var procesables=ct?Number(ct.validos||0)+Number(ct.advertencias||0):0;
+    var btnLote=document.getElementById('ingBtnLote');
+    if(btnLote){
+      btnLote.disabled=procesables===0;
+      btnLote.title=procesables===0
+        ?'No hay filas nuevas válidas para incorporar con el filtro actual'
+        :'Incorporar '+procesables+' fila(s) válida(s)';
+    }
     document.getElementById('ingCinta').innerHTML=
-      '<span class="chip fade-in">Pendientes <b class="num">'+_esc(r.total)+'</b></span>'+
+      '<span class="chip fade-in">Por resolver <b class="num">'+_esc(r.total)+'</b></span>'+
       (ct?('<span class="chip">Válidos <b class="num">'+_esc(ct.validos)+'</b></span>'+
         '<span class="chip">Advertencias <b class="num">'+_esc(ct.advertencias)+'</b></span>'+
-        '<span class="chip">Errores <b class="num">'+_esc(ct.errores)+'</b></span>'):'')+
-      '<span class="chip">Mostrando '+(_ingPaginacion.inicio+1)+'–'+(filas.length+_ingPaginacion.inicio)+'</span>';
+        '<span class="chip">Errores <b class="num">'+_esc(ct.errores)+'</b></span>'+
+        '<span class="chip">Ya incorporados <b class="num">'+_esc(ct.incorporados||0)+'</b></span>'+
+        (ct.cambiosSector?'<span class="chip">Cambios sector <b class="num">'+_esc(ct.cambiosSector)+'</b></span>':'')+
+        (ct.requierenRevision?'<span class="chip">Revisión <b class="num">'+_esc(ct.requierenRevision)+'</b></span>':'')+
+        (ct.duplicados?'<span class="chip">Duplicados <b class="num">'+_esc(ct.duplicados)+'</b></span>':'')):'')+
+      '<span class="chip">Mostrando '+(filas.length?(_ingPaginacion.inicio+1):0)+'–'+(filas.length+_ingPaginacion.inicio)+'</span>';
     document.getElementById('ingLista').innerHTML=
-      (filas.length?filas.map(ingTarjeta).join(''):'<div class="vacio"><i data-lucide="party-popper"></i>No hay ingresos pendientes</div>')+
+      (filas.length?filas.map(ingTarjeta).join(''):
+        '<div class="vacio"><i data-lucide="party-popper"></i>No hay filas nuevas por resolver'+
+        (ct&&ct.incorporados?' · '+_esc(ct.incorporados)+' ya incorporadas permanecen en la hoja como historial':'')+'</div>')+
       '<div class="pagbar">'+
         '<button class="btn btn-ghost" style="min-height:30px;font-size:11.5px" onclick="cargarIngresos('+(_ingPaginacion.inicio-_ingPaginacion.limite)+')" '+(_ingPaginacion.inicio===0?'disabled':'')+'><i data-lucide="chevron-left" style="width:13px;height:13px"></i> Anterior</button>'+
         '<span class="chip est-pendiente">Página '+Math.floor(_ingPaginacion.inicio/_ingPaginacion.limite+1)+'</span>'+
@@ -626,6 +650,8 @@ function ingTarjeta(f){
     '<div class="res-nombre">'+_esc(f.nombre||'Sin nombre')+'</div>'+
     '<div class="res-linea"><span class="rut">RUT: '+_esc(f.rut||'—')+'</span>'+ingBadgeEstado(f.estado)+'</div>'+
     '<div class="ing-fila-meta" style="margin-top:6px">Sector destino: <b>'+_esc(f.sector||'—')+'</b></div>'+
+    (f.sectorVigente?'<div class="ing-fila-meta">Sector vigente: <b>'+_esc(f.sectorVigente)+'</b>'+
+      (f.accionTerritorial==='CAMBIAR_SECTOR'?' · se trasladará':'')+'</div>':'')+
     '<div class="ing-fila-meta">Fecha ingreso: '+_fmtFecha(f.fechaIngreso)+'</div>'+
     '<div class="ing-fila-meta">Origen: '+_esc(f.hoja)+' · fila '+f.fila+(f.errores?' · '+f.errores+' error(es)':'')+'</div></div>';
 }
@@ -639,7 +665,9 @@ function ingBadgeEstado(est){
     'VALIDO':{c:'var(--success)',t:'Listo para incorporar',i:'check'},
     'WARNING':{c:'var(--warning)',t:'Revisar advertencias',i:'alert-triangle'},
     'ERROR':{c:'var(--danger)',t:'No se puede incorporar',i:'ban'},
-    'REQUIERE_REVISION':{c:'var(--warning)',t:'Requiere revisión',i:'clock'}
+    'REQUIERE_REVISION':{c:'var(--warning)',t:'Requiere revisión',i:'clock'},
+    'INGRESADO':{c:'var(--text-muted)',t:'Ya incorporado',i:'check-circle'},
+    'DUPLICADO':{c:'var(--text-muted)',t:'Duplicado',i:'copy'}
   }[e]||{c:'var(--text-muted)',t:e===''?'—':e,i:'circle-dot'};
   return '<span class="chip" style="color:'+m.c+';border:1px solid '+m.c+'"><i data-lucide="'+m.i+'" style="width:13px;height:13px"></i> '+_esc(m.t)+'</span>';
 }
@@ -654,8 +682,13 @@ function ingAbrirDetalle(hoja,fila){
       if(!r||!r.ok){d.innerHTML='<div class="vacio">'+_esc((r&&r.motivo)||'No se pudo leer la fila')+'</div>';return;}
     var pf=r.preFicha||{};
     _ingSector=pf.sector||'';
+    _ingSectorVigente=pf.sectorVigente||'';
+    _ingAccionTerritorial=pf.accionTerritorial||'';
+    var esRevision=pf.estadoIngreso==='REQUIERE_REVISION'||_ingAccionTerritorial==='REQUIERE_REVISION';
     var esError=pf.estadoValidacion==='ERROR';
-    var estBadge=esError?'ERROR':(pf.estadoValidacion==='WARNING'?'WARNING':'PENDIENTE');
+    var esDuplicado=pf.estadoIngreso==='DUPLICADO';
+    var esTerminal=esRevision||esDuplicado;
+    var estBadge=esRevision?'REQUIERE_REVISION':(esDuplicado?'DUPLICADO':(esError?'ERROR':(pf.estadoValidacion==='WARNING'?'WARNING':'PENDIENTE')));
     var filas=[['RUT',pf.rut],['Fecha ingreso',pf.fechaIngreso],['Sexo',pf.sexo],['Fec. nacimiento',pf.fechaNacimiento],
       ['Teléfono',pf.telefono],['Estratificación',pf.estratificacion],['Salud mental',pf.saludMental],
       ['Dupla',pf.dupla],['Prof. seguimiento',pf.profesionalSeguimiento],['Observaciones',pf.observaciones]];
@@ -663,25 +696,38 @@ function ingAbrirDetalle(hoja,fila){
       '<div class="res-nombre">'+_esc(pf.nombre||'Sin nombre')+'</div>'+
       '<div class="res-linea" style="margin:6px 0 8px"><span class="rut">RUT: '+_esc(pf.rut||'—')+'</span>'+ingBadgeEstado(estBadge)+'</div>'+
       '<div class="ing-destino">Destino: <b>SECTOR '+_esc(_ingSector||'—')+'</b></div>'+
+      (_ingSectorVigente?'<div class="ing-fila-meta">Sector vigente: <b>'+_esc(_ingSectorVigente)+'</b></div>':'')+
       '<div class="pfc-grid">'+filas.map(function(x){
         return '<div class="pfc-fila"><span class="k">'+x[0]+'</span><span class="v">'+((x[1]===''||x[1]==null)?'—':_esc(x[1]))+'</span></div>';
       }).join('')+'</div>'+
-      '<div class="ing-pasos">'+
+      (esTerminal
+        ?'<div class="ing-pasos">'+
+            '<span class="k">Fila fuera del lote</span>'+
+            '<span>· estado actual: <b>'+_esc(String(pf.estadoIngreso||'—'))+'</b></span>'+
+            '<span>· no se vuelve a procesar sola ni se incorpora a ciegas</span>'+
+            '<span>· para reintentar, limpia su ESTADO_INGRESO a PENDIENTE en la hoja de origen</span>'+
+          '</div>'
+        :'<div class="ing-pasos">'+
         '<span class="k">Al incorporar</span>'+
         '<span>· se registrará la persona en PACIENTES (o se enlazará a un paciente existente)</span>'+
         '<span>· se registrará su evento de ingreso</span>'+
         '<span>· la fila quedará marcada como INGRESADO</span>'+
+        (_ingAccionTerritorial==='CAMBIAR_SECTOR'?'<span>· se registrará CAMBIO_SECTOR de '+_esc(_ingSectorVigente||'sin sector')+' a '+_esc(_ingSector)+'</span>':'')+
         '<span>· aparecerá en Sector '+_esc(_sectorTitulo(_ingSector))+'</span>'+
         '<small style="color:var(--text-muted);margin-top:4px">La persona será incorporada al sistema. El sistema decidirá si corresponde crear un paciente o enlazar el ingreso a uno existente.</small>'+
-      '</div>'+
+      '</div>')+
       ((pf.errores&&pf.errores.length)?'<div class="verif-list"><span class="k" style="color:var(--danger);font-weight:600">Errores de validación</span>'+pf.errores.map(function(e){return '<span>· '+_esc(e)+'</span>';}).join('')+'</div>':'')+
       ((pf.warnings&&pf.warnings.length)?'<div class="verif-list"><span class="k" style="color:var(--warning);font-weight:600">Advertencias</span>'+pf.warnings.map(function(w){return '<span>· '+_esc(w)+'</span>';}).join('')+'</div>':'')+
       (pf.warnings&&pf.warnings.length&&!esError?'<div class="ing-aviso" style="display:flex">⚠ Tiene advertencias, pero puede incorporarse.</div>':'')+
       (esError?'<div class="verif-list"><span style="color:var(--danger)">Corrige los errores indicados antes de incorporar.</span></div>':'')+
       '<div class="botonera">'+
-        (esError
+        (esRevision
+          ?'<button class="btn btn-pri" disabled><i data-lucide="clock"></i> Requiere revisión</button>'
+          :(esDuplicado
+          ?'<button class="btn btn-pri" disabled><i data-lucide="ban"></i> Fila duplicada</button>'
+          :(esError
           ?'<button class="btn btn-pri" disabled><i data-lucide="ban"></i> No incorporable</button>'
-          :'<button class="btn btn-pri" onclick="ingIncorporar(this,\''+_esc(r.hoja)+'\','+r.fila+')"><i data-lucide="user-plus"></i> '+_esc('Incorporar a '+_sectorTitulo(_ingSector))+'</button>')+
+          :'<button class="btn btn-pri" onclick="ingIncorporar(this,\''+_esc(r.hoja)+'\','+r.fila+')"><i data-lucide="user-plus"></i> '+_esc('Incorporar a '+_sectorTitulo(_ingSector))+'</button>')))+
         '<button class="btn btn-ghost" onclick="ingVolver()">Volver</button>'+
       '</div></div>';
       _refrescarIconos();
@@ -696,14 +742,23 @@ function _sectorTitulo(s){
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
 function ingConfirmarIncorporacion(hoja,fila,sector){
+  var cambio=_ingAccionTerritorial==='CAMBIAR_SECTOR'
+    ?'\nCambio territorial: '+(_ingSectorVigente||'sin sector')+' → '+(sector||'—')+'\nSe registrará un evento CAMBIO_SECTOR.':'';
   return confirm(
     '¿Incorporar esta persona al sistema ECICEP?\n\n' +
-    'Sector destino: ' + (sector || '—')
+    'Sector destino: ' + (sector || '—') + cambio
   );
 }
 function ingMensajeResultado(r){
-  var est=String((r&&r.resultado&&r.resultado.estado)||'').toUpperCase();
+  var rr=(r&&r.resultado)||{};
+  if(!rr.estado&&r&&r.motivo==='FILA_TERMINAL')
+    return {tipo:'info',texto:'Fila ya resuelta como '+(r.estadoPrevio||'estado terminal')+'; no vuelve a entrar al lote'};
+  var est=String(rr.estado||'').toUpperCase();
   if(est==='INGRESADO'){
+    if(rr.estadoOperacion==='INCORPORADO_VISTA_PENDIENTE')
+      return {tipo:'warn',texto:'Incorporado; la vista del sector quedó pendiente de actualización'};
+    if(rr.yaIncorporado)return {tipo:'info',texto:'Este ingreso ya estaba incorporado'};
+    if(rr.sectorCambio)return {tipo:'ok',texto:'Incorporado y trasladado de '+(rr.sectorAnterior||'sin sector')+' a '+(rr.sectorDestino||'su sector destino')};
     return {tipo:'ok',texto:'Incorporado correctamente'};
   }
   if(est==='REQUIERE_REVISION'){
@@ -746,8 +801,7 @@ function ingIncorporar(btn,hoja,fila){
     if(r.resultado&&r.resultado.estado==='INGRESADO'&&r.resultado.idInterno){
       var nota=(r.resultado.nota==='Nuevo paciente creado')?'Nuevo paciente creado'
         :(r.resultado.nota==='Registrado sobre paciente existente')?'Ingreso asociado a paciente existente':'';
-      toast('✓ '+m.texto+(nota?' · '+nota:''),'ok');
-      if(_ingSector)toast('Paciente incorporado a '+_sectorTitulo(_ingSector),'info');
+      toast((m.tipo==='warn'?'⚠ ':'✓ ')+m.texto+(nota?' · '+nota:''),m.tipo);
       abrirFicha(r.resultado.idInterno);
       _ingDesdeFicha=true;
       return;
@@ -760,7 +814,14 @@ function ingIncorporar(btn,hoja,fila){
   }).api_ingresoIncorporar(hoja,fila,false,TOKEN_INVITACION);
 }
 function ingIncorporarValidos(btn){
-  if(!confirm('Se procesarán únicamente ingresos pendientes válidos.\nLas filas con errores o que requieran revisión no se incorporarán.\n\n¿Continuar?'))return;
+  var procesables=Number(_ingConteos.validos||0)+Number(_ingConteos.advertencias||0);
+  if(procesables===0){
+    toast('No hay filas nuevas válidas. Las filas INGRESADO ya están en PACIENTES y en su sector vigente.','info');
+    return;
+  }
+  var cambios=Number(_ingConteos.cambiosSector||0);
+  var avisoCambios=cambios?'\n\nCambios territoriales previstos: '+cambios+' (se registrará CAMBIO_SECTOR).':'';
+  if(!confirm('Se procesarán únicamente ingresos pendientes válidos.\nLas filas con errores o que requieran revisión no se incorporarán; tampoco las filas ya resueltas (INGRESADO, DUPLICADO, REQUIERE_REVISION).'+avisoCambios+'\n\n¿Confirmas la incorporación del lote?'))return;
   var fin=_btnCargando(btn,'Procesando…');
   google.script.run.withSuccessHandler(function(r){
     fin();
@@ -776,6 +837,10 @@ function ingIncorporarValidos(btn){
       filasR.push('<span style="color:var(--text-muted)">Ninguna fila pendiente procesable: vacías, ya ingresadas o fuera del filtro actual</span>');
     }
     if(rs.ingresados)filasR.push('<span style="color:var(--success)">✓ Incorporados: <b class="num">'+_esc(rs.ingresados)+'</b></span>');
+    if(rs.cambiosSector)filasR.push('<span style="color:var(--info)">↔ Cambios de sector: <b class="num">'+_esc(rs.cambiosSector)+'</b></span>');
+    if(rs.yaIncorporados)filasR.push('<span style="color:var(--text-muted)">↺ Ya incorporados: <b class="num">'+_esc(rs.yaIncorporados)+'</b></span>');
+    if(rs.filasOrigenEliminadas)filasR.push('<span style="color:var(--success)">✓ Retirados de ingreso: <b class="num">'+_esc(rs.filasOrigenEliminadas)+'</b></span>');
+    if(rs.vistaSectorPendiente)filasR.push('<span style="color:var(--warning)">⚠ Vista sectorial pendiente</span>');
     if(rs.revision)filasR.push('<span style="color:var(--warning)">⚠ Revisión: <b class="num">'+_esc(rs.revision)+'</b></span>');
     if(rs.errores)filasR.push('<span style="color:var(--danger)">⛔ Errores: <b class="num">'+_esc(rs.errores)+'</b></span>');
     if(rs.duplicados)filasR.push('<span style="color:var(--text-muted)">↺ Duplicados: <b class="num">'+_esc(rs.duplicados)+'</b></span>');

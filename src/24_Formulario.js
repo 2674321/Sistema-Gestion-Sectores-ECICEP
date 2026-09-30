@@ -718,9 +718,8 @@ function Form_filasPendientes(valores, mapa, maxReintentos, max) {
 // ---------------------------------------------------------------------------
 
 /**
- * Instalador idempotente de la ESTRUCTURA técnica del formulario.
- * NO crea ni modifica el Google Form (DEC-047: instalación = diagnóstico +
- * preparación; la creación es una acción opcional explícita del admin).
+ * Instalador idempotente de la persistencia técnica de la Web App.
+ * FORM_RESPUESTAS no constituye un canal alternativo de captura.
  */
 function Form_instalar() {
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
@@ -751,17 +750,13 @@ function Form_instalar() {
       hoja.hideSheet();
     }
     try { hoja.setTabColor(DESIGN_SYSTEM.MARCA.tecnico); } catch (e) { /* color no crítico */ }
-    Form_instalarTrigger();
     var control = {};
     try { control = Form_refrescarControl(); } catch (e) { control = { ok: false, motivo: String(e) }; }
     return {
       ok: true, hoja: creada ? 'creada' : 'existente', cambios: cambios,
-      formIdConfigurado: !Utl_vacio(FORM_CONFIG.FORM_ID),
       control: control && control.ok ? 'FORM_CONTROL actualizado' : 'FORM_CONTROL pendiente',
       version: FORM_CONFIG.FORM_VERSION,
-      nota: (Utl_vacio(FORM_CONFIG.FORM_ID))
-        ? 'FORM_ID sin configurar: se prepara la estructura; el formulario se crea manualmente en Google Forms y se asocia en FORM_CONFIG.'
-        : 'Estructura lista; revisar diagnóstico.'
+      nota: 'Persistencia técnica de la Web App lista; Google Forms permanece inhabilitado.'
     };
   } catch (e) {
     Log_error('Formulario', 'instalar', e && e.message ? e.message : String(e));
@@ -1285,21 +1280,6 @@ function Form_leerFilaIngreso_rapida_(nombreHoja, filaFisica) {
 }
 
 /**
- * GAS: manejador del trigger onFormSubmit. Captura y procesa.
- * El evento `e` NO se usa para los datos (los lee FormApp por idempotencia).
- */
-function Form_onFormSubmit(e) {
-  try {
-    Form_capturarRespuestas({});
-    return Form_procesarPendientes({});
-  } catch (err) {
-    Log_error('Formulario', 'onFormSubmit', err && err.message ? err.message : String(err));
-    Log_flush();
-    return { ok: false, motivo: err && err.message ? err.message : String(err) };
-  }
-}
-
-/**
  * PURA: resuelve HOJA/FILA desde la que leer el resultado de un ANEXAR/YA_ANEXADO.
  * Si el barrido por MARCA encontró la fila real (hallado), esa gana siempre:
  * robusto frente a desplazamientos de filas por HVis_normalizarLayout (inserta
@@ -1588,7 +1568,7 @@ function Form_procesarPendientes(opciones) {
         trailersAnexos.push({ filaFisica: d.filaFisica, ingresoHoja: nombreHoja, ingresoFila: String(desde + i), reintentos: 0, estado: 'VALIDANDO', motivo: '', idInterno: '', idEvento: '', fechaProceso: '' });
       });
     });
-    console.log('[PIPE] trailersAnexos='+JSON.stringify(trailersAnexos).substring(0,400));
+    console.log('[PIPE] trailersAnexos=' + trailersAnexos.length);
 
     if (trailersAnexos.length) Form_actualizarTrailer(trailersAnexos);
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (anexo filas INGRESO, paso 1)');
@@ -1644,7 +1624,7 @@ function Form_procesarPendientes(opciones) {
       console.log('[PIPE] antes Ingresos_procesarTodasLasHojas_ anexos='+hayAnexos+' filasAnexadas='+filasAnexadas.length+' soloHojas='+JSON.stringify(soloHojas)+' soloFilas='+JSON.stringify(soloFilas)+' confirmarNuevos='+(opciones.confirmarNuevos===true));
       resumenPipeline = Ingresos_procesarTodasLasHojas_({ confirmarNuevos: opciones.confirmarNuevos === true, soloHojas: soloHojas.length ? soloHojas : null, soloFilas: soloFilas });
       console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (pipeline paso 3, anexos=' + hayAnexos + ')');
-      console.log('[PIPE] despues pipeline resumen='+JSON.stringify(resumenPipeline).substring(0,500));
+      console.log('[PIPE] despues pipeline ok=' + !!(resumenPipeline && resumenPipeline.ok !== false));
     } else {
       console.log('[PIPE] sin anexos ni filas de ingreso pendientes, no se llama pipeline');
     }
@@ -1703,12 +1683,12 @@ function Form_procesarPendientes(opciones) {
           var map = Form_mapearResultadoFila(lf.estado, lf.nota);
           est = map.estado; mot = map.motivo;
           if (est === 'ERROR') {
-            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' lf='+JSON.stringify(lf)+' -> '+mot);
+            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' estado='+Utl_texto(lf.estado));
           }
         } else {
           est = 'ERROR';
           if (!mot) mot = 'SIN_FILA_INGRESO';
-          console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' SIN_ESTADO lf='+JSON.stringify(lf));
+          console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' SIN_ESTADO');
         }
       }
       var reint = Number(d.reintentos) || 0;
@@ -1747,11 +1727,6 @@ function Form_procesarPendientes(opciones) {
   }
 }
 
-/** GAS: procesamiento bajo demanda (botón del panel de administración). */
-function Form_procesarAhora() {
-  return Form_procesarPendientes({});
-}
-
 /**
  * GAS: actualiza campos OPERATIVOS de un paciente existente (identidad intacta)
  * y registra la marca de trazabilidad. Nunca toca identidad ni reglas clínicas.
@@ -1787,18 +1762,4 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca, acceso) {
     Log_error('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));
     return false;
   }
-}
-
-// ---------------------------------------------------------------------------
-// ENDPOINTS del panel de administración (GAS)
-// ---------------------------------------------------------------------------
-
-function api_formularioEstado() { return Form_obtenerEstado(); }
-
-function api_formularioProcesar() { return Form_procesarAhora(); }
-
-function api_formularioControl() { return Form_refrescarControl(); }
-
-function api_formularioReprocesar(param) {
-  return Form_reprocesar(param && param.respuestaId ? { respuestaId: param.respuestaId } : {});
 }

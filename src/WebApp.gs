@@ -8,9 +8,8 @@
  *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
  *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
  *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2/3/4, TRAZA_CRUDA JSON) + entrega acotada + trailer.
- *   El puente legacy Form_capturarDesdeUI_legacy_ se conserva solo como compatibilidad interna
- *   (sin consumidor en la UI vigente; no expuesto como RPC operativa); el pipeline
- *   legacy NO procesa filas del namespace V2.
+ *   El puente de captura y el panel de procesamiento de Google Forms fueron
+ *   retirados: la única entrada operativa es WebApp_capturarEnviar.
  *
  * AISLAMIENTO: este módulo NO crea bases ni lógica paralela. El código es
  * autónomo y portátil: utiliza el contexto del proyecto (SpreadsheetApp.getActive()
@@ -18,115 +17,107 @@
  * IDs hardcodeados de DEMO ni de producción; el destino de escritura sigue la
  * lógica normal del proyecto Apps Script corriendo.
  *
- * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta:
- *   - llamada de webhook (GET con parámetros token/action) → Webhook.js (_wh_despachar)
- *   - cualquier otra → sirve el HTML de captura.
+ * ACCESO UNIVERSAL (DEC-101): una sola credencial habilita TODAS las funciones
+ * del sistema. No se distingue entre operador y usuario: el sistema solo lo
+ * manejan los trabajadores del CESFAM y todos operan. La credencial se inyecta
+ * en servidor al servir cada vista y nunca viaja en la URL, por lo que un QR
+ * impreso con la URL base abre el sistema completo.
+ *
+ * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta las
+ * consultas de webhook de solo lectura y las vistas Web; toda mutación remota
+ * requiere doPost y habilitación explícita.
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — ACCESO UNIVERSAL / LIBRE (ECICEP)
-//   v0.16.0 (DEC-097): ACCESO LIBRE. El sistema NO pide permisos ni credenciales.
-//     Quien abre el enlace opera todo: capturar, ficha, Controles, Dashboard,
-//     REM, Revisión, Configuración, Backups, Registro, Instalador. No hay
-//     pantalla de consentimiento, ni token que se pueda extraviar, ni rechazo
-//     por enlace perdido. El parámetro `?acceso=` de la URL se conserva por
-//     compatibilidad con los enlaces y QR ya impresos, pero ya NO decide
-//     nada: es un valor inerte.
+// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP (DEC-101)
+//   Una SOLA credencial habilita TODAS las funciones del sistema: capturar,
+//   ficha, ingresos, controles, estadísticas, REM, revisión, configuración,
+//   backups, registro e instalación.
 //
-//   Válvula de seguridad (opcional, para cuando el propietario quiera volver
-//   a cerrar el sistema): propiedad de Script Properties `ACCESO_LIBRE`.
-//     - ausente, o `1`/`true`/`sí`   → LIBRE (comportamiento por defecto)
-//     - `0`/`false`/`no`             → cerrado: se exige el token universal
-//   La propiedad NO se crea ni se inicializa desde el código: si no existe,
-//   el sistema es libre. Nadie tiene que ejecutar un paso de "autorizar"
-//   para que el sistema funcione.
+//   NO existe distinción entre operador y usuario. El sistema solo lo manejan
+//   los trabajadores del CESFAM y todos operan: separar capacidades dejó el
+//   sistema inaccesible para todos (DEC-097 fue revertido por DEC-101).
 //
-//   El token del webhook sigue siendo independiente: es una credencial de
-//   integración, no de acceso de personas, y no se comparte en el QR.
+//   Credencial canónica: ECICEP_ACCESS_TOKEN, AUTOAPROVISIONADA si falta
+//   (con lock y relectura), de modo que el sistema nunca queda inaccesible por
+//   una credencial ausente.
+//   Alias heredados aceptados como equivalentes, para que enlaces, QR impresos
+//   y pestañas ya abiertas nunca se rompan: CAPTURA_ACCESS_TOKEN (canónico en
+//   v0.10–v0.16), OPERADOR_ACCESS_TOKEN y LEGACY_ACCESS_TOKEN.
+//
+//   La credencial NUNCA viaja en la URL: el servidor la inyecta al servir cada
+//   vista. Por eso un QR impreso con la URL base sigue funcionando tras rotar
+//   la credencial. El token del webhook es independiente y no se comparte aquí.
 // ---------------------------------------------------------------------------
 
-/**
- * Autoriza el acceso al sistema. En ACCESO LIBRE (por defecto) autoriza
- * siempre y no llega a inspeccionar el token. En modo cerrado (ACCESO_LIBRE
- * desactivado a propósito) exige sesión activa o el token universal válido.
- */
-function WebApp_autorizar(token) {
-  if (WebApp_accesoLibre_()) return true;
-  if (WebApp_usuarioActivo()) return true;
-  return WebApp_accesoUniversalValido_(token);
-}
+/** Claves que contienen (o contuvieron) la credencial universal del sistema.
+ *  Todas son equivalentes: cualquiera vigente abre el sistema completo. */
+var WEBAPP_CLAVES_ACCESO_ = [
+  'ECICEP_ACCESS_TOKEN', 'CAPTURA_ACCESS_TOKEN', 'OPERADOR_ACCESS_TOKEN', 'LEGACY_ACCESS_TOKEN'
+];
 
-/** Aliases heredados de la superficie RPC: todos autorizan el acceso universal. */
+/** Autoriza el acceso universal: credencial vigente del sistema. */
+function WebApp_autorizar(token) { return WebApp_accesoUniversalValido_(token); }
+
+/** Alias de la superficie RPC: una sola capacidad para todo el sistema. */
 function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
+/** Alias del canal de captura: mismo acceso universal, sin capacidades separadas. */
 function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
 
 /**
- * ¿El sistema está en ACCESO LIBRE? Por defecto sí: la propiedad no existe.
- * Solo una decisión explícita del propietario lo cierra.
- */
-function WebApp_accesoLibre_() {
-  try {
-    var v = PropertiesService.getScriptProperties().getProperty('ACCESO_LIBRE');
-    if (v === null || v === undefined) return true;   // ausente → libre
-    v = String(v).trim().toLowerCase();
-    if (!v) return true;                              // vacío → libre
-    return ['0', 'false', 'no', 'off', 'cerrado'].indexOf(v) === -1;
-  } catch (e) { return true; }                        // ilegible → libre
-}
-
-/**
- * Clave universal del sistema (parámetro `?acceso=` de los enlaces).
- * En ACCESO LIBRE esta clave ya NO es una credencial: se conserva solo para
- * que los enlaces y QR ya impresos sigan siendo idénticos.
- * Devuelve de inmediato el valor existente; solo toma el lock para CREAR la
- * clave cuando la propiedad falta. NUNCA lanza: si no se puede leer, crear ni
- * releer la clave devuelve '' y el sistema sigue funcionando igual, porque el
- * acceso no depende de ella.
+ * Credencial universal vigente. Devuelve de inmediato el valor existente; solo
+ * toma el lock para CREARLA cuando falta alguna de las claves. Nunca devuelve ''
+ * si existe: ante contención o fallo relee sin lock y solo falla si realmente
+ * no se pudo dejar ninguna credencial persistida.
  */
 function WebApp_claveUniversal_() {
-  var props;
-  try { props = PropertiesService.getScriptProperties(); }
-  catch (e) { return ''; }
-  try {
-    var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-    if (clave) return clave;
-  } catch (eLectura) { return ''; }
+  var props = PropertiesService.getScriptProperties();
+  var clave = WebApp_claveExistente_();
+  if (clave) return clave;
   var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
   if (lock && !lock.tryLock(5000)) {
-    try {
-      var releida = props.getProperty('CAPTURA_ACCESS_TOKEN');
-      if (releida) return releida;
-    } catch (eRelectura) { return ''; }
-    return ''; // sin clave y con contención: el acceso libre no la necesita
+    clave = WebApp_claveExistente_();
+    if (!clave) throw new Error('ACCESO_UNIVERSAL_NO_INICIALIZADO');
+    return clave;
   }
   try {
-    var actual = props.getProperty('CAPTURA_ACCESS_TOKEN');
-    if (!actual) {
-      actual = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-      props.setProperty('CAPTURA_ACCESS_TOKEN', actual);
+    clave = WebApp_claveExistente_();
+    if (!clave) {
+      clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+      props.setProperty('ECICEP_ACCESS_TOKEN', clave);
     }
-    return actual;
+    return clave;
   } catch (e) {
-    try {
-      var ultimate = props.getProperty('CAPTURA_ACCESS_TOKEN');
-      return ultimate || '';
-    } catch (e2) { return ''; }
+    clave = WebApp_claveExistente_();
+    if (!clave) throw e;
+    return clave;
   } finally {
     if (lock) { try { lock.releaseLock(); } catch (ign) {} }
   }
 }
 
-/** Valida un token contra la credencial universal (con legacy OPERADOR v0.10.3). */
+/** Primera credencial no vacía entre las claves canónicas e heredadas. */
+function WebApp_claveExistente_() {
+  var props = PropertiesService.getScriptProperties();
+  for (var i = 0; i < WEBAPP_CLAVES_ACCESO_.length; i++) {
+    var v = props.getProperty(WEBAPP_CLAVES_ACCESO_[i]);
+    if (v) return v;
+  }
+  return '';
+}
+
+/** Valida la credencial contra cualquier clave vigente (canónica o heredada). */
 function WebApp_accesoUniversalValido_(token) {
   if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = WebApp_claveUniversal_();
-  if (token === esperado) return true;
-  var legacy = PropertiesService.getScriptProperties().getProperty('OPERADOR_ACCESS_TOKEN');
-  return !!legacy && token === legacy;
+  var props = PropertiesService.getScriptProperties();
+  for (var i = 0; i < WEBAPP_CLAVES_ACCESO_.length; i++) {
+    if (props.getProperty(WEBAPP_CLAVES_ACCESO_[i]) === token) return true;
+  }
+  return false;
 }
 
 // ---- Alias de compatibilidad (contrato heredado) — todos delegan en la
-// capacidad universal, no se añade lógica de capacidades separadas. ----
+// credencial universal; no existe lógica de capacidades separadas. ----
 
 function WebApp_claveCaptura_() { return WebApp_claveUniversal_(); }
 function WebApp_claveOperador_() { return WebApp_claveUniversal_(); }
@@ -136,33 +127,53 @@ function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValid
 function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
 function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
 
+/** ¿Está operativo el acceso universal? Verdadero siempre que la credencial
+ *  del sistema exista o se pueda crear. Sustituye a la antigua allowlist de
+ *  identidades (DEC-097): no hay roles, todos los trabajadores operan.
+ *  Se usa en funciones internas del proyecto que no reciben credencial por
+ *  parámetro (p. ej. las de 28_IA.js). */
+function WebApp_accesoUniversalActivo_() {
+  try { return !!WebApp_claveUniversal_(); } catch (e) { return false; }
+}
+
+/** Diagnóstico sin secretos para instalación/soporte. */
+function WebApp_diagnosticoSeguridad_() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    accesoUniversalConfigurado: !!WebApp_claveExistente_(),
+    credencialCanonica: !!props.getProperty('ECICEP_ACCESS_TOKEN'),
+    aliasHeredadosVigentes: WEBAPP_CLAVES_ACCESO_.slice(1)
+      .filter(function (k) { return !!props.getProperty(k); }),
+    webhookConfigurado: !!props.getProperty('WEBHOOK_TOKEN'),
+    webhookMutacionesHabilitadas: props.getProperty('WEBHOOK_MUTACIONES_HABILITADAS') === 'SI',
+    geminiConfigurado: !!props.getProperty('GEMINI_API_KEY')
+  };
+}
+
 /**
- * URL universal del sistema (QR y enlace de distribución).
- * El parámetro `?acceso=` se conserva si existe la clave, para que los
- * enlaces ya impresos no cambien. Si no hay clave, se entrega la URL desnuda:
- * en ACCESO LIBRE funciona igual y nunca se devuelve una URL vacía.
+ * URL permanente del sistema (QR y enlace de distribución).
+ *
+ * El QR contiene SOLO el deployment operativo estable: ninguna credencial viaja
+ * en la URL. La credencial universal se inyecta en servidor al servir CUALQUIER
+ * vista, por lo que un QR impreso no depende de una propiedad concreta ni deja
+ * de funcionar si la credencial se recupera o rota.
  */
 function WebApp_urlCompartida_() {
-  var base = ECICEP_webAppUrl();
-  var clave = WebApp_claveUniversal_();
-  return clave ? base + '?acceso=' + encodeURIComponent(clave) : base;
+  return ECICEP_webAppUrl();
 }
 
-/**
- * URL de una vista operativa. Usa la misma credencial universal del sistema.
- * El separador se elige según exista o no cadena de consulta, para que la
- * vista funcione tanto con `?acceso=` como con la URL desnuda.
- */
+/** URL de una vista operativa. Sin credencial en la URL: acceso universal. */
 function WebApp_urlVista_(vista) {
-  var url = WebApp_urlCompartida_();
-  if (!url || !vista) return url;
-  return url + (url.indexOf('?') === -1 ? '?' : '&') + 'vista=' + encodeURIComponent(vista);
+  var base = WebApp_urlCompartida_();
+  if (!base) return '';
+  var v = Utl_texto(vista).trim();
+  return v ? base + '?vista=' + encodeURIComponent(v) : base;
 }
 
-/** Alias heredado de URL de vista: misma URL universal. */
+/** Alias heredado de URL de vista. */
 function WebApp_urlOperadorVista_(vista) { return WebApp_urlVista_(vista); }
 
-/** Alias heredado de URL de captura: misma URL universal. */
+/** Alias heredado de URL de captura. */
 function WebApp_urlCaptura_() { return WebApp_urlCompartida_(); }
 
 /** Identidad del código servido (sello BUILD.js regenerado en cada push).
@@ -179,7 +190,7 @@ function WebApp_buildActual_() {
 }
 
 /** Devuelve el email del usuario activo o '' si no hay sesión autenticada. */
-function WebApp_usuarioActivo() {
+function WebApp_usuarioActivo_() {
   try {
     if (typeof Session !== 'undefined' && Session.getActiveUser) {
       var u = Session.getActiveUser().getEmail();
@@ -194,22 +205,21 @@ function WebApp_usuarioActivo() {
 // ---------------------------------------------------------------------------
 
 function doGet(e) {
-  // Conserva la ruta de webhook (GET con token/action) existente en Webhook.js.
+  // GET del webhook queda limitado a acciones de solo lectura.
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
-    return _wh_despachar(e);
+    return _wh_despachar(e, 'GET');
   }
   var p = e && e.parameter || {};
-  // `acceso` se sigue leyendo para no romper los enlaces y QR en circulación,
-  // pero en ACCESO LIBRE no decide nada (DEC-097).
-  var acceso = String(p.acceso || '').trim();
   var vista = String(p.vista || 'captura').trim();
+  // ACCESO UNIVERSAL (DEC-101): no se exige credencial en la URL. El servidor
+  // inyecta la credencial vigente al servir CADA vista, de modo que la URL base
+  // —incluidos los QR ya impresos— abre el sistema completo sin parámetros.
+  // Un `?acceso=` heredado que llega en un enlace viejo se ignora sin efecto.
+  var acceso = WebApp_claveUniversal_();
   if (vista === 'captura') {
-    return WebApp_servirCaptura_();
-  }
-  // ACCESO LIBRE: WebApp_autorizar concede siempre. La rama queda solo para el
-  // modo cerrado (ACCESO_LIBRE desactivado a propósito por el propietario).
-  if (!WebApp_autorizar(acceso)) {
-    return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
+    // Captura es la pantalla simple de registro. Comparte la credencial
+    // universal y ofrece salida directa al portal de funciones.
+    return WebApp_servirCaptura_(acceso);
   }
   var archivos = {
     portal: 'PortalWeb', pacientes: 'Sidebar', ingresos: 'Sidebar',
@@ -221,11 +231,9 @@ function doGet(e) {
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
   if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de ECICEP.');
   var plantilla = HtmlService.createTemplateFromFile(archivo);
-  var universal = WebApp_claveUniversal_();
-  // Todas las vistas operativas reciben la credencial universal (ACCESO UNIVERSAL).
-  plantilla.CAPTURA_ACCESO = universal;
-  plantilla.TOKEN_ACCESO = universal;
-  plantilla.TOKEN_INVITACION = universal;
+  plantilla.CAPTURA_ACCESO = acceso;
+  plantilla.TOKEN_ACCESO = acceso;
+  plantilla.TOKEN_INVITACION = acceso;
   plantilla.MODO_OPERADOR = true;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
@@ -250,23 +258,19 @@ function doGet(e) {
   }
   return plantilla.evaluate()
     .setTitle('ECICEP — ' + vista)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura. CAPTURA_ACCESO = credencial universal; la
- *  página operativa recibe la MISMA credencial en TOKEN_ACCESO /
- *  TOKEN_INVITACION y siempre opera como MODO_OPERADOR: con el enlace del
- *  sistema se puede capturar y administrar (ACCESO UNIVERSAL, DEC-068). */
-function WebApp_servirCaptura_() {
+/** Sirve el canal de captura: pantalla simple de registro, con salida única
+ *  al portal de funciones (misma credencial universal, sin token en la URL). */
+function WebApp_servirCaptura_(accesoUniversal) {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  var universal = WebApp_claveUniversal_();
-  plantilla.CAPTURA_ACCESO = universal;
-  plantilla.TOKEN_ACCESO = universal;
-  plantilla.TOKEN_INVITACION = universal;
-  plantilla.MODO_OPERADOR = true;
+  plantilla.CAPTURA_ACCESO = accesoUniversal || '';
+  plantilla.TOKEN_ACCESO = accesoUniversal || '';
+  plantilla.TOKEN_INVITACION = accesoUniversal || '';
+  plantilla.MODO_OPERADOR = false;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
-  plantilla.FICHA_URL = '';
+  plantilla.FICHA_URL = WebApp_urlVista_('ficha');
   plantilla.REM_URL = '';
   plantilla.DASH_URL = '';
   plantilla.GENERAR_REM_URL = '';
@@ -277,7 +281,6 @@ function WebApp_servirCaptura_() {
   plantilla.ID_INICIAL = '';
   return plantilla.evaluate()
     .setTitle('ECICEP — Captura de datos')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -290,245 +293,9 @@ function WebApp_servirCaptura_() {
  * campos requeridos y mensajes de éxito) derivado de FORM_CONFIG. La UI pinta
  * y valida con LO MISMO que valida el backend — sin reglas duplicadas a mano.
  */
-function WebApp_esquemaFormulario() {
+function WebApp_esquemaFormulario(acceso) {
+  if (!WebApp_autorizarCaptura(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Form_esquemaFormulario();
-}
-
-/**
- * GAS: puente entre la interfaz WebApp y el pipeline existente.
- * Recibe `datos` serializables desde el HTML (claves = campos del contrato),
- * los deposita como una fila RECIBIDO en FORM_RESPUESTAS y dispara
- * Form_procesarPendientes() — EXACTAMENTE el camino que el trigger de Google
- * Forms usaba. Así se reutilizan validación, decisión, efectos e idempotencia
- * sin duplicar nada.
- *
- * @param {Object} datos  {ACCION,RUT,NOMBRE,SEXO,FECHA_NACIMIENTO,SECTOR,
- *                         ESTRATIFICACION,TELEFONOS,FECHA_EVENTO,PROFESIONAL,
- *                         PROFESIONAL2,OBSERVACIONES}
- * @returns {{ok:boolean, data?:Object, message:string, errors?:Array}}
- */
-function Form_capturarDesdeUI_legacy_(datos) {
-  var _tTotal = Date.now();
-  try {
-    if (!WebApp_usuarioActivo()) {
-      return { ok: false, message: 'Sesión de usuario no detectada; acceso denegado', errors: [{ campo: '_', mensaje: 'ACCESO_DENEGADO' }] };
-    }
-    console.log('[BACKEND] 01 entrada Form_capturarDesdeUI_legacy_');
-    if (typeof SpreadsheetApp === 'undefined') {
-      console.error('[BACKEND] 01b SpreadsheetApp no disponible');
-      return { ok: false, message: 'Entorno no disponible (GAS)', errors: [{ campo: '_', mensaje: 'SOLO_GAS' }] };
-    }
-    datos = datos || {};
-    var crudo = {
-      ACCION: datos.ACCION,
-      RUT: datos.RUT,
-      NOMBRE: datos.NOMBRE,
-      SEXO: datos.SEXO,
-      FECHA_NACIMIENTO: datos.FECHA_NACIMIENTO,
-      SECTOR: datos.SECTOR,
-      ESTRATIFICACION: datos.ESTRATIFICACION,
-      TELEFONOS: datos.TELEFONOS,
-      FECHA_EVENTO: datos.FECHA_EVENTO,
-      PROFESIONAL: datos.PROFESIONAL,
-      PROFESIONAL2: datos.PROFESIONAL2 || '',
-      OBSERVACIONES: datos.OBSERVACIONES
-    };
-    console.log('[BACKEND] 02 crudo construido accion=' + crudo.ACCION + ' rut=' + (crudo.RUT || '').substring(0, 6) + '***');
-
-    // Valida en servidor con la MISMA regla del pipeline (nunca confiar en HTML).
-    var val = Form_validarRespuesta(crudo, {});
-    console.log('[BACKEND] 03 validacion val.ok=' + val.ok);
-    if (!val.ok) {
-      console.log('[BACKEND] 03b validacion FALLA');
-      return {
-        ok: false,
-        message: 'El registro no pasó la validación.',
-        errors: Form_erroresTexto(val.errores)
-      };
-    }
-
-    // idempotencia: si un envío IDÉNTICO (ACCION+RUT) llegó en los últimos 90s
-    // y NO terminó en error, se reaprovecha (evita duplicado por doble clic o
-    // reintento tras timeout→botón re-habilitado). Nunca crea una segunda fila.
-    var existente = UI_buscarEnvioReciente(crudo.ACCION, crudo.RUT);
-    if (existente && existente.responseId) {
-      console.log('[BACKEND] 03c envío reciente detectado '+existente.responseId+' estado='+existente.estado);
-      // Si el envío previo quedó pendiente (un timeout interrumpió el
-      // procesamiento del lado del servidor), se re-ejecuta el pipeline para
-      // RETOMARLO y se responde con el estado real, nunca con un falso éxito.
-      if (existente.estado === 'RECIBIDO' || existente.estado === 'VALIDANDO') {
-        try { Form_procesarPendientes({ max: 200 }); } catch (eProc) { console.log('[BACKEND] 03c retomar pendientes: ' + String(eProc)); }
-      }
-      var estadoExistente = UI_lecturaEstadoRespuesta(existente.responseId);
-      var pendiente = (estadoExistente.estado === 'RECIBIDO' || estadoExistente.estado === 'VALIDANDO');
-      return {
-        ok: !(estadoExistente.estado === 'ERROR') && !pendiente,
-        message: estadoExistente.estado === 'ERROR'
-          ? 'El envío anterior falló: ' + (estadoExistente.motivo || estadoExistente.estado)
-          : (pendiente
-              ? 'Registro ya recibido (procesamiento pendiente; se retomará automáticamente)'
-              : 'Registro ya recibido (se evita duplicado)'),
-        data: { responseId: existente.responseId, accion: crudo.ACCION, estado: estadoExistente.estado, motivo: estadoExistente.motivo, idInterno: estadoExistente.idInterno },
-        errors: []
-      };
-    }
-
-    // idempotencia: id único por envío (el pipeline lo usa como marca FORM|id|ACCION)
-    var responseId = 'UI-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
-    console.log('[BACKEND] 04 responseId=' + responseId);
-
-    // Construye la fila plana IGUAL que Form_capturarRespuestas (contrato FORM_RESPUESTAS).
-    var fila = Form_campos().map(function (c) {
-      return crudo[c.campo] !== undefined ? Utl_texto(crudo[c.campo]) : '';
-    });
-    var filaPlana = [
-      Form_aIsoConHora(new Date()),
-      responseId,
-      FORM_CONFIG.FORM_VERSION,
-      (typeof Session !== 'undefined' && Session.getActiveUser()) ? Session.getActiveUser().getEmail() : ''
-    ].concat(fila).concat([
-      JSON.stringify(crudo), '', '', 0, 'RECIBIDO', '', '', '', '', crudo.FECHA_INGRESO || ''
-    ]);
-
-    var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-    if (!hoja) { Form_instalar(); hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS); }
-    var cols = Form_columnas();
-    hoja.getRange(hoja.getLastRow() + 1, 1, 1, cols.length).setValues([filaPlana]);
-    console.log('[BACKEND] 05 fila escrita en FORM_RESPUESTAS');
-
-    // Procesa con el pipeline EXISTENTE (misma ruta que onFormSubmit).
-    // 'fuerzaNuevoPaciente' (elegido por el usuario: "son personas diferentes")
-    // propaga confirmarNuevos al pipeline → POSIBLE_DUPLICADO se crea como nuevo.
-    var opcionesProc = { max: 200 };
-    if (datos.__fuerzaNuevoPaciente === true) opcionesProc.confirmarNuevos = true;
-    console.log('[BACKEND] 06 inicio Form_procesarPendientes confirmarNuevos=' + (opcionesProc.confirmarNuevos === true));
-    var t0 = new Date().getTime();
-    var proc = Form_procesarPendientes(opcionesProc);
-    var t1 = new Date().getTime();
-    console.log('[BACKEND] 07 fin Form_procesarPendientes duracion=' + (t1 - t0) + 'ms proc=' + JSON.stringify(proc).substring(0, 200));
-
-    // Lee el resultado de este envío para responder al navegador.
-    var estado = UI_lecturaEstadoRespuesta(responseId);
-    console.log('[BACKEND] 08 estado=' + JSON.stringify(estado));
-
-    var esError = estado.estado === 'ERROR';
-    var esRevision = estado.estado === 'REQUIERE_REVISION';
-    var procFallido = !!(proc && proc.ok === false);
-    // Respuesta VERAZ según lo que realmente ocurrió: si el procesamiento
-    // falló (lock ocupado, excepción) o la fila quedó sin estado final, nunca
-    // reportar "registrado correctamente" por defecto.
-    var ok = !esError && !procFallido;
-    var message = esError
-      ? ('No se pudo completar: ' + (estado.motivo || estado.estado))
-      : esRevision
-        ? 'Registro recibido — requiere revisión'
-        : procFallido
-          ? ('No se pudo registrar: ' + (proc.motivo || 'El procesamiento no finalizó'))
-          : (estado.estado === 'RECIBIDO' || estado.estado === 'VALIDANDO')
-            ? 'Registro recibido. El procesamiento quedó pendiente; se retomará automáticamente.'
-            : 'Registro realizado correctamente';
-    var resultado = {
-      ok: ok,
-      message: message,
-      data: {
-        responseId: responseId,
-        accion: val.accion,
-        estado: estado.estado,
-        motivo: estado.motivo,
-        idInterno: estado.idInterno
-      },
-      errors: esError ? [{ campo: '_', mensaje: estado.motivo || estado.estado }] : []
-    };
-    // Si el envío terminó en ERROR, adjuntar un diagnóstico en vivo de la hoja
-    // (estado real de la fila y de la marca), para depurar sin volver a ciegas.
-    // 2024-09-04: el diagnóstico corre INLINE dentro del mismo request (presupuesto 60s)
-    // → se mide su tiempo y se hizo barato (lectura única por hoja, sin normalizar todo).
-    if (esError) {
-      var _tDiag = Date.now();
-      try {
-        if (typeof Form_diagnosticoEnvio === 'function') {
-          resultado.data.diagnostico = Form_diagnosticoEnvio(responseId);
-          console.log('[DIAG] t=' + (Date.now() - _tDiag) + 'ms ' + JSON.stringify(resultado.data.diagnostico).substring(0, 1500));
-        }
-      } catch (eDiag) {
-        console.log('[DIAG] error capturando diagnóstico: ' + String(eDiag));
-      }
-    }
-    console.log('[BACKEND] 09 RETORNANDO ok=' + ok + ' estado=' + estado.estado + ' tTotal=' + (Date.now() - _tTotal) + 'ms');
-    return resultado;
-  } catch (err) {
-    console.error('[BACKEND] 09C EXCEPTION:', err && err.message ? err.message : String(err), 'tTotal=' + (Date.now() - _tTotal) + 'ms');
-    Log_error('WebApp', 'capturarDesdeUI', err && err.message ? err.message : String(err));
-    Log_flush();
-    return {
-      ok: false,
-      message: 'Error interno al registrar.',
-      errors: [{ campo: '_', mensaje: err && err.message ? err.message : String(err) }]
-    };
-  }
-}
-
-/**
- * GAS: busca un envío previo con la MISMA ACCION+RUT dentro de una ventana de
- * 90 segundos que NO haya terminado en ERROR. Devuelve {responseId, estado} o
- * null. Lee solo las filas recientes del final (máx 25).
- */
-function UI_buscarEnvioReciente(accion, rut) {
-  try {
-    var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-    if (!hoja) return null;
-    var ultima = hoja.getLastRow();
-    var hr = Modelo_headerRow(HOJAS.FORM_RESPUESTAS);
-    if (!ultima || ultima < hr) return null;
-    var desde = Math.max(hr + 1, ultima - 24);
-    var valores = hoja.getRange(desde, 1, ultima - desde + 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues();
-    var mapa = Form_mapeoEncabezados(hoja.getRange(hr, 1, 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0]);
-    var idx = mapa.idx;
-    var ahora = Date.now();
-    for (var i = valores.length - 1; i >= 0; i--) {
-      var filaA = valores[i];
-      var ts = idx['FECHAFORMS'] !== undefined ? new Date(filaA[idx['FECHAFORMS']]).getTime() : 0;
-      if (!ts || (ahora - ts) > 90000) continue;
-      var a = Utl_colapsarEspacios(Utl_texto(idx['ACCION'] !== undefined ? filaA[idx['ACCION']] : '')).toUpperCase();
-      var r = Utl_texto(idx['RUT'] !== undefined ? filaA[idx['RUT']] : '').toUpperCase().replace(/[\s.]/g, '');
-      var r2 = Utl_texto(rut).toUpperCase().replace(/[\s.]/g, '');
-      if (a === accion && r === r2) {
-        var est = Utl_texto(idx['ESTADO'] !== undefined ? filaA[idx['ESTADO']] : '').toUpperCase();
-        if (est === 'ERROR') continue;
-        return { responseId: Utl_texto(idx['RESPONSEID'] !== undefined ? filaA[idx['RESPONSEID']] : ''), estado: est || 'RECIBIDO' };
-      }
-    }
-  } catch (e) { console.log('[BACKEND] busqueda reciente: ' + String(e)); }
-  return null;
-}
-
-/** GAS: lee el estado/motivo/idInterno de una respuesta recién procesada. */
-function UI_lecturaEstadoRespuesta(responseId) {
-  try {
-    var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-    if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-      return { estado: 'RECIBIDO', motivo: '', idInterno: '' };
-    }
-    var ultima = hoja.getLastRow();
-    var hr = Modelo_headerRow(HOJAS.FORM_RESPUESTAS);
-    // La respuesta recién se escribió al final: leer solo la cola (evita leer
-    // todo el histórico de FORM_RESPUESTAS en cada envío).
-    var desde = Math.max(hr + 1, ultima - 39);
-    var ancho = Math.max(hoja.getLastColumn() || 0, 1);
-    var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
-    var mapa = Form_mapeoEncabezados(enc);
-    var valores = hoja.getRange(desde, 1, ultima - desde + 1, ancho).getValues();
-    for (var f = valores.length - 1; f >= 0; f--) {
-      if (Utl_texto(valores[f][mapa.idx['RESPONSEID']]) === String(responseId)) {
-        return {
-          estado: mapa.idx['ESTADO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ESTADO']]) : '',
-          motivo: mapa.idx['MOTIVO'] !== undefined ? Utl_texto(valores[f][mapa.idx['MOTIVO']]) : '',
-          idInterno: mapa.idx['ID_INTERNO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ID_INTERNO']]) : ''
-        };
-      }
-    }
-  } catch (e) { /* devuelve estado default */ }
-  return { estado: 'RECIBIDO', motivo: '', idInterno: '' };
 }
 
 /**

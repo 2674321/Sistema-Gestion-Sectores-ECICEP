@@ -5,7 +5,7 @@
  *
  * Núcleo PURO (Ingresos_procesarFilas): opera sobre un store en memoria
  * {pacientes:[], eventos:[]} con idGen inyectable → determinista y testeable
- * en node. El store es APPEND-ONLY: nunca modifica registros previos.
+ * en node. EVENTOS es append-only; PACIENTES conserva el estado vigente.
  *
  * Wrapper GAS (Ingresos_procesarTodasLasHojas_): adapta Sheets↔store,
  * escribe por lotes y registra la ejecución con el Log existente.
@@ -20,6 +20,18 @@
 function Ingresos_hojaASector(nombreHoja) {
   var k = Utl_texto(nombreHoja).toUpperCase().replace(/\s+/g, '_');
   return HOJAS_INGRESO[k] || '';
+}
+
+/**
+ * PURA: ¿el ESTADO_INGRESO almacenado es un estadio final?
+ * Única definición (ESTADOS_INGRESO.TERMINALES, 00_Config) compartida por el
+ * listado, el detalle y el lote: una fila terminal se MUESTRA con su estado
+ * real (nunca reetiquetada como PENDIENTE) y NUNCA entra sola al pipeline.
+ * ERROR no es terminal: una fila corregida sí se re-valida.
+ */
+function Ingresos_esEstadoTerminal_(estado) {
+  var e = Utl_texto(estado).toUpperCase().trim();
+  return e !== '' && ESTADOS_INGRESO.TERMINALES.indexOf(e) !== -1;
 }
 
 /** Contrato único de columnas físicas de las hojas INGRESO_* (DEC-029). */
@@ -182,6 +194,29 @@ function Ingresos_decidirEscritura(fila) {
 }
 
 /**
+ * Detecta una fila probablemente desplazada sin corregir datos clínicos por
+ * inferencia. El patrón observado es sexo en NOMBRE, fecha en RUT y teléfono
+ * en SEXO. Se bloquea y se pide corregir las columnas en la hoja de ingreso.
+ */
+function Ingresos_detectarCorrimientoFila_(valores) {
+  valores = valores || {};
+  var nombre = Utl_colapsarEspacios(Utl_texto(valores.NOMBRE)).toUpperCase();
+  var rut = valores.RUT;
+  var sexoDigitos = Utl_texto(valores.SEXO).replace(/\D/g, '');
+  var nombreEsSexo = /^(?:F|M|FEMENINO|MASCULINO|OTRO)$/.test(nombre);
+  var rutPareceFecha = Object.prototype.toString.call(rut) === '[object Date]';
+  if (!rutPareceFecha) {
+    var textoRut = Utl_texto(rut).trim();
+    rutPareceFecha = /^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}$/.test(textoRut) ||
+      /^\d{1,2}[-\/]\d{1,2}[-\/]\d{4}$/.test(textoRut);
+  }
+  if (nombreEsSexo && (rutPareceFecha || sexoDigitos.length >= 8)) {
+    return { campo: 'FILA', mensaje: 'Posible corrimiento de columnas: revisa NOMBRE, RUT, SEXO y fechas' };
+  }
+  return null;
+}
+
+/**
  * Procesa un lote de filas de staging YA NORMALIZADAS contra el store.
  * - store: {pacientes:[], eventos:[]} — se muta SOLO añadiendo (append-only).
  * - opciones: {nuevoId():string, confirmarNuevos:boolean, evSecuenciaInicial:number}
@@ -200,17 +235,39 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   var _useSeqEv = ('evSecuenciaInicial' in opciones);
   var seqPac = 0, seqEv = _useSeqEv ? (opciones.evSecuenciaInicial || 1) - 1 : 0;
   var indices = Iden_construirIndices((store && store.pacientes) || []);
+  var pacientesPorId = {}, ingresosPorFuente = {}, ingresosPorPacienteFecha = {};
+  // Posición (append-only) de cada EVENTO y del último CAMBIO_SECTOR por
+  // paciente: permite responder "¿hubo una decisión territorial posterior?"
+  // en O(1) sin recorrer el historial en cada retry.
+  var posPorEvento = {}, posUltimoCambioSector = {};
+  (store.pacientes || []).forEach(function (p, idx) {
+    var id = Utl_texto(p.ID_INTERNO); if (id) pacientesPorId[id] = { paciente: p, idx: idx };
+  });
+  (store.eventos || []).forEach(function (e, i) {
+    var evId = Utl_texto(e.ID_EVENTO);
+    if (evId) posPorEvento[evId] = i;
+    var tipo = Utl_texto(e.TIPO_EVENTO).toUpperCase();
+    var idInt = Utl_texto(e.ID_INTERNO);
+    if (tipo === 'CAMBIO_SECTOR' && idInt) posUltimoCambioSector[idInt] = i;
+    if (tipo !== 'INGRESO') return;
+    var fuente = Utl_texto(e.FUENTE);
+    var fecha = Control_aIso(e.FECHA_EVENTO) || Utl_texto(e.FECHA_EVENTO);
+    if (fuente && !ingresosPorFuente[fuente]) ingresosPorFuente[fuente] = e;
+    if (idInt && fecha && !ingresosPorPacienteFecha[idInt + '|' + fecha])
+      ingresosPorPacienteFecha[idInt + '|' + fecha] = e;
+  });
 
-  var resultados = [], pacientesNuevos = [], eventos = [];
+  var resultados = [], pacientesNuevos = [], pacientesActualizados = [], eventos = [];
   var resumen = {
     leidos: filasStaging.length,
     validacionOk: 0, validacionWarning: 0, validacionError: 0,
     validos: 0, conError: 0, bloqueados: 0,
-    nuevos: 0, existentes: 0, revision: 0, duplicados: 0, eventosCreados: 0
+    nuevos: 0, existentes: 0, revision: 0, duplicados: 0, eventosCreados: 0,
+    yaIncorporados: 0, cambiosSector: 0, eventosCambioSector: 0
   };
 
-  function registrar(fila, estado, nota, idInterno, idEvento) {
-    resultados.push({
+  function registrar(fila, estado, nota, idInterno, idEvento, extra) {
+    resultados.push(Object.assign({
       idProvisional: fila.ID_PROVISIONAL,
       hoja: fila.HOJA_ORIGEN,
       filaOrigen: fila.FILA_ORIGEN,
@@ -218,7 +275,58 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       nota: Utl_texto(nota),
       idInterno: idInterno || '',
       idEvento: idEvento || ''
+    }, extra || {}));
+  }
+
+  /**
+   * RETRY RECONCILIADOR: si el EVENTO de INGRESO de ESTA fila ya existe pero
+   * PACIENTES.SECTOR no quedó en el sector de la fila (datos históricos, write-back
+   * parcial o sector editado a mano), repara la alineación aplicando la transición
+   * de sector SIN crear un segundo evento de INGRESO (el idempotente es el de INGRESO).
+   *
+   * Condiciones conservadoras (cualquier duda ⇒ no tocar):
+   *  - el evento de referencia debe corroborar el destino (SU SECTOR es el de la fila);
+   *  - no debe existir un CAMBIO_SECTOR del paciente POSTERIOR al evento de referencia
+   *    (decisión territorial posterior = respetarla; ver T19);
+   *  - el destino debe ser un sector operativo canónico.
+   *
+   * @param {Object} fila      fila de staging ya normalizada
+   * @param {Object} eventoRef EVENTO INGRESO existente que justifica "ya incorporado"
+   * @param {string} idInterno ID_INTERNO del paciente
+   * @returns {Object|null} plan de cambio aplicado al store, o null si no reparó
+   */
+  function repararSectorRetry_(fila, eventoRef, idInterno) {
+    var info = pacientesPorId[idInterno];
+    if (!info || !eventoRef) return null;
+    var destino = Utl_texto((fila.NORMALIZADO || {}).SECTOR).toUpperCase().trim();
+    var actual = Utl_texto(info.paciente.SECTOR).toUpperCase().trim();
+    if (!destino || destino === actual) return null;
+    if (['NARANJO', 'AMARILLO', 'VERDE'].indexOf(destino) < 0) return null;
+    var evSector = Utl_texto(eventoRef.SECTOR).toUpperCase().trim();
+    if (evSector && evSector !== destino) return null;   // evidencias en conflicto
+    var posRef = posPorEvento[Utl_texto(eventoRef.ID_EVENTO)];
+    if (posRef === undefined) return null;               // sin posición fiable ⇒ no tocar
+    var posCambio = posUltimoCambioSector[idInterno];
+    if (posCambio !== undefined && posCambio > posRef) return null; // decisión posterior
+    var plan = Paciente_prepararCambioSector_(info.paciente, destino, {
+      fuente: Fuentes_fuenteOrigen(fila) + '|CAMBIO_SECTOR',
+      fechaEvento: Control_aIso((fila.NORMALIZADO || {}).FECHA_INGRESO) ||
+        Utl_texto((fila.NORMALIZADO || {}).FECHA_INGRESO),
+      registradoPor: opciones.registradoPor !== undefined ? opciones.registradoPor : ''
     });
+    if (!plan || !plan.ok || plan.sinCambios || !plan.evento) return null;
+    plan.idx = info.idx;
+    store.pacientes[info.idx] = plan.paciente;
+    pacientesPorId[idInterno] = { paciente: plan.paciente, idx: info.idx };
+    pacientesActualizados.push(plan);
+    store.eventos.push(plan.evento);
+    eventos.push(plan.evento);
+    posPorEvento[Utl_texto(plan.evento.ID_EVENTO)] = store.eventos.length - 1;
+    posUltimoCambioSector[idInterno] = store.eventos.length - 1;
+    resumen.cambiosSector += 1;
+    resumen.eventosCambioSector += 1;
+    resumen.eventosCreados += 1;
+    return plan;
   }
 
   filasStaging.forEach(function (fila) {
@@ -259,6 +367,68 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       return;
     }
 
+    var fuenteIngreso = Fuentes_fuenteOrigen(fila);
+    var esIngreso = Utl_texto((fila.NORMALIZADO || {}).TIPO_EVENTO || 'INGRESO').toUpperCase() === 'INGRESO';
+    var ingresoExistente = esIngreso ? (ingresosPorFuente[fuenteIngreso] || null) : null;
+    if (ingresoExistente) {
+      // El evento es DE ESTA FILA (misma fuente) ⇒ la evidencia es inequívoca.
+      // Reintentar no debe dejar jamás un INGRESADO huérfano de sector: si
+      // PACIENTES.SECTOR no coincide, se repara hacia la evidencia.
+      var planRep = repararSectorRetry_(fila, ingresoExistente,
+        Utl_texto(ingresoExistente.ID_INTERNO));
+      var pEv = pacientesPorId[Utl_texto(ingresoExistente.ID_INTERNO)];
+      resumen.validos += 1; resumen.yaIncorporados += 1;
+      registrar(fila, 'INGRESADO',
+        planRep ? 'Ingreso ya incorporado; sector reparado hacia la evidencia'
+                : 'Ingreso ya incorporado; estado reparado',
+        ingresoExistente.ID_INTERNO, ingresoExistente.ID_EVENTO, {
+          yaIncorporado: true, sectorCambio: !!planRep,
+          sectorAnterior: planRep ? planRep.anterior : '',
+          sectorDestino: fila.NORMALIZADO.SECTOR,
+          sectorVigente: pEv ? Utl_texto(pEv.paciente.SECTOR).toUpperCase() : ''
+        });
+      return;
+    }
+
+    var idExistente = decision === 'ENLAZAR_EXISTENTE'
+      ? Utl_texto(fila.RESULTADO_IDENTIFICACION.idPaciente) : '';
+    var fechaIngreso = Control_aIso(fila.NORMALIZADO.FECHA_INGRESO) || Utl_texto(fila.NORMALIZADO.FECHA_INGRESO);
+    var ingresoMismoDia = esIngreso && idExistente && fechaIngreso
+      ? ingresosPorPacienteFecha[idExistente + '|' + fechaIngreso] : null;
+    if (ingresoMismoDia) {
+      // Evento de OTRA fila del mismo paciente y día: solo se repara si esa
+      // evidencia confirma el MISMO sector que la fila actual; si los sectores
+      // difieren hay conflicto entre hojas y no se decide solo (queda sin cambio).
+      var planRepDia = repararSectorRetry_(fila, ingresoMismoDia, idExistente);
+      var pDia = pacientesPorId[idExistente];
+      resumen.validos += 1; resumen.yaIncorporados += 1;
+      registrar(fila, 'INGRESADO',
+        planRepDia ? 'Ingreso del mismo día ya incorporado; sector reparado hacia la evidencia'
+                   : 'Ingreso del mismo día ya incorporado; estado reparado',
+        idExistente, ingresoMismoDia.ID_EVENTO, {
+          yaIncorporado: true, sectorCambio: !!planRepDia,
+          sectorAnterior: planRepDia ? planRepDia.anterior : '',
+          sectorDestino: fila.NORMALIZADO.SECTOR,
+          sectorVigente: pDia ? Utl_texto(pDia.paciente.SECTOR).toUpperCase() : ''
+        });
+      return;
+    }
+
+    if (esIngreso && decision === 'ENLAZAR_EXISTENTE') {
+      var pInfoGuard = pacientesPorId[idExistente];
+      var sectorGuard = pInfoGuard ? Utl_texto(pInfoGuard.paciente.SECTOR).toUpperCase() : '';
+      if (sectorGuard === 'MULTIPLE' ||
+          (sectorGuard && ['NARANJO', 'AMARILLO', 'VERDE'].indexOf(sectorGuard) === -1)) {
+        resumen.revision += 1;
+        registrar(fila, 'REQUIERE_REVISION', 'Sector vigente ' + sectorGuard +
+          ': la transición territorial requiere revisión humana', idExistente, '', {
+            sectorAnterior: sectorGuard, sectorDestino: fila.NORMALIZADO.SECTOR,
+            sectorCambio: false
+          });
+        return;
+      }
+    }
+
     // 3) preparar el EVENTO (los warnings NO bloquean)
     if (decision === 'CREAR_PACIENTE') {
       // entidad nueva: jamás enlazar al candidato existente (DEC-025)
@@ -273,7 +443,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     }
 
     // 4) escritura en el store (append-only)
-    var idInterno = '';
+    var idInterno = '', sectorAnterior = '', sectorCambio = false, idEventoCambio = '';
     if (decision === 'CREAR_PACIENTE') {
       seqPac += 1;
       var paciente = Ingresos_pacienteDesdeNormalizado(
@@ -284,21 +454,62 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       ev.evento.ID_INTERNO = idInterno; // enlazar el evento a la entidad recién creada
       resumen.nuevos += 1;
       indices = Iden_indicesAgregar(indices, paciente); // índice al día O(1) por paciente
+      pacientesPorId[idInterno] = { paciente: paciente, idx: store.pacientes.length - 1 };
     } else {
       idInterno = fila.RESULTADO_IDENTIFICACION.idPaciente;
       resumen.existentes += 1;
+      var pInfo = pacientesPorId[idInterno];
+      var destino = Utl_texto(fila.NORMALIZADO.SECTOR).toUpperCase();
+      sectorAnterior = pInfo ? Utl_texto(pInfo.paciente.SECTOR).toUpperCase() : '';
+      if (esIngreso && pInfo && sectorAnterior !== destino) {
+        var planSector = Paciente_prepararCambioSector_(pInfo.paciente, destino, {
+          fuente: fuenteIngreso + '|CAMBIO_SECTOR', fechaEvento: fechaIngreso,
+          registradoPor: opciones.registradoPor || ''
+        });
+        if (!planSector.ok) {
+          resumen.revision += 1;
+          registrar(fila, 'REQUIERE_REVISION', planSector.motivo || 'Cambio de sector no aplicable', idInterno);
+          return;
+        }
+        planSector.idx = pInfo.idx;
+        pacientesActualizados.push(planSector);
+        store.pacientes[pInfo.idx] = planSector.paciente;
+        pacientesPorId[idInterno] = { paciente: planSector.paciente, idx: pInfo.idx };
+        store.eventos.push(planSector.evento); eventos.push(planSector.evento);
+        posPorEvento[Utl_texto(planSector.evento.ID_EVENTO)] = store.eventos.length - 1;
+        posUltimoCambioSector[idInterno] = store.eventos.length - 1;
+        sectorCambio = true; idEventoCambio = planSector.evento.ID_EVENTO;
+        resumen.cambiosSector += 1; resumen.eventosCambioSector += 1;
+        resumen.eventosCreados += 1;
+      }
     }
     store.eventos.push(ev.evento); // nunca reemplaza eventos previos
     eventos.push(ev.evento);
+    posPorEvento[Utl_texto(ev.evento.ID_EVENTO)] = store.eventos.length - 1;
+    if (esIngreso) {
+      ingresosPorFuente[fuenteIngreso] = ev.evento;
+      ingresosPorPacienteFecha[idInterno + '|' + fechaIngreso] = ev.evento;
+    }
     resumen.eventosCreados += 1;
     resumen.validos += 1;
     registrar(fila, 'INGRESADO',
-      decision === 'CREAR_PACIENTE' ? 'Nuevo paciente creado' : 'Registrado sobre paciente existente',
-      idInterno, ev.evento.ID_EVENTO);
+      decision === 'CREAR_PACIENTE' ? 'Nuevo paciente creado'
+        : (sectorCambio ? 'Paciente existente incorporado con cambio de sector' : 'Registrado sobre paciente existente'),
+      idInterno, ev.evento.ID_EVENTO, {
+        pacienteCreado: decision === 'CREAR_PACIENTE',
+        pacienteExistente: decision === 'ENLAZAR_EXISTENTE',
+        sectorAnterior: sectorAnterior,
+        sectorDestino: fila.NORMALIZADO.SECTOR,
+        sectorVigente: fila.NORMALIZADO.SECTOR,
+        sectorCambio: sectorCambio,
+        idEventoCambioSector: idEventoCambio,
+        yaIncorporado: false
+      });
   });
 
   console.log('[PIPE] procesarFilas t=' + (Date.now() - _tPF) + 'ms filas=' + filasStaging.length + ' pacientesIdx=' + (store.pacientes || []).length);
-  return { resultados: resultados, resumen: resumen, pacientesNuevos: pacientesNuevos, eventos: eventos };
+  return { resultados: resultados, resumen: resumen, pacientesNuevos: pacientesNuevos,
+    pacientesActualizados: pacientesActualizados, eventos: eventos };
 }
 
 // ---------------------------------------------------------------------------
@@ -360,15 +571,19 @@ function Ingresos_leerFilasAcotadas_(hoja, nombreHoja, filasPermitidas, loc) {
 
 /**
  * Lee una hoja INGRESO_* y produce filas de staging normalizadas.
- * Ignora filas vacías y las ya procesadas (ESTADO_INGRESO = INGRESADO).
+ * Ignora filas vacías y las ya incorporadas (ESTADO_INGRESO = INGRESADO).
+ * Toda fila leída lleva ESTADO_INGRESO_PREVIO y ESTADO_INGRESO_TERMINAL
+ * (`Ingresos_esEstadoTerminal_`): quien filtre para procesar usa ese flag.
  * Con `filasPermitidas` acotada y pequeña (y en la Web App siempre lo es)
  * NO escanea la hoja entera: lee solo encabezados + filas listadas.
  * @returns {staging:[], hoja:Object|null}
  */
 function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
   var _tHoja = Date.now();
+  var estadosIngreso = { totalIdentidad: 0, ingresados: 0, duplicados: 0,
+    requierenRevision: 0, errores: 0, otros: 0 };
   var hoja = Modelo_ss().getSheetByName(nombreHoja);
-  if (!hoja) return { staging: [], hoja: null };
+  if (!hoja) return { staging: [], hoja: null, estadosIngreso: estadosIngreso };
   var acotado = filasPermitidas && filasPermitidas.length && filasPermitidas.length <= 50;
   var ultima = hoja.getLastRow();
   var ancho = Math.max(hoja.getLastColumn(), 1);
@@ -393,7 +608,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
       filasFisicas: 0, filasIdentidad: 0, pendientes: 0, errores: 0, warnings: 0,
       duracionMs: Date.now() - _tHoja
     });
-    return { staging: [], hoja: hoja };
+    return { staging: [], hoja: hoja, estadosIngreso: estadosIngreso };
   }
   var mapa = loc.mapa;
   var idxCampos = mapa.campos;
@@ -423,9 +638,19 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     var tieneNombre = /[A-Za-zÀ-ÖØ-öø-ÿÑñ]/.test(nombreRaw);
     if (!tieneRut && !tieneNombre) continue;
     filasIdentidad++;
+    estadosIngreso.totalIdentidad++;
     if (Utl_vacio(nombreRaw) && Utl_vacio(rutRaw)) continue; // defensa redundante
     var estadoPrevio = idxEstado >= 0 ? Utl_texto(filaVal[idxEstado]).toUpperCase() : '';
-    if (estadoPrevio === 'INGRESADO') continue; // idempotencia del procesamiento
+    if (estadoPrevio === 'INGRESADO') estadosIngreso.ingresados++;
+    else if (estadoPrevio === 'DUPLICADO') estadosIngreso.duplicados++;
+    else if (estadoPrevio === 'REQUIERE_REVISION') estadosIngreso.requierenRevision++;
+    else if (estadoPrevio === 'ERROR') estadosIngreso.errores++;
+    else estadosIngreso.otros++;
+    // INGRESADO se omite por idempotencia (T10): la fila incorporada sale del
+    // listado pero permanece físicamente en la hoja. DUPLICADO y
+    // REQUIERE_REVISION SÍ se leen (el operador debe verlos con su estado real)
+    // y quedan marcados como terminales para que el lote los excluya.
+    if (estadoPrevio === 'INGRESADO') continue;
     var v = {};
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (idxCampos[c] !== undefined) v[c] = filaVal[idxCampos[c]];
@@ -438,9 +663,18 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     }
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
-    staging.push(Fuentes_normalizar(Fuentes_crearFila(
+    var filaStaging = Fuentes_normalizar(Fuentes_crearFila(
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
-        fila: filaFis, sector: sector }, v)));
+        fila: filaFis, sector: sector }, v));
+    var corrimiento = Ingresos_detectarCorrimientoFila_(v);
+    if (corrimiento) {
+      filaStaging.ERRORES = filaStaging.ERRORES || [];
+      filaStaging.ERRORES.push(corrimiento);
+      filaStaging.ESTADO_VALIDACION = 'ERROR';
+    }
+    filaStaging.ESTADO_INGRESO_PREVIO = estadoPrevio;
+    filaStaging.ESTADO_INGRESO_TERMINAL = Ingresos_esEstadoTerminal_(estadoPrevio);
+    staging.push(filaStaging);
   }
   if (typeof Log_perf === 'function') Log_perf('Ingresos', 'leerHoja', {
     sector: sector, modo: acotado ? 'ACOTADO' : 'LOTE',
@@ -451,7 +685,7 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     duracionMs: Date.now() - _tHoja
   });
   console.log('[PIPE] leerHoja ' + nombreHoja + ' t=' + (Date.now() - _tHoja) + 'ms valores=' + valores.length + ' staging=' + staging.length + ' hr=' + loc.hr);
-  return { staging: staging, hoja: hoja };
+  return { staging: staging, hoja: hoja, estadosIngreso: estadosIngreso };
 }
 
 /**
@@ -498,9 +732,17 @@ function Ingresos_escribirEstados_(resultados) {
         ' filas=' + JSON.stringify(resHoja.map(function (r) { return r.filaOrigen; })) +
         ' estados=' + JSON.stringify(resHoja.map(function (r) { return r.estado; })));
       resHoja.forEach(function (r) {
+        // Canon único de estados (ESTADOS_INGRESO.VALIDOS): un estado no
+        // reconocido jamás se escribe en la hoja (no borra un estado real).
+        var estadoNuevo = Utl_texto(r.estado).toUpperCase().trim();
+        if (ESTADOS_INGRESO.VALIDOS.indexOf(estadoNuevo) < 0) {
+          console.log('[PIPE] escribirEstados OMITIDO (estado fuera de catálogo) ' +
+            nombreHoja + ' fila=' + r.filaOrigen + ' estado=' + JSON.stringify(r.estado));
+          return;
+        }
         var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
         if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
-        bloque[filaHoja][offsetEstado] = r.estado;
+        bloque[filaHoja][offsetEstado] = estadoNuevo;
         // Preservar la marca de trazabilidad 'FORM|<responseId>|INGRESO' que el
         // anexo dejó en NOTA_SISTEMA: la resolución de la Web App y la
         // idempotencia del re-proceso dependen de que la marca siga presente
@@ -532,6 +774,101 @@ function Ingresos_escribirEstados_(resultados) {
     console.log('[PIPE] escribirEstados EXCEPCION: ' + (e && e.message ? e.message : String(e)) + (e && e.stack ? ' | ' + e.stack : ''));
     Log_error('Ingresos', 'escribirEstados', e && e.message ? e.message : String(e));
   }
+}
+
+/**
+ * Persiste en bloques contiguos las transiciones de sector ya decididas por el
+ * núcleo. `usarAnterior` se usa exclusivamente para rollback compensatorio.
+ */
+function Ingresos_persistirCambiosSector_(planes, usarAnterior) {
+  if (!planes || !planes.length) return { actualizados: 0 };
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  var porIdx = {};
+  planes.forEach(function (p) {
+    var k = String(p.idx);
+    if (!porIdx[k]) porIdx[k] = Object.assign({}, p);
+    else porIdx[k].paciente = p.paciente; // estado final; conserva anterior inicial
+  });
+  var ordenados = Object.keys(porIdx).map(function (k) { return porIdx[k]; })
+    .sort(function (a, b) { return a.idx - b.idx; });
+  var filas = ordenados.map(function (p) {
+    var paciente = Object.assign({}, usarAnterior ? p.pacienteAnterior : p.paciente);
+    if (!usarAnterior) paciente.FECHA_ACTUALIZACION = new Date();
+    return { idx: p.idx, valores: Modelo_filaDesdeObjeto(paciente) };
+  });
+  var inicio = 0;
+  while (inicio < filas.length) {
+    var fin = inicio + 1;
+    while (fin < filas.length && filas[fin].idx === filas[fin - 1].idx + 1) fin++;
+    hoja.getRange(Modelo_filaFisica(HOJAS.PACIENTES, filas[inicio].idx), 1,
+      fin - inicio, MODELO_PACIENTE.length)
+      .setValues(filas.slice(inicio, fin).map(function (f) { return f.valores; }));
+    inicio = fin;
+  }
+  Modelo_invalidarLecturas();
+  return { actualizados: filas.length };
+}
+
+/** Comprueba en una sola lectura por sector que cada paciente quedó en su vista. */
+function Ingresos_confirmarVistas_(resultados) {
+  var idsPorSector = {};
+  (resultados || []).forEach(function (r) {
+    if (r.estado !== 'INGRESADO' || !r.idInterno) return;
+    var sector = Utl_texto(r.sectorVigente || r.sectorDestino).toUpperCase();
+    if (HOJAS_SECTOR.indexOf('SECTOR_' + sector) < 0) return;
+    if (!idsPorSector[sector]) idsPorSector[sector] = {};
+    idsPorSector[sector][r.idInterno] = true;
+  });
+  var presentes = {};
+  Object.keys(idsPorSector).forEach(function (sector) {
+    presentes[sector] = {};
+    var hoja = Modelo_hoja('SECTOR_' + sector);
+    var ini = Modelo_dataStartRow('SECTOR_' + sector);
+    var n = hoja ? hoja.getLastRow() - ini + 1 : 0;
+    var col = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
+    if (n > 0 && col > 0) hoja.getRange(ini, col, n, 1).getValues().forEach(function (fila) {
+      var id = Utl_texto(fila[0]); if (id) presentes[sector][id] = true;
+    });
+  });
+  (resultados || []).forEach(function (r) {
+    if (r.estado !== 'INGRESADO' || !r.idInterno) return;
+    var sector = Utl_texto(r.sectorVigente || r.sectorDestino).toUpperCase();
+    if (!presentes[sector]) return;
+    r.vistaSectorConfirmada = !!presentes[sector][r.idInterno];
+    if (!r.vistaSectorConfirmada) {
+      r.advertencias = (r.advertencias || []).concat(['VISTA_SECTOR_PENDIENTE']);
+      r.estadoOperacion = 'INCORPORADO_VISTA_PENDIENTE';
+    } else r.estadoOperacion = 'INCORPORADO';
+  });
+}
+
+/**
+ * Retira de INGRESO_* las filas cuya incorporación completa ya fue confirmada.
+ * INGRESO_* es una bandeja transitoria, no una tercera base: la trazabilidad
+ * permanente vive en PACIENTES + EVENTOS.FUENTE. Se elimina de abajo hacia
+ * arriba para no desplazar antes de tiempo las filas aún pendientes.
+ */
+function Ingresos_eliminarOrigenConfirmado_(resultados) {
+  var porHoja = {};
+  (resultados || []).forEach(function (r) {
+    if (r.estado !== 'INGRESADO' || r.vistaSectorConfirmada !== true) return;
+    var nombre = Ingresos_claveHojaNombre_(r.hoja);
+    var fila = Number(r.filaOrigen);
+    if (!HOJAS_INGRESO[nombre] || !fila || fila <= Modelo_headerRow(nombre)) return;
+    if (!porHoja[nombre]) porHoja[nombre] = [];
+    if (porHoja[nombre].indexOf(fila) < 0) porHoja[nombre].push(fila);
+  });
+  var eliminadas = 0;
+  Object.keys(porHoja).forEach(function (nombre) {
+    var hoja = Modelo_hoja(nombre);
+    if (!hoja || typeof hoja.deleteRows !== 'function') return;
+    var filas = porHoja[nombre].sort(function (a, b) { return a - b; });
+    Utl_gruposContiguosFilas(filas).reverse().forEach(function (grupo) {
+      hoja.deleteRows(grupo[0], grupo.length);
+      eliminadas += grupo.length;
+    });
+  });
+  return { eliminadas: eliminadas };
 }
 
 /**
@@ -570,10 +907,16 @@ function Ingresos_respuesta_(salida, opciones) {
   var r = Object.assign({}, base || {});
   if (opciones && opciones.incluirResultados) {
     r.resultados = ((salida && salida.resultados) || []).map(function (x) {
-      return {
-        hoja: x.hoja, filaOrigen: x.filaOrigen, estado: x.estado, nota: x.nota,
-        idInterno: x.idInterno || '', idEvento: x.idEvento || ''
-      };
+      var publico = {};
+      ['hoja', 'filaOrigen', 'estado', 'nota', 'idInterno', 'idEvento',
+       'pacienteCreado', 'pacienteExistente', 'sectorAnterior', 'sectorDestino',
+       'sectorVigente', 'sectorCambio', 'idEventoCambioSector', 'yaIncorporado',
+       'vistaSectorConfirmada', 'advertencias', 'estadoOperacion'].forEach(function (k) {
+        if (x[k] !== undefined) publico[k] = x[k];
+      });
+      publico.idInterno = publico.idInterno || '';
+      publico.idEvento = publico.idEvento || '';
+      return publico;
     });
   }
   return r;
@@ -587,28 +930,53 @@ function Ingresos_claveHojaNombre_(nombreHoja) {
 }
 
 /** PURA: mapeo mínimo de una fila de staging pendiente para el listado. */
-function Ingresos_filaPendientePublica_(fila) {
+function Ingresos_filaPendientePublica_(fila, indices, pacientesPorId) {
   var n = fila.NORMALIZADO || {};
   var ev = Utl_texto(fila.ESTADO_VALIDACION);
   var errores = (fila.ERRORES || []).length;
   var warnings = (fila.WARNINGS || []).length;
-  var estado = ev === 'ERROR' || errores > 0 ? 'ERROR'
-    : (warnings > 0 ? 'WARNING' : 'PENDIENTE');
+  var previo = Utl_texto(fila.ESTADO_INGRESO_PREVIO).toUpperCase();
+  var terminal = Ingresos_esEstadoTerminal_(previo);
+  var estado = (ev === 'ERROR' || errores > 0 ? 'ERROR'
+    : (warnings > 0 ? 'WARNING' : 'PENDIENTE'));
+  var sectorVigente = '', accionTerritorial = '';
+  if (indices) {
+    var iden = Iden_identificar(n, indices);
+    var existente = iden && iden.idPaciente && pacientesPorId ? pacientesPorId[iden.idPaciente] : null;
+    sectorVigente = existente ? Utl_texto(existente.SECTOR).toUpperCase() : '';
+    if (!existente && iden.resultado === 'SIN_MATCH') accionTerritorial = 'CREAR_PACIENTE';
+    else if (!existente || iden.resultado === 'POSIBLE_DUPLICADO' || iden.resultado === 'REQUIERE_REVISION')
+      accionTerritorial = 'REQUIERE_REVISION';
+    else if (sectorVigente === 'MULTIPLE') accionTerritorial = 'REQUIERE_REVISION';
+    else if (sectorVigente === Utl_texto(n.SECTOR).toUpperCase()) accionTerritorial = 'MANTENER_SECTOR';
+    else accionTerritorial = 'CAMBIAR_SECTOR';
+    if (accionTerritorial === 'REQUIERE_REVISION') estado = 'REQUIERE_REVISION';
+  }
+  // El estado ALMACENADO manda sobre el recomputado: una fila terminal se
+  // muestra con su estadio real (nunca "Listo para incorporar") y no propone
+  // ninguna transición territorial. Sigue visible para trazabilidad humana.
+  if (terminal) {
+    estado = previo;
+    accionTerritorial = 'NO_INCORPORABLE';
+  }
   return {
     hoja: fila.HOJA_ORIGEN, fila: Number(fila.FILA_ORIGEN),
     sector: n.SECTOR || Ingresos_hojaASector(fila.HOJA_ORIGEN) || '',
     rut: n.RUT || '', nombre: n.NOMBRE || '',
     fechaIngreso: n.FECHA_INGRESO || '',
     estratificacion: n.ESTRATIFICACION || '',
-    estado: estado, errores: errores, warnings: warnings
+    estado: estado, errores: errores, warnings: warnings,
+    estadoPrevio: previo, terminal: terminal,
+    sectorVigente: sectorVigente, accionTerritorial: accionTerritorial
   };
 }
 
 /**
- * GAS: lista las filas pendientes (todo lo no procesado: ESTADO_INGRESO !=
- * INGRESADO) de las hojas INGRESO_*, reutilizando Ingresos_leerHoja() (que ya
- * descarta lo INGRESADO). Filtros: sector, término (RUT/nombre), estado
- * (ERROR/WARNING/PENDIENTE). Paginación inicio+limite y orden hoja/fila.
+ * GAS: lista las filas INGRESO_* aún en hoja (Ingresos_leerHoja omite lo ya
+ * INGRESADO). Una fila terminal (DUPLICADO / REQUIERE_REVISION) se lista con su
+ * estado real y queda fuera de `conteos.validos`: jamás aparece como "lista
+ * para incorporar". Filtros: sector, término (RUT/nombre), estado
+ * (ERROR/WARNING/PENDIENTE/…). Paginación inicio+limite y orden hoja/fila.
  */
 function Ingresos_listarPendientes(opciones) {
   opciones = opciones || {};
@@ -618,12 +986,19 @@ function Ingresos_listarPendientes(opciones) {
   var inicio = Math.max(Number(opciones.inicio) || 0, 0);
   var limite = Math.min(Math.max(Number(opciones.limite) || 100, 1), 500);
   var filas = [];
-  var conteos = { total: 0, validos: 0, advertencias: 0, errores: 0 };
+  var pacientes = Modelo_leerPacientes();
+  var indices = Iden_construirIndices(pacientes), pacientesPorId = {};
+  pacientes.forEach(function (p) { pacientesPorId[Utl_texto(p.ID_INTERNO)] = p; });
+  var conteos = { total: 0, validos: 0, advertencias: 0, errores: 0,
+    cambiosSector: 0, requierenRevision: 0, duplicados: 0, terminales: 0,
+    incorporados: 0, filasOrigen: 0 };
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     if (sector && Ingresos_hojaASector(nombreHoja) !== sector) return;
     var leida = Ingresos_leerHoja(nombreHoja);
+    conteos.incorporados += Number((leida.estadosIngreso || {}).ingresados || 0);
+    conteos.filasOrigen += Number((leida.estadosIngreso || {}).totalIdentidad || 0);
     (leida.staging || []).forEach(function (fila) {
-      var publica = Ingresos_filaPendientePublica_(fila);
+      var publica = Ingresos_filaPendientePublica_(fila, indices, pacientesPorId);
       if (sector && publica.sector.toUpperCase() !== sector) return;
       if (porEstado === 'ERROR' || porEstado === 'WARNING' || porEstado === 'PENDIENTE') {
         if (publica.estado !== porEstado) return;
@@ -631,9 +1006,14 @@ function Ingresos_listarPendientes(opciones) {
       if (termino && (publica.rut + ' ' + publica.nombre).toUpperCase().indexOf(termino) === -1) return;
       filas.push(publica);
       conteos.total += 1;
+      if (publica.terminal) conteos.terminales += 1;
       if (publica.estado === 'ERROR') conteos.errores += 1;
       else if (publica.estado === 'WARNING') conteos.advertencias += 1;
+      else if (publica.estado === 'REQUIERE_REVISION') conteos.requierenRevision += 1;
+      else if (publica.estado === 'DUPLICADO') conteos.duplicados += 1;
       else conteos.validos += 1;
+      if (publica.accionTerritorial === 'CAMBIAR_SECTOR' &&
+          publica.estado !== 'ERROR' && publica.estado !== 'REQUIERE_REVISION') conteos.cambiosSector += 1;
     });
   });
   filas.sort(function (a, b) {
@@ -656,6 +1036,7 @@ function Ingresos_preFicha_(fila) {
     profesionalSeguimiento: n.PROFESIONAL_SEGUIMIENTO || '',
     saludMental: n.SALUD_MENTAL || '', observaciones: n.OBSERVACIONES || '',
     estadoValidacion: fila.ESTADO_VALIDACION || '',
+    estadoIngreso: fila.ESTADO_INGRESO_PREVIO || '',
     warnings: (fila.WARNINGS || []).map(function (w) { return w.campo + ': ' + w.mensaje; }),
     errores: (fila.ERRORES || []).map(function (e) { return e.campo + ': ' + e.mensaje; })
   };
@@ -675,7 +1056,20 @@ function Ingresos_detallePendiente(nombreHoja, filaFisica) {
     return Utl_texto(f.FILA_ORIGEN) === String(nf);
   })[0] || null;
   if (!fila) return { ok: false, motivo: 'FILA_SIN_DATOS_O_YA_INGRESADA' };
-  return { ok: true, preFicha: Ingresos_preFicha_(fila), hoja: k, fila: Number(fila.FILA_ORIGEN) };
+  var preFicha = Ingresos_preFicha_(fila);
+  var pacientes = Modelo_leerPacientes();
+  var iden = Iden_identificar(fila.NORMALIZADO || {}, Iden_construirIndices(pacientes));
+  var existente = null;
+  if (iden && iden.idPaciente) existente = pacientes.filter(function (p) {
+    return Utl_texto(p.ID_INTERNO) === Utl_texto(iden.idPaciente);
+  })[0] || null;
+  preFicha.idPacienteExistente = existente ? existente.ID_INTERNO : '';
+  preFicha.sectorVigente = existente ? Utl_texto(existente.SECTOR).toUpperCase() : '';
+  preFicha.accionTerritorial = !existente ? 'CREAR_PACIENTE'
+    : (preFicha.sectorVigente === 'MULTIPLE' ? 'REQUIERE_REVISION'
+    : (preFicha.sectorVigente === Utl_texto(preFicha.sector).toUpperCase()
+      ? 'MANTENER_SECTOR' : 'CAMBIAR_SECTOR'));
+  return { ok: true, preFicha: preFicha, hoja: k, fila: Number(fila.FILA_ORIGEN) };
 }
 
 /**
@@ -689,6 +1083,9 @@ function Ingresos_buscarPendientesPorRut(rut) {
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     var leida = Ingresos_leerHoja(nombreHoja);
     (leida.staging || []).forEach(function (fila) {
+      // "pendiente" = aún no resuelto: un estado terminal no se anuncia como
+      // ingreso pendiente en la ficha del paciente.
+      if (fila.ESTADO_INGRESO_TERMINAL) return;
       var n = fila.NORMALIZADO || {};
       if (!n.RUT) return;
       var nrFila = Norm_normalizarRut(n.RUT);
@@ -708,6 +1105,24 @@ function Ingresos_buscarPendientesPorRut(rut) {
  * (nunca copia a SECTOR_*; la vista sectorial se actualiza por derivación).
  * Idempotente: si la fila ya está INGRESADO, el pipeline la ignora → leidos 0.
  */
+/**
+ * Lee el ESTADO_INGRESO crudo de una fila física de INGRESO_* (incluye
+ * INGRESADO, que el listado omite) para poder explicar por qué no se procesó.
+ */
+function Ingresos_leerEstadoFila_(nombreHoja, filaFisica) {
+  var k = Ingresos_claveHojaNombre_(nombreHoja);
+  if (!HOJAS_INGRESO[k]) return '';
+  var hoja = Modelo_ss().getSheetByName(k);
+  if (!hoja) return '';
+  var loc = Ingresos_layoutHoja_(hoja, k, true);
+  var idxEstado = loc && loc.mapa ? loc.mapa.estadoIdx : -1;
+  if (idxEstado < 0) return '';
+  var nf = Number(filaFisica);
+  if (!nf || nf <= loc.hr || nf > hoja.getLastRow()) return '';
+  var crudo = hoja.getRange(nf, idxEstado + 1, 1, 1).getValues();
+  return Utl_texto(crudo && crudo[0] ? crudo[0][0] : '').toUpperCase().trim();
+}
+
 function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
   opciones = opciones || {};
   var k = Ingresos_claveHojaNombre_(nombreHoja);
@@ -719,12 +1134,23 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
   var resumen = Ingresos_procesarTodasLasHojas_({
     soloHojas: [k], soloFilas: soloFilas,
     confirmarNuevos: opciones.confirmarNuevo === true,
+    normalizarLayout: false,
     incluirResultados: true
   });
   var primer = (resumen.resultados || []).filter(function (r) {
     return Utl_texto(r.filaOrigen) === String(nf);
   })[0] || null;
-  return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
+  if (primer) {
+    return { ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: primer };
+  }
+  // Sin resultado: la fila estaba fuera del lote. Se MOTIVA para que la UI no
+  // muestre un "Sin cambios" engañoso cuando el motivo es un estado terminal.
+  var estadoPrevio = Ingresos_leerEstadoFila_(k, nf);
+  return {
+    ok: true, hoja: k, fila: String(nf), resumen: resumen, resultado: null,
+    motivo: Ingresos_esEstadoTerminal_(estadoPrevio) ? 'FILA_TERMINAL' : 'SIN_PENDIENTE',
+    estadoPrevio: estadoPrevio
+  };
 }
 
 /** Evidencia canónica de que una fila INGRESO_* fue incorporada realmente. */
@@ -869,8 +1295,30 @@ function Triggers_asegurarIngresoOnEdit_() {
   return { ok: true, creado: true, eliminados: 0, total: 1 };
 }
 
-/** Diagnóstico de filas etiquetadas INGRESADO; solo lectura. */
-function Ingresos_diagnosticarIngresados_() {
+/** Diagnóstico batch de filas INGRESADO. No usa TextFinder dentro del loop. */
+function Ingresos_diagnosticarIngresados_(snapshot) {
+  snapshot = snapshot || {};
+  var pacientes = snapshot.pacientes || Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']);
+  var eventos = snapshot.eventos || Modelo_leerEventosCampos(['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FUENTE']);
+  var pacientesPorId = {}, eventosPorFuente = {}, vistasPorSector = snapshot.vistasPorSector || {};
+  pacientes.forEach(function (p) { var id = Utl_texto(p.ID_INTERNO); if (id) pacientesPorId[id] = p; });
+  eventos.forEach(function (e) {
+    var fuente = Utl_texto(e.FUENTE);
+    if (fuente && !eventosPorFuente[fuente]) eventosPorFuente[fuente] = e;
+  });
+  if (!snapshot.vistasPorSector) {
+    HOJAS_SECTOR.forEach(function (nombreVista) {
+      var sector = nombreVista.replace('SECTOR_', ''), ids = {};
+      var vista = Modelo_hoja(nombreVista);
+      if (vista) {
+        var iniVista = Modelo_dataStartRow(nombreVista), nVista = vista.getLastRow() - iniVista + 1;
+        var colIdVista = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
+        if (nVista > 0 && colIdVista > 0) vista.getRange(iniVista, colIdVista, nVista, 1).getValues()
+          .forEach(function (f) { var id = Utl_texto(f[0]); if (id) ids[id] = true; });
+      }
+      vistasPorSector[sector] = ids;
+    });
+  }
   var casos = [], conteos = { OK_REAL: 0, INGRESADO_FALSO: 0, DERIVADO_DESACTUALIZADO: 0, INCONSISTENTE: 0 };
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     var hoja = Modelo_hoja(nombre);
@@ -881,7 +1329,14 @@ function Ingresos_diagnosticarIngresados_() {
     var estados = hoja.getRange(loc.hr + 1, loc.mapa.estadoIdx + 1, n, 1).getValues();
     estados.forEach(function (fila, i) {
       if (Utl_texto(fila[0]).toUpperCase().trim() !== 'INGRESADO') return;
-      var nf = loc.hr + 1 + i, ev = Ingresos_evidenciaFila_(nombre, nf), clasificacion;
+      var nf = loc.hr + 1 + i, fuente = Fuentes_fuenteOrigen({ ARCHIVO_ORIGEN: 'HOJA_INGRESO',
+        HOJA_ORIGEN: nombre, FILA_ORIGEN: String(nf) });
+      var evento = eventosPorFuente[fuente], paciente = evento && pacientesPorId[Utl_texto(evento.ID_INTERNO)];
+      var ev = !evento ? { ok: false, motivo: 'SIN_EVENTO_INGRESO' }
+        : (Utl_texto(evento.TIPO_EVENTO).toUpperCase() !== 'INGRESO' ? { ok: false, motivo: 'EVENTO_NO_INGRESO' }
+        : (!paciente ? { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' }
+        : { ok: true, idInterno: Utl_texto(evento.ID_INTERNO), paciente: paciente }));
+      var clasificacion;
       var sectorIngreso = Ingresos_hojaASector(nombre), sectorPaciente = '';
       if (!ev.ok) clasificacion = ev.motivo === 'EVENTO_NO_INGRESO' || ev.motivo === 'PACIENTE_NO_ENCONTRADO'
         ? 'INCONSISTENTE' : 'INGRESADO_FALSO';
@@ -889,16 +1344,8 @@ function Ingresos_diagnosticarIngresados_() {
         clasificacion = 'OK_REAL';
         try {
           sectorPaciente = Utl_texto(ev.paciente.SECTOR).toUpperCase();
-          var vista = Modelo_hoja('SECTOR_' + sectorPaciente);
-          if (!vista) clasificacion = 'DERIVADO_DESACTUALIZADO';
-          else {
-            var colId = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
-            var ini = Modelo_dataStartRow(vista.getName());
-            var nv = vista.getLastRow() - ini + 1;
-            var celda = nv > 0 ? vista.getRange(ini, colId, nv, 1)
-              .createTextFinder(ev.idInterno).matchEntireCell(true).findNext() : null;
-            if (!celda) clasificacion = 'DERIVADO_DESACTUALIZADO';
-          }
+          if (!vistasPorSector[sectorPaciente] || !vistasPorSector[sectorPaciente][ev.idInterno])
+            clasificacion = 'DERIVADO_DESACTUALIZADO';
         } catch (eVista) { clasificacion = 'DERIVADO_DESACTUALIZADO'; }
       }
       conteos[clasificacion]++;
@@ -918,12 +1365,15 @@ function Ingresos_diagnosticarIngresados_() {
 /** Repara falsos por el pipeline y regenera únicamente sectores stale. */
 function Ingresos_reconciliarIngresados_(opciones) {
   opciones = opciones || {};
-  var diagnostico = Ingresos_diagnosticarIngresados_();
+  var diagnostico = opciones.diagnostico || Ingresos_diagnosticarIngresados_(opciones.snapshot);
   if (!opciones.reparar) return diagnostico;
   var reparar = function () {
-    var resultados = [], sectores = [];
+    var resultados = [], sectores = [], falsosVistos = 0;
+    var limiteFalsos = Math.max(1, Number(opciones.limiteFalsos || 12));
     diagnostico.casos.forEach(function (caso) {
       if (caso.clasificacion === 'INGRESADO_FALSO') {
+        if (falsosVistos >= limiteFalsos) return;
+        falsosVistos++;
         resultados.push(Ingresos_incorporarPorEstadoManual_(caso.hoja, caso.fila,
           { bajoLock: true, confirmarNuevo: opciones.confirmarNuevo === true }));
       } else if (caso.clasificacion === 'DERIVADO_DESACTUALIZADO') {
@@ -936,10 +1386,13 @@ function Ingresos_reconciliarIngresados_(opciones) {
         });
       }
     });
+    var totalFalsos = diagnostico.conteos && Number(diagnostico.conteos.INGRESADO_FALSO || 0) || 0;
+    var continuar = totalFalsos > falsosVistos;
     var vistas = null;
-    if (sectores.length) vistas = Modelo_refrescarVistasSectores_(sectores);
+    if (sectores.length && opciones.deferirVistas !== true) vistas = Modelo_refrescarVistasSectores_(sectores);
     return { ok: resultados.every(function (r) { return r && r.ok; }),
-      diagnostico: diagnostico, resultados: resultados, vistas: vistas };
+      diagnostico: diagnostico, resultados: resultados, vistas: vistas, sectoresAfectados: sectores,
+      procesados: falsosVistos, restantes: Math.max(0, totalFalsos - falsosVistos), continuar: continuar };
   };
   return opciones.bajoLock ? reparar() : Ecicep_conLock_(reparar);
 }
@@ -950,8 +1403,8 @@ function Ingresos_reconciliarIngresados_(opciones) {
  * un solo lock): nunca N RPC desde el cliente. Las exclusiones ya viven en el
  * pipeline existente y NO se duplican filtros aquí:
  *   - ERROR / BLOQUEADO      → gate de escritura (no entra a PACIENTES/EVENTOS);
- *   - INGRESADO              → Ingresos_leerHoja lo descarta de la lectura;
- *   - DUPLICADO (RUT+fecha)  → barrera 2b de procesarTodasLasHojas_;
+ *   - INGRESADO / DUPLICADO  → Ingresos_leerHoja los descarta de la lectura;
+ *   - ingreso ya demostrado  → índices de EVENTOS por FUENTE/paciente+fecha;
  *   - REQUIERE_REVISION / POSIBLE_DUPLICADO → gate REVISION (no se escribe).
  * `opciones.sector` acota a las hojas INGRESO_* de ese sector (canónico).
  * @param {Object} opciones {sector?: 'NARANJO'|'AMARILLO'|'VERDE'}
@@ -982,6 +1435,7 @@ function Ingresos_incorporarValidos_(opciones) {
   var salida = Ingresos_procesarTodasLasHojas_({
     soloHojas: soloHojas,
     confirmarNuevos: false,
+    normalizarLayout: false,
     incluirResultados: true
   });
   var resultados = salida.resultados || [];
@@ -998,7 +1452,11 @@ function Ingresos_incorporarValidos_(opciones) {
       revision: contar('REQUIERE_REVISION'),
       errores: contar('ERROR'),
       duplicados: contar('DUPLICADO'),
-      eventos: salida.eventosCreados || 0
+      eventos: salida.eventosCreados || 0,
+      cambiosSector: salida.cambiosSector || 0,
+      yaIncorporados: salida.yaIncorporados || 0,
+      vistaSectorPendiente: !!salida.vistaSectorPendiente,
+      filasOrigenEliminadas: salida.filasOrigenEliminadas || 0
     },
     resultados: resultados
   };
@@ -1024,14 +1482,15 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   //    todo el pipeline trabaja sobre un layout estable.
   var normaLayout = {};
   try {
-    if (typeof HVis_formatearIngresos === 'function') {
+    if (opciones.normalizarLayout !== false && typeof HVis_formatearIngresos === 'function') {
       normaLayout = HVis_formatearIngresos();
       console.log('[PIPE] layout normalizado pre-pipeline: ' + JSON.stringify(normaLayout).substring(0, 300));
     }
   } catch (eN) {
     Log_warning('Ingresos', 'normalizarLayoutPre', eN && eN.message ? eN.message : String(eN));
   }
-  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (formato visual, paso 0)');
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (formato visual, paso 0' +
+    (opciones.normalizarLayout === false ? ', omitido en operación acotada' : '') + ')');
 
   // 1) leer todas las puertas de entrada
   //    Con `soloHojas`/`soloFilas` (Web App), el pipeline se acota a las hojas
@@ -1054,6 +1513,19 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
     console.log('[PIPE] pipeline acotado soloHojas=' + JSON.stringify(soloHojas) + ' soloFilas=' + JSON.stringify(soloFilas));
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (lectura hojas ingreso, paso 1)');
+
+  // 1b) FILAS TERMINALES fuera del lote. DUPLICADO / REQUIERE_REVISION ya
+  //     fueron decididos: reprocesarlos a ciegas reabriría un caso cerrado (o
+  //     re-encolaría un conflicto ya resuelto). Ingresos_leerHoja los entrega
+  //     marcados con ESTADO_INGRESO_TERMINAL para que el listado pueda mostrarlos.
+  //     Escape hatch: la celda se limpia a mano (p. ej. PENDIENTE) y la fila
+  //     vuelve a ser procesable; el trigger INGRESADO usa la ruta manual.
+  var leidosAntesFiltro = staging.length;
+  staging = staging.filter(function (f) { return !f.ESTADO_INGRESO_TERMINAL; });
+  if (staging.length !== leidosAntesFiltro) {
+    console.log('[PIPE] filas terminales excluidas del lote: ' +
+      (leidosAntesFiltro - staging.length));
+  }
 
   // Sectores tocados por esta captura (para refrescar SOLO sus vistas).
   var sectoresAfectados = [];
@@ -1079,55 +1551,33 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   Fuentes_guardarFilas(staging);
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (auditoría staging, paso 2)');
 
-  // 2b) BARRERA idempotencia por (RUT, FECHA_INGRESO): si el paciente ya tiene
-  //     un ingreso registrado con la MISMA fecha, la fila pendiente es un
-  //     reenvío (reintento, doble clic, fila antes no marcada) → se marca
-  //     DUPLICADO y se excluye del pipeline (nunca vuelve a crear paciente ni
-  //     evento). Regla operativa: un ingreso por paciente por día.
-  var store = { pacientes: Modelo_leerPacientes(), eventos: [] };
-  var clavesPacienteIngreso = {};
-  store.pacientes.forEach(function (p) {
-    var k = Utl_texto(p.RUT).toUpperCase().trim() + '|' + Utl_texto(p.FECHA_INGRESO);
-    if (k.length > 1) clavesPacienteIngreso[k] = true;
-  });
-  var duplicadosDia = [];
-  var stagingFiltrado = staging.filter(function (fila) {
-    if (!fila.NORMALIZADO || !fila.NORMALIZADO.RUT || !fila.NORMALIZADO.FECHA_INGRESO) return true;
-    var k = Utl_texto(fila.NORMALIZADO.RUT).toUpperCase().trim() + '|' + Utl_texto(fila.NORMALIZADO.FECHA_INGRESO);
-    if (!clavesPacienteIngreso[k]) return true;
-    duplicadosDia.push({
-      idProvisional: fila.ID_PROVISIONAL, hoja: fila.HOJA_ORIGEN, filaOrigen: fila.FILA_ORIGEN,
-      estado: 'DUPLICADO', nota: 'Paciente ya registrado con ingreso de la misma fecha (RUT ' + Utl_texto(fila.NORMALIZADO.RUT) + ')',
-      idInterno: (store.pacientes.filter(function(p){ return Utl_texto(p.RUT).toUpperCase().trim()+ '|' + Utl_texto(p.FECHA_INGRESO) === k; })[0] || {}).ID_INTERNO || '',
-      idEvento: ''
-    });
-    console.log('[PIPE] DUPLICADO por RUT+fecha: '+fila.HOJA_ORIGEN+'/'+fila.FILA_ORIGEN+' ' + Aud_anonRut(Utl_texto(fila.NORMALIZADO.RUT)));
-    return false;
-  });
-  staging = stagingFiltrado;
-  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (barrera RUT+fecha, paso 2b) staging tras barrera=' + staging.length + ' duplicadosDia=' + duplicadosDia.length);
-  if (!staging.length) {
-    Ingresos_escribirEstados_(duplicadosDia);
-    var salidaDuplicada = { resultados: duplicadosDia, resumen: { leidos: duplicadosDia.length, validos: 0, conError: 0, nuevos: 0, existentes: 0, revision: 0, duplicados: duplicadosDia.length, eventosCreados: 0 }, pacientesNuevos: [], eventos: [] };
-    salidaDuplicada.resumen.ejecucion = ejecucion;
-    Log_info('Ingresos', 'procesar', JSON.stringify({ leidos: salidaDuplicada.resumen.leidos, duplicados: salidaDuplicada.resumen.duplicados }));
-    Log_flush();
-    return Ingresos_respuesta_(salidaDuplicada, opciones);
-  }
+  // 2b) La idempotencia se demuestra exclusivamente con EVENTOS de INGRESO:
+  //     misma FUENTE o mismo paciente+fecha. PACIENTES.FECHA_INGRESO es una
+  //     caché clínica y nunca constituye evidencia suficiente de duplicidad.
+  var store = { pacientes: Modelo_leerPacientes(), eventos: Modelo_leerEventos() };
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (snapshot canónico, paso 2b) pacientes=' +
+    store.pacientes.length + ' eventos=' + store.eventos.length);
 
   // 3) pipeline puro sobre el store real
   var salida = Ingresos_procesarFilas(staging, store, {
     nuevoId: Modelo_nuevoIdInterno,
-    confirmarNuevos: !!opciones.confirmarNuevos
+    confirmarNuevos: !!opciones.confirmarNuevos,
+    registradoPor: _ingresosUsuarioActual()
   });
   salida.resumen.ejecucion = ejecucion;
-  salida.resultados = salida.resultados.concat(duplicadosDia);
-  if (duplicadosDia.length) salida.resumen.duplicados = (salida.resumen.duplicados || 0) + duplicadosDia.length;
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (pipeline puro, paso 3)');
 
-  // 4) persistencia por lotes
+  // 4) persistencia por lotes. Una transición territorial se confirma solo si
+  //    sus eventos quedan anexados; ante fallo se restaura PACIENTES.
   Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
-  Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-eventos' });
+  Ingresos_persistirCambiosSector_(salida.pacientesActualizados, false);
+  try {
+    Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-eventos' });
+  } catch (ePersistencia) {
+    try { Ingresos_persistirCambiosSector_(salida.pacientesActualizados, true); }
+    catch (eRollback) { Log_error('Ingresos', 'rollbackSector', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
+    throw ePersistencia;
+  }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (persistencia pacientes/eventos, paso 4)');
 
   // 5) estados de vuelta en las hojas de ingreso
@@ -1138,9 +1588,15 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   var conflicto = null;
   try {
     var filasConflicto = [];
+    var resultadoPorOrigen = {};
+    salida.resultados.forEach(function (r) {
+      resultadoPorOrigen[Utl_texto(r.hoja) + '|' + Utl_texto(r.filaOrigen)] = r;
+    });
     staging.forEach(function (f) {
       var r = f.RESULTADO_IDENTIFICACION;
-      if (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION')) {
+      var salidaFila = resultadoPorOrigen[Utl_texto(f.HOJA_ORIGEN) + '|' + Utl_texto(f.FILA_ORIGEN)];
+      if ((salidaFila && salidaFila.estado === 'REQUIERE_REVISION') ||
+          (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION'))) {
         filasConflicto.push(Rev_filaConflicto(f));
       }
     });
@@ -1154,16 +1610,52 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
 
   // 6) reflejar el resultado en las vistas sectoriales (derivadas, no bases).
   //    Solo se reescriben las vistas de los sectores tocados por la captura.
+  salida.pacientesActualizados.forEach(function (p) {
+    [p.anterior, p.nuevo].forEach(function (sec) {
+      sec = Utl_texto(sec).toUpperCase();
+      if (sec && sectoresAfectados.indexOf(sec) < 0) sectoresAfectados.push(sec);
+    });
+  });
   var vistas = null;
+  var errorVistas = null;
   try {
     if (typeof Modelo_refrescarVistasSectores_ === 'function') vistas = Modelo_refrescarVistasSectores_(sectoresAfectados);
+    Ingresos_confirmarVistas_(salida.resultados);
   } catch (e) {
+    errorVistas = e;
     Log_warning('Ingresos', 'refrescarSectores', e && e.message ? e.message : String(e));
+    salida.resultados.forEach(function (r) {
+      if (r.estado !== 'INGRESADO') return;
+      r.vistaSectorConfirmada = false;
+      r.advertencias = (r.advertencias || []).concat(['VISTA_SECTOR_PENDIENTE']);
+      r.estadoOperacion = 'INCORPORADO_VISTA_PENDIENTE';
+    });
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (vistas sectoriales, paso 6) TOTAL_pipeline_ms');
 
+  // 7) INGRESO_* es una cola transitoria. Solo después de confirmar entidad,
+  // evento y vista sectorial se retira la fila de origen. Si falla la limpieza,
+  // el canon clínico permanece correcto y el retry idempotente puede repetirla.
+  var limpiezaOrigen = { eliminadas: 0 };
+  try {
+    limpiezaOrigen = Ingresos_eliminarOrigenConfirmado_(salida.resultados);
+  } catch (eLimpieza) {
+    Log_warning('Ingresos', 'limpiarOrigen', eLimpieza && eLimpieza.message
+      ? eLimpieza.message : String(eLimpieza));
+    salida.resultados.forEach(function (r) {
+      if (r.estado !== 'INGRESADO' || r.vistaSectorConfirmada !== true) return;
+      r.advertencias = (r.advertencias || []).concat(['ORIGEN_PENDIENTE_LIMPIEZA']);
+    });
+  }
+  salida.resumen.filasOrigenEliminadas = limpiezaOrigen.eliminadas || 0;
+  console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (limpieza origen, paso 7) eliminadas=' +
+    salida.resumen.filasOrigenEliminadas);
+
   salida.resumen.usuario = _ingresosUsuarioActual();
   salida.resumen.vistasSector = vistas;
+  salida.resumen.vistaSectorPendiente = !!errorVistas || salida.resultados.some(function (r) {
+    return r.estadoOperacion === 'INCORPORADO_VISTA_PENDIENTE';
+  });
   salida.resumen.aRevision = conflicto;
   Log_info('Ingresos', 'procesar', JSON.stringify({
     leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,
@@ -1367,6 +1859,9 @@ function Rev_prepararResolucion(datos, decision, opciones) {
     fila: datos.origen.fila || '',
     sector: datos.sectorOrigen || ''
   }, datos.valoresOriginales));
+  // la fila reconstruida queda disponible: quien resuelve necesita su SECTOR
+  // de destino (y su fuente) para cerrar el ciclo fila → PACIENTES → vistas.
+  res.filaStaging = fila;
 
   if (fila.ESTADO_VALIDACION === 'ERROR') {
     res.motivo = 'VALIDACION_ERROR: ' + (fila.ERRORES[0] ? fila.ERRORES[0].campo : '');

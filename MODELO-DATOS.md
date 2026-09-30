@@ -19,6 +19,11 @@
    **dimensiones independientes** (DEC-018).
 5. Google Sheets es la interfaz principal (DEC-012): operativas visibles,
    técnicas agrupadas/ocultas.
+6. `SECTOR` es el estado territorial vigente. Una incorporación nueva que cambia
+   sector no lo sobrescribe como merge: ejecuta `CAMBIO_SECTOR` y deja evento
+   trazable. `MULTIPLE` requiere revisión humana (DEC-100).
+7. `FECHA_INGRESO` es una caché clínica; no prueba por sí sola que exista un
+   ingreso. La evidencia canónica e idempotente reside en `EVENTOS` (DEC-100).
 
 ## Entidad PACIENTE — campos canónicos v2
 

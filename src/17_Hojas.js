@@ -663,7 +663,7 @@ function _backup_mantener() {
 }
 
 /** GAS: crea backup completo en carpeta dedicada. */
-function Backup_crear(etiqueta) {
+function Backup_crear_(etiqueta) {
   try {
     var ss = Modelo_ss();
     var tz = Session.getScriptTimeZone();
@@ -686,7 +686,7 @@ function Backup_crear(etiqueta) {
 }
 
 /** GAS: lista todos los backups (auto + manual) ordenados por fecha. */
-function Backup_listar() {
+function Backup_listar_() {
   var items = [];
   var folder = null;
   try { folder = _backup_folder(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
@@ -720,7 +720,7 @@ function Backup_listar() {
 }
 
 /** GAS: elimina los backups automáticos más viejos, conserva los últimos N. */
-function Backup_podar(mantener) {
+function Backup_podar_(mantener) {
   mantener = mantener || _backup_mantener();
   var folder = null;
   try { folder = _backup_folder(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
@@ -740,8 +740,8 @@ function Backup_podar(mantener) {
 
 /** GAS: punto de entrada del TRIGGER semanal (sin UI). */
 function Backup_programado() {
-  var r = Backup_crear('AUTO');
-  var poda = Backup_podar();
+  var r = Backup_crear_('AUTO');
+  var poda = Backup_podar_();
   _config_set('BACKUP_AUTO_ULTIMA', Utilities.formatDate(new Date(),
     Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
   Log_info('Backup', 'programado', r.nombre + ' · podados=' + (poda.borrados || 0));
@@ -786,8 +786,8 @@ function Backup_estadoOperativo_() {
 }
 
 /** GAS: instala trigger con parámetros configurables, idempotente. */
-function Backup_programar(dia, hora) {
-  Backup_quitarProgramacion();
+function Backup_programar_(dia, hora) {
+  Backup_quitarProgramacion_();
   var dias = { 'DOMINGO': ScriptApp.WeekDay.SUNDAY, 'LUNES': ScriptApp.WeekDay.MONDAY,
     'MARTES': ScriptApp.WeekDay.TUESDAY, 'MIERCOLES': ScriptApp.WeekDay.WEDNESDAY,
     'JUEVES': ScriptApp.WeekDay.THURSDAY, 'VIERNES': ScriptApp.WeekDay.FRIDAY,
@@ -804,7 +804,7 @@ function Backup_programar(dia, hora) {
 }
 
 /** GAS: quita el trigger semanal. */
-function Backup_quitarProgramacion() {
+function Backup_quitarProgramacion_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'Backup_programado') ScriptApp.deleteTrigger(t);
   });
@@ -815,7 +815,7 @@ function Backup_quitarProgramacion() {
  *  (antes eran dos lecturas completas de la misma hoja). */
 function api_backupListar(token) {
   if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-  var st = Backup_listar();
+  var st = Backup_listar_();
   var trigger = Backup_triggerInstalado();
   var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
   var ultima = cfg['BACKUP_AUTO_ULTIMA'] || '';
@@ -837,7 +837,7 @@ function api_backupListar(token) {
 /** Endpoint: crear backup manual. */
 function api_backupCrear(etiqueta, token) {
   if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-  return Backup_crear(etiqueta || 'MANUAL');
+  return Backup_crear_(etiqueta || 'MANUAL');
 }
 
 /** Endpoint: toggle automático (activar/desactivar). */
@@ -845,12 +845,12 @@ function api_backupToggle(token) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     if (Backup_triggerInstalado()) {
-      Backup_quitarProgramacion();
+      Backup_quitarProgramacion_();
       return { ok: true, mensaje: 'Backup automático desactivado' };
     } else {
       var dia = _rem9_configValor('BACKUP_DIA') || 'DOMINGO';
       var hora = _rem9_configValor('BACKUP_HORA') || '3';
-      Backup_programar(dia, hora);
+      Backup_programar_(dia, hora);
       return { ok: true, mensaje: 'Backup automático activado (' + dia + ' ' + hora + ':00)' };
     }
   } catch (e) {
@@ -862,7 +862,7 @@ function api_backupToggle(token) {
 function api_backupProgramar(dia, hora, token) {
   try {
     if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-    Backup_programar(dia, hora);
+    Backup_programar_(dia, hora);
     return { ok: true, mensaje: 'Backup programado: ' + dia + ' ' + hora + ':00' };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
@@ -883,7 +883,7 @@ function api_backupConfigLeer(token) {
 /** Endpoint: podar backups automáticos viejos. */
 function api_backupPodar(token) {
   if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-  return Backup_podar();
+  return Backup_podar_();
 }
 
 /** Endpoint: URL de la carpeta de backups. */

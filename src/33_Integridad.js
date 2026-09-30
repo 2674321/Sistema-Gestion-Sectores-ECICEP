@@ -22,7 +22,7 @@ function Sistema_guardarAuditoria_(d) {
     vistasPendientes: Number(d.vistasPendientes || 0), estratificacionPendiente: Number(d.estratificacionPendiente || 0),
     pacientesSinSector: Number(d.pacientesSinSector || 0),
     captureIdsDuplicados: Number(d.captureIdsDuplicados || 0), fuentesDuplicadas: Number(d.fuentesDuplicadas || 0),
-    sectoresAfectados: (d.vistas && d.vistas.sectoresAfectados || []).slice() };
+    sectoresAfectados: (d.sectoresAfectados || d.vistas && d.vistas.sectoresAfectados || []).slice() };
   _SISTEMA_AUDITORIA_MEMO = r;
   var props = Sistema_propiedades_();
   try { if (props) props.setProperty(SISTEMA_AUDITORIA_PROP, JSON.stringify(r)); } catch (e) {}
@@ -36,10 +36,28 @@ function Sistema_marcarAuditoriaStale_() {
   try { if (props) props.setProperty(SISTEMA_AUDITORIA_PROP, JSON.stringify(r)); } catch (e) {}
 }
 
-function Integridad_diagnosticarDerivados_() {
+function Integridad_snapshotDerivados_() {
   var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO',
     'CONDICIONES', 'ESTRATIFICACION']);
-  var eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE']);
+  var eventos = Modelo_leerEventosCampos(['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE']);
+  var vistasPorSector = {};
+  if (typeof SpreadsheetApp !== 'undefined') HOJAS_SECTOR.forEach(function (nombre) {
+    var sector = nombre.replace('SECTOR_', ''), ids = {}, hoja = Modelo_ss().getSheetByName(nombre);
+    if (hoja) {
+      var ini = Modelo_dataStartRow(nombre), n = hoja.getLastRow() - ini + 1;
+      var col = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
+      if (n > 0 && col > 0) hoja.getRange(ini, col, n, 1).getValues().forEach(function (f) {
+        var id = Utl_texto(f[0]); if (id) ids[id] = true;
+      });
+    }
+    vistasPorSector[sector] = ids;
+  });
+  return { pacientes: pacientes, eventos: eventos, vistasPorSector: vistasPorSector };
+}
+
+function Integridad_diagnosticarDerivados_(snapshot) {
+  snapshot = snapshot || Integridad_snapshotDerivados_();
+  var pacientes = snapshot.pacientes, eventos = snapshot.eventos;
   var porId = {}, fuentes = {};
   pacientes.forEach(function (p) { if (p.ID_INTERNO) porId[Utl_texto(p.ID_INTERNO)] = p; });
   var eventosHuerfanos = 0, fuentesDuplicadas = 0;
@@ -59,10 +77,10 @@ function Integridad_diagnosticarDerivados_() {
       cachesPendientes++;
   });
   var ingresos = { errores: 0, conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 0 } };
-  try { ingresos = Ingresos_diagnosticarIngresados_(); } catch (eI) { ingresos.error = true; }
+  try { ingresos = Ingresos_diagnosticarIngresados_(snapshot); } catch (eI) { ingresos.error = true; }
   var vistas = { pendientes: ingresos.conteos.DERIVADO_DESACTUALIZADO || 0, sectoresAfectados: [], omitida: true, sinSector: 0 };
   if (typeof SpreadsheetApp !== 'undefined') {
-    try { vistas = Integridad_diagnosticarVistas_(pacientes); }
+    try { vistas = Integridad_diagnosticarVistas_(pacientes, snapshot.vistasPorSector); }
     catch (eV) { vistas = { pendientes: 0, sectoresAfectados: [], error: true, sinSector: 0 }; }
   }
   // DERIVADOS de filas INGRESADO: solo bloquean los RENOVABLES (el sector tiene
@@ -89,7 +107,9 @@ function Integridad_diagnosticarDerivados_() {
   try { captura = Captura_diagnosticarCaptureIdsDuplicados_(); } catch (eC) { captura.error = true; }
   var vistasPendientes = Math.max(vistas.pendientes || 0, ingresosRenovables);
   var pacientesSinSector = Math.max(vistas.sinSector || 0, ingresosSinSector);
-  var derivadosOk = !ingresos.error && !vistas.error && !captura.error &&
+  // La auditoría de FORM_RESPUESTAS es evidencia histórica: una indisponibilidad
+  // o duplicado allí no convierte los derivados regenerables en incorrectos.
+  var derivadosOk = !ingresos.error && !vistas.error &&
       cachesPendientes === 0 &&
       (ingresos.conteos.INGRESADO_FALSO || 0) === 0 && (ingresos.conteos.INCONSISTENTE || 0) === 0 &&
       vistasPendientes === 0 && estratificacionPendiente === 0;
@@ -105,10 +125,12 @@ function Integridad_diagnosticarDerivados_() {
     captura: captura, vistas: vistas, ingresos: ingresos };
 }
 
-function Integridad_diagnosticarVistas_(pacientes) {
+function Integridad_diagnosticarVistas_(pacientes, vistasPorSector) {
   var ss = Modelo_ss(), porSector = {}, inconsistentes = {}, afectados = {}, sinSector = {};
   HOJAS_SECTOR.forEach(function (nombre) {
-    var sector = nombre.replace('SECTOR_', ''), ids = {}; porSector[sector] = ids;
+    var sector = nombre.replace('SECTOR_', ''), ids = vistasPorSector && vistasPorSector[sector];
+    if (ids) { porSector[sector] = ids; return; }
+    ids = {}; porSector[sector] = ids;
     var hoja = ss.getSheetByName(nombre); if (!hoja) { afectados[sector] = true; return; }
     var ini = Modelo_dataStartRow(nombre), n = hoja.getLastRow() - ini + 1;
     var col = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
@@ -137,16 +159,24 @@ function Integridad_diagnosticarVistas_(pacientes) {
 function Integridad_repararDerivados_(opciones) {
   opciones = opciones || {};
   var reparar = function () {
-    var antes = Integridad_diagnosticarDerivados_(), acciones = [], resultado = {};
+    var snapshot = Integridad_snapshotDerivados_();
+    var antes = Integridad_diagnosticarDerivados_(snapshot), acciones = [], resultado = {};
     if (antes.ingresosFalsos || antes.ingresosInconsistentes || antes.vistasPendientes) {
       resultado.ingresos = Ingresos_reconciliarIngresados_({ reparar: true,
-        confirmarNuevo: opciones.confirmarNuevo === true, bajoLock: true }); acciones.push('INGRESOS');
+        confirmarNuevo: opciones.confirmarNuevo === true, bajoLock: true,
+        diagnostico: antes.ingresos, snapshot: snapshot, deferirVistas: true }); acciones.push('INGRESOS');
     }
     if (antes.estratificacionPendiente && typeof Estrat_recalcularTodos_ === 'function') {
-      resultado.estratificacion = Estrat_recalcularTodos_(); acciones.push('ESTRATIFICACION');
+      resultado.estratificacion = Estrat_recalcularTodos_({ deferirVistas: true }); acciones.push('ESTRATIFICACION');
     }
     if (antes.cachesPendientes) { resultado.caches = Control_recalcularCaches_(); acciones.push('CACHES'); }
-    var sectores = antes.vistas && antes.vistas.sectoresAfectados || [];
+    var sectores = (antes.vistas && antes.vistas.sectoresAfectados || []).slice();
+    (resultado.ingresos && resultado.ingresos.sectoresAfectados || []).forEach(function (s) {
+      if (sectores.indexOf(s) < 0) sectores.push(s);
+    });
+    (resultado.estratificacion && resultado.estratificacion.sectoresAfectados || []).forEach(function (s) {
+      if (sectores.indexOf(s) < 0) sectores.push(s);
+    });
     if (sectores.length) {
       resultado.vistas = Modelo_refrescarVistasSectores_(sectores);
       acciones.push('VISTAS:' + sectores.join(','));
@@ -173,6 +203,268 @@ function Integridad_repararDerivados_(opciones) {
       caches: resultado.caches || null, controles: resultado.controles || null, vistas: resultado.vistas || null };
   };
   return opciones.bajoLock ? reparar() : Ecicep_conLock_(reparar);
+}
+
+/** Componentes acotados del diagnóstico. Cada uno persiste únicamente
+ * agregados técnicos; nunca pacientes, RUT, nombres ni eventos completos. */
+function Integridad_leerVistasIds_() {
+  var vistas = {};
+  HOJAS_SECTOR.forEach(function (nombre) {
+    var ids = {}, hoja = Modelo_hoja(nombre), sector = nombre.replace('SECTOR_', '');
+    if (hoja) {
+      var ini = Modelo_dataStartRow(nombre), n = hoja.getLastRow() - ini + 1;
+      var col = COLUMNAS_SECTOR_VISTA.indexOf('ID_INTERNO') + 1;
+      if (n > 0 && col > 0) hoja.getRange(ini, col, n, 1).getValues().forEach(function (fila) {
+        var id = Utl_texto(fila[0]); if (id) ids[id] = true;
+      });
+    }
+    vistas[sector] = ids;
+  });
+  return vistas;
+}
+
+function Integridad_diagnosticarBase_() {
+  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO']);
+  var eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE']);
+  var porId = {}, fuentes = {}, huerfanos = 0, duplicadas = 0;
+  pacientes.forEach(function (p) { if (p.ID_INTERNO) porId[Utl_texto(p.ID_INTERNO)] = true; });
+  eventos.forEach(function (e) {
+    var id = Utl_texto(e.ID_INTERNO), fuente = Utl_texto(e.FUENTE);
+    if (!id || !porId[id]) huerfanos++;
+    if (fuente.indexOf('FORM|') === 0 || fuente.indexOf('HOJA_INGRESO|') === 0)
+      fuentes[fuente] = (fuentes[fuente] || 0) + 1;
+  });
+  Object.keys(fuentes).forEach(function (f) { if (fuentes[f] > 1) duplicadas++; });
+  var maximos = Control_maximosEventoPorPaciente_(eventos), caches = 0;
+  pacientes.forEach(function (p) {
+    var m = maximos[Utl_texto(p.ID_INTERNO)] || { CONTROL: '', SEGUIMIENTO: '' };
+    if (Control_aIso(p.ULTIMO_CONTROL) !== m.CONTROL || Control_aIso(p.ULTIMO_SEGUIMIENTO) !== m.SEGUIMIENTO) caches++;
+  });
+  return { pacientes: pacientes.length, eventos: eventos.length, eventosHuerfanos: huerfanos,
+    fuentesDuplicadas: duplicadas, cachesPendientes: caches };
+}
+
+function Integridad_diagnosticarIngresosComponente_() {
+  var snapshot = {
+    pacientes: Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']),
+    eventos: Modelo_leerEventosCampos(['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FUENTE']),
+    vistasPorSector: Integridad_leerVistasIds_()
+  };
+  var d = Ingresos_diagnosticarIngresados_(snapshot), renovables = 0, sinSector = 0, sectores = {};
+  (d.casos || []).forEach(function (caso) {
+    if (caso.clasificacion !== 'DERIVADO_DESACTUALIZADO') return;
+    var sector = Utl_texto(caso.sector).toUpperCase();
+    if (HOJAS_SECTOR.indexOf('SECTOR_' + sector) >= 0) { renovables++; sectores[sector] = true; }
+    else sinSector++;
+  });
+  return { ingresosFalsos: Number(d.conteos.INGRESADO_FALSO || 0),
+    ingresosInconsistentes: Number(d.conteos.INCONSISTENTE || 0),
+    ingresosDerivados: renovables, pacientesSinSector: sinSector,
+    sectoresAfectados: Object.keys(sectores).sort() };
+}
+
+function Integridad_diagnosticarVistasComponente_() {
+  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']);
+  var d = Integridad_diagnosticarVistas_(pacientes, Integridad_leerVistasIds_());
+  return { vistasPendientes: Number(d.pendientes || 0), pacientesSinSector: Number(d.sinSector || 0),
+    sectoresAfectados: (d.sectoresAfectados || []).filter(function (s) {
+      return HOJAS_SECTOR.indexOf('SECTOR_' + Utl_texto(s).toUpperCase()) >= 0;
+    }) };
+}
+
+function Integridad_diagnosticarEstratificacionComponente_() {
+  var pendientes = 0, pacientes = Modelo_leerPacientesCampos(['CONDICIONES', 'ESTRATIFICACION']);
+  if (typeof CFG_ESTRATIFICACION !== 'undefined' && CFG_ESTRATIFICACION.REGLA_DISPONIBLE &&
+      typeof Estrat_evaluar === 'function') pacientes.forEach(function (p) {
+    var ev = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    if (ev.estado === 'CALCULADO' && Utl_texto(ev.resultado).toUpperCase() !==
+        Utl_texto(p.ESTRATIFICACION).toUpperCase()) pendientes++;
+  });
+  return { estratificacionPendiente: pendientes };
+}
+
+function Integridad_componerDiagnostico_(partes) {
+  partes = partes || {};
+  var b = partes.base || {}, i = partes.ingresos || {}, v = partes.vistas || {}, e = partes.estratificacion || {};
+  var vistasPendientes = Math.max(Number(v.vistasPendientes || 0), Number(i.ingresosDerivados || 0));
+  var d = { pacientes: Number(b.pacientes || 0), eventos: Number(b.eventos || 0),
+    eventosHuerfanos: Number(b.eventosHuerfanos || 0), fuentesDuplicadas: Number(b.fuentesDuplicadas || 0),
+    cachesPendientes: Number(b.cachesPendientes || 0), ingresosFalsos: Number(i.ingresosFalsos || 0),
+    ingresosInconsistentes: Number(i.ingresosInconsistentes || 0), ingresosDerivados: Number(i.ingresosDerivados || 0),
+    vistasPendientes: vistasPendientes, estratificacionPendiente: Number(e.estratificacionPendiente || 0),
+    pacientesSinSector: Math.max(Number(i.pacientesSinSector || 0), Number(v.pacientesSinSector || 0)),
+    captureIdsDuplicados: 0, captura: { omitida: true, motivo: 'AUDITORIA_HISTORICA_FUERA_DEL_CAMINO_BLOQUEANTE' } };
+  d.sectoresAfectados = [];
+  (i.sectoresAfectados || []).concat(v.sectoresAfectados || []).forEach(function (s) {
+    s = Utl_texto(s).toUpperCase();
+    if (HOJAS_SECTOR.indexOf('SECTOR_' + s) >= 0 && d.sectoresAfectados.indexOf(s) < 0) d.sectoresAfectados.push(s);
+  });
+  d.derivadosOk = d.cachesPendientes === 0 && d.ingresosFalsos === 0 && d.ingresosInconsistentes === 0 &&
+    d.vistasPendientes === 0 && d.estratificacionPendiente === 0;
+  d.evidenciaSoloReporte = d.eventosHuerfanos > 0 || d.fuentesDuplicadas > 0 || d.pacientesSinSector > 0;
+  d.ok = d.derivadosOk && !d.evidenciaSoloReporte;
+  return d;
+}
+
+// Motor reanudable del instalador. Diagnóstico y postcheck están divididos en
+// componentes con checkpoint duradero después de cada barrido acotado.
+var INTEGRIDAD_SUBPLAN = [
+  { id: 'diagnostico_base', nombre: 'Diagnóstico de eventos y cachés' },
+  { id: 'diagnostico_ingresos', nombre: 'Diagnóstico de ingresos' },
+  { id: 'diagnostico_vistas', nombre: 'Diagnóstico de vistas' },
+  { id: 'diagnostico_estratificacion', nombre: 'Diagnóstico de estratificación' },
+  { id: 'ingresos', nombre: 'Reconciliación de ingresos' },
+  { id: 'estratificacion', nombre: 'Estratificación derivada' },
+  { id: 'caches', nombre: 'Caches de eventos' },
+  { id: 'vistas', nombre: 'Vistas sectoriales' },
+  { id: 'postcheck_base', nombre: 'Verificación de eventos y cachés' },
+  { id: 'postcheck_ingresos', nombre: 'Verificación de ingresos' },
+  { id: 'postcheck_vistas', nombre: 'Verificación de vistas' },
+  { id: 'postcheck_estratificacion', nombre: 'Verificación de estratificación' },
+  { id: 'postcheck', nombre: 'Consolidación de auditoría' }
+];
+var _INTEGRIDAD_CURSOR_MEMO = {};
+
+function Integridad_cursorClave_(ejecucion) {
+  return 'ECICEP_INST_INT|' + Utl_texto(ejecucion || 'LEGACY').replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
+}
+function Integridad_cursorLeer_(ejecucion) {
+  var clave = Integridad_cursorClave_(ejecucion), raw = null, props = Sistema_propiedades_();
+  try { raw = CacheService.getScriptCache().get(clave); } catch (e) {}
+  try { if (!raw && props) raw = props.getProperty(clave); } catch (eP) {}
+  if (!raw && _INTEGRIDAD_CURSOR_MEMO[clave]) return _INTEGRIDAD_CURSOR_MEMO[clave];
+  try {
+    var estado = raw ? JSON.parse(raw) : null;
+    if (!estado || estado.version !== 2 || !isFinite(Number(estado.cursor)) || Number(estado.cursor) < 0) return null;
+    return estado;
+  } catch (e2) { return null; }
+}
+function Integridad_cursorGuardar_(ejecucion, estado) {
+  estado.version = 2; estado.actualizado = new Date().toISOString();
+  var clave = Integridad_cursorClave_(ejecucion), raw = JSON.stringify(estado), props = Sistema_propiedades_();
+  _INTEGRIDAD_CURSOR_MEMO[clave] = estado;
+  try { CacheService.getScriptCache().put(clave, raw, 3600); } catch (e) {}
+  try { if (props) props.setProperty(clave, raw); } catch (eP) {}
+}
+function Integridad_cursorLimpiar_(ejecucion) {
+  var clave = Integridad_cursorClave_(ejecucion), props = Sistema_propiedades_();
+  delete _INTEGRIDAD_CURSOR_MEMO[clave];
+  try { CacheService.getScriptCache().remove(clave); } catch (e) {}
+  try { if (props) props.deleteProperty(clave); } catch (eP) {}
+}
+function Integridad_resumenSeguro_(d) {
+  return { pacientes: Number(d.pacientes || 0), eventos: Number(d.eventos || 0),
+    ingresosFalsos: Number(d.ingresosFalsos || 0), ingresosInconsistentes: Number(d.ingresosInconsistentes || 0),
+    ingresosDerivados: Number(d.ingresosDerivados ||
+      d.ingresos && d.ingresos.conteos && d.ingresos.conteos.DERIVADO_DESACTUALIZADO || 0),
+    cachesPendientes: Number(d.cachesPendientes || 0), vistasPendientes: Number(d.vistasPendientes || 0),
+    estratificacionPendiente: Number(d.estratificacionPendiente || 0),
+    sectoresAfectados: (d.sectoresAfectados || d.vistas && d.vistas.sectoresAfectados || []).slice() };
+}
+
+function Integridad_ejecutarPaso_(ejecucion) {
+  var estado = Integridad_cursorLeer_(ejecucion) || { version: 2, cursor: 0, sectores: [], metricas: {}, partes: {}, postPartes: {} };
+  estado.partes = estado.partes || {}; estado.postPartes = estado.postPartes || {};
+  var cursor = Number(estado.cursor || 0);
+  if (cursor < 0 || cursor >= INTEGRIDAD_SUBPLAN.length) cursor = 0;
+  var tarea = INTEGRIDAD_SUBPLAN[cursor], t0 = Date.now(), detalle = null;
+  try {
+    if (tarea.id.indexOf('diagnostico_') === 0) {
+      var parte = tarea.id.replace('diagnostico_', '');
+      if (parte === 'base') detalle = Integridad_diagnosticarBase_();
+      else if (parte === 'ingresos') detalle = Integridad_diagnosticarIngresosComponente_();
+      else if (parte === 'vistas') detalle = Integridad_diagnosticarVistasComponente_();
+      else detalle = Integridad_diagnosticarEstratificacionComponente_();
+      estado.partes[parte] = detalle;
+      if (parte === 'estratificacion') {
+        var diag = Integridad_componerDiagnostico_(estado.partes);
+        estado.diagnostico = Integridad_resumenSeguro_(diag);
+        estado.sectores = diag.sectoresAfectados.slice();
+      }
+    } else if (tarea.id === 'ingresos') {
+      var requiereIngresos = estado.diagnostico && (estado.diagnostico.ingresosFalsos ||
+        estado.diagnostico.ingresosInconsistentes || estado.diagnostico.ingresosDerivados);
+      if (!requiereIngresos) detalle = { ok: true, omitida: true, motivo: 'SIN_INGRESOS_PENDIENTES' };
+      else {
+        var snapI = { pacientes: Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR']),
+          eventos: Modelo_leerEventosCampos(['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FUENTE']),
+          vistasPorSector: Integridad_leerVistasIds_() };
+        var diagIngresos = Ingresos_diagnosticarIngresados_(snapI);
+        detalle = Ingresos_reconciliarIngresados_({ reparar: true, bajoLock: true,
+          diagnostico: diagIngresos, snapshot: snapI, deferirVistas: true, limiteFalsos: 12 });
+        (detalle.sectoresAfectados || []).forEach(function (s) { if (estado.sectores.indexOf(s) < 0) estado.sectores.push(s); });
+        if (detalle.ok === false) throw new Error('INGRESOS_NO_CONVERGEN');
+        if (detalle.continuar) {
+          estado.metricas['ingresos:lote'] = { ms: Date.now() - t0, procesados: detalle.procesados,
+            restantes: detalle.restantes };
+          Integridad_cursorGuardar_(ejecucion, estado);
+          return { ok: true, continuar: true, cursor: cursor,
+            progreso: { actual: cursor, total: INTEGRIDAD_SUBPLAN.length }, subetapa: tarea,
+            tareaCompletada: { id: 'ingresos:lote', nombre: 'Lote de ingresos' },
+            diagnostico: { procesados: detalle.procesados, restantes: detalle.restantes },
+            metricas: estado.metricas, ms: Date.now() - t0 };
+        }
+      }
+    } else if (tarea.id === 'estratificacion') {
+      if (!estado.diagnostico || !estado.diagnostico.estratificacionPendiente)
+        detalle = { ok: true, omitida: true, motivo: 'ESTRATIFICACION_VIGENTE' };
+      else {
+        detalle = Estrat_recalcularTodos_({ deferirVistas: true });
+        (detalle.sectoresAfectados || []).forEach(function (s) { if (estado.sectores.indexOf(s) < 0) estado.sectores.push(s); });
+        if (detalle.ok === false) throw new Error(detalle.motivo || 'ESTRATIFICACION_FALLO');
+      }
+    } else if (tarea.id === 'caches') {
+      if (!estado.diagnostico || !estado.diagnostico.cachesPendientes)
+        detalle = { ok: true, omitida: true, motivo: 'CACHES_VIGENTES' };
+      else {
+        detalle = Control_recalcularCaches_();
+        if (detalle.ok === false) throw new Error(detalle.motivo || 'CACHES_FALLO');
+      }
+    } else if (tarea.id === 'vistas') {
+      var sectorIx = Number(estado.vistaCursor || 0);
+      if (!estado.sectores.length) detalle = { omitida: true, motivo: 'VISTAS_VIGENTES' };
+      else {
+        var sectorActual = estado.sectores[sectorIx];
+        detalle = Modelo_refrescarVistasSectores_([sectorActual]);
+        sectorIx++; estado.vistaCursor = sectorIx;
+        estado.metricas['vista:' + sectorActual] = { ms: Date.now() - t0 };
+        if (sectorIx < estado.sectores.length) {
+          Integridad_cursorGuardar_(ejecucion, estado);
+          return { ok: true, continuar: true, cursor: cursor,
+            progreso: { actual: cursor + sectorIx / estado.sectores.length, total: INTEGRIDAD_SUBPLAN.length },
+            subetapa: { id: 'vistas:' + estado.sectores[sectorIx], nombre: 'Vista ' + estado.sectores[sectorIx] },
+            tareaCompletada: { id: 'vistas:' + sectorActual, nombre: 'Vista ' + sectorActual },
+            diagnostico: detalle, metricas: estado.metricas, ms: Date.now() - t0 };
+        }
+      }
+    } else if (tarea.id.indexOf('postcheck_') === 0) {
+      var postParte = tarea.id.replace('postcheck_', '');
+      if (postParte === 'base') detalle = Integridad_diagnosticarBase_();
+      else if (postParte === 'ingresos') detalle = Integridad_diagnosticarIngresosComponente_();
+      else if (postParte === 'vistas') detalle = Integridad_diagnosticarVistasComponente_();
+      else detalle = Integridad_diagnosticarEstratificacionComponente_();
+      estado.postPartes[postParte] = detalle;
+    } else if (tarea.id === 'postcheck') {
+      var despues = Integridad_componerDiagnostico_(estado.postPartes);
+      Sistema_guardarAuditoria_(despues);
+      detalle = Integridad_resumenSeguro_(despues);
+      if (!despues.derivadosOk) throw new Error('DERIVADOS_PENDIENTES');
+    }
+  } catch (ePaso) {
+    return { ok: false, continuar: false, cursor: cursor,
+      progreso: { actual: cursor, total: INTEGRIDAD_SUBPLAN.length },
+      subetapa: tarea, codigo: 'INTEGRIDAD_SUBTAREA_FALLO',
+      motivo: ePaso && ePaso.message ? ePaso.message : String(ePaso), reintentable: true,
+      ms: Date.now() - t0 };
+  }
+  estado.metricas[tarea.id] = { ms: Date.now() - t0 };
+  cursor++; estado.cursor = cursor;
+  var fin = cursor >= INTEGRIDAD_SUBPLAN.length;
+  if (fin) Integridad_cursorLimpiar_(ejecucion); else Integridad_cursorGuardar_(ejecucion, estado);
+  return { ok: true, continuar: !fin, cursor: cursor,
+    progreso: { actual: cursor, total: INTEGRIDAD_SUBPLAN.length },
+    subetapa: fin ? null : INTEGRIDAD_SUBPLAN[cursor], tareaCompletada: tarea,
+    diagnostico: detalle, metricas: estado.metricas, ms: Date.now() - t0 };
 }
 
 function Sistema_datosBasicos_() {
@@ -224,7 +516,7 @@ function api_sistemaEstadoSalud(opciones, acceso) {
 function api_integridadReparar(acceso) {
   if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Ecicep_conLock_(function () {
-    var respaldo = Backup_crear('PRE_REPARAR');
+    var respaldo = Backup_crear_('PRE_REPARAR');
     if (!respaldo || respaldo.ok === false) return { ok: false, motivo: 'BACKUP_FALLIDO',
       detalle: respaldo && respaldo.motivo || '' };
     var r = Integridad_repararDerivados_({ reparar: true, bajoLock: true });

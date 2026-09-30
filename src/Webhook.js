@@ -11,18 +11,14 @@
  *     señal y borra únicamente datos marcados como prueba.
  */
 
-var WEBHOOK_ACCIONES = [
-  'estado', 'instalar', 'sembrar', 'procesar',
-  'refrescar', 'diagnosticar', 'limpiar_prueba',
-  'diagnosticar_fuentes', 'importar_muestra',
-  'carga_analisis', 'carga_ejecutar',
-  'amarillo', 'revisar',
-  'diag_trazabilidad', 'restaurar_fuente', 'rem_mensual',
-  'pruebas_sistema', 'auditar_calidad',
-  'inicio', 'limpiar_huerfanos'
-];
+var WEBHOOK_ACCIONES_LECTURA = ['estado', 'diagnosticar', 'diagnosticar_fuentes',
+  'carga_analisis', 'diag_trazabilidad', 'rem_mensual', 'auditar_calidad'];
+var WEBHOOK_ACCIONES_MUTANTES = ['instalar', 'sembrar', 'procesar', 'refrescar',
+  'limpiar_prueba', 'importar_muestra', 'carga_ejecutar', 'amarillo', 'revisar',
+  'restaurar_fuente', 'inicio', 'limpiar_huerfanos'];
+var WEBHOOK_ACCIONES = WEBHOOK_ACCIONES_LECTURA.concat(WEBHOOK_ACCIONES_MUTANTES);
 
-function doPost(e) { return _wh_despachar(e); }
+function doPost(e) { return _wh_despachar(e, 'POST'); }
 // doGet quedó definido en WebApp.gs (único por proyecto).
 
 function _wh_salida(obj) {
@@ -30,16 +26,44 @@ function _wh_salida(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function _wh_despachar(e) {
+function _wh_parametros_(e, metodo) {
+  var p = e && e.parameter ? e.parameter : {};
+  if (metodo !== 'POST' || !e || !e.postData || !e.postData.contents) return p;
   try {
+    var cuerpo = JSON.parse(e.postData.contents);
+    return cuerpo && typeof cuerpo === 'object' ? cuerpo : p;
+  } catch (ign) { return p; }
+}
+
+function _wh_sanitizar_(valor, profundidad) {
+  if (profundidad > 4 || valor === null || valor === undefined) return valor;
+  if (Array.isArray(valor)) return valor.slice(0, 20).map(function (v) { return _wh_sanitizar_(v, profundidad + 1); });
+  if (typeof valor !== 'object') return valor;
+  var fuera = {};
+  Object.keys(valor).forEach(function (k) {
+    if (/rut|nombre|telefono|observ|patolog|salud|token|acceso|api.?key|paciente|profesional/i.test(k)) return;
+    fuera[k] = _wh_sanitizar_(valor[k], profundidad + 1);
+  });
+  return fuera;
+}
+
+function _wh_despachar(e, metodo) {
+  try {
+    metodo = metodo || 'GET';
+    var parametros = _wh_parametros_(e, metodo);
     var esperado = PropertiesService.getScriptProperties().getProperty('WEBHOOK_TOKEN');
-    var recibido = e && e.parameter ? Utl_texto(e.parameter.token) : '';
+    var recibido = Utl_texto(parametros.token);
     if (!esperado) return _wh_salida({ ok: false, motivo: 'TOKEN_NO_CONFIGURADO (usa 🔑 en el menú)' });
     if (!recibido || recibido !== esperado) return _wh_salida({ ok: false, motivo: 'NO_AUTORIZADO' });
 
-    var accion = Utl_texto(e.parameter.action).toLowerCase();
+    var accion = Utl_texto(parametros.action).toLowerCase();
     if (WEBHOOK_ACCIONES.indexOf(accion) === -1) {
       return _wh_salida({ ok: false, motivo: 'ACCIÓN_INVALIDA', acciones: WEBHOOK_ACCIONES });
+    }
+    if (WEBHOOK_ACCIONES_MUTANTES.indexOf(accion) >= 0) {
+      if (metodo !== 'POST') return _wh_salida({ ok: false, motivo: 'METODO_NO_PERMITIDO', requiere: 'POST' });
+      if (PropertiesService.getScriptProperties().getProperty('WEBHOOK_MUTACIONES_HABILITADAS') !== 'SI')
+        return _wh_salida({ ok: false, motivo: 'MUTACIONES_REMOTAS_DESHABILITADAS' });
     }
 
     var t0 = Date.now();
@@ -58,7 +82,7 @@ function _wh_despachar(e) {
       case 'inicio':      resultado = Hojas_crearInicio(Modelo_ss()); break;
       case 'limpiar_huerfanos':
         // Destructiva: exige confirmar=1 (else dry-run informativo).
-        if (e.parameter.confirmar !== '1') {
+        if (parametros.confirmar !== '1') {
           resultado = IA_limpiarEventosHuerfanos_({ prueba: true });
         } else {
           resultado = IA_limpiarEventosHuerfanos_({ prueba: false });
@@ -89,13 +113,13 @@ function _wh_despachar(e) {
         break;
       case 'importar_muestra':
         resultado = Fuentes_importarMuestra(
-          e.parameter.archivo || '', e.parameter.hoja || '', parseInt(e.parameter.cantidad || '10', 10));
+          parametros.archivo || '', parametros.hoja || '', parseInt(parametros.cantidad || '10', 10));
         break;
       case 'carga_analisis':
-        resultado = Fuentes_cargaReal({ ejecutar: false });
+        resultado = Fuentes_cargaReal_({ ejecutar: false });
         break;
       case 'carga_ejecutar':
-        resultado = Fuentes_cargaReal({ ejecutar: true });
+        resultado = Fuentes_cargaReal_({ ejecutar: true });
         break;
       case 'amarillo':
         // Cierre del Sector Amarillo: puerta INGRESO_AMARILLO (idempotente por
@@ -122,7 +146,7 @@ function _wh_despachar(e) {
       case 'restaurar_fuente':
         // Solo restaura si FUENTE está vacía (jamás sobrescribe evidencia).
         // Requiere fuente verificada contra el Excel original. NO toca fechas.
-        resultado = Modelo_restaurarFuente_(e.parameter.rut || '', e.parameter.fuente || '');
+        resultado = Modelo_restaurarFuente_(parametros.rut || '', parametros.fuente || '');
         break;
       case 'pruebas_sistema':
         resultado = api_pruebasSistema(null); // todas, SOLO LECTURA
@@ -131,14 +155,14 @@ function _wh_despachar(e) {
         resultado = Calidad_auditarTodo();
         break;
       case 'rem_mensual':
-        resultado = Rem_generar(e.parameter.anio || '', e.parameter.mes || '',
-                                e.parameter.sector || 'TODOS');
+        resultado = Rem_generar(parametros.anio || '', parametros.mes || '',
+                                parametros.sector || 'TODOS');
         break;
       case 'limpiar_prueba':
-        if (Utl_texto(e.parameter.confirmacion).toUpperCase() !== 'OK') {
+        if (Utl_texto(parametros.confirmacion).toUpperCase() !== 'OK') {
           return _wh_salida({ ok: false, motivo: 'CONFIRMACION_REQUERIDA: limpiar_prueba exige confirmacion=OK (doble señal, DEC-012)' });
         }
-        resultado = Limpieza_ejecutar(Limpieza_colectar());
+        resultado = Limpieza_ejecutar_(Limpieza_colectar_());
         break;
       default:
         return _wh_salida({ ok: false, motivo: 'ACCIÓN_INVALIDA' });
@@ -147,7 +171,7 @@ function _wh_despachar(e) {
     Log_flush();
     return _wh_salida({
       ok: true, accion: accion, version: ECICEP.VERSION,
-      ms: Date.now() - t0, resultado: resultado
+      ms: Date.now() - t0, resultado: _wh_sanitizar_(resultado, 0)
     });
   } catch (err) {
     try { Log_error('Webhook', 'despachar', err && err.message ? err.message : String(err)); Log_flush(); } catch (e2) {}

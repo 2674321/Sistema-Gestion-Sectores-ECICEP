@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.16.0',
+  VERSION: '0.16.1',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -93,8 +93,7 @@ var UICFG_DIALOGOS = [
   { opener: 'UI_panelControl', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirBuscador', plantilla: 'Sidebar', tipo: 'sidebar' },
   { opener: 'UI_abrirRevision', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_formularioPanel', plantilla: 'FormularioPanel', tipo: 'modal' }
+  { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -434,7 +433,7 @@ const FORMATO_CAMPOS = {
 
 const VALIDACIONES_CAMPOS = {
   SEXO: { tipo: 'LISTA', valores: ['M', 'F', 'OTRO'], permitirVacio: true },
-  ESTADO_INGRESO: { tipo: 'LISTA', valores: ['PENDIENTE', 'AGENDADO', 'INGRESADO', 'NO_CONTESTA', 'FALLECIDO', 'NSP'], permitirVacio: false },
+  ESTADO_INGRESO: { tipo: 'LISTA', valores: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR'], permitirVacio: false },
   SALUD_MENTAL: { tipo: 'LISTA', valores: ['SI', 'NO'], permitirVacio: true },
   ESTRATIFICACION: { tipo: 'LISTA', valores: ['G', 'G1', 'G2', 'G3'], permitirVacio: true },
   FECHA_NACIMIENTO: { tipo: 'FECHA', permitirVacio: true }
@@ -847,7 +846,12 @@ const TIPOS_EVENTO = {
 };
 
 const ESTADOS_INGRESO = {
-  VALIDOS: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR']
+  VALIDOS: ['PENDIENTE', 'VALIDANDO', 'LISTO', 'INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION', 'ERROR'],
+  // Estadios FINALES de una fila INGRESO_*: el pipeline ya decidió y no se
+  // vuelve a procesar solo. UNA única definición para listado, detalle y lote.
+  // Escape hatch operativo: el humano limpia la celda (p. ej. a PENDIENTE)
+  // cuando la fila fue corregida y debe re-procesarse.
+  TERMINALES: ['INGRESADO', 'DUPLICADO', 'REQUIERE_REVISION']
 };
 
 // ---------------------------------------------------------------------------

@@ -162,7 +162,7 @@ function cargarBackups(){
 }
 
 function pintarBackups(r){
-  if(!r||!r.ok){document.getElementById('bkTabla').innerHTML='<div class="empty">'+((r&&r.motivo)||'Sin datos')+'</div>';return;}
+  if(!r||!r.ok){document.getElementById('bkTabla').innerHTML='<div class="empty">'+_esc((r&&r.motivo)||'Sin datos')+'</div>';return;}
   var hora=String(parseInt(r.hora,10)||0).padStart(2,'0')+':00';
   var dia=_DIAS_NOMBRE[r.dia]||r.dia||'Sin día';
   document.getElementById('bkProg').textContent=r.trigger?'Activa ('+dia+' '+hora+')':'Inactiva';
@@ -186,7 +186,7 @@ function pintarBackups(r){
     h+='<td>'+fmtFecha(b.fecha)+'</td>';
     h+='<td>'+fmtBytes(b.tamano)+'</td>';
     h+='<td><span class="badge badge-ok">OK</span></td>';
-    h+='<td><a class="link" href="'+b.url+'" target="_blank" rel="noopener">Abrir</a></td></tr>';
+    h+='<td><a class="link" href="'+_esc(_safeUrl(b.url))+'" target="_blank" rel="noopener">Abrir</a></td></tr>';
   });
   h+='</tbody></table>';
   document.getElementById('bkTabla').innerHTML=h;

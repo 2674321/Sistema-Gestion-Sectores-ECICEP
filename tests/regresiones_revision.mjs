@@ -218,7 +218,7 @@ test('Simulación del orquestador no llama a ningún escritor', () => {
     'Libro_marcarDirty_','onOpen','Log_info','Log_flush']) {
     c[name] = () => { calls.push(name); return { ok: true }; };
   }
-  c.Fuentes_cargaReal = o => { assert.equal(o.ejecutar, false); return { ok: true, resumen: {} }; };
+  c.Fuentes_cargaReal_ = o => { assert.equal(o.ejecutar, false); return { ok: true, resumen: {} }; };
   c.Act_enriquecerPacientes = o => { assert.equal(o.dryRun, true); return { ok: true }; };
   const r = c.Act_actualizarSistema({ ejecutar: false });
   assert.equal(r.ok, true); assert.equal(r.dryRun, true);
@@ -230,7 +230,7 @@ function actualizacionSimulada() {
   c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: true });
   c.Modelo_alinearVistasSectoriales_ = () => ({ errores: [] });
   c.Modelo_limpiarHojasResiduales = () => ({ candidatas: [], eliminadas: [] });
-  c.Fuentes_cargaReal = () => ({ ok: true, resumen: {} });
+  c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: {} });
   c.Amarillo_importarTodo_ = () => ({ ok: true });
   c.Act_enriquecerPacientes = () => ({ ok: true, errores: 0 });
   c.Estrat_recalcularTodos_ = () => ({ ok: true, recalculados: 0 });
@@ -295,7 +295,7 @@ test('Actualizar informa excepción del motor como advertencia (v0.14 §24)', ()
 });
 test('Actualizar captura fallo de fuentes también en simulación', () => {
   const c = actualizacionSimulada();
-  c.Fuentes_cargaReal = () => { throw Error('FUENTE_SIMULADA'); };
+  c.Fuentes_cargaReal_ = () => { throw Error('FUENTE_SIMULADA'); };
   const r = c.Act_actualizarSistema({ ejecutar: false });
   assert.equal(r.ok, false);
   assert.deepEqual(Array.from(r.resumen.errores), ['fuentes']);
@@ -593,7 +593,7 @@ test('SAS-025: Instalar/reparar aplica el diseño SIN fuerza global (v0.14: wrap
   const tareaReal = c.Presentacion_ejecutarTarea_;
   let tareas = [];
   c.Presentacion_ejecutarTarea_ = t => { tareas.push(t.id); return { ok: true, detalle: {} }; };
-  assert.equal(c.Instalar_pVisual().ok, true);
+  assert.equal(c.Instalar_pVisual_().ok, true);
   assert.ok(tareas.some(id => id.indexOf('formato:') === 0),
     'el wrapper ejecuta las subtareas formato:* del plan único (sin pipeline paralelo)');
   c.Presentacion_ejecutarTarea_ = tareaReal;
@@ -718,7 +718,7 @@ test('Carga de fuentes simulada conserva memo y no registra logs persistentes', 
   c.Act_mergearPacientesDesdeStaging = (_, patients) => { patients[0].SEXO = 'F'; return {}; };
   c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [] });
   c.Log_info = () => { throw Error('No escribir logs'); };
-  assert.equal(c.Fuentes_cargaReal({ ejecutar: false, actualizar: true }).ok, true);
+  assert.equal(c.Fuentes_cargaReal_({ ejecutar: false, actualizar: true }).ok, true);
   assert.equal(p.SEXO, '');
 });
 test('Esquema incompatible detiene importación antes de anexar eventos', () => {
@@ -731,7 +731,7 @@ test('Esquema incompatible detiene importación antes de anexar eventos', () => 
   c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [], pacientesNuevos: [{}], eventos: [{}] });
   c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: false, motivo: 'prueba' });
   c.Modelo_agregarEventos_ = () => { eventos++; };
-  const r = c.Fuentes_cargaReal({ ejecutar: true, actualizar: true });
+  const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true });
   assert.equal(r.ok, false); assert.equal(r.motivo, 'ESQUEMA_PACIENTES_INCOMPATIBLE');
   assert.equal(eventos, 0); assert.equal(r.resumen.escritosPacientes, false);
 });

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v0.15.0 — INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50): contrato único,
+// v0.16.0 — INICIO PRO (PANEL_OPERATIVO_PRO_V015, A1:AJ50): contrato único,
 // 6 accesos, 6 KPIs, 3 cards, estado, prioridades, estratificación, info,
 // footer, ≤40 merges, ≤190 RPC, sin fórmulas vivas, sin marco gigante,
 // extra-dims no son drift. End-to-end con hoja simulada CON ESTADO.

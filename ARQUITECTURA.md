@@ -1,5 +1,65 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-09-27 (v0.16.0, integridad acotada):** Integridad ya no
+> contiene diagnóstico/postcheck monolíticos: cada uno se divide en eventos y
+> cachés, ingresos, vistas y estratificación, con cursor durable técnico versión
+> 2. Las vistas continúan una por RPC y leen columnas proyectadas; ingresos falsos
+> usan lotes idempotentes de hasta 12. La auditoría histórica de `captureId` se
+> conserva fuera de la decisión bloqueante de derivados. No cambia el sistema
+> único, el Spreadsheet, la Web App, el pipeline clínico ni el schema 2.
+
+> **Actualización 2026-09-30 (v0.16.1 — DEC-101, acceso universal):**
+> - **Una sola capacidad abre todo el sistema.** No se distingue entre operador
+>   y usuario: el ECICEP solo lo manejan los trabajadores del CESFAM y todos
+>   operan. Se revierte la separación CAPTURA ≠ OPERADOR de v0.16.0 (DEC-097),
+>   que había dejado el sistema inaccesible para todos: exigía
+>   `OPERADOR_ACCESS_TOKEN` —que el código nunca creaba— o una allowlist
+>   `OPERADOR_EMAILS`/`OPERADOR_DOMINIOS` —que nunca se configuró—, por lo que
+>   `WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista no
+>   captura, incluidas las funciones de `28_IA.js`.
+> - Credencial canónica `ECICEP_ACCESS_TOKEN`, **autoaprovisionada** si falta
+>   (lock + relectura): una credencial ausente ya no deja el sistema inaccesible.
+>   `CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+>   aceptan como alias equivalentes, sin alcance especial entre sí, para no
+>   invalidar QR impresos, enlaces o pestañas abiertas.
+> - **La credencial nunca viaja en la URL.** `doGet` la inyecta al servir cada
+>   vista y `WebApp_urlVista_` devuelve `…?vista=<x>`; la URL base del QR abre el
+>   sistema completo sin parámetros y sobrevive a cualquier rotación.
+> - Los 13 accesos se sirven sin credencial en la URL (captura, portal, pacientes,
+>   ingresos, controles, estadísticas, configuración, backups, registro,
+>   instalador, REM, generar REM, revisión). `CapturaWeb` ofrece salida directa a
+>   Funciones. `WebApp_autorizar`, `WebApp_autorizarBuscador` y
+>   `WebApp_autorizarCaptura` son aliases de la misma verificación;
+>   `WebApp_accesoUniversalActivo_` reemplaza la allowlist de identidades en las
+>   funciones internas sin credencial.
+> - El pre-flight de duplicados vuelve a mostrarse a todo el sistema, exponiendo
+>   solo campos que la ficha ya muestra (nunca teléfonos ni observaciones).
+> - **Sin cambios:** schema clínico 2, contrato de captura V4, allowlist de
+>   superficie RPC, helpers críticos privados (sufijo `_`), `CONFIG_SECRETOS`,
+>   redacción de logs, egress de IA, y `WEBHOOK_TOKEN` independiente con GET de
+>   solo lectura y mutaciones POST + opt-in.
+> - Batería: **66 suites · 0 fallos**, núcleo **674/674**, HTML 21/21,
+>   `seguridad_webapp_capacidades_vNEXT` PASS. E2E anónimo sobre el deployment
+>   operativo.
+
+> **Actualización 2026-09-26 (v0.16.0):**
+> - El único sistema conserva un solo proyecto, Spreadsheet, Web App, backend y
+>   pipeline. No se agregaron ambientes ni almacenes paralelos.
+> - Límites de confianza (modelo **superado por DEC-101**): `CAPTURA_ACCESS_TOKEN`
+>   solo captura; `OPERADOR_ACCESS_TOKEN` o allowlist de identidad habilitaban
+>   operación; `WEBHOOK_TOKEN` es independiente y sus mutaciones exigen POST +
+>   opt-in.
+> - Los helpers críticos de instalación, limpieza, backup y carga real terminan
+>   en `_`, por lo que no son invocables directamente con `google.script.run`.
+>   Una allowlist versionada congela toda la superficie RPC heredada restante.
+> - Integridad usa un snapshot batch común y una máquina reanudable de seis pasos
+>   (`diagnostico → ingresos → estratificacion → caches → vistas → postcheck`).
+>   Los cursores guardan solo conteos, sectores y tiempos, nunca PII.
+> - Los caches y la estratificación aplican fast-path cero escrituras y rangos
+>   contiguos mínimos; las vistas limpian solo su área usada.
+> - IA aplica minimización por allowlist, no envía muestras de PACIENTES/EVENTOS
+>   y transporta la API key en header. Esquema 2 y Captura V4 no cambian.
+
 > **Actualización 2026-09-24 (v0.12.1):**
 > - La fase `Presentación del libro` es **reanudable**: 8 subtareas con
 >   presupuesto de tiempo por RPC y cursor persistido en CacheService por clave de
@@ -92,6 +152,31 @@
 >   idempotente, reconcilia derivados y falla el post-check si queda un P0.
 > - Agenda manual, salud mental, esquema **2**, contrato de captura **V4**,
 >   Spreadsheet, proyecto, URL y QR se conservan. Batería: **29 suites, 0 fallos**.
+
+> **Actualización 2026-09-28 (estabilidad de rutas e ingresos):**
+> - Todas las vistas (`portal`, pacientes, ingresos, revisión, ficha, controles,
+>   estadísticas, configuración, backups, registro, instalación y REM) derivan
+>   del mismo `ECICEP.WEB_APP_URL`. Desde DEC-101 todas comparten la credencial
+>   universal; la captura sigue siendo la pantalla simple de registro.
+> - El formulario público omite `Funciones` cuando no existe una URL autorizada,
+>   evitando enlaces vacíos o autorreferentes.
+> - En `INGRESO_*`, solo `INGRESADO` es terminal por etiqueta. Un estado histórico
+>   `DUPLICADO` o `REQUIERE_REVISION` se revalida contra `EVENTOS`, que sigue siendo
+>   la evidencia idempotente canónica, para permitir cargar filas corregidas.
+> - Una fila con señales de corrimiento de columnas se marca `ERROR` sin inferir
+>   datos; el lote continúa incorporando las demás filas válidas. Las operaciones
+>   acotadas individual y masiva no reformatean todas las hojas de ingreso.
+
+> **Actualización 2026-09-27 (DEC-100):**
+> - La incorporación sectorial usa `EVENTOS` como evidencia canónica de
+>   idempotencia; `PACIENTES.FECHA_INGRESO` no bloquea altas por sí sola.
+> - Un paciente existente en otro sector pasa por la operación compartida
+>   `CAMBIO_SECTOR`: se conserva identidad/demografía, se actualiza el sector
+>   vigente y se anexan `CAMBIO_SECTOR` + `INGRESO` bajo el mismo pipeline.
+> - `MULTIPLE` y ambigüedades no mutan clínica; quedan en revisión humana. Los
+>   reintentos con ingreso ya demostrado no revierten cambios posteriores.
+> - Vistas anterior/destino se refrescan una vez y se verifican; una falla se
+>   comunica como `INCORPORADO_VISTA_PENDIENTE`, no como éxito total.
 
 
 > **Actualización 2026-09-23 (v0.10.7):**
@@ -212,40 +297,6 @@
 >   UNIVERSAL 10/10, rpc surface 4/4, acceso universal v0.10.4 7/7, acceso
 >   webapp 8/8). `ECICEP.VERSION` → `0.10.4`, **schema 2**.
 >   Informe `docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md`.
-
-> **Actualización 2026-09-30 (v0.16.0) — vigente, supera DEC-068/067:**
-> - **ACCESO LIBRE (DEC-097)**: el sistema no pide permisos ni credenciales. Con
->   la URL se opera todo —captura, ficha, Controles, Dashboard, REM, Revisión,
->   Configuración, Backups, Registro, Instalador— sin token, sin cuenta de
->   Google y sin consentimiento de scopes. Nadie ve una pantalla de permisos.
-> - **Causa raíz del error reportado**: `Captura_v2_ctx` atribuía con
->   `Session.getActiveUser().getEmail()` **o** token válido; sin sesión (el caso
->   del QR anónimo) `usuario` quedaba vacío y `Captura_v2_enviar` rechazaba con
->   «Sesión de usuario no detectada; acceso denegado», perdiendo el registro. La
->   atribución ya **nunca** bloquea: correo si hay sesión, si no `ACCESO_LIBRE`.
-> - **Decisión en un solo punto**: `WebApp_autorizar` (con `WebApp_accesoLibre_`).
->   Los ~60 guards por RPC **no se borran** — son la válvula `ACCESO_LIBRE`,
->   inalcanzables en el estado de fábrica. `WebApp_autorizarBuscador` y
->   `WebApp_autorizarCaptura` siguen delegando; cero cambios en los call sites.
-> - **La URL y el QR no cambian**: `ECICEP.WEB_APP_URL` intacto y `?acceso=` se
->   sigue emitiendo con el mismo valor, ahora **inerte**. Mismo deployment
->   operativo, sin deployment nuevo. `SPREADSHEET_ID`, schema 2, captura V4,
->   `INICIO_LAYOUT_VERSION` y `PRESENTACION_LAYOUT_VERSION` (0.15.0) sin tocar:
->   no hay migración ni reconstrucción del libro.
-> - Robustez: `WebApp_claveUniversal_` nunca lanza (degrada a `''` en vez de
->   abortar la request), `WebApp_urlCompartida_` nunca devuelve URL vacía y
->   `WebApp_urlVista_` elige `?`/`&` según exista cadena de consulta.
-> - **Los permisos de Google son del propietario, no del usuario**: los scopes
->   ya están declarados en `appsscript.json` y se conceden una vez al desplegar.
->   `ECICEP_autorizar` queda como utilidad opcional del propietario, fuera de
->   todo menú. Excepciones por necesidad propia, no por control de acceso: el
->   secreto del webhook, `IA_guardarApiKey` y las herramientas de IA / pipeline
->   legacy de Sheets (necesitan `getActiveSpreadsheet` y `showModalDialog`).
-> - Batería: **54 suites · 0 fallos atribuibles al cambio** (acceso libre
->   v0.16.0 12/12, superficie de acceso libre 7/7, acceso webapp 9/9, rpc
->   surface 4/4; se retiran `acceso_universal_v0104` y
->   `seguridad_capacidades_v0103`, superados). `ECICEP.VERSION` → `0.16.0`,
->   **schema 2**.
 
 > **Actualización 2026-09-22 (v0.10.3):**
 > - **Separación de capacidades CAPTURA ≠ OPERADOR**: dos tokens disjuntos en
@@ -596,7 +647,7 @@ La normalización nunca llama a SpreadsheetApp (testeable sin hoja real).
 | Transacción PACIENTES/EVENTOS | **IMPLEMENTADO (3b)** | Gates explícitos por fila; nuevo→crea entidad+evento enlazado; existente→solo evento (sin sobrescritura); append-only garantizado; escrituras batch |
 | Ejecución controlada desde el sheet | **IMPLEMENTADO (3b)** | Menú ECICEP: 📥 Procesar ingresos · 🧪 Sembrar datos ficticios (prueba) |
 | Ejecución real verificada en el spreadsheet | ✅ **VERIFICADA (EJ-MT3IJ7RG)**: 18 leídos = 3 OK + 11 WARNING + 4 ERROR intencionales; 11 pacientes nuevos + 3 enlazados; 14 eventos; SECTOR_* refrescadas |
-| Captura histórica basada en Google Forms | **OBSOLETA / HISTÓRICA** | Canal utilizado en versiones anteriores. `Form_onFormSubmit`, `FormApp`, `FORM_ID` y `onFormSubmit` no forman parte de la operación actual. Su presencia eventual en código debe tratarse como compatibilidad/deuda histórica, no como canal activo.
+| Captura histórica basada en Google Forms | **RETIRADA** | El panel `FormularioPanel`, el puente Web antiguo, `Form_onFormSubmit` y sus RPC administrativos fueron eliminados. Cualquier helper interno restante existe solo para leer/reconciliar evidencia histórica; no es un canal de captura. |
 
 | Web App de captura | **ÚNICO canal operativo actual (regla arquitectónica)** | ⚠️ El flujo contractual anterior (`CapturaWeb.html` → `Form_capturarDesdeUI()` → `FORM_RESPUESTAS` → `Form_procesarPendientes()`, identificador `UI-`) fue **INVALIDADO** y no constituye especificación normativa. La especificación vigente es `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**, única fuente del contrato de captura). Sin segunda base de datos ni lógica paralela.
 | Migración masiva | **BLOQUEADA** | Por diseño hasta validar el flujo completo con muestra controlada de datos reales |
@@ -829,42 +880,6 @@ Creadas hoy: CONFIG · PACIENTES · LOG · CONFLICTOS · FUENTES.
 > arquitectura de seguridad avanzada; no se dependerá de ocultar hojas como
 > medida de protección, y la confidencialidad real se apoya en el control de
 > acceso a la cuenta de Google del spreadsheet.
-
-### Acceso al sistema: LIBRE (v0.16.0, DEC-097)
-
-> **El sistema es de acceso libre y así es por decisión, no por descuido.** No
-> pide permisos, ni credenciales, ni cuenta de Google. Quien tiene el enlace
-> —o escanea el QR— usa el sistema completo: capturar, ficha, Controles,
-> Dashboard, REM, Revisión, Configuración, Backups, Registro e Instalador.
->
-> **Consecuencia que hay que decir con todas sus letras:** la URL de la Web App
-> es, en la práctica, la única barrera. Como la Web App corre con
-> `executeAs: USER_DEPLOYING` + `access: ANYONE_ANONYMOUS`, quien conozca la URL
-> puede leer y escribir los datos clínicos del libro, y esa URL hoy está
-> versionada en un repositorio público (`src/00_Config.js`). Esto **no es
-> seguridad institucional** y el proyecto nunca lo pretendió: es una decisión
-> consciente de disponibilidad (mínima fricción para el personal autorizado)
-> asumiendo que la confidencialidad se apoya en el control de la cuenta de
-> Google del spreadsheet, no en la de la aplicación.
->
-> Mecánica, en `src/WebApp.gs`:
-> - `WebApp_accesoLibre_()` — el sistema es libre por defecto. La propiedad de
->   Script Properties `ACCESO_LIBRE` **no se crea desde el código**: si no existe,
->   libre. Solo `0`/`false`/`no`/`off`/`cerrado` la cierra.
-> - `WebApp_autorizar(token)` — concede siempre en acceso libre. Es la **única**
->   puerta de decisión: los ~60 guards `WebApp_autorizarBuscador` /
->   `WebApp_autorizarCaptura` de las RPC `api_*` siguen en el código y son la
->   válvula (inalcanzables en el estado de fábrica). No se borró ni un guard.
-> - El parámetro `?acceso=` de la URL **se sigue emitiendo con el mismo valor**
->   para que los enlaces y QR ya impresos no cambien, pero es **inerte**: no
->   autoriza ni rechaza nada.
-> - Excepciones, por necesidad propia y no por control de acceso: el secreto del
->   webhook (`WEBHOOK_TOKEN`, integración), `IA_guardarApiKey` (escribe un
->   secreto), y las herramientas de IA / pipeline legacy de Sheets, que necesitan
->   `getActiveSpreadsheet` y `showModalDialog`.
-> - `Captura_v2_ctx` atribuye con el correo si hay sesión y si no con la etiqueta
->   `ACCESO_LIBRE`. **La atribución nunca bloquea un envío**: exigir identidad
->   aquí fue la causa del "acceso denegado" en producción.
 
 Plan por capas:
 

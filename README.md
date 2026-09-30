@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.16.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,32 +23,72 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Acceso** | **Libre** — sin permisos, sin credenciales, sin cuenta de Google; la URL y el QR no cambian (DEC-097) |
-| **Estado** | `v0.16.0` — fix de producción: INICIO descombina la hoja completa (residuo del marco v0.14) y limpia el área extra; instalador con opciones reales + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+| **Estado** | `v0.16.1` — acceso universal (una sola credencial abre todo el sistema); webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
 
-## v0.16.0 — acceso libre: sin permisos, sin credenciales, misma URL
+## v0.16.1 — acceso universal (fin del bloqueo de funciones)
 
-El sistema **ya no pide permisos ni credenciales**. Quien abre el enlace (o
-escanea el QR) usa todo: capturar, ficha, Controles, Dashboard, REM, Revisión,
-Configuración, Backups, Registro e Instalador. Sin cuenta de Google, sin token,
-sin "solicita el QR actualizado" y sin autorización de scopes.
+**Una sola credencial abre todo el sistema. No se distingue entre operador y
+usuario: el ECICEP solo lo manejan los trabajadores del CESFAM y todos operan.**
 
-**Causa raíz del error reportado:** `Captura_v2_ctx` exigía sesión de Google **o** un
-token válido para atribuir el registro. Sin sesión (el caso normal del QR) el envío se
-rechazaba con *"Sesión de usuario no detectada; acceso denegado"* y se perdía. La
-atribución ya nunca bloquea: usa el correo si hay sesión y si no una etiqueta
-estable. Sobre eso, la decisión de acceso se centralizó en `WebApp_autorizar`, que
-concede siempre en el estado de fábrica.
+En v0.16.0 se separaron las capacidades Captura/Operador, exigiendo
+`OPERADOR_ACCESS_TOKEN` o una allowlist `OPERADOR_EMAILS`/`OPERADOR_DOMINIOS`.
+Ninguna de las dos se creaba por código ni se configuró, de modo que
+`WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista que no
+fuera captura. El resultado fue un bloqueo total: nadie podía abrir el portal,
+pacientes, controles, estadísticas, REM, revisión, configuración, backups ni
+instalador, y las funciones de IA quedaban denegadas.
 
-**La URL no cambia.** `ECICEP.WEB_APP_URL` y el parámetro `?acceso=` se conservan
-idénticos, así que los QR y enlaces ya impresos siguen sirviendo igual: el valor
-de `?acceso=` deja de decidir y queda inerte. Se reutiliza el deployment
-operativo, sin deployment nuevo.
+Qué cambia:
 
-**Válvula de seguridad (opcional).** Para volver a cerrar el sistema, crea la
-propiedad de Script Properties `ACCESO_LIBRE` con `0` (o `false`/`no`/`off`).
-Si no existe — el estado de fábrica — el sistema es libre. El secreto del webhook es
-independiente y no se comparte. Detalle en DEC-097.
+- **Una credencial universal** en `ECICEP_ACCESS_TOKEN`, **autoaprovisionada** si
+  falta: el sistema ya no puede quedar inaccesible por una credencial ausente.
+- `CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+  aceptan como alias equivalentes, de modo que **ningún QR impreso, enlace o
+  pestaña abierta se rompe**.
+- La credencial **nunca viaja en la URL**: el servidor la inyecta al servir cada
+  vista. La URL base del QR abre el sistema completo sin parámetros y sobrevive
+  a cualquier rotación de credencial.
+- Los 13 accesos (captura, portal, pacientes, ingresos, controles, estadísticas,
+  configuración, backups, registro, instalador, REM, generar REM, revisión) se
+  sirven sin credencial en la URL; la captura incluye salida directa a Funciones.
+- El pre-flight de duplicados vuelve a mostrarse a todo el sistema —evitar
+  pacientes duplicados es parte del trabajo de correcciones— exponiendo solo
+  campos que la ficha ya muestra.
+- Sin cambios: schema clínico 2, contrato de captura V4, allowlist de superficie
+  RPC, redacción de logs y secretos, egress de IA y `WEBHOOK_TOKEN` con mutaciones
+  opt-in.
+
+## v0.16.0 — hardening e integridad reanudable
+
+Captura y Operador vuelven a ser capacidades separadas: el QR público solo
+registra datos y nunca recibe privilegios administrativos. Los mutadores remotos
+requieren POST y opt-in explícito; los helpers críticos dejaron de ser RPC
+públicas. Integridad comparte un snapshot batch, escribe solo filas/columnas
+derivadas modificadas y se ejecuta en seis pasos reanudables con post-check.
+Gemini usa `gemini-3.6-flash`, envía la clave por header y no exporta ejemplos de
+PACIENTES/EVENTOS. Migración y riesgos residuales:
+[`docs/INFORME_AUDITORIA_VNEXT.md`](docs/INFORME_AUDITORIA_VNEXT.md) (DEC-097).
+
+Addendum de instalación productiva (2.713 pacientes / 21.783 eventos): el motor
+omite subfases sin pendientes, procesa una vista sectorial por RPC, conserva el
+cursor también en Script Properties y colapsa cambios dispersos de caches a tres
+escrituras de columnas derivadas. `Preparando derivados` ya no recalcula antes de
+Integridad y Verificación reutiliza su post-check; se eliminan dos barridos completos.
+
+Segunda pasada de estabilidad: todas las funciones internas comparten la URL fija
+del único deployment, pero cada ruta administrativa conserva la autorización de
+Operador; la captura pública ya no muestra un enlace `Funciones` vacío. En
+incorporación de ingresos, solo `INGRESADO` es terminal por etiqueta: estados
+antiguos `DUPLICADO`/`REQUIERE_REVISION` se vuelven a validar contra la evidencia
+canónica de `EVENTOS`, de modo que una fila corregida puede cargarse. El lote aísla
+filas estructuralmente desplazadas (por ejemplo, sexo `F` leído como nombre),
+continúa con las válidas y las operaciones individual/masiva omiten el formateo
+global de hojas, sin cambiar el pipeline clínico ni inferir correcciones.
+
+La captura de **Nuevo ingreso** reutiliza esa misma operación individual: escribe
+la fila técnica, procesa solo esa fila y exige confirmación clínica antes de
+mostrar éxito. Se retiraron el panel, el trigger, los RPC y el puente Web de
+Google Forms que ya no tenían consumidores y podían ejecutar el pipeline antiguo.
 
 ## v0.15.1 — fix «intervalo combinado» en Portada INICIO
 
@@ -269,11 +309,11 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
   el sello del código servido (`BUILD`) difiere del backend (o alerta antes de
   recargar si hay datos sin guardar o el almacenamiento está bloqueado).
 - **El QR es permanente y abierto**: su contenido es solo la URL fija del deployment
-  operativo. La **URL base abre la captura para cualquier persona** (sin cuenta
+  operativo; la capacidad mínima de captura se inyecta en servidor y nunca forma
+  parte del QR. La **URL base abre la captura para cualquier persona** (sin cuenta
   Google ni token, desde v0.9.29): un QR impreso no se invalida al publicar
-  versiones mientras se reutilice el mismo deployment. Desde **v0.16.0** esto se
-  extiende a **todas** las vistas —los paneles, la ficha, Backups y REM ya no exigen
-  el enlace compartido—: con la URL basta (DEC-097). La estabilidad
+  versiones mientras se reutilice el mismo deployment; los paneles, la ficha,
+  Backups y REM siguen exigiendo el enlace compartido vigente. La estabilidad
   está protegida por un test de regresión.
 - El botón Captura del menú Sheets abre la misma Web App desde cualquier
   dispositivo, sin cuenta Google. La URL base **abre la captura a cualquier
@@ -408,10 +448,9 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 las 25 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
 contrato 38/38 · captura backend V2 73/73 · regresiones 44/44 ·
 auditoría v0.10.1 15/15 · ficha-ingresos v0.10.2 **13/13** · instalador_estabilidad PASS ·
-acceso libre v0.16.0 **12/12** · superficie de acceso libre **7/7** ·
-acceso webapp **9/9** · rpc surface **4/4** ·
-integridad mutaciones v0.10.3 **9/9** ·
-operador resiliencia vNEXT **32/32** ·
+seguridad ACCESO UNIVERSAL **10/10** · rpc surface **4/4** ·
+integridad mutaciones v0.10.3 **9/9** · acceso universal v0.10.4 **7/7** ·
+acceso webapp **8/8** · operador resiliencia vNEXT **32/32** ·
 captura lecturas acotadas vNEXT **9/9** · controles/seguimientos + REM v0.10.6 **9/9** ·
 incorporación de ingresos v0.10.7 **12/12** ·
 **22 scripts HTML**.

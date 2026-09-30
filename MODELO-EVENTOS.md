@@ -38,6 +38,19 @@ seguimiento, dashboard y REM (principio #62).
 | GESTIÓN DE CASO (ingreso/egreso) | Entrada/salida del programa de gestión de casos | EVENTO `GESTION_CASO_INGRESO` / `GESTION_CASO_EGRESO` |
 | EGRESO | Salida del paciente del flujo ECICEP | EVENTO `EGRESO` (la entidad NO se borra) |
 | LLAMADO | Intento de contacto telefónico (flujo LISTADO Naranjo) | EVENTO `LLAMADO` |
+
+### Incorporación territorial (DEC-100)
+
+- Nuevo: crea PACIENTE en el sector de la hoja y un `INGRESO`.
+- Existente en el mismo sector: agrega únicamente el `INGRESO` faltante.
+- Existente en otro sector válido o sin sector: actualiza el estado vigente y
+  agrega `CAMBIO_SECTOR` + `INGRESO`; no altera identidad ni demografía.
+- `MULTIPLE`: revisión humana, sin mutación clínica.
+- Retry: la misma `FUENTE`, o el mismo paciente y día, reutiliza el `INGRESO`
+  existente y nunca restaura el sector histórico de la hoja.
+
+Por ello, `EVENTOS` —no `PACIENTES.FECHA_INGRESO`— es la evidencia canónica de
+idempotencia de una incorporación.
 | CAMBIO DE SECTOR | Reasignación territorial administrativa | EVENTO `CAMBIO_SECTOR` (anterior→nuevo+motivo); nunca sobrescribe historial |
 | CAMBIO DE ESTRATIFICACIÓN | Recalificación G1/G2/G3 | EVENTO `CAMBIO_ESTRATIFICACION` (auditoría, ver ESTRATIFICACION.md) |
 

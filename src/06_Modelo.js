@@ -904,8 +904,10 @@ var CONFIG_PROTEGIDAS_DEFAULTS = {
 var CONFIG_SECRETOS = {
   WEBHOOK_TOKEN: true,
   GEMINI_API_KEY: true,
+  ECICEP_ACCESS_TOKEN: true,
   OPERADOR_ACCESS_TOKEN: true,
-  CAPTURA_ACCESS_TOKEN: true
+  CAPTURA_ACCESS_TOKEN: true,
+  LEGACY_ACCESS_TOKEN: true
 };
 
 /** Patrones que marcan una clave como secreta aunque no esté en CONFIG_SECRETOS. */
@@ -1573,6 +1575,74 @@ function _filaAObjeto(campos, fila) {
   return obj;
 }
 
+/**
+ * GAS: lector físicamente proyectado por nombre de campo. Lee una vez la
+ * cabecera y únicamente los grupos contiguos de columnas solicitadas. A
+ * diferencia de `_memoLeer`, nunca materializa el ancho completo de la hoja.
+ * Mantiene una fila de salida por cada fila física de datos para que los
+ * índices sigan alineados con Modelo_filaFisica.
+ */
+function Modelo_leerCamposProyectados_(nombreHoja, campos) {
+  var hoja = Modelo_hoja(nombreHoja);
+  if (!hoja) return [];
+  var solicitados = (campos || []).filter(function (campo, i, lista) {
+    return campo && lista.indexOf(campo) === i;
+  });
+  if (!solicitados.length) return [];
+  function proyectarBloque_(bloque) {
+    if (!bloque || !bloque.length) return [];
+    var encabezados = bloque[0];
+    return bloque.slice(1).map(function (fila) {
+      var obj = {};
+      solicitados.forEach(function (campo) {
+        var pos = encabezados.indexOf(campo); if (pos < 0) return;
+        var v = fila[pos]; if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE'; obj[campo] = v;
+      });
+      return obj;
+    });
+  }
+  // Compatibilidad con adaptadores mínimos (tests/consumidores legacy) que
+  // solo exponen el bloque memoizado. En GAS siempre se usa la rama proyectada.
+  if (typeof hoja.getLastRow !== 'function' || typeof hoja.getLastColumn !== 'function' ||
+      typeof hoja.getRange !== 'function') return proyectarBloque_(_memoLeer(hoja, nombreHoja));
+  var hr = Modelo_headerRow(nombreHoja), ultima = hoja.getLastRow();
+  var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+  var lecturaEnc = hoja.getRange(hr, 1, 1, ancho).getValues();
+  // Algunos fakes históricos ignoran las coordenadas y devuelven el bloque
+  // completo. Reutilizarlo evita una segunda lectura y conserva su contrato.
+  if (lecturaEnc.length !== 1) return proyectarBloque_(lecturaEnc);
+  var enc = lecturaEnc[0];
+  var presentes = [];
+  solicitados.forEach(function (campo) {
+    var col = enc.indexOf(campo);
+    if (col >= 0) presentes.push({ campo: campo, col: col + 1 });
+  });
+  if (ultima < Modelo_dataStartRow(nombreHoja) || !presentes.length) return [];
+  presentes.sort(function (a, b) { return a.col - b.col; });
+  var grupos = [];
+  presentes.forEach(function (item) {
+    var g = grupos.length ? grupos[grupos.length - 1] : null;
+    if (!g || item.col !== g.fin + 1) {
+      g = { inicio: item.col, fin: item.col, items: [] }; grupos.push(g);
+    }
+    g.fin = item.col; g.items.push(item);
+  });
+  var inicio = Modelo_dataStartRow(nombreHoja), n = ultima - inicio + 1;
+  var salida = [];
+  for (var f = 0; f < n; f++) salida.push({});
+  grupos.forEach(function (g) {
+    var valores = hoja.getRange(inicio, g.inicio, n, g.fin - g.inicio + 1).getValues();
+    valores.forEach(function (fila, idx) {
+      g.items.forEach(function (item) {
+        var v = fila[item.col - g.inicio];
+        if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
+        salida[idx][item.campo] = v;
+      });
+    });
+  });
+  return salida;
+}
+
 function Modelo_leerPacientes() {
   var hoja = Modelo_hoja(HOJAS.PACIENTES);
   if (!hoja) return [];
@@ -1643,25 +1713,7 @@ function Modelo_buscarPacientePorRut_(rut) {
  *  objetos con ~30 columnas. Semántica idéntica a Modelo_leerPacientes
  *  (booleanos → 'TRUE'/'FALSE'; campos ausentes en el encabezado → omitidos). */
 function Modelo_leerPacientesCampos(campos) {
-  var hoja = Modelo_hoja(HOJAS.PACIENTES);
-  if (!hoja) return [];
-  var valores = _memoLeer(hoja, 'PACIENTES');
-  if (!valores.length) return [];
-  var enc = valores[0];
-  var pos = (campos || []).map(function (cam) { return enc.indexOf(cam); });
-  var salida = [];
-  for (var f = 1; f < valores.length; f++) {
-    var obj = {};
-    for (var k = 0; k < pos.length; k++) {
-      var i2 = pos[k];
-      if (i2 < 0) continue;
-      var v = valores[f][i2];
-      if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
-      obj[campos[k]] = v;
-    }
-    salida.push(obj);
-  }
-  return salida;
+  return Modelo_leerCamposProyectados_(HOJAS.PACIENTES, campos);
 }
 
 // ---------------------------------------------------------------------------
@@ -1835,7 +1887,7 @@ function Limpieza_esPacienteDePrueba(paciente, rutsPrueba) {
  * GAS: recolecta las filas de INGRESO_* marcadas con la marca de prueba.
  * @returns {ruts:[], hojas:{hoja:[filasSheet]}, totalFilas:number}
  */
-function Limpieza_colectar() {
+function Limpieza_colectar_() {
   var ruts = [], hojas = {}, totalFilas = 0;
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
@@ -1867,7 +1919,7 @@ function Limpieza_colectar() {
  * elimina SOLO pacientes/eventos identificados como prueba y las filas
  * marcadas en INGRESO_*. Refresca vistas al terminar.
  */
-function Limpieza_ejecutar(colecta) {
+function Limpieza_ejecutar_(colecta) {
   var resumen = { pacientes: 0, eventos: 0, filasIngreso: colecta.totalFilas };
   var ss = Modelo_ss();
   var esquema = Modelo_asegurarEsquemaPacientes_();
@@ -2076,8 +2128,15 @@ function Modelo_alinearVistasSectoriales_() {
  */
 function Modelo_refrescarVistasSectores_(sectores) {
   Modelo_invalidarLecturas();
-  var pacientes = Modelo_leerPacientes();
-  var eventos = Modelo_leerEventos();
+  // Una vista usa 15 campos canónicos de PACIENTES y cuatro de EVENTOS. Los
+  // lectores proyectados evitan releer las 31/16 columnas completas en cada
+  // RPC sectorial, sin persistir datos clínicos entre requests.
+  var camposVista = COLUMNAS_SECTOR_VISTA.filter(function (campo) {
+    return campo !== 'EDAD' && campo !== 'ULTIMO_EVENTO';
+  });
+  if (camposVista.indexOf('SECTOR') < 0) camposVista.push('SECTOR');
+  var pacientes = Modelo_leerPacientesCampos(camposVista);
+  var eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO', 'FECHA_REGISTRO']);
   var ultimo = Ev_ultimoPorPaciente(eventos);
   var conteo = {};
   var objetivo = (sectores && sectores.length)
@@ -2091,9 +2150,13 @@ function Modelo_refrescarVistasSectores_(sectores) {
     var hoja = Modelo_ss().getSheetByName(nombreHoja);
     if (!hoja) return;
     var ini = Modelo_dataStartRow(nombreHoja);
-    // limpia área de datos completa antes de reescribir (desde dataStartRow)
-    hoja.getRange(ini, 1, Math.max(hoja.getMaxRows() - (ini - 1), 1), COLUMNAS_SECTOR_VISTA.length).clearContent();
     var filas = Modelo_vistaSectorDesdePacientes(pacientes, sector, ultimo);
+    // Limpia solo el área gestionada: extensión usada previa o nueva. La
+    // capacidad física (getMaxRows) no representa datos y puede ser enorme.
+    var usadasPrevias = Math.max(hoja.getLastRow() - ini + 1, 0);
+    var filasGestionadas = Math.max(usadasPrevias, filas.length);
+    if (filasGestionadas > 0)
+      hoja.getRange(ini, 1, filasGestionadas, COLUMNAS_SECTOR_VISTA.length).clearContent();
     if (filas.length) {
       Utl_escribirBloque(hoja, ini, 1, filas);
       // EDAD: fórmula DATEDIF(viva sobre FECHA_NACIMIENTO, se actualiza con HOY()
@@ -2132,39 +2195,23 @@ function Modelo_leerEventos() {
 /** LECTOR LIGERO de EVENTOS (PERF menú): objetos con SOLO los campos pedidos.
  *  Reutiliza el bloque memoizado (UNA lectura de hoja); evita alocar todos los
  *  campos. Campos ausentes en el encabezado → omitidos. */
-function Modelo_hayCorreccionesFecha_() {
-  var hoja=Modelo_hoja(HOJAS.EVENTOS);
-  if(!hoja)return false;
-  var filas=_memoLeer(hoja,'EVENTOS');
-  if(!filas.length)return false;
-  var col=filas[0].indexOf('DESCRIPCION');
-  if(col<0)return false;
-  for(var i=1;i<filas.length;i++)if(Utl_texto(filas[i][col]).indexOf('CORRECCION_FECHA_V4:')===0)return true;
+function Modelo_hayCorreccionesFecha_(filasDescripcion) {
+  var filas = filasDescripcion || Modelo_leerCamposProyectados_(HOJAS.EVENTOS, ['DESCRIPCION']);
+  for(var i=0;i<filas.length;i++)if(Utl_texto(filas[i].DESCRIPCION).indexOf('CORRECCION_FECHA_V4:')===0)return true;
   return false;
 }
 
 function Modelo_leerEventosCampos(campos) {
-  if ((campos || []).indexOf('FECHA_EVENTO') !== -1 && typeof Captura_eventosVigentes_ === 'function' && Modelo_hayCorreccionesFecha_()) {
-    return Modelo_leerEventos().map(function(e){var o={};campos.forEach(function(k){if(k in e)o[k]=e[k];});return o;});
-  }
-
-  var hoja = Modelo_hoja(HOJAS.EVENTOS);
-  if (!hoja) return [];
-  var valores = _memoLeer(hoja, 'EVENTOS');
-  if (!valores.length) return [];
-  var enc = valores[0];
-  var pos = (campos || []).map(function (cam) { return enc.indexOf(cam); });
-  var salida = [];
-  for (var f = 1; f < valores.length; f++) {
-    var o = {};
-    for (var k = 0; k < pos.length; k++) {
-      var i2 = pos[k];
-      if (i2 < 0) continue;
-      o[campos[k]] = valores[f][i2];
-    }
-    salida.push(o);
-  }
-  return salida;
+  campos = campos || [];
+  var lectura = campos.slice();
+  var corrigeFecha = campos.indexOf('FECHA_EVENTO') !== -1 && typeof Captura_eventosVigentes_ === 'function';
+  if (corrigeFecha) ['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'FUENTE', 'DESCRIPCION']
+    .forEach(function (campo) { if (lectura.indexOf(campo) < 0) lectura.push(campo); });
+  var salida = Modelo_leerCamposProyectados_(HOJAS.EVENTOS, lectura);
+  if (corrigeFecha && Modelo_hayCorreccionesFecha_(salida)) salida = Captura_eventosVigentes_(salida);
+  return salida.map(function (e) {
+    var o = {}; campos.forEach(function (campo) { if (campo in e) o[campo] = e[campo]; }); return o;
+  });
 }
 
 // ---------------------------------------------------------------------------

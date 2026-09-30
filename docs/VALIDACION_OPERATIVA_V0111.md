@@ -10,10 +10,7 @@ No crear otro deployment, Spreadsheet ni proyecto.
 - [ ] Cambiar una fila válida de `INGRESO_*` a `INGRESADO` y verificar paciente, evento `INGRESO`, fuente hoja/fila y vista sectorial.
 - [ ] Ejecutar nuevamente la auditoría profunda; debe quedar `OK` o explicar cada diferencia restante.
 - [ ] Abrir **Backups** y comprobar horario, retención, carpeta, última copia y tipos de backup.
-- [ ] Verificar el `/exec` sin cuenta Google **y sin parámetro `?acceso=`**: inicio,
-      Captura, QR/enlace, ficha y todos los paneles. Desde v0.16.0 el acceso es
-      libre y no hay credencial que aportar (DEC-097); además conviene abrir el
-      QR impreso viejo, que debe seguir funcionando con su `?acceso=` inerte.
+- [ ] Verificar el `/exec` sin cuenta Google: inicio, Captura, QR/enlace y ficha mediante la credencial universal.
 
 Si una comprobación falla, conservar los eventos/filas implicados y registrar el
 estado técnico; la reparación no elimina huérfanos ni duplicados automáticamente.
