@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.16.2-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.3-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,42 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.16.2` — el acceso concede siempre (DEC-102: ningún token puede bloquear una función); acceso universal (una sola credencial abre todo el sistema); webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+| **Estado** | `v0.16.3` — nada se pierde en silencio (DEC-103: errores de captura persistidos, escrituras serializadas); el acceso concede siempre (DEC-102: ningún token bloquea una función); acceso universal; webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+
+## v0.16.3 — nada se pierde en silencio (DEC-103)
+
+Tras devolver el acceso (v0.16.2) se revisaron las rutas de escritura y
+aparecieron cuatro defectos que no bloqueaban el acceso pero sí destruían o
+escondían información: la razón por la que el incidente no se pudo diagnosticar.
+
+- **Un 500 en las 14 vistas por credencial.** `WebApp_claveUniversal_` lanzaba si
+  no lograba el lock en 5 s y `doGet` la llamaba sin `try/catch`: dos cargas
+  simultáneas sobre un almacén de propiedades recién vacío fallaban en todas
+  partes. Ahora degrada a cadena vacía y `doGet` resuelve la credencial con
+  `try/catch`.
+- **La IA se autodeshabilitaba.** `WebApp_accesoUniversalActivo_` devolvía
+  `false` si la credencial no se resolvía y denegaba 11 funciones de `28_IA.js`.
+  Con acceso universal está activo por definición.
+- **Los errores de captura nunca se persistían.** `26_Captura.js` no tenía ni un
+  `Log_flush`: todo fallo vivía en memoria y se perdía al reciclar el
+  contenedor. Ahora se vuelcan a la hoja LOG y se registran las causas que se
+  descartaban (registro no confirmado, relectura fallida tras escribir, agenda no
+  guardada, fast-path A2 y el `captureId` rechazado por contención de lock, que
+  antes no dejaba ni rastro).
+- **Reescrituras totales sin serializar.** `Limpieza` y `Recuperar` limpian y
+  reescriben PACIENTES/EVENTOS/INGRESO_* por bloques; sin lock, una captura
+  confirmada entre el snapshot y el `clear` se borraba. Ahora pasan por
+  `Ecicep_conLock_` y devuelven `SERVICIO_OCUPADO` sin tocar nada. Además la
+  reparación de campos técnicos invalida la caché **después** de escribir.
+
+Guardas: `tests/acceso_disponibilidad_vNEXT.mjs` —que ya era prometido en el mapa
+de vistas— fija que la credencial nunca bloquea nada, y la sección F de
+`tests/operador_resiliencia_vNEXT.mjs` fija la serialización y el volcado de
+errores. Ambas se comprobaron con mutaciones deliberadas del código.
+
+Tres riesgos siguen abiertos y documentados en `PENDIENTES.md`: anexión sin lock
+en la carga real y el webhook, carrera de caché al repoblar, y una fila de
+revisión con detalle inválido que se descarta en silencio.
 
 ## v0.16.2 — el acceso concede siempre (DEC-102)
 

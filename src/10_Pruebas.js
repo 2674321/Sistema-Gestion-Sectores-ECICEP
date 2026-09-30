@@ -2901,7 +2901,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.2', 'versión esperada v0.16.2');
+    A.igual(v, '0.16.3', 'versión esperada v0.16.3');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3141,7 +3141,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.2', 'versión esperada v0.16.2');
+    A.igual(v, '0.16.3', 'versión esperada v0.16.3');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5834,7 +5834,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   // Los guards niegan cualquier credencial que no sea la vigente —incluida la
   // ausencia de credencial— y autorizan con cualquiera de las claves canónicas
   // o heredadas. No existe separación entre operador y usuario.
-  t('P0 v0.16.2: acceso universal — guards niegan credencial ausente o ajena', function () {
+  t('P0 v0.16.3: acceso universal — guards niegan credencial ausente o ajena', function () {
     A.cierto(WebApp_usuarioActivo_() !== '', 'con sesión (mock) hay usuario');
     var originalProps = globalThis.PropertiesService;
     var originalUtils = globalThis.Utilities;
@@ -5880,7 +5880,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
   // DEC-102: los guards de RPC ya NO deniegan por credencial. Una pestaña con
   // token vacío o viejo debe llegar al motor, nunca quedar bloqueada por acceso.
-  t('P0 v0.16.2: los guards RPC no deniegan por credencial (DEC-102)', function () {
+  t('P0 v0.16.3: los guards RPC no deniegan por credencial (DEC-102)', function () {
     function noDeniega(fn) {
       try {
         var r = fn();
@@ -6429,7 +6429,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.2', 'VERSION es 0.16.2');
+    A.cierto(ECICEP.VERSION === '0.16.3', 'VERSION es 0.16.3');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

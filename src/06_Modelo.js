@@ -275,7 +275,13 @@ function Modelo_repararCamposTecnicos_() {
     }
     salida.push(fila);
   }
-  if (res.reparados > 0) Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, salida);
+  if (res.reparados > 0) {
+    Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, salida);
+    // La reescritura dejó obsoleta cualquier lectura previa de PACIENTES. Sin
+    // esta invalidación, un lector concurrente podía repoblar la caché con el
+    // bloque anterior a la reparación y el sistema servía datos rancios.
+    Modelo_invalidarLecturas();
+  }
   return res;
 }
 
@@ -1919,7 +1925,25 @@ function Limpieza_colectar_() {
  * elimina SOLO pacientes/eventos identificados como prueba y las filas
  * marcadas en INGRESO_*. Refresca vistas al terminar.
  */
+/**
+ * Limpieza de datos de prueba — serializada con el lock de script (§34).
+ *
+ * El cuerpo borra y reescribe PACIENTES, EVENTOS e INGRESO_* por bloques
+ * (clearContent + setValues). Sin lock, una captura confirmada entre el snapshot
+ * y el clear se borraba: se perdían datos clínicos, no solo vistas derivadas. Con
+ * lock ocupado NO se reescribe nada y se devuelve SERVICIO_OCUPADO, que es
+ * explícitamente reintentable.
+ */
 function Limpieza_ejecutar_(colecta) {
+  var r = Ecicep_conLock_(function () { return Limpieza_ejecutarBloque_(colecta); });
+  if (r && r.codigo === 'SERVICIO_OCUPADO') {
+    Log_error('Limpieza', 'ejecutar', 'Script ocupado: no se reescribió ninguna hoja');
+    Log_flush();
+  }
+  return r;
+}
+
+function Limpieza_ejecutarBloque_(colecta) {
   var resumen = { pacientes: 0, eventos: 0, filasIngreso: colecta.totalFilas };
   var ss = Modelo_ss();
   var esquema = Modelo_asegurarEsquemaPacientes_();
@@ -2393,7 +2417,21 @@ function Recuperar_inventario(prefijoFuente) {
  * Ejecuta la recuperación selectiva: elimina SOLO los registros identificados.
  * NO toca registros que no estén en el inventario. Requiere confirmación previa.
  */
+/**
+ * Reversión por fuente — serializada con el lock de script (§34).
+ * Misma razón que `Limpieza_ejecutar_`: borra y reescribe EVENTOS/PACIENTES por
+ * bloques, y sin serializar puede borrar una captura concurrente.
+ */
 function Recuperar_ejecutar_(prefijoFuente) {
+  var r = Ecicep_conLock_(function () { return Recuperar_ejecutarBloque_(prefijoFuente); });
+  if (r && r.codigo === 'SERVICIO_OCUPADO') {
+    Log_error('Recuperar', 'ejecutar', 'Script ocupado: no se reescribió ninguna hoja');
+    Log_flush();
+  }
+  return r;
+}
+
+function Recuperar_ejecutarBloque_(prefijoFuente) {
   var datos = Recuperar_identificar(prefijoFuente);
   var ss = Modelo_ss();
   var esquema = Modelo_asegurarEsquemaPacientes_();

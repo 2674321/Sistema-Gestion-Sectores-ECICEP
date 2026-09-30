@@ -79,8 +79,8 @@ function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
  * no se pudo dejar ninguna credencial persistida.
  */
 function WebApp_claveUniversal_() {
-  var props = PropertiesService.getScriptProperties();
-  var clave = WebApp_claveExistente_();
+  var clave = '';
+  try { clave = WebApp_claveExistente_(); } catch (e) { return ''; }
   if (clave) return clave;
   var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
   if (lock && !lock.tryLock(5000)) {
@@ -88,23 +88,26 @@ function WebApp_claveUniversal_() {
     // reintenta la lectura con espera acotada antes de rendirse; crear aquí
     // DUPLICARÍA la credencial y una pestaña quedaría con un token obsoleto.
     for (var i = 0; i < 5; i++) {
-      clave = WebApp_claveExistente_();
+      try { clave = WebApp_claveExistente_(); } catch (ign) { return ''; }
       if (clave) return clave;
       if (typeof Utilities !== 'undefined' && typeof Utilities.sleep === 'function') Utilities.sleep(120);
     }
-    throw new Error('ACCESO_UNIVERSAL_NO_INICIALIZADO');
+    // DEC-102: sin credencial NO se interrumpe el servicio. Antes se lanzaba
+    // aquí y `doGet` —que la llama sin try/catch— devolvía 500 para TODAS las
+    // vistas: la misma clase de bloqueo total que Provocaron DEC-097/DEC-101.
+    // La credencial es trazabilidad; el acceso no depende de ella.
+    return '';
   }
   try {
     clave = WebApp_claveExistente_();
     if (!clave) {
       clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-      props.setProperty('ECICEP_ACCESS_TOKEN', clave);
+      PropertiesService.getScriptProperties().setProperty('ECICEP_ACCESS_TOKEN', clave);
     }
     return clave;
   } catch (e) {
-    clave = WebApp_claveExistente_();
-    if (!clave) throw e;
-    return clave;
+    try { clave = WebApp_claveExistente_(); } catch (ign) { return ''; }
+    return clave; // '' si de verdad no se pudo dejar ninguna credencial persistida
   } finally {
     if (lock) { try { lock.releaseLock(); } catch (ign) {} }
   }
@@ -141,14 +144,14 @@ function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValid
 function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
 function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
 
-/** ¿Está operativo el acceso universal? Verdadero siempre que la credencial
- *  del sistema exista o se pueda crear. Sustituye a la antigua allowlist de
- *  identidades (DEC-097): no hay roles, todos los trabajadores operan.
- *  Se usa en funciones internas del proyecto que no reciben credencial por
- *  parámetro (p. ej. las de 28_IA.js). */
-function WebApp_accesoUniversalActivo_() {
-  try { return !!WebApp_claveUniversal_(); } catch (e) { return false; }
-}
+/** ¿Está operativo el acceso universal? Verdadero siempre (DEC-102).
+ *  Sustituye a la antigua allowlist de identidades (DEC-097): no hay roles, todos
+ *  los trabajadores operan. Antes devolvía `false` cuando la credencial no se
+ *  podía resolver, y eso denegaba 11 funciones de `28_IA.js` con «Acceso
+ *  universal del sistema no disponible» por un fallo de Script Properties o
+ *  contención de lock: exactamente el bloqueo que Provocó el incidente. El estado
+ *  real de la credencial se informa en `WebApp_diagnosticoSeguridad_`. */
+function WebApp_accesoUniversalActivo_() { return true; }
 
 /** Diagnóstico sin secretos para instalación/soporte. */
 function WebApp_diagnosticoSeguridad_() {
@@ -248,7 +251,10 @@ function doGet(e) {
   // inyecta la credencial vigente al servir CADA vista, de modo que la URL base
   // —incluidos los QR ya impresos— abre el sistema completo sin parámetros.
   // Un `?acceso=` heredado que llega en un enlace viejo se ignora sin efecto.
-  var acceso = WebApp_claveUniversal_();
+  var acceso = '';
+  // DEC-102: servir una vista NUNCA puede fallar por la credencial. Cualquier
+  // error al resolverla degrada a cadena vacía, que no bloquea nada.
+  try { acceso = WebApp_claveUniversal_() || ''; } catch (ignAcceso) { acceso = ''; }
   if (vista === 'captura') {
     // Captura es la pantalla simple de registro. Comparte la credencial
     // universal y ofrece salida directa al portal de funciones.

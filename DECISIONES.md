@@ -2276,3 +2276,50 @@ si alguien vuelve a condicionar el acceso a un token); núcleo `10_Pruebas`
 674/674 y batería completa 66/66 sin fallos; E2E anónimo sobre el deployment
 operativo. No cambia schema 2 ni el contrato de captura V4.
 **Fecha:** 2026-09-30
+
+## DEC-103
+**Título:** v0.16.3 — endurecimiento posterior al incidente: nada se pierde en silencio.
+**Estado:** Aprobada
+**Motivo:** DEC-102 devolvió el acceso, pero una revisión de las rutas de escritura
+dejó cuatro defectos que no bloqueaban el acceso y sí destruían o escondían
+información. Eran la razón por la que el incidente del día no se pudo diagnosticar.
+
+1. **Un 500 global por credencial.** `WebApp_claveUniversal_` lanzaba
+   `ACCESO_UNIVERSAL_NO_INICIALIZADO` si no lograba el lock en 5 s, y `doGet` la
+   llamaba **sin try/catch**: dos cargas simultáneas sobre un almacén de
+   propiedades recién vacío devolvían error en las 14 vistas. Es la misma clase de
+   fallo que DEC-097 y DEC-101, reintroducida por el propio autoaprovisionamiento.
+   Ahora `WebApp_claveUniversal_` degrada a cadena vacía y `doGet` resuelve la
+   credencial con `try/catch`.
+2. **La IA se autodeshabilitaba.** `WebApp_accesoUniversalActivo_` devolvía
+   `false` cuando la credencial no se resolvía, denegando 11 funciones de
+   `28_IA.js` con «Acceso universal del sistema no disponible». Bajo DEC-102 el
+   acceso está activo por definición; la función devuelve `true` siempre y el
+   estado real de la credencial se informa en `WebApp_diagnosticoSeguridad_`.
+3. **Errores de captura que nunca se persistían.** `26_Captura.js` no tenía un
+   solo `Log_flush`: `Log_error` solo acumula en memoria y el buffer se pierde al
+   reciclar el contenedor, de modo que todo fallo de captura era indistinguible de
+   «no ocurrió nada». Ahora `Captura_v2_logError`/`logInfo` vuelcan a la hoja LOG.
+   Además se dejaron de descartar las causas: motivo real de un registro no
+   confirmado, excepción de la relectura tras escribir, fallo de agenda sobre un
+   `PACIENTES` ya escrito, motivo del fast-path A2 y `captureId` rechazado por
+   contención de lock (el operador ya había enviado el formulario y no se
+   registraba nada).
+4. **Reescrituras totales sin serializar.** `Limpieza_ejecutar_` y
+   `Recuperar_ejecutar_` leen un snapshot y luego hacen `clearContent` +
+   `setValues` sobre PACIENTES, EVENTOS e INGRESO_*. Sin lock, una captura
+   confirmada entre el snapshot y el clear se borraba: pérdida de dato clínico.
+   Ambas pasan ahora por `Ecicep_conLock_` y devuelven `SERVICIO_OCUPADO`
+   (reintentable) sin reescribir nada. Además `Modelo_repararCamposTecnicos_`
+   invalida las lecturas **después** de escribir; antes solo invalidaba antes, y un
+   lector concurrente podía repoblar la caché con el bloque anterior a la
+   reparación.
+
+**Guardas nuevas:** `tests/acceso_disponibilidad_vNEXT.mjs` —el archivo que el
+mapa de vistas ya prometía— fija que resolver la credencial nunca lanza, que
+`doGet` sirve las 13 vistas con la credencial inobtenible y que nadie reintroduce
+un acceso fail-closed; se comprobó que muerde con cuatro mutaciones. La sección F
+de `tests/operador_resiliencia_vNEXT.mjs` fija la serialización de las reescrituras
+y el volcado de los errores de captura.
+**Validación:** núcleo 674/674 y batería 67/67 sin fallos.
+**Fecha:** 2026-09-30

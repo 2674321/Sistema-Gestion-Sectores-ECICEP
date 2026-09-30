@@ -28,6 +28,25 @@
 > columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
 > para medir duración y convergencia reales.
 
+> **Actualización 2026-09-30 (v0.16.3 — DEC-103):** endurecimiento posterior al
+> incidente. Nada se pierde en silencio: errores de captura persistidos en la hoja
+> LOG (antes solo vivían en memoria), causas que ya no se descartan, y
+> `Limpieza`/`Recuperar` serializadas con el lock para que una reescritura total
+> no borre una captura concurrente. Quedan tres riesgos **aún abiertos**, con
+> criterio explícito de no tocarlos a ciegas:
+> 1. `Fuentes_cargaReal_` y las mutaciones del webhook escriben PACIENTES/INGRESO
+>    **sin** el lock de script: dos ejecuciones simultáneas pueden calcular la
+>    misma fila destino. No se serializó porque la carga real es larga y
+>    bloquearía las capturas con SERVICIO_OCUPADO durante toda su duración; la
+>    solución correcta es hacer atómica la anexión, no tomar el lock global.
+> 2. Carrera de caché: un lector puede repoblar en caché un bloque que una
+>    escritura concurrente ya invalidó. Se acota con doble invalidación, pero el
+>    cierre real exige versionar el bloque con un contador y revalidar antes del
+>    `put`.
+> 3. Cola de revisión: una fila abierta cuyo detalle no es JSON válido se descarta
+>    en silencio al calcular las métricas (`07_UI.js`, parseo de `TRAZA_CRUDA`),
+>    de modo que el operador ve menos casos pendientes de los que existen.
+
 > **Actualización 2026-09-30 (v0.16.2 — DEC-102):** corregido el error en
 > producción «api_buscar: se requiere autorización para realizar esa acción». Los
 > guards RPC validaban el **formato** del token, así que una pestaña con el token
