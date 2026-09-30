@@ -222,7 +222,7 @@ function backend(proHoja) {
   });
   c.Libro_limpiarDirty_ = () => {};
   c.Libro_estaDirty_ = () => false;
-  c.ECICEP = { VERSION: '0.15.0', TZ: 'America/Santiago' };
+  c.ECICEP = { VERSION: '0.16.0', TZ: 'America/Santiago' };
   c.ECICEP_BUILD = { commit: 'test123' };
   c.WebApp_urlVista_ = v => '#vista-' + v;
   c.WebApp_urlCaptura_ = () => '#captura';
@@ -391,7 +391,7 @@ const escrituras = () => [...RPC.entries()]
     assert.equal(pro.hoja.getRange(a1).getFormula(), '', a1 + ' sin fórmula');
   assert.equal(pro.hoja.getRange('A11').getValue(), '5');
   assert.equal(pro.hoja.getRange('R42').getValue(), '1');
-  assert.equal(pro.hoja.getRange('AI42').getValue(), 'v0.15.0');
+  assert.equal(pro.hoja.getRange('AI42').getValue(), 'v0.16.0');
   ok('T8 valores agregados sin fórmulas vivas (KPIs, cards, estado, estratificación, info)');
 }
 

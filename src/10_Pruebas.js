@@ -2897,7 +2897,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.15.0', 'versión esperada v0.15.0');
+    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3137,7 +3137,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.15.0', 'versión esperada v0.15.0');
+    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5187,7 +5187,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.15'), 0, 'versión de aplicación coherente (0.15.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.16'), 0, 'versión de aplicación coherente (0.16.x)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -5826,21 +5826,59 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(Aud_anonRut('11111111-1'), '**.***.**11-1', 'DV explícito');
     A.igual(Aud_anonRut(''), '', 'vacío');
   });
-  // Access control: guards deniegan sin sesión y habilitan con sesión
-  t('P0 v0.98: guards de sesión deniegan acceso sin usuario activo', function () {
+  // ACCESO LIBRE (DEC-097, v0.16.0): el sistema no pide credenciales. Este test
+  // sustituye al de v0.10.3 ("guards de sesión deniegan"), que ya no describe el
+  // comportamiento: ahora la decisión de acceso concede siempre y lo único que
+  // se comprueba es la válvula ACCESO_LIBRE, que es deliberada.
+  t('P0 v0.16: acceso libre — sin sesión ni token la decisión de acceso concede', function () {
     A.cierto(WebApp_usuarioActivo() !== '', 'con sesión (mock) hay usuario');
     var original = globalThis.Session;
     try {
       globalThis.Session = undefined;
       A.igual(WebApp_usuarioActivo(), '', 'sin sesión → vacío');
-      // v0.10.5 §12: api_buscar denegado → {ok:false,codigo:'ACCESO_DENEGADO',motivo,filas:[]}
-      A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar sin sesión → denegado con filas vacías');
-      A.igual(api_ficha('X').ok, false, 'api_ficha sin sesión → denegado');
-      A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar sin sesión → denegado');
-      A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado');
+      A.igual(WebApp_accesoLibre_(), true, 'sin ACCESO_LIBRE el sistema es libre');
+      A.igual(WebApp_autorizar(''), true, 'sin token se concede');
+      A.igual(WebApp_autorizar(undefined), true, 'token ausente se concede');
+      A.igual(WebApp_autorizar('token-inventado'), true, 'token inventado se concede: no es credencial');
+      A.igual(WebApp_autorizarBuscador(''), true, 'alias de buscador concede');
+      A.igual(WebApp_autorizarCaptura(''), true, 'alias de captura concede');
+      // Lo que sigue exigiendo sesión real lo hace por necesidad propia, no por
+      // control de acceso: escribir un secreto y el pipeline legacy de Sheets.
+      A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado (escribe un secreto)');
       A.igual(Form_capturarDesdeUI_legacy_({}).ok, false, 'Form_capturarDesdeUI_legacy_ sin sesión → denegado');
     } finally {
       globalThis.Session = original;
+    }
+  });
+
+  t('P0 v0.16: la válvula ACCESO_LIBRE es la única forma de volver a pedir credencial', function () {
+    var original = globalThis.PropertiesService;
+    var originalSession = globalThis.Session;
+    var almacen = { CAPTURA_ACCESS_TOKEN: 'e'.repeat(64), ACCESO_LIBRE: '0' };
+    globalThis.PropertiesService = {
+      getScriptProperties: function () {
+        return {
+          getProperty: function (k) { return Object.prototype.hasOwnProperty.call(almacen, k) ? almacen[k] : null; },
+          setProperty: function (k, v) { almacen[k] = String(v); }
+        };
+      }
+    };
+    try {
+      // Sin sesión: así se ejercita la credencial, no el atajo de sesión activa.
+      globalThis.Session = undefined;
+      A.igual(WebApp_accesoLibre_(), false, 'ACCESO_LIBRE=0 cierra el sistema');
+      A.igual(WebApp_autorizar(''), false, 'sin token → denegado con la válvula cerrada');
+      A.igual(WebApp_autorizar('basura'), false, 'token inválido → denegado');
+      A.igual(WebApp_autorizar(almacen['CAPTURA_ACCESS_TOKEN']), true, 'el token universal entra');
+      A.igual(JSON.stringify(api_buscar('EXISTE')),
+        '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}',
+        'api_buscar sin token → denegado con filas vacías (válvula cerrada)');
+      delete almacen.ACCESO_LIBRE;
+      A.igual(WebApp_accesoLibre_(), true, 'sin la propiedad: libre otra vez (comportamiento de fábrica)');
+      A.igual(WebApp_autorizar(''), true, 'y concede sin token');
+    } finally {
+      globalThis.PropertiesService = original;
+      globalThis.Session = originalSession;
     }
   });
 
@@ -6378,7 +6416,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.15.0', 'VERSION es 0.15.0');
+    A.cierto(ECICEP.VERSION === '0.16.0', 'VERSION es 0.16.0');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

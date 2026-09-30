@@ -24,26 +24,34 @@
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP
-//   v0.10.7 (DEC-071): Incorporación de ingresos clara para el operador —
-//     incorporación individual y masiva de válidos reutilizando el pipeline único;
-//   v0.10.6 (DEC-070): Controles y seguimientos por persona (selector 100% cliente) + REM sin loader falso;
-//   v0.10.5 (DEC-069 supera DEC-068/DEC-067): fiabilidad operativa + lecturas acotadas;
-//   v0.10.4 (DEC-068 supera DEC-067): una sola credencial habilita TODAS las
-//   funciones operativas del sistema (captura, actualizar ficha, Controles,
-//   Dashboard, REM, Revisión, Configuración, Backups…). Se elimina la
-//   separación de capacidades CAPTURA ≠ OPERADOR: el enlace de trabajo del
-//   sistema otorga el mismo acceso a cualquier trabajador autorizado.
+// CONTROL DE ACCESO — ACCESO UNIVERSAL / LIBRE (ECICEP)
+//   v0.16.0 (DEC-097): ACCESO LIBRE. El sistema NO pide permisos ni credenciales.
+//     Quien abre el enlace opera todo: capturar, ficha, Controles, Dashboard,
+//     REM, Revisión, Configuración, Backups, Registro, Instalador. No hay
+//     pantalla de consentimiento, ni token que se pueda extraviar, ni rechazo
+//     por enlace perdido. El parámetro `?acceso=` de la URL se conserva por
+//     compatibilidad con los enlaces y QR ya impresos, pero ya NO decide
+//     nada: es un valor inerte.
 //
-//   Credencial canónica: CAPTURA_ACCESS_TOKEN. Su valor se CONSERVA: el
-//   QR/URL vigente no se invalida con este hotfix.
-//   OPERADOR_ACCESS_TOKEN queda OBSOLETO pero se acepta como token legacy de
-//   transición (no rompe pestañas/enlaces abiertos durante v0.10.3).
-//   El token del webhook sigue siendo independiente y no se comparte en el QR.
+//   Válvula de seguridad (opcional, para cuando el propietario quiera volver
+//   a cerrar el sistema): propiedad de Script Properties `ACCESO_LIBRE`.
+//     - ausente, o `1`/`true`/`sí`   → LIBRE (comportamiento por defecto)
+//     - `0`/`false`/`no`             → cerrado: se exige el token universal
+//   La propiedad NO se crea ni se inicializa desde el código: si no existe,
+//   el sistema es libre. Nadie tiene que ejecutar un paso de "autorizar"
+//   para que el sistema funcione.
+//
+//   El token del webhook sigue siendo independiente: es una credencial de
+//   integración, no de acceso de personas, y no se comparte en el QR.
 // ---------------------------------------------------------------------------
 
-/** Autoriza el acceso universal: sesión activa o token universal válido. */
+/**
+ * Autoriza el acceso al sistema. En ACCESO LIBRE (por defecto) autoriza
+ * siempre y no llega a inspeccionar el token. En modo cerrado (ACCESO_LIBRE
+ * desactivado a propósito) exige sesión activa o el token universal válido.
+ */
 function WebApp_autorizar(token) {
+  if (WebApp_accesoLibre_()) return true;
   if (WebApp_usuarioActivo()) return true;
   return WebApp_accesoUniversalValido_(token);
 }
@@ -53,32 +61,56 @@ function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
 function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
 
 /**
- * Clave universal del sistema (credencial canónica CAPTURA_ACCESS_TOKEN).
+ * ¿El sistema está en ACCESO LIBRE? Por defecto sí: la propiedad no existe.
+ * Solo una decisión explícita del propietario lo cierra.
+ */
+function WebApp_accesoLibre_() {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty('ACCESO_LIBRE');
+    if (v === null || v === undefined) return true;   // ausente → libre
+    v = String(v).trim().toLowerCase();
+    if (!v) return true;                              // vacío → libre
+    return ['0', 'false', 'no', 'off', 'cerrado'].indexOf(v) === -1;
+  } catch (e) { return true; }                        // ilegible → libre
+}
+
+/**
+ * Clave universal del sistema (parámetro `?acceso=` de los enlaces).
+ * En ACCESO LIBRE esta clave ya NO es una credencial: se conserva solo para
+ * que los enlaces y QR ya impresos sigan siendo idénticos.
  * Devuelve de inmediato el valor existente; solo toma el lock para CREAR la
- * clave cuando la propiedad falta. Nunca devuelve '' si la clave existe:
- * ante contención o fallo relee sin lock y solo falla si realmente no existe.
+ * clave cuando la propiedad falta. NUNCA lanza: si no se puede leer, crear ni
+ * releer la clave devuelve '' y el sistema sigue funcionando igual, porque el
+ * acceso no depende de ella.
  */
 function WebApp_claveUniversal_() {
-  var props = PropertiesService.getScriptProperties();
-  var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-  if (clave) return clave;
+  var props;
+  try { props = PropertiesService.getScriptProperties(); }
+  catch (e) { return ''; }
+  try {
+    var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    if (clave) return clave;
+  } catch (eLectura) { return ''; }
   var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
   if (lock && !lock.tryLock(5000)) {
-    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-    if (!clave) throw new Error('ACCESO_UNIVERSAL_NO_INICIALIZADO');
-    return clave;
+    try {
+      var releida = props.getProperty('CAPTURA_ACCESS_TOKEN');
+      if (releida) return releida;
+    } catch (eRelectura) { return ''; }
+    return ''; // sin clave y con contención: el acceso libre no la necesita
   }
   try {
-    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-    if (!clave) {
-      clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-      props.setProperty('CAPTURA_ACCESS_TOKEN', clave);
+    var actual = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    if (!actual) {
+      actual = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+      props.setProperty('CAPTURA_ACCESS_TOKEN', actual);
     }
-    return clave;
+    return actual;
   } catch (e) {
-    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
-    if (!clave) throw e;
-    return clave;
+    try {
+      var ultimate = props.getProperty('CAPTURA_ACCESS_TOKEN');
+      return ultimate || '';
+    } catch (e2) { return ''; }
   } finally {
     if (lock) { try { lock.releaseLock(); } catch (ign) {} }
   }
@@ -104,16 +136,27 @@ function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValid
 function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
 function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
 
-/** URL universal del sistema (QR y enlace de distribución). */
+/**
+ * URL universal del sistema (QR y enlace de distribución).
+ * El parámetro `?acceso=` se conserva si existe la clave, para que los
+ * enlaces ya impresos no cambien. Si no hay clave, se entrega la URL desnuda:
+ * en ACCESO LIBRE funciona igual y nunca se devuelve una URL vacía.
+ */
 function WebApp_urlCompartida_() {
+  var base = ECICEP_webAppUrl();
   var clave = WebApp_claveUniversal_();
-  return clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
+  return clave ? base + '?acceso=' + encodeURIComponent(clave) : base;
 }
 
-/** URL de una vista operativa. Usa la misma credencial universal del sistema. */
+/**
+ * URL de una vista operativa. Usa la misma credencial universal del sistema.
+ * El separador se elige según exista o no cadena de consulta, para que la
+ * vista funcione tanto con `?acceso=` como con la URL desnuda.
+ */
 function WebApp_urlVista_(vista) {
   var url = WebApp_urlCompartida_();
-  return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
+  if (!url || !vista) return url;
+  return url + (url.indexOf('?') === -1 ? '?' : '&') + 'vista=' + encodeURIComponent(vista);
 }
 
 /** Alias heredado de URL de vista: misma URL universal. */
@@ -156,11 +199,15 @@ function doGet(e) {
     return _wh_despachar(e);
   }
   var p = e && e.parameter || {};
+  // `acceso` se sigue leyendo para no romper los enlaces y QR en circulación,
+  // pero en ACCESO LIBRE no decide nada (DEC-097).
   var acceso = String(p.acceso || '').trim();
   var vista = String(p.vista || 'captura').trim();
   if (vista === 'captura') {
     return WebApp_servirCaptura_();
   }
+  // ACCESO LIBRE: WebApp_autorizar concede siempre. La rama queda solo para el
+  // modo cerrado (ACCESO_LIBRE desactivado a propósito por el propietario).
   if (!WebApp_autorizar(acceso)) {
     return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
   }

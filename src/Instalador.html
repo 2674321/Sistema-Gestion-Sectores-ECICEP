@@ -557,7 +557,7 @@ function cargarDiagnostico(btn){
       if(visual.total)mensajeDiagnostico='Presentación: '+visual.texto+'. Se repararán únicamente las diferencias detectadas.';
       else if(pendientes.length)mensajeDiagnostico=pendientes.length+' comprobaciones requieren atención. Abre el detalle técnico para revisarlas.';
       else mensajeDiagnostico='El sistema está al día. Cada reparación comprobará el estado antes de escribir.';
-    }else if(r&&r.motivo==='ACCESO_DENEGADO')mensajeDiagnostico='El enlace de acceso no es válido. Solicita uno actualizado desde Captura.';
+    }else if(r&&r.motivo==='ACCESO_DENEGADO')mensajeDiagnostico='Acceso restringido: el sistema está cerrado y este enlace no es válido.';
     texto('diagResumen',mensajeDiagnostico);
     renderDiagnostico();
   }).withFailureHandler(function(e){

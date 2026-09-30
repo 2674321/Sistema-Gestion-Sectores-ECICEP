@@ -22,12 +22,27 @@
 > La revisión del 2026-09-16 implementa y prueba la extensión V3 en el mismo backend y pipeline.
 > La pasada v0.10.4 (2026-09-22) estableció el **ACCESO UNIVERSAL ECICEP**
 > (DEC-068, supera DEC-067): una sola credencial `CAPTURA_ACCESS_TOKEN` (valor
-> conservado) autoriza el canal de captura (`WebApp_capturarEnviar`, preflight
+> conservado) autorizaba el canal de captura (`WebApp_capturarEnviar`, preflight
 > de duplicados) **y** toda la operación de ficha/administrativa (ficha,
 > revisión, asistencia REM, configuración, backups, CentroPruebas).
 > `OPERADOR_ACCESS_TOKEN` quedó obsoleto y solo se acepta como legacy de
-> transición. El preflight no filtra datos identificables de candidatos y todo
-> RPC exige credencial válida (token inválido/ausente → `ACCESO_DENEGADO`).
+> transición. El preflight no filtra datos identificables de candidatos.
+>
+> La pasada v0.16.0 (2026-09-30) lo sustituye por el **ACCESO LIBRE**
+> (DEC-097, supera DEC-068) y es lo que rige hoy:
+> - **[DECISIÓN]** Ningún RPC exige credencial. El canal de captura y toda la
+>   operación de ficha/administrativa se abren con la sola URL, sin token, sin
+>   cuenta de Google y sin consentimiento de permisos. Token inválido o
+>   ausente ya **no** produce `ACCESO_DENEGADO`.
+> - **[DECISIÓN]** El parámetro `?acceso=` se conserva en la URL (los enlaces y
+>   QR ya emitidos no cambian) pero es **inerte**: no autoriza ni rechaza.
+> - **[DECISIÓN]** La atribución no puede bloquear un envío: `Captura_v2_ctx`
+>   usa el correo si hay sesión y si no la etiqueta `ACCESO_LIBRE`. Exigir
+>   identidad aquí producía "acceso denegado" en producción y perdía el registro.
+> - **[DECISIÓN]** Los guards `WebApp_autorizarBuscador`/`WebApp_autorizarCaptura`
+>   se conservan: son la válvula `ACCESO_LIBRE`, inalcanzables en el estado de
+>   fábrica. `ACCESO_DENEGADO` sigue siendo un motivo válido del contrato, solo
+>   que hoy solo se emite con el sistema cerrado deliberadamente.
 
 ---
 

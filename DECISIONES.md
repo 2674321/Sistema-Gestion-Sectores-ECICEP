@@ -2151,3 +2151,58 @@ exige seleccionar el intervalo combinado COMPLETO para separarlo, así que `brea
 (4) el verifier exige cero combinaciones fuera del lienzo (`MERGE_FUERA`).
 Regresión cubierta por `inicio_pro_v015` T10/T10b con mock fiel a la regla de Sheets.
 **Fecha:** 2026-09-26
+
+## DEC-097
+**Título:** ACCESO LIBRE — el sistema no pide permisos ni credenciales (supera DEC-068/067).
+**Estado:** Aprobada
+**Requisito del propietario:** el sistema pedía permisos "para todo"; debe ser universal en
+accesos, libre, y actualizarse sin cambiar la URL.
+
+**Causa raíz del error reportado.** `Captura_v2_ctx` (`src/26_Captura.js:1338`) derivaba la
+atribución así: `Session.getActiveUser().getEmail()` **o** un token válido. Quien abría
+el QR sin iniciar sesión de Google se quedaba con `usuario=''`, y `Captura_v2_enviar` rechazaba
+el envío con *"Sesión de usuario no detectada; acceso denegado"* — el registro se perdía. Sobre
+eso se apilaba el token: 60 guards `WebApp_autorizarBuscador` que devolvían `ACCESO_DENEGADO`
+ante cualquier enlace que no coincidiera, y mensajes al usuario pidiendo "el QR actualizado".
+
+**Solución.** La decisión de acceso se centraliza y concede siempre:
+- `WebApp_accesoLibre_()` (nuevo, `src/WebApp.gs`): el sistema es libre por defecto. La propiedad
+  de Script Properties `ACCESO_LIBRE` **no se crea ni se inicializa desde el código**; si no
+  existe, es libre. Solo un `0/false/no/off/cerrado` explícito lo cierra. Es la única válvula
+  para volver a exigir credenciales, y es deliberada.
+- `WebApp_autorizar(token)`: en acceso libre concede sin inspeccionar el token. Se conservan los
+  60 guards existentes (no se borra una sola línea de denegación): son la válvula, y ahora son
+  inalcanzables en el estado de fábrica. `WebApp_autorizarBuscador`/`WebApp_autorizarCaptura`
+  siguen delegando — cero cambios en los ~60 call sites.
+- Atribución nunca bloquea: `Captura_v2_ctx` usa el correo si hay sesión (Sheets) y si no la
+  etiqueta estable `ACCESO_LIBRE` (sustituye a `ACCESO_COMPARTIDO`, mismo propósito de seudónimo).
+- `WebApp_claveUniversal_()` **nunca lanza**: degradaba a cadena vacía en vez de abortar la
+  request con `ACCESO_UNIVERSAL_NO_INICIALIZADO`.
+- `WebApp_urlCompartida_()` devuelve la URL desnuda si no hay clave (nunca cadena vacía) y
+  `WebApp_urlVista_()` elige `?` o `&` según exista cadena de consulta.
+
+**Lo que NO cambia.**
+- **La URL y el QR no cambian.** `ECICEP.WEB_APP_URL` intacto; el parámetro `?acceso=` se sigue
+  emitiendo con el mismo valor, así que los enlaces y QR ya impresos siguen sirviendo igual. Solo
+  deja de decidir: es un valor inerte. Se reutiliza el deployment operativo (v0.15.x lo hizo
+  igual), sin deployment nuevo.
+- `SPREADSHEET_ID`, schema `2`, captura V4, `INICIO_LAYOUT_VERSION` y
+  `PRESENTACION_LAYOUT_VERSION` (siguen en 0.15.0 a propósito: tocarlos reconstruiría el libro).
+  Sin migración, sin cambios de datos.
+- El token del webhook sigue siendo secreto propio: es de integración, no de personas.
+- Las herramientas de IA (`src/28_IA.js`) y el pipeline legacy de Sheets siguen exigiendo sesión
+  real: lo necesitan por naturaleza (`getActiveSpreadsheet`, `showModalDialog`), no por control
+  de acceso. Entre ellas `IA_guardarApiKey`, que escribe un secreto.
+- `ECICEP_autorizar` (`src/19_Permisos.js`) deja de presentarse como paso del sistema: es una
+  utilidad **opcional del propietario** para el consentimiento de scopes de Google, que ocurre
+  una vez al desplegar y no lo ve ningún usuario. Los scopes ya están declarados en
+  `appsscript.json`.
+
+**Tests.** `tests/acceso_libre_v0160.mjs` (nuevo, 12/12) y
+`tests/acceso_libre_superficie_v0160.mjs` (nuevo, 7/7) reescriben el contrato; se retiran
+`acceso_universal_v0104.mjs` y `seguridad_capacidades_v0103.mjs` (superados); se ajustan
+`acceso_webapp.mjs`, `rpc_surface_v0103.mjs`, `edicion_paciente_v4.mjs`,
+`instalador_estabilidad.mjs`, `fuentes_modos_produccion_v014.mjs` y el arnes en GAS
+`src/10_Pruebas.js` (P0 v0.98 → dos tests: acceso libre + válvula). Batería: 54 suites, 0
+fallos atribuibles al cambio. `ECICEP.VERSION` 0.16.0 (schema 2, captura V4).
+**Fecha:** 2026-09-30

@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.15.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,32 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.15.1` — fix de producción: INICIO descombina la hoja completa (residuo del marco v0.14) y limpia el área extra; instalador con opciones reales + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+| **Acceso** | **Libre** — sin permisos, sin credenciales, sin cuenta de Google; la URL y el QR no cambian (DEC-097) |
+| **Estado** | `v0.16.0` — fix de producción: INICIO descombina la hoja completa (residuo del marco v0.14) y limpia el área extra; instalador con opciones reales + INICIO PRO A1:AJ50 · esquema 2 · batería sin fallos |
+
+## v0.16.0 — acceso libre: sin permisos, sin credenciales, misma URL
+
+El sistema **ya no pide permisos ni credenciales**. Quien abre el enlace (o
+escanea el QR) usa todo: capturar, ficha, Controles, Dashboard, REM, Revisión,
+Configuración, Backups, Registro e Instalador. Sin cuenta de Google, sin token,
+sin "solicita el QR actualizado" y sin autorización de scopes.
+
+**Causa raíz del error reportado:** `Captura_v2_ctx` exigía sesión de Google **o** un
+token válido para atribuir el registro. Sin sesión (el caso normal del QR) el envío se
+rechazaba con *"Sesión de usuario no detectada; acceso denegado"* y se perdía. La
+atribución ya nunca bloquea: usa el correo si hay sesión y si no una etiqueta
+estable. Sobre eso, la decisión de acceso se centralizó en `WebApp_autorizar`, que
+concede siempre en el estado de fábrica.
+
+**La URL no cambia.** `ECICEP.WEB_APP_URL` y el parámetro `?acceso=` se conservan
+idénticos, así que los QR y enlaces ya impresos siguen sirviendo igual: el valor
+de `?acceso=` deja de decidir y queda inerte. Se reutiliza el deployment
+operativo, sin deployment nuevo.
+
+**Válvula de seguridad (opcional).** Para volver a cerrar el sistema, crea la
+propiedad de Script Properties `ACCESO_LIBRE` con `0` (o `false`/`no`/`off`).
+Si no existe — el estado de fábrica — el sistema es libre. El secreto del webhook es
+independiente y no se comparte. Detalle en DEC-097.
 
 ## v0.15.1 — fix «intervalo combinado» en Portada INICIO
 
@@ -246,8 +271,9 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 - **El QR es permanente y abierto**: su contenido es solo la URL fija del deployment
   operativo. La **URL base abre la captura para cualquier persona** (sin cuenta
   Google ni token, desde v0.9.29): un QR impreso no se invalida al publicar
-  versiones mientras se reutilice el mismo deployment; los paneles, la ficha,
-  Backups y REM siguen exigiendo el enlace compartido vigente. La estabilidad
+  versiones mientras se reutilice el mismo deployment. Desde **v0.16.0** esto se
+  extiende a **todas** las vistas —los paneles, la ficha, Backups y REM ya no exigen
+  el enlace compartido—: con la URL basta (DEC-097). La estabilidad
   está protegida por un test de regresión.
 - El botón Captura del menú Sheets abre la misma Web App desde cualquier
   dispositivo, sin cuenta Google. La URL base **abre la captura a cualquier
@@ -382,9 +408,10 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 las 25 suites disponibles. Batería actual: núcleo **671/671** · aceptación 50/50 ·
 contrato 38/38 · captura backend V2 73/73 · regresiones 44/44 ·
 auditoría v0.10.1 15/15 · ficha-ingresos v0.10.2 **13/13** · instalador_estabilidad PASS ·
-seguridad ACCESO UNIVERSAL **10/10** · rpc surface **4/4** ·
-integridad mutaciones v0.10.3 **9/9** · acceso universal v0.10.4 **7/7** ·
-acceso webapp **8/8** · operador resiliencia vNEXT **32/32** ·
+acceso libre v0.16.0 **12/12** · superficie de acceso libre **7/7** ·
+acceso webapp **9/9** · rpc surface **4/4** ·
+integridad mutaciones v0.10.3 **9/9** ·
+operador resiliencia vNEXT **32/32** ·
 captura lecturas acotadas vNEXT **9/9** · controles/seguimientos + REM v0.10.6 **9/9** ·
 incorporación de ingresos v0.10.7 **12/12** ·
 **22 scripts HTML**.

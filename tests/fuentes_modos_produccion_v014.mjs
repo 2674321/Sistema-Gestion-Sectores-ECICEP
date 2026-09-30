@@ -119,6 +119,9 @@ ok('T5 salud mental y observaciones existentes protegidas');
 
 // T9: preview del endpoint sin PII y sin escribir.
 {
+  // En ACCESO LIBRE no hay credencial que comprobar: el preview se resuelve
+  // siempre y no escribe nada. El rechazo solo existe con la valvula cerrada.
+  c.WebApp_autorizarBuscador = () => false;
   assert.equal(c.api_fuentesImpacto('', 'CONSERVADOR').motivo, 'ACCESO_DENEGADO');
   c.WebApp_autorizarBuscador = t => t === 'x';
   // (comparación por JSON: el objeto nace en el realm vm)
