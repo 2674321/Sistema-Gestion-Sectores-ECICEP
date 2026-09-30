@@ -17,58 +17,78 @@
  * IDs hardcodeados de DEMO ni de producción; el destino de escritura sigue la
  * lógica normal del proyecto Apps Script corriendo.
  *
+ * ACCESO UNIVERSAL (DEC-101): una sola credencial habilita TODAS las funciones
+ * del sistema. No se distingue entre operador y usuario: el sistema solo lo
+ * manejan los trabajadores del CESFAM y todos operan. La credencial se inyecta
+ * en servidor al servir cada vista y nunca viaja en la URL, por lo que un QR
+ * impreso con la URL base abre el sistema completo.
+ *
  * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta las
  * consultas de webhook de solo lectura y las vistas Web; toda mutación remota
  * requiere doPost y habilitación explícita.
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — CAPACIDADES SEPARADAS
-//   v0.10.7 (DEC-071): Incorporación de ingresos clara para el operador —
-//     incorporación individual y masiva de válidos reutilizando el pipeline único;
-//   v0.10.6 (DEC-070): Controles y seguimientos por persona (selector 100% cliente) + REM sin loader falso;
-//   v0.10.5 (DEC-069 supera DEC-068/DEC-067): fiabilidad operativa + lecturas acotadas;
-//   v0.16.0 (DEC-097): CAPTURA y OPERADOR vuelven a ser capacidades distintas.
-//   CAPTURA_ACCESS_TOKEN solo permite registrar; OPERADOR_ACCESS_TOKEN o una
-//   identidad explícitamente permitida habilita vistas administrativas. El
-//   token del webhook es independiente y nunca se comparte en URLs públicas.
+// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP (DEC-101)
+//   Una SOLA credencial habilita TODAS las funciones del sistema: capturar,
+//   ficha, ingresos, controles, estadísticas, REM, revisión, configuración,
+//   backups, registro e instalación.
+//
+//   NO existe distinción entre operador y usuario. El sistema solo lo manejan
+//   los trabajadores del CESFAM y todos operan: separar capacidades dejó el
+//   sistema inaccesible para todos (DEC-097 fue revertido por DEC-101).
+//
+//   Credencial canónica: ECICEP_ACCESS_TOKEN, AUTOAPROVISIONADA si falta
+//   (con lock y relectura), de modo que el sistema nunca queda inaccesible por
+//   una credencial ausente.
+//   Alias heredados aceptados como equivalentes, para que enlaces, QR impresos
+//   y pestañas ya abiertas nunca se rompan: CAPTURA_ACCESS_TOKEN (canónico en
+//   v0.10–v0.16), OPERADOR_ACCESS_TOKEN y LEGACY_ACCESS_TOKEN.
+//
+//   La credencial NUNCA viaja en la URL: el servidor la inyecta al servir cada
+//   vista. Por eso un QR impreso con la URL base sigue funcionando tras rotar
+//   la credencial. El token del webhook es independiente y no se comparte aquí.
 // ---------------------------------------------------------------------------
 
-/** Autoriza exclusivamente operaciones de operador/administración. */
-function WebApp_autorizar(token) {
-  return WebApp_accesoOperadorValido_(token) || WebApp_identidadOperadorAutorizada_();
-}
+/** Claves que contienen (o contuvieron) la credencial universal del sistema.
+ *  Todas son equivalentes: cualquiera vigente abre el sistema completo. */
+var WEBAPP_CLAVES_ACCESO_ = [
+  'ECICEP_ACCESS_TOKEN', 'CAPTURA_ACCESS_TOKEN', 'OPERADOR_ACCESS_TOKEN', 'LEGACY_ACCESS_TOKEN'
+];
 
-/** Boundary de operador usado por todos los api_* administrativos. */
+/** Autoriza el acceso universal: credencial vigente del sistema. */
+function WebApp_autorizar(token) { return WebApp_accesoUniversalValido_(token); }
+
+/** Alias de la superficie RPC: una sola capacidad para todo el sistema. */
 function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
-/** Boundary mínimo del canal de captura: nunca acepta token de operador por alias. */
-function WebApp_autorizarCaptura(token) { return WebApp_accesoCapturaValido_(token); }
+/** Alias del canal de captura: mismo acceso universal, sin capacidades separadas. */
+function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
 
 /**
- * Clave del canal de captura (CAPTURA_ACCESS_TOKEN).
- * Devuelve de inmediato el valor existente; solo toma el lock para CREAR la
- * clave cuando la propiedad falta. Nunca devuelve '' si la clave existe:
- * ante contención o fallo relee sin lock y solo falla si realmente no existe.
+ * Credencial universal vigente. Devuelve de inmediato el valor existente; solo
+ * toma el lock para CREARLA cuando falta alguna de las claves. Nunca devuelve ''
+ * si existe: ante contención o fallo relee sin lock y solo falla si realmente
+ * no se pudo dejar ninguna credencial persistida.
  */
-function WebApp_claveCaptura_() {
+function WebApp_claveUniversal_() {
   var props = PropertiesService.getScriptProperties();
-  var clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+  var clave = WebApp_claveExistente_();
   if (clave) return clave;
   var lock = typeof LockService !== 'undefined' ? LockService.getScriptLock() : null;
   if (lock && !lock.tryLock(5000)) {
-    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    clave = WebApp_claveExistente_();
     if (!clave) throw new Error('ACCESO_UNIVERSAL_NO_INICIALIZADO');
     return clave;
   }
   try {
-    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    clave = WebApp_claveExistente_();
     if (!clave) {
       clave = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-      props.setProperty('CAPTURA_ACCESS_TOKEN', clave);
+      props.setProperty('ECICEP_ACCESS_TOKEN', clave);
     }
     return clave;
   } catch (e) {
-    clave = props.getProperty('CAPTURA_ACCESS_TOKEN');
+    clave = WebApp_claveExistente_();
     if (!clave) throw e;
     return clave;
   } finally {
@@ -76,74 +96,78 @@ function WebApp_claveCaptura_() {
   }
 }
 
-/** Valida CAPTURA_ACCESS_TOKEN. La clave legacy universal solo conserva Captura. */
-function WebApp_accesoCapturaValido_(token) {
-  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = PropertiesService.getScriptProperties().getProperty('CAPTURA_ACCESS_TOKEN');
-  if (!esperado) return false;
-  if (token === esperado) return true;
-  var legacy = PropertiesService.getScriptProperties().getProperty('LEGACY_ACCESS_TOKEN');
-  return !!legacy && token === legacy;
-}
-
-/** OPERADOR_ACCESS_TOKEN nunca se crea ni se revela desde una ruta pública. */
-function WebApp_claveOperador_() {
-  return PropertiesService.getScriptProperties().getProperty('OPERADOR_ACCESS_TOKEN') || '';
-}
-function WebApp_accesoOperadorValido_(token) {
-  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
-  var esperado = WebApp_claveOperador_();
-  return !!esperado && token === esperado;
-}
-function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoCapturaValido_(token); }
-
-/** La sesión solo autoriza si su identidad figura explícitamente en propiedades.
- *  OPERADOR_EMAILS: lista separada por coma; OPERADOR_DOMINIOS: dominios permitidos. */
-function WebApp_identidadOperadorAutorizada_() {
-  var email = WebApp_usuarioActivo_().toLowerCase();
-  if (!email || email.indexOf('@') < 1) return false;
+/** Primera credencial no vacía entre las claves canónicas e heredadas. */
+function WebApp_claveExistente_() {
   var props = PropertiesService.getScriptProperties();
-  var emails = String(props.getProperty('OPERADOR_EMAILS') || '').toLowerCase().split(',')
-    .map(function (v) { return v.trim(); }).filter(Boolean);
-  if (emails.indexOf(email) >= 0) return true;
-  var dominio = email.split('@').pop();
-  var dominios = String(props.getProperty('OPERADOR_DOMINIOS') || '').toLowerCase().split(',')
-    .map(function (v) { return v.trim().replace(/^@/, ''); }).filter(Boolean);
-  return dominios.indexOf(dominio) >= 0;
+  for (var i = 0; i < WEBAPP_CLAVES_ACCESO_.length; i++) {
+    var v = props.getProperty(WEBAPP_CLAVES_ACCESO_[i]);
+    if (v) return v;
+  }
+  return '';
 }
 
-/** Diagnóstico sin secretos para instalación/soporte; no revela identidades. */
+/** Valida la credencial contra cualquier clave vigente (canónica o heredada). */
+function WebApp_accesoUniversalValido_(token) {
+  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
+  var props = PropertiesService.getScriptProperties();
+  for (var i = 0; i < WEBAPP_CLAVES_ACCESO_.length; i++) {
+    if (props.getProperty(WEBAPP_CLAVES_ACCESO_[i]) === token) return true;
+  }
+  return false;
+}
+
+// ---- Alias de compatibilidad (contrato heredado) — todos delegan en la
+// credencial universal; no existe lógica de capacidades separadas. ----
+
+function WebApp_claveCaptura_() { return WebApp_claveUniversal_(); }
+function WebApp_claveOperador_() { return WebApp_claveUniversal_(); }
+function WebApp_claveCompartida_() { return WebApp_claveUniversal_(); }
+
+function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValido_(token); }
+function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
+function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
+
+/** ¿Está operativo el acceso universal? Verdadero siempre que la credencial
+ *  del sistema exista o se pueda crear. Sustituye a la antigua allowlist de
+ *  identidades (DEC-097): no hay roles, todos los trabajadores operan.
+ *  Se usa en funciones internas del proyecto que no reciben credencial por
+ *  parámetro (p. ej. las de 28_IA.js). */
+function WebApp_accesoUniversalActivo_() {
+  try { return !!WebApp_claveUniversal_(); } catch (e) { return false; }
+}
+
+/** Diagnóstico sin secretos para instalación/soporte. */
 function WebApp_diagnosticoSeguridad_() {
   var props = PropertiesService.getScriptProperties();
   return {
-    capturaConfigurada: !!props.getProperty('CAPTURA_ACCESS_TOKEN'),
-    operadorTokenConfigurado: !!props.getProperty('OPERADOR_ACCESS_TOKEN'),
-    operadorIdentidadesConfiguradas: !!(props.getProperty('OPERADOR_EMAILS') || props.getProperty('OPERADOR_DOMINIOS')),
+    accesoUniversalConfigurado: !!WebApp_claveExistente_(),
+    credencialCanonica: !!props.getProperty('ECICEP_ACCESS_TOKEN'),
+    aliasHeredadosVigentes: WEBAPP_CLAVES_ACCESO_.slice(1)
+      .filter(function (k) { return !!props.getProperty(k); }),
     webhookConfigurado: !!props.getProperty('WEBHOOK_TOKEN'),
     webhookMutacionesHabilitadas: props.getProperty('WEBHOOK_MUTACIONES_HABILITADAS') === 'SI',
-    geminiConfigurado: !!props.getProperty('GEMINI_API_KEY'),
-    legacyPendienteRetiro: !!props.getProperty('LEGACY_ACCESS_TOKEN')
+    geminiConfigurado: !!props.getProperty('GEMINI_API_KEY')
   };
 }
 
 /**
- * URL permanente de captura (QR y enlace de distribución).
+ * URL permanente del sistema (QR y enlace de distribución).
  *
- * El QR contiene solo el deployment operativo estable. La capacidad mínima
- * de Captura se inyecta en servidor al servir esa ruta; por ello un QR
- * impreso no depende de una propiedad ni deja de funcionar si la credencial
- * interna se recupera o rota. Esto no eleva a Operador: las vistas distintas
- * de `captura` siguen exigiendo exclusivamente la capacidad de administración.
+ * El QR contiene SOLO el deployment operativo estable: ninguna credencial viaja
+ * en la URL. La credencial universal se inyecta en servidor al servir CUALQUIER
+ * vista, por lo que un QR impreso no depende de una propiedad concreta ni deja
+ * de funcionar si la credencial se recupera o rota.
  */
 function WebApp_urlCompartida_() {
   return ECICEP_webAppUrl();
 }
 
-/** URL de una vista operativa. Usa exclusivamente la capacidad OPERADOR. */
+/** URL de una vista operativa. Sin credencial en la URL: acceso universal. */
 function WebApp_urlVista_(vista) {
-  var clave = WebApp_claveOperador_();
-  var url = clave ? ECICEP_webAppUrl() + '?acceso=' + encodeURIComponent(clave) : '';
-  return url && vista ? url + '&vista=' + encodeURIComponent(vista) : url;
+  var base = WebApp_urlCompartida_();
+  if (!base) return '';
+  var v = Utl_texto(vista).trim();
+  return v ? base + '?vista=' + encodeURIComponent(v) : base;
 }
 
 /** Alias heredado de URL de vista. */
@@ -186,16 +210,16 @@ function doGet(e) {
     return _wh_despachar(e, 'GET');
   }
   var p = e && e.parameter || {};
-  var acceso = String(p.acceso || '').trim();
   var vista = String(p.vista || 'captura').trim();
+  // ACCESO UNIVERSAL (DEC-101): no se exige credencial en la URL. El servidor
+  // inyecta la credencial vigente al servir CADA vista, de modo que la URL base
+  // —incluidos los QR ya impresos— abre el sistema completo sin parámetros.
+  // Un `?acceso=` heredado que llega en un enlace viejo se ignora sin efecto.
+  var acceso = WebApp_claveUniversal_();
   if (vista === 'captura') {
-    // Captura es el canal público universal. No se confía en el token de la
-    // URL: se entrega la capacidad vigente desde Script Properties. Así la URL
-    // base y también los QR antiguos con un token obsoleto siguen funcionando.
-    return WebApp_servirCaptura_(WebApp_claveCaptura_());
-  }
-  if (!WebApp_autorizar(acceso)) {
-    return ContentService.createTextOutput('Enlace de ECICEP no válido. Solicita el enlace o QR actualizado desde el menú ECICEP.');
+    // Captura es la pantalla simple de registro. Comparte la credencial
+    // universal y ofrece salida directa al portal de funciones.
+    return WebApp_servirCaptura_(acceso);
   }
   var archivos = {
     portal: 'PortalWeb', pacientes: 'Sidebar', ingresos: 'Sidebar',
@@ -207,10 +231,9 @@ function doGet(e) {
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
   if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de ECICEP.');
   var plantilla = HtmlService.createTemplateFromFile(archivo);
-  var operador = acceso;
-  plantilla.CAPTURA_ACCESO = '';
-  plantilla.TOKEN_ACCESO = operador;
-  plantilla.TOKEN_INVITACION = operador;
+  plantilla.CAPTURA_ACCESO = acceso;
+  plantilla.TOKEN_ACCESO = acceso;
+  plantilla.TOKEN_INVITACION = acceso;
   plantilla.MODO_OPERADOR = true;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
@@ -238,15 +261,16 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura sin enlaces, token ni modo de operador. */
-function WebApp_servirCaptura_(accesoCaptura) {
+/** Sirve el canal de captura: pantalla simple de registro, con salida única
+ *  al portal de funciones (misma credencial universal, sin token en la URL). */
+function WebApp_servirCaptura_(accesoUniversal) {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  plantilla.CAPTURA_ACCESO = accesoCaptura || '';
-  plantilla.TOKEN_ACCESO = accesoCaptura || '';
-  plantilla.TOKEN_INVITACION = accesoCaptura || '';
+  plantilla.CAPTURA_ACCESO = accesoUniversal || '';
+  plantilla.TOKEN_ACCESO = accesoUniversal || '';
+  plantilla.TOKEN_INVITACION = accesoUniversal || '';
   plantilla.MODO_OPERADOR = false;
-  plantilla.PORTAL_URL = '';
-  plantilla.FICHA_URL = '';
+  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
+  plantilla.FICHA_URL = WebApp_urlVista_('ficha');
   plantilla.REM_URL = '';
   plantilla.DASH_URL = '';
   plantilla.GENERAR_REM_URL = '';

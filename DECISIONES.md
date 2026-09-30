@@ -2211,3 +2211,39 @@ no falsea el resultado: devuelve `INCORPORADO_VISTA_PENDIENTE`.
 **Validación:** regresión conductual T17–T23 y batería completa; E2E sin datos reales
 pendiente. No cambia schema 2 ni contrato de captura V2.
 **Fecha:** 2026-09-27
+
+## DEC-101
+**Título:** v0.16.1 — acceso universal: una sola credencial abre todo el sistema.
+**Estado:** Aprobada
+**Motivo:** DEC-097 separó CAPTURA de OPERADOR y exigía `OPERADOR_ACCESS_TOKEN` o
+una allowlist `OPERADOR_EMAILS`/`OPERADOR_DOMINIOS`. Ninguna de las dos existe
+por código: la credencial nunca se creaba y la allowlist nunca se configuró, por
+lo que `WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista no
+captura. Resultado: bloqueo total — nadie podía abrir el portal, pacientes,
+controles, estadísticas, REM, revisión, configuración, backups ni instalador, y
+las funciones de `28_IA.js` (que dependían de la allowlist de identidades)
+quedaban denegadas. Revertido: el sistema solo lo manejan los trabajadores del
+CESFAM y todos operan, así que no existe distinción entre operador y usuario.
+
+Una sola credencial universal habilita todas las funciones. Vive en
+`ECICEP_ACCESS_TOKEN` y se **autoaprovisiona** si falta (lock + relectura), de
+modo que una credencial ausente ya no puede dejar el sistema inaccesible.
+`CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+aceptan como alias equivalentes, para no invalidar QR impresos, enlaces abiertos
+ni pestañas en curso. La credencial **nunca viaja en la URL**: `doGet` la inyecta
+al servir cada vista, y `WebApp_urlVista_` devuelve `…?vista=<x>`; por eso la URL
+base del QR abre el sistema completo sin parámetros y sobrevive a cualquier
+rotación. Los guards de RPC (`WebApp_autorizar`, `…Buscador`, `…Captura`) son
+aliases de la misma verificación; `WebApp_accesoUniversalActivo_` reemplaza la
+allowlist de identidades en las funciones internas sin credencial. Se conserva
+intacto lo que no dependía del modelo de roles: allowlist de superficie RPC,
+redacción de logs y secretos, egress de IA, y `WEBHOOK_TOKEN` con mutaciones
+opt-in. El pre-flight de duplicados vuelve a mostrarse a todo el sistema —evitar
+pacientes duplicados es parte del trabajo de correcciones— y sigue exponiendo
+solo campos que la ficha ya muestra.
+**Validación:** `seguridad_webapp_capacidades_vNEXT` reescrito (13 vistas
+abiertas sin credencial, alias heredados, autoaprovisión, rotación sin invalidar
+enlaces, diagnóstico sin secretos), núcleo `10_Pruebas` 674/674 y batería completa
+66/66 sin fallos. E2E anónimo sobre el deployment operativo. No cambia schema 2
+ni el contrato de captura V4.
+**Fecha:** 2026-09-30

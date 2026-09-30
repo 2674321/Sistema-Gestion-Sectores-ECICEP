@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.16.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,40 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.16.0` — capacidades Captura/Operador separadas, webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+| **Estado** | `v0.16.1` — acceso universal (una sola credencial abre todo el sistema); webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+
+## v0.16.1 — acceso universal (fin del bloqueo de funciones)
+
+**Una sola credencial abre todo el sistema. No se distingue entre operador y
+usuario: el ECICEP solo lo manejan los trabajadores del CESFAM y todos operan.**
+
+En v0.16.0 se separaron las capacidades Captura/Operador, exigiendo
+`OPERADOR_ACCESS_TOKEN` o una allowlist `OPERADOR_EMAILS`/`OPERADOR_DOMINIOS`.
+Ninguna de las dos se creaba por código ni se configuró, de modo que
+`WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista que no
+fuera captura. El resultado fue un bloqueo total: nadie podía abrir el portal,
+pacientes, controles, estadísticas, REM, revisión, configuración, backups ni
+instalador, y las funciones de IA quedaban denegadas.
+
+Qué cambia:
+
+- **Una credencial universal** en `ECICEP_ACCESS_TOKEN`, **autoaprovisionada** si
+  falta: el sistema ya no puede quedar inaccesible por una credencial ausente.
+- `CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+  aceptan como alias equivalentes, de modo que **ningún QR impreso, enlace o
+  pestaña abierta se rompe**.
+- La credencial **nunca viaja en la URL**: el servidor la inyecta al servir cada
+  vista. La URL base del QR abre el sistema completo sin parámetros y sobrevive
+  a cualquier rotación de credencial.
+- Los 13 accesos (captura, portal, pacientes, ingresos, controles, estadísticas,
+  configuración, backups, registro, instalador, REM, generar REM, revisión) se
+  sirven sin credencial en la URL; la captura incluye salida directa a Funciones.
+- El pre-flight de duplicados vuelve a mostrarse a todo el sistema —evitar
+  pacientes duplicados es parte del trabajo de correcciones— exponiendo solo
+  campos que la ficha ya muestra.
+- Sin cambios: schema clínico 2, contrato de captura V4, allowlist de superficie
+  RPC, redacción de logs y secretos, egress de IA y `WEBHOOK_TOKEN` con mutaciones
+  opt-in.
 
 ## v0.16.0 — hardening e integridad reanudable
 

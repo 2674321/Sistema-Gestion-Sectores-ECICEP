@@ -1,14 +1,43 @@
 # Política de seguridad de ECICEP
 
+## Acceso universal 2026-09-30 (DEC-101)
+
+ECICEP tiene **una sola capacidad de acceso**: no se distingue entre operador y
+usuario, porque el sistema solo lo manejan los trabajadores del CESFAM y todos
+operan. La separación Captura/Operador introducida en v0.16.0 (DEC-097) se revierte
+porque dejó el sistema inaccesible para todos: exigía una credencial que el código
+nunca creaba y una allowlist de identidades que nunca se configuró.
+
+- `ECICEP_ACCESS_TOKEN` es la credencial canónica y habilita **todas** las
+  funciones: capturar, ficha, ingresos, controles, estadísticas, configuración,
+  backups, registro, REM e instalación. Se **autoaprovisiona** si falta, por lo que
+  una credencial ausente nunca deja el sistema inaccesible.
+- `CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+  aceptan como **alias equivalentes** para no invalidar QR impresos, enlaces y
+  pestañas abiertas. No otorgan ningún alcance especial entre sí.
+- La credencial **nunca viaja en la URL ni en el QR**. El servidor la inyecta al
+  servir cada vista; por eso la URL base del QR abre el sistema completo y
+  sobrevive a cualquier rotación.
+- No existe allowlist de correos ni de dominios. `WebApp_diagnosticoSeguridad_`
+  informa únicamente si el acceso universal está configurado, nunca su valor.
+- Se conservan sin cambios: allowlist de superficie RPC, redacción defensiva en
+  logs, egress de IA, `XFrameOptionsMode` restringido, y el hecho de que
+  `WEBHOOK_TOKEN` siga siendo independiente —GET es solo lectura y las acciones
+  mutantes requieren POST JSON y `WEBHOOK_MUTACIONES_HABILITADAS=SI` (por
+  defecto deshabilitadas)—.
+
+La consecuencia operativa a asumir es explícita: **quien tenga el enlace puede
+usar el sistema completo**. El control real es el enlace del deployment, no un
+token, porque la credencial se entrega a cualquier navegador que abra una vista.
+
 ## Hardening 2026-09-27
 
 El panel administrativo de Google Forms, su trigger `Form_onFormSubmit` y los
 cuatro RPC `api_formulario*` fueron retirados: no tenían consumidores vigentes y
 mantenían una segunda superficie de procesamiento incompatible con el contrato
 de captura actual. `FORM_RESPUESTAS` permanece únicamente como persistencia
-técnica durable de la Web App. La Captura pública no incluye capacidad Operador.
-El inventario de funciones globales es una superficie congelada en reducción,
-no una allowlist mínima aprobada.
+técnica durable de la Web App. El inventario de funciones globales es una
+superficie congelada en reducción, no una allowlist mínima aprobada.
 
 ECICEP es un sistema de gestión **sanitaria**: maneja datos personales y
 clínicos. La protección de esos datos es prioridad absoluta.
@@ -29,32 +58,26 @@ público. Regla aplicada por diseño:
 - Un único entorno operativo: 1 Web App + 1 backend + 1 Spreadsheet.
 - Sin claves, tokens, credenciales ni secretos en código o Git. Las credenciales
   viven exclusivamente en **Script Properties**.
-- `CAPTURA_ACCESS_TOKEN` autoriza solo el canal de captura. Su URL/QR no concede
-  acceso a fichas, estadísticas, configuración, backups ni instalación.
-- `OPERADOR_ACCESS_TOKEN` autoriza paneles operativos y administrativos. También
-  puede autorizarse una sesión Google mediante `OPERADOR_EMAILS` o
-  `OPERADOR_DOMINIOS`, ambos allowlists explícitos separados por coma.
-- `LEGACY_ACCESS_TOKEN`, si se conserva durante una migración, solo tiene alcance
-  de captura. Debe eliminarse al terminar la rotación.
+- Acceso universal: `ECICEP_ACCESS_TOKEN` (+ alias heredados) abre todas las
+  funciones del sistema. No hay roles, ni identidades, ni permisos por usuario.
 - `WEBHOOK_TOKEN` es independiente. GET es solo lectura; las acciones mutantes
   requieren POST JSON y `WEBHOOK_MUTACIONES_HABILITADAS=SI` (por defecto están
   deshabilitadas). Las respuestas remotas eliminan campos clínicos y secretos.
 
 No se debe registrar, mostrar ni devolver ningún token. `WebApp_diagnosticoSeguridad_`
-informa únicamente si cada capacidad está configurada.
+informa únicamente si el acceso universal está configurado.
 
 ## Rotación segura
 
-1. Crear valores aleatorios independientes de 64 caracteres hexadecimales para
-   Captura, Operador y Webhook.
-2. Configurarlos en Script Properties; añadir el correo o dominio operador solo
-   si se usará identidad Google explícita.
-3. Publicar sobre el deployment operativo existente y comprobar primero el
-   acceso de Operador en una sesión autorizada.
-4. Regenerar y distribuir el QR de Captura; revocar el anterior reemplazando
-   `CAPTURA_ACCESS_TOKEN`.
-5. Eliminar `LEGACY_ACCESS_TOKEN`. Mantener mutaciones de webhook deshabilitadas
-   salvo durante una ventana operativa controlada.
+1. Crear un valor aleatorio de 64 caracteres hexadecimales.
+2. Configurarlo en `ECICEP_ACCESS_TOKEN` en Script Properties.
+3. Publicar sobre el deployment operativo existente y comprobar el acceso.
+4. Distribuir o reutilizar el QR existente: la URL no cambia al rotar, porque la
+   credencial viaja inyectada por el servidor y no en la URL.
+5. Eliminar los alias heredados (`CAPTURA_ACCESS_TOKEN`,
+   `OPERADOR_ACCESS_TOKEN`, `LEGACY_ACCESS_TOKEN`) **solo después** de confirmar
+   que ningún enlace antiguo depende de ellos. Mantener mutaciones de webhook
+   deshabilitadas salvo durante una ventana operativa controlada.
 
 Rollback: restaurar la versión anterior del deployment y los valores anteriores
 de Script Properties desde el registro seguro externo. Nunca guardar esos valores

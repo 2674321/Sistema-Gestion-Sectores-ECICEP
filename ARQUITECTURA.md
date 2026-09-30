@@ -8,12 +8,47 @@
 > conserva fuera de la decisión bloqueante de derivados. No cambia el sistema
 > único, el Spreadsheet, la Web App, el pipeline clínico ni el schema 2.
 
+> **Actualización 2026-09-30 (v0.16.1 — DEC-101, acceso universal):**
+> - **Una sola capacidad abre todo el sistema.** No se distingue entre operador
+>   y usuario: el ECICEP solo lo manejan los trabajadores del CESFAM y todos
+>   operan. Se revierte la separación CAPTURA ≠ OPERADOR de v0.16.0 (DEC-097),
+>   que había dejado el sistema inaccesible para todos: exigía
+>   `OPERADOR_ACCESS_TOKEN` —que el código nunca creaba— o una allowlist
+>   `OPERADOR_EMAILS`/`OPERADOR_DOMINIOS` —que nunca se configuró—, por lo que
+>   `WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista no
+>   captura, incluidas las funciones de `28_IA.js`.
+> - Credencial canónica `ECICEP_ACCESS_TOKEN`, **autoaprovisionada** si falta
+>   (lock + relectura): una credencial ausente ya no deja el sistema inaccesible.
+>   `CAPTURA_ACCESS_TOKEN`, `OPERADOR_ACCESS_TOKEN` y `LEGACY_ACCESS_TOKEN` se
+>   aceptan como alias equivalentes, sin alcance especial entre sí, para no
+>   invalidar QR impresos, enlaces o pestañas abiertas.
+> - **La credencial nunca viaja en la URL.** `doGet` la inyecta al servir cada
+>   vista y `WebApp_urlVista_` devuelve `…?vista=<x>`; la URL base del QR abre el
+>   sistema completo sin parámetros y sobrevive a cualquier rotación.
+> - Los 13 accesos se sirven sin credencial en la URL (captura, portal, pacientes,
+>   ingresos, controles, estadísticas, configuración, backups, registro,
+>   instalador, REM, generar REM, revisión). `CapturaWeb` ofrece salida directa a
+>   Funciones. `WebApp_autorizar`, `WebApp_autorizarBuscador` y
+>   `WebApp_autorizarCaptura` son aliases de la misma verificación;
+>   `WebApp_accesoUniversalActivo_` reemplaza la allowlist de identidades en las
+>   funciones internas sin credencial.
+> - El pre-flight de duplicados vuelve a mostrarse a todo el sistema, exponiendo
+>   solo campos que la ficha ya muestra (nunca teléfonos ni observaciones).
+> - **Sin cambios:** schema clínico 2, contrato de captura V4, allowlist de
+>   superficie RPC, helpers críticos privados (sufijo `_`), `CONFIG_SECRETOS`,
+>   redacción de logs, egress de IA, y `WEBHOOK_TOKEN` independiente con GET de
+>   solo lectura y mutaciones POST + opt-in.
+> - Batería: **66 suites · 0 fallos**, núcleo **674/674**, HTML 21/21,
+>   `seguridad_webapp_capacidades_vNEXT` PASS. E2E anónimo sobre el deployment
+>   operativo.
+
 > **Actualización 2026-09-26 (v0.16.0):**
 > - El único sistema conserva un solo proyecto, Spreadsheet, Web App, backend y
 >   pipeline. No se agregaron ambientes ni almacenes paralelos.
-> - Límites de confianza: `CAPTURA_ACCESS_TOKEN` solo captura;
->   `OPERADOR_ACCESS_TOKEN` o allowlist de identidad habilitan operación;
->   `WEBHOOK_TOKEN` es independiente y sus mutaciones exigen POST + opt-in.
+> - Límites de confianza (modelo **superado por DEC-101**): `CAPTURA_ACCESS_TOKEN`
+>   solo captura; `OPERADOR_ACCESS_TOKEN` o allowlist de identidad habilitaban
+>   operación; `WEBHOOK_TOKEN` es independiente y sus mutaciones exigen POST +
+>   opt-in.
 > - Los helpers críticos de instalación, limpieza, backup y carga real terminan
 >   en `_`, por lo que no son invocables directamente con `google.script.run`.
 >   Una allowlist versionada congela toda la superficie RPC heredada restante.
@@ -119,10 +154,10 @@
 >   Spreadsheet, proyecto, URL y QR se conservan. Batería: **29 suites, 0 fallos**.
 
 > **Actualización 2026-09-28 (estabilidad de rutas e ingresos):**
-> - Todas las vistas de Operador (`portal`, pacientes, ingresos, revisión,
->   ficha, controles, estadísticas, configuración, backups, registro,
->   instalación y REM) derivan del mismo `ECICEP.WEB_APP_URL`; una capacidad
->   pública de Captura no autoriza ninguna de ellas.
+> - Todas las vistas (`portal`, pacientes, ingresos, revisión, ficha, controles,
+>   estadísticas, configuración, backups, registro, instalación y REM) derivan
+>   del mismo `ECICEP.WEB_APP_URL`. Desde DEC-101 todas comparten la credencial
+>   universal; la captura sigue siendo la pantalla simple de registro.
 > - El formulario público omite `Funciones` cuando no existe una URL autorizada,
 >   evitando enlaces vacíos o autorreferentes.
 > - En `INGRESO_*`, solo `INGRESADO` es terminal por etiqueta. Un estado histórico

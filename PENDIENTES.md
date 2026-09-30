@@ -28,6 +28,16 @@
 > columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
 > para medir duración y convergencia reales.
 
+> **Actualización 2026-09-30 (v0.16.1 — DEC-101):** revertido el bloqueo total de
+> acceso. La separación CAPTURA ≠ OPERADOR de DEC-097 exigía credencial y
+> allowlist que nunca se configuraron, y dejó inaccesibles todas las vistas no
+> captura (incluida la IA). Acceso universal con `ECICEP_ACCESS_TOKEN`
+> autoaprovisionado y alias heredados; la credencial no viaja en la URL. Queda
+> **descartado** el pendiente de «configurar/rotar tokens separados»: ya no
+> existen capacidades separadas. Siguen pendientes reales: reducir la superficie
+> RPC heredada congelada, ampliar la auditoría XSS sink-by-sink y ejecutar
+> Instalar/Reparar dos veces sobre el libro real con backup reciente.
+
 > **Actualización 2026-09-26 (v0.16.0):** corregidos los bypass críticos de
 > Captura→Operador, helpers mutantes de instalador/backup/limpieza/carga real,
 > webhook por GET, egress clínico hacia Gemini y el patrón N×`TextFinder` de

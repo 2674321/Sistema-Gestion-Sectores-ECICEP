@@ -67,8 +67,8 @@ function UI_abrirFormularioCaptura() {
 }
 
 /** Alias conservado para accesos anteriores; una única pantalla de Captura.
- *  El QR apunta exclusivamente al canal de CAPTURA (nunca a una vista
- *  privilegiada de operador). */
+ *  El QR apunta al enlace permanente del sistema, sin credencial en la URL:
+ *  el servidor inyecta el acceso universal al servir CUALQUIER vista. */
 function UI_mostrarQR() {
   var url = WebApp_urlCaptura_();
   if (!url) throw new Error('No se pudo preparar el enlace de Captura');
@@ -82,7 +82,7 @@ function UI_mostrarQR() {
 function UI_instalarSistema() {
   var t = HtmlService.createTemplateFromFile('Instalador');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Instalaci\u00f3n del sistema').setWidth(760).setHeight(720),
@@ -197,7 +197,7 @@ function UI_actualizarTodo(opciones) {
 function UI_abrirLog() {
   var t = HtmlService.createTemplateFromFile('LogVisor');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   t.REM_URL = '';
   t.DASH_URL = '';
@@ -372,7 +372,7 @@ function include(nombre) {
 function _ui_dialogo(nombre, titulo) {
   var t = HtmlService.createTemplateFromFile(nombre);
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   t.REM_URL = '';
   t.DASH_URL = '';
@@ -388,7 +388,7 @@ function _ui_sidebar(modo, titulo, idInicial) {
   t.modo = modo;
   t.ID_INICIAL = idInicial || '';
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_INVITACION = WebApp_claveOperador_();
+  t.TOKEN_INVITACION = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   _UI_get().showSidebar(t.evaluate().setTitle(titulo));
 }
@@ -432,7 +432,7 @@ function _ui_configuracion(seccion) {
   } catch (e) {}
   var t = HtmlService.createTemplateFromFile('Configuracion');
   t.SECCION = seccion || 'TODAS';
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   _UI_get().showModalDialog(t.evaluate()
     .setTitle('Configuración').setWidth(900).setHeight(680), 'Configuración');
@@ -465,7 +465,7 @@ function UI_abrirAcercaDe() { _ui_dialogo('AcercaDe', 'Acerca de ECICEP'); }
 function UI_abrirControles() {
   var t = HtmlService.createTemplateFromFile('Controles');
   t.BUILD = Utilities.formatDate(new Date(), _UI_tz(), 'yyyyMMdd-HHmm');
-  t.TOKEN_ACCESO = WebApp_claveOperador_();
+  t.TOKEN_ACCESO = WebApp_claveUniversal_();
   t.PORTAL_URL = '';
   t.FICHA_URL = '';
   var html = t.evaluate().setTitle('Controles por persona')

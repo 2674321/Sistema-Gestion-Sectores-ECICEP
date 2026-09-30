@@ -73,8 +73,11 @@ sandbox.SpreadsheetApp = {
   getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }
 };
 sandbox.Session = { getActiveUser: function () { return { getEmail: function () { return 'test@ecicep.cl'; } }; }, getScriptTimeZone: function () { return 'America/Santiago'; } };
+// ACCESO UNIVERSAL (DEC-101): una sola credencial abre todo el sistema. El
+// arnés la expone como la vigente; ninguna función pide identidad ni rol.
+const CREDENCIAL_UNIVERSAL = 'a'.repeat(64);
 sandbox.PropertiesService = { getScriptProperties: function () { return {
-  getProperty: function (k) { return k === 'OPERADOR_EMAILS' ? 'test@ecicep.cl' : ''; },
+  getProperty: function (k) { return k === 'ECICEP_ACCESS_TOKEN' ? CREDENCIAL_UNIVERSAL : ''; },
   setProperty: function () {}, deleteProperty: function () {}
 }; } };
 sandbox.Logger = { log: function () {}, logToConsole: function () {} };
@@ -250,7 +253,7 @@ t('C3: Modelo_filaFisica es la conversión única y lineal index→fila', () => 
 t('C4/R2: api_duplaGuardar escribe en Modelo_filaFisica (no 2+idx)', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_duplaGuardar('EC-0002', ['ENFERMERA/O']);
+    const r = CSP.api_duplaGuardar('EC-0002', ['ENFERMERA/O'], CREDENCIAL_UNIVERSAL);
     A(r.ok, 'guardar ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
@@ -259,7 +262,7 @@ t('C4/R2: api_duplaGuardar escribe en Modelo_filaFisica (no 2+idx)', () => {
 t('C4/R2: api_controlActualizarUltimo escribe en Modelo_filaFisica', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_controlActualizarUltimo('EC-0002', 'CONTROL', '2026-09-01');
+    const r = CSP.api_controlActualizarUltimo('EC-0002', 'CONTROL', '2026-09-01', CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
@@ -268,7 +271,7 @@ t('C4/R2: api_controlActualizarUltimo escribe en Modelo_filaFisica', () => {
 t('C4/R2: api_registrarEvento (ruta actualizarDatos/controles V2) escribe en Modelo_filaFisica', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_registrarEvento({ tipoEvento: 'CONTROL', fecha: '2026-09-01', idInterno: 'EC-0002', profesional: 'TENS', fuente: 'Cp2-test' });
+    const r = CSP.api_registrarEvento({ tipoEvento: 'CONTROL', fecha: '2026-09-01', idInterno: 'EC-0002', profesional: 'TENS', fuente: 'Cp2-test' }, CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
@@ -277,7 +280,7 @@ t('C4/R2: api_registrarEvento (ruta actualizarDatos/controles V2) escribe en Mod
 t('C4/R2: api_patologiasGuardar escribe (una sola escritura fusionada) en Modelo_filaFisica', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_patologiasGuardar('EC-0002', [], '');
+    const r = CSP.api_patologiasGuardar('EC-0002', [], '', CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ok: ' + JSON.stringify(r));
     const filas = filasPacientes(a.hojaP);
     // Condiciones + estratificación se escriben en UNA escritura atómica de la
@@ -310,8 +313,8 @@ t('C4/R2: Estrat_recalcularPaciente_ escribe en Modelo_filaFisica', () => {
 t('C2: ninguna escritura de PACIENTES del arnés ocurre bajo la primera fila de datos', () => {
   const a = arnesActivo();
   try {
-    CSP.api_duplaGuardar('EC-0002', ['TENS']);
-    CSP.api_registrarEvento({ tipoEvento: 'SEGUIMIENTO', fecha: '2026-09-01', idInterno: 'EC-0001', fuente: 'UI_FICHA' });
+    CSP.api_duplaGuardar('EC-0002', ['TENS'], CREDENCIAL_UNIVERSAL);
+    CSP.api_registrarEvento({ tipoEvento: 'SEGUIMIENTO', fecha: '2026-09-01', idInterno: 'EC-0001', fuente: 'UI_FICHA' }, CREDENCIAL_UNIVERSAL);
     CSP.Estrat_recalcularPaciente_('EC-0001');
     const filas = filasPacientes(a.hojaP);
     const minimo = primeraFilaDatosP();
@@ -789,7 +792,7 @@ t('R8: api_patologiasAbrir funciona con solo 3 campos de paciente', () => {
   CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
   CSP.Modelo_invalidarLecturas();
   try {
-    const r = CSP.api_patologiasAbrir('EC-0001');
+    const r = CSP.api_patologiasAbrir('EC-0001', CREDENCIAL_UNIVERSAL);
     A(r.catalogo && Array.isArray(r.catalogo), 'catálogo presente');
     equalish(r.seleccionadas, ['HTA', 'DM2'], 'condiciones del paciente');
     igual(r.otrasPatologias, 'asma');
@@ -820,7 +823,7 @@ t('R9: api_diagnosticoControl completo con 9 campos de paciente + eventos ligero
   };
   CSP.Modelo_invalidarLecturas();
   try {
-    const r = CSP.api_diagnosticoControl(true);
+    const r = CSP.api_diagnosticoControl(true, CREDENCIAL_UNIVERSAL);
     A(r.ok, 'diagnóstico ok');
     igual(r.metricas.analizados, 3, 'tres pacientes analizados');
     A(Array.isArray(r.inconsistentes), 'inconsistentes calculados desde panel');
@@ -854,7 +857,7 @@ t('R10: api_ficha con 21 campos leídos no pierde datos (ficha/dupla/patologías
   };
   CSP.Modelo_invalidarLecturas();
   try {
-    const r = CSP.api_ficha('EC-0001');
+    const r = CSP.api_ficha('EC-0001', CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ficha ok');
     igual(r.ficha.ULTIMO_CONTROL, '2026-01-10', 'campo del set OPERATIVO presente');
     igual(r.ficha.TELEFONOS, '+56911111111');

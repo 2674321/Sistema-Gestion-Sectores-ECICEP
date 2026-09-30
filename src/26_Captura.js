@@ -1444,10 +1444,15 @@ function Captura_v2_previaDuplicados(datos, esOperador) {
   }
 }
 
-/** Alias Web App: pre-flight de duplicados V2. */
+/** Alias Web App: pre-flight de duplicados V2.
+ *  ACCESO UNIVERSAL (DEC-101): no existe un canal desprivilegiado, así que el
+ *  pre-flight detallado se entrega a todos. Evitar pacientes duplicados es
+ *  parte del trabajo de correcciones del CESFAM; el resumen del candidato solo
+ *  expone campos que la propia ficha ya muestra (nunca teléfonos ni
+ *  observaciones). */
 function WebApp_previaDuplicadosV2(datos, acceso) {
   if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
-  return Captura_v2_previaDuplicados(datos, WebApp_accesoOperadorValido_(acceso));
+  return Captura_v2_previaDuplicados(datos, true);
 }
 
 /** Entrypoint Web App: consulta de estado de un envío V2. */

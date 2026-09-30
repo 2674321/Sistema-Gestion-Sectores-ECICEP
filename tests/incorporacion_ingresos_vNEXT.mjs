@@ -520,7 +520,8 @@ test('T13 onOpen expone "Incorporar ingresos" → sidebar modo ingresos; UI_abri
     XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' }
   };
   c.Utilities = { formatDate: () => '20260923-0000' };
-  c.WebApp_claveOperador_ = () => 'tokx';
+  // ACCESO UNIVERSAL (DEC-101): una sola credencial inyectada por el servidor.
+  c.WebApp_claveUniversal_ = () => 'tokx';
   c._UI_get = () => ({ showSidebar: () => {}, showModalDialog: () => {} });
   c.UI_abrirIngresos();
   assert.equal(tmplModo, 'ingresos', 'sidebar abre en modo ingresos');

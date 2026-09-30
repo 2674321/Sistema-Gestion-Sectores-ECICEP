@@ -205,7 +205,7 @@ function IA_leerEstadisticas(hojaNombre) {
  * Lee datos de una columna específica (anonimizados).
  */
 function IA_leerColumna(hojaNombre, nombreColumna, maxFilas) {
-  if (!WebApp_identidadOperadorAutorizada_()) return [];
+  if (!WebApp_accesoUniversalActivo_()) return [];
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(hojaNombre);
   if (!hoja) return [];
@@ -964,7 +964,7 @@ function _IA_esc(s) {
  * Gemini) y muestra el reporte en un diálogo modal legible.
  */
 function IA_revisarTodoUI() {
-  if (!WebApp_identidadOperadorAutorizada_()) return;
+  if (!WebApp_accesoUniversalActivo_()) return;
   var reporte = IA_revisarTodo();
   if (!reporte) {
     Utl_toast('err', 'La revisión no devolvió resultados.', 5);
@@ -989,7 +989,7 @@ function IA_revisarTodoUI() {
  * Corrige RUTs: formatea con puntos y guión, valida DV.
  */
 function IA_corregirRuts() {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1034,7 +1034,7 @@ function IA_corregirRuts() {
  * Corrige fechas: unifica formato a ISO yyyy-MM-dd.
  */
 function IA_corregirFechas() {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1104,7 +1104,7 @@ function IA_parsearFecha(valor, rango) {
  * Corrige nombres: capitalización y espacios.
  */
 function IA_corregirNombres() {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1150,7 +1150,7 @@ function IA_normalizarNombre(nombre) {
  * Corrige teléfonos: formato estándar.
  */
 function IA_corregirTelefonos() {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1203,7 +1203,7 @@ function IA_normalizarTelefono(tel) {
  * Corrige campo SEXO: valores válidos M/F/OTRO.
  */
 function IA_corregirSexo() {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
@@ -1244,7 +1244,7 @@ function IA_corregirSexo() {
  * Ejecuta todas las correcciones en orden.
  */
 function IA_corregirTodo() {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var resultados = {};
 
   try { resultados.ruts = IA_corregirRuts(); } catch (e) { resultados.ruts = { error: e.message }; }
@@ -1374,7 +1374,7 @@ function IA_procesarInstruccion(texto) {
  * Chat multi-turno con historial.
  */
 function IA_chat(mensaje, historial) {
-  if (!WebApp_identidadOperadorAutorizada_()) return 'Sesión de usuario no autorizada; acceso denegado.';
+  if (!WebApp_accesoUniversalActivo_()) return 'Acceso universal del sistema no disponible; revisa las propiedades del script.'
   historial = historial || [];
 
   var contexto = 'Eres un asistente amable del sistema ECICEP. '
@@ -1416,7 +1416,7 @@ function IA_normalizarNombreAccion(nombre) {
  * Ejecuta una acción por nombre.
  */
 function IA_ejecutarAccion(nombre, parametros) {
-  if (!WebApp_identidadOperadorAutorizada_()) return { error: 'Sesión de usuario no autorizada; acceso denegado' };
+  if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var clave = IA_normalizarNombreAccion(nombre);
   var acciones = {
     'revisar_todo': IA_revisarTodo,
@@ -1526,7 +1526,7 @@ function IA_configurar() {
  * Guarda la API key en Script Properties.
  */
 function IA_guardarApiKey(key) {
-  if (!WebApp_identidadOperadorAutorizada_()) return false;
+  if (!WebApp_accesoUniversalActivo_()) return false;
   if (key && key.trim()) {
     PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', key.trim());
     return true;

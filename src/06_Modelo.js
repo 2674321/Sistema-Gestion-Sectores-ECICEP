@@ -904,8 +904,10 @@ var CONFIG_PROTEGIDAS_DEFAULTS = {
 var CONFIG_SECRETOS = {
   WEBHOOK_TOKEN: true,
   GEMINI_API_KEY: true,
+  ECICEP_ACCESS_TOKEN: true,
   OPERADOR_ACCESS_TOKEN: true,
-  CAPTURA_ACCESS_TOKEN: true
+  CAPTURA_ACCESS_TOKEN: true,
+  LEGACY_ACCESS_TOKEN: true
 };
 
 /** Patrones que marcan una clave como secreta aunque no esté en CONFIG_SECRETOS. */

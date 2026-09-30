@@ -2901,7 +2901,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
+    A.igual(v, '0.16.1', 'versión esperada v0.16.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3141,7 +3141,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.0', 'versión esperada v0.16.0');
+    A.igual(v, '0.16.1', 'versión esperada v0.16.1');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5830,27 +5830,65 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(Aud_anonRut('11111111-1'), '**.***.**11-1', 'DV explícito');
     A.igual(Aud_anonRut(''), '', 'vacío');
   });
-  // Access control: guards deniegan sin sesión y habilitan con sesión
-  t('P0 v0.98: guards de sesión deniegan acceso sin usuario activo', function () {
+  // ACCESO UNIVERSAL (DEC-101): una sola credencial abre todo el sistema.
+  // Los guards niegan cualquier credencial que no sea la vigente —incluida la
+  // ausencia de credencial— y autorizan con cualquiera de las claves canónicas
+  // o heredadas. No existe separación entre operador y usuario.
+  t('P0 v0.16.1: acceso universal — guards niegan credencial ausente o ajena', function () {
     A.cierto(WebApp_usuarioActivo_() !== '', 'con sesión (mock) hay usuario');
-    var original = globalThis.Session;
+    var originalProps = globalThis.PropertiesService;
+    var originalUtils = globalThis.Utilities;
+    var almacen = { ECICEP_ACCESS_TOKEN: 'a'.repeat(64) };
+    globalThis.Utilities = { getUuid: function () { return '0123456789abcdef0123456789abcdef'; } };
+    globalThis.PropertiesService = {
+      getScriptProperties: function () {
+        return {
+          getProperty: function (k) {
+            return Object.prototype.hasOwnProperty.call(almacen, k) ? almacen[k] : null;
+          },
+          setProperty: function (k, v) { almacen[k] = String(v); }
+        };
+      }
+    };
     try {
-      globalThis.Session = undefined;
-      A.igual(WebApp_usuarioActivo_(), '', 'sin sesión → vacío');
-      // v0.10.5 §12: api_buscar denegado → {ok:false,codigo:'ACCESO_DENEGADO',motivo,filas:[]}
-      A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar sin sesión → denegado con filas vacías');
-      A.igual(api_ficha('X').ok, false, 'api_ficha sin sesión → denegado');
-      A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar sin sesión → denegado');
-      A.igual(IA_guardarApiKey('SECRETO'), false, 'IA_guardarApiKey sin sesión → rechazado');
+      var vigente = almacen.ECICEP_ACCESS_TOKEN;
+      A.cierto(!WebApp_autorizar(''), 'sin credencial no se autoriza');
+      A.cierto(!WebApp_autorizar('EXISTE'), 'credencial arbitraria no se autoriza');
+      A.cierto(WebApp_autorizar(vigente), 'la credencial universal abre todo');
+      A.cierto(WebApp_autorizarBuscador(vigente), 'alias de operador acepta la universal');
+      A.cierto(WebApp_autorizarCaptura(vigente), 'alias de captura acepta la universal');
+      // Alias heredados vigentes siguen siendo equivalentes (QR/enlaces viejos).
+      almacen.OPERADOR_ACCESS_TOKEN = 'b'.repeat(64);
+      almacen.CAPTURA_ACCESS_TOKEN = 'c'.repeat(64);
+      A.cierto(WebApp_autorizar('b'.repeat(64)), 'alias heredado OPERADOR sigue autorizando');
+      A.cierto(WebApp_autorizar('c'.repeat(64)), 'alias heredado CAPTURA sigue autorizando');
+      A.cierto(!WebApp_autorizar('d'.repeat(64)), 'una clave no vigente nunca autoriza');
+      delete almacen.ECICEP_ACCESS_TOKEN;
+      delete almacen.OPERADOR_ACCESS_TOKEN;
+      delete almacen.CAPTURA_ACCESS_TOKEN;
+      var creada = WebApp_claveUniversal_();
+      A.igual(creada.length, 64, 'la credencial se autoaprovisiona si falta');
+      A.igual(almacen.ECICEP_ACCESS_TOKEN, creada, 'queda persistida en la clave canónica');
+      A.cierto(WebApp_autorizar(creada), 'la recién creada autoriza');
     } finally {
-      globalThis.Session = original;
+      if (originalProps === undefined) { delete globalThis.PropertiesService; }
+      else { globalThis.PropertiesService = originalProps; }
+      if (originalUtils === undefined) { delete globalThis.Utilities; }
+      else { globalThis.Utilities = originalUtils; }
     }
+  });
+  // v0.10.5 §12: los guards de RPC niegan con estructura estable ante una
+  // credencial no válida, para que la UI pueda explicar el rechazo.
+  t('P0 v0.16.1: guards RPC responden ACCESO_DENEGADO con estructura estable', function () {
+    A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar → denegado con filas vacías');
+    A.igual(api_ficha('X').ok, false, 'api_ficha → denegado');
+    A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar → denegado');
   });
 
   // QR permanente: el contenido es exclusivamente ECICEP.WEB_APP_URL. La
-  // capacidad mínima se inyecta al servir Captura, por lo que una credencial
-  // interna recuperada o rotada nunca invalida un QR impreso.
-  t('P0: QR de Captura permanente — URL base fija y capacidad interna', function () {
+  // credencial universal se inyecta al servir cada vista, por lo que una
+  // credencial interna recuperada o rotada nunca invalida un QR impreso.
+  t('P0: QR de Captura permanente — URL base fija y credencial universal', function () {
     var original = globalThis.PropertiesService;
     var almacen = { CAPTURA_ACCESS_TOKEN: 'e'.repeat(64) };
     globalThis.PropertiesService = {
@@ -6380,7 +6418,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.0', 'VERSION es 0.16.0');
+    A.cierto(ECICEP.VERSION === '0.16.1', 'VERSION es 0.16.1');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {
