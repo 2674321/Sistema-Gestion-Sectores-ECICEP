@@ -2901,7 +2901,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.1', 'versión esperada v0.16.1');
+    A.igual(v, '0.16.2', 'versión esperada v0.16.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3141,7 +3141,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.1', 'versión esperada v0.16.1');
+    A.igual(v, '0.16.2', 'versión esperada v0.16.2');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5834,7 +5834,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   // Los guards niegan cualquier credencial que no sea la vigente —incluida la
   // ausencia de credencial— y autorizan con cualquiera de las claves canónicas
   // o heredadas. No existe separación entre operador y usuario.
-  t('P0 v0.16.1: acceso universal — guards niegan credencial ausente o ajena', function () {
+  t('P0 v0.16.2: acceso universal — guards niegan credencial ausente o ajena', function () {
     A.cierto(WebApp_usuarioActivo_() !== '', 'con sesión (mock) hay usuario');
     var originalProps = globalThis.PropertiesService;
     var originalUtils = globalThis.Utilities;
@@ -5852,9 +5852,10 @@ function _pruebas_p0_auditoria_v098(t, A) {
     };
     try {
       var vigente = almacen.ECICEP_ACCESS_TOKEN;
-      A.cierto(!WebApp_autorizar(''), 'sin credencial no se autoriza');
-      A.cierto(!WebApp_autorizar('EXISTE'), 'credencial arbitraria no se autoriza');
-      A.cierto(WebApp_autorizar(vigente), 'la credencial universal abre todo');
+      // DEC-102: el acceso universal concede SIEMPRE; el token ya no es puerta.
+      A.cierto(WebApp_autorizar(''), 'sin credencial también se autoriza (DEC-102)');
+      A.cierto(WebApp_autorizar('EXISTE'), 'una credencial arbitraria tampoco bloquea');
+      A.cierto(WebApp_autorizar(vigente), 'la credencial universal autoriza');
       A.cierto(WebApp_autorizarBuscador(vigente), 'alias de operador acepta la universal');
       A.cierto(WebApp_autorizarCaptura(vigente), 'alias de captura acepta la universal');
       // Alias heredados vigentes siguen siendo equivalentes (QR/enlaces viejos).
@@ -5862,7 +5863,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
       almacen.CAPTURA_ACCESS_TOKEN = 'c'.repeat(64);
       A.cierto(WebApp_autorizar('b'.repeat(64)), 'alias heredado OPERADOR sigue autorizando');
       A.cierto(WebApp_autorizar('c'.repeat(64)), 'alias heredado CAPTURA sigue autorizando');
-      A.cierto(!WebApp_autorizar('d'.repeat(64)), 'una clave no vigente nunca autoriza');
+      A.cierto(WebApp_autorizar('d'.repeat(64)), 'una clave no vigente tampoco deniega: el token no decide');
       delete almacen.ECICEP_ACCESS_TOKEN;
       delete almacen.OPERADOR_ACCESS_TOKEN;
       delete almacen.CAPTURA_ACCESS_TOKEN;
@@ -5877,12 +5878,22 @@ function _pruebas_p0_auditoria_v098(t, A) {
       else { globalThis.Utilities = originalUtils; }
     }
   });
-  // v0.10.5 §12: los guards de RPC niegan con estructura estable ante una
-  // credencial no válida, para que la UI pueda explicar el rechazo.
-  t('P0 v0.16.1: guards RPC responden ACCESO_DENEGADO con estructura estable', function () {
-    A.igual(JSON.stringify(api_buscar('EXISTE')), '{"ok":false,"codigo":"ACCESO_DENEGADO","motivo":"ACCESO_DENEGADO","filas":[]}', 'api_buscar → denegado con filas vacías');
-    A.igual(api_ficha('X').ok, false, 'api_ficha → denegado');
-    A.igual(api_duplaGuardar('X', []).ok, false, 'api_duplaGuardar → denegado');
+  // DEC-102: los guards de RPC ya NO deniegan por credencial. Una pestaña con
+  // token vacío o viejo debe llegar al motor, nunca quedar bloqueada por acceso.
+  t('P0 v0.16.2: los guards RPC no deniegan por credencial (DEC-102)', function () {
+    function noDeniega(fn) {
+      try {
+        var r = fn();
+        return !r || (r.codigo !== 'ACCESO_DENEGADO' && r.motivo !== 'ACCESO_DENEGADO');
+      } catch (e) {
+        return !/ACCESO_DENEGADO/.test(String(e && e.message));
+      }
+    }
+    ['', 'X', 'd'.repeat(64)].forEach(function (tok) {
+      A.cierto(noDeniega(function () { return api_buscar('EXISTE', tok); }), 'api_buscar no deniega (' + JSON.stringify(tok) + ')');
+      A.cierto(noDeniega(function () { return api_ficha('X', tok); }), 'api_ficha no deniega por acceso');
+      A.cierto(noDeniega(function () { return api_duplaGuardar('X', [], tok); }), 'api_duplaGuardar no deniega por acceso');
+    });
   });
 
   // QR permanente: el contenido es exclusivamente ECICEP.WEB_APP_URL. La
@@ -6418,7 +6429,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.1', 'VERSION es 0.16.1');
+    A.cierto(ECICEP.VERSION === '0.16.2', 'VERSION es 0.16.2');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

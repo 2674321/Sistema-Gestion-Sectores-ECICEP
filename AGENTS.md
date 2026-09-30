@@ -12,6 +12,15 @@
 8. Leer `AGENTS.md` y la documentación vigente relevante antes de cambiar arquitectura o contratos.
 9. No reabrir problemas explícitamente cerrados y validados salvo evidencia nueva de regresión.
 10. Ejecutar los tests correspondientes antes de declarar una tarea terminada.
+11. **El acceso concede siempre (DEC-102).** Ninguna vista ni RPC puede quedar
+    bloqueada por credencial: `WebApp_autorizar` autoriza siempre y el token es
+    trazabilidad inyectada por el servidor, no una puerta. No reintroducir
+    validaciones de token (ni de formato) como condición de una acción, ni
+    `ACCESO_DENEGADO` como motivo de fallo: un fallo del motor se reporta como
+    tal. Si alguna vez debe existir una denegación real, se decide y documenta
+    aquí primero.
+12. Antes de tocar el acceso, ejecutar `node tests/seguridad_webapp_capacidades_vNEXT.mjs`.
+    Esa suite falla si alguien vuelve a condicionar el acceso a un token.
 
 ---
 

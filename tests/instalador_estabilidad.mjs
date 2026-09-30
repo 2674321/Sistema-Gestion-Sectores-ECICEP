@@ -14,20 +14,21 @@ c.PropertiesService = { getScriptProperties: () => ({
 c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDate: () => '' };
 c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
 const clave = c.WebApp_claveOperador_();
-assert.equal(c.api_instalarEtapas('').motivo, 'ACCESO_DENEGADO');
-assert.equal(c.api_instalarDiagnostico('').motivo, 'ACCESO_DENEGADO');
-assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
+// DEC-102: el acceso es universal; ninguna credencial (ni vacía) bloquea el instalador.
+assert.notEqual(c.api_instalarEtapas('').motivo, 'ACCESO_DENEGADO');
 assert.equal(c.api_instalarEtapas(clave).ok, true);
+assert.equal(c.api_instalarEtapas('').ok, true, 'sin credencial también ejecuta (DEC-102)');
 const diagnosticarReal = c.Instalar_diagnosticar;
 c.Instalar_diagnosticar = () => ({ ok: true, diagnostico: { resumen: { fasesPendientes: [] } } });
 assert.equal(c.api_instalarDiagnostico(clave).ok, true);
+assert.equal(c.api_instalarDiagnostico('').ok, true, 'sin credencial también diagnostica');
 let llamadas = 0;
 c.Instalar_pRuntime_ = () => { llamadas++; return { ok: false, motivo: 'FALLO_SIMULADO' }; };
 c.Log_error = () => {}; c.Log_flush = () => {};
 assert.equal(c.api_instalarPaso('runtime', clave).motivo, 'FALLO_SIMULADO');
 assert.equal(llamadas, 1);
-assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
-assert.equal(llamadas, 1);
+assert.equal(c.api_instalarPaso('runtime', '').motivo, 'FALLO_SIMULADO', 'sin credencial llega al motor');
+assert.equal(llamadas, 2);
 // v0.14: Instalar_pVisual_ es wrapper del motor único (subtareas formato:* +
 // complementarias del plan, sin pipeline paralelo). Simula un fallo de subtarea.
 const tareaRealV = c.Presentacion_ejecutarTarea_;

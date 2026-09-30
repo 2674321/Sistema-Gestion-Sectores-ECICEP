@@ -119,7 +119,11 @@ ok('T5 salud mental y observaciones existentes protegidas');
 
 // T9: preview del endpoint sin PII y sin escribir.
 {
-  assert.equal(c.api_fuentesImpacto('', 'CONSERVADOR').motivo, 'ACCESO_DENEGADO');
+  // DEC-102: el token ya no es puerta; una credencial vacía no puede denegar.
+  let denegado = false;
+  try { denegado = c.api_fuentesImpacto('', 'CONSERVADOR').motivo === 'ACCESO_DENEGADO'; }
+  catch (e) { denegado = /ACCESO_DENEGADO/.test(String(e && e.message)); }
+  assert.equal(denegado, false, 'token vacío no bloquea (DEC-102)');
   c.WebApp_autorizarBuscador = t => t === 'x';
   // (comparación por JSON: el objeto nace en el realm vm)
   assert.equal(JSON.stringify(c.api_fuentesImpacto('x', 'CONSERVAR').impacto),

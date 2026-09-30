@@ -9,7 +9,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.16.1-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.2-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -23,7 +23,34 @@
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.16.1` — acceso universal (una sola credencial abre todo el sistema); webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+| **Estado** | `v0.16.2` — el acceso concede siempre (DEC-102: ningún token puede bloquear una función); acceso universal (una sola credencial abre todo el sistema); webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+
+## v0.16.2 — el acceso concede siempre (DEC-102)
+
+**Ninguna credencial puede volver a bloquear una función.**
+
+En producción apareció el error «api_buscar: se requiere autorización para
+realizar esa acción» sobre un despliegue ya correcto. La causa: el guard
+`WebApp_autorizarBuscador(token)` delegaba en un validador de formato
+(`^[0-9a-f]{64}$`). Cualquier pestaña con el token vacío, cacheado de una
+versión anterior o heredado del modelo ACCESO LIBRE quedaba rechazada, y con
+ello se bloqueaban búsquedas, fichas, duplicados, instalador y guardado de
+captura.
+
+Qué cambia:
+
+- `WebApp_autorizar` **concede siempre**: el token deja de ser la puerta y pasa
+  a ser un valor de trazabilidad inyectado por el servidor.
+- Los guards RPC ya no pueden devolver `ACCESO_DENEGADO`; si el motor falla, el
+  fallo se reporta como tal (por ejemplo `BUSQUEDA_FALLO`), no como acceso.
+- `Captura_v2_ctx` atribuye el envío a una etiqueta estable cuando no hay sesión
+  de Sheets, en vez de rechazarlo: un registro capturado nunca se pierde.
+- El contrato queda fijado en `tests/seguridad_webapp_capacidades_vNEXT.mjs`,
+  que falla si alguien vuelve a condicionar el acceso a un token.
+
+El control real del acceso sigue siendo el enlace del deployment publicado; la
+credencial continúa sin viajar en la URL y sin distinguir tipos de usuario
+(véase [v0.16.1](#v0161--acceso-universal-fin-del-bloqueo-de-funciones)).
 
 ## v0.16.1 — acceso universal (fin del bloqueo de funciones)
 

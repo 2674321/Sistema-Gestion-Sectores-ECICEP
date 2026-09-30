@@ -1,5 +1,25 @@
 # Política de seguridad de ECICEP
 
+## El acceso concede siempre 2026-09-30 (DEC-102)
+
+`WebApp_autorizar` concede siempre y el token deja de ser la puerta: pasa a ser un
+valor de trazabilidad inyectado por el servidor al servir cada vista. Ningún guard
+RPC puede devolver `ACCESO_DENEGADO`; los fallos del motor se reportan como tales.
+
+Motivo: con DEC-101 ya en producción, `api_buscar` respondió «se requiere
+autorización» porque los guards delegaban en un validador de **formato**
+(`^[0-9a-f]{64}$`). Una pestaña con el token vacío, cacheado de una versión
+anterior o heredado del modelo ACCESO LIBRE quedaba rechazada, bloqueando
+búsquedas, fichas, duplicados, instalador y guardado de captura. El
+autoaprovisionamiento cubría el token *ausente*, no el *obsoleto*.
+
+Consecuencias aceptadas: la credencial ya no limita por sí sola el alcance dentro
+del sistema (no lo hacía de forma útil, porque todas las funciones son del mismo
+personal y se autoaprovisionaba). El control efectivo es quién conoce el enlace
+del deployment publicado, y ese enlace no se distribuye por la URL de la credencial
+sino por el QR y la comunicación interna. El invariante queda cubierto por
+`tests/seguridad_webapp_capacidades_vNEXT.mjs`.
+
 ## Acceso universal 2026-09-30 (DEC-101)
 
 ECICEP tiene **una sola capacidad de acceso**: no se distingue entre operador y

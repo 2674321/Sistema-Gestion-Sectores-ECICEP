@@ -28,6 +28,16 @@
 > columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
 > para medir duración y convergencia reales.
 
+> **Actualización 2026-09-30 (v0.16.2 — DEC-102):** corregido el error en
+> producción «api_buscar: se requiere autorización para realizar esa acción». Los
+> guards RPC validaban el **formato** del token, así que una pestaña con el token
+> vacío, cacheado o heredado quedaba bloqueada (búsquedas, fichas, duplicados,
+> instalador y captura). `WebApp_autorizar` concede siempre y `Captura_v2_ctx`
+> ya no rechaza por atribución; el token queda como trazabilidad y el control real
+> es el enlace del deployment. El invariante está cubierto por
+> `tests/seguridad_webapp_capacidades_vNEXT.mjs`. Nuevo pendiente real:
+> eliminar toda comprobación de credencial residual que quede en el código.
+
 > **Actualización 2026-09-30 (v0.16.1 — DEC-101):** revertido el bloqueo total de
 > acceso. La separación CAPTURA ≠ OPERADOR de DEC-097 exigía credencial y
 > allowlist que nunca se configuraron, y dejó inaccesibles todas las vistas no
