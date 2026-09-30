@@ -298,6 +298,40 @@
 >   webapp 8/8). `ECICEP.VERSION` → `0.10.4`, **schema 2**.
 >   Informe `docs/INFORME_2026-09-22_ACCESO_UNIVERSAL_V0104.md`.
 
+> **Actualización 2026-09-30 (v0.16.0) — vigente, supera DEC-068/067:**
+> - **ACCESO LIBRE (DEC-097)**: el sistema no pide permisos ni credenciales. Con
+>   la URL se opera todo —captura, ficha, Controles, Dashboard, REM, Revisión,
+>   Configuración, Backups, Registro, Instalador— sin token, sin cuenta de
+>   Google y sin consentimiento de scopes. Nadie ve una pantalla de permisos.
+> - **Causa raíz del error reportado**: `Captura_v2_ctx` atribuía con
+>   `Session.getActiveUser().getEmail()` **o** token válido; sin sesión (el caso
+>   del QR anónimo) `usuario` quedaba vacío y `Captura_v2_enviar` rechazaba con
+>   «Sesión de usuario no detectada; acceso denegado», perdiendo el registro. La
+>   atribución ya **nunca** bloquea: correo si hay sesión, si no `ACCESO_LIBRE`.
+> - **Decisión en un solo punto**: `WebApp_autorizar` (con `WebApp_accesoLibre_`).
+>   Los ~60 guards por RPC **no se borran** — son la válvula `ACCESO_LIBRE`,
+>   inalcanzables en el estado de fábrica. `WebApp_autorizarBuscador` y
+>   `WebApp_autorizarCaptura` siguen delegando; cero cambios en los call sites.
+> - **La URL y el QR no cambian**: `ECICEP.WEB_APP_URL` intacto y `?acceso=` se
+>   sigue emitiendo con el mismo valor, ahora **inerte**. Mismo deployment
+>   operativo, sin deployment nuevo. `SPREADSHEET_ID`, schema 2, captura V4,
+>   `INICIO_LAYOUT_VERSION` y `PRESENTACION_LAYOUT_VERSION` (0.15.0) sin tocar:
+>   no hay migración ni reconstrucción del libro.
+> - Robustez: `WebApp_claveUniversal_` nunca lanza (degrada a `''` en vez de
+>   abortar la request), `WebApp_urlCompartida_` nunca devuelve URL vacía y
+>   `WebApp_urlVista_` elige `?`/`&` según exista cadena de consulta.
+> - **Los permisos de Google son del propietario, no del usuario**: los scopes
+>   ya están declarados en `appsscript.json` y se conceden una vez al desplegar.
+>   `ECICEP_autorizar` queda como utilidad opcional del propietario, fuera de
+>   todo menú. Excepciones por necesidad propia, no por control de acceso: el
+>   secreto del webhook, `IA_guardarApiKey` y las herramientas de IA / pipeline
+>   legacy de Sheets (necesitan `getActiveSpreadsheet` y `showModalDialog`).
+> - Batería: **54 suites · 0 fallos atribuibles al cambio** (acceso libre
+>   v0.16.0 12/12, superficie de acceso libre 7/7, acceso webapp 9/9, rpc
+>   surface 4/4; se retiran `acceso_universal_v0104` y
+>   `seguridad_capacidades_v0103`, superados). `ECICEP.VERSION` → `0.16.0`,
+>   **schema 2**.
+
 > **Actualización 2026-09-22 (v0.10.3):**
 > - **Separación de capacidades CAPTURA ≠ OPERADOR**: dos tokens disjuntos en
 >   PropertiesService. La página pública (`CapturaWeb.html`) entrega solo
@@ -880,6 +914,42 @@ Creadas hoy: CONFIG · PACIENTES · LOG · CONFLICTOS · FUENTES.
 > arquitectura de seguridad avanzada; no se dependerá de ocultar hojas como
 > medida de protección, y la confidencialidad real se apoya en el control de
 > acceso a la cuenta de Google del spreadsheet.
+
+### Acceso al sistema: LIBRE (v0.16.0, DEC-097)
+
+> **El sistema es de acceso libre y así es por decisión, no por descuido.** No
+> pide permisos, ni credenciales, ni cuenta de Google. Quien tiene el enlace
+> —o escanea el QR— usa el sistema completo: capturar, ficha, Controles,
+> Dashboard, REM, Revisión, Configuración, Backups, Registro e Instalador.
+>
+> **Consecuencia que hay que decir con todas sus letras:** la URL de la Web App
+> es, en la práctica, la única barrera. Como la Web App corre con
+> `executeAs: USER_DEPLOYING` + `access: ANYONE_ANONYMOUS`, quien conozca la URL
+> puede leer y escribir los datos clínicos del libro, y esa URL hoy está
+> versionada en un repositorio público (`src/00_Config.js`). Esto **no es
+> seguridad institucional** y el proyecto nunca lo pretendió: es una decisión
+> consciente de disponibilidad (mínima fricción para el personal autorizado)
+> asumiendo que la confidencialidad se apoya en el control de la cuenta de
+> Google del spreadsheet, no en la de la aplicación.
+>
+> Mecánica, en `src/WebApp.gs`:
+> - `WebApp_accesoLibre_()` — el sistema es libre por defecto. La propiedad de
+>   Script Properties `ACCESO_LIBRE` **no se crea desde el código**: si no existe,
+>   libre. Solo `0`/`false`/`no`/`off`/`cerrado` la cierra.
+> - `WebApp_autorizar(token)` — concede siempre en acceso libre. Es la **única**
+>   puerta de decisión: los ~60 guards `WebApp_autorizarBuscador` /
+>   `WebApp_autorizarCaptura` de las RPC `api_*` siguen en el código y son la
+>   válvula (inalcanzables en el estado de fábrica). No se borró ni un guard.
+> - El parámetro `?acceso=` de la URL **se sigue emitiendo con el mismo valor**
+>   para que los enlaces y QR ya impresos no cambien, pero es **inerte**: no
+>   autoriza ni rechaza nada.
+> - Excepciones, por necesidad propia y no por control de acceso: el secreto del
+>   webhook (`WEBHOOK_TOKEN`, integración), `IA_guardarApiKey` (escribe un
+>   secreto), y las herramientas de IA / pipeline legacy de Sheets, que necesitan
+>   `getActiveSpreadsheet` y `showModalDialog`.
+> - `Captura_v2_ctx` atribuye con el correo si hay sesión y si no con la etiqueta
+>   `ACCESO_LIBRE`. **La atribución nunca bloquea un envío**: exigir identidad
+>   aquí fue la causa del "acceso denegado" en producción.
 
 Plan por capas:
 
