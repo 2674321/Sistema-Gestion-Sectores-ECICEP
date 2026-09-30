@@ -69,9 +69,11 @@ function Captura_validarEdicion_(a) {
   return {ok:true,valor:out};
 }
 
-/** Ficha accesible con sesión activa o enlace compartido válido. */
+/** Ficha accesible con acceso libre (DEC-097) o, con la válvula cerrada, enlace
+ *  compartido válido. El mensaje nombra la causa real: en acceso libre esta
+ *  rama es inalcanzable. */
 function WebApp_cargarPacienteEdicion(rut,acceso) {
-  if(!WebApp_autorizarBuscador(acceso))return {ok:false,motivo:'Enlace de Captura no válido. Solicita el QR actualizado.'};
+  if(!WebApp_autorizarBuscador(acceso))return {ok:false,motivo:'Acceso restringido: el sistema está cerrado y este enlace no es válido.'};
   var nr=Norm_normalizarRut(rut);
   if(nr.estado!=='OK')return {ok:false,motivo:'RUT inválido'};
   var lista=Modelo_leerPacientes().filter(function(p){return Norm_normalizarRut(p.RUT).rut===nr.rut;});

@@ -127,6 +127,12 @@
 > URL/QR). Batería **23 suites · 0 fallos**. Detalle:
 > `docs/INFORME_2026-09-22_FIABILIDAD_OPERATIVA_V0105.md`.
 
+> **Actualización 2026-09-30 (v0.16.0, DEC-097):** **ACCESO LIBRE**, supera
+> DEC-068. Los puntos sobre `ACCESO_DENEGADO` por token compartido quedan
+> **cerrados**: ninguna RPC exige credencial y los guards son la válvula
+> `ACCESO_LIBRE`, inalcanzables en el estado de fábrica. El texto histórico
+> siguiente describe el estado hasta v0.10.4.
+>
 > **Actualización 2026-09-22 (v0.10.4):** hotfix **ACCESO UNIVERSAL ECICEP**
 > (DEC-068, supera DEC-067): una sola credencial (`CAPTURA_ACCESS_TOKEN`,
 > valor conservado) habilita todas las funciones operativas (captura, ficha,

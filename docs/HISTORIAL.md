@@ -7,6 +7,25 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## v0.16.0 — ACCESO LIBRE (SUPERA DEC-068/067)
+
+- **Error reportado:** el sistema pedía permisos "para todo". Causa raíz: `Captura_v2_ctx`
+  exigía sesión de Google **o** token válido para atribuir; sin sesión (el caso del QR)
+  el envío se rechazaba con "acceso denegado" y el registro se perdía. Encima, 60 guards
+  `WebApp_autorizarBuscador` rechazaban cualquier enlace que no coincidiera.
+- **Ahora:** la decisión de acceso está centralizada y concede siempre
+  (`WebApp_accesoLibre_` + `WebApp_autorizar`). Los guards no se borran: son la válvula
+  `ACCESO_LIBRE`, inalcanzables en el estado de fábrica. La atribución usa el correo si hay
+  sesión y si no la etiqueta `ACCESO_LIBRE`; nunca bloquea.
+- **Sin cambio de URL ni QR:** `?acceso=` se sigue emitiendo con el mismo valor y queda
+  inerte; mismo deployment operativo, sin deployment nuevo. Schema 2, captura V4,
+  `INICIO_LAYOUT_VERSION`/`PRESENTACION_LAYOUT_VERSION` intactas, sin migración.
+- **Permisos de Google:** los concede el propietario una vez al desplegar (scopes ya
+  declarados en `appsscript.json`). `ECICEP_autorizar` queda como utilidad opcional del
+  propietario, no como paso del sistema, y no lo ve ningún usuario.
+- Tests nuevos `acceso_libre_v0160` (12/12) y `acceso_libre_superficie_v0160` (7/7);
+  retirados `acceso_universal_v0104` y `seguridad_capacidades_v0103` (DEC-097).
+
 ## v0.15.1 — INCIDENTE «INTERVALO COMBINADO» EN PORTADA INICIO
 
 - El marco de color de v0.14 dejó dos merges gigantes FUERA del panel; Sheets rechaza

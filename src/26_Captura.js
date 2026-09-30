@@ -1335,7 +1335,12 @@ function Captura_v2_catalogo() {
 /** Construye el ctx real de GAS. Inyectable en tests. */
 function Captura_v2_ctx(acceso) {
   return {
-    usuario: Captura_v2_usuarioActual() || (WebApp_accesoCompartidoValido_(acceso) ? 'ACCESO_COMPARTIDO' : ''),
+    // DEC-097 (acceso libre): la atribución NUNCA bloquea el envío. Antes exigía
+    // sesión de Google o un token válido, así que quien abría el QR sin iniciar
+    // sesión recibía "Sesión de usuario no detectada; acceso denegado" y perdía
+    // el registro. Ahora se usa el correo si hay sesión (Sheets) y, si no, una
+    // etiqueta estable: el sistema es de acceso libre y no pide identidad.
+    usuario: Captura_v2_usuarioActual() || 'ACCESO_LIBRE',
     acceso: acceso || '',
     ahora: Captura_v2_ahora,
     maxReintentos: FORM_CONFIG.MAX_REINTENTOS,

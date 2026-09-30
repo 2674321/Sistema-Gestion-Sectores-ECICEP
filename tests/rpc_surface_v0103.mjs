@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// RPC surface v0.10.3/0.10.4 — funciones críticas NO accesibles directamente a
+// RPC surface — funciones críticas NO accesibles directamente a
 // google.script.run (§93). Mecanismo: las funciones internas llevan sufijo `_`;
 // si un nombre crítico existiera SIN sufijo, quedaría expuesto a google.script.run.
 // El test detecta: (1) ausencia de exponer sin `_`, (2) que ninguna página llame
 // a esas funciones por su nombre crítico, (3) que el acceso pasa solo por api_*
-// con credencial válida (ACCESO UNIVERSAL v0.10.4; OPERADOR legacy v0.10.3).
+// (ACCESO LIBRE v0.16.0: sin credenciales, pero la superficie sigue siendo
+// la única puerta; la válvula ACCESO_LIBRE es lo único que reintroduce el rechazo).
 import assert from 'node:assert/strict';
 import {readdirSync,readFileSync} from 'node:fs';
 import vm from 'node:vm';
@@ -51,8 +52,7 @@ t('Ningún HTML llama a google.script.run.<critica> ni al nombre interno directo
   }
 });
 
-// (3) Los endpoints públicos equivalentes existen, toman token y exigen
-//     credencial válida (ACCESO UNIVERSAL v0.10.4; OPERADOR solo como legacy).
+// (3) Los endpoints públicos equivalentes existen y son la única puerta.
 t('El acceso a las críticas pasa solo por api_* públicos con credencial válida',()=>{
   const map={
     Hojas_resetFabrica:'api_instalarPaso',
@@ -76,8 +76,8 @@ t('El acceso a las críticas pasa solo por api_* públicos con credencial válid
   ctx.SpreadsheetApp={getActiveSpreadsheet:()=>({getSheetByName:()=>null}),openById:()=>null};
   ctx.Modelo_leerPacientes=()=>[];ctx.Modelo_hoja=()=>null;
   ctx.Log_info=()=>{};ctx.Log_warning=()=>{};ctx.Log_error=()=>{};ctx.Log_flush=()=>{};
-  // Todos los wrappers de la superficie exigen WebApp_autorizarBuscador
-  // (credencial válida universal; legacy v0.10.3 aceptado en transición).
+  // Todos los wrappers de la superficie pasan por WebApp_autorizarBuscador,
+  // que en ACCESO LIBRE concede siempre (y solo deniega con la válvula cerrada).
   const presentes=Object.values(map).filter(n=>typeof ctx[n]==='function');
   assert.ok(presentes.length>=4,'hay wrappers api_* verificables');
   for(const nombre of presentes){
@@ -93,7 +93,7 @@ t('El acceso a las críticas pasa solo por api_* públicos con credencial válid
   }
 });
 
-t('Los wrappers api_* de las críticas se niegan con token inválido y sin token',()=>{
+t('Los wrappers api_* de las críticas ya no niegan por acceso (ACCESO LIBRE)',()=>{
   const ctx=vm.createContext({console:{log(){},warn(){},error(){}}});
   for(const f of readdirSync(root).filter(x=>/\.(js|gs)$/.test(x)).sort())
     vm.runInContext(readFileSync(new URL(f,root),'utf8'),ctx,{filename:f});
@@ -110,13 +110,24 @@ t('Los wrappers api_* de las críticas se niegan con token inválido y sin token
   const casos=[['api_estratRecalcularPaciente','P-FICTICIO'],['api_registrarEvento',{}]];
   for(const [nombre,...args] of casos){
     if(typeof ctx[nombre]!=='function')continue;
+    // Con acceso libre no hay credencial que comprobar: ningún token, ni
+    // inválido ni ausente, puede producir un rechazo por acceso.
+    for(const [tok,etiqueta] of [[INVALIDO,'token inválido'],['','sin token'],[UNIVERSAL,'con el enlace']]){
+      let r;
+      try{ r=ctx[nombre](...args,tok); }
+      catch(e){ assert.ok(!/ACCESO/.test(String(e.message)),nombre+' '+etiqueta+': el fallo no es de acceso'); continue; }
+      assert.notEqual(r.motivo,'ACCESO_DENEGADO',nombre+' '+etiqueta+': no se deniega por acceso');
+    }
+  }
+  // La válvula ACCESO_LIBRE sí recupera el rechazo: es la forma deliberada
+  // de volver a exigir credencial.
+  props.set('ACCESO_LIBRE','0');
+  for(const [nombre,...args] of casos){
+    if(typeof ctx[nombre]!=='function')continue;
     const mal=ctx[nombre](...args,INVALIDO);
-    assert.equal(mal.ok,false,nombre+' con token inválido negado');
-    assert.equal(mal.motivo,'ACCESO_DENEGADO',nombre+' con token inválido: ACCESO_DENEGADO');
-    const sin=ctx[nombre](...args);
-    assert.equal(sin.ok,false,nombre+' sin token negado');
+    assert.equal(mal.motivo,'ACCESO_DENEGADO',nombre+' con la válvula cerrada: ACCESO_DENEGADO');
     const ok=ctx[nombre](...args,UNIVERSAL);
-    assert.notEqual(ok.motivo,'ACCESO_DENEGADO',nombre+' con credencial universal autoriza (falla de negocio, no de acceso)');
+    assert.notEqual(ok.motivo,'ACCESO_DENEGADO',nombre+' con la válvula cerrada y el token: entra');
   }
 });
-console.log('RPC surface v0.10.3: '+pruebas+'/'+pruebas+(faltas.length?' — FALTAS: '+faltas.join(', '):''));
+console.log('RPC surface (acceso libre): '+pruebas+'/'+pruebas+(faltas.length?' — FALTAS: '+faltas.join(', '):''));

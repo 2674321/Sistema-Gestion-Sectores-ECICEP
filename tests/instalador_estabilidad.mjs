@@ -14,9 +14,11 @@ c.PropertiesService = { getScriptProperties: () => ({
 c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDate: () => '' };
 c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
 const clave = c.WebApp_claveCompartida_();
-assert.equal(c.api_instalarEtapas('').motivo, 'ACCESO_DENEGADO');
-assert.equal(c.api_instalarDiagnostico('').motivo, 'ACCESO_DENEGADO');
-assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
+// ACCESO LIBRE: el instalador no pide credencial. El unico rechazo por acceso
+// viene de la valvula ACCESO_LIBRE cerrada a proposito (probado mas abajo).
+assert.notEqual(c.api_instalarEtapas('').motivo, 'ACCESO_DENEGADO');
+assert.notEqual(c.api_instalarDiagnostico('').motivo, 'ACCESO_DENEGADO');
+assert.equal(c.api_instalarEtapas('').ok, true, 'instalar etapas sin token');
 assert.equal(c.api_instalarEtapas(clave).ok, true);
 const diagnosticarReal = c.Instalar_diagnosticar;
 c.Instalar_diagnosticar = () => ({ ok: true, diagnostico: { resumen: { fasesPendientes: [] } } });
@@ -26,8 +28,9 @@ c.Instalar_pRuntime = () => { llamadas++; return { ok: false, motivo: 'FALLO_SIM
 c.Log_error = () => {}; c.Log_flush = () => {};
 assert.equal(c.api_instalarPaso('runtime', clave).motivo, 'FALLO_SIMULADO');
 assert.equal(llamadas, 1);
-assert.equal(c.api_instalarPaso('runtime', '').motivo, 'ACCESO_DENEGADO');
-assert.equal(llamadas, 1);
+assert.equal(c.api_instalarPaso('runtime', '').motivo, 'FALLO_SIMULADO',
+  'sin token el paso tambien llega al motor: el fallo sigue siendo del motor');
+assert.equal(llamadas, 2);
 // v0.14: Instalar_pVisual es wrapper del motor único (subtareas formato:* +
 // complementarias del plan, sin pipeline paralelo). Simula un fallo de subtarea.
 const tareaRealV = c.Presentacion_ejecutarTarea_;

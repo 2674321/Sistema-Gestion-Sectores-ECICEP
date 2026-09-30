@@ -64,17 +64,19 @@
   function ECICEP_mensajeUsuario(r) {
     if (!r) return 'No hubo respuesta del servidor. Revisa tu conexión e intenta nuevamente.';
     if (ECICEP_esServicioOcupado(r)) return ECICEP_textoServicioOcupado();
-    if (ECICEP_requiereRecarga(r)) return 'El enlace de acceso está desactualizado. Vuelve a abrir el enlace vigente.';
+    if (ECICEP_requiereRecarga(r)) return 'Acceso restringido: el sistema está cerrado. Avisa al responsable del sistema.';
     return ECICEP_errorTexto(r);
   }
   function ECICEP_esReintentable(r) { return ECICEP_errorDe(r).reintentable; }
   function ECICEP_esAccesoDesactualizado(r) { return ECICEP_requiereRecarga(r); }
 
   /* Recarga única por pestaña cuando el acceso quedó obsoleto; devuelve false
-     cuando ya se intentó (no bucear en bucle). SessionStorage bloqueada -> alerta. */
+     cuando ya se intentó (no bucear en bucle). SessionStorage bloqueada -> alerta.
+     Con ACCESO LIBRE (DEC-097, estado de fábrica) esto no se dispara:
+     solo ocurre si el propietario cerró el sistema con ACCESO_LIBRE. */
   function ECICEP_reloadUnaVez() {
-    if (_sesGet('ecicep_reload_acceso')) { _alerta('Tu acceso no pudo renovarse automáticamente. Cierra esta pestaña y abre el enlace actualizado.'); return false; }
-    if (!_sesSet('ecicep_reload_acceso', '1')) { _alerta('Tu acceso está desactualizado. Cierra esta pestaña y reabre el enlace actualizado.'); return false; }
+    if (_sesGet('ecicep_reload_acceso')) { _alerta('Acceso restringido: el sistema está cerrado. Avisa al responsable del sistema.'); return false; }
+    if (!_sesSet('ecicep_reload_acceso', '1')) { _alerta('Acceso restringido: el sistema está cerrado. Avisa al responsable del sistema.'); return false; }
     setTimeout(_recargar, 250);
     return true;
   }
