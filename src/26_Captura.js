@@ -549,7 +549,11 @@ function Captura_v2_enviar(payload, ctx) {
             Captura_v2_logInfo('CapturaV2', 'enviar', captureId + ': A2 fast-path (fila ya procesada: ' + est.estado + ')');
             return Captura_v2_respuestaEntrega(norm, entregaFast);
           }
-        } catch (_eFast) { /* fallthrough: re-ejecutar pipeline completo */ }
+        } catch (_eFast) {
+          // El fallthrough al pipeline completo está protegido por `previoA2`
+          // (no duplica); faltaba la traza del motivo.
+          Captura_v2_logError('CapturaV2', 'A2_fastpath', captureId + ': ' + String(_eFast));
+        }
       }
       var previoA2 = { hoja: reg.ingresoHoja, fila: reg.ingresoFila, regExiste: true };
       var entregaA2 = Captura_v2_ejecutarEntrega(norm, c, captureId, previoA2, reg);
@@ -576,6 +580,11 @@ function Captura_v2_enviar(payload, ctx) {
     return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'No fue posible registrar el envío', '§15.2')] };
   }
   if (!pers || !pers.ok) {
+    // `CONFIRMACION_FALLIDA` significa que la fila YA está escrita y solo falló
+    // la relectura: el registro existe y el reenvío con el mismo captureId lo
+    // recupera (A2). Antes se perdía el motivo real y no quedaba traza alguna.
+    Captura_v2_logError('CapturaV2', 'Persistencia',
+      captureId + ': registro no confirmado (' + ((pers && pers.motivo) || 'sin_motivo') + ')');
     return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'No fue posible registrar el envío', '§15.2')] };
   }
   Captura_v2_medida(c, 'T3_persistir');
@@ -786,7 +795,14 @@ function Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg) {
     try {
       var agenda = c.aplicarAgenda && c.aplicarAgenda(resultado.idInterno, norm.proximoControl);
       agendaOk = !!(agenda && agenda.ok);
-    } catch (eAgenda) { agendaOk = false; }
+    } catch (eAgenda) {
+      // El evento/ingreso clínico YA se escribió; la agenda es una segunda
+      // escritura sobre PACIENTES. Antes la excepción se descartaba y solo
+      // quedaba 'AGENDA_NO_GUARDADA', sin causa ni referencia.
+      Captura_v2_logError('CapturaV2', 'aplicarAgenda',
+        norm.captureId + ' → ' + String(eAgenda));
+      agendaOk = false;
+    }
     if (!agendaOk) { resultado.estado = CAPTURA_V2.ESTADOS.ERROR; resultado.motivo = 'AGENDA_NO_GUARDADA'; }
   }
   var estado = resultado.estado || CAPTURA_V2.ESTADOS.ERROR;
@@ -966,6 +982,9 @@ function Captura_v2_confirmarFila(hoja, captureId) {
     var est = mapa.idx.ESTADO !== undefined ? Utl_texto(datos[mapa.idx.ESTADO]).toUpperCase() : '';
     return rid === captureId && est !== '';
   } catch (e) {
+    // Sin traza, un fallo transitorio de lectura tras un setValues exitoso
+    // producía CONFIRMACION_FALLIDA sin ninguna pista en la hoja LOG.
+    Captura_v2_logError('CapturaV2', 'confirmarFila', captureId + ': ' + String(e));
     return false;
   }
 }
@@ -1367,6 +1386,11 @@ function WebApp_capturarEnviar(payload, acceso) {
   try {
     lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) {
+      // El operador ya envió el formulario y aquí no se escribe nada. Sin esta
+      // traza el rechazo era invisible; el reenvío reutiliza el mismo captureId,
+      // de modo que queda recuperable, pero hay que poder diagnosticarlo.
+      Captura_v2_logError('WebApp', 'capturarEnviar',
+        ((payload && payload.captureId) || 'captureId-desconocido') + ': lock no disponible en 30s, envío no registrado');
       return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Servicio ocupado; reintente en unos segundos', 'S2-LockService')] };
     }
     var ctx = Captura_v2_ctx(acceso);
@@ -1476,6 +1500,8 @@ function WebApp_capturarRetomar(payload, acceso) {
   try {
     lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) {
+      Captura_v2_logError('WebApp', 'capturarRetomar',
+        ((payload && payload.captureId) || 'captureId-desconocido') + ': lock no disponible en 30s');
       return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Servicio ocupado; reintente en unos segundos', 'S2-LockService')] };
     }
     var captureId = (payload && typeof payload === 'object' && payload.captureId) ? payload.captureId : null;
@@ -1527,6 +1553,9 @@ function Captura_v2_logInfo(modulo, operacion, mensaje) {
   try {
     if (typeof SpreadsheetApp !== 'undefined' && typeof Log_info === 'function') Log_info(modulo || 'CapturaV2', operacion, mensaje);
   } catch (e) { /* no bloquear nunca */ }
+  // Igual que logError: sin volcado, las migas de pan del fast-path A2 y del
+  // ciclo de vida se perdían y no había forma de reconstruir un reenvío.
+  try { if (typeof Log_flush === 'function') Log_flush(); } catch (e) { /* no bloquear nunca */ }
 }
 
 function Captura_v2_logAux(operacion, mensaje) {
@@ -1537,5 +1566,10 @@ function Captura_v2_logError(modulo, operacion, mensaje) {
   try {
     if (typeof SpreadsheetApp !== 'undefined' && typeof Log_error === 'function') Log_error(modulo || 'CapturaV2', operacion, mensaje);
   } catch (e) { /* no bloquear nunca */ }
+  // Sin este volcado, `Log_error` solo acumula en memoria y el error se pierde al
+  // reciclar el contenedor: todo fallo de captura era indistinguible de «no
+  // ocurrió nada». `Log_flush` es seguro (sale temprano si el buffer está vacío y
+  // reencola si no logra el lock).
+  try { if (typeof Log_flush === 'function') Log_flush(); } catch (e) { /* no bloquear nunca */ }
   try { Captura_v2_logAux(operacion, mensaje); } catch (e) { /* no bloquear nunca */ }
 }

@@ -15,7 +15,7 @@
  *   §42      idempotencia del operador: retry del mismo envío NO duplica
  *            (criterio captureId + marcas FUENTE), incluido retry post-timeout.
  *   §43      concurrencia: exclusión mutua (SERVICIO_OCUPADO) y guardia
- *            optimista de ficha (FICHA_CAMBIO) sin escrituras perdidas.
+ *            optimista de ficha (FICHA_CAMBIO) sin escritas perdidas.
  *   §44-§45  ficha todo-o-nada + vista derivada best effort: un fallo de
  *            Modelo_refrescarVistasSectores_ reporta advertencia VISTA_SECTOR_
  *            PENDIENTE y el reintento no duplica el evento CAMBIO_SECTOR.
@@ -656,9 +656,9 @@ t('E5 api_fichaGuardarCambios propaga SERVICIO_OCUPADO y no llama al guardado ba
 t('E6 ficha todo-o-nada: guarda PACIENTES + EVENTO; fallo de vista derivada solo avisa (§44)', () => {
   const c = backend();
   const espejo = { ID_INTERNO: 'I-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1' };
-  const eventos = []; let escrituras = 0;
+  const eventos = []; let escritas = 0;
   c.Modelo_buscarPaciente = () => ({ obj: espejo, idx: 0 });
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: (filas) => { escrituras += 1; const row = filas[0]; if (row && espejo.SECTOR !== row[espejoIndex]) espejo.SECTOR = row[espejoIndex]; } }) });
+  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: (filas) => { escritas += 1; const row = filas[0]; if (row && espejo.SECTOR !== row[espejoIndex]) espejo.SECTOR = row[espejoIndex]; } }) });
   const espejoIndex = () => c.MODELO_PACIENTE.findIndex((x) => x.campo === 'SECTOR');
   c.Modelo_filaFisica = () => 2;
   c.Modelo_agregarEventos_ = (filas, usuario, opts) => { eventos.push(...filas); };
@@ -670,7 +670,7 @@ t('E6 ficha todo-o-nada: guarda PACIENTES + EVENTO; fallo de vista derivada solo
   A(r.sectorCambio === true && r.cambiosAplicados.indexOf('SECTOR') !== -1, 'cambio de sector aplicado');
   A(r.advertencias.indexOf('VISTA_SECTOR_PENDIENTE') !== -1, 'advertencia de vista derivada pendiente');
   A(eventos.length === 1 && eventos[0].TIPO_EVENTO === 'CAMBIO_SECTOR', 'evento CAMBIO_SECTOR escrito una vez');
-  A(escrituras >= 1, 'PACIENTES escrito al menos una vez');
+  A(escritas >= 1, 'PACIENTES escrito al menos una vez');
 });
 
 t('E7 retry del mismo cambio de sector NO duplica el evento; cambio obsoleto da FICHA_CAMBIO (§43)', () => {
@@ -691,7 +691,7 @@ t('E7 retry del mismo cambio de sector NO duplica el evento; cambio obsoleto da 
   // Un tercer operador con valor obsoleto NO pisa: guardia optimista FICHA_CAMBIO.
   const r3 = c.Ficha_guardarCambios_('I-1', { SECTOR: { anterior: 'NARANJO', valor: 'AMARILLO' } });
   A(r3.ok === false && String(r3.codigo || r3.motivo).indexOf('FICHA_CAMBIO') !== -1, 'valor obsoleto → FICHA_CAMBIO, sin escritura perdida');
-  A(eventos.length === 1 && espejo.SECTOR === 'VERDE', 'no hay escrituras concurrentes perdidas ni eventos duplicados');
+  A(eventos.length === 1 && espejo.SECTOR === 'VERDE', 'no hay escritas concurrentes perdidas ni eventos duplicados');
 });
 
 t('E8 buscador UI consume el contrato {ok,filas} y conserva compatibilidad con arreglo', () => {
@@ -701,6 +701,59 @@ t('E8 buscador UI consume el contrato {ok,filas} y conserva compatibilidad con a
   A(/if\(!res\|\|res\.ok===false\)/.test(html), 'Sidebar comunica el fallo lógico de la búsqueda');
   A(/seq!==_busquedaSeq/.test(html), 'Sidebar descarta respuestas obsoletas de búsquedas anteriores');
   A(/value\.trim\(\)!==t/.test(html), 'Sidebar verifica que la respuesta corresponda al término visible');
+});
+
+// ── 3. Pruebas PARTE F — Escrituras serializadas y trazabilidad (DEC-102) ──
+console.log('OPERADOR F — reescritas serializadas y errores de captura persistidos.');
+
+t('F1 Limpieza y Recuperar se serializan: con el lock ocupado no reescriben nada', () => {
+  const pares = [['Limpieza_ejecutar_', 'Limpieza_ejecutarBloque_'], ['Recuperar_ejecutar_', 'Recuperar_ejecutarBloque_']];
+  for (const [fn, interna] of pares) {
+    const c = backend();
+    c.Log_error = () => {}; c.Log_flush = () => {};
+    let bloque = 0;
+    c[interna] = () => { bloque += 1; return { ok: true }; };
+    c.LockService = { getScriptLock: () => ({ tryLock: () => false, releaseLock: () => {} }) };
+    const r = c[fn](fn === 'Limpieza_ejecutar_' ? { totalFilas: 0, ruts: [], hojas: {} } : 'FUENTE_X');
+    A(r.ok === false && r.codigo === 'SERVICIO_OCUPADO' && r.reintentable === true,
+      fn + ' → SERVICIO_OCUPADO reintentable');
+    A(bloque === 0, fn + ' no ejecuta la reescritura bajo contención');
+    // Lock libre → ejecuta y libera.
+    let liberado = false;
+    c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => { liberado = true; } }) };
+    const ok = c[fn](fn === 'Limpieza_ejecutar_' ? { totalFilas: 0, ruts: [], hojas: {} } : 'FUENTE_X');
+    A(bloque === 1 && liberado, fn + ' ejecuta con lock libre');
+  }
+});
+
+t('F2 los errores de captura se vuelcan a la hoja LOG (antes se perdían al reciclar el contenedor)', () => {
+  const c = backend();
+  let flushed = 0;
+  c.SpreadsheetApp = {};                       // activa la ruta de Log_error real
+  c.Log_flush = () => { flushed += 1; };
+  c.Captura_v2_logError('CapturaV2', 'Persistencia', 'x');
+  A(flushed === 1, 'Captura_v2_logError fuerza el volcado');
+  c.Captura_v2_logInfo('CapturaV2', 'enviar', 'y');
+  A(flushed === 2, 'Captura_v2_logInfo también fuerza el volcado');
+});
+
+t('F3 reparar campos técnicos invalida la caché DESPUÉS de escribir (no solo antes)', () => {
+  const c = backend();
+  let invalidados = 0, escritas = 0, escribioSinInvalidar = false;
+  c.Modelo_hoja = () => ({ getLastRow: () => 5 });
+  const cabecera = [['ID_INTERNO', 'RUT', 'FUENTE']];
+  c.Modelo_leerBloqueCabecera = () => cabecera;          // sin filas → no reescribe
+  c.Utl_escribirBloque = () => { escritas += 1; };
+  c.Modelo_invalidarLecturas = () => { invalidados += 1; };
+  c.Modelo_repararCamposTecnicos_();
+  A(escritas === 0, 'sin cambios no escribe');
+  // Con una fila reparable: la invalidación debe cerrar DESPUÉS del setValues.
+  c.Modelo_leerBloqueCabecera = () => ([['ID_INTERNO', 'RUT', 'FUENTE'], ['I-1', '11111111-1', '']]);
+  c.Utl_escribirBloque = () => { escritas += 1; escribioSinInvalidar = invalidados === 0; };
+  c.Modelo_repararCamposTecnicos_();
+  A(escritas === 1, 'reescribe cuando repara');
+  A(escribioSinInvalidar === true, 'escribe primero e invalida después (si invalidara antes, la ventana dejaría datos rancios)');
+  A(invalidados >= 1, 'invalida lecturas tras reparar');
 });
 
 // ── Resumen ──

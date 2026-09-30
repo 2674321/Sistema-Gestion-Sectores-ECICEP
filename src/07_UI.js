@@ -1597,6 +1597,13 @@ function UI_vaciarDatosPrueba() {
   if (resp !== ui.Button.YES) return;
 
   var r = Limpieza_ejecutar_(colecta);
+  if (r && r.codigo === 'SERVICIO_OCUPADO') {
+    Log_info('UI', 'vaciarDatosPrueba', 'SERVICIO_OCUPADO: no se reescribió nada');
+    Log_flush();
+    ui.alert('NO SE REALIZÓ LA LIMPIEZA\n\nOtro operador está escribiendo en este instante ' +
+      '(captura en curso). No se borró nada: vuelve a intentarlo en unos segundos.');
+    return;
+  }
   Log_info('UI', 'vaciarDatosPrueba', JSON.stringify(r));
   Log_flush();
   ui.alert(
@@ -1715,6 +1722,11 @@ function UI_recuperarEjecutar() {
   if (conf !== ui.Button.YES) return;
 
   var r = Recuperar_ejecutar_(prefijo);
+  if (r && r.codigo === 'SERVICIO_OCUPADO') {
+    ui.alert('NO SE REALIZÓ LA REVERSIÓN\n\nOtro operador está escribiendo en este instante ' +
+      '(captura en curso). No se eliminó nada: vuelve a intentarlo en unos segundos.');
+    return;
+  }
   ui.alert(
     'REVERSIÓN COMPLETADA\n\n' +
     'Pacientes eliminados: ' + r.pacientesEliminados + '\n' +
