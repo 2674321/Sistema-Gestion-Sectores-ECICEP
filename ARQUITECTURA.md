@@ -8,6 +8,20 @@
 > conserva fuera de la decisión bloqueante de derivados. No cambia el sistema
 > único, el Spreadsheet, la Web App, el pipeline clínico ni el schema 2.
 
+> **Actualización 2026-09-30 (v0.16.2 — DEC-102, el acceso concede siempre):**
+> - `WebApp_autorizar` concede **siempre**; el token deja de ser la puerta y pasa a
+>   ser un valor de trazabilidad inyectado por el servidor. Ningún guard RPC puede
+>   devolver `ACCESO_DENEGADO`: un fallo del motor se reporta como tal
+>   (`BUSQUEDA_FALLO`, `ESQUEMA_DIVERGENTE`, …), nunca como problema de acceso.
+> - Motivo: con DEC-101 ya desplegado, `api_buscar` respondió «se requiere
+>   autorización» porque los guards delegaban en un validador de **formato**
+>   (`^[0-9a-f]{64}$`); una pestaña con token vacío, cacheado o heredado quedaba
+>   rechazada y arrastraba búsquedas, fichas, duplicados, instalador y captura.
+> - `Captura_v2_ctx` atribuye el envío a una etiqueta estable cuando no hay sesión
+>   de Sheets, en vez de rechazarlo: un registro capturado nunca se pierde.
+> - No cambia DEC-101: sigue habiendo una credencial única autoaprovisionada,
+>   alias heredados equivalentes y ninguna credencial en la URL.
+
 > **Actualización 2026-09-30 (v0.16.1 — DEC-101, acceso universal):**
 > - **Una sola capacidad abre todo el sistema.** No se distingue entre operador
 >   y usuario: el ECICEP solo lo manejan los trabajadores del CESFAM y todos

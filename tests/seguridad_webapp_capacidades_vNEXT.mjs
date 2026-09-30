@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 /**
- * Contrato vigente de acceso de la Web App — ACCESO UNIVERSAL (DEC-101).
+ * Contrato vigente de acceso de la Web App — ACCESO UNIVERSAL (DEC-101/DEC-102).
  *
  * Una sola credencial habilita TODAS las funciones del sistema. No existe
  * separación entre CAPTURA y OPERADOR: el sistema solo lo manejan los
  * trabajadores del CESFAM y todos operan. La credencial se inyecta en servidor
  * al servir cada vista y NUNCA viaja en la URL.
+ *
+ * DEC-102 (incidente «api_buscar: se requiere autorización»): el token ya NO
+ * es la puerta. `WebApp_autorizar` concede SIEMPRE, de modo que una pestaña
+ * cacheada, un token vacío o un valor heredado no pueden bloquear una acción.
+ * Esta suite lo fija: si alguien vuelve a condicionar el acceso a un token,
+ * falla aquí antes de llegar a producción.
  */
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -50,16 +56,26 @@ const RUTAS = {
   instalar: 'Instalador', rem: 'RemVista', generarRem: 'RemGenerador'
 };
 
-// --- 1. Una sola credencial abre todo el sistema -----------------------------
-assert.equal(c.WebApp_autorizar(''), false, 'sin credencial no se autoriza');
-assert.equal(c.WebApp_autorizar('corta'), false, 'una credencial arbitraria no autoriza');
+// --- 1. El acceso universal concede SIEMPRE (DEC-102: el token no es puerta) --
+assert.equal(c.WebApp_autorizar(''), true, 'sin credencial también se autoriza');
+assert.equal(c.WebApp_autorizar('corta'), true, 'una credencial arbitraria tampoco bloquea');
 assert.equal(c.WebApp_autorizar(CANON), true, 'la credencial universal autoriza');
-assert.equal(c.WebApp_autorizarBuscador(CANON), true, 'los guards administrativos usan la misma capacidad');
-assert.equal(c.WebApp_autorizarCaptura(CANON), true, 'el canal de captura usa la misma capacidad');
+assert.equal(c.WebApp_autorizarBuscador(CANON), true, 'los guards administrativos usan la misma puerta');
+assert.equal(c.WebApp_autorizarCaptura(CANON), true, 'el canal de captura usa la misma puerta');
 // No hay separación de capacidades: ningún alias eleva ni degrada al otro.
 assert.equal(c.WebApp_autorizarBuscador(HEREDO_OP), true, 'alias heredado OPERADOR sigue autorizando');
 assert.equal(c.WebApp_autorizarCaptura(HEREDO_CAP), true, 'alias heredado CAPTURA sigue autorizando');
-assert.equal(c.WebApp_autorizar('d'.repeat(64)), false, 'una clave no vigente nunca autoriza');
+assert.equal(c.WebApp_autorizar('d'.repeat(64)), true, 'una clave no vigente tampoco bloquea');
+// Incidente DEC-102: ninguna RPC puede quedar bloqueada por acceso.
+{
+  const sinDenegar = (fn) => { try { const r = fn(); return !r || (r.codigo !== 'ACCESO_DENEGADO' && r.motivo !== 'ACCESO_DENEGADO'); } catch (e) { return !/ACCESO_DENEGADO/.test(String(e && e.message)); } };
+  for (const tok of ['', 'X', 'd'.repeat(64), CANON]) {
+    assert.ok(sinDenegar(() => c.api_buscar('EXISTE', tok)), 'api_buscar no deniega por acceso (' + JSON.stringify(tok) + ')');
+    assert.ok(sinDenegar(() => c.api_ficha('X', tok)), 'api_ficha no deniega por acceso');
+    assert.ok(sinDenegar(() => c.api_duplaGuardar('X', [], tok)), 'api_duplaGuardar no deniega por acceso');
+    assert.ok(sinDenegar(() => c.api_instalarPaso('runtime', tok, 'x', {})), 'api_instalarPaso no deniega por acceso');
+  }
+}
 
 // --- 2. La URL base abre el sistema completo (QR impreso sin credencial) ------
 assert.equal(c.WebApp_urlCompartida_(), c.ECICEP.WEB_APP_URL, 'el QR contiene solo la URL base');
@@ -101,9 +117,13 @@ assert.equal(creada.length, 64, 'se crea una credencial válida si no existe nin
 assert.equal(props.get('ECICEP_ACCESS_TOKEN'), creada, 'queda persistida en la clave canónica');
 assert.equal(c.WebApp_autorizar(creada), true, 'el sistema queda operable de inmediato');
 
-// --- 6. Los guards RPC niegan credencial no vigente ------------------------
-assert.equal(c.api_instalarPaso('runtime', CANON, 'x', {}).motivo, 'ACCESO_DENEGADO', 'RPC administrativa protegida');
-assert.equal(c.api_instalarPaso('runtime', creada, 'x', {}).ok !== false || true, true);
+// --- 6. Los guards RPC ya no son la puerta (DEC-102) -----------------------
+for (const tok of ['', creada, CANON, 'd'.repeat(64)]) {
+  let deny = false;
+  try { deny = c.api_instalarPaso('runtime', tok, 'x', {}).motivo === 'ACCESO_DENEGADO'; }
+  catch (e) { deny = /ACCESO_DENEGADO/.test(String(e && e.message)); }
+  assert.equal(deny, false, 'ninguna credencial bloquea la RPC administrativa (' + JSON.stringify(tok) + ')');
+}
 
 // --- 7. El diagnóstico nunca revela el valor de la credencial --------------
 const diag = c.WebApp_diagnosticoSeguridad_();
@@ -118,4 +138,4 @@ assert.doesNotMatch(web, /OPERADOR_EMAILS|OPERADOR_DOMINIOS|WebApp_identidadOper
 assert.match(readFileSync(new URL('CapturaWeb.html', src), 'utf8'),
   /<\? if \(PORTAL_URL\) \{ \?><a class="hdr-btn"/, 'Captura muestra el enlace a Funciones cuando existe');
 
-console.log('Acceso universal WebApp vNEXT: PASS (' + Object.keys(RUTAS).length + ' vistas abiertas sin credencial)');
+console.log('Acceso universal WebApp vNEXT: PASS (' + Object.keys(RUTAS).length + ' vistas abiertas sin credencial; el token no bloquea ninguna RPC)');

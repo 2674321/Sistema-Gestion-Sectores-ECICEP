@@ -137,11 +137,11 @@ assert.match(presentacion, /if \(actual !== texto\) \{\s*try \{ celda\.setValue\
 ok('presentación no altera datos clínicos (solo refresh INFO con skip)');
 
 // 20. Versión/layout correctos, esquema estable y lienzo INICIO PRO 36×50.
-assert.equal(E('ECICEP.VERSION'), '0.16.1'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
+assert.equal(E('ECICEP.VERSION'), '0.16.2'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
 assert.equal(E('HOJAS_UX.INICIO.frozenRows'), 2); assert.equal(E('HOJAS_UX.INICIO.frozenColumns'), 0);
 assert.equal(E('INICIO_RANGO_GESTIONADO'), 'A1:AJ50');
 assert.equal(E('INICIO_CONTRATO.version'), 'PANEL_OPERATIVO_PRO_V015');
-ok('v0.16.1 conserva schema 2, INICIO 2/0 y portada gestionada A1:AJ50 (36 columnas × 50 filas)');
+ok('v0.16.2 conserva schema 2, INICIO 2/0 y portada gestionada A1:AJ50 (36 columnas × 50 filas)');
 
 assert.equal(n, 20);
 console.log('Instalador y formato visual v0.13.0 — 20/20 PASS');

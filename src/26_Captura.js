@@ -1338,7 +1338,10 @@ function Captura_v2_catalogo() {
 /** Construye el ctx real de GAS. Inyectable en tests. */
 function Captura_v2_ctx(acceso) {
   return {
-    usuario: Captura_v2_usuarioActual() || (WebApp_accesoCompartidoValido_(acceso) ? 'ACCESO_COMPARTIDO' : ''),
+    // DEC-102: la atribución NUNCA bloquea un envío. Con acceso universal el
+    // correo se usa si hay sesión (Sheets); si no, una etiqueta estable. Exigir
+    // un token válido aquí producía "acceso denegado" y perdía el registro.
+    usuario: Captura_v2_usuarioActual() || 'ACCESO_COMPARTIDO',
     acceso: acceso || '',
     ahora: Captura_v2_ahora,
     maxReintentos: FORM_CONFIG.MAX_REINTENTOS,

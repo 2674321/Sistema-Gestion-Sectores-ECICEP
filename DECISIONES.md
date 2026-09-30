@@ -2247,3 +2247,32 @@ enlaces, diagnóstico sin secretos), núcleo `10_Pruebas` 674/674 y batería com
 66/66 sin fallos. E2E anónimo sobre el deployment operativo. No cambia schema 2
 ni el contrato de captura V4.
 **Fecha:** 2026-09-30
+
+## DEC-102
+**Título:** v0.16.2 — el acceso concede siempre: el token deja de ser la puerta.
+**Estado:** Aprobada
+**Motivo:** con DEC-101 en producción, `api_buscar` respondió «se requiere
+autorización para realizar esa acción» sobre un deployment verificado como
+correcto. La causa fue el **formato** del token, no su ausencia: los guards RPC
+delegaban en `WebApp_accesoUniversalValido_`, que exige `^[0-9a-f]{64}$`. Una
+pestaña abierta antes del cambio, con el token vacío, cacheado o heredado del
+modelo ACCESO LIBRE quedaba rechazada, y con ella se caían búsquedas, fichas,
+duplicados, instalador y guardado de captura. El autoaprovisionamiento evitaba el
+token ausente, pero no el token *obsoleto*: la comprobación de formato estaba
+acting como autorización.
+
+`WebApp_autorizar` **concede siempre** y el token pasa a ser solo un valor de
+trazabilidad que el servidor inyecta al servir cada vista. Ningún guard puede ya
+devolver `ACCESO_DENEGADO`: si el motor falla, se reporta el fallo real (por
+ejemplo `BUSQUEDA_FALLO`) y no un problema de acceso. `Captura_v2_ctx` atribuye
+el envío a una etiqueta estable cuando no hay sesión de Sheets, en lugar de
+rechazarlo, para que un registro capturado nunca se pierda. No cambia DEC-101: la
+credencial única autoaprovisionada sigue vigente, los alias heredados siguen
+aceptándose y la credencial continúa sin viajar en la URL. El control real del
+acceso es el enlace del deployment publicado, que es lo que el usuario conoce y
+usa.
+**Validación:** `seguridad_webapp_capacidades_vNEXT` fija el invariante (falla
+si alguien vuelve a condicionar el acceso a un token); núcleo `10_Pruebas`
+674/674 y batería completa 66/66 sin fallos; E2E anónimo sobre el deployment
+operativo. No cambia schema 2 ni el contrato de captura V4.
+**Fecha:** 2026-09-30
