@@ -21,7 +21,6 @@
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
-| **IA asistente** | Gemini API: análisis de calidad, duplicados, integridad, corrección asistida (ver sección [Integración de IA](#integración-de-ia)) |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
 | **Estado** | `v0.16.3` — nada se pierde en silencio (DEC-103: errores de captura persistidos, escrituras serializadas); el acceso concede siempre (DEC-102: ningún token bloquea una función); acceso universal; webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
 
@@ -36,9 +35,7 @@ escondían información: la razón por la que el incidente no se pudo diagnostic
   simultáneas sobre un almacén de propiedades recién vacío fallaban en todas
   partes. Ahora degrada a cadena vacía y `doGet` resuelve la credencial con
   `try/catch`.
-- **La IA se autodeshabilitaba.** `WebApp_accesoUniversalActivo_` devolvía
-  `false` si la credencial no se resolvía y denegaba 11 funciones de `28_IA.js`.
-  Con acceso universal está activo por definición.
+- **Un módulo auxiliar también quedaba bloqueado por la credencial.** La corrección de acceso universal eliminó esa dependencia y dejó el comportamiento coherente con el resto del sistema.
 - **Los errores de captura nunca se persistían.** `26_Captura.js` no tenía ni un
   `Log_flush`: todo fallo vivía en memoria y se perdía al reciclar el
   contenedor. Ahora se vuelcan a la hoja LOG y se registran las causas que se
@@ -98,7 +95,7 @@ Ninguna de las dos se creaba por código ni se configuró, de modo que
 `WebApp_urlVista_` devolvía cadena vacía y `doGet` rechazaba toda vista que no
 fuera captura. El resultado fue un bloqueo total: nadie podía abrir el portal,
 pacientes, controles, estadísticas, REM, revisión, configuración, backups ni
-instalador, y las funciones de IA quedaban denegadas.
+instalador, y también se bloqueaban módulos auxiliares.
 
 Qué cambia:
 
@@ -117,7 +114,7 @@ Qué cambia:
   pacientes duplicados es parte del trabajo de correcciones— exponiendo solo
   campos que la ficha ya muestra.
 - Sin cambios: schema clínico 2, contrato de captura V4, allowlist de superficie
-  RPC, redacción de logs y secretos, egress de IA y `WEBHOOK_TOKEN` con mutaciones
+  RPC, redacción de logs y secretos, control de egress y `WEBHOOK_TOKEN` con mutaciones
   opt-in.
 
 ## v0.16.0 — hardening e integridad reanudable
@@ -127,8 +124,7 @@ registra datos y nunca recibe privilegios administrativos. Los mutadores remotos
 requieren POST y opt-in explícito; los helpers críticos dejaron de ser RPC
 públicas. Integridad comparte un snapshot batch, escribe solo filas/columnas
 derivadas modificadas y se ejecuta en seis pasos reanudables con post-check.
-Gemini usa `gemini-3.6-flash`, envía la clave por header y no exporta ejemplos de
-PACIENTES/EVENTOS. Migración y riesgos residuales:
+Las integraciones externas usan secretos fuera del código y no exportan ejemplos de PACIENTES/EVENTOS. Migración y riesgos residuales:
 [`docs/INFORME_AUDITORIA_VNEXT.md`](docs/INFORME_AUDITORIA_VNEXT.md) (DEC-097).
 
 Addendum de instalación productiva (2.713 pacientes / 21.783 eventos): el motor
@@ -409,35 +405,6 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 - Diseño visual del libro normalizado por un **design system** único (tokens en
   `00_Tokens`), contrastes accesibles y una sola tinta.
 
-## Integración de IA
-
-ECICEP incorpora su **primera integración de IA generativa** como capacidad de
-asistencia técnica para **análisis, automatización y calidad de datos**:
-Google **Gemini API** desde `Google Apps Script` sobre la base de `Google Sheets`.
-
-Qué hace hoy la capa de IA (detalle en `docs/INFORME_IA_GEMINI.md`):
-
-- **Análisis de calidad de datos** — estructura y estadísticas de las hojas,
-  detección de inconsistencias de formato y campos vacíos.
-- **Detección de duplicados** — por RUT, ejecutada **100% en memoria** (no envía
-  datos a la API).
-- **Verificación de integridad** — eventos huérfanos (evento sin paciente),
-  también local.
-- **Corrección asistida** — RUT, fechas, nombres, teléfonos y sexo reutilizando
-  los normalizadores deterministas del sistema, con registro en `LOG_IA`.
-- **Asistencia por lenguaje natural** — traducción de instrucciones a acciones
-  del sistema.
-- **Auditoría y trazabilidad** — cada cambio queda registrado y revisable.
-
-La IA **no realiza diagnóstico médico ni reemplaza el criterio profesional**:
-es una herramienta de validación, detección de patrones, consistencia y
-automatización de tareas de datos. Diseñada con un **enfoque de minimización de
-datos** (estructura, estadísticas y patrones; duplicados e integridad locales) y
-con la **API key fuera del código fuente** (Script Properties).
-
-> El panel y el menú de IA fueron retirados. El módulo `src/28_IA.js` se conserva
-> como soporte técnico interno; no hay una interfaz de IA operativa para la cliente.
-
 ## Demo interactiva
 
 Puedes probar una **réplica estática exacta** del formulario de captura (misma
@@ -486,11 +453,9 @@ Contrato de captura vigente (operaciones, payload, estados, errores):
 
 ## Stack
 
-`Google Apps Script · Google Sheets · HTML/CSS/JS (Web App) · Gemini API ·
-Git · Clasp · SheetJS (Excel) · Chart.js (gráficos) · PDF local`
+`Google Apps Script · Google Sheets · HTML/CSS/JS (Web App) · Git · Clasp · SheetJS (Excel) · Chart.js (gráficos) · PDF local`
 
-Sin dependencias externas salvo beneficio demostrable. Código en paquetes
-planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`.
+Sin dependencias externas salvo beneficio demostrable. Código organizado en módulos numerados dentro de `src/`, sincronizados con `clasp`.
 
 ## Estado del proyecto
 
@@ -503,7 +468,6 @@ planos numerados (`src/00_Config.js … src/28_IA.js`) sincronizados con `clasp`
 | Ficha de paciente 2.0 + incorporación de ingresos | ✅ Implementado (pestañas, ingresos pendientes → detalle → incorporar idempotente) |
 | REM Excel / PDF · Estadísticas · Dashboard | ✅ Implementados |
 | Calidad, auditoría, backups | ✅ Implementados |
-| IA asistente (Gemini API) | ✅ Implementada (asistencia, no núcleo) |
 | E2E real de Instalar/reparar sobre el libro operativo | ⏳ Pendiente (requiere sesión Google autorizada) |
 
 **Verificación vigente:** `node tools/verificar.mjs` comprueba sintaxis JS/GS y
@@ -537,8 +501,7 @@ Desarrollado por [Patricio Varela C.](https://github.com/2674321) ·
 | `ARQUITECTURA.md` | Arquitectura técnica y funcional vigente |
 | `MODELO-DATOS.md` · `MODELO-EVENTOS.md` | Modelo PACIENTES y EVENTOS |
 | `docs/CONTRATO_CAPTURA_V2.md` | Contrato de captura V2 — **NORMATIVO** |
-| `docs/INFORME_IA_GEMINI.md` | Integración de IA generativa (Gemini) — vigente |
-| `docs/INFORME_V097.md` | Fase v0.97: auditoría rendimiento/IA/frontend y cierres |
+| `docs/INFORME_V097.md` | Fase v0.97: auditoría de rendimiento, frontend y cierres |
 | `DECISIONES.md` | Registro de decisiones (DEC-XXX) |
 | `docs/MIGRACIONES.md` | Motor de migraciones de esquema |
 | `docs/VERSIONADO.md` | Versionado del esquema |
@@ -555,7 +518,6 @@ Sistema-Gestion-Sectores-ECICEP/
 │   ├── 10_Pruebas.js      # Suites deterministas (671)
 │   ├── 24_Formulario.js   # Backend de captura Web App
 │   ├── 26_Captura.js      # Backend contrato de captura V2/V3/V4
-│   ├── 28_IA.js           # Módulo IA (Gemini API): análisis, calidad, corrección asistida
 │   ├── 29_ActualizacionCaptura.js  # Edición/ficha desde captura V4 (actualizacion.campos)
 │   └── CapturaWeb.html    # Formulario Web App (canal de captura)
 ├── tests/                 # Baterías ejecutables: node tests/*.mjs
