@@ -1,5 +1,8 @@
 # ECICEP — Sistema de Gestión Sanitaria por Sectores
 
+<p align="center"><img src="docs/branding/app-icon.svg" width="150" alt="Icono minimalista de ECICEP"></p>
+
+
 **Autor:** [Patricio Varela C.](https://github.com/2674321) · **ORCID:** [0009-0002-1087-9445](https://orcid.org/0009-0002-1087-9445) · **Licencia:** [MIT](LICENSE) · **Citación:** [CITATION.cff](CITATION.cff)
 
 > Plataforma de captura, seguimiento clínico y reporte construida sobre
