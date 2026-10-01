@@ -1,5 +1,7 @@
 # ECICEP — Sistema de Gestión Sanitaria por Sectores
 
+**Autor:** [Patricio Varela C.](https://github.com/2674321) · **ORCID:** [0009-0002-1087-9445](https://orcid.org/0009-0002-1087-9445) · **Licencia:** [MIT](LICENSE) · **Citación:** [CITATION.cff](CITATION.cff)
+
 > Plataforma de captura, seguimiento clínico y reporte construida sobre
 > **Google Apps Script + Google Sheets**, con una **Web App** como único canal
 > operativo de captura y un backend de reglas de negocio testeable.
