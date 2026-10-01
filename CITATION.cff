@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "Si utilizas este proyecto, cita este repositorio."
+title: "ECICEP — Sistema de Gestión Sanitaria por Sectores"
+type: software
+authors:
+  - family-names: "Varela C."
+    given-names: "Patricio"
+    orcid: "https://orcid.org/0009-0002-1087-9445"
+repository-code: "https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP"
+url: "https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP"
+license: "MIT"
