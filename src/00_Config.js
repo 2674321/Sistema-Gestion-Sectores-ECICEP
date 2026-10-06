@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 var ECICEP = {
   NOMBRE: 'Sistema ECICEP',
-  VERSION: '0.16.3',
+  VERSION: '0.16.4',
   AMBIENTE: 'DESARROLLO', // legado: el entorno real se resuelve vía ENTORNOS (25_Entorno)
   SPREADSHEET_ID: '1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE',
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec',
@@ -190,11 +190,17 @@ const CAMPOS_INGRESO_ADICIONALES = [
   'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'SALUD_MENTAL'
 ];
 
-// Columnas de la hoja EVENTOS (orden compartido por instalador y escritor)
+// Columnas de la hoja EVENTOS (orden compartido por instalador y escritor).
+// DEC-104: PROFESIONAL2 (segundo profesional de la dupla) se ANEXA al final y
+// NO se intercala junto a PROFESIONAL: la evolución del esquema es append-only,
+// de modo que las filas históricas conservan su alineación actual y solo las
+// nuevas capturan la dupla (un EVENTO histórico queda PROFESIONAL2 vacío, nunca
+// mal alineado). Modelo_asegurarEsquemaEventos_ inserta la columna que falte.
 var COLUMNAS_EVENTOS = [
   'ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA_EVENTO', 'TIPO_EVENTO',
   'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'PROFESIONAL_TIPO', 'DESCRIPCION',
-  'CANTIDAD', 'OBSERVACIONES', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'
+  'CANTIDAD', 'OBSERVACIONES', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO',
+  'PROFESIONAL2'
 ];
 
 // Columnas de las vistas operativas SECTOR_* (derivadas de PACIENTES+EVENTOS,

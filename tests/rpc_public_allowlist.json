@@ -464,6 +464,7 @@
     "Utl_medir",
     "Utl_partir",
     "Utl_sinTildes",
+    "Utl_sufijoAleatorio",
     "Utl_texto",
     "Utl_toast",
     "Utl_toastIcono",

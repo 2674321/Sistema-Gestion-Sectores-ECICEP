@@ -401,7 +401,7 @@ const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion, opciones \|\| \{\}\);/);
 assert.match(src20, /var r = fn\(ejecucion, opciones\)/, 'dispatcher entrega ejecución y opciones a la etapa');
 const cfg = readFileSync(new URL('00_Config.js', root), 'utf8');
-assert.match(cfg, /VERSION:\s*'0\.16\.3'/);
+assert.match(cfg, /VERSION:\s*'0\.16\.4'/);
 ok('T19 fuente: motor reanudable, sin fuerza global y VERSION 0.16.3');
 
 console.log('Presentación reanudable v0.13.0 — ' + n + '/' + n + ' PASS');

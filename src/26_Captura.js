@@ -257,7 +257,10 @@ function Captura_v2_validar(payload, opciones) {
     rut: '', nombre: '', sexo: '', fechaNacimiento: '', sector: '',
     fechaIngreso: '', estratificacion: '', telefonos: '', fechaEvento: '', profesional: '',
     profesionalSecundario: '', observaciones: '', confirmarNuevoPaciente: false,
-    proximoControl: '', actualizacion: null, saludMental: ''
+    proximoControl: '', actualizacion: null, saludMental: '',
+    // DEC-105: derivado interno (NO es campo del contrato): anotaciones que
+    // Norm_normalizarTelefono separa del texto de contacto. Antes se perdían.
+    telefonoObs: ''
   };
 
   // Capa 2 (tipos + obligatoriedad) y Capa 3 (semántica) por campo §5.1
@@ -364,6 +367,11 @@ function Captura_v2_validar(payload, opciones) {
     } else if (campo === 'telefonos') {
       var nt = Norm_normalizarTelefono(valor);
       norm.telefonos = (nt && nt.telefonos && nt.telefonos.length) ? nt.telefonos.join('/') : '';
+      // DEC-105: el normalizador separa teléfono y anotación ("esposo", "número
+      // descartado"). Conservar solo los dígitos destruía la anotación: el
+      // modelo tiene TELEFONO_OBS para ello y la captura no la llenaba.
+      norm.telefonoObs = (nt && nt.observaciones && nt.observaciones.length)
+        ? nt.observaciones.join('; ') : '';
     } else if (campo === 'proximoControl') {
       var agenda = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
       if (!agenda.ok) eSem.push(Captura_v2_error('FECHA_INVALIDA', campo, 'Fecha de próxima atención inválida', agenda.detalle));
@@ -433,6 +441,7 @@ function Captura_v2_normalizadoAInterno(norm, opciones) {
     FECHA_INGRESO: norm.fechaIngreso || '',
     ESTRATIFICACION: norm.estratificacion || '',
     TELEFONOS: norm.telefonos || '',
+    TELEFONO_OBS: norm.telefonoObs || '',   // DEC-105: la anotación también viaja
     FECHA_EVENTO: norm.fechaEvento || '',
     PROFESIONAL: norm.profesional || '',
     PROFESIONAL2: norm.profesionalSecundario || '',
@@ -804,6 +813,27 @@ function Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg) {
       agendaOk = false;
     }
     if (!agendaOk) { resultado.estado = CAPTURA_V2.ESTADOS.ERROR; resultado.motivo = 'AGENDA_NO_GUARDADA'; }
+  }
+  // DEC-105: anotación de contacto (TELEFONO_OBS). INGRESO_* no tiene columna
+  // para ella, así que se aplica sobre PACIENTES tras la entrega clínica, con
+  // la misma semántica que la agenda: si falla, la entrega NO queda PROCESADO.
+  var contactoCampos = {};
+  if (norm.telefonoObs) contactoCampos.TELEFONO_OBS = norm.telefonoObs;
+  if (resultado.estado === CAPTURA_V2.ESTADOS.PROCESADO && resultado.idInterno &&
+      c.aplicarContacto && Object.keys(contactoCampos).length) {
+    var contactoOk = false;
+    try {
+      var cr = c.aplicarContacto(resultado.idInterno, contactoCampos);
+      contactoOk = !!(cr && cr.ok);
+    } catch (eContacto) {
+      Captura_v2_logError('CapturaV2', 'aplicarContacto',
+        norm.captureId + ' → ' + String(eContacto));
+      contactoOk = false;
+    }
+    if (!contactoOk) {
+      resultado.estado = CAPTURA_V2.ESTADOS.ERROR;
+      resultado.motivo = 'CONTACTO_NO_GUARDADO';
+    }
   }
   var estado = resultado.estado || CAPTURA_V2.ESTADOS.ERROR;
   var trailer = {
@@ -1204,7 +1234,11 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     // mantener una segunda composición del pipeline: ambos fueron causas de
     // timeout/falso "ejecutado" sin alta clínica.
     var proc = Ingresos_procesarFila(hojaEntrega, filaFisica, {
-      confirmarNuevo: norm.confirmarNuevoPaciente === true
+      confirmarNuevo: norm.confirmarNuevoPaciente === true,
+      // DEC-104: la fila se relee del libro, así que la dupla viaja por opciones
+      // para que el EVENTO de ingreso registre PROFESIONAL y PROFESIONAL2.
+      profesional: norm.profesional || '',
+      profesionalSecundario: norm.profesionalSecundario || ''
     });
     if (!proc || proc.ok === false) {
       return { estado: CAPTURA_V2.ESTADOS.ERROR,
@@ -1297,6 +1331,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
         fecha: Captura_v2_fechaOperacion({}),
         idInterno: persona.ID_INTERNO,
         profesional: norm.profesional || '',
+        profesionalSecundario: norm.profesionalSecundario || '', // DEC-104: no se pierde
         descripcion: 'ACTUALIZACION_VIA_CAPTURA',
         observaciones: norm.observaciones || '',
         fuente: marca,
@@ -1321,6 +1356,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
       fecha: norm.fechaEvento || '',
       idInterno: persona.ID_INTERNO,
       profesional: norm.profesional || '',
+      profesionalSecundario: norm.profesionalSecundario || '', // DEC-104: no se pierde
       descripcion: '',
       observaciones: norm.observaciones || '',
       fuente: marca,
@@ -1374,6 +1410,11 @@ function Captura_v2_ctx(acceso) {
     // ni una re-autorización). §40-§42.
     aplicarAgenda: function (idInterno, fecha) {
       return Paciente_actualizarCampos_(idInterno, { PROXIMO_CONTROL: fecha }, { fuente: 'CAPTURA_V2' });
+    },
+    // DEC-105: campos de PACIENTES que la captura acepta pero cuya única casa es
+    // la ficha (la puerta INGRESO_* no tiene columna para ellos).
+    aplicarContacto: function (idInterno, campos) {
+      return Paciente_actualizarCampos_(idInterno, campos, { fuente: 'CAPTURA_V2' });
     },
     medir: Captura_v2_marcaMedida
   };

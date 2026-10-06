@@ -17,7 +17,7 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.16.3-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.16.4-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -30,7 +30,55 @@
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.16.3` — nada se pierde en silencio (DEC-103: errores de captura persistidos, escrituras serializadas); el acceso concede siempre (DEC-102: ningún token bloquea una función); acceso universal; webhook endurecido e Integridad batch/reanudable; esquema clínico 2 y Captura V4 sin cambios |
+| **Estado** | `v0.16.4` — ningún campo aceptado se pierde (DEC-104: identificadores automáticos, `profesionalSecundario` persistido, teléfonos recuperables, índices de CONFLICTOS y fila de RUT correctos); nada se pierde en silencio (DEC-103); el acceso concede siempre (DEC-102); esquema clínico 2 y Captura V4 sin cambios |
+
+## v0.16.4 — ningún campo aceptado se pierde (DEC-104)
+
+La identidad de los registros era **posicional** y dos campos que el contrato de
+captura declara opcionales se aceptaban y luego se perdían. Ambas cosas son la
+misma clase de fallo: el sistema acepta el dato, informa éxito y la información
+no queda en ninguna parte.
+
+- **Identidad posicional.** `Ingresos_procesarFilas` generaba `EC-000001`,
+  `EC-000002`… según el **orden del lote**: el mismo lote reordenado producía
+  identidades distintas y un staging reprocesado podía reasignar la identidad de
+  un paciente ya incorporado. Ahora `ID_INTERNO` es `EC-<base36 tiempo>-<rand4>`
+  y `ID_EVENTO` es `EV-<base36 tiempo>-<rand4>`; la secuencia determinista existe
+  solo por inyección explícita (`{secuenciaTest: n}`) y ningún camino productivo
+  la usa. El resolver nunca devuelve un ID vacío o repetido, y las altas se
+  niegan a escribir un `ID_INTERNO` duplicado. Los IDs históricos no canónicos se
+  conservan: no se reescribe nada ya incorporado.
+- **`profesionalSecundario` se aceptaba y se perdía.** El contrato lo declara
+  `OPC` en las cuatro operaciones y la Web App lo enviaba, pero ninguna llamada
+  a `Eventos_registrarPaciente_` lo transmitía y EVENTOS no tenía dónde
+  guardarlo. Ahora se persiste en la columna nueva `PROFESIONAL2`, añadida **al
+  final** del esquema (las columnas previas no se desplazan) y reconciliada de
+  forma idempotente; los eventos históricos quedan vacíos.
+- **Un teléfono escrito con espacios se perdía entero.**
+  `Norm_normalizarTelefono` validaba cada fragmento por separado, así que
+  `9 6060 0712`, `+56 9 9060 0712` o `(2) 2345 6789` —las formas más naturales
+  de escribir un teléfono— producían `VACIO` con todos los fragmentos
+  descartados. Ahora se interpreta primero la corrida completa de dígitos; los
+  varios números en un mismo campo (`a / b`) siguen siendo varios. Además
+  `TELEFONO_OBS` persiste las anotaciones de fuente y **todo** descarte.
+- **La cola de calidad leía la columna equivocada.** `Calidad_sincronizarCola_`
+  mezclaba base 0 con base 1 y leía `FUENTE_B` en vez de `FUENTE_A`:
+  `filasCalidad` quedaba siempre vacío, cada sincronización **duplicaba** la
+  cola y el auto-resolve era código muerto. Los índices se derivan ahora del
+  encabezado real.
+- **`Calidad_normalizarFormatoRuts_` escribía sobre el banner.** Usaba `2 + ix`
+  como fila física en PACIENTES, que tiene layout visual (datos desde la fila 4):
+  con `ix=0` escribía el RUT en el banner y con `ix=1` sobre los encabezados. La
+  coordenada sale ahora de `Modelo_filaFisica`.
+- **IDs de ejecución solo con el reloj.** `CARGA-`/`ACT-`/`EJ-` se componían
+  únicamente de `Date.now()`, con lo que dos ejecuciones en el mismo milisegundo
+  compartían identificador. Llevan sufijo aleatorio.
+
+Guardas: `tests/ids_automaticos_vNEXT.mjs` (15 casos),
+`tests/captura_persistencia_campos_vNEXT.mjs` (17 casos E2E por el mismo
+entrypoint que `WebApp_capturarEnviar`) e
+`tests/integridad_calidad_cola_vNEXT.mjs` (7 casos). Los casos de teléfono
+recuperados quedan fijados en el dataset canónico de normalización.
 
 ## v0.16.3 — nada se pierde en silencio (DEC-103)
 

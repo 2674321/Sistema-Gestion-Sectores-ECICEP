@@ -209,7 +209,7 @@ test('Actualizar contacto no solicita identidad que el payload V2 omite', () => 
 });
 test('Simulación del orquestador no llama a ningún escritor', () => {
   const c = backend(); const calls = [];
-  for (const name of ['Modelo_asegurarEsquemaPacientes_','Modelo_alinearVistasSectoriales_',
+  for (const name of ['Modelo_asegurarEsquemaPacientes_','Modelo_asegurarEsquemaEventos_','Modelo_alinearVistasSectoriales_',
     'Modelo_limpiarHojasResiduales','Amarillo_importarTodo_','Estrat_recalcularTodos_',
     'Control_recalcularTodos','Modelo_refrescarVistasSectores_','HVis_aplicarTodasLasSecciones',
     'HVis_formatearIngresos','Hojas_formatoCondicional','Modelo_validarIngresos',
@@ -228,6 +228,9 @@ function actualizacionSimulada() {
   const c = backend();
   c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
   c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: true });
+  // DEC-104: «Reparar» reconcilia también el esquema de EVENTOS; el simulador
+  // aísla ambos reconciliadores para no tocar el libro real.
+  c.Modelo_asegurarEsquemaEventos_ = () => ({ ok: true });
   c.Modelo_alinearVistasSectoriales_ = () => ({ errores: [] });
   c.Modelo_limpiarHojasResiduales = () => ({ candidatas: [], eliminadas: [] });
   c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: {} });

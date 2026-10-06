@@ -287,13 +287,53 @@ function Modelo_repararCamposTecnicos_() {
 
 /**
  * Genera un ID interno único: EC-<base36 tiempo>-<aleatorio>.
- * No depende de RUT (permite corregir un RUT sin romper referencias).
+ * No depende de RUT (permite corregir un RUT sin romper referencias), ni del
+ * número de fila, ni del índice del lote, ni de un contador reiniciable
+ * (DEC-104): es la ÚNICA estrategia de producción para ID_INTERNO.
+ * Las pruebas pueden inyectar un generador determinista por dependencia
+ * (`Ingresos_procesarFilas({nuevoId})`), nunca por numeración global.
  */
 function Modelo_nuevoIdInterno() {
   var t = Date.now().toString(36).toUpperCase();
-  var r = Math.floor(Math.random() * 1679616).toString(36).toUpperCase(); // 36^4
-  while (r.length < 4) r = '0' + r;
-  return 'EC-' + t + '-' + r;
+  return 'EC-' + t + '-' + Utl_sufijoAleatorio(4);
+}
+
+/** Formato canónico de ID_INTERNO productivo. */
+var MODELO_RE_ID_INTERNO = /^EC-[0-9A-Z]{1,12}-[0-9A-Z]{4}$/;
+
+/**
+ * GAS: valida un ID_INTERNO antes de persistirlo. Exige no vacío, formato
+ * canónico y unicidad dentro del lote y contra el store ya leído. Ante
+ * colisión genera otro (reintentos acotados). NUNCA devuelve un ID repetido:
+ * reutilizar el ID de otro paciente lo sobrescribiría.
+ * @param {string} intento  ID candidato
+ * @param {Object} occupied  Set/mapa de IDs ya ocupados
+ * @returns {ok:boolean, idInterno:string, intentos:number, motivo:string}
+ */
+function Modelo_resolverIdInterno_(intento, occupied) {
+  var usados = occupied || {};
+  var yaUsado = function (id) { return Object.prototype.hasOwnProperty.call(usados, Utl_texto(id)); };
+  var candidato = Utl_texto(intento);
+  // Sin candidato (alta nueva): se genera uno canónico. Un vacío NO es un "ID
+  // histórico no canónico": aceptarlo devolvía ok con idInterno vacío.
+  if (candidato === '') candidato = Modelo_nuevoIdInterno();
+  var intentos = 0;
+  while (intentos < 8) {
+    if (!MODELO_RE_ID_INTERNO.test(candidato)) {
+      // Formato no canónico (p. ej. un generador de prueba): no se reescribe,
+      // pero tampoco se repite un ID ya ocupado.
+      if (yaUsado(candidato)) return { ok: false, idInterno: candidato, intentos: intentos, motivo: 'ID_INTERNO_DUPLICADO' };
+      usados[candidato] = true;
+      return { ok: true, idInterno: candidato, intentos: intentos, motivo: '' };
+    }
+    if (!yaUsado(candidato)) {
+      usados[candidato] = true;
+      return { ok: true, idInterno: candidato, intentos: intentos, motivo: '' };
+    }
+    intentos += 1;
+    candidato = Modelo_nuevoIdInterno();
+  }
+  return { ok: false, idInterno: candidato, intentos: intentos, motivo: 'ID_INTERNO_COLISION' };
 }
 
 // ---------------------------------------------------------------------------
@@ -1766,6 +1806,29 @@ function Modelo_agregarPacientes_(objetos, contexto) {
         ' sin ' + traza.faltantes.join(', '));
     }
   }
+  // DEC-104: última barrera antes del append. Un ID_INTERNO vacío o repetido
+  // no puede escribirse: reutilizar un ID existente sobrescribiría otro
+  // paciente. Esto es un rechazo explícito (nunca un PROCESADO con dato lost).
+  var vistos = {};
+  for (var b = 0; b < objetos.length; b++) {
+    var id = Utl_texto(objetos[b].ID_INTERNO);
+    if (!id) throw new Error('ALTA_SIN_ID_INTERNO: ' + Utl_texto(objetos[b].NOMBRE));
+    if (vistos[id]) {
+      throw new Error('ALTA_ID_INTERNO_DUPLICADO_EN_LOTE: ' + id);
+    }
+    vistos[id] = true;
+  }
+  var yaPersistidos = {};
+  (Modelo_leerPacientes() || []).forEach(function (p) {
+    var pid = Utl_texto(p.ID_INTERNO);
+    if (pid) yaPersistidos[pid] = true;
+  });
+  for (var c = 0; c < objetos.length; c++) {
+    var idc = Utl_texto(objetos[c].ID_INTERNO);
+    if (yaPersistidos[idc]) {
+      throw new Error('ALTA_ID_INTERNO_YA_EXISTE: ' + idc);
+    }
+  }
   var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);
   var ahora = new Date();
@@ -1783,6 +1846,42 @@ function Modelo_agregarPacientes_(objetos, contexto) {
   return n;
 }
 
+/** GAS: garantiza que EVENTOS tenga el esquema canónico (idempotente).
+ *  Misma mecánica que PACIENTES pero SIN reescribir filas: EVENTOS es
+ *  append-only de historial clínico, así que una columna que falta se inserta
+ *  al final (DEC-104) y las filas existentes quedan intactas con el valor vacío.
+ *  @returns plan.ok=true sin cambios | {ok:true,migrada:true,insertadas:[..]} | ok=false */
+function Modelo_asegurarEsquemaEventos_() {
+  var hoja = Modelo_hoja(HOJAS.EVENTOS);
+  if (!hoja) return { ok: true, insertar: [], motivo: 'SIN_HOJA_EVENTOS' };
+  var fisicos;
+  if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, 'EVENTOS')) {
+    fisicos = _MEMO_HOJAS.EVENTOS[0] || [];
+  } else {
+    var ancho = Math.max(hoja.getLastColumn() || 0, COLUMNAS_EVENTOS.length);
+    fisicos = hoja.getRange(Modelo_headerRow(HOJAS.EVENTOS), 1, 1, ancho).getValues()[0] || [];
+  }
+  var plan = Modelo_planMigracionEsquema(fisicos, COLUMNAS_EVENTOS);
+  if (plan.ok) return plan;
+  if (!plan.insertar.length) {
+    Log_error('Modelo', 'asegurarEsquema', 'EVENTOS incompatible: ' + plan.motivo);
+    return plan;
+  }
+  for (var k = plan.insertar.length - 1; k >= 0; k--) {
+    var ins = plan.insertar[k];
+    if (typeof hoja.insertColumns === 'function') hoja.insertColumns(ins.indiceFinal + 1);
+    hoja.getRange(Modelo_headerRow(HOJAS.EVENTOS), ins.indiceFinal + 1).setValue(ins.campo);
+  }
+  // insertColumns desplazó los índices de columnas: cualquier lectura memoizada
+  // de EVENTOS de esta invocación quedó vieja → invalidar antes de continuar.
+  Modelo_invalidarLecturas();
+  Log_warning('Modelo', 'asegurarEsquema',
+    'Migración EVENTOS: +' + plan.insertar.map(function (x) { return x.campo; }).join(','));
+  return { ok: true, migrada: true,
+           insertadas: plan.insertar.map(function (x) { return x.campo; }),
+           motivo: plan.motivo };
+}
+
 /**
  * Agrega eventos en UNA escritura respetando append-only.
  * @param {Array} eventos
@@ -1798,6 +1897,11 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
     hoja = ss.insertSheet(HOJAS.EVENTOS);
     Utl_escribirBloque(hoja, 1, 1, [COLUMNAS_EVENTOS]);
   }
+  // El escritor siempre proyecta el contrato completo: sin este paso una hoja
+  // creada antes de DEC-104 recibiría 17 valores bajo 16 encabezados (la última
+  // columna sin nombre, ilegible por cualquier consumidor).
+  var esquemaEv = Modelo_asegurarEsquemaEventos_();
+  if (!esquemaEv.ok) throw new Error('ESQUEMA_EVENTOS_INCOMPATIBLE: ' + esquemaEv.motivo);
   var ahora = new Date();
   var filas = eventos.map(function (ev) {
     ev.FECHA_REGISTRO = ahora;

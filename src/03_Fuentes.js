@@ -9,7 +9,8 @@
  * resultados trazables (ERROR/WARNING), jamás en crashes.
  */
 
-var _FUENTES_SEQ = 0;
+var _FUENTES_SEQ = 0; // DEC-104: solo para diagnóstico de pruebas; NO genera IDs
+
 
 /** v0.14.1 §6 — Modos canónicos de datos (una sola fuente, sin strings
  *  dispersos). CONSERVAR: no sincroniza fuentes (reparación técnica pura).
@@ -55,16 +56,19 @@ function Datos_estadoProduccion_() {
  * Crea una fila de staging con trazabilidad completa.
  * @param {Object} origen {archivo, hoja, fila, sector}
  * @param {Object} valores  valores crudos mapeados a campos canónicos
- * @param {number} [secuencia] opcional → ID determinista (pruebas)
+ * @param {number} [secuencia] opcional → ID determinista (SOLO pruebas)
  */
 function Fuentes_crearFila(origen, valores, secuencia) {
   var id;
   if (typeof secuencia === 'number') {
     id = 'SG-' + ('0000' + secuencia).slice(-4);
   } else {
-    _FUENTES_SEQ += 1;
-    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + ('00' + _FUENTES_SEQ % 1296).slice(-2) +
-         Math.floor(Math.random() * 36).toString(36).toUpperCase();
+    // DEC-104: el contador de módulo (_FUENTES_SEQ) se reiniciaba en cada
+    // invocación y, combinado con un solo carácter aleatorio (36 valores),
+    // hacía predecible la repetición del ID_PROVISIONAL. Ahora la parte
+    // aleatoria tiene 6 caracteres base36 (36^6): automático y estable entre
+    // ejecuciones, sin numeración reiniciable en producción.
+    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(6);
   }
   return {
     ID_PROVISIONAL: id,
@@ -751,9 +755,9 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   }
 
   var salida = Ingresos_procesarFilas(stagingNuevas, store, {
-    nuevoId: typeof Modelo_nuevoIdInterno === 'function' ? Modelo_nuevoIdInterno : function (i) {
-      return 'EC-' + ('000000' + i).slice(-6);
-    }
+    // DEC-104: generador canónico automático. El fallback anterior
+    // 'EC-'+('000000'+i) dependía de la posición del paciente en el lote.
+    nuevoId: Modelo_nuevoIdInterno
   });
 
   // --- FASE 5.4: reporte ---
@@ -910,7 +914,9 @@ function _Fuentes_escribir_(a, opciones, t0) {
 function Fuentes_cargaReal_(opciones) {
   opciones = opciones || {};
   var ejecucionId = opciones.ejecucionId ||
-    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
+    // DEC-104: sufijo aleatorio además del tiempo: dos ejecuciones en el
+    // mismo milisegundo compartían ID.
+    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(4);
   var t0 = Date.now();
   // Reutilizar el análisis dry-run previo (UNA lectura real de fuentes) cuando
   // el llamador pasa su ejecucionId en la misma invocación (Instalar_pFuentes).

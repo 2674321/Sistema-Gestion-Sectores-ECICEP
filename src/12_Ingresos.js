@@ -228,6 +228,26 @@ function Ingresos_detectarCorrimientoFila_(valores) {
  *   revision                                            → requieren decisión humana
  *   eventosCreados                                      → eventos realmente generados
  */
+/**
+ * Opciones de construcción del EVENTO para una fila de staging (DEC-104).
+ * La dupla viaja como campo estructural del evento: se prioriza lo que el
+ * canal de captura entrega ya separado (`opciones.profesional*`) y, si no
+ * existe, se usa lo que la fila normalizada traiga. Importar desde hojas con
+ * una sola celda "DUPLA INGRESO" conserva el comportamiento histórico
+ * (ambos vacíos): partir una cadena amalgamada sería inventar semántica.
+ */
+function _opcionesEvento_(fila, opciones, secuenciaTest) {
+  var o = {};
+  var n = (fila && fila.NORMALIZADO) || {};
+  var p1 = opciones && opciones.profesional !== undefined ? opciones.profesional : n.PROFESIONAL;
+  var p2 = opciones && opciones.profesionalSecundario !== undefined
+    ? opciones.profesionalSecundario : n.PROFESIONAL2;
+  if (p1) o.profesional = p1;
+  if (p2) o.profesionalSecundario = p2;
+  if (secuenciaTest !== undefined) o.secuenciaTest = secuenciaTest;
+  return o;
+}
+
 function Ingresos_procesarFilas(filasStaging, store, opciones) {
   opciones = opciones || {};
   var _tPF = Date.now();
@@ -258,6 +278,16 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   });
 
   var resultados = [], pacientesNuevos = [], pacientesActualizados = [], eventos = [];
+  // DEC-104: IDs ya ocupados (store completo + altas del mismo lote). Permite
+  // resolver una colisión en O(1) por alta sin un escaneo O(N) repetido, y
+  // garantiza que un ID nunca se reutilice (reutilizarlo sobrescribiría otro
+  // paciente). El generador por defecto es SIEMPRE el canónico automático: la
+  // numeración secuencial reiniciable queda solo por inyección de prueba.
+  var _generadorId = typeof opciones.nuevoId === 'function' ? opciones.nuevoId : Modelo_nuevoIdInterno;
+  var idsOcupados = {};
+  (store.pacientes || []).forEach(function (p) {
+    var id = Utl_texto(p.ID_INTERNO); if (id) idsOcupados[id] = true;
+  });
   var resumen = {
     leidos: filasStaging.length,
     validacionOk: 0, validacionWarning: 0, validacionError: 0,
@@ -435,7 +465,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       fila.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
     }
     seqEv += 1;
-    var ev = Ev_desdeStaging(fila, _useSeqEv ? { secuencia: seqEv } : {});
+    var ev = Ev_desdeStaging(fila, _opcionesEvento_(fila, opciones, _useSeqEv ? seqEv : undefined));
     if (!ev.ok) {
       resumen.revision += 1;
       registrar(fila, 'REQUIERE_REVISION', ev.motivo);
@@ -446,8 +476,19 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     var idInterno = '', sectorAnterior = '', sectorCambio = false, idEventoCambio = '';
     if (decision === 'CREAR_PACIENTE') {
       seqPac += 1;
-      var paciente = Ingresos_pacienteDesdeNormalizado(
-        fila.NORMALIZADO, fila, opciones.nuevoId ? opciones.nuevoId(seqPac, fila) : ('EC-' + ('000000' + seqPac).slice(-6)));
+      // DEC-104: nunca 'EC-000001…' (secuencia que reinicia en cada lote y
+      // colisiona con el histórico). Se pide un ID al generador —el canónico
+      // automático salvo inyección explícita de prueba— y se resuelve la
+      // colisión contra el store + las altas del mismo lote.
+      var candidatoId = _generadorId(seqPac, fila);
+      var idRes = Modelo_resolverIdInterno_(candidatoId, idsOcupados);
+      if (!idRes.ok) {
+        resumen.revision += 1;
+        registrar(fila, 'REQUIERE_REVISION',
+          'No se pudo asignar un ID_INTERNO único (' + (idRes.motivo || 'ID_COLISION') + ')', '', '');
+        return;
+      }
+      var paciente = Ingresos_pacienteDesdeNormalizado(fila.NORMALIZADO, fila, idRes.idInterno);
       store.pacientes.push(paciente);
       pacientesNuevos.push(paciente);
       idInterno = paciente.ID_INTERNO;
@@ -1135,7 +1176,10 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
     soloHojas: [k], soloFilas: soloFilas,
     confirmarNuevos: opciones.confirmarNuevo === true,
     normalizarLayout: false,
-    incluirResultados: true
+    incluirResultados: true,
+    // DEC-104: la fila se relee del libro, así que la dupla viaja por opciones.
+    profesional: opciones.profesional,
+    profesionalSecundario: opciones.profesionalSecundario
   });
   var primer = (resumen.resultados || []).filter(function (r) {
     return Utl_texto(r.filaOrigen) === String(nf);
@@ -1470,7 +1514,9 @@ function Ingresos_incorporarValidos_(opciones) {
  */
 function Ingresos_procesarTodasLasHojas_(opciones) {
   opciones = opciones || {};
-  var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase();
+  // DEC-104: sufijo aleatorio además del tiempo: dos ejecuciones concurrentes
+  // en el mismo milisegundo compartían ID de ejecución.
+  var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(4);
   var _tIni = Date.now();
   Log_info('Ingresos', 'procesar', 'inicio ejecución ' + ejecucion);
 
@@ -1562,7 +1608,12 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   var salida = Ingresos_procesarFilas(staging, store, {
     nuevoId: Modelo_nuevoIdInterno,
     confirmarNuevos: !!opciones.confirmarNuevos,
-    registradoPor: _ingresosUsuarioActual()
+    registradoPor: _ingresosUsuarioActual(),
+    // DEC-104: el canal de captura ya tiene la dupla separada; se entrega para
+    // que el EVENTO de ingreso la conserve (antes quedaba solo amalgamada en
+    // DUPLA_INGRESO y EVENTOS.PROFESIONAL quedaba vacío).
+    profesional: opciones.profesional,
+    profesionalSecundario: opciones.profesionalSecundario
   });
   salida.resumen.ejecucion = ejecucion;
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (pipeline puro, paso 3)');
@@ -1885,9 +1936,14 @@ function Rev_prepararResolucion(datos, decision, opciones) {
     var ev2 = Ev_desdeStaging(fila, {});
     if (!ev2.ok) { res.motivo = ev2.motivo; return res; }
     res.ok = true; res.accion = 'CREAR';
+    // DEC-104: el generador por defecto es el canónico automático. El fallback
+    // anterior era solo 'EC-'+Date.now() (sin sufijo aleatorio): dos altas en el
+    // mismo milisegundo producían el mismo ID y una sobrescribía a la otra.
+    var _genRev = typeof opciones.nuevoId === 'function' ? opciones.nuevoId : Modelo_nuevoIdInterno;
+    var _idRev = Modelo_resolverIdInterno_(_genRev(), opciones.idsOcupados);
+    if (!_idRev.ok) { res.ok = false; res.motivo = _idRev.motivo || 'ID_INTERNO_COLISION'; return res; }
     res.pacienteNuevo = Ingresos_pacienteDesdeNormalizado(
-      fila.NORMALIZADO, fila,
-      opciones.nuevoId ? opciones.nuevoId() : ('EC-' + Date.now().toString(36).toUpperCase()));
+      fila.NORMALIZADO, fila, _idRev.idInterno);
     ev2.evento.ID_INTERNO = res.pacienteNuevo.ID_INTERNO; // enlazar evento a la entidad nueva
     res.evento = ev2.evento;
     return res;
