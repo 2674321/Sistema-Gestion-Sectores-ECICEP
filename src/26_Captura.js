@@ -542,16 +542,17 @@ function Captura_v2_enviar(payload, ctx) {
           var est = Form_leerFilaIngreso(reg.ingresoHoja, Number(reg.ingresoFila));
           if (est && est.estado && est.estado !== '' && est.estado !== 'ERROR') {
             var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
-            var idInt = Captura_v2_buscarIdInternoPorRut(norm.rut);
+            var idInt = reg.idInterno || est.idInterno || Captura_v2_buscarIdInternoPorRut(norm.rut);
+            var idEvFast = reg.idEvento || est.idEvento || '';
             var entregaFast = {
               estado: mapeado.estado, motivo: mapeado.motivo || '',
-              idInterno: idInt, idEvento: '',
+              idInterno: idInt, idEvento: idEvFast,
               ingresoHoja: reg.ingresoHoja, ingresoFila: reg.ingresoFila,
               resultadoTrailer: { ok: true }
             };
             Captura_v2_trailerSeguro(c, captureId, {
               estado: mapeado.estado, motivo: mapeado.motivo || '',
-              idInterno: idInt, idEvento: '',
+              idInterno: idInt, idEvento: idEvFast,
               ingresoHoja: reg.ingresoHoja, ingresoFila: reg.ingresoFila
             }, reg);
             Captura_v2_medida(c, 'T5_entrega_fin');
@@ -973,6 +974,30 @@ function Captura_v2_persistirRegistro(reg) {
     var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
+    // Barrera: impedir captureId duplicado (última barrera del escritor)
+    try {
+      if (Captura_v2_buscarRegistro(reg.captureId)) {
+        return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
+      }
+    } catch (e) {}
+    // Fallback robusto para mocks de tests: buscar por RESPONSE_ID directamente
+    try {
+      var _h = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+      if (_h && _h.getLastRow() > 1) {
+        var _cols = Captura_v2_columnasHoja(_h);
+        var _mapa = {};
+        for (var mi = 0; mi < _cols.length; mi++) _mapa[_cols[mi]] = mi;
+        var _rid = _mapa.RESPONSE_ID !== undefined ? _mapa.RESPONSE_ID : (_mapa.RESPONSEID !== undefined ? _mapa.RESPONSEID : -1);
+        if (_rid >= 0) {
+          for (var rr = 1; rr < _h.getLastRow(); rr++) {
+            var _rowv = _h.getRange(rr + 1, 1, 1, _h.getLastColumn()).getValues()[0];
+            if (_rowv && String(_rowv[_rid]) === String(reg.captureId)) {
+              return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
+            }
+          }
+        }
+      }
+    } catch (e2) {}
     var fila = new Array(cols.length);
     for (var i2 = 0; i2 < cols.length; i2++) fila[i2] = '';
     fila[mapa.FECHA_FORMS] = reg.fechaRecepcion || Captura_v2_ahora();
@@ -1032,6 +1057,14 @@ function Captura_v2_actualizarTrailer(captureId, cambios, reg) {
     var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
+    // Revalidación §21: la fila objetivo debe contener exactamente este captureId.
+    var idxRid = mapa.RESPONSE_ID !== undefined ? mapa.RESPONSE_ID : (mapa.RESPONSEID !== undefined ? mapa.RESPONSEID : -1);
+    if (idxRid >= 0) {
+      var ridActual = Utl_texto(hoja.getRange(reg.filaFisica, idxRid + 1, 1, 1).getValues()[0][0]);
+      if (ridActual !== captureId) {
+        return { ok: false, motivo: 'CAPTUREID_DIVERGENTE' };
+      }
+    }
     var trailerCols = ['INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO'];
     var indices = trailerCols.map(function (c) { return mapa[c]; });
     var ini = Math.min.apply(null, indices), fin = Math.max.apply(null, indices);
@@ -1263,12 +1296,14 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     // bloque completo de la hoja (v0.10.5 §16).
     var est = Form_leerFilaIngreso_rapida_(hojaEntrega, filaFisica);
     var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
-    var idInterno = Captura_v2_buscarIdInternoPorRut(norm.rut);
+    var resFila = proc.resultado || {};
+    var idInterno = resFila.idInterno || Captura_v2_buscarIdInternoPorRut(norm.rut);
+    var idEvento = resFila.idEvento || '';
     return {
       estado: mapeado.estado,
       motivo: mapeado.motivo,
       idInterno: idInterno,
-      idEvento: '',
+      idEvento: idEvento,
       ingresoHoja: hojaEntrega,
       ingresoFila: String(filaFisica)
     };

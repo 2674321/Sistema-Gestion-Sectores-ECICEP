@@ -34,6 +34,24 @@ function Ingresos_esEstadoTerminal_(estado) {
   return e !== '' && ESTADOS_INGRESO.TERMINALES.indexOf(e) !== -1;
 }
 
+/**
+ * PURA: extrae captureId desde la marca de trazabilidad 'FORM|CpN-…|<ACCIÓN>'
+ * que la Captura V2 escribe en NOTA_SISTEMA de la fila INGRESO_*. Devuelve el
+ * captureId ('Cp4-…') si es válido, o '' si no hay marca de captura.
+ * Conserva identidad durable e idempotencia por FUENTE sin depender de
+ * coordenadas físicas (criterio: no truncar identidad añadida por la marca).
+ */
+function Ingresos_captureIdDesdeMarca_(marca) {
+  var m = Utl_texto(marca).trim();
+  var partes = m.split('|');
+  if (partes.length < 2) return '';
+  var prefijo = Utl_texto(partes[0]).toUpperCase();
+  if (prefijo !== 'FORM') return '';
+  var cap = Utl_texto(partes[1]).trim();
+  if (!/^Cp[0-9]-/.test(cap)) return '';
+  return cap;
+}
+
 /** Contrato único de columnas físicas de las hojas INGRESO_* (DEC-029). */
 function Ingresos_columnasHoja() {
   return INGRESO_COLUMNAS.slice();
@@ -702,11 +720,22 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     for (var ck in idxCampos) {
       if (v[ck] === undefined && idxCampos[ck] !== undefined) v[ck] = filaVal[idxCampos[ck]];
     }
+    // Identidad durable (P0): si la fila proviene de Captura V2, la columna de
+    // trazabilidad NOTA_SISTEMA/NOTA contiene la marca 'FORM|CpN-…|<ACCIÓN>'.
+    // Propagar captureId al staging para que Fuentes_fuenteOrigen/claveDedupe_
+    // conserven la identidad lógica (y no dependan de coordenadas físicas).
+    var notaMarca = (idxNota >= 0 && filaVal[idxNota] !== undefined) ? Utl_texto(filaVal[idxNota]) : '';
+    var capIdMarca = Ingresos_captureIdDesdeMarca_(notaMarca);
+    if (capIdMarca) v.CAPTURE_ID = capIdMarca;
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
     var filaStaging = Fuentes_normalizar(Fuentes_crearFila(
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v));
+    // Identidad durable: además de VALORES_ORIGINALES, la marca queda visible al
+    // top-level para que Fuentes_fuenteOrigen()/Fuentes_guardarFilas() la
+    // conserven como FUENTE lógica (captureId) en PACIENTES/EVENTOS.
+    if (capIdMarca) filaStaging.CAPTURE_ID = capIdMarca;
     var corrimiento = Ingresos_detectarCorrimientoFila_(v);
     if (corrimiento) {
       filaStaging.ERRORES = filaStaging.ERRORES || [];
@@ -848,6 +877,26 @@ function Ingresos_persistirCambiosSector_(planes, usarAnterior) {
   }
   Modelo_invalidarLecturas();
   return { actualizados: filas.length };
+}
+
+/**
+ * GAS: rollback transaccional §paso 4 — retira de PACIENTES las filas anexadas
+ * por Modelo_agregarPacientes_ en esta misma invocación cuando EVENTOS falló.
+ * El append es siempre al final del bloque de datos, así que basta eliminar
+ * `nActual - antesNuevos` filas desde la última física hacia arriba (una sola
+ * ronda de deleteRow; sin tocar filas preexistentes). Invalida lecturas para
+ * que el reintento del mismo lote no vea huérfanos.
+ */
+function Ingresos_rollbackPacientesNuevos_(antesNuevos) {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return { eliminadas: 0 };
+  var nActual = Modelo_leerPacientes().length;
+  var aEliminar = nActual - (Number(antesNuevos) || 0);
+  if (aEliminar <= 0) return { eliminadas: 0 };
+  var desde = Modelo_filaFisica(HOJAS.PACIENTES, nActual - 1); // última anexada
+  for (var i = 0; i < aEliminar; i++) hoja.deleteRow(desde - i);
+  Modelo_invalidarLecturas();
+  return { eliminadas: aEliminar };
 }
 
 /** Comprueba en una sola lectura por sector que cada paciente quedó en su vista. */
@@ -1620,6 +1669,13 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
 
   // 4) persistencia por lotes. Una transición territorial se confirma solo si
   //    sus eventos quedan anexados; ante fallo se restaura PACIENTES.
+  //    SEMÁNTICA TRANSACCIONAL (P0): PACIENTES y EVENTOS se escriben en dos
+  //    lotes separados (Apps Script no tiene transacciones multi-hoja). Si el
+  //    segundo lote (EVENTOS) falla, se hace rollback explícito de AMBOS
+  //    efectos del lote: las transiciones sectoriales (ya cubierto) y las
+  //    filas PACIENTES recién anexadas en este paso, para que el reintento
+  //    converja sin huérfanos (paciente sin su INGRESO) ni duplicados.
+  var antesNuevos = Modelo_leerPacientes().length;
   Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
   Ingresos_persistirCambiosSector_(salida.pacientesActualizados, false);
   try {
@@ -1627,6 +1683,8 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   } catch (ePersistencia) {
     try { Ingresos_persistirCambiosSector_(salida.pacientesActualizados, true); }
     catch (eRollback) { Log_error('Ingresos', 'rollbackSector', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
+    try { Ingresos_rollbackPacientesNuevos_(antesNuevos); }
+    catch (eRollback) { Log_error('Ingresos', 'rollbackPacientesNuevos', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
     throw ePersistencia;
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (persistencia pacientes/eventos, paso 4)');

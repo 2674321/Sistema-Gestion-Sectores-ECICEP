@@ -1902,6 +1902,19 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
   // columna sin nombre, ilegible por cualquier consumidor).
   var esquemaEv = Modelo_asegurarEsquemaEventos_();
   if (!esquemaEv.ok) throw new Error('ESQUEMA_EVENTOS_INCOMPATIBLE: ' + esquemaEv.motivo);
+  // DEC barrier ID_EVENTO: toda fila de historial exige identidad no vacía y
+  // única; un ID repetido reutilizaría la identidad de otro evento (misma
+  // mecánica de rechazo explícito que ID_INTERNO en PACIENTES). Nunca un
+  // PROCESADO con identidad perdida.
+  var evVistos = {};
+  for (var eb = 0; eb < eventos.length; eb++) {
+    var evId = Utl_texto(eventos[eb].ID_EVENTO);
+    if (!evId) throw new Error('EVENTO_SIN_ID_EVENTO: ' + Utl_texto(eventos[eb].FUENTE || eventos[eb].TIPO_EVENTO));
+    if (evVistos[evId]) {
+      throw new Error('EVENTO_ID_DUPLICADO_EN_LOTE: ' + evId);
+    }
+    evVistos[evId] = true;
+  }
   var ahora = new Date();
   var filas = eventos.map(function (ev) {
     ev.FECHA_REGISTRO = ahora;

@@ -85,9 +85,15 @@ function Fuentes_crearFila(origen, valores, secuencia) {
   };
 }
 
-/** Cadena de trazabilidad estándar archivo|hoja|fila. */
+/** Cadena de trazabilidad estándar. Conserva identidad durable cuando existe.
+ *  Prioriza origenId/captureId si está presente (origen lógico). */
 function Fuentes_fuenteOrigen(filaStaging) {
-  return Utl_texto(filaStaging.ARCHIVO_ORIGEN) + '|' + Utl_texto(filaStaging.HOJA_ORIGEN) + '|' + Utl_texto(filaStaging.FILA_ORIGEN);
+  var fs = filaStaging || {};
+  var origenId = Utl_texto(fs.ORIGEN_ID || fs.origenId || fs.CAPTURE_ID || fs.captureId);
+  if (origenId) {
+    return origenId;
+  }
+  return Utl_texto(fs.ARCHIVO_ORIGEN) + '|' + Utl_texto(fs.HOJA_ORIGEN) + '|' + Utl_texto(fs.FILA_ORIGEN);
 }
 
 /** PURA: clave CANÓNICA de comparación para la idempotencia por FUENTE
@@ -95,13 +101,17 @@ function Fuentes_fuenteOrigen(filaStaging) {
  *  formato numérico de la fila. La cadena FUENTE almacenada se conserva RAW
  *  para trazabilidad; SOLO la igualdad de comparación se normaliza, de modo
  *  que una hoja escrita 'Ingresos Enero ' vs 'Ingresos Enero' (drift de
- *  literal en config entre ejecuciones) no vuelva a generar eventos. */
+ *  literal en config entre ejecuciones) no vuelva a generar eventos.
+ *  Contrato explícito: normaliza TODAS las partes para preservar identidad
+ *  añadida (p.ej. captureId/origenId). */
 function Fuentes_claveDedupe_(filaOString) {
   var s = Utl_texto(filaOString);
   var partes = s.split('|'), partesNorm = [];
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < partes.length; i++) {
     var p = Utl_texto(partes[i]).trim();
-    if (i === 2 && /^\d+$/.test(p)) p = String(Number(p));
+    if (i === 2 && /^\d+$/.test(p) && partes.length <= 4) {
+      p = String(Number(p));
+    }
     partesNorm.push(Utl_claveAlnum(p));
   }
   return partesNorm.join('|');
