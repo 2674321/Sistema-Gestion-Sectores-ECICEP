@@ -567,6 +567,15 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   });
 
   console.log('[PIPE] procesarFilas t=' + (Date.now() - _tPF) + 'ms filas=' + filasStaging.length + ' pacientesIdx=' + (store.pacientes || []).length);
+  // Conservación de masa del pipeline: cada fila de staging procesable termina
+  // en EXACTAMENTE un resultado (INGRESADO / yaIncorporado / REQUIERE_REVISION /
+  // ERROR). `leidos > resultados` significa una rama que devolvió sin registrar
+  // → el invariante se viola y NO se puede declarar un procesamiento correcto.
+  if (resultados.length !== filasStaging.length) {
+    throw new Error('ERROR_PIPELINE_INVARIANTE: staging=' + filasStaging.length +
+      ' resultados=' + resultados.length);
+  }
+  resumen.resultados = resultados.length;
   return { resultados: resultados, resumen: resumen, pacientesNuevos: pacientesNuevos,
     pacientesActualizados: pacientesActualizados, eventos: eventos };
 }
@@ -589,6 +598,7 @@ function Ingresos_resumenTexto(r) {
     'Eventos: ' + (resumen.eventosCreados || 0)
   ];
   if ((resumen.duplicados || 0) > 0) partes.push('Duplicados: ' + resumen.duplicados);
+  if ((resumen.yaIncorporados || 0) > 0) partes.push('Ya incorporados: ' + resumen.yaIncorporados);
   if ((resumen.revision || 0) > 0) partes.push('Revisión: ' + resumen.revision);
   if ((resumen.conError || 0) > 0) partes.push('Errores: ' + resumen.conError);
   return '✓ ' + partes.join(' · ');
@@ -1008,6 +1018,10 @@ function Ingresos_respuesta_(salida, opciones) {
       publico.idEvento = publico.idEvento || '';
       return publico;
     });
+  } else {
+    // resumen.resultados es el conteo (observabilidad); el contrato público
+    // solo expone el array de detalle cuando el caller lo pidió.
+    delete r.resultados;
   }
   return r;
 }
@@ -1767,9 +1781,11 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   });
   salida.resumen.aRevision = conflicto;
   Log_info('Ingresos', 'procesar', JSON.stringify({
-    leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,
-    existentes: salida.resumen.existentes, revision: salida.resumen.revision,
-    conError: salida.resumen.conError, eventos: salida.resumen.eventosCreados
+    leidos: salida.resumen.leidos, validos: salida.resumen.validos,
+    nuevos: salida.resumen.nuevos, existentes: salida.resumen.existentes,
+    yaIncorporados: salida.resumen.yaIncorporados, revision: salida.resumen.revision,
+    conError: salida.resumen.conError, eventosCreados: salida.resumen.eventosCreados,
+    resultados: salida.resultados ? salida.resultados.length : salida.resumen.resultados
   }), { ejecucion: ejecucion });
   Log_flush();
 

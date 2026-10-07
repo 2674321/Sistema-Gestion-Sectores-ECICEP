@@ -1906,6 +1906,10 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
   // única; un ID repetido reutilizaría la identidad de otro evento (misma
   // mecánica de rechazo explícito que ID_INTERNO en PACIENTES). Nunca un
   // PROCESADO con identidad perdida.
+  // 1) dentro del mismo lote;
+  // 2) contra EVENTOS persistidos: una colisión histórica implicaría que esta
+  //    escritura reutiliza la identidad de un evento ya incorporado (barrera
+  //    solicitada post-aed3567 para el label cross). Solo se lee UNA columna.
   var evVistos = {};
   for (var eb = 0; eb < eventos.length; eb++) {
     var evId = Utl_texto(eventos[eb].ID_EVENTO);
@@ -1914,6 +1918,30 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
       throw new Error('EVENTO_ID_DUPLICADO_EN_LOTE: ' + evId);
     }
     evVistos[evId] = true;
+  }
+  var idxIdEvento = COLUMNAS_EVENTOS.indexOf('ID_EVENTO');
+  var nExistentes = hoja.getLastRow();
+  var evHistoricos = null;
+  if (nExistentes > 1) {
+    var colId = idxIdEvento >= 0 ? idxIdEvento + 1
+      : (function () {
+        var ancho = hoja.getLastColumn();
+        var enc = ancho > 0 ? hoja.getRange(Modelo_headerRow(HOJAS.EVENTOS), 1, 1, ancho).getValues()[0] : [];
+        return enc.indexOf('ID_EVENTO') + 1;
+      })();
+    if (colId > 0) {
+      evHistoricos = {};
+      hoja.getRange(1, colId, nExistentes, 1).getValues().forEach(function (hv) {
+        var hid = Utl_texto(hv[0]);
+        if (hid) evHistoricos[hid] = true;
+      });
+      for (var ec = 0; ec < eventos.length; ec++) {
+        var idc = Utl_texto(eventos[ec].ID_EVENTO);
+        if (evHistoricos[idc]) {
+          throw new Error('EVENTO_ID_DUPLICADO_EN_HISTORICO: ' + idc);
+        }
+      }
+    }
   }
   var ahora = new Date();
   var filas = eventos.map(function (ev) {

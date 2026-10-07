@@ -2401,3 +2401,46 @@ también el esquema de EVENTOS, de modo que una instalación existente converge
 sin ejecutar migración; `tests/captura_persistencia_campos_vNEXT.mjs` fija que la
 migración es idempotente y no reescribe filas históricas.
 **Fecha:** 2026-10-05
+
+## DEC-105
+**Título:** Identidad de captura en `PROCESADO`, fuentes de evento en doble formato e
+ingreso alternativo como placeholder.
+**Estado:** Aprobada (post-auditoría `aed3567`)
+**Motivo:** La auditoría posterior a `aed3567` confirmó la causa raíz de la pérdida
+silenciosa (fila física reutilizada → falso "ya incorporado" → captura sin alta) y
+encontró un hueco de recuperación: el pipeline INGRESO persiste `EVENTOS.FUENTE`
+como **captureId desnudo** (`Fuentes_fuenteOrigen`), mientras la recuperación de
+identidad buscaba la marca completa `FORM|<cid>|<ACCIÓN>` (eventos manuales). Tres
+decisiones:
+
+1. **`PROCESADO` nunca sin identidad.** `Captura_v2_completarIds_` completa
+   `idInterno`/`idEvento` desde la evidencia durable y DEGRADA a
+   `REQUIERE_REVISION`/`PROCESADO_SIN_IDS` únicamente cuando tras la recuperación
+   sigue sin existir **ningún** id (firma real de "se procesó sin crear nada").
+   Con `idInterno` presente, `idEvento: ''` es válido por la respuesta §16 del
+   contrato (`docs/CONTRATO_CAPTURA_V2.md`) y una traza de auditoría pendiente no
+   degrada el guardado (suite de edición). El gate estricto en la entrega del
+   ingreso se mantiene dentro de `Captura_v2_entregarIngreso`.
+2. **`EVENTOS.FUENTE` en doble formato leído.** `Captura_v2_marcaEnEventos` busca
+   la marca completa y, si no hay match exacto, el captureId desnudo derivado
+   (`Captura_v2_captureIdDesdeMarca_`, mismo criterio que
+   `Ingresos_captureIdDesdeMarca_`). El reconciliador dryRun
+   (`Captura_v2_clasificarPendiente_`) acepta ambos formatos como evidencia
+   durable. No se toca el escritor INGRESO (idempotencia keyed por cid).
+   `Eventos_buscarPorFuente_` hace match exacto: sin colisiones de substring.
+3. **`src/30_Ingesta.js` es un placeholder DESACTIVADO.** Define la superficie
+   `CapturaIngress_*` reservada para un hipotético ingreso alternativo; ningún
+   provider distinto de `WEBAPP` escribe (`FALLBACK_PROVIDER_DISABLED`, `escrito:0`).
+   No crea Form, trigger, segunda Sheet ni segundo pipeline; su activación requiere
+   decisión explícita registrada aquí.
+
+Se mantiene la regla DEC-102 y de `AGENTS.md`: el acceso concede siempre; el fallo
+de acceso a una fuente externa (`EXTERNAL_SOURCE_PERMISSION_DENIED`) no es un
+fallo de acceso de la Web App. El diagnóstico `Captura_v2_diagnosticoPermisos`
+separa los tres dominios (Web App / Spreadsheet canónico / fuentes externas).
+**Validación:** núcleo 679/679, `aceptacion_formulario` 50/50, `contrato_captura_v2`
+36/36, `validar_html` 21 OK, `seguridad_webapp_capacidades` PASS y `tools/verificar`
+83 suites / 0 fallos; vNEXT `procesado_requiere_ids`, `legacy_reconciliacion_dryrun`,
+`reuso_fila_50_50`, `permisos_dominios`, `naranjo_y_ingesta`, `observabilidad_sin_pii`,
+`transaccion_eventos_crash` y `captura_trailer_revalidacion` PASS.
+**Fecha:** 2026-10-07

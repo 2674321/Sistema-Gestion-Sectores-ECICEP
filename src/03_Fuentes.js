@@ -596,6 +596,19 @@ function Fuentes_contarHojasAutorizadas() {
  *  silencio y procesar un subconjunto mintiendo en los conteos.
  *  @param {Function} [abridor] inyectable en pruebas (default: SpreadsheetApp.openById)
  *  @returns {ok, fuentes:[{archivo,id,accesible,hojasEsperadas,hojasEncontradas,faltantes,errores}], bloqueantes:[...]} */
+/**
+ * §20/§21: sanitiza el error de acceso a una FUENTE EXTERNA. Nunca propaga el
+ * mensaje crudo del runtime (puede exponer ids/nombres/estructura interna de
+ * archivos ajenos al libro canónico). Distingue el caso permisos (denominación
+ * estándar de Drive/Sheets) del caso "no accesible" genérico.
+ */
+function Fuentes_sanitizarErrorAcceso_(e, cfg) {
+  var msg = (e && e.message) ? String(e.message) : String(e);
+  var permiso = /permission|autoriz|access|acces|denied|denied_|sendReport|share|notFound|No existe|forbidden|403|401/i.test(msg);
+  if (permiso) return 'EXTERNAL_SOURCE_PERMISSION_DENIED';
+  return 'EXTERNAL_SOURCE_NO_ACCESIBLE';
+}
+
 function Fuentes_preflightFuentes(abridor) {
   var abrir = abridor;
   if (!abrir && typeof SpreadsheetApp !== 'undefined') {
@@ -628,7 +641,7 @@ function Fuentes_preflightFuentes(abridor) {
         else info.faltantes.push(nombreHoja);
       });
     } catch (e) {
-      info.errores.push(e && e.message ? e.message : String(e));
+      info.errores.push(Fuentes_sanitizarErrorAcceso_(e, cfg));
     }
     fuentes.push(info);
   });

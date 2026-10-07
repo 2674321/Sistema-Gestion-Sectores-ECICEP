@@ -61,4 +61,32 @@ const divergente = ctx.Captura_v2_actualizarTrailer('Cp4-' + 'd'.repeat(32), { e
 assert.equal(divergente.ok, false);
 assert.equal(divergente.motivo, 'CAPTUREID_DIVERGENTE');
 
+// Relocalización: la fila física de A fue reutilizada por B y A quedó en otra fila.
+// El trailer dirigido a la posición obsoleta NO debe escribir sobre B; debe
+// relocalizar por captureId (identidad durable) y reescribir una sola vez.
+const capA = 'Cp4-' + 'f'.repeat(32);
+const capB = 'Cp4-' + '9'.repeat(32);
+const regA = ctx.Captura_v2_nuevoRegistro({ ...payload, captureId: capA }, { usuario: 't', fechaRecepcion: '2026-09-16' });
+const regB = ctx.Captura_v2_nuevoRegistro({ ...payload, captureId: capB }, { usuario: 't', fechaRecepcion: '2026-09-16' });
+const pA = ctx.Captura_v2_persistirRegistro(regA); // fila 2
+const pB = ctx.Captura_v2_persistirRegistro(regB); // fila 3
+assert.equal(pA.ok && pB.ok, true, 'persist A y B ok');
+
+const colsM = Array.from(ctx.Form_columnas());
+const idxRid = colsM.indexOf('RESPONSE_ID');
+const ESTADO_IDX = colsM.indexOf('ESTADO');
+
+// Simular el intercambio físico: la fila 2 ahora es de B; A quedó en la fila 3.
+const filaConA = h.val[1].slice();
+h.val[1] = h.val[2].slice();
+h.val[2] = filaConA;
+h.val[1][idxRid] = capB;
+h.val[2][idxRid] = capA;
+
+// Supervisor con el reg obsoleto (fila 2). Al ser DIVERGENTE debe relocalizar.
+const reloc = ctx.Captura_v2_actualizarTrailer(capA, { estado: 'PROCESADO' }, { filaFisica: 2 });
+assert.equal(reloc.ok, true, 'relocaliza y reescribe sobre la fila real de A');
+assert.equal(h.val[2][ESTADO_IDX], 'PROCESADO', 'A queda PROCESADO en su fila real');
+assert.notEqual(h.val[1][ESTADO_IDX], 'PROCESADO', 'NO se escribió sobre la fila de B');
+
 console.log('Captura trailer revalidación vNEXT: PASS');

@@ -49,4 +49,20 @@ assert.throws(() => ctx.Modelo_agregarEventos_([
   { ID_EVENTO: 'EV-0099', ID_INTERNO: 'P-0004', TIPO_EVENTO: 'INGRESO', FUENTE: 'z' }
 ], 't', { autorizacion: 'IMPORT_AUTORIZADO' }), /EVENTO_ID_DUPLICADO_EN_LOTE/);
 
+// ID_EVENTO duplicado contra EVENTOS PERSISTIDOS (histórico): la identidad de un
+// evento ya incorporado jamás puede reutilizarse (barrera post-aed3567, label
+// cross del snapshot → persistencia). EV-0001 quedó persistido en el primer paso.
+assert.throws(() => ctx.Modelo_agregarEventos_(
+  [{ ID_EVENTO: 'EV-0001', ID_INTERNO: 'P-0099', TIPO_EVENTO: 'INGRESO', FUENTE: 'x-nueva' }],
+  't', { autorizacion: 'IMPORT_AUTORIZADO' }), /EVENTO_ID_DUPLICADO_EN_HISTORICO/);
+
+// El histórico NO es texto del lote: un ID nuevo distinto persiste sin tocar lo previo.
+const ok3 = ctx.Modelo_agregarEventos_(
+  [{ ID_EVENTO: 'EV-0200', ID_INTERNO: 'P-0200', TIPO_EVENTO: 'INGRESO', FUENTE: 'w' }],
+  't', { autorizacion: 'IMPORT_AUTORIZADO' });
+assert.equal(ok3, 1, 'ID nuevo persiste');
+assert.equal(hEv.getLastRow(), 3, 'header + EV-0001 + EV-0200');
+assert.equal(hEv.val[1][0], 'EV-0001', 'fila 2 conserva EV-0001');
+assert.equal(hEv.val[2][0], 'EV-0200', 'fila 3 es EV-0200');
+
 console.log('Eventos IDs integridad vNEXT: PASS');
