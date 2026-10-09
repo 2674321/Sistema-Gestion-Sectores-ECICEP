@@ -294,27 +294,30 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura: pantalla simple de registro, con salida única
- *  al portal de funciones (misma credencial universal, sin token en la URL). */
+/** Sirve el canal de captura: LANDING BRIDGE (v253 — DEC-107). La Web App dejó
+ *  de aceptar envíos de captura; esta vista enlaza al Form Google del entorno
+ *  (canal principal durable) y al portal de funciones. Si el Form no está
+ *  instalado, muestra la guía para ejecutar Form_operativoInstalar. */
 function WebApp_servirCaptura_(accesoUniversal) {
-  var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  plantilla.CAPTURA_ACCESO = accesoUniversal || '';
-  plantilla.TOKEN_ACCESO = accesoUniversal || '';
-  plantilla.TOKEN_INVITACION = accesoUniversal || '';
-  plantilla.MODO_OPERADOR = false;
-  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
-  plantilla.FICHA_URL = WebApp_urlVista_('ficha');
-  plantilla.REM_URL = '';
-  plantilla.DASH_URL = '';
-  plantilla.GENERAR_REM_URL = '';
-  plantilla.BUILD = Utilities.formatDate(new Date(), ECICEP.TZ, 'yyyyMMdd-HHmm');
-  plantilla.PAGE_BUILD = WebApp_buildActual_();
-  plantilla.SECCION = 'TODAS';
-  plantilla.modo = 'ficha';
-  plantilla.ID_INICIAL = '';
-  return plantilla.evaluate()
-    .setTitle('ECICEP — Captura de datos')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  var urlForm = '';
+  try {
+    if (typeof Form_urlRespondedor_ === 'function') urlForm = Form_urlRespondedor_() || '';
+  } catch (e) { urlForm = ''; }
+  var html = '';
+  html += '<!DOCTYPE html><html><head><meta charset="utf-8">';
+  html += '<meta name="viewport" content="width=device-width, initial-scale=1">';
+  html += '<title>ECICEP — Captura de datos</title></head><body style="font-family:system-ui,sans-serif;max-width:680px;margin:24px auto;padding:0 16px;text-align:center">';
+  html += '<h1 style="color:#1a5276">Captura ECICEP</h1>';
+  if (urlForm) {
+    html += '<p>El registro de actividad ECICEP ahora se hace con el <strong>Formulario Google</strong> del sistema.</p>';
+    html += '<p style="margin:28px 0"><a href="' + urlForm + '" target="_blank" rel="noopener" style="display:inline-block;background:#1a5276;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:18px">Abrir formulario de captura</a></p>';
+  } else {
+    html += '<p>El canal de captura por Google Forms aún no está instalado.</p>';
+    html += '<p>Desde el menú del Spreadsheet: <strong>Sistema → Google Forms → Instalar canal</strong>.</p>';
+  }
+  html += '<p style="margin-top:40px"><a href="' + WebApp_urlVista_('portal').replace(/&/g, '&amp;') + '">Volver al portal de funciones</a></p>';
+  html += '</body></html>';
+  return HtmlService.createHtmlOutput(html).setTitle('ECICEP — Captura de datos');
 }
 
 // ---------------------------------------------------------------------------

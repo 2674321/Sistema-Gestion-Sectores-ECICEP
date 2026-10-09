@@ -29,6 +29,7 @@ function onOpen() {
     ui.createMenu('Sistema')
       .addItem('Actualizar sistema', 'UI_actualizarSistema')
       .addItem('Instalar / reparar', 'UI_instalarSistema')
+      .addItem('Google Forms', 'UI_menuGoogleForms')
       .addToUi();
 
     // v0.14: onOpen no muta INICIO. Sin lecturas ni escrituras sobre la
@@ -67,15 +68,18 @@ function UI_abrirFormularioCaptura() {
 }
 
 /** Alias conservado para accesos anteriores; una única pantalla de Captura.
- *  El QR apunta al enlace permanente del sistema, sin credencial en la URL:
- *  el servidor inyecta el acceso universal al servir CUALQUIER vista. */
+ *  v253 (DEC-107): el QR apunta al Formulario Google (canal principal durable),
+ *  no a la Web App de captura (canal retirado). Si el Form no está instalado,
+ *  el QR cae al landing de la vista captura que orienta al instalador. */
 function UI_mostrarQR() {
-  var url = WebApp_urlCaptura_();
-  if (!url) throw new Error('No se pudo preparar el enlace de Captura');
+  var url = '';
+  try { url = (typeof Form_urlRespondedor_ === 'function') ? Form_urlRespondedor_() || '' : ''; } catch (e) { url = ''; }
+  var urlQR = url || WebApp_urlCaptura_();
+  if (!urlQR) throw new Error('No se pudo preparar el enlace de captura');
   var t = HtmlService.createTemplateFromFile('QRFormulario');
-  t.QR_URL = url;
-  t.WEB_APP_URL = url;
-  _UI_get().showModalDialog(t.evaluate().setWidth(440).setHeight(640), 'Captura');
+  t.QR_URL = urlQR;
+  t.WEB_APP_URL = urlQR;
+  _UI_get().showModalDialog(t.evaluate().setWidth(440).setHeight(640), 'Captura ECICEP — Google Forms');
 }
 
 /** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
@@ -2266,4 +2270,19 @@ function _pruS_auditoria() {
   } catch (e) {
     return { estado: 'ERROR', detalle: e && e.message ? e.message : String(e) };
   }
+}
+
+/** Menú Sistema → Google Forms: acciones operativas. */
+function UI_menuGoogleForms() {
+  var ui = _UI_get();
+  var url = '';
+  try { url = (typeof Form_urlRespondedor_==='function')?Form_urlRespondedor_()||'' : ''; } catch(e) { url=''; }
+  ui.createMenu('Google Forms — Canal ECICEP')
+    .addItem('Mostrar QR del Form', 'UI_mostrarQR')
+    .addItem('Instalar/reparar canal', 'Form_operativoInstalar')
+    .addItem('Sincronizar catálogos del Form', 'Form_syncCatalogos')
+    .addItem('Estado operativo', 'Form_operativoEstado')
+    .addSeparator()
+    .addItem('Volver al menú de ECICEP', 'onOpen')
+    .addToUi();
 }

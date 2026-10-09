@@ -472,7 +472,14 @@ function Captura_v2_nuevoRegistro(norm, opciones) {
     ingresoFila: '',
     reintentos: 0,
     usuario: opciones.usuario || '',
-    fechaRecepcion: opciones.fechaRecepcion || ''
+    fechaRecepcion: opciones.fechaRecepcion || '',
+    // v253 (DEC-107): trazabilidad de transporte. El provider identifica el
+    // canal que entregó el registro ('GOOGLE_FORMS' | 'WEBAPP_LEGACY') y
+    // transportId es el id de la respuesta en el transporte (responseId del
+    // Form; vacío en el canal Web App legacy). NO forman parte del payload
+    // del contrato (el validador rechaza claves desconocidas).
+    captureProvider: opciones.captureProvider || '',
+    transportId: opciones.transportId || ''
   };
 }
 
@@ -589,7 +596,11 @@ function Captura_v2_enviar(payload, ctx) {
   }
 
   // Envío nuevo: primero persistencia durable del registro §15.1/§15.2.
-  var nuevo = Captura_v2_nuevoRegistro(norm, { usuario: c.usuario, fechaRecepcion: (c.ahora ? c.ahora() : '') });
+  var nuevo = Captura_v2_nuevoRegistro(norm, {
+    usuario: c.usuario, fechaRecepcion: (c.ahora ? c.ahora() : ''),
+    captureProvider: c.captureProvider || c.provider || '',
+    transportId: c.transportId || c.transportResponseId || ''
+  });
   var pers;
   try {
     pers = c.persistirRegistro(nuevo);
@@ -969,8 +980,14 @@ function Captura_diagnosticarCaptureIdsDuplicados_() {
 }
 
 /** Esquema físico real: admite columnas adicionales sin mover datos existentes.
- * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir. */
+ * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir.
+ * v253 (DEC-107): antes de comparar, garantiza las dos columnas de transporte
+ * (CAPTURE_PROVIDER, TRANSPORT_RESPONSE_ID) anexadas al final, de forma
+ * idempotente, para que hojas creadas pre-v253 (26 columnas) migren sin
+ * tocar sus datos. Cualquier otra ausencia/duplicado sigue siendo
+ * ESQUEMA_CAPTURA_INCOMPATIBLE. */
 function Captura_v2_columnasHoja(hoja) {
+  Captura_v2_asegurarColumnasTransporte_(hoja);
   var columnas = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
   var claves = columnas.map(Utl_claveAlnum);
   Form_columnas().forEach(function (nombre) {
@@ -983,6 +1000,35 @@ function Captura_v2_columnasHoja(hoja) {
     var clave = Utl_claveAlnum(nombre);
     return Form_columnas().filter(function (c) { return Utl_claveAlnum(c) === clave; })[0] || nombre;
   });
+}
+
+/** v253: anexa al final de la hoja las columnas de transporte faltantes
+ *  (CAPTURE_PROVIDER, TRANSPORT_RESPONSE_ID). Idempotente y de SOLO encabezado:
+ *  nunca reescribe ni desplaza datos de columnas previas. Si la hoja no tiene
+ *  encabezados aún, la inicializa con el esquema completo de Form_columnas(). */
+function Captura_v2_asegurarColumnasTransporte_(hoja) {
+  if (!hoja) return;
+  var disponibles = ['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID'];
+  var ultima = hoja.getLastColumn();
+  if (!ultima) {
+    try { hoja.getRange(1, 1, 1, Form_columnas().length).setValues([Form_columnas()]); } catch (e) { /* hoja sin acceso */ }
+    return;
+  }
+  var enc = hoja.getRange(1, 1, 1, ultima).getValues()[0] || [];
+  var claves = [];
+  for (var i = 0; i < enc.length; i++) claves.push(Utl_claveAlnum(enc[i]));
+  var faltantes = [];
+  disponibles.forEach(function (nombre) {
+    if (claves.indexOf(Utl_claveAlnum(nombre)) === -1) faltantes.push(nombre);
+  });
+  if (!faltantes.length) return;
+  try {
+    var filaCabecera = enc.slice();
+    filaCabecera.length = ultima; // preserva el ancho real (no recorta)
+    hoja.getRange(1, ultima + 1, 1, faltantes.length).setValues([faltantes]);
+  } catch (e) {
+    Captura_v2_logError('CapturaV2', 'asegurarColumnasTransporte', String(e));
+  }
 }
 
 /** GAS: persiste el registro de captura (fila RECIBIDO) con confirmación §15. */
@@ -1029,6 +1075,9 @@ function Captura_v2_persistirRegistro(reg) {
       if (mapa[parEs[j][0]] !== undefined) fila[mapa[parEs[j][0]]] = parEs[j][1];
     }
     fila[mapa.TRAZA_CRUDA] = JSON.stringify(reg.normalizado);
+    // v253 (DEC-107): transporte del registro (solo si la columna existe).
+    if (mapa.CAPTURE_PROVIDER !== undefined) fila[mapa.CAPTURE_PROVIDER] = reg.captureProvider || '';
+    if (mapa.TRANSPORT_RESPONSE_ID !== undefined) fila[mapa.TRANSPORT_RESPONSE_ID] = reg.transportId || '';
     if (mapa.REINTENTOS !== undefined) fila[mapa.REINTENTOS] = reg.reintentos || 0;
     fila[mapa.ESTADO] = reg.estado || CAPTURA_V2.ESTADOS.RECIBIDO;
     var filaNueva = hoja.getLastRow() + 1;
@@ -1554,32 +1603,22 @@ function Captura_v2_ctx(acceso) {
   };
 }
 
-/** Entrypoint Web App: envío de captura V2 (único canal operativo). */
+/** Entrypoint Web App: RETIRADO en v253 (DEC-107). El canal durable de captura
+ * es Google Forms (Form_operativoInstalar + Form_onFormSubmit sobre la cola
+ * FORM_RESPUESTAS y el pipeline V2). Esta función se conserva como puerta de
+ * salida controlada: conserva el chequeo de autorización histórica, rechaza el
+ * envío con código normativo ERROR_INTERNO y orienta al canal vigente. */
 function WebApp_capturarEnviar(payload, acceso) {
   if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
-  var lock = null;
-  try {
-    lock = LockService.getScriptLock();
-    if (!lock.tryLock(30000)) {
-      // El operador ya envió el formulario y aquí no se escribe nada. Sin esta
-      // traza el rechazo era invisible; el reenvío reutiliza el mismo captureId,
-      // de modo que queda recuperable, pero hay que poder diagnosticarlo.
-      Captura_v2_logError('WebApp', 'capturarEnviar',
-        ((payload && payload.captureId) || 'captureId-desconocido') + ': lock no disponible en 30s, envío no registrado');
-      return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Servicio ocupado; reintente en unos segundos', 'S2-LockService')] };
-    }
-    var ctx = Captura_v2_ctx(acceso);
-    Captura_v2_medida(ctx, 'T0_recepcion');
-    var res = Captura_v2_enviar(payload || {}, ctx);
-    Captura_v2_medida(ctx, 'T6_respuesta');
-    Captura_v2_logMedidas(ctx);
-    return res;
-  } catch (e) {
-    Captura_v2_logError('WebApp', 'capturarEnviar', String(e));
-    return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Falla interna al procesar el envío', '§16.2')] };
-  } finally {
-    try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
-  }
+  Captura_v2_logError('WebApp', 'capturarEnviar',
+    ((payload && payload.captureId) || 'captureId-desconocido') + ': canal de captura retirado (DEC-107), envío rechazado');
+  return {
+    ok: false,
+    errors: [Captura_v2_error('ERROR_INTERNO', null,
+      'El canal de captura por Web App fue reemplazado por Google Forms; use el Formulario ECICEP desde el portal',
+      'CAPTURE_CHANNEL_RETIRED')],
+    replacementUrl: (typeof CapturaIngress_urlForm_ === 'function') ? CapturaIngress_urlForm_() : ''
+  };
 }
 
 // ---------------------------------------------------------------------------

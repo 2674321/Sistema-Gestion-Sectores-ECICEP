@@ -25,22 +25,21 @@ const aNaranja = vm.runInContext('HOJAS_INGRESO["INGRESO_NARANJA"]', ctx);
 assert.equal(aNaranja, 'NARANJO', 'alias legacy INGRESO_NARANJA → sector NARANJO (compat)');
 
 // ── §24 Placeholder de ingesta (Google Forms DESACTIVADO) ───────────────────
-assert.equal(ctx.CapturaIngress_providerActivo(), 'WEBAPP', 'el canal operativo es la Web App');
-assert.equal(ctx.CapturaIngress_providerReservado('GOOGLE_FORMS_FUTURE'), true, 'Forms está reservado, NO activo');
-assert.equal(ctx.CapturaIngress_providerReservado('WEBAPP'), false, 'Web App no es reservado');
+assert.equal(ctx.CapturaIngress_providerActivo(), 'GOOGLE_FORMS', 'el canal operativo es Google Forms');
+assert.equal(ctx.CapturaIngress_providerReservado('GOOGLE_FORMS'), false, 'Google Forms es operativo');
+assert.equal(ctx.CapturaIngress_providerReservado('WEBAPP_LEGACY'), true, 'Web App legacy está reservado, NO operativo');
+assert.equal(ctx.CapturaIngress_providerReservado('WEBAPP'), true, 'Web App legacy está reservado');
 
 const payload = { captureId: 'Cp4-' + 'e'.repeat(32), accion: 'nuevoIngreso', rut: '12345678-5', nombre: 'T P', fechaNacimiento: '1990-01-01', sector: 'VERDE', fechaIngreso: '2026-09-01' };
 let escrito = -1;
-const rEnv = ctx.CapturaIngress_enviar(payload, null, 'GOOGLE_FORMS_FUTURE');
-assert.equal(rEnv.ok, false, 'GOOGLE_FORMS_FUTURE rechaza');
+const rEnv = ctx.CapturaIngress_enviar({captureId:'Cp4-'+'z'.repeat(32)}, null, 'DESCONOCIDO_PROVIDER');
+assert.equal(rEnv.ok, false, 'provider desconocido rechaza sin escribir');
 assert.equal(rEnv.error, 'FALLBACK_PROVIDER_DISABLED', 'código normativo FALLBACK_PROVIDER_DISABLED');
 assert.equal(rEnv.escrito, 0, 'NO escribe nada');
 assert.equal(escrito, -1, 'ningún provider tocó el store');
 
-const rAd = ctx.CapturaIngress_adapterForms(payload);
-assert.equal(rAd.ok, false, 'adapter desactivado');
-assert.equal(rAd.error, 'FALLBACK_PROVIDER_DISABLED', 'adapter devuelve el mismo código');
-assert.equal(rAd.escrito, 0, 'adapter no escribe');
+const rAd = ctx.CapturaIngress_adapterForms({formId:'f1',responseId:'r1',accion:'nuevoIngreso',campos:{RUT:'12345678-5',NOMBRE:'T P',SEXO:'F',FECHA_NACIMIENTO:'1990-01-01',SECTOR:'VERDE',FECHA_INGRESO:'2026-09-01',PROFESIONAL:'MEDICO/A'}});
+assert.equal(rAd.ok, true, 'adapter real procesa');
 
 // WEBAPP delega a la captura real: payload inválido → errores, sin escritura.
 const rWeb = ctx.CapturaIngress_enviar({ captureId: 'Cp4-' + 'f'.repeat(32) }, ctx.Captura_v2_ctx(), 'WEBAPP');

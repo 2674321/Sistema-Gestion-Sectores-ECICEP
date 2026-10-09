@@ -45,9 +45,11 @@ var SISTEMA_VERSION_INSTALADOR = 'INST-1';
 // debe usarse para bifurcar lógica de negocio (if DEV/DEMO/PROD).
 // Identidad histórica determinada por el Spreadsheet activo (getId()),
 // NUNCA por el nombre visible de la hoja. DEV → @HEAD / DEMO → estable.
-// Google Forms es canal abandonado (AGENTS.md): FORM_ID se conserva vacío y
-// no debe completarse ni referenciarse en flujos operativos; el bloque se
-// mantiene únicamente para diagnóstico y tests de compatibilidad.
+// Google Forms es el canal principal duradera de captura desde v253
+// (AGENTS.md): el Form operativo es configuración central gestionada por
+// Form_operativoInstalar y almacenada en ScriptProperties (nunca en Git).
+// El bloque ENTORNOS se conserva únicamente para diagnóstico y tests de
+// compatibilidad histórica.
 // ---------------------------------------------------------------------------
 var ENTORNOS = {
   DEV: {
@@ -984,7 +986,7 @@ FORM_CONFIG.CONTROL = {
   REESCRIBIR: true,
   COLUMNAS: [
     'RESPONSE_ID', 'MARCA', 'FECHA_FORMS', 'ACCION', 'RUT', 'ID_INTERNO',
-    'ESTADO', 'MOTIVO', 'REINTENTOS', 'ID_EVENTO'
+    'ESTADO', 'MOTIVO', 'REINTENTOS', 'ID_EVENTO', 'CAPTURE_PROVIDER'
   ],
   // Métricas operativas que se exponen en el bloque agregado de la hoja y en
   // el panel administrativo (título legible → clave).
@@ -1006,6 +1008,11 @@ FORM_CONFIG.CONTROL = {
 // Orden persistido: independiente del catálogo de edición administrativa.
 // Ampliar FORM_CONFIG.CAMPOS no debe desplazar filas ya guardadas ni confundir
 // ESTADO del paciente con ESTADO de procesamiento de la captura.
+// v253 (Google Forms): las columnas de transporte CAPTURE_PROVIDER y
+// TRANSPORT_RESPONSE_ID se anexan AL FINAL (tras FECHA_INGRESO) para no
+// desplazar índices de las columnas previas ni romper la lectura posicional
+// de las suites históricas; se escriben SOLO si la hoja ya las tiene, y la
+// migración de encabezados es idempotente en Form_operativoInstalar.
 var FORM_CAMPOS_PERSISTIDOS = [
   'ACCION', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR',
   'ESTRATIFICACION', 'TELEFONOS', 'FECHA_EVENTO', 'PROFESIONAL',
@@ -1013,7 +1020,63 @@ var FORM_CAMPOS_PERSISTIDOS = [
 ];
 var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'USUARIO']
   .concat(FORM_CAMPOS_PERSISTIDOS)
-  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO', 'FECHA_INGRESO']);
+  .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO', 'FECHA_INGRESO'])
+  .concat(['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID']);
+
+// ---------------------------------------------------------------------------
+// GOOGLE FORMS — CANAL PRINCIPAL DE CAPTURA (v253 — DEC-107).
+// El Form reemplaza a la Web App como puerta de captura durable (cola
+// FORM_RESPUESTAS + pipeline V2). La configuración del Form ES operativa y se
+// almacena en ScriptProperties (nunca en Git):
+//   GOOGLE_FORM_ID         — id del Form
+//   GOOGLE_FORM_URL        — URL del respondedor (la que ve el usuario)
+//   GOOGLE_FORM_EDIT_URL   — URL de edición (admin)
+//   GOOGLE_FORM_SCHEMA_VERSION, GOOGLE_FORM_ITEM_MAP, GOOGLE_FORM_ESTADO,
+//   GOOGLE_FORM_CURSOR     — metadatos del canal
+// Este bloque define SOLO el acuerdo técnico (valores estáticos, sin IDs):
+// versionado de esquema, textos, cadencia del worker y umbrales de salud.
+// ---------------------------------------------------------------------------
+var GOOGLE_FORMS_CONFIG = {
+  SCHEMA_VERSION: 1,
+  TITULO: 'Captura ECICEP',
+  BIENVENIDA: 'Registra la actividad territorial ECICEP. La respuesta se procesa automáticamente.',
+  TITULO_CIERRE: 'Enviar mi respuesta',
+  CONFIRMACION: 'Respuesta recibida correctamente.\nECICEP la procesará automáticamente.',
+  ACCIONES: {
+    TITULO: 'Acción a registrar',
+    OPCIONES: {
+      NUEVO_INGRESO: { etiqueta: 'Nuevo ingreso a ECICEP', clave: 'NUEVO_INGRESO' },
+      REGISTRAR_CONTROL: { etiqueta: 'Registrar un control', clave: 'REGISTRAR_CONTROL' },
+      REGISTRAR_SEGUIMIENTO: { etiqueta: 'Registrar un seguimiento', clave: 'REGISTRAR_SEGUIMIENTO' }
+    }
+  },
+  CAMPOS: {
+    RUT: { etiqueta: 'RUT de la persona (ej: 12.345.678-5)' },
+    NOMBRE: { etiqueta: 'Nombre completo' },
+    SEXO: { etiqueta: 'Sexo (M / F / OTRO)', opciones: ['M', 'F', 'OTRO'] },
+    FECHA_NACIMIENTO: { etiqueta: 'Fecha de nacimiento' },
+    SECTOR: { etiqueta: 'Sector' },
+    ESTRATIFICACION: { etiqueta: 'Estratificación (solo si se conoce)', opciones: ['G1', 'G2', 'G3'] },
+    TELEFONOS: { etiqueta: 'Teléfono(s)' },
+    FECHA_EVENTO: { etiqueta: 'Fecha del evento (control/seguimiento)' },
+    PROFESIONAL: { etiqueta: 'Profesional que registra' },
+    PROFESIONAL2: { etiqueta: 'Segundo profesional (opcional)' },
+    OBSERVACIONES: { etiqueta: 'Observaciones' }
+  },
+  WORKER: {
+    BLOCK_MS: 3000,
+    MAX_POR_CORRIDA: 10
+  },
+  SALUD: {
+    OLDEST_PENDING_MAX_MIN: 180,      // más antiguo sin procesar > 3h → alerta
+    PENALIZAR_TRIGGER_FALLIDOS: 3
+  },
+  RECONCILIACION: {
+    VENTANA_HS: 24,                   // transportes 24-48h
+    CADUCIDAD_MIN: 24 * 60            // más de 24h sin resolver en hoja → clasificar
+  },
+  NOMBRE_HOJA: 'GOOGLE_FORMS_METRICA' // hoja auxiliar (opcional) para métricas agregadas del canal
+};
 
 // ---------------------------------------------------------------------------
 // Sexo (REM lo requiere; fuentes actuales no lo traen)

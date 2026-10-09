@@ -625,7 +625,8 @@ function Form_trazabilidad(filas, mapa, opciones) {
       idEvento: idx['IDEVENTO'] !== undefined ? Utl_texto(fila[idx['IDEVENTO']]) : '',
       estado: estado || 'RECIBIDO',
       motivo: idx['MOTIVO'] !== undefined ? Utl_texto(fila[idx['MOTIVO']]) : '',
-      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0
+      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0,
+      provider: idx['CAPTUREPROVIDER'] !== undefined ? Utl_texto(fila[idx['CAPTUREPROVIDER']]) : ''
     });
   });
   return salida;
@@ -933,7 +934,7 @@ function Form_refrescarControl() {
     traz.forEach(function (t) {
       filas.push([
         t.responseId, t.marca, t.fechaForms, t.accion, t.rut, t.idInterno,
-        t.estado, t.motivo, t.reintentos, t.idEvento
+        t.estado, t.motivo, t.reintentos, t.idEvento, t.provider
       ]);
     });
 
