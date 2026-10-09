@@ -2323,3 +2323,124 @@ de `tests/operador_resiliencia_vNEXT.mjs` fija la serialización de las reescrit
 y el volcado de los errores de captura.
 **Validación:** núcleo 674/674 y batería 67/67 sin fallos.
 **Fecha:** 2026-09-30
+
+## DEC-104
+**Título:** Identificadores automáticos y ningún campo aceptado se pierde en silencio.
+**Estado:** Aprobada
+**Motivo:** La identidad de los registros era **posicional** en varios puntos del
+sistema, y dos campos que el contrato de captura declara opcionales se
+aceptaban y luego se perdían. Ambas cosas son la misma clase de fallo: el
+sistema acepta el dato, informa éxito y la información no queda en ninguna parte.
+
+1. **Identidad posicional.** `Ingresos_procesarFilas` generaba `EC-000001`,
+   `EC-000002`… según el **orden del lote** (`nuevoId(i)`), y el generador de
+   eventos `EV-0001` aceptaba un número como secuencia por argumento posicional.
+   Consecuencias: el mismo lote reordenado producía identidades distintas; un
+   staging reprocesado podía reasignar la identidad de un paciente ya
+   incorporado; y la numeración era reiniciable por construcción.
+   Ahora `Modelo_nuevoIdInterno` produce `EC-<base36 tiempo>-<rand4>`,
+   `Ev_nuevoId` produce `EV-<base36 tiempo>-<rand4>` y la secuencia de test solo
+   existe por **inyección explícita** (`{secuenciaTest: n}`): un argumento
+   posicional ya no activa el modo test. `Modelo_resolverIdInterno_` rechaza un
+   ID ya ocupado en lugar de devolverlo, y `Modelo_agregarPacientes_` /
+   `Modelo_agregarEventos_` se niegan a escribir un ID vacío o duplicado.
+   Los IDs históricos no canónicos (`EC-000012`) **se conservan**: no se
+   reescriben datos ya incorporados.
+2. **`profesionalSecundario` se aceptaba y se perdía.** El contrato lo declara
+   `OPC` en las cuatro operaciones (§5.1) y la Web App lo enviaba, pero ninguna
+   llamada a `Eventos_registrarPaciente_` lo transmitía y el esquema de EVENTOS
+   no tenía dónde guardarlo. La fila `INGRESO_*` se relee del libro, de modo que
+   la fila canónica no alcanza: la dupla viaja por opciones hasta
+   `Ev_desdeStaging` y se persiste en la columna nueva `PROFESIONAL2`. Se añade
+   **al final** del esquema —nunca entre columnas existentes— y
+   `Modelo_asegurarEsquemaEventos_` la reconcilia de forma idempotente, con los
+   eventos históricos en `''`. `INGRESO_COLUMNAS` no se amplía.
+3. **Las observaciones del teléfono se descartaban.** `Captura_v2_validar`
+   conservaba solo `Norm_normalizarTelefono(...).telefonos` y tiraba
+   `.observaciones`, donde vive tanto la anotación de fuente (`ESPOSO`) como
+   el rastro de lo que se descartó (`NUMERO DESCARTADO: …`). Ahora
+   `TELEFONO_OBS` se persiste en PACIENTES.
+4. **Un teléfono escrito con espacios se perdía entero.** `Norm_normalizarTelefono`
+   validaba **cada fragmento** por separado, de modo que `9 6060 0712`,
+   `+56 9 9060 0712` o `(2) 2345 6789` —las formas más naturales de escribir un
+   teléfono— producían `VACIO` con todos los fragmentos descartados: el campo se
+   aceptaba y no quedaba nada. Ahora se interpreta primero la corrida completa
+   de dígitos y solo se separan en grupos cuando esa corrida no puede ser un
+   teléfono; los varios números en un mismo campo (`a / b`) siguen siendo varios.
+5. **`Calidad_sincronizarCola_` leía la columna equivocada.** Mezclaba base 0
+   (lectura con `getValues`) y base 1 (`getRange`): leía `FUENTE_B` en lugar de
+   `FUENTE_A`, de modo que `filasCalidad` quedaba **siempre vacío**, cada
+   sincronización **duplicaba** la cola y el auto-resolve era **código muerto**.
+   Los índices se derivan ahora del encabezado real, y la escritura por bloques
+   convierte a base 1 en un único punto.
+6. **`Calidad_normalizarFormatoRuts_` escribía sobre el banner.** Usaba `2 + ix`
+   como fila física en PACIENTES, que tiene layout visual (datos desde la fila 4):
+   con `ix=0` escribía el RUT en el banner de secciones y con `ix=1` sobre los
+   encabezados, y el resto del bloque quedaba corrido dos filas. La coordenada
+   sale ahora de `Modelo_filaFisica(HOJAS.PACIENTES, ix)`.
+7. **IDs de ejecución solo con el reloj.** `CARGA-`/`ACT-`/`EJ-` se componían
+   únicamente de `Date.now()`, con lo que dos ejecuciones en el mismo milisegundo
+   compartían identificador. Llevan ahora sufijo aleatorio.
+
+**Guardas nuevas:** `tests/ids_automaticos_vNEXT.mjs` (formatos canónicos,
+independencia del índice, colisiones, inyección de test explícita, sufijo
+aleatorio en los IDs de ejecución, `captureId` criptográfico),
+`tests/captura_persistencia_campos_vNEXT.mjs` (E2E por el mismo entrypoint que
+`WebApp_capturarEnviar`: `profesionalSecundario` en las cuatro operaciones,
+teléfonos recuperables y con descarte anotado, migración de EVENTOS sin pérdida
+de filas históricas, reintento idempotente) e
+`tests/integridad_calidad_cola_vNEXT.mjs` (índices derivados del encabezado,
+auto-resolve vivo, fila de RUT desde el layout). El allowlist RPC registra
+`Utl_sufijoAleatorio` como helper público sin efectos; las dos funciones nuevas de
+modelo son privadas (sufijo `_`).
+
+**Compatibilidad:** no se reescribe ningún dato existente; las columnas se
+añaden al final y los valores históricos quedan vacíos.
+**Validación:** núcleo 679/679 y batería 70/70 sin fallos. `Reparar` reconcilia
+también el esquema de EVENTOS, de modo que una instalación existente converge
+sin ejecutar migración; `tests/captura_persistencia_campos_vNEXT.mjs` fija que la
+migración es idempotente y no reescribe filas históricas.
+**Fecha:** 2026-10-05
+
+## DEC-105
+**Título:** Identidad de captura en `PROCESADO`, fuentes de evento en doble formato e
+ingreso alternativo como placeholder.
+**Estado:** Aprobada (post-auditoría `aed3567`)
+**Motivo:** La auditoría posterior a `aed3567` confirmó la causa raíz de la pérdida
+silenciosa (fila física reutilizada → falso "ya incorporado" → captura sin alta) y
+encontró un hueco de recuperación: el pipeline INGRESO persiste `EVENTOS.FUENTE`
+como **captureId desnudo** (`Fuentes_fuenteOrigen`), mientras la recuperación de
+identidad buscaba la marca completa `FORM|<cid>|<ACCIÓN>` (eventos manuales). Tres
+decisiones:
+
+1. **`PROCESADO` nunca sin identidad.** `Captura_v2_completarIds_` completa
+   `idInterno`/`idEvento` desde la evidencia durable y DEGRADA a
+   `REQUIERE_REVISION`/`PROCESADO_SIN_IDS` únicamente cuando tras la recuperación
+   sigue sin existir **ningún** id (firma real de "se procesó sin crear nada").
+   Con `idInterno` presente, `idEvento: ''` es válido por la respuesta §16 del
+   contrato (`docs/CONTRATO_CAPTURA_V2.md`) y una traza de auditoría pendiente no
+   degrada el guardado (suite de edición). El gate estricto en la entrega del
+   ingreso se mantiene dentro de `Captura_v2_entregarIngreso`.
+2. **`EVENTOS.FUENTE` en doble formato leído.** `Captura_v2_marcaEnEventos` busca
+   la marca completa y, si no hay match exacto, el captureId desnudo derivado
+   (`Captura_v2_captureIdDesdeMarca_`, mismo criterio que
+   `Ingresos_captureIdDesdeMarca_`). El reconciliador dryRun
+   (`Captura_v2_clasificarPendiente_`) acepta ambos formatos como evidencia
+   durable. No se toca el escritor INGRESO (idempotencia keyed por cid).
+   `Eventos_buscarPorFuente_` hace match exacto: sin colisiones de substring.
+3. **`src/30_Ingesta.js` es un placeholder DESACTIVADO.** Define la superficie
+   `CapturaIngress_*` reservada para un hipotético ingreso alternativo; ningún
+   provider distinto de `WEBAPP` escribe (`FALLBACK_PROVIDER_DISABLED`, `escrito:0`).
+   No crea Form, trigger, segunda Sheet ni segundo pipeline; su activación requiere
+   decisión explícita registrada aquí.
+
+Se mantiene la regla DEC-102 y de `AGENTS.md`: el acceso concede siempre; el fallo
+de acceso a una fuente externa (`EXTERNAL_SOURCE_PERMISSION_DENIED`) no es un
+fallo de acceso de la Web App. El diagnóstico `Captura_v2_diagnosticoPermisos`
+separa los tres dominios (Web App / Spreadsheet canónico / fuentes externas).
+**Validación:** núcleo 679/679, `aceptacion_formulario` 50/50, `contrato_captura_v2`
+36/36, `validar_html` 21 OK, `seguridad_webapp_capacidades` PASS y `tools/verificar`
+83 suites / 0 fallos; vNEXT `procesado_requiere_ids`, `legacy_reconciliacion_dryrun`,
+`reuso_fila_50_50`, `permisos_dominios`, `naranjo_y_ingesta`, `observabilidad_sin_pii`,
+`transaccion_eventos_crash` y `captura_trailer_revalidacion` PASS.
+**Fecha:** 2026-10-07

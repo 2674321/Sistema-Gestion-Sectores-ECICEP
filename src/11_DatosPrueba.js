@@ -36,6 +36,15 @@ const DATASET_NORMALIZACION = {
     ['981998384/64400270 sandra', 'PARCIAL', ['64400270', '981998384'], ['SANDRA']],
     ['921728970 ESPOSO', 'OK', ['921728970'], ['ESPOSO']],
     ['9/59355587', 'PARCIAL', ['59355587'], ['NUMERO DESCARTADO: 9']],
+    // DEC-104: separadores INTERNOS dentro de un mismo número. Antes cada
+    // fragmento se validaba por separado, todos caían bajo el mínimo de 8
+    // dígitos y el teléfono se perdía entero dejando solo un descarte.
+    ['9 6060 0712', 'OK', ['960600712'], []],
+    ['+56 9 9060 0712', 'OK', ['990600712'], []],
+    ['9-6060-0712', 'OK', ['960600712'], []],
+    ['(2) 2345 6789', 'OK', ['223456789'], []],
+    // Varios números en un mismo campo siguen siendo varios.
+    ['9 6060 0712 / 2 2345 6789', 'OK', ['223456789', '960600712'], []],
     ['', 'VACIO', [], []],
     [null, 'VACIO', [], []],
     ['NO TIENE', 'VACIO', [], ['NO TIENE']]

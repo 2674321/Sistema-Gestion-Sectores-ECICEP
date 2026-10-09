@@ -528,7 +528,7 @@ function Act_actualizarSistema(opciones) {
   var t0 = Date.now();
   var reporte = {
     ok: true,
-    ejecucion: 'ACT-' + Date.now().toString(36).toUpperCase(),
+    ejecucion: 'ACT-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(4),
     dryRun: !ejecutar,
     estructura: null, fuentes: null, enriquecimiento: null,
     derivados: null, correcciones: null, vistas: null, formato: null,
@@ -547,6 +547,13 @@ function Act_actualizarSistema(opciones) {
     reporte.estructura = Modelo_asegurarEsquemaPacientes_();
     if (reporte.estructura && reporte.estructura.ok === false)
       registrarFallo('estructura', reporte.estructura.motivo);
+    // DEC-104: EVENTOS también es append-only y puede carecer de PROFESIONAL2.
+    // Se reconcilia aquí para que «Reparar» converja el esquema completo sin
+    // esperar a la primera escritura de evento. Es idempotente y no reescribe
+    // ninguna fila histórica.
+    reporte.estructuraEventos = Modelo_asegurarEsquemaEventos_();
+    if (reporte.estructuraEventos && reporte.estructuraEventos.ok === false)
+      registrarFallo('estructura', reporte.estructuraEventos.motivo);
     reporte.alineacion = Modelo_alinearVistasSectoriales_();
     if (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length)
       registrarFallo('estructura', reporte.alineacion.errores.join('; '));

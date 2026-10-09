@@ -257,7 +257,10 @@ function Captura_v2_validar(payload, opciones) {
     rut: '', nombre: '', sexo: '', fechaNacimiento: '', sector: '',
     fechaIngreso: '', estratificacion: '', telefonos: '', fechaEvento: '', profesional: '',
     profesionalSecundario: '', observaciones: '', confirmarNuevoPaciente: false,
-    proximoControl: '', actualizacion: null, saludMental: ''
+    proximoControl: '', actualizacion: null, saludMental: '',
+    // DEC-105: derivado interno (NO es campo del contrato): anotaciones que
+    // Norm_normalizarTelefono separa del texto de contacto. Antes se perdían.
+    telefonoObs: ''
   };
 
   // Capa 2 (tipos + obligatoriedad) y Capa 3 (semántica) por campo §5.1
@@ -364,6 +367,11 @@ function Captura_v2_validar(payload, opciones) {
     } else if (campo === 'telefonos') {
       var nt = Norm_normalizarTelefono(valor);
       norm.telefonos = (nt && nt.telefonos && nt.telefonos.length) ? nt.telefonos.join('/') : '';
+      // DEC-105: el normalizador separa teléfono y anotación ("esposo", "número
+      // descartado"). Conservar solo los dígitos destruía la anotación: el
+      // modelo tiene TELEFONO_OBS para ello y la captura no la llenaba.
+      norm.telefonoObs = (nt && nt.observaciones && nt.observaciones.length)
+        ? nt.observaciones.join('; ') : '';
     } else if (campo === 'proximoControl') {
       var agenda = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
       if (!agenda.ok) eSem.push(Captura_v2_error('FECHA_INVALIDA', campo, 'Fecha de próxima atención inválida', agenda.detalle));
@@ -433,6 +441,7 @@ function Captura_v2_normalizadoAInterno(norm, opciones) {
     FECHA_INGRESO: norm.fechaIngreso || '',
     ESTRATIFICACION: norm.estratificacion || '',
     TELEFONOS: norm.telefonos || '',
+    TELEFONO_OBS: norm.telefonoObs || '',   // DEC-105: la anotación también viaja
     FECHA_EVENTO: norm.fechaEvento || '',
     PROFESIONAL: norm.profesional || '',
     PROFESIONAL2: norm.profesionalSecundario || '',
@@ -463,7 +472,14 @@ function Captura_v2_nuevoRegistro(norm, opciones) {
     ingresoFila: '',
     reintentos: 0,
     usuario: opciones.usuario || '',
-    fechaRecepcion: opciones.fechaRecepcion || ''
+    fechaRecepcion: opciones.fechaRecepcion || '',
+    // v253 (DEC-107): trazabilidad de transporte. El provider identifica el
+    // canal que entregó el registro ('GOOGLE_FORMS' | 'WEBAPP_LEGACY') y
+    // transportId es el id de la respuesta en el transporte (responseId del
+    // Form; vacío en el canal Web App legacy). NO forman parte del payload
+    // del contrato (el validador rechaza claves desconocidas).
+    captureProvider: opciones.captureProvider || '',
+    transportId: opciones.transportId || ''
   };
 }
 
@@ -493,6 +509,7 @@ function Captura_v2_enviar(payload, ctx) {
 
   var norm = v.normalizado;
   var captureId = norm.captureId;
+  Captura_v2_marcaFase(c, 'RECIBIDO');
   var canon = Captura_v2_canonica(norm);
   var maxR = (c.maxReintentos === undefined || c.maxReintentos === null) ? FORM_CONFIG.MAX_REINTENTOS : Number(c.maxReintentos);
 
@@ -533,16 +550,23 @@ function Captura_v2_enviar(payload, ctx) {
           var est = Form_leerFilaIngreso(reg.ingresoHoja, Number(reg.ingresoFila));
           if (est && est.estado && est.estado !== '' && est.estado !== 'ERROR') {
             var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
-            var idInt = Captura_v2_buscarIdInternoPorRut(norm.rut);
+            var idInt = reg.idInterno || est.idInterno || Captura_v2_buscarIdInternoPorRut(norm.rut);
+            var idEvFast = reg.idEvento || est.idEvento || '';
+            // §17: fast-path tampoco devuelve un PROCESADO sin identidad.
+            var fastIds = Captura_v2_completarIds_(mapeado.estado, idInt, idEvFast, Captura_v2_marca(norm));
+            if (fastIds.motivo && !mapeado.motivo) mapeado.motivo = fastIds.motivo;
+            mapeado.estado = fastIds.estado;
+            idInt = fastIds.idInterno;
+            idEvFast = fastIds.idEvento;
             var entregaFast = {
               estado: mapeado.estado, motivo: mapeado.motivo || '',
-              idInterno: idInt, idEvento: '',
+              idInterno: idInt, idEvento: idEvFast,
               ingresoHoja: reg.ingresoHoja, ingresoFila: reg.ingresoFila,
               resultadoTrailer: { ok: true }
             };
             Captura_v2_trailerSeguro(c, captureId, {
               estado: mapeado.estado, motivo: mapeado.motivo || '',
-              idInterno: idInt, idEvento: '',
+              idInterno: idInt, idEvento: idEvFast,
               ingresoHoja: reg.ingresoHoja, ingresoFila: reg.ingresoFila
             }, reg);
             Captura_v2_medida(c, 'T5_entrega_fin');
@@ -561,6 +585,7 @@ function Captura_v2_enviar(payload, ctx) {
       if (entregaA2.estado === CAPTURA_V2.ESTADOS.ERROR) {
         return { ok: false, errors: [Captura_v2_errorEntrega(entregaA2.motivo)] };
       }
+      Captura_v2_marcaFase(c, entregaA2.estado);
       return Captura_v2_respuestaEntrega(norm, entregaA2);
     }
     // Estado inesperado (defensa; no debería ocurrir).
@@ -571,7 +596,11 @@ function Captura_v2_enviar(payload, ctx) {
   }
 
   // Envío nuevo: primero persistencia durable del registro §15.1/§15.2.
-  var nuevo = Captura_v2_nuevoRegistro(norm, { usuario: c.usuario, fechaRecepcion: (c.ahora ? c.ahora() : '') });
+  var nuevo = Captura_v2_nuevoRegistro(norm, {
+    usuario: c.usuario, fechaRecepcion: (c.ahora ? c.ahora() : ''),
+    captureProvider: c.captureProvider || c.provider || '',
+    transportId: c.transportId || c.transportResponseId || ''
+  });
   var pers;
   try {
     pers = c.persistirRegistro(nuevo);
@@ -588,6 +617,7 @@ function Captura_v2_enviar(payload, ctx) {
     return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'No fue posible registrar el envío', '§15.2')] };
   }
   Captura_v2_medida(c, 'T3_persistir');
+      Captura_v2_marcaFase(c, 'PERSISTIDO');
   // Prima el cache del trailer: evita un segundo escaneo de FORM_RESPUESTAS §15.
   if (pers.filaFisica) {
     Captura_v2_regDesdeCache(c, captureId, { captureId: captureId, filaFisica: Number(pers.filaFisica) || 0 });
@@ -599,6 +629,7 @@ function Captura_v2_enviar(payload, ctx) {
   if (entrega.estado === CAPTURA_V2.ESTADOS.ERROR) {
     return { ok: false, errors: [Captura_v2_errorEntrega(entrega.motivo)] };
   }
+  Captura_v2_marcaFase(c, entrega.estado);
   return Captura_v2_respuestaEntrega(norm, entrega);
 }
 
@@ -788,6 +819,15 @@ function Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg) {
     Captura_v2_logError('CapturaV2', 'entregar', String(e));
     resultado = { estado: CAPTURA_V2.ESTADOS.ERROR, motivo: 'ENTREGA_FALLO_INTERNO' };
   }
+  // §17: un PROCESADO no puede quedar con identidad incompleta. Se completa
+  // desde la marca durable o se degrada ANTES de la agenda/contacto/trailer.
+  var idsProc = Captura_v2_completarIds_(
+    resultado.estado, resultado.idInterno || '', resultado.idEvento || '',
+    opcionesEntrega.marca);
+  if (idsProc.motivo && !resultado.motivo) resultado.motivo = idsProc.motivo;
+  resultado.estado = idsProc.estado;
+  resultado.idInterno = idsProc.idInterno;
+  resultado.idEvento = idsProc.idEvento;
   // Agenda manual en la misma entrega: si falla queda reintentable, nunca un
   // falso PROCESADO. La marca existente evita recrear paciente/evento al retomar.
   if (resultado.estado === CAPTURA_V2.ESTADOS.PROCESADO && norm.proximoControl) {
@@ -804,6 +844,27 @@ function Captura_v2_ejecutarEntrega(norm, c, captureId, previo, reg) {
       agendaOk = false;
     }
     if (!agendaOk) { resultado.estado = CAPTURA_V2.ESTADOS.ERROR; resultado.motivo = 'AGENDA_NO_GUARDADA'; }
+  }
+  // DEC-105: anotación de contacto (TELEFONO_OBS). INGRESO_* no tiene columna
+  // para ella, así que se aplica sobre PACIENTES tras la entrega clínica, con
+  // la misma semántica que la agenda: si falla, la entrega NO queda PROCESADO.
+  var contactoCampos = {};
+  if (norm.telefonoObs) contactoCampos.TELEFONO_OBS = norm.telefonoObs;
+  if (resultado.estado === CAPTURA_V2.ESTADOS.PROCESADO && resultado.idInterno &&
+      c.aplicarContacto && Object.keys(contactoCampos).length) {
+    var contactoOk = false;
+    try {
+      var cr = c.aplicarContacto(resultado.idInterno, contactoCampos);
+      contactoOk = !!(cr && cr.ok);
+    } catch (eContacto) {
+      Captura_v2_logError('CapturaV2', 'aplicarContacto',
+        norm.captureId + ' → ' + String(eContacto));
+      contactoOk = false;
+    }
+    if (!contactoOk) {
+      resultado.estado = CAPTURA_V2.ESTADOS.ERROR;
+      resultado.motivo = 'CONTACTO_NO_GUARDADO';
+    }
   }
   var estado = resultado.estado || CAPTURA_V2.ESTADOS.ERROR;
   var trailer = {
@@ -919,8 +980,14 @@ function Captura_diagnosticarCaptureIdsDuplicados_() {
 }
 
 /** Esquema físico real: admite columnas adicionales sin mover datos existentes.
- * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir. */
+ * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir.
+ * v253 (DEC-107): antes de comparar, garantiza las dos columnas de transporte
+ * (CAPTURE_PROVIDER, TRANSPORT_RESPONSE_ID) anexadas al final, de forma
+ * idempotente, para que hojas creadas pre-v253 (26 columnas) migren sin
+ * tocar sus datos. Cualquier otra ausencia/duplicado sigue siendo
+ * ESQUEMA_CAPTURA_INCOMPATIBLE. */
 function Captura_v2_columnasHoja(hoja) {
+  Captura_v2_asegurarColumnasTransporte_(hoja);
   var columnas = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
   var claves = columnas.map(Utl_claveAlnum);
   Form_columnas().forEach(function (nombre) {
@@ -935,6 +1002,35 @@ function Captura_v2_columnasHoja(hoja) {
   });
 }
 
+/** v253: anexa al final de la hoja las columnas de transporte faltantes
+ *  (CAPTURE_PROVIDER, TRANSPORT_RESPONSE_ID). Idempotente y de SOLO encabezado:
+ *  nunca reescribe ni desplaza datos de columnas previas. Si la hoja no tiene
+ *  encabezados aún, la inicializa con el esquema completo de Form_columnas(). */
+function Captura_v2_asegurarColumnasTransporte_(hoja) {
+  if (!hoja) return;
+  var disponibles = ['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID'];
+  var ultima = hoja.getLastColumn();
+  if (!ultima) {
+    try { hoja.getRange(1, 1, 1, Form_columnas().length).setValues([Form_columnas()]); } catch (e) { /* hoja sin acceso */ }
+    return;
+  }
+  var enc = hoja.getRange(1, 1, 1, ultima).getValues()[0] || [];
+  var claves = [];
+  for (var i = 0; i < enc.length; i++) claves.push(Utl_claveAlnum(enc[i]));
+  var faltantes = [];
+  disponibles.forEach(function (nombre) {
+    if (claves.indexOf(Utl_claveAlnum(nombre)) === -1) faltantes.push(nombre);
+  });
+  if (!faltantes.length) return;
+  try {
+    var filaCabecera = enc.slice();
+    filaCabecera.length = ultima; // preserva el ancho real (no recorta)
+    hoja.getRange(1, ultima + 1, 1, faltantes.length).setValues([faltantes]);
+  } catch (e) {
+    Captura_v2_logError('CapturaV2', 'asegurarColumnasTransporte', String(e));
+  }
+}
+
 /** GAS: persiste el registro de captura (fila RECIBIDO) con confirmación §15. */
 function Captura_v2_persistirRegistro(reg) {
   try {
@@ -943,6 +1039,30 @@ function Captura_v2_persistirRegistro(reg) {
     var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
+    // Barrera: impedir captureId duplicado (última barrera del escritor)
+    try {
+      if (Captura_v2_buscarRegistro(reg.captureId)) {
+        return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
+      }
+    } catch (e) {}
+    // Fallback robusto para mocks de tests: buscar por RESPONSE_ID directamente
+    try {
+      var _h = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+      if (_h && _h.getLastRow() > 1) {
+        var _cols = Captura_v2_columnasHoja(_h);
+        var _mapa = {};
+        for (var mi = 0; mi < _cols.length; mi++) _mapa[_cols[mi]] = mi;
+        var _rid = _mapa.RESPONSE_ID !== undefined ? _mapa.RESPONSE_ID : (_mapa.RESPONSEID !== undefined ? _mapa.RESPONSEID : -1);
+        if (_rid >= 0) {
+          for (var rr = 1; rr < _h.getLastRow(); rr++) {
+            var _rowv = _h.getRange(rr + 1, 1, 1, _h.getLastColumn()).getValues()[0];
+            if (_rowv && String(_rowv[_rid]) === String(reg.captureId)) {
+              return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
+            }
+          }
+        }
+      }
+    } catch (e2) {}
     var fila = new Array(cols.length);
     for (var i2 = 0; i2 < cols.length; i2++) fila[i2] = '';
     fila[mapa.FECHA_FORMS] = reg.fechaRecepcion || Captura_v2_ahora();
@@ -955,6 +1075,9 @@ function Captura_v2_persistirRegistro(reg) {
       if (mapa[parEs[j][0]] !== undefined) fila[mapa[parEs[j][0]]] = parEs[j][1];
     }
     fila[mapa.TRAZA_CRUDA] = JSON.stringify(reg.normalizado);
+    // v253 (DEC-107): transporte del registro (solo si la columna existe).
+    if (mapa.CAPTURE_PROVIDER !== undefined) fila[mapa.CAPTURE_PROVIDER] = reg.captureProvider || '';
+    if (mapa.TRANSPORT_RESPONSE_ID !== undefined) fila[mapa.TRANSPORT_RESPONSE_ID] = reg.transportId || '';
     if (mapa.REINTENTOS !== undefined) fila[mapa.REINTENTOS] = reg.reintentos || 0;
     fila[mapa.ESTADO] = reg.estado || CAPTURA_V2.ESTADOS.RECIBIDO;
     var filaNueva = hoja.getLastRow() + 1;
@@ -1002,11 +1125,11 @@ function Captura_v2_actualizarTrailer(captureId, cambios, reg) {
     var cols = Captura_v2_columnasHoja(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
+    var idxRid = mapa.RESPONSE_ID !== undefined ? mapa.RESPONSE_ID : (mapa.RESPONSEID !== undefined ? mapa.RESPONSEID : -1);
     var trailerCols = ['INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO'];
     var indices = trailerCols.map(function (c) { return mapa[c]; });
     var ini = Math.min.apply(null, indices), fin = Math.max.apply(null, indices);
     var ancho = fin - ini + 1;
-    var bloque = hoja.getRange(reg.filaFisica, ini + 1, 1, ancho).getValues()[0];
     var offset = {};
     for (var t = 0; t < trailerCols.length; t++) offset[trailerCols[t]] = mapa[trailerCols[t]] - ini;
     var valores = {
@@ -1015,14 +1138,39 @@ function Captura_v2_actualizarTrailer(captureId, cambios, reg) {
       ID_INTERNO: cambios.idInterno, ID_EVENTO: cambios.idEvento,
       FECHA_PROCESO: (cambios.fechaProceso !== undefined) ? cambios.fechaProceso : Captura_v2_ahora()
     };
-    for (var k in offset) {
-      if (valores[k] !== undefined && offset.hasOwnProperty(k)) bloque[offset[k]] = valores[k];
+    // Revalidación §21: la fila objetivo debe contener exactamente este captureId.
+    function escribirTrailer(filaFisica) {
+      if (idxRid >= 0) {
+        var ridActual = Utl_texto(hoja.getRange(filaFisica, idxRid + 1, 1, 1).getValues()[0][0]);
+        if (ridActual !== captureId) {
+          return { ok: false, motivo: 'CAPTUREID_DIVERGENTE' };
+        }
+      }
+      var bloque = hoja.getRange(filaFisica, ini + 1, 1, ancho).getValues()[0];
+      for (var k in offset) {
+        if (valores[k] !== undefined && offset.hasOwnProperty(k)) bloque[offset[k]] = valores[k];
+      }
+      hoja.getRange(filaFisica, ini + 1, 1, ancho).setValues([bloque]);
+      // Confirmación por relectura §15: el estado escrito debe verificarse.
+      var relee = hoja.getRange(filaFisica, ini + 1, 1, ancho).getValues()[0];
+      var okEstado = cambios.estado === undefined || Utl_texto(relee[offset.ESTADO]).toUpperCase() === Utl_texto(cambios.estado).toUpperCase();
+      return okEstado ? { ok: true } : { ok: false, motivo: 'CONFIRMACION_TRAILER_FALLIDA' };
     }
-    hoja.getRange(reg.filaFisica, ini + 1, 1, ancho).setValues([bloque]);
-    // Confirmación por relectura §15: el estado escrito debe verificarse.
-    var relee = hoja.getRange(reg.filaFisica, ini + 1, 1, ancho).getValues()[0];
-    var okEstado = cambios.estado === undefined || Utl_texto(relee[offset.ESTADO]).toUpperCase() === Utl_texto(cambios.estado).toUpperCase();
-    return okEstado ? { ok: true } : { ok: false, motivo: 'CONFIRMACION_TRAILER_FALLIDA' };
+    var primerIntento = escribirTrailer(Number(reg.filaFisica));
+    if (primerIntento.motivo === 'CAPTUREID_DIVERGENTE') {
+      // Caso fila reutilizada: A estaba en fila X, la hoja cambió y X ahora es
+      // de B. NO se escribe sobre B: se relocaliza por captureId (durable) y se
+      // reescribe una sola vez sobre la fila real de A.
+      var reencontrado = null;
+      try { reencontrado = Captura_v2_buscarRegistro(captureId); } catch (eReloc) { reencontrado = null; }
+      if (reencontrado && Number(reencontrado.filaFisica) > 0 &&
+          Number(reencontrado.filaFisica) !== Number(reg.filaFisica)) {
+        Captura_v2_logAux('actualizarTrailer', captureId + ': DIVERGENTE fila ' + reg.filaFisica +
+          ' → relocalizado a fila ' + reencontrado.filaFisica);
+        return escribirTrailer(Number(reencontrado.filaFisica));
+      }
+    }
+    return primerIntento;
   } catch (e) {
     Captura_v2_logError('CapturaV2', 'actualizarTrailer', String(e));
     return { ok: false, motivo: 'EXCEPCION' };
@@ -1057,11 +1205,70 @@ function Captura_v2_buscarIdInternoPorRut(rut) {
   return p ? Utl_texto(p.ID_INTERNO) : '';
 }
 
-/** GAS: evento ya entregado para esta marca (§22 protección de efectos). */
+/** GAS: evento ya entregado para esta marca (§22 protección de efectos).
+ *  Es «durable» si existe la marca con su EVENTO real. Se aceptan DOS formatos
+ *  de FUENTE, ambos con la MISMA identidad durable (captureId):
+ *    - marca completa `FORM|<captureId>|<ACCIÓN>` (eventos manuales de ficha y
+ *      el formato canónico de Captura V2), y
+ *    - captureId DESNUDO (`Cp4-…`), que es lo que el pipeline INGRESO escribe
+ *      realmente vía Fuentes_fuenteOrigen (03_Fuentes.js:90-97).
+ *  La recuperación §17 no debe depender del token de acción de la marca. */
 function Captura_v2_marcaEnEventos(marca) {
-  if (!marca) return null;
-  return typeof Eventos_buscarPorFuente_ === 'function'
-    ? Eventos_buscarPorFuente_(marca) : null;
+  if (!marca || typeof Eventos_buscarPorFuente_ !== 'function') return null;
+  var ev = Eventos_buscarPorFuente_(marca);
+  if (ev) return ev;
+  var cid = Captura_v2_captureIdDesdeMarca_(marca);
+  return cid ? (Eventos_buscarPorFuente_(cid) || null) : null;
+}
+
+/** PURA: captureId extraíble de una marca 'FORM|CpN-…|<ACCIÓN>'. Igual criterio
+ *  que Ingresos_captureIdDesdeMarca_ (12_Ingresos.js:44) para no divergir del
+ *  formato que el pipeline realmente persiste como FUENTE desnuda. */
+function Captura_v2_captureIdDesdeMarca_(marca) {
+  var m = Utl_texto(marca).trim();
+  var partes = m.split('|');
+  if (partes.length < 2) return '';
+  if (Utl_texto(partes[0]).toUpperCase() !== 'FORM') return '';
+  var cap = Utl_texto(partes[1]).trim();
+  return /^Cp[0-9]-/.test(cap) ? cap : '';
+}
+
+/**
+ * §17 post-aed3567: PROCESADO no puede quedar sin identidad. Se completan los
+ * IDs faltantes desde la evidencia durable (EVENTOS.FUENTE: marca completa o
+ * captureId desnudo del pipeline INGRESO). Solo si tras la recuperación sigue
+ * sin existir ID_INTERNO NI ID_EVENTO —la firma de "se procesó sin crear nada"
+ * (pérdida silenciosa)— se DEGRADA a REQUIERE_REVISION. Con idInterno presente
+*  y idEvento '' el PROCESADO se mantiene: la respuesta §16 del contrato admite
+ *  idEvento vacío y el guardado queda trazable por idInterno (una traza de
+ *  auditoría pendiente tampoco degrada, según la suite de edición).
+ */
+function Captura_v2_completarIds_(estado, idInterno, idEvento, marca) {
+  if (estado !== CAPTURA_V2.ESTADOS.PROCESADO) {
+    return { estado: estado, idInterno: idInterno || '', idEvento: idEvento || '' };
+  }
+  if (idInterno && idEvento) {
+    return { estado: estado, idInterno: idInterno, idEvento: idEvento };
+  }
+  if (marca) {
+    try {
+      var ev = Captura_v2_marcaEnEventos(marca);
+      if (ev) {
+        if (!idInterno) idInterno = ev.idInterno || '';
+        if (!idEvento) idEvento = ev.idEvento || '';
+      }
+    } catch (eMarca) { /* sin marca → sin evidencia durable */ }
+  }
+  if (idInterno && idEvento) {
+    return { estado: estado, idInterno: idInterno, idEvento: idEvento };
+  }
+  if (!idInterno) {
+    return {
+      estado: CAPTURA_V2.ESTADOS.REQUIERE_REVISION, motivo: 'PROCESADO_SIN_IDS',
+      idInterno: '', idEvento: ''
+    };
+  }
+  return { estado: estado, idInterno: idInterno, idEvento: idEvento };
 }
 
 /** GAS: entrega TR-2 según operación (§21/§22). */
@@ -1204,7 +1411,11 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     // mantener una segunda composición del pipeline: ambos fueron causas de
     // timeout/falso "ejecutado" sin alta clínica.
     var proc = Ingresos_procesarFila(hojaEntrega, filaFisica, {
-      confirmarNuevo: norm.confirmarNuevoPaciente === true
+      confirmarNuevo: norm.confirmarNuevoPaciente === true,
+      // DEC-104: la fila se relee del libro, así que la dupla viaja por opciones
+      // para que el EVENTO de ingreso registre PROFESIONAL y PROFESIONAL2.
+      profesional: norm.profesional || '',
+      profesionalSecundario: norm.profesionalSecundario || ''
     });
     if (!proc || proc.ok === false) {
       return { estado: CAPTURA_V2.ESTADOS.ERROR,
@@ -1229,12 +1440,18 @@ function Captura_v2_entregarIngreso(norm, marca, opciones) {
     // bloque completo de la hoja (v0.10.5 §16).
     var est = Form_leerFilaIngreso_rapida_(hojaEntrega, filaFisica);
     var mapeado = Form_mapearResultadoFila(est.estado, est.nota);
-    var idInterno = Captura_v2_buscarIdInternoPorRut(norm.rut);
+    var resFila = proc.resultado || {};
+    var idInterno = resFila.idInterno || Captura_v2_buscarIdInternoPorRut(norm.rut);
+    var idEvento = resFila.idEvento || '';
+    // §17: PROCESADO exige idInterno+idEvento reales; se completan desde la
+    // marca durable o se degradan a REQUIERE_REVISION (nunca PROCESADO vacío).
+    var resIds = Captura_v2_completarIds_(mapeado.estado, idInterno, idEvento, marca);
+    if (resIds.motivo && !mapeado.motivo) mapeado.motivo = resIds.motivo;
     return {
-      estado: mapeado.estado,
+      estado: resIds.estado,
       motivo: mapeado.motivo,
-      idInterno: idInterno,
-      idEvento: '',
+      idInterno: resIds.idInterno,
+      idEvento: resIds.idEvento,
       ingresoHoja: hojaEntrega,
       ingresoFila: String(filaFisica)
     };
@@ -1297,6 +1514,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
         fecha: Captura_v2_fechaOperacion({}),
         idInterno: persona.ID_INTERNO,
         profesional: norm.profesional || '',
+        profesionalSecundario: norm.profesionalSecundario || '', // DEC-104: no se pierde
         descripcion: 'ACTUALIZACION_VIA_CAPTURA',
         observaciones: norm.observaciones || '',
         fuente: marca,
@@ -1321,6 +1539,7 @@ function Captura_v2_entregarEvento(norm, marca, opciones) {
       fecha: norm.fechaEvento || '',
       idInterno: persona.ID_INTERNO,
       profesional: norm.profesional || '',
+      profesionalSecundario: norm.profesionalSecundario || '', // DEC-104: no se pierde
       descripcion: '',
       observaciones: norm.observaciones || '',
       fuente: marca,
@@ -1375,36 +1594,31 @@ function Captura_v2_ctx(acceso) {
     aplicarAgenda: function (idInterno, fecha) {
       return Paciente_actualizarCampos_(idInterno, { PROXIMO_CONTROL: fecha }, { fuente: 'CAPTURA_V2' });
     },
+    // DEC-105: campos de PACIENTES que la captura acepta pero cuya única casa es
+    // la ficha (la puerta INGRESO_* no tiene columna para ellos).
+    aplicarContacto: function (idInterno, campos) {
+      return Paciente_actualizarCampos_(idInterno, campos, { fuente: 'CAPTURA_V2' });
+    },
     medir: Captura_v2_marcaMedida
   };
 }
 
-/** Entrypoint Web App: envío de captura V2 (único canal operativo). */
+/** Entrypoint Web App: RETIRADO en v253 (DEC-107). El canal durable de captura
+ * es Google Forms (Form_operativoInstalar + Form_onFormSubmit sobre la cola
+ * FORM_RESPUESTAS y el pipeline V2). Esta función se conserva como puerta de
+ * salida controlada: conserva el chequeo de autorización histórica, rechaza el
+ * envío con código normativo ERROR_INTERNO y orienta al canal vigente. */
 function WebApp_capturarEnviar(payload, acceso) {
   if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
-  var lock = null;
-  try {
-    lock = LockService.getScriptLock();
-    if (!lock.tryLock(30000)) {
-      // El operador ya envió el formulario y aquí no se escribe nada. Sin esta
-      // traza el rechazo era invisible; el reenvío reutiliza el mismo captureId,
-      // de modo que queda recuperable, pero hay que poder diagnosticarlo.
-      Captura_v2_logError('WebApp', 'capturarEnviar',
-        ((payload && payload.captureId) || 'captureId-desconocido') + ': lock no disponible en 30s, envío no registrado');
-      return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Servicio ocupado; reintente en unos segundos', 'S2-LockService')] };
-    }
-    var ctx = Captura_v2_ctx(acceso);
-    Captura_v2_medida(ctx, 'T0_recepcion');
-    var res = Captura_v2_enviar(payload || {}, ctx);
-    Captura_v2_medida(ctx, 'T6_respuesta');
-    Captura_v2_logMedidas(ctx);
-    return res;
-  } catch (e) {
-    Captura_v2_logError('WebApp', 'capturarEnviar', String(e));
-    return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Falla interna al procesar el envío', '§16.2')] };
-  } finally {
-    try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
-  }
+  Captura_v2_logError('WebApp', 'capturarEnviar',
+    ((payload && payload.captureId) || 'captureId-desconocido') + ': canal de captura retirado (DEC-107), envío rechazado');
+  return {
+    ok: false,
+    errors: [Captura_v2_error('ERROR_INTERNO', null,
+      'El canal de captura por Web App fue reemplazado por Google Forms; use el Formulario ECICEP desde el portal',
+      'CAPTURE_CHANNEL_RETIRED')],
+    replacementUrl: (typeof WebApp_urlCaptura_ === 'function') ? WebApp_urlCaptura_() : ''
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1515,6 +1729,185 @@ function WebApp_capturarRetomar(payload, acceso) {
 }
 
 // ---------------------------------------------------------------------------
+// §18/§19 — Reconciliación dryRun de pendientes (RECIBIDO). Solo diagnóstico:
+// NO reescribe nada. La evidencia es RESPONSE_ID (captureId) + TRAZA_CRUDA
+// (payload canónico); INGRESO_HOJA/INGRESO_FILA jamás se usan como evidencia
+// (§18), para no repetir la causa raíz de la fila física reutilizada.
+// ---------------------------------------------------------------------------
+
+var CAPTURA_V2_RECONCI = {
+  YA_COMPLETO_REPARAR_TRAILER: 'YA_COMPLETO_REPARAR_TRAILER',
+  REPROCESABLE_SEGURO: 'REPROCESABLE_SEGURO',
+  REQUIERE_REVISION: 'REQUIERE_REVISION',
+  CONFLICTO: 'CONFLICTO',
+  NO_RECUPERABLE_AUTOMATICAMENTE: 'NO_RECUPERABLE_AUTOMATICAMENTE'
+};
+
+/** PURA: rut para comparación (sin separadores, mayúscula). */
+function Captura_v2_rutClave_(v) {
+  return Utl_texto(v).toUpperCase().replace(/[^0-9K]/g, '');
+}
+
+/**
+ * PURA: clasifica UN pendiente con la evidencia canónica (ignora fila física).
+ * @param {Object} rec   {captureId|RESPONSE_ID, normalizado|TRAZA_CRUDA}
+ * @param {Object} store {pacientes:[], eventos:[]}
+ * @returns {captureId, clasificacion, motivo, idInterno?, idEvento?}
+ */
+function Captura_v2_clasificarPendiente_(rec, store) {
+  store = store || {};
+  var captureId = Utl_texto((rec && (rec.captureId || rec.RESPONSE_ID)) || '');
+  if (!CAPTURA_V2.RE_CAPTURE_ID.test(captureId)) {
+    return { captureId: captureId, clasificacion: CAPTURA_V2_RECONCI.NO_RECUPERABLE_AUTOMATICAMENTE, motivo: 'SIN_RESPONSE_ID_VALIDO' };
+  }
+  var payload = null;
+  if (rec && rec.normalizado && typeof rec.normalizado === 'object') payload = rec.normalizado;
+  else if (rec && rec.TRAZA_CRUDA) {
+    try { payload = JSON.parse(rec.TRAZA_CRUDA); } catch (e) { payload = null; }
+  }
+  // Evidencia durable: EVENTO cuya FUENTE es la marca de ESTE captureId. El
+  // pipeline INGRESO persiste FUENTE = captureId desnudo (Fuentes_fuenteOrigen),
+  // y los eventos manuales la marca completa: ambas son la misma identidad.
+  var marca = 'FORM|' + captureId + '|';
+  var evDurable = null;
+  (store.eventos || []).forEach(function (e) {
+    if (evDurable) return;
+    var fuente = Utl_texto(e.FUENTE);
+    if (fuente.indexOf(marca) === 0 || fuente === captureId) evDurable = e;
+  });
+  if (evDurable) {
+    var idEv = Utl_texto(evDurable.ID_INTERNO);
+    var pacienteEv = null;
+    (store.pacientes || []).forEach(function (p) {
+      if (!pacienteEv && Utl_texto(p.ID_INTERNO) === idEv) pacienteEv = p;
+    });
+    var coindiceRut = !payload || !payload.rut || (pacienteEv &&
+      Captura_v2_rutClave_(pacienteEv.RUT) === Captura_v2_rutClave_(payload.rut));
+    var res = { captureId: captureId, idInterno: idEv, idEvento: Utl_texto(evDurable.ID_EVENTO) };
+    if (pacienteEv && coindiceRut) {
+      res.clasificacion = CAPTURA_V2_RECONCI.YA_COMPLETO_REPARAR_TRAILER;
+      res.motivo = 'EVENTO_DURABLE_YA_EXISTE';
+    } else {
+      res.clasificacion = CAPTURA_V2_RECONCI.CONFLICTO;
+      res.motivo = pacienteEv ? 'RUT_NO_COINCIDE_CON_EVENTO_DURABLE' : 'SIN_PACIENTE_DEL_EVENTO_DURABLE';
+    }
+    return res;
+  }
+  if (!payload || !payload.rut) {
+    return { captureId: captureId, clasificacion: CAPTURA_V2_RECONCI.NO_RECUPERABLE_AUTOMATICAMENTE, motivo: 'SIN_PAYLOAD_REPROCESABLE' };
+  }
+  var sinSector = !Utl_texto(payload.sector);
+  var sinFecha = !Utl_texto(payload.fechaIngreso);
+  var sinNombre = !Utl_texto(payload.nombre);
+  if (sinSector || sinFecha || sinNombre) {
+    // §18: un payload incompleto no se reprocesa solo, aun si el RUT coincide:
+    // faltaría la decisión de sector/fecha/nombre y el reproceso decidiría mal.
+    return { captureId: captureId, clasificacion: CAPTURA_V2_RECONCI.REQUIERE_REVISION, motivo: 'PAYLOAD_INCOMPLETO' };
+  }
+  var pacienteRut = null;
+  (store.pacientes || []).forEach(function (p) {
+    if (!pacienteRut && Captura_v2_rutClave_(p.RUT) === Captura_v2_rutClave_(payload.rut)) pacienteRut = p;
+  });
+  if (pacienteRut) {
+    return { captureId: captureId, clasificacion: CAPTURA_V2_RECONCI.REPROCESABLE_SEGURO, motivo: 'ENLAZA_A_PACIENTE_EXISTENTE', idInterno: Utl_texto(pacienteRut.ID_INTERNO) };
+  }
+  return { captureId: captureId, clasificacion: CAPTURA_V2_RECONCI.REPROCESABLE_SEGURO, motivo: 'CREARIA_ENTIDAD_NUEVA' };
+}
+
+/**
+ * GAS/PURA: informe agregado (sin PII) de los pendientes, modo dryRun estricto.
+ * `opciones.detalle===true` agrega por captureId (identificador opaco, nunca
+ * RUT/nombre/teléfono). `opciones.pacientes/eventos` permiten inyectar el store
+ * en pruebas; en GAS se lee de Modelo_*.
+ */
+function Captura_v2_reconciliarPendientes(opciones) {
+  opciones = opciones || {};
+  var store = null;
+  if (opciones.pacientes || opciones.eventos) {
+    store = { pacientes: opciones.pacientes || [], eventos: opciones.eventos || [] };
+  } else if (typeof Modelo_leerPacientes === 'function' && typeof Modelo_leerEventos === 'function') {
+    store = { pacientes: Modelo_leerPacientes(), eventos: Modelo_leerEventos() };
+  }
+  store = store || { pacientes: [], eventos: [] };
+  var porEstado = {}, detalle = (opciones.detalle === true) ? [] : null;
+  var hoja = typeof Modelo_hoja === 'function' ? Modelo_hoja(HOJAS.FORM_RESPUESTAS) : null;
+  if (hoja && hoja.getLastRow && hoja.getLastRow() > 1) {
+    var cab = hoja.getRange(1, 1, 1, Math.max(hoja.getLastColumn(), 1)).getValues()[0];
+    var mapa = Form_mapeoEncabezados(cab);
+    var nRows = hoja.getLastRow() - 1;
+    var cols = Math.max(hoja.getLastColumn(), 1);
+    var bloque = hoja.getRange(2, 1, nRows, cols).getValues();
+    var idxEst = mapa.idx.ESTADO;
+    var idxRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID
+      : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : -1);
+    bloque.forEach(function (fila, i) {
+      var est = idxEst !== undefined ? Utl_texto(fila[idxEst]).toUpperCase() : '';
+      if (est !== 'RECIBIDO' && est !== 'VALIDANDO' && est !== 'VALIDO') return;
+      var rid = idxRid >= 0 ? Utl_texto(fila[idxRid]) : '';
+      var norm = null;
+      if (mapa.idx.TRAZACRUDA !== undefined) {
+        var crudo = Utl_texto(fila[mapa.idx.TRAZACRUDA]);
+        try { if (crudo) norm = JSON.parse(crudo); } catch (e) { norm = null; }
+      }
+      var cl = Captura_v2_clasificarPendiente_({ captureId: rid, normalizado: norm, TRAZA_CRUDA: fila[mapa.idx.TRAZACRUDA] }, store);
+      porEstado[cl.clasificacion] = (porEstado[cl.clasificacion] || 0) + 1;
+      if (detalle) detalle.push({ captureId: cl.captureId, clasificacion: cl.clasificacion, motivo: cl.motivo || '' });
+    });
+  }
+  var pendientes = 0;
+  Object.keys(porEstado).forEach(function (k) { pendientes += porEstado[k]; });
+  var informe = { dryRun: true, total: pendientes, porEstado: porEstado };
+  if (detalle) informe.detalle = detalle;
+  try {
+    if (typeof Log_info === 'function') Log_info('CapturaV2', 'reconciliar', JSON.stringify({ dryRun: true, total: pendientes, porEstado: porEstado }));
+  } catch (e) { /* observabilidad */ }
+  return informe;
+}
+
+// ---------------------------------------------------------------------------
+// §20 — Diagnóstico de los TRES dominios de acceso (no confundir Web App con
+// fuentes externas: un fallo de openById() externo NO es un fallo de captura).
+// ---------------------------------------------------------------------------
+
+function Captura_v2_diagnosticoPermisos(opciones) {
+  opciones = opciones || {};
+  var webApp = {
+    dominio: 'CAPTURE_WEBAPP_ACCESS', ejecutaComo: 'USER_DEPLOYING', acceso: 'ANYONE_ANONYMOUS',
+    autorizaUniversalmente: (typeof WebApp_autorizar === 'function') ? WebApp_autorizar('') === true : false,
+    exigeToken: false, ok: true
+  };
+  var bound = { dominio: 'BOUND_SPREADSHEET_ACCESS' };
+  try {
+    var ss = (typeof Modelo_ss === 'function') ? Modelo_ss() : null;
+    if (!ss) {
+      bound.ok = false; bound.motivo = 'LIBRO_NO_DISPONIBLE'; bound.lectura = false; bound.escritura = false;
+    } else {
+      bound.nombre = (typeof ss.getName === 'function') ? Utl_texto(ss.getName()) : '';
+      bound.ok = true; bound.lectura = true; bound.escritura = true;
+    }
+  } catch (e) {
+    bound.ok = false; bound.motivo = 'LIBRO_NO_ACCESIBLE'; bound.lectura = false; bound.escritura = false;
+  }
+  var externas = [];
+  if (typeof Fuentes_preflightFuentes === 'function') {
+    var pre = Fuentes_preflightFuentes(opciones.abridor);
+    (pre.fuentes || []).forEach(function (f) {
+      externas.push({
+        dominio: 'EXTERNAL_SOURCE_ACCESS',
+        archivo: f.archivo,
+        accesible: !!f.accesible,
+        error: (f.errores && f.errores[0]) || ''
+      });
+    });
+  }
+  return {
+    CAPTURE_WEBAPP_ACCESS: webApp,
+    BOUND_SPREADSHEET_ACCESS: bound,
+    EXTERNAL_SOURCE_ACCESS: externas
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Instrumentación de tiempos del intento síncrono (§16 captura rápida T0..T6)
 // ---------------------------------------------------------------------------
 
@@ -1522,6 +1915,16 @@ function WebApp_capturarRetomar(payload, acceso) {
 function Captura_v2_medida(c, etiqueta) {
   if (!c || typeof c.medir !== 'function') return;
   try { c.medir(etiqueta); } catch (e) { /* no bloquear nunca */ }
+}
+
+/** GAS/PURA (§27): registra la fase del pipeline en `c._fases` (RECIBIDO →
+ *  PERSISTIDO → estado final). Solo observabilidad; jamás bloquea. */
+function Captura_v2_marcaFase(c, fase) {
+  if (!c) return;
+  try {
+    if (!c._fases) c._fases = [];
+    if (typeof fase === 'string' && c._fases.indexOf(fase) === -1) c._fases.push(fase);
+  } catch (e) { /* no bloquear nunca */ }
 }
 
 /** GAS: acumula la medida en el ctx (T0 = primera llamada del request).
@@ -1536,12 +1939,18 @@ function Captura_v2_marcaMedida(etiqueta) {
   } catch (e) { /* no bloquear nunca */ }
 }
 
-/** GAS: vuelca acumuladas por request (solo consola/servidor; jamás al UI). */
-function Captura_v2_logMedidas(c) {
+/** GAS: vuelca medidas y fases acumuladas por request (solo consola/servidor;
+ *  jamás al UI). El captureId se trunca para no volcar con trazabilidad
+ *  reversible completa; no se incluye RUT/nombre/teléfono (§27 sin PII). */
+function Captura_v2_logMedidas(c, captureId) {
   try {
+    var partes = [];
+    if (c && c._fases && c._fases.length) partes.push('fases=' + c._fases.join('>'));
     if (c && c.medidas && c.medidas.length) {
-      Captura_v2_logAux('tiempos', c.medidas.map(function (x) { return x.n + '=' + x.d + 'ms'; }).join(' | '));
+      partes.push(c.medidas.map(function (x) { return x.n + '=' + x.d + 'ms'; }).join(' | '));
     }
+    var ref = captureId ? ' ' + Utl_texto(captureId).slice(0, 8) : '';
+    if (partes.length) Captura_v2_logAux('tiempos' + ref, partes.join(' — '));
   } catch (e) { /* no bloquear nunca */ }
 }
 

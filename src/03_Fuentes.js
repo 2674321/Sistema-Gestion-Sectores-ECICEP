@@ -9,7 +9,8 @@
  * resultados trazables (ERROR/WARNING), jamás en crashes.
  */
 
-var _FUENTES_SEQ = 0;
+var _FUENTES_SEQ = 0; // DEC-104: solo para diagnóstico de pruebas; NO genera IDs
+
 
 /** v0.14.1 §6 — Modos canónicos de datos (una sola fuente, sin strings
  *  dispersos). CONSERVAR: no sincroniza fuentes (reparación técnica pura).
@@ -55,16 +56,19 @@ function Datos_estadoProduccion_() {
  * Crea una fila de staging con trazabilidad completa.
  * @param {Object} origen {archivo, hoja, fila, sector}
  * @param {Object} valores  valores crudos mapeados a campos canónicos
- * @param {number} [secuencia] opcional → ID determinista (pruebas)
+ * @param {number} [secuencia] opcional → ID determinista (SOLO pruebas)
  */
 function Fuentes_crearFila(origen, valores, secuencia) {
   var id;
   if (typeof secuencia === 'number') {
     id = 'SG-' + ('0000' + secuencia).slice(-4);
   } else {
-    _FUENTES_SEQ += 1;
-    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + ('00' + _FUENTES_SEQ % 1296).slice(-2) +
-         Math.floor(Math.random() * 36).toString(36).toUpperCase();
+    // DEC-104: el contador de módulo (_FUENTES_SEQ) se reiniciaba en cada
+    // invocación y, combinado con un solo carácter aleatorio (36 valores),
+    // hacía predecible la repetición del ID_PROVISIONAL. Ahora la parte
+    // aleatoria tiene 6 caracteres base36 (36^6): automático y estable entre
+    // ejecuciones, sin numeración reiniciable en producción.
+    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(6);
   }
   return {
     ID_PROVISIONAL: id,
@@ -81,9 +85,15 @@ function Fuentes_crearFila(origen, valores, secuencia) {
   };
 }
 
-/** Cadena de trazabilidad estándar archivo|hoja|fila. */
+/** Cadena de trazabilidad estándar. Conserva identidad durable cuando existe.
+ *  Prioriza origenId/captureId si está presente (origen lógico). */
 function Fuentes_fuenteOrigen(filaStaging) {
-  return Utl_texto(filaStaging.ARCHIVO_ORIGEN) + '|' + Utl_texto(filaStaging.HOJA_ORIGEN) + '|' + Utl_texto(filaStaging.FILA_ORIGEN);
+  var fs = filaStaging || {};
+  var origenId = Utl_texto(fs.ORIGEN_ID || fs.origenId || fs.CAPTURE_ID || fs.captureId);
+  if (origenId) {
+    return origenId;
+  }
+  return Utl_texto(fs.ARCHIVO_ORIGEN) + '|' + Utl_texto(fs.HOJA_ORIGEN) + '|' + Utl_texto(fs.FILA_ORIGEN);
 }
 
 /** PURA: clave CANÓNICA de comparación para la idempotencia por FUENTE
@@ -91,13 +101,17 @@ function Fuentes_fuenteOrigen(filaStaging) {
  *  formato numérico de la fila. La cadena FUENTE almacenada se conserva RAW
  *  para trazabilidad; SOLO la igualdad de comparación se normaliza, de modo
  *  que una hoja escrita 'Ingresos Enero ' vs 'Ingresos Enero' (drift de
- *  literal en config entre ejecuciones) no vuelva a generar eventos. */
+ *  literal en config entre ejecuciones) no vuelva a generar eventos.
+ *  Contrato explícito: normaliza TODAS las partes para preservar identidad
+ *  añadida (p.ej. captureId/origenId). */
 function Fuentes_claveDedupe_(filaOString) {
   var s = Utl_texto(filaOString);
   var partes = s.split('|'), partesNorm = [];
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < partes.length; i++) {
     var p = Utl_texto(partes[i]).trim();
-    if (i === 2 && /^\d+$/.test(p)) p = String(Number(p));
+    if (i === 2 && /^\d+$/.test(p) && partes.length <= 4) {
+      p = String(Number(p));
+    }
     partesNorm.push(Utl_claveAlnum(p));
   }
   return partesNorm.join('|');
@@ -582,6 +596,19 @@ function Fuentes_contarHojasAutorizadas() {
  *  silencio y procesar un subconjunto mintiendo en los conteos.
  *  @param {Function} [abridor] inyectable en pruebas (default: SpreadsheetApp.openById)
  *  @returns {ok, fuentes:[{archivo,id,accesible,hojasEsperadas,hojasEncontradas,faltantes,errores}], bloqueantes:[...]} */
+/**
+ * §20/§21: sanitiza el error de acceso a una FUENTE EXTERNA. Nunca propaga el
+ * mensaje crudo del runtime (puede exponer ids/nombres/estructura interna de
+ * archivos ajenos al libro canónico). Distingue el caso permisos (denominación
+ * estándar de Drive/Sheets) del caso "no accesible" genérico.
+ */
+function Fuentes_sanitizarErrorAcceso_(e, cfg) {
+  var msg = (e && e.message) ? String(e.message) : String(e);
+  var permiso = /permission|autoriz|access|acces|denied|denied_|sendReport|share|notFound|No existe|forbidden|403|401/i.test(msg);
+  if (permiso) return 'EXTERNAL_SOURCE_PERMISSION_DENIED';
+  return 'EXTERNAL_SOURCE_NO_ACCESIBLE';
+}
+
 function Fuentes_preflightFuentes(abridor) {
   var abrir = abridor;
   if (!abrir && typeof SpreadsheetApp !== 'undefined') {
@@ -614,7 +641,7 @@ function Fuentes_preflightFuentes(abridor) {
         else info.faltantes.push(nombreHoja);
       });
     } catch (e) {
-      info.errores.push(e && e.message ? e.message : String(e));
+      info.errores.push(Fuentes_sanitizarErrorAcceso_(e, cfg));
     }
     fuentes.push(info);
   });
@@ -751,9 +778,9 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   }
 
   var salida = Ingresos_procesarFilas(stagingNuevas, store, {
-    nuevoId: typeof Modelo_nuevoIdInterno === 'function' ? Modelo_nuevoIdInterno : function (i) {
-      return 'EC-' + ('000000' + i).slice(-6);
-    }
+    // DEC-104: generador canónico automático. El fallback anterior
+    // 'EC-'+('000000'+i) dependía de la posición del paciente en el lote.
+    nuevoId: Modelo_nuevoIdInterno
   });
 
   // --- FASE 5.4: reporte ---
@@ -910,7 +937,9 @@ function _Fuentes_escribir_(a, opciones, t0) {
 function Fuentes_cargaReal_(opciones) {
   opciones = opciones || {};
   var ejecucionId = opciones.ejecucionId ||
-    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase();
+    // DEC-104: sufijo aleatorio además del tiempo: dos ejecuciones en el
+    // mismo milisegundo compartían ID.
+    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(4);
   var t0 = Date.now();
   // Reutilizar el análisis dry-run previo (UNA lectura real de fuentes) cuando
   // el llamador pasa su ejecucionId en la misma invocación (Instalar_pFuentes).

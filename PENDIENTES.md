@@ -28,6 +28,17 @@
 > columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
 > para medir duración y convergencia reales.
 
+> **Actualización 2026-10-05 (v0.16.4 — DEC-104):** ningún campo aceptado se
+> pierde. Identificadores automáticos (`EC-`/`EV-` con sufijo aleatorio; la
+> secuencia de test solo por inyección explícita) en lugar de identidad posicional
+> por orden del lote; `profesionalSecundario` persistido en la columna nueva
+> `EVENTOS.PROFESIONAL2` (añadida al final, migración idempotente, históricos
+> vacíos); teléfonos con separadores internos recuperados y `TELEFONO_OBS` con
+> todo descarte; índices de `Calidad_sincronizarCola_` derivados del encabezado
+> real (leía `FUENTE_B`, duplicaba la cola y tenía el auto-resolve muerto) y fila
+> de RUT tomada de `Modelo_filaFisica` (escribía sobre el banner). No se reescribe
+> ningún dato existente. Pruebas: núcleo 679/679 y batería 70/70.
+
 > **Actualización 2026-09-30 (v0.16.3 — DEC-103):** endurecimiento posterior al
 > incidente. Nada se pierde en silencio: errores de captura persistidos en la hoja
 > LOG (antes solo vivían en memoria), causas que ya no se descartan, y

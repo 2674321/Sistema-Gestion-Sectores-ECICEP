@@ -34,6 +34,24 @@ function Ingresos_esEstadoTerminal_(estado) {
   return e !== '' && ESTADOS_INGRESO.TERMINALES.indexOf(e) !== -1;
 }
 
+/**
+ * PURA: extrae captureId desde la marca de trazabilidad 'FORM|CpN-…|<ACCIÓN>'
+ * que la Captura V2 escribe en NOTA_SISTEMA de la fila INGRESO_*. Devuelve el
+ * captureId ('Cp4-…') si es válido, o '' si no hay marca de captura.
+ * Conserva identidad durable e idempotencia por FUENTE sin depender de
+ * coordenadas físicas (criterio: no truncar identidad añadida por la marca).
+ */
+function Ingresos_captureIdDesdeMarca_(marca) {
+  var m = Utl_texto(marca).trim();
+  var partes = m.split('|');
+  if (partes.length < 2) return '';
+  var prefijo = Utl_texto(partes[0]).toUpperCase();
+  if (prefijo !== 'FORM') return '';
+  var cap = Utl_texto(partes[1]).trim();
+  if (!/^Cp[0-9]-/.test(cap)) return '';
+  return cap;
+}
+
 /** Contrato único de columnas físicas de las hojas INGRESO_* (DEC-029). */
 function Ingresos_columnasHoja() {
   return INGRESO_COLUMNAS.slice();
@@ -228,6 +246,26 @@ function Ingresos_detectarCorrimientoFila_(valores) {
  *   revision                                            → requieren decisión humana
  *   eventosCreados                                      → eventos realmente generados
  */
+/**
+ * Opciones de construcción del EVENTO para una fila de staging (DEC-104).
+ * La dupla viaja como campo estructural del evento: se prioriza lo que el
+ * canal de captura entrega ya separado (`opciones.profesional*`) y, si no
+ * existe, se usa lo que la fila normalizada traiga. Importar desde hojas con
+ * una sola celda "DUPLA INGRESO" conserva el comportamiento histórico
+ * (ambos vacíos): partir una cadena amalgamada sería inventar semántica.
+ */
+function _opcionesEvento_(fila, opciones, secuenciaTest) {
+  var o = {};
+  var n = (fila && fila.NORMALIZADO) || {};
+  var p1 = opciones && opciones.profesional !== undefined ? opciones.profesional : n.PROFESIONAL;
+  var p2 = opciones && opciones.profesionalSecundario !== undefined
+    ? opciones.profesionalSecundario : n.PROFESIONAL2;
+  if (p1) o.profesional = p1;
+  if (p2) o.profesionalSecundario = p2;
+  if (secuenciaTest !== undefined) o.secuenciaTest = secuenciaTest;
+  return o;
+}
+
 function Ingresos_procesarFilas(filasStaging, store, opciones) {
   opciones = opciones || {};
   var _tPF = Date.now();
@@ -258,6 +296,16 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   });
 
   var resultados = [], pacientesNuevos = [], pacientesActualizados = [], eventos = [];
+  // DEC-104: IDs ya ocupados (store completo + altas del mismo lote). Permite
+  // resolver una colisión en O(1) por alta sin un escaneo O(N) repetido, y
+  // garantiza que un ID nunca se reutilice (reutilizarlo sobrescribiría otro
+  // paciente). El generador por defecto es SIEMPRE el canónico automático: la
+  // numeración secuencial reiniciable queda solo por inyección de prueba.
+  var _generadorId = typeof opciones.nuevoId === 'function' ? opciones.nuevoId : Modelo_nuevoIdInterno;
+  var idsOcupados = {};
+  (store.pacientes || []).forEach(function (p) {
+    var id = Utl_texto(p.ID_INTERNO); if (id) idsOcupados[id] = true;
+  });
   var resumen = {
     leidos: filasStaging.length,
     validacionOk: 0, validacionWarning: 0, validacionError: 0,
@@ -435,7 +483,7 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
       fila.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
     }
     seqEv += 1;
-    var ev = Ev_desdeStaging(fila, _useSeqEv ? { secuencia: seqEv } : {});
+    var ev = Ev_desdeStaging(fila, _opcionesEvento_(fila, opciones, _useSeqEv ? seqEv : undefined));
     if (!ev.ok) {
       resumen.revision += 1;
       registrar(fila, 'REQUIERE_REVISION', ev.motivo);
@@ -446,8 +494,19 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
     var idInterno = '', sectorAnterior = '', sectorCambio = false, idEventoCambio = '';
     if (decision === 'CREAR_PACIENTE') {
       seqPac += 1;
-      var paciente = Ingresos_pacienteDesdeNormalizado(
-        fila.NORMALIZADO, fila, opciones.nuevoId ? opciones.nuevoId(seqPac, fila) : ('EC-' + ('000000' + seqPac).slice(-6)));
+      // DEC-104: nunca 'EC-000001…' (secuencia que reinicia en cada lote y
+      // colisiona con el histórico). Se pide un ID al generador —el canónico
+      // automático salvo inyección explícita de prueba— y se resuelve la
+      // colisión contra el store + las altas del mismo lote.
+      var candidatoId = _generadorId(seqPac, fila);
+      var idRes = Modelo_resolverIdInterno_(candidatoId, idsOcupados);
+      if (!idRes.ok) {
+        resumen.revision += 1;
+        registrar(fila, 'REQUIERE_REVISION',
+          'No se pudo asignar un ID_INTERNO único (' + (idRes.motivo || 'ID_COLISION') + ')', '', '');
+        return;
+      }
+      var paciente = Ingresos_pacienteDesdeNormalizado(fila.NORMALIZADO, fila, idRes.idInterno);
       store.pacientes.push(paciente);
       pacientesNuevos.push(paciente);
       idInterno = paciente.ID_INTERNO;
@@ -508,6 +567,15 @@ function Ingresos_procesarFilas(filasStaging, store, opciones) {
   });
 
   console.log('[PIPE] procesarFilas t=' + (Date.now() - _tPF) + 'ms filas=' + filasStaging.length + ' pacientesIdx=' + (store.pacientes || []).length);
+  // Conservación de masa del pipeline: cada fila de staging procesable termina
+  // en EXACTAMENTE un resultado (INGRESADO / yaIncorporado / REQUIERE_REVISION /
+  // ERROR). `leidos > resultados` significa una rama que devolvió sin registrar
+  // → el invariante se viola y NO se puede declarar un procesamiento correcto.
+  if (resultados.length !== filasStaging.length) {
+    throw new Error('ERROR_PIPELINE_INVARIANTE: staging=' + filasStaging.length +
+      ' resultados=' + resultados.length);
+  }
+  resumen.resultados = resultados.length;
   return { resultados: resultados, resumen: resumen, pacientesNuevos: pacientesNuevos,
     pacientesActualizados: pacientesActualizados, eventos: eventos };
 }
@@ -530,6 +598,7 @@ function Ingresos_resumenTexto(r) {
     'Eventos: ' + (resumen.eventosCreados || 0)
   ];
   if ((resumen.duplicados || 0) > 0) partes.push('Duplicados: ' + resumen.duplicados);
+  if ((resumen.yaIncorporados || 0) > 0) partes.push('Ya incorporados: ' + resumen.yaIncorporados);
   if ((resumen.revision || 0) > 0) partes.push('Revisión: ' + resumen.revision);
   if ((resumen.conError || 0) > 0) partes.push('Errores: ' + resumen.conError);
   return '✓ ' + partes.join(' · ');
@@ -661,11 +730,22 @@ function Ingresos_leerHoja(nombreHoja, filasPermitidas) {
     for (var ck in idxCampos) {
       if (v[ck] === undefined && idxCampos[ck] !== undefined) v[ck] = filaVal[idxCampos[ck]];
     }
+    // Identidad durable (P0): si la fila proviene de Captura V2, la columna de
+    // trazabilidad NOTA_SISTEMA/NOTA contiene la marca 'FORM|CpN-…|<ACCIÓN>'.
+    // Propagar captureId al staging para que Fuentes_fuenteOrigen/claveDedupe_
+    // conserven la identidad lógica (y no dependan de coordenadas físicas).
+    var notaMarca = (idxNota >= 0 && filaVal[idxNota] !== undefined) ? Utl_texto(filaVal[idxNota]) : '';
+    var capIdMarca = Ingresos_captureIdDesdeMarca_(notaMarca);
+    if (capIdMarca) v.CAPTURE_ID = capIdMarca;
     // La fila sale del lector YA NORMALIZADA y validada (corrección ETAPA 3b:
     // el defecto histórico era entregar filas crudas al orquestador)
     var filaStaging = Fuentes_normalizar(Fuentes_crearFila(
       { archivo: 'HOJA_INGRESO', hoja: nombreHoja,
         fila: filaFis, sector: sector }, v));
+    // Identidad durable: además de VALORES_ORIGINALES, la marca queda visible al
+    // top-level para que Fuentes_fuenteOrigen()/Fuentes_guardarFilas() la
+    // conserven como FUENTE lógica (captureId) en PACIENTES/EVENTOS.
+    if (capIdMarca) filaStaging.CAPTURE_ID = capIdMarca;
     var corrimiento = Ingresos_detectarCorrimientoFila_(v);
     if (corrimiento) {
       filaStaging.ERRORES = filaStaging.ERRORES || [];
@@ -809,6 +889,26 @@ function Ingresos_persistirCambiosSector_(planes, usarAnterior) {
   return { actualizados: filas.length };
 }
 
+/**
+ * GAS: rollback transaccional §paso 4 — retira de PACIENTES las filas anexadas
+ * por Modelo_agregarPacientes_ en esta misma invocación cuando EVENTOS falló.
+ * El append es siempre al final del bloque de datos, así que basta eliminar
+ * `nActual - antesNuevos` filas desde la última física hacia arriba (una sola
+ * ronda de deleteRow; sin tocar filas preexistentes). Invalida lecturas para
+ * que el reintento del mismo lote no vea huérfanos.
+ */
+function Ingresos_rollbackPacientesNuevos_(antesNuevos) {
+  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  if (!hoja) return { eliminadas: 0 };
+  var nActual = Modelo_leerPacientes().length;
+  var aEliminar = nActual - (Number(antesNuevos) || 0);
+  if (aEliminar <= 0) return { eliminadas: 0 };
+  var desde = Modelo_filaFisica(HOJAS.PACIENTES, nActual - 1); // última anexada
+  for (var i = 0; i < aEliminar; i++) hoja.deleteRow(desde - i);
+  Modelo_invalidarLecturas();
+  return { eliminadas: aEliminar };
+}
+
 /** Comprueba en una sola lectura por sector que cada paciente quedó en su vista. */
 function Ingresos_confirmarVistas_(resultados) {
   var idsPorSector = {};
@@ -918,6 +1018,10 @@ function Ingresos_respuesta_(salida, opciones) {
       publico.idEvento = publico.idEvento || '';
       return publico;
     });
+  } else {
+    // resumen.resultados es el conteo (observabilidad); el contrato público
+    // solo expone el array de detalle cuando el caller lo pidió.
+    delete r.resultados;
   }
   return r;
 }
@@ -1135,7 +1239,10 @@ function Ingresos_procesarFila(nombreHoja, filaFisica, opciones) {
     soloHojas: [k], soloFilas: soloFilas,
     confirmarNuevos: opciones.confirmarNuevo === true,
     normalizarLayout: false,
-    incluirResultados: true
+    incluirResultados: true,
+    // DEC-104: la fila se relee del libro, así que la dupla viaja por opciones.
+    profesional: opciones.profesional,
+    profesionalSecundario: opciones.profesionalSecundario
   });
   var primer = (resumen.resultados || []).filter(function (r) {
     return Utl_texto(r.filaOrigen) === String(nf);
@@ -1470,7 +1577,9 @@ function Ingresos_incorporarValidos_(opciones) {
  */
 function Ingresos_procesarTodasLasHojas_(opciones) {
   opciones = opciones || {};
-  var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase();
+  // DEC-104: sufijo aleatorio además del tiempo: dos ejecuciones concurrentes
+  // en el mismo milisegundo compartían ID de ejecución.
+  var ejecucion = 'EJ-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(4);
   var _tIni = Date.now();
   Log_info('Ingresos', 'procesar', 'inicio ejecución ' + ejecucion);
 
@@ -1562,13 +1671,25 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   var salida = Ingresos_procesarFilas(staging, store, {
     nuevoId: Modelo_nuevoIdInterno,
     confirmarNuevos: !!opciones.confirmarNuevos,
-    registradoPor: _ingresosUsuarioActual()
+    registradoPor: _ingresosUsuarioActual(),
+    // DEC-104: el canal de captura ya tiene la dupla separada; se entrega para
+    // que el EVENTO de ingreso la conserve (antes quedaba solo amalgamada en
+    // DUPLA_INGRESO y EVENTOS.PROFESIONAL quedaba vacío).
+    profesional: opciones.profesional,
+    profesionalSecundario: opciones.profesionalSecundario
   });
   salida.resumen.ejecucion = ejecucion;
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (pipeline puro, paso 3)');
 
   // 4) persistencia por lotes. Una transición territorial se confirma solo si
   //    sus eventos quedan anexados; ante fallo se restaura PACIENTES.
+  //    SEMÁNTICA TRANSACCIONAL (P0): PACIENTES y EVENTOS se escriben en dos
+  //    lotes separados (Apps Script no tiene transacciones multi-hoja). Si el
+  //    segundo lote (EVENTOS) falla, se hace rollback explícito de AMBOS
+  //    efectos del lote: las transiciones sectoriales (ya cubierto) y las
+  //    filas PACIENTES recién anexadas en este paso, para que el reintento
+  //    converja sin huérfanos (paciente sin su INGRESO) ni duplicados.
+  var antesNuevos = Modelo_leerPacientes().length;
   Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
   Ingresos_persistirCambiosSector_(salida.pacientesActualizados, false);
   try {
@@ -1576,6 +1697,8 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   } catch (ePersistencia) {
     try { Ingresos_persistirCambiosSector_(salida.pacientesActualizados, true); }
     catch (eRollback) { Log_error('Ingresos', 'rollbackSector', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
+    try { Ingresos_rollbackPacientesNuevos_(antesNuevos); }
+    catch (eRollback) { Log_error('Ingresos', 'rollbackPacientesNuevos', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
     throw ePersistencia;
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (persistencia pacientes/eventos, paso 4)');
@@ -1658,9 +1781,11 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   });
   salida.resumen.aRevision = conflicto;
   Log_info('Ingresos', 'procesar', JSON.stringify({
-    leidos: salida.resumen.leidos, nuevos: salida.resumen.nuevos,
-    existentes: salida.resumen.existentes, revision: salida.resumen.revision,
-    conError: salida.resumen.conError, eventos: salida.resumen.eventosCreados
+    leidos: salida.resumen.leidos, validos: salida.resumen.validos,
+    nuevos: salida.resumen.nuevos, existentes: salida.resumen.existentes,
+    yaIncorporados: salida.resumen.yaIncorporados, revision: salida.resumen.revision,
+    conError: salida.resumen.conError, eventosCreados: salida.resumen.eventosCreados,
+    resultados: salida.resultados ? salida.resultados.length : salida.resumen.resultados
   }), { ejecucion: ejecucion });
   Log_flush();
 
@@ -1885,9 +2010,14 @@ function Rev_prepararResolucion(datos, decision, opciones) {
     var ev2 = Ev_desdeStaging(fila, {});
     if (!ev2.ok) { res.motivo = ev2.motivo; return res; }
     res.ok = true; res.accion = 'CREAR';
+    // DEC-104: el generador por defecto es el canónico automático. El fallback
+    // anterior era solo 'EC-'+Date.now() (sin sufijo aleatorio): dos altas en el
+    // mismo milisegundo producían el mismo ID y una sobrescribía a la otra.
+    var _genRev = typeof opciones.nuevoId === 'function' ? opciones.nuevoId : Modelo_nuevoIdInterno;
+    var _idRev = Modelo_resolverIdInterno_(_genRev(), opciones.idsOcupados);
+    if (!_idRev.ok) { res.ok = false; res.motivo = _idRev.motivo || 'ID_INTERNO_COLISION'; return res; }
     res.pacienteNuevo = Ingresos_pacienteDesdeNormalizado(
-      fila.NORMALIZADO, fila,
-      opciones.nuevoId ? opciones.nuevoId() : ('EC-' + Date.now().toString(36).toUpperCase()));
+      fila.NORMALIZADO, fila, _idRev.idInterno);
     ev2.evento.ID_INTERNO = res.pacienteNuevo.ID_INTERNO; // enlazar evento a la entidad nueva
     res.evento = ev2.evento;
     return res;

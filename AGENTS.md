@@ -86,6 +86,14 @@ El flujo contractual anterior (nombres de funciones de captura, `FORM_RESPUESTAS
 
 Google Forms **no es parte del flujo actual** y no debe reactivarse: no crear formularios, no completar `FORM_ID`, no instalar triggers `onFormSubmit` y no diseñar lógica de aislamiento para formularios.
 
+`src/30_Ingesta.js` es un **placeholder DESACTIVADO** (`CapturaIngress_*`): define la
+superficie aislada para un hipotético ingreso alternativo y hace que cualquier
+provider distinto del Web App termine en `FALLBACK_PROVIDER_DISABLED` **sin
+ninguna escritura**. Está permitido únicamente como reserva de nombres y como
+protección de salida; no equivale a reactivar Forms (no usa `Form`, `FormApp`,
+`FORM_ID`, `onFormSubmit` ni triggers). Su activación requiere decisión explícita
+del usuario registrada aquí y en `DECISIONES.md`.
+
 `FORM_RESPUESTAS` es **implementación existente pendiente de redefinición contractual**: no se asume que su esquema actual sea correcto ni incorrecto.
 
 ---

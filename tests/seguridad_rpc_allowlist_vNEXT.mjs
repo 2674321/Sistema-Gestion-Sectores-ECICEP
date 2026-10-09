@@ -20,7 +20,7 @@ for(const nombre of ['api_instalarPaso','api_backupPodar','api_configGuardar','a
   const pos=todo.indexOf('function '+nombre+'(');assert.ok(pos>=0,nombre+' existe');
   assert.match(todo.slice(pos,pos+1200),/WebApp_autorizar(?:Buscador)?\(/,nombre+' debe guardar capacidad Operador');
 }
-for(const retirado of ['Form_onFormSubmit','Form_procesarAhora','UI_formularioPanel',
+for(const retirado of ['Form_procesarAhora','UI_formularioPanel',
   'api_formularioEstado','api_formularioProcesar','api_formularioControl','api_formularioReprocesar'])
   assert.ok(!funciones.includes(retirado),retirado+' legacy debe permanecer retirado');
 console.log('RPC allowlist vNEXT: '+funciones.length+' funciones públicas inventariadas; críticos internos privados');

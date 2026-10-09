@@ -464,6 +464,24 @@ satisfacen las reglas y no hay campos rechazados.
 4. La persistencia de la captura es independiente de los efectos clínicos: puede existir registro
    aceptado con procesamiento pendiente (`REQUIERE_REVISION`) sin que ello implique fallo de captura.
 
+### 15.1 Destino de cada campo aceptado (DEC-104)
+
+**Regla:** todo campo que el contrato declara `OPC` (o `REQ`) en §5.1 debe quedar **persistido o
+rechazado con error**. No existe el caso "aceptado y descartado".
+
+| Campo de payload | Destino | Nota |
+|---|---|---|
+| `profesional` | `EVENTOS.PROFESIONAL` | |
+| `profesionalSecundario` | `EVENTOS.PROFESIONAL2` | **Columna propia**, añadida al final del esquema de EVENTOS. No se concatena con `PROFESIONAL`. La fila `INGRESO_*` se relee del libro, así que la dupla viaja por opciones de pipeline hasta `Ev_desdeStaging`; `INGRESO_COLUMNAS` no se amplía. |
+| `telefonos` | `PACIENTES.TELEFONOS` + `PACIENTES.TELEFONO_OBS` | `TELEFONOS` recibe los dígitos normalizados separados por `/`; `TELEFONO_OBS` recibe **toda** anotación y **todo** descarte (`NUMERO DESCARTADO: …`). Separadores internos (`9 6060 0712`, `(2) 2345 6789`) forman **un** número. |
+| `observaciones` | `EVENTOS.OBSERVACIONES` / `INGRESO_*` | |
+| `saludMental` | `PACIENTES.SALUD_MENTAL` | Solo `Cp4-`. |
+| `proximoControl` | `PACIENTES.PROXIMO_CONTROL` | Si su escritura falla, el registro queda `ERROR`/`AGENDA_NO_GUARDADA` con el evento ya escrito (reintentable por `captureId`). |
+
+Los eventos históricos que no tengan `PROFESIONAL2` quedan con `''`; la columna se añade **al final**
+para no desplazar ninguna columna previa ni invalidar lecturas existentes. La reconciliación del
+esquema es idempotente (`Modelo_asegurarEsquemaEventos_`).
+
 ## 16. Respuesta exitosa
 
 `ok:true` significa, de forma **verificable**: *"el envío fue aceptado según el contrato, su registro
