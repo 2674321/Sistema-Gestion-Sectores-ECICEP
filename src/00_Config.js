@@ -1047,7 +1047,8 @@ var GOOGLE_FORMS_CONFIG = {
     OPCIONES: {
       NUEVO_INGRESO: { etiqueta: 'Nuevo ingreso a ECICEP', clave: 'NUEVO_INGRESO' },
       REGISTRAR_CONTROL: { etiqueta: 'Registrar un control', clave: 'REGISTRAR_CONTROL' },
-      REGISTRAR_SEGUIMIENTO: { etiqueta: 'Registrar un seguimiento', clave: 'REGISTRAR_SEGUIMIENTO' }
+      REGISTRAR_SEGUIMIENTO: { etiqueta: 'Registrar un seguimiento', clave: 'REGISTRAR_SEGUIMIENTO' },
+      ACTUALIZAR_DATOS: { etiqueta: 'Actualizar datos', clave: 'ACTUALIZAR_DATOS' }
     }
   },
   CAMPOS: {

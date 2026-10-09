@@ -81,18 +81,19 @@ function Form_urlRespondedor_() {
 
 /** PRIVADO (puro): nombres de las claves del esquema, en orden de creación. */
 function Form_esquemaCanonial_() {
-  var secciones = ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO'];
+  var secciones = ['NUEVO_INGRESO', 'REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'];
   var camposPorSeccion = {
-    NUEVO_INGRESO: ['RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR', 'ESTRATIFICACION', 'TELEFONOS', 'PROFESIONAL', 'PROFESIONAL2', 'OBSERVACIONES'],
-    REGISTRAR_CONTROL: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'OBSERVACIONES'],
-    REGISTRAR_SEGUIMIENTO: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'OBSERVACIONES']
+    NUEVO_INGRESO: ['RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR', 'FECHA_INGRESO', 'ESTRATIFICACION', 'SALUD_MENTAL', 'TELEFONOS', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
+    REGISTRAR_CONTROL: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
+    REGISTRAR_SEGUIMIENTO: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
+    ACTUALIZAR_DATOS: ['RUT', 'TELEFONOS', 'PROXIMO_CONTROL', 'OBSERVACIONES', 'PROFESIONAL', 'PROFESIONAL2']
   };
   return { secciones: secciones, campos: camposPorSeccion };
 }
 
 /** PRIVADO (puro): etiqueta/ítems de opción del FormApp según el tipo. */
 function Form_tipoItem_(campo) {
-  if (campo === 'SEXO' || campo === 'SECTOR' || campo === 'ESTRATIFICACION' || campo === 'PROFESIONAL' || campo === 'PROFESIONAL2') return 'LISTA';
+  if (campo === 'SEXO' || campo === 'SECTOR' || campo === 'ESTRATIFICACION' || campo === 'SALUD_MENTAL' || campo === 'PROFESIONAL' || campo === 'PROFESIONAL2') return 'LISTA';
   if (campo === 'FECHA_NACIMIENTO' || campo === 'FECHA_EVENTO') return 'FECHA';
   if (campo === 'OBSERVACIONES') return 'PARRAFO';
   return 'TEXTO';
@@ -351,7 +352,7 @@ function Form_syncCatalogos(opciones) {
     else if (typeof Profesionales_catalogo === 'function') profesionales = Profesionales_catalogo() || [];
   } catch (e) { profesionales = []; }
   var nombresProf = profesionales.filter(function (p) { return p && p.ACTIVO !== false; })
-    .map(function (p) { return String(p.NOMBRE || p.nombre || ''); }).filter(Boolean);
+    .map(function (p) { return String(p.NOMBRE_CANONICO || p.NOMBRE || p.nombre || p.CODIGO || ''); }).filter(Boolean);
 
   var fuentes = ['SECTOR', 'PROFESIONAL'];
   try {

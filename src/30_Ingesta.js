@@ -212,10 +212,18 @@ function CapturaIngress_adapterForms(respuesta, opciones) {
   var responseId = Utl_texto(resp.responseId);
   var captureId = CapturaIngress_captureId_(formId, responseId);
 
-  var accion = Utl_texto(resp.accion).toLowerCase().replace(/[^a-z]/g, '');
-  if (['nuevoingreso', 'nuevo_ingreso'].indexOf(accion) !== -1) accion = 'nuevoIngreso';
+  var accionRaw = Utl_texto(resp.accion).toLowerCase().replace(/[^a-zA-Z]/g, '');
+  var mapaAcc = {
+    nuevoingreso: 'nuevoIngreso',
+    nuevosingreso: 'nuevoIngreso',
+    registrarcontrol: 'registrarControl',
+    registrarseguimiento: 'registrarSeguimiento',
+    actualizardatos: 'actualizarDatos'
+  };
+  var accion = mapaAcc[accionRaw] || mapaAcc[accionRaw.replace('nuevo','nuevo')] || '';
+  if (!accion) accion = mapaAcc[accionRaw.replace('registro','registrar').replace('control','control').replace('seguimiento','seguimiento')] || '';
   if (accion !== 'nuevoIngreso' && accion !== 'registrarControl' && accion !== 'registrarSeguimiento' && accion !== 'actualizarDatos') {
-    return { ok: false, captureId: captureId, payload: null, accion: accion, errores: [{ codigo: 'ACCION_INVALIDA', mensaje: 'La acción del Form no es válida: ' + accion }], meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
+    return { ok: false, captureId: captureId, payload: null, accion: accionRaw, errores: [{ codigo: 'ACCION_INVALIDA', mensaje: 'La acción del Form no es válida: ' + accionRaw }], meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
   }
   if (!captureId) {
     err.push({ codigo: 'TRANSPORTE_INCOMPLETO', mensaje: 'Faltan formId o responseId' });
