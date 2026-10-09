@@ -94,7 +94,7 @@ function Form_esquemaCanonial_() {
 /** PRIVADO (puro): etiqueta/ítems de opción del FormApp según el tipo. */
 function Form_tipoItem_(campo) {
   if (campo === 'SEXO' || campo === 'SECTOR' || campo === 'ESTRATIFICACION' || campo === 'SALUD_MENTAL' || campo === 'PROFESIONAL' || campo === 'PROFESIONAL2') return 'LISTA';
-  if (campo === 'FECHA_NACIMIENTO' || campo === 'FECHA_EVENTO') return 'FECHA';
+  if (campo === 'FECHA_NACIMIENTO' || campo === 'FECHA_INGRESO' || campo === 'FECHA_EVENTO' || campo === 'PROXIMO_CONTROL') return 'FECHA';
   if (campo === 'OBSERVACIONES') return 'PARRAFO';
   return 'TEXTO';
 }
@@ -354,7 +354,7 @@ function Form_syncCatalogos(opciones) {
   var nombresProf = profesionales.filter(function (p) { return p && p.ACTIVO !== false; })
     .map(function (p) { return String(p.NOMBRE_CANONICO || p.NOMBRE || p.nombre || p.CODIGO || ''); }).filter(Boolean);
 
-  var fuentes = ['SECTOR', 'PROFESIONAL'];
+  var fuentes = ['SECTOR', 'PROFESIONAL', 'PROFESIONAL2'];
   try {
     var items = form.getItems();
     items.forEach(function (it) {
@@ -362,6 +362,7 @@ function Form_syncCatalogos(opciones) {
       var campo = null;
       if (t === GOOGLE_FORMS_CONFIG.CAMPOS.SECTOR.etiqueta) campo = 'SECTOR';
       else if (t === GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL.etiqueta) campo = 'PROFESIONAL';
+      else if (t === (GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL2 && GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL2.etiqueta)) campo = 'PROFESIONAL2';
       if (!campo || fuentes.indexOf(campo) === -1) return;
       var valores = campo === 'SECTOR' ? sectores : nombresProf;
       if (!valores.length || !it.setChoices) return;

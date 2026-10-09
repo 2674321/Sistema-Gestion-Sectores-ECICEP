@@ -263,9 +263,12 @@ function CapturaIngress_adapterForms(respuesta, opciones) {
     payload.fechaIngreso = val('FECHA_INGRESO') || CapturaIngress_hoy_(opciones);
     var estrat = normCampo('ESTRATIFICACION');
     if (estrat) payload.estratificacion = estrat;
+    if (val('SALUD_MENTAL')) payload.saludMental = normCampo('SALUD_MENTAL');
+    if (val('PROXIMO_CONTROL')) payload.proximoControl = val('PROXIMO_CONTROL');
     if (val('TELEFONOS')) payload.telefonos = val('TELEFONOS');
   } else if (accion === 'registrarControl' || accion === 'registrarSeguimiento') {
     payload.fechaEvento = val('FECHA_EVENTO');
+    if (val('PROXIMO_CONTROL')) payload.proximoControl = val('PROXIMO_CONTROL');
   } else if (accion === 'actualizarDatos') {
     // El payload de actualización NO lleva telefonos/proximoControl top-level
     // (el validador los rechazaría); van dentro de actualizacion.campos.

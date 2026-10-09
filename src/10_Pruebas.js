@@ -6413,7 +6413,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
     A.cierto(sistemaMatch, 'menú Sistema existe');
     var items = sistemaMatch[1].match(/\.addItem/g);
-    A.igual(items ? items.length : 0, 2, 'Sistema tiene 2 items');
+    A.igual(items ? items.length : 0, 3, 'Sistema tiene 3 items');
     A.cierto(sistemaMatch[1].indexOf("addItem('Actualizar sistema', 'UI_actualizarSistema')") !== -1,
       'Actualizar sistema está en el menú Sistema');
     A.cierto(sistemaMatch[1].indexOf("addItem('Instalar / reparar', 'UI_instalarSistema')") !== -1,
