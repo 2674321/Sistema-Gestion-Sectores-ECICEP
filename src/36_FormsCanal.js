@@ -663,3 +663,54 @@ function UI_googleFormsPanel() {
   html.setTitle('Google Forms — Canal de captura ECICEP');
   return html;
 }
+function Form_indexarSchema_(form) {
+  var idx = { byKey: {}, byTitle: {}, seccion: null, accionChoices: [] };
+  var items = form.getItems();
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var t = it.getTitle();
+    // Page break cambia seccion
+    if (it.getType && it.getType() === FormApp.ItemType.PAGE_BREAK) {
+      try {
+        var pb = it.asPageBreakItem();
+        idx.seccion = String(pb.getTitle() || pb.getHelpText() || '');
+      } catch (e) { idx.seccion = t; }
+      continue;
+    }
+    // Multiple choice accion
+    if (it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE) {
+      try {
+        var mc = it.asMultipleChoiceItem();
+        var ch = mc.getChoices();
+        for (var j = 0; j < ch.length; j++) {
+          try { idx.accionChoices.push(ch[j].getValue()); } catch (e) {}
+        }
+      } catch (e) {}
+    }
+    if (!idx.seccion) continue;
+    var key = idx.seccion + '|' + t;
+    idx.byKey[key] = { item: it, tipo: it.getType ? it.getType().toString() : '' };
+    idx.byTitle[t] = idx.byTitle[t] || [];
+    idx.byTitle[t].push({ key: key, sec: idx.seccion, item: it });
+  }
+  return idx;
+}
+
+function Form_campoRequerido_(seccion, campo) {
+  var sec = String(seccion || '').toUpperCase();
+  var c = String(campo || '').toUpperCase();
+  if (c === 'TELEFONOS' || c === 'PROFESIONAL2' || c === 'OBSERVACIONES' || c === 'SALUD_MENTAL' || c === 'SEXO' || c === 'ESTRATIFICACION' || c === 'PROXIMO_CONTROL') return false;
+  if (sec === 'NUEVO_INGRESO') {
+    if (c === 'RUT' || c === 'NOMBRE' || c === 'FECHA_NACIMIENTO' || c === 'SECTOR' || c === 'FECHA_INGRESO' || c === 'PROFESIONAL') return true;
+    return false;
+  }
+  if (sec === 'REGISTRAR_CONTROL' || sec === 'REGISTRAR_SEGUIMIENTO') {
+    if (c === 'RUT' || c === 'FECHA_EVENTO' || c === 'PROFESIONAL') return true;
+    return false;
+  }
+  if (sec === 'ACTUALIZAR_DATOS') {
+    if (c === 'RUT' || c === 'PROFESIONAL') return true;
+    return false;
+  }
+  return false;
+}

@@ -1617,7 +1617,7 @@ function WebApp_capturarEnviar(payload, acceso) {
     errors: [Captura_v2_error('ERROR_INTERNO', null,
       'El canal de captura por Web App fue reemplazado por Google Forms; use el Formulario ECICEP desde el portal',
       'CAPTURE_CHANNEL_RETIRED')],
-    replacementUrl: (typeof CapturaIngress_urlForm_ === 'function') ? CapturaIngress_urlForm_() : ''
+    replacementUrl: (typeof WebApp_urlCaptura_ === 'function') ? WebApp_urlCaptura_() : ''
   };
 }
 

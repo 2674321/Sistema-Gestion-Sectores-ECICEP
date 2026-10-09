@@ -1037,7 +1037,7 @@ var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'U
 // versionado de esquema, textos, cadencia del worker y umbrales de salud.
 // ---------------------------------------------------------------------------
 var GOOGLE_FORMS_CONFIG = {
-  SCHEMA_VERSION: 1,
+  SCHEMA_VERSION: 2,
   TITULO: 'Captura ECICEP',
   BIENVENIDA: 'Registra la actividad territorial ECICEP. La respuesta se procesa automáticamente.',
   TITULO_CIERRE: 'Enviar mi respuesta',
