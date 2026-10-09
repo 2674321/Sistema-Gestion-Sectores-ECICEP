@@ -737,8 +737,13 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
       }
       return false;
     }
+    // set ACCION
+    if (seccion && idx.byKey[seccion + '|Acción a registrar']) {
+      var accLabel = {'NUEVO_INGRESO':'Nuevo ingreso a ECICEP','REGISTRAR_CONTROL':'Registrar control','REGISTRAR_SEGUIMIENTO':'Registrar seguimiento','ACTUALIZAR_DATOS':'Actualizar datos'}[seccion];
+      if (accLabel) try { response.withItemResponse(idx.byKey[seccion + '|Acción a registrar'].item.createResponse(accLabel)); } catch (e) {}
+    }
     // set common fields
-    if (payload.rut) setItem(seccion + '|RUT', payload.rut);
+    if (payload.rut) setItem(seccion + '|RUT', payload.rut) || setItem(seccion + '|RUT de la persona (ej: 12.345.678-5)', payload.rut);
     if (seccion === 'NUEVO_INGRESO') {
       if (payload.nombre) setItem('NUEVO_INGRESO|Nombre completo', payload.nombre) || setItem('NUEVO_INGRESO|NOMBRE', payload.nombre);
       if (payload.fechaNacimiento) try { setItem('NUEVO_INGRESO|Fecha de nacimiento', new Date(payload.fechaNacimiento)); } catch (e) {}
@@ -796,10 +801,22 @@ function WebApp_capturarRecibirDurable(payload, acceso) {
     return { ok: false, motivo: 'ACCESO_DENEGADO' };
   }
   try {
+    var v = Form_validarPayloadTransporte_(payload || {});
+    if (!v.ok) return { ok: false, motivo: v.codigo || 'ACCION_INVALIDA' };
     var res = Form_crearRespuestaDesdePayloadWeb_(payload || {});
     if (!res.ok) return { ok: false, motivo: res.motivo || 'ERROR_DURABLE' };
     return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: res.responseId, receivedAt: res.receivedAt } };
   } catch (e) {
     return { ok: false, motivo: String(e && e.message || e) };
   }
+}
+
+function Form_validarPayloadTransporte_(payload) {
+  try {
+    var p = payload || {};
+    var acc = String(p.accion || '').toLowerCase();
+    var valid = acc === 'nuevoingreso' || acc === 'registrarcontrol' || acc === 'registrarseguimiento' || acc === 'actualizardatos';
+    if (!valid) return { ok: false, codigo: 'ACCION_INVALIDA' };
+    return { ok: true };
+  } catch (e) { return { ok: false, codigo: 'VALIDATION_ERROR' }; }
 }
