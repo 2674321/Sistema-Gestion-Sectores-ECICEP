@@ -664,11 +664,17 @@ function UI_googleFormsPanel() {
   return html;
 }
 function Form_indexarSchema_(form) {
-  var idx = { byKey: {}, byTitle: {}, seccion: null, accionChoices: [] };
+  var idx = { byKey: {}, byTitle: {}, seccion: null, accionChoices: [], accionItem: null };
   var items = form.getItems();
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
     var t = it.getTitle();
+    // ACCION global antes de PageBreak
+    if (it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE && !idx.seccion && t) {
+      try {
+        if (t.toLowerCase().indexOf('acción') !== -1) { idx.accionItem = it; }
+      } catch (e) {}
+    }
     // Page break cambia seccion
     if (it.getType && it.getType() === FormApp.ItemType.PAGE_BREAK) {
       try {
@@ -677,8 +683,10 @@ function Form_indexarSchema_(form) {
       } catch (e) { idx.seccion = t; }
       continue;
     }
-    // Multiple choice accion
-    if (it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE) {
+    if (idx.accionItem === null && it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE && !idx.seccion) {
+      try { idx.accionItem = it; } catch (e) {}
+    }
+    if (it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE && idx.seccion) {
       try {
         var mc = it.asMultipleChoiceItem();
         var ch = mc.getChoices();
@@ -737,41 +745,43 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
       }
       return false;
     }
-    // set ACCION
-    if (seccion && idx.byKey[seccion + '|Acción a registrar']) {
-      var accLabel = {'NUEVO_INGRESO':'Nuevo ingreso a ECICEP','REGISTRAR_CONTROL':'Registrar control','REGISTRAR_SEGUIMIENTO':'Registrar seguimiento','ACTUALIZAR_DATOS':'Actualizar datos'}[seccion];
-      if (accLabel) try { response.withItemResponse(idx.byKey[seccion + '|Acción a registrar'].item.createResponse(accLabel)); } catch (e) {}
+    // set ACCION global
+    var accLabel = {'NUEVO_INGRESO':'Nuevo ingreso a ECICEP','REGISTRAR_CONTROL':'Registrar control','REGISTRAR_SEGUIMIENTO':'Registrar seguimiento','ACTUALIZAR_DATOS':'Actualizar datos'}[seccion];
+    if (accLabel && idx.accionItem) {
+      try { response.withItemResponse(idx.accionItem.createResponse(accLabel)); } catch (e) {}
+    } else if (accLabel && idx.byKey[seccion + '|Acción a registrar']) {
+      try { response.withItemResponse(idx.byKey[seccion + '|Acción a registrar'].item.createResponse(accLabel)); } catch (e) {}
     }
     // set common fields
     if (payload.rut) setItem(seccion + '|RUT', payload.rut) || setItem(seccion + '|RUT de la persona (ej: 12.345.678-5)', payload.rut);
     if (seccion === 'NUEVO_INGRESO') {
       if (payload.nombre) setItem('NUEVO_INGRESO|Nombre completo', payload.nombre) || setItem('NUEVO_INGRESO|NOMBRE', payload.nombre);
-      if (payload.fechaNacimiento) try { setItem('NUEVO_INGRESO|Fecha de nacimiento', new Date(payload.fechaNacimiento)); } catch (e) {}
+      if (payload.fechaNacimiento) try { setItem('NUEVO_INGRESO|Fecha de nacimiento', Form_fechaLocalDesdeIso_(payload.fechaNacimiento)); } catch (e) {}
       if (payload.sector) setItem('NUEVO_INGRESO|Sector', payload.sector);
-      if (payload.fechaIngreso) try { setItem('NUEVO_INGRESO|Fecha de ingreso', new Date(payload.fechaIngreso)); } catch (e) {}
+      if (payload.fechaIngreso) try { setItem('NUEVO_INGRESO|Fecha de ingreso', Form_fechaLocalDesdeIso_(payload.fechaIngreso)); } catch (e) {}
       if (payload.profesional) setItem('NUEVO_INGRESO|Profesional que registra', payload.profesional);
       if (payload.profesionalSecundario) setItem('NUEVO_INGRESO|Segundo profesional (opcional)', payload.profesionalSecundario);
       if (payload.sexo) setItem('NUEVO_INGRESO|Sexo (M / F / OTRO)', payload.sexo);
       if (payload.estratificacion) setItem('NUEVO_INGRESO|Estratificación (solo si se conoce)', payload.estratificacion);
       if (payload.saludMental) setItem('NUEVO_INGRESO|Salud mental', payload.saludMental);
       if (payload.telefonos) setItem('NUEVO_INGRESO|Teléfono(s)', payload.telefonos);
-      if (payload.proximoControl) try { setItem('NUEVO_INGRESO|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.proximoControl) try { setItem('NUEVO_INGRESO|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.observaciones) setItem('NUEVO_INGRESO|Observaciones', payload.observaciones);
     }
     if (seccion === 'REGISTRAR_CONTROL') {
       if (payload.rut) setItem('REGISTRAR_CONTROL|RUT de la persona (ej: 12.345.678-5)', payload.rut) || setItem('REGISTRAR_CONTROL|RUT', payload.rut);
-      if (payload.fechaEvento) try { setItem('REGISTRAR_CONTROL|Fecha del evento (control/seguimiento)', new Date(payload.fechaEvento)); } catch (e) {}
+      if (payload.fechaEvento) try { setItem('REGISTRAR_CONTROL|Fecha del evento (control/seguimiento)', Form_fechaLocalDesdeIso_(payload.fechaEvento)); } catch (e) {}
       if (payload.profesional) setItem('REGISTRAR_CONTROL|Profesional que registra', payload.profesional);
       if (payload.profesionalSecundario) setItem('REGISTRAR_CONTROL|Segundo profesional (opcional)', payload.profesionalSecundario);
-      if (payload.proximoControl) try { setItem('REGISTRAR_CONTROL|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.proximoControl) try { setItem('REGISTRAR_CONTROL|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.observaciones) setItem('REGISTRAR_CONTROL|Observaciones', payload.observaciones);
     }
     if (seccion === 'REGISTRAR_SEGUIMIENTO') {
       if (payload.rut) setItem('REGISTRAR_SEGUIMIENTO|RUT', payload.rut);
-      if (payload.fechaEvento) try { setItem('REGISTRAR_SEGUIMIENTO|Fecha del evento (control/seguimiento)', new Date(payload.fechaEvento)); } catch (e) {}
+      if (payload.fechaEvento) try { setItem('REGISTRAR_SEGUIMIENTO|Fecha del evento (control/seguimiento)', Form_fechaLocalDesdeIso_(payload.fechaEvento)); } catch (e) {}
       if (payload.profesional) setItem('REGISTRAR_SEGUIMIENTO|Profesional que registra', payload.profesional);
       if (payload.profesionalSecundario) setItem('REGISTRAR_SEGUIMIENTO|Segundo profesional (opcional)', payload.profesionalSecundario);
-      if (payload.proximoControl) try { setItem('REGISTRAR_SEGUIMIENTO|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.proximoControl) try { setItem('REGISTRAR_SEGUIMIENTO|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.observaciones) setItem('REGISTRAR_SEGUIMIENTO|Observaciones', payload.observaciones);
     }
     if (seccion === 'ACTUALIZAR_DATOS') {
@@ -779,7 +789,7 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
       if (payload.profesional) setItem('ACTUALIZAR_DATOS|Profesional que registra', payload.profesional);
       if (payload.profesionalSecundario) setItem('ACTUALIZAR_DATOS|Segundo profesional (opcional)', payload.profesionalSecundario);
       if (payload.telefonos) setItem('ACTUALIZAR_DATOS|Teléfono(s)', payload.telefonos);
-      if (payload.proximoControl) try { setItem('ACTUALIZAR_DATOS|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.proximoControl) try { setItem('ACTUALIZAR_DATOS|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.saludMental) setItem('ACTUALIZAR_DATOS|Salud mental', payload.saludMental);
       if (payload.observaciones) setItem('ACTUALIZAR_DATOS|Observaciones', payload.observaciones);
     }
@@ -817,6 +827,27 @@ function Form_validarPayloadTransporte_(payload) {
     var acc = String(p.accion || '').toLowerCase();
     var valid = acc === 'nuevoingreso' || acc === 'registrarcontrol' || acc === 'registrarseguimiento' || acc === 'actualizardatos';
     if (!valid) return { ok: false, codigo: 'ACCION_INVALIDA' };
+    if (acc === 'nuevoingreso') {
+      if (!p.rut || !p.nombre || !p.fechaNacimiento || !p.sector || !p.fechaIngreso || !p.profesional) return { ok: false, codigo: 'VALIDATION_ERROR' };
+    } else if (acc === 'registrarcontrol' || acc === 'registrarseguimiento') {
+      if (!p.rut || !p.fechaEvento || !p.profesional) return { ok: false, codigo: 'VALIDATION_ERROR' };
+    } else if (acc === 'actualizardatos') {
+      if (!p.rut || !p.profesional) return { ok: false, codigo: 'VALIDATION_ERROR' };
+    }
     return { ok: true };
   } catch (e) { return { ok: false, codigo: 'VALIDATION_ERROR' }; }
+}
+
+function Form_fechaLocalDesdeIso_(iso) {
+  try {
+    var s = String(iso || '').trim();
+    if (!s) return null;
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10), 12, 0, 0);
+    }
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  } catch (e) { return null; }
 }
