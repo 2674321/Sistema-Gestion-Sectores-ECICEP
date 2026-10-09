@@ -714,3 +714,92 @@ function Form_campoRequerido_(seccion, campo) {
   }
   return false;
 }
+
+/** GAS: crea FormResponse desde payload Web (recepción durable). */
+function Form_crearRespuestaDesdePayloadWeb_(payload) {
+  try {
+    var formId = Form_formId_();
+    if (!formId) return { ok: false, estado: 'ERROR', motivo: 'FORM_NO_CONFIGURADO' };
+    var form = FormApp.openById(formId);
+    var response = form.createResponse();
+    var accion = String(payload.accion || '').toLowerCase();
+    var seccion = null;
+    if (accion === 'nuevoingreso') seccion = 'NUEVO_INGRESO';
+    else if (accion === 'registrarcontrol') seccion = 'REGISTRAR_CONTROL';
+    else if (accion === 'registrarseguimiento') seccion = 'REGISTRAR_SEGUIMIENTO';
+    else if (accion === 'actualizardatos') seccion = 'ACTUALIZAR_DATOS';
+    var idx = Form_indexarSchema_(form);
+    var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP')) || {};
+    // try to map by known labels if needed
+    function setItem(keySec, valor) {
+      if (idx.byKey[keySec] && idx.byKey[keySec].item) {
+        try { response.withItemResponse(idx.byKey[keySec].item.createResponse(valor)); return true; } catch (e) {}
+      }
+      return false;
+    }
+    // set common fields
+    if (payload.rut) setItem(seccion + '|RUT', payload.rut);
+    if (seccion === 'NUEVO_INGRESO') {
+      if (payload.nombre) setItem('NUEVO_INGRESO|Nombre completo', payload.nombre) || setItem('NUEVO_INGRESO|NOMBRE', payload.nombre);
+      if (payload.fechaNacimiento) try { setItem('NUEVO_INGRESO|Fecha de nacimiento', new Date(payload.fechaNacimiento)); } catch (e) {}
+      if (payload.sector) setItem('NUEVO_INGRESO|Sector', payload.sector);
+      if (payload.fechaIngreso) try { setItem('NUEVO_INGRESO|Fecha de ingreso', new Date(payload.fechaIngreso)); } catch (e) {}
+      if (payload.profesional) setItem('NUEVO_INGRESO|Profesional que registra', payload.profesional);
+      if (payload.profesionalSecundario) setItem('NUEVO_INGRESO|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.sexo) setItem('NUEVO_INGRESO|Sexo (M / F / OTRO)', payload.sexo);
+      if (payload.estratificacion) setItem('NUEVO_INGRESO|Estratificación (solo si se conoce)', payload.estratificacion);
+      if (payload.saludMental) setItem('NUEVO_INGRESO|Salud mental', payload.saludMental);
+      if (payload.telefonos) setItem('NUEVO_INGRESO|Teléfono(s)', payload.telefonos);
+      if (payload.proximoControl) try { setItem('NUEVO_INGRESO|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.observaciones) setItem('NUEVO_INGRESO|Observaciones', payload.observaciones);
+    }
+    if (seccion === 'REGISTRAR_CONTROL') {
+      if (payload.rut) setItem('REGISTRAR_CONTROL|RUT de la persona (ej: 12.345.678-5)', payload.rut) || setItem('REGISTRAR_CONTROL|RUT', payload.rut);
+      if (payload.fechaEvento) try { setItem('REGISTRAR_CONTROL|Fecha del evento (control/seguimiento)', new Date(payload.fechaEvento)); } catch (e) {}
+      if (payload.profesional) setItem('REGISTRAR_CONTROL|Profesional que registra', payload.profesional);
+      if (payload.profesionalSecundario) setItem('REGISTRAR_CONTROL|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.proximoControl) try { setItem('REGISTRAR_CONTROL|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.observaciones) setItem('REGISTRAR_CONTROL|Observaciones', payload.observaciones);
+    }
+    if (seccion === 'REGISTRAR_SEGUIMIENTO') {
+      if (payload.rut) setItem('REGISTRAR_SEGUIMIENTO|RUT', payload.rut);
+      if (payload.fechaEvento) try { setItem('REGISTRAR_SEGUIMIENTO|Fecha del evento (control/seguimiento)', new Date(payload.fechaEvento)); } catch (e) {}
+      if (payload.profesional) setItem('REGISTRAR_SEGUIMIENTO|Profesional que registra', payload.profesional);
+      if (payload.profesionalSecundario) setItem('REGISTRAR_SEGUIMIENTO|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.proximoControl) try { setItem('REGISTRAR_SEGUIMIENTO|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.observaciones) setItem('REGISTRAR_SEGUIMIENTO|Observaciones', payload.observaciones);
+    }
+    if (seccion === 'ACTUALIZAR_DATOS') {
+      if (payload.rut) setItem('ACTUALIZAR_DATOS|RUT', payload.rut);
+      if (payload.profesional) setItem('ACTUALIZAR_DATOS|Profesional que registra', payload.profesional);
+      if (payload.profesionalSecundario) setItem('ACTUALIZAR_DATOS|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.telefonos) setItem('ACTUALIZAR_DATOS|Teléfono(s)', payload.telefonos);
+      if (payload.proximoControl) try { setItem('ACTUALIZAR_DATOS|Próximo control', new Date(payload.proximoControl)); } catch (e) {}
+      if (payload.saludMental) setItem('ACTUALIZAR_DATOS|Salud mental', payload.saludMental);
+      if (payload.observaciones) setItem('ACTUALIZAR_DATOS|Observaciones', payload.observaciones);
+    }
+    var submitted = response.submit();
+    var rid = '';
+    try { rid = String(submitted.getId()); } catch (e) {}
+    var rts = '';
+    try { var dt = submitted.getTimestamp(); rts = dt ? Control_aIso(dt) : ''; } catch (e) {}
+    return { ok: true, estado: 'RECIBIDO', responseId: rid, receivedAt: rts };
+  } catch (e) {
+    return { ok: false, estado: 'ERROR', motivo: String(e && e.message || e) };
+  }
+}
+
+/** Entrypoint WebApp: recepción durable via Google Forms (cola). No procesa clínicamente. */
+function WebApp_capturarRecibirDurable(payload, acceso) {
+  if (typeof WebApp_autorizarCaptura === 'function' && !WebApp_autorizarCaptura(acceso)) {
+    try { if (typeof Captura_v2_error === 'function') return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null, 'Enlace de Captura no válido', '§24.1')] }; } catch (e) {}
+    return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  }
+  try {
+    var res = Form_crearRespuestaDesdePayloadWeb_(payload || {});
+    if (!res.ok) return { ok: false, motivo: res.motivo || 'ERROR_DURABLE' };
+    return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: res.responseId, receivedAt: res.receivedAt } };
+  } catch (e) {
+    return { ok: false, motivo: String(e && e.message || e) };
+  }
+}
