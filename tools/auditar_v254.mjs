@@ -1,25 +1,37 @@
-import fs from 'fs';
-const checks = [];
-const src36 = fs.readFileSync('src/36_FormsCanal.js','utf8');
-const html = fs.readFileSync('src/CapturaWeb.html','utf8');
-const ui = fs.readFileSync('src/07_UI.js','utf8');
-const web = fs.readFileSync('src/WebApp.gs','utf8');
-checks.push({name:'UI_SELECTOR_DROPDOWN', ok: html.includes('accion')});
-checks.push({name:'DURABLE_RPC', ok: src36.includes('WebApp_capturarRecibirDurable')});
-checks.push({name:'FORM_EXPLICIT_ADOPTION', ok: src36.includes('Form_operativoInstalar')});
-checks.push({name:'NO_ACCIDENTAL_FORM_CREATE', ok: src36.includes('crearNuevo')});
-checks.push({name:'GLOBAL_ACTION_CANONICAL', ok: src36.includes('accionItem')});
-checks.push({name:'CANONICAL_ITEM_MAP', ok: src36.includes('Form_indexarSchema_')});
-checks.push({name:'NO_ARTIFICIAL_SUBMIT_ITEM', ok: !src36.includes('Enviar respuesta')});
-checks.push({name:'WORKER_TRIGGER', ok: src36.includes('Form_worker')});
-checks.push({name:'WORKER_ONLY_CLINICAL_PATH', ok: src36.includes('Captura_v2_enviar')});
-checks.push({name:'LOCK_WAIT_SHORT', ok: src36.includes('tryLock(500')});
-checks.push({name:'SAFE_CURSOR', ok: src36.includes('overlap') || src36.includes('cursorSeguro')});
-checks.push({name:'ROUNDTRIP_4_ACTIONS', ok: src36.includes('Form_crearRespuestaDesdePayloadWeb_')});
-checks.push({name:'NO_FIELD_LOSS', ok: true});
-checks.push({name:'QR_STABLE', ok: ui.includes('WebApp_urlCaptura_') || web.includes('WebApp_urlCaptura_')});
-checks.push({name:'DOCS_MATCH_CODE', ok: true});
-checks.push({name:'NO_PLACEHOLDER_TESTS', ok: true});
-const ok = checks.every(c=>c.ok);
-checks.forEach(c=>console.log((c.ok?'PASS':'FAIL')+': '+c.name));
-console.log('auditar_v254:', ok? '16/16 PASS':'INCOMPLETE');
+#!/usr/bin/env node
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+
+const html = readFileSync('src/CapturaWeb.html', 'utf8');
+const forms = readFileSync('src/36_FormsCanal.js', 'utf8');
+const config = readFileSync('src/00_Config.js', 'utf8');
+const qr = readFileSync('src/07_UI.js', 'utf8');
+const results = [];
+function check(name, ok, detail = '') { results.push({ name, ok: !!ok, detail }); }
+function run(file) {
+  const p = spawnSync(process.execPath, [file], { encoding: 'utf8' });
+  return { ok: p.status === 0, detail: (p.stderr || p.stdout || '').trim().slice(-800) };
+}
+
+check('UI_SELECTOR_DROPDOWN', /<select id="accion"/.test(html) && !/type="radio" name="accion"/.test(html));
+check('DURABLE_RPC', /\.WebApp_capturarRecibirDurable\(datos,/.test(html) && !/\.WebApp_previaDuplicadosV2\(datos,/.test(html));
+check('FORM_EXPLICIT_ADOPTION', /opciones\.formId \|\| Form_formId_\(\)/.test(forms));
+check('NO_ACCIDENTAL_FORM_CREATE', /opciones\.crearNuevo !== true/.test(forms));
+check('GLOBAL_ACTION_CANONICAL', /GLOBAL\|ACCION/.test(forms));
+check('CANONICAL_ITEM_MAP', /GOOGLE_FORM_CANONICAL_ITEM_MAP/.test(forms));
+const installer = run('tests/forms_installer_idempotence_v254.mjs');
+check('NO_ARTIFICIAL_SUBMIT_ITEM', installer.ok, installer.detail);
+check('WORKER_TRIGGER', /newTrigger\('Form_worker'\)[\s\S]*everyMinutes\(5\)/.test(forms));
+const onSubmit = forms.slice(forms.indexOf('function Form_onFormSubmit'), forms.indexOf('function Form_desdeCursor_'));
+check('WORKER_ONLY_CLINICAL_PATH', !/Captura_v2_enviar|CapturaIngress_enviar|LockService|GOOGLE_FORM_CURSOR/.test(onSubmit));
+check('LOCK_WAIT_SHORT', /LOCK_WAIT_MS:\s*750/.test(config) && !/tryLock\(12000\)/.test(forms));
+const backlog = run('tests/worker_backlog_v254.mjs'); check('SAFE_CURSOR', backlog.ok, backlog.detail);
+const roundtrip = run('tests/forms_roundtrip_v254.mjs'); check('ROUNDTRIP_4_ACTIONS', roundtrip.ok, roundtrip.detail);
+check('NO_FIELD_LOSS', roundtrip.ok && /TELEFONO_OBS/.test(forms) && /SALUD_MENTAL/.test(forms), roundtrip.detail);
+check('QR_STABLE', /AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/.test(config + qr));
+const docs = run('tests/architecture_docs_consistency_v254.mjs'); check('DOCS_MATCH_CODE', docs.ok, docs.detail);
+const placeholders = run('tests/no_placeholder_tests_v254.mjs'); check('NO_PLACEHOLDER_TESTS', placeholders.ok, placeholders.detail);
+
+for (const r of results) console.log(r.name + ': ' + (r.ok ? 'PASS' : 'FAIL') + (r.ok || !r.detail ? '' : ' — ' + r.detail));
+if (results.some(r => !r.ok)) process.exit(1);
+console.log('AUDITAR_V254: PASS');
