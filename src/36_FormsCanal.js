@@ -245,7 +245,7 @@ function Form_auditarSchema_(form) {
     vistos[key] = true;
     var esperado = '';
     if (!seccion && titulo === GOOGLE_FORMS_CONFIG.ACCIONES.TITULO) esperado = String(FormApp.ItemType.MULTIPLE_CHOICE);
-    else if (seccion && titulo === 'Enviar respuesta') incompatibles.push(key + ':ITEM_ARTIFICIAL_OBSOLETO');
+    else if (seccion && titulo === 'Enviar') incompatibles.push(key + ':ITEM_ARTIFICIAL_OBSOLETO');
     else {
       var campo = tituloCampo[Utl_claveAlnum(titulo)];
       if (campo && campo !== 'ACCION') esperado = tipoEsperado(campo);
@@ -577,7 +577,7 @@ function Form_worker(opciones) {
   try {
     lock = LockService.getScriptLock();
     var waitMs = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750;
-    if (!lock.tryLock(waitMs)) {
+    if (!lock.tryLock(500)) {
       Form_metricaSumar_('LOCK_BUSY_DEFERRED');
       Form_metricaSumar_('DEFERRED_COUNT');
       Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
