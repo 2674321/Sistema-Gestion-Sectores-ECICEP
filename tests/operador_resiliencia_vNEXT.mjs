@@ -170,7 +170,7 @@ function createWebSandbox(seedSes) {
     withSuccessHandler(fn) { curOk = fn; return this; },
     withFailureHandler(fn) { curFail = fn; return this; }
   };
-  ['WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar', 'api_webappEstado'].forEach((name) => {
+  ['WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarRecibirDurable', 'api_webappEstado'].forEach((name) => {
     gsr[name] = function () {
       rpcCalls.push({ name, args: [...arguments], ok: curOk, fail: curFail, consumed: false });
       curOk = null; curFail = null;
@@ -222,7 +222,11 @@ function createWebSandbox(seedSes) {
       };
       Object.keys(v).forEach((id) => { const el = document.getElementById(id); if (el) el.value = v[id]; });
     },
-    resetAccion(a) { api.radioAccion.value = a; api.radioAccion.checked = true; }
+    resetAccion(a) {
+      api.document.getElementById('accion').value = a;
+      api.radioAccion.value = a;
+      api.radioAccion.checked = true;
+    }
   };
   return api;
 }
@@ -257,13 +261,13 @@ t('A1 las 4 acciones fijan _enviando=true, ENVIO activo, fase correcta y UNA RPC
   const w = createWebSandbox();
   for (const acc of ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS']) {
     w.formValido(); w.U.enviando = false; w.resetAccion(acc);
-    const antes = w.calls('WebApp_capturarEnviar').length;
+    const antes = w.calls('WebApp_capturarRecibirDurable').length;
     w.U.enviar();
     A(w.U.enviando === true, acc + ': _enviando activo');
     A(w.U.activo === true, acc + ': ENVIO activo');
     A(w.U.fase === 'entrega', acc + ': fase entrega (era ' + w.U.fase + ')');
     A(w.U.tiempoId !== null, acc + ': timeout armado');
-    A(w.calls('WebApp_capturarEnviar').length === antes + 1, acc + ': exactamente 1 RPC de captura');
+    A(w.calls('WebApp_capturarRecibirDurable').length === antes + 1, acc + ': exactamente 1 RPC de captura');
     A((w.calls('WebApp_previaDuplicadosV2')[w.calls('WebApp_previaDuplicadosV2').length - 1] || {}).name !== 'WebApp_previaDuplicadosV2',
       acc + ': sin pre-flight');
     A(w.U.envioFinalizar(w.U.secuencia) === true, acc + ': finalizar libera');
@@ -330,12 +334,12 @@ t('A7 descartar un duplicado descongela el formulario SIN disparar ninguna RPC',
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
   w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const antes = w.calls('WebApp_capturarEnviar').length;
+  const antes = w.calls('WebApp_capturarRecibirDurable').length;
   const d = w.elementCache.get('dupDescartar');
   d.fire('click', { target: d });
   A(w.U.enviando === false && w.U.activo === false, 'descartar libera el envío');
   A(w.U.tiempoId === null, 'sin timers de envío residuales');
-  A(w.calls('WebApp_capturarEnviar').length === antes, 'descartar no reenvía ni dispara RPC');
+  A(w.calls('WebApp_capturarRecibirDurable').length === antes, 'descartar no reenvía ni dispara RPC');
   A(!w.elementCache.get('dupOverlay').classList.contains('show'), 'modal cerrado');
   A(w.elementCache.get('btnEnviar').disabled === false, 'botón listo para reingresar');
 });
@@ -347,7 +351,7 @@ t('A6 continuar desde el modal conserva datos; "registrar como nuevo" confirma l
   w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
   const env = w.elementCache.get('dupEnviar');
   env.fire('click', { target: env });
-  const entrega = w.calls('WebApp_capturarEnviar').at(-1);
+  const entrega = w.calls('WebApp_capturarRecibirDurable').at(-1);
   A(entrega !== undefined, 'continuar dispara la captura');
   A(entrega.args[0].rut === '12.345.678-9', 'payload conserva el RUT del formulario');
   A(entrega.args[0].confirmarNuevoPaciente === undefined, '"Enviar de todos modos" NO fuerza paciente nuevo');
@@ -361,7 +365,7 @@ t('A6b "Registrar de todos modos" (nuevo) marca confirmarNuevoPaciente=true en e
   w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
   const nuevo = w.elementCache.get('dupNuevo');
   nuevo.fire('click', { target: nuevo });
-  const entrega = w.calls('WebApp_capturarEnviar').at(-1);
+  const entrega = w.calls('WebApp_capturarRecibirDurable').at(-1);
   A(entrega !== undefined, 'la opción nuevo dispara la captura');
   A(entrega.args[0].confirmarNuevoPaciente === true, 'confirmarNuevoPaciente=true al forzar registro');
   w.U.envioFinalizar(w.U.secuencia);

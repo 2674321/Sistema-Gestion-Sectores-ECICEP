@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // 30_Ingesta.js — Puerta de ingreso única (adaptadores de transporte).
 //
-// v253 (DEC-107): Google Forms es el canal principal y durable de captura.
+// v253 (DEC-106): Google Forms es el transporte durable interno de la Web App.
 // Este módulo aísla el TRANSPORTE de lo que envía datos hacia el pipeline V2
 // (26_Captura.js). Un "transporte" es la vía por la que llega la captura
 // (Form Google, Web App legacy); el pipeline es UNO solo y siempre el mismo.
@@ -38,7 +38,7 @@ function CapturaIngress_normalizarProvider(nombre) {
   return n;
 }
 
-/** Transporte operativo del sistema (v253): Google Forms. */
+/** Transporte durable interno vigente (v253): Google Forms. */
 function CapturaIngress_providerActivo() {
   return CAPTURA_INGESTA_PROVIDERS.GOOGLE_FORMS;
 }
@@ -330,16 +330,15 @@ function CapturaIngress_edicionDesdeForma_(accion, campos, rutForm, opciones, er
   };
 
   var campos2 = {};
-  var que = ['NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS', 'SECTOR', 'OBSERVACIONES', 'SALUD_MENTAL'];
+  var que = ['NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS', 'SECTOR',
+    'PROXIMO_CONTROL', 'OBSERVACIONES', 'SALUD_MENTAL'];
   for (var j = 0; j < que.length; j++) {
     var kc = que[j];
-    var claveContrato = CapturaIngress_campoContrato_(kc);
-    if (!claveContrato) continue;
     var nuevoValor = (campos[kc] === undefined || campos[kc] === null) ? '' : String(campos[kc]).trim();
     if (kc === 'SEXO' || kc === 'SALUD_MENTAL' || kc === 'SECTOR') nuevoValor = nuevoValor.toUpperCase();
     if (!nuevoValor) continue;
     var anterior = texto(kc);
-    campos2[claveContrato] = { anterior: anterior, valor: nuevoValor };
+    campos2[kc] = { anterior: anterior, valor: nuevoValor };
   }
   if (!Object.keys(campos2).length) {
     err.push({ codigo: 'CAMPO_OBLIGATORIO_AUSENTE', campo: 'actualizacion', mensaje: 'La actualización requiere al menos un campo editado' });

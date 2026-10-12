@@ -5,7 +5,7 @@
 1. Este repositorio trabaja sobre **un único entorno operativo**.
 2. No crear DEV/DEMO/PROD como arquitectura ni separar la aplicación en ambientes paralelos.
 3. La **Web App es el único canal operativo de captura de datos**.
-4. **Google Forms está abandonado** y no debe reintroducirse, activarse ni documentarse como canal operativo.
+4. **Google Forms está autorizado únicamente como transporte durable interno** entre la Web App y el pipeline. La URL del Form no se publica ni se usa como interfaz de captura; la Web App sigue siendo el único canal operativo visible.
 5. Existe **una sola fuente de verdad** para el sistema y un solo pipeline clínico.
 6. No crear una segunda base de datos, un segundo Spreadsheet operativo ni lógica de negocio paralela.
 7. No cambiar backend para resolver un problema que pertenece a UI, publicación o navegación, salvo necesidad técnica demostrada.
@@ -84,17 +84,16 @@ La Web App es la única interfaz operativa destinada a registrar datos de captur
 
 El flujo contractual anterior (nombres de funciones de captura, `FORM_RESPUESTAS`, estados, acciones, validación e idempotencia) fue retirado deliberadamente y **no debe utilizarse como especificación normativa**. La especificación vigente está definida en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO** — única fuente del contrato de captura).
 
-Google Forms **no es parte del flujo actual** y no debe reactivarse: no crear formularios, no completar `FORM_ID`, no instalar triggers `onFormSubmit` y no diseñar lógica de aislamiento para formularios.
+Google Forms forma parte del flujo vigente solo como cola durable interna:
+`CapturaWeb → WebApp_capturarRecibirDurable → FormResponse.submit() → Form_worker → Captura V2`.
+El instalador puede adoptar o crear un único Form, registrar sus propiedades y
+mantener un trigger rápido y un worker periódico. No se entrega su URL al usuario,
+no sustituye la Web App y no crea otro pipeline ni otra fuente de verdad.
 
-`src/30_Ingesta.js` es un **placeholder DESACTIVADO** (`CapturaIngress_*`): define la
-superficie aislada para un hipotético ingreso alternativo y hace que cualquier
-provider distinto del Web App termine en `FALLBACK_PROVIDER_DISABLED` **sin
-ninguna escritura**. Está permitido únicamente como reserva de nombres y como
-protección de salida; no equivale a reactivar Forms (no usa `Form`, `FormApp`,
-`FORM_ID`, `onFormSubmit` ni triggers). Su activación requiere decisión explícita
-del usuario registrada aquí y en `DECISIONES.md`.
-
-`FORM_RESPUESTAS` es **implementación existente pendiente de redefinición contractual**: no se asume que su esquema actual sea correcto ni incorrecto.
+`src/30_Ingesta.js` contiene el adaptador activo de `GOOGLE_FORMS` hacia el único
+pipeline `Captura_v2_enviar`. Cualquier provider no reconocido termina en
+`FALLBACK_PROVIDER_DISABLED` sin escritura. `FORM_RESPUESTAS` sigue siendo la
+cola técnica del mismo pipeline, no una segunda base operativa.
 
 ---
 

@@ -2444,3 +2444,22 @@ separa los tres dominios (Web App / Spreadsheet canónico / fuentes externas).
 `reuso_fila_50_50`, `permisos_dominios`, `naranjo_y_ingesta`, `observabilidad_sin_pii`,
 `transaccion_eventos_crash` y `captura_trailer_revalidacion` PASS.
 **Fecha:** 2026-10-07
+
+## DEC-106
+**Título:** Web App única con Google Forms como transporte durable interno.
+**Estado:** Aprobada por autorización explícita del usuario
+**Motivo:** La captura sigue ocurriendo únicamente en `CapturaWeb`. Para separar la
+recepción rápida del procesamiento clínico, la Web App persiste cada envío como
+`FormResponse` y responde `RECIBIDO`; `Form_worker` recupera la respuesta, aplica
+el adaptador al contrato V4 y llama al único pipeline `Captura_v2_enviar`.
+
+El Form no se expone como UI, su URL no reemplaza el QR y no constituye una
+segunda fuente de verdad. El instalador adopta el Form conocido, no crea otro si
+el ID registrado es inaccesible, mantiene exactamente un trigger rápido y un
+worker periódico, y solo reconstruye un schema cuando el Form tiene cero
+respuestas. Con respuestas existentes, cualquier reparación potencialmente
+destructiva termina en `FORM_SCHEMA_REQUIRES_REVIEW`.
+
+La activación real queda fuera del ensayo en seco: no se ejecutan `clasp push`,
+deploy, cambios de Form/Sheet/ScriptProperties/triggers remotos ni merge de PR.
+**Fecha:** 2026-10-12

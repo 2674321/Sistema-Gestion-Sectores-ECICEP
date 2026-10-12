@@ -20,14 +20,10 @@
 > - **[PENDIENTE]** — punto abierto; no tiene valor normativo hasta que se cierre.
 >
 > La revisión del 2026-09-16 implementa y prueba la extensión V3 en el mismo backend y pipeline.
-> La pasada v0.10.4 (2026-09-22) estableció el **ACCESO UNIVERSAL ECICEP**
-> (DEC-068, supera DEC-067): una sola credencial `CAPTURA_ACCESS_TOKEN` (valor
-> conservado) autoriza el canal de captura (`WebApp_capturarEnviar`, preflight
-> de duplicados) **y** toda la operación de ficha/administrativa (ficha,
-> revisión, asistencia REM, configuración, backups, CentroPruebas).
-> `OPERADOR_ACCESS_TOKEN` quedó obsoleto y solo se acepta como legacy de
-> transición. El preflight no filtra datos identificables de candidatos y todo
-> RPC exige credencial válida (token inválido/ausente → `ACCESO_DENEGADO`).
+> DEC-102 estableció el **ACCESO UNIVERSAL ECICEP**: ninguna vista ni RPC se
+> bloquea por credencial. El servidor puede inyectar un token para trazabilidad y
+> compatibilidad, pero un valor ausente, antiguo o arbitrario no es una puerta y
+> nunca produce `ACCESO_DENEGADO`. El preflight mantiene la minimización de datos.
 
 ---
 
@@ -166,13 +162,14 @@ probadas; la referencia a la fase de diseño ya no limita el alcance vigente.
 
 ## 3. Fuente única de captura
 
-1. La **Web App** es el único canal operativo de captura de datos. **[DECISIÓN; confirmada por
-   AGENTS.md]**
-2. **Google Forms está fuera de operación y no forma parte de la arquitectura.** No se crea
-   formulario, no se completa `FORM_ID`, no se instala `onFormSubmit`, no se leen ni se escriben
-   `FormResponse`/`FormItem`. **[DECISIÓN]**
-3. Todo dato clínico llega al sistema exclusivamente por el payload definido en §6. No existe un
-   segundo payload, un segundo pipeline ni un segundo Spreadsheet operativo. **[DECISIÓN]**
+1. La **Web App** es el único canal operativo visible de captura de datos. **[DECISIÓN; confirmada
+   por AGENTS.md]**
+2. Google Forms se usa exclusivamente como transporte durable interno. La Web App convierte el
+   payload aceptado en un `FormResponse`; el worker lo adapta de vuelta al contrato V4 antes de
+   llamar a `Captura_v2_enviar`. La URL del respondedor no se publica ni reemplaza la Web App.
+   **[DECISIÓN; DEC-106]**
+3. Todo dato clínico nace en el payload definido en §6. No existe un segundo contrato de entrada,
+   un segundo pipeline ni un segundo Spreadsheet operativo. **[DECISIÓN]**
 4. Sheets conserva su rol administrativo/operativo interno; eso **no** crea un segundo canal de
    captura. **[CONFIRMADO]**
 
@@ -885,15 +882,16 @@ como fecha de la operación (§5.2). El escenario **nunca** produce `fechaEvento
 Con propósito de cierre explícito; lo que sigue **no es** el contrato y no debe implementarse como
 tal:
 
-- **Google Forms** en cualquier forma (FormApp, `FORM_ID`, `onFormSubmit`, `FormResponse`,
-  `FormItem`, triggers de envío, ventanas de captura por timestamp de Forms).
+- **Google Forms como interfaz pública o contrato clínico alternativo.** `FormApp`, el Form y sus
+  triggers son detalles del transporte durable interno; no definen campos ni reglas clínicas y su
+  URL nunca es el QR operativo.
 - **Identificadores históricos** como entrada válida: `UI-…`, `RESPONSE_ID`, `responseId`, `FORM|…`.
 - **Aliases / variantes ortográficas** de nombres de campo (p. ej. `accion` vs `ACCION`, `rut` vs
   `RUT`) en el payload.
 - **Fallbacks especulativos**: leer `FORM_CONFIG` o `FORM_RESPUESTAS` como especificación, adivinar
   esquemas, "mejor esfuerzo" para mensajes.
-- **Lote en captura**: procesar lotes de respuestas de formulario (es procesamiento; el contrato es
-  un envío intencional por `captureId`).
+- **Lote como contrato de captura**: el worker puede drenar varias respuestas, pero cada una se
+  adapta y procesa como un envío intencional independiente por `captureId`.
 - **Bifurcaciones por entorno** (`DEV`/`DEMO`/`PROD`), segundo Spreadsheet, segunda base, webhooks de
   captura.
 - **Lectura de datos personales en respuestas de error**, logs sin permiso, o exposición de

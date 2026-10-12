@@ -473,7 +473,7 @@ function Captura_v2_nuevoRegistro(norm, opciones) {
     reintentos: 0,
     usuario: opciones.usuario || '',
     fechaRecepcion: opciones.fechaRecepcion || '',
-    // v253 (DEC-107): trazabilidad de transporte. El provider identifica el
+    // v253 (DEC-106): trazabilidad de transporte. El provider identifica el
     // canal que entregó el registro ('GOOGLE_FORMS' | 'WEBAPP_LEGACY') y
     // transportId es el id de la respuesta en el transporte (responseId del
     // Form; vacío en el canal Web App legacy). NO forman parte del payload
@@ -981,7 +981,7 @@ function Captura_diagnosticarCaptureIdsDuplicados_() {
 
 /** Esquema físico real: admite columnas adicionales sin mover datos existentes.
  * Rechaza encabezados obligatorios ausentes o duplicados antes de escribir.
- * v253 (DEC-107): antes de comparar, garantiza las dos columnas de transporte
+ * v253 (DEC-106): antes de comparar, garantiza las dos columnas de transporte
  * (CAPTURE_PROVIDER, TRANSPORT_RESPONSE_ID) anexadas al final, de forma
  * idempotente, para que hojas creadas pre-v253 (26 columnas) migren sin
  * tocar sus datos. Cualquier otra ausencia/duplicado sigue siendo
@@ -1075,7 +1075,7 @@ function Captura_v2_persistirRegistro(reg) {
       if (mapa[parEs[j][0]] !== undefined) fila[mapa[parEs[j][0]]] = parEs[j][1];
     }
     fila[mapa.TRAZA_CRUDA] = JSON.stringify(reg.normalizado);
-    // v253 (DEC-107): transporte del registro (solo si la columna existe).
+    // v253 (DEC-106): transporte del registro (solo si la columna existe).
     if (mapa.CAPTURE_PROVIDER !== undefined) fila[mapa.CAPTURE_PROVIDER] = reg.captureProvider || '';
     if (mapa.TRANSPORT_RESPONSE_ID !== undefined) fila[mapa.TRANSPORT_RESPONSE_ID] = reg.transportId || '';
     if (mapa.REINTENTOS !== undefined) fila[mapa.REINTENTOS] = reg.reintentos || 0;
@@ -1603,22 +1603,15 @@ function Captura_v2_ctx(acceso) {
   };
 }
 
-/** Entrypoint Web App: RETIRADO en v253 (DEC-107). El canal durable de captura
- * es Google Forms (Form_operativoInstalar + Form_onFormSubmit sobre la cola
- * FORM_RESPUESTAS y el pipeline V2). Esta función se conserva como puerta de
- * salida controlada: conserva el chequeo de autorización histórica, rechaza el
- * envío con código normativo ERROR_INTERNO y orienta al canal vigente. */
+/** Alias Web App heredado. La UI vigente usa WebApp_capturarRecibirDurable;
+ * ambos terminan en la misma respuesta durable de Forms y no procesan datos
+ * clínicos dentro de la recepción. */
 function WebApp_capturarEnviar(payload, acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
-  Captura_v2_logError('WebApp', 'capturarEnviar',
-    ((payload && payload.captureId) || 'captureId-desconocido') + ': canal de captura retirado (DEC-107), envío rechazado');
-  return {
-    ok: false,
-    errors: [Captura_v2_error('ERROR_INTERNO', null,
-      'El canal de captura por Web App fue reemplazado por Google Forms; use el Formulario ECICEP desde el portal',
-      'CAPTURE_CHANNEL_RETIRED')],
-    replacementUrl: (typeof WebApp_urlCaptura_ === 'function') ? WebApp_urlCaptura_() : ''
-  };
+  if (typeof WebApp_capturarRecibirDurable === 'function') {
+    return WebApp_capturarRecibirDurable(payload, acceso);
+  }
+  return { ok: false, errors: [Captura_v2_error('ERROR_INTERNO', null,
+    'Transporte durable no disponible', 'DURABLE_RECEIVER_UNAVAILABLE')] };
 }
 
 // ---------------------------------------------------------------------------
@@ -1692,13 +1685,11 @@ function Captura_v2_previaDuplicados(datos, esOperador) {
  *  expone campos que la propia ficha ya muestra (nunca teléfonos ni
  *  observaciones). */
 function WebApp_previaDuplicadosV2(datos, acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return Captura_v2_previaDuplicados(datos, true);
 }
 
 /** Entrypoint Web App: consulta de estado de un envío V2. */
 function WebApp_capturarEstado(captureId, acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   try {
     return Captura_v2_estado(captureId, Captura_v2_ctx(acceso));
   } catch (e) {
@@ -1709,7 +1700,6 @@ function WebApp_capturarEstado(captureId, acceso) {
 
 /** Entrypoint Web App: retoma administrativa de un pendiente V2 (procesador V2). */
 function WebApp_capturarRetomar(payload, acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,errors:[Captura_v2_error('ERROR_INTERNO',null,'Enlace de Captura no válido','§24.1')]};
   var lock = null;
   try {
     lock = LockService.getScriptLock();

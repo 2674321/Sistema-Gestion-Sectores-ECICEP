@@ -12,7 +12,7 @@
  *   - El botón/spinner nunca quedan bloqueados (timeout cubre previa y envío).
  *   - La guardia de doble envío impide RPC duplicadas.
  *   - UNA RPC por envío: el pre-flight de duplicados solo se usa en NUEVO_INGRESO;
- *     Control/Seguimiento/Actualizar van directo a WebApp_capturarEnviar.
+ *     Control/Seguimiento/Actualizar van directo a WebApp_capturarRecibirDurable.
  *   - Se expone solo identificadores técnicos, nunca datos clínicos.
  *
  * El harness ejecuta el script inline REAL de CapturaWeb.html en un sandbox
@@ -133,7 +133,7 @@ radioAccion.checked = true;
 const rpcCalls = [];
 const gsr = { withSuccessHandler() { return this; }, withFailureHandler() { return this; } };
 ['WebApp_esquemaFormulario', 'api_webappEstado',
-  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar'].forEach((name) => {
+  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarRecibirDurable'].forEach((name) => {
   gsr[name] = function () { rpcCalls.push({ name, args: [...arguments] }); return this; };
 });
 
@@ -227,7 +227,7 @@ t('A1 PROCESADO → resumen ok, mensaje de éxito de la acción, y UNICA ruta de
   poblarFormulario();
   U._envExito(PROCESADO, 'NUEVO_INGRESO');
   A(U.resumen && U.resumen.tipo === 'ok', 'tipo debe ser ok: ' + JSON.stringify(U.resumen));
-  contiene(U.resumen.titulo, 'Nuevo ingreso', 'mensaje de éxito de la acción');
+  contiene(U.resumen.titulo, 'Registro recibido', 'mensaje durable de éxito');
   A(formularioLimpio(), 'el formulario debe quedar limpio tras PROCESADO');
   A(U.enviando === false, '_enviando debe quedar en false');
 });
@@ -534,11 +534,11 @@ t('I1 Control/Seguimiento/Actualizar: envío directo en UNA RPC (sin pre-flight 
   U.enviando = false;
   ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'].forEach((acc) => {
     const antes = rpcCalls.length;
-    radioAccion.value = acc;
+    document.getElementById('accion').value = acc;
     U.enviando = false;
     U.enviar();
     const nuevas = rpcCalls.slice(antes);
-    A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarEnviar',
+    A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarRecibirDurable',
       acc + ': debe ser UNA RPC de captura directa, recibidas: ' + JSON.stringify(nuevas));
     A(!nuevas.some((c) => c.name === 'WebApp_previaDuplicadosV2'),
       acc + ': nunca debe pre-consultar duplicados (server ya lo documenta: resto 1 RPC)');
@@ -549,12 +549,12 @@ t('I2 NUEVO_INGRESO conserva el pre-flight de duplicados (puerta de dobles intac
   poblarFormValido();
   U.enviando = false;
   const antes = rpcCalls.length;
-  radioAccion.value = 'NUEVO_INGRESO';
+  document.getElementById('accion').value = 'NUEVO_INGRESO';
   U.enviar();
   const nuevas = rpcCalls.slice(antes);
   A(nuevas.length === 1 && nuevas[0].name === 'WebApp_previaDuplicadosV2',
     'nuevoIngreso sí debe pre-consultar duplicados primero, recibidas: ' + JSON.stringify(nuevas));
-  radioAccion.value = 'NUEVO_INGRESO';
+  document.getElementById('accion').value = 'NUEVO_INGRESO';
 });
 
 // ── Resumen ──

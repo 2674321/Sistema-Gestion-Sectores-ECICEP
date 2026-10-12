@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v253 — Transición QR: WebApp_capturarEnviar retorna replacementUrl con canal retirado
+// v254 — El alias histórico conserva el transporte durable de la Web App.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -9,9 +9,8 @@ const orden = ['00_Config.js','01_Utilidades.js','02_Normalizacion.js','09_Log.j
 const readSrc = f => readFileSync(new URL('../src/'+f.replace('src/',''), import.meta.url),'utf8');
 for (const f of orden) vm.runInContext(readSrc(f), ctx, { filename:f });
 
-// stub autorización
-ctx.WebApp_autorizarCaptura = function(){return true;};
+ctx.WebApp_capturarRecibirDurable = function(payload){return {ok:true,estado:'RECIBIDO',data:{responseId:payload.captureId}};};
 const r = ctx.WebApp_capturarEnviar({captureId:'Cp4-'+('a'.repeat(32))},'tok');
-assert.equal(r.ok,false);
-assert.equal(r.errors[0].codigo,'ERROR_INTERNO');
+assert.equal(r.ok,true);
+assert.equal(r.estado,'RECIBIDO');
 console.log('google_forms_qr_transition_v253: PASS');

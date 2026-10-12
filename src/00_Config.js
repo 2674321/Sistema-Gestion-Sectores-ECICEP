@@ -45,7 +45,7 @@ var SISTEMA_VERSION_INSTALADOR = 'INST-1';
 // debe usarse para bifurcar lógica de negocio (if DEV/DEMO/PROD).
 // Identidad histórica determinada por el Spreadsheet activo (getId()),
 // NUNCA por el nombre visible de la hoja. DEV → @HEAD / DEMO → estable.
-// Google Forms es el canal principal duradera de captura desde v253
+// Google Forms es el transporte durable interno de la Web App desde v253
 // (AGENTS.md): el Form operativo es configuración central gestionada por
 // Form_operativoInstalar y almacenada en ScriptProperties (nunca en Git).
 // El bloque ENTORNOS se conserva únicamente para diagnóstico y tests de
@@ -1024,8 +1024,8 @@ var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'U
   .concat(['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID']);
 
 // ---------------------------------------------------------------------------
-// GOOGLE FORMS — CANAL PRINCIPAL DE CAPTURA (v253 — DEC-107).
-// El Form reemplaza a la Web App como puerta de captura durable (cola
+// GOOGLE FORMS — TRANSPORTE DURABLE INTERNO (v253 — DEC-106).
+// El Form persiste lo recibido por la Web App como cola
 // FORM_RESPUESTAS + pipeline V2). La configuración del Form ES operativa y se
 // almacena en ScriptProperties (nunca en Git):
 //   GOOGLE_FORM_ID         — id del Form
@@ -1069,7 +1069,8 @@ var GOOGLE_FORMS_CONFIG = {
   },
   WORKER: {
     BLOCK_MS: 3000,
-    MAX_POR_CORRIDA: 10
+    MAX_POR_CORRIDA: 10,
+    OVERLAP_MIN: 15
   },
   SALUD: {
     OLDEST_PENDING_MAX_MIN: 180,      // más antiguo sin procesar > 3h → alerta

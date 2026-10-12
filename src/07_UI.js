@@ -68,18 +68,15 @@ function UI_abrirFormularioCaptura() {
 }
 
 /** Alias conservado para accesos anteriores; una única pantalla de Captura.
- *  v253 (DEC-107): el QR apunta al Formulario Google (canal principal durable),
- *  no a la Web App de captura (canal retirado). Si el Form no está instalado,
- *  el QR cae al landing de la vista captura que orienta al instalador. */
+ * El QR siempre apunta a la Web App estable. Google Forms es transporte durable
+ * interno y su URL de respondedor nunca se distribuye a operadores. */
 function UI_mostrarQR() {
-  var url = '';
-  try { url = (typeof Form_urlRespondedor_ === 'function') ? Form_urlRespondedor_() || '' : ''; } catch (e) { url = ''; }
-  var urlQR = url || WebApp_urlCaptura_();
+  var urlQR = WebApp_urlCaptura_();
   if (!urlQR) throw new Error('No se pudo preparar el enlace de captura');
   var t = HtmlService.createTemplateFromFile('QRFormulario');
   t.QR_URL = urlQR;
   t.WEB_APP_URL = urlQR;
-  _UI_get().showModalDialog(t.evaluate().setWidth(440).setHeight(640), 'Captura ECICEP — Google Forms');
+  _UI_get().showModalDialog(t.evaluate().setWidth(440).setHeight(640), 'Captura');
 }
 
 /** ⚙ Instalar sistema: dialog con progreso REAL por etapas (Instalador.html). */
