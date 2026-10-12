@@ -1,0 +1,3 @@
+# Runbook Captura
+
+Escenarios operativos
