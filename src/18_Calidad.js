@@ -16,12 +16,12 @@
 // ---------------------------------------------------------------------------
 
 /** PURA: problemas de un paciente. dupRuts: Set/objeto de RUTs duplicados. */
-function Calidad_problemasPaciente(p, dupRuts) {
+function Calidad_problemasPaciente_(p, dupRuts) {
   var problemas = [];
-  var rut = Utl_texto(p.RUT).trim().toUpperCase();
+  var rut = Utl_texto_(p.RUT).trim().toUpperCase();
   if (!rut) problemas.push({ tipo: 'RUT_AUSENTE', gravedad: 'ERROR', detalle: 'sin RUT' });
   else {
-    if (!Norm_validarRut(rut)) {
+    if (!Norm_validarRut_(rut)) {
       var sinGuion = rut.indexOf('-') === -1;
       problemas.push({ tipo: sinGuion ? 'RUT_INCOMPLETO' : 'RUT_INVALIDO',
         gravedad: 'ERROR',
@@ -30,31 +30,31 @@ function Calidad_problemasPaciente(p, dupRuts) {
     if (dupRuts && dupRuts[rut]) problemas.push({ tipo: 'RUT_DUPLICADO',
       gravedad: 'WARNING', detalle: 'RUT presente en más de un paciente' });
   }
-  if (Utl_vacio(Utl_texto(p.NOMBRE))) problemas.push({ tipo: 'SIN_NOMBRE',
+  if (Utl_vacio_(Utl_texto_(p.NOMBRE))) problemas.push({ tipo: 'SIN_NOMBRE',
     gravedad: 'ERROR', detalle: 'sin nombre' });
-  if (Utl_vacio(Utl_texto(p.SECTOR))) problemas.push({ tipo: 'SIN_SECTOR',
+  if (Utl_vacio_(Utl_texto_(p.SECTOR))) problemas.push({ tipo: 'SIN_SECTOR',
     gravedad: 'WARNING', detalle: 'sin sector asignado' });
   return problemas;
 }
 
 /** PURA: problemas de un evento. existePac: boolean. */
-function Calidad_problemasEvento(ev, existePac) {
+function Calidad_problemasEvento_(ev, existePac) {
   var problemas = [];
   if (!existePac) problemas.push({ tipo: 'EVENTO_HUERFANO', gravedad: 'ERROR',
     detalle: 'paciente inexistente' });
-  var f = Rem9_normFecha(ev.FECHA_EVENTO);
+  var f = Rem9_normFecha_(ev.FECHA_EVENTO);
   if (!f) problemas.push({ tipo: 'FECHA_INVALIDA', gravedad: 'ERROR',
     detalle: 'sin fecha válida' });
-  var tipo = Utl_texto(ev.TIPO_EVENTO).trim().toUpperCase();
+  var tipo = Utl_texto_(ev.TIPO_EVENTO).trim().toUpperCase();
   if (!tipo) problemas.push({ tipo: 'SIN_TIPO', gravedad: 'ERROR', detalle: 'sin tipo de evento' });
-  var rut = Utl_texto(ev.RUT).trim().toUpperCase();
-  if (rut && !Norm_validarRut(rut)) problemas.push({ tipo: 'RUT_INVALIDO',
+  var rut = Utl_texto_(ev.RUT).trim().toUpperCase();
+  if (rut && !Norm_validarRut_(rut)) problemas.push({ tipo: 'RUT_INVALIDO',
     gravedad: 'WARNING', detalle: 'RUT del evento inválido' });
   return problemas;
 }
 
 /** PURA: peor gravedad de una lista de problemas. */
-function Calidad_peorGravedad(problemas) {
+function Calidad_peorGravedad_(problemas) {
   var peor = 'OK';
   (problemas || []).forEach(function (p) {
     if (p.gravedad === 'ERROR') peor = 'ERROR';
@@ -64,14 +64,14 @@ function Calidad_peorGravedad(problemas) {
 }
 
 /** PURA: fila de Cola de Revisión por entidad (motivos agregados en JSON). */
-function Calidad_filaCola(tipoEntidad, idEntidad, pac, problemas) {
+function Calidad_filaCola_(tipoEntidad, idEntidad, pac, problemas) {
   return {
     tipo: tipoEntidad,
-    idInterno: Utl_texto(pac ? pac.ID_INTERNO : ''),
-    rut: Utl_texto(pac ? pac.RUT : ''),
-    nombre: Utl_texto(pac ? pac.NOMBRE : ''),
+    idInterno: Utl_texto_(pac ? pac.ID_INTERNO : ''),
+    rut: Utl_texto_(pac ? pac.RUT : ''),
+    nombre: Utl_texto_(pac ? pac.NOMBRE : ''),
     motivos: problemas,
-    estado: Calidad_peorGravedad(problemas) === 'OK' ? 'RESUELTO_AUTO' : 'PENDIENTE'
+    estado: Calidad_peorGravedad_(problemas) === 'OK' ? 'RESUELTO_AUTO' : 'PENDIENTE'
   };
 }
 
@@ -80,41 +80,41 @@ function Calidad_filaCola(tipoEntidad, idEntidad, pac, problemas) {
 // ---------------------------------------------------------------------------
 
 /** GAS: auditoría READ ONLY de PACIENTES + EVENTOS. */
-function Calidad_auditarTodo() {
-  var pacientes = Modelo_leerPacientesCampos(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR']);
+function Calidad_auditarTodo_() {
+  var pacientes = Modelo_leerPacientesCampos_(['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR']);
   /* eventos normalizados: FECHA_EVENTO como string ISO (el clasificador es
      puro y espera strings; los Date crudos de la hoja fallan al 100%) */
-  var eventos = _rem_normalizarEventos(Modelo_leerEventosCampos(_EVENTOS_CAMPOS_REM));
+  var eventos = _rem_normalizarEventos_(Modelo_leerEventosCampos_(_EVENTOS_CAMPOS_REM));
 
   /* duplicados de RUT en PACIENTES */
   var conteo = {};
   pacientes.forEach(function (p) {
-    var r = Utl_texto(p.RUT).trim().toUpperCase();
+    var r = Utl_texto_(p.RUT).trim().toUpperCase();
     if (r) conteo[r] = (conteo[r] || 0) + 1;
   });
   var dupRuts = {};
   Object.keys(conteo).forEach(function (r) { if (conteo[r] > 1) dupRuts[r] = true; });
 
   var existePac = {};
-  pacientes.forEach(function (p) { existePac[Utl_texto(p.ID_INTERNO)] = true; });
+  pacientes.forEach(function (p) { existePac[Utl_texto_(p.ID_INTERNO)] = true; });
 
   var entidades = {}; // id → {pac, problemas[], eventosProblemas[]}
   pacientes.forEach(function (p) {
-    var id = Utl_texto(p.ID_INTERNO);
-    var probs = Calidad_problemasPaciente(p, dupRuts);
+    var id = Utl_texto_(p.ID_INTERNO);
+    var probs = Calidad_problemasPaciente_(p, dupRuts);
     entidades[id] = { pac: p, problemas: probs };
   });
   eventos.forEach(function (e) {
-    var id = Utl_texto(e.ID_INTERNO);
-    var probs = Calidad_problemasEvento(e, !!existePac[id]);
+    var id = Utl_texto_(e.ID_INTERNO);
+    var probs = Calidad_problemasEvento_(e, !!existePac[id]);
     if (!probs.length) return;
     if (!entidades[id]) {
       entidades[id] = { pac: { ID_INTERNO: e.ID_INTERNO, RUT: e.RUT, NOMBRE: e.NOMBRE },
                         problemas: [] };
     }
     probs.forEach(function (p) {
-      p.detalle = 'evento ' + Utl_texto(e.ID_EVENTO) + ' (' + Utl_texto(e.TIPO_EVENTO) +
-        ' ' + Utl_texto(e.FECHA_EVENTO) + '): ' + p.detalle;
+      p.detalle = 'evento ' + Utl_texto_(e.ID_EVENTO) + ' (' + Utl_texto_(e.TIPO_EVENTO) +
+        ' ' + Utl_texto_(e.FECHA_EVENTO) + '): ' + p.detalle;
       entidades[id].problemas.push(p);
     });
   });
@@ -123,7 +123,7 @@ function Calidad_auditarTodo() {
   Object.keys(entidades).forEach(function (id) {
     var ent = entidades[id];
     if (!ent.problemas.length) { ok++; return; }
-    filasCola.push(Calidad_filaCola('CALIDAD', id, ent.pac, ent.problemas));
+    filasCola.push(Calidad_filaCola_('CALIDAD', id, ent.pac, ent.problemas));
   });
 
   return { ok: true, totalPacientes: pacientes.length, totalEventos: eventos.length,
@@ -144,12 +144,12 @@ function Calidad_auditarTodo() {
  * - Jamás elimina filas (trazabilidad) ni toca PACIENTES/EVENTOS.
  */
 function Calidad_sincronizarCola_() {
-  var audit = Calidad_auditarTodo();
-  var ss = Modelo_ss();
+  var audit = Calidad_auditarTodo_();
+  var ss = Modelo_ss_();
   var hoja = ss.getSheetByName(HOJAS.CONFLICTOS);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_CONFLICTOS' };
 
-  var valores = Utl_leerBloque(hoja);
+  var valores = Utl_leerBloque_(hoja);
   // Índices DERIVADOS del encabezado real de CONFLICTOS, nunca números fijos:
   // el contrato fija el orden (FECHA_DETECCION, TIPO, ID_INTERNO, RUT, NOMBRE,
   // DETALLE, FUENTE_A, FUENTE_B, ESTADO_REVISION, RESUELTO_POR) y este código
@@ -157,7 +157,7 @@ function Calidad_sincronizarCola_() {
   // FUENTE_B en vez de FUENTE_A: `filasCalidad` quedaba SIEMPRE vacío, cada
   // sincronización duplicaba la cola CALIDAD y el auto-resolve era código
   // muerto (DEC-104).
-  var enc = (valores[0] || []).map(function (h) { return Utl_texto(h); });
+  var enc = (valores[0] || []).map(function (h) { return Utl_texto_(h); });
   var colDe = function (nombre) {
     var i = enc.indexOf(nombre);
     return i < 0 ? -1 : i;                       // base 0 (lectura por índice)
@@ -174,8 +174,8 @@ function Calidad_sincronizarCola_() {
   }
   var filasCalidad = {}; // idInterno → fila en hoja (solo filas FUENTE_A=CALIDAD)
   for (var i = 1; i < valores.length; i++) {
-    if (Utl_texto(valores[i][colFuenteA]) === 'CALIDAD') {
-      filasCalidad[Utl_texto(valores[i][colId])] = i + 1;
+    if (Utl_texto_(valores[i][colFuenteA]) === 'CALIDAD') {
+      filasCalidad[Utl_texto_(valores[i][colId])] = i + 1;
     }
   }
 
@@ -197,14 +197,14 @@ function Calidad_sincronizarCola_() {
     }
   });
   if (filasNuevas.length) {
-    Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, filasNuevas); // append en un solo setValues
+    Utl_escribirBloque_(hoja, hoja.getLastRow() + 1, 1, filasNuevas); // append en un solo setValues
   }
   /* resolver automáticamente entidades que ya no tienen problemas */
   Object.keys(filasCalidad).forEach(function (id) {
     var sigue = audit.filasCola.some(function (f) { return f.idInterno === id; });
     if (!sigue) {
       var filaHoja = filasCalidad[id];
-      if (Utl_texto(valores[filaHoja - 1][colEstado]) === 'PENDIENTE') {
+      if (Utl_texto_(valores[filaHoja - 1][colEstado]) === 'PENDIENTE') {
         estadoNuevo[filaHoja] = 'RESUELTO_AUTO';
         resueltoNuevo[filaHoja] = 'SISTEMA';
         resueltas++;
@@ -227,9 +227,9 @@ function Calidad_sincronizarCola_() {
   _escribirCol(colEstado, estadoNuevo);
   _escribirCol(colResueltoPor, resueltoNuevo);
 
-  Log_info('Calidad', 'sincronizarCola', 'creadas=' + creadas +
+  Log_info_('Calidad', 'sincronizarCola', 'creadas=' + creadas +
     ' actualizadas=' + actualizadas + ' resueltasAuto=' + resueltas);
-  Log_flush();
+  Log_flush_();
   return { ok: true, conProblemas: audit.conProblemas,
            entidadesOk: audit.entidadesOk, creadas: creadas,
            actualizadas: actualizadas, resueltasAuto: resueltas,
@@ -242,21 +242,21 @@ function Calidad_sincronizarCola_() {
  * Solo aplica si el valor normalizado pasa módulo 11 (evidencia total).
  */
 function Calidad_normalizarFormatoRuts_() {
-  var pacientes = Modelo_leerPacientes();
-  var hojaP = Modelo_hoja(HOJAS.PACIENTES);
+  var pacientes = Modelo_leerPacientes_();
+  var hojaP = Modelo_hoja_(HOJAS.PACIENTES);
   var colRut = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('RUT') + 1;
   var corregidos = 0, detalles = [];
   var filas = [], valores = {};
   pacientes.forEach(function (p, ix) {
-    var original = Utl_texto(p.RUT);
-    var norm = Norm_normalizarRut(original);
+    var original = Utl_texto_(p.RUT);
+    var norm = Norm_normalizarRut_(original);
     if (!norm.rut || norm.rut === original) return;
-    if (!Norm_validarRut(norm.rut)) return; // solo formato, con evidencia
+    if (!Norm_validarRut_(norm.rut)) return; // solo formato, con evidencia
     // PACIENTES usa layout VISUAL (datos desde la fila 4). El código Anterior
     // usaba `2 + ix`, que escribía el RUT en el banner de secciones (ix=0) y en
     // la fila de encabezados (ix=1) y desplazaba 2 filas al resto del bloque
     // (DEC-104). La coordenada sale del contrato de layout, no del índice.
-    var fila = Modelo_filaFisica(HOJAS.PACIENTES, ix);
+    var fila = Modelo_filaFisica_(HOJAS.PACIENTES, ix);
     filas.push(fila);
     valores[fila] = norm.rut;
     corregidos++;
@@ -268,10 +268,10 @@ function Calidad_normalizarFormatoRuts_() {
     var v = rango.getValues();
     filas.forEach(function (f) { v[f - fMin][0] = valores[f]; });
     rango.setValues(v);
-    Modelo_invalidarLecturas();
+    Modelo_invalidarLecturas_();
   }
-  Log_info('Calidad', 'normalizarRuts', 'corregidos=' + corregidos);
-  Log_flush();
+  Log_info_('Calidad', 'normalizarRuts', 'corregidos=' + corregidos);
+  Log_flush_();
   return { ok: true, corregidos: corregidos, detalles: detalles.slice(0, 20) };
 }
 
@@ -279,9 +279,9 @@ function Calidad_normalizarFormatoRuts_() {
  * RPC: wrapper autenticado + serializado del Centro de Pruebas.
  * Solo OPERADOR; NUNCA se expone la lógica interna directa.
  */
-function api_calidadSincronizarCola(token) {
+function api_calidadSincronizarCola_(token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    if (!WebApp_autorizarBuscador_(token)) return Api_error_('ACCESO_DENEGADO');
     return Ecicep_conLock_(function () { return Calidad_sincronizarCola_(); });
   } catch (e) {
     return Api_error_('CALIDAD_SINCRONIZAR', e && e.message ? e.message : String(e));
@@ -289,9 +289,9 @@ function api_calidadSincronizarCola(token) {
 }
 
 /** RPC: wrapper autenticado + serializado de normalización de RUTs. */
-function api_calidadNormalizarFormatoRuts(token) {
+function api_calidadNormalizarFormatoRuts_(token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    if (!WebApp_autorizarBuscador_(token)) return Api_error_('ACCESO_DENEGADO');
     return Ecicep_conLock_(function () { return Calidad_normalizarFormatoRuts_(); });
   } catch (e) {
     return Api_error_('CALIDAD_NORMALIZAR_RUTS', e && e.message ? e.message : String(e));

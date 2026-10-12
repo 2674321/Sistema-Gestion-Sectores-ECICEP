@@ -61,7 +61,7 @@
     estado('Ficha cargada: '+r.campos.NOMBRE+'. Revisa los cambios antes de guardar.');resumen();
   }
   function cargar(){var rut=$('rut').value,turno=++secuencia;base=null;$('edCampos').hidden=true;$('edResumen').textContent='';$('edCargar').disabled=true;estado('Cargando ficha…');clearTimeout(temporizador);temporizador=setTimeout(function(){if(turno!==secuencia)return;secuencia++;$('edCargar').disabled=false;estado('La consulta tardó demasiado. Intenta cargar nuevamente.');},30000);
-    google.script.run.withSuccessHandler(function(r){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;
+    ECICEP_run().withSuccessHandler(function(r){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;
       if(window.ECICEP_requiereRecarga&&window.ECICEP_requiereRecarga(r)){if(window.ECICEP_reloadUnaVez)window.ECICEP_reloadUnaVez();else estado((r&&r.motivo)||'Acceso vencido. Cierra y reabre el enlace.');return;}
       if(window.ECICEP_esServicioOcupado&&window.ECICEP_esServicioOcupado(r)){estado(window.ECICEP_textoServicioOcupado());return;}
       if(r&&r.ok)render(r);else estado(r&&(r.motivo||r.message)||'No se pudo cargar la ficha.');})

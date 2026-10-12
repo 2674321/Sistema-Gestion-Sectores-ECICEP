@@ -14,7 +14,7 @@ const orden = ['00_Config.js','01_Utilidades.js','02_Normalizacion.js','17_Hojas
 const readSrc = (f) => readFileSync(path.join(raiz, 'src', f), 'utf8');
 for (const f of orden) vm.runInContext(readSrc(f), ctx, { filename: f });
 
-for (const fn of ['Form_operativoInstalar', 'Form_construirSchema_', 'Form_syncCatalogos', 'Form_operativoReparar']) {
+for (const fn of ['Form_operativoInstalar_', 'Form_construirSchema_', 'Form_syncCatalogos_', 'Form_operativoReparar_']) {
   assert.equal(typeof ctx[fn], 'function', 'tras cargar el canal debe existir ' + fn);
 }
 assert.ok(ctx.Form_formId_() === '' || typeof ctx.Form_formId_() === 'string', 'Form_formId_ responde sin lanzar');

@@ -4,7 +4,7 @@
  *
  * Problema resuelto (hotfix 0.12.1): la fase "Presentación del libro" (etapa
  * 'diseno') excedía el límite de ejecución de Apps Script porque ejecutaba en
- * UN solo RPC Modelo_aplicarDiseno() + Libro_repararPresentacion_({forzar:true}),
+ * UN solo RPC Modelo_aplicarDiseno_() + Libro_repararPresentacion_({forzar:true}),
  * forzando la reescritura visual completa de todas las hojas en cada
  * instalación.
  *
@@ -21,13 +21,13 @@
  *    antes de escribir (estilos de encabezado, banding, anchos, formatos
  *    numéricos, validaciones, notas y colores de RUT).
  *  - Sin fuerza global: se eliminó el {forzar:true} compartido; una hoja con
- *    secciones sin pintar se detecta (HVis_yaFormateada / HVis_pendientesVisual)
+ *    secciones sin pintar se detecta (HVis_yaFormateada_ / HVis_pendientesVisual_)
  *    y se repara solo esa hoja.
  *
  *  v0.14: el instalador tiene UNA fase principal de presentación ('diseno').
  *  Las antiguas fases top-level 'visual' e 'inicio' fueron absorbidas: la
  *  estructura superior vive en las subtareas formato:* (Presentacion_-
- *  formatearHoja_ → HVis_reconciliarHoja) e INICIO es la subtarea 'inicio'
+ *  formatearHoja_ → HVis_reconciliarHoja_) e INICIO es la subtarea 'inicio'
  *  de este mismo plan. Instalar_pVisual / Instalar_pInicio quedan como
  *  wrappers deprecated de compatibilidad (20_Instalador).
  *
@@ -137,7 +137,7 @@ function Presentacion_layoutVigente_(opciones) {
   var d = Libro_leerDirty_();
   if (d.VISUAL || d.VALIDACIONES || d.ESTRUCTURA) return false;
   try {
-    var diag = HVis_diagnosticarTodas(), pendientes = 0;
+    var diag = HVis_diagnosticarTodas_(), pendientes = 0;
     Object.keys(diag.diagnostico || {}).forEach(function (k) {
       var v = diag.diagnostico[k], p = v && v.estadoActual && v.estadoActual.visual;
       pendientes += p ? (p.cantidadPendientes || 0) : 0;
@@ -145,7 +145,7 @@ function Presentacion_layoutVigente_(opciones) {
     if (pendientes !== 0) return false;
   } catch (eD) { return false; }
   try {
-    var hI = Modelo_ss().getSheetByName('INICIO');
+    var hI = Modelo_ss_().getSheetByName('INICIO');
     if (typeof Inicio_layoutVigente_ === 'function' && !Inicio_layoutVigente_(hI)) return false;
   } catch (eI) { return false; }
   try {
@@ -182,7 +182,7 @@ function Presentacion_cache_() {
 }
 
 function Presentacion_cacheClave_(ejecucion) {
-  var sufijo = Utl_texto(ejecucion).trim().replace(/[^A-Za-z0-9_-]/g, '_');
+  var sufijo = Utl_texto_(ejecucion).trim().replace(/[^A-Za-z0-9_-]/g, '_');
   if (!sufijo) sufijo = 'VACIA';
   return PRESENTACION_CACHE_PREFIJO + '|' + sufijo;
 }
@@ -241,27 +241,27 @@ function Presentacion_ejecutarTarea_(tarea, opciones) {
     var r;
     switch (tarea.id) {
       case 'base':
-        r = Modelo_aplicarDiseno();
+        r = Modelo_aplicarDiseno_();
         break;
       case 'validaciones:extras':
         // Complemento sin duplicar las puertas INGRESO_*, que son de la etapa
-        // 'validaciones' (Modelo_validarIngresos). Fast-path: hoja con reglas
+        // 'validaciones' (Modelo_validarIngresos_). Fast-path: hoja con reglas
         // ya presentes = cero escrituras → ideal para reinstalaciones.
-        r = Hojas_aplicarValidaciones_(Modelo_ss(),
+        r = Hojas_aplicarValidaciones_(Modelo_ss_(),
           { hojas: [HOJAS.PACIENTES].concat(HOJAS_SECTOR) });
         break;
       case 'notas':
-        r = Hojas_aplicarNotas_(Modelo_ss());
+        r = Hojas_aplicarNotas_(Modelo_ss_());
         break;
       case 'condicionales':
-        r = Hojas_formatoCondicional(Modelo_ss());
+        r = Hojas_formatoCondicional_(Modelo_ss_());
         break;
       case 'accesorios':
-        var ss = Modelo_ss();
-        var rut = Hojas_colorearRutIngresos(ss);
+        var ss = Modelo_ss_();
+        var rut = Hojas_colorearRutIngresos_(ss);
         r = { ok: !(rut.fallidas || []).length, rut: rut,
-          ocultas: Hojas_ocultarTecnicas(ss), protecciones: Hojas_proteger(ss),
-          filtros: Hojas_filtros(ss), motivo: (rut.fallidas || []).join('; ') };
+          ocultas: Hojas_ocultarTecnicas_(ss), protecciones: Hojas_proteger_(ss),
+          filtros: Hojas_filtros_(ss), motivo: (rut.fallidas || []).join('; ') };
         break;
       case 'inicio':
         // v0.15 §6: forzarInicio (opción avanzada o modo FORZAR_INICIO) borra el
@@ -277,7 +277,7 @@ function Presentacion_ejecutarTarea_(tarea, opciones) {
         var opInicio = {};
         for (var kInicio in opciones) opInicio[kInicio] = opciones[kInicio];
         opInicio.viaPlan = true;
-        r = Inicio_construir_(Modelo_ss(), { forzar: forceInicio === true, escribir: opInicio });
+        r = Inicio_construir_(Modelo_ss_(), { forzar: forceInicio === true, escribir: opInicio });
         break;
       case 'paridad:INGRESO':
         r = HVis_compararFamilia_(Presentacion_familiasParidad_().ingreso);
@@ -342,13 +342,13 @@ function Presentacion_formatearGrupo_(nombres) {
  *  por fase (estructuraMs/anchosMs/formatosMs/semanticaMs, no sensibles).
  *  Un solo plan, un solo owner por propiedad (§17). */
 function Presentacion_formatearHoja_(nombre) {
-  var ss = Modelo_ss(), h = ss.getSheetByName(nombre);
+  var ss = Modelo_ss_(), h = ss.getSheetByName(nombre);
   if (!h) return { ok: true, aplicados: 0, motivo: 'sin hoja' };
   var errores = [], codigoFallo = '', t0 = Date.now();
   var ms = { estructuraMs: 0, anchosMs: 0, formatosMs: 0, semanticaMs: 0 };
-  if (typeof HVis_reconciliarHoja === 'function') {
+  if (typeof HVis_reconciliarHoja_ === 'function') {
     try {
-      var rec = HVis_reconciliarHoja(h);
+      var rec = HVis_reconciliarHoja_(h);
       ms.estructuraMs = Date.now() - t0;
       // v0.14.2 §6: el motivo estructurado del reconciliador (hoja · propiedad
       // · actual/esperado) viaja tal cual; sin él la UI quedaba a ciegas.
@@ -358,7 +358,7 @@ function Presentacion_formatearHoja_(nombre) {
     } catch (eR) { ms.estructuraMs = Date.now() - t0; errores.push(nombre + ': estructura superior (' + (eR && eR.message || eR) + ')'); }
   }
   var t1 = Date.now();
-  _modelo_anchosHoja(h);
+  _modelo_anchosHoja_(h);
   ms.anchosMs = Date.now() - t1;
   var t2 = Date.now();
   var f = Hojas_aplicarFormatosNumero_(ss, { hojas: [nombre] });
@@ -383,7 +383,7 @@ function Presentacion_formatearHoja_(nombre) {
  *  pendientes visuales Y la paridad INGRESO/SECTOR e INICIO convergen. NO
  *  consulta: solo lecturas de diagnóstico (arrays batch). */
 function Presentacion_verificar_() {
-  var diag = HVis_diagnosticarTodas();
+  var diag = HVis_diagnosticarTodas_();
   var pendientes = 0, porHoja = {}, advertencias = [], diferencias = [];
   Object.keys(diag.diagnostico || {}).forEach(function (k) {
     var v = diag.diagnostico[k], p = v && v.estadoActual && v.estadoActual.visual;
@@ -391,7 +391,7 @@ function Presentacion_verificar_() {
     pendientes += n; porHoja[k] = n;
     if (n) advertencias.push(k + ': ' + n + ' pendientes');
   });
-  var ss = Modelo_ss();
+  var ss = Modelo_ss_();
   var familias = Presentacion_familiasParidad_();
   var paridadIngreso = (typeof HVis_compararFamilia_ === 'function')
     ? HVis_compararFamilia_(familias.ingreso)
@@ -420,7 +420,7 @@ function Presentacion_verificar_() {
         var celda = hInicio.getRange(x[0]);
         var texto = x[1] ? 'PASS' : 'DIVERGENTE';
         var actual = '';
-        try { actual = Utl_texto(celda.getValue()); } catch (eL) {}
+        try { actual = Utl_texto_(celda.getValue()); } catch (eL) {}
         if (actual !== texto) {
           try { celda.setValue(texto); } catch (eW) {}
         }
@@ -429,7 +429,7 @@ function Presentacion_verificar_() {
   } catch (eInfo) {}
   var porPropiedad = {}, topDivergencias = [];
   diferencias.forEach(function (d) {
-    var root = Utl_texto(d).replace(/^(?:PARIDAD_(?:INGRESO|SECTOR):[^:]*|INICIO|HOJA):/, '').split('[')[0].split('.')[0] || 'otra';
+    var root = Utl_texto_(d).replace(/^(?:PARIDAD_(?:INGRESO|SECTOR):[^:]*|INICIO|HOJA):/, '').split('[')[0].split('.')[0] || 'otra';
     if (!root) root = 'otra';
     porPropiedad[root] = (porPropiedad[root] || 0) + 1;
   });

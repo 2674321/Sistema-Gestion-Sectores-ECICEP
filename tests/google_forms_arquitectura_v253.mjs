@@ -15,6 +15,6 @@ assert.ok(manifest.oauthScopes.some(s => /\/auth\/forms$/.test(s)), 'debe declar
 assert.equal(manifest.webapp && manifest.webapp.executeAs, 'USER_DEPLOYING', 'la WebApp se ejecuta como el deployer');
 assert.equal(manifest.webapp && manifest.webapp.access, 'ANYONE_ANONYMOUS', 'la captura es anónima (DEC-102)');
 assert.ok(!/setDestination\s*\(/.test(canal), 'el canal NO debe usar setDestination (arquitectura durable)');
-assert.ok(/newTrigger\('Form_worker'\)/.test(canal) && /everyMinutes\(5\)/.test(canal), 'el worker debe estar enganchado por trigger');
+assert.ok(/newTrigger\('Form_worker_'\)/.test(canal) && /everyMinutes\(5\)/.test(canal), 'el worker debe estar enganchado por trigger');
 
 console.log('google_forms_arquitectura_v253: PASS');

@@ -43,7 +43,7 @@ assert.equal(r.idEvento, 'EV-0001');
 // PROCESADO sin idEvento, con marca de evento durable → completa
 const capA = 'Cp4-' + 'a'.repeat(32);
 const hEv = hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)]);
-const hFr = hojaFake([Array.from(ctx.Form_columnas())]);
+const hFr = hojaFake([Array.from(ctx.Form_columnas_())]);
 const ss = {
   getSheetByName: (n) => {
     if (n === 'EVENTOS') return hEv;
@@ -52,8 +52,8 @@ const ss = {
   },
   insertSheet: (n) => hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)])
 };
-ctx.Modelo_ss = () => ss;
-ctx.Modelo_hoja = (n) => ss.getSheetByName(n);
+ctx.Modelo_ss_ = () => ss;
+ctx.Modelo_hoja_ = (n) => ss.getSheetByName(n);
 ctx.Session = { getActiveUser: () => ({ getEmail: () => 't@e.cl' }) };
 const colIdx = {}; Array.from(ctx.COLUMNAS_EVENTOS).forEach((c,i)=>colIdx[c]=i);
 const mkEv = (f) => { const fila = Array.from(ctx.COLUMNAS_EVENTOS).map(() => ''); fila[colIdx.ID_EVENTO] = f.idEvento || ''; fila[colIdx.ID_INTERNO] = f.idInterno || ''; fila[colIdx.TIPO_EVENTO] = f.tipo || 'INGRESO'; fila[colIdx.FUENTE] = f.fuente; return fila; };
@@ -64,8 +64,8 @@ assert.equal(r.estado, E.PROCESADO, 'se completó desde la marca completa');
 assert.equal(r.idEvento, 'EV-0001', 'idEvento recuperado de EVENTOS');
 
 // Fuente DURABLE del pipeline INGRESO real: el evento persiste FUENTE = captureId
-// DESNUDO (Fuentes_fuenteOrigen → 03_Fuentes.js:90-97). La recuperación debe
-// completar con la marca generada por Captura_v2_marca ('FORM|<cid>|NUEVO_INGRESO').
+// DESNUDO (Fuentes_fuenteOrigen_ → 03_Fuentes.js:90-97). La recuperación debe
+// completar con la marca generada por Captura_v2_marca_ ('FORM|<cid>|NUEVO_INGRESO').
 const capR = 'Cp4-' + '9'.repeat(32);
 hEv.val.push(mkEv({ idEvento: 'EV-0002', idInterno: 'EC-PX-2', fuente: capR }));
 r = ctx.Captura_v2_completarIds_(E.PROCESADO, 'EC-PX-2', '', 'FORM|' + capR + '|NUEVO_INGRESO');
@@ -95,11 +95,11 @@ assert.equal(r.estado, E.RECIBIDO);
 //    recuperación §17 intenta completar desde la marca durable y, al no haber
 //    evidencia, NO degrada (idInterno presente = entidad creada). ────────────
 const payload = { captureId: capA, accion: 'nuevoIngreso', rut: '12345678-5', nombre: 'T P', fechaNacimiento: '1990-01-01', sector: 'VERDE', fechaIngreso: '2026-09-01', profesional: 'Médico/a' };
-const c = ctx.Captura_v2_ctx();
+const c = ctx.Captura_v2_ctx_();
 c.entregar = (norm, opciones) => ({ estado: E.PROCESADO, idInterno: 'EC-PX-1', idEvento: '', ingresoHoja: 'INGRESO_VERDE', ingresoFila: '4' });
 c.aplicarAgenda = null;
 c.aplicarContacto = null;
-const res = ctx.Captura_v2_enviar(payload, c);
+const res = ctx.Captura_v2_enviar_(payload, c);
 assert.equal(res.ok, true, JSON.stringify(res));
 assert.equal(res.data.estado, E.PROCESADO, 'idInterno presente ⇒ PROCESADO (nunca degrada sin evidencia de pérdida)');
 assert.equal(res.data.idInterno, 'EC-PX-1');
@@ -108,22 +108,22 @@ assert.equal(res.data.idEvento, '', 'idEvento vacío es válido en la respuesta 
 // Pérdida silenciosa real: la entrega afirma PROCESADO SIN ID alguno (ni
 // idInterno ni idEvento) y no hay evidencia durable → la respuesta DEGRADA y
 // el trailer queda REQUIERE_REVISION (nunca un falso PROCESADO).
-const c0 = ctx.Captura_v2_ctx();
+const c0 = ctx.Captura_v2_ctx_();
 c0.entregar = (norm, opciones) => ({ estado: E.PROCESADO, idInterno: '', idEvento: '', ingresoHoja: 'INGRESO_VERDE', ingresoFila: '4' });
 c0.aplicarAgenda = null;
 c0.aplicarContacto = null;
-const res0 = ctx.Captura_v2_enviar(
+const res0 = ctx.Captura_v2_enviar_(
   Object.assign({}, payload, { captureId: 'Cp4-' + '0'.repeat(32), rut: '12345678-5', nombre: 'SIN IDS' }), c0);
 assert.equal(res0.ok, true, JSON.stringify(res0));
 assert.equal(res0.data.estado, E.REQUIERE_REVISION, 'nunca fake-PROCESADO cuando no existe ninguna identidad');
 assert.equal(res0.data.motivo, 'PROCESADO_SIN_IDS', 'motivo visible para operador');
 
 // Contraste: entrega COMPLETA sí queda PROCESADO.
-const c2 = ctx.Captura_v2_ctx();
+const c2 = ctx.Captura_v2_ctx_();
 c2.entregar = (norm, opciones) => ({ estado: E.PROCESADO, idInterno: 'EC-PX-1', idEvento: 'EV-0001', ingresoHoja: 'INGRESO_VERDE', ingresoFila: '4' });
 c2.aplicarAgenda = null;
 c2.aplicarContacto = null;
-const res2 = ctx.Captura_v2_enviar(
+const res2 = ctx.Captura_v2_enviar_(
   Object.assign({}, payload, { captureId: 'Cp4-' + 'b'.repeat(32) }), c2);
 assert.equal(res2.ok, true, JSON.stringify(res2));
 assert.equal(res2.data.estado, E.PROCESADO, 'entrega completa sí es PROCESADO');
@@ -131,11 +131,11 @@ assert.equal(res2.data.estado, E.PROCESADO, 'entrega completa sí es PROCESADO')
 // Recuperación INTEGRADA con la convención real del pipeline INGRESO: la entrega
 // devuelve PROCESADO sin idEvento pero el EVENTO ya existe con FUENTE=return captureId
 // desnudo (el flujo real). La respuesta debe completar los IDs, no degradar.
-const c3 = ctx.Captura_v2_ctx();
+const c3 = ctx.Captura_v2_ctx_();
 c3.entregar = (norm, opciones) => ({ estado: E.PROCESADO, idInterno: 'EC-PX-2', idEvento: '', ingresoHoja: 'INGRESO_VERDE', ingresoFila: '6' });
 c3.aplicarAgenda = null;
 c3.aplicarContacto = null;
-const res3 = ctx.Captura_v2_enviar(
+const res3 = ctx.Captura_v2_enviar_(
   Object.assign({}, payload, { captureId: capR, nombre: 'R RECUP' }), c3);
 assert.equal(res3.ok, true, JSON.stringify(res3));
 assert.equal(res3.data.estado, E.PROCESADO, 'recupera ids desde FUENTE desnuda (flujo INGRESO)');

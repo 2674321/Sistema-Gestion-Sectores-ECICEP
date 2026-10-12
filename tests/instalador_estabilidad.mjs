@@ -15,19 +15,19 @@ c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDat
 c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
 const clave = c.WebApp_claveOperador_();
 // DEC-102: el acceso es universal; ninguna credencial (ni vacía) bloquea el instalador.
-assert.notEqual(c.api_instalarEtapas('').motivo, 'ACCESO_DENEGADO');
-assert.equal(c.api_instalarEtapas(clave).ok, true);
-assert.equal(c.api_instalarEtapas('').ok, true, 'sin credencial también ejecuta (DEC-102)');
-const diagnosticarReal = c.Instalar_diagnosticar;
-c.Instalar_diagnosticar = () => ({ ok: true, diagnostico: { resumen: { fasesPendientes: [] } } });
-assert.equal(c.api_instalarDiagnostico(clave).ok, true);
-assert.equal(c.api_instalarDiagnostico('').ok, true, 'sin credencial también diagnostica');
+assert.notEqual(c.api_instalarEtapas_('').motivo, 'ACCESO_DENEGADO');
+assert.equal(c.api_instalarEtapas_(clave).ok, true);
+assert.equal(c.api_instalarEtapas_('').ok, true, 'sin credencial también ejecuta (DEC-102)');
+const diagnosticarReal = c.Instalar_diagnosticar_;
+c.Instalar_diagnosticar_ = () => ({ ok: true, diagnostico: { resumen: { fasesPendientes: [] } } });
+assert.equal(c.api_instalarDiagnostico_(clave).ok, true);
+assert.equal(c.api_instalarDiagnostico_('').ok, true, 'sin credencial también diagnostica');
 let llamadas = 0;
 c.Instalar_pRuntime_ = () => { llamadas++; return { ok: false, motivo: 'FALLO_SIMULADO' }; };
-c.Log_error = () => {}; c.Log_flush = () => {};
-assert.equal(c.api_instalarPaso('runtime', clave).motivo, 'FALLO_SIMULADO');
+c.Log_error_ = () => {}; c.Log_flush_ = () => {};
+assert.equal(c.api_instalarPaso_('runtime', clave).motivo, 'FALLO_SIMULADO');
 assert.equal(llamadas, 1);
-assert.equal(c.api_instalarPaso('runtime', '').motivo, 'FALLO_SIMULADO', 'sin credencial llega al motor');
+assert.equal(c.api_instalarPaso_('runtime', '').motivo, 'FALLO_SIMULADO', 'sin credencial llega al motor');
 assert.equal(llamadas, 2);
 // v0.14: Instalar_pVisual_ es wrapper del motor único (subtareas formato:* +
 // complementarias del plan, sin pipeline paralelo). Simula un fallo de subtarea.
@@ -36,37 +36,37 @@ c.Presentacion_ejecutarTarea_ = t => t.id === 'formato:PACIENTES'
   ? { ok: false, motivo: 'PACIENTES: fallo simulado' } : { ok: true, detalle: {} };
 assert.equal(c.Instalar_pVisual_().ok, false);
 c.Presentacion_ejecutarTarea_ = tareaRealV;
-c.Modelo_leerPacientes = () => []; c.Modelo_leerEventos = () => [];
-c.Modelo_hoja = () => ({});
-c.Modelo_escanearEstructura = () => ({});
-c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: '1' });
+c.Modelo_leerPacientes_ = () => []; c.Modelo_leerEventos_ = () => [];
+c.Modelo_hoja_ = () => ({});
+c.Modelo_escanearEstructura_ = () => ({});
+c.Mig_clasificarInstalacion_ = () => ({ estado: 'INCOMPLETA', version: '1' });
 assert.equal(c.Instalar_pVerificar_().ok, false);
 // Un esquema ilegible o posterior bloquea la migración aun si faltan hojas.
-c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: 'abc', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
+c.Mig_clasificarInstalacion_ = () => ({ estado: 'INCOMPLETA', version: 'abc', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
 let migraciones = 0;
-c.Mig_ejecutarDeclaradas = () => { migraciones++; return { ok: true }; };
+c.Mig_ejecutarDeclaradas_ = () => { migraciones++; return { ok: true }; };
 assert.equal(c.Instalar_pVersionado_().motivo, 'VERSION_DESCONOCIDA');
-assert.equal(c.Mig_ejecutarPersistente().motivo, 'VERSION_DESCONOCIDA');
+assert.equal(c.Mig_ejecutarPersistente_().motivo, 'VERSION_DESCONOCIDA');
 assert.equal(migraciones, 0);
-c.Mig_clasificarInstalacion = () => ({ estado: 'INCOMPLETA', version: '2', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
-assert.equal(c.Mig_ejecutarPersistente().motivo, 'ESQUEMA_DIVERGENTE');
+c.Mig_clasificarInstalacion_ = () => ({ estado: 'INCOMPLETA', version: '2', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
+assert.equal(c.Mig_ejecutarPersistente_().motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(migraciones, 0);
 let estructuraEscrita = 0;
 c.Modelo_crearEstructura_ = () => { estructuraEscrita++; return { creadas: [], existentes: [] }; };
-assert.equal(c.Instalar_ejecutarPolitica().motivo, 'ESQUEMA_DIVERGENTE');
+assert.equal(c.Instalar_ejecutarPolitica_().motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(estructuraEscrita, 0);
-c.Mig_schemaLeido = () => '3';
-assert.equal(c.api_instalarPaso('estructura', clave).motivo, 'ESQUEMA_DIVERGENTE');
+c.Mig_schemaLeido_ = () => '3';
+assert.equal(c.api_instalarPaso_('estructura', clave).motivo, 'ESQUEMA_DIVERGENTE');
 assert.equal(estructuraEscrita, 0);
-c.Modelo_validarIngresos = () => ({ fallidas: ['INGRESO_VERDE: error'] });
-c.Modelo_ss = () => ({});
+c.Modelo_validarIngresos_ = () => ({ fallidas: ['INGRESO_VERDE: error'] });
+c.Modelo_ss_ = () => ({});
 assert.equal(c.Instalar_pValidaciones_().ok, false);
-c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
+c.Modelo_aplicarDiseno_ = () => ({ fallidas: ['PACIENTES: error'] });
 assert.equal(c.Instalar_pDiseno_().ok, false);
 // v0.14 §9: INICIO pertenece al motor (subtarea 'inicio'): el wrapper delega en
 // Presentacion_ejecutarTarea_ (que usa Inicio_construir_) + verificación con
-// Inicio_diagnosticarVisual_, sin Modelo_disenoHojas ni toques a otras hojas.
-c.Modelo_ss = () => ({ getSheetByName: n => n === 'INICIO' ? { hoja: 'INICIO' } : null });
+// Inicio_diagnosticarVisual_, sin Modelo_disenoHojas_ ni toques a otras hojas.
+c.Modelo_ss_ = () => ({ getSheetByName: n => n === 'INICIO' ? { hoja: 'INICIO' } : null });
 c.Inicio_construir_ = () => ({ ok: true });
 c.Inicio_diagnosticarVisual_ = () => ({ ok: false, diferencias: ['SECTOR_VERDE: formato simulado'] });
 assert.match(c.Instalar_pInicio_().motivo, /SECTOR_VERDE/);
@@ -75,11 +75,11 @@ c.Inicio_construir_ = () => ({ ok: false, motivo: 'Inicio_construir_ falló' });
 assert.match(c.Instalar_pInicio_().motivo, /Inicio_construir_/);
 c.Inicio_construir_ = () => ({ ok: true });
 assert.equal(c.Instalar_pInicio_().ok, true);
-c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: ['INGRESO_VERDE: RUT simulado'] });
-c.Hojas_ocultarTecnicas = () => ({}); c.Hojas_proteger = () => ({}); c.Hojas_filtros = () => ({});
+c.Hojas_colorearRutIngresos_ = () => ({ coloreadas: 0, fallidas: ['INGRESO_VERDE: RUT simulado'] });
+c.Hojas_ocultarTecnicas_ = () => ({}); c.Hojas_proteger_ = () => ({}); c.Hojas_filtros_ = () => ({});
 assert.match(c.Presentacion_ejecutarTarea_({ id: 'accesorios', nombre: 'Ayudas' }).motivo, /INGRESO_VERDE/);
 c.Estrat_recalcularTodos_ = () => ({ ok: false, motivo: 'SIN_HOJA_PACIENTES' });
-c.Control_recalcularTodos = () => ({ ok: true, cambios: 0, total: 0 });
+c.Control_recalcularTodos_ = () => ({ ok: true, cambios: 0, total: 0 });
 const derivadosDelegados = c.Instalar_pDerivados_();
 assert.equal(derivadosDelegados.ok, true);
 assert.equal(derivadosDelegados.omitida, true);
@@ -90,32 +90,32 @@ const hoja = (nombre, datos) => ({ getName: () => nombre,
   getLastRow: () => datos.some(f => f.some(v => v !== '')) ? datos.length : 0 });
 const libro = { getSheets: () => [hoja('DASHBOARD', [['dato clínico']]), hoja('Borrador', [['']])],
   deleteSheet: () => { borradas++; } };
-const inventario = c.Modelo_limpiarHojasResiduales(libro);
+const inventario = c.Modelo_limpiarHojasResiduales_(libro);
 assert.equal(borradas, 0);
 assert.deepEqual(Array.from(inventario.candidatas), ['DASHBOARD', 'Borrador']);
-c.Modelo_ss = () => libro;
+c.Modelo_ss_ = () => libro;
 assert.equal(c.Instalar_pLimpieza_().eliminadas.length, 0);
 assert.doesNotMatch(readFileSync(new URL('06_Modelo.js', root), 'utf8').match(/function Modelo_crearEstructura_\(\)\s*\{[\s\S]*?\n\}/)[0], /deleteSheet\(/);
 // Las etapas de carga de datos reales (fuentes, amarillo, enriquecimiento)
 // son MUTANTES: toman LockService. limpieza es de solo lectura.
-c.Mig_schemaLeido = () => '2';
+c.Mig_schemaLeido_ = () => '2';
 let bloqueos = 0;
 c.LockService = { getScriptLock: () => { bloqueos++; return { tryLock: () => true, releaseLock() {} }; } };
 c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
 c.Amarillo_importarTodo_ = () => ({ ok: true, puerta: {}, historico: {} });
-c.Act_enriquecerPacientes = () => ({ ok: true, totalPacientes: 0, revisados: 0, enriquecidos: 0, sinCambios: 0 });
+c.Act_enriquecerPacientes_ = () => ({ ok: true, totalPacientes: 0, revisados: 0, enriquecidos: 0, sinCambios: 0 });
 for (const id of ['fuentes', 'amarillo', 'enriquecimiento'])
-  assert.equal(c.api_instalarPaso(id, clave).ok, true, id);
+  assert.equal(c.api_instalarPaso_(id, clave).ok, true, id);
 assert.equal(bloqueos, 3, 'las etapas de carga de datos toman LockService');
-assert.equal(c.api_instalarPaso('limpieza', clave).ok, true, 'limpieza');
+assert.equal(c.api_instalarPaso_('limpieza', clave).ok, true, 'limpieza');
 assert.equal(bloqueos, 3, 'limpieza no toma lock');
 // Si falla el bloqueo, ninguna etapa escritora puede continuar sin exclusividad.
-c.Mig_schemaLeido = () => '1';
+c.Mig_schemaLeido_ = () => '1';
 c.LockService = { getScriptLock: () => { throw Error('bloqueo no disponible'); } };
-assert.equal(c.api_instalarPaso('estructura', clave).motivo, 'LOCK_NO_DISPONIBLE');
+assert.equal(c.api_instalarPaso_('estructura', clave).motivo, 'LOCK_NO_DISPONIBLE');
 assert.equal(estructuraEscrita, 0);
 delete c.LockService;
-assert.equal(c.api_instalarPaso('estructura', clave).motivo, 'LOCK_NO_DISPONIBLE');
+assert.equal(c.api_instalarPaso_('estructura', clave).motivo, 'LOCK_NO_DISPONIBLE');
 assert.equal(estructuraEscrita, 0);
 // La Web App no tiene menú de Sheets y debe comunicarlo como etapa omitida.
 c.SpreadsheetApp = { getUi: () => { throw Error('sin UI'); } };
@@ -140,16 +140,16 @@ const hojasLectura = new Map([
   ['INGRESO_VERDE', ingreso],
   [c.HOJAS.PACIENTES, pacientes], [c.HOJAS.EVENTOS, eventos], [c.HOJAS.CONFLICTOS, conflictos]
 ]);
-c.Modelo_ss = () => ({ getSheetByName: nombre => hojasLectura.get(nombre) || null });
-c.Modelo_escanearEstructura = () => ({ hojas: {}, criticasFaltantes: [] });
-c.Mig_clasificarInstalacion = () => ({ estado: 'VIGENTE', version: '1', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
-c.HVis_diagnosticarTodas = () => ({ diagnostico: {} });
+c.Modelo_ss_ = () => ({ getSheetByName: nombre => hojasLectura.get(nombre) || null });
+c.Modelo_escanearEstructura_ = () => ({ hojas: {}, criticasFaltantes: [] });
+c.Mig_clasificarInstalacion_ = () => ({ estado: 'VIGENTE', version: '1', objetivo: '1', pendientes: [], sectoresDivergentes: [] });
+c.HVis_diagnosticarTodas_ = () => ({ diagnostico: {} });
 const prohibida = () => { throw Error('El diagnóstico escribió el libro'); };
-c.Modelo_validarIngresos = prohibida;
-c.Hojas_formatoCondicional = prohibida;
-c.Hojas_ocultarTecnicas = prohibida;
-c.Instalar_diagnosticar = diagnosticarReal;
-const previa = c.Instalar_diagnosticar();
+c.Modelo_validarIngresos_ = prohibida;
+c.Hojas_formatoCondicional_ = prohibida;
+c.Hojas_ocultarTecnicas_ = prohibida;
+c.Instalar_diagnosticar_ = diagnosticarReal;
+const previa = c.Instalar_diagnosticar_();
 assert.equal(previa.ok, true);
 assert.equal(previa.diagnostico.validaciones.aplicadas, 4);
 assert.equal(previa.diagnostico.validaciones.pendientes, 1);

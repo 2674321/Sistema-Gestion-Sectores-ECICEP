@@ -22,8 +22,8 @@ var AUDITORIA_CAMPOS_EVENTOS = [
  * @param {string} rut normalizado 'XXXXXXXX-X' o 'XXXXXXXXXX' o con puntos
  * @returns {string} '**.***.**X-X'
  */
-function Aud_anonRut(rut) {
-  var r = Utl_texto(rut);
+function Aud_anonRut_(rut) {
+  var r = Utl_texto_(rut);
   if (!r) return '';
   var clean = r.replace(/[.\s]/g, '');
   // formato: dddddddd-X o dddddddddX (X = dígito o K)
@@ -38,8 +38,8 @@ function Aud_anonRut(rut) {
 /**
  * PURA: anonimiza nombre (primera letra + '•••').
  */
-function Aud_anonNombre(nombre) {
-  var n = Utl_texto(nombre).trim();
+function Aud_anonNombre_(nombre) {
+  var n = Utl_texto_(nombre).trim();
   if (!n) return '';
   var partes = n.split(/\s+/);
   return partes.map(function (p) { return p.charAt(0).toUpperCase() + '•••'; }).join(' ');
@@ -48,8 +48,8 @@ function Aud_anonNombre(nombre) {
 /**
  * PURA: máscara ID_INTERNO (solo últimos 4 chars).
  */
-function Aud_anonId(idInterno) {
-  var s = Utl_texto(idInterno);
+function Aud_anonId_(idInterno) {
+  var s = Utl_texto_(idInterno);
   if (!s) return '';
   return '•••' + (s.length >= 4 ? s.slice(-4) : s);
 }
@@ -59,16 +59,16 @@ function Aud_anonId(idInterno) {
  * @returns {estado:string, esDesalineado:boolean, desalineadoActual:string|null, desalineadoDerivado:string|null}
  * estados: VIGENTE|PRÓXIMO|VENCIDO|SIN_ÚLTIMO_CONTROL|SIN_ESTRATIFICACIÓN|SIN_CONFIGURACIÓN|FECHA_INVÁLIDA|DESALINEADO
  */
-function Aud_clasificarPersona(p, freqConfig, hoyIso, avisoDias) {
-  var proximo = Control_aIso(p.PROXIMO_CONTROL);
-  return { estado: Control_estadoVigencia(proximo, hoyIso, avisoDias), esDesalineado: false };
+function Aud_clasificarPersona_(p, freqConfig, hoyIso, avisoDias) {
+  var proximo = Control_aIso_(p.PROXIMO_CONTROL);
+  return { estado: Control_estadoVigencia_(proximo, hoyIso, avisoDias), esDesalineado: false };
 }
 
 /**
  * PURA: clasifica población completa y calcula agregados.
  * @returns {metricas, desalineados:[], porSector:{}}
  */
-function Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias) {
+function Aud_clasificarPoblacion_(pacientes, freqConfig, hoyIso, avisoDias) {
   var m = {
     total: 0, G1: 0, G2: 0, G3: 0, GPend: 0,
     conControles: 0, sinUltimoControl: 0, conProximo: 0,
@@ -80,17 +80,17 @@ function Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias) {
 
   (pacientes || []).forEach(function (p) {
     m.total++;
-    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    var g = Utl_texto_(p.ESTRATIFICACION).toUpperCase();
     var nivel = /^G[123]$/.test(g) ? g : 'GPend';
     m[nivel]++;
-    var sec = Utl_texto(p.SECTOR).toUpperCase() || 'SIN_SECTOR';
+    var sec = Utl_texto_(p.SECTOR).toUpperCase() || 'SIN_SECTOR';
     porSector[sec] = porSector[sec] || { total: 0, G1: 0, G2: 0, G3: 0, GPend: 0 };
     porSector[sec].total++; porSector[sec][nivel]++;
 
-    var c = Aud_clasificarPersona(p, freqConfig, hoyIso, avisoDias);
-    if (Utl_vacio(p.ULTIMO_CONTROL)) m.sinUltimoControl++;
+    var c = Aud_clasificarPersona_(p, freqConfig, hoyIso, avisoDias);
+    if (Utl_vacio_(p.ULTIMO_CONTROL)) m.sinUltimoControl++;
     else m.conControles++;
-    if (Control_aIso(p.PROXIMO_CONTROL)) m.conProximo++;
+    if (Control_aIso_(p.PROXIMO_CONTROL)) m.conProximo++;
     if (c.estado === 'SIN_FECHA') m.sinFecha++;
     else if (c.estado === 'VENCIDO') m.vencidos++;
     else if (c.estado === 'POR_VENCER') m.proximos++;
@@ -98,15 +98,15 @@ function Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias) {
     if (c.esDesalineado) {
       m.desalineados++;
       desalineados.push({
-        id: Aud_anonId(p.ID_INTERNO), rut: Aud_anonRut(p.RUT), nombre: Aud_anonNombre(p.NOMBRE),
+        id: Aud_anonId_(p.ID_INTERNO), rut: Aud_anonRut_(p.RUT), nombre: Aud_anonNombre_(p.NOMBRE),
         sector: sec, estrat: nivel,
         almacenado: c.desalineadoActual, derivado: c.desalineadoDerivado
       });
     }
-    var nac = Utl_edadDesde(Utl_texto(p.FECHA_NACIMIENTO),
+    var nac = Utl_edadDesde_(Utl_texto_(p.FECHA_NACIMIENTO),
       hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined);
-    if (Utl_vacio(p.FECHA_NACIMIENTO)) m.sinNacimiento++;
-    else if (nac === '' && !Utl_vacio(p.FECHA_NACIMIENTO)) m.fechaInvalida++;
+    if (Utl_vacio_(p.FECHA_NACIMIENTO)) m.sinNacimiento++;
+    else if (nac === '' && !Utl_vacio_(p.FECHA_NACIMIENTO)) m.fechaInvalida++;
   });
   m.GPend = m.total - m.G1 - m.G2 - m.G3;
   return { metricas: m, desalineados: desalineados, porSector: porSector };
@@ -116,13 +116,13 @@ function Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias) {
  * PURA: auditoría Amarillo (eventos sector AMARILLO).
  * @returns {total, duplicados, gruposDuplicados, desalineados, vencidos, proximos, G1, G2, G3, sinUltimo, sinEstrat, sinProximo, ejemplosDuplicados}
  */
-function Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias) {
+function Aud_auditarAmarillo_(pacientes, eventos, freqConfig, hoyIso, avisoDias) {
   var evAm = (eventos || []).filter(function (e) {
-    return Utl_texto(e.SECTOR).toUpperCase() === 'AMARILLO';
+    return Utl_texto_(e.SECTOR).toUpperCase() === 'AMARILLO';
   });
-  var dup = Amarillo_analizarDuplicados(evAm);
+  var dup = Amarillo_analizarDuplicados_(evAm);
   var porId = {};
-  (pacientes || []).forEach(function (p) { porId[Utl_texto(p.ID_INTERNO)] = p; });
+  (pacientes || []).forEach(function (p) { porId[Utl_texto_(p.ID_INTERNO)] = p; });
 
   var res = { total: evAm.length, duplicados: dup.gruposDuplicados, gruposDuplicados: dup.gruposDuplicados,
     desalineados: 0, vencidos: 0, proximos: 0, G1: 0, G2: 0, G3: 0, sinUltimo: 0, sinEstrat: 0, sinProximo: 0,
@@ -130,7 +130,7 @@ function Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias) 
 
   var porPac = {};
   evAm.forEach(function (e) {
-    var pid = Utl_texto(e.ID_INTERNO);
+    var pid = Utl_texto_(e.ID_INTERNO);
     if (!porPac[pid]) porPac[pid] = [];
     porPac[pid].push(e);
   });
@@ -138,15 +138,15 @@ function Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias) 
   Object.keys(porPac).forEach(function (pid) {
     var p = porId[pid];
     if (!p) return;
-    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    var g = Utl_texto_(p.ESTRATIFICACION).toUpperCase();
     if (/^G[123]$/.test(g)) res[g]++;
     else res.sinEstrat++;
-    var ultCtrl = porPac[pid].filter(function (e) { return Utl_texto(e.TIPO_EVENTO) === 'CONTROL'; })
-      .sort(function (a, b) { return Utl_texto(a.FECHA_EVENTO) < Utl_texto(b.FECHA_EVENTO) ? 1 : -1; })[0];
+    var ultCtrl = porPac[pid].filter(function (e) { return Utl_texto_(e.TIPO_EVENTO) === 'CONTROL'; })
+      .sort(function (a, b) { return Utl_texto_(a.FECHA_EVENTO) < Utl_texto_(b.FECHA_EVENTO) ? 1 : -1; })[0];
     if (!ultCtrl) res.sinUltimo++;
-    var proxDer = Control_aIso(p.PROXIMO_CONTROL);
+    var proxDer = Control_aIso_(p.PROXIMO_CONTROL);
     if (!proxDer) { res.sinProximo++; return; }
-    var est = Control_estadoVigencia(proxDer, hoyIso, avisoDias);
+    var est = Control_estadoVigencia_(proxDer, hoyIso, avisoDias);
     if (est === 'VENCIDO') res.vencidos++; else if (est === 'POR_VENCER') res.proximos++;
   });
   return res;
@@ -154,43 +154,43 @@ function Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias) 
 
 /**
  * PURA: auditoría RESPONSABLES (modelo acumulable v0.8.7.2, DEC-039).
- * Las asociaciones canónicas vienen de Responsables_mapear (no de pacientes).
+ * Las asociaciones canónicas vienen de Responsables_mapear_ (no de pacientes).
  * @param {Array} lista asociaciones canónicas [{sector,codigo,nombre,correo,activo}]
  * @param {Array} profesionales catálogo canónico (para activos/inexistentes)
  * @param {Object} legacy correos legacy {SEC:'correo'} desde CONFIG
  */
-function Aud_auditarResponsables(lista, profesionales, legacy) {
+function Aud_auditarResponsables_(lista, profesionales, legacy) {
   var catActivo = {};
   (profesionales || []).forEach(function (p) {
-    catActivo[Utl_texto(p.CODIGO).toUpperCase()] = p.ACTIVO !== false;
+    catActivo[Utl_texto_(p.CODIGO).toUpperCase()] = p.ACTIVO !== false;
   });
   var porSector = {}, porCodigo = {};
   (lista || []).forEach(function (r) {
     (porSector[r.sector] = porSector[r.sector] || []).push(r);
-    porCodigo[Utl_texto(r.codigo).toUpperCase()] = true;
+    porCodigo[Utl_texto_(r.codigo).toUpperCase()] = true;
   });
   var sectores = Object.keys(porSector);
   var total = (lista || []).length;
   var codigos = Object.keys(porCodigo);
   var asociacionesPorCodigo = {}, sectoresPorCodigo = {};
   (lista || []).forEach(function (r) {
-    var c = Utl_texto(r.codigo).toUpperCase();
+    var c = Utl_texto_(r.codigo).toUpperCase();
     asociacionesPorCodigo[c] = (asociacionesPorCodigo[c] || 0) + 1;
     sectoresPorCodigo[c] = (sectoresPorCodigo[c] || {});
-    sectoresPorCodigo[c][Utl_texto(r.sector).toUpperCase()] = true;
+    sectoresPorCodigo[c][Utl_texto_(r.sector).toUpperCase()] = true;
   });
   var multiSector = codigos.filter(function (c) { return Object.keys(sectoresPorCodigo[c]).length > 1; }).length;
   var duplicados = codigos.filter(function (c) { return asociacionesPorCodigo[c] > 1; }).length;
   var inexistentes = [], inactivos = [], correosInvalidos = [], huerfanas = [];
   (lista || []).forEach(function (r) {
-    var c = Utl_texto(r.codigo).toUpperCase();
+    var c = Utl_texto_(r.codigo).toUpperCase();
     if (catActivo[c] === undefined) {
       inexistentes.push(r.sector + ' + ' + r.codigo + ' (' + (r.nombre || 'sin nombre') + ')');
       huerfanas.push(r.sector + ' + ' + r.codigo);
     } else if (catActivo[c] === false) {
       inactivos.push(r.sector + ' + ' + r.codigo);
     }
-    if (r.correo && !Responsables_emailValido(r.correo))
+    if (r.correo && !Responsables_emailValido_(r.correo))
       correosInvalidos.push(r.sector + ' + ' + r.codigo + ' → ' + r.correo);
   });
   return {
@@ -217,13 +217,13 @@ function Aud_auditarResponsables(lista, profesionales, legacy) {
 /**
  * PURA: auditoría PROFESIONALES.
  */
-function Aud_auditarProfesionales(pacientes) {
-  var catalogo = Profesionales_catalogo().filter(function (c) { return c.ACTIVO; });
-  var inactivos = Profesionales_catalogo().filter(function (c) { return !c.ACTIVO; });
+function Aud_auditarProfesionales_(pacientes) {
+  var catalogo = Profesionales_catalogo_().filter(function (c) { return c.ACTIVO; });
+  var inactivos = Profesionales_catalogo_().filter(function (c) { return !c.ACTIVO; });
   var usados = {};
   (pacientes || []).forEach(function (p) {
-    var dup = Utl_texto(p.DUPLA_INGRESO).split(';').map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
-    var ps = Utl_texto(p.PROFESIONAL_SEGUIMIENTO).trim().toUpperCase();
+    var dup = Utl_texto_(p.DUPLA_INGRESO).split(';').map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
+    var ps = Utl_texto_(p.PROFESIONAL_SEGUIMIENTO).trim().toUpperCase();
     [].concat(dup, ps).forEach(function (c) { if (c) usados[c] = (usados[c] || 0) + 1; });
   });
   var inexistentes = Object.keys(usados).filter(function (c) {
@@ -231,7 +231,7 @@ function Aud_auditarProfesionales(pacientes) {
   });
   var duplicadosNombres = {};
   catalogo.forEach(function (c) {
-    var k = Utl_texto(c.NOMBRE).toUpperCase();
+    var k = Utl_texto_(c.NOMBRE).toUpperCase();
     duplicadosNombres[k] = (duplicadosNombres[k] || 0) + 1;
   });
   return {
@@ -248,7 +248,7 @@ function Aud_auditarProfesionales(pacientes) {
 /**
  * PURA: auditoría CONFIG (clasifica claves).
  */
-function Aud_auditarConfig(configRows) {
+function Aud_auditarConfig_(configRows) {
   var grupos = { ESTRATIFICACIÓN: [], RESPONSABLES: [], COMUNES: [], ADMINISTRADOR: [], LEGACY: [], DESCONOCIDA: [] };
   var total = 0, invalidas = 0, duplicadas = 0, freqNegZero = 0, unidadesInvalidas = 0, noUsadas = 0;
   var vistos = {};
@@ -264,10 +264,10 @@ function Aud_auditarConfig(configRows) {
     'FREC_CONTROL_G1': 'LEGACY', 'FREC_CONTROL_G2': 'LEGACY', 'FREC_CONTROL_G3': 'LEGACY', 'FREC_CONTROL_G': 'LEGACY',
     'SECTORES_RESPONSABLES': 'RESPONSABLES'
   };
-  var responsablesKeys = Object.keys(Responsables_correosDe([]).length ? {} : {});
+  var responsablesKeys = Object.keys(Responsables_correosDe_([]).length ? {} : {});
   (configRows || []).forEach(function (f) {
     total++;
-    var k = Utl_texto(f[0]), v = Utl_texto(f[1]);
+    var k = Utl_texto_(f[0]), v = Utl_texto_(f[1]);
     if (vistos[k]) { duplicadas++; }
     vistos[k] = (vistos[k] || 0) + 1;
     var grupo = clavesConocidas[k] || 'DESCONOCIDA';
@@ -277,7 +277,7 @@ function Aud_auditarConfig(configRows) {
       if (isNaN(c) || c <= 0) freqNegZero++;
     }
     if (grupo === 'ESTRATIFICACIÓN' && k.endsWith('_UNIDAD')) {
-      var u = Utl_sinTildes(v).toLowerCase();
+      var u = Utl_sinTildes_(v).toLowerCase();
       if (u.indexOf('día') !== 0 && u.indexOf('mes') !== 0) unidadesInvalidas++;
     }
   });
@@ -295,7 +295,7 @@ function Aud_auditarConfig(configRows) {
 /**
  * PURA: texto ╔════════════════════════════════════════════════════════════════════════════════════╗
  */
-function Aud_renderTexto(secciones) {
+function Aud_renderTexto_(secciones) {
   var ancho = 98;
   function linea(texto, izq, der) {
     var t = izq + texto + der;
@@ -323,35 +323,35 @@ function Aud_renderTexto(secciones) {
  * GAS: dry-run completa — NO escribe nada.
  * @returns {texto:string, datos:Object}
  */
-function Auditoria_ejecutar() {
+function Auditoria_ejecutar_() {
   var t0 = Date.now();
-  var tz = _UI_tz();
+  var tz = _UI_tz_();
   var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var avisoDias = 7;
-  var hC = Modelo_hoja(HOJAS.CONFIG);
+  var hC = Modelo_hoja_(HOJAS.CONFIG);
   // ÚNICA lectura del bloque de CONFIG (antes se leía dos veces)
-  var configRows = (hC && hC.getLastRow() > 1) ? Utl_leerBloque(hC).slice(1) : [];
+  var configRows = (hC && hC.getLastRow() > 1) ? Utl_leerBloque_(hC).slice(1) : [];
   try {
     configRows.forEach(function (f) {
-      if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') avisoDias = parseInt(f[1], 10) || 7;
+      if (Utl_texto_(f[0]) === 'AVISO_CONTROL_DIAS') avisoDias = parseInt(f[1], 10) || 7;
     });
   } catch (e) {}
 
-  var pacientes = Modelo_leerPacientesCampos(AUDITORIA_CAMPOS_PACIENTES);
-  var eventos = Modelo_leerEventosCampos(AUDITORIA_CAMPOS_EVENTOS);
-  var freqConfig = Control_leerFrecuencia();
-  var configRows = (hC && hC.getLastRow() > 1) ? Utl_leerBloque(hC).slice(1) : [];
+  var pacientes = Modelo_leerPacientesCampos_(AUDITORIA_CAMPOS_PACIENTES);
+  var eventos = Modelo_leerEventosCampos_(AUDITORIA_CAMPOS_EVENTOS);
+  var freqConfig = Control_leerFrecuencia_();
+  var configRows = (hC && hC.getLastRow() > 1) ? Utl_leerBloque_(hC).slice(1) : [];
 
-  var clasif = Aud_clasificarPoblacion(pacientes, freqConfig, hoyIso, avisoDias);
-  var amarillo = Aud_auditarAmarillo(pacientes, eventos, freqConfig, hoyIso, avisoDias);
-  var resp = Aud_auditarResponsables(_responsables_leer(), Profesionales_catalogo(), _responsables_leerLegacy());
-  var prof = Aud_auditarProfesionales(pacientes);
-  var conf = Aud_auditarConfig(configRows);
+  var clasif = Aud_clasificarPoblacion_(pacientes, freqConfig, hoyIso, avisoDias);
+  var amarillo = Aud_auditarAmarillo_(pacientes, eventos, freqConfig, hoyIso, avisoDias);
+  var resp = Aud_auditarResponsables_(_responsables_leer_(), Profesionales_catalogo_(), _responsables_leerLegacy_());
+  var prof = Aud_auditarProfesionales_(pacientes);
+  var conf = Aud_auditarConfig_(configRows);
 
   var duplicadosRut = {};
   var vistosRut = {};
   pacientes.forEach(function (p) {
-    var rut = Utl_texto(p.RUT).toUpperCase();
+    var rut = Utl_texto_(p.RUT).toUpperCase();
     if (rut && vistosRut[rut]) duplicadosRut[rut] = (duplicadosRut[rut] || 0) + 1;
     vistosRut[rut] = true;
   });
@@ -434,8 +434,8 @@ function Auditoria_ejecutar() {
         'PACIENTES leídos: ' + pacientes.length + ' (memo)',
         'EVENTOS leídos: ' + eventos.length + ' (memo)',
         'CONFIG leída: 1 (block)',
-        'CONFLICTOS leídos: ' + (function () { try { var h = Modelo_hoja(HOJAS.CONFLICTOS); return h ? Math.max(h.getLastRow() - 1, 0) : 0; } catch (e) { return 0; } })() + ' (full scan)',
-        'Notas: CONFLICTOS leído completo (sin memo); CONFIG leída aquí y en Control_leerFrecuencia + Control_estadoVigencia; avisoDias desde CONFIG una vez'
+        'CONFLICTOS leídos: ' + (function () { try { var h = Modelo_hoja_(HOJAS.CONFLICTOS); return h ? Math.max(h.getLastRow() - 1, 0) : 0; } catch (e) { return 0; } })() + ' (full scan)',
+        'Notas: CONFLICTOS leído completo (sin memo); CONFIG leída aquí y en Control_leerFrecuencia_ + Control_estadoVigencia_; avisoDias desde CONFIG una vez'
       ]
     },
     UX: {
@@ -445,21 +445,21 @@ function Auditoria_ejecutar() {
         'Buscar persona: 2 entradas (Menú Personas → Buscar/Ficha · Panel Buscar paciente)',
         'Abrir controles: 2 entradas (Menú Seguimiento → Controles por persona · Panel Abrir controles)',
         'Ver ficha: 2 rutas (Desde buscador · Desde modal Controles "Ver ficha")',
-        'Edad consistente: Utl_edadDesde usada en Panel, Ficha, CentroResumen (1 implementación)',
+        'Edad consistente: Utl_edadDesde_ usada en Panel, Ficha, CentroResumen (1 implementación)',
         '00_Tokens.html: fragmento include (no diálogo) ✓'
       ]
     },
     SEGURIDAD: {
       titulo: 'SEGURIDAD — Superficie y hallazgos',
       lineas: [
-        'api_irA des-oculta hojas ocultas (LOG, RESPONSABLES, PROFESIONALES, CONFIG, STAGING, REM_SALIDA) — acceso amplio',
-        'CONFIG expuesta en api_configListar (solo lectura) · api_configGuardar/Agregar/Eliminar requieren usuario admin (verificar)',
+        'api_irA_ des-oculta hojas ocultas (LOG, RESPONSABLES, PROFESIONALES, CONFIG, STAGING, REM_SALIDA) — acceso amplio',
+        'CONFIG expuesta en api_configListar_ (solo lectura) · api_configGuardar_/Agregar/Eliminar requieren usuario admin (verificar)',
         'Webhook token en CONFIG (sensible) — no ofuscado en UI'
       ]
     }
   };
 
-  var texto = Aud_renderTexto(secciones);
+  var texto = Aud_renderTexto_(secciones);
   var datos = {
     fechaIso: hoyIso, duracionMs: Date.now() - t0,
     personas: clasif.metricas, desalineados: clasif.desalineados, porSector: clasif.porSector,
@@ -472,13 +472,13 @@ function Auditoria_ejecutar() {
  * GAS: wrapper para Centro de Pruebas (botón ⚖️ Auditoría v0.8.8).
  * Devuelve {ok, texto, datos} para UI.
  */
-function api_auditoriaEjecutar(token) {
+function api_auditoriaEjecutar_(token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
-    return Auditoria_ejecutar();
+    if (!WebApp_autorizarBuscador_(token)) return Api_error_('ACCESO_DENEGADO');
+    return Auditoria_ejecutar_();
   } catch (e) {
-    Log_error('Auditoria', 'ejecutar', e && e.message ? e.message : String(e));
-    Log_flush();
+    Log_error_('Auditoria', 'ejecutar', e && e.message ? e.message : String(e));
+    Log_flush_();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }

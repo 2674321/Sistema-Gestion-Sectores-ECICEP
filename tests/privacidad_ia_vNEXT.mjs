@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';import {readFileSync,readdirSync} from '
 const src=new URL('../src/',import.meta.url),c=vm.createContext({console:{log(){},warn(){},error(){}},Set});
 for(const f of readdirSync(src).filter(x=>/\.(?:js|gs)$/.test(x)).sort())vm.runInContext(readFileSync(new URL(f,src),'utf8'),c,{filename:f});
 c.SpreadsheetApp={getActiveSpreadsheet:()=>({getSheetByName:()=>({})})};
-c.IA_leerBloque=()=>[['RUT','NOMBRE','CONDICIONES','SALUD_MENTAL','SECTOR','ESTRATIFICACION','OBSERVACIONES','PROFESIONAL','FECHA_EVENTO'],['11.111.111-1','PERSONA FICTICIA','DM2','SI','NARANJO','G2','texto clínico','PROFESIONAL X','2026-09-01']];
-const stats=c.IA_leerEstadisticas(c.HOJAS.PACIENTES),serial=JSON.stringify(stats);
+c.IA_leerBloque_=()=>[['RUT','NOMBRE','CONDICIONES','SALUD_MENTAL','SECTOR','ESTRATIFICACION','OBSERVACIONES','PROFESIONAL','FECHA_EVENTO'],['11.111.111-1','PERSONA FICTICIA','DM2','SI','NARANJO','G2','texto clínico','PROFESIONAL X','2026-09-01']];
+const stats=c.IA_leerEstadisticas_(c.HOJAS.PACIENTES),serial=JSON.stringify(stats);
 for(const campo of stats.campos)assert.equal(campo.ejemplos.length,0,campo.nombre+' no exporta ejemplos');
 for(const secreto of ['11.111.111-1','PERSONA FICTICIA','DM2','NARANJO','G2','texto clínico','PROFESIONAL X','2026-09-01'])assert.equal(serial.includes(secreto),false,secreto+' no sale');
 let llamada;c.PropertiesService={getScriptProperties:()=>({getProperty:()=> 'api-key-ficticia'})};

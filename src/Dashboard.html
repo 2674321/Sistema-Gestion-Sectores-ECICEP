@@ -365,7 +365,7 @@ function irRem(){
     if(sv&&sv.sectores&&sv.sectores.length===1)sector=sv.sectores[0];}catch(e){}
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:mes,anio:anio,sector:sector}));}catch(e){}
   var remUrl=document.body.getAttribute('data-rem-url');
-  ECICEP_navegar(remUrl,'el visor REM',function(){google.script.run.UI_verRem();});
+  ECICEP_navegar(remUrl,'el visor REM',function(){ECICEP_run().UI_verRem();});
 }
 function cargarDatos(btn){
   if(btn&&btn.disabled)return;
@@ -379,7 +379,7 @@ function cargarDatos(btn){
       if(bz){bz.disabled=false;bz.classList.remove('refresh-spin');}
       barraFin(false,'No fue posible cargar los datos.');return;
     }
-    google.script.run.withSuccessHandler(function(r){
+    ECICEP_run().withSuccessHandler(function(r){
     ['kTotal','kPend','kIng','kRev'].forEach(function(id){
       document.getElementById(id).textContent='…';});
     if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');

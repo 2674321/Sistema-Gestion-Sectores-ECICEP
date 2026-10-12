@@ -19,7 +19,7 @@
  *  2. `doGet` sirve TODAS las vistas declaradas aunque la credencial sea
  *     inobtenible, incluso si el accessor llega a lanzar.
  *  3. El acceso universal sigue activo aunque Script Properties esté roto.
- *  4. `WebApp_autorizar` concede ante cualquier entrada, sin excepción.
+ *  4. `WebApp_autorizar_` concede ante cualquier entrada, sin excepción.
  *  5. El mapa de vistas es la fuente única y está sincronizado con los
  *     archivos HTML reales.
  *  6. Guarda estructural: nadie reintroduce un acceso fail-closed por token.
@@ -120,11 +120,11 @@ assert.equal(c.WebApp_accesoUniversalActivo_(), true, 'acceso universal activo c
 props.clear();
 assert.equal(c.WebApp_accesoUniversalActivo_(), true, 'acceso universal activo sin credencial');
 
-// --- 4. WebApp_autorizar concede ante cualquier entrada ---------------------
+// --- 4. WebApp_autorizar_ concede ante cualquier entrada ---------------------
 for (const entrada of [undefined, null, '', 'corta', 'd'.repeat(64), 'no-hex', 0, 1, {}, [], true]) {
-  assert.equal(c.WebApp_autorizar(entrada), true, 'autoriza siempre (' + JSON.stringify(entrada) + ')');
-  assert.equal(c.WebApp_autorizarBuscador(entrada), true, 'guard de buscador siempre concede');
-  assert.equal(c.WebApp_autorizarCaptura(entrada), true, 'guard de captura siempre concede');
+  assert.equal(c.WebApp_autorizar_(entrada), true, 'autoriza siempre (' + JSON.stringify(entrada) + ')');
+  assert.equal(c.WebApp_autorizarBuscador_(entrada), true, 'guard de buscador siempre concede');
+  assert.equal(c.WebApp_autorizarCaptura_(entrada), true, 'guard de captura siempre concede');
 }
 
 // --- 5. El mapa de vistas es la fuente única y está sincronizado ------------

@@ -20,13 +20,13 @@ for (const resp of h.form.responses) {
 }
 assert.equal(h.dataSheet.rows.length, N);
 
-const w1 = h.c.Form_worker();            // SIN yaProcesado (producción)
+const w1 = h.c.Form_worker_();            // SIN yaProcesado (producción)
 assert.equal(w1.procesadas, 10, 'run1 procesa 10');
-const w2 = h.c.Form_worker();
+const w2 = h.c.Form_worker_();
 assert.equal(w2.procesadas, 10, 'run2 procesa 10');
-const w3 = h.c.Form_worker();
+const w3 = h.c.Form_worker_();
 assert.equal(w3.procesadas, 5, 'run3 procesa 5');
-const w4 = h.c.Form_worker();
+const w4 = h.c.Form_worker_();
 assert.equal(w4.procesadas, 0, 'run4 no reprocesa (starvation resuelto)');
 assert.equal(h.processed.size, 25, 'las 25 respuestas procesadas exactamente una vez');
 

@@ -166,7 +166,7 @@ probadas; la referencia a la fase de diseño ya no limita el alcance vigente.
    por AGENTS.md]**
 2. Google Forms se usa exclusivamente como transporte durable interno. La Web App convierte el
    payload aceptado en un `FormResponse`; el worker lo adapta de vuelta al contrato V4 antes de
-   llamar a `Captura_v2_enviar`. La URL del respondedor no se publica ni reemplaza la Web App.
+   llamar a `Captura_v2_enviar_`. La URL del respondedor no se publica ni reemplaza la Web App.
    **[DECISIÓN; DEC-106]**
 3. Todo dato clínico nace en el payload definido en §6. No existe un segundo contrato de entrada,
    un segundo pipeline ni un segundo Spreadsheet operativo. **[DECISIÓN]**

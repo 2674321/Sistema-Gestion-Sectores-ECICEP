@@ -6,14 +6,14 @@
  * Verifica los criterios de aprobación S1.11:
  *   C1  la hoja es autoritativa: dataStartRow coincide con el layout real.
  *   C2  ninguna escritura de PACIENTES ocurre bajo la primera fila de datos.
- *   C3  conversión índice→fila única y derivada de Modelo_filaFisica.
+ *   C3  conversión índice→fila única y derivada de Modelo_filaFisica_.
  *   C4  todos los endpoints que escriben PACIENTES usan la misma convención.
  *   C5  una fila V2 nunca aparece como pendiente para el procesador legacy.
  *   C6  una captura V2 pendiente es retomada por su PROCESADOR V2.
  *   C7  captureId ≠ identidad clínica (la identidad es RUT/ID_INTERNO).
  * Además:
  *   R1  regresión estática: prohíbe el patrón `getRange(2 + idx` en escrituras.
- *   R2  regresión conductual: actualizarDatos→api_registrarEvento escribe en la
+ *   R2  regresión conductual: actualizarDatos→api_registrarEvento_ escribe en la
  *       fila física correcta y no pisa el encabezado/buscador ni otro paciente.
  *
  * Uso: node tests/contrato_datos.mjs
@@ -119,17 +119,17 @@ function equalish(a, b, msg) {
 }
 
 const CSP = sandbox;
-CSP.Modelo_layoutHoja; // referencia cargada
+CSP.Modelo_layoutHoja_; // referencia cargada
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers del arnés (hoja falsa + stubs de servicios)
 // ─────────────────────────────────────────────────────────────────────────────
 const NOMBRE_P = 'PACIENTES';
 const SVC_DEP = [
-  'Modelo_leerPacientes', 'Modelo_asegurarEsquemaPacientes_', 'Modelo_agregarEventos_',
-  'Modelo_refrescarVistasSectores_', 'Ingresos_sincronizarCache', 'Control_leerFrecuencia',
-  'Control_calcularProximo', 'Estrat_evaluar', '_ingresosUsuarioActual',
-  'Log_info', 'Log_error', 'Log_warning', 'Log_flush', 'Modelo_hoja', 'SpreadsheetApp'
+  'Modelo_leerPacientes_', 'Modelo_asegurarEsquemaPacientes_', 'Modelo_agregarEventos_',
+  'Modelo_refrescarVistasSectores_', 'Ingresos_sincronizarCache_', 'Control_leerFrecuencia_',
+  'Control_calcularProximo_', 'Estrat_evaluar_', '_ingresosUsuarioActual_',
+  'Log_info_', 'Log_error_', 'Log_warning_', 'Log_flush_', 'Modelo_hoja_', 'SpreadsheetApp'
 ];
 
 const PAC_MUESTRA = [
@@ -179,8 +179,8 @@ function arnesActivo() {
   var salvados = {};
   SVC_DEP.forEach(function (k) { salvados[k] = CSP[k]; });
   function clone() { return JSON.parse(JSON.stringify(PAC_MUESTRA)); }
-  var campos = CSP.Modelo_campos();
-  var filasTitulo = CSP.Modelo_layoutHoja(NOMBRE_P).seccionesRow || 0;
+  var campos = CSP.Modelo_campos_();
+  var filasTitulo = CSP.Modelo_layoutHoja_(NOMBRE_P).seccionesRow || 0;
   var grilla = [];
   for (var ti = 0; ti < filasTitulo; ti++) grilla.push(campos.map(function () { return ''; }));
   grilla.push(campos);
@@ -192,20 +192,20 @@ function arnesActivo() {
     });
   }));
   var hojaP = crearHojaFalsa(NOMBRE_P, grilla);
-  CSP.Modelo_leerPacientes = clone;
+  CSP.Modelo_leerPacientes_ = clone;
   CSP.Modelo_asegurarEsquemaPacientes_ = function () { return { ok: true }; };
   CSP.Modelo_agregarEventos_ = function () { return true; };
   CSP.Modelo_refrescarVistasSectores_ = function () {};
-  CSP.Ingresos_sincronizarCache = function () {};
-  CSP.Control_leerFrecuencia = function () { return {}; };
-  CSP.Control_calcularProximo = function () { return '2026-12-01'; };
-  CSP.Estrat_evaluar = function () { return { estado: 'CALCULADO', resultado: 'G2', puntaje: 2, regla: 'estrategia-1', version: 'T' }; };
-  CSP._ingresosUsuarioActual = function () { return 'test@ecicep.cl'; };
-  CSP.Log_info = function () {};
-  CSP.Log_error = function () {};
-  CSP.Log_warning = function () {};
-  CSP.Log_flush = function () {};
-  CSP.Modelo_hoja = function (nombre) { return nombre === NOMBRE_P ? hojaP : null; };
+  CSP.Ingresos_sincronizarCache_ = function () {};
+  CSP.Control_leerFrecuencia_ = function () { return {}; };
+  CSP.Control_calcularProximo_ = function () { return '2026-12-01'; };
+  CSP.Estrat_evaluar_ = function () { return { estado: 'CALCULADO', resultado: 'G2', puntaje: 2, regla: 'estrategia-1', version: 'T' }; };
+  CSP._ingresosUsuarioActual_ = function () { return 'test@ecicep.cl'; };
+  CSP.Log_info_ = function () {};
+  CSP.Log_error_ = function () {};
+  CSP.Log_warning_ = function () {};
+  CSP.Log_flush_ = function () {};
+  CSP.Modelo_hoja_ = function (nombre) { return nombre === NOMBRE_P ? hojaP : null; };
   CSP.SpreadsheetApp = {
     getActiveSpreadsheet: function () {
       return { getSheetByName: function (n) { return n === NOMBRE_P ? hojaP : null; } };
@@ -220,67 +220,67 @@ function arnesActivo() {
 }
 
 function filasPacientes(hojaP) { return hojaP.escrituras.map(function (w) { return w.fila; }); }
-function primeraFilaDatosP() { return CSP.Modelo_dataStartRow(NOMBRE_P); }
+function primeraFilaDatosP() { return CSP.Modelo_dataStartRow_(NOMBRE_P); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // C1 — la hoja es autoritativa (dataStartRow coincide con el layout real)
 // ─────────────────────────────────────────────────────────────────────────────
-t('C1: Modelo_dataStartRow(PACIENTES) coincide con el layout configurado', () => {
-  const d = CSP.Modelo_layoutHoja(NOMBRE_P);
-  igual(CSP.Modelo_dataStartRow(NOMBRE_P), d.datosDesdeRow, 'dataStartRow = layout real');
-  igual(CSP.Modelo_dataStartRow(NOMBRE_P), 4, 'PACIENTES datos desde fila 4 (layout VISUAL)');
+t('C1: Modelo_dataStartRow_(PACIENTES) coincide con el layout configurado', () => {
+  const d = CSP.Modelo_layoutHoja_(NOMBRE_P);
+  igual(CSP.Modelo_dataStartRow_(NOMBRE_P), d.datosDesdeRow, 'dataStartRow = layout real');
+  igual(CSP.Modelo_dataStartRow_(NOMBRE_P), 4, 'PACIENTES datos desde fila 4 (layout VISUAL)');
 });
 
 t('C1: FORM_RESPUESTAS y EVENTOS tienen dataStartRow consistente', () => {
-  igual(CSP.Modelo_dataStartRow('FORM_RESPUESTAS'), CSP.Modelo_layoutHoja('FORM_RESPUESTAS').datosDesdeRow, 'FORM_RESPUESTAS coherente');
-  igual(CSP.Modelo_dataStartRow('EVENTOS'), CSP.Modelo_layoutHoja('EVENTOS').datosDesdeRow, 'EVENTOS coherente');
-  igual(CSP.Modelo_dataStartRow('EVENTOS'), 2, 'EVENTOS datos desde fila 2');
+  igual(CSP.Modelo_dataStartRow_('FORM_RESPUESTAS'), CSP.Modelo_layoutHoja_('FORM_RESPUESTAS').datosDesdeRow, 'FORM_RESPUESTAS coherente');
+  igual(CSP.Modelo_dataStartRow_('EVENTOS'), CSP.Modelo_layoutHoja_('EVENTOS').datosDesdeRow, 'EVENTOS coherente');
+  igual(CSP.Modelo_dataStartRow_('EVENTOS'), 2, 'EVENTOS datos desde fila 2');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // C3 — conversión índice→fila única y derivada (también respalda C2/C4)
 // ─────────────────────────────────────────────────────────────────────────────
-t('C3: Modelo_filaFisica es la conversión única y lineal index→fila', () => {
+t('C3: Modelo_filaFisica_ es la conversión única y lineal index→fila', () => {
   for (let i = 0; i < 5; i++) {
-    igual(CSP.Modelo_filaFisica(NOMBRE_P, i), CSP.Modelo_dataStartRow(NOMBRE_P) + i, 'filaFisica(' + i + ')');
+    igual(CSP.Modelo_filaFisica_(NOMBRE_P, i), CSP.Modelo_dataStartRow_(NOMBRE_P) + i, 'filaFisica(' + i + ')');
   }
-  igual(CSP.Modelo_filaFisica(NOMBRE_P, 1), 5, 'paciente idx=1 → fila física 5');
+  igual(CSP.Modelo_filaFisica_(NOMBRE_P, 1), 5, 'paciente idx=1 → fila física 5');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // C4 + C2 + R2 — endpoints escriben PACIENTES con la misma convención
 // ─────────────────────────────────────────────────────────────────────────────
-t('C4/R2: api_duplaGuardar escribe en Modelo_filaFisica (no 2+idx)', () => {
+t('C4/R2: api_duplaGuardar_ escribe en Modelo_filaFisica_ (no 2+idx)', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_duplaGuardar('EC-0002', ['ENFERMERA/O'], CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_duplaGuardar_('EC-0002', ['ENFERMERA/O'], CREDENCIAL_UNIVERSAL);
     A(r.ok, 'guardar ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
 });
 
-t('C4/R2: api_controlActualizarUltimo escribe en Modelo_filaFisica', () => {
+t('C4/R2: api_controlActualizarUltimo_ escribe en Modelo_filaFisica_', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_controlActualizarUltimo('EC-0002', 'CONTROL', '2026-09-01', CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_controlActualizarUltimo_('EC-0002', 'CONTROL', '2026-09-01', CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
 });
 
-t('C4/R2: api_registrarEvento (ruta actualizarDatos/controles V2) escribe en Modelo_filaFisica', () => {
+t('C4/R2: api_registrarEvento_ (ruta actualizarDatos/controles V2) escribe en Modelo_filaFisica_', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_registrarEvento({ tipoEvento: 'CONTROL', fecha: '2026-09-01', idInterno: 'EC-0002', profesional: 'TENS', fuente: 'Cp2-test' }, CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_registrarEvento_({ tipoEvento: 'CONTROL', fecha: '2026-09-01', idInterno: 'EC-0002', profesional: 'TENS', fuente: 'Cp2-test' }, CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ok: ' + JSON.stringify(r));
     igual(filasPacientes(a.hojaP)[0], 5, 'fila física = 4+idx(1)');
   } finally { a.restaura(); }
 });
 
-t('C4/R2: api_patologiasGuardar escribe (una sola escritura fusionada) en Modelo_filaFisica', () => {
+t('C4/R2: api_patologiasGuardar_ escribe (una sola escritura fusionada) en Modelo_filaFisica_', () => {
   const a = arnesActivo();
   try {
-    const r = CSP.api_patologiasGuardar('EC-0002', [], '', CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_patologiasGuardar_('EC-0002', [], '', CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ok: ' + JSON.stringify(r));
     const filas = filasPacientes(a.hojaP);
     // Condiciones + estratificación se escriben en UNA escritura atómica de la
@@ -291,7 +291,7 @@ t('C4/R2: api_patologiasGuardar escribe (una sola escritura fusionada) en Modelo
     A(w && w.valores, 'escritura con setValues');
     const filaSalvada = w.valores[0];
     const leerP = (k) => {
-      const campos = CSP.Modelo_campos();
+      const campos = CSP.Modelo_campos_();
       const i = campos.indexOf(k);
       if (i === -1) return 'SIN_COLUMNA';
       return i < filaSalvada.length ? String(filaSalvada[i]) : '';
@@ -301,7 +301,7 @@ t('C4/R2: api_patologiasGuardar escribe (una sola escritura fusionada) en Modelo
   } finally { a.restaura(); }
 });
 
-t('C4/R2: Estrat_recalcularPaciente_ escribe en Modelo_filaFisica', () => {
+t('C4/R2: Estrat_recalcularPaciente_ escribe en Modelo_filaFisica_', () => {
   const a = arnesActivo();
   try {
     const r = CSP.Estrat_recalcularPaciente_('EC-0002');
@@ -313,8 +313,8 @@ t('C4/R2: Estrat_recalcularPaciente_ escribe en Modelo_filaFisica', () => {
 t('C2: ninguna escritura de PACIENTES del arnés ocurre bajo la primera fila de datos', () => {
   const a = arnesActivo();
   try {
-    CSP.api_duplaGuardar('EC-0002', ['TENS'], CREDENCIAL_UNIVERSAL);
-    CSP.api_registrarEvento({ tipoEvento: 'SEGUIMIENTO', fecha: '2026-09-01', idInterno: 'EC-0001', fuente: 'UI_FICHA' }, CREDENCIAL_UNIVERSAL);
+    CSP.api_duplaGuardar_('EC-0002', ['TENS'], CREDENCIAL_UNIVERSAL);
+    CSP.api_registrarEvento_({ tipoEvento: 'SEGUIMIENTO', fecha: '2026-09-01', idInterno: 'EC-0001', fuente: 'UI_FICHA' }, CREDENCIAL_UNIVERSAL);
     CSP.Estrat_recalcularPaciente_('EC-0001');
     const filas = filasPacientes(a.hojaP);
     const minimo = primeraFilaDatosP();
@@ -327,8 +327,8 @@ t('C2: ninguna escritura de PACIENTES del arnés ocurre bajo la primera fila de 
 // C5 — namespace V2/legacy: la cola compartida no mezcla procesadores
 // ─────────────────────────────────────────────────────────────────────────────
 t('C5: fila V2 (FORM_VERSION=2 / prefijo Cp2-) NO aparece pendiente para el legacy', () => {
-  const headers = CSP.Form_columnas();
-  const mapa = CSP.Form_mapeoEncabezados(headers);
+  const headers = CSP.Form_columnas_();
+  const mapa = CSP.Form_mapeoEncabezados_(headers);
   const idx = (k) => { const m = mapa.idx; return m[k]; };
 
   function fila(rid, version, estado, reint) {
@@ -351,7 +351,7 @@ t('C5: fila V2 (FORM_VERSION=2 / prefijo Cp2-) NO aparece pendiente para el lega
     fila('Cp2-c3d4e5f60718293a4b5c6d7e8f90', '', 'RECIBIDO', 0)
   ];
 
-  const pend = CSP.Form_filasPendientes(valores, CSP.Form_mapeoEncabezados(headers), 3);
+  const pend = CSP.Form_filasPendientes_(valores, CSP.Form_mapeoEncabezados_(headers), 3);
   const ids = pend.map((p) => p.responseId);
   A(ids.indexOf('LEGACY-1') !== -1, 'legacy RECIBIDO pendiente');
   A(ids.indexOf('LEGACY-2') !== -1, 'legacy ERROR reintentable pendiente');
@@ -360,10 +360,10 @@ t('C5: fila V2 (FORM_VERSION=2 / prefijo Cp2-) NO aparece pendiente para el lega
   A(ids.indexOf('Cp2-c3d4e5f60718293a4b5c6d7e8f90') === -1, 'V2 sin FORMVERSION excluido por prefijo Cp2-');
 });
 
-t('C5: Form_reiniciarRespuesta rechaza respuestas del namespace V2', () => {
-  const headers = CSP.Form_columnas();
+t('C5: Form_reiniciarRespuesta_ rechaza respuestas del namespace V2', () => {
+  const headers = CSP.Form_columnas_();
   function filaV2() {
-    const m = CSP.Form_mapeoEncabezados(headers).idx;
+    const m = CSP.Form_mapeoEncabezados_(headers).idx;
     const arr = new Array(headers.length).fill('');
     if (m['RESPONSEID'] !== undefined) arr[m['RESPONSEID']] = 'Cp2-d4e5f60718293a4b5c6d7e8f9071829a';
     if (m['FORMVERSION'] !== undefined) arr[m['FORMVERSION']] = '2';
@@ -373,7 +373,7 @@ t('C5: Form_reiniciarRespuesta rechaza respuestas del namespace V2', () => {
   const a = arnesActivo();
   try {
     a.hojaP.escrituras = [];
-    CSP.Modelo_hoja = function (nombre) {
+    CSP.Modelo_hoja_ = function (nombre) {
       if (nombre === 'FORM_RESPUESTAS') {
         const h2 = crearHojaFalsa('FORM_RESPUESTAS');
         h2.getLastRow = function () { return 2; };
@@ -402,14 +402,14 @@ t('C5: Form_reiniciarRespuesta rechaza respuestas del namespace V2', () => {
       }
       return null;
     };
-    const r = CSP.Form_reiniciarRespuesta('Cp2-d4e5f60718293a4b5c6d7e8f9071829a');
+    const r = CSP.Form_reiniciarRespuesta_('Cp2-d4e5f60718293a4b5c6d7e8f9071829a');
     igual(r.ok, false, 'rechazado');
     igual(r.motivo, 'NAMESPACE_V2_USA_PROCESADOR_V2', 'motivo de rechazo');
   } finally { a.restaura(); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C6 — retoma V2 por su procesador (Captura_v2_retomarRegistro)
+// C6 — retoma V2 por su procesador (Captura_v2_retomarRegistro_)
 // ─────────────────────────────────────────────────────────────────────────────
 const CID1 = 'Cp2-a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const CID2 = 'Cp2-b1b2c3d4e5f60718293a4b5c6d7e8f90';
@@ -468,9 +468,9 @@ function payloadControl(capId) {
 }
 
 function precargar(ctx, payload, estado) {
-  const v = CSP.Captura_v2_validar(payload, { catalogo: ctx.catalogo });
+  const v = CSP.Captura_v2_validar_(payload, { catalogo: ctx.catalogo });
   if (!v.ok) throw new Error('precargar inválido');
-  const reg = CSP.Captura_v2_nuevoRegistro(v.normalizado, { usuario: ctx.usuario, fechaRecepcion: '2026-09-04 09:00:00' });
+  const reg = CSP.Captura_v2_nuevoRegistro_(v.normalizado, { usuario: ctx.usuario, fechaRecepcion: '2026-09-04 09:00:00' });
   reg.estado = estado;
   const copia = JSON.parse(JSON.stringify(reg));
   ctx.registros.set(copy_id(reg), copia);
@@ -482,7 +482,7 @@ t('C6: pendiente V2 ERROR es retomado por su procesador (re-entrega vía motor V
   const ctx = makeCtx();
   const norm = precargar(ctx, payloadControl(CID1), 'ERROR');
   ctx.personas.set(RUTA, { RUT: RUTA, NOMBRE: 'JUAN PÉREZ', ID_INTERNO: 'EC-0001' });
-  const r = CSP.Captura_v2_retomarRegistro(CID1, ctx);
+  const r = CSP.Captura_v2_retomarRegistro_(CID1, ctx);
   A(r.ok, 'retoma ok: ' + JSON.stringify(r));
   igual(r.data.estado, 'PROCESADO', 'vuelve PROCESADO por el motor V2');
   igual(ctx.entregas.length, 1, 're-entrega ejecutada por el procesador V2');
@@ -494,7 +494,7 @@ t('C6: pendiente V2 RECIBIDO (sin entregar aún) se retoma y entrega', () => {
   const ctx = makeCtx();
   const norm = precargar(ctx, payloadControl(CID2), 'RECIBIDO');
   ctx.personas.set(RUTA, { RUT: RUTA, NOMBRE: 'JUAN PÉREZ', ID_INTERNO: 'EC-0001' });
-  const r = CSP.Captura_v2_retomarRegistro(CID2, ctx);
+  const r = CSP.Captura_v2_retomarRegistro_(CID2, ctx);
   A(r.ok, 'ok: ' + JSON.stringify(r));
   igual(r.data.estado, 'PROCESADO');
   igual(ctx.entregas.length, 1);
@@ -503,7 +503,7 @@ t('C6: pendiente V2 RECIBIDO (sin entregar aún) se retoma y entrega', () => {
 t('C6: PROCESADO NO se retoma (estado terminal)', () => {
   const ctx = makeCtx();
   precargar(ctx, payloadControl(CID1), 'PROCESADO');
-  const r = CSP.Captura_v2_retomarRegistro(CID1, ctx);
+  const r = CSP.Captura_v2_retomarRegistro_(CID1, ctx);
   igual(r.ok, false, 'rechazado');
   igual(r.errors[0].codigo, 'CAMPO_INVALIDO', 'código de error');
   igual(ctx.entregas.length, 0, 'no re-entrega');
@@ -512,7 +512,7 @@ t('C6: PROCESADO NO se retoma (estado terminal)', () => {
 t('C6: REQUIERE_REVISION NO se retoma automáticamente (decisión humana)', () => {
   const ctx = makeCtx();
   precargar(ctx, payloadControl(CID1), 'REQUIERE_REVISION');
-  const r = CSP.Captura_v2_retomarRegistro(CID1, ctx);
+  const r = CSP.Captura_v2_retomarRegistro_(CID1, ctx);
   igual(r.ok, false, 'rechazado');
   igual(ctx.entregas.length, 0, 'no re-entrega');
   igual(ctx.registros.get(CID1).estado, 'REQUIERE_REVISION', 'trailer intacto');
@@ -522,21 +522,21 @@ t('C6: sin payload normalizado almacenado → rechazo (no inventa payload)', () 
   const ctx = makeCtx();
   const cap = 'Cp2-e5f60718293a4b5c6d7e8f90a1b2c3d4';
   ctx.registros.set(cap, { captureId: cap, estado: 'ERROR', normalizado: null, reintentos: 0, ingresoHoja: '', ingresoFila: '' });
-  const r = CSP.Captura_v2_retomarRegistro(cap, ctx);
+  const r = CSP.Captura_v2_retomarRegistro_(cap, ctx);
   igual(r.ok, false, 'rechazado');
   igual(ctx.entregas.length, 0, 'no entrega');
 });
 
 t('C6: syntax de captureId inválido en retoma → SINTAXIS_INVALIDA', () => {
   const ctx = makeCtx();
-  const r = CSP.Captura_v2_retomarRegistro('Cp2-ABCD', ctx);
+  const r = CSP.Captura_v2_retomarRegistro_('Cp2-ABCD', ctx);
   igual(r.ok, false);
   igual(r.errors[0].codigo, 'SINTAXIS_INVALIDA');
 });
 
-t('C6: entrypoint WebApp_capturarRetomar no-crash (acepta payload de objeto)', () => {
+t('C6: entrypoint WebApp_capturarRetomar_ no-crash (acepta payload de objeto)', () => {
   // Sin ctx inyectado usa el ctx GAS; en node sin hojas no encuentra el registro.
-  const r = CSP.WebApp_capturarRetomar({ captureId: 'Cp2-a1b2c3d4e5f60718293a4b5c6d7e8f90' });
+  const r = CSP.WebApp_capturarRetomar_({ captureId: 'Cp2-a1b2c3d4e5f60718293a4b5c6d7e8f90' });
   A(typeof r === 'object', 'respuesta objeto');
   A('ok' in r, 'tiene ok');
   A(Array.isArray(r.errors), 'tiene errors (rechazo por entorno sin registro o sesión)');
@@ -554,10 +554,10 @@ t('C7: la identidad clínica es RUT/ID_INTERNO, no el captureId', () => {
     estratificacion: 'G2', telefonos: '+56911111111', profesional: 'MATRONA/O',
     profesionalSecundario: 'MEDICO/A', observaciones: '', confirmarNuevoPaciente: false
   };
-  const r = CSP.Captura_v2_enviar(ingreso, ctx);
+  const r = CSP.Captura_v2_enviar_(ingreso, ctx);
   A(r.ok, 'envío ok');
   igual(r.data.estado, 'PROCESADO');
-  const internos = CSP.Captura_v2_normalizadoAInterno(CSP.Captura_v2_validar(ingreso, { catalogo: ctx.catalogo }).normalizado, {});
+  const internos = CSP.Captura_v2_normalizadoAInterno_(CSP.Captura_v2_validar_(ingreso, { catalogo: ctx.catalogo }).normalizado, {});
   igual(internos.RUT, RUTA, 'identidad por RUT');
   A(r.data.idInterno !== cap, 'ID_INTERNO ≠ captureId');
   A(r.data.idInterno.indexOf('Cp2-') !== 0, 'ID_INTERNO no hereda el prefijo de transporte');
@@ -575,15 +575,15 @@ t('R1: ninguna escritura con patrón 2+idx persiste en el código (regresión PF
   for (const f of files) texto += '\n' + readFileSync(path.join(raiz, f), 'utf8');
   const mal = texto.match(/getRange\s*\(\s*2\s*\+\s*idx/gi);
   igual(mal === null ? 0 : mal.length, 0, 'patrón getRange(2 + idx eliminado');
-  const usoCanonico = (texto.match(/Modelo_filaFisica\(HOJAS\.PACIENTES/g) || []).length;
-  A(usoCanonico >= 5, 'las escrituras de PACIENTES usan Modelo_filaFisica (uso=' + usoCanonico + ')');
+  const usoCanonico = (texto.match(/Modelo_filaFisica_\(HOJAS\.PACIENTES/g) || []).length;
+  A(usoCanonico >= 5, 'las escrituras de PACIENTES usan Modelo_filaFisica_ (uso=' + usoCanonico + ')');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// R3 — lectura acotada de CONFIG (PERF pasada 7): _config_leerValores lee la
-// hoja UNA vez y sirve N claves; _rem9_configValor/_backup_mantener delegan.
+// R3 — lectura acotada de CONFIG (PERF pasada 7): _config_leerValores_ lee la
+// hoja UNA vez y sirve N claves; _rem9_configValor_/_backup_mantener_ delegan.
 // ─────────────────────────────────────────────────────────────────────────────
-t('R3: _config_leerValores entrega N claves con UNA sola lectura de CONFIG', () => {
+t('R3: _config_leerValores_ entrega N claves con UNA sola lectura de CONFIG', () => {
   const contador = { lecturas: 0 };
   const filasConfig = [
     ['CLAVE', 'VALOR', 'DESCRIPCION'],
@@ -596,26 +596,26 @@ t('R3: _config_leerValores entrega N claves con UNA sola lectura de CONFIG', () 
     getDataRange: () => ({ getNumRows: () => filasConfig.length,
                           getValues: () => { contador.lecturas += 1; return filasConfig; } })
   };
-  const prevHoja = CSP.Modelo_hoja;
-  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.CONFIG ? hojaC : null;
+  const prevHoja = CSP.Modelo_hoja_;
+  CSP.Modelo_hoja_ = (nombre) => nombre === CSP.HOJAS.CONFIG ? hojaC : null;
   try {
-    const mapa = CSP._config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
+    const mapa = CSP._config_leerValores_(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER']);
     igual(contador.lecturas, 1, 'una sola lectura para N claves');
     igual(mapa['BACKUP_AUTO_ULTIMA'], '2026-09-10 08:00:00');
     igual(mapa['BACKUP_MANTENER'], '5');
     const antes = contador.lecturas;
-    igual(CSP._rem9_configValor('GENERAL_NOMBRE_SISTEMA'), 'ECICEP', 'delega en el helper');
-    A(contador.lecturas >= antes + 1, '_rem9_configValor usa una lectura');
-    igual(CSP._backup_mantener(), 5, '_backup_mantener delega en el helper');
-    igual(CSP._rem9_configValor('CLAVE_INEXISTENTE'), '', 'clave ausente → string vacío');
-    igual(CSP._backup_mantener(), 5, 'mantener estable tras lecturas múltiples');
+    igual(CSP._rem9_configValor_('GENERAL_NOMBRE_SISTEMA'), 'ECICEP', 'delega en el helper');
+    A(contador.lecturas >= antes + 1, '_rem9_configValor_ usa una lectura');
+    igual(CSP._backup_mantener_(), 5, '_backup_mantener_ delega en el helper');
+    igual(CSP._rem9_configValor_('CLAVE_INEXISTENTE'), '', 'clave ausente → string vacío');
+    igual(CSP._backup_mantener_(), 5, 'mantener estable tras lecturas múltiples');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
+    CSP.Modelo_hoja_ = prevHoja;
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// R4 — lectores ligeros (PERF pasada 9): Modelo_leerPacientes/EventosCampos
+// R4 — lectores ligeros (PERF pasada 9): Modelo_leerPacientes_/EventosCampos
 // materializan SOLO los campos pedidos con UNA sola lectura de hoja (memo).
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -633,19 +633,19 @@ function hojaLigeraPara(nombre, filas, hr) {
 }
 let lecturasContador = 0;
 
-t('R4a: Modelo_leerPacientesCampos entrega SOLO los campos pedidos (una lectura)', () => {
+t('R4a: Modelo_leerPacientesCampos_ entrega SOLO los campos pedidos (una lectura)', () => {
   const filas = [
     ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'REQUIERE_REVISION'],
     ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'NARANJO', true],
     ['EC-0002', '22222222-2', 'ANA SOTO', 'AMARILLO', false]
   ];
   lecturasContador = 0;
-  const prevHoja = CSP.Modelo_hoja;
+  const prevHoja = CSP.Modelo_hoja_;
   // PACIENTES es hoja VISUAL (encabezados en fila 3).
-  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_hoja_ = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const r = CSP.Modelo_leerPacientesCampos(['ID_INTERNO', 'SECTOR', 'REQUIERE_REVISION', 'NOMBRE_INEXISTENTE']);
+    const r = CSP.Modelo_leerPacientesCampos_(['ID_INTERNO', 'SECTOR', 'REQUIERE_REVISION', 'NOMBRE_INEXISTENTE']);
     igual(lecturasContador, 1, 'una sola lectura de hoja');
     igual(r.length, 2, 'mismas filas');
     igual(r[0].ID_INTERNO, 'EC-0001');
@@ -655,40 +655,40 @@ t('R4a: Modelo_leerPacientesCampos entrega SOLO los campos pedidos (una lectura)
     A(!('NOMBRE_INEXISTENTE' in r[0]), 'campo ausente en encabezado → omitido');
     A(!('NOMBRE' in r[0]), 'campo NO pedido no se materializa');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
-t('R4b: Modelo_leerEventosCampos materializa solo los campos pedidos', () => {
+t('R4b: Modelo_leerEventosCampos_ materializa solo los campos pedidos', () => {
   const filas = [
     ['ID_EVENTO', 'ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'SECTOR'],
     ['EV-1', 'EC-0001', 'CONTROL', '2026-09-05', 'NARANJO'],
     ['EV-2', 'EC-0002', 'INGRESO', '2026-09-10', 'AMARILLO']
   ];
   lecturasContador = 0;
-  const prevHoja = CSP.Modelo_hoja;
+  const prevHoja = CSP.Modelo_hoja_;
   // EVENTOS es hoja simple (encabezados en fila 1).
-  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.EVENTOS ? hojaLigeraPara('EVENTOS', filas, 1) : null;
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_hoja_ = (nombre) => nombre === CSP.HOJAS.EVENTOS ? hojaLigeraPara('EVENTOS', filas, 1) : null;
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const r = CSP.Modelo_leerEventosCampos(['TIPO_EVENTO', 'FECHA_EVENTO', 'SECTOR']);
+    const r = CSP.Modelo_leerEventosCampos_(['TIPO_EVENTO', 'FECHA_EVENTO', 'SECTOR']);
     igual(lecturasContador, 1, 'una sola lectura de hoja');
     igual(r[0].TIPO_EVENTO, 'CONTROL');
     igual(r[0].FECHA_EVENTO, '2026-09-05');
     A(!('NOMBRE' in r[0]) && !('ID_EVENTO' in r[0]), 'solo campos pedidos');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// R5 — agregador puro del Panel de Control (PERF pasada 9): _centro_resumen
+// R5 — agregador puro del Panel de Control (PERF pasada 9): _centro_resumen_
 // calcula los KPIs en pases lineales sin arreglos intermedios (misma semántica
 // que la versión con eventosMin/paxMin).
 // ─────────────────────────────────────────────────────────────────────────────
-t('R5: _centro_resumen calcula KPIs/sectores/últimos en una sola pasada', () => {
+t('R5: _centro_resumen_ calcula KPIs/sectores/últimos en una sola pasada', () => {
   const precisos = (arr) => arr.map((s) => `${s.sector}#${s.pacientes}#${s.porRevisar}#${s.ingresos7d}#${s.cobertura}`).join('|');
   const pacientes = [
     { SECTOR: 'NARANJO', REQUIERE_REVISION: true, ESTRATIFICACION: 'G3', FECHA_ACTUALIZACION: new Date('2026-09-01T10:00:00') },
@@ -704,7 +704,7 @@ t('R5: _centro_resumen calcula KPIs/sectores/últimos en una sola pasada', () =>
     { TIPO_EVENTO: 'SEGUIMIENTO', SECTOR: 'VERDE', FECHA_EVENTO: '2026-08-30', NOMBRE: 'CARLA DÍAZ' },
     { TIPO_EVENTO: 'INGRESO', SECTOR: 'VERDE', FECHA_EVENTO: '2026-09-07', NOMBRE: 'CARLA DÍAZ' }
   ];
-  const r = CSP._centro_resumen(pacientes, eventos, '2026-09-10', 'America/Santiago');
+  const r = CSP._centro_resumen_(pacientes, eventos, '2026-09-10', 'America/Santiago');
   igual(r.pacientes, 4);
   igual(r.ingresosHoy, 1, 'solo INGRESO del 2026-09-10');
   igual(r.eventosMes, 5, 'septiembre (5 de 6 eventos)');
@@ -727,16 +727,16 @@ t('R5: _centro_resumen calcula KPIs/sectores/últimos en una sola pasada', () =>
 // Una lista incompleta no tira error: silenciosamente vacía campos → los tests
 // detectan esa deriva campo a campo.
 // ─────────────────────────────────────────────────────────────────────────────
-t('R6: _EVENTOS_CAMPOS_REM cubre el input de _rem_normalizarEventos', () => {
+t('R6: _EVENTOS_CAMPOS_REM cubre el input de _rem_normalizarEventos_', () => {
   const filas = [
     ['ID_EVENTO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION', 'CANTIDAD', 'OBSERVACIONES'],
     ['EV-1', 'EC-0001', '11111111-1', 'JUAN PÉREZ', '2026-09-05', 'CONTROL', 'NARANJO', 'G2', 'DRA.', 'Consulta', '1', 'nota']
   ];
-  const prevHoja = CSP.Modelo_hoja;
-  CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.EVENTOS ? hojaLigeraPara('EVENTOS', filas, 1) : null);
-  CSP.Modelo_invalidarLecturas();
+  const prevHoja = CSP.Modelo_hoja_;
+  CSP.Modelo_hoja_ = (nombre) => (nombre === CSP.HOJAS.EVENTOS ? hojaLigeraPara('EVENTOS', filas, 1) : null);
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const norm = CSP._rem_normalizarEventos(CSP.Modelo_leerEventosCampos(CSP._EVENTOS_CAMPOS_REM));
+    const norm = CSP._rem_normalizarEventos_(CSP.Modelo_leerEventosCampos_(CSP._EVENTOS_CAMPOS_REM));
     equalish(norm[0], {
       ID_EVENTO: 'EV-1', ID_INTERNO: 'EC-0001', RUT: '11111111-1', NOMBRE: 'JUAN PÉREZ',
       FECHA_EVENTO: '2026-09-05', TIPO_EVENTO: 'CONTROL', SECTOR: 'NARANJO',
@@ -744,24 +744,24 @@ t('R6: _EVENTOS_CAMPOS_REM cubre el input de _rem_normalizarEventos', () => {
     });
     A(!('OBSERVACIONES' in norm[0]), 'campos fuera del set REM no se materializan');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
-t('R7: _CONTROL_CAMPOS_PACIENTES alimenta Control_consultarControles sin perder campos', () => {
+t('R7: _CONTROL_CAMPOS_PACIENTES alimenta Control_consultarControles_ sin perder campos', () => {
   const filas = [
     ['ID_INTERNO', 'NOMBRE', 'RUT', 'SECTOR', 'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO', 'REQUIERE_REVISION'],
     ['EC-0001', 'JUAN PÉREZ', '11111111-1', 'NARANJO', 'G2', '2026-01-10', '', '1988-03-12', true],
     ['EC-0002', 'ANA SOTO', '22222222-2', 'AMARILLO', 'G1', '', '', '1995-07-22', false]
   ];
-  const prevHoja = CSP.Modelo_hoja;
+  const prevHoja = CSP.Modelo_hoja_;
   // PACIENTES es hoja VISUAL (encabezados en fila 3).
-  CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_hoja_ = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const lista = CSP.Modelo_leerPacientesCampos(CSP._CONTROL_CAMPOS_PACIENTES);
-    const res = CSP.Control_consultarControles(lista, {}, '2026-09-10', { sector: 'NARANJO' });
+    const lista = CSP.Modelo_leerPacientesCampos_(CSP._CONTROL_CAMPOS_PACIENTES);
+    const res = CSP.Control_consultarControles_(lista, {}, '2026-09-10', { sector: 'NARANJO' });
     igual(res.total, 1, 'filtro sector NARANJO');
     const f = res.filas[0];
     igual(f.nombre, 'JUAN PÉREZ');
@@ -772,37 +772,37 @@ t('R7: _CONTROL_CAMPOS_PACIENTES alimenta Control_consultarControles sin perder 
     igual(f.ultimoSeguimiento, '');
     A(f.edad !== undefined && f.edad !== '', 'edad calculada desde FECHA_NACIMIENTO');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // R8/R9 — PERF pasada 11: endpoints read-only con lectores ligeros.
-// R8: api_patologiasAbrir materializa solo ID/CONDICIONES/OTRAS_PATOLOGIAS.
-// R9: api_diagnosticoControl sigue completo con 9 campos de paciente.
+// R8: api_patologiasAbrir_ materializa solo ID/CONDICIONES/OTRAS_PATOLOGIAS.
+// R9: api_diagnosticoControl_ sigue completo con 9 campos de paciente.
 // ─────────────────────────────────────────────────────────────────────────────
-t('R8: api_patologiasAbrir funciona con solo 3 campos de paciente', () => {
+t('R8: api_patologiasAbrir_ funciona con solo 3 campos de paciente', () => {
   const filas = [
     ['ID_INTERNO', 'CONDICIONES', 'OTRAS_PATOLOGIAS', 'SECTOR'],
     ['EC-0001', 'HTA;DM2', 'asma', 'NARANJO'],
     ['EC-0002', '', '', 'AMARILLO']
   ];
-  const prevHoja = CSP.Modelo_hoja;
-  CSP.Modelo_hoja = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
-  CSP.Modelo_invalidarLecturas();
+  const prevHoja = CSP.Modelo_hoja_;
+  CSP.Modelo_hoja_ = (nombre) => (nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null);
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const r = CSP.api_patologiasAbrir('EC-0001', CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_patologiasAbrir_('EC-0001', CREDENCIAL_UNIVERSAL);
     A(r.catalogo && Array.isArray(r.catalogo), 'catálogo presente');
     equalish(r.seleccionadas, ['HTA', 'DM2'], 'condiciones del paciente');
     igual(r.otrasPatologias, 'asma');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
-t('R9: api_diagnosticoControl completo con 9 campos de paciente + eventos ligeros', () => {
+t('R9: api_diagnosticoControl_ completo con 9 campos de paciente + eventos ligeros', () => {
   const filasP = [
     ['ID_INTERNO', 'NOMBRE', 'RUT', 'SECTOR', 'ESTRATIFICACION', 'ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO', 'FECHA_NACIMIENTO', 'PROXIMO_CONTROL', 'REQUIERE_REVISION'],
     ['EC-0001', 'JUAN PÉREZ', '11111111-1', 'NARANJO', 'G2', '2026-01-10', '', '1988-03-12', '2026-04-10', true],
@@ -815,15 +815,15 @@ t('R9: api_diagnosticoControl completo con 9 campos de paciente + eventos ligero
     ['EC-0002', 'INGRESO', '2026-08-01', 'AMARILLO|INGRESOS ECICEP', 'ANA SOTO', 'AMARILLO'],
     ['EC-0001', 'CONTROL', '2026-01-10', 'UI_FICHA', 'JUAN PÉREZ', 'NARANJO']
   ];
-  const prevHoja = CSP.Modelo_hoja;
-  CSP.Modelo_hoja = (nombre) => {
+  const prevHoja = CSP.Modelo_hoja_;
+  CSP.Modelo_hoja_ = (nombre) => {
     if (nombre === CSP.HOJAS.PACIENTES) return hojaLigeraPara('PACIENTES', filasP, 3);
     if (nombre === CSP.HOJAS.EVENTOS) return hojaLigeraPara('EVENTOS', filasE, 1);
     return null;
   };
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const r = CSP.api_diagnosticoControl(true, CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_diagnosticoControl_(true, CREDENCIAL_UNIVERSAL);
     A(r.ok, 'diagnóstico ok');
     igual(r.metricas.analizados, 3, 'tres pacientes analizados');
     A(Array.isArray(r.inconsistentes), 'inconsistentes calculados desde panel');
@@ -831,16 +831,16 @@ t('R9: api_diagnosticoControl completo con 9 campos de paciente + eventos ligero
     igual(r.dedup.gruposDuplicados, 1, 'par duplicado detectado');
     igual(r.dedup.eliminar, 1, 'una fila a eliminar');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// R10 — PERF pasada 12: api_ficha se sirve del lector ligero con EXACTAMENTE
+// R10 — PERF pasada 12: api_ficha_ se sirve del lector ligero con EXACTAMENTE
 // los 21 campos de _FICHA_CAMPOS_OPERATIVOS (cubre todo lo que la ficha lee).
 // ─────────────────────────────────────────────────────────────────────────────
-t('R10: api_ficha con 21 campos leídos no pierde datos (ficha/dupla/patologías/seguimiento)', () => {
+t('R10: api_ficha_ con 21 campos leídos no pierde datos (ficha/dupla/patologías/seguimiento)', () => {
   const filasP = [
     ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS', 'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'PREINGRESO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'COMPOSICION_CONTROL', 'OBSERVACIONES', 'CONDICIONES', 'OTRAS_PATOLOGIAS', 'EXTRA_COL'],
     ['EC-0001', '11.111.111-1', 'JUAN PÉREZ', 'M', '1988-03-12', '+56911111111', '', 'NARANJO', 'G2', 'ACTIVO', 'COD-A;COD-B', 'DR.', '', '2026-01-01', '', '2026-01-10', '2026-04-10', '', 'obs', 'HTA;DM2', 'asma', 'x']
@@ -849,15 +849,15 @@ t('R10: api_ficha con 21 campos leídos no pierde datos (ficha/dupla/patologías
     ['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION'],
     ['EC-0001', '2026-01-10', 'CONTROL', 'NARANJO', 'G2', 'DRA.', 'Visita']
   ];
-  const prevHoja = CSP.Modelo_hoja;
-  CSP.Modelo_hoja = (nombre) => {
+  const prevHoja = CSP.Modelo_hoja_;
+  CSP.Modelo_hoja_ = (nombre) => {
     if (nombre === CSP.HOJAS.PACIENTES) return hojaLigeraPara('PACIENTES', filasP, 3);
     if (nombre === CSP.HOJAS.EVENTOS) return hojaLigeraPara('EVENTOS', filasE, 1);
     return null;
   };
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const r = CSP.api_ficha('EC-0001', CREDENCIAL_UNIVERSAL);
+    const r = CSP.api_ficha_('EC-0001', CREDENCIAL_UNIVERSAL);
     A(r.ok, 'ficha ok');
     igual(r.ficha.ULTIMO_CONTROL, '2026-01-10', 'campo del set OPERATIVO presente');
     igual(r.ficha.TELEFONOS, '+56911111111');
@@ -865,18 +865,18 @@ t('R10: api_ficha con 21 campos leídos no pierde datos (ficha/dupla/patologías
     equalish(r.ficha.dupla.seleccionados, ['COD-A', 'COD-B'], 'dupla desde DUPLA_INGRESO');
     equalish(r.ficha.patologias.seleccionadas, ['HTA', 'DM2'], 'condiciones desde CONDICIONES');
     igual(r.ficha.patologias.otrasPatologias, 'asma');
-    A(r.ficha.seguimiento && r.ficha.seguimiento.nombre === 'JUAN PÉREZ', 'seguimiento desde Control_filasPanel');
+    A(r.ficha.seguimiento && r.ficha.seguimiento.nombre === 'JUAN PÉREZ', 'seguimiento desde Control_filasPanel_');
     igual(r.ficha.eventos.length, 1, 'eventos ligeros de la ficha');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // R11 — PERF pasada 13: AUDITORIA_* cubren EXACTAMENTE lo que consumen las
 // funciones Aud_* (clasificación, Amarillo, profesionales) y el smoke de
-// Auditoria_ejecutar con lectores ligeros ya no rompe por diag.mapeados
+// Auditoria_ejecutar_ con lectores ligeros ya no rompe por diag.mapeados
 // (regresión del run-time de la sección RESPONSABLES).
 // ─────────────────────────────────────────────────────────────────────────────
 t('R11: clasificación completa con campos completos == con campos AUDITORIA (métricas idénticas)', () => {
@@ -884,17 +884,17 @@ t('R11: clasificación completa con campos completos == con campos AUDITORIA (m�
     { ID_INTERNO: 'EC-0001', RUT: '11111111-1', NOMBRE: 'JUAN PÉREZ', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2', FECHA_NACIMIENTO: '1988-03-12', ULTIMO_CONTROL: '2026-01-10', PROXIMO_CONTROL: '2026-04-10', DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', EXTRA: 'x' },
     { ID_INTERNO: 'EC-0002', RUT: '22222222-2', NOMBRE: 'ANA SOTO', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1', FECHA_NACIMIENTO: '1995-07-22', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '', DUPLA_INGRESO: 'COD-A;COD-B', PROFESIONAL_SEGUIMIENTO: 'DR.', EXTRA: 'y' }
   ];
-  const freq = CSP.Control_frecuenciaDefault();
+  const freq = CSP.Control_frecuenciaDefault_();
   const ligeros = completos.map((p) => {
     const o = {};
     CSP.AUDITORIA_CAMPOS_PACIENTES.forEach((c) => { o[c] = p[c]; });
     return o;
   });
-  const mComp = CSP.Aud_clasificarPoblacion(completos, freq, '2026-09-10', 7).metricas;
-  const mLig = CSP.Aud_clasificarPoblacion(ligeros, freq, '2026-09-10', 7).metricas;
+  const mComp = CSP.Aud_clasificarPoblacion_(completos, freq, '2026-09-10', 7).metricas;
+  const mLig = CSP.Aud_clasificarPoblacion_(ligeros, freq, '2026-09-10', 7).metricas;
   igual(JSON.stringify(mLig), JSON.stringify(mComp), 'métricas de clasificación idénticas');
-  const pComp = CSP.Aud_auditarProfesionales(completos);
-  const pLig = CSP.Aud_auditarProfesionales(ligeros);
+  const pComp = CSP.Aud_auditarProfesionales_(completos);
+  const pLig = CSP.Aud_auditarProfesionales_(ligeros);
   A(JSON.stringify(pLig) === JSON.stringify(pComp), 'profesionales idénticos (DUPLA_INGRESO/PROFESIONAL_SEGUIMIENTO)');
 });
 
@@ -908,20 +908,20 @@ t('R11: auditoría Amarillo == con campos AUDITORIA (eventos) y sin romper sin F
     { ID_INTERNO: 'EC-0001', ESTRATIFICACION: 'G2', PROXIMO_CONTROL: '2026-04-10' },
     { ID_INTERNO: 'EC-0002', ESTRATIFICACION: 'G1', PROXIMO_CONTROL: '' }
   ];
-  const freq = CSP.Control_frecuenciaDefault();
+  const freq = CSP.Control_frecuenciaDefault_();
   const ligeros = eventosCompletos.map((e) => {
     const o = {};
     CSP.AUDITORIA_CAMPOS_EVENTOS.forEach((c) => { o[c] = e[c]; });
     return o;
   });
-  const aComp = CSP.Aud_auditarAmarillo(pacientes, eventosCompletos, freq, '2026-09-10', 7);
-  const aLig = CSP.Aud_auditarAmarillo(pacientes, ligeros, freq, '2026-09-10', 7);
+  const aComp = CSP.Aud_auditarAmarillo_(pacientes, eventosCompletos, freq, '2026-09-10', 7);
+  const aLig = CSP.Aud_auditarAmarillo_(pacientes, ligeros, freq, '2026-09-10', 7);
   igual(aLig.total, 2, 'solo eventos AMARILLO');
   igual(aLig.gruposDuplicados, 1, 'par duplicado detectado');
   igual(JSON.stringify(aLig), JSON.stringify(aComp), 'Amarillo idéntico entre completos y ligeros');
 });
 
-t('R11: Aud_auditarResponsables usa asociaciones canónicas (ya no diag.mapeados)', () => {
+t('R11: Aud_auditarResponsables_ usa asociaciones canónicas (ya no diag.mapeados)', () => {
   const lista = [
     { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera', correo: 'enf@ecicep.cl', activo: true },
     { sector: 'AMARILLO', codigo: 'ENF', nombre: 'Enfermera', correo: 'enf@ecicep.cl', activo: true },
@@ -933,7 +933,7 @@ t('R11: Aud_auditarResponsables usa asociaciones canónicas (ya no diag.mapeados
     { CODIGO: 'MED', ACTIVO: false }
   ];
   const leg = { AMARILLO: 'legacy@ecicep.cl' };
-  const r = CSP.Aud_auditarResponsables(lista, profesionales, leg);
+  const r = CSP.Aud_auditarResponsables_(lista, profesionales, leg);
   igual(r.asociaciones, 4);
   igual(r.unicos, 3, 'tres códigos distintos (ENF,MED,NOEXISTE)');
   igual(r.duplicados, 1, 'ENF repetido en dos asociaciones');
@@ -946,7 +946,7 @@ t('R11: Aud_auditarResponsables usa asociaciones canónicas (ya no diag.mapeados
   igual(r.porSector.length, 3, 'tres sectores con asociaciones');
 });
 
-t('R11: Auditoria_ejecutar smoke con lectores ligeros reales (ya no rompe run-time)', () => {
+t('R11: Auditoria_ejecutar_ smoke con lectores ligeros reales (ya no rompe run-time)', () => {
   const filasP = [
     ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'ESTRATIFICACION', 'FECHA_NACIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO', 'EXTRA_COL'],
     ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'AMARILLO', 'G2', '1988-03-12', '2026-01-10', '2026-04-10', '', '', 'x'],
@@ -958,15 +958,15 @@ t('R11: Auditoria_ejecutar smoke con lectores ligeros reales (ya no rompe run-ti
     ['EC-0002', 'ANA SOTO', 'AMARILLO', 'INGRESO', '2026-08-01', 'AMARILLO|INGRESOS ECICEP'],
     ['EC-0001', 'JUAN PÉREZ', 'NARANJO', 'CONTROL', '2026-01-10', 'UI']
   ];
-  const prevHoja = CSP.Modelo_hoja;
-  CSP.Modelo_hoja = (nombre) => {
+  const prevHoja = CSP.Modelo_hoja_;
+  CSP.Modelo_hoja_ = (nombre) => {
     if (nombre === CSP.HOJAS.PACIENTES) return hojaLigeraPara('PACIENTES', filasP, 3);
     if (nombre === CSP.HOJAS.EVENTOS) return hojaLigeraPara('EVENTOS', filasE, 1);
     return null;
   };
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_invalidarLecturas_();
   try {
-    const r = CSP.Auditoria_ejecutar();
+    const r = CSP.Auditoria_ejecutar_();
     A(r.ok === true, 'auditoría responde ok');
     igual(r.datos.personas.total, 2, 'dos personas analizadas');
     igual(r.datos.amarillo.total, 2, 'dos eventos Amarillo');
@@ -976,15 +976,15 @@ t('R11: Auditoria_ejecutar smoke con lectores ligeros reales (ya no rompe run-ti
     A(r.datos.profesionales && r.datos.profesionales.usados >= 2, 'profesionales desde DUPLA/PROFESIONAL_SEGUIMIENTO');
     A(typeof r.texto === 'string' && r.texto.indexOf('PERSONAS') !== -1, 'informe texto renderizado');
   } finally {
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// R12 — PERF pasada 14: caché entre requests vía CacheService (_memoLeer).
+// R12 — PERF pasada 14: caché entre requests vía CacheService (_memoLeer_).
 // El bloque crudo de PACIENTES/EVENTOS/PROFESIONALES se reutiliza entre RPCs
-// dentro del TTL; toda escritura (Modelo_invalidarLecturas) borra las claves.
+// dentro del TTL; toda escritura (Modelo_invalidarLecturas_) borra las claves.
 // ─────────────────────────────────────────────────────────────────────────────
 function cacheConEstado() {
   const store = {};
@@ -1000,14 +1000,14 @@ function cacheConEstado() {
   };
 }
 
-t('R12: _cacheSerializarBloque/_cacheDeserializarBloque son redondos (Date, booleanos, vacío)', () => {
+t('R12: _cacheSerializarBloque_/_cacheDeserializarBloque_ son redondos (Date, booleanos, vacío)', () => {
   const bloque = [
     ['ID_INTERNO', 'REQUIERE_REVISION', 'FECHA_ACTUALIZACION', 'VACIO'],
     ['EC-0001', true, new Date(2026, 8, 10, 12, 30, 0), ''],
     ['EC-0002', false, null, '']
   ];
-  const json = CSP._cacheSerializarBloque(bloque);
-  const back = CSP._cacheDeserializarBloque(json);
+  const json = CSP._cacheSerializarBloque_(bloque);
+  const back = CSP._cacheDeserializarBloque_(json);
   igual(back[0][0], 'ID_INTERNO', 'encabezado presente');
   igual(back[1][1], true, 'boolean true preservado');
   igual(back[2][1], false, 'boolean false preservado');
@@ -1017,24 +1017,24 @@ t('R12: _cacheSerializarBloque/_cacheDeserializarBloque son redondos (Date, bool
   igual(back[1][3], '', 'vacío preservado');
 });
 
-t('R12: _memoLeer con CacheService con estado — miss re-lee hoja, hit reusa sin leer, invalidar borra clave', () => {
+t('R12: _memoLeer_ con CacheService con estado — miss re-lee hoja, hit reusa sin leer, invalidar borra clave', () => {
   const filas = [
     ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'REQUIERE_REVISION'],
     ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'NARANJO', true],
     ['EC-0002', '22222222-2', 'ANA SOTO', 'AMARILLO', false]
   ];
   const prevCache = CSP.CacheService;
-  const prevHoja = CSP.Modelo_hoja;
+  const prevHoja = CSP.Modelo_hoja_;
   const cache = cacheConEstado();
   const hoja = hojaLigeraPara('PACIENTES', filas, 3);
   CSP.CacheService = cache;
-  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hoja : null;
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_hoja_ = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hoja : null;
+  CSP.Modelo_invalidarLecturas_();
   const clave = CSP.CFG_CACHE.PREFIJO + 'BLOQUE:PACIENTES';
   try {
     // — MISS inicial — la hoja se lee y el bloque queda en CacheService.
     lecturasContador = 0;
-    const r = CSP._memoLeer(hoja, 'PACIENTES');
+    const r = CSP._memoLeer_(hoja, 'PACIENTES');
     igual(lecturasContador, 1, '1ª lectura lee la hoja una sola vez (miss)');
     igual(r.length, 3, 'bloque crudo con cabecera y filas');
     A(clave in cache.store, 'bloque crudo quedó en CacheService');
@@ -1044,27 +1044,27 @@ t('R12: _memoLeer con CacheService con estado — miss re-lee hoja, hit reusa si
     //   Simula una RPC posterior reasignando el memo de invocación.
     CSP._MEMO_HOJAS = {};
     lecturasContador = 0;
-    const rHit = CSP._memoLeer(hoja, 'PACIENTES');
+    const rHit = CSP._memoLeer_(hoja, 'PACIENTES');
     igual(lecturasContador, 0, 'HIT reusa CacheService sin tocar la hoja');
     igual(rHit[1][3], 'NARANJO', 'datos del bloque deserializado');
     igual(rHit[2][3], 'AMARILLO', 'datos del bloque deserializado (2)');
 
     // — INVALIDAR — toda escritura borra memo + claves entre requests.
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_invalidarLecturas_();
     A(!(clave in cache.store), 'invalidar eliminó la clave entre requests');
     lecturasContador = 0;
-    const r3 = CSP._memoLeer(hoja, 'PACIENTES');
+    const r3 = CSP._memoLeer_(hoja, 'PACIENTES');
     igual(lecturasContador, 1, 'tras invalidar se relee la hoja');
     igual(r3[1][3], 'NARANJO', 'relee datos correctos');
   } finally {
     CSP._MEMO_HOJAS = {};
     CSP.CacheService = prevCache;
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 
-t('R12: _cacheEscribir respeta CFG_CACHE.MAX_BYTES (bloque enorme → solo-sesión)', () => {
+t('R12: _cacheEscribir_ respeta CFG_CACHE.MAX_BYTES (bloque enorme → solo-sesión)', () => {
   const prevCache = CSP.CacheService;
   const cache = cacheConEstado();
   CSP.CacheService = cache;
@@ -1072,7 +1072,7 @@ t('R12: _cacheEscribir respeta CFG_CACHE.MAX_BYTES (bloque enorme → solo-sesi�
     const filasGigantes = [];
     const filaAncha = new Array(60).fill('x'.repeat(200));
     for (let i = 0; i < 500; i++) filasGigantes.push(filaAncha.slice());
-    CSP._cacheEscribir('PACIENTES', filasGigantes);
+    CSP._cacheEscribir_('PACIENTES', filasGigantes);
     A(Object.keys(cache.store).length === 0, 'bloque que supera MAX_BYTES no se persiste');
   } finally {
     CSP.CacheService = prevCache;
@@ -1080,36 +1080,36 @@ t('R12: _cacheEscribir respeta CFG_CACHE.MAX_BYTES (bloque enorme → solo-sesi�
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// R13 — PERF pasada 15: _filaAObjeto y busqueda puntual Modelo_buscarPaciente.
+// R13 — PERF pasada 15: _filaAObjeto_ y busqueda puntual Modelo_buscarPaciente_.
 // Los endpoints del menú que reescriben la fila completa de UN paciente ahora
 // construyen el objeto canónico SOLO de esa fila (reutilizando el bloque crudo
-// memoizado), en vez de alocar los N objetos completos de Modelo_leerPacientes.
+// memoizado), en vez de alocar los N objetos completos de Modelo_leerPacientes_.
 // ─────────────────────────────────────────────────────────────────────────────
 
-t('R13: _filaAObjeto (PURA) convierte fila→objeto con semántica de Modelo_leerPacientes', () => {
+t('R13: _filaAObjeto_ (PURA) convierte fila→objeto con semántica de Modelo_leerPacientes_', () => {
   const campos = ['ID_INTERNO', 'REQUIERE_REVISION', 'FECHA_ACTUALIZACION', 'NOMBRE'];
   const fila = ['EC-0001', true, new Date(2026, 8, 10), 'JUAN PÉREZ'];
-  const obj = CSP._filaAObjeto(campos, fila);
+  const obj = CSP._filaAObjeto_(campos, fila);
   igual(obj.ID_INTERNO, 'EC-0001', 'campo texto directo');
   igual(obj.REQUIERE_REVISION, 'TRUE', 'boolean → TRUE');
   A(obj.FECHA_ACTUALIZACION instanceof Date, 'Date se conserva como Date');
   igual(obj.NOMBRE, 'JUAN PÉREZ', 'campo texto conservado');
 });
 
-t('R13: Modelo_buscarPaciente devuelve idx correcto y el mismo objeto que Modelo_leerPacientes (una lectura)', () => {
+t('R13: Modelo_buscarPaciente_ devuelve idx correcto y el mismo objeto que Modelo_leerPacientes_ (una lectura)', () => {
   const filas = [
     ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'REQUIERE_REVISION'],
     ['EC-0001', '11111111-1', 'JUAN PÉREZ', 'NARANJO', true],
     ['EC-0002', '22222222-2', 'ANA SOTO', 'AMARILLO', false],
     ['EC-0003', '33333333-3', 'LUIS ROJAS', 'VERDE', false]
   ];
-  const prevHoja = CSP.Modelo_hoja;
+  const prevHoja = CSP.Modelo_hoja_;
   lecturasContador = 0;
-  CSP.Modelo_hoja = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
-  CSP.Modelo_invalidarLecturas();
+  CSP.Modelo_hoja_ = (nombre) => nombre === CSP.HOJAS.PACIENTES ? hojaLigeraPara('PACIENTES', filas, 3) : null;
+  CSP.Modelo_invalidarLecturas_();
   try {
     // Búsqueda por ID_INTERNO del 2º paciente → idx=2 (0-based sobre datos).
-    const r = CSP.Modelo_buscarPaciente('EC-0003');
+    const r = CSP.Modelo_buscarPaciente_('EC-0003');
     A(r !== null, 'paciente encontrado');
     igual(r.idx, 2, 'idx = posición 0-based dentro del bloque de datos');
     igual(r.obj.ID_INTERNO, 'EC-0003', 'ID correcto');
@@ -1117,14 +1117,14 @@ t('R13: Modelo_buscarPaciente devuelve idx correcto y el mismo objeto que Modelo
     igual(r.obj.REQUIERE_REVISION, 'FALSE', 'boolean → FALSE');
     igual(lecturasContador, 1, 'una sola lectura de hoja (bloque ya memoizado)');
 
-    // Equivalencia de objeto con Modelo_leerPacientes (mismo idx).
-    const todos = CSP.Modelo_leerPacientes();
+    // Equivalencia de objeto con Modelo_leerPacientes_ (mismo idx).
+    const todos = CSP.Modelo_leerPacientes_();
     equalish(r.obj, todos[r.idx], 'objeto idéntico al lector completo en esa fila');
-    A(CSP.Modelo_buscarPaciente('EC-9999') === null, 'idInterno inexistente → null');
+    A(CSP.Modelo_buscarPaciente_('EC-9999') === null, 'idInterno inexistente → null');
   } finally {
     lecturasContador = 0;
-    CSP.Modelo_hoja = prevHoja;
-    CSP.Modelo_invalidarLecturas();
+    CSP.Modelo_hoja_ = prevHoja;
+    CSP.Modelo_invalidarLecturas_();
   }
 });
 

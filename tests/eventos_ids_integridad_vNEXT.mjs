@@ -29,8 +29,8 @@ for (const f of orden) vm.runInContext(readSrc(f), ctx, { filename: f });
 
 const hEv = hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)]);
 const ss = { getSheetByName: (n) => { if (n === 'EVENTOS') return hEv; return hojaFake([]); }, insertSheet: (n) => { const h=hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)]); return h; } };
-ctx.Modelo_ss = () => ss;
-ctx.Modelo_hoja = (n) => ss.getSheetByName(n);
+ctx.Modelo_ss_ = () => ss;
+ctx.Modelo_hoja_ = (n) => ss.getSheetByName(n);
 ctx.Session = { getActiveUser: () => ({ getEmail: () => 't@e.cl' }) };
 
 const colIdx = {};

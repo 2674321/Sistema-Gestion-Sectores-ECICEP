@@ -1,5 +1,23 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-10-12 (v255 — DEC-110, frontera RPC de captura/operador):**
+> - La **CAPTURA pública concede siempre** y es anónima:
+>   `WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`,
+>   `WebApp_verificarRecepcion` y `api_webappEstado`. No depende de login, OPSESS,
+>   `Session.getActiveUser()`, OAuth ni permiso editor de Sheet.
+> - **OPERADOR y ADMINISTRACIÓN exigen sesión OPSESS.** Toda RPC operativa es
+>   interna (sufijo `_`, fuera de `google.script.run`) y sólo se alcanza por el
+>   gateway `WebApp_operadorRpc` con el mapa explícito `WEBAPP_OPERATOR_RPC_`
+>   (`src/37_OperadorAuth.js`), previa autenticación `WebApp_operadorIniciar`.
+>   El cliente operativo llama por `ECICEP_run`/`ECICEP_lectura`
+>   (`src/00_OperadorRuntime.html`), nunca por `google.script.run` directo.
+> - La superficie pública total baja de ~709 a **12** funciones (5 runtime, 4 de
+>   captura, 3 de auth). Contrato ejecutable en `tests/rpc_public_allowlist.json`.
+> - DEC-101/DEC-102 (acceso universal concedido siempre) quedan **acotadas**: la
+>   captura sigue universal; la operación/admin pasa a exigir sesión OPSESS.
+> - No cambia el sistema único, el Spreadsheet, la Web App como único canal, el
+>   pipeline clínico, ni el QR/manifest/deployment.
+
 > **Actualización 2026-09-27 (v0.16.0, integridad acotada):** Integridad ya no
 > contiene diagnóstico/postcheck monolíticos: cada uno se divide en eventos y
 > cachés, ingresos, vistas y estratificación, con cursor durable técnico versión

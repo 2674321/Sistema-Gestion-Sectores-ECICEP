@@ -19,17 +19,17 @@ for (const sector of ['NARANJO', 'AMARILLO', 'VERDE']) test('T' + (n + 1) + ' tr
   const hoja = { getName: () => 'INGRESO_' + sector };
   const rango = { getNumRows: () => 1, getNumColumns: () => 1, getSheet: () => hoja,
     getRow: () => 8, getColumn: () => 11 };
-  assert.equal(c.ECICEP_onEditIngreso({ range: rango, value: 'INGRESADO' }).ok, true);
+  assert.equal(c.ECICEP_onEditIngreso_({ range: rango, value: 'INGRESADO' }).ok, true);
   assert.deepEqual(llamada, ['INGRESO_' + sector, 8]);
 });
 
 test('T4 doble edición detecta evidencia y no procesa otra vez', () => {
   const c = contexto(); let procesos = 0;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 2 } });
-  c.Modelo_hoja = () => ({ getLastRow: () => 9,
+  c.Modelo_hoja_ = () => ({ getLastRow: () => 9,
     getRange: () => ({ getValue: () => 'INGRESADO' }) });
   c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-X', idEvento: 'EV-X' });
-  c.Ingresos_procesarFila = () => { procesos++; };
+  c.Ingresos_procesarFila_ = () => { procesos++; };
   c.Modelo_refrescarVistasSectores_ = () => ({});
   const r = c.Ingresos_incorporarPorEstadoManual_('INGRESO_VERDE', 8, { bajoLock: true });
   assert.equal(r.ok, true); assert.equal(r.yaIncorporado, true); assert.equal(procesos, 0);
@@ -38,10 +38,10 @@ test('T4 doble edición detecta evidencia y no procesa otra vez', () => {
 for (const [titulo, estado] of [['T5 error validación', 'ERROR'], ['T6 posible duplicado', 'REQUIERE_REVISION']]) test(titulo, () => {
   const c = contexto(); let temporal = '';
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 2 } });
-  c.Modelo_hoja = () => ({ getLastRow: () => 9, getRange: (_r, _c, nr) => nr
+  c.Modelo_hoja_ = () => ({ getLastRow: () => 9, getRange: (_r, _c, nr) => nr
     ? { setValues: v => { temporal = v[0][0]; } } : { getValue: () => 'INGRESADO' } });
   c.Ingresos_evidenciaFila_ = () => ({ ok: false, motivo: 'SIN_EVENTO_INGRESO' });
-  c.Ingresos_procesarFila = () => ({ resultado: { estado: estado, nota: 'resultado real' }, resumen: {} });
+  c.Ingresos_procesarFila_ = () => ({ resultado: { estado: estado, nota: 'resultado real' }, resumen: {} });
   const r = c.Ingresos_incorporarPorEstadoManual_('INGRESO_VERDE', 8, { bajoLock: true });
   assert.equal(temporal, 'PENDIENTE'); assert.equal(r.ok, false); assert.equal(r.estado, estado);
 });
@@ -49,7 +49,7 @@ for (const [titulo, estado] of [['T5 error validación', 'ERROR'], ['T6 posible 
 test('T7 ya ingresado real exige paciente y evento consistentes', () => {
   const c = contexto();
   c.Eventos_buscarPorFuente_ = fuente => ({ idEvento: 'EV-1', idInterno: 'EC-1', tipo: 'INGRESO', fuente });
-  c.Modelo_buscarPaciente = id => ({ idx: 0, obj: { ID_INTERNO: id, SECTOR: 'VERDE' } });
+  c.Modelo_buscarPaciente_ = id => ({ idx: 0, obj: { ID_INTERNO: id, SECTOR: 'VERDE' } });
   const r = c.Ingresos_evidenciaFila_('INGRESO_VERDE', 4);
   assert.equal(r.ok, true); assert.equal(r.idInterno, 'EC-1');
 });
@@ -79,25 +79,25 @@ test('T10 vista stale refresca solo el sector afectado', () => {
 test('T11 trigger ignora otra hoja', () => {
   const c = contexto(); let llamadas = 0; c.Ingresos_incorporarPorEstadoManual_ = () => { llamadas++; };
   const r = { getNumRows: () => 1, getNumColumns: () => 1, getSheet: () => ({ getName: () => 'PACIENTES' }), getRow: () => 4, getColumn: () => 1 };
-  c.ECICEP_onEditIngreso({ range: r, value: 'INGRESADO' }); assert.equal(llamadas, 0);
+  c.ECICEP_onEditIngreso_({ range: r, value: 'INGRESADO' }); assert.equal(llamadas, 0);
 });
 
 test('T12 trigger ignora otra columna', () => {
   const c = contexto(); let llamadas = 0; c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 10 } });
   c.Ingresos_incorporarPorEstadoManual_ = () => { llamadas++; };
   const r = { getNumRows: () => 1, getNumColumns: () => 1, getSheet: () => ({ getName: () => 'INGRESO_VERDE' }), getRow: () => 4, getColumn: () => 2 };
-  c.ECICEP_onEditIngreso({ range: r, value: 'INGRESADO' }); assert.equal(llamadas, 0);
+  c.ECICEP_onEditIngreso_({ range: r, value: 'INGRESADO' }); assert.equal(llamadas, 0);
 });
 
 test('T13 trigger ignora edición multicelda', () => {
   const c = contexto(); let llamadas = 0; c.Ingresos_incorporarPorEstadoManual_ = () => { llamadas++; };
   const r = { getNumRows: () => 2, getNumColumns: () => 1, getSheet: () => ({ getName: () => 'INGRESO_VERDE' }) };
-  c.ECICEP_onEditIngreso({ range: r, value: 'INGRESADO' }); assert.equal(llamadas, 0);
+  c.ECICEP_onEditIngreso_({ range: r, value: 'INGRESADO' }); assert.equal(llamadas, 0);
 });
 
 test('T14 instalación conserva uno y elimina solo duplicados propios', () => {
   const c = contexto(), borrados = [];
-  const propio = id => ({ id, getHandlerFunction: () => 'ECICEP_onEditIngreso', getEventType: () => 'ON_EDIT' });
+  const propio = id => ({ id, getHandlerFunction: () => 'ECICEP_onEditIngreso_', getEventType: () => 'ON_EDIT' });
   const ajeno = { getHandlerFunction: () => 'OTRO', getEventType: () => 'ON_EDIT' };
   c.ScriptApp = { EventType: { ON_EDIT: 'ON_EDIT' }, getProjectTriggers: () => [propio(1), propio(2), ajeno],
     deleteTrigger: t => borrados.push(t.id), newTrigger: () => { throw Error('no debe crear'); } };
@@ -108,7 +108,7 @@ test('T14 instalación conserva uno y elimina solo duplicados propios', () => {
 test('T15 y T16 la ruta ya incorporada no duplica PACIENTES ni EVENTO INGRESO', () => {
   const c = contexto(); let pacientes = 0, eventos = 0;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 2 } });
-  c.Modelo_hoja = () => ({ getLastRow: () => 9, getRange: () => ({ getValue: () => 'INGRESADO' }) });
+  c.Modelo_hoja_ = () => ({ getLastRow: () => 9, getRange: () => ({ getValue: () => 'INGRESADO' }) });
   c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-1', idEvento: 'EV-1' });
   c.Modelo_agregarPacientes_ = () => pacientes++; c.Modelo_agregarEventos_ = () => eventos++;
   c.Modelo_refrescarVistasSectores_ = () => ({});
@@ -121,9 +121,9 @@ test('T17 diagnóstico conserva origen pero repara según sector vigente del pac
   const c = contexto();
   const ingreso = { isSheetHidden: () => false, getLastRow: () => 4,
     getRange: () => ({ getValues: () => [['INGRESADO']] }) };
-  c.Modelo_hoja = nombre => nombre === 'INGRESO_NARANJO' ? ingreso : null;
+  c.Modelo_hoja_ = nombre => nombre === 'INGRESO_NARANJO' ? ingreso : null;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 9 } });
-  const fuente=c.Fuentes_fuenteOrigen({ARCHIVO_ORIGEN:'HOJA_INGRESO',HOJA_ORIGEN:'INGRESO_NARANJO',FILA_ORIGEN:'4'});
+  const fuente=c.Fuentes_fuenteOrigen_({ARCHIVO_ORIGEN:'HOJA_INGRESO',HOJA_ORIGEN:'INGRESO_NARANJO',FILA_ORIGEN:'4'});
   const r = c.Ingresos_diagnosticarIngresados_({pacientes:[{ID_INTERNO:'EC-1',SECTOR:'AMARILLO'}],
     eventos:[{ID_EVENTO:'EV-1',ID_INTERNO:'EC-1',TIPO_EVENTO:'INGRESO',FUENTE:fuente}],
     vistasPorSector:{NARANJO:{},AMARILLO:{},VERDE:{}}});
@@ -136,9 +136,9 @@ test('T18 diagnóstico no convierte MULTIPLE en el sector histórico de ingreso'
   const c = contexto();
   const ingreso = { isSheetHidden: () => false, getLastRow: () => 4,
     getRange: () => ({ getValues: () => [['INGRESADO']] }) };
-  c.Modelo_hoja = nombre => nombre === 'INGRESO_VERDE' ? ingreso : null;
+  c.Modelo_hoja_ = nombre => nombre === 'INGRESO_VERDE' ? ingreso : null;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 9 } });
-  const fuente=c.Fuentes_fuenteOrigen({ARCHIVO_ORIGEN:'HOJA_INGRESO',HOJA_ORIGEN:'INGRESO_VERDE',FILA_ORIGEN:'4'});
+  const fuente=c.Fuentes_fuenteOrigen_({ARCHIVO_ORIGEN:'HOJA_INGRESO',HOJA_ORIGEN:'INGRESO_VERDE',FILA_ORIGEN:'4'});
   const r = c.Ingresos_diagnosticarIngresados_({pacientes:[{ID_INTERNO:'EC-M',SECTOR:'MULTIPLE'}],
     eventos:[{ID_EVENTO:'EV-M',ID_INTERNO:'EC-M',TIPO_EVENTO:'INGRESO',FUENTE:fuente}],
     vistasPorSector:{NARANJO:{},AMARILLO:{},VERDE:{}}});
@@ -160,7 +160,7 @@ test('T19 reconciliar MULTIPLE limpia únicamente la vista histórica reconocida
 test('T20 fila ya incorporada refresca sector histórico y sector vigente', () => {
   const c = contexto(); let sectores = null;
   c.Ingresos_layoutHoja_ = () => ({ hr: 3, mapa: { estadoIdx: 2 } });
-  c.Modelo_hoja = () => ({ getLastRow: () => 9, getRange: () => ({ getValue: () => 'INGRESADO' }) });
+  c.Modelo_hoja_ = () => ({ getLastRow: () => 9, getRange: () => ({ getValue: () => 'INGRESADO' }) });
   c.Ingresos_evidenciaFila_ = () => ({ ok: true, idInterno: 'EC-1', idEvento: 'EV-1',
     paciente: { SECTOR: 'AMARILLO' } });
   c.Modelo_refrescarVistasSectores_ = s => { sectores = Array.from(s); return {}; };

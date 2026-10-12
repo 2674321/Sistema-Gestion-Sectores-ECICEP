@@ -164,20 +164,20 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
     tryLock: () => lockAnswers.length ? lockAnswers.shift() : true,
     releaseLock() {}
   }); } };
-  c.Control_aIso = d => d instanceof Date ? d.toISOString() : String(d || '');
-  c.Captura_v2_catalogo = () => [{ NOMBRE_CANONICO: 'PROFESIONAL UNO', ACTIVO: true }];
-  c.Captura_v2_validar = p => ({ ok: true, normalizado: p, errores: [] });
-  c.Norm_normalizarRut = r => ({ estado: 'OK', rut: String(r).replace(/\./g, '').toUpperCase() });
+  c.Control_aIso_ = d => d instanceof Date ? d.toISOString() : String(d || '');
+  c.Captura_v2_catalogo_ = () => [{ NOMBRE_CANONICO: 'PROFESIONAL UNO', ACTIVO: true }];
+  c.Captura_v2_validar_ = p => ({ ok: true, normalizado: p, errores: [] });
+  c.Norm_normalizarRut_ = r => ({ estado: 'OK', rut: String(r).replace(/\./g, '').toUpperCase() });
   const patients = [{ ID_INTERNO: 'EC-001', RUT: '12345678-5', TELEFONOS: '999999999',
     TELEFONO_OBS: 'MADRE CONTESTA', PROXIMO_CONTROL: '2026-11-01',
     OBSERVACIONES: 'ANTERIOR', SALUD_MENTAL: 'NO' }];
-  c.Modelo_leerPacientes = () => patients;
-  c.CapturaIngress_ctx = () => ({ catalogo: [], leerPacientes: () => patients });
-  c.WebApp_autorizarCaptura = () => false;
+  c.Modelo_leerPacientes_ = () => patients;
+  c.CapturaIngress_ctx_ = () => ({ catalogo: [], leerPacientes: () => patients });
+  c.WebApp_autorizarCaptura_ = () => false;
   const processed = new Set();
   const pipelineCalls = [];
   let pipelineBehavior = null;
-  c.CapturaIngress_enviar = payload => {
+  c.CapturaIngress_enviar_ = payload => {
     pipelineCalls.push(payload);
     if (pipelineBehavior) return pipelineBehavior(payload, processed, pipelineCalls);
     if (processed.has(payload.captureId)) return { ok: true, data: { estado: 'DUPLICADO' } };
@@ -192,7 +192,7 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
     setLockSequence(values) { lockAnswers = values.slice(); },
     setPipelineBehavior(fn) { pipelineBehavior = fn; },
     addForm(id) { const f = new MockForm(id); forms.set(id, f); return f; },
-    install(options) { return c.Form_operativoInstalar(options); }
+    install(options) { return c.Form_operativoInstalar_(options); }
   };
 }
 
@@ -221,8 +221,8 @@ export function assertInstallerIdempotent() {
   assert.equal(h.createCount, 0, 'adopta el Form conocido; no crea otro');
   assert.equal(h.form.getItems().filter(x => x.getType() === TYPES.PAGE_BREAK).length, 4);
   assert.equal(new Set(h.form.getItems().map(x => x.getId())).size, h.form.getItems().length, 'itemIds únicos');
-  assert.equal(h.triggers.filter(t => t.handler === 'Form_onFormSubmit').length, 1);
-  assert.equal(h.triggers.filter(t => t.handler === 'Form_worker').length, 1);
+  assert.equal(h.triggers.filter(t => t.handler === 'Form_onFormSubmit_').length, 1);
+  assert.equal(h.triggers.filter(t => t.handler === 'Form_worker_').length, 1);
   const idx = h.c.Form_indexarSchema_(h.form);
   for (const sec of h.c.Form_esquemaCanonial_().secciones) {
     for (const campo of h.c.Form_esquemaCanonial_().campos[sec]) {
@@ -286,12 +286,12 @@ export function assertDurableAndWorker() {
   assert.equal(h.form.responses.length, 4, 'una respuesta durable por acción');
   assert.equal(h.pipelineCalls.length, before, 'recepción no toca pipeline clínico');
   assert.equal(h.lockCalls, locksBefore, 'recepción no toma lock clínico');
-  const signal = h.c.Form_onFormSubmit({ response: h.form.responses.at(-1) });
+  const signal = h.c.Form_onFormSubmit_({ response: h.form.responses.at(-1) });
   assert.equal(signal.ok, true); assert.equal(signal.queued, true);
   assert.equal(h.pipelineCalls.length, before, 'onFormSubmit solo señala; no toca pipeline clínico');
   assert.equal(h.lockCalls, locksBefore, 'onFormSubmit no toma lock clínico');
-  h.triggers.splice(0, h.triggers.length, ...h.triggers.filter(t => t.handler !== 'Form_onFormSubmit'));
-  const w = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
+  h.triggers.splice(0, h.triggers.length, ...h.triggers.filter(t => t.handler !== 'Form_onFormSubmit_'));
+  const w = h.c.Form_worker_({ max: 20, yaProcesado: cid => h.processed.has(cid) });
   assert.equal(w.procesadas, 4, 'worker procesa respuestas programáticas sin eventos');
   assert.equal(h.pipelineCalls.length, before + 4);
   return h;
@@ -302,10 +302,10 @@ export function assertLockAndOverlap() {
   h.c.WebApp_capturarRecibirDurable(payloadFor('nuevoIngreso', 1));
   h.props.set('GOOGLE_FORM_CURSOR', '2026-10-12T00:00:00.000Z');
   h.setLockSequence([false, true]);
-  const busy = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
+  const busy = h.c.Form_worker_({ max: 20, yaProcesado: cid => h.processed.has(cid) });
   assert.equal(busy.motivo, 'DEFERRED_LOCK_BUSY');
   assert.equal(h.props.get('GOOGLE_FORM_CURSOR'), '2026-10-12T00:00:00.000Z', 'lock busy no mueve cursor');
-  const recovered = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
+  const recovered = h.c.Form_worker_({ max: 20, yaProcesado: cid => h.processed.has(cid) });
   assert.equal(recovered.procesadas, 1); assert.equal(h.processed.size, 1);
 
   const h2 = assertInstallerIdempotent();
@@ -317,10 +317,10 @@ export function assertLockAndOverlap() {
     if (done.has(p.captureId)) return { ok: true, data: { estado: 'DUPLICADO' } };
     done.add(p.captureId); return { ok: true, data: { estado: 'PROCESADO' } };
   });
-  const first = h2.c.Form_worker({ max: 20, yaProcesado: cid => h2.processed.has(cid) });
+  const first = h2.c.Form_worker_({ max: 20, yaProcesado: cid => h2.processed.has(cid) });
   assert.equal(first.procesadas, 3); assert.equal(first.retryable, 1);
   assert.equal(h2.props.get('GOOGLE_FORM_CURSOR'), h2.form.responses[0].timestamp.toISOString(), 'cursor se detiene antes de T1 retryable');
-  const second = h2.c.Form_worker({ max: 20, yaProcesado: cid => h2.processed.has(cid) });
+  const second = h2.c.Form_worker_({ max: 20, yaProcesado: cid => h2.processed.has(cid) });
   assert.equal(second.procesadas, 1, 'el overlap recupera T1');
   assert.equal(h2.processed.size, 4); assert.equal(h2.pipelineCalls.length, 5, 'solo T1 se reintenta');
 }
@@ -336,7 +336,7 @@ export function assertConcurrency() {
     }
     assert.equal(ids.size, n); assert.equal(h.form.responses.length, n); assert.equal(h.pipelineCalls.length, 0);
     assert.equal(h.lockCalls, 0, 'recepción concurrente no toma lock clínico');
-    const w = h.c.Form_worker({ max: 100, yaProcesado: cid => h.processed.has(cid) });
+    const w = h.c.Form_worker_({ max: 100, yaProcesado: cid => h.processed.has(cid) });
     assert.equal(w.procesadas, n); assert.equal(h.processed.size, n); assert.equal(w.errores, 0);
     result[n] = { recibidas: n, procesadas: n, perdidas: 0, duplicadas: 0, serviceBusy: 0 };
   }
@@ -365,7 +365,7 @@ export function assertRoundtrip() {
       itemMap: JSON.parse(h.props.get('GOOGLE_FORM_ITEM_MAP')),
       titleMap: JSON.parse(h.props.get('GOOGLE_FORM_TITLE_MAP'))
     });
-    const adapted = h.c.CapturaIngress_adapterForms({ formId: h.form.id, responseId: response.id,
+    const adapted = h.c.CapturaIngress_adapterForms_({ formId: h.form.id, responseId: response.id,
       timestamp: response.timestamp.toISOString(), accion: extracted.accion, campos: extracted.campos },
       { catalogo: [], hoy: '2026-10-12', leerPacientes: () => h.patients });
     assert.equal(adapted.ok, true, action + ': ' + JSON.stringify(adapted.errores));
@@ -396,7 +396,7 @@ export function assertMassAndObservability() {
     if (done.has(p.captureId)) return { ok: true, data: { estado: 'DUPLICADO' } };
     done.add(p.captureId); return { ok: true, data: { estado: 'PROCESADO' } };
   });
-  const w = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
+  const w = h.c.Form_worker_({ max: 20, yaProcesado: cid => h.processed.has(cid) });
   const summary = { responsesTotal: h.form.responses.length, processed: w.procesadas,
     retryable: w.retryable, review: w.review, terminal: w.terminal,
     backlog: w.retryable + w.review, oldestPendingMin: 0 };

@@ -8,8 +8,8 @@
  *   DEMO → versión estable fijada         — Spreadsheet 1Iyv…
  *
  * Reglas:
- *   - Entorno_detectar(ssId) es la ÚNICA fuente de identidad.
- *   - Entorno_validarProcesamiento() bloquea (ERROR_CONFIG_ENTORNO) cuando el
+ *   - Entorno_detectar_(ssId) es la ÚNICA fuente de identidad.
+ *   - Entorno_validarProcesamiento_() bloquea (ERROR_CONFIG_ENTORNO) cuando el
  *     Spreadsheet activo es desconocido o cuando el FORM_ID configurado
  *     pertenece a OTRO entorno (Form DEV nunca escribe DEMO y viceversa).
  *   - Backups: carpeta por entorno ('ECICEP_Backups_<ENV>' o BACKUP_FOLDER_ID
@@ -25,46 +25,46 @@
 // ---------------------------------------------------------------------------
 
 /** PURA: nombres de entornos registrados. */
-function Entorno_lista() {
+function Entorno_lista_() {
   return Object.keys(ENTORNOS);
 }
 
 /** PURA: datos de un entorno (o null si no existe). */
-function Entorno_datos(nombre) {
-  var n = Utl_texto(nombre).toUpperCase();
+function Entorno_datos_(nombre) {
+  var n = Utl_texto_(nombre).toUpperCase();
   return ENTORNOS[n] ? ENTORNOS[n] : null;
 }
 
 /** PURA: entorno al que pertenece un Spreadsheet por su ID. */
-function Entorno_detectar(ssId) {
-  var id = Utl_texto(ssId).trim();
+function Entorno_detectar_(ssId) {
+  var id = Utl_texto_(ssId).trim();
   if (!id) return 'DESCONOCIDO';
-  if (ENTORNOS.DEV && Utl_texto(ENTORNOS.DEV.SPREADSHEET_ID).trim() === id) return 'DEV';
-  if (ENTORNOS.DEMO && Utl_texto(ENTORNOS.DEMO.SPREADSHEET_ID).trim() === id) return 'DEMO';
+  if (ENTORNOS.DEV && Utl_texto_(ENTORNOS.DEV.SPREADSHEET_ID).trim() === id) return 'DEV';
+  if (ENTORNOS.DEMO && Utl_texto_(ENTORNOS.DEMO.SPREADSHEET_ID).trim() === id) return 'DEMO';
   return 'DESCONOCIDO';
 }
 
 /** PURA: ¿el libro pertenece al entorno indicado? */
-function Entorno_esLibro(ssId, entorno) {
-  return Entorno_detectar(ssId) === Utl_texto(entorno).toUpperCase();
+function Entorno_esLibro_(ssId, entorno) {
+  return Entorno_detectar_(ssId) === Utl_texto_(entorno).toUpperCase();
 }
 
 /** PURA: entorno dueño de un FORM_ID registrado ('' si no está en ENTORNOS). */
-function Entorno_duenoForm(formId) {
-  var f = Utl_texto(formId).trim();
+function Entorno_duenoForm_(formId) {
+  var f = Utl_texto_(formId).trim();
   if (!f) return '';
-  var lista = Entorno_lista();
+  var lista = Entorno_lista_();
   for (var i = 0; i < lista.length; i++) {
-    if (Utl_texto(ENTORNOS[lista[i]].FORM_ID).trim() === f) return lista[i];
+    if (Utl_texto_(ENTORNOS[lista[i]].FORM_ID).trim() === f) return lista[i];
   }
   return '';
 }
 
 /** PURA: valor esperado de un recurso del entorno (SPREADSHEET_ID | FORM_ID |
  *  BACKUP_FOLDER_ID). Devuelve '' si no está configurado. */
-function Entorno_recursoEsperado(entorno, campo) {
-  var d = Entorno_datos(entorno);
-  return d && d[campo] !== undefined ? Utl_texto(d[campo]).trim() : '';
+function Entorno_recursoEsperado_(entorno, campo) {
+  var d = Entorno_datos_(entorno);
+  return d && d[campo] !== undefined ? Utl_texto_(d[campo]).trim() : '';
 }
 
 /**
@@ -75,10 +75,10 @@ function Entorno_recursoEsperado(entorno, campo) {
  *   - el FORM_ID configurado pertenece a OTRO entorno (aislamiento cruzado).
  * No modifica nada: es solo una decisión.
  */
-function Entorno_validarProcesamiento(ssId, formId, cfg) {
+function Entorno_validarProcesamiento_(ssId, formId, cfg) {
   cfg = cfg || {};
-  var ss = Utl_texto(ssId).trim();
-  var entorno = Entorno_detectar(ss);
+  var ss = Utl_texto_(ssId).trim();
+  var entorno = Entorno_detectar_(ss);
   var res = { ok: true, entorno: entorno, ssId: ss, motivo: '', detalle: '', aviso: '' };
   if (!ss) {
     res.ok = false; res.motivo = 'ERROR_CONFIG_ENTORNO';
@@ -90,9 +90,9 @@ function Entorno_validarProcesamiento(ssId, formId, cfg) {
     res.detalle = 'El Spreadsheet activo no pertenece a DEV ni a DEMO';
     return res;
   }
-  var form = Utl_texto(formId).trim();
+  var form = Utl_texto_(formId).trim();
   if (form) {
-    var dueno = Entorno_duenoForm(form);
+    var dueno = Entorno_duenoForm_(form);
     if (dueno && dueno !== entorno) {
       res.ok = false; res.motivo = 'ERROR_CONFIG_ENTORNO';
       res.detalle = 'Form del entorno ' + dueno + ' configurado desde el entorno ' + entorno + ': procesamiento bloqueado';
@@ -112,18 +112,18 @@ function Entorno_validarProcesamiento(ssId, formId, cfg) {
 
 /** PURA: carpeta lógica de backups del entorno (por ID si está configurada,
  *  si no por nombre derivado). Aísla DEV de DEMO. */
-function Entorno_carpetaEsperada(entorno) {
-  var d = Entorno_datos(entorno);
+function Entorno_carpetaEsperada_(entorno) {
+  var d = Entorno_datos_(entorno);
   if (!d) return '';
-  var id = Utl_texto(d.BACKUP_FOLDER_ID).trim();
+  var id = Utl_texto_(d.BACKUP_FOLDER_ID).trim();
   if (id) return id;
-  return 'ECICEP_Backups_' + Utl_texto(d.NOMBRE);
+  return 'ECICEP_Backups_' + Utl_texto_(d.NOMBRE);
 }
 
 /** PURA: entorno dueño de una carpeta de backups (por nombre derivado). */
-function Entorno_clasificarCarpeta(nombre) {
-  var n = Utl_texto(nombre).trim();
-  var lista = Entorno_lista();
+function Entorno_clasificarCarpeta_(nombre) {
+  var n = Utl_texto_(nombre).trim();
+  var lista = Entorno_lista_();
   for (var i = 0; i < lista.length; i++) {
     if (n === 'ECICEP_Backups_' + lista[i]) return lista[i];
   }
@@ -136,27 +136,27 @@ function Entorno_clasificarCarpeta(nombre) {
  * efectos. `extra` puede traer {trigger:bool, mapeo:int, formAccesible:bool,
  * procesador:bool, carpetaBackup:string} medidos por el llamador GAS.
  */
-function Entorno_diagnostico(ssId, formId, extra) {
+function Entorno_diagnostico_(ssId, formId, extra) {
   extra = extra || {};
-  var entorno = Entorno_detectar(ssId);
-  var esperadoId = Entorno_recursoEsperado(entorno, 'SPREADSHEET_ID');
-  var formEsperado = Entorno_recursoEsperado(entorno, 'FORM_ID');
+  var entorno = Entorno_detectar_(ssId);
+  var esperadoId = Entorno_recursoEsperado_(entorno, 'SPREADSHEET_ID');
+  var formEsperado = Entorno_recursoEsperado_(entorno, 'FORM_ID');
   var checks = [];
 
   checks.push({
     nombre: 'entorno', ok: entorno !== 'DESCONOCIDO' && entorno !== '',
     detalle: entorno === 'DESCONOCIDO'
       ? 'Spreadsheet no registrado en ENTORNOS'
-      : 'Entorno: ' + entorno + ' (' + Entorno_datos(entorno).ETIQUETA + ')'
+      : 'Entorno: ' + entorno + ' (' + Entorno_datos_(entorno).ETIQUETA + ')'
   });
 
   checks.push({
-    nombre: 'spreadsheet', ok: Entorno_esLibro(ssId, entorno),
+    nombre: 'spreadsheet', ok: Entorno_esLibro_(ssId, entorno),
     detalle: 'Spreadsheet ' + (esperadoId ? (esperadoId === ssId ? '✓ ' + ssId : '✗ esperado ' + esperadoId) : 'sin ID registrado')
   });
 
   checks.push({
-    nombre: 'form', ok: !Utl_vacio(formEsperado) && formId === formEsperado,
+    nombre: 'form', ok: !Utl_vacio_(formEsperado) && formId === formEsperado,
     detalle: !formEsperado
       ? 'Sin FORM_ID registrado para ' + entorno + ' (pendiente manual)'
       : (formId === formEsperado ? 'Form ' + formEsperado : 'Form esperado ' + formEsperado + ' ≠ configurado ' + formId)
@@ -164,8 +164,8 @@ function Entorno_diagnostico(ssId, formId, extra) {
 
   if (extra.carpetaBackup) {
     var carpeta = extra.carpetaBackup;
-    var duena = String(carpeta).indexOf('ECICEP_Backups_') === 0 ? Entorno_clasificarCarpeta(carpeta) : extra.carpetaBackup;
-    var esperada = Entorno_carpetaEsperada(entorno);
+    var duena = String(carpeta).indexOf('ECICEP_Backups_') === 0 ? Entorno_clasificarCarpeta_(carpeta) : extra.carpetaBackup;
+    var esperada = Entorno_carpetaEsperada_(entorno);
     checks.push({
       nombre: 'backup', ok: esperada === carpeta || duena === entorno,
       detalle: 'Backup esperado: ' + (esperada || 'n/d') + ' · actual: ' + carpeta
@@ -182,7 +182,7 @@ function Entorno_diagnostico(ssId, formId, extra) {
   if (extra.trigger !== undefined) {
     checks.push({
       nombre: 'trigger', ok: !!extra.trigger,
-      detalle: extra.trigger ? 'Trigger Form_onFormSubmit instalado' : 'Sin trigger de envío (captura bajo demanda)'
+      detalle: extra.trigger ? 'Trigger Form_onFormSubmit_ instalado' : 'Sin trigger de envío (captura bajo demanda)'
     });
   }
 
@@ -206,7 +206,7 @@ function Entorno_diagnostico(ssId, formId, extra) {
 
 /** GAS: resuelve el entorno del libro ACTIVO (sin abrir por ID el propio libro).
  *  En un script vinculado, getActiveSpreadsheet() es el libro correcto. */
-function Entorno_actualGAS() {
+function Entorno_actualGAS_() {
   var ssId = '';
   if (typeof SpreadsheetApp === 'undefined') return { ssId: ssId, entorno: 'DESCONOCIDO', coincide: false };
   var ss = null;
@@ -215,9 +215,9 @@ function Entorno_actualGAS() {
     try { ss = SpreadsheetApp.openById(ECICEP.SPREADSHEET_ID); } catch (e) { ss = null; }
   }
   if (ss) ssId = ss.getId();
-  var entorno = Entorno_detectar(ssId);
+  var entorno = Entorno_detectar_(ssId);
   return {
     ssId: ssId, entorno: entorno,
-    coincide: entorno !== 'DESCONOCIDO' && Entorno_esLibro(ssId, entorno)
+    coincide: entorno !== 'DESCONOCIDO' && Entorno_esLibro_(ssId, entorno)
   };
 }

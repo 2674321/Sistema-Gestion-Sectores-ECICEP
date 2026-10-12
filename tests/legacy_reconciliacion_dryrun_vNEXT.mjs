@@ -53,7 +53,7 @@ assert.equal(clA.idInterno, 'EC-PX-0001', 'A: idInterno recuperado');
 assert.equal(clA.idEvento, 'EV-A0001', 'A: idEvento recuperado');
 
 // 1b) Moderno A2 ya procesado por el pipeline INGRESO real: EVENTOS.FUENTE es el
-//     captureId DESNUDO (Fuentes_fuenteOrigen, 03_Fuentes.js:90-97). La
+//     captureId DESNUDO (Fuentes_fuenteOrigen_, 03_Fuentes.js:90-97). La
 //     reconciliación debe reconocerlo como evidencia durable (misma identidad).
 const capA2 = 'Cp4-' + '2'.repeat(32);
 store.eventos.push({ ID_EVENTO: 'EV-A2001', ID_INTERNO: 'EC-PX-0001', TIPO_EVENTO: 'INGRESO',
@@ -105,15 +105,15 @@ const ssFake = {
     return hojaFake([]);
   }
 };
-ctx.Modelo_ss = () => ssFake;
-ctx.Modelo_hoja = (n) => ssFake.getSheetByName(n);
+ctx.Modelo_ss_ = () => ssFake;
+ctx.Modelo_hoja_ = (n) => ssFake.getSheetByName(n);
 // sembrar pendientes
 cabFila.val.push(['2026-01-01', capA, 'RECIBIDO', JSON.stringify(payload), 'INGRESO_VERDE', '4', 'EC-PX-0001', 'EV-A0001', '0']); // fila 2
 cabFila.val.push(['2026-01-01', capId(), 'RECIBIDO', JSON.stringify(payload), 'INGRESO_VERDE', '4', '', '', '0']);           // fila 3 legacy same row
 cabFila.val.push(['2026-01-01', 'Cp4-' + 'c'.repeat(32), 'RECIBIDO', '', 'INGRESO_VERDE', '4', '', '', '0']);                 // fila 4 sin payload
 cabFila.val.push([new Date(), 'Cp4-' + 'd'.repeat(32), 'PROCESADO', JSON.stringify(payload), 'INGRESO_VERDE', '4', 'EC-PX-0001', 'EV-A0001', '0']); // fila 5 ya procesado → NO pendiente
 
-const informe = ctx.Captura_v2_reconciliarPendientes({ pacientes: store.pacientes, eventos: store.eventos, detalle: true });
+const informe = ctx.Captura_v2_reconciliarPendientes_({ pacientes: store.pacientes, eventos: store.eventos, detalle: true });
 assert.equal(informe.dryRun, true, 'dryRun estricto');
 assert.equal(informe.total, 3, 'solo 3 RECIBIDO/VALIDANDO/VALIDO (el PROCESADO se excluye)');
 assert.equal(informe.porEstado[R.YA_COMPLETO_REPARAR_TRAILER], 1, 'A clasificado');

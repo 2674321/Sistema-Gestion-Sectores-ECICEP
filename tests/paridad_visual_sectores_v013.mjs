@@ -32,16 +32,16 @@ assert.match(h1, /^[0-9a-f]{8}$/);
 ok('T2 firma estable: hash estructural independiente del orden de claves');
 
 // T3: familia e identidad por hoja.
-assert.equal(c.HVis_familiaHoja('SECTOR_VERDE'), 'VERDE');
-assert.equal(c.HVis_familiaHoja('INGRESO_AMARILLO'), 'AMARILLO');
-assert.equal(c.HVis_identidad('EVENTOS'), 'GENERAL');
-assert.equal(c.HVis_identidad('PACIENTES'), 'GENERAL');
+assert.equal(c.HVis_familiaHoja_('SECTOR_VERDE'), 'VERDE');
+assert.equal(c.HVis_familiaHoja_('INGRESO_AMARILLO'), 'AMARILLO');
+assert.equal(c.HVis_identidad_('EVENTOS'), 'GENERAL');
+assert.equal(c.HVis_identidad_('PACIENTES'), 'GENERAL');
 const plant = c.HVis_plantillaParaHoja_('INGRESO_NARANJO');
 assert.ok(plant && plant.familia === 'INGRESO' && plant.columnas.length > 0);
 ok('T3 familia/identidad por sector y plantilla INGRESO con columnas');
 
 // T4: comparación de familia sin hoja de referencia reporta fallo explícito.
-c.Modelo_ss = () => ({ getSheetByName: () => null });
+c.Modelo_ss_ = () => ({ getSheetByName: () => null });
 const sinRef = c.HVis_compararFamilia_(['INGRESO_NARANJO', 'INGRESO_VERDE']);
 assert.equal(sinRef.ok, false);
 assert.equal(sinRef.cantidadDiferencias, 1);
@@ -57,9 +57,9 @@ assert.ok(Array.isArray(ver.diferencias), 'diferencias consolidadas');
 ok('T5 Presentacion_verificar_ agrega paridad INGRESO y SECTOR en el contrato');
 
 // T6: con paridades e inicio convergente, la verificación es ok.
-c.Modelo_ss = () => ({ getSheetByName: (nm) => nm === 'INICIO' ? null : null });
+c.Modelo_ss_ = () => ({ getSheetByName: (nm) => nm === 'INICIO' ? null : null });
 c.HVis_compararFamilia_ = () => ({ ok: true, cantidadDiferencias: 0, diferencias: [] });
-c.HVis_diagnosticarTodas = () => ({ diagnostico: {} });
+c.HVis_diagnosticarTodas_ = () => ({ diagnostico: {} });
 const verOk = c.Presentacion_verificar_();
 assert.equal(verOk.ok, true);
 assert.equal(verOk.pendientes, 0);

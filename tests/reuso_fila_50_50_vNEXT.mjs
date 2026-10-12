@@ -25,7 +25,7 @@ const mkStaging = (sector, rut, nombre, fecha, filaFisica, captureIdMarca) => {
   const v = { NOMBRE: nombre, RUT: rut, SEXO: 'F', FECHA_NACIMIENTO: '1980-05-10',
     TELEFONOS: '900000000', ESTRATIFICACION: 'G2', FECHA_INGRESO: fecha,
     DUPLA_INGRESO: '', OBSERVACIONES: 'obs de ingreso' };
-  const fila = ctx.Fuentes_normalizar(ctx.Fuentes_crearFila(
+  const fila = ctx.Fuentes_normalizar_(ctx.Fuentes_crearFila_(
     { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_' + sector, fila: String(filaFisica), sector: sector }, v));
   if (captureIdMarca) fila.CAPTURE_ID = captureIdMarca;
   return fila;
@@ -44,7 +44,7 @@ for (let i = 0; i < 50; i++) {
   lotes50.push(mkStaging('VERDE', '12345678-5', 'PACIENTE X',
     fecha50(i), 4, cap(i)));
 }
-const s1 = ctx.Ingresos_procesarFilas(lotes50, store, {});
+const s1 = ctx.Ingresos_procesarFilas_(lotes50, store, {});
 assert.equal(s1.resumen.leidos, 50, 'se leen las 50 filas del lote repetido');
 assert.equal(s1.resumen.yaIncorporados, 0, 'NADIE fue marcado yaIncorporado (era el 0/50)');
 assert.equal(s1.resumen.eventosCreados, 50, 'las 50 capturas generan su propio evento INGRESO');
@@ -62,7 +62,7 @@ assert.equal(store.eventos.some(e => e.FUENTE === 'HOJA_INGRESO|VERDE|4'), false
 
 // Caso 2: retry del captureId 0 con FECHA DIFERENTE (misma fila física) →
 // yaIncorporado contra SU PROPIO evento durable (no por same-day).
-const retry = ctx.Ingresos_procesarFilas(
+const retry = ctx.Ingresos_procesarFilas_(
   [mkStaging('VERDE', '12345678-5', 'PACIENTE X', '2026-11-15', 4, cap(0))],
   store, {});
 assert.equal(retry.resultados.length, 1, 'retry tiene resultado');
@@ -70,7 +70,7 @@ assert.equal(retry.resultados[0].yaIncorporado, true, 'retry = yaIncorporado (id
 assert.equal(store.eventos.length, 50, 'el retry NO suma evento');
 
 // Caso 3: OTRA persona en la fila reutilizada 4 → nuevo, sin colisión.
-const s3 = ctx.Ingresos_procesarFilas(
+const s3 = ctx.Ingresos_procesarFilas_(
   [mkStaging('VERDE', '87654321-4', 'PACIENTE Y', '2026-09-10', 4, cap(51))],
   store, {});
 assert.equal(s3.resultados[0].yaIncorporado, false, 'otra persona = nueva captura');
@@ -79,7 +79,7 @@ assert.equal(store.pacientes.length, 2, '1 (RUT X) + 1 (persona Y) en total');
 
 // Caso 4: fila legacy (sin marca) de la MISMA coordenada física 4 re-importada.
 // La persona X re-ingresada a mano NO debe quedar atrapada por eventos modernos.
-const s4 = ctx.Ingresos_procesarFilas(
+const s4 = ctx.Ingresos_procesarFilas_(
   [mkStaging('VERDE', '12345678-5', 'PACIENTE X', '2027-01-05', 4, null)],
   store, {});
 assert.equal(s4.resultados[0].estado, 'INGRESADO', 'legacy igual ingresa');
@@ -87,7 +87,7 @@ assert.equal(s4.resultados[0].yaIncorporado, false, 'legacy no colisiona con FUE
 
 // §9 AMARILLO: reutilización de fila también en INGRESO_AMARILLO (fixture 2).
 let storeA = { pacientes: [], eventos: [] };
-const sA = ctx.Ingresos_procesarFilas([
+const sA = ctx.Ingresos_procesarFilas_([
   mkStaging('AMARILLO', '55555555-5', 'PACIENTE Z', '2026-09-01', 4, cap(100)),
   mkStaging('AMARILLO', '55555555-5', 'PACIENTE Z', '2026-09-02', 4, cap(101))
 ], storeA, {});

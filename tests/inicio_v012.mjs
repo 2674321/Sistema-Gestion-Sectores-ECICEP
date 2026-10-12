@@ -25,7 +25,7 @@ assert.match(fn, /Inicio_calcularMetricas_\(\)/);
 assert.match(fn, /Inicio_guardarSnapshot_/);
 assert.match(fn, /Inicio_escribirMetricas_/);
 assert.match(src, /rango: 'A1:AJ50'/);
-assert.match(src, /if \(!Utl_texto\(p\.ID_INTERNO\)\) return/);
+assert.match(src, /if \(!Utl_texto_\(p\.ID_INTERNO\)\) return/);
 assert.match(fn, /alturas\.length/,
   'la portada utiliza las 36 columnas del lienzo gestionado');
 assert.match(fn, /h\.setColumnWidths\(1, cols, cto\.anchoColumna\)/,

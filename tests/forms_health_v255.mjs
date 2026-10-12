@@ -23,7 +23,7 @@ assert.equal(sOk.alertas.length, 0);
 
 // CRITICAL — falta el trigger del worker.
 const sinWorker = ok;
-sinWorker.triggers.splice(0, sinWorker.triggers.length, ...sinWorker.triggers.filter(t => t.handler !== 'Form_worker'));
+sinWorker.triggers.splice(0, sinWorker.triggers.length, ...sinWorker.triggers.filter(t => t.handler !== 'Form_worker_'));
 const sCrit = sinWorker.c.Form_saludOperativa_();
 assert.equal(sCrit.estado, 'CRITICAL');
 assert.ok(sCrit.alertas.includes('WORKER_TRIGGER_AUSENTE'));

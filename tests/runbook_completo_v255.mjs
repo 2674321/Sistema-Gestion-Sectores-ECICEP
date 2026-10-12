@@ -35,7 +35,7 @@ const temas = [
   ['Sheet caído', /Spreadsheet caído|Sheets/i],
   ['schema drift', /schema drift/i],
   ['permisos deployer', /deployer/i],
-  ['reparación', /Form_operativoReparar/],
+  ['reparación', /Form_operativoReparar_/],
   ['rollback', /rollback/i],
 ];
 for (const [nombre, re] of temas) {

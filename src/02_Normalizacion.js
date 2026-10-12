@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 /** Calcula dígito verificador módulo 11 para un cuerpo numérico. */
-function Norm_dvModulo11(cuerpo) {
+function Norm_dvModulo11_(cuerpo) {
   var suma = 0, mult = 2;
   for (var i = cuerpo.length - 1; i >= 0; i--) {
     suma += parseInt(cuerpo.charAt(i), 10) * mult;
@@ -32,10 +32,10 @@ function Norm_dvModulo11(cuerpo) {
  *   SIN_DV  → cuerpo plausible pero la fuente no traía DV (no se inventa)
  *   INVALIDO→ DV erróneo o caracteres/longitud imposibles
  */
-function Norm_normalizarRut(raw) {
-  var original = Utl_texto(raw);
+function Norm_normalizarRut_(raw) {
+  var original = Utl_texto_(raw);
   var res = { estado: 'VACIO', rut: '', cuerpo: '', dv: '', dvCalculado: '', detalle: '', original: original };
-  if (Utl_vacio(original)) return res;
+  if (Utl_vacio_(original)) return res;
 
   // Excel entrega RUTs numéricos como float ("72910265.0")
   var limpio = original.trim().toUpperCase().replace(/\.0+$/, '').replace(/\./g, '').replace(/\s+/g, '');
@@ -46,7 +46,7 @@ function Norm_normalizarRut(raw) {
   if (mConDv) {
     res.cuerpo = mConDv[1];
     res.dv = mConDv[2];
-    res.dvCalculado = Norm_dvModulo11(res.cuerpo);
+    res.dvCalculado = Norm_dvModulo11_(res.cuerpo);
     res.rut = res.cuerpo + '-' + res.dv;
     if (res.dv !== res.dvCalculado) {
       res.estado = 'INVALIDO';
@@ -59,7 +59,7 @@ function Norm_normalizarRut(raw) {
 
   if (mSinDv) {
     res.cuerpo = mSinDv[1];
-    res.dvCalculado = Norm_dvModulo11(res.cuerpo);
+    res.dvCalculado = Norm_dvModulo11_(res.cuerpo);
     res.estado = 'SIN_DV';
     res.rut = res.cuerpo; // solo el cuerpo; NO se agrega DV inventado
     res.detalle = 'La fuente no trae dígito verificador';
@@ -72,8 +72,8 @@ function Norm_normalizarRut(raw) {
 }
 
 /** true si el RUT (normalizado o crudo) tiene DV válido según módulo 11. */
-function Norm_validarRut(rutNormalizado) {
-  return Norm_normalizarRut(rutNormalizado).estado === 'OK';
+function Norm_validarRut_(rutNormalizado) {
+  return Norm_normalizarRut_(rutNormalizado).estado === 'OK';
 }
 
 // ---------------------------------------------------------------------------
@@ -87,10 +87,10 @@ function Norm_validarRut(rutNormalizado) {
  * @returns {estado:'VACIO'|'OK'|'PARCIAL'|'INVALIDO', telefonos:[], observaciones:[], detalle, original}
  *   PARCIAL → hay números guardados pero alguno corto/sospechoso
  */
-function Norm_normalizarTelefono(raw) {
-  var original = Utl_texto(raw);
+function Norm_normalizarTelefono_(raw) {
+  var original = Utl_texto_(raw);
   var res = { estado: 'VACIO', telefonos: [], observaciones: [], detalle: '', original: original };
-  if (Utl_vacio(original)) return res;
+  if (Utl_vacio_(original)) return res;
 
   // Float de Excel: "993617702.0" / notación científica
   var texto = original.replace(/\.0+$/, '').replace(/(\d)\.0*e\+\d+/i, '$1');
@@ -98,7 +98,7 @@ function Norm_normalizarTelefono(raw) {
   var vistos = {};
 
   for (var i = 0; i < tokens.length; i++) {
-    var tok = Utl_colapsarEspacios(tokens[i]);
+    var tok = Utl_colapsarEspacios_(tokens[i]);
     if (tok === '') continue;
 
     // Anotación textual dentro del token (ej: "ESPOSO", "64400270 sandra")
@@ -151,7 +151,7 @@ function Norm_normalizarTelefono(raw) {
 /**
  * Parser tolerante y honesto: nunca transforma una fecha dudosa en otra fecha.
  * @param {Object} [rango] {min,max} años plausibles; por defecto CFG_FECHAS
- *        (los nacimientos usan ANO_MIN_NACIMIENTO — ver Fuentes_normalizar)
+ *        (los nacimientos usan ANO_MIN_NACIMIENTO — ver Fuentes_normalizar_)
  * @returns {estado:'VACIA'|'VALIDA'|'MES_ANO'|'INVALIDA'|'NO_RECONOCIDA',
  *           fecha:Date|null, iso:'', detalle:'', original}
  *   VACIA         → vacío real ('', '-', '--')
@@ -160,10 +160,10 @@ function Norm_normalizarTelefono(raw) {
  *   INVALIDA      → parseable pero imposible (mes 24, año fuera de rango)
  *   NO_RECONOCIDA → texto que no es fecha (semántica la decide el negocio)
  */
-function Norm_normalizarFecha(raw, rango) {
+function Norm_normalizarFecha_(raw, rango) {
   var anoMin = (rango && rango.min !== undefined) ? rango.min : CFG_FECHAS.ANO_MIN;
   var anoMax = (rango && rango.max !== undefined) ? rango.max : CFG_FECHAS.ANO_MAX;
-  var res = { estado: 'VACIA', fecha: null, iso: '', detalle: '', original: (raw instanceof Date) ? null : Utl_texto(raw) };
+  var res = { estado: 'VACIA', fecha: null, iso: '', detalle: '', original: (raw instanceof Date) ? null : Utl_texto_(raw) };
 
   function fijar(y, mo, d) {
     y = Number(y); mo = Number(mo); d = Number(d);
@@ -196,7 +196,7 @@ function Norm_normalizarFecha(raw, rango) {
     return res;
   }
 
-  var t = Utl_colapsarEspacios(String(raw));
+  var t = Utl_colapsarEspacios_(String(raw));
   if (t === '-' || t === '--') return res; // VACIA
 
   // ISO yyyy-mm-dd (con hora opcional)
@@ -244,10 +244,10 @@ function Norm_normalizarFecha(raw, rango) {
  * Normaliza nombre conservando tildes y ñ (información identitaria).
  * @returns {ok:boolean, nombre:'', original:''}
  */
-function Norm_normalizarNombre(raw) {
-  var original = Utl_texto(raw);
-  if (Utl_vacio(original)) return { ok: false, nombre: '', original: original };
-  var n = Utl_colapsarEspacios(original).toUpperCase()
+function Norm_normalizarNombre_(raw) {
+  var original = Utl_texto_(raw);
+  if (Utl_vacio_(original)) return { ok: false, nombre: '', original: original };
+  var n = Utl_colapsarEspacios_(original).toUpperCase()
     .replace(/[",;]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -255,8 +255,8 @@ function Norm_normalizarNombre(raw) {
 }
 
 /** Clave de matching: mayúsculas sin tildes, solo letras/espacios colapsados. */
-function Norm_claveNombre(nombre) {
-  return Utl_sinTildes(Utl_colapsarEspacios(nombre)).toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
+function Norm_claveNombre_(nombre) {
+  return Utl_sinTildes_(Utl_colapsarEspacios_(nombre)).toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -271,30 +271,30 @@ function Norm_claveNombre(nombre) {
  *                    (registrado en ENCABEZADOS_SIN_DESTINO)
  */
 var _NORM_IDX_ENC = null;
-function _normIndiceEncabezados() {
+function _normIndiceEncabezados_() {
   if (_NORM_IDX_ENC) return _NORM_IDX_ENC;
   _NORM_IDX_ENC = {};
   for (var k in SINONIMOS_ENCABEZADOS) {
     if (SINONIMOS_ENCABEZADOS.hasOwnProperty(k)) {
-      _NORM_IDX_ENC[Utl_claveAlnum(k)] = SINONIMOS_ENCABEZADOS[k];
+      _NORM_IDX_ENC[Utl_claveAlnum_(k)] = SINONIMOS_ENCABEZADOS[k];
     }
   }
   return _NORM_IDX_ENC;
 }
 
-function Norm_mapearEncabezado(raw) {
-  var clave = Utl_claveAlnum(Utl_colapsarEspacios(Utl_texto(raw)));
+function Norm_mapearEncabezado_(raw) {
+  var clave = Utl_claveAlnum_(Utl_colapsarEspacios_(Utl_texto_(raw)));
   var res = { clave: clave, canonico: null, conocido: false, ambiguo: false };
   if (clave === '') return res;
 
-  var indice = _normIndiceEncabezados();
+  var indice = _normIndiceEncabezados_();
   if (indice.hasOwnProperty(clave)) {
     res.canonico = indice[clave];
     res.conocido = true;
     return res;
   }
   for (var i = 0; i < ENCABEZADOS_SIN_DESTINO.length; i++) {
-    if (Utl_claveAlnum(ENCABEZADOS_SIN_DESTINO[i]) === clave) {
+    if (Utl_claveAlnum_(ENCABEZADOS_SIN_DESTINO[i]) === clave) {
       res.ambiguo = true;
       return res;
     }
@@ -307,17 +307,17 @@ function Norm_mapearEncabezado(raw) {
 // ---------------------------------------------------------------------------
 
 /** Mapea un valor de estado de fuente al canónico; desconocidos quedan visibles. */
-function Norm_normalizarEstado(raw) {
-  var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();
+function Norm_normalizarEstado_(raw) {
+  var t = Utl_sinTildes_(Utl_colapsarEspacios_(raw)).toUpperCase();
   if (t === '') return '';
   if (ESTADOS.SINONIMOS.hasOwnProperty(t)) return ESTADOS.SINONIMOS[t];
   if (ESTADOS.VALIDOS.indexOf(t) !== -1) return t;
-  return Utl_colapsarEspacios(Utl_texto(raw)).toUpperCase(); // desconocido: conservar visible
+  return Utl_colapsarEspacios_(Utl_texto_(raw)).toUpperCase(); // desconocido: conservar visible
 }
 
 /** G/G1/G2/G3 → G1|G2|G3|'' ('G' sola y NSP quedan vacíos hasta confirmación). */
-function Norm_normalizarEstratificacion(raw) {
-  var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();
+function Norm_normalizarEstratificacion_(raw) {
+  var t = Utl_sinTildes_(Utl_colapsarEspacios_(raw)).toUpperCase();
   if (/^G[123]$/.test(t)) return t;
   return '';
 }
@@ -331,11 +331,11 @@ function Norm_normalizarEstratificacion(raw) {
  * Acepta alias (NARANJA→NARANJO) y formas con/sin "SECTOR".
  * @returns {estado:'VACIO'|'OK'|'INVALIDO', sector:'', original:''}
  */
-function Norm_normalizarSector(raw) {
-  var original = Utl_texto(raw);
+function Norm_normalizarSector_(raw) {
+  var original = Utl_texto_(raw);
   var res = { estado: 'VACIO', sector: '', detalle: '', original: original };
-  if (Utl_vacio(original)) return res;
-  var t = Utl_sinTildes(Utl_colapsarEspacios(original)).toUpperCase().replace(/^SECTOR\s+/, '');
+  if (Utl_vacio_(original)) return res;
+  var t = Utl_sinTildes_(Utl_colapsarEspacios_(original)).toUpperCase().replace(/^SECTOR\s+/, '');
   if (SECTORES.ALIAS.hasOwnProperty(t)) t = SECTORES.ALIAS[t];
   if (SECTORES.VALIDOS.indexOf(t) !== -1) {
     res.estado = 'OK';
@@ -348,8 +348,8 @@ function Norm_normalizarSector(raw) {
 }
 
 /** Sexo canónico M|F|OTRO|'' (acepta MASCULINO/FEMENINO/HOMBRE/MUJER…). */
-function Norm_normalizarSexo(raw) {
-  var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();
+function Norm_normalizarSexo_(raw) {
+  var t = Utl_sinTildes_(Utl_colapsarEspacios_(raw)).toUpperCase();
   if (t === '') return '';
   if (SEXOS.VALIDOS.indexOf(t) !== -1) return t;
   if (SEXOS.SINONIMOS.hasOwnProperty(t)) return SEXOS.SINONIMOS[t];
@@ -363,11 +363,11 @@ function Norm_normalizarSexo(raw) {
  * negocio decida (captura rechaza; fuentes descartan con aviso).
  * @returns {estado:'VACIO'|'SI'|'NO'|'NO_RECONOCIDO', valor:'', detalle, original}
  */
-function Norm_normalizarSaludMental(raw) {
-  var original = Utl_texto(raw);
+function Norm_normalizarSaludMental_(raw) {
+  var original = Utl_texto_(raw);
   var res = { estado: 'VACIO', valor: '', detalle: '', original: original };
-  if (Utl_vacio(original)) return res;
-  var t = Utl_sinTildes(Utl_colapsarEspacios(original)).toUpperCase();
+  if (Utl_vacio_(original)) return res;
+  var t = Utl_sinTildes_(Utl_colapsarEspacios_(original)).toUpperCase();
   if (t === 'SI' || t === 'SÍ') {
     res.estado = 'SI'; res.valor = 'SI';
   } else if (t === 'NO') {
@@ -380,12 +380,12 @@ function Norm_normalizarSaludMental(raw) {
 }
 
 /** Tipo de evento canónico; desconocidos quedan visibles tal cual (mayúsculas). */
-function Norm_normalizarTipoEvento(raw) {
-  var t = Utl_sinTildes(Utl_colapsarEspacios(raw)).toUpperCase();
+function Norm_normalizarTipoEvento_(raw) {
+  var t = Utl_sinTildes_(Utl_colapsarEspacios_(raw)).toUpperCase();
   if (t === '') return '';
   if (TIPOS_EVENTO.SINONIMOS.hasOwnProperty(t)) return TIPOS_EVENTO.SINONIMOS[t];
   if (TIPOS_EVENTO.VALIDOS.indexOf(t) !== -1) return t;
-  return Utl_colapsarEspacios(Utl_texto(raw)).toUpperCase();
+  return Utl_colapsarEspacios_(Utl_texto_(raw)).toUpperCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -399,7 +399,7 @@ function Norm_normalizarTipoEvento(raw) {
  * @param {Array} catalogo lista de condiciones
  * @returns {valido:boolean, errores:[string], advertencias:[string]}
  */
-function Estrat_validarCatalogo(catalogo) {
+function Estrat_validarCatalogo_(catalogo) {
   var errores = [], advertencias = [];
   if (!catalogo || !catalogo.length) {
     return { valido: false, errores: ['Catálogo vacío o nulo'], advertencias: [] };
@@ -408,7 +408,7 @@ function Estrat_validarCatalogo(catalogo) {
   var codigosVistos = {}, aliasesVistos = {};
 
   catalogo.forEach(function (c, idx) {
-    var etiqueta = 'condición ' + (idx + 1) + ' (' + Utl_texto(c.CODIGO || '?') + ')';
+    var etiqueta = 'condición ' + (idx + 1) + ' (' + Utl_texto_(c.CODIGO || '?') + ')';
 
     // campos obligatorios
     ['CODIGO','NOMBRE_CANONICO','ALIASES','PONDERACION','ACTIVA'].forEach(function (campo) {
@@ -422,7 +422,7 @@ function Estrat_validarCatalogo(catalogo) {
     });
 
     // código único
-    var codigo = Utl_texto(c.CODIGO).toUpperCase();
+    var codigo = Utl_texto_(c.CODIGO).toUpperCase();
     if (codigo && codigosVistos[codigo]) {
       errores.push(etiqueta + ': código duplicado "' + codigo + '"');
     }
@@ -435,7 +435,7 @@ function Estrat_validarCatalogo(catalogo) {
 
     // aliases únicos entre todas las condiciones
     (c.ALIASES || []).forEach(function (a) {
-      var claveA = Utl_claveAlnum(a);
+      var claveA = Utl_claveAlnum_(a);
       if (!claveA) return;
       if (aliasesVistos[claveA] && aliasesVistos[claveA] !== codigo) {
         errores.push('alias "' + a + '" usado por ' + aliasesVistos[claveA] + ' y ' + codigo);
@@ -444,7 +444,7 @@ function Estrat_validarCatalogo(catalogo) {
     });
 
     // nombre canónico no vacío si el campo existe
-    if (c.NOMBRE_CANONICO !== undefined && Utl_vacio(c.NOMBRE_CANONICO)) {
+    if (c.NOMBRE_CANONICO !== undefined && Utl_vacio_(c.NOMBRE_CANONICO)) {
       errores.push(etiqueta + ': NOMBRE_CANONICO vacío');
     }
   });
@@ -459,8 +459,8 @@ function Estrat_validarCatalogo(catalogo) {
  * @returns {detectadas:[{codigo,nombre,ponderacion}], noReconocidas:[],
  *           origen:string, cantidad:number, sumaPonderacion:number}
  */
-function Norm_normalizarCondiciones(raw, catalogo) {
-  var origen = Utl_texto(raw).trim();
+function Norm_normalizarCondiciones_(raw, catalogo) {
+  var origen = Utl_texto_(raw).trim();
   var res = { detectadas: [], noReconocidas: [], origen: origen,
               cantidad: 0, sumaPonderacion: 0 };
   if (!origen || !catalogo || !catalogo.length) return res;
@@ -469,19 +469,19 @@ function Norm_normalizarCondiciones(raw, catalogo) {
   var vistos = {};
 
   partes.forEach(function (parte) {
-    var texto = Utl_colapsarEspacios(parte).trim();
+    var texto = Utl_colapsarEspacios_(parte).trim();
     if (!texto) return;
-    var clave = Utl_sinTildes(texto).toUpperCase();
+    var clave = Utl_sinTildes_(texto).toUpperCase();
 
     // buscar en catálogo por código, nombre canónico o alias
     var encontrada = null;
     for (var i = 0; i < catalogo.length; i++) {
       var c = catalogo[i];
       if (!c.ACTIVA) continue;
-      if (Utl_claveAlnum(c.CODIGO) === Utl_claveAlnum(clave)) { encontrada = c; break; }
-      if (Utl_claveAlnum(c.NOMBRE_CANONICO || '') === Utl_claveAlnum(clave)) { encontrada = c; break; }
+      if (Utl_claveAlnum_(c.CODIGO) === Utl_claveAlnum_(clave)) { encontrada = c; break; }
+      if (Utl_claveAlnum_(c.NOMBRE_CANONICO || '') === Utl_claveAlnum_(clave)) { encontrada = c; break; }
       if (c.ALIASES && c.ALIASES.some(function(a) {
-        return Utl_claveAlnum(a) === Utl_claveAlnum(clave);
+        return Utl_claveAlnum_(a) === Utl_claveAlnum_(clave);
       })) { encontrada = c; break; }
     }
 
@@ -510,7 +510,7 @@ function Norm_normalizarCondiciones(raw, catalogo) {
  * @param {number} puntaje suma de ponderaciones
  * @param {Object} config CFG_ESTRATIFICACION
  */
-function Estrat_calcularPorPuntaje(puntaje, config) {
+function Estrat_calcularPorPuntaje_(puntaje, config) {
   config = config || CFG_ESTRATIFICACION;
   if (!config.REGLA_DISPONIBLE) {
     return { resultado: 'NO_CALCULABLE', regla: 'REGLA_NO_CONFIGURADA' };
@@ -530,9 +530,9 @@ function Estrat_calcularPorPuntaje(puntaje, config) {
  * Difiere de ETAPA 8A en que usa SUMA DE PONDERACIONES (no simple conteo).
  * Las condiciones de doble puntuación aportan 2 al puntaje.
  */
-function Estrat_evaluar(rawCondiciones, catalogo, config) {
+function Estrat_evaluar_(rawCondiciones, catalogo, config) {
   config = config || CFG_ESTRATIFICACION;
-  var norm = Norm_normalizarCondiciones(rawCondiciones, catalogo);
+  var norm = Norm_normalizarCondiciones_(rawCondiciones, catalogo);
 
   if (!norm.cantidad && !norm.noReconocidas.length) {
     // sin datos registrados ≠ sin condiciones (FASE 9)
@@ -540,7 +540,7 @@ function Estrat_evaluar(rawCondiciones, catalogo, config) {
              cantidad:0, puntaje:0, regla:'', version: config.VERSION_REGLA };
   }
 
-  var calc = Estrat_calcularPorPuntaje(norm.sumaPonderacion, config);
+  var calc = Estrat_calcularPorPuntaje_(norm.sumaPonderacion, config);
   var estadoFinal = calc.resultado === 'NO_CALCULABLE' ? 'NO_CALCULABLE' : 'CALCULADO';
   // si hay no reconocidas y el resultado es bajo → marcar como NO_CALCULABLE
   if (norm.noReconocidas.length > 0 && calc.resultado !== 'G3') {
@@ -577,8 +577,8 @@ function Estrat_evaluar(rawCondiciones, catalogo, config) {
 function Estrat_prepararCambio_(paciente, nuevo, contexto) {
   paciente = paciente || {};
   contexto = contexto || {};
-  var anterior = Utl_texto(paciente.ESTRATIFICACION).toUpperCase();
-  var nb = Norm_normalizarEstratificacion(nuevo);
+  var anterior = Utl_texto_(paciente.ESTRATIFICACION).toUpperCase();
+  var nb = Norm_normalizarEstratificacion_(nuevo);
   if (anterior === nb) return { ok: true, sinCambios: true };
   return {
     ok: true,
@@ -586,13 +586,13 @@ function Estrat_prepararCambio_(paciente, nuevo, contexto) {
     anterior: anterior,
     nuevo: nb,
     evento: {
-      ID_EVENTO: Ev_nuevoId(),
-      ID_INTERNO: Utl_texto(paciente.ID_INTERNO),
-      RUT: Utl_texto(paciente.RUT),
-      NOMBRE: Utl_texto(paciente.NOMBRE),
+      ID_EVENTO: Ev_nuevoId_(),
+      ID_INTERNO: Utl_texto_(paciente.ID_INTERNO),
+      RUT: Utl_texto_(paciente.RUT),
+      NOMBRE: Utl_texto_(paciente.NOMBRE),
       FECHA_EVENTO: _fichaHoyIso_(),
       TIPO_EVENTO: 'CAMBIO_ESTRATIFICACION',
-      SECTOR: Utl_texto(paciente.SECTOR),
+      SECTOR: Utl_texto_(paciente.SECTOR),
       RIESGO_G: nb,
       PROFESIONAL: '',
       PROFESIONAL_TIPO: '',
@@ -601,7 +601,7 @@ function Estrat_prepararCambio_(paciente, nuevo, contexto) {
       OBSERVACIONES: '',
       FUENTE: contexto.fuente || 'SISTEMA',
       REGISTRADO_POR: contexto.registradoPor !== undefined ? contexto.registradoPor
-        : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''),
+        : (typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : ''),
       FECHA_REGISTRO: null
     }
   };
@@ -612,21 +612,21 @@ function Estrat_prepararCambio_(paciente, nuevo, contexto) {
  * @returns {{ok:boolean, resultado:string, puntaje:number, regla:string}}
  */
 function Estrat_recalcularPaciente_(idInterno) {
-  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  var hoja = Modelo_hoja_(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientes_();
   var idx = -1;
   for (var i = 0; i < pacientes.length; i++) {
-    if (Utl_texto(pacientes[i].ID_INTERNO) === Utl_texto(idInterno)) { idx = i; break; }
+    if (Utl_texto_(pacientes[i].ID_INTERNO) === Utl_texto_(idInterno)) { idx = i; break; }
   }
   if (idx < 0) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
   var p = pacientes[idx];
-  var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+  var res = Estrat_evaluar_(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
   var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
-  var anterior = Utl_texto(p.ESTRATIFICACION);
+  var anterior = Utl_texto_(p.ESTRATIFICACION);
   var cambio = Estrat_prepararCambio_(p, nuevoValor || anterior, {
     motivo: 'RECALCULO', fuente: 'SISTEMA',
-    registradoPor: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''
+    registradoPor: typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : ''
   });
   // Igual que el recálculo masivo: sin regla calculable se conserva el nivel
   // de fuente o de ficha; falta de patologías no equivale a nivel vacío.
@@ -637,8 +637,8 @@ function Estrat_recalcularPaciente_(idInterno) {
   p.ESTRAT_CALCULADA = String(res.resultado || '');
   p.ESTRAT_FECHA_CALCULO = new Date();
   p.FECHA_ACTUALIZACION = new Date();
-  Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
-    .setValues([Modelo_filaDesdeObjeto(p)]);
+  Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, idx), 1, 1, MODELO_PACIENTE.length)
+    .setValues([Modelo_filaDesdeObjeto_(p)]);
   if (!cambio.sinCambios && cambio.evento) {
     try {
       Modelo_agregarEventos_([cambio.evento], cambio.evento.REGISTRADO_POR, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-estratificacion' });
@@ -647,7 +647,7 @@ function Estrat_recalcularPaciente_(idInterno) {
       return { ok: false, motivo: 'CAMBIO_ESTRATIFICACION_FALLIDO: revisión requerida' };
     }
   }
-  Modelo_invalidarLecturas();
+  Modelo_invalidarLecturas_();
   try { Modelo_refrescarVistasSectores_(); } catch (eSec) { /* best effort */ }
   return { ok: true, resultado: p.ESTRATIFICACION || 'pendiente', puntaje: res.puntaje,
            regla: res.regla, version: res.version, cambio: cambio.sinCambios ? 'SIN_CAMBIOS' : 'REGISTRADO' };
@@ -658,9 +658,9 @@ function Estrat_recalcularPaciente_(idInterno) {
  * si el token no es OPERADOR; serializado con lock. La lógica vive en
  * Estrat_recalcularPaciente_ (dominio, nunca expuesta directa).
  */
-function api_estratRecalcularPaciente(idInterno, token) {
+function api_estratRecalcularPaciente_(idInterno, token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return Api_error_('ACCESO_DENEGADO');
+    if (!WebApp_autorizarBuscador_(token)) return Api_error_('ACCESO_DENEGADO');
     return Ecicep_conLock_(function () {
       return Estrat_recalcularPaciente_(idInterno);
     });
@@ -676,25 +676,25 @@ function api_estratRecalcularPaciente(idInterno, token) {
 function Estrat_recalcularTodos_(opciones) {
   opciones = opciones || {};
   var t0 = new Date();
-  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  var hoja = Modelo_hoja_(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES' };
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientes_();
   var recalculados = 0;
   var filasCambiadas = {}, filasFisicas = [];
   var eventosCambios = [], sectoresAfectados = [];
-  var usuario = typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '';
-  var iniPacientes = Modelo_dataStartRow(HOJAS.PACIENTES);
+  var usuario = typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : '';
+  var iniPacientes = Modelo_dataStartRow_(HOJAS.PACIENTES);
   pacientes.forEach(function (p, idxPaciente) {
-    var res = Estrat_evaluar(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    var res = Estrat_evaluar_(p.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
-    var anterior = Utl_texto(p.ESTRATIFICACION);
+    var anterior = Utl_texto_(p.ESTRATIFICACION);
     var cambio = Estrat_prepararCambio_(p, nuevoValor || anterior, {
       motivo: 'RECALCULO_MASIVO', fuente: 'SISTEMA', registradoPor: usuario
     });
     // Solo sobrescribir si el motor produce un resultado calculado.
     // Si no (SIN_DATOS/NO_CALCULABLE), conservar el valor vigente (fuente o manual).
-    var calculadaAnterior = Utl_texto(p.ESTRAT_CALCULADA);
-    var cambioDerivado = calculadaAnterior !== Utl_texto(res.resultado || '') ||
+    var calculadaAnterior = Utl_texto_(p.ESTRAT_CALCULADA);
+    var cambioDerivado = calculadaAnterior !== Utl_texto_(res.resultado || '') ||
       (nuevoValor && nuevoValor !== anterior);
     if (nuevoValor && nuevoValor !== anterior) {
       p.ESTRATIFICACION = nuevoValor;
@@ -706,8 +706,8 @@ function Estrat_recalcularTodos_(opciones) {
       p.FECHA_ACTUALIZACION = new Date();
       var filaFisica = iniPacientes + idxPaciente;
       filasFisicas.push(filaFisica);
-      filasCambiadas[filaFisica] = Modelo_filaDesdeObjeto(p);
-      var sectorCambio = Utl_texto(p.SECTOR).toUpperCase();
+      filasCambiadas[filaFisica] = Modelo_filaDesdeObjeto_(p);
+      var sectorCambio = Utl_texto_(p.SECTOR).toUpperCase();
       if (HOJAS_SECTOR.indexOf('SECTOR_' + sectorCambio) >= 0 && sectoresAfectados.indexOf(sectorCambio) < 0)
         sectoresAfectados.push(sectorCambio);
     }
@@ -718,11 +718,11 @@ function Estrat_recalcularTodos_(opciones) {
     }
   });
   if (filasFisicas.length) {
-    Utl_gruposContiguosFilas(filasFisicas).forEach(function (grupo) {
+    Utl_gruposContiguosFilas_(filasFisicas).forEach(function (grupo) {
       hoja.getRange(grupo[0], 1, grupo.length, MODELO_PACIENTE.length)
         .setValues(grupo.map(function (fila) { return filasCambiadas[fila]; }));
     });
-    Modelo_invalidarLecturas();
+    Modelo_invalidarLecturas_();
     if (eventosCambios.length) {
       try {
         Modelo_agregarEventos_(eventosCambios, usuario, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'recalcular-todos' });
@@ -734,9 +734,9 @@ function Estrat_recalcularTodos_(opciones) {
   if (filasFisicas.length && opciones.deferirVistas !== true)
     try { Modelo_refrescarVistasSectores_(sectoresAfectados); } catch (eSec) { /* best effort */ }
   var ms = new Date() - t0;
-  Log_info('Estrat', 'recalcularTodos', 'total=' + pacientes.length +
+  Log_info_('Estrat', 'recalcularTodos', 'total=' + pacientes.length +
     ' recalculados=' + recalculados, null, ms);
-  Log_flush();
+  Log_flush_();
   return { ok: true, total: pacientes.length, recalculados: recalculados,
     cambios: filasFisicas.length, sectoresAfectados: sectoresAfectados, tiempo: ms };
 }
@@ -744,14 +744,14 @@ function Estrat_recalcularTodos_(opciones) {
 // ---------------------------------------------------------------------------
 // Frecuencia de controles y estado (MODELO UNIFICADO v0.8.5)
 // Fuente de verdad: CONFIG (FREC_CONTROL_G*_CANT + _UNIDAD) + estratificación
-// de CADA persona. Se reutiliza Vigencia_vencimiento para soportar días/meses.
+// de CADA persona. Se reutiliza Vigencia_vencimiento_ para soportar días/meses.
 // ---------------------------------------------------------------------------
 
 /** Normaliza un valor de fecha (Date, ISO, serial) a ISO yyyy-mm-dd o ''. */
-function Control_aIso(v) {
+function Control_aIso_(v) {
   if (v instanceof Date && !isNaN(v.getTime()))
     return v.getFullYear() + '-' + ('0' + (v.getMonth() + 1)).slice(-2) + '-' + ('0' + v.getDate()).slice(-2);
-  var s = Utl_texto(v).trim();
+  var s = Utl_texto_(v).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
   if (/^\d+(\.\d+)?$/.test(s)) { // serial
     // Sheets cuenta días desde 1899-12-30; Unix parte en 1970-01-01.
@@ -764,7 +764,7 @@ function Control_aIso(v) {
 
 /** Frecuencia por defecto (semilla): G1 = alto riesgo (más frecuente) →
  *  G3 = bajo (menos frecuente). Idéntica a la semilla de CONFIG. */
-function Control_frecuenciaDefault() {
+function Control_frecuenciaDefault_() {
   return { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' },
            G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
 }
@@ -772,20 +772,20 @@ function Control_frecuenciaDefault() {
 /** PURA: parsea las filas de CONFIG → {G1:{cantidad,unidad},G2,G3,G}.
  *  Prioriza FREC_CONTROL_G*_CANT/_UNIDAD; si un nivel no tiene _CANT, usa la
  *  clave legacy FREC_CONTROL_G* (en días). Unidad válida: días | meses. */
-function Control_frecuenciaConfig(configRows) {
-  var r = Control_frecuenciaDefault();
+function Control_frecuenciaConfig_(configRows) {
+  var r = Control_frecuenciaDefault_();
   var legacy = {};
   var tieneCant = {};
   ['G1', 'G2', 'G3', 'G'].forEach(function (g) { tieneCant[g] = false; });
   (configRows || []).forEach(function (f) {
-    var k = Utl_texto(f[0]), v = Utl_texto(f[1]);
+    var k = Utl_texto_(f[0]), v = Utl_texto_(f[1]);
     var m;
     if ((m = /^FREC_CONTROL_(G[123]|G)_CANT$/.exec(k))) {
       var c = parseInt(v, 10);
       if (c > 0) r[m[1]].cantidad = c;
       tieneCant[m[1]] = true;
     } else if ((m = /^FREC_CONTROL_(G[123]|G)_UNIDAD$/.exec(k))) {
-      r[m[1]].unidad = Utl_sinTildes(v).toLowerCase().indexOf('mes') === 0 ? 'meses' : 'días';
+      r[m[1]].unidad = Utl_sinTildes_(v).toLowerCase().indexOf('mes') === 0 ? 'meses' : 'días';
     } else if ((m = /^FREC_CONTROL_(G[123]|G)$/.exec(k))) {
       var d = parseInt(v, 10);
       if (d > 0) legacy[m[1]] = d;
@@ -798,44 +798,44 @@ function Control_frecuenciaConfig(configRows) {
 }
 
 /** GAS: lee la frecuencia configurada desde la hoja CONFIG. */
-function Control_leerFrecuencia() {
+function Control_leerFrecuencia_() {
   try {
-    var h = Modelo_hoja(HOJAS.CONFIG);
-    if (h && h.getLastRow() > 1) return Control_frecuenciaConfig(Utl_leerBloque(h));
+    var h = Modelo_hoja_(HOJAS.CONFIG);
+    if (h && h.getLastRow() > 1) return Control_frecuenciaConfig_(Utl_leerBloque_(h));
   } catch (e) {}
-  return Control_frecuenciaDefault();
+  return Control_frecuenciaDefault_();
 }
 
 /** PURA: frecuencia de un nivel (G1/G2/G3) o G que aplica a la persona. */
-function Control_frecuenciaDe(estratificacion, freqConfig) {
-  var g = /^G[123]$/.test(Utl_texto(estratificacion))
-    ? Utl_texto(estratificacion).toUpperCase() : 'G';
+function Control_frecuenciaDe_(estratificacion, freqConfig) {
+  var g = /^G[123]$/.test(Utl_texto_(estratificacion))
+    ? Utl_texto_(estratificacion).toUpperCase() : 'G';
   return (freqConfig && freqConfig[g]) || { cantidad: 180, unidad: 'días' };
 }
 
 /** PURA: PRÓXIMO_CONTROL = ÚLTIMO_CONTROL + frecuencia (días/meses, respeta
  *  CONFIG). Si no se pasa freqConfig, lee CONFIG (entorno GAS). */
-function Control_calcularProximo(ultimoControl, estratificacion, freqConfig) {
-  var uc = Control_aIso(ultimoControl);
+function Control_calcularProximo_(ultimoControl, estratificacion, freqConfig) {
+  var uc = Control_aIso_(ultimoControl);
   if (!uc) return '';
-  var f = Control_frecuenciaDe(estratificacion,
-    freqConfig || (typeof Control_leerFrecuencia === 'function' ? Control_leerFrecuencia() : null));
-  var v = Vigencia_vencimiento(uc, f.cantidad, f.unidad);
+  var f = Control_frecuenciaDe_(estratificacion,
+    freqConfig || (typeof Control_leerFrecuencia_ === 'function' ? Control_leerFrecuencia_() : null));
+  var v = Vigencia_vencimiento_(uc, f.cantidad, f.unidad);
   return v || '';
 }
 
 /** PURA: estado de vigencia del control → SIN_FECHA | VENCIDO | POR_VENCER | VIGENTE.
  *  hoyRef y avisoDias inyectables (pruebas deterministas). */
-function Control_estadoVigencia(proximoControl, hoyRef, avisoDias) {
-  var pc = Control_aIso(proximoControl);
+function Control_estadoVigencia_(proximoControl, hoyRef, avisoDias) {
+  var pc = Control_aIso_(proximoControl);
   if (!pc) return 'SIN_FECHA';
   var aviso = (avisoDias == null) ? 7 : avisoDias;
   if (avisoDias == null) {
     try {
-      var h = Modelo_hoja(HOJAS.CONFIG);
+      var h = Modelo_hoja_(HOJAS.CONFIG);
       if (h && h.getLastRow() > 1) {
-        Utl_leerBloque(h).slice(1).forEach(function (f) {
-          if (Utl_texto(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
+        Utl_leerBloque_(h).slice(1).forEach(function (f) {
+          if (Utl_texto_(f[0]) === 'AVISO_CONTROL_DIAS') aviso = parseInt(f[1], 10) || 7;
         });
       }
     } catch (e) {}
@@ -853,12 +853,12 @@ function Control_estadoVigencia(proximoControl, hoyRef, avisoDias) {
 }
 
 /** PURA: color por estado de control (semáforo real, una sola fuente). */
-function Control_colorEstado(estado) {
+function Control_colorEstado_(estado) {
   return { VENCIDO: 'rojo', POR_VENCER: 'ambar', VIGENTE: 'verde', SIN_FECHA: 'gris' }[estado] || 'gris';
 }
 
 /** PURA: recordatorio legible a partir del estado y fechas. */
-function Control_recordatorio(estado, proximoIso, hoyIso) {
+function Control_recordatorio_(estado, proximoIso, hoyIso) {
   if (estado === 'SIN_FECHA') return 'Sin próxima atención agendada';
   if (estado === 'VENCIDO') return 'Control VENCIDO — agenda su control';
   var d = 0;
@@ -876,7 +876,7 @@ function Control_recordatorio(estado, proximoIso, hoyIso) {
  * (base del dry-run). @returns {metricas, inconsistencias, porSector}
  * @param {number} [avisoDias=7] días de aviso (desde CONFIG AVISO_CONTROL_DIAS)
  */
-function Control_analizar(pacientes, freqConfig, hoyIso, avisoDias) {
+function Control_analizar_(pacientes, freqConfig, hoyIso, avisoDias) {
   var aviso = (avisoDias == null) ? 7 : avisoDias;
   var m = { analizados: 0, G1: 0, G2: 0, G3: 0, GPend: 0,
             conControles: 0, sinUltimoControl: 0, conProximo: 0,
@@ -886,25 +886,25 @@ function Control_analizar(pacientes, freqConfig, hoyIso, avisoDias) {
       inconsistencias = [], porSector = {};
   (pacientes || []).forEach(function (p) {
     m.analizados++;
-    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    var g = Utl_texto_(p.ESTRATIFICACION).toUpperCase();
     var nivel = /^G[123]$/.test(g) ? g : 'GPend';
     m[nivel]++;
-    var sec = Utl_texto(p.SECTOR).toUpperCase() || 'SIN_SECTOR';
+    var sec = Utl_texto_(p.SECTOR).toUpperCase() || 'SIN_SECTOR';
     porSector[sec] = porSector[sec] || { total: 0, G1: 0, G2: 0, G3: 0, GPend: 0 };
     porSector[sec].total++; porSector[sec][nivel]++;
     var uc = p.ULTIMO_CONTROL;
-    if (Utl_vacio(uc)) m.sinUltimoControl++;
+    if (Utl_vacio_(uc)) m.sinUltimoControl++;
     else m.conControles++;
-    var prox = Control_aIso(p.PROXIMO_CONTROL);
-    var estado = Control_estadoVigencia(prox, hoyIso, aviso);
+    var prox = Control_aIso_(p.PROXIMO_CONTROL);
+    var estado = Control_estadoVigencia_(prox, hoyIso, aviso);
     if (prox) m.conProximo++;
     if (estado === 'SIN_FECHA') { m.sinFecha++; inconsistencias.push(p.ID_INTERNO + ': sin próxima atención agendada'); }
     else if (estado === 'VENCIDO') m.vencidos++;
     else if (estado === 'POR_VENCER') m.proximos++;
     else m.vigentes++;
-    var nac = Utl_edadDesde(Utl_texto(p.FECHA_NACIMIENTO), hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined);
-    if (Utl_vacio(p.FECHA_NACIMIENTO)) m.sinNacimiento++;
-    else if (nac === '' && !Utl_vacio(p.FECHA_NACIMIENTO)) m.fechaInvalida++;
+    var nac = Utl_edadDesde_(Utl_texto_(p.FECHA_NACIMIENTO), hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined);
+    if (Utl_vacio_(p.FECHA_NACIMIENTO)) m.sinNacimiento++;
+    else if (nac === '' && !Utl_vacio_(p.FECHA_NACIMIENTO)) m.fechaInvalida++;
     else if (nac !== '') m.edadRecalculable++;
   });
   m.GPend = (pacientes || []).length - m.G1 - m.G2 - m.G3;
@@ -920,30 +920,30 @@ function Control_analizar(pacientes, freqConfig, hoyIso, avisoDias) {
  * @param {number} [avisoDias=7] días de aviso (desde CONFIG AVISO_CONTROL_DIAS)
  * @returns {filas:[...], sectores:[...]}
  */
-function Control_filasPanel(pacientes, freqConfig, hoyIso, avisoDias) {
+function Control_filasPanel_(pacientes, freqConfig, hoyIso, avisoDias) {
   var aviso = (avisoDias == null) ? 7 : avisoDias;
   var filas = (pacientes || []).map(function (p) {
-    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
-    var uc = Utl_texto(p.ULTIMO_CONTROL);
-    var prox = Control_aIso(p.PROXIMO_CONTROL);
-    var estado = Control_estadoVigencia(prox, hoyIso, aviso);
+    var g = Utl_texto_(p.ESTRATIFICACION).toUpperCase();
+    var uc = Utl_texto_(p.ULTIMO_CONTROL);
+    var prox = Control_aIso_(p.PROXIMO_CONTROL);
+    var estado = Control_estadoVigencia_(prox, hoyIso, aviso);
     return {
-      idInterno: Utl_texto(p.ID_INTERNO),
-      nombre: Utl_texto(p.NOMBRE),
-      rut: Utl_texto(p.RUT),
-      sector: Utl_texto(p.SECTOR),
+      idInterno: Utl_texto_(p.ID_INTERNO),
+      nombre: Utl_texto_(p.NOMBRE),
+      rut: Utl_texto_(p.RUT),
+      sector: Utl_texto_(p.SECTOR),
       estrat: g,
       ultimoControl: uc,
-      ultimoSeguimiento: Utl_texto(p.ULTIMO_SEGUIMIENTO),
+      ultimoSeguimiento: Utl_texto_(p.ULTIMO_SEGUIMIENTO),
       proximo: prox || '',
       estado: estado,
-      color: Control_colorEstado(estado),
-      recordatorio: Control_recordatorio(estado, prox, hoyIso),
-      edad: Utl_edadDesde(Utl_texto(p.FECHA_NACIMIENTO),
+      color: Control_colorEstado_(estado),
+      recordatorio: Control_recordatorio_(estado, prox, hoyIso),
+      edad: Utl_edadDesde_(Utl_texto_(p.FECHA_NACIMIENTO),
         hoyIso ? new Date(+hoyIso.slice(0, 4), +hoyIso.slice(5, 7) - 1, +hoyIso.slice(8, 10)) : undefined)
     };
   });
-  function ordenSec(s) { return { AMARILLO: 0, NARANJO: 1, VERDE: 2 }[Utl_texto(s).toUpperCase()] ?? 3; }
+  function ordenSec(s) { return { AMARILLO: 0, NARANJO: 1, VERDE: 2 }[Utl_texto_(s).toUpperCase()] ?? 3; }
   var sectores = {};
   filas.forEach(function (f) { sectores[f.sector] = (sectores[f.sector] || 0) + 1; });
   var listaSectores = Object.keys(sectores).map(function (s) {
@@ -952,7 +952,7 @@ function Control_filasPanel(pacientes, freqConfig, hoyIso, avisoDias) {
   filas.sort(function (a, b) {
     var d = ordenSec(a.sector) - ordenSec(b.sector);
     if (d) return d;
-    return Utl_texto(a.nombre) < Utl_texto(b.nombre) ? -1 : 1;
+    return Utl_texto_(a.nombre) < Utl_texto_(b.nombre) ? -1 : 1;
   });
   return { filas: filas, sectores: listaSectores };
 }
@@ -972,11 +972,11 @@ function Control_filasPanel(pacientes, freqConfig, hoyIso, avisoDias) {
  *  - inicio: desplazamiento (pag 1 = 0). limite: filas a devolver (máx 100,
  *    default 25). Devuelve total real + desde/hasta.
  */
-function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDias) {
+function Control_consultarControles_(pacientes, freqConfig, hoyIso, opts, avisoDias) {
   var o = opts || {};
-  var sec = Utl_texto(o.sector).toUpperCase();
-  var term = Utl_texto(o.termino).trim();
-  var estados = Control_estadosCriterio(o);
+  var sec = Utl_texto_(o.sector).toUpperCase();
+  var term = Utl_texto_(o.termino).trim();
+  var estados = Control_estadosCriterio_(o);
   function numPos(v, def) {
     var n = Math.floor(Number(v));
     return isFinite(n) && n >= 0 ? n : def;
@@ -990,19 +990,19 @@ function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDi
   var filtrados;
   if (sec && term) {
     filtrados = lista.filter(function (p) {
-      return Utl_texto(p.SECTOR).toUpperCase() === sec && Control_coincideTermino(p, term);
+      return Utl_texto_(p.SECTOR).toUpperCase() === sec && Control_coincideTermino_(p, term);
     });
   } else if (sec) {
     filtrados = lista.filter(function (p) {
-      return Utl_texto(p.SECTOR).toUpperCase() === sec;
+      return Utl_texto_(p.SECTOR).toUpperCase() === sec;
     });
   } else if (term) {
-    filtrados = lista.filter(function (p) { return Control_coincideTermino(p, term); });
+    filtrados = lista.filter(function (p) { return Control_coincideTermino_(p, term); });
   } else {
     filtrados = lista;
   }
 
-  var res = Control_filasPanel(filtrados, freqConfig, hoyIso, avisoDias);
+  var res = Control_filasPanel_(filtrados, freqConfig, hoyIso, avisoDias);
   var filas = res.filas;
   if (estados.length) {
     filas = filas.filter(function (f) { return estados.indexOf(f.estado) !== -1; });
@@ -1014,7 +1014,7 @@ function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDi
       if (d) return d;
       var pa = a.proximo || '9999-12-31', pb = b.proximo || '9999-12-31';
       if (pa !== pb) return pa < pb ? -1 : 1;
-      return Utl_texto(a.nombre) < Utl_texto(b.nombre) ? -1 : 1;
+      return Utl_texto_(a.nombre) < Utl_texto_(b.nombre) ? -1 : 1;
     });
   }
   var total = filas.length;
@@ -1024,7 +1024,7 @@ function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDi
   var sectores = res.sectores;
   if (estados.length) {
     var cnt = {}, ordenSec = function (s) {
-      return { AMARILLO: 0, NARANJO: 1, VERDE: 2 }[Utl_texto(s).toUpperCase()] ?? 3;
+      return { AMARILLO: 0, NARANJO: 1, VERDE: 2 }[Utl_texto_(s).toUpperCase()] ?? 3;
     };
     filas.forEach(function (f) { cnt[f.sector] = (cnt[f.sector] || 0) + 1; });
     sectores = Object.keys(cnt).map(function (s) {
@@ -1038,7 +1038,7 @@ function Control_consultarControles(pacientes, freqConfig, hoyIso, opts, avisoDi
 /** PURA: estados a filtrar desde las opciones de consulta.
  *  'pendientes: true' → ['VENCIDO','POR_VENCER','SIN_FECHA'] (intervención).
  *  También acepta 'estados' (array) o 'estado' (string). Invalida ruido. */
-function Control_estadosCriterio(o) {
+function Control_estadosCriterio_(o) {
   var lista;
   if (o.pendientes === true) {
     lista = ['VENCIDO', 'POR_VENCER', 'SIN_FECHA'];
@@ -1049,7 +1049,7 @@ function Control_estadosCriterio(o) {
   var ok = ['SIN_FECHA', 'VENCIDO', 'POR_VENCER', 'VIGENTE'];
   var res = [];
   lista.forEach(function (x) {
-    var v = Utl_texto(x).toUpperCase();
+    var v = Utl_texto_(x).toUpperCase();
     if (ok.indexOf(v) !== -1 && res.indexOf(v) === -1) res.push(v);
   });
   return res;
@@ -1058,17 +1058,17 @@ function Control_estadosCriterio(o) {
 /** PURA: ¿el término coincide con ID interno, RUT o nombre? Clave normalizada
  *  (sin tildes, sin puntos/guiones, sin mayúsculas) → el RUT '12.345.678-9'
  *  se encuentra escribiendo '123456789' y el nombre 'Gónzalez' con 'gonzalez'. */
-function Control_coincideTermino(p, termino) {
-  var q = Utl_claveAlnum(termino);
+function Control_coincideTermino_(p, termino) {
+  var q = Utl_claveAlnum_(termino);
   if (q === '') return true;
-  var clave = Utl_claveAlnum(
-    Utl_texto(p.ID_INTERNO) + ' ' + Utl_texto(p.RUT) + ' ' + Utl_texto(p.NOMBRE));
+  var clave = Utl_claveAlnum_(
+    Utl_texto_(p.ID_INTERNO) + ' ' + Utl_texto_(p.RUT) + ' ' + Utl_texto_(p.NOMBRE));
   return clave.indexOf(q) !== -1;
 }
 
 /** Compatibilidad de mantenimiento: las próximas fechas son manuales.
  * No leer ni escribir hojas para derivar una fecha a partir de la estratificación. */
-function Control_recalcularTodos() {
+function Control_recalcularTodos_() {
   return { ok: true, total: 0, cambios: 0, tiempo: 0, modo: 'AGENDA_MANUAL' };
 }
 
@@ -1082,11 +1082,11 @@ function Control_recalcularTodos() {
 function Control_maximosEventoPorPaciente_(eventos) {
   var max = {};
   (eventos || []).forEach(function (e) {
-    var id = Utl_texto(e.ID_INTERNO);
+    var id = Utl_texto_(e.ID_INTERNO);
     if (!id) return;
-    var tipo = Utl_texto(e.TIPO_EVENTO).toUpperCase();
+    var tipo = Utl_texto_(e.TIPO_EVENTO).toUpperCase();
     if (tipo !== 'CONTROL' && tipo !== 'SEGUIMIENTO') return;
-    var fecha = Control_aIso(e.FECHA_EVENTO);
+    var fecha = Control_aIso_(e.FECHA_EVENTO);
     if (!fecha) return;
     if (!max[id]) max[id] = { CONTROL: '', SEGUIMIENTO: '' };
     if (fecha > max[id][tipo]) max[id][tipo] = fecha;
@@ -1103,20 +1103,20 @@ function Control_maximosEventoPorPaciente_(eventos) {
  * @returns {{ok:boolean, total:number, cambios:number, modo:string}}
  */
 function Control_recalcularCaches_() {
-  var hoja = Modelo_hoja(HOJAS.PACIENTES);
+  var hoja = Modelo_hoja_(HOJAS.PACIENTES);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_PACIENTES', total: 0, cambios: 0, modo: 'CACHE_CALCULADA' };
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientes_();
   var eventos = [];
-  try { eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO']) || []; }
+  try { eventos = Modelo_leerEventosCampos_(['ID_INTERNO', 'TIPO_EVENTO', 'FECHA_EVENTO']) || []; }
   catch (eE) { return { ok: false, motivo: 'SIN_LECTURA_EVENTOS', total: pacientes.length, cambios: 0, modo: 'CACHE_CALCULADA' }; }
   var max = Control_maximosEventoPorPaciente_(eventos);
   var cambios = 0, cambiadas = {}, filasFisicas = [], t0 = new Date();
-  var iniPac = Modelo_dataStartRow(HOJAS.PACIENTES);
+  var iniPac = Modelo_dataStartRow_(HOJAS.PACIENTES);
   pacientes.forEach(function (p, idx) {
-    var id = Utl_texto(p.ID_INTERNO), m = max[id] || { CONTROL: '', SEGUIMIENTO: '' };
+    var id = Utl_texto_(p.ID_INTERNO), m = max[id] || { CONTROL: '', SEGUIMIENTO: '' };
     var cambioFila = false;
-    if (Control_aIso(p.ULTIMO_CONTROL) !== m.CONTROL) { p.ULTIMO_CONTROL = m.CONTROL; cambioFila = true; }
-    if (Control_aIso(p.ULTIMO_SEGUIMIENTO) !== m.SEGUIMIENTO) { p.ULTIMO_SEGUIMIENTO = m.SEGUIMIENTO; cambioFila = true; }
+    if (Control_aIso_(p.ULTIMO_CONTROL) !== m.CONTROL) { p.ULTIMO_CONTROL = m.CONTROL; cambioFila = true; }
+    if (Control_aIso_(p.ULTIMO_SEGUIMIENTO) !== m.SEGUIMIENTO) { p.ULTIMO_SEGUIMIENTO = m.SEGUIMIENTO; cambioFila = true; }
     if (cambioFila) {
       p.FECHA_ACTUALIZACION = new Date(); cambios++;
       var filaFisica = iniPac + idx;
@@ -1128,7 +1128,7 @@ function Control_recalcularCaches_() {
     var colControl = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('ULTIMO_CONTROL') + 1;
     var colSeguimiento = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('ULTIMO_SEGUIMIENTO') + 1;
     var colActualizacion = MODELO_PACIENTE.map(function (x) { return x.campo; }).indexOf('FECHA_ACTUALIZACION') + 1;
-    var grupos = Utl_gruposContiguosFilas(filasFisicas);
+    var grupos = Utl_gruposContiguosFilas_(filasFisicas);
     // Muchos cambios dispersos convertían una reparación de 530 filas en hasta
     // 1.590 RPC de escritura. Sobre el umbral se reescriben SOLO las tres
     // columnas derivadas, en tres bloques; las filas sin cambio conservan sus
@@ -1146,11 +1146,11 @@ function Control_recalcularCaches_() {
       hoja.getRange(primera, colSeguimiento, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].ULTIMO_SEGUIMIENTO]; }));
       hoja.getRange(primera, colActualizacion, n, 1).setValues(grupo.map(function (f) { return [cambiadas[f].FECHA_ACTUALIZACION]; }));
     });
-    Modelo_invalidarLecturas();
+    Modelo_invalidarLecturas_();
   }
   var ms = new Date() - t0;
-  Log_info('Control', 'recalcularCaches', 'total=' + pacientes.length + ' cambios=' + cambios, null, ms);
-  Log_flush();
+  Log_info_('Control', 'recalcularCaches', 'total=' + pacientes.length + ' cambios=' + cambios, null, ms);
+  Log_flush_();
   return { ok: true, total: pacientes.length, cambios: cambios, tiempo: ms, modo: 'CACHE_CALCULADA',
-    modoEscritura: cambios ? (Utl_gruposContiguosFilas(filasFisicas).length > 24 ? 'COLUMNAS_BATCH' : 'FILAS_CONTIGUAS') : 'SIN_ESCRITURAS' };
+    modoEscritura: cambios ? (Utl_gruposContiguosFilas_(filasFisicas).length > 24 ? 'COLUMNAS_BATCH' : 'FILAS_CONTIGUAS') : 'SIN_ESCRITURAS' };
 }

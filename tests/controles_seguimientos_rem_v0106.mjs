@@ -80,7 +80,7 @@ t('T1 el backend sigue entregando ultimoControl/ultimoSeguimiento/proximo/estado
     ULTIMO_SEGUIMIENTO: '2026-09-20', PROXIMO_CONTROL: '2026-10-01',
     FECHA_NACIMIENTO: '1990-05-05'
   }];
-  const r = c.Control_filasPanel(pac, null, '2026-09-22');
+  const r = c.Control_filasPanel_(pac, null, '2026-09-22');
   A(r && r.filas && r.filas.length === 1, 'una fila para el paciente');
   const f = r.filas[0];
   A(f.ultimoControl === '2026-09-01', 'ultimoControl presente: ' + f.ultimoControl);
@@ -103,7 +103,7 @@ t('T2 el selector CONTROL/SEGUIMIENTO existe y el default es CONTROL', () => {
 
 t('T3/T5 setTipoVista no hace RPC ni toca filtros/búsqueda/paginación/selección', () => {
   const fn = cuerpoFn(ctrHtml, 'setTipoVista');
-  ['api_controlPanel', 'consultar', 'ECICEP_lectura'].forEach((x) => noContiene(fn, x, 'no debe invocar ' + x));
+  ['api_controlPanel_', 'consultar', 'ECICEP_lectura'].forEach((x) => noContiene(fn, x, 'no debe invocar ' + x));
   ['CTRL.sector', 'CTRL.termino', 'CTRL.estados', 'CTRL.todos', 'CTRL.filas', 'CTRL.total',
    'CTRL.sel', 'CTRL.inicio', 'CTRL.limite'].forEach((x) => noContiene(fn, x, 'no debe tocar ' + x));
   contiene(fn, 'pintar', 're-pinta desde las filas ya cargadas');

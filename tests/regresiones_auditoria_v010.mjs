@@ -36,10 +36,10 @@ function backend() {
     newConditionalFormatRule: () => ({ build: () => ({}) })
   };
   // Logs hacia LOG son I/O de GAS: neutralizar en el harness.
-  ctx.Log_info = () => {};
-  ctx.Log_error = () => {};
-  ctx.Log_warning = () => {};
-  ctx.Log_flush = () => {};
+  ctx.Log_info_ = () => {};
+  ctx.Log_error_ = () => {};
+  ctx.Log_warning_ = () => {};
+  ctx.Log_flush_ = () => {};
   return ctx;
 }
 const expr = (c, e) => vm.runInContext(e, c);
@@ -59,14 +59,14 @@ test('B2: Fuentes_claveDedupe_ ignora caja, espacios, tildes y formato de fila',
 });
 test('B2: la carga no vuelve a generar evento si el FUENTE del evento previo tiene drift de literal', () => {
   const c = backend();
-  const fila = c.Fuentes_crearFila({ archivo: 'ECICEP NARANJO', hoja: 'Ingresos Enero ', fila: 2, sector: 'NARANJO' }, { RUT: '12345678-5', NOMBRE: 'ANA PEREZ' }, 7);
-  c.Fuentes_leerStagingAutorizado = () => [c.Fuentes_normalizar(fila)];
-  c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 1 });
-  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
-  c.Modelo_leerPacientes = () => [];
-  c.Modelo_leerEventos = () => [{ FUENTE: 'ECICEP NARANJO|Ingresos Enero|2' }];
+  const fila = c.Fuentes_crearFila_({ archivo: 'ECICEP NARANJO', hoja: 'Ingresos Enero ', fila: 2, sector: 'NARANJO' }, { RUT: '12345678-5', NOMBRE: 'ANA PEREZ' }, 7);
+  c.Fuentes_leerStagingAutorizado_ = () => [c.Fuentes_normalizar_(fila)];
+  c.Fuentes_contarHojasAutorizadas_ = () => ({ hojas: 1 });
+  c.Fuentes_preflightFuentes_ = () => ({ ok: true, fuentes: [], bloqueantes: [] });
+  c.Modelo_leerPacientes_ = () => [];
+  c.Modelo_leerEventos_ = () => [{ FUENTE: 'ECICEP NARANJO|Ingresos Enero|2' }];
   let procesadas = 0;
-  c.Ingresos_procesarFilas = (nuevas) => { procesadas += nuevas.length; return { resumen: {}, resultados: [] }; };
+  c.Ingresos_procesarFilas_ = (nuevas) => { procesadas += nuevas.length; return { resumen: {}, resultados: [] }; };
   const r = c.Fuentes_cargaReal_({ ejecutar: false, actualizar: true });
   assert.equal(r.ok, true);
   assert.equal(r.resumen.yaImportadas, 1);
@@ -89,22 +89,22 @@ test('B3: preflight detecta hoja autorizada ausente y archivo inaccesible', () =
   const ids = expr(c, '(function(){var out={};Object.keys(FUENTES_DRIVE).forEach(function(k){out[k]=FUENTES_DRIVE[k].id;});return out;})()');
   // Naranjo solo tiene una de sus tres hojas autorizadas
   const presentes = { [ids['ECICEP NARANJO']]: ['Ingresos Enero'] };
-  const p = c.Fuentes_preflightFuentes(abridorFake(presentes));
+  const p = c.Fuentes_preflightFuentes_(abridorFake(presentes));
   assert.equal(p.ok, false);
   const naranjo = p.fuentes.find((f) => f.archivo === 'ECICEP NARANJO');
   assert.equal(JSON.stringify(naranjo.faltantes.sort()), JSON.stringify(['Ingreso Febrero', 'Ingresos 2025 - 2026']));
   // archivo sin ID (o inaccesible) no puede procesarse en silencio
-  const p2 = c.Fuentes_preflightFuentes(() => null);
+  const p2 = c.Fuentes_preflightFuentes_(() => null);
   assert.equal(p2.ok, false);
   assert.ok(p2.bloqueantes.length > 0);
 });
 test('B3: Fuentes_cargaReal_ bloquea con HOJA_FUENTE_FALTANTE sin leer ni escribir', () => {
   const c = backend();
   let leidas = 0, eventos = 0;
-  c.Fuentes_leerStagingAutorizado = () => { leidas++; return []; };
-  c.Fuentes_preflightFuentes = () => ({ ok: false, fuentes: [{ archivo: 'X', faltantes: ['Y'], errores: [] }], bloqueantes: [{}] });
-  c.Modelo_leerEventos = () => [];
-  c.Modelo_leerPacientes = () => [];
+  c.Fuentes_leerStagingAutorizado_ = () => { leidas++; return []; };
+  c.Fuentes_preflightFuentes_ = () => ({ ok: false, fuentes: [{ archivo: 'X', faltantes: ['Y'], errores: [] }], bloqueantes: [{}] });
+  c.Modelo_leerEventos_ = () => [];
+  c.Modelo_leerPacientes_ = () => [];
   c.Modelo_agregarEventos_ = () => { eventos++; return 0; };
   const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true });
   assert.equal(r.ok, false);
@@ -119,7 +119,7 @@ test('B3: Fuentes_cargaReal_ bloquea con HOJA_FUENTE_FALTANTE sin leer ni escrib
 // ---------------------------------------------------------------------------
 test('B4: la primera etapa mutante crea UN respaldo por ejecución; el resto lo reutiliza', () => {
   const c = backend();
-  c.Mig_schemaLeido = () => '2';
+  c.Mig_schemaLeido_ = () => '2';
   c.SISTEMA_VERSION_SCHEMA_ACTUAL = '2';
   const cache = {};
   c.CacheService = { getScriptCache: () => ({ get: (k) => cache[k] || null, put: (k, v) => { cache[k] = String(v); } }) };
@@ -130,23 +130,23 @@ test('B4: la primera etapa mutante crea UN respaldo por ejecución; el resto lo 
   c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: { registros: 0, nuevos: 0, existentes: 0, revision: 0 } });
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
   const clave = c.WebApp_claveOperador_();
-  const r1 = c.api_instalarPaso('estructura', clave, 'EJEC-T1');
+  const r1 = c.api_instalarPaso_('estructura', clave, 'EJEC-T1');
   assert.equal(r1.ok, true);
   assert.equal(r1.respaldo, 'MANUAL_ECICEP_BACKUP_1');
   assert.equal(backups, 1);
   // segunda etapa mutante de la MISMA ejecución: no crea otro respaldo
-  const r2 = c.api_instalarPaso('fuentes', clave, 'EJEC-T1');
+  const r2 = c.api_instalarPaso_('fuentes', clave, 'EJEC-T1');
   assert.equal(r2.ok, true);
   assert.equal(r2.respaldo, undefined);
   assert.equal(backups, 1);
   // ejecución distinta → respaldo propio
-  const r3 = c.api_instalarPaso('estructura', clave, 'EJEC-T2');
+  const r3 = c.api_instalarPaso_('estructura', clave, 'EJEC-T2');
   assert.equal(r3.ok, true);
   assert.equal(backups, 2);
 });
 test('B4: si el respaldo falla, la etapa responde BACKUP_FALLIDO y no se ejecuta nada', () => {
   const c = backend();
-  c.Mig_schemaLeido = () => '2';
+  c.Mig_schemaLeido_ = () => '2';
   c.SISTEMA_VERSION_SCHEMA_ACTUAL = '2';
   c.DriveApp = {};
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
@@ -154,7 +154,7 @@ test('B4: si el respaldo falla, la etapa responde BACKUP_FALLIDO y no se ejecuta
   let invocada = 0;
   c.Instalar_pMigraciones_ = () => { invocada++; return { ok: true }; };
   const clave = c.WebApp_claveOperador_();
-  const r = c.api_instalarPaso('migraciones', clave, 'EJEC-F');
+  const r = c.api_instalarPaso_('migraciones', clave, 'EJEC-F');
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'BACKUP_FALLIDO');
   assert.match(r.linea, /drive_lleno_simulado/);
@@ -185,9 +185,9 @@ test('B5: MIG-002 escribe SALUD_MENTAL solo donde falta y la celda posterior est
   const escrituras = [];
   const ok = hojaIngreso(canonical11(), escrituras);
   const conSM = hojaIngreso(canonical11().concat(['SALUD_MENTAL']), escrituras);
-  c.Modelo_hoja = HojasIngreso({ INGRESO_VERDE: ok, INGRESO_NARANJO: conSM });
-  c.Modelo_headerRow = () => 1;
-  const res = c._mig002_asegurarIngresosSaludMental();
+  c.Modelo_hoja_ = HojasIngreso({ INGRESO_VERDE: ok, INGRESO_NARANJO: conSM });
+  c.Modelo_headerRow_ = () => 1;
+  const res = c._mig002_asegurarIngresosSaludMental_();
   assert.equal(res.ok, true);
   assert.equal(JSON.stringify(res.actualizadas), JSON.stringify(['INGRESO_VERDE']));
   assert.equal(JSON.stringify(escrituras.map((e) => [e.col, e.valor])), JSON.stringify([[12, 'SALUD_MENTAL']]));
@@ -199,9 +199,9 @@ test('B5: columna ocupada tras NOTA_SISTEMA (columna personal) BLOQUEA sin pisar
   const c = backend();
   const escrituras = [];
   const conExtra = hojaIngreso(canonical11().concat(['EXTRA']), escrituras);
-  c.Modelo_hoja = HojasIngreso({ INGRESO_VERDE: conExtra });
-  c.Modelo_headerRow = () => 1;
-  const res = c._mig002_asegurarIngresosSaludMental();
+  c.Modelo_hoja_ = HojasIngreso({ INGRESO_VERDE: conExtra });
+  c.Modelo_headerRow_ = () => 1;
+  const res = c._mig002_asegurarIngresosSaludMental_();
   assert.equal(res.ok, false);
   assert.equal(escrituras.length, 0, 'no debe escribir sobre la columna EXTRA');
   assert.ok(res.revision.some((m) => m.indexOf('INGRESO_VERDE') === 0 && m.indexOf('ocupada') !== -1));
@@ -210,14 +210,14 @@ test('B5: encabezado canónico ausente o desordenado → revisión, sin escritur
   const c = backend();
   const escrituras = [];
   const sinDupla = hojaIngreso(['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)', 'FECHA DE INGRESO', 'ESTRATIFICACION', 'OBSERVACIONES', 'ESTADO_INGRESO', 'NOTA_SISTEMA'], escrituras);
-  c.Modelo_hoja = HojasIngreso({ INGRESO_VERDE: sinDupla });
-  c.Modelo_headerRow = () => 1;
-  const r1 = c._mig002_asegurarIngresosSaludMental();
+  c.Modelo_hoja_ = HojasIngreso({ INGRESO_VERDE: sinDupla });
+  c.Modelo_headerRow_ = () => 1;
+  const r1 = c._mig002_asegurarIngresosSaludMental_();
   assert.equal(r1.ok, false);
   assert.equal(escrituras.length, 0);
   const ordenado = hojaIngreso(['NOMBRE', 'SEXO', 'RUT', 'FECHA DE NACIMIENTO', 'TELEFONO(S)', 'FECHA DE INGRESO', 'ESTRATIFICACION', 'DUPLA INGRESO', 'OBSERVACIONES', 'ESTADO_INGRESO', 'NOTA_SISTEMA'], escrituras);
-  c.Modelo_hoja = HojasIngreso({ INGRESO_VERDE: ordenado });
-  const r2 = c._mig002_asegurarIngresosSaludMental();
+  c.Modelo_hoja_ = HojasIngreso({ INGRESO_VERDE: ordenado });
+  const r2 = c._mig002_asegurarIngresosSaludMental_();
   assert.equal(r2.ok, false);
   assert.equal(escrituras.length, 0);
 });
@@ -227,14 +227,14 @@ test('B5: encabezado canónico ausente o desordenado → revisión, sin escritur
 // ---------------------------------------------------------------------------
 test('B8: el normalizador solo admite SI/SÍ/NO/vacío; texto clínico se descarta con aviso', () => {
   const c = backend();
-  assert.equal(c.Norm_normalizarSaludMental('PS').estado, 'NO_RECONOCIDO');
-  assert.equal(c.Norm_normalizarSaludMental('DEPRESION').estado, 'NO_RECONOCIDO');
-  assert.equal(c.Norm_normalizarSaludMental('TRUE').estado, 'NO_RECONOCIDO');
-  assert.equal(c.Norm_normalizarSaludMental('SI').estado, 'SI');
-  assert.equal(c.Norm_normalizarSaludMental('SÍ').estado, 'SI');
-  assert.equal(c.Norm_normalizarSaludMental('no').estado, 'NO');
-  assert.equal(c.Norm_normalizarSaludMental('  ').estado, 'VACIO');
-  const fila = c.Fuentes_normalizar(c.Fuentes_crearFila(
+  assert.equal(c.Norm_normalizarSaludMental_('PS').estado, 'NO_RECONOCIDO');
+  assert.equal(c.Norm_normalizarSaludMental_('DEPRESION').estado, 'NO_RECONOCIDO');
+  assert.equal(c.Norm_normalizarSaludMental_('TRUE').estado, 'NO_RECONOCIDO');
+  assert.equal(c.Norm_normalizarSaludMental_('SI').estado, 'SI');
+  assert.equal(c.Norm_normalizarSaludMental_('SÍ').estado, 'SI');
+  assert.equal(c.Norm_normalizarSaludMental_('no').estado, 'NO');
+  assert.equal(c.Norm_normalizarSaludMental_('  ').estado, 'VACIO');
+  const fila = c.Fuentes_normalizar_(c.Fuentes_crearFila_(
     { archivo: 'FAKE', hoja: 'H', fila: 1, sector: 'NARANJO' },
     { RUT: '12345678-5', NOMBRE: 'ANA PEREZ', SALUD_MENTAL: 'DEPRESIÓN' }, 1));
   assert.equal(fila.NORMALIZADO.SALUD_MENTAL, '');
@@ -244,7 +244,7 @@ test('B8: el merge jamás escribe ni modifica SALUD_MENTAL en pacientes existent
   const c = backend();
   const paciente = { RUT: '12345678-5', SALUD_MENTAL: 'NO', FUENTE: 'ORIG' };
   const n = { RUT: '12345678-5', SALUD_MENTAL: 'SI', SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '', ESTRATIFICACION: '', OBSERVACIONES: '', PREINGRESO: '', DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '' };
-  const res = c.Act_mergearPaciente(paciente, n, { modo: 'SNAPSHOT_ACTUAL' });
+  const res = c.Act_mergearPaciente_(paciente, n, { modo: 'SNAPSHOT_ACTUAL' });
   assert.equal(paciente.SALUD_MENTAL, 'NO');
   assert.ok(!res.aplicados.some((a) => a.campo === 'SALUD_MENTAL'));
 });
@@ -257,7 +257,7 @@ test('B9: SNAPSHOT_ACTUAL no re-registra un TELEFONOS idéntico (no infla FUENTE
   const paciente = { RUT: '12345678-5', TELEFONOS: '900000000', ESTRATIFICACION: 'G2', FUENTE: 'ORIG' };
   const fila = { ESTADO_VALIDACION: 'OK', NORMALIZADO: { RUT: '12345678-5', TELEFONOS: '900000000', ESTRATIFICACION: 'G2', SEXO: '', FECHA_NACIMIENTO: '', OBSERVACIONES: '', PREINGRESO: '', DUPLA_INGRESO: '', PROFESIONAL_SEGUIMIENTO: '', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '' } };
   for (let i = 0; i < 10; i++) {
-    c.Act_mergearPacientesDesdeStaging([fila], [paciente], { modo: 'SNAPSHOT_ACTUAL' });
+    c.Act_mergearPacientesDesdeStaging_([fila], [paciente], { modo: 'SNAPSHOT_ACTUAL' });
   }
   assert.equal(paciente.FUENTE, 'ORIG', 'FUENTE no crece en instalaciones repetidas');
   assert.equal(paciente.TELEFONOS, '900000000');
@@ -265,23 +265,23 @@ test('B9: SNAPSHOT_ACTUAL no re-registra un TELEFONOS idéntico (no infla FUENTE
 });
 test('B9: 10× Instalar sobre el mismo origen no duplica eventos ni archiva staging repetido', () => {
   const c = backend();
-  const fila = c.Fuentes_crearFila({ archivo: 'ECICEP NARANJO', hoja: 'Ingresos Enero ', fila: 2, sector: 'NARANJO' }, { RUT: '12345678-5', NOMBRE: 'ANA PEREZ', SALUD_MENTAL: 'NO' }, 3);
-  c.Fuentes_normalizar(fila);
-  c.Fuentes_leerStagingAutorizado = () => [fila];
-  c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 1 });
-  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
-  c.Modelo_leerEventos = () => [{ FUENTE: 'ECICEP NARANJO|Ingresos Enero|2' }];
-  c.Modelo_leerPacientes = () => [];
+  const fila = c.Fuentes_crearFila_({ archivo: 'ECICEP NARANJO', hoja: 'Ingresos Enero ', fila: 2, sector: 'NARANJO' }, { RUT: '12345678-5', NOMBRE: 'ANA PEREZ', SALUD_MENTAL: 'NO' }, 3);
+  c.Fuentes_normalizar_(fila);
+  c.Fuentes_leerStagingAutorizado_ = () => [fila];
+  c.Fuentes_contarHojasAutorizadas_ = () => ({ hojas: 1 });
+  c.Fuentes_preflightFuentes_ = () => ({ ok: true, fuentes: [], bloqueantes: [] });
+  c.Modelo_leerEventos_ = () => [{ FUENTE: 'ECICEP NARANJO|Ingresos Enero|2' }];
+  c.Modelo_leerPacientes_ = () => [];
   c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: true });
-  c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [], pacientesNuevos: [], eventos: [] });
+  c.Ingresos_procesarFilas_ = () => ({ resumen: {}, resultados: [], pacientesNuevos: [], eventos: [] });
   c.Modelo_refrescarVistasSectores_ = () => ({});
-  c.Act_mergearPacientesDesdeStaging = () => ({ revisados: 1, actualizados: 0, sinCambios: 1, conflictos: 0, campos: 0, detalle: [] });
+  c.Act_mergearPacientesDesdeStaging_ = () => ({ revisados: 1, actualizados: 0, sinCambios: 1, conflictos: 0, campos: 0, detalle: [] });
   let eventos = 0;
   c.Modelo_agregarEventos_ = () => { eventos++; return 0; };
   // STAGING_IMPORT fake para verificar dedupe de auditoría
   let filasStaging = [];
   const ST_NOMBRE = expr(c, 'HOJAS.STAGING_IMPORT');
-  c.Modelo_ss = () => ({ getSheetByName: (n) => n === ST_NOMBRE ? {
+  c.Modelo_ss_ = () => ({ getSheetByName: (n) => n === ST_NOMBRE ? {
     getLastRow: () => filasStaging.length,
     getRange: (f, col, nr, nc) => ({ getValues: () => Array.from({ length: nr }, (_, i) => {
       const filaSt = filasStaging[f - 1 + i] || [];
@@ -290,7 +290,7 @@ test('B9: 10× Instalar sobre el mismo origen no duplica eventos ni archiva stag
       return out;
     }) })
   } : null });
-  c.Utl_escribirBloque = (hoja, fila, col, datos) => { filasStaging = filasStaging.concat(datos); return datos.length; };
+  c.Utl_escribirBloque_ = (hoja, fila, col, datos) => { filasStaging = filasStaging.concat(datos); return datos.length; };
   for (let i = 0; i < 10; i++) {
     const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true });
     assert.equal(r.ok, true);
@@ -300,11 +300,11 @@ test('B9: 10× Instalar sobre el mismo origen no duplica eventos ni archiva stag
   assert.equal(eventos, 0, 'jamás se vuelve a anexar un evento de una fila ya importada');
   assert.equal(filasStaging.length, 1, 'STAGING_IMPORT archiva el origen físico UNA sola vez');
 });
-test('B9: Fuentes_guardarFilas es idempotente por origen (segunda llamada = 0)', () => {
+test('B9: Fuentes_guardarFilas_ es idempotente por origen (segunda llamada = 0)', () => {
   const c = backend();
   let filasStaging = [];
   const ST_NOMBRE = expr(c, 'HOJAS.STAGING_IMPORT');
-  c.Modelo_ss = () => ({ getSheetByName: (n) => n === ST_NOMBRE ? {
+  c.Modelo_ss_ = () => ({ getSheetByName: (n) => n === ST_NOMBRE ? {
     getLastRow: () => filasStaging.length,
     getRange: (f, col, nr, nc) => ({ getValues: () => Array.from({ length: nr }, (_, i) => {
       const filaSt = filasStaging[f - 1 + i] || [];
@@ -313,13 +313,13 @@ test('B9: Fuentes_guardarFilas es idempotente por origen (segunda llamada = 0)',
       return out;
     }) })
   } : null });
-  c.Utl_escribirBloque = (hoja, fila, col, datos) => { filasStaging = filasStaging.concat(datos); return datos.length; };
+  c.Utl_escribirBloque_ = (hoja, fila, col, datos) => { filasStaging = filasStaging.concat(datos); return datos.length; };
   const filas = [
-    c.Fuentes_crearFila({ archivo: 'A', hoja: 'H1', fila: 1, sector: 'NARANJO' }, { RUT: '1', NOMBRE: 'U' }, 1),
-    c.Fuentes_crearFila({ archivo: 'A', hoja: 'H1', fila: 2, sector: 'NARANJO' }, { RUT: '2', NOMBRE: 'D' }, 2)
+    c.Fuentes_crearFila_({ archivo: 'A', hoja: 'H1', fila: 1, sector: 'NARANJO' }, { RUT: '1', NOMBRE: 'U' }, 1),
+    c.Fuentes_crearFila_({ archivo: 'A', hoja: 'H1', fila: 2, sector: 'NARANJO' }, { RUT: '2', NOMBRE: 'D' }, 2)
   ];
-  assert.equal(c.Fuentes_guardarFilas(filas), 2);
-  assert.equal(c.Fuentes_guardarFilas(filas), 0, 'mismo origen no se re-archiva');
+  assert.equal(c.Fuentes_guardarFilas_(filas), 2);
+  assert.equal(c.Fuentes_guardarFilas_(filas), 0, 'mismo origen no se re-archiva');
   assert.equal(filasStaging.length, 2);
 });
 
@@ -328,18 +328,18 @@ test('B9: Fuentes_guardarFilas es idempotente por origen (segunda llamada = 0)',
 // ---------------------------------------------------------------------------
 test('SNAPSHOT: la ejecución reutiliza el análisis dry-run (UNA lectura de fuentes)', () => {
   const c = backend();
-  const fila = c.Fuentes_crearFila({ archivo: 'ECICEP NARANJO', hoja: 'Ingresos Enero', fila: 2, sector: 'NARANJO' }, { RUT: '12345678-5', NOMBRE: 'ANA PEREZ' }, 4);
-  c.Fuentes_normalizar(fila);
+  const fila = c.Fuentes_crearFila_({ archivo: 'ECICEP NARANJO', hoja: 'Ingresos Enero', fila: 2, sector: 'NARANJO' }, { RUT: '12345678-5', NOMBRE: 'ANA PEREZ' }, 4);
+  c.Fuentes_normalizar_(fila);
   let lecturas = 0;
-  c.Fuentes_leerStagingAutorizado = () => { lecturas++; return [fila]; };
-  c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 1 });
-  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
-  c.Modelo_leerPacientes = () => [];
-  c.Modelo_leerEventos = () => [];
-  c.Ingresos_procesarFilas = () => ({ resumen: { nuevos: 1, existentes: 0, revision: 0, conError: 0 }, resultados: [], pacientesNuevos: [], eventos: [] });
+  c.Fuentes_leerStagingAutorizado_ = () => { lecturas++; return [fila]; };
+  c.Fuentes_contarHojasAutorizadas_ = () => ({ hojas: 1 });
+  c.Fuentes_preflightFuentes_ = () => ({ ok: true, fuentes: [], bloqueantes: [] });
+  c.Modelo_leerPacientes_ = () => [];
+  c.Modelo_leerEventos_ = () => [];
+  c.Ingresos_procesarFilas_ = () => ({ resumen: { nuevos: 1, existentes: 0, revision: 0, conError: 0 }, resultados: [], pacientesNuevos: [], eventos: [] });
   c.Modelo_agregarEventos_ = () => 0;
   c.Modelo_refrescarVistasSectores_ = () => ({});
-  c.Act_mergearPacientesDesdeStaging = () => ({ revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] });
+  c.Act_mergearPacientesDesdeStaging_ = () => ({ revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] });
   const a = c.Fuentes_cargaReal_({ ejecutar: false, actualizar: true });
   assert.equal(lecturas, 1);
   const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true, ejecucionId: a.ejecucionId });

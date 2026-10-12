@@ -26,10 +26,10 @@ function _fichaHoyIso_() {
 function _fichaFormatoIsoFecha_(v) {
   if (!v) return '';
   if (v instanceof Date) {
-    try { return Utilities.formatDate(v, typeof _UI_tz === 'function' ? _UI_tz() : 'America/Santiago', 'yyyy-MM-dd'); }
+    try { return Utilities.formatDate(v, typeof _UI_tz_ === 'function' ? _UI_tz_() : 'America/Santiago', 'yyyy-MM-dd'); }
     catch (e) { return v.toISOString().slice(0, 10); }
   }
-  var s = Utl_texto(v);
+  var s = Utl_texto_(v);
   return s.length >= 10 ? s.slice(0, 10) : s;
 }
 
@@ -37,10 +37,10 @@ function _fichaFormatoIsoFecha_(v) {
 function _fichaFormatoMomento_(v) {
   if (!v) return '';
   if (v instanceof Date) {
-    try { return Utilities.formatDate(v, typeof _UI_tz === 'function' ? _UI_tz() : 'America/Santiago', 'yyyy-MM-dd HH:mm'); }
+    try { return Utilities.formatDate(v, typeof _UI_tz_ === 'function' ? _UI_tz_() : 'America/Santiago', 'yyyy-MM-dd HH:mm'); }
     catch (e) { return v.toISOString().slice(0, 16).replace('T', ' '); }
   }
-  var s = Utl_texto(v).replace('T', ' ');
+  var s = Utl_texto_(v).replace('T', ' ');
   return s.length > 16 ? s.slice(0, 16) : s;
 }
 
@@ -55,19 +55,19 @@ function _fichaError_(errores, campo, mensaje) {
  * un valor no normalizable es un ERROR, no una caída best-effort.
  */
 function Paciente_validarCampo_(campo, valorRaw, actualPaciente) {
-  var valor = Utl_texto(valorRaw).trim();
+  var valor = Utl_texto_(valorRaw).trim();
   var errores = [];
   switch (campo) {
     case 'RUT': {
       if (!valor) { _fichaError_(errores, 'RUT', 'No puede vaciar el RUT'); break; }
-      var nr = Norm_normalizarRut(valor);
+      var nr = Norm_normalizarRut_(valor);
       if (nr.estado !== 'OK') { _fichaError_(errores, 'RUT', 'RUT inválido'); break; }
       valor = nr.rut;
       // Unicidad: excluye el propio paciente si `actualPaciente` fue provisto.
       try {
-        var duplicados = Modelo_leerPacientes().filter(function (p) {
-          if (actualPaciente && Utl_texto(p.ID_INTERNO) === Utl_texto(actualPaciente.ID_INTERNO)) return false;
-          return Norm_normalizarRut(p.RUT).rut === nr.rut;
+        var duplicados = Modelo_leerPacientes_().filter(function (p) {
+          if (actualPaciente && Utl_texto_(p.ID_INTERNO) === Utl_texto_(actualPaciente.ID_INTERNO)) return false;
+          return Norm_normalizarRut_(p.RUT).rut === nr.rut;
         });
         if (duplicados.length) { _fichaError_(errores, 'RUT', 'RUT duplicado: requiere revisión'); break; }
       } catch (eD) { /* sin modelo en contexto puro: no bloquear */ }
@@ -75,39 +75,39 @@ function Paciente_validarCampo_(campo, valorRaw, actualPaciente) {
     }
     case 'NOMBRE': {
       if (!valor) { _fichaError_(errores, 'NOMBRE', 'No puede vaciar el nombre'); break; }
-      var nn = Norm_normalizarNombre(valor);
+      var nn = Norm_normalizarNombre_(valor);
       if (!nn.ok) { _fichaError_(errores, 'NOMBRE', 'Nombre inválido'); break; }
       valor = nn.nombre;
       break;
     }
     case 'SEXO': {
       if (!valor) break; // '' es "sin información" válido
-      var sex = Norm_normalizarSexo(valor);
+      var sex = Norm_normalizarSexo_(valor);
       if (!sex) { _fichaError_(errores, 'SEXO', 'Sexo inválido (use M, F u OTRO)'); break; }
       valor = sex;
       break;
     }
     case 'FECHA_NACIMIENTO': {
       if (!valor) break;
-      var dN = Captura_v2_validarIsoFecha(valor, { min: 1900, max: 2040 });
+      var dN = Captura_v2_validarIsoFecha_(valor, { min: 1900, max: 2040 });
       if (!dN.ok) { _fichaError_(errores, 'FECHA_NACIMIENTO', 'Fecha de nacimiento inválida'); break; }
-      var hoyN = Captura_v2_fechaOperacion({});
+      var hoyN = Captura_v2_fechaOperacion_({});
       if (dN.iso > hoyN) { _fichaError_(errores, 'FECHA_NACIMIENTO', 'Nacimiento no puede estar en el futuro'); break; }
       valor = dN.iso;
       break;
     }
     case 'FECHA_INGRESO': {
       if (!valor) break;
-      var dI = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
+      var dI = Captura_v2_validarIsoFecha_(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
       if (!dI.ok) { _fichaError_(errores, 'FECHA_INGRESO', 'Fecha de ingreso inválida'); break; }
-      var hoyI = Captura_v2_fechaOperacion({});
+      var hoyI = Captura_v2_fechaOperacion_({});
       if (dI.iso > hoyI) { _fichaError_(errores, 'FECHA_INGRESO', 'Ingreso no puede estar en el futuro'); break; }
       valor = dI.iso;
       break;
     }
     case 'PROXIMO_CONTROL': {
       if (!valor) break;
-      var dP = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
+      var dP = Captura_v2_validarIsoFecha_(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
       if (!dP.ok) { _fichaError_(errores, 'PROXIMO_CONTROL', 'Próximo control: fecha inválida'); break; }
       valor = dP.iso;
       break;
@@ -116,38 +116,38 @@ function Paciente_validarCampo_(campo, valorRaw, actualPaciente) {
       if (!valor) break;
       var pre = valor.toUpperCase().replace(/\s+/g, '_');
       if (pre === 'NO_APLICA' || pre === 'PENDIENTE') { valor = pre; break; }
-      var dPre = Captura_v2_validarIsoFecha(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
+      var dPre = Captura_v2_validarIsoFecha_(valor, { min: CFG_FECHAS.ANO_MIN, max: CFG_FECHAS.ANO_MAX });
       if (!dPre.ok) { _fichaError_(errores, 'PREINGRESO', 'Preingreso: use fecha ISO, NO_APLICA o PENDIENTE'); break; }
       valor = dPre.iso;
       break;
     }
     case 'TELEFONOS': {
       if (!valor) break;
-      var tel = Norm_normalizarTelefono(valor);
+      var tel = Norm_normalizarTelefono_(valor);
       if (!tel.telefonos.length) { _fichaError_(errores, 'TELEFONOS', 'Texto sin teléfonos válidos (use TELEFONO_OBS para notas)'); break; }
       valor = tel.telefonos.join('/');
       break;
     }
     case 'TELEFONO_OBS': {
-      valor = Utl_colapsarEspacios(valor);
+      valor = Utl_colapsarEspacios_(valor);
       break;
     }
     case 'ESTRATIFICACION': {
-      var g = Norm_normalizarEstratificacion(valor);
+      var g = Norm_normalizarEstratificacion_(valor);
       if (valor && !g) { _fichaError_(errores, 'ESTRATIFICACION', 'Estratificación: use G1, G2 o G3'); break; }
       valor = g;
       break;
     }
     case 'ESTADO': {
       if (!valor) { valor = 'PENDIENTE'; break; }
-      var e = Norm_normalizarEstado(valor);
+      var e = Norm_normalizarEstado_(valor);
       if (ESTADOS.VALIDOS.indexOf(e) === -1) { _fichaError_(errores, 'ESTADO', 'Estado inválido'); break; }
       valor = e;
       break;
     }
     case 'DUPLA_INGRESO':
     case 'PROFESIONAL_SEGUIMIENTO': {
-      valor = Utl_colapsarEspacios(valor).toUpperCase();
+      valor = Utl_colapsarEspacios_(valor).toUpperCase();
       break;
     }
     case 'SALUD_MENTAL': {
@@ -156,21 +156,21 @@ function Paciente_validarCampo_(campo, valorRaw, actualPaciente) {
       break;
     }
     case 'OBSERVACIONES': {
-      valor = Utl_colapsarEspacios(valor);
+      valor = Utl_colapsarEspacios_(valor);
       break;
     }
     case 'CONDICIONES': {
-      var cond = Norm_normalizarCondiciones(valor, CATALOGO_CONDICIONES_ECICEP);
+      var cond = Norm_normalizarCondiciones_(valor, CATALOGO_CONDICIONES_ECICEP);
       if (cond.noReconocidas.length) { _fichaError_(errores, 'CONDICIONES', 'Patología fuera de catálogo: ' + cond.noReconocidas.join(', ')); break; }
       valor = cond.detectadas.map(function (x) { return typeof x === 'string' ? x : (x.CODIGO || x.codigo); }).filter(Boolean).sort().join(';');
       break;
     }
     case 'OTRAS_PATOLOGIAS': {
-      valor = Utl_colapsarEspacios(valor);
+      valor = Utl_colapsarEspacios_(valor);
       break;
     }
     case 'COMPOSICION_CONTROL': {
-      valor = Utl_colapsarEspacios(valor);
+      valor = Utl_colapsarEspacios_(valor);
       break;
     }
     default: {
@@ -198,7 +198,7 @@ function Paciente_actualizarCampos_(idInterno, campos, contexto) {
   if (claves.indexOf('SECTOR') !== -1) {
     return { ok: false, motivo: 'SECTOR_VIA_CAMBIO_SECTOR' };
   }
-  var encontrado = Modelo_buscarPaciente(idInterno);
+  var encontrado = Modelo_buscarPaciente_(idInterno);
   if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
   var paciente = Object.assign({}, encontrado.obj);
   var errores = [];
@@ -213,18 +213,18 @@ function Paciente_actualizarCampos_(idInterno, campos, contexto) {
     var msg = errores.map(function (e) { return e.mensaje; }).join('; ');
     return { ok: false, motivo: msg, errores: errores, codigo: errores[0].codigo };
   }
-  var sectorPaciente = Utl_texto(paciente.SECTOR).toUpperCase();
+  var sectorPaciente = Utl_texto_(paciente.SECTOR).toUpperCase();
   var escrito = null;
   try {
     Object.keys(validados).forEach(function (k) { paciente[k] = validados[k]; });
     // Derivados que mantienen índices y vistas clínicas coherentes con el valor.
     if ('RUT' in validados) { paciente.RUT_DV_VALIDO = true; paciente.RUT_SIN_DV = false; }
-    if ('NOMBRE' in validados) { paciente.NOMBRE_NORMALIZADO = Norm_claveNombre(validados.NOMBRE); }
-    _modelo_estamparActualizacion(paciente, new Date());
+    if ('NOMBRE' in validados) { paciente.NOMBRE_NORMALIZADO = Norm_claveNombre_(validados.NOMBRE); }
+    _modelo_estamparActualizacion_(paciente, new Date());
     var idx = encontrado.idx;
-    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos().length)
-      .setValues([Modelo_filaDesdeObjeto(paciente)]);
-    Modelo_invalidarLecturas();
+    Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos_().length)
+      .setValues([Modelo_filaDesdeObjeto_(paciente)]);
+    Modelo_invalidarLecturas_();
     escrito = true;
   } catch (eW) {
     return { ok: false, motivo: 'ACTUALIZACION_NO_ESCRITA', error: eW && eW.message ? eW.message : String(eW) };
@@ -268,7 +268,7 @@ function Paciente_aplicarCampos_(idInterno, campos, contexto) {
     var cs = Paciente_cambiarSector_(idInterno, sectorValor, {
       fuente: contexto.fuente || 'UI_FICHA',
       registradoPor: contexto.registradoPor !== undefined ? contexto.registradoPor
-        : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '')
+        : (typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : '')
     });
     if (!cs.ok) return cs.sinCambios ? { ok: true, sinCambios: true, sector: cs.sector } : cs;
     sectorCambio = !cs.sinCambios;
@@ -285,7 +285,7 @@ function Paciente_aplicarCampos_(idInterno, campos, contexto) {
   }
 
   if (!esSector) return { ok: false, motivo: 'SIN_CAMBIOS' };
-  var resSec = Modelo_buscarPaciente(idInterno);
+  var resSec = Modelo_buscarPaciente_(idInterno);
   return {
     ok: true,
     paciente: resSec ? { ID_INTERNO: resSec.obj.ID_INTERNO, NOMBRE: resSec.obj.NOMBRE, SECTOR: resSec.obj.SECTOR } : { ID_INTERNO: idInterno },
@@ -303,14 +303,14 @@ function Paciente_prepararCambioSector_(pacienteOrigen, nuevoSector, contexto) {
   contexto = contexto || {};
   if (!pacienteOrigen || !pacienteOrigen.ID_INTERNO)
     return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
-  var anterior = Utl_texto(pacienteOrigen.SECTOR).toUpperCase();
-  var sec = Norm_normalizarSector(nuevoSector);
+  var anterior = Utl_texto_(pacienteOrigen.SECTOR).toUpperCase();
+  var sec = Norm_normalizarSector_(nuevoSector);
   if (sec.estado !== 'OK') return { ok: false, motivo: 'SECTOR_INVALIDO' };
   if (anterior === sec.sector) return { ok: true, sinCambios: true, sector: anterior };
   var paciente = Object.assign({}, pacienteOrigen);
   paciente.SECTOR = sec.sector;
   var evento = {
-    ID_EVENTO: Ev_nuevoId(),
+    ID_EVENTO: Ev_nuevoId_(),
     ID_INTERNO: paciente.ID_INTERNO,
     RUT: paciente.RUT,
     NOMBRE: paciente.NOMBRE,
@@ -325,7 +325,7 @@ function Paciente_prepararCambioSector_(pacienteOrigen, nuevoSector, contexto) {
     OBSERVACIONES: '',
     FUENTE: contexto.fuente || 'UI_FICHA',
     REGISTRADO_POR: contexto.registradoPor !== undefined ? contexto.registradoPor
-      : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''),
+      : (typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : ''),
     FECHA_REGISTRO: null
   };
   return { ok: true, sinCambios: false, anterior: anterior, nuevo: sec.sector,
@@ -335,7 +335,7 @@ function Paciente_prepararCambioSector_(pacienteOrigen, nuevoSector, contexto) {
 
 function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
   contexto = contexto || {};
-  var encontrado = Modelo_buscarPaciente(idInterno);
+  var encontrado = Modelo_buscarPaciente_(idInterno);
   if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
   var plan = Paciente_prepararCambioSector_(encontrado.obj, nuevoSector, contexto);
   if (!plan.ok || plan.sinCambios) return plan;
@@ -347,10 +347,10 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
 
   // 1) PACIENTES (una fila)
   try {
-    _modelo_estamparActualizacion(paciente, new Date());
-    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos().length)
-      .setValues([Modelo_filaDesdeObjeto(paciente)]);
-    Modelo_invalidarLecturas();
+    _modelo_estamparActualizacion_(paciente, new Date());
+    Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos_().length)
+      .setValues([Modelo_filaDesdeObjeto_(paciente)]);
+    Modelo_invalidarLecturas_();
   } catch (eP) {
     return { ok: false, motivo: 'SECTOR_CAMBIO_NO_ESCRITO' };
   }
@@ -358,27 +358,27 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
   // 2) EVENTO CAMBIO_SECTOR
   var idEvento = null;
   try {
-    Modelo_agregarEventos_([evento], _ingresosUsuarioActual() || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-sector' });
+    Modelo_agregarEventos_([evento], _ingresosUsuarioActual_() || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cambio-sector' });
     idEvento = evento.ID_EVENTO;
   } catch (eE) {
     try {
       paciente.SECTOR = anterior;
-      _modelo_estamparActualizacion(paciente, new Date());
-      Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos().length)
-        .setValues([Modelo_filaDesdeObjeto(paciente)]);
-      Modelo_invalidarLecturas();
+      _modelo_estamparActualizacion_(paciente, new Date());
+      Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos_().length)
+        .setValues([Modelo_filaDesdeObjeto_(paciente)]);
+      Modelo_invalidarLecturas_();
     } catch (eR) {}
     try { Modelo_refrescarVistasSectores_([anterior, plan.nuevo]); } catch (eV) {}
-    Log_error('Paciente', 'cambiarSector', 'CAMBIO_SECTOR_FALLIDO; rollback aplicado a ' + anterior);
-    Log_flush();
+    Log_error_('Paciente', 'cambiarSector', 'CAMBIO_SECTOR_FALLIDO; rollback aplicado a ' + anterior);
+    Log_flush_();
     return { ok: false, motivo: 'CAMBIO_SECTOR_FALLIDO: rollback aplicado, revisión requerida' };
   }
 
   // 3) Vistas sectoriales: SOLO las implicadas
   try { Modelo_refrescarVistasSectores_([anterior, plan.nuevo]); } catch (eF) {}
 
-  Log_info('Paciente', 'cambiarSector', anterior + ' → ' + plan.nuevo + ' · ' + idEvento, null, null);
-  Log_flush();
+  Log_info_('Paciente', 'cambiarSector', anterior + ' → ' + plan.nuevo + ' · ' + idEvento, null, null);
+  Log_flush_();
 
   return { ok: true, anterior: anterior, nuevo: plan.nuevo, idEvento: idEvento, sinCambios: false };
 }
@@ -386,23 +386,23 @@ function Paciente_cambiarSector_(idInterno, nuevoSector, contexto) {
 /**
  * GAS: guardado de patologías (condiciones + otras) con recálculo de la
  * estratificación y refresco acotado del sector. Reutiliza la validación de
- * catálogo única (Condiciones_validarSeleccion).
+ * catálogo única (Condiciones_validarSeleccion_).
  */
 function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
-  var val = Condiciones_validarSeleccion(codigos || [], CATALOGO_CONDICIONES_ECICEP);
+  var val = Condiciones_validarSeleccion_(codigos || [], CATALOGO_CONDICIONES_ECICEP);
   if (val.invalidos && val.invalidos.length) {
     return { ok: false, motivo: 'CODIGOS_INVALIDOS', invalidos: val.invalidos };
   }
   var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
-  var encontrado = Modelo_buscarPaciente(idInterno);
+  var encontrado = Modelo_buscarPaciente_(idInterno);
   if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
   var idx = encontrado.idx;
   var paciente = Object.assign({}, encontrado.obj);
 
   var condiciones = val.validos.join(';');
-  var otras = Utl_colapsarEspacios(otrasPatologias || '');
-  var estrat = Estrat_evaluar(condiciones, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+  var otras = Utl_colapsarEspacios_(otrasPatologias || '');
+  var estrat = Estrat_evaluar_(condiciones, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
   var estratValor = estrat && estrat.estado === 'CALCULADO' ? String(estrat.resultado) : '';
   var anteriores = {
     CONDICIONES: paciente.CONDICIONES || '',
@@ -411,7 +411,7 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
   };
   var cambioEstrat = Estrat_prepararCambio_(paciente, estratValor, {
     motivo: 'PATOLOGIAS', fuente: 'SISTEMA',
-    registradoPor: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''
+    registradoPor: typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : ''
   });
   paciente.CONDICIONES = condiciones;
   paciente.OTRAS_PATOLOGIAS = otras;
@@ -420,14 +420,14 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
   paciente.ESTRAT_CALCULADA = String(estrat && estrat.resultado || '');
   paciente.ESTRAT_FECHA_CALCULO = new Date();
 
-  var sectorPaciente = Utl_texto(paciente.SECTOR).toUpperCase();
+  var sectorPaciente = Utl_texto_(paciente.SECTOR).toUpperCase();
   var advertencias = [];
   // 1) Escritura canónica PACIENTES: crítica (§23). Un fallo aquí ES error.
   try {
-    _modelo_estamparActualizacion(paciente, new Date());
-    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos().length)
-      .setValues([Modelo_filaDesdeObjeto(paciente)]);
-    Modelo_invalidarLecturas();
+    _modelo_estamparActualizacion_(paciente, new Date());
+    Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, idx), 1, 1, Modelo_campos_().length)
+      .setValues([Modelo_filaDesdeObjeto_(paciente)]);
+    Modelo_invalidarLecturas_();
   } catch (eW) {
     return { ok: false, motivo: 'PATOLOGIAS_NO_TRACEABLES: escritura fallida, revisión requerida' };
   }
@@ -447,7 +447,7 @@ function Patologias_guardarPaciente_(idInterno, codigos, otrasPatologias) {
     ok: true,
     condiciones: val.validos,
     cantidad: val.validos.length,
-    puntaje: _calcularPuntaje(val.validos),
+    puntaje: _calcularPuntaje_(val.validos),
     estratificacion: estratValor || 'pendiente',
     estratRegla: (estrat && estrat.regla) || '',
     esquemaMigrado: !!esquema.migrada,
@@ -473,9 +473,9 @@ var EVENTOS_FICHA_MANUALES = ['CONTROL', 'SEGUIMIENTO', 'LLAMADO', 'OTRO'];
  */
 function Eventos_buscarPorFuente_(fuente) {
   if (!fuente) return null;
-  var hoja = Modelo_hoja(HOJAS.EVENTOS);
+  var hoja = Modelo_hoja_(HOJAS.EVENTOS);
   if (!hoja) return null;
-  var hr = Modelo_headerRow(HOJAS.EVENTOS);
+  var hr = Modelo_headerRow_(HOJAS.EVENTOS);
   var ancho = hoja.getLastColumn();
   var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
   var idxFuente = enc.indexOf('FUENTE');
@@ -483,7 +483,7 @@ function Eventos_buscarPorFuente_(fuente) {
   var idxId = enc.indexOf('ID_EVENTO');
   var idxPaciente = enc.indexOf('ID_INTERNO');
   var idxTipo = enc.indexOf('TIPO_EVENTO');
-  var ini = Modelo_dataStartRow(HOJAS.EVENTOS);
+  var ini = Modelo_dataStartRow_(HOJAS.EVENTOS);
   var n = hoja.getLastRow() - ini + 1;
   if (n < 1) return null;
   var celda = hoja.getRange(ini, idxFuente + 1, n, 1)
@@ -494,15 +494,15 @@ function Eventos_buscarPorFuente_(fuente) {
   var fila = celda.getRow();
   var valores = hoja.getRange(fila, 1, 1, ancho).getValues()[0];
   return {
-    idEvento: idxId >= 0 ? Utl_texto(valores[idxId]) : '',
-    idInterno: idxPaciente >= 0 ? Utl_texto(valores[idxPaciente]) : '',
-    tipo: idxTipo >= 0 ? Utl_texto(valores[idxTipo]).toUpperCase() : ''
+    idEvento: idxId >= 0 ? Utl_texto_(valores[idxId]) : '',
+    idInterno: idxPaciente >= 0 ? Utl_texto_(valores[idxPaciente]) : '',
+    tipo: idxTipo >= 0 ? Utl_texto_(valores[idxTipo]).toUpperCase() : ''
   };
 }
 
 /**
  * GAS: registro de un evento de paciente (CONTROL/SEGUIMIENTO/OTRO) a través
- * del pipeline de eventos único (misma semántica que api_registrarEvento V2,
+ * del pipeline de eventos único (misma semántica que api_registrarEvento_ V2,
  * incluida la sincronización de la caché ultimo_* / FECHA_INGRESO en PACIENTES).
  * Refresco ACOTADO al sector del objetivo (no todas las vistas).
  */
@@ -513,11 +513,11 @@ function Eventos_registrarPaciente_(payload, contexto) {
   if (EVENTOS_FICHA_MANUALES.indexOf(p.tipoEvento) === -1) {
     return { ok: false, motivo: 'TIPO_EVENTO_RESERVADO' };
   }
-  var fecha = Norm_normalizarFecha(p.fecha);
+  var fecha = Norm_normalizarFecha_(p.fecha);
   if (fecha.estado !== 'VALIDA') return { ok: false, motivo: 'FECHA_INVALIDA' };
 
-  var objetivoId = Utl_texto(p.idInterno || p.ID_INTERNO);
-  var encontrado = Modelo_buscarPaciente(objetivoId);
+  var objetivoId = Utl_texto_(p.idInterno || p.ID_INTERNO);
+  var encontrado = Modelo_buscarPaciente_(objetivoId);
   if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO' };
   var objetivo = encontrado.obj;
 
@@ -527,7 +527,7 @@ function Eventos_registrarPaciente_(payload, contexto) {
   var advertencias = [];
   try {
     var evento = {
-      ID_EVENTO: Ev_nuevoId(),
+      ID_EVENTO: Ev_nuevoId_(),
       ID_INTERNO: objetivo.ID_INTERNO,
       RUT: objetivo.RUT,
       NOMBRE: objetivo.NOMBRE,
@@ -546,28 +546,28 @@ function Eventos_registrarPaciente_(payload, contexto) {
       OBSERVACIONES: p.observaciones || '',
       FUENTE: p.fuente || 'UI_FICHA',
       REGISTRADO_POR: (p.registradoPor !== undefined && p.registradoPor !== null)
-        ? p.registradoPor : (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : ''),
+        ? p.registradoPor : (typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : ''),
       FECHA_REGISTRO: null
     };
     var esquema = Modelo_asegurarEsquemaPacientes_();
     if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo };
-    Modelo_agregarEventos_([evento], (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '') || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
-    Ingresos_sincronizarCache(objetivo, evento);
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    hojaP.getRange(Modelo_filaFisica(HOJAS.PACIENTES, encontrado.idx), 1, 1, Modelo_campos().length)
-      .setValues([Modelo_filaDesdeObjeto(objetivo)]);
-    Modelo_invalidarLecturas();
+    Modelo_agregarEventos_([evento], (typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : '') || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-registro' });
+    Ingresos_sincronizarCache_(objetivo, evento);
+    var hojaP = Modelo_hoja_(HOJAS.PACIENTES);
+    hojaP.getRange(Modelo_filaFisica_(HOJAS.PACIENTES, encontrado.idx), 1, 1, Modelo_campos_().length)
+      .setValues([Modelo_filaDesdeObjeto_(objetivo)]);
+    Modelo_invalidarLecturas_();
     if (!enEspera) {
-      var sectorPaciente = Utl_texto(objetivo.SECTOR).toUpperCase();
+      var sectorPaciente = Utl_texto_(objetivo.SECTOR).toUpperCase();
       try { Modelo_refrescarVistasSectores_([sectorPaciente]); } catch (eV) { advertencias.push('VISTA_SECTOR_PENDIENTE'); }
     }
   } catch (e) {
-    Log_error('Ficha', 'evento', e && e.message ? e.message : String(e));
-    Log_flush();
+    Log_error_('Ficha', 'evento', e && e.message ? e.message : String(e));
+    Log_flush_();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
   // §23/§31: LOG es best effort — ya guardado, la observabilidad no rompe la operación.
-  try { Log_info('Ficha', 'evento', 'CONTROL_SEGUIMIENTO → ' + objetivo.ID_INTERNO); Log_flush(); } catch (eL) {}
+  try { Log_info_('Ficha', 'evento', 'CONTROL_SEGUIMIENTO → ' + objetivo.ID_INTERNO); Log_flush_(); } catch (eL) {}
   return { ok: true, evento: { id: evento.ID_EVENTO, tipo: evento.TIPO_EVENTO,
     fecha: evento.FECHA_EVENTO, enEspera: enEspera }, advertencias: advertencias };
 }
@@ -581,8 +581,8 @@ function Eventos_registrarPaciente_(payload, contexto) {
  */
 function Ficha_construir_(idInterno, opciones) {
   opciones = opciones || {};
-  var idBus = Utl_texto(idInterno).trim();
-  var encontrado = Modelo_buscarPaciente(idBus);
+  var idBus = Utl_texto_(idInterno).trim();
+  var encontrado = Modelo_buscarPaciente_(idBus);
   var paciente = encontrado && encontrado.obj;
   if (!paciente) {
     return { ok: false, code: 'PACIENTE_NO_ENCONTRADO', message: 'No se encontró paciente con ID_INTERNO=' + JSON.stringify(idBus) };
@@ -590,12 +590,12 @@ function Ficha_construir_(idInterno, opciones) {
 
   var eventos = [];
   try {
-    eventos = Modelo_leerEventosCampos(['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION', 'ID_EVENTO', 'OBSERVACIONES', 'FUENTE'])
-      .filter(function (e) { return Utl_texto(e.ID_INTERNO).trim() === idBus; })
+    eventos = Modelo_leerEventosCampos_(['ID_INTERNO', 'FECHA_EVENTO', 'TIPO_EVENTO', 'SECTOR', 'RIESGO_G', 'PROFESIONAL', 'DESCRIPCION', 'ID_EVENTO', 'OBSERVACIONES', 'FUENTE'])
+      .filter(function (e) { return Utl_texto_(e.ID_INTERNO).trim() === idBus; })
       .sort(function (a, b) {
         var fa = _fichaFormatoIsoFecha_(a.FECHA_EVENTO), fb = _fichaFormatoIsoFecha_(b.FECHA_EVENTO);
         if (fa < fb) return -1; if (fa > fb) return 1;
-        return Utl_texto(a.ID_EVENTO) < Utl_texto(b.ID_EVENTO) ? -1 : 1;
+        return Utl_texto_(a.ID_EVENTO) < Utl_texto_(b.ID_EVENTO) ? -1 : 1;
       });
   } catch (evErr) { eventos = []; }
 
@@ -604,44 +604,44 @@ function Ficha_construir_(idInterno, opciones) {
     var v = paciente[c];
     ficha[c] = (v === undefined || v === null) ? '' : (v instanceof Date ? _fichaFormatoIsoFecha_(v) : v);
   });
-  ficha.EDAD = Utl_edadDesde(paciente.FECHA_NACIMIENTO);
+  ficha.EDAD = Utl_edadDesde_(paciente.FECHA_NACIMIENTO);
   ficha.eventos = eventos.map(function (e) {
     return {
       fecha: _fichaFormatoIsoFecha_(e.FECHA_EVENTO), tipo: e.TIPO_EVENTO, sector: e.SECTOR,
       riesgo: e.RIESGO_G, profesional: e.PROFESIONAL, descripcion: e.DESCRIPCION,
-      idEvento: Utl_texto(e.ID_EVENTO), observaciones: e.OBSERVACIONES || '', fuente: e.FUENTE || ''
+      idEvento: Utl_texto_(e.ID_EVENTO), observaciones: e.OBSERVACIONES || '', fuente: e.FUENTE || ''
     };
   });
 
   ficha.dupla = {
-    catalogo: Profesionales_catalogo().filter(function (c2) { return c2.ACTIVO; })
+    catalogo: Profesionales_catalogo_().filter(function (c2) { return c2.ACTIVO; })
       .map(function (c2) { return { CODIGO: c2.CODIGO, NOMBRE: c2.NOMBRE }; }),
-    seleccionados: (Utl_texto(paciente.DUPLA_INGRESO).split(';').map(function (s) { return Utl_texto(s).trim().toUpperCase(); }).filter(function (s) { return s; }))
+    seleccionados: (Utl_texto_(paciente.DUPLA_INGRESO).split(';').map(function (s) { return Utl_texto_(s).trim().toUpperCase(); }).filter(function (s) { return s; }))
   };
 
   ficha.patologias = {
     catalogo: CATALOGO_CONDICIONES_ECICEP.filter(function (c3) { return c3.ACTIVA; })
       .map(function (c3) { return { codigo: c3.CODIGO, nombre: c3.NOMBRE_CANONICO, peso: c3.PONDERACION }; }),
-    seleccionadas: paciente.CONDICIONES ? Utl_texto(paciente.CONDICIONES).split(';').filter(Boolean) : [],
+    seleccionadas: paciente.CONDICIONES ? Utl_texto_(paciente.CONDICIONES).split(';').filter(Boolean) : [],
     otrasPatologias: paciente.OTRAS_PATOLOGIAS || ''
   };
 
   ficha.seguimiento = null;
   try {
-    var tz = typeof _UI_tz === 'function' ? _UI_tz() : 'America/Santiago';
+    var tz = typeof _UI_tz_ === 'function' ? _UI_tz_() : 'America/Santiago';
     var hoyIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-    var cfg = _UI_controlConfig();
-    ficha.seguimiento = (Control_filasPanel([paciente], cfg.freq, hoyIso, cfg.aviso).filas || [])[0] || null;
+    var cfg = _UI_controlConfig_();
+    ficha.seguimiento = (Control_filasPanel_([paciente], cfg.freq, hoyIso, cfg.aviso).filas || [])[0] || null;
   } catch (sErr) { ficha.seguimiento = null; }
 
   var ingrePend = [];
   if (opciones.incluirIngresoPendiente !== false && paciente.RUT) {
-    try { ingrePend = Ingresos_buscarPendientesPorRut(paciente.RUT); } catch (iErr) { ingrePend = []; }
+    try { ingrePend = Ingresos_buscarPendientesPorRut_(paciente.RUT); } catch (iErr) { ingrePend = []; }
   }
   ficha.meta = {
     ultimaActualizacion: _fichaFormatoMomento_(paciente.FECHA_ACTUALIZACION),
     requiereRevision: paciente.REQUIERE_REVISION === true || paciente.REQUIERE_REVISION === 'TRUE',
-    fuente: Utl_texto(paciente.FUENTE),
+    fuente: Utl_texto_(paciente.FUENTE),
     fechaIngreso: _fichaFormatoIsoFecha_(paciente.FECHA_INGRESO),
     tieneIngresoPendiente: ingrePend.length > 0,
     ingresoPendiente: ingrePend
@@ -669,14 +669,14 @@ function Ficha_prepararMutacion_(idInterno, cambios) {
   var claves = Object.keys(cambios);
   if (!claves.length) return { ok: false, motivo: 'SIN_CAMBIOS', codigo: 'SIN_CAMBIOS' };
 
-  var encontrado = Modelo_buscarPaciente(idInterno);
+  var encontrado = Modelo_buscarPaciente_(idInterno);
   if (!encontrado) return { ok: false, motivo: 'PACIENTE_NO_ENCONTRADO', codigo: 'PACIENTE_NO_ENCONTRADO' };
 
   var original = Object.assign({}, encontrado.obj);
   var final = Object.assign({}, original);
   var errores = [];
   var sectorNuevo = null;
-  var sectorAnteriorTexto = Utl_texto(original.SECTOR).toUpperCase();
+  var sectorAnteriorTexto = Utl_texto_(original.SECTOR).toUpperCase();
   var tocados = [];
 
   for (var i = 0; i < claves.length; i++) {
@@ -699,7 +699,7 @@ function Ficha_prepararMutacion_(idInterno, cambios) {
     }
     tocados.push(k);
     if (k === 'SECTOR') {
-      var sec = Norm_normalizarSector(par.valor);
+      var sec = Norm_normalizarSector_(par.valor);
       if (sec.estado !== 'OK') { _fichaError_(errores, k, 'Sector inválido'); continue; }
       if (sectorAnteriorTexto !== sec.sector) sectorNuevo = sec.sector;
     } else {
@@ -717,7 +717,7 @@ function Ficha_prepararMutacion_(idInterno, cambios) {
 
   if (sectorNuevo) {
     var evento = {
-      ID_EVENTO: Ev_nuevoId(),
+      ID_EVENTO: Ev_nuevoId_(),
       ID_INTERNO: original.ID_INTERNO,
       RUT: original.RUT,
       NOMBRE: original.NOMBRE,
@@ -731,13 +731,13 @@ function Ficha_prepararMutacion_(idInterno, cambios) {
       DESCRIPCION: sectorAnteriorTexto + ' → ' + sectorNuevo,
       OBSERVACIONES: '',
       FUENTE: 'UI_FICHA',
-      REGISTRADO_POR: typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '',
+      REGISTRADO_POR: typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : '',
       FECHA_REGISTRO: null
     };
     eventos.push(evento);
   }
   if ('RUT' in final) { final.RUT_DV_VALIDO = true; final.RUT_SIN_DV = false; }
-  if ('NOMBRE' in final) { final.NOMBRE_NORMALIZADO = Norm_claveNombre(final.NOMBRE); }
+  if ('NOMBRE' in final) { final.NOMBRE_NORMALIZADO = Norm_claveNombre_(final.NOMBRE); }
 
   return {
     ok: true,
@@ -762,10 +762,10 @@ function Ficha_aplicarMutacion_(plan) {
   var advertencias = [];
   // 1) escritura única de PACIENTES (canónica)
   try {
-    _modelo_estamparActualizacion(plan.final, new Date());
-    Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, plan.idx), 1, 1, Modelo_campos().length)
-      .setValues([Modelo_filaDesdeObjeto(plan.final)]);
-    Modelo_invalidarLecturas();
+    _modelo_estamparActualizacion_(plan.final, new Date());
+    Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, plan.idx), 1, 1, Modelo_campos_().length)
+      .setValues([Modelo_filaDesdeObjeto_(plan.final)]);
+    Modelo_invalidarLecturas_();
   } catch (eP) {
     return { ok: false, motivo: 'FICHA_NO_ESCRITA', codigo: 'FICHA_NO_ESCRITA' };
   }
@@ -773,17 +773,17 @@ function Ficha_aplicarMutacion_(plan) {
   // 2) eventos del cambio (CAMBIO_SECTOR) tras la escritura
   if (plan.eventos.length) {
     try {
-      Modelo_agregarEventos_(plan.eventos, (typeof _ingresosUsuarioActual === 'function' ? _ingresosUsuarioActual() : '') || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-cambio' });
+      Modelo_agregarEventos_(plan.eventos, (typeof _ingresosUsuarioActual_ === 'function' ? _ingresosUsuarioActual_() : '') || '', { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ficha-cambio' });
     } catch (eE) {
       // Rollback best effort del sector: PACIENTES nunca queda nuevo sin su evento.
       try {
-        _modelo_estamparActualizacion(plan.original, new Date());
-        Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES, plan.idx), 1, 1, Modelo_campos().length)
-          .setValues([Modelo_filaDesdeObjeto(plan.original)]);
-        Modelo_invalidarLecturas();
+        _modelo_estamparActualizacion_(plan.original, new Date());
+        Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES, plan.idx), 1, 1, Modelo_campos_().length)
+          .setValues([Modelo_filaDesdeObjeto_(plan.original)]);
+        Modelo_invalidarLecturas_();
       } catch (eR) {}
       try { Modelo_refrescarVistasSectores_([plan.sectorAnterior, plan.final.SECTOR]); } catch (eV) {}
-      try { Log_error('Ficha', 'aplicarMutacion', 'CAMBIO_SECTOR_FALLIDO; rollback aplicado'); Log_flush(); } catch (eL) {}
+      try { Log_error_('Ficha', 'aplicarMutacion', 'CAMBIO_SECTOR_FALLIDO; rollback aplicado'); Log_flush_(); } catch (eL) {}
       return { ok: false, motivo: 'CAMBIO_SECTOR_FALLIDO: rollback aplicado, revisión requerida', codigo: 'CAMBIO_SECTOR_FALLIDO' };
     }
   }
@@ -791,7 +791,7 @@ function Ficha_aplicarMutacion_(plan) {
   // 3) vistas derivadas: best effort (§23 — un fallo derivado NO es error)
   var sectoresAVer = plan.sectorCambio
     ? [plan.sectorAnterior, plan.final.SECTOR]
-    : [Utl_texto(plan.final.SECTOR).toUpperCase()];
+    : [Utl_texto_(plan.final.SECTOR).toUpperCase()];
   try { Modelo_refrescarVistasSectores_(sectoresAVer); } catch (eV) { advertencias.push('VISTA_SECTOR_PENDIENTE'); }
 
   return {

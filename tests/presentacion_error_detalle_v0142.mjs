@@ -57,13 +57,13 @@ const TAREA = { id: 'formato:INGRESO_NARANJO', nombre: 'Formato visual · INGRES
 
 // T4: formatearHoja devuelve motivo con actual/esperado + métricas.
 {
-  c.HVis_reconciliarHoja = () => ({ ok: false, codigo: 'PRESENTACION_HOJA_NO_CONVERGE',
+  c.HVis_reconciliarHoja_ = () => ({ ok: false, codigo: 'PRESENTACION_HOJA_NO_CONVERGE',
     propiedad: 'FREEZE_ROWS', motivo: 'INGRESO_NARANJO · FREEZE_ROWS actual=0 esperado=3',
     detalles: ['FREEZE_ROWS'] });
-  c._modelo_anchosHoja = () => {};
+  c._modelo_anchosHoja_ = () => {};
   c.Hojas_aplicarFormatosNumero_ = () => ({ ok: true, aplicados: 0 });
   c.Hojas_aplicarSemanticaColumnas_ = () => ({ ok: true, columnas: 0 });
-  c.Modelo_ss = () => ({ getSheetByName: () => ({ getName: () => 'INGRESO_NARANJO' }) });
+  c.Modelo_ss_ = () => ({ getSheetByName: () => ({ getName: () => 'INGRESO_NARANJO' }) });
   const r = c.Presentacion_formatearHoja_('INGRESO_NARANJO');
   assert.equal(r.ok, false);
   assert.ok(r.motivo.includes('actual=0 esperado=3'), r.motivo);

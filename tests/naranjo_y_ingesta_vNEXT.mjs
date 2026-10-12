@@ -14,35 +14,35 @@ const orden = ['00_Config.js','01_Utilidades.js','02_Normalizacion.js','03_Fuent
 for (const f of orden) vm.runInContext(readSrc(f), ctx, { filename: f });
 
 // ── §22 NARANJO ──────────────────────────────────────────────────────────────
-assert.equal(ctx.Form_sectorHojaIngreso('NARANJO'), 'INGRESO_NARANJO', 'NARANJO → hoja canónica');
-assert.equal(ctx.Form_sectorHojaIngreso('NARANJA'), '', 'NARANJA es alias legacy, sin hoja');
-assert.equal(ctx.Form_sectorHojaIngreso('VERDE'), 'INGRESO_VERDE', 'VERDE intacto');
-assert.equal(ctx.Form_sectorHojaIngreso('AMARILLO'), 'INGRESO_AMARILLO', 'AMARILLO intacto');
-assert.equal(ctx.Form_sectorHojaIngreso(''), '', 'vacío → sin hoja');
+assert.equal(ctx.Form_sectorHojaIngreso_('NARANJO'), 'INGRESO_NARANJO', 'NARANJO → hoja canónica');
+assert.equal(ctx.Form_sectorHojaIngreso_('NARANJA'), '', 'NARANJA es alias legacy, sin hoja');
+assert.equal(ctx.Form_sectorHojaIngreso_('VERDE'), 'INGRESO_VERDE', 'VERDE intacto');
+assert.equal(ctx.Form_sectorHojaIngreso_('AMARILLO'), 'INGRESO_AMARILLO', 'AMARILLO intacto');
+assert.equal(ctx.Form_sectorHojaIngreso_(''), '', 'vacío → sin hoja');
 const hojasIngreso = vm.runInContext('Object.keys(HOJAS_INGRESO)', ctx);
 assert.ok(hojasIngreso.includes('INGRESO_NARANJO'), 'ingreso NARANJO existe');
 const aNaranja = vm.runInContext('HOJAS_INGRESO["INGRESO_NARANJA"]', ctx);
 assert.equal(aNaranja, 'NARANJO', 'alias legacy INGRESO_NARANJA → sector NARANJO (compat)');
 
 // ── §24 Placeholder de ingesta (Google Forms DESACTIVADO) ───────────────────
-assert.equal(ctx.CapturaIngress_providerActivo(), 'GOOGLE_FORMS', 'el canal operativo es Google Forms');
-assert.equal(ctx.CapturaIngress_providerReservado('GOOGLE_FORMS'), false, 'Google Forms es operativo');
-assert.equal(ctx.CapturaIngress_providerReservado('WEBAPP_LEGACY'), true, 'Web App legacy está reservado, NO operativo');
-assert.equal(ctx.CapturaIngress_providerReservado('WEBAPP'), true, 'Web App legacy está reservado');
+assert.equal(ctx.CapturaIngress_providerActivo_(), 'GOOGLE_FORMS', 'el canal operativo es Google Forms');
+assert.equal(ctx.CapturaIngress_providerReservado_('GOOGLE_FORMS'), false, 'Google Forms es operativo');
+assert.equal(ctx.CapturaIngress_providerReservado_('WEBAPP_LEGACY'), true, 'Web App legacy está reservado, NO operativo');
+assert.equal(ctx.CapturaIngress_providerReservado_('WEBAPP'), true, 'Web App legacy está reservado');
 
 const payload = { captureId: 'Cp4-' + 'e'.repeat(32), accion: 'nuevoIngreso', rut: '12345678-5', nombre: 'T P', fechaNacimiento: '1990-01-01', sector: 'VERDE', fechaIngreso: '2026-09-01' };
 let escrito = -1;
-const rEnv = ctx.CapturaIngress_enviar({captureId:'Cp4-'+'z'.repeat(32)}, null, 'DESCONOCIDO_PROVIDER');
+const rEnv = ctx.CapturaIngress_enviar_({captureId:'Cp4-'+'z'.repeat(32)}, null, 'DESCONOCIDO_PROVIDER');
 assert.equal(rEnv.ok, false, 'provider desconocido rechaza sin escribir');
 assert.equal(rEnv.error, 'FALLBACK_PROVIDER_DISABLED', 'código normativo FALLBACK_PROVIDER_DISABLED');
 assert.equal(rEnv.escrito, 0, 'NO escribe nada');
 assert.equal(escrito, -1, 'ningún provider tocó el store');
 
-const rAd = ctx.CapturaIngress_adapterForms({formId:'f1',responseId:'r1',accion:'nuevoIngreso',campos:{RUT:'12345678-5',NOMBRE:'T P',SEXO:'F',FECHA_NACIMIENTO:'1990-01-01',SECTOR:'VERDE',FECHA_INGRESO:'2026-09-01',PROFESIONAL:'MEDICO/A'}});
+const rAd = ctx.CapturaIngress_adapterForms_({formId:'f1',responseId:'r1',accion:'nuevoIngreso',campos:{RUT:'12345678-5',NOMBRE:'T P',SEXO:'F',FECHA_NACIMIENTO:'1990-01-01',SECTOR:'VERDE',FECHA_INGRESO:'2026-09-01',PROFESIONAL:'MEDICO/A'}});
 assert.equal(rAd.ok, true, 'adapter real procesa');
 
 // WEBAPP delega a la captura real: payload inválido → errores, sin escritura.
-const rWeb = ctx.CapturaIngress_enviar({ captureId: 'Cp4-' + 'f'.repeat(32) }, ctx.Captura_v2_ctx(), 'WEBAPP');
+const rWeb = ctx.CapturaIngress_enviar_({ captureId: 'Cp4-' + 'f'.repeat(32) }, ctx.Captura_v2_ctx_(), 'WEBAPP');
 assert.equal(rWeb.ok, false, 'payload inválido rechazado por la captura real');
 assert.ok(Array.isArray(rWeb.errors) && rWeb.errors.length >= 1, 'errores de validación');
 
@@ -57,18 +57,18 @@ function hojaFake(vals) {
   };
 }
 const capX = 'Cp4-' + 'a'.repeat(32);
-const cols = Array.from(ctx.Form_columnas());
+const cols = Array.from(ctx.Form_columnas_());
 const filaProc = ['2026-01-01', capX, '4', 't@e.cl', 'NUEVO_INGRESO', '12345678-5', 'T P', 'F', '1990-01-01', 'VERDE', '', '12', '2026-09-01', 'Médico/a', '', '', '{"captureId":"' + capX + '","accion":"nuevoIngreso"}', 'INGRESO_VERDE', '5', 0, 'PROCESADO', 'INGRESO_COMPLETO', 'EC-PX-1', 'EV-0001', '2026-01-02'];
 const hfr = hojaFake([cols, filaProc]);
 const ss = { getSheetByName: (n) => (n === 'FORM_RESPUESTAS' ? hfr : hojaFake([])), insertSheet: (n) => hojaFake([cols]) };
-ctx.Modelo_ss = () => ss;
-ctx.Modelo_hoja = (n) => ss.getSheetByName(n);
+ctx.Modelo_ss_ = () => ss;
+ctx.Modelo_hoja_ = (n) => ss.getSheetByName(n);
 ctx.Session = { getActiveUser: () => ({ getEmail: () => 't@e.cl' }) };
 
-const rRep = ctx.Captura_v2_reprocesar(capX);
+const rRep = ctx.Captura_v2_reprocesar_(capX);
 assert.equal(rRep.ok, false, 'PROCESADO no se reinicia');
 assert.match(rRep.errors[0].mensaje, /terminal/, 'motivo de terminal explícito');
-const rRet = ctx.Captura_v2_retomarRegistro(capX);
+const rRet = ctx.Captura_v2_retomarRegistro_(capX);
 assert.equal(rRet.ok, false, 'PROCESADO no se retoma');
 assert.match(rRet.errors[0].mensaje, /terminal/, 'retoma tampoco toca PROCESADO');
 assert.equal(hfr.val[1][20], 'PROCESADO', 'el estado terminal NO cambió');

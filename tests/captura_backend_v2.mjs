@@ -195,9 +195,9 @@ function makeCtx(opciones = {}) {
   };
 
   ctx.precargar = (payload, estado, over = {}) => {
-    const v = sandbox.Captura_v2_validar(payload, { catalogo: ctx.catalogo });
+    const v = sandbox.Captura_v2_validar_(payload, { catalogo: ctx.catalogo });
     if (!v.ok) throw new Error('precargar: payload inválido: ' + JSON.stringify(v.errores));
-    const reg = sandbox.Captura_v2_nuevoRegistro(v.normalizado, { usuario: ctx.usuario, fechaRecepcion: '2026-09-04 09:00:00' });
+    const reg = sandbox.Captura_v2_nuevoRegistro_(v.normalizado, { usuario: ctx.usuario, fechaRecepcion: '2026-09-04 09:00:00' });
     reg.estado = estado;
     reg.reintentos = over.reintentos === undefined ? 0 : over.reintentos;
     reg.motivo = over.motivo || '';
@@ -214,7 +214,7 @@ function makeCtx(opciones = {}) {
 console.log('\nPARTE A — Validación');
 
 t('A1 payload nuevoIngreso válido (§27.1) → ok con normalizado', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
   A(v.ok, 'debe ser ok');
   igual(v.normalizado.rut, RUT1);
   igual(v.normalizado.nombre, 'JUAN PÉREZ GÓMEZ');
@@ -231,26 +231,26 @@ t('A1 payload nuevoIngreso válido (§27.1) → ok con normalizado', () => {
 });
 
 t('A1b confirmarNuevoPaciente=true se conserva (§24) — boolean', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ confirmarNuevoPaciente: true }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ confirmarNuevoPaciente: true }), { catalogo: CATALOGO });
   A(v.ok);
   igual(v.normalizado.confirmarNuevoPaciente, true);
 });
 
 t('A2 captureId inválido (§27.2) → SINTAXIS_INVALIDA en captureId', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: 'CP2-' + 'a'.repeat(32) }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: 'CP2-' + 'a'.repeat(32) }), { catalogo: CATALOGO });
   A(!v.ok);
   igual(v.errores[0].codigo, 'SINTAXIS_INVALIDA');
   igual(v.errores[0].campo, 'captureId');
 });
 
 t('A2b captureId con hex mayúsculas → SINTAXIS_INVALIDA (§12, minúsculas)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: 'Cp2-' + 'A'.repeat(32) }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: 'Cp2-' + 'A'.repeat(32) }), { catalogo: CATALOGO });
   A(!v.ok);
   igual(v.errores[0].codigo, 'SINTAXIS_INVALIDA');
 });
 
 t('A3 accion inválida → ACCION_INVALIDA (§9)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ accion: 'registrarX' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ accion: 'registrarX' }), { catalogo: CATALOGO });
   A(!v.ok);
   igual(v.errores[0].codigo, 'ACCION_INVALIDA');
   igual(v.errores[0].campo, 'accion');
@@ -258,7 +258,7 @@ t('A3 accion inválida → ACCION_INVALIDA (§9)', () => {
 
 t('A4 accion ausente → CAMPO_OBLIGATORIO_AUSENTE accion (§8)', () => {
   const p = nuevoIngreso(); delete p.accion;
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok);
   igual(v.errores[0].codigo, 'CAMPO_OBLIGATORIO_AUSENTE');
   igual(v.errores[0].campo, 'accion');
@@ -266,115 +266,115 @@ t('A4 accion ausente → CAMPO_OBLIGATORIO_AUSENTE accion (§8)', () => {
 
 t('A5 nombre ausente → CAMPO_OBLIGATORIO_AUSENTE nombre (§27.3, errors[0])', () => {
   const p = nuevoIngreso(); delete p.nombre;
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok);
   igual(v.errores[0].codigo, 'CAMPO_OBLIGATORIO_AUSENTE');
   igual(v.errores[0].campo, 'nombre');
 });
 
 t('A6 sector fuera de enum (§27.4) → ENUM_INVALIDO', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ sector: 'AZUL' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ sector: 'AZUL' }), { catalogo: CATALOGO });
   A(!v.ok);
   igual(v.errores[0].codigo, 'ENUM_INVALIDO');
   igual(v.errores[0].campo, 'sector');
 });
 
 t('A7 fecha en formato no-ISO → FECHA_INVALIDA (§10)', () => {
-  let v = sandbox.Captura_v2_validar(nuevoIngreso({ fechaNacimiento: '12/03/1988' }), { catalogo: CATALOGO });
+  let v = sandbox.Captura_v2_validar_(nuevoIngreso({ fechaNacimiento: '12/03/1988' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'FECHA_INVALIDA'); igual(v.errores[0].campo, 'fechaNacimiento');
-  v = sandbox.Captura_v2_validar(registrarControl({ fechaEvento: '15-08-2026' }), { catalogo: CATALOGO });
+  v = sandbox.Captura_v2_validar_(registrarControl({ fechaEvento: '15-08-2026' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'FECHA_INVALIDA'); igual(v.errores[0].campo, 'fechaEvento');
 });
 
 t('A7b fecha fuera de rango → FECHA_INVALIDA (§10): nacimiento <1900', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ fechaNacimiento: '1850-01-01' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ fechaNacimiento: '1850-01-01' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'FECHA_INVALIDA');
 });
 
 t('A7c fecha evento < 2015 → FECHA_INVALIDA (§10)', () => {
-  const v = sandbox.Captura_v2_validar(registrarControl({ fechaEvento: '2010-01-01' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(registrarControl({ fechaEvento: '2010-01-01' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'FECHA_INVALIDA');
 });
 
 t('A8 rut con DV inválido → RUT_INVALIDO (§14)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ rut: '11111111-7' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ rut: '11111111-7' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'RUT_INVALIDO'); igual(v.errores[0].campo, 'rut');
 });
 
 t('A9 profesional fuera de catálogo → ENUM_INVALIDO (§9)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ profesional: 'CURANDERO/A' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ profesional: 'CURANDERO/A' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'ENUM_INVALIDO'); igual(v.errores[0].campo, 'profesional');
 });
 
 t('A9b profesional del catálogo sin tildes/mayúsculas → válido (§9 coincidencia normalizada)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ profesional: 'médico/a', profesionalSecundario: 'ENFERMERA/O' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ profesional: 'médico/a', profesionalSecundario: 'ENFERMERA/O' }), { catalogo: CATALOGO });
   A(v.ok, 'médico/a debe normalizar a MEDICO/A');
   igual(v.normalizado.profesional, 'médico/a'); // se conserva el texto entregado (normalización en proceso interno)
 });
 
 t('A10 profesionalSecundario === profesional → CAMPO_INVALIDO (§14.3)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ profesionalSecundario: 'MATRONA/O' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ profesionalSecundario: 'MATRONA/O' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_INVALIDO'); igual(v.errores[0].campo, 'profesionalSecundario');
 });
 
 t('A11 campo interno presente → CAMPO_NO_PERMITIDO (§6.1)', () => {
   const p = nuevoIngreso({ ESTADO: 'PROCESADO' });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_NO_PERMITIDO'); igual(v.errores[0].campo, 'ESTADO');
 });
 
 t('A11b marca FORM| en payload → CAMPO_NO_PERMITIDO (§25)', () => {
   const p = nuevoIngreso({ 'FORM|x|NUEVO_INGRESO': 'si' });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_NO_PERMITIDO');
 });
 
 t('A12 campo legacy (RUT mayúscula) → CAMPO_NO_PERMITIDO (§25)', () => {
   const p = nuevoIngreso({ RUT: RUT1 });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_NO_PERMITIDO'); igual(v.errores[0].campo, 'RUT');
 });
 
 t('A13 campo desconocido → CAMPO_DESCONOCIDO (§6)', () => {
   const p = nuevoIngreso({ apodo: 'JUANITO' });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_DESCONOCIDO'); igual(v.errores[0].campo, 'apodo');
 });
 
 t('A14 tipo incorrecto → TIPO_INCORRECTO (§7)', () => {
-  let v = sandbox.Captura_v2_validar(nuevoIngreso({ confirmarNuevoPaciente: 'si' }), { catalogo: CATALOGO });
+  let v = sandbox.Captura_v2_validar_(nuevoIngreso({ confirmarNuevoPaciente: 'si' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'TIPO_INCORRECTO'); igual(v.errores[0].campo, 'confirmarNuevoPaciente');
-  v = sandbox.Captura_v2_validar(nuevoIngreso({ sexo: 3 }), { catalogo: CATALOGO });
+  v = sandbox.Captura_v2_validar_(nuevoIngreso({ sexo: 3 }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].campo, 'sexo');
 });
 
 t('A15 NP por operación (§5.1): fechaEvento en nuevoIngreso → CAMPO_NO_PERMITIDO', () => {
   const p = nuevoIngreso(); p.fechaEvento = '2026-08-15';
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_NO_PERMITIDO'); igual(v.errores[0].campo, 'fechaEvento');
 });
 
 t('A15b NP por operación: nombre en registrarControl → CAMPO_NO_PERMITIDO', () => {
   const p = registrarControl(); p.nombre = 'JUAN PÉREZ GÓMEZ';
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'CAMPO_NO_PERMITIDO'); igual(v.errores[0].campo, 'nombre');
 });
 
 t('A16 registrarControl válido → ok y normalizado con fechaEvento', () => {
   const p = registrarControl({ captureId: 'Cp2-b1b2c3d4e5f60718293a4b5c6d7e8f90' });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(v.ok);
   igual(v.normalizado.fechaEvento, '2026-08-15');
   igual(v.normalizado.accion, 'registrarControl');
 });
 
 t('A17 sexo con sinónimo MASCULINO → ENUM_INVALIDO (§9: sin sinónimos)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ sexo: 'MASCULINO' }), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ sexo: 'MASCULINO' }), { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'ENUM_INVALIDO'); igual(v.errores[0].campo, 'sexo');
 });
 
 t('A18 payload no objeto → SINTAXIS_INVALIDA campo null (§17)', () => {
-  const v = sandbox.Captura_v2_validar('hola', { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_('hola', { catalogo: CATALOGO });
   A(!v.ok); igual(v.errores[0].codigo, 'SINTAXIS_INVALIDA'); igual(v.errores[0].campo, null);
 });
 
@@ -385,7 +385,7 @@ console.log('\nPARTE B — Envío / idempotencia / estados');
 
 t('B1 envío nuevo nuevoIngreso → ok:true PROCESADO, respuesta §16 exacta', () => {
   const ctx = makeCtx();
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(r.ok, 'debe aceptar');
   igual(Object.keys(r.data).sort().join('|'), 'accion|captureId|estado|idEvento|idInterno|motivo', 'claves exactas de §16');
   igual(r.data.captureId, cid);
@@ -403,9 +403,9 @@ t('B1 envío nuevo nuevoIngreso → ok:true PROCESADO, respuesta §16 exacta', (
 
 t('B2 A1 §13: reintento del mismo payload → ok:true PROCESADO sin efectos nuevos', () => {
   const ctx = makeCtx();
-  const r1 = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r1 = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(r1.ok);
-  const r2 = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r2 = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(r2.ok);
   igual(r2.data.estado, 'PROCESADO');
   igual(ctx.entregas.length, 1, 'no re-entrega');
@@ -414,8 +414,8 @@ t('B2 A1 §13: reintento del mismo payload → ok:true PROCESADO sin efectos nue
 
 t('B3 B §13: mismo captureId, payload distinto → CONFLICTO_IDEMPOTENCIA sin efectos', () => {
   const ctx = makeCtx();
-  A(sandbox.Captura_v2_enviar(nuevoIngreso(), ctx).ok);
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso({ observaciones: 'Otro texto' }), ctx);
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx).ok);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso({ observaciones: 'Otro texto' }), ctx);
   A(!r.ok);
   igual(r.errors[0].codigo, 'CONFLICTO_IDEMPOTENCIA');
   igual(ctx.entregas.length, 1, 'sin nueva entrega');
@@ -424,8 +424,8 @@ t('B3 B §13: mismo captureId, payload distinto → CONFLICTO_IDEMPOTENCIA sin e
 t('B4 C §13: captureId nuevo con datos idénticos → envío nuevo aceptado', () => {
   const cid2 = 'Cp2-c1b2c3d4e5f60718293a4b5c6d7e8f90';
   const ctx = makeCtx();
-  A(sandbox.Captura_v2_enviar(nuevoIngreso(), ctx).ok);
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso({ captureId: cid2 }), ctx);
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx).ok);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso({ captureId: cid2 }), ctx);
   A(r.ok, 'datos clínicamente iguales con ID nuevo NO es conflicto técnico');
   igual(ctx.registros.size, 2);
   igual(ctx.entregas.length, 2);
@@ -434,7 +434,7 @@ t('B4 C §13: captureId nuevo con datos idénticos → envío nuevo aceptado', (
 t('B5 A2 §23: registro en ERROR reintentable → reenvío con payload idéntico → PROCESADO', () => {
   const ctx = makeCtx({ entregarFn: (norm, meta) => ({ estado: 'PROCESADO', motivo: '', idInterno: 'EC-TEST-1001', idEvento: 'EV-TEST-2001' }) });
   ctx.precargar(nuevoIngreso(), 'ERROR', { reintentos: 1, motivo: 'falló antes' });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(r.ok);
   igual(r.data.estado, 'PROCESADO');
   igual(ctx.registros.get(cid).reintentos, 2, 'reintento incrementado');
@@ -446,12 +446,12 @@ t('B5b A2 fast-path §23: fila ya INGRESADO → PROCESADO sin re-ejecutar pipeli
   const reg = ctx.registros.get(cid);
   reg.ingresoHoja = 'INGRESO_AMARILLO';
   reg.ingresoFila = '101';
-  const prevFila = sandbox.Form_leerFilaIngreso;
-  const prevId = sandbox.Captura_v2_buscarIdInternoPorRut;
-  sandbox.Form_leerFilaIngreso = () => ({ estado: 'INGRESADO', nota: '' });
-  sandbox.Captura_v2_buscarIdInternoPorRut = () => 'EC-TEST-1001';
+  const prevFila = sandbox.Form_leerFilaIngreso_;
+  const prevId = sandbox.Captura_v2_buscarIdInternoPorRut_;
+  sandbox.Form_leerFilaIngreso_ = () => ({ estado: 'INGRESADO', nota: '' });
+  sandbox.Captura_v2_buscarIdInternoPorRut_ = () => 'EC-TEST-1001';
   try {
-    const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+    const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
     A(r.ok, 'debe ser ok');
     igual(r.data.estado, 'PROCESADO');
     igual(r.data.idInterno, 'EC-TEST-1001');
@@ -459,8 +459,8 @@ t('B5b A2 fast-path §23: fila ya INGRESADO → PROCESADO sin re-ejecutar pipeli
     igual(ctx.registros.get(cid).estado, 'PROCESADO', 'trailer actualizado');
     igual(ctx.registros.get(cid).reintentos, 2, 'reintento incrementado');
   } finally {
-    sandbox.Form_leerFilaIngreso = prevFila;
-    sandbox.Captura_v2_buscarIdInternoPorRut = prevId;
+    sandbox.Form_leerFilaIngreso_ = prevFila;
+    sandbox.Captura_v2_buscarIdInternoPorRut_ = prevId;
   }
 });
 
@@ -470,19 +470,19 @@ t('B5c A2 fast-path §23: fila ya DUPLICADO → REQUIERE_REVISION sin re-ejecuta
   const reg = ctx.registros.get(cid);
   reg.ingresoHoja = 'INGRESO_AMARILLO';
   reg.ingresoFila = '102';
-  const prevFila = sandbox.Form_leerFilaIngreso;
-  const prevId = sandbox.Captura_v2_buscarIdInternoPorRut;
-  sandbox.Form_leerFilaIngreso = () => ({ estado: 'DUPLICADO', nota: 'Ya existe ingreso para este RUT' });
-  sandbox.Captura_v2_buscarIdInternoPorRut = () => '';
+  const prevFila = sandbox.Form_leerFilaIngreso_;
+  const prevId = sandbox.Captura_v2_buscarIdInternoPorRut_;
+  sandbox.Form_leerFilaIngreso_ = () => ({ estado: 'DUPLICADO', nota: 'Ya existe ingreso para este RUT' });
+  sandbox.Captura_v2_buscarIdInternoPorRut_ = () => '';
   try {
-    const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+    const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
     A(r.ok, 'REQUIERE_REVISION es resultado válido (no error)');
     igual(r.data.estado, 'REQUIERE_REVISION');
     igual(r.data.motivo, 'Ya existe ingreso para este RUT');
     igual(ctx.entregas.length, 0, 'pipeline NO se re-ejecutó');
   } finally {
-    sandbox.Form_leerFilaIngreso = prevFila;
-    sandbox.Captura_v2_buscarIdInternoPorRut = prevId;
+    sandbox.Form_leerFilaIngreso_ = prevFila;
+    sandbox.Captura_v2_buscarIdInternoPorRut_ = prevId;
   }
 });
 
@@ -492,22 +492,22 @@ t('B5d A2 fallthrough §23: fila SIN estado → re-ejecuta pipeline completo', (
   const reg = ctx.registros.get(cid);
   reg.ingresoHoja = 'INGRESO_AMARILLO';
   reg.ingresoFila = '103';
-  const prevFila = sandbox.Form_leerFilaIngreso;
-  sandbox.Form_leerFilaIngreso = () => ({ estado: '', nota: '' });
+  const prevFila = sandbox.Form_leerFilaIngreso_;
+  sandbox.Form_leerFilaIngreso_ = () => ({ estado: '', nota: '' });
   try {
-    const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+    const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
     A(r.ok);
     igual(r.data.estado, 'PROCESADO');
     igual(ctx.entregas.length, 1, 'pipeline completa SÍ se ejecutó');
   } finally {
-    sandbox.Form_leerFilaIngreso = prevFila;
+    sandbox.Form_leerFilaIngreso_ = prevFila;
   }
 });
 
 t('B6 A2 tope §23: cargo = maxReintentos → ERROR_INTERNO REINTENTOS_AGOTADOS', () => {
   const ctx = makeCtx();
   ctx.precargar(nuevoIngreso(), 'ERROR', { reintentos: 3 });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(!r.ok);
   igual(r.errors[0].codigo, 'ERROR_INTERNO');
   igual(ctx.registros.get(cid).estado, 'ERROR');
@@ -516,7 +516,7 @@ t('B6 A2 tope §23: cargo = maxReintentos → ERROR_INTERNO REINTENTOS_AGOTADOS'
 
 t('B7 §15.2: fallo de persistencia → ok:false ERROR_INTERNO y NO se entrega', () => {
   const ctx = makeCtx({ failPersistir: true });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(!r.ok);
   igual(r.errors[0].codigo, 'ERROR_INTERNO');
   igual(ctx.entregas.length, 0, 'no hay efecto sin registro (§15.2)');
@@ -525,7 +525,7 @@ t('B7 §15.2: fallo de persistencia → ok:false ERROR_INTERNO y NO se entrega',
 
 t('B8 §15.3: fallo de trailer → ok:true RECIBIDO (eventualidad)', () => {
   const ctx = makeCtx({ failTrailer: true });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(r.ok, 'se acepta aunque el intento síncrono no completó');
   igual(r.data.estado, 'RECIBIDO');
   igual(r.data.motivo, 'PENDIENTE_ENTREGA');
@@ -538,12 +538,12 @@ t('B9 §16.2/§23: entrega ERROR → ok:false; con motor sano, reintento A2 → 
       ? { estado: 'PROCESADO', motivo: '', idInterno: 'EC-TEST-1001', idEvento: '' }
       : { estado: 'ERROR', motivo: 'PIPELINE_CAIDO' }
   });
-  const r1 = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r1 = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(!r1.ok, 'procesamiento falló');
   igual(r1.errors[0].codigo, 'ERROR_INTERNO');
   igual(ctx.registros.get(cid).estado, 'ERROR', 'estado ERROR persistido');
   sano = true;
-  const r2 = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r2 = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(r2.ok);
   igual(r2.data.estado, 'PROCESADO');
   igual(ctx.entregas.length, 2);
@@ -551,7 +551,7 @@ t('B9 §16.2/§23: entrega ERROR → ok:false; con motor sano, reintento A2 → 
 
 t('B10 §18: persona no encontrada → ok:true REQUIERE_REVISION + motivo', () => {
   const ctx = makeCtx();
-  const r = sandbox.Captura_v2_enviar(registrarControl({ rut: RUT2, captureId: 'Cp2-d1b2c3d4e5f60718293a4b5c6d7e8f90' }), ctx);
+  const r = sandbox.Captura_v2_enviar_(registrarControl({ rut: RUT2, captureId: 'Cp2-d1b2c3d4e5f60718293a4b5c6d7e8f90' }), ctx);
   A(r.ok, 'REQUIERE_REVISION es resultado válido (no error)');
   igual(r.data.estado, 'REQUIERE_REVISION');
   igual(r.data.motivo, 'PERSONA_NO_ENCONTRADA');
@@ -562,8 +562,8 @@ t('B11 A1 sobre REQUIERE_REVISION → reenvía almacenado sin re-entregar', () =
   const cidR = 'Cp2-e1b2c3d4e5f60718293a4b5c6d7e8f90';
   const ctx = makeCtx();
   const cp = registrarControl({ rut: RUT2, captureId: cidR });
-  A(sandbox.Captura_v2_enviar(cp, ctx).ok);
-  const r = sandbox.Captura_v2_enviar(cp, ctx);
+  A(sandbox.Captura_v2_enviar_(cp, ctx).ok);
+  const r = sandbox.Captura_v2_enviar_(cp, ctx);
   A(r.ok);
   igual(r.data.estado, 'REQUIERE_REVISION');
   igual(ctx.entregas.length, 1, 'no re-entrega');
@@ -571,34 +571,34 @@ t('B11 A1 sobre REQUIERE_REVISION → reenvía almacenado sin re-entregar', () =
 
 t('B12 §23: reprocesar REQUIERE_REVISION → VALIDANDO; reprocesar PROCESADO → bloqueado', () => {
   const ctx = makeCtx();
-  A(sandbox.Captura_v2_enviar(nuevoIngreso(), ctx).ok);   // PROCESADO
-  const rP = sandbox.Captura_v2_reprocesar(cid, ctx);
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx).ok);   // PROCESADO
+  const rP = sandbox.Captura_v2_reprocesar_(cid, ctx);
   A(!rP.ok, 'PROCESADO nunca se reinicia');
   igual(rP.errors[0].codigo, 'CAMPO_INVALIDO');
 
   const cidR = 'Cp2-f1b2c3d4e5f60718293a4b5c6d7e8f90';
   ctx.precargar(registrarControl({ rut: RUT2, captureId: cidR }), 'REQUIERE_REVISION', { motivo: 'PERSONA_NO_ENCONTRADA' });
-  const rR = sandbox.Captura_v2_reprocesar(cidR, ctx);
+  const rR = sandbox.Captura_v2_reprocesar_(cidR, ctx);
   A(rR.ok);
   igual(rR.data.estado, 'VALIDANDO');
   igual(ctx.registros.get(cidR).estado, 'VALIDANDO');
   igual(ctx.registros.get(cidR).motivo, 'REPROCESO_ADMIN');
 });
 
-t('B13 §16: consulta de estado (webapp_estado / Captura_v2_estado)', () => {
+t('B13 §16: consulta de estado (webapp_estado / Captura_v2_estado_)', () => {
   const ctx = makeCtx();
-  A(sandbox.Captura_v2_enviar(nuevoIngreso(), ctx).ok);
-  const ok = sandbox.Captura_v2_estado(cid, ctx);
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx).ok);
+  const ok = sandbox.Captura_v2_estado_(cid, ctx);
   A(ok.ok); igual(ok.data.estado, 'PROCESADO');
-  const u = sandbox.Captura_v2_estado('Cp2-' + 'f'.repeat(32), ctx);
+  const u = sandbox.Captura_v2_estado_('Cp2-' + 'f'.repeat(32), ctx);
   A(!u.ok); igual(u.errors[0].codigo, 'CAMPO_INVALIDO');
-  const m = sandbox.Captura_v2_estado('Cp2-ABCDEFABCDEFABCDEFABCDEFABCDEFAB', ctx);
+  const m = sandbox.Captura_v2_estado_('Cp2-ABCDEFABCDEFABCDEFABCDEFABCDEFAB', ctx);
   A(!m.ok); igual(m.errors[0].codigo, 'SINTAXIS_INVALIDA');
 });
 
 t('B14 §24.1: sin usuario activo → rechazo ERROR_INTERNO', () => {
   const ctx = makeCtx({ usuario: '' });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(!r.ok);
   igual(r.errors[0].codigo, 'ERROR_INTERNO');
   igual(ctx.registros.size, 0);
@@ -607,9 +607,9 @@ t('B14 §24.1: sin usuario activo → rechazo ERROR_INTERNO', () => {
 t('B15 control sobre persona existente → PROCESADO con idEvento', () => {
   const ctx = makeCtx();
   const p1 = nuevoIngreso({ captureId: 'Cp2-b1b2c3d4e5f60718293a4b5c6d7e8f90' });
-  A(sandbox.Captura_v2_enviar(p1, ctx).ok);   // crea persona RUT1
+  A(sandbox.Captura_v2_enviar_(p1, ctx).ok);   // crea persona RUT1
   const p2 = registrarControl({ rut: RUT1, captureId: 'Cp2-c2b2c3d4e5f60718293a4b5c6d7e8f90' });
-  const r = sandbox.Captura_v2_enviar(p2, ctx);
+  const r = sandbox.Captura_v2_enviar_(p2, ctx);
   A(r.ok);
   igual(r.data.estado, 'PROCESADO');
   A(r.data.idEvento.startsWith('EV-TEST-'), 'idEvento poblado');
@@ -622,9 +622,9 @@ t('B15 control sobre persona existente → PROCESADO con idEvento', () => {
 console.log('\nPARTE C — Transformación y coherencia');
 
 t('C1 TR-1 §21.1: payload V2 → modelo interno normalizado', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
   A(v.ok);
-  const i = sandbox.Captura_v2_normalizadoAInterno(v.normalizado, {});
+  const i = sandbox.Captura_v2_normalizadoAInterno_(v.normalizado, {});
   igual(i.ACCION, 'NUEVO_INGRESO');
   igual(i.RUT, RUT1);
   igual(i.NOMBRE, 'JUAN PÉREZ GÓMEZ');
@@ -637,17 +637,17 @@ t('C1 TR-1 §21.1: payload V2 → modelo interno normalizado', () => {
 });
 
 t('C1b control TR-1: marca del evento = FORM|<captureId>|REGISTRAR_CONTROL (§25)', () => {
-  const v = sandbox.Captura_v2_validar(registrarControl(), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(registrarControl(), { catalogo: CATALOGO });
   A(v.ok);
-  const i = sandbox.Captura_v2_normalizadoAInterno(v.normalizado, {});
+  const i = sandbox.Captura_v2_normalizadoAInterno_(v.normalizado, {});
   igual(i.ACCION, 'REGISTRAR_CONTROL');
   igual(i.marca, 'FORM|' + cid + '|REGISTRAR_CONTROL');
 });
 
 t('C2 marcador determinista: mismo captureId+accion → misma marca (§25)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
-  const m1 = sandbox.Captura_v2_marca(v.normalizado);
-  const m2 = sandbox.Form_marcadorFuente(cid, 'NUEVO_INGRESO');
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
+  const m1 = sandbox.Captura_v2_marca_(v.normalizado);
+  const m2 = sandbox.Form_marcadorFuente_(cid, 'NUEVO_INGRESO');
   igual(m1, m2);
   igual(m1, sandbox.CAPTURA_V2.__noMagic !== undefined ? 'x' : m1);
 });
@@ -673,20 +673,20 @@ t('C4 §25/Anexo B.4: sin colisión de identificadores entre legacy y V2', () =>
   cont(sandbox.CAPTURA_V2.CAMPOS, 'confirmarNuevoPaciente');
 });
 
-t('C5 Anexo B.5: el backend legacy (Form_validarRespuesta) rechaza payload V2', () => {
+t('C5 Anexo B.5: el backend legacy (Form_validarRespuesta_) rechaza payload V2', () => {
   const p = nuevoIngreso();
-  const hoy = sandbox.Form_hoy ? sandbox.Form_hoy({}) : new Date().getFullYear() + '-01-01';
+  const hoy = sandbox.Form_hoy_ ? sandbox.Form_hoy_({}) : new Date().getFullYear() + '-01-01';
   let r;
-  try { r = sandbox.Form_validarRespuesta(p, { hoy: hoy }); } catch (e) { r = { ok: false }; }
+  try { r = sandbox.Form_validarRespuesta_(p, { hoy: hoy }); } catch (e) { r = { ok: false }; }
   A(!r.ok, 'el cliente/backend legacy no entiende accion camelCase');
   nohay(p, 'ACCION', 'payload V2 no usa ACCION');
 });
 
-t('C6 §24.1 smoke: entrys WebApp_capturarEnviar/Estado no crashean en node', () => {
-  const r = sandbox.WebApp_capturarEnviar(nuevoIngreso());
+t('C6 §24.1 smoke: entrys WebApp_capturarEnviar_/Estado no crashean en node', () => {
+  const r = sandbox.WebApp_capturarEnviar_(nuevoIngreso());
   A(r.ok === false, 'sin sesión GAS → rechazo controlado');
   igual(r.errors[0].codigo, 'ERROR_INTERNO');
-  const e = sandbox.WebApp_capturarEstado(cid);
+  const e = sandbox.WebApp_capturarEstado_(cid);
   igual(e.ok, true !== true ? 'x' : e.ok); // sin manejo real de hoja en node; debe retornar algo
   A(typeof e === 'object', 'retorna objeto');
 });
@@ -695,9 +695,9 @@ t('C7 §11/§13: formas canónicas iguales pese a formateo distinto del payload'
   const ctx = makeCtx();
   const p1 = nuevoIngreso();
   const p2 = nuevoIngreso({ nombre: 'JUAN   PÉREZ  GÓMEZ  ', telefonos: '56990600712', observaciones: 'Ingreso por control de salud' });
-  const n1 = sandbox.Captura_v2_validar(p1, { catalogo: CATALOGO }).normalizado;
-  const n2 = sandbox.Captura_v2_validar(p2, { catalogo: CATALOGO }).normalizado;
-  igual(sandbox.Captura_v2_canonica(n1), sandbox.Captura_v2_canonica(n2), 'misma forma canónica');
+  const n1 = sandbox.Captura_v2_validar_(p1, { catalogo: CATALOGO }).normalizado;
+  const n2 = sandbox.Captura_v2_validar_(p2, { catalogo: CATALOGO }).normalizado;
+  igual(sandbox.Captura_v2_canonica_(n1), sandbox.Captura_v2_canonica_(n2), 'misma forma canónica');
 });
 
 t('C8 §5.1: la matriz embebida coincide con la del contrato (espejo)', () => {
@@ -726,9 +726,9 @@ t('C9 estados §18.1 y terminales §18/§19 en la implementación', () => {
 });
 
 t('C10 §6/§21.1: TR-1 asigna PROFESIONAL2 a la dupla; TR-2 fila canónica usa 12 columnas', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
-  const i = sandbox.Captura_v2_normalizadoAInterno(v.normalizado, { marca: 'M' });
-  const fila = sandbox.Form_filaCanonicaIngreso(i, 'M', {});
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
+  const i = sandbox.Captura_v2_normalizadoAInterno_(v.normalizado, { marca: 'M' });
+  const fila = sandbox.Form_filaCanonicaIngreso_(i, 'M', {});
   igual(fila.length, 12, 'INGRESO_COLUMNAS');
   igual(fila[5], '2026-09-01', 'FECHA DE INGRESO = fechaIngreso (columna 5, §21.1)');
   igual(fila[7], 'MATRONA/O; MEDICO/A', 'dupla con ; ');
@@ -737,50 +737,50 @@ t('C10 §6/§21.1: TR-1 asigna PROFESIONAL2 a la dupla; TR-2 fila canónica usa 
 });
 
 t('C10b §21.1: columna FECHA DE INGRESO por ENCABEZADO (variantes FECHA DE ING…)', () => {
-  const idx = sandbox.Captura_v2_indiceColumnaFecha(['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)', 'FECHA DE INGRESO', 'ESTRATIFICACION']);
+  const idx = sandbox.Captura_v2_indiceColumnaFecha_(['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)', 'FECHA DE INGRESO', 'ESTRATIFICACION']);
   igual(idx, 5, 'encabezado exacto → índice 5');
-  const idxVar = sandbox.Captura_v2_indiceColumnaFecha(['NOMBRE', 'FECHA DE INGRESO (REAL)', 'SECTOR']);
+  const idxVar = sandbox.Captura_v2_indiceColumnaFecha_(['NOMBRE', 'FECHA DE INGRESO (REAL)', 'SECTOR']);
   igual(idxVar, 1, 'variante "FECHA DE ING…" → índice 1');
-  const idxVar2 = sandbox.Captura_v2_indiceColumnaFecha(['NOMBRE', 'FECHA DE INGRESO ALT', 'SECTOR']);
+  const idxVar2 = sandbox.Captura_v2_indiceColumnaFecha_(['NOMBRE', 'FECHA DE INGRESO ALT', 'SECTOR']);
   igual(idxVar2, 1, 'variante "FECHA DE ING…" → índice 1');
-  igual(sandbox.Captura_v2_indiceColumnaFecha(['NOMBRE', 'RUT']), -1, 'sin columna → -1');
+  igual(sandbox.Captura_v2_indiceColumnaFecha_(['NOMBRE', 'RUT']), -1, 'sin columna → -1');
 });
 
 t('C10c validación: fechaIngreso obligatoria/formatos/rango (espejo contrato §5.1/§10)', () => {
-  const ausente = sandbox.Captura_v2_validar(nuevoIngreso({ fechaIngreso: undefined }), { catalogo: CATALOGO });
+  const ausente = sandbox.Captura_v2_validar_(nuevoIngreso({ fechaIngreso: undefined }), { catalogo: CATALOGO });
   A(!ausente.ok && ausente.errores.some((e) => e.codigo === 'CAMPO_OBLIGATORIO_AUSENTE' && e.campo === 'fechaIngreso'), 'ausente → CAMPO_OBLIGATORIO_AUSENTE');
-  const noIso = sandbox.Captura_v2_validar(nuevoIngreso({ fechaIngreso: '01/09/2026' }), { catalogo: CATALOGO });
+  const noIso = sandbox.Captura_v2_validar_(nuevoIngreso({ fechaIngreso: '01/09/2026' }), { catalogo: CATALOGO });
   A(!noIso.ok && noIso.errores.some((e) => e.codigo === 'FECHA_INVALIDA' && e.campo === 'fechaIngreso'), 'no-ISO → FECHA_INVALIDA');
-  const rango = sandbox.Captura_v2_validar(nuevoIngreso({ fechaIngreso: '2014-12-31' }), { catalogo: CATALOGO });
+  const rango = sandbox.Captura_v2_validar_(nuevoIngreso({ fechaIngreso: '2014-12-31' }), { catalogo: CATALOGO });
   A(!rango.ok && rango.errores.some((e) => e.codigo === 'FECHA_INVALIDA'), 'fuera de rango → FECHA_INVALIDA');
-  const np = sandbox.Captura_v2_validar(registrarControl({ fechaIngreso: '2026-09-01' }), { catalogo: CATALOGO });
+  const np = sandbox.Captura_v2_validar_(registrarControl({ fechaIngreso: '2026-09-01' }), { catalogo: CATALOGO });
   A(!np.ok && np.errores.some((e) => e.codigo === 'CAMPO_NO_PERMITIDO' && e.campo === 'fechaIngreso'), 'NP en control → CAMPO_NO_PERMITIDO');
-  const ok = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
+  const ok = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
   A(ok.ok && ok.normalizado.fechaIngreso === '2026-09-01', 'válido normaliza');
 });
 
 t('C10d idempotencia: mismo captureId + SOLO fechaIngreso distinta → CONFLICTO (§13 B)', () => {
   const ctx = makeCtx();
-  A(sandbox.Captura_v2_enviar(nuevoIngreso(), ctx).ok, 'primer envío aceptado');
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso({ fechaIngreso: '2026-09-02' }), ctx);
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx).ok, 'primer envío aceptado');
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso({ fechaIngreso: '2026-09-02' }), ctx);
   A(!r.ok && r.errors.some((e) => e.codigo === 'CONFLICTO_IDEMPOTENCIA'), 'CONFLICTO_IDEMPOTENCIA');
   igual(ctx.registros.size, 1, 'sin efectos nuevos');
 });
 
 t('C10e captura rápida FASE 4: el request NO barre todas los hojas INGRESO_* ni procesa lote', () => {
-  A(texto26.indexOf('Form_buscarFilaIngresoPorMarca') === -1, '26_Captura.js no barre por marca (sweep retirado)');
-  A(texto26.indexOf('Form_procesarPendientes') === -1, '26_Captura.js jamás procesa lote en el request');
-  const entrega = sandbox.Captura_v2_entregarIngreso.toString();
-  A(entrega.indexOf('Ingresos_procesarFila') !== -1, 'nuevo ingreso reutiliza la operación individual canónica');
+  A(texto26.indexOf('Form_buscarFilaIngresoPorMarca_') === -1, '26_Captura.js no barre por marca (sweep retirado)');
+  A(texto26.indexOf('Form_procesarPendientes_') === -1, '26_Captura.js jamás procesa lote en el request');
+  const entrega = sandbox.Captura_v2_entregarIngreso_.toString();
+  A(entrega.indexOf('Ingresos_procesarFila_') !== -1, 'nuevo ingreso reutiliza la operación individual canónica');
   A(entrega.indexOf('Ingresos_procesarTodasLasHojas_') === -1, 'nuevo ingreso no recompone ni formatea el pipeline global');
 });
 
 t('C11 previa duplicados V2: acepta payload camelCase y NO expone datos en modo público (§17 P0)', () => {
-  sandbox.WebApp_autorizarCaptura = () => true; // acceso de captura ya validado; se prueba el pre-flight
+  sandbox.WebApp_autorizarCaptura_ = () => true; // acceso de captura ya validado; se prueba el pre-flight
   sandbox.WebApp_accesoOperadorValido_ = () => true;
-  const alias = sandbox.WebApp_previaDuplicadosV2({ accion: 'registrarControl', rut: RUT1, nombre: 'A B' });
+  const alias = sandbox.WebApp_previaDuplicadosV2_({ accion: 'registrarControl', rut: RUT1, nombre: 'A B' });
   A(alias && alias.ok === true && alias.coincidencia === false, 'alias evita chequeo fuera de nuevoIngreso');
-  const v = sandbox.Captura_v2_previaDuplicados(nuevoIngreso());
+  const v = sandbox.Captura_v2_previaDuplicados_(nuevoIngreso());
   A(v && v.ok === true, 'modo público no falla (preview omitido, no error)');
   A(v.coincidencia === false && Array.isArray(v.candidatos) && v.candidatos.length === 0,
     'modo público NO devuelve candidatos ni PII');
@@ -807,96 +807,96 @@ function payloadActualizar(over = {}) {
 }
 
 t('D1 actualizarDatos sin fechaEvento → payload válido (nunca FECHA_INVALIDA ni REQ ausente)', () => {
-  const v = sandbox.Captura_v2_validar(payloadActualizar(), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(payloadActualizar(), { catalogo: CATALOGO });
   A(v.ok, JSON.stringify(v.errores || ''));
   nohay(payloadActualizar(), 'fechaEvento', 'el payload normativo (§5.2/§27.7) no transporta fechaEvento');
 });
 
 t('D2 actualizarDatos con fechaEvento → CAMPO_NO_PERMITIDO (§5.2: fecha solo la genera el backend)', () => {
   const p = payloadActualizar({ fechaEvento: '2026-09-05' });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(p, { catalogo: CATALOGO });
   A(!v.ok, 'fecha no permitida');
   A(v.errores.some((e) => e.codigo === 'CAMPO_NO_PERMITIDO' && e.campo === 'fechaEvento'), JSON.stringify(v.errores));
 });
 
-t('D3 §5.2 Captura_v2_fechaOperacion: ISO yyyy-MM-dd real, día local, inyectable, nunca vacía', () => {
-  igual(sandbox.Captura_v2_fechaOperacion({ hoy: '2026-09-06' }), '2026-09-06', 'inyectable (solo pruebas)');
-  const f = sandbox.Captura_v2_fechaOperacion({});
+t('D3 §5.2 Captura_v2_fechaOperacion_: ISO yyyy-MM-dd real, día local, inyectable, nunca vacía', () => {
+  igual(sandbox.Captura_v2_fechaOperacion_({ hoy: '2026-09-06' }), '2026-09-06', 'inyectable (solo pruebas)');
+  const f = sandbox.Captura_v2_fechaOperacion_({});
   A(/^\d{4}-\d{2}-\d{2}$/.test(f), 'formato ISO día de la operación (' + f + ')');
   A(f !== '', 'nunca vacía');
   A(!String(f).includes('T') && !String(f).includes(' '), 'solo fecha calendario, sin hora');
-  const n = sandbox.Norm_normalizarFecha(f, {});
+  const n = sandbox.Norm_normalizarFecha_(f, {});
   A(n.estado === 'VALIDA', 'fecha real válida para el modelo');
 });
 
 t('D4 TR-2c §21: entregarEvento actualiza PACIENTES PRIMERO y crea OTRO con fecha = operación', () => {
   const orden = [];
   let llamadas = { update: 0, evento: null };
-  const prevBuscar = sandbox.Captura_v2_buscarPersonaPorRut;
-  const prevMarca = sandbox.Captura_v2_marcaEnEventos;
+  const prevBuscar = sandbox.Captura_v2_buscarPersonaPorRut_;
+  const prevMarca = sandbox.Captura_v2_marcaEnEventos_;
   const prevReg = sandbox.Eventos_registrarPaciente_;
-  const prevUpd = sandbox.Form_actualizarDatosPaciente;
+  const prevUpd = sandbox.Form_actualizarDatosPaciente_;
   try {
-    sandbox.Captura_v2_buscarPersonaPorRut = () => ({ RUT: RUT1, NOMBRE: 'JUAN PÉREZ GÓMEZ', ID_INTERNO: 'EC-TEST-5001', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2' });
-    sandbox.Captura_v2_marcaEnEventos = (m) => (llamadas.evento ? { idInterno: 'EC-TEST-5001', idEvento: 'EV-OTRO-TEST' } : null);
-    sandbox.Form_actualizarDatosPaciente = (pac, interno, marca) => { orden.push('actualizar'); llamadas.update += 1; return true; };
+    sandbox.Captura_v2_buscarPersonaPorRut_ = () => ({ RUT: RUT1, NOMBRE: 'JUAN PÉREZ GÓMEZ', ID_INTERNO: 'EC-TEST-5001', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G2' });
+    sandbox.Captura_v2_marcaEnEventos_ = (m) => (llamadas.evento ? { idInterno: 'EC-TEST-5001', idEvento: 'EV-OTRO-TEST' } : null);
+    sandbox.Form_actualizarDatosPaciente_ = (pac, interno, marca) => { orden.push('actualizar'); llamadas.update += 1; return true; };
     sandbox.Eventos_registrarPaciente_ = (payload) => {
       orden.push('otro');
       llamadas.evento = payload;
       igual(payload.tipoEvento, 'OTRO', 'tipoEvento');
       A(payload.fecha && payload.fecha !== '', 'OTRO.FECHA_EVENTO NUNCA vacía');
-      igual(payload.fecha, sandbox.Captura_v2_fechaOperacion({}), 'FECHA_EVENTO = fecha de la operación generada por backend');
+      igual(payload.fecha, sandbox.Captura_v2_fechaOperacion_({}), 'FECHA_EVENTO = fecha de la operación generada por backend');
       igual(payload.idInterno, 'EC-TEST-5001');
       igual(payload.fuente, 'FORM|' + cid + '|ACTUALIZAR_DATOS', 'marca del canal como FUENTE (§5.2/§25)');
       return { ok: true };
     };
-    const v = sandbox.Captura_v2_validar(payloadActualizar(), { catalogo: CATALOGO });
+    const v = sandbox.Captura_v2_validar_(payloadActualizar(), { catalogo: CATALOGO });
     if (!v.ok) throw new Error('payload inválido: ' + JSON.stringify(v.errores));
-    const r = sandbox.Captura_v2_entregarEvento(v.normalizado, 'FORM|' + cid + '|ACTUALIZAR_DATOS', { usuario: 'tester@ecicep.cl' });
+    const r = sandbox.Captura_v2_entregarEvento_(v.normalizado, 'FORM|' + cid + '|ACTUALIZAR_DATOS', { usuario: 'tester@ecicep.cl' });
     igual(r.estado, 'PROCESADO', JSON.stringify(r));
     igual(r.idEvento, 'EV-OTRO-TEST');
     profundoIgual(orden, ['actualizar', 'otro'], 'campos PACIENTES antes del evento OTRO');
     igual(llamadas.update, 1, 'una actualización');
     A(!!llamadas.evento, 'evento OTRO registrado');
   } finally {
-    sandbox.Captura_v2_buscarPersonaPorRut = prevBuscar;
-    sandbox.Captura_v2_marcaEnEventos = prevMarca;
+    sandbox.Captura_v2_buscarPersonaPorRut_ = prevBuscar;
+    sandbox.Captura_v2_marcaEnEventos_ = prevMarca;
     sandbox.Eventos_registrarPaciente_ = prevReg;
-    sandbox.Form_actualizarDatosPaciente = prevUpd;
+    sandbox.Form_actualizarDatosPaciente_ = prevUpd;
   }
 });
 
 t('D5 actualizarDatos: si la actualización falla → ERROR y NO se registra OTRO', () => {
   const orden = [];
-  const prevBuscar = sandbox.Captura_v2_buscarPersonaPorRut;
-  const prevMarca = sandbox.Captura_v2_marcaEnEventos;
+  const prevBuscar = sandbox.Captura_v2_buscarPersonaPorRut_;
+  const prevMarca = sandbox.Captura_v2_marcaEnEventos_;
   const prevReg = sandbox.Eventos_registrarPaciente_;
-  const prevUpd = sandbox.Form_actualizarDatosPaciente;
+  const prevUpd = sandbox.Form_actualizarDatosPaciente_;
   try {
-    sandbox.Captura_v2_buscarPersonaPorRut = () => ({ RUT: RUT1, ID_INTERNO: 'EC-TEST-5002' });
-    sandbox.Captura_v2_marcaEnEventos = () => null;
-    sandbox.Form_actualizarDatosPaciente = () => false;
+    sandbox.Captura_v2_buscarPersonaPorRut_ = () => ({ RUT: RUT1, ID_INTERNO: 'EC-TEST-5002' });
+    sandbox.Captura_v2_marcaEnEventos_ = () => null;
+    sandbox.Form_actualizarDatosPaciente_ = () => false;
     sandbox.Eventos_registrarPaciente_ = (p) => { orden.push('otro'); return { ok: true }; };
-    const v = sandbox.Captura_v2_validar(payloadActualizar(), { catalogo: CATALOGO });
-    const r = sandbox.Captura_v2_entregarEvento(v.normalizado, 'FORM|' + cid + '|ACTUALIZAR_DATOS', {});
+    const v = sandbox.Captura_v2_validar_(payloadActualizar(), { catalogo: CATALOGO });
+    const r = sandbox.Captura_v2_entregarEvento_(v.normalizado, 'FORM|' + cid + '|ACTUALIZAR_DATOS', {});
     igual(r.estado, 'ERROR');
     igual(r.motivo, 'ACTUALIZACION_FALLIDA');
     profundoIgual(orden, [], 'sin OTRO huérfano cuando la actualización falla');
   } finally {
-    sandbox.Captura_v2_buscarPersonaPorRut = prevBuscar;
-    sandbox.Captura_v2_marcaEnEventos = prevMarca;
+    sandbox.Captura_v2_buscarPersonaPorRut_ = prevBuscar;
+    sandbox.Captura_v2_marcaEnEventos_ = prevMarca;
     sandbox.Eventos_registrarPaciente_ = prevReg;
-    sandbox.Form_actualizarDatosPaciente = prevUpd;
+    sandbox.Form_actualizarDatosPaciente_ = prevUpd;
   }
 });
 
 t('D6 §12: captureId 32 hex válido; 64 hex / corto / char no-hex → SINTAXIS_INVALIDA', () => {
-  A(sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid }), { catalogo: CATALOGO }).ok, '32 hex válido');
-  const p64 = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: 'Cp2-' + 'a'.repeat(64) }), { catalogo: CATALOGO });
+  A(sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid }), { catalogo: CATALOGO }).ok, '32 hex válido');
+  const p64 = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: 'Cp2-' + 'a'.repeat(64) }), { catalogo: CATALOGO });
   A(!p64.ok && p64.errores.some((e) => e.codigo === 'SINTAXIS_INVALIDA' && e.campo === 'captureId'), '64 hex rechazado sin normalizar');
-  const px = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: 'Cp2-xxxxxxxx' }), { catalogo: CATALOGO });
+  const px = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: 'Cp2-xxxxxxxx' }), { catalogo: CATALOGO });
   A(!px.ok && px.errores.some((e) => e.codigo === 'SINTAXIS_INVALIDA'), 'corto rechazado');
-  const pg = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: 'Cp2-' + 'a'.repeat(31) + 'G' }), { catalogo: CATALOGO });
+  const pg = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: 'Cp2-' + 'a'.repeat(31) + 'G' }), { catalogo: CATALOGO });
   A(!pg.ok && pg.errores.some((e) => e.codigo === 'SINTAXIS_INVALIDA'), '32 chars con no-hex rechazado');
   A(!sandbox.CAPTURA_V2.RE_CAPTURE_ID.test('Cp2-' + 'a'.repeat(64)), 'regex estricta 32 (no 64)');
 });
@@ -905,8 +905,8 @@ t('D7 envío actualizarDatos vía ctx → PROCESADO con idEvento (§27.7, persis
   const ctx = makeCtx();
   const cidIng = 'Cp2-a1b2c3d4e5f60718293a4b5c6d7e8f9a';
   const cidAct = 'Cp2-b2c3d4e5f60718293a4b5c6d7e8f9a1a';
-  A(sandbox.Captura_v2_enviar(nuevoIngreso({ captureId: cidIng }), ctx).ok, 'persona base creada');
-  const r = sandbox.Captura_v2_enviar(payloadActualizar({ captureId: cidAct }), ctx);
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso({ captureId: cidIng }), ctx).ok, 'persona base creada');
+  const r = sandbox.Captura_v2_enviar_(payloadActualizar({ captureId: cidAct }), ctx);
   A(r.ok, JSON.stringify(r.errors || ''));
   igual(Object.keys(r.data).sort().join('|'), 'accion|captureId|estado|idEvento|idInterno|motivo', 'respuesta §16 exacta');
   igual(r.data.accion, 'actualizarDatos');
@@ -923,29 +923,29 @@ t('D8 idempotencia sobre actualizarDatos: A1 reintento idéntico → sin re-entr
   const ctx = makeCtx();
   const cidIng = 'Cp2-c3d4e5f60718293a4b5c6d7e8f9a1b2a';
   const cidAct = 'Cp2-d4e5f60718293a4b5c6d7e8f9a1b2c3a';
-  A(sandbox.Captura_v2_enviar(nuevoIngreso({ captureId: cidIng }), ctx).ok, 'persona base');
+  A(sandbox.Captura_v2_enviar_(nuevoIngreso({ captureId: cidIng }), ctx).ok, 'persona base');
   const p = payloadActualizar({ captureId: cidAct });
-  A(sandbox.Captura_v2_enviar(p, ctx).ok, 'primer actualizarDatos');
-  const r2 = sandbox.Captura_v2_enviar(p, ctx);
+  A(sandbox.Captura_v2_enviar_(p, ctx).ok, 'primer actualizarDatos');
+  const r2 = sandbox.Captura_v2_enviar_(p, ctx);
   A(r2.ok);
   igual(r2.data.estado, 'PROCESADO');
   A(ctx.entregas.filter((e) => e.norm.captureId === cidAct).length === 1, 'A1: un solo efecto');
-  const rB = sandbox.Captura_v2_enviar(payloadActualizar({ captureId: cidAct, observaciones: 'otra observación' }), ctx);
+  const rB = sandbox.Captura_v2_enviar_(payloadActualizar({ captureId: cidAct, observaciones: 'otra observación' }), ctx);
   A(!rB.ok && rB.errors.some((e) => e.codigo === 'CONFLICTO_IDEMPOTENCIA'), 'B: payload distinto → CONFLICTO_IDEMPOTENCIA');
 });
 
 t('Cp4 saludMental: enum SI/NO/vacío — no se infiere desde texto libre', () => {
-  const okSi = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'SÍ' }), { catalogo: CATALOGO });
+  const okSi = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid4, saludMental: 'SÍ' }), { catalogo: CATALOGO });
   A(okSi.ok, 'SÍ aceptado');
   igual(okSi.normalizado.saludMental, 'SI', 'SÍ → SI');
-  const okNo = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'NO' }), { catalogo: CATALOGO });
+  const okNo = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid4, saludMental: 'NO' }), { catalogo: CATALOGO });
   A(okNo.ok, 'NO aceptado');
   igual(okNo.normalizado.saludMental, 'NO', 'NO → NO');
-  const okVac = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: '' }), { catalogo: CATALOGO });
+  const okVac = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid4, saludMental: '' }), { catalogo: CATALOGO });
   A(okVac.ok, 'vacío aceptado (sin información ≠ NO)');
   igual(okVac.normalizado.saludMental, '', 'vacío → vacío');
   for (const libre of ['PSM', 'PS', 'DEPRESION', 'DEPRESIÓN', 'APOYO PSICOLÓGICO']) {
-    const r = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: libre }), { catalogo: CATALOGO });
+    const r = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid4, saludMental: libre }), { catalogo: CATALOGO });
     A(!r.ok, libre + ' NO se infiere → rechazado');
     A(r.errores.some((e) => e.campo === 'saludMental' && e.codigo === 'CAMPO_INVALIDO'),
       libre + ' → CAMPO_INVALIDO');
@@ -953,27 +953,27 @@ t('Cp4 saludMental: enum SI/NO/vacío — no se infiere desde texto libre', () =
 });
 
 t('Cp4 saludMental: solo captura V4 (Cp4-); cara Cp2/Cp3 → CAMPO_NO_PERMITIDO', () => {
-  const legado = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid, saludMental: 'SI' }), { catalogo: CATALOGO });
+  const legado = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid, saludMental: 'SI' }), { catalogo: CATALOGO });
   A(!legado.ok, 'Cp2 con saludMental rechazado');
   A(legado.errores.some((e) => e.campo === 'saludMental' && e.codigo === 'CAMPO_NO_PERMITIDO'),
     'código CAMPO_NO_PERMITIDO en Cp2/Cp3');
 });
 
 t('Cp4 saludMental: TR-1 lo lleva al modelo interno y a la fila canónica (columna 12)', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'SI' }), { catalogo: CATALOGO });
-  const i = sandbox.Captura_v2_normalizadoAInterno(v.normalizado, { marca: 'M' });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid4, saludMental: 'SI' }), { catalogo: CATALOGO });
+  const i = sandbox.Captura_v2_normalizadoAInterno_(v.normalizado, { marca: 'M' });
   igual(i.SALUD_MENTAL, 'SI', 'TR-1 → SALUD_MENTAL = SI');
-  const fila = sandbox.Form_filaCanonicaIngreso(i, 'M', {});
+  const fila = sandbox.Form_filaCanonicaIngreso_(i, 'M', {});
   igual(fila[11], 'SI', 'SALUD_MENTAL en la columna 12 de INGRESO_*');
   igual(fila[10], 'M', 'NOTA_SISTEMA sigue en la columna 11');
 });
 
 t('Cp4 saludMental: la huella canónica lo incluye (Cp4) y respeta las huellas Cp2/Cp3', () => {
-  const cp4 = sandbox.Captura_v2_validar(nuevoIngreso({ captureId: cid4, saludMental: 'NO' }), { catalogo: CATALOGO });
-  A(sandbox.Captura_v2_canonica(cp4.normalizado).indexOf('saludMental=NO') !== -1,
+  const cp4 = sandbox.Captura_v2_validar_(nuevoIngreso({ captureId: cid4, saludMental: 'NO' }), { catalogo: CATALOGO });
+  A(sandbox.Captura_v2_canonica_(cp4.normalizado).indexOf('saludMental=NO') !== -1,
     'huella Cp4 incluye saludMental=NO');
-  const cp3 = sandbox.Captura_v2_validar(nuevoIngreso({}), { catalogo: CATALOGO });
-  A(sandbox.Captura_v2_canonica(cp3.normalizado).indexOf('saludMental') === -1,
+  const cp3 = sandbox.Captura_v2_validar_(nuevoIngreso({}), { catalogo: CATALOGO });
+  A(sandbox.Captura_v2_canonica_(cp3.normalizado).indexOf('saludMental') === -1,
     'huella Cp2/Cp3 existente NO cambia (sin saludMental)');
 });
 

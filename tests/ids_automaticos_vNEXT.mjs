@@ -28,19 +28,19 @@ const canonicoEvento = new RegExp('^EV-[A-Z0-9]{1,12}-[A-Z0-9]{4}$');
 // ─────────────────────────────────────────────────────────────────────────────
 // T1 — ID_INTERNO: automático y con componente aleatorio
 // ─────────────────────────────────────────────────────────────────────────────
-t('T1 Modelo_nuevoIdInterno produce IDs automáticos con sufijo aleatorio', () => {
+t('T1 Modelo_nuevoIdInterno_ produce IDs automáticos con sufijo aleatorio', () => {
   const ids = new Set();
   for (let i = 0; i < 400; i++) {
-    const id = E('Modelo_nuevoIdInterno()');
+    const id = E('Modelo_nuevoIdInterno_()');
     assert.match(id, canonico, 'formato canónico EC-<tiempo>-<aleatorio>: ' + id);
     ids.add(id);
   }
   assert.ok(ids.size >= 399, 'la variación debe venir del aleatorio, no del reloj: ' + ids.size + '/400');
 });
 
-t('T2 Modelo_nuevoIdInterno NO depende del índice de fila', () => {
-  const a = E('Modelo_nuevoIdInterno(1)');
-  const b = E('Modelo_nuevoIdInterno(9999)');
+t('T2 Modelo_nuevoIdInterno_ NO depende del índice de fila', () => {
+  const a = E('Modelo_nuevoIdInterno_(1)');
+  const b = E('Modelo_nuevoIdInterno_(9999)');
   assert.notEqual(a, b, 'el índice no puede determinar la identidad');
   assert.ok(!/^EC-0{4,}/.test(b), 'no puede volver a EC-000001: ' + b);
 });
@@ -84,36 +84,36 @@ t('T5b un ID no canónico YA OCUPADO se rechaza, no se devuelve en silencio', ()
 // ─────────────────────────────────────────────────────────────────────────────
 // T6 — ID_EVENTO
 // ─────────────────────────────────────────────────────────────────────────────
-t('T6 Ev_nuevoId produce IDs automáticos con sufijo aleatorio', () => {
+t('T6 Ev_nuevoId_ produce IDs automáticos con sufijo aleatorio', () => {
   const ids = new Set();
   for (let i = 0; i < 400; i++) {
-    const id = E('Ev_nuevoId()');
+    const id = E('Ev_nuevoId_()');
     assert.match(id, canonicoEvento, 'formato canónico EV-<tiempo>-<aleatorio>: ' + id);
     ids.add(id);
   }
   assert.ok(ids.size >= 399, 'variación real entre llamadas: ' + ids.size + '/400');
 });
 
-t('T7 Ev_nuevoId NO admite secuencia por argumento posicional', () => {
+t('T7 Ev_nuevoId_ NO admite secuencia por argumento posicional', () => {
   // La inyección de pruebas es explícita ({secuenciaTest}); un número suelto
   // no puede reintroducir IDs secuenciales en producción.
   for (const valor of [1, 5, 421, '7']) {
-    const id = E('Ev_nuevoId(' + JSON.stringify(valor) + ')');
+    const id = E('Ev_nuevoId_(' + JSON.stringify(valor) + ')');
     assert.ok(!/^EV-\d{4}$/.test(id), 'no secuencial con ' + JSON.stringify(valor) + ': ' + id);
   }
 });
 
-t('T8 Ev_nuevoId conserva el modo tests por inyección explícita', () => {
-  assert.equal(E('Ev_nuevoId({secuenciaTest: 5})'), 'EV-0005');
-  assert.equal(E('Ev_nuevoId({secuenciaTest: 421})'), 'EV-0421');
+t('T8 Ev_nuevoId_ conserva el modo tests por inyección explícita', () => {
+  assert.equal(E('Ev_nuevoId_({secuenciaTest: 5})'), 'EV-0005');
+  assert.equal(E('Ev_nuevoId_({secuenciaTest: 421})'), 'EV-0421');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T9 — sin reléj ni POSICIÓN como identidad
 // ─────────────────────────────────────────────────────────────────────────────
 t('T9 el generador no usa Date.now() como identidad completa', () => {
-  const a = E('Modelo_nuevoIdInterno()');
-  const b = E('Modelo_nuevoIdInterno()');
+  const a = E('Modelo_nuevoIdInterno_()');
+  const b = E('Modelo_nuevoIdInterno_()');
   const sufijoA = a.split('-').pop(), sufijoB = b.split('-').pop();
   assert.notEqual(sufijoA, sufijoB, 'el sufijo debe variar aunque el reloj no: ' + a + ' / ' + b);
 });
@@ -121,17 +121,17 @@ t('T9 el generador no usa Date.now() como identidad completa', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // T10 — ninguna ruta productiva conserva el fallback secuencial
 // ─────────────────────────────────────────────────────────────────────────────
-t('T10 Ev_nuevoId solo construye IDs secuenciales bajo la guarda de test', () => {
+t('T10 Ev_nuevoId_ solo construye IDs secuenciales bajo la guarda de test', () => {
   const cuerpo = (() => {
     const src = read('src/13_Eventos.js');
-    const i = src.indexOf('function Ev_nuevoId(');
+    const i = src.indexOf('function Ev_nuevoId_(');
     let nivel = 0;
     for (let k = src.indexOf('{', i); k < src.length; k++) {
       if (src[k] === '{') nivel++;
       else if (src[k] === '}' && --nivel === 0) return src.slice(i, k + 1);
     }
   })();
-  assert.ok(cuerpo, 'no se encontró Ev_nuevoId');
+  assert.ok(cuerpo, 'no se encontró Ev_nuevoId_');
   for (const linea of cuerpo.split('\n')) {
     // Solo el relleno secuencial ('0000' + n) es identidad posicional; el sufijo
     // automático también empieza por 'EV-' + y es legítimo.
@@ -140,7 +140,7 @@ t('T10 Ev_nuevoId solo construye IDs secuenciales bajo la guarda de test', () =>
       'relleno secuencial fuera de la guarda de test: ' + linea.trim());
   }
   assert.doesNotMatch(cuerpo, /EV-['"]\s*\+\s*(?:i|idx|fila|n)\b/i,
-    'Ev_nuevoId no puede derivarse de un índice');
+    'Ev_nuevoId_ no puede derivarse de un índice');
 });
 
 t('T10b el generador de ID_INTERNO no conserva fallback posicional', () => {
@@ -152,7 +152,7 @@ t('T10b el generador de ID_INTERNO no conserva fallback posicional', () => {
 
 t('T11 el generador de staging usa tiempo + aleatorio, no solo tiempo', () => {
   const src = read('src/03_Fuentes.js');
-  assert.match(src, /ID_PROVISIONAL[\s\S]{0,600}Utl_sufijoAleatorio\(6\)/,
+  assert.match(src, /ID_PROVISIONAL[\s\S]{0,600}Utl_sufijoAleatorio_\(6\)/,
     'ID_PROVISIONAL debe llevar sufijo aleatorio de 6 caracteres');
 });
 
@@ -165,7 +165,7 @@ t('T12 los IDs de ejecución llevan sufijo aleatorio además del reloj', () => {
       .filter(l => /(?:CARGA|ACT|EJ)-['"]?\s*\+?[^\n]*Date\.now\(\)/.test(l));
     assert.ok(lineas.length > 0, archivo + ' debe construir su ID de ejecución con el reloj');
     for (const linea of lineas) {
-      assert.match(linea, /Utl_sufijoAleatorio\(/,
+      assert.match(linea, /Utl_sufijoAleatorio_\(/,
         archivo + ' genera un ID de ejecución solo con el reloj: ' + linea.trim());
     }
   }

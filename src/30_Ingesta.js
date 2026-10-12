@@ -7,13 +7,13 @@
 // (Form Google, Web App legacy); el pipeline es UNO solo y siempre el mismo.
 //
 // Reglas:
-//   * CapturaIngress_providerActivo()  → canal operativo (GOOGLE_FORMS).
-//   * CapturaIngress_providerReservado() → transportes reconocidos pero NO
+//   * CapturaIngress_providerActivo_()  → canal operativo (GOOGLE_FORMS).
+//   * CapturaIngress_providerReservado_() → transportes reconocidos pero NO
 //     operativos (WEBAPP_LEGACY queda reservado por compatibilidad histórica).
-//   * CapturaIngress_enviar(payload, ctx, provider) → orquesta: setea el
+//   * CapturaIngress_enviar_(payload, ctx, provider) → orquesta: setea el
 //     transporte en ctx (captureProvider / transportId) y delega al pipeline V2.
 //     Un provider desconocido NO escribe nada: FALLBACK_PROVIDER_DISABLED.
-//   * CapturaIngress_adapterForms(respuesta, opciones) → PURA: convierte una
+//   * CapturaIngress_adapterForms_(respuesta, opciones) → PURA: convierte una
 //     respuesta del Form (respuesta + campos CANÓNICOS) en el payload V2.
 //
 // El captureId es DETERMINISTA: Cp4-<sha256hex('GOOGLE_FORMS|formId|responseId')>.
@@ -31,15 +31,15 @@ var CAPTURA_INGESTA_PROVIDERS = {
 var CAPTURA_INGESTA_RESERVADOS = [CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY];
 
 /** Normaliza alias históricos del transportador al nombre canónico. */
-function CapturaIngress_normalizarProvider(nombre) {
-  var n = Utl_texto(nombre).toUpperCase().replace(/-/g, '_');
+function CapturaIngress_normalizarProvider_(nombre) {
+  var n = Utl_texto_(nombre).toUpperCase().replace(/-/g, '_');
   if (n === 'WEBAPP') return CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY;
   if (n === 'GOOGLE_FORMS_FUTURE') return CAPTURA_INGESTA_PROVIDERS.GOOGLE_FORMS;
   return n;
 }
 
 /** Transporte durable interno vigente (v253): Google Forms. */
-function CapturaIngress_providerActivo() {
+function CapturaIngress_providerActivo_() {
   return CAPTURA_INGESTA_PROVIDERS.GOOGLE_FORMS;
 }
 
@@ -47,8 +47,8 @@ function CapturaIngress_providerActivo() {
  * Un transporte está "reservado" cuando existe su nombre pero NO es el canal
  * operativo (p. ej. la Web App legacy, conservada como landing y diagnóstico).
  */
-function CapturaIngress_providerReservado(nombre) {
-  var n = CapturaIngress_normalizarProvider(nombre);
+function CapturaIngress_providerReservado_(nombre) {
+  var n = CapturaIngress_normalizarProvider_(nombre);
   return CAPTURA_INGESTA_RESERVADOS.indexOf(n) !== -1;
 }
 
@@ -118,8 +118,8 @@ function CapturaIngress_sha256Hex_(input) {
  * Cp4-<32 hex> = sha256 de 'GOOGLE_FORMS|<formId>|<responseId>'.
  */
 function CapturaIngress_captureId_(formId, responseId) {
-  var f = Utl_texto(formId);
-  var r = Utl_texto(responseId);
+  var f = Utl_texto_(formId);
+  var r = Utl_texto_(responseId);
   if (!f || !r) return '';
   var h = CapturaIngress_sha256Hex_('GOOGLE_FORMS|' + f + '|' + r); h = h.substring(0,32); return 'Cp4-' + h;
 }
@@ -137,9 +137,9 @@ function CapturaIngress_urlForm_() {
 }
 
 /** Acceso DRS real de GAS (inyectable). Lee la ficha SOLO para actualizarDatos. */
-function CapturaIngress_ctx(acceso) {
-  var c = (typeof Captura_v2_ctx === 'function') ? Captura_v2_ctx(acceso) : {};
-  if (!c.captureProvider) c.captureProvider = CapturaIngress_providerActivo();
+function CapturaIngress_ctx_(acceso) {
+  var c = (typeof Captura_v2_ctx_ === 'function') ? Captura_v2_ctx_(acceso) : {};
+  if (!c.captureProvider) c.captureProvider = CapturaIngress_providerActivo_();
   return c;
 }
 
@@ -147,21 +147,21 @@ function CapturaIngress_ctx(acceso) {
  * Envío puerta de entrada: fija el transporte en ctx y delega al pipeline V2.
  * - 'GOOGLE_FORMS'  → ctx.captureProvider='GOOGLE_FORMS'; transportId de ctx.
  * - 'WEBAPP_LEGACY' → ctx.captureProvider='WEBAPP_LEGACY' (canal retirado:
- *   WebApp_capturarEnviar ya rechaza; aquí solo como orquestador/proveedor).
+ *   WebApp_capturarEnviar_ ya rechaza; aquí solo como orquestador/proveedor).
  * - Desconocido     → FALLBACK_PROVIDER_DISABLED, sin escritura.
  */
-function CapturaIngress_enviar(payload, ctx, provider) {
-  var p = CapturaIngress_normalizarProvider(provider || CapturaIngress_providerActivo());
+function CapturaIngress_enviar_(payload, ctx, provider) {
+  var p = CapturaIngress_normalizarProvider_(provider || CapturaIngress_providerActivo_());
   if (p !== CAPTURA_INGESTA_PROVIDERS.GOOGLE_FORMS && p !== CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY) {
     return { ok: false, error: 'FALLBACK_PROVIDER_DISABLED', escrito: 0 };
   }
-  if (typeof Captura_v2_enviar !== 'function') {
+  if (typeof Captura_v2_enviar_ !== 'function') {
     return { ok: false, error: 'INGESTA_PIPELINE_NO_DISPONIBLE', escrito: 0 };
   }
-  var c = ctx || CapturaIngress_ctx();
+  var c = ctx || CapturaIngress_ctx_();
   c.captureProvider = p;
   if (p === CAPTURA_INGESTA_PROVIDERS.GOOGLE_FORMS) c.transportId = c.transportId || c.transportResponseId || '';
-  return Captura_v2_enviar(payload, c);
+  return Captura_v2_enviar_(payload, c);
 }
 
 /** Valores aceptados por cada clave del Form (validación leve del adaptador). */
@@ -174,7 +174,7 @@ var CAPTURA_FORMS_ENUM = {
 
 /** Normaliza una clave canónica de campo del Form en la clave del contrato. */
 function CapturaIngress_campoContrato_(clave) {
-  var c = Utl_texto(clave).toUpperCase();
+  var c = Utl_texto_(clave).toUpperCase();
   var mapa = { RUT: 'rut', NOMBRE: 'nombre', SEXO: 'sexo', FECHA_NACIMIENTO: 'fechaNacimiento',
     SECTOR: 'sector', ESTRATIFICACION: 'estratificacion', TELEFONOS: 'telefonos',
     FECHA_EVENTO: 'fechaEvento', PROFESIONAL: 'profesional', PROFESIONAL2: 'profesionalSecundario',
@@ -183,15 +183,15 @@ function CapturaIngress_campoContrato_(clave) {
   return k || '';
 }
 
-/** PURA: fecha de operación del canal (opciones.hoy > Form_hoy). */
+/** PURA: fecha de operación del canal (opciones.hoy > Form_hoy_). */
 function CapturaIngress_hoy_(opciones) {
   if (opciones && opciones.hoy) return opciones.hoy;
   try {
-    if (typeof Captura_v2_fechaOperacion === 'function') return Captura_v2_fechaOperacion({});
+    if (typeof Captura_v2_fechaOperacion_ === 'function') return Captura_v2_fechaOperacion_({});
   } catch (e) { /* node sin dependencias */ }
   try {
-    return Form_hoy({});
-  } catch (e) { /* sin Form_hoy */ }
+    return Form_hoy_({});
+  } catch (e) { /* sin Form_hoy_ */ }
   return '';
 }
 
@@ -203,16 +203,16 @@ function CapturaIngress_hoy_(opciones) {
  * @returns {ok, captureId, payload, accion, errores, meta}
  *   meta = {provider:'GOOGLE_FORMS', transportResponseId, formId}
  */
-function CapturaIngress_adapterForms(respuesta, opciones) {
+function CapturaIngress_adapterForms_(respuesta, opciones) {
   opciones = opciones || {};
   var err = [];
   var resp = respuesta || {};
   var campos = (resp.campos && typeof resp.campos === 'object') ? resp.campos : {};
-  var formId = Utl_texto(resp.formId);
-  var responseId = Utl_texto(resp.responseId);
+  var formId = Utl_texto_(resp.formId);
+  var responseId = Utl_texto_(resp.responseId);
   var captureId = CapturaIngress_captureId_(formId, responseId);
 
-  var accionRaw = Utl_texto(resp.accion).toLowerCase().replace(/[^a-zA-Z]/g, '');
+  var accionRaw = Utl_texto_(resp.accion).toLowerCase().replace(/[^a-zA-Z]/g, '');
   var mapaAcc = {
     nuevoingreso: 'nuevoIngreso',
     nuevosingreso: 'nuevoIngreso',
@@ -282,8 +282,8 @@ function CapturaIngress_adapterForms(respuesta, opciones) {
     return { ok: false, captureId: captureId, payload: null, accion: accion, errores: err, error: e0.codigo || 'FALLBACK_PROVIDER_DISABLED', escrito: 0, meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
   }
 
-  if (typeof Captura_v2_validar === 'function') {
-    var v = Captura_v2_validar(payload, { catalogo: opciones.catalogo });
+  if (typeof Captura_v2_validar_ === 'function') {
+    var v = Captura_v2_validar_(payload, { catalogo: opciones.catalogo });
     if (!v.ok) {
       return { ok: false, captureId: captureId, payload: null, accion: accion, errores: v.errores, meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
     }
@@ -294,7 +294,7 @@ function CapturaIngress_adapterForms(respuesta, opciones) {
 
 /**
  * PURA/DRS: construye `actualizacion` (contrato V4 §0.1) para actualizarDatos.
- * Lee la ficha vigente SOLO en modo lectura (Modelo_leerPacientes.toString) para
+ * Lee la ficha vigente SOLO en modo lectura (Modelo_leerPacientes_.toString) para
  * obtener `anterior`; ESTRATIFICACION queda fuera porque no está en la allowlist
  * de edición (CAPTURA_EDICION_CAMPOS del backend 29).
  */
@@ -302,12 +302,12 @@ function CapturaIngress_edicionDesdeForma_(accion, campos, rutForm, opciones, er
   opciones = opciones || {};
   var nr = { estado: 'OK', rut: rutForm };
   if (!rutForm) { err.push({ codigo: 'RUT_INVALIDO', campo: 'rut', mensaje: 'El RUT es obligatorio para actualizar la ficha' }); return null; }
-  if (typeof Norm_normalizarRut === 'function') { nr = Norm_normalizarRut(rutForm); }
+  if (typeof Norm_normalizarRut_ === 'function') { nr = Norm_normalizarRut_(rutForm); }
   if (!nr || nr.estado !== 'OK') { err.push({ codigo: 'RUT_INVALIDO', campo: 'rut', mensaje: 'RUT con DV incorrecto o formato inválido' }); return null; }
   var rut = nr.rut;
 
   var leer = opciones.leerPacientes;
-  if (!leer && typeof Modelo_leerPacientes === 'function') leer = Modelo_leerPacientes;
+  if (!leer && typeof Modelo_leerPacientes_ === 'function') leer = Modelo_leerPacientes_;
   if (!leer || typeof leer !== 'function') { err.push({ codigo: 'FICHA_NO_DISPONIBLE', mensaje: 'No se pudo leer la ficha vigente' }); return null; }
 
   var pacientes;
@@ -317,7 +317,7 @@ function CapturaIngress_edicionDesdeForma_(accion, campos, rutForm, opciones, er
   for (var i = 0; i < pacientes.length; i++) {
     var p = pacientes[i];
     var pr = (p && (p.RUT || p.rut)) ? String(p.RUT || p.rut).trim().toUpperCase() : '';
-    try { if (typeof Norm_normalizarRut === 'function') { var pn = Norm_normalizarRut(pr); pr = pn.rut || pr; } } catch (e2) { /* mantener */ }
+    try { if (typeof Norm_normalizarRut_ === 'function') { var pn = Norm_normalizarRut_(pr); pr = pn.rut || pr; } } catch (e2) { /* mantener */ }
     if (pr === rut) { if (hit) { hit = -1; break; } hit = p; }
   }
   if (hit === -1 || !hit) { err.push({ codigo: 'FICHA_NO_DISPONIBLE', mensaje: 'El RUT debe pertenecer a una única ficha vigente' }); return null; }

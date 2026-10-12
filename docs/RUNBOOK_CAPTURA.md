@@ -1,7 +1,7 @@
 # Runbook Captura — ECICEP
 
 Guía operativa del canal de captura (`CapturaWeb → WebApp_capturarRecibirDurable
-→ FormResponse.submit() → Form_worker → Captura V2`). **Normativo de operación**,
+→ FormResponse.submit() → Form_worker_ → Captura V2`). **Normativo de operación**,
 no de contrato; el contrato es `docs/CONTRATO_CAPTURA_V2.md`.
 
 Regla base: la Web App es el único canal de captura; Google Forms es la cola
@@ -34,7 +34,7 @@ la respuesta tardó más de 60 s.
 
 El índice rápido vive en `CacheService`:
 `FORM_REQ:<clientRequestId>` con estados `RESERVED:<ts>` (TTL 120 s) y
-`RECEIVED:<responseId>` (TTL 6 h). Si la caché expira, `Form_worker` y
+`RECEIVED:<responseId>` (TTL 6 h). Si la caché expira, `Form_worker_` y
 `WebApp_verificarRecepcion` escanean solo respuestas recientes (≤ 6 h) y
 repueblan la caché.
 
@@ -48,15 +48,15 @@ La UI mantiene una única máquina `IDLE → SENDING → UNCERTAIN/RECEIVED`
 Síntoma: `Form_saludOperativa_()` reporta `WORKER_TRIGGER_AUSENTE` o
 `BACKLOG_PENDIENTE`; `triggerWorker === 0`.
 
-1. Diagnóstico sin efectos: `Form_operativoDiagnosticar()` / `Form_operativoEstado()`.
+1. Diagnóstico sin efectos: `Form_operativoDiagnosticar_()` / `Form_operativoEstado_()`.
 2. Reparación (dry-run por defecto):
    ```js
-   Form_operativoReparar({ repairTriggers: true, dryRun: true })  // simular
-   Form_operativoReparar({ repairTriggers: true, dryRun: false }) // aplicar
+   Form_operativoReparar_({ repairTriggers: true, dryRun: true })  // simular
+   Form_operativoReparar_({ repairTriggers: true, dryRun: false }) // aplicar
    ```
-   Si no existe trigger de `Form_worker`, crea uno `everyMinutes(5)`.
+   Si no existe trigger de `Form_worker_`, crea uno `everyMinutes(5)`.
 3. Ejecución manual de un lote: `api_formWorkerEjecutarAhora()` (delega en
-   `Form_worker`, sin bypass de dedupe).
+   `Form_worker_`, sin bypass de dedupe).
 4. El worker cuenta elegibles reales, no respuestas crudas; `MAX_POR_CORRIDA`
    limita elegibles por corrida (no respuestas ya procesadas).
 
@@ -79,14 +79,14 @@ Síntoma: `Form_backlogResumen_()` crece; alerta `OLDEST_PENDING_EXCEDIDO`
 
 ## 4. Google Form caído / no accesible
 
-Síntoma: `Form_operativoEstado()` con `error` en `info`, o
+Síntoma: `Form_operativoEstado_()` con `error` en `info`, o
 `FORM_NO_ACCESIBLE` en reconciliación.
 
-1. `Form_operativoReparar({ dryRun: true })` para ver acciones propuestas.
+1. `Form_operativoReparar_({ dryRun: true })` para ver acciones propuestas.
 2. La cola es durable: las capturas web ya aceptadas quedan en
    `FORM_RESPUESTAS`; el worker las drena cuando el Form vuelve.
 3. Si el Form no se puede abrir, **no** recrear uno nuevo sin decidir: consultar
-   `Form_operativoInstalar` (adopta o crea un único Form) y revisar dependencias.
+   `Form_operativoInstalar_` (adopta o crea un único Form) y revisar dependencias.
 4. No se pierde ni se borra ninguna respuesta durante la contingencia.
 
 ---
@@ -95,10 +95,10 @@ Síntoma: `Form_operativoEstado()` con `error` en `info`, o
 
 1. El `FormResponse.submit()` puede completar aunque Sheets falle; la respuesta
    queda en el Form.
-2. Cuando Sheets vuelva, `Form_reconciliarTransporte({ dryRun: true })`
+2. Cuando Sheets vuelva, `Form_reconciliarTransporte_({ dryRun: true })`
    (siempre read-only) lista `nuevos`, `yaEnCola`, `fallidos`.
-3. `Form_worker()` reencola lo `SIN_PROCESAR`. La reconciliación nunca repara
-   por sí sola: la reparación es `Form_operativoReparar()`.
+3. `Form_worker_()` reencola lo `SIN_PROCESAR`. La reconciliación nunca repara
+   por sí sola: la reparación es `Form_operativoReparar_()`.
 
 ---
 
@@ -107,9 +107,9 @@ Síntoma: `Form_operativoEstado()` con `error` en `info`, o
 Síntoma: `INSTALL_SCHEMA_DRIFT` / receptor detecta columnas o items faltantes.
 `GOOGLE_FORM_SCHEMA_VERSION` menor que el esperado.
 
-1. `Form_operativoDiagnosticar()` → detalle de drift.
-2. Dry-run: `Form_operativoReparar({ repairPropiedades: true, dryRun: true })`.
-3. Aplicar: `Form_operativoReparar({ repairPropiedades: true, dryRun: false })`
+1. `Form_operativoDiagnosticar_()` → detalle de drift.
+2. Dry-run: `Form_operativoReparar_({ repairPropiedades: true, dryRun: true })`.
+3. Aplicar: `Form_operativoReparar_({ repairPropiedades: true, dryRun: false })`
    reconstruye `GOOGLE_FORM_CANONICAL_ITEM_MAP` y asegura columnas de transporte.
 4. El receivador de schema drift del worker procesa estas respuestas sin pérdida.
 
@@ -126,7 +126,7 @@ Síntoma: `INSTALL_SCHEMA_DRIFT` / receptor detecta columnas o items faltantes.
 
 ---
 
-## 8. Reparación segura (`Form_operativoReparar`)
+## 8. Reparación segura (`Form_operativoReparar_`)
 
 Contrato de reparación (M04):
 
@@ -135,7 +135,7 @@ Contrato de reparación (M04):
   `repairCatalogos`, `repairPropiedades`.
 - Salida: `{ ok, dryRun, formId, acciones:[{accion, estado, detalle}] }`.
 - **Nunca** borra respuestas ni toca pacientes/eventos/historial clínico.
-- La reconciliación (`Form_reconciliarTransporte`) es **siempre read-only**;
+- La reconciliación (`Form_reconciliarTransporte_`) es **siempre read-only**;
   toda escritura pasa por esta función separada.
 
 ---
@@ -148,7 +148,7 @@ Contrato de reparación (M04):
    las respuestas y columnas de transporte (`TRANSPORTE_ERROR`,
    `CLASIFICACION`). Un rollback no borra filas.
 3. Trigger: si el rollback cambia el handler del worker, reparar con
-   `Form_operativoReparar({ repairTriggers: true, dryRun: false })`.
+   `Form_operativoReparar_({ repairTriggers: true, dryRun: false })`.
 4. Verificar post-rollback: `Form_saludOperativa_()`, `WebApp_verificarRecepcion`
    y un envío de prueba de extremo a extremo.
 
@@ -158,7 +158,7 @@ Contrato de reparación (M04):
 
 1. `Form_saludOperativa_()` sin alertas (`WORKER_TRIGGER_AUSENTE`,
    `BACKLOG_PENDIENTE`, `OLDEST_PENDING_EXCEDIDO`).
-2. `Form_operativoEstado()`: `triggerOnFormSubmit === 1`, `triggerWorker >= 1`,
+2. `Form_operativoEstado_()`: `triggerOnFormSubmit === 1`, `triggerWorker >= 1`,
    `schemaVersion` esperada.
 3. Un envío de prueba: `NO_ENCONTRADO → RECIBIDO → PROCESADO` con el mismo
    `clientRequestId`.

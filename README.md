@@ -25,7 +25,7 @@
 | | |
 |---|---|
 | **Modelo de datos** | `PACIENTES` (estado vigente) + `EVENTOS` (historial inmutable) + vistas derivadas · esquema 2 (MIG-002) |
-| **Canal de captura** | CapturaWeb (UI única) → Google Forms (transporte durable interno) → `Form_worker` → pipeline V4 único |
+| **Canal de captura** | CapturaWeb (UI única) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline V4 único |
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |

@@ -12,15 +12,21 @@
 8. Leer `AGENTS.md` y la documentación vigente relevante antes de cambiar arquitectura o contratos.
 9. No reabrir problemas explícitamente cerrados y validados salvo evidencia nueva de regresión.
 10. Ejecutar los tests correspondientes antes de declarar una tarea terminada.
-11. **El acceso concede siempre (DEC-102).** Ninguna vista ni RPC puede quedar
-    bloqueada por credencial: `WebApp_autorizar` autoriza siempre y el token es
-    trazabilidad inyectada por el servidor, no una puerta. No reintroducir
-    validaciones de token (ni de formato) como condición de una acción, ni
-    `ACCESO_DENEGADO` como motivo de fallo: un fallo del motor se reporta como
-    tal. Si alguna vez debe existir una denegación real, se decide y documenta
-    aquí primero.
+11. **La CAPTURA pública concede siempre (DEC-110).** La captura pública concede
+    siempre y jamás depende de login, OPSESS, `Session.getActiveUser()`, OAuth
+    individual ni permiso editor de Sheet. `WebApp_capturarRecibirDurable`,
+    `WebApp_verificarRecepcion`, `WebApp_estadoInicial` y el estado técnico
+    público (`api_webappEstado`) permanecen anónimos.
+
+    Las vistas/RPC de **OPERADOR y ADMINISTRACIÓN sí requieren sesión OPSESS**.
+    OPSESS no puede bloquear ni ser dependencia de la captura.
+    `ECICEP_ACCESS_TOKEN` es compatibilidad/trazabilidad, no autenticación.
+    Alcance histórico: DEC-101/DEC-102 (acceso universal concedido siempre)
+    describen la etapa previa; DEC-110 los acota: la captura sigue universal,
+    la operación/admin pasa a exigir sesión OPSESS.
 12. Antes de tocar el acceso, ejecutar `node tests/seguridad_webapp_capacidades_vNEXT.mjs`.
-    Esa suite falla si alguien vuelve a condicionar el acceso a un token.
+    Los tests deben garantizar SIMULTÁNEAMENTE: captura pública (sin OPSESS/email/OAuth)
+    y operador/administración protegido (OPSESS obligatorio, superficie pública < 15 globales).
 
 ---
 
@@ -85,13 +91,13 @@ La Web App es la única interfaz operativa destinada a registrar datos de captur
 El flujo contractual anterior (nombres de funciones de captura, `FORM_RESPUESTAS`, estados, acciones, validación e idempotencia) fue retirado deliberadamente y **no debe utilizarse como especificación normativa**. La especificación vigente está definida en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO** — única fuente del contrato de captura).
 
 Google Forms forma parte del flujo vigente solo como cola durable interna:
-`CapturaWeb → WebApp_capturarRecibirDurable → FormResponse.submit() → Form_worker → Captura V2`.
+`CapturaWeb → WebApp_capturarRecibirDurable → FormResponse.submit() → Form_worker_ → Captura V2`.
 El instalador puede adoptar o crear un único Form, registrar sus propiedades y
 mantener un trigger rápido y un worker periódico. No se entrega su URL al usuario,
 no sustituye la Web App y no crea otro pipeline ni otra fuente de verdad.
 
 `src/30_Ingesta.js` contiene el adaptador activo de `GOOGLE_FORMS` hacia el único
-pipeline `Captura_v2_enviar`. Cualquier provider no reconocido termina en
+pipeline `Captura_v2_enviar_`. Cualquier provider no reconocido termina en
 `FALLBACK_PROVIDER_DISABLED` sin escritura. `FORM_RESPUESTAS` sigue siendo la
 cola técnica del mismo pipeline, no una segunda base operativa.
 

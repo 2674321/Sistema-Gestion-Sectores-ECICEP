@@ -5,7 +5,7 @@
  *
  * Flujo vigente (captura V4; contrato docs/CONTRATO_CAPTURA_V2.md):
  *   CapturaWeb.html → WebApp_capturarRecibirDurable → FormResponse.submit()
- *     → Form_worker → CapturaIngress_adapterForms → Captura_v2_enviar.
+ *     → Form_worker_ → CapturaIngress_adapterForms_ → Captura_v2_enviar_.
  * La recepción responde RECIBIDO después de persistir. El worker es el único
  * mutador clínico del transporte y deriva captureId de formId + responseId.
  *
@@ -56,19 +56,19 @@ var WEBAPP_CLAVES_ACCESO_ = [
 
 /** Autoriza el acceso universal: SIEMPRE concede.
  *
- *  DEC-102 (corrección directa del incidente «api_buscar: se requiere
+ *  DEC-102 (corrección directa del incidente «api_buscar_: se requiere
  *  autorización»): la credencial universal se inyecta en cada vista, pero una
  *  pestaña cacheada, un token vacío por una carga previa o un valor heredado
  *  NUNCA deben bloquear una acción. El control real es el enlace del
  *  deployment, no el token; el token se conserva solo para compatibilidad y
  *  diagnóstico. Conceder siempre elimina de raíz la clase de fallo que dejó el
  *  sistema inaccesible (DEC-097 → DEC-101 → DEC-102). */
-function WebApp_autorizar(token) { return true; }
+function WebApp_autorizar_(token) { return true; }
 
 /** Alias de la superficie RPC: una sola capacidad para todo el sistema. */
-function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
+function WebApp_autorizarBuscador_(token) { return WebApp_autorizar_(token); }
 /** Alias del canal de captura: mismo acceso universal, sin capacidades separadas. */
-function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
+function WebApp_autorizarCaptura_(token) { return WebApp_autorizar_(token); }
 
 /**
  * Credencial universal vigente. Devuelve de inmediato el valor existente; solo
@@ -174,14 +174,14 @@ function WebApp_diagnosticoSeguridad_() {
  * de funcionar si la credencial se recupera o rota.
  */
 function WebApp_urlCompartida_() {
-  return ECICEP_webAppUrl();
+  return ECICEP_webAppUrl_();
 }
 
 /** URL de una vista operativa. Sin credencial en la URL: acceso universal. */
 function WebApp_urlVista_(vista) {
   var base = WebApp_urlCompartida_();
   if (!base) return '';
-  var v = Utl_texto(vista).trim();
+  var v = Utl_texto_(vista).trim();
   if (!v) return base;
   // Separador robusto: la base operativa no lleva cadena de consulta, pero si
   // alguna vez la llevara, concatenar '?vista=' produciría una URL inválida.
@@ -241,7 +241,7 @@ function WebApp_usuarioActivo_() {
 function doGet(e) {
   // GET del webhook queda limitado a acciones de solo lectura.
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
-    return _wh_despachar(e, 'GET');
+    return _wh_despachar_(e, 'GET');
   }
   var p = e && e.parameter || {};
   var vista = String(p.vista || 'captura').trim();
@@ -324,8 +324,8 @@ function WebApp_servirCaptura_(accesoUniversal) {
  * campos requeridos y mensajes de éxito) derivado de FORM_CONFIG. La UI pinta
  * y valida con LO MISMO que valida el backend — sin reglas duplicadas a mano.
  */
-function WebApp_esquemaFormulario(acceso) {
-  return Form_esquemaFormulario();
+function WebApp_esquemaFormulario_(acceso) {
+  return Form_esquemaFormulario_();
 }
 
 /**
@@ -333,17 +333,17 @@ function WebApp_esquemaFormulario(acceso) {
  * Cuidado de privacidad: NO se expone TELEFONOS ni OBSERVACIONES al navegador;
  * solo identidad y fechas de operación (los datos que el formulario ya conoce).
  */
-function WebApp_resumenPaciente(p) {
+function WebApp_resumenPaciente_(p) {
   if (!p) return null;
   return {
     idInterno: p.ID_INTERNO || '',
-    nombre: Utl_texto(p.NOMBRE),
-    rut: Utl_texto(p.RUT),
-    sexo: Utl_texto(p.SEXO),
-    fechaNacimiento: Utl_texto(p.FECHA_NACIMIENTO),
-    sector: Utl_texto(p.SECTOR),
-    estratificacion: Utl_texto(p.ESTRATIFICACION),
-    fechaIngreso: Utl_texto(p.FECHA_INGRESO)
+    nombre: Utl_texto_(p.NOMBRE),
+    rut: Utl_texto_(p.RUT),
+    sexo: Utl_texto_(p.SEXO),
+    fechaNacimiento: Utl_texto_(p.FECHA_NACIMIENTO),
+    sector: Utl_texto_(p.SECTOR),
+    estratificacion: Utl_texto_(p.ESTRATIFICACION),
+    fechaIngreso: Utl_texto_(p.FECHA_INGRESO)
   };
 }
 
@@ -352,7 +352,7 @@ function api_webappEstado(acceso) {
     ok: true,
     version: ECICEP.VERSION,
     build: WebApp_buildActual_(),
-    entorno: typeof Entorno_actualGAS !== 'undefined' ? Entorno_actualGAS().entorno : 'DESCONOCIDO',
+    entorno: typeof Entorno_actualGAS_ !== 'undefined' ? Entorno_actualGAS_().entorno : 'DESCONOCIDO',
     url: WebApp_urlCompartida_()
   };
 }
@@ -366,13 +366,13 @@ function api_webappEstado(acceso) {
  *  el formulario no debe quedar semihabilitado sin profesionales cargables. */
 function WebApp_estadoInicial(acceso) {
   try {
-    var profesionales = WebApp_profesionalesDropdown();
+    var profesionales = WebApp_profesionalesDropdown_();
     if (!profesionales || !profesionales.length) {
       return { ok: false, codigo: 'CATALOGO_PROFESIONALES_NO_DISPONIBLE', motivo: 'No fue posible cargar el catálogo de profesionales' };
     }
     return {
       ok: true,
-      esquema: Form_esquemaFormulario(),
+      esquema: Form_esquemaFormulario_(),
       profesionales: profesionales,
       url: WebApp_urlCompartida_(),
       build: WebApp_buildActual_()
@@ -385,10 +385,10 @@ function WebApp_estadoInicial(acceso) {
 /** GAS: catálogo PROFESIONALES para el dropdown de la Web App.
  *  Contrato del api_profesionalesCatalogo retirado: solo profesionales activos,
  *  como nombres canónicos (strings), no objetos. */
-function WebApp_profesionalesDropdown() {
+function WebApp_profesionalesDropdown_() {
   try {
-    if (typeof Captura_v2_catalogo !== 'function') return [];
-    return Captura_v2_catalogo()
+    if (typeof Captura_v2_catalogo_ !== 'function') return [];
+    return Captura_v2_catalogo_()
       .filter(function (c) { return c && c.ACTIVO !== false && (c.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO); })
       .map(function (c) { return c.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO; });
   } catch (e) {

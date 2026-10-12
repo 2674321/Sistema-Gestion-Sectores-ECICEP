@@ -21,13 +21,13 @@ assert.ok(typeof panel.worker.triggerWorkerCount === 'number');
 assert.ok(Number.isInteger(panel.recepciones));
 assert.ok(panel.backlog && typeof panel.backlog.retryable === 'number');
 
-const estado = h.c.Form_operativoEstado();
+const estado = h.c.Form_operativoEstado_();
 assert.doesNotMatch(JSON.stringify(estado), /SECRETA|12345678|988888888|PERSONA/);
 assert.equal(estado.ok, true);
 assert.equal(estado.schemaVersion, h.c.GOOGLE_FORMS_CONFIG.SCHEMA_VERSION);
 
 // El worker manual desde admin delega (no hace bypass): procesa la cola real.
-const ahora = h.c.api_formWorkerEjecutarAhora();
+const ahora = h.c.api_formWorkerEjecutarAhora_();
 assert.equal(ahora.ok, true);
-assert.equal(ahora.procesadas, 1, 'api_formWorkerEjecutarAhora reusa Form_worker');
+assert.equal(ahora.procesadas, 1, 'api_formWorkerEjecutarAhora_ reusa Form_worker_');
 console.log('forms_admin_no_pii_v255: PASS');

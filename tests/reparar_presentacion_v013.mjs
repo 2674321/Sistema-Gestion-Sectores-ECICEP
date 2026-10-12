@@ -20,12 +20,12 @@ const srcO = c.onOpen.toString();
 const mS = srcO.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
 assert.ok(mS, 'menú Sistema existe');
 assert.equal((mS[1].match(/\.addItem/g) || []).length, 3, 'Sistema tiene 3 items');
-assert.match(mS[1], /addItem\('Actualizar sistema', 'UI_actualizarSistema'\)/);
-assert.match(mS[1], /addItem\('Instalar \/ reparar', 'UI_instalarSistema'\)/);
-assert.ok(!/UI_repararPresentacion/.test(mS[1]), 'Reparar presentación fuera del menú');
-assert.ok(!/UI_reconstruirInicio/.test(mS[1]), 'Reconstruir INICIO fuera del menú');
-assert.equal(typeof c.UI_repararPresentacion, 'function', 'wrapper interno conservado');
-assert.equal(typeof c.UI_reconstruirInicio, 'function', 'wrapper interno conservado');
+assert.match(mS[1], /addItem\('Actualizar sistema', 'UI_actualizarSistema_'\)/);
+assert.match(mS[1], /addItem\('Instalar \/ reparar', 'UI_instalarSistema_'\)/);
+assert.ok(!/UI_repararPresentacion_/.test(mS[1]), 'Reparar presentación fuera del menú');
+assert.ok(!/UI_reconstruirInicio_/.test(mS[1]), 'Reconstruir INICIO fuera del menú');
+assert.equal(typeof c.UI_repararPresentacion_, 'function', 'wrapper interno conservado');
+assert.equal(typeof c.UI_reconstruirInicio_, 'function', 'wrapper interno conservado');
 assert.ok(!/getRange\('A1'\)/.test(srcO), 'onOpen no toca A1 de INICIO');
 assert.ok(!/getRange\('Y1'\)/.test(srcO), 'onOpen no toca Y1 de INICIO');
 ok('T1 menú Sistema con 2 items; wrappers internos; onOpen no muta INICIO');
@@ -58,12 +58,12 @@ ok('T3 wrapper reanuda con el mismo cursor entre llamadas al motor');
 
 // T4: verificación no convergente → cierre UI "presentación incompleta".
 const alerts = [];
-c._UI_get = () => ({ Button: { YES: 'YES' }, ButtonSet: { YES_NO: 1, OK: 2, CANCEL: 3 },
+c._UI_get_ = () => ({ Button: { YES: 'YES' }, ButtonSet: { YES_NO: 1, OK: 2, CANCEL: 3 },
   alert: (t, m) => { alerts.push([t, m]); } });
 c.Presentacion_layoutVigente_ = () => true;
 c.Presentacion_ejecutarPaso_ = () => ({ ok: true, continuar: false, cursor: 18,
   verificacion: { ok: false, diferencias: [{ hoja: 'SECTOR_VERDE' }] } });
-const r4 = c.UI_repararPresentacion();
+const r4 = c.UI_repararPresentacion_();
 const a4 = alerts[alerts.length - 1];
 assert.ok(a4[0].toLowerCase().includes('incompleta'), 'título señala presentación incompleta');
 assert.ok(a4[1].toLowerCase().includes('divergencia'), 'mensaje cuenta divergencias');
@@ -72,10 +72,10 @@ ok('T4 UI cierra con presentación incompleta según verificación');
 // T5: fallo de subtarea → UI "Reparación incompleta" con motivo y re-intento.
 c.Presentacion_layoutVigente_ = () => false;
 let confirmo = false;
-c._UI_get = () => ({ Button: { YES: 'YES' }, ButtonSet: { YES_NO: 1, OK: 2, CANCEL: 3 },
+c._UI_get_ = () => ({ Button: { YES: 'YES' }, ButtonSet: { YES_NO: 1, OK: 2, CANCEL: 3 },
   alert: (t, m, bs) => { alerts.push([t, m]); confirmo = true; return 'YES'; } });
 c.Presentacion_ejecutarPaso_ = () => ({ ok: false, continuar: false, motivo: 'formato:INGRESO_NARANJO falló' });
-const r5 = c.UI_repararPresentacion();
+const r5 = c.UI_repararPresentacion_();
 assert.equal(confirmo, true, 'pide confirmación cuando el layout no está vigente');
 const a5 = alerts[alerts.length - 1];
 assert.equal(a5[0], 'Reparación incompleta');
@@ -84,12 +84,12 @@ ok('T5 fallo de subtarea llega como motivo y permite reintentar');
 
 // T6: layout vigente → reparar responde sin rewrites y sin confirmar.
 let confirmado2 = 0;
-c._UI_get = () => ({ Button: { YES: 'YES' }, ButtonSet: { YES_NO: 1, OK: 2, CANCEL: 3 },
+c._UI_get_ = () => ({ Button: { YES: 'YES' }, ButtonSet: { YES_NO: 1, OK: 2, CANCEL: 3 },
   alert: (t, m, bs) => { alerts.push([t, m]); if (t === 'Reparar presentación') confirmado2++; return 'NO'; } });
 c.Presentacion_layoutVigente_ = () => true;
 c.Presentacion_ejecutarPaso_ = () => ({ ok: true, continuar: false, cursor: 18, omitida: true,
   motivo: 'PRESENTACION_VIGENTE', verificacion: { ok: true } });
-const r6 = c.UI_repararPresentacion();
+const r6 = c.UI_repararPresentacion_();
 assert.equal(confirmado2, 0, 'no confirma cuando la presentación ya está vigente');
 assert.equal(r6.ok, true);
 ok('T6 layout vigente → accion no reescribe el libro');

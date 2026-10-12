@@ -58,9 +58,9 @@ function libro(opciones) {
   }
   ctx.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
   ctx.Utilities = { getUuid: () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', formatDate: () => '' };
-  ctx.WebApp_autorizarBuscador = (t) => t === 'tok';
-  ctx.HVis_formatearIngresos = () => ({ ok: true, migrado: false });
-  ctx.Log_info = () => {}; ctx.Log_error = () => {}; ctx.Log_warning = () => {}; ctx.Log_flush = () => {};
+  ctx.WebApp_autorizarBuscador_ = (t) => t === 'tok';
+  ctx.HVis_formatearIngresos_ = () => ({ ok: true, migrado: false });
+  ctx.Log_info_ = () => {}; ctx.Log_error_ = () => {}; ctx.Log_warning_ = () => {}; ctx.Log_flush_ = () => {};
   ctx.SpreadsheetApp = {
     getActiveSpreadsheet: () => ({ getSheetByName: () => null, getSheets: () => [] }),
     openById: () => null,
@@ -95,7 +95,7 @@ function libro(opciones) {
   hoja('PROFESIONALES', campos('COLUMNAS_PROFESIONALES'));
   hoja('RESPONSABLES', campos('COLUMNAS_RESPONSABLES'));
   hoja('CONFIG', [['CLAVE', 'VALOR', 'DESCRIPCION']]);
-  ctx.Modelo_ss = () => ({ getSheetByName: (n) => ctx.hojas[n] || null });
+  ctx.Modelo_ss_ = () => ({ getSheetByName: (n) => ctx.hojas[n] || null });
   if (opciones && opciones.paciente) {
     const p = opciones.paciente;
     const hojaP = ctx.hojas['PACIENTES'];
@@ -116,7 +116,7 @@ test('atomicidad: ficha inválida no escribe (ni PACIENTES ni evento)', () => {
   const c = libro({ paciente: { ID_INTERNO: 'P-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G2', SALUD_MENTAL: 'NO' } });
   const antes = JSON.stringify(c.hojas['PACIENTES'].val);
   const evAntes = c.hojas['EVENTOS'].val.length;
-  const r = c.api_fichaGuardarCambios('P-1', {
+  const r = c.api_fichaGuardarCambios_('P-1', {
     SALUD_MENTAL: { anterior: 'NO', valor: 'QUIZAS' }
   }, 'tok');
   assert.equal(r.ok, false, JSON.stringify(r));
@@ -146,7 +146,7 @@ test('revisión RECHAZAR_MATCH (CREAR) promueve a INGRESO y cierra el caso', () 
     pacientesAgregados = objs;
     return agregarPacientesReal(objs, ctx);
   };
-  const r = c.api_revisionResolver(2, 'RECHAZAR_MATCH', 'tok');
+  const r = c.api_revisionResolver_(2, 'RECHAZAR_MATCH', 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.accion, 'CREAR');
   assert.equal(c.hojas['CONFLICTOS'].val[1][8], 'RESUELTO');
@@ -166,7 +166,7 @@ test('revisión idempotente: caso ya RESUELTO no se reprocesa', () => {
   let escritos = 0;
   c.Modelo_agregarEventos_ = () => { escritos++; return 1; };
   c.Modelo_agregarPacientes_ = () => { escritos++; return 1; };
-  const r = c.api_revisionResolver(2, 'RECHAZAR_MATCH', 'tok');
+  const r = c.api_revisionResolver_(2, 'RECHAZAR_MATCH', 'tok');
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'CONFLICTO_YA_RESUELTO');
   assert.equal(escritos, 0, 'sin mutaciones en caso resuelto');
@@ -193,7 +193,7 @@ test('cambio de estratificación registra evento solo cuando el valor vigente ca
   const c = libro({ paciente: { ID_INTERNO: 'P-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G2', CONDICIONES: 'HTA' } });
   let eventosEscritos = null;
   c.Modelo_agregarEventos_ = (evs, usu, ctx) => { eventosEscritos = evs; return 1; };
-  c.Modelo_leerPacientes = () => {
+  c.Modelo_leerPacientes_ = () => {
     return c.hojas['PACIENTES'].val.slice(3).map((f) => {
       const PAC = c._PAC || null;
       return null;
@@ -216,11 +216,11 @@ function ctxHackPaciente(c, pac) {
   c._PAC = PAC;
   const obj = {};
   PAC.forEach((k) => { obj[k] = pac[k] !== undefined ? pac[k] : ''; });
-  c.Modelo_leerPacientes = () => [obj];
-  c.Modelo_filaDesdeObjeto = (o) => PAC.map((k) => o[k] !== undefined ? o[k] : '');
-  c.Modelo_invalidarLecturas = () => {};
+  c.Modelo_leerPacientes_ = () => [obj];
+  c.Modelo_filaDesdeObjeto_ = (o) => PAC.map((k) => o[k] !== undefined ? o[k] : '');
+  c.Modelo_invalidarLecturas_ = () => {};
   c.Modelo_refrescarVistasSectores_ = () => {};
-  c._ingresosUsuarioActual = () => 'test@ecicep.cl';
+  c._ingresosUsuarioActual_ = () => 'test@ecicep.cl';
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ test('locks: mutaciones compuestas envuelven la mutación atómica', () => {
   const c = libro({ paciente: { ID_INTERNO: 'P-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G2' } });
   const p = c.hojas['PACIENTES'];
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {}, hasLock: () => true }) };
-  const r = c.api_fichaGuardarCambios('P-1', {
+  const r = c.api_fichaGuardarCambios_('P-1', {
     TELEFONOS: { anterior: '', valor: '911111111' }
   }, 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
@@ -239,7 +239,7 @@ test('locks: mutaciones compuestas envuelven la mutación atómica', () => {
 test('locks: sin LockService la mutación sigue funcionando (entorno acotado)', () => {
   const c = libro({ paciente: { ID_INTERNO: 'P-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO' } });
   delete c.LockService;
-  const r = c.api_fichaGuardarCambios('P-1', {
+  const r = c.api_fichaGuardarCambios_('P-1', {
     TELEFONOS: { anterior: '', valor: '922222222' }
   }, 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
@@ -252,7 +252,7 @@ test('vista derivada fallida: ficha se guarda y el fallo de vista queda acotado'
   const c = libro({ paciente: { ID_INTERNO: 'P-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G2' } });
   let refrescos = 0;
   c.Modelo_refrescarVistasSectores_ = () => { refrescos++; throw Error('VISTA_SIMULADA'); };
-  const r = c.api_fichaGuardarCambios('P-1', {
+  const r = c.api_fichaGuardarCambios_('P-1', {
     TELEFONOS: { anterior: '', valor: '933333333' }
   }, 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
@@ -262,12 +262,12 @@ test('vista derivada fallida: ficha se guarda y el fallo de vista queda acotado'
 test('recálculo masivo: estrat se escribe y el evento CAMBIO_ESTRATIFICACION persiste', () => {
   const c = libro({ paciente: { ID_INTERNO: 'P-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: '', CONDICIONES: 'HTA', ESTRAT_FECHA_CALCULO: '' } });
   ctxHackPaciente(c, { ID_INTERNO: 'P-1', RUT: '11111111-1', SECTOR: 'NARANJO', ESTRATIFICACION: '', CONDICIONES: 'HTA' });
-  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G1', puntaje: 0, regla: 'r' });
+  c.Estrat_evaluar_ = () => ({ estado: 'CALCULADO', resultado: 'G1', puntaje: 0, regla: 'r' });
   const eventosAntes = c.hojas['EVENTOS'].val.length;
   const r = c.Estrat_recalcularTodos_();
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.recalculados, 1);
-  const eventos = c.Modelo_leerEventos();
+  const eventos = c.Modelo_leerEventos_();
   const ev = eventos.find((e) => e.TIPO_EVENTO === 'CAMBIO_ESTRATIFICACION');
   assert.ok(ev, 'evento persistido');
   assert.equal(ev.RIESGO_G, 'G1');

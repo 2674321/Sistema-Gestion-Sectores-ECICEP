@@ -35,8 +35,8 @@ assert.equal(c.Presentacion_VerificacionResultado_(), rParidad.detalle,
 ok('T3 paridad: tarea reporta divergencias sin fallar');
 
 // T4: verificar con divergencias termina ok:true y el memo queda ok:false.
-c.Modelo_ss = () => ({ getSheetByName: () => null });
-c.HVis_diagnosticarTodas = () => ({ diagnostico: {} });
+c.Modelo_ss_ = () => ({ getSheetByName: () => null });
+c.HVis_diagnosticarTodas_ = () => ({ diagnostico: {} });
 const rVer = c.Presentacion_ejecutarTarea_({ id: 'verificar', nombre: 'Verificación final de presentación' });
 assert.equal(rVer.ok, true, 'verificar no es una subtarea fatal');
 assert.equal(c.Presentacion_VerificacionResultado_().ok, false);
@@ -53,12 +53,12 @@ assert.match(pp, /^pp014\|[0-9a-f]{8}$/);
 ok('T6 fingerprint de presentación pp014|fnv1a32 sobre contratos visuales');
 
 // T7: integración — paridad real divergente mantiene ok:false en el plan completo.
-c.Modelo_aplicarDiseno = () => ({ ok: true });
-c.Hojas_formatoCondicional = () => ({ ok: true, aplicadas: 0, errores: [] });
-c.Hojas_colorearRutIngresos = () => ({ coloreadas: 0, fallidas: [] });
-c.Hojas_ocultarTecnicas = () => ({ ocultas: 0 });
-c.Hojas_proteger = () => ({ protecciones: 0 });
-c.Hojas_filtros = () => ({ filtros: 0 });
+c.Modelo_aplicarDiseno_ = () => ({ ok: true });
+c.Hojas_formatoCondicional_ = () => ({ ok: true, aplicadas: 0, errores: [] });
+c.Hojas_colorearRutIngresos_ = () => ({ coloreadas: 0, fallidas: [] });
+c.Hojas_ocultarTecnicas_ = () => ({ ocultas: 0 });
+c.Hojas_proteger_ = () => ({ protecciones: 0 });
+c.Hojas_filtros_ = () => ({ filtros: 0 });
 c.Inicio_construir_ = () => ({ ok: true });
 const paso = c.Presentacion_ejecutarPaso_('diseno', 'ECICEP_TEST_CONVERGENCIA');
 assert.equal(paso.ok, true);

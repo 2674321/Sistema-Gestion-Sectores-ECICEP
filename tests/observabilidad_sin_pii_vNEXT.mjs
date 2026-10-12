@@ -23,11 +23,11 @@ function hojaFake(vals) {
     createTextFinder:find
   };
 }
-const hfr = hojaFake([Array.from(ctx.Form_columnas())]);
+const hfr = hojaFake([Array.from(ctx.Form_columnas_())]);
 const hEv = hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)]);
 const ss = { getSheetByName: (n) => { if (n === 'EVENTOS') return hEv; if (n === 'FORM_RESPUESTAS') return hfr; return hojaFake([]); }, insertSheet: (n) => hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)]) };
-ctx.Modelo_ss = () => ss;
-ctx.Modelo_hoja = (n) => ss.getSheetByName(n);
+ctx.Modelo_ss_ = () => ss;
+ctx.Modelo_hoja_ = (n) => ss.getSheetByName(n);
 ctx.Session = { getActiveUser: () => ({ getEmail: () => 't@e.cl' }) };
 
 const captureId = 'Cp4-' + 'b'.repeat(32);
@@ -35,11 +35,11 @@ const rut = '11111111-1';
 const nombre = 'Paciente Observabilidad';
 const payload = { captureId, accion: 'nuevoIngreso', rut, nombre, fechaNacimiento: '1980-05-05', sector: 'AMARILLO', fechaIngreso: '2026-09-05', profesional: 'Médico/a', telefonos: '9 9999 9999' };
 
-const c = ctx.Captura_v2_ctx();
+const c = ctx.Captura_v2_ctx_();
 c.entregar = (norm, op) => ({ estado: 'PROCESADO', idInterno: 'EC-1', idEvento: 'EV-0001', ingresoHoja: 'INGRESO_AMARILLO', ingresoFila: '7' });
 c.aplicarAgenda = null;
 c.aplicarContacto = null;
-const res = ctx.Captura_v2_enviar(payload, c);
+const res = ctx.Captura_v2_enviar_(payload, c);
 assert.equal(res.ok, true, 'entrega procesada');
 assert.equal(res.data.estado, 'PROCESADO', 'estado final PROCESADO');
 
@@ -60,7 +60,7 @@ if (c.medidas) {
 
 // 3) logMedidas: captureId TRUNCADO y sin PII.
 const antes = logs.length;
-ctx.Captura_v2_logMedidas(c, captureId);
+ctx.Captura_v2_logMedidas_(c, captureId);
 const neue = logs.slice(antes).join('\n');
 assert.ok(neue.includes('fases=RECIBIDO>PERSISTIDO>PROCESADO') || neue.includes('fases='), 'volcado incluye fases');
 assert.ok(captureId.length > 8, 'captureId real es largo');

@@ -18,9 +18,9 @@ c.Utilities = { getUuid: () => '12345678-1234-4123-8123-123456789abc', formatDat
 c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
 const clave = c.WebApp_claveOperador_();
 c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
-c.Mig_schemaLeido = () => '2';
+c.Mig_schemaLeido_ = () => '2';
 c.Instalar_asegurarBackup_ = () => ({ ok: true, creado: false });
-c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
+c.Log_info_ = () => {}; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
 
 // T1+2+5: full install transmite forzarInicio; pDiseno reenvía; force borra INICIO.
 {
@@ -29,7 +29,7 @@ c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
   c.Presentacion_ejecutarPaso_ = (etapa, ej, op) => { pasoArgs = [etapa, ej, op]; return { ok: true }; };
   const realBorrar = c.Inicio_borrarLayout_;
   c.Inicio_borrarLayout_ = () => { borrados++; };
-  assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-F', { forzarInicio: true }).ok, true);
+  assert.equal(c.api_instalarPaso_('diseno', clave, 'EJ-F', { forzarInicio: true }).ok, true);
   assert.equal(pasoArgs[0], 'diseno');
   assert.equal(pasoArgs[2] && pasoArgs[2].forzarInicio, true, 'opciones llegan al motor');
   assert.equal(borrados, 1, 'force invalida INICIO_LAYOUT_PROP');
@@ -45,7 +45,7 @@ c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
   const constr = [];
   c.Inicio_borrarLayout_ = () => { borrados++; };
   c.Inicio_construir_ = (ss, op) => { constr.push(op && op.forzar); return { ok: true }; };
-  c.Modelo_ss = () => ({});
+  c.Modelo_ss_ = () => ({});
   const r = c.Presentacion_ejecutarTarea_({ id: 'inicio', nombre: 'Portada INICIO' }, { forzarInicio: true });
   assert.equal(r.ok, true);
   assert.equal(borrados, 1);
@@ -76,8 +76,8 @@ c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
   props.set(vm.runInContext('PRESENTACION_LAYOUT_PROP', c),
     JSON.stringify({ version: vm.runInContext('PRESENTACION_LAYOUT_VERSION', c),
       fingerprint: c.Presentacion_fingerprintEsperado_() }));
-  c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
-  c.HVis_diagnosticarTodas = () => ({ diagnostico: {} });
+  c.Modelo_ss_ = () => ({ getSheetByName: () => ({}) });
+  c.HVis_diagnosticarTodas_ = () => ({ diagnostico: {} });
   c.Inicio_layoutVigente_ = () => false;
   c.HVis_compararFamilia_ = () => ({ ok: true, cantidadDiferencias: 0, diferencias: [] });
   assert.equal(c.Presentacion_layoutVigente_({}), false, 'INICIO viejo impide el fast-path');
@@ -104,17 +104,17 @@ c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
     'SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE', 'EVENTOS'];
   const fishing = {};
   hojas.forEach(h => { fishing[h] = 0; });
-  c.Modelo_aplicarDiseno = () => ({ ok: true });
+  c.Modelo_aplicarDiseno_ = () => ({ ok: true });
   c.Hojas_aplicarValidaciones_ = () => ({ ok: true });
   c.Hojas_aplicarNotas_ = () => ({ ok: true });
-  c.Hojas_formatoCondicional = () => ({ ok: true });
-  c.Hojas_colorearRutIngresos = () => ({ fallidas: [] });
-  c.Hojas_ocultarTecnicas = () => ({});
-  c.Hojas_proteger = () => ({});
-  c.Hojas_filtros = () => ({});
+  c.Hojas_formatoCondicional_ = () => ({ ok: true });
+  c.Hojas_colorearRutIngresos_ = () => ({ fallidas: [] });
+  c.Hojas_ocultarTecnicas_ = () => ({});
+  c.Hojas_proteger_ = () => ({});
+  c.Hojas_filtros_ = () => ({});
   c.Inicio_construir_ = () => ({ ok: true });
   c.HVis_compararFamilia_ = () => ({ ok: true, cantidadDiferencias: 0, diferencias: [] });
-  c.HVis_diagnosticarTodas = () => ({ diagnostico: {} });
+  c.HVis_diagnosticarTodas_ = () => ({ diagnostico: {} });
   c.Presentacion_formatearHoja_ = nombre => { fishing[nombre]++; return { ok: true, aplicados: 0 }; };
   c.Presentacion_layoutVigente_ = () => false;
   c.Presentacion_verificar_ = () => ({ ok: false, diferencias: ['INICIO:PENDIENTE'] });

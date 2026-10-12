@@ -77,20 +77,20 @@ ok('T7 ESTADO, PRIORIDADES, ESTRATIFICACIÓN, INFO y FOOTER desde el contrato');
 // T8: comparación de colores normalizada (regresión coloresBase en hoja real:
 // getBackground() devuelve '#rrggbb' minúsculas o 'rgb(...)'; los tokens están
 // en '#RRGGBB'. La igualdad cruda falla aunque el pincel pinte el color exacto).
-assert.equal(c.Utl_colorIgual('#0E5C68', '#0e5c68'), true, 'mismo color en hex distinto caso');
-assert.equal(c.Utl_colorIgual('#0B3C49', 'rgb(11,60,73)'), true, 'hex vs rgb');
-assert.equal(c.Utl_colorIgual('  #0e5c68 ', '#0E5C68'), true, 'espacios ignorados');
-assert.equal(c.Utl_colorIgual('#0E5C68', '#0F5C68'), false, 'colores distintos no igualan');
-assert.equal(c.Utl_colorIgual('transparent', 'transparent'), true, 'transparent coincide');
-assert.equal(c.Utl_colorIgual('transparent', '#FFFFFF'), false, 'transparent != blanco');
-ok('T8 Utl_colorIgual normaliza hex/rgb y no false-positiva');
+assert.equal(c.Utl_colorIgual_('#0E5C68', '#0e5c68'), true, 'mismo color en hex distinto caso');
+assert.equal(c.Utl_colorIgual_('#0B3C49', 'rgb(11,60,73)'), true, 'hex vs rgb');
+assert.equal(c.Utl_colorIgual_('  #0e5c68 ', '#0E5C68'), true, 'espacios ignorados');
+assert.equal(c.Utl_colorIgual_('#0E5C68', '#0F5C68'), false, 'colores distintos no igualan');
+assert.equal(c.Utl_colorIgual_('transparent', 'transparent'), true, 'transparent coincide');
+assert.equal(c.Utl_colorIgual_('transparent', '#FFFFFF'), false, 'transparent != blanco');
+ok('T8 Utl_colorIgual_ normaliza hex/rgb y no false-positiva');
 
 // T9: el verifier INICIO usa la comparación normalizada (coloresBase real).
 const verSrc = c.Inicio_verificar_.toString();
-assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('A1'\)\.getBackground\(\), M\.sistemaProfundo\)/);
-assert.match(verSrc, /Utl_colorIgual\(h\.getRange\('Y15'\)\.getBackground\(\), IDENTIDAD\.VERDE\)/);
+assert.match(verSrc, /Utl_colorIgual_\(h\.getRange\('A1'\)\.getBackground\(\), M\.sistemaProfundo\)/);
+assert.match(verSrc, /Utl_colorIgual_\(h\.getRange\('Y15'\)\.getBackground\(\), IDENTIDAD\.VERDE\)/);
 assert.doesNotMatch(verSrc, /getBackground\(\) === /);
-ok('T9 coloresBase del verifier usa Utl_colorIgual');
+ok('T9 coloresBase del verifier usa Utl_colorIgual_');
 
 // T10: el contrato PRO se construye y verifica sin fórmulas vivas.
 assert.match(constr, /getRange\(cto\.estadoGeneralRango\)\.merge\(\)\.setValue\('Panel operativo/);

@@ -7,7 +7,7 @@ Contrato operativo de la cola durable de captura. Complementa
 
 `RECIBIDO` solo significa que Google Forms aceptó la respuesta
 (`FormResponse.submit()` devolvió un `responseId`). El pipeline clínico todavía
-no la tocó. `PROCESADO` significa que `Form_worker` la entregó a `Captura V2` y
+no la tocó. `PROCESADO` significa que `Form_worker_` la entregó a `Captura V2` y
 fue clasificada.
 
 Consecuencia práctica: un `RECIBIDO` sin `PROCESADO` **no** es un error; es

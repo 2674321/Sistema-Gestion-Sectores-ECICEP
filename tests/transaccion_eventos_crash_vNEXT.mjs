@@ -79,9 +79,9 @@ function libro() {
   }
   ctx.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
   ctx.Utilities = { getUuid: () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', formatDate: () => '' };
-  ctx.WebApp_autorizarBuscador = (t) => t === 'tok';
-  ctx.HVis_formatearIngresos = () => ({ ok: true, migrado: false });
-  ctx.Log_info = () => {}; ctx.Log_error = () => {}; ctx.Log_warning = () => {}; ctx.Log_flush = () => {};
+  ctx.WebApp_autorizarBuscador_ = (t) => t === 'tok';
+  ctx.HVis_formatearIngresos_ = () => ({ ok: true, migrado: false });
+  ctx.Log_info_ = () => {}; ctx.Log_error_ = () => {}; ctx.Log_warning_ = () => {}; ctx.Log_flush_ = () => {};
   ctx.SpreadsheetApp = {
     getActiveSpreadsheet: () => ({ getSheetByName: () => null, getSheets: () => [] }),
     openById: () => null,
@@ -122,7 +122,7 @@ function libro() {
   const cfgF = hojaFake([['CLAVE', 'VALOR', 'DESCRIPCION']]);
   ctx.hojas['CONFIG'] = cfgF;
 
-  ctx.Modelo_ss = () => ({ getSheetByName: (n) => ctx.hojas[n] || null });
+  ctx.Modelo_ss_ = () => ({ getSheetByName: (n) => ctx.hojas[n] || null });
 
   // La mayoría de regresiones históricas inspeccionan el estado transitorio
   // INGRESADO. La limpieza productiva se habilita explícitamente si se quiere.
@@ -145,12 +145,12 @@ function filaIngresoValida(opc) {
 test('T1 control: ingreso válido → 1 PACIENTE + 1 EVENTO + INGRESADO', () => {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoValida();
-  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  const r = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.resumen.nuevos, 1);
   assert.equal(r.resumen.eventosCreados, 1);
-  assert.equal(c.Modelo_leerPacientes().length, 1);
-  assert.equal(c.Modelo_leerEventos().length, 1);
+  assert.equal(c.Modelo_leerPacientes_().length, 1);
+  assert.equal(c.Modelo_leerEventos_().length, 1);
   assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], 'INGRESADO');
 });
 
@@ -166,7 +166,7 @@ test('T2 crash EVENTOS → rollback PACIENTES sin huérfano + retry converge', (
 
   let r;
   try {
-    r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+    r = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   } catch (e) {
     r = { ok: false, motivo: String((e && e.message) || e) };
   }
@@ -177,18 +177,18 @@ test('T2 crash EVENTOS → rollback PACIENTES sin huérfano + retry converge', (
 
   // SIN huérfanos: el paciente recién anexado fue retirado.
   assert.equal(c.hojas['PACIENTES'].val.length, 3, 'rollback: fila anexada retirada (quedan 3 cabeceras)');
-  assert.equal(c.Modelo_leerPacientes().length, 0, '0 pacientes tras rollback');
+  assert.equal(c.Modelo_leerPacientes_().length, 0, '0 pacientes tras rollback');
   assert.equal(c.hojas['EVENTOS'].val.length, 1, 'ningún evento fantasma');
   assert.equal(c.hojas['SECTOR_NARANJO'].val.length, 3, 'sin perfil sectorial fantasma');
   assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], '', 'no se marca INGRESADO sin persitir');
 
   // RETRY: converge exactamente (idempotencia de la fila física, sin duplicar).
-  const r2 = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  const r2 = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   assert.equal(r2.ok, true, JSON.stringify(r2));
-  assert.equal(c.Modelo_leerPacientes().length, 1, '1 paciente tras retry');
-  assert.equal(c.Modelo_leerEventos().length, 1, '1 evento INGRESO tras retry');
-  assert.equal(c.Modelo_leerPacientes()[0].RUT, rutOk(12345678), 'el paciente es el esperado');
-  assert.equal(c.Modelo_leerEventos()[0].ID_INTERNO, c.Modelo_leerPacientes()[0].ID_INTERNO, 'evento ligado al paciente');
+  assert.equal(c.Modelo_leerPacientes_().length, 1, '1 paciente tras retry');
+  assert.equal(c.Modelo_leerEventos_().length, 1, '1 evento INGRESO tras retry');
+  assert.equal(c.Modelo_leerPacientes_()[0].RUT, rutOk(12345678), 'el paciente es el esperado');
+  assert.equal(c.Modelo_leerEventos_()[0].ID_INTERNO, c.Modelo_leerPacientes_()[0].ID_INTERNO, 'evento ligado al paciente');
   assert.equal(c.hojas['INGRESO_NARANJO'].val[3][9], 'INGRESADO', 'retry completa el flujo');
 });
 

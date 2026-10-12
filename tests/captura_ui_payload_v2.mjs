@@ -325,8 +325,8 @@ t('H2: _poblarDropdowns() también se invoca en el failure handler', () => {
 
 t('H3: el catálogo que recibe el dropdown son nombres canónicos (strings de activos), no objetos', () => {
   const gs = readFileSync(path.join(raiz, 'src/WebApp.gs'), 'utf8');
-  A(gs.indexOf('function WebApp_profesionalesDropdown') !== -1, 'helper de dropdown presente en WebApp.gs');
-  const body = gs.slice(gs.indexOf('function WebApp_profesionalesDropdown'));
+  A(gs.indexOf('function WebApp_profesionalesDropdown_') !== -1, 'helper de dropdown presente en WebApp.gs');
+  const body = gs.slice(gs.indexOf('function WebApp_profesionalesDropdown_'));
   A(body.indexOf('.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO') !== -1, 'devuelve NOMBRE_CANONICO (string), no el objeto');
   A(body.indexOf('filter(function (c) { return c && c.ACTIVO !== false') !== -1, 'solo profesionales activos');
 });

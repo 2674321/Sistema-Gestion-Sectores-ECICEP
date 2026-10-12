@@ -14,16 +14,16 @@ function run(file) {
 }
 
 check('UI_SELECTOR_DROPDOWN', /<select id="accion"/.test(html) && !/type="radio" name="accion"/.test(html));
-check('DURABLE_RPC', /\.WebApp_capturarRecibirDurable\(datos,/.test(html) && !/\.WebApp_previaDuplicadosV2\(datos,/.test(html));
+check('DURABLE_RPC', /\.WebApp_capturarRecibirDurable\(datos,/.test(html) && !/\.WebApp_previaDuplicadosV2_\(datos,/.test(html));
 check('FORM_EXPLICIT_ADOPTION', /opciones\.formId \|\| Form_formId_\(\)/.test(forms));
 check('NO_ACCIDENTAL_FORM_CREATE', /opciones\.crearNuevo !== true/.test(forms));
 check('GLOBAL_ACTION_CANONICAL', /GLOBAL\|ACCION/.test(forms));
 check('CANONICAL_ITEM_MAP', /GOOGLE_FORM_CANONICAL_ITEM_MAP/.test(forms));
 const installer = run('tests/forms_installer_idempotence_v254.mjs');
 check('NO_ARTIFICIAL_SUBMIT_ITEM', installer.ok, installer.detail);
-check('WORKER_TRIGGER', /newTrigger\('Form_worker'\)[\s\S]*everyMinutes\(5\)/.test(forms));
-const onSubmit = forms.slice(forms.indexOf('function Form_onFormSubmit'), forms.indexOf('function Form_desdeCursor_'));
-check('WORKER_ONLY_CLINICAL_PATH', !/Captura_v2_enviar|CapturaIngress_enviar|LockService|GOOGLE_FORM_CURSOR/.test(onSubmit));
+check('WORKER_TRIGGER', /newTrigger\('Form_worker_'\)[\s\S]*everyMinutes\(5\)/.test(forms));
+const onSubmit = forms.slice(forms.indexOf('function Form_onFormSubmit_'), forms.indexOf('function Form_desdeCursor_'));
+check('WORKER_ONLY_CLINICAL_PATH', !/Captura_v2_enviar_|CapturaIngress_enviar_|LockService|GOOGLE_FORM_CURSOR/.test(onSubmit));
 check('LOCK_WAIT_SHORT', /LOCK_WAIT_MS:\s*750/.test(config) && !/tryLock\(12000\)/.test(forms));
 const backlog = run('tests/worker_backlog_v254.mjs'); check('SAFE_CURSOR', backlog.ok, backlog.detail);
 const roundtrip = run('tests/forms_roundtrip_v254.mjs'); check('ROUNDTRIP_4_ACTIONS', roundtrip.ok, roundtrip.detail);

@@ -16,13 +16,13 @@ const vacio = () => ({ getSheetByName: () => null });
 
 // T1: detección de producción (criterio conservador, sin versión).
 {
-  c.Modelo_ss = vacio;
+  c.Modelo_ss_ = vacio;
   let e = c.Datos_estadoProduccion_();
   assert.equal(JSON.stringify({ p: e.pacientes, e: e.eventos, prod: e.produccion }),
     JSON.stringify({ p: 0, e: 0, prod: false }));
-  const iniP = c.Modelo_dataStartRow(c.HOJAS.PACIENTES);
-  const iniE = c.Modelo_dataStartRow(c.HOJAS.EVENTOS);
-  c.Modelo_ss = () => ({ getSheetByName: n =>
+  const iniP = c.Modelo_dataStartRow_(c.HOJAS.PACIENTES);
+  const iniE = c.Modelo_dataStartRow_(c.HOJAS.EVENTOS);
+  c.Modelo_ss_ = () => ({ getSheetByName: n =>
     n === c.HOJAS.PACIENTES ? hojaCon(iniP + 1233) :
     n === c.HOJAS.EVENTOS ? hojaCon(iniE + 5677) : null });
   e = c.Datos_estadoProduccion_();

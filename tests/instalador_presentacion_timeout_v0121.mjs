@@ -14,7 +14,7 @@ let n = 0;
 const ok = (m) => { n++; console.log('[PASS] ' + m); };
 const L = (expr) => vm.runInContext(expr, c);
 const DISENO = L('DESIGN_SYSTEM');
-const fecha = c.Modelo_headerRow('EVENTOS') === 1 ? '' : '';
+const fecha = c.Modelo_headerRow_('EVENTOS') === 1 ? '' : '';
 
 // --- T1: plan de la etapa diseno ---
 const plan = c.PRESENTACION_SUBPLAN_DISENO;
@@ -62,22 +62,22 @@ c.CacheService = { getScriptCache: () => cacheSingleton };
 let seqBase = 0, seqVer = 0, seqCond = 0;
 const seqAcc = { rut: 0, ocultas: 0, protecciones: 0, filtros: 0 };
 const subtareasOriginales = {
-  condicionales: c.Hojas_formatoCondicional,
-  rut: c.Hojas_colorearRutIngresos,
-  ocultas: c.Hojas_ocultarTecnicas,
-  protecciones: c.Hojas_proteger,
-  filtros: c.Hojas_filtros,
+  condicionales: c.Hojas_formatoCondicional_,
+  rut: c.Hojas_colorearRutIngresos_,
+  ocultas: c.Hojas_ocultarTecnicas_,
+  protecciones: c.Hojas_proteger_,
+  filtros: c.Hojas_filtros_,
   inicio: c.Inicio_construir_,
   paridad: c.HVis_compararFamilia_
 };
-c.Modelo_aplicarDiseno = () => { seqBase++; return { ok: true }; };
-c.HVis_diagnosticarTodas = () => { seqVer++; return { diagnostico: {} }; };
-c.Hojas_formatoCondicional = () => { seqCond++; return { ok: true, aplicadas: 0, errores: [] }; };
-c.Hojas_colorearRutIngresos = () => { seqAcc.rut++; return { coloreadas: 0, fallidas: [] }; };
-c.Hojas_ocultarTecnicas = () => { seqAcc.ocultas++; return { ocultas: 0 }; };
-c.Hojas_proteger = () => { seqAcc.protecciones++; return { protecciones: 0 }; };
-c.Hojas_filtros = () => { seqAcc.filtros++; return { filtros: 0 }; };
-c.Modelo_ss = () => ({ getSheetByName: () => null });
+c.Modelo_aplicarDiseno_ = () => { seqBase++; return { ok: true }; };
+c.HVis_diagnosticarTodas_ = () => { seqVer++; return { diagnostico: {} }; };
+c.Hojas_formatoCondicional_ = () => { seqCond++; return { ok: true, aplicadas: 0, errores: [] }; };
+c.Hojas_colorearRutIngresos_ = () => { seqAcc.rut++; return { coloreadas: 0, fallidas: [] }; };
+c.Hojas_ocultarTecnicas_ = () => { seqAcc.ocultas++; return { ocultas: 0 }; };
+c.Hojas_proteger_ = () => { seqAcc.protecciones++; return { protecciones: 0 }; };
+c.Hojas_filtros_ = () => { seqAcc.filtros++; return { filtros: 0 }; };
+c.Modelo_ss_ = () => ({ getSheetByName: () => null });
 c.Inicio_construir_ = () => ({ ok: true });
 c.HVis_compararFamilia_ = () => ({ ok: true, cantidadDiferencias: 0, diferencias: [] });
 const presupOriginal = c.PRESUPUESTO_PRESENTACION_MS;
@@ -111,11 +111,11 @@ assert.deepEqual(seqAcc, { rut: 1, ocultas: 1, protecciones: 1, filtros: 1 },
 assert.equal(seqVer, 1, 'verificar se ejecuta una sola vez');
 assert.equal(cacheSingleton.map.size, 0, 'cursor limpio al terminar');
 Object.assign(c, {
-  Hojas_formatoCondicional: subtareasOriginales.condicionales,
-  Hojas_colorearRutIngresos: subtareasOriginales.rut,
-  Hojas_ocultarTecnicas: subtareasOriginales.ocultas,
-  Hojas_proteger: subtareasOriginales.protecciones,
-  Hojas_filtros: subtareasOriginales.filtros,
+  Hojas_formatoCondicional_: subtareasOriginales.condicionales,
+  Hojas_colorearRutIngresos_: subtareasOriginales.rut,
+  Hojas_ocultarTecnicas_: subtareasOriginales.ocultas,
+  Hojas_proteger_: subtareasOriginales.protecciones,
+  Hojas_filtros_: subtareasOriginales.filtros,
   Inicio_construir_: subtareasOriginales.inicio,
   HVis_compararFamilia_: subtareasOriginales.paridad
 });
@@ -130,7 +130,7 @@ const cacheSingleton2 = {
   remove: function (k) { this.map.delete(k); }
 };
 c.CacheService = { getScriptCache: () => cacheSingleton2 };
-c.Modelo_aplicarDiseno = () => ({ fallidas: ['PACIENTES: error'] });
+c.Modelo_aplicarDiseno_ = () => ({ fallidas: ['PACIENTES: error'] });
 const rf = c.Instalar_pDiseno_(ejec);
 assert.equal(rf.ok, false);
 assert.match(rf.motivo, /PACIENTES: error/);
@@ -142,7 +142,7 @@ assert.equal(rf.progreso.total, T);
 assert.equal(cacheFallida.size, 0, 'fallo no persiste cursor');
 ok('T7 fallo en base: ok=false, cursor 0 y caché intacta (reintento idempotente)');
 
-// --- T8: api_instalarPaso pasa el _EJEC al motor reanudable ---
+// --- T8: api_instalarPaso_ pasa el _EJEC al motor reanudable ---
 c.PRESUPUESTO_PRESENTACION_MS = presupOriginal;
 const props8 = new Map([['OPERADOR_ACCESS_TOKEN','d'.repeat(64)]]);
 c.PropertiesService = { getScriptProperties: () => ({
@@ -156,7 +156,7 @@ c.Presentacion_ejecutarPaso_ = function (etapa, ej) { visto.push([etapa, ej]); r
 const clave = c.WebApp_claveOperador_();
 c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
 c.Instalar_asegurarBackup_ = () => ({ ok: true, creado: false });
-const rd = c.api_instalarPaso('diseno', clave, 'EJ-9');
+const rd = c.api_instalarPaso_('diseno', clave, 'EJ-9');
 assert.equal(rd.ok, true);
 assert.deepEqual(Array.from(visto), [['diseno', 'EJ-9']]);
 c.Presentacion_ejecutarPaso_ = realPaso;
@@ -178,9 +178,9 @@ assert.ok(tareasVistas9.some(id => id.indexOf('formato:') === 0), 'ejecuta subta
 assert.ok(!tareasVistas9.includes('inicio'), 'no toca INICIO (owner del motor)');
 c.Presentacion_ejecutarTarea_ = tareaReal9;
 assert.doesNotMatch(readFileSync(new URL('20_Instalador.js', root), 'utf8'),
-  /HVis_aplicarTodasLasSecciones\(\{/, 'Instalar_pVisual_ no fuerza globalmente');
+  /HVis_aplicarTodasLasSecciones_\(\{/, 'Instalar_pVisual_ no fuerza globalmente');
 assert.doesNotMatch((readFileSync(new URL('20_Instalador.js', root), 'utf8').match(/function Instalar_pVisual_\([\s\S]*?\n\}/) || [''])[0],
-  /HVis_aplicarTodasLasSecciones/, 'wrapper sin pipeline visual paralelo');
+  /HVis_aplicarTodasLasSecciones_/, 'wrapper sin pipeline visual paralelo');
 ok('T9 Instalar_pVisual_: delega en el motor, sin forzar y agrega fallos reales');
 
 // --- T10: filas gestionadas bounded (INGRESO_VERDE = tier visual: dataStart 4) ---
@@ -208,20 +208,20 @@ const rangoEnc = {
 let esc11 = 0;
 const hoja11 = {
   getName: () => 'EVENTOS', getLastColumn: () => 1, getLastRow: () => 3,
-  getColumnWidth: col => (col === 1 ? c.Modelo_anchoColumna('ID_EVENTO') : 0),
+  getColumnWidth: col => (col === 1 ? c.Modelo_anchoColumna_('ID_EVENTO') : 0),
   setColumnWidth: () => { esc11++; },
   getRowHeight: r => (r === 1 ? estilo.alturaSimple : 0),
   setRowHeight: () => { esc11++; },
   getRange: (r, col, n1, n2) => rangoEnc
 };
-c._modelo_estilizarEncabezado(hoja11, DISENO.MARCA.sistema);
+c._modelo_estilizarEncabezado_(hoja11, DISENO.MARCA.sistema);
 assert.equal(esc11, 0, 'cero escrituras si encabezado ya cumple el sistema');
 ok('T11 estilizar encabezado: hoja correcta = cero escrituras');
 
 // --- T12: banda correcta = cero escrituras ---
 const cc = DISENO.SUPERFICIE;
 const bandaOk = {
-  getRange: () => ({ getRow: () => c.Modelo_dataStartRow('EVENTOS') }),
+  getRange: () => ({ getRow: () => c.Modelo_dataStartRow_('EVENTOS') }),
   getFirstRowColor: () => cc.datos, getSecondRowColor: () => cc.datosAlterno
 };
 let removidos = 0, aplicados = 0;
@@ -230,7 +230,7 @@ const hoja12 = {
   getRange: () => ({ getBandings: () => [bandaOk, { remove: () => { removidos++; } }] }),
   applyRowBanding() { aplicados++; return { setFirstRowColor() { return this; }, setSecondRowColor() { return this; } }; }
 };
-c._modelo_aplicarBanda(hoja12);
+c._modelo_aplicarBanda_(hoja12);
 assert.equal(removidos, 0); assert.equal(aplicados, 0);
 const bandaRoja = { getRange: () => ({ getRow: () => 3 }),
   getFirstRowColor: () => cc.datos, getSecondRowColor: () => cc.datosAlterno,
@@ -242,7 +242,7 @@ const hoja12b = {
     applyRowBanding() { aplicados++; return { setFirstRowColor() { return this; }, setSecondRowColor() { return this; } }; }
   })
 };
-c._modelo_aplicarBanda(hoja12b);
+c._modelo_aplicarBanda_(hoja12b);
 assert.equal(removidos, 2); assert.equal(aplicados, 1);
 ok('T12 banda: coincidente = cero escrituras; desplazada = se re-aplica');
 
@@ -257,7 +257,7 @@ const hoja13 = {
     return { setNumberFormat: () => { f13++; } };
   }
 };
-c._modelo_formatoSencillo(hoja13, ['FECHA_DETECCION']);
+c._modelo_formatoSencillo_(hoja13, ['FECHA_DETECCION']);
 assert.equal(f13, 0, 'sin reescritura si el formato ya es dd/MM/yyyy');
 const celda13b = { getNumberFormat: () => '@' };
 const hoja13b = {
@@ -268,7 +268,7 @@ const hoja13b = {
     return { setNumberFormat: () => { f13++; } };
   }
 };
-c._modelo_formatoSencillo(hoja13b, ['FECHA_DETECCION']);
+c._modelo_formatoSencillo_(hoja13b, ['FECHA_DETECCION']);
 assert.equal(f13, 1, 'reescribe solo si el formato difiere');
 ok('T13 formato fechas: skip-if-correct acotado a filas gestionadas');
 
@@ -338,8 +338,8 @@ ok('T15 validaciones: coincide = skip; lista distinta = se corrige');
 
 // --- T16: coloreado de RUT con fondo ya correcto = cero reescrituras ---
 const rut = '12345678-5';
-const normRut = c.Norm_normalizarRut(rut);
-const rutValido = normRut.rut && c.Norm_validarRut(normRut.rut);
+const normRut = c.Norm_normalizarRut_(rut);
+const rutValido = normRut.rut && c.Norm_validarRut_(normRut.rut);
 const esperado = rutValido ? DISENO.ESTADOS.OK.fondo : DISENO.ESTADOS.ERROR.fondo;
 let f16 = 0;
 const hoja16 = {
@@ -351,7 +351,7 @@ const hoja16 = {
   })
 };
 const ss16 = { getSheetByName: (nm) => nm === 'INGRESO_VERDE' ? hoja16 : null };
-const r16 = c.Hojas_colorearRutIngresos(ss16);
+const r16 = c.Hojas_colorearRutIngresos_(ss16);
 assert.equal(r16.coloreadas, 1);
 assert.equal(r16.fallidas.length, 0);
 assert.equal(f16, 0, 'RUT ya pintado del color esperado no se reescribe');
@@ -395,7 +395,7 @@ ok('T18 HTML: etapa reanudable con continuar y literales guardados');
 const src35 = readFileSync(new URL('35_Presentacion.js', root), 'utf8');
 assert.match(src35, /PRESENTACION_ETAPAS_REANUDABLES = \{ diseno: true \}/);
 assert.match(src35, /ECICEP_INST_PRES/);
-assert.match(src35, /Modelo_aplicarDiseno\(\)/);
+assert.match(src35, /Modelo_aplicarDiseno_\(\)/);
 assert.doesNotMatch(src35, /Libro_repararPresentacion_\(\)/ , 'el motor no repara forzando en un RPC');
 const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 assert.match(src20, /return Presentacion_ejecutarPaso_\('diseno', ejecucion, opciones \|\| \{\}\);/);

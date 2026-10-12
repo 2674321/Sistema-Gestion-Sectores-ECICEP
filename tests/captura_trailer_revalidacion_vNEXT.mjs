@@ -38,26 +38,26 @@ const orden = ['00_Config.js','01_Utilidades.js','02_Normalizacion.js','03_Fuent
 for (const f of orden) vm.runInContext(readSrc(f), ctx, { filename: f });
 
 const capid = 'Cp4-' + 'c'.repeat(32);
-const headers = Array.from(ctx.Form_columnas());
+const headers = Array.from(ctx.Form_columnas_());
 const h = hojaFake([headers]);
 const ss = { getSheetByName: (n) => { if (n === 'FORM_RESPUESTAS') return h; return hojaFake([]); }, insertSheet: (n) => hojaFake([headers]) };
-ctx.Modelo_ss = () => ss;
-ctx.Modelo_hoja = (n) => ss.getSheetByName(n);
-ctx.Captura_v2_ahora = () => '2026-09-16 10:00:00';
+ctx.Modelo_ss_ = () => ss;
+ctx.Modelo_hoja_ = (n) => ss.getSheetByName(n);
+ctx.Captura_v2_ahora_ = () => '2026-09-16 10:00:00';
 ctx.Session = { getActiveUser: () => ({ getEmail: () => 't@e.cl' }) };
 ctx.Hojas_asegurarCapacidadGestionada_ = () => {};
 
 const payload = { captureId: capid, accion: 'nuevoIngreso', rut: '12345678-5', nombre: 'T P', fechaNacimiento: '1990-01-01', sector: 'VERDE', fechaIngreso: '2026-09-01', profesional: 'M' };
-const reg = ctx.Captura_v2_nuevoRegistro(payload, { usuario: 't', fechaRecepcion: '2026-09-16' });
-const r1 = ctx.Captura_v2_persistirRegistro(reg);
+const reg = ctx.Captura_v2_nuevoRegistro_(payload, { usuario: 't', fechaRecepcion: '2026-09-16' });
+const r1 = ctx.Captura_v2_persistirRegistro_(reg);
 assert.equal(r1.ok, true, 'persist inicial ok');
 
 // Trailer normal sobre la fila correcta → ok
-const trailer = ctx.Captura_v2_actualizarTrailer(capid, { estado: 'PROCESADO' }, reg);
+const trailer = ctx.Captura_v2_actualizarTrailer_(capid, { estado: 'PROCESADO' }, reg);
 assert.equal(trailer.ok, true, 'trailer sobre fila legítima ok');
 
 // Revalidación: trailer dirigido a OTRA fila física (fila 99, no corresponde al captureId) → diverge
-const divergente = ctx.Captura_v2_actualizarTrailer('Cp4-' + 'd'.repeat(32), { estado: 'PROCESADO' }, { filaFisica: 99 });
+const divergente = ctx.Captura_v2_actualizarTrailer_('Cp4-' + 'd'.repeat(32), { estado: 'PROCESADO' }, { filaFisica: 99 });
 assert.equal(divergente.ok, false);
 assert.equal(divergente.motivo, 'CAPTUREID_DIVERGENTE');
 
@@ -66,13 +66,13 @@ assert.equal(divergente.motivo, 'CAPTUREID_DIVERGENTE');
 // relocalizar por captureId (identidad durable) y reescribir una sola vez.
 const capA = 'Cp4-' + 'f'.repeat(32);
 const capB = 'Cp4-' + '9'.repeat(32);
-const regA = ctx.Captura_v2_nuevoRegistro({ ...payload, captureId: capA }, { usuario: 't', fechaRecepcion: '2026-09-16' });
-const regB = ctx.Captura_v2_nuevoRegistro({ ...payload, captureId: capB }, { usuario: 't', fechaRecepcion: '2026-09-16' });
-const pA = ctx.Captura_v2_persistirRegistro(regA); // fila 2
-const pB = ctx.Captura_v2_persistirRegistro(regB); // fila 3
+const regA = ctx.Captura_v2_nuevoRegistro_({ ...payload, captureId: capA }, { usuario: 't', fechaRecepcion: '2026-09-16' });
+const regB = ctx.Captura_v2_nuevoRegistro_({ ...payload, captureId: capB }, { usuario: 't', fechaRecepcion: '2026-09-16' });
+const pA = ctx.Captura_v2_persistirRegistro_(regA); // fila 2
+const pB = ctx.Captura_v2_persistirRegistro_(regB); // fila 3
 assert.equal(pA.ok && pB.ok, true, 'persist A y B ok');
 
-const colsM = Array.from(ctx.Form_columnas());
+const colsM = Array.from(ctx.Form_columnas_());
 const idxRid = colsM.indexOf('RESPONSE_ID');
 const ESTADO_IDX = colsM.indexOf('ESTADO');
 
@@ -84,7 +84,7 @@ h.val[1][idxRid] = capB;
 h.val[2][idxRid] = capA;
 
 // Supervisor con el reg obsoleto (fila 2). Al ser DIVERGENTE debe relocalizar.
-const reloc = ctx.Captura_v2_actualizarTrailer(capA, { estado: 'PROCESADO' }, { filaFisica: 2 });
+const reloc = ctx.Captura_v2_actualizarTrailer_(capA, { estado: 'PROCESADO' }, { filaFisica: 2 });
 assert.equal(reloc.ok, true, 'relocaliza y reescribe sobre la fila real de A');
 assert.equal(h.val[2][ESTADO_IDX], 'PROCESADO', 'A queda PROCESADO en su fila real');
 assert.notEqual(h.val[1][ESTADO_IDX], 'PROCESADO', 'NO se escribió sobre la fila de B');

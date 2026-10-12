@@ -10,31 +10,31 @@
 // ---------------------------------------------------------------------------
 
 /** Convierte a string seguro; null/undefined → ''. */
-function Utl_texto(v) {
+function Utl_texto_(v) {
   if (v === null || v === undefined) return '';
   return String(v);
 }
 
 /** true si es null, undefined, '' o solo espacios. */
-function Utl_vacio(v) {
+function Utl_vacio_(v) {
   return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 }
 
 /** Quita tildes/diacríticos conservando Ñ→N. */
-function Utl_sinTildes(s) {
-  var t = Utl_texto(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function Utl_sinTildes_(s) {
+  var t = Utl_texto_(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return t.replace(/Ø/g, 'O');
 }
 
 /** Colapsa espacios múltiples y recorta extremos. */
-function Utl_colapsarEspacios(s) {
-  return Utl_texto(s).replace(/\s+/g, ' ').trim();
+function Utl_colapsarEspacios_(s) {
+  return Utl_texto_(s).replace(/\s+/g, ' ').trim();
 }
 
 /** Clave alfanumérica para comparar encabezados/textos: mayúsculas, sin
  *  tildes, sin puntuación ni espacios. 'FECHA PROX. CONTROL' → FECHAPROXCONTROL */
-function Utl_claveAlnum(s) {
-  return Utl_sinTildes(Utl_texto(s)).toUpperCase().replace(/[^A-Z0-9]/g, '');
+function Utl_claveAlnum_(s) {
+  return Utl_sinTildes_(Utl_texto_(s)).toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
 /**
@@ -44,14 +44,14 @@ function Utl_claveAlnum(s) {
  * celda); el Date se re-ISO antes de calcular para no dejar la edad en blanco.
  * refDate inyectable para pruebas.
  */
-function Utl_edadDesde(isoNacimiento, refDate) {
+function Utl_edadDesde_(isoNacimiento, refDate) {
   if (isoNacimiento instanceof Date) {
     if (isNaN(isoNacimiento.getTime())) return '';
     var z = function (n) { return (n < 10 ? '0' : '') + n; };
     isoNacimiento = isoNacimiento.getFullYear() + '-' + z(isoNacimiento.getMonth() + 1) + '-' + z(isoNacimiento.getDate());
   }
-  if (Utl_vacio(isoNacimiento)) return '';
-  var m = Utl_texto(isoNacimiento).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (Utl_vacio_(isoNacimiento)) return '';
+  var m = Utl_texto_(isoNacimiento).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return '';
   var ref = refDate || new Date();
   var anio = +m[1], mes = +m[2], dia = +m[3];
@@ -63,7 +63,7 @@ function Utl_edadDesde(isoNacimiento, refDate) {
 }
 
 /** PURA: convierte un índice 1-based (1=A, 26=Z, 27=AA) a letras de columna A1. */
-function Utl_columnaLetra(n) {
+function Utl_columnaLetra_(n) {
   var s = '';
   while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
   return s;
@@ -76,8 +76,8 @@ function Utl_columnaLetra(n) {
  *  (TODAY). Separador ÚNICO ';' (estrategia centralizada del proyecto, ver
  *  17_Hojas): mezclar ';' y ',' en una misma fórmula es erróneo de parseo
  *  (#ERROR!) en cualquier locale (S10-FIX). */
-function Utl_formulaEdad(colFecha, fila) {
-  var c = Utl_columnaLetra(colFecha);
+function Utl_formulaEdad_(colFecha, fila) {
+  var c = Utl_columnaLetra_(colFecha);
   return '=IF(' + c + fila + '="";"";IFERROR(DATEDIF(' + c + fila + ';TODAY();"Y");""))';
 }
 
@@ -86,7 +86,7 @@ function Utl_formulaEdad(colFecha, fila) {
 // ---------------------------------------------------------------------------
 
 /** Lectura completa de una hoja en una sola llamada. Devuelve [][] crudo. */
-function Utl_leerBloque(hoja) {
+function Utl_leerBloque_(hoja) {
   if (!hoja) return [];
   var rango = hoja.getDataRange();
   if (rango.getNumRows() === 0) return [];
@@ -94,7 +94,7 @@ function Utl_leerBloque(hoja) {
 }
 
 /** Escritura de un bloque 2D en una sola llamada. valores debe ser [][]. */
-function Utl_escribirBloque(hoja, filaInicio, colInicio, valores) {
+function Utl_escribirBloque_(hoja, filaInicio, colInicio, valores) {
   if (!hoja || !valores || !valores.length) return 0;
   hoja.getRange(filaInicio, colInicio, valores.length, valores[0].length).setValues(valores);
   return valores.length;
@@ -105,7 +105,7 @@ function Utl_escribirBloque(hoja, filaInicio, colInicio, valores) {
 // ---------------------------------------------------------------------------
 
 /** Map clave→array de elementos con esa clave. */
-function Utl_agruparPor(arr, fnClave) {
+function Utl_agruparPor_(arr, fnClave) {
   var m = new Map();
   for (var i = 0; i < arr.length; i++) {
     var k = fnClave(arr[i], i);
@@ -116,7 +116,7 @@ function Utl_agruparPor(arr, fnClave) {
 }
 
 /** Divide un array en bloques de tamaño n (para escrituras por lotes). */
-function Utl_partir(arr, n) {
+function Utl_partir_(arr, n) {
   var bloques = [];
   for (var i = 0; i < arr.length; i += n) bloques.push(arr.slice(i, i + n));
   return bloques;
@@ -125,7 +125,7 @@ function Utl_partir(arr, n) {
 /** Agrupa filas 1-based consecutivas en sub-arrays contiguos, para poder
  *  escribir varias celdas con un solo setValues por grupo (regla del
  *  proyecto: nunca accesos de celda en loops). Devuelve [] sin filas. */
-function Utl_gruposContiguosFilas(filas) {
+function Utl_gruposContiguosFilas_(filas) {
   if (!filas || !filas.length) return [];
   var ordenadas = filas.slice().sort(function (a, b) { return a - b; });
   var grupos = [];
@@ -143,7 +143,7 @@ function Utl_gruposContiguosFilas(filas) {
 // ---------------------------------------------------------------------------
 
 /** Ejecuta fn y devuelve { resultado, ms }. No lanza: propaga el error tras medir. */
-function Utl_medir(fn) {
+function Utl_medir_(fn) {
   var t0 = Date.now();
   try {
     var r = fn();
@@ -161,7 +161,7 @@ function Utl_medir(fn) {
 // ---------------------------------------------------------------------------
 
 /** PURA: prefijo de icono según tipo. */
-function Utl_toastIcono(tipo) {
+function Utl_toastIcono_(tipo) {
   if (tipo === 'ok') return '✓ ';
   if (tipo === 'warn') return '⚠ ';
   if (tipo === 'err') return '✕ ';
@@ -186,7 +186,7 @@ function Utl_fnv1a32_(texto) {
  *  '#rrggbb' y 'rgb(r,g,b)'/'rgba(r,g,b,a)' (lo que devuelve getBackground
  *  en hojas reales). Devuelve '' si no es reconocible. */
 function Utl_colorNormal_(color) {
-  var s = Utl_texto(color).trim().toLowerCase();
+  var s = Utl_texto_(color).trim().toLowerCase();
   var m = s.match(/^#?([0-9a-f]{6})$/);
   if (m) return m[1];
   var rgb = s.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/);
@@ -200,18 +200,18 @@ function Utl_colorNormal_(color) {
 /** Comparación de colores insensible al formato (getBackground() puede
  *  devolver '#rrggbb' minúsculas, '#RRGGBB' o 'rgb(...)' según la hoja).
  *  Sin 6 dígitos comparables, cae a igualdad de texto normalizado. */
-function Utl_colorIgual(a, b) {
+function Utl_colorIgual_(a, b) {
   var na = Utl_colorNormal_(a), nb = Utl_colorNormal_(b);
   if (na && nb) return na === nb;
-  return Utl_texto(a).toLowerCase() === Utl_texto(b).toLowerCase();
+  return Utl_texto_(a).toLowerCase() === Utl_texto_(b).toLowerCase();
 }
 
 /** GAS: toast breve con semántica central. No falla sin spreadsheet activo. */
-function Utl_toast(tipo, texto, segundos) {
+function Utl_toast_(tipo, texto, segundos) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) return;
-    ss.toast(Utl_toastIcono(tipo) + texto, 'ECICEP', segundos || 6);
+    ss.toast(Utl_toastIcono_(tipo) + texto, 'ECICEP', segundos || 6);
   } catch (e) { /* sin UI: silencioso */ }
 }
 
@@ -219,7 +219,7 @@ function Utl_toast(tipo, texto, segundos) {
  *  IDE la primera vez); con cachear evitamos RPC repetidos en una ejecución
  *  (mismo patrón que _MEMO_HOJAS). Devuelve null si no hay UI. */
 var _UI_CACHE = null;
-function _UI_get() {
+function _UI_get_() {
   if (!_UI_CACHE && typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp.getUi) {
     try { _UI_CACHE = SpreadsheetApp.getUi(); } catch (e) { _UI_CACHE = null; }
   }
@@ -260,7 +260,7 @@ function Api_error_(codigo, mensaje) {
  * @param {number} n longitud en caracteres base36
  * @returns {string}
  */
-function Utl_sufijoAleatorio(n) {
+function Utl_sufijoAleatorio_(n) {
   var largo = Math.max(1, Math.min(12, n || 4));
   var tope = Math.pow(36, largo);
   var r;

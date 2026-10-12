@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { createHarness255 } from './helpers/forms_v255_harness.mjs';
 
 const h = createHarness255();
-h.c.Captura_v2_catalogo = () => [
+h.c.Captura_v2_catalogo_ = () => [
   { NOMBRE_CANONICO: 'PROF A', ACTIVO: true },
   { NOMBRE_CANONICO: 'PROF B', ACTIVO: true },
   { NOMBRE_CANONICO: 'PROF A', ACTIVO: true }
 ];
-const inst = h.c.Form_operativoInstalar();
+const inst = h.c.Form_operativoInstalar_();
 assert.equal(inst.ok, true, JSON.stringify(inst.cambios));
 assert.equal(inst.catalogo.profesionales, 2, 'profesionales deduplicados (M10)');
 

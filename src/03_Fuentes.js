@@ -29,7 +29,7 @@ var FUENTES_MODO = {
 /** PURA: normaliza el modo de merge. Solo SNAPSHOT_ACTUAL activa reemplazos;
  *  INICIAL/CONSERVADOR/cotidiano comparten la mecánica no destructiva. */
 function Fuentes_normalizarModo_(modo) {
-  var m = Utl_texto(modo).toUpperCase();
+  var m = Utl_texto_(modo).toUpperCase();
   if (m === FUENTES_MODO.SNAPSHOT_ACTUAL) return FUENTES_MODO.SNAPSHOT_ACTUAL;
   if (m === FUENTES_MODO.INICIAL) return FUENTES_MODO.INICIAL;
   if (m === FUENTES_MODO.CONSERVAR) return FUENTES_MODO.CONSERVAR;
@@ -42,11 +42,11 @@ function Fuentes_normalizarModo_(modo) {
 function Datos_estadoProduccion_() {
   var pacientes = 0, eventos = 0;
   try {
-    var ss = Modelo_ss();
+    var ss = Modelo_ss_();
     var hP = ss && ss.getSheetByName(HOJAS.PACIENTES);
-    if (hP) pacientes = Math.max(hP.getLastRow() - Modelo_dataStartRow(HOJAS.PACIENTES) + 1, 0);
+    if (hP) pacientes = Math.max(hP.getLastRow() - Modelo_dataStartRow_(HOJAS.PACIENTES) + 1, 0);
     var hE = ss && ss.getSheetByName(HOJAS.EVENTOS);
-    if (hE) eventos = Math.max(hE.getLastRow() - Modelo_dataStartRow(HOJAS.EVENTOS) + 1, 0);
+    if (hE) eventos = Math.max(hE.getLastRow() - Modelo_dataStartRow_(HOJAS.EVENTOS) + 1, 0);
   } catch (e) { /* conservador: ante duda se informa lo contado */ }
   return { tienePacientes: pacientes > 0, pacientes: pacientes, eventos: eventos,
     produccion: pacientes > 0 || eventos > 0 };
@@ -58,7 +58,7 @@ function Datos_estadoProduccion_() {
  * @param {Object} valores  valores crudos mapeados a campos canónicos
  * @param {number} [secuencia] opcional → ID determinista (SOLO pruebas)
  */
-function Fuentes_crearFila(origen, valores, secuencia) {
+function Fuentes_crearFila_(origen, valores, secuencia) {
   var id;
   if (typeof secuencia === 'number') {
     id = 'SG-' + ('0000' + secuencia).slice(-4);
@@ -68,14 +68,14 @@ function Fuentes_crearFila(origen, valores, secuencia) {
     // hacía predecible la repetición del ID_PROVISIONAL. Ahora la parte
     // aleatoria tiene 6 caracteres base36 (36^6): automático y estable entre
     // ejecuciones, sin numeración reiniciable en producción.
-    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(6);
+    id = 'SG-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio_(6);
   }
   return {
     ID_PROVISIONAL: id,
-    ARCHIVO_ORIGEN: Utl_texto(origen && origen.archivo),
-    HOJA_ORIGEN: Utl_texto(origen && origen.hoja),
+    ARCHIVO_ORIGEN: Utl_texto_(origen && origen.archivo),
+    HOJA_ORIGEN: Utl_texto_(origen && origen.hoja),
     FILA_ORIGEN: (origen && origen.fila) || '',
-    SECTOR_ORIGEN: Utl_colapsarEspacios(Utl_texto(origen && origen.sector)).toUpperCase(),
+    SECTOR_ORIGEN: Utl_colapsarEspacios_(Utl_texto_(origen && origen.sector)).toUpperCase(),
     VALORES_ORIGINALES: valores || {},
     NORMALIZADO: {},
     ERRORES: [],
@@ -87,13 +87,13 @@ function Fuentes_crearFila(origen, valores, secuencia) {
 
 /** Cadena de trazabilidad estándar. Conserva identidad durable cuando existe.
  *  Prioriza origenId/captureId si está presente (origen lógico). */
-function Fuentes_fuenteOrigen(filaStaging) {
+function Fuentes_fuenteOrigen_(filaStaging) {
   var fs = filaStaging || {};
-  var origenId = Utl_texto(fs.ORIGEN_ID || fs.origenId || fs.CAPTURE_ID || fs.captureId);
+  var origenId = Utl_texto_(fs.ORIGEN_ID || fs.origenId || fs.CAPTURE_ID || fs.captureId);
   if (origenId) {
     return origenId;
   }
-  return Utl_texto(fs.ARCHIVO_ORIGEN) + '|' + Utl_texto(fs.HOJA_ORIGEN) + '|' + Utl_texto(fs.FILA_ORIGEN);
+  return Utl_texto_(fs.ARCHIVO_ORIGEN) + '|' + Utl_texto_(fs.HOJA_ORIGEN) + '|' + Utl_texto_(fs.FILA_ORIGEN);
 }
 
 /** PURA: clave CANÓNICA de comparación para la idempotencia por FUENTE
@@ -105,14 +105,14 @@ function Fuentes_fuenteOrigen(filaStaging) {
  *  Contrato explícito: normaliza TODAS las partes para preservar identidad
  *  añadida (p.ej. captureId/origenId). */
 function Fuentes_claveDedupe_(filaOString) {
-  var s = Utl_texto(filaOString);
+  var s = Utl_texto_(filaOString);
   var partes = s.split('|'), partesNorm = [];
   for (var i = 0; i < partes.length; i++) {
-    var p = Utl_texto(partes[i]).trim();
+    var p = Utl_texto_(partes[i]).trim();
     if (i === 2 && /^\d+$/.test(p) && partes.length <= 4) {
       p = String(Number(p));
     }
-    partesNorm.push(Utl_claveAlnum(p));
+    partesNorm.push(Utl_claveAlnum_(p));
   }
   return partesNorm.join('|');
 }
@@ -121,11 +121,11 @@ function Fuentes_claveDedupe_(filaOString) {
  * Verificación estructural previa: presencia de campos críticos crudos.
  * @returns {ok:boolean, faltantes:[]}
  */
-function Fuentes_validarEstructura(valores, requeridos) {
+function Fuentes_validarEstructura_(valores, requeridos) {
   var req = requeridos || ['RUT', 'NOMBRE'];
   var faltantes = [];
   req.forEach(function (campo) {
-    if (Utl_vacio((valores || {})[campo])) faltantes.push(campo);
+    if (Utl_vacio_((valores || {})[campo])) faltantes.push(campo);
   });
   return { ok: faltantes.length === 0, faltantes: faltantes };
 }
@@ -135,14 +135,14 @@ function Fuentes_validarEstructura(valores, requeridos) {
  * de validación (ERROR/WARNING/OK) sin efectos secundarios externos.
  * El valor original siempre se conserva en VALORES_ORIGINALES.
  */
-function Fuentes_normalizar(fila) {
+function Fuentes_normalizar_(fila) {
   var v = fila.VALORES_ORIGINALES || {};
   var n = {};
   var err = [], warn = [];
   function nota(arr, campo, mensaje) { arr.push({ campo: campo, mensaje: mensaje }); }
 
   // --- RUT ---
-  var rut = Norm_normalizarRut(v.RUT);
+  var rut = Norm_normalizarRut_(v.RUT);
   n.RUT = rut.rut;
   n.RUT_CUERPO = rut.cuerpo;
   n.RUT_ESTADO = rut.estado;
@@ -151,42 +151,42 @@ function Fuentes_normalizar(fila) {
   else if (rut.estado === 'SIN_DV') nota(warn, 'RUT', 'RUT sin dígito verificador');
 
   // --- NOMBRE ---
-  var nom = Norm_normalizarNombre(v.NOMBRE);
+  var nom = Norm_normalizarNombre_(v.NOMBRE);
   n.NOMBRE = nom.nombre;
-  n.NOMBRE_CLAVE = Norm_claveNombre(nom.nombre);
+  n.NOMBRE_CLAVE = Norm_claveNombre_(nom.nombre);
   if (!nom.ok) nota(err, 'NOMBRE', 'Nombre ausente o incompleto');
   else if (n.NOMBRE.indexOf(' ') === -1) nota(warn, 'NOMBRE', 'Nombre de una sola palabra');
 
   // --- SEXO ---
-  n.SEXO = Norm_normalizarSexo(v.SEXO);
-  if (!Utl_vacio(v.SEXO) && n.SEXO === '') nota(warn, 'SEXO', 'Valor de sexo no reconocido, se descarta');
+  n.SEXO = Norm_normalizarSexo_(v.SEXO);
+  if (!Utl_vacio_(v.SEXO) && n.SEXO === '') nota(warn, 'SEXO', 'Valor de sexo no reconocido, se descarta');
 
   // --- SECTOR (crítico; independiente de estratificación) ---
   // Regla DEC-019: si la fila no trae sector explícito, hereda el del ORIGEN
   // (hoja/archivo de ingreso); nunca al revés.
-  var sectorCrudo = Utl_vacio(v.SECTOR) ? fila.SECTOR_ORIGEN : v.SECTOR;
-  var sec = Norm_normalizarSector(sectorCrudo);
+  var sectorCrudo = Utl_vacio_(v.SECTOR) ? fila.SECTOR_ORIGEN : v.SECTOR;
+  var sec = Norm_normalizarSector_(sectorCrudo);
   n.SECTOR = sec.sector;
   if (sec.estado === 'VACIO') nota(err, 'SECTOR', 'Sector ausente');
-  else if (sec.estado === 'INVALIDO') nota(err, 'SECTOR', 'Sector inválido: "' + Utl_texto(sectorCrudo) + '"');
+  else if (sec.estado === 'INVALIDO') nota(err, 'SECTOR', 'Sector inválido: "' + Utl_texto_(sectorCrudo) + '"');
 
   // Compatibilidad: sector declarado explícito vs sector del origen
-  if (!Utl_vacio(v.SECTOR) && !Utl_vacio(fila.SECTOR_ORIGEN)) {
-    var orig = Norm_normalizarSector(fila.SECTOR_ORIGEN);
+  if (!Utl_vacio_(v.SECTOR) && !Utl_vacio_(fila.SECTOR_ORIGEN)) {
+    var orig = Norm_normalizarSector_(fila.SECTOR_ORIGEN);
     if (sec.estado === 'OK' && orig.estado === 'OK' && sec.sector !== orig.sector) {
       nota(err, 'SECTOR', 'Sector declarado "' + sec.sector + '" no coincide con el origen "' + orig.sector + '"');
     }
   }
 
   // --- ESTRATIFICACIÓN (dimensión independiente; nunca se infiere) ---
-  n.ESTRATIFICACION = Norm_normalizarEstratificacion(v.ESTRATIFICACION);
-  n.ESTRAT_ORIGEN = Utl_colapsarEspacios(Utl_texto(v.ESTRATIFICACION)).toUpperCase();
+  n.ESTRATIFICACION = Norm_normalizarEstratificacion_(v.ESTRATIFICACION);
+  n.ESTRAT_ORIGEN = Utl_colapsarEspacios_(Utl_texto_(v.ESTRATIFICACION)).toUpperCase();
   if (n.ESTRAT_ORIGEN !== '' && n.ESTRATIFICACION === '') {
     nota(warn, 'ESTRATIFICACION', 'Valor original no clasificable ("' + n.ESTRAT_ORIGEN + '"): queda pendiente');
   }
 
   // --- ESTADO ---
-  n.ESTADO = Norm_normalizarEstado(v.ESTADO);
+  n.ESTADO = Norm_normalizarEstado_(v.ESTADO);
 
   // --- FECHAS ---
   // ULTIMO_CONTROL / ULTIMO_SEGUIMIENTO son fechas de estado (última vigencia),
@@ -197,48 +197,48 @@ function Fuentes_normalizar(fila) {
     var rango = (campo === 'FECHA_NACIMIENTO')
       ? { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX }
       : undefined;
-    var r = Norm_normalizarFecha(v[campo], rango);
+    var r = Norm_normalizarFecha_(v[campo], rango);
     n[campo] = r.iso;
     n[campo + '_ESTADO'] = r.estado;
     if (r.estado === 'INVALIDA') {
       nota(campo === 'FECHA_INGRESO' ? err : warn, campo, r.detalle);
     } else if (r.estado === 'NO_RECONOCIDA') {
-      nota(warn, campo, 'Texto no reconocible como fecha: "' + Utl_texto(v[campo]) + '"');
+      nota(warn, campo, 'Texto no reconocible como fecha: "' + Utl_texto_(v[campo]) + '"');
     } else if (r.estado === 'MES_ANO') {
       nota(warn, campo, 'Solo mes/año');
     }
   });
 
   // --- PREINGRESO (fecha o estado textual) ---
-  var pre = Norm_normalizarFecha(v.PREINGRESO);
+  var pre = Norm_normalizarFecha_(v.PREINGRESO);
   if (pre.estado === 'VALIDA' || pre.estado === 'MES_ANO') n.PREINGRESO = pre.iso;
-  else if (pre.estado === 'NO_RECONOCIDA') n.PREINGRESO = Utl_texto(v.PREINGRESO).trim().toUpperCase();
+  else if (pre.estado === 'NO_RECONOCIDA') n.PREINGRESO = Utl_texto_(v.PREINGRESO).trim().toUpperCase();
   else n.PREINGRESO = '';
 
   // --- TELÉFONOS ---
-  var tel = Norm_normalizarTelefono(v.TELEFONOS !== undefined ? v.TELEFONOS : v.TELEFONO);
+  var tel = Norm_normalizarTelefono_(v.TELEFONOS !== undefined ? v.TELEFONOS : v.TELEFONO);
   n.TELEFONOS = tel.telefonos.join('/');
   n.TELEFONO_OBS = tel.observaciones.join('; ');
   if (tel.estado === 'PARCIAL') nota(warn, 'TELEFONOS', tel.detalle);
   else if (tel.telefonos.length === 0) nota(warn, 'TELEFONOS', 'Sin teléfono válido');
 
   // --- SALUD MENTAL (indicador de la dupla; nunca se infiere) ---
-  var sm = Norm_normalizarSaludMental(v.SALUD_MENTAL);
+  var sm = Norm_normalizarSaludMental_(v.SALUD_MENTAL);
   n.SALUD_MENTAL = sm.valor;
   if (sm.estado === 'NO_RECONOCIDO') {
     nota(warn, 'SALUD_MENTAL',
-      'Valor no reconocido ("' + Utl_texto(v.SALUD_MENTAL) + '"), se descarta');
+      'Valor no reconocido ("' + Utl_texto_(v.SALUD_MENTAL) + '"), se descarta');
   }
 
   // --- Texto libre normalizado ---
-  n.DUPLA_INGRESO = Utl_colapsarEspacios(Utl_texto(v.DUPLA_INGRESO)).toUpperCase();
-  n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
-  n.OBSERVACIONES = Utl_texto(v.OBSERVACIONES).trim();
+  n.DUPLA_INGRESO = Utl_colapsarEspacios_(Utl_texto_(v.DUPLA_INGRESO)).toUpperCase();
+  n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios_(Utl_texto_(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
+  n.OBSERVACIONES = Utl_texto_(v.OBSERVACIONES).trim();
 
   // --- Tipo de evento (opcional en la fuente) ---
-  n.TIPO_EVENTO = Norm_normalizarTipoEvento(v.TIPO_EVENTO);
-  if (!Utl_vacio(v.TIPO_EVENTO) && TIPOS_EVENTO.VALIDOS.indexOf(n.TIPO_EVENTO) === -1) {
-    nota(err, 'TIPO_EVENTO', 'Tipo de evento inválido: "' + Utl_texto(v.TIPO_EVENTO) + '"');
+  n.TIPO_EVENTO = Norm_normalizarTipoEvento_(v.TIPO_EVENTO);
+  if (!Utl_vacio_(v.TIPO_EVENTO) && TIPOS_EVENTO.VALIDOS.indexOf(n.TIPO_EVENTO) === -1) {
+    nota(err, 'TIPO_EVENTO', 'Tipo de evento inválido: "' + Utl_texto_(v.TIPO_EVENTO) + '"');
   }
 
   fila.NORMALIZADO = n;
@@ -258,14 +258,14 @@ function Fuentes_normalizar(fila) {
  * código con/n sin espacio final, p.ej. 'Ingresos Enero'). Devuelve null si
  * no hay coincidencia.
  */
-function Fuentes_resolverHoja(ss, nombre) {
+function Fuentes_resolverHoja_(ss, nombre) {
   if (!ss || !nombre) return null;
   var exacta = ss.getSheetByName(nombre);
   if (exacta) return exacta;
-  var objetivo = Utl_sinTildes(Utl_colapsarEspacios(String(nombre))).toUpperCase();
+  var objetivo = Utl_sinTildes_(Utl_colapsarEspacios_(String(nombre))).toUpperCase();
   var hojas = ss.getSheets ? ss.getSheets() : [];
   for (var i = 0; i < hojas.length; i++) {
-    var propia = Utl_sinTildes(Utl_colapsarEspacios(String(hojas[i].getName()))).toUpperCase();
+    var propia = Utl_sinTildes_(Utl_colapsarEspacios_(String(hojas[i].getName()))).toUpperCase();
     if (propia === objetivo) return hojas[i];
   }
   return null;
@@ -276,7 +276,7 @@ function Fuentes_resolverHoja(ss, nombre) {
  * Lee encabezados de cada hoja configurada y reporta el mapeo al modelo.
  * @returns {ok:boolean, fuentes:[{nombre, sector, id, hojas:[...]}]}
  */
-function Fuentes_diagnosticarFuentes() {
+function Fuentes_diagnosticarFuentes_() {
   var fuentes = [];
   Object.keys(FUENTES_DRIVE).forEach(function (nombreArchivo) {
     var cfg = FUENTES_DRIVE[nombreArchivo];
@@ -297,12 +297,12 @@ function Fuentes_diagnosticarFuentes() {
       info.accesible = true;
       info.nombreReal = ss.getName();
       cfg.hojas.forEach(function (nombreHoja) {
-        var hoja = Fuentes_resolverHoja(ss, nombreHoja);
+        var hoja = Fuentes_resolverHoja_(ss, nombreHoja);
         if (!hoja) {
           info.hojas.push({ nombre: nombreHoja, existe: false });
           return;
         }
-        var valores = Utl_leerBloque(hoja);
+        var valores = Utl_leerBloque_(hoja);
         if (!valores.length) {
           info.hojas.push({ nombre: nombreHoja, existe: true, vacia: true });
           return;
@@ -311,18 +311,18 @@ function Fuentes_diagnosticarFuentes() {
         var headerRow = 0;
         for (var r = 0; r < Math.min(valores.length, 10); r++) {
           var reconocidos = valores[r].filter(function (c) {
-            return Norm_mapearEncabezado(c).conocido;
+            return Norm_mapearEncabezado_(c).conocido;
           }).length;
           if (reconocidos >= 2) { headerRow = r; break; }
         }
-        var mapa = Ingresos_mapearEncabezadosHoja(valores[headerRow] || []);
+        var mapa = Ingresos_mapearEncabezadosHoja_(valores[headerRow] || []);
         // contar filas de datos reales (no vacías ni separadores)
         var filasDatos = 0;
         var sect_re = /^[A-ZÁÉÍÓÚÑ ]+\s?20\d{2}\s*$|^ECICEP\s*20\d{2}\s*$/i;
         for (var d = headerRow + 1; d < valores.length; d++) {
-          var noVacios = valores[d].filter(function (c) { return Utl_texto(c).trim() !== ''; }).length;
+          var noVacios = valores[d].filter(function (c) { return Utl_texto_(c).trim() !== ''; }).length;
           if (noVacios === 0) continue;
-          if (noVacios === 1 && sect_re.test(Utl_colapsarEspacios(Utl_texto(valores[d].find(function(c){return Utl_texto(c).trim()!=='';}))))) continue;
+          if (noVacios === 1 && sect_re.test(Utl_colapsarEspacios_(Utl_texto_(valores[d].find(function(c){return Utl_texto_(c).trim()!=='';}))))) continue;
           filasDatos += 1;
         }
         info.hojas.push({
@@ -352,37 +352,37 @@ function Fuentes_diagnosticarFuentes() {
  * @param {number} cantidad filas a procesar (default 10)
  * @returns reporte detallado sin escrituras
  */
-function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
+function Fuentes_importarMuestra_(nombreArchivo, nombreHoja, cantidad) {
   var cfg = FUENTES_DRIVE[nombreArchivo];
   if (!cfg) return { ok: false, motivo: 'ARCHIVO_DESCONOCIDO', archivos: Object.keys(FUENTES_DRIVE) };
   if (!cfg.id) return { ok: false, motivo: 'SIN_ID_DRIVE' };
 
   var ss = SpreadsheetApp.openById(cfg.id);
-  var hoja = Fuentes_resolverHoja(ss, nombreHoja);
+  var hoja = Fuentes_resolverHoja_(ss, nombreHoja);
   if (!hoja) return { ok: false, motivo: 'HOJA_NO_EXISTE', disponible: ss.getSheets().map(function(s){return s.getName();}) };
 
-  var valores = Utl_leerBloque(hoja);
+  var valores = Utl_leerBloque_(hoja);
   if (valores.length < 2) return { ok: false, motivo: 'HOJA_VACIA' };
 
   // detectar fila de encabezado
   var headerRow = 0;
   for (var r = 0; r < Math.min(valores.length, 10); r++) {
     var reconocidos = valores[r].filter(function (c) {
-      return Norm_mapearEncabezado(c).conocido;
+      return Norm_mapearEncabezado_(c).conocido;
     }).length;
     if (reconocidos >= 2) { headerRow = r; break; }
   }
-  var mapa = Ingresos_mapearEncabezadosHoja(valores[headerRow] || []);
+  var mapa = Ingresos_mapearEncabezadosHoja_(valores[headerRow] || []);
 
   // leer hasta `cantidad` filas de datos reales
   var sect_re = /^[A-ZÁÉÍÓÚÑ ]+\s?20\d{2}\s*$|^ECICEP\s*20\d{2}\s*$/i;
   var staging = [];
   for (var d = headerRow + 1; d < valores.length && staging.length < cantidad; d++) {
     var filaVal = valores[d];
-    var noVacios = filaVal.filter(function (c) { return Utl_texto(c).trim() !== ''; }).length;
+    var noVacios = filaVal.filter(function (c) { return Utl_texto_(c).trim() !== ''; }).length;
     if (noVacios === 0) continue;
     // saltar separadores de sección
-    var primerValor = Utl_colapsarEspacios(Utl_texto(filaVal.find(function(c){return Utl_texto(c).trim()!=='';})));
+    var primerValor = Utl_colapsarEspacios_(Utl_texto_(filaVal.find(function(c){return Utl_texto_(c).trim()!=='';})));
     // separador: 1-3 celdas no vacías y alguna coincide con patrón de sección
     if (noVacios <= 3 && sect_re.test(primerValor)) continue;
     // construir valores canónicos
@@ -398,22 +398,22 @@ function Fuentes_importarMuestra(nombreArchivo, nombreHoja, cantidad) {
     }
     // Si no hay RUT mapeado pero la primera columna tiene valores tipo RUT,
     // asignarla (caso LISTADO 2025 de Naranjo donde la col A no tiene encabezado)
-    if (v.RUT === undefined || Utl_vacio(v.RUT)) {
+    if (v.RUT === undefined || Utl_vacio_(v.RUT)) {
       for (var ci = 0; ci < Math.min(filaVal.length, 3); ci++) {
-        var testRut = Norm_normalizarRut(filaVal[ci]);
+        var testRut = Norm_normalizarRut_(filaVal[ci]);
         if (testRut.estado === 'OK' || testRut.estado === 'SIN_DV') {
           v.RUT = filaVal[ci];
           break;
         }
       }
     }
-    staging.push(Fuentes_normalizar(Fuentes_crearFila(
+    staging.push(Fuentes_normalizar_(Fuentes_crearFila_(
       { archivo: nombreArchivo, hoja: nombreHoja, fila: d + 1, sector: cfg.sector }, v)));
   }
 
   // pipeline DRY RUN (no escribe nada)
   var store = { pacientes: [], eventos: [] }; // store vacío = todo será "nuevo"
-  var salida = Ingresos_procesarFilas(staging, store, {
+  var salida = Ingresos_procesarFilas_(staging, store, {
     nuevoId: function (i) { return 'DRY-' + ('0000' + i).slice(-4); }
   });
 
@@ -459,10 +459,10 @@ function Fuentes_fuenteExiste_(hoja, colFuente, clave) {
     .findNext();
 }
 
-function Fuentes_guardarFilas(filas) {
+function Fuentes_guardarFilas_(filas) {
   try {
     if (typeof SpreadsheetApp === 'undefined' || !filas || !filas.length) return 0;
-    var ss = Modelo_ss();
+    var ss = Modelo_ss_();
     var hoja = ss.getSheetByName(HOJAS.STAGING_IMPORT);
     if (!hoja) return 0;
     var colFuente = 12; // FUENTE = posición 11 (0-based) → columna 12
@@ -474,14 +474,14 @@ function Fuentes_guardarFilas(filas) {
     if (!porIndice && ultima > 0) {
       var vals = hoja.getRange(1, colFuente, ultima, 1).getValues();
       for (var k = 0; k < vals.length; k++) {
-        var v = Utl_texto(vals[k][0]);
+        var v = Utl_texto_(vals[k][0]);
         if (v) existentes[v] = true;
       }
     }
     var aGuardar = [];
     for (var i = 0; i < filas.length; i++) {
       var f = filas[i];
-      var clave = Fuentes_fuenteOrigen(f);
+      var clave = Fuentes_fuenteOrigen_(f);
       if (porIndice) {
         if (Fuentes_fuenteExiste_(hoja, colFuente, clave)) continue;
         existentes[clave] = true;
@@ -499,13 +499,13 @@ function Fuentes_guardarFilas(filas) {
         JSON.stringify(f.ERRORES || []), JSON.stringify(f.WARNINGS || []),
         JSON.stringify(f.RESULTADO_IDENTIFICACION || {}),
         JSON.stringify(f.VALORES_ORIGINALES || {}), JSON.stringify(f.NORMALIZADO || {}),
-        Fuentes_fuenteOrigen(f)
+        Fuentes_fuenteOrigen_(f)
       ];
     });
-    return Utl_escribirBloque(hoja, hoja.getLastRow() + 1, 1, salida);
+    return Utl_escribirBloque_(hoja, hoja.getLastRow() + 1, 1, salida);
   } catch (e) {
-    Log_error('Fuentes', 'guardarFilas', e && e.message ? e.message : String(e));
-    Log_flush();
+    Log_error_('Fuentes', 'guardarFilas', e && e.message ? e.message : String(e));
+    Log_flush_();
     return 0;
   }
 }
@@ -520,34 +520,34 @@ function Fuentes_guardarFilas(filas) {
  * reconocidos), salta separadores de sección, copia los campos operativos +
  * ADICIONALES con sinónimo confirmado (copia ADITIVA FASE 5.1) y resuelve el
  * caso LISTADO Naranjo (RUT sin encabezado en columnas A..C).
- * @returns {Array} filas de staging ya normalizadas (Fuentes_normalizar)
+ * @returns {Array} filas de staging ya normalizadas (Fuentes_normalizar_)
  */
-function Fuentes_leerStagingAutorizado() {
+function Fuentes_leerStagingAutorizado_() {
   var staging = [];
   Object.keys(HOJAS_AUTORIZADAS_CARGA).forEach(function (nombreArchivo) {
     var cfg = FUENTES_DRIVE[nombreArchivo];
     if (!cfg || !cfg.id) return;
     var ss = SpreadsheetApp.openById(cfg.id);
     HOJAS_AUTORIZADAS_CARGA[nombreArchivo].forEach(function (nombreHoja) {
-      var hoja = Fuentes_resolverHoja(ss, nombreHoja);
+      var hoja = Fuentes_resolverHoja_(ss, nombreHoja);
       if (!hoja) return;
-      var valores = Utl_leerBloque(hoja);
+      var valores = Utl_leerBloque_(hoja);
       if (valores.length < 2) return;
 
       // detectar encabezado
       var headerRow = 0;
       for (var r = 0; r < Math.min(valores.length, 10); r++) {
-        var rec = valores[r].filter(function (c) { return Norm_mapearEncabezado(c).conocido; }).length;
+        var rec = valores[r].filter(function (c) { return Norm_mapearEncabezado_(c).conocido; }).length;
         if (rec >= 2) { headerRow = r; break; }
       }
-      var mapa = Ingresos_mapearEncabezadosHoja(valores[headerRow] || []);
+      var mapa = Ingresos_mapearEncabezadosHoja_(valores[headerRow] || []);
 
       var sect_re = /^[A-ZÁÉÍÓÚÑ ]+\s?20\d{2}\s*$|^ECICEP\s*20\d{2}\s*$/i;
       for (var d = headerRow + 1; d < valores.length; d++) {
         var filaVal = valores[d];
-        var noVacios = filaVal.filter(function (c) { return Utl_texto(c).trim() !== ''; }).length;
+        var noVacios = filaVal.filter(function (c) { return Utl_texto_(c).trim() !== ''; }).length;
         if (noVacios === 0) continue;
-        var primerValor = Utl_colapsarEspacios(Utl_texto(filaVal.find(function(c){return Utl_texto(c).trim()!=='';})));
+        var primerValor = Utl_colapsarEspacios_(Utl_texto_(filaVal.find(function(c){return Utl_texto_(c).trim()!=='';})));
         if (noVacios <= 3 && sect_re.test(primerValor)) continue;
 
         var v = {};
@@ -563,13 +563,13 @@ function Fuentes_leerStagingAutorizado() {
           if (v[ck] === undefined && mapa.campos[ck] !== undefined) v[ck] = filaVal[mapa.campos[ck]];
         }
         // RUT sin encabezado (LISTADO Naranjo pattern)
-        if (Utl_vacio(v.RUT)) {
+        if (Utl_vacio_(v.RUT)) {
           for (var ci = 0; ci < Math.min(filaVal.length, 3); ci++) {
-            var testRut = Norm_normalizarRut(filaVal[ci]);
+            var testRut = Norm_normalizarRut_(filaVal[ci]);
             if (testRut.estado === 'OK' || testRut.estado === 'SIN_DV') { v.RUT = filaVal[ci]; break; }
           }
         }
-        staging.push(Fuentes_normalizar(Fuentes_crearFila(
+        staging.push(Fuentes_normalizar_(Fuentes_crearFila_(
           { archivo: nombreArchivo, hoja: nombreHoja, fila: d + 1, sector: cfg.sector }, v)));
       }
     });
@@ -578,7 +578,7 @@ function Fuentes_leerStagingAutorizado() {
 }
 
 /** Config solo lectura: conteo de fuentes/hojas autorizadas para reportes. */
-function Fuentes_contarHojasAutorizadas() {
+function Fuentes_contarHojasAutorizadas_() {
   var archivos = 0, hojas = 0;
   Object.keys(HOJAS_AUTORIZADAS_CARGA).forEach(function (a) {
     if (FUENTES_DRIVE[a] && FUENTES_DRIVE[a].id) {
@@ -609,7 +609,7 @@ function Fuentes_sanitizarErrorAcceso_(e, cfg) {
   return 'EXTERNAL_SOURCE_NO_ACCESIBLE';
 }
 
-function Fuentes_preflightFuentes(abridor) {
+function Fuentes_preflightFuentes_(abridor) {
   var abrir = abridor;
   if (!abrir && typeof SpreadsheetApp !== 'undefined') {
     abrir = function (id) { return SpreadsheetApp.openById(id); };
@@ -634,9 +634,9 @@ function Fuentes_preflightFuentes(abridor) {
       var ss = abrir(cfg.id);
       if (!ss) { info.errores.push('ARCHIVO_INACCESIBLE'); fuentes.push(info); return; }
       info.accesible = true;
-      info.nombreReal = typeof ss.getName === 'function' ? Utl_texto(ss.getName()) : '';
+      info.nombreReal = typeof ss.getName === 'function' ? Utl_texto_(ss.getName()) : '';
       info.hojasEsperadas.forEach(function (nombreHoja) {
-        var h = Fuentes_resolverHoja(ss, nombreHoja);
+        var h = Fuentes_resolverHoja_(ss, nombreHoja);
         if (h) info.hojasEncontradas.push(nombreHoja);
         else info.faltantes.push(nombreHoja);
       });
@@ -706,17 +706,17 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   // --- FASE 5.0: snapshot previo ---
   var previo = { pacientes: 0, eventos: 0 };
   if (typeof SpreadsheetApp !== 'undefined') {
-    var hp = Modelo_hoja(HOJAS.PACIENTES);
-    var he = Modelo_hoja(HOJAS.EVENTOS);
+    var hp = Modelo_hoja_(HOJAS.PACIENTES);
+    var he = Modelo_hoja_(HOJAS.EVENTOS);
     previo.pacientes = hp ? Math.max(hp.getLastRow() - 1, 0) : 0;
     previo.eventos = he ? Math.max(he.getLastRow() - 1, 0) : 0;
   }
 
   // --- FASE 5.0b: preflight estructural de las fuentes (B3) ---
-  var preflight = Fuentes_preflightFuentes();
+  var preflight = Fuentes_preflightFuentes_();
   if (!preflight.ok) {
     var infPre = Fuentes_preflightInforme_(preflight);
-    Log_error('Fuentes', 'preflight',
+    Log_error_('Fuentes', 'preflight',
       'Bloqueada carga: ' + infPre.map(function (f) {
         return f.archivo + '·' + f.faltantes.join(',') + (f.errores.length ? '·' + f.errores.join(',') : '');
       }).join(' | '));
@@ -737,7 +737,7 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   }
 
   // --- FASE 5.1: leer fuentes autorizadas → staging ---
-  var staging = Fuentes_leerStagingAutorizado();
+  var staging = Fuentes_leerStagingAutorizado_();
 
   // --- IDEMPOTENCIA: separar filas ya importadas (no generan evento) de las nuevas.
   // Con `actualizar`, las ya importadas siguen disponibles para el MERGE de datos.
@@ -746,25 +746,25 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   // formato de la fila, de modo que un drift de literal en la config entre
   // ejecuciones no vuelve a generar eventos para la misma fila física.
   var eventosExistentes = [];
-  if (typeof Modelo_leerEventos === 'function') eventosExistentes = Modelo_leerEventos();
+  if (typeof Modelo_leerEventos_ === 'function') eventosExistentes = Modelo_leerEventos_();
   var fuentesYaImportadas = {};
   eventosExistentes.forEach(function (e) {
-    var f = Utl_texto(e.FUENTE);
+    var f = Utl_texto_(e.FUENTE);
     if (f) fuentesYaImportadas[Fuentes_claveDedupe_(f)] = true;
   });
   var yaImportadas = 0;
   var stagingNuevas = [];
   var stagingReutilizables = [];
   staging.forEach(function (f) {
-    var clave = Fuentes_claveDedupe_(Fuentes_fuenteOrigen(f));
+    var clave = Fuentes_claveDedupe_(Fuentes_fuenteOrigen_(f));
     if (fuentesYaImportadas[clave]) { yaImportadas += 1; stagingReutilizables.push(f); }
     else stagingNuevas.push(f);
   });
 
   // --- FASE 5.2-3: validación + identificación ---
   var store = { pacientes: [], eventos: [] };
-  if ((opciones.ejecutar || opciones.actualizar) && typeof Modelo_leerPacientes === 'function') {
-    store.pacientes = Modelo_leerPacientes();
+  if ((opciones.ejecutar || opciones.actualizar) && typeof Modelo_leerPacientes_ === 'function') {
+    store.pacientes = Modelo_leerPacientes_();
     // La simulación trabaja en copias: el lector comparte objetos memoizados.
     if (!opciones.ejecutar) {
       store.pacientes = store.pacientes.map(function (p) { return Object.assign({}, p); });
@@ -774,13 +774,13 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   // MERGE conservador sobre pacientes existentes (v0.9.6). Puras y testeables.
   var merge = { revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [] };
   if (opciones.actualizar) {
-    merge = Act_mergearPacientesDesdeStaging(staging, store.pacientes, { modo: opciones.modo });
+    merge = Act_mergearPacientesDesdeStaging_(staging, store.pacientes, { modo: opciones.modo });
   }
 
-  var salida = Ingresos_procesarFilas(stagingNuevas, store, {
+  var salida = Ingresos_procesarFilas_(stagingNuevas, store, {
     // DEC-104: generador canónico automático. El fallback anterior
     // 'EC-'+('000000'+i) dependía de la posición del paciente en el lote.
-    nuevoId: Modelo_nuevoIdInterno
+    nuevoId: Modelo_nuevoIdInterno_
   });
 
   // --- FASE 5.4: reporte ---
@@ -792,7 +792,7 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
   resumen.ejecucion = ejecucionId;
   resumen.ms = Date.now() - t0;
 
-  var fuentesInforme = Fuentes_contarHojasAutorizadas();
+  var fuentesInforme = Fuentes_contarHojasAutorizadas_();
   resumen.fuentesRevisadas = fuentesInforme.hojas;
   resumen.preflight = Fuentes_preflightInforme_(preflight);
 
@@ -804,7 +804,7 @@ function _Fuentes_analizar_(opciones, ejecucionId, t0) {
     excluidas: FUENTES_EXCLUIDAS,
     detalle: stagingNuevas.map(function (f, i) {
       return {
-        fuenteOrigen: Fuentes_fuenteOrigen(f),
+        fuenteOrigen: Fuentes_fuenteOrigen_(f),
         hoja: f.HOJA_ORIGEN,
         fila: f.FILA_ORIGEN,
         estado: f.ESTADO_VALIDACION,
@@ -834,7 +834,7 @@ function _Fuentes_escribir_(a, opciones, t0) {
   var merge = a.merge || { actualizados: 0, conflictos: 0 };
   var salida = a.salida || {};
 
-  if (opciones.ejecutar) Log_info('Fuentes', 'cargaReal',
+  if (opciones.ejecutar) Log_info_('Fuentes', 'cargaReal',
     JSON.stringify({ registros: resumen.registros, nuevos: resumen.nuevos, existentes: resumen.existentes,
                      revision: resumen.revision, conError: resumen.conError,
                      yaImportadas: a.yaImportadas || 0,
@@ -862,21 +862,21 @@ function _Fuentes_escribir_(a, opciones, t0) {
       resumen.error = resultado.motivo + ': ' + (esquema.motivo || '');
       resumen.escritosPacientes = false;
       resumen.escritosEventos = false;
-      Log_error('Fuentes', 'cargaReal-merge', resumen.error);
-      Log_flush();
+      Log_error_('Fuentes', 'cargaReal-merge', resumen.error);
+      Log_flush_();
       return resultado;
     }
   }
   if (typeof Modelo_agregarEventos_ === 'function' && (salida.eventos || []).length) {
-    Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
+    Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual_(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
     escritosEventos = true;
   }
   if (opciones.actualizar) {
     if (actualizarPacientes) {
-      var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-      Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
-        a.store.pacientes.map(Modelo_filaDesdeObjeto));
-      Modelo_invalidarLecturas();
+      var hojaP = Modelo_hoja_(HOJAS.PACIENTES);
+      Utl_escribirBloque_(hojaP, Modelo_dataStartRow_(HOJAS.PACIENTES), 1,
+        a.store.pacientes.map(Modelo_filaDesdeObjeto_));
+      Modelo_invalidarLecturas_();
       escritosPacientes = true;
     }
   } else if (typeof Modelo_agregarPacientes_ === 'function' && (salida.pacientesNuevos || []).length) {
@@ -887,7 +887,7 @@ function _Fuentes_escribir_(a, opciones, t0) {
   resumen.escritosEventos = escritosEventos;
 
   // auditoría a STAGING_IMPORT (dedupe: un mismo origen físico solo se archiva una vez)
-  Fuentes_guardarFilas(opciones.actualizar ? a.staging : a.stagingNuevas);
+  Fuentes_guardarFilas_(opciones.actualizar ? a.staging : a.stagingNuevas);
 
   // casos ambiguos → cola de revisión (CONFLICTOS)
   var filasConflicto = [];
@@ -896,14 +896,14 @@ function _Fuentes_escribir_(a, opciones, t0) {
     var r = f.RESULTADO_IDENTIFICACION;
     var ev = f.RESULTADO_EVENTO || f.EVENTO_RESULTADO;
     if (r && (r.resultado === 'POSIBLE_DUPLICADO' || r.resultado === 'REQUIERE_REVISION')) {
-      filasConflicto.push(Rev_filaConflicto(f));
+      filasConflicto.push(Rev_filaConflicto_(f));
     } else if (ev && (ev.motivo === 'FECHA_EVENTO_AUSENTE' || (ev.estado === 'ERROR' && /FECHA.*AUSENTE|SIN_FECHA/.test(String(ev.motivo||''))))) {
-      filasConflicto.push(Rev_filaConflicto(f));
+      filasConflicto.push(Rev_filaConflicto_(f));
     }
   });
   if (filasConflicto.length && typeof Modelo_agregarConflictos_ === 'function') {
     resultado.aColaRevision = Modelo_agregarConflictos_(filasConflicto);
-    Log_info('Fuentes', 'colaRevision', filasConflicto.length + ' enviados a CONFLICTOS');
+    Log_info_('Fuentes', 'colaRevision', filasConflicto.length + ' enviados a CONFLICTOS');
   }
 
   // --- FASE 5.8: refrescar vistas sectoriales ---
@@ -911,7 +911,7 @@ function _Fuentes_escribir_(a, opciones, t0) {
     resultado.vistasSector = Modelo_refrescarVistasSectores_();
   }
 
-  Log_flush();
+  Log_flush_();
   return resultado;
 }
 
@@ -939,7 +939,7 @@ function Fuentes_cargaReal_(opciones) {
   var ejecucionId = opciones.ejecucionId ||
     // DEC-104: sufijo aleatorio además del tiempo: dos ejecuciones en el
     // mismo milisegundo compartían ID.
-    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio(4);
+    (opciones.actualizar ? 'ACT-' : 'CARGA-') + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio_(4);
   var t0 = Date.now();
   // Reutilizar el análisis dry-run previo (UNA lectura real de fuentes) cuando
   // el llamador pasa su ejecucionId en la misma invocación (Instalar_pFuentes).
@@ -958,8 +958,8 @@ function Fuentes_cargaReal_(opciones) {
  *  no destructivo que devuelve SOLO conteos (nuevos, existentes, campos que
  *  cambiarían por tipo, conflictos). Sin PII: nunca expone detalle por fila.
  *  El análisis puede reutilizarse vía ejecucionId (mismo patrón dry-run→write). */
-function api_fuentesImpacto(acceso, modoDatos) {
-  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+function api_fuentesImpacto_(acceso, modoDatos) {
+  if (!WebApp_autorizarBuscador_(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var modo = Fuentes_normalizarModo_(modoDatos);
   if (modo === FUENTES_MODO.CONSERVAR)
     return { ok: true, modo: modo, impacto: { nuevos: 0, existentes: 0, fillOnly: 0,

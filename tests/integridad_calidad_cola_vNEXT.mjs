@@ -64,9 +64,9 @@ function ctx() {
   const c = vm.createContext({ console: { log() {}, warn() {}, error() {} }, JSON, Date, Math });
   for (const f of readdirSync(new URL('src/', root)).filter(x => /\.(js|gs)$/.test(x)).sort())
     vm.runInContext(read('src/' + f), c, { filename: f });
-  c.Log_info = () => {}; c.Log_error = () => {}; c.Log_warning = () => {}; c.Log_flush = () => {};
+  c.Log_info_ = () => {}; c.Log_error_ = () => {}; c.Log_warning_ = () => {}; c.Log_flush_ = () => {};
   c.Session = { getActiveUser: () => ({ getEmail: () => 'tester@ecicep.cl' }) };
-  c.HVis_formatearIngresos = () => ({ ok: true, migrado: false });
+  c.HVis_formatearIngresos_ = () => ({ ok: true, migrado: false });
   c.hojas = {};
   const E = e => vm.runInContext(e, c);
   const headersConf = ['FECHA_DETECCION', 'TIPO', 'ID_INTERNO', 'RUT', 'NOMBRE', 'DETALLE',
@@ -76,7 +76,7 @@ function ctx() {
   const PAC = E('MODELO_PACIENTE.map(function(x){return x.campo;})');
   const pac = hojaFake([[], [], PAC.slice()]); pac.__nombre = 'PACIENTES';
   c.hojas['PACIENTES'] = pac;
-  c.Modelo_ss = () => ({ getSheetByName: n => c.hojas[n] || null, getSheets: () => Object.values(c.hojas) });
+  c.Modelo_ss_ = () => ({ getSheetByName: n => c.hojas[n] || null, getSheets: () => Object.values(c.hojas) });
   return { c, E, conf, pac, headersConf };
 }
 
@@ -128,7 +128,7 @@ t('T2 una fila con FUENTE_A=CALIDAD se indexa (antes quedaba fuera)', () => {
   // Fila existente de la cola, con FUENTE_A = CALIDAD y ESTADO_REVISION pendiente.
   conf.val.push(['2026-01-01', 'DUPLICADO', 'EC-A', '11111111-1', 'JUAN', 'detalle',
     'CALIDAD', 'INGRESO_AMARILLO', 'PENDIENTE', '']);
-  c.Calidad_auditarTodo = () => ({ filasCola: [{ idInterno: 'EC-A', tipo: 'DUPLICADO' }] });
+  c.Calidad_auditarTodo_ = () => ({ filasCola: [{ idInterno: 'EC-A', tipo: 'DUPLICADO' }] });
   c.Calidad_sincronizarCola_();
   const filas = conf.val.slice(1);
   const deEC_A = filas.filter(f => f[COL.ID] === 'EC-A');
@@ -145,7 +145,7 @@ t('T3 auto-resolve marca RESUELTO_AUTO cuando el problema ya no está', () => {
   conf.val.push(['2026-01-01', 'DUPLICADO', 'EC-A', '11111111-1', 'JUAN', 'detalle',
     'CALIDAD', 'INGRESO_AMARILLO', 'PENDIENTE', '']);
   // Auditoría sin filas en cola: el problema ya no existe.
-  c.Calidad_auditarTodo = () => ({ filasCola: [] });
+  c.Calidad_auditarTodo_ = () => ({ filasCola: [] });
   c.Calidad_sincronizarCola_();
   const fila = conf.val[1];
   assert.equal(fila[COL.ESTADO], 'RESUELTO_AUTO',
@@ -160,7 +160,7 @@ t('T4 una fila que sigue en conflicto conserva PENDIENTE', () => {
   const { c, conf } = ctx();
   conf.val.push(['2026-01-01', 'DUPLICADO', 'EC-A', '11111111-1', 'JUAN', 'detalle',
     'CALIDAD', 'INGRESO_AMARILLO', 'PENDIENTE', '']);
-  c.Calidad_auditarTodo = () => ({ filasCola: [{ idInterno: 'EC-A', tipo: 'DUPLICADO' }] });
+  c.Calidad_auditarTodo_ = () => ({ filasCola: [{ idInterno: 'EC-A', tipo: 'DUPLICADO' }] });
   c.Calidad_sincronizarCola_();
   assert.equal(conf.val[1][COL.ESTADO], 'PENDIENTE',
     'no debe resolverse mientras el conflicto siga en la cola');
@@ -172,7 +172,7 @@ t('T4 una fila que sigue en conflicto conserva PENDIENTE', () => {
 t('T5 Calidad_normalizarFormatoRuts_ usa la fila física del layout', () => {
   const cuerpo = cuerpoDe('src/18_Calidad.js', 'Calidad_normalizarFormatoRuts_');
   assert.ok(cuerpo, 'debe existir Calidad_normalizarFormatoRuts_');
-  assert.match(cuerpo, /Modelo_filaFisica\(HOJAS\.PACIENTES/,
+  assert.match(cuerpo, /Modelo_filaFisica_\(HOJAS\.PACIENTES/,
     'la fila debe salir del contrato de layout');
   assert.doesNotMatch(cuerpo, /var\s+fila\s*=\s*2\s*\+\s*ix/,
     'no puede derivar la fila del índice del arreglo (2 + ix)');

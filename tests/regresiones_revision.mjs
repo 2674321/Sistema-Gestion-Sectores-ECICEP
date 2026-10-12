@@ -87,8 +87,8 @@ function sheet(headers) {
 }
 // Hoja visual genérica: rejilla de valores en memoria + estilos separados,
 // con registro de operaciones para verificar qué se escribe y qué se salta.
-// Soporta el flujo completo de HVis_normalizarLayout en estado 'OK' (sin
-// insertRows/deleteRows) y las lecturas de HVis_pendientesVisual.
+// Soporta el flujo completo de HVis_normalizarLayout_ en estado 'OK' (sin
+// insertRows/deleteRows) y las lecturas de HVis_pendientesVisual_.
 function hojaVisual(nombre, opts) {
   const filas = (opts.filas || []).map(f => Array.from(f));
   const ancho = opts.ancho || Math.max(1, ...filas.map(f => f.length));
@@ -165,19 +165,19 @@ const payload = { captureId: 'Cp2-' + 'a'.repeat(32), accion: 'nuevoIngreso', ru
   fechaIngreso: '2026-09-01', profesional: 'Matrona/o' };
 for (const reorder of [false, true]) test('Captura real: persistir, releer y actualizar trailer ' + (reorder ? 'con columnas reordenadas y extras' : 'canónico'), () => {
   const c = backend();
-  const headers = Array.from(c.Form_columnas());
+  const headers = Array.from(c.Form_columnas_());
   if (reorder) { headers.reverse(); headers.splice(4, 0, 'DATO_EXTRA'); }
   const h = sheet(headers);
-  c.Modelo_hoja = () => h;
-  c.Captura_v2_ahora = () => '2026-09-16 10:00:00';
-  const reg = c.Captura_v2_nuevoRegistro(payload, { usuario: 'test', fechaRecepcion: '2026-09-16' });
-  assert.equal(c.Captura_v2_persistirRegistro(reg).ok, true);
-  let found = c.Captura_v2_buscarRegistro(payload.captureId);
+  c.Modelo_hoja_ = () => h;
+  c.Captura_v2_ahora_ = () => '2026-09-16 10:00:00';
+  const reg = c.Captura_v2_nuevoRegistro_(payload, { usuario: 'test', fechaRecepcion: '2026-09-16' });
+  assert.equal(c.Captura_v2_persistirRegistro_(reg).ok, true);
+  let found = c.Captura_v2_buscarRegistro_(payload.captureId);
   assert.equal(found.estado, 'RECIBIDO');
   assert.equal(found.fechaIngreso, '2026-09-01');
   if (reorder) h.rows[1][headers.indexOf('DATO_EXTRA')] = 'CONSERVAR';
-  assert.equal(c.Captura_v2_actualizarTrailer(payload.captureId, { estado: 'PROCESADO', idInterno: 'FICTICIO' }, found).ok, true);
-  found = c.Captura_v2_buscarRegistro(payload.captureId);
+  assert.equal(c.Captura_v2_actualizarTrailer_(payload.captureId, { estado: 'PROCESADO', idInterno: 'FICTICIO' }, found).ok, true);
+  found = c.Captura_v2_buscarRegistro_(payload.captureId);
   assert.equal(found.estado, 'PROCESADO');
   assert.equal(found.idInterno, 'FICTICIO');
   assert.equal(found.normalizado.nombre, payload.nombre);
@@ -185,82 +185,82 @@ for (const reorder of [false, true]) test('Captura real: persistir, releer y act
 });
 for (const defect of ['ausente', 'duplicado']) test('Esquema ' + defect + ' rechaza escritura antes de persistir', () => {
   const c = backend();
-  const headers = Array.from(c.Form_columnas());
+  const headers = Array.from(c.Form_columnas_());
   if (defect === 'ausente') headers.splice(headers.indexOf('ESTADO'), 1);
   else headers.push('ESTADO');
-  const h = sheet(headers); c.Modelo_hoja = () => h;
-  const reg = c.Captura_v2_nuevoRegistro(payload, { usuario: 'test', fechaRecepcion: '2026-09-16' });
-  assert.equal(c.Captura_v2_persistirRegistro(reg).ok, false);
+  const h = sheet(headers); c.Modelo_hoja_ = () => h;
+  const reg = c.Captura_v2_nuevoRegistro_(payload, { usuario: 'test', fechaRecepcion: '2026-09-16' });
+  assert.equal(c.Captura_v2_persistirRegistro_(reg).ok, false);
   assert.equal(h.rows.length, 1);
 });
 test('Reparación no reetiqueta filas pobladas con otro orden', () => {
   const c = backend();
-  const h = sheet(Array.from(c.Form_columnas()).reverse());
+  const h = sheet(Array.from(c.Form_columnas_()).reverse());
   h.rows.push(Array(h.rows[0].length).fill('CONSERVAR'));
   const before = JSON.stringify(h.rows);
   c.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: () => h }) };
-  assert.equal(c.Form_instalar().motivo, 'ESQUEMA_CAPTURA_REQUIERE_REVISION');
+  assert.equal(c.Form_instalar_().motivo, 'ESQUEMA_CAPTURA_REQUIERE_REVISION');
   assert.equal(JSON.stringify(h.rows), before);
 });
 test('Actualizar contacto no solicita identidad que el payload V2 omite', () => {
-  const c = backend(); const s = c.Form_esquemaFormulario().ACTUALIZAR_DATOS;
+  const c = backend(); const s = c.Form_esquemaFormulario_().ACTUALIZAR_DATOS;
   assert.equal(s.secciones.ident, false);
   assert.deepEqual(Array.from(s.camposRequeridos).sort(), ['PROFESIONAL','RUT']);
 });
 test('Simulación del orquestador no llama a ningún escritor', () => {
   const c = backend(); const calls = [];
   for (const name of ['Modelo_asegurarEsquemaPacientes_','Modelo_asegurarEsquemaEventos_','Modelo_alinearVistasSectoriales_',
-    'Modelo_limpiarHojasResiduales','Amarillo_importarTodo_','Estrat_recalcularTodos_',
-    'Control_recalcularTodos','Modelo_refrescarVistasSectores_','HVis_aplicarTodasLasSecciones',
-    'HVis_formatearIngresos','Hojas_formatoCondicional','Modelo_validarIngresos',
-    'Modelo_aplicarDiseno','Modelo_disenoHojas','Hojas_colorearRutIngresos',
+    'Modelo_limpiarHojasResiduales_','Amarillo_importarTodo_','Estrat_recalcularTodos_',
+    'Control_recalcularTodos_','Modelo_refrescarVistasSectores_','HVis_aplicarTodasLasSecciones_',
+    'HVis_formatearIngresos_','Hojas_formatoCondicional_','Modelo_validarIngresos_',
+    'Modelo_aplicarDiseno_','Modelo_disenoHojas_','Hojas_colorearRutIngresos_',
     'Libro_mantenimiento_','Libro_repararPresentacion_','Inicio_refrescarSiNecesario_',
-    'Libro_marcarDirty_','onOpen','Log_info','Log_flush']) {
+    'Libro_marcarDirty_','onOpen','Log_info_','Log_flush_']) {
     c[name] = () => { calls.push(name); return { ok: true }; };
   }
   c.Fuentes_cargaReal_ = o => { assert.equal(o.ejecutar, false); return { ok: true, resumen: {} }; };
-  c.Act_enriquecerPacientes = o => { assert.equal(o.dryRun, true); return { ok: true }; };
-  const r = c.Act_actualizarSistema({ ejecutar: false });
+  c.Act_enriquecerPacientes_ = o => { assert.equal(o.dryRun, true); return { ok: true }; };
+  const r = c.Act_actualizarSistema_({ ejecutar: false });
   assert.equal(r.ok, true); assert.equal(r.dryRun, true);
   assert.deepEqual(calls, []);
 });
 function actualizacionSimulada() {
   const c = backend();
-  c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
+  c.Modelo_ss_ = () => ({ getSheetByName: () => ({}) });
   c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: true });
   // DEC-104: «Reparar» reconcilia también el esquema de EVENTOS; el simulador
   // aísla ambos reconciliadores para no tocar el libro real.
   c.Modelo_asegurarEsquemaEventos_ = () => ({ ok: true });
   c.Modelo_alinearVistasSectoriales_ = () => ({ errores: [] });
-  c.Modelo_limpiarHojasResiduales = () => ({ candidatas: [], eliminadas: [] });
+  c.Modelo_limpiarHojasResiduales_ = () => ({ candidatas: [], eliminadas: [] });
   c.Fuentes_cargaReal_ = () => ({ ok: true, resumen: {} });
   c.Amarillo_importarTodo_ = () => ({ ok: true });
-  c.Act_enriquecerPacientes = () => ({ ok: true, errores: 0 });
+  c.Act_enriquecerPacientes_ = () => ({ ok: true, errores: 0 });
   c.Estrat_recalcularTodos_ = () => ({ ok: true, recalculados: 0 });
-  c.Control_recalcularTodos = () => ({ ok: true, cambios: 0 });
+  c.Control_recalcularTodos_ = () => ({ ok: true, cambios: 0 });
   c.Captura_reconciliarFechasCorregidas_ = () => ({ ok: true });
   c.Modelo_refrescarVistasSectores_ = () => ({});
-  c.HVis_aplicarTodasLasSecciones = () => ({ ok: true, resultados: [] });
-  c.HVis_formatearIngresos = () => ({});
-  c.Hojas_formatoCondicional = () => ({ errores: [] });
-  c.Modelo_validarIngresos = () => ({ fallidas: [] });
-  c.Modelo_aplicarDiseno = () => ({ fallidas: [] });
-  c.Modelo_disenoHojas = () => ({ ok: true });
-  c.Hojas_colorearRutIngresos = () => 0;
+  c.HVis_aplicarTodasLasSecciones_ = () => ({ ok: true, resultados: [] });
+  c.HVis_formatearIngresos_ = () => ({});
+  c.Hojas_formatoCondicional_ = () => ({ errores: [] });
+  c.Modelo_validarIngresos_ = () => ({ fallidas: [] });
+  c.Modelo_aplicarDiseno_ = () => ({ fallidas: [] });
+  c.Modelo_disenoHojas_ = () => ({ ok: true });
+  c.Hojas_colorearRutIngresos_ = () => 0;
   c.onOpen = () => {};
   // v0.14: la presentación corre en el motor único (mockeado aquí para aislar
   // los tests de datos; los tests del motor cubren el camino visual).
   c.Libro_marcarDirty_ = () => ({});
   c.Libro_mantenimiento_ = () => ({ ok: true });
-  c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
+  c.Log_info_ = () => {}; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
   return c;
 }
 test('Actualizar informa fallo devuelto por Amarillo, sin éxito falso', () => {
   const c = actualizacionSimulada();
   const logs = [];
-  c.Log_error = (_, __, detail) => logs.push(JSON.parse(detail));
+  c.Log_error_ = (_, __, detail) => logs.push(JSON.parse(detail));
   c.Amarillo_importarTodo_ = () => ({ ok: false, motivo: 'FUENTE_NO_DISPONIBLE' });
-  const r = c.Act_actualizarSistema({ ejecutar: true });
+  const r = c.Act_actualizarSistema_({ ejecutar: true });
   assert.equal(r.ok, false);
   assert.ok(r.resumen.errores.includes('amarillo'));
   assert.equal(r.resumen.detalleErrores.amarillo, 'FUENTE_NO_DISPONIBLE');
@@ -271,7 +271,7 @@ test('Actualizar informa excepciones de vistas; presentación pendiente es adver
   const c = actualizacionSimulada();
   c.Modelo_refrescarVistasSectores_ = () => { throw Error('VISTA_SIMULADA'); };
   c.Libro_mantenimiento_ = () => ({ ok: false, motivo: 'DISEÑO_SIMULADO' });
-  const r = c.Act_actualizarSistema({ ejecutar: true });
+  const r = c.Act_actualizarSistema_({ ejecutar: true });
   assert.equal(r.ok, false);
   assert.deepEqual(Array.from(r.resumen.errores), ['vistas']);
   assert.equal(r.resumen.detalleErrores.vistas, 'VISTA_SIMULADA');
@@ -282,7 +282,7 @@ test('Actualizar informa excepciones de vistas; presentación pendiente es adver
 test('Actualizar con datos OK y presentación pendiente NO falla (v0.14 §24)', () => {
   const c = actualizacionSimulada();
   c.Libro_mantenimiento_ = () => ({ ok: false, motivo: 'SECCION_SIMULADA' });
-  const r = c.Act_actualizarSistema({ ejecutar: true });
+  const r = c.Act_actualizarSistema_({ ejecutar: true });
   assert.equal(r.ok, true);
   assert.deepEqual(Array.from(r.resumen.errores), []);
   assert.ok((r.advertencias || []).includes('PRESENTACION_PENDIENTE'));
@@ -291,7 +291,7 @@ test('Actualizar con datos OK y presentación pendiente NO falla (v0.14 §24)', 
 test('Actualizar informa excepción del motor como advertencia (v0.14 §24)', () => {
   const c = actualizacionSimulada();
   c.Libro_mantenimiento_ = () => { throw Error('MOTOR_SIMULADO'); };
-  const r = c.Act_actualizarSistema({ ejecutar: true });
+  const r = c.Act_actualizarSistema_({ ejecutar: true });
   assert.equal(r.ok, true);
   assert.ok((r.advertencias || []).includes('PRESENTACION_PENDIENTE'));
   assert.match(r.detalleErrores.presentacion, /MOTOR_SIMULADO/);
@@ -299,29 +299,29 @@ test('Actualizar informa excepción del motor como advertencia (v0.14 §24)', ()
 test('Actualizar captura fallo de fuentes también en simulación', () => {
   const c = actualizacionSimulada();
   c.Fuentes_cargaReal_ = () => { throw Error('FUENTE_SIMULADA'); };
-  const r = c.Act_actualizarSistema({ ejecutar: false });
+  const r = c.Act_actualizarSistema_({ ejecutar: false });
   assert.equal(r.ok, false);
   assert.deepEqual(Array.from(r.resumen.errores), ['fuentes']);
   assert.equal(r.resumen.detalleErrores.fuentes, 'FUENTE_SIMULADA');
 });
 test('La interfaz identifica las fases que fallaron', () => {
   const c = actualizacionSimulada(), mensajes = [];
-  c.Act_actualizarSistema = () => ({ ok: false, resumen: { errores: ['vistas', 'diseno'] } });
-  c.Utl_toast = (tipo, mensaje) => mensajes.push({ tipo, mensaje });
-  c.UI_actualizarTodo();
+  c.Act_actualizarSistema_ = () => ({ ok: false, resumen: { errores: ['vistas', 'diseno'] } });
+  c.Utl_toast_ = (tipo, mensaje) => mensajes.push({ tipo, mensaje });
+  c.UI_actualizarTodo_();
   assert.equal(mensajes.at(-1).tipo, 'error');
   assert.match(mensajes.at(-1).mensaje, /vistas, diseno/);
 });
 test('Estratificación de ficha conserva nivel de fuente si no hay cálculo y limpia caché', () => {
   const c = backend(), p = { ID_INTERNO: 'P-1', ESTRATIFICACION: 'G2', CONDICIONES: '' };
   let guardado, invalidaciones = 0;
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
-  c.Modelo_leerPacientes = () => [p];
-  c.Modelo_filaFisica = () => 4;
-  c.Modelo_filaDesdeObjeto = obj => [obj.ESTRATIFICACION];
-  c.Modelo_invalidarLecturas = () => { invalidaciones++; };
+  c.Modelo_hoja_ = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
+  c.Modelo_leerPacientes_ = () => [p];
+  c.Modelo_filaFisica_ = () => 4;
+  c.Modelo_filaDesdeObjeto_ = obj => [obj.ESTRATIFICACION];
+  c.Modelo_invalidarLecturas_ = () => { invalidaciones++; };
   c.Modelo_refrescarVistasSectores_ = () => {};
-  c.Estrat_evaluar = () => ({ estado: 'SIN_DATOS', resultado: '', puntaje: 0, regla: '' });
+  c.Estrat_evaluar_ = () => ({ estado: 'SIN_DATOS', resultado: '', puntaje: 0, regla: '' });
   const r = c.Estrat_recalcularPaciente_('P-1');
   assert.equal(r.resultado, 'G2'); assert.equal(guardado, 'G2');
   assert.equal(invalidaciones, 1);
@@ -329,13 +329,13 @@ test('Estratificación de ficha conserva nivel de fuente si no hay cálculo y li
 test('Recálculo masivo invalida lectura y registra cambio de estratificación', () => {
   const c = backend(), p = { ID_INTERNO: 'P-1', ESTRATIFICACION: '', CONDICIONES: 'HTA' };
   let guardado, invalidaciones = 0, guardadoEvento = null;
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
-  c.Modelo_leerPacientes = () => [p];
-  c.Modelo_filaDesdeObjeto = obj => [obj.ESTRATIFICACION];
-  c.Modelo_invalidarLecturas = () => { invalidaciones++; };
+  c.Modelo_hoja_ = () => ({ getRange: () => ({ setValues: v => { guardado = v[0][0]; } }) });
+  c.Modelo_leerPacientes_ = () => [p];
+  c.Modelo_filaDesdeObjeto_ = obj => [obj.ESTRATIFICACION];
+  c.Modelo_invalidarLecturas_ = () => { invalidaciones++; };
   c.Modelo_refrescarVistasSectores_ = () => {};
-  c.Log_info = () => {}; c.Log_flush = () => {};
-  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G1' });
+  c.Log_info_ = () => {}; c.Log_flush_ = () => {};
+  c.Estrat_evaluar_ = () => ({ estado: 'CALCULADO', resultado: 'G1' });
   c.Modelo_agregarEventos_ = eventos => { guardadoEvento = eventos[0]; return 1; };
   const r = c.Estrat_recalcularTodos_();
   assert.equal(r.recalculados, 1); assert.equal(guardado, 'G1');
@@ -346,29 +346,29 @@ test('Recálculo masivo invalida lectura y registra cambio de estratificación',
 });
 test('INICIO cuenta pendientes solo en filas con paciente y usa total real en porcentajes', () => {
   const c = backend();
-  const formula = c.Hojas_formulaIndicador('ESTRAT_PEND');
+  const formula = c.Hojas_formulaIndicador_('ESTRAT_PEND');
   assert.match(formula, /^=MAX\(0;COUNTA\(PACIENTES!A4:A\)/);
   for (const nivel of ['G1', 'G2', 'G3'])
     assert.ok(formula.includes('COUNTIFS(PACIENTES!A4:A;"<>";PACIENTES!I4:I;"' + nivel + '")'));
   const inicio = read('src/34_LibroUX.js');
   assert.match(inicio, /function Inicio_calcularMetricas_/);
   assert.doesNotMatch(inicio.match(/function Inicio_construir_[\s\S]*?\n}/)?.[0] || '', /COUNTIF|VLOOKUP|MAX\(PACIENTES/);
-  assert.equal(c.Dash_calidadDatos([
+  assert.equal(c.Dash_calidadDatos_([
     { ESTRATIFICACION: 'G1' }, { ESTRATIFICACION: '' },
     { ESTRATIFICACION: 'G' }, { ESTRATIFICACION: 'G0' }
   ]).estratPendiente, 3);
 });
 test('Estadísticas omite filas vacías de PACIENTES y conserva estratificación válida', () => {
   const c = backend();
-  c.Modelo_leerPacientesCampos = () => [
+  c.Modelo_leerPacientesCampos_ = () => [
     { ID_INTERNO: 'P-1', SECTOR: 'VERDE', ESTRATIFICACION: 'G2' },
     { ID_INTERNO: '', SECTOR: '', ESTRATIFICACION: '' }
   ];
-  c.Modelo_leerEventosCampos = () => [];
-  c._UI_tz = () => 'America/Santiago';
-  c._ui_isoFecha = () => '';
-  c.WebApp_autorizarBuscador = () => true;
-  const r = c.api_dashboardDatos();
+  c.Modelo_leerEventosCampos_ = () => [];
+  c._UI_tz_ = () => 'America/Santiago';
+  c._ui_isoFecha_ = () => '';
+  c.WebApp_autorizarBuscador_ = () => true;
+  const r = c.api_dashboardDatos_();
   assert.equal(r.ok, true); assert.equal(r.pacientes.length, 1);
   assert.equal(r.pacientes[0].est, 'G2');
 });
@@ -389,12 +389,12 @@ test('El diseño de instalación oculta cuadrícula y ajusta filas ocupadas', ()
     setHiddenGridlines: v => calls.push(['grid',v]),
     setRowHeights: (...v) => calls.push(['rows',...v]), isSheetHidden: () => false
   };
-  c.Modelo_ss = () => ({ getActiveSheet: () => hoja,
+  c.Modelo_ss_ = () => ({ getActiveSheet: () => hoja,
     getSheetByName: name => name === 'EVENTOS' ? hoja : null,
     setActiveSheet: () => {}, moveActiveSheet: () => {} });
-  c._modelo_estilizarEncabezado = (_, color) => calls.push(['header',color]);
-  c._modelo_aplicarBanda = () => calls.push(['band']);
-  const r = c.Modelo_aplicarDiseno();
+  c._modelo_estilizarEncabezado_ = (_, color) => calls.push(['header',color]);
+  c._modelo_aplicarBanda_ = () => calls.push(['band']);
+  const r = c.Modelo_aplicarDiseno_();
   assert.equal(r.fallidas.length, 0);
   assert.ok(calls.some(x => x[0] === 'header' && x[1] === '#123456'));
   assert.ok(calls.some(x => x[0] === 'grid' && x[1] === true));
@@ -411,11 +411,11 @@ test('El diseño no aplica banding en hojas visuales (v0.14 §19: Presentación 
     getRowHeight: () => 20,
     setRowHeights: (...v) => calls.push(['rows', ...v]), isSheetHidden: () => false
   };
-  c.Modelo_ss = () => ({ getActiveSheet: () => hoja,
+  c.Modelo_ss_ = () => ({ getActiveSheet: () => hoja,
     getSheetByName: name => name === 'SECTOR_NARANJO' ? hoja : null,
     setActiveSheet: () => {}, moveActiveSheet: () => {} });
-  c._modelo_aplicarBanda = () => calls.push(['band']);
-  const r = c.Modelo_aplicarDiseno();
+  c._modelo_aplicarBanda_ = () => calls.push(['band']);
+  const r = c.Modelo_aplicarDiseno_();
   assert.equal(r.fallidas.length, 0);
   assert.ok(!calls.some(x => x[0] === 'band'), 'sin banding en hoja visual (preferencia banda:false)');
   assert.ok(calls.some(x => x[0] === 'grid'), 'gridlines ocultas conservadas (sin otro owner)');
@@ -439,10 +439,10 @@ test('Instalar deja el freeze visual a HVis y respeta HOJAS_UX en hojas simples'
       isSheetHidden: () => false };
   }
   const hojas = { SECTOR_NARANJO: hoja('SECTOR_NARANJO', 2), EVENTOS: hoja('EVENTOS', 0) };
-  c.Modelo_ss = () => ({ getActiveSheet: () => hojas.EVENTOS,
+  c.Modelo_ss_ = () => ({ getActiveSheet: () => hojas.EVENTOS,
     getSheetByName: nombre => hojas[nombre] || null,
     setActiveSheet: () => {}, moveActiveSheet: () => {} });
-  const r = c.Modelo_aplicarDiseno();
+  const r = c.Modelo_aplicarDiseno_();
   assert.equal(r.fallidas.length, 0);
   assert.deepEqual(llamadas, [['EVENTOS', 1]]);
 });
@@ -455,7 +455,7 @@ test('Instalar formatea fechas por encabezado físico y conserva otras columnas'
       setNumberFormat: formato => fechas.push([fila, col, formato])
     }; }
   };
-  c._modelo_formatoSencillo(hoja, ['FECHA_DETECCION', 'TIPO', 'RUT']);
+  c._modelo_formatoSencillo_(hoja, ['FECHA_DETECCION', 'TIPO', 'RUT']);
   assert.deepEqual(fechas, [[2, 2, 'dd/MM/yyyy']]);
 });
 test('La fase estructura no reescribe presentación de PACIENTES', () => {
@@ -467,7 +467,7 @@ test('La fase estructura no reescribe presentación de PACIENTES', () => {
     setColumnWidth: (...v) => escrituras.push(['ancho', ...v]),
     getRange: () => ({ setNumberFormat: v => escrituras.push(['formato', v]) })
   };
-  const r = c._modelo_formatearPacientes(hoja);
+  const r = c._modelo_formatearPacientes_(hoja);
   assert.equal(r.ok, true);
   assert.equal(r.grupoLegacyReparado, false);
   assert.deepEqual(escrituras, []);
@@ -481,11 +481,11 @@ test('Instalar reabre solo el bloque clínico ocultado por el grupo heredado', (
   const c = backend(), visibles = [];
   const hoja = { isColumnHiddenByUser: col => col <= 12,
     showColumns: (col, cantidad) => visibles.push([col, cantidad]) };
-  assert.equal(c._modelo_repararGrupoPacientes(hoja), true);
+  assert.equal(c._modelo_repararGrupoPacientes_(hoja), true);
   assert.deepEqual(visibles, [[2, 5], [8, 5]]);
   visibles.length = 0;
   hoja.isColumnHiddenByUser = col => col === 1;
-  assert.equal(c._modelo_repararGrupoPacientes(hoja), false);
+  assert.equal(c._modelo_repararGrupoPacientes_(hoja), false);
   assert.deepEqual(visibles, []);
 });
 test('Instalar retira un grupo heredado solo si coincide exactamente', () => {
@@ -494,7 +494,7 @@ test('Instalar retira un grupo heredado solo si coincide exactamente', () => {
     expand: () => operaciones.push('expand'), remove: () => operaciones.push('remove') };
   const hoja = { getColumnGroupDepth: () => 1, getColumnGroup: () => grupo,
     showColumns: (col, n) => operaciones.push([col, n]) };
-  assert.equal(c._modelo_repararGrupoPacientes(hoja), true);
+  assert.equal(c._modelo_repararGrupoPacientes_(hoja), true);
   assert.deepEqual(operaciones, ['expand', 'remove', [2, 5], [8, 5]]);
 });
 test('Validaciones de PACIENTES respetan el tamaño de la hoja', () => {
@@ -503,14 +503,14 @@ test('Validaciones de PACIENTES respetan el tamaño de la hoja', () => {
   const hoja = { getLastColumn: () => 2, getMaxRows: () => 3,
     getRange: () => ({ getValues: () => [['SEXO', 'SECTOR']],
       setDataValidation: () => { escritas++; } }) };
-  assert.equal(c._modelo_validacionesPacientes(hoja), 0);
+  assert.equal(c._modelo_validacionesPacientes_(hoja), 0);
   assert.equal(escritas, 0);
 });
 test('Semáforo de próximo control genera fórmulas válidas para ambas vistas', () => {
   const c = backend();
-  assert.equal(c.Hojas_formulaProximoControl('Q', 4, 'VENCIDO'), '=AND($Q4<>"",$Q4<TODAY())');
-  assert.equal(c.Hojas_formulaProximoControl('N', 4, 'PROXIMO'), '=AND($N4<>"",$N4>=TODAY(),$N4<=TODAY()+7)');
-  assert.equal(c.Hojas_formulaProximoControl('N', 4, 'VIGENTE'), '=AND($N4<>"",$N4>TODAY()+7)');
+  assert.equal(c.Hojas_formulaProximoControl_('Q', 4, 'VENCIDO'), '=AND($Q4<>"",$Q4<TODAY())');
+  assert.equal(c.Hojas_formulaProximoControl_('N', 4, 'PROXIMO'), '=AND($N4<>"",$N4>=TODAY(),$N4<=TODAY()+7)');
+  assert.equal(c.Hojas_formulaProximoControl_('N', 4, 'VIGENTE'), '=AND($N4<>"",$N4>TODAY()+7)');
 });
 test('DataValidationBuilder del harness rechaza APIs inexistentes (setDateValid)', () => {
   const c = backend();
@@ -523,12 +523,12 @@ test('DataValidationBuilder del harness rechaza APIs inexistentes (setDateValid)
   assert.throws(() => c.SpreadsheetApp.newDataValidation().metodoInexistente(),
     /DataValidationBuilder/);
 });
-test('Portada: picker FECHA_NACIMIENTO completa Hojas_formatoCondicional sin API inventada', () => {
+test('Portada: picker FECHA_NACIMIENTO completa Hojas_formatoCondicional_ sin API inventada', () => {
   const c = backend();
   const rango = { getValues: () => [['SEXO']], setDataValidation: () => rango, setNote: () => rango, setNumberFormat: () => rango };
   const hoja = { getLastRow: () => 10, getMaxRows: () => 100, getLastColumn: () => 30,
     getRange: () => rango, setConditionalFormatRules: () => {} };
-  const r = c.Hojas_formatoCondicional({ getSheetByName: () => hoja });
+  const r = c.Hojas_formatoCondicional_({ getSheetByName: () => hoja });
   assert.equal(r.errores.length, 0, 'errores: ' + r.errores.join(' | '));
   assert.ok(r.aplicadas >= 1, 'aplicó al menos una regla/validación');
 });
@@ -556,9 +556,9 @@ for (const sector of ['NARANJO', 'AMARILLO', 'VERDE'])
     const c = backend();
     const nombre = 'SECTOR_' + sector;
     const hoja = sectorMigrada(nombre, sector, false);
-    // Cadena equivalente al motor único (formato:* → HVis_reconciliarHoja →
-    // HVis_aplicarSecciones) para la hoja del sector.
-    const r = c.HVis_aplicarSecciones(hoja, { forzar: true });
+    // Cadena equivalente al motor único (formato:* → HVis_reconciliarHoja_ →
+    // HVis_aplicarSecciones_) para la hoja del sector.
+    const r = c.HVis_aplicarSecciones_(hoja, { forzar: true });
     assert.equal(r.ok, true, 'ok=' + r.ok + ' advertencias=' + JSON.stringify(r.advertencias));
     assert.equal(r.advertencias.length, 0, 'sin advertencias: ' + JSON.stringify(r.advertencias));
     const fila2 = hoja.getRange(2, 1, 1, 16).getValues()[0];
@@ -579,7 +579,7 @@ test('MIG-001 recupera una vista derivada con encabezados incompatibles', () => 
   const hoja = hojaVisual('SECTOR_NARANJO', { ancho: 17, filas: [
     ['SECTOR NARANJO'], ['IDENTIDAD'], ['ENCABEZADO HEREDADO'], ['dato derivado ambiguo']
   ] });
-  c.Modelo_hoja = () => hoja; c._modelo_estilizarEncabezado = () => {};
+  c.Modelo_hoja_ = () => hoja; c._modelo_estilizarEncabezado_ = () => {};
   const r = c.Modelo_alinearVistaSector_('SECTOR_NARANJO');
   assert.equal(r.ok, true); assert.equal(r.regenerar, true);
   assert.deepEqual(Array.from(hoja.getRange(3, 1, 1, 17).getValues()[0]), Array.from(c.COLUMNAS_SECTOR_VISTA));
@@ -588,7 +588,7 @@ test('MIG-001 recupera una vista derivada con encabezados incompatibles', () => 
   c.Modelo_alinearVistaSector_ = n => ({ ok: true, alineado: n === 'SECTOR_NARANJO',
     regenerar: n === 'SECTOR_NARANJO' });
   c.Modelo_refrescarVistasSectores_ = s => { sectores = Array.from(s); return { NARANJO: 1 }; };
-  const mig = c.Mig_run001();
+  const mig = c.Mig_run001_();
   assert.equal(mig.ok, true); assert.deepEqual(sectores, ['NARANJO']);
 });
 test('SAS-025: Instalar/reparar aplica el diseño SIN fuerza global (v0.14: wrapper sobre el motor único)', () => {
@@ -601,13 +601,13 @@ test('SAS-025: Instalar/reparar aplica el diseño SIN fuerza global (v0.14: wrap
     'el wrapper ejecuta las subtareas formato:* del plan único (sin pipeline paralelo)');
   c.Presentacion_ejecutarTarea_ = tareaReal;
 });
-test('SAS-025: HVis_yaFormateada devuelve false si falta la sección OBSERVACIONES', () => {
+test('SAS-025: HVis_yaFormateada_ devuelve false si falta la sección OBSERVACIONES', () => {
   const c = backend();
   const incompleta = sectorMigrada('SECTOR_NARANJO', 'NARANJO', false);
-  assert.equal(c.HVis_yaFormateada(incompleta), false, 'migrada sin OBSERVACIONES → false');
+  assert.equal(c.HVis_yaFormateada_(incompleta), false, 'migrada sin OBSERVACIONES → false');
   const completa = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
-  c.HVis_aplicarSecciones(completa, { forzar: true });
-  assert.equal(c.HVis_yaFormateada(completa), true, 'canónica completa → true');
+  c.HVis_aplicarSecciones_(completa, { forzar: true });
+  assert.equal(c.HVis_yaFormateada_(completa), true, 'canónica completa → true');
 });
 test('v0.12.2: título escrito y fast-path comparten la misma especificación', () => {
   const c = backend();
@@ -618,34 +618,34 @@ test('v0.12.2: título escrito y fast-path comparten la misma especificación', 
   assert.equal(c.HVis_tituloEsperado_('PACIENTES'), 'SISTEMA ECICEP');
 
   const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
-  const aplicado = c.HVis_aplicarSecciones(hoja, { forzar: true });
+  const aplicado = c.HVis_aplicarSecciones_(hoja, { forzar: true });
   assert.equal(aplicado.ok, true);
   assert.equal(hoja.getRange(1, 1).getValues()[0][0], c.HVis_tituloEsperado_('SECTOR_NARANJO'));
-  assert.equal(c.HVis_yaFormateada(hoja), true,
+  assert.equal(c.HVis_yaFormateada_(hoja), true,
     'el título producido por el writer debe activar el fast-path en la siguiente pasada');
 });
 test('SAS-025: hoja completa usa fast-path sin reescribir y forzar la reformatea', () => {
   const c = backend();
   const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', true);
-  c.HVis_aplicarSecciones(hoja, { forzar: true });
+  c.HVis_aplicarSecciones_(hoja, { forzar: true });
   hoja._ops.length = 0;
-  const r = c.HVis_normalizarLayout(hoja);
+  const r = c.HVis_normalizarLayout_(hoja);
   assert.equal(r.fast, true);
   assert.equal(r.secciones, 4);
   assert.equal(hoja._ops.filter(o => o[0] === 'setValues').length, 0, 'fast-path no reescribe');
-  const rf = c.HVis_normalizarLayout(hoja, { forzar: true });
+  const rf = c.HVis_normalizarLayout_(hoja, { forzar: true });
   assert.equal(rf.fast, undefined);
   assert.ok(hoja._ops.some(o => o[0] === 'setValues'), 'forzar reescribe filas');
   assert.equal(rf.secciones, 4);
 });
-test('SAS-025: HVis_pendientesVisual detecta la ÚLTIMA columna de una sección multicolumna', () => {
+test('SAS-025: HVis_pendientesVisual_ detecta la ÚLTIMA columna de una sección multicolumna', () => {
   const c = backend();
   const sector = 'NARANJO';
   const nombre = 'SECTOR_NARANJO';
   const hoja = sectorMigrada(nombre, sector, true);
   const rampa = ctxExpr(c, 'PALETA_SECCION')[sector].seccion;
-  const secciones = c.HVis_obtenerSecciones(nombre);
-  const plan = c.HVis_calcularPlan(nombre, secciones, c.HVis_mapaColumnas(hoja.getRange(3, 1, 1, 16).getValues()[0]));
+  const secciones = c.HVis_obtenerSecciones_(nombre);
+  const plan = c.HVis_calcularPlan_(nombre, secciones, c.HVis_mapaColumnas_(hoja.getRange(3, 1, 1, 16).getValues()[0]));
   hoja.getRange(1, 1).setBackground(ctxExpr(c, 'COLORES_SECTOR')[sector]);
   hoja.getRange(1, 1).setFontColor(ctxExpr(c, 'TINTA_SECCION'));
   hoja.getRange(1, 1).setFontSize(ctxExpr(c, 'PULIDO_BARRAS').titulo);
@@ -664,7 +664,7 @@ test('SAS-025: HVis_pendientesVisual detecta la ÚLTIMA columna de una sección 
     hoja.getRange(3, col).setFontSize(ctxExpr(c, 'PULIDO_ENCABEZADO').fuente);
   }
   hoja.setRowHeight(3, ctxExpr(c, 'PULIDO_ENCABEZADO').alturaVisual);
-  const r = c.HVis_pendientesVisual(hoja);
+  const r = c.HVis_pendientesVisual_(hoja);
   assert.ok(r.pendientes.length >= 1, 'debe reportar pendientes: ' + JSON.stringify(r.pendientes));
   assert.ok(r.pendientes.some(m => m.indexOf('cols 15') !== -1),
     'debe detectar la col 15 aunque la 12 sea correcta: ' + JSON.stringify(r.pendientes));
@@ -675,12 +675,12 @@ test('SAS-025: aplicar forzar dos veces es idempotente (sin duplicar filas/secci
   const c = backend();
   const hoja = sectorMigrada('SECTOR_NARANJO', 'NARANJO', false);
   const datosAntes = JSON.stringify(hoja.getRange(4, 1, 1, 16).getValues()[0]);
-  const r1 = c.HVis_aplicarSecciones(hoja, { forzar: true });
+  const r1 = c.HVis_aplicarSecciones_(hoja, { forzar: true });
   assert.equal(r1.ok, true);
   assert.equal(r1.insertadas || 0, 0);
   assert.equal(r1.borradas || 0, 0);
   const fila2_1 = hoja.getRange(2, 1, 1, 16).getValues()[0];
-  const r2 = c.HVis_aplicarSecciones(hoja, { forzar: true });
+  const r2 = c.HVis_aplicarSecciones_(hoja, { forzar: true });
   assert.equal(r2.ok, true);
   assert.equal(r2.insertadas || 0, 0);
   assert.equal(r2.borradas || 0, 0);
@@ -697,41 +697,41 @@ test('La coloración de RUT informa el fallo de una hoja sin ocultarlo', () => {
   c.SpreadsheetApp = { getActiveSpreadsheet: () => ({
     getSheetByName: nombre => nombre === 'INGRESO_VERDE' ? hoja : null
   }) };
-  const r = c.Hojas_colorearRutIngresos();
+  const r = c.Hojas_colorearRutIngresos_();
   assert.equal(r.coloreadas, 0);
   assert.match(r.fallidas.join('; '), /INGRESO_VERDE: FORMATO_RUT_SIMULADO/);
 });
 test('Enriquecimiento simulado conserva el objeto memoizado', () => {
   const c = backend(); const p = { ID_INTERNO: 'FICTICIO', RUT: '12345678-5', SEXO: '', FECHA_NACIMIENTO: '' };
   const before = JSON.stringify(p);
-  c.Modelo_leerPacientes = () => [p];
-  c.Act_leerOrigenesDemograficos = () => ({ '12345678-5': {
+  c.Modelo_leerPacientes_ = () => [p];
+  c.Act_leerOrigenesDemograficos_ = () => ({ '12345678-5': {
     SEXO: { valor: 'F', fuente: 'PRUEBA', conflicto: false },
     FECHA_NACIMIENTO: { valor: '1990-01-01', fuente: 'PRUEBA', conflicto: false }
   } });
-  const r = c.Act_enriquecerPacientes({ dryRun: true });
+  const r = c.Act_enriquecerPacientes_({ dryRun: true });
   assert.equal(r.enriquecidos, 1); assert.equal(JSON.stringify(p), before);
 });
 test('Carga de fuentes simulada conserva memo y no registra logs persistentes', () => {
   const c = backend(); const p = { ID_INTERNO: 'FICTICIO', RUT: '12345678-5', SEXO: '' };
-  c.Modelo_leerPacientes = () => [p]; c.Modelo_leerEventos = () => [];
-  c.Fuentes_leerStagingAutorizado = () => [];
-  c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 0 });
-  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
-  c.Act_mergearPacientesDesdeStaging = (_, patients) => { patients[0].SEXO = 'F'; return {}; };
-  c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [] });
-  c.Log_info = () => { throw Error('No escribir logs'); };
+  c.Modelo_leerPacientes_ = () => [p]; c.Modelo_leerEventos_ = () => [];
+  c.Fuentes_leerStagingAutorizado_ = () => [];
+  c.Fuentes_contarHojasAutorizadas_ = () => ({ hojas: 0 });
+  c.Fuentes_preflightFuentes_ = () => ({ ok: true, fuentes: [], bloqueantes: [] });
+  c.Act_mergearPacientesDesdeStaging_ = (_, patients) => { patients[0].SEXO = 'F'; return {}; };
+  c.Ingresos_procesarFilas_ = () => ({ resumen: {}, resultados: [] });
+  c.Log_info_ = () => { throw Error('No escribir logs'); };
   assert.equal(c.Fuentes_cargaReal_({ ejecutar: false, actualizar: true }).ok, true);
   assert.equal(p.SEXO, '');
 });
 test('Esquema incompatible detiene importación antes de anexar eventos', () => {
   const c = backend(); let eventos = 0;
-  c.Modelo_leerPacientes = () => []; c.Modelo_leerEventos = () => [];
-  c.Fuentes_leerStagingAutorizado = () => [];
-  c.Fuentes_contarHojasAutorizadas = () => ({ hojas: 0 });
-  c.Fuentes_preflightFuentes = () => ({ ok: true, fuentes: [], bloqueantes: [] });
-  c.Act_mergearPacientesDesdeStaging = () => ({ actualizados: 0, conflictos: 0 });
-  c.Ingresos_procesarFilas = () => ({ resumen: {}, resultados: [], pacientesNuevos: [{}], eventos: [{}] });
+  c.Modelo_leerPacientes_ = () => []; c.Modelo_leerEventos_ = () => [];
+  c.Fuentes_leerStagingAutorizado_ = () => [];
+  c.Fuentes_contarHojasAutorizadas_ = () => ({ hojas: 0 });
+  c.Fuentes_preflightFuentes_ = () => ({ ok: true, fuentes: [], bloqueantes: [] });
+  c.Act_mergearPacientesDesdeStaging_ = () => ({ actualizados: 0, conflictos: 0 });
+  c.Ingresos_procesarFilas_ = () => ({ resumen: {}, resultados: [], pacientesNuevos: [{}], eventos: [{}] });
   c.Modelo_asegurarEsquemaPacientes_ = () => ({ ok: false, motivo: 'prueba' });
   c.Modelo_agregarEventos_ = () => { eventos++; };
   const r = c.Fuentes_cargaReal_({ ejecutar: true, actualizar: true });
@@ -760,7 +760,8 @@ function ui() {
   vm.runInContext(`globalThis.ECICEP_lectura = function (nombre, args, ok, fail) {
     var run = google.script.run.withSuccessHandler(ok).withFailureHandler(fail);
     run[nombre].apply(run, args || []);
-  };`, c);
+  };
+  globalThis.ECICEP_run = function () { return google.script.run; };`, c);
   const script = [...read('src/Controles.html').matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
   vm.runInContext(script, c);
   return { c, requests, writes, el };

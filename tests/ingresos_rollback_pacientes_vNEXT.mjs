@@ -36,10 +36,10 @@ function libro() {
     },
     insertSheet: (n) => { const h = hojaFake([Array.from(ctx.COLUMNAS_EVENTOS)]); h.val.__nombre = n; return h; }
   };
-  ctx.Modelo_ss = () => ss;
-  ctx.Modelo_hoja = (n) => ss.getSheetByName(n);
+  ctx.Modelo_ss_ = () => ss;
+  ctx.Modelo_hoja_ = (n) => ss.getSheetByName(n);
   ctx.Session = { getActiveUser: () => ({ getEmail: () => 't@e.cl' }) };
-  if (typeof ctx.Modelo_invalidarLecturas === 'function') ctx.Modelo_invalidarLecturas();
+  if (typeof ctx.Modelo_invalidarLecturas_ === 'function') ctx.Modelo_invalidarLecturas_();
   return { pac, ev };
 }
 
@@ -59,7 +59,7 @@ const anexados = [paciente('P-0001', '11111111-1'), paciente('P-0002', '22222222
 const nA = ctx.Modelo_agregarPacientes_(anexados, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
 assert.equal(nA, 2, 'agrega 2 pacientes');
 assert.equal(lib.pac.val.length, 5, 'title+seccion+header + 2 filas');
-assert.equal(ctx.Modelo_leerPacientes().length, 2, '2 pacientes legibles');
+assert.equal(ctx.Modelo_leerPacientes_().length, 2, '2 pacientes legibles');
 
 // ── Fase B: rollback retira exactamente las filas anexadas ──────────────────
 lib = libro();
@@ -67,7 +67,7 @@ ctx.Modelo_agregarPacientes_(anexados, { autorizacion: 'IMPORT_AUTORIZADO', oper
 const rb = ctx.Ingresos_rollbackPacientesNuevos_(0);
 assert.equal(rb.eliminadas, 2, 'rollback de 2 filas anexadas');
 assert.equal(lib.pac.val.length, 3, 'quedó solo el encabezado (título+sección+header)');
-assert.equal(ctx.Modelo_leerPacientes().length, 0, 'sin pacientes luego del rollback');
+assert.equal(ctx.Modelo_leerPacientes_().length, 0, 'sin pacientes luego del rollback');
 
 // ── Fase C: rollback retira solo la fila nueva cuando ya existía 1 previa ───
 lib = libro();
@@ -76,18 +76,18 @@ ctx.Modelo_agregarPacientes_([paciente('P-0000', '99999999-9')], { autorizacion:
 ctx.Modelo_agregarPacientes_([paciente('P-0001', '11111111-1')], { autorizacion: 'IMPORT_AUTORIZADO' });
 const rb2 = ctx.Ingresos_rollbackPacientesNuevos_(1);
 assert.equal(rb2.eliminadas, 1, 'rollback de 1 fila anexada');
-assert.equal(ctx.Modelo_leerPacientes().length, 1, 'queda el preexistente');
-assert.equal(ctx.Modelo_leerPacientes()[0].ID_INTERNO, 'P-0000', 'el preexistente NO se toca');
+assert.equal(ctx.Modelo_leerPacientes_().length, 1, 'queda el preexistente');
+assert.equal(ctx.Modelo_leerPacientes_()[0].ID_INTERNO, 'P-0000', 'el preexistente NO se toca');
 
 // ── Fase D: segunda llamada idempotente con count ya consistente ────────────
 lib = libro();
-const antesD = ctx.Modelo_leerPacientes().length;
+const antesD = ctx.Modelo_leerPacientes_().length;
 ctx.Modelo_agregarPacientes_([paciente('P-0001', '11111111-1')], { autorizacion: 'IMPORT_AUTORIZADO' });
 const rb3a = ctx.Ingresos_rollbackPacientesNuevos_(antesD);
 const rb3b = ctx.Ingresos_rollbackPacientesNuevos_(antesD);
 assert.equal(rb3a.eliminadas, 1, 'primera llamada retira la anexada');
 assert.equal(rb3b.eliminadas, 0, 'segunda llamada no tiene nada que retirar');
 assert.equal(lib.pac.val.length, 3, 'volvió a title+seccion+header');
-assert.equal(ctx.Modelo_leerPacientes().length, 0, 'última aserción de la fase D');
+assert.equal(ctx.Modelo_leerPacientes_().length, 0, 'última aserción de la fase D');
 
 console.log('ingresos transaccionrollback vNEXT: PASS');

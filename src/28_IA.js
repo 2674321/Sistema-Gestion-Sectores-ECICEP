@@ -106,10 +106,10 @@ function IA_llamarGemini_(prompt, opts) {
  */
 /**
  * Detecta si un nombre de campo contiene datos personales identificables
- * o datos clínicos libres. Para estos campos, IA_leerEstadisticas omite
+ * o datos clínicos libres. Para estos campos, IA_leerEstadisticas_ omite
  * ejemplos del prompt de Gemini y solo envía métricas agregadas.
  */
-function IA_esCampoSensible(nombre) {
+function IA_esCampoSensible_(nombre) {
   var n = String(nombre).trim().toUpperCase();
   return (
     /RUT/.test(n) ||
@@ -138,18 +138,18 @@ function IA_permiteEjemplosEgress_(hojaNombre, nombreCampo) {
 /**
  * Lee una hoja siempre alineada a su contrato de layout vigente.
  * - Hojas visuales (PACIENTES): lee desde los encabezados reales hacia abajo
- *   (Modelo_leerBloqueCabecera), respetando título/secciones sin asumir fila 1.
+ *   (Modelo_leerBloqueCabecera_), respetando título/secciones sin asumir fila 1.
  * - Hojas simples: lectura completa (encabezados + datos).
  * Devuelve [ [encabezados], ...filas de datos ]. Jamás asume fila 1.
  */
-function IA_leerBloque(hojaNombre, hoja) {
+function IA_leerBloque_(hojaNombre, hoja) {
   if (!hojaNombre) return [];
   if (!hoja) {
     try { hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(hojaNombre); } catch (e) { return []; }
   }
   if (!hoja) return [];
-  if (Modelo_esHojaVisual(hojaNombre)) return Modelo_leerBloqueCabecera(hojaNombre, hoja);
-  return Utl_leerBloque(hoja);
+  if (Modelo_esHojaVisual_(hojaNombre)) return Modelo_leerBloqueCabecera_(hojaNombre, hoja);
+  return Utl_leerBloque_(hoja);
 }
 
 /**
@@ -157,12 +157,12 @@ function IA_leerBloque(hojaNombre, hoja) {
  * Los campos sensibles solo aportan métricas agregadas (vacíos/únicos);
  * sus ejemplos concretos NO se envían a la API.
  */
-function IA_leerEstadisticas(hojaNombre) {
+function IA_leerEstadisticas_(hojaNombre) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(hojaNombre);
   if (!hoja) return null;
 
-  var datos = IA_leerBloque(hojaNombre, hoja);
+  var datos = IA_leerBloque_(hojaNombre, hoja);
   if (datos.length < 2) return { hoja: hojaNombre, filas: 0, columnas: 0 };
 
   var encabezados = datos[0];
@@ -175,7 +175,7 @@ function IA_leerEstadisticas(hojaNombre) {
   };
 
   for (var c = 0; c < encabezados.length; c++) {
-    var nombre = Utl_texto(encabezados[c]);
+    var nombre = Utl_texto_(encabezados[c]);
     var sensible = !IA_permiteEjemplosEgress_(hojaNombre, nombre);
     var campo = {
       nombre: nombre,
@@ -186,7 +186,7 @@ function IA_leerEstadisticas(hojaNombre) {
 
     var valores = new Set();
     for (var f = 1; f < datos.length; f++) {
-      var val = Utl_texto(datos[f][c]).trim();
+      var val = Utl_texto_(datos[f][c]).trim();
       if (val === '') campo.vacios++;
       else {
         valores.add(val);
@@ -204,18 +204,18 @@ function IA_leerEstadisticas(hojaNombre) {
 /**
  * Lee datos de una columna específica (anonimizados).
  */
-function IA_leerColumna(hojaNombre, nombreColumna, maxFilas) {
+function IA_leerColumna_(hojaNombre, nombreColumna, maxFilas) {
   if (!WebApp_accesoUniversalActivo_()) return [];
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(hojaNombre);
   if (!hoja) return [];
 
-  var datos = IA_leerBloque(hojaNombre, hoja);
+  var datos = IA_leerBloque_(hojaNombre, hoja);
   if (datos.length < 2) return [];
 
   var colIdx = -1;
   for (var c = 0; c < datos[0].length; c++) {
-    if (Utl_texto(datos[0][c]).trim().toUpperCase() === nombreColumna.toUpperCase()) {
+    if (Utl_texto_(datos[0][c]).trim().toUpperCase() === nombreColumna.toUpperCase()) {
       colIdx = c;
       break;
     }
@@ -226,8 +226,8 @@ function IA_leerColumna(hojaNombre, nombreColumna, maxFilas) {
   var limite = maxFilas || datos.length;
   for (var f = 1; f < Math.min(datos.length, limite); f++) {
     resultados.push({
-      fila: Modelo_filaFisica(hojaNombre, f - 1),
-      valor: Utl_texto(datos[f][colIdx]).trim()
+      fila: Modelo_filaFisica_(hojaNombre, f - 1),
+      valor: Utl_texto_(datos[f][colIdx]).trim()
     });
   }
   return resultados;
@@ -240,8 +240,8 @@ function IA_leerColumna(hojaNombre, nombreColumna, maxFilas) {
 /**
  * Análisis completo de una hoja: detecta errores comunes y sugiere correcciones.
  */
-function IA_analizarHoja(hojaNombre) {
-  var stats = IA_leerEstadisticas(hojaNombre);
+function IA_analizarHoja_(hojaNombre) {
+  var stats = IA_leerEstadisticas_(hojaNombre);
   if (!stats) return { error: 'Hoja no encontrada: ' + hojaNombre };
 
   var prompt = 'Eres un analista de datos clínicos. Analiza esta estructura de hoja de cálculo '
@@ -257,36 +257,36 @@ function IA_analizarHoja(hojaNombre) {
     + '{ "problemas": [{ "tipo": "...", "campo": "...", "descripcion": "...", "severidad": "alta|media|baja", "correccion": "..." }], "resumen": "..." }';
 
   var respuesta = IA_llamarGemini_(prompt);
-  return IA_parsearJSON(respuesta);
+  return IA_parsearJSON_(respuesta);
 }
 
 /**
  * Analiza la hoja PACIENTES para errores específicos.
  */
-function IA_analizarPacientes() {
-  return IA_analizarHoja(HOJAS.PACIENTES);
+function IA_analizarPacientes_() {
+  return IA_analizarHoja_(HOJAS.PACIENTES);
 }
 
 /**
  * Analiza la hoja EVENTOS para errores específicos.
  */
-function IA_analizarEventos() {
-  return IA_analizarHoja(HOJAS.EVENTOS);
+function IA_analizarEventos_() {
+  return IA_analizarHoja_(HOJAS.EVENTOS);
 }
 
 /**
  * Detecta duplicados potenciales por RUT o nombre相似.
  */
-function IA_detectarDuplicados() {
+function IA_detectarDuplicados_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datos = IA_leerBloque(HOJAS.PACIENTES, hoja);
+  var datos = IA_leerBloque_(HOJAS.PACIENTES, hoja);
   if (datos.length < 3) return { duplicados: [], mensaje: 'Datos insuficientes' };
 
   // Columnas por nombre de encabezado (nunca por índice fijo)
-  var colRut = IA_columnaPorNombre(datos, 'RUT');
+  var colRut = IA_columnaPorNombre_(datos, 'RUT');
   if (colRut === -1) return { error: 'Columna RUT no encontrada' };
 
   // Construir mapa de RUTs (sin enviar a IA)
@@ -294,12 +294,12 @@ function IA_detectarDuplicados() {
   var duplicados = [];
 
   for (var f = 1; f < datos.length; f++) {
-    var rut = Utl_texto(datos[f][colRut]).trim().toUpperCase(); // Columna RUT
+    var rut = Utl_texto_(datos[f][colRut]).trim().toUpperCase(); // Columna RUT
     if (rut && mapaRuts[rut] !== undefined) {
       duplicados.push({
         rut: '***', // No exponer RUT real
-        fila1: Modelo_filaFisica(HOJAS.PACIENTES, mapaRuts[rut]),
-        fila2: Modelo_filaFisica(HOJAS.PACIENTES, f - 1)
+        fila1: Modelo_filaFisica_(HOJAS.PACIENTES, mapaRuts[rut]),
+        fila2: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1)
       });
     }
     if (rut) mapaRuts[rut] = f - 1;
@@ -315,7 +315,7 @@ function IA_detectarDuplicados() {
 /**
  * Verifica integridad de eventos: huérfanos, fechas inconsistentes, etc.
  */
-function IA_verificarIntegridadEventos() {
+function IA_verificarIntegridadEventos_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hojaEventos = ss.getSheetByName(HOJAS.EVENTOS);
   var hojaPacientes = ss.getSheetByName(HOJAS.PACIENTES);
@@ -323,12 +323,12 @@ function IA_verificarIntegridadEventos() {
     return { error: 'Faltan hojas EVENTOS o PACIENTES' };
   }
 
-  var eventos = IA_leerBloque(HOJAS.EVENTOS, hojaEventos);
-  var pacientes = IA_leerBloque(HOJAS.PACIENTES, hojaPacientes);
+  var eventos = IA_leerBloque_(HOJAS.EVENTOS, hojaEventos);
+  var pacientes = IA_leerBloque_(HOJAS.PACIENTES, hojaPacientes);
 
   // Columnas por nombre de encabezado (nunca por índice fijo)
-  var colPacId = IA_columnaPorNombre(pacientes, 'ID_INTERNO');
-  var colEvId = IA_columnaPorNombre(eventos, 'ID_INTERNO');
+  var colPacId = IA_columnaPorNombre_(pacientes, 'ID_INTERNO');
+  var colEvId = IA_columnaPorNombre_(eventos, 'ID_INTERNO');
   if (colPacId === -1 || colEvId === -1) {
     return { error: 'Columna ID_INTERNO no encontrada en PACIENTES o EVENTOS' };
   }
@@ -336,17 +336,17 @@ function IA_verificarIntegridadEventos() {
   // Construir set de IDs internos de pacientes
   var idsPacientes = {};
   for (var f = 1; f < pacientes.length; f++) {
-    var pid = Utl_texto(pacientes[f][colPacId]).trim();
+    var pid = Utl_texto_(pacientes[f][colPacId]).trim();
     if (pid) idsPacientes[pid] = true;
   }
 
   var problemas = [];
   for (var f = 1; f < eventos.length; f++) {
-    var idInterno = Utl_texto(eventos[f][colEvId]).trim(); // ID_INTERNO en eventos
+    var idInterno = Utl_texto_(eventos[f][colEvId]).trim(); // ID_INTERNO en eventos
     if (idInterno && !idsPacientes[idInterno]) {
       problemas.push({
         tipo: 'EVENTO_HUERFANO',
-        fila: Modelo_filaFisica(HOJAS.EVENTOS, f - 1),
+        fila: Modelo_filaFisica_(HOJAS.EVENTOS, f - 1),
         descripcion: 'Evento sin paciente asociado'
       });
     }
@@ -375,21 +375,21 @@ function IA_verificarIntegridadEventos() {
  * @param {Array} datosEventos bloque [[encabezados], ...filas]
  * @returns {Array} [{tipo, severidad, fila, detalle}]
  */
-function IA_revisarConsistencia(datosPacientes, datosEventos) {
+function IA_revisarConsistencia_(datosPacientes, datosEventos) {
   function _claveRut(raw) {
-    var n = Norm_normalizarRut(Utl_texto(raw).trim());
+    var n = Norm_normalizarRut_(Utl_texto_(raw).trim());
     if (n && n.rut) return n.rut;
-    return Utl_texto(raw).trim().toUpperCase();
+    return Utl_texto_(raw).trim().toUpperCase();
   }
   if (!datosPacientes || datosPacientes.length < 2) return [];
   if (!datosEventos || datosEventos.length < 2) {
     var vacio = [];
-    var colId = IA_columnaPorNombre(datosPacientes, 'ID_INTERNO');
+    var colId = IA_columnaPorNombre_(datosPacientes, 'ID_INTERNO');
     for (var f = 1; f < datosPacientes.length; f++) {
-      var id = colId >= 0 ? Utl_texto(datosPacientes[f][colId]).trim() : '';
+      var id = colId >= 0 ? Utl_texto_(datosPacientes[f][colId]).trim() : '';
       if (id) vacio.push({
         tipo: 'PACIENTE_SIN_EVENTOS', severidad: 'WARNING',
-        fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1),
+        fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1),
         detalle: 'paciente sin ningún evento registrado'
       });
     }
@@ -397,21 +397,21 @@ function IA_revisarConsistencia(datosPacientes, datosEventos) {
   }
 
   var probs = [];
-  var colPacId = IA_columnaPorNombre(datosPacientes, 'ID_INTERNO');
-  var colPacRut = IA_columnaPorNombre(datosPacientes, 'RUT');
-  var colPacNombre = IA_columnaPorNombre(datosPacientes, 'NOMBRE');
+  var colPacId = IA_columnaPorNombre_(datosPacientes, 'ID_INTERNO');
+  var colPacRut = IA_columnaPorNombre_(datosPacientes, 'RUT');
+  var colPacNombre = IA_columnaPorNombre_(datosPacientes, 'NOMBRE');
 
-  var colEvId = IA_columnaPorNombre(datosEventos, 'ID_INTERNO');
-  var colEvRut = IA_columnaPorNombre(datosEventos, 'RUT');
+  var colEvId = IA_columnaPorNombre_(datosEventos, 'ID_INTERNO');
+  var colEvRut = IA_columnaPorNombre_(datosEventos, 'RUT');
 
   var porId = {};
   for (var f = 1; f < datosPacientes.length; f++) {
-    var id = colPacId >= 0 ? Utl_texto(datosPacientes[f][colPacId]).trim() : '';
+    var id = colPacId >= 0 ? Utl_texto_(datosPacientes[f][colPacId]).trim() : '';
     if (!id) continue;
     porId[id] = {
-      fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1),
+      fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1),
       rut: colPacRut >= 0 ? _claveRut(datosPacientes[f][colPacRut]) : '',
-      nombre: colPacNombre >= 0 ? Utl_texto(datosPacientes[f][colPacNombre]).trim() : ''
+      nombre: colPacNombre >= 0 ? Utl_texto_(datosPacientes[f][colPacNombre]).trim() : ''
     };
   }
 
@@ -419,12 +419,12 @@ function IA_revisarConsistencia(datosPacientes, datosEventos) {
   Object.keys(porId).forEach(function (id) { conteoEventos[id] = 0; });
 
   for (var e = 1; e < datosEventos.length; e++) {
-    var eid = colEvId >= 0 ? Utl_texto(datosEventos[e][colEvId]).trim() : '';
+    var eid = colEvId >= 0 ? Utl_texto_(datosEventos[e][colEvId]).trim() : '';
     var pac = porId[eid];
     if (!pac) {
       probs.push({
         tipo: 'EVENTO_HUERFANO', severidad: 'ERROR',
-        fila: Modelo_filaFisica(HOJAS.EVENTOS, e - 1),
+        fila: Modelo_filaFisica_(HOJAS.EVENTOS, e - 1),
         detalle: 'evento sin paciente asociado (ID: ' + eid + ')'
       });
       continue;
@@ -436,7 +436,7 @@ function IA_revisarConsistencia(datosPacientes, datosEventos) {
       if (evRut && evRut !== pac.rut) {
         probs.push({
           tipo: 'RUT_EVENTO_DISTINTO', severidad: 'WARNING',
-          fila: Modelo_filaFisica(HOJAS.EVENTOS, e - 1),
+          fila: Modelo_filaFisica_(HOJAS.EVENTOS, e - 1),
           detalle: 'RUT del evento (' + evRut + ') ≠ RUT del paciente (' + pac.rut + ')'
         });
       }
@@ -477,7 +477,7 @@ function IA_revisarConsistencia(datosPacientes, datosEventos) {
   var porNombre = {};
   Object.keys(porId).forEach(function (id) {
     var nombre = porId[id].nombre;
-    var clave = nombre ? Norm_claveNombre(nombre) : '';
+    var clave = nombre ? Norm_claveNombre_(nombre) : '';
     if (clave) {
       if (!porNombre[clave]) porNombre[clave] = [];
       porNombre[clave].push(porId[id]);
@@ -503,20 +503,20 @@ function IA_revisarConsistencia(datosPacientes, datosEventos) {
 /**
  * PURA: identifica eventos huérfanos — filas de EVENTOS cuyo ID_INTERNO no
  * existe entre los IDs de PACIENTES. Devuelve filas físicas (contrato de
- * Modelo_filaFisica) para borrado posterior. Los eventos con ID_INTERNO vacío
+ * Modelo_filaFisica_) para borrado posterior. Los eventos con ID_INTERNO vacío
  * se reportan por separado (NUNCA se eliminan automáticamente: pueden ser
  * capturas en curso).
  * @param {Array} datosEventos bloque [[encabezados], ...filas]
  * @param {Object} idsPacientes set de IDs válidos
  * @returns {{ huerfanos: Array, sinId: Array }}
  */
-function IA_eventosHuerfanos(datosEventos, idsPacientes) {
+function IA_eventosHuerfanos_(datosEventos, idsPacientes) {
   var res = { huerfanos: [], sinId: [] };
   if (!datosEventos || datosEventos.length < 2) return res;
-  var colEvId = IA_columnaPorNombre(datosEventos, 'ID_INTERNO');
+  var colEvId = IA_columnaPorNombre_(datosEventos, 'ID_INTERNO');
   for (var f = 1; f < datosEventos.length; f++) {
-    var id = colEvId >= 0 ? Utl_texto(datosEventos[f][colEvId]).trim() : '';
-    var fila = Modelo_filaFisica(HOJAS.EVENTOS, f - 1);
+    var id = colEvId >= 0 ? Utl_texto_(datosEventos[f][colEvId]).trim() : '';
+    var fila = Modelo_filaFisica_(HOJAS.EVENTOS, f - 1);
     if (!id) { res.sinId.push({ fila: fila, id: id }); continue; }
     var sinPaciente = !idsPacientes || !idsPacientes[id];
     if (sinPaciente) res.huerfanos.push({ fila: fila, id: id });
@@ -532,27 +532,27 @@ function IA_eventosHuerfanos(datosEventos, idsPacientes) {
  * @returns {{ok, huerfanos, sinId, conservados, borrados, dryRun}}
  */
 function IA_limpiarEventosHuerfanos_(opts) {
-  var ss = Modelo_ss();
+  var ss = Modelo_ss_();
   var hojaE = ss.getSheetByName(HOJAS.EVENTOS);
   var hojaP = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hojaE || !hojaP) throw new Error('Faltan hojas EVENTOS o PACIENTES');
 
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientes_();
   var ids = {};
   pacientes.forEach(function (p) {
-    var id = Utl_texto(p.ID_INTERNO).trim();
+    var id = Utl_texto_(p.ID_INTERNO).trim();
     if (id) ids[id] = true;
   });
 
   // Bloque completo desde fila 1 (título/secciones/headers + datos) para
-  // reescritura exacta. El bloque de datos alinea IA_eventosHuerfanos con
-  // Modelo_filaFisica (headers en [0], datos desde Modelo_headerRow).
+  // reescritura exacta. El bloque de datos alinea IA_eventosHuerfanos_ con
+  // Modelo_filaFisica_ (headers en [0], datos desde Modelo_headerRow_).
   var ancho = Math.max(hojaE.getLastColumn(), 1);
   var ultima = Math.max(hojaE.getLastRow(), 1);
   var bloqueE = hojaE.getRange(1, 1, ultima, ancho).getValues();
-  var hr = Modelo_headerRow(HOJAS.EVENTOS);
+  var hr = Modelo_headerRow_(HOJAS.EVENTOS);
   var bloqueDatos = [bloqueE[hr - 1]].concat(bloqueE.slice(hr));
-  var huerfanos = IA_eventosHuerfanos(bloqueDatos, ids);
+  var huerfanos = IA_eventosHuerfanos_(bloqueDatos, ids);
 
   var dryRun = !!(opts && opts.prueba);
   var borrados = 0;
@@ -565,10 +565,10 @@ function IA_limpiarEventosHuerfanos_(opts) {
       conservar.push(bloqueE[i]);
     }
     hojaE.getRange(1, 1, bloqueE.length, ancho).clearContent();
-    if (conservar.length) Utl_escribirBloque(hojaE, 1, 1, conservar);
+    if (conservar.length) Utl_escribirBloque_(hojaE, 1, 1, conservar);
   }
   if (borrados) {
-    Log_info('EVENTOS_HUERFANOS', 'Limpieza eventos huérfanos', borrados + ' eventos sin paciente eliminados');
+    Log_info_('EVENTOS_HUERFANOS', 'Limpieza eventos huérfanos', borrados + ' eventos sin paciente eliminados');
   }
   return {
     ok: true,
@@ -583,24 +583,24 @@ function IA_limpiarEventosHuerfanos_(opts) {
 
 /**
  * PURA: calidad de campos adicionales de PACIENTES no cubiertos por
- * Calidad_auditarTodo: SEXO, ESTRATIFICACION, ESTADO, FUENTE vacía,
+ * Calidad_auditarTodo_: SEXO, ESTRATIFICACION, ESTADO, FUENTE vacía,
  * FECHA_NACIMIENTO inválida, FECHA_INGRESO inválida, REQUIERE_REVISION.
  * @param {Array} datosPacientes bloque [[encabezados], ...filas]
  * @returns {Array} [{tipo, severidad, fila, detalle}]
  */
-function IA_revisarCamposNuevos(datosPacientes) {
+function IA_revisarCamposNuevos_(datosPacientes) {
   if (!datosPacientes || datosPacientes.length < 2) return [];
   var probs = [];
 
-  var colRut = IA_columnaPorNombre(datosPacientes, 'RUT');
-  var colNombre = IA_columnaPorNombre(datosPacientes, 'NOMBRE');
-  var colSexo = IA_columnaPorNombre(datosPacientes, 'SEXO');
-  var colFnac = IA_columnaPorNombre(datosPacientes, 'FECHA_NACIMIENTO');
-  var colFing = IA_columnaPorNombre(datosPacientes, 'FECHA_INGRESO');
-  var colEstrat = IA_columnaPorNombre(datosPacientes, 'ESTRATIFICACION');
-  var colEstado = IA_columnaPorNombre(datosPacientes, 'ESTADO');
-  var colFuente = IA_columnaPorNombre(datosPacientes, 'FUENTE');
-  var colRev = IA_columnaPorNombre(datosPacientes, 'REQUIERE_REVISION');
+  var colRut = IA_columnaPorNombre_(datosPacientes, 'RUT');
+  var colNombre = IA_columnaPorNombre_(datosPacientes, 'NOMBRE');
+  var colSexo = IA_columnaPorNombre_(datosPacientes, 'SEXO');
+  var colFnac = IA_columnaPorNombre_(datosPacientes, 'FECHA_NACIMIENTO');
+  var colFing = IA_columnaPorNombre_(datosPacientes, 'FECHA_INGRESO');
+  var colEstrat = IA_columnaPorNombre_(datosPacientes, 'ESTRATIFICACION');
+  var colEstado = IA_columnaPorNombre_(datosPacientes, 'ESTADO');
+  var colFuente = IA_columnaPorNombre_(datosPacientes, 'FUENTE');
+  var colRev = IA_columnaPorNombre_(datosPacientes, 'REQUIERE_REVISION');
 
   var SEXOS_SET = { M: true, F: true, OTRO: true };
   var ESTRATS_SET = { G1: true, G2: true, G3: true };
@@ -610,59 +610,59 @@ function IA_revisarCamposNuevos(datosPacientes) {
   }
 
   for (var f = 1; f < datosPacientes.length; f++) {
-    var fila = Modelo_filaFisica(HOJAS.PACIENTES, f - 1);
+    var fila = Modelo_filaFisica_(HOJAS.PACIENTES, f - 1);
 
     if (colRut >= 0) {
-      var raw = Utl_texto(datosPacientes[f][colRut]).trim().toUpperCase();
-      if (raw && !Norm_validarRut(raw)) {
+      var raw = Utl_texto_(datosPacientes[f][colRut]).trim().toUpperCase();
+      if (raw && !Norm_validarRut_(raw)) {
         probs.push({
           tipo: raw.indexOf('-') === -1 ? 'RUT_INCOMPLETO' : 'RUT_INVALIDO',
           severidad: 'ERROR', fila: fila, detalle: 'RUT inválido: ' + raw
         });
       }
     }
-    if (colNombre >= 0 && Utl_vacio(Utl_texto(datosPacientes[f][colNombre]))) {
+    if (colNombre >= 0 && Utl_vacio_(Utl_texto_(datosPacientes[f][colNombre]))) {
       probs.push({ tipo: 'SIN_NOMBRE', severidad: 'ERROR', fila: fila, detalle: 'sin nombre' });
     }
     if (colSexo >= 0) {
-      var sx = Utl_texto(datosPacientes[f][colSexo]).trim().toUpperCase();
+      var sx = Utl_texto_(datosPacientes[f][colSexo]).trim().toUpperCase();
       if (sx && !SEXOS_SET[sx]) {
         probs.push({ tipo: 'SEXO_INVALIDO', severidad: 'WARNING', fila: fila, detalle: 'sexo inválido: ' + sx });
       }
     }
     if (colFnac >= 0) {
       var val = datosPacientes[f][colFnac];
-      if (!Utl_vacio(val) && !IA_parsearFecha(val, { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX })) {
+      if (!Utl_vacio_(val) && !IA_parsearFecha_(val, { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX })) {
         probs.push({ tipo: 'FECHA_NACIMIENTO_INVALIDA', severidad: 'ERROR', fila: fila,
-          detalle: 'fecha nacimiento inválida: ' + Utl_texto(val) });
+          detalle: 'fecha nacimiento inválida: ' + Utl_texto_(val) });
       }
     }
     if (colFing >= 0) {
       var val = datosPacientes[f][colFing];
-      if (!Utl_vacio(val) && !IA_parsearFecha(val)) {
+      if (!Utl_vacio_(val) && !IA_parsearFecha_(val)) {
         probs.push({ tipo: 'FECHA_INGRESO_INVALIDA', severidad: 'ERROR', fila: fila,
-          detalle: 'fecha ingreso inválida: ' + Utl_texto(val) });
+          detalle: 'fecha ingreso inválida: ' + Utl_texto_(val) });
       }
     }
     if (colEstrat >= 0) {
-      var est = Utl_texto(datosPacientes[f][colEstrat]).trim().toUpperCase();
+      var est = Utl_texto_(datosPacientes[f][colEstrat]).trim().toUpperCase();
       if (est && !ESTRATS_SET[est]) {
         probs.push({ tipo: 'ESTRATIFICACION_INVALIDA', severidad: 'WARNING', fila: fila,
           detalle: 'estratificación inválida: ' + est });
       }
     }
     if (colEstado >= 0) {
-      var edo = Utl_texto(datosPacientes[f][colEstado]).trim().toUpperCase();
+      var edo = Utl_texto_(datosPacientes[f][colEstado]).trim().toUpperCase();
       if (edo && !ESTADOS_SET[edo]) {
         probs.push({ tipo: 'ESTADO_INVALIDO', severidad: 'WARNING', fila: fila, detalle: 'estado inválido: ' + edo });
       }
     }
-    if (colFuente >= 0 && Utl_vacio(Utl_texto(datosPacientes[f][colFuente]))) {
+    if (colFuente >= 0 && Utl_vacio_(Utl_texto_(datosPacientes[f][colFuente]))) {
       probs.push({ tipo: 'FUENTE_VACIA', severidad: 'WARNING', fila: fila, detalle: 'fuente de origen no registrada' });
     }
     if (colRev >= 0) {
       var rev = datosPacientes[f][colRev];
-      var revTxt = Utl_texto(rev).trim().toUpperCase();
+      var revTxt = Utl_texto_(rev).trim().toUpperCase();
       if (rev === true || revTxt === 'TRUE' || revTxt === 'VERDADERO' || revTxt === 'SI') {
         probs.push({ tipo: 'REQUIERE_REVISION', severidad: 'INFO', fila: fila, detalle: 'marcado para revisión' });
       }
@@ -679,14 +679,14 @@ function IA_revisarCamposNuevos(datosPacientes) {
  * @param {Array} datosIngreso bloque [[encabezados], ...filas]
  * @returns {Object} {totalFilas, totalConRut, faltantes:[{fila,rut,estado}], sinEstado}
  */
-function IA_cruzarBloqueIngreso(rutsPacientes, nombreBloque, datosIngreso) {
+function IA_cruzarBloqueIngreso_(rutsPacientes, nombreBloque, datosIngreso) {
   if (!datosIngreso || datosIngreso.length < 2) {
     return { totalFilas: 0, totalConRut: 0, faltantes: [], sinEstado: 0 };
   }
 
-  var colRut = IA_columnaPorNombre(datosIngreso, 'RUT');
-  var colEstado = IA_columnaPorNombre(datosIngreso, 'ESTADO_INGRESO');
-  var headerRut = colRut >= 0 ? Utl_texto(datosIngreso[0][colRut]).trim().toUpperCase() : '';
+  var colRut = IA_columnaPorNombre_(datosIngreso, 'RUT');
+  var colEstado = IA_columnaPorNombre_(datosIngreso, 'ESTADO_INGRESO');
+  var headerRut = colRut >= 0 ? Utl_texto_(datosIngreso[0][colRut]).trim().toUpperCase() : '';
   var totalFilas = datosIngreso.length - 1;
   var totalConRut = 0;
   var sinEstado = 0;
@@ -694,19 +694,19 @@ function IA_cruzarBloqueIngreso(rutsPacientes, nombreBloque, datosIngreso) {
 
   for (var f = 1; f < datosIngreso.length; f++) {
     if (colRut < 0) break;
-    var raw = Utl_texto(datosIngreso[f][colRut]).trim();
+    var raw = Utl_texto_(datosIngreso[f][colRut]).trim();
     if (!raw) continue;
     // Eco de encabezado (segunda fila de encabezados duplicada): no es un RUT.
     if (headerRut && raw.toUpperCase() === headerRut) continue;
     totalConRut++;
-    var norm = Norm_normalizarRut(raw);
+    var norm = Norm_normalizarRut_(raw);
     var clave = norm.rut || raw.toUpperCase();
-    var estado = colEstado >= 0 ? Utl_texto(datosIngreso[f][colEstado]).trim().toUpperCase() : '';
+    var estado = colEstado >= 0 ? Utl_texto_(datosIngreso[f][colEstado]).trim().toUpperCase() : '';
     if (!estado) sinEstado++;
 
     if (!rutsPacientes[clave]) {
       faltantes.push({
-        fila: Modelo_filaFisica(nombreBloque, f - 1),
+        fila: Modelo_filaFisica_(nombreBloque, f - 1),
         rut: norm.rut || raw,
         estado: estado || 'SIN_ESTADO'
       });
@@ -722,10 +722,10 @@ function IA_cruzarBloqueIngreso(rutsPacientes, nombreBloque, datosIngreso) {
 
 /**
  * Genera texto legible del reporte de revisión (para chat y UI).
- * @param {Object} reporte resultado de IA_revisarTodo
+ * @param {Object} reporte resultado de IA_revisarTodo_
  * @returns {string}
  */
-function IA_textoRevision(reporte) {
+function IA_textoRevision_(reporte) {
   var lin = '──────────────────────────────';
   var texto = 'Revisión Integral completada (' + (reporte.fecha || '') + ')\n\n';
 
@@ -798,13 +798,13 @@ function IA_textoRevision(reporte) {
  * Revisión de consistencia Pacientes↔Eventos + calidad de campos.
  * Determinista, sin llamadas a Gemini.
  */
-function IA_revisarConsistenciaYCampos() {
+function IA_revisarConsistenciaYCampos_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hojaPac = ss.getSheetByName(HOJAS.PACIENTES);
   var hojaEv = ss.getSheetByName(HOJAS.EVENTOS);
   if (!hojaPac) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datosPac = IA_leerBloque(HOJAS.PACIENTES, hojaPac);
+  var datosPac = IA_leerBloque_(HOJAS.PACIENTES, hojaPac);
   if (!hojaEv) {
     // Sin hoja EVENTOS la consistencia no puede evaluarse: devolver aviso en
     // lugar de marcar a todos los pacientes como "sin eventos" (falsa inundación).
@@ -812,36 +812,36 @@ function IA_revisarConsistenciaYCampos() {
       totalPacientes: Math.max(0, datosPac.length - 1),
       totalEventos: 0,
       consistencia: [],
-      campos: IA_revisarCamposNuevos(datosPac),
+      campos: IA_revisarCamposNuevos_(datosPac),
       aviso: 'Hoja EVENTOS no encontrada: consistencia omitida'
     };
   }
-  var datosEv = IA_leerBloque(HOJAS.EVENTOS, hojaEv);
+  var datosEv = IA_leerBloque_(HOJAS.EVENTOS, hojaEv);
 
   return {
     totalPacientes: Math.max(0, datosPac.length - 1),
     totalEventos: Math.max(0, datosEv.length - 1),
-    consistencia: IA_revisarConsistencia(datosPac, datosEv),
-    campos: IA_revisarCamposNuevos(datosPac)
+    consistencia: IA_revisarConsistencia_(datosPac, datosEv),
+    campos: IA_revisarCamposNuevos_(datosPac)
   };
 }
 
 /**
  * Cruce de fuentes de ingreso (INGRESO_*) contra PACIENTES.
  */
-function IA_revisarFuentes() {
+function IA_revisarFuentes_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hojaPac = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hojaPac) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datosPac = IA_leerBloque(HOJAS.PACIENTES, hojaPac);
-  var colRutPac = IA_columnaPorNombre(datosPac, 'RUT');
+  var datosPac = IA_leerBloque_(HOJAS.PACIENTES, hojaPac);
+  var colRutPac = IA_columnaPorNombre_(datosPac, 'RUT');
   var rutsPacientes = {};
   for (var f = 1; f < datosPac.length; f++) {
     if (colRutPac < 0) break;
-    var raw = Utl_texto(datosPac[f][colRutPac]).trim();
+    var raw = Utl_texto_(datosPac[f][colRutPac]).trim();
     if (!raw) continue;
-    var norm = Norm_normalizarRut(raw);
+    var norm = Norm_normalizarRut_(raw);
     if (norm.rut) rutsPacientes[norm.rut] = true;
   }
 
@@ -854,10 +854,10 @@ function IA_revisarFuentes() {
         resultados.push({ hoja: hojaNombre, sector: sector, omitida: true, motivo: 'no existe' });
         return;
       }
-      var datos = IA_leerBloque(hojaNombre, hoja);
+      var datos = IA_leerBloque_(hojaNombre, hoja);
       resultados.push({
         hoja: hojaNombre, sector: sector, omitida: false,
-        cruce: IA_cruzarBloqueIngreso(rutsPacientes, hojaNombre, datos)
+        cruce: IA_cruzarBloqueIngreso_(rutsPacientes, hojaNombre, datos)
       });
     } catch (e) {
       resultados.push({ hoja: hojaNombre, sector: sector, error: e.message });
@@ -872,7 +872,7 @@ function IA_revisarFuentes() {
  * Determinista, funciona sin API key. Registra en LOG_IA.
  * @returns {Object} {explicacion, resultado, fecha, categorias, totalProblemas, porSeveridad, fuentes}
  */
-function IA_revisarTodo() {
+function IA_revisarTodo_() {
   var reporte = { categorias: [], fecha: Utilities.formatDate(new Date(), ECICEP.TZ, 'dd/MM/yyyy HH:mm:ss') };
   var totalProblemas = 0;
   var porSeveridad = { ERROR: 0, WARNING: 0, INFO: 0 };
@@ -889,7 +889,7 @@ function IA_revisarTodo() {
   }
 
   try {
-    var res = IA_revisarConsistenciaYCampos();
+    var res = IA_revisarConsistenciaYCampos_();
     if (res.error) {
       _sumarCategoria({ id: 'ERROR', etiqueta: 'Error', problemas:
         [{ tipo: 'ERROR_SISTEMA', severidad: 'ERROR', fila: 0, detalle: res.error }] });
@@ -912,7 +912,7 @@ function IA_revisarTodo() {
   }
 
   try {
-    var fuentes = IA_revisarFuentes();
+    var fuentes = IA_revisarFuentes_();
     if (!fuentes.error) {
       var faltantesFull = [];
       fuentes.sectores.forEach(function (s) {
@@ -940,18 +940,18 @@ function IA_revisarTodo() {
   reporte.porSeveridad = porSeveridad;
 
   try {
-    IA_registrarCambio('REVISION', totalProblemas,
+    IA_registrarCambio_('REVISION', totalProblemas,
       reporte.categorias.map(function (c) { return c.id + ':' + (c.total || c.problemas.length); }));
   } catch (e) { /* log no bloquea */ }
 
-  reporte.explicacion = IA_textoRevision(reporte);
+  reporte.explicacion = IA_textoRevision_(reporte);
   return reporte;
 }
 
 /**
  * Escapa texto para insertarlo en HTML (contra XSS en diálogos construidos).
  */
-function _IA_esc(s) {
+function _IA_esc_(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -963,11 +963,11 @@ function _IA_esc(s) {
  * Menú "Revisión completa": ejecuta la revisión integral (determinista, sin
  * Gemini) y muestra el reporte en un diálogo modal legible.
  */
-function IA_revisarTodoUI() {
+function IA_revisarTodoUI_() {
   if (!WebApp_accesoUniversalActivo_()) return;
-  var reporte = IA_revisarTodo();
+  var reporte = IA_revisarTodo_();
   if (!reporte) {
-    Utl_toast('err', 'La revisión no devolvió resultados.', 5);
+    Utl_toast_('err', 'La revisión no devolvió resultados.', 5);
     return;
   }
   var titulo = 'Revisión Integral';
@@ -975,8 +975,8 @@ function IA_revisarTodoUI() {
   var html = '<html><head><base target="_top"></head>'
     + '<body style="margin:0;box-sizing:border-box;background:#fafafa;font-family:monospace;'
     + 'font-size:12px;line-height:1.5;white-space:pre-wrap;padding:14px;color:#222">'
-    + _IA_esc(cuerpo) + '</body></html>';
-  _UI_get().showModalDialog(
+    + _IA_esc_(cuerpo) + '</body></html>';
+  _UI_get_().showModalDialog(
     HtmlService.createHtmlOutput(html).setWidth(660).setHeight(500),
     titulo);
 }
@@ -988,29 +988,29 @@ function IA_revisarTodoUI() {
 /**
  * Corrige RUTs: formatea con puntos y guión, valida DV.
  */
-function IA_corregirRuts() {
+function IA_corregirRuts_() {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datos = IA_leerBloque(HOJAS.PACIENTES, hoja);
+  var datos = IA_leerBloque_(HOJAS.PACIENTES, hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
   // Encontrar columna RUT (por nombre, nunca por índice fijo)
-  var colRut = IA_columnaPorNombre(datos, 'RUT');
+  var colRut = IA_columnaPorNombre_(datos, 'RUT');
   if (colRut === -1) return { error: 'Columna RUT no encontrada' };
 
   var correcciones = [];
   var valores = [];
 
   for (var f = 1; f < datos.length; f++) {
-    var rutOriginal = Utl_texto(datos[f][colRut]).trim();
-    var rutNormalizado = Norm_normalizarRut(rutOriginal);
+    var rutOriginal = Utl_texto_(datos[f][colRut]).trim();
+    var rutNormalizado = Norm_normalizarRut_(rutOriginal);
 
     if (rutNormalizado !== rutOriginal && rutNormalizado.estado === 'OK') {
       correcciones.push({
-        fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1),
+        fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1),
         antes: rutOriginal,
         despues: rutNormalizado.rut
       });
@@ -1023,8 +1023,8 @@ function IA_corregirRuts() {
   }
 
   if (correcciones.length > 0) {
-    Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, valores);
-    IA_registrarCambio('RUTS', correcciones.length, correcciones.slice(0, 10));
+    Utl_escribirBloque_(hoja, Modelo_dataStartRow_(HOJAS.PACIENTES), 1, valores);
+    IA_registrarCambio_('RUTS', correcciones.length, correcciones.slice(0, 10));
   }
 
   return { corregidos: correcciones.length, detalle: correcciones.slice(0, 20) };
@@ -1033,18 +1033,18 @@ function IA_corregirRuts() {
 /**
  * Corrige fechas: unifica formato a ISO yyyy-MM-dd.
  */
-function IA_corregirFechas() {
+function IA_corregirFechas_() {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datos = IA_leerBloque(HOJAS.PACIENTES, hoja);
+  var datos = IA_leerBloque_(HOJAS.PACIENTES, hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  // Columnas de fecha conocidas (resolución por encabezado: ver IA_columnaPorNombre)
-  var colFechaNac = IA_columnaPorNombre(datos, 'FECHA_NACIMIENTO');
-  var colFechaIngreso = IA_columnaPorNombre(datos, 'FECHA_INGRESO');
+  // Columnas de fecha conocidas (resolución por encabezado: ver IA_columnaPorNombre_)
+  var colFechaNac = IA_columnaPorNombre_(datos, 'FECHA_NACIMIENTO');
+  var colFechaIngreso = IA_columnaPorNombre_(datos, 'FECHA_INGRESO');
 
   var correcciones = [];
   var valores = [];
@@ -1056,11 +1056,11 @@ function IA_corregirFechas() {
     // Intentar normalizar fechas
     [colFechaNac, colFechaIngreso].forEach(function(col) {
       if (col === -1) return;
-      var val = Utl_texto(fila[col]).trim();
+      var val = Utl_texto_(fila[col]).trim();
       if (val && val !== '') {
-        var fecha = IA_parsearFecha(val);
+        var fecha = IA_parsearFecha_(val);
         if (fecha && fecha !== val) {
-          correcciones.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1), columna: col, antes: val, despues: fecha });
+          correcciones.push({ fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1), columna: col, antes: val, despues: fecha });
           fila[col] = fecha;
           corregida = true;
         }
@@ -1071,8 +1071,8 @@ function IA_corregirFechas() {
   }
 
   if (correcciones.length > 0) {
-    Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, valores);
-    IA_registrarCambio('FECHAS', correcciones.length, correcciones.slice(0, 10));
+    Utl_escribirBloque_(hoja, Modelo_dataStartRow_(HOJAS.PACIENTES), 1, valores);
+    IA_registrarCambio_('FECHAS', correcciones.length, correcciones.slice(0, 10));
   }
 
   return { corregidos: correcciones.length, detalle: correcciones.slice(0, 20) };
@@ -1087,15 +1087,15 @@ function IA_corregirFechas() {
  * @param {Object} [rango] {min, max} años aceptados (por defecto CFG_FECHAS)
  * @returns {string|null} ISO yyyy-MM-dd o null
  */
-function IA_parsearFecha(valor, rango) {
-  if (Utl_vacio(valor)) return null;
+function IA_parsearFecha_(valor, rango) {
+  if (Utl_vacio_(valor)) return null;
   if (valor instanceof Date || typeof valor === 'number') {
-    var iso = Control_aIso(valor);
+    var iso = Control_aIso_(valor);
     if (!iso) return null;
-    var rv = Norm_normalizarFecha(iso, rango);
+    var rv = Norm_normalizarFecha_(iso, rango);
     return rv.estado === 'VALIDA' ? rv.iso : null;
   }
-  var n = Norm_normalizarFecha(valor, rango);
+  var n = Norm_normalizarFecha_(valor, rango);
   if (n.estado === 'VALIDA') return n.iso;
   return null;
 }
@@ -1103,16 +1103,16 @@ function IA_parsearFecha(valor, rango) {
 /**
  * Corrige nombres: capitalización y espacios.
  */
-function IA_corregirNombres() {
+function IA_corregirNombres_() {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datos = IA_leerBloque(HOJAS.PACIENTES, hoja);
+  var datos = IA_leerBloque_(HOJAS.PACIENTES, hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  var colNombre = IA_columnaPorNombre(datos, 'NOMBRE');
+  var colNombre = IA_columnaPorNombre_(datos, 'NOMBRE');
   if (colNombre === -1) return { error: 'Columna NOMBRE no encontrada' };
 
   var correcciones = [];
@@ -1120,19 +1120,19 @@ function IA_corregirNombres() {
 
   for (var f = 1; f < datos.length; f++) {
     var fila = datos[f].slice();
-    var nombreOriginal = Utl_texto(fila[colNombre]).trim();
-    var nombreCorregido = IA_normalizarNombre(nombreOriginal);
+    var nombreOriginal = Utl_texto_(fila[colNombre]).trim();
+    var nombreCorregido = IA_normalizarNombre_(nombreOriginal);
 
     if (nombreCorregido !== nombreOriginal) {
-      correcciones.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1), antes: nombreOriginal, despues: nombreCorregido });
+      correcciones.push({ fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1), antes: nombreOriginal, despues: nombreCorregido });
       fila[colNombre] = nombreCorregido;
     }
     valores.push(fila);
   }
 
   if (correcciones.length > 0) {
-    Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, valores);
-    IA_registrarCambio('NOMBRES', correcciones.length, correcciones.slice(0, 10));
+    Utl_escribirBloque_(hoja, Modelo_dataStartRow_(HOJAS.PACIENTES), 1, valores);
+    IA_registrarCambio_('NOMBRES', correcciones.length, correcciones.slice(0, 10));
   }
 
   return { corregidos: correcciones.length, detalle: correcciones.slice(0, 20) };
@@ -1141,24 +1141,24 @@ function IA_corregirNombres() {
 /**
  * Normaliza un nombre: mayúsculas, espacios colapsados.
  */
-function IA_normalizarNombre(nombre) {
+function IA_normalizarNombre_(nombre) {
   if (!nombre) return '';
-  return Utl_colapsarEspacios(nombre.toUpperCase());
+  return Utl_colapsarEspacios_(nombre.toUpperCase());
 }
 
 /**
  * Corrige teléfonos: formato estándar.
  */
-function IA_corregirTelefonos() {
+function IA_corregirTelefonos_() {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datos = IA_leerBloque(HOJAS.PACIENTES, hoja);
+  var datos = IA_leerBloque_(HOJAS.PACIENTES, hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  var colTel = IA_columnaPorNombre(datos, 'TELEFONOS');
+  var colTel = IA_columnaPorNombre_(datos, 'TELEFONOS');
   if (colTel === -1) return { error: 'Columna TELEFONOS no encontrada' };
 
   var correcciones = [];
@@ -1166,19 +1166,19 @@ function IA_corregirTelefonos() {
 
   for (var f = 1; f < datos.length; f++) {
     var fila = datos[f].slice();
-    var telOriginal = Utl_texto(fila[colTel]).trim();
-    var telCorregido = IA_normalizarTelefono(telOriginal);
+    var telOriginal = Utl_texto_(fila[colTel]).trim();
+    var telCorregido = IA_normalizarTelefono_(telOriginal);
 
     if (telCorregido !== telOriginal) {
-      correcciones.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1), antes: telOriginal, despues: telCorregido });
+      correcciones.push({ fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1), antes: telOriginal, despues: telCorregido });
       fila[colTel] = telCorregido;
     }
     valores.push(fila);
   }
 
   if (correcciones.length > 0) {
-    Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, valores);
-    IA_registrarCambio('TELEFONOS', correcciones.length, correcciones.slice(0, 10));
+    Utl_escribirBloque_(hoja, Modelo_dataStartRow_(HOJAS.PACIENTES), 1, valores);
+    IA_registrarCambio_('TELEFONOS', correcciones.length, correcciones.slice(0, 10));
   }
 
   return { corregidos: correcciones.length, detalle: correcciones.slice(0, 20) };
@@ -1189,12 +1189,12 @@ function IA_corregirTelefonos() {
  * extrae números válidos, descarta anotaciones y devuelve los números unidos
  * con '/' (formato canónico del pipeline). No inventa dígitos.
  */
-function IA_normalizarTelefono(tel) {
-  if (Utl_vacio(tel)) return '';
-  var n = Norm_normalizarTelefono(tel);
+function IA_normalizarTelefono_(tel) {
+  if (Utl_vacio_(tel)) return '';
+  var n = Norm_normalizarTelefono_(tel);
   if (!n.telefonos || n.telefonos.length === 0) {
     // No hay números claros: se conserva el texto original (no se muta ni se borra).
-    return Utl_colapsarEspacios(Utl_texto(tel));
+    return Utl_colapsarEspacios_(Utl_texto_(tel));
   }
   return n.telefonos.join('/');
 }
@@ -1202,16 +1202,16 @@ function IA_normalizarTelefono(tel) {
 /**
  * Corrige campo SEXO: valores válidos M/F/OTRO.
  */
-function IA_corregirSexo() {
+function IA_corregirSexo_() {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hoja = ss.getSheetByName(HOJAS.PACIENTES);
   if (!hoja) return { error: 'Hoja PACIENTES no encontrada' };
 
-  var datos = IA_leerBloque(HOJAS.PACIENTES, hoja);
+  var datos = IA_leerBloque_(HOJAS.PACIENTES, hoja);
   if (datos.length < 2) return { corregidos: 0 };
 
-  var colSexo = IA_columnaPorNombre(datos, 'SEXO');
+  var colSexo = IA_columnaPorNombre_(datos, 'SEXO');
   if (colSexo === -1) return { error: 'Columna SEXO no encontrada' };
 
   var correcciones = [];
@@ -1219,22 +1219,22 @@ function IA_corregirSexo() {
 
   for (var f = 1; f < datos.length; f++) {
     var fila = datos[f].slice();
-    var sexoOriginal = Utl_texto(fila[colSexo]).trim().toUpperCase();
+    var sexoOriginal = Utl_texto_(fila[colSexo]).trim().toUpperCase();
     // Normalizador determinista: mapea sinónimos a M/F/OTRO y devuelve ''
     // para desconocidos. Nunca se inventa un valor (antes forzaba 'OTRO').
-    var sexoCorregido = Norm_normalizarSexo(sexoOriginal);
+    var sexoCorregido = Norm_normalizarSexo_(sexoOriginal);
     if (sexoCorregido === '' && sexoOriginal !== '') sexoCorregido = sexoOriginal;
 
     if (sexoCorregido !== sexoOriginal) {
-      correcciones.push({ fila: Modelo_filaFisica(HOJAS.PACIENTES, f - 1), antes: sexoOriginal, despues: sexoCorregido });
+      correcciones.push({ fila: Modelo_filaFisica_(HOJAS.PACIENTES, f - 1), antes: sexoOriginal, despues: sexoCorregido });
       fila[colSexo] = sexoCorregido;
     }
     valores.push(fila);
   }
 
   if (correcciones.length > 0) {
-    Utl_escribirBloque(hoja, Modelo_dataStartRow(HOJAS.PACIENTES), 1, valores);
-    IA_registrarCambio('SEXO', correcciones.length, correcciones.slice(0, 10));
+    Utl_escribirBloque_(hoja, Modelo_dataStartRow_(HOJAS.PACIENTES), 1, valores);
+    IA_registrarCambio_('SEXO', correcciones.length, correcciones.slice(0, 10));
   }
 
   return { corregidos: correcciones.length, detalle: correcciones.slice(0, 20) };
@@ -1243,15 +1243,15 @@ function IA_corregirSexo() {
 /**
  * Ejecuta todas las correcciones en orden.
  */
-function IA_corregirTodo() {
+function IA_corregirTodo_() {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
   var resultados = {};
 
-  try { resultados.ruts = IA_corregirRuts(); } catch (e) { resultados.ruts = { error: e.message }; }
-  try { resultados.fechas = IA_corregirFechas(); } catch (e) { resultados.fechas = { error: e.message }; }
-  try { resultados.nombres = IA_corregirNombres(); } catch (e) { resultados.nombres = { error: e.message }; }
-  try { resultados.telefonos = IA_corregirTelefonos(); } catch (e) { resultados.telefonos = { error: e.message }; }
-  try { resultados.sexo = IA_corregirSexo(); } catch (e) { resultados.sexo = { error: e.message }; }
+  try { resultados.ruts = IA_corregirRuts_(); } catch (e) { resultados.ruts = { error: e.message }; }
+  try { resultados.fechas = IA_corregirFechas_(); } catch (e) { resultados.fechas = { error: e.message }; }
+  try { resultados.nombres = IA_corregirNombres_(); } catch (e) { resultados.nombres = { error: e.message }; }
+  try { resultados.telefonos = IA_corregirTelefonos_(); } catch (e) { resultados.telefonos = { error: e.message }; }
+  try { resultados.sexo = IA_corregirSexo_(); } catch (e) { resultados.sexo = { error: e.message }; }
 
   var totalCorregidos = 0;
   Object.keys(resultados).forEach(function(k) {
@@ -1270,7 +1270,7 @@ function IA_corregirTodo() {
 /**
  * Ejecuta la suite de tests del sistema.
  */
-function IA_ejecutarTests() {
+function IA_ejecutarTests_() {
   try {
     // Buscar el archivo de tests
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1283,17 +1283,17 @@ function IA_ejecutarTests() {
       resumen: ''
     };
 
-    // Ejecutar Pruebas_ejecutarTodo si está disponible
-    if (typeof Pruebas_ejecutarTodo === 'function') {
-      var resultadoPruebas = Pruebas_ejecutarTodo();
+    // Ejecutar Pruebas_ejecutarTodo_ si está disponible
+    if (typeof Pruebas_ejecutarTodo_ === 'function') {
+      var resultadoPruebas = Pruebas_ejecutarTodo_();
       resultado.tests = resultadoPruebas;
       resultado.resumen = 'Tests ejecutados: ' + JSON.stringify(resultadoPruebas).substring(0, 500);
     } else {
-      resultado.resumen = 'Función Pruebas_ejecutarTodo no disponible en este entorno. '
+      resultado.resumen = 'Función Pruebas_ejecutarTodo_ no disponible en este entorno. '
         + 'Ejecuta localmente: node tests/ejecutar_local.mjs';
     }
 
-    IA_registrarCambio('TESTS', 1, [resultado]);
+    IA_registrarCambio_('TESTS', 1, [resultado]);
     return resultado;
 
   } catch (e) {
@@ -1304,7 +1304,7 @@ function IA_ejecutarTests() {
 /**
  * Analiza resultados de tests y sugiere fixes usando IA.
  */
-function IA_analizarFallos(resultadoTests) {
+function IA_analizarFallos_(resultadoTests) {
   var prompt = 'Eres un desarrollador de Apps Script analizando resultados de tests. '
     + 'Analiza estos resultados y sugiere correcciones:\n\n'
     + JSON.stringify(resultadoTests, null, 2) + '\n\n'
@@ -1313,7 +1313,7 @@ function IA_analizarFallos(resultadoTests) {
 
   try {
     var respuesta = IA_llamarGemini_(prompt);
-    return IA_parsearJSON(respuesta);
+    return IA_parsearJSON_(respuesta);
   } catch (e) {
     return { error: e.message };
   }
@@ -1326,7 +1326,7 @@ function IA_analizarFallos(resultadoTests) {
 /**
  * Procesa una instrucción en lenguaje natural.
  */
-function IA_procesarInstruccion(texto) {
+function IA_procesarInstruccion_(texto) {
   var prompt = 'Eres un asistente del sistema ECICEP (gestión de pacientes en hojas de cálculo). '
     + 'El usuario te pide: "' + texto + '"\n\n'
     + 'Interpreta la intención y responde con una acción concreta que el sistema pueda ejecutar. '
@@ -1350,12 +1350,12 @@ function IA_procesarInstruccion(texto) {
 
   try {
     var respuesta = IA_llamarGemini_(prompt);
-    var parsed = IA_parsearJSON(respuesta);
+    var parsed = IA_parsearJSON_(respuesta);
 
     // Ejecutar la acción si es válida
     if (parsed && parsed.accion) {
-      parsed.accion = IA_normalizarNombreAccion(parsed.accion);
-      var resultado = IA_ejecutarAccion(parsed.accion, parsed.parametros || []);
+      parsed.accion = IA_normalizarNombreAccion_(parsed.accion);
+      var resultado = IA_ejecutarAccion_(parsed.accion, parsed.parametros || []);
       parsed.resultado = resultado;
       // Las revisiones integrales devuelven un reporte estructurado con
       // `explicacion` legible: se prioriza sobre el resumen libre del modelo.
@@ -1373,7 +1373,7 @@ function IA_procesarInstruccion(texto) {
 /**
  * Chat multi-turno con historial.
  */
-function IA_chat(mensaje, historial) {
+function IA_chat_(mensaje, historial) {
   if (!WebApp_accesoUniversalActivo_()) return 'Acceso universal del sistema no disponible; revisa las propiedades del script.'
   historial = historial || [];
 
@@ -1408,33 +1408,33 @@ function IA_chat(mensaje, historial) {
  * @param {string} nombre acción cruda de Gemini / usuario
  * @returns {string} nombre limpio de la acción
  */
-function IA_normalizarNombreAccion(nombre) {
-  return Utl_texto(nombre || '').trim().replace(/\(.*\)$/, '');
+function IA_normalizarNombreAccion_(nombre) {
+  return Utl_texto_(nombre || '').trim().replace(/\(.*\)$/, '');
 }
 
 /**
  * Ejecuta una acción por nombre.
  */
-function IA_ejecutarAccion(nombre, parametros) {
+function IA_ejecutarAccion_(nombre, parametros) {
   if (!WebApp_accesoUniversalActivo_()) return { error: 'Acceso universal del sistema no disponible; revisa las propiedades del script' };
-  var clave = IA_normalizarNombreAccion(nombre);
+  var clave = IA_normalizarNombreAccion_(nombre);
   var acciones = {
-    'revisar_todo': IA_revisarTodo,
-    'revisar_consistencia': IA_revisarConsistenciaYCampos,
-    'revisar_fuentes': IA_revisarFuentes,
-    'analizar_hoja': IA_analizarHoja,
-    'corregir_ruts': IA_corregirRuts,
-    'corregir_fechas': IA_corregirFechas,
-    'corregir_nombres': IA_corregirNombres,
-    'corregir_telefonos': IA_corregirTelefonos,
-    'corregir_sexo': IA_corregirSexo,
-    'corregir_todo': IA_corregirTodo,
-    'detectar_duplicados': IA_detectarDuplicados,
-    'verificar_integridad': IA_verificarIntegridadEventos,
-    'ejecutar_tests': IA_ejecutarTests,
-    'leer_estadisticas': IA_leerEstadisticas,
-    'analizar_pacientes': IA_analizarPacientes,
-    'analizar_eventos': IA_analizarEventos
+    'revisar_todo': IA_revisarTodo_,
+    'revisar_consistencia': IA_revisarConsistenciaYCampos_,
+    'revisar_fuentes': IA_revisarFuentes_,
+    'analizar_hoja': IA_analizarHoja_,
+    'corregir_ruts': IA_corregirRuts_,
+    'corregir_fechas': IA_corregirFechas_,
+    'corregir_nombres': IA_corregirNombres_,
+    'corregir_telefonos': IA_corregirTelefonos_,
+    'corregir_sexo': IA_corregirSexo_,
+    'corregir_todo': IA_corregirTodo_,
+    'detectar_duplicados': IA_detectarDuplicados_,
+    'verificar_integridad': IA_verificarIntegridadEventos_,
+    'ejecutar_tests': IA_ejecutarTests_,
+    'leer_estadisticas': IA_leerEstadisticas_,
+    'analizar_pacientes': IA_analizarPacientes_,
+    'analizar_eventos': IA_analizarEventos_
   };
 
   var fn = acciones[clave];
@@ -1454,7 +1454,7 @@ function IA_ejecutarAccion(nombre, parametros) {
 /**
  * Registra un cambio en la hoja LOG_IA.
  */
-function IA_registrarCambio(tipo, cantidad, detalle) {
+function IA_registrarCambio_(tipo, cantidad, detalle) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hojaLog = ss.getSheetByName(IA_CONFIG.LOG_SHEET);
 
@@ -1479,16 +1479,16 @@ function IA_registrarCambio(tipo, cantidad, detalle) {
 /**
  * Abre el panel lateral de IA.
  */
-function IA_abrirPanel() {
+function IA_abrirPanel_() {
   var t = HtmlService.createTemplateFromFile('IAPanel');
-  _UI_get().showSidebar(t.evaluate().setTitle('IA — ECICEP'));
+  _UI_get_().showSidebar(t.evaluate().setTitle('IA — ECICEP'));
 }
 
 /**
  * Análisis rápido desde el menú.
  */
-function IA_analizarCompleto() {
-  Utl_toast('info', 'Iniciando análisis completo...', 3);
+function IA_analizarCompleto_() {
+  Utl_toast_('info', 'Iniciando análisis completo...', 3);
 
   var resultados = {
     pacientes: null,
@@ -1497,27 +1497,27 @@ function IA_analizarCompleto() {
     integridad: null
   };
 
-  try { resultados.pacientes = IA_analizarPacientes(); } catch (e) { resultados.pacientes = { error: e.message }; }
-  try { resultados.eventos = IA_analizarEventos(); } catch (e) { resultados.eventos = { error: e.message }; }
-  try { resultados.duplicados = IA_detectarDuplicados(); } catch (e) { resultados.duplicados = { error: e.message }; }
-  try { resultados.integridad = IA_verificarIntegridadEventos(); } catch (e) { resultados.integridad = { error: e.message }; }
+  try { resultados.pacientes = IA_analizarPacientes_(); } catch (e) { resultados.pacientes = { error: e.message }; }
+  try { resultados.eventos = IA_analizarEventos_(); } catch (e) { resultados.eventos = { error: e.message }; }
+  try { resultados.duplicados = IA_detectarDuplicados_(); } catch (e) { resultados.duplicados = { error: e.message }; }
+  try { resultados.integridad = IA_verificarIntegridadEventos_(); } catch (e) { resultados.integridad = { error: e.message }; }
 
-  Utl_toast('ok', 'Análisis completado. Revisa el panel de IA.', 5);
+  Utl_toast_('ok', 'Análisis completado. Revisa el panel de IA.', 5);
   return resultados;
 }
 
 /**
  * Configura la API key.
  */
-function IA_configurar() {
+function IA_configurar_() {
   var html = '<html><body><script>'
     + 'var key=prompt("Ingresa tu API key de Google AI Studio:");'
-    + 'if(key){google.script.run.withSuccessHandler(function(){alert("API key configurada correctamente")}).IA_guardarApiKey(key);}'
+    + 'if(key){google.script.run.withSuccessHandler(function(){alert("API key configurada correctamente")}).IA_guardarApiKey_(key);}'
     + 'else{alert("Operación cancelada");}'
     + 'google.script.host.close();'
     + '</script></body></html>';
 
-  _UI_get().showModalDialog(
+  _UI_get_().showModalDialog(
     HtmlService.createHtmlOutput(html).setWidth(10).setHeight(10),
     'Configurar API Key');
 }
@@ -1525,7 +1525,7 @@ function IA_configurar() {
 /**
  * Guarda la API key en Script Properties.
  */
-function IA_guardarApiKey(key) {
+function IA_guardarApiKey_(key) {
   if (!WebApp_accesoUniversalActivo_()) return false;
   if (key && key.trim()) {
     PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', key.trim());
@@ -1537,7 +1537,7 @@ function IA_guardarApiKey(key) {
 /**
  * Verifica si la API key está configurada.
  */
-function IA_verificarConfig() {
+function IA_verificarConfig_() {
   var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   return { configurada: !!key };
 }
@@ -1551,12 +1551,12 @@ function IA_verificarConfig() {
  * NUNCA usar índices fijos: el layout puede evolucionar (ver COLUMNAS_EVENTOS,
  * MODELO_PACIENTE). Devuelve -1 si no existe.
  */
-function IA_columnaPorNombre(datos, nombre) {
+function IA_columnaPorNombre_(datos, nombre) {
   if (!datos || !datos.length) return -1;
   var header = datos[0];
   var objetivo = String(nombre).trim().toUpperCase();
   for (var c = 0; c < header.length; c++) {
-    if (Utl_texto(header[c]).trim().toUpperCase() === objetivo) return c;
+    if (Utl_texto_(header[c]).trim().toUpperCase() === objetivo) return c;
   }
   return -1;
 }
@@ -1564,7 +1564,7 @@ function IA_columnaPorNombre(datos, nombre) {
 /**
  * Intenta parsear JSON de la respuesta de IA (a veces viene con markdown).
  */
-function IA_parsearJSON(texto) {
+function IA_parsearJSON_(texto) {
   if (!texto) return null;
 
   // Limpiar markdown code blocks

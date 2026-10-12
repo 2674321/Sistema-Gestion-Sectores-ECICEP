@@ -40,8 +40,8 @@ var INSTALAR_ETAPAS_MUTAN = {};
 });
 
 /** Registro para el cliente. */
-function api_instalarEtapas(acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+function api_instalarEtapas_(acceso) {
+  if (!WebApp_autorizarBuscador_(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return { ok: true, etapas: INSTALAR_ETAPAS,
            version: 'v' + ECICEP.VERSION, build: (ECICEP_BUILD && ECICEP_BUILD.commit) || 'dev',
            instalador: SISTEMA_VERSION_INSTALADOR,
@@ -49,9 +49,9 @@ function api_instalarEtapas(acceso) {
 }
 
 /** Previa de solo lectura antes de ofrecer una reparación. */
-function api_instalarDiagnostico(acceso) {
-  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-  try { return Instalar_diagnosticar(); }
+function api_instalarDiagnostico_(acceso) {
+  if (!WebApp_autorizarBuscador_(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  try { return Instalar_diagnosticar_(); }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
 
@@ -65,7 +65,7 @@ var _INSTALAR_BACKUP_MEMO = {};
  *  otro. Si el respaldo real falla → {ok:false} y NINGUNA etapa escribe.
  *  En entornos sin GAS (pruebas node) se omite sin bloquear. */
 function Instalar_asegurarBackup_(ejecucion) {
-  var clave = 'ECICEP_INST_BK|' + Utl_texto(ejecucion).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
+  var clave = 'ECICEP_INST_BK|' + Utl_texto_(ejecucion).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
   if (!ejecucion) clave = 'ECICEP_INST_BK|LEGACY_' + Math.floor(Date.now() / 60000);
   var cache = null;
   var props = null;
@@ -98,7 +98,7 @@ function Instalar_asegurarBackup_(ejecucion) {
 
 function Instalar_limpiarBackupEjecucion_(ejecucion) {
   if (!ejecucion) return;
-  var clave = 'ECICEP_INST_BK|' + Utl_texto(ejecucion).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
+  var clave = 'ECICEP_INST_BK|' + Utl_texto_(ejecucion).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 80);
   delete _INSTALAR_BACKUP_MEMO[clave];
   try { CacheService.getScriptCache().remove(clave); } catch (e) {}
   try { PropertiesService.getScriptProperties().deleteProperty(clave); } catch (eP) {}
@@ -109,14 +109,14 @@ function Instalar_limpiarBackupEjecucion_(ejecucion) {
  *  por otro proceso responde CONCURRENCIA y el cliente reintenta). Además, la
  *  PRIMERA etapa mutante de una ejecución crea un respaldo real previo
  *  (B4): si el respaldo falla, la etapa responde BACKUP_FALLIDO sin escribir. */
-function api_instalarPaso(id, acceso, ejecucion, opciones) {
+function api_instalarPaso_(id, acceso, ejecucion, opciones) {
   opciones = opciones || {};
-  if (!WebApp_autorizarBuscador(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+  if (!WebApp_autorizarBuscador_(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var reg = null;
   INSTALAR_ETAPAS.forEach(function (e) { if (e.id === id) reg = e; });
   if (!reg) return { ok: false, motivo: 'ETAPA_DESCONOCIDA' };
   if (INSTALAR_ETAPAS_MUTAN[id]) {
-    var incompatible = Instalar_versionIncompatible_({ version: Mig_schemaLeido(),
+    var incompatible = Instalar_versionIncompatible_({ version: Mig_schemaLeido_(),
       objetivo: String(SISTEMA_VERSION_SCHEMA_ACTUAL) });
     if (incompatible) return { ok: false, etapa: id, nombre: reg.nombre, motivo: incompatible };
   }
@@ -173,13 +173,13 @@ function api_instalarPaso(id, acceso, ejecucion, opciones) {
     if (respaldo) r.respaldo = respaldo;
     if (typeof r.ok === 'undefined') r.ok = true;
     if (id === 'verificar' && r.ok !== false && r.continuar !== true) Instalar_limpiarBackupEjecucion_(ejecucion);
-    if (r.ok === false) Log_error('Instalador', id, r.motivo || r.linea || 'La etapa informó error');
-    else Log_info('Instalador', id, 'ok', null, r.ms);
-    Log_flush();
+    if (r.ok === false) Log_error_('Instalador', id, r.motivo || r.linea || 'La etapa informó error');
+    else Log_info_('Instalador', id, 'ok', null, r.ms);
+    Log_flush_();
     return r;
   } catch (e) {
-    Log_error('Instalador', id, e && e.message ? e.message : String(e));
-    Log_flush();
+    Log_error_('Instalador', id, e && e.message ? e.message : String(e));
+    Log_flush_();
     return { ok: false, etapa: id, nombre: reg.nombre,
              motivo: e && e.message ? e.message : String(e), ms: Date.now() - t0 };
   } finally {
@@ -203,7 +203,7 @@ var REGISTRO_MIGRACIONES = [
     id: 'MIG-001',
     desde: '0',                 // '0' = esquema heredado pre-INST-1 (sin versionar)
     hasta: '1',
-    fn: 'Mig_run001',
+    fn: 'Mig_run001_',
     descripcion: 'Alinear vistas SECTOR_* al esquema canónico (15→16 columnas, ' +
       'S10-FIX). Protege la regresión BUG-E2E-003 en instalaciones heredadas.'
   },
@@ -211,7 +211,7 @@ var REGISTRO_MIGRACIONES = [
     id: 'MIG-002',
     desde: '1',
     hasta: '2',
-    fn: 'Mig_run002',
+    fn: 'Mig_run002_',
     descripcion: 'Campo SALUD_MENTAL (SI | NO | vacío) en PACIENTES (30→31 ' +
       'columnas), vistas SECTOR_* (16→17) y columna SALUD_MENTAL en INGRESO_*.'
   }
@@ -221,10 +221,10 @@ var REGISTRO_MIGRACIONES = [
  *  objetivo canónico, en orden de aplicación (desde ascendente y por id.).
  *  Versión ausente/vacía ≡ '0'. Objetivo por defecto = SISTEMA_VERSION_SCHEMA_ACTUAL.
  *  @returns {Array} registros pendientes. */
-function Mig_pendientesPura(actual, registro, objetivo) {
+function Mig_pendientesPura_(actual, registro, objetivo) {
   registro = (registro === undefined || registro === null) ? REGISTRO_MIGRACIONES : registro;
   registro = registro || [];
-  actual = Utl_texto(actual);
+  actual = Utl_texto_(actual);
   if (actual.trim() === '') actual = '0';
   var actualN = Number(actual) || 0;
   var objetivoN = (objetivo === undefined || objetivo === null) ? SISTEMA_VERSION_SCHEMA_ACTUAL : objetivo;
@@ -241,17 +241,17 @@ function Mig_pendientesPura(actual, registro, objetivo) {
 }
 
 /** PURA: clasifica el estado de la instalación desde un snapshot de escaneo
- *  (véase Modelo_escanearEstructura). Solo lecturas/derivaciones; nunca escribe.
+ *  (véase Modelo_escanearEstructura_). Solo lecturas/derivaciones; nunca escribe.
  *  Estados: NUEVA | VIGENTE | ANTIGUA | DIVERGENTE | INCOMPLETA | DESCONOCIDA.
  *  @returns { estado, version, objetivo, hayDatos, pendientes[], sectoresDivergentes[],
  *             faltantes[], accion } */
-function Mig_clasificarInstalacion(snapshot, schemaVersion, registro) {
+function Mig_clasificarInstalacion_(snapshot, schemaVersion, registro) {
   snapshot = snapshot || { hojas: {}, criticasPresentes: [], criticasFaltantes: [], config: {} };
   var cfg = snapshot.config || {};
   var version = (schemaVersion === undefined || schemaVersion === null)
     ? (cfg.SCHEMA_VERSION === undefined ? '' : cfg.SCHEMA_VERSION)
     : schemaVersion;
-  version = Utl_texto(version).trim();
+  version = Utl_texto_(version).trim();
   if (version === '') version = '0';
   var objetivo = String(SISTEMA_VERSION_SCHEMA_ACTUAL);
   var objetivoN = Number(objetivo) || 0;
@@ -261,15 +261,15 @@ function Mig_clasificarInstalacion(snapshot, schemaVersion, registro) {
   var hayDatos = false;
   (snapshot.criticasPresentes || []).forEach(function (n) {
     var info = snapshot.hojas[n];
-    if (info && info.ultimaFila >= Modelo_dataStartRow(n)) hayDatos = true;
+    if (info && info.ultimaFila >= Modelo_dataStartRow_(n)) hayDatos = true;
   });
   var sectores = [];
   (HOJAS_SECTOR || []).forEach(function (n) {
     var info = snapshot.hojas[n];
     if (!info || !info.encabezados || !info.encabezados.length) return;
-    if (Modelo_esquemaVistaDivergente(info.encabezados)) sectores.push(n);
+    if (Modelo_esquemaVistaDivergente_(info.encabezados)) sectores.push(n);
   });
-  var pendientes = Mig_pendientesPura(version, registro);
+  var pendientes = Mig_pendientesPura_(version, registro);
   var estado;
   if (falta.length) estado = 'INCOMPLETA';
   else if (defectuosa) estado = 'DESCONOCIDA';
@@ -297,14 +297,14 @@ function Mig_clasificarInstalacion(snapshot, schemaVersion, registro) {
  *  re-ejecución retoma exactamente donde quedó.
  *  @param {Array} registro registro de migraciones (default REGISTRO_MIGRACIONES)
  *  @param {Object} ctx { schemaVersion, pendientes?, persistir, objetivo, g } */
-function Mig_ejecutarDeclaradas(registro, ctx) {
+function Mig_ejecutarDeclaradas_(registro, ctx) {
   ctx = ctx || {};
   var G = ctx.g || ((typeof globalThis !== 'undefined') ? globalThis : this);
   var lib = (registro === undefined || registro === null) ? REGISTRO_MIGRACIONES : registro;
   lib = lib || [];
-  var version = ctx.schemaVersion === undefined ? '0' : Utl_texto(ctx.schemaVersion);
+  var version = ctx.schemaVersion === undefined ? '0' : Utl_texto_(ctx.schemaVersion);
   if (version.trim() === '') version = '0';
-  var pendientes = ctx.pendientes || Mig_pendientesPura(version, lib, ctx.objetivo);
+  var pendientes = ctx.pendientes || Mig_pendientesPura_(version, lib, ctx.objetivo);
   var secuencia = [];
   pendientes.forEach(function (m) {
     if (typeof m === 'string') {
@@ -332,8 +332,8 @@ function Mig_ejecutarDeclaradas(registro, ctx) {
     aplicadas.push(reg.id);
     vActual = String(reg.hasta);
     if (ctx.persistir) {
-      _inst_configEscribir('LAST_MIGRATION', reg.id);
-      _inst_configEscribir('SCHEMA_VERSION', vActual);
+      _inst_configEscribir_('LAST_MIGRATION', reg.id);
+      _inst_configEscribir_('SCHEMA_VERSION', vActual);
     }
   }
   return { ok: true, aplicadas: aplicadas, versionInicial: version,
@@ -344,23 +344,23 @@ function Mig_ejecutarDeclaradas(registro, ctx) {
 }
 
 /** GAS: versión de esquema persistida en CONFIG. Ausente/ilegible ≡ '0'. */
-function Mig_schemaLeido() {
-  var v = Utl_texto(_rem9_configValor('SCHEMA_VERSION')).trim();
+function Mig_schemaLeido_() {
+  var v = Utl_texto_(_rem9_configValor_('SCHEMA_VERSION')).trim();
   return v === '' ? '0' : v;
 }
 
 /** GAS: escribe una clave de CONFIG del motor de versionado. */
-function _inst_configEscribir(clave, valor) {
-  _config_set(clave, valor);
+function _inst_configEscribir_(clave, valor) {
+  _config_set_(clave, valor);
 }
 
 /** GAS: ejecuta las migraciones pendientes REALES con la defensa de regresión:
  *  si el esquema ya está en la versión objetivo pero las vistas SECTOR_*
  *  quedaron divergentes (BUG-E2E-003), fuerza la re-aplicación idempotente de
  *  MIG-001. Persiste SCHEMA_VERSION/LAST_MIGRATION solo tras cada éxito. */
-function Mig_ejecutarPersistente() {
-  var snap = Modelo_escanearEstructura();
-  var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
+function Mig_ejecutarPersistente_() {
+  var snap = Modelo_escanearEstructura_();
+  var v = Mig_clasificarInstalacion_(snap, null, REGISTRO_MIGRACIONES);
   var incompatible = Instalar_versionIncompatible_(v);
   if (incompatible) return { ok: false, motivo: incompatible, versionInicial: v.version,
     versionFinal: v.version, aplicadas: [] };
@@ -370,7 +370,7 @@ function Mig_ejecutarPersistente() {
       if (m.id === 'MIG-001' && pendientes.indexOf('MIG-001') === -1) pendientes.push('MIG-001');
     });
   }
-  return Mig_ejecutarDeclaradas(REGISTRO_MIGRACIONES,
+  return Mig_ejecutarDeclaradas_(REGISTRO_MIGRACIONES,
     { schemaVersion: v.version, pendientes: pendientes, persistir: true });
 }
 
@@ -388,7 +388,7 @@ function Instalar_versionIncompatible_(v) {
  *  reutiliza asegurarEsquemaPacientes / alinearVistasSectoriales y solo agrega
  *  el encabezado cuando la hoja lo tiene ausente. Se tolera INGRESO_* sin hoja
  *  (la estructura la crea con INGRESO_COLUMNAS vigente). */
-function Mig_run002() {
+function Mig_run002_() {
   var res = { ok: true, esquema: null, alineadas: [], yaCanonicas: [],
     ingresosActualizados: [], ingresosSinHoja: [] };
   var e = Modelo_asegurarEsquemaPacientes_();
@@ -410,7 +410,7 @@ function Mig_run002() {
     res.ok = false; res.motivo = 'MIG-002:SECTOR:' + v.errores.join(',');
     return res;
   }
-  var a = _mig002_asegurarIngresosSaludMental();
+  var a = _mig002_asegurarIngresosSaludMental_();
   res.ingresosActualizados = a.actualizadas;
   res.ingresosSinHoja = a.sinHoja;
   res.ingresosRevision = a.revision;
@@ -419,7 +419,7 @@ function Mig_run002() {
     res.motivo = 'MIG-002:INGRESOS_REVISION:' + (a.revision || []).join(';');
     return res;
   }
-  Log_info('Instalador', 'MIG-002',
+  Log_info_('Instalador', 'MIG-002',
     'PACIENTES 31 campos · SECTOR_* 17 · INGRESO_* SALUD_MENTAL');
   return res;
 }
@@ -433,16 +433,16 @@ function Mig_run002() {
  *   - cualquier otra divergencia (encabezado canónico ausente o desordenado,
  *     o columna ocupada tras NOTA_SISTEMA) → `revision` y BLOQUEA la
  *     migración: no se escribe a ciegas sobre una columna ajena. */
-function _mig002_asegurarIngresosSaludMental() {
+function _mig002_asegurarIngresosSaludMental_() {
   var res = { ok: true, actualizadas: [], sinHoja: [], revision: [] };
   var canonicos = INGRESO_COLUMNAS.slice(0, INGRESO_COLUMNAS.length - 1);
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
-    var hoja = Modelo_hoja(nombre);
+    var hoja = Modelo_hoja_(nombre);
     if (!hoja) { res.sinHoja.push(nombre); return; }
-    var hr = Modelo_headerRow(nombre);
+    var hr = Modelo_headerRow_(nombre);
     var ancho = Math.max(hoja.getLastColumn() || 0, 1);
     var fila = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
-    var headers = fila.map(function (v) { return Utl_colapsarEspacios(Utl_texto(v)).toUpperCase(); });
+    var headers = fila.map(function (v) { return Utl_colapsarEspacios_(Utl_texto_(v)).toUpperCase(); });
     if (headers.indexOf('SALUD_MENTAL') !== -1) return;
     var indice = {};
     canonicos.forEach(function (cm, i) { indice[cm] = headers.indexOf(cm.toUpperCase()); });
@@ -459,9 +459,9 @@ function _mig002_asegurarIngresosSaludMental() {
       }
     }
     var posSM = indice.NOTA_SISTEMA + 1;
-    var ocupado = Utl_texto(fila[posSM]).trim() !== '';
+    var ocupado = Utl_texto_(fila[posSM]).trim() !== '';
     if (ocupado) {
-      res.revision.push(nombre + ': columna posterior a NOTA_SISTEMA ocupada ("' + Utl_texto(fila[posSM]) + '")');
+      res.revision.push(nombre + ': columna posterior a NOTA_SISTEMA ocupada ("' + Utl_texto_(fila[posSM]) + '")');
       res.ok = false;
       return;
     }
@@ -473,7 +473,7 @@ function _mig002_asegurarIngresosSaludMental() {
  /** GAS: MIG-001 — alinear vistas SECTOR_* al esquema canónico (15→16, S10-FIX).
  *  Idempotente y por nombre. Se tolera HOJA_NO_EXISTE (estructura la crea);
  *  encabezados irreconocibles → falla (requiere revisión, no se adivina nada). */
-function Mig_run001() {
+function Mig_run001_() {
   var res = { ok: true, alineadas: [], yaCanonicas: [], sinObjeto: [], regeneradas: [] };
   HOJAS_SECTOR.forEach(function (n) {
     var r = Modelo_alinearVistaSector_(n);
@@ -494,7 +494,7 @@ function Mig_run001() {
     try { res.refresco = Modelo_refrescarVistasSectores_(res.regeneradas); }
     catch (eR) { res.ok = false; res.motivo = 'MIG-001:REGENERACION:' + (eR && eR.message || eR); return res; }
   }
-  Log_info('Instalador', 'MIG-001',
+  Log_info_('Instalador', 'MIG-001',
     'SECTOR_* alineados: ' + res.alineadas.join(',') + ' canónicas: ' + res.yaCanonicas.join(','));
   return res;
 }
@@ -502,7 +502,7 @@ function Mig_run001() {
 /** Política INST-1 del Webhook 'instalar': detección → reparación de estructura
  *  crítica si falta → migraciones desde la versión persistida. Reutiliza el
  *  mismo pipeline del instalador (única fuente de verdad). */
-function Instalar_ejecutarPolitica() {
+function Instalar_ejecutarPolitica_() {
   try {
     // Respaldo completo previo a cualquier mutación (B4). Si falla → se aborta
     // sin escribir: nada se arriesga en una reparación automática.
@@ -511,8 +511,8 @@ function Instalar_ejecutarPolitica() {
       return { ok: false, motivo: 'BACKUP_FALLIDO',
         linea: 'No se pudo crear el respaldo previo del libro: ' + bk.motivo };
     }
-    var snap = Modelo_escanearEstructura();
-    var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
+    var snap = Modelo_escanearEstructura_();
+    var v = Mig_clasificarInstalacion_(snap, null, REGISTRO_MIGRACIONES);
     var incompatible = Instalar_versionIncompatible_(v);
     if (incompatible === 'ESQUEMA_DIVERGENTE') {
       return { ok: false, motivo: 'ESQUEMA_DIVERGENTE', estado: v.estado, detalle: v,
@@ -524,11 +524,11 @@ function Instalar_ejecutarPolitica() {
     }
     if (v.estado === 'INCOMPLETA') {
       var est = Modelo_crearEstructura_();
-      snap = Modelo_escanearEstructura();
-      v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
+      snap = Modelo_escanearEstructura_();
+      v = Mig_clasificarInstalacion_(snap, null, REGISTRO_MIGRACIONES);
       v.estructuraReparada = est.creadas || [];
     }
-    var m = Mig_ejecutarPersistente();
+    var m = Mig_ejecutarPersistente_();
     return { ok: m.ok, estado: v.estado, versionAntes: v.version,
              versionDespues: m.versionFinal || m.versionInicial,
              aplicadas: m.aplicadas || [], linea: m.linea, detalle: v,
@@ -541,7 +541,7 @@ function Instalar_ejecutarPolitica() {
 /* ------------------------- ETAPAS (thin wrappers) ------------------------- */
 
 function Instalar_pRuntime_() {
-  var r = Modelo_validarDependenciasRuntime();
+  var r = Modelo_validarDependenciasRuntime_();
   if (!r.ok) {
     return { ok: false, motivo: r.detalle, faltantes: r.faltantes };
   }
@@ -549,13 +549,13 @@ function Instalar_pRuntime_() {
 }
 
 function Instalar_pDiagnostico_() {
-  var r = Instalar_diagnosticar();
+  var r = Instalar_diagnosticar_();
   return { ok: r.ok !== false, diagnostico: r.diagnostico, motivo: r.motivo || '' };
 }
 
 function Instalar_pVersionado_() {
-  var snap = Modelo_escanearEstructura();
-  var v = Mig_clasificarInstalacion(snap, null, REGISTRO_MIGRACIONES);
+  var snap = Modelo_escanearEstructura_();
+  var v = Mig_clasificarInstalacion_(snap, null, REGISTRO_MIGRACIONES);
   var incompatible = Instalar_versionIncompatible_(v);
   return { ok: !incompatible, motivo: incompatible, versionado: {
     app: ECICEP.VERSION,
@@ -571,7 +571,7 @@ function Instalar_pVersionado_() {
 }
 
 function Instalar_pMigraciones_() {
-  var r = Mig_ejecutarPersistente();
+  var r = Mig_ejecutarPersistente_();
   return { ok: r.ok, linea: r.linea, aplicadas: r.aplicadas || [],
            versionInicial: r.versionInicial, versionFinal: r.versionFinal,
            motivo: r.motivo, migracion: r.migracion };
@@ -594,7 +594,7 @@ function Instalar_pFuentes_(ejecucion, opciones) {
   // explícita del operador prevalece. CONSERVADOR/INICIAL comparten mecánica
   // no destructiva; SNAPSHOT_ACTUAL solo avanzado + confirmado + respaldado.
   opciones = opciones || {};
-  var pedido = Utl_texto(opciones.modoDatos).toUpperCase();
+  var pedido = Utl_texto_(opciones.modoDatos).toUpperCase();
   var estado = (typeof Datos_estadoProduccion_ === 'function')
     ? Datos_estadoProduccion_() : { pacientes: 0, eventos: 0, produccion: false };
   var modo = (pedido === 'CONSERVAR' || pedido === 'CONSERVADOR' ||
@@ -661,7 +661,7 @@ function Instalar_pAmarillo_() {
   return { ok: true, aplicaHistorico: true, puerta: r.puerta, historico: r.historico };
 }
 function Instalar_pValidaciones_() {
-  var r = Modelo_validarIngresos(Modelo_ss());
+  var r = Modelo_validarIngresos_(Modelo_ss_());
   return { ok: r.ok !== false && !(r.fallidas || []).length,
            validaciones: r.validaciones, puertas: r.hojas, protegidas: r.protegidas,
            motivo: (r.fallidas || []).join('; ') || r.motivo || '' };
@@ -677,7 +677,7 @@ function Instalar_pTriggers_() {
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
 }
 function Instalar_pLimpieza_() {
-  var r = Modelo_limpiarHojasResiduales(Modelo_ss());
+  var r = Modelo_limpiarHojasResiduales_(Modelo_ss_());
   return { ok: true, candidatas: r.candidatas, eliminadas: r.eliminadas,
            conservadas: r.conservadas, linea: 'No se eliminaron hojas en la instalación' };
 }
@@ -692,7 +692,7 @@ function Instalar_pDiseno_(ejecucion, opciones) {
 }
 /** @deprecated v0.14 — wrapper de compatibilidad, FUERA del plan principal.
  *  La estructura superior se repara en las subtareas formato:* del motor único
- *  (Presentacion_formatearHoja_ → HVis_reconciliarHoja). Este wrapper ejecuta
+ *  (Presentacion_formatearHoja_ → HVis_reconciliarHoja_). Este wrapper ejecuta
  *  esas mismas subtareas del plan (sin pipeline paralelo) para callers antiguos.
  *  Sin fuerza global: hoja alineada = cero escrituras. */
 function Instalar_pVisual_() {
@@ -712,9 +712,9 @@ function Instalar_pVisual_() {
 /** @deprecated v0.14 — wrapper de compatibilidad, FUERA del plan principal.
  *  INICIO pertenece exclusivamente al motor de Presentación (subtarea 'inicio'
  *  del plan único). Este wrapper ejecuta esa misma subtarea + verificación,
- *  sin Modelo_disenoHojas ni toques a otras hojas (§9). */
+ *  sin Modelo_disenoHojas_ ni toques a otras hojas (§9). */
 function Instalar_pInicio_() {
-  var ss = Modelo_ss();
+  var ss = Modelo_ss_();
   var r, motivo = '';
   try { var t = Presentacion_ejecutarTarea_({ id: 'inicio', nombre: 'Portada INICIO' });
     r = { ok: t.ok !== false, detalle: t.detalle || t };
@@ -774,11 +774,11 @@ function Instalar_pVerificar_() {
  *  sinCambios, conflictos (requieren revisión), noEncontrados (sin fuente) y
  *  errores. */
 function Instalar_pEnriquecimiento_() {
-  // Enriquecimiento demográfico de PACIENTES reutilizando Act_enriquecerPacientes
+  // Enriquecimiento demográfico de PACIENTES reutilizando Act_enriquecerPacientes_
   // (fill-only SEXO/FECHA_NACIMIENTO desde INGRESO_*; no crea pacientes ni
   // eventos; idempotente). Misma implementación que ACTUALIZAR.
   var r;
-  try { r = Act_enriquecerPacientes({ dryRun: false }); }
+  try { r = Act_enriquecerPacientes_({ dryRun: false }); }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
   return { ok: r.ok !== false, resumen: r };
 }
@@ -800,8 +800,8 @@ function Instalar_pIntegridad_(ejecucion) {
  * Dry-run: informa qué cambios haría la instalación sin aplicarlos.
  * Compara estado actual vs deseado para cada fase.
  */
-function Instalar_diagnosticar() {
-  var ss = Modelo_ss();
+function Instalar_diagnosticar_() {
+  var ss = Modelo_ss_();
   var diagnostico = {
     hojas: {},
     secciones: {},
@@ -832,7 +832,7 @@ function Instalar_diagnosticar() {
 
   // 1. ESTRUCTURA - verificar hojas (escaneo SOLO LECTURA: no crear/reparar)
   try {
-    var snap = Modelo_escanearEstructura(ss); // dry-run: no modifica nada
+    var snap = Modelo_escanearEstructura_(ss); // dry-run: no modifica nada
     diagnostico.estructura.creadas = []; // el diagnóstico jamás crea hojas
     diagnostico.estructura.existentes = Object.keys(snap.hojas).filter(function (h) {
       return snap.hojas[h] !== null;
@@ -847,7 +847,7 @@ function Instalar_diagnosticar() {
 
   // 2. VERSIONADO (INST-1): versión de esquema, estado y migraciones pendientes
   try {
-    var ver = Mig_clasificarInstalacion(Modelo_escanearEstructura(ss), null, REGISTRO_MIGRACIONES);
+    var ver = Mig_clasificarInstalacion_(Modelo_escanearEstructura_(ss), null, REGISTRO_MIGRACIONES);
     ver.bloqueo = Instalar_versionIncompatible_(ver);
     diagnostico.versionado = ver;
     if (ver.estado !== 'VIGENTE' || ver.bloqueo) {
@@ -860,7 +860,7 @@ function Instalar_diagnosticar() {
 
   // 3. SECCIONES VISUALES - comparar actual vs deseado (contrato)
   try {
-    var diagSecciones = HVis_diagnosticarTodas().diagnostico || {};
+    var diagSecciones = HVis_diagnosticarTodas_().diagnostico || {};
     diagnostico.secciones = diagSecciones;
     var seccionesPendientes = 0;
     Object.keys(diagSecciones).forEach(function (h) {
@@ -872,7 +872,7 @@ function Instalar_diagnosticar() {
       var detectadas = est.seccionesDetectadas || 0;
       var filaEnc = est.filaEncabezadosReal || 0;
       var filaEncEsperada = est.filaEncabezadosEsperada || 0;
-      // SAS-025: HVis_diagnosticarDisenio ya expone est.visual (pendientesVisual):
+      // SAS-025: HVis_diagnosticarDisenio_ ya expone est.visual (pendientesVisual):
       // una hoja con la última columna de una sección sin color debe quedar
       // pendiente aunque estructura y secciones detectadas coincidan.
       var pendientesVisuales = (est.visual && Array.isArray(est.visual.pendientes))
@@ -951,7 +951,7 @@ function Instalar_diagnosticar() {
   } catch (e) { diagnostico.resumen.fasesPendientes.push('conflictos'); }
 
   // 6. VALIDACIONES INGRESO: inspeccionar la regla de la primera fila de
-  // datos. Nunca ejecutar Modelo_validarIngresos desde un diagnóstico.
+  // datos. Nunca ejecutar Modelo_validarIngresos_ desde un diagnóstico.
   try {
     var columnasConRegla = ['ESTADO_INGRESO', 'ESTRATIFICACION', 'SEXO',
       'FECHA DE NACIMIENTO', 'FECHA DE INGRESO'];
@@ -959,7 +959,7 @@ function Instalar_diagnosticar() {
       var hoja = ss.getSheetByName(nombre);
       if (!hoja || hoja.isSheetHidden()) return;
       diagnostico.validaciones.puertas = (diagnostico.validaciones.puertas || 0) + 1;
-      var ini = Modelo_dataStartRow(nombre);
+      var ini = Modelo_dataStartRow_(nombre);
       columnasConRegla.forEach(function (col) {
         var idx = INGRESO_COLUMNAS.indexOf(col) + 1;
         var tiene = idx > 0 && hoja.getMaxRows() >= ini &&
@@ -981,7 +981,7 @@ function Instalar_diagnosticar() {
     hojasFormato.forEach(function (nombre) {
       var hoja = ss.getSheetByName(nombre);
       if (!hoja) return;
-      var umbral = nombre === HOJAS.PACIENTES ? Modelo_dataStartRow(nombre) : Modelo_headerRow(nombre);
+      var umbral = nombre === HOJAS.PACIENTES ? Modelo_dataStartRow_(nombre) : Modelo_headerRow_(nombre);
       if (hoja.getLastRow() < umbral) return;
       var cantidad = hoja.getConditionalFormatRules().length;
       var esperadas = nombre === HOJAS.PACIENTES ? 10

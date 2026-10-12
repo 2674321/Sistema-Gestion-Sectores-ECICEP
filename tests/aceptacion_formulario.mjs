@@ -67,7 +67,7 @@ const HOY = '2026-08-20';
 const T = sandbox;
 
 // ── helpers deterministas ──────────────────────────────────────────────────
-const dv = (cuerpo) => T.Norm_dvModulo11(String(cuerpo));
+const dv = (cuerpo) => T.Norm_dvModulo11_(String(cuerpo));
 const rutOk = (cuerpo) => String(cuerpo) + '-' + dv(cuerpo);
 
 function nuevoIngreso(rut, extra) {
@@ -84,25 +84,25 @@ function control(rut, extra) {
 }
 
 /** Envía una respuesta de NUEVO_INGRESO por el pipeline REAL (validación FORM
- *  → fila canónica → staging → Ingresos_procesarFilas). Mutaciona store. */
+ *  → fila canónica → staging → Ingresos_procesarFilas_). Mutaciona store. */
 function ingresarPorForm(respuesta, store, opciones) {
   const op = Object.assign({ hoy: HOY }, opciones || {});
-  const v = T.Form_validarRespuesta(respuesta.crudo, op);
+  const v = T.Form_validarRespuesta_(respuesta.crudo, op);
   if (!v.ok) return { decision: 'ERROR', errores: v.errores };
-  const marca = T.Form_marcadorFuente(respuesta.responseId, v.accion);
+  const marca = T.Form_marcadorFuente_(respuesta.responseId, v.accion);
   const n = v.normalizado;
   const datos = {
     NOMBRE: n.NOMBRE, RUT: n.RUT, SEXO: n.SEXO, FECHA_NACIMIENTO: n.FECHA_NACIMIENTO,
     TELEFONOS: n.TELEFONOS, FECHA_INGRESO: n.FECHA_INGRESO,
     ESTRATIFICACION: n.ESTRATIFICACION, OBSERVACIONES: n.OBSERVACIONES
   };
-  const f = T.Fuentes_normalizar(T.Fuentes_crearFila(
-    { archivo: 'FORM_RESPUESTAS', hoja: T.Form_sectorHojaIngreso(n.SECTOR), fila: 1, sector: n.SECTOR },
+  const f = T.Fuentes_normalizar_(T.Fuentes_crearFila_(
+    { archivo: 'FORM_RESPUESTAS', hoja: T.Form_sectorHojaIngreso_(n.SECTOR), fila: 1, sector: n.SECTOR },
     datos, store._seq = (store._seq || 0) + 1));
   // La marca vive en NOTA_SISTEMA de la fila canónica anexada a INGRESO_<SECTOR>
-  // (misma semántica que Form_filaCanonicaIngreso) — el rastro FORM→modelo.
+  // (misma semántica que Form_filaCanonicaIngreso_) — el rastro FORM→modelo.
   f.NOTA_SISTEMA = marca;
-  const salida = T.Ingresos_procesarFilas([f], store, {
+  const salida = T.Ingresos_procesarFilas_([f], store, {
     nuevoId: (() => { const nn = store._nuevos = (store._nuevos || 0) + 1; return 'EC-ACE-' + String(nn).padStart(3, '0'); }),
     evSecuenciaInicial: store._ev = (store._ev || 0) + 1
   });
@@ -112,7 +112,7 @@ function ingresarPorForm(respuesta, store, opciones) {
 function procesarLote(respuestas, store) {
   const indices = {};
   (store.pacientes || []).forEach(p => { indices[String(p.RUT).toUpperCase()] = p; });
-  return T.Form_procesarLote(respuestas, { indiceRut: indices, marcas: store._marcas || {} }, { hoy: HOY });
+  return T.Form_procesarLote_(respuestas, { indiceRut: indices, marcas: store._marcas || {} }, { hoy: HOY });
 }
 
 // Agrupa marcas de eventos ya registrados para el motor de idempotencia.
@@ -122,17 +122,17 @@ function indexarMarcas(store) {
   return m;
 }
 
-// Modela el efecto del entorno GAS `Form_procesarPendientes` sobre una decisión
+// Modela el efecto del entorno GAS `Form_procesarPendientes_` sobre una decisión
 // CLINICA: registra el EVENTO con FUENTE = marca FORM (igual que
-// api_registrarEvento) y actualiza `store._marcas`. Devuelve las marcas nuevas.
-// Esto es lo que hace idempotente un reintento (Form_leerMarcas → PROCESADO_YA).
+// api_registrarEvento_) y actualiza `store._marcas`. Devuelve las marcas nuevas.
+// Esto es lo que hace idempotente un reintento (Form_leerMarcas_ → PROCESADO_YA).
 function aplicarClinica(respuestas, decisiones, store) {
   if (!Array.isArray(store.eventos)) store.eventos = [];
   decisiones.forEach(d => {
     if (d.decision !== 'CLINICA') return;
     const r = respuestas.find(x => x.responseId === d.responseId);
     if (!r) return;
-    const marca = T.Form_marcadorFuente(d.responseId, d.accion);
+    const marca = T.Form_marcadorFuente_(d.responseId, d.accion);
     const tipo = d.accion === 'REGISTRAR_CONTROL' ? 'CONTROL'
       : d.accion === 'REGISTRAR_SEGUIMIENTO' ? 'SEGUIMIENTO' : 'OTRO';
     store.eventos.push({
@@ -186,20 +186,20 @@ console.log('\n── GRUPO A: estrategia DEV/DEMO (v0.9.1) ──');
 registrar('entorno: identidad por Spreadsheet ID (nunca por nombre)', () => {
   const DEV = T.ENTORNOS.DEV.SPREADSHEET_ID;
   const DEMO = T.ENTORNOS.DEMO.SPREADSHEET_ID;
-  const ok = T.Entorno_detectar(DEV) === 'DEV'
-    && T.Entorno_detectar(DEMO) === 'DEMO'
-    && T.Entorno_detectar('x'.repeat(33)) === 'DESCONOCIDO'
-    && T.Entorno_detectar('') === 'DESCONOCIDO';
+  const ok = T.Entorno_detectar_(DEV) === 'DEV'
+    && T.Entorno_detectar_(DEMO) === 'DEMO'
+    && T.Entorno_detectar_('x'.repeat(33)) === 'DESCONOCIDO'
+    && T.Entorno_detectar_('') === 'DESCONOCIDO';
   return { ok, causa: 'detect/DEV/DEMO/desconocido no resolvió como se esperaba' };
 });
 
 registrar('entorno: gate DEV/DEMO procesa, desconocido bloquea (ERROR_CONFIG_ENTORNO)', () => {
   const DEV = T.ENTORNOS.DEV.SPREADSHEET_ID;
   const DEMO = T.ENTORNOS.DEMO.SPREADSHEET_ID;
-  const gD = T.Entorno_validarProcesamiento(DEV, '', {});
-  const gE = T.Entorno_validarProcesamiento(DEMO, '', {});
-  const gX = T.Entorno_validarProcesamiento('a'.repeat(40), '', {});
-  const g0 = T.Entorno_validarProcesamiento('', '', {});
+  const gD = T.Entorno_validarProcesamiento_(DEV, '', {});
+  const gE = T.Entorno_validarProcesamiento_(DEMO, '', {});
+  const gX = T.Entorno_validarProcesamiento_('a'.repeat(40), '', {});
+  const g0 = T.Entorno_validarProcesamiento_('', '', {});
   const ok = gD.ok && gD.entorno === 'DEV' && gE.ok && gE.entorno === 'DEMO'
     && !gX.ok && gX.motivo === 'ERROR_CONFIG_ENTORNO'
     && !g0.ok && g0.motivo === 'ERROR_CONFIG_ENTORNO';
@@ -214,7 +214,7 @@ registrar('entorno: aislamiento cruzado del Form DEV↔DEMO (fixture de Form aje
     const devF = T.ENTORNOS.DEV.FORM_ID;
     T.ENTORNOS.DEV.FORM_ID = '';
     T.ENTORNOS.DEMO.FORM_ID = '1FORM-REAL-DEMO-0000000000000000000';
-    const gAjeno = T.Entorno_validarProcesamiento(DEV, '1FORM-REAL-DEMO-0000000000000000000', {});
+    const gAjeno = T.Entorno_validarProcesamiento_(DEV, '1FORM-REAL-DEMO-0000000000000000000', {});
     ok = !gAjeno.ok && gAjeno.motivo === 'ERROR_CONFIG_ENTORNO';
     causa = gAjeno.detalle || '';
     if (devF) T.ENTORNOS.DEV.FORM_ID = devF;
@@ -225,17 +225,17 @@ registrar('entorno: aislamiento cruzado del Form DEV↔DEMO (fixture de Form aje
 });
 
 registrar('entorno: backups aislados DEV ≠ DEMO (carpeta esperada/nombre/categoría)', () => {
-  const a = T.Entorno_carpetaEsperada('DEV');
-  const b = T.Entorno_carpetaEsperada('DEMO');
-  const ok = a !== b && T.Entorno_clasificarCarpeta(a) === 'DEV' && T.Entorno_clasificarCarpeta(b) === 'DEMO'
-    && T.Entorno_clasificarCarpeta('ECICEP_Backups_FOO') === 'DESCONOCIDO';
+  const a = T.Entorno_carpetaEsperada_('DEV');
+  const b = T.Entorno_carpetaEsperada_('DEMO');
+  const ok = a !== b && T.Entorno_clasificarCarpeta_(a) === 'DEV' && T.Entorno_clasificarCarpeta_(b) === 'DEMO'
+    && T.Entorno_clasificarCarpeta_('ECICEP_Backups_FOO') === 'DESCONOCIDO';
   return { ok, causa: 'carpetas de backup no están aisladas (' + a + ' vs ' + b + ')' };
 });
 
 registrar('entorno: diagnóstico read-only con checks entorno/spreadsheet/form/mapeo', () => {
   const DEV = T.ENTORNOS.DEV.SPREADSHEET_ID;
   const devForm = T.ENTORNOS.DEV.FORM_ID;
-  const d = T.Entorno_diagnostico(DEV, devForm, { trigger: true, procesador: true, mapeo: T.Form_campos().length, campos: T.Form_campos().length });
+  const d = T.Entorno_diagnostico_(DEV, devForm, { trigger: true, procesador: true, mapeo: T.Form_campos_().length, campos: T.Form_campos_().length });
   const porNombre = {};
   d.checks.forEach(c => { porNombre[c.nombre] = c; });
   const necesarios = ['entorno', 'spreadsheet', 'form', 'mapeo', 'trigger', 'procesador'];
@@ -289,16 +289,16 @@ registrar('ingreso: dos respuestas iguales el mismo día crean una persona y un 
 registrar('ingreso: error de identificación — RUT inválido y sin DV son ERROR', () => {
   const marcados = [];
   [nuevoIngreso('12345678-9'), nuevoIngreso('12345678')].forEach((crudo, i) => {
-    const v = T.Form_validarRespuesta(crudo, { hoy: HOY });
+    const v = T.Form_validarRespuesta_(crudo, { hoy: HOY });
     marcados.push({ invalido: v.errores.some(e => e.campo === 'RUT'), ok: !v.ok });
   });
   return { ok: marcados.every(m => m.invalido && m.ok), causa: 'RUT inválido o sin DV no fue bloqueante' };
 });
 
 registrar('ingreso: fecha/sexo/sector — nacimiento inválida y sector desconocido son ERROR', () => {
-  const bNac = !T.Form_validarRespuesta(nuevoIngreso(rutOk(11111111), { FECHA_NACIMIENTO: '30/02/2000' }), { hoy: HOY }).ok;
-  const bSec = !T.Form_validarRespuesta(nuevoIngreso(rutOk(11111111), { SECTOR: 'AZUL' }), { hoy: HOY }).ok;
-  const sexoV = T.Form_validarRespuesta(nuevoIngreso(rutOk(11111111), { SEXO: 'F' }), { hoy: HOY }).ok;
+  const bNac = !T.Form_validarRespuesta_(nuevoIngreso(rutOk(11111111), { FECHA_NACIMIENTO: '30/02/2000' }), { hoy: HOY }).ok;
+  const bSec = !T.Form_validarRespuesta_(nuevoIngreso(rutOk(11111111), { SECTOR: 'AZUL' }), { hoy: HOY }).ok;
+  const sexoV = T.Form_validarRespuesta_(nuevoIngreso(rutOk(11111111), { SEXO: 'F' }), { hoy: HOY }).ok;
   return { ok: bNac && bSec && sexoV, causa: 'validaciones de fecha/sector/sexo incoherentes' };
 });
 
@@ -311,12 +311,12 @@ registrar('control: REGISTRAR_CONTROL actualiza último control y conserva agend
   const lote = procesarLote([{ responseId: 'ACE-C-001', crudo: control(rut) }], store);
   const dec = lote.decisiones[0];
   // efecto clínico real que el entorno GAS aplica al registrar el evento:
-  const freq = T.Control_frecuenciaDefault();
+  const freq = T.Control_frecuenciaDefault_();
   const ev = { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-07-10' };
-  T.Ingresos_sincronizarCache(pac, ev, freq);
+  T.Ingresos_sincronizarCache_(pac, ev, freq);
   const esperado = '2026-12-05';
-  const estado = T.Control_estadoVigencia(pac.PROXIMO_CONTROL, HOY, 7);
-  const color = T.Control_colorEstado(estado);
+  const estado = T.Control_estadoVigencia_(pac.PROXIMO_CONTROL, HOY, 7);
+  const color = T.Control_colorEstado_(estado);
   const ok = dec.decision === 'CLINICA'
     && dec.idInterno === pac.ID_INTERNO
     && pac.ULTIMO_CONTROL === '2026-07-10'
@@ -341,7 +341,7 @@ registrar('seguimiento: REGISTRAR_SEGUIMIENTO válido actualiza ULTIMO_SEGUIMIEN
   const pac = store.pacientes[0];
   const lote = procesarLote([{ responseId: 'ACE-S-001', crudo: { ACCION: 'REGISTRAR_SEGUIMIENTO', RUT: rut, FECHA_EVENTO: '2026-08-01', PROFESIONAL: 'ENFERMERA', OBSERVACIONES: 'llamado OK' } }], store);
   const dec = lote.decisiones[0];
-  T.Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-08-01' }, T.Control_frecuenciaDefault());
+  T.Ingresos_sincronizarCache_(pac, { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-08-01' }, T.Control_frecuenciaDefault_());
   const ok = dec.decision === 'CLINICA' && pac.ULTIMO_SEGUIMIENTO === '2026-08-01';
   return { ok, causa: 'seguimiento no actualizó ULTIMO_SEGUIMIENTO ni decision CLINICA (' + dec.decision + ')' };
 });
@@ -357,9 +357,9 @@ registrar('actualizar: ACTUALIZAR_DATOS a persona existente → CLINICA y a inex
 });
 
 registrar('reintentos: ERROR dentro del tope se reintenta, agotado se excluye; REVISION queda inmóvil', () => {
-  const cols = T.Form_columnas();
+  const cols = T.Form_columnas_();
   const mapa = {};
-  cols.forEach((c, i) => { mapa[T.Utl_claveAlnum(c)] = i; });
+  cols.forEach((c, i) => { mapa[T.Utl_claveAlnum_(c)] = i; });
   // filas simuladas de FORM_RESPUESTAS: ERROR reint=2 (tope 3) → pendiente; ERROR reint=3 → excluida
   const valores = [cols.concat()];
   const base = cols.map(() => '');
@@ -373,7 +373,7 @@ registrar('reintentos: ERROR dentro del tope se reintenta, agotado se excluye; R
     return f;
   };
   valores.push(hacerFila('R-001', 'ERROR', 2), hacerFila('R-002', 'ERROR', 3), hacerFila('R-003', 'REQUIERE_REVISION', 0), hacerFila('R-004', 'PROCESADO', 0));
-  const pend = T.Form_filasPendientes(valores, T.Form_mapeoEncabezados(cols), 3, 50);
+  const pend = T.Form_filasPendientes_(valores, T.Form_mapeoEncabezados_(cols), 3, 50);
   const ids = pend.map(p => p.responseId);
   const ok = ids.indexOf('R-001') !== -1 && ids.indexOf('R-002') === -1 && ids.indexOf('R-003') === -1 && ids.indexOf('R-004') === -1;
   return { ok, detalle: pend.map(p => p.responseId).join(','), causa: 'selección de pendientes por estado/reintentos incorrecta' };
@@ -394,14 +394,14 @@ registrar('concurrencia: dos procesadores sobre las mismas pendientes no duplica
 });
 
 registrar('lote: escala 10/100/500/1.000/3.000 respuestas procesadas sin fallo ni respuesta perdida', () => {
-  const frec = T.Control_frecuenciaDefault();
+  const frec = T.Control_frecuenciaDefault_();
   const casos = [10, 100, 500, 1000, 3000];
   const resultados = casos.map((n) => {
-    const sim = T.Form_simularRespuestas(n, { semilla: 7 });
+    const sim = T.Form_simularRespuestas_(n, { semilla: 7 });
     const store = { pacientes: [], eventos: [] };
     const t0 = performance.now();
     sim.forEach((s, i) => {
-      const v = T.Form_validarRespuesta(s.crudo, { hoy: HOY });
+      const v = T.Form_validarRespuesta_(s.crudo, { hoy: HOY });
       if (!v.ok) return;
       if (v.accion === 'NUEVO_INGRESO') {
         ingresarPorForm({ responseId: s.responseId, crudo: s.crudo }, store);
@@ -418,7 +418,7 @@ registrar('lote: escala 10/100/500/1.000/3.000 respuestas procesadas sin fallo n
 });
 
 registrar('recuperación: re-procesar pendientes tras fallo es idempotente (marcas persistentes)', () => {
-  const frec = T.Control_frecuenciaDefault();
+  const frec = T.Control_frecuenciaDefault_();
   const store = { pacientes: [], eventos: [], _marcas: {} };
   const rut = rutOk(66665555);
   ingresarPorForm({ responseId: 'ACE-N-008', crudo: nuevoIngreso(rut) }, store);
@@ -429,7 +429,7 @@ registrar('recuperación: re-procesar pendientes tras fallo es idempotente (marc
   // trailer/estado de la respuesta aún no se escribió (se reintentará).
   aplicarClinica(respuestas, primera.decisiones, store);
   const pac = store.pacientes.find(p => p.RUT === rut);
-  T.Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-07-10' }, frec);
+  T.Ingresos_sincronizarCache_(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-07-10' }, frec);
   store._marcas = indexarMarcas(store);
   const segunda = procesarLote(respuestas, store);
   const ok = primera.decisiones[0].decision === 'CLINICA' && segunda.decisiones[0].decision === 'PROCESADO_YA';
@@ -437,9 +437,9 @@ registrar('recuperación: re-procesar pendientes tras fallo es idempotente (marc
 });
 
 registrar('contrato: FORM_VERSION y esquema de respuestas estable (formulario recreable sin perder trazabilidad)', () => {
-  const cols = T.Form_columnas();
-  const claveAlnum = (s) => T.Utl_claveAlnum(s);
-  const claveCampos = T.Form_campos().map(c => claveAlnum(c.campo));
+  const cols = T.Form_columnas_();
+  const claveAlnum = (s) => T.Utl_claveAlnum_(s);
+  const claveCampos = T.Form_campos_().map(c => claveAlnum(c.campo));
   const tecnicas = ['ISO', 'RESPONSEID', 'FORMS', 'FORMSVERSION'].map(s => claveAlnum(s));
   const requiere = ['RESPONSEID', 'ESTADO'].map(claveAlnum);
   const has = {};
@@ -453,7 +453,7 @@ registrar('contrato: FORM_VERSION y esquema de respuestas estable (formulario re
 });
 
 registrar('mapeo: pregunta perdida de un Form recreado se detecta (mapeo < campos) sin recrear todo', () => {
-  const campos = T.Form_campos();
+  const campos = T.Form_campos_();
   const presentes = campos.slice(0, campos.length - 1).map(c => c.pregunta);
   const halladas = campos.filter(c => presentes.indexOf(c.pregunta) !== -1).length;
   const ok = halladas === campos.length - 1 && halladas < campos.length;
@@ -466,7 +466,7 @@ registrar('observabilidad: el resumen NO expone el contenido de OBSERVACIONES (d
   const rut = rutOk(44445555);
   ingresarPorForm({ responseId: 'ACE-N-009', crudo: nuevoIngreso(rut, { OBSERVACIONES: secreto }) }, store);
   const lote = procesarLote([{ responseId: 'ACE-S-002', crudo: { ACCION: 'REGISTRAR_SEGUIMIENTO', RUT: rut, FECHA_EVENTO: '2026-08-02', OBSERVACIONES: secreto } }], store);
-  const metricas = T.Form_metricas([{ ESTADO: 'VALIDO' }, { ESTADO: 'PROCESADO' }]);
+  const metricas = T.Form_metricasLote_([{ ESTADO: 'VALIDO' }, { ESTADO: 'PROCESADO' }]);
   const serializado = JSON.stringify({ resumen: lote.resumen, decisiones: lote.decisiones.map(d => ({ decision: d.decision, motivo: d.motivo })), metricas });
   const ok = serializado.indexOf(secreto) === -1 && !!(metricas && metricas.total >= 0);
   return { ok, causa: 'se filtró contenido sensible en agregados del formulario' };
@@ -481,7 +481,7 @@ registrar('operativo: métricas distinguen registros vía FORM vs manuales (pctV
     { FUENTE: 'UI_FICHA', TIPO_EVENTO: 'CONTROL' },
     { FUENTE: 'PCTS|hoja|1', TIPO_EVENTO: 'CONTROL' }
   ];
-  const m = T.Form_metricasOperativas(eventos, []);
+  const m = T.Form_metricasOperativas_(eventos, []);
   const ok = m.viaForm === 2 && m.manuales === 2
     && m.controlesForm === 1 && m.ingresosForm === 1
     && m.pctViaForm === 50;
@@ -497,7 +497,7 @@ registrar('operativo: métricas cuentan errores/rechazos/duplicados/reprocesamie
     { ESTADO: 'DUPLICADO', REINTENTOS: '0' },
     { ESTADO: 'VALIDO', REINTENTOS: '0' }
   ];
-  const m = T.Form_metricasOperativas([], filas);
+  const m = T.Form_metricasOperativas_([], filas);
   const ok = m.errores === 2 && m.rechazos === 1
     && m.duplicadosEvitados === 1 && m.reprocesamientos === 3
     && m.pendientes === 1 && m.procesados === 1 && m.total === 6;
@@ -511,8 +511,8 @@ registrar('operativo: trazabilidad por-envío reconstruye la marca FORM| y expon
     ['2026-08-31 10:00:00', 'R-901', 'REGISTRAR_CONTROL', '12.345.678-5', 'PROCESADO', 'ok', '0', 'EC-1', 'EV-1'],
     ['2026-08-31 10:05:00', 'R-902', 'NUEVO_INGRESO', '22.222.222-2', 'ERROR', 'RUT inválido', '2', '', '']
   ];
-  const mapa = T.Form_mapeoEncabezados(head);
-  const traz = T.Form_trazabilidad(filas, mapa, {});
+  const mapa = T.Form_mapeoEncabezados_(head);
+  const traz = T.Form_trazabilidad_(filas, mapa, {});
   const ok = traz.length === 2
     && traz[0].marca === 'FORM|R-901|REGISTRAR_CONTROL'
     && traz[0].idInterno === 'EC-1'
@@ -528,9 +528,9 @@ registrar('operativo: filtro de trazabilidad por ERROR/PENDIENTES para recuperac
     ['R-12', 'REGISTRAR_CONTROL', 'RECIBIDO', ''],
     ['R-13', 'REGISTRAR_CONTROL', 'PROCESADO', 'ok']
   ];
-  const mapa = T.Form_mapeoEncabezados(head);
-  const soloError = T.Form_trazabilidad(filas, mapa, { soloError: true });
-  const soloPend = T.Form_trazabilidad(filas, mapa, { soloPendientes: true });
+  const mapa = T.Form_mapeoEncabezados_(head);
+  const soloError = T.Form_trazabilidad_(filas, mapa, { soloError: true });
+  const soloPend = T.Form_trazabilidad_(filas, mapa, { soloPendientes: true });
   const ok = soloError.length === 1 && soloError[0].responseId === 'R-11'
     && soloPend.length === 1 && soloPend[0].responseId === 'R-12';
   return { ok, causa: 'el filtro de recuperación no aisló ERROR/PENDIENTES' };
@@ -582,31 +582,31 @@ registrar('operativo: reprocesar NO duplica (marca FUENTE ya registrada → PROC
 });
 
 registrar('operativo: leer resultado ANEXAR prioriza la MARCA aunque la coordenada quedó desactualizada por el layout visual', () => {
-  // HVis_normalizarLayout puede insertar filas al inicio (MIGRABLE_ABRIR):
+  // HVis_normalizarLayout_ puede insertar filas al inicio (MIGRABLE_ABRIR):
   // la fila registrada al anexar (p.ej. 5) queda vacía porque el dato se
   // desplazó (p.ej. a 7). El barrido por marca reubica la fila real y el
   // lector ya no devuelve SIN_ESTADO.
   const hallado = { hoja: 'INGRESO_VERDE', fila: 7 };
   const ingreso = { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '5' };
-  const ub = T.Form_resolverFilaIngreso(hallado, ingreso, 'INGRESO_VERDE', '5');
+  const ub = T.Form_resolverFilaIngreso_(hallado, ingreso, 'INGRESO_VERDE', '5');
   const ok = ub && ub.hoja === 'INGRESO_VERDE' && ub.fila === '7';
   return { ok, causa: 'la coordenada desactualizada ganó sobre el hallazgo por marca' };
 });
 
 registrar('operativo: leer resultado ANEXAR cae a la coordenada registrada si no hay hallazgo por marca', () => {
-  const ub = T.Form_resolverFilaIngreso(null, { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '5' }, '', '');
+  const ub = T.Form_resolverFilaIngreso_(null, { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '5' }, '', '');
   const ok = ub && ub.hoja === 'INGRESO_VERDE' && ub.fila === '5';
   return { ok, causa: 'el resolver perdió la coordenada registrada' };
 });
 
 registrar('operativo: resolver fila inválido devuelve null (no SIN_ESTADO engañoso)', () => {
-  const ub = T.Form_resolverFilaIngreso(null, null, '', '');
+  const ub = T.Form_resolverFilaIngreso_(null, null, '', '');
   const ok = ub === null;
   return { ok, causa: 'el resolver no devolvió null para coordenadas ausentes' };
 });
 
 registrar('operativo: esquema por ACCION deriva secciones desde CAMPOS (fuente única)', () => {
-  const esq = T.Form_esquemaFormulario();
+  const esq = T.Form_esquemaFormulario_();
   const ok = !!esq
     && esq.NUEVO_INGRESO.secciones.ident === true
     && esq.NUEVO_INGRESO.secciones.evento === false
@@ -622,7 +622,7 @@ registrar('operativo: esquema por ACCION deriva secciones desde CAMPOS (fuente �
 });
 
 registrar('operativo: esquema por ACCION deriva campos requeridos correctos', () => {
-  const esq = T.Form_esquemaFormulario();
+  const esq = T.Form_esquemaFormulario_();
   const j = (a) => (esq[a].camposRequeridos || []).sort().join(',');
   const ok = j('NUEVO_INGRESO') === 'FECHA_INGRESO,FECHA_NACIMIENTO,NOMBRE,PROFESIONAL,RUT,SECTOR'
     && j('REGISTRAR_CONTROL') === 'FECHA_EVENTO,PROFESIONAL,RUT'
@@ -632,7 +632,7 @@ registrar('operativo: esquema por ACCION deriva campos requeridos correctos', ()
 });
 
 registrar('operativo: esquema expone mensaje de éxito por ACCION (no hardcodeado en HTML)', () => {
-  const esq = T.Form_esquemaFormulario();
+  const esq = T.Form_esquemaFormulario_();
   const ok = esq.NUEVO_INGRESO.mensajeExito === 'Nuevo ingreso registrado correctamente'
     && esq.REGISTRAR_CONTROL.mensajeExito === 'Control registrado correctamente'
     && esq.ACTUALIZAR_DATOS.mensajeExito === 'Datos actualizados correctamente';
@@ -640,7 +640,7 @@ registrar('operativo: esquema expone mensaje de éxito por ACCION (no hardcodead
 });
 
 registrar('operativo: PROFESIONAL participa en NUEVO_INGRESO (sección prof visible y requerida)', () => {
-  const esq = T.Form_esquemaFormulario();
+  const esq = T.Form_esquemaFormulario_();
   const prof = T.FORM_CONFIG.CAMPOS.find(c => c.campo === 'PROFESIONAL');
   const ok = prof && prof.acciones.indexOf('NUEVO_INGRESO') !== -1
     && prof.requerido === true
@@ -650,7 +650,7 @@ registrar('operativo: PROFESIONAL participa en NUEVO_INGRESO (sección prof visi
 });
 
 registrar('operativo: OBSERVACIONES sin acciones aplica a todas las ACCIONES', () => {
-  const esq = T.Form_esquemaFormulario();
+  const esq = T.Form_esquemaFormulario_();
   const todas = T.FORM_CONFIG.ACCIONES.VALIDOS.every(a => esq[a].secciones.obs === true);
   return { ok: todas, causa: 'OBSERVACIONES no aparece en todas las acciones' };
 });
@@ -667,7 +667,7 @@ console.log('\n── GRUPO C: acotación por fila sobre backlog masivo (DEC-054
 function stagingBacklogMasivo(nPendientes, hoja, sector) {
   const filas = [];
   for (let i = 4; i < 4 + nPendientes; i++) {
-    filas.push(T.Fuentes_crearFila({ archivo: 'HOJA_INGRESO', hoja, fila: i, sector }, { NOMBRE: 'PEND ' + i, RUT: '1-' + i }));
+    filas.push(T.Fuentes_crearFila_({ archivo: 'HOJA_INGRESO', hoja, fila: i, sector }, { NOMBRE: 'PEND ' + i, RUT: '1-' + i }));
   }
   return filas;
 }
@@ -675,10 +675,10 @@ function stagingBacklogMasivo(nPendientes, hoja, sector) {
 registrar('acotación: soloFilas procesa SOLO la fila anexada del backlog masivo (>1000 pendientes)', () => {
   const hoja = 'INGRESO_AMARILLO';
   const backlog = stagingBacklogMasivo(1070, hoja, 'AMARILLO');
-  const anexada = T.Fuentes_crearFila({ archivo: 'HOJA_INGRESO', hoja, fila: 1074, sector: 'AMARILLO' }, { NOMBRE: 'NUEVA CAPTURA', RUT: '21889985-4' });
+  const anexada = T.Fuentes_crearFila_({ archivo: 'HOJA_INGRESO', hoja, fila: 1074, sector: 'AMARILLO' }, { NOMBRE: 'NUEVA CAPTURA', RUT: '21889985-4' });
   anexada.NOTA_SISTEMA = 'FORM|UI-1788554323646-947557|INGRESO';
   const todo = backlog.concat([anexada]);
-  const acotado = T.Ingresos_acotarStaging(todo, hoja, [hoja], { [hoja]: ['1074'] });
+  const acotado = T.Ingresos_acotarStaging_(todo, hoja, [hoja], { [hoja]: ['1074'] });
   const soloLaAnexada = acotado.length === 1 && String(acotado[0].FILA_ORIGEN) === '1074'
     && acotado[0].VALORES_ORIGINALES && acotado[0].VALORES_ORIGINALES.RUT === '21889985-4';
   return { ok: soloLaAnexada, causa: 'se procesaron ' + acotado.length + ' filas en vez de 1; backlog intacto no verificado' };
@@ -687,10 +687,10 @@ registrar('acotación: soloFilas procesa SOLO la fila anexada del backlog masivo
 registrar('acotación: comparación FILA_ORIGEN robusta a string/number', () => {
   const hoja = 'INGRESO_AMARILLO';
   const filas = stagingBacklogMasivo(100, hoja, 'AMARILLO');
-  const anexada = T.Fuentes_crearFila({ archivo: 'HOJA_INGRESO', hoja, fila: 104, sector: 'AMARILLO' }, { NOMBRE: 'X', RUT: '1-1' });
+  const anexada = T.Fuentes_crearFila_({ archivo: 'HOJA_INGRESO', hoja, fila: 104, sector: 'AMARILLO' }, { NOMBRE: 'X', RUT: '1-1' });
   const todo = filas.concat([anexada]);
-  const asStr = T.Ingresos_acotarStaging(todo, hoja, null, { [hoja]: ['104'] });
-  const asNum = T.Ingresos_acotarStaging(todo, hoja, null, { [hoja]: [104] });
+  const asStr = T.Ingresos_acotarStaging_(todo, hoja, null, { [hoja]: ['104'] });
+  const asNum = T.Ingresos_acotarStaging_(todo, hoja, null, { [hoja]: [104] });
   const ok = asStr.length === 1 && asNum.length === 1
     && String(asStr[0].FILA_ORIGEN) === String(asNum[0].FILA_ORIGEN) && String(asStr[0].FILA_ORIGEN) === '104';
   return { ok, causa: 'string y number no normalizan igual' };
@@ -699,23 +699,23 @@ registrar('acotación: comparación FILA_ORIGEN robusta a string/number', () => 
 registrar('acotación: sin soloFilas (batch/panel) el staging completo sobrevive', () => {
   const hoja = 'INGRESO_AMARILLO';
   const todo = stagingBacklogMasivo(1071, hoja, 'AMARILLO');
-  const sinAcotar = T.Ingresos_acotarStaging(todo, hoja, null, null);
-  const porHoja = T.Ingresos_acotarStaging(todo, hoja, [hoja], null);
+  const sinAcotar = T.Ingresos_acotarStaging_(todo, hoja, null, null);
+  const porHoja = T.Ingresos_acotarStaging_(todo, hoja, [hoja], null);
   const ok = sinAcotar.length === 1071 && porHoja.length === 1071;
   return { ok, causa: 'el flujo batch perdió el backlog (' + sinAcotar.length + ')' };
 });
 
 registrar('acotación: hoja fuera de soloHojas se excluye por completo', () => {
   const filas = stagingBacklogMasivo(10, 'INGRESO_VERDE', 'VERDE');
-  const r = T.Ingresos_acotarStaging(filas, 'INGRESO_VERDE', ['INGRESO_AMARILLO'], null);
+  const r = T.Ingresos_acotarStaging_(filas, 'INGRESO_VERDE', ['INGRESO_AMARILLO'], null);
   return { ok: r.length === 0, causa: 'la hoja ajena a la captura entró al staging' };
 });
 
 registrar('acotación: soloFilas[hoja] indefinido/vacío NO vacía el staging (fallback batch histórico)', () => {
   const hoja = 'INGRESO_AMARILLO';
   const filas = stagingBacklogMasivo(20, hoja, 'AMARILLO');
-  const indef = T.Ingresos_acotarStaging(filas, hoja, [hoja], { 'OTRA_HOJA': ['3'] });
-  const vacio = T.Ingresos_acotarStaging(filas, hoja, [hoja], { [hoja]: [] });
+  const indef = T.Ingresos_acotarStaging_(filas, hoja, [hoja], { 'OTRA_HOJA': ['3'] });
+  const vacio = T.Ingresos_acotarStaging_(filas, hoja, [hoja], { [hoja]: [] });
   return { ok: indef.length === 20 && vacio.length === 20,
     causa: 'se vació el staging: ' + indef.length + '/' + vacio.length };
 });
@@ -726,7 +726,7 @@ registrar('acotación: paso 3 — la MARCA autoritativa gana aunque el trailer t
     ingreso: null, ingresoHoja: '', ingresoFila: '',
     normalizado: { SECTOR: 'AMARILLO' }
   };
-  const ac = T.Form_derivarAcotacionPaso3([d], () => ({ hoja: 'INGRESO_AMARILLO', fila: 1074 }));
+  const ac = T.Form_derivarAcotacionPaso3_([d], () => ({ hoja: 'INGRESO_AMARILLO', fila: 1074 }));
   const ok = ac.soloHojas.join(',') === 'INGRESO_AMARILLO'
     && ac.soloFilas && ac.soloFilas['INGRESO_AMARILLO'].join(',') === '1074';
   return { ok, causa: 'no se derivó de la marca: ' + JSON.stringify(ac) };
@@ -737,20 +737,20 @@ registrar('acotación: paso 3 — sin hallazgo por marca se hereda la coordenada
     responseId: 'UI-X', decision: 'YA_ANEXADO',
     ingreso: { sector: 'VERDE', hoja: 'INGRESO_VERDE', fila: '7' }, ingresoHoja: '', ingresoFila: ''
   };
-  const ac = T.Form_derivarAcotacionPaso3([d], () => null);
+  const ac = T.Form_derivarAcotacionPaso3_([d], () => null);
   const ok = ac.soloHojas.join(',') === 'INGRESO_VERDE' && ac.soloFilas['INGRESO_VERDE'].join(',') === '7';
   return { ok, causa: 'fallback de coordenadas perdido: ' + JSON.stringify(ac) };
 });
 
 registrar('acotación: paso 3 — sin marca ni coordenadas la hoja NO se incluye (no acota silenciosamente un backlog)', () => {
   const d = { responseId: 'UI-Y', decision: 'ANEXAR', ingreso: { sector: 'AMARILLO', hoja: '', fila: '' }, ingresoHoja: '', ingresoFila: '' };
-  const ac = T.Form_derivarAcotacionPaso3([d], () => null);
+  const ac = T.Form_derivarAcotacionPaso3_([d], () => null);
   const ok = ac.soloHojas.length === 0 && ac.soloFilas === null;
   return { ok, causa: 'se incluyó una hoja sin fila resoluble: ' + JSON.stringify(ac) };
 });
 
 registrar('acotación: decisión SALTAR/ERROR/CLINICA no infla el acotado', () => {
-  const ac = T.Form_derivarAcotacionPaso3([
+  const ac = T.Form_derivarAcotacionPaso3_([
     { responseId: 'A', decision: 'SALTAR', motivo: 'YA_PROCESADO' },
     { responseId: 'B', decision: 'ERROR', normalizado: null },
     { responseId: 'C', decision: 'CLINICA', ingreso: null }
@@ -767,8 +767,8 @@ registrar('acotación: decisión SALTAR/ERROR/CLINICA no infla el acotado', () =
 /** Sheet stub de layout VISUAL (título fila 1, secciones fila 2, encabezados
  *  fila 3, datos fila 4+) con nPendientes filas de datos. */
 function gridIngresoBacklog(nPendientes) {
-  const ancho = T.Ingresos_columnasHoja().length; // 11 (contrato INGRESO_COLUMNAS)
-  const enc = T.Ingresos_columnasHoja();
+  const ancho = T.Ingresos_columnasHoja_().length; // 11 (contrato INGRESO_COLUMNAS)
+  const enc = T.Ingresos_columnasHoja_();
   const grid = [];
   grid.push(Array(ancho).fill('TITULO'));
   grid.push(Array(ancho).fill('SECCION'));
@@ -807,23 +807,23 @@ function conHojaIngresoSimulada(hoja, grid, fn) {
   try { return fn(); } finally { T._MODELO_SS = prev; }
 }
 
-registrar('acotación: Ingresos_leerHoja con filasPermitidas NO normaliza el backlog (>1000 filas)', () => {
+registrar('acotación: Ingresos_leerHoja_ con filasPermitidas NO normaliza el backlog (>1000 filas)', () => {
   const grid = gridIngresoBacklog(1004); // fila física 1005 = última de datos (visual layout hr=3)
   let llamadas = 0;
-  const real = T.Fuentes_normalizar;
-  T.Fuentes_normalizar = function () { llamadas++; return real.apply(this, arguments); };
+  const real = T.Fuentes_normalizar_;
+  T.Fuentes_normalizar_ = function () { llamadas++; return real.apply(this, arguments); };
   try {
-    const r = conHojaIngresoSimulada('INGRESO_AMARILLO', grid, () => T.Ingresos_leerHoja('INGRESO_AMARILLO', ['1005']));
+    const r = conHojaIngresoSimulada('INGRESO_AMARILLO', grid, () => T.Ingresos_leerHoja_('INGRESO_AMARILLO', ['1005']));
     return {
       ok: r.staging.length === 1 && llamadas === 1,
       causa: 'staging=' + r.staging.length + ' normalizaciones=' + llamadas + ' (eso era lo que pagaba cada envío con backlog)'
     };
-  } finally { T.Fuentes_normalizar = real; }
+  } finally { T.Fuentes_normalizar_ = real; }
 });
 
-registrar('acotación: Ingresos_leerHoja SIN filasPermitidas lee y normaliza todo (batch/panel intactos)', () => {
+registrar('acotación: Ingresos_leerHoja_ SIN filasPermitidas lee y normaliza todo (batch/panel intactos)', () => {
   const grid = gridIngresoBacklog(100);
-  const r = conHojaIngresoSimulada('INGRESO_AMARILLO', grid, () => T.Ingresos_leerHoja('INGRESO_AMARILLO'));
+  const r = conHojaIngresoSimulada('INGRESO_AMARILLO', grid, () => T.Ingresos_leerHoja_('INGRESO_AMARILLO'));
   return { ok: r.staging.length === 100, causa: 'staging=' + r.staging.length + ' (el flujo batch perdió el backlog)' };
 });
 
@@ -834,7 +834,7 @@ registrar('acotación: paso 3 — con coordenadas en memoria, buscadorMarca NO s
     ingreso: { sector: 'AMARILLO', hoja: 'INGRESO_AMARILLO', fila: '1005' },
     ingresoHoja: 'INGRESO_AMARILLO', ingresoFila: '1005'
   };
-  const ac = T.Form_derivarAcotacionPaso3([d], () => { llamadas++; return { hoja: 'INGRESO_VERDE', fila: 1 }; });
+  const ac = T.Form_derivarAcotacionPaso3_([d], () => { llamadas++; return { hoja: 'INGRESO_VERDE', fila: 1 }; });
   return {
     ok: llamadas === 0 && ac.soloHojas.join(',') === 'INGRESO_AMARILLO' && ac.soloFilas && ac.soloFilas['INGRESO_AMARILLO'].join(',') === '1005',
     causa: 'buscadorMarca se invocó ' + llamadas + ' veces (barrido de las 4 hojas sería evitable)'
@@ -847,7 +847,7 @@ registrar('acotación: paso 3 — coordenadas vacías SÍ invocan buscadorMarca 
     responseId: 'UI-W', decision: 'ANEXAR',
     ingreso: { sector: 'AMARILLO', hoja: '', fila: '' }, ingresoHoja: '', ingresoFila: ''
   };
-  const ac = T.Form_derivarAcotacionPaso3([d], () => { llamadas++; return { hoja: 'INGRESO_AMARILLO', fila: 1074 }; });
+  const ac = T.Form_derivarAcotacionPaso3_([d], () => { llamadas++; return { hoja: 'INGRESO_AMARILLO', fila: 1074 }; });
   return {
     ok: llamadas === 1 && ac.soloHojas.join(',') === 'INGRESO_AMARILLO' && ac.soloFilas && ac.soloFilas['INGRESO_AMARILLO'].join(',') === '1074',
     causa: 'fallback no se ejecutó: llamadas=' + llamadas + ' ac=' + JSON.stringify(ac)

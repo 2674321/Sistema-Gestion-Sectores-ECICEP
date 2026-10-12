@@ -21,7 +21,7 @@ h.setPipelineBehavior((p, done) => {
   done.add(p.captureId); return { ok: true, data: { estado: 'PROCESADO' } };
 });
 
-const down = h.c.Form_worker();
+const down = h.c.Form_worker_();
 assert.equal(down.procesadas, 0, 'backend caído no procesa');
 assert.equal(down.retryable, 1, 'la respuesta queda retryable');
 assert.equal(h.form.responses.length, 1, 'la cola durable conserva la respuesta');
@@ -32,7 +32,7 @@ assert.equal(h.dataSheet.rows[0][colCls], 'RETRYABLE', 'trailer marca RETRYABLE'
 assert.equal(h.dataSheet.rows.length, 1, 'nunca se borra la fila de cola');
 
 // Siguiente corrida: el backend está arriba → se procesa.
-const up = h.c.Form_worker();
+const up = h.c.Form_worker_();
 assert.equal(up.procesadas, 1, 'al volver el backend se procesa');
 assert.equal(h.processed.size, 1);
 assert.equal(h.dataSheet.rows[0][colCls], 'TERMINAL', 'trailer marca TERMINAL');
@@ -41,6 +41,6 @@ assert.equal(h.dataSheet.rows[0][colCls], 'TERMINAL', 'trailer marca TERMINAL');
 const h2 = createHarness255();
 h2.install();
 h2.c.FormApp = Object.assign({}, h2.c.FormApp, { openById() { throw new Error('FORM_NO_ACCESIBLE'); } });
-const abierto = [false, false, false].map(() => h2.c.Form_worker());
+const abierto = [false, false, false].map(() => h2.c.Form_worker_());
 assert.equal(abierto[2].motivo, 'CIRCUIT_OPEN', '3 fallos sistémicos abren el circuito');
 console.log('backend_down_durable_queue_v255: PASS');

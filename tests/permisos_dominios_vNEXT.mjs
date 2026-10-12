@@ -22,7 +22,7 @@ assert.equal(ctx.Fuentes_sanitizarErrorAcceso_({ message: 'Timeout leyendo hoja'
 // 2) preflight con abridor externo que LANZA permisos → errores SANITIZADOS.
 const fuentesCfg = vm.runInContext('Object.keys(FUENTES_DRIVE)', ctx);
 assert.ok(fuentesCfg.length >= 1, 'FUENTES_DRIVE tiene fuentes externas configuradas');
-const preDeny = ctx.Fuentes_preflightFuentes(() => { throw new Error('The caller does not have permission'); });
+const preDeny = ctx.Fuentes_preflightFuentes_(() => { throw new Error('The caller does not have permission'); });
 for (const f of preDeny.fuentes) {
   assert.ok(f.errores.length >= 1, f.archivo + ' reporta error');
   assert.equal(f.errores[0], 'EXTERNAL_SOURCE_PERMISSION_DENIED',
@@ -35,14 +35,14 @@ for (const f of preDeny.fuentes) {
 // 3) preflight con abridor ok → accesible y sin errores de permiso.
 const hojaExt = { getLastRow: () => 1, getLastColumn: () => 1, getRange: () => ({ getValues: () => [['']] }) };
 const fakeExt = { getName: () => 'FUENTE EXTERNA TEST', getSheetByName: (n) => hojaExt };
-const preOk = ctx.Fuentes_preflightFuentes(() => fakeExt);
+const preOk = ctx.Fuentes_preflightFuentes_(() => fakeExt);
 assert.equal(preOk.ok, true, 'preflight externo ok');
 for (const f of preOk.fuentes) assert.equal(f.accesible, true, f.archivo + ' accesible');
 
 // 4) Diagnóstico de los TRES dominios: un fallo externo NO toca la Web App ni el libro.
-ctx.Modelo_ss = () => ({ getName: () => 'LIBRO CANÓNICO TEST' });
-ctx.WebApp_autorizar = () => true; // DEC-102 (WebApp.gs:68)
-const diag = ctx.Captura_v2_diagnosticoPermisos({ abridor: () => { throw new Error('No permission'); } });
+ctx.Modelo_ss_ = () => ({ getName: () => 'LIBRO CANÓNICO TEST' });
+ctx.WebApp_autorizar_ = () => true; // DEC-102 (WebApp.gs:68)
+const diag = ctx.Captura_v2_diagnosticoPermisos_({ abridor: () => { throw new Error('No permission'); } });
 assert.equal(diag.CAPTURE_WEBAPP_ACCESS.dominio, 'CAPTURE_WEBAPP_ACCESS');
 assert.equal(diag.CAPTURE_WEBAPP_ACCESS.ok, true, 'dominio Web App intacto pese a fallo externo');
 assert.equal(diag.CAPTURE_WEBAPP_ACCESS.autorizaUniversalmente, true, 'DEC-102 se conserva');
@@ -59,9 +59,9 @@ assert.ok(codes.every(c => c.indexOf('permission') === -1 || c === 'EXTERNAL_SOU
 // 5) La captura NO depende del dominio externo: enviar con abridor roto funciona.
 //    El ctx de captura es del libro canónico; aquí se evidencia que un fallo de
 //    openById() externo no es un fallo del motor de captura.
-const c = ctx.Captura_v2_ctx();
+const c = ctx.Captura_v2_ctx_();
 assert.equal(typeof c.persistirRegistro, 'function', 'ctx de captura operativo');
-const callPre = ctx.Fuentes_preflightFuentes(() => { throw new Error('No permission'); });
+const callPre = ctx.Fuentes_preflightFuentes_(() => { throw new Error('No permission'); });
 assert.equal(callPre.ok, false, 'externo reporta fallo');
 // El ctx de captura sigue construyéndose: la clase externa no es prerrequisito.
 

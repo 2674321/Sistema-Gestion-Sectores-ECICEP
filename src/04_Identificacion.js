@@ -15,17 +15,17 @@
  * Construye índices de búsqueda desde un array de pacientes (estado actual).
  * @returns {porRut:{}, porCuerpo:{}, porNombre:{}}
  */
-function Iden_construirIndices(pacientes) {
+function Iden_construirIndices_(pacientes) {
   var porRut = {}, porCuerpo = {}, porNombre = {};
   (pacientes || []).forEach(function (p) {
-    var rut = Utl_texto(p.RUT).toUpperCase().replace(/\s+/g, '');
+    var rut = Utl_texto_(p.RUT).toUpperCase().replace(/\s+/g, '');
     if (rut) porRut[rut] = p; // última entrada gana (entrada ordenada = determinista)
     var cuerpo = rut.split('-')[0];
     if (/^\d{6,9}$/.test(cuerpo)) {
       if (!porCuerpo[cuerpo]) porCuerpo[cuerpo] = [];
       porCuerpo[cuerpo].push(p);
     }
-    var clave = Norm_claveNombre(p.NOMBRE);
+    var clave = Norm_claveNombre_(p.NOMBRE);
     if (clave) {
       if (!porNombre[clave]) porNombre[clave] = [];
       porNombre[clave].push(p);
@@ -36,22 +36,22 @@ function Iden_construirIndices(pacientes) {
 
 /**
  * Incremental: agrega UN paciente a unos índices ya construidos (misma
- * semántica que Iden_construirIndices: última entrada gana por clave RUT,
+ * semántica que Iden_construirIndices_: última entrada gana por clave RUT,
  * arrays por cuerpo/nombre). Evita reconstruir el índice completo por cada
  * paciente creado dentro de un lote (O(n) de costo por inserción en vez de
  * O(total)).
  */
-function Iden_indicesAgregar(indices, p) {
+function Iden_indicesAgregar_(indices, p) {
   indices = indices || { porRut: {}, porCuerpo: {}, porNombre: {} };
   if (!p) return indices;
-  var rut = Utl_texto(p.RUT).toUpperCase().replace(/\s+/g, '');
+  var rut = Utl_texto_(p.RUT).toUpperCase().replace(/\s+/g, '');
   if (rut) indices.porRut[rut] = p;
   var cuerpo = rut.split('-')[0];
   if (/^\d{6,9}$/.test(cuerpo)) {
     if (!indices.porCuerpo[cuerpo]) indices.porCuerpo[cuerpo] = [];
     indices.porCuerpo[cuerpo].push(p);
   }
-  var clave = Norm_claveNombre(p.NOMBRE);
+  var clave = Norm_claveNombre_(p.NOMBRE);
   if (clave) {
     if (!indices.porNombre[clave]) indices.porNombre[clave] = [];
     indices.porNombre[clave].push(p);
@@ -62,12 +62,12 @@ function Iden_indicesAgregar(indices, p) {
 /**
  * Determina si el registro normalizado corresponde a un paciente existente.
  * @param {Object} n NORMALIZADO de una fila de staging
- * @param {Object} indices resultado de Iden_construirIndices
+ * @param {Object} indices resultado de Iden_construirIndices_
  * @returns {resultado:'MATCH_EXACTO'|'MATCH_PARCIAL'|'POSIBLE_DUPLICADO'|
  *                    'SIN_MATCH'|'REQUIERE_REVISION',
  *           idPaciente:'', paciente:null, criterio:'', confianza:''}
  */
-function Iden_identificar(n, indices) {
+function Iden_identificar_(n, indices) {
   var res = { resultado: 'SIN_MATCH', idPaciente: '', paciente: null, criterio: '', confianza: '' };
   if (!n || !indices) return res;
 
@@ -82,7 +82,7 @@ function Iden_identificar(n, indices) {
   }
 
   // --- Cuerpo de RUT presente en la base ---
-  var cuerpo = Utl_texto(n.RUT).split('-')[0];
+  var cuerpo = Utl_texto_(n.RUT).split('-')[0];
   var candidatosCuerpo = (/^\d{6,9}$/.test(cuerpo) && indices.porCuerpo[cuerpo]) ? indices.porCuerpo[cuerpo] : null;
 
   if (n.RUT_ESTADO === 'OK' && candidatosCuerpo) {
@@ -98,7 +98,7 @@ function Iden_identificar(n, indices) {
 
   if (n.RUT_ESTADO === 'SIN_DV' && candidatosCuerpo) {
     if (candidatosCuerpo.length === 1 && n.NOMBRE_CLAVE &&
-        Norm_claveNombre(candidatosCuerpo[0].NOMBRE) === n.NOMBRE_CLAVE) {
+        Norm_claveNombre_(candidatosCuerpo[0].NOMBRE) === n.NOMBRE_CLAVE) {
       res.resultado = 'MATCH_PARCIAL';
       res.criterio = 'Cuerpo de RUT + nombre coinciden';
       res.confianza = 'MEDIA';
@@ -119,10 +119,10 @@ function Iden_identificar(n, indices) {
   // --- Matching débil controlado ---
   if (n.NOMBRE_CLAVE && indices.porNombre[n.NOMBRE_CLAVE]) {
     var cands = indices.porNombre[n.NOMBRE_CLAVE];
-    var telsEntrantes = Utl_texto(n.TELEFONOS).split('/');
+    var telsEntrantes = Utl_texto_(n.TELEFONOS).split('/');
     var matchTel = null;
     for (var i = 0; i < cands.length && !matchTel; i++) {
-      var telsBase = Utl_texto(cands[i].TELEFONOS).split('/');
+      var telsBase = Utl_texto_(cands[i].TELEFONOS).split('/');
       for (var j = 0; j < telsEntrantes.length; j++) {
         if (telsEntrantes[j] && telsBase.indexOf(telsEntrantes[j]) !== -1) { matchTel = cands[i]; break; }
       }
@@ -157,10 +157,10 @@ function Iden_identificar(n, indices) {
  * Explicable y no destructivo: solo reporta pares con criterio y confianza.
  * @returns [{a:idProvA, b:idProvB, criterio, confianza, resultado:'POSIBLE_DUPLICADO'}]
  */
-function Iden_detectarDuplicadosLote(filas) {
+function Iden_detectarDuplicadosLote_(filas) {
   var salida = [];
   var fs = filas || [];
-  function telsDe(n) { return Utl_texto(n.TELEFONOS).split('/'); }
+  function telsDe(n) { return Utl_texto_(n.TELEFONOS).split('/'); }
   function compartenTel(a, b) {
     var ta = telsDe(a), tb = telsDe(b);
     for (var i = 0; i < ta.length; i++) {
@@ -211,12 +211,12 @@ function Iden_detectarDuplicadosLote(filas) {
  * Nunca fusiona ni decide: solo lista candidatos.
  * @returns [{ID_INTERNO, RUT, NOMBRE, SECTOR, ESTADO, ESTRATIFICACION}]
  */
-function Bus_buscarPacientes(pacientes, termino, limite) {
-  var t = Utl_colapsarEspacios(Utl_texto(termino));
+function Bus_buscarPacientes_(pacientes, termino, limite) {
+  var t = Utl_colapsarEspacios_(Utl_texto_(termino));
   if (!t) return [];
   var tope = limite || 25;
   var salida = [];
-  var rut = Norm_normalizarRut(t);
+  var rut = Norm_normalizarRut_(t);
   // Pasa a búsqueda por RUT también cuando el término es un RUT sin DV (el
   // operador no recuerda/tiene el dígito verificador): '12345678' y el RUT
   // almacenado se comparan por CUERPO cuando falte el DV en cualquiera de los
@@ -224,7 +224,7 @@ function Bus_buscarPacientes(pacientes, termino, limite) {
   // almacenado válido contra otro válido de DV distinto).
   if (rut.estado === 'OK' || rut.estado === 'SIN_DV') {
     for (var i = 0; i < (pacientes || []).length && salida.length < tope; i++) {
-      var prut = Norm_normalizarRut(pacientes[i].RUT);
+      var prut = Norm_normalizarRut_(pacientes[i].RUT);
       if (!prut.cuerpo || prut.cuerpo !== rut.cuerpo) continue;
       if (rut.dv && prut.dv && rut.dv !== prut.dv) continue;
       salida.push(pacientes[i]);
@@ -240,18 +240,18 @@ function Bus_buscarPacientes(pacientes, termino, limite) {
   var fragmentoRut = t.replace(/[.\s-]/g, '');
   if (/^\d{2,5}$/.test(fragmentoRut)) {
     for (var k = 0; k < (pacientes || []).length && salida.length < tope; k++) {
-      var rutVisible = Utl_texto(pacientes[k].RUT).toUpperCase().replace(/[^0-9K]/g, '');
+      var rutVisible = Utl_texto_(pacientes[k].RUT).toUpperCase().replace(/[^0-9K]/g, '');
       if (rutVisible.indexOf(fragmentoRut) !== -1) salida.push(pacientes[k]);
     }
     return salida;
   }
 
-  var clave = Norm_claveNombre(t);
+  var clave = Norm_claveNombre_(t);
   // Términos sin letras que tampoco califican como RUT/fragmento nunca deben
   // degenerar en `indexOf('')`, que devolvería pacientes ajenos a la consulta.
   if (!clave) return [];
   for (var j = 0; j < (pacientes || []).length && salida.length < tope; j++) {
-    var claveP = Norm_claveNombre(pacientes[j].NOMBRE);
+    var claveP = Norm_claveNombre_(pacientes[j].NOMBRE);
     if (claveP && claveP.indexOf(clave) !== -1) salida.push(pacientes[j]);
   }
   return salida;

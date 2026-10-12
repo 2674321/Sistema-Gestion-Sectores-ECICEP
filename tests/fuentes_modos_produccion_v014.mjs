@@ -29,11 +29,11 @@ ok('T1 FUENTES_MODO canónicos y normalización (solo snapshot reemplaza)');
 // T2: CONSERVADOR preserva teléfono; SNAPSHOT lo reemplaza.
 {
   const p = base();
-  const r = c.Act_mergearPaciente(p, fuente(), { modo: 'CONSERVADOR' });
+  const r = c.Act_mergearPaciente_(p, fuente(), { modo: 'CONSERVADOR' });
   assert.equal(p.TELEFONOS, '+56911111111');
   assert.ok(!r.aplicados.some(a => a.campo === 'TELEFONOS'));
   const p2 = base();
-  const r2 = c.Act_mergearPaciente(p2, fuente(), { modo: 'SNAPSHOT_ACTUAL' });
+  const r2 = c.Act_mergearPaciente_(p2, fuente(), { modo: 'SNAPSHOT_ACTUAL' });
   assert.equal(p2.TELEFONOS, '+56922222222');
   const t = r2.aplicados.find(a => a.campo === 'TELEFONOS');
   assert.equal(t && t.tipo, 'REEMPLAZO_SNAPSHOT');
@@ -43,13 +43,13 @@ ok('T1 FUENTES_MODO canónicos y normalización (solo snapshot reemplaza)');
 // T3: estratificación G2 vs G3 (solo G válida en snapshot).
 {
   const p = base();
-  c.Act_mergearPaciente(p, fuente(), { modo: 'CONSERVADOR' });
+  c.Act_mergearPaciente_(p, fuente(), { modo: 'CONSERVADOR' });
   assert.equal(p.ESTRATIFICACION, 'G2');
   const p2 = base();
-  c.Act_mergearPaciente(p2, fuente(), { modo: 'SNAPSHOT_ACTUAL' });
+  c.Act_mergearPaciente_(p2, fuente(), { modo: 'SNAPSHOT_ACTUAL' });
   assert.equal(p2.ESTRATIFICACION, 'G3');
   const p3 = base();
-  c.Act_mergearPaciente(p3, { ...fuente(), ESTRATIFICACION: 'G9' }, { modo: 'SNAPSHOT_ACTUAL' });
+  c.Act_mergearPaciente_(p3, { ...fuente(), ESTRATIFICACION: 'G9' }, { modo: 'SNAPSHOT_ACTUAL' });
   assert.equal(p3.ESTRATIFICACION, 'G2', 'G inválida no reemplaza ni en snapshot');
   ok('T3 estratificación: conservador G2, snapshot G3 válida, G9 ignorada');
 }
@@ -57,7 +57,7 @@ ok('T1 FUENTES_MODO canónicos y normalización (solo snapshot reemplaza)');
 // T4: SEXO/FECHA_NACIMIENTO fill-only + conflicto (ambos modos).
 for (const modo of ['CONSERVADOR', 'SNAPSHOT_ACTUAL']) {
   const p = base();
-  const r = c.Act_mergearPaciente(p, fuente(), { modo });
+  const r = c.Act_mergearPaciente_(p, fuente(), { modo });
   assert.equal(p.SEXO, 'M', modo);
   assert.equal(p.FECHA_NACIMIENTO, '1980-01-01', modo);
   assert.ok(r.conflictos.some(x => x.campo === 'SEXO'), modo + ' conflicto SEXO');
@@ -68,7 +68,7 @@ ok('T4 sexo/nacimiento fill-only con conflicto en ambos modos');
 // T5: SALUD_MENTAL y OBSERVACIONES protegidas (ambos modos).
 for (const modo of ['CONSERVADOR', 'SNAPSHOT_ACTUAL']) {
   const p = base();
-  const r = c.Act_mergearPaciente(p, fuente(), { modo });
+  const r = c.Act_mergearPaciente_(p, fuente(), { modo });
   assert.equal(p.SALUD_MENTAL, 'NO', modo);
   assert.equal(p.OBSERVACIONES, 'nota manual', modo);
   assert.ok(!r.aplicados.some(a => a.campo === 'SALUD_MENTAL' || a.campo === 'OBSERVACIONES'), modo);
@@ -78,7 +78,7 @@ ok('T5 salud mental y observaciones existentes protegidas');
 // T6: fechas solo avanzan (nunca retroceden).
 {
   const p = base(); // ULTIMO_CONTROL 2026-08-01; fuente trae 2026-05-01 (más antigua)
-  const r = c.Act_mergearPaciente(p, fuente(), { modo: 'CONSERVADOR' });
+  const r = c.Act_mergearPaciente_(p, fuente(), { modo: 'CONSERVADOR' });
   assert.equal(p.ULTIMO_CONTROL, '2026-08-01', 'fuente antigua no retrocede');
   assert.equal(p.ULTIMO_SEGUIMIENTO, '2026-09-01', 'fecha nueva sí avanza');
   const f = r.aplicados.find(a => a.campo === 'ULTIMO_SEGUIMIENTO');
@@ -90,10 +90,10 @@ ok('T5 salud mental y observaciones existentes protegidas');
 {
   const p = base();
   const fila = { ESTADO_VALIDACION: 'OK', NORMALIZADO: fuente() };
-  const r1 = c.Act_mergearPacientesDesdeStaging([fila], [p], { modo: 'CONSERVADOR' });
+  const r1 = c.Act_mergearPacientesDesdeStaging_([fila], [p], { modo: 'CONSERVADOR' });
   assert.ok(r1.actualizados >= 1, 'primera completa vacíos');
   const fu = p.FUENTE;
-  const r2 = c.Act_mergearPacientesDesdeStaging([{ ESTADO_VALIDACION: 'OK', NORMALIZADO: fuente() }], [p], { modo: 'CONSERVADOR' });
+  const r2 = c.Act_mergearPacientesDesdeStaging_([{ ESTADO_VALIDACION: 'OK', NORMALIZADO: fuente() }], [p], { modo: 'CONSERVADOR' });
   assert.equal(r2.actualizados, 0, 'segunda sin cambios');
   assert.equal(r2.conflictos, 1, 'paciente con divergencias sigue en revisión (contador por paciente)');
   assert.equal(p.FUENTE, fu, 'FUENTE no crece en ejecuciones idénticas');
@@ -107,7 +107,7 @@ ok('T5 salud mental y observaciones existentes protegidas');
   const fila = { ESTADO_VALIDACION: 'OK', NORMALIZADO: { RUT: '99999999-9', TELEFONOS: '+56900000000',
     ESTRATIFICACION: 'G1', SEXO: 'F', FECHA_NACIMIENTO: '2000-01-01', OBSERVACIONES: 'x',
     ULTIMO_CONTROL: '2026-09-01', ULTIMO_SEGUIMIENTO: '' } };
-  const r = c.Act_mergearPacientesDesdeStaging([fila], [p], { modo: 'SNAPSHOT_ACTUAL' });
+  const r = c.Act_mergearPacientesDesdeStaging_([fila], [p], { modo: 'SNAPSHOT_ACTUAL' });
   const imp = c.Act_resumenImpactoMerge_(r);
   assert.ok(imp.fillOnly >= 3, 'fills contados');
   assert.equal(imp.fechasAdelantadas, 1);
@@ -121,38 +121,38 @@ ok('T5 salud mental y observaciones existentes protegidas');
 {
   // DEC-102: el token ya no es puerta; una credencial vacía no puede denegar.
   let denegado = false;
-  try { denegado = c.api_fuentesImpacto('', 'CONSERVADOR').motivo === 'ACCESO_DENEGADO'; }
+  try { denegado = c.api_fuentesImpacto_('', 'CONSERVADOR').motivo === 'ACCESO_DENEGADO'; }
   catch (e) { denegado = /ACCESO_DENEGADO/.test(String(e && e.message)); }
   assert.equal(denegado, false, 'token vacío no bloquea (DEC-102)');
-  c.WebApp_autorizarBuscador = t => t === 'x';
+  c.WebApp_autorizarBuscador_ = t => t === 'x';
   // (comparación por JSON: el objeto nace en el realm vm)
-  assert.equal(JSON.stringify(c.api_fuentesImpacto('x', 'CONSERVAR').impacto),
+  assert.equal(JSON.stringify(c.api_fuentesImpacto_('x', 'CONSERVAR').impacto),
     JSON.stringify({ nuevos: 0, existentes: 0, fillOnly: 0, fechasAdelantadas: 0,
       reemplazosSnapshot: 0, conflictos: 0 }));
   const real = c.Fuentes_cargaReal_;
   c.Fuentes_cargaReal_ = () => ({ ok: true, ejecucionId: 'EJ-1',
     resumen: { nuevos: 2, registros: 5, merge: { tipos: { FILL_ONLY: 3, FECHA_MAX: 1, REEMPLAZO_SNAPSHOT: 0 }, conflictos: 1 } } });
-  const pv = c.api_fuentesImpacto('x', 'CONSERVADOR');
+  const pv = c.api_fuentesImpacto_('x', 'CONSERVADOR');
   c.Fuentes_cargaReal_ = real;
   assert.equal(pv.ok, true);
   assert.equal(pv.impacto.nuevos, 2);
   assert.equal(pv.impacto.fillOnly, 3);
   assert.ok(!('detalle' in pv), 'preview sin detalle por fila (sin PII)');
-  ok('T9 api_fuentesImpacto: auth, CONSERVAR en ceros, preview en conteos');
+  ok('T9 api_fuentesImpacto_: auth, CONSERVAR en ceros, preview en conteos');
 }
 
 // T10: reparar presentación / reconstruir INICIO no tocan datos.
-for (const fn of ['Libro_repararPresentacion_', 'UI_reconstruirInicio']) {
+for (const fn of ['Libro_repararPresentacion_', 'UI_reconstruirInicio_']) {
   const s = c[fn].toString();
   for (const w of ['Fuentes_cargaReal_', 'Amarillo_importarTodo_', 'Modelo_agregarPacientes_',
-    'Ingresos_procesarTodasLasHojas_', 'Act_mergearPaciente'])
+    'Ingresos_procesarTodasLasHojas_', 'Act_mergearPaciente_'])
     assert.ok(!s.includes(w), fn + ' sin ' + w);
 }
 ok('T10 reparación visual e INICIO sin escrituras de datos');
 
 // T11: Actualizar sistema no usa snapshot por defecto.
 {
-  const s = c.Act_actualizarSistema.toString();
+  const s = c.Act_actualizarSistema_.toString();
   assert.ok(!s.includes('SNAPSHOT_ACTUAL'), 'actualizar cotidiano, sin snapshot');
   ok('T11 Actualizar sistema conservador por defecto');
 }

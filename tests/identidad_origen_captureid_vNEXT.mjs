@@ -16,26 +16,26 @@ assert.equal(ctx.Ingresos_captureIdDesdeMarca_('FORM|prefix|INGRESO'), '');
 assert.equal(ctx.Ingresos_captureIdDesdeMarca_('nota manual del operador'), '');
 assert.equal(ctx.Ingresos_captureIdDesdeMarca_(''), '');
 
-// Caso 2: Fuentes_fuenteOrigen prioriza captureId durable
-const filaStaging = ctx.Fuentes_normalizar(ctx.Fuentes_crearFila(
+// Caso 2: Fuentes_fuenteOrigen_ prioriza captureId durable
+const filaStaging = ctx.Fuentes_normalizar_(ctx.Fuentes_crearFila_(
   { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_VERDE', fila: 5, sector: 'VERDE' },
   { RUT: '12.345.678-5', NOMBRE: 'TEST ORIGEN', SECTOR: 'VERDE', CAPTURE_ID: 'Cp4-' + 'b'.repeat(32) }));
 filaStaging.CAPTURE_ID = 'Cp4-' + 'b'.repeat(32);
-assert.equal(ctx.Fuentes_fuenteOrigen(filaStaging), 'Cp4-' + 'b'.repeat(32));
+assert.equal(ctx.Fuentes_fuenteOrigen_(filaStaging), 'Cp4-' + 'b'.repeat(32));
 
 // Caso 3: clave de dedupe conserva el captureId completo, no lo trunca
-const clave = ctx.Fuentes_claveDedupe_(ctx.Fuentes_fuenteOrigen(filaStaging));
+const clave = ctx.Fuentes_claveDedupe_(ctx.Fuentes_fuenteOrigen_(filaStaging));
 assert.equal(clave.toUpperCase(), ('cp4-' + 'b'.repeat(32)).toUpperCase().replace(/[^A-Z0-9]/gi, ''));
 assert.equal(clave.length >= 32, true, 'el captureId permanece íntegro en la clave de dedupe');
 
 // Caso 4: sin captureId, el origen físico sigue funcionando (compatibilidad histórica)
-const filaLegacy = ctx.Fuentes_normalizar(ctx.Fuentes_crearFila(
+const filaLegacy = ctx.Fuentes_normalizar_(ctx.Fuentes_crearFila_(
   { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_AMARILLO', fila: 12, sector: 'AMARILLO' },
   { RUT: '9.876.543-1', NOMBRE: 'TEST LEGACY', SECTOR: 'AMARILLO' }));
-assert.equal(ctx.Fuentes_fuenteOrigen(filaLegacy), 'HOJA_INGRESO|INGRESO_AMARILLO|12');
+assert.equal(ctx.Fuentes_fuenteOrigen_(filaLegacy), 'HOJA_INGRESO|INGRESO_AMARILLO|12');
 
 // Caso 5: Fuentes_claveDedupe_ normaliza el origen físico heredado sin romper nada
-const claveLegacy = ctx.Fuentes_claveDedupe_(ctx.Fuentes_fuenteOrigen(filaLegacy));
+const claveLegacy = ctx.Fuentes_claveDedupe_(ctx.Fuentes_fuenteOrigen_(filaLegacy));
 assert.equal(claveLegacy, 'HOJAINGRESO|INGRESOAMARILLO|12');
 
 console.log('Identidad origen captureId vNEXT: PASS');

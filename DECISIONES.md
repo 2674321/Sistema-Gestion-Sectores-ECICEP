@@ -2473,3 +2473,41 @@ sección para enviar. CapturaWeb usa un selector y `clientRequestId`; la identid
 clínica se deriva de `formId + responseId`. `Form_onFormSubmit` solo deja una
 señal y `Form_worker`, con lock de 750 ms, ventana solapada de 24 horas y cursor
 que se detiene ante el primer retryable, es el único mutador clínico.
+
+## DEC-110
+**Título:** v255 — separación PUBLIC_CAPTURE / OPERATOR: captura anónima, operación tras sesión OPSESS.
+**Estado:** Aprobada
+**Motivo:** la auditoría v255 demostró que `USER_DEPLOYING + ANYONE_ANONYMOUS`
+con acceso universal dejaba ~709 funciones globales invocables por
+`google.script.run`, incluidas lecturas clínicas (RUT, nombre, teléfono,
+observaciones, ficha, REM individualizado), instalación, reparación, backup y
+mutaciones. Eso no es aceptable con una Web App anónima: el boundary debe ser de
+RPC, no de deployment (el QR y la URL no cambian).
+
+La captura sigue siendo anónima y no depende de login, OPSESS,
+`Session.getActiveUser()`, OAuth individual ni permiso editor de Sheet. Se
+conservan públicas SOLO las cuatro RPC de captura
+(`WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`, `WebApp_verificarRecepcion`,
+`api_webappEstado`) y tres de autenticación/gateway (`WebApp_operadorIniciar`,
+`WebApp_operadorCerrar`, `WebApp_operadorRpc`). Todo lo demás se privatiza con el
+sufijo `_`, que Apps Script excluye de `google.script.run`.
+
+Las vistas y RPC de operador/admin pasan por `WebApp_operadorRpc`, que exige una
+sesión OPSESS válida (`CacheService`, clave `OPSESS:<sha256(token)>`, TTL 6 h) y
+un mapa **explícito** `WEBAPP_OPERATOR_RPC_` (sin `globalThis[metodo]`, `eval`
+ni `Function`). El secreto operador se guarda solo como
+`ECICEP_OPERATOR_SECRET_SHA256` (nunca en claro); `ECICEP_ACCESS_TOKEN` queda como
+compatibilidad/trazabilidad, nunca como autenticación. La captura jamás depende
+de OPSESS: un fallo de `CacheService`, hash ausente o token malformado degrada
+solo al operador, nunca a la captura.
+
+**Alcance histórico:** DEC-101 y DEC-102 permanecen válidas **solo para la
+captura pública**. DEC-110 acota su alcance: lo que antes era «acceso universal a
+todo el sistema» pasa a ser captura pública universal + operación autenticada.
+**Validación:** `tools/verificar.mjs` 0 fallos; `seguridad_webapp_capacidades_vNEXT`
+reescrita al contrato DEC-110; suites `public_capture_unauthenticated_v255`,
+`operator_rpc_boundary_v255`, `operator_html_gateway_v255`,
+`operator_no_session_no_pii_v255`, `operator_session_v255`,
+`private_trigger_menu_handlers_v255` y `rpc_public_surface_v255` PASS. Surface
+pública ≥15 → <15; PII sin OPSESS: 0; RPC directa operador fuera del gateway: 0.
+**Fecha:** 2026-10-12

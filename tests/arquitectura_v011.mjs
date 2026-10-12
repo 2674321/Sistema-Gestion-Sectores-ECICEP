@@ -22,15 +22,15 @@ test('UI no escribe directamente en hojas SECTOR_*', () => {
   assert.doesNotMatch(html, /appendRow\s*\([^)]*SECTOR_/);
 });
 
-test('captura interactiva no usa Form_leerMarcas', () => {
-  assert.doesNotMatch(cuerpo(read('26_Captura.js'), 'Captura_v2_marcaEnEventos'), /Form_leerMarcas/);
+test('captura interactiva no usa Form_leerMarcas_', () => {
+  assert.doesNotMatch(cuerpo(read('26_Captura.js'), 'Captura_v2_marcaEnEventos_'), /Form_leerMarcas_/);
 });
 
 test('lookup captureId rápido es puntual', () => {
   const fn = cuerpo(read('26_Captura.js'), 'Captura_v2_buscarRegistroRapido_');
   assert.match(fn, /createTextFinder/);
   assert.doesNotMatch(fn, /getDataRange|Form_leerRespuestas/);
-  const publica = cuerpo(read('26_Captura.js'), 'Captura_v2_buscarRegistro');
+  const publica = cuerpo(read('26_Captura.js'), 'Captura_v2_buscarRegistro_');
   assert.doesNotMatch(publica, /getDataRange|getValues|Form_leerRespuestas/);
 });
 
@@ -63,7 +63,7 @@ test('log evita lock anidado y recorta por bloque', () => {
   const log = read('09_Log.js');
   assert.match(log, /hasLock/);
   assert.match(log, /deleteRows\(/);
-  assert.doesNotMatch(cuerpo(log, 'Log_flush'), /deleteRow\(/);
+  assert.doesNotMatch(cuerpo(log, 'Log_flush_'), /deleteRow\(/);
 });
 
 console.log('Arquitectura v0.13.0 — ' + n + '/' + n + ' PASS');

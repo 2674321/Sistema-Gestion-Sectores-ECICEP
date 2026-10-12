@@ -7,14 +7,14 @@
  */
 
 /** Función no-op para probar el scope de Triggers sin dejar artefactos. */
-function ECICEP_noop() {}
+function ECICEP_noop_() {}
 
 /**
  * 🔑 Ejecuta una prueba real de cada servicio usado por el sistema.
  * Al terminar, todo el sistema está autorizado de una sola vez.
  * @returns {Array<string>} líneas ✓/✕ por servicio (y alert si hay UI).
  */
-function ECICEP_autorizar() {
+function ECICEP_autorizar_() {
   var out = [];
   function paso(nombre, fn) {
     try { fn(); out.push('✓ ' + nombre); }
@@ -22,7 +22,7 @@ function ECICEP_autorizar() {
   }
 
   paso('Hojas de cálculo', function () {
-    Modelo_ss().getSheets().length;
+    Modelo_ss_().getSheets().length;
   });
 
   paso('Drive (crear/borrar archivo)', function () {
@@ -38,10 +38,10 @@ function ECICEP_autorizar() {
   });
 
   paso('Triggers (crear/borrar)', function () {
-    ScriptApp.newTrigger('ECICEP_noop').timeBased().after(60 * 1000).create();
+    ScriptApp.newTrigger('ECICEP_noop_').timeBased().after(60 * 1000).create();
     var borrado = false;
     ScriptApp.getProjectTriggers().forEach(function (t) {
-      if (t.getHandlerFunction() === 'ECICEP_noop') {
+      if (t.getHandlerFunction() === 'ECICEP_noop_') {
         ScriptApp.deleteTrigger(t); borrado = true;
       }
     });
@@ -83,11 +83,11 @@ function ECICEP_autorizar() {
   var resumen = '🔑 AUTORIZACIÓN DEL SISTEMA\n\n' + out.join('\n') +
     '\n\nSi todo está ✓, ninguna función volverá a pedir permisos.';
   try {
-    _UI_get().alert(resumen);
+    _UI_get_().alert(resumen);
   } catch (eSinUi) {
     Logger.log(resumen); // ejecución desde el editor
   }
-  Log_info('Permisos', 'autorizar', out.join(' | '));
-  Log_flush();
+  Log_info_('Permisos', 'autorizar', out.join(' | '));
+  Log_flush_();
   return out;
 }

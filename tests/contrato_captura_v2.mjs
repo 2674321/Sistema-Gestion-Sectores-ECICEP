@@ -838,7 +838,7 @@ t('impl_no_colision — el payload V2 no es la entrada de la implementación his
 
 t('impl_adaptador_necesario — la validación histórica rechaza el payload V2 (sin acceso silencioso)', () => {
   A(!!T, 'núcleo cargado');
-  const r = T.Form_validarRespuesta(payloadNuevoIngreso());
+  const r = T.Form_validarRespuesta_(payloadNuevoIngreso());
   A(!r.ok, 'el payload V2 (camelCase) NO pasa por la validación histórica');
   A(r.errores && r.errores.some((e) => e.campo === 'ACCION'), 'la validación histórica reporta ACCION inválida (prueba de que no hay alias silencioso)');
 });

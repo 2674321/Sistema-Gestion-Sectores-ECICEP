@@ -68,6 +68,16 @@
 > `tests/seguridad_webapp_capacidades_vNEXT.mjs`. Nuevo pendiente real:
 > eliminar toda comprobación de credencial residual que quede en el código.
 
+> **Actualización 2026-10-12 (v255 — DEC-110, frontera RPC):** **cerrado** el
+> pendiente de «reducir la superficie RPC heredada congelada». La superficie
+> pública bajó de ~709 a **12** funciones (5 runtime, 4 de captura anónima, 3 de
+> auth OPSESS); toda RPC operativa es interna (`_`) y sólo se alcanza por el
+> gateway `WebApp_operadorRpc` con `WEBAPP_OPERATOR_RPC_`. DEC-110 acota DEC-101/
+> DEC-102: la captura pública sigue concediendo siempre; operador/administración
+> exige sesión OPSESS. Contrato ejecutable en `tests/rpc_public_allowlist.json`.
+> Siguen pendientes reales: ampliar la auditoría XSS sink-by-sink y ejecutar
+> Instalar/Reparar dos veces sobre el libro real con backup reciente.
+
 > **Actualización 2026-09-30 (v0.16.1 — DEC-101):** revertido el bloqueo total de
 > acceso. La separación CAPTURA ≠ OPERADOR de DEC-097 exigía credencial y
 > allowlist que nunca se configuraron, y dejó inaccesibles todas las vistas no

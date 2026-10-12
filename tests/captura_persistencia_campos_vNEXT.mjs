@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // vNEXT — DEC-104: ningún campo aceptado por el contrato se pierde al persistir.
-// E2E real: payload → Captura_v2_validar → normalizadoAInterno → entrega contra
+// E2E real: payload → Captura_v2_validar_ → normalizadoAInterno → entrega contra
 // hojas en memoria → pipeline → lectura de vuelta de PACIENTES/EVENTOS.
 // No se comprueba el payload: se comprueba el dato leído de la hoja.
 import assert from 'node:assert/strict';
@@ -74,10 +74,10 @@ function libro() {
   for (const f of orden.concat(resto)) vm.runInContext(read(f), ctx, { filename: f });
 
   ctx.Session = { getActiveUser: () => ({ getEmail: () => 'tester@ecicep.cl' }) };
-  ctx.Log_info = () => {};
-  ctx.Log_error = (...a) => { if (process.env.DEBUG) console.log('   [log]', ...a); };
-  ctx.Log_warning = () => {}; ctx.Log_flush = () => {};
-  ctx.HVis_formatearIngresos = () => ({ ok: true, migrado: false });
+  ctx.Log_info_ = () => {};
+  ctx.Log_error_ = (...a) => { if (process.env.DEBUG) console.log('   [log]', ...a); };
+  ctx.Log_warning_ = () => {}; ctx.Log_flush_ = () => {};
+  ctx.HVis_formatearIngresos_ = () => ({ ok: true, migrado: false });
   ctx.hojas = {};
   const E = e => vm.runInContext(e, ctx);
 
@@ -105,7 +105,7 @@ function libro() {
   plana('PROFESIONALES', E('COLUMNAS_PROFESIONALES'));
   plana('RESPONSABLES', E('COLUMNAS_RESPONSABLES'));
 
-  ctx.Modelo_ss = () => ({ getSheetByName: n => ctx.hojas[n] || null, getSheets: () => Object.values(ctx.hojas) });
+  ctx.Modelo_ss_ = () => ({ getSheetByName: n => ctx.hojas[n] || null, getSheets: () => Object.values(ctx.hojas) });
   // Necesario: sin SpreadsheetApp, Ingresos_escribirEstados_ no escribe nada.
   ctx.SpreadsheetApp = {
     getActiveSpreadsheet: () => null, openById: () => null,
@@ -114,8 +114,8 @@ function libro() {
     newDataValidation: () => ({ build: () => ({}) }),
     newConditionalFormatRule: () => ({ build: () => ({}) })
   };
-  ctx.Captura_v2_catalogo = () => CATALOGO;
-  ctx.Captura_v2_ahora = () => '2026-09-04 10:00:00';
+  ctx.Captura_v2_catalogo_ = () => CATALOGO;
+  ctx.Captura_v2_ahora_ = () => '2026-09-04 10:00:00';
   ctx.Ingresos_eliminarOrigenConfirmado_ = () => ({ eliminadas: 0 });
   ctx.Hojas_asegurarCapacidadGestionada_ = () => {};
   return ctx;
@@ -143,12 +143,12 @@ function payload(over = {}) {
   }, over);
 }
 
-// Envío por el MISMO entrypoint que usa WebApp_capturarEnviar: valida,
+// Envío por el MISMO entrypoint que usa WebApp_capturarEnviar_: valida,
 // persiste el registro durable, ejecuta la entrega con reintentos y aplica los
 // hooks post-entrega (agenda, contacto). El trailer se guarda en memoria.
 function enviar(ctx, p) {
   const registros = ctx.__registros || (ctx.__registros = new Map());
-  const c = Object.assign({}, ctx.Captura_v2_ctx('tok'), {
+  const c = Object.assign({}, ctx.Captura_v2_ctx_('tok'), {
     usuario: 'tester@ecicep.cl',
     ahora: () => '2026-09-04 10:00:00',
     maxReintentos: 3,
@@ -166,14 +166,14 @@ function enviar(ctx, p) {
       return { ok: true };
     }
   });
-  const res = ctx.Captura_v2_enviar(p, c);
+  const res = ctx.Captura_v2_enviar_(p, c);
   if (process.env.DEBUG) console.log('   [dbg] ' + JSON.stringify(res.data || res.errors));
   assert.equal(res.ok, true, 'enviar: ' + JSON.stringify(res.errors || res));
   return res.data;
 }
 
 function eventoIngreso(ctx) {
-  return ctx.Modelo_leerEventos().find(e => e.TIPO_EVENTO === 'INGRESO');
+  return ctx.Modelo_leerEventos_().find(e => e.TIPO_EVENTO === 'INGRESO');
 }
 
 let n = 0;
@@ -238,7 +238,7 @@ t('T4 registrarControl persiste ambos profesionales en su evento', () => {
     profesionalSecundario: 'TENS', observaciones: 'Control de rutina'
   });
   assert.equal(r.estado, 'PROCESADO', JSON.stringify(r));
-  const ev = c.Modelo_leerEventos().find(e => e.TIPO_EVENTO === 'CONTROL');
+  const ev = c.Modelo_leerEventos_().find(e => e.TIPO_EVENTO === 'CONTROL');
   assert.ok(ev, 'evento CONTROL creado');
   assert.equal(ev.PROFESIONAL, 'ENFERMERA/O');
   assert.equal(ev.PROFESIONAL2, 'TENS', 'secundario persistido en CONTROL');
@@ -256,7 +256,7 @@ t('T5 registrarSeguimiento persiste ambos profesionales en su evento', () => {
     profesionalSecundario: 'TENS'
   });
   assert.equal(r.estado, 'PROCESADO', JSON.stringify(r));
-  const ev = c.Modelo_leerEventos().find(e => e.TIPO_EVENTO === 'SEGUIMIENTO');
+  const ev = c.Modelo_leerEventos_().find(e => e.TIPO_EVENTO === 'SEGUIMIENTO');
   assert.ok(ev, 'evento SEGUIMIENTO creado');
   assert.equal(ev.PROFESIONAL2, 'TENS');
 });
@@ -269,7 +269,7 @@ t('T6 eventos distintos conservan su propia dupla de profesionales', () => {
   enviar(c, payload({ profesional: 'MATRONA/O', profesionalSecundario: 'MEDICO/A' }));
   enviar(c, { captureId: hex('3'), accion: 'registrarControl', rut: RUT_A,
     fechaEvento: '2026-09-15', profesional: 'ENFERMERA/O', profesionalSecundario: 'TENS' });
-  const evs = c.Modelo_leerEventos();
+  const evs = c.Modelo_leerEventos_();
   const ing = evs.find(e => e.TIPO_EVENTO === 'INGRESO');
   const ctl = evs.find(e => e.TIPO_EVENTO === 'CONTROL');
   assert.equal(ing.PROFESIONAL2, 'MEDICO/A');
@@ -283,7 +283,7 @@ t('T6 eventos distintos conservan su propia dupla de profesionales', () => {
 t('T7 actualizarDatos persiste PROFESIONAL2 del evento no-INGRESO', () => {
   const c = libro();
   enviar(c, payload());
-  const idInterno = c.Modelo_leerPacientes()[0].ID_INTERNO;
+  const idInterno = c.Modelo_leerPacientes_()[0].ID_INTERNO;
   const r = enviar(c, {
     captureId: 'Cp4-' + '4'.repeat(32),
     accion: 'actualizarDatos', rut: RUT_A,
@@ -296,9 +296,9 @@ t('T7 actualizarDatos persiste PROFESIONAL2 del evento no-INGRESO', () => {
     }
   });
   assert.equal(r.estado, 'PROCESADO', JSON.stringify(r));
-  const ev = c.Modelo_leerEventos().find(e => e.PROFESIONAL2 === 'MATRONA/O' && e.TIPO_EVENTO !== 'INGRESO');
+  const ev = c.Modelo_leerEventos_().find(e => e.PROFESIONAL2 === 'MATRONA/O' && e.TIPO_EVENTO !== 'INGRESO');
   assert.ok(ev, 'evento de actualización con secundario; tipos=' +
-    JSON.stringify(c.Modelo_leerEventos().map(e => e.TIPO_EVENTO)));
+    JSON.stringify(c.Modelo_leerEventos_().map(e => e.TIPO_EVENTO)));
   assert.equal(ev.PROFESIONAL, 'MEDICO/A');
 });
 
@@ -307,7 +307,7 @@ t('T7 actualizarDatos persiste PROFESIONAL2 del evento no-INGRESO', () => {
 t('T8 teléfono simple se guarda limpio en TELEFONO(S)', () => {
   const c = libro();
   enviar(c, payload({ telefonos: '990600712' }));
-  const pac = c.Modelo_leerPacientes()[0];
+  const pac = c.Modelo_leerPacientes_()[0];
   assert.equal(pac.TELEFONOS, '990600712');
   assert.ok(!String(pac.TELEFONO_OBS || '').trim(), 'sin estructura no hay observaciones');
 });
@@ -318,7 +318,7 @@ t('T8 teléfono simple se guarda limpio en TELEFONO(S)', () => {
 t('T9 teléfono escrito con espacios conserva el número (no se descarta)', () => {
   const c = libro();
   enviar(c, payload({ telefonos: '9 6060 0712' }));
-  const pac = c.Modelo_leerPacientes()[0];
+  const pac = c.Modelo_leerPacientes_()[0];
   assert.equal(pac.TELEFONOS, '960600712',
     'el número debe quedar completo; antes se perdía entero. recibido: ' + JSON.stringify(pac.TELEFONOS));
 });
@@ -329,7 +329,7 @@ t('T9 teléfono escrito con espacios conserva el número (no se descarta)', () =
 t('T10 prefijo internacional con espacios conserva el número local', () => {
   const c = libro();
   enviar(c, payload({ telefonos: '+56 9 9060 0712' }));
-  const pac = c.Modelo_leerPacientes()[0];
+  const pac = c.Modelo_leerPacientes_()[0];
   assert.equal(pac.TELEFONOS, '990600712',
     'prefijo 56 y numero completo; recibido: ' + JSON.stringify(pac.TELEFONOS));
 });
@@ -341,7 +341,7 @@ t('T11 todo fragmento descartado queda anotado en TELEFONO_OBS', () => {
   const c = libro();
   // '9 / 59355587': el 9 no es un teléfono; el otro sí. Nada puede ser silencioso.
   enviar(c, payload({ telefonos: '9 / 59355587' }));
-  const pac = c.Modelo_leerPacientes()[0];
+  const pac = c.Modelo_leerPacientes_()[0];
   assert.equal(pac.TELEFONOS, '59355587', 'el número válido se conserva');
   const obs = String(pac.TELEFONO_OBS || '');
   assert.ok(obs.includes('NUMERO DESCARTADO'),
@@ -354,7 +354,7 @@ t('T11 todo fragmento descartado queda anotado en TELEFONO_OBS', () => {
 t('T12 anotación textual del teléfono (ESPOSO) queda persistida', () => {
   const c = libro();
   enviar(c, payload({ telefonos: '921728970 ESPOSO' }));
-  const pac = c.Modelo_leerPacientes()[0];
+  const pac = c.Modelo_leerPacientes_()[0];
   assert.equal(pac.TELEFONOS, '921728970');
   assert.ok(String(pac.TELEFONO_OBS || '').includes('ESPOSO'),
     'la anotación debe persistir; recibido: ' + JSON.stringify(pac.TELEFONO_OBS));
@@ -385,7 +385,7 @@ t('T13 EVENTOS preexistente sin PROFESIONAL2 se migra sin perder filas', () => {
   assert.equal(cols[cols.length - 1], 'PROFESIONAL2', 'se añade al final, no se intercala');
   assert.deepEqual(Array.from(cols).slice(0, viejo.length), Array.from(viejo), 'el orden previo queda intacto');
 
-  const eventos = c.Modelo_leerEventos();
+  const eventos = c.Modelo_leerEventos_();
   assert.equal(eventos.length, 4, '3 eventos previos + 1 nuevo, ninguno perdido');
   const viejos = eventos.filter(e => String(e.ID_EVENTO || '').startsWith('EV-VIEJO'));
   assert.equal(viejos.length, 3, 'los eventos históricos siguen legibles');
@@ -427,8 +427,8 @@ t('T14 reintento con coordenadas previas no duplica paciente ni evento', () => {
   const r1 = enviar(c, payload());
   assert.equal(r1.estado, 'PROCESADO', JSON.stringify(r1));
   const r2 = enviar(c, payload());
-  assert.equal(c.Modelo_leerPacientes().length, 1, 'un solo paciente');
-  assert.equal(c.Modelo_leerEventos().filter(e => e.TIPO_EVENTO === 'INGRESO').length, 1,
+  assert.equal(c.Modelo_leerPacientes_().length, 1, 'un solo paciente');
+  assert.equal(c.Modelo_leerEventos_().filter(e => e.TIPO_EVENTO === 'INGRESO').length, 1,
     'un solo evento de ingreso');
   assert.equal(r2.estado, 'PROCESADO', 'el reintento es consistente');
 });
@@ -441,11 +441,11 @@ t('T15 dos altas con profesionales distintos no colisionan ni se cruzan', () => 
   enviar(c, payload({ rut: RUT_A, profesional: 'MATRONA/O', profesionalSecundario: 'MEDICO/A' }));
   enviar(c, payload({ captureId: hex('5'), rut: RUT_B,
     nombre: 'MARÍA LÓPEZ DÍAZ', profesional: 'TENS', profesionalSecundario: 'PSICOLOGO/A' }));
-  const pacs = c.Modelo_leerPacientes();
+  const pacs = c.Modelo_leerPacientes_();
   assert.equal(pacs.length, 2, 'dos pacientes');
   const ids = pacs.map(p => p.ID_INTERNO);
   assert.equal(new Set(ids).size, 2, 'IDs internos distintos: ' + JSON.stringify(ids));
-  const evs = c.Modelo_leerEventos().filter(e => e.TIPO_EVENTO === 'INGRESO');
+  const evs = c.Modelo_leerEventos_().filter(e => e.TIPO_EVENTO === 'INGRESO');
   assert.equal(evs.length, 2);
   // Array.from: los objetos vienen del realm del vm y deepStrictEqual compara
   // prototipos; un array de otro realm nunca es igual a uno de este.

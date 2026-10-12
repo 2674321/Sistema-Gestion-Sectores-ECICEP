@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <?!= include('00_Tokens') ?>
+<?!= include('00_OperadorRuntime') ?>
 <style>
 /* Vista dialog ancho: 16px — dos áreas: selección | informe */
 body{font-size:16px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
@@ -164,7 +165,7 @@ function toggleHerr(){
   _refrescarIconos();
 }
 function cargarRegistro(){
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     if(!r||!r.ok){toast('No se pudo cargar el registro','err');return;}
     REGISTRO=r.pruebas||[];
     var grupos={};
@@ -189,7 +190,7 @@ function cargarRegistro(){
 function _herr(btn,fnNombre){
   var fin=_btnPulso(btn,'Ejecutando…');
   var st=document.getElementById('st_'+fnNombre);
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(){
       setLoading(btn,false);
       if(st){var h=new Date();st.textContent='✓ ejecutado '+String(h.getHours()).padStart(2,'0')+':'+String(h.getMinutes()).padStart(2,'0');st.style.color='var(--success)';}
@@ -221,7 +222,7 @@ function ejecutar(btn){
     n=(n+1)%total;
     document.getElementById('progTxt').textContent='Ejecutando prueba '+(n+1)+' de '+total+'…';
   },600);
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     clearInterval(rotador);fin();prog.style.display='none';
     if(!r||!r.ok){toast('No fue posible ejecutar las pruebas','err');return;}
     pintarInforme(r);
@@ -261,7 +262,7 @@ function pintarInforme(r){
 cargarRegistro();
 function _calidad(btn){
   var fin=_btnPulso(btn,'Auditando…',2500);
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast('No se pudo auditar','err');return;}
@@ -274,7 +275,7 @@ function _calidad(btn){
 }
 function _normalizar(btn){
   var fin=_btnPulso(btn,'Normalizando…',2000);
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast('No se pudo normalizar','err');return;}
@@ -286,7 +287,7 @@ function _normalizar(btn){
 }
 function _amarillo(btn,conHistorico){
   _btnPulso(btn,'Importando…',2500);
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo importar','err');return;}
@@ -304,7 +305,7 @@ function _amarillo(btn,conHistorico){
 }
 function _amarilloAuditar(btn){
   _btnCargando(btn,'Analizando…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo analizar','err');return;}
@@ -322,7 +323,7 @@ function _amarilloEliminar(btn){
     '(misma identidad ID_INTERNO+TIPO+FECHA) del sector Amarillo, conservando 1 por grupo.\n'+
     'Se recomienda un Backup antes (💾 Backups en el menú).\n\n¿Continuar?'))return;
   _btnCargando(btn,'Eliminando…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo deduplicar','err');return;}
@@ -333,7 +334,7 @@ function _amarilloEliminar(btn){
 }
 function _diagControl(btn,dryRun){
   var fin=_btnCargando(btn,dryRun?'Analizando…':'Aplicando…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'Sin diagnóstico','err');return;}
@@ -355,7 +356,7 @@ function _diagControl(btn,dryRun){
 }
 function _auditoria(btn){
   var fin=_btnCargando(btn,'Auditando…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       setLoading(btn,false);
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo auditar','err');return;}

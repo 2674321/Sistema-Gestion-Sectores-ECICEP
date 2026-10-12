@@ -10,7 +10,7 @@ const readSrc = f => readFileSync(new URL('../src/'+f.replace('src/',''), import
 for (const f of orden) vm.runInContext(readSrc(f), ctx, { filename:f });
 
 ctx.WebApp_capturarRecibirDurable = function(payload){return {ok:true,estado:'RECIBIDO',data:{responseId:payload.captureId}};};
-const r = ctx.WebApp_capturarEnviar({captureId:'Cp4-'+('a'.repeat(32))},'tok');
+const r = ctx.WebApp_capturarEnviar_({captureId:'Cp4-'+('a'.repeat(32))},'tok');
 assert.equal(r.ok,true);
 assert.equal(r.estado,'RECIBIDO');
 console.log('google_forms_qr_transition_v253: PASS');

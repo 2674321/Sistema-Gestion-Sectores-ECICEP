@@ -126,8 +126,8 @@ document.getElementById('accion').value = 'NUEVO_INGRESO';
 // Stub de google.script.run: encadenable, registra llamadas, nunca resuelve.
 const rpcCalls = [];
 const gsr = { withSuccessHandler() { return this; }, withFailureHandler() { return this; } };
-['WebApp_esquemaFormulario', 'api_webappEstado',
-  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarRecibirDurable'].forEach((name) => {
+['WebApp_esquemaFormulario_', 'api_webappEstado',
+  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2_', 'WebApp_capturarRecibirDurable'].forEach((name) => {
   gsr[name] = function () { rpcCalls.push({ name, args: [...arguments] }); return this; };
 });
 
@@ -540,7 +540,7 @@ t('I1 Control/Seguimiento/Actualizar: envío directo en UNA RPC (sin pre-flight 
     const nuevas = rpcCalls.slice(antes);
     A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarRecibirDurable',
       acc + ': debe ser UNA RPC de captura directa, recibidas: ' + JSON.stringify(nuevas));
-    A(!nuevas.some((c) => c.name === 'WebApp_previaDuplicadosV2'),
+    A(!nuevas.some((c) => c.name === 'WebApp_previaDuplicadosV2_'),
       acc + ': nunca debe pre-consultar duplicados (server ya lo documenta: resto 1 RPC)');
   });
 });

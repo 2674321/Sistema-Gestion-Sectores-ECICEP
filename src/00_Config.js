@@ -47,7 +47,7 @@ var SISTEMA_VERSION_INSTALADOR = 'INST-1';
 // NUNCA por el nombre visible de la hoja. DEV → @HEAD / DEMO → estable.
 // Google Forms es el transporte durable interno de la Web App desde v253
 // (AGENTS.md): el Form operativo es configuración central gestionada por
-// Form_operativoInstalar y almacenada en ScriptProperties (nunca en Git).
+// Form_operativoInstalar_ y almacenada en ScriptProperties (nunca en Git).
 // El bloque ENTORNOS se conserva únicamente para diagnóstico y tests de
 // compatibilidad histórica.
 // ---------------------------------------------------------------------------
@@ -74,28 +74,28 @@ var ENTORNOS = {
 var ENTORNO_PRINCIPAL = 'DEV';
 
 // Son los diálogos/public-dialog y sidebars públicos. Fuente única usada por
-// _pruS_menu/_pruS_plantillas (GAS) y _pruebas_dialogos_v087 (node).
+// _pruS_menu_/_pruS_plantillas_ (GAS) y _pruebas_dialogos_v087_ (node).
 // Todo `showModalDialog(output, TITULO)` DEBE llevar 2 argumentos; las
 // sidebars usan showSidebar(output.setTitle(...)) (1 argumento, correcto).
 //   tipo: 'modal' → Ui.showModalDialog(htmlEval, titulo)
 //         'sidebar' → Ui.showSidebar(htmlEval.setTitle(titulo))
 var UICFG_DIALOGOS = [
-  { opener: 'UI_instalarSistema', plantilla: 'Instalador', tipo: 'modal' },
-  { opener: 'UI_abrirLog', plantilla: 'LogVisor', tipo: 'modal' },
-  { opener: 'UI_centroPruebas', plantilla: 'CentroPruebas', tipo: 'modal' },
-  { opener: 'UI_abrirDashboard', plantilla: 'Dashboard', tipo: 'modal' },
-  { opener: 'UI_configuracion', plantilla: 'Configuracion', tipo: 'modal' },
-  { opener: 'UI_configuracionEstratificacion', plantilla: 'Configuracion', tipo: 'modal' },
-  { opener: 'UI_configuracionResponsables', plantilla: 'Configuracion', tipo: 'modal' },
-  { opener: 'UI_abrirControles', plantilla: 'Controles', tipo: 'modal' },
-  { opener: 'UI_generarRem', plantilla: 'RemGenerador', tipo: 'modal' },
-  { opener: 'UI_verRem', plantilla: 'RemVista', tipo: 'modal' },
-  { opener: 'UI_backup', plantilla: 'Backup', tipo: 'modal' },
-  { opener: 'UI_abrirAcercaDe', plantilla: 'AcercaDe', tipo: 'modal' },
-  { opener: 'UI_panelControl', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_abrirBuscador', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_abrirRevision', plantilla: 'Sidebar', tipo: 'sidebar' },
-  { opener: 'UI_abrirFicha', plantilla: 'Sidebar', tipo: 'sidebar' }
+  { opener: 'UI_instalarSistema_', plantilla: 'Instalador', tipo: 'modal' },
+  { opener: 'UI_abrirLog_', plantilla: 'LogVisor', tipo: 'modal' },
+  { opener: 'UI_centroPruebas_', plantilla: 'CentroPruebas', tipo: 'modal' },
+  { opener: 'UI_abrirDashboard_', plantilla: 'Dashboard', tipo: 'modal' },
+  { opener: 'UI_configuracion_', plantilla: 'Configuracion', tipo: 'modal' },
+  { opener: 'UI_configuracionEstratificacion_', plantilla: 'Configuracion', tipo: 'modal' },
+  { opener: 'UI_configuracionResponsables_', plantilla: 'Configuracion', tipo: 'modal' },
+  { opener: 'UI_abrirControles_', plantilla: 'Controles', tipo: 'modal' },
+  { opener: 'UI_generarRem_', plantilla: 'RemGenerador', tipo: 'modal' },
+  { opener: 'UI_verRem_', plantilla: 'RemVista', tipo: 'modal' },
+  { opener: 'UI_backup_', plantilla: 'Backup', tipo: 'modal' },
+  { opener: 'UI_abrirAcercaDe_', plantilla: 'AcercaDe', tipo: 'modal' },
+  { opener: 'UI_panelControl_', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_abrirBuscador_', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_abrirRevision_', plantilla: 'Sidebar', tipo: 'sidebar' },
+  { opener: 'UI_abrirFicha_', plantilla: 'Sidebar', tipo: 'sidebar' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -155,8 +155,8 @@ var HOJAS_SECTOR = ['SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE'];
 //                fila 3 = ENCABEZADOS REALES (filtro nativo) · fila 4+ = DATOS.
 // LAYOUT_SIMPLE: fila 1 = encabezados · fila 2+ = datos.
 // Ningún módulo puede asumir "fila 1 = encabezados" ni "fila 3 = encabezados"
-// de forma dispersa: debe consultar Modelo_headerRow()/Modelo_dataStartRow()
-// o leer con Modelo_leerBloqueCabecera().
+// de forma dispersa: debe consultar Modelo_headerRow_()/Modelo_dataStartRow_()
+// o leer con Modelo_leerBloqueCabecera_().
 // ---------------------------------------------------------------------------
 var CONTRATO_LAYOUT_VISUAL = { tituloRow: 1, seccionesRow: 2, encabezadosRow: 3, datosDesdeRow: 4 };
 var CONTRATO_LAYOUT_SIMPLE = { tituloRow: 0, seccionesRow: 0, encabezadosRow: 1, datosDesdeRow: 2 };
@@ -184,7 +184,7 @@ const CAMPOS_INGRESO_OPERATIVOS = [
 // Campos ADICIONALES confirmados en las fuentes reales (sinónimos en
 // SINONIMOS_ENCABEZADOS) que el modelo conserva pero NO son críticos para
 // validar un ingreso (si faltan, el ingreso sigue siendo procesable). Amplían
-// el mapeo de Ingresos_mapearEncabezadosHoja para que SEGUIMIENTO / CONTROL /
+// el mapeo de Ingresos_mapearEncabezadosHoja_ para que SEGUIMIENTO / CONTROL /
 // PRÓXIMO CONTROL / PROFESIONAL / PRE INGRESO nunca se descarten de la fuente
 // (causa raíz: la lista corta operativa los enviaba a `desconocidos`).
 const CAMPOS_INGRESO_ADICIONALES = [
@@ -358,7 +358,7 @@ const HOJAS_UX = {
 // compat temporal al booleano `wrap`), superficie (override explícito;
 // vacío = resolución contextual por hoja), fontSize y fontWeight (solo se
 // aplican si están definidos). Los nombres se comparan mediante
-// Utl_claveAlnum, por lo que cubre las etiquetas físicas con espacios de
+// Utl_claveAlnum_, por lo que cubre las etiquetas físicas con espacios de
 // INGRESO_* sin inventar columnas nuevas.
 const FORMATO_TIPOS = {
   ID:          { ancho: 90,  formato: '@',                  alineacion: 'LEFT',   wrap: false },
@@ -573,7 +573,7 @@ const PULIDO_ENCABEZADO = {
 };
 
 // Los anchos dejaron de tener una tabla paralela: FORMATO_CAMPOS y
-// FORMATO_TIPOS son la fuente canónica consumida por Modelo_anchoColumna.
+// FORMATO_TIPOS son la fuente canónica consumida por Modelo_anchoColumna_.
 
 // ---------------------------------------------------------------------------
 // TERMINOLOGÍA OFICIAL v0.8.9.5 (Parte 6): diccionario de términos del
@@ -867,14 +867,14 @@ const ESTADOS_INGRESO = {
 // el formulario es SOLO captura + validación + normalización; NUNCA una base
 // paralela. Los datos válidos NUEVO_INGRESO entran por el pipeline existente
 // (INGRESO_<SECTOR> → Ingresos_procesarTodasLasHojas_); CONTROL/SEGUIMIENTO/
-// ACTUALIZAR reusan api_registrarEvento. CAMPOS es el contrato pregunta↔campo
+// ACTUALIZAR reusan api_registrarEvento_. CAMPOS es el contrato pregunta↔campo
 // y define además las columnas de la hoja técnica FORM_RESPUESTAS (se leen y
 // escriben por ENCABEZADO, jamás por número de columna fijo).
 // FORM_ID es configuración central: lo completa el administrador al instalar
-// (Form_instalar NO crea formularios automáticamente, DEC-047/48). Desde
+// (Form_instalar_ NO crea formularios automáticamente, DEC-047/48). Desde
 // v0.9.1 (DEC-049) la referencia canónica del Form del entorno es
 // ENTORNOS.<ENV>.FORM_ID; FORM_CONFIG.FORM_ID se resuelve/mantiene con la del
-// entorno activo. El gate Entorno_validarProcesamiento bloquea si el Form
+// entorno activo. El gate Entorno_validarProcesamiento_ bloquea si el Form
 // configurado pertenece a otro entorno (aislamiento DEV/DEMO).
 // ---------------------------------------------------------------------------
 // Versión del CONTRATO DE CAPTURA vigente (docs/CONTRATO_CAPTURA_V2.md §26,
@@ -1012,7 +1012,7 @@ FORM_CONFIG.CONTROL = {
 // TRANSPORT_RESPONSE_ID se anexan AL FINAL (tras FECHA_INGRESO) para no
 // desplazar índices de las columnas previas ni romper la lectura posicional
 // de las suites históricas; se escriben SOLO si la hoja ya las tiene, y la
-// migración de encabezados es idempotente en Form_operativoInstalar.
+// migración de encabezados es idempotente en Form_operativoInstalar_.
 var FORM_CAMPOS_PERSISTIDOS = [
   'ACCION', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR',
   'ESTRATIFICACION', 'TELEFONOS', 'FECHA_EVENTO', 'PROFESIONAL',
@@ -1024,7 +1024,7 @@ var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'U
   .concat(['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID'])
   // v255 (decálogo operabilidad): vestidor de transporte por request. Todos los
   // campos nuevos se ANEXAN al final; la migración idempotente corre en
-  // Form_operativoInstalar y la escritura por encabezado jamás desplaza datos.
+  // Form_operativoInstalar_ y la escritura por encabezado jamás desplaza datos.
   .concat(['CLIENT_REQUEST_ID', 'SOURCE', 'CLASIFICACION', 'TRANSPORTE_ERROR']);
 
 // ---------------------------------------------------------------------------
@@ -1127,7 +1127,7 @@ const SEXOS = {
 // ---------------------------------------------------------------------------
 var MODELO_PACIENTE = [
   { campo: 'ID_INTERNO',             tipo: 'id',     obligatorio: true,  tecnico: true,  descripcion: 'Identificador interno estable generado por el sistema', regla: 'EC-<base36 tiempo>-<aleatorio>' },
-  { campo: 'RUT',                    tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'RUT normalizado cuerpo-DV', regla: 'Norm_normalizarRut: sin puntos, DV mayúscula; sin DV en fuente → solo cuerpo con bandera RUT_SIN_DV' },
+  { campo: 'RUT',                    tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'RUT normalizado cuerpo-DV', regla: 'Norm_normalizarRut_: sin puntos, DV mayúscula; sin DV en fuente → solo cuerpo con bandera RUT_SIN_DV' },
   { campo: 'NOMBRE',                 tipo: 'texto',  obligatorio: true,  tecnico: false, descripcion: 'Nombre del paciente', regla: 'Mayúsculas, espacios colapsados, conserva tildes' },
   { campo: 'SEXO',                   tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Sexo registrado (REM)', regla: 'M | F | OTRO | vacío' },
   { campo: 'FECHA_NACIMIENTO',       tipo: 'fecha',  obligatorio: false, tecnico: false, descripcion: 'Fecha de nacimiento (base de EDAD/tramos derivados para REM)', regla: 'ISO yyyy-MM-dd' },
@@ -1148,9 +1148,9 @@ var MODELO_PACIENTE = [
   { campo: 'CONDICIONES',            tipo: 'lista',  obligatorio: false, tecnico: true,  descripcion: 'Patologías ECICEP seleccionadas del catálogo', regla: 'Códigos canónicos separados por ";" — provienen de CATALOGO_CONDICIONES_ECICEP' },
   { campo: 'OTRAS_PATOLOGIAS',       tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Otras condiciones NO incluidas en catálogo ECICEP', regla: 'Texto libre separado por salto de línea; no reciben ponderación automática' },
   { campo: 'SALUD_MENTAL',           tipo: 'enum',   obligatorio: false, tecnico: false, descripcion: 'Indicador de salud mental registrado por la dupla', regla: 'SI | NO | vacío (sin información); NO inferir desde texto libre' },
-  { campo: 'NOMBRE_NORMALIZADO',     tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Nombre sin tildes para búsqueda y matching', regla: 'Utl_sinTildes(NOMBRE)' },
-  { campo: 'RUT_DV_VALIDO',          tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'false → DV incorrecto según módulo 11', regla: 'Norm_validarRut' },
-  { campo: 'RUT_SIN_DV',             tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'true → la fuente no traía DV (ej: LISTADO Naranjo)', regla: 'Norm_normalizarRut' },
+  { campo: 'NOMBRE_NORMALIZADO',     tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Nombre sin tildes para búsqueda y matching', regla: 'Utl_sinTildes_(NOMBRE)' },
+  { campo: 'RUT_DV_VALIDO',          tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'false → DV incorrecto según módulo 11', regla: 'Norm_validarRut_' },
+  { campo: 'RUT_SIN_DV',             tipo: 'bool',   obligatorio: false, tecnico: true,  descripcion: 'true → la fuente no traía DV (ej: LISTADO Naranjo)', regla: 'Norm_normalizarRut_' },
   { campo: 'ESTRAT_ORIGEN',          tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Valor original de la fuente para comparar vs calculada', regla: 'Conservado tal cual' },
   { campo: 'ESTRAT_CALCULADA',       tipo: 'texto',  obligatorio: false, tecnico: true,  descripcion: 'Salida del motor de estratificación', regla: 'G1|G2|G3|"" (motor apagado hasta regla oficial)' },
   { campo: 'ESTRAT_FECHA_CALCULO',   tipo: 'fecha',  obligatorio: false, tecnico: true,  descripcion: 'Fecha del cálculo y versión de regla aplicada', regla: 'ISO con hora' },
@@ -1211,7 +1211,7 @@ function _Plantilla_visual_(familia, columnas, secciones, opciones) {
 
 var PLANTILLA_VISUAL_INGRESO = _Plantilla_visual_(
   'INGRESO', INGRESO_COLUMNAS, SECCIONES_HOJAS.INGRESO,
-  { superficie: 'editable', validacionOwner: 'Modelo_validarIngresos' });
+  { superficie: 'editable', validacionOwner: 'Modelo_validarIngresos_' });
 var PLANTILLA_VISUAL_SECTOR = _Plantilla_visual_(
   'SECTOR', COLUMNAS_SECTOR_VISTA, SECCIONES_HOJAS.SECTOR_VISTA,
   { superficie: 'derivado' });
@@ -1247,7 +1247,7 @@ const ESTADOS = {
 
 // ---------------------------------------------------------------------------
 // Sinónimos de encabezados (solo equivalencias CONFIRMADAS en levantamiento,
-// ver FUENTES-DATOS.md §4). Claves comparadas vía Utl_claveAlnum.
+// ver FUENTES-DATOS.md §4). Claves comparadas vía Utl_claveAlnum_.
 // Equivalencias ambiguas NO van aquí: DUPLA (LISTADO Naranjo = disciplina),
 // PROFESIONAL mezclada (Naranjo), COLUMN 12, COLUMNA 1, EVALUACIÓN DE PIE,
 // ASISTENCIA, PATOLOGIAS, QUIEN DERIVA, MOTIVO, FECHA DE LLAMADO (→ eventos).

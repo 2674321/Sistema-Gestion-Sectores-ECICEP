@@ -163,9 +163,9 @@ function makeCtx(opciones = {}) {
   };
 
   ctx.precargar = (payload, estado, over = {}) => {
-    const v = sandbox.Captura_v2_validar(payload, { catalogo: ctx.catalogo });
+    const v = sandbox.Captura_v2_validar_(payload, { catalogo: ctx.catalogo });
     if (!v.ok) throw new Error('precargar inválido: ' + JSON.stringify(v.errores));
-    const reg = sandbox.Captura_v2_nuevoRegistro(v.normalizado, { usuario: ctx.usuario, fechaRecepcion: '2026-09-06 09:00:00' });
+    const reg = sandbox.Captura_v2_nuevoRegistro_(v.normalizado, { usuario: ctx.usuario, fechaRecepcion: '2026-09-06 09:00:00' });
     reg.estado = estado;
     reg.reintentos = over.reintentos === undefined ? 0 : over.reintentos;
     reg.motivo = over.motivo || '';
@@ -297,9 +297,9 @@ t('Q1f vestidor de transporte v255 anexado al final (4 columnas)', () => {
 console.log('\nQ2 — Identificador');
 
 t('Q2a nuevoRegistro usa captureId como id único', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso('Cp2-aaaabbbbccccdddd1111222233334444'), { catalogo: CATALOGO });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso('Cp2-aaaabbbbccccdddd1111222233334444'), { catalogo: CATALOGO });
   A(v.ok);
-  const reg = sandbox.Captura_v2_nuevoRegistro(v.normalizado, { usuario: 't', fechaRecepcion: '2026-09-06' });
+  const reg = sandbox.Captura_v2_nuevoRegistro_(v.normalizado, { usuario: 't', fechaRecepcion: '2026-09-06' });
   igual(reg.captureId, 'Cp2-aaaabbbbccccdddd1111222233334444');
   igual(reg.estado, 'RECIBIDO');
 });
@@ -319,10 +319,10 @@ t('Q3a reenvío idéntico (A1) devuelve resultado previo', () => {
   const ctx = makeCtx();
   const id = cid('11111111111111111111111111111111');
   const p = nuevoIngreso(id);
-  const r1 = sandbox.Captura_v2_enviar(p, ctx);
+  const r1 = sandbox.Captura_v2_enviar_(p, ctx);
   A(r1.ok, 'primer envío debe ser ok');
   A(ctx.entregas.length === 1, '1 entrega');
-  const r2 = sandbox.Captura_v2_enviar(p, ctx);
+  const r2 = sandbox.Captura_v2_enviar_(p, ctx);
   A(r2.ok, 'reenvío idéntico debe ser ok');
   A(ctx.entregas.length === 1, 'no duplica entrega');
 });
@@ -331,8 +331,8 @@ t('Q3b reenvío idéntico no duplica fila en registros', () => {
   const ctx = makeCtx();
   const id = cid('22222222222222222222222222222222');
   const p = nuevoIngreso(id);
-  sandbox.Captura_v2_enviar(p, ctx);
-  sandbox.Captura_v2_enviar(p, ctx);
+  sandbox.Captura_v2_enviar_(p, ctx);
+  sandbox.Captura_v2_enviar_(p, ctx);
   A(ctx.registros.size === 1, 'solo 1 registro');
 });
 
@@ -342,8 +342,8 @@ t('Q3c mismo captureId + payload distinto (B) → CONFLICTO_IDEMPOTENCIA', () =>
   const p1 = nuevoIngreso(id);
   const p2 = nuevoIngreso(id);
   p2.nombre = 'OTRO NOMBRE';
-  sandbox.Captura_v2_enviar(p1, ctx);
-  const r2 = sandbox.Captura_v2_enviar(p2, ctx);
+  sandbox.Captura_v2_enviar_(p1, ctx);
+  const r2 = sandbox.Captura_v2_enviar_(p2, ctx);
   A(!r2.ok, 'debe fallar');
   A(r2.errors[0].codigo === 'CONFLICTO_IDEMPOTENCIA', 'CONFLICTO_IDEMPOTENCIA');
 });
@@ -357,8 +357,8 @@ t('Q4a dos envíos idénticos → 1 fila, 1 entrega, estado PROCESADO', () => {
   const ctx = makeCtx();
   const id = cid('44444444444444444444444444444444');
   const p = nuevoIngreso(id);
-  const r1 = sandbox.Captura_v2_enviar(p, ctx);
-  const r2 = sandbox.Captura_v2_enviar(p, ctx);
+  const r1 = sandbox.Captura_v2_enviar_(p, ctx);
+  const r2 = sandbox.Captura_v2_enviar_(p, ctx);
   A(r1.ok && r2.ok);
   A(ctx.registros.size === 1);
   A(ctx.entregas.length === 1);
@@ -380,11 +380,11 @@ t('Q5b FORM_VERSION existe para registrar V2 o V3 por prefijo', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Q6 — Aislamiento: V2 NO aparece en Form_filasPendientes legacy
+// Q6 — Aislamiento: V2 NO aparece en Form_filasPendientes_ legacy
 // ═════════════════════════════════════════════════════════════════════════════
 console.log('\nQ6 — Aislamiento legacy');
 
-t('Q6a Form_filasPendientes excluye filas V2 (FORM_VERSION=2)', () => {
+t('Q6a Form_filasPendientes_ excluye filas V2 (FORM_VERSION=2)', () => {
   const filas = [
     { esV2: true, FORM_VERSION: '2', RESPONSE_ID: 'Cp2-aaa', ESTADO: 'ERROR' },
     { esV2: false, FORM_VERSION: '1', RESPONSE_ID: 'UI-bbb', ESTADO: 'PENDIENTE' },
@@ -394,8 +394,8 @@ t('Q6a Form_filasPendientes excluye filas V2 (FORM_VERSION=2)', () => {
   A(pendientes.length === 2, 'legacy excluye V2');
 });
 
-t('Q6b Form_reiniciarRespuesta rechaza namespace V2', () => {
-  A(typeof sandbox.Form_reiniciarRespuesta === 'function', 'existe');
+t('Q6b Form_reiniciarRespuesta_ rechaza namespace V2', () => {
+  A(typeof sandbox.Form_reiniciarRespuesta_ === 'function', 'existe');
   // La función en 24_Formulario.js tiene guardia S1: rechaza FORM_VERSION='2'
 });
 
@@ -415,14 +415,14 @@ t('Q7a persistirRegistro escribe FECHA_INGRESO en la hoja', () => {
   sandbox.HOJAS = sandbox.HOJAS || {};
   sandbox.HOJAS.FORM_RESPUESTAS = 'FORM_RESPUESTAS';
 
-  const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
-  const reg = sandbox.Captura_v2_nuevoRegistro(v.normalizado, { usuario: 't', fechaRecepcion: '2026-09-06' });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
+  const reg = sandbox.Captura_v2_nuevoRegistro_(v.normalizado, { usuario: 't', fechaRecepcion: '2026-09-06' });
   const mapa = {};
   for (let i = 0; i < cols.length; i++) mapa[cols[i]] = i;
   A(mapa.FECHA_INGRESO !== undefined, 'FECHA_INGRESO tiene columna');
 
   const fila = new Array(cols.length).fill('');
-  const internos = sandbox.Captura_v2_normalizadoAInterno(reg.normalizado, {});
+  const internos = sandbox.Captura_v2_normalizadoAInterno_(reg.normalizado, {});
   fila[mapa.FECHA_FORMS] = reg.fechaRecepcion;
   fila[mapa.RESPONSE_ID] = reg.captureId;
   fila[mapa.FORM_VERSION] = 2;
@@ -442,8 +442,8 @@ t('Q7a persistirRegistro escribe FECHA_INGRESO en la hoja', () => {
 console.log('\nQ8 — Estados');
 
 t('Q8a RECIBIDO es el estado inicial', () => {
-  const v = sandbox.Captura_v2_validar(nuevoIngreso(), { catalogo: CATALOGO });
-  const reg = sandbox.Captura_v2_nuevoRegistro(v.normalizado, { usuario: 't', fechaRecepcion: 'x' });
+  const v = sandbox.Captura_v2_validar_(nuevoIngreso(), { catalogo: CATALOGO });
+  const reg = sandbox.Captura_v2_nuevoRegistro_(v.normalizado, { usuario: 't', fechaRecepcion: 'x' });
   igual(reg.estado, 'RECIBIDO');
 });
 
@@ -466,7 +466,7 @@ t('Q8e RECIBIDO es reintentable §23', () => {
 t('Q8f PROCESADO no se puede reiniciar §23', () => {
   const ctx = makeCtx();
   const reg = ctx.precargar(nuevoIngreso(), 'PROCESADO');
-  const r = sandbox.Captura_v2_reprocesar(reg.captureId, ctx);
+  const r = sandbox.Captura_v2_reprocesar_(reg.captureId, ctx);
   A(!r.ok, 'PROCESADO no reinicia');
   A(r.errors[0].codigo === 'CAMPO_INVALIDO');
 });
@@ -481,7 +481,7 @@ t('Q9a reintento sobre ERROR reintentable re-procesa sin duplicar', () => {
   const id = cid('99999999999999999999999999999999');
   const reg = ctx.precargar(nuevoIngreso(id), 'ERROR', { reintentos: 1 });
   A(ctx.registros.size === 1, '1 fila precargada');
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(id), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(id), ctx);
   A(r.ok, 'reintento debe ser ok');
   A(ctx.registros.size === 1, 'no duplica fila');
   A(ctx.entregas.length === 1, '1 entrega nueva');
@@ -493,7 +493,7 @@ t('Q9b reintento con maxReintentos agotados → ERROR', () => {
   const ctx = makeCtx({ maxReintentos: 1 });
   const id = cid('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
   ctx.precargar(nuevoIngreso(id), 'ERROR', { reintentos: 1 });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(id), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(id), ctx);
   A(!r.ok, 'reintentos agotados');
   A(ctx.entregas.length === 0, 'no entrega');
   igual(ctx.registros.get(id).motivo, 'REINTENTOS_AGOTADOS');
@@ -506,7 +506,7 @@ console.log('\nQ10 — Error persistencia');
 
 t('Q10a si persist falla → error y sin fila', () => {
   const ctx = makeCtx({ failPersistir: true });
-  const r = sandbox.Captura_v2_enviar(nuevoIngreso(), ctx);
+  const r = sandbox.Captura_v2_enviar_(nuevoIngreso(), ctx);
   A(!r.ok, 'debe fallar');
   A(r.errors[0].codigo === 'ERROR_INTERNO');
   A(ctx.registros.size === 0, 'sin fila');
@@ -537,11 +537,11 @@ t('Q11b buscarRegistro retorna null para captureId inexistente', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 console.log('\nQ12 — Regresión PF0');
 
-t('Q12a Modelo_filaFisica = dataStartRow + idxDato (no 2+idx)', () => {
-  A(typeof sandbox.Modelo_filaFisica === 'function', 'existe Modelo_filaFisica');
-  igual(sandbox.Modelo_filaFisica('PACIENTES', 7), 11, 'fila 7 → física 11 (espejo modelo 10_Pruebas:3139)');
-  igual(sandbox.Modelo_filaFisica('EVENTOS', 0), 2, 'EVENTOS fila 0 → física 2');
-  igual(sandbox.Modelo_filaFisica('PACIENTES', 0), 4, 'PACIENTES datosDesdeRow = 4');
+t('Q12a Modelo_filaFisica_ = dataStartRow + idxDato (no 2+idx)', () => {
+  A(typeof sandbox.Modelo_filaFisica_ === 'function', 'existe Modelo_filaFisica_');
+  igual(sandbox.Modelo_filaFisica_('PACIENTES', 7), 11, 'fila 7 → física 11 (espejo modelo 10_Pruebas:3139)');
+  igual(sandbox.Modelo_filaFisica_('EVENTOS', 0), 2, 'EVENTOS fila 0 → física 2');
+  igual(sandbox.Modelo_filaFisica_('PACIENTES', 0), 4, 'PACIENTES datosDesdeRow = 4');
 });
 
 t('Q12b grep 2+idx en src/ no debe tener coincidencias en escrituras', () => {
@@ -549,7 +549,7 @@ t('Q12b grep 2+idx en src/ no debe tener coincidencias en escrituras', () => {
   const lineas = grep.split('\n');
   let ok = true;
   for (let i = 0; i < lineas.length; i++) {
-    if (lineas[i].includes('2+idx') && !lineas[i].includes('//') && !lineas[i].includes('Modelo_filaFisica')) {
+    if (lineas[i].includes('2+idx') && !lineas[i].includes('//') && !lineas[i].includes('Modelo_filaFisica_')) {
       ok = false;
       break;
     }
@@ -568,8 +568,8 @@ t('Q13a buscarRegistro real retorna null para hoja vacía', () => {
   sandbox.Modelo_hojas = sandbox.Modelo_hojas || {};
   const hojaVacia = makeHojaFake(sandbox.FORM_RESPUESTAS_COLUMNAS.slice(), []);
   sandbox.Modelo_hojas.FORM_RESPUESTAS = hojaVacia;
-  sandbox.Modelo_hoja = (nombre) => sandbox.Modelo_hojas[nombre] || null;
-  const r = sandbox.Captura_v2_buscarRegistro('Cp2-00000000000000000000000000000000');
+  sandbox.Modelo_hoja_ = (nombre) => sandbox.Modelo_hojas[nombre] || null;
+  const r = sandbox.Captura_v2_buscarRegistro_('Cp2-00000000000000000000000000000000');
   A(r === null, 'hoja vacía → null');
 });
 
@@ -590,11 +590,11 @@ t('Q13b buscarRegistro real encuentra registro por captureId (bottom-up)', () =>
   const hoja = makeHojaFake(cols.slice(), [fila1, fila2]);
   sandbox.Modelo_hojas.FORM_RESPUESTAS = hoja;
 
-  const r1 = sandbox.Captura_v2_buscarRegistro(id1);
+  const r1 = sandbox.Captura_v2_buscarRegistro_(id1);
   A(r1 !== null, 'encuentra id1');
   igual(r1.captureId, id1);
 
-  const r2 = sandbox.Captura_v2_buscarRegistro(id2);
+  const r2 = sandbox.Captura_v2_buscarRegistro_(id2);
   A(r2 !== null, 'encuentra id2');
   igual(r2.captureId, id2);
   igual(r2.estado, 'RECIBIDO');
@@ -618,7 +618,7 @@ t('Q13c ante duplicado teórico retorna la primera coincidencia puntual', () => 
   const hoja = makeHojaFake(cols.slice(), [fila1, fila2]);
   sandbox.Modelo_hojas.FORM_RESPUESTAS = hoja;
 
-  const r = sandbox.Captura_v2_buscarRegistro(id);
+  const r = sandbox.Captura_v2_buscarRegistro_(id);
   A(r !== null);
   igual(r.estado, 'ERROR', 'el camino caliente no barre duplicados');
 });
@@ -640,7 +640,7 @@ t('Q13d buscarRegistro lee fechaIngreso de la columna física', () => {
   const hoja = makeHojaFake(cols.slice(), [fila]);
   sandbox.Modelo_hojas.FORM_RESPUESTAS = hoja;
 
-  const r = sandbox.Captura_v2_buscarRegistro(id);
+  const r = sandbox.Captura_v2_buscarRegistro_(id);
   A(r !== null);
   igual(r.fechaIngreso, '2026-08-15', 'fechaIngreso leída');
 });

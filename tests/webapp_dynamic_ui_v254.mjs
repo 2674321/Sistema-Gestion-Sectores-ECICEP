@@ -9,7 +9,7 @@ for (const expected of ['NUEVO_INGRESO">Nuevo ingreso', 'REGISTRAR_CONTROL">Cont
 assert.doesNotMatch(html, /<input[^>]+type="radio"[^>]+name="accion"/);
 assert.match(html, /function getAccion\(\)\{return document\.getElementById\("accion"\)\.value\}/);
 assert.match(html, /\.WebApp_capturarRecibirDurable\(datos,/);
-assert.doesNotMatch(html, /\.WebApp_previaDuplicadosV2\(datos,/);
+assert.doesNotMatch(html, /\.WebApp_previaDuplicadosV2_\(datos,/);
 assert.match(html, /clientRequestId/); assert.doesNotMatch(html, /captureId:e\.captureId/);
 assert.match(html, /Registro recibido correctamente\. ECICEP lo procesará automáticamente\./);
 console.log('webapp_dynamic_ui_v254: PASS');

@@ -41,29 +41,29 @@ const max=Array.from({length:NP},()=>({CONTROL:'',SEGUIMIENTO:''}));
 const eRows=Array.from({length:NE},(_,i)=>{const p=i%NP,id=`P${String(p+1).padStart(6,'0')}`,tipo=i%2?'CONTROL':'SEGUIMIENTO';const day=String(i%28+1).padStart(2,'0'),fecha=`2026-08-${day}`;if(fecha>max[p][tipo])max[p][tipo]=fecha;const r=Array(eHeaders.length).fill('');r[ei.ID_EVENTO]=`E${String(i+1).padStart(7,'0')}`;r[ei.ID_INTERNO]=id;r[ei.FECHA_EVENTO]=fecha;r[ei.TIPO_EVENTO]=tipo;r[ei.FUENTE]=`SINTETICO|${i+1}`;r[ei.FECHA_REGISTRO]=fecha+'T12:00:00Z';return r});
 const desalineados=new Set(Array.from({length:530},(_,j)=>j*5));
 pRows.forEach((r,i)=>{r[pi.ULTIMO_CONTROL]=desalineados.has(i)?'':max[i].CONTROL;r[pi.ULTIMO_SEGUIMIENTO]=desalineados.has(i)?'':max[i].SEGUIMIENTO;r[pi.FECHA_ACTUALIZACION]='2026-01-01'});
-const hrP=c.Modelo_headerRow('PACIENTES'),hrE=c.Modelo_headerRow('EVENTOS');
+const hrP=c.Modelo_headerRow_('PACIENTES'),hrE=c.Modelo_headerRow_('EVENTOS');
 const sheets={PACIENTES:new Sheet('PACIENTES',pHeaders,pRows,hrP),EVENTOS:new Sheet('EVENTOS',eHeaders,eRows,hrE)};
-c.Modelo_hoja=n=>sheets[n]||null;c.Modelo_ss=()=>({getSheetByName:n=>sheets[n]||null});
-c.CacheService=undefined;c.PropertiesService=undefined;c.Log_info=()=>{};c.Log_flush=()=>{};c.Sistema_marcarAuditoriaStale_=()=>{};c.Inicio_marcarDirty_=()=>{};
+c.Modelo_hoja_=n=>sheets[n]||null;c.Modelo_ss_=()=>({getSheetByName:n=>sheets[n]||null});
+c.CacheService=undefined;c.PropertiesService=undefined;c.Log_info_=()=>{};c.Log_flush_=()=>{};c.Sistema_marcarAuditoriaStale_=()=>{};c.Inicio_marcarDirty_=()=>{};
 
 // Baseline reproducible del HEAD auditado: seis requests profundos (diagnóstico,
 // ingreso, cache, tres vistas/postcheck agrupados aquí) leen ancho completo y
 // la auditoría histórica hace un scan de RESPONSE_ID.
 reset();
-for(let n=0;n<6;n++){c.Modelo_leerBloqueCabecera('PACIENTES',sheets.PACIENTES);c.Modelo_leerBloqueCabecera('EVENTOS',sheets.EVENTOS)}
+for(let n=0;n<6;n++){c.Modelo_leerBloqueCabecera_('PACIENTES',sheets.PACIENTES);c.Modelo_leerBloqueCabecera_('EVENTOS',sheets.EVENTOS)}
 io.getRange++;io.getValues++;io.celdasLeidas+=NP;
 const antes={...io,formScans:1,rpcVistas:3,maxUnidadCeldas:(NP+1)*pHeaders.length+(NE+1)*eHeaders.length+NP,cacheWrites:3};
 
-reset();c.Modelo_invalidarLecturas();
+reset();c.Modelo_invalidarLecturas_();
 const unidades=[];
 for(let n=0;n<2;n++){const inicio=io.celdasLeidas;const d=c.Integridad_diagnosticarBase_();assert.equal(d.cachesPendientes,530);unidades.push(io.celdasLeidas-inicio)}
 // Tres vistas: lectura real proyectada por RPC (15 campos paciente + 6 campos
 // evento para conservar correcciones de fecha y trazabilidad).
-for(const sector of ['NARANJO','AMARILLO','VERDE']){const inicio=io.celdasLeidas;c.Modelo_leerPacientesCampos([...c.COLUMNAS_SECTOR_VISTA.filter(x=>x!=='EDAD'&&x!=='ULTIMO_EVENTO'),'SECTOR']);c.Modelo_leerEventosCampos(['ID_INTERNO','FECHA_EVENTO','TIPO_EVENTO','FECHA_REGISTRO']);unidades.push(io.celdasLeidas-inicio)}
-c.Modelo_invalidarLecturas();const reparacion=c.Control_recalcularCaches_();
+for(const sector of ['NARANJO','AMARILLO','VERDE']){const inicio=io.celdasLeidas;c.Modelo_leerPacientesCampos_([...c.COLUMNAS_SECTOR_VISTA.filter(x=>x!=='EDAD'&&x!=='ULTIMO_EVENTO'),'SECTOR']);c.Modelo_leerEventosCampos_(['ID_INTERNO','FECHA_EVENTO','TIPO_EVENTO','FECHA_REGISTRO']);unidades.push(io.celdasLeidas-inicio)}
+c.Modelo_invalidarLecturas_();const reparacion=c.Control_recalcularCaches_();
 assert.equal(reparacion.cambios,530);assert.equal(reparacion.modoEscritura,'COLUMNAS_BATCH');
 const escriturasPrimera=io.setValues;
-c.Modelo_invalidarLecturas();const segunda=c.Control_recalcularCaches_();
+c.Modelo_invalidarLecturas_();const segunda=c.Control_recalcularCaches_();
 assert.equal(segunda.cambios,0);assert.equal(segunda.modoEscritura,'SIN_ESCRITURAS');
 const despues={...io,formScans:0,rpcVistas:3,maxUnidadCeldas:Math.max(...unidades),cacheWrites:escriturasPrimera};
 assert.equal(despues.fullPacientes,2,'solo las dos pasadas explícitas de reparación leen PACIENTES completo');

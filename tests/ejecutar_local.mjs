@@ -63,7 +63,7 @@ sandbox.Session = {
 vm.createContext(sandbox);
 
 try {
-  vm.runInContext(codigo + '\n;__resultado = Pruebas_ejecutarTodo();', sandbox, { filename: 'ecicep-nucleo.js' });
+  vm.runInContext(codigo + '\n;__resultado = Pruebas_ejecutarTodo_();', sandbox, { filename: 'ecicep-nucleo.js' });
 } catch (e) {
   console.error('ERROR cargando el núcleo:', e.message);
   process.exit(2);
