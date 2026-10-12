@@ -150,11 +150,31 @@ function Calidad_sincronizarCola_() {
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA_CONFLICTOS' };
 
   var valores = Utl_leerBloque(hoja);
-  var colId = 2; // ID_INTERNO
-  var colEstado = 9, colResueltoPor = 10, colDetalle = 6, colNombre = 4;
+  // Índices DERIVADOS del encabezado real de CONFLICTOS, nunca números fijos:
+  // el contrato fija el orden (FECHA_DETECCION, TIPO, ID_INTERNO, RUT, NOMBRE,
+  // DETALLE, FUENTE_A, FUENTE_B, ESTADO_REVISION, RESUELTO_POR) y este código
+  // mezclaba base 0 (lectura de valores) con base 1 (getRange), lo que leía
+  // FUENTE_B en vez de FUENTE_A: `filasCalidad` quedaba SIEMPRE vacío, cada
+  // sincronización duplicaba la cola CALIDAD y el auto-resolve era código
+  // muerto (DEC-104).
+  var enc = (valores[0] || []).map(function (h) { return Utl_texto(h); });
+  var colDe = function (nombre) {
+    var i = enc.indexOf(nombre);
+    return i < 0 ? -1 : i;                       // base 0 (lectura por índice)
+  };
+  var colId = colDe('ID_INTERNO');
+  var colFuenteA = colDe('FUENTE_A');
+  var colEstado = colDe('ESTADO_REVISION');
+  var colResueltoPor = colDe('RESUELTO_POR');
+  var colDetalle = colDe('DETALLE');
+  var colNombre = colDe('NOMBRE');
+  if (colId < 0 || colFuenteA < 0 || colEstado < 0 || colResueltoPor < 0 ||
+      colDetalle < 0 || colNombre < 0) {
+    return { ok: false, motivo: 'COLUMNAS_CONFLICTOS_INVALIDAS' };
+  }
   var filasCalidad = {}; // idInterno → fila en hoja (solo filas FUENTE_A=CALIDAD)
   for (var i = 1; i < valores.length; i++) {
-    if (Utl_texto(valores[i][7]) === 'CALIDAD') {
+    if (Utl_texto(valores[i][colFuenteA]) === 'CALIDAD') {
       filasCalidad[Utl_texto(valores[i][colId])] = i + 1;
     }
   }
@@ -191,12 +211,14 @@ function Calidad_sincronizarCola_() {
       }
     }
   });
-  /* escritura por bloque (regla: nunca setValue dentro de loops) */
-  function _escribirCol(col, porFila) {
+  /* escritura por bloque (regla: nunca setValue dentro de loops).
+     getRange es base 1; los índices de arriba son base 0 como toda lectura de
+     `getValues`. La conversión vive en el único punto que escribe. */
+  function _escribirCol(col0, porFila) {
     var filas = Object.keys(porFila).map(Number);
     if (!filas.length) return;
     var fMin = Math.min.apply(null, filas), fMax = Math.max.apply(null, filas);
-    var rango = hoja.getRange(fMin, col, fMax - fMin + 1, 1);
+    var rango = hoja.getRange(fMin, col0 + 1, fMax - fMin + 1, 1);
     var v = rango.getValues();
     filas.forEach(function (f) { v[f - fMin][0] = porFila[f]; });
     rango.setValues(v);
@@ -230,7 +252,11 @@ function Calidad_normalizarFormatoRuts_() {
     var norm = Norm_normalizarRut(original);
     if (!norm.rut || norm.rut === original) return;
     if (!Norm_validarRut(norm.rut)) return; // solo formato, con evidencia
-    var fila = 2 + ix;
+    // PACIENTES usa layout VISUAL (datos desde la fila 4). El código Anterior
+    // usaba `2 + ix`, que escribía el RUT en el banner de secciones (ix=0) y en
+    // la fila de encabezados (ix=1) y desplazaba 2 filas al resto del bloque
+    // (DEC-104). La coordenada sale del contrato de layout, no del índice.
+    var fila = Modelo_filaFisica(HOJAS.PACIENTES, ix);
     filas.push(fila);
     valores[fila] = norm.rut;
     corregidos++;

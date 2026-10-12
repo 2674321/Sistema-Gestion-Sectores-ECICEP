@@ -228,19 +228,21 @@ function makeHojaFake(headers, filas) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Q1 — Esquema: FORM_RESPUESTAS tiene 26 columnas, FECHA_INGRESO presente
+// Q1 — Esquema: 26 columnas clínicas + 2 columnas de transporte v253
 // ═════════════════════════════════════════════════════════════════════════════
 console.log('\nQ1 — Esquema FORM_RESPUESTAS');
 
-t('Q1a FORM_RESPUESTAS_COLUMNAS tiene 26 columnas (4+12+10 tras PF5)', () => {
+t('Q1a FORM_RESPUESTAS_COLUMNAS tiene 28 columnas (26 + transporte)', () => {
   const cols = sandbox.FORM_RESPUESTAS_COLUMNAS;
   A(Array.isArray(cols), 'FORM_RESPUESTAS_COLUMNAS debe ser array');
-  igual(cols.length, 26, '26 columnas declaradas');
+  igual(cols.length, 28, '28 columnas declaradas');
 });
 
-t('Q1b FECHA_INGRESO es la última columna del esquema', () => {
+t('Q1b FECHA_INGRESO conserva posición y transporte se anexa al final', () => {
   const cols = sandbox.FORM_RESPUESTAS_COLUMNAS;
-  igual(cols[cols.length - 1], 'FECHA_INGRESO', 'FECHA_INGRESO al final');
+  igual(cols[25], 'FECHA_INGRESO', 'FECHA_INGRESO conserva posición histórica');
+  igual(cols[26], 'CAPTURE_PROVIDER', 'provider anexado');
+  igual(cols[27], 'TRANSPORT_RESPONSE_ID', 'response id anexado');
 });
 
 t('Q1c encabezados iniciales correctos (4 header)', () => {

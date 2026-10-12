@@ -14,10 +14,21 @@
  *   - no hay fecha del evento.
  */
 
-function Ev_nuevoId(secuencia) {
-  if (typeof secuencia === 'number') return 'EV-' + ('0000' + secuencia).slice(-4);
+/**
+ * Generador canónico de ID_EVENTO. Orden de preferencia:
+ *   - SIN argumentos → generador automático (único camino de producción).
+ *   - {secuenciaTest: n} → modo determinista para pruebas, por inyección
+ *     explícita de dependencia. No existe ningún call site productivo que lo
+ *     use: un ID secuencial en producción reiniciaría en cada ejecución y
+ *     colisionaría con el histórico (DEC-104).
+ * Formato automático: EV-<base36 tiempo>-<4 chars aleatorios>, con relleno a 4
+ * para que la longitud sea estable (36^4 = 1679616 casos por milisegundo).
+ */
+function Ev_nuevoId(opciones) {
+  var seqTest = opciones && typeof opciones.secuenciaTest === 'number' ? opciones.secuenciaTest : null;
+  if (seqTest !== null) return 'EV-' + ('0000' + seqTest).slice(-4);
   return 'EV-' + Date.now().toString(36).toUpperCase() + '-' +
-    Math.floor(Math.random() * 1679616).toString(36).toUpperCase();
+    Utl_sufijoAleatorio(4);
 }
 
 /**
@@ -71,7 +82,7 @@ function Ev_desdeStaging(fila, opciones) {
   // el evento NUNCA se enlaza al candidato existente; la consolidación creará entidad nueva.
   res.ok = true;
   res.evento = {
-    ID_EVENTO: Ev_nuevoId(opciones.secuencia),
+    ID_EVENTO: Ev_nuevoId(opciones.secuenciaTest !== undefined ? { secuenciaTest: opciones.secuenciaTest } : null),
     ID_INTERNO: esNuevo ? '' : iden.idPaciente,
     ES_NUEVO_PACIENTE: esNuevo,
     RUT: n.RUT,
@@ -81,6 +92,10 @@ function Ev_desdeStaging(fila, opciones) {
     SECTOR: n.SECTOR,
     RIESGO_G: n.ESTRATIFICACION || '',        // snapshot; jamás inferido del sector
     PROFESIONAL: opciones.profesional || '',
+    // DEC-104: el segundo profesional de la dupla es un campo estructural del
+    // EVENTO, no una concatenación dentro de PROFESIONAL. Antes se perdía en
+    // silencio (el contrato lo aceptaba y ningún escritor lo transportaba).
+    PROFESIONAL2: opciones.profesionalSecundario || '',
     DESCRIPCION: opciones.descripcion || '',
     CANTIDAD: (opciones.cantidad !== undefined && opciones.cantidad !== null) ? opciones.cantidad : '',
     OBSERVACIONES: n.OBSERVACIONES || '',

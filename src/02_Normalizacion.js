@@ -105,7 +105,21 @@ function Norm_normalizarTelefono(raw) {
     var letras = tok.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñÜü\s]/g, ' ').replace(/\s+/g, ' ').trim();
     if (letras !== '' && letras.length > 1) res.observaciones.push(letras.toUpperCase());
 
-    var candidatos = tok.replace(/[^0-9+]+/g, ' ').trim().split(/\s+/);
+    /* DEC-104: un teléfono escrito con separadores internos ("9 6060 0712",
+       "(2) 2345 6789", "+56 9 9060 0712") es UN número, no varios. El código
+       validaba cada fragmento por separado, todos caían bajo el mínimo de 8
+       dígitos y el campo se aceptaba pero se perdía entero, dejando solo un
+       "NUMERO DESCARTADO" como rastro. Ahora se interpreta primero la corrida
+       completa de dígitos; los grupos sueltos solo se separan cuando esa
+       corrida NO puede ser un teléfono (varios números en un mismo campo). */
+    var corrida = tok.replace(/[^0-9]+/g, '');
+    var candidatos;
+    if (corrida.indexOf('56') === 0 && corrida.length >= 11) corrida = corrida.substring(2); // código país
+    if (corrida.length >= 8 && corrida.length <= 9) {
+      candidatos = [corrida];
+    } else {
+      candidatos = tok.replace(/[^0-9+]+/g, ' ').trim().split(/\s+/);
+    }
     for (var j = 0; j < candidatos.length; j++) {
       var solo = candidatos[j].replace(/^\+/, '');
       if (solo === '' || solo === '+') continue;

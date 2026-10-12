@@ -536,6 +536,10 @@ function Eventos_registrarPaciente_(payload, contexto) {
       SECTOR: objetivo.SECTOR,
       RIESGO_G: objetivo.ESTRATIFICACION || '',
       PROFESIONAL: p.profesional || '',
+      // DEC-104: segundo profesional de la dupla, campo estructural propio.
+      // Antes el contrato de captura aceptaba `profesionalSecundario` y esta
+      // entrega lo descartaba: dato aceptado → no persistido → PROCESADO.
+      PROFESIONAL2: p.profesionalSecundario || '',
       PROFESIONAL_TIPO: '',
       DESCRIPCION: p.descripcion || '',
       CANTIDAD: '',

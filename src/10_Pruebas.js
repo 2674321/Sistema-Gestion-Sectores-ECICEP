@@ -507,7 +507,7 @@ function _pruebas_eventos_staging(t, A) {
   t('EVENTO: nuevo paciente → evento INGRESO completo y trazable', function () {
     var f = _stagingCaso('nuevoOk', 44);
     f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, indices);
-    var r = Ev_desdeStaging(f, { secuencia: 1 });
+    var r = Ev_desdeStaging(f, { secuenciaTest: 1 });
     A.cierto(r.ok, 'creado');
     var ev = r.evento;
     A.igual(ev.ID_EVENTO, 'EV-0001', 'id determinista');
@@ -2901,7 +2901,7 @@ function _pruebas_dialogos_v087(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.3', 'versión esperada v0.16.3');
+    A.igual(v, '0.16.4', 'versión esperada v0.16.4');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3141,7 +3141,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.3', 'versión esperada v0.16.3');
+    A.igual(v, '0.16.4', 'versión esperada v0.16.4');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5806,9 +5806,13 @@ function _pruebas_p0_auditoria_v098(t, A) {
       A.cierto(!/^EV-\d{4}$/.test(id), 'no es el secuencial viejo (EV-0001...)');
     }
   });
-  t('P0 v0.98: Ev_nuevoId con secuencia numérica conserva el modo tests', function () {
-    A.igual(Ev_nuevoId(5), 'EV-0005', 'secuencia 5');
-    A.igual(Ev_nuevoId(421), 'EV-0421', 'secuencia 421');
+  t('DEC-104: Ev_nuevoId secuencial solo por inyección explícita (modo tests)', function () {
+    A.igual(Ev_nuevoId({ secuenciaTest: 5 }), 'EV-0005', 'secuencia 5');
+    A.igual(Ev_nuevoId({ secuenciaTest: 421 }), 'EV-0421', 'secuencia 421');
+    // Un argumento posicional NO puede reintroducir IDs secuenciales en
+    // producción: sin objeto de opciones el generador es siempre automático.
+    A.cierto(!/^EV-\d{4}$/.test(Ev_nuevoId(5)), 'un número suelto no activa el modo tests');
+    A.cierto(!/^EV-\d{4}$/.test(Ev_nuevoId()), 'sin opciones → automático');
   });
   t('P0 v0.98: procesarFilas sin evSecuenciaInicial → ID_EVENTO random (no reinicia en 1)', function () {
     var store = { pacientes: [], eventos: [] };
@@ -6409,7 +6413,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
     A.cierto(sistemaMatch, 'menú Sistema existe');
     var items = sistemaMatch[1].match(/\.addItem/g);
-    A.igual(items ? items.length : 0, 2, 'Sistema tiene 2 items');
+    A.igual(items ? items.length : 0, 3, 'Sistema tiene 3 items');
     A.cierto(sistemaMatch[1].indexOf("addItem('Actualizar sistema', 'UI_actualizarSistema')") !== -1,
       'Actualizar sistema está en el menú Sistema');
     A.cierto(sistemaMatch[1].indexOf("addItem('Instalar / reparar', 'UI_instalarSistema')") !== -1,
@@ -6429,7 +6433,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.3', 'VERSION es 0.16.3');
+    A.cierto(ECICEP.VERSION === '0.16.4', 'VERSION es 0.16.4');
   });
 
   t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {

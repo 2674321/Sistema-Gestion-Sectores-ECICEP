@@ -1,15 +1,13 @@
 /**
- * Sistema ECICEP — WebApp de captura (v0.9.3)
- * NUEVO CANAL DE ENTRADA (HTML propio) que reemplaza a Google Forms como
- * interfaz de captura. NO es una segunda implementación: reutiliza el 100%
- * del backend existente (validación, decisión, efectos, idempotencia).
+ * Sistema ECICEP — Web App de captura.
+ * CapturaWeb es la única interfaz operativa. Google Forms funciona detrás de
+ * ella como cola durable interna y nunca se publica como interfaz paralela.
  *
- * Flujo vigente (captura V4 — único canal, contrato docs/CONTRATO_CAPTURA_V2.md NORMATIVO):
- *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
- *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
- *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2/3/4, TRAZA_CRUDA JSON) + entrega acotada + trailer.
- *   El puente de captura y el panel de procesamiento de Google Forms fueron
- *   retirados: la única entrada operativa es WebApp_capturarEnviar.
+ * Flujo vigente (captura V4; contrato docs/CONTRATO_CAPTURA_V2.md):
+ *   CapturaWeb.html → WebApp_capturarRecibirDurable → FormResponse.submit()
+ *     → Form_worker → CapturaIngress_adapterForms → Captura_v2_enviar.
+ * La recepción responde RECIBIDO después de persistir. El worker es el único
+ * mutador clínico del transporte y deriva captureId de formId + responseId.
  *
  * AISLAMIENTO: este módulo NO crea bases ni lógica paralela. El código es
  * autónomo y portátil: utiliza el contexto del proyecto (SpreadsheetApp.getActive()
@@ -294,8 +292,8 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura: pantalla simple de registro, con salida única
- *  al portal de funciones (misma credencial universal, sin token en la URL). */
+/** Sirve la única interfaz operativa de captura. Google Forms queda detrás de
+ *  esta pantalla como transporte durable interno; su URL no se publica. */
 function WebApp_servirCaptura_(accesoUniversal) {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
   plantilla.CAPTURA_ACCESO = accesoUniversal || '';
@@ -327,7 +325,6 @@ function WebApp_servirCaptura_(accesoUniversal) {
  * y valida con LO MISMO que valida el backend — sin reglas duplicadas a mano.
  */
 function WebApp_esquemaFormulario(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Form_esquemaFormulario();
 }
 
@@ -351,7 +348,6 @@ function WebApp_resumenPaciente(p) {
 }
 
 function api_webappEstado(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
   return {
     ok: true,
     version: ECICEP.VERSION,
@@ -369,9 +365,6 @@ function api_webappEstado(acceso) {
  *  ok:false + codigo + motivo. Un catálogo vacío NO se considera éxito:
  *  el formulario no debe quedar semihabilitado sin profesionales cargables. */
 function WebApp_estadoInicial(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) {
-    return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO' };
-  }
   try {
     var profesionales = WebApp_profesionalesDropdown();
     if (!profesionales || !profesionales.length) {

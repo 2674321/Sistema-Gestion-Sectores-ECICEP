@@ -19,7 +19,7 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
 const srcO = c.onOpen.toString();
 const mS = srcO.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
 assert.ok(mS, 'menú Sistema existe');
-assert.equal((mS[1].match(/\.addItem/g) || []).length, 2, 'Sistema tiene 2 items');
+assert.equal((mS[1].match(/\.addItem/g) || []).length, 3, 'Sistema tiene 3 items');
 assert.match(mS[1], /addItem\('Actualizar sistema', 'UI_actualizarSistema'\)/);
 assert.match(mS[1], /addItem\('Instalar \/ reparar', 'UI_instalarSistema'\)/);
 assert.ok(!/UI_repararPresentacion/.test(mS[1]), 'Reparar presentación fuera del menú');

@@ -346,8 +346,12 @@ function Form_validarRespuesta(respuesta, opciones) {
 
   // Campos compartidos (opcionales). El teléfono NO bloquea un ingreso válido:
   // si viene inválido se registra vacío (el pipeline emite advertencias).
+  // DEC-105: las anotaciones que extrae el normalizador (nombre del familiar,
+  // "número descartado", etc.) tienen destino propio en TELEFONO_OBS y antes
+  // se destruían en silencio: se separaban del texto y se descartaban.
   var tel = Norm_normalizarTelefono(v.TELEFONOS !== undefined ? v.TELEFONOS : '');
   n.TELEFONOS = tel.telefonos.join('/');
+  if (!Utl_texto(n.TELEFONO_OBS)) n.TELEFONO_OBS = tel.observaciones.join('; ');
   n.PROFESIONAL = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL)).toUpperCase();
   n.PROFESIONAL2 = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL2 || '')).toUpperCase();
   if (n.PROFESIONAL && n.PROFESIONAL2 && n.PROFESIONAL === n.PROFESIONAL2) {
@@ -621,7 +625,8 @@ function Form_trazabilidad(filas, mapa, opciones) {
       idEvento: idx['IDEVENTO'] !== undefined ? Utl_texto(fila[idx['IDEVENTO']]) : '',
       estado: estado || 'RECIBIDO',
       motivo: idx['MOTIVO'] !== undefined ? Utl_texto(fila[idx['MOTIVO']]) : '',
-      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0
+      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0,
+      provider: idx['CAPTUREPROVIDER'] !== undefined ? Utl_texto(fila[idx['CAPTUREPROVIDER']]) : ''
     });
   });
   return salida;
@@ -929,7 +934,7 @@ function Form_refrescarControl() {
     traz.forEach(function (t) {
       filas.push([
         t.responseId, t.marca, t.fechaForms, t.accion, t.rut, t.idInterno,
-        t.estado, t.motivo, t.reintentos, t.idEvento
+        t.estado, t.motivo, t.reintentos, t.idEvento, t.provider
       ]);
     });
 
@@ -1583,7 +1588,7 @@ function Form_procesarPendientes(opciones) {
         var okAct = pac ? Form_actualizarDatosPaciente(pac, d.normalizado, marca) : false;
         var evOtro = Eventos_registrarPaciente_({
           idInterno: d.idInterno, tipoEvento: 'OTRO', fecha: Form_hoy({}),
-          profesional: d.normalizado.PROFESIONAL, descripcion: 'ACTUALIZACION_VIA_FORM',
+          profesional: d.normalizado.PROFESIONAL, profesionalSecundario: d.normalizado.PROFESIONAL2 || '', descripcion: 'ACTUALIZACION_VIA_FORM',
           observaciones: d.normalizado.OBSERVACIONES, fuente: marca, registradoPor: 'FORM v' + FORM_CONFIG.FORM_VERSION
         }, { fuenteTransporte: 'pipeline-form' });
         d._ok = okAct && evOtro.ok;
@@ -1591,7 +1596,7 @@ function Form_procesarPendientes(opciones) {
       } else {
         var resp = Eventos_registrarPaciente_({
           idInterno: d.idInterno, tipoEvento: eventoClave, fecha: d.normalizado.FECHA_EVENTO,
-          profesional: d.normalizado.PROFESIONAL, descripcion: '',
+          profesional: d.normalizado.PROFESIONAL, profesionalSecundario: d.normalizado.PROFESIONAL2 || '', descripcion: '',
           observaciones: d.normalizado.OBSERVACIONES, fuente: marca,
           registradoPor: 'FORM v' + FORM_CONFIG.FORM_VERSION
         }, { fuenteTransporte: 'pipeline-form' });

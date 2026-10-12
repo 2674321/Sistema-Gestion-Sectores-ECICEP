@@ -251,3 +251,23 @@ function Ecicep_conLock_(fn) {
 function Api_error_(codigo, mensaje) {
   return { ok: false, codigo: codigo, motivo: mensaje || codigo };
 }
+
+/**
+ * Sufijo aleatorio de longitud fija en base36, para los generadores canónicos de
+ * identificadores (DEC-104). `n` dígitos base36 ⇒ 36^n casos. Rellena con ceros a
+ * la izquierda para que la longitud del ID sea estable (los IDs se comparan y
+ * ordenan como texto en la UI y en las hojas).
+ * @param {number} n longitud en caracteres base36
+ * @returns {string}
+ */
+function Utl_sufijoAleatorio(n) {
+  var largo = Math.max(1, Math.min(12, n || 4));
+  var tope = Math.pow(36, largo);
+  var r;
+  // do/while: Math.random() puede devolver exactamente 1 en implementaciones
+  // perezosas; el resultado debe quedar siempre en [0, tope).
+  do { r = Math.floor(Math.random() * tope); } while (r >= tope);
+  var s = r.toString(36).toUpperCase();
+  while (s.length < largo) s = '0' + s;
+  return s;
+}
