@@ -1,15 +1,13 @@
 /**
- * Sistema ECICEP — WebApp de captura (v0.9.3)
- * NUEVO CANAL DE ENTRADA (HTML propio) que reemplaza a Google Forms como
- * interfaz de captura. NO es una segunda implementación: reutiliza el 100%
- * del backend existente (validación, decisión, efectos, idempotencia).
+ * Sistema ECICEP — Web App de captura.
+ * CapturaWeb es la única interfaz operativa. Google Forms funciona detrás de
+ * ella como cola durable interna y nunca se publica como interfaz paralela.
  *
- * Flujo vigente (captura V4 — único canal, contrato docs/CONTRATO_CAPTURA_V2.md NORMATIVO):
- *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
- *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
- *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2/3/4, TRAZA_CRUDA JSON) + entrega acotada + trailer.
- *   El puente de captura y el panel de procesamiento de Google Forms fueron
- *   retirados: la única entrada operativa es WebApp_capturarEnviar.
+ * Flujo vigente (captura V4; contrato docs/CONTRATO_CAPTURA_V2.md):
+ *   CapturaWeb.html → WebApp_capturarRecibirDurable → FormResponse.submit()
+ *     → Form_worker → CapturaIngress_adapterForms → Captura_v2_enviar.
+ * La recepción responde RECIBIDO después de persistir. El worker es el único
+ * mutador clínico del transporte y deriva captureId de formId + responseId.
  *
  * AISLAMIENTO: este módulo NO crea bases ni lógica paralela. El código es
  * autónomo y portátil: utiliza el contexto del proyecto (SpreadsheetApp.getActive()

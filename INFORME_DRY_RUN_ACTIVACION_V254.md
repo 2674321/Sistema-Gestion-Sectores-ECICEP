@@ -1,4 +1,7 @@
-# Informe dry run de activación v254
+# Informe dry run de activación v254 (supersedido)
+
+> Sustituido por `INFORME_DRY_RUN_ACTIVACION_V254_FINAL.md`, generado después
+> de reconciliar el código productivo y el harness en v254.4.
 
 ESTADO: DRY_RUN_ACTIVATION_PASS
 
@@ -19,7 +22,9 @@ Apps Script (snapshot solo lectura)
 Instalador
 - 10x idempotencia: PASS
 - Form nuevo: NO
-- canonical map: PASS, `GLOBAL|ACCION` + 31 itemIds canónicos únicos
+- canonical map: PASS en esa revisión; el cierre v254.4 usa `GLOBAL|ACCION` +
+  33 itemIds clínicos para conservar también `TELEFONO_OBS` y `SALUD_MENTAL`
+  en actualización.
 - schema con 0 respuestas: reconstrucción determinista PASS
 - schema con respuestas: conservación PASS; conflicto → `FORM_SCHEMA_REQUIRES_REVIEW`
 

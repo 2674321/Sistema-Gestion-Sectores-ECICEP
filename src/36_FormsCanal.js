@@ -18,14 +18,15 @@
 //
 // Configuración operativa (ScriptProperties, nunca en Git):
 //   GOOGLE_FORM_ID, GOOGLE_FORM_URL, GOOGLE_FORM_EDIT_URL,
-//   GOOGLE_FORM_SCHEMA_VERSION, GOOGLE_FORM_ITEM_MAP, GOOGLE_FORM_TITLE_MAP,
+//   GOOGLE_FORM_SCHEMA_VERSION, GOOGLE_FORM_ITEM_MAP, GOOGLE_FORM_CANONICAL_ITEM_MAP,
+//   GOOGLE_FORM_TITLE_MAP,
 //   GOOGLE_FORM_ESTADO, GOOGLE_FORM_CURSOR, GOOGLE_FORM_ERRORS|<captureId>,
 //   GOOGLE_FORM_METRIC_<clave>  (LOCK_BUSY_DEFERRED, WORKER_RUNS, ...)
 // Estáticos en GOOGLE_FORMS_CONFIG (00_Config.js).
 // ---------------------------------------------------------------------------
 
 var GOOGLE_FORMS_PROPS = ['GOOGLE_FORM_ID', 'GOOGLE_FORM_URL', 'GOOGLE_FORM_EDIT_URL',
-  'GOOGLE_FORM_SCHEMA_VERSION', 'GOOGLE_FORM_ITEM_MAP', 'GOOGLE_FORM_TITLE_MAP',
+  'GOOGLE_FORM_SCHEMA_VERSION', 'GOOGLE_FORM_ITEM_MAP', 'GOOGLE_FORM_CANONICAL_ITEM_MAP', 'GOOGLE_FORM_TITLE_MAP',
   'GOOGLE_FORM_ESTADO', 'GOOGLE_FORM_CURSOR'];
 
 /** GAS: lector seguro de ScriptProperties (null en node). */
@@ -87,7 +88,7 @@ function Form_esquemaCanonial_() {
     NUEVO_INGRESO: ['RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR', 'FECHA_INGRESO', 'ESTRATIFICACION', 'SALUD_MENTAL', 'TELEFONOS', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
     REGISTRAR_CONTROL: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
     REGISTRAR_SEGUIMIENTO: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
-    ACTUALIZAR_DATOS: ['RUT', 'TELEFONOS', 'PROXIMO_CONTROL', 'OBSERVACIONES', 'PROFESIONAL', 'PROFESIONAL2']
+    ACTUALIZAR_DATOS: ['RUT', 'TELEFONOS', 'TELEFONO_OBS', 'PROXIMO_CONTROL', 'SALUD_MENTAL', 'OBSERVACIONES', 'PROFESIONAL', 'PROFESIONAL2']
   };
   return { secciones: secciones, campos: camposPorSeccion };
 }
@@ -100,30 +101,17 @@ function Form_tipoItem_(campo) {
   return 'TEXTO';
 }
 
-/** GAS: construye o repara el esquema del Form. Idempotente: detecta items
- *  existentes por título y solo agrega los faltantes; nunca duplica. */
+/** GAS: construye o repara el esquema del Form. La identidad persistida por
+ * itemId es prioritaria; los títulos solo sirven como fallback de instalación. */
+function Form_claveCanonicaItem_(seccion, campo) {
+  return (seccion ? String(seccion).toUpperCase() : 'GLOBAL') + '|' + String(campo).toUpperCase();
+}
+
 function Form_construirSchema_(form, opciones) {
   opciones = opciones || {};
   var cambios = [];
   var map = Form_esquemaCanonial_();
-  var items = [];
-  try { items = form.getItems(); } catch (e) { items = []; }
-  var idx = { global: {}, pages: {}, byKey: {} };
-  var seccionActual = '';
-  items.forEach(function (it) {
-    var titulo = '';
-    try { titulo = String(it.getTitle() || ''); } catch (e) { titulo = ''; }
-    var tipo = '';
-    try { tipo = String(it.getType()); } catch (e2) { tipo = ''; }
-    if (tipo === String(FormApp.ItemType.PAGE_BREAK)) {
-      seccionActual = titulo;
-      idx.pages[titulo] = it;
-    } else if (seccionActual) {
-      idx.byKey[seccionActual + '|' + titulo] = it;
-    } else {
-      idx.global[titulo] = it;
-    }
-  });
+  var idx = Form_indexarSchema_(form);
 
   var CFG = GOOGLE_FORMS_CONFIG;
   function opcionesTipo(campo, oficiales) {
@@ -141,11 +129,11 @@ function Form_construirSchema_(form, opciones) {
   }
 
   // 1) Acción (navegación por secciones).
-  var accionItem = idx.global[CFG.ACCIONES.TITULO] || form.addMultipleChoiceItem();
+  var accionItem = idx.accionItem || form.addMultipleChoiceItem();
   accionItem.setTitle(CFG.ACCIONES.TITULO);
   accionItem.setHelpText('Elegí qué deseás registrar y luego completá la sección correspondiente.');
   accionItem.setRequired(true);
-  if (!idx.global[CFG.ACCIONES.TITULO]) cambios.push('Item creado: ' + CFG.ACCIONES.TITULO);
+  if (!idx.accionItem) cambios.push('Item creado: ' + CFG.ACCIONES.TITULO);
 
   // 2) Por sección: página + campos + cierre, en orden real.
   var paginas = {};
@@ -159,7 +147,8 @@ function Form_construirSchema_(form, opciones) {
       var titulo = cfg.etiqueta || campo;
       var requerido = Form_campoRequerido_(sec, campo);
       var tipo = Form_tipoItem_(campo);
-      var it = idx.byKey[sec + '|' + titulo];
+      var entrada = idx.byCanonicalKey[Form_claveCanonicaItem_(sec, campo)];
+      var it = entrada && entrada.item;
       if (!it) {
         try {
           if (tipo === 'LISTA') it = form.addListItem().setTitle(titulo);
@@ -173,16 +162,7 @@ function Form_construirSchema_(form, opciones) {
       else if (it.setRequired) it.setRequired(requerido);
     });
 
-    // Cierre de cada sección (SUBMIT/RESTART).
-    var cierreT = 'Enviar respuesta';
-    var cierre = idx.byKey[sec + '|' + cierreT];
-    if (!cierre) { cierre = form.addMultipleChoiceItem().setTitle(cierreT); cambios.push('Cierre creado: ' + cierreT); }
-    cierre.setRequired(true);
-    try {
-      var chEnviar = cierre.createChoice(CFG.TITULO_CIERRE, FormApp.PageNavigationType.SUBMIT);
-      var chVolver = cierre.createChoice('Corregir o cambiar acción', FormApp.PageNavigationType.RESTART);
-      cierre.setChoices([chEnviar, chVolver]);
-    } catch (e) { /* navegación no crítica en re-mix */ }
+    try { page.setGoToPage(FormApp.PageNavigationType.SUBMIT); } catch (e) { /* API no disponible en harness antiguo */ }
   });
 
   // Reescribe las cuatro rutas en forma determinista. Cada opción apunta a la
@@ -196,12 +176,14 @@ function Form_construirSchema_(form, opciones) {
   return { ok: true, cambios: cambios };
 }
 
-/** GAS: devuelve el Form operativo (creándolo si hace falta). */
-function Form_abrirOCrear_(formId, titulo, cambios) {
+/** GAS: abre el Form conocido. Crear requiere una opción deliberada y explícita. */
+function Form_abrirOCrear_(formId, titulo, cambios, opciones) {
+  opciones = opciones || {};
   if (formId) {
     try { return { ok: true, form: FormApp.openById(formId), creado: false }; }
     catch (e) { return { ok: false, motivo: 'FORM_CONOCIDO_NO_ACCESIBLE', formId: formId }; }
   }
+  if (opciones.crearNuevo !== true) return { ok: false, motivo: 'FORM_ID_REQUIRED' };
   var f = null;
   try { f = FormApp.create(titulo || GOOGLE_FORMS_CONFIG.TITULO); } catch (e) { return { ok: false, motivo: 'FORM_APP_NO_DISPONIBLE' }; }
   try { f.setTitle(titulo || GOOGLE_FORMS_CONFIG.TITULO); } catch (e3) { /* seguir */ }
@@ -219,22 +201,21 @@ function Form_mapaTitulos_() {
   return m;
 }
 function Form_itemMap_(form) {
-  var m = Form_mapaTitulos_();
   var out = {};
-  var seccion = '';
-  try {
-    form.getItems().forEach(function (it) {
-      var tipo = '';
-      try { tipo = String(it.getType()); } catch (e0) { tipo = ''; }
-      if (tipo === String(FormApp.ItemType.PAGE_BREAK)) {
-        seccion = String(it.getTitle() || '');
-        return;
-      }
-      var c = (!seccion && it.getTitle() === GOOGLE_FORMS_CONFIG.ACCIONES.TITULO)
-        ? 'ACCION' : m[Utl_claveAlnum(it.getTitle())];
-      if (c) out[String(it.getId())] = c;
-    });
-  } catch (e) { /* sin id */ }
+  var canonical = Form_construirCanonicalItemMap_(form);
+  Object.keys(canonical).forEach(function (key) {
+    var campo = key === 'GLOBAL|ACCION' ? 'ACCION' : key.split('|')[1];
+    out[String(canonical[key])] = campo;
+  });
+  return out;
+}
+
+function Form_construirCanonicalItemMap_(form) {
+  var idx = Form_indexarSchema_(form);
+  var out = {};
+  Object.keys(idx.byCanonicalKey).forEach(function (key) {
+    try { out[key] = String(idx.byCanonicalKey[key].item.getId()); } catch (e) { /* sin id */ }
+  });
   return out;
 }
 
@@ -264,7 +245,7 @@ function Form_auditarSchema_(form) {
     vistos[key] = true;
     var esperado = '';
     if (!seccion && titulo === GOOGLE_FORMS_CONFIG.ACCIONES.TITULO) esperado = String(FormApp.ItemType.MULTIPLE_CHOICE);
-    else if (seccion && titulo === 'Enviar respuesta') esperado = String(FormApp.ItemType.MULTIPLE_CHOICE);
+    else if (seccion && titulo === 'Enviar respuesta') incompatibles.push(key + ':ITEM_ARTIFICIAL_OBSOLETO');
     else {
       var campo = tituloCampo[Utl_claveAlnum(titulo)];
       if (campo && campo !== 'ACCION') esperado = tipoEsperado(campo);
@@ -358,7 +339,10 @@ function Form_operativoInstalar(opciones) {
   }
 
   // 2) Form + schema.
-  var abierto = Form_abrirOCrear_(Form_formId_(), GOOGLE_FORMS_CONFIG.TITULO, cambios);
+  var formIdSolicitado = String(opciones.formId || Form_formId_() || '').trim();
+  var abierto = Form_abrirOCrear_(formIdSolicitado, GOOGLE_FORMS_CONFIG.TITULO, cambios, {
+    crearNuevo: opciones.crearNuevo === true && opciones.adoptarExistente !== true
+  });
   if (!abierto.ok) return abierto;
   var form = abierto.form;
   try {
@@ -398,6 +382,7 @@ function Form_operativoInstalar(opciones) {
   Form_propEscribir_('GOOGLE_FORM_EDIT_URL', urlEdit);
   Form_propEscribir_('GOOGLE_FORM_SCHEMA_VERSION', GOOGLE_FORMS_CONFIG.SCHEMA_VERSION);
   Form_propEscribir_('GOOGLE_FORM_ITEM_MAP', JSON.stringify(itemMap));
+  Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', JSON.stringify(Form_construirCanonicalItemMap_(form)));
   Form_propEscribir_('GOOGLE_FORM_TITLE_MAP', JSON.stringify(Form_mapaTitulos_()));
   Form_propEscribir_('GOOGLE_FORM_ESTADO', 'INSTALADO');
   if (!Form_propLeer_('GOOGLE_FORM_CURSOR')) Form_propEscribir_('GOOGLE_FORM_CURSOR', '');
@@ -559,43 +544,17 @@ function Form_procesarUnaRespuesta_(respuesta, ctx, opciones) {
   return { ok: true, captureId: captureId, accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO' };
 }
 
-/** GAS: trigger onFormSubmit — ingesta por envío (ruta rápida). */
+/** GAS: trigger onFormSubmit — señal liviana. El worker es el único escritor clínico. */
 function Form_onFormSubmit(e) {
-  var inicio = Date.now();
   var formId = Form_formId_();
   if (!formId) return { ok: false, errores: [{ codigo: 'NO_INSTALADO' }] };
   var resp = e && e.response;
   if (!resp) return { ok: false, errores: [{ codigo: 'SIN_RESPONSE' }] };
-
   var responseId = '';
   try { responseId = String(resp.getId()); } catch (e3) { responseId = ''; }
-  var ts = '';
-  try { var dts = resp.getTimestamp(); ts = dts ? Control_aIso(dts) : ''; } catch (e4) { ts = ''; }
-
-  var lock = null;
-  try {
-    lock = LockService.getScriptLock();
-    if (!lock.tryLock(5000)) {
-      Form_metricaSumar_('LOCK_BUSY_DEFERRED');
-      Form_metricaSumar_('DEFERRED_COUNT');
-      Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
-      return { ok: false, deferred: true, errores: [{ codigo: 'DEFERRED_LOCK_BUSY' }] };
-    }
-    var it = Form_extraerCampos_(resp, {
-      itemMap: Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP')),
-      titleMap: Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'))
-    });
-    var ctx = CapturaIngress_ctx();
-    var r = Form_procesarUnaRespuesta_({ formId: formId, responseId: responseId, timestamp: ts, accion: it.accion, campos: it.campos }, ctx, { hoy: ts });
-    if (r.ok) Form_metricaSumar_('WORKER_PROCESSED');
-    Form_propEscribir_('GOOGLE_FORM_CURSOR', ts || String(inicio));
-    return { ok: r.ok, captureId: r.captureId, accion: r.accion, estado: r.estado, errores: r.errores, timeMs: Date.now() - inicio, deferred: false };
-  } catch (e) {
-    Form_metricaSumar_('WORKER_ERRORS');
-    return { ok: false, errores: [{ codigo: 'EXCEPCION', mensaje: String(e && e.message || e) }] };
-  } finally {
-    try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
-  }
+  Form_metricaSumar_('DEFERRED_COUNT');
+  Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
+  return { ok: true, queued: true, responseId: responseId };
 }
 
 function Form_desdeCursor_() {
@@ -603,7 +562,7 @@ function Form_desdeCursor_() {
   if (!cursor) return new Date(0);
   var d = new Date(cursor);
   if (isNaN(d.getTime())) return new Date(0);
-  var overlapMin = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.OVERLAP_MIN) || 15;
+  var overlapMin = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.OVERLAP_MIN) || (24 * 60);
   return new Date(Math.max(0, d.getTime() - overlapMin * 60000));
 }
 
@@ -617,7 +576,8 @@ function Form_worker(opciones) {
   var lock = null;
   try {
     lock = LockService.getScriptLock();
-    if (!lock.tryLock(12000)) {
+    var waitMs = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750;
+    if (!lock.tryLock(waitMs)) {
       Form_metricaSumar_('LOCK_BUSY_DEFERRED');
       Form_metricaSumar_('DEFERRED_COUNT');
       Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
@@ -628,7 +588,12 @@ function Form_worker(opciones) {
     var respuestas = [];
     try { respuestas = form.getResponses(Form_desdeCursor_()) || []; } catch (e) { respuestas = []; }
 
+    respuestas.sort(function (a, b) {
+      try { return a.getTimestamp().getTime() - b.getTimestamp().getTime(); } catch (e) { return 0; }
+    });
     var procesadas = 0, errores = 0, retryable = 0, review = 0, terminal = 0, filas = [];
+    var cursorSeguro = Form_propLeer_('GOOGLE_FORM_CURSOR');
+    var encontroRetryable = false;
     var ctx = CapturaIngress_ctx();
     try { ctx.leerPacientes = Modelo_leerPacientes; } catch (e) { /* opcional */ }
 
@@ -640,7 +605,10 @@ function Form_worker(opciones) {
       var ts = '';
       try { var dts = resp.getTimestamp(); ts = dts ? Control_aIso(dts) : ts; } catch (e3) { ts = ''; }
       var cid = CapturaIngress_captureId_(formId, responseId);
-      if (opciones.yaProcesado && opciones.yaProcesado(cid)) continue;
+      if (opciones.yaProcesado && opciones.yaProcesado(cid)) {
+        if (!encontroRetryable && ts) cursorSeguro = ts;
+        continue;
+      }
       var it = Form_extraerCampos_(resp, {
         itemMap: Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP')),
         titleMap: Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'))
@@ -651,11 +619,12 @@ function Form_worker(opciones) {
         errores++;
         if (r.clasificacion === 'terminal') terminal++;
         else if (r.clasificacion === 'review') review++;
-        else retryable++;
+        else { retryable++; encontroRetryable = true; }
       }
       filas.push({ responseId: responseId, captureId: cid || r.captureId, ok: r.ok, accion: r.accion || '', estado: r.estado || '', clasificacion: r.ok ? 'processed' : (r.clasificacion || 'retryable'), errores: r.errores || [] });
-      Form_propEscribir_('GOOGLE_FORM_CURSOR', ts);
+      if (!encontroRetryable && ts && (r.ok || r.clasificacion === 'review' || r.clasificacion === 'terminal')) cursorSeguro = ts;
     }
+    if (cursorSeguro && cursorSeguro !== Form_propLeer_('GOOGLE_FORM_CURSOR')) Form_propEscribir_('GOOGLE_FORM_CURSOR', cursorSeguro);
     if (procesadas) Form_metricaSumar_('WORKER_PROCESSED', procesadas);
     if (errores) Form_metricaSumar_('WORKER_ERRORS', errores);
     if (retryable) Form_metricaSumar_('WORKER_RETRYABLE', retryable);
@@ -784,15 +753,19 @@ function UI_googleFormsPanel() {
   return html;
 }
 function Form_indexarSchema_(form) {
-  var idx = { byKey: {}, byTitle: {}, seccion: null, accionChoices: [], accionItem: null };
+  var idx = { byKey: {}, byCanonicalKey: {}, byItemId: {}, byTitle: {}, pages: {}, seccion: null, accionChoices: [], accionItem: null };
   var items = form.getItems();
+  var tituloCampo = Form_mapaTitulos_();
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
     var t = it.getTitle();
     // ACCION global antes de PageBreak
     if (it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE && !idx.seccion && t) {
       try {
-        if (t.toLowerCase().indexOf('acción') !== -1) { idx.accionItem = it; }
+        if (t === GOOGLE_FORMS_CONFIG.ACCIONES.TITULO) {
+          idx.accionItem = it;
+          idx.byCanonicalKey['GLOBAL|ACCION'] = { item: it, tipo: it.getType ? it.getType().toString() : '' };
+        }
       } catch (e) {}
     }
     // Page break cambia seccion
@@ -800,27 +773,32 @@ function Form_indexarSchema_(form) {
       try {
         var pb = it.asPageBreakItem();
         idx.seccion = String(pb.getTitle() || pb.getHelpText() || '');
+        idx.pages[idx.seccion] = it;
       } catch (e) { idx.seccion = t; }
       continue;
     }
-    if (idx.accionItem === null && it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE && !idx.seccion) {
-      try { idx.accionItem = it; } catch (e) {}
-    }
-    if (it.getType && it.getType() === FormApp.ItemType.MULTIPLE_CHOICE && idx.seccion) {
-      try {
-        var mc = it.asMultipleChoiceItem();
-        var ch = mc.getChoices();
-        for (var j = 0; j < ch.length; j++) {
-          try { idx.accionChoices.push(ch[j].getValue()); } catch (e) {}
-        }
-      } catch (e) {}
-    }
+    var entrada = { item: it, tipo: it.getType ? it.getType().toString() : '' };
+    try { idx.byItemId[String(it.getId())] = entrada; } catch (e) {}
     if (!idx.seccion) continue;
     var key = idx.seccion + '|' + t;
-    idx.byKey[key] = { item: it, tipo: it.getType ? it.getType().toString() : '' };
+    idx.byKey[key] = entrada;
+    var campo = tituloCampo[Utl_claveAlnum(t)];
+    if (campo && campo !== 'ACCION') idx.byCanonicalKey[Form_claveCanonicaItem_(idx.seccion, campo)] = entrada;
     idx.byTitle[t] = idx.byTitle[t] || [];
     idx.byTitle[t].push({ key: key, sec: idx.seccion, item: it });
   }
+  if (idx.accionItem) {
+    try { idx.byItemId[String(idx.accionItem.getId())] = idx.byCanonicalKey['GLOBAL|ACCION']; } catch (e) {}
+  }
+  // La identidad persistida por itemId manda sobre los títulos visibles. Así un
+  // cambio editorial de etiqueta no crea otra pregunta ni rompe el roundtrip.
+  var persistido = Form_json_(Form_propLeer_('GOOGLE_FORM_CANONICAL_ITEM_MAP'));
+  Object.keys(persistido).forEach(function (canonicalKey) {
+    var entrada = idx.byItemId[String(persistido[canonicalKey])];
+    if (!entrada) return;
+    idx.byCanonicalKey[canonicalKey] = entrada;
+    if (canonicalKey === 'GLOBAL|ACCION') idx.accionItem = entrada.item;
+  });
   return idx;
 }
 
@@ -860,8 +838,11 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
     var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP')) || {};
     // try to map by known labels if needed
     function setItem(keySec, valor) {
-      if (idx.byKey[keySec] && idx.byKey[keySec].item) {
-        try { response.withItemResponse(idx.byKey[keySec].item.createResponse(valor)); return true; } catch (e) {}
+      var trozos = String(keySec).split('|');
+      var campo = Form_mapaTitulos_()[Utl_claveAlnum(trozos.slice(1).join('|'))] || trozos.slice(1).join('|');
+      var entrada = idx.byCanonicalKey[Form_claveCanonicaItem_(trozos[0], campo)] || idx.byKey[keySec];
+      if (entrada && entrada.item) {
+        try { response.withItemResponse(entrada.item.createResponse(valor)); return true; } catch (e) {}
       }
       return false;
     }
@@ -915,10 +896,12 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
       if (payload.profesional) setItem('ACTUALIZAR_DATOS|Profesional que registra', payload.profesional) || setItem('ACTUALIZAR_DATOS|PROFESIONAL', payload.profesional);
       if (payload.profesionalSecundario) setItem('ACTUALIZAR_DATOS|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('ACTUALIZAR_DATOS|PROFESIONAL2', payload.profesionalSecundario);
       var telNuevo = valorActualizacion('TELEFONOS', payload.telefonos);
+      var telObsNueva = valorActualizacion('TELEFONO_OBS', payload.telefonoObs);
       var proxNuevo = valorActualizacion('PROXIMO_CONTROL', payload.proximoControl);
       var smNueva = valorActualizacion('SALUD_MENTAL', payload.saludMental);
       var obsNueva = valorActualizacion('OBSERVACIONES', payload.observaciones);
       if (telNuevo) setItem('ACTUALIZAR_DATOS|Teléfono(s)', telNuevo);
+      if (telObsNueva) setItem('ACTUALIZAR_DATOS|Observación del teléfono', telObsNueva);
       if (proxNuevo) try { setItem('ACTUALIZAR_DATOS|Próximo control', Form_fechaLocalDesdeIso_(proxNuevo)); } catch (e) {}
       if (smNueva) setItem('ACTUALIZAR_DATOS|Salud mental', smNueva);
       if (obsNueva) setItem('ACTUALIZAR_DATOS|Observaciones', obsNueva);

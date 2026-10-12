@@ -70,7 +70,7 @@ const exportBlock = `
     enviar: enviar, enviarFinal: enviarFinal, _envExito: _envExito, _envFallo: _envFallo,
     envioIniciar: envioIniciar, envioEsActual: envioEsActual, envioFinalizar: envioFinalizar,
     envioPausarEsperaHumana: envioPausarEsperaHumana,
-    _asignarCaptureId: _asignarCaptureId, _autoReloadSiVersion: _autoReloadSiVersion,
+    _asignarClientRequestId: _asignarClientRequestId, _autoReloadSiVersion: _autoReloadSiVersion,
     _recargarAcceso: _recargarAcceso, accesoMarcarSano: accesoMarcarSano,
     _sesGet: _sesGet, _sesSet: _sesSet, _sesRemove: _sesRemove,
     bootReintentar: function () { bootOcultarError(); BOOT.intento = 0; bootEjecutar(); },
@@ -275,13 +275,14 @@ t('A1 las 4 acciones fijan _enviando=true, ENVIO activo, fase correcta y UNA RPC
   }
 });
 
-t('A2 NUEVO_INGRESO usa pre-flight (fase preflight) y también queda vigilado por timeout', () => {
+t('A2 NUEVO_INGRESO usa recepción durable directa y queda vigilado por timeout', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  A(w.U.enviando === true && w.U.fase === 'preflight', 'fase preflight esperada');
-  A(w.calls('WebApp_previaDuplicadosV2').length === 1, '1 RPC de pre-flight');
-  A(w.U.tiempoId !== null, 'timeout también en pre-flight');
+  A(w.U.enviando === true && w.U.fase === 'entrega', 'fase entrega esperada');
+  A(w.calls('WebApp_capturarRecibirDurable').length === 1, '1 RPC durable');
+  A(w.calls('WebApp_previaDuplicadosV2').length === 0, 'sin preflight bloqueante');
+  A(w.U.tiempoId !== null, 'timeout en recepción durable');
   w.U.envioFinalizar(w.U.secuencia);
 });
 
@@ -314,60 +315,44 @@ t('A4 el callback de una solicitud vieja NUNCA toca la solicitud nueva (secuenci
   A(w.U.envioFinalizar(s2) === true && w.U.enviando === false, 'solo la solicitud actual libera el envío');
 });
 
-t('A5 el modal de duplicados PAUSA el timeout humano y conserva el envío activo', () => {
+t('A5 un fallo del preflight legado no participa ni bloquea el envío durable', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', {
-    ok: true, coincidencia: true,
-    candidatos: [{ resultado: 'MATCH_EXACTO', criterio: 'RUT', paciente: { nombre: 'PERSONA FICTICIA', rut: '12.345.678-9' } }]
-  });
-  A(w.U.activo === true && w.U.enviando === true, 'envío sigue activo mientras decide el humano');
-  A(w.U.tiempoId === null, 'timeout cancelado (el operador debe poder decidir sin prisa técnica)');
-  A(w.elementCache.get('dupOverlay').classList.contains('show'), 'modal de duplicados visible');
-  contiene(w.elementCache.get('dupMsg').textContent, 'Ya existe una persona con el mismo RUT', 'mensaje MATCH_EXACTO');
-  contiene(w.elementCache.get('dupMsg').textContent, '1 coincidencia', 'conteo visible');
+  A(w.calls('WebApp_previaDuplicadosV2').length === 0, 'preflight no fue invocado');
+  A(w.calls('WebApp_capturarRecibirDurable').length === 1, 'respuesta se envía a persistencia');
+  A(w.U.activo === true && w.U.tiempoId !== null, 'recepción mantiene su timeout');
 });
 
-t('A7 descartar un duplicado descongela el formulario SIN disparar ninguna RPC', () => {
+t('A7 RECIBIDO finaliza la solicitud durable y habilita nueva captura', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const antes = w.calls('WebApp_capturarRecibirDurable').length;
-  const d = w.elementCache.get('dupDescartar');
-  d.fire('click', { target: d });
-  A(w.U.enviando === false && w.U.activo === false, 'descartar libera el envío');
+  w.respond('WebApp_capturarRecibirDurable', { ok: true, data: { estado: 'RECIBIDO' } });
+  A(w.U.enviando === false && w.U.activo === false, 'respuesta durable libera el envío');
   A(w.U.tiempoId === null, 'sin timers de envío residuales');
-  A(w.calls('WebApp_capturarRecibirDurable').length === antes, 'descartar no reenvía ni dispara RPC');
-  A(!w.elementCache.get('dupOverlay').classList.contains('show'), 'modal cerrado');
   A(w.elementCache.get('btnEnviar').disabled === false, 'botón listo para reingresar');
 });
 
-t('A6 continuar desde el modal conserva datos; "registrar como nuevo" confirma la intención', () => {
+t('A6 el payload durable conserva datos y clientRequestId, sin bandera de preflight', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const env = w.elementCache.get('dupEnviar');
-  env.fire('click', { target: env });
   const entrega = w.calls('WebApp_capturarRecibirDurable').at(-1);
-  A(entrega !== undefined, 'continuar dispara la captura');
+  A(entrega !== undefined, 'envío dispara la captura');
   A(entrega.args[0].rut === '12.345.678-9', 'payload conserva el RUT del formulario');
-  A(entrega.args[0].confirmarNuevoPaciente === undefined, '"Enviar de todos modos" NO fuerza paciente nuevo');
+  A(/^CR-[a-f0-9]{32}$/.test(entrega.args[0].clientRequestId), 'clientRequestId presente');
+  A(entrega.args[0].confirmarNuevoPaciente === undefined, 'sin bandera de preflight');
   w.U.envioFinalizar(w.U.secuencia);
 });
 
-t('A6b "Registrar de todos modos" (nuevo) marca confirmarNuevoPaciente=true en el payload', () => {
+t('A6b cada intento lógico estable conserva clientRequestId sin fabricar captureId', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const nuevo = w.elementCache.get('dupNuevo');
-  nuevo.fire('click', { target: nuevo });
   const entrega = w.calls('WebApp_capturarRecibirDurable').at(-1);
-  A(entrega !== undefined, 'la opción nuevo dispara la captura');
-  A(entrega.args[0].confirmarNuevoPaciente === true, 'confirmarNuevoPaciente=true al forzar registro');
+  A(entrega !== undefined, 'se dispara captura durable');
+  A(entrega.args[0].clientRequestId && !entrega.args[0].captureId, 'identidades cliente/backend separadas');
   w.U.envioFinalizar(w.U.secuencia);
 });
 
@@ -403,24 +388,24 @@ t('B3 tras marcar sano, una nueva incidencia puede volver a recargar (recuperaci
   A(w.reloads.length === 2, 'recuperado: una segunda incidencia vuelve a recargar');
 });
 
-t('B4 _recargarAcceso conserva el captureId pendiente antes de recargar (cruce de pestaña)', () => {
+t('B4 _recargarAcceso conserva clientRequestId pendiente antes de recargar', () => {
   const w = createWebSandbox();
   w.U.ultimoSig = null;
-  const id = w.U._asignarCaptureId('sig1');
-  A(/^Cp4-[a-f0-9]{32}$/.test(id), 'captureId V4 generado: ' + id);
+  const id = w.U._asignarClientRequestId('sig1');
+  A(/^CR-[a-f0-9]{32}$/.test(id), 'clientRequestId generado: ' + id);
   w.U._recargarAcceso();
-  A('Cp4-' + w.sesStore.get('ecicep_captureId') === id, 'captureId pendiente persiste (sin prefijo, se recompone al restaurar)');
+  A('CR-' + w.sesStore.get('ecicep_clientRequestId') === id, 'clientRequestId pendiente persiste');
   w.fireAll();
   A(w.reloads.length === 1, 'recarga pendiente disparada');
 });
 
-t('B5 al reabrir la pestaña, el captureId guardado se restaura y se consume una sola vez', () => {
+t('B5 al reabrir la pestaña, clientRequestId se restaura y consume una vez', () => {
   const seed = 'ab'.repeat(16);
-  const w = createWebSandbox({ ecicep_captureId: seed, ecicep_reload_acceso: '1' });
+  const w = createWebSandbox({ ecicep_clientRequestId: seed, ecicep_reload_acceso: '1' });
   w.respond('WebApp_estadoInicial', { ok: true, profesionales: ['MEDICO/A'] });
-  const restaurado = w.U._asignarCaptureId('sig-nueva');
-  A(restaurado === 'Cp4-' + seed, 'captureId restaurado desde sessionStorage: ' + restaurado);
-  A(w.sesStore.get('ecicep_captureId') === undefined, 'captureId consumido (no reutilizable)');
+  const restaurado = w.U._asignarClientRequestId('sig-nueva');
+  A(restaurado === 'CR-' + seed, 'clientRequestId restaurado: ' + restaurado);
+  A(w.sesStore.get('ecicep_clientRequestId') === undefined, 'clientRequestId consumido');
 });
 
 // ── 4. Pruebas PARTE C — Bootstrap (§40) ──

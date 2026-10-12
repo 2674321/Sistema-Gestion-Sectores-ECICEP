@@ -2463,3 +2463,13 @@ destructiva termina en `FORM_SCHEMA_REQUIRES_REVIEW`.
 La activación real queda fuera del ensayo en seco: no se ejecutan `clasp push`,
 deploy, cambios de Form/Sheet/ScriptProperties/triggers remotos ni merge de PR.
 **Fecha:** 2026-10-12
+
+### Cierre v254.4
+
+La instalación adopta por ID explícito y no crea Forms salvo `crearNuevo:true`.
+Persiste `GOOGLE_FORM_CANONICAL_ITEM_MAP` (`GLOBAL|ACCION` y
+`SECCION|CAMPO`), elimina la pregunta artificial de cierre y configura cada
+sección para enviar. CapturaWeb usa un selector y `clientRequestId`; la identidad
+clínica se deriva de `formId + responseId`. `Form_onFormSubmit` solo deja una
+señal y `Form_worker`, con lock de 750 ms, ventana solapada de 24 horas y cursor
+que se detiene ante el primer retryable, es el único mutador clínico.

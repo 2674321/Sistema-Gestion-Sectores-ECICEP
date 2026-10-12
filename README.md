@@ -25,7 +25,7 @@
 | | |
 |---|---|
 | **Modelo de datos** | `PACIENTES` (estado vigente) + `EVENTOS` (historial inmutable) + vistas derivadas · esquema 2 (MIG-002) |
-| **Canal de captura** | Web App (pipeline V4 idempotente, compatible V2/V3; contrato de captura **V4** normativo en `docs/CONTRATO_CAPTURA_V2.md`) |
+| **Canal de captura** | CapturaWeb (UI única) → Google Forms (transporte durable interno) → `Form_worker` → pipeline V4 único |
 | **Unidades territoriales** | Sectores (Amarillo · Verde · Naranjo) |
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
@@ -412,8 +412,12 @@ consolida los datos y provee una interfaz simple para el uso cotidiano.
 
 **Captura Web App (único canal operativo)**
 - Formulario responsivo con 4 operaciones (`nuevoIngreso`, `registrarControl`,
-  `registrarSeguimiento`, `actualizarDatos`), validación por capas, **idempotencia
-  de reenvíos** y trazabilidad por envío — especificado en
+  `registrarSeguimiento`, `actualizarDatos`) elegidas en un único selector. La
+  recepción persiste un `FormResponse`, devuelve `RECIBIDO` y el worker de cinco
+  minutos procesa la cola por el pipeline clínico único. `clientRequestId` sirve
+  para correlación del navegador; el backend deriva el `captureId` durable de
+  `formId + responseId`. El preflight de duplicados no bloquea el guardado.
+  La validación, idempotencia y trazabilidad se especifican en
   `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**).
 - QR para compartir el acceso al canal de captura. El QR apunta a la Web App con
   **acceso universal sin permisos** (restaurado en v0.9.27): quien escanea el QR

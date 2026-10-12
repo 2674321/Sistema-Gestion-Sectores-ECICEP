@@ -30,6 +30,7 @@ class MockItem {
   createChoice(value, target) { return { getValue: () => String(value), value: String(value), target }; }
   setChoices(v) { this.choices = v.slice(); return this; }
   getChoices() { return this.choices.slice(); }
+  setGoToPage(v) { this.goToPage = v; return this; }
   createResponse(value) { return new MockItemResponse(this, value); }
   asPageBreakItem() { return this; }
   asMultipleChoiceItem() { return this; }
@@ -115,6 +116,7 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
   const form = new MockForm();
   forms.set(form.id, form);
   let createCount = 0;
+  const openIds = [];
   if (!noKnownForm) props.set('GOOGLE_FORM_ID', form.id);
   if (malformed) {
     form.addPageBreakItem().setTitle('NUEVO_INGRESO');
@@ -126,7 +128,7 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
   c.FormApp = {
     ItemType: TYPES,
     PageNavigationType: { SUBMIT: 'SUBMIT', RESTART: 'RESTART' },
-    openById(id) { if (!forms.has(id)) throw new Error('FORM_NO_ACCESIBLE'); return forms.get(id); },
+    openById(id) { openIds.push(String(id)); if (!forms.has(id)) throw new Error('FORM_NO_ACCESIBLE'); return forms.get(id); },
     create(title) {
       createCount++;
       const f = new MockForm('FORM-CREADO-' + createCount); f.title = title; forms.set(f.id, f); return f;
@@ -157,16 +159,18 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
   };
 
   let lockAnswers = [];
-  c.LockService = { getScriptLock: () => ({
+  let lockCalls = 0;
+  c.LockService = { getScriptLock: () => { lockCalls++; return ({
     tryLock: () => lockAnswers.length ? lockAnswers.shift() : true,
     releaseLock() {}
-  }) };
+  }); } };
   c.Control_aIso = d => d instanceof Date ? d.toISOString() : String(d || '');
   c.Captura_v2_catalogo = () => [{ NOMBRE_CANONICO: 'PROFESIONAL UNO', ACTIVO: true }];
   c.Captura_v2_validar = p => ({ ok: true, normalizado: p, errores: [] });
   c.Norm_normalizarRut = r => ({ estado: 'OK', rut: String(r).replace(/\./g, '').toUpperCase() });
   const patients = [{ ID_INTERNO: 'EC-001', RUT: '12345678-5', TELEFONOS: '999999999',
-    PROXIMO_CONTROL: '2026-11-01', OBSERVACIONES: 'ANTERIOR', SALUD_MENTAL: 'NO' }];
+    TELEFONO_OBS: 'MADRE CONTESTA', PROXIMO_CONTROL: '2026-11-01',
+    OBSERVACIONES: 'ANTERIOR', SALUD_MENTAL: 'NO' }];
   c.Modelo_leerPacientes = () => patients;
   c.CapturaIngress_ctx = () => ({ catalogo: [], leerPacientes: () => patients });
   c.WebApp_autorizarCaptura = () => false;
@@ -182,11 +186,13 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
   };
 
   return {
-    c, form, props, triggers, sheet, forms, processed, pipelineCalls, patients,
+    c, form, props, triggers, sheet, forms, openIds, processed, pipelineCalls, patients,
     get createCount() { return createCount; },
+    get lockCalls() { return lockCalls; },
     setLockSequence(values) { lockAnswers = values.slice(); },
     setPipelineBehavior(fn) { pipelineBehavior = fn; },
-    install() { return c.Form_operativoInstalar(); }
+    addForm(id) { const f = new MockForm(id); forms.set(id, f); return f; },
+    install(options) { return c.Form_operativoInstalar(options); }
   };
 }
 
@@ -201,7 +207,9 @@ export function payloadFor(action, i = 0) {
   }
   return { ...base, actualizacion: { id: 'EC-001', rutOriginal: '12345678-5', atenciones: [], campos: {
     TELEFONOS: { anterior: '999999999', valor: '988888888' },
+    TELEFONO_OBS: { anterior: 'MADRE CONTESTA', valor: 'HIJA CONTESTA' },
     PROXIMO_CONTROL: { anterior: '2026-11-01', valor: '2026-12-01' },
+    SALUD_MENTAL: { anterior: 'NO', valor: 'SI' },
     OBSERVACIONES: { anterior: 'ANTERIOR', valor: 'NUEVA' }
   } } };
 }
@@ -224,9 +232,36 @@ export function assertInstallerIdempotent() {
     }
   }
   const itemMap = JSON.parse(h.props.get('GOOGLE_FORM_ITEM_MAP'));
+  const canonicalMap = JSON.parse(h.props.get('GOOGLE_FORM_CANONICAL_ITEM_MAP'));
   assert.ok(Object.values(itemMap).includes('ACCION'));
-  assert.equal(Object.keys(itemMap).length, 32, 'ACCION + 31 campos canónicos');
+  assert.equal(Object.keys(itemMap).length, 34, 'ACCION + 33 campos canónicos, incluida edición sin pérdida');
+  assert.equal(canonicalMap['GLOBAL|ACCION'], h.c.Form_construirCanonicalItemMap_(h.form)['GLOBAL|ACCION']);
+  assert.equal(Object.keys(canonicalMap).length, 34);
+  assert.equal(h.form.getItems().filter(x => x.getTitle() === 'Enviar respuesta').length, 0);
+  for (const page of h.form.getItems().filter(x => x.getType() === TYPES.PAGE_BREAK)) assert.equal(page.goToPage, 'SUBMIT');
+  const rutId = canonicalMap['NUEVO_INGRESO|RUT'];
+  const rutItem = h.form.getItems().find(x => x.getId() === rutId);
+  const totalAntesRenombre = h.form.getItems().length;
+  rutItem.setTitle('RUT visible renombrado');
+  assert.equal(h.install().ok, true);
+  assert.equal(h.form.getItems().length, totalAntesRenombre, 'el título visible no define identidad ni duplica ítems');
+  assert.equal(JSON.parse(h.props.get('GOOGLE_FORM_CANONICAL_ITEM_MAP'))['NUEVO_INGRESO|RUT'], rutId);
   return h;
+}
+
+export function assertExplicitAdoption() {
+  const h = createHarness();
+  h.props.set('GOOGLE_FORM_ID', 'FORM-A');
+  const b = h.addForm('FORM-B');
+  const r = h.install({ formId: 'FORM-B', adoptarExistente: true });
+  assert.equal(r.ok, true); assert.equal(r.formId, 'FORM-B'); assert.equal(h.props.get('GOOGLE_FORM_ID'), 'FORM-B');
+  assert.equal(h.openIds[0], 'FORM-B'); assert.equal(h.createCount, 0); assert.ok(b.items.length > 0);
+  const empty = createHarness({ noKnownForm: true });
+  const re = empty.install({ adoptarExistente: true });
+  assert.equal(re.ok, false); assert.equal(re.motivo, 'FORM_ID_REQUIRED'); assert.equal(empty.createCount, 0);
+  const invalid = createHarness();
+  const ri = invalid.install({ formId: 'NO-EXISTE', adoptarExistente: true });
+  assert.equal(ri.ok, false); assert.equal(ri.motivo, 'FORM_CONOCIDO_NO_ACCESIBLE'); assert.equal(invalid.createCount, 0);
 }
 
 export function assertMigrations() {
@@ -243,22 +278,33 @@ export function assertMigrations() {
 export function assertDurableAndWorker() {
   const h = assertInstallerIdempotent();
   const before = h.pipelineCalls.length;
-  const received = h.c.WebApp_capturarRecibirDurable(payloadFor('nuevoIngreso'));
-  assert.equal(received.ok, true); assert.equal(received.estado, 'RECIBIDO'); assert.ok(received.data.responseId);
+  const locksBefore = h.lockCalls;
+  for (const action of ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos']) {
+    const received = h.c.WebApp_capturarRecibirDurable(payloadFor(action));
+    assert.equal(received.ok, true); assert.equal(received.estado, 'RECIBIDO'); assert.ok(received.data.responseId);
+  }
+  assert.equal(h.form.responses.length, 4, 'una respuesta durable por acción');
   assert.equal(h.pipelineCalls.length, before, 'recepción no toca pipeline clínico');
+  assert.equal(h.lockCalls, locksBefore, 'recepción no toma lock clínico');
+  const signal = h.c.Form_onFormSubmit({ response: h.form.responses.at(-1) });
+  assert.equal(signal.ok, true); assert.equal(signal.queued, true);
+  assert.equal(h.pipelineCalls.length, before, 'onFormSubmit solo señala; no toca pipeline clínico');
+  assert.equal(h.lockCalls, locksBefore, 'onFormSubmit no toma lock clínico');
   h.triggers.splice(0, h.triggers.length, ...h.triggers.filter(t => t.handler !== 'Form_onFormSubmit'));
   const w = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
-  assert.equal(w.procesadas, 1, 'worker procesa una respuesta programática sin evento');
-  assert.equal(h.pipelineCalls.length, before + 1);
+  assert.equal(w.procesadas, 4, 'worker procesa respuestas programáticas sin eventos');
+  assert.equal(h.pipelineCalls.length, before + 4);
   return h;
 }
 
 export function assertLockAndOverlap() {
   const h = assertInstallerIdempotent();
   h.c.WebApp_capturarRecibirDurable(payloadFor('nuevoIngreso', 1));
+  h.props.set('GOOGLE_FORM_CURSOR', '2026-10-12T00:00:00.000Z');
   h.setLockSequence([false, true]);
   const busy = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
   assert.equal(busy.motivo, 'DEFERRED_LOCK_BUSY');
+  assert.equal(h.props.get('GOOGLE_FORM_CURSOR'), '2026-10-12T00:00:00.000Z', 'lock busy no mueve cursor');
   const recovered = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
   assert.equal(recovered.procesadas, 1); assert.equal(h.processed.size, 1);
 
@@ -273,6 +319,7 @@ export function assertLockAndOverlap() {
   });
   const first = h2.c.Form_worker({ max: 20, yaProcesado: cid => h2.processed.has(cid) });
   assert.equal(first.procesadas, 3); assert.equal(first.retryable, 1);
+  assert.equal(h2.props.get('GOOGLE_FORM_CURSOR'), h2.form.responses[0].timestamp.toISOString(), 'cursor se detiene antes de T1 retryable');
   const second = h2.c.Form_worker({ max: 20, yaProcesado: cid => h2.processed.has(cid) });
   assert.equal(second.procesadas, 1, 'el overlap recupera T1');
   assert.equal(h2.processed.size, 4); assert.equal(h2.pipelineCalls.length, 5, 'solo T1 se reintenta');
@@ -288,6 +335,7 @@ export function assertConcurrency() {
       assert.equal(r.ok, true); ids.add(r.data.responseId);
     }
     assert.equal(ids.size, n); assert.equal(h.form.responses.length, n); assert.equal(h.pipelineCalls.length, 0);
+    assert.equal(h.lockCalls, 0, 'recepción concurrente no toma lock clínico');
     const w = h.c.Form_worker({ max: 100, yaProcesado: cid => h.processed.has(cid) });
     assert.equal(w.procesadas, n); assert.equal(h.processed.size, n); assert.equal(w.errores, 0);
     result[n] = { recibidas: n, procesadas: n, perdidas: 0, duplicadas: 0, serviceBusy: 0 };
@@ -302,6 +350,8 @@ export function assertPermissions() {
     assert.equal(r.ok, true, acceso);
   }
   assert.equal(h.pipelineCalls.length, 0);
+  const receiver = String(h.c.WebApp_capturarRecibirDurable);
+  assert.doesNotMatch(receiver, /Session|getActiveUser|allowlist|SpreadsheetApp/);
 }
 
 export function assertRoundtrip() {
@@ -327,7 +377,7 @@ export function assertRoundtrip() {
     } else if (action === 'registrarControl' || action === 'registrarSeguimiento') {
       for (const key of ['fechaEvento','proximoControl','observaciones']) assert.equal(adapted.payload[key], p[key], action + '.' + key);
     } else {
-      for (const key of ['TELEFONOS','PROXIMO_CONTROL','OBSERVACIONES']) {
+      for (const key of ['TELEFONOS','TELEFONO_OBS','PROXIMO_CONTROL','SALUD_MENTAL','OBSERVACIONES']) {
         assert.deepEqual(JSON.parse(JSON.stringify(adapted.payload.actualizacion.campos[key])), p.actualizacion.campos[key], key);
       }
     }
@@ -337,16 +387,19 @@ export function assertRoundtrip() {
 }
 
 export function assertMassAndObservability() {
-  const states = ['processed','processed','processed','retryable','review','terminal'];
-  const summary = {
-    responsesTotal: states.length,
-    processed: states.filter(x => x === 'processed').length,
-    retryable: states.filter(x => x === 'retryable').length,
-    review: states.filter(x => x === 'review').length,
-    terminal: states.filter(x => x === 'terminal').length,
-    backlog: states.filter(x => x !== 'processed' && x !== 'terminal').length,
-    oldestPendingMin: 7
-  };
+  const h = assertInstallerIdempotent();
+  for (let i = 0; i < 6; i++) h.c.WebApp_capturarRecibirDurable(payloadFor('nuevoIngreso', i));
+  const ids = h.form.responses.map(r => h.c.CapturaIngress_captureId_(h.form.id, r.id));
+  h.setPipelineBehavior((p, done) => {
+    const i = ids.indexOf(p.captureId);
+    if (i === 3) return { ok: false, errors: [{ codigo: 'TEMPORAL' }] };
+    if (done.has(p.captureId)) return { ok: true, data: { estado: 'DUPLICADO' } };
+    done.add(p.captureId); return { ok: true, data: { estado: 'PROCESADO' } };
+  });
+  const w = h.c.Form_worker({ max: 20, yaProcesado: cid => h.processed.has(cid) });
+  const summary = { responsesTotal: h.form.responses.length, processed: w.procesadas,
+    retryable: w.retryable, review: w.review, terminal: w.terminal,
+    backlog: w.retryable + w.review, oldestPendingMin: 0 };
   assert.equal(summary.responsesTotal, summary.processed + summary.retryable + summary.review + summary.terminal);
   assert.doesNotMatch(JSON.stringify(summary), /RUT|NOMBRE|12345678|PERSONA/);
   return summary;

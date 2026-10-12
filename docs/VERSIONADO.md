@@ -103,3 +103,13 @@ esquema. La verificación final devuelve `ok:false` si no queda VIGENTE.
    `SCHEMA_VERSION`/`LAST_MIGRATION` en GAS) y devuelve el estado final.
 
 Ver `MIGRACIONES.md` para el motor y el registro de migraciones.
+
+## Transporte durable de captura v254.4
+
+La UI servida sigue siendo CapturaWeb. Su RPC durable crea una respuesta en el
+Form adoptado y devuelve `RECIBIDO`; un trigger periódico de cinco minutos
+ejecuta `Form_worker`. El evento `Form_onFormSubmit` solo registra que existe
+trabajo. El worker espera el lock 750 ms, vuelve sobre una ventana de 24 horas y
+no mueve el cursor más allá de una respuesta retryable. El schema del Form se
+versiona en `GOOGLE_FORM_SCHEMA_VERSION=3` y su identidad estable vive en
+`GOOGLE_FORM_CANONICAL_ITEM_MAP`.

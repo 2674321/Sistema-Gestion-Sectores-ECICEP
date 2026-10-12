@@ -180,7 +180,8 @@ probadas; la referencia a la fase de diseño ya no limita el alcance vigente.
 | Captura | Acción de enviar a ECICEP una operación clínico-operativa desde la Web App. |
 | Envío | Una invocación del backend con un payload (§6). |
 | Operación | Tipo de captura solicitado (§5). |
-| `captureId` | Identificador de intención de captura (§12). |
+| `clientRequestId` | Identificador opaco de correlación en CapturaWeb; no es identidad clínica ni clave de idempotencia. |
+| `captureId` | Identificador durable interno derivado por el adaptador de Forms (§12). |
 | Registro de captura | Persistencia de un envío (origen: fila de `FORM_RESPUESTAS` existente, ver §21). |
 | Procesamiento | Aplicación de reglas clínicas a los datos capturados (fuera del contrato, §22). |
 | Adaptador | Capa que traduce identidades históricas ↔ V2 (§25). |
@@ -279,7 +280,7 @@ concepto tiene **un solo nombre** en el payload. Se rechaza cualquier campo desc
 
 | Campo | Tipo | Oblig. | Nullable | Valores permitidos / formato | Generador | Descripción |
 |---|---|---|---|---|---|---|
-| `captureId` | `string` | REQ | No | `Cp2-` + 32 hex minúsculas (`Cp2-[a-f0-9]{32}`) | Cliente | Identidad de la intención de captura (§12). |
+| `captureId` | `string` | REQ | No | `Cp4-` + 32 hex minúsculas en la ruta vigente; Cp2/Cp3 compatibles | Backend/adaptador | Identidad durable derivada de `formId + responseId` (§12). |
 | `accion` | `string` | REQ | No | `nuevoIngreso` · `registrarControl` · `registrarSeguimiento` · `actualizarDatos` | Cliente | Operación solicitada (§5). |
 | `rut` | `string` | REQ | No | Cuerpo-DV, sin puntos, DV mayúscula (ej. `12345678-5`) | Cliente | Identidad de la persona (exacta). |
 | `nombre` | `string` | REQ (`nuevoIngreso`) | No | ≥ 2 palabras; normalización: mayúsculas, espacios colapsados, tildes conservadas | Cliente | Nombre completo de la persona. |
@@ -386,15 +387,17 @@ acepta como alias interno de hoja (§25), nunca en el payload. **[DECISIÓN]**
 
 ## 12. Identidad de captura (`captureId`)
 
-**`captureId`** identifica una **intención de captura**: un único intento lógico del operador (llenar
-el formulario de la Web App y enviarlo).
+**`captureId`** identifica de forma durable una respuesta ya persistida por el transporte interno.
+CapturaWeb puede enviar `clientRequestId` para correlación de interfaz, pero nunca lo usa como
+`captureId` ni como autorización.
 
 Reglas normativas:
 
 1. Formato: `Cp2-` + exactamente 32 hex minúsculas. Formato inválido → `SINTAXIS_INVALIDA`. **[DECISIÓN]**
-2. Lo genera el **cliente** al iniciar una nueva captura. Un mismo formulario rellenado reutiliza el
-   mismo `captureId` en **todos** los reintentos de ese formulario (§13). Un formulario **nuevo**
-   (botón "nueva captura") genera un `captureId` **nuevo**. **[DECISIÓN]**
+2. En la ruta durable vigente lo genera el backend de forma determinista a partir de
+   `formId + responseId`, después de que `FormResponse.submit()` confirma persistencia. Los clientes
+   V2/V3 históricos pueden conservar sus identificadores por compatibilidad; CapturaWeb vigente no
+   fabrica un `captureId`. **[DECISIÓN; DEC-106]**
 3. **Unicidad**: el backend asegura que un `captureId` aceptado queda persistido e inmutable y no se
    reutiliza con otro payload (Caso B, §13).
 4. **No reutiliza** identificadores históricos: `UI-…`, `RESPONSE_ID`, `responseId`, `FORM|…`. Son
@@ -419,8 +422,9 @@ La idempotencia técnica se evalúa por `captureId`, frente al **payload normali
 
 Notas normativas:
 
-- Ausencia de `captureId` en el payload o formato inválido → rechazo `SINTAXIS_INVALIDA` (no hay fila
-  de idempotencia). **[DECISIÓN]**
+- En el payload V4 interno entregado por el adaptador, ausencia o formato inválido de `captureId` →
+  `SINTAXIS_INVALIDA`. La envoltura Web previa a `FormResponse.submit()` usa `clientRequestId` y no
+  está sujeta a esa validación interna. **[DECISIÓN]**
 - La comparación de payload es sobre la **forma canónica** (§11) de todos los campos del campo
   afectado por la operación; los campos `NP` para esa operación no pueden estar presentes (rechazo
   previo a idempotencia).

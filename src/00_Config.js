@@ -1031,16 +1031,16 @@ var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'U
 //   GOOGLE_FORM_ID         — id del Form
 //   GOOGLE_FORM_URL        — URL del respondedor (la que ve el usuario)
 //   GOOGLE_FORM_EDIT_URL   — URL de edición (admin)
-//   GOOGLE_FORM_SCHEMA_VERSION, GOOGLE_FORM_ITEM_MAP, GOOGLE_FORM_ESTADO,
+//   GOOGLE_FORM_SCHEMA_VERSION, GOOGLE_FORM_ITEM_MAP,
+//   GOOGLE_FORM_CANONICAL_ITEM_MAP, GOOGLE_FORM_ESTADO,
 //   GOOGLE_FORM_CURSOR     — metadatos del canal
 // Este bloque define SOLO el acuerdo técnico (valores estáticos, sin IDs):
 // versionado de esquema, textos, cadencia del worker y umbrales de salud.
 // ---------------------------------------------------------------------------
 var GOOGLE_FORMS_CONFIG = {
-  SCHEMA_VERSION: 2,
+  SCHEMA_VERSION: 3,
   TITULO: 'Captura ECICEP',
   BIENVENIDA: 'Registra la actividad territorial ECICEP. La respuesta se procesa automáticamente.',
-  TITULO_CIERRE: 'Enviar mi respuesta',
   CONFIRMACION: 'Respuesta recibida correctamente.\nECICEP la procesará automáticamente.',
   ACCIONES: {
     TITULO: 'Acción a registrar',
@@ -1062,15 +1062,16 @@ var GOOGLE_FORMS_CONFIG = {
     SALUD_MENTAL: { etiqueta: 'Salud mental', opciones: ['SI', 'NO'] },
     PROXIMO_CONTROL: { etiqueta: 'Próximo control' },
     TELEFONOS: { etiqueta: 'Teléfono(s)' },
+    TELEFONO_OBS: { etiqueta: 'Observación del teléfono' },
     FECHA_EVENTO: { etiqueta: 'Fecha del evento (control/seguimiento)' },
     PROFESIONAL: { etiqueta: 'Profesional que registra' },
     PROFESIONAL2: { etiqueta: 'Segundo profesional (opcional)' },
     OBSERVACIONES: { etiqueta: 'Observaciones' }
   },
   WORKER: {
-    BLOCK_MS: 3000,
+    LOCK_WAIT_MS: 750,
     MAX_POR_CORRIDA: 10,
-    OVERLAP_MIN: 15
+    OVERLAP_MIN: 24 * 60
   },
   SALUD: {
     OLDEST_PENDING_MAX_MIN: 180,      // más antiguo sin procesar > 3h → alerta
