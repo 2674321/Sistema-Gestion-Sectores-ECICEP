@@ -52,8 +52,8 @@ if (cierre === -1) { console.error('ERROR: cierre IIFE no encontrado'); process.
 // ── 2. Inyección del hook de test dentro del IIFE ──
 const exportBlock = `
   globalThis.__UI_TEST = {
-    _envExito: _envExito, _envChips: _envChips, _envTimeoutInit: _envTimeoutInit,
-    _envTimeoutOff: _envTimeoutOff, _envFallo: _envFallo, enviarFinal: enviarFinal,
+    _envExito: _envExito, _envChips: _envChips, _envFallo: _envFallo,
+    envioIniciar: envioIniciar, envioFinalizar: envioFinalizar, enviarFinal: enviarFinal,
     enviar: enviar, estadoListo: estadoListo, estadoEnviando: estadoEnviando,
     limpiarCampos: limpiarCampos, limpiarFormulario: limpiarFormulario,
     _asignarClientRequestId: _asignarClientRequestId, _autoReloadSiVersion: _autoReloadSiVersion,
@@ -379,40 +379,46 @@ t('D3 estadoEnviando/estadoListo controlan botón y spinner (estados opuestos)',
   A(document.getElementById('btnEnviar').getAttribute('aria-busy') === 'false', 'aria-busy false');
 });
 
-console.log('PARTE E — Timeout: el envío nunca queda colgado (cubre previa y envío final).');
+console.log('PARTE E — Timeout único (ENVIO): el envío nunca queda colgado.');
 
-t('E1 _envTimeoutInit arma UN timer de 60s y rearmar no deja timers duplicados', () => {
+t('E1 envioIniciar arma UN timer de 60s; rearmar no acumula timers', () => {
+  sandbox.UI_TIMERS.fireAll();
+  U.enviando = false;
   const antes = sandbox.UI_TIMERS.count();
-  U._envTimeoutInit();
-  U._envTimeoutInit();
+  U.envioIniciar('entrega');
+  U.envioIniciar('entrega');
   A(sandbox.UI_TIMERS.count() === antes + 1, 'una vez armado, rearmar no acumula timers');
+  U.enviando = false;
 });
 
-t('E2 timeout disparado con _enviando=true → desbloquea botón, avisa y NO limpia', () => {
+t('E2 timeout disparado con _enviando=true → desbloquea, avisa recepción incierta y NO limpia', () => {
   poblarFormulario();
+  resetVista();
   U.enviando = true;
-  U._envTimeoutInit();
+  U.envioIniciar('entrega');
   sandbox.UI_TIMERS.fireAll();
   A(U.enviando === false, '_enviando liberado por timeout');
   A(document.getElementById('btnEnviar').disabled === false, 'botón desbloqueado por timeout');
-  A(U.resumen && U.resumen.tipo === 'err' && U.resumen.titulo.indexOf('tard\u00f3 demasiado') !== -1, 'aviso de timeout');
+  A(U.resumen && U.resumen.tipo === 'warn' && U.resumen.titulo.indexOf('tardando') !== -1, 'aviso de timeout');
   A(!formularioLimpio(), 'timeout NO debe limpiar el formulario');
 });
 
-t('E3 timeout disparado con _enviando=false → no hace nada (timer muerto)', () => {
+t('E3 envioFinalizar cancela el timer: dispararlo no produce mensajes', () => {
   const tituloAntes = U.resumen && U.resumen.titulo;
-  U.enviando = false;
-  U._envTimeoutInit();
+  const seq = U.envioIniciar('entrega');
+  U.envioFinalizar(seq);
   sandbox.UI_TIMERS.fireAll();
-  A((U.resumen && U.resumen.titulo) === (tituloAntes || null), 'timer desarmado no produce mensajes nuevos');
+  A((U.resumen && U.resumen.titulo) === (tituloAntes || null), 'timer cancelado no produce mensajes nuevos');
 });
 
-t('E4 _envTimeoutOff limpia el timer pendiente', () => {
-  U._envTimeoutInit();
+t('E4 envioFinalizar limpia el timer pendiente', () => {
+  sandbox.UI_TIMERS.fireAll();
+  const seq = U.envioIniciar('entrega');
   const n = sandbox.UI_TIMERS.count();
-  U._envTimeoutOff();
+  U.envioFinalizar(seq);
   A(sandbox.UI_TIMERS.count() === n - 1, 'timer cancelado');
 });
+
 
 console.log('PARTE J — Watchdog de versión obsoleta (caché/navegador antiguo).');
 

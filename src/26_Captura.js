@@ -1685,7 +1685,11 @@ function Captura_v2_previaDuplicados(datos, esOperador) {
  *  expone campos que la propia ficha ya muestra (nunca teléfonos ni
  *  observaciones). */
 function WebApp_previaDuplicadosV2(datos, acceso) {
-  return Captura_v2_previaDuplicados(datos, true);
+  try {
+    return Captura_v2_previaDuplicados(datos, false);
+  } catch (e) {
+    return { ok: false, motivo: String(e && e.message || e) };
+  }
 }
 
 /** Entrypoint Web App: consulta de estado de un envío V2. */

@@ -51,10 +51,11 @@ function Form_json_(raw) {
   try { var o = JSON.parse(raw); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
 }
 
-/** Métricas del canal (contadores, no PII). */
+/** Métricas del canal (contadores/gauges, no PII). */
 function Form_metricas_() {
   var claves = ['LOCK_BUSY_DEFERRED', 'WORKER_RUNS', 'WORKER_PROCESSED', 'WORKER_ERRORS',
-    'WORKER_RETRYABLE', 'WORKER_REVIEW', 'WORKER_TERMINAL', 'DEFERRED_COUNT', 'OLDEST_PENDING_MIN'];
+    'WORKER_RETRYABLE', 'WORKER_REVIEW', 'WORKER_TERMINAL', 'DEFERRED_COUNT', 'OLDEST_PENDING_MIN',
+    'SUBMIT_SIGNAL_COUNT'];
   var out = {};
   claves.forEach(function (k) {
     var v = Form_propLeer_('GOOGLE_FORM_METRIC_' + k);
@@ -65,6 +66,140 @@ function Form_metricas_() {
 function Form_metricaSumar_(clave, delta) {
   var v = Number(Form_propLeer_('GOOGLE_FORM_METRIC_' + clave)) || 0;
   Form_propEscribir_('GOOGLE_FORM_METRIC_' + clave, String(v + (delta === undefined ? 1 : delta)));
+}
+
+// ---------------------------------------------------------------------------
+// TRANSPORTE v255 — dedupe por CLIENT_REQUEST_ID + recuperación de ACK
+// ---------------------------------------------------------------------------
+
+/** GAS: cache rápida del script (null en node/ausente). */
+function Form_cache_() {
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+      return CacheService.getScriptCache();
+    }
+  } catch (e) { /* node */ }
+  return null;
+}
+
+/** GAS: reserva del identificador antes de submit (estado RESERVED:<ts>).
+ *  Solo se ejecuta bajo ScriptLock y con TTL corto (120 s). */
+function Form_requestIdReservar_(clientRequestId, opciones) {
+  opciones = opciones || {};
+  var cfg = GOOGLE_FORMS_CONFIG.TRANSPORTE;
+  var cache = Form_cache_();
+  if (!clientRequestId || !cache) return { ok: true, conDedupe: false };
+  try {
+    var previo = cache.get(cfg.CACHE_PREFIJO + clientRequestId);
+    if (previo) {
+      if (previo.indexOf('RECEIVED:') === 0) {
+        return { ok: true, estado: 'RECIBIDO', responseId: previo.slice('RECEIVED:'.length), yaRecibido: true };
+      }
+      if (previo.indexOf('RESERVED:') === 0) {
+        var ts = Number(previo.slice('RESERVED:'.length)) || 0;
+        if (Date.now() - ts < (cfg.TTL_RESERVADA_S * 1000 || 120000)) {
+          return { ok: true, estado: 'EN_PROCESO' };
+        }
+      }
+    }
+    cache.put(cfg.CACHE_PREFIJO + clientRequestId, 'RESERVED:' + Date.now(), cfg.TTL_RESERVADA_S);
+    return { ok: true, estado: 'RESERVADO' };
+  } catch (e) {
+    return { ok: false, motivo: String(e && e.message || e) };
+  }
+}
+
+/** GAS: confirma la recepción durable (estado RECEIVED:<responseId>, TTL 6 h). */
+function Form_requestIdConfirmar_(clientRequestId, responseId) {
+  var cfg = GOOGLE_FORMS_CONFIG.TRANSPORTE;
+  var cache = Form_cache_();
+  if (!clientRequestId || !cache) return { ok: false };
+  try {
+    cache.put(cfg.CACHE_PREFIJO + clientRequestId, 'RECEIVED:' + String(responseId), cfg.TTL_RECIBIDA_S);
+    return { ok: true };
+  } catch (e) { return { ok: false, motivo: String(e && e.message || e) }; }
+}
+
+/** GAS: consulta del índice rápido del identificador. */
+function Form_requestIdBuscar_(clientRequestId) {
+  var cfg = GOOGLE_FORMS_CONFIG.TRANSPORTE;
+  var cache = Form_cache_();
+  if (!clientRequestId || !cache) return { ok: true, estado: 'NO_ENCONTRADO' };
+  try {
+    var valor = cache.get(cfg.CACHE_PREFIJO + clientRequestId);
+    if (!valor) return { ok: true, estado: 'NO_ENCONTRADO' };
+    if (valor.indexOf('RECEIVED:') === 0) {
+      return { ok: true, estado: 'RECIBIDO', responseId: valor.slice('RECEIVED:'.length) };
+    }
+    if (valor.indexOf('RESERVED:') === 0) {
+      var ts = Number(valor.slice('RESERVED:'.length)) || 0;
+      if (Date.now() - ts < (cfg.TTL_RESERVADA_S * 1000 || 120000)) return { ok: true, estado: 'EN_PROCESO' };
+    }
+    return { ok: true, estado: 'NO_ENCONTRADO' };
+  } catch (e) { return { ok: true, estado: 'NO_ENCONTRADO' }; }
+}
+
+/** GAS: recupera el ACK perdido escaneando SOLO respuestas recientes (máx. 6 h).
+ *  Ubica CLIENT_REQUEST_ID, recupera el responseId y repuebla el cache.
+ *  Salida sin PII: {ok, estado, responseId}. */
+function Form_requestIdRecuperarRespuesta_(clientRequestId, opciones) {
+  opciones = opciones || {};
+  var formId = opciones.formId || Form_formId_();
+  if (!formId) return { ok: true, estado: 'NO_ENCONTRADO' };
+  var cfg = GOOGLE_FORMS_CONFIG.TRANSPORTE;
+  var form = null;
+  try { form = FormApp.openById(formId); } catch (e) { return { ok: true, estado: 'NO_ENCONTRADO' }; }
+  var respuestas = [];
+  try {
+    respuestas = form.getResponses(new Date(Date.now() - cfg.ESCANEO_RECUPERACION_MS)) || [];
+  } catch (e) { respuestas = []; }
+  var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP'));
+  var titleMap = Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'));
+  for (var i = 0; i < respuestas.length; i++) {
+    var campos = Form_extraerCampos_(respuestas[i], { itemMap: itemMap, titleMap: titleMap }).campos || {};
+    if (Utl_texto(campos[cfg.CAMPO_CLIENT_REQUEST_ID]) === Utl_texto(clientRequestId)) {
+      var rid = '';
+      try { rid = String(respuestas[i].getId()); } catch (e2) { rid = ''; }
+      Form_requestIdConfirmar_(clientRequestId, rid);
+      return { ok: true, estado: 'RECIBIDO', responseId: rid };
+    }
+  }
+  return { ok: true, estado: 'NO_ENCONTRADO' };
+}
+
+/** Entrypoint WebApp: verificación de recepción por identificador (ACK perdido).
+ *  Ordinal: cache → escaneo acotado → NO_ENCONTRADO. Nunca expone PII. */
+function WebApp_verificarRecepcion(clientRequestId, acceso) {
+  try {
+    var cid = Utl_texto(clientRequestId);
+    if (!GOOGLE_FORMS_CONFIG.TRANSPORTE.PATRON_CLIENT_REQUEST_ID.test(cid)) {
+      return { ok: false, estado: 'NO_ENCONTRADO' };
+    }
+    var directo = Form_requestIdBuscar_(cid);
+    if (directo.estado === 'RECIBIDO' || directo.estado === 'EN_PROCESO') {
+      var resp = { ok: true, estado: directo.estado };
+      if (directo.responseId) resp.responseId = directo.responseId;
+      return resp;
+    }
+    var recuperado = Form_requestIdRecuperarRespuesta_(cid);
+    if (recuperado.estado === 'RECIBIDO') {
+      var r2 = { ok: true, estado: 'RECIBIDO' };
+      if (recuperado.responseId) r2.responseId = recuperado.responseId;
+      return r2;
+    }
+    return { ok: true, estado: 'NO_ENCONTRADO' };
+  } catch (e) {
+    return { ok: true, estado: 'INCIERTO' };
+  }
+}
+
+/** Campo SOURCE del transporte según el origen (v255). */
+function Form_sourceSegunPayload_(payload) {
+  var p = payload || {};
+  var s = Utl_texto(p.source).toUpperCase();
+  if (s === GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP) return GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP;
+  if (s === GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_GOOGLE_FORM_DIRECTO) return GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_GOOGLE_FORM_DIRECTO;
+  return GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP;
 }
 
 /** GAS: id del Form vigente ('' en node/sin instalar). */
@@ -110,22 +245,29 @@ function Form_claveCanonicaItem_(seccion, campo) {
 function Form_construirSchema_(form, opciones) {
   opciones = opciones || {};
   var cambios = [];
+  var errores = [];
   var map = Form_esquemaCanonial_();
   var idx = Form_indexarSchema_(form);
 
   var CFG = GOOGLE_FORMS_CONFIG;
   function opcionesTipo(campo, oficiales) {
     if (campo === 'SECTOR') return oficiales.sectores || [];
-    if (campo === 'PROFESIONAL') return oficiales.profesionales || [];
+    // v255 (E16/M10): PROFESIONAL2 recibe el MISMO catálogo normalizado/deduplicado.
+    if (campo === 'PROFESIONAL' || campo === 'PROFESIONAL2') return oficiales.profesionales || [];
     return (CFG.CAMPOS[campo] && CFG.CAMPOS[campo].opciones) || [];
   }
   function establecerOpciones(item, valores, requerido) {
-    if (!item || !valores || !valores.length) return;
-    if (item.setChoices) {
-      var chs = valores.map(function (o) { return item.createChoice(String(o)); });
-      item.setChoices(chs);
-    }
+    var opciones = valores || [];
+    if (!item) return false;
+    // v255 (E17): setRequired es independiente de tener opciones; se aplica SIEMPRE.
     if (item.setRequired) item.setRequired(!!requerido);
+    if (!opciones.length) return false;
+    if (item.setChoices) {
+      var chs = opciones.map(function (o) { return item.createChoice(String(o)); });
+      item.setChoices(chs);
+      return true;
+    }
+    return false;
   }
 
   // 1) Acción (navegación por secciones).
@@ -134,6 +276,20 @@ function Form_construirSchema_(form, opciones) {
   accionItem.setHelpText('Elegí qué deseás registrar y luego completá la sección correspondiente.');
   accionItem.setRequired(true);
   if (!idx.accionItem) cambios.push('Item creado: ' + CFG.ACCIONES.TITULO);
+
+  // 1b) Campos GLOBALes de transporte (no son datos clínicos; no vuelven al payload).
+  var globales = [CFG.TRANSPORTE.CAMPO_CLIENT_REQUEST_ID, CFG.TRANSPORTE.CAMPO_SOURCE];
+  globales.forEach(function (g) {
+    var gKey = Form_claveCanonicaItem_('', g);
+    var entradaG = idx.byCanonicalKey[gKey];
+    var gItem = entradaG && entradaG.item;
+    if (!gItem) {
+      gItem = form.addTextItem();
+      cambios.push('Campo creado (transporte): ' + g);
+    }
+    gItem.setTitle(g);
+    try { gItem.setRequired(false); } catch (e) {}
+  });
 
   // 2) Por sección: página + campos + cierre, en orden real.
   var paginas = {};
@@ -158,8 +314,12 @@ function Form_construirSchema_(form, opciones) {
           cambios.push('Campo creado: ' + campo);
         } catch (e) { return; }
       }
-      if (tipo === 'LISTA') establecerOpciones(it, opcionesTipo(campo, opciones), requerido);
-      else if (it.setRequired) it.setRequired(requerido);
+      if (tipo === 'LISTA') {
+        var okOpciones = establecerOpciones(it, opcionesTipo(campo, opciones), requerido);
+        // v255 (E17): una lista REQUERIDA sin opciones es error de instalación;
+        // el instalador debe fallar en vez de publicar un schema inutilizable.
+        if (requerido && !okOpciones) errores.push('CAMPO_REQUERIDO_SIN_OPCIONES:' + campo);
+      } else if (it.setRequired) it.setRequired(requerido);
     });
 
     try { page.setGoToPage(FormApp.PageNavigationType.SUBMIT); } catch (e) { /* API no disponible en harness antiguo */ }
@@ -172,6 +332,10 @@ function Form_construirSchema_(form, opciones) {
     return accionItem.createChoice(et, paginas[sec]);
   });
   accionItem.setChoices(rutas);
+
+  if (errores.length) {
+    return { ok: false, motivo: 'INSTALL_REQUIRED_CATALOG_EMPTY', errores: errores, cambios: cambios };
+  }
 
   return { ok: true, cambios: cambios };
 }
@@ -195,6 +359,9 @@ function Form_abrirOCrear_(formId, titulo, cambios, opciones) {
 function Form_mapaTitulos_() {
   var m = {};
   m[Utl_claveAlnum(GOOGLE_FORMS_CONFIG.ACCIONES.TITULO)] = 'ACCION';
+  // v255: los dos campos GLOBALes de transporte también se resuelven por título.
+  m[Utl_claveAlnum(GOOGLE_FORMS_CONFIG.TRANSPORTE.CAMPO_CLIENT_REQUEST_ID)] = 'CLIENT_REQUEST_ID';
+  m[Utl_claveAlnum(GOOGLE_FORMS_CONFIG.TRANSPORTE.CAMPO_SOURCE)] = 'SOURCE';
   Object.keys(GOOGLE_FORMS_CONFIG.CAMPOS).forEach(function (c) {
     m[Utl_claveAlnum(GOOGLE_FORMS_CONFIG.CAMPOS[c].etiqueta || c)] = c;
   });
@@ -218,6 +385,38 @@ function Form_construirCanonicalItemMap_(form) {
   });
   return out;
 }
+
+/** GAS: anexa al final de FORM_RESPUESTAS las columnas de transporte v255 que
+ *  falten (CLIENT_REQUEST_ID, SOURCE, CLASIFICACION, TRANSPORTE_ERROR).
+ *  Idempotente y de SOLO encabezado: nunca reescribe ni desplaza datos. */
+function Form_asegurarColumnasTransporte255_(hoja) {
+  if (!hoja) return;
+  var extra = ['CLIENT_REQUEST_ID', 'SOURCE', 'CLASIFICACION', 'TRANSPORTE_ERROR'];
+  var actuales = [];
+  try { actuales = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0] || []; } catch (e) { return; }
+  var claves = actuales.map(Utl_claveAlnum);
+  var pendientes = extra.filter(function (c) { return claves.indexOf(Utl_claveAlnum(c)) === -1; });
+  if (!pendientes.length) return;
+  try { hoja.getRange(1, hoja.getLastColumn() + 1, 1, pendientes.length).setValues([pendientes]); } catch (e) { /* no crítico */ }
+}
+
+/** DEDUP: nombres canónicos únicos y no vacíos de los profesionales activos. */
+function Form_catalogoProfesionales_() {
+  var prof = [];
+  try { prof = (typeof Captura_v2_catalogo === 'function') ? Captura_v2_catalogo() : []; } catch (e4) { prof = []; }
+  var vistos = {};
+  return prof.filter(function (p) { return p && p.ACTIVO !== false; })
+    .map(function (p) { return String(p.NOMBRE_CANONICO || p.NOMBRE || p.nombre || p.CODIGO || '').trim(); })
+    .filter(function (n) {
+      if (!n || vistos[Utl_claveAlnum(n)]) return false;
+      vistos[Utl_claveAlnum(n)] = true;
+      return true;
+    });
+}
+
+/** Títulos legacy del botón de envío de esquemas previos. 'Enviar respuesta'
+ *  existió hasta 3d9dece; la auditoría debe detectar AMBOS, no solo 'Enviar'. */
+var SUBMIT_LEGACY_TITLES = ['Enviar respuesta', 'Enviar'];
 
 /** Determina si un schema existente puede repararse sin borrar respuestas. */
 function Form_auditarSchema_(form) {
@@ -245,7 +444,7 @@ function Form_auditarSchema_(form) {
     vistos[key] = true;
     var esperado = '';
     if (!seccion && titulo === GOOGLE_FORMS_CONFIG.ACCIONES.TITULO) esperado = String(FormApp.ItemType.MULTIPLE_CHOICE);
-    else if (seccion && titulo === 'Enviar') incompatibles.push(key + ':ITEM_ARTIFICIAL_OBSOLETO');
+    else if (seccion && SUBMIT_LEGACY_TITLES.indexOf(titulo) !== -1) incompatibles.push(key + ':ITEM_ARTIFICIAL_OBSOLETO');
     else {
       var campo = tituloCampo[Utl_claveAlnum(titulo)];
       if (campo && campo !== 'ACCION') esperado = tipoEsperado(campo);
@@ -319,10 +518,11 @@ function Form_operativoInstalar(opciones) {
   }
   if (!hoja.getLastColumn()) {
     hoja.getRange(1, 1, 1, Form_columnas().length).setValues([Form_columnas()]);
-    cambios.push('Encabezados FORM_RESPUESTAS creados (28 columnas)');
-  } else if (typeof Captura_v2_asegurarColumnasTransporte_ === 'function') {
+    cambios.push('Encabezados FORM_RESPUESTAS creados (' + Form_columnas().length + ' columnas)');
+  } else {
     var antes = hoja.getLastColumn();
-    Captura_v2_asegurarColumnasTransporte_(hoja);
+    if (typeof Captura_v2_asegurarColumnasTransporte_ === 'function') Captura_v2_asegurarColumnasTransporte_(hoja);
+    Form_asegurarColumnasTransporte255_(hoja);
     if (hoja.getLastColumn() > antes) cambios.push('Columnas de transporte anexadas');
   }
   try {
@@ -364,15 +564,22 @@ function Form_operativoInstalar(opciones) {
     incompatibles: migracionSchema.incompatibles || [], cambios: cambios
   };
 
-  var catOpciones = {};
-  try { catOpciones.sectores = (typeof SECTORES_RESPONSABLES !== 'undefined') ? SECTORES_RESPONSABLES : []; } catch (e3) { catOpciones.sectores = []; }
-  catOpciones.profesionales = [];
-  try { catOpciones.profesionales = (typeof Captura_v2_catalogo === 'function') ? Captura_v2_catalogo() : []; } catch (e4) { catOpciones.profesionales = []; }
+  // Catálogo UNA sola lectura (M10): sectores + profesionales normalizados y
+  // deduplicados, aplicado a PROFESIONAL y PROFESIONAL2 por igual.
+  var catOpciones = { sectores: [], profesionales: [] };
+  try { catOpciones.sectores = (typeof SECTORES_RESPONSABLES !== 'undefined') ? SECTORES_RESPONSABLES.slice() : []; } catch (e3) { catOpciones.sectores = []; }
+  catOpciones.profesionales = Form_catalogoProfesionales_();
+
   var schema = Form_construirSchema_(form, catOpciones);
+  if (!schema.ok) {
+    return { ok: false, motivo: schema.motivo || 'INSTALL_CATALOG_FAILED',
+      errores: schema.errores || [], cambios: cambios, formId: form.getId() };
+  }
   cambios = cambios.concat(schema.cambios || []);
 
   // 3) Propiedades operativas.
   var itemMap = Form_itemMap_(form);
+  var canonicalMap = Form_construirCanonicalItemMap_(form);
   var urlResp = '', urlEdit = '';
   try { urlResp = form.getPublishedUrl(); } catch (e) { urlResp = ''; }
   try { urlEdit = form.getEditUrl(); } catch (e) { urlEdit = ''; }
@@ -382,7 +589,7 @@ function Form_operativoInstalar(opciones) {
   Form_propEscribir_('GOOGLE_FORM_EDIT_URL', urlEdit);
   Form_propEscribir_('GOOGLE_FORM_SCHEMA_VERSION', GOOGLE_FORMS_CONFIG.SCHEMA_VERSION);
   Form_propEscribir_('GOOGLE_FORM_ITEM_MAP', JSON.stringify(itemMap));
-  Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', JSON.stringify(Form_construirCanonicalItemMap_(form)));
+  Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', JSON.stringify(canonicalMap));
   Form_propEscribir_('GOOGLE_FORM_TITLE_MAP', JSON.stringify(Form_mapaTitulos_()));
   Form_propEscribir_('GOOGLE_FORM_ESTADO', 'INSTALADO');
   if (!Form_propLeer_('GOOGLE_FORM_CURSOR')) Form_propEscribir_('GOOGLE_FORM_CURSOR', '');
@@ -393,8 +600,28 @@ function Form_operativoInstalar(opciones) {
   catch (e5) { trigger.motivo = String(e5 && e5.message || e5); }
 
   // 5) Catálogos del Form (opciones).
-  var catalogoRes = Form_syncCatalogos({ form: form });
+  var catalogoRes = Form_syncCatalogos({ form: form, catalogo: catOpciones });
   cambios = cambios.concat(catalogoRes.cambios || []);
+
+  // 6) v255 fail-closed (E15): NUNCA ok:true degradado. Exigir worker trigger,
+  //    catálogo OK y profesionales > 0 y canonical map completo antes de éxito.
+  var faltanCanonical = Form_esquemaCanonial_().secciones.some(function (sec) {
+    return Form_esquemaCanonial_().campos[sec].some(function (campo) {
+      return !canonicalMap[Form_claveCanonicaItem_(sec, campo)];
+    });
+  });
+  if ((trigger.worker || 0) !== 1) {
+    return { ok: false, motivo: 'INSTALL_WORKER_FAILED', cambios: cambios, trigger: trigger };
+  }
+  if (!catalogoRes.ok || !catalogoRes.okTodas) {
+    return { ok: false, motivo: 'INSTALL_CATALOG_FAILED', cambios: cambios, catalogoRes: catalogoRes };
+  }
+  if (!(catOpciones.profesionales || []).length) {
+    return { ok: false, motivo: 'INSTALL_REQUIRED_CATALOG_EMPTY', cambios: cambios };
+  }
+  if (faltanCanonical) {
+    return { ok: false, motivo: 'INSTALL_CANONICAL_MAP_INCOMPLETO', cambios: cambios };
+  }
 
   return {
     ok: true, motivo: 'INSTALADO', creado: abierto.creado,
@@ -406,7 +633,9 @@ function Form_operativoInstalar(opciones) {
   };
 }
 
-/** GAS: sincroniza las opciones de los items desde las fuentes oficiales. */
+/** GAS: sincroniza las opciones de los items CATALOGABLES desde las fuentes
+ *  oficiales. v255 (E18): resuelve por GOOGLE_FORM_CANONICAL_ITEM_MAP (itemId),
+ *  NUNCA por títulos; el título queda solo como fallback de reparación. */
 function Form_syncCatalogos(opciones) {
   opciones = opciones || {};
   var cambios = [];
@@ -418,35 +647,52 @@ function Form_syncCatalogos(opciones) {
   }
   if (!form) return { ok: false, motivo: 'SOLO_GAS', cambios: cambios };
 
-  var sectores = (typeof SECTORES_RESPONSABLES !== 'undefined') ? SECTORES_RESPONSABLES : [];
-  var profesionales = [];
-  try {
-    if (typeof Captura_v2_catalogo === 'function') profesionales = Captura_v2_catalogo() || [];
-    else if (typeof Profesionales_catalogo === 'function') profesionales = Profesionales_catalogo() || [];
-  } catch (e) { profesionales = []; }
-  var nombresProf = profesionales.filter(function (p) { return p && p.ACTIVO !== false; })
-    .map(function (p) { return String(p.NOMBRE_CANONICO || p.NOMBRE || p.nombre || p.CODIGO || ''); }).filter(Boolean);
+  var catalogo = opciones.catalogo || {};
+  var sectores = (Array.isArray(catalogo.sectores) && catalogo.sectores.length)
+    ? catalogo.sectores : ((typeof SECTORES_RESPONSABLES !== 'undefined') ? SECTORES_RESPONSABLES : []);
+  var nombresProf = (Array.isArray(catalogo.profesionales) && catalogo.profesionales.length)
+    ? catalogo.profesionales : Form_catalogoProfesionales_();
 
+  var idx = Form_indexarSchema_(form);
+  var hit = 0, fallos = [];
   var fuentes = ['SECTOR', 'PROFESIONAL', 'PROFESIONAL2'];
-  try {
-    var items = form.getItems();
-    items.forEach(function (it) {
-      var t = it.getTitle();
-      var campo = null;
-      if (t === GOOGLE_FORMS_CONFIG.CAMPOS.SECTOR.etiqueta) campo = 'SECTOR';
-      else if (t === GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL.etiqueta) campo = 'PROFESIONAL';
-      else if (t === (GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL2 && GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL2.etiqueta)) campo = 'PROFESIONAL2';
-      if (!campo || fuentes.indexOf(campo) === -1) return;
-      var valores = campo === 'SECTOR' ? sectores : nombresProf;
+  fuentes.forEach(function (campo) {
+    var valores = campo === 'SECTOR' ? sectores : nombresProf;
+    var aplicado = false;
+    Form_esquemaCanonial_().secciones.forEach(function (sec) {
+      var entrada = idx.byCanonicalKey[Form_claveCanonicaItem_(sec, campo)];
+      if (!entrada || !entrada.item) return;
+      var it = entrada.item;
       if (!valores.length || !it.setChoices) return;
-      var chs = valores.map(function (o) { return it.createChoice(String(o)); });
-      it.setChoices(chs);
-      cambios.push('Catálogo aplicado: ' + t);
+      it.setChoices(valores.map(function (o) { return it.createChoice(String(o)); }));
+      aplicado = true;
     });
-  } catch (e) {
-    return { ok: false, motivo: String(e && e.message || e), cambios: cambios };
+    if (aplicado) { cambios.push('Catálogo aplicado: ' + campo + ' (' + valores.length + ')'); hit++; }
+    else fallos.push(campo);
+  });
+  // fallback de reparación por título SOLO si el mapa canónico no resolvió.
+  if (fallos.length) {
+    try {
+      form.getItems().forEach(function (it) {
+        var t = it.getTitle();
+        var campo = null;
+        if (t === GOOGLE_FORMS_CONFIG.CAMPOS.SECTOR.etiqueta) campo = 'SECTOR';
+        else if (t === GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL.etiqueta) campo = 'PROFESIONAL';
+        else if (t === (GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL2 && GOOGLE_FORMS_CONFIG.CAMPOS.PROFESIONAL2.etiqueta)) campo = 'PROFESIONAL2';
+        if (!campo || fuentes.indexOf(campo) === -1 || fallos.indexOf(campo) === -1) return;
+        var valores = campo === 'SECTOR' ? sectores : nombresProf;
+        if (!valores.length || !it.setChoices) return;
+        it.setChoices(valores.map(function (o) { return it.createChoice(String(o)); }));
+        cambios.push('Catálogo aplicado (reparación por título): ' + t);
+      });
+    } catch (e) {
+      return { ok: false, motivo: String(e && e.message || e), cambios: cambios, sectores: sectores.length, profesionales: nombresProf.length };
+    }
   }
-  return { ok: true, cambios: cambios, sectores: sectores.length, profesionales: nombresProf.length };
+  return {
+    ok: true, okTodas: hit + fallos.length === fuentes.length,
+    cambios: cambios, sectores: sectores.length, profesionales: nombresProf.length, camposAplicados: hit
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -499,7 +745,152 @@ function Form_extraerCampos_(response, opciones) {
 // INGESTA: trigger y cola
 // ---------------------------------------------------------------------------
 
-/** GAS: registra un fallo de transporte legible por la reconciliación. */
+/** GAS: hoja técnica de la cola (Modelo_hoja con fallback a SpreadsheetApp).
+ *  Devuelve null en contextos sin acceso (node). */
+function Form_hojaRespuetas_() {
+  try { if (typeof Modelo_hoja === 'function') return Modelo_hoja(HOJAS.FORM_RESPUESTAS); } catch (e) { /* n/d */ }
+  try {
+    if (typeof SpreadsheetApp !== 'undefined') {
+      return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.FORM_RESPUESTAS);
+    }
+  } catch (e2) { /* n/d */ }
+  return null;
+}
+
+/** GAS: lee UNA sola vez los estados actuales de la cola técnica.
+ *  → Map<captureId,{filaFisica,estado,clasificacion,fechaForms}>.
+ *  v255 (E13/E14): la clasificación (REVIEW/RETRYABLE/TERMINAL) se lee del
+ *  trailer; nada de ScriptProperties por response. */
+function Form_leerEstadosCola_() {
+  var estados = new Map();
+  var hoja = Form_hojaRespuetas_();
+  if (!hoja) return estados;
+  try {
+    var ultC = (typeof hoja.getLastColumn === 'function') ? hoja.getLastColumn() : 0;
+    var ultR = (typeof hoja.getLastRow === 'function') ? hoja.getLastRow() : 0;
+    if (!ultC || !ultR || ultR < 2) return estados;
+    var enc = hoja.getRange(1, 1, 1, ultC).getValues()[0] || [];
+    var mapa = {};
+    for (var i = 0; i < enc.length; i++) mapa[Utl_claveAlnum(enc[i])] = i;
+    var colRid = mapa[Utl_claveAlnum('RESPONSE_ID')];
+    var colEst = mapa[Utl_claveAlnum('ESTADO')];
+    var colCls = mapa[Utl_claveAlnum('CLASIFICACION')];
+    var colFecha = mapa[Utl_claveAlnum('FECHA_FORMS')];
+    if (colRid === undefined) return estados;
+    var datos = hoja.getRange(2, 1, ultR - 1, ultC).getValues();
+    for (var r = 0; r < datos.length; r++) {
+      var fila = datos[r];
+      var cid = fila[colRid] === undefined || fila[colRid] === null ? '' : String(fila[colRid]).trim();
+      var clave = Utl_claveAlnum(cid);
+      if (!cid || clave === 'RESPONSEID' || clave === 'RESPONSE_ID') continue;
+      estados.set(cid, {
+        filaFisica: r + 2,
+        estado: colEst !== undefined ? Utl_texto(fila[colEst]).toUpperCase() : '',
+        clasificacion: colCls !== undefined ? Utl_texto(fila[colCls]).toUpperCase() : '',
+        fechaForms: colFecha !== undefined ? Utl_texto(fila[colFecha]) : ''
+      });
+    }
+  } catch (e) { /* cola no legible → todos elegibles */ }
+  return estados;
+}
+
+/** v255 (E13): ¿un estado del trailer es elegible para el worker?
+ *  Ausente/retryable → true. PROCESADO/REVIEW/TERMINAL/REQUIERE_REVISION → false. */
+function Form_esElegibleCandidato_(estadoReg) {
+  if (!estadoReg) return true;
+  var cls = String(estadoReg.clasificacion || '').toUpperCase();
+  if (cls === 'REVIEW' || cls === 'TERMINAL') return false;
+  var est = String(estadoReg.estado || '').toUpperCase();
+  if (est === 'PROCESADO' || est === 'REQUIERE_REVISION') return false;
+  return true;
+}
+
+/** GAS: persiste clasificación durable + errores en el trailer de la fila.
+ *  E14: los errores por response van a TRANSPORTE_ERROR de la hoja, no a
+ *  ScriptProperties. Nunca reescribe columnas ajenas. */
+function Form_escribirClasificacionTrailer_(filaFisica, clasificacion, errores) {
+  try {
+    var hoja = Form_hojaRespuetas_();
+    if (!hoja || !filaFisica) return { ok: false };
+    var ultC = (typeof hoja.getLastColumn === 'function') ? hoja.getLastColumn() : 0;
+    var ultR = (typeof hoja.getLastRow === 'function') ? hoja.getLastRow() : 0;
+    if (!ultC || !ultR || filaFisica < 2 || filaFisica > ultR) return { ok: false };
+    var enc = hoja.getRange(1, 1, 1, ultC).getValues()[0] || [];
+    var mapa = {};
+    for (var i = 0; i < enc.length; i++) mapa[Utl_claveAlnum(enc[i])] = i;
+    var colCls = mapa[Utl_claveAlnum('CLASIFICACION')];
+    var colErr = mapa[Utl_claveAlnum('TRANSPORTE_ERROR')];
+    if (colCls === undefined || colErr === undefined) return { ok: false, motivo: 'COLUMNAS_AUSENTES' };
+    var fila = hoja.getRange(filaFisica, 1, 1, ultC).getValues()[0] || [];
+    fila[colCls] = clasificacion || '';
+    fila[colErr] = JSON.stringify((errores || []).slice(0, 5));
+    hoja.getRange(filaFisica, 1, 1, ultC).setValues([fila]);
+    return { ok: true };
+  } catch (e) { return { ok: false, motivo: String(e && e.message || e) }; }
+}
+
+/** v255 (E05): extrae CLIENT_REQUEST_ID/SOURCE (dos campos GLOBALes) del response. */
+function Form_extraerTransporte_(resp, idx) {
+  var out = { clientRequestId: '', source: '' };
+  try {
+    var irs = resp.getItemResponses() || [];
+    var itemReq = (idx && idx.byCanonicalKey['GLOBAL|CLIENT_REQUEST_ID']) || null;
+    var itemSrc = (idx && idx.byCanonicalKey['GLOBAL|SOURCE']) || null;
+    for (var i = 0; i < irs.length; i++) {
+      var it = null;
+      try { it = irs[i].getItem(); } catch (e) { it = null; }
+      if (!it) continue;
+      if (itemReq && itemReq.item && String(it.getId()) === String(itemReq.item.getId())) out.clientRequestId = Utl_texto(irs[i].getResponse());
+      else if (itemSrc && itemSrc.item && String(it.getId()) === String(itemSrc.item.getId())) out.source = Utl_texto(irs[i].getResponse());
+    }
+  } catch (e) { /* transporte ausente → vacío */ }
+  return out;
+}
+
+/** GAS: procesa UNA respuesta candidata con transporte v255.
+ *  Dedupe por clientRequestId (E06), ACK (E07), clasificación durable (E13).
+ *  REVIEW (adapter inválido) queda REVIEW; RETRYABLE vuelve; TERMINAL solo por
+ *  regla expresa (duplicado). Devuelve {ok, captureId, responseId, requestId,
+ *  accion, estado, clasificacion, errores, duplicado}. */
+function Form_procesarRespuestaConTransporte_(respuesta, ctx, opciones) {
+  opciones = opciones || {};
+  var formId = respuesta.formId;
+  var responseId = respuesta.responseId;
+  var captureId = CapturaIngress_captureId_(formId, responseId);
+  var transporte = opciones.transporte || {};
+  var requestId = '';
+  if (transporte.clientRequestId &&
+      GOOGLE_FORMS_CONFIG.TRANSPORTE.PATRON_CLIENT_REQUEST_ID.test(String(transporte.clientRequestId))) {
+    requestId = String(transporte.clientRequestId);
+  }
+  if (requestId) {
+    var idxReq = Form_requestIdBuscar_(requestId);
+    if (idxReq.estado === 'RECIBIDO' && idxReq.responseId && String(idxReq.responseId) !== String(responseId)) {
+      return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
+        duplicado: true, clasificacion: 'TERMINAL', errores: [{ codigo: 'DUPLICADO_REQUEST_ID' }] };
+    }
+  }
+  var ad = CapturaIngress_adapterForms({
+    formId: formId, responseId: responseId, timestamp: respuesta.timestamp,
+    accion: respuesta.accion, campos: respuesta.campos
+  }, { catalogo: ctx.catalogo, hoy: opciones.hoy });
+  if (!ad.ok) {
+    Form_registrarErrorTransporte_(captureId, ad.errores);
+    return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
+      clasificacion: 'REVIEW', errores: ad.errores };
+  }
+  var r = CapturaIngress_enviar(ad.payload, ctx, 'GOOGLE_FORMS');
+  if (!r.ok) {
+    return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
+      clasificacion: 'RETRYABLE', errores: r.errors || [{ codigo: 'PIPELINE' }] };
+  }
+  if (requestId) Form_requestIdConfirmar_(requestId, responseId);
+  return { ok: true, captureId: captureId, responseId: responseId, requestId: requestId,
+    accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO', clasificacion: 'TERMINAL' };
+}
+
+/** GAS: registra un fallo de transporte legible por la reconciliación.
+ *  v255 (E13/E14): deja de ser gate terminal; es solo trazabilidad auxiliar. */
 function Form_registrarErrorTransporte_(captureId, errores) {
   try {
     Form_propEscribir_('GOOGLE_FORM_ERRORS|' + captureId, JSON.stringify({
@@ -522,29 +913,8 @@ function Form_errorTransporteVisto_(captureId, ventanaMin) {
   return false;
 }
 
-/** GAS: procesa una respuesta del Form (1 envío → pipeline V2). */
-function Form_procesarUnaRespuesta_(respuesta, ctx, opciones) {
-  opciones = opciones || {};
-  var captureId = CapturaIngress_captureId_(respuesta.formId, respuesta.responseId);
-  if (Form_errorTransporteVisto_(captureId)) {
-    return { ok: false, captureId: captureId, errores: [{ codigo: 'YA_DESCARTADO' }], descartado: true, clasificacion: 'terminal' };
-  }
-  var ad = CapturaIngress_adapterForms({
-    formId: respuesta.formId, responseId: respuesta.responseId,
-    timestamp: respuesta.timestamp, accion: respuesta.accion, campos: respuesta.campos
-  }, { catalogo: ctx.catalogo, hoy: opciones.hoy });
-  if (!ad.ok) {
-    Form_registrarErrorTransporte_(captureId, ad.errores);
-    return { ok: false, captureId: captureId, errores: ad.errores, clasificacion: 'review' };
-  }
-  var r = CapturaIngress_enviar(ad.payload, ctx, 'GOOGLE_FORMS');
-  if (!r.ok) {
-    return { ok: false, captureId: captureId, errores: r.errors || [{ codigo: 'PIPELINE' }], clasificacion: 'retryable' };
-  }
-  return { ok: true, captureId: captureId, accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO' };
-}
-
-/** GAS: trigger onFormSubmit — señal liviana. El worker es el único escritor clínico. */
+/** GAS: trigger onFormSubmit — señal liviana de recepción (E12).
+ *  El worker es el único escritor clínico; aquí solo contador + timestamp. */
 function Form_onFormSubmit(e) {
   var formId = Form_formId_();
   if (!formId) return { ok: false, errores: [{ codigo: 'NO_INSTALADO' }] };
@@ -552,8 +922,8 @@ function Form_onFormSubmit(e) {
   if (!resp) return { ok: false, errores: [{ codigo: 'SIN_RESPONSE' }] };
   var responseId = '';
   try { responseId = String(resp.getId()); } catch (e3) { responseId = ''; }
-  Form_metricaSumar_('DEFERRED_COUNT');
-  Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
+  Form_metricaSumar_('SUBMIT_SIGNAL_COUNT');
+  Form_propEscribir_('GOOGLE_FORM_LAST_SUBMIT_SIGNAL_TS', String(Date.now()));
   return { ok: true, queued: true, responseId: responseId };
 }
 
@@ -566,7 +936,25 @@ function Form_desdeCursor_() {
   return new Date(Math.max(0, d.getTime() - overlapMin * 60000));
 }
 
-/** GAS: worker de cola — reanuda respuestas del Form no procesadas (idempotente). */
+/** v255 (M03): circuito por errores SISTÉMICOS consecutivos (N=3). Corta el
+ *  batch conservando la cola; el siguiente intento reintenta (resetea al éxito). */
+function Form_circuitoSistémico_(codigo, inicioMs, motivo) {
+  var cfg = GOOGLE_FORMS_CONFIG.CIRCUIT || {};
+  var esSistemico = (cfg.ERRORES_SISTEMICOS || []).indexOf(codigo) !== -1;
+  if (esSistemico) {
+    var n = (Number(Form_propLeer_('GOOGLE_FORM_CIRCUIT_CONSECUTIVOS')) || 0) + 1;
+    Form_propEscribir_('GOOGLE_FORM_CIRCUIT_CONSECUTIVOS', String(n));
+    if (n >= (cfg.UMBRAL || 3)) {
+      return { ok: false, motivo: 'CIRCUIT_OPEN', codigo: codigo, circuit: { abierto: true, consecutivos: n }, procesadas: 0, durationMs: Date.now() - inicioMs };
+    }
+  }
+  return { ok: false, motivo: codigo, procesadas: 0, durationMs: Date.now() - inicioMs };
+}
+
+/** GAS: worker de cola durable — reanuda respuestas no procesadas (v255).
+ *  Operativo: UNA lectura de estados del trailer + conteo de ELEGIBLES (E08).
+ *  opciones.yaProcesado queda SOLO como inyección de pruebas; la producción
+ *  no depende de él. LOCK_WAIT_MS respetada (E30). */
 function Form_worker(opciones) {
   opciones = opciones || {};
   if (opciones.simular) return opciones.simular();
@@ -574,68 +962,108 @@ function Form_worker(opciones) {
   var formId = opciones.formId || Form_formId_();
   if (!formId) return { ok: false, motivo: 'NO_INSTALADO' };
   var lock = null;
+  var inicioMs = Date.now();
   try {
     lock = LockService.getScriptLock();
     var waitMs = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750;
-    if (!lock.tryLock(500)) {
+    if (!lock.tryLock(waitMs)) {
       Form_metricaSumar_('LOCK_BUSY_DEFERRED');
-      Form_metricaSumar_('DEFERRED_COUNT');
       Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
-      return { ok: false, motivo: 'DEFERRED_LOCK_BUSY', procesadas: 0, lock: false };
+      return { ok: false, motivo: 'DEFERRED_LOCK_BUSY', procesadas: 0, lock: false, durationMs: Date.now() - inicioMs };
     }
     Form_metricaSumar_('WORKER_RUNS');
-    var form = FormApp.openById(formId);
+    Form_propEscribir_('GOOGLE_FORM_LAST_WORKER_RUN_TS', String(Date.now()));
+    var form = null;
+    try {
+      form = FormApp.openById(formId);
+    } catch (e) {
+      Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
+      return Form_circuitoSistémico_('FORM_NO_ACCESIBLE', inicioMs, 'Form no accesible');
+    }
     var respuestas = [];
     try { respuestas = form.getResponses(Form_desdeCursor_()) || []; } catch (e) { respuestas = []; }
 
     respuestas.sort(function (a, b) {
       try { return a.getTimestamp().getTime() - b.getTimestamp().getTime(); } catch (e) { return 0; }
     });
-    var procesadas = 0, errores = 0, retryable = 0, review = 0, terminal = 0, filas = [];
+    var estadosCola = Form_leerEstadosCola_();
+    var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP'));
+    var titleMap = Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'));
+    var idx = Form_indexarSchema_(form);
+    var cfg = GOOGLE_FORMS_CONFIG.WORKER || {};
+
+    var candidatos = [];
+    for (var i = 0; i < respuestas.length; i++) {
+      var resp = respuestas[i];
+      var responseId = '';
+      try { responseId = String(resp.getId()); } catch (e2) { responseId = ''; }
+      var cid = CapturaIngress_captureId_(formId, responseId);
+      var est = estadosCola.get(cid);
+      if (!Form_esElegibleCandidato_(est)) continue;
+      if (opciones.yaProcesado && opciones.yaProcesado(cid)) continue;
+      candidatos.push({ resp: resp, responseId: responseId, cid: cid, ts: '', estadoPrev: est });
+    }
+    for (var t = 0; t < candidatos.length; t++) {
+      try { var dts = candidatos[t].resp.getTimestamp(); candidatos[t].ts = dts ? Control_aIso(dts) : ''; } catch (e4) { candidatos[t].ts = ''; }
+    }
+
+    var limite = opciones.max || cfg.MAX_POR_CORRIDA || 10;
+    var procesadas = 0, errores = 0, retryable = 0, review = 0, terminal = 0;
+    var elegibles = candidatos.length;
     var cursorSeguro = Form_propLeer_('GOOGLE_FORM_CURSOR');
     var encontroRetryable = false;
     var ctx = CapturaIngress_ctx();
     try { ctx.leerPacientes = Modelo_leerPacientes; } catch (e) { /* opcional */ }
 
-    var limite = opciones.max || GOOGLE_FORMS_CONFIG.WORKER.MAX_POR_CORRIDA;
-    for (var i = 0; i < respuestas.length && procesadas + errores < limite; i++) {
-      var resp = respuestas[i];
-      var responseId = '';
-      try { responseId = String(resp.getId()); } catch (e2) { responseId = ''; }
-      var ts = '';
-      try { var dts = resp.getTimestamp(); ts = dts ? Control_aIso(dts) : ts; } catch (e3) { ts = ''; }
-      var cid = CapturaIngress_captureId_(formId, responseId);
-      if (opciones.yaProcesado && opciones.yaProcesado(cid)) {
-        if (!encontroRetryable && ts) cursorSeguro = ts;
-        continue;
-      }
-      var it = Form_extraerCampos_(resp, {
-        itemMap: Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP')),
-        titleMap: Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'))
-      });
-      var r = Form_procesarUnaRespuesta_({ formId: formId, responseId: responseId, timestamp: ts, accion: it.accion, campos: it.campos }, ctx, { hoy: ts });
-      if (r.ok) procesadas++;
-      else {
+    var filas = [];
+    var procesadasEsteBatch = 0;
+    for (var k = 0; k < candidatos.length && (procesadasEsteBatch + errores) < limite; k++) {
+      var cand = candidatos[k];
+      var campos = Form_extraerCampos_(cand.resp, { itemMap: itemMap, titleMap: titleMap });
+      var tr = Form_extraerTransporte_(cand.resp, idx);
+      var r = Form_procesarRespuestaConTransporte_(
+        { formId: formId, responseId: cand.responseId, timestamp: cand.ts, accion: campos.accion, campos: campos.campos },
+        ctx, { hoy: cand.ts, transporte: tr });
+      var rOk = r.ok;
+      var rf = cand.cid || r.captureId || '';
+      var filaFisica = (cand.estadoPrev && cand.estadoPrev.filaFisica) || '';
+      if (rOk) {
+        procesadas++; procesadasEsteBatch++;
+        Form_escribirClasificacionTrailer_(filaFisica, r.clasificacion || 'TERMINAL', r.errores || []);
+        Form_propEscribir_('GOOGLE_FORM_LAST_PROCESSED_TS', String(Date.now()));
+      } else {
         errores++;
-        if (r.clasificacion === 'terminal') terminal++;
-        else if (r.clasificacion === 'review') review++;
-        else { retryable++; encontroRetryable = true; }
+        if (r.clasificacion === 'REVIEW') {
+          review++;
+          Form_escribirClasificacionTrailer_(filaFisica, 'REVIEW', r.errores || []);
+        } else if (r.clasificacion === 'TERMINAL') {
+          terminal++;
+          Form_escribirClasificacionTrailer_(filaFisica, 'TERMINAL', r.errores || []);
+          Form_propEscribir_('GOOGLE_FORM_LAST_TERMINAL_TS', String(Date.now()));
+        } else {
+          retryable++; encontroRetryable = true;
+          Form_escribirClasificacionTrailer_(filaFisica, 'RETRYABLE', r.errores || []);
+          Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
+        }
       }
-      filas.push({ responseId: responseId, captureId: cid || r.captureId, ok: r.ok, accion: r.accion || '', estado: r.estado || '', clasificacion: r.ok ? 'processed' : (r.clasificacion || 'retryable'), errores: r.errores || [] });
-      if (!encontroRetryable && ts && (r.ok || r.clasificacion === 'review' || r.clasificacion === 'terminal')) cursorSeguro = ts;
+      filas.push({ responseId: r.responseId || cand.responseId, captureId: rf, ok: rOk, accion: r.accion || '', estado: r.estado || '', clasificacion: rOk ? 'processed' : (r.clasificacion || 'retryable'), errores: r.errores || [] });
+      if (!encontroRetryable && cand.ts) cursorSeguro = cand.ts;
     }
     if (cursorSeguro && cursorSeguro !== Form_propLeer_('GOOGLE_FORM_CURSOR')) Form_propEscribir_('GOOGLE_FORM_CURSOR', cursorSeguro);
+    Form_propEscribir_('GOOGLE_FORM_CIRCUIT_CONSECUTIVOS', '0');
     if (procesadas) Form_metricaSumar_('WORKER_PROCESSED', procesadas);
     if (errores) Form_metricaSumar_('WORKER_ERRORS', errores);
     if (retryable) Form_metricaSumar_('WORKER_RETRYABLE', retryable);
     if (review) Form_metricaSumar_('WORKER_REVIEW', review);
     if (terminal) Form_metricaSumar_('WORKER_TERMINAL', terminal);
+    if (procesadas && procesadasEsteBatch) Form_propEscribir_('GOOGLE_FORM_LAST_WORKER_OK_TS', String(Date.now()));
     return { ok: true, procesadas: procesadas, errores: errores, retryable: retryable,
       review: review, terminal: terminal, total: procesadas + retryable + review + terminal,
-      restantes: Math.max(0, respuestas.length - procesadas - errores), lock: true, filas: filas };
+      elegibles: elegibles, restantes: Math.max(0, elegibles - procesadasEsteBatch - errores),
+      durationMs: Date.now() - inicioMs, lock: true, filas: filas };
   } catch (e) {
     Form_metricaSumar_('WORKER_ERRORS');
-    return { ok: false, motivo: String(e && e.message || e), procesadas: 0 };
+    return { ok: false, motivo: String(e && e.message || e), procesadas: 0, durationMs: Date.now() - inicioMs };
   } finally {
     try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
   }
@@ -645,17 +1073,41 @@ function Form_worker(opciones) {
 // RECONCILIACIÓN (dryRun) y DIAGNÓSTICO
 // ---------------------------------------------------------------------------
 
-/**
- * GAS: clasifica envíos del Form que no llegaron a procesarse.
- * dryRun=true (default): solo lee y clasifica, NO escribe NADA.
- * devuelve: {ok, dryRun, analizados, nuevos[], yaEnCola[], ausentes[], fallidos[]}
- */
+/** v255 (E09/E10): estado actual del backlog derivado de IDs ÚNICOS del trailer
+ *  (nunca de contadores acumulativos). Devuelve processed/retryable/review/
+ *  terminal/pending/oldestPendingMin. */
+function Form_backlogResumen_() {
+  var resumen = { processed: 0, retryable: 0, review: 0, terminal: 0, pending: 0, tajada: [], oldestPendingMin: 0 };
+  var estados = Form_leerEstadosCola_();
+  var ahora = Date.now();
+  var minTs = null;
+  estados.forEach(function (reg, cid) {
+    var cls = String(reg.clasificacion || '').toUpperCase();
+    var est = String(reg.estado || '').toUpperCase();
+    // La CLASIFICACION del trailer (escrita por el worker) es autoritativa.
+    if (cls === 'REVIEW' || est === 'REQUIERE_REVISION') { resumen.review++; resumen.tajada.push({ captureId: cid, clasificacion: 'REVIEW', fechaForms: reg.fechaForms }); return; }
+    if (cls === 'TERMINAL' || est === 'PROCESADO') { resumen.terminal++; return; }
+    if (cls === 'RETRYABLE' || est === 'ERROR' || est === 'RECIBIDO' || est === 'VALIDANDO' || est === 'VALIDO' || est === '') {
+      resumen.retryable++;
+      resumen.tajada.push({ captureId: cid, clasificacion: 'RETRYABLE', fechaForms: reg.fechaForms });
+      var t = Number(new Date(String(reg.fechaForms || '').length >= 10 ? String(reg.fechaForms) : Number(reg.fechaForms) || 0)) || 0;
+      if (!minTs || t < minTs) minTs = t;
+      return;
+    }
+    resumen.processed++;
+  });
+  resumen.oldestPendingMin = minTs ? Math.max(0, Math.round((ahora - minTs) / 60000)) : 0;
+  return resumen;
+}
+
+/** GAS: clasifica envíos del Form que no llegaron a procesarse.
+ *  v255 (E22): SIEMPRE read-only; toda reparación vive en Form_operativoReparar(). */
 function Form_reconciliarTransporte(opciones) {
   opciones = opciones || {};
-  var dryRun = opciones.dryRun !== false;
-  var formId = opciones.formId || Form_formId_();
+  var formId = (opciones.formId || opciones.id) || Form_formId_();
   if (!formId) return { ok: false, motivo: 'NO_INSTALADO' };
-  var form = FormApp.openById(formId);
+  var form;
+  try { form = FormApp.openById(formId); } catch (e) { return { ok: false, motivo: 'FORM_NO_ACCESIBLE' }; }
   var respuestas = [];
   try {
     respuestas = form.getResponses(new Date(Date.now() - GOOGLE_FORMS_CONFIG.RECONCILIACION.VENTANA_HS * 3600000));
@@ -676,19 +1128,76 @@ function Form_reconciliarTransporte(opciones) {
     if (leerEnCola(cid)) { yaEnCola.push({ responseId: responseId, captureId: cid, estado: 'EN_COLA_ORDENADA' }); continue; }
     nuevos.push({ responseId: responseId, captureId: cid, estado: 'SIN_PROCESAR' });
   }
-  return { ok: true, dryRun: dryRun, analizados: respuestas.length, nuevos: nuevos, yaEnCola: yaEnCola, ausentes: ausentes, fallidos: fallidos };
+  return { ok: true, dryRun: true, analizados: respuestas.length, nuevos: nuevos, yaEnCola: yaEnCola, ausentes: ausentes, fallidos: fallidos };
 }
 
-/** GAS: estado operativo del canal (sin datos clínicos). */
+/** GAS: reparación segura del canal v255 (M04). DEFAULT dry-run. Entrada:
+ *  { repairTrigger, repairCatalogos, repairPropiedades, repairMetricas, dryRun }.
+ *  NUNCA borra respuestas ni toca pacientes/eventos. */
+function Form_operativoReparar(opciones) {
+  opciones = opciones || {};
+  var dryRun = opciones.dryRun !== false;
+  var acciones = [];
+  var formId = Form_formId_();
+  var form = null;
+  if (formId && typeof FormApp !== 'undefined') {
+    try { form = FormApp.openById(formId); } catch (e) { form = null; }
+  }
+  if (opciones.repairColumnas !== false) {
+    try {
+      var hoja = Form_hojaRespuetas_();
+      if (hoja) Form_asegurarColumnasTransporte255_(hoja);
+      acciones.push({ accion: 'columnas_transporte', estado: dryRun ? 'dry-run' : 'ok' });
+    } catch (e) { acciones.push({ accion: 'columnas_transporte', estado: 'error:' + String(e && e.message || e) }); }
+  }
+  if (opciones.repairTriggers !== false && form) {
+    try {
+      var triggerWorker = 0;
+      if (typeof ScriptApp !== 'undefined') {
+        triggerWorker = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'Form_worker'; }).length;
+      }
+      if (!dryRun && triggerWorker === 0) {
+        ScriptApp.newTrigger('Form_worker').timeBased().everyMinutes(5).create();
+        acciones.push({ accion: 'trigger_worker', estado: 'creado' });
+      } else {
+        acciones.push({ accion: 'trigger_worker', estado: dryRun ? 'necesita_creacion' : 'ya_existe' });
+      }
+    } catch (e) { acciones.push({ accion: 'trigger_worker', estado: 'error:' + String(e && e.message || e) }); }
+  }
+  if (opciones.repairCatalogos !== false && form) {
+    try {
+      var cr = Form_syncCatalogos({ form: form });
+      acciones.push({ accion: 'catalogos', estado: (cr.ok ? 'ok' : 'fallo'), detalle: (cr.cambios || []).length + ' cambios' });
+    } catch (e) { acciones.push({ accion: 'catalogos', estado: 'error:' + String(e && e.message || e) }); }
+  }
+  if (opciones.repairPropiedades !== false && form) {
+    try {
+      var cm = Form_construirCanonicalItemMap_(form);
+      if (!dryRun) Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', JSON.stringify(cm));
+      acciones.push({ accion: 'canonical_map', estado: dryRun ? 'dry-run' : 'ok', detalle: Object.keys(cm).length + ' claves' });
+    } catch (e) { acciones.push({ accion: 'canonical_map', estado: 'error:' + String(e && e.message || e) }); }
+  }
+  return { ok: true, dryRun: dryRun, formId: formId, acciones: acciones };
+}
+
+/** v255 (M05): worker manual desde admin — delega a Form_worker() sin bypass. */
+function api_formWorkerEjecutarAhora(opciones) {
+  return Form_worker(opciones);
+}
+
+/** GAS: estado operativo del canal (sin datos clínicos).
+ *  v255: backlog real por IDs únicos (E09/E10) + triggers del worker (E11). */
 function Form_operativoEstado(opciones) {
   opciones = opciones || {};
   var formId = Form_formId_();
   var metricas = Form_metricas_();
-  var trigger = null;
+  var triggerOnFormSubmit = null, triggerWorker = null;
   if (typeof ScriptApp !== 'undefined') {
     try {
-      trigger = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'Form_onFormSubmit'; }).length;
-    } catch (e) { trigger = -1; }
+      var ts = ScriptApp.getProjectTriggers();
+      triggerOnFormSubmit = ts.filter(function (t) { return t.getHandlerFunction() === 'Form_onFormSubmit'; }).length;
+      triggerWorker = ts.filter(function (t) { return t.getHandlerFunction() === 'Form_worker'; }).length;
+    } catch (e) { triggerOnFormSubmit = -1; triggerWorker = -1; }
   }
   var info = {};
   if (formId && typeof FormApp !== 'undefined') {
@@ -698,15 +1207,8 @@ function Form_operativoEstado(opciones) {
       try { info.respuestas = form.getResponses().length; } catch (e) { /* opcional */ }
     } catch (e) { info.error = String(e && e.message || e); }
   }
-  var oldest = metricas.OLDEST_PENDING_MIN;
-  var deferredTs = Number(Form_propLeer_('GOOGLE_FORM_METRIC_DEFERRED_TS')) || 0;
-  if (deferredTs) oldest = Math.round((Date.now() - deferredTs) / 60000);
+  var backlog = Form_backlogResumen_();
   var total = Number(info.respuestas) || 0;
-  var processed = metricas.WORKER_PROCESSED || 0;
-  var retryable = metricas.WORKER_RETRYABLE || 0;
-  var review = metricas.WORKER_REVIEW || 0;
-  var terminal = metricas.WORKER_TERMINAL || 0;
-  var pendientes = Math.max(0, total - processed - terminal);
   return {
     ok: true,
     instalado: !!formId,
@@ -714,24 +1216,34 @@ function Form_operativoEstado(opciones) {
     url: Form_urlRespondedor_(),
     schemaVersion: Number(Form_propLeer_('GOOGLE_FORM_SCHEMA_VERSION')) || 0,
     cursor: Form_propLeer_('GOOGLE_FORM_CURSOR'),
-    triggerOnFormSubmit: trigger,
+    triggerOnFormSubmit: triggerOnFormSubmit,
+    triggerWorker: triggerWorker,
     metricas: metricas,
-    observabilidad: { responsesTotal: total, processed: processed, retryable: retryable,
-      review: review, terminal: terminal, backlog: pendientes, oldestPendingMin: oldest },
-    backlog: { oldestPendingMin: oldest, pendientes: pendientes },
+    observabilidad: {
+      responsesTotal: total,
+      processed: backlog.terminal + backlog.processed,
+      retryable: backlog.retryable,
+      review: backlog.review,
+      terminal: backlog.terminal,
+      backlog: backlog.pending + backlog.retryable,
+      oldestPendingMin: backlog.oldestPendingMin
+    },
+    backlog: { oldestPendingMin: backlog.oldestPendingMin, pendientes: backlog.pending + backlog.retryable, pending: backlog.pending, retryable: backlog.retryable, review: backlog.review, terminal: backlog.terminal },
     form: info,
     canal: 'GOOGLE_FORMS'
   };
 }
 
-/** GAS: diagnóstico de instalación del canal (sin mutar nada). */
+/** GAS: diagnóstico de instalación del canal (sin mutar nada).
+ *  v255 (E11): triggerWorkerCount es BLOQUEANTE. */
 function Form_operativoDiagnosticar(opciones) {
   var estado;
   try { estado = Form_operativoEstado(opciones); } catch (e) { estado = { ok: false, motivo: String(e && e.message || e) }; }
   var checks = [
     { nombre: 'form_id', ok: !!(estado.formId), detalle: estado.formId || 'Sin Form configurado (ejecutar Form_operativoInstalar)' },
     { nombre: 'schema_version', ok: estado.schemaVersion === GOOGLE_FORMS_CONFIG.SCHEMA_VERSION, detalle: 'Schema v' + estado.schemaVersion + ' / esperada v' + GOOGLE_FORMS_CONFIG.SCHEMA_VERSION },
-    { nombre: 'trigger', ok: (estado.triggerOnFormSubmit || 0) === 1, detalle: 'Triggers onFormSubmit: ' + (estado.triggerOnFormSubmit === null ? 'n/d' : estado.triggerOnFormSubmit) },
+    { nombre: 'trigger_on_form_submit', ok: (estado.triggerOnFormSubmit || 0) === 1, detalle: 'Triggers onFormSubmit: ' + (estado.triggerOnFormSubmit === null ? 'n/d' : estado.triggerOnFormSubmit) },
+    { nombre: 'trigger_worker', ok: (estado.triggerWorker || 0) === 1, detalle: 'Triggers worker: ' + (estado.triggerWorker === null ? 'n/d' : estado.triggerWorker) + ' (requerido: 1)' },
     { nombre: 'url', ok: !!estado.url, detalle: estado.url || 'Sin URL de respondedor' }
   ];
   var hojaOk = false;
@@ -739,11 +1251,59 @@ function Form_operativoDiagnosticar(opciones) {
     try {
       var ss = SpreadsheetApp.getActiveSpreadsheet();
       var h = ss.getSheetByName(HOJAS.FORM_RESPUESTAS);
-      hojaOk = !!(h && h.getLastColumn() >= Form_columnas().length);
+      hojaOk = !!(h && h.getLastColumn && h.getLastColumn() >= Form_columnas().length);
     } catch (e) { hojaOk = false; }
   }
   checks.push({ nombre: 'columnas', ok: hojaOk, detalle: hojaOk ? 'FORM_RESPUESTAS con ' + Form_columnas().length + ' columnas' : 'FORM_RESPUESTAS incompleta' });
   return { ok: estado.ok !== false && checks.every(function (c) { return c.ok; }), checks: checks, estado: estado, versionSistema: ECICEP.VERSION };
+}
+
+/** v255 (M01): salud real del canal — OK / DEGRADED / CRITICAL.
+ *  CRITICAL: sin worker trigger o Form no accesible o schema roto.
+ *  DEGRADED: backlog>0, oldest>umbral o retryable>0. Sin PII. */
+function Form_saludOperativa_(opciones) {
+  opciones = opciones || {};
+  var diag = Form_operativoDiagnosticar(opciones);
+  var estado = diag.estado || {};
+  var backlog = estado.backlog || {};
+  var alertas = [];
+  var nivel = 'OK';
+  if ((estado.triggerWorker || 0) !== 1) { nivel = 'CRITICAL'; alertas.push('WORKER_TRIGGER_AUSENTE'); }
+  if (!estado.formId || estado.form.error) { if (nivel !== 'CRITICAL') nivel = 'CRITICAL'; alertas.push('FORM_NO_ACCESIBLE'); }
+  if (estado.schemaVersion !== GOOGLE_FORMS_CONFIG.SCHEMA_VERSION) { if (nivel !== 'CRITICAL') nivel = 'CRITICAL'; alertas.push('SCHEMA_DRIFT'); }
+  if (backlog.oldestPendingMin > GOOGLE_FORMS_CONFIG.SALUD.OLDEST_PENDING_MAX_MIN) {
+    if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('OLDEST_PENDING_EXCEDIDO');
+  } else if ((backlog.pending || 0) + (backlog.retryable || 0) > 0 || (backlog.review || 0) > 0) {
+    if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('BACKLOG_PENDIENTE');
+  }
+  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, backlog: backlog, diagOk: diag.ok, checks: diag.checks };
+}
+
+/** v255 (M06): panel de operación del transporte — solo agregados, SIN PII. */
+function Form_panelOperacion_(opciones) {
+  opciones = opciones || {};
+  var salud = Form_saludOperativa_(opciones);
+  var estado = salud.diagOk !== undefined ? (Form_operativoEstado(opciones)) : {};
+  var m = Form_metricas_();
+  var ahora = Date.now();
+  return {
+    ok: true,
+    generadoEn: String(new Date(ahora).toISOString()),
+    health: salud.estado,
+    alertas: salud.alertas,
+    worker: { triggerWorkerCount: estado.triggerWorker || 0, cadenceMin: 5 },
+    lastWorkerRunAt: Form_propLeer_('GOOGLE_FORM_LAST_WORKER_RUN_TS') || '',
+    lastWorkerOkAt: Form_propLeer_('GOOGLE_FORM_LAST_WORKER_OK_TS') || '',
+    lastReceivedAt: Form_propLeer_('GOOGLE_FORM_LAST_RECEIVED_TS') || '',
+    lastProcessedAt: Form_propLeer_('GOOGLE_FORM_LAST_PROCESSED_TS') || '',
+    lastRetryableAt: Form_propLeer_('GOOGLE_FORM_LAST_RETRYABLE_TS') || '',
+    lastTerminalAt: Form_propLeer_('GOOGLE_FORM_LAST_TERMINAL_TS') || '',
+    backlog: salud.backlog,
+    lockBusy: m.LOCK_BUSY_DEFERRED || 0,
+    recepciones: Number(Form_propLeer_('GOOGLE_FORM_METRIC_SUBMIT_SIGNAL_COUNT')) || 0,
+    errores: m.WORKER_ERRORS || 0,
+    runs: m.WORKER_RUNS || 0
+  };
 }
 
 /** GAS: panel administrativo del canal (HTML). */
@@ -779,7 +1339,12 @@ function Form_indexarSchema_(form) {
     }
     var entrada = { item: it, tipo: it.getType ? it.getType().toString() : '' };
     try { idx.byItemId[String(it.getId())] = entrada; } catch (e) {}
-    if (!idx.seccion) continue;
+    if (!idx.seccion) {
+      // v255: campos GLOBALes de transporte antes del primer PageBreak.
+      if (tituloCampo[Utl_claveAlnum(t)] === 'CLIENT_REQUEST_ID') idx.byCanonicalKey['GLOBAL|CLIENT_REQUEST_ID'] = entrada;
+      else if (tituloCampo[Utl_claveAlnum(t)] === 'SOURCE') idx.byCanonicalKey['GLOBAL|SOURCE'] = entrada;
+      continue;
+    }
     var key = idx.seccion + '|' + t;
     idx.byKey[key] = entrada;
     var campo = tituloCampo[Utl_claveAlnum(t)];
@@ -822,7 +1387,12 @@ function Form_campoRequerido_(seccion, campo) {
 }
 
 /** GAS: crea FormResponse desde payload Web (recepción durable). */
-function Form_crearRespuestaDesdePayloadWeb_(payload) {
+/** v255 (E19/E20): crea FormResponse desde payload Web mediante PLAN de
+ *  ItemResponses resuelto por canonical keys. TODO campo no vacío debe crear
+ *  ItemResponse con éxito; si no, FORM_SCHEMA_DRIFT y NO submit.
+ *  Errores sin PII: solo canonical keys. */
+function Form_crearRespuestaDesdePayloadWeb_(payload, opciones) {
+  opciones = opciones || {};
   try {
     var formId = Form_formId_();
     if (!formId) return { ok: false, estado: 'ERROR', motivo: 'FORM_NO_CONFIGURADO' };
@@ -834,117 +1404,236 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
     else if (accion === 'registrarcontrol') seccion = 'REGISTRAR_CONTROL';
     else if (accion === 'registrarseguimiento') seccion = 'REGISTRAR_SEGUIMIENTO';
     else if (accion === 'actualizardatos') seccion = 'ACTUALIZAR_DATOS';
+    if (!seccion) return { ok: false, estado: 'ERROR', motivo: 'ACCION_INVALIDA' };
     var idx = Form_indexarSchema_(form);
-    var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP')) || {};
-    // try to map by known labels if needed
-    function setItem(keySec, valor) {
-      var trozos = String(keySec).split('|');
-      var campo = Form_mapaTitulos_()[Utl_claveAlnum(trozos.slice(1).join('|'))] || trozos.slice(1).join('|');
-      var entrada = idx.byCanonicalKey[Form_claveCanonicaItem_(trozos[0], campo)] || idx.byKey[keySec];
-      if (entrada && entrada.item) {
-        try { response.withItemResponse(entrada.item.createResponse(valor)); return true; } catch (e) {}
+    var plan = [];
+    var fallos = [];
+
+    function setCanonical(campoSeccion, campo, valor, esFecha) {
+      var ck = Form_claveCanonicaItem_(campoSeccion, campo);
+      var entrada = idx.byCanonicalKey[ck];
+      var reparadoPorTitulo = false;
+      if (!entrada || !entrada.item) {
+        // v255 (E20): títulos SOLO como reparación si el canonical no existe.
+        var etiq = GOOGLE_FORMS_CONFIG.CAMPOS[campo] && GOOGLE_FORMS_CONFIG.CAMPOS[campo].etiqueta;
+        if (etiq && idx.byTitle[etiq] && idx.byTitle[etiq].length) { entrada = idx.byTitle[etiq][0]; reparadoPorTitulo = true; }
       }
-      return false;
+      var v = valor;
+      if (esFecha) {
+        v = Form_fechaLocalDesdeIso_(valor);
+        if (!v) { plan.push({ canonicalKey: ck, ok: false, motivo: 'FECHA_INVALIDA' }); fallos.push(ck); return false; }
+      }
+      if (v === null || v === undefined || String(v).trim() === '') {
+        plan.push({ canonicalKey: ck, valor: '', ok: true, omitidoVacio: true });
+        return true;
+      }
+      var ok = false;
+      if (entrada && entrada.item) {
+        try { response.withItemResponse(entrada.item.createResponse(v)); ok = true; } catch (e2) { ok = false; }
+      }
+      plan.push({ canonicalKey: ck, ok: ok, reparadoPorTitulo: reparadoPorTitulo });
+      if (!ok) fallos.push(ck);
+      return ok;
     }
     function valorActualizacion(campo, fallback) {
       var a = payload.actualizacion && payload.actualizacion.campos && payload.actualizacion.campos[campo];
       if (a && typeof a === 'object' && a.valor !== undefined) return String(a.valor);
       return fallback === undefined || fallback === null ? '' : String(fallback);
     }
-    // set ACCION global
-    var accLabel = seccion && GOOGLE_FORMS_CONFIG.ACCIONES.OPCIONES[seccion]
-      ? GOOGLE_FORMS_CONFIG.ACCIONES.OPCIONES[seccion].etiqueta : '';
-    if (accLabel && idx.accionItem) {
-      try { response.withItemResponse(idx.accionItem.createResponse(accLabel)); } catch (e) {}
-    } else if (accLabel && idx.byKey[seccion + '|Acción a registrar']) {
-      try { response.withItemResponse(idx.byKey[seccion + '|Acción a registrar'].item.createResponse(accLabel)); } catch (e) {}
-    }
-    // set common fields
-    if (payload.rut) setItem(seccion + '|RUT', payload.rut) || setItem(seccion + '|RUT de la persona (ej: 12.345.678-5)', payload.rut) || setItem(seccion + '|RUT de la persona', payload.rut);
+
+    // ACCION global + transporte global (E05: CLIENT_REQUEST_ID y SOURCE).
+    var accLabel = (GOOGLE_FORMS_CONFIG.ACCIONES.OPCIONES[seccion] || {}).etiqueta || '';
+    setCanonical('GLOBAL', 'ACCION', accLabel, false);
+    var source = String(opciones.source || payload.source || GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP).toUpperCase();
+    setCanonical('GLOBAL', 'SOURCE', source, false);
+    if (payload.clientRequestId) setCanonical('GLOBAL', 'CLIENT_REQUEST_ID', String(payload.clientRequestId), false);
+
+    // Campos comunes.
+    if (payload.rut) setCanonical(seccion, 'RUT', payload.rut, false);
     if (seccion === 'NUEVO_INGRESO') {
-      if (payload.nombre) setItem('NUEVO_INGRESO|Nombre completo', payload.nombre) || setItem('NUEVO_INGRESO|NOMBRE', payload.nombre) || setItem('NUEVO_INGRESO|Nombre', payload.nombre);
-      if (payload.fechaNacimiento) try { setItem('NUEVO_INGRESO|Fecha de nacimiento', Form_fechaLocalDesdeIso_(payload.fechaNacimiento)); } catch (e) {}
-      if (payload.sector) setItem('NUEVO_INGRESO|Sector', payload.sector);
-      if (payload.fechaIngreso) try { setItem('NUEVO_INGRESO|Fecha de ingreso', Form_fechaLocalDesdeIso_(payload.fechaIngreso)); } catch (e) {}
-      if (payload.profesional) setItem('NUEVO_INGRESO|Profesional que registra', payload.profesional) || setItem('NUEVO_INGRESO|PROFESIONAL', payload.profesional);
-      if (payload.profesionalSecundario) setItem('NUEVO_INGRESO|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('NUEVO_INGRESO|PROFESIONAL2', payload.profesionalSecundario);
-      if (payload.sexo) setItem('NUEVO_INGRESO|Sexo (M / F / OTRO)', payload.sexo);
-      if (payload.estratificacion) setItem('NUEVO_INGRESO|Estratificación (solo si se conoce)', payload.estratificacion);
-      if (payload.saludMental) setItem('NUEVO_INGRESO|Salud mental', payload.saludMental);
-      if (payload.telefonos) setItem('NUEVO_INGRESO|Teléfono(s)', payload.telefonos);
-      if (payload.proximoControl) try { setItem('NUEVO_INGRESO|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
-      if (payload.observaciones) setItem('NUEVO_INGRESO|Observaciones', payload.observaciones);
+      if (payload.nombre) setCanonical('NUEVO_INGRESO', 'NOMBRE', payload.nombre, false);
+      if (payload.fechaNacimiento) setCanonical('NUEVO_INGRESO', 'FECHA_NACIMIENTO', payload.fechaNacimiento, true);
+      if (payload.sector) setCanonical('NUEVO_INGRESO', 'SECTOR', payload.sector, false);
+      if (payload.fechaIngreso) setCanonical('NUEVO_INGRESO', 'FECHA_INGRESO', payload.fechaIngreso, true);
+      if (payload.profesional) setCanonical('NUEVO_INGRESO', 'PROFESIONAL', payload.profesional, false);
+      if (payload.profesionalSecundario) setCanonical('NUEVO_INGRESO', 'PROFESIONAL2', payload.profesionalSecundario, false);
+      if (payload.sexo) setCanonical('NUEVO_INGRESO', 'SEXO', payload.sexo, false);
+      if (payload.estratificacion) setCanonical('NUEVO_INGRESO', 'ESTRATIFICACION', payload.estratificacion, false);
+      if (payload.saludMental) setCanonical('NUEVO_INGRESO', 'SALUD_MENTAL', payload.saludMental, false);
+      if (payload.telefonos) setCanonical('NUEVO_INGRESO', 'TELEFONOS', payload.telefonos, false);
+      if (payload.proximoControl) setCanonical('NUEVO_INGRESO', 'PROXIMO_CONTROL', payload.proximoControl, true);
+      if (payload.observaciones) setCanonical('NUEVO_INGRESO', 'OBSERVACIONES', payload.observaciones, false);
     }
     if (seccion === 'REGISTRAR_CONTROL') {
-      if (payload.rut) setItem('REGISTRAR_CONTROL|RUT de la persona (ej: 12.345.678-5)', payload.rut) || setItem('REGISTRAR_CONTROL|RUT', payload.rut);
-      if (payload.fechaEvento) try { setItem('REGISTRAR_CONTROL|Fecha del evento (control/seguimiento)', Form_fechaLocalDesdeIso_(payload.fechaEvento)); } catch (e) {}
-      if (payload.profesional) setItem('REGISTRAR_CONTROL|Profesional que registra', payload.profesional) || setItem('REGISTRAR_CONTROL|PROFESIONAL', payload.profesional);
-      if (payload.profesionalSecundario) setItem('REGISTRAR_CONTROL|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('REGISTRAR_CONTROL|PROFESIONAL2', payload.profesionalSecundario);
-      if (payload.proximoControl) try { setItem('REGISTRAR_CONTROL|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
-      if (payload.observaciones) setItem('REGISTRAR_CONTROL|Observaciones', payload.observaciones);
+      if (payload.fechaEvento) setCanonical('REGISTRAR_CONTROL', 'FECHA_EVENTO', payload.fechaEvento, true);
+      if (payload.profesional) setCanonical('REGISTRAR_CONTROL', 'PROFESIONAL', payload.profesional, false);
+      if (payload.profesionalSecundario) setCanonical('REGISTRAR_CONTROL', 'PROFESIONAL2', payload.profesionalSecundario, false);
+      if (payload.proximoControl) setCanonical('REGISTRAR_CONTROL', 'PROXIMO_CONTROL', payload.proximoControl, true);
+      if (payload.observaciones) setCanonical('REGISTRAR_CONTROL', 'OBSERVACIONES', payload.observaciones, false);
     }
     if (seccion === 'REGISTRAR_SEGUIMIENTO') {
-      if (payload.rut) setItem('REGISTRAR_SEGUIMIENTO|RUT', payload.rut);
-      if (payload.fechaEvento) try { setItem('REGISTRAR_SEGUIMIENTO|Fecha del evento (control/seguimiento)', Form_fechaLocalDesdeIso_(payload.fechaEvento)); } catch (e) {}
-      if (payload.profesional) setItem('REGISTRAR_SEGUIMIENTO|Profesional que registra', payload.profesional) || setItem('REGISTRAR_SEGUIMIENTO|PROFESIONAL', payload.profesional);
-      if (payload.profesionalSecundario) setItem('REGISTRAR_SEGUIMIENTO|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('REGISTRAR_SEGUIMIENTO|PROFESIONAL2', payload.profesionalSecundario);
-      if (payload.proximoControl) try { setItem('REGISTRAR_SEGUIMIENTO|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
-      if (payload.observaciones) setItem('REGISTRAR_SEGUIMIENTO|Observaciones', payload.observaciones);
+      if (payload.fechaEvento) setCanonical('REGISTRAR_SEGUIMIENTO', 'FECHA_EVENTO', payload.fechaEvento, true);
+      if (payload.profesional) setCanonical('REGISTRAR_SEGUIMIENTO', 'PROFESIONAL', payload.profesional, false);
+      if (payload.profesionalSecundario) setCanonical('REGISTRAR_SEGUIMIENTO', 'PROFESIONAL2', payload.profesionalSecundario, false);
+      if (payload.proximoControl) setCanonical('REGISTRAR_SEGUIMIENTO', 'PROXIMO_CONTROL', payload.proximoControl, true);
+      if (payload.observaciones) setCanonical('REGISTRAR_SEGUIMIENTO', 'OBSERVACIONES', payload.observaciones, false);
     }
     if (seccion === 'ACTUALIZAR_DATOS') {
-      if (payload.rut) setItem('ACTUALIZAR_DATOS|RUT', payload.rut);
-      if (payload.profesional) setItem('ACTUALIZAR_DATOS|Profesional que registra', payload.profesional) || setItem('ACTUALIZAR_DATOS|PROFESIONAL', payload.profesional);
-      if (payload.profesionalSecundario) setItem('ACTUALIZAR_DATOS|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('ACTUALIZAR_DATOS|PROFESIONAL2', payload.profesionalSecundario);
+      if (payload.profesional) setCanonical('ACTUALIZAR_DATOS', 'PROFESIONAL', payload.profesional, false);
+      if (payload.profesionalSecundario) setCanonical('ACTUALIZAR_DATOS', 'PROFESIONAL2', payload.profesionalSecundario, false);
       var telNuevo = valorActualizacion('TELEFONOS', payload.telefonos);
       var telObsNueva = valorActualizacion('TELEFONO_OBS', payload.telefonoObs);
       var proxNuevo = valorActualizacion('PROXIMO_CONTROL', payload.proximoControl);
       var smNueva = valorActualizacion('SALUD_MENTAL', payload.saludMental);
       var obsNueva = valorActualizacion('OBSERVACIONES', payload.observaciones);
-      if (telNuevo) setItem('ACTUALIZAR_DATOS|Teléfono(s)', telNuevo);
-      if (telObsNueva) setItem('ACTUALIZAR_DATOS|Observación del teléfono', telObsNueva);
-      if (proxNuevo) try { setItem('ACTUALIZAR_DATOS|Próximo control', Form_fechaLocalDesdeIso_(proxNuevo)); } catch (e) {}
-      if (smNueva) setItem('ACTUALIZAR_DATOS|Salud mental', smNueva);
-      if (obsNueva) setItem('ACTUALIZAR_DATOS|Observaciones', obsNueva);
+      if (telNuevo) setCanonical('ACTUALIZAR_DATOS', 'TELEFONOS', telNuevo, false);
+      if (telObsNueva) setCanonical('ACTUALIZAR_DATOS', 'TELEFONO_OBS', telObsNueva, false);
+      if (proxNuevo) setCanonical('ACTUALIZAR_DATOS', 'PROXIMO_CONTROL', proxNuevo, true);
+      if (smNueva) setCanonical('ACTUALIZAR_DATOS', 'SALUD_MENTAL', smNueva, false);
+      if (obsNueva) setCanonical('ACTUALIZAR_DATOS', 'OBSERVACIONES', obsNueva, false);
+    }
+    // v255 (E19): cobertura de campos requeridos de la sección dentro del plan.
+    Form_esquemaCanonial_().campos[seccion].forEach(function (campo) {
+      if (!Form_campoRequerido_(seccion, campo)) return;
+      var ck = Form_claveCanonicaItem_(seccion, campo);
+      var cubierto = plan.some(function (pe) { return pe.canonicalKey === ck && pe.ok; });
+      if (!cubierto) fallos.push(ck);
+    });
+    // v255 (E19): fail-closed — NADA se envía si algún campo aceptado falló.
+    if (fallos.length) {
+      return { ok: false, estado: 'ERROR', motivo: 'FORM_SCHEMA_DRIFT', failedAcceptedFields: fallos, plan: plan, formId: formId };
     }
     var submitted = response.submit();
     var rid = '';
     try { rid = String(submitted.getId()); } catch (e) {}
     var rts = '';
     try { var dt = submitted.getTimestamp(); rts = dt ? Control_aIso(dt) : ''; } catch (e) {}
-    return { ok: true, estado: 'RECIBIDO', responseId: rid, receivedAt: rts };
+    return { ok: true, estado: 'RECIBIDO', responseId: rid, receivedAt: rts, plan: plan };
   } catch (e) {
     return { ok: false, estado: 'ERROR', motivo: String(e && e.message || e) };
   }
 }
 
-/** Entrypoint WebApp: recepción durable via Google Forms (cola). No procesa clínicamente. */
+/** Entrypoint WebApp: recepción durable via Google Forms (cola). No procesa
+ *  clínicamente. v255 (E05/E06/E07): dedupe por CLIENT_REQUEST_ID + reserva
+ *  + confirmación de ACK. Sin PII en la respuesta. */
 function WebApp_capturarRecibirDurable(payload, acceso) {
   try {
-    var v = Form_validarPayloadTransporte_(payload || {});
-    if (!v.ok) return { ok: false, motivo: v.codigo || 'ACCION_INVALIDA' };
-    var res = Form_crearRespuestaDesdePayloadWeb_(payload || {});
-    if (!res.ok) return { ok: false, motivo: res.motivo || 'ERROR_DURABLE' };
-    return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: res.responseId, receivedAt: res.receivedAt } };
+    var p = payload || {};
+    var v = Form_validarPayloadTransporte_(p);
+    if (!v.ok) return { ok: false, motivo: v.codigo || 'ACCION_INVALIDA', errores: v.errores || [] };
+    var requId = '';
+    if (p.clientRequestId && GOOGLE_FORMS_CONFIG.TRANSPORTE.PATRON_CLIENT_REQUEST_ID.test(String(p.clientRequestId))) {
+      requId = String(p.clientRequestId);
+    }
+    var lock = null;
+    if (requId && typeof LockService !== 'undefined') {
+      try {
+        lock = LockService.getScriptLock();
+        if (lock.tryLock(500)) {
+          var rsv = Form_requestIdReservar_(requId);
+          if (rsv.yaRecibido) {
+            lock.releaseLock(); lock = null;
+            return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: rsv.responseId, deduped: true, yaRecibido: true } };
+          }
+          if (rsv.estado === 'EN_PROCESO') {
+            lock.releaseLock(); lock = null;
+            return { ok: true, estado: 'EN_PROCESO', data: { estado: 'EN_PROCESO' } };
+          }
+          lock.releaseLock(); lock = null; // E07: liberar ANTES de submit.
+        }
+      } catch (e2) { try { if (lock) lock.releaseLock(); } catch (e3) {} lock = null; }
+    }
+    var res = Form_crearRespuestaDesdePayloadWeb_(p);
+    if (!res.ok) {
+      if (requId) { try { var cache = Form_cache_(); if (cache) cache.remove(GOOGLE_FORMS_CONFIG.TRANSPORTE.CACHE_PREFIJO + requId); } catch (e4) {} }
+      return { ok: false, motivo: res.motivo || 'ERROR_DURABLE', failedAcceptedFields: res.failedAcceptedFields || [] };
+    }
+    if (requId) Form_requestIdConfirmar_(requId, res.responseId);
+    Form_propEscribir_('GOOGLE_FORM_LAST_RECEIVED_TS', String(Date.now()));
+    Form_metricaSumar_('SUBMIT_SIGNAL_COUNT');
+    return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: res.responseId, receivedAt: res.receivedAt, deduped: false } };
   } catch (e) {
     return { ok: false, motivo: String(e && e.message || e) };
   }
 }
 
+/** v255 (E21): validación de transporte SIN lookup clínico. Reglas de formato,
+ *  calendario real, whitelists y longitudes máximas. */
 function Form_validarPayloadTransporte_(payload) {
   try {
     var p = payload || {};
+    var errores = [];
     var acc = String(p.accion || '').toLowerCase();
     var valid = acc === 'nuevoingreso' || acc === 'registrarcontrol' || acc === 'registrarseguimiento' || acc === 'actualizardatos';
-    if (!valid) return { ok: false, codigo: 'ACCION_INVALIDA' };
-    if (acc === 'nuevoingreso') {
-      if (!p.rut || !p.nombre || !p.fechaNacimiento || !p.sector || !p.fechaIngreso || !p.profesional) return { ok: false, codigo: 'VALIDATION_ERROR' };
-    } else if (acc === 'registrarcontrol' || acc === 'registrarseguimiento') {
-      if (!p.rut || !p.fechaEvento || !p.profesional) return { ok: false, codigo: 'VALIDATION_ERROR' };
-    } else if (acc === 'actualizardatos') {
-      if (!p.rut || !p.profesional) return { ok: false, codigo: 'VALIDATION_ERROR' };
+    if (!valid) return { ok: false, codigo: 'ACCION_INVALIDA', errores: [{ codigo: 'ACCION_INVALIDA' }] };
+
+    function fechaReal(v) {
+      if (v === undefined || v === null || String(v).trim() === '') return true;
+      var s = String(v).trim();
+      var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return false;
+      var y = parseInt(m[1], 10), mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+      if (y < 1900 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+      var dt = new Date(Date.UTC(y, mo - 1, d));
+      return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
     }
+    function rutBasico(v) {
+      if (v === undefined || v === null) return false;
+      var s = String(v).replace(/\./g, '').replace(/\s+/g, '');
+      return /^\d{7,8}-?[\dkK]?$/.test(s) && s.length >= 8;
+    }
+    function longMax(v, max) { return v === undefined || v === null || String(v).length <= max; }
+
+    // clientRequestId (opcional desde Web; vacío en Form directo).
+    if (p.clientRequestId !== undefined && p.clientRequestId !== null && String(p.clientRequestId).trim() !== '') {
+      var cri = String(p.clientRequestId).trim();
+      if (!GOOGLE_FORMS_CONFIG.TRANSPORTE.PATRON_CLIENT_REQUEST_ID.test(cri)) errores.push({ codigo: 'CLIENT_REQUEST_ID_INVALIDO' });
+    }
+    // RUT.
+    if (!rutBasico(p.rut)) errores.push({ codigo: 'RUT_INVALIDO' });
+    // Longitudes máximas.
+    if (!longMax(p.nombre, 200)) errores.push({ codigo: 'NOMBRE_LARGO' });
+    if (!longMax(p.rut, 12)) errores.push({ codigo: 'RUT_LARGO' });
+    if (!longMax(p.profesional, 120)) errores.push({ codigo: 'PROFESIONAL_LARGO' });
+    if (!longMax(p.profesionalSecundario, 120)) errores.push({ codigo: 'PROFESIONAL_LARGO' });
+    if (!longMax(p.telefonos, 300)) errores.push({ codigo: 'TELEFONOS_LARGO' });
+    if (!longMax(p.observaciones, 2000)) errores.push({ codigo: 'OBSERVACIONES_LARGO' });
+    // Fechas con calendario real.
+    if (!fechaReal(p.fechaNacimiento)) errores.push({ codigo: 'FECHA_NACIMIENTO_INVALIDA' });
+    if (!fechaReal(p.fechaIngreso)) errores.push({ codigo: 'FECHA_INGRESO_INVALIDA' });
+    if (!fechaReal(p.fechaEvento)) errores.push({ codigo: 'FECHA_EVENTO_INVALIDA' });
+    if (!fechaReal(p.proximoControl)) errores.push({ codigo: 'PROXIMO_CONTROL_INVALIDO' });
+    // Whitelists (vacío válido para opcionales).
+    var listas = [
+      ['sector', ['NARANJO', 'AMARILLO', 'VERDE', 'MULTIPLE']],
+      ['sexo', ['M', 'F', 'OTRO']],
+      ['estratificacion', ['G1', 'G2', 'G3']],
+      ['saludMental', ['SI', 'NO']]
+    ];
+    for (var li = 0; li < listas.length; li++) {
+      var clave = listas[li][0], permitidos = listas[li][1];
+      var val = String(p[clave] || '').trim().toUpperCase();
+      if (val !== '' && permitidos.indexOf(val) === -1) errores.push({ codigo: clave.toUpperCase() + '_INVALIDO' });
+    }
+    // actualizacion: si viene como estructura (editor), debe ser válida. La Web
+    // App también transporta campos sueltos del formulario (telefonos,
+    // proximoControl, observaciones) sin el objeto estructurado; ambos formatos
+    // son válidos y el builder resuelve uno u otro.
+    if (acc === 'actualizardatos' && p.actualizacion !== undefined && p.actualizacion !== null) {
+      var a = p.actualizacion;
+      if (typeof a !== 'object' || !a.campos || typeof a.campos !== 'object') {
+        errores.push({ codigo: 'ACTUALIZACION_INVALIDA' });
+      } else {
+        Object.keys(a.campos).forEach(function (ck) {
+          var cel = a.campos[ck];
+          if (!cel || typeof cel !== 'object' || cel.valor === undefined) errores.push({ codigo: 'ACTUALIZACION_CAMPO_INVALIDO:' + ck });
+        });
+      }
+    }
+    if (errores.length) return { ok: false, codigo: 'VALIDATION_ERROR', errores: errores };
     return { ok: true };
-  } catch (e) { return { ok: false, codigo: 'VALIDATION_ERROR' }; }
+  } catch (e) { return { ok: false, codigo: 'VALIDATION_ERROR', errores: [{ codigo: 'VALIDATION_ERROR' }] }; }
 }
 
 function Form_fechaLocalDesdeIso_(iso) {

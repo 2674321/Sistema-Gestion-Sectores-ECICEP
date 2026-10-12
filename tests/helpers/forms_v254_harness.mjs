@@ -234,9 +234,9 @@ export function assertInstallerIdempotent() {
   const itemMap = JSON.parse(h.props.get('GOOGLE_FORM_ITEM_MAP'));
   const canonicalMap = JSON.parse(h.props.get('GOOGLE_FORM_CANONICAL_ITEM_MAP'));
   assert.ok(Object.values(itemMap).includes('ACCION'));
-  assert.equal(Object.keys(itemMap).length, 34, 'ACCION + 33 campos canónicos, incluida edición sin pérdida');
+  assert.equal(Object.keys(itemMap).length, 36, 'ACCION + 33 campos canónicos + 2 transporte global (v255)');
   assert.equal(canonicalMap['GLOBAL|ACCION'], h.c.Form_construirCanonicalItemMap_(h.form)['GLOBAL|ACCION']);
-  assert.equal(Object.keys(canonicalMap).length, 34);
+  assert.equal(Object.keys(canonicalMap).length, 36);
   assert.equal(h.form.getItems().filter(x => x.getTitle() === 'Enviar respuesta').length, 0);
   for (const page of h.form.getItems().filter(x => x.getType() === TYPES.PAGE_BREAK)) assert.equal(page.goToPage, 'SUBMIT');
   const rutId = canonicalMap['NUEVO_INGRESO|RUT'];

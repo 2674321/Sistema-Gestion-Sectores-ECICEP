@@ -1021,7 +1021,11 @@ var FORM_CAMPOS_PERSISTIDOS = [
 var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'USUARIO']
   .concat(FORM_CAMPOS_PERSISTIDOS)
   .concat(['TRAZA_CRUDA', 'INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO', 'FECHA_INGRESO'])
-  .concat(['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID']);
+  .concat(['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID'])
+  // v255 (decálogo operabilidad): vestidor de transporte por request. Todos los
+  // campos nuevos se ANEXAN al final; la migración idempotente corre en
+  // Form_operativoInstalar y la escritura por encabezado jamás desplaza datos.
+  .concat(['CLIENT_REQUEST_ID', 'SOURCE', 'CLASIFICACION', 'TRANSPORTE_ERROR']);
 
 // ---------------------------------------------------------------------------
 // GOOGLE FORMS — TRANSPORTE DURABLE INTERNO (v253 — DEC-106).
@@ -1072,6 +1076,27 @@ var GOOGLE_FORMS_CONFIG = {
     LOCK_WAIT_MS: 750,
     MAX_POR_CORRIDA: 10,
     OVERLAP_MIN: 24 * 60
+  },
+  // v255 — dedupe de transporte y recuperación de ACK (E05/E06/E07).
+  TRANSPORTE: {
+    CAMPO_CLIENT_REQUEST_ID: 'CLIENT_REQUEST_ID',
+    CAMPO_SOURCE: 'SOURCE',
+    SOURCE_WEBAPP: 'WEBAPP',
+    SOURCE_GOOGLE_FORM_DIRECTO: 'GOOGLE_FORM_DIRECT',
+    // Estructura del identificador emitido por la Web App (ERROR 21).
+    PATRON_CLIENT_REQUEST_ID: /^CR-[0-9a-f]{32}$/,
+    // Índice rápido en CacheService (NUNCA ScriptProperty por request).
+    CACHE_PREFIJO: 'FORM_REQ:',
+    TTL_RESERVADA_S: 120,
+    TTL_RECIBIDA_S: 6 * 3600,
+    // Escaneo de recuperación tras pérdida de cache: máximo 6 h.
+    ESCANEO_RECUPERACION_MS: 6 * 3600000,
+    DEDUPE_DOUBLE_SUBMIT: true
+  },
+  CIRCUIT: {
+    UMBRAL: 3,
+    CACHE_CLAVE: 'FORM_CIRCUITO',
+    ERRORES_SISTEMICOS: ['FORM_NO_ACCESIBLE', 'SPREADSHEET_UNAVAILABLE', 'PERMISSION_TEMPORARY', 'SERVICE_TEMPORARY']
   },
   SALUD: {
     OLDEST_PENDING_MAX_MIN: 180,      // más antiguo sin procesar > 3h → alerta

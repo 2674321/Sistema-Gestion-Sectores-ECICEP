@@ -2,6 +2,9 @@
 
 ESTADO: READY_FOR_REVIEW
 V254_CANDIDATE: FROZEN (4814e15)
-V255: DEVELOPED
+V255: IMPLEMENTED (ver INFORME_V255_AUDITORIA_CORREGIDA.md)
 PRODUCTION: UNCHANGED
 ACTIVATION: NOT_EXECUTED
+
+Batería: 123 suites · 0 fallos · auditar_v254 17/17 · núcleo 679/679.
+Publicación (clasp push/deploy) y E2E: pendientes de decisión.

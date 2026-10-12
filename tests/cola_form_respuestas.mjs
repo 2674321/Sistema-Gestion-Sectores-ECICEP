@@ -232,10 +232,10 @@ function makeHojaFake(headers, filas) {
 // ═════════════════════════════════════════════════════════════════════════════
 console.log('\nQ1 — Esquema FORM_RESPUESTAS');
 
-t('Q1a FORM_RESPUESTAS_COLUMNAS tiene 28 columnas (26 + transporte)', () => {
+t('Q1a FORM_RESPUESTAS_COLUMNAS tiene 32 columnas (26 + 2 transporte v253 + 4 transporte v255)', () => {
   const cols = sandbox.FORM_RESPUESTAS_COLUMNAS;
   A(Array.isArray(cols), 'FORM_RESPUESTAS_COLUMNAS debe ser array');
-  igual(cols.length, 28, '28 columnas declaradas');
+  igual(cols.length, 32, '32 columnas declaradas');
 });
 
 t('Q1b FECHA_INGRESO conserva posición y transporte se anexa al final', () => {
@@ -281,6 +281,14 @@ t('Q1e trailer de 10 columnas (9 originales + FECHA_INGRESO)', () => {
   cont(cols, 'ID_EVENTO');
   cont(cols, 'FECHA_PROCESO');
   cont(cols, 'FECHA_INGRESO');
+});
+
+t('Q1f vestidor de transporte v255 anexado al final (4 columnas)', () => {
+  const cols = sandbox.FORM_RESPUESTAS_COLUMNAS;
+  igual(cols[28], 'CLIENT_REQUEST_ID', 'CLIENT_REQUEST_ID anexado');
+  igual(cols[29], 'SOURCE', 'SOURCE anexado');
+  igual(cols[30], 'CLASIFICACION', 'CLASIFICACION anexada');
+  igual(cols[31], 'TRANSPORTE_ERROR', 'TRANSPORTE_ERROR anexado');
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
