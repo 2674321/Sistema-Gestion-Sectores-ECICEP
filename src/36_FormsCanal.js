@@ -753,14 +753,14 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
       try { response.withItemResponse(idx.byKey[seccion + '|Acción a registrar'].item.createResponse(accLabel)); } catch (e) {}
     }
     // set common fields
-    if (payload.rut) setItem(seccion + '|RUT', payload.rut) || setItem(seccion + '|RUT de la persona (ej: 12.345.678-5)', payload.rut);
+    if (payload.rut) setItem(seccion + '|RUT', payload.rut) || setItem(seccion + '|RUT de la persona (ej: 12.345.678-5)', payload.rut) || setItem(seccion + '|RUT de la persona', payload.rut);
     if (seccion === 'NUEVO_INGRESO') {
-      if (payload.nombre) setItem('NUEVO_INGRESO|Nombre completo', payload.nombre) || setItem('NUEVO_INGRESO|NOMBRE', payload.nombre);
+      if (payload.nombre) setItem('NUEVO_INGRESO|Nombre completo', payload.nombre) || setItem('NUEVO_INGRESO|NOMBRE', payload.nombre) || setItem('NUEVO_INGRESO|Nombre', payload.nombre);
       if (payload.fechaNacimiento) try { setItem('NUEVO_INGRESO|Fecha de nacimiento', Form_fechaLocalDesdeIso_(payload.fechaNacimiento)); } catch (e) {}
       if (payload.sector) setItem('NUEVO_INGRESO|Sector', payload.sector);
       if (payload.fechaIngreso) try { setItem('NUEVO_INGRESO|Fecha de ingreso', Form_fechaLocalDesdeIso_(payload.fechaIngreso)); } catch (e) {}
-      if (payload.profesional) setItem('NUEVO_INGRESO|Profesional que registra', payload.profesional);
-      if (payload.profesionalSecundario) setItem('NUEVO_INGRESO|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.profesional) setItem('NUEVO_INGRESO|Profesional que registra', payload.profesional) || setItem('NUEVO_INGRESO|PROFESIONAL', payload.profesional);
+      if (payload.profesionalSecundario) setItem('NUEVO_INGRESO|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('NUEVO_INGRESO|PROFESIONAL2', payload.profesionalSecundario);
       if (payload.sexo) setItem('NUEVO_INGRESO|Sexo (M / F / OTRO)', payload.sexo);
       if (payload.estratificacion) setItem('NUEVO_INGRESO|Estratificación (solo si se conoce)', payload.estratificacion);
       if (payload.saludMental) setItem('NUEVO_INGRESO|Salud mental', payload.saludMental);
@@ -771,23 +771,23 @@ function Form_crearRespuestaDesdePayloadWeb_(payload) {
     if (seccion === 'REGISTRAR_CONTROL') {
       if (payload.rut) setItem('REGISTRAR_CONTROL|RUT de la persona (ej: 12.345.678-5)', payload.rut) || setItem('REGISTRAR_CONTROL|RUT', payload.rut);
       if (payload.fechaEvento) try { setItem('REGISTRAR_CONTROL|Fecha del evento (control/seguimiento)', Form_fechaLocalDesdeIso_(payload.fechaEvento)); } catch (e) {}
-      if (payload.profesional) setItem('REGISTRAR_CONTROL|Profesional que registra', payload.profesional);
-      if (payload.profesionalSecundario) setItem('REGISTRAR_CONTROL|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.profesional) setItem('REGISTRAR_CONTROL|Profesional que registra', payload.profesional) || setItem('REGISTRAR_CONTROL|PROFESIONAL', payload.profesional);
+      if (payload.profesionalSecundario) setItem('REGISTRAR_CONTROL|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('REGISTRAR_CONTROL|PROFESIONAL2', payload.profesionalSecundario);
       if (payload.proximoControl) try { setItem('REGISTRAR_CONTROL|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.observaciones) setItem('REGISTRAR_CONTROL|Observaciones', payload.observaciones);
     }
     if (seccion === 'REGISTRAR_SEGUIMIENTO') {
       if (payload.rut) setItem('REGISTRAR_SEGUIMIENTO|RUT', payload.rut);
       if (payload.fechaEvento) try { setItem('REGISTRAR_SEGUIMIENTO|Fecha del evento (control/seguimiento)', Form_fechaLocalDesdeIso_(payload.fechaEvento)); } catch (e) {}
-      if (payload.profesional) setItem('REGISTRAR_SEGUIMIENTO|Profesional que registra', payload.profesional);
-      if (payload.profesionalSecundario) setItem('REGISTRAR_SEGUIMIENTO|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.profesional) setItem('REGISTRAR_SEGUIMIENTO|Profesional que registra', payload.profesional) || setItem('REGISTRAR_SEGUIMIENTO|PROFESIONAL', payload.profesional);
+      if (payload.profesionalSecundario) setItem('REGISTRAR_SEGUIMIENTO|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('REGISTRAR_SEGUIMIENTO|PROFESIONAL2', payload.profesionalSecundario);
       if (payload.proximoControl) try { setItem('REGISTRAR_SEGUIMIENTO|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.observaciones) setItem('REGISTRAR_SEGUIMIENTO|Observaciones', payload.observaciones);
     }
     if (seccion === 'ACTUALIZAR_DATOS') {
       if (payload.rut) setItem('ACTUALIZAR_DATOS|RUT', payload.rut);
-      if (payload.profesional) setItem('ACTUALIZAR_DATOS|Profesional que registra', payload.profesional);
-      if (payload.profesionalSecundario) setItem('ACTUALIZAR_DATOS|Segundo profesional (opcional)', payload.profesionalSecundario);
+      if (payload.profesional) setItem('ACTUALIZAR_DATOS|Profesional que registra', payload.profesional) || setItem('ACTUALIZAR_DATOS|PROFESIONAL', payload.profesional);
+      if (payload.profesionalSecundario) setItem('ACTUALIZAR_DATOS|Segundo profesional (opcional)', payload.profesionalSecundario) || setItem('ACTUALIZAR_DATOS|PROFESIONAL2', payload.profesionalSecundario);
       if (payload.telefonos) setItem('ACTUALIZAR_DATOS|Teléfono(s)', payload.telefonos);
       if (payload.proximoControl) try { setItem('ACTUALIZAR_DATOS|Próximo control', Form_fechaLocalDesdeIso_(payload.proximoControl)); } catch (e) {}
       if (payload.saludMental) setItem('ACTUALIZAR_DATOS|Salud mental', payload.saludMental);
