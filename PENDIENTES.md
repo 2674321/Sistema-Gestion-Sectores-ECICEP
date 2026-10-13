@@ -7,6 +7,13 @@
 > fallos. Pendiente operativo inmediato: snapshot read-only, backup verificado,
 > preactivación, publicación en el mismo deployment y E2E sintético controlado.
 
+> **Gate real v258:** backup integral verificado y snapshot read-only completado.
+> La activación se detuvo antes de `clasp push`: `clasp run` no tiene permiso y
+> las inspecciones read-only discreparon sobre `GOOGLE_FORM_ID`/secreto, por lo
+> que el Form configurado no pudo verificarse inequívocamente. Estado:
+> `BLOCKED_FOR_ACTIVATION`. Repetir el snapshot al reanudar; no reutilizar los
+> conteos como si fueran actuales.
+
 > **Actualización 2026-10-13 (v257 — DEC-112):** cerrados localmente los P0/P1
 > de integridad de identidad, confirmación de fila, unicidad RUT, rollback
 > verificado, compensación por IDs, estados/conflictos de `INGRESO_*`, ficha
