@@ -310,8 +310,11 @@ function CapturaIngress_edicionDesdeForma_(accion, campos, rutForm, opciones, er
   if (!leer && typeof Modelo_leerPacientes_ === 'function') leer = Modelo_leerPacientes_;
   if (!leer || typeof leer !== 'function') { err.push({ codigo: 'FICHA_NO_DISPONIBLE', mensaje: 'No se pudo leer la ficha vigente' }); return null; }
 
-  var pacientes;
-  try { pacientes = leer() || []; } catch (e) { pacientes = []; }
+  var pacientes, lecturaOk = true;
+  try { pacientes = leer() || []; } catch (e) { lecturaOk = false; }
+  // v256 (P1): fallo de LECTURA no es "no hay ficha": no degradar incertidumbre
+  // técnica a ausencia (fail-closed, reintentable).
+  if (!lecturaOk) { err.push({ codigo: 'FICHA_LECTURA_FALLIDA', mensaje: 'No se pudo leer la ficha vigente; reintenta en un momento' }); return null; }
   if (!pacientes.length) { err.push({ codigo: 'FICHA_NO_DISPONIBLE', mensaje: 'No hay ficha para el RUT indicado' }); return null; }
   var hit = null;
   for (var i = 0; i < pacientes.length; i++) {

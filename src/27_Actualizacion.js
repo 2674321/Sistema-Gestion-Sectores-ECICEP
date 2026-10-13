@@ -630,9 +630,26 @@ function Act_actualizarSistema_(opciones) {
         (reporte.estructura && reporte.estructura.ok === false) ||
         (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length) ||
         reporte._errores.indexOf('estructura') !== -1;
-      var datosCambiaron = (reporte.fuentes && reporte.fuentes.ok !== false) ||
-        (reporte.amarillo && reporte.amarillo.ok !== false) ||
-        (reporte.vistas && reporte.vistas.ok !== false);
+      // v256 (P1): marcar INICIO SOLO si hubo CAMBIOS REALES (contadores), no
+      // porque una fase terminara "ok". Una fase exitosa sin cambios no ensucia.
+      var _n = function (x) { return Number(x) || 0; };
+      var _pos = function () { for (var i = 0; i < arguments.length; i++) { if (_n(arguments[i]) > 0) return true; } return false; };
+      var _fu = reporte.fuentes || {};
+      var _mrg = _fu.merge || {};
+      var _am = reporte.amarillo || {};
+      var _amPuerta = _am.puerta || {};
+      var _amHist = _am.historico || {};
+      var _enr = reporte.enriquecimiento || {};
+      var _dv = reporte.derivados || {};
+      var _estr = _dv.estratificacion || {};
+      var _ctrl = _dv.controles || {};
+      var cambiosFuentes = _pos(_fu.nuevos, _mrg.actualizados, _mrg.conflictos, _fu.revision) ||
+        _fu.escritosPacientes === true || _fu.escritosEventos === true;
+      var cambiosAmarillo = _pos(_amPuerta.nuevas, _amHist.eventosCreados, _amHist.pacientesActualizados);
+      var cambiosEnriquecimiento = _pos(_enr.enriquecidos, _enr.actualizados, _enr.escritos);
+      var cambiosDerivados = _pos(_estr.cambios, _estr.actualizados, _estr.recalculados,
+        _ctrl.cambios, _ctrl.actualizados, _ctrl.recalculados);
+      var datosCambiaron = cambiosFuentes || cambiosAmarillo || cambiosEnriquecimiento || cambiosDerivados;
       if (estructuraCambio) {
         Libro_marcarDirty_('ESTRUCTURA'); Libro_marcarDirty_('VISUAL'); Libro_marcarDirty_('VALIDACIONES');
       }
