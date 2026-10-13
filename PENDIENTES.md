@@ -1,5 +1,39 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+## BLOQUEADORES DE ACTIVACIÓN ACTUALES
+
+Solo quedan operaciones runtime; no hay un P0/P1 de código abierto:
+
+- finalizar la jornada y retirar usuarios;
+- ejecutar preflight y crear un backup reciente inmediatamente antes de mutar;
+- abrir la ventana técnica (máximo 120 minutos);
+- configurar/adoptar el Form interno y la clave de operador si siguen ausentes;
+- publicar el mismo proyecto y actualizar el mismo deployment `/exec`;
+- ejecutar instalación/reparación, migración legacy y E2E real;
+- cerrar la ventana y emitir GO/NO-GO.
+
+## DEUDA TÉCNICA ACTUAL
+
+- No hay deuda P0/P1 conocida que bloquee el transporte. El append atómico, el
+  epoch de caché, el payload inválido visible y la auditoría XSS se cerraron en
+  v260 con pruebas conductuales.
+- Las mejoras funcionales históricas que siguen abiertas se mantienen abajo y
+  están marcadas como **NO BLOQUEA ACTIVACIÓN DEL TRANSPORTE**.
+
+## DECISIONES DE NEGOCIO PENDIENTES
+
+- Semántica oficial de ESTADO/SEGUIMIENTO/CONTROL/PROFESIONAL, `G` sin nivel,
+  catálogos/umbrales, PLAN_CUIDADO/GESTION_CASO, bloque C/atenciones REM y
+  corrección retrospectiva de eventos. **NO BLOQUEA ACTIVACIÓN DEL TRANSPORTE**.
+
+## HISTÓRICO CERRADO
+
+> Todo el contenido cronológico siguiente se conserva como evidencia histórica;
+> no redefine los bloqueadores vigentes anteriores.
+
+> **Actualización 2026-10-13 (v260 RC):** baseline de release local cerrada,
+> sin activar producción. La activación futura no requiere cambios de código.
+
 > **Actualización 2026-10-13 (v259 — DEC-114):** cierre local listo, sin activar.
 > La deuda heredada de `FORM_RESPUESTAS` quedó separada del backlog Google Forms,
 > con migración dry-run por defecto y reconciliación agregada read-only. Pendiente
@@ -80,7 +114,7 @@
 > incidente. Nada se pierde en silencio: errores de captura persistidos en la hoja
 > LOG (antes solo vivían en memoria), causas que ya no se descartan, y
 > `Limpieza`/`Recuperar` serializadas con el lock para que una reescritura total
-> no borre una captura concurrente. Quedan tres riesgos **aún abiertos**, con
+> no borre una captura concurrente. Quedaban tres riesgos, **cerrados en v260**, con
 > criterio explícito de no tocarlos a ciegas:
 > 1. `Fuentes_cargaReal_` y las mutaciones del webhook escriben PACIENTES/INGRESO
 >    **sin** el lock de script: dos ejecuciones simultáneas pueden calcular la

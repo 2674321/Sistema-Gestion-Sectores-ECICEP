@@ -1,0 +1,22 @@
+{
+  "appVersion": "0.17.0",
+  "releaseStage": "RC",
+  "schemaVersion": 2,
+  "installerVersion": "INST-1",
+  "gitSha": "51496d0a0f6479c0dac59d638dcb752ac2fd9dc2",
+  "branch": "codex/v255-operabilidad-observabilidad",
+  "generatedAt": "2026-10-13T23:32:53.519Z",
+  "tests": {
+    "suites": 149,
+    "failures": 0
+  },
+  "contracts": {
+    "capture": "V4",
+    "formsSchema": 3,
+    "decisionsThrough": "DEC-114"
+  },
+  "activation": {
+    "productionMutated": false,
+    "requiresAfterHours": true
+  }
+}

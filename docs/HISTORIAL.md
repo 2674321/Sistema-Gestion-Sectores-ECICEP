@@ -7,6 +7,18 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-10-13 — v0.17.0 (candidato rc1) / baseline v260
+
+- Commit clínico común con preparación fuera del lock, revalidación, append y
+  verificación bajo una sección breve; contención devuelve `SERVICIO_OCUPADO`.
+- Caché entre requests versionada por `ECICEP_DATA_EPOCH`; un lector anterior
+  no puede repoblar la generación vigente y una falla de Properties degrada a
+  lectura directa.
+- JSON inválido en revisión queda visible como `REVIEW_PAYLOAD_INVALID` y nunca
+  se resuelve automáticamente.
+- Auditoría XSS completa, preflight de release, manifiesto local y asistente de
+  activación sin deploy. Producción no fue modificada; schema permanece en 2.
+
 ## 2026-09-28 — cierre de incorporación territorial (DEC-100)
 
 - Causa raíz: el ingreso de una persona existente no actualizaba el sector
