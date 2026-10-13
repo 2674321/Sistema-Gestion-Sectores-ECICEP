@@ -19,8 +19,8 @@
  * BLOQUE A implementado (REM.md §3): tally TIPO × RIESGO_G × SECTOR + tabla
  * por concepto + indicadores "Tiene…" por paciente. Totales derivados al
  * momento de generar (#25); regeneración reproducible.
- * BLOQUES B/C: NO DISPONIBLES (#14/#17) — se declaran explícitamente, jamás
- * se rellenan con ceros o datos inventados.
+ * BLOQUE B se deriva de PACIENTES para las personas con actividad del período.
+ * BLOQUE C sigue NO DISPONIBLE (#17): no se inventan campos externos.
  */
 
 var REM_MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO',
@@ -172,6 +172,31 @@ function Rem_indicadoresPorPaciente_(eventosPeriodo) {
   });
 }
 
+/** PURA: demografía de pacientes con actividad. Cada dimensión conserva masa. */
+function Rem_demografia_(pacientes, eventosPeriodo, corteIso) {
+  var activos = {};
+  (eventosPeriodo || []).forEach(function (e) { var id = Utl_texto_(e.ID_INTERNO); if (id) activos[id] = true; });
+  var filas = (pacientes || []).filter(function (p) { return activos[Utl_texto_(p.ID_INTERNO)]; });
+  function contar(valorFn) {
+    var c = {};
+    filas.forEach(function (p) { var k = valorFn(p) || 'SIN_DATO'; c[k] = (c[k] || 0) + 1; });
+    return Object.keys(c).sort().map(function (k) { return { categoria: k, total: c[k] }; });
+  }
+  var porEdad = contar(function (p) {
+    var edad = typeof Rem9_edadEn_ === 'function' ? Rem9_edadEn_(p.FECHA_NACIMIENTO, corteIso) : '';
+    if (edad === '' || edad === null || isNaN(Number(edad))) return 'SIN_DATO';
+    edad = Number(edad);
+    return edad < 20 ? '0-19' : (edad < 45 ? '20-44' : (edad < 65 ? '45-64' : '65+'));
+  });
+  return {
+    total: filas.length,
+    sexo: contar(function (p) { return Norm_normalizarSexo_(p.SEXO) || 'SIN_DATO'; }),
+    edad: porEdad,
+    estratificacion: contar(function (p) { return Norm_normalizarEstratificacion_(p.ESTRATIFICACION) || 'SIN_DATO'; }),
+    sector: contar(function (p) { return Rem_bucketSector_(p.SECTOR); })
+  };
+}
+
 /** PURA: línea de cabecera reproducible del informe. */
 function Rem_cabecera_(anio, mes, filtroSector) {
   var filtro = Utl_texto_(filtroSector).trim().toUpperCase() || 'TODOS';
@@ -233,9 +258,13 @@ function _rem_calcula_(anio, mes, filtro) {
   });
   var bloqueA = calcularREMBloqueA_(lote, { anio: anio, mes: mes });
   var enPeriodo = Rem_eventosDelPeriodo_(lote, anio, mes);
+  var pacientes = Modelo_leerPacientesCampos_(['ID_INTERNO', 'SEXO', 'FECHA_NACIMIENTO', 'ESTRATIFICACION', 'SECTOR']);
+  var ultimoDia = new Date(Number(anio), Number(mes), 0).getDate();
+  var corte = Number(anio) + '-' + (Number(mes) < 10 ? '0' : '') + Number(mes) + '-' + (ultimoDia < 10 ? '0' : '') + ultimoDia;
   return { lote: lote, bloqueA: bloqueA, enPeriodo: enPeriodo,
            tabla: Rem_tablaDesdeConteos_(bloqueA.conteos),
-           indicadores: Rem_indicadoresPorPaciente_(enPeriodo) };
+           indicadores: Rem_indicadoresPorPaciente_(enPeriodo),
+           demografia: Rem_demografia_(pacientes, enPeriodo, corte) };
 }
 
 /** PURA: nombre de archivo profesional y consistente. */
@@ -262,7 +291,7 @@ function Rem_generar_(anio, mes, sectorFiltro) {
   // cálculo compartido con el exportador PDF
   var c = _rem_calcula_(anio, mes, filtro);
   var bloqueA = c.bloqueA, enPeriodo = c.enPeriodo;
-  var tabla = c.tabla, indicadores = c.indicadores;
+  var tabla = c.tabla, indicadores = c.indicadores, demografia = c.demografia;
 
   // 4) armado del informe (B/C declarados NO DISPONIBLE, sin datos falsos)
   var regla = CFG_ESTRATIFICACION.REGLA_DISPONIBLE
@@ -300,7 +329,11 @@ function Rem_generar_(anio, mes, sectorFiltro) {
        r.seguimiento, r.planCuidado, r.gcIngreso, r.gcEgreso], 'ind');
   });
   P([], 'sep');
-  P(['BLOQUE B — DEMOGRAFÍA: PENDIENTE DE IMPLEMENTACIÓN (#14 · infraestructura Rem9_edadEn_ lista; SEXO/FECHA_NACIMIENTO disponibles vía S5)'], 'nota');
+  P(['BLOQUE B — DEMOGRAFÍA DE PACIENTES CON ACTIVIDAD (' + demografia.total + ')'], 'seccion');
+  P(['DIMENSIÓN', 'CATEGORÍA', 'TOTAL'], 'cols');
+  ['sexo', 'edad', 'estratificacion', 'sector'].forEach(function (dimension) {
+    demografia[dimension].forEach(function (x) { P([dimension.toUpperCase(), x.categoria, x.total], 'detalle'); });
+  });
   P(['BLOQUE C — ATENCIONES: NO DISPONIBLE (#17 — requiere definir fuente externa)'], 'nota');
   P(['NOTA: TOTAL e indicadores son derivados al momento de generar (#25); ' +
      'el REM es SOLO LECTURA de EVENTOS/PACIENTES.'], 'nota');
@@ -341,7 +374,7 @@ function REM_exportarPdf_(anio, mes, sectorFiltro) {
     nombre = remNombreArchivo_(anio, mes, filtro);
 
     var c = _rem_calcula_(anio, mes, filtro);
-    var tabla = c.tabla, indicadores = c.indicadores;
+    var tabla = c.tabla, indicadores = c.indicadores, demografia = c.demografia;
     var tz = Session.getScriptTimeZone();
     var generado = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm');
 
@@ -400,8 +433,15 @@ function REM_exportarPdf_(anio, mes, sectorFiltro) {
           .setItalic(true).setFontSize(10);
     }
 
-    body.appendParagraph('Bloques B (demografía #14) y C (atenciones #17): no disponibles. ' +
-      'Documento generado automáticamente por Sistema ECICEP — datos derivados de EVENTOS (#25).')
+    body.appendParagraph('Bloque B — Demografía de pacientes con actividad').setHeading(
+      DocumentApp.ParagraphHeading.HEADING3);
+    var filasB = [['DIMENSIÓN', 'CATEGORÍA', 'TOTAL']];
+    ['sexo', 'edad', 'estratificacion', 'sector'].forEach(function (dimension) {
+      demografia[dimension].forEach(function (x) { filasB.push([dimension.toUpperCase(), x.categoria, x.total]); });
+    });
+    _rem_tablaDoc_(body, filasB, true);
+    body.appendParagraph('Bloque C (atenciones #17): no disponible; requiere definición de fuente externa. ' +
+      'Documento generado automáticamente por Sistema ECICEP — datos derivados de PACIENTES + EVENTOS (#25).')
       .setFontSize(8).setForegroundColor(DESIGN_SYSTEM.MARCA.muted);
 
     doc.saveAndClose();

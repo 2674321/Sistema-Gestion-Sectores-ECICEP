@@ -96,3 +96,15 @@ Nota: 'FECHA DE LLAMADO' pasa a capa de eventos (ETAPA 3).
 3. Nombre normalizado + teléfono
 4. Nombre + sector/estratificación → solo candidato → revisión
 Nunca consolidar por similitud de nombres sola.
+
+## Integridad de identidad y persistencia (DEC-112)
+
+- Toda alta demuestra unicidad de `ID_INTERNO` y RUT canónico inmediatamente
+  antes del append. Error de lectura/esquema bloquea la escritura.
+- Cambiar RUT usa un validador puro (formato/DV) y un guard GAS separado con
+  estados `RUT_LIBRE`, `RUT_DUPLICADO` y `RUT_UNICIDAD_NO_VERIFICABLE`.
+- Un rollback solo se declara aplicado tras relectura de la fila exacta y
+  comparación de campos críticos. Si falla: `ROLLBACK_CLINICO_FALLIDO` y
+  conflicto durable sin PII innecesaria.
+- Las altas compensadas desde `INGRESO_*` se localizan por sus `ID_INTERNO`
+  exactos; nunca se borran "las últimas N filas".

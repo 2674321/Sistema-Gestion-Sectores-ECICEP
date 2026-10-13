@@ -433,6 +433,7 @@ function Act_mergearPaciente_(paciente, n, opciones) {
 function Act_mergearPacientesDesdeStaging_(staging, pacientes, opciones) {
   var reporte = {
     revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [],
+    marcasRevision: 0, cambiosCanonicos: 0,
     tipos: { FILL_ONLY: 0, FECHA_MAX: 0, REEMPLAZO_SNAPSHOT: 0 }
   };
   var porRut = {};
@@ -467,11 +468,18 @@ function Act_mergearPacientesDesdeStaging_(staging, pacientes, opciones) {
         conflictos: res.conflictos.map(function (c) { return c.campo + ':FUENTES_DIVERGENTES'; })
       });
     }
-    if (res.aplicados.length || res.conflictos.length) {
+    if (res.aplicados.length) {
       paciente.FUENTE = Act_appendFuente_(paciente.FUENTE, [fuente]);
-      if (res.aplicados.length) paciente.FECHA_ACTUALIZACION = new Date();
-      if (res.conflictos.length && paciente.REQUIERE_REVISION !== true) paciente.REQUIERE_REVISION = true;
-    } else {
+      paciente.FECHA_ACTUALIZACION = new Date();
+      reporte.cambiosCanonicos++;
+    }
+    if (res.conflictos.length && paciente.REQUIERE_REVISION !== true) {
+      paciente.REQUIERE_REVISION = true;
+      paciente.FECHA_ACTUALIZACION = new Date();
+      reporte.marcasRevision++;
+      reporte.cambiosCanonicos++;
+    }
+    if (!res.aplicados.length && !res.conflictos.length) {
       reporte.sinCambios++;
     }
   });

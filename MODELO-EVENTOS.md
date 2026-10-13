@@ -142,3 +142,12 @@ registros automáticamente; la fila queda marcada con nota explicativa.
 
 Total proyectado: ~15 hojas con función clara. SEGUIMIENTO como vista de trabajo
 se evalúa dentro de DASHBOARD/SECTOR_* antes de crear otra hoja.
+
+## Integridad v257 (DEC-112)
+
+El append de EVENTOS es fail-closed: esquema o lectura de IDs históricos
+fallida implica cero escrituras. Las cachés `ULTIMO_CONTROL` y
+`ULTIMO_SEGUIMIENTO` se derivan por máximo de fecha válida, sin depender del
+orden físico. Un `CAMBIO_ESTRATIFICACION` que no pudo anexarse deja
+`REQUIERE_REVISION` y evidencia en `CONFLICTOS`; el reconciliador es idempotente
+por `ID_EVENTO` y solo resuelve la marca después de verificar el evento.

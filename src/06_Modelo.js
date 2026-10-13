@@ -1809,7 +1809,7 @@ function Modelo_agregarPacientes_(objetos, contexto) {
   // DEC-104: última barrera antes del append. Un ID_INTERNO vacío o repetido
   // no puede escribirse: reutilizar un ID existente sobrescribiría otro
   // paciente. Esto es un rechazo explícito (nunca un PROCESADO con dato lost).
-  var vistos = {};
+  var vistos = {}, rutsVistos = {};
   for (var b = 0; b < objetos.length; b++) {
     var id = Utl_texto_(objetos[b].ID_INTERNO);
     if (!id) throw new Error('ALTA_SIN_ID_INTERNO: ' + Utl_texto_(objetos[b].NOMBRE));
@@ -1817,17 +1817,25 @@ function Modelo_agregarPacientes_(objetos, contexto) {
       throw new Error('ALTA_ID_INTERNO_DUPLICADO_EN_LOTE: ' + id);
     }
     vistos[id] = true;
+    var rutLote = Norm_normalizarRut_(objetos[b].RUT).rut;
+    if (!rutLote) throw new Error('ALTA_SIN_RUT_CANONICO: ' + id);
+    if (rutsVistos[rutLote]) throw new Error('ALTA_RUT_DUPLICADO_EN_LOTE: ' + rutLote);
+    rutsVistos[rutLote] = true;
   }
-  var yaPersistidos = {};
+  var yaPersistidos = {}, rutsPersistidos = {};
   (Modelo_leerPacientes_() || []).forEach(function (p) {
     var pid = Utl_texto_(p.ID_INTERNO);
     if (pid) yaPersistidos[pid] = true;
+    var prut = Norm_normalizarRut_(p.RUT).rut;
+    if (prut) rutsPersistidos[prut] = Utl_texto_(p.ID_INTERNO);
   });
   for (var c = 0; c < objetos.length; c++) {
     var idc = Utl_texto_(objetos[c].ID_INTERNO);
     if (yaPersistidos[idc]) {
       throw new Error('ALTA_ID_INTERNO_YA_EXISTE: ' + idc);
     }
+    var rutc = Norm_normalizarRut_(objetos[c].RUT).rut;
+    if (rutsPersistidos[rutc]) throw new Error('ALTA_RUT_YA_EXISTE: ' + rutc);
   }
   var esquema = Modelo_asegurarEsquemaPacientes_();
   if (!esquema.ok) throw new Error('ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo);

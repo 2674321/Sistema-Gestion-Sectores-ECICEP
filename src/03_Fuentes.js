@@ -853,7 +853,7 @@ function _Fuentes_escribir_(a, opciones, t0) {
   var escritosPacientes = false;
   var escritosEventos = false;
   var actualizarPacientes = opciones.actualizar &&
-    (merge.actualizados > 0 || merge.conflictos > 0 || (salida.pacientesNuevos || []).length > 0);
+    (merge.cambiosCanonicos > 0 || (salida.pacientesNuevos || []).length > 0);
   if (actualizarPacientes) {
     var esquema = Modelo_asegurarEsquemaPacientes_();
     if (!esquema.ok) {

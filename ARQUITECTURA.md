@@ -1,5 +1,15 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-10-13 (v257 — DEC-112, integridad clínica):**
+> - identidad `captureId`, RUT, `ID_INTERNO` e `ID_EVENTO` son barreras
+>   fail-closed: una lectura fallida nunca equivale a identidad libre;
+> - toda confirmación y compensación apunta a una fila/ID exacto y se relee;
+> - `INGRESO_*` solo se limpia tras canon, evento, estado, vista e identidad
+>   confirmados; `CONFLICTOS` es la cola durable de reconciliación existente;
+> - `Ficha.meta.integridad` separa ausencia de indisponibilidad;
+> - REM Bloque B se deriva de PACIENTES con actividad en EVENTOS; Bloque C no
+>   inventa los campos cuya fuente externa sigue sin definirse.
+
 > **Actualización 2026-10-13 (v256 — DEC-111, consistencia runtime):**
 > - Los fallos de infraestructura del canal Forms devuelven `INCIERTO`, nunca
 >   `NO_ENCONTRADO`; `NO_ENCONTRADO` exige evidencia válida de ausencia.

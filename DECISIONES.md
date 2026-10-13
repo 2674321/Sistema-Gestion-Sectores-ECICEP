@@ -2536,3 +2536,29 @@ de menos. v256 los corrige sin cambiar contratos públicos ni producción.
 - `Act_actualizarSistema_` marca `INICIO` **solo** con contadores reales de cambio.
 **Validación:** `tools/verificar.mjs` 130 suites / 0 fallos; `tests/forms_v256_failure_semantics.mjs`.
 **Fecha:** 2026-10-13
+
+## DEC-112
+**Título:** v257 — integridad fail-closed e identidad física verificable en flujos clínicos.
+**Estado:** Aprobada
+**Motivo:** ninguna operación puede traducir incertidumbre técnica en ausencia,
+unicidad, persistencia o rollback confirmado. La captura comprueba `captureId`
+mediante una sola barrera autoritativa (`LIBRE|DUPLICADO|LOOKUP_FAILED`) y
+confirma la fila física exacta escrita. El cambio de RUT separa validación pura
+de un guard GAS fail-closed. Los rollbacks clínicos se reescriben y releen;
+si divergen responden `ROLLBACK_CLINICO_FALLIDO` y usan `CONFLICTOS`, sin crear
+otra cola.
+
+Las altas de PACIENTES protegen simultáneamente `ID_INTERNO` y RUT canónico.
+La compensación de altas de ingreso se hace por los IDs exactos del lote, nunca
+por cantidad/posición. `ESTADO_INGRESO` se confirma por relectura y una fila no
+se limpia mientras exista un estado, conflicto, vista o identidad sin verificar.
+La ficha expone disponibilidad parcial en `meta.integridad`; `[]` significa
+exclusivamente una lectura exitosa sin datos.
+
+Las vistas siguen siendo derivadas: su fallo no revierte el canon, pero produce
+`VISTA_SECTOR_PENDIENTE`. Los cambios de estratificación sin evento dejan marca
+y conflicto durable reconciliable. Bloque B del REM queda implementado desde
+PACIENTES + actividad de EVENTOS; Bloque C permanece pendiente de definición externa.
+**Validación:** `tests/data_integrity_v257.mjs` y batería completa indicada en
+`INFORME_V257_INTEGRIDAD_DATOS_FLUJOS.md`.
+**Fecha:** 2026-10-13

@@ -1,6 +1,7 @@
 # REM — Capa de reporting y trazabilidad (ETAPA 2.5)
 
-> Estado: DISEÑO + MAPA DE TRAZABILIDAD. El generador NO se implementa todavía.
+> Estado: GENERADOR IMPLEMENTADO. Bloques A y B derivables están activos;
+> el Bloque C conserva explícitamente sus brechas de fuente.
 > Principio: **los datos operativos se registran una sola vez** y el REM se
 > GENERA desde eventos; nadie rellena estadísticas a mano (#18–#24, #29).
 
@@ -58,6 +59,12 @@ Leyenda origen: **E** = EVENTOS · **P** = PACIENTES · **D** = derivado/calcula
 | Sexo | P | SEXO normalizado; **hoy sin fuente** |
 | Sector | P/E | SECTOR vigente o sector del evento según variante del informe |
 | País de origen / Género social | X | Confirmar si aplica; no capturado |
+
+Implementación v257: el informe agrupa por sexo, tramo de edad (`0-19`,
+`20-44`, `45-64`, `65+`, `SIN_DATO`), estratificación y sector a los pacientes
+con al menos un EVENTO en el período. Cada dimensión conserva masa:
+`sum(categorías) == pacientes con actividad`. La edad se calcula al último día
+del mes mediante `Rem9_edadEn_`; un dato ausente permanece `SIN_DATO`.
 
 ### Bloque C — Registro de atenciones (segunda estructura entregada)
 

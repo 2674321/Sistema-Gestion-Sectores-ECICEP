@@ -1521,12 +1521,14 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
 
     // FILA DE ORIGEN: queda INGRESADO en su hoja INGRESO_* para no quedar
     // huérfana (ya resuelta) en la cola de revisión ni en el listado de lote.
+    var estadoOrigen = { ok: false, verificadas: 0 };
     if (datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
       try {
-        Ingresos_escribirEstados_([{
+        var resultadoEstadoOrigen = {
           hoja: datos.origen.hoja, filaOrigen: datos.origen.fila,
           estado: 'INGRESADO', nota: 'Ingresado vía cola de revisión (' + decision + ')'
-        }]);
+        };
+        estadoOrigen = Ingresos_escribirEstados_([resultadoEstadoOrigen]);
       } catch (errEstado) {
         Log_error_('Revision', 'resolver-estado',
           errEstado && errEstado.message ? errEstado.message : String(errEstado));
@@ -1549,11 +1551,15 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
       Ingresos_confirmarVistas_(verificacionVista);
       if (verificacionVista[0].vistaSectorConfirmada !== true) {
         advertencias.push('VISTA_SECTOR_PENDIENTE');
-      } else if (datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
+      } else if (estadoOrigen.ok && estadoOrigen.verificadas === 1 &&
+                 datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
         filasOrigenEliminadas = Ingresos_eliminarOrigenConfirmado_([{
-          estado: 'INGRESADO', vistaSectorConfirmada: true,
-          hoja: datos.origen.hoja, filaOrigen: datos.origen.fila
+          estado: 'INGRESADO', vistaSectorConfirmada: true, estadoIngresoConfirmado: true,
+          hoja: datos.origen.hoja, filaOrigen: datos.origen.fila,
+          rutOrigen: (datos.valoresOriginales || {}).RUT || ''
         }]).eliminadas || 0;
+      } else if (!estadoOrigen.ok) {
+        advertencias.push('ESTADO_INGRESO_PENDIENTE');
       }
     } catch (errVista) {
       advertencias.push('VISTA_SECTOR_PENDIENTE');

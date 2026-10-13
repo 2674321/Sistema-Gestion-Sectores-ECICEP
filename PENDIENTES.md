@@ -1,5 +1,13 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-10-13 (v257 — DEC-112):** cerrados localmente los P0/P1
+> de integridad de identidad, confirmación de fila, unicidad RUT, rollback
+> verificado, compensación por IDs, estados/conflictos de `INGRESO_*`, ficha
+> parcial, warnings derivados, trazabilidad reconciliable de estratificación y
+> demografía REM derivable. Bloque C REM sigue pendiente de definición de
+> negocio (#17). Producción permanece intacta; la activación GAS/E2E pertenece
+> al Prompt 3.
+
 > **Actualización 2026-10-13 (v256 — DEC-111):** cerrado localmente el cierre
 > transversal runtime P0/P1 (semántica `INCIERTO`, reserva de idempotencia, lease
 > del worker, dry-run read-only, trailer autoritativo, GC de respaldos,

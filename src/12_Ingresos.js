@@ -322,7 +322,9 @@ function Ingresos_procesarFilas_(filasStaging, store, opciones) {
       estado: estado,
       nota: Utl_texto_(nota),
       idInterno: idInterno || '',
-      idEvento: idEvento || ''
+      idEvento: idEvento || '',
+      rutOrigen: Utl_texto_((fila.NORMALIZADO || {}).RUT),
+      captureIdOrigen: Utl_texto_(fila.CAPTURE_ID || ((fila.VALORES_ORIGINALES || {}).CAPTURE_ID))
     }, extra || {}));
   }
 
@@ -773,8 +775,10 @@ function Ingresos_leerHoja_(nombreHoja, filasPermitidas) {
  * Lectura y escritura por bloques (nunca setValue por celda).
  */
 function Ingresos_escribirEstados_(resultados) {
+  var respuesta = { ok: true, actualizadas: 0, fallidas: [], verificadas: 0 };
   try {
-    if (typeof SpreadsheetApp === 'undefined' || !resultados || !resultados.length) return;
+    if (!resultados || !resultados.length) return respuesta;
+    if (typeof SpreadsheetApp === 'undefined') return respuesta;
     var ss = Modelo_ss_();
     var porHoja = Utl_agruparPor_(resultados, function (r) { return r.hoja; });
     // Utl_agruparPor_ devuelve un Map (no un objeto): Object.keys no lo puede
@@ -784,7 +788,10 @@ function Ingresos_escribirEstados_(resultados) {
     gruposHoja.forEach(function (grupo) {
       var nombreHoja = grupo[0], resHoja = grupo[1];
       var hoja = ss.getSheetByName(nombreHoja);
-      if (!hoja) return;
+      if (!hoja) {
+        resHoja.forEach(function (r) { respuesta.fallidas.push({ hoja: nombreHoja, fila: r.filaOrigen, motivo: 'HOJA_AUSENTE' }); });
+        return;
+      }
       // Mismo localizador que el lector (listado/acotado): el FILA_ORIGEN de
       // cada fila se re-posiciona sobre el MISMO encabezado real detectado.
       var loc = Ingresos_layoutHoja_(hoja, nombreHoja, false);
@@ -792,7 +799,10 @@ function Ingresos_escribirEstados_(resultados) {
       var ini = hr + 1;
       var ultima = hoja.getLastRow();
       var encabezados = loc.encabezados || [];
-      if (ultima < ini) return;
+      if (ultima < ini) {
+        resHoja.forEach(function (r) { respuesta.fallidas.push({ hoja: nombreHoja, fila: r.filaOrigen, motivo: 'FILA_AUSENTE' }); });
+        return;
+      }
       var colEstado = -1, colNota = -1;
       encabezados.forEach(function (h, i) {
         var clave = Utl_claveAlnum_(h);
@@ -801,6 +811,7 @@ function Ingresos_escribirEstados_(resultados) {
       });
       if (colEstado < 0 || colNota < 0) {
         console.log('[PIPE] escribirEstados '+nombreHoja+' hr='+hr+' colEstado='+colEstado+' colNota='+colNota+' enc='+JSON.stringify(encabezados));
+        resHoja.forEach(function (r) { respuesta.fallidas.push({ hoja: nombreHoja, fila: r.filaOrigen, motivo: 'COLUMNAS_ESTADO_AUSENTES' }); });
         return;
       }
       var desde = Math.min(colEstado, colNota), ancho = Math.abs(colEstado - colNota) + 1;
@@ -818,10 +829,14 @@ function Ingresos_escribirEstados_(resultados) {
         if (ESTADOS_INGRESO.VALIDOS.indexOf(estadoNuevo) < 0) {
           console.log('[PIPE] escribirEstados OMITIDO (estado fuera de catálogo) ' +
             nombreHoja + ' fila=' + r.filaOrigen + ' estado=' + JSON.stringify(r.estado));
+          respuesta.fallidas.push({ hoja: nombreHoja, fila: r.filaOrigen, motivo: 'ESTADO_INVALIDO' });
           return;
         }
         var filaHoja = Number(r.filaOrigen) - ini; // índice 0-based dentro del bloque (fila ini = 0)
-        if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) return;
+        if (isNaN(filaHoja) || filaHoja < 0 || filaHoja >= bloque.length) {
+          respuesta.fallidas.push({ hoja: nombreHoja, fila: r.filaOrigen, motivo: 'FILA_FUERA_RANGO' });
+          return;
+        }
         bloque[filaHoja][offsetEstado] = estadoNuevo;
         // Preservar la marca de trazabilidad 'FORM|<responseId>|INGRESO' que el
         // anexo dejó en NOTA_SISTEMA: la resolución de la Web App y la
@@ -832,6 +847,7 @@ function Ingresos_escribirEstados_(resultados) {
         bloque[filaHoja][offsetNota] = notaAnt.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0
           ? (notaNueva ? notaAnt + ' · ' + notaNueva : notaAnt)
           : notaNueva;
+        r._estadoPreparado = estadoNuevo;
       });
       hoja.getRange(ini, desde, ultima - ini + 1, ancho).setValues(bloque);
       // Verificación post-escritura: re-lectura acotada a las filas afectadas
@@ -845,15 +861,24 @@ function Ingresos_escribirEstados_(resultados) {
       resHoja.forEach(function (r) {
         var fi = Number(r.filaOrigen) - iniVerif;
         if (isNaN(fi) || fi < 0 || fi >= verif.length) return;
+        var real = Utl_texto_(verif[fi][offsetEstado]).toUpperCase();
+        var confirmado = !!r._estadoPreparado && real === r._estadoPreparado;
+        r.estadoIngresoConfirmado = confirmado;
+        if (confirmado) { respuesta.actualizadas++; respuesta.verificadas++; }
+        else respuesta.fallidas.push({ hoja: nombreHoja, fila: r.filaOrigen, motivo: 'RELECTURA_DIVERGENTE' });
+        delete r._estadoPreparado;
         console.log('[PIPE] escribirEstados verif ' + nombreHoja + ' fila=' + r.filaOrigen +
-          ' estado=' + Utl_texto_(verif[fi][offsetEstado]).toUpperCase() +
+          ' estado=' + real +
           ' nota=' + Utl_texto_(verif[fi][offsetNota]).substring(0, 90));
       });
     });
   } catch (e) {
     console.log('[PIPE] escribirEstados EXCEPCION: ' + (e && e.message ? e.message : String(e)) + (e && e.stack ? ' | ' + e.stack : ''));
     Log_error_('Ingresos', 'escribirEstados', e && e.message ? e.message : String(e));
+    respuesta.fallidas.push({ motivo: e && e.message ? e.message : String(e) });
   }
+  respuesta.ok = respuesta.fallidas.length === 0;
+  return respuesta;
 }
 
 /**
@@ -890,23 +915,48 @@ function Ingresos_persistirCambiosSector_(planes, usarAnterior) {
 }
 
 /**
- * GAS: rollback transaccional §paso 4 — retira de PACIENTES las filas anexadas
- * por Modelo_agregarPacientes_ en esta misma invocación cuando EVENTOS falló.
- * El append es siempre al final del bloque de datos, así que basta eliminar
- * `nActual - antesNuevos` filas desde la última física hacia arriba (una sola
- * ronda de deleteRow; sin tocar filas preexistentes). Invalida lecturas para
- * que el reintento del mismo lote no vea huérfanos.
+ * GAS: rollback transaccional §paso 4 por identidad. Localiza todos los
+ * ID_INTERNO exactos del lote, valida su FUENTE cuando se provee, elimina en
+ * orden físico descendente y relee la proyección de IDs. Un lote parcial o una
+ * fuente divergente no borra nada y devuelve ROLLBACK_INCIERTO.
  */
-function Ingresos_rollbackPacientesNuevos_(antesNuevos) {
+function Ingresos_rollbackPacientesNuevos_(idsEsperados, fuentesEsperadas) {
+  var ids = (idsEsperados || []).map(function (x) { return Utl_texto_(x); }).filter(Boolean);
+  var resultado = { intentado: true, ok: false, verificado: false, eliminadas: 0, faltantes: [] };
+  if (!ids.length) { resultado.ok = true; resultado.verificado = true; return resultado; }
   var hoja = Modelo_hoja_(HOJAS.PACIENTES);
-  if (!hoja) return { eliminadas: 0 };
-  var nActual = Modelo_leerPacientes_().length;
-  var aEliminar = nActual - (Number(antesNuevos) || 0);
-  if (aEliminar <= 0) return { eliminadas: 0 };
-  var desde = Modelo_filaFisica_(HOJAS.PACIENTES, nActual - 1); // última anexada
-  for (var i = 0; i < aEliminar; i++) hoja.deleteRow(desde - i);
-  Modelo_invalidarLecturas_();
-  return { eliminadas: aEliminar };
+  if (!hoja) { resultado.motivo = 'HOJA_PACIENTES_AUSENTE'; return resultado; }
+  try {
+    var pacientes = Modelo_leerPacientes_();
+    var objetivo = {}, filas = [];
+    ids.forEach(function (id) { objetivo[id] = true; });
+    pacientes.forEach(function (p, idx) {
+      var id = Utl_texto_(p.ID_INTERNO);
+      if (!objetivo[id]) return;
+      if (fuentesEsperadas && fuentesEsperadas[id] && Utl_texto_(p.FUENTE) !== Utl_texto_(fuentesEsperadas[id])) {
+        resultado.motivo = 'FUENTE_DIVERGENTE:' + id; return;
+      }
+      filas.push({ id: id, fila: Modelo_filaFisica_(HOJAS.PACIENTES, idx) });
+    });
+    resultado.faltantes = ids.filter(function (id) { return !filas.some(function (f) { return f.id === id; }); });
+    if (resultado.motivo || resultado.faltantes.length || filas.length !== ids.length) {
+      resultado.motivo = resultado.motivo || 'ROLLBACK_INCIERTO';
+      return resultado;
+    }
+    filas.sort(function (a, b) { return b.fila - a.fila; }).forEach(function (f) {
+      hoja.deleteRow(f.fila); resultado.eliminadas++;
+    });
+    Modelo_invalidarLecturas_();
+    var restantes = {};
+    Modelo_leerPacientesCampos_(['ID_INTERNO']).forEach(function (p) { restantes[Utl_texto_(p.ID_INTERNO)] = true; });
+    resultado.verificado = ids.every(function (id) { return !restantes[id]; });
+    resultado.ok = resultado.verificado;
+    if (!resultado.ok) resultado.motivo = 'ROLLBACK_INCIERTO';
+    return resultado;
+  } catch (e) {
+    resultado.motivo = e && e.message ? e.message : String(e);
+    return resultado;
+  }
 }
 
 /** Comprueba en una sola lectura por sector que cada paciente quedó en su vista. */
@@ -951,21 +1001,29 @@ function Ingresos_confirmarVistas_(resultados) {
 function Ingresos_eliminarOrigenConfirmado_(resultados) {
   var porHoja = {};
   (resultados || []).forEach(function (r) {
-    if (r.estado !== 'INGRESADO' || r.vistaSectorConfirmada !== true) return;
+    if (r.estado !== 'INGRESADO' || r.vistaSectorConfirmada !== true ||
+        r.estadoIngresoConfirmado !== true || (r.advertencias && r.advertencias.length)) return;
     var nombre = Ingresos_claveHojaNombre_(r.hoja);
     var fila = Number(r.filaOrigen);
     if (!HOJAS_INGRESO[nombre] || !fila || fila <= Modelo_headerRow_(nombre)) return;
     if (!porHoja[nombre]) porHoja[nombre] = [];
-    if (porHoja[nombre].indexOf(fila) < 0) porHoja[nombre].push(fila);
+    if (!porHoja[nombre].some(function (x) { return x.fila === fila; })) porHoja[nombre].push({ fila: fila, rut: r.rutOrigen, captureId: r.captureIdOrigen });
   });
   var eliminadas = 0;
   Object.keys(porHoja).forEach(function (nombre) {
     var hoja = Modelo_hoja_(nombre);
     if (!hoja || typeof hoja.deleteRows !== 'function') return;
-    var filas = porHoja[nombre].sort(function (a, b) { return a - b; });
-    Utl_gruposContiguosFilas_(filas).reverse().forEach(function (grupo) {
-      hoja.deleteRows(grupo[0], grupo.length);
-      eliminadas += grupo.length;
+    var loc = Ingresos_layoutHoja_(hoja, nombre, false);
+    var idxRut = loc.mapa && loc.mapa.campos ? loc.mapa.campos.RUT : -1;
+    var idxNota = loc.mapa ? loc.mapa.notaIdx : -1;
+    porHoja[nombre].sort(function (a, b) { return b.fila - a.fila; }).forEach(function (obj) {
+      var filaActual = hoja.getRange(obj.fila, 1, 1, hoja.getLastColumn()).getValues()[0];
+      var rutActual = idxRut >= 0 ? Norm_normalizarRut_(filaActual[idxRut]).rut : '';
+      var notaActual = idxNota >= 0 ? Utl_texto_(filaActual[idxNota]) : '';
+      var misma = obj.captureId ? notaActual.indexOf(obj.captureId) !== -1
+        : (!!obj.rut && rutActual === Norm_normalizarRut_(obj.rut).rut);
+      if (!misma) return;
+      hoja.deleteRows(obj.fila, 1); eliminadas++;
     });
   });
   return { eliminadas: eliminadas };
@@ -1689,7 +1747,9 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   //    efectos del lote: las transiciones sectoriales (ya cubierto) y las
   //    filas PACIENTES recién anexadas en este paso, para que el reintento
   //    converja sin huérfanos (paciente sin su INGRESO) ni duplicados.
-  var antesNuevos = Modelo_leerPacientes_().length;
+  var idsNuevos = salida.pacientesNuevos.map(function (p) { return Utl_texto_(p.ID_INTERNO); });
+  var fuentesNuevos = {};
+  salida.pacientesNuevos.forEach(function (p) { fuentesNuevos[Utl_texto_(p.ID_INTERNO)] = Utl_texto_(p.FUENTE); });
   Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
   Ingresos_persistirCambiosSector_(salida.pacientesActualizados, false);
   try {
@@ -1697,14 +1757,25 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   } catch (ePersistencia) {
     try { Ingresos_persistirCambiosSector_(salida.pacientesActualizados, true); }
     catch (eRollback) { Log_error_('Ingresos', 'rollbackSector', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
-    try { Ingresos_rollbackPacientesNuevos_(antesNuevos); }
-    catch (eRollback) { Log_error_('Ingresos', 'rollbackPacientesNuevos', eRollback && eRollback.message ? eRollback.message : String(eRollback)); }
+    var rollbackNuevos = Ingresos_rollbackPacientesNuevos_(idsNuevos, fuentesNuevos);
+    if (!rollbackNuevos.ok) {
+      Log_error_('Ingresos', 'rollbackPacientesNuevos', JSON.stringify(rollbackNuevos));
+      throw new Error('ROLLBACK_CLINICO_FALLIDO');
+    }
     throw ePersistencia;
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (persistencia pacientes/eventos, paso 4)');
 
   // 5) estados de vuelta en las hojas de ingreso
-  Ingresos_escribirEstados_(salida.resultados);
+  var estadosPersistidos = Ingresos_escribirEstados_(salida.resultados);
+  if (!estadosPersistidos.ok) {
+    salida.resultados.forEach(function (r) {
+      if (r.estado !== 'INGRESADO' || r.estadoIngresoConfirmado === true) return;
+      r.advertencias = (r.advertencias || []).concat(['ESTADO_INGRESO_PENDIENTE']);
+      r.estadoOperacion = 'INCORPORADO_ESTADO_PENDIENTE';
+    });
+  }
+  salida.resumen.estadosIngreso = estadosPersistidos;
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (estados en hojas, paso 5)');
 
   // 5b) casos ambiguos → cola de revisión (CONFLICTOS)
@@ -1728,6 +1799,11 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
     }
   } catch (e) {
     Log_warning_('Ingresos', 'colaRevision', e && e.message ? e.message : String(e));
+    salida.resultados.forEach(function (r) {
+      if (r.estado !== 'REQUIERE_REVISION') return;
+      r.advertencias = (r.advertencias || []).concat(['CONFLICTO_PENDIENTE']);
+    });
+    salida.resumen.conflictosPendientes = true;
   }
   console.log('[PIPE] t=' + (Date.now() - _tIni) + 'ms (cola de revisión, paso 5b)');
 
@@ -1963,6 +2039,21 @@ function Rev_filtrarConflictosNuevos_(filas, clavesExistentes, claveFunc) {
     nuevos.push(f);
   });
   return nuevos;
+}
+
+/** Reconstruye idempotentemente CONFLICTOS desde filas terminales de revisión. */
+function Ingresos_reconciliarConflictos_() {
+  var pacientes = Modelo_leerPacientes_();
+  var indices = Iden_construirIndices_(pacientes), candidatas = [];
+  Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
+    (Ingresos_leerHoja_(nombre).staging || []).forEach(function (f) {
+      if (Utl_texto_(f.ESTADO_INGRESO_PREVIO).toUpperCase() !== 'REQUIERE_REVISION') return;
+      f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO || {}, indices);
+      candidatas.push(Rev_filaConflicto_(f));
+    });
+  });
+  var agregadas = Modelo_agregarConflictos_(candidatas);
+  return { ok: true, revisadas: candidatas.length, agregadas: agregadas };
 }
 
 /**

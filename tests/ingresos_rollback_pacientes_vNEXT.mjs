@@ -64,7 +64,7 @@ assert.equal(ctx.Modelo_leerPacientes_().length, 2, '2 pacientes legibles');
 // ── Fase B: rollback retira exactamente las filas anexadas ──────────────────
 lib = libro();
 ctx.Modelo_agregarPacientes_(anexados, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'ingresos-pacientes' });
-const rb = ctx.Ingresos_rollbackPacientesNuevos_(0);
+const rb = ctx.Ingresos_rollbackPacientesNuevos_(['P-0001', 'P-0002']);
 assert.equal(rb.eliminadas, 2, 'rollback de 2 filas anexadas');
 assert.equal(lib.pac.val.length, 3, 'quedó solo el encabezado (título+sección+header)');
 assert.equal(ctx.Modelo_leerPacientes_().length, 0, 'sin pacientes luego del rollback');
@@ -74,20 +74,35 @@ lib = libro();
 ctx.Modelo_agregarPacientes_([paciente('P-0000', '99999999-9')], { autorizacion: 'IMPORT_AUTORIZADO' });
 // 1 paciente preexistente (antesNuevos=1). Append de 1 nuevo → 2 en total.
 ctx.Modelo_agregarPacientes_([paciente('P-0001', '11111111-1')], { autorizacion: 'IMPORT_AUTORIZADO' });
-const rb2 = ctx.Ingresos_rollbackPacientesNuevos_(1);
+const rb2 = ctx.Ingresos_rollbackPacientesNuevos_(['P-0001']);
 assert.equal(rb2.eliminadas, 1, 'rollback de 1 fila anexada');
 assert.equal(ctx.Modelo_leerPacientes_().length, 1, 'queda el preexistente');
 assert.equal(ctx.Modelo_leerPacientes_()[0].ID_INTERNO, 'P-0000', 'el preexistente NO se toca');
 
 // ── Fase D: segunda llamada idempotente con count ya consistente ────────────
 lib = libro();
-const antesD = ctx.Modelo_leerPacientes_().length;
 ctx.Modelo_agregarPacientes_([paciente('P-0001', '11111111-1')], { autorizacion: 'IMPORT_AUTORIZADO' });
-const rb3a = ctx.Ingresos_rollbackPacientesNuevos_(antesD);
-const rb3b = ctx.Ingresos_rollbackPacientesNuevos_(antesD);
+const rb3a = ctx.Ingresos_rollbackPacientesNuevos_(['P-0001']);
+const rb3b = ctx.Ingresos_rollbackPacientesNuevos_([]);
 assert.equal(rb3a.eliminadas, 1, 'primera llamada retira la anexada');
 assert.equal(rb3b.eliminadas, 0, 'segunda llamada no tiene nada que retirar');
 assert.equal(lib.pac.val.length, 3, 'volvió a title+seccion+header');
 assert.equal(ctx.Modelo_leerPacientes_().length, 0, 'última aserción de la fase D');
+
+// ── Fase E: un tercero posterior nunca se elimina por posición ──────────────
+lib = libro();
+ctx.Modelo_agregarPacientes_([paciente('P-LOTE', '11111111-1')], { autorizacion: 'IMPORT_AUTORIZADO' });
+ctx.Modelo_agregarPacientes_([paciente('P-TERCERO', '22222222-2')], { autorizacion: 'IMPORT_AUTORIZADO' });
+const rb4 = ctx.Ingresos_rollbackPacientesNuevos_(['P-LOTE']);
+assert.equal(rb4.ok, true);
+assert.deepEqual(Array.from(ctx.Modelo_leerPacientes_().map(p => p.ID_INTERNO)), ['P-TERCERO']);
+
+// ── Fase F: lote parcial => incierto y cero borrados ─────────────────────
+lib = libro();
+ctx.Modelo_agregarPacientes_([paciente('P-UNO', '11111111-1'), paciente('P-TERCERO', '22222222-2')], { autorizacion: 'IMPORT_AUTORIZADO' });
+const rb5 = ctx.Ingresos_rollbackPacientesNuevos_(['P-UNO', 'P-AUSENTE']);
+assert.equal(rb5.ok, false);
+assert.equal(rb5.motivo, 'ROLLBACK_INCIERTO');
+assert.equal(ctx.Modelo_leerPacientes_().length, 2, 'no borra parcialmente ni toca terceros');
 
 console.log('ingresos transaccionrollback vNEXT: PASS');

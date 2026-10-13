@@ -908,8 +908,10 @@ function pintarFicha(f){
   pintarSeguimiento(f.seguimiento);
 
   /* historial timeline */
-  var tl=document.getElementById('fTimeline'),evs=f.eventos||[];
-  tl.innerHTML=evs.length?'':'<div class="vacio"><i data-lucide="history"></i>Sin eventos registrados</div>';
+  var tl=document.getElementById('fTimeline'),evs=f.eventos||[],integ=(f.meta&&f.meta.integridad)||{};
+  tl.innerHTML=evs.length?'':(integ.eventos==='NO_DISPONIBLE'
+    ?'<div class="vacio"><i data-lucide="alert-triangle"></i>Historial temporalmente no disponible</div>'
+    :'<div class="vacio"><i data-lucide="history"></i>Sin eventos registrados</div>');
   evs.slice().reverse().forEach(function(e,i){
     var st=estiloTL(e.tipo),ex=_fmtFecha(e.fecha);
     var li=document.createElement('li');li.className='tl-item'+(_animTimeline?'':' anim');
@@ -953,7 +955,10 @@ function pintarResumen(f){
 
   var meta=f.meta||{};
   var ingB=document.getElementById('ingBanner');
-  if(meta.tieneIngresoPendiente&&meta.ingresoPendiente&&meta.ingresoPendiente.length){
+  if(meta.integridad&&meta.integridad.ingresoPendiente==='NO_DISPONIBLE'){
+    ingB.style.display='flex';
+    ingB.innerHTML='<i data-lucide="alert-triangle" style="width:15px;height:15px;flex-shrink:0"></i><span>No fue posible comprobar ingresos pendientes. Reintente.</span>';
+  }else if(meta.tieneIngresoPendiente&&meta.ingresoPendiente&&meta.ingresoPendiente.length){
     var ip=meta.ingresoPendiente[0];
     ingB.style.display='flex';
     ingB.innerHTML='<i data-lucide="tray" style="width:15px;height:15px;flex-shrink:0"></i>'+

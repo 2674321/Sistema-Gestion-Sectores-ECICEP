@@ -958,6 +958,47 @@ function Captura_v2_buscarRegistro_(captureId) {
   return Captura_v2_buscarRegistroRapido_(captureId);
 }
 
+/**
+ * Barrera autoritativa de identidad para el escritor durable.
+ * Nunca convierte un fallo de lectura/esquema en "libre".
+ * @returns {{estado:'LIBRE'|'DUPLICADO'|'LOOKUP_FAILED',registro?:Object,motivo?:string}}
+ */
+function Captura_v2_comprobarCaptureIdLibre_(hoja, captureId) {
+  try {
+    if (!hoja) throw new Error('HOJA_FORM_RESPUESTAS_AUSENTE');
+    var ultimaFila = hoja.getLastRow();
+    var ultimaColumna = hoja.getLastColumn();
+    if (ultimaColumna < 1) throw new Error('ESQUEMA_CAPTURA_SIN_ENCABEZADOS');
+    var headers = hoja.getRange(1, 1, 1, ultimaColumna).getValues()[0];
+    var mapa = Form_mapeoEncabezados_(headers);
+    var idxRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID
+      : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : -1);
+    if (idxRid < 0) throw new Error('ESQUEMA_CAPTURA_SIN_RESPONSE_ID');
+    if (ultimaFila < 2) return { estado: 'LIBRE' };
+    var rango = hoja.getRange(2, idxRid + 1, ultimaFila - 1, 1);
+    var hallado = null;
+    if (rango && typeof rango.createTextFinder === 'function') {
+      hallado = rango.createTextFinder(captureId).matchEntireCell(true).findNext();
+    } else {
+      // Compatibilidad con adaptadores/mocks: una sola lectura columnar, nunca
+      // un getRange por fila. Cualquier error se propaga como LOOKUP_FAILED.
+      var ids = rango.getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]) === String(captureId)) {
+          hallado = { getRow: (function (fila) { return function () { return fila; }; })(i + 2) };
+          break;
+        }
+      }
+    }
+    if (!hallado) return { estado: 'LIBRE' };
+    var nf = hallado.getRow();
+    var fila = hoja.getRange(nf, 1, 1, ultimaColumna).getValues()[0];
+    return { estado: 'DUPLICADO', registro: Captura_v2_registroDesdeFila_(captureId, fila, headers, nf) };
+  } catch (e) {
+    return { estado: 'LOOKUP_FAILED', motivo: e && e.message ? e.message : String(e) };
+  }
+}
+
 /** Auditoría administrativa separada del camino caliente de captura. */
 function Captura_diagnosticarCaptureIdsDuplicados_() {
   var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
@@ -1039,30 +1080,13 @@ function Captura_v2_persistirRegistro_(reg) {
     var cols = Captura_v2_columnasHoja_(hoja);
     var mapa = {};
     for (var i = 0; i < cols.length; i++) mapa[cols[i]] = i;
-    // Barrera: impedir captureId duplicado (última barrera del escritor)
-    try {
-      if (Captura_v2_buscarRegistro_(reg.captureId)) {
-        return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
-      }
-    } catch (e) {}
-    // Fallback robusto para mocks de tests: buscar por RESPONSE_ID directamente
-    try {
-      var _h = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
-      if (_h && _h.getLastRow() > 1) {
-        var _cols = Captura_v2_columnasHoja_(_h);
-        var _mapa = {};
-        for (var mi = 0; mi < _cols.length; mi++) _mapa[_cols[mi]] = mi;
-        var _rid = _mapa.RESPONSE_ID !== undefined ? _mapa.RESPONSE_ID : (_mapa.RESPONSEID !== undefined ? _mapa.RESPONSEID : -1);
-        if (_rid >= 0) {
-          for (var rr = 1; rr < _h.getLastRow(); rr++) {
-            var _rowv = _h.getRange(rr + 1, 1, 1, _h.getLastColumn()).getValues()[0];
-            if (_rowv && String(_rowv[_rid]) === String(reg.captureId)) {
-              return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
-            }
-          }
-        }
-      }
-    } catch (e2) {}
+    // Una sola barrera autoritativa: si no puede demostrar libertad, no escribe.
+    var identidad = Captura_v2_comprobarCaptureIdLibre_(hoja, reg.captureId);
+    if (identidad.estado === 'DUPLICADO') return { ok: false, motivo: 'CAPTUREID_DUPLICADO' };
+    if (identidad.estado !== 'LIBRE') {
+      Captura_v2_logError_('CapturaV2', 'comprobarCaptureId', identidad.motivo || identidad.estado);
+      return { ok: false, motivo: 'CAPTUREID_LOOKUP_FAILED', reintentable: true };
+    }
     var fila = new Array(cols.length);
     for (var i2 = 0; i2 < cols.length; i2++) fila[i2] = '';
     fila[mapa.FECHA_FORMS] = reg.fechaRecepcion || Captura_v2_ahora_();
@@ -1084,9 +1108,12 @@ function Captura_v2_persistirRegistro_(reg) {
     if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
       Hojas_asegurarCapacidadGestionada_(hoja, filaNueva, { bloque: 200 });
     hoja.getRange(filaNueva, 1, 1, cols.length).setValues([fila]);
-    // Confirmación durable §15: releer la última fila y verificar header + estado.
-    var ok = Captura_v2_confirmarFila_(hoja, reg.captureId);
-    return ok ? { ok: true, filaFisica: hoja.getLastRow() } : { ok: false, motivo: 'CONFIRMACION_FALLIDA' };
+    // Confirmación durable §15 sobre exactamente la fila escrita.
+    var confirmacion = Captura_v2_confirmarFila_(hoja, filaNueva, reg.captureId, {
+      estado: reg.estado || CAPTURA_V2.ESTADOS.RECIBIDO,
+      captureProvider: reg.captureProvider || '', transportId: reg.transportId || ''
+    });
+    return confirmacion.ok ? { ok: true, filaFisica: filaNueva } : { ok: false, motivo: 'CONFIRMACION_FALLIDA' };
   } catch (e) {
     Captura_v2_logError_('CapturaV2', 'persistirRegistro', String(e));
     return { ok: false, motivo: 'EXCEPCION' };
@@ -1094,21 +1121,29 @@ function Captura_v2_persistirRegistro_(reg) {
 }
 
 /** GAS: confirma (relectura) que la fila quedó con RESPONSE_ID y ESTADO. */
-function Captura_v2_confirmarFila_(hoja, captureId) {
+function Captura_v2_confirmarFila_(hoja, filaFisica, captureId, esperado) {
   try {
-    var ultima = hoja.getLastRow();
+    esperado = esperado || {};
+    filaFisica = Number(filaFisica);
+    if (!filaFisica || filaFisica < 2) return { ok: false, motivo: 'FILA_ESPERADA_INVALIDA' };
     var ultimac = hoja.getLastColumn();
-    var datos = hoja.getRange(ultima, 1, 1, ultimac).getValues()[0];
+    var datos = hoja.getRange(filaFisica, 1, 1, ultimac).getValues()[0];
     var mapa = Form_mapeoEncabezados_(hoja.getRange(1, 1, 1, ultimac).getValues()[0]);
     var colRid = mapa.idx.RESPONSEID !== undefined ? mapa.idx.RESPONSEID : (mapa.idx.RESPONSE_ID !== undefined ? mapa.idx.RESPONSE_ID : 0);
     var rid = Utl_texto_(datos[colRid]);
     var est = mapa.idx.ESTADO !== undefined ? Utl_texto_(datos[mapa.idx.ESTADO]).toUpperCase() : '';
-    return rid === captureId && est !== '';
+    var ok = rid === captureId && est !== '';
+    if (esperado.estado) ok = ok && est === Utl_texto_(esperado.estado).toUpperCase();
+    if (mapa.idx.CAPTUREPROVIDER !== undefined && esperado.captureProvider)
+      ok = ok && Utl_texto_(datos[mapa.idx.CAPTUREPROVIDER]) === Utl_texto_(esperado.captureProvider);
+    if (mapa.idx.TRANSPORTRESPONSEID !== undefined && esperado.transportId)
+      ok = ok && Utl_texto_(datos[mapa.idx.TRANSPORTRESPONSEID]) === Utl_texto_(esperado.transportId);
+    return { ok: ok, filaFisica: filaFisica, motivo: ok ? '' : 'FILA_DIVERGENTE' };
   } catch (e) {
     // Sin traza, un fallo transitorio de lectura tras un setValues exitoso
     // producía CONFIRMACION_FALLIDA sin ninguna pista en la hoja LOG.
     Captura_v2_logError_('CapturaV2', 'confirmarFila', captureId + ': ' + String(e));
-    return false;
+    return { ok: false, filaFisica: filaFisica, motivo: 'LECTURA_CONFIRMACION_FALLIDA' };
   }
 }
 

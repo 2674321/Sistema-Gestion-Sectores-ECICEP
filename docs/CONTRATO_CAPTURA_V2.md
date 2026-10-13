@@ -662,6 +662,14 @@ vive en `EVENTOS` (`FUENTE` identifica hoja/fila de origen) y en el registro de
 captura; por eso la fila de ingreso se elimina únicamente después de confirmar
 la persistencia canónica y la vista sectorial.
 
+DEC-112 endurece esa confirmación sin cambiar el payload: antes de anexar un
+registro, `captureId` debe resultar inequívocamente `LIBRE`; un fallo de lookup
+es reintentable y produce cero escrituras. Después del append se relee la fila
+física exacta reservada (no `getLastRow()`) y se verifican `RESPONSE_ID`,
+`ESTADO` y, cuando aplican, los identificadores de transporte. La bandeja
+`INGRESO_*` exige además estado reescrito/releído e identidad de origen estable
+antes de eliminar la fila.
+
 - El mapeo **por encabezado**, jamás por índice fijo, se mantiene como invariante operativo
   (`Form_mapeoEncabezados` / `Ingresos_mapearEncabezadosHoja`). **[CONFIRMADO]**
 - **No** se asume que el esquema actual de `FORM_RESPUESTAS` sea correcto o incorrecto (AGENTS.md):

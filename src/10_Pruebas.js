@@ -4962,7 +4962,7 @@ function _pruebas_actualizacion_v096_(t, A) {
     A.igual(p1.SEXO, 'M', 'SEXO conservado en ambas corridas');
   });
 
-  t('S6 A7: trazabilidad — FUENTE append sin duplicar + FECHA_ACTUALIZACION + REQUIERE_REVISION', function () {
+  t('S6 A7: conflicto observado no se registra como FUENTE aceptada; revisión sí estampa fecha', function () {
     var p = pac({ SEXO: 'M' }); // SEXO divergente vs fuente F → conflicto (puro, sin campos aplicados)
     var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
     var fila1 = fila(n({ SEXO: 'F' })); // match con p: SEXO conflictivo
@@ -4974,10 +4974,9 @@ function _pruebas_actualizacion_v096_(t, A) {
     A.igual(res.actualizados, 1, 'p2 actualizado');
     A.igual(res.campos, 1, '1 campo aplicado (PREINGRESO en p2)');
     A.igual(p.REQUIERE_REVISION, true, 'divergencia → REQUIERE_REVISION');
-    A.cierto(String(p.FUENTE).indexOf('FUENTE A|HOJA 1|10') !== -1, 'FUENTE anexa el origen del conflicto');
-    A.igual(String(p.FUENTE).split(';').filter(function (s) { return s === 'FUENTE A|HOJA 1|10'; }).length, 1,
-      'FUENTE no duplica segmentos');
-    A.igual(p.FECHA_ACTUALIZACION, null, 'conflicto puro sin aplicación no estampa fecha');
+    A.cierto(String(p.FUENTE).indexOf('FUENTE A|HOJA 1|10') === -1,
+      'FUENTE observada en conflicto no se presenta como cambio aceptado');
+    A.cierto(p.FECHA_ACTUALIZACION !== null, 'marcar REQUIERE_REVISION es un cambio real y estampa fecha');
     A.cierto(p2.FECHA_ACTUALIZACION !== null, 'aplicación estampa FECHA_ACTUALIZACION');
   });
 
