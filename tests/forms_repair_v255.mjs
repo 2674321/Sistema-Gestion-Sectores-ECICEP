@@ -17,13 +17,13 @@ h.triggers.splice(0, h.triggers.length, ...h.triggers.filter(t => t.handler !== 
 const dry = h.c.Form_operativoReparar_();
 assert.equal(dry.ok, true);
 assert.equal(dry.dryRun, true);
-assert.ok(dry.acciones.some(a => a.accion === 'trigger_worker' && a.estado === 'necesita_creacion'));
+assert.ok(dry.acciones.some(a => a.accion === 'trigger_worker' && a.estado === 'necesita_cambio' && a.motivo === 'necesita_creacion'));
 assert.equal(h.triggers.filter(t => t.handler === 'Form_worker_').length, 0, 'dry-run no crea triggers');
 
 // reparación real: crea el worker y JAMÁS borra respuestas.
 const real = h.c.Form_operativoReparar_({ dryRun: false });
 assert.equal(real.dryRun, false);
-assert.ok(real.acciones.some(a => a.accion === 'trigger_worker' && a.estado === 'creado'));
+assert.ok(real.acciones.some(a => a.accion === 'trigger_worker' && a.estado === 'aplicado'));
 assert.equal(h.triggers.filter(t => t.handler === 'Form_worker_').length, 1);
 assert.equal(h.form.responses.length, 1, 'la reparación nunca borra respuestas');
 assert.equal(h.dataSheet.rows.length, 1, 'la reparación nunca borra filas de cola');

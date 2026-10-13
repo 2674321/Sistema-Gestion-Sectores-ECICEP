@@ -20,8 +20,10 @@
 //   GOOGLE_FORM_ID, GOOGLE_FORM_URL, GOOGLE_FORM_EDIT_URL,
 //   GOOGLE_FORM_SCHEMA_VERSION, GOOGLE_FORM_ITEM_MAP, GOOGLE_FORM_CANONICAL_ITEM_MAP,
 //   GOOGLE_FORM_TITLE_MAP,
-//   GOOGLE_FORM_ESTADO, GOOGLE_FORM_CURSOR, GOOGLE_FORM_ERRORS|<captureId>,
+//   GOOGLE_FORM_ESTADO, GOOGLE_FORM_CURSOR, GOOGLE_FORM_WORKER_LEASE,
 //   GOOGLE_FORM_METRIC_<clave>  (LOCK_BUSY_DEFERRED, WORKER_RUNS, ...)
+// v256: NO se escribe ScriptProperty por captura. Los errores de transporte
+// viven en el trailer de FORM_RESPUESTAS (CLASIFICACION / TRANSPORTE_ERROR).
 // Estáticos en GOOGLE_FORMS_CONFIG (00_Config.js).
 // ---------------------------------------------------------------------------
 
@@ -46,6 +48,20 @@ function Form_propEscribir_(clave, valor) {
   var p = Form_props_();
   if (p) p.setProperty(clave, String(valor));
 }
+/** v256 (P1): claves de ScriptProperties que empiezan con un prefijo EXACTO.
+ *  Solo para inventario/limpieza legacy; NUNCA por captura. */
+function Form_propClaves_(prefijo) {
+  var p = Form_props_();
+  if (!p || typeof p.getKeys !== 'function') return [];
+  var out = [];
+  try {
+    var keys = p.getKeys() || [];
+    for (var i = 0; i < keys.length; i++) {
+      if (String(keys[i]).indexOf(String(prefijo)) === 0) out.push(keys[i]);
+    }
+  } catch (e) { return []; }
+  return out;
+}
 function Form_json_(raw) {
   if (!raw) return {};
   try { var o = JSON.parse(raw); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
@@ -63,9 +79,33 @@ function Form_metricas_() {
   });
   return out;
 }
+/** v256 (P1): suma de contador con lectura+escritura ATÓMICA. La sección crítica
+ *  es BREVE (solo el RMW de ScriptProperties), jamás rodea I/O. Best-effort: si
+ *  el lock no está disponible no bloquea al llamador. */
 function Form_metricaSumar_(clave, delta) {
-  var v = Number(Form_propLeer_('GOOGLE_FORM_METRIC_' + clave)) || 0;
-  Form_propEscribir_('GOOGLE_FORM_METRIC_' + clave, String(v + (delta === undefined ? 1 : delta)));
+  var prop = 'GOOGLE_FORM_METRIC_' + clave;
+  var inc = delta === undefined ? 1 : (Number(delta) || 0);
+  var lock = null;
+  try {
+    if (typeof LockService !== 'undefined') {
+      lock = LockService.getScriptLock();
+      if (lock && typeof lock.tryLock === 'function') lock.tryLock(0);
+    }
+    var v = Number(Form_propLeer_(prop)) || 0;
+    Form_propEscribir_(prop, String(v + inc));
+  } catch (e) { /* best-effort: las métricas no gobiernan verdad */ }
+  finally { try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ } }
+}
+/** v256 (P1): incremento LOCK-FREE para el TRIGGER de submit. El trigger no
+ *  puede tomar lock clínico (señal no bloqueante); además es el ÚNICO escritor
+ *  de SUBMIT_SIGNAL_COUNT, por lo que la carrera es teórica. Nunca propaga error. */
+function Form_metricaTriggerSumar_(clave, delta) {
+  var prop = 'GOOGLE_FORM_METRIC_' + clave;
+  var inc = delta === undefined ? 1 : (Number(delta) || 0);
+  try {
+    var v = Form_propLeer_(prop);
+    Form_propEscribir_(prop, String((v ? Number(v) : 0) + inc));
+  } catch (e) { /* best effort */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -80,6 +120,12 @@ function Form_cache_() {
     }
   } catch (e) { /* node */ }
   return null;
+}
+
+/** v256 (P0): resultado INDETERMINADO por fallo técnico. NUNCA debe degradarse
+ *  a NO_ENCONTRADO: "no se pudo determinar" != "no existe". Sin PII. */
+function Form_incierto_(codigo) {
+  return { ok: true, estado: 'INCIERTO', incierto: true, codigo: codigo || 'INDETERMINADO' };
 }
 
 /** GAS: reserva del identificador antes de submit (estado RESERVED:<ts>).
@@ -120,11 +166,45 @@ function Form_requestIdConfirmar_(clientRequestId, responseId) {
   } catch (e) { return { ok: false, motivo: String(e && e.message || e) }; }
 }
 
+/** v256 (P0): resuelve la reserva de idempotencia ANTES de cualquier submit.
+ *  Devuelve un estado concluyente:
+ *   - RECIBIDO    → ya existe respuesta (dedupe).
+ *   - EN_PROCESO  → reserva vigente.
+ *   - RESERVADO   → reserva tomada; el llamador PUEDE enviar.
+ *   - SERVICIO_OCUPADO → no se pudo garantizar la reserva; NO enviar.
+ *  Nunca permite submit sin reserva cuando hay clientRequestId válido. */
+function Form_reservarRequestIdConLock_(clientRequestId) {
+  var lock = null;
+  try {
+    if (typeof LockService !== 'undefined') {
+      lock = LockService.getScriptLock();
+      if (!lock.tryLock(500)) {
+        // Sin serialización no se puede reservar de forma segura: sólo se
+        // consulta el índice (read-only) para distinguir un duplicado evidente.
+        var visto = Form_requestIdBuscar_(clientRequestId);
+        if (visto.estado === 'RECIBIDO') return { estado: 'RECIBIDO', responseId: visto.responseId };
+        if (visto.estado === 'EN_PROCESO') return { estado: 'EN_PROCESO' };
+        return { estado: 'SERVICIO_OCUPADO', codigo: 'LOCK_BUSY' };
+      }
+    }
+    var rsv = Form_requestIdReservar_(clientRequestId);
+    if (rsv.yaRecibido) return { estado: 'RECIBIDO', responseId: rsv.responseId };
+    if (rsv.estado === 'EN_PROCESO') return { estado: 'EN_PROCESO' };
+    if (rsv.estado === 'RESERVADO') return { estado: 'RESERVADO' };
+    return { estado: 'SERVICIO_OCUPADO', codigo: 'RESERVA_NO_DISPONIBLE' };
+  } catch (e) {
+    return { estado: 'SERVICIO_OCUPADO', codigo: 'RESERVA_FALLIDA' };
+  } finally {
+    try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
+  }
+}
+
 /** GAS: consulta del índice rápido del identificador. */
 function Form_requestIdBuscar_(clientRequestId) {
   var cfg = GOOGLE_FORMS_CONFIG.TRANSPORTE;
+  if (!clientRequestId) return { ok: true, estado: 'NO_ENCONTRADO' };
   var cache = Form_cache_();
-  if (!clientRequestId || !cache) return { ok: true, estado: 'NO_ENCONTRADO' };
+  if (!cache) return Form_incierto_('CACHE_NO_DISPONIBLE');
   try {
     var valor = cache.get(cfg.CACHE_PREFIJO + clientRequestId);
     if (!valor) return { ok: true, estado: 'NO_ENCONTRADO' };
@@ -134,9 +214,10 @@ function Form_requestIdBuscar_(clientRequestId) {
     if (valor.indexOf('RESERVED:') === 0) {
       var ts = Number(valor.slice('RESERVED:'.length)) || 0;
       if (Date.now() - ts < (cfg.TTL_RESERVADA_S * 1000 || 120000)) return { ok: true, estado: 'EN_PROCESO' };
+      return { ok: true, estado: 'NO_ENCONTRADO' };
     }
     return { ok: true, estado: 'NO_ENCONTRADO' };
-  } catch (e) { return { ok: true, estado: 'NO_ENCONTRADO' }; }
+  } catch (e) { return Form_incierto_('CACHE_READ_FAILED'); }
 }
 
 /** GAS: recupera el ACK perdido escaneando SOLO respuestas recientes (máx. 6 h).
@@ -145,18 +226,25 @@ function Form_requestIdBuscar_(clientRequestId) {
 function Form_requestIdRecuperarRespuesta_(clientRequestId, opciones) {
   opciones = opciones || {};
   var formId = opciones.formId || Form_formId_();
-  if (!formId) return { ok: true, estado: 'NO_ENCONTRADO' };
+  // Configuración ausente NO prueba ausencia de la respuesta (P0 v256).
+  if (!formId) return Form_incierto_('FORM_NO_CONFIGURADO');
   var cfg = GOOGLE_FORMS_CONFIG.TRANSPORTE;
   var form = null;
-  try { form = FormApp.openById(formId); } catch (e) { return { ok: true, estado: 'NO_ENCONTRADO' }; }
-  var respuestas = [];
+  try { form = FormApp.openById(formId); } catch (e) { return Form_incierto_('FORM_NO_ACCESIBLE'); }
+  var respuestas = null;
   try {
     respuestas = form.getResponses(new Date(Date.now() - cfg.ESCANEO_RECUPERACION_MS)) || [];
-  } catch (e) { respuestas = []; }
+  } catch (e) { return Form_incierto_('FORM_RESPONSES_READ_FAILED'); }
   var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP'));
   var titleMap = Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'));
+  var omitidas = 0;
   for (var i = 0; i < respuestas.length; i++) {
-    var campos = Form_extraerCampos_(respuestas[i], { itemMap: itemMap, titleMap: titleMap }).campos || {};
+    // Una respuesta individual defectuosa no debe convertir TODA la búsqueda en
+    // ausencia: se omite esa fila (diagnóstico sin PII) y se continúa.
+    var campos;
+    try {
+      campos = Form_extraerCampos_(respuestas[i], { itemMap: itemMap, titleMap: titleMap }).campos || {};
+    } catch (eFila) { omitidas++; continue; }
     if (Utl_texto_(campos[cfg.CAMPO_CLIENT_REQUEST_ID]) === Utl_texto_(clientRequestId)) {
       var rid = '';
       try { rid = String(respuestas[i].getId()); } catch (e2) { rid = ''; }
@@ -164,11 +252,15 @@ function Form_requestIdRecuperarRespuesta_(clientRequestId, opciones) {
       return { ok: true, estado: 'RECIBIDO', responseId: rid };
     }
   }
-  return { ok: true, estado: 'NO_ENCONTRADO' };
+  // Consulta válida completada sin coincidencia: NO_ENCONTRADO (con diagnóstico
+  // no-PII de filas ilegibles, si las hubo).
+  return { ok: true, estado: 'NO_ENCONTRADO', omitidas: omitidas };
 }
 
 /** Entrypoint WebApp: verificación de recepción por identificador (ACK perdido).
- *  Ordinal: cache → escaneo acotado → NO_ENCONTRADO. Nunca expone PII. */
+ *  Ordinal: cache → escaneo acotado autoritativo → NO_ENCONTRADO. Si algún paso
+ *  falla técnicamente, NUNCA se degrada a ausencia: se devuelve INCIERTO.
+ *  Contrato público pequeño: {ok, estado, responseId?}. Nunca expone PII. */
 function WebApp_verificarRecepcion(clientRequestId, acceso) {
   try {
     var cid = Utl_texto_(clientRequestId);
@@ -176,20 +268,29 @@ function WebApp_verificarRecepcion(clientRequestId, acceso) {
       return { ok: false, estado: 'NO_ENCONTRADO' };
     }
     var directo = Form_requestIdBuscar_(cid);
-    if (directo.estado === 'RECIBIDO' || directo.estado === 'EN_PROCESO') {
-      var resp = { ok: true, estado: directo.estado };
-      if (directo.responseId) resp.responseId = directo.responseId;
-      return resp;
+    if (directo.estado === 'RECIBIDO') {
+      var r1 = { ok: true, estado: 'RECIBIDO' };
+      if (directo.responseId) r1.responseId = directo.responseId;
+      return r1;
     }
+    if (directo.estado === 'EN_PROCESO') return { ok: true, estado: 'EN_PROCESO' };
+    // Cache no concluyente o ausente: fallback autoritativo al Form (durable).
     var recuperado = Form_requestIdRecuperarRespuesta_(cid);
     if (recuperado.estado === 'RECIBIDO') {
       var r2 = { ok: true, estado: 'RECIBIDO' };
       if (recuperado.responseId) r2.responseId = recuperado.responseId;
       return r2;
     }
-    return { ok: true, estado: 'NO_ENCONTRADO' };
+    // NO_ENCONTRADO solo con evidencia suficiente: la consulta AUTORITATIVA al
+    // Form se completó válidamente y no halló coincidencia. Un fallo de cache
+    // (índice no autoritativo) no impide concluir ausencia una vez consultado el
+    // Form; un fallo del Form sí es incertidumbre técnica (nunca ausencia).
+    if (recuperado.estado === 'NO_ENCONTRADO') {
+      return { ok: true, estado: 'NO_ENCONTRADO' };
+    }
+    return Form_incierto_(recuperado.codigo || directo.codigo || 'INDETERMINADO');
   } catch (e) {
-    return { ok: true, estado: 'INCIERTO' };
+    return Form_incierto_('VERIFICACION_FALLIDA');
   }
 }
 
@@ -389,15 +490,22 @@ function Form_construirCanonicalItemMap_(form) {
 /** GAS: anexa al final de FORM_RESPUESTAS las columnas de transporte v255 que
  *  falten (CLIENT_REQUEST_ID, SOURCE, CLASIFICACION, TRANSPORTE_ERROR).
  *  Idempotente y de SOLO encabezado: nunca reescribe ni desplaza datos. */
-function Form_asegurarColumnasTransporte255_(hoja) {
-  if (!hoja) return;
+/** v256 (P0): asegura las columnas del trailer. Con opciones.simular=true es
+ *  ESTRICTAMENTE read-only (planifica sin escribir) y devuelve {pendientes}. */
+function Form_asegurarColumnasTransporte255_(hoja, opciones) {
+  opciones = opciones || {};
+  if (!hoja) return { pendientes: [], aplicado: false };
   var extra = ['CLIENT_REQUEST_ID', 'SOURCE', 'CLASIFICACION', 'TRANSPORTE_ERROR'];
   var actuales = [];
-  try { actuales = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0] || []; } catch (e) { return; }
+  try { actuales = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0] || []; } catch (e) { return { pendientes: extra.slice(), aplicado: false, error: 'ENCABEZADO_NO_LEIBLE' }; }
   var claves = actuales.map(Utl_claveAlnum_);
   var pendientes = extra.filter(function (c) { return claves.indexOf(Utl_claveAlnum_(c)) === -1; });
-  if (!pendientes.length) return;
-  try { hoja.getRange(1, hoja.getLastColumn() + 1, 1, pendientes.length).setValues([pendientes]); } catch (e) { /* no crítico */ }
+  if (!pendientes.length) return { pendientes: [], aplicado: false };
+  if (opciones.simular) return { pendientes: pendientes, aplicado: false, simulado: true };
+  try {
+    hoja.getRange(1, hoja.getLastColumn() + 1, 1, pendientes.length).setValues([pendientes]);
+    return { pendientes: pendientes, aplicado: true };
+  } catch (e) { return { pendientes: pendientes, aplicado: false, error: 'ESCRITURA_FALLIDA' }; }
 }
 
 /** DEDUP: nombres canónicos únicos y no vacíos de los profesionales activos. */
@@ -653,21 +761,33 @@ function Form_syncCatalogos_(opciones) {
   var nombresProf = (Array.isArray(catalogo.profesionales) && catalogo.profesionales.length)
     ? catalogo.profesionales : Form_catalogoProfesionales_();
 
+  var simular = !!opciones.simular;
   var idx = Form_indexarSchema_(form);
   var hit = 0, fallos = [];
   var fuentes = ['SECTOR', 'PROFESIONAL', 'PROFESIONAL2'];
+  // v256 (P0): en modo simular NUNCA se llama setChoices; solo se planifica.
+  function aplicar(it, valores) {
+    if (simular) {
+      var deseados = valores.map(String);
+      var actuales = [];
+      try { actuales = (it.getChoices() || []).map(function (c) { return String(c.getValue()); }); } catch (e2) { actuales = []; }
+      return deseados.join('\u0001') !== actuales.join('\u0001');
+    }
+    it.setChoices(valores.map(function (o) { return it.createChoice(String(o)); }));
+    return true;
+  }
   fuentes.forEach(function (campo) {
     var valores = campo === 'SECTOR' ? sectores : nombresProf;
-    var aplicado = false;
+    var resuelto = false;
     Form_esquemaCanonial_().secciones.forEach(function (sec) {
       var entrada = idx.byCanonicalKey[Form_claveCanonicaItem_(sec, campo)];
       if (!entrada || !entrada.item) return;
       var it = entrada.item;
-      if (!valores.length || !it.setChoices) return;
-      it.setChoices(valores.map(function (o) { return it.createChoice(String(o)); }));
-      aplicado = true;
+      if (!valores.length || !it.setChoices) resuelto = true; // existe pero sin cambios aplicables
+      else if (aplicar(it, valores)) { cambios.push((simular ? 'Catálogo requiere cambio: ' : 'Catálogo aplicado: ') + campo + ' (' + valores.length + ')'); resuelto = true; }
+      else resuelto = true; // ya coincide
     });
-    if (aplicado) { cambios.push('Catálogo aplicado: ' + campo + ' (' + valores.length + ')'); hit++; }
+    if (resuelto) hit++;
     else fallos.push(campo);
   });
   // fallback de reparación por título SOLO si el mapa canónico no resolvió.
@@ -682,15 +802,14 @@ function Form_syncCatalogos_(opciones) {
         if (!campo || fuentes.indexOf(campo) === -1 || fallos.indexOf(campo) === -1) return;
         var valores = campo === 'SECTOR' ? sectores : nombresProf;
         if (!valores.length || !it.setChoices) return;
-        it.setChoices(valores.map(function (o) { return it.createChoice(String(o)); }));
-        cambios.push('Catálogo aplicado (reparación por título): ' + t);
+        if (aplicar(it, valores)) cambios.push((simular ? 'Catálogo requiere cambio (reparación por título): ' : 'Catálogo aplicado (reparación por título): ') + t);
       });
     } catch (e) {
       return { ok: false, motivo: String(e && e.message || e), cambios: cambios, sectores: sectores.length, profesionales: nombresProf.length };
     }
   }
   return {
-    ok: true, okTodas: hit + fallos.length === fuentes.length,
+    ok: true, okTodas: hit + fallos.length === fuentes.length, simulado: simular,
     cambios: cambios, sectores: sectores.length, profesionales: nombresProf.length, camposAplicados: hit
   };
 }
@@ -761,22 +880,27 @@ function Form_hojaRespuetas_() {
  *  → Map<captureId,{filaFisica,estado,clasificacion,fechaForms}>.
  *  v255 (E13/E14): la clasificación (REVIEW/RETRYABLE/TERMINAL) se lee del
  *  trailer; nada de ScriptProperties por response. */
+/** v256 (P0/P1): lee el estado de la cola desde el trailer. Devuelve
+ *  {ok, estados:Map, motivo}. ok:false significa QUE NO SE PUDO LEER (nunca
+ *  "cola vacía"): el worker NO debe asumir que todo es elegible. */
 function Form_leerEstadosCola_() {
   var estados = new Map();
   var hoja = Form_hojaRespuetas_();
-  if (!hoja) return estados;
+  // Hoja ausente = canal no instalado: no es un fallo de lectura.
+  if (!hoja) return { ok: true, estados: estados };
   try {
     var ultC = (typeof hoja.getLastColumn === 'function') ? hoja.getLastColumn() : 0;
     var ultR = (typeof hoja.getLastRow === 'function') ? hoja.getLastRow() : 0;
-    if (!ultC || !ultR || ultR < 2) return estados;
+    if (!ultC || !ultR || ultR < 2) return { ok: true, estados: estados };
     var enc = hoja.getRange(1, 1, 1, ultC).getValues()[0] || [];
     var mapa = {};
     for (var i = 0; i < enc.length; i++) mapa[Utl_claveAlnum_(enc[i])] = i;
     var colRid = mapa[Utl_claveAlnum_('RESPONSE_ID')];
     var colEst = mapa[Utl_claveAlnum_('ESTADO')];
     var colCls = mapa[Utl_claveAlnum_('CLASIFICACION')];
+    var colErr = mapa[Utl_claveAlnum_('TRANSPORTE_ERROR')];
     var colFecha = mapa[Utl_claveAlnum_('FECHA_FORMS')];
-    if (colRid === undefined) return estados;
+    if (colRid === undefined) return { ok: true, estados: estados };
     var datos = hoja.getRange(2, 1, ultR - 1, ultC).getValues();
     for (var r = 0; r < datos.length; r++) {
       var fila = datos[r];
@@ -787,11 +911,14 @@ function Form_leerEstadosCola_() {
         filaFisica: r + 2,
         estado: colEst !== undefined ? Utl_texto_(fila[colEst]).toUpperCase() : '',
         clasificacion: colCls !== undefined ? Utl_texto_(fila[colCls]).toUpperCase() : '',
+        transporteError: colErr !== undefined ? Utl_texto_(fila[colErr]) : '',
         fechaForms: colFecha !== undefined ? Utl_texto_(fila[colFecha]) : ''
       });
     }
-  } catch (e) { /* cola no legible → todos elegibles */ }
-  return estados;
+  } catch (e) {
+    return { ok: false, motivo: 'QUEUE_STATE_READ_FAILED', estados: estados };
+  }
+  return { ok: true, estados: estados };
 }
 
 /** v255 (E13): ¿un estado del trailer es elegible para el worker?
@@ -811,15 +938,17 @@ function Form_esElegibleCandidato_(estadoReg) {
 function Form_escribirClasificacionTrailer_(filaFisica, clasificacion, errores) {
   try {
     var hoja = Form_hojaRespuetas_();
-    if (!hoja || !filaFisica) return { ok: false };
+    // Sin fila física no hay nada que persistir: no es un fallo, es una omisión.
+    if (!hoja || !filaFisica) return { ok: true, omitido: true };
     var ultC = (typeof hoja.getLastColumn === 'function') ? hoja.getLastColumn() : 0;
     var ultR = (typeof hoja.getLastRow === 'function') ? hoja.getLastRow() : 0;
-    if (!ultC || !ultR || filaFisica < 2 || filaFisica > ultR) return { ok: false };
+    if (!ultC || !ultR || filaFisica < 2 || filaFisica > ultR) return { ok: true, omitido: true };
     var enc = hoja.getRange(1, 1, 1, ultC).getValues()[0] || [];
     var mapa = {};
     for (var i = 0; i < enc.length; i++) mapa[Utl_claveAlnum_(enc[i])] = i;
     var colCls = mapa[Utl_claveAlnum_('CLASIFICACION')];
     var colErr = mapa[Utl_claveAlnum_('TRANSPORTE_ERROR')];
+    // Columnas ausentes: fallo REAL (no se pudo persistir la clasificación).
     if (colCls === undefined || colErr === undefined) return { ok: false, motivo: 'COLUMNAS_AUSENTES' };
     var fila = hoja.getRange(filaFisica, 1, 1, ultC).getValues()[0] || [];
     fila[colCls] = clasificacion || '';
@@ -889,28 +1018,38 @@ function Form_procesarRespuestaConTransporte_(respuesta, ctx, opciones) {
     accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO', clasificacion: 'TERMINAL' };
 }
 
-/** GAS: registra un fallo de transporte legible por la reconciliación.
- *  v255 (E13/E14): deja de ser gate terminal; es solo trazabilidad auxiliar. */
+/** v256 (P1): ELIMINADO el registro por captura en ScriptProperties
+ *  (GOOGLE_FORM_ERRORS|<captureId>). El trailer de FORM_RESPUESTAS
+ *  (CLASIFICACION / TRANSPORTE_ERROR) es la fuente autoritativa; se conserva
+ *  esta función como NO-OP para compatibilidad de llamadas. */
 function Form_registrarErrorTransporte_(captureId, errores) {
-  try {
-    Form_propEscribir_('GOOGLE_FORM_ERRORS|' + captureId, JSON.stringify({
-      ts: Date.now(), errores: (errores || []).slice(0, 5)
-    }));
-  } catch (e) { /* no bloquea */ }
+  return { ok: true, omitido: true, motivo: 'TRAILER_ES_AUTORITATIVO' };
 }
 
-/** PURA/GAS: salto definitivo si ya falló antes (evita reprocesos infinitos). */
-function Form_errorTransporteVisto_(captureId, ventanaMin) {
-  var raw = Form_propLeer_('GOOGLE_FORM_ERRORS|' + captureId);
-  if (!raw) return false;
-  try {
-    var d = Form_json_(raw);
-    if (d && d.ts) {
-      var edad = (Date.now() - Number(d.ts)) / 60000;
-      return edad < (ventanaMin || GOOGLE_FORMS_CONFIG.RECONCILIACION.CADUCIDAD_MIN);
-    }
-  } catch (e) { /* corrupto → reprocesar */ }
-  return false;
+/** v256 (P1): inventario/clasificación de errores legacy por prefijo EXACTO.
+ *  Solo se usa en reparación explícita; nunca como fuente de verdad. */
+function Form_erroresLegacy_() {
+  var claves = [];
+  var p = Form_props_();
+  if (p && typeof p.getKeys === 'function') {
+    try {
+      var pref = GOOGLE_FORMS_CONFIG.ERRORES_PREFIJO;
+      claves = (p.getKeys() || []).filter(function (k) { return String(k).indexOf(pref) === 0; });
+    } catch (e) { claves = []; }
+  }
+  return claves;
+}
+
+/** v256 (P1): elimina claves legacy por prefijo EXACTO. Read-only si simular. */
+function Form_limpiarErroresLegacy_(simular) {
+  var claves = Form_propClaves_(GOOGLE_FORMS_CONFIG.ERRORES_PREFIJO);
+  if (simular || !claves.length) return { ok: true, simulado: !!simular, eliminados: 0, encontrados: claves.length };
+  var p = Form_props_();
+  var borrados = 0;
+  for (var i = 0; i < claves.length; i++) {
+    try { if (p && p.deleteProperty) { p.deleteProperty(claves[i]); borrados++; } } catch (e) { /* ignorar */ }
+  }
+  return { ok: true, borrados: borrados, restantes: claves.length - borrados };
 }
 
 /** GAS: trigger onFormSubmit — señal liviana de recepción (E12).
@@ -922,7 +1061,7 @@ function Form_onFormSubmit_(e) {
   if (!resp) return { ok: false, errores: [{ codigo: 'SIN_RESPONSE' }] };
   var responseId = '';
   try { responseId = String(resp.getId()); } catch (e3) { responseId = ''; }
-  Form_metricaSumar_('SUBMIT_SIGNAL_COUNT');
+  Form_metricaTriggerSumar_('SUBMIT_SIGNAL_COUNT');
   Form_propEscribir_('GOOGLE_FORM_LAST_SUBMIT_SIGNAL_TS', String(Date.now()));
   return { ok: true, queued: true, responseId: responseId };
 }
@@ -934,6 +1073,71 @@ function Form_desdeCursor_() {
   if (isNaN(d.getTime())) return new Date(0);
   var overlapMin = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.OVERLAP_MIN) || (24 * 60);
   return new Date(Math.max(0, d.getTime() - overlapMin * 60000));
+}
+
+/** v256 (P0): token de lease sin PII (identifica la corrida, no al usuario). */
+function Form_leaseToken_() {
+  return 'wl-' + String(Date.now()) + '-' + String(Math.floor(Math.random() * 1e9));
+}
+
+/** v256 (P0): lee el lease vigente del worker desde ScriptProperties. */
+function Form_leaseLeer_() {
+  var raw = Form_propLeer_(GOOGLE_FORMS_CONFIG.WORKER_LEASE.CLAVE);
+  if (!raw) return null;
+  var d = Form_json_(raw);
+  if (!d || !d.t) return null;
+  var ttlMs = (GOOGLE_FORMS_CONFIG.WORKER_LEASE.TTL_S || 600) * 1000;
+  return { t: Number(d.t) || 0, exp: Number(d.exp) || ((Number(d.t) || 0) + ttlMs), token: String(d.token || '') };
+}
+
+function Form_leaseVigente_(lease) {
+  return !!(lease && lease.exp && Date.now() < lease.exp);
+}
+
+/** v256 (P0): toma el arriendo del worker. El ScriptLock se mantiene SOLO el
+ *  tiempo de leer/escribir el lease (sección breve), nunca durante I/O.
+ *  Devuelve {ok:true, token} o {ok:false, motivo:'DEFERRED_LEASE_BUSY'|'DEFERRED_LOCK_BUSY'}. */
+function Form_leaseTomar_() {
+  var lock = null;
+  try {
+    if (typeof LockService !== 'undefined') {
+      lock = LockService.getScriptLock();
+      var waitMs = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750;
+      if (!lock.tryLock(waitMs)) return { ok: false, motivo: 'DEFERRED_LOCK_BUSY' };
+    }
+    var actual = Form_leaseLeer_();
+    if (Form_leaseVigente_(actual)) return { ok: false, motivo: 'DEFERRED_LEASE_BUSY' };
+    var ahora = Date.now();
+    var lease = { t: ahora, exp: ahora + (GOOGLE_FORMS_CONFIG.WORKER_LEASE.TTL_S || 600) * 1000, token: Form_leaseToken_() };
+    Form_propEscribir_(GOOGLE_FORMS_CONFIG.WORKER_LEASE.CLAVE, JSON.stringify(lease));
+    return { ok: true, token: lease.token };
+  } catch (e) {
+    return { ok: false, motivo: 'LEASE_ERROR' };
+  } finally {
+    try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
+  }
+}
+
+/** v256 (P0): libera el lease SOLO si el token coincide. No propaga errores. */
+function Form_leaseLiberar_(token) {
+  var lock = null;
+  try {
+    if (!token) return { ok: false };
+    if (typeof LockService !== 'undefined') {
+      lock = LockService.getScriptLock();
+      lock.tryLock((GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750);
+    }
+    var actual = Form_leaseLeer_();
+    if (!actual || actual.token !== token) return { ok: false };
+    var p = Form_props_();
+    if (p && p.deleteProperty) p.deleteProperty(GOOGLE_FORMS_CONFIG.WORKER_LEASE.CLAVE);
+    else Form_propEscribir_(GOOGLE_FORMS_CONFIG.WORKER_LEASE.CLAVE, '');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false };
+  } finally {
+    try { if (lock) lock.releaseLock(); } catch (e3) { /* ignorar */ }
+  }
 }
 
 /** v255 (M03): circuito por errores SISTÉMICOS consecutivos (N=3). Corta el
@@ -961,16 +1165,18 @@ function Form_worker_(opciones) {
   if (typeof LockService === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   var formId = opciones.formId || Form_formId_();
   if (!formId) return { ok: false, motivo: 'NO_INSTALADO' };
-  var lock = null;
+  var leaseToken = '';
   var inicioMs = Date.now();
   try {
-    lock = LockService.getScriptLock();
-    var waitMs = (GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750;
-    if (!lock.tryLock(waitMs)) {
-      Form_metricaSumar_('LOCK_BUSY_DEFERRED');
+    // v256 (P0): lease corto — NO se retiene ScriptLock durante I/O/pipeline.
+    var toma = Form_leaseTomar_();
+    if (!toma.ok) {
+      if (toma.motivo === 'DEFERRED_LOCK_BUSY') Form_metricaSumar_('LOCK_BUSY_DEFERRED');
+      else Form_metricaSumar_('LEASE_BUSY_DEFERRED');
       Form_propEscribir_('GOOGLE_FORM_METRIC_DEFERRED_TS', String(Date.now()));
-      return { ok: false, motivo: 'DEFERRED_LOCK_BUSY', procesadas: 0, lock: false, durationMs: Date.now() - inicioMs };
+      return { ok: false, motivo: toma.motivo, procesadas: 0, lock: false, lease: false, durationMs: Date.now() - inicioMs };
     }
+    leaseToken = toma.token;
     Form_metricaSumar_('WORKER_RUNS');
     Form_propEscribir_('GOOGLE_FORM_LAST_WORKER_RUN_TS', String(Date.now()));
     var form = null;
@@ -980,13 +1186,25 @@ function Form_worker_(opciones) {
       Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
       return Form_circuitoSistémico_('FORM_NO_ACCESIBLE', inicioMs, 'Form no accesible');
     }
-    var respuestas = [];
-    try { respuestas = form.getResponses(Form_desdeCursor_()) || []; } catch (e) { respuestas = []; }
+    var respuestas;
+    try { respuestas = form.getResponses(Form_desdeCursor_()) || []; }
+    catch (e) {
+      // v256 (P0/P1): un fallo de lectura NO es "sin trabajo". No se resetea el
+      // circuito, no se avanza el cursor y se contabiliza como error sistémico.
+      Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
+      return Form_circuitoSistémico_('FORM_RESPONSES_READ_FAILED', inicioMs, 'No se pudieron leer las respuestas');
+    }
 
     respuestas.sort(function (a, b) {
       try { return a.getTimestamp().getTime() - b.getTimestamp().getTime(); } catch (e) { return 0; }
     });
-    var estadosCola = Form_leerEstadosCola_();
+    // v256 (P0): si la cola no es legible NO se procesa ni se avanza cursor.
+    var lecturaCola = Form_leerEstadosCola_();
+    if (!lecturaCola.ok) {
+      Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
+      return Form_circuitoSistémico_('QUEUE_STATE_READ_FAILED', inicioMs, 'No se pudo leer la cola');
+    }
+    var estadosCola = lecturaCola.estados;
     var itemMap = Form_json_(Form_propLeer_('GOOGLE_FORM_ITEM_MAP'));
     var titleMap = Form_json_(Form_propLeer_('GOOGLE_FORM_TITLE_MAP'));
     var idx = Form_indexarSchema_(form);
@@ -1028,9 +1246,19 @@ function Form_worker_(opciones) {
       var rf = cand.cid || r.captureId || '';
       var filaFisica = (cand.estadoPrev && cand.estadoPrev.filaFisica) || '';
       if (rOk) {
-        procesadas++; procesadasEsteBatch++;
-        Form_escribirClasificacionTrailer_(filaFisica, r.clasificacion || 'TERMINAL', r.errores || []);
-        Form_propEscribir_('GOOGLE_FORM_LAST_PROCESSED_TS', String(Date.now()));
+        // v256 (P1): la persistencia del trailer es REQUISITO para dar por
+        // procesada la respuesta. Si falla, el pipeline ya quedó idempotente
+        // (re-ejecutable) pero NO se avanza el cursor.
+        var tw = Form_escribirClasificacionTrailer_(filaFisica, r.clasificacion || 'TERMINAL', r.errores || []);
+        if (tw.ok) {
+          procesadas++; procesadasEsteBatch++;
+          Form_propEscribir_('GOOGLE_FORM_LAST_PROCESSED_TS', String(Date.now()));
+        } else {
+          rOk = false; errores++; retryable++; encontroRetryable = true;
+          r.clasificacion = 'RETRYABLE';
+          r.errores = [{ codigo: 'TRAILER_WRITE_FAILED', motivo: tw.motivo || 'ESCRITURA_FALLIDA' }];
+          Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
+        }
       } else {
         errores++;
         if (r.clasificacion === 'REVIEW') {
@@ -1060,12 +1288,13 @@ function Form_worker_(opciones) {
     return { ok: true, procesadas: procesadas, errores: errores, retryable: retryable,
       review: review, terminal: terminal, total: procesadas + retryable + review + terminal,
       elegibles: elegibles, restantes: Math.max(0, elegibles - procesadasEsteBatch - errores),
-      durationMs: Date.now() - inicioMs, lock: true, filas: filas };
+      durationMs: Date.now() - inicioMs, lock: true, lease: true, filas: filas };
   } catch (e) {
     Form_metricaSumar_('WORKER_ERRORS');
     return { ok: false, motivo: String(e && e.message || e), procesadas: 0, durationMs: Date.now() - inicioMs };
   } finally {
-    try { if (lock) lock.releaseLock(); } catch (e2) { /* ignorar */ }
+    // Libera el lease SOLO si el token coincide (no roba corridas ajenas).
+    try { if (leaseToken) Form_leaseLiberar_(leaseToken); } catch (e2) { /* ignorar */ }
   }
 }
 
@@ -1077,8 +1306,17 @@ function Form_worker_(opciones) {
  *  (nunca de contadores acumulativos). Devuelve processed/retryable/review/
  *  terminal/pending/oldestPendingMin. */
 function Form_backlogResumen_() {
-  var resumen = { processed: 0, retryable: 0, review: 0, terminal: 0, pending: 0, tajada: [], oldestPendingMin: 0 };
-  var estados = Form_leerEstadosCola_();
+  var resumen = { ok: true, disponible: true, processed: 0, retryable: 0, review: 0, terminal: 0, pending: 0, tajada: [], oldestPendingMin: 0 };
+  var lectura = Form_leerEstadosCola_();
+  // v256 (P0/P1): estado DESCONOCIDO — nunca reportar 0 como si la cola
+  // estuviera vacía cuando en realidad no pudo leerse.
+  if (!lectura.ok) {
+    resumen.ok = false;
+    resumen.disponible = false;
+    resumen.motivo = lectura.motivo || 'QUEUE_STATE_READ_FAILED';
+    return resumen;
+  }
+  var estados = lectura.estados;
   var ahora = Date.now();
   var minTs = null;
   estados.forEach(function (reg, cid) {
@@ -1117,6 +1355,12 @@ function Form_reconciliarTransporte_(opciones) {
     try { if (typeof Captura_v2_buscarRegistro_ === 'function') return !!Captura_v2_buscarRegistro_(cid); } catch (e2) { /* n/d */ }
     return false;
   };
+  // v256 (P1): la clasificación de errores se deriva del trailer autoritativo,
+  // NUNCA de ScriptProperties por captura. Si la cola no es legible, se reporta
+  // DESCONOCIDO en lugar de fabricar fallidos/ausentes.
+  var lecturaCola = Form_leerEstadosCola_();
+  var colaDesconocida = !lecturaCola.ok;
+  var estadosTrailer = lecturaCola.estados;
   var nuevos = [], yaEnCola = [], ausentes = [], fallidos = [];
   for (var i = 0; i < respuestas.length; i++) {
     var resp = respuestas[i];
@@ -1124,11 +1368,14 @@ function Form_reconciliarTransporte_(opciones) {
     try { responseId = String(resp.getId()); } catch (e2) { responseId = ''; }
     if (!responseId) continue;
     var cid = CapturaIngress_captureId_(formId, responseId);
-    if (Form_errorTransporteVisto_(cid, 24 * 60)) { fallidos.push({ responseId: responseId, captureId: cid, estado: 'RECHAZADO_EN_ADAPTADOR' }); continue; }
+    var reg = estadosTrailer.get(cid);
+    if (reg && (reg.transporteError || String(reg.clasificacion || '').toUpperCase() === 'REVIEW')) {
+      fallidos.push({ responseId: responseId, captureId: cid, estado: 'RECHAZADO_EN_ADAPTADOR' }); continue;
+    }
     if (leerEnCola(cid)) { yaEnCola.push({ responseId: responseId, captureId: cid, estado: 'EN_COLA_ORDENADA' }); continue; }
     nuevos.push({ responseId: responseId, captureId: cid, estado: 'SIN_PROCESAR' });
   }
-  return { ok: true, dryRun: true, analizados: respuestas.length, nuevos: nuevos, yaEnCola: yaEnCola, ausentes: ausentes, fallidos: fallidos };
+  return { ok: !colaDesconocida, dryRun: true, analizados: respuestas.length, colaDesconocida: colaDesconocida, nuevos: nuevos, yaEnCola: yaEnCola, ausentes: ausentes, fallidos: fallidos };
 }
 
 /** GAS: reparación segura del canal v255 (M04). DEFAULT dry-run. Entrada:
@@ -1143,11 +1390,18 @@ function Form_operativoReparar_(opciones) {
   if (formId && typeof FormApp !== 'undefined') {
     try { form = FormApp.openById(formId); } catch (e) { form = null; }
   }
+  // v256 (P0): dryRun es ESTRICTAMENTE read-only. Cada acción reporta
+  // sin_cambios | necesita_cambio | aplicado | error:<motivo>. Nunca ok:true
+  // si una acción requerida falla.
   if (opciones.repairColumnas !== false) {
     try {
       var hoja = Form_hojaRespuetas_();
-      if (hoja) Form_asegurarColumnasTransporte255_(hoja);
-      acciones.push({ accion: 'columnas_transporte', estado: dryRun ? 'dry-run' : 'ok' });
+      var rc = Form_asegurarColumnasTransporte255_(hoja, { simular: dryRun });
+      var estCol;
+      if (rc.error) estCol = 'error:' + rc.error;
+      else if ((rc.pendientes || []).length) estCol = dryRun ? 'necesita_cambio' : (rc.aplicado ? 'aplicado' : 'error:ESCRITURA_FALLIDA');
+      else estCol = 'sin_cambios';
+      acciones.push({ accion: 'columnas_transporte', estado: estCol, detalle: rc.pendientes || [] });
     } catch (e) { acciones.push({ accion: 'columnas_transporte', estado: 'error:' + String(e && e.message || e) }); }
   }
   if (opciones.repairTriggers !== false && form) {
@@ -1156,28 +1410,49 @@ function Form_operativoReparar_(opciones) {
       if (typeof ScriptApp !== 'undefined') {
         triggerWorker = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'Form_worker_'; }).length;
       }
-      if (!dryRun && triggerWorker === 0) {
-        ScriptApp.newTrigger('Form_worker_').timeBased().everyMinutes(5).create();
-        acciones.push({ accion: 'trigger_worker', estado: 'creado' });
+      if (triggerWorker === 0) {
+        if (dryRun) acciones.push({ accion: 'trigger_worker', estado: 'necesita_cambio', motivo: 'necesita_creacion' });
+        else { ScriptApp.newTrigger('Form_worker_').timeBased().everyMinutes(5).create(); acciones.push({ accion: 'trigger_worker', estado: 'aplicado' }); }
       } else {
-        acciones.push({ accion: 'trigger_worker', estado: dryRun ? 'necesita_creacion' : 'ya_existe' });
+        acciones.push({ accion: 'trigger_worker', estado: 'sin_cambios' });
       }
     } catch (e) { acciones.push({ accion: 'trigger_worker', estado: 'error:' + String(e && e.message || e) }); }
   }
   if (opciones.repairCatalogos !== false && form) {
     try {
-      var cr = Form_syncCatalogos_({ form: form });
-      acciones.push({ accion: 'catalogos', estado: (cr.ok ? 'ok' : 'fallo'), detalle: (cr.cambios || []).length + ' cambios' });
+      var cr = Form_syncCatalogos_({ form: form, simular: dryRun });
+      var estCat;
+      if (!cr.ok) estCat = 'error:' + (cr.motivo || 'CATALOGO_FALLIDO');
+      else if ((cr.cambios || []).length) estCat = dryRun ? 'necesita_cambio' : 'aplicado';
+      else estCat = 'sin_cambios';
+      acciones.push({ accion: 'catalogos', estado: estCat, detalle: (cr.cambios || []).length + ' cambios' });
     } catch (e) { acciones.push({ accion: 'catalogos', estado: 'error:' + String(e && e.message || e) }); }
   }
   if (opciones.repairPropiedades !== false && form) {
     try {
       var cm = Form_construirCanonicalItemMap_(form);
-      if (!dryRun) Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', JSON.stringify(cm));
-      acciones.push({ accion: 'canonical_map', estado: dryRun ? 'dry-run' : 'ok', detalle: Object.keys(cm).length + ' claves' });
+      var jsonCm = JSON.stringify(cm);
+      var coincide = Form_propLeer_('GOOGLE_FORM_CANONICAL_ITEM_MAP') === jsonCm;
+      var estMap;
+      if (coincide) estMap = 'sin_cambios';
+      else if (dryRun) estMap = 'necesita_cambio';
+      else { Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', jsonCm); estMap = 'aplicado'; }
+      acciones.push({ accion: 'canonical_map', estado: estMap, detalle: Object.keys(cm).length + ' claves' });
     } catch (e) { acciones.push({ accion: 'canonical_map', estado: 'error:' + String(e && e.message || e) }); }
   }
-  return { ok: true, dryRun: dryRun, formId: formId, acciones: acciones };
+  // v256 (P1): limpieza legacy OPCIONAL y explícita (por defecto no se toca).
+  if (opciones.repairErroresLegacy) {
+    try {
+      var leg = Form_limpiarErroresLegacy_(dryRun);
+      var estLeg;
+      if (dryRun) estLeg = leg.encontradas ? 'necesita_cambio' : 'sin_cambios';
+      else estLeg = 'aplicado';
+      acciones.push({ accion: 'errores_legacy', estado: estLeg, detalle: (leg.encontradas || 0) + ' clave(s) GOOGLE_FORM_ERRORS|' + (dryRun ? '' : ', ' + (leg.borrados || 0) + ' borrada(s)') });
+    } catch (e) { acciones.push({ accion: 'errores_legacy', estado: 'error:' + String(e && e.message || e) }); }
+  }
+  var hayError = acciones.some(function (a) { return String(a.estado).indexOf('error:') === 0; });
+  var necesitaCambio = acciones.some(function (a) { return a.estado === 'necesita_cambio'; });
+  return { ok: !hayError, dryRun: dryRun, formId: formId, necesitaCambio: necesitaCambio, acciones: acciones };
 }
 
 /** v255 (M05): worker manual desde admin — delega a Form_worker_() sin bypass. */
@@ -1200,15 +1475,20 @@ function Form_operativoEstado_(opciones) {
     } catch (e) { triggerOnFormSubmit = -1; triggerWorker = -1; }
   }
   var info = {};
+  // v256 (P1): DISTINGUIR "no legible" de "0". Sin Form o sin lectura, el
+  // conteo queda DESCONOCIDO (no se reporta como cero).
+  var responsesDisponible = false;
   if (formId && typeof FormApp !== 'undefined') {
     try {
       var form = FormApp.openById(formId);
       info.titulo = form.getTitle();
-      try { info.respuestas = form.getResponses().length; } catch (e) { /* opcional */ }
+      try { info.respuestas = form.getResponses().length; responsesDisponible = true; }
+      catch (e) { info.responsesError = String(e && e.message || e); }
     } catch (e) { info.error = String(e && e.message || e); }
   }
   var backlog = Form_backlogResumen_();
-  var total = Number(info.respuestas) || 0;
+  var total = responsesDisponible ? Number(info.respuestas) || 0 : null;
+  var triggersDisponible = (triggerWorker !== null && triggerOnFormSubmit !== null);
   return {
     ok: true,
     instalado: !!formId,
@@ -1218,17 +1498,26 @@ function Form_operativoEstado_(opciones) {
     cursor: Form_propLeer_('GOOGLE_FORM_CURSOR'),
     triggerOnFormSubmit: triggerOnFormSubmit,
     triggerWorker: triggerWorker,
+    triggersDisponible: triggersDisponible,
+    responsesDisponible: responsesDisponible,
     metricas: metricas,
     observabilidad: {
-      responsesTotal: total,
+      responsesTotal: responsesDisponible ? total : 'DESCONOCIDO',
+      responsesDisponible: responsesDisponible,
       processed: backlog.terminal + backlog.processed,
       retryable: backlog.retryable,
       review: backlog.review,
       terminal: backlog.terminal,
       backlog: backlog.pending + backlog.retryable,
-      oldestPendingMin: backlog.oldestPendingMin
+      oldestPendingMin: backlog.oldestPendingMin,
+      backlogDisponible: backlog.disponible !== false,
+      triggersDisponible: triggersDisponible
     },
-    backlog: { oldestPendingMin: backlog.oldestPendingMin, pendientes: backlog.pending + backlog.retryable, pending: backlog.pending, retryable: backlog.retryable, review: backlog.review, terminal: backlog.terminal },
+    backlogDisponible: backlog.disponible !== false,
+    responsesDisponible: responsesDisponible,
+    triggersDisponible: triggersDisponible,
+    backlogMotivo: backlog.motivo || '',
+    backlog: { disponible: backlog.disponible !== false, oldestPendingMin: backlog.oldestPendingMin, pendientes: backlog.pending + backlog.retryable, pending: backlog.pending, retryable: backlog.retryable, review: backlog.review, terminal: backlog.terminal },
     form: info,
     canal: 'GOOGLE_FORMS'
   };
@@ -1271,12 +1560,23 @@ function Form_saludOperativa_(opciones) {
   if ((estado.triggerWorker || 0) !== 1) { nivel = 'CRITICAL'; alertas.push('WORKER_TRIGGER_AUSENTE'); }
   if (!estado.formId || estado.form.error) { if (nivel !== 'CRITICAL') nivel = 'CRITICAL'; alertas.push('FORM_NO_ACCESIBLE'); }
   if (estado.schemaVersion !== GOOGLE_FORMS_CONFIG.SCHEMA_VERSION) { if (nivel !== 'CRITICAL') nivel = 'CRITICAL'; alertas.push('SCHEMA_DRIFT'); }
-  if (backlog.oldestPendingMin > GOOGLE_FORMS_CONFIG.SALUD.OLDEST_PENDING_MAX_MIN) {
+  // v256 (P1): estado DESCONOCIDO — si la cola no pudo leerse, NUNCA se
+  // presenta 0/OK como si estuviera vacía.
+  if (estado.responsesDisponible === false && estado.formId && !(estado.form && estado.form.error)) {
+    if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('RESPONSES_READ_FAILED');
+  }
+  if (estado.triggersDisponible === false) {
+    if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('TRIGGERS_UNKNOWN');
+  }
+  if (estado.backlogDisponible === false) {
+    if (nivel === 'OK') nivel = 'DEGRADED';
+    alertas.push('QUEUE_STATE_READ_FAILED');
+  } else if (backlog.oldestPendingMin > GOOGLE_FORMS_CONFIG.SALUD.OLDEST_PENDING_MAX_MIN) {
     if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('OLDEST_PENDING_EXCEDIDO');
   } else if ((backlog.pending || 0) + (backlog.retryable || 0) > 0 || (backlog.review || 0) > 0) {
     if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('BACKLOG_PENDIENTE');
   }
-  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, backlog: backlog, diagOk: diag.ok, checks: diag.checks };
+  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, backlog: backlog, backlogDisponible: estado.backlogDisponible !== false, responsesDisponible: estado.responsesDisponible !== false, triggersDisponible: estado.triggersDisponible !== false, diagOk: diag.ok, checks: diag.checks };
 }
 
 /** v255 (M06): panel de operación del transporte — solo agregados, SIN PII. */
@@ -1526,23 +1826,20 @@ function WebApp_capturarRecibirDurable(payload, acceso) {
     if (p.clientRequestId && GOOGLE_FORMS_CONFIG.TRANSPORTE.PATRON_CLIENT_REQUEST_ID.test(String(p.clientRequestId))) {
       requId = String(p.clientRequestId);
     }
-    var lock = null;
-    if (requId && typeof LockService !== 'undefined') {
-      try {
-        lock = LockService.getScriptLock();
-        if (lock.tryLock(500)) {
-          var rsv = Form_requestIdReservar_(requId);
-          if (rsv.yaRecibido) {
-            lock.releaseLock(); lock = null;
-            return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: rsv.responseId, deduped: true, yaRecibido: true } };
-          }
-          if (rsv.estado === 'EN_PROCESO') {
-            lock.releaseLock(); lock = null;
-            return { ok: true, estado: 'EN_PROCESO', data: { estado: 'EN_PROCESO' } };
-          }
-          lock.releaseLock(); lock = null; // E07: liberar ANTES de submit.
-        }
-      } catch (e2) { try { if (lock) lock.releaseLock(); } catch (e3) {} lock = null; }
+    // v256 (P0): con clientRequestId válido JAMÁS se envía sin reserva resuelta.
+    if (requId) {
+      var rsv = Form_reservarRequestIdConLock_(requId);
+      if (rsv.estado === 'RECIBIDO') {
+        return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: rsv.responseId, deduped: true, yaRecibido: true } };
+      }
+      if (rsv.estado === 'EN_PROCESO') {
+        return { ok: true, estado: 'EN_PROCESO', data: { estado: 'EN_PROCESO' } };
+      }
+      if (rsv.estado !== 'RESERVADO') {
+        // Fail-closed: no hay evidencia sólida de reserva vigente. No se envía.
+        return { ok: true, estado: 'INCIERTO', motivo: 'SERVICIO_OCUPADO',
+          data: { estado: 'INCIERTO', motivo: 'SERVICIO_OCUPADO' } };
+      }
     }
     var res = Form_crearRespuestaDesdePayloadWeb_(p);
     if (!res.ok) {
@@ -1551,7 +1848,8 @@ function WebApp_capturarRecibirDurable(payload, acceso) {
     }
     if (requId) Form_requestIdConfirmar_(requId, res.responseId);
     Form_propEscribir_('GOOGLE_FORM_LAST_RECEIVED_TS', String(Date.now()));
-    Form_metricaSumar_('SUBMIT_SIGNAL_COUNT');
+    // v256 (P1): NO se incrementa SUBMIT_SIGNAL_COUNT aquí. El contador del
+    // panel se alimenta de Form_onFormSubmit_ para evitar doble conteo.
     return { ok: true, estado: 'RECIBIDO', data: { estado: 'RECIBIDO', responseId: res.responseId, receivedAt: res.receivedAt, deduped: false } };
   } catch (e) {
     return { ok: false, motivo: String(e && e.message || e) };

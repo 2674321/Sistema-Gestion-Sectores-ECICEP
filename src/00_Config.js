@@ -1093,10 +1093,24 @@ var GOOGLE_FORMS_CONFIG = {
     ESCANEO_RECUPERACION_MS: 6 * 3600000,
     DEDUPE_DOUBLE_SUBMIT: true
   },
+  // v256: lease corto del worker (ScriptProperties). El worker NO retiene
+  // ScriptLock durante I/O/pipeline; solo toma un arriendo acotado.
+  WORKER_LEASE: {
+    CLAVE: 'GOOGLE_FORM_WORKER_LEASE',
+    TTL_S: 600,          // vencimiento del lease (auto-recuperación tras caída)
+    LOCK_ESPERA_MS: 500  // lock BREVE solo para tomar/liberar el lease
+  },
+  // v256: estado/errores de transporte por captureId en ScriptProperties
+  // (LEGACY). La fuente autoritativa es el trailer de FORM_RESPUESTAS
+  // (CLASIFICACION / TRANSPORTE_ERROR). Solo se usa para inventario/limpieza.
+  ERRORES_PREFIJO: 'GOOGLE_FORM_ERRORS|',
+  // Resolución de ACK: la cache es un índice; el Form es la evidencia durable.
+  RESULTADOS_ACK: ['RECIBIDO', 'EN_PROCESO', 'NO_ENCONTRADO', 'INCIERTO'],
   CIRCUIT: {
     UMBRAL: 3,
     CACHE_CLAVE: 'FORM_CIRCUITO',
-    ERRORES_SISTEMICOS: ['FORM_NO_ACCESIBLE', 'SPREADSHEET_UNAVAILABLE', 'PERMISSION_TEMPORARY', 'SERVICE_TEMPORARY']
+    ERRORES_SISTEMICOS: ['FORM_NO_ACCESIBLE', 'SPREADSHEET_UNAVAILABLE', 'PERMISSION_TEMPORARY', 'SERVICE_TEMPORARY',
+      'FORM_RESPONSES_READ_FAILED', 'QUEUE_STATE_READ_FAILED']
   },
   SALUD: {
     OLDEST_PENDING_MAX_MIN: 180,      // más antiguo sin procesar > 3h → alerta
