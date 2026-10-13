@@ -519,11 +519,14 @@ t('D3 api_revisionListar_: métricas de decisión exactas ante casos ABIERTO/RES
   c.Modelo_leerPacientesCampos_ = () => [];
   const r = c.api_revisionListar_('t');
   A(r.ok === true, 'lista procesada');
-  A(r.casos.length === 1, '1 caso abierto parseable, recibidos: ' + r.casos.length);
-  A(r.metricas.abiertos === 1 && r.metricas.pendientes === 1, 'abiertos/pendientes exactos');
+  A(r.casos.length === 2, '2 casos abiertos visibles, incluido payload inválido: ' + r.casos.length);
+  A(r.metricas.abiertos === 2 && r.metricas.pendientes === 2 && r.metricas.reviewPayloadInvalid === 1,
+    'abiertos/pendientes/payload inválido exactos');
   A(r.metricas.resueltos === 2, 'resueltos exactos');
   A(r.metricas.esMismo === 1 && r.metricas.esOtro === 1, 'decisión CONFIRMAR vs RECHAZAR bien separada');
   contiene(r.casos[0].origen.fuente, 'INGRESO_NARANJO fila 5', 'traza de origen visible');
+  A(r.casos[1].motivoTecnico === 'REVIEW_PAYLOAD_INVALID' && r.casos[1].resoluble === false,
+    'payload inválido visible y no resoluble');
 });
 
 t('D4 api_ficha_: NUNCA nulo; error unificado en {ok:false,codigo,motivo}; éxito pasa intacto', () => {

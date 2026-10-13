@@ -233,7 +233,7 @@ function Modelo_asegurarEsquemaPacientes_() {
   }
   // insertColumns desplazó los índices de columnas: cualquier lectura memoizada
   // de PACIENTES de esta invocación quedó vieja → invalidar antes de continuar.
-  Modelo_invalidarLecturas_();
+  Modelo_invalidarLecturas_(null, { incrementarEpoch: !(contexto && contexto.commitAtomico) });
   var repar = Modelo_repararCamposTecnicos_();
   Log_warning_('Modelo', 'asegurarEsquema',
     'Migración PACIENTES: +' + plan.insertar.map(function (x) { return x.campo; }).join(',') +
@@ -1488,6 +1488,36 @@ var _MODELO_INDICES = {};
  * eso no hay riesgo de servir datos en curso de modificación). Los bloques que
  * al serializarse superan CFG_CACHE.MAX_BYTES no se guardan (solo-sesión). */
 var _CACHE_TTL_SEG = null;
+var _CACHE_EPOCH_PROP_ = 'ECICEP_DATA_EPOCH';
+
+/** Generación global de datos canónicos. `null` significa que Properties no
+ *  es confiable y obliga a omitir la caché entre requests (fail-safe). */
+function Cache_epochLeer_() {
+  try {
+    // Compatibilidad del harness local: en GAS PropertiesService siempre existe.
+    if (typeof PropertiesService === 'undefined') return 0;
+    var p = PropertiesService.getScriptProperties();
+    if (!p || typeof p.getProperty !== 'function') return null;
+    var raw = p.getProperty(_CACHE_EPOCH_PROP_);
+    if (raw === null || raw === '') return 0;
+    var n = Number(raw);
+    return isFinite(n) && n >= 0 ? n : null;
+  } catch (e) { return null; }
+}
+
+/** Incremento breve; debe llamarse dentro del commit canónico ya bloqueado. */
+function Cache_epochIncrementar_() {
+  try {
+    if (typeof PropertiesService === 'undefined') return 1;
+    var p = PropertiesService.getScriptProperties();
+    if (!p || typeof p.getProperty !== 'function' || typeof p.setProperty !== 'function') return null;
+    var actual = Number(p.getProperty(_CACHE_EPOCH_PROP_) || 0);
+    if (!isFinite(actual) || actual < 0) actual = 0;
+    var siguiente = actual + 1;
+    p.setProperty(_CACHE_EPOCH_PROP_, String(siguiente));
+    return siguiente;
+  } catch (e) { return null; }
+}
 
 function _cacheService_() {
   try {
@@ -1540,7 +1570,12 @@ function _cacheTTL_() {
 
 /** Claves de bloques candidatos a persistir entre requests. */
 function _cacheClaves_() { return ['PACIENTES', 'EVENTOS', 'PROFESIONALES']; }
-function _cacheClave_(clave) { return CFG_CACHE.PREFIJO + 'BLOQUE:' + clave; }
+function _cacheClave_(clave, epoch) {
+  var e = epoch === undefined ? Cache_epochLeer_() : epoch;
+  // E0 conserva la clave histórica; desde la primera mutación cada generación
+  // queda aislada y un lector antiguo ya no puede publicar sobre la vigente.
+  return CFG_CACHE.PREFIJO + 'BLOQUE:' + clave + (e === 0 ? '' : ':E' + String(e === null ? 'OFF' : e));
+}
 
 function _cacheBorrarClaves_(claves) {
   var c = _cacheService_();
@@ -1551,26 +1586,34 @@ function _cacheBorrarClaves_(claves) {
   });
 }
 
-function _cacheLeer_(clave) {
+function _cacheLeer_(clave, epoch) {
   var c = _cacheService_();
-  if (!c) return null;
+  if (!c || epoch === null) return null;
   try {
-    var json = c.get(_cacheClave_(clave));
+    var json = c.get(_cacheClave_(clave, epoch));
     return json ? _cacheDeserializarBloque_(json) : null;
   } catch (e) { return null; }
 }
 
-function _cacheEscribir_(clave, bloque) {
+function _cacheEscribir_(clave, bloque, epoch) {
   var c = _cacheService_();
-  if (!c || !bloque || !bloque.length) return;
+  if (!c || epoch === null || !bloque || !bloque.length) return false;
   try {
     var json = _cacheSerializarBloque_(bloque);
-    if (json.length > CFG_CACHE.MAX_BYTES) return; // bloque grande → solo-sesión
-    c.put(_cacheClave_(clave), json, _cacheTTL_());
-  } catch (e) { /* quota u otros: degrada a solo-sesión */ }
+    if (json.length > CFG_CACHE.MAX_BYTES) return false; // bloque grande → solo-sesión
+    c.put(_cacheClave_(clave, epoch), json, _cacheTTL_());
+    return true;
+  } catch (e) { return false; /* quota u otros: degrada a solo-sesión */ }
 }
 
-function Modelo_invalidarLecturas_(claves) {
+/** Solo publica el resultado si ningún escritor cambió el epoch durante la lectura. */
+function Cache_putSiEpochVigente_(clave, bloque, epochInicial) {
+  if (epochInicial === null || Cache_epochLeer_() !== epochInicial) return false;
+  return _cacheEscribir_(clave, bloque, epochInicial);
+}
+
+function Modelo_invalidarLecturas_(claves, opciones) {
+  opciones = opciones || {};
   var lista = claves && claves.length ? claves.slice() : null;
   if (!lista) {
     _MEMO_HOJAS = {};
@@ -1584,6 +1627,7 @@ function Modelo_invalidarLecturas_(claves) {
     if (lista.indexOf('EVENTOS') !== -1) delete _MODELO_INDICES.EVENTOS_POR_ID_INTERNO;
   }
   _cacheBorrarClaves_(lista);
+  if (opciones.incrementarEpoch !== false) Cache_epochIncrementar_();
   // Toda mutación canónica invalida la última auditoría profunda. La
   // marca solo contiene estado técnico; nunca persiste datos de pacientes.
   try {
@@ -1595,7 +1639,8 @@ function Modelo_invalidarLecturas_(claves) {
 
 function _memoLeer_(hoja, clave) {
   if (Object.prototype.hasOwnProperty.call(_MEMO_HOJAS, clave)) return _MEMO_HOJAS[clave];
-  var cacheado = _cacheLeer_(clave);
+  var epoch0 = Cache_epochLeer_();
+  var cacheado = _cacheLeer_(clave, epoch0);
   if (cacheado) {
     _MEMO_HOJAS[clave] = cacheado;
     console.log('[CACHE] hit ' + clave + ' filas=' + cacheado.length + ' (entre requests)');
@@ -1604,9 +1649,33 @@ function _memoLeer_(hoja, clave) {
   var _tM = Date.now();
   var v = Modelo_leerBloqueCabecera_(clave, hoja);
   _MEMO_HOJAS[clave] = v;
-  _cacheEscribir_(clave, v);
+  Cache_putSiEpochVigente_(clave, v, epoch0);
   console.log('[PIPE] _memoLeer_ ' + clave + ' t=' + (Date.now() - _tM) + 'ms filas=' + v.length + ' (1ª lectura; memoizada)');
   return v;
+}
+
+/**
+ * Commit canónico corto: el plan pesado se prepara antes de llamar; bajo lock
+ * solo se revalidan identidades/destinos, se escribe, se verifica y se avanza
+ * una vez la generación de caché. Ningún trabajo derivado corre bajo lock.
+ */
+function Modelo_commitAtomico_(plan, opciones) {
+  plan = plan || {}; opciones = opciones || {};
+  if (typeof plan.commit !== 'function') return { ok: false, motivo: 'PLAN_COMMIT_INVALIDO' };
+  var r = Ecicep_conLock_(function () {
+    var vigente = typeof plan.revalidar === 'function' ? plan.revalidar() : { ok: true };
+    if (vigente && vigente.ok === false) return vigente;
+    var escrito = plan.commit(vigente || {});
+    if (escrito && escrito.ok === false) return escrito;
+    var verificado = typeof plan.verificar === 'function' ? plan.verificar(escrito, vigente || {}) : { ok: true };
+    if (!verificado || verificado.ok === false) return verificado || { ok: false, motivo: 'COMMIT_NO_VERIFICADO' };
+    Cache_epochIncrementar_();
+    Modelo_invalidarLecturas_(opciones.claves || null, { incrementarEpoch: false });
+    return { ok: true, escrito: escrito, verificacion: verificado };
+  });
+  if (!r || r.ok === false) return r;
+  if (typeof plan.derivado === 'function') r.derivado = plan.derivado(r);
+  return r;
 }
 
 /** PURA: convierte una fila cruda del bloque a objeto canónico (booleanos → TRUE/FALSE).
@@ -1850,7 +1919,7 @@ function Modelo_agregarPacientes_(objetos, contexto) {
   // El append agregó filas: invalidar el memo para que cualquier lectura
   // posterior de PACIENTES en la misma invocación vea las filas nuevas
   // (no depender de que el llamador acabe llamando a refrescarVistas, que también invalida).
-  Modelo_invalidarLecturas_();
+  Modelo_invalidarLecturas_(null, { incrementarEpoch: !(contexto && contexto.commitAtomico) });
   return n;
 }
 
@@ -1963,7 +2032,7 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
   if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
     Hojas_asegurarCapacidadGestionada_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
   var N = Utl_escribirBloque_(hoja, hoja.getLastRow() + 1, 1, filas);
-  Modelo_invalidarLecturas_();
+  Modelo_invalidarLecturas_(null, { incrementarEpoch: !(contexto && contexto.commitAtomico) });
   return N;
 }
 

@@ -969,7 +969,9 @@ function api_actualizarPaciente_(idInterno, campos, token) {
     }
     // Delegación al dominio (31_Ficha): SECTOR = EVENTO CAMBIO_SECTOR;
     // no-op (SIN_CAMBIOS) cuando el sector no cambia (§21, OkV-c3).
-    return Paciente_aplicarCampos_(idInterno, campos, { fuente: 'UI_FICHA' });
+    return Ecicep_conLock_(function () {
+      return Paciente_aplicarCampos_(idInterno, campos, { fuente: 'UI_FICHA' });
+    });
   } catch (e) {
     Log_error_('Paciente', 'actualizar', e && e.message ? e.message : String(e));
     Log_flush_();
@@ -1297,7 +1299,7 @@ function Revision_indiceColumnas_(encabezados) {
  *  de "la RPC falló" ({ok:false,codigo,motivo,casos:[],metricas:{}}).
  *  Columnas de CONFLICTOS resueltas por encabezado (no f[5]/f[6]/f[8]/f[9]). */
 function api_revisionListar_(token) {
-  var metricasVacias = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0 };
+  var metricasVacias = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0, reviewPayloadInvalid: 0 };
   try {
     if (!WebApp_autorizarBuscador_(token)) {
       return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO', casos: [], metricas: metricasVacias };
@@ -1315,7 +1317,7 @@ function api_revisionListar_(token) {
     var porId = {};
     pacientes.forEach(function (p) { porId[Utl_texto_(p.ID_INTERNO)] = p; });
 
-    var casos = [], metricas = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0 };
+    var casos = [], metricas = { abiertos: 0, resueltos: 0, esMismo: 0, esOtro: 0, pendientes: 0, reviewPayloadInvalid: 0 };
     bloque.slice(1).forEach(function (f, i) {
       var estado = Utl_texto_(cEstado >= 0 ? f[cEstado] : '');
       if (estado === 'RESUELTO') {
@@ -1326,10 +1328,23 @@ function api_revisionListar_(token) {
         return;
       }
       if (estado !== 'ABIERTO') return;
-      var datos = null;
-      try { datos = JSON.parse(cDetalle >= 0 ? f[cDetalle] : ''); } catch (e) { return; }
-      if (!datos) return;
       metricas.abiertos += 1;
+      var datos = null;
+      try { datos = JSON.parse(cDetalle >= 0 ? f[cDetalle] : ''); } catch (e) { datos = null; }
+      if (!datos || typeof datos !== 'object') {
+        metricas.reviewPayloadInvalid += 1;
+        casos.push({
+          indice: i + 2,
+          tipo: cTipo >= 0 ? Utl_texto_(f[cTipo]) : '',
+          estado: 'REQUIERE_REVISION',
+          motivoTecnico: 'REVIEW_PAYLOAD_INVALID',
+          mensaje: 'Registro técnico inválido — requiere revisión manual',
+          resoluble: false,
+          origen: null,
+          candidato: null
+        });
+        return;
+      }
 
       var cand = datos.candidatoId ? porId[datos.candidatoId] : null;
       var vo = datos.valoresOriginales || {};
@@ -1389,7 +1404,12 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
     if (cEstado < 0 || cDetalle < 0 || cResuelto < 0) return { ok: false, motivo: 'COLUMNAS_INVALIDAS' };
     var filaVal = bloqueConflictos[indiceHoja - 1] || [];
     if (Utl_texto_(filaVal[cEstado]) !== 'ABIERTO') return { ok: false, motivo: 'CONFLICTO_YA_RESUELTO' };
-    var datos = JSON.parse(filaVal[cDetalle]);
+    var datos = null;
+    try { datos = JSON.parse(filaVal[cDetalle]); } catch (e) {
+      return { ok: false, motivo: 'REVIEW_PAYLOAD_INVALID', estado: 'REQUIERE_REVISION' };
+    }
+    if (!datos || typeof datos !== 'object')
+      return { ok: false, motivo: 'REVIEW_PAYLOAD_INVALID', estado: 'REQUIERE_REVISION' };
     if (decision !== 'CONFIRMAR_MATCH' && decision !== 'RECHAZAR_MATCH') {
       return { ok: false, motivo: 'DECISION_INVALIDA' };
     }
@@ -2286,6 +2306,16 @@ function UI_menuGoogleForms_() {
     .addItem('Mostrar QR de CapturaWeb', 'UI_mostrarQR_')
     .addItem('Estado operativo', 'UI_formCanalEstado_')
     .addItem('Diagnóstico (solo lectura)', 'UI_formCanalDiagnostico_')
+    .addItem('Preflight de activación', 'UI_formCanalPreflight_')
+    .addItem('Asistente de activación (sin deploy)', 'UI_formCanalAsistenteActivacion_')
+    .addSeparator()
+    .addItem('Abrir ventana técnica', 'UI_activacionAbrirVentana_')
+    .addItem('Cerrar ventana técnica', 'UI_activacionCerrarVentana_')
+    .addItem('Estado ventana técnica', 'UI_activacionEstadoVentana_')
+    .addItem('Configurar clave de operador', 'UI_operadorConfigurarClaveActivacion_')
+    .addItem('Adoptar Form interno', 'UI_formCanalAdoptarId_')
+    .addItem('Crear Form interno nuevo', 'UI_formCanalCrearNuevoSeguro_')
+    .addSeparator()
     .addItem('Legacy dry-run', 'UI_formCanalLegacyDryRun_')
     .addItem('Instalar/reparar canal (ventana)', 'UI_formCanalInstalarSeguro_')
     .addItem('Sincronizar catálogos (ventana)', 'UI_formCanalCatalogosSeguro_')

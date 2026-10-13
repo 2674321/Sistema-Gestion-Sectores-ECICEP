@@ -854,34 +854,60 @@ function _Fuentes_escribir_(a, opciones, t0) {
   var escritosEventos = false;
   var actualizarPacientes = opciones.actualizar &&
     (merge.cambiosCanonicos > 0 || (salida.pacientesNuevos || []).length > 0);
-  if (actualizarPacientes) {
-    var esquema = Modelo_asegurarEsquemaPacientes_();
-    if (!esquema.ok) {
-      resultado.ok = false;
-      resultado.motivo = 'ESQUEMA_PACIENTES_INCOMPATIBLE';
-      resumen.error = resultado.motivo + ': ' + (esquema.motivo || '');
-      resumen.escritosPacientes = false;
-      resumen.escritosEventos = false;
-      Log_error_('Fuentes', 'cargaReal-merge', resumen.error);
-      Log_flush_();
-      return resultado;
+  // PREPARE ya ocurrió en _Fuentes_analizar_. Solo el commit clínico entra
+  // al lock: relectura de identidades/destinos, escritura y verificación.
+  var commit = Modelo_commitAtomico_({
+    revalidar: function () {
+      var ids = {}, ruts = {}, evIds = {};
+      Modelo_leerPacientesCampos_(['ID_INTERNO', 'RUT']).forEach(function (p) {
+        var id = Utl_texto_(p.ID_INTERNO), rut = Norm_normalizarRut_(p.RUT).rut;
+        if (id) ids[id] = true; if (rut) ruts[rut] = true;
+      });
+      Modelo_leerEventosCampos_(['ID_EVENTO']).forEach(function (e) { var id = Utl_texto_(e.ID_EVENTO); if (id) evIds[id] = true; });
+      for (var i = 0; i < (salida.eventos || []).length; i++) {
+        var eid = Utl_texto_(salida.eventos[i].ID_EVENTO);
+        if (eid && evIds[eid]) return { ok: false, motivo: 'EVENTO_ID_DUPLICADO_EN_HISTORICO' };
+      }
+      if (!opciones.actualizar) for (var j = 0; j < (salida.pacientesNuevos || []).length; j++) {
+        var np = salida.pacientesNuevos[j], nid = Utl_texto_(np.ID_INTERNO), nr = Norm_normalizarRut_(np.RUT).rut;
+        if ((nid && ids[nid]) || (nr && ruts[nr])) return { ok: false, motivo: 'PACIENTE_DUPLICADO_DURANTE_COMMIT' };
+      }
+      return { ok: true };
+    },
+    commit: function () {
+      if (actualizarPacientes) {
+        var esquema = Modelo_asegurarEsquemaPacientes_();
+        if (!esquema.ok) return { ok: false, motivo: 'ESQUEMA_PACIENTES_INCOMPATIBLE' };
+      }
+      if (typeof Modelo_agregarEventos_ === 'function' && (salida.eventos || []).length) {
+        Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual_(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos', commitAtomico: true });
+        escritosEventos = true;
+      }
+      if (opciones.actualizar && actualizarPacientes) {
+        var hojaP = Modelo_hoja_(HOJAS.PACIENTES);
+        Utl_escribirBloque_(hojaP, Modelo_dataStartRow_(HOJAS.PACIENTES), 1, a.store.pacientes.map(Modelo_filaDesdeObjeto_));
+        Modelo_invalidarLecturas_(null, { incrementarEpoch: false });
+        escritosPacientes = true;
+      } else if (!opciones.actualizar && typeof Modelo_agregarPacientes_ === 'function' && (salida.pacientesNuevos || []).length) {
+        Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes', commitAtomico: true });
+        escritosPacientes = true;
+      }
+      return { ok: true, pacientes: escritosPacientes, eventos: escritosEventos };
+    },
+    verificar: function () {
+      var pOk = !escritosPacientes || (opciones.actualizar
+        ? Modelo_leerPacientesCampos_(['ID_INTERNO']).length === a.store.pacientes.length
+        : (salida.pacientesNuevos || []).every(function (p) { return !!Modelo_buscarPaciente_(p.ID_INTERNO); }));
+      var evPersistidos = {};
+      if (escritosEventos) Modelo_leerEventosCampos_(['ID_EVENTO']).forEach(function (e) { evPersistidos[Utl_texto_(e.ID_EVENTO)] = true; });
+      var eOk = !escritosEventos || (salida.eventos || []).every(function (e) { return !!evPersistidos[Utl_texto_(e.ID_EVENTO)]; });
+      return { ok: pOk && eOk, motivo: pOk && eOk ? '' : 'COMMIT_CLINICO_NO_VERIFICADO' };
     }
-  }
-  if (typeof Modelo_agregarEventos_ === 'function' && (salida.eventos || []).length) {
-    Modelo_agregarEventos_(salida.eventos, _ingresosUsuarioActual_(), { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-eventos' });
-    escritosEventos = true;
-  }
-  if (opciones.actualizar) {
-    if (actualizarPacientes) {
-      var hojaP = Modelo_hoja_(HOJAS.PACIENTES);
-      Utl_escribirBloque_(hojaP, Modelo_dataStartRow_(HOJAS.PACIENTES), 1,
-        a.store.pacientes.map(Modelo_filaDesdeObjeto_));
-      Modelo_invalidarLecturas_();
-      escritosPacientes = true;
-    }
-  } else if (typeof Modelo_agregarPacientes_ === 'function' && (salida.pacientesNuevos || []).length) {
-    Modelo_agregarPacientes_(salida.pacientesNuevos, { autorizacion: 'IMPORT_AUTORIZADO', operacion: 'cargaReal-pacientes' });
-    escritosPacientes = true;
+  }, { claves: ['PACIENTES', 'EVENTOS'] });
+  if (!commit || commit.ok === false) {
+    resultado.ok = false; resultado.motivo = (commit && commit.motivo) || 'SERVICIO_OCUPADO';
+    resumen.escritosPacientes = false; resumen.escritosEventos = false;
+    return resultado;
   }
   resumen.escritosPacientes = escritosPacientes;
   resumen.escritosEventos = escritosEventos;
