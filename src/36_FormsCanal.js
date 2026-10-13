@@ -1008,10 +1008,14 @@ function Form_procesarRespuestaConTransporte_(respuesta, ctx, opciones) {
     return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
       clasificacion: 'REVIEW', errores: ad.errores };
   }
-  var r = CapturaIngress_enviar_(ad.payload, ctx, 'GOOGLE_FORMS');
+  // v258: el lease excluye worker/worker; este lock breve excluye la mutación
+  // clínica frente a UI/operador. Extracción, schema y trailer quedan fuera.
+  var r = Ecicep_conLock_(function () {
+    return CapturaIngress_enviar_(ad.payload, ctx, 'GOOGLE_FORMS');
+  });
   if (!r.ok) {
     return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
-      clasificacion: 'RETRYABLE', errores: r.errors || [{ codigo: 'PIPELINE' }] };
+      clasificacion: 'RETRYABLE', errores: r.errors || [{ codigo: r.codigo || r.motivo || 'PIPELINE' }] };
   }
   if (requestId) Form_requestIdConfirmar_(requestId, responseId);
   return { ok: true, captureId: captureId, responseId: responseId, requestId: requestId,
@@ -1121,11 +1125,13 @@ function Form_leaseTomar_() {
 /** v256 (P0): libera el lease SOLO si el token coincide. No propaga errores. */
 function Form_leaseLiberar_(token) {
   var lock = null;
+  var adquirido = false;
   try {
     if (!token) return { ok: false };
     if (typeof LockService !== 'undefined') {
       lock = LockService.getScriptLock();
-      lock.tryLock((GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750);
+      adquirido = !!lock.tryLock((GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.LOCK_WAIT_MS) || 750);
+      if (!adquirido) return { ok: false, motivo: 'DEFERRED_LOCK_BUSY' };
     }
     var actual = Form_leaseLeer_();
     if (!actual || actual.token !== token) return { ok: false };
@@ -1136,8 +1142,23 @@ function Form_leaseLiberar_(token) {
   } catch (e) {
     return { ok: false };
   } finally {
-    try { if (lock) lock.releaseLock(); } catch (e3) { /* ignorar */ }
+    try { if (lock && adquirido) lock.releaseLock(); } catch (e3) { /* ignorar */ }
   }
+}
+
+/** v258: el trailer durable es gate para cualquier clasificación del worker. */
+function Form_persistirClasificacion_(filaFisica, resultado) {
+  resultado = resultado || {};
+  var clasificacion = resultado.ok ? (resultado.clasificacion || 'TERMINAL')
+    : (resultado.clasificacion || 'RETRYABLE');
+  var errores = resultado.errores || [];
+  var escritura = Form_escribirClasificacionTrailer_(filaFisica, clasificacion, errores);
+  if (escritura && escritura.ok) {
+    return { ok: true, clasificacion: clasificacion, errores: errores };
+  }
+  return { ok: false, clasificacion: 'RETRYABLE', errores: [{
+    codigo: 'TRAILER_WRITE_FAILED', motivo: (escritura && escritura.motivo) || 'ESCRITURA_FALLIDA'
+  }] };
 }
 
 /** v255 (M03): circuito por errores SISTÉMICOS consecutivos (N=3). Corta el
@@ -1245,32 +1266,25 @@ function Form_worker_(opciones) {
       var rOk = r.ok;
       var rf = cand.cid || r.captureId || '';
       var filaFisica = (cand.estadoPrev && cand.estadoPrev.filaFisica) || '';
-      if (rOk) {
-        // v256 (P1): la persistencia del trailer es REQUISITO para dar por
-        // procesada la respuesta. Si falla, el pipeline ya quedó idempotente
-        // (re-ejecutable) pero NO se avanza el cursor.
-        var tw = Form_escribirClasificacionTrailer_(filaFisica, r.clasificacion || 'TERMINAL', r.errores || []);
-        if (tw.ok) {
-          procesadas++; procesadasEsteBatch++;
-          Form_propEscribir_('GOOGLE_FORM_LAST_PROCESSED_TS', String(Date.now()));
-        } else {
-          rOk = false; errores++; retryable++; encontroRetryable = true;
-          r.clasificacion = 'RETRYABLE';
-          r.errores = [{ codigo: 'TRAILER_WRITE_FAILED', motivo: tw.motivo || 'ESCRITURA_FALLIDA' }];
-          Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
-        }
+      var persistencia = Form_persistirClasificacion_(filaFisica, r);
+      if (!persistencia.ok) {
+        rOk = false;
+        r.clasificacion = persistencia.clasificacion;
+        r.errores = persistencia.errores;
+        errores++; retryable++; encontroRetryable = true;
+        Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
+      } else if (rOk) {
+        procesadas++; procesadasEsteBatch++;
+        Form_propEscribir_('GOOGLE_FORM_LAST_PROCESSED_TS', String(Date.now()));
       } else {
         errores++;
         if (r.clasificacion === 'REVIEW') {
           review++;
-          Form_escribirClasificacionTrailer_(filaFisica, 'REVIEW', r.errores || []);
         } else if (r.clasificacion === 'TERMINAL') {
           terminal++;
-          Form_escribirClasificacionTrailer_(filaFisica, 'TERMINAL', r.errores || []);
           Form_propEscribir_('GOOGLE_FORM_LAST_TERMINAL_TS', String(Date.now()));
         } else {
           retryable++; encontroRetryable = true;
-          Form_escribirClasificacionTrailer_(filaFisica, 'RETRYABLE', r.errores || []);
           Form_propEscribir_('GOOGLE_FORM_LAST_RETRYABLE_TS', String(Date.now()));
         }
       }
@@ -1278,13 +1292,13 @@ function Form_worker_(opciones) {
       if (!encontroRetryable && cand.ts) cursorSeguro = cand.ts;
     }
     if (cursorSeguro && cursorSeguro !== Form_propLeer_('GOOGLE_FORM_CURSOR')) Form_propEscribir_('GOOGLE_FORM_CURSOR', cursorSeguro);
-    Form_propEscribir_('GOOGLE_FORM_CIRCUIT_CONSECUTIVOS', '0');
+    if (!encontroRetryable) Form_propEscribir_('GOOGLE_FORM_CIRCUIT_CONSECUTIVOS', '0');
     if (procesadas) Form_metricaSumar_('WORKER_PROCESSED', procesadas);
     if (errores) Form_metricaSumar_('WORKER_ERRORS', errores);
     if (retryable) Form_metricaSumar_('WORKER_RETRYABLE', retryable);
     if (review) Form_metricaSumar_('WORKER_REVIEW', review);
     if (terminal) Form_metricaSumar_('WORKER_TERMINAL', terminal);
-    if (procesadas && procesadasEsteBatch) Form_propEscribir_('GOOGLE_FORM_LAST_WORKER_OK_TS', String(Date.now()));
+    if (!encontroRetryable && procesadas && procesadasEsteBatch) Form_propEscribir_('GOOGLE_FORM_LAST_WORKER_OK_TS', String(Date.now()));
     return { ok: true, procesadas: procesadas, errores: errores, retryable: retryable,
       review: review, terminal: terminal, total: procesadas + retryable + review + terminal,
       elegibles: elegibles, restantes: Math.max(0, elegibles - procesadasEsteBatch - errores),

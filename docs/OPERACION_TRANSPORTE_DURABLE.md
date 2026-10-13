@@ -3,6 +3,13 @@
 Contrato operativo de la cola durable de captura. Complementa
 `docs/CONTRATO_CAPTURA_V2.md` (normativo) y el `RUNBOOK_CAPTURA.md`.
 
+> **v258 (DEC-113):** el lease corto solo evita worker/worker. Cada entrega al
+> pipeline clínico toma además `Ecicep_conLock_`, sin incluir lectura del Form,
+> schema, extracción ni escritura del trailer. Fallo de LockService o contención
+> produce `LOCK_NO_DISPONIBLE`/`SERVICIO_OCUPADO`, ambos reintentables y sin
+> mutación. El trailer es gate común para las cuatro clasificaciones y su fallo
+> conserva el candidato y detiene el cursor seguro.
+
 > **Corregido por v256 (2026-10-13, DEC-111):** los errores por captura ya **no**
 > viven en ScriptProperties (`GOOGLE_FORM_ERRORS|<captureId>` eliminado); el
 > trailer de `FORM_RESPUESTAS` (`CLASIFICACION`/`TRANSPORTE_ERROR`) es

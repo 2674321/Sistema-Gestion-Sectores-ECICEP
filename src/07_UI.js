@@ -1553,11 +1553,15 @@ function _api_revisionResolverLocked_(indiceHoja, decision) {
         advertencias.push('VISTA_SECTOR_PENDIENTE');
       } else if (estadoOrigen.ok && estadoOrigen.verificadas === 1 &&
                  datos.origen && HOJAS_INGRESO[datos.origen.hoja] && datos.origen.fila) {
-        filasOrigenEliminadas = Ingresos_eliminarOrigenConfirmado_([{
+        var limpiezaOrigen = Ingresos_eliminarOrigenConfirmado_([{
           estado: 'INGRESADO', vistaSectorConfirmada: true, estadoIngresoConfirmado: true,
           hoja: datos.origen.hoja, filaOrigen: datos.origen.fila,
           rutOrigen: (datos.valoresOriginales || {}).RUT || ''
-        }]).eliminadas || 0;
+        }]);
+        filasOrigenEliminadas = limpiezaOrigen.eliminadas || 0;
+        if (limpiezaOrigen.fallidas && limpiezaOrigen.fallidas.length) {
+          advertencias.push('ORIGEN_ELIMINACION_INCIERTA');
+        }
       } else if (!estadoOrigen.ok) {
         advertencias.push('ESTADO_INGRESO_PENDIENTE');
       }

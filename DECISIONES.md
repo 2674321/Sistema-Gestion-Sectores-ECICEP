@@ -2562,3 +2562,24 @@ PACIENTES + actividad de EVENTOS; Bloque C permanece pendiente de definición ex
 **Validación:** `tests/data_integrity_v257.mjs` y batería completa indicada en
 `INFORME_V257_INTEGRIDAD_DATOS_FLUJOS.md`.
 **Fecha:** 2026-10-13
+
+## DEC-113
+**Título:** v258 — exclusión clínica fail-closed y confirmación durable antes de activar GAS.
+**Estado:** Aprobada
+**Motivo:** el lease del worker resuelve worker/worker, pero no serializa la
+entrega clínica frente a mutaciones de operador. Desde v258 cada candidato toma
+`Ecicep_conLock_` solo alrededor de `CapturaIngress_enviar_`; el I/O del Form,
+schema, extracción y trailer permanece fuera. Si `getScriptLock()` falla o el
+lock no se adquiere, no se ejecuta la mutación y el candidato queda reintentable.
+
+La clasificación durable se centraliza: ninguna rama mueve el cursor si no pudo
+persistir su trailer. La liberación de lease nunca lee ni borra propiedades sin
+haber adquirido lock. La limpieza de `INGRESO_*` relee tras `deleteRows` y
+reporta `ORIGEN_ELIMINACION_INCIERTA`; el reconciliador limpia y verifica
+`REQUIERE_REVISION` antes de resolver el conflicto; los rollbacks de ficha
+verifican todos los campos realmente tocados y sus derivados.
+
+**Validación local:** seis suites conductuales v258 más `tools/verificar.mjs`:
+137 suites / 0 fallos; núcleo 679/679; aceptación 50/50; contrato 36/36; HTML
+21/21; `auditar_v254` y placeholders PASS.
+**Fecha:** 2026-10-13

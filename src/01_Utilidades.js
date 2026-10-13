@@ -236,15 +236,20 @@ function _UI_get_() {
 function Ecicep_conLock_(fn) {
   if (typeof LockService === 'undefined') return fn();
   var lock = null;
-  try { lock = LockService.getScriptLock(); } catch (e) { return fn(); }
-  if (!lock.tryLock(12000)) {
-    try { lock.releaseLock(); } catch (e2) {}
+  var adquirido = false;
+  try {
+    lock = LockService.getScriptLock();
+    adquirido = !!(lock && lock.tryLock(12000));
+  } catch (e) {
+    return { ok: false, codigo: 'LOCK_NO_DISPONIBLE', motivo: 'LOCK_NO_DISPONIBLE', reintentable: true };
+  }
+  if (!adquirido) {
     // §34: SERVICIO_OCUPADO es explícitamente reintentable y no se mezcla con
     // acceso/validación/backend: otro operador está escribiendo en este instante.
     return { ok: false, codigo: 'SERVICIO_OCUPADO', motivo: 'SERVICIO_OCUPADO', reintentable: true };
   }
   try { return fn(); }
-  finally { try { lock.releaseLock(); } catch (e3) {} }
+  finally { try { if (adquirido) lock.releaseLock(); } catch (e3) {} }
 }
 
 /** Helper unificado de error de API (contrato V2: ok:false + codigo + motivo). */

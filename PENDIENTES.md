@@ -1,5 +1,12 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-10-13 (v258 — DEC-113):** cerrados localmente los
+> residuos P0/P1 de concurrencia clínica, lock fail-open, gate del trailer,
+> liberación de lease, verificación post-delete, reconciliación de
+> estratificación y rollback de campos tocados. Gate local: 137 suites / 0
+> fallos. Pendiente operativo inmediato: snapshot read-only, backup verificado,
+> preactivación, publicación en el mismo deployment y E2E sintético controlado.
+
 > **Actualización 2026-10-13 (v257 — DEC-112):** cerrados localmente los P0/P1
 > de integridad de identidad, confirmación de fila, unicidad RUT, rollback
 > verificado, compensación por IDs, estados/conflictos de `INGRESO_*`, ficha

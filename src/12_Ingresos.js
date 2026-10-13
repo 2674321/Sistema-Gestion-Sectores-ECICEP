@@ -1009,24 +1009,58 @@ function Ingresos_eliminarOrigenConfirmado_(resultados) {
     if (!porHoja[nombre]) porHoja[nombre] = [];
     if (!porHoja[nombre].some(function (x) { return x.fila === fila; })) porHoja[nombre].push({ fila: fila, rut: r.rutOrigen, captureId: r.captureIdOrigen });
   });
-  var eliminadas = 0;
+  var eliminadas = 0, verificadas = 0, fallidas = [];
+  function fallo_(nombre, obj, motivo) {
+    fallidas.push({ hoja: nombre, fila: obj.fila, captureId: obj.captureId || '', motivo: motivo });
+  }
+  function identidad_(fila, obj, idxRut, idxNota) {
+    var rut = idxRut >= 0 ? Norm_normalizarRut_(fila[idxRut]).rut : '';
+    var nota = idxNota >= 0 ? Utl_texto_(fila[idxNota]) : '';
+    if (obj.captureId) return { coincide: nota.indexOf(obj.captureId) !== -1, huella: 'CAPTURE|' + obj.captureId };
+    // Para filas manuales la huella completa es conservadora: evita confundir
+    // dos RUT iguales con contenidos distintos y nunca se usa para re-borrar.
+    var partes = fila.map(function (v) {
+      if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString();
+      return Utl_texto_(v);
+    });
+    return { coincide: !!obj.rut && rut === Norm_normalizarRut_(obj.rut).rut,
+      huella: 'MANUAL|' + partes.join('\u001f') };
+  }
   Object.keys(porHoja).forEach(function (nombre) {
     var hoja = Modelo_hoja_(nombre);
-    if (!hoja || typeof hoja.deleteRows !== 'function') return;
+    if (!hoja || typeof hoja.deleteRows !== 'function') {
+      porHoja[nombre].forEach(function (obj) { fallo_(nombre, obj, 'ORIGEN_NO_DISPONIBLE'); });
+      return;
+    }
     var loc = Ingresos_layoutHoja_(hoja, nombre, false);
     var idxRut = loc.mapa && loc.mapa.campos ? loc.mapa.campos.RUT : -1;
     var idxNota = loc.mapa ? loc.mapa.notaIdx : -1;
     porHoja[nombre].sort(function (a, b) { return b.fila - a.fila; }).forEach(function (obj) {
-      var filaActual = hoja.getRange(obj.fila, 1, 1, hoja.getLastColumn()).getValues()[0];
-      var rutActual = idxRut >= 0 ? Norm_normalizarRut_(filaActual[idxRut]).rut : '';
-      var notaActual = idxNota >= 0 ? Utl_texto_(filaActual[idxNota]) : '';
-      var misma = obj.captureId ? notaActual.indexOf(obj.captureId) !== -1
-        : (!!obj.rut && rutActual === Norm_normalizarRut_(obj.rut).rut);
-      if (!misma) return;
-      hoja.deleteRows(obj.fila, 1); eliminadas++;
+      var ancho = hoja.getLastColumn(), antesN = hoja.getLastRow();
+      var filaActual;
+      try { filaActual = hoja.getRange(obj.fila, 1, 1, ancho).getValues()[0]; }
+      catch (eLectura) { fallo_(nombre, obj, 'ORIGEN_LECTURA_FALLIDA'); return; }
+      var identidadAntes = identidad_(filaActual, obj, idxRut, idxNota);
+      if (!identidadAntes.coincide) { fallo_(nombre, obj, 'ORIGEN_IDENTIDAD_CAMBIO'); return; }
+      try { hoja.deleteRows(obj.fila, 1); eliminadas++; }
+      catch (eDelete) { fallo_(nombre, obj, 'ORIGEN_DELETE_FALLIDO'); return; }
+      try {
+        var despuesN = hoja.getLastRow();
+        var identidadPermanece = false;
+        if (obj.fila <= despuesN) {
+          var filaDespues = hoja.getRange(obj.fila, 1, 1, ancho).getValues()[0];
+          var identidadDespues = identidad_(filaDespues, obj, idxRut, idxNota);
+          identidadPermanece = obj.captureId ? identidadDespues.coincide
+            : identidadDespues.huella === identidadAntes.huella;
+        }
+        if (despuesN !== antesN - 1 || identidadPermanece) {
+          fallo_(nombre, obj, 'ORIGEN_ELIMINACION_INCIERTA'); return;
+        }
+        verificadas++;
+      } catch (eVerifica) { fallo_(nombre, obj, 'ORIGEN_ELIMINACION_INCIERTA'); }
     });
   });
-  return { eliminadas: eliminadas };
+  return { ok: fallidas.length === 0, eliminadas: eliminadas, verificadas: verificadas, fallidas: fallidas };
 }
 
 /**
@@ -1838,6 +1872,15 @@ function Ingresos_procesarTodasLasHojas_(opciones) {
   var limpiezaOrigen = { eliminadas: 0 };
   try {
     limpiezaOrigen = Ingresos_eliminarOrigenConfirmado_(salida.resultados);
+    if (limpiezaOrigen.fallidas && limpiezaOrigen.fallidas.length) {
+      salida.resultados.forEach(function (r) {
+        var incierta = limpiezaOrigen.fallidas.some(function (f) {
+          return Ingresos_claveHojaNombre_(r.hoja) === f.hoja && Number(r.filaOrigen) === Number(f.fila);
+        });
+        if (incierta) r.advertencias = (r.advertencias || []).concat(['ORIGEN_ELIMINACION_INCIERTA']);
+      });
+      Log_warning_('Ingresos', 'limpiarOrigen', 'ORIGEN_ELIMINACION_INCIERTA=' + limpiezaOrigen.fallidas.length);
+    }
   } catch (eLimpieza) {
     Log_warning_('Ingresos', 'limpiarOrigen', eLimpieza && eLimpieza.message
       ? eLimpieza.message : String(eLimpieza));

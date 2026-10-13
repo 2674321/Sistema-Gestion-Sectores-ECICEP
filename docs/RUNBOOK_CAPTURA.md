@@ -1,12 +1,17 @@
 # Runbook Captura — ECICEP
 
+> **Actualización 2026-10-13 (v258, DEC-113):** el lease excluye workers entre
+> sí y `Ecicep_conLock_` protege únicamente la mutación clínica de cada
+> candidato. El lock es fail-closed. Toda clasificación (`PROCESSED`, `REVIEW`,
+> `TERMINAL`, `RETRYABLE`) requiere trailer durable antes de mover el cursor.
+
 > **Actualización 2026-10-13 (v256, DEC-111):** ante fallo técnico de
 > verificación de recepción, el estado es `INCIERTO` (nunca `NO_ENCONTRADO`);
 > `NO_ENCONTRADO` solo con evidencia válida de ausencia. Ante `INCIERTO` el
 > usuario reintenta, no asume pérdida. La captura con `clientRequestId` no envía
 > sin reserva resuelta.
 
-Guía operativa del canal de captura (`CapturaWeb → WebApp_capturarRecibirDurable (`CapturaWeb → WebApp_capturarRecibirDurable
+Guía operativa del canal de captura (`CapturaWeb → WebApp_capturarRecibirDurable
 → FormResponse.submit() → Form_worker_ → Captura V2`). **Normativo de operación**,
 no de contrato; el contrato es `docs/CONTRATO_CAPTURA_V2.md`.
 
@@ -123,8 +128,8 @@ Síntoma: `INSTALL_SCHEMA_DRIFT` / receptor detecta columnas o items faltantes.
 
 ## 7. Permisos del deployer / publicación
 
-1. La Web App concede siempre acceso (DEC-102): el token es trazabilidad, no
-   puerta. Un fallo del motor se reporta como fallo del motor.
+1. La captura pública concede siempre acceso (DEC-110); operador y administración
+   requieren OPSESS. Un fallo de OPSESS nunca bloquea la captura.
 2. Tras cualquier cambio de código: `clasp push --force` y republicar la versión
    sobre el **deployment operativo existente** (`clasp deploy --deploymentId <ID>`).
    No crear deployments por rutina.
@@ -148,14 +153,17 @@ Contrato de reparación (M04):
 
 ## 9. Rollback
 
-1. Código: restaurar la versión previa del proyecto Apps Script y
-   `clasp deploy --deploymentId <ID>` sobre el mismo deployment operativo.
-2. Contrato de datos: no hay migración destructiva; `FORM_RESPUESTAS` conserva
+1. Web App: reapuntar el mismo deployment a la versión previa anotada en
+   `PREACTIVACION_V258_SNAPSHOT.json`.
+2. HEAD ligado: publicar mediante un worktree temporal limpio el
+   `PRE_PUSH_GIT_SHA` del snapshot; no mover ni destruir la rama vigente.
+3. Contrato de datos: no hay migración destructiva; `FORM_RESPUESTAS` conserva
    las respuestas y columnas de transporte (`TRANSPORTE_ERROR`,
    `CLASIFICACION`). Un rollback no borra filas.
-3. Trigger: si el rollback cambia el handler del worker, reparar con
+4. Trigger: restaurar el inventario exacto del snapshot; si el rollback cambia
+   el handler del worker, reparar con
    `Form_operativoReparar_({ repairTriggers: true, dryRun: false })`.
-4. Verificar post-rollback: `Form_saludOperativa_()`, `WebApp_verificarRecepcion`
+5. Verificar post-rollback: `Form_saludOperativa_()`, `WebApp_verificarRecepcion`
    y un envío de prueba de extremo a extremo.
 
 ---
