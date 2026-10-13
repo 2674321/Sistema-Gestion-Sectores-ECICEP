@@ -90,6 +90,7 @@ function Instalar_asegurarBackup_(ejecucion) {
     _INSTALAR_BACKUP_MEMO[clave] = nombre;
     if (cache && cache.put) { try { cache.put(clave, String(nombre), 1800); } catch (e) { /* best effort */ } }
     if (props) { try { props.setProperty(clave, String(nombre)); } catch (eP3) { /* backup existe; metadata best effort */ } }
+    Instalar_bkRegistrarYGc_(clave);
     return { ok: true, creado: true, nombre: nombre };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
@@ -102,6 +103,42 @@ function Instalar_limpiarBackupEjecucion_(ejecucion) {
   delete _INSTALAR_BACKUP_MEMO[clave];
   try { CacheService.getScriptCache().remove(clave); } catch (e) {}
   try { PropertiesService.getScriptProperties().deleteProperty(clave); } catch (eP) {}
+  Instalar_bkQuitarDeIndice_(clave);
+}
+
+/** v256 (P1): el índice de ejecuciones respaldadas se persiste para poder
+ *  GARBAGE-COLLECTAR claves 'ECICEP_INST_BK|<ejecucion>' huérfanas (la cache
+ *  expira en 30 min, pero ScriptProperties no). Acotado: conserva las últimas
+ *  INSTALAR_BK_GC_MAX ejecuciones. Sin GAS es no-op. */
+var INSTALAR_BK_GC_MAX = 5;
+function Instalar_bkIndiceLeer_() {
+  try {
+    var raw = PropertiesService.getScriptProperties().getProperty('ECICEP_INST_BK_INDEX');
+    if (!raw) return [];
+    var arr = JSON.parse(raw);
+    return Object.prototype.toString.call(arr) === '[object Array]' ? arr : [];
+  } catch (e) { return []; }
+}
+function Instalar_bkIndiceEscribir_(arr) {
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty('ECICEP_INST_BK_INDEX', JSON.stringify((arr || []).slice(-INSTALAR_BK_GC_MAX)));
+  } catch (e) { /* best effort */ }
+}
+function Instalar_bkQuitarDeIndice_(clave) {
+  var arr = Instalar_bkIndiceLeer_().filter(function (k) { return k !== clave; });
+  Instalar_bkIndiceEscribir_(arr);
+}
+function Instalar_bkRegistrarYGc_(clave) {
+  var arr = Instalar_bkIndiceLeer_().filter(function (k) { return k !== clave; });
+  arr.push(clave);
+  var sobrantes = arr.slice(0, Math.max(0, arr.length - INSTALAR_BK_GC_MAX));
+  sobrantes.forEach(function (k) {
+    delete _INSTALAR_BACKUP_MEMO[k];
+    try { CacheService.getScriptCache().remove(k); } catch (e) {}
+    try { PropertiesService.getScriptProperties().deleteProperty(k); } catch (eP) {}
+  });
+  Instalar_bkIndiceEscribir_(arr);
 }
 
 /** Dispatcher de etapa: ejecuta SOLO la etapa pedida.
