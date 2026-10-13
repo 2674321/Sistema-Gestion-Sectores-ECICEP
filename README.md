@@ -17,7 +17,9 @@
 
 [![CI tests](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml/badge.svg)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP/actions/workflows/ci.yml)
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
-[![Release](https://img.shields.io/badge/release-v0.16.4-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+[![Release](https://img.shields.io/badge/release-v0.17.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
+
+Release candidate: `release-v0.17.0` (rama congelada `release/v0.17.0-rc1`).
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -30,7 +32,7 @@
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.16.4` — ningún campo aceptado se pierde (DEC-104: identificadores automáticos, `profesionalSecundario` persistido, teléfonos recuperables, índices de CONFLICTOS y fila de RUT correctos); nada se pierde en silencio (DEC-103); el acceso concede siempre (DEC-102); esquema clínico 2 y Captura V4 sin cambios |
+| **Estado** | `v0.17.0` (candidato, rc1) — candidato activable v260: commit clínico serializado, caché generacional, revisión fail-visible y operación de activación guiada; esquema clínico 2 y Captura V4 sin cambios |
 
 ## v0.16.4 — ningún campo aceptado se pierde (DEC-104)
 

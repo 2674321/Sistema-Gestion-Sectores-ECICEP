@@ -2901,7 +2901,7 @@ function _pruebas_dialogos_v087_(t, A) {
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.4', 'versión esperada v0.16.4');
+    A.igual(v, '0.17.0', 'versión esperada v0.17.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3141,7 +3141,7 @@ function _pruebas_auditoria_v088_(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.4', 'versión esperada v0.16.4');
+    A.igual(v, '0.17.0', 'versión esperada v0.17.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -5190,7 +5190,7 @@ function _pruebas_inst1_versionado_(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.16'), 0, 'versión de aplicación coherente (0.16.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.17.0'), 0, 'versión de aplicación coherente (0.17.0)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -6432,7 +6432,7 @@ function _pruebas_p0_auditoria_v098_(t, A) {
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.4', 'VERSION es 0.16.4');
+    A.cierto(ECICEP.VERSION === '0.17.0', 'VERSION es 0.17.0');
   });
 
   t('S10: Act_actualizarSistema_ propagación de errores de fuentes', function () {

@@ -15,7 +15,7 @@ versión del instalador.
   en `2`**; no corresponde MIG-003. Aplicación y esquema se versionan por
   separado: `ECICEP.VERSION` (aplicación) ≠ `SISTEMA_VERSION_SCHEMA_ACTUAL`
   (estructura).
-- **Aplicación (v0.16.4, 2026-10-05):** DEC-104 anexó `EVENTOS.PROFESIONAL2`
+- **Aplicación (v0.17.0, 2026-10-13):** baseline v260 activable (candidato `rc1`); conserva schema 2 y Captura V4. DEC-104 anexó `EVENTOS.PROFESIONAL2`
   (segundo profesional de la dupla). **No** corresponde MIG-003 y el esquema
   sigue en **`2`**, por tres razones que lo hacen incompatible con un bump:
   1. La columna se **anexa al final**, nunca se intercala: ninguna columna
