@@ -131,17 +131,16 @@ function WebApp_operadorExigir_(sessionToken) {
 
 /**
  * Inicia sesión de operador con la clave. Devuelve un token de sesión opaco.
- * Errores: OPERADOR_NO_CONFIGURADO, CREDENCIALES_INVALIDAS,
+ * Errores: OPERADOR_NO_CONFIGURADO, OPERADOR_NO_DISPONIBLE, CREDENCIALES_INVALIDAS,
  * OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO.
+ * La clave correcta se acepta SIEMPRE (bypassa el throttle de intentos
+ * fallidos) y limpia el contador: el rate-limit solo frena intentos erróneos,
+ * de modo que un atacante no puede provocar un DoS de login contra el operador.
  */
 function WebApp_operadorIniciar(clave) {
   var cache = WebApp_operadorCache_();
   if (!cache) {
     return { ok: false, codigo: 'OPERADOR_NO_DISPONIBLE', motivo: 'Servicio de sesión no disponible.' };
-  }
-  var intentos = WebApp_operadorLoginIntentos_();
-  if (intentos !== null && intentos >= WEBAPP_OPERATOR_LOGIN_MAX_) {
-    return { ok: false, codigo: 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO', motivo: 'Demasiados intentos. Espera un minuto.' };
   }
   if (!WebApp_operadorConfigurado_()) {
     return { ok: false, codigo: 'OPERADOR_NO_CONFIGURADO', motivo: 'El operador no tiene clave configurada.' };
@@ -149,14 +148,23 @@ function WebApp_operadorIniciar(clave) {
   var esperado = '';
   try { esperado = PropertiesService.getScriptProperties().getProperty(WEBAPP_OPERATOR_SECRET_PROP_) || ''; } catch (e) { esperado = ''; }
   clave = String(clave == null ? '' : clave);
-  if (!esperado || !clave || !WebApp_operadorCompararConstante_(WebApp_operadorHash_(clave), esperado)) {
-    WebApp_operadorRegistrarFalloLogin_();
-    return { ok: false, codigo: 'CREDENCIALES_INVALIDAS', motivo: 'Clave de operador incorrecta.' };
+  // La clave correcta SIEMPRE concede: el throttle solo frena fallos. Si se
+  // bloqueara por el contador antes de verificar, un atacante podría agotar el
+  // límite global y dejar fuera al operador legítimo (DoS trivial del login).
+  var correcta = !!(esperado && clave) &&
+    WebApp_operadorCompararConstante_(WebApp_operadorHash_(clave), esperado);
+  if (correcta) {
+    WebApp_operadorLimpiarFallosLogin_();
+    var token = WebApp_operadorNuevoToken_();
+    cache.put('OPSESS:' + WebApp_operadorHash_(token), '1', WEBAPP_OPERATOR_SESSION_TTL_);
+    return { ok: true, sessionToken: token, expiresIn: WEBAPP_OPERATOR_SESSION_TTL_ };
   }
-  WebApp_operadorLimpiarFallosLogin_();
-  var token = WebApp_operadorNuevoToken_();
-  cache.put('OPSESS:' + WebApp_operadorHash_(token), '1', WEBAPP_OPERATOR_SESSION_TTL_);
-  return { ok: true, sessionToken: token, expiresIn: WEBAPP_OPERATOR_SESSION_TTL_ };
+  var intentos = WebApp_operadorLoginIntentos_();
+  if (intentos !== null && intentos >= WEBAPP_OPERATOR_LOGIN_MAX_) {
+    return { ok: false, codigo: 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO', motivo: 'Demasiados intentos. Espera un minuto.' };
+  }
+  WebApp_operadorRegistrarFalloLogin_();
+  return { ok: false, codigo: 'CREDENCIALES_INVALIDAS', motivo: 'Clave de operador incorrecta.' };
 }
 
 /** Cierra la sesión de operador. Idempotente. */
@@ -183,8 +191,12 @@ function WebApp_operadorRpc(sessionToken, metodo, args) {
   if (typeof fn !== 'function') {
     return { ok: false, codigo: 'RPC_OPERADOR_NO_PERMITIDA', motivo: 'Operación de operador no permitida.' };
   }
+  if (args === undefined || args === null) args = [];
+  if (!Array.isArray(args)) {
+    return { ok: false, codigo: 'RPC_OPERADOR_ARGUMENTOS_INVALIDOS', motivo: 'Argumentos de operación no válidos.' };
+  }
   try {
-    return fn.apply(null, args || []);
+    return fn.apply(null, args);
   } catch (e) {
     return { ok: false, codigo: 'RPC_OPERADOR_FALLO', motivo: 'No fue posible completar la operación.' };
   }

@@ -12,4 +12,12 @@ const post={parameter:{},postData:{contents:JSON.stringify({token:'secreto-de-pr
 assert.equal(leer(c._wh_despachar_(post,'POST')).motivo,'MUTACIONES_REMOTAS_DESHABILITADAS');
 props.set('WEBHOOK_MUTACIONES_HABILITADAS','SI');const ok=leer(c._wh_despachar_(post,'POST'));assert.equal(ok.ok,true);assert.equal(JSON.stringify(ok).includes('no-debe-salir'),false);
 assert.equal(leer(c._wh_despachar_({parameter:{action:'estado'}},'GET')).motivo,'NO_AUTORIZADO');
+// GET de lectura con token válido: handler interno existente sigue operando.
+c.Entorno_actualGAS_=()=>({entorno:'TEST'});c.Modelo_hoja_=()=>null;
+const estado=leer(c._wh_despachar_({parameter:{token:'secreto-de-prueba-no-real',action:'estado'}},'GET'));
+assert.equal(estado.ok,true,JSON.stringify(estado));
+// Webhook y operador usan tokens independientes: el webhook no toca OPSESS ni el
+// secreto de operador (DEC-110: no mezclar WEBHOOK_TOKEN / OPSESS).
+assert.equal(props.has('ECICEP_OPERATOR_SECRET_SHA256'),false);
+assert.doesNotMatch(readFileSync(new URL('../src/Webhook.js',import.meta.url),'utf8'),/OPSESS|ECICEP_OPERATOR_SECRET/);
 console.log('Webhook seguridad vNEXT: PASS');

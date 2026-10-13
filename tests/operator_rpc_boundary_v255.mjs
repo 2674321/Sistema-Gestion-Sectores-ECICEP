@@ -34,6 +34,23 @@ const ejec = c.WebApp_operadorRpc(log.sessionToken, 'prueba_limite_', []);
 assert.equal(ejec.ok, true); assert.equal(ejec.tocado, true);
 delete c.WebApp_operadorMapa_().prueba_limite_;
 
+// 4b. `args` malformado → fail-closed y la función destino NO se ejecuta.
+//     Array (vacío/1/2), null y undefined se aceptan (null/undefined → []).
+let invocada = 0;
+c.WebApp_operadorMapa_().args_limite_ = (a, b) => { invocada += 1; return { ok: true, a, b }; };
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'args_limite_', []).ok, true);
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'args_limite_', ['x']).a, 'x');
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'args_limite_', ['x', 'y']).b, 'y');
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'args_limite_', null).ok, true);
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'args_limite_', undefined).ok, true);
+const invocadaValidos = invocada;
+for (const bad of [{}, 'texto', 123, true, () => {}]) {
+  assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'args_limite_', bad).codigo,
+    'RPC_OPERADOR_ARGUMENTOS_INVALIDOS', 'args inválido debe rechazarse: ' + typeof bad);
+}
+assert.equal(invocada, invocadaValidos, 'la función destino NO se ejecuta con args inválidos');
+delete c.WebApp_operadorMapa_().args_limite_;
+
 // 5. Sin despacho dinámico en el gateway.
 const auth = readFileSync(new URL('../src/37_OperadorAuth.js', import.meta.url), 'utf8');
 assert.doesNotMatch(auth, /globalThis\s*\[|eval\s*\(|new\s+Function|\.constructor\s*\(/);

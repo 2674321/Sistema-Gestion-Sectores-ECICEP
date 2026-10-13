@@ -30,6 +30,11 @@ h.c.Session = { getActiveUser() { throw new Error('SIN_SESION'); } };
 const sinSesion = h.c.WebApp_capturarRecibirDurable(payloadFor('nuevoIngreso', 'sin-sesion'), '');
 assert.equal(sinSesion.ok, true, 'captura no depende de Session.getActiveUser()');
 
+// CacheService no disponible: la captura pública no depende de la cache/sesión.
+h.c.CacheService = { getScriptCache() { throw new Error('CACHE_DOWN'); } };
+const sinCache = h.c.WebApp_capturarRecibirDurable(payloadFor('nuevoIngreso', 'sin-cache'), '');
+assert.equal(sinCache.ok, true, 'captura pública concede aunque CacheService no esté disponible');
+
 // El receptor no puede referenciar credenciales ni la hoja clínica.
 const formas = readFileSync(new URL('../src/36_FormsCanal.js', import.meta.url), 'utf8');
 const i = formas.indexOf('function WebApp_capturarRecibirDurable');

@@ -15,11 +15,20 @@
  * IDs hardcodeados de DEMO ni de producción; el destino de escritura sigue la
  * lógica normal del proyecto Apps Script corriendo.
  *
- * ACCESO UNIVERSAL (DEC-101): una sola credencial habilita TODAS las funciones
- * del sistema. No se distingue entre operador y usuario: el sistema solo lo
- * manejan los trabajadores del CESFAM y todos operan. La credencial se inyecta
- * en servidor al servir cada vista y nunca viaja en la URL, por lo que un QR
- * impreso con la URL base abre el sistema completo.
+ * Frontera de acceso (DEC-110):
+ *   · CAPTURA — anónima/universal. `WebApp_capturarRecibirDurable`,
+ *     `WebApp_estadoInicial`, `WebApp_verificarRecepcion` y `api_webappEstado`
+ *     se sirven por el QR estable SIN sesión de operador (sin OPSESS).
+ *   · OPERADOR / ADMINISTRACIÓN — exigen sesión OPSESS y el secreto
+ *     independiente `ECICEP_OPERATOR_SECRET_SHA256`. Toda RPC operativa es
+ *     interna (sufijo `_`) y sólo se alcanza por el gateway único
+ *     `WebApp_operadorRpc` (ver `src/37_OperadorAuth.js`).
+ *   · `ECICEP_ACCESS_TOKEN` — compatibilidad/trazabilidad legacy: NO es
+ *     autenticación ni abre la operación; se inyecta en servidor y nunca viaja
+ *     en la URL.
+ *
+ *   Referencia histórica: DEC-101/DEC-102 (acceso universal concedido siempre)
+ *   describen el estado previo; DEC-110 los acota a la CAPTURA pública.
  *
  * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta las
  * consultas de webhook de solo lectura y las vistas Web; toda mutación remota
@@ -27,47 +36,46 @@
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP (DEC-101)
-//   Una SOLA credencial habilita TODAS las funciones del sistema: capturar,
-//   ficha, ingresos, controles, estadísticas, REM, revisión, configuración,
-//   backups, registro e instalación.
+// CONTROL DE ACCESO — frontera DEC-110
+//   · CAPTURA: anónima/universal. El QR estable abre la captura sin OPSESS.
+//   · OPERADOR/ADMIN: exige sesión OPSESS + secreto independiente
+//     `ECICEP_OPERATOR_SECRET_SHA256`, servido por el gateway único
+//     `WebApp_operadorRpc` (src/37_OperadorAuth.js). Toda RPC operativa es
+//     interna (sufijo `_`) y no es invocable por google.script.run.
+//   · ECICEP_ACCESS_TOKEN: compatibilidad/trazabilidad legacy, NO autenticación.
 //
-//   NO existe distinción entre operador y usuario. El sistema solo lo manejan
-//   los trabajadores del CESFAM y todos operan: separar capacidades dejó el
-//   sistema inaccesible para todos (DEC-097 fue revertido por DEC-101).
+//   Referencia histórica: DEC-101/DEC-102 concedían acceso universal a TODA
+//   función (revertían la separación de capacidades de DEC-097). DEC-110 los
+//   acota: la concesión universal queda sólo para la CAPTURA pública.
 //
-//   Credencial canónica: ECICEP_ACCESS_TOKEN, AUTOAPROVISIONADA si falta
-//   (con lock y relectura), de modo que el sistema nunca queda inaccesible por
-//   una credencial ausente.
-//   Alias heredados aceptados como equivalentes, para que enlaces, QR impresos
-//   y pestañas ya abiertas nunca se rompan: CAPTURA_ACCESS_TOKEN (canónico en
-//   v0.10–v0.16), OPERADOR_ACCESS_TOKEN y LEGACY_ACCESS_TOKEN.
-//
-//   La credencial NUNCA viaja en la URL: el servidor la inyecta al servir cada
-//   vista. Por eso un QR impreso con la URL base sigue funcionando tras rotar
-//   la credencial. El token del webhook es independiente y no se comparte aquí.
+//   Las claves siguientes se conservan para enlaces, QR impresos y pestañas ya
+//   abiertas; se inyectan en servidor y nunca viajan en la URL. El token del
+//   webhook es independiente y no se comparte aquí.
 // ---------------------------------------------------------------------------
 
-/** Claves que contienen (o contuvieron) la credencial universal del sistema.
- *  Todas son equivalentes: cualquiera vigente abre el sistema completo. */
+/** Claves que contienen (o contuvieron) la credencial legacy de trazabilidad.
+ *  Todas son equivalentes; NO autentican la operación (DEC-110). */
 var WEBAPP_CLAVES_ACCESO_ = [
   'ECICEP_ACCESS_TOKEN', 'CAPTURA_ACCESS_TOKEN', 'OPERADOR_ACCESS_TOKEN', 'LEGACY_ACCESS_TOKEN'
 ];
 
-/** Autoriza el acceso universal: SIEMPRE concede.
+/** Alias legacy de trazabilidad: SIEMPRE concede (DEC-102, hoy acotado por
+ *  DEC-110). No es autenticación: la frontera de la OPERACIÓN es el gateway
+ *  `WebApp_operadorRpc`, que exige OPSESS. Aquí sólo se conserva la concesión
+ *  para no romper comprobaciones heredadas del código servidor; la CAPTURA
+ *  pública ya es anónima por diseño.
  *
- *  DEC-102 (corrección directa del incidente «api_buscar_: se requiere
- *  autorización»): la credencial universal se inyecta en cada vista, pero una
- *  pestaña cacheada, un token vacío por una carga previa o un valor heredado
- *  NUNCA deben bloquear una acción. El control real es el enlace del
- *  deployment, no el token; el token se conserva solo para compatibilidad y
- *  diagnóstico. Conceder siempre elimina de raíz la clase de fallo que dejó el
- *  sistema inaccesible (DEC-097 → DEC-101 → DEC-102). */
+ *  DEC-102 (corrección del incidente «api_buscar_: se requiere autorización»):
+ *  la credencial se inyecta en cada vista, pero una pestaña cacheada, un token
+ *  vacío o un valor heredado NUNCA deben bloquear una acción. Conceder siempre
+ *  eliminó la clase de fallo que dejó el sistema inaccesible (DEC-097 → DEC-101
+ *  → DEC-102). Desde DEC-110 esto sólo alcanza a la CAPTURA; la operación usa
+ *  OPSESS. */
 function WebApp_autorizar_(token) { return true; }
 
-/** Alias de la superficie RPC: una sola capacidad para todo el sistema. */
+/** Alias legacy de trazabilidad (DEC-110): NO autentica la operación. */
 function WebApp_autorizarBuscador_(token) { return WebApp_autorizar_(token); }
-/** Alias del canal de captura: mismo acceso universal, sin capacidades separadas. */
+/** Alias legacy del canal de captura (DEC-110): mismo criterio, sin capacidades. */
 function WebApp_autorizarCaptura_(token) { return WebApp_autorizar_(token); }
 
 /**
@@ -142,9 +150,12 @@ function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValid
 function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
 function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
 
-/** ¿Está operativo el acceso universal? Verdadero siempre (DEC-102).
- *  Sustituye a la antigua allowlist de identidades (DEC-097): no hay roles, todos
- *  los trabajadores operan. Antes devolvía `false` cuando la credencial no se
+/** ¿Está operativo el acceso legacy de trazabilidad? Verdadero siempre (DEC-110,
+ *  heredero de DEC-102). NO es el gate de la operación: desde DEC-110 la
+ *  administración se sirve por el gateway OPSESS. Este flag sólo describe la
+ *  disponibilidad de la credencial legacy para diagnóstico/UI heredada.
+ *  Sustituye a la antigua allowlist de identidades (DEC-097). Antes devolvía
+ *  `false` cuando la credencial no se
  *  podía resolver, y eso denegaba 11 funciones de `28_IA.js` con «Acceso
  *  universal del sistema no disponible» por un fallo de Script Properties o
  *  contención de lock: exactamente el bloqueo que Provocó el incidente. El estado
@@ -177,7 +188,8 @@ function WebApp_urlCompartida_() {
   return ECICEP_webAppUrl_();
 }
 
-/** URL de una vista operativa. Sin credencial en la URL: acceso universal. */
+/** URL de una vista operativa. Sin credencial en la URL (DEC-110): la operación
+ *  se autentica con OPSESS, no con el token. */
 function WebApp_urlVista_(vista) {
   var base = WebApp_urlCompartida_();
   if (!base) return '';
@@ -245,10 +257,10 @@ function doGet(e) {
   }
   var p = e && e.parameter || {};
   var vista = String(p.vista || 'captura').trim();
-  // ACCESO UNIVERSAL (DEC-101): no se exige credencial en la URL. El servidor
-  // inyecta la credencial vigente al servir CADA vista, de modo que la URL base
-  // —incluidos los QR ya impresos— abre el sistema completo sin parámetros.
-  // Un `?acceso=` heredado que llega en un enlace viejo se ignora sin efecto.
+  // DEC-110: el QR estable sirve la CAPTURA sin credencial y sin OPSESS. El
+  // servidor inyecta el token legacy sólo como trazabilidad; la operación
+  // (ficha, ingresos, REM, configuración, etc.) se autentica con OPSESS en el
+  // cliente. Un `?acceso=` heredado en un enlace viejo se ignora sin efecto.
   var acceso = '';
   // DEC-102: servir una vista NUNCA puede fallar por la credencial. Cualquier
   // error al resolverla degrada a cadena vacía, que no bloquea nada.

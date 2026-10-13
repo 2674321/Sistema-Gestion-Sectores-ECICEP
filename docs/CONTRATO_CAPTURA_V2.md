@@ -24,6 +24,10 @@
 > bloquea por credencial. El servidor puede inyectar un token para trazabilidad y
 > compatibilidad, pero un valor ausente, antiguo o arbitrario no es una puerta y
 > nunca produce `ACCESO_DENEGADO`. El preflight mantiene la minimización de datos.
+> Esto sigue vigente **sólo para la CAPTURA** (DEC-110): la captura pública es
+> anónima y no usa OPSESS; la operación/administración se autentica con sesión
+> OPSESS a través del gateway `WebApp_operadorRpc`. `ECICEP_ACCESS_TOKEN` es
+> compatibilidad/trazabilidad legacy, no autenticación.
 
 ---
 

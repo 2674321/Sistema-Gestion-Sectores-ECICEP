@@ -138,11 +138,17 @@ assert.equal(c.WebApp_operadorIniciar('clave-de-prueba-larga-1234').codigo, 'OPE
 assert.equal(c.api_webappEstado('').ok, true, 'captura no se ve afectada por CacheService');
 cacheOn = true;
 
-// --- 8. Rate limit de login ------------------------------------------------
+// --- 8. Rate limit de login: sólo frena fallos -----------------------------
+// 19 fallos → INVALIDAS · 20º → INVALIDAS · 21º → LIMITADO. La clave CORRECTA
+// nunca queda bloqueada (no se puede provocar un DoS de login) y limpia el
+// contador; un fallo posterior abre un contador nuevo.
 cache.remove('OPLOGIN_FAIL_COUNT');
-for (let i = 0; i < 20; i++) c.WebApp_operadorIniciar('incorrecta');
-assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO');
-assert.equal(c.WebApp_operadorIniciar('clave-de-prueba-larga-1234').codigo, 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO', 'incluso la correcta espera');
+for (let i = 0; i < 19; i++) assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'CREDENCIALES_INVALIDAS', 'fallo ' + (i + 1));
+assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'CREDENCIALES_INVALIDAS', 'fallo 20');
+assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO', 'fallo 21');
+const logSaturado = c.WebApp_operadorIniciar('clave-de-prueba-larga-1234');
+assert.equal(logSaturado.ok, true, 'la clave correcta bypassa el throttle');
+assert.equal(cache.get('OPLOGIN_FAIL_COUNT'), null, 'el login correcto limpia el contador');
 cache.remove('OPLOGIN_FAIL_COUNT');
 
 console.log('seguridad_webapp_capacidades_vNEXT (DEC-110): captura pública + operador OPSESS PASS');

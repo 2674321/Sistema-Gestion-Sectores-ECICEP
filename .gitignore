@@ -45,3 +45,6 @@ SESION*.json
 opencode.json
 "trabajo continuo/"
 .trabajo*/
+
+# Plan de rename generado por tools/privatizar_rpc_surface_v255.mjs (dry-run/apply)
+/RENAMES_PLAN.json

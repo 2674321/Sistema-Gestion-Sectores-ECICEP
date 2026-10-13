@@ -45,11 +45,22 @@ assert.equal(c.WebApp_operadorIniciar(clave).codigo, 'OPERADOR_NO_DISPONIBLE');
 assert.equal(c.WebApp_operadorRpc(log2.sessionToken, 'api_buscar', []).codigo, 'OPERADOR_SESION_REQUERIDA');
 h.setCacheOn(true);
 
-// Rate limit de intentos fallidos.
+// Rate limit de intentos fallidos: 20 fallos registrados; el 21º ya se limita.
 h.cache.remove('OPLOGIN_FAIL_COUNT');
-for (let i = 0; i < 20; i++) c.WebApp_operadorIniciar('incorrecta');
-assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO');
-assert.equal(c.WebApp_operadorIniciar(clave).codigo, 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO', 'protege incluso la clave correcta');
+for (let i = 0; i < 19; i++)
+  assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'CREDENCIALES_INVALIDAS', 'fallo ' + (i + 1));
+assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'CREDENCIALES_INVALIDAS', 'fallo 20');
+assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'OPERADOR_LOGIN_TEMPORALMENTE_LIMITADO', 'fallo 21 (saturado)');
+
+// La clave CORRECTA nunca queda bloqueada por el throttle (anti-DoS) y resetea el contador.
+const log3 = c.WebApp_operadorIniciar(clave);
+assert.equal(log3.ok, true, 'la clave correcta bypassa el throttle: ' + JSON.stringify(log3));
+assert.match(log3.sessionToken, /^OPS-[0-9a-f]{64}$/);
+assert.equal(h.cache.get('OPSESS:' + sha256Hex(log3.sessionToken)), '1', 'OPSESS creado aun con el contador saturado');
+assert.equal(h.cache.get('OPLOGIN_FAIL_COUNT'), null, 'el login correcto limpia el contador');
+
+// Un fallo posterior abre un contador nuevo (empieza en 1, no continúa en 20).
+assert.equal(c.WebApp_operadorIniciar('incorrecta').codigo, 'CREDENCIALES_INVALIDAS');
+assert.equal(h.cache.get('OPLOGIN_FAIL_COUNT'), '1', 'contador nuevo tras el login correcto');
 h.cache.remove('OPLOGIN_FAIL_COUNT');
-assert.equal(c.WebApp_operadorIniciar(clave).ok, true, 'tras limpiar el contador vuelve a permitir');
 console.log('operator_session_v255: OPSESS (login/uso/logout/TTL/rate-limit) PASS');
