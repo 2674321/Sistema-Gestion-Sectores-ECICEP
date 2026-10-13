@@ -77,6 +77,9 @@ schema, URLs internas, mapas, estado y cursor.
 - [ ] Ejecutar Legacy Dry Run y registrar el conteo observado en ese momento.
 - [ ] Confirmar que solo detecta filas históricas y ninguna moderna.
 - [ ] Aplicar `Form_migrarTrailerLegacy_({dryRun:false})`.
+- [ ] Si una ejecución se interrumpe, repetir dry-run: las filas
+      `LEGACY_PARTIAL` deben aparecer como reparables; aplicar nuevamente sin
+      revertir filas ya completas.
 - [ ] Repetir y exigir `cambios=0`.
 - [ ] Ejecutar `Form_legacyReconciliarDryRun_()`.
 - [ ] No auto-procesar pendientes; dejar la revisión manual como backlog

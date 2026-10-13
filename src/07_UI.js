@@ -2334,6 +2334,7 @@ function UI_formCanalDiagnostico_() {
 function UI_formCanalLegacyDryRun_() {
   var r = Form_migrarTrailerLegacy_({ dryRun: true });
   UI_formCanalAlert_('Legacy — dry-run', ['Filas: ' + r.totalFilas, 'Legacy: ' + r.legacyDetectadas,
+    'Parciales: ' + r.legacyParciales, 'Completas: ' + r.legacyCompletas,
     'Terminal: ' + r.terminal, 'Review: ' + r.review, 'Ambiguas: ' + r.ambiguas,
     'Columnas requeridas: ' + (r.requiereColumnas.join(', ') || 'ninguna')]);
   return r;
@@ -2365,8 +2366,22 @@ function UI_formCanalInstalarSeguro_() {
   var conf = ui.alert('Confirmar ventana técnica', 'Se adoptará únicamente el GOOGLE_FORM_ID configurado. Dry-run: ' + (dry.necesitaCambio ? 'requiere cambios' : 'sin cambios') + '. ¿Continuar?', ui.ButtonSet.YES_NO);
   if (conf !== ui.Button.YES) return { ok: false, motivo: 'CANCELADO' };
   var r = Form_operativoInstalar_({ crearNuevo: false, adoptarExistente: true });
-  UI_formCanalAlert_('Instalación segura', [r.ok ? 'Completada' : ('Falló: ' + (r.motivo || 'ERROR'))]);
-  return r;
+  if (!r.ok) { UI_formCanalAlert_('Instalación segura', ['Falló: ' + (r.motivo || 'ERROR')]); return r; }
+  var post = Form_operativoDiagnosticar_();
+  var checksSanitizados = (post.checks || []).map(function (c) {
+    var detalle = c.detalle;
+    if (c.nombre === 'form_id') detalle = c.ok ? 'Configurado' : 'Sin Form configurado';
+    if (c.nombre === 'url') detalle = c.ok ? 'Disponible (interna)' : 'Sin URL interna';
+    return { nombre: c.nombre, ok: !!c.ok, detalle: detalle };
+  });
+  var checks = checksSanitizados.map(function (c) { return (c.ok ? 'OK ' : 'FALLO ') + c.nombre + ': ' + c.detalle; });
+  if (!post.ok) {
+    var falloPost = { ok: false, motivo: 'POST_INSTALL_DIAGNOSTIC_FAILED', checks: checksSanitizados };
+    UI_formCanalAlert_('Instalación incompleta', ['POST_INSTALL_DIAGNOSTIC_FAILED'].concat(checks));
+    return falloPost;
+  }
+  UI_formCanalAlert_('Instalación segura', ['Completada'].concat(checks));
+  return { ok: true, motivo: 'INSTALADO_Y_DIAGNOSTICADO', checks: checksSanitizados };
 }
 
 function UI_formCanalCatalogosSeguro_() {

@@ -196,7 +196,12 @@ Una fila es legacy solo cuando su `RESPONSE_ID` cumple
 - `Form_migrarTrailerLegacy_()` es dry-run por defecto, solo devuelve agregados
   y no crea columnas.
 - El apply exige ventana técnica abierta y las seis columnas modernas ya
-  instaladas; solo completa celdas vacías del trailer y verifica la escritura.
+  instaladas en un bloque contiguo seguro. Escribe ese bloque una vez por fila
+  y verifica todos sus valores, sin reescribir columnas clínicas/históricas.
+- Una fila `WEBAPP_LEGACY` con SOURCE, clasificación o error faltante/diferente
+  es `LEGACY_PARTIAL`: una corrida posterior la detecta y completa. El progreso
+  seguro de filas anteriores se conserva tras una interrupción y la siguiente
+  corrida converge; una tercera debe devolver `cambios=0`.
 - `RECIBIDO` y `ERROR` históricos quedan en `REVIEW`, nunca `RETRYABLE`.
 - `Form_legacyReconciliarDryRun_()` clasifica evidencia de forma agregada y no
   muestra PII ni aplica reparaciones.
@@ -215,6 +220,10 @@ instalación segura y sincronización segura. Estado y diagnóstico son solo
 lectura y sanitizados. Los mutadores exigen confirmación humana,
 `ECICEP_ACTIVATION_WINDOW=OPEN:<expiración>` vigente (TTL máximo dos horas) y
 un `GOOGLE_FORM_ID` accesible. La property no se configura durante jornada.
+El instalador solo anuncia éxito si deja exactamente un trigger submit, un
+worker y el diagnóstico posterior completo en verde; si no, devuelve
+`INSTALL_SUBMIT_TRIGGER_FAILED`, `INSTALL_WORKER_FAILED` o
+`POST_INSTALL_DIAGNOSTIC_FAILED`.
 
 `clasp run` es **NO_REQUERIDO / NO_CONFIGURADO**. No crear API Executable,
 deployment adicional, scopes ni cambios GCP para diagnóstico. Usar el menú del

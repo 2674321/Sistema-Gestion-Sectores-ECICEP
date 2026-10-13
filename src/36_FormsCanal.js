@@ -734,6 +734,9 @@ function Form_operativoInstalar_(opciones) {
       return !canonicalMap[Form_claveCanonicaItem_(sec, campo)];
     });
   });
+  if ((trigger.onFormSubmit || 0) !== 1) {
+    return { ok: false, motivo: 'INSTALL_SUBMIT_TRIGGER_FAILED', cambios: cambios, trigger: trigger };
+  }
   if ((trigger.worker || 0) !== 1) {
     return { ok: false, motivo: 'INSTALL_WORKER_FAILED', cambios: cambios, trigger: trigger };
   }
@@ -897,33 +900,68 @@ var FORM_LEGACY_TRAILER_COLUMNAS = ['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID',
 
 /** PURA: identidad inequívoca de una fila anterior a Google Forms. */
 function Form_esFilaLegacy_(fila) {
-  fila = fila || {};
-  var rid = String(fila.RESPONSE_ID || '').trim();
-  if (!/^Cp[234]-[0-9a-f]{32}$/.test(rid)) return false;
-  return !String(fila.CAPTURE_PROVIDER || '').trim() &&
-    !String(fila.TRANSPORT_RESPONSE_ID || '').trim() &&
-    !String(fila.CLIENT_REQUEST_ID || '').trim();
+  var estado = Form_estadoFilaLegacy_(fila);
+  return estado === 'LEGACY_UNMIGRATED' || estado === 'LEGACY_PARTIAL' || estado === 'LEGACY_COMPLETE';
 }
 
-/** PURA: plan conservador; solo devuelve valores técnicos sin PII. */
-function Form_planMigracionLegacy_(fila) {
+function Form_estadoFilaLegacy_(fila) {
   fila = fila || {};
-  if (!Form_esFilaLegacy_(fila)) return { legacy: false, ambiguo: /^Cp[234]-/.test(String(fila.RESPONSE_ID || '').trim()) };
-  var estado = String(fila.ESTADO || '').trim().toUpperCase();
+  var rid = String(fila.RESPONSE_ID || '').trim();
+  if (!/^Cp[234]-[0-9a-f]{32}$/.test(rid)) return /^Cp[234]-/.test(rid) ? 'LEGACY_AMBIGUOUS' : 'NOT_LEGACY';
+  var provider = String(fila.CAPTURE_PROVIDER || '').trim().toUpperCase();
+  var transport = String(fila.TRANSPORT_RESPONSE_ID || '').trim();
+  var client = String(fila.CLIENT_REQUEST_ID || '').trim();
+  if (provider === CAPTURA_INGESTA_PROVIDERS.GOOGLE_FORMS && transport) return 'NOT_LEGACY';
+  if (!provider && !transport && !client) return 'LEGACY_UNMIGRATED';
+  if (provider !== CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY || transport || client) return 'LEGACY_AMBIGUOUS';
+  var plan = Form_planTrailerLegacyPorEstado_(fila.ESTADO);
+  return Form_legacyTrailerCompleto_(fila, plan) ? 'LEGACY_COMPLETE' : 'LEGACY_PARTIAL';
+}
+
+function Form_planTrailerLegacyPorEstado_(estadoRaw) {
+  var estado = String(estadoRaw || '').trim().toUpperCase();
   var clasificacion = 'REVIEW', error = [];
   if (estado === 'PROCESADO') clasificacion = 'TERMINAL';
   else if (estado === 'REQUIERE_REVISION') error = [{ codigo: 'LEGACY_REQUIERE_REVISION' }];
   else if (estado === 'RECIBIDO' || estado === 'ERROR') error = [{ codigo: 'LEGACY_RECONCILIATION_REQUIRED', estado: estado }];
   else error = [{ codigo: 'LEGACY_STATE_UNKNOWN' }];
-  return {
-    legacy: true, estado: estado,
-    valores: {
-      CAPTURE_PROVIDER: CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY,
-      TRANSPORT_RESPONSE_ID: '', CLIENT_REQUEST_ID: '',
-      SOURCE: GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_LEGACY_PRE_FORMS,
-      CLASIFICACION: clasificacion, TRANSPORTE_ERROR: JSON.stringify(error)
-    }
-  };
+  return { estado: estado, valores: {
+    CAPTURE_PROVIDER: CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY,
+    TRANSPORT_RESPONSE_ID: '', CLIENT_REQUEST_ID: '',
+    SOURCE: GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_LEGACY_PRE_FORMS,
+    CLASIFICACION: clasificacion, TRANSPORTE_ERROR: JSON.stringify(error)
+  } };
+}
+
+function Form_legacyTrailerCompleto_(fila, plan) {
+  fila = fila || {}; plan = plan || Form_planTrailerLegacyPorEstado_(fila.ESTADO);
+  var v = plan.valores || {};
+  if (String(fila.CAPTURE_PROVIDER || '').trim().toUpperCase() !== v.CAPTURE_PROVIDER) return false;
+  if (String(fila.TRANSPORT_RESPONSE_ID || '').trim() !== String(v.TRANSPORT_RESPONSE_ID || '')) return false;
+  if (String(fila.CLIENT_REQUEST_ID || '').trim() !== String(v.CLIENT_REQUEST_ID || '')) return false;
+  if (String(fila.SOURCE || '').trim().toUpperCase() !== v.SOURCE) return false;
+  if (String(fila.CLASIFICACION || '').trim().toUpperCase() !== v.CLASIFICACION) return false;
+  var actual, esperado;
+  try { actual = JSON.parse(String(fila.TRANSPORTE_ERROR || '')); esperado = JSON.parse(v.TRANSPORTE_ERROR); }
+  catch (e) { return false; }
+  if (!Array.isArray(actual) || actual.length !== esperado.length) return false;
+  for (var i = 0; i < esperado.length; i++) {
+    if (!actual[i] || String(actual[i].codigo || '') !== esperado[i].codigo) return false;
+    if (String(actual[i].estado || '') !== String(esperado[i].estado || '')) return false;
+    if (Object.keys(actual[i]).some(function (k) { return ['codigo', 'estado'].indexOf(k) === -1; })) return false;
+  }
+  return true;
+}
+
+/** PURA: plan conservador; solo devuelve valores técnicos sin PII. */
+function Form_planMigracionLegacy_(fila) {
+  fila = fila || {};
+  var tipo = Form_estadoFilaLegacy_(fila);
+  if (tipo === 'NOT_LEGACY') return { legacy: false, ambiguo: false, tipo: tipo };
+  if (tipo === 'LEGACY_AMBIGUOUS') return { legacy: false, ambiguo: true, tipo: tipo };
+  var plan = Form_planTrailerLegacyPorEstado_(fila.ESTADO);
+  plan.legacy = true; plan.tipo = tipo;
+  return plan;
 }
 
 function Form_filaPorMapa_(encabezados, valores) {
@@ -939,6 +977,7 @@ function Form_migrarTrailerLegacy_(opciones) {
   var dryRun = opciones.dryRun !== false;
   var hoja = opciones.hoja || Form_hojaRespuetas_();
   var out = { ok: true, dryRun: dryRun, totalFilas: 0, legacyDetectadas: 0,
+    legacyParciales: 0, legacyCompletas: 0, filasAplicadas: 0,
     terminal: 0, review: 0, cambios: 0, ambiguas: 0,
     estados: { PROCESADO: 0, REQUIERE_REVISION: 0, RECIBIDO: 0, ERROR: 0, OTROS: 0 },
     requiereColumnas: [] };
@@ -949,6 +988,8 @@ function Form_migrarTrailerLegacy_(opciones) {
   var pos = {};
   for (var i = 0; i < enc.length; i++) pos[String(enc[i] || '').trim()] = i;
   out.requiereColumnas = FORM_LEGACY_TRAILER_COLUMNAS.filter(function (c) { return pos[c] === undefined; });
+  var inicioTrailer = pos[FORM_LEGACY_TRAILER_COLUMNAS[0]];
+  var layoutSeguro = out.requiereColumnas.length === 0 && FORM_LEGACY_TRAILER_COLUMNAS.every(function (c, ix) { return pos[c] === inicioTrailer + ix; });
   var datos = hoja.getRange(2, 1, rows - 1, cols).getValues();
   out.totalFilas = datos.length;
   var planes = [];
@@ -957,32 +998,32 @@ function Form_migrarTrailerLegacy_(opciones) {
     var plan = Form_planMigracionLegacy_(obj);
     if (!plan.legacy) { if (plan.ambiguo) out.ambiguas++; continue; }
     out.legacyDetectadas++;
+    if (plan.tipo === 'LEGACY_PARTIAL') out.legacyParciales++;
+    if (plan.tipo === 'LEGACY_COMPLETE') out.legacyCompletas++;
     var ek = Object.prototype.hasOwnProperty.call(out.estados, plan.estado) ? plan.estado : 'OTROS';
     out.estados[ek]++;
     if (plan.valores.CLASIFICACION === 'TERMINAL') out.terminal++; else out.review++;
-    planes.push({ fila: r + 2, original: obj, plan: plan });
+    if (plan.tipo !== 'LEGACY_COMPLETE') planes.push({ fila: r + 2, original: obj, plan: plan });
   }
   if (dryRun) return out;
   if (out.requiereColumnas.length) { out.ok = false; out.motivo = 'LEGACY_TRAILER_COLUMNS_REQUIRED'; return out; }
+  if (!layoutSeguro) { out.ok = false; out.motivo = 'LEGACY_TRAILER_LAYOUT_UNSAFE'; return out; }
   var ventana = Operacion_ventanaActivacionAbierta_();
   if (!ventana.ok) { out.ok = false; out.motivo = ventana.motivo; return out; }
   if (out.ambiguas) { out.ok = false; out.motivo = 'LEGACY_IDENTITY_AMBIGUOUS'; return out; }
   try {
     for (var p = 0; p < planes.length; p++) {
       var item = planes[p];
-      FORM_LEGACY_TRAILER_COLUMNAS.forEach(function (nombre) {
-        if (String(item.original[nombre] || '').trim()) return; // preservar valor moderno
-        var nuevo = item.plan.valores[nombre];
-        if (nuevo === '') return;
-        hoja.getRange(item.fila, pos[nombre] + 1, 1, 1).setValue(nuevo);
-        out.cambios++;
-      });
-    }
-    // Verificación: ninguna fila aplicada puede seguir siendo legacy.
-    var ver = hoja.getRange(2, 1, rows - 1, cols).getValues();
-    for (var v = 0; v < planes.length; v++) {
-      if (Form_esFilaLegacy_(Form_filaPorMapa_(enc, ver[planes[v].fila - 2]))) {
-        out.ok = false; out.motivo = 'LEGACY_TRAILER_WRITE_VERIFY_FAILED'; break;
+      var bloque = FORM_LEGACY_TRAILER_COLUMNAS.map(function (nombre) { return item.plan.valores[nombre]; });
+      var diferencias = FORM_LEGACY_TRAILER_COLUMNAS.filter(function (nombre, ix) {
+        return String(item.original[nombre] === undefined ? '' : item.original[nombre]) !== String(bloque[ix]);
+      }).length;
+      if (!diferencias) continue;
+      hoja.getRange(item.fila, inicioTrailer + 1, 1, FORM_LEGACY_TRAILER_COLUMNAS.length).setValues([bloque]);
+      out.filasAplicadas++; out.cambios += diferencias;
+      var verFila = hoja.getRange(item.fila, 1, 1, cols).getValues()[0] || [];
+      if (!Form_legacyTrailerCompleto_(Form_filaPorMapa_(enc, verFila), item.plan)) {
+        out.ok = false; out.motivo = 'LEGACY_TRAILER_WRITE_VERIFY_FAILED'; return out;
       }
     }
   } catch (e) {

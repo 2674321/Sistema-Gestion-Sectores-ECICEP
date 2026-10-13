@@ -11,16 +11,22 @@ const r1 = sinProf.c.Form_operativoInstalar_({});
 assert.equal(r1.ok, false, 'catálogo vacío no puede instalar OK');
 assert.ok(['INSTALL_REQUIRED_CATALOG_EMPTY', 'INSTALL_CATALOG_FAILED'].includes(r1.motivo), r1.motivo);
 
-// 2) Trigger del worker imposible de crear → NO éxito.
-const sinTrigger = createHarness255();
-sinTrigger.install();
-sinTrigger.triggers.splice(0, sinTrigger.triggers.length);
-const newTrigger = sinTrigger.c.ScriptApp.newTrigger;
-sinTrigger.c.ScriptApp.newTrigger = () => { throw new Error('TRIGGER_DENIED'); };
+// 2) Los dos triggers propios son gates fail-closed diferenciados.
+const sinSubmit = createHarness255(); sinSubmit.install();
+sinSubmit.c.Form_asegurarTriggers_ = () => ({ onFormSubmit: 0, worker: 1, creados: [] });
+const r2a = sinSubmit.c.Form_operativoInstalar_({});
+assert.equal(r2a.ok, false, 'sin submit trigger no puede instalar OK');
+assert.equal(r2a.motivo, 'INSTALL_SUBMIT_TRIGGER_FAILED');
+
+const sinTrigger = createHarness255(); sinTrigger.install();
+sinTrigger.c.Form_asegurarTriggers_ = () => ({ onFormSubmit: 1, worker: 0, creados: [] });
 const r2 = sinTrigger.c.Form_operativoInstalar_({});
 assert.equal(r2.ok, false, 'sin worker trigger no puede instalar OK');
 assert.equal(r2.motivo, 'INSTALL_WORKER_FAILED');
-sinTrigger.c.ScriptApp.newTrigger = newTrigger;
+
+const ambos = createHarness255(); ambos.install();
+ambos.c.Form_asegurarTriggers_ = () => ({ onFormSubmit: 1, worker: 1, creados: [] });
+assert.equal(ambos.c.Form_operativoInstalar_({}).ok, true, 'ambos triggers permiten continuar');
 
 // 3) Nunca borra respuestas reales al fallar.
 assert.equal(sinTrigger.form.responses.length, 0);
