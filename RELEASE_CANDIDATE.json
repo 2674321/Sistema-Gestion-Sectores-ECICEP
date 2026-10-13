@@ -3,9 +3,9 @@
   "releaseStage": "RC",
   "schemaVersion": 2,
   "installerVersion": "INST-1",
-  "gitSha": "51496d0a0f6479c0dac59d638dcb752ac2fd9dc2",
+  "gitSha": "ece60d63fd188da418c6cc900366d96c72cf3d34",
   "branch": "codex/v255-operabilidad-observabilidad",
-  "generatedAt": "2026-10-13T23:32:53.519Z",
+  "generatedAt": "2026-10-13T23:39:00.695Z",
   "tests": {
     "suites": 149,
     "failures": 0

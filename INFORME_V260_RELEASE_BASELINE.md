@@ -5,11 +5,13 @@ Fecha: 2026-10-13. Alcance exclusivamente local: repositorio, pruebas y Git.
 ## Git
 
 ```text
-HEAD inicial: 48355976b0a861abcaaaed6551301ee4012eaadd
+HEAD remoto inicial: 48355976b0a861abcaaaed6551301ee4012eaadd
+HEAD local de partida: 48355976b0a861abcaaaed6551301ee4012eaadd
+working tree inicial: MODIFICADO (17 archivos versionados + 14 nuevos sin versionar)
 HEAD final: referencia release/v0.17.0-rc1 (verificación exacta con git rev-parse)
 rama de trabajo: codex/v255-operabilidad-observabilidad
 release branch: release/v0.17.0-rc1
-working tree: CLEAN al cierre
+working tree final: CLEAN
 ```
 
 La autorreferencia de un commit no puede almacenar su propio SHA dentro del mismo contenido; el SHA final autoritativo es el target exacto de la release branch y queda informado por Git al cierre.
@@ -17,7 +19,7 @@ La autorreferencia de un commit no puede almacenar su propio SHA dentro del mism
 ## Cierres
 
 ```text
-atomic append: PASS
+concurrency (atomic append): PASS
 cache epoch: PASS
 invalid review payload: PASS
 XSS audit: PASS
@@ -68,6 +70,7 @@ E2E_REAL: NO
 QR: UNCHANGED
 DATOS_CLINICOS: UNCHANGED
 MASTER: UNCHANGED
+PR13: UNCHANGED
 ```
 
 ## Qué queda para activar
