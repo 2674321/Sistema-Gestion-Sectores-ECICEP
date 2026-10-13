@@ -1,5 +1,10 @@
 # Runbook Captura — ECICEP
 
+> **Actualización 2026-10-13 (v259, DEC-114):** el backlog del canal actual solo
+> cuenta filas `GOOGLE_FORMS`. Las filas `WEBAPP_LEGACY` se informan aparte y
+> jamás son reintentadas por el worker. Toda reparación mutante se realiza fuera
+> de horario mediante los wrappers seguros del menú y una ventana técnica corta.
+
 > **Actualización 2026-10-13 (v258, DEC-113):** el lease excluye workers entre
 > sí y `Ecicep_conLock_` protege únicamente la mutación clínica de cada
 > candidato. El lock es fail-closed. Toda clasificación (`PROCESSED`, `REVIEW`,
@@ -60,10 +65,11 @@ Síntoma: `Form_saludOperativa_()` reporta `WORKER_TRIGGER_AUSENTE` o
 `BACKLOG_PENDIENTE`; `triggerWorker === 0`.
 
 1. Diagnóstico sin efectos: `Form_operativoDiagnosticar_()` / `Form_operativoEstado_()`.
-2. Reparación (dry-run por defecto):
+2. Durante jornada, usar solo el diagnóstico y dry-run desde el menú del
+   Spreadsheet. La aplicación real pertenece a la ventana fuera de horario:
    ```js
    Form_operativoReparar_({ repairTriggers: true, dryRun: true })  // simular
-   Form_operativoReparar_({ repairTriggers: true, dryRun: false }) // aplicar
+   Form_operativoReparar_({ repairTriggers: true, dryRun: false }) // solo en ventana
    ```
    Si no existe trigger de `Form_worker_`, crea uno `everyMinutes(5)`.
 3. Ejecución manual de un lote: `api_formWorkerEjecutarAhora()` (delega en
@@ -96,8 +102,9 @@ Síntoma: `Form_operativoEstado_()` con `error` en `info`, o
 1. `Form_operativoReparar_({ dryRun: true })` para ver acciones propuestas.
 2. La cola es durable: las capturas web ya aceptadas quedan en
    `FORM_RESPUESTAS`; el worker las drena cuando el Form vuelve.
-3. Si el Form no se puede abrir, **no** recrear uno nuevo sin decidir: consultar
-   `Form_operativoInstalar_` (adopta o crea un único Form) y revisar dependencias.
+3. Si el Form no se puede abrir, **no** crear un reemplazo silencioso. Fuera de
+   horario se adopta el `GOOGLE_FORM_ID` configurado mediante
+   `UI_formCanalInstalarSeguro_`, siempre con `crearNuevo:false`.
 4. No se pierde ni se borra ninguna respuesta durante la contingencia.
 
 ---
@@ -176,3 +183,39 @@ Contrato de reparación (M04):
    `schemaVersion` esperada.
 3. Un envío de prueba: `NO_ENCONTRADO → RECIBIDO → PROCESADO` con el mismo
    `clientRequestId`.
+
+---
+
+## 11. Cola histórica anterior a Google Forms
+
+Una fila es legacy solo cuando su `RESPONSE_ID` cumple
+`^Cp[234]-[0-9a-f]{32}$` y carece de `CAPTURE_PROVIDER`,
+`TRANSPORT_RESPONSE_ID` y `CLIENT_REQUEST_ID`. Tras la migración queda como
+`CAPTURE_PROVIDER=WEBAPP_LEGACY` y `SOURCE=LEGACY_PRE_FORMS`.
+
+- `Form_migrarTrailerLegacy_()` es dry-run por defecto, solo devuelve agregados
+  y no crea columnas.
+- El apply exige ventana técnica abierta y las seis columnas modernas ya
+  instaladas; solo completa celdas vacías del trailer y verifica la escritura.
+- `RECIBIDO` y `ERROR` históricos quedan en `REVIEW`, nunca `RETRYABLE`.
+- `Form_legacyReconciliarDryRun_()` clasifica evidencia de forma agregada y no
+  muestra PII ni aplica reparaciones.
+- `Form_worker_()` obtiene candidatos exclusivamente del Google Form configurado;
+  nunca reconstruye ni reenvía masivamente filas históricas.
+
+La observabilidad separa `formsResponses/processed/retryable/review/pending/
+oldestPendingMin` del canal actual y `legacyTotal/legacyTerminal/legacyReview/
+legacyUnresolved` del historial. `LEGACY_RECONCILIATION_PENDING` es una
+advertencia histórica, no `BACKLOG_PENDIENTE` del worker moderno.
+
+## 12. Administración segura
+
+El menú ofrece wrappers privados: estado, diagnóstico, legacy dry-run,
+instalación segura y sincronización segura. Estado y diagnóstico son solo
+lectura y sanitizados. Los mutadores exigen confirmación humana,
+`ECICEP_ACTIVATION_WINDOW=OPEN:<expiración>` vigente (TTL máximo dos horas) y
+un `GOOGLE_FORM_ID` accesible. La property no se configura durante jornada.
+
+`clasp run` es **NO_REQUERIDO / NO_CONFIGURADO**. No crear API Executable,
+deployment adicional, scopes ni cambios GCP para diagnóstico. Usar el menú del
+Spreadsheet y Apps Script → Project Settings → Script Properties.

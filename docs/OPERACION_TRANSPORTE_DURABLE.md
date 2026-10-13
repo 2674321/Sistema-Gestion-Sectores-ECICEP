@@ -3,6 +3,11 @@
 Contrato operativo de la cola durable de captura. Complementa
 `docs/CONTRATO_CAPTURA_V2.md` (normativo) y el `RUNBOOK_CAPTURA.md`.
 
+> **v259 (DEC-114):** `FORM_RESPUESTAS` contiene tanto transporte actual como
+> historia pre-Forms. Solo `CAPTURE_PROVIDER=GOOGLE_FORMS` pertenece al backlog
+> vigente. El legado se marca `WEBAPP_LEGACY` + `LEGACY_PRE_FORMS`, se observa
+> por separado y no se auto-reprocesa.
+
 > **v258 (DEC-113):** el lease corto solo evita worker/worker. Cada entrega al
 > pipeline clínico toma además `Ecicep_conLock_`, sin incluir lectura del Form,
 > schema, extracción ni escritura del trailer. Fallo de LockService o contención
@@ -24,8 +29,9 @@ Contrato operativo de la cola durable de captura. Complementa
 no la tocó. `PROCESADO` significa que `Form_worker_` la entregó a `Captura V2` y
 fue clasificada.
 
-Consecuencia práctica: un `RECIBIDO` sin `PROCESADO` **no** es un error; es
-trabajo pendiente del worker.
+Consecuencia práctica: un `RECIBIDO` de `GOOGLE_FORMS` sin `PROCESADO` **no** es
+un error; es trabajo pendiente del worker. Un `RECIBIDO` histórico sin provider
+es deuda de reconciliación legacy, no trabajo elegible del worker moderno.
 
 ## Tres identificadores distintos
 
@@ -64,5 +70,9 @@ FORM_REQ:<clientRequestId> → RESERVED:<timestamp>   TTL 120 s
 - La cola es durable: un fallo de Sheets no pierde respuestas; el worker las
   drena cuando el destino vuelve.
 - Nunca se borran respuestas ni filas de cola; la reparación es aditiva.
+- La migración legacy solo completa las seis columnas modernas, es dry-run por
+  defecto, idempotente y no altera estados ni datos históricos.
+- La salud presenta canal actual y legado en bloques separados; las fechas
+  legacy no participan en `oldestPendingMin` actual.
 - `WebApp_verificarRecepcion(clientRequestId)` devuelve, sin PII:
   `{ok:true, estado:"RECIBIDO"|"EN_PROCESO"|"NO_ENCONTRADO"}`.

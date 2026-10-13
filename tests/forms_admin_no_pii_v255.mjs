@@ -11,7 +11,8 @@ h.install();
 const r = h.c.Form_crearRespuestaDesdePayloadWeb_(Object.assign(payloadFor('nuevoIngreso'), {
   rut: '12.345.678-5', nombre: 'PERSONA SECRETA', telefonos: '988888888'
 }));
-agregarFila(h, { RESPONSE_ID: captureIdDe(h, r.responseId), ESTADO: 'RECIBIDO', FECHA_FORMS: new Date().toISOString() });
+agregarFila(h, { RESPONSE_ID: captureIdDe(h, r.responseId), CAPTURE_PROVIDER: 'GOOGLE_FORMS',
+  TRANSPORT_RESPONSE_ID: r.responseId, ESTADO: 'RECIBIDO', FECHA_FORMS: new Date().toISOString() });
 
 const panel = h.c.Form_panelOperacion_();
 const dump = JSON.stringify(panel);

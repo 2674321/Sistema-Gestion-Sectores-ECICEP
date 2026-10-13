@@ -6,7 +6,8 @@ for (const rama of ['PROCESSED', 'REVIEW', 'TERMINAL', 'RETRYABLE']) {
   const h = createHarness255(); h.install();
   const resp = respuestaConCampos(h, 'nuevoIngreso', rama.length);
   const cid = captureIdDe(h, resp.getId());
-  agregarFila(h, { RESPONSE_ID: cid, ESTADO: 'PENDIENTE' });
+  agregarFila(h, { RESPONSE_ID: cid, CAPTURE_PROVIDER: 'GOOGLE_FORMS',
+    TRANSPORT_RESPONSE_ID: resp.id, ESTADO: 'PENDIENTE' });
   h.props.set('GOOGLE_FORM_CURSOR', '2026-01-01T00:00:00.000Z');
   let llamadas = 0;
   h.c.Form_procesarRespuestaConTransporte_ = () => {

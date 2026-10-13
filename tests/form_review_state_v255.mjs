@@ -7,7 +7,8 @@ import { payloadFor } from './helpers/forms_v254_harness.mjs';
 const h = createHarness255();
 h.install();
 const r = h.c.Form_crearRespuestaDesdePayloadWeb_(payloadFor('nuevoIngreso'));
-agregarFila(h, { RESPONSE_ID: captureIdDe(h, r.responseId), ESTADO: 'RECIBIDO', FECHA_FORMS: new Date().toISOString() });
+agregarFila(h, { RESPONSE_ID: captureIdDe(h, r.responseId), CAPTURE_PROVIDER: 'GOOGLE_FORMS',
+  TRANSPORT_RESPONSE_ID: r.responseId, ESTADO: 'RECIBIDO', FECHA_FORMS: new Date().toISOString() });
 
 // Falla del adaptador (no sistémica): la respuesta debe ir a REVIEW.
 const adaptador = h.c.CapturaIngress_adapterForms_;

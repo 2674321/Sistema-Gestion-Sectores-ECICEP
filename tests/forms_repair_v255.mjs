@@ -7,7 +7,8 @@ import { payloadFor } from './helpers/forms_v254_harness.mjs';
 const h = createHarness255();
 h.install();
 const r = h.c.Form_crearRespuestaDesdePayloadWeb_(payloadFor('nuevoIngreso'));
-agregarFila(h, { RESPONSE_ID: captureIdDe(h, r.responseId), ESTADO: 'RECIBIDO' });
+agregarFila(h, { RESPONSE_ID: captureIdDe(h, r.responseId), CAPTURE_PROVIDER: 'GOOGLE_FORMS',
+  TRANSPORT_RESPONSE_ID: r.responseId, ESTADO: 'RECIBIDO' });
 assert.equal(h.form.responses.length, 1);
 
 // Quitamos el trigger del worker para simular canal roto.

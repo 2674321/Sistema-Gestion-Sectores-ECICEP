@@ -2282,14 +2282,103 @@ function _pruS_auditoria_() {
 /** Menú Sistema → Google Forms: acciones operativas. */
 function UI_menuGoogleForms_() {
   var ui = _UI_get_();
-  var url = '';
-  try { url = (typeof Form_urlRespondedor_==='function')?Form_urlRespondedor_()||'' : ''; } catch(e) { url=''; }
   ui.createMenu('Google Forms — Canal ECICEP')
-    .addItem('Mostrar QR del Form', 'UI_mostrarQR_')
-    .addItem('Instalar/reparar canal', 'Form_operativoInstalar_')
-    .addItem('Sincronizar catálogos del Form', 'Form_syncCatalogos_')
-    .addItem('Estado operativo', 'Form_operativoEstado_')
+    .addItem('Mostrar QR de CapturaWeb', 'UI_mostrarQR_')
+    .addItem('Estado operativo', 'UI_formCanalEstado_')
+    .addItem('Diagnóstico (solo lectura)', 'UI_formCanalDiagnostico_')
+    .addItem('Legacy dry-run', 'UI_formCanalLegacyDryRun_')
+    .addItem('Instalar/reparar canal (ventana)', 'UI_formCanalInstalarSeguro_')
+    .addItem('Sincronizar catálogos (ventana)', 'UI_formCanalCatalogosSeguro_')
     .addSeparator()
     .addItem('Volver al menú de ECICEP', 'onOpen')
     .addToUi();
+}
+
+function UI_formCanalAlert_(titulo, lineas) {
+  _UI_get_().alert(titulo, lineas.join('\n'), _UI_get_().ButtonSet.OK);
+}
+
+/** Solo agregados; nunca expone IDs, URLs internas, secretos ni PII. */
+function UI_formCanalEstado_() {
+  var e = Form_operativoEstado_();
+  var b = e.backlog || {}, l = b.legacy || {};
+  UI_formCanalAlert_('Google Forms — estado', [
+    'Canal configurado: ' + (e.instalado ? 'sí' : 'no'),
+    'Schema: ' + e.schemaVersion + ' / ' + GOOGLE_FORMS_CONFIG.SCHEMA_VERSION,
+    'Form accesible: ' + (e.responsesDisponible ? 'sí' : 'no'),
+    'Trigger submit: ' + (e.triggerOnFormSubmit === null ? 'n/d' : e.triggerOnFormSubmit),
+    'Trigger worker: ' + (e.triggerWorker === null ? 'n/d' : e.triggerWorker),
+    'Backlog actual: ' + ((b.pending || 0) + (b.retryable || 0)),
+    'Legacy: ' + (l.total || 0) + ' total / ' + (l.review || 0) + ' review / ' + (l.terminal || 0) + ' terminal',
+    'Oldest pending actual (min): ' + (b.oldestPendingMin || 0)
+  ]);
+  return { ok: true };
+}
+
+function UI_formCanalDiagnostico_() {
+  var d = Form_operativoDiagnosticar_();
+  var lineas = (d.checks || []).map(function (c) {
+    var detalle = c.detalle;
+    if (c.nombre === 'form_id') detalle = c.ok ? 'Configurado' : 'Sin Form configurado';
+    if (c.nombre === 'url') detalle = c.ok ? 'Disponible (interna)' : 'Sin URL interna';
+    return (c.ok ? 'OK ' : 'FALLO ') + c.nombre + ': ' + detalle;
+  });
+  if (!(d.estado && d.estado.formId)) {
+    lineas.unshift('CANAL_GOOGLE_FORMS_NO_ACTIVADO');
+    lineas.push('Configure GOOGLE_FORM_ID únicamente durante la ventana de activación.');
+  }
+  UI_formCanalAlert_('Google Forms — diagnóstico', lineas);
+  return { ok: d.ok };
+}
+
+function UI_formCanalLegacyDryRun_() {
+  var r = Form_migrarTrailerLegacy_({ dryRun: true });
+  UI_formCanalAlert_('Legacy — dry-run', ['Filas: ' + r.totalFilas, 'Legacy: ' + r.legacyDetectadas,
+    'Terminal: ' + r.terminal, 'Review: ' + r.review, 'Ambiguas: ' + r.ambiguas,
+    'Columnas requeridas: ' + (r.requiereColumnas.join(', ') || 'ninguna')]);
+  return r;
+}
+
+function UI_formCanalInstalarSeguro_() {
+  var ventana = Operacion_ventanaActivacionAbierta_();
+  if (!ventana.ok) { UI_formCanalAlert_('Operación bloqueada', [ventana.motivo]); return ventana; }
+  if (!Form_formId_()) { var sinId = { ok: false, motivo: 'FORM_ID_REQUIRED' }; UI_formCanalAlert_('Operación bloqueada', [sinId.motivo]); return sinId; }
+  var diag = Form_operativoDiagnosticar_();
+  if (diag.estado && diag.estado.form && diag.estado.form.error) {
+    var inaccesible = { ok: false, motivo: 'FORM_NO_ACCESIBLE' };
+    UI_formCanalAlert_('Operación bloqueada', [inaccesible.motivo]); return inaccesible;
+  }
+  try {
+    var form = FormApp.openById(Form_formId_());
+    var schema = Form_auditarSchema_(form);
+    if (!schema.seguro) {
+      var ambiguo = { ok: false, motivo: 'FORM_SCHEMA_REQUIRES_REVIEW' };
+      UI_formCanalAlert_('Operación bloqueada', [ambiguo.motivo]); return ambiguo;
+    }
+  } catch (e) {
+    var noAbre = { ok: false, motivo: 'FORM_NO_ACCESIBLE' };
+    UI_formCanalAlert_('Operación bloqueada', [noAbre.motivo]); return noAbre;
+  }
+  var dry = Form_operativoReparar_({ dryRun: true });
+  if ((diag.checks || []).some(function (c) { return c.nombre === 'form_id' && !c.ok; })) return { ok: false, motivo: 'FORM_NO_ACCESIBLE' };
+  var ui = _UI_get_();
+  var conf = ui.alert('Confirmar ventana técnica', 'Se adoptará únicamente el GOOGLE_FORM_ID configurado. Dry-run: ' + (dry.necesitaCambio ? 'requiere cambios' : 'sin cambios') + '. ¿Continuar?', ui.ButtonSet.YES_NO);
+  if (conf !== ui.Button.YES) return { ok: false, motivo: 'CANCELADO' };
+  var r = Form_operativoInstalar_({ crearNuevo: false, adoptarExistente: true });
+  UI_formCanalAlert_('Instalación segura', [r.ok ? 'Completada' : ('Falló: ' + (r.motivo || 'ERROR'))]);
+  return r;
+}
+
+function UI_formCanalCatalogosSeguro_() {
+  var ventana = Operacion_ventanaActivacionAbierta_();
+  if (!ventana.ok) { UI_formCanalAlert_('Operación bloqueada', [ventana.motivo]); return ventana; }
+  if (!Form_formId_()) return { ok: false, motivo: 'FORM_ID_REQUIRED' };
+  var dry = Form_syncCatalogos_({ simular: true });
+  if (!dry.ok) return dry;
+  var ui = _UI_get_();
+  var conf = ui.alert('Confirmar catálogos', 'Dry-run: ' + dry.cambios.length + ' cambio(s). ¿Aplicar?', ui.ButtonSet.YES_NO);
+  if (conf !== ui.Button.YES) return { ok: false, motivo: 'CANCELADO' };
+  var r = Form_syncCatalogos_({ simular: false });
+  UI_formCanalAlert_('Catálogos', [r.ok ? 'Sincronización completada' : ('Falló: ' + (r.motivo || 'ERROR'))]);
+  return r;
 }

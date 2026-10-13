@@ -16,7 +16,9 @@ for (let i = 0; i < N; i++) {
 // registro). La clasificación la escribe el worker en el trailer.
 for (const resp of h.form.responses) {
   const cid = h.c.CapturaIngress_captureId_(h.form.id, resp.id);
-  h.dataSheet.rows.push(h.dataSheet.headers.map(k => k === 'RESPONSE_ID' ? cid : (k === 'ESTADO' ? 'RECIBIDO' : '')));
+  h.dataSheet.rows.push(h.dataSheet.headers.map(k => k === 'RESPONSE_ID' ? cid :
+    k === 'CAPTURE_PROVIDER' ? 'GOOGLE_FORMS' : k === 'TRANSPORT_RESPONSE_ID' ? resp.id :
+    k === 'ESTADO' ? 'RECIBIDO' : ''));
 }
 assert.equal(h.dataSheet.rows.length, N);
 

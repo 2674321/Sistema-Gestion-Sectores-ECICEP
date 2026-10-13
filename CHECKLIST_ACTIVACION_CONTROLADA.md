@@ -1,7 +1,8 @@
-# Checklist de activación controlada — v258
+# Checklist de activación controlada fuera de horario — v258/v259
 
-Este checklist se ejecuta sobre el único entorno operativo. Antes de comenzar,
-confirmar que el gate local sigue verde, que el Form adoptado es el correcto y que
+Este checklist no depende de un día específico y se ejecuta sobre el único entorno operativo. Antes de comenzar,
+confirmar jornada finalizada, usuarios fuera, backup reciente, rollback listo,
+que el gate local sigue verde, que el Form adoptado es el correcto y que
 el deployment operativo conserva la URL estable de Captura.
 
 1. **backup** — Crear y verificar un respaldo recuperable del Spreadsheet activo. Registrar ID, hora, responsable y recuentos de `PACIENTES`, `EVENTOS` y `FORM_RESPUESTAS`.

@@ -10,7 +10,9 @@ function conRespuesta(estado, fechaForms) {
   h.install();
   const r = h.c.Form_crearRespuestaDesdePayloadWeb_(payloadFor('nuevoIngreso'));
   const cid = captureIdDe(h, r.responseId);
-  h.dataSheet.rows.push(h.dataSheet.headers.map(k => k === 'RESPONSE_ID' ? cid : (k === 'ESTADO' ? estado : (k === 'FECHA_FORMS' ? fechaForms : ''))));
+  h.dataSheet.rows.push(h.dataSheet.headers.map(k => k === 'RESPONSE_ID' ? cid :
+    k === 'CAPTURE_PROVIDER' ? 'GOOGLE_FORMS' : k === 'TRANSPORT_RESPONSE_ID' ? r.responseId :
+    k === 'ESTADO' ? estado : k === 'FECHA_FORMS' ? fechaForms : ''));
   return h;
 }
 

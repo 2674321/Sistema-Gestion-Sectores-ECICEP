@@ -2583,3 +2583,27 @@ verifican todos los campos realmente tocados y sus derivados.
 137 suites / 0 fallos; núcleo 679/679; aceptación 50/50; contrato 36/36; HTML
 21/21; `auditar_v254` y placeholders PASS.
 **Fecha:** 2026-10-13
+## DEC-114
+**Título:** v259 — preparación local durante jornada y activación exclusivamente fuera de horario.
+**Estado:** Aprobada
+**Fecha:** 2026-10-13
+
+Mientras exista actividad clínica u operativa, ECICEP admite únicamente
+auditoría, lectura, backup y preparación local. Durante la jornada quedan
+prohibidos `clasp push`, deploy, instalación/reparación del Form, cambios de
+ScriptProperties, triggers, E2E mutante, migraciones del libro, cambio de QR y
+edición técnica de datos clínicos.
+
+La activación requiere simultáneamente `JORNADA_FINALIZADA`, `USUARIOS_FUERA`,
+`BACKUP_RECIENTE_VERIFICADO` y `ROLLBACK_LISTO`. Los mutadores administrativos
+del canal se exponen solo mediante wrappers de UI y una ventana técnica corta
+(`ECICEP_ACTIVATION_WINDOW=OPEN:<expiración>`, máximo dos horas). Esta property
+no bloquea ni participa en la operación clínica normal.
+
+Las filas anteriores a Google Forms se identifican por `Cp2/Cp3/Cp4` más
+ausencia inequívoca de metadatos modernos. Se marcan `WEBAPP_LEGACY` y
+`LEGACY_PRE_FORMS`, se observan fuera del backlog vigente y nunca se reenvían
+automáticamente al pipeline. Su migración es dry-run por defecto, solo completa
+el trailer moderno y exige columnas preexistentes. `clasp run` queda
+`NO_REQUERIDO / NO_CONFIGURADO`; la operación usa menú del Spreadsheet y Project
+Settings, sin API Executable, scopes ni deployment adicional.

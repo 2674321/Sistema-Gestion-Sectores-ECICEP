@@ -1,7 +1,9 @@
 # Plan de rollback v258
 
-Este plan usa únicamente identidades verificadas en vivo el 2026-10-13. No se
-debe sustituir ningún dato por referencias históricas.
+Este plan conserva las identidades verificadas en vivo el 2026-10-13 como
+referencia histórica. Antes de activar se debe refrescar deployment, versión,
+URL, triggers, conteos y crear/verificar un backup nuevo; no reutilizar
+automáticamente este snapshot si transcurrió actividad operativa.
 
 ## Estado anterior verificable
 
@@ -23,8 +25,8 @@ debe sustituir ningún dato por referencias históricas.
 4. Confirmar HTTP 200, la misma URL `/exec` y el build `6fb4ef6`.
 5. Restaurar exactamente el inventario de triggers anterior; no tocar otros.
 6. Preservar Form, respuestas y cola. No borrar filas clínicas ni respuestas.
-7. Comparar `PACIENTES=2734`, `EVENTOS=21884` y `FORM_RESPUESTAS=227` contra
-   el snapshot y el backup. No restaurar el libro completo si hubo escrituras
+7. Comparar los conteos contra el snapshot refrescado y el backup nuevo (los
+   valores 2734/21884/227 son solo evidencia del 2026-10-13). No restaurar el libro completo si hubo escrituras
    legítimas posteriores; resolver solo corrupción demostrada.
 8. Ejecutar diagnóstico read-only y reconciliación dry-run antes de reabrir.
 

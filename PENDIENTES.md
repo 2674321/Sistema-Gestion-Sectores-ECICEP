@@ -1,5 +1,13 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
+> **Actualización 2026-10-13 (v259 — DEC-114):** cierre local listo, sin activar.
+> La deuda heredada de `FORM_RESPUESTAS` quedó separada del backlog Google Forms,
+> con migración dry-run por defecto y reconciliación agregada read-only. Pendiente
+> exclusivamente para una ventana fuera de horario: refrescar snapshot y backup,
+> resolver/adoptar el Form, configurar hash de operador, abrir la ventana técnica,
+> publicar, migrar trailer legacy, instalar triggers y ejecutar E2E sintético.
+> `clasp run` no es requisito. Gate: `READY_FOR_AFTER_HOURS_ACTIVATION_WINDOW`.
+
 > **Actualización 2026-10-13 (v258 — DEC-113):** cerrados localmente los
 > residuos P0/P1 de concurrencia clínica, lock fail-open, gate del trailer,
 > liberación de lease, verificación post-delete, reconciliación de
@@ -8,11 +16,11 @@
 > preactivación, publicación en el mismo deployment y E2E sintético controlado.
 
 > **Gate real v258:** backup integral verificado y snapshot read-only completado.
-> La activación se detuvo antes de `clasp push`: `clasp run` no tiene permiso y
-> las inspecciones read-only discreparon sobre `GOOGLE_FORM_ID`/secreto, por lo
-> que el Form configurado no pudo verificarse inequívocamente. Estado:
-> `BLOCKED_FOR_ACTIVATION`. Repetir el snapshot al reanudar; no reutilizar los
-> conteos como si fueran actuales.
+> La activación v258 se detuvo antes de `clasp push`. La inspección definitiva
+> confirmó `GOOGLE_FORM_ID`, `GOOGLE_FORM_SCHEMA_VERSION` y
+> `ECICEP_OPERATOR_SECRET_SHA256` ausentes: esto significa
+> `CANAL_GOOGLE_FORMS_NO_ACTIVADO`, no corrupción. Repetir el snapshot al
+> reanudar; no reutilizar conteos anteriores como si fueran actuales.
 
 > **Actualización 2026-10-13 (v257 — DEC-112):** cerrados localmente los P0/P1
 > de integridad de identidad, confirmación de fila, unicidad RUT, rollback

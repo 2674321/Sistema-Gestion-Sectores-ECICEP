@@ -41,6 +41,15 @@ class MockDataSheet {
           for (let c = 0; c < values[r].length; c++) line[(col - 1) + c] = values[r][c];
         }
         return this;
+      },
+      setValue(value) {
+        const rr = row - 1;
+        if (rr === 0) self.headers[col - 1] = value;
+        else {
+          const line = self.rows[rr - 1] || (self.rows[rr - 1] = []);
+          line[col - 1] = value;
+        }
+        return this;
       }
     };
   }

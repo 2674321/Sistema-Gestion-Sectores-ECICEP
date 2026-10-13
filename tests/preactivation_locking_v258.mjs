@@ -21,7 +21,8 @@ import { createHarness255, agregarFila, captureIdDe, respuestaConCampos } from '
   const h = createHarness255(); h.install();
   const resp = respuestaConCampos(h, 'nuevoIngreso', 58);
   const cid = captureIdDe(h, resp.getId());
-  agregarFila(h, { RESPONSE_ID: cid, ESTADO: 'PENDIENTE' });
+  agregarFila(h, { RESPONSE_ID: cid, CAPTURE_PROVIDER: 'GOOGLE_FORMS',
+    TRANSPORT_RESPONSE_ID: resp.id, ESTADO: 'PENDIENTE' });
   h.setLockSequence([true, true, false]); // lease toma; métrica; lock clínico busy
   const primero = h.c.Form_worker_({ max: 1 });
   assert.equal(primero.retryable, 1);

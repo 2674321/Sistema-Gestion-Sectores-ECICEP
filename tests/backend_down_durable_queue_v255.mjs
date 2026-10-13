@@ -11,7 +11,9 @@ const r = h.c.Form_crearRespuestaDesdePayloadWeb_(payloadFor('nuevoIngreso'));
 assert.equal(r.ok, true);
 const resp = h.form.responses[0];
 const cid = h.c.CapturaIngress_captureId_(h.form.id, resp.id);
-h.dataSheet.rows.push(h.dataSheet.headers.map(k => k === 'RESPONSE_ID' ? cid : (k === 'ESTADO' ? 'RECIBIDO' : '')));
+h.dataSheet.rows.push(h.dataSheet.headers.map(k => k === 'RESPONSE_ID' ? cid :
+  k === 'CAPTURE_PROVIDER' ? 'GOOGLE_FORMS' : k === 'TRANSPORT_RESPONSE_ID' ? r.responseId :
+  k === 'ESTADO' ? 'RECIBIDO' : ''));
 
 // Backend caído: la primera pasada falla de forma retryable.
 let fallos = 0;

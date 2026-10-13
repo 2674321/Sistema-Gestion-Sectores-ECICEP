@@ -1083,6 +1083,9 @@ var GOOGLE_FORMS_CONFIG = {
     CAMPO_SOURCE: 'SOURCE',
     SOURCE_WEBAPP: 'WEBAPP',
     SOURCE_GOOGLE_FORM_DIRECTO: 'GOOGLE_FORM_DIRECT',
+    // v259: marca técnica, no clínica, para filas creadas antes del transporte
+    // durable Google Forms. Nunca se ofrece como provider operativo.
+    SOURCE_LEGACY_PRE_FORMS: 'LEGACY_PRE_FORMS',
     // Estructura del identificador emitido por la Web App (ERROR 21).
     PATRON_CLIENT_REQUEST_ID: /^CR-[0-9a-f]{32}$/,
     // Índice rápido en CacheService (NUNCA ScriptProperty por request).
@@ -1119,6 +1122,10 @@ var GOOGLE_FORMS_CONFIG = {
   RECONCILIACION: {
     VENTANA_HS: 24,                   // transportes 24-48h
     CADUCIDAD_MIN: 24 * 60            // más de 24h sin resolver en hoja → clasificar
+  },
+  ACTIVATION_WINDOW: {
+    CLAVE: 'ECICEP_ACTIVATION_WINDOW',
+    TTL_MAX_MS: 2 * 60 * 60 * 1000
   },
   NOMBRE_HOJA: 'GOOGLE_FORMS_METRICA' // hoja auxiliar (opcional) para métricas agregadas del canal
 };

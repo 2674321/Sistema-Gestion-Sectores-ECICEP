@@ -67,6 +67,22 @@ function Form_json_(raw) {
   try { var o = JSON.parse(raw); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
 }
 
+/** v259 (DEC-114): guard exclusivamente técnico para mutadores de activación.
+ *  Formato: OPEN:<timestamp de expiración ISO o epoch-ms>. No gobierna ninguna
+ *  mutación clínica normal. La ventana nunca puede extenderse más de dos horas. */
+function Operacion_ventanaActivacionAbierta_(ahoraMs) {
+  var ahora = Number(ahoraMs) || Date.now();
+  var cfg = GOOGLE_FORMS_CONFIG.ACTIVATION_WINDOW || {};
+  var raw = String(Form_propLeer_(cfg.CLAVE || 'ECICEP_ACTIVATION_WINDOW') || '').trim();
+  if (raw.indexOf('OPEN:') !== 0) return { ok: false, abierta: false, motivo: 'ACTIVATION_WINDOW_CLOSED' };
+  var valor = raw.slice(5).trim();
+  var expira = /^\d+$/.test(valor) ? Number(valor) : Date.parse(valor);
+  if (!isFinite(expira)) return { ok: false, abierta: false, motivo: 'ACTIVATION_WINDOW_INVALID' };
+  if (expira <= ahora) return { ok: false, abierta: false, motivo: 'ACTIVATION_WINDOW_EXPIRED' };
+  if (expira - ahora > (cfg.TTL_MAX_MS || 7200000)) return { ok: false, abierta: false, motivo: 'ACTIVATION_WINDOW_TTL_EXCEEDED' };
+  return { ok: true, abierta: true, expiraEn: new Date(expira).toISOString() };
+}
+
 /** Métricas del canal (contadores/gauges, no PII). */
 function Form_metricas_() {
   var claves = ['LOCK_BUSY_DEFERRED', 'WORKER_RUNS', 'WORKER_PROCESSED', 'WORKER_ERRORS',
@@ -876,6 +892,138 @@ function Form_hojaRespuetas_() {
   return null;
 }
 
+var FORM_LEGACY_TRAILER_COLUMNAS = ['CAPTURE_PROVIDER', 'TRANSPORT_RESPONSE_ID',
+  'CLIENT_REQUEST_ID', 'SOURCE', 'CLASIFICACION', 'TRANSPORTE_ERROR'];
+
+/** PURA: identidad inequívoca de una fila anterior a Google Forms. */
+function Form_esFilaLegacy_(fila) {
+  fila = fila || {};
+  var rid = String(fila.RESPONSE_ID || '').trim();
+  if (!/^Cp[234]-[0-9a-f]{32}$/.test(rid)) return false;
+  return !String(fila.CAPTURE_PROVIDER || '').trim() &&
+    !String(fila.TRANSPORT_RESPONSE_ID || '').trim() &&
+    !String(fila.CLIENT_REQUEST_ID || '').trim();
+}
+
+/** PURA: plan conservador; solo devuelve valores técnicos sin PII. */
+function Form_planMigracionLegacy_(fila) {
+  fila = fila || {};
+  if (!Form_esFilaLegacy_(fila)) return { legacy: false, ambiguo: /^Cp[234]-/.test(String(fila.RESPONSE_ID || '').trim()) };
+  var estado = String(fila.ESTADO || '').trim().toUpperCase();
+  var clasificacion = 'REVIEW', error = [];
+  if (estado === 'PROCESADO') clasificacion = 'TERMINAL';
+  else if (estado === 'REQUIERE_REVISION') error = [{ codigo: 'LEGACY_REQUIERE_REVISION' }];
+  else if (estado === 'RECIBIDO' || estado === 'ERROR') error = [{ codigo: 'LEGACY_RECONCILIATION_REQUIRED', estado: estado }];
+  else error = [{ codigo: 'LEGACY_STATE_UNKNOWN' }];
+  return {
+    legacy: true, estado: estado,
+    valores: {
+      CAPTURE_PROVIDER: CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY,
+      TRANSPORT_RESPONSE_ID: '', CLIENT_REQUEST_ID: '',
+      SOURCE: GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_LEGACY_PRE_FORMS,
+      CLASIFICACION: clasificacion, TRANSPORTE_ERROR: JSON.stringify(error)
+    }
+  };
+}
+
+function Form_filaPorMapa_(encabezados, valores) {
+  var o = {};
+  for (var i = 0; i < encabezados.length; i++) o[String(encabezados[i] || '').trim()] = valores[i];
+  return o;
+}
+
+/** v259: completa únicamente el trailer moderno de filas legacy. DEFAULT
+ *  dry-run. No crea columnas ni reintenta capturas históricas. */
+function Form_migrarTrailerLegacy_(opciones) {
+  opciones = opciones || {};
+  var dryRun = opciones.dryRun !== false;
+  var hoja = opciones.hoja || Form_hojaRespuetas_();
+  var out = { ok: true, dryRun: dryRun, totalFilas: 0, legacyDetectadas: 0,
+    terminal: 0, review: 0, cambios: 0, ambiguas: 0,
+    estados: { PROCESADO: 0, REQUIERE_REVISION: 0, RECIBIDO: 0, ERROR: 0, OTROS: 0 },
+    requiereColumnas: [] };
+  if (!hoja) return out;
+  var cols = hoja.getLastColumn(), rows = hoja.getLastRow();
+  if (!cols || rows < 2) return out;
+  var enc = hoja.getRange(1, 1, 1, cols).getValues()[0] || [];
+  var pos = {};
+  for (var i = 0; i < enc.length; i++) pos[String(enc[i] || '').trim()] = i;
+  out.requiereColumnas = FORM_LEGACY_TRAILER_COLUMNAS.filter(function (c) { return pos[c] === undefined; });
+  var datos = hoja.getRange(2, 1, rows - 1, cols).getValues();
+  out.totalFilas = datos.length;
+  var planes = [];
+  for (var r = 0; r < datos.length; r++) {
+    var obj = Form_filaPorMapa_(enc, datos[r]);
+    var plan = Form_planMigracionLegacy_(obj);
+    if (!plan.legacy) { if (plan.ambiguo) out.ambiguas++; continue; }
+    out.legacyDetectadas++;
+    var ek = Object.prototype.hasOwnProperty.call(out.estados, plan.estado) ? plan.estado : 'OTROS';
+    out.estados[ek]++;
+    if (plan.valores.CLASIFICACION === 'TERMINAL') out.terminal++; else out.review++;
+    planes.push({ fila: r + 2, original: obj, plan: plan });
+  }
+  if (dryRun) return out;
+  if (out.requiereColumnas.length) { out.ok = false; out.motivo = 'LEGACY_TRAILER_COLUMNS_REQUIRED'; return out; }
+  var ventana = Operacion_ventanaActivacionAbierta_();
+  if (!ventana.ok) { out.ok = false; out.motivo = ventana.motivo; return out; }
+  if (out.ambiguas) { out.ok = false; out.motivo = 'LEGACY_IDENTITY_AMBIGUOUS'; return out; }
+  try {
+    for (var p = 0; p < planes.length; p++) {
+      var item = planes[p];
+      FORM_LEGACY_TRAILER_COLUMNAS.forEach(function (nombre) {
+        if (String(item.original[nombre] || '').trim()) return; // preservar valor moderno
+        var nuevo = item.plan.valores[nombre];
+        if (nuevo === '') return;
+        hoja.getRange(item.fila, pos[nombre] + 1, 1, 1).setValue(nuevo);
+        out.cambios++;
+      });
+    }
+    // Verificación: ninguna fila aplicada puede seguir siendo legacy.
+    var ver = hoja.getRange(2, 1, rows - 1, cols).getValues();
+    for (var v = 0; v < planes.length; v++) {
+      if (Form_esFilaLegacy_(Form_filaPorMapa_(enc, ver[planes[v].fila - 2]))) {
+        out.ok = false; out.motivo = 'LEGACY_TRAILER_WRITE_VERIFY_FAILED'; break;
+      }
+    }
+  } catch (e) {
+    out.ok = false; out.motivo = 'LEGACY_TRAILER_WRITE_VERIFY_FAILED';
+  }
+  return out;
+}
+
+/** Resumen agregado del legado, antes o después de completar su trailer. */
+function Form_resumenLegacy_(estados) {
+  var out = { total: 0, terminal: 0, review: 0, unresolved: 0 };
+  (estados || new Map()).forEach(function (reg) {
+    if (!reg.legacy) return;
+    out.total++;
+    var cls = String(reg.clasificacion || '').toUpperCase();
+    var est = String(reg.estado || '').toUpperCase();
+    if (cls === 'TERMINAL' || est === 'PROCESADO') out.terminal++;
+    else { out.review++; if (est === 'RECIBIDO' || est === 'ERROR' || !est) out.unresolved++; }
+  });
+  return out;
+}
+
+/** Read-only: índice agregado de ID_EVENTO, sin conservar otras columnas. */
+function Form_eventosIdsExistentes_() {
+  var ids = {};
+  try {
+    var hoja = typeof Modelo_hoja_ === 'function' ? Modelo_hoja_(HOJAS.EVENTOS) : null;
+    var hr = typeof Modelo_headerRow_ === 'function' ? Modelo_headerRow_(HOJAS.EVENTOS) : 1;
+    if (!hoja || hoja.getLastRow() <= hr) return ids;
+    var cols = hoja.getLastColumn();
+    var enc = hoja.getRange(hr, 1, 1, cols).getValues()[0] || [];
+    var ix = enc.map(function (x) { return String(x || '').trim().toUpperCase(); }).indexOf('ID_EVENTO');
+    if (ix < 0) return ids;
+    var valores = hoja.getRange(hr + 1, ix + 1, hoja.getLastRow() - hr, 1).getValues();
+    for (var i = 0; i < valores.length; i++) {
+      var id = String(valores[i][0] || '').trim(); if (id) ids[id] = true;
+    }
+  } catch (e) { return {}; }
+  return ids;
+}
+
 /** GAS: lee UNA sola vez los estados actuales de la cola técnica.
  *  → Map<captureId,{filaFisica,estado,clasificacion,fechaForms}>.
  *  v255 (E13/E14): la clasificación (REVIEW/RETRYABLE/TERMINAL) se lee del
@@ -900,6 +1048,10 @@ function Form_leerEstadosCola_() {
     var colCls = mapa[Utl_claveAlnum_('CLASIFICACION')];
     var colErr = mapa[Utl_claveAlnum_('TRANSPORTE_ERROR')];
     var colFecha = mapa[Utl_claveAlnum_('FECHA_FORMS')];
+    var colProvider = mapa[Utl_claveAlnum_('CAPTURE_PROVIDER')];
+    var colTransport = mapa[Utl_claveAlnum_('TRANSPORT_RESPONSE_ID')];
+    var colClient = mapa[Utl_claveAlnum_('CLIENT_REQUEST_ID')];
+    var colSource = mapa[Utl_claveAlnum_('SOURCE')];
     if (colRid === undefined) return { ok: true, estados: estados };
     var datos = hoja.getRange(2, 1, ultR - 1, ultC).getValues();
     for (var r = 0; r < datos.length; r++) {
@@ -907,12 +1059,20 @@ function Form_leerEstadosCola_() {
       var cid = fila[colRid] === undefined || fila[colRid] === null ? '' : String(fila[colRid]).trim();
       var clave = Utl_claveAlnum_(cid);
       if (!cid || clave === 'RESPONSEID' || clave === 'RESPONSE_ID') continue;
+      var provider = colProvider !== undefined ? Utl_texto_(fila[colProvider]).toUpperCase() : '';
+      var transportId = colTransport !== undefined ? Utl_texto_(fila[colTransport]) : '';
+      var clientId = colClient !== undefined ? Utl_texto_(fila[colClient]) : '';
+      var source = colSource !== undefined ? Utl_texto_(fila[colSource]) : '';
       estados.set(cid, {
         filaFisica: r + 2,
         estado: colEst !== undefined ? Utl_texto_(fila[colEst]).toUpperCase() : '',
         clasificacion: colCls !== undefined ? Utl_texto_(fila[colCls]).toUpperCase() : '',
         transporteError: colErr !== undefined ? Utl_texto_(fila[colErr]) : '',
-        fechaForms: colFecha !== undefined ? Utl_texto_(fila[colFecha]) : ''
+        fechaForms: colFecha !== undefined ? Utl_texto_(fila[colFecha]) : '',
+        captureProvider: provider, transportResponseId: transportId, source: source,
+        legacy: Form_esFilaLegacy_({ RESPONSE_ID: cid, CAPTURE_PROVIDER: provider,
+          TRANSPORT_RESPONSE_ID: transportId, CLIENT_REQUEST_ID: clientId }) ||
+          provider === CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY
       });
     }
   } catch (e) {
@@ -1320,7 +1480,8 @@ function Form_worker_(opciones) {
  *  (nunca de contadores acumulativos). Devuelve processed/retryable/review/
  *  terminal/pending/oldestPendingMin. */
 function Form_backlogResumen_() {
-  var resumen = { ok: true, disponible: true, processed: 0, retryable: 0, review: 0, terminal: 0, pending: 0, tajada: [], oldestPendingMin: 0 };
+  var resumen = { ok: true, disponible: true, processed: 0, retryable: 0, review: 0, terminal: 0, pending: 0, tajada: [], oldestPendingMin: 0,
+    legacy: { total: 0, terminal: 0, review: 0, unresolved: 0 } };
   var lectura = Form_leerEstadosCola_();
   // v256 (P0/P1): estado DESCONOCIDO — nunca reportar 0 como si la cola
   // estuviera vacía cuando en realidad no pudo leerse.
@@ -1331,9 +1492,11 @@ function Form_backlogResumen_() {
     return resumen;
   }
   var estados = lectura.estados;
+  resumen.legacy = Form_resumenLegacy_(estados);
   var ahora = Date.now();
   var minTs = null;
   estados.forEach(function (reg, cid) {
+    if (reg.legacy) return;
     var cls = String(reg.clasificacion || '').toUpperCase();
     var est = String(reg.estado || '').toUpperCase();
     // La CLASIFICACION del trailer (escrita por el worker) es autoritativa.
@@ -1350,6 +1513,43 @@ function Form_backlogResumen_() {
   });
   resumen.oldestPendingMin = minTs ? Math.max(0, Math.round((ahora - minTs) / 60000)) : 0;
   return resumen;
+}
+
+/** v259: clasificación read-only y agregada de legado no terminal. */
+function Form_legacyReconciliarDryRun_(opciones) {
+  opciones = opciones || {};
+  var out = { ok: true, dryRun: true, totalNoTerminal: 0, CANONICAL_CONFIRMED: 0,
+    INGRESO_REFERENCE_EXISTS: 0, REQUIRES_MANUAL_REVIEW: 0, IDENTITY_INSUFFICIENT: 0 };
+  var hoja = opciones.hoja || Form_hojaRespuetas_();
+  if (!hoja || hoja.getLastRow() < 2) return out;
+  var cols = hoja.getLastColumn(), rows = hoja.getLastRow();
+  var enc = hoja.getRange(1, 1, 1, cols).getValues()[0] || [];
+  var datos = hoja.getRange(2, 1, rows - 1, cols).getValues();
+  var idsEventos = opciones.eventoExiste ? null : Form_eventosIdsExistentes_();
+  for (var i = 0; i < datos.length; i++) {
+    var f = Form_filaPorMapa_(enc, datos[i]);
+    var legacy = Form_esFilaLegacy_(f) || String(f.CAPTURE_PROVIDER || '').toUpperCase() === CAPTURA_INGESTA_PROVIDERS.WEBAPP_LEGACY;
+    if (!legacy || String(f.ESTADO || '').toUpperCase() === 'PROCESADO') continue;
+    out.totalNoTerminal++;
+    var canonical = false, ingreso = false;
+    if (String(f.ID_EVENTO || '').trim()) {
+      try { canonical = opciones.eventoExiste ? !!opciones.eventoExiste(f.ID_EVENTO) : !!idsEventos[String(f.ID_EVENTO).trim()]; } catch (e) { canonical = false; }
+    }
+    if (!canonical && f.INGRESO_HOJA && f.INGRESO_FILA) {
+      try {
+        if (opciones.ingresoReferenciaExiste) ingreso = !!opciones.ingresoReferenciaExiste(f.INGRESO_HOJA, f.INGRESO_FILA, f.RESPONSE_ID);
+        else if (typeof Form_buscarFilaIngresoPorMarca_ === 'function' && typeof Form_marcadorFuente_ === 'function') {
+          var hallado = Form_buscarFilaIngresoPorMarca_(Form_marcadorFuente_(f.RESPONSE_ID, 'INGRESO'));
+          ingreso = !!(hallado && String(hallado.hoja) === String(f.INGRESO_HOJA) && String(hallado.fila) === String(f.INGRESO_FILA));
+        }
+      } catch (e2) { ingreso = false; }
+    }
+    if (canonical) out.CANONICAL_CONFIRMED++;
+    else if (ingreso) out.INGRESO_REFERENCE_EXISTS++;
+    else if (!String(f.ID_EVENTO || '').trim() && !String(f.ID_INTERNO || '').trim() && !(f.INGRESO_HOJA && f.INGRESO_FILA)) out.IDENTITY_INSUFFICIENT++;
+    else out.REQUIRES_MANUAL_REVIEW++;
+  }
+  return out;
 }
 
 /** GAS: clasifica envíos del Form que no llegaron a procesarse.
@@ -1516,6 +1716,7 @@ function Form_operativoEstado_(opciones) {
     responsesDisponible: responsesDisponible,
     metricas: metricas,
     observabilidad: {
+      formsResponses: responsesDisponible ? total : 'DESCONOCIDO',
       responsesTotal: responsesDisponible ? total : 'DESCONOCIDO',
       responsesDisponible: responsesDisponible,
       processed: backlog.terminal + backlog.processed,
@@ -1526,12 +1727,15 @@ function Form_operativoEstado_(opciones) {
       oldestPendingMin: backlog.oldestPendingMin,
       backlogDisponible: backlog.disponible !== false,
       triggersDisponible: triggersDisponible
+      ,legacy: backlog.legacy,
+      legacyTotal: backlog.legacy.total, legacyTerminal: backlog.legacy.terminal,
+      legacyReview: backlog.legacy.review, legacyUnresolved: backlog.legacy.unresolved
     },
     backlogDisponible: backlog.disponible !== false,
     responsesDisponible: responsesDisponible,
     triggersDisponible: triggersDisponible,
     backlogMotivo: backlog.motivo || '',
-    backlog: { disponible: backlog.disponible !== false, oldestPendingMin: backlog.oldestPendingMin, pendientes: backlog.pending + backlog.retryable, pending: backlog.pending, retryable: backlog.retryable, review: backlog.review, terminal: backlog.terminal },
+    backlog: { disponible: backlog.disponible !== false, oldestPendingMin: backlog.oldestPendingMin, pendientes: backlog.pending + backlog.retryable, pending: backlog.pending, retryable: backlog.retryable, review: backlog.review, terminal: backlog.terminal, legacy: backlog.legacy },
     form: info,
     canal: 'GOOGLE_FORMS'
   };
@@ -1570,6 +1774,7 @@ function Form_saludOperativa_(opciones) {
   var estado = diag.estado || {};
   var backlog = estado.backlog || {};
   var alertas = [];
+  var advertenciasHistoricas = [];
   var nivel = 'OK';
   if ((estado.triggerWorker || 0) !== 1) { nivel = 'CRITICAL'; alertas.push('WORKER_TRIGGER_AUSENTE'); }
   if (!estado.formId || estado.form.error) { if (nivel !== 'CRITICAL') nivel = 'CRITICAL'; alertas.push('FORM_NO_ACCESIBLE'); }
@@ -1590,7 +1795,8 @@ function Form_saludOperativa_(opciones) {
   } else if ((backlog.pending || 0) + (backlog.retryable || 0) > 0 || (backlog.review || 0) > 0) {
     if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('BACKLOG_PENDIENTE');
   }
-  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, backlog: backlog, backlogDisponible: estado.backlogDisponible !== false, responsesDisponible: estado.responsesDisponible !== false, triggersDisponible: estado.triggersDisponible !== false, diagOk: diag.ok, checks: diag.checks };
+  if (backlog.legacy && backlog.legacy.unresolved > 0) advertenciasHistoricas.push('LEGACY_RECONCILIATION_PENDING');
+  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, advertenciasHistoricas: advertenciasHistoricas, backlog: backlog, backlogDisponible: estado.backlogDisponible !== false, responsesDisponible: estado.responsesDisponible !== false, triggersDisponible: estado.triggersDisponible !== false, diagOk: diag.ok, checks: diag.checks };
 }
 
 /** v255 (M06): panel de operación del transporte — solo agregados, SIN PII. */
@@ -1605,6 +1811,7 @@ function Form_panelOperacion_(opciones) {
     generadoEn: String(new Date(ahora).toISOString()),
     health: salud.estado,
     alertas: salud.alertas,
+    advertenciasHistoricas: salud.advertenciasHistoricas,
     worker: { triggerWorkerCount: estado.triggerWorker || 0, cadenceMin: 5 },
     lastWorkerRunAt: Form_propLeer_('GOOGLE_FORM_LAST_WORKER_RUN_TS') || '',
     lastWorkerOkAt: Form_propLeer_('GOOGLE_FORM_LAST_WORKER_OK_TS') || '',
@@ -1613,6 +1820,13 @@ function Form_panelOperacion_(opciones) {
     lastRetryableAt: Form_propLeer_('GOOGLE_FORM_LAST_RETRYABLE_TS') || '',
     lastTerminalAt: Form_propLeer_('GOOGLE_FORM_LAST_TERMINAL_TS') || '',
     backlog: salud.backlog,
+    canalActual: {
+      formsResponses: estado.observabilidad ? estado.observabilidad.formsResponses : 'DESCONOCIDO',
+      processed: estado.observabilidad ? estado.observabilidad.processed : 0,
+      retryable: salud.backlog.retryable || 0, review: salud.backlog.review || 0,
+      pending: salud.backlog.pending || 0, oldestPendingMin: salud.backlog.oldestPendingMin || 0
+    },
+    legado: salud.backlog.legacy || { total: 0, terminal: 0, review: 0, unresolved: 0 },
     lockBusy: m.LOCK_BUSY_DEFERRED || 0,
     recepciones: Number(Form_propLeer_('GOOGLE_FORM_METRIC_SUBMIT_SIGNAL_COUNT')) || 0,
     errores: m.WORKER_ERRORS || 0,
