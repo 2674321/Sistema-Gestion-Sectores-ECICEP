@@ -1,3 +1,9 @@
+> **Corregido posteriormente por v256 (2026-10-13, DEC-111):** la semántica de
+> fallos del canal cambió: `INCIERTO` para errores técnicos (nunca
+> `NO_ENCONTRADO`), lease del worker desacoplado del `ScriptLock`, dry-run de
+> reparación estrictamente read-only, eliminación de ScriptProperties por captura
+> y GC acotado de respaldos. Ver `INFORME_V256_CIERRE_RUNTIME_P0_P1.md`.
+
 ESTADO: READY_FOR_GAS_PREACTIVATION
 
 HEAD_INICIAL: 0f0d1377f2dc888a427cc3e4099ffb7e2f828004

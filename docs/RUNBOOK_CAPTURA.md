@@ -1,6 +1,12 @@
 # Runbook Captura — ECICEP
 
-Guía operativa del canal de captura (`CapturaWeb → WebApp_capturarRecibirDurable
+> **Actualización 2026-10-13 (v256, DEC-111):** ante fallo técnico de
+> verificación de recepción, el estado es `INCIERTO` (nunca `NO_ENCONTRADO`);
+> `NO_ENCONTRADO` solo con evidencia válida de ausencia. Ante `INCIERTO` el
+> usuario reintenta, no asume pérdida. La captura con `clientRequestId` no envía
+> sin reserva resuelta.
+
+Guía operativa del canal de captura (`CapturaWeb → WebApp_capturarRecibirDurable (`CapturaWeb → WebApp_capturarRecibirDurable
 → FormResponse.submit() → Form_worker_ → Captura V2`). **Normativo de operación**,
 no de contrato; el contrato es `docs/CONTRATO_CAPTURA_V2.md`.
 

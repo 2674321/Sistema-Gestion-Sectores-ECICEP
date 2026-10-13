@@ -1,6 +1,13 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
-> **Actualización 2026-09-27 (DEC-100):** cerrado localmente el incidente de
+> **Actualización 2026-10-13 (v256 — DEC-111):** cerrado localmente el cierre
+> transversal runtime P0/P1 (semántica `INCIERTO`, reserva de idempotencia, lease
+> del worker, dry-run read-only, trailer autoritativo, GC de respaldos,
+> contadores reales en "Actualizar"). 130 suites / 0 fallos. Pendiente
+> exclusivamente operativo: activación autorizada (sin `clasp push`/deploy en esta
+> fase). Gate: `READY_FOR_PROMPT_2_DATA_INTEGRITY`.
+
+> **Actualización 2026-09-27 (DEC-100):** cerrado localmente el incidente de cerrado localmente el incidente de
 > incorporación cross-sector y falsa duplicidad por `PACIENTES.FECHA_INGRESO`.
 > El pipeline único registra `CAMBIO_SECTOR` + `INGRESO`, conserva cambios
 > posteriores en retries, trata `MULTIPLE` como revisión y verifica la vista.

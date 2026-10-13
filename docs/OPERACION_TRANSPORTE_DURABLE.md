@@ -3,6 +3,13 @@
 Contrato operativo de la cola durable de captura. Complementa
 `docs/CONTRATO_CAPTURA_V2.md` (normativo) y el `RUNBOOK_CAPTURA.md`.
 
+> **Corregido por v256 (2026-10-13, DEC-111):** los errores por captura ya **no**
+> viven en ScriptProperties (`GOOGLE_FORM_ERRORS|<captureId>` eliminado); el
+> trailer de `FORM_RESPUESTAS` (`CLASIFICACION`/`TRANSPORTE_ERROR`) es
+> autoritativo. Estado de cola ilegible ⇒ el worker activa circuito y no avanza
+> (`QUEUE_STATE_READ_FAILED`). El worker usa un lease corto, no el `ScriptLock`
+> durante el pipeline.
+
 ## RECIBIDO ≠ PROCESADO
 
 `RECIBIDO` solo significa que Google Forms aceptó la respuesta

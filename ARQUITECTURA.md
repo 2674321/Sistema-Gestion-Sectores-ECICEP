@@ -1,5 +1,16 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-10-13 (v256 — DEC-111, consistencia runtime):**
+> - Los fallos de infraestructura del canal Forms devuelven `INCIERTO`, nunca
+>   `NO_ENCONTRADO`; `NO_ENCONTRADO` exige evidencia válida de ausencia.
+> - La captura con `clientRequestId` no envía sin reserva resuelta; el worker usa
+>   un lease corto en vez de retener el `ScriptLock` durante el pipeline.
+> - El trailer de `FORM_RESPUESTAS` es autoritativo: eliminadas las claves
+>   `GOOGLE_FORM_ERRORS|<captureId>`; dry-run de reparación estrictamente
+>   read-only; respaldos del instalador con GC acotado.
+> - "Actualizar sistema" marca `INICIO` dirty solo con contadores reales de
+>   cambio. No cambia la arquitectura única, el pipeline ni los contratos públicos.
+
 > **Actualización 2026-10-12 (v255 — DEC-110, frontera RPC de captura/operador):**
 > - La **CAPTURA pública concede siempre** y es anónima:
 >   `WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`,

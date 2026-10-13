@@ -1,5 +1,12 @@
 # INFORME_V255_AUDITORIA_CORREGIDA
 
+> **Corregido posteriormente por v256 (2026-10-13, DEC-111):** este informe
+> describía `NO_ENCONTRADO` como resultado también ante fallos técnicos y el
+> registro de errores por captura en ScriptProperties. v256 los invalida: los
+> fallos de infraestructura devuelven `INCIERTO` y el trailer de `FORM_RESPUESTAS`
+> es la fuente autoritativa (sin claves `GOOGLE_FORM_ERRORS|<captureId>`). Ver
+> `INFORME_V256_CIERRE_RUNTIME_P0_P1.md`.
+
 ESTADO: READY_FOR_REVIEW
 AUDITORIA_CONFIABLE: PASS
 V254_CANDIDATE: FROZEN (4814e15)

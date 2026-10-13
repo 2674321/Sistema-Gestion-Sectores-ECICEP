@@ -2511,3 +2511,28 @@ reescrita al contrato DEC-110; suites `public_capture_unauthenticated_v255`,
 `private_trigger_menu_handlers_v255` y `rpc_public_surface_v255` PASS. Surface
 pública ≥15 → <15; PII sin OPSESS: 0; RPC directa operador fuera del gateway: 0.
 **Fecha:** 2026-10-12
+
+## DEC-111
+**Título:** v256 — cierre transversal runtime P0/P1: incertidumbre técnica, concurrencia y verdad operativa.
+**Estado:** Aprobada
+**Motivo:** la fase v255 dejó rutas donde un error de infraestructura se degradaba
+a un estado de negocio concluyente y donde el worker/captura serializaban de más o
+de menos. v256 los corrige sin cambiar contratos públicos ni producción.
+**Contenido:**
+- `NO_ENCONTRADO` **nunca** por fallo técnico: `Form_incierto_` devuelve `INCIERTO`
+  ante Form no configurado/no accesible, `getResponses` fallido o verificación
+  fallida. Una fila ilegible se omite, no anula la búsqueda.
+- La captura con `clientRequestId` **jamás** hace `submit()` sin reserva resuelta
+  (`Form_reservarRequestIdConLock_` → `RECIBIDO|EN_PROCESO|RESERVADO|SERVICIO_OCUPADO`;
+  sin lock ⇒ `INCIERTO/SERVICIO_OCUPADO`).
+- El worker usa **lease corto** (`Form_lease*`, `WORKER_LEASE.TTL_S`); el
+  `ScriptLock` no cubre I/O ni pipeline.
+- Dry-run de reparación es **read-only** (`{simular}`); el trailer de
+  `FORM_RESPUESTAS` es la fuente autoritativa (se elimina `GOOGLE_FORM_ERRORS|<captureId>`).
+- Cola ilegible ⇒ `QUEUE_STATE_READ_FAILED` (no "todos elegibles"); fallo de
+  `getResponses` del worker ⇒ circuito; el cursor no avanza si el trailer falla.
+- `Form_metricaSumar_` atómico (lock breve); el trigger `onFormSubmit` es lock-free.
+- Instalador: GC acotado (`ECICEP_INST_BK|` ≤ `INSTALAR_BK_GC_MAX`).
+- `Act_actualizarSistema_` marca `INICIO` **solo** con contadores reales de cambio.
+**Validación:** `tools/verificar.mjs` 130 suites / 0 fallos; `tests/forms_v256_failure_semantics.mjs`.
+**Fecha:** 2026-10-13
