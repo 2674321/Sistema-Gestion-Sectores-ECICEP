@@ -353,7 +353,18 @@ assert.doesNotMatch(wrapperSrc, /1tRDqhb/, 'sin el ID del Form manual anterior')
 assert.doesNotMatch(wrapperSrc, /docs\.google\.com\/forms\/d\//, 'sin URL de Form concreto');
 assert.doesNotMatch(releaseSrc, /docs\.google\.com\/forms\/d\/[A-Za-z0-9_-]{10,}/, 'sin Form concreto en el release');
 assert.doesNotMatch(canalSrc, /docs\.google\.com\/forms\/d\/[A-Za-z0-9_-]{10,}/, 'sin Form concreto en el canal');
-assert.equal((wrapperSrc.match(/console\.log/g) || []).length, 1, 'una sola salida de log (la sanitizada)');
+// Cada wrapper temporal tiene UNA sola salida de log, y es la sanitizada.
+const cuerpoActivacion = wrapperSrc.slice(
+  wrapperSrc.indexOf('function ECICEP_ACTIVAR_AHORA('),
+  wrapperSrc.indexOf('function ECICEP_asegurarBackupActivacion_(')
+);
+assert.equal((cuerpoActivacion.match(/console\.log/g) || []).length, 1, 'una sola salida de log (la sanitizada)');
+const iWorker = wrapperSrc.indexOf('function ECICEP_EJECUTAR_WORKER_AHORA(');
+if (iWorker >= 0) {
+  const cuerpoWorker = wrapperSrc.slice(iWorker);
+  assert.equal((cuerpoWorker.match(/console\.log/g) || []).length, 1, 'el wrapper del worker loguea una sola vez');
+  assert.match(cuerpoWorker, /console\.log\('ECICEP_WORKER_MANUAL_RESULT ' \+ JSON\.stringify\(salida\)\)/, 'prefijo de log del worker');
+}
 assert.doesNotMatch(wrapperSrc, /console\.log\([^)]*[Tt]oken/, 'nunca registra el token');
 assert.doesNotMatch(wrapperSrc, /clasp/i, 'sin clasp');
 assert.doesNotMatch(wrapperSrc, /newDeployment|updateDeployment|\.deploy\s*\(/i, 'sin deploy');

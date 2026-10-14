@@ -210,3 +210,42 @@ function ECICEP_bootstrapFormProduccion_() {
   try { FormApp.openById(vigente); } catch (eFinal) { return { ok: false, motivo: 'FORM_BOOTSTRAP_VERIFY_FAILED' }; }
   return { ok: true, creado: true, metodo: metodo };
 }
+
+/**
+ * TEMPORAL v268: ejecuta el worker UNA sola vez, a mano, desde el editor.
+ * Diagnostica el tramo asíncrono (respuesta del Form → FORM_RESPUESTAS).
+ * No muta Forms, triggers ni esquemas; no imprime PII: se reenvía tal cual la
+ * salida natural de `Form_worker_` más el diagnóstico técnico del canal.
+ */
+function ECICEP_EJECUTAR_WORKER_AHORA() {
+  var resultado = null;
+  var diagnostico = null;
+
+  try {
+    resultado = Form_worker_();
+  } catch (e) {
+    resultado = {
+      ok: false,
+      motivo: 'WORKER_EXCEPTION',
+      detalle: String(e && e.message || e)
+    };
+  }
+
+  try {
+    diagnostico = Form_operativoDiagnosticar_();
+  } catch (e2) {
+    diagnostico = {
+      ok: false,
+      motivo: 'DIAGNOSTICO_EXCEPTION',
+      detalle: String(e2 && e2.message || e2)
+    };
+  }
+
+  var salida = {
+    worker: resultado,
+    diagnostico: diagnostico
+  };
+
+  console.log('ECICEP_WORKER_MANUAL_RESULT ' + JSON.stringify(salida));
+  return salida;
+}
