@@ -155,10 +155,31 @@ function UI_formCanalCrearNuevoSeguro_() {
   return d.ok ? { ok: true, motivo: 'FORM_CREADO_E_INSTALADO' } : { ok: false, motivo: 'POST_INSTALL_DIAGNOSTIC_FAILED', formConservado: true };
 }
 
+/** Blockers que el instalador puede reparar; el resto detiene el asistente
+ *  ANTES de cualquier mutación (fail-closed). PURA. */
+function Operacion_preflightBloqueosNoReparables_(pre) {
+  var reparables = {
+    FORM_COLUMNS_CURRENT: true,
+    FORM_SUBMIT_TRIGGER_COUNT: true,
+    FORM_WORKER_TRIGGER_COUNT: true
+  };
+  return ((pre && pre.checks) || []).filter(function (c) {
+    return c.estado === 'BLOCK' && !reparables[c.nombre];
+  });
+}
+
 /** Asistente del Spreadsheet. Deliberadamente no contiene push/deploy. */
 function UI_formCanalAsistenteActivacion_() {
   var v = Operacion_ventanaActivacionAbierta_(); if (!v.ok) return v;
   var pre = Operacion_preflightRelease_();
+  var bloqueos = Operacion_preflightBloqueosNoReparables_(pre);
+  if (bloqueos.length) {
+    return {
+      ok: false,
+      motivo: 'RELEASE_PREFLIGHT_BLOCKED',
+      bloqueos: bloqueos.map(function (c) { return c.nombre; })
+    };
+  }
   if (!WebApp_operadorConfigurado_()) return { ok: false, motivo: 'OPERATOR_SETUP_REQUIRED', siguiente: 'UI_operadorConfigurarClaveActivacion_' };
   if (!Form_formId_()) return { ok: false, motivo: 'FORM_SETUP_REQUIRED', siguiente: 'UI_formCanalAdoptarId_|UI_formCanalCrearNuevoSeguro_' };
   var inst = UI_formCanalInstalarSeguro_(); if (!inst.ok) return inst;
@@ -171,6 +192,17 @@ function UI_formCanalAsistenteActivacion_() {
   }
   var post = Form_operativoDiagnosticar_();
   if (!post.ok) return { ok: false, motivo: 'POST_INSTALL_DIAGNOSTIC_FAILED' };
+  // Post-preflight: tras instalar/legacy, NINGÚN BLOCK (ni siquiera los
+  // reparables) puede permanecer para declarar READY_FOR_DEPLOY.
+  var postPre = Operacion_preflightRelease_();
+  var bloqueosPost = ((postPre && postPre.checks) || []).filter(function (x) { return x.estado === 'BLOCK'; });
+  if (bloqueosPost.length) {
+    return {
+      ok: false,
+      motivo: 'POST_RELEASE_PREFLIGHT_BLOCKED',
+      bloqueos: bloqueosPost.map(function (c) { return c.nombre; })
+    };
+  }
   UI_formCanalAlert_('Asistente de activación', ['LISTO PARA DEPLOY']);
   return { ok: true, estado: 'READY_FOR_DEPLOY', preflight: pre.resultado };
 }
