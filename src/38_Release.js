@@ -167,6 +167,7 @@ function UI_formCanalCrearNuevoSeguro_() {
  *  ANTES de cualquier mutación (fail-closed). PURA. */
 function Operacion_preflightBloqueosNoReparables_(pre) {
   var reparables = {
+    FORM_SCHEMA_CURRENT: true,
     FORM_COLUMNS_CURRENT: true,
     FORM_SUBMIT_TRIGGER_COUNT: true,
     FORM_WORKER_TRIGGER_COUNT: true

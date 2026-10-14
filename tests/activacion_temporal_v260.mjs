@@ -12,6 +12,19 @@ assert.match(s, /WebApp_operadorConfigurado_/, 'exige operador');
 assert.match(s, /OPERADOR_NO_CONFIGURADO/, 'motivo operador');
 assert.match(s, /Form_formId_\(\)/, 'exige Form ID');
 assert.match(s, /FORM_ID_REQUIRED/, 'motivo Form ID');
+assert.match(s, /ECICEP_asegurarBackupActivacion_\(\)/, 'autorrepara el trigger de respaldo');
+assert.match(s, /ECICEP_asegurarFormActivacion_\(\)/, 'autorrepara el Form inaccesible');
+assert.match(s, /BACKUP_TRIGGER_REPAIR_FAILED/, 'motivo de reparación de respaldo');
+assert.match(s, /FORM_REPAIR_FAILED/, 'motivo de reparación de Form');
+assert.match(s, /repairs:\s*\{[\s\S]*?backupTrigger[\s\S]*?formRecreated/, 'reporta reparaciones agregadas');
+assert.ok(
+  s.indexOf('ECICEP_asegurarBackupActivacion_()') < s.indexOf('Operacion_preflightRelease_()'),
+  'repara el respaldo antes del preflight'
+);
+assert.ok(
+  s.indexOf('ECICEP_asegurarFormActivacion_()') < s.indexOf('Operacion_preflightRelease_()'),
+  'repara el Form antes del preflight'
+);
 assert.match(s, /Operacion_preflightBloqueosNoReparables_/, 'usa el filtro de blockers no reparables');
 assert.match(s, /Form_operativoInstalar_\(\{[\s\S]*?crearNuevo:\s*false[\s\S]*?adoptarExistente:\s*true[\s\S]*?\}\)/, 'instala/adopta solo el Form configurado');
 assert.doesNotMatch(
