@@ -14,7 +14,7 @@ for (const a of archivos) {
   for (const m of s.matchAll(/^function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) if (!m[1].endsWith('_')) funciones.push(m[1]);
 }
 const pub = [...new Set(funciones)].sort();
-const esperado = [...new Set([...allow.runtime, ...allow.public_capture, ...allow.public_auth])].sort();
+const esperado = [...new Set([...allow.runtime, ...allow.public_capture, ...allow.public_auth, ...(allow.public_temporary || [])])].sort();
 assert.deepEqual(pub, esperado, 'la superficie RPC cambió sin revisión de allowlist');
 assert.ok(pub.length < 15, 'la superficie pública debe ser < 15');
 

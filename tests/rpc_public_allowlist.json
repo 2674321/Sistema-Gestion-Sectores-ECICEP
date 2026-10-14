@@ -17,5 +17,9 @@
     "WebApp_operadorIniciar",
     "WebApp_operadorCerrar",
     "WebApp_operadorRpc"
+  ],
+  "_nota_temporal": "`public_temporary` autoriza SOLO el wrapper de activación v260 (ECICEP_ACTIVAR_AHORA). Es fail-closed (exige ActiveUser === EffectiveUser) y debe eliminarse del código y de esta allowlist tras el GO.",
+  "public_temporary": [
+    "ECICEP_ACTIVAR_AHORA"
   ]
 }
