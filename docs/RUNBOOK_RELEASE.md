@@ -15,6 +15,8 @@
 - URL pública a conservar:
   `https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec`
 - Nunca `clasp deploy` sin `--deploymentId`. Nunca cambiar la URL ni el QR.
+- Preservar toda versión referenciada por un deployment activo (`@HEAD`, `@268`).
+- Gestión del límite de 200 versiones de Apps Script (ver Paso 4.0).
 - No usar datos clínicos reales en pruebas.
 
 ## Paso 0 — Prerrequisitos de ventana
@@ -54,7 +56,41 @@ protegida (backup/dashboard) → debe pedir OPSESS y funcionar **sin**
 
 ## Paso 4 — Deploy sobre el deployment EXISTENTE
 
-Vía tool (gates + BUILD + push + deploy + mismo ID), con evidencia de backup:
+### Paso 4.0 — Capacidad de versiones (límite 200)
+
+Google Apps Script admite **máximo 200 versiones existentes** (no depende del
+número más alto: los números tienen huecos por versiones borradas). `clasp deploy`
+falla con *"Script has reached the limit of 200 versions"* cuando el proyecto está
+lleno. `tools/release.mjs --publish` ahora lo detecta **antes** de desplegar:
+
+- `VERSION_COUNT >= 200` → aborta con `APPS_SCRIPT_VERSION_LIMIT_REACHED` y **no**
+  llama a `clasp deploy`.
+- `VERSION_COUNT >= 190` → warning `APPS_SCRIPT_VERSION_LIMIT_NEAR` (permite
+  publicar si queda al menos 1 slot).
+- El conteo se toma de `clasp versions` (número de líneas), **nunca**
+  `max(versionNumber)`.
+
+Política de mantenimiento (manual, en el editor Apps Script → `Project History`):
+
+- **Preservar** toda versión usada por un deployment activo: Google no ofrece
+  esas versiones para borrar (p. ej. `@HEAD` y `@268`).
+- **Preservar** las versiones recientes útiles para diagnóstico/reversión
+  (mantener las ~30 más recientes disponibles).
+- **Borrar periódicamente** snapshots antiguos no referenciados por ningún
+  deployment (`Bulk delete versions`).
+- **Mantenimiento preventivo** al superar 180 versiones; objetivo cómodo
+  `VERSION_COUNT_AFTER <= 120`.
+- Al llegar a 200, el release queda **bloqueado** hasta liberar versiones.
+
+Git + backups (`Backup_crear_`) son la fuente principal de historial de código;
+las versiones de Apps Script son snapshots publicables, no el historial.
+
+No existe API pública para borrar versiones (`projects.versions` solo expone
+`create/get/list`); la limpieza es exclusivamente por la UI de Project History.
+
+### Deploy
+
+Vía tool (gates + BUILD + push + capacidad + deploy + mismo ID), con evidencia de backup:
 
 ```bash
 ECICEP_PUBLISH_CONFIRM=1 ECICEP_BACKUP_RECENT="<id/URL/ISO del backup PRE_RELEASE>" \

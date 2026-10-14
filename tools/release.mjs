@@ -6,7 +6,9 @@
 //   --push     --check + BUILD.js + validar Script ID + `clasp push --force` +
 //              comprobar remoto. NO publica versión.
 //   --publish  --push + exigir backup reciente + deployment existente (mismo ID
-//              que ECICEP.WEB_APP_URL) + `clasp deploy` sobre ese deployment.
+//              que ECICEP.WEB_APP_URL) + preflight de capacidad de versiones
+//              (límite 200 de Apps Script: aborta antes del deploy si está
+//              lleno) + `clasp deploy` sobre ese deployment.
 //              NUNCA crea un deployment nuevo. Muta producción: exige
 //              ECICEP_PUBLISH_CONFIRM=1 y evidencia de backup reciente.
 import fs from 'node:fs';
@@ -14,7 +16,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { runVerifier, buildManifest, writeManifest } from './release_manifest.mjs';
+import { runVerifier, buildManifest, writeManifest, capacityGuardForDeploy, versionCapacity, parseClaspVersions } from './release_manifest.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const mode = args.includes('--publish') ? 'publish' : (args.includes('--push') ? 'push' : 'check');
@@ -138,7 +140,20 @@ const dep = run('clasp', ['deployments']);
 if (dep.status !== 0) fail('CLASP_DEPLOYMENTS_FALLÓ');
 const encontrado = (dep.stdout || '').split('\n').some(l => l.split(/\s+/)[1] === deployId);
 if (!encontrado) fail('DEPLOYMENT_NO_ENCONTRADO', deployId + ' — NO se crea uno nuevo');
-const deploy = run('clasp', ['deploy', '--deploymentId', deployId]);
-if (deploy.status !== 0) fail('CLASP_DEPLOY_FALLÓ', (deploy.stdout || '') + (deploy.stderr || ''));
-ok('deploy sobre ' + deployId + ' (mismo /exec)');
+
+// Preflight de capacidad (límite de 200 versiones de Apps Script). En el límite
+// se aborta ANTES del deploy; nunca se crea un deployment ni un proyecto nuevo.
+const ver = run('clasp', ['versions']);
+if (ver.status !== 0) fail('CLASP_VERSIONS_FALLÓ', (ver.stdout || '') + (ver.stderr || ''));
+const capacidad = versionCapacity(parseClaspVersions(ver.stdout).count);
+if (!capacidad.ok) fail('APPS_SCRIPT_VERSION_LIMIT_REACHED',
+  `VERSION_COUNT=${capacidad.count} free=${capacidad.free} — borra versiones antiguas no usadas en Apps Script → Project history → Bulk delete versions y reintenta`);
+if (capacidad.level === 'NEAR') {
+  console.warn(`  warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=${capacidad.count} free=${capacidad.free}`);
+}
+ok(`capacidad de versiones VERSION_COUNT=${capacidad.count} free=${capacidad.free}`);
+
+const deploy = capacityGuardForDeploy({ versionStdout: ver.stdout, deployId, runClasp: (cmd, a) => run(cmd, a) });
+if (!deploy.deployed) fail(deploy.reason, (deploy.deployResult && ((deploy.deployResult.stdout || '') + (deploy.deployResult.stderr || ''))) || '');
+ok('deploy sobre ' + deployId + ' (mismo /exec) · VERSION_COUNT=' + deploy.count);
 console.log(`RELEASE_PUBLISH_PASS ${url}`);

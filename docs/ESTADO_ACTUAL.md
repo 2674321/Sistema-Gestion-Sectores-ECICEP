@@ -44,7 +44,7 @@
 ## Verificación
 
 - Verificador integral: `node tools/verificar.mjs` (humano) o `--json`.
-  Estado: **169 suites / 0 fallos**.
+  Estado: **170 suites / 0 fallos**.
 - Preflight de release: `node tools/preflight_release.mjs`.
 - Release Node: `node tools/release.mjs --check` (este documento debe citar
   `v0.17.0`).
@@ -54,6 +54,12 @@
 - Scopes OAuth: `docs/OAUTH_SCOPES.md` + `tests/oauth_scopes_v270.mjs`.
 - Las RPC destructivas de operador exigen confirmación server-side consume-once
   ligada a OPSESS+método+argumentos (DEC-117).
+- Capacidad de versiones de Apps Script (límite 200): `tools/release.mjs --publish`
+  aborta con `APPS_SCRIPT_VERSION_LIMIT_REACHED` antes de desplegar si
+  `VERSION_COUNT >= 200` y avisa `APPS_SCRIPT_VERSION_LIMIT_NEAR` desde 190;
+  el conteo sale de `clasp versions` (nunca `max(versionNumber)`).
+  `tests/release_version_capacity_v0170.mjs` cubre 199/200/201+ y que en el
+  límite no se invoca `clasp deploy`.
 
 ## Deuda legacy no bloqueante
 
@@ -74,11 +80,13 @@
 ## Publicación pendiente (deploy)
 
 - `node tools/release.mjs --push` **OK** (`cb822c1` en dev `@HEAD`).
-- `node tools/release.mjs --publish` **BLOQUEADO**:
+- `node tools/release.mjs --publish` quedó **BLOQUEADO** con
   `CLASP_DEPLOY_FALLÓ` — "Script has reached the limit of 200 versions".
-  El proyecto tiene 200 versiones (16..268) y `clasp` 3.3.0 no borra versiones.
-  Requiere borrado manual en el editor (Project history) de versiones antiguas
-  no referenciadas, y luego reintentar `--publish` sobre el MISMO deployment.
-  Fail-closed: producción `@268` (build `23c1099`) intacta.
+  `clasp versions` reporta ahora **194 versiones** (números 16–268 con huecos),
+  es decir 6 slots libres: la limpieza ya liberó capacidad. Con el nuevo
+  preflight (`APPS_SCRIPT_VERSION_LIMIT_NEAR` desde 190) el deploy sobre el
+  **MISMO deployment** (`@268` → nueva versión) es reintentable.
+  Si volviera a llenarse, requiere `Bulk delete versions` manual en
+  `Project history`. Fail-closed: producción `@268` (build `23c1099`) intacta.
 - Pendiente de ventana: smoke `/dev` (Captura → Actualizar → RUT sintético
   `11.111.111-1` → cargar → verificar ficha completa) y E2E real.

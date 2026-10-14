@@ -69,6 +69,44 @@ export function writeManifest(options = {}) {
   return manifest;
 }
 
+/** Apps Script impone un máximo de 200 VERSIONES existentes (no del número
+ *  más alto). `clasp versions` lista una línea por versión; el conteo real es
+ *  cuántas líneas hay, nunca max(versionNumber) (los números tienen huecos por
+ *  versiones ya borradas). Parser tolerante a la cabecera "Found N versions."
+ *  y a descripciones arbitrarias. */
+export const APPS_SCRIPT_MAX_VERSIONS = 200;
+export const APPS_SCRIPT_WARN_VERSIONS = 190;
+
+export function parseClaspVersions(stdout) {
+  const numbers = [];
+  for (const linea of String(stdout || '').split('\n')) {
+    const m = linea.match(/^\s*(\d+)\s*-\s*/);
+    if (m) numbers.push(Number(m[1]));
+  }
+  return { count: numbers.length, numbers };
+}
+
+export function versionCapacity(count, { max = APPS_SCRIPT_MAX_VERSIONS, warn = APPS_SCRIPT_WARN_VERSIONS } = {}) {
+  const n = Number(count) || 0;
+  const free = max - n;
+  if (n >= max) return { ok: false, level: 'LIMIT', count: n, free, reason: 'APPS_SCRIPT_VERSION_LIMIT_REACHED' };
+  if (n >= warn) return { ok: true, level: 'NEAR', count: n, free, reason: 'APPS_SCRIPT_VERSION_LIMIT_NEAR' };
+  return { ok: true, level: 'OK', count: n, free, reason: '' };
+}
+
+/** Preflight de capacidad ANTES del deploy: si el proyecto está lleno, NO se
+ *  ejecuta `clasp deploy` (fail-closed). `runClasp` es inyectable para poder
+ *  verificar que en el límite no se invoca el deploy. */
+export function capacityGuardForDeploy({ versionStdout, deployId, max = APPS_SCRIPT_MAX_VERSIONS, warn = APPS_SCRIPT_WARN_VERSIONS, runClasp }) {
+  const { count } = parseClaspVersions(versionStdout);
+  const cap = versionCapacity(count, { max, warn });
+  if (!cap.ok) return { ...cap, deployed: false, deployResult: null };
+  const r = runClasp('clasp', ['deploy', '--deploymentId', deployId]);
+  const deployed = !!r && r.status === 0;
+  return { ...cap, deployed, deployResult: r, reason: deployed ? '' : 'CLASP_DEPLOY_FALLÓ' };
+}
+
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const stage = (process.argv.find(a => a.startsWith('--stage=')) || '').split('=')[1] || 'RC';
   const verifier = runVerifier();
