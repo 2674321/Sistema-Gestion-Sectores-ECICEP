@@ -147,6 +147,24 @@ resuelve HEAD desde `clasp deployments`. Se detiene si fallan los tests, los
 argumentos o la identificación del deployment. BUILD marca `-dirty` cuando hay
 cambios de código no incluidos en el commit.
 
+### Release multiplataforma (`tools/release.mjs`)
+
+Alternativa Node (misma política que `push_y_abrir.sh`, sin `bash`):
+
+```bash
+node tools/release.mjs --check    # gates locales, sin mutar nada (por defecto)
+node tools/release.mjs --push     # --check + BUILD + clasp push (no publica)
+node tools/release.mjs --publish  # --push + deploy sobre el deployment existente
+```
+
+`--check` exige git limpio, rama válida (`master`/`release/*`/`codex/*`/
+`hardening/*`), `node tools/verificar.mjs` con 0 fallos, manifest derivado
+alineado con HEAD, RPC público, auditoría de scopes y `docs/ESTADO_ACTUAL.md`
+citando la versión. `--publish` nunca crea un deployment: exige
+`ECICEP_PUBLISH_CONFIRM=1`, `ECICEP_BACKUP_RECENT=<ref>` y que el ID de
+`ECICEP.WEB_APP_URL` exista en `clasp deployments`. No ejecutar `--push`/
+`--publish` sin una ventana de activación aprobada.
+
 ## E2E mínimo después de un cambio de Web App
 
 ### Contexto de ejecución recomendado
