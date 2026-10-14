@@ -55,7 +55,11 @@ function Operacion_preflightRelease_() {
   try { triggers = ScriptApp.getProjectTriggers() || []; } catch (eTrig) { triggers = []; }
   function count(handler) { return triggers.filter(function (t) { return t.getHandlerFunction() === handler; }).length; }
   var submitN = count('Form_onFormSubmit_'), workerN = count('Form_worker_'), backupN = count('Backup_programado_');
-  add('FORM_SUBMIT_TRIGGER_COUNT', submitN === 1 ? 'PASS' : (formId ? 'BLOCK' : 'NOT_CONFIGURED'), String(submitN));
+  // v270 (P0): el trigger onFormSubmit es TELEMETRÍA (contador de señal); el
+  // worker periódico es el procesador autoritativo. Por eso su ausencia es WARN
+  // (no pérdida de datos); solo duplicarlo (>1) bloquea, porque duplica señales.
+  var submitEstado = submitN === 1 ? 'PASS' : (!formId ? 'NOT_CONFIGURED' : (submitN > 1 ? 'BLOCK' : 'WARN'));
+  add('FORM_SUBMIT_TRIGGER_COUNT', submitEstado, String(submitN) + (submitN === 0 && formId ? ' (telemetría; worker es autoritativo)' : ''));
   add('FORM_WORKER_TRIGGER_COUNT', workerN === 1 ? 'PASS' : (formId ? 'BLOCK' : 'NOT_CONFIGURED'), String(workerN));
   add('OPERATOR_SECRET_PRESENT', WebApp_operadorConfigurado_() ? 'PASS' : 'NOT_CONFIGURED', WebApp_operadorConfigurado_() ? 'configurado' : 'setup runtime pendiente');
   try {

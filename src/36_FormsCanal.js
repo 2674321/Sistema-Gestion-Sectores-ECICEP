@@ -93,6 +93,9 @@ function Form_metricas_() {
     var v = Form_propLeer_('GOOGLE_FORM_METRIC_' + k);
     out[k] = v ? Number(v) : 0;
   });
+  // v270 (P0): SUBMIT_SIGNAL_COUNT mide CAPACIDAD (señal de submit cableada),
+  // no recepción real. Se expone el alias semántico `installableSubmitSignals`.
+  out.installableSubmitSignals = out.SUBMIT_SIGNAL_COUNT;
   return out;
 }
 /** v256 (P1): suma de contador con lectura+escritura ATÓMICA. La sección crítica
@@ -1599,6 +1602,77 @@ function Form_backlogResumen_() {
   return resumen;
 }
 
+/** v270 (P0 observabilidad): snapshot del canal ACTIVO con ventana acotada.
+ *  Cruza las respuestas RECIENTES del Form (evidencia durable de recepción)
+ *  contra el mapa de cola `FORM_RESPUESTAS` para exponer cuántas respuestas
+ *  aún NO están materializadas. Sin PII: solo agregados y el instante del
+ *  pendiente más antiguo. Nunca lanza: si algo no es legible devuelve
+ *  `disponible:false` con `motivo` en vez de inventar 0.
+ *
+ *  `unmaterialized` = respuestas del Form dentro de la ventana cuya fila de
+ *  cola todavía no existe (ni siquiera como RECIBIDO). `materialized` = las
+ *  que sí tienen fila. Ambas cubren SOLO la ventana acotada (cursor del worker
+ *  u `opciones.ventanaHs`), no el histórico completo. */
+function Form_canalActivoSnapshot_(opciones) {
+  opciones = opciones || {};
+  var salida = {
+    ok: true, disponible: true, motivo: '',
+    formsResponsesRecent: null, materialized: null, unmaterialized: null,
+    processed: 0, retryable: 0, review: 0, terminal: 0,
+    oldestUnmaterializedMin: 0, ventanaHs: null
+  };
+  var backlog = Form_backlogResumen_();
+  salida.processed = backlog.terminal + backlog.processed;
+  salida.retryable = backlog.retryable;
+  salida.review = backlog.review;
+  salida.terminal = backlog.terminal;
+  if (backlog.disponible === false) {
+    salida.ok = false; salida.disponible = false;
+    salida.motivo = backlog.motivo || 'QUEUE_STATE_READ_FAILED';
+    return salida;
+  }
+  var ventanaHs = Number(opciones.ventanaHs) || GOOGLE_FORMS_CONFIG.RECONCILIACION.VENTANA_HS;
+  salida.ventanaHs = ventanaHs;
+  var formId = Form_formId_();
+  if (!formId || typeof FormApp === 'undefined') {
+    salida.ok = false; salida.disponible = false; salida.motivo = 'FORM_NO_DISPONIBLE';
+    return salida;
+  }
+  var form = opciones._form;
+  if (!form) {
+    try { form = FormApp.openById(formId); }
+    catch (e) { salida.ok = false; salida.disponible = false; salida.motivo = 'FORM_NO_ACCESIBLE'; return salida; }
+  }
+  var respuestas;
+  try { respuestas = form.getResponses(new Date(Date.now() - ventanaHs * 3600000)); }
+  catch (e2) { salida.ok = false; salida.disponible = false; salida.motivo = 'FORM_RESPONSES_READ_FAILED'; return salida; }
+  respuestas = respuestas || [];
+  var lectura = Form_leerEstadosCola_();
+  if (!lectura.ok) {
+    salida.ok = false; salida.disponible = false;
+    salida.motivo = lectura.motivo || 'QUEUE_STATE_READ_FAILED';
+    return salida;
+  }
+  var mapa = lectura.estados;
+  var materialized = 0, unmaterialized = 0, minTs = null, ahora = Date.now();
+  for (var i = 0; i < respuestas.length; i++) {
+    var rid = '';
+    try { rid = String(respuestas[i].getId()); } catch (e3) { rid = ''; }
+    if (!rid) continue;
+    var cid = CapturaIngress_captureId_(formId, rid);
+    if (mapa.has(cid)) { materialized++; continue; }
+    unmaterialized++;
+    var ts = 0;
+    try { ts = respuestas[i].getTimestamp().getTime(); } catch (e4) { ts = 0; }
+    if (ts && (minTs === null || ts < minTs)) minTs = ts;
+  }
+  salida.formsResponsesRecent = respuestas.length;
+  salida.materialized = materialized;
+  salida.unmaterialized = unmaterialized;
+  salida.oldestUnmaterializedMin = minTs === null ? 0 : Math.max(0, Math.round((ahora - minTs) / 60000));
+  return salida;
+}
+
 /** v259: clasificación read-only y agregada de legado no terminal. */
 function Form_legacyReconciliarDryRun_(opciones) {
   opciones = opciones || {};
@@ -1776,15 +1850,18 @@ function Form_operativoEstado_(opciones) {
   // v256 (P1): DISTINGUIR "no legible" de "0". Sin Form o sin lectura, el
   // conteo queda DESCONOCIDO (no se reporta como cero).
   var responsesDisponible = false;
+  var formAbierto = null;
   if (formId && typeof FormApp !== 'undefined') {
     try {
-      var form = FormApp.openById(formId);
+      formAbierto = FormApp.openById(formId);
+      var form = formAbierto;
       info.titulo = form.getTitle();
       try { info.respuestas = form.getResponses().length; responsesDisponible = true; }
       catch (e) { info.responsesError = String(e && e.message || e); }
     } catch (e) { info.error = String(e && e.message || e); }
   }
   var backlog = Form_backlogResumen_();
+  var snapshot = Form_canalActivoSnapshot_({ _form: formAbierto });
   var total = responsesDisponible ? Number(info.respuestas) || 0 : null;
   var triggersDisponible = (triggerWorker !== null && triggerOnFormSubmit !== null);
   return {
@@ -1813,7 +1890,19 @@ function Form_operativoEstado_(opciones) {
       triggersDisponible: triggersDisponible
       ,legacy: backlog.legacy,
       legacyTotal: backlog.legacy.total, legacyTerminal: backlog.legacy.terminal,
-      legacyReview: backlog.legacy.review, legacyUnresolved: backlog.legacy.unresolved
+      legacyReview: backlog.legacy.review, legacyUnresolved: backlog.legacy.unresolved,
+      // v270 (P0): snapshot acotado del canal activo (Form reciente vs cola).
+      formsResponsesRecent: snapshot.formsResponsesRecent,
+      materialized: snapshot.materialized,
+      unmaterialized: snapshot.unmaterialized,
+      oldestUnmaterializedMin: snapshot.oldestUnmaterializedMin,
+      ventanaHs: snapshot.ventanaHs,
+      snapshotDisponible: snapshot.disponible !== false,
+      snapshotMotivo: snapshot.motivo || '',
+      // v270 (P0): métrica de CAPACIDAD (submit trigger cableado), no de
+      // recepción. La recepción real se deriva de LAST_RECEIVED_TS/materialized.
+      installableSubmitSignals: (triggerOnFormSubmit === null) ? null : (triggerOnFormSubmit > 0 ? 1 : 0),
+      recepcionesSnapshot: snapshot.disponible !== false ? snapshot.materialized : 'DESCONOCIDO'
     },
     backlogDisponible: backlog.disponible !== false,
     responsesDisponible: responsesDisponible,
@@ -1849,7 +1938,9 @@ function Form_operativoDiagnosticar_(opciones) {
   var checks = [
     { nombre: 'form_id', ok: !!(estado.formId), detalle: estado.formId || 'Sin Form configurado (ejecutar Form_operativoInstalar_)' },
     { nombre: 'schema_version', ok: estado.schemaVersion === GOOGLE_FORMS_CONFIG.SCHEMA_VERSION, detalle: 'Schema v' + estado.schemaVersion + ' / esperada v' + GOOGLE_FORMS_CONFIG.SCHEMA_VERSION },
-    { nombre: 'trigger_on_form_submit', ok: (estado.triggerOnFormSubmit || 0) === 1, detalle: 'Triggers onFormSubmit: ' + (estado.triggerOnFormSubmit === null ? 'n/d' : estado.triggerOnFormSubmit) },
+    // v270 (P0): trigger de submit = TELEMETRÍA. No es bloqueante: el worker
+    // periódico es el procesador autoritativo. Se reporta como advertencia.
+    { nombre: 'trigger_on_form_submit', ok: (estado.triggerOnFormSubmit || 0) === 1, bloqueante: false, detalle: 'Triggers onFormSubmit: ' + (estado.triggerOnFormSubmit === null ? 'n/d' : estado.triggerOnFormSubmit) + ' (telemetría; no bloquea)' },
     { nombre: 'trigger_worker', ok: (estado.triggerWorker || 0) === 1, detalle: 'Triggers worker: ' + (estado.triggerWorker === null ? 'n/d' : estado.triggerWorker) + ' (requerido: 1)' },
     { nombre: 'url', ok: !!estado.url, detalle: estado.url || 'Sin URL de respondedor' }
   ];
@@ -1876,7 +1967,7 @@ function Form_operativoDiagnosticar_(opciones) {
     ok: publicacion.publicado !== false && publicacion.aceptaRespuestas !== false,
     detalle: 'publicado=' + publicacion.publicado + ' · aceptaRespuestas=' + publicacion.aceptaRespuestas
   });
-  return { ok: estado.ok !== false && checks.every(function (c) { return c.ok; }), checks: checks, estado: estado, publicacion: publicacion, versionSistema: ECICEP.VERSION };
+  return { ok: estado.ok !== false && checks.every(function (c) { return c.bloqueante === false || c.ok; }), checks: checks, estado: estado, publicacion: publicacion, versionSistema: ECICEP.VERSION };
 }
 
 /** v255 (M01): salud real del canal — OK / DEGRADED / CRITICAL.
@@ -1909,8 +2000,30 @@ function Form_saludOperativa_(opciones) {
   } else if ((backlog.pending || 0) + (backlog.retryable || 0) > 0 || (backlog.review || 0) > 0) {
     if (nivel === 'OK') nivel = 'DEGRADED'; alertas.push('BACKLOG_PENDIENTE');
   }
+  // v270 (P0): respuestas del Form aún NO materializadas en la cola. Reglas:
+  //  · dentro de una sola cadencia → transitorio (sin alerta);
+  //  · > 2 cadencias → DEGRADED;
+  //  · envejecimiento > OLDEST_PENDING_MAX_MIN → CRITICAL.
+  var obs = estado.observabilidad || {};
+  var cadenciaMin = Number(GOOGLE_FORMS_CONFIG.WORKER && GOOGLE_FORMS_CONFIG.WORKER.CADENCIA_MIN) || 5;
+  var umbralViejo = GOOGLE_FORMS_CONFIG.SALUD.OLDEST_PENDING_MAX_MIN;
+  var unmaterialized = Number(obs.unmaterialized) || 0;
+  if (obs.snapshotDisponible === false && estado.responsesDisponible !== false && !(estado.form && estado.form.error)) {
+    if (nivel === 'OK') nivel = 'DEGRADED';
+    alertas.push('SNAPSHOT_READ_FAILED');
+  } else if (unmaterialized > 0) {
+    var edadUnmat = Number(obs.oldestUnmaterializedMin) || 0;
+    if (edadUnmat > umbralViejo) {
+      if (nivel !== 'CRITICAL') nivel = 'CRITICAL';
+      alertas.push('UNMATERIALIZED_ENVEJECIDO');
+    } else if (edadUnmat > 2 * cadenciaMin) {
+      if (nivel === 'OK') nivel = 'DEGRADED';
+      alertas.push('UNMATERIALIZED_PENDIENTE');
+    }
+    // ≤ 2 cadencias ⇒ transitorio: sin alerta.
+  }
   if (backlog.legacy && backlog.legacy.unresolved > 0) advertenciasHistoricas.push('LEGACY_RECONCILIATION_PENDING');
-  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, advertenciasHistoricas: advertenciasHistoricas, backlog: backlog, backlogDisponible: estado.backlogDisponible !== false, responsesDisponible: estado.responsesDisponible !== false, triggersDisponible: estado.triggersDisponible !== false, diagOk: diag.ok, checks: diag.checks };
+  return { ok: nivel === 'OK', estado: nivel, alertas: alertas, advertenciasHistoricas: advertenciasHistoricas, backlog: backlog, backlogDisponible: estado.backlogDisponible !== false, responsesDisponible: estado.responsesDisponible !== false, triggersDisponible: estado.triggersDisponible !== false, observabilidad: obs, diagOk: diag.ok, checks: diag.checks };
 }
 
 /** v255 (M06): panel de operación del transporte — solo agregados, SIN PII. */
@@ -1936,13 +2049,22 @@ function Form_panelOperacion_(opciones) {
     backlog: salud.backlog,
     canalActual: {
       formsResponses: estado.observabilidad ? estado.observabilidad.formsResponses : 'DESCONOCIDO',
+      formsResponsesRecent: estado.observabilidad ? estado.observabilidad.formsResponsesRecent : 'DESCONOCIDO',
+      materialized: estado.observabilidad ? estado.observabilidad.materialized : 'DESCONOCIDO',
+      unmaterialized: estado.observabilidad ? estado.observabilidad.unmaterialized : 'DESCONOCIDO',
+      oldestUnmaterializedMin: estado.observabilidad ? estado.observabilidad.oldestUnmaterializedMin : 0,
       processed: estado.observabilidad ? estado.observabilidad.processed : 0,
       retryable: salud.backlog.retryable || 0, review: salud.backlog.review || 0,
       pending: salud.backlog.pending || 0, oldestPendingMin: salud.backlog.oldestPendingMin || 0
     },
     legado: salud.backlog.legacy || { total: 0, terminal: 0, review: 0, unresolved: 0 },
     lockBusy: m.LOCK_BUSY_DEFERRED || 0,
-    recepciones: Number(Form_propLeer_('GOOGLE_FORM_METRIC_SUBMIT_SIGNAL_COUNT')) || 0,
+    // v270 (P0): recepciones = evidencia real (materializadas en ventana), no
+    // el contador de capacidad del trigger de submit.
+    recepciones: (estado.observabilidad && typeof estado.observabilidad.materialized === 'number' && isFinite(estado.observabilidad.materialized))
+      ? estado.observabilidad.materialized
+      : (Number(Form_propLeer_('GOOGLE_FORM_METRIC_SUBMIT_SIGNAL_COUNT')) || 0),
+    installableSubmitSignals: m.installableSubmitSignals || 0,
     errores: m.WORKER_ERRORS || 0,
     runs: m.WORKER_RUNS || 0
   };

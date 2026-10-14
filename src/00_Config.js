@@ -1075,7 +1075,11 @@ var GOOGLE_FORMS_CONFIG = {
   WORKER: {
     LOCK_WAIT_MS: 750,
     MAX_POR_CORRIDA: 10,
-    OVERLAP_MIN: 24 * 60
+    OVERLAP_MIN: 24 * 60,
+    // v270 (P0 observabilidad): cadencia real del trigger periódico
+    // (`Form_worker_`.everyMinutes). Se usa para distinguir "unmaterialized
+    // transitorio" (una cadencia) de DEGRADED (> 2 cadencias).
+    CADENCIA_MIN: 5
   },
   // v255 — dedupe de transporte y recuperación de ACK (E05/E06/E07).
   TRANSPORTE: {

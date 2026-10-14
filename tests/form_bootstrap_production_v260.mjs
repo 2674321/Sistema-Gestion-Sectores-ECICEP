@@ -276,7 +276,9 @@ assert.ok(otros.reparables.indexOf('FORM_SCHEMA_CURRENT') < 0, 'FORM_SCHEMA_CURR
 p = preflightCon({ accesible: false, publicado: null, aceptaRespuestas: null });
 assert.equal(p.por('FORM_PUBLISHED'), 'WARN', 'sin introspección: WARN');
 assert.equal(p.por('FORM_ACCEPTING_RESPONSES'), 'WARN', 'sin introspección: WARN');
-assert.equal(p.r.checks.filter((c) => c.estado === 'WARN').length, 2, 'WARN no bloquea el preflight');
+// v270 (P0): submit trigger es telemetría ⇒ ausente = WARN, no BLOCK.
+assert.equal(p.por('FORM_SUBMIT_TRIGGER_COUNT'), 'WARN', 'submit trigger ausente: WARN (no pérdida de datos)');
+assert.equal(p.r.checks.filter((c) => c.estado === 'WARN').length, 3, 'WARN no bloquea el preflight');
 assert.ok(p.reparables.indexOf('FORM_PUBLISHED') < 0, 'WARN no se trata como blocker');
 
 // ---------------------------------------------------------------------------
