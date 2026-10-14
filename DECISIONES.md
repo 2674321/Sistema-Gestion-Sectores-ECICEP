@@ -2633,3 +2633,37 @@ de captura anónima.
 **Validación:** `tests/public_capture_zero_legacy_token_v0170.mjs` PASS; batería
 de captura/anónimo verde sin token en HTML ni URL.
 **Fecha:** 2026-10-14
+
+## DEC-116
+**Título:** v270 — la captura directa al Form no es canal clínico: recepción durable + REVIEW.
+**Estado:** Aprobada
+**Motivo:** `AGENTS.md` (reglas 3 y 4) define la Web App como único canal
+operativo de captura y Google Forms únicamente como transporte durable interno,
+con su URL no publicada. El pipeline, sin embargo, procesaba la captura directa
+al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin `CLIENT_REQUEST_ID`) hasta `TERMINAL`
+con mutación clínica completa (escritura en PACIENTES/EVENTOS), sin ninguna
+decisión que autorizara ese canal como vía clínica. Se auditaron
+`DECISIONES.md`/`docs/CONTRATO_CAPTURA_V2.md`: no existe autorización; al
+contrario, la regla 5 ("una sola fuente de verdad") y la regla 4 (Form solo
+como transporte) de `AGENTS.md`, más el contrato §24.1, lo excluyen.
+**Contenido:**
+- La captura directa al Form (sin `clientRequestId` válido) ya **no muta** el
+  modelo clínico. Se registra de forma durable y queda en `REQUIERE_REVISION`
+  para decisión humana.
+- `Form_procesarRespuestaConTransporte_` marca `ctxEnvio.soloRecepcion` cuando
+  `!requestId && SOURCE=GOOGLE_FORM_DIRECT` y devuelve
+  `{ok:false, clasificacion:'REVIEW', estado:'REQUIERE_REVISION'}`.
+- `Captura_v2_enviar_` respeta `ctx.soloRecepcion`: persiste el registro,
+  escribe el trailer `REQUIERE_REVISION`/`GOOGLE_FORM_DIRECT_REQUIERE_REVISION`
+  y retorna **antes** de `Captura_v2_ejecutarEntrega_` (sin escribir
+  PACIENTES/EVENTOS ni agenda/contacto).
+- El flujo automático normal sigue siendo `SOURCE=WEBAPP` con
+  `CLIENT_REQUEST_ID` válido; ese caso no se altera.
+- La fila queda inelegible para el worker (`ESTADO=REQUIERE_REVISION` y
+  `CLASIFICACION=REVIEW`), evitando reintentos en bucle; el cursor avanza.
+- No cambia el contrato de la captura pública anónima (DEC-110/DEC-115): la Web
+  App sigue siendo el único canal visible.
+**Validación:** `tests/google_form_direct_review_v0170.mjs` PASS (núcleo sin
+entrega clínica + frontera Forms directo→REVIEW / WebApp→TERMINAL + guardas);
+verificador completo 162 suites / 0 fallos.
+**Fecha:** 2026-10-14

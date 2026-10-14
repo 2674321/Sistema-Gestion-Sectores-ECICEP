@@ -54,6 +54,23 @@
 > - No cambia el QR/manifest/deployment, el pipeline clínico ni el contrato de
 >   captura (`docs/CONTRATO_CAPTURA_V2.md` §24).
 
+> **Actualización 2026-10-14 (v270 — DEC-116, la captura directa al Form no es canal clínico):**
+> - La captura directa al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin
+>   `CLIENT_REQUEST_ID` válido) deja de procesarse hasta `TERMINAL` con mutación
+>   clínica. La Web App es el único canal operativo de captura y Google Forms
+>   solo un transporte durable interno (reglas 3/4 de `AGENTS.md`).
+> - `Form_procesarRespuestaConTransporte_` marca `ctxEnvio.soloRecepcion` y
+>   devuelve `REVIEW`; `Captura_v2_enviar_` persiste el registro durable, escribe
+>   el trailer `REQUIERE_REVISION`/`GOOGLE_FORM_DIRECT_REQUIERE_REVISION` y
+>   retorna **antes** de la entrega TR-2: no escribe PACIENTES/EVENTOS, agenda ni
+>   contacto.
+> - La fila queda inelegible para el worker (`REQUIERE_REVISION` + `REVIEW`), sin
+>   reintentos en bucle. El flujo automático normal (`SOURCE=WEBAPP` +
+>   `CLIENT_REQUEST_ID` válido) no se altera.
+> - No cambia la captura pública anónima (DEC-110/DEC-115), el pipeline clínico,
+>   el schema ni el QR/deployment. Anclado por
+>   `tests/google_form_direct_review_v0170.mjs`.
+
 > **Actualización 2026-09-27 (v0.16.0, integridad acotada):** Integridad ya no
 > contiene diagnóstico/postcheck monolíticos: cada uno se divide en eventos y
 > cachés, ingresos, vistas y estratificación, con cursor durable técnico versión

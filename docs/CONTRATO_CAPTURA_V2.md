@@ -774,6 +774,12 @@ antes de eliminar la fila.
    por presentarlo.
 5. No hay `if (DEV/DEMO)` ni ramificación de entorno en la captura: un solo entorno operativo, un solo
    Spreadsheet (`ECICEP.SPREADSHEET_ID`). **[CONFIRMADO — AGENTS.md]**
+6. **La captura directa al Form no es canal clínico (v270 / DEC-116).** La Web App es el único canal
+   operativo de captura; Google Forms es solo transporte durable interno y su URL no se publica
+   **[CONFIRMADO — AGENTS.md reglas 3/4]**. Un registro sin `CLIENT_REQUEST_ID` válido
+   (`SOURCE=GOOGLE_FORM_DIRECT`) **no muta** el modelo clínico: se recibe de forma durable y queda en
+   `REQUIERE_REVISION` (`CLASIFICACION=REVIEW`) para decisión humana, sin escribir PACIENTES/EVENTOS,
+   agenda ni contacto. El flujo automático normal exige `SOURCE=WEBAPP` con `CLIENT_REQUEST_ID` válido.
 
 ## 25. Compatibilidad histórica (adaptador)
 

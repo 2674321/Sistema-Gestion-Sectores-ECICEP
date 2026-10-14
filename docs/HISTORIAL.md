@@ -7,6 +7,21 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-10-14 — v270 (captura directa al Form no es canal clínico, DEC-116)
+
+- La captura directa al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin
+  `CLIENT_REQUEST_ID` válido) ya no muta el modelo clínico: se registra de forma
+  durable y queda en `REQUIERE_REVISION` para decisión humana. `AGENTS.md`
+  (reglas 3/4) define la Web App como único canal operativo y el Form solo como
+  transporte durable interno; ninguna decisión autorizaba el canal directo.
+- `Form_procesarRespuestaConTransporte_` marca `ctxEnvio.soloRecepcion` y
+  devuelve `REVIEW`; `Captura_v2_enviar_` persiste el registro, escribe el
+  trailer `REQUIERE_REVISION`/`GOOGLE_FORM_DIRECT_REQUIERE_REVISION` y retorna
+  antes de la entrega TR-2 (sin PACIENTES/EVENTOS, agenda ni contacto). El flujo
+  normal `SOURCE=WEBAPP` + `CLIENT_REQUEST_ID` válido no cambia.
+- Guarda: `tests/google_form_direct_review_v0170.mjs`; verificador 162 suites / 0
+  fallos.
+
 ## 2026-10-14 — v270 (captura pública sin token legacy, DEC-115)
 
 - La CAPTURA pública deja de inyectar y consumir la credencial legacy:

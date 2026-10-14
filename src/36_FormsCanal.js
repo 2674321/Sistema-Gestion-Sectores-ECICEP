@@ -1234,6 +1234,14 @@ var sourcesValidos = {};
     ? sourceLeido
     : (requestId ? GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP : GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_GOOGLE_FORM_DIRECTO);
 
+  // v270 (DEC-116): la captura directa al Form (GOOGLE_FORM_DIRECT sin
+  // clientRequestId válido) NO es canal clínico autorizado. Se recibe de forma
+  // durable pero SIN mutación clínica: queda REQUIERE_REVISION para decisión
+  // humana. Regla AGENTS.md 3/4: la Web App es el único canal operativo; el Form
+  // solo es transporte durable interno (su URL no se publica).
+  var soloRecepcionDirecta = (!requestId &&
+    sourceNormalizado === GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_GOOGLE_FORM_DIRECTO);
+
   // v268: contexto POR RESPUESTA. El ctx del batch se copia para que el
   // transportId de una respuesta nunca se reutilice en la siguiente, y para que
   // responseId/clientRequestId/source queden explícitos en el registro.
@@ -1243,6 +1251,7 @@ var sourcesValidos = {};
   ctxEnvio.transportResponseId = responseId;
   ctxEnvio.clientRequestId = requestId;
   ctxEnvio.source = sourceNormalizado;
+  if (soloRecepcionDirecta) ctxEnvio.soloRecepcion = true;
 
   // v258: el lease excluye worker/worker; este lock breve excluye la mutación
   // clínica frente a UI/operador. Extracción, schema y trailer quedan fuera.
@@ -1262,6 +1271,16 @@ var sourcesValidos = {};
     if (typeof Captura_v2_buscarRegistro_ === 'function') filaPersistida = Captura_v2_buscarRegistro_(captureId);
   } catch (eFila) { filaPersistida = null; }
   var filaFisicaNueva = (filaPersistida && filaPersistida.filaFisica) ? filaPersistida.filaFisica : '';
+  if (soloRecepcionDirecta) {
+    // v270 (DEC-116): recepción durable + REVIEW, sin mutación clínica. Se
+    // devuelve ok:false con clasificación REVIEW para que el worker escriba
+    // CLASIFICACION='REVIEW' y no lo reintente. El estado durable del registro
+    // es REQUIERE_REVISION (escrito por Captura_v2_enviar_).
+    return { ok: false, captureId: captureId, responseId: responseId, requestId: '',
+      accion: ad.accion, estado: CAPTURA_V2.ESTADOS.REQUIERE_REVISION, clasificacion: 'REVIEW',
+      filaFisica: filaFisicaNueva,
+      errores: [{ codigo: 'GOOGLE_FORM_DIRECT_REQUIERE_REVISION' }] };
+  }
   return { ok: true, captureId: captureId, responseId: responseId, requestId: requestId,
     accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO', clasificacion: 'TERMINAL',
     filaFisica: filaFisicaNueva };

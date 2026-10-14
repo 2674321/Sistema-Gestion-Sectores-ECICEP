@@ -720,6 +720,32 @@ function Captura_v2_enviar_(payload, ctx) {
     Captura_v2_regDesdeCache_(c, captureId, { captureId: captureId, filaFisica: Number(pers.filaFisica) || 0 });
   }
 
+  // v270 (DEC-116): recepción durable SIN mutación clínica. La captura directa
+  // al Form no es canal clínico autorizado (AGENTS.md reglas 3/4: la Web App es
+  // el único canal operativo; el Form solo es transporte durable interno). Se
+  // persiste el registro y queda REQUIERE_REVISION para decisión humana, sin
+  // ejecutar la entrega TR-2 ni escribir PACIENTES/EVENTOS. Solo el orquestador
+  // marca `ctx.soloRecepcion` (transporte GOOGLE_FORM_DIRECT sin clientRequestId).
+  if (c.soloRecepcion) {
+    Captura_v2_trailerSeguro_(c, captureId, {
+      estado: CAPTURA_V2.ESTADOS.REQUIERE_REVISION,
+      motivo: 'GOOGLE_FORM_DIRECT_REQUIERE_REVISION'
+    }, null);
+    Captura_v2_marcaFase_(c, CAPTURA_V2.ESTADOS.REQUIERE_REVISION);
+    Captura_v2_logInfo_('CapturaV2', 'enviar',
+      captureId + ': recepción durable sin mutación clínica (canal directo → REQUIERE_REVISION)');
+    return {
+      ok: true,
+      data: {
+        captureId: captureId, accion: norm.accion,
+        estado: CAPTURA_V2.ESTADOS.REQUIERE_REVISION,
+        motivo: 'GOOGLE_FORM_DIRECT_REQUIERE_REVISION',
+        idInterno: '', idEvento: ''
+      },
+      filaFisica: pers.filaFisica
+    };
+  }
+
   Captura_v2_medida_(c, 'T4_entrega_inicio');
   var entrega = Captura_v2_ejecutarEntrega_(norm, c, captureId, {}, null);
   Captura_v2_medida_(c, 'T5_entrega_fin');
