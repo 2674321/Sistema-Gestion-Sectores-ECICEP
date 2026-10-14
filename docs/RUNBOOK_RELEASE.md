@@ -104,6 +104,10 @@ clasp deploy --deploymentId AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42
   --description "ECICEP v0.17.0 final"
 ```
 
+> Preferir siempre `node tools/release.mjs --publish`: ejecuta gates, BUILD,
+> push y el **preflight de capacidad de versiones** (Paso 4.0). El `clasp deploy`
+> directo omite ese preflight y puede fallar tarde con el límite de 200.
+
 Registrar `DEPLOYMENT_VERSION_AFTER` (leer con `clasp versions`) y confirmar
 `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`.
 
