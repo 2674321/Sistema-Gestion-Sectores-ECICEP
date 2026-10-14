@@ -48,7 +48,7 @@ v270 en `hardening/v0.17.0-final`). Estado vigente autoritativo: `docs/ESTADO_AC
   El flujo normal es `SOURCE=WEBAPP` + `CLIENT_REQUEST_ID` válido.
 - **Input hardening y anti-inyección de fórmulas** (v270): cotas de tamaño,
   profundidad y longitud en el contrato autoritativo; saneo de celdas.
-- Verificación: `node tools/verificar.mjs` (162 suites / 0 fallos) y
+- Verificación: `node tools/verificar.mjs` (164 suites / 0 fallos) y
   `node tools/release.mjs --check`. Estado vigente: `docs/ESTADO_ACTUAL.md`.
 
 ## v0.16.4 — ningún campo aceptado se pierde (DEC-104)
