@@ -1368,43 +1368,74 @@ function Captura_v2_buscarMarcaEnHoja_(nombreHoja, marca) {
 }
 
 /**
- * GAS: confirmación REAL de la fila de ingreso (§16) en el intento síncrono:
- * relee la fila y verifica por encabezado que FECHA DE INGRESO = fechaIngreso y
- * que el pipeline dejó ESTADO_INGRESO marcado. Devuelve {ok:true} o {ok:false,motivo}.
- * LECTURA ACOTADA (v0.10.5 §15): 1 fila de encabezados + 1 fila objetivo, NUNCA
- * el bloque completo de la hoja.
+ * GAS: confirmación CANÓNICA de un ingreso entregado (§16 P0 v0.17.0).
+ *
+ * La fila `INGRESO_<SECTOR>` es staging transitorio: `Ingresos_procesarFila_`
+ * la elimina (paso 7) cuando confirma entidad+evento+vista. Por eso confirmar
+ * un ingreso exitoso NO puede depender de que la fila sobreviva; se acredita
+ * con EVIDENCIA DURABLE:
+ *   1) resultado del pipeline (`proc.resultado`: estado/idInterno/idEvento);
+ *   2) EVENTOS por `FUENTE = marca` (marca completa o captureId desnudo) con
+ *      `TIPO_EVENTO = INGRESO`;
+ *   3) existencia del PACIENTE relacionado por `ID_INTERNO`.
+ *
+ * NUNCA inventa éxito por ausencia de staging: sin evidencia suficiente queda
+ * `RECIBIDO/PENDIENTE_CONFIRMACION` (reintentable). Devuelve un resultado de
+ * captura completo: `{ok, estado, motivo, idInterno, idEvento}`.
+ *  - staging sobrevive + canon existe  → PROCESADO
+ *  - staging se elimina  + canon existe → PROCESADO
+ *  - paciente existe pero evento no     → RECIBIDO (no confirmado)
+ *  - evento existe pero paciente no      → RECIBIDO (no confirmado)
+ *  - estado DUPLICADO/REQUIERE_REVISION → REQUIERE_REVISION
+ *  - estado ERROR del pipeline           → ERROR (reintentable)
  */
-function Captura_v2_confirmarEntregaIngreso_(nombreHoja, filaFisica, fechaIso) {
-  try {
-    var hoja = Modelo_hoja_(nombreHoja);
-    if (!hoja) return { ok: false, motivo: 'HOJA_AUSENTE' };
-    var nf = Number(filaFisica);
-    if (!nf || nf < 1 || nf > hoja.getLastRow()) return { ok: false, motivo: 'FILA_FUERA_DE_RANGO' };
-    var hr = Modelo_headerRow_(nombreHoja);
-    var ancho = Math.min(hoja.getLastColumn(), 40);
-    var encabezados = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
-    if (encabezados.join('|') == null || encabezados.join('|').toUpperCase().indexOf('NOMBRE') === -1) {
-      return { ok: false, motivo: 'BLOQUE_DESALINEADO' };
-    }
-    if (nf <= hr) return { ok: false, motivo: 'FILA_FUERA_DE_RANGO' };
-    var colFecha = Captura_v2_indiceColumnaFecha_(encabezados);
-    if (colFecha < 0) return { ok: false, motivo: 'COLUMNA_FECHA_INGRESO_NO_ENCONTRADA' };
-    var mapa = Ingresos_mapearEncabezadosHoja_(encabezados);
-    var fila = hoja.getRange(nf, 1, 1, ancho).getValues()[0];
-    var escrito = Utl_texto_(fila[colFecha]);
-    var okFecha = escrito === Utl_texto_(fechaIso);
-    var okEstado = mapa.estadoIdx >= 0 && Utl_texto_(fila[mapa.estadoIdx]).toUpperCase() !== '';
-    if (!okFecha) return { ok: false, motivo: 'FECHA_INGRESO_DIVERGENTE', actual: escrito };
-    if (!okEstado) return { ok: false, motivo: 'SIN_ESTADO_PIPELINE' };
-    return {
-      ok: true,
-      fila: filaFisica,
-      estado: mapa.estadoIdx >= 0 ? Utl_texto_(fila[mapa.estadoIdx]).toUpperCase() : '',
-      nota: mapa.notaIdx >= 0 ? Utl_texto_(fila[mapa.notaIdx]) : ''
-    };
-  } catch (e) {
-    return { ok: false, motivo: 'EXCEPCION' };
+function Captura_v2_confirmarEfectoIngreso_(norm, marca, proc) {
+  var res = (proc && proc.resultado) || {};
+  var estProc = Utl_texto_(res.estado).toUpperCase();
+  var idInterno = Utl_texto_(res.idInterno);
+  var idEvento = Utl_texto_(res.idEvento);
+  var nota = Utl_texto_(res.nota);
+
+  // (2) Evidencia durable por FUENTE (marca completa o captureId desnudo).
+  var ev = null;
+  try { ev = Captura_v2_marcaEnEventos_(marca); } catch (eMarca) { ev = null; }
+  var evIngreso = !!(ev && (!ev.tipo || ev.tipo === 'INGRESO'));
+  if (ev) {
+    if (!idInterno) idInterno = Utl_texto_(ev.idInterno);
+    if (!idEvento) idEvento = Utl_texto_(ev.idEvento);
   }
+
+  // (3) El paciente canónico relacionado debe existir.
+  var pacienteOk = false;
+  if (idInterno && typeof Modelo_buscarPaciente_ === 'function') {
+    try { var p = Modelo_buscarPaciente_(idInterno); pacienteOk = !!(p && p.obj); }
+    catch (ePac) { pacienteOk = false; }
+  }
+
+  // Éxito canónico: EVENTO durable (idEvento) + PACIENTE real. El idEvento puede
+  // venir del pipeline INGRESADO o de la FUENTE durable (staging ya eliminado).
+  if (idInterno && idEvento && pacienteOk && (estProc === 'INGRESADO' || evIngreso)) {
+    return { ok: true, estado: CAPTURA_V2.ESTADOS.PROCESADO, motivo: '', idInterno: idInterno, idEvento: idEvento };
+  }
+  // Revisión explícita del pipeline (staging sobrevive para revisión humana).
+  if (estProc === 'DUPLICADO' || estProc === 'REQUIERE_REVISION') {
+    return {
+      ok: true, estado: CAPTURA_V2.ESTADOS.REQUIERE_REVISION,
+      motivo: nota || ('Requiere revisión (' + estProc + ')'), idInterno: idInterno, idEvento: idEvento
+    };
+  }
+  // Error explícito del pipeline → reintentable según contrato.
+  if (estProc === 'ERROR') {
+    return {
+      ok: false, estado: CAPTURA_V2.ESTADOS.ERROR,
+      motivo: nota || 'PIPELINE_INGRESO_ERROR', idInterno: idInterno, idEvento: idEvento
+    };
+  }
+  // Sin evidencia suficiente: paciente sin evento, evento sin paciente o nada.
+  return {
+    ok: false, estado: CAPTURA_V2.ESTADOS.RECIBIDO,
+    motivo: 'PENDIENTE_CONFIRMACION', idInterno: idInterno, idEvento: idEvento
+  };
 }
 
 /**
@@ -1469,36 +1500,26 @@ function Captura_v2_entregarIngreso_(norm, marca, opciones) {
         motivo: Utl_texto_(proc && (proc.motivo || proc.error)) || 'PIPELINE_INGRESO_NO_CONFIRMADO' };
     }
 
-    // Confirmación real §16: fila con FECHA DE INGRESO = fechaIngreso y estado del pipeline.
-    var conf = Captura_v2_confirmarEntregaIngreso_(hojaEntrega, filaFisica, norm.fechaIngreso);
-    if (conf && conf.ok === false) {
+    // Confirmación CANÓNICA §16 (P0 v0.17.0): la evidencia durable es
+    // EVENTOS+PACIENTES, no la fila de staging (que el pipeline pudo eliminar
+    // correctamente en el paso 7). Nunca se inventa éxito por ausencia de fila.
+    var conf = Captura_v2_confirmarEfectoIngreso_(norm, marca, proc);
+    if (!conf.ok) {
       Captura_v2_logAux_('entregarIngreso', marca + ': confirmación pendiente (' + conf.motivo + ')');
       return {
-        estado: CAPTURA_V2.ESTADOS.RECIBIDO,
-        motivo: 'PENDIENTE_CONFIRMACION',
-        idInterno: '',
-        idEvento: '',
+        estado: conf.estado === CAPTURA_V2.ESTADOS.ERROR ? CAPTURA_V2.ESTADOS.ERROR : CAPTURA_V2.ESTADOS.RECIBIDO,
+        motivo: conf.motivo || 'PENDIENTE_CONFIRMACION',
+        idInterno: conf.idInterno || '',
+        idEvento: conf.idEvento || '',
         ingresoHoja: hojaEntrega,
         ingresoFila: String(filaFisica)
       };
     }
-
-    // Estado real de la fila: fast-path acotado (1 header + 1 fila), nunca el
-    // bloque completo de la hoja (v0.10.5 §16).
-    var est = Form_leerFilaIngreso_rapida_(hojaEntrega, filaFisica);
-    var mapeado = Form_mapearResultadoFila_(est.estado, est.nota);
-    var resFila = proc.resultado || {};
-    var idInterno = resFila.idInterno || Captura_v2_buscarIdInternoPorRut_(norm.rut);
-    var idEvento = resFila.idEvento || '';
-    // §17: PROCESADO exige idInterno+idEvento reales; se completan desde la
-    // marca durable o se degradan a REQUIERE_REVISION (nunca PROCESADO vacío).
-    var resIds = Captura_v2_completarIds_(mapeado.estado, idInterno, idEvento, marca);
-    if (resIds.motivo && !mapeado.motivo) mapeado.motivo = resIds.motivo;
     return {
-      estado: resIds.estado,
-      motivo: mapeado.motivo,
-      idInterno: resIds.idInterno,
-      idEvento: resIds.idEvento,
+      estado: conf.estado,
+      motivo: conf.motivo || '',
+      idInterno: conf.idInterno || '',
+      idEvento: conf.idEvento || '',
       ingresoHoja: hojaEntrega,
       ingresoFila: String(filaFisica)
     };
