@@ -97,11 +97,12 @@ function coincide(el, sel) {
 
 /**
  * Construye un sandbox con el script de EditorPaciente ejecutado.
- * @param {{ source: string }} opts — texto del <script> a ejecutar.
+ * @param {{ source: string, modoOperador?: boolean }} opts — texto del
+ *   <script> a ejecutar y contexto de acceso.
  * @returns {{ document, window, editor, timers, fireDOMContentLoaded,
  *             resolverCarga, rechazarCarga, rpc, setAccion }}
  */
-export function crearHarness({ source }) {
+export function crearHarness({ source, modoOperador = true }) {
   const registry = new Map();
   const document = {
     getElementById(id) {
@@ -159,7 +160,7 @@ export function crearHarness({ source }) {
     console, JSON, Date, Math, RegExp, Object, Array, String, Number, Boolean, Error,
     parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent,
     document, setTimeout, clearTimeout,
-    ECICEP_run,
+    ECICEP_run, ECICEP_MODO_OPERADOR: modoOperador,
     ECICEP_requiereRecarga: () => false,
     ECICEP_esServicioOcupado: () => false,
     ECICEP_errorTexto: e => (e && e.message) || 'error'

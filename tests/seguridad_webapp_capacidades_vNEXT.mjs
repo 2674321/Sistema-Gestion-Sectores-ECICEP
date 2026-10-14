@@ -65,6 +65,7 @@ const captura = c.doGet({ parameter: {} });
 assert.equal(captura.tipo, 'html', 'la captura se sirve anónima');
 assert.equal(captura.vars.archivo, 'CapturaWeb');
 assert.equal(captura.vars.MODO_OPERADOR, false, 'CapturaWeb no muestra login de operador');
+assert.equal(captura.vars.PORTAL_URL, '', 'la captura pública no enlaza Funciones privadas');
 assert.equal(c.doGet({ parameter: { vista: 'captura' } }).vars.archivo, 'CapturaWeb');
 
 // El estado técnico público no exige credencial.

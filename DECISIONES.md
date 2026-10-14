@@ -2776,3 +2776,27 @@ ni un proyecto nuevos.
 **Validación:** `tests/release_version_capacity_v0170.mjs` (199 permite y despliega,
 200 bloquea sin llamar a `clasp deploy`, 201+ bloquea, parser robusto).
 **Fecha:** 2026-10-14
+
+## DEC-122
+**Título:** Captura pública completa sin lectura de ficha; Funciones sólo en la superficie administrativa.
+**Estado:** Aprobada
+**Motivo:** los operadores generales trabajan mediante el QR público y necesitan
+las cuatro acciones de captura sin clave, cuenta Google ni sesión OPSESS. La
+acción `ACTUALIZAR_DATOS` activaba el editor de ficha completa, cuya lectura es
+correctamente privada, y por ello abría el login de operador en un flujo que
+debe ser anónimo. A la vez, el botón `Funciones` exponía en la captura el acceso
+a una superficie que sí exige sesión administrativa.
+**Contenido:** en `MODO_OPERADOR=false`, `ACTUALIZAR_DATOS` usa únicamente los
+campos operativos del formulario público (RUT, equipo, contacto, próxima
+atención y observaciones), se envía por el mismo Google Form durable y el mismo
+pipeline, y jamás invoca `WebApp_cargarPacienteEdicion`. El editor completo de
+18 campos conserva su contrato, pero sólo se activa en contexto de operador. La
+captura pública ya no recibe `PORTAL_URL` ni renderiza `Funciones`; administración
+entra desde el Spreadsheet autorizado, donde DEC-119 emite OPSESS automáticamente.
+No cambia la captura anónima, la fuente de verdad, el Spreadsheet, el deployment
+ni el pipeline clínico.
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (caso I),
+`tests/public_capture_zero_legacy_token_v0170.mjs` y
+`tests/seguridad_webapp_capacidades_vNEXT.mjs`; verificador completo 170 suites /
+0 fallos.
+**Fecha:** 2026-10-14

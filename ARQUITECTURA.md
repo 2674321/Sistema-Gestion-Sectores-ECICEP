@@ -54,6 +54,17 @@
 > - No cambia el QR/manifest/deployment, el pipeline clínico ni el contrato de
 >   captura (`docs/CONTRATO_CAPTURA_V2.md` §24).
 
+> **Actualización 2026-10-14 (DEC-122, captura completa sin fricción):**
+> - El QR público ofrece las cuatro acciones de captura sin login ni OPSESS.
+>   `ACTUALIZAR_DATOS` usa el formulario operativo (RUT, equipo, contacto,
+>   próxima atención y observaciones) y no realiza lectura previa de PACIENTES.
+> - El editor completo de ficha, que sí devuelve PII, sólo se activa en contexto
+>   de operador. La captura pública no recibe `PORTAL_URL` ni muestra el botón
+>   `Funciones`; administración se abre desde el Spreadsheet autorizado y recibe
+>   la sesión OPSESS automática de DEC-119.
+> - Google Forms continúa siendo transporte durable interno; no se agrega otra
+>   interfaz, base, Spreadsheet, deployment ni pipeline.
+
 > **Actualización 2026-10-14 (v270 — DEC-116, la captura directa al Form no es canal clínico):**
 > - La captura directa al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin
 >   `CLIENT_REQUEST_ID` válido) deja de procesarse hasta `TERMINAL` con mutación

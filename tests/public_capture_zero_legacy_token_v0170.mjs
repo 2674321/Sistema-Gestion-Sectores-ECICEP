@@ -63,6 +63,7 @@ assert.match(forms, /function WebApp_capturarRecibirDurable\(payload\)\s*\{/,
   const { c } = crearContextoOperador();
   const r = c.doGet({ parameter: {} });
   assert.equal(r.vars.MODO_OPERADOR, false, 'la captura se sirve en modo captura');
+  assert.equal(r.vars.PORTAL_URL, '', 'la captura pública no expone el enlace al portal privado');
   for (const alias of ['CAPTURA_ACCESO', 'TOKEN_ACCESO', 'TOKEN_INVITACION']) {
     assert.equal(r.vars[alias], undefined, 'doGet no expone ' + alias + ' en la captura');
   }
@@ -73,6 +74,9 @@ assert.match(forms, /function WebApp_capturarRecibirDurable\(payload\)\s*\{/,
   assert.equal(c.WebApp_estadoInicial.length, 0, 'estadoInicial no recibe la credencial legacy');
   assert.equal(c.api_webappEstado.length, 0, 'api_webappEstado no recibe la credencial legacy');
 }
+
+assert.match(captura, /MODO_OPERADOR\s*&&\s*PORTAL_URL/,
+  'Funciones solo se renderiza en un contexto de operador');
 
 // ── 7. Runtime: las RPC de captura funcionan sin token. ──────────────────────
 const h = createHarness255();

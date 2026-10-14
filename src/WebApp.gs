@@ -315,7 +315,10 @@ function doGet(e) {
 function WebApp_servirCaptura_() {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
   plantilla.MODO_OPERADOR = false;
-  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
+  // La captura distribuida por QR no anuncia ni enlaza la superficie privada.
+  // Administración entra a "Funciones" desde el Spreadsheet autorizado, donde
+  // el runtime emite OPSESS automáticamente (DEC-119).
+  plantilla.PORTAL_URL = '';
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
   plantilla.REM_URL = '';
   plantilla.DASH_URL = '';

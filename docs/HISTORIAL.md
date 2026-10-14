@@ -7,6 +7,16 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-10-14 — captura pública completa sin login (DEC-122)
+
+- Los operadores del QR conservan las cuatro acciones. `ACTUALIZAR_DATOS` usa
+  los campos operativos públicos y deja de intentar la lectura privada de ficha,
+  eliminando la aparición del login en ese flujo.
+- El editor completo de 18 campos permanece protegido como función de operador.
+  La captura pública deja de enlazar `Funciones`; administración ingresa desde
+  el Spreadsheet autorizado con bootstrap OPSESS.
+- Sin cambios de fuente de verdad, transporte durable, pipeline o deployment.
+
 ## 2026-10-14 — v270 (captura directa al Form no es canal clínico, DEC-116)
 
 - La captura directa al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin
