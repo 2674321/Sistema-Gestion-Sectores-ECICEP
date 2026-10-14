@@ -479,7 +479,12 @@ function Captura_v2_nuevoRegistro_(norm, opciones) {
     // Form; vacío en el canal Web App legacy). NO forman parte del payload
     // del contrato (el validador rechaza claves desconocidas).
     captureProvider: opciones.captureProvider || '',
-    transportId: opciones.transportId || ''
+    transportId: opciones.transportId || '',
+    // v268: metadata técnico de TRANSPORTE (no clínico). No forma parte de
+    // CAPTURA_V2.CAMPOS ni del payload ni de TRAZA_CRUDA: sólo se escribe en sus
+    // columnas de FORM_RESPUESTAS cuando existen.
+    clientRequestId: opciones.clientRequestId || '',
+    source: opciones.source || ''
   };
 }
 
@@ -599,7 +604,10 @@ function Captura_v2_enviar_(payload, ctx) {
   var nuevo = Captura_v2_nuevoRegistro_(norm, {
     usuario: c.usuario, fechaRecepcion: (c.ahora ? c.ahora() : ''),
     captureProvider: c.captureProvider || c.provider || '',
-    transportId: c.transportId || c.transportResponseId || ''
+    transportId: c.transportId || c.transportResponseId || '',
+    // v268: metadata técnico de transporte propagado por el adaptador Forms.
+    clientRequestId: c.clientRequestId || '',
+    source: c.source || ''
   });
   var pers;
   try {
@@ -1102,6 +1110,10 @@ function Captura_v2_persistirRegistro_(reg) {
     // v253 (DEC-106): transporte del registro (solo si la columna existe).
     if (mapa.CAPTURE_PROVIDER !== undefined) fila[mapa.CAPTURE_PROVIDER] = reg.captureProvider || '';
     if (mapa.TRANSPORT_RESPONSE_ID !== undefined) fila[mapa.TRANSPORT_RESPONSE_ID] = reg.transportId || '';
+    // v268: metadata técnico de transporte. Solo si las columnas existen; nunca
+    // entra al payload clínico, a TRAZA_CRUDA ni al fingerprint canónico.
+    if (mapa.CLIENT_REQUEST_ID !== undefined) fila[mapa.CLIENT_REQUEST_ID] = reg.clientRequestId || '';
+    if (mapa.SOURCE !== undefined) fila[mapa.SOURCE] = reg.source || '';
     if (mapa.REINTENTOS !== undefined) fila[mapa.REINTENTOS] = reg.reintentos || 0;
     fila[mapa.ESTADO] = reg.estado || CAPTURA_V2.ESTADOS.RECIBIDO;
     var filaNueva = hoja.getLastRow() + 1;

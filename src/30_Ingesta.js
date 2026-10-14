@@ -282,12 +282,17 @@ function CapturaIngress_adapterForms_(respuesta, opciones) {
     return { ok: false, captureId: captureId, payload: null, accion: accion, errores: err, error: e0.codigo || 'FALLBACK_PROVIDER_DISABLED', escrito: 0, meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
   }
 
+  // v268: la validación anticipada es sólo una barrera temprana. El objeto
+  // `v.normalizado` es la forma INTERNA (incluye claves por defecto como
+  // telefonoObs/fechaEvento/actualizacion que el contrato no acepta para esta
+  // acción); devolverlo como payload externo hacía fallar la SEGUNDA validación
+  // dentro de Captura_v2_enviar_. Se devuelve el payload contractual adaptado:
+  // la normalización autoritativa ocurre una sola vez, en Captura_v2_enviar_.
   if (typeof Captura_v2_validar_ === 'function') {
     var v = Captura_v2_validar_(payload, { catalogo: opciones.catalogo });
     if (!v.ok) {
       return { ok: false, captureId: captureId, payload: null, accion: accion, errores: v.errores, meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
     }
-    payload = v.normalizado;
   }
   return { ok: true, captureId: captureId, payload: payload, accion: accion, errores: [], error: undefined, escrito: 0, meta: { provider: 'GOOGLE_FORMS', transportResponseId: responseId, formId: formId } };
 }

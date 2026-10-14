@@ -1220,18 +1220,47 @@ function Form_procesarRespuestaConTransporte_(respuesta, ctx, opciones) {
     return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
       clasificacion: 'REVIEW', errores: ad.errores };
   }
+  // v268: SOURCE normalizado. Con clientRequestId válido la respuesta viene de la
+  // Web App; sin él, es captura directa al Form. Nada más se acepta.
+var sourcesValidos = {};
+  sourcesValidos[GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP] = true;
+  sourcesValidos[GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_GOOGLE_FORM_DIRECTO] = true;
+  var sourceLeido = String(transporte.source || '').trim().toUpperCase();
+  var sourceNormalizado = sourcesValidos[sourceLeido]
+    ? sourceLeido
+    : (requestId ? GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_WEBAPP : GOOGLE_FORMS_CONFIG.TRANSPORTE.SOURCE_GOOGLE_FORM_DIRECTO);
+
+  // v268: contexto POR RESPUESTA. El ctx del batch se copia para que el
+  // transportId de una respuesta nunca se reutilice en la siguiente, y para que
+  // responseId/clientRequestId/source queden explícitos en el registro.
+  var ctxEnvio = {};
+  Object.keys(ctx || {}).forEach(function (k) { ctxEnvio[k] = ctx[k]; });
+  ctxEnvio.transportId = responseId;
+  ctxEnvio.transportResponseId = responseId;
+  ctxEnvio.clientRequestId = requestId;
+  ctxEnvio.source = sourceNormalizado;
+
   // v258: el lease excluye worker/worker; este lock breve excluye la mutación
   // clínica frente a UI/operador. Extracción, schema y trailer quedan fuera.
   var r = Ecicep_conLock_(function () {
-    return CapturaIngress_enviar_(ad.payload, ctx, 'GOOGLE_FORMS');
+    return CapturaIngress_enviar_(ad.payload, ctxEnvio, 'GOOGLE_FORMS');
   });
   if (!r.ok) {
     return { ok: false, captureId: captureId, responseId: responseId, requestId: requestId,
       clasificacion: 'RETRYABLE', errores: r.errors || [{ codigo: r.codigo || r.motivo || 'PIPELINE' }] };
   }
   if (requestId) Form_requestIdConfirmar_(requestId, responseId);
+  // v268: la fila física la crea Captura_v2_enviar_ durante ESTA corrida, así que
+  // estadoPrev aún no la conoce. Se resuelve internamente para que el worker
+  // escriba CLASIFICACION/TRANSPORTE_ERROR en la misma corrida.
+  var filaPersistida = null;
+  try {
+    if (typeof Captura_v2_buscarRegistro_ === 'function') filaPersistida = Captura_v2_buscarRegistro_(captureId);
+  } catch (eFila) { filaPersistida = null; }
+  var filaFisicaNueva = (filaPersistida && filaPersistida.filaFisica) ? filaPersistida.filaFisica : '';
   return { ok: true, captureId: captureId, responseId: responseId, requestId: requestId,
-    accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO', clasificacion: 'TERMINAL' };
+    accion: ad.accion, estado: (r.data && r.data.estado) || 'PROCESADO', clasificacion: 'TERMINAL',
+    filaFisica: filaFisicaNueva };
 }
 
 /** v256 (P1): ELIMINADO el registro por captura en ScriptProperties
@@ -1477,7 +1506,10 @@ function Form_worker_(opciones) {
         ctx, { hoy: cand.ts, transporte: tr });
       var rOk = r.ok;
       var rf = cand.cid || r.captureId || '';
-      var filaFisica = (cand.estadoPrev && cand.estadoPrev.filaFisica) || '';
+      // v268: para una respuesta recién creada, estadoPrev no conoce la fila;
+      // el procesador la resuelve tras persistir. Sin esto, CLASIFICACION y
+      // TRANSPORTE_ERROR quedaban sin escribir en la misma corrida.
+      var filaFisica = (cand.estadoPrev && cand.estadoPrev.filaFisica) || r.filaFisica || '';
       var persistencia = Form_persistirClasificacion_(filaFisica, r);
       if (!persistencia.ok) {
         rOk = false;

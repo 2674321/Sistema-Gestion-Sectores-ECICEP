@@ -217,6 +217,10 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
     { NOMBRE_CANONICO: 'PROFESIONAL UNO', ACTIVO: true },
     { NOMBRE_CANONICO: 'PROFESIONAL DOS', ACTIVO: true }
   ];
+  // v268: el validador REAL queda disponible para las pruebas de contrato. El stub
+  // de abajo mantiene el aislamiento del canal, pero la frontera contractual
+  // debe probarse contra el validador productivo.
+  c.__Captura_v2_validar_real = c.Captura_v2_validar_;
   c.Captura_v2_validar_ = p => ({ ok: true, normalizado: p, errores: [] });
   c.Norm_normalizarRut_ = r => ({ estado: 'OK', rut: String(r).replace(/\./g, '').toUpperCase() });
   const patients = [{ ID_INTERNO: 'EC-001', RUT: '12345678-5', TELEFONOS: '999999999',
