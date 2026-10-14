@@ -18,6 +18,7 @@
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
 | Estado del canal | Publicado en `/exec` (@268, build `23c1099`, HTTP 200, sin login Google); E2E real y health `ACTIVE_HEALTHY` en ventana |
+| HEAD de trabajo | `cb822c1` (`hardening/v0.17.0-final` = `release/v0.17.0-rc1`); incluye DEC-119 (OPSESS desde Sheets) y DEC-120 (editor `ACTUALIZAR_DATOS`). Sincronizado a dev `@HEAD`; **publicación a producción pendiente** de liberar versiones (límite de 200 del proyecto) |
 | Acceso operador | Web App/admin externo → clave OPSESS; vistas abiertas desde el Spreadsheet autorizado → OPSESS automática (DEC-119); captura pública anónima |
 
 ## Contrato de captura vigente (v270)
@@ -69,3 +70,15 @@
   build `23c1099`. El E2E real de una entrega, la idempotencia y el health
   `ACTIVE_HEALTHY` quedan **pendientes** de la ventana de activación
   (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
+
+## Publicación pendiente (deploy)
+
+- `node tools/release.mjs --push` **OK** (`cb822c1` en dev `@HEAD`).
+- `node tools/release.mjs --publish` **BLOQUEADO**:
+  `CLASP_DEPLOY_FALLÓ` — "Script has reached the limit of 200 versions".
+  El proyecto tiene 200 versiones (16..268) y `clasp` 3.3.0 no borra versiones.
+  Requiere borrado manual en el editor (Project history) de versiones antiguas
+  no referenciadas, y luego reintentar `--publish` sobre el MISMO deployment.
+  Fail-closed: producción `@268` (build `23c1099`) intacta.
+- Pendiente de ventana: smoke `/dev` (Captura → Actualizar → RUT sintético
+  `11.111.111-1` → cargar → verificar ficha completa) y E2E real.
