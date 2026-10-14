@@ -2728,3 +2728,28 @@ Acerca de, Instalador). No aplica a CapturaWeb.
 `tests/operator_html_gateway_v255.mjs`, `tests/seguridad_webapp_capacidades_vNEXT.mjs`,
 `tests/rpc_public_surface_v255.mjs` y `tests/operator_destructive_nonce_v0170.mjs`.
 **Fecha:** 2026-10-14
+
+## DEC-120
+**Título:** La acción de captura es una única fuente de verdad: `<select id="accion">`.
+**Estado:** Aprobada
+**Motivo:** reparar la regresión P0 de `ACTUALIZAR_DATOS`. Al migrar CapturaWeb de
+radios a un `<select>` en v254 (`4814e15`), `EditorPaciente.html` conservó
+`document.querySelector('input[name="accion"]:checked')`; los radios ya no
+existen, `activo()` devolvía siempre falsy y la ficha completa nunca se activaba:
+solo quedaban visibles las secciones genéricas (tel/prof/obs), percibidas como
+"2 campos". No era un problema de backend: `CAPTURA_EDICION_CAMPOS` y
+`WebApp_cargarPacienteEdicion_` ya devolvían la ficha completa de 18 campos.
+**Contenido:** `EditorPaciente.html` deriva la acción con `accionActual_()` desde
+`document.getElementById('accion').value` (única fuente); `activo()` compara con
+`ACTUALIZAR_DATOS`. El listener de cambio se registra sobre el `<select>` y difiere
+`ajustar()` con `setTimeout(…,0)` para ejecutarse después del handler de CapturaWeb
+(sin competir por el estado). `cargar()` exige `ok && id && rutOriginal && campos`
+antes de renderizar. Se mantienen los 18 campos editables y los controles de
+CONTROL/SEGUIMIENTO; los campos vacíos se renderizan igual (no se filtran por
+verdad) y el envío sigue siendo diferencial. El editor oculta `secTel`/`secAgenda`/
+`secObs` para no duplicar teléfono/observaciones. La captura pública y el canal
+durable no cambian.
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (A–H, incluye
+mutación que reimplantaría los radios y debe fallar) y
+`tests/actualizar_datos_campos_contrato_v0170.mjs` (frontend ≡ backend, 18 campos).
+**Fecha:** 2026-10-14

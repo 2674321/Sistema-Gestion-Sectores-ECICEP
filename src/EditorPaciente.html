@@ -28,7 +28,8 @@
     ['Agenda manual',[['PROXIMO_CONTROL','Próximo control / seguimiento','date'],['COMPOSICION_CONTROL','Composición del próximo control']]],
     ['Información clínica',[['CONDICIONES','Patologías ECICEP','condiciones'],['OTRAS_PATOLOGIAS','Otras patologías','textarea'],['SALUD_MENTAL','Salud mental',['','SI','NO']],['OBSERVACIONES','Observaciones del paciente','textarea']]]
   ];
-  function activo(){var r=document.querySelector('input[name="accion"]:checked');return r&&r.value==='ACTUALIZAR_DATOS';}
+  function accionActual_(){var el=document.getElementById('accion');return el?String(el.value||''):'';}
+  function activo(){return accionActual_()==='ACTUALIZAR_DATOS';}
   function estado(t){$('edEstado').textContent=t;}
   function reset(){base=null;secuencia++;clearTimeout(temporizador);$('edCargar').disabled=false;$('edCampos').replaceChildren();$('edCampos').hidden=true;$('edResumen').textContent='';estado('Carga la ficha para editarla.');}
   function ajustar(){var on=activo();$('editorPaciente').hidden=!on;['secTel','secAgenda','secObs'].forEach(function(id){var el=$(id);if(el)el.style.display=on?'none':'';});}
@@ -64,11 +65,11 @@
     ECICEP_run().withSuccessHandler(function(r){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;
       if(window.ECICEP_requiereRecarga&&window.ECICEP_requiereRecarga(r)){if(window.ECICEP_reloadUnaVez)window.ECICEP_reloadUnaVez();else estado((r&&r.motivo)||'Acceso vencido. Cierra y reabre el enlace.');return;}
       if(window.ECICEP_esServicioOcupado&&window.ECICEP_esServicioOcupado(r)){estado(window.ECICEP_textoServicioOcupado());return;}
-      if(r&&r.ok)render(r);else estado(r&&(r.motivo||r.message)||'No se pudo cargar la ficha.');})
+      if(r&&r.ok&&r.id&&r.rutOriginal&&r.campos&&typeof r.campos==='object')render(r);else estado(r&&(r.motivo||r.message)||'No se pudo cargar la ficha.');})
       .withFailureHandler(function(e){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;var txt=window.ECICEP_errorTexto?window.ECICEP_errorTexto(e):((e&&e.message)||'Error al cargar la ficha');estado(txt+' — Verifica tu conexión e intenta nuevamente.');}).WebApp_cargarPacienteEdicion(rut,window.ECICEP_ACCESO);
   }
   function validar(){if(!activo())return true;if(!base){estado('Carga primero el paciente que deseas actualizar.');$('edCargar').focus();return false;}var a=payload();if(!Object.keys(a.campos).length&&!a.atenciones.length){estado('No has realizado cambios.');return false;}var invalid=Array.from($('edCampos').querySelectorAll('input,select,textarea')).find(function(el){return !el.disabled&&!el.checkValidity();});if(invalid){invalid.reportValidity();return false;}if(a.atenciones.some(function(e){return !e.fecha;})){estado('Indica la fecha de la atención.');return false;}return true;}
   window.ECICEP_EDITOR={payload:payload,validar:validar,reset:reset,ajustar:ajustar,hayCambios:function(){var a=payload();return !!(a&&(Object.keys(a.campos).length||a.atenciones.length));}};
-  document.addEventListener('DOMContentLoaded',function(){$('edCargar').addEventListener('click',cargar);$('edCampos').addEventListener('input',resumen);$('edCampos').addEventListener('change',resumen);$('rut').addEventListener('input',reset);document.querySelectorAll('input[name="accion"]').forEach(function(el){el.addEventListener('change',function(){setTimeout(ajustar,0);});});ajustar();});
+  document.addEventListener('DOMContentLoaded',function(){$('edCargar').addEventListener('click',cargar);$('edCampos').addEventListener('input',resumen);$('edCampos').addEventListener('change',resumen);$('rut').addEventListener('input',reset);var accion=document.getElementById('accion');if(accion)accion.addEventListener('change',function(){setTimeout(ajustar,0);});ajustar();});
 })();
 </script>

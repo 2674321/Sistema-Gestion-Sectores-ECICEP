@@ -35,11 +35,15 @@
   App externa y `google.script.run` no la reciben y piden clave. Captura intacta.
 - Input hardening (DEC-114/v270): cotas de tamaño, profundidad y longitud de
   texto en `Captura_v2_validar_`; anti-inyección de fórmulas en celdas.
+- **Actualizar ficha (DEC-120):** la acción se lee de `<select id="accion">`
+  (única fuente). `ACTUALIZAR_DATOS` carga y renderiza los 18 campos editables
+  (`CAPTURA_EDICION_CAMPOS` ≡ editor), conserva campos vacíos, guarda solo
+  diferencias y mantiene los controles de CONTROL/SEGUIMIENTO.
 
 ## Verificación
 
 - Verificador integral: `node tools/verificar.mjs` (humano) o `--json`.
-  Estado: **167 suites / 0 fallos**.
+  Estado: **169 suites / 0 fallos**.
 - Preflight de release: `node tools/preflight_release.mjs`.
 - Release Node: `node tools/release.mjs --check` (este documento debe citar
   `v0.17.0`).
