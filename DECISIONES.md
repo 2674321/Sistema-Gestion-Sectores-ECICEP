@@ -2607,3 +2607,29 @@ automáticamente al pipeline. Su migración es dry-run por defecto, solo complet
 el trailer moderno y exige columnas preexistentes. `clasp run` queda
 `NO_REQUERIDO / NO_CONFIGURADO`; la operación usa menú del Spreadsheet y Project
 Settings, sin API Executable, scopes ni deployment adicional.
+
+## DEC-115
+**Título:** v270 — captura pública sin token legacy (fin del enlace de invitación y de la credencial en el DOM).
+**Estado:** Aprobada
+**Motivo:** DEC-110 hizo la captura pública anónima, pero el HTML servido y las
+cuatro llamadas de captura seguían arrastrando la credencial legacy
+(`data-acceso` / `window.ECICEP_ACCESO` / `CAPTURA_ACCESO` / `TOKEN_ACCESO` /
+`TOKEN_INVITACION`), ignorada en destino. Esa credencial en el DOM no aportaba
+seguridad (la autorización es por boundary de RPC) y contradecía la superficie
+de captura anónima.
+**Contenido:**
+- Se elimina la inyección y el consumo de la credencial legacy en la CAPTURA:
+  `CapturaWeb.html` sirve `<body>` sin `data-acceso` ni puente
+  `window.ECICEP_ACCESO`; las llamadas `api_webappEstado`,
+  `WebApp_verificarRecepcion`, `WebApp_capturarRecibirDurable` y
+  `WebApp_estadoInicial` no reciben token.
+- `WebApp_servirCaptura_()` ya no recibe ni resuelve la credencial; `doGet` la
+  resuelve solo para las vistas de OPERADOR/ADMINISTRACIÓN.
+- `WebApp_verificarRecepcion(clientRequestId)` y
+  `WebApp_capturarRecibirDurable(payload)` dejan de aceptar el parámetro `acceso`.
+- `ECICEP_ACCESS_TOKEN` se conserva exclusivamente como trazabilidad de las
+  vistas de operador y nunca viaja en la URL; los enlaces de invitación con token
+  quedan obsoletos.
+**Validación:** `tests/public_capture_zero_legacy_token_v0170.mjs` PASS; batería
+de captura/anónimo verde sin token en HTML ni URL.
+**Fecha:** 2026-10-14

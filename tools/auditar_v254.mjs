@@ -14,7 +14,7 @@ function run(file) {
 }
 
 check('UI_SELECTOR_DROPDOWN', /<select id="accion"/.test(html) && !/type="radio" name="accion"/.test(html));
-check('DURABLE_RPC', /\.WebApp_capturarRecibirDurable\(datos,/.test(html) && !/\.WebApp_previaDuplicadosV2_\(datos,/.test(html));
+check('DURABLE_RPC', /\.WebApp_capturarRecibirDurable\(datos\)/.test(html) && !/\.WebApp_previaDuplicadosV2_\(/.test(html));
 check('FORM_EXPLICIT_ADOPTION', /opciones\.formId \|\| Form_formId_\(\)/.test(forms));
 check('NO_ACCIDENTAL_FORM_CREATE', /opciones\.crearNuevo !== true/.test(forms));
 check('GLOBAL_ACTION_CANONICAL', /GLOBAL\|ACCION/.test(forms));

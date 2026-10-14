@@ -1769,7 +1769,7 @@ function Captura_v2_ctx_(acceso) {
  * clínicos dentro de la recepción. */
 function WebApp_capturarEnviar_(payload, acceso) {
   if (typeof WebApp_capturarRecibirDurable === 'function') {
-    return WebApp_capturarRecibirDurable(payload, acceso);
+    return WebApp_capturarRecibirDurable(payload);
   }
   return { ok: false, errors: [Captura_v2_error_('ERROR_INTERNO', null,
     'Transporte durable no disponible', 'DURABLE_RECEIVER_UNAVAILABLE')] };

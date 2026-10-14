@@ -18,14 +18,16 @@
  * Frontera de acceso (DEC-110):
  *   · CAPTURA — anónima/universal. `WebApp_capturarRecibirDurable`,
  *     `WebApp_estadoInicial`, `WebApp_verificarRecepcion` y `api_webappEstado`
- *     se sirven por el QR estable SIN sesión de operador (sin OPSESS).
+ *     se sirven por el QR estable SIN sesión de operador (sin OPSESS). El HTML
+ *     servido NO inyecta credencial legacy (ni en el DOM ni en la URL) ni las
+ *     RPC de captura la exigen (v270).
  *   · OPERADOR / ADMINISTRACIÓN — exigen sesión OPSESS y el secreto
  *     independiente `ECICEP_OPERATOR_SECRET_SHA256`. Toda RPC operativa es
  *     interna (sufijo `_`) y sólo se alcanza por el gateway único
  *     `WebApp_operadorRpc` (ver `src/37_OperadorAuth.js`).
  *   · `ECICEP_ACCESS_TOKEN` — compatibilidad/trazabilidad legacy: NO es
- *     autenticación ni abre la operación; se inyecta en servidor y nunca viaja
- *     en la URL.
+ *     autenticación ni abre la operación. Sólo las vistas de operador lo
+ *     reciben embebido; nunca viaja en la URL y la CAPTURA ya no lo consume.
  *
  *   Referencia histórica: DEC-101/DEC-102 (acceso universal concedido siempre)
  *   describen el estado previo; DEC-110 los acota a la CAPTURA pública.
@@ -49,8 +51,9 @@
 //   acota: la concesión universal queda sólo para la CAPTURA pública.
 //
 //   Las claves siguientes se conservan para enlaces, QR impresos y pestañas ya
-//   abiertas; se inyectan en servidor y nunca viajan en la URL. El token del
-//   webhook es independiente y no se comparte aquí.
+//   abiertas de las vistas de OPERADOR; se inyectan en servidor y nunca viajan
+//   en la URL. La CAPTURA pública (v270) ya no las consume. El token del webhook
+//   es independiente y no se comparte aquí.
 // ---------------------------------------------------------------------------
 
 /** Claves que contienen (o contuvieron) la credencial legacy de trazabilidad.
@@ -257,19 +260,20 @@ function doGet(e) {
   }
   var p = e && e.parameter || {};
   var vista = String(p.vista || 'captura').trim();
-  // DEC-110: el QR estable sirve la CAPTURA sin credencial y sin OPSESS. El
-  // servidor inyecta el token legacy sólo como trazabilidad; la operación
-  // (ficha, ingresos, REM, configuración, etc.) se autentica con OPSESS en el
-  // cliente. Un `?acceso=` heredado en un enlace viejo se ignora sin efecto.
+  // DEC-110 (v270): la CAPTURA pública es anónima por diseño. El HTML servido
+  // NO inyecta credencial alguna (ni en el DOM ni en la URL) y las RPC de
+  // captura no la exigen; un `?acceso=` heredado en un enlace viejo se ignora
+  // sin efecto. La credencial legacy se resuelve SÓLO para las vistas de
+  // operador (que sí se autentican con OPSESS en el cliente).
+  if (vista === 'captura') {
+    // Captura es la pantalla simple de registro: sin token, ofrece salida
+    // directa al portal de funciones.
+    return WebApp_servirCaptura_();
+  }
   var acceso = '';
   // DEC-102: servir una vista NUNCA puede fallar por la credencial. Cualquier
   // error al resolverla degrada a cadena vacía, que no bloquea nada.
   try { acceso = WebApp_claveUniversal_() || ''; } catch (ignAcceso) { acceso = ''; }
-  if (vista === 'captura') {
-    // Captura es la pantalla simple de registro. Comparte la credencial
-    // universal y ofrece salida directa al portal de funciones.
-    return WebApp_servirCaptura_(acceso);
-  }
   var archivos = WebApp_vistasMapa_();
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
   if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de ECICEP.');
@@ -305,12 +309,11 @@ function doGet(e) {
 }
 
 /** Sirve la única interfaz operativa de captura. Google Forms queda detrás de
- *  esta pantalla como transporte durable interno; su URL no se publica. */
-function WebApp_servirCaptura_(accesoUniversal) {
+ *  esta pantalla como transporte durable interno; su URL no se publica.
+ *  v270 (DEC-110): la captura es anónima y NO inyecta credencial legacy en el
+ *  HTML (ni en el DOM ni en la URL); las RPC de captura no la requieren. */
+function WebApp_servirCaptura_() {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  plantilla.CAPTURA_ACCESO = accesoUniversal || '';
-  plantilla.TOKEN_ACCESO = accesoUniversal || '';
-  plantilla.TOKEN_INVITACION = accesoUniversal || '';
   plantilla.MODO_OPERADOR = false;
   plantilla.PORTAL_URL = WebApp_urlVista_('portal');
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
@@ -359,7 +362,7 @@ function WebApp_resumenPaciente_(p) {
   };
 }
 
-function api_webappEstado(acceso) {
+function api_webappEstado() {
   return {
     ok: true,
     version: ECICEP.VERSION,
@@ -375,8 +378,9 @@ function api_webappEstado(acceso) {
  *
  *  Contrato explícito (v0.10.5): éxito SIEMPRE incluye ok:true; error
  *  ok:false + codigo + motivo. Un catálogo vacío NO se considera éxito:
- *  el formulario no debe quedar semihabilitado sin profesionales cargables. */
-function WebApp_estadoInicial(acceso) {
+ *  el formulario no debe quedar semihabilitado sin profesionales cargables.
+ *  v270 (DEC-110): anónimo; no recibe ni exige credencial legacy. */
+function WebApp_estadoInicial() {
   try {
     var profesionales = WebApp_profesionalesDropdown_();
     if (!profesionales || !profesionales.length) {

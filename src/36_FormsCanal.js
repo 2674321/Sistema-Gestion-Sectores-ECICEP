@@ -279,8 +279,9 @@ function Form_requestIdRecuperarRespuesta_(clientRequestId, opciones) {
 /** Entrypoint WebApp: verificación de recepción por identificador (ACK perdido).
  *  Ordinal: cache → escaneo acotado autoritativo → NO_ENCONTRADO. Si algún paso
  *  falla técnicamente, NUNCA se degrada a ausencia: se devuelve INCIERTO.
- *  Contrato público pequeño: {ok, estado, responseId?}. Nunca expone PII. */
-function WebApp_verificarRecepcion(clientRequestId, acceso) {
+ *  Contrato público pequeño: {ok, estado, responseId?}. Nunca expone PII.
+ *  v270 (DEC-110): anónimo; no recibe ni exige credencial legacy. */
+function WebApp_verificarRecepcion(clientRequestId) {
   try {
     var cid = Utl_texto_(clientRequestId);
     if (!GOOGLE_FORMS_CONFIG.TRANSPORTE.PATRON_CLIENT_REQUEST_ID.test(cid)) {
@@ -2302,8 +2303,9 @@ function Form_crearRespuestaDesdePayloadWeb_(payload, opciones) {
 
 /** Entrypoint WebApp: recepción durable via Google Forms (cola). No procesa
  *  clínicamente. v255 (E05/E06/E07): dedupe por CLIENT_REQUEST_ID + reserva
- *  + confirmación de ACK. Sin PII en la respuesta. */
-function WebApp_capturarRecibirDurable(payload, acceso) {
+ *  + confirmación de ACK. Sin PII en la respuesta. v270 (DEC-110): anónimo; no
+ *  recibe ni exige credencial legacy. */
+function WebApp_capturarRecibirDurable(payload) {
   try {
     var p = payload || {};
     var v = Form_validarPayloadTransporte_(p);

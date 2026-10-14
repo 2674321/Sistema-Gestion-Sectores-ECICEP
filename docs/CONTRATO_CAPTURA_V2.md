@@ -751,16 +751,20 @@ antes de eliminar la fila.
 
 ## 24. Seguridad / autorización
 
-1. El deployment permite abrir Captura sin cuenta de Google. Apps Script se
-   ejecuta como quien publica y puede ocultar el email de otras cuentas: el
-   email vacío **no** es una prueba de acceso denegado. La Web App acepta una
-   sesión activa o un enlace de invitación generado desde el menú Captura en
-   Sheets. El enlace lleva una clave aleatoria independiente del webhook,
-   guardada solo en Script Properties; el enlace base y claves incorrectas no
-   sirven HTML con `google.script.run`. Cada RPC de captura verifica la clave
-   nuevamente. El QR, la copia y el botón de apertura comparten el mismo enlace.
-   Los envíos sin email registran `ACCESO_COMPARTIDO` como origen, sin atribuir
-   falsamente la acción a una persona concreta.
+1. El deployment permite abrir Captura sin cuenta de Google y **sin credencial
+   alguna**. Apps Script se ejecuta como quien publica y puede ocultar el email
+   de otras cuentas: el email vacío **no** es una prueba de acceso denegado. La
+   CAPTURA pública (v270 / DEC-110) es anónima y **no inyecta ni exige token**:
+   el HTML servido (`CapturaWeb.html`) no contiene credencial en el DOM ni en la
+   URL, y `WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`,
+   `WebApp_verificarRecepcion` y `api_webappEstado` no la reciben ni la
+   requieren. Las vistas y RPC de **OPERADOR / ADMINISTRACIÓN** sí exigen sesión
+   OPSESS; la credencial legacy `ECICEP_ACCESS_TOKEN` se conserva solo como
+   trazabilidad de esas vistas de operador y **nunca viaja en la URL**. El QR, la
+   copia y el botón de apertura comparten el mismo enlace base (sin parámetros de
+   token ni de acceso). El origen del registro se deriva del transporte
+   (`WEBAPP` o `GOOGLE_FORM_DIRECT`), sin atribuir falsamente la acción a una
+   persona concreta.
 2. **No se confía en banderas del cliente.** `confirmarNuevoPaciente` es una **instrucción** validada
    y acotada (solo `nuevoIngreso`, `boolean`), jamás una acreditación; el backend revalida todo
    (duplicados, identidad, enums).

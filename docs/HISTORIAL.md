@@ -7,6 +7,19 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-10-14 — v270 (captura pública sin token legacy, DEC-115)
+
+- La CAPTURA pública deja de inyectar y consumir la credencial legacy:
+  `CapturaWeb.html` sirve `<body>` sin `data-acceso` ni puente
+  `window.ECICEP_ACCESO`, y las cuatro llamadas de captura (`estadoInicial`,
+  `verificarRecepcion`, `capturarRecibirDurable`, `api_webappEstado`) no reciben
+  token. `WebApp_servirCaptura_()` ya no resuelve la credencial; `doGet` la
+  resuelve solo para las vistas de OPERADOR/ADMINISTRACIÓN.
+- Los enlaces de invitación con token quedan obsoletos; el QR es anónimo y
+  `ECICEP_ACCESS_TOKEN` se conserva solo como trazabilidad de operador.
+- Guarda: `tests/public_capture_zero_legacy_token_v0170.mjs`. Contrato §24
+  actualizado (`docs/CONTRATO_CAPTURA_V2.md`).
+
 ## 2026-10-13 — v0.17.0 (candidato rc1) / baseline v260
 
 - Commit clínico común con preparación fuera del lock, revalidación, append y

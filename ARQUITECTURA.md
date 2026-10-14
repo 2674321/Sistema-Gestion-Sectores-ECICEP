@@ -39,6 +39,21 @@
 > - No cambia el sistema único, el Spreadsheet, la Web App como único canal, el
 >   pipeline clínico, ni el QR/manifest/deployment.
 
+> **Actualización 2026-10-14 (v270 — DEC-115, captura pública sin token legacy):**
+> - La CAPTURA pública deja de inyectar y consumir la credencial legacy. Se
+>   elimina `data-acceso`/`window.ECICEP_ACCESO`/`CAPTURA_ACCESO`/`TOKEN_ACCESO`/
+>   `TOKEN_INVITACION` del HTML servido (`CapturaWeb.html`) y de las 4 llamadas
+>   de captura (`estadoInicial`, `verificarRecepcion`, `capturarRecibirDurable`,
+>   `api_webappEstado`).
+> - `WebApp_servirCaptura_()` ya no recibe la credencial y no la resuelve
+>   (`doGet` solo la resuelve para las vistas de operador); las RPC de captura
+>   ya no reciben ni exigen el parámetro `acceso`.
+> - La credencial `ECICEP_ACCESS_TOKEN` se conserva **solo** como trazabilidad de
+>   las vistas de OPERADOR/ADMINISTRACIÓN y nunca viaja en la URL. La ausencia de
+>   token en la captura está anclada por `tests/public_capture_zero_legacy_token_v0170.mjs`.
+> - No cambia el QR/manifest/deployment, el pipeline clínico ni el contrato de
+>   captura (`docs/CONTRATO_CAPTURA_V2.md` §24).
+
 > **Actualización 2026-09-27 (v0.16.0, integridad acotada):** Integridad ya no
 > contiene diagnóstico/postcheck monolíticos: cada uno se divide en eventos y
 > cachés, ingresos, vistas y estratificación, con cursor durable técnico versión

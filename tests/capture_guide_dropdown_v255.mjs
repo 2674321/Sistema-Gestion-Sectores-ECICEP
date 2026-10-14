@@ -54,7 +54,7 @@ t('E24: la descripción de acción se actualiza dinámicamente', () => {
 console.log('\n─── Estados de recepción (E06/E07) ───');
 
 t('E07: WebApp_verificarRecepcion se invoca desde el cliente', () => {
-  A(html.includes('WebApp_verificarRecepcion(id,window.ECICEP_ACCESO)'), 'debe llamar a WebApp_verificarRecepcion');
+  A(html.includes('WebApp_verificarRecepcion(id)'), 'debe llamar a WebApp_verificarRecepcion sin credencial legacy');
   A(html.includes('function verificarRecepcion()'), 'debe existir verificarRecepcion()');
 });
 

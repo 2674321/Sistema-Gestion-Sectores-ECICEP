@@ -8,7 +8,7 @@ for (const expected of ['NUEVO_INGRESO">Nuevo ingreso', 'REGISTRAR_CONTROL">Cont
   'REGISTRAR_SEGUIMIENTO">Seguimiento', 'ACTUALIZAR_DATOS">Actualizar']) assert.match(select[0], new RegExp(expected));
 assert.doesNotMatch(html, /<input[^>]+type="radio"[^>]+name="accion"/);
 assert.match(html, /function getAccion\(\)\{return document\.getElementById\("accion"\)\.value\}/);
-assert.match(html, /\.WebApp_capturarRecibirDurable\(datos,/);
+assert.match(html, /\.WebApp_capturarRecibirDurable\(datos\)/);
 assert.doesNotMatch(html, /\.WebApp_previaDuplicadosV2_\(datos,/);
 assert.match(html, /clientRequestId/); assert.doesNotMatch(html, /captureId:e\.captureId/);
 assert.match(html, /Registro recibido correctamente\. ECICEP lo procesará automáticamente\./);
