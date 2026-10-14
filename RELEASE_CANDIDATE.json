@@ -1,22 +1,27 @@
 {
   "appVersion": "0.17.0",
   "releaseStage": "RC",
-  "schemaVersion": 2,
+  "clinicalSchema": 2,
+  "formsSchema": 3,
   "installerVersion": "INST-1",
-  "gitSha": "ece60d63fd188da418c6cc900366d96c72cf3d34",
-  "branch": "codex/v255-operabilidad-observabilidad",
-  "generatedAt": "2026-10-13T23:39:00.695Z",
-  "tests": {
-    "suites": 149,
+  "gitSha": "54f00a97ac78e8441af06bcce92a9b45761ecd2c",
+  "branch": "hardening/v0.17.0-final",
+  "generatedAt": "2026-10-14T12:26:00.251Z",
+  "verifier": {
+    "suites": 162,
+    "passed": 162,
     "failures": 0
   },
   "contracts": {
     "capture": "V4",
-    "formsSchema": 3,
-    "decisionsThrough": "DEC-114"
+    "decisionsThrough": "DEC-116"
   },
   "activation": {
-    "productionMutated": false,
-    "requiresAfterHours": true
+    "requiresAfterHours": true,
+    "productionMutated": null
+  },
+  "releaseGate": {
+    "headMatchesSha": true,
+    "testsMatchVerifier": true
   }
 }
