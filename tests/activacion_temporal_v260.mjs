@@ -14,9 +14,17 @@ assert.match(s, /Form_formId_\(\)/, 'exige Form ID');
 assert.match(s, /FORM_ID_REQUIRED/, 'motivo Form ID');
 assert.match(s, /Operacion_preflightBloqueosNoReparables_/, 'usa el filtro de blockers no reparables');
 assert.match(s, /Form_operativoInstalar_\(\{[\s\S]*?crearNuevo:\s*false[\s\S]*?adoptarExistente:\s*true[\s\S]*?\}\)/, 'instala/adopta solo el Form configurado');
-assert.match(s, /Form_migrarTrailerLegacy_\(\{\s*dryRun:\s*true\s*\}\)/, 'legacy dry-run');
-assert.match(s, /Form_migrarTrailerLegacy_\(\{\s*dryRun:\s*false\s*\}\)/, 'legacy apply');
-assert.ok(s.indexOf('dryRun: true') < s.indexOf('dryRun: false'), 'dry-run antes de apply');
+assert.doesNotMatch(
+  s,
+  /Form_migrarTrailerLegacy_/,
+  'la activación no ejecuta migración legacy'
+);
+
+assert.match(
+  s,
+  /DEFERRED_POST_ACTIVATION/,
+  'legacy queda diferido fuera del camino crítico'
+);
 assert.match(s, /Form_operativoDiagnosticar_\(\)/, 'diagnóstico');
 assert.match(s, /ECICEP_ACTIVATION_RESULT/, 'registra línea de resultado');
 assert.match(s, /'READY_FOR_DEPLOY'/, 'retorna READY_FOR_DEPLOY');

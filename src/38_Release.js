@@ -51,9 +51,17 @@ function Operacion_preflightRelease_() {
     add('ACTIVE_BACKLOG_READABLE', backlog && backlog.ok !== false ? 'PASS' : 'BLOCK', backlog && backlog.ok !== false ? 'legible' : 'no legible');
   } catch (eBack) { add('ACTIVE_BACKLOG_READABLE', 'BLOCK', 'no legible'); }
   try {
-    var legacy = Form_legacyReconciliarDryRun_();
-    add('LEGACY_SUMMARY_READABLE', legacy && legacy.ok ? 'PASS' : 'BLOCK', legacy && legacy.ok ? 'legible' : 'no legible');
-  } catch (eLeg) { add('LEGACY_SUMMARY_READABLE', 'BLOCK', 'no legible'); }
+    var legacyResumen = backlog && backlog.ok !== false && backlog.legacy
+      ? backlog.legacy
+      : null;
+    add(
+      'LEGACY_SUMMARY_READABLE',
+      legacyResumen ? 'PASS' : 'BLOCK',
+      legacyResumen ? 'legible (resumen ligero)' : 'no legible'
+    );
+  } catch (eLeg) {
+    add('LEGACY_SUMMARY_READABLE', 'BLOCK', 'no legible');
+  }
   try {
     var scan = Modelo_escanearEstructura_(Modelo_ss_());
     var drift = !scan || (scan.criticasFaltantes || []).length > 0;

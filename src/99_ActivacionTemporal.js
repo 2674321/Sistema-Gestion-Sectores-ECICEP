@@ -56,29 +56,6 @@ function ECICEP_ACTIVAR_AHORA() {
     });
   }
 
-  // Legacy: primero dry-run.
-  var legacyDry = Form_migrarTrailerLegacy_({ dryRun: true });
-  if (!legacyDry || !legacyDry.ok) {
-    return salir({
-      ok: false,
-      etapa: 'LEGACY_DRY',
-      motivo: legacyDry && legacyDry.motivo || 'LEGACY_DRY_FAILED'
-    });
-  }
-
-  // Si hay filas legacy incompletas/parciales, aplicar la migración recuperable.
-  var legacyApply = null;
-  if ((legacyDry.legacyDetectadas || 0) > (legacyDry.legacyCompletas || 0)) {
-    legacyApply = Form_migrarTrailerLegacy_({ dryRun: false });
-    if (!legacyApply || !legacyApply.ok) {
-      return salir({
-        ok: false,
-        etapa: 'LEGACY_APPLY',
-        motivo: legacyApply && legacyApply.motivo || 'LEGACY_APPLY_FAILED'
-      });
-    }
-  }
-
   var diag = Form_operativoDiagnosticar_();
   if (!diag || !diag.ok) {
     return salir({
@@ -112,12 +89,7 @@ function ECICEP_ACTIVAR_AHORA() {
       worker: diag.estado && diag.estado.triggerWorker
     },
     legacy: {
-      total: legacyDry.legacyDetectadas || 0,
-      parciales: legacyDry.legacyParciales || 0,
-      completas: legacyDry.legacyCompletas || 0,
-      terminal: legacyDry.terminal || 0,
-      review: legacyDry.review || 0,
-      filasAplicadas: legacyApply ? (legacyApply.filasAplicadas || 0) : 0
+      estado: 'DEFERRED_POST_ACTIVATION'
     }
   });
 }
