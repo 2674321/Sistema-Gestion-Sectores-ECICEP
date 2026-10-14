@@ -51,6 +51,26 @@ for (const bad of [{}, 'texto', 123, true, () => {}]) {
 assert.equal(invocada, invocadaValidos, 'la función destino NO se ejecuta con args inválidos');
 delete c.WebApp_operadorMapa_().args_limite_;
 
+// 4c. Operaciones destructivas: prepare → nonce ligado → consume-once → execute.
+let podas = 0;
+c.WebApp_operadorMapa_().api_backupPodar = () => { podas += 1; return { ok: true }; };
+const prep = c.WebApp_operadorRpc(log.sessionToken, 'api_backupPodar', ['token-legacy']);
+assert.equal(prep.codigo, 'OPERADOR_CONFIRMACION_REQUERIDA');
+assert.match(prep.confirmacion.nonce, /^OPCONF-[0-9a-f]{64}$/);
+assert.equal(podas, 0, 'prepare no muta');
+const nonce = prep.confirmacion.nonce;
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'api_backupPodar', ['argumento-alterado'], nonce).codigo,
+  'OPERADOR_CONFIRMACION_INVALIDA', 'el nonce no autoriza otros argumentos');
+assert.equal(podas, 0);
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'api_backupPodar', ['token-legacy'], nonce).codigo,
+  'OPERADOR_CONFIRMACION_INVALIDA', 'un intento inválido también consume el nonce');
+const prep2 = c.WebApp_operadorRpc(log.sessionToken, 'api_backupPodar', ['token-legacy']);
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'api_backupPodar', ['token-legacy'], prep2.confirmacion.nonce).ok, true);
+assert.equal(podas, 1, 'execute muta exactamente una vez');
+assert.equal(c.WebApp_operadorRpc(log.sessionToken, 'api_backupPodar', ['token-legacy'], prep2.confirmacion.nonce).codigo,
+  'OPERADOR_CONFIRMACION_INVALIDA', 'replay denegado');
+assert.equal(podas, 1);
+
 // 5. Sin despacho dinámico en el gateway.
 const auth = readFileSync(new URL('../src/37_OperadorAuth.js', import.meta.url), 'utf8');
 assert.doesNotMatch(auth, /globalThis\s*\[|eval\s*\(|new\s+Function|\.constructor\s*\(/);

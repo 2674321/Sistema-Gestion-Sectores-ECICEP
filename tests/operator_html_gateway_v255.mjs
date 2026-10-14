@@ -40,8 +40,10 @@ assert.match(captura, /window\.ECICEP_MODO_OPERADOR\s*=\s*<\?!=/, 'CapturaWeb ma
 // 5. El runtime exporta el contrato cliente.
 const runtime = leer('00_OperadorRuntime.html');
 for (const fn of ['ECICEP_run', 'ECICEP_asegurarOperador', 'ECICEP_lectura', 'ECICEP_operadorLogin',
-  'ECICEP_operadorLogout', 'ECICEP_operadorToken', 'ECICEP_rpcOperador', 'ECICEP_mostrarLogin'])
+  'ECICEP_operadorLogout', 'ECICEP_operadorToken', 'ECICEP_rpcOperador', 'ECICEP_mostrarLogin',
+  'ECICEP_confirmarOperacion'])
   assert.match(runtime, new RegExp('window\\.' + fn + '\\s*='), 'el runtime debe exportar ' + fn);
+assert.match(runtime, /OPERADOR_CONFIRMACION_REQUERIDA/, 'el runtime ejecuta prepare/confirm/execute');
 assert.match(runtime, /ECICEP_MODO_OPERADOR\s*!==\s*false/, 'la captura nunca debe mostrar login de operador');
 
 // 6. El runtime invoca el gateway por las 3 RPC públicas de operador.

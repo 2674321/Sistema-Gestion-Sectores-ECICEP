@@ -206,16 +206,56 @@
       .WebApp_operadorCerrar(t || '');
   }
 
-  /* Gateway único de operador: toda RPC operativa pasa por aquí. */
-  function ECICEP_rpcOperador(nombre, args, ok, fail) {
+  /* Confirmación accesible propia: el confirm() nativo no es confiable en el
+     sandbox de Apps Script. El nonce sigue siendo validado por el servidor. */
+  function ECICEP_confirmarOperacion(mensaje, aceptar, cancelar) {
+    if (typeof document === 'undefined') { if (cancelar) cancelar(); return; }
+    var previo = document.getElementById('ecicep-confirm-overlay');
+    if (previo && previo.parentNode) previo.parentNode.removeChild(previo);
+    var ov = document.createElement('div');
+    ov.id = 'ecicep-confirm-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(11,18,32,.72);display:flex;align-items:center;justify-content:center;padding:16px;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.35);max-width:400px;width:100%;padding:24px;font-family:Inter,system-ui,sans-serif;color:#0b1220;';
+    var h = document.createElement('h2'); h.textContent = 'Confirmar operación';
+    h.style.cssText = 'margin:0 0 8px;font-size:18px;';
+    var p = document.createElement('p'); p.textContent = mensaje || 'Esta operación puede eliminar datos.';
+    p.style.cssText = 'margin:0 0 18px;font-size:14px;color:#475569;';
+    var acciones = document.createElement('div'); acciones.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    var no = document.createElement('button'); no.type = 'button'; no.textContent = 'Cancelar';
+    no.style.cssText = 'padding:9px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;';
+    var si = document.createElement('button'); si.type = 'button'; si.textContent = 'Confirmar';
+    si.style.cssText = 'padding:9px 14px;border:0;border-radius:8px;background:#b91c1c;color:#fff;font-weight:600;cursor:pointer;';
+    function cerrar() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+    no.addEventListener('click', function () { cerrar(); if (cancelar) cancelar(); });
+    si.addEventListener('click', function () { cerrar(); if (aceptar) aceptar(); });
+    acciones.appendChild(no); acciones.appendChild(si); card.appendChild(h); card.appendChild(p); card.appendChild(acciones); ov.appendChild(card);
+    (document.body || document.documentElement).appendChild(ov);
+    try { no.focus(); } catch (e) {}
+  }
+
+  function ECICEP_rpcOperadorEnviar(nombre, args, nonce, ok, fail) {
     var t = ECICEP_operadorToken();
     google.script.run
       .withSuccessHandler(function (res) {
         if (ECICEP_esSesionRequerida(res)) { ECICEP_operadorToken(''); ECICEP_mostrarLogin(res); }
+        if (res && res.codigo === 'OPERADOR_CONFIRMACION_REQUERIDA' && res.confirmacion && res.confirmacion.nonce) {
+          ECICEP_confirmarOperacion(res.motivo, function () {
+            ECICEP_rpcOperadorEnviar(nombre, args, res.confirmacion.nonce, ok, fail);
+          }, function () {
+            if (ok) ok({ ok: false, codigo: 'OPERADOR_CONFIRMACION_CANCELADA', motivo: 'Operación cancelada.' });
+          });
+          return;
+        }
         if (ok) ok(res);
       })
       .withFailureHandler(function (e) { if (fail) fail(e); })
-      .WebApp_operadorRpc(t || '', nombre, args || []);
+      .WebApp_operadorRpc(t || '', nombre, args || [], nonce || '');
+  }
+
+  /* Gateway único de operador: toda RPC operativa pasa por aquí. */
+  function ECICEP_rpcOperador(nombre, args, ok, fail) {
+    ECICEP_rpcOperadorEnviar(nombre, args || [], '', ok, fail);
   }
 
   /* Compatibilidad con el patrón `google.script.run`: ECICEP_run().ui(...)().
@@ -262,6 +302,7 @@
   window.ECICEP_operadorLogin = ECICEP_operadorLogin;
   window.ECICEP_operadorLogout = ECICEP_operadorLogout;
   window.ECICEP_rpcOperador = ECICEP_rpcOperador;
+  window.ECICEP_confirmarOperacion = ECICEP_confirmarOperacion;
   window.ECICEP_run = ECICEP_run;
   window.ECICEP_asegurarOperador = ECICEP_asegurarOperador;
   window.ECICEP_esSesionRequerida = ECICEP_esSesionRequerida;

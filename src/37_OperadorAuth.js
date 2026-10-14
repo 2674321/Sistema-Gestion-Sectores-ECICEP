@@ -23,6 +23,7 @@ var WEBAPP_OPERATOR_SECRET_PROP_ = 'ECICEP_OPERATOR_SECRET_SHA256';
 var WEBAPP_OPERATOR_LOGIN_MAX_ = 20;
 var WEBAPP_OPERATOR_SESSION_TTL_ = 21600;
 var WEBAPP_OPERATOR_TOKEN_RE_ = /^OPS-[0-9a-f]{64}$/;
+var WEBAPP_OPERATOR_CONFIRM_TTL_ = 120;
 
 // --- Helpers privados ------------------------------------------------------
 
@@ -125,6 +126,67 @@ function WebApp_operadorExigir_(sessionToken) {
   return { ok: true };
 }
 
+/** Serialización canónica para ligar una confirmación a los argumentos exactos. */
+function WebApp_operadorNormalizarConfirmacion_(valor) {
+  if (valor === null || valor === undefined) return null;
+  if (Array.isArray(valor)) return valor.map(WebApp_operadorNormalizarConfirmacion_);
+  if (typeof valor === 'object') {
+    var limpio = {};
+    Object.keys(valor).sort().forEach(function (k) {
+      limpio[k] = WebApp_operadorNormalizarConfirmacion_(valor[k]);
+    });
+    return limpio;
+  }
+  if (typeof valor === 'string' || typeof valor === 'number' || typeof valor === 'boolean') return valor;
+  return String(valor);
+}
+
+/** Solo estas operaciones eliminan datos/filas/archivos. Las mutaciones
+ * clínicas ordinarias conservan sus confirmaciones e idempotencia propias. */
+function WebApp_operadorEsDestructiva_(metodo, args) {
+  if (metodo === 'api_amarilloDedupHistorico') return !(args && args[0] === true); // false = aplica
+  return {
+    api_backupPodar: true,
+    api_configEliminar: true,
+    UI_recuperarEjecutar: true,
+    UI_vaciarDatosPrueba: true
+  }[metodo] === true;
+}
+
+function WebApp_operadorConfirmacionBinding_(sessionToken, metodo, args) {
+  var normalizados = WebApp_operadorNormalizarConfirmacion_(args || []);
+  return WebApp_operadorHash_(String(metodo) + '\n' + JSON.stringify(normalizados) + '\n' +
+    WebApp_operadorHash_(sessionToken));
+}
+
+/** PREPARE: emite un nonce opaco, ligado a OPSESS+método+argumentos. */
+function WebApp_operadorPrepararConfirmacion_(sessionToken, metodo, args) {
+  var cache = WebApp_operadorCache_();
+  if (!cache) return { ok: false, codigo: 'OPERADOR_CONFIRMACION_NO_DISPONIBLE', motivo: 'No se pudo preparar la confirmación segura.' };
+  var nonce = 'OPCONF-' + Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  cache.put('OPCONF:' + WebApp_operadorHash_(nonce),
+    WebApp_operadorConfirmacionBinding_(sessionToken, metodo, args), WEBAPP_OPERATOR_CONFIRM_TTL_);
+  return {
+    ok: false,
+    codigo: 'OPERADOR_CONFIRMACION_REQUERIDA',
+    motivo: 'Confirma esta operación destructiva antes de continuar.',
+    confirmacion: { nonce: nonce, expiresIn: WEBAPP_OPERATOR_CONFIRM_TTL_ }
+  };
+}
+
+/** EXECUTE: consume primero el nonce; replay, cambio de args o de sesión fallan. */
+function WebApp_operadorConsumirConfirmacion_(sessionToken, metodo, args, nonce) {
+  if (typeof nonce !== 'string' || !/^OPCONF-[0-9a-f]{64}$/.test(nonce)) return false;
+  var cache = WebApp_operadorCache_();
+  if (!cache) return false;
+  var clave = 'OPCONF:' + WebApp_operadorHash_(nonce);
+  var esperado = cache.get(clave);
+  cache.remove(clave);
+  if (!esperado) return false;
+  return WebApp_operadorCompararConstante_(esperado,
+    WebApp_operadorConfirmacionBinding_(sessionToken, metodo, args));
+}
+
 // ---------------------------------------------------------------------------
 // SUPERFICIE PÚBLICA DE OPERADOR (3 RPC). Sin secretos ni PII en la respuesta.
 // ---------------------------------------------------------------------------
@@ -182,7 +244,7 @@ function WebApp_operadorCerrar(sessionToken) {
  * Gateway RPC de operador: exige OPSESS y despacha SOLO métodos allowlisted.
  * Mapa privado y explícito; sin despacho dinámico por nombre.
  */
-function WebApp_operadorRpc(sessionToken, metodo, args) {
+function WebApp_operadorRpc(sessionToken, metodo, args, confirmacionNonce) {
   var exigir = WebApp_operadorExigir_(sessionToken);
   if (!exigir.ok) return exigir;
   var mapa = WebApp_operadorMapa_();
@@ -194,6 +256,12 @@ function WebApp_operadorRpc(sessionToken, metodo, args) {
   if (args === undefined || args === null) args = [];
   if (!Array.isArray(args)) {
     return { ok: false, codigo: 'RPC_OPERADOR_ARGUMENTOS_INVALIDOS', motivo: 'Argumentos de operación no válidos.' };
+  }
+  if (WebApp_operadorEsDestructiva_(metodo, args)) {
+    if (!confirmacionNonce) return WebApp_operadorPrepararConfirmacion_(sessionToken, metodo, args);
+    if (!WebApp_operadorConsumirConfirmacion_(sessionToken, metodo, args, confirmacionNonce)) {
+      return { ok: false, codigo: 'OPERADOR_CONFIRMACION_INVALIDA', motivo: 'La confirmación expiró o no corresponde a esta operación.' };
+    }
   }
   try {
     return fn.apply(null, args);
