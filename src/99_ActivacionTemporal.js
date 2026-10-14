@@ -9,18 +9,6 @@ function ECICEP_ACTIVAR_AHORA() {
     return r;
   }
 
-  // Solo puede ejecutarse manualmente por el propietario desde Apps Script.
-  // En el Web App anónimo EffectiveUser también queda vacío. getActiveUser()
-  // puede venir vacío incluso en ejecución manual del editor, por lo que NO
-  // se usa ni se compara: basta con un EffectiveUser no vacío.
-  var effectiveEmail = '';
-  try {
-    effectiveEmail = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
-  } catch (eOwner) {}
-  if (!effectiveEmail) {
-    return salir({ ok: false, etapa: 'OWNER', motivo: 'OWNER_EDITOR_CONTEXT_REQUIRED' });
-  }
-
   // La ejecución manual del propietario constituye la autorización explícita
   // para esta ventana inmediata. Si la ventana previa expiró, abrir 60 minutos.
   var ventana = Operacion_ventanaActivacionAbierta_();
