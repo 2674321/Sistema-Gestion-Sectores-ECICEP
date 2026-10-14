@@ -431,21 +431,25 @@ function Captura_v2_marca_(norm) {
 function Captura_v2_normalizadoAInterno_(norm, opciones) {
   opciones = opciones || {};
   var marca = opciones.marca || Captura_v2_marca_(norm);
+  // P0 v0.17.0: los campos libres provienen de captura pública externa y se
+  // escriben en celdas (FORM_RESPUESTAS, INGRESO_*, PACIENTES, EVENTOS). Se
+  // neutraliza el inicio de fórmula en la frontera de persistencia sin alterar
+  // fechas ISO, enums ni la marca del sistema.
   return {
     ACCION: CAPTURA_V2.LEGACY[norm.accion] || '',
     RUT: norm.rut || '',
-    NOMBRE: norm.nombre || '',
+    NOMBRE: Utl_textoSeguroCelda_(norm.nombre || ''),
     SEXO: norm.sexo || '',
     FECHA_NACIMIENTO: norm.fechaNacimiento || '',
     SECTOR: norm.sector || '',
     FECHA_INGRESO: norm.fechaIngreso || '',
     ESTRATIFICACION: norm.estratificacion || '',
-    TELEFONOS: norm.telefonos || '',
-    TELEFONO_OBS: norm.telefonoObs || '',   // DEC-105: la anotación también viaja
+    TELEFONOS: Utl_textoSeguroCelda_(norm.telefonos || ''),
+    TELEFONO_OBS: Utl_textoSeguroCelda_(norm.telefonoObs || ''),   // DEC-105: la anotación también viaja
     FECHA_EVENTO: norm.fechaEvento || '',
-    PROFESIONAL: norm.profesional || '',
-    PROFESIONAL2: norm.profesionalSecundario || '',
-    OBSERVACIONES: norm.observaciones || '',
+    PROFESIONAL: Utl_textoSeguroCelda_(norm.profesional || ''),
+    PROFESIONAL2: Utl_textoSeguroCelda_(norm.profesionalSecundario || ''),
+    OBSERVACIONES: Utl_textoSeguroCelda_(norm.observaciones || ''),
     SALUD_MENTAL: norm.saludMental || '',
     MARCA: marca,
     marca: marca
@@ -1563,6 +1567,10 @@ function Captura_v2_entregarEvento_(norm, marca, opciones) {
       return { estado: CAPTURA_V2.ESTADOS.PROCESADO, motivo: '', idInterno: existente.idInterno || persona.ID_INTERNO, idEvento: existente.idEvento };
     }
     var registradoPor = (opciones && opciones.usuario) || 'CAPTURA_V2';
+    // P0 v0.17.0: texto externo hacia EVENTOS pasa por la barrera anti-fórmula.
+    var obsSegura = Utl_textoSeguroCelda_(norm.observaciones || '');
+    var profSeguro = Utl_textoSeguroCelda_(norm.profesional || '');
+    var profSeguro2 = Utl_textoSeguroCelda_(norm.profesionalSecundario || '');
 
     if (norm.accion === 'actualizarDatos') {
       // TR-2c §21/§5.2: campos operativos PRIMERO; el evento OTRO solo si
@@ -1581,10 +1589,10 @@ function Captura_v2_entregarEvento_(norm, marca, opciones) {
         tipoEvento: 'OTRO',
         fecha: Captura_v2_fechaOperacion_({}),
         idInterno: persona.ID_INTERNO,
-        profesional: norm.profesional || '',
-        profesionalSecundario: norm.profesionalSecundario || '', // DEC-104: no se pierde
+        profesional: profSeguro,
+        profesionalSecundario: profSeguro2, // DEC-104: no se pierde
         descripcion: 'ACTUALIZACION_VIA_CAPTURA',
-        observaciones: norm.observaciones || '',
+        observaciones: obsSegura,
         fuente: marca,
         registradoPor: registradoPor
       }, { fuenteTransporte: 'CapturaV2' });
@@ -1606,10 +1614,10 @@ function Captura_v2_entregarEvento_(norm, marca, opciones) {
       tipoEvento: tipoEvento,
       fecha: norm.fechaEvento || '',
       idInterno: persona.ID_INTERNO,
-      profesional: norm.profesional || '',
-      profesionalSecundario: norm.profesionalSecundario || '', // DEC-104: no se pierde
+      profesional: profSeguro,
+      profesionalSecundario: profSeguro2, // DEC-104: no se pierde
       descripcion: '',
-      observaciones: norm.observaciones || '',
+      observaciones: obsSegura,
       fuente: marca,
       registradoPor: registradoPor
     }, { fuenteTransporte: 'CapturaV2' });

@@ -37,6 +37,22 @@ function Utl_claveAlnum_(s) {
   return Utl_sinTildes_(Utl_texto_(s)).toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/** PURA: barrera anti-inyección de fórmulas para texto EXTERNO que va a una
+ *  celda de Google Sheets. Si el primer carácter significativo (ignorando
+ *  espacios y controles, incluido TAB) es `=`, `+`, `-` o `@`, antepone un
+ *  apóstrofo para forzar texto literal y evitar que Sheets lo evalúe como
+ *  fórmula (=IMPORTXML, =HYPERLINK, +SUM, -1+2, @foo, "\t=..."). No toca
+ *  números, booleanos ni Date (no son string) ni textos con inicio inocuo, de
+ *  modo que fechas ISO, seriales y fórmulas nativas del sistema no se alteran.
+ *  Preserva el contenido visible (el apóstrofo es marcador de formato, no dato). */
+function Utl_textoSeguroCelda_(v) {
+  if (typeof v !== 'string' || v === '') return v;
+  var i = 0;
+  while (i < v.length && /[\s\u0000-\u001f]/.test(v.charAt(i))) i++;
+  if (i >= v.length) return v;
+  return ('=+-@'.indexOf(v.charAt(i)) >= 0) ? "'" + v : v;
+}
+
 /**
  * Edad en años cumplidos desde la fecha de nacimiento.
  * Devuelve '' si no hay fecha o es inválida. Acepta texto ISO, objeto Date o
