@@ -12,6 +12,13 @@ assert.match(s, /WebApp_operadorConfigurado_/, 'exige operador');
 assert.match(s, /OPERADOR_NO_CONFIGURADO/, 'motivo operador');
 assert.match(s, /Form_formId_\(\)/, 'exige Form ID');
 assert.match(s, /FORM_ID_REQUIRED/, 'motivo Form ID');
+assert.match(s, /ECICEP_configurarFormProduccion_\(\)/, 'fija el Form de producción autorizado');
+assert.match(s, /'FORM_CONFIG'/, 'etapa FORM_CONFIG');
+assert.match(s, /FORM_PRODUCTION_NOT_ACCESSIBLE/, 'motivo de Form objetivo inaccesible');
+assert.ok(
+  s.indexOf('ECICEP_configurarFormProduccion_()') < s.indexOf('if (!Form_formId_())'),
+  'configura el Form objetivo antes de verificar el ID'
+);
 assert.match(s, /ECICEP_asegurarBackupActivacion_\(\)/, 'autorrepara el trigger de respaldo');
 assert.match(s, /ECICEP_asegurarFormActivacion_\(\)/, 'autorrepara el Form inaccesible');
 assert.match(s, /BACKUP_TRIGGER_REPAIR_FAILED/, 'motivo de reparación de respaldo');

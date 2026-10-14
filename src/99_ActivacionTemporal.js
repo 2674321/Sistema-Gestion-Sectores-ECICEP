@@ -27,6 +27,16 @@ function ECICEP_ACTIVAR_AHORA() {
     return salir({ ok: false, etapa: 'OPERADOR', motivo: 'OPERADOR_NO_CONFIGURADO' });
   }
 
+  // Fija el Form interno de producción autorizado por el propietario.
+  var formProd = ECICEP_configurarFormProduccion_();
+  if (!formProd || !formProd.ok) {
+    return salir({
+      ok: false,
+      etapa: 'FORM_CONFIG',
+      motivo: formProd && formProd.motivo || 'FORM_PRODUCTION_CONFIG_FAILED'
+    });
+  }
+
   if (!Form_formId_()) {
     return salir({ ok: false, etapa: 'FORM', motivo: 'FORM_ID_REQUIRED' });
   }
@@ -132,28 +142,43 @@ function ECICEP_asegurarBackupActivacion_() {
   return verificado ? { ok: true, creado: true } : { ok: false, motivo: 'BACKUP_TRIGGER_REPAIR_FAILED' };
 }
 
-/** v260 TEMPORAL: asegura que el Form configurado sea accesible ANTES del
- *  preflight. Si el Form conocido no abre, crea un Form interno nuevo y
- *  reasigna SOLO `GOOGLE_FORM_ID`. El Form anterior queda INTACTO y huérfano:
- *  nunca se borra ni se modifica. No registra identificadores. */
+/** v260 TEMPORAL: fija como Form interno de ECICEP el Form de producción
+ *  autorizado explícitamente por el propietario. Fail-closed: si ese Form no
+ *  abre, NO crea Formes alternativos ni reescribe el ID con otro destino.
+ *  Nunca registra ni devuelve identificadores. */
+function ECICEP_configurarFormProduccion_() {
+  var id = '1tRDqhbNRZB_bGUo5qp5dbz5_gN27CS2ULN9NSOdN1wo';
+
+  var form = null;
+  try {
+    form = FormApp.openById(id);
+  } catch (eOpen) {
+    return { ok: false, motivo: 'FORM_PRODUCTION_NOT_ACCESSIBLE' };
+  }
+  if (!form) return { ok: false, motivo: 'FORM_PRODUCTION_NOT_ACCESSIBLE' };
+
+  try {
+    Form_propEscribir_('GOOGLE_FORM_ID', id);
+  } catch (eWrite) {
+    return { ok: false, motivo: 'FORM_PRODUCTION_PROPERTY_WRITE_FAILED' };
+  }
+
+  var vigente = '';
+  try { vigente = String(Form_formId_() || '').trim(); } catch (eRead) { vigente = ''; }
+  if (vigente !== id) return { ok: false, motivo: 'FORM_PRODUCTION_PROPERTY_VERIFY_FAILED' };
+
+  try { FormApp.openById(vigente); } catch (eVerify) { return { ok: false, motivo: 'FORM_PRODUCTION_VERIFY_FAILED' }; }
+  return { ok: true };
+}
+
+/** v260 TEMPORAL: verifica que el Form configurado sea accesible ANTES del
+ *  preflight. Con un Form objetivo ya autorizado NO se crean Formes alternativos:
+ *  si el configurado no abre, falla cerrado para no generar Forms huérfanos.
+ *  Nunca registra ni devuelve identificadores. */
 function ECICEP_asegurarFormActivacion_() {
   var id = '';
   try { id = String(Form_formId_() || '').trim(); } catch (eFid) { id = ''; }
-  if (id) {
-    try { FormApp.openById(id); return { ok: true, recreado: false }; }
-    catch (eAbierto) { /* sigue a la recreación */ }
-  }
-
-  var nuevo = null;
-  try { nuevo = FormApp.create(GOOGLE_FORMS_CONFIG.TITULO); } catch (eNuevo) { return { ok: false, motivo: 'FORM_REPAIR_FAILED' }; }
-  var nuevoId = '';
-  try { nuevoId = String(nuevo && nuevo.getId() || '').trim(); } catch (eId) { nuevoId = ''; }
-  if (!nuevoId) return { ok: false, motivo: 'FORM_REPAIR_FAILED' };
-
-  try { Form_propEscribir_('GOOGLE_FORM_ID', nuevoId); } catch (eWrite) { return { ok: false, motivo: 'FORM_REPAIR_FAILED' }; }
-  var vigente = '';
-  try { vigente = String(Form_formId_() || '').trim(); } catch (eF2) { vigente = ''; }
-  if (!vigente) return { ok: false, motivo: 'FORM_REPAIR_FAILED' };
-  try { FormApp.openById(vigente); } catch (eVerify) { return { ok: false, motivo: 'FORM_REPAIR_FAILED' }; }
-  return { ok: true, recreado: true };
+  if (!id) return { ok: false, motivo: 'FORM_REPAIR_FAILED' };
+  try { FormApp.openById(id); return { ok: true, recreado: false }; }
+  catch (eAbierto) { return { ok: false, motivo: 'FORM_REPAIR_FAILED' }; }
 }
