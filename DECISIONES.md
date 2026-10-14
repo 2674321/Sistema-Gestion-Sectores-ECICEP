@@ -2821,3 +2821,26 @@ continúan bajo OPSESS y no se muestran en la captura.
 `tests/forms_roundtrip_v254.mjs`, `tests/public_capture_zero_legacy_token_v0170.mjs`,
 `tests/seguridad_webapp_capacidades_vNEXT.mjs` y allowlist pública <15.
 **Fecha:** 2026-10-14
+
+## DEC-124
+**Título:** Se descarta (por decisión del usuario) exigir autorización para la carga pública de la ficha en `ACTUALIZAR_DATOS`.
+**Estado:** Aprobada; confirma y mantiene DEC-123.
+**Motivo:** se evaluó añadir una guarda de privacidad al flujo público de
+Actualizar (token firmado efímero ligado al paciente / sesión) para impedir
+`usuario anónimo + cualquier RUT → ficha clínica completa`. Se concluyó que una
+UX sin contraseña ni OPSESS que además devuelve la ficha completa al navegador
+**no puede** impedir la enumeración anónima por RUT: cualquier token emitido a
+una página anónima es obtenible por el mismo atacante. La privacidad real
+exigiría un factor de autorización (secreto del enlace/QR u OPSESS), lo que
+contradice la UX pública. **Decisión explícita del usuario: mantener el flujo
+público actual** (DEC-123) y no añadir la guarda.
+**Contenido:** `WebApp_cargarPacienteEdicionCaptura(rut)` permanece pública y sin
+token; `Funciones` y todas las RPC administrativas siguen bajo OPSESS; la
+captura de registro permanece anónima. No se introduce ningún mecanismo de token
+de actualización. Requisito #3 del prompt de cierre queda **rechazado por
+instrucción del usuario**; cualquier cambio futuro de este modelo requiere nueva
+autorización explícita (DEC-123).
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (caso I),
+`tests/public_capture_zero_legacy_token_v0170.mjs`,
+`tests/seguridad_webapp_capacidades_vNEXT.mjs`.
+**Fecha:** 2026-10-14
