@@ -364,9 +364,29 @@ function Sembrar_ficticios_() {
 }
 
 /** Un solo clic: instala, siembra ficticios, procesa y refresca vistas. */
-/** Incluye un archivo HTML (tokens/componentes) dentro de una plantilla. */
+/** Incluye un archivo HTML (tokens/componentes) dentro de una plantilla.
+ *  El runtime común de operador se sirve con el bootstrap OPSESS cuando el
+ *  render ocurre en el Spreadsheet autorizado (ver includeOperadorRuntime_). */
 function include(nombre) {
+  if (nombre === '00_OperadorRuntime') return includeOperadorRuntime_();
   return HtmlService.createHtmlOutputFromFile(nombre).getContent();
+}
+
+/** Entrega `00_OperadorRuntime` con el bootstrap OPSESS inyectado cuando el
+ *  servidor lo emite desde el contexto container-bound del Spreadsheet
+ *  autorizado (WebApp_operadorSesionDesdeSheets_, fail-closed). Desde Web App
+ *  o cualquier contexto no-vinculado el bootstrap va vacío y la vista pide
+ *  clave como siempre. El token viaja SOLO como variable JS escapada dentro
+ *  del HTML generado; nunca en la URL, logs, Properties ni hoja CONFIG. */
+function includeOperadorRuntime_() {
+  var bootstrap = '';
+  try {
+    var r = WebApp_operadorSesionDesdeSheets_();
+    if (r && r.ok && r.sessionToken) bootstrap = String(r.sessionToken);
+  } catch (e) { bootstrap = ''; }
+  var js = JSON.stringify(bootstrap).replace(/</g, '\\u003c');
+  return '<script>window.ECICEP_OPSESS_BOOTSTRAP=' + js + ';</script>' +
+    HtmlService.createHtmlOutputFromFile('00_OperadorRuntime').getContent();
 }
 
 /** Abre una vista HTML como dialog ancho (dashboard / REM). */

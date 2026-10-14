@@ -2702,3 +2702,29 @@ ensuciar el árbol y sin editar conteos manuales.
 **Validación:** `tests/release_manifest_v260.mjs` y gate
 `node tools/release.mjs --check`.
 **Fecha:** 2026-10-14
+
+## DEC-119
+**Título:** Bootstrap OPSESS automático desde el Spreadsheet autorizado.
+**Estado:** Aprobada
+**Motivo:** abrir las vistas administrativas desde la propia hoja ECICEP exigía
+reescribir la clave de operador en cada diálogo, fricción que empujaba a usos
+inseguros. El usuario ya está dentro del Spreadsheet autorizado (contexto
+container-bound), por lo que corresponde emitir una sesión OPSESS sin exponer ni
+recuperar la clave, sin debilitar la frontera RPC.
+**Contenido:** `WebApp_operadorEmitirSesion_()` centraliza la creación de sesión
+(login con clave y bootstrap). `WebApp_operadorSesionDesdeSheets_()` concede SOLO
+si `SpreadsheetApp.getActiveSpreadsheet()` existe, su ID coincide EXACTO con
+`ECICEP.SPREADSHEET_ID` y `SpreadsheetApp.getUi()` responde (frontera que Web App
+y `google.script.run` no cumplen); es fail-closed
+(`SHEETS_OPERATOR_BOOTSTRAP_DENIED`). El include del runtime inyecta el token
+como variable JS escapada (`window.ECICEP_OPSESS_BOOTSTRAP`) sólo en el render
+desde Sheets; el runtime lo valida (`OPS-<64hex>`), lo guarda en `sessionStorage`
+y borra la variable. En Web App el bootstrap va vacío → login de operador. La
+captura pública sigue anónima y las operaciones destructivas conservan su nonce.
+**Alcance:** vistas administrativas/operativas servidas por Sheets (Sidebar,
+Controles, Dashboard, Configuración, Backup, LogVisor, CentroPruebas, REM,
+Acerca de, Instalador). No aplica a CapturaWeb.
+**Validación:** `tests/operator_sheets_bootstrap_v0170.mjs`,
+`tests/operator_html_gateway_v255.mjs`, `tests/seguridad_webapp_capacidades_vNEXT.mjs`,
+`tests/rpc_public_surface_v255.mjs` y `tests/operator_destructive_nonce_v0170.mjs`.
+**Fecha:** 2026-10-14

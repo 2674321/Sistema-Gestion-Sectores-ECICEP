@@ -89,6 +89,63 @@ function WebApp_operadorNuevoToken_() {
   return 'OPS-' + Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
 }
 
+/**
+ * Emite una sesión OPSESS normal (token nuevo + entrada en cache). ÚNICA vía de
+ * creación de sesión: la usan tanto el login con clave como el bootstrap desde
+ * Sheets. Fail-closed si CacheService no responde. Nunca registra el token.
+ */
+function WebApp_operadorEmitirSesion_() {
+  var cache = WebApp_operadorCache_();
+  if (!cache) {
+    return { ok: false, codigo: 'OPERADOR_NO_DISPONIBLE', motivo: 'Servicio de sesión no disponible.' };
+  }
+  var token = WebApp_operadorNuevoToken_();
+  cache.put('OPSESS:' + WebApp_operadorHash_(token), '1', WEBAPP_OPERATOR_SESSION_TTL_);
+  return { ok: true, sessionToken: token, expiresIn: WEBAPP_OPERATOR_SESSION_TTL_ };
+}
+
+/**
+ * Bootstrap OPSESS desde el Spreadsheet autorizado (DEC-119).
+ *
+ * Sólo concede cuando el render ocurre en el contexto container-bound del
+ * Spreadsheet ECICEP: `getActiveSpreadsheet()` existe, su ID coincide EXACTO
+ * con `ECICEP.SPREADSHEET_ID` y `SpreadsheetApp.getUi()` responde. Una ejecución
+ * de Web App (`doGet`) o de `google.script.run` NUNCA cumple esto: allí no hay
+ * Spreadsheet activo y `getUi()` no está disponible.
+ *
+ * FAIL-CLOSED y SIN fuga: cualquier duda devuelve
+ * `SHEETS_OPERATOR_BOOTSTRAP_DENIED`. No expone ID, correo, secreto ni hash, ni
+ * depende de parámetros del navegador. Termina en `_`: nunca es RPC pública.
+ */
+function WebApp_operadorSesionDesdeSheets_() {
+  try {
+    if (typeof SpreadsheetApp === 'undefined') {
+      return { ok: false, codigo: 'SHEETS_OPERATOR_BOOTSTRAP_DENIED' };
+    }
+    var ss = null;
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e0) { ss = null; }
+    if (!ss) return { ok: false, codigo: 'SHEETS_OPERATOR_BOOTSTRAP_DENIED' };
+    var idActivo = '';
+    try { idActivo = String(ss.getId() || ''); } catch (e1) { idActivo = ''; }
+    var idEsperado = String(
+      (typeof ECICEP !== 'undefined' && ECICEP && ECICEP.SPREADSHEET_ID) || '');
+    if (!idActivo || !idEsperado || idActivo !== idEsperado) {
+      return { ok: false, codigo: 'SHEETS_OPERATOR_BOOTSTRAP_DENIED' };
+    }
+    // Frontera decisiva: sólo un contexto con UI container-bound (menú de
+    // Sheets) responde a getUi(); Web App y google.script.run lanzan aquí.
+    try { SpreadsheetApp.getUi(); } catch (e2) {
+      return { ok: false, codigo: 'SHEETS_OPERATOR_BOOTSTRAP_DENIED' };
+    }
+    if (!WebApp_operadorConfigurado_()) {
+      return { ok: false, codigo: 'SHEETS_OPERATOR_BOOTSTRAP_DENIED' };
+    }
+    return WebApp_operadorEmitirSesion_();
+  } catch (e) {
+    return { ok: false, codigo: 'SHEETS_OPERATOR_BOOTSTRAP_DENIED' };
+  }
+}
+
 function WebApp_operadorLoginIntentos_() {
   var cache = WebApp_operadorCache_();
   if (!cache) return null;
@@ -217,9 +274,7 @@ function WebApp_operadorIniciar(clave) {
     WebApp_operadorCompararConstante_(WebApp_operadorHash_(clave), esperado);
   if (correcta) {
     WebApp_operadorLimpiarFallosLogin_();
-    var token = WebApp_operadorNuevoToken_();
-    cache.put('OPSESS:' + WebApp_operadorHash_(token), '1', WEBAPP_OPERATOR_SESSION_TTL_);
-    return { ok: true, sessionToken: token, expiresIn: WEBAPP_OPERATOR_SESSION_TTL_ };
+    return WebApp_operadorEmitirSesion_();
   }
   var intentos = WebApp_operadorLoginIntentos_();
   if (intentos !== null && intentos >= WEBAPP_OPERATOR_LOGIN_MAX_) {

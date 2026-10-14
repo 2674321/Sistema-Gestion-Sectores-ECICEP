@@ -138,6 +138,18 @@
     return _sesGet(CLAVE_TOKEN_OPERADOR);
   }
 
+  /* Bootstrap OPSESS (DEC-119). El servidor sólo lo inyecta cuando el HTML se
+     renderiza desde el Spreadsheet autorizado; en Web App y páginas públicas
+     llega vacío. Se consume una vez, se guarda como token de sesión normal y
+     se limpia de memoria. Formato inválido o vacío → se ignora (login normal). */
+  (function _consumirBootstrapOperador() {
+    var b = '';
+    try { b = window.ECICEP_OPSESS_BOOTSTRAP || ''; } catch (e) { b = ''; }
+    try { delete window.ECICEP_OPSESS_BOOTSTRAP; }
+    catch (e2) { try { window.ECICEP_OPSESS_BOOTSTRAP = ''; } catch (e3) {} }
+    if (b && /^OPS-[0-9a-f]{64}$/.test(b)) ECICEP_operadorToken(b);
+  })();
+
   function ECICEP_esSesionRequerida(r) {
     var c = (r && (r.codigo || r.code)) || '';
     return c === 'OPERADOR_SESION_REQUERIDA' || c === 'OPERADOR_NO_CONFIGURADO';

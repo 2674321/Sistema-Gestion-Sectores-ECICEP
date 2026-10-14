@@ -18,6 +18,7 @@
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
 | Estado del canal | Publicado en `/exec` (@268, build `23c1099`, HTTP 200, sin login Google); E2E real y health `ACTIVE_HEALTHY` en ventana |
+| Acceso operador | Web App/admin externo → clave OPSESS; vistas abiertas desde el Spreadsheet autorizado → OPSESS automática (DEC-119); captura pública anónima |
 
 ## Contrato de captura vigente (v270)
 
@@ -29,13 +30,16 @@
   nunca muta PACIENTES/EVENTOS/agenda/contacto; queda para decisión humana.
 - **Operador/administración** exigen sesión OPSESS; `ECICEP_ACCESS_TOKEN` es
   solo trazabilidad de esas vistas.
+- **Acceso desde Sheets sin clave (DEC-119):** el render container-bound del
+  Spreadsheet autorizado (ID exacto + `getUi()`) emite OPSESS automática; la Web
+  App externa y `google.script.run` no la reciben y piden clave. Captura intacta.
 - Input hardening (DEC-114/v270): cotas de tamaño, profundidad y longitud de
   texto en `Captura_v2_validar_`; anti-inyección de fórmulas en celdas.
 
 ## Verificación
 
 - Verificador integral: `node tools/verificar.mjs` (humano) o `--json`.
-  Estado: **166 suites / 0 fallos**.
+  Estado: **167 suites / 0 fallos**.
 - Preflight de release: `node tools/preflight_release.mjs`.
 - Release Node: `node tools/release.mjs --check` (este documento debe citar
   `v0.17.0`).
