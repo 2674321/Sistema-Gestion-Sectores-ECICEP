@@ -107,8 +107,35 @@ var CAPTURA_V2 = {
   /** Estados que NO se reinician (§19, §23). */
   TERMINALES: ['PROCESADO', 'REQUIERE_REVISION'],
   /** Estados reprocesables por reintento técnico A2 (§13, §23). */
-  REINTENTABLES: ['RECIBIDO', 'VALIDANDO', 'VALIDO', 'ERROR']
+  REINTENTABLES: ['RECIBIDO', 'VALIDANDO', 'VALIDO', 'ERROR'],
+  /** v270 (P1): límites de entrada del contrato AUTORITATIVO. Fuente única
+   *  replicada por la capa de transporte (Form directo) para que un envío que
+   *  no pase por la Web NO pueda saltarse los topes. No contiene PII: son
+   *  cotas, no valores. */
+  LIMITES: {
+    // Tope del payload serializado completo (JSON). Evita cuerpos gigantes.
+    PAYLOAD_MAX_CHARS: 100000,
+    // Longitudes máximas por campo de texto (caracteres).
+    TEXTO: {
+      captureId: 40, accion: 40, rut: 12, nombre: 200, sexo: 8,
+      fechaNacimiento: 10, sector: 20, fechaIngreso: 10, estratificacion: 4,
+      telefonos: 300, fechaEvento: 10, profesional: 120,
+      profesionalSecundario: 120, observaciones: 2000, proximoControl: 10,
+      saludMental: 8
+    },
+    // Editor de ficha (actualizacion): cotas de estructura/tamaño.
+    ACTUALIZACION_MAX_CAMPOS: 200,
+    ACTUALIZACION_MAX_TEXTO: 5000,
+    ACTUALIZACION_MAX_ATENCIONES: 2,
+    ACTUALIZACION_MAX_PROFUNDIDAD: 6,
+    ACTUALIZACION_MAX_CHARS: 60000
+  }
 };
+
+/** v270 (P1): campos de texto LIBRE sujetos a cota de longitud explícita.
+ *  Los enums/fechas se excluyen: su conjunto cerrado ya los acota y deben
+ *  conservar su código de error semántico (ENUM_INVALIDO / FECHA_INVALIDA). */
+var CAPTURA_V2_TEXTO_LIBRE = ['rut', 'nombre', 'telefonos', 'profesional', 'profesionalSecundario', 'observaciones'];
 
 /**
  * Estados reiniciables por reprocesamiento administrativo §23 (nunca PROCESADO).
@@ -151,6 +178,32 @@ function Captura_v2_esInterna_(k) {
 /** PURA: normaliza un nombre de profesional (NOMBRE del catálogo §9). */
 function Captura_v2_normalizarProfesional_(v) {
   return Utl_colapsarEspacios_(Utl_sinTildes_(String(v === undefined || v === null ? '' : v).toUpperCase())).trim();
+}
+
+/** v270 (P1): tamaño del payload serializado, robusto ante ciclos. Nunca lanza:
+ *  si la serialización es imposible devuelve `Infinity` (rechazo temprano). */
+function Captura_v2_tamanoSerializado_(v) {
+  try {
+    var s = (typeof Captura_jsonOrdenado_ === 'function') ? Captura_jsonOrdenado_(v) : JSON.stringify(v);
+    return typeof s === 'string' ? s.length : Infinity;
+  } catch (e) { return Infinity; }
+}
+
+/** v270 (P1): profundidad máxima de anidamiento (protege `actualizacion`). */
+function Captura_v2_profundidad_(v, actual) {
+  actual = actual || 0;
+  if (actual > CAPTURA_V2.LIMITES.ACTUALIZACION_MAX_PROFUNDIDAD) return actual;
+  if (Array.isArray(v)) {
+    var pa = actual;
+    for (var i = 0; i < v.length; i++) { var da = Captura_v2_profundidad_(v[i], actual + 1); if (da > pa) pa = da; }
+    return pa;
+  }
+  if (v && typeof v === 'object') {
+    var po = actual, ks = Object.keys(v);
+    for (var j = 0; j < ks.length; j++) { var dz = Captura_v2_profundidad_(v[ks[j]], actual + 1); if (dz > po) po = dz; }
+    return po;
+  }
+  return actual;
 }
 
 /** PURA: catálogo PROFESIONALES normalizado a la clave de §9 (acepta objetos o nombres). */
@@ -217,6 +270,18 @@ function Captura_v2_validar_(payload, opciones) {
       ok: false,
       errores: [Captura_v2_error_('SINTAXIS_INVALIDA', null, 'El payload debe ser un objeto JSON', '§17')],
       normalizado: null, accion: ''
+    };
+  }
+
+  // Capa 0 — v270 (P1): tope del payload SERIALIZADO. Rechazo temprano, sin PII
+  // (solo se reporta la cota). Aplica antes de cualquier normalización.
+  var tamanoPayload = Captura_v2_tamanoSerializado_(payload);
+  if (tamanoPayload > CAPTURA_V2.LIMITES.PAYLOAD_MAX_CHARS) {
+    return {
+      ok: false,
+      errores: [Captura_v2_error_('SINTAXIS_INVALIDA', null,
+        'El payload supera el tamaño máximo permitido', '§8')],
+      normalizado: null, accion: Utl_texto_(payload.accion)
     };
   }
 
@@ -305,8 +370,17 @@ function Captura_v2_validar_(payload, opciones) {
     var tipo = CAPTURA_V2.CAMPO_TIPO[campo];
     if (campo === 'actualizacion') {
       var ed = Captura_validarEdicion_(valor);
-      if (!ed.ok) eSem.push(Captura_v2_error_('CAMPO_INVALIDO', campo, ed.motivo, '§0.1'));
-      else norm.actualizacion = ed.valor;
+      if (!ed.ok) {
+        eSem.push(Captura_v2_error_('CAMPO_INVALIDO', campo, ed.motivo, '§0.1'));
+      } else if (Captura_v2_profundidad_(valor) > CAPTURA_V2.LIMITES.ACTUALIZACION_MAX_PROFUNDIDAD) {
+        eSem.push(Captura_v2_error_('CAMPO_INVALIDO', campo,
+          'La edición de ficha excede la profundidad permitida', '§0.1'));
+      } else if (Captura_v2_tamanoSerializado_(valor) > CAPTURA_V2.LIMITES.ACTUALIZACION_MAX_CHARS) {
+        eSem.push(Captura_v2_error_('CAMPO_INVALIDO', campo,
+          'La edición de ficha supera el tamaño máximo permitido', '§0.1'));
+      } else {
+        norm.actualizacion = ed.valor;
+      }
       continue;
     }
     if (tipo === 'boolean') {
@@ -319,6 +393,17 @@ function Captura_v2_validar_(payload, opciones) {
     }
     if (typeof valor !== 'string') {
       eTipos.push(Captura_v2_error_('TIPO_INCORRECTO', campo, 'Debe ser texto', '§7'));
+      continue;
+    }
+
+    // Capa 2 — v270 (P1): longitud máxima del texto. Se exige ANTES de la capa
+    // semántica para que un Form directo no pueda saltarse los topes de la Web.
+    // Solo aplica a campos de texto LIBRE; los enums/fechas ya están acotados
+    // por su propia validación semántica (y su código de error debe respetarse).
+    var limiteCampo = CAPTURA_V2.LIMITES.TEXTO[campo];
+    if (limiteCampo && CAPTURA_V2_TEXTO_LIBRE.indexOf(campo) !== -1 && valor.length > limiteCampo) {
+      eSem.push(Captura_v2_error_('CAMPO_INVALIDO', campo,
+        'El texto supera el máximo permitido (' + limiteCampo + ' caracteres)', '§8'));
       continue;
     }
 

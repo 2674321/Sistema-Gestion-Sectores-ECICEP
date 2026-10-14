@@ -2367,6 +2367,10 @@ function Form_validarPayloadTransporte_(payload) {
       var s = String(v).replace(/\./g, '').replace(/\s+/g, '');
       return /^\d{7,8}-?[\dkK]?$/.test(s) && s.length >= 8;
     }
+    // v270 (P1): topes desde la fuente única del contrato (con respaldo local).
+    var limTxt = (typeof CAPTURA_V2 !== 'undefined' && CAPTURA_V2.LIMITES && CAPTURA_V2.LIMITES.TEXTO) || {
+      nombre: 200, rut: 12, profesional: 120, profesionalSecundario: 120, telefonos: 300, observaciones: 2000
+    };
     function longMax(v, max) { return v === undefined || v === null || String(v).length <= max; }
 
     // clientRequestId (opcional desde Web; vacío en Form directo).
@@ -2377,12 +2381,12 @@ function Form_validarPayloadTransporte_(payload) {
     // RUT.
     if (!rutBasico(p.rut)) errores.push({ codigo: 'RUT_INVALIDO' });
     // Longitudes máximas.
-    if (!longMax(p.nombre, 200)) errores.push({ codigo: 'NOMBRE_LARGO' });
-    if (!longMax(p.rut, 12)) errores.push({ codigo: 'RUT_LARGO' });
-    if (!longMax(p.profesional, 120)) errores.push({ codigo: 'PROFESIONAL_LARGO' });
-    if (!longMax(p.profesionalSecundario, 120)) errores.push({ codigo: 'PROFESIONAL_LARGO' });
-    if (!longMax(p.telefonos, 300)) errores.push({ codigo: 'TELEFONOS_LARGO' });
-    if (!longMax(p.observaciones, 2000)) errores.push({ codigo: 'OBSERVACIONES_LARGO' });
+    if (!longMax(p.nombre, limTxt.nombre)) errores.push({ codigo: 'NOMBRE_LARGO' });
+    if (!longMax(p.rut, limTxt.rut)) errores.push({ codigo: 'RUT_LARGO' });
+    if (!longMax(p.profesional, limTxt.profesional)) errores.push({ codigo: 'PROFESIONAL_LARGO' });
+    if (!longMax(p.profesionalSecundario, limTxt.profesionalSecundario)) errores.push({ codigo: 'PROFESIONAL_LARGO' });
+    if (!longMax(p.telefonos, limTxt.telefonos)) errores.push({ codigo: 'TELEFONOS_LARGO' });
+    if (!longMax(p.observaciones, limTxt.observaciones)) errores.push({ codigo: 'OBSERVACIONES_LARGO' });
     // Fechas con calendario real.
     if (!fechaReal(p.fechaNacimiento)) errores.push({ codigo: 'FECHA_NACIMIENTO_INVALIDA' });
     if (!fechaReal(p.fechaIngreso)) errores.push({ codigo: 'FECHA_INGRESO_INVALIDA' });
@@ -2406,7 +2410,16 @@ function Form_validarPayloadTransporte_(payload) {
     // son válidos y el builder resuelve uno u otro.
     if (acc === 'actualizardatos' && p.actualizacion !== undefined && p.actualizacion !== null) {
       var a = p.actualizacion;
-      if (typeof a !== 'object' || !a.campos || typeof a.campos !== 'object') {
+      var limEd = (typeof CAPTURA_V2 !== 'undefined' && CAPTURA_V2.LIMITES) || {};
+      if (typeof a !== 'object' || Array.isArray(a) || !a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos)) {
+        errores.push({ codigo: 'ACTUALIZACION_INVALIDA' });
+      } else if (Object.keys(a.campos).length > (limEd.ACTUALIZACION_MAX_CAMPOS || 200)) {
+        errores.push({ codigo: 'ACTUALIZACION_INVALIDA' });
+      } else if (typeof Captura_v2_profundidad_ === 'function' &&
+        Captura_v2_profundidad_(a) > (limEd.ACTUALIZACION_MAX_PROFUNDIDAD || 6)) {
+        errores.push({ codigo: 'ACTUALIZACION_INVALIDA' });
+      } else if (typeof Captura_v2_tamanoSerializado_ === 'function' &&
+        Captura_v2_tamanoSerializado_(a) > (limEd.ACTUALIZACION_MAX_CHARS || 40000)) {
         errores.push({ codigo: 'ACTUALIZACION_INVALIDA' });
       } else {
         Object.keys(a.campos).forEach(function (ck) {

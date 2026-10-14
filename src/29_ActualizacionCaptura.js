@@ -15,17 +15,22 @@ function Captura_jsonOrdenado_(v) {
 /** Valida toda la edición ANTES de cualquier escritura. */
 function Captura_validarEdicion_(a) {
   function fallo(msg) { return {ok:false,motivo:msg}; }
+  var lim = (typeof CAPTURA_V2 !== 'undefined' && CAPTURA_V2.LIMITES) ? CAPTURA_V2.LIMITES : {};
+  var maxTexto = lim.ACTUALIZACION_MAX_TEXTO || 5000;
+  var maxCampos = lim.ACTUALIZACION_MAX_CAMPOS || 200;
+  var maxAtenciones = lim.ACTUALIZACION_MAX_ATENCIONES || 2;
   if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(function(k){return ['id','rutOriginal','campos','atenciones'].indexOf(k)<0;})) return fallo('Edición inválida');
   if (typeof a.id !== 'string' || !a.id || a.id.length>150 || typeof a.rutOriginal !== 'string') return fallo('Cargue primero la ficha');
   if (!a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos)) return fallo('Campos inválidos');
-  if (!Array.isArray(a.atenciones) || a.atenciones.length>2) return fallo('Atenciones inválidas');
+  if (Object.keys(a.campos).length > maxCampos) return fallo('Demasiados campos en la edición');
+  if (!Array.isArray(a.atenciones) || a.atenciones.length>maxAtenciones) return fallo('Atenciones inválidas');
   var out={id:a.id,rutOriginal:a.rutOriginal,campos:{},atenciones:[]};
   var keys=Object.keys(a.campos).sort();
   for(var i=0;i<keys.length;i++) {
     var k=keys[i],c=a.campos[k];
     if(CAPTURA_EDICION_CAMPOS.indexOf(k)<0 || !c || typeof c!=='object' || Array.isArray(c) || Object.keys(c).sort().join(',')!=='anterior,valor' || typeof c.anterior!=='string' || typeof c.valor!=='string') return fallo('Campo no editable: '+k);
     var v=c.valor.trim();
-    if(v.length>5000 || c.anterior.length>5000) return fallo('Texto demasiado largo: '+k);
+    if(v.length>maxTexto || c.anterior.length>maxTexto) return fallo('Texto demasiado largo: '+k);
     if(['RUT','NOMBRE','SECTOR'].indexOf(k)>=0 && !v) return fallo('No puede vaciar '+k);
     if(k==='RUT') {var r=Norm_normalizarRut_(v);if(r.estado!=='OK')return fallo('RUT inválido');v=r.rut;}
     if(k==='SEXO' && ['', 'M','F','OTRO'].indexOf(v)<0)return fallo('Sexo inválido');

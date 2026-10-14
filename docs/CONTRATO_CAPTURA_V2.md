@@ -451,6 +451,32 @@ backend. **[DECISIÓN]** Capas aplicadas en orden:
    estado `REQUIERE_REVISION` de captura (no error de relanzamiento; ver §18). **[DECISIÓN; sigue la
    práctica operativa CUARENTENA]**
 
+### 14.1 Límites de entrada (v270)
+
+El contrato autoritativo acota el tamaño de la entrada. Estos topes se aplican **siempre**, con
+independencia del canal: un envío que no pase por la Web App (por ejemplo, una respuesta directa del
+Form interno) **no puede saltarse** los límites. Los valores viven en `CAPTURA_V2.LIMITES`
+(`src/26_Captura.js`), fuente única replicada por la capa de transporte.
+
+| Cota | Valor | Código si se excede |
+|---|---|---|
+| Payload serializado completo | 100000 caracteres | `SINTAXIS_INVALIDA` (`campo: null`) |
+| `nombre` | 200 | `CAMPO_INVALIDO` |
+| `rut` | 12 | `CAMPO_INVALIDO` |
+| `profesional` / `profesionalSecundario` | 120 | `CAMPO_INVALIDO` |
+| `telefonos` | 300 | `CAMPO_INVALIDO` |
+| `observaciones` | 2000 | `CAMPO_INVALIDO` |
+| `actualizacion` (editor de ficha), serializado | 60000 caracteres | `CAMPO_INVALIDO` |
+| `actualizacion.campos`, cantidad de campos | 200 | `CAMPO_INVALIDO` |
+| `actualizacion`, profundidad de anidamiento | 6 | `CAMPO_INVALIDO` |
+| `actualizacion.campos.*.valor` / `.anterior` | 5000 | `CAMPO_INVALIDO` |
+| `actualizacion.atenciones`, cantidad | 2 | `CAMPO_INVALIDO` |
+
+Solo se acotan los **campos de texto libre** (los conjuntos cerrados de §9 y las fechas de §10 ya
+están acotados por su propia validación y conservan su código). La cota de payload y de
+`actualizacion` se verifica **antes** de normalizar. El rechazo es temprano y **nunca** expone el
+contenido recibido: solo la cota y el campo (sin PII, §24).
+
 El resultado de la validación es binario: `ok` = todos los campos obligatorios/opcionales provistos
 satisfacen las reglas y no hay campos rechazados.
 
