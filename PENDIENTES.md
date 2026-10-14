@@ -2,7 +2,11 @@
 
 ## BLOQUEADORES DE ACTIVACIÓN ACTUALES
 
-Solo quedan operaciones runtime; no hay un P0/P1 de código abierto:
+No hay P0/P1 de código abierto. El hardening v270 (confirmación canónica,
+anti-inyección de fórmulas, retiro de la superficie pública temporal,
+observabilidad `unmaterialized`, límites de entrada, token legacy en captura y
+captura directa al Form → REVIEW) está cerrado y verificado. Solo quedan
+operaciones runtime:
 
 - finalizar la jornada y retirar usuarios;
 - ejecutar preflight y crear un backup reciente inmediatamente antes de mutar;
@@ -10,6 +14,8 @@ Solo quedan operaciones runtime; no hay un P0/P1 de código abierto:
 - configurar/adoptar el Form interno y la clave de operador si siguen ausentes;
 - publicar el mismo proyecto y actualizar el mismo deployment `/exec`;
 - ejecutar instalación/reparación, migración legacy y E2E real;
+- inventariar (read-only) los datos sintéticos de E2E y limpiarlos solo con ruta
+  segura probada;
 - cerrar la ventana y emitir GO/NO-GO.
 
 ## DEUDA TÉCNICA ACTUAL
@@ -17,6 +23,9 @@ Solo quedan operaciones runtime; no hay un P0/P1 de código abierto:
 - No hay deuda P0/P1 conocida que bloquee el transporte. El append atómico, el
   epoch de caché, el payload inválido visible y la auditoría XSS se cerraron en
   v260 con pruebas conductuales.
+- v270 añade: confirmación canónica de efecto, anti-inyección de fórmulas,
+  límites de entrada del contrato, observabilidad `unmaterialized`, captura
+  pública sin token legacy y captura directa al Form sin mutación clínica.
 - Las mejoras funcionales históricas que siguen abiertas se mantienen abajo y
   están marcadas como **NO BLOQUEA ACTIVACIÓN DEL TRANSPORTE**.
 

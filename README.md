@@ -19,7 +19,8 @@
 [![Demo interactiva](https://img.shields.io/badge/DEMO-interactiva-1B7A8A?style=flat-square&logo=html5)](https://2674321.github.io/Sistema-Gestion-Sectores-ECICEP/)
 [![Release](https://img.shields.io/badge/release-v0.17.0-0E5C68?style=flat-square)](https://github.com/2674321/Sistema-Gestion-Sectores-ECICEP)
 
-Release candidate: `release-v0.17.0` (rama congelada `release/v0.17.0-rc1`).
+Release candidate: `release-v0.17.0` (baseline `release/v0.17.0-rc1`; hardening
+v270 en `hardening/v0.17.0-final`). Estado vigente autoritativo: `docs/ESTADO_ACTUAL.md`.
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg?style=flat-square)](LICENSE)
 
 ## De un vistazo
@@ -32,7 +33,23 @@ Release candidate: `release-v0.17.0` (rama congelada `release/v0.17.0-rc1`).
 | **Reportes** | REM mensual en Excel y PDF, estadísticas con gráficos, dashboard de indicadores |
 | **Calidad** | Normalización, deduplicación trazable, cola de revisión, auditoría |
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
-| **Estado** | `v0.17.0` (candidato, rc1) — candidato activable v260: commit clínico serializado, caché generacional, revisión fail-visible y operación de activación guiada; esquema clínico 2 y Captura V4 sin cambios |
+| **Estado** | `v0.17.0` (candidato, rc1) — hardening v270: captura pública anónima sin token legacy (DEC-115) y captura directa al Form sin mutación clínica (DEC-116); commit clínico serializado, caché generacional, revisión fail-visible; esquema clínico 2 y Captura V4 sin cambios |
+
+## v0.17.0 — hardening de captura y release (DEC-110 … DEC-116)
+
+- **Captura pública anónima** (DEC-110): la Web App concede siempre, sin login,
+  OPSESS ni OAuth individual. La operación/administración sí exige sesión OPSESS.
+- **Sin token legacy en la captura** (DEC-115): el HTML servido y las RPC de
+  captura no inyectan ni reciben credencial; el QR y el enlace base no llevan
+  parámetros de acceso.
+- **Captura directa al Form no es canal clínico** (DEC-116): un envío sin
+  `CLIENT_REQUEST_ID` válido se recibe de forma durable y queda en
+  `REQUIERE_REVISION` (REVIEW) para decisión humana; no muta el modelo clínico.
+  El flujo normal es `SOURCE=WEBAPP` + `CLIENT_REQUEST_ID` válido.
+- **Input hardening y anti-inyección de fórmulas** (v270): cotas de tamaño,
+  profundidad y longitud en el contrato autoritativo; saneo de celdas.
+- Verificación: `node tools/verificar.mjs` (162 suites / 0 fallos) y
+  `node tools/release.mjs --check`. Estado vigente: `docs/ESTADO_ACTUAL.md`.
 
 ## v0.16.4 — ningún campo aceptado se pierde (DEC-104)
 
