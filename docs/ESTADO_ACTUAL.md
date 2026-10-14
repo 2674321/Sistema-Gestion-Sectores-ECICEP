@@ -9,15 +9,15 @@
 |---|---|
 | Versión de producto | `v0.17.0` (`src/00_Config.js` → `ECICEP.VERSION`) |
 | Rama de trabajo | `hardening/v0.17.0-final` (baseline histórico `release/v0.17.0-rc1` / commit clínico v260) |
-| Etapa de release | `RC` (hardening v270). `FINAL` solo tras el E2E post-deploy. |
-| Deployment operativo | `@267` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificar con `clasp versions`) |
+| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@268`, build `23c1099`); E2E/health runtime y tag en ventana |
+| Deployment operativo | `@268` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificar con `clasp versions`) |
 | Arquitectura de captura | Web App (único canal operativo visible) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline `Captura_v2_enviar_` |
 | Esquema clínico | `SISTEMA_VERSION_SCHEMA_ACTUAL = 2` (no subir en este release) |
 | Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 3` |
 | Instalador | `SISTEMA_VERSION_INSTALADOR = 'INST-1'` |
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
-| Estado del canal | Operativo en `/dev`; publicación final pendiente de activación fuera de horario |
+| Estado del canal | Publicado en `/exec` (@268, build `23c1099`, HTTP 200, sin login Google); E2E real y health `ACTIVE_HEALTHY` en ventana |
 
 ## Contrato de captura vigente (v270)
 
@@ -57,5 +57,7 @@
 ## Último E2E
 
 - `v270`: verificación estática y por suites (transporte, idempotencia,
-  concurrencia, captura directa → REVIEW). E2E real `/dev` y post-deploy
-  **pendientes** de la ventana de activación (Fases 9–12).
+  concurrencia, captura directa → REVIEW) y smoke público `/exec` HTTP 200 con
+  build `23c1099`. El E2E real de una entrega, la idempotencia y el health
+  `ACTIVE_HEALTHY` quedan **pendientes** de la ventana de activación
+  (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
