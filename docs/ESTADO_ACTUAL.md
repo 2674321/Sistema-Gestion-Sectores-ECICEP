@@ -9,17 +9,17 @@
 |---|---|
 | Versión de producto | `v0.17.0` (`src/00_Config.js` → `ECICEP.VERSION`) |
 | Rama de trabajo | `hardening/v0.17.0-final` (baseline histórico `release/v0.17.0-rc1` / commit clínico v260) |
-| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@269`, build `072d44c`); E2E/health runtime y tag en ventana |
-| Deployment operativo | `@269` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificar con `clasp versions`) |
+| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@270`, build `0f3d931`); smoke real de captura aprobado, health runtime y tag en ventana |
+| Deployment operativo | `@270` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
 | Arquitectura de captura | Web App (único canal operativo visible) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline `Captura_v2_enviar_` |
 | Esquema clínico | `SISTEMA_VERSION_SCHEMA_ACTUAL = 2` (no subir en este release) |
 | Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 3` |
 | Instalador | `SISTEMA_VERSION_INSTALADOR = 'INST-1'` |
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
-| Estado del canal | Publicado en `/exec` (@269, build `072d44c`, HTTP 200, sin login Google); E2E real y health `ACTIVE_HEALTHY` en ventana |
-| HEAD de trabajo | `072d44c` (`hardening/v0.17.0-final` = `release/v0.17.0-rc1`); incluye DEC-119 (OPSESS desde Sheets), DEC-120 (editor `ACTUALIZAR_DATOS`) y DEC-121 (guarda de capacidad de versiones). Publicado a producción `@269` sobre el MISMO deployment; smoke `/dev`, E2E real, health y tag pendientes de ventana |
-| Acceso operador | Web App/admin externo → clave OPSESS; vistas abiertas desde el Spreadsheet autorizado → OPSESS automática (DEC-119); captura pública anónima |
+| Estado del canal | Publicado en `/exec` (@270, build `0f3d931`, HTTP 200, sin login Google); smoke real confirma 4 acciones, `Actualizar` operativo sin lectura privada y ausencia de `Funciones` |
+| HEAD de trabajo | `0f3d931` (`hardening/v0.17.0-final`); incluye DEC-122. Publicado a producción `@270` sobre el MISMO deployment; health runtime y tag pendientes de ventana |
+| Acceso operador | QR/Web App → cuatro acciones públicas sin clave; administración desde el Spreadsheet autorizado → OPSESS automática (DEC-119); admin externo conserva OPSESS |
 
 ## Contrato de captura vigente (v270)
 
@@ -34,6 +34,9 @@
 - **Acceso desde Sheets sin clave (DEC-119):** el render container-bound del
   Spreadsheet autorizado (ID exacto + `getUi()`) emite OPSESS automática; la Web
   App externa y `google.script.run` no la reciben y piden clave. Captura intacta.
+- **Captura completa sin fricción (DEC-122):** las cuatro acciones del QR son
+  públicas. `ACTUALIZAR_DATOS` usa contacto, próxima atención, equipo y
+  observaciones sin leer la ficha; `Funciones` no se muestra en la captura.
 - Input hardening (DEC-114/v270): cotas de tamaño, profundidad y longitud de
   texto en `Captura_v2_validar_`; anti-inyección de fórmulas en celdas.
 - **Actualizar ficha (DEC-120):** la acción se lee de `<select id="accion">`
