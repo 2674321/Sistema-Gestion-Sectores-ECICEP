@@ -15,7 +15,7 @@
 - URL pública a conservar:
   `https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec`
 - Nunca `clasp deploy` sin `--deploymentId`. Nunca cambiar la URL ni el QR.
-- Preservar toda versión referenciada por un deployment activo (`@HEAD`, `@268`).
+- Preservar toda versión referenciada por un deployment activo (`@HEAD`, `@269`).
 - Gestión del límite de 200 versiones de Apps Script (ver Paso 4.0).
 - No usar datos clínicos reales en pruebas.
 
@@ -29,7 +29,7 @@
 
 ```bash
 git status --short          # debe estar limpio
-node tools/verificar.mjs    # 166 suites, 0 fallos
+node tools/verificar.mjs    # 170 suites, 0 fallos
 node tools/release.mjs --check   # RELEASE_CHECK_PASS
 ```
 
@@ -49,7 +49,7 @@ Abrir en incógnito el deployment `@HEAD`:
 
 `https://script.google.com/macros/s/AKfycbwd7PkYNWEmglmOqkqgxEw14jTZkTK3O-FgiP3JTVTT/exec`
 
-Verificar: captura carga sin login Google, título correcto, **build = `cecf52b`**,
+Verificar: captura carga sin login Google, título correcto, **build = `072d44c`**,
 catálogo de profesionales carga, sin token legacy visible. Abrir una vista
 protegida (backup/dashboard) → debe pedir OPSESS y funcionar **sin**
 `... is not a function` ni error de Proxy.
@@ -73,7 +73,7 @@ lleno. `tools/release.mjs --publish` ahora lo detecta **antes** de desplegar:
 Política de mantenimiento (manual, en el editor Apps Script → `Project History`):
 
 - **Preservar** toda versión usada por un deployment activo: Google no ofrece
-  esas versiones para borrar (p. ej. `@HEAD` y `@268`).
+  esas versiones para borrar (p. ej. `@HEAD` y `@269`).
 - **Preservar** las versiones recientes útiles para diagnóstico/reversión
   (mantener las ~30 más recientes disponibles).
 - **Borrar periódicamente** snapshots antiguos no referenciados por ningún
@@ -110,7 +110,7 @@ Registrar `DEPLOYMENT_VERSION_AFTER` (leer con `clasp versions`) y confirmar
 ## Paso 5 — Verificación `/exec`
 
 Abrir la URL pública. Debe: HTTP 200, **sin** `accounts.google.com`, título
-`ECICEP — Captura`, build = `cecf52b`. Si el build no coincide, NO crear otro
+`ECICEP — Captura`, build = `072d44c`. Si el build no coincide, NO crear otro
 deployment: revisar versión y actualizar el mismo.
 
 ## Paso 6 — E2E (una sola entrega)

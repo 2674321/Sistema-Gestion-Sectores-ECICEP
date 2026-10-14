@@ -9,16 +9,16 @@
 |---|---|
 | Versión de producto | `v0.17.0` (`src/00_Config.js` → `ECICEP.VERSION`) |
 | Rama de trabajo | `hardening/v0.17.0-final` (baseline histórico `release/v0.17.0-rc1` / commit clínico v260) |
-| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@268`, build `23c1099`); E2E/health runtime y tag en ventana |
-| Deployment operativo | `@268` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificar con `clasp versions`) |
+| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@269`, build `072d44c`); E2E/health runtime y tag en ventana |
+| Deployment operativo | `@269` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificar con `clasp versions`) |
 | Arquitectura de captura | Web App (único canal operativo visible) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline `Captura_v2_enviar_` |
 | Esquema clínico | `SISTEMA_VERSION_SCHEMA_ACTUAL = 2` (no subir en este release) |
 | Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 3` |
 | Instalador | `SISTEMA_VERSION_INSTALADOR = 'INST-1'` |
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
-| Estado del canal | Publicado en `/exec` (@268, build `23c1099`, HTTP 200, sin login Google); E2E real y health `ACTIVE_HEALTHY` en ventana |
-| HEAD de trabajo | `cb822c1` (`hardening/v0.17.0-final` = `release/v0.17.0-rc1`); incluye DEC-119 (OPSESS desde Sheets) y DEC-120 (editor `ACTUALIZAR_DATOS`). Sincronizado a dev `@HEAD`; **publicación a producción pendiente** de liberar versiones (límite de 200 del proyecto) |
+| Estado del canal | Publicado en `/exec` (@269, build `072d44c`, HTTP 200, sin login Google); E2E real y health `ACTIVE_HEALTHY` en ventana |
+| HEAD de trabajo | `072d44c` (`hardening/v0.17.0-final` = `release/v0.17.0-rc1`); incluye DEC-119 (OPSESS desde Sheets), DEC-120 (editor `ACTUALIZAR_DATOS`) y DEC-121 (guarda de capacidad de versiones). Publicado a producción `@269` sobre el MISMO deployment; smoke `/dev`, E2E real, health y tag pendientes de ventana |
 | Acceso operador | Web App/admin externo → clave OPSESS; vistas abiertas desde el Spreadsheet autorizado → OPSESS automática (DEC-119); captura pública anónima |
 
 ## Contrato de captura vigente (v270)
@@ -77,16 +77,15 @@
   `ACTIVE_HEALTHY` quedan **pendientes** de la ventana de activación
   (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
 
-## Publicación pendiente (deploy)
+## Publicación (deploy)
 
-- `node tools/release.mjs --push` **OK** (`cb822c1` en dev `@HEAD`).
-- `node tools/release.mjs --publish` quedó **BLOQUEADO** con
-  `CLASP_DEPLOY_FALLÓ` — "Script has reached the limit of 200 versions".
-  `clasp versions` reporta ahora **194 versiones** (números 16–268 con huecos),
-  es decir 6 slots libres: la limpieza ya liberó capacidad. Con el nuevo
-  preflight (`APPS_SCRIPT_VERSION_LIMIT_NEAR` desde 190) el deploy sobre el
-  **MISMO deployment** (`@268` → nueva versión) es reintentable.
-  Si volviera a llenarse, requiere `Bulk delete versions` manual en
-  `Project history`. Fail-closed: producción `@268` (build `23c1099`) intacta.
+- `node tools/release.mjs --push` **OK** (`072d44c` en dev `@HEAD`).
+- `node tools/release.mjs --publish` **OK** con preflight de capacidad:
+  `warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=194 free=6` →
+  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`,
+  `DEPLOYMENT_VERSION_BEFORE=268`, `DEPLOYMENT_VERSION_AFTER=269`,
+  `VERSION_COUNT_AFTER=195`. `/exec` HTTP 200 sirviendo build `072d44c` con la
+  ficha completa de `ACTUALIZAR_DATOS` (DEC-120). Mismo ID/URL, sin nuevo deployment.
 - Pendiente de ventana: smoke `/dev` (Captura → Actualizar → RUT sintético
-  `11.111.111-1` → cargar → verificar ficha completa) y E2E real.
+  `11.111.111-1` → cargar → verificar ficha completa), E2E real, idempotencia,
+  health `ACTIVE_HEALTHY` y tag `v0.17.0` (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).

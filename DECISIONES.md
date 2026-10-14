@@ -2753,3 +2753,26 @@ durable no cambian.
 mutación que reimplantaría los radios y debe fallar) y
 `tests/actualizar_datos_campos_contrato_v0170.mjs` (frontend ≡ backend, 18 campos).
 **Fecha:** 2026-10-14
+
+## DEC-121
+**Título:** Publicación segura ante el límite de 200 versiones de Apps Script.
+**Estado:** Aprobada
+**Motivo:** `clasp deploy` falló con "Script has reached the limit of 200 versions":
+Apps Script limita a 200 **versiones existentes**, no al número más alto (los
+números tienen huecos por versiones borradas). `clasp` 3.3.0 no borra versiones y
+la API `projects.versions` solo expone `create/get/list`, no `delete`; la limpieza
+es exclusivamente manual por la UI (`Project history → Bulk delete versions`). Sin
+preflight, el release llegaba hasta el deploy para fallar tarde.
+**Contenido:** `tools/release.mjs --publish` ejecuta un preflight de capacidad antes
+de `clasp deploy`: aborta con `APPS_SCRIPT_VERSION_LIMIT_REACHED` si
+`VERSION_COUNT >= 200` (sin invocar el deploy, fail-closed) y avisa
+`APPS_SCRIPT_VERSION_LIMIT_NEAR` desde 190, permitiendo publicar si queda ≥1 slot.
+El conteo se deriva de `clasp versions` (número de líneas), **nunca** de
+`max(versionNumber)`. Política de mantenimiento (runbook): preservar toda versión
+referenciada por un deployment activo (`@HEAD`, versión operativa) y ~30 recientes
+para reversión; borrado preventivo de snapshots antiguos no referenciados pasando
+180 versiones, objetivo `VERSION_COUNT_AFTER <= 120`. Nunca se crea un deployment
+ni un proyecto nuevos.
+**Validación:** `tests/release_version_capacity_v0170.mjs` (199 permite y despliega,
+200 bloquea sin llamar a `clasp deploy`, 201+ bloquea, parser robusto).
+**Fecha:** 2026-10-14
