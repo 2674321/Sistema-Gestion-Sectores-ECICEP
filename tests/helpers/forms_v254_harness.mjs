@@ -63,7 +63,13 @@ class MockForm {
     this.id = id; this.items = []; this.responses = []; this.nextItemId = 1;
     this.nextResponseId = 0; this.clock = Date.UTC(2026, 9, 12, 12, 0, 0);
     this.title = 'Captura ECICEP';
+    this.published = true; this.acceptingResponses = true;
   }
+  // v260: publicación explícita (expone la API real de Forms en runtime).
+  setPublished(v) { this.published = !!v; return this; }
+  isPublished() { return this.published; }
+  setAcceptingResponses(v) { this.acceptingResponses = !!v; return this; }
+  isAcceptingResponses() { return this.acceptingResponses; }
   add(type) { const x = new MockItem(this, type); this.items.push(x); return x; }
   addMultipleChoiceItem() { return this.add(TYPES.MULTIPLE_CHOICE); }
   addPageBreakItem() { return this.add(TYPES.PAGE_BREAK); }
@@ -104,7 +110,7 @@ class MockSheet {
   }
 }
 
-export function createHarness({ malformed = false, responseCount = 0, noKnownForm = false } = {}) {
+export function createHarness({ malformed = false, responseCount = 0, noKnownForm = false, publishThrows = false, acceptingThrows = false } = {}) {
   const quiet = { log() {}, warn() {}, error() {}, info() {} };
   const c = vm.createContext({ console: quiet, JSON, Date, Math, Object, String, Number, Array, RegExp });
   for (const f of SOURCES) {
@@ -115,6 +121,9 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
   const forms = new Map();
   const form = new MockForm();
   forms.set(form.id, form);
+  // v260: fallos de publicación simulables sin debilitar el camino de producción.
+  if (publishThrows) form.setPublished = function () { throw new Error('setPublished-falla'); };
+  if (acceptingThrows) form.setAcceptingResponses = function () { throw new Error('setAcceptingResponses-falla'); };
   let createCount = 0;
   const openIds = [];
   if (!noKnownForm) props.set('GOOGLE_FORM_ID', form.id);

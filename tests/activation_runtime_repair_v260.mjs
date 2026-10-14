@@ -11,8 +11,6 @@ const releaseSrc = fs.readFileSync(
   'utf8'
 );
 
-const PROD_ID = '1tRDqhbNRZB_bGUo5qp5dbz5_gN27CS2ULN9NSOdN1wo';
-
 // Solo el helper de blockers reparables, sin las funciones UI que lo siguen.
 const helperSrc = (() => {
   const i = releaseSrc.indexOf('function Operacion_preflightBloqueosNoReparables_');
@@ -22,29 +20,14 @@ const helperSrc = (() => {
   return s >= 0 ? resto.slice(0, s + 1) : resto;
 })();
 
-/** Cuerpo textual de una función del wrapper (para guardas estáticas). */
-function cuerpo(nombre) {
-  const i = wrapperSrc.indexOf('function ' + nombre + '(');
-  assert.ok(i >= 0, 'existe ' + nombre);
-  const resto = wrapperSrc.slice(i);
-  const abierto = resto.indexOf('{');
-  let nivel = 0, fin = resto.length;
-  for (let k = abierto; k < resto.length; k++) {
-    if (resto[k] === '{') nivel++;
-    else if (resto[k] === '}') { nivel--; if (nivel === 0) { fin = k + 1; break; } }
-  }
-  return resto.slice(0, fin);
-}
-
 function entorno(o) {
   o = o || {};
   const L = [];
   const props = Object.assign({}, o.props || {});
   const abiertos = new Set(o.abiertos || []);
   let trigger = !!o.triggerPresente;
-  let prodAperturas = 0;
   const cola = (o.preflight || []).slice();
-  if (o.prodAccesible !== false) abiertos.add(PROD_ID);
+  if (o.prodAccesible !== false) abiertos.add('FORM-CONOCIDO');
 
   const ctx = {
     console: { log: (m) => { L.push('log:' + m); } },
@@ -55,7 +38,7 @@ function entorno(o) {
     },
     Operacion_ventanaActivacionAbierta_: o.ventana || (() => ({ ok: true, abierta: true })),
     Form_propEscribir_: (k, v) => { L.push('prop:' + k); props[k] = String(v); },
-    Form_formId_: o.formId || (() => props.GOOGLE_FORM_ID || ''),
+    Form_formId_: () => props.GOOGLE_FORM_ID || '',
     WebApp_operadorConfigurado_: o.operador || (() => true),
     Backup_triggerInstalado_: () => { L.push('trigger:consulta'); return trigger; },
     Backup_programar_: (dia, hora) => {
@@ -66,17 +49,26 @@ function entorno(o) {
     _config_leerValores_: o.config || (() => ({})),
     FormApp: {
       openById: (id) => {
-        L.push('open:' + (id === PROD_ID ? 'PROD' : id));
-        if (id === PROD_ID && o.prodCaeEn !== undefined && prodAperturas >= o.prodCaeEn) throw new Error('no-accesible');
+        L.push('open:' + id);
         if (!abiertos.has(id)) throw new Error('no-accesible');
-        prodAperturas++;
         return { id: id };
       },
       create: (titulo) => {
         L.push('create:' + titulo);
-        return { getId: () => 'FORM-ALTERNO' };
+        if (o.createFalla) throw new Error('create-falla');
+        abiertos.add('FORM-CREADO');
+        return { getId: () => 'FORM-CREADO' };
       }
     },
+    ScriptApp: { getOAuthToken: () => 'TOKEN' },
+    UrlFetchApp: {
+      fetch: () => {
+        L.push('fetch');
+        if (o.fetchFalla) throw new Error('fetch-falla');
+        return { getResponseCode: () => 200, getContentText: () => '{"formId":"FORM-CREADO"}' };
+      }
+    },
+    Utilities: { sleep: () => { L.push('sleep'); } },
     Operacion_preflightRelease_: () => {
       L.push('preflight');
       return cola.length ? cola.shift() : { checks: [], resultado: 'ACTIVE_HEALTHY' };
@@ -107,33 +99,33 @@ const cuenta = (L, p) => L.filter(function (x) { return x.indexOf(p) === 0; }).l
 // ---------------------------------------------------------------------------
 
 // 1. Trigger presente → NO reprograma.
-let e = entorno({ triggerPresente: true });
+let e = entorno({ triggerPresente: true, props: { GOOGLE_FORM_ID: 'FORM-CONOCIDO' } });
 let r = res(e, 'ECICEP_asegurarBackupActivacion_');
 assert.deepEqual(r, { ok: true, creado: false });
 assert.equal(cuenta(e.L, 'programar:'), 0, 'trigger presente: no reprograma');
 
 // 2. Trigger ausente → usa la API oficial y conserva día/hora configurados.
-e = entorno({ triggerPresente: false, config: () => ({ BACKUP_DIA: 'MARTES', BACKUP_HORA: '21' }) });
+e = entorno({ triggerPresente: false, props: { GOOGLE_FORM_ID: 'FORM-CONOCIDO' }, config: () => ({ BACKUP_DIA: 'MARTES', BACKUP_HORA: '21' }) });
 r = res(e, 'ECICEP_asegurarBackupActivacion_');
 assert.deepEqual(r, { ok: true, creado: true });
 assert.ok(e.L.indexOf('programar:MARTES@21') >= 0, 'conserva la configuración día/hora');
 assert.equal(cuenta(e.L, 'trigger:consulta'), 2, 'verifica antes y después de reparar');
 
 // 3. Sin configuración → defaults DOMINGO / 3; hora inválida → 3.
-e = entorno({ triggerPresente: false });
+e = entorno({ triggerPresente: false, props: { GOOGLE_FORM_ID: 'FORM-CONOCIDO' } });
 r = res(e, 'ECICEP_asegurarBackupActivacion_');
 assert.equal(r.ok, true);
 assert.ok(e.L.indexOf('programar:DOMINGO@3') >= 0, 'default día/hora');
-e = entorno({ triggerPresente: false, config: () => ({ BACKUP_DIA: 'SÁBADO', BACKUP_HORA: 'nope' }) });
+e = entorno({ triggerPresente: false, props: { GOOGLE_FORM_ID: 'FORM-CONOCIDO' }, config: () => ({ BACKUP_DIA: 'SÁBADO', BACKUP_HORA: 'nope' }) });
 r = res(e, 'ECICEP_asegurarBackupActivacion_');
 assert.equal(r.ok, true);
 assert.ok(e.L.indexOf('programar:SÁBADO@3') >= 0, 'hora inválida cae a 3');
 
 // 4. Fail-closed: si la programación lanza, o si no queda instalado.
-e = entorno({ triggerPresente: false, programarFalla: true });
+e = entorno({ triggerPresente: false, props: { GOOGLE_FORM_ID: 'FORM-CONOCIDO' }, programarFalla: true });
 r = res(e, 'ECICEP_asegurarBackupActivacion_');
 assert.deepEqual(r, { ok: false, motivo: 'BACKUP_TRIGGER_REPAIR_FAILED' });
-e = entorno({ triggerPresente: false, programarNoop: true });
+e = entorno({ triggerPresente: false, props: { GOOGLE_FORM_ID: 'FORM-CONOCIDO' }, programarNoop: true });
 r = res(e, 'ECICEP_asegurarBackupActivacion_');
 assert.deepEqual(r, { ok: false, motivo: 'BACKUP_TRIGGER_REPAIR_FAILED' });
 
@@ -142,48 +134,22 @@ assert.doesNotMatch(wrapperSrc, /Backup_crear_|Backup_podar_|BACKUP_MANTENER/);
 assert.doesNotMatch(wrapperSrc, /ScriptApp\.newTrigger|deleteTrigger|DriveApp/);
 
 // ---------------------------------------------------------------------------
-// FORM ACCESIBLE: ya NO se crean Formes alternativos
-// ---------------------------------------------------------------------------
-
-// 6. Form configurado accesible → verifica y no crea nada.
-e = entorno({ props: { GOOGLE_FORM_ID: 'FORM-VIEJO' }, abiertos: ['FORM-VIEJO'] });
-r = res(e, 'ECICEP_asegurarFormActivacion_');
-assert.deepEqual(r, { ok: true, recreado: false });
-assert.equal(cuenta(e.L, 'create:'), 0, 'form accesible: no crea nada');
-
-// 7. Form configurado inaccesible → fail cerrado SIN crear Form alterno.
-e = entorno({ props: { GOOGLE_FORM_ID: 'FORM-VIEJO' }, abiertos: [] });
-r = res(e, 'ECICEP_asegurarFormActivacion_');
-assert.deepEqual(r, { ok: false, motivo: 'FORM_REPAIR_FAILED' });
-assert.equal(cuenta(e.L, 'create:'), 0, 'no crea Forms alternativos');
-assert.equal(e.props.GOOGLE_FORM_ID, 'FORM-VIEJO', 'no reescribe el ID');
-
-// 8. Sin Form ID → fail cerrado.
-e = entorno({ props: {}, abiertos: [] });
-r = res(e, 'ECICEP_asegurarFormActivacion_');
-assert.deepEqual(r, { ok: false, motivo: 'FORM_REPAIR_FAILED' });
-
-// 9. Estático: la reparación NO contiene FormApp.create ni escritura de ID.
-const cuerpoAsegurar = cuerpo('ECICEP_asegurarFormActivacion_');
-assert.doesNotMatch(cuerpoAsegurar, /FormApp\.create/);
-assert.doesNotMatch(cuerpoAsegurar, /Form_propEscribir_/);
-assert.equal((wrapperSrc.match(/Form_propEscribir_\('GOOGLE_FORM_ID'/g) || []).length, 1, 'una sola escritura del ID de producción');
-
-// ---------------------------------------------------------------------------
 // PREFLIGHT: QUÉ ES REPARABLE
 // ---------------------------------------------------------------------------
 
 e = entorno({});
 
-// 10. FORM_SCHEMA_CURRENT es reparable por el instalador ANTES de instalar.
+// 6. FORM_SCHEMA_CURRENT es reparable por el instalador ANTES de instalar.
 let bloqueos = nomes(e, [{ nombre: 'FORM_SCHEMA_CURRENT', estado: 'BLOCK' }]);
 assert.deepEqual(bloqueos, [], 'FORM_SCHEMA_CURRENT reparable en preflight inicial');
 
-// 11. BACKUP_TRIGGER_PRESENT y FORM_ACCESSIBLE siguen siendo no reparables.
+// 7. BACKUP_TRIGGER_PRESENT y FORM_ACCESSIBLE siguen siendo no reparables.
 bloqueos = nomes(e, [{ nombre: 'BACKUP_TRIGGER_PRESENT', estado: 'BLOCK' }]);
 assert.deepEqual(bloqueos, ['BACKUP_TRIGGER_PRESENT'], 'BACKUP_TRIGGER_PRESENT no reparable');
 bloqueos = nomes(e, [{ nombre: 'FORM_ACCESSIBLE', estado: 'BLOCK' }]);
 assert.deepEqual(bloqueos, ['FORM_ACCESSIBLE'], 'FORM_ACCESSIBLE no reparable');
+bloqueos = nomes(e, [{ nombre: 'FORM_PUBLISHED', estado: 'BLOCK' }, { nombre: 'FORM_ACCEPTING_RESPONSES', estado: 'BLOCK' }]);
+assert.deepEqual(bloqueos, ['FORM_PUBLISHED', 'FORM_ACCEPTING_RESPONSES'], 'publicación no reparable');
 bloqueos = nomes(e, [{ nombre: 'FORM_COLUMNS_CURRENT', estado: 'BLOCK' }, { nombre: 'FORM_SUBMIT_TRIGGER_COUNT', estado: 'BLOCK' }, { nombre: 'FORM_WORKER_TRIGGER_COUNT', estado: 'BLOCK' }]);
 assert.deepEqual(bloqueos, [], 'los reparables previos siguen reparables');
 
@@ -193,7 +159,6 @@ assert.deepEqual(bloqueos, [], 'los reparables previos siguen reparables');
 
 const base = {
   props: {},
-  abiertos: [],
   triggerPresente: false,
   config: () => ({ BACKUP_DIA: 'JUEVES', BACKUP_HORA: '4' }),
   preflight: [
@@ -202,48 +167,37 @@ const base = {
   ]
 };
 
-// 12. Orden: config objetivo → verificar ID → repairs → preflight → instalar → diag → post-preflight.
+// 8. Orden: backup → bootstrap → verificar ID → preflight → instalar → diag → post-preflight.
 e = entorno(base);
 r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
 assert.equal(r.ok, true);
 assert.equal(r.estado, 'READY_FOR_DEPLOY');
 assert.equal(r.repairs.backupTrigger, true, 'reparó el trigger de respaldo');
-assert.equal(r.repairs.formRecreated, false, 'no recreó el Form');
+assert.equal(r.repairs.formCreated, true, 'creó el Form de producción');
+assert.equal(r.repairs.formCreationMethod, 'FORMAPP');
 assert.equal(r.legacy.estado, 'DEFERRED_POST_ACTIVATION');
-assert.equal(e.props.GOOGLE_FORM_ID, PROD_ID, 'el Form objetivo quedó configurado');
-const orden = e.L.filter(function (x) { return ['prop:GOOGLE_FORM_ID', 'programar:JUEVES@4', 'preflight', 'instalar', 'diag'].indexOf(x) >= 0; });
-assert.deepEqual(orden, ['prop:GOOGLE_FORM_ID', 'programar:JUEVES@4', 'preflight', 'instalar', 'diag', 'preflight'], 'orden de configuración y gates');
-assert.equal(cuenta(e.L, 'create:'), 0, 'el flujo completo no crea Forms');
+const orden = e.L.filter(function (x) { return ['programar:JUEVES@4', 'create:Captura ECICEP', 'preflight', 'instalar', 'diag'].indexOf(x) >= 0; });
+assert.deepEqual(orden, ['programar:JUEVES@4', 'create:Captura ECICEP', 'preflight', 'instalar', 'diag', 'preflight'], 'orden de reparaciones y gates');
+assert.doesNotMatch(JSON.stringify(r), /FORM-CREADO/, 'el resultado no filtra IDs');
 
-// 13. Form objetivo inaccesible → STOP en FORM_CONFIG, sin instalar ni crear.
-e = entorno(Object.assign({}, base, { prodAccesible: false }));
-r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
-assert.equal(r.ok, false);
-assert.equal(r.etapa, 'FORM_CONFIG');
-assert.equal(r.motivo, 'FORM_PRODUCTION_NOT_ACCESSIBLE');
-assert.equal(cuenta(e.L, 'preflight'), 0, 'sin preflight');
-assert.equal(cuenta(e.L, 'instalar'), 0, 'sin instalar');
-assert.equal(cuenta(e.L, 'create:'), 0, 'no crea Forms alternativos');
-
-// 14. Fail-closed por etapa antes del preflight.
+// 9. Fail-closed por etapa antes del preflight.
 e = entorno(Object.assign({}, base, { programarFalla: true }));
 r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
 assert.equal(r.ok, false);
 assert.equal(r.etapa, 'BACKUP_REPAIR');
 assert.equal(r.motivo, 'BACKUP_TRIGGER_REPAIR_FAILED');
 assert.equal(cuenta(e.L, 'preflight'), 0, 'sin preflight tras fallo de respaldo');
+assert.equal(cuenta(e.L, 'instalar'), 0, 'sin instalar tras fallo de respaldo');
 
-// 14b. Si el Form objetivo se cae justo después de configurarse → FORM_REPAIR.
-e = entorno(Object.assign({}, base, { prodCaeEn: 2 }));
+e = entorno(Object.assign({}, base, { createFalla: true, fetchFalla: true }));
 r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
 assert.equal(r.ok, false);
-assert.equal(r.etapa, 'FORM_REPAIR');
-assert.equal(r.motivo, 'FORM_REPAIR_FAILED');
+assert.equal(r.etapa, 'FORM_BOOTSTRAP');
+assert.equal(r.motivo, 'FORM_API_CREATE_FAILED');
 assert.equal(cuenta(e.L, 'preflight'), 0, 'sin preflight tras fallo de Form');
 assert.equal(cuenta(e.L, 'instalar'), 0, 'sin instalar tras fallo de Form');
-assert.equal(cuenta(e.L, 'create:'), 0, 'no crea Forms alternativos');
 
-// 15. Blocker no reparable en el preflight inicial → STOP sin instalar.
+// 10. Blocker no reparable en el preflight inicial → STOP sin instalar.
 e = entorno(Object.assign({}, base, {
   preflight: [{ checks: [{ nombre: 'BACKUP_TRIGGER_PRESENT', estado: 'BLOCK' }] }]
 }));
@@ -254,7 +208,7 @@ const bloq = Array.from(r.bloqueos);
 assert.deepEqual(bloq, ['BACKUP_TRIGGER_PRESENT']);
 assert.equal(cuenta(e.L, 'instalar'), 0, 'sin instalar ante blocker no reparable');
 
-// 16. Post-preflight sigue bloqueando CUALQUIER BLOCK (aunque sea reparable).
+// 11. Post-preflight sigue bloqueando CUALQUIER BLOCK (aunque sea reparable).
 e = entorno(Object.assign({}, base, {
   preflight: [
     { checks: [{ nombre: 'FORM_SCHEMA_CURRENT', estado: 'BLOCK' }] },
@@ -269,11 +223,9 @@ assert.notEqual(r.estado, 'READY_FOR_DEPLOY');
 const bloq2 = Array.from(r.bloqueos);
 assert.deepEqual(bloq2, ['FORM_SCHEMA_CURRENT']);
 
-// 17. El log de salida no filtra IDs ni excepciones.
+// 12. El log de salida no filtra IDs ni excepciones.
 const logs = e.L.filter(function (x) { return x.indexOf('log:') === 0; }).join(' ');
-assert.doesNotMatch(logs, /FORM-VIEJO|FORM-ALTERNO|Error:|e\.message/);
-assert.doesNotMatch(logs, new RegExp(PROD_ID), 'el log no filtra el ID de producción');
-assert.doesNotMatch(JSON.stringify(r), new RegExp(PROD_ID), 'el resultado no filtra el ID de producción');
+assert.doesNotMatch(logs, /FORM-CREADO|Error:|e\.message/);
 
 // ---------------------------------------------------------------------------
 // FAST PATH LEGACY CONSERVADO

@@ -40,6 +40,18 @@ function Operacion_preflightRelease_() {
     }
     add('FORM_COLUMNS_CURRENT', colsOk ? 'PASS' : (formId ? 'BLOCK' : 'NOT_CONFIGURED'), colsOk ? 'vigentes' : 'pendientes');
   } catch (eCols) { add('FORM_COLUMNS_CURRENT', 'BLOCK', 'no legibles'); }
+  // Publicación: PASS si el runtime confirma true, BLOCK si confirma false y
+  // WARN cuando el método de introspección no existe. WARN nunca bloquea.
+  try {
+    var pub = Form_estadoPublicacion_(form);
+    add('FORM_PUBLISHED', pub.publicado === null ? 'WARN' : (pub.publicado ? 'PASS' : 'BLOCK'),
+      pub.publicado === null ? 'no verificable' : (pub.publicado ? 'publicado' : 'no publicado'));
+    add('FORM_ACCEPTING_RESPONSES', pub.aceptaRespuestas === null ? 'WARN' : (pub.aceptaRespuestas ? 'PASS' : 'BLOCK'),
+      pub.aceptaRespuestas === null ? 'no verificable' : (pub.aceptaRespuestas ? 'acepta' : 'no acepta'));
+  } catch (ePub) {
+    add('FORM_PUBLISHED', 'WARN', 'no verificable');
+    add('FORM_ACCEPTING_RESPONSES', 'WARN', 'no verificable');
+  }
   try { triggers = ScriptApp.getProjectTriggers() || []; } catch (eTrig) { triggers = []; }
   function count(handler) { return triggers.filter(function (t) { return t.getHandlerFunction() === handler; }).length; }
   var submitN = count('Form_onFormSubmit_'), workerN = count('Form_worker_'), backupN = count('Backup_programado_');

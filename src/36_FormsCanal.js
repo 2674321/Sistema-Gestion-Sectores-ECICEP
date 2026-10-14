@@ -680,6 +680,17 @@ function Form_operativoInstalar_(opciones) {
     try { form.setIsQuiz(false); } catch (e) { /* opcional */ }
   } catch (e) { /* opcional según permisos */ }
 
+  // v260: publicación explícita del Form interno. Si la API existe y falla, la
+  // instalación falla cerrado: un Form sin publicar no es transporte válido.
+  if (typeof form.setPublished === 'function') {
+    try { form.setPublished(true); }
+    catch (ePub) { return { ok: false, motivo: 'FORM_PUBLISH_FAILED', formId: form.getId(), respuestasConservadas: true, cambios: cambios }; }
+  }
+  if (typeof form.setAcceptingResponses === 'function') {
+    try { form.setAcceptingResponses(true); }
+    catch (eAcc) { return { ok: false, motivo: 'FORM_ACCEPTING_RESPONSES_FAILED', formId: form.getId(), respuestasConservadas: true, cambios: cambios }; }
+  }
+
   var auditoriaSchema = Form_auditarSchema_(form);
   var migracionSchema = Form_reconstruirSiVacio_(form, auditoriaSchema, cambios);
   if (!migracionSchema.ok) return {
@@ -1782,6 +1793,22 @@ function Form_operativoEstado_(opciones) {
   };
 }
 
+/** GAS: estado AGREGADO de publicación del Form. Usa los métodos de lectura
+ *  SOLO si existen; si no, devuelve `null` (nunca inventa `false`).
+ *  Devuelve solo estado: sin ID, sin URL, sin PII. */
+function Form_estadoPublicacion_(form) {
+  var out = { accesible: false, publicado: null, aceptaRespuestas: null };
+  if (!form) return out;
+  out.accesible = true;
+  if (typeof form.isPublished === 'function') {
+    try { out.publicado = !!form.isPublished(); } catch (e) { out.publicado = null; }
+  }
+  if (typeof form.isAcceptingResponses === 'function') {
+    try { out.aceptaRespuestas = !!form.isAcceptingResponses(); } catch (e2) { out.aceptaRespuestas = null; }
+  }
+  return out;
+}
+
 /** GAS: diagnóstico de instalación del canal (sin mutar nada).
  *  v255 (E11): triggerWorkerCount es BLOQUEANTE. */
 function Form_operativoDiagnosticar_(opciones) {
@@ -1803,7 +1830,21 @@ function Form_operativoDiagnosticar_(opciones) {
     } catch (e) { hojaOk = false; }
   }
   checks.push({ nombre: 'columnas', ok: hojaOk, detalle: hojaOk ? 'FORM_RESPUESTAS con ' + Form_columnas_().length + ' columnas' : 'FORM_RESPUESTAS incompleta' });
-  return { ok: estado.ok !== false && checks.every(function (c) { return c.ok; }), checks: checks, estado: estado, versionSistema: ECICEP.VERSION };
+
+  // v260: publicación y aceptación de respuestas. `null` = introspección no
+  // disponible en el runtime; solo un `false` EXPLÍCITO hace fallar el diagnóstico.
+  var publicacion = { accesible: false, publicado: null, aceptaRespuestas: null };
+  try {
+    if (estado && estado.formId && !(estado.form && estado.form.error) && typeof FormApp !== 'undefined') {
+      publicacion = Form_estadoPublicacion_(FormApp.openById(estado.formId));
+    }
+  } catch (ePub) { /* se conserva null/null: no verificable */ }
+  checks.push({
+    nombre: 'publicacion',
+    ok: publicacion.publicado !== false && publicacion.aceptaRespuestas !== false,
+    detalle: 'publicado=' + publicacion.publicado + ' · aceptaRespuestas=' + publicacion.aceptaRespuestas
+  });
+  return { ok: estado.ok !== false && checks.every(function (c) { return c.ok; }), checks: checks, estado: estado, publicacion: publicacion, versionSistema: ECICEP.VERSION };
 }
 
 /** v255 (M01): salud real del canal — OK / DEGRADED / CRITICAL.

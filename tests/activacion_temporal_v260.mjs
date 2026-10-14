@@ -12,25 +12,26 @@ assert.match(s, /WebApp_operadorConfigurado_/, 'exige operador');
 assert.match(s, /OPERADOR_NO_CONFIGURADO/, 'motivo operador');
 assert.match(s, /Form_formId_\(\)/, 'exige Form ID');
 assert.match(s, /FORM_ID_REQUIRED/, 'motivo Form ID');
-assert.match(s, /ECICEP_configurarFormProduccion_\(\)/, 'fija el Form de producción autorizado');
-assert.match(s, /'FORM_CONFIG'/, 'etapa FORM_CONFIG');
-assert.match(s, /FORM_PRODUCTION_NOT_ACCESSIBLE/, 'motivo de Form objetivo inaccesible');
+assert.match(s, /ECICEP_bootstrapFormProduccion_\(\)/, 'bootstrap del Form de producción');
+assert.match(s, /'FORM_BOOTSTRAP'/, 'etapa FORM_BOOTSTRAP');
+assert.match(s, /FORM_BOOTSTRAP_FAILED/, 'motivo genérico de bootstrap');
+assert.match(s, /ECICEP_crearFormViaApi_\(\)/, 'fallback a Forms API v1');
+assert.match(s, /https:\/\/forms\.googleapis\.com\/v1\/forms/, 'endpoint exacto de Forms API v1');
+assert.doesNotMatch(s, /ECICEP_configurarFormProduccion_|FORM_CONFIG|FORM_PRODUCTION_/, 'sin binding hardcodeado del Form');
 assert.ok(
-  s.indexOf('ECICEP_configurarFormProduccion_()') < s.indexOf('if (!Form_formId_())'),
-  'configura el Form objetivo antes de verificar el ID'
+  s.indexOf('ECICEP_bootstrapFormProduccion_()') < s.indexOf('if (!Form_formId_())'),
+  'bootstrap del Form antes de verificar el ID'
 );
 assert.match(s, /ECICEP_asegurarBackupActivacion_\(\)/, 'autorrepara el trigger de respaldo');
-assert.match(s, /ECICEP_asegurarFormActivacion_\(\)/, 'autorrepara el Form inaccesible');
 assert.match(s, /BACKUP_TRIGGER_REPAIR_FAILED/, 'motivo de reparación de respaldo');
-assert.match(s, /FORM_REPAIR_FAILED/, 'motivo de reparación de Form');
-assert.match(s, /repairs:\s*\{[\s\S]*?backupTrigger[\s\S]*?formRecreated/, 'reporta reparaciones agregadas');
+assert.match(s, /repairs:\s*\{[\s\S]*?backupTrigger[\s\S]*?formCreated[\s\S]*?formCreationMethod/, 'reporta reparaciones agregadas');
 assert.ok(
   s.indexOf('ECICEP_asegurarBackupActivacion_()') < s.indexOf('Operacion_preflightRelease_()'),
   'repara el respaldo antes del preflight'
 );
 assert.ok(
-  s.indexOf('ECICEP_asegurarFormActivacion_()') < s.indexOf('Operacion_preflightRelease_()'),
-  'repara el Form antes del preflight'
+  s.indexOf('ECICEP_bootstrapFormProduccion_()') < s.indexOf('Operacion_preflightRelease_()'),
+  'bootstrapea el Form antes del preflight'
 );
 assert.match(s, /Operacion_preflightBloqueosNoReparables_/, 'usa el filtro de blockers no reparables');
 assert.match(s, /Form_operativoInstalar_\(\{[\s\S]*?crearNuevo:\s*false[\s\S]*?adoptarExistente:\s*true[\s\S]*?\}\)/, 'instala/adopta solo el Form configurado');
