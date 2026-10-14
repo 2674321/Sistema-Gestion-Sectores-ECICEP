@@ -9,16 +9,16 @@
 |---|---|
 | Versión de producto | `v0.17.0` (`src/00_Config.js` → `ECICEP.VERSION`) |
 | Rama de trabajo | `hardening/v0.17.0-final` (baseline histórico `release/v0.17.0-rc1` / commit clínico v260) |
-| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@270`, build `0f3d931`); smoke real de captura aprobado, health runtime y tag en ventana |
-| Deployment operativo | `@270` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
+| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@272`, build `c2b8826`); smoke público OK, E2E/health runtime y tag en ventana |
+| Deployment operativo | `@272` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
 | Arquitectura de captura | Web App (único canal operativo visible) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline `Captura_v2_enviar_` |
 | Esquema clínico | `SISTEMA_VERSION_SCHEMA_ACTUAL = 2` (no subir en este release) |
-| Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 3` |
+| Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 4` |
 | Instalador | `SISTEMA_VERSION_INSTALADOR = 'INST-1'` |
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
-| Estado del canal | Publicado en `/exec` (@270, build `0f3d931`, HTTP 200, sin login Google); smoke real confirma 4 acciones, `Actualizar` operativo sin lectura privada y ausencia de `Funciones` |
-| HEAD de trabajo | `0f3d931` (`hardening/v0.17.0-final`); incluye DEC-122. Publicado a producción `@270` sobre el MISMO deployment; health runtime y tag pendientes de ventana |
+| Estado del canal | Publicado en `/exec` (@272, build `c2b8826`, HTTP 200, sin login Google); 4 acciones públicas, `Actualizar` carga la ficha completa sin clave (DEC-123); `Funciones` no se muestra en la captura |
+| HEAD de trabajo | `c2b8826` (`hardening/v0.17.0-final` = `release/v0.17.0-rc1`); incluye DEC-119/120/121/122/123/124. Publicado a producción `@272` sobre el MISMO deployment; health runtime y tag pendientes de ventana |
 | Acceso operador | QR/Web App → cuatro acciones públicas sin clave; administración desde el Spreadsheet autorizado → OPSESS automática (DEC-119); admin externo conserva OPSESS |
 
 ## Contrato de captura vigente (v270)
@@ -34,9 +34,12 @@
 - **Acceso desde Sheets sin clave (DEC-119):** el render container-bound del
   Spreadsheet autorizado (ID exacto + `getUi()`) emite OPSESS automática; la Web
   App externa y `google.script.run` no la reciben y piden clave. Captura intacta.
-- **Captura completa sin fricción (DEC-122):** las cuatro acciones del QR son
-  públicas. `ACTUALIZAR_DATOS` usa contacto, próxima atención, equipo y
-  observaciones sin leer la ficha; `Funciones` no se muestra en la captura.
+- **Captura completa sin fricción (DEC-122/DEC-123):** las cuatro acciones del QR
+  son públicas y sin clave. `ACTUALIZAR_DATOS` **carga y reemplaza la ficha
+  completa** (18 campos + CONTROL/SEGUIMIENTO) directamente desde la captura
+  pública (DEC-123 reemplaza el alcance parcial de DEC-122); `Funciones` no se
+  muestra en la captura. La privacidad de la carga se evaluó y se descartó
+  explícitamente (DEC-124): el flujo permanece público por decisión del usuario.
 - Input hardening (DEC-114/v270): cotas de tamaño, profundidad y longitud de
   texto en `Captura_v2_validar_`; anti-inyección de fórmulas en celdas.
 - **Actualizar ficha (DEC-120):** la acción se lee de `<select id="accion">`
@@ -75,20 +78,21 @@
 ## Último E2E
 
 - `v270`: verificación estática y por suites (transporte, idempotencia,
-  concurrencia, captura directa → REVIEW) y smoke público `/exec` HTTP 200 con
-  build `23c1099`. El E2E real de una entrega, la idempotencia y el health
-  `ACTIVE_HEALTHY` quedan **pendientes** de la ventana de activación
+  concurrencia, captura directa → REVIEW) y smoke público `/exec` HTTP 200. El
+  E2E real de una entrega, la idempotencia y el health `ACTIVE_HEALTHY` quedan
+  **pendientes** de la ventana de activación
   (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
 
 ## Publicación (deploy)
 
-- `node tools/release.mjs --push` **OK** (`072d44c` en dev `@HEAD`).
-- `node tools/release.mjs --publish` **OK** con preflight de capacidad:
-  `warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=194 free=6` →
-  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`,
-  `DEPLOYMENT_VERSION_BEFORE=268`, `DEPLOYMENT_VERSION_AFTER=269`,
-  `VERSION_COUNT_AFTER=195`. `/exec` HTTP 200 sirviendo build `072d44c` con la
-  ficha completa de `ACTUALIZAR_DATOS` (DEC-120). Mismo ID/URL, sin nuevo deployment.
-- Pendiente de ventana: smoke `/dev` (Captura → Actualizar → RUT sintético
-  `11.111.111-1` → cargar → verificar ficha completa), E2E real, idempotencia,
-  health `ACTIVE_HEALTHY` y tag `v0.17.0` (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
+- Publicado sobre el **MISMO** deployment operativo (nunca uno nuevo):
+  `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`.
+- `node tools/release.mjs --push` **OK** (dev `@HEAD` = `c2b8826`).
+- `node tools/release.mjs --publish` **OK** con preflight de capacidad
+  (`warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=197 free=3`) →
+  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_VERSION_AFTER=272`, `VERSION_COUNT_AFTER=198`.
+  `/exec` HTTP 200 sirviendo build `c2b8826` con la ficha completa de
+  `ACTUALIZAR_DATOS` (DEC-120/DEC-123).
+- Pendiente de ventana: smoke interactivo, E2E real sintético
+  (`PRUEBA E2E V267 NO REAL`, RUT `11.111.111-1`), idempotencia, health
+  `ACTIVE_HEALTHY` y tag `v0.17.0` (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
