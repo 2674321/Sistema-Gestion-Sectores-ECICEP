@@ -184,3 +184,29 @@ git push origin master
 ```
 
 La documentación debe quedar actualizada en el mismo cambio cuando el comportamiento, contrato, deployment o arquitectura haya cambiado.
+
+## CI y gobernanza de ramas
+
+El workflow `.github/workflows/ci.yml` corre en push a `master`, `release/**`,
+`codex/**`, `hardening/**`, en cualquier PR y por `workflow_dispatch`. Ejecuta
+`git diff --check` y `node tools/verificar.mjs` (descubrimiento automático).
+
+Salida machine-readable del verificador (para scripts/gates de release):
+
+```bash
+node tools/verificar.mjs --json
+```
+
+### Protección de ramas — MANUAL_GITHUB_RULESET_REQUIRED
+
+Si la administración de reglas de repositorio no está disponible desde el
+entorno del agente, configurar a mano en GitHub → Settings → Rules:
+
+1. proteger `master`;
+2. proteger `release/*`;
+3. **requerir** el check de CI (`ci / tests`) antes de merge;
+4. bloquear force-push y borrado;
+5. preferir PR o fast-forward auditado.
+
+Sin esta configuración, el estado de gobernanza queda explícitamente
+`MANUAL_GITHUB_RULESET_REQUIRED`.
