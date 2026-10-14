@@ -5,9 +5,9 @@ const url = new URL('../src/99_ActivacionTemporal.js', import.meta.url);
 const s = fs.readFileSync(url, 'utf8');
 
 assert.match(s, /function ECICEP_ACTIVAR_AHORA\(\)/, 'existe ECICEP_ACTIVAR_AHORA');
-assert.match(s, /Session\.getActiveUser\(\)\.getEmail\(\)/, 'usa ActiveUser');
 assert.match(s, /Session\.getEffectiveUser\(\)\.getEmail\(\)/, 'usa EffectiveUser');
-assert.match(s, /activeEmail !== effectiveEmail/, 'exige ActiveUser === EffectiveUser (contexto propietario)');
+assert.match(s, /if \(!effectiveEmail\)/, 'exige effectiveUser no vacío (editor manual)');
+assert.doesNotMatch(s, /Session\.getActiveUser\s*\(/, 'no depende de ActiveUser (puede venir vacío en el editor)');
 assert.match(s, /OWNER_EDITOR_CONTEXT_REQUIRED/, 'motivo OWNER');
 assert.match(s, /60 \* 60000/, 'ventana técnica de 60 min');
 assert.match(s, /GOOGLE_FORMS_CONFIG\.ACTIVATION_WINDOW\.CLAVE/, 'usa la clave de ventana configurada');

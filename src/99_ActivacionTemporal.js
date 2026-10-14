@@ -10,14 +10,14 @@ function ECICEP_ACTIVAR_AHORA() {
   }
 
   // Solo puede ejecutarse manualmente por el propietario desde Apps Script.
-  // En el Web App anónimo, ActiveUser queda vacío/difiere de EffectiveUser.
-  var activeEmail = '';
+  // En el Web App anónimo EffectiveUser también queda vacío. getActiveUser()
+  // puede venir vacío incluso en ejecución manual del editor, por lo que NO
+  // se usa ni se compara: basta con un EffectiveUser no vacío.
   var effectiveEmail = '';
   try {
-    activeEmail = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
     effectiveEmail = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
   } catch (eOwner) {}
-  if (!activeEmail || !effectiveEmail || activeEmail !== effectiveEmail) {
+  if (!effectiveEmail) {
     return salir({ ok: false, etapa: 'OWNER', motivo: 'OWNER_EDITOR_CONTEXT_REQUIRED' });
   }
 
