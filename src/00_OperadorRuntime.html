@@ -262,12 +262,15 @@
      Nunca expone una función interna: el nombre resuelto viaja al gateway. */
   function ECICEP_run() {
     var st = { sh: null, fh: null };
+    var proxy;
     var b = {
-      withSuccessHandler: function (f) { st.sh = f; return b; },
-      withFailureHandler: function (f) { st.fh = f; return b; },
-      withUserObject: function () { return b; }
+      // La cadena debe conservar el Proxy. Devolver `b` corta el get trap y
+      // convierte `.api_*`/`.UI_*` en undefined después del primer handler.
+      withSuccessHandler: function (f) { st.sh = f; return proxy; },
+      withFailureHandler: function (f) { st.fh = f; return proxy; },
+      withUserObject: function () { return proxy; }
     };
-    return new Proxy(b, {
+    proxy = new Proxy(b, {
       get: function (t, prop) {
         if (prop in t) return t[prop];
         if (typeof prop !== 'string' || prop === 'then') return undefined;
@@ -276,6 +279,7 @@
         };
       }
     });
+    return proxy;
   }
 
   /* Muestra login si no hay sesión. Devuelve true si ya hay token. */

@@ -52,7 +52,7 @@ v270 en `hardening/v0.17.0-final`). Estado vigente autoritativo: `docs/ESTADO_AC
   ligado a OPSESS, método y argumentos; replay/cambio/expiración fallan cerrado.
 - **Manifest no autorreferente** (DEC-118): se deriva de HEAD como artefacto
   local ignorado, sin conteos ni SHA versionados que nazcan obsoletos.
-- Verificación: `node tools/verificar.mjs` (165 suites / 0 fallos) y
+- Verificación: `node tools/verificar.mjs` (166 suites / 0 fallos) y
   `node tools/release.mjs --check`. Estado vigente: `docs/ESTADO_ACTUAL.md`.
 
 ## v0.16.4 — ningún campo aceptado se pierde (DEC-104)

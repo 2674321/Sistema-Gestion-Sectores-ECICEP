@@ -24,13 +24,14 @@ Fecha: 2026-10-14. Alcance: hardening desde
 
 ## Evidencia
 
-`node tools/verificar.mjs`: 165 suites, 0 fallos, incluida sintaxis JS/GS.  
-`tests/ejecutar_local.mjs`: 679/679.  
-`tests/aceptacion_formulario.mjs`: 50/50.  
-`tests/contrato_captura_v2.mjs`: 36/36.  
-`tests/validar_html.mjs`: 20 scripts válidos.  
-`tests/rpc_public_surface_v255.mjs`: 12 globales públicas.  
+`node tools/verificar.mjs`: 166 suites, 0 fallos, incluida sintaxis JS/GS.
+`tests/ejecutar_local.mjs`: 679/679.
+`tests/aceptacion_formulario.mjs`: 50/50.
+`tests/contrato_captura_v2.mjs`: 36/36.
+`tests/validar_html.mjs`: 20 scripts válidos.
+`tests/rpc_public_surface_v255.mjs`: 12 globales públicas.
 `tests/operator_destructive_nonce_v0170.mjs`: binding/consume-once/replay PASS.
+`tests/operator_proxy_chain_v0170.mjs`: chaining real del gateway PASS.
 
 ## Backups y recuperación
 

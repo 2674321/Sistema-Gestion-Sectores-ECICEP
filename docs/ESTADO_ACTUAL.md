@@ -35,7 +35,7 @@
 ## Verificación
 
 - Verificador integral: `node tools/verificar.mjs` (humano) o `--json`.
-  Estado: **165 suites / 0 fallos**.
+  Estado: **166 suites / 0 fallos**.
 - Preflight de release: `node tools/preflight_release.mjs`.
 - Release Node: `node tools/release.mjs --check` (este documento debe citar
   `v0.17.0`).
