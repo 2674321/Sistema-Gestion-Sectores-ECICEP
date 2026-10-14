@@ -1996,6 +1996,25 @@ function Form_campoRequerido_(seccion, campo) {
   return false;
 }
 
+/** v267 (E2E): convierte un `FormApp.Item` genérico en su clase concreta ANTES
+ *  de crear el ItemResponse. En el runtime real sólo las clases tipadas
+ *  (TextItem/ParagraphTextItem/ListItem/MultipleChoiceItem/DateItem) exponen
+ *  `createResponse()`; el Item genérico no. Sin fallback genérico: un bug aquí
+ *  debe seguir siendo visible, no quedar enmascarado. */
+function Form_crearItemResponse_(item, valor) {
+  if (!item || typeof item.getType !== 'function') throw new Error('FORM_ITEM_INVALID');
+  var tipo = item.getType();
+  if (tipo === FormApp.ItemType.TEXT) return item.asTextItem().createResponse(String(valor));
+  if (tipo === FormApp.ItemType.PARAGRAPH_TEXT) return item.asParagraphTextItem().createResponse(String(valor));
+  if (tipo === FormApp.ItemType.LIST) return item.asListItem().createResponse(String(valor));
+  if (tipo === FormApp.ItemType.MULTIPLE_CHOICE) return item.asMultipleChoiceItem().createResponse(String(valor));
+  if (tipo === FormApp.ItemType.DATE) {
+    if (!(valor instanceof Date) || isNaN(valor.getTime())) throw new Error('FORM_DATE_RESPONSE_INVALID');
+    return item.asDateItem().createResponse(valor);
+  }
+  throw new Error('FORM_ITEM_TYPE_UNSUPPORTED');
+}
+
 /** GAS: crea FormResponse desde payload Web (recepción durable). */
 /** v255 (E19/E20): crea FormResponse desde payload Web mediante PLAN de
  *  ItemResponses resuelto por canonical keys. TODO campo no vacío debe crear
@@ -2037,11 +2056,14 @@ function Form_crearRespuestaDesdePayloadWeb_(payload, opciones) {
         plan.push({ canonicalKey: ck, valor: '', ok: true, omitidoVacio: true });
         return true;
       }
-      var ok = false;
+      var ok = false, tipoItem = '', motivoFallo = '';
       if (entrada && entrada.item) {
-        try { response.withItemResponse(entrada.item.createResponse(v)); ok = true; } catch (e2) { ok = false; }
+        try { tipoItem = entrada.item.getType ? String(entrada.item.getType()) : ''; } catch (eT) { tipoItem = ''; }
+        try { response.withItemResponse(Form_crearItemResponse_(entrada.item, v)); ok = true; }
+        catch (e2) { ok = false; motivoFallo = 'ITEM_RESPONSE_FAILED'; }
       }
-      plan.push({ canonicalKey: ck, ok: ok, reparadoPorTitulo: reparadoPorTitulo });
+      // Plan sin PII: sólo canonical key, tipo agregado y motivo técnico.
+      plan.push({ canonicalKey: ck, ok: ok, reparadoPorTitulo: reparadoPorTitulo, itemType: tipoItem, motivo: motivoFallo });
       if (!ok) fallos.push(ck);
       return ok;
     }

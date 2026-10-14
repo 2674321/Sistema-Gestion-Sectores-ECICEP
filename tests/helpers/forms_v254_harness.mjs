@@ -14,6 +14,30 @@ const TYPES = {
   DATE: 'DATE', PARAGRAPH_TEXT: 'PARAGRAPH_TEXT', TEXT: 'TEXT'
 };
 
+/** v267: el Item GENÉRICO de Apps Script NO expone createResponse(). Sólo las
+ *  clases concretas lo hacen. El harness lo refleja para que el bug no vuelva. */
+class MockTypedItem {
+  constructor(item) { this.item = item; }
+  getId() { return this.item.getId(); }
+  getTitle() { return this.item.getTitle(); }
+  getType() { return this.item.getType(); }
+  createResponse(value) { return new MockItemResponse(this.item, value); }
+}
+class MockListItem extends MockTypedItem {
+  createResponse(value) {
+    const v = String(value);
+    const existe = this.item.choices.some((c) => String(c && c.getValue ? c.getValue() : c) === v);
+    if (!existe) throw new Error('LIST_VALUE_NOT_FOUND');
+    return new MockItemResponse(this.item, v);
+  }
+}
+class MockDateItem extends MockTypedItem {
+  createResponse(value) {
+    if (!(value instanceof Date) || isNaN(value.getTime())) throw new Error('FORM_DATE_RESPONSE_INVALID');
+    return new MockItemResponse(this.item, value);
+  }
+}
+
 class MockItem {
   constructor(form, type) {
     this.form = form; this.type = type; this.title = ''; this.required = false;
@@ -31,9 +55,21 @@ class MockItem {
   setChoices(v) { this.choices = v.slice(); return this; }
   getChoices() { return this.choices.slice(); }
   setGoToPage(v) { this.goToPage = v; return this; }
-  createResponse(value) { return new MockItemResponse(this, value); }
+  /** Prohibido: en runtime real esto no existe. */
+  createResponse() {
+    this.form.llamadasGenericas.push({ itemId: this.id, tipo: this.type });
+    throw new Error('GENERIC_ITEM_CREATE_RESPONSE_FORBIDDEN');
+  }
+  _as(tipo, clase) {
+    if (this.type !== tipo) throw new Error('FORM_ITEM_TYPE_MISMATCH:' + String(this.type));
+    return new clase(this);
+  }
+  asTextItem() { return this._as(TYPES.TEXT, MockTypedItem); }
+  asParagraphTextItem() { return this._as(TYPES.PARAGRAPH_TEXT, MockTypedItem); }
+  asListItem() { return this._as(TYPES.LIST, MockListItem); }
+  asMultipleChoiceItem() { return this._as(TYPES.MULTIPLE_CHOICE, MockTypedItem); }
+  asDateItem() { return this._as(TYPES.DATE, MockDateItem); }
   asPageBreakItem() { return this; }
-  asMultipleChoiceItem() { return this; }
 }
 
 class MockItemResponse {
@@ -64,6 +100,7 @@ class MockForm {
     this.nextResponseId = 0; this.clock = Date.UTC(2026, 9, 12, 12, 0, 0);
     this.title = 'Captura ECICEP';
     this.published = true; this.acceptingResponses = true;
+    this.llamadasGenericas = [];
   }
   // v260: publicación explícita (expone la API real de Forms en runtime).
   setPublished(v) { this.published = !!v; return this; }
@@ -174,7 +211,12 @@ export function createHarness({ malformed = false, responseCount = 0, noKnownFor
     releaseLock() {}
   }); } };
   c.Control_aIso_ = d => d instanceof Date ? d.toISOString() : String(d || '');
-  c.Captura_v2_catalogo_ = () => [{ NOMBRE_CANONICO: 'PROFESIONAL UNO', ACTIVO: true }];
+  // v267: el catálogo cubre a los profesionales que usa `payloadFor`, porque en
+  // runtime real un ListItem rechaza un valor fuera de sus opciones.
+  c.Captura_v2_catalogo_ = () => [
+    { NOMBRE_CANONICO: 'PROFESIONAL UNO', ACTIVO: true },
+    { NOMBRE_CANONICO: 'PROFESIONAL DOS', ACTIVO: true }
+  ];
   c.Captura_v2_validar_ = p => ({ ok: true, normalizado: p, errores: [] });
   c.Norm_normalizarRut_ = r => ({ estado: 'OK', rut: String(r).replace(/\./g, '').toUpperCase() });
   const patients = [{ ID_INTERNO: 'EC-001', RUT: '12345678-5', TELEFONOS: '999999999',
