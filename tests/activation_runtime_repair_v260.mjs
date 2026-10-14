@@ -149,7 +149,15 @@ assert.deepEqual(bloqueos, ['BACKUP_TRIGGER_PRESENT'], 'BACKUP_TRIGGER_PRESENT n
 bloqueos = nomes(e, [{ nombre: 'FORM_ACCESSIBLE', estado: 'BLOCK' }]);
 assert.deepEqual(bloqueos, ['FORM_ACCESSIBLE'], 'FORM_ACCESSIBLE no reparable');
 bloqueos = nomes(e, [{ nombre: 'FORM_PUBLISHED', estado: 'BLOCK' }, { nombre: 'FORM_ACCEPTING_RESPONSES', estado: 'BLOCK' }]);
-assert.deepEqual(bloqueos, ['FORM_PUBLISHED', 'FORM_ACCEPTING_RESPONSES'], 'publicación no reparable');
+assert.equal(bloqueos.length, 0, 'publicación: reparable antes de instalar');
+assert.ok(
+  bloqueos.indexOf('FORM_PUBLISHED') < 0,
+  'FORM_PUBLISHED es reparable por el instalador'
+);
+assert.ok(
+  bloqueos.indexOf('FORM_ACCEPTING_RESPONSES') < 0,
+  'FORM_ACCEPTING_RESPONSES es reparable por el instalador'
+);
 bloqueos = nomes(e, [{ nombre: 'FORM_COLUMNS_CURRENT', estado: 'BLOCK' }, { nombre: 'FORM_SUBMIT_TRIGGER_COUNT', estado: 'BLOCK' }, { nombre: 'FORM_WORKER_TRIGGER_COUNT', estado: 'BLOCK' }]);
 assert.deepEqual(bloqueos, [], 'los reparables previos siguen reparables');
 
@@ -222,6 +230,32 @@ assert.equal(r.motivo, 'POST_RELEASE_PREFLIGHT_BLOCKED');
 assert.notEqual(r.estado, 'READY_FOR_DEPLOY');
 const bloq2 = Array.from(r.bloqueos);
 assert.deepEqual(bloq2, ['FORM_SCHEMA_CURRENT']);
+
+// 11b. Bloqueos de publicación ANTES de instalar: reparables; el instalador los
+// corrige y el post-preflight los vuelve a exigir como PASS.
+e = entorno(Object.assign({}, base, {
+  preflight: [
+    { checks: [{ nombre: 'FORM_PUBLISHED', estado: 'BLOCK' }, { nombre: 'FORM_ACCEPTING_RESPONSES', estado: 'BLOCK' }] },
+    { checks: [], resultado: 'ACTIVE_HEALTHY' }
+  ]
+}));
+r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
+assert.equal(r.ok, true, 'los blockers de publicación no detienen antes de instalar');
+assert.equal(r.estado, 'READY_FOR_DEPLOY');
+assert.equal(cuenta(e.L, 'instalar'), 1, 'el instalador se ejecutó y corrigió la publicación');
+
+// 11c. Si tras instalar la publicación sigue en BLOCK, la activación falla.
+e = entorno(Object.assign({}, base, {
+  preflight: [
+    { checks: [{ nombre: 'FORM_ACCEPTING_RESPONSES', estado: 'BLOCK' }] },
+    { checks: [{ nombre: 'FORM_ACCEPTING_RESPONSES', estado: 'BLOCK' }] }
+  ]
+}));
+r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
+assert.equal(r.ok, false, 'el post-preflight no perdona publicación no reparada');
+assert.equal(r.etapa, 'POST_PREFLIGHT');
+const bloq3 = Array.from(r.bloqueos);
+assert.deepEqual(bloq3, ['FORM_ACCEPTING_RESPONSES']);
 
 // 12. El log de salida no filtra IDs ni excepciones.
 const logs = e.L.filter(function (x) { return x.indexOf('log:') === 0; }).join(' ');

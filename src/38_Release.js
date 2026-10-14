@@ -182,7 +182,9 @@ function Operacion_preflightBloqueosNoReparables_(pre) {
     FORM_SCHEMA_CURRENT: true,
     FORM_COLUMNS_CURRENT: true,
     FORM_SUBMIT_TRIGGER_COUNT: true,
-    FORM_WORKER_TRIGGER_COUNT: true
+    FORM_WORKER_TRIGGER_COUNT: true,
+    FORM_PUBLISHED: true,
+    FORM_ACCEPTING_RESPONSES: true
   };
   return ((pre && pre.checks) || []).filter(function (c) {
     return c.estado === 'BLOCK' && !reparables[c.nombre];

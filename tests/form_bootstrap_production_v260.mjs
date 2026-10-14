@@ -269,14 +269,15 @@ assert.equal(diagNoAcepta.ok, false, 'diagnóstico falla con isAcceptingResponse
 // PREFLIGHT: PASS / BLOCK / WARN de publicación
 // ---------------------------------------------------------------------------
 
-function preflightCon(publicacion) {
+function preflightCon(publicacion, extra) {
+  extra = extra || {};
   const ctx = {
     console: { log() {} },
     ECICEP: { VERSION: '0.17.0', WEB_APP_URL: 'https://script.google.com/macros/s/X/exec', SPREADSHEET_ID: 'SS' },
     SISTEMA_VERSION_SCHEMA_ACTUAL: 2,
     SpreadsheetApp: { getActiveSpreadsheet: () => ({ getId: () => 'SS' }) },
     Form_formId_: () => 'FORM-X',
-    FormApp: { openById: () => ({}) },
+    FormApp: { openById: () => { if (extra.formAccesible === false) throw new Error('no-accesible'); return {}; } },
     Form_auditarSchema_: () => ({ seguro: true }),
     Form_hojaRespuetas_: () => ({ getLastColumn: () => 0 }),
     Form_columnas_: () => [],
@@ -284,7 +285,7 @@ function preflightCon(publicacion) {
     ScriptApp: { getProjectTriggers: () => [] },
     WebApp_operadorConfigurado_: () => true,
     Form_backlogResumen_: () => ({ ok: true, legacy: { total: 0 } }),
-    Modelo_escanearEstructura_: () => ({ criticasFaltantes: [] }),
+    Modelo_escanearEstructura_: () => ({ criticasFaltantes: extra.drift ? ['PACIENTES'] : [] }),
     Modelo_ss_: () => ({}),
     Modelo_hoja_: () => ({ getLastRow: () => 1 }),
     HOJAS: { CONFLICTOS: 'CONFLICTOS' },
@@ -310,8 +311,25 @@ assert.equal(p.por('FORM_ACCEPTING_RESPONSES'), 'PASS');
 p = preflightCon({ accesible: true, publicado: false, aceptaRespuestas: false });
 assert.equal(p.por('FORM_PUBLISHED'), 'BLOCK');
 assert.equal(p.por('FORM_ACCEPTING_RESPONSES'), 'BLOCK');
-assert.ok(p.reparables.indexOf('FORM_PUBLISHED') >= 0, 'no publicado NO es reparable por el instalador');
-assert.ok(p.reparables.indexOf('FORM_ACCEPTING_RESPONSES') >= 0, 'no acepta NO es reparable por el instalador');
+// Los checks siguen existiendo, pero antes de instalar el instalador los repara.
+assert.ok(
+  p.reparables.indexOf('FORM_PUBLISHED') < 0,
+  'FORM_PUBLISHED es reparable por el instalador'
+);
+assert.ok(
+  p.reparables.indexOf('FORM_ACCEPTING_RESPONSES') < 0,
+  'FORM_ACCEPTING_RESPONSES es reparable por el instalador'
+);
+// Otros blockers reales siguen bloqueando antes de instalar.
+const otros = preflightCon({ accesible: true, publicado: false, aceptaRespuestas: false }, { formAccesible: false, drift: true });
+assert.ok(otros.reparables.indexOf('FORM_ACCESSIBLE') >= 0, 'FORM_ACCESSIBLE sigue bloqueando');
+assert.ok(otros.reparables.indexOf('BACKUP_TRIGGER_PRESENT') >= 0, 'BACKUP_TRIGGER_PRESENT sigue bloqueando');
+assert.ok(otros.reparables.indexOf('NO_SCHEMA_DRIFT') >= 0, 'NO_SCHEMA_DRIFT sigue bloqueando');
+// Los reparables históricos siguen reparables.
+assert.ok(otros.reparables.indexOf('FORM_COLUMNS_CURRENT') < 0, 'FORM_COLUMNS_CURRENT sigue reparable');
+assert.ok(otros.reparables.indexOf('FORM_SUBMIT_TRIGGER_COUNT') < 0, 'FORM_SUBMIT_TRIGGER_COUNT sigue reparable');
+assert.ok(otros.reparables.indexOf('FORM_WORKER_TRIGGER_COUNT') < 0, 'FORM_WORKER_TRIGGER_COUNT sigue reparable');
+assert.ok(otros.reparables.indexOf('FORM_SCHEMA_CURRENT') < 0, 'FORM_SCHEMA_CURRENT sigue reparable');
 
 p = preflightCon({ accesible: false, publicado: null, aceptaRespuestas: null });
 assert.equal(p.por('FORM_PUBLISHED'), 'WARN', 'sin introspección: WARN');
