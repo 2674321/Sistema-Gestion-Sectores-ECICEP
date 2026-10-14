@@ -4,6 +4,8 @@
 //  · decisiones hasta DEC-NN desde DECISIONES.md;
 //  · SHA/rama desde git;
 //  · suites/fallos desde `tools/verificar.mjs --json`.
+// RELEASE_CANDIDATE.json es un artefacto local ignorado: versionarlo haría que
+// su SHA quedara obsoleto en el mismo commit que intenta actualizarlo.
 import fs from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';

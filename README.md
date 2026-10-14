@@ -35,7 +35,7 @@ v270 en `hardening/v0.17.0-final`). Estado vigente autoritativo: `docs/ESTADO_AC
 | **Entornos** | **Uno solo** — un Spreadsheet, un proyecto Apps Script, una fuente de verdad |
 | **Estado** | `v0.17.0` (candidato, rc1) — hardening v270: captura pública anónima sin token legacy (DEC-115) y captura directa al Form sin mutación clínica (DEC-116); commit clínico serializado, caché generacional, revisión fail-visible; esquema clínico 2 y Captura V4 sin cambios |
 
-## v0.17.0 — hardening de captura y release (DEC-110 … DEC-116)
+## v0.17.0 — hardening de captura y release (DEC-110 … DEC-118)
 
 - **Captura pública anónima** (DEC-110): la Web App concede siempre, sin login,
   OPSESS ni OAuth individual. La operación/administración sí exige sesión OPSESS.
@@ -48,7 +48,11 @@ v270 en `hardening/v0.17.0-final`). Estado vigente autoritativo: `docs/ESTADO_AC
   El flujo normal es `SOURCE=WEBAPP` + `CLIENT_REQUEST_ID` válido.
 - **Input hardening y anti-inyección de fórmulas** (v270): cotas de tamaño,
   profundidad y longitud en el contrato autoritativo; saneo de celdas.
-- Verificación: `node tools/verificar.mjs` (164 suites / 0 fallos) y
+- **RPC destructivas con confirmación server-side** (DEC-117): nonce consume-once
+  ligado a OPSESS, método y argumentos; replay/cambio/expiración fallan cerrado.
+- **Manifest no autorreferente** (DEC-118): se deriva de HEAD como artefacto
+  local ignorado, sin conteos ni SHA versionados que nazcan obsoletos.
+- Verificación: `node tools/verificar.mjs` (165 suites / 0 fallos) y
   `node tools/release.mjs --check`. Estado vigente: `docs/ESTADO_ACTUAL.md`.
 
 ## v0.16.4 — ningún campo aceptado se pierde (DEC-104)

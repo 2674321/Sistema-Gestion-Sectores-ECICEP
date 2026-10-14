@@ -31,6 +31,7 @@ backups/
 *.bak
 secrets/
 src/BUILD.js
+RELEASE_CANDIDATE.json
 
 # ===== ARCHIVOS PERSONALES =====
 # CV personal del propietario — nunca al repositorio (no borrar el archivo)

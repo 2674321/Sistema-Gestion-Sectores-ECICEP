@@ -165,6 +165,10 @@ citando la versión. `--publish` nunca crea un deployment: exige
 `ECICEP.WEB_APP_URL` exista en `clasp deployments`. No ejecutar `--push`/
 `--publish` sin una ventana de activación aprobada.
 
+`RELEASE_CANDIDATE.json` y `src/BUILD.js` son artefactos generados e ignorados.
+Se regeneran desde el HEAD efectivo antes del push; no deben versionarse porque
+el SHA del manifest quedaría obsoleto en el propio commit que lo contiene.
+
 ## E2E mínimo después de un cambio de Web App
 
 ### Contexto de ejecución recomendado

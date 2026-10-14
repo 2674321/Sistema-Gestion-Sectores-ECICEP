@@ -35,12 +35,16 @@
 ## Verificación
 
 - Verificador integral: `node tools/verificar.mjs` (humano) o `--json`.
-  Estado: **164 suites / 0 fallos**.
+  Estado: **165 suites / 0 fallos**.
 - Preflight de release: `node tools/preflight_release.mjs`.
 - Release Node: `node tools/release.mjs --check` (este documento debe citar
   `v0.17.0`).
-- Manifest derivado: `RELEASE_CANDIDATE.json` (`tools/release_manifest.mjs`).
+- Manifest derivado local: `RELEASE_CANDIDATE.json`
+  (`tools/release_manifest.mjs`). Se regenera desde HEAD y no se versiona para
+  evitar un SHA autorreferente obsoleto.
 - Scopes OAuth: `docs/OAUTH_SCOPES.md` + `tests/oauth_scopes_v270.mjs`.
+- Las RPC destructivas de operador exigen confirmación server-side consume-once
+  ligada a OPSESS+método+argumentos (DEC-117).
 
 ## Deuda legacy no bloqueante
 

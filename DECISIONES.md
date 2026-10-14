@@ -2667,3 +2667,38 @@ como transporte) de `AGENTS.md`, más el contrato §24.1, lo excluyen.
 entrega clínica + frontera Forms directo→REVIEW / WebApp→TERMINAL + guardas);
 verificador completo 162 suites / 0 fallos.
 **Fecha:** 2026-10-14
+
+## DEC-117
+**Título:** v0.17.0 — confirmación server-side consume-once para RPC destructivas de operador.
+**Estado:** Aprobada
+**Motivo:** OPSESS y el allowlist impedían invocaciones anónimas, pero una sesión
+válida podía llamar una RPC destructiva sin una autorización de servidor ligada
+a la operación exacta. Las confirmaciones de HTML o los diálogos de Sheets no
+protegen por sí solos la frontera RPC.
+**Contenido:** `WebApp_operadorRpc` clasifica las operaciones destructivas, emite
+un nonce opaco con TTL 120 s ligado al hash de `método + argumentos canónicos +
+OPSESS`, y lo consume antes de comparar y ejecutar. Cambiar método, argumentos o
+sesión, reutilizar el nonce, expirar el TTL o perder CacheService deniega la
+mutación. El runtime de operador usa un diálogo DOM accesible y reenvía el nonce;
+la captura pública no participa de este mecanismo.
+**Alcance inicial:** poda de backups, eliminación de CONFIG, reversión selectiva,
+limpieza de datos de prueba y aplicación de deduplicación histórica Amarillo
+(el dry-run permanece read-only).
+**Validación:** `tests/operator_destructive_nonce_v0170.mjs`,
+`tests/operator_rpc_boundary_v255.mjs`, `tests/operator_html_gateway_v255.mjs`,
+`tests/seguridad_webapp_capacidades_vNEXT.mjs` y `tests/validar_html.mjs`.
+**Fecha:** 2026-10-14
+
+## DEC-118
+**Título:** El manifest de release es un artefacto generado, no versionado.
+**Estado:** Aprobada
+**Motivo:** `RELEASE_CANDIDATE.json` contiene el SHA de HEAD. Versionarlo deja ese
+SHA obsoleto en el mismo commit que actualiza el archivo y puede producir una
+declaración de release falsa.
+**Contenido:** el manifest se deriva de fuentes reales y del verificador, se
+regenera localmente desde el HEAD efectivo y queda ignorado por Git, igual que
+`src/BUILD.js`. Así `--push`/`--publish` pueden generar ambos artefactos sin
+ensuciar el árbol y sin editar conteos manuales.
+**Validación:** `tests/release_manifest_v260.mjs` y gate
+`node tools/release.mjs --check`.
+**Fecha:** 2026-10-14
