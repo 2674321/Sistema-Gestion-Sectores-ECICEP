@@ -2800,3 +2800,24 @@ ni el pipeline clínico.
 `tests/seguridad_webapp_capacidades_vNEXT.mjs`; verificador completo 170 suites /
 0 fallos.
 **Fecha:** 2026-10-14
+
+## DEC-123
+**Título:** Actualizar carga y reemplaza la ficha completa desde la captura pública, sin clave.
+**Estado:** Aprobada; reemplaza el alcance parcial de DEC-122.
+**Motivo:** instrucción explícita del usuario: la finalidad de Actualizar es
+precargar los datos vigentes del paciente para poder reemplazarlos. Se acepta
+expresamente que esa acción exponga los datos de la ficha y se prohíbe cambiar
+otra vez este método sin autorización. Los operadores del QR son numerosos y no
+deben usar clave, login ni OPSESS para ninguna función del formulario.
+**Contenido:** `WebApp_cargarPacienteEdicionCaptura(rut)` es una RPC pública de
+captura que devuelve los 18 campos de `CAPTURA_EDICION_CAMPOS`, últimos CONTROL/
+SEGUIMIENTO y catálogo de condiciones. `EditorPaciente` la llama directamente,
+sin token ni segundo argumento, muestra todos los campos y envía sólo diferencias.
+El transporte interno agrega `ACTUALIZACION_JSON` (schema Form 4) y lo migra de
+forma idempotente en el único Form operativo; el worker valida y reconstruye el
+objeto completo, incluidas atenciones. `Funciones` y todas las RPC administrativas
+continúan bajo OPSESS y no se muestran en la captura.
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (caso I),
+`tests/forms_roundtrip_v254.mjs`, `tests/public_capture_zero_legacy_token_v0170.mjs`,
+`tests/seguridad_webapp_capacidades_vNEXT.mjs` y allowlist pública <15.
+**Fecha:** 2026-10-14

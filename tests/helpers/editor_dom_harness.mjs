@@ -155,12 +155,13 @@ export function crearHarness({ source, modoOperador = true }) {
     });
     return proxy;
   }
+  const google = { script: { run: ECICEP_run() } };
 
   const sandbox = {
     console, JSON, Date, Math, RegExp, Object, Array, String, Number, Boolean, Error,
     parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent,
     document, setTimeout, clearTimeout,
-    ECICEP_run, ECICEP_MODO_OPERADOR: modoOperador,
+    ECICEP_run, google, ECICEP_MODO_OPERADOR: modoOperador,
     ECICEP_requiereRecarga: () => false,
     ECICEP_esServicioOcupado: () => false,
     ECICEP_errorTexto: e => (e && e.message) || 'error'

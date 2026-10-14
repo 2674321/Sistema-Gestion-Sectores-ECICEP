@@ -39,10 +39,11 @@ v270 en `hardening/v0.17.0-final`). Estado vigente autoritativo: `docs/ESTADO_AC
 
 - **Captura pública anónima** (DEC-110): la Web App concede siempre, sin login,
   OPSESS ni OAuth individual. La operación/administración sí exige sesión OPSESS.
-- **Cuatro acciones públicas sin clave** (DEC-122): Nuevo ingreso, Control,
-  Seguimiento y Actualizar datos se completan desde el QR. Actualizar usa los
-  campos operativos y no intenta leer la ficha privada; `Funciones` se abre desde
-  el Spreadsheet autorizado con el bootstrap OPSESS de DEC-119.
+- **Cuatro acciones públicas sin clave** (DEC-123): Nuevo ingreso, Control,
+  Seguimiento y Actualizar datos se completan desde el QR. Actualizar carga por
+  RUT la ficha completa de 18 campos y permite reemplazar sus valores sin clave
+  ni sesión. `Funciones` sigue reservado al Spreadsheet autorizado con el
+  bootstrap OPSESS de DEC-119.
 - **Sin token legacy en la captura** (DEC-115): el HTML servido y las RPC de
   captura no inyectan ni reciben credencial; el QR y el enlace base no llevan
   parámetros de acceso.

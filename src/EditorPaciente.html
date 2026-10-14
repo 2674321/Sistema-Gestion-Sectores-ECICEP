@@ -18,7 +18,6 @@
 </style>
 <script>
 (function(){
-  window.ECICEP_ACCESO=document.body&&document.body.getAttribute?document.body.getAttribute('data-acceso')||'':'';
   var base=null,secuencia=0,temporizador=null;
   var $=function(id){return document.getElementById(id);};
   var grupos=[
@@ -30,15 +29,14 @@
   ];
   function accionActual_(){var el=document.getElementById('accion');return el?String(el.value||''):'';}
   function activo(){return accionActual_()==='ACTUALIZAR_DATOS';}
-  function modoCompleto(){return window.ECICEP_MODO_OPERADOR===true;}
   function estado(t){$('edEstado').textContent=t;}
   function reset(){base=null;secuencia++;clearTimeout(temporizador);$('edCargar').disabled=false;$('edCampos').replaceChildren();$('edCampos').hidden=true;$('edResumen').textContent='';estado('Carga la ficha para editarla.');}
-  function ajustar(){var on=activo()&&modoCompleto();$('editorPaciente').hidden=!on;['secTel','secAgenda','secObs'].forEach(function(id){var el=$(id);if(el)el.style.display=on?'none':'';});}
+  function ajustar(){var on=activo();$('editorPaciente').hidden=!on;['secTel','secAgenda','secObs'].forEach(function(id){var el=$(id);if(el)el.style.display=on?'none':'';});}
   function nodo(tag,text,cls){var e=document.createElement(tag);if(text)e.textContent=text;if(cls)e.className=cls;return e;}
   function valor(k){var el=$('ed_'+k);if(k==='CONDICIONES')return Array.from(el.querySelectorAll('input:checked')).map(function(x){return x.value;}).sort().join(';');return el.value;}
   function original(k){var s=base.campos[k]||'';return k==='CONDICIONES'?s.split(';').filter(Boolean).sort().join(';'):s;}
   function payload(){
-    if(!modoCompleto()||!base||!activo())return null;
+    if(!base||!activo())return null;
     var campos={};grupos.forEach(function(g){g[1].forEach(function(f){var k=f[0],v=valor(k);if(v!==original(k))campos[k]={anterior:base.campos[k]||'',valor:v};});});
     var atenciones=[];['CONTROL','SEGUIMIENTO'].forEach(function(tipo){var modo=$('ed_modo_'+tipo).value;if(!modo)return;var ant=base.ultimos[tipo]||{};atenciones.push({tipo:tipo,modo:modo,fecha:$('ed_fecha_'+tipo).value,idEvento:modo==='CORREGIR'?ant.idEvento||'':'',anterior:modo==='CORREGIR'?ant.fecha||'':''});});
     return {id:base.id,rutOriginal:base.rutOriginal,campos:campos,atenciones:atenciones};
@@ -62,14 +60,14 @@
     fs.appendChild(nodo('p','Una nueva atención se agrega al historial. Corregir mantiene la trazabilidad del registro original. Para una cita futura usa Agenda manual.','f-hint'));root.appendChild(fs);
     estado('Ficha cargada: '+r.campos.NOMBRE+'. Revisa los cambios antes de guardar.');resumen();
   }
-  function cargar(){if(!modoCompleto())return;var rut=$('rut').value,turno=++secuencia;base=null;$('edCampos').hidden=true;$('edResumen').textContent='';$('edCargar').disabled=true;estado('Cargando ficha…');clearTimeout(temporizador);temporizador=setTimeout(function(){if(turno!==secuencia)return;secuencia++;$('edCargar').disabled=false;estado('La consulta tardó demasiado. Intenta cargar nuevamente.');},30000);
-    ECICEP_run().withSuccessHandler(function(r){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;
+  function cargar(){var rut=$('rut').value,turno=++secuencia;base=null;$('edCampos').hidden=true;$('edResumen').textContent='';$('edCargar').disabled=true;estado('Cargando ficha…');clearTimeout(temporizador);temporizador=setTimeout(function(){if(turno!==secuencia)return;secuencia++;$('edCargar').disabled=false;estado('La consulta tardó demasiado. Intenta cargar nuevamente.');},30000);
+    google.script.run.withSuccessHandler(function(r){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;
       if(window.ECICEP_requiereRecarga&&window.ECICEP_requiereRecarga(r)){if(window.ECICEP_reloadUnaVez)window.ECICEP_reloadUnaVez();else estado((r&&r.motivo)||'Acceso vencido. Cierra y reabre el enlace.');return;}
       if(window.ECICEP_esServicioOcupado&&window.ECICEP_esServicioOcupado(r)){estado(window.ECICEP_textoServicioOcupado());return;}
       if(r&&r.ok&&r.id&&r.rutOriginal&&r.campos&&typeof r.campos==='object')render(r);else estado(r&&(r.motivo||r.message)||'No se pudo cargar la ficha.');})
-      .withFailureHandler(function(e){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;var txt=window.ECICEP_errorTexto?window.ECICEP_errorTexto(e):((e&&e.message)||'Error al cargar la ficha');estado(txt+' — Verifica tu conexión e intenta nuevamente.');}).WebApp_cargarPacienteEdicion(rut,window.ECICEP_ACCESO);
+      .withFailureHandler(function(e){if(turno!==secuencia)return;clearTimeout(temporizador);$('edCargar').disabled=false;var txt=window.ECICEP_errorTexto?window.ECICEP_errorTexto(e):((e&&e.message)||'Error al cargar la ficha');estado(txt+' — Verifica tu conexión e intenta nuevamente.');}).WebApp_cargarPacienteEdicionCaptura(rut);
   }
-  function validar(){if(!activo()||!modoCompleto())return true;if(!base){estado('Carga primero el paciente que deseas actualizar.');$('edCargar').focus();return false;}var a=payload();if(!Object.keys(a.campos).length&&!a.atenciones.length){estado('No has realizado cambios.');return false;}var invalid=Array.from($('edCampos').querySelectorAll('input,select,textarea')).find(function(el){return !el.disabled&&!el.checkValidity();});if(invalid){invalid.reportValidity();return false;}if(a.atenciones.some(function(e){return !e.fecha;})){estado('Indica la fecha de la atención.');return false;}return true;}
+  function validar(){if(!activo())return true;if(!base){estado('Carga primero el paciente que deseas actualizar.');$('edCargar').focus();return false;}var a=payload();if(!Object.keys(a.campos).length&&!a.atenciones.length){estado('No has realizado cambios.');return false;}var invalid=Array.from($('edCampos').querySelectorAll('input,select,textarea')).find(function(el){return !el.disabled&&!el.checkValidity();});if(invalid){invalid.reportValidity();return false;}if(a.atenciones.some(function(e){return !e.fecha;})){estado('Indica la fecha de la atención.');return false;}return true;}
   window.ECICEP_EDITOR={payload:payload,validar:validar,reset:reset,ajustar:ajustar,hayCambios:function(){var a=payload();return !!(a&&(Object.keys(a.campos).length||a.atenciones.length));}};
   document.addEventListener('DOMContentLoaded',function(){$('edCargar').addEventListener('click',cargar);$('edCampos').addEventListener('input',resumen);$('edCampos').addEventListener('change',resumen);$('rut').addEventListener('input',reset);var accion=document.getElementById('accion');if(accion)accion.addEventListener('change',function(){setTimeout(ajustar,0);});ajustar();});
 })();

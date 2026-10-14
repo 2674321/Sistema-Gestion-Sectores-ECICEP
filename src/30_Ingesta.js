@@ -311,6 +311,23 @@ function CapturaIngress_edicionDesdeForma_(accion, campos, rutForm, opciones, er
   if (!nr || nr.estado !== 'OK') { err.push({ codigo: 'RUT_INVALIDO', campo: 'rut', mensaje: 'RUT con DV incorrecto o formato inválido' }); return null; }
   var rut = nr.rut;
 
+  // Web App v4: el Form es solamente la cola durable. Este campo interno
+  // conserva sin pérdidas los 18 campos editables y las atenciones. Los Forms
+  // directos antiguos siguen usando el adaptador parcial de compatibilidad.
+  var jsonCompleto = campos.ACTUALIZACION_JSON;
+  if (jsonCompleto !== undefined && jsonCompleto !== null && String(jsonCompleto).trim()) {
+    var crudo = null;
+    try { crudo = JSON.parse(String(jsonCompleto)); }
+    catch (eJson) { err.push({ codigo: 'ACTUALIZACION_JSON_INVALIDA', campo: 'actualizacion', mensaje: 'La actualización completa no pudo decodificarse' }); return null; }
+    var validada = (typeof Captura_validarEdicion_ === 'function') ? Captura_validarEdicion_(crudo) : { ok: false, motivo: 'Validador no disponible' };
+    if (!validada.ok) { err.push({ codigo: 'ACTUALIZACION_INVALIDA', campo: 'actualizacion', mensaje: validada.motivo || 'Actualización inválida' }); return null; }
+    var rutOriginal = Norm_normalizarRut_(validada.valor.rutOriginal);
+    if (!rutOriginal || rutOriginal.estado !== 'OK' || rutOriginal.rut !== rut) {
+      err.push({ codigo: 'IDENTIDAD_ACTUALIZACION_INVALIDA', campo: 'rut', mensaje: 'La ficha cargada no coincide con el RUT enviado' }); return null;
+    }
+    return validada.valor;
+  }
+
   var leer = opciones.leerPacientes;
   if (!leer && typeof Modelo_leerPacientes_ === 'function') leer = Modelo_leerPacientes_;
   if (!leer || typeof leer !== 'function') { err.push({ codigo: 'FICHA_NO_DISPONIBLE', mensaje: 'No se pudo leer la ficha vigente' }); return null; }

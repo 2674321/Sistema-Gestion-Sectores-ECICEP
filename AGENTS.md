@@ -15,8 +15,11 @@
 11. **La CAPTURA pública concede siempre (DEC-110).** La captura pública concede
     siempre y jamás depende de login, OPSESS, `Session.getActiveUser()`, OAuth
     individual ni permiso editor de Sheet. `WebApp_capturarRecibirDurable`,
-    `WebApp_verificarRecepcion`, `WebApp_estadoInicial` y el estado técnico
-    público (`api_webappEstado`) permanecen anónimos.
+    `WebApp_verificarRecepcion`, `WebApp_estadoInicial`, la carga completa de
+    ficha para la acción Actualizar (`WebApp_cargarPacienteEdicionCaptura`) y el
+    estado técnico público (`api_webappEstado`) permanecen anónimos. Por decisión
+    explícita del usuario (DEC-123), Actualizar precarga los 18 campos de la ficha
+    y permite reemplazarlos sin clave; no convertir esa carga en una RPC OPSESS.
 
     Las vistas/RPC de **OPERADOR y ADMINISTRACIÓN sí requieren sesión OPSESS**.
     OPSESS no puede bloquear ni ser dependencia de la captura.

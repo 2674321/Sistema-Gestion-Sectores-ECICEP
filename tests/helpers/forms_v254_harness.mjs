@@ -289,9 +289,9 @@ export function assertInstallerIdempotent() {
   const itemMap = JSON.parse(h.props.get('GOOGLE_FORM_ITEM_MAP'));
   const canonicalMap = JSON.parse(h.props.get('GOOGLE_FORM_CANONICAL_ITEM_MAP'));
   assert.ok(Object.values(itemMap).includes('ACCION'));
-  assert.equal(Object.keys(itemMap).length, 36, 'ACCION + 33 campos canónicos + 2 transporte global (v255)');
+  assert.equal(Object.keys(itemMap).length, 37, 'ACCION + 34 campos canónicos + 2 transporte global');
   assert.equal(canonicalMap['GLOBAL|ACCION'], h.c.Form_construirCanonicalItemMap_(h.form)['GLOBAL|ACCION']);
-  assert.equal(Object.keys(canonicalMap).length, 36);
+  assert.equal(Object.keys(canonicalMap).length, 37);
   assert.equal(h.form.getItems().filter(x => x.getTitle() === 'Enviar respuesta').length, 0);
   for (const page of h.form.getItems().filter(x => x.getType() === TYPES.PAGE_BREAK)) assert.equal(page.goToPage, 'SUBMIT');
   const rutId = canonicalMap['NUEVO_INGRESO|RUT'];
@@ -414,6 +414,23 @@ export function assertRoundtrip() {
   const results = {};
   for (const action of ['nuevoIngreso', 'registrarControl', 'registrarSeguimiento', 'actualizarDatos']) {
     const p = payloadFor(action);
+    if (action === 'actualizarDatos') {
+      Object.assign(p.actualizacion.campos, {
+        NOMBRE: { anterior: '', valor: 'PACIENTE ACTUALIZADO' },
+        SEXO: { anterior: '', valor: 'OTRO' },
+        FECHA_NACIMIENTO: { anterior: '', valor: '1980-01-02' },
+        SECTOR: { anterior: '', valor: 'VERDE' },
+        ESTADO: { anterior: '', valor: 'INGRESADO' },
+        FECHA_INGRESO: { anterior: '', valor: '2025-01-02' },
+        PREINGRESO: { anterior: '', valor: 'NO_APLICA' },
+        DUPLA_INGRESO: { anterior: '', valor: 'PROFESIONAL UNO / PROFESIONAL DOS' },
+        PROFESIONAL_SEGUIMIENTO: { anterior: '', valor: 'PROFESIONAL UNO' },
+        CONDICIONES: { anterior: '', valor: '' },
+        OTRAS_PATOLOGIAS: { anterior: '', valor: 'OTRA' },
+        COMPOSICION_CONTROL: { anterior: '', valor: 'PROFESIONAL UNO' }
+      });
+      p.actualizacion.atenciones = [{ tipo: 'CONTROL', modo: 'REGISTRAR', fecha: '2026-10-12', idEvento: '', anterior: '' }];
+    }
     const r = h.c.Form_crearRespuestaDesdePayloadWeb_(p); assert.equal(r.ok, true);
     const response = h.form.responses.at(-1);
     const extracted = h.c.Form_extraerCampos_(response, {
@@ -432,9 +449,8 @@ export function assertRoundtrip() {
     } else if (action === 'registrarControl' || action === 'registrarSeguimiento') {
       for (const key of ['fechaEvento','proximoControl','observaciones']) assert.equal(adapted.payload[key], p[key], action + '.' + key);
     } else {
-      for (const key of ['TELEFONOS','TELEFONO_OBS','PROXIMO_CONTROL','SALUD_MENTAL','OBSERVACIONES']) {
-        assert.deepEqual(JSON.parse(JSON.stringify(adapted.payload.actualizacion.campos[key])), p.actualizacion.campos[key], key);
-      }
+      assert.deepEqual(JSON.parse(JSON.stringify(adapted.payload.actualizacion)), p.actualizacion,
+        'actualización completa y atenciones sobreviven Web App → Form → worker');
     }
     results[action] = { ok: true, captureId: adapted.captureId };
   }

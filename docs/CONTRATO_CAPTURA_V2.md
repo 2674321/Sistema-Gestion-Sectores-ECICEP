@@ -757,8 +757,11 @@ antes de eliminar la fila.
    CAPTURA pública (v270 / DEC-110) es anónima y **no inyecta ni exige token**:
    el HTML servido (`CapturaWeb.html`) no contiene credencial en el DOM ni en la
    URL, y `WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`,
-   `WebApp_verificarRecepcion` y `api_webappEstado` no la reciben ni la
-   requieren. Las vistas y RPC de **OPERADOR / ADMINISTRACIÓN** sí exigen sesión
+   `WebApp_verificarRecepcion`, `WebApp_cargarPacienteEdicionCaptura` y
+   `api_webappEstado` no la reciben ni la requieren. Por DEC-123, la carga de
+   ficha completa para `ACTUALIZAR_DATOS` es parte explícita de la captura
+   pública y devuelve los 18 campos editables sin OPSESS. Las vistas y RPC de
+   **OPERADOR / ADMINISTRACIÓN** sí exigen sesión
    OPSESS; la credencial legacy `ECICEP_ACCESS_TOKEN` se conserva solo como
    trazabilidad de esas vistas de operador y **nunca viaja en la URL**. El QR, la
    copia y el botón de apertura comparten el mismo enlace base (sin parámetros de

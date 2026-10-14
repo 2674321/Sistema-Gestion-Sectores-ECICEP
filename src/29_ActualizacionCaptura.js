@@ -74,9 +74,15 @@ function Captura_validarEdicion_(a) {
   return {ok:true,valor:out};
 }
 
-/** Ficha accesible con sesión activa o enlace compartido válido. */
+/** Ficha completa para el flujo público de captura "Actualizar".
+ * No requiere OPSESS, email, OAuth ni clave: es una capacidad de captura
+ * explícitamente pública, no una vista administrativa. */
+function WebApp_cargarPacienteEdicionCaptura(rut) {
+  return WebApp_cargarPacienteEdicion_(rut, '');
+}
+
+/** Implementación compartida de carga de ficha para actualización. */
 function WebApp_cargarPacienteEdicion_(rut,acceso) {
-  if(!WebApp_autorizarBuscador_(acceso))return {ok:false,motivo:'Enlace de Captura no válido. Solicita el QR actualizado.'};
   var nr=Norm_normalizarRut_(rut);
   if(nr.estado!=='OK')return {ok:false,motivo:'RUT inválido'};
   var lista=Modelo_leerPacientes_().filter(function(p){return Norm_normalizarRut_(p.RUT).rut===nr.rut;});

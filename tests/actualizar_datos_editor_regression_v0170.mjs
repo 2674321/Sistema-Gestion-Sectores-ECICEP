@@ -14,8 +14,7 @@
 //   F. Campos vacíos siguen existiendo como inputs vacíos.
 //   G. Cambios diferenciales: solo el campo modificado viaja en el payload.
 //   H. Controles de atención (REGISTRAR/CORREGIR) presentes y por acción.
-//   I. En captura pública, Actualizar usa los campos operativos y jamás invoca
-//      la lectura privada de ficha ni abre el login de operador.
+//   I. En captura pública, Actualizar carga la ficha completa sin clave/sesión.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { extraerScriptEditor, crearHarness } from './helpers/editor_dom_harness.mjs';
@@ -166,19 +165,22 @@ test('H: una atención Registrada se incluye en el payload del editor', () => {
   assert.equal(JSON.stringify(a.atenciones[0]), JSON.stringify({ tipo: 'CONTROL', modo: 'REGISTRAR', fecha: '2026-10-01', idEvento: '', anterior: '' }));
 });
 
-test('I: captura pública actualiza sin cargar ficha ni pedir sesión', () => {
+test('I: captura pública carga la ficha completa sin clave ni sesión', () => {
   const h = crearHarness({ source: SOURCE, modoOperador: false });
   h.fireDOMContentLoaded();
   h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
-  assert.equal(h.document.getElementById('editorPaciente').hidden, true,
-    'el editor con lectura de ficha debe quedar oculto en captura pública');
+  assert.equal(h.document.getElementById('editorPaciente').hidden, false,
+    'el editor completo debe estar visible en captura pública');
   for (const id of ['secTel', 'secAgenda', 'secObs']) {
-    assert.equal(h.document.getElementById(id).style.display || '', '', id + ' debe quedar disponible');
+    assert.equal(h.document.getElementById(id).style.display, 'none', id + ' se reemplaza por el editor completo');
   }
-  assert.equal(h.editor.validar(), true, 'el editor privado no bloquea el envío público');
-  assert.equal(h.editor.payload(), null, 'la captura pública no construye payload con PII precargada');
+  h.document.getElementById('rut').value = '11.111.111-1';
   h.document.getElementById('edCargar').click();
-  assert.equal(h.rpc.metodo, '', 'la captura pública jamás llama WebApp_cargarPacienteEdicion');
+  assert.equal(h.rpc.metodo, 'WebApp_cargarPacienteEdicionCaptura');
+  assert.deepEqual(h.rpc.args, ['11.111.111-1'], 'la carga pública no envía clave ni token');
+  h.resolverCarga(fichaSintetica());
+  assert.equal(h.document.getElementById('edCampos').hidden, false, 'la ficha pública debe renderizarse completa');
+  assert.equal(h.editor.payload().id, 'P-SYNTH');
 });
 
 console.log('actualizar_datos_editor_regression_v0170: ' + ok + '/' + ok);

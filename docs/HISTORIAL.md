@@ -7,15 +7,22 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
-## 2026-10-14 — captura pública completa sin login (DEC-122)
+## 2026-10-14 — actualización completa pública sin clave (DEC-123)
 
-- Los operadores del QR conservan las cuatro acciones. `ACTUALIZAR_DATOS` usa
-  los campos operativos públicos y deja de intentar la lectura privada de ficha,
-  eliminando la aparición del login en ese flujo.
-- El editor completo de 18 campos permanece protegido como función de operador.
-  La captura pública deja de enlazar `Funciones`; administración ingresa desde
-  el Spreadsheet autorizado con bootstrap OPSESS.
-- Sin cambios de fuente de verdad, transporte durable, pipeline o deployment.
+- Por instrucción explícita del usuario, `ACTUALIZAR_DATOS` vuelve a cargar por
+  RUT la ficha completa de 18 campos y los últimos controles/seguimientos desde
+  el QR, sin clave, login, OPSESS ni token. Esto reemplaza la restricción parcial
+  adoptada en DEC-122.
+- Los cambios completos cruzan el transporte durable mediante el campo interno
+  `ACTUALIZACION_JSON`; el worker valida y entrega el objeto diferencial exacto
+  al mismo pipeline, sin perder campos ni atenciones.
+- `Funciones` permanece fuera de la captura pública y continúa protegido en la
+  superficie administrativa del Spreadsheet.
+
+## 2026-10-14 — captura pública parcial sin login (DEC-122, superada por DEC-123)
+
+- Esta decisión se conserva como historial, pero su restricción del editor
+  completo fue reemplazada por DEC-123 a solicitud explícita del usuario.
 
 ## 2026-10-14 — v270 (captura directa al Form no es canal clínico, DEC-116)
 

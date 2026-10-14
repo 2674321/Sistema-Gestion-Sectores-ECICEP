@@ -344,7 +344,7 @@ function Form_esquemaCanonial_() {
     NUEVO_INGRESO: ['RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'SECTOR', 'FECHA_INGRESO', 'ESTRATIFICACION', 'SALUD_MENTAL', 'TELEFONOS', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
     REGISTRAR_CONTROL: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
     REGISTRAR_SEGUIMIENTO: ['RUT', 'FECHA_EVENTO', 'PROFESIONAL', 'PROFESIONAL2', 'PROXIMO_CONTROL', 'OBSERVACIONES'],
-    ACTUALIZAR_DATOS: ['RUT', 'TELEFONOS', 'TELEFONO_OBS', 'PROXIMO_CONTROL', 'SALUD_MENTAL', 'OBSERVACIONES', 'PROFESIONAL', 'PROFESIONAL2']
+    ACTUALIZAR_DATOS: ['RUT', 'TELEFONOS', 'TELEFONO_OBS', 'PROXIMO_CONTROL', 'SALUD_MENTAL', 'OBSERVACIONES', 'PROFESIONAL', 'PROFESIONAL2', 'ACTUALIZACION_JSON']
   };
   return { secciones: secciones, campos: camposPorSeccion };
 }
@@ -353,7 +353,7 @@ function Form_esquemaCanonial_() {
 function Form_tipoItem_(campo) {
   if (campo === 'SEXO' || campo === 'SECTOR' || campo === 'ESTRATIFICACION' || campo === 'SALUD_MENTAL' || campo === 'PROFESIONAL' || campo === 'PROFESIONAL2') return 'LISTA';
   if (campo === 'FECHA_NACIMIENTO' || campo === 'FECHA_INGRESO' || campo === 'FECHA_EVENTO' || campo === 'PROXIMO_CONTROL') return 'FECHA';
-  if (campo === 'OBSERVACIONES') return 'PARRAFO';
+  if (campo === 'OBSERVACIONES' || campo === 'ACTUALIZACION_JSON') return 'PARRAFO';
   return 'TEXTO';
 }
 
@@ -2151,10 +2151,42 @@ function Form_indexarSchema_(form) {
   return idx;
 }
 
+/** Migra de manera idempotente el único Form operativo antes del primer envío
+ * de una actualización completa. No crea otro Form ni otro pipeline. */
+function Form_asegurarCampoActualizacionJson_(form) {
+  var ck = Form_claveCanonicaItem_('ACTUALIZAR_DATOS', 'ACTUALIZACION_JSON');
+  var idx = Form_indexarSchema_(form);
+  if (idx.byCanonicalKey[ck]) return idx;
+  var lock = null;
+  try {
+    if (typeof LockService !== 'undefined') {
+      lock = LockService.getScriptLock();
+      if (!lock.tryLock(5000)) throw new Error('FORM_SCHEMA_MIGRATION_BUSY');
+    }
+    idx = Form_indexarSchema_(form);
+    if (!idx.byCanonicalKey[ck]) {
+      form.addParagraphTextItem()
+        .setTitle(GOOGLE_FORMS_CONFIG.CAMPOS.ACTUALIZACION_JSON.etiqueta)
+        .setRequired(false);
+      idx = Form_indexarSchema_(form);
+      if (!idx.byCanonicalKey[ck]) throw new Error('FORM_SCHEMA_DRIFT:ACTUALIZACION_JSON');
+      try {
+        Form_propEscribir_('GOOGLE_FORM_ITEM_MAP', JSON.stringify(Form_itemMap_(form)));
+        Form_propEscribir_('GOOGLE_FORM_CANONICAL_ITEM_MAP', JSON.stringify(Form_construirCanonicalItemMap_(form)));
+        Form_propEscribir_('GOOGLE_FORM_TITLE_MAP', JSON.stringify(Form_mapaTitulos_()));
+        Form_propEscribir_('GOOGLE_FORM_SCHEMA_VERSION', GOOGLE_FORMS_CONFIG.SCHEMA_VERSION);
+      } catch (eP) { /* el envío actual conserva el índice recién construido */ }
+    }
+    return idx;
+  } finally {
+    try { if (lock) lock.releaseLock(); } catch (eL) {}
+  }
+}
+
 function Form_campoRequerido_(seccion, campo) {
   var sec = String(seccion || '').toUpperCase();
   var c = String(campo || '').toUpperCase();
-  if (c === 'TELEFONOS' || c === 'PROFESIONAL2' || c === 'OBSERVACIONES' || c === 'SALUD_MENTAL' || c === 'SEXO' || c === 'ESTRATIFICACION' || c === 'PROXIMO_CONTROL') return false;
+  if (c === 'TELEFONOS' || c === 'PROFESIONAL2' || c === 'OBSERVACIONES' || c === 'SALUD_MENTAL' || c === 'SEXO' || c === 'ESTRATIFICACION' || c === 'PROXIMO_CONTROL' || c === 'ACTUALIZACION_JSON') return false;
   if (sec === 'NUEVO_INGRESO') {
     if (c === 'RUT' || c === 'NOMBRE' || c === 'FECHA_NACIMIENTO' || c === 'SECTOR' || c === 'FECHA_INGRESO' || c === 'PROFESIONAL') return true;
     return false;
@@ -2200,7 +2232,6 @@ function Form_crearRespuestaDesdePayloadWeb_(payload, opciones) {
     var formId = Form_formId_();
     if (!formId) return { ok: false, estado: 'ERROR', motivo: 'FORM_NO_CONFIGURADO' };
     var form = FormApp.openById(formId);
-    var response = form.createResponse();
     var accion = String(payload.accion || '').toLowerCase();
     var seccion = null;
     if (accion === 'nuevoingreso') seccion = 'NUEVO_INGRESO';
@@ -2208,7 +2239,10 @@ function Form_crearRespuestaDesdePayloadWeb_(payload, opciones) {
     else if (accion === 'registrarseguimiento') seccion = 'REGISTRAR_SEGUIMIENTO';
     else if (accion === 'actualizardatos') seccion = 'ACTUALIZAR_DATOS';
     if (!seccion) return { ok: false, estado: 'ERROR', motivo: 'ACCION_INVALIDA' };
-    var idx = Form_indexarSchema_(form);
+    var idx = seccion === 'ACTUALIZAR_DATOS' && payload.actualizacion
+      ? Form_asegurarCampoActualizacionJson_(form)
+      : Form_indexarSchema_(form);
+    var response = form.createResponse();
     var plan = [];
     var fallos = [];
 
@@ -2297,6 +2331,7 @@ function Form_crearRespuestaDesdePayloadWeb_(payload, opciones) {
       if (proxNuevo) setCanonical('ACTUALIZAR_DATOS', 'PROXIMO_CONTROL', proxNuevo, true);
       if (smNueva) setCanonical('ACTUALIZAR_DATOS', 'SALUD_MENTAL', smNueva, false);
       if (obsNueva) setCanonical('ACTUALIZAR_DATOS', 'OBSERVACIONES', obsNueva, false);
+      if (payload.actualizacion) setCanonical('ACTUALIZAR_DATOS', 'ACTUALIZACION_JSON', JSON.stringify(payload.actualizacion), false);
     }
     // v255 (E19): cobertura de campos requeridos de la sección dentro del plan.
     Form_esquemaCanonial_().campos[seccion].forEach(function (campo) {

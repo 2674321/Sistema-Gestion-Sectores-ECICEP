@@ -1042,7 +1042,7 @@ var FORM_RESPUESTAS_COLUMNAS = ['FECHA_FORMS', 'RESPONSE_ID', 'FORM_VERSION', 'U
 // versionado de esquema, textos, cadencia del worker y umbrales de salud.
 // ---------------------------------------------------------------------------
 var GOOGLE_FORMS_CONFIG = {
-  SCHEMA_VERSION: 3,
+  SCHEMA_VERSION: 4,
   TITULO: 'Captura ECICEP',
   BIENVENIDA: 'Registra la actividad territorial ECICEP. La respuesta se procesa automáticamente.',
   CONFIRMACION: 'Respuesta recibida correctamente.\nECICEP la procesará automáticamente.',
@@ -1070,7 +1070,8 @@ var GOOGLE_FORMS_CONFIG = {
     FECHA_EVENTO: { etiqueta: 'Fecha del evento (control/seguimiento)' },
     PROFESIONAL: { etiqueta: 'Profesional que registra' },
     PROFESIONAL2: { etiqueta: 'Segundo profesional (opcional)' },
-    OBSERVACIONES: { etiqueta: 'Observaciones' }
+    OBSERVACIONES: { etiqueta: 'Observaciones' },
+    ACTUALIZACION_JSON: { etiqueta: 'Actualización completa (interno Web App)' }
   },
   WORKER: {
     LOCK_WAIT_MS: 750,

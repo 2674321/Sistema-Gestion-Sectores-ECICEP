@@ -13,6 +13,8 @@ const leerSrc = f => readFileSync(new URL('../src/' + f, import.meta.url), 'utf8
 const captura = leerSrc('CapturaWeb.html');
 const webapp = leerSrc('WebApp.gs');
 const forms = leerSrc('36_FormsCanal.js');
+const editor = leerSrc('EditorPaciente.html');
+const actualizacion = leerSrc('29_ActualizacionCaptura.js');
 
 // ── 1. HTML servido: ningún alias de credencial legacy en el DOM. ─────────────
 for (const alias of ['data-acceso', 'CAPTURA_ACCESO', 'TOKEN_ACCESO', 'TOKEN_INVITACION',
@@ -32,6 +34,10 @@ assert.ok(captura.includes('.WebApp_estadoInicial()'), 'estadoInicial se invoca 
 assert.ok(captura.includes('.WebApp_verificarRecepcion(id)'), 'verificarRecepcion se invoca sin token');
 assert.ok(captura.includes('.WebApp_capturarRecibirDurable(datos)'), 'capturarRecibirDurable se invoca sin token');
 assert.ok(captura.includes('.api_webappEstado()'), 'api_webappEstado se invoca sin token');
+assert.ok(editor.includes('.WebApp_cargarPacienteEdicionCaptura(rut)'),
+  'la ficha completa se carga mediante la RPC pública de captura');
+assert.doesNotMatch(editor, /WebApp_cargarPacienteEdicionCaptura\([^)]*,/,
+  'la carga de ficha pública no recibe clave ni token');
 assert.doesNotMatch(captura, /WebApp_\w+\([^)]*ECICEP_ACCESO/,
   'ninguna llamada de captura debe pasar ECICEP_ACCESO');
 
@@ -57,6 +63,8 @@ assert.match(forms, /function WebApp_verificarRecepcion\(clientRequestId\)\s*\{/
   'WebApp_verificarRecepcion ya no recibe acceso');
 assert.match(forms, /function WebApp_capturarRecibirDurable\(payload\)\s*\{/,
   'WebApp_capturarRecibirDurable ya no recibe acceso');
+assert.match(actualizacion, /function WebApp_cargarPacienteEdicionCaptura\(rut\)\s*\{/,
+  'WebApp_cargarPacienteEdicionCaptura sólo recibe el RUT');
 
 // ── 6. Runtime: doGet renderiza la captura SIN variables de token. ───────────
 {
@@ -90,5 +98,6 @@ const verif = h.c.WebApp_verificarRecepcion('');
 assert.equal(typeof verif.estado, 'string', 'verificarRecepcion responde sin token: ' + JSON.stringify(verif));
 assert.equal(h.c.WebApp_capturarRecibirDurable.length, 1, 'capturarRecibirDurable recibe 1 argumento');
 assert.equal(h.c.WebApp_verificarRecepcion.length, 1, 'verificarRecepcion recibe 1 argumento');
+assert.equal(h.c.WebApp_cargarPacienteEdicionCaptura.length, 1, 'cargar ficha pública recibe sólo el RUT');
 
 console.log('public_capture_zero_legacy_token_v0170: captura anónima sin token legacy PASS');
