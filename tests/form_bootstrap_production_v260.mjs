@@ -3,13 +3,16 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { createHarness } from './helpers/forms_v254_harness.mjs';
 
-const wrapperSrc = fs.readFileSync(new URL('../src/99_ActivacionTemporal.js', import.meta.url), 'utf8');
+// v0.17.0: helpers privados de activación reubicados en 38_Release.js.
 const releaseSrc = fs.readFileSync(new URL('../src/38_Release.js', import.meta.url), 'utf8');
 const canalSrc = fs.readFileSync(new URL('../src/36_FormsCanal.js', import.meta.url), 'utf8');
 const manifest = JSON.parse(fs.readFileSync(new URL('../src/appsscript.json', import.meta.url), 'utf8'));
 
 const TOKEN = 'ya29.TOKEN-SECRETO-DE-PRUEBA';
 const API = 'https://forms.googleapis.com/v1/forms';
+
+// Bloque de helpers privados de activación (backup + Forms API + bootstrap).
+const activacionSrc = releaseSrc.slice(releaseSrc.indexOf('function Operacion_asegurarBackupActivacion_'));
 
 const checkSrc = releaseSrc.slice(
   releaseSrc.indexOf('function Operacion_checkRelease_'),
@@ -40,7 +43,6 @@ function entorno(o) {
   const forms = new Set(o.accesibles || []);
   let trigger = !!o.triggerPresente;
   let crea = 0, aperturas = 0;
-  const cola = (o.preflight || []).slice();
 
   const ctx = {
     console: { log: (m) => { L.push('log:' + m); } },
@@ -73,28 +75,20 @@ function entorno(o) {
         L.push('fetch:' + url);
         FETCHES.push({ url: url, opts: opts });
         if (o.fetchFalla) throw new Error('fetch-falla');
-        // La Forms API sí deja el Form accesible bajo la misma identidad.
         try { const id = String(JSON.parse(String(o.cuerpo || '')).formId || '').trim(); if (id) forms.add(id); } catch (e) {}
         return { getResponseCode: () => o.codigo, getContentText: () => o.cuerpo };
       }
     },
-    Utilities: { sleep: (ms) => { L.push('sleep:' + ms); } },
-    Operacion_preflightRelease_: () => {
-      L.push('preflight');
-      return cola.length ? cola.shift() : { checks: [], resultado: 'ACTIVE_HEALTHY' };
-    },
-    Operacion_preflightBloqueosNoReparables_: () => [],
-    Form_operativoInstalar_: () => { L.push('instalar'); return { ok: true }; },
-    Form_operativoDiagnosticar_: () => { L.push('diag'); return { ok: true, estado: { triggerOnFormSubmit: 1, triggerWorker: 1 } }; }
+    Utilities: { sleep: (ms) => { L.push('sleep:' + ms); } }
   };
 
   vm.createContext(ctx);
-  vm.runInContext(wrapperSrc, ctx);
+  vm.runInContext(activacionSrc, ctx);
   return { ctx, L, props, FETCHES, aperturas: () => aperturas, crea: () => crea };
 }
 
 const plano = (o) => JSON.parse(JSON.stringify(o));
-const boot = (e) => plano(e.ctx.ECICEP_bootstrapFormProduccion_());
+const boot = (e) => plano(e.ctx.Operacion_bootstrapFormProduccion_());
 const cuenta = (L, p) => L.filter((x) => x.indexOf(p) === 0).length;
 
 // ---------------------------------------------------------------------------
@@ -119,7 +113,6 @@ assert.deepEqual(r, { ok: true, creado: true, metodo: 'FORMAPP' });
 assert.equal(e.crea(), 1, 'crea exactamente un Form');
 assert.equal(e.props.GOOGLE_FORM_ID, 'FORM-NUEVO', 'persiste el nuevo ID');
 assert.equal(cuenta(e.L, 'fetch:'), 0, 'FormApp funcionó: no llega a la API');
-// Persistencia SOLO después de verificar el Form nuevo.
 assert.ok(e.L.indexOf('open:FORM-NUEVO') < e.L.indexOf('prop:GOOGLE_FORM_ID'), 'persiste después de verificar');
 
 // ---------------------------------------------------------------------------
@@ -142,7 +135,6 @@ assert.equal(cuerpoPost.info.documentTitle, 'Captura ECICEP');
 assert.equal(e.crea(), 1, 'intentó FormApp primero');
 assert.equal(e.props.GOOGLE_FORM_ID, 'FORM-NUEVO');
 assert.ok(e.L.indexOf('open:FORM-NUEVO') < e.L.indexOf('prop:GOOGLE_FORM_ID'), 'verifica antes de persistir');
-// El token nunca sale en resultados ni logs.
 assert.doesNotMatch(JSON.stringify(r), new RegExp(TOKEN), 'no filtra el token en el resultado');
 assert.doesNotMatch(e.L.join(' '), new RegExp(TOKEN), 'no filtra el token en el log');
 
@@ -160,7 +152,6 @@ assert.equal(clasifica(500, '{"error":"boom"}').r.motivo, 'FORM_API_CREATE_FAILE
 assert.equal(clasifica(200, '{}').r.motivo, 'FORM_API_INVALID_RESPONSE');
 assert.equal(clasifica(200, 'no-json').r.motivo, 'FORM_API_INVALID_RESPONSE');
 assert.equal(clasifica(200, JSON.stringify({ formId: '   ' })).r.motivo, 'FORM_API_INVALID_RESPONSE');
-// Fallo total: FormApp y API → fail-closed, sin Form a medias.
 e = entorno({ createFalla: true, fetchFalla: true, accesibles: [] });
 r = boot(e);
 assert.equal(r.ok, false);
@@ -183,45 +174,6 @@ assert.equal(r.ok, false);
 assert.equal(r.motivo, 'FORM_BOOTSTRAP_PROPERTY_VERIFY_FAILED');
 
 // ---------------------------------------------------------------------------
-// FLUJO COMPLETO
-// ---------------------------------------------------------------------------
-
-e = entorno({ props: {}, accesibles: [], preflight: [{ checks: [] }, { checks: [], resultado: 'ACTIVE_HEALTHY' }] });
-r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
-assert.equal(r.ok, true);
-assert.equal(r.estado, 'READY_FOR_DEPLOY');
-assert.equal(r.repairs.formCreated, true);
-assert.equal(r.repairs.formCreationMethod, 'FORMAPP');
-assert.equal(r.repairs.backupTrigger, true);
-assert.equal(r.legacy.estado, 'DEFERRED_POST_ACTIVATION');
-assert.doesNotMatch(JSON.stringify(r), /FORM-NUEVO|FORM-VIEJO/, 'el resultado no filtra IDs');
-
-e = entorno({ props: { GOOGLE_FORM_ID: 'FORM-VIEJO' }, accesibles: ['FORM-VIEJO'], preflight: [{ checks: [] }, { checks: [], resultado: 'ACTIVE_HEALTHY' }] });
-r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
-assert.equal(r.estado, 'READY_FOR_DEPLOY');
-assert.equal(r.repairs.formCreated, false);
-assert.equal(r.repairs.formCreationMethod, 'EXISTING');
-
-// Si el bootstrap falla, la activación para en FORM_BOOTSTRAP sin instalar.
-e = entorno({ createFalla: true, codigo: 403, cuerpo: '{}', accesibles: [] });
-r = plano(e.ctx.ECICEP_ACTIVAR_AHORA());
-assert.equal(r.ok, false);
-assert.equal(r.etapa, 'FORM_BOOTSTRAP');
-assert.equal(r.motivo, 'FORM_API_AUTH_REQUIRED');
-assert.equal(cuenta(e.L, 'preflight'), 0, 'sin preflight');
-assert.equal(cuenta(e.L, 'instalar'), 0, 'sin instalar');
-
-// Orden: operador → backup → bootstrap → verificar ID → preflight → instalar → diag → post-preflight.
-const pos = (t) => wrapperSrc.indexOf(t);
-assert.ok(pos('WebApp_operadorConfigurado_()') < pos('ECICEP_asegurarBackupActivacion_()'), 'backup tras operador');
-assert.ok(pos('ECICEP_asegurarBackupActivacion_()') < pos('ECICEP_bootstrapFormProduccion_()'), 'bootstrap tras backup');
-assert.ok(pos('ECICEP_bootstrapFormProduccion_()') < pos('if (!Form_formId_())'), 'bootstrap antes de verificar el ID');
-assert.ok(pos('if (!Form_formId_())') < pos('Operacion_preflightRelease_()'), 'verificación de ID antes del preflight');
-assert.ok(pos('Operacion_preflightRelease_()') < pos('Form_operativoInstalar_('), 'preflight antes de instalar');
-assert.ok(pos('Form_operativoInstalar_(') < pos('Form_operativoDiagnosticar_()'), 'instalar antes de diagnosticar');
-assert.ok(pos('Form_operativoDiagnosticar_()') < wrapperSrc.lastIndexOf('Operacion_preflightRelease_()'), 'diagnóstico antes del post-preflight');
-
-// ---------------------------------------------------------------------------
 // PUBLICACIÓN (instalador oficial)
 // ---------------------------------------------------------------------------
 
@@ -241,7 +193,6 @@ const instAcc = ha.install();
 assert.equal(instAcc.ok, false, 'excepción de accepting → instalación falla');
 assert.equal(instAcc.motivo, 'FORM_ACCEPTING_RESPONSES_FAILED');
 
-// El instalador sigue exigiendo acceso universal al respondedor.
 assert.match(canalSrc, /form\.setRequireLogin\(false\)/, 'sin login en el Form');
 assert.match(canalSrc, /form\.setCollectEmail\(false\)/, 'sin correo en el Form');
 assert.match(canalSrc, /typeof form\.setPublished === 'function'/, 'publicación condicionada por disponibilidad de API');
@@ -311,21 +262,12 @@ assert.equal(p.por('FORM_ACCEPTING_RESPONSES'), 'PASS');
 p = preflightCon({ accesible: true, publicado: false, aceptaRespuestas: false });
 assert.equal(p.por('FORM_PUBLISHED'), 'BLOCK');
 assert.equal(p.por('FORM_ACCEPTING_RESPONSES'), 'BLOCK');
-// Los checks siguen existiendo, pero antes de instalar el instalador los repara.
-assert.ok(
-  p.reparables.indexOf('FORM_PUBLISHED') < 0,
-  'FORM_PUBLISHED es reparable por el instalador'
-);
-assert.ok(
-  p.reparables.indexOf('FORM_ACCEPTING_RESPONSES') < 0,
-  'FORM_ACCEPTING_RESPONSES es reparable por el instalador'
-);
-// Otros blockers reales siguen bloqueando antes de instalar.
+assert.ok(p.reparables.indexOf('FORM_PUBLISHED') < 0, 'FORM_PUBLISHED es reparable por el instalador');
+assert.ok(p.reparables.indexOf('FORM_ACCEPTING_RESPONSES') < 0, 'FORM_ACCEPTING_RESPONSES es reparable por el instalador');
 const otros = preflightCon({ accesible: true, publicado: false, aceptaRespuestas: false }, { formAccesible: false, drift: true });
 assert.ok(otros.reparables.indexOf('FORM_ACCESSIBLE') >= 0, 'FORM_ACCESSIBLE sigue bloqueando');
 assert.ok(otros.reparables.indexOf('BACKUP_TRIGGER_PRESENT') >= 0, 'BACKUP_TRIGGER_PRESENT sigue bloqueando');
 assert.ok(otros.reparables.indexOf('NO_SCHEMA_DRIFT') >= 0, 'NO_SCHEMA_DRIFT sigue bloqueando');
-// Los reparables históricos siguen reparables.
 assert.ok(otros.reparables.indexOf('FORM_COLUMNS_CURRENT') < 0, 'FORM_COLUMNS_CURRENT sigue reparable');
 assert.ok(otros.reparables.indexOf('FORM_SUBMIT_TRIGGER_COUNT') < 0, 'FORM_SUBMIT_TRIGGER_COUNT sigue reparable');
 assert.ok(otros.reparables.indexOf('FORM_WORKER_TRIGGER_COUNT') < 0, 'FORM_WORKER_TRIGGER_COUNT sigue reparable');
@@ -349,28 +291,16 @@ assert.equal(manifest.webapp.executeAs, 'USER_DEPLOYING', 'executeAs intacto');
 assert.equal(manifest.webapp.access, 'ANYONE_ANONYMOUS', 'acceso anónimo intacto');
 
 // Ningún ID concreto de Google Form en el código.
-assert.doesNotMatch(wrapperSrc, /1tRDqhb/, 'sin el ID del Form manual anterior');
-assert.doesNotMatch(wrapperSrc, /docs\.google\.com\/forms\/d\//, 'sin URL de Form concreto');
+assert.doesNotMatch(activacionSrc, /1tRDqhb/, 'sin el ID del Form manual anterior');
+assert.doesNotMatch(activacionSrc, /docs\.google\.com\/forms\/d\//, 'sin URL de Form concreto');
 assert.doesNotMatch(releaseSrc, /docs\.google\.com\/forms\/d\/[A-Za-z0-9_-]{10,}/, 'sin Form concreto en el release');
 assert.doesNotMatch(canalSrc, /docs\.google\.com\/forms\/d\/[A-Za-z0-9_-]{10,}/, 'sin Form concreto en el canal');
-// Cada wrapper temporal tiene UNA sola salida de log, y es la sanitizada.
-const cuerpoActivacion = wrapperSrc.slice(
-  wrapperSrc.indexOf('function ECICEP_ACTIVAR_AHORA('),
-  wrapperSrc.indexOf('function ECICEP_asegurarBackupActivacion_(')
-);
-assert.equal((cuerpoActivacion.match(/console\.log/g) || []).length, 1, 'una sola salida de log (la sanitizada)');
-const iWorker = wrapperSrc.indexOf('function ECICEP_EJECUTAR_WORKER_AHORA(');
-if (iWorker >= 0) {
-  const cuerpoWorker = wrapperSrc.slice(iWorker);
-  assert.equal((cuerpoWorker.match(/console\.log/g) || []).length, 1, 'el wrapper del worker loguea una sola vez');
-  assert.match(cuerpoWorker, /console\.log\('ECICEP_WORKER_MANUAL_RESULT ' \+ JSON\.stringify\(salida\)\)/, 'prefijo de log del worker');
-}
-assert.doesNotMatch(wrapperSrc, /console\.log\([^)]*[Tt]oken/, 'nunca registra el token');
-assert.doesNotMatch(wrapperSrc, /clasp/i, 'sin clasp');
-assert.doesNotMatch(wrapperSrc, /newDeployment|updateDeployment|\.deploy\s*\(/i, 'sin deploy');
-assert.doesNotMatch(wrapperSrc, /\bqr\b|QR/i, 'sin cambios de QR');
-assert.doesNotMatch(wrapperSrc, /Form_legacyReconciliarDryRun_/, 'sin reconciliación legacy profunda');
-assert.doesNotMatch(wrapperSrc, /Form_migrarTrailerLegacy_/, 'sin migración legacy en activación');
-assert.doesNotMatch(wrapperSrc, /DriveApp|deleteForm|trashed/, 'no borra Forms previos');
+assert.doesNotMatch(activacionSrc, /console\.log\([^)]*[Tt]oken/, 'nunca registra el token');
+assert.doesNotMatch(activacionSrc, /clasp/i, 'sin clasp');
+assert.doesNotMatch(activacionSrc, /newDeployment|updateDeployment|\.deploy\s*\(/i, 'sin deploy');
+assert.doesNotMatch(activacionSrc, /\bqr\b|QR/i, 'sin cambios de QR');
+assert.doesNotMatch(activacionSrc, /Form_legacyReconciliarDryRun_/, 'sin reconciliación legacy profunda');
+assert.doesNotMatch(activacionSrc, /Form_migrarTrailerLegacy_/, 'sin migración legacy en activación');
+assert.doesNotMatch(activacionSrc, /DriveApp|deleteForm|trashed/, 'no borra Forms previos');
 
 console.log('form_bootstrap_production_v260: PASS');

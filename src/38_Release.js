@@ -229,3 +229,104 @@ function UI_formCanalAsistenteActivacion_() {
   UI_formCanalAlert_('Asistente de activación', ['LISTO PARA DEPLOY']);
   return { ok: true, estado: 'READY_FOR_DEPLOY', preflight: pre.resultado };
 }
+
+// ---------------------------------------------------------------------------
+// Helpers privados de Activación (ex-99_ActivacionTemporal). NO públicos:
+// terminan en `_`, por lo que Apps Script los excluye de google.script.run y
+// del selector. Se conservan por utilidad operativa real; la superficie pública
+// temporal ECICEP_ACTIVAR_AHORA / ECICEP_EJECUTAR_WORKER_AHORA fue retirada.
+// ---------------------------------------------------------------------------
+
+/** Asegura el trigger semanal de respaldo de forma idempotente ANTES del
+ *  preflight, sin crear respaldos, sin borrar archivos y sin cambiar la
+ *  retención. Usa `Backup_programar_`, que ya reprograma desde cero. Nunca
+ *  registra identificadores. */
+function Operacion_asegurarBackupActivacion_() {
+  var instalado = false;
+  try { instalado = !!Backup_triggerInstalado_(); } catch (eBack) { instalado = false; }
+  if (instalado) return { ok: true, creado: false };
+
+  var cfg = {};
+  try { cfg = _config_leerValores_(['BACKUP_DIA', 'BACKUP_HORA']) || {}; } catch (eCfg) { cfg = {}; }
+  var dia = String(cfg.BACKUP_DIA || '').trim().toUpperCase() || 'DOMINGO';
+  var hora = parseInt(String(cfg.BACKUP_HORA || '').trim(), 10);
+  if (isNaN(hora) || hora < 0 || hora > 23) hora = 3;
+
+  try { Backup_programar_(dia, hora); } catch (eProg) { return { ok: false, motivo: 'BACKUP_TRIGGER_REPAIR_FAILED' }; }
+
+  var verificado = false;
+  try { verificado = !!Backup_triggerInstalado_(); } catch (eBack2) { verificado = false; }
+  return verificado ? { ok: true, creado: true } : { ok: false, motivo: 'BACKUP_TRIGGER_REPAIR_FAILED' };
+}
+
+/** Crea el Form interno vía Google Forms API v1 (fallback de `FormApp.create`).
+ *  Devuelve internamente el id; el bootstrap NUNCA lo expone. Clasifica el fallo
+ *  sin incluir el cuerpo de error ni el token de acceso. */
+function Operacion_crearFormViaApi_() {
+  var titulo = String(GOOGLE_FORMS_CONFIG.TITULO || '');
+  var resp = null;
+  try {
+    resp = UrlFetchApp.fetch('https://forms.googleapis.com/v1/forms', {
+      method: 'POST',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      payload: JSON.stringify({ info: { title: titulo, documentTitle: titulo } }),
+      muteHttpExceptions: true
+    });
+  } catch (eFetch) { return { ok: false, motivo: 'FORM_API_CREATE_FAILED' }; }
+
+  var codigo = 0;
+  try { codigo = Number(resp.getResponseCode()) || 0; } catch (eCode) { codigo = 0; }
+  if (codigo === 401 || codigo === 403) return { ok: false, motivo: 'FORM_API_AUTH_REQUIRED' };
+  if (!(codigo >= 200 && codigo < 300)) return { ok: false, motivo: 'FORM_API_CREATE_FAILED' };
+
+  var id = '';
+  try { id = String(JSON.parse(String(resp.getContentText() || '')).formId || '').trim(); } catch (eJson) { id = ''; }
+  if (!id) return { ok: false, motivo: 'FORM_API_INVALID_RESPONSE' };
+  return { ok: true, id: id, metodo: 'FORMS_API' };
+}
+
+/** Deja listo un Form interno accesible bajo la MISMA identidad que ejecuta el
+ *  script. Reutiliza `GOOGLE_FORM_ID` si abre; si no, crea uno con FormApp y, en
+ *  su defecto, con la Forms API v1. Persiste el ID SOLO tras verificarlo. Nunca
+ *  borra Forms previos y nunca imprime identificadores. */
+function Operacion_bootstrapFormProduccion_() {
+  var previo = '';
+  try { previo = String(Form_formId_() || '').trim(); } catch (ePrevio) { previo = ''; }
+  if (previo) {
+    var abre = false;
+    try { FormApp.openById(previo); abre = true; } catch (eAbrir) { abre = false; }
+    if (abre) return { ok: true, creado: false, metodo: 'EXISTING' };
+  }
+
+  var nuevo = '', metodo = 'FORMAPP';
+  try {
+    var creado = FormApp.create(GOOGLE_FORMS_CONFIG.TITULO);
+    nuevo = String(creado && creado.getId() || '').trim();
+  } catch (eCreate) { nuevo = ''; }
+  if (!nuevo) {
+    var viaApi = Operacion_crearFormViaApi_();
+    if (!viaApi || !viaApi.ok) return { ok: false, motivo: viaApi && viaApi.motivo || 'FORM_API_CREATE_FAILED' };
+    nuevo = String(viaApi.id || '').trim();
+    metodo = 'FORMS_API';
+    if (!nuevo) return { ok: false, motivo: 'FORM_BOOTSTRAP_VERIFY_FAILED' };
+  }
+
+  var verificado = false;
+  for (var intento = 0; intento < 5 && !verificado; intento++) {
+    try { FormApp.openById(nuevo); verificado = true; }
+    catch (eVerificar) {
+      verificado = false;
+      if (intento < 4) { try { Utilities.sleep(750); } catch (eSleep) { /* sin espera */ } }
+    }
+  }
+  if (!verificado) return { ok: false, motivo: 'FORM_BOOTSTRAP_VERIFY_FAILED' };
+
+  try { Form_propEscribir_('GOOGLE_FORM_ID', nuevo); }
+  catch (eWrite) { return { ok: false, motivo: 'FORM_BOOTSTRAP_PROPERTY_WRITE_FAILED' }; }
+  var vigente = '';
+  try { vigente = String(Form_formId_() || '').trim(); } catch (eLeer) { vigente = ''; }
+  if (vigente !== nuevo) return { ok: false, motivo: 'FORM_BOOTSTRAP_PROPERTY_VERIFY_FAILED' };
+  try { FormApp.openById(vigente); } catch (eFinal) { return { ok: false, motivo: 'FORM_BOOTSTRAP_VERIFY_FAILED' }; }
+  return { ok: true, creado: true, metodo: metodo };
+}

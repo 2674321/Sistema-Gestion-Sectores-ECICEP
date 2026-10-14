@@ -1,61 +1,45 @@
+// v0.17.0 — Gate NO_TEMP_PUBLIC_RPC.
+// La superficie pública temporal de activación fue retirada: no existe
+// `src/99_ActivacionTemporal.js` ni ninguna función global pública ECICEP_*.
+// Los helpers privados útiles viven en 38_Release.js como `Operacion_*_`.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const url = new URL('../src/99_ActivacionTemporal.js', import.meta.url);
-const s = fs.readFileSync(url, 'utf8');
+const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const srcDir = path.join(raiz, 'src');
 
-assert.match(s, /function ECICEP_ACTIVAR_AHORA\(\)/, 'existe ECICEP_ACTIVAR_AHORA');
-assert.match(s, /60 \* 60000/, 'ventana técnica de 60 min');
-assert.match(s, /GOOGLE_FORMS_CONFIG\.ACTIVATION_WINDOW\.CLAVE/, 'usa la clave de ventana configurada');
-assert.match(s, /Operacion_ventanaActivacionAbierta_/, 'consulta si la ventana está abierta');
-assert.match(s, /WebApp_operadorConfigurado_/, 'exige operador');
-assert.match(s, /OPERADOR_NO_CONFIGURADO/, 'motivo operador');
-assert.match(s, /Form_formId_\(\)/, 'exige Form ID');
-assert.match(s, /FORM_ID_REQUIRED/, 'motivo Form ID');
-assert.match(s, /ECICEP_bootstrapFormProduccion_\(\)/, 'bootstrap del Form de producción');
-assert.match(s, /'FORM_BOOTSTRAP'/, 'etapa FORM_BOOTSTRAP');
-assert.match(s, /FORM_BOOTSTRAP_FAILED/, 'motivo genérico de bootstrap');
-assert.match(s, /ECICEP_crearFormViaApi_\(\)/, 'fallback a Forms API v1');
-assert.match(s, /https:\/\/forms\.googleapis\.com\/v1\/forms/, 'endpoint exacto de Forms API v1');
-assert.doesNotMatch(s, /ECICEP_configurarFormProduccion_|FORM_CONFIG|FORM_PRODUCTION_/, 'sin binding hardcodeado del Form');
-assert.ok(
-  s.indexOf('ECICEP_bootstrapFormProduccion_()') < s.indexOf('if (!Form_formId_())'),
-  'bootstrap del Form antes de verificar el ID'
-);
-assert.match(s, /ECICEP_asegurarBackupActivacion_\(\)/, 'autorrepara el trigger de respaldo');
-assert.match(s, /BACKUP_TRIGGER_REPAIR_FAILED/, 'motivo de reparación de respaldo');
-assert.match(s, /repairs:\s*\{[\s\S]*?backupTrigger[\s\S]*?formCreated[\s\S]*?formCreationMethod/, 'reporta reparaciones agregadas');
-assert.ok(
-  s.indexOf('ECICEP_asegurarBackupActivacion_()') < s.indexOf('Operacion_preflightRelease_()'),
-  'repara el respaldo antes del preflight'
-);
-assert.ok(
-  s.indexOf('ECICEP_bootstrapFormProduccion_()') < s.indexOf('Operacion_preflightRelease_()'),
-  'bootstrapea el Form antes del preflight'
-);
-assert.match(s, /Operacion_preflightBloqueosNoReparables_/, 'usa el filtro de blockers no reparables');
-assert.match(s, /Form_operativoInstalar_\(\{[\s\S]*?crearNuevo:\s*false[\s\S]*?adoptarExistente:\s*true[\s\S]*?\}\)/, 'instala/adopta solo el Form configurado');
-assert.doesNotMatch(
-  s,
-  /Form_migrarTrailerLegacy_/,
-  'la activación no ejecuta migración legacy'
-);
+// 1. El archivo temporal no existe.
+assert.equal(fs.existsSync(path.join(srcDir, '99_ActivacionTemporal.js')), false,
+  'src/99_ActivacionTemporal.js debe estar eliminado');
 
-assert.match(
-  s,
-  /DEFERRED_POST_ACTIVATION/,
-  'legacy queda diferido fuera del camino crítico'
-);
-assert.match(s, /Form_operativoDiagnosticar_\(\)/, 'diagnóstico');
-assert.match(s, /ECICEP_ACTIVATION_RESULT/, 'registra línea de resultado');
-assert.match(s, /'READY_FOR_DEPLOY'/, 'retorna READY_FOR_DEPLOY');
-assert.match(s, /POST_RELEASE_PREFLIGHT_BLOCKED/, 'post-preflight obligatorio');
-assert.ok(s.indexOf('Form_operativoDiagnosticar_') < s.lastIndexOf('Operacion_preflightRelease_'), 'post-preflight tras diagnóstico');
+// 2. Ningún archivo declara las funciones públicas temporales.
+const archivos = fs.readdirSync(srcDir).filter((f) => /\.(js|gs)$/.test(f));
+const prohibidas = ['ECICEP_ACTIVAR_AHORA', 'ECICEP_EJECUTAR_WORKER_AHORA'];
+for (const f of archivos) {
+  const s = fs.readFileSync(path.join(srcDir, f), 'utf8');
+  for (const p of prohibidas) {
+    assert.doesNotMatch(s, new RegExp('function\\s+' + p + '\\s*\\('), f + ' no debe declarar ' + p);
+  }
+}
 
-// Prohibiciones de alcance.
-assert.doesNotMatch(s, /clasp/i, 'sin clasp');
-assert.doesNotMatch(s, /doGet|doPost/, 'sin doGet/doPost');
-assert.doesNotMatch(s, /newDeployment|updateDeployment|\.deploy\s*\(/i, 'sin deploy');
-assert.doesNotMatch(s, /\bqr\b|QR/i, 'sin cambios de QR');
+// 3. Ninguna función global pública empieza con ECICEP_ (todas privadas `_`).
+for (const f of archivos) {
+  const s = fs.readFileSync(path.join(srcDir, f), 'utf8');
+  const m = s.match(/^function\s+(ECICEP_[A-Za-z0-9]+)\(/gm) || [];
+  const publicas = m.map((x) => x.replace(/^function\s+/, '').replace(/\($/, '')).filter((n) => !n.endsWith('_'));
+  assert.deepEqual(publicas, [], f + ' declara funciones públicas ECICEP_: ' + publicas.join(', '));
+}
 
-console.log('activacion_temporal_v260: PASS');
+// 4. Los helpers privados permanecen en 38_Release.js.
+const rel = fs.readFileSync(path.join(srcDir, '38_Release.js'), 'utf8');
+assert.match(rel, /function Operacion_asegurarBackupActivacion_\(\)/, 'helper de respaldo presente');
+assert.match(rel, /function Operacion_crearFormViaApi_\(\)/, 'helper Forms API presente');
+assert.match(rel, /function Operacion_bootstrapFormProduccion_\(\)/, 'helper bootstrap presente');
+
+// 5. La allowlist pública ya no declara public_temporary.
+const allow = JSON.parse(fs.readFileSync(path.join(raiz, 'tests/rpc_public_allowlist.json'), 'utf8'));
+assert.equal(allow.public_temporary, undefined, 'public_temporary debe eliminarse');
+
+console.log('activacion_temporal_v260: PASS (NO_TEMP_PUBLIC_RPC)');

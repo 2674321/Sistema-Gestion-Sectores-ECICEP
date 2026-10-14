@@ -260,6 +260,7 @@ function WebApp_operadorMapa_() {
   "api_estratRecalcularPaciente": api_estratRecalcularPaciente_,
   "api_ficha": api_ficha_,
   "api_fichaGuardarCambios": api_fichaGuardarCambios_,
+  "api_formWorkerEjecutarAhora": api_formWorkerEjecutarAhora_,
   "api_fuentesImpacto": api_fuentesImpacto_,
   "api_ingresoDetalle": api_ingresoDetalle_,
   "api_ingresoIncorporar": api_ingresoIncorporar_,

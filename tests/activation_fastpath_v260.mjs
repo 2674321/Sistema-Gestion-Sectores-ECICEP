@@ -1,13 +1,11 @@
+// v0.17.0 — El preflight de release conserva un resumen legacy LIGERO (nunca
+// reconciliación profunda). La antigua pasada headless (99_ActivacionTemporal)
+// fue retirada; la activación permanente es el asistente guiado en 38_Release.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const release = fs.readFileSync(
   new URL('../src/38_Release.js', import.meta.url),
-  'utf8'
-);
-
-const wrapper = fs.readFileSync(
-  new URL('../src/99_ActivacionTemporal.js', import.meta.url),
   'utf8'
 );
 
@@ -32,34 +30,16 @@ assert.match(
   'preflight reutiliza resumen legacy ligero'
 );
 
+// El asistente guiado de activación permanece y no publica superficie temporal.
+assert.match(
+  release,
+  /function UI_formCanalAsistenteActivacion_\(\)/,
+  'asistente de activación presente'
+);
 assert.doesNotMatch(
-  wrapper,
-  /Form_migrarTrailerLegacy_/,
-  'wrapper no migra legacy durante activación'
-);
-
-assert.match(
-  wrapper,
-  /Form_operativoInstalar_/,
-  'wrapper instala el canal'
-);
-
-assert.match(
-  wrapper,
-  /Form_operativoDiagnosticar_/,
-  'wrapper diagnostica después de instalar'
-);
-
-assert.match(
-  wrapper,
-  /READY_FOR_DEPLOY/,
-  'wrapper conserva gate READY_FOR_DEPLOY'
-);
-
-assert.match(
-  wrapper,
-  /DEFERRED_POST_ACTIVATION/,
-  'reconciliación legacy queda diferida'
+  release,
+  /function\s+ECICEP_ACTIVAR_AHORA\s*\(/,
+  'sin wrapper público temporal'
 );
 
 console.log('activation_fastpath_v260: PASS');
