@@ -127,7 +127,7 @@ export function crearHarness({ source, modoOperador = true }) {
   const accion = document.getElementById('accion');
   accion.tagName = 'SELECT';
   accion.value = 'NUEVO_INGRESO';
-  ['editorPaciente', 'secIdent', 'secTel', 'secAgenda', 'secObs', 'secProf', 'edCargar', 'edCampos', 'edEstado', 'edResumen', 'rut']
+  ['editorPaciente', 'secIdent', 'secTel', 'secAgenda', 'secObs', 'secProf', 'edCargar', 'edCargarTexto', 'edCampos', 'edEstado', 'edResumen', 'rut']
     .forEach(id => document.getElementById(id));
   // Atributos `hidden` del markup real (#editorPaciente y #edCampos nacen ocultos).
   document.getElementById('editorPaciente').hidden = true;

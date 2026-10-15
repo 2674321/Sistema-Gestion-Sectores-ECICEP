@@ -183,4 +183,64 @@ test('I: captura pública carga la ficha completa sin clave ni sesión', () => {
   assert.equal(h.editor.payload().id, 'P-SYNTH');
 });
 
+test('J: RUT incompleto se rechaza en cliente sin invocar la RPC', () => {
+  const h = montar();
+  h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
+  h.document.getElementById('rut').value = '1234';
+  h.document.getElementById('edCargar').click();
+  assert.equal(h.rpc.metodo, '', 'no debe consultar el backend con un RUT incompleto');
+  assert.match(h.document.getElementById('edEstado').textContent, /RUT completo/);
+  assert.equal(h.document.getElementById('rut').getAttribute('aria-invalid'), 'true');
+});
+
+test('K: ficha cargada bloquea el RUT y protege cambios antes de cambiar paciente', () => {
+  const h = montar();
+  h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
+  h.document.getElementById('rut').value = '11.111.111-1';
+  h.document.getElementById('edCargar').click();
+  h.resolverCarga(fichaSintetica());
+  assert.equal(h.document.getElementById('rut').disabled, true, 'el RUT cargado debe quedar bloqueado');
+  assert.equal(h.document.getElementById('edCargarTexto').textContent, 'Cambiar paciente');
+  h.document.getElementById('ed_NOMBRE').value = 'CAMBIO PENDIENTE';
+  h.document.getElementById('edCargar').click();
+  assert.equal(h.document.getElementById('edCampos').hidden, false, 'no debe descartar la ficha editada');
+  assert.match(h.document.getElementById('edEstado').textContent, /cambios pendientes/i);
+});
+
+test('L: cambiar paciente sin modificaciones limpia y desbloquea el RUT', () => {
+  const h = montar();
+  h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
+  h.document.getElementById('rut').value = '11.111.111-1';
+  h.document.getElementById('edCargar').click();
+  h.resolverCarga(fichaSintetica());
+  h.document.getElementById('edCargar').click();
+  assert.equal(h.document.getElementById('rut').disabled, false);
+  assert.equal(h.document.getElementById('edCampos').hidden, true);
+  assert.equal(h.editor.payload(), null);
+});
+
+test('M: buscador de patologías filtra sin alterar las selecciones', () => {
+  const h = montar();
+  h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
+  h.document.getElementById('rut').value = '11.111.111-1';
+  h.document.getElementById('edCargar').click();
+  const ficha = fichaSintetica();
+  ficha.condiciones = [
+    { codigo: 'COND1', nombre: 'Condición respiratoria' },
+    { codigo: 'DM2', nombre: 'Diabetes Mellitus' }
+  ];
+  h.resolverCarga(ficha);
+  const buscar = h.document.getElementById('ed_buscar_condiciones');
+  buscar.value = 'diabetes'; buscar.__fire('input');
+  const labels = h.document.getElementById('ed_CONDICIONES').querySelectorAll('label');
+  assert.equal(labels.filter(l => !l.hidden).length, 1, 'solo debe quedar visible la coincidencia');
+  assert.equal(h.editor.payload().campos.CONDICIONES, undefined, 'filtrar no cambia el payload clínico');
+  assert.match(h.document.getElementById('ed_contador_condiciones').textContent, /^1 seleccionada/);
+});
+
+test('N: el resumen antecede a los campos para funcionar como cabecera sticky', () => {
+  assert.ok(html.indexOf('id="edResumen"') < html.indexOf('id="edCampos"'),
+    'el resumen debe aparecer antes de la ficha extensa');
+});
+
 console.log('actualizar_datos_editor_regression_v0170: ' + ok + '/' + ok);
