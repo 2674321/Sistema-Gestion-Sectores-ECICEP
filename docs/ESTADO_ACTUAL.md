@@ -9,16 +9,16 @@
 |---|---|
 | Versión de producto | `v0.17.0` (`src/00_Config.js` → `ECICEP.VERSION`) |
 | Rama de trabajo | `hardening/v0.17.0-final` (baseline histórico `release/v0.17.0-rc1` / commit clínico v260) |
-| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@274`, build `175b5e3`); smoke público anónimo y carga read-only de ficha OK, E2E/health runtime y tag en ventana |
-| Deployment operativo | `@274` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
+| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@275`, build `8eef18f`); smoke público anónimo OK, E2E/health runtime y tag en ventana |
+| Deployment operativo | `@275` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
 | Arquitectura de captura | Web App (único canal operativo visible) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline `Captura_v2_enviar_` |
 | Esquema clínico | `SISTEMA_VERSION_SCHEMA_ACTUAL = 2` (no subir en este release) |
 | Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 4` |
 | Instalador | `SISTEMA_VERSION_INSTALADOR = 'INST-1'` |
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
-| Estado del canal | Publicado en `/exec` (@274, build `175b5e3`, HTTP 200, sin login Google); 4 acciones públicas, `Actualizar` carga la ficha completa sin clave (DEC-123), protege cambios pendientes y permite buscar patologías; `Funciones` no se muestra en la captura |
-| HEAD de trabajo | `383ffbf` (`hardening/v0.17.0-final`); sincronizado al proyecto Apps Script mediante `release --push`, sin nueva versión. `/exec` permanece en `@274`/`175b5e3` por el límite de 200 versiones; health runtime y tag pendientes de ventana |
+| Estado del canal | Publicado en `/exec` (@275, build `8eef18f`, HTTP 200, sin login Google); 4 acciones públicas, `Actualizar` carga la ficha completa sin clave (DEC-123), protege cambios pendientes y permite buscar patologías; la sección de profesionales se rotula `Profesionales`; `Funciones` no se muestra en la captura |
+| HEAD de trabajo | `8eef18f` (`hardening/v0.17.0-final` = `release/v0.17.0-rc1`); incluye el ajuste de rótulo `Profesionales`. Publicado a producción `@275` sobre el MISMO deployment. **`VERSION_COUNT=200`: límite alcanzado**, futuros deploys requieren liberar versiones; health runtime y tag pendientes de ventana |
 | Acceso operador | QR/Web App → cuatro acciones públicas sin clave; administración desde el Spreadsheet autorizado → OPSESS automática (DEC-119); admin externo conserva OPSESS |
 
 ## Contrato de captura vigente (v270)
@@ -101,13 +101,16 @@
 
 - Publicado sobre el **MISMO** deployment operativo (nunca uno nuevo):
   `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`.
-- `node tools/release.mjs --push` **OK** (dev `@HEAD` = `383ffbf`), con 170
-  suites / 0 fallos. No crea versión ni modifica `/exec`.
 - `node tools/release.mjs --publish` **OK** con preflight de capacidad
   (`warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=199 free=1`) →
-  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_VERSION_AFTER=274`, `VERSION_COUNT_AFTER=200`.
-  `/exec` HTTP 200 sirviendo build `175b5e3` con la ficha completa y el editor
-  funcional reforzado de `ACTUALIZAR_DATOS` (DEC-120/DEC-123).
+  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_VERSION_AFTER=275`, `VERSION_COUNT_AFTER=200`.
+  `/exec` HTTP 200 sirviendo build `8eef18f` con el rótulo `Profesionales`,
+  la ficha completa y el editor funcional de `ACTUALIZAR_DATOS` (DEC-120/DEC-123).
+- **`VERSION_COUNT=200` (límite alcanzado):** el siguiente `--publish` quedará
+  bloqueado con `APPS_SCRIPT_VERSION_LIMIT_REACHED` hasta liberar versiones
+  antiguas no referenciadas por deployments activos
+  (Apps Script → `Project history` → `Bulk delete versions`). Preservar `@HEAD`
+  y la versión `@275`.
 - Pendiente de ventana: E2E real sintético
   (`PRUEBA E2E V267 NO REAL`, RUT `11.111.111-1`), idempotencia, health
   `ACTIVE_HEALTHY` y tag `v0.17.0` (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
