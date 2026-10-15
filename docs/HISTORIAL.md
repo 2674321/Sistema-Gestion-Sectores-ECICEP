@@ -9,6 +9,18 @@
 
 ## 2026-10-15 — editor visual guiado para Actualizar
 
+- Revisión funcional posterior (build `175b5e3`): el selector de acción adopta
+  el control visual común; un RUT incompleto ya no invoca el backend; al cargar
+  una ficha el RUT queda bloqueado y “Cambiar paciente” impide perder cambios
+  pendientes. Sin cambios permite limpiar y consultar otra persona.
+- El resumen se movió antes de la ficha para permanecer visible durante la
+  edición. Patologías incorpora búsqueda sin acentos y contador de selecciones;
+  filtrar no modifica el payload clínico. La carga muestra estado ocupado y el
+  cambio visual cubre también campos originalmente ausentes.
+- Regresión ampliada de 9 a 14 casos; verificador completo: 170 suites / 0
+  fallos. Publicado en el mismo deployment `@274`; smoke anónimo read-only OK.
+  El proyecto alcanzó 200 versiones y requiere limpieza manual antes del próximo
+  deploy.
 - Se verificó en una sesión anónima limpia el `/exec` operativo: las cuatro
   acciones y el catálogo se cargan sin login, clave, OPSESS ni permisos de
   Spreadsheet. `ACTUALIZAR_DATOS` recuperó read-only la ficha sintética completa

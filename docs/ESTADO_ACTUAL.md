@@ -9,16 +9,16 @@
 |---|---|
 | Versión de producto | `v0.17.0` (`src/00_Config.js` → `ECICEP.VERSION`) |
 | Rama de trabajo | `hardening/v0.17.0-final` (baseline histórico `release/v0.17.0-rc1` / commit clínico v260) |
-| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@273`, build `0f8c0e2`); smoke público anónimo y carga read-only de ficha OK, E2E/health runtime y tag en ventana |
-| Deployment operativo | `@273` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
+| Etapa de release | `FINAL` — publicada sobre el deployment existente (`@274`, build `175b5e3`); smoke público anónimo y carga read-only de ficha OK, E2E/health runtime y tag en ventana |
+| Deployment operativo | `@274` — `/exec` `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw` (verificado con `clasp deployments`) |
 | Arquitectura de captura | Web App (único canal operativo visible) → Google Forms (transporte durable interno) → `Form_worker_` → pipeline `Captura_v2_enviar_` |
 | Esquema clínico | `SISTEMA_VERSION_SCHEMA_ACTUAL = 2` (no subir en este release) |
 | Esquema del Form | `GOOGLE_FORMS_CONFIG.SCHEMA_VERSION = 4` |
 | Instalador | `SISTEMA_VERSION_INSTALADOR = 'INST-1'` |
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
-| Estado del canal | Publicado en `/exec` (@273, build `0f8c0e2`, HTTP 200, sin login Google); 4 acciones públicas, `Actualizar` carga la ficha completa sin clave (DEC-123) y usa el editor visual guiado; `Funciones` no se muestra en la captura |
-| HEAD de trabajo | `0f8c0e2` (`hardening/v0.17.0-final`); incluye DEC-119/120/121/122/123/124 y la mejora visual del editor completo. Publicado a producción `@273` sobre el MISMO deployment; health runtime y tag pendientes de ventana |
+| Estado del canal | Publicado en `/exec` (@274, build `175b5e3`, HTTP 200, sin login Google); 4 acciones públicas, `Actualizar` carga la ficha completa sin clave (DEC-123), protege cambios pendientes y permite buscar patologías; `Funciones` no se muestra en la captura |
+| HEAD de trabajo | `175b5e3` (`hardening/v0.17.0-final`); incluye DEC-119/120/121/122/123/124 y las mejoras funcionales del editor completo. Publicado a producción `@274` sobre el MISMO deployment; health runtime y tag pendientes de ventana |
 | Acceso operador | QR/Web App → cuatro acciones públicas sin clave; administración desde el Spreadsheet autorizado → OPSESS automática (DEC-119); admin externo conserva OPSESS |
 
 ## Contrato de captura vigente (v270)
@@ -46,8 +46,10 @@
   (única fuente). `ACTUALIZAR_DATOS` carga y renderiza los 18 campos editables
   (`CAPTURA_EDICION_CAMPOS` ≡ editor), conserva campos vacíos, guarda solo
   diferencias y mantiene los controles de CONTROL/SEGUIMIENTO. Desde el build
-  `0f8c0e2`, el editor agrupa la ficha en tarjetas, guía el flujo en cuatro pasos,
-  destaca cambios y mantiene visible su resumen; no cambió el payload ni el RPC.
+  `175b5e3`, el editor agrupa la ficha en tarjetas, guía el flujo en cuatro pasos,
+  destaca cambios, mantiene visible su resumen, bloquea el RUT cargado para evitar
+  cruces de pacientes y protege ediciones pendientes antes de cambiar de ficha.
+  El buscador de patologías filtra solo la vista; no cambió el payload ni el RPC.
 
 ## Verificación
 
@@ -68,6 +70,9 @@
   el conteo sale de `clasp versions` (nunca `max(versionNumber)`).
   `tests/release_version_capacity_v0170.mjs` cubre 199/200/201+ y que en el
   límite no se invoca `clasp deploy`.
+- Estado actual: `VERSION_COUNT=200`. Toda publicación posterior queda bloqueada
+  hasta eliminar manualmente versiones antiguas no dependientes desde Project
+  History; no crear otro proyecto ni deployment como atajo.
 
 ## Deuda legacy no bloqueante
 
@@ -79,10 +84,11 @@
 
 ## Último E2E
 
-- `v270` + mejora visual `0f8c0e2`: 170 suites / 0 fallos y smoke interactivo
-  anónimo sobre `/exec` @273. Se verificaron las cuatro opciones, catálogo de
+- `v270` + mejora funcional `175b5e3`: 170 suites / 0 fallos y smoke interactivo
+  anónimo sobre `/exec` @274. Se verificaron las cuatro opciones, catálogo de
   profesionales y carga read-only de la ficha sintética completa (18 campos +
-  CONTROL/SEGUIMIENTO), sin clave, login ni OPSESS y sin enviar cambios. El
+  CONTROL/SEGUIMIENTO), bloqueo del RUT cargado, resumen y búsqueda de patologías,
+  sin clave, login ni OPSESS y sin enviar cambios. El
   E2E real de una entrega, la idempotencia y el health `ACTIVE_HEALTHY` quedan
   **pendientes** de la ventana de activación
   (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
@@ -91,12 +97,12 @@
 
 - Publicado sobre el **MISMO** deployment operativo (nunca uno nuevo):
   `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`.
-- `node tools/release.mjs --push` **OK** (dev `@HEAD` = `0f8c0e2`).
+- `node tools/release.mjs --push` **OK** (dev `@HEAD` = `175b5e3`).
 - `node tools/release.mjs --publish` **OK** con preflight de capacidad
-  (`warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=198 free=2`) →
-  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_VERSION_AFTER=273`, `VERSION_COUNT_AFTER=199`.
-  `/exec` HTTP 200 sirviendo build `0f8c0e2` con la ficha completa y el editor
-  visual guiado de `ACTUALIZAR_DATOS` (DEC-120/DEC-123).
+  (`warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=199 free=1`) →
+  `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_VERSION_AFTER=274`, `VERSION_COUNT_AFTER=200`.
+  `/exec` HTTP 200 sirviendo build `175b5e3` con la ficha completa y el editor
+  funcional reforzado de `ACTUALIZAR_DATOS` (DEC-120/DEC-123).
 - Pendiente de ventana: E2E real sintético
   (`PRUEBA E2E V267 NO REAL`, RUT `11.111.111-1`), idempotencia, health
   `ACTIVE_HEALTHY` y tag `v0.17.0` (`docs/RUNBOOK_RELEASE.md`, pasos 6–9).
