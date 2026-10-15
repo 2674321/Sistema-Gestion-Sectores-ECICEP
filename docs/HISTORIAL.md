@@ -7,6 +7,22 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-10-15 — editor visual guiado para Actualizar
+
+- Se verificó en una sesión anónima limpia el `/exec` operativo: las cuatro
+  acciones y el catálogo se cargan sin login, clave, OPSESS ni permisos de
+  Spreadsheet. `ACTUALIZAR_DATOS` recuperó read-only la ficha sintética completa
+  de 18 campos y CONTROL/SEGUIMIENTO; no se realizó ningún envío clínico.
+- El editor de actualización ahora presenta una cabecera específica, cuatro
+  pasos, estados de consulta, secciones en tarjetas, controles de atención
+  separados, patologías en una grilla responsive, resaltado de campos cambiados
+  y un resumen persistente antes del envío.
+- Se retiró de esa vista la sección genérica duplicada de identificación. El
+  contrato funcional permanece intacto: mismo RPC público, mismo payload
+  diferencial y misma captura sin clave. Verificación: 170 suites / 0 fallos.
+- Publicado como build `0f8c0e2` en el mismo deployment operativo `@273`; URL
+  pública sin cambios. Smoke visual desktop/móvil y carga pública read-only OK.
+
 ## 2026-10-14 — actualización completa pública sin clave (DEC-123)
 
 - Por instrucción explícita del usuario, `ACTUALIZAR_DATOS` vuelve a cargar por
