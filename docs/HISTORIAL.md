@@ -9,6 +9,14 @@
 
 ## 2026-10-15 — editor visual guiado para Actualizar
 
+- Claridad operativa posterior (`383ffbf`): el título y el botón principal
+  cambian según Ingreso, Control, Seguimiento o Actualización; la sección
+  profesional deja de presentarse como exclusiva del ingreso. La búsqueda de
+  patologías usa plural correcto e informa explícitamente cuando no encuentra
+  coincidencias. Regresión del editor ampliada a 15 casos.
+- Verificador completo: 170 suites / 0 fallos. Sincronizado al proyecto Apps
+  Script en `@HEAD` mediante `release --push`; `/exec` continúa en `@274` /
+  `175b5e3` porque `VERSION_COUNT=200` impide crear una nueva versión.
 - Revisión funcional posterior (build `175b5e3`): el selector de acción adopta
   el control visual común; un RUT incompleto ya no invoca el backend; al cargar
   una ficha el RUT queda bloqueado y “Cambiar paciente” impide perder cambios

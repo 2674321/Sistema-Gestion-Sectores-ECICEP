@@ -3,7 +3,7 @@
 > Documento **breve y autoritativo** del estado vigente. Si algo aquí contradice a
 > un informe histórico o a una sección antigua de `README.md`, manda este archivo
 > (y `AGENTS.md`, `ARQUITECTURA.md` y `docs/CONTRATO_CAPTURA_V2.md`).
-> Última actualización: **2026-10-15** (mejora visual de captura).
+> Última actualización: **2026-10-15** (claridad operativa del formulario).
 
 | Campo | Valor vigente |
 |---|---|
@@ -18,7 +18,7 @@
 | Triggers | Worker durable cada 5 min (`WORKER.CADENCIA_MIN`) + señal `onFormSubmit` (telemetría) |
 | Backup | `Backup_crear_/Backup_programado_` con `BACKUP_AUTO_ULTIMA` en CONFIG; backup reciente obligatorio antes de publicar |
 | Estado del canal | Publicado en `/exec` (@274, build `175b5e3`, HTTP 200, sin login Google); 4 acciones públicas, `Actualizar` carga la ficha completa sin clave (DEC-123), protege cambios pendientes y permite buscar patologías; `Funciones` no se muestra en la captura |
-| HEAD de trabajo | `175b5e3` (`hardening/v0.17.0-final`); incluye DEC-119/120/121/122/123/124 y las mejoras funcionales del editor completo. Publicado a producción `@274` sobre el MISMO deployment; health runtime y tag pendientes de ventana |
+| HEAD de trabajo | `383ffbf` (`hardening/v0.17.0-final`); sincronizado al proyecto Apps Script mediante `release --push`, sin nueva versión. `/exec` permanece en `@274`/`175b5e3` por el límite de 200 versiones; health runtime y tag pendientes de ventana |
 | Acceso operador | QR/Web App → cuatro acciones públicas sin clave; administración desde el Spreadsheet autorizado → OPSESS automática (DEC-119); admin externo conserva OPSESS |
 
 ## Contrato de captura vigente (v270)
@@ -50,6 +50,10 @@
   destaca cambios, mantiene visible su resumen, bloquea el RUT cargado para evitar
   cruces de pacientes y protege ediciones pendientes antes de cambiar de ficha.
   El buscador de patologías filtra solo la vista; no cambió el payload ni el RPC.
+  En `@HEAD` (`383ffbf`), el título y el botón final describen la acción elegida,
+  el bloque profesional usa un rótulo transversal y la búsqueda informa cuando
+  no hay coincidencias. Estos ajustes aún no están en `/exec` por el límite de
+  versiones.
 
 ## Verificación
 
@@ -97,7 +101,8 @@
 
 - Publicado sobre el **MISMO** deployment operativo (nunca uno nuevo):
   `DEPLOYMENT_ID_UNCHANGED=YES`, `PUBLIC_URL_UNCHANGED=YES`.
-- `node tools/release.mjs --push` **OK** (dev `@HEAD` = `175b5e3`).
+- `node tools/release.mjs --push` **OK** (dev `@HEAD` = `383ffbf`), con 170
+  suites / 0 fallos. No crea versión ni modifica `/exec`.
 - `node tools/release.mjs --publish` **OK** con preflight de capacidad
   (`warn APPS_SCRIPT_VERSION_LIMIT_NEAR VERSION_COUNT=199 free=1`) →
   `RELEASE_PUBLISH_PASS`. `DEPLOYMENT_VERSION_AFTER=274`, `VERSION_COUNT_AFTER=200`.
