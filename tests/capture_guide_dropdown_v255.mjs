@@ -51,6 +51,18 @@ t('E24: la descripción de acción se actualiza dinámicamente', () => {
   A(html.includes('$("accion").addEventListener("change"'), 'el dropdown debe escuchar change');
 });
 
+t('E24: título y botón final describen la acción seleccionada', () => {
+  A(html.includes('id="capturaTitulo"'), 'debe existir un título dinámico de captura');
+  A(html.includes('id="btnEnviarTexto"'), 'el botón debe separar su etiqueta del spinner');
+  A(html.includes('ACTUALIZAR_DATOS:"Guardar actualización"'), 'Actualizar debe usar una etiqueta inequívoca');
+  A(html.includes('ACTUALIZAR_DATOS:"Actualizar ficha"'), 'el título debe explicar que se edita la ficha');
+});
+
+t('E24: la sección profesional no se presenta como exclusiva de ingresos', () => {
+  A(html.includes('Profesionales que registran'), 'la sección profesional debe usar un rótulo transversal');
+  A(!html.includes('titulo:"6 · Equipo de ingreso"'), 'la guía no debe conservar el rótulo exclusivo de ingreso');
+});
+
 console.log('\n─── Estados de recepción (E06/E07) ───');
 
 t('E07: WebApp_verificarRecepcion se invoca desde el cliente', () => {

@@ -238,7 +238,22 @@ test('M: buscador de patologías filtra sin alterar las selecciones', () => {
   assert.match(h.document.getElementById('ed_contador_condiciones').textContent, /^1 seleccionada/);
 });
 
-test('N: el resumen antecede a los campos para funcionar como cabecera sticky', () => {
+test('N: buscador de patologías informa cuando no existen coincidencias', () => {
+  const h = montar();
+  h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
+  h.document.getElementById('rut').value = '11.111.111-1';
+  h.document.getElementById('edCargar').click();
+  h.resolverCarga(fichaSintetica());
+  const buscar = h.document.getElementById('ed_buscar_condiciones');
+  buscar.value = 'patología inexistente'; buscar.__fire('input');
+  assert.match(h.document.getElementById('ed_pat_vacio').className, /\bshow\b/,
+    'debe mostrar un estado vacío explícito');
+  buscar.value = ''; buscar.__fire('input');
+  assert.doesNotMatch(h.document.getElementById('ed_pat_vacio').className, /\bshow\b/,
+    'al limpiar la búsqueda debe ocultar el estado vacío');
+});
+
+test('O: el resumen antecede a los campos para funcionar como cabecera sticky', () => {
   assert.ok(html.indexOf('id="edResumen"') < html.indexOf('id="edCampos"'),
     'el resumen debe aparecer antes de la ficha extensa');
 });
