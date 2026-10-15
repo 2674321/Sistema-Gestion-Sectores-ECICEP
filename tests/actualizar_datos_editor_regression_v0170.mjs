@@ -171,7 +171,7 @@ test('I: captura pública carga la ficha completa sin clave ni sesión', () => {
   h.setAccion('ACTUALIZAR_DATOS'); h.fireAllTimers();
   assert.equal(h.document.getElementById('editorPaciente').hidden, false,
     'el editor completo debe estar visible en captura pública');
-  for (const id of ['secTel', 'secAgenda', 'secObs']) {
+  for (const id of ['secIdent', 'secTel', 'secAgenda', 'secObs']) {
     assert.equal(h.document.getElementById(id).style.display, 'none', id + ' se reemplaza por el editor completo');
   }
   h.document.getElementById('rut').value = '11.111.111-1';
