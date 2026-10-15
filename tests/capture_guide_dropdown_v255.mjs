@@ -59,7 +59,9 @@ t('E24: título y botón final describen la acción seleccionada', () => {
 });
 
 t('E24: la sección profesional no se presenta como exclusiva de ingresos', () => {
-  A(html.includes('Profesionales que registran'), 'la sección profesional debe usar un rótulo transversal');
+  A(html.includes('aria-label="Profesionales"'), 'la sección profesional debe rotularse "Profesionales"');
+  A(html.includes('titulo:"6 · Profesionales"'), 'la guía debe usar el rótulo transversal "Profesionales"');
+  A(!html.includes('Profesionales que registran'), 'no debe conservarse el rótulo anterior');
   A(!html.includes('titulo:"6 · Equipo de ingreso"'), 'la guía no debe conservar el rótulo exclusivo de ingreso');
 });
 
