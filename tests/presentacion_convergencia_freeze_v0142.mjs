@@ -11,8 +11,8 @@ for (const f of readdirSync(root).filter(x => /\.(js|gs)$/.test(x)).sort())
   vm.runInContext(readFileSync(new URL(f, root), 'utf8'), c, { filename: f });
 let n = 0;
 const ok = m => { n++; console.log('[PASS] ' + m); };
-const realPendientes = c.HVis_pendientesVisual;
-const realSecciones = c.HVis_aplicarSecciones;
+const realPendientes = c.HVis_pendientesVisual_;
+const realSecciones = c.HVis_aplicarSecciones_;
 
 // Hoja simulada con freeze mutable y contadores de escritura.
 function hojaFreeze(nombre, rows, cols, congelarEscritura) {
@@ -36,15 +36,15 @@ function pendientesDesdeFreeze(st) {
   return p;
 }
 function conFreeze(st) {
-  c.HVis_pendientesVisual = () => ({ pendientes: pendientesDesdeFreeze(st) });
-  c.HVis_aplicarSecciones = () => ({ estado: 'OK', secciones: 0 });
+  c.HVis_pendientesVisual_ = () => ({ pendientes: pendientesDesdeFreeze(st) });
+  c.HVis_aplicarSecciones_ = () => ({ estado: 'OK', secciones: 0 });
 }
 
 // T1: solo FREEZE_ROWS converge y corrige.
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 0, 0);
   conFreeze(st);
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.deepEqual(st.sets, [['rows', 3]], 'un solo setter al valor contractual');
   assert.ok((r.freezeReparado || []).includes('FREEZE_ROWS'));
@@ -55,7 +55,7 @@ function conFreeze(st) {
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 3, 2);
   conFreeze(st);
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.deepEqual(st.sets, [['cols', 0]], 'respeta el contrato (0, sin merges en riesgo)');
   ok('T2 solo FREEZE_COLUMNS → corrige a 0 y converge');
@@ -65,7 +65,7 @@ function conFreeze(st) {
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 3, 0);
   conFreeze(st);
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true);
   assert.equal(st.sets.length, 0, 'fast-path: valor correcto → 0 setters');
   ok('T3 hoja correcta → ok con 0 setters visuales');
@@ -75,10 +75,10 @@ function conFreeze(st) {
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 0, 0);
   conFreeze(st);
-  const r1 = c.HVis_reconciliarHoja(hoja);
+  const r1 = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r1.ok, true, 'primera repara');
   const antes = st.sets.length;
-  const r2 = c.HVis_reconciliarHoja(hoja);
+  const r2 = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r2.ok, true, 'segunda ya está convergida');
   assert.equal(st.sets.length, antes, 'retry sin drift = sin escrituras');
   ok('T4 retry: primera repara, segunda pasa en limpio (sin loop)');
@@ -88,7 +88,7 @@ function conFreeze(st) {
 for (const hojaNombre of ['INGRESO_AMARILLO', 'INGRESO_VERDE']) {
   const { hoja, st } = hojaFreeze(hojaNombre, 1, 0);
   conFreeze(st);
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true, hojaNombre + ': ' + JSON.stringify(r));
 }
 ok('T5 INGRESO_AMARILLO e INGRESO_VERDE convergen ante drift de freeze');
@@ -97,7 +97,7 @@ ok('T5 INGRESO_AMARILLO e INGRESO_VERDE convergen ante drift de freeze');
 for (const hojaNombre of ['SECTOR_NARANJO', 'SECTOR_AMARILLO', 'SECTOR_VERDE']) {
   const { hoja, st } = hojaFreeze(hojaNombre, 3, 1);
   conFreeze(st);
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true, hojaNombre + ': ' + JSON.stringify(r));
 }
 ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
@@ -106,7 +106,7 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 0, 0, true);
   conFreeze(st);
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, false);
   assert.equal(r.codigo, 'PRESENTACION_SIN_CONVERGENCIA');
   assert.ok(/no modificó el drift/.test(r.motivo), r.motivo);
@@ -128,9 +128,9 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 3, 0);
   let reparado = false;
-  c.HVis_pendientesVisual = () => ({ pendientes: reparado ? [] : ['encabezados fondo≠#000000'] });
-  c.HVis_aplicarSecciones = () => { reparado = true; return { ok: true, estado: 'OK → OK', secciones: 4 }; };
-  const r = c.HVis_reconciliarHoja(hoja);
+  c.HVis_pendientesVisual_ = () => ({ pendientes: reparado ? [] : ['encabezados fondo≠#000000'] });
+  c.HVis_aplicarSecciones_ = () => { reparado = true; return { ok: true, estado: 'OK → OK', secciones: 4 }; };
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true, 'reparación real exitosa no se reporta como fallo: ' + JSON.stringify(r));
   ok('T9 estado compuesto OK → OK con ok:true converge (sin falso fallo)');
 }
@@ -140,13 +140,13 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
 {
   const { hoja, st } = hojaFreeze('INGRESO_NARANJO', 3, 0);
   let reparado = false, forzarVisto = null;
-  c.HVis_pendientesVisual = () => ({ pendientes: reparado ? [] : ['fila secciones altura=20'] });
-  c.HVis_aplicarSecciones = (h, opciones) => {
+  c.HVis_pendientesVisual_ = () => ({ pendientes: reparado ? [] : ['fila secciones altura=20'] });
+  c.HVis_aplicarSecciones_ = (h, opciones) => {
     forzarVisto = !!(opciones && opciones.forzar);
     reparado = true;
     return { ok: true, estado: 'REPARADO → OK', secciones: 4 };
   };
-  const r = c.HVis_reconciliarHoja(hoja);
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(forzarVisto, true, 'reparación forzada ante drift diagnosticado');
   assert.equal(r.ok, true, JSON.stringify(r));
   ok('T10 drift real fuerza reparación completa de la hoja (sin perdón fast-path)');
@@ -168,17 +168,17 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
     getFrozenRows: () => 3, getFrozenColumns: () => 0,
     setFrozenRows: () => {}, setFrozenColumns: () => {}
   };
-  const realMapa = c.HVis_mapaColumnas, realPlan = c.HVis_calcularPlan;
-  c.HVis_mapaColumnas = () => ({});
-  c.HVis_calcularPlan = () => ({ seccionesRow: 2, secciones: [] });
-  c.HVis_pendientesVisual = () => ({ pendientes:
+  const realMapa = c.HVis_mapaColumnas_, realPlan = c.HVis_calcularPlan_;
+  c.HVis_mapaColumnas_ = () => ({});
+  c.HVis_calcularPlan_ = () => ({ seccionesRow: 2, secciones: [] });
+  c.HVis_pendientesVisual_ = () => ({ pendientes:
     alturas[2] !== ALT.seccion ? ['fila secciones altura=' + alturas[2]] : [] });
-  c.HVis_aplicarSecciones = () => ({ ok: true, estado: 'OK', secciones: 0 });
-  const r = c.HVis_reconciliarHoja(hoja);
+  c.HVis_aplicarSecciones_ = () => ({ ok: true, estado: 'OK', secciones: 0 });
+  const r = c.HVis_reconciliarHoja_(hoja);
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.ok(sets.some(s => s[0] === 2 && s[1] === ALT.seccion), 'altura de secciones forzada al contrato');
   assert.ok((r.alturasForzadas || []).includes('secciones'));
-  c.HVis_mapaColumnas = realMapa; c.HVis_calcularPlan = realPlan;
+  c.HVis_mapaColumnas_ = realMapa; c.HVis_calcularPlan_ = realPlan;
   ok('T11 altura no reparada por el reparador → forzada por el reconciliador y converge');
 }
 
@@ -192,20 +192,20 @@ ok('T6 SECTOR_NARANJO/AMARILLO/VERDE convergen ante drift de freeze');
     getFrozenRows: () => 3, getFrozenColumns: () => 0,
     setFrozenRows: () => {}, setFrozenColumns: () => {}
   };
-  const realMapa = c.HVis_mapaColumnas, realPlan = c.HVis_calcularPlan;
-  c.HVis_mapaColumnas = () => ({});
-  c.HVis_calcularPlan = () => null;
-  c.HVis_pendientesVisual = () => ({ pendientes: ['fila secciones altura=20'] });
-  c.HVis_aplicarSecciones = () => ({ ok: true, estado: 'OK', secciones: 0 });
-  const r = c.HVis_reconciliarHoja(hoja);
-  c.HVis_mapaColumnas = realMapa; c.HVis_calcularPlan = realPlan;
+  const realMapa = c.HVis_mapaColumnas_, realPlan = c.HVis_calcularPlan_;
+  c.HVis_mapaColumnas_ = () => ({});
+  c.HVis_calcularPlan_ = () => null;
+  c.HVis_pendientesVisual_ = () => ({ pendientes: ['fila secciones altura=20'] });
+  c.HVis_aplicarSecciones_ = () => ({ ok: true, estado: 'OK', secciones: 0 });
+  const r = c.HVis_reconciliarHoja_(hoja);
+  c.HVis_mapaColumnas_ = realMapa; c.HVis_calcularPlan_ = realPlan;
   assert.equal(r.ok, false);
   assert.ok(r.motivo.includes('plan de secciones no resoluble'), r.motivo);
   ok('T12 plan no resoluble → causa explícita de intervención');
 }
 
-c.HVis_pendientesVisual = realPendientes;
-c.HVis_aplicarSecciones = realSecciones;
+c.HVis_pendientesVisual_ = realPendientes;
+c.HVis_aplicarSecciones_ = realSecciones;
 
 console.log('Presentación convergencia freeze v0.14 — %d/%d PASS', n, 12);
 if (n !== 12) process.exit(1);

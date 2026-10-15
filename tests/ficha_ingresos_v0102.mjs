@@ -3,11 +3,11 @@
 // Bloquea el propósito funcional de la tercera pasada:
 //   A  INGRESO_* → PACIENTES → EVENTOS → vistas SECTOR_* (promoción por el
 //      pipeline único; NUNCA se escribe SECTOR_* directo).
-//   B  api_ingresoIncorporar idempotente (2º clic sin duplicar nada).
-//   C  Ficha unificada (api_ficha) sobre el modelo + pendiente por RUT.
-//   D  Guardado optimista (api_fichaGuardarCambios): campo → actualizarCampos_,
+//   B  api_ingresoIncorporar_ idempotente (2º clic sin duplicar nada).
+//   C  Ficha unificada (api_ficha_) sobre el modelo + pendiente por RUT.
+//   D  Guardado optimista (api_fichaGuardarCambios_): campo → actualizarCampos_,
 //      SECTOR → CAMBIO_SECTOR, conflicto → FICHA_CAMBIO, enum → CAMPO_INVALIDO.
-//   E  api_registrarEvento delega al dominio (escribe evento + sincroniza últimos).
+//   E  api_registrarEvento_ delega al dominio (escribe evento + sincroniza últimos).
 //   F  Guards de token en los endpoints nuevos.
 // Only synthetic data; no hojas, red ni dependencias externas reales.
 import assert from 'node:assert/strict';
@@ -67,10 +67,10 @@ function libro(opciones) {
   }
   ctx.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
   ctx.Utilities = { getUuid: () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', formatDate: () => '' };
-  ctx.WebApp_autorizarBuscador = (t) => t === 'tok';
+  ctx.WebApp_autorizarBuscador_ = (t) => t === 'tok';
   // El formato visual de las hojas ya está normalizado en estos libros sintéticos
-  ctx.HVis_formatearIngresos = () => ({ ok: true, migrado: false });
-  ctx.Log_info = () => {}; ctx.Log_error = () => {}; ctx.Log_warning = () => {}; ctx.Log_flush = () => {};
+  ctx.HVis_formatearIngresos_ = () => ({ ok: true, migrado: false });
+  ctx.Log_info_ = () => {}; ctx.Log_error_ = () => {}; ctx.Log_warning_ = () => {}; ctx.Log_flush_ = () => {};
   ctx.SpreadsheetApp = {
     getActiveSpreadsheet: () => ({ getSheetByName: () => null, getSheets: () => [] }),
     openById: () => null,
@@ -120,7 +120,7 @@ function libro(opciones) {
   const cfgF = hojaFake([['CLAVE', 'VALOR', 'DESCRIPCION']]);
   ctx.hojas['CONFIG'] = cfgF;
 
-  ctx.Modelo_ss = () => ({ getSheetByName: (n) => ctx.hojas[n] || null });
+  ctx.Modelo_ss_ = () => ({ getSheetByName: (n) => ctx.hojas[n] || null });
 
   if (opciones && opciones.paciente) {
     const p = opciones.paciente;
@@ -141,24 +141,24 @@ function filaIngresoNaranjo() {
     '2026-01-15', 'G2', '', 'observación de ingreso', '', '', 'NO'];
 }
 
-test('A: api_ingresoIncorporar promueve INGRESO_* → PACIENTES → EVENTOS → SECTOR_*', () => {
+test('A: api_ingresoIncorporar_ promueve INGRESO_* → PACIENTES → EVENTOS → SECTOR_*', () => {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoNaranjo(); // fila física 4
 
-  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  const r = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.resumen.nuevos, 1);
   assert.equal(r.resumen.eventosCreados, 1);
   assert.equal(r.resultado.estado, 'INGRESADO');
 
-  const pacientes = c.Modelo_leerPacientes();
+  const pacientes = c.Modelo_leerPacientes_();
   assert.equal(pacientes.length, 1);
   assert.equal(pacientes[0].RUT, '12345678-5');
   assert.equal(pacientes[0].SECTOR, 'NARANJO');
   assert.equal(pacientes[0].FECHA_INGRESO, '2026-01-15');
   assert.equal(pacientes[0].SALUD_MENTAL, 'NO');
 
-  const eventos = c.Modelo_leerEventos();
+  const eventos = c.Modelo_leerEventos_();
   assert.equal(eventos.length, 1);
   assert.equal(eventos[0].TIPO_EVENTO, 'INGRESO');
   assert.equal(eventos[0].ID_INTERNO, pacientes[0].ID_INTERNO);
@@ -177,17 +177,17 @@ test('A: api_ingresoIncorporar promueve INGRESO_* → PACIENTES → EVENTOS → 
   assert.equal(vista[3][10], '2026-01-15'); // FECHA_INGRESO
 });
 
-test('A: api_ingresoIncorporar es idempotente — el 2º clic no duplica', () => {
+test('A: api_ingresoIncorporar_ es idempotente — el 2º clic no duplica', () => {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoNaranjo();
-  const r1 = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  const r1 = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   assert.equal(r1.resumen.nuevos, 1);
 
-  const r2 = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  const r2 = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   assert.equal(r2.ok, true);
   assert.equal(r2.resultado, null); // sin pendiente
-  assert.equal(c.Modelo_leerPacientes().length, 1);
-  assert.equal(c.Modelo_leerEventos().length, 1);
+  assert.equal(c.Modelo_leerPacientes_().length, 1);
+  assert.equal(c.Modelo_leerEventos_().length, 1);
 });
 
 test('A: no se escribe jamás SECTOR_* directo — solo se regenera desde el modelo', () => {
@@ -196,7 +196,7 @@ test('A: no se escribe jamás SECTOR_* directo — solo se regenera desde el mod
   const vista = c.hojas['SECTOR_NARANJO'].val;
   vista[3] = ['EC-VIEJO-01', '99999999-9', 'PACIENTE VIEJO', 'M', '1970-01-01', '', '', '', '', '2025-01-01', ...new Array(7).fill('')];
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoNaranjo();
-  c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
 
   const vistaf = c.hojas['SECTOR_NARANJO'].val;
   // La vista ya no contiene el valor obsoleto: se reescribió desde PACIENTES
@@ -207,27 +207,27 @@ test('A: no se escribe jamás SECTOR_* directo — solo se regenera desde el mod
 // ---------------------------------------------------------------------------
 // B — pendientes: listado / detalle / búsqueda por RUT (contrato de ficha 2.0)
 // ---------------------------------------------------------------------------
-test('B: api_ingresosPendientes devuelve filas + total + paginación', () => {
+test('B: api_ingresosPendientes_ devuelve filas + total + paginación', () => {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoNaranjo();
   c.hojas['INGRESO_NARANJO'].val[4] = ['PEDRO GOMEZ', '98765432-5', 'M', '1975-02-20', '900000001', '2026-02-10', 'G3', '', '', '', '', 'SI'];
 
-  const r = c.api_ingresosPendientes({ sector: 'NARANJO' }, 'tok');
+  const r = c.api_ingresosPendientes_({ sector: 'NARANJO' }, 'tok');
   assert.equal(r.ok, true);
   assert.equal(r.total, 2);
   assert.equal(r.filas.length, 2);
   assert.equal(r.filas[0].nombre, 'ANA PEREZ');
   assert.equal(r.filas[1].nombre, 'PEDRO GOMEZ');
 
-  const pag = c.api_ingresosPendientes({ inicio: 1, limite: 1 }, 'tok').filas;
+  const pag = c.api_ingresosPendientes_({ inicio: 1, limite: 1 }, 'tok').filas;
   assert.equal(pag.length, 1);
   assert.equal(pag[0].nombre, 'PEDRO GOMEZ');
 });
 
-test('B: api_ingresoDetalle entrega la pre-ficha de la fila pedida', () => {
+test('B: api_ingresoDetalle_ entrega la pre-ficha de la fila pedida', () => {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoNaranjo();
-  const d = c.api_ingresoDetalle('INGRESO_NARANJO', 4, 'tok');
+  const d = c.api_ingresoDetalle_('INGRESO_NARANJO', 4, 'tok');
   assert.equal(d.ok, true);
   assert.equal(d.preFicha.nombre, 'ANA PEREZ');
   assert.equal(d.preFicha.sector, 'NARANJO');
@@ -240,14 +240,14 @@ test('B: la ficha reporta el ingreso pendiente por RUT antes de incorporarlo', (
   c.hojas['INGRESO_NARANJO'].val[4] = ['PEDRO GOMEZ', '98765432-5', 'M', '1975-02-20', '900000001', '2026-02-10', 'G3', '', '', '', '', 'SI'];
 
   // Incorporar solo a PEDRO (fila 5); ANA (fila 4) queda pendiente
-  c.api_ingresoIncorporar('INGRESO_NARANJO', 5, false, 'tok');
-  assert.equal(c.Ingresos_buscarPendientesPorRut('12345678-5').length, 1);
-  assert.equal(c.Ingresos_buscarPendientesPorRut('98765432-5').length, 0);
+  c.api_ingresoIncorporar_('INGRESO_NARANJO', 5, false, 'tok');
+  assert.equal(c.Ingresos_buscarPendientesPorRut_('12345678-5').length, 1);
+  assert.equal(c.Ingresos_buscarPendientesPorRut_('98765432-5').length, 0);
 
   // Incorporar ANA y confirmar que su ficha ya no reporta pendiente
-  c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
-  const idAna = c.Modelo_leerPacientes().filter((p) => p.RUT === '12345678-5')[0].ID_INTERNO;
-  const fichaA = c.api_ficha(idAna, 'tok');
+  c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
+  const idAna = c.Modelo_leerPacientes_().filter((p) => p.RUT === '12345678-5')[0].ID_INTERNO;
+  const fichaA = c.api_ficha_(idAna, 'tok');
   assert.equal(fichaA.ok, true);
   assert.equal(fichaA.ficha.meta.tieneIngresoPendiente, false);
   assert.equal(typeof fichaA.ficha.meta.ingresoPendiente, 'object');
@@ -260,38 +260,38 @@ test('B: la ficha reporta el ingreso pendiente por RUT antes de incorporarlo', (
 function libroConPaciente() {
   const c = libro();
   c.hojas['INGRESO_NARANJO'].val[3] = filaIngresoNaranjo();
-  const r = c.api_ingresoIncorporar('INGRESO_NARANJO', 4, false, 'tok');
+  const r = c.api_ingresoIncorporar_('INGRESO_NARANJO', 4, false, 'tok');
   assert.equal(r.ok, true);
   return c;
 }
 
 test('C: actualizarCampos_ reescribe el paciente y refresca el sector', () => {
   const c = libroConPaciente();
-  const id = c.Modelo_leerPacientes()[0].ID_INTERNO;
-  const r = c.api_fichaGuardarCambios(id, {
+  const id = c.Modelo_leerPacientes_()[0].ID_INTERNO;
+  const r = c.api_fichaGuardarCambios_(id, {
     TELEFONOS: { anterior: '900000000', valor: '911111111' }
   }, 'tok');
   assert.equal(r.ok, true);
   assert.equal(r.cambiosAplicados.indexOf('TELEFONOS') !== -1, true);
-  const p = c.Modelo_leerPacientes()[0];
+  const p = c.Modelo_leerPacientes_()[0];
   assert.equal(p.TELEFONOS, '911111111');
   assert.equal(c.hojas['SECTOR_NARANJO'].val[3][6], '911111111');
 });
 
 test('C: SECTOR se descompone hacia CAMBIO_SECTOR (evento escrito, vistas movidas)', () => {
   const c = libroConPaciente();
-  const id = c.Modelo_leerPacientes()[0].ID_INTERNO;
-  const evAntes = c.Modelo_leerEventos().length;
+  const id = c.Modelo_leerPacientes_()[0].ID_INTERNO;
+  const evAntes = c.Modelo_leerEventos_().length;
 
-  const r = c.api_fichaGuardarCambios(id, {
+  const r = c.api_fichaGuardarCambios_(id, {
     SECTOR: { anterior: 'NARANJO', valor: 'AMARILLO' }
   }, 'tok');
   assert.equal(r.ok, true);
   assert.equal(r.sectorCambio, true);
 
-  const p = c.Modelo_leerPacientes()[0];
+  const p = c.Modelo_leerPacientes_()[0];
   assert.equal(p.SECTOR, 'AMARILLO');
-  const eventos = c.Modelo_leerEventos();
+  const eventos = c.Modelo_leerEventos_();
   assert.equal(eventos.length, evAntes + 1);
   assert.equal(eventos[evAntes].TIPO_EVENTO, 'CAMBIO_SECTOR');
   assert.equal(eventos[evAntes].SECTOR, 'AMARILLO');
@@ -303,10 +303,10 @@ test('C: SECTOR se descompone hacia CAMBIO_SECTOR (evento escrito, vistas movida
 
 test('C: conflicto optimista — anterior desactualizado → FICHA_CAMBIO', () => {
   const c = libroConPaciente();
-  const id = c.Modelo_leerPacientes()[0].ID_INTERNO;
+  const id = c.Modelo_leerPacientes_()[0].ID_INTERNO;
   // Estado real cambió por fuera (p.ej. otro usuario)
-  c.api_actualizarPaciente(id, { TELEFONOS: '922222222' }, 'tok');
-  const r = c.api_fichaGuardarCambios(id, {
+  c.api_actualizarPaciente_(id, { TELEFONOS: '922222222' }, 'tok');
+  const r = c.api_fichaGuardarCambios_(id, {
     TELEFONOS: { anterior: '900000000', valor: '933333333' }
   }, 'tok');
   assert.equal(r.ok, false);
@@ -315,19 +315,19 @@ test('C: conflicto optimista — anterior desactualizado → FICHA_CAMBIO', () =
 
 test('C: enums estrictos — SALUD_MENTAL fuera del catálogo → CAMPO_INVALIDO', () => {
   const c = libroConPaciente();
-  const id = c.Modelo_leerPacientes()[0].ID_INTERNO;
-  const r = c.api_fichaGuardarCambios(id, {
+  const id = c.Modelo_leerPacientes_()[0].ID_INTERNO;
+  const r = c.api_fichaGuardarCambios_(id, {
     SALUD_MENTAL: { anterior: 'NO', valor: 'QUIZAS' }
   }, 'tok');
   assert.equal(r.ok, false);
   assert.equal(r.codigo, 'CAMPO_INVALIDO:SALUD_MENTAL');
-  assert.equal(c.Modelo_leerPacientes()[0].SALUD_MENTAL, 'NO');
+  assert.equal(c.Modelo_leerPacientes_()[0].SALUD_MENTAL, 'NO');
 });
 
 test('C: validación de fecha — PROXIMO_CONTROL en 2041 supera ANO_MAX=2040', () => {
   const c = libroConPaciente();
-  const id = c.Modelo_leerPacientes()[0].ID_INTERNO;
-  const r = c.api_fichaGuardarCambios(id, {
+  const id = c.Modelo_leerPacientes_()[0].ID_INTERNO;
+  const r = c.api_fichaGuardarCambios_(id, {
     PROXIMO_CONTROL: { anterior: '', valor: '2041-05-10' }
   }, 'tok');
   assert.equal(r.ok, false, JSON.stringify(r));
@@ -335,19 +335,19 @@ test('C: validación de fecha — PROXIMO_CONTROL en 2041 supera ANO_MAX=2040', 
 });
 
 // ---------------------------------------------------------------------------
-// D — api_registrarEvento delega al dominio y sincroniza últimos
+// D — api_registrarEvento_ delega al dominio y sincroniza últimos
 // ---------------------------------------------------------------------------
-test('D: api_registrarEvento escribe CONTROL y sincroniza ULTIMO_CONTROL', () => {
+test('D: api_registrarEvento_ escribe CONTROL y sincroniza ULTIMO_CONTROL', () => {
   const c = libroConPaciente();
-  const p0 = c.Modelo_leerPacientes()[0];
-  const r = c.api_registrarEvento({
+  const p0 = c.Modelo_leerPacientes_()[0];
+  const r = c.api_registrarEvento_({
     idInterno: p0.ID_INTERNO, tipoEvento: 'CONTROL',
     fecha: '2026-06-20', descripcion: 'Control de rutina'
   }, 'tok');
   assert.equal(r.ok, true);
-  const p = c.Modelo_leerPacientes()[0];
+  const p = c.Modelo_leerPacientes_()[0];
   assert.equal(p.ULTIMO_CONTROL, '2026-06-20');
-  const eventos = c.Modelo_leerEventos();
+  const eventos = c.Modelo_leerEventos_();
   assert.equal(eventos.length, 2);
   assert.equal(eventos[1].TIPO_EVENTO, 'CONTROL');
 });
@@ -357,13 +357,13 @@ test('D: api_registrarEvento escribe CONTROL y sincroniza ULTIMO_CONTROL', () =>
 // ---------------------------------------------------------------------------
 test('E: endpoints de la ficha/ingresos exigen token válido', () => {
   const c = libro();
-  assert.equal(c.api_ingresosPendientes({}, 'bad').motivo, 'ACCESO_DENEGADO');
-  assert.equal(c.api_ingresoDetalle('INGRESO_NARANJO', 2, 'bad').motivo, 'ACCESO_DENEGADO');
-  assert.equal(c.api_ingresoIncorporar('INGRESO_NARANJO', 2, false, 'bad').motivo, 'ACCESO_DENEGADO');
-  assert.equal(c.api_fichaGuardarCambios('x', {}, 'bad').motivo, 'ACCESO_DENEGADO');
-  assert.equal(c.api_ficha('x', 'bad').ok, false);
+  assert.equal(c.api_ingresosPendientes_({}, 'bad').motivo, 'ACCESO_DENEGADO');
+  assert.equal(c.api_ingresoDetalle_('INGRESO_NARANJO', 2, 'bad').motivo, 'ACCESO_DENEGADO');
+  assert.equal(c.api_ingresoIncorporar_('INGRESO_NARANJO', 2, false, 'bad').motivo, 'ACCESO_DENEGADO');
+  assert.equal(c.api_fichaGuardarCambios_('x', {}, 'bad').motivo, 'ACCESO_DENEGADO');
+  assert.equal(c.api_ficha_('x', 'bad').ok, false);
   // v0.10.5 §13: denegado → {ok:false,codigo,motivo,casos:[],metricas:{...}} (contrato común RPC)
-  const rev = c.api_revisionListar('bad');
+  const rev = c.api_revisionListar_('bad');
   assert.equal(rev.ok, false);
   assert.equal(rev.codigo, 'ACCESO_DENEGADO');
   assert.equal(rev.casos.length, 0);

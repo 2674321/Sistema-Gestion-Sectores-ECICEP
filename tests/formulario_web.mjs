@@ -12,7 +12,7 @@
  *   - El botón/spinner nunca quedan bloqueados (timeout cubre previa y envío).
  *   - La guardia de doble envío impide RPC duplicadas.
  *   - UNA RPC por envío: el pre-flight de duplicados solo se usa en NUEVO_INGRESO;
- *     Control/Seguimiento/Actualizar van directo a WebApp_capturarEnviar.
+ *     Control/Seguimiento/Actualizar van directo a WebApp_capturarRecibirDurable.
  *   - Se expone solo identificadores técnicos, nunca datos clínicos.
  *
  * El harness ejecuta el script inline REAL de CapturaWeb.html en un sandbox
@@ -52,11 +52,11 @@ if (cierre === -1) { console.error('ERROR: cierre IIFE no encontrado'); process.
 // ── 2. Inyección del hook de test dentro del IIFE ──
 const exportBlock = `
   globalThis.__UI_TEST = {
-    _envExito: _envExito, _envChips: _envChips, _envTimeoutInit: _envTimeoutInit,
-    _envTimeoutOff: _envTimeoutOff, _envFallo: _envFallo, enviarFinal: enviarFinal,
+    _envExito: _envExito, _envChips: _envChips, _envFallo: _envFallo,
+    envioIniciar: envioIniciar, envioFinalizar: envioFinalizar, enviarFinal: enviarFinal,
     enviar: enviar, estadoListo: estadoListo, estadoEnviando: estadoEnviando,
     limpiarCampos: limpiarCampos, limpiarFormulario: limpiarFormulario,
-    _asignarCaptureId: _asignarCaptureId, _autoReloadSiVersion: _autoReloadSiVersion,
+    _asignarClientRequestId: _asignarClientRequestId, _autoReloadSiVersion: _autoReloadSiVersion,
     get $(){ return $; },
     get accion(){ return getAccion(); },
     get ultimoSig(){ return _ultimoSig; }, set ultimoSig(v){ _ultimoSig = v; },
@@ -117,23 +117,17 @@ const document = {
   createElement(tag) { return makeElement('<' + tag + '>'); },
   createTextNode(s) { return { nodeType: 3, textContent: s }; },
   querySelectorAll() { return []; },
-  querySelector(sel) {
-    if (sel === 'input[name="accion"]:checked') return radioAccion;
-    return null;
-  },
+  querySelector() { return null; },
   addEventListener() {}, removeEventListener() {}
 };
 
-// Radio de acción controlable: permite simular la acción activa del formulario.
-const radioAccion = makeElement('accion-radio');
-radioAccion.value = 'NUEVO_INGRESO';
-radioAccion.checked = true;
+document.getElementById('accion').value = 'NUEVO_INGRESO';
 
 // Stub de google.script.run: encadenable, registra llamadas, nunca resuelve.
 const rpcCalls = [];
 const gsr = { withSuccessHandler() { return this; }, withFailureHandler() { return this; } };
-['WebApp_esquemaFormulario', 'api_webappEstado',
-  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar'].forEach((name) => {
+['WebApp_esquemaFormulario_', 'api_webappEstado',
+  'WebApp_estadoInicial', 'WebApp_previaDuplicadosV2_', 'WebApp_capturarRecibirDurable'].forEach((name) => {
   gsr[name] = function () { rpcCalls.push({ name, args: [...arguments] }); return this; };
 });
 
@@ -221,13 +215,13 @@ const REVISION = { ok: true, data: { estado: 'REQUIERE_REVISION', captureId: 'Cp
 
 // ── 5. PRUEBAS ──
 console.log('PARTE A — Interpretación de estados (regla de limpieza única).');
-console.log('Requisito: limpiar SOLO en PROCESADO; conservar en cualquier otro estado.');
+console.log('Requisito durable: RECIBIDO confirma persistencia y permite una captura nueva.');
 
 t('A1 PROCESADO → resumen ok, mensaje de éxito de la acción, y UNICA ruta de limpieza', () => {
   poblarFormulario();
   U._envExito(PROCESADO, 'NUEVO_INGRESO');
   A(U.resumen && U.resumen.tipo === 'ok', 'tipo debe ser ok: ' + JSON.stringify(U.resumen));
-  contiene(U.resumen.titulo, 'Nuevo ingreso', 'mensaje de éxito de la acción');
+  contiene(U.resumen.titulo, 'Registro recibido', 'mensaje durable de éxito');
   A(formularioLimpio(), 'el formulario debe quedar limpio tras PROCESADO');
   A(U.enviando === false, '_enviando debe quedar en false');
 });
@@ -237,25 +231,25 @@ t('A2 PROCESADO → esconde btnEnviar y muestra btnsNueva (nueva captura)', () =
   A(document.getElementById('btnsNueva').classList.contains('show'), 'btnsNueva debe mostrarse');
 });
 
-t('A3 RECIBIDO+PENDIENTE_ENTREGA → warn, mensaje de pendiente, NO limpia, botones intactos', () => {
+t('A3 RECIBIDO → confirmación durable exacta, limpia y habilita nueva captura', () => {
   resetVista();
   poblarFormulario();
   U.enviando = false;
   U._envExito(PENDIENTE, 'NUEVO_INGRESO');
-  A(U.resumen && U.resumen.tipo === 'warn', 'tipo debe ser warn: ' + JSON.stringify(U.resumen));
-  contiene(U.resumen.titulo, 'entrega pendiente', 'mensaje no ambiguo de pendiente');
-  A(!formularioLimpio(), 'NO debe limpiarse con estado pendiente');
-  A(!document.getElementById('btnEnviar').classList.contains('hidden'), 'btnEnviar debe seguir visible');
-  A(!document.getElementById('btnsNueva').classList.contains('show'), 'btnsNueva NO debe mostrarse');
-  A(U.enviando === false, '_enviando debe quedar en false (botón habilitado para reintento)');
+  A(U.resumen && U.resumen.tipo === 'ok', 'tipo debe ser ok: ' + JSON.stringify(U.resumen));
+  A(U.resumen.titulo === 'Registro recibido correctamente. ECICEP lo procesará automáticamente.', 'mensaje durable exacto');
+  A(formularioLimpio(), 'debe limpiarse tras persistencia durable');
+  A(document.getElementById('btnEnviar').classList.contains('hidden'), 'btnEnviar se oculta');
+  A(document.getElementById('btnsNueva').classList.contains('show'), 'btnsNueva se muestra');
+  A(U.enviando === false, '_enviando debe quedar en false');
 });
 
-t('A4 RECIBIDO (sin motivo) → warn pendiente, NO limpia', () => {
+t('A4 RECIBIDO sin motivo conserva la misma confirmación durable', () => {
   poblarFormulario();
   U._envExito({ ok: true, data: { estado: 'RECIBIDO', captureId: 'Cp2-aa' } }, 'NUEVO_INGRESO');
-  A(U.resumen && U.resumen.tipo === 'warn', 'tipo warn esperado');
-  contiene(U.resumen.titulo, 'pendiente', 'mensaje de pendiente esperado');
-  A(!formularioLimpio(), 'NO debe limpiarse');
+  A(U.resumen && U.resumen.tipo === 'ok', 'tipo ok esperado');
+  contiene(U.resumen.titulo, 'procesará automáticamente', 'mensaje durable esperado');
+  A(formularioLimpio(), 'debe limpiarse');
 });
 
 t('A5 VALIDANDO → warn pendiente, NO limpia', () => {
@@ -385,40 +379,46 @@ t('D3 estadoEnviando/estadoListo controlan botón y spinner (estados opuestos)',
   A(document.getElementById('btnEnviar').getAttribute('aria-busy') === 'false', 'aria-busy false');
 });
 
-console.log('PARTE E — Timeout: el envío nunca queda colgado (cubre previa y envío final).');
+console.log('PARTE E — Timeout único (ENVIO): el envío nunca queda colgado.');
 
-t('E1 _envTimeoutInit arma UN timer de 60s y rearmar no deja timers duplicados', () => {
+t('E1 envioIniciar arma UN timer de 60s; rearmar no acumula timers', () => {
+  sandbox.UI_TIMERS.fireAll();
+  U.enviando = false;
   const antes = sandbox.UI_TIMERS.count();
-  U._envTimeoutInit();
-  U._envTimeoutInit();
+  U.envioIniciar('entrega');
+  U.envioIniciar('entrega');
   A(sandbox.UI_TIMERS.count() === antes + 1, 'una vez armado, rearmar no acumula timers');
+  U.enviando = false;
 });
 
-t('E2 timeout disparado con _enviando=true → desbloquea botón, avisa y NO limpia', () => {
+t('E2 timeout disparado con _enviando=true → desbloquea, avisa recepción incierta y NO limpia', () => {
   poblarFormulario();
+  resetVista();
   U.enviando = true;
-  U._envTimeoutInit();
+  U.envioIniciar('entrega');
   sandbox.UI_TIMERS.fireAll();
   A(U.enviando === false, '_enviando liberado por timeout');
   A(document.getElementById('btnEnviar').disabled === false, 'botón desbloqueado por timeout');
-  A(U.resumen && U.resumen.tipo === 'err' && U.resumen.titulo.indexOf('tard\u00f3 demasiado') !== -1, 'aviso de timeout');
+  A(U.resumen && U.resumen.tipo === 'warn' && U.resumen.titulo.indexOf('tardando') !== -1, 'aviso de timeout');
   A(!formularioLimpio(), 'timeout NO debe limpiar el formulario');
 });
 
-t('E3 timeout disparado con _enviando=false → no hace nada (timer muerto)', () => {
+t('E3 envioFinalizar cancela el timer: dispararlo no produce mensajes', () => {
   const tituloAntes = U.resumen && U.resumen.titulo;
-  U.enviando = false;
-  U._envTimeoutInit();
+  const seq = U.envioIniciar('entrega');
+  U.envioFinalizar(seq);
   sandbox.UI_TIMERS.fireAll();
-  A((U.resumen && U.resumen.titulo) === (tituloAntes || null), 'timer desarmado no produce mensajes nuevos');
+  A((U.resumen && U.resumen.titulo) === (tituloAntes || null), 'timer cancelado no produce mensajes nuevos');
 });
 
-t('E4 _envTimeoutOff limpia el timer pendiente', () => {
-  U._envTimeoutInit();
+t('E4 envioFinalizar limpia el timer pendiente', () => {
+  sandbox.UI_TIMERS.fireAll();
+  const seq = U.envioIniciar('entrega');
   const n = sandbox.UI_TIMERS.count();
-  U._envTimeoutOff();
+  U.envioFinalizar(seq);
   A(sandbox.UI_TIMERS.count() === n - 1, 'timer cancelado');
 });
+
 
 console.log('PARTE J — Watchdog de versión obsoleta (caché/navegador antiguo).');
 
@@ -489,16 +489,16 @@ t('J5 sessionStorage bloqueado (privacidad estricta) → alerta, NO recarga y no
   A(reloads.length === 0, 'timers residuales tampoco recargan');
 });
 
-console.log('PARTE F — captureId: reintento idéntico conserva el identificador (§13 A1).');
+console.log('PARTE F — clientRequestId correlaciona reintentos del navegador.');
 
-t('F1 mismo contenido → mismo captureId; cambio de contenido → captureId nuevo', () => {
+t('F1 mismo contenido → mismo clientRequestId; cambio de contenido → identificador nuevo', () => {
   U.ultimoSig = null;
-  const a = U._asignarCaptureId('sig1');
-  const b = U._asignarCaptureId('sig1');
-  A(a === b, 'reintento idéntico conserva captureId');
-  const c = U._asignarCaptureId('sig2');
+  const a = U._asignarClientRequestId('sig1');
+  const b = U._asignarClientRequestId('sig1');
+  A(a === b, 'reintento idéntico conserva clientRequestId');
+  const c = U._asignarClientRequestId('sig2');
   A(c !== b, 'contenido editado genera captureId nuevo');
-  A(/^Cp4-[a-f0-9]{32}$/.test(a), 'formato V4: Cp4- + exactamente 32 hex minúsculas (recibido: ' + a + ')');
+  A(/^CR-[a-f0-9]{32}$/.test(a), 'formato de correlación: CR- + 32 hex (recibido: ' + a + ')');
 });
 
 console.log('PARTE G — estadoEnviando se restablece al responder (nunca queda el spinner fijo).');
@@ -516,7 +516,7 @@ t('G2 tras RECIBIDO (pendiente) el spinner no está activo', () => {
   A(!document.getElementById('spinEnviar').classList.contains('on'), 'spinner apagado tras pendiente');
 });
 
-console.log('PARTE I — UNA RPC por envío: pre-flight de duplicados solo en NUEVO_INGRESO.');
+console.log('PARTE I — UNA RPC durable por envío, sin preflight bloqueante.');
 
 // Formulario válido real (pasadoras de validación client-side) para poder
 // disparar el envío con datos completos.
@@ -534,27 +534,27 @@ t('I1 Control/Seguimiento/Actualizar: envío directo en UNA RPC (sin pre-flight 
   U.enviando = false;
   ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS'].forEach((acc) => {
     const antes = rpcCalls.length;
-    radioAccion.value = acc;
+    document.getElementById('accion').value = acc;
     U.enviando = false;
     U.enviar();
     const nuevas = rpcCalls.slice(antes);
-    A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarEnviar',
+    A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarRecibirDurable',
       acc + ': debe ser UNA RPC de captura directa, recibidas: ' + JSON.stringify(nuevas));
-    A(!nuevas.some((c) => c.name === 'WebApp_previaDuplicadosV2'),
+    A(!nuevas.some((c) => c.name === 'WebApp_previaDuplicadosV2_'),
       acc + ': nunca debe pre-consultar duplicados (server ya lo documenta: resto 1 RPC)');
   });
 });
 
-t('I2 NUEVO_INGRESO conserva el pre-flight de duplicados (puerta de dobles intacta)', () => {
+t('I2 NUEVO_INGRESO también persiste directamente sin preflight bloqueante', () => {
   poblarFormValido();
   U.enviando = false;
   const antes = rpcCalls.length;
-  radioAccion.value = 'NUEVO_INGRESO';
+  document.getElementById('accion').value = 'NUEVO_INGRESO';
   U.enviar();
   const nuevas = rpcCalls.slice(antes);
-  A(nuevas.length === 1 && nuevas[0].name === 'WebApp_previaDuplicadosV2',
-    'nuevoIngreso sí debe pre-consultar duplicados primero, recibidas: ' + JSON.stringify(nuevas));
-  radioAccion.value = 'NUEVO_INGRESO';
+  A(nuevas.length === 1 && nuevas[0].name === 'WebApp_capturarRecibirDurable',
+    'nuevoIngreso debe usar una sola RPC durable, recibidas: ' + JSON.stringify(nuevas));
+  document.getElementById('accion').value = 'NUEVO_INGRESO';
 });
 
 // ── Resumen ──

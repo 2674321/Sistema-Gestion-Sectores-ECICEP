@@ -794,7 +794,7 @@ function ingOcultarAviso(){
 function ingIncorporar(btn,hoja,fila){
   if(!ingConfirmarIncorporacion(hoja,fila,_ingSector))return;
   var fin=_btnCargando(btn,'Incorporando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo incorporar','err');return;}
     var m=ingMensajeResultado(r);
@@ -823,7 +823,7 @@ function ingIncorporarValidos(btn){
   var avisoCambios=cambios?'\n\nCambios territoriales previstos: '+cambios+' (se registrará CAMBIO_SECTOR).':'';
   if(!confirm('Se procesarán únicamente ingresos pendientes válidos.\nLas filas con errores o que requieran revisión no se incorporarán; tampoco las filas ya resueltas (INGRESADO, DUPLICADO, REQUIERE_REVISION).'+avisoCambios+'\n\n¿Confirmas la incorporación del lote?'))return;
   var fin=_btnCargando(btn,'Procesando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(!r||!r.ok){toast((r&&r.motivo)||'No se pudieron incorporar','err');cargarIngresos(0);return;}
     ingOcultarAviso();
@@ -908,8 +908,10 @@ function pintarFicha(f){
   pintarSeguimiento(f.seguimiento);
 
   /* historial timeline */
-  var tl=document.getElementById('fTimeline'),evs=f.eventos||[];
-  tl.innerHTML=evs.length?'':'<div class="vacio"><i data-lucide="history"></i>Sin eventos registrados</div>';
+  var tl=document.getElementById('fTimeline'),evs=f.eventos||[],integ=(f.meta&&f.meta.integridad)||{};
+  tl.innerHTML=evs.length?'':(integ.eventos==='NO_DISPONIBLE'
+    ?'<div class="vacio"><i data-lucide="alert-triangle"></i>Historial temporalmente no disponible</div>'
+    :'<div class="vacio"><i data-lucide="history"></i>Sin eventos registrados</div>');
   evs.slice().reverse().forEach(function(e,i){
     var st=estiloTL(e.tipo),ex=_fmtFecha(e.fecha);
     var li=document.createElement('li');li.className='tl-item'+(_animTimeline?'':' anim');
@@ -953,7 +955,10 @@ function pintarResumen(f){
 
   var meta=f.meta||{};
   var ingB=document.getElementById('ingBanner');
-  if(meta.tieneIngresoPendiente&&meta.ingresoPendiente&&meta.ingresoPendiente.length){
+  if(meta.integridad&&meta.integridad.ingresoPendiente==='NO_DISPONIBLE'){
+    ingB.style.display='flex';
+    ingB.innerHTML='<i data-lucide="alert-triangle" style="width:15px;height:15px;flex-shrink:0"></i><span>No fue posible comprobar ingresos pendientes. Reintente.</span>';
+  }else if(meta.tieneIngresoPendiente&&meta.ingresoPendiente&&meta.ingresoPendiente.length){
     var ip=meta.ingresoPendiente[0];
     ingB.style.display='flex';
     ingB.innerHTML='<i data-lucide="tray" style="width:15px;height:15px;flex-shrink:0"></i>'+
@@ -1039,7 +1044,7 @@ function guardarDatosFicha(btn){
   });
   if(!Object.keys(cambios).length){toast('Sin cambios que guardar','info');return;}
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast('✓ Ficha actualizada','ok');abrirFicha(P_ACTUAL);}
     else if(r&&r.motivo&&String(r.motivo).indexOf('FICHA_CAMBIO')===0){toast(r.motivo,'warn');abrirFicha(P_ACTUAL);}
@@ -1058,7 +1063,7 @@ function guardarClinico(btn){
   if(cp!==(_FICHA_ACTUAL.COMPOSICION_CONTROL||''))cambios.COMPOSICION_CONTROL={anterior:_FICHA_ACTUAL.COMPOSICION_CONTROL||'',valor:cp};
   if(!Object.keys(cambios).length){toast('Sin cambios que guardar','info');return;}
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast('✓ Clínico actualizado','ok');abrirFicha(P_ACTUAL);}
     else if(r&&r.motivo&&String(r.motivo).indexOf('FICHA_CAMBIO')===0){toast(r.motivo,'warn');abrirFicha(P_ACTUAL);}
@@ -1073,7 +1078,7 @@ function guardarProfSeg(btn){
   var val=document.getElementById('eqProfSeg').value;
   if(String(val).trim()===String(_FICHA_ACTUAL.PROFESIONAL_SEGUIMIENTO||'').trim()){toast('Sin cambios que guardar','info');return;}
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast('✓ Profesional actualizado','ok');abrirFicha(P_ACTUAL);}
     else toast((r&&(r.codigo||r.motivo))||'No se pudo guardar','err');
@@ -1111,7 +1116,7 @@ function segGuardarProximo(btn){
   if(!inp)return;
   if(!inp.checkValidity()){inp.reportValidity();return;}
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();setLoading(btn,false);
     if(r&&r.ok){toast('✓ Próxima atención actualizada','ok');abrirFicha(P_ACTUAL);}
     else if(r&&r.motivo&&String(r.motivo).indexOf('FICHA_CAMBIO')===0){toast(r.motivo,'warn');abrirFicha(P_ACTUAL);}
@@ -1123,7 +1128,7 @@ function segActualizar(btn,tipo){
   if(!P_ACTUAL){toast('No hay paciente abierto','err');return;}
   var hoy=fechaHoyFicha();
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     setLoading(btn,false);
     if(r&&r.ok){toast('✓ '+tipo+' de hoy registrado'+(r.proximo?' · próximo '+r.proximo:''),'ok');abrirFicha(P_ACTUAL);}
     else toast((r&&r.motivo)||'No se pudo actualizar','err');
@@ -1142,7 +1147,7 @@ if(_evTipoSel){
 /* ================= registrar gestión ================= */
 function registrarEvento(btn){
   var fin=_btnCargando(btn,'Registrando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r.ok){toast(r.evento.tipo+' registrado \u2713','ok');
       btn.classList.add('btn-ok-flash');
@@ -1166,7 +1171,7 @@ function cargarSelectorPatologias(pid,forzar,datosEmbebidos){
     renderizarPats('');actualizarContador();_refrescarIconos();
     return;
   }
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     PAT_CATALOGO=r.catalogo||[];PAT_SELECCIONADAS=r.seleccionadas||[];
     document.getElementById('otrasPatologias').value=r.otrasPatologias||'';
     renderizarPats('');actualizarContador();_refrescarIconos();
@@ -1205,7 +1210,7 @@ function guardarPatologias(btn){
   var pid=document.getElementById('vista').getAttribute('data-id')||'';
   if(!pid){toast('No hay paciente abierto','err');return;}
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r.ok){toast(r.cantidad+' patologías guardadas · Ponderación '+r.puntaje,'ok');
       if(r.esquemaMigrado)toast('Esquema PACIENTES migrado automáticamente','info');
@@ -1218,7 +1223,7 @@ function recalcularEstrat(btn){
   var pid=document.getElementById('vista').getAttribute('data-id')||'';
   if(!pid){toast('No hay paciente abierto','err');return;}
   var fin=_btnCargando(btn,'Recalculando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r.ok){toast('Estratificación: '+(r.resultado||'pendiente')+' (puntaje '+r.puntaje+')','ok');
       abrirFicha(pid);}
@@ -1238,7 +1243,7 @@ function cargarSelectorDupla(pid,datosEmbebidos){
     renderizarDupla();
     return;
   }
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       DUPLA_CATALOGO=r.catalogo||[];
       DUPLA_SELECCIONADAS=r.seleccionados||[];
@@ -1284,7 +1289,7 @@ function guardarDupla(btn){
   var pid=document.getElementById('vista').getAttribute('data-id')||'';
   if(!pid){toast('No hay paciente abierto','err');return;}
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       fin();
       if(r&&r.ok){toast('✓ Dupla guardada ('+r.cantidad+' profesionales)','ok');}
@@ -1305,7 +1310,7 @@ function verRevision(){
   var pr=document.getElementById('panelRev');
   if(pr)pr.style.display='flex';
   document.getElementById('revLista').innerHTML='<div class="skel" style="height:120px"></div>';
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     var mt=r.metricas||{};
     document.getElementById('revMetricas').innerHTML=
       '<span class="chip fade-in">Abiertos <b class="num">'+(mt.abiertos||0)+'</b></span>'+
@@ -1334,7 +1339,7 @@ function verRevision(){
 }
 function resolver(idx,dec,btn){
   var fin=_btnCargando(btn,'Procesando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(!r.ok&&r.motivo==='CONFLICTO_YA_RESUELTO'){toast('Este conflicto ya estaba resuelto','info');verRevision();return;}
     if(r.ok)toast(r.accion==='CREAR'?'Paciente nuevo creado':'Enlazado a existente','ok');
@@ -1355,7 +1360,7 @@ function volver(){
   if(portal&&(MODO==='ficha'||MODO==='revision')){window.open(portal,'_blank');return;}
   if(MODO==='ficha'){ google.script.host.close(); return; }
   if(MODO==='revision'){
-    google.script.run
+    ECICEP_run()
       .withFailureHandler(_errSilencioso('UI_panelControl'))
       .UI_panelControl();
     return;
@@ -1371,17 +1376,17 @@ function volver(){
 }
 
 /* ================= Accesos de funciones ================= */
-function abrirBuscadorPac(btn){ var fin=_btnPulso(btn,'Abriendo…'); google.script.run.UI_abrirBuscador(); }
+function abrirBuscadorPac(btn){ var fin=_btnPulso(btn,'Abriendo…'); ECICEP_run().UI_abrirBuscador(); }
 function verRevisionDesdePanel(btn){
   var fin=btn?_btnPulso(btn,'Abriendo…'):null;
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(){if(fin)fin();})
     .withFailureHandler(function(e){if(fin)fin();_errSilencioso('UI_abrirRevision')(e);})
     .UI_abrirRevision();
 }
 function abrirGenerador(btn){
   var fin=_btnPulso(btn,'Abriendo…');
-  google.script.run.withSuccessHandler(function(){setLoading(btn,false);})
+  ECICEP_run().withSuccessHandler(function(){setLoading(btn,false);})
     .withFailureHandler(function(e){setLoading(btn,false);_errSilencioso('UI_generarRem')(e);})
     .UI_generarRem();
 }
@@ -1389,7 +1394,7 @@ function abrirGenerador(btn){
 /* ================= Panel de Control: controles por persona ================= */
 function abrirControles(btn){
   var fin=btn?_btnPulso(btn,'Abriendo…'):null;
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(){if(fin)setLoading(btn,false);})
     .withFailureHandler(function(e){if(fin)setLoading(btn,false);_errSilencioso('UI_abrirControles')(e);})
     .UI_abrirControles();

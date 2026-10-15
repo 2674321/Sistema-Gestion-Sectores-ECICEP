@@ -174,7 +174,7 @@ function generar(btn){
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:p.mes,anio:p.anio,sector:sector}));}catch(eS){}
   var fin=setLoading(btn,true,'Generando…');
   barraIndet(FASES_REM_XLSX);
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r1){
       try{
         pintarValidacion(r1);
@@ -202,7 +202,7 @@ function generar(btn){
 function informePdf(btn){
   var p=periodoActual();
   var fin=setLoading(btn,true,'Generando PDF…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();_refrescarIconos();
     if(!r||!r.ok){toast('\u2715 No fue posible generar el PDF: '+((r&&r.motivo)||'error'),'err');return;}
     toast('\u2713 Informe PDF listo: '+r.nombre,'ok');
@@ -217,7 +217,7 @@ function irEstadisticas(){
   var url=document.body.getAttribute('data-dash-url');
   if(url){ECICEP_navegar(url,'las estadísticas');return;}
   ECICEP_navegar('','las estadísticas',function(){
-    google.script.run
+    ECICEP_run()
       .withFailureHandler(function(){ toast('No fue posible abrir las estadísticas. Reintenta en unos segundos.','err'); })
       .UI_abrirDashboard();
   });
@@ -229,7 +229,7 @@ function consultar(){
   var url=document.body.getAttribute('data-rem-url');
   if(url){ECICEP_navegar(url,'el visor REM');return;}
   ECICEP_navegar('','el visor REM',function(){
-    google.script.run
+    ECICEP_run()
       .withFailureHandler(function(){ toast('No fue posible abrir el visor REM. Reintenta en unos segundos.','err'); })
       .UI_verRem();
   });

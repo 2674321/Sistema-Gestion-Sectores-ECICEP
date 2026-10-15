@@ -5,7 +5,7 @@ var CAPTURA_CORRECCION_PREFIJO = 'CORRECCION_FECHA_V4:';
 
 function Captura_edicionTexto_(p, campo) {
   var v = p[campo];
-  return v instanceof Date ? Control_aIso(v) : Utl_texto(v);
+  return v instanceof Date ? Control_aIso_(v) : Utl_texto_(v);
 }
 function Captura_jsonOrdenado_(v) {
   if (Array.isArray(v)) return '[' + v.map(Captura_jsonOrdenado_).join(',') + ']';
@@ -15,41 +15,46 @@ function Captura_jsonOrdenado_(v) {
 /** Valida toda la edición ANTES de cualquier escritura. */
 function Captura_validarEdicion_(a) {
   function fallo(msg) { return {ok:false,motivo:msg}; }
+  var lim = (typeof CAPTURA_V2 !== 'undefined' && CAPTURA_V2.LIMITES) ? CAPTURA_V2.LIMITES : {};
+  var maxTexto = lim.ACTUALIZACION_MAX_TEXTO || 5000;
+  var maxCampos = lim.ACTUALIZACION_MAX_CAMPOS || 200;
+  var maxAtenciones = lim.ACTUALIZACION_MAX_ATENCIONES || 2;
   if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(function(k){return ['id','rutOriginal','campos','atenciones'].indexOf(k)<0;})) return fallo('Edición inválida');
   if (typeof a.id !== 'string' || !a.id || a.id.length>150 || typeof a.rutOriginal !== 'string') return fallo('Cargue primero la ficha');
   if (!a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos)) return fallo('Campos inválidos');
-  if (!Array.isArray(a.atenciones) || a.atenciones.length>2) return fallo('Atenciones inválidas');
+  if (Object.keys(a.campos).length > maxCampos) return fallo('Demasiados campos en la edición');
+  if (!Array.isArray(a.atenciones) || a.atenciones.length>maxAtenciones) return fallo('Atenciones inválidas');
   var out={id:a.id,rutOriginal:a.rutOriginal,campos:{},atenciones:[]};
   var keys=Object.keys(a.campos).sort();
   for(var i=0;i<keys.length;i++) {
     var k=keys[i],c=a.campos[k];
     if(CAPTURA_EDICION_CAMPOS.indexOf(k)<0 || !c || typeof c!=='object' || Array.isArray(c) || Object.keys(c).sort().join(',')!=='anterior,valor' || typeof c.anterior!=='string' || typeof c.valor!=='string') return fallo('Campo no editable: '+k);
     var v=c.valor.trim();
-    if(v.length>5000 || c.anterior.length>5000) return fallo('Texto demasiado largo: '+k);
+    if(v.length>maxTexto || c.anterior.length>maxTexto) return fallo('Texto demasiado largo: '+k);
     if(['RUT','NOMBRE','SECTOR'].indexOf(k)>=0 && !v) return fallo('No puede vaciar '+k);
-    if(k==='RUT') {var r=Norm_normalizarRut(v);if(r.estado!=='OK')return fallo('RUT inválido');v=r.rut;}
+    if(k==='RUT') {var r=Norm_normalizarRut_(v);if(r.estado!=='OK')return fallo('RUT inválido');v=r.rut;}
     if(k==='SEXO' && ['', 'M','F','OTRO'].indexOf(v)<0)return fallo('Sexo inválido');
     if(k==='SALUD_MENTAL' && ['','SI','NO'].indexOf(v)<0)return fallo('Solo SI, NO o vacío (sin información)');
     if(k==='SECTOR' && ['AMARILLO','NARANJO','VERDE'].indexOf(v)<0)return fallo('Sector inválido');
     if(k==='ESTADO' && !v)v='PENDIENTE';
     if(k==='ESTADO' && v && ESTADOS.VALIDOS.indexOf(v)<0)return fallo('Estado inválido');
     if(CAPTURA_EDICION_FECHAS.indexOf(k)>=0 && v) {
-      var d=Captura_v2_validarIsoFecha(v,{min:k==='FECHA_NACIMIENTO'?1900:2015,max:2040});
+      var d=Captura_v2_validarIsoFecha_(v,{min:k==='FECHA_NACIMIENTO'?1900:2015,max:2040});
       if(!d.ok)return fallo('Fecha inválida: '+k);v=d.iso;
     }
     if(k==='PREINGRESO' && v) {
       var pre=v.toUpperCase().replace(/\s+/g,'_');
       if(['NO_APLICA','PENDIENTE'].indexOf(pre)>=0)v=pre;
       else {
-        var dp=Captura_v2_validarIsoFecha(v,{min:2015,max:2040});
+        var dp=Captura_v2_validarIsoFecha_(v,{min:2015,max:2040});
         if(!dp.ok)return fallo('Preingreso: use fecha ISO, NO_APLICA o PENDIENTE');
         v=dp.iso;
       }
     }
-    if(k==='TELEFONOS')v=Norm_normalizarTelefono(v).telefonos.join('/');
-    if(k==='FECHA_NACIMIENTO' && v && v>Captura_v2_fechaOperacion({}))return fallo('Nacimiento no puede estar en el futuro');
+    if(k==='TELEFONOS')v=Norm_normalizarTelefono_(v).telefonos.join('/');
+    if(k==='FECHA_NACIMIENTO' && v && v>Captura_v2_fechaOperacion_({}))return fallo('Nacimiento no puede estar en el futuro');
     if(k==='CONDICIONES') {
-      var cond=Norm_normalizarCondiciones(v,CATALOGO_CONDICIONES_ECICEP);
+      var cond=Norm_normalizarCondiciones_(v,CATALOGO_CONDICIONES_ECICEP);
       if(cond.noReconocidas.length)return fallo('Patología fuera de catálogo');
       v=cond.detectadas.map(function(x){return typeof x==='string'?x:x.CODIGO||x.codigo;}).filter(Boolean).sort().join(';');
     }
@@ -60,8 +65,8 @@ function Captura_validarEdicion_(a) {
     var e=a.atenciones[j];
     if(!e || Object.keys(e).sort().join(',')!=='anterior,fecha,idEvento,modo,tipo' || Object.keys(e).some(function(k){return typeof e[k]!=='string';}) || ['CONTROL','SEGUIMIENTO'].indexOf(e.tipo)<0 || tipos[e.tipo] || ['REGISTRAR','CORREGIR'].indexOf(e.modo)<0) return fallo('Atención inválida');
     tipos[e.tipo]=true;
-    if(!Captura_v2_validarIsoFecha(e.fecha,{min:2015,max:2040}).ok)return fallo('Fecha de atención inválida');
-    if(e.modo==='CORREGIR' && (!e.idEvento || !Captura_v2_validarIsoFecha(e.anterior,{min:2015,max:2040}).ok))return fallo('Seleccione la atención que desea corregir');
+    if(!Captura_v2_validarIsoFecha_(e.fecha,{min:2015,max:2040}).ok)return fallo('Fecha de atención inválida');
+    if(e.modo==='CORREGIR' && (!e.idEvento || !Captura_v2_validarIsoFecha_(e.anterior,{min:2015,max:2040}).ok))return fallo('Seleccione la atención que desea corregir');
     out.atenciones.push({tipo:e.tipo,modo:e.modo,fecha:e.fecha,idEvento:e.idEvento,anterior:e.anterior});
   }
   if(!keys.length && !out.atenciones.length)return fallo('No hay cambios para guardar');
@@ -69,36 +74,42 @@ function Captura_validarEdicion_(a) {
   return {ok:true,valor:out};
 }
 
-/** Ficha accesible con sesión activa o enlace compartido válido. */
-function WebApp_cargarPacienteEdicion(rut,acceso) {
-  if(!WebApp_autorizarBuscador(acceso))return {ok:false,motivo:'Enlace de Captura no válido. Solicita el QR actualizado.'};
-  var nr=Norm_normalizarRut(rut);
+/** Ficha completa para el flujo público de captura "Actualizar".
+ * No requiere OPSESS, email, OAuth ni clave: es una capacidad de captura
+ * explícitamente pública, no una vista administrativa. */
+function WebApp_cargarPacienteEdicionCaptura(rut) {
+  return WebApp_cargarPacienteEdicion_(rut, '');
+}
+
+/** Implementación compartida de carga de ficha para actualización. */
+function WebApp_cargarPacienteEdicion_(rut,acceso) {
+  var nr=Norm_normalizarRut_(rut);
   if(nr.estado!=='OK')return {ok:false,motivo:'RUT inválido'};
-  var lista=Modelo_leerPacientes().filter(function(p){return Norm_normalizarRut(p.RUT).rut===nr.rut;});
+  var lista=Modelo_leerPacientes_().filter(function(p){return Norm_normalizarRut_(p.RUT).rut===nr.rut;});
   if(lista.length!==1)return {ok:false,motivo:lista.length?'RUT duplicado: requiere revisión antes de editar.':'Paciente no encontrado'};
   var p=lista[0],campos={};
   CAPTURA_EDICION_CAMPOS.forEach(function(k){campos[k]=Captura_edicionTexto_(p,k);});
   var ultimos={};
-  Modelo_leerEventos().filter(function(e){return e.ID_INTERNO===p.ID_INTERNO && ['CONTROL','SEGUIMIENTO'].indexOf(e.TIPO_EVENTO)>=0;}).forEach(function(e){
-    var f=Control_aIso(e.FECHA_EVENTO),anterior=ultimos[e.TIPO_EVENTO];
-    if(f && (!anterior || f>=anterior.fecha))ultimos[e.TIPO_EVENTO]={idEvento:Utl_texto(e.ID_EVENTO),fecha:f};
+  Modelo_leerEventos_().filter(function(e){return e.ID_INTERNO===p.ID_INTERNO && ['CONTROL','SEGUIMIENTO'].indexOf(e.TIPO_EVENTO)>=0;}).forEach(function(e){
+    var f=Control_aIso_(e.FECHA_EVENTO),anterior=ultimos[e.TIPO_EVENTO];
+    if(f && (!anterior || f>=anterior.fecha))ultimos[e.TIPO_EVENTO]={idEvento:Utl_texto_(e.ID_EVENTO),fecha:f};
   });
   return {ok:true,id:p.ID_INTERNO,rutOriginal:nr.rut,campos:campos,ultimos:ultimos,
-    ultimoControl:Control_aIso(p.ULTIMO_CONTROL),ultimoSeguimiento:Control_aIso(p.ULTIMO_SEGUIMIENTO),estratificacion:Utl_texto(p.ESTRATIFICACION),
+    ultimoControl:Control_aIso_(p.ULTIMO_CONTROL),ultimoSeguimiento:Control_aIso_(p.ULTIMO_SEGUIMIENTO),estratificacion:Utl_texto_(p.ESTRATIFICACION),
     condiciones:CATALOGO_CONDICIONES_ECICEP.filter(function(c){return c.ACTIVA;}).map(function(c){return {codigo:c.CODIGO,nombre:c.NOMBRE_CANONICO};})};
 }
 
 /** Aplica correcciones auditadas al leer; EVENTOS físico sigue append-only.
  * Nunca altera los objetos originales ni acepta correcciones entre pacientes. */
 function Captura_eventosVigentes_(eventos) {
-  if (!eventos.some(function(e){return e.TIPO_EVENTO==='OTRO'&&Utl_texto(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)===0;})) return eventos;
+  if (!eventos.some(function(e){return e.TIPO_EVENTO==='OTRO'&&Utl_texto_(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)===0;})) return eventos;
   var salida=eventos.map(function(e){return Object.assign({},e);}),porId={};
   salida.forEach(function(e){porId[e.ID_EVENTO]=e;});
   salida.forEach(function(e){
-    if(e.TIPO_EVENTO!=='OTRO' || Utl_texto(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)!==0 || !/^FORM\|Cp4-/.test(Utl_texto(e.FUENTE)))return;
+    if(e.TIPO_EVENTO!=='OTRO' || Utl_texto_(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)!==0 || !/^FORM\|Cp4-/.test(Utl_texto_(e.FUENTE)))return;
     try {
       var c=JSON.parse(e.DESCRIPCION.slice(CAPTURA_CORRECCION_PREFIJO.length)),dest=porId[c.idEvento];
-      if(dest && dest.ID_INTERNO===e.ID_INTERNO && ['CONTROL','SEGUIMIENTO'].indexOf(dest.TIPO_EVENTO)>=0 && Control_aIso(dest.FECHA_EVENTO)===c.anterior && Captura_v2_validarIsoFecha(c.fecha,{min:2015,max:2040}).ok)dest.FECHA_EVENTO=c.fecha;
+      if(dest && dest.ID_INTERNO===e.ID_INTERNO && ['CONTROL','SEGUIMIENTO'].indexOf(dest.TIPO_EVENTO)>=0 && Control_aIso_(dest.FECHA_EVENTO)===c.anterior && Captura_v2_validarIsoFecha_(c.fecha,{min:2015,max:2040}).ok)dest.FECHA_EVENTO=c.fecha;
     }catch(err){/* Una nota ajena nunca cambia el historial. */}
   });
   return salida;
@@ -108,10 +119,10 @@ function Captura_eventosVigentes_(eventos) {
  * La fecha efectiva se calcula desde EVENTOS; la agenda manual no se toca. */
 function Captura_reconciliarFechasCorregidas_() {
   if (!Modelo_hayCorreccionesFecha_()) return {ok:true,actualizados:0};
-  var eventos=Modelo_leerEventos(),porEvento={},afectados={};
-  eventos.forEach(function(e){porEvento[Utl_texto(e.ID_EVENTO)]=e;});
+  var eventos=Modelo_leerEventos_(),porEvento={},afectados={};
+  eventos.forEach(function(e){porEvento[Utl_texto_(e.ID_EVENTO)]=e;});
   eventos.forEach(function(e){
-    if(e.TIPO_EVENTO!=='OTRO' || !/^FORM\|Cp4-/.test(Utl_texto(e.FUENTE)) || Utl_texto(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)!==0)return;
+    if(e.TIPO_EVENTO!=='OTRO' || !/^FORM\|Cp4-/.test(Utl_texto_(e.FUENTE)) || Utl_texto_(e.DESCRIPCION).indexOf(CAPTURA_CORRECCION_PREFIJO)!==0)return;
     try {
       var c=JSON.parse(e.DESCRIPCION.slice(CAPTURA_CORRECCION_PREFIJO.length)),dest=porEvento[c.idEvento];
       if(dest && dest.ID_INTERNO===e.ID_INTERNO && ['CONTROL','SEGUIMIENTO'].indexOf(dest.TIPO_EVENTO)>=0)afectados[dest.ID_INTERNO+'|'+dest.TIPO_EVENTO]=true;
@@ -120,31 +131,31 @@ function Captura_reconciliarFechasCorregidas_() {
   if(!Object.keys(afectados).length)return {ok:true,actualizados:0};
   var fechas={};
   eventos.forEach(function(e){
-    var clave=e.ID_INTERNO+'|'+e.TIPO_EVENTO,fecha=Control_aIso(e.FECHA_EVENTO);
+    var clave=e.ID_INTERNO+'|'+e.TIPO_EVENTO,fecha=Control_aIso_(e.FECHA_EVENTO);
     if(afectados[clave] && fecha && (!fechas[clave] || fecha>fechas[clave]))fechas[clave]=fecha;
   });
-  var cambios=0,hoja=Modelo_hoja(HOJAS.PACIENTES);
-  Modelo_leerPacientes().forEach(function(p,idx){
+  var cambios=0,hoja=Modelo_hoja_(HOJAS.PACIENTES);
+  Modelo_leerPacientes_().forEach(function(p,idx){
     var nuevo=null;
     ['CONTROL','SEGUIMIENTO'].forEach(function(tipo){
       var clave=p.ID_INTERNO+'|'+tipo,campo=tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO';
       if(!afectados[clave])return;
       var fecha=fechas[clave]||'';
-      if(Control_aIso(p[campo])===fecha)return;
+      if(Control_aIso_(p[campo])===fecha)return;
       if(!nuevo)nuevo=Object.assign({},p);
       nuevo[campo]=fecha;
     });
     if(!nuevo)return;
     nuevo.FECHA_ACTUALIZACION=new Date();
-    hoja.getRange(Modelo_filaFisica(HOJAS.PACIENTES,idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);
+    hoja.getRange(Modelo_filaFisica_(HOJAS.PACIENTES,idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto_(nuevo)]);
     cambios++;
   });
-  if(cambios)Modelo_invalidarLecturas();
+  if(cambios)Modelo_invalidarLecturas_();
   return {ok:true,actualizados:cambios};
 }
 
 /** Entrega V4 bajo el mismo ScriptLock/registro de captura que V2/V3.
- *  La edición ya está autorizada (WebApp_capturarEnviar + opciones.usuario) y
+ *  La edición ya está autorizada (WebApp_capturarEnviar_ + opciones.usuario) y
  *  bajo lock: usa la capa de dominio directamente (nunca un wrapper api_* ni
  *  una re-autorización). §40-§42. */
 function Captura_aplicarCamposDominio_(idInterno, campos) {
@@ -152,30 +163,30 @@ function Captura_aplicarCamposDominio_(idInterno, campos) {
 }
 
 function Captura_entregarEdicion_(norm,marca,opciones) {
-  var a=norm.actualizacion,encontrado=Modelo_buscarPaciente(a.id);
+  var a=norm.actualizacion,encontrado=Modelo_buscarPaciente_(a.id);
   var advertencias=[];
   function fail(m){return {estado:'ERROR',motivo:m,idInterno:a.id,idEvento:''};}
   if(!opciones.usuario || a.rutOriginal!==norm.rut)return fail('NO_AUTORIZADO_O_IDENTIDAD_INVALIDA');
   if(!encontrado)return fail('PACIENTE_NO_ENCONTRADO');
-  var p=encontrado.obj,fin=Captura_v2_marcaEnEventos(marca);
+  var p=encontrado.obj,fin=Captura_v2_marcaEnEventos_(marca);
   if(fin && fin.idEvento)return {estado:'PROCESADO',idInterno:a.id,idEvento:fin.idEvento};
   var rutNuevo=a.campos.RUT&&a.campos.RUT.valor;
-  if(Norm_normalizarRut(p.RUT).rut!==a.rutOriginal && Norm_normalizarRut(p.RUT).rut!==rutNuevo)return fail('FICHA_CAMBIO: vuelva a cargar el paciente');
+  if(Norm_normalizarRut_(p.RUT).rut!==a.rutOriginal && Norm_normalizarRut_(p.RUT).rut!==rutNuevo)return fail('FICHA_CAMBIO: vuelva a cargar el paciente');
   var campos={},keys=Object.keys(a.campos);
   for(var i=0;i<keys.length;i++) {
     var k=keys[i],par=a.campos[k],actual=Captura_edicionTexto_(p,k);
     if(actual!==par.anterior && actual!==par.valor)return fail('FICHA_CAMBIO: '+k+' fue modificado; recargue la ficha');
     campos[k]=par.valor;
   }
-  if(rutNuevo && Modelo_leerPacientes().some(function(q){return q.ID_INTERNO!==a.id && Norm_normalizarRut(q.RUT).rut===rutNuevo;}))return fail('RUT_YA_EXISTE');
-  var eventos=Modelo_leerEventos(),hoy=Captura_v2_fechaOperacion({});
+  if(rutNuevo && Modelo_leerPacientes_().some(function(q){return q.ID_INTERNO!==a.id && Norm_normalizarRut_(q.RUT).rut===rutNuevo;}))return fail('RUT_YA_EXISTE');
+  var eventos=Modelo_leerEventos_(),hoy=Captura_v2_fechaOperacion_({});
   for(var j=0;j<a.atenciones.length;j++) {
     var at=a.atenciones[j];
     if(at.fecha>hoy)return fail('La atención no puede estar en el futuro; use Próximo control / seguimiento');
     if(at.modo==='CORREGIR') {
       var destino=eventos.filter(function(e){return e.ID_EVENTO===at.idEvento && e.ID_INTERNO===a.id && e.TIPO_EVENTO===at.tipo;})[0];
-      var masNueva=eventos.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===at.tipo;}).sort(function(x,y){return Control_aIso(x.FECHA_EVENTO)<Control_aIso(y.FECHA_EVENTO)?1:-1;})[0];
-      if(!destino || !masNueva || masNueva.ID_EVENTO!==destino.ID_EVENTO || (Control_aIso(destino.FECHA_EVENTO)!==at.anterior && Control_aIso(destino.FECHA_EVENTO)!==at.fecha))return fail('ATENCION_CAMBIO: vuelva a cargar la ficha');
+      var masNueva=eventos.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===at.tipo;}).sort(function(x,y){return Control_aIso_(x.FECHA_EVENTO)<Control_aIso_(y.FECHA_EVENTO)?1:-1;})[0];
+      if(!destino || !masNueva || masNueva.ID_EVENTO!==destino.ID_EVENTO || (Control_aIso_(destino.FECHA_EVENTO)!==at.anterior && Control_aIso_(destino.FECHA_EVENTO)!==at.fecha))return fail('ATENCION_CAMBIO: vuelva a cargar la ficha');
     }
   }
   var esquema=Modelo_asegurarEsquemaPacientes_();
@@ -192,13 +203,13 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     var otras=Object.prototype.hasOwnProperty.call(campos,'OTRAS_PATOLOGIAS')?campos.OTRAS_PATOLOGIAS:Captura_edicionTexto_(p,'OTRAS_PATOLOGIAS');
     var pat=Patologias_guardarPaciente_(a.id,codigos,otras);
     if(!pat.ok)return fail(pat.motivo||'PATOLOGIAS_NO_GUARDADAS');
-    Modelo_invalidarLecturas();
+    Modelo_invalidarLecturas_();
   }
   for(var z=0;z<a.atenciones.length;z++) {
     var ac=a.atenciones[z],submarca=marca+'|ATENCION|'+ac.tipo;
-    if(!Captura_v2_marcaEnEventos(submarca)) {
+    if(!Captura_v2_marcaEnEventos_(submarca)) {
       var r=Eventos_registrarPaciente_({idInterno:a.id,tipoEvento:ac.modo==='CORREGIR'?'OTRO':ac.tipo,fecha:ac.modo==='CORREGIR'?hoy:ac.fecha,
-        profesional:norm.profesional,fuente:submarca,registradoPor:opciones.usuario,
+        profesional:norm.profesional,profesionalSecundario:norm.profesionalSecundario||'',fuente:submarca,registradoPor:opciones.usuario,
         descripcion:ac.modo==='CORREGIR'?CAPTURA_CORRECCION_PREFIJO+JSON.stringify({idEvento:ac.idEvento,anterior:ac.anterior,fecha:ac.fecha}):'ATENCION_VIA_ACTUALIZACION',observaciones:norm.observaciones||''},{fuenteTransporte:'CapturaV4'});
       if(!r.ok)return fail(r.motivo||'ATENCION_NO_GUARDADA');
     }
@@ -207,16 +218,16 @@ function Captura_entregarEdicion_(norm,marca,opciones) {
     // Caché derivada ULTIMO_* y vista sectorial: BEST EFFORT (§23/§25) — un
     // fallo aquí no convierte el guardado en error.
     try {
-      Modelo_invalidarLecturas();var actualP=Modelo_buscarPaciente(a.id),nuevo=Object.assign({},actualP.obj),vigentes=Modelo_leerEventos();
-      a.atenciones.forEach(function(ac){var fechas=vigentes.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===ac.tipo;}).map(function(e){return Control_aIso(e.FECHA_EVENTO);}).filter(Boolean).sort();nuevo[ac.tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO']=fechas.length?fechas[fechas.length-1]:'';});
-      nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja(HOJAS.PACIENTES).getRange(Modelo_filaFisica(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto(nuevo)]);Modelo_invalidarLecturas();
+      Modelo_invalidarLecturas_();var actualP=Modelo_buscarPaciente_(a.id),nuevo=Object.assign({},actualP.obj),vigentes=Modelo_leerEventos_();
+      a.atenciones.forEach(function(ac){var fechas=vigentes.filter(function(e){return e.ID_INTERNO===a.id&&e.TIPO_EVENTO===ac.tipo;}).map(function(e){return Control_aIso_(e.FECHA_EVENTO);}).filter(Boolean).sort();nuevo[ac.tipo==='CONTROL'?'ULTIMO_CONTROL':'ULTIMO_SEGUIMIENTO']=fechas.length?fechas[fechas.length-1]:'';});
+      nuevo.FECHA_ACTUALIZACION=new Date();Modelo_hoja_(HOJAS.PACIENTES).getRange(Modelo_filaFisica_(HOJAS.PACIENTES,actualP.idx),1,1,MODELO_PACIENTE.length).setValues([Modelo_filaDesdeObjeto_(nuevo)]);Modelo_invalidarLecturas_();
       Modelo_refrescarVistasSectores_();
     } catch(eD) { advertencias.push('CACHE_DERIVADA_PENDIENTE'); }
   }
   // Auditoría best effort: es el marcador de idempotencia; si falla, reportamos
   // advertencia y el retry converge (marcaEnEventos) sin dejar un falso error.
-  var audit=Eventos_registrarPaciente_({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''},{fuenteTransporte:'CapturaV4'});
+  var audit=Eventos_registrarPaciente_({idInterno:a.id,tipoEvento:'OTRO',fecha:hoy,profesional:norm.profesional,profesionalSecundario:norm.profesionalSecundario||'',fuente:marca,registradoPor:opciones.usuario,descripcion:'ACTUALIZACION_FICHA_V4: '+keys.join(', '),observaciones:norm.observaciones||''},{fuenteTransporte:'CapturaV4'});
   if(!audit || !audit.ok) advertencias.push('AUDITORIA_FICHA_PENDIENTE');
-  var guardado=Captura_v2_marcaEnEventos(marca);
+  var guardado=Captura_v2_marcaEnEventos_(marca);
   return {estado:'PROCESADO',idInterno:a.id,idEvento:guardado&&guardado.idEvento||'',advertencias:advertencias};
 }

@@ -1,6 +1,86 @@
 # PENDIENTES — Trabajo pendiente real ECICEP
 
-> **Actualización 2026-09-27 (DEC-100):** cerrado localmente el incidente de
+## BLOQUEADORES DE ACTIVACIÓN ACTUALES
+
+No hay P0/P1 de código abierto. El hardening v270 (confirmación canónica,
+anti-inyección de fórmulas, retiro de la superficie pública temporal,
+observabilidad `unmaterialized`, límites de entrada, token legacy en captura y
+captura directa al Form → REVIEW) está cerrado y verificado. Solo quedan
+operaciones runtime:
+
+- finalizar la jornada y retirar usuarios;
+- ejecutar preflight y crear un backup reciente inmediatamente antes de mutar;
+- abrir la ventana técnica (máximo 120 minutos);
+- configurar/adoptar el Form interno y la clave de operador si siguen ausentes;
+- publicar el mismo proyecto y actualizar el mismo deployment `/exec`;
+- ejecutar instalación/reparación, migración legacy y E2E real;
+- inventariar (read-only) los datos sintéticos de E2E y limpiarlos solo con ruta
+  segura probada;
+- cerrar la ventana y emitir GO/NO-GO.
+
+## DEUDA TÉCNICA ACTUAL
+
+- No hay deuda P0/P1 conocida que bloquee el transporte. El append atómico, el
+  epoch de caché, el payload inválido visible y la auditoría XSS se cerraron en
+  v260 con pruebas conductuales.
+- v270 añade: confirmación canónica de efecto, anti-inyección de fórmulas,
+  límites de entrada del contrato, observabilidad `unmaterialized`, captura
+  pública sin token legacy y captura directa al Form sin mutación clínica.
+- Las mejoras funcionales históricas que siguen abiertas se mantienen abajo y
+  están marcadas como **NO BLOQUEA ACTIVACIÓN DEL TRANSPORTE**.
+
+## DECISIONES DE NEGOCIO PENDIENTES
+
+- Semántica oficial de ESTADO/SEGUIMIENTO/CONTROL/PROFESIONAL, `G` sin nivel,
+  catálogos/umbrales, PLAN_CUIDADO/GESTION_CASO, bloque C/atenciones REM y
+  corrección retrospectiva de eventos. **NO BLOQUEA ACTIVACIÓN DEL TRANSPORTE**.
+
+## HISTÓRICO CERRADO
+
+> Todo el contenido cronológico siguiente se conserva como evidencia histórica;
+> no redefine los bloqueadores vigentes anteriores.
+
+> **Actualización 2026-10-13 (v260 RC):** baseline de release local cerrada,
+> sin activar producción. La activación futura no requiere cambios de código.
+
+> **Actualización 2026-10-13 (v259 — DEC-114):** cierre local listo, sin activar.
+> La deuda heredada de `FORM_RESPUESTAS` quedó separada del backlog Google Forms,
+> con migración dry-run por defecto y reconciliación agregada read-only. Pendiente
+> exclusivamente para una ventana fuera de horario: refrescar snapshot y backup,
+> resolver/adoptar el Form, configurar hash de operador, abrir la ventana técnica,
+> publicar, migrar trailer legacy, instalar triggers y ejecutar E2E sintético.
+> `clasp run` no es requisito. Gate: `READY_FOR_AFTER_HOURS_ACTIVATION_WINDOW`.
+
+> **Actualización 2026-10-13 (v258 — DEC-113):** cerrados localmente los
+> residuos P0/P1 de concurrencia clínica, lock fail-open, gate del trailer,
+> liberación de lease, verificación post-delete, reconciliación de
+> estratificación y rollback de campos tocados. Gate local: 137 suites / 0
+> fallos. Pendiente operativo inmediato: snapshot read-only, backup verificado,
+> preactivación, publicación en el mismo deployment y E2E sintético controlado.
+
+> **Gate real v258:** backup integral verificado y snapshot read-only completado.
+> La activación v258 se detuvo antes de `clasp push`. La inspección definitiva
+> confirmó `GOOGLE_FORM_ID`, `GOOGLE_FORM_SCHEMA_VERSION` y
+> `ECICEP_OPERATOR_SECRET_SHA256` ausentes: esto significa
+> `CANAL_GOOGLE_FORMS_NO_ACTIVADO`, no corrupción. Repetir el snapshot al
+> reanudar; no reutilizar conteos anteriores como si fueran actuales.
+
+> **Actualización 2026-10-13 (v257 — DEC-112):** cerrados localmente los P0/P1
+> de integridad de identidad, confirmación de fila, unicidad RUT, rollback
+> verificado, compensación por IDs, estados/conflictos de `INGRESO_*`, ficha
+> parcial, warnings derivados, trazabilidad reconciliable de estratificación y
+> demografía REM derivable. Bloque C REM sigue pendiente de definición de
+> negocio (#17). Producción permanece intacta; la activación GAS/E2E pertenece
+> al Prompt 3.
+
+> **Actualización 2026-10-13 (v256 — DEC-111):** cerrado localmente el cierre
+> transversal runtime P0/P1 (semántica `INCIERTO`, reserva de idempotencia, lease
+> del worker, dry-run read-only, trailer autoritativo, GC de respaldos,
+> contadores reales en "Actualizar"). 130 suites / 0 fallos. Pendiente
+> exclusivamente operativo: activación autorizada (sin `clasp push`/deploy en esta
+> fase). Gate: `READY_FOR_PROMPT_2_DATA_INTEGRITY`.
+
+> **Actualización 2026-09-27 (DEC-100):** cerrado localmente el incidente de cerrado localmente el incidente de
 > incorporación cross-sector y falsa duplicidad por `PACIENTES.FECHA_INGRESO`.
 > El pipeline único registra `CAMBIO_SECTOR` + `INGRESO`, conserva cambios
 > posteriores en retries, trata `MULTIPLE` como revisión y verifica la vista.
@@ -28,11 +108,22 @@
 > columnas derivadas. Pendiente: publicar y repetir Instalar/Reparar dos veces
 > para medir duración y convergencia reales.
 
+> **Actualización 2026-10-05 (v0.16.4 — DEC-104):** ningún campo aceptado se
+> pierde. Identificadores automáticos (`EC-`/`EV-` con sufijo aleatorio; la
+> secuencia de test solo por inyección explícita) en lugar de identidad posicional
+> por orden del lote; `profesionalSecundario` persistido en la columna nueva
+> `EVENTOS.PROFESIONAL2` (añadida al final, migración idempotente, históricos
+> vacíos); teléfonos con separadores internos recuperados y `TELEFONO_OBS` con
+> todo descarte; índices de `Calidad_sincronizarCola_` derivados del encabezado
+> real (leía `FUENTE_B`, duplicaba la cola y tenía el auto-resolve muerto) y fila
+> de RUT tomada de `Modelo_filaFisica` (escribía sobre el banner). No se reescribe
+> ningún dato existente. Pruebas: núcleo 679/679 y batería 70/70.
+
 > **Actualización 2026-09-30 (v0.16.3 — DEC-103):** endurecimiento posterior al
 > incidente. Nada se pierde en silencio: errores de captura persistidos en la hoja
 > LOG (antes solo vivían en memoria), causas que ya no se descartan, y
 > `Limpieza`/`Recuperar` serializadas con el lock para que una reescritura total
-> no borre una captura concurrente. Quedan tres riesgos **aún abiertos**, con
+> no borre una captura concurrente. Quedaban tres riesgos, **cerrados en v260**, con
 > criterio explícito de no tocarlos a ciegas:
 > 1. `Fuentes_cargaReal_` y las mutaciones del webhook escriben PACIENTES/INGRESO
 >    **sin** el lock de script: dos ejecuciones simultáneas pueden calcular la
@@ -56,6 +147,16 @@
 > es el enlace del deployment. El invariante está cubierto por
 > `tests/seguridad_webapp_capacidades_vNEXT.mjs`. Nuevo pendiente real:
 > eliminar toda comprobación de credencial residual que quede en el código.
+
+> **Actualización 2026-10-12 (v255 — DEC-110, frontera RPC):** **cerrado** el
+> pendiente de «reducir la superficie RPC heredada congelada». La superficie
+> pública bajó de ~709 a **12** funciones (5 runtime, 4 de captura anónima, 3 de
+> auth OPSESS); toda RPC operativa es interna (`_`) y sólo se alcanza por el
+> gateway `WebApp_operadorRpc` con `WEBAPP_OPERATOR_RPC_`. DEC-110 acota DEC-101/
+> DEC-102: la captura pública sigue concediendo siempre; operador/administración
+> exige sesión OPSESS. Contrato ejecutable en `tests/rpc_public_allowlist.json`.
+> Siguen pendientes reales: ampliar la auditoría XSS sink-by-sink y ejecutar
+> Instalar/Reparar dos veces sobre el libro real con backup reciente.
 
 > **Actualización 2026-09-30 (v0.16.1 — DEC-101):** revertido el bloqueo total de
 > acceso. La separación CAPTURA ≠ OPERADOR de DEC-097 exigía credencial y
@@ -383,7 +484,11 @@ Los problemas que ya fueron implementados y validados permanecen cerrados y no f
 
 - **#21** UI mínima para `REQUIERE_REVISION` / `POSIBLE_DUPLICADO`: resuelto. Backend (`api_revisionListar`, `api_revisionResolver`) y frontend (Sidebar `mode='revision'` con comparación lado a lado y botones de acción) completamente implementados. Accesible vía `ECICEP > Personas > Cola de revisión` y Panel de Control.
 - **#22** Fecha específica para CONTROL/SEGUIMIENTO: resuelto. El comportamiento puntual quedó implementado en el código vigente; la definición contractual de `FECHA_EVENTO` (obligatoriedad, captura, validación y persistencia) fue **invalidada** y redefinida en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**).
-- **#29 (backend)** Captura V2: **cerrado y validado por fase en S1** (2026-09-06). Backend y **UI 100% V2 operativa** según `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO**): `src/26_Captura.js` (validación §5.1/§14 en orden §17, idempotencia §13, estados §18, reintentos §23, persistencia §15, TR-1/TR-2 §21, entrypoints `WebApp_capturarEnviar`/`WebApp_capturarEstado`) y `src/CapturaWeb.html` (canal único, `captureId` `Cp2-`+32 hex, SDK `WebApp_previaDuplicadosV2`/`WebApp_capturarEnviar`). Desde S1 incluye **retoma V2 por su propio procesador**: `WebApp_capturarRetomar`/`Captura_v2_retomarRegistro`. Verificación: `tests/captura_backend_v2.mjs` (65), `tests/captura_ui_payload_v2.mjs` (16), `tests/contrato_captura_v2.mjs` (36), `tests/contrato_datos.mjs` (20), regresión completa verde (núcleo 469, aceptación 50). Pendiente **exclusivamente** de E2E en vivo (login Google en el perfil Brave), no de implementación.
+- **#29 (backend, historial cerrado)** Captura V2 quedó validada en S1. La ruta de
+  interfaz citada en el cierre original fue reemplazada por DEC-106: CapturaWeb
+  llama `WebApp_capturarRecibirDurable`, Google Forms conserva la respuesta y
+  `Form_worker` invoca `Captura_v2_enviar`. La activación productiva controlada y
+  su E2E real siguen pendientes; la implementación local v254.4 está cerrada.
 
 ## 7. Campos pendientes de captura — clasificación provisional (A/B/C/D)
 

@@ -10,8 +10,8 @@
  *   §40      bootstrap (BOOT): catálogo vacío, error temporal, reintentos,
  *            botón Reintentar y la invariante "nunca listo sin profesionales".
  *   §40      contrato común RPC: distinguir dataset vacío de RPC fallida
- *            (api_buscar, api_revisionListar, api_ficha, api_dashboardDatos,
- *            api_remVista, api_ingresosPendientes, api_ingresoDetalle).
+ *            (api_buscar_, api_revisionListar_, api_ficha_, api_dashboardDatos_,
+ *            api_remVista_, api_ingresosPendientes_, api_ingresoDetalle_).
  *   §42      idempotencia del operador: retry del mismo envío NO duplica
  *            (criterio captureId + marcas FUENTE), incluido retry post-timeout.
  *   §43      concurrencia: exclusión mutua (SERVICIO_OCUPADO) y guardia
@@ -70,7 +70,7 @@ const exportBlock = `
     enviar: enviar, enviarFinal: enviarFinal, _envExito: _envExito, _envFallo: _envFallo,
     envioIniciar: envioIniciar, envioEsActual: envioEsActual, envioFinalizar: envioFinalizar,
     envioPausarEsperaHumana: envioPausarEsperaHumana,
-    _asignarCaptureId: _asignarCaptureId, _autoReloadSiVersion: _autoReloadSiVersion,
+    _asignarClientRequestId: _asignarClientRequestId, _autoReloadSiVersion: _autoReloadSiVersion,
     _recargarAcceso: _recargarAcceso, accesoMarcarSano: accesoMarcarSano,
     _sesGet: _sesGet, _sesSet: _sesSet, _sesRemove: _sesRemove,
     bootReintentar: function () { bootOcultarError(); BOOT.intento = 0; bootEjecutar(); },
@@ -170,7 +170,7 @@ function createWebSandbox(seedSes) {
     withSuccessHandler(fn) { curOk = fn; return this; },
     withFailureHandler(fn) { curFail = fn; return this; }
   };
-  ['WebApp_estadoInicial', 'WebApp_previaDuplicadosV2', 'WebApp_capturarEnviar', 'api_webappEstado'].forEach((name) => {
+  ['WebApp_estadoInicial', 'WebApp_previaDuplicadosV2_', 'WebApp_capturarRecibirDurable', 'api_webappEstado'].forEach((name) => {
     gsr[name] = function () {
       rpcCalls.push({ name, args: [...arguments], ok: curOk, fail: curFail, consumed: false });
       curOk = null; curFail = null;
@@ -222,7 +222,11 @@ function createWebSandbox(seedSes) {
       };
       Object.keys(v).forEach((id) => { const el = document.getElementById(id); if (el) el.value = v[id]; });
     },
-    resetAccion(a) { api.radioAccion.value = a; api.radioAccion.checked = true; }
+    resetAccion(a) {
+      api.document.getElementById('accion').value = a;
+      api.radioAccion.value = a;
+      api.radioAccion.checked = true;
+    }
   };
   return api;
 }
@@ -242,10 +246,10 @@ function memory(c) {
     buscarRegistro: (id) => rows.get(id),
     persistirRegistro: (r) => { rows.set(r.captureId, JSON.parse(JSON.stringify(r))); return { ok: true }; },
     actualizarTrailer: (id, changes) => { Object.assign(rows.get(id), changes); return { ok: true }; },
-    entregar: c.Captura_v2_entregar
+    entregar: c.Captura_v2_entregar_
   };
-  c.Captura_v2_buscarPersonaPorRut = () => ({ ID_INTERNO: 'FICTICIO' });
-  c.Captura_v2_marcaEnEventos = (marca) => events.get(marca);
+  c.Captura_v2_buscarPersonaPorRut_ = () => ({ ID_INTERNO: 'FICTICIO' });
+  c.Captura_v2_marcaEnEventos_ = (marca) => events.get(marca);
   c.Eventos_registrarPaciente_ = (p) => { events.set(p.fuente, { idInterno: p.idInterno, idEvento: 'EVENTO-FICTICIO' }); return { ok: true }; };
   return { ctx, rows, events };
 }
@@ -257,27 +261,28 @@ t('A1 las 4 acciones fijan _enviando=true, ENVIO activo, fase correcta y UNA RPC
   const w = createWebSandbox();
   for (const acc of ['REGISTRAR_CONTROL', 'REGISTRAR_SEGUIMIENTO', 'ACTUALIZAR_DATOS']) {
     w.formValido(); w.U.enviando = false; w.resetAccion(acc);
-    const antes = w.calls('WebApp_capturarEnviar').length;
+    const antes = w.calls('WebApp_capturarRecibirDurable').length;
     w.U.enviar();
     A(w.U.enviando === true, acc + ': _enviando activo');
     A(w.U.activo === true, acc + ': ENVIO activo');
     A(w.U.fase === 'entrega', acc + ': fase entrega (era ' + w.U.fase + ')');
     A(w.U.tiempoId !== null, acc + ': timeout armado');
-    A(w.calls('WebApp_capturarEnviar').length === antes + 1, acc + ': exactamente 1 RPC de captura');
-    A((w.calls('WebApp_previaDuplicadosV2')[w.calls('WebApp_previaDuplicadosV2').length - 1] || {}).name !== 'WebApp_previaDuplicadosV2',
+    A(w.calls('WebApp_capturarRecibirDurable').length === antes + 1, acc + ': exactamente 1 RPC de captura');
+    A((w.calls('WebApp_previaDuplicadosV2_')[w.calls('WebApp_previaDuplicadosV2_').length - 1] || {}).name !== 'WebApp_previaDuplicadosV2_',
       acc + ': sin pre-flight');
     A(w.U.envioFinalizar(w.U.secuencia) === true, acc + ': finalizar libera');
     A(w.U.enviando === false, acc + ': tras finalizar, _enviando false');
   }
 });
 
-t('A2 NUEVO_INGRESO usa pre-flight (fase preflight) y también queda vigilado por timeout', () => {
+t('A2 NUEVO_INGRESO usa recepción durable directa y queda vigilado por timeout', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  A(w.U.enviando === true && w.U.fase === 'preflight', 'fase preflight esperada');
-  A(w.calls('WebApp_previaDuplicadosV2').length === 1, '1 RPC de pre-flight');
-  A(w.U.tiempoId !== null, 'timeout también en pre-flight');
+  A(w.U.enviando === true && w.U.fase === 'entrega', 'fase entrega esperada');
+  A(w.calls('WebApp_capturarRecibirDurable').length === 1, '1 RPC durable');
+  A(w.calls('WebApp_previaDuplicadosV2_').length === 0, 'sin preflight bloqueante');
+  A(w.U.tiempoId !== null, 'timeout en recepción durable');
   w.U.envioFinalizar(w.U.secuencia);
 });
 
@@ -310,60 +315,44 @@ t('A4 el callback de una solicitud vieja NUNCA toca la solicitud nueva (secuenci
   A(w.U.envioFinalizar(s2) === true && w.U.enviando === false, 'solo la solicitud actual libera el envío');
 });
 
-t('A5 el modal de duplicados PAUSA el timeout humano y conserva el envío activo', () => {
+t('A5 un fallo del preflight legado no participa ni bloquea el envío durable', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', {
-    ok: true, coincidencia: true,
-    candidatos: [{ resultado: 'MATCH_EXACTO', criterio: 'RUT', paciente: { nombre: 'PERSONA FICTICIA', rut: '12.345.678-9' } }]
-  });
-  A(w.U.activo === true && w.U.enviando === true, 'envío sigue activo mientras decide el humano');
-  A(w.U.tiempoId === null, 'timeout cancelado (el operador debe poder decidir sin prisa técnica)');
-  A(w.elementCache.get('dupOverlay').classList.contains('show'), 'modal de duplicados visible');
-  contiene(w.elementCache.get('dupMsg').textContent, 'Ya existe una persona con el mismo RUT', 'mensaje MATCH_EXACTO');
-  contiene(w.elementCache.get('dupMsg').textContent, '1 coincidencia', 'conteo visible');
+  A(w.calls('WebApp_previaDuplicadosV2_').length === 0, 'preflight no fue invocado');
+  A(w.calls('WebApp_capturarRecibirDurable').length === 1, 'respuesta se envía a persistencia');
+  A(w.U.activo === true && w.U.tiempoId !== null, 'recepción mantiene su timeout');
 });
 
-t('A7 descartar un duplicado descongela el formulario SIN disparar ninguna RPC', () => {
+t('A7 RECIBIDO finaliza la solicitud durable y habilita nueva captura', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const antes = w.calls('WebApp_capturarEnviar').length;
-  const d = w.elementCache.get('dupDescartar');
-  d.fire('click', { target: d });
-  A(w.U.enviando === false && w.U.activo === false, 'descartar libera el envío');
+  w.respond('WebApp_capturarRecibirDurable', { ok: true, data: { estado: 'RECIBIDO' } });
+  A(w.U.enviando === false && w.U.activo === false, 'respuesta durable libera el envío');
   A(w.U.tiempoId === null, 'sin timers de envío residuales');
-  A(w.calls('WebApp_capturarEnviar').length === antes, 'descartar no reenvía ni dispara RPC');
-  A(!w.elementCache.get('dupOverlay').classList.contains('show'), 'modal cerrado');
   A(w.elementCache.get('btnEnviar').disabled === false, 'botón listo para reingresar');
 });
 
-t('A6 continuar desde el modal conserva datos; "registrar como nuevo" confirma la intención', () => {
+t('A6 el payload durable conserva datos y clientRequestId, sin bandera de preflight', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const env = w.elementCache.get('dupEnviar');
-  env.fire('click', { target: env });
-  const entrega = w.calls('WebApp_capturarEnviar').at(-1);
-  A(entrega !== undefined, 'continuar dispara la captura');
+  const entrega = w.calls('WebApp_capturarRecibirDurable').at(-1);
+  A(entrega !== undefined, 'envío dispara la captura');
   A(entrega.args[0].rut === '12.345.678-9', 'payload conserva el RUT del formulario');
-  A(entrega.args[0].confirmarNuevoPaciente === undefined, '"Enviar de todos modos" NO fuerza paciente nuevo');
+  A(/^CR-[a-f0-9]{32}$/.test(entrega.args[0].clientRequestId), 'clientRequestId presente');
+  A(entrega.args[0].confirmarNuevoPaciente === undefined, 'sin bandera de preflight');
   w.U.envioFinalizar(w.U.secuencia);
 });
 
-t('A6b "Registrar de todos modos" (nuevo) marca confirmarNuevoPaciente=true en el payload', () => {
+t('A6b cada intento lógico estable conserva clientRequestId sin fabricar captureId', () => {
   const w = createWebSandbox();
   w.formValido(); w.U.enviando = false; w.resetAccion('NUEVO_INGRESO');
   w.U.enviar();
-  w.respond('WebApp_previaDuplicadosV2', { ok: true, coincidencia: true, candidatos: [] });
-  const nuevo = w.elementCache.get('dupNuevo');
-  nuevo.fire('click', { target: nuevo });
-  const entrega = w.calls('WebApp_capturarEnviar').at(-1);
-  A(entrega !== undefined, 'la opción nuevo dispara la captura');
-  A(entrega.args[0].confirmarNuevoPaciente === true, 'confirmarNuevoPaciente=true al forzar registro');
+  const entrega = w.calls('WebApp_capturarRecibirDurable').at(-1);
+  A(entrega !== undefined, 'se dispara captura durable');
+  A(entrega.args[0].clientRequestId && !entrega.args[0].captureId, 'identidades cliente/backend separadas');
   w.U.envioFinalizar(w.U.secuencia);
 });
 
@@ -399,24 +388,24 @@ t('B3 tras marcar sano, una nueva incidencia puede volver a recargar (recuperaci
   A(w.reloads.length === 2, 'recuperado: una segunda incidencia vuelve a recargar');
 });
 
-t('B4 _recargarAcceso conserva el captureId pendiente antes de recargar (cruce de pestaña)', () => {
+t('B4 _recargarAcceso conserva clientRequestId pendiente antes de recargar', () => {
   const w = createWebSandbox();
   w.U.ultimoSig = null;
-  const id = w.U._asignarCaptureId('sig1');
-  A(/^Cp4-[a-f0-9]{32}$/.test(id), 'captureId V4 generado: ' + id);
+  const id = w.U._asignarClientRequestId('sig1');
+  A(/^CR-[a-f0-9]{32}$/.test(id), 'clientRequestId generado: ' + id);
   w.U._recargarAcceso();
-  A('Cp4-' + w.sesStore.get('ecicep_captureId') === id, 'captureId pendiente persiste (sin prefijo, se recompone al restaurar)');
+  A('CR-' + w.sesStore.get('ecicep_clientRequestId') === id, 'clientRequestId pendiente persiste');
   w.fireAll();
   A(w.reloads.length === 1, 'recarga pendiente disparada');
 });
 
-t('B5 al reabrir la pestaña, el captureId guardado se restaura y se consume una sola vez', () => {
+t('B5 al reabrir la pestaña, clientRequestId se restaura y consume una vez', () => {
   const seed = 'ab'.repeat(16);
-  const w = createWebSandbox({ ecicep_captureId: seed, ecicep_reload_acceso: '1' });
+  const w = createWebSandbox({ ecicep_clientRequestId: seed, ecicep_reload_acceso: '1' });
   w.respond('WebApp_estadoInicial', { ok: true, profesionales: ['MEDICO/A'] });
-  const restaurado = w.U._asignarCaptureId('sig-nueva');
-  A(restaurado === 'Cp4-' + seed, 'captureId restaurado desde sessionStorage: ' + restaurado);
-  A(w.sesStore.get('ecicep_captureId') === undefined, 'captureId consumido (no reutilizable)');
+  const restaurado = w.U._asignarClientRequestId('sig-nueva');
+  A(restaurado === 'CR-' + seed, 'clientRequestId restaurado: ' + restaurado);
+  A(w.sesStore.get('ecicep_clientRequestId') === undefined, 'clientRequestId consumido');
 });
 
 // ── 4. Pruebas PARTE C — Bootstrap (§40) ──
@@ -475,8 +464,8 @@ t('C4 agotados los reintentos, el botón Reintentar ejecuta un nuevo intento que
 
 t('C5 el backend NUNCA responde ok:true con catálogo vacío (invariante de profesionales)', () => {
   const c = backend();
-  c.WebApp_autorizarCaptura = () => true;
-  c.Captura_v2_catalogo = () => [];
+  c.WebApp_autorizarCaptura_ = () => true;
+  c.Captura_v2_catalogo_ = () => [];
   const ok = c.WebApp_estadoInicial('TOKEN');
   A(ok.ok === false, 'catálogo vacío responde ok:false');
   A(ok.codigo === 'CATALOGO_PROFESIONALES_NO_DISPONIBLE', 'codigo específico de catálogo');
@@ -487,35 +476,35 @@ t('C5 el backend NUNCA responde ok:true con catálogo vacío (invariante de prof
 // ── 5. Pruebas PARTE D — Contrato común RPC (§40) ──
 console.log('OPERADOR D — contrato RPC: dataset vacío ≠ RPC fallida.');
 
-t('D1 api_buscar: sin resultados es ok:true con filas:[]; fallo es ok:false con codigo y filas:[]', () => {
+t('D1 api_buscar_: sin resultados es ok:true con filas:[]; fallo es ok:false con codigo y filas:[]', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
-  c.Modelo_leerPacientesCampos = () => [];
-  c.Bus_buscarPacientes = () => [];
-  const vacio = c.api_buscar('zzz', 't');
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
+  c.Modelo_leerPacientesCampos_ = () => [];
+  c.Bus_buscarPacientes_ = () => [];
+  const vacio = c.api_buscar_('zzz', 't');
   A(vacio.ok === true && Array.isArray(vacio.filas) && vacio.filas.length === 0, 'sin resultados: ok:true filas vacías');
-  c.Bus_buscarPacientes = () => { throw new Error('boom'); };
-  const fallo = c.api_buscar('zzz', 't');
+  c.Bus_buscarPacientes_ = () => { throw new Error('boom'); };
+  const fallo = c.api_buscar_('zzz', 't');
   A(fallo.ok === false && fallo.codigo === 'BUSQUEDA_FALLO' && fallo.filas.length === 0, 'fallo: ok:false + filas vacías');
-  c.WebApp_autorizarBuscador = () => false;
-  const den = c.api_buscar('zzz', 't');
+  c.WebApp_autorizarBuscador_ = () => false;
+  const den = c.api_buscar_('zzz', 't');
   A(den.ok === false && den.codigo === 'ACCESO_DENEGADO', 'acceso denegado distinguido');
 });
 
-t('D2 api_revisionListar: cola vacía es ok:true; fallo es ok:false con casos vacíos', () => {
+t('D2 api_revisionListar_: cola vacía es ok:true; fallo es ok:false con casos vacíos', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
-  c.Modelo_hoja = () => ({ getLastRow: () => 1 });
-  const vacio = c.api_revisionListar('t');
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
+  c.Modelo_hoja_ = () => ({ getLastRow: () => 1 });
+  const vacio = c.api_revisionListar_('t');
   A(vacio.ok === true && vacio.casos.length === 0 && vacio.metricas.abiertos === 0, 'cola vacía: ok:true');
-  c.Modelo_hoja = () => { throw new Error('sheet caido'); };
-  const fallo = c.api_revisionListar('t');
+  c.Modelo_hoja_ = () => { throw new Error('sheet caido'); };
+  const fallo = c.api_revisionListar_('t');
   A(fallo.ok === false && fallo.codigo === 'REVISION_FALLO' && fallo.casos.length === 0, 'fallo: ok:false + casos vacíos');
 });
 
-t('D3 api_revisionListar: métricas de decisión exactas ante casos ABIERTO/RESUELTO (§46)', () => {
+t('D3 api_revisionListar_: métricas de decisión exactas ante casos ABIERTO/RESUELTO (§46)', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
   const bloque = [
     ['ESTADOREVISION', 'DETALLE', 'RESUELTOPOR', 'TIPO'],
     ['RESUELTO', '', 'CONFIRMAR_MATCH', 'DUPLICADO'],
@@ -525,65 +514,68 @@ t('D3 api_revisionListar: métricas de decisión exactas ante casos ABIERTO/RESU
       valoresOriginales: { NOMBRE: 'PERSONA FICTICIA', RUT: '11.111.111-1' } }), '', 'DUPLICADO'],
     ['ABIERTO', 'json-roto', '', 'DUPLICADO']
   ];
-  c.Modelo_hoja = () => ({ getLastRow: () => bloque.length });
-  c.Utl_leerBloque = () => bloque;
-  c.Modelo_leerPacientesCampos = () => [];
-  const r = c.api_revisionListar('t');
+  c.Modelo_hoja_ = () => ({ getLastRow: () => bloque.length });
+  c.Utl_leerBloque_ = () => bloque;
+  c.Modelo_leerPacientesCampos_ = () => [];
+  const r = c.api_revisionListar_('t');
   A(r.ok === true, 'lista procesada');
-  A(r.casos.length === 1, '1 caso abierto parseable, recibidos: ' + r.casos.length);
-  A(r.metricas.abiertos === 1 && r.metricas.pendientes === 1, 'abiertos/pendientes exactos');
+  A(r.casos.length === 2, '2 casos abiertos visibles, incluido payload inválido: ' + r.casos.length);
+  A(r.metricas.abiertos === 2 && r.metricas.pendientes === 2 && r.metricas.reviewPayloadInvalid === 1,
+    'abiertos/pendientes/payload inválido exactos');
   A(r.metricas.resueltos === 2, 'resueltos exactos');
   A(r.metricas.esMismo === 1 && r.metricas.esOtro === 1, 'decisión CONFIRMAR vs RECHAZAR bien separada');
   contiene(r.casos[0].origen.fuente, 'INGRESO_NARANJO fila 5', 'traza de origen visible');
+  A(r.casos[1].motivoTecnico === 'REVIEW_PAYLOAD_INVALID' && r.casos[1].resoluble === false,
+    'payload inválido visible y no resoluble');
 });
 
-t('D4 api_ficha: NUNCA nulo; error unificado en {ok:false,codigo,motivo}; éxito pasa intacto', () => {
+t('D4 api_ficha_: NUNCA nulo; error unificado en {ok:false,codigo,motivo}; éxito pasa intacto', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {};
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {};
   c.Ficha_construir_ = () => ({ ok: false, code: 'PACIENTE_NO_ENCONTRADO', message: 'Paciente no encontrado' });
-  const ne = c.api_ficha('I-X', 't');
+  const ne = c.api_ficha_('I-X', 't');
   A(ne !== null && ne !== undefined && ne.ok === false && ne.codigo === 'PACIENTE_NO_ENCONTRADO' && ne.motivo === 'Paciente no encontrado',
     'no encontrado: ok:false unificado, nunca null');
   c.Ficha_construir_ = () => { throw new Error('boom'); };
-  const ex = c.api_ficha('I-X', 't');
+  const ex = c.api_ficha_('I-X', 't');
   A(ex.ok === false && ex.codigo === 'FICHA_FALLO' && ex.motivo === 'boom', 'excepción: FICHA_FALLO');
   c.Ficha_construir_ = () => ({ ok: true, ficha: { ID_INTERNO: 'I-1' } });
-  const ok = c.api_ficha('I-1', 't');
+  const ok = c.api_ficha_('I-1', 't');
   A(ok.ok === true && ok.ficha.ID_INTERNO === 'I-1', 'éxito passthrough');
 });
 
-t('D5 api_dashboardDatos: dataset vacío es ok:true; fallo es ok:false', () => {
+t('D5 api_dashboardDatos_: dataset vacío es ok:true; fallo es ok:false', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
-  c._UI_tz = () => 'America/Santiago';
-  c._ui_isoFecha = (v) => (v ? String(v) : '');
-  c.Modelo_leerPacientesCampos = (campos) => [];
-  c.Modelo_leerEventosCampos = (campos) => [];
-  const vacio = c.api_dashboardDatos('t');
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
+  c._UI_tz_ = () => 'America/Santiago';
+  c._ui_isoFecha_ = (v) => (v ? String(v) : '');
+  c.Modelo_leerPacientesCampos_ = (campos) => [];
+  c.Modelo_leerEventosCampos_ = (campos) => [];
+  const vacio = c.api_dashboardDatos_('t');
   A(vacio.ok === true && Array.isArray(vacio.pacientes) && Array.isArray(vacio.eventos), 'empty dataset: ok:true');
-  c.Modelo_leerPacientesCampos = () => { throw new Error('boom'); };
-  const fallo = c.api_dashboardDatos('t');
+  c.Modelo_leerPacientesCampos_ = () => { throw new Error('boom'); };
+  const fallo = c.api_dashboardDatos_('t');
   A(fallo.ok === false && typeof fallo.motivo === 'string', 'fallo: ok:false con motivo');
 });
 
-t('D6 api_remVista: PERIODO_INVALIDO es ok:false con motivo exacto; vista vacía es ok:true', () => {
+t('D6 api_remVista_: PERIODO_INVALIDO es ok:false con motivo exacto; vista vacía es ok:true', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {}; c.Log_info = () => {};
-  const inv = c.api_remVista(2026, 13, 'VERDE', 'MES', '', 't');
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {}; c.Log_info_ = () => {};
+  const inv = c.api_remVista_(2026, 13, 'VERDE', 'MES', '', 't');
   A(inv.ok === false && inv.motivo === 'PERIODO_INVALIDO', 'período inválido: ok:false PERIODO_INVALIDO');
-  c.Rem_bucketSector = (s) => s;
-  c._rem9_datos = () => ({ pacientes: [], eventos: [] });
-  c.Rem9_armarVistaDatos = (d, opts) => ({ tablas: [], notas: [], meta: { modo: opts.modo, sector: opts.sector, pacientes: 0, atenciones: 0 } });
-  const v = c.api_remVista(2026, 3, 'VERDE', 'MES', '', 't');
+  c.Rem_bucketSector_ = (s) => s;
+  c._rem9_datos_ = () => ({ pacientes: [], eventos: [] });
+  c.Rem9_armarVistaDatos_ = (d, opts) => ({ tablas: [], notas: [], meta: { modo: opts.modo, sector: opts.sector, pacientes: 0, atenciones: 0 } });
+  const v = c.api_remVista_(2026, 3, 'VERDE', 'MES', '', 't');
   A(v.ok === true && Array.isArray(v.tablas) && v.meta.pacientes === 0, 'vista vacía: ok:true');
 });
 
 t('D7 accesos rechazados de lectura devuelven ok:false (nunca null) en todos los endpoints', () => {
   const c = backend();
-  c.WebApp_autorizarBuscador = () => false; c.Log_error = () => {};
+  c.WebApp_autorizarBuscador_ = () => false; c.Log_error_ = () => {};
   for (const res of [
-    c.api_buscar('x', 't'), c.api_ficha('I', 't'), c.api_dashboardDatos('t'),
-    c.api_ingresosPendientes({}, 't'), c.api_ingresoDetalle('INGRESO_VERDE', 2, 't')
+    c.api_buscar_('x', 't'), c.api_ficha_('I', 't'), c.api_dashboardDatos_('t'),
+    c.api_ingresosPendientes_({}, 't'), c.api_ingresoDetalle_('INGRESO_VERDE', 2, 't')
   ]) A(res !== null && res !== undefined && res.ok === false, 'rechazo ok:false no nulo: ' + JSON.stringify(res));
 });
 
@@ -594,23 +586,23 @@ const BASE = { captureId: 'Cp4-' + 'a'.repeat(32), accion: 'registrarControl', r
 
 t('E1 reintento idéntico del mismo control NO duplica el evento (criterio captureId + FUENTE)', () => {
   const c = backend(), m = memory(c);
-  const r1 = c.Captura_v2_enviar(BASE, m.ctx);
+  const r1 = c.Captura_v2_enviar_(BASE, m.ctx);
   A(r1.ok === true && r1.data.estado === 'PROCESADO', 'primer envío procesado');
   A(m.events.size === 1, 'un evento tras el primer envío');
-  const r2 = c.Captura_v2_enviar(BASE, m.ctx);
+  const r2 = c.Captura_v2_enviar_(BASE, m.ctx);
   A(r2.ok === true && r2.data.estado === 'PROCESADO', 'reenvío terminal renvía el resultado (A1)');
   A(m.events.size === 1, 'el reintento NO duplica el evento');
-  const conf = c.Captura_v2_enviar({ ...BASE, fechaEvento: '2026-09-17' }, m.ctx);
+  const conf = c.Captura_v2_enviar_({ ...BASE, fechaEvento: '2026-09-17' }, m.ctx);
   A(conf.ok === false && conf.errors[0].codigo === 'CONFLICTO_IDEMPOTENCIA', 'mismo captureId con payload distinto → conflicto');
 });
 
 t('E2 reintento después de un timeout (estado VALIDO/retry A2) converge sin duplicar', () => {
   const c = backend(), m = memory(c);
-  A(c.Captura_v2_enviar(BASE, m.ctx).ok === true, 'primer envío ok');
+  A(c.Captura_v2_enviar_(BASE, m.ctx).ok === true, 'primer envío ok');
   A(m.events.size === 1, 'un evento');
   const st = m.rows.get(BASE.captureId);
   st.estado = 'VALIDO'; st.reintentos = 0; st.ingresoHoja = ''; st.ingresoFila = '';
-  const retry = c.Captura_v2_enviar(BASE, m.ctx);
+  const retry = c.Captura_v2_enviar_(BASE, m.ctx);
   A(retry.ok === true && retry.data.estado === 'PROCESADO', 'retry tras timeout procesa (A2)');
   A(m.events.size === 1, 'el retry no duplicó el evento');
   A(Number(st.reintentos) >= 1, 'reintento contabilizado');
@@ -619,9 +611,9 @@ t('E2 reintento después de un timeout (estado VALIDO/retry A2) converge sin dup
 t('E3 seguimiento idempotente: mismo reintento no agrega atenciones duplicadas', () => {
   const c = backend(), m = memory(c);
   const p = { ...BASE, accion: 'registrarSeguimiento', captureId: 'Cp4-' + 'c'.repeat(32) };
-  A(c.Captura_v2_enviar(p, m.ctx).ok === true, 'primer seguimiento ok');
+  A(c.Captura_v2_enviar_(p, m.ctx).ok === true, 'primer seguimiento ok');
   A(m.events.size === 1, '1 evento');
-  A(c.Captura_v2_enviar(p, m.ctx).ok === true, 'reenvío ok');
+  A(c.Captura_v2_enviar_(p, m.ctx).ok === true, 'reenvío ok');
   A(m.events.size === 1, 'sin duplicados');
 });
 
@@ -639,17 +631,17 @@ t('E4 lock ocupado devuelve SERVICIO_OCUPADO reintentable sin ejecutar la mutaci
   A(ok.ok === true && released, 'con lock libre ejecuta y libera');
 });
 
-t('E5 api_fichaGuardarCambios propaga SERVICIO_OCUPADO y no llama al guardado bajo contención', () => {
+t('E5 api_fichaGuardarCambios_ propaga SERVICIO_OCUPADO y no llama al guardado bajo contención', () => {
   const c = backend();
   let llamadas = 0;
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
   c.LockService = { getScriptLock: () => ({ tryLock: () => false, releaseLock: () => {} }) };
   c.Ficha_guardarCambios_ = () => { llamadas += 1; return { ok: true }; };
-  const r = c.api_fichaGuardarCambios('I-1', { PROXIMO_CONTROL: { anterior: 'A', valor: 'B' } }, 't');
+  const r = c.api_fichaGuardarCambios_('I-1', { PROXIMO_CONTROL: { anterior: 'A', valor: 'B' } }, 't');
   A(r.ok === false && r.codigo === 'SERVICIO_OCUPADO', 'SERVICIO_OCUPADO propagado por la API');
   A(llamadas === 0, 'guardado no ejecutado bajo contención');
   delete c.LockService;
-  const ok = c.api_fichaGuardarCambios('I-1', { PROXIMO_CONTROL: { anterior: 'A', valor: 'B' } }, 't');
+  const ok = c.api_fichaGuardarCambios_('I-1', { PROXIMO_CONTROL: { anterior: 'A', valor: 'B' } }, 't');
   A(typeof ok === 'object', 'sin contención el guardado se ejecuta');
 });
 
@@ -657,14 +649,14 @@ t('E6 ficha todo-o-nada: guarda PACIENTES + EVENTO; fallo de vista derivada solo
   const c = backend();
   const espejo = { ID_INTERNO: 'I-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1' };
   const eventos = []; let escritas = 0;
-  c.Modelo_buscarPaciente = () => ({ obj: espejo, idx: 0 });
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: (filas) => { escritas += 1; const row = filas[0]; if (row && espejo.SECTOR !== row[espejoIndex]) espejo.SECTOR = row[espejoIndex]; } }) });
+  c.Modelo_buscarPaciente_ = () => ({ obj: espejo, idx: 0 });
+  c.Modelo_hoja_ = () => ({ getRange: () => ({ setValues: (filas) => { escritas += 1; const row = filas[0]; if (row && espejo.SECTOR !== row[espejoIndex]) espejo.SECTOR = row[espejoIndex]; } }) });
   const espejoIndex = () => c.MODELO_PACIENTE.findIndex((x) => x.campo === 'SECTOR');
-  c.Modelo_filaFisica = () => 2;
+  c.Modelo_filaFisica_ = () => 2;
   c.Modelo_agregarEventos_ = (filas, usuario, opts) => { eventos.push(...filas); };
-  c.Modelo_invalidarLecturas = () => {};
+  c.Modelo_invalidarLecturas_ = () => {};
   c.Modelo_refrescarVistasSectores_ = () => { throw new Error('vista sectorial caida'); };
-  c._ingresosUsuarioActual = () => '';
+  c._ingresosUsuarioActual_ = () => '';
   const r = c.Ficha_guardarCambios_('I-1', { SECTOR: { anterior: 'NARANJO', valor: 'VERDE' } });
   A(r.ok === true, 'guardado TODO-ONADA ok a pesar de la vista derivada: ' + JSON.stringify(r));
   A(r.sectorCambio === true && r.cambiosAplicados.indexOf('SECTOR') !== -1, 'cambio de sector aplicado');
@@ -677,13 +669,13 @@ t('E7 retry del mismo cambio de sector NO duplica el evento; cambio obsoleto da 
   const c = backend();
   const espejo = { ID_INTERNO: 'I-1', RUT: '11111111-1', NOMBRE: 'PERSONA FICTICIA', SECTOR: 'NARANJO', ESTRATIFICACION: 'G1' };
   const eventos = [];
-  c.Modelo_buscarPaciente = () => ({ obj: espejo, idx: 0 });
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: (filas) => { for (const campo of c.MODELO_PACIENTE) espejo[campo.campo] = ''; if (filas[0]) c.MODELO_PACIENTE.forEach((f, i) => { if (filas[0][i] !== undefined) espejo[f.campo] = filas[0][i]; }); } }) });
-  c.Modelo_filaFisica = () => 2;
+  c.Modelo_buscarPaciente_ = () => ({ obj: espejo, idx: 0 });
+  c.Modelo_hoja_ = () => ({ getRange: () => ({ setValues: (filas) => { for (const campo of c.MODELO_PACIENTE) espejo[campo.campo] = ''; if (filas[0]) c.MODELO_PACIENTE.forEach((f, i) => { if (filas[0][i] !== undefined) espejo[f.campo] = filas[0][i]; }); } }) });
+  c.Modelo_filaFisica_ = () => 2;
   c.Modelo_agregarEventos_ = (filas) => { eventos.push(...filas); };
-  c.Modelo_invalidarLecturas = () => {};
+  c.Modelo_invalidarLecturas_ = () => {};
   c.Modelo_refrescarVistasSectores_ = () => {};
-  c._ingresosUsuarioActual = () => '';
+  c._ingresosUsuarioActual_ = () => '';
   const r1 = c.Ficha_guardarCambios_('I-1', { SECTOR: { anterior: 'NARANJO', valor: 'VERDE' } });
   A(r1.ok === true && eventos.length === 1, 'primer guardado: 1 evento CAMBIO_SECTOR');
   const r2 = c.Ficha_guardarCambios_('I-1', { SECTOR: { anterior: 'NARANJO', valor: 'VERDE' } });
@@ -710,7 +702,7 @@ t('F1 Limpieza y Recuperar se serializan: con el lock ocupado no reescriben nada
   const pares = [['Limpieza_ejecutar_', 'Limpieza_ejecutarBloque_'], ['Recuperar_ejecutar_', 'Recuperar_ejecutarBloque_']];
   for (const [fn, interna] of pares) {
     const c = backend();
-    c.Log_error = () => {}; c.Log_flush = () => {};
+    c.Log_error_ = () => {}; c.Log_flush_ = () => {};
     let bloque = 0;
     c[interna] = () => { bloque += 1; return { ok: true }; };
     c.LockService = { getScriptLock: () => ({ tryLock: () => false, releaseLock: () => {} }) };
@@ -729,27 +721,27 @@ t('F1 Limpieza y Recuperar se serializan: con el lock ocupado no reescriben nada
 t('F2 los errores de captura se vuelcan a la hoja LOG (antes se perdían al reciclar el contenedor)', () => {
   const c = backend();
   let flushed = 0;
-  c.SpreadsheetApp = {};                       // activa la ruta de Log_error real
-  c.Log_flush = () => { flushed += 1; };
-  c.Captura_v2_logError('CapturaV2', 'Persistencia', 'x');
-  A(flushed === 1, 'Captura_v2_logError fuerza el volcado');
-  c.Captura_v2_logInfo('CapturaV2', 'enviar', 'y');
-  A(flushed === 2, 'Captura_v2_logInfo también fuerza el volcado');
+  c.SpreadsheetApp = {};                       // activa la ruta de Log_error_ real
+  c.Log_flush_ = () => { flushed += 1; };
+  c.Captura_v2_logError_('CapturaV2', 'Persistencia', 'x');
+  A(flushed === 1, 'Captura_v2_logError_ fuerza el volcado');
+  c.Captura_v2_logInfo_('CapturaV2', 'enviar', 'y');
+  A(flushed === 2, 'Captura_v2_logInfo_ también fuerza el volcado');
 });
 
 t('F3 reparar campos técnicos invalida la caché DESPUÉS de escribir (no solo antes)', () => {
   const c = backend();
   let invalidados = 0, escritas = 0, escribioSinInvalidar = false;
-  c.Modelo_hoja = () => ({ getLastRow: () => 5 });
+  c.Modelo_hoja_ = () => ({ getLastRow: () => 5 });
   const cabecera = [['ID_INTERNO', 'RUT', 'FUENTE']];
-  c.Modelo_leerBloqueCabecera = () => cabecera;          // sin filas → no reescribe
-  c.Utl_escribirBloque = () => { escritas += 1; };
-  c.Modelo_invalidarLecturas = () => { invalidados += 1; };
+  c.Modelo_leerBloqueCabecera_ = () => cabecera;          // sin filas → no reescribe
+  c.Utl_escribirBloque_ = () => { escritas += 1; };
+  c.Modelo_invalidarLecturas_ = () => { invalidados += 1; };
   c.Modelo_repararCamposTecnicos_();
   A(escritas === 0, 'sin cambios no escribe');
   // Con una fila reparable: la invalidación debe cerrar DESPUÉS del setValues.
-  c.Modelo_leerBloqueCabecera = () => ([['ID_INTERNO', 'RUT', 'FUENTE'], ['I-1', '11111111-1', '']]);
-  c.Utl_escribirBloque = () => { escritas += 1; escribioSinInvalidar = invalidados === 0; };
+  c.Modelo_leerBloqueCabecera_ = () => ([['ID_INTERNO', 'RUT', 'FUENTE'], ['I-1', '11111111-1', '']]);
+  c.Utl_escribirBloque_ = () => { escritas += 1; escribioSinInvalidar = invalidados === 0; };
   c.Modelo_repararCamposTecnicos_();
   A(escritas === 1, 'reescribe cuando repara');
   A(escribioSinInvalidar === true, 'escribe primero e invalida después (si invalidara antes, la ventana dejaría datos rancios)');

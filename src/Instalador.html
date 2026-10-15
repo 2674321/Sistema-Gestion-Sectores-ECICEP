@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <?!= include('00_Tokens') ?>
+<?!= include('00_OperadorRuntime') ?>
 <style>
 body{font-size:15px;padding:var(--space-5);background:var(--surface);display:flex;
   flex-direction:column;min-height:90vh;box-sizing:border-box;color:var(--text-primary)}
@@ -521,7 +522,7 @@ function cerrarVista(){
 
 function cargarSalud(profundo,btn){
   if(_enCurso)return;var fin=btn?setLoading(btn,true,'Revisando…'):function(){};
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();_ULTIMA_SALUD=r||null;
     renderDiagnostico();
   }).withFailureHandler(function(e){fin();_ULTIMA_SALUD={motivo:e&&e.message||String(e)};renderDiagnostico();})
@@ -533,7 +534,7 @@ function repararIntegridad(btn){
   if(!confirm('Se creará un respaldo y se repararán solo los derivados con diferencias comprobadas. ¿Continuar?'))return;
   bloquearAcciones(true);porId('btnCancelarWrap').style.display='none';
   var fin=setLoading(btn,true,'Reparando…');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();bloquearAcciones(false);
     cargarSalud(true);cargarDiagnostico();
   }).withFailureHandler(function(e){fin();bloquearAcciones(false);_ULTIMA_SALUD={motivo:e&&e.message||String(e)};cargarDiagnostico();})
@@ -544,7 +545,7 @@ function cargarDiagnostico(btn){
   if(_enCurso)return;var fin=btn?setLoading(btn,true,'Diagnosticando…'):function(){};
   establecerVista('inicial');texto('diagResumen','Revisando el estado del sistema…');
   cargarSalud(false);
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();_DIAGNOSTICO=r&&r.diagnostico?r.diagnostico:null;
     var pendientes=_DIAGNOSTICO&&_DIAGNOSTICO.resumen?_DIAGNOSTICO.resumen.fasesPendientes:null;
     _BLOQUEO=_DIAGNOSTICO&&_DIAGNOSTICO.versionado?_DIAGNOSTICO.versionado.bloqueo||'':'';
@@ -583,7 +584,7 @@ function iniciarInstalacion(){
 }
 
 function cargarEtapas(){
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     if(!r||!r.ok){setEstadoGeneral('ERROR','No se pudieron cargar las fases',(r&&r.motivo)||'Sin respuesta');return;}
     META=r;ETAPAS=r.etapas||[];renderEtapas();cargarDiagnostico();
   }).withFailureHandler(function(e){setEstadoGeneral('ERROR','No se pudieron cargar las fases',(e&&e.message)||e);})
@@ -603,7 +604,7 @@ function ejecutarSecuencia(ix){
 
 function llamarPaso(etapa,ix){
   var inicioRpc=Date.now();
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     registrarDuracion(etapa.id,r,inicioRpc);
     if(r&&r.respaldo)_RESPALDO=r.respaldo;
     if(_CANCELADO){terminarCancelacion();return;}
@@ -657,7 +658,7 @@ function pintarDatos(d){
 function previsualizarImpacto(btn){
   if(_enCurso)return;var fin=btn?setLoading(btn,true,'Previsualizando…'):function(){};
   var modo=modoDatosSeleccionado();
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(!r||r.ok!==true){texto('previewResumen','Previsualización no disponible: '+((r&&r.motivo)||'error'));return;}
     texto('previewResumen','Impacto estimado ('+modo+'): '+(r.linea||'sin cambios'));
@@ -699,7 +700,7 @@ function repararPresentacion(){
 function llamarPresentacion(etapa,ix){
   var inicioRpc=Date.now();
   var opciones=_OPCIONES_EJECUCION||{forzarPresentacion:false};
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     registrarDuracion(etapa.id,r,inicioRpc);
     if(r&&r.respaldo)_RESPALDO=r.respaldo;
     if(_CANCELADO){terminarCancelacion();return;}

@@ -14,19 +14,30 @@
  *   - no hay fecha del evento.
  */
 
-function Ev_nuevoId(secuencia) {
-  if (typeof secuencia === 'number') return 'EV-' + ('0000' + secuencia).slice(-4);
+/**
+ * Generador canónico de ID_EVENTO. Orden de preferencia:
+ *   - SIN argumentos → generador automático (único camino de producción).
+ *   - {secuenciaTest: n} → modo determinista para pruebas, por inyección
+ *     explícita de dependencia. No existe ningún call site productivo que lo
+ *     use: un ID secuencial en producción reiniciaría en cada ejecución y
+ *     colisionaría con el histórico (DEC-104).
+ * Formato automático: EV-<base36 tiempo>-<4 chars aleatorios>, con relleno a 4
+ * para que la longitud sea estable (36^4 = 1679616 casos por milisegundo).
+ */
+function Ev_nuevoId_(opciones) {
+  var seqTest = opciones && typeof opciones.secuenciaTest === 'number' ? opciones.secuenciaTest : null;
+  if (seqTest !== null) return 'EV-' + ('0000' + seqTest).slice(-4);
   return 'EV-' + Date.now().toString(36).toUpperCase() + '-' +
-    Math.floor(Math.random() * 1679616).toString(36).toUpperCase();
+    Utl_sufijoAleatorio_(4);
 }
 
 /**
  * Construye el evento a partir de una fila de staging normalizada e identificada.
- * @param {Object} fila  fila de staging (Fuentes_crearFila + Fuentes_normalizar + Iden_identificar)
+ * @param {Object} fila  fila de staging (Fuentes_crearFila_ + Fuentes_normalizar_ + Iden_identificar_)
  * @param {Object} [opciones] {tipoEvento, fechaIso, profesional, descripcion, cantidad, registradoPor, secuencia, confirmarNuevo}
  * @returns {ok:boolean, motivo:'', evento:null|{...}}
  */
-function Ev_desdeStaging(fila, opciones) {
+function Ev_desdeStaging_(fila, opciones) {
   opciones = opciones || {};
   var res = { ok: false, motivo: '', evento: null };
 
@@ -71,7 +82,7 @@ function Ev_desdeStaging(fila, opciones) {
   // el evento NUNCA se enlaza al candidato existente; la consolidación creará entidad nueva.
   res.ok = true;
   res.evento = {
-    ID_EVENTO: Ev_nuevoId(opciones.secuencia),
+    ID_EVENTO: Ev_nuevoId_(opciones.secuenciaTest !== undefined ? { secuenciaTest: opciones.secuenciaTest } : null),
     ID_INTERNO: esNuevo ? '' : iden.idPaciente,
     ES_NUEVO_PACIENTE: esNuevo,
     RUT: n.RUT,
@@ -81,10 +92,14 @@ function Ev_desdeStaging(fila, opciones) {
     SECTOR: n.SECTOR,
     RIESGO_G: n.ESTRATIFICACION || '',        // snapshot; jamás inferido del sector
     PROFESIONAL: opciones.profesional || '',
+    // DEC-104: el segundo profesional de la dupla es un campo estructural del
+    // EVENTO, no una concatenación dentro de PROFESIONAL. Antes se perdía en
+    // silencio (el contrato lo aceptaba y ningún escritor lo transportaba).
+    PROFESIONAL2: opciones.profesionalSecundario || '',
     DESCRIPCION: opciones.descripcion || '',
     CANTIDAD: (opciones.cantidad !== undefined && opciones.cantidad !== null) ? opciones.cantidad : '',
     OBSERVACIONES: n.OBSERVACIONES || '',
-    FUENTE: Fuentes_fuenteOrigen(fila),
+    FUENTE: Fuentes_fuenteOrigen_(fila),
     REGISTRADO_POR: opciones.registradoPor || '',
     FECHA_REGISTRO: null                      // la fija el sistema al momento de escribir
   };
@@ -95,10 +110,10 @@ function Ev_desdeStaging(fila, opciones) {
  * Construye varios eventos independientes para un mismo paciente
  * (ingreso → control → seguimiento → plan permanecen como registros separados).
  */
-function Ev_variosDesdeStaging(fila, listaOpciones) {
+function Ev_variosDesdeStaging_(fila, listaOpciones) {
   var salida = { ok: true, eventos: [], bloqueados: [] };
   for (var i = 0; i < listaOpciones.length; i++) {
-    var r = Ev_desdeStaging(fila, listaOpciones[i]);
+    var r = Ev_desdeStaging_(fila, listaOpciones[i]);
     if (r.ok) salida.eventos.push(r.evento);
     else { salida.ok = false; salida.bloqueados.push({ indice: i, motivo: r.motivo }); }
   }
@@ -110,22 +125,22 @@ function Ev_variosDesdeStaging(fila, listaOpciones) {
  * Criterio: mayor FECHA_EVENTO; empate → el que tenga FECHA_REGISTRO más tardía.
  * @returns Map ID_INTERNO → {tipo:'', fecha:'', etiqueta:'TIPO (fecha)'}
  */
-function Ev_ultimoPorPaciente(eventos) {
+function Ev_ultimoPorPaciente_(eventos) {
   var mapa = {};
   (eventos || []).forEach(function (ev) {
-    var id = Utl_texto(ev.ID_INTERNO);
+    var id = Utl_texto_(ev.ID_INTERNO);
     if (!id) return;
     var actual = mapa[id];
     var mejor = !actual ||
-      Utl_texto(ev.FECHA_EVENTO) > Utl_texto(actual.fecha) ||
-      (Utl_texto(ev.FECHA_EVENTO) === Utl_texto(actual.fecha) &&
-       Utl_texto(ev.FECHA_REGISTRO) > Utl_texto(actual.registro));
+      Utl_texto_(ev.FECHA_EVENTO) > Utl_texto_(actual.fecha) ||
+      (Utl_texto_(ev.FECHA_EVENTO) === Utl_texto_(actual.fecha) &&
+       Utl_texto_(ev.FECHA_REGISTRO) > Utl_texto_(actual.registro));
     if (mejor) {
       mapa[id] = {
         tipo: ev.TIPO_EVENTO,
         fecha: ev.FECHA_EVENTO,
         registro: ev.FECHA_REGISTRO || '',
-        etiqueta: Utl_texto(ev.TIPO_EVENTO) + (ev.FECHA_EVENTO ? ' (' + ev.FECHA_EVENTO + ')' : '')
+        etiqueta: Utl_texto_(ev.TIPO_EVENTO) + (ev.FECHA_EVENTO ? ' (' + ev.FECHA_EVENTO + ')' : '')
       };
     }
   });

@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <?!= include('00_Tokens') ?>
+<?!= include('00_OperadorRuntime') ?>
 <style>
 body{font-size:16px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
 header{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap}
@@ -95,7 +96,7 @@ var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','se
 
 function cargar(){
   document.getElementById('tbody').innerHTML='<tr><td colspan="5"><div class="skel" style="height:120px"></div></td></tr>';
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     if(!r||!r.ok){toast(r&&r.motivo||'No se pudo leer el LOG','err');return;}
     DATOS=r.registros;r.resumen=r.resumen;
     document.getElementById('kTotal').textContent=r.resumen.total;
@@ -186,7 +187,7 @@ function exportarCsv(){
   a.click();
   toast('LOG exportado ('+fs.length+' registros)','ok');
 }
-function verHoja(){google.script.run.api_irA('LOG');}
+function verHoja(){ECICEP_run().api_irA('LOG');}
 ['fNivel','fModulo','fRango','fDesde','fHasta'].forEach(function(id){
   document.getElementById(id).addEventListener('change',render);});
 document.getElementById('fTexto').addEventListener('input',_debounce(render,220));

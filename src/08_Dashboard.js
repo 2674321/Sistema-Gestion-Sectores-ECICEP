@@ -1,7 +1,7 @@
 /**
  * Sistema ECICEP — 08_Dashboard
  * Dashboard base sobre PACIENTES + EVENTOS (nunca SECTOR_* como fuente).
- * Solo contiene funciones PURAS: la UI las consume vía api_dashboardDatos
+ * Solo contiene funciones PURAS: la UI las consume vía api_dashboardDatos_
  * (07_UI.js) y Dashboard.html. La capa legacy que escribía una hoja DASHBOARD
  * fue retirada en S9 (la hoja residual se conserva como tal).
  *
@@ -9,7 +9,7 @@
  */
 
 /** PURA: resuelve fechas inicio/fin según tipo de período seleccionado. */
-function Dash_resolverPeriodo(tipo, desdeStr, hastaStr) {
+function Dash_resolverPeriodo_(tipo, desdeStr, hastaStr) {
   var hoy = new Date();
   function fmt(d) {
     return d.getFullYear() + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
@@ -38,25 +38,25 @@ function Dash_resolverPeriodo(tipo, desdeStr, hastaStr) {
 }
 
 /** PURA: normaliza cualquier valor de fecha a formato ISO yyyy-mm-dd. */
-function Dash_fechaIso(v) {
+function Dash_fechaIso_(v) {
   if (v instanceof Date) {
     return v.getFullYear() + '-' + ('0' + (v.getMonth() + 1)).slice(-2) + '-' + ('0' + v.getDate()).slice(-2);
   }
-  var s = Utl_texto(v).trim();
+  var s = Utl_texto_(v).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
-  return Utl_texto(v); // devolver tal cual si no es reconocible
+  return Utl_texto_(v); // devolver tal cual si no es reconocible
 }
 
 /**
  * PURA: filtra eventos por rango de fechas y sector.
  */
-function Dash_filtrarEventos(eventos, desdeIso, hastaIso, sector) {
+function Dash_filtrarEventos_(eventos, desdeIso, hastaIso, sector) {
   return (eventos || []).filter(function (e) {
-    var f = Dash_fechaIso(e.FECHA_EVENTO);
+    var f = Dash_fechaIso_(e.FECHA_EVENTO);
     if (!f) return false; // sin fecha → excluido del análisis temporal
     if (f < desdeIso) return false;
     if (f > hastaIso) return false;
-    if (sector && sector !== 'TODOS' && Utl_texto(e.SECTOR).toUpperCase() !== sector.toUpperCase()) return false;
+    if (sector && sector !== 'TODOS' && Utl_texto_(e.SECTOR).toUpperCase() !== sector.toUpperCase()) return false;
     return true;
   });
 }
@@ -65,10 +65,10 @@ function Dash_filtrarEventos(eventos, desdeIso, hastaIso, sector) {
  * PURA: agrega actividad por tipo de evento dentro del período.
  * @returns {INGRESO:n, CONTROL:n, SEGUIMIENTO:n, PLAN_CUIDADO:n, ...}
  */
-function Dash_agregarActividad(eventosFiltrados) {
+function Dash_agregarActividad_(eventosFiltrados) {
   var conteo = {};
   (eventosFiltrados || []).forEach(function (e) {
-    var t = Utl_texto(e.TIPO_EVENTO) || 'SIN_TIPO';
+    var t = Utl_texto_(e.TIPO_EVENTO) || 'SIN_TIPO';
     conteo[t] = (conteo[t] || 0) + 1;
   });
   return conteo;
@@ -78,14 +78,14 @@ function Dash_agregarActividad(eventosFiltrados) {
  * PURA: actividad mensual dentro del período.
  * @returns [{mes:'2026-03', INGRESO:n, CONTROL:n, ...}]
  */
-function Dash_actividadMensual(eventosFiltrados, desdeIso, hastaIso) {
+function Dash_actividadMensual_(eventosFiltrados, desdeIso, hastaIso) {
   var meses = {};
   (eventosFiltrados || []).forEach(function (e) {
-    var f = Dash_fechaIso(e.FECHA_EVENTO);
+    var f = Dash_fechaIso_(e.FECHA_EVENTO);
     if (!f || f.length < 7) return;
     var mes = f.substring(0, 7);
     if (!meses[mes]) meses[mes] = {};
-    var t = Utl_texto(e.TIPO_EVENTO) || 'OTRO';
+    var t = Utl_texto_(e.TIPO_EVENTO) || 'OTRO';
     meses[mes][t] = (meses[mes][t] || 0) + 1;
   });
   return Object.keys(meses).sort().map(function (mes) {
@@ -98,13 +98,13 @@ function Dash_actividadMensual(eventosFiltrados, desdeIso, hastaIso) {
 /**
  * PURA: métricas de calidad de datos desde PACIENTES.
  */
-function Dash_calidadDatos(pacientes) {
+function Dash_calidadDatos_(pacientes) {
   var sinRut = 0, rutInvalido = 0, sinSector = 0, sinEstrat = 0, requiereRev = 0;
   (pacientes || []).forEach(function (p) {
-    if (Utl_vacio(p.RUT)) sinRut++;
+    if (Utl_vacio_(p.RUT)) sinRut++;
     else if (p.RUT_DV_VALIDO === false || p.RUT_SIN_DV === true) rutInvalido++;
-    if (Utl_vacio(p.SECTOR)) sinSector++;
-    if (!/^G[123]$/.test(Utl_texto(p.ESTRATIFICACION).trim().toUpperCase())) sinEstrat++;
+    if (Utl_vacio_(p.SECTOR)) sinSector++;
+    if (!/^G[123]$/.test(Utl_texto_(p.ESTRATIFICACION).trim().toUpperCase())) sinEstrat++;
     if (p.REQUIERE_REVISION === true) requiereRev++;
   });
   return { sinRut: sinRut, rutInvalido: rutInvalido, sinSector: sinSector,
@@ -116,15 +116,15 @@ function Dash_calidadDatos(pacientes) {
  * G1/G2/G3 = niveles definidos. G/null/vacío = PENDIENTE (nunca un nivel).
  * @returns {porSector:{NARANJO:n,...}, matrizG:{NARANJO:{G1:n,G2:n,G3:n,PENDIENTE:n},...}, total:n}
  */
-function Dash_distribucionPacientes(pacientes, sector) {
+function Dash_distribucionPacientes_(pacientes, sector) {
   var porSector = {}, matrizG = {}, total = 0;
   (pacientes || []).forEach(function (p) {
-    var s = Utl_texto(p.SECTOR).toUpperCase();
+    var s = Utl_texto_(p.SECTOR).toUpperCase();
     if (sector && sector !== 'TODOS' && s !== sector.toUpperCase()) return;
     total++;
     porSector[s] = (porSector[s] || 0) + 1;
     if (!matrizG[s]) matrizG[s] = {};
-    var g = Utl_texto(p.ESTRATIFICACION).toUpperCase();
+    var g = Utl_texto_(p.ESTRATIFICACION).toUpperCase();
     if (/^G[123]$/.test(g)) {
       matrizG[s][g] = (matrizG[s][g] || 0) + 1;
     } else {

@@ -10,8 +10,8 @@
  *   - CONTROL/SEGUIMIENTO→ reusan Eventos_registrarPaciente_ (recalcula próximo control).
  *   - ACTUALIZAR_DATOS   → campos operativos (teletono/observaciones) + evento OTRO.
  *
- * Núcleo puro (testeable en node, determinista): Form_validarRespuesta,
- * Form_procesarLote, Form_metricas, Form_simularRespuestas, mapeos y estados.
+ * Núcleo puro (testeable en node, determinista): Form_validarRespuesta_,
+ * Form_procesarLote_, Form_metricasLote_, Form_simularRespuestas_, mapeos y estados.
  * Los wrappers GAS (captura, trigger, persistencia, LockService) están
  * claramente separados y solo operan en Apps Script.
  *
@@ -28,34 +28,34 @@
 // NÚCLEO PURO — config y mapeo
 // ---------------------------------------------------------------------------
 
-function Form_campos() {
+function Form_campos_() {
   return FORM_CAMPOS_PERSISTIDOS.map(function (nombre) {
     return FORM_CONFIG.CAMPOS.filter(function (c) { return c.campo === nombre; })[0];
   });
 }
 
 /** Columnas físicas de FORM_RESPUESTAS (única especificación). */
-function Form_columnas() { return FORM_RESPUESTAS_COLUMNAS; }
+function Form_columnas_() { return FORM_RESPUESTAS_COLUMNAS; }
 
 /** PURA: mapeo tolerante de encabezados → índice de columna (por contenido,
  *  jamás por número fijo). Devuelve {idx:{clave→indice}, desconocidos:[]}. */
-function Form_mapeoEncabezados(encabezados) {
+function Form_mapeoEncabezados_(encabezados) {
   var idx = {}, desconocidos = [];
   (encabezados || []).forEach(function (h, i) {
-    if (!Utl_vacio(h)) idx[Utl_claveAlnum(h)] = i;
+    if (!Utl_vacio_(h)) idx[Utl_claveAlnum_(h)] = i;
     else desconocidos.push(i);
   });
   return { idx: idx, desconocidos: desconocidos };
 }
 
 /** PURA: marca de trazabilidad 'FORM|<responseId>|<ACCIÓN>'. */
-function Form_marcadorFuente(responseId, accion) {
-  return FORM_CONFIG.MARCAS.PREFIJO + Utl_texto(responseId) + '|' + Utl_texto(accion);
+function Form_marcadorFuente_(responseId, accion) {
+  return FORM_CONFIG.MARCAS.PREFIJO + Utl_texto_(responseId) + '|' + Utl_texto_(accion);
 }
 
 /** PURA: nombre de la puerta de ingreso por sector canónico. */
-function Form_sectorHojaIngreso(sector) {
-  var s = Utl_texto(sector).toUpperCase();
+function Form_sectorHojaIngreso_(sector) {
+  var s = Utl_texto_(sector).toUpperCase();
   if (s === 'NARANJO') return 'INGRESO_NARANJO';
   if (s === 'AMARILLO') return 'INGRESO_AMARILLO';
   if (s === 'VERDE') return 'INGRESO_VERDE';
@@ -64,13 +64,13 @@ function Form_sectorHojaIngreso(sector) {
 
 /**
  * PURA: deriva el acotado del pipeline para una captura Web App (paso 3 de
- * Form_procesarPendientes, DEC-055). Fuente autoritativa: la MARCA física
+ * Form_procesarPendientes_, DEC-055). Fuente autoritativa: la MARCA física
  * escrita en la hoja (inmune a pérdida de coordenadas del trailer). Fallback:
  * coordenadas registradas al anexar/reenviar. `buscadorMarca(responseId)` es
- * inyectable (GAS: Form_buscarFilaIngresoPorMarca) para poder probarlo puro.
+ * inyectable (GAS: Form_buscarFilaIngresoPorMarca_) para poder probarlo puro.
  * Devuelve {soloHojas:[...], soloFilas:{hoja:[filas]}|null}.
  */
-function Form_derivarAcotacionPaso3(filasAnexadas, buscadorMarca) {
+function Form_derivarAcotacionPaso3_(filasAnexadas, buscadorMarca) {
   var hojasEnJuego = {};
   var filasEnJuego = {};
   (filasAnexadas || []).forEach(function (d) {
@@ -104,10 +104,10 @@ function Form_derivarAcotacionPaso3(filasAnexadas, buscadorMarca) {
 /** GAS: busca (barriendo la columna FUENTE/NOTA_SISTEMA) dónde quedó la fila de
  * un envío de la captura: {hoja, fila} en INGRESO_* o null. Núcleo de la
  * autoridad por marca del acotado paso 3 y del respaldo del paso 4. */
-function Form_buscarFilaIngresoPorMarca(marca) {
+function Form_buscarFilaIngresoPorMarca_(marca) {
   if (typeof SpreadsheetApp === 'undefined' || !marca) return null;
-  var objetivo = Utl_texto(marca);
-  var ss = Modelo_ss();
+  var objetivo = Utl_texto_(marca);
+  var ss = Modelo_ss_();
   var keys = Object.keys(HOJAS_INGRESO);
   var _tB = Date.now();
   for (var iK = 0; iK < keys.length; iK++) {
@@ -117,7 +117,7 @@ function Form_buscarFilaIngresoPorMarca(marca) {
       var hoja = ss.getSheetByName(nombreHoja);
       if (!hoja || hoja.getLastRow() < 1) { console.log('[PIPE] buscarMarca ' + nombreHoja + ': sin hoja/filas'); continue; }
       var ancho = Math.max(hoja.getLastColumn() || 0, 1);
-      var hr = Modelo_headerRow(nombreHoja);
+      var hr = Modelo_headerRow_(nombreHoja);
       var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
       // Fallback legacy: encabezados reales en fila 1.
       if (enc.join('|').toUpperCase().indexOf('NOMBRE') === -1) {
@@ -133,7 +133,7 @@ function Form_buscarFilaIngresoPorMarca(marca) {
       // reconocible, cae al barrido completo de la fila (robustez layout legacy).
       var posMarca = -1;
       enc.forEach(function (h, i) {
-        var k = Utl_claveAlnum(h);
+        var k = Utl_claveAlnum_(h);
         if (k === 'FUENTE' || k === 'NOTASISTEMA' || k === 'NOTASISTEMAS' || k === 'NOTA') posMarca = i;
       });
       var n = hoja.getLastRow() - hr;
@@ -141,7 +141,7 @@ function Form_buscarFilaIngresoPorMarca(marca) {
       if (posMarca >= 0) {
         var col = hoja.getRange(hr + 1, posMarca + 1, n, 1).getValues();
         for (var f = 0; f < col.length; f++) {
-          if (Utl_texto(col[f][0]).indexOf(objetivo) !== -1) {
+          if (Utl_texto_(col[f][0]).indexOf(objetivo) !== -1) {
             console.log('[PIPE] buscarMarca ' + nombreHoja + ': ' + col.length + ' filas, ' + (Date.now() - _tHojaB) + 'ms — MARCA ENCONTRADA fila ' + (hr + 1 + f) + ' (total ' + (Date.now() - _tB) + 'ms)');
             return { hoja: nombreHoja, fila: hr + 1 + f };
           }
@@ -166,7 +166,7 @@ function Form_buscarFilaIngresoPorMarca(marca) {
 }
 
 /** PURA: hoy en ISO (sobrescribible con opciones.hoy para tests). */
-function Form_hoy(opciones) {
+function Form_hoy_(opciones) {
   return (opciones && opciones.hoy) ? opciones.hoy : (function () {
     var d = new Date();
     function p(n) { return (n < 10 ? '0' : '') + n; }
@@ -175,9 +175,9 @@ function Form_hoy(opciones) {
 }
 
 /** PURA: resumen legible de errores por campo para MOTIVO/cola. */
-function Form_erroresTexto(errores) {
+function Form_erroresTexto_(errores) {
   return (errores || []).map(function (e) {
-    return Utl_texto(e.campo) + ': ' + Utl_texto(e.mensaje);
+    return Utl_texto_(e.campo) + ': ' + Utl_texto_(e.mensaje);
   }).join(' · ');
 }
 
@@ -185,7 +185,7 @@ function Form_erroresTexto(errores) {
  * PURA: ¿un campo aplica a una acción? Sin `acciones` en su definición aplica
  * a TODAS (p.ej. OBSERVACIONES). `ACCION` es estructural y se excluye siempre.
  */
-function Form_campoAplicaAccion(campoDef, accion) {
+function Form_campoAplicaAccion_(campoDef, accion) {
   if (!campoDef) return false;
   if (campoDef.campo === 'ACCION') return false;
   if (!Array.isArray(campoDef.acciones)) return true;
@@ -200,20 +200,20 @@ function Form_campoAplicaAccion(campoDef, accion) {
  * @returns {ACCION: {secciones:{ident:bool, evento:bool, tel:bool, prof:bool,
  *          obs:bool}, camposRequeridos:[campo], mensajeExito:string}}
  */
-function Form_esquemaFormulario() {
+function Form_esquemaFormulario_() {
   var seccionNombres = ['ident', 'evento', 'tel', 'prof', 'obs'];
   var seccionDef = FORM_CONFIG.SECCIONES || {};
   var detalle = (FORM_CONFIG.ACCIONES.DETALLE) || {};
-  var campos = Form_campos();
+  var campos = Form_campos_();
   var acciones = FORM_CONFIG.ACCIONES.VALIDOS || [];
   var esquema = {};
 
   acciones.forEach(function (acc) {
-    var camposAccion = campos.filter(function (c) { return Form_campoAplicaAccion(c, acc); });
+    var camposAccion = campos.filter(function (c) { return Form_campoAplicaAccion_(c, acc); });
     var secciones = {};
     seccionNombres.forEach(function (sec) {
       secciones[sec] = (seccionDef[sec] || []).some(function (campo) {
-        return Form_campoAplicaAccion(
+        return Form_campoAplicaAccion_(
           campos.filter(function (c) { return c.campo === campo; })[0], acc);
       });
     });
@@ -255,19 +255,19 @@ function Form_esquemaFormulario() {
  * @param {Object} [opciones] {hoy:'YYYY-MM-DD'}
  * @returns {ok, errores:[{campo,mensaje}], normalizado, accion}
  */
-function Form_validarRespuesta(respuesta, opciones) {
+function Form_validarRespuesta_(respuesta, opciones) {
   var v = respuesta || {};
   var err = [], n = {};
   function no(campo, msg) { err.push({ campo: campo, mensaje: msg }); }
-  var accion = Utl_colapsarEspacios(Utl_texto(v.ACCION)).toUpperCase();
+  var accion = Utl_colapsarEspacios_(Utl_texto_(v.ACCION)).toUpperCase();
   n.ACCION = accion;
 
   if (FORM_CONFIG.ACCIONES.VALIDOS.indexOf(accion) === -1) {
-    no('ACCION', 'Acción no válida: "' + Utl_texto(v.ACCION) + '"');
+    no('ACCION', 'Acción no válida: "' + Utl_texto_(v.ACCION) + '"');
   }
 
   // RUT (obligatorio para todas las acciones)
-  var rut = Norm_normalizarRut(v.RUT);
+  var rut = Norm_normalizarRut_(v.RUT);
   n.RUT = rut.rut;
   n.RUT_CUERPO = rut.cuerpo;
   n.RUT_ESTADO = rut.estado;
@@ -280,36 +280,36 @@ function Form_validarRespuesta(respuesta, opciones) {
   var esClinica = accion === 'REGISTRAR_CONTROL' || accion === 'REGISTRAR_SEGUIMIENTO';
 
   if (esIngreso) {
-    var nom = Norm_normalizarNombre(v.NOMBRE);
+    var nom = Norm_normalizarNombre_(v.NOMBRE);
     n.NOMBRE = nom.nombre;
     if (!nom.ok) no('NOMBRE', 'Nombre ausente o incompleto');
 
-    n.SEXO = Norm_normalizarSexo(v.SEXO);
+    n.SEXO = Norm_normalizarSexo_(v.SEXO);
 
-    var nac = Norm_normalizarFecha(v.FECHA_NACIMIENTO,
+    var nac = Norm_normalizarFecha_(v.FECHA_NACIMIENTO,
       { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX });
     n.FECHA_NACIMIENTO = nac.iso;
     if (nac.estado === 'VACIO') no('FECHA_NACIMIENTO', 'Fecha de nacimiento ausente');
     else if (nac.estado !== 'VALIDA') no('FECHA_NACIMIENTO', nac.detalle + (nac.detalle ? '' : 'Fecha de nacimiento inválida'));
 
-    var sec = Norm_normalizarSector(v.SECTOR);
+    var sec = Norm_normalizarSector_(v.SECTOR);
     n.SECTOR = sec.sector;
     if (sec.estado === 'VACIO') no('SECTOR', 'Sector ausente');
-    else if (sec.estado === 'INVALIDO') no('SECTOR', 'Sector inválido: "' + Utl_texto(v.SECTOR) + '"');
+    else if (sec.estado === 'INVALIDO') no('SECTOR', 'Sector inválido: "' + Utl_texto_(v.SECTOR) + '"');
     else if (SECTORES_RESPONSABLES.indexOf(n.SECTOR) === -1) no('SECTOR', 'Sector no admitido por formulario: "' + n.SECTOR + '"');
-    else if (!Form_sectorHojaIngreso(n.SECTOR)) no('SECTOR', 'Sin puerta de ingreso para "' + n.SECTOR + '"');
+    else if (!Form_sectorHojaIngreso_(n.SECTOR)) no('SECTOR', 'Sin puerta de ingreso para "' + n.SECTOR + '"');
 
-    n.ESTRATIFICACION = Norm_normalizarEstratificacion(v.ESTRATIFICACION);
-    n.ESTRAT_ORIGEN = Utl_colapsarEspacios(Utl_texto(v.ESTRATIFICACION)).toUpperCase();
+    n.ESTRATIFICACION = Norm_normalizarEstratificacion_(v.ESTRATIFICACION);
+    n.ESTRAT_ORIGEN = Utl_colapsarEspacios_(Utl_texto_(v.ESTRATIFICACION)).toUpperCase();
     if (n.ESTRAT_ORIGEN !== '' && ['G1', 'G2', 'G3'].indexOf(n.ESTRATIFICACION) === -1) {
-      no('ESTRATIFICACION', 'Estratificación inválida: "' + Utl_texto(v.ESTRATIFICACION) + '"');
+      no('ESTRATIFICACION', 'Estratificación inválida: "' + Utl_texto_(v.ESTRATIFICACION) + '"');
     }
 
-    n.FECHA_INGRESO = Form_hoy(opciones);
+    n.FECHA_INGRESO = Form_hoy_(opciones);
   }
 
   if (esClinica) {
-    var fEv = Norm_normalizarFecha(v.FECHA_EVENTO);
+    var fEv = Norm_normalizarFecha_(v.FECHA_EVENTO);
     n.FECHA_EVENTO = fEv.iso;
     if (fEv.estado === 'VACIO') {
       no('FECHA_EVENTO', 'Fecha del evento ausente');
@@ -320,40 +320,44 @@ function Form_validarRespuesta(respuesta, opciones) {
 
   if (accion === 'ACTUALIZAR_DATOS') {
     // Normalizar campos adicionales de ACTUALIZAR_DATOS
-    var nomAct = Norm_normalizarNombre(v.NOMBRE);
+    var nomAct = Norm_normalizarNombre_(v.NOMBRE);
     n.NOMBRE = nomAct.nombre;
-    n.SEXO = Norm_normalizarSexo(v.SEXO);
-    var nacAct = Norm_normalizarFecha(v.FECHA_NACIMIENTO,
+    n.SEXO = Norm_normalizarSexo_(v.SEXO);
+    var nacAct = Norm_normalizarFecha_(v.FECHA_NACIMIENTO,
       { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX });
     n.FECHA_NACIMIENTO = nacAct.iso;
-    var secAct = Norm_normalizarSector(v.SECTOR);
+    var secAct = Norm_normalizarSector_(v.SECTOR);
     n.SECTOR = secAct.sector;
-    n.ESTRATIFICACION = Norm_normalizarEstratificacion(v.ESTRATIFICACION);
-    n.ESTRAT_ORIGEN = Utl_colapsarEspacios(Utl_texto(v.ESTRATIFICACION)).toUpperCase();
-    n.ESTADO = Utl_colapsarEspacios(Utl_texto(v.ESTADO)).toUpperCase() || 'PENDIENTE';
-    n.DUPLA_INGRESO = Utl_colapsarEspacios(Utl_texto(v.DUPLA_INGRESO)).toUpperCase();
-    n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
-    n.PREINGRESO = Utl_texto(v.PREINGRESO).trim();
-    var fiAct = Norm_normalizarFecha(v.FECHA_INGRESO);
+    n.ESTRATIFICACION = Norm_normalizarEstratificacion_(v.ESTRATIFICACION);
+    n.ESTRAT_ORIGEN = Utl_colapsarEspacios_(Utl_texto_(v.ESTRATIFICACION)).toUpperCase();
+    n.ESTADO = Utl_colapsarEspacios_(Utl_texto_(v.ESTADO)).toUpperCase() || 'PENDIENTE';
+    n.DUPLA_INGRESO = Utl_colapsarEspacios_(Utl_texto_(v.DUPLA_INGRESO)).toUpperCase();
+    n.PROFESIONAL_SEGUIMIENTO = Utl_colapsarEspacios_(Utl_texto_(v.PROFESIONAL_SEGUIMIENTO)).toUpperCase();
+    n.PREINGRESO = Utl_texto_(v.PREINGRESO).trim();
+    var fiAct = Norm_normalizarFecha_(v.FECHA_INGRESO);
     n.FECHA_INGRESO = fiAct.iso;
-    n.CONDICIONES = Utl_texto(v.CONDICIONES).trim();
-    n.OTRAS_PATOLOGIAS = Utl_texto(v.OTRAS_PATOLOGIAS).trim();
-    var pcAct = Norm_normalizarFecha(v.PROXIMO_CONTROL);
+    n.CONDICIONES = Utl_texto_(v.CONDICIONES).trim();
+    n.OTRAS_PATOLOGIAS = Utl_texto_(v.OTRAS_PATOLOGIAS).trim();
+    var pcAct = Norm_normalizarFecha_(v.PROXIMO_CONTROL);
     n.PROXIMO_CONTROL = pcAct.iso;
-    n.COMPOSICION_CONTROL = Utl_colapsarEspacios(Utl_texto(v.COMPOSICION_CONTROL)).toUpperCase();
-    n.TELEFONO_OBS = Utl_texto(v.TELEFONO_OBS).trim();
+    n.COMPOSICION_CONTROL = Utl_colapsarEspacios_(Utl_texto_(v.COMPOSICION_CONTROL)).toUpperCase();
+    n.TELEFONO_OBS = Utl_texto_(v.TELEFONO_OBS).trim();
   }
 
   // Campos compartidos (opcionales). El teléfono NO bloquea un ingreso válido:
   // si viene inválido se registra vacío (el pipeline emite advertencias).
-  var tel = Norm_normalizarTelefono(v.TELEFONOS !== undefined ? v.TELEFONOS : '');
+  // DEC-105: las anotaciones que extrae el normalizador (nombre del familiar,
+  // "número descartado", etc.) tienen destino propio en TELEFONO_OBS y antes
+  // se destruían en silencio: se separaban del texto y se descartaban.
+  var tel = Norm_normalizarTelefono_(v.TELEFONOS !== undefined ? v.TELEFONOS : '');
   n.TELEFONOS = tel.telefonos.join('/');
-  n.PROFESIONAL = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL)).toUpperCase();
-  n.PROFESIONAL2 = Utl_colapsarEspacios(Utl_texto(v.PROFESIONAL2 || '')).toUpperCase();
+  if (!Utl_texto_(n.TELEFONO_OBS)) n.TELEFONO_OBS = tel.observaciones.join('; ');
+  n.PROFESIONAL = Utl_colapsarEspacios_(Utl_texto_(v.PROFESIONAL)).toUpperCase();
+  n.PROFESIONAL2 = Utl_colapsarEspacios_(Utl_texto_(v.PROFESIONAL2 || '')).toUpperCase();
   if (n.PROFESIONAL && n.PROFESIONAL2 && n.PROFESIONAL === n.PROFESIONAL2) {
     no('PROFESIONAL2', 'Los dos profesionales deben ser diferentes');
   }
-  n.OBSERVACIONES = Utl_texto(v.OBSERVACIONES).trim();
+  n.OBSERVACIONES = Utl_texto_(v.OBSERVACIONES).trim();
   n.DESCRIPCION = '';
 
   return { ok: err.length === 0, errores: err, normalizado: n, accion: accion };
@@ -365,9 +369,9 @@ function Form_validarRespuesta(respuesta, opciones) {
  * marca de trazabilidad 'FORM|<responseId>|INGRESO'.
  * DUPLA se compone de PROFESIONAL + PROFESIONAL2 cuando existen.
  */
-function Form_filaCanonicaIngreso(normalizado, marca, opciones) {
-  var dupla = Utl_texto(normalizado.PROFESIONAL || '');
-  var p2 = Utl_texto(normalizado.PROFESIONAL2 || '');
+function Form_filaCanonicaIngreso_(normalizado, marca, opciones) {
+  var dupla = Utl_texto_(normalizado.PROFESIONAL || '');
+  var p2 = Utl_texto_(normalizado.PROFESIONAL2 || '');
   if (p2) dupla = dupla + (dupla ? '; ' : '') + p2;
   return [
     normalizado.NOMBRE || '',
@@ -375,7 +379,7 @@ function Form_filaCanonicaIngreso(normalizado, marca, opciones) {
     normalizado.SEXO || '',
     normalizado.FECHA_NACIMIENTO || '',
     normalizado.TELEFONOS || '',
-    normalizado.FECHA_INGRESO || Form_hoy(opciones),
+    normalizado.FECHA_INGRESO || Form_hoy_(opciones),
     normalizado.ESTRATIFICACION || '',
     dupla,
     normalizado.OBSERVACIONES || '',
@@ -401,7 +405,7 @@ function Form_filaCanonicaIngreso(normalizado, marca, opciones) {
  * decision: SALTAR | ERROR | CUARENTENA | CLINICA | ANEXAR
  *           (CUARENTENA = persona no encontrada / requiere decisión humana)
  */
-function Form_procesarLote(respuestas, ctx, opciones) {
+function Form_procesarLote_(respuestas, ctx, opciones) {
   ctx = ctx || {};
   var marcas = ctx.marcas || {};
   var respuestasN = respuestas || [];
@@ -414,8 +418,8 @@ function Form_procesarLote(respuestas, ctx, opciones) {
   for (var i = 0; i < respuestasN.length; i++) {
     var r = respuestasN[i];
     var sobr = {
-      responseId: Utl_texto(r.responseId),
-      accion: Utl_colapsarEspacios(Utl_texto((r.crudo && r.crudo.ACCION))).toUpperCase(),
+      responseId: Utl_texto_(r.responseId),
+      accion: Utl_colapsarEspacios_(Utl_texto_((r.crudo && r.crudo.ACCION))).toUpperCase(),
       decision: 'SALTAR', motivo: '', idInterno: '', normalizado: null, errores: [],
       ingreso: null,
       filaFisica: r.filaFisica !== undefined ? r.filaFisica : '',
@@ -427,13 +431,13 @@ function Form_procesarLote(respuestas, ctx, opciones) {
     if (r.estadoPrevio === 'PROCESADO') { sobr.motivo = 'YA_PROCESADO'; resumen.saltados += 1; decisiones.push(sobr); continue; }
 
     // Validación + normalización
-    var valid = Form_validarRespuesta(r.crudo, opciones);
+    var valid = Form_validarRespuesta_(r.crudo, opciones);
     sobr.accion = valid.accion;
     sobr.normalizado = valid.normalizado;
     sobr.errores = valid.errores;
     if (!valid.ok) {
       sobr.decision = 'ERROR';
-      sobr.motivo = Form_erroresTexto(valid.errores);
+      sobr.motivo = Form_erroresTexto_(valid.errores);
       resumen.error += 1;
       decisiones.push(sobr);
       continue;
@@ -443,7 +447,7 @@ function Form_procesarLote(respuestas, ctx, opciones) {
 
     if (esIngreso) {
       // Idempotencia: si ya se anexó la fila (INGRESO_FILA registrado) no anexar de nuevo
-      if (!Utl_vacio(r.ingresoFila)) {
+      if (!Utl_vacio_(r.ingresoFila)) {
         sobr.decision = 'YA_ANEXADO';
         sobr.motivo = 'Fila de ingreso ya anexada (fila ' + r.ingresoFila + ')';
         sobr.ingreso = { sector: valid.normalizado.SECTOR, hoja: r.ingresoHoja || '', fila: r.ingresoFila || '' };
@@ -454,7 +458,7 @@ function Form_procesarLote(respuestas, ctx, opciones) {
       sobr.decision = 'ANEXAR';
       sobr.ingreso = {
         sector: valid.normalizado.SECTOR,
-        hoja: Form_sectorHojaIngreso(valid.normalizado.SECTOR),
+        hoja: Form_sectorHojaIngreso_(valid.normalizado.SECTOR),
         fila: ''
       };
       resumen.anexos += 1; resumen.validos += 1;
@@ -463,7 +467,7 @@ function Form_procesarLote(respuestas, ctx, opciones) {
     }
 
     // Acciones clínicas sobre persona EXISTENTE (identidad por RUT exacto, ley exacta)
-    var paciente = (ctx.indiceRut && valid.normalizado.RUT) ? ctx.indiceRut[Utl_texto(valid.normalizado.RUT).toUpperCase()] : null;
+    var paciente = (ctx.indiceRut && valid.normalizado.RUT) ? ctx.indiceRut[Utl_texto_(valid.normalizado.RUT).toUpperCase()] : null;
     if (!paciente) {
       sobr.decision = 'CUARENTENA';
       sobr.motivo = 'PERSONA_NO_ENCONTRADA: el RUT no existe en la base (¿usar "Nuevo ingreso"?)';
@@ -471,7 +475,7 @@ function Form_procesarLote(respuestas, ctx, opciones) {
       decisiones.push(sobr);
       continue;
     }
-    var marca = Form_marcadorFuente(sobr.responseId, valid.accion);
+    var marca = Form_marcadorFuente_(sobr.responseId, valid.accion);
     if (marcas[marca]) {
       sobr.decision = 'PROCESADO_YA';
       sobr.motivo = 'Evento con esta marca ya registrado (reintento seguro)';
@@ -497,8 +501,8 @@ function Form_procesarLote(respuestas, ctx, opciones) {
  * PURA: traduce el estado de una fila INGRESO_* (escrito por el pipeline) al
  * estado interno del formulario. Solo el pipeline decide duplicados/revisión.
  */
-function Form_mapearResultadoFila(estadoIngreso, nota) {
-  var estado = Utl_texto(estadoIngreso).toUpperCase();
+function Form_mapearResultadoFila_(estadoIngreso, nota) {
+  var estado = Utl_texto_(estadoIngreso).toUpperCase();
   if (estado === 'INGRESADO') return { estado: 'PROCESADO', motivo: 'Respuesta procesada por el pipeline de ingresos' };
   if (estado === 'DUPLICADO' || estado === 'REQUIERE_REVISION') return { estado: 'REQUIERE_REVISION', motivo: nota || ('Requiere revisión (' + estado + ')') };
   if (estado === 'ERROR') return { estado: 'ERROR', motivo: nota || 'Error del pipeline' };
@@ -509,18 +513,18 @@ function Form_mapearResultadoFila(estadoIngreso, nota) {
  * PURA: métricas agregadas (sin cargar todos los datos en el panel).
  * @param {Object[]} filas  [{ESTADO, ACCION, FECHA_FORMS}]
  */
-function Form_metricas(filas) {
+function Form_metricasLote_(filas) {
   var m = {
     total: 0, porEstado: {}, porAccion: {}, pendientes: 0, procesados: 0,
     revision: 0, error: 0, ultimaCaptura: ''
   };
   (filas || []).forEach(function (f) {
     m.total += 1;
-    var est = Utl_texto(f.ESTADO).toUpperCase() || 'RECIBIDO';
+    var est = Utl_texto_(f.ESTADO).toUpperCase() || 'RECIBIDO';
     m.porEstado[est] = (m.porEstado[est] || 0) + 1;
-    var acc = Utl_texto(f.ACCION).toUpperCase() || 'SIN_ACCION';
+    var acc = Utl_texto_(f.ACCION).toUpperCase() || 'SIN_ACCION';
     m.porAccion[acc] = (m.porAccion[acc] || 0) + 1;
-    var fs = Utl_texto(f.FECHA_FORMS);
+    var fs = Utl_texto_(f.FECHA_FORMS);
     if (fs > m.ultimaCaptura) m.ultimaCaptura = fs;
     if (est === 'RECIBIDO' || est === 'VALIDANDO' || est === 'VALIDO') m.pendientes += 1;
     else if (est === 'PROCESADO') m.procesados += 1;
@@ -546,7 +550,7 @@ function Form_metricas(filas) {
  * @param {Object[]} [filasRespuestas] [{ESTADO, ACCION, REINTENTOS}]
  * @returns métricas operativas agregadas
  */
-function Form_metricasOperativas(eventos, filasRespuestas) {
+function Form_metricasOperativas_(eventos, filasRespuestas) {
   var m = {
     viaForm: 0, manuales: 0, pctViaForm: 0, registrosPorForm: {},
     controlesForm: 0, seguimientosForm: 0, ingresosForm: 0,
@@ -556,12 +560,12 @@ function Form_metricasOperativas(eventos, filasRespuestas) {
   var claves = { control: 'REGISTRAR_CONTROL', seguimiento: 'REGISTRAR_SEGUIMIENTO', ingreso: 'NUEVO_INGRESO' };
 
   (eventos || []).forEach(function (ev) {
-    var fuente = Utl_texto(ev.FUENTE);
+    var fuente = Utl_texto_(ev.FUENTE);
     if (fuente.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0) {
       m.viaForm += 1;
       // accion = último segmento de la marca FORM|<id>|<ACCIÓN>
       var seg = fuente.split('|');
-      var acc = seg.length > 2 ? Utl_texto(seg[seg.length - 1]).toUpperCase() : '';
+      var acc = seg.length > 2 ? Utl_texto_(seg[seg.length - 1]).toUpperCase() : '';
       m.registrosPorForm[acc || 'FORM'] = (m.registrosPorForm[acc || 'FORM'] || 0) + 1;
       if (acc === claves.control) m.controlesForm += 1;
       else if (acc === claves.seguimiento) m.seguimientosForm += 1;
@@ -576,7 +580,7 @@ function Form_metricasOperativas(eventos, filasRespuestas) {
 
   (filasRespuestas || []).forEach(function (f) {
     m.total += 1;
-    var est = Utl_texto(f.ESTADO).toUpperCase() || 'RECIBIDO';
+    var est = Utl_texto_(f.ESTADO).toUpperCase() || 'RECIBIDO';
     if (est === 'RECIBIDO' || est === 'VALIDANDO' || est === 'VALIDO') m.pendientes += 1;
     else if (est === 'PROCESADO') m.procesados += 1;
     else if (est === 'ERROR') { m.errores += 1; m.reprocesamientos += (Number(f.REINTENTOS) || 0); }
@@ -591,37 +595,38 @@ function Form_metricasOperativas(eventos, filasRespuestas) {
  * PURA: trazabilidad por-envío para el control administrativo (v0.9.2).
  * Devuelve una fila plana por respuesta: FORM_RESPONSE · MARCA · FECHA ·
  * ACCION · RUT · ID_INTERNO · ESTADO · MOTIVO · REINTENTOS · ID_EVENTO.
- * La MARCA se reconstruye con Form_marcadorFuente para que el admin pueda
+ * La MARCA se reconstruye con Form_marcadorFuente_ para que el admin pueda
  * rastrearla en EVENTOS/INGRESO hasta el ID_INTERNO.
  * @param {Object[]} filas  filas de FORM_RESPUESTAS (con todos los campos)
- * @param {Object}   mapa   {idx} mapeo encabezados (Form_mapeoEncabezados)
+ * @param {Object}   mapa   {idx} mapeo encabezados (Form_mapeoEncabezados_)
  * @param {Object}   [opciones] {soloPendientes|soloError}
  * @returns {Object[]} filas planas de trazabilidad
  */
-function Form_trazabilidad(filas, mapa, opciones) {
+function Form_trazabilidad_(filas, mapa, opciones) {
   opciones = opciones || {};
   var idx = mapa.idx;
   var salida = [];
   (filas || []).forEach(function (fila, i) {
     if (i === 0) return; // encabezado
-    var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto(fila[idx['RESPONSEID']]) : '';
+    var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto_(fila[idx['RESPONSEID']]) : '';
     if (!responseId) return;
-    var accion = idx['ACCION'] !== undefined ? Utl_texto(fila[idx['ACCION']]) : '';
-    var estado = Utl_texto(idx['ESTADO'] !== undefined ? fila[idx['ESTADO']] : '').toUpperCase();
+    var accion = idx['ACCION'] !== undefined ? Utl_texto_(fila[idx['ACCION']]) : '';
+    var estado = Utl_texto_(idx['ESTADO'] !== undefined ? fila[idx['ESTADO']] : '').toUpperCase();
     if (opciones.soloPendientes && estado !== 'RECIBIDO' && estado !== 'VALIDANDO' && estado !== 'VALIDO') return;
     if (opciones.soloError && estado !== 'ERROR') return;
     salida.push({
       responseId: responseId,
-      marca: Form_marcadorFuente(responseId, accion || 'FORM'),
-      fechaForms: idx['FECHAFORMS'] !== undefined ? Utl_texto(fila[idx['FECHAFORMS']]) : '',
+      marca: Form_marcadorFuente_(responseId, accion || 'FORM'),
+      fechaForms: idx['FECHAFORMS'] !== undefined ? Utl_texto_(fila[idx['FECHAFORMS']]) : '',
       accion: accion,
-      rut: idx['RUT'] !== undefined ? Utl_texto(fila[idx['RUT']]) : '',
-      nombre: idx['NOMBRE'] !== undefined ? Utl_texto(fila[idx['NOMBRE']]) : '',
-      idInterno: idx['IDINTERNO'] !== undefined ? Utl_texto(fila[idx['IDINTERNO']]) : '',
-      idEvento: idx['IDEVENTO'] !== undefined ? Utl_texto(fila[idx['IDEVENTO']]) : '',
+      rut: idx['RUT'] !== undefined ? Utl_texto_(fila[idx['RUT']]) : '',
+      nombre: idx['NOMBRE'] !== undefined ? Utl_texto_(fila[idx['NOMBRE']]) : '',
+      idInterno: idx['IDINTERNO'] !== undefined ? Utl_texto_(fila[idx['IDINTERNO']]) : '',
+      idEvento: idx['IDEVENTO'] !== undefined ? Utl_texto_(fila[idx['IDEVENTO']]) : '',
       estado: estado || 'RECIBIDO',
-      motivo: idx['MOTIVO'] !== undefined ? Utl_texto(fila[idx['MOTIVO']]) : '',
-      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0
+      motivo: idx['MOTIVO'] !== undefined ? Utl_texto_(fila[idx['MOTIVO']]) : '',
+      reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0,
+      provider: idx['CAPTUREPROVIDER'] !== undefined ? Utl_texto_(fila[idx['CAPTUREPROVIDER']]) : ''
     });
   });
   return salida;
@@ -633,7 +638,7 @@ function Form_trazabilidad(filas, mapa, opciones) {
  * @param {Object} [opciones] {semilla, porcentajeInvalidos}
  * @returns [{responseId, crudo:{...}}]
  */
-function Form_simularRespuestas(cantidad, opciones) {
+function Form_simularRespuestas_(cantidad, opciones) {
   opciones = opciones || {};
   var semilla = opciones.semilla === undefined ? 4815162342 : opciones.semilla;
   var x = semilla >>> 0;
@@ -646,7 +651,7 @@ function Form_simularRespuestas(cantidad, opciones) {
     var cuerpo = String(Math.floor(1000000 + rnd() * 8000000));
     if (usados[cuerpo]) { i -= 1; continue; }
     usados[cuerpo] = true;
-    var rutCompleto = cuerpo + '-' + Norm_dvModulo11(cuerpo);
+    var rutCompleto = cuerpo + '-' + Norm_dvModulo11_(cuerpo);
     var accion = acciones[i % acciones.length];
     var crudo = { ACCION: accion, RUT: rutCompleto };
     if (accion === 'NUEVO_INGRESO') {
@@ -676,18 +681,18 @@ function Form_simularRespuestas(cantidad, opciones) {
  *  S1 — separación de namespaces: las filas V2 (FORM_VERSION=2 o RESPONSE_ID
  *  con prefijo Cp2-) pertenecen al procesador V2 (26_Captura) y NUNCA se
  *  entregan al procesador legacy del pipeline de Forms. */
-function Form_filasPendientes(valores, mapa, maxReintentos, max) {
-  var camposInfo = Form_campos();
+function Form_filasPendientes_(valores, mapa, maxReintentos, max) {
+  var camposInfo = Form_campos_();
   max = typeof max === 'number' ? max : Infinity;
   var salida = [];
   for (var f = 1; f < valores.length; f++) {
     if (salida.length >= max) break;
     var fila = valores[f];
     var idx = mapa.idx;
-    var estado = idx['ESTADO'] !== undefined ? Utl_texto(fila[idx['ESTADO']]).toUpperCase() : '';
-    var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto(fila[idx['RESPONSEID']]) : '';
+    var estado = idx['ESTADO'] !== undefined ? Utl_texto_(fila[idx['ESTADO']]).toUpperCase() : '';
+    var responseId = idx['RESPONSEID'] !== undefined ? Utl_texto_(fila[idx['RESPONSEID']]) : '';
     if (!responseId) continue;
-    var formVersion = idx['FORMVERSION'] !== undefined ? Utl_texto(fila[idx['FORMVERSION']]) : '';
+    var formVersion = idx['FORMVERSION'] !== undefined ? Utl_texto_(fila[idx['FORMVERSION']]) : '';
     if (formVersion === '2' || formVersion === '3' || formVersion === '4' || /^Cp[234]-/.test(responseId)) continue; // namespace V2
     if (estado === 'PROCESADO') continue;
     if (estado === 'REQUIERE_REVISION') continue; // requieren decisión humana, no se reintentan
@@ -697,16 +702,16 @@ function Form_filasPendientes(valores, mapa, maxReintentos, max) {
     }
     var crudo = {};
     camposInfo.forEach(function (c) {
-      var k = Utl_claveAlnum(c.campo);
+      var k = Utl_claveAlnum_(c.campo);
       if (idx[k] !== undefined) crudo[c.campo] = fila[idx[k]];
     });
     salida.push({
-      filaFisica: Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS) + f - 1,
+      filaFisica: Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS) + f - 1,
       responseId: responseId,
       estadoPrevio: estado || 'RECIBIDO',
       reintentos: idx['REINTENTOS'] !== undefined ? (Number(fila[idx['REINTENTOS']]) || 0) : 0,
-      ingresoHoja: idx['INGRESOHOJA'] !== undefined ? Utl_texto(fila[idx['INGRESOHOJA']]) : '',
-      ingresoFila: idx['INGRESOFILA'] !== undefined ? Utl_texto(fila[idx['INGRESOFILA']]) : '',
+      ingresoHoja: idx['INGRESOHOJA'] !== undefined ? Utl_texto_(fila[idx['INGRESOHOJA']]) : '',
+      ingresoFila: idx['INGRESOFILA'] !== undefined ? Utl_texto_(fila[idx['INGRESOFILA']]) : '',
       crudo: crudo
     });
   }
@@ -721,11 +726,11 @@ function Form_filasPendientes(valores, mapa, maxReintentos, max) {
  * Instalador idempotente de la persistencia técnica de la Web App.
  * FORM_RESPUESTAS no constituye un canal alternativo de captura.
  */
-function Form_instalar() {
+function Form_instalar_() {
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   var cambios = [];
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet() || Modelo_ss();
+    var ss = SpreadsheetApp.getActiveSpreadsheet() || Modelo_ss_();
     var hoja = ss.getSheetByName(HOJAS.FORM_RESPUESTAS);
     var creada = false;
     if (!hoja) {
@@ -733,11 +738,11 @@ function Form_instalar() {
       creada = true;
       cambios.push('Hoja FORM_RESPUESTAS creada');
     }
-    var cols = Form_columnas();
+    var cols = Form_columnas_();
     var enc = hoja.getRange(1, 1, 1, cols.length).getValues()[0];
     var desalineado = false;
     cols.forEach(function (c, i) {
-      if (Utl_claveAlnum(enc[i]) !== Utl_claveAlnum(c)) desalineado = true;
+      if (Utl_claveAlnum_(enc[i]) !== Utl_claveAlnum_(c)) desalineado = true;
     });
     if (desalineado && hoja.getLastRow() > 1) {
       return { ok: false, motivo: 'ESQUEMA_CAPTURA_REQUIERE_REVISION', cambios: cambios };
@@ -751,7 +756,7 @@ function Form_instalar() {
     }
     try { hoja.setTabColor(DESIGN_SYSTEM.MARCA.tecnico); } catch (e) { /* color no crítico */ }
     var control = {};
-    try { control = Form_refrescarControl(); } catch (e) { control = { ok: false, motivo: String(e) }; }
+    try { control = Form_refrescarControl_(); } catch (e) { control = { ok: false, motivo: String(e) }; }
     return {
       ok: true, hoja: creada ? 'creada' : 'existente', cambios: cambios,
       control: control && control.ok ? 'FORM_CONTROL actualizado' : 'FORM_CONTROL pendiente',
@@ -759,7 +764,7 @@ function Form_instalar() {
       nota: 'Persistencia técnica de la Web App lista; Google Forms permanece inhabilitado.'
     };
   } catch (e) {
-    Log_error('Formulario', 'instalar', e && e.message ? e.message : String(e));
+    Log_error_('Formulario', 'instalar', e && e.message ? e.message : String(e));
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
@@ -767,18 +772,18 @@ function Form_instalar() {
 /** GAS: instalación de trigger de envío — BLOQUEADA por contrato (AGENTS.md):
  * Google Forms es canal abandonado; no se instalan ni planifican triggers
  * onFormSubmit aunque se completara FORM_ID. Solo se conserva el acceso de
- * diagnóstico (Form_triggerInstalado) para constatar que no exista. */
-function Form_instalarTrigger() {
+ * diagnóstico (Form_triggerInstalado_) para constatar que no exista. */
+function Form_instalarTrigger_() {
   return { ok: false, activado: false, motivo: 'GOOGLE_FORMS_INHABILITADO' };
 }
 
 /** GAS: ¿hay un trigger de envío instalado para nuestro manejador? */
-function Form_triggerInstalado() {
+function Form_triggerInstalado_() {
   if (typeof ScriptApp === 'undefined') return false;
   try {
     var triggers = ScriptApp.getProjectTriggers();
     for (var i = 0; i < triggers.length; i++) {
-      if (triggers[i].getHandlerFunction() === 'Form_onFormSubmit') return true;
+      if (triggers[i].getHandlerFunction() === 'Form_onFormSubmit_') return true;
     }
   } catch (e) { /* sin permisos o sin script */ }
   return false;
@@ -789,46 +794,46 @@ function Form_triggerInstalado() {
  * (DEV/DEMO), spreadsheet esperado, Form del entorno, mapeo pregunta→campo,
  * trigger, estructura (staging) y procesador (v0.9.1).
  */
-function Form_diagnosticar() {
+function Form_diagnosticar_() {
   var checks = [];
   if (typeof SpreadsheetApp === 'undefined') {
     return { ok: false, motivo: 'SOLO_GAS', checks: checks };
   }
-  var cur = Entorno_actualGAS();
+  var cur = Entorno_actualGAS_();
 
   // Entorno + recursos (puro, reutilizado por la batería de aceptación)
   var mapeo = -1;
-  if (typeof FormApp !== 'undefined' && !Utl_vacio(FORM_CONFIG.FORM_ID)) {
+  if (typeof FormApp !== 'undefined' && !Utl_vacio_(FORM_CONFIG.FORM_ID)) {
     try {
       var form = FormApp.openById(FORM_CONFIG.FORM_ID);
       var porPregunta = form.getItems().map(function (it) { return it.getTitle(); });
       var halladas = 0;
-      Form_campos().forEach(function (c) {
+      Form_campos_().forEach(function (c) {
         if (porPregunta.indexOf(c.pregunta) !== -1) halladas += 1;
       });
       mapeo = halladas;
     } catch (e) { mapeo = -1; }
   }
-  var envDiag = Entorno_diagnostico(cur.ssId, FORM_CONFIG.FORM_ID, {
-    trigger: Form_triggerInstalado(),
-    procesador: typeof Form_procesarPendientes === 'function' && !!FORM_CONFIG.ACTIVO,
+  var envDiag = Entorno_diagnostico_(cur.ssId, FORM_CONFIG.FORM_ID, {
+    trigger: Form_triggerInstalado_(),
+    procesador: typeof Form_procesarPendientes_ === 'function' && !!FORM_CONFIG.ACTIVO,
     mapeo: mapeo,
-    campos: Form_campos().length,
-    carpetaBackup: Entorno_carpetaEsperada(cur.entorno)
+    campos: Form_campos_().length,
+    carpetaBackup: Entorno_carpetaEsperada_(cur.entorno)
   });
 
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
   checks.push({ nombre: 'estructura', ok: !!hoja, detalle: hoja ? 'Hoja FORM_RESPUESTAS presente' : 'Falta la hoja FORM_RESPUESTAS' });
-  checks.push({ nombre: 'form_id', ok: !Utl_vacio(FORM_CONFIG.FORM_ID), detalle: Utl_vacio(FORM_CONFIG.FORM_ID) ? 'FORM_ID sin configurar' : 'FORM_ID: ' + FORM_CONFIG.FORM_ID });
+  checks.push({ nombre: 'form_id', ok: !Utl_vacio_(FORM_CONFIG.FORM_ID), detalle: Utl_vacio_(FORM_CONFIG.FORM_ID) ? 'FORM_ID sin configurar' : 'FORM_ID: ' + FORM_CONFIG.FORM_ID });
   var formOk = false;
-  if (!Utl_vacio(FORM_CONFIG.FORM_ID) && typeof FormApp !== 'undefined') {
+  if (!Utl_vacio_(FORM_CONFIG.FORM_ID) && typeof FormApp !== 'undefined') {
     try { FormApp.openById(FORM_CONFIG.FORM_ID); formOk = true; } catch (e) { formOk = false; }
   }
   checks.push({ nombre: 'form_accesible', ok: formOk, detalle: formOk ? 'Formulario accesible' : 'No se puede abrir el formulario configurado' });
 
   checks = checks.concat(envDiag.checks);
 
-  var metricas = Form_obtenerEstado();
+  var metricas = Form_obtenerEstado_();
   return {
     ok: checks.every(function (c) { return c.ok; }),
     checks: checks,
@@ -844,14 +849,14 @@ function Form_diagnosticar() {
  * GAS: estado agregado para el panel de administración (sin datos clínicos,
  * solo contadores agregados).
  */
-function Form_obtenerEstado() {
+function Form_obtenerEstado_() {
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   try {
-    var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+    var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
     var filas = [];
-    if (hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-      var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
-      var mapa = Form_mapeoEncabezados(valores[0]);
+    if (hoja && hoja.getLastRow() >= Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS)) {
+      var valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
+      var mapa = Form_mapeoEncabezados_(valores[0]);
       for (var f = 1; f < valores.length; f++) {
         filas.push({
           ESTADO: mapa.idx['ESTADO'] !== undefined ? valores[f][mapa.idx['ESTADO']] : '',
@@ -860,14 +865,14 @@ function Form_obtenerEstado() {
         });
       }
     }
-    var cur = Entorno_actualGAS();
-    var operativo = Form_metricasOperativas(_controlEventosResumen(), filas);
+    var cur = Entorno_actualGAS_();
+    var operativo = Form_metricasOperativas_(_controlEventosResumen_(), filas);
     return {
       ok: true,
       entorno: { entorno: cur.entorno, ssId: cur.ssId, coincide: cur.coincide },
       config: { activo: FORM_CONFIG.ACTIVO, formId: FORM_CONFIG.FORM_ID, version: FORM_CONFIG.FORM_VERSION },
-      triggerInstalado: Form_triggerInstalado(),
-      metricas: Form_metricas(filas),
+      triggerInstalado: Form_triggerInstalado_(),
+      metricas: Form_metricasLote_(filas),
       operativo: operativo
     };
   } catch (e) {
@@ -876,8 +881,8 @@ function Form_obtenerEstado() {
 }
 
 /** GAS: EVENTOS leídos para las métricas operativas (por FUENTE). */
-function _controlEventosResumen() {
-  return Modelo_leerEventos();
+function _controlEventosResumen_() {
+  return Modelo_leerEventos_();
 }
 
 // ---------------------------------------------------------------------------
@@ -887,14 +892,14 @@ function _controlEventosResumen() {
 /** GAS: lista de trazabilidad por-envío (FORM_RESPONSE · MARCA · FECHA ·
  *  ACCION · RUT · ID_INTERNO · ESTADO · MOTIVO · REINTENTOS · ID_EVENTO).
  *  Responde "¿qué pasó con este envío?" sin exponer hojas técnicas. */
-function Form_listarControl(opciones) {
+function Form_listarControl_(opciones) {
   opciones = opciones || {};
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-  var filas = Form_trazabilidad([], { idx: {} }, opciones);
-  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
-    filas = Form_trazabilidad(valores, Form_mapeoEncabezados(valores[0]), opciones);
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
+  var filas = Form_trazabilidad_([], { idx: {} }, opciones);
+  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS)) {
+    var valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
+    filas = Form_trazabilidad_(valores, Form_mapeoEncabezados_(valores[0]), opciones);
   }
   return { ok: true, filas: filas, total: filas.length };
 }
@@ -904,10 +909,10 @@ function Form_listarControl(opciones) {
  * por-envío + bloque de métricas operativas). Idempotente y de solo-escritura:
  * nunca toca FORM_RESPUESTAS ni los datos clínicos.
  */
-function Form_refrescarControl() {
+function Form_refrescarControl_() {
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet() || Modelo_ss();
+    var ss = SpreadsheetApp.getActiveSpreadsheet() || Modelo_ss_();
     var hoja = ss.getSheetByName(HOJAS.FORM_CONTROL);
     if (!hoja) {
       hoja = ss.insertSheet(HOJAS.FORM_CONTROL);
@@ -918,25 +923,25 @@ function Form_refrescarControl() {
 
     var columnas = FORM_CONFIG.CONTROL.COLUMNAS;
     // Una sola lectura de FORM_RESPUESTAS, compartida entre la trazabilidad y
-    // las métricas operativas (antes se leía 2 veces: Form_listarControl + resumen).
-    var hojaFr = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-    var bloqueFr = (hojaFr && hojaFr.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS))
-      ? Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hojaFr) : [];
-    var mapaFr = bloqueFr.length ? Form_mapeoEncabezados(bloqueFr[0]) : { idx: {} };
-    var traz = Form_trazabilidad(bloqueFr, mapaFr, {});
+    // las métricas operativas (antes se leía 2 veces: Form_listarControl_ + resumen).
+    var hojaFr = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
+    var bloqueFr = (hojaFr && hojaFr.getLastRow() >= Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS))
+      ? Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hojaFr) : [];
+    var mapaFr = bloqueFr.length ? Form_mapeoEncabezados_(bloqueFr[0]) : { idx: {} };
+    var traz = Form_trazabilidad_(bloqueFr, mapaFr, {});
 
     var filas = [columnas];
     traz.forEach(function (t) {
       filas.push([
         t.responseId, t.marca, t.fechaForms, t.accion, t.rut, t.idInterno,
-        t.estado, t.motivo, t.reintentos, t.idEvento
+        t.estado, t.motivo, t.reintentos, t.idEvento, t.provider
       ]);
     });
 
     // Bloque de métricas operativas: una fila en blanco + cabecera + valores
     filas.push([]);
     filas.push(['MÉTRICAS OPERATIVAS', '']);
-    var oper = Form_metricasOperativas(_controlEventosResumen(), _controlRespuestasResumen(bloqueFr));
+    var oper = Form_metricasOperativas_(_controlEventosResumen_(), _controlRespuestasResumen_(bloqueFr));
     FORM_CONFIG.CONTROL.METRICAS.forEach(function (met) {
       filas.push([met.etiqueta, oper[met.clave] === undefined ? 0 : oper[met.clave]]);
     });
@@ -957,7 +962,7 @@ function Form_refrescarControl() {
 
     return { ok: true, total: traz.length, metricas: oper };
   } catch (e) {
-    Log_error('Formulario', 'control', e && e.message ? e.message : String(e));
+    Log_error_('Formulario', 'control', e && e.message ? e.message : String(e));
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
@@ -965,17 +970,17 @@ function Form_refrescarControl() {
 /**
  * GAS: lee FORM_RESPUESTAS como objetos {ESTADO, ACCION, REINTENTOS} para métricas.
  * Acepta un bloque YA leído (valores + filas con encabezado) para no re-leer la
- * hoja cuando el llamador ya la tiene (Form_refrescarControl). Sin argumento,
+ * hoja cuando el llamador ya la tiene (Form_refrescarControl_). Sin argumento,
  * lo lee una sola vez igual que antes.
  */
-function _controlRespuestasResumen(valores) {
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+function _controlRespuestasResumen_(valores) {
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
   var salida = [];
-  if (!valores && hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-    valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+  if (!valores && hoja && hoja.getLastRow() >= Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS)) {
+    valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
   }
   if (valores && valores.length) {
-    var mapa = Form_mapeoEncabezados(valores[0]);
+    var mapa = Form_mapeoEncabezados_(valores[0]);
     for (var f = 1; f < valores.length; f++) {
       salida.push({
         ESTADO: mapa.idx['ESTADO'] !== undefined ? valores[f][mapa.idx['ESTADO']] : '',
@@ -996,16 +1001,16 @@ function _controlRespuestasResumen(valores) {
  *   ERROR dentro del tope de reintentos).
  * Devuelve un resumen del procesamiento y refresca FORM_CONTROL.
  */
-function Form_reprocesar(opciones) {
+function Form_reprocesar_(opciones) {
   opciones = opciones || {};
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   if (opciones.respuestaId) {
-    var okReset = Form_reiniciarRespuesta(opciones.respuestaId);
+    var okReset = Form_reiniciarRespuesta_(opciones.respuestaId);
     if (!okReset.ok) return okReset;
   }
-  var procesado = Form_procesarPendientes({ forzar: true });
+  var procesado = Form_procesarPendientes_({ forzar: true });
   if (!procesado.ok) return procesado;
-  var control = Form_refrescarControl();
+  var control = Form_refrescarControl_();
   return {
     ok: true,
     resumen: procesado.resumen || {},
@@ -1018,23 +1023,23 @@ function Form_reprocesar(opciones) {
  * GAS: reinicia una respuesta errónea/atascada para permitir su reprocesamiento
  * seguro. Nunca reinicia PROCESADO. Devuelve {ok, motivo}.
  */
-function Form_reiniciarRespuesta(responseId) {
+function Form_reiniciarRespuesta_(responseId) {
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
   if (!hoja) return { ok: false, motivo: 'SIN_HOJA' };
-  var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
-  var mapa = Form_mapeoEncabezados(valores[0]);
-  var start = Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS);
+  var valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
+  var mapa = Form_mapeoEncabezados_(valores[0]);
+  var start = Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS);
   for (var f = 1; f < valores.length; f++) {
-    var rid = mapa.idx['RESPONSEID'] !== undefined ? Utl_texto(valores[f][mapa.idx['RESPONSEID']]) : '';
+    var rid = mapa.idx['RESPONSEID'] !== undefined ? Utl_texto_(valores[f][mapa.idx['RESPONSEID']]) : '';
     if (rid !== responseId) continue;
     // S1: las respuestas V2 no se reinician desde el panel legacy; su retoma
-    // pertenece al procesador V2 (Captura_v2_retomarRegistro, 26_Captura).
-    var formVersion = mapa.idx['FORMVERSION'] !== undefined ? Utl_texto(valores[f][mapa.idx['FORMVERSION']]) : '';
+    // pertenece al procesador V2 (Captura_v2_retomarRegistro_, 26_Captura).
+    var formVersion = mapa.idx['FORMVERSION'] !== undefined ? Utl_texto_(valores[f][mapa.idx['FORMVERSION']]) : '';
     if (formVersion === '2' || formVersion === '3' || formVersion === '4' || /^Cp[234]-/.test(rid)) {
       return { ok: false, motivo: 'NAMESPACE_V2_USA_PROCESADOR_V2' };
     }
-    var estado = (mapa.idx['ESTADO'] !== undefined ? Utl_texto(valores[f][mapa.idx['ESTADO']]) : '').toUpperCase();
+    var estado = (mapa.idx['ESTADO'] !== undefined ? Utl_texto_(valores[f][mapa.idx['ESTADO']]) : '').toUpperCase();
     if (estado === 'PROCESADO') return { ok: false, motivo: 'YA_PROCESADO_NO_SE_REINICIA' };
     var filaFisica = start + f - 1;
     var cEstado = mapa.idx['ESTADO'];
@@ -1054,14 +1059,14 @@ function Form_reiniciarRespuesta(responseId) {
 // ---------------------------------------------------------------------------
 
 /** GAS: marca más reciente ya capturada (para FROM → getResponses(desde)). */
-function Form_ultimaCaptura() {
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+function Form_ultimaCaptura_() {
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
   var maxTs = '';
-  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
-    var mapa = Form_mapeoEncabezados(valores[0]);
+  if (hoja && hoja.getLastRow() >= Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS)) {
+    var valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
+    var mapa = Form_mapeoEncabezados_(valores[0]);
     for (var f = 1; f < valores.length; f++) {
-      var ts = Utl_texto(valores[f][mapa.idx['FECHAFORMS']]);
+      var ts = Utl_texto_(valores[f][mapa.idx['FECHAFORMS']]);
       if (ts > maxTs) maxTs = ts;
     }
   }
@@ -1069,33 +1074,33 @@ function Form_ultimaCaptura() {
 }
 
 /** GAS: convierte un Date a ISO YYYY-MM-DD HH:MM:SS (zona local, sin TZ). */
-function Form_aIsoConHora(d) {
+function Form_aIsoConHora_(d) {
   function p(n) { return (n < 10 ? '0' : '') + n; }
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
     p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 
 /** GAS: convierte un valor (incluida fecha de FormApp) a texto crudo. */
-function Form_valorCrudo(v) {
-  if (v instanceof Date) return Form_aIsoConHora(v);
-  if (Object.prototype.toString.call(v) === '[object Array]') return (v.length ? Utl_texto(v[0]) : '');
-  return Utl_texto(v);
+function Form_valorCrudo_(v) {
+  if (v instanceof Date) return Form_aIsoConHora_(v);
+  if (Object.prototype.toString.call(v) === '[object Array]') return (v.length ? Utl_texto_(v[0]) : '');
+  return Utl_texto_(v);
 }
 
 /**
  * GAS: captura respuestas nuevas del formulario y las deposita en
  * FORM_RESPUESTAS con estado RECIBIDO (idempotente por RESPONSE_ID).
  */
-function Form_capturarRespuestas(opciones) {
+function Form_capturarRespuestas_(opciones) {
   opciones = opciones || {};
   if (typeof FormApp === 'undefined' || typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
-  if (Utl_vacio(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
+  if (Utl_vacio_(FORM_CONFIG.FORM_ID)) return { ok: false, motivo: 'FORM_ID_NO_CONFIGURADO' };
   var form = FormApp.openById(FORM_CONFIG.FORM_ID);
 
   // Ventana de captura: desde la última captura (o ventana inicial para no
   // reprocesar historial previo a la instalación).
   var desde = null;
-  var ultima = Form_ultimaCaptura();
+  var ultima = Form_ultimaCaptura_();
   if (ultima) {
     desde = new Date(ultima); desde.setSeconds(desde.getSeconds() + 1);
   } else {
@@ -1108,11 +1113,11 @@ function Form_capturarRespuestas(opciones) {
 
   // Mapeo de preguntas (título) → campo (contrato CAMPOS).
   var porPregunta = {};
-  Form_campos().forEach(function (c) { porPregunta[c.pregunta] = c.campo; });
+  Form_campos_().forEach(function (c) { porPregunta[c.pregunta] = c.campo; });
 
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-  if (!hoja) { Form_instalar(); hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS); }
-  var existentes = Form_ultimaCaptura() ? Form_idsCapturados() : [];
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
+  if (!hoja) { Form_instalar_(); hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS); }
+  var existentes = Form_ultimaCaptura_() ? Form_idsCapturados_() : [];
   var nuevas = 0, duplicadas = 0;
   var filasPlanas = [];
 
@@ -1123,13 +1128,13 @@ function Form_capturarRespuestas(opciones) {
     resp.getItemResponses().forEach(function (ir) {
       var campo = porPregunta[ir.getItem().getTitle()];
       if (!campo) return;
-      crudo[campo] = Form_valorCrudo(ir.getResponse());
+      crudo[campo] = Form_valorCrudo_(ir.getResponse());
     });
     if (!crudo.ACCION) crudo.ACCION = '';
     var traza = JSON.stringify(crudo);
-    var fila = Form_campos().map(function (c) { return crudo[c.campo] !== undefined ? crudo[c.campo] : ''; });
+    var fila = Form_campos_().map(function (c) { return crudo[c.campo] !== undefined ? crudo[c.campo] : ''; });
     filasPlanas.push([
-      Form_aIsoConHora(resp.getTimestamp()),
+      Form_aIsoConHora_(resp.getTimestamp()),
       responseId,
       FORM_CONFIG.FORM_VERSION,
       (typeof Session !== 'undefined' && Session.getActiveUser()) ? Session.getActiveUser().getEmail() : ''
@@ -1138,24 +1143,24 @@ function Form_capturarRespuestas(opciones) {
   });
 
   if (filasPlanas.length) {
-    var cols = Form_columnas();
+    var cols = Form_columnas_();
     hoja.getRange(hoja.getLastRow() + 1, 1, filasPlanas.length, cols.length).setValues(filasPlanas);
   }
 
   var r = { ok: true, capturadas: respuestasAPI.length, nuevas: nuevas, duplicadas: duplicadas };
-  Log_info('Formulario', 'capturar', 'nuevas=' + nuevas + ' duplicadas=' + duplicadas, null, null);
+  Log_info_('Formulario', 'capturar', 'nuevas=' + nuevas + ' duplicadas=' + duplicadas, null, null);
   return r;
 }
 
 /** GAS: IDs de respuesta ya capturados (dedupe idempotente). */
-function Form_idsCapturados() {
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) return [];
-  var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
-  var mapa = Form_mapeoEncabezados(valores[0]);
+function Form_idsCapturados_() {
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
+  if (!hoja || hoja.getLastRow() < Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS)) return [];
+  var valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
+  var mapa = Form_mapeoEncabezados_(valores[0]);
   var ids = [];
   for (var f = 1; f < valores.length; f++) {
-    var id = Utl_texto(valores[f][mapa.idx['RESPONSEID']]);
+    var id = Utl_texto_(valores[f][mapa.idx['RESPONSEID']]);
     if (id) ids.push(id);
   }
   return ids;
@@ -1168,21 +1173,21 @@ function Form_idsCapturados() {
  * la hoja completa. Se invoca 2 veces por envío; con miles de eventos, leer
  * las 16 columnas era un costo evitable del envío.
  */
-function Form_leerMarcas() {
+function Form_leerMarcas_() {
   var salida = {};
   if (typeof SpreadsheetApp === 'undefined') return salida;
   var _tLeer = Date.now();
   try {
-    var hoja = Modelo_hoja(HOJAS.EVENTOS);
+    var hoja = Modelo_hoja_(HOJAS.EVENTOS);
     if (!hoja) return salida;
-    var hr = Modelo_headerRow(HOJAS.EVENTOS);
+    var hr = Modelo_headerRow_(HOJAS.EVENTOS);
     var ultima = hoja.getLastRow();
     if (ultima < hr) return salida;
     var ancho = Math.max(hoja.getLastColumn() || 0, 1);
     var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0];
     var pos = {};
-    enc.forEach(function (h, i) { pos[Utl_texto(h).trim().toUpperCase()] = i; });
-    var desde = Modelo_dataStartRow(HOJAS.EVENTOS);
+    enc.forEach(function (h, i) { pos[Utl_texto_(h).trim().toUpperCase()] = i; });
+    var desde = Modelo_dataStartRow_(HOJAS.EVENTOS);
     var n = ultima - desde + 1;
     if (n < 1) return salida;
     var pFuente = pos.FUENTE;
@@ -1191,11 +1196,11 @@ function Form_leerMarcas() {
     if (pFuente === undefined || pFuente === null) return salida;
     var bloque = hoja.getRange(desde, 1, n, ancho).getValues();
     for (var i = 0; i < bloque.length; i++) {
-      var f = Utl_texto(bloque[i][pFuente]);
+      var f = Utl_texto_(bloque[i][pFuente]);
       if (f.indexOf(FORM_CONFIG.MARCAS.PREFIJO) === 0) {
         salida[f] = {
-          idInterno: pInterno !== undefined && pInterno !== null ? Utl_texto(bloque[i][pInterno]) : '',
-          idEvento: pEvento !== undefined && pEvento !== null ? Utl_texto(bloque[i][pEvento]) : ''
+          idInterno: pInterno !== undefined && pInterno !== null ? Utl_texto_(bloque[i][pInterno]) : '',
+          idEvento: pEvento !== undefined && pEvento !== null ? Utl_texto_(bloque[i][pEvento]) : ''
         };
       }
     }
@@ -1206,33 +1211,33 @@ function Form_leerMarcas() {
 
 /**
  * PURA/GAS: estado de una fila desde un bloque ya leído (encabezados, ...datos).
- * El bloque debe ir alineado a los encabezados reales (Modelo_leerBloqueCabecera).
+ * El bloque debe ir alineado a los encabezados reales (Modelo_leerBloqueCabecera_).
  * Si el bloque está desalineado devuelve estado '' para que el llamador pueda
  * resolver por MARCA como respaldo.
  */
-function Form_leerFilaIngresoDesdeBloque(nombreHoja, filaFisica, valores) {
+function Form_leerFilaIngresoDesdeBloque_(nombreHoja, filaFisica, valores) {
   if (!valores || valores.length < 2) return { estado: 'ERROR', nota: 'SIN_DATOS' };
-  var hr = Modelo_headerRow(nombreHoja);
+  var hr = Modelo_headerRow_(nombreHoja);
   if (valores[0].join('|').toUpperCase().indexOf('NOMBRE') === -1) {
     return { estado: '', nota: 'BLOQUE_DESALINEADO' };
   }
   var idxDato = Number(filaFisica) - hr;
   if (isNaN(idxDato) || idxDato < 1 || idxDato >= valores.length) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
   var fila = valores[idxDato];
-  var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
+  var mapa = Ingresos_mapearEncabezadosHoja_(valores[0]);
   return {
-    estado: mapa.estadoIdx >= 0 ? Utl_texto(fila[mapa.estadoIdx]).toUpperCase() : '',
-    nota: mapa.notaIdx >= 0 ? Utl_texto(fila[mapa.notaIdx]) : ''
+    estado: mapa.estadoIdx >= 0 ? Utl_texto_(fila[mapa.estadoIdx]).toUpperCase() : '',
+    nota: mapa.notaIdx >= 0 ? Utl_texto_(fila[mapa.notaIdx]) : ''
   };
 }
 
 /** GAS: re-lee el estado de una fila de ingreso anexada (tras el pipeline). */
-function Form_leerFilaIngreso(nombreHoja, filaFisica) {
-  var hojaEst = Modelo_hoja(nombreHoja);
+function Form_leerFilaIngreso_(nombreHoja, filaFisica) {
+  var hojaEst = Modelo_hoja_(nombreHoja);
   if (!hojaEst) return { estado: 'ERROR', nota: 'HOJA_INGRESO_AUSENTE' };
-  var valores = Modelo_leerBloqueCabecera(nombreHoja, hojaEst);
+  var valores = Modelo_leerBloqueCabecera_(nombreHoja, hojaEst);
   if (!valores.length) return { estado: 'ERROR', nota: 'SIN_DATOS' };
-  var hr = Modelo_headerRow(nombreHoja);
+  var hr = Modelo_headerRow_(nombreHoja);
   // Fallback legacy fila 1
   if (valores[0].join('|').toUpperCase().indexOf('NOMBRE') === -1 && hojaEst.getLastRow() >= 1) {
     var alt = hojaEst.getRange(1, 1, hojaEst.getLastRow(), Math.max(hojaEst.getLastColumn(),1)).getValues();
@@ -1243,24 +1248,24 @@ function Form_leerFilaIngreso(nombreHoja, filaFisica) {
   var idxDato = Number(filaFisica) - hr;
   if (isNaN(idxDato) || idxDato < 1 || idxDato >= valores.length) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
   var fila = valores[idxDato];
-  var mapa = Ingresos_mapearEncabezadosHoja(valores[0]);
+  var mapa = Ingresos_mapearEncabezadosHoja_(valores[0]);
   return {
-    estado: mapa.estadoIdx >= 0 ? Utl_texto(fila[mapa.estadoIdx]).toUpperCase() : '',
-    nota: mapa.notaIdx >= 0 ? Utl_texto(fila[mapa.notaIdx]) : ''
+    estado: mapa.estadoIdx >= 0 ? Utl_texto_(fila[mapa.estadoIdx]).toUpperCase() : '',
+    nota: mapa.notaIdx >= 0 ? Utl_texto_(fila[mapa.notaIdx]) : ''
   };
 }
 
 /** GAS: FAST PATH (v0.10.5 §16) — estado de UNA fila de ingreso leyendo SOLO
  *  1 fila de encabezados + 1 fila objetivo, nunca el bloque completo de la hoja.
- *  Mismo contrato de retorno que Form_leerFilaIngreso (rutas interactivas);
+ *  Mismo contrato de retorno que Form_leerFilaIngreso_ (rutas interactivas);
  *  la versión masiva (bloque completo) se conserva para procesos batch. */
 function Form_leerFilaIngreso_rapida_(nombreHoja, filaFisica) {
   try {
-    var hojaEst = Modelo_hoja(nombreHoja);
+    var hojaEst = Modelo_hoja_(nombreHoja);
     if (!hojaEst) return { estado: 'ERROR', nota: 'HOJA_INGRESO_AUSENTE' };
     var nf = Number(filaFisica);
     if (!nf || nf < 1 || nf > hojaEst.getLastRow()) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
-    var hr = Modelo_headerRow(nombreHoja);
+    var hr = Modelo_headerRow_(nombreHoja);
     var ancho = Math.max(hojaEst.getLastColumn(), 1);
     var encabezados = hojaEst.getRange(hr, 1, 1, ancho).getValues()[0];
     if (encabezados.join('|').toUpperCase().indexOf('NOMBRE') === -1) {
@@ -1269,10 +1274,10 @@ function Form_leerFilaIngreso_rapida_(nombreHoja, filaFisica) {
     }
     if (nf <= hr) return { estado: 'ERROR', nota: 'FILA_INGRESO_FUERA_DE_RANGO' };
     var fila = hojaEst.getRange(nf, 1, 1, ancho).getValues()[0];
-    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var mapa = Ingresos_mapearEncabezadosHoja_(encabezados);
     return {
-      estado: mapa.estadoIdx >= 0 ? Utl_texto(fila[mapa.estadoIdx]).toUpperCase() : '',
-      nota: mapa.notaIdx >= 0 ? Utl_texto(fila[mapa.notaIdx]) : ''
+      estado: mapa.estadoIdx >= 0 ? Utl_texto_(fila[mapa.estadoIdx]).toUpperCase() : '',
+      nota: mapa.notaIdx >= 0 ? Utl_texto_(fila[mapa.notaIdx]) : ''
     };
   } catch (e) {
     return { estado: 'ERROR', nota: 'SIN_DATOS' };
@@ -1282,15 +1287,15 @@ function Form_leerFilaIngreso_rapida_(nombreHoja, filaFisica) {
 /**
  * PURA: resuelve HOJA/FILA desde la que leer el resultado de un ANEXAR/YA_ANEXADO.
  * Si el barrido por MARCA encontró la fila real (hallado), esa gana siempre:
- * robusto frente a desplazamientos de filas por HVis_normalizarLayout (inserta
+ * robusto frente a desplazamientos de filas por HVis_normalizarLayout_ (inserta
  * filas al inicio cuando la hoja estaba en layout legacy). Si no, cae a la
  * coordenada registrada en el momento del anexo.
- * @param {Object|null} hallado resultado de Form_buscarFilaIngresoPorMarca
+ * @param {Object|null} hallado resultado de Form_buscarFilaIngresoPorMarca_
  * @param {Object} ingreso d.ingreso ({hoja,fila})
  * @param {string} ingresoHoja d.ingresoHoja (fallback histórico)
  * @param {string} ingresoFila d.ingresoFila (fallback histórico)
  */
-function Form_resolverFilaIngreso(hallado, ingreso, ingresoHoja, ingresoFila) {
+function Form_resolverFilaIngreso_(hallado, ingreso, ingresoHoja, ingresoFila) {
   ingreso = ingreso || {};
   if (hallado && hallado.fila) return { hoja: hallado.hoja, fila: String(hallado.fila) };
   var fila = (ingreso.fila !== undefined && ingreso.fila !== '') ? ingreso.fila : ingresoFila;
@@ -1307,27 +1312,27 @@ function Form_resolverFilaIngreso(hallado, ingreso, ingresoHoja, ingresoFila) {
  * @param {string} responseId
  * @returns {Object} diagnóstico estructurado (cero efectos colaterales)
  */
-function Form_diagnosticoEnvio(responseId) {
+function Form_diagnosticoEnvio_(responseId) {
   var d = { responseId: responseId, respuesta: null, marcaBuscada: '', hojas: {} };
   if (typeof SpreadsheetApp === 'undefined') return d;
   try {
-    d.marcaBuscada = Form_marcadorFuente(responseId, 'INGRESO');
+    d.marcaBuscada = Form_marcadorFuente_(responseId, 'INGRESO');
     // 1) fila en FORM_RESPUESTAS
-    var hf = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-    if (hf && hf.getLastRow() >= Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS)) {
-      var vf = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hf);
-      var mf = Form_mapeoEncabezados(vf[0]);
+    var hf = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
+    if (hf && hf.getLastRow() >= Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS)) {
+      var vf = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hf);
+      var mf = Form_mapeoEncabezados_(vf[0]);
       var ix = mf.idx || {};
       for (var i = 1; i < vf.length; i++) {
-        if (Utl_texto(vf[i][ix.RESPONSEID]) === responseId) {
+        if (Utl_texto_(vf[i][ix.RESPONSEID]) === responseId) {
           d.respuesta = {
-            estado: Utl_texto(vf[i][ix.ESTADO] || ''),
-            motivo: Utl_texto(vf[i][ix.MOTIVO] || ''),
-            reintentos: Utl_texto(vf[i][ix.REINTENTOS] || ''),
-            accion: Utl_texto(vf[i][ix.ACCION] || ''),
-            ingresoHoja: Utl_texto(vf[i][ix.INGRESOHOJA] || ''),
-            ingresoFila: Utl_texto(vf[i][ix.INGRESOFILA] || ''),
-            filaFisica: String(Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS) + i - 1)
+            estado: Utl_texto_(vf[i][ix.ESTADO] || ''),
+            motivo: Utl_texto_(vf[i][ix.MOTIVO] || ''),
+            reintentos: Utl_texto_(vf[i][ix.REINTENTOS] || ''),
+            accion: Utl_texto_(vf[i][ix.ACCION] || ''),
+            ingresoHoja: Utl_texto_(vf[i][ix.INGRESOHOJA] || ''),
+            ingresoFila: Utl_texto_(vf[i][ix.INGRESOFILA] || ''),
+            filaFisica: String(Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS) + i - 1)
           };
           break;
         }
@@ -1335,22 +1340,22 @@ function Form_diagnosticoEnvio(responseId) {
     }
     // 2) rastrear la marca en todas las INGRESO_* (compacTO: respuestas y
     //    coordenadas primero; el listado staging se resume a conteo + primeros 3)
-    var ss = Modelo_ss();
+    var ss = Modelo_ss_();
     Object.keys(HOJAS_INGRESO).forEach(function (nk) {
       var _tDiagHoja = Date.now();
       var hs = ss.getSheetByName(nk);
       var info = { existe: !!hs };
       var hr = -1;
       if (hs && hs.getLastRow() >= 1) {
-        hr = Modelo_headerRow(nk);
+        hr = Modelo_headerRow_(nk);
         var ancho = Math.max(hs.getLastColumn() || 0, 1);
         info.hr = hr;
-        info.dataStart = Modelo_dataStartRow(nk);
+        info.dataStart = Modelo_dataStartRow_(nk);
         info.ultima = hs.getLastRow();
         info.ancho = ancho;
         var enc = hs.getRange(hr, 1, 1, ancho).getValues()[0];
         info.encabezados = enc.join('|').substring(0, 60);
-        var mapa = Ingresos_mapearEncabezadosHoja(enc);
+        var mapa = Ingresos_mapearEncabezadosHoja_(enc);
         info.estadoIdx = mapa.estadoIdx;
         info.notaIdx = mapa.notaIdx;
         // coordena registrada (si apunta a esta hoja) — compara con la marca
@@ -1359,18 +1364,18 @@ function Form_diagnosticoEnvio(responseId) {
           var filaC = hs.getRange(filaCoord, 1, 1, ancho).getValues()[0];
           info.coordRegistrada = {
             fila: filaCoord,
-            estado: mapa.estadoIdx >= 0 ? Utl_texto(filaC[mapa.estadoIdx]).substring(0, 40) : 'SIN_ESTADO_COL',
-            nota: (mapa.notaIdx >= 0 ? Utl_texto(filaC[mapa.notaIdx]).substring(0, 120) : '')
+            estado: mapa.estadoIdx >= 0 ? Utl_texto_(filaC[mapa.estadoIdx]).substring(0, 40) : 'SIN_ESTADO_COL',
+            nota: (mapa.notaIdx >= 0 ? Utl_texto_(filaC[mapa.notaIdx]).substring(0, 120) : '')
           };
         }
         // Una SOLA lectura del bloque por hoja y una SOLA pasada en memoria
         // (marca + conteo pendientes + muestras ≤3). ANTES leíamos el bloque 3
-        // veces y normalizábamos CADA fila pendiente con Fuentes_normalizar
+        // veces y normalizábamos CADA fila pendiente con Fuentes_normalizar_
         // — con INGRESO_AMARILLO (>1000 filas) ese costo se pagaba DENTRO del
-        // request del envío que terminó en ERROR (`Form_diagnosticoEnvio` es
+        // request del envío que terminó en ERROR (`Form_diagnosticoEnvio_` es
         // inline) → contribuía al timeout >60s. El conteo de pendientes se hace
         // solo por la columna ESTADO (sin normalizar cada fila).
-        var bloque = Modelo_leerBloqueCabecera(nk, hs);
+        var bloque = Modelo_leerBloqueCabecera_(nk, hs);
         if (bloque.length >= 2) {
           var filaHallada = -1, estadoHallado = '', pendientes = 0, primeraFila = null;
           var idxNom2 = (mapa.campos && mapa.campos.NOMBRE !== undefined) ? mapa.campos.NOMBRE : -1;
@@ -1380,12 +1385,12 @@ function Form_diagnosticoEnvio(responseId) {
             var filaB = bloque[b] || [];
             if (filaB.join('|').indexOf(d.marcaBuscada) !== -1) {
               filaHallada = hr + b;
-              estadoHallado = mapa.estadoIdx >= 0 ? Utl_texto(filaB[mapa.estadoIdx]) : '';
+              estadoHallado = mapa.estadoIdx >= 0 ? Utl_texto_(filaB[mapa.estadoIdx]) : '';
             }
             var nomB = idxNom2 >= 0 ? filaB[idxNom2] : '';
             var rutB = idxRut2 >= 0 ? filaB[idxRut2] : '';
-            if (Utl_vacio(nomB) && Utl_vacio(rutB)) continue;
-            var estB = mapa.estadoIdx >= 0 ? Utl_texto(filaB[mapa.estadoIdx]).toUpperCase() : '';
+            if (Utl_vacio_(nomB) && Utl_vacio_(rutB)) continue;
+            var estB = mapa.estadoIdx >= 0 ? Utl_texto_(filaB[mapa.estadoIdx]).toUpperCase() : '';
             if (estB === 'INGRESADO') continue;
             pendientes += 1;
             if (primeraFila === null) primeraFila = hr + b;
@@ -1406,9 +1411,9 @@ function Form_diagnosticoEnvio(responseId) {
               CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
                 if (mapa.campos && mapa.campos[c] !== undefined) v[c] = filaM[mapa.campos[c]];
               });
-              var norm = Fuentes_normalizar(Fuentes_crearFila(
-                { archivo: 'HOJA_INGRESO', hoja: nk, fila: m.filaFis, sector: Ingresos_hojaASector(nk) }, v));
-              stMuestras.push({ fila: String(m.filaFis), validacion: Utl_texto(norm.ESTADO_VALIDACION), rut: (norm.NORMALIZADO && norm.NORMALIZADO.RUT) ? Utl_texto(norm.NORMALIZADO.RUT) : '' });
+              var norm = Fuentes_normalizar_(Fuentes_crearFila_(
+                { archivo: 'HOJA_INGRESO', hoja: nk, fila: m.filaFis, sector: Ingresos_hojaASector_(nk) }, v));
+              stMuestras.push({ fila: String(m.filaFis), validacion: Utl_texto_(norm.ESTADO_VALIDACION), rut: (norm.NORMALIZADO && norm.NORMALIZADO.RUT) ? Utl_texto_(norm.NORMALIZADO.RUT) : '' });
             } catch (eM) {
               stMuestras.push({ fila: String(m.filaFis), validacion: 'ERR', rut: '' });
             }
@@ -1428,11 +1433,11 @@ function Form_diagnosticoEnvio(responseId) {
 }
 
 /** GAS: actualiza columnas de resultado de respuestas específicas (por fila). */
-function Form_actualizarTrailer(actualizaciones) {
+function Form_actualizarTrailer_(actualizaciones) {
   // actualizaciones: [{filaFisica, ingresoHoja, ingresoFila, reintentos, estado, motivo, idInterno, idEvento, fechaProceso}]
-  var cols = Form_columnas();
+  var cols = Form_columnas_();
   var mapa = {}; cols.forEach(function (c, i) { mapa[c] = i; });
-  var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
+  var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
   if (!hoja) return;
   var cam = ['INGRESO_HOJA', 'INGRESO_FILA', 'REINTENTOS', 'ESTADO', 'MOTIVO', 'ID_INTERNO', 'ID_EVENTO', 'FECHA_PROCESO'];
   var desde = mapa['INGRESO_HOJA'], hasta = mapa['FECHA_PROCESO'];
@@ -1473,7 +1478,7 @@ function Form_actualizarTrailer(actualizaciones) {
  * Lectura única del estado por lote; escrituras por bloques; LockService para
  * concurrencia. Métricas en LOG sin datos personales.
  */
-function Form_procesarPendientes(opciones) {
+function Form_procesarPendientes_(opciones) {
   opciones = opciones || {};
   if (typeof SpreadsheetApp === 'undefined') return { ok: false, motivo: 'SOLO_GAS' };
   var lock = null;
@@ -1482,24 +1487,24 @@ function Form_procesarPendientes(opciones) {
   var _tForm = Date.now();
   try {
     if (!FORM_CONFIG.ACTIVO) return { ok: true, resumen: { leidos: 0, notas: 'FORM_CONFIG.ACTIVO = false' } };
-    var hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS);
-    if (!hoja) { Form_instalar(); hoja = Modelo_hoja(HOJAS.FORM_RESPUESTAS); }
-    var valores = Modelo_leerBloqueCabecera(HOJAS.FORM_RESPUESTAS, hoja);
+    var hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS);
+    if (!hoja) { Form_instalar_(); hoja = Modelo_hoja_(HOJAS.FORM_RESPUESTAS); }
+    var valores = Modelo_leerBloqueCabecera_(HOJAS.FORM_RESPUESTAS, hoja);
     if (valores.length < 2) return { ok: true, resumen: { leidos: 0 } };
-    var mapa = Form_mapeoEncabezados(valores[0]);
-     var pendientes = Form_filasPendientes(valores, mapa, FORM_CONFIG.MAX_REINTENTOS, opciones.max);
+    var mapa = Form_mapeoEncabezados_(valores[0]);
+     var pendientes = Form_filasPendientes_(valores, mapa, FORM_CONFIG.MAX_REINTENTOS, opciones.max);
     if (!pendientes.length) return { ok: true, resumen: { leidos: 0 } };
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (lectura+pendientes FORM)');
     console.log('[PIPE] pendientes='+pendientes.length+' ids='+pendientes.map(function(p){return p.responseId;}).join(','));
 
     // contexto: pacientes e índice por RUT + marcas de eventos (una lectura)
-    var pacientes = Modelo_leerPacientes() || [];
+    var pacientes = Modelo_leerPacientes_() || [];
     var indiceRut = {};
-    pacientes.forEach(function (p) { indiceRut[Utl_texto(p.RUT).toUpperCase()] = p; });
-    var marcas = Form_leerMarcas();
+    pacientes.forEach(function (p) { indiceRut[Utl_texto_(p.RUT).toUpperCase()] = p; });
+    var marcas = Form_leerMarcas_();
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (contexto: pacientes+marcas)');
 
-    var lote = Form_procesarLote(pendientes, { indiceRut: indiceRut, marcas: marcas }, {});
+    var lote = Form_procesarLote_(pendientes, { indiceRut: indiceRut, marcas: marcas }, {});
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (lote decisiones)');
     console.log('[PIPE] lote decisiones='+lote.decisiones.map(function(d){return d.responseId+':'+d.decision;}).join(' | '));
 
@@ -1509,8 +1514,8 @@ function Form_procesarPendientes(opciones) {
     //     o trailer perdido).
     lote.decisiones.forEach(function (d) {
       if (d.decision !== 'ANEXAR') return;
-      var marcaD = Form_marcadorFuente(d.responseId, 'INGRESO');
-      var hallado = Form_buscarFilaIngresoPorMarca(marcaD);
+      var marcaD = Form_marcadorFuente_(d.responseId, 'INGRESO');
+      var hallado = Form_buscarFilaIngresoPorMarca_(marcaD);
       if (hallado) {
         d.decision = 'YA_ANEXADO';
         d.motivo = 'Fila de ingreso ya existe por marca en ' + hallado.hoja + ' fila ' + hallado.fila;
@@ -1524,19 +1529,19 @@ function Form_procesarPendientes(opciones) {
     // ---- efectos por tipo ----
 
     // (0.5) estabilizar el layout de las INGRESO_* ANTES de anexar: si una hoja
-    //       está en layout legacy, HVis_normalizarLayout inserta filas arriba
+    //       está en layout legacy, HVis_normalizarLayout_ inserta filas arriba
     //       (MIGRABLE_ABRIR). Ejecutarlo aquí (ritual pre-anexo) garantiza que
     //       las coordenadas registradas al anexar (ingreso.fila) no se desplacen
     //       luego, y el paso (4) puede leer por coordenada directa; el barrido
     //       por MARCA queda solo como respaldo. El pipeline lo vuelve a llamar
-    //       al inicio, pero con fast-path (HVis_yaFormateada) es casi gratis.
+    //       al inicio, pero con fast-path (HVis_yaFormateada_) es casi gratis.
     try {
-      if (typeof HVis_formatearIngresos === 'function') {
-        HVis_formatearIngresos();
+      if (typeof HVis_formatearIngresos_ === 'function') {
+        HVis_formatearIngresos_();
         console.log('[PIPE] layout INGRESO estable pre-anexo (t=' + (Date.now() - _tForm) + 'ms)');
       }
     } catch (eForm) {
-      Log_warning('Formulario', 'normalizarLayoutPreAnexo', eForm && eForm.message ? eForm.message : String(eForm));
+      Log_warning_('Formulario', 'normalizarLayoutPreAnexo', eForm && eForm.message ? eForm.message : String(eForm));
     }
 
     // (1) anexar filas NUEVO_INGRESO (por hoja, sin duplicar: ANEXAR solo si sin INGRESO_FILA)
@@ -1549,7 +1554,7 @@ function Form_procesarPendientes(opciones) {
     });
     var trailersAnexos = [];
     Object.keys(porHoja).forEach(function (nombreHoja) {
-      var hojaI = Modelo_hoja(nombreHoja);
+      var hojaI = Modelo_hoja_(nombreHoja);
       var decisiones = porHoja[nombreHoja];
       if (!hojaI) {
         decisiones.forEach(function (d) { d.motivo = 'HOJA_INGRESO_AUSENTE'; });
@@ -1557,10 +1562,10 @@ function Form_procesarPendientes(opciones) {
       }
       // Anexo en un solo setValues por hoja (nunca 1 fila × N llamadas).
       var filas = decisiones.map(function (d) {
-        return Form_filaCanonicaIngreso(d.normalizado, Form_marcadorFuente(d.responseId, 'INGRESO'), {});
+        return Form_filaCanonicaIngreso_(d.normalizado, Form_marcadorFuente_(d.responseId, 'INGRESO'), {});
       });
       var desde = hojaI.getLastRow() + 1;
-      var hrI = Modelo_headerRow(nombreHoja);
+      var hrI = Modelo_headerRow_(nombreHoja);
       console.log('[PIPE] anexando '+decisiones.length+' filas -> '+nombreHoja+' desde='+desde+' hr='+hrI+' lastRowAntes='+(desde-1));
       hojaI.getRange(desde, 1, filas.length, filas[0].length).setValues(filas);
       decisiones.forEach(function (d, i) {
@@ -1570,20 +1575,20 @@ function Form_procesarPendientes(opciones) {
     });
     console.log('[PIPE] trailersAnexos=' + trailersAnexos.length);
 
-    if (trailersAnexos.length) Form_actualizarTrailer(trailersAnexos);
+    if (trailersAnexos.length) Form_actualizarTrailer_(trailersAnexos);
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (anexo filas INGRESO, paso 1)');
 
     // (2) acciones clínicas (reuso completo de la capa de dominio)
     lote.decisiones.forEach(function (d) {
       if (d.decision !== 'CLINICA') return;
       var eventoClave = (d.accion === 'REGISTRAR_CONTROL') ? 'CONTROL' : 'SEGUIMIENTO';
-      var marca = Form_marcadorFuente(d.responseId, d.accion);
+      var marca = Form_marcadorFuente_(d.responseId, d.accion);
       if (d.accion === 'ACTUALIZAR_DATOS') {
-        var pac = indiceRut[Utl_texto(d.normalizado.RUT).toUpperCase()];
-        var okAct = pac ? Form_actualizarDatosPaciente(pac, d.normalizado, marca) : false;
+        var pac = indiceRut[Utl_texto_(d.normalizado.RUT).toUpperCase()];
+        var okAct = pac ? Form_actualizarDatosPaciente_(pac, d.normalizado, marca) : false;
         var evOtro = Eventos_registrarPaciente_({
-          idInterno: d.idInterno, tipoEvento: 'OTRO', fecha: Form_hoy({}),
-          profesional: d.normalizado.PROFESIONAL, descripcion: 'ACTUALIZACION_VIA_FORM',
+          idInterno: d.idInterno, tipoEvento: 'OTRO', fecha: Form_hoy_({}),
+          profesional: d.normalizado.PROFESIONAL, profesionalSecundario: d.normalizado.PROFESIONAL2 || '', descripcion: 'ACTUALIZACION_VIA_FORM',
           observaciones: d.normalizado.OBSERVACIONES, fuente: marca, registradoPor: 'FORM v' + FORM_CONFIG.FORM_VERSION
         }, { fuenteTransporte: 'pipeline-form' });
         d._ok = okAct && evOtro.ok;
@@ -1591,7 +1596,7 @@ function Form_procesarPendientes(opciones) {
       } else {
         var resp = Eventos_registrarPaciente_({
           idInterno: d.idInterno, tipoEvento: eventoClave, fecha: d.normalizado.FECHA_EVENTO,
-          profesional: d.normalizado.PROFESIONAL, descripcion: '',
+          profesional: d.normalizado.PROFESIONAL, profesionalSecundario: d.normalizado.PROFESIONAL2 || '', descripcion: '',
           observaciones: d.normalizado.OBSERVACIONES, fuente: marca,
           registradoPor: 'FORM v' + FORM_CONFIG.FORM_VERSION
         }, { fuenteTransporte: 'pipeline-form' });
@@ -1615,7 +1620,7 @@ function Form_procesarPendientes(opciones) {
     // ESTADO_INGRESO == 'INGRESADO') NO deben re-procesarse en cada envío: era
     // la causa del timeout (>60 s) y del SIN_FILA_INGRESO. El resto del
     // backlog se sigue procesando por lote desde el panel (llamada completa).
-    var acotacion = Form_derivarAcotacionPaso3(filasAnexadas, Form_buscarFilaIngresoPorMarca);
+    var acotacion = Form_derivarAcotacionPaso3_(filasAnexadas, Form_buscarFilaIngresoPorMarca_);
     var soloHojas = acotacion.soloHojas;
     var soloFilas = acotacion.soloFilas;
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (acotación paso 3 + búsqueda marcas) acotacion=' + JSON.stringify(acotacion));
@@ -1630,7 +1635,7 @@ function Form_procesarPendientes(opciones) {
     }
 
     // (4) resultados finales (re-leer) e ids de evento para clínicas
-    var marcasFinales = Form_leerMarcas();
+    var marcasFinales = Form_leerMarcas_();
 
     // (4b) leer UNA vez el bloque completo de cada hoja INGRESO_* involucrada:
     //      con el layout estabilizado (0.5), las coordenadas registradas al
@@ -1639,13 +1644,13 @@ function Form_procesarPendientes(opciones) {
     lote.decisiones.forEach(function (d) {
       if (d.decision !== 'ANEXAR' && d.decision !== 'YA_ANEXADO') return;
       var hoja = (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '';
-      if (hoja && !hojasAnexadas[hoja]) hojasAnexadas[hoja] = Modelo_leerBloqueCabecera(hoja);
+      if (hoja && !hojasAnexadas[hoja]) hojasAnexadas[hoja] = Modelo_leerBloqueCabecera_(hoja);
     });
     console.log('[PIPE] t=' + (Date.now() - _tForm) + 'ms (paso 4b lectura bloques hojas anexadas) hojas=' + JSON.stringify(Object.keys(hojasAnexadas)));
 
     var trailers = [];
      lote.decisiones.forEach(function (d) {
-      var est = 'ERROR', mot = d.motivo || '', idInt = d.idInterno || '', idEv = (marcasFinales[Form_marcadorFuente(d.responseId, d.accion)] || {}).idEvento || '';
+      var est = 'ERROR', mot = d.motivo || '', idInt = d.idInterno || '', idEv = (marcasFinales[Form_marcadorFuente_(d.responseId, d.accion)] || {}).idEvento || '';
       if (d.decision === 'SALTAR') {
         if (d.motivo === 'SIN_RESPONSE_ID') { est = 'ERROR'; }
         else { est = 'PROCESADO'; mot = d.motivo || 'Ya procesado'; }
@@ -1667,23 +1672,23 @@ function Form_procesarPendientes(opciones) {
         var filaA = (d.ingreso && d.ingreso.fila !== undefined && d.ingreso.fila !== '') ? d.ingreso.fila : d.ingresoFila;
         var lf = null;
         if (hojaA && filaA && hojasAnexadas[hojaA]) {
-          lf = Form_leerFilaIngresoDesdeBloque(hojaA, filaA, hojasAnexadas[hojaA]);
+          lf = Form_leerFilaIngresoDesdeBloque_(hojaA, filaA, hojasAnexadas[hojaA]);
         }
         if (!lf || !lf.estado || lf.nota === 'FILA_INGRESO_FUERA_DE_RANGO' || lf.nota === 'BLOQUE_DESALINEADO') {
-          var hallado = Form_buscarFilaIngresoPorMarca(Form_marcadorFuente(d.responseId, 'INGRESO'));
-          var ub = Form_resolverFilaIngreso(hallado, d.ingreso, d.ingresoHoja, d.ingresoFila);
+          var hallado = Form_buscarFilaIngresoPorMarca_(Form_marcadorFuente_(d.responseId, 'INGRESO'));
+          var ub = Form_resolverFilaIngreso_(hallado, d.ingreso, d.ingresoHoja, d.ingresoFila);
           if (ub && ub.hoja && ub.fila) {
-            lf = Form_leerFilaIngreso(ub.hoja, ub.fila);
+            lf = Form_leerFilaIngreso_(ub.hoja, ub.fila);
             if (hallado) console.log('[PIPE] fila resuelta por marca '+d.responseId+' -> '+hallado.hoja+'/'+hallado.fila);
           } else if (!hallado) {
             console.log('[PIPE] SIN_FILA_INGRESO '+d.responseId);
           }
         }
         if (lf && lf.estado) {
-          var map = Form_mapearResultadoFila(lf.estado, lf.nota);
+          var map = Form_mapearResultadoFila_(lf.estado, lf.nota);
           est = map.estado; mot = map.motivo;
           if (est === 'ERROR') {
-            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' estado='+Utl_texto(lf.estado));
+            console.log('[PIPE] RESOLVER '+d.responseId+' hoja='+hojaA+' fila='+filaA+' estado='+Utl_texto_(lf.estado));
           }
         } else {
           est = 'ERROR';
@@ -1697,10 +1702,10 @@ function Form_procesarPendientes(opciones) {
         filaFisica: d.filaFisica, ingresoHoja: (d.ingreso && d.ingreso.hoja) || d.ingresoHoja || '',
         ingresoFila: (d.ingreso && d.ingreso.fila) || d.ingresoFila || '',
         reintentos: reint, estado: est, motivo: mot, idInterno: idInt, idEvento: idEv,
-        fechaProceso: Form_aIsoConHora(new Date())
+        fechaProceso: Form_aIsoConHora_(new Date())
       });
     });
-    Form_actualizarTrailer(trailers);
+    Form_actualizarTrailer_(trailers);
 
     var lres = lote.resumen || {};
     var resumen = {
@@ -1713,12 +1718,12 @@ function Form_procesarPendientes(opciones) {
       pipeline: resumenPipeline ? (resumenPipeline.nuevos || 0) : 0,
       eventosPipeline: resumenPipeline ? (resumenPipeline.eventosCreados || 0) : 0
     };
-    Log_info('Formulario', 'procesar', JSON.stringify(resumen), null, null);
-    Log_flush();
+    Log_info_('Formulario', 'procesar', JSON.stringify(resumen), null, null);
+    Log_flush_();
     return { ok: true, resumen: resumen };
   } catch (e) {
-    Log_error('Formulario', 'procesar', e && e.message ? e.message : String(e));
-    Log_flush();
+    Log_error_('Formulario', 'procesar', e && e.message ? e.message : String(e));
+    Log_flush_();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   } finally {
     if (lock) {
@@ -1731,7 +1736,7 @@ function Form_procesarPendientes(opciones) {
  * GAS: actualiza campos OPERATIVOS de un paciente existente (identidad intacta)
  * y registra la marca de trazabilidad. Nunca toca identidad ni reglas clínicas.
  */
-function Form_actualizarDatosPaciente(paciente, normalizado, marca, acceso) {
+function Form_actualizarDatosPaciente_(paciente, normalizado, marca, acceso) {
   try {
     // Construir mapa de campos a actualizar desde el normalizado del formulario
     var campos = {};
@@ -1759,7 +1764,7 @@ function Form_actualizarDatosPaciente(paciente, normalizado, marca, acceso) {
     var r = Paciente_aplicarCampos_(paciente.ID_INTERNO, campos, { fuente: 'FORM_' + marca });
     return r.ok;
   } catch (e) {
-    Log_error('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));
+    Log_error_('Formulario', 'actualizarDatos', e && e.message ? e.message : String(e));
     return false;
   }
 }

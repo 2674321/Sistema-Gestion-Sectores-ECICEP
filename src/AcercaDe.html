@@ -2,6 +2,7 @@
 <html>
 <head>
   <?!= include('00_Tokens') ?>
+  <?!= include('00_OperadorRuntime') ?>
   <base target="_top">
   <style>
     body{font-family:'Inter',sans-serif;background:var(--bg);margin:0;padding:var(--space-6);display:flex;justify-content:center;align-items:center;min-height:80vh;}
@@ -71,7 +72,7 @@ function pintar(r){
   document.getElementById('acrAmbiente').textContent=r.ambiente||'Producción';
   _refrescarIconos();
 }
-google.script.run
+ECICEP_run()
   .withSuccessHandler(pintar)
   .withFailureHandler(function(e){document.getElementById('acrPac').textContent='Error';console.error(e);})
   .api_acercaDe(ECICEP_ACCESO);

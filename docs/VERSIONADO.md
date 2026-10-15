@@ -15,6 +15,19 @@ versión del instalador.
   en `2`**; no corresponde MIG-003. Aplicación y esquema se versionan por
   separado: `ECICEP.VERSION` (aplicación) ≠ `SISTEMA_VERSION_SCHEMA_ACTUAL`
   (estructura).
+- **Aplicación (v0.17.0, 2026-10-13):** baseline v260 activable (candidato `rc1`); conserva schema 2 y Captura V4. DEC-104 anexó `EVENTOS.PROFESIONAL2`
+  (segundo profesional de la dupla). **No** corresponde MIG-003 y el esquema
+  sigue en **`2`**, por tres razones que lo hacen incompatible con un bump:
+  1. La columna se **anexa al final**, nunca se intercala: ninguna columna
+     previa se desplaza y las filas históricas conservan su alineación.
+  2. No hay que **reescribir datos**: `Modelo_asegurarEsquemaEventos_` inserta
+     solo el encabezado que falta (idempotente) y el valor histórico queda vacío,
+     que es el valor correcto para un campo que antes no se capturaba.
+  3. **Se auto-repara**: la reconciliación corre en cada escritura de evento y
+     también en la fase de estructura de `Reparar`, de modo que una instalación
+     existente converge sin ejecutar una migración ni intervención operativa.
+  Un bump de esquema obligaría a reejecutar el instalador en el libro ya
+  productivo para obtener un campo que el sistema resuelve solo.
 - **Regla de semejanza**: si la clave `SCHEMA_VERSION` en CONFIG **está ausente,
   vacía o ilegible**, la instalación se considera esquema **legacy `'0'`** (no se
   asume VIGENTE por omisión). Esta regla también protege contra migraciones que
@@ -90,3 +103,13 @@ esquema. La verificación final devuelve `ok:false` si no queda VIGENTE.
    `SCHEMA_VERSION`/`LAST_MIGRATION` en GAS) y devuelve el estado final.
 
 Ver `MIGRACIONES.md` para el motor y el registro de migraciones.
+
+## Transporte durable de captura v254.4
+
+La UI servida sigue siendo CapturaWeb. Su RPC durable crea una respuesta en el
+Form adoptado y devuelve `RECIBIDO`; un trigger periódico de cinco minutos
+ejecuta `Form_worker_`. El evento `Form_onFormSubmit_` solo registra que existe
+trabajo. El worker espera el lock 750 ms, vuelve sobre una ventana de 24 horas y
+no mueve el cursor más allá de una respuesta retryable. El schema del Form se
+versiona en `GOOGLE_FORM_SCHEMA_VERSION=3` y su identidad estable vive en
+`GOOGLE_FORM_CANONICAL_ITEM_MAP`.

@@ -147,6 +147,28 @@ resuelve HEAD desde `clasp deployments`. Se detiene si fallan los tests, los
 argumentos o la identificación del deployment. BUILD marca `-dirty` cuando hay
 cambios de código no incluidos en el commit.
 
+### Release multiplataforma (`tools/release.mjs`)
+
+Alternativa Node (misma política que `push_y_abrir.sh`, sin `bash`):
+
+```bash
+node tools/release.mjs --check    # gates locales, sin mutar nada (por defecto)
+node tools/release.mjs --push     # --check + BUILD + clasp push (no publica)
+node tools/release.mjs --publish  # --push + deploy sobre el deployment existente
+```
+
+`--check` exige git limpio, rama válida (`master`/`release/*`/`codex/*`/
+`hardening/*`), `node tools/verificar.mjs` con 0 fallos, manifest derivado
+alineado con HEAD, RPC público, auditoría de scopes y `docs/ESTADO_ACTUAL.md`
+citando la versión. `--publish` nunca crea un deployment: exige
+`ECICEP_PUBLISH_CONFIRM=1`, `ECICEP_BACKUP_RECENT=<ref>` y que el ID de
+`ECICEP.WEB_APP_URL` exista en `clasp deployments`. No ejecutar `--push`/
+`--publish` sin una ventana de activación aprobada.
+
+`RELEASE_CANDIDATE.json` y `src/BUILD.js` son artefactos generados e ignorados.
+Se regeneran desde el HEAD efectivo antes del push; no deben versionarse porque
+el SHA del manifest quedaría obsoleto en el propio commit que lo contiene.
+
 ## E2E mínimo después de un cambio de Web App
 
 ### Contexto de ejecución recomendado
@@ -184,3 +206,29 @@ git push origin master
 ```
 
 La documentación debe quedar actualizada en el mismo cambio cuando el comportamiento, contrato, deployment o arquitectura haya cambiado.
+
+## CI y gobernanza de ramas
+
+El workflow `.github/workflows/ci.yml` corre en push a `master`, `release/**`,
+`codex/**`, `hardening/**`, en cualquier PR y por `workflow_dispatch`. Ejecuta
+`git diff --check` y `node tools/verificar.mjs` (descubrimiento automático).
+
+Salida machine-readable del verificador (para scripts/gates de release):
+
+```bash
+node tools/verificar.mjs --json
+```
+
+### Protección de ramas — MANUAL_GITHUB_RULESET_REQUIRED
+
+Si la administración de reglas de repositorio no está disponible desde el
+entorno del agente, configurar a mano en GitHub → Settings → Rules:
+
+1. proteger `master`;
+2. proteger `release/*`;
+3. **requerir** el check de CI (`ci / tests`) antes de merge;
+4. bloquear force-push y borrado;
+5. preferir PR o fast-forward auditado.
+
+Sin esta configuración, el estado de gobernanza queda explícitamente
+`MANUAL_GITHUB_RULESET_REQUIRED`.

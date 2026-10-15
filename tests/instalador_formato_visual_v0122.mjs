@@ -30,10 +30,10 @@ const etiquetas = ['ID_EVENTO', 'RUT', 'FECHA_EVENTO'];
 const hojaCorrecta = {
   getName: () => 'EVENTOS', getLastRow: () => 1, getLastColumn: () => etiquetas.length,
   getRange: () => ({ getValues: () => [etiquetas] }),
-  getColumnWidth: i => c.Modelo_anchoColumna(etiquetas[i - 1]),
+  getColumnWidth: i => c.Modelo_anchoColumna_(etiquetas[i - 1]),
   setColumnWidth: () => { escrituras++; }
 };
-c._modelo_anchosHoja(hojaCorrecta); assert.equal(escrituras, 0); ok('hoja correcta no reescribe anchos');
+c._modelo_anchosHoja_(hojaCorrecta); assert.equal(escrituras, 0); ok('hoja correcta no reescribe anchos');
 
 // 2–8. Contrato canónico por nombre real.
 assert.equal(c.Formato_especificacionCampo_('RUT').formato, '@'); ok('RUT se conserva como texto');
@@ -42,12 +42,12 @@ assert.equal(c.Formato_especificacionCampo_('FECHA_EVENTO').formato, 'dd/MM/yyyy
 assert.equal(c.Formato_especificacionCampo_('FECHA_REGISTRO').formato, 'dd/MM/yyyy HH:mm'); ok('fecha-hora usa dd/MM/yyyy HH:mm');
 const obs = c.Formato_especificacionCampo_('OBSERVACIONES'); assert.equal(obs.wrap, false); assert.equal(obs.wrapStrategy, 'CLIP'); assert.equal(obs.ancho, 320); assert.equal(obs.alineacion, 'LEFT'); ok('observaciones amplias con CLIP a la izquierda (v0.15 §19)');
 assert.equal(c.Formato_especificacionCampo_('ESTADO_INGRESO').alineacion, 'CENTER'); ok('estado queda centrado y editable');
-assert.equal(c.Modelo_anchoColumna('PROXIMO_CONTROL'), 115); assert.equal(c.Modelo_anchoColumna('NOMBRE'), 240); ok('anchos se resuelven por nombre');
+assert.equal(c.Modelo_anchoColumna_('PROXIMO_CONTROL'), 115); assert.equal(c.Modelo_anchoColumna_('NOMBRE'), 240); ok('anchos se resuelven por nombre');
 
 // 9. Las puertas tienen un único owner de validaciones.
 const fVal = funcionFuente(ux, 'Hojas_aplicarValidaciones_');
 assert.doesNotMatch(fVal, /Object\.keys\(HOJAS_INGRESO\)/);
-assert.match(modelo, /function Modelo_validarIngresos\(ss, opciones\)/); ok('validaciones INGRESO no se duplican');
+assert.match(modelo, /function Modelo_validarIngresos_\(ss, opciones\)/); ok('validaciones INGRESO no se duplican');
 
 // 10. Formato acotado al uso + buffer, nunca toda la hoja.
 const acotada = { getMaxRows: () => 1000, getLastRow: () => 10 };
@@ -86,7 +86,7 @@ assert.equal(c.Hojas_esProteccionEcicep_({ getDescription: () => 'ECICEP:generad
 const inicioSrc = funcionFuente(ux, 'Inicio_construir_');
 const iUnlock = inicioSrc.indexOf('h.setFrozenRows(0)'), iWrite = inicioSrc.indexOf('cto.header.rango'), iFreeze = inicioSrc.lastIndexOf('h.setFrozenRows(2)');
 assert.ok(iUnlock >= 0 && iUnlock < iWrite && iWrite < iFreeze);
-const aplicarSrc = funcionFuente(modelo, 'Modelo_aplicarDiseno'); assert.match(aplicarSrc, /h\.getName\(\) !== 'INICIO'/); ok('INICIO conserva unlock→write→freeze 2/0 sin owner duplicado');
+const aplicarSrc = funcionFuente(modelo, 'Modelo_aplicarDiseno_'); assert.match(aplicarSrc, /h\.getName\(\) !== 'INICIO'/); ok('INICIO conserva unlock→write→freeze 2/0 sin owner duplicado');
 
 // 16. INICIO vigente usa fingerprint y no reconstruye.
 const props = new Map();
@@ -137,11 +137,11 @@ assert.match(presentacion, /if \(actual !== texto\) \{\s*try \{ celda\.setValue\
 ok('presentación no altera datos clínicos (solo refresh INFO con skip)');
 
 // 20. Versión/layout correctos, esquema estable y lienzo INICIO PRO 36×50.
-assert.equal(E('ECICEP.VERSION'), '0.16.3'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
+assert.equal(E('ECICEP.VERSION'), '0.17.0'); assert.equal(E('SISTEMA_VERSION_SCHEMA_ACTUAL'), 2);
 assert.equal(E('HOJAS_UX.INICIO.frozenRows'), 2); assert.equal(E('HOJAS_UX.INICIO.frozenColumns'), 0);
 assert.equal(E('INICIO_RANGO_GESTIONADO'), 'A1:AJ50');
 assert.equal(E('INICIO_CONTRATO.version'), 'PANEL_OPERATIVO_PRO_V015');
-ok('v0.16.3 conserva schema 2, INICIO 2/0 y portada gestionada A1:AJ50 (36 columnas × 50 filas)');
+ok('v0.17.0 conserva schema 2, INICIO 2/0 y portada gestionada A1:AJ50 (36 columnas × 50 filas)');
 
 assert.equal(n, 20);
 console.log('Instalador y formato visual v0.13.0 — 20/20 PASS');

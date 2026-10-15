@@ -16,11 +16,11 @@
  *   3. NO INFERIR: `SEXO` solo desde valor canónico válido (M|F|OTRO, con
  *      sinónimo confirmado); nunca por nombre/profesión/señales indirectas.
  *   4. EDAD: nunca se almacena (DECISIONES), se deriva de `FECHA_NACIMIENTO`
- *      en vivo (`Utl_edadDesde`, consciente del cumpleaños).
+ *      en vivo (`Utl_edadDesde_`, consciente del cumpleaños).
  *   5. IDEMPOTENCIA: segunda ejecución = sin cambios nuevos (no duplica,
  *      no crea pacientes, no genera eventos espurios).
  *   6. TRAZABILIDAD: append a `FUENTE` (origen exacto), estampa
- *      `FECHA_ACTUALIZACION` y registro `Log_info` (sin PII innecesaria).
+ *      `FECHA_ACTUALIZACION` y registro `Log_info_` (sin PII innecesaria).
  *
  * Las funciones PURAS (sin GAS) se prueban en node; los wrappers GAS son
  * capas delgadas de lectura/escritura.
@@ -29,7 +29,7 @@
 // Campos autorizados para enriquecimiento demográfico en S5 (única fuente).
 var CAMPOS_ENRIQUECIMIENTO = ['SEXO', 'FECHA_NACIMIENTO'];
 
-function Act_enriquecimientoCampos() {
+function Act_enriquecimientoCampos_() {
   return CAMPOS_ENRIQUECIMIENTO.slice();
 }
 
@@ -37,23 +37,23 @@ function Act_enriquecimientoCampos() {
  * PURA: campos enriquecibles que el paciente tiene VACÍOS.
  * @returns {Array} lista de campos entre CAMPOS_ENRIQUECIMIENTO vacíos.
  */
-function Act_camposVacios(paciente) {
+function Act_camposVacios_(paciente) {
   var salida = [];
   CAMPOS_ENRIQUECIMIENTO.forEach(function (campo) {
-    if (Utl_vacio(Utl_texto(paciente ? paciente[campo] : ''))) salida.push(campo);
+    if (Utl_vacio_(Utl_texto_(paciente ? paciente[campo] : ''))) salida.push(campo);
   });
   return salida;
 }
 
 /**
  * PURA: candidato demográfico listo para persistir o '' si no es válido.
- *  - SEXO: Norm_normalizarSexo ('' si desconocido → NO se inventa).
+ *  - SEXO: Norm_normalizarSexo_ ('' si desconocido → NO se inventa).
  *  - FECHA_NACIMIENTO: ISO válida (años [1900..2040]) o ''.
  */
-function Act_normalizarCandidato(campo, raw) {
-  if (campo === 'SEXO') return Norm_normalizarSexo(raw);
+function Act_normalizarCandidato_(campo, raw) {
+  if (campo === 'SEXO') return Norm_normalizarSexo_(raw);
   if (campo === 'FECHA_NACIMIENTO') {
-    var f = Norm_normalizarFecha(raw, {
+    var f = Norm_normalizarFecha_(raw, {
       min: CFG_FECHAS.ANO_MIN_NACIMIENTO,
       max: CFG_FECHAS.ANO_MAX
     });
@@ -64,7 +64,7 @@ function Act_normalizarCandidato(campo, raw) {
 
 /**
  * PURA: consolida los orígenes demográficos leídos desde bloques de hojas
- * INGRESO_* (shape de Modelo_leerBloqueCabecera: índice 0 = encabezados).
+ * INGRESO_* (shape de Modelo_leerBloqueCabecera_: índice 0 = encabezados).
  * Por cada RUT canónico exacto consolida SEXO/FECHA_NACIMIENTO:
  *   - primer valor válido visto → se conserva (y su FUENTE);
  *   - un segundo valor válido IGUAL → consistente (idempotente);
@@ -73,19 +73,19 @@ function Act_normalizarCandidato(campo, raw) {
  * @returns {{rut: {SEXO:{valor,fuente,conflicto},
  *                    FECHA_NACIMIENTO:{valor,fuente,conflicto}}}}
  */
-function Act_leerOrigenesDesdeBloques(bloques) {
+function Act_leerOrigenesDesdeBloques_(bloques) {
   var porRut = {};
   (bloques || []).forEach(function (bloque) {
     var val = bloque && bloque.val;
     if (!val || val.length < 2) return;
-    var mapa = Ingresos_mapearEncabezadosHoja(val[0]);
+    var mapa = Ingresos_mapearEncabezadosHoja_(val[0]);
     var iRut = mapa.campos['RUT'];
     var iSexo = mapa.campos['SEXO'];
     var iNac = mapa.campos['FECHA_NACIMIENTO'];
     if (iRut === undefined) return; // hoja sin RUT: no es fuente demográfico segura
-    var hr = bloque.headerRow || Modelo_headerRow(bloque.hoja);
+    var hr = bloque.headerRow || Modelo_headerRow_(bloque.hoja);
     for (var j = 1; j < val.length; j++) {
-      var rutN = Norm_normalizarRut(val[j][iRut]);
+      var rutN = Norm_normalizarRut_(val[j][iRut]);
       if (!rutN.rut) continue;
       var clave = rutN.rut.toUpperCase();
       var filaFisica = hr + j;
@@ -100,7 +100,7 @@ function Act_leerOrigenesDesdeBloques(bloques) {
       CAMPOS_ENRIQUECIMIENTO.forEach(function (campo) {
         var idx = campo === 'SEXO' ? iSexo : iNac;
         if (idx === undefined) return;
-        var can = Act_normalizarCandidato(campo, val[j][idx]);
+        var can = Act_normalizarCandidato_(campo, val[j][idx]);
         if (!can) return; // valor vacío/inválido en la fila: no aporta
         var slot = origen[campo];
         if (slot.valor === '') {
@@ -121,30 +121,30 @@ function Act_leerOrigenesDesdeBloques(bloques) {
  * GAS: lee los orígenes demográficos desde las hojas INGRESO_* reales.
  * Solo hojas con encabezados compatibles (RUT + SEXO/FECHA_NACIMIENTO).
  */
-function Act_leerOrigenesDemograficos() {
+function Act_leerOrigenesDemograficos_() {
   var bloques = [];
   Object.keys(HOJAS_INGRESO).forEach(function (nombreHoja) {
-    var hoja = Modelo_hoja(nombreHoja);
+    var hoja = Modelo_hoja_(nombreHoja);
     if (!hoja) return;
-    var val = Modelo_leerBloqueCabecera(nombreHoja, hoja);
+    var val = Modelo_leerBloqueCabecera_(nombreHoja, hoja);
     if (val && val.length >= 2) {
-      bloques.push({ hoja: nombreHoja, headerRow: Modelo_headerRow(nombreHoja), val: val });
+      bloques.push({ hoja: nombreHoja, headerRow: Modelo_headerRow_(nombreHoja), val: val });
     }
   });
-  return Act_leerOrigenesDesdeBloques(bloques);
+  return Act_leerOrigenesDesdeBloques_(bloques);
 }
 
 /**
  * PURA: aplica enriquecimiento demográfico a UN paciente (muta). Solo llena
  * campos vacíos autorizados con valores canónicos consistentes de la fuente.
  * @param {Object} paciente objeto PACIENTES (mutable)
- * @param {Object} origen entrada de Act_leerOrigenesDesdeBloques (por RUT)
+ * @param {Object} origen entrada de Act_leerOrigenesDesdeBloques_ (por RUT)
  * @returns {aplicados:[{campo,valor,fuente}], bloqueos:[{campo,motivo}]}
  */
-function Act_aplicarEnriquecimiento(paciente, origen) {
+function Act_aplicarEnriquecimiento_(paciente, origen) {
   var aplicados = [], bloqueos = [];
   if (!origen) return { aplicados: aplicados, bloqueos: bloqueos };
-  Act_camposVacios(paciente).forEach(function (campo) {
+  Act_camposVacios_(paciente).forEach(function (campo) {
     var slot = origen[campo];
     if (!slot) return;
     if (slot.conflicto) {
@@ -159,9 +159,9 @@ function Act_aplicarEnriquecimiento(paciente, origen) {
 }
 
 /** PURA: append de fuentes (origen exacto) a FUENTE sin duplicar. */
-function Act_appendFuente(fuenteActual, fuentesNuevas) {
-  var actual = Utl_texto(fuenteActual).trim();
-  var nuevas = (fuentesNuevas || []).filter(function (f) { return Utl_texto(f).trim(); });
+function Act_appendFuente_(fuenteActual, fuentesNuevas) {
+  var actual = Utl_texto_(fuenteActual).trim();
+  var nuevas = (fuentesNuevas || []).filter(function (f) { return Utl_texto_(f).trim(); });
   if (!nuevas.length) return actual;
   var presente = actual ? actual.split(';') : [];
   nuevas.forEach(function (f) {
@@ -180,7 +180,7 @@ function Act_appendFuente(fuenteActual, fuentesNuevas) {
  *            sinVacias, conflictos, noEncontrados, sinCambios, errores,
  *            detalle:[]}
  */
-function Act_enriquecerPacientes(opciones) {
+function Act_enriquecerPacientes_(opciones) {
   opciones = opciones || {};
   var dryRun = opciones.dryRun !== false;
   var resumen = {
@@ -191,34 +191,34 @@ function Act_enriquecerPacientes(opciones) {
     detalle: []
   };
 
-  var pacientes = Modelo_leerPacientes();
+  var pacientes = Modelo_leerPacientes_();
   if (dryRun) pacientes = pacientes.map(function (p) { return Object.assign({}, p); });
   resumen.totalPacientes = pacientes.length;
-  var porRut = Act_leerOrigenesDemograficos();
+  var porRut = Act_leerOrigenesDemograficos_();
   var escrituras = []; // {idxDato, paciente}
 
   pacientes.forEach(function (p, ix) {
     if (opciones.soloRut) {
-      var solo = Utl_texto(opciones.soloRut).toUpperCase();
-      if (Utl_texto(p.RUT).toUpperCase() !== solo) return;
+      var solo = Utl_texto_(opciones.soloRut).toUpperCase();
+      if (Utl_texto_(p.RUT).toUpperCase() !== solo) return;
     }
-    if (!Act_camposVacios(p).length) { resumen.sinVacias++; return; } // sin huecos
+    if (!Act_camposVacios_(p).length) { resumen.sinVacias++; return; } // sin huecos
 
-    var origen = porRut[Utl_texto(p.RUT).toUpperCase()];
+    var origen = porRut[Utl_texto_(p.RUT).toUpperCase()];
     if (!origen) { resumen.noEncontrados++; return; }
 
     resumen.revisados++;
-    var res = Act_aplicarEnriquecimiento(p, origen);
+    var res = Act_aplicarEnriquecimiento_(p, origen);
 
     if (res.aplicados.length) {
       resumen.enriquecidos++;
       resumen.aplicados += res.aplicados.length;
       resumen.detalle.push({
-        id: Utl_texto(p.ID_INTERNO),
+        id: Utl_texto_(p.ID_INTERNO),
         campos: res.aplicados.map(function (a) { return a.campo; }),
         fuentes: res.aplicados.map(function (a) { return a.fuente; })
       });
-      p.FUENTE = Act_appendFuente(p.FUENTE, res.aplicados.map(function (a) { return a.fuente; }));
+      p.FUENTE = Act_appendFuente_(p.FUENTE, res.aplicados.map(function (a) { return a.fuente; }));
       p.FECHA_ACTUALIZACION = new Date();
       escrituras.push({ idxDato: ix, paciente: p });
     }
@@ -226,7 +226,7 @@ function Act_enriquecerPacientes(opciones) {
     if (res.bloqueos.length) {
       resumen.conflictos++;
       resumen.detalle.push({
-        id: Utl_texto(p.ID_INTERNO),
+        id: Utl_texto_(p.ID_INTERNO),
         bloqueos: res.bloqueos.map(function (b) { return b.campo + ':' + b.motivo; })
       });
       if (p.REQUIERE_REVISION !== true && p.REQUIERE_REVISION !== 'TRUE') {
@@ -246,11 +246,11 @@ function Act_enriquecerPacientes(opciones) {
       resumen.motivo = 'ESQUEMA_PACIENTES_INCOMPATIBLE: ' + esquema.motivo;
       return resumen;
     }
-    var hojaP = Modelo_hoja(HOJAS.PACIENTES);
-    Utl_escribirBloque(hojaP, Modelo_dataStartRow(HOJAS.PACIENTES), 1,
-      pacientes.map(Modelo_filaDesdeObjeto));
-    Modelo_invalidarLecturas();
-    Log_info('Actualizacion', 'enriquecerPacientes',
+    var hojaP = Modelo_hoja_(HOJAS.PACIENTES);
+    Utl_escribirBloque_(hojaP, Modelo_dataStartRow_(HOJAS.PACIENTES), 1,
+      pacientes.map(Modelo_filaDesdeObjeto_));
+    Modelo_invalidarLecturas_();
+    Log_info_('Actualizacion', 'enriquecerPacientes',
       JSON.stringify({
         dryRun: dryRun, totalPacientes: resumen.totalPacientes,
         revisados: resumen.revisados, enriquecidos: resumen.enriquecidos,
@@ -268,8 +268,8 @@ function Act_enriquecerPacientes(opciones) {
  * pacientes tienen demografía vacía y con fuente disponible/conflictiva.
  * Útil para el reporte previo a aplicar cambios.
  */
-function Act_diagnosticarEnriquecimiento() {
-  var resumen = Act_enriquecerPacientes({ dryRun: true });
+function Act_diagnosticarEnriquecimiento_() {
+  var resumen = Act_enriquecerPacientes_({ dryRun: true });
   return {
     campos: CAMPOS_ENRIQUECIMIENTO.slice(),
     resumen: {
@@ -332,7 +332,7 @@ var CAMPOS_MERGE_FUENTE = [
   'PREINGRESO', 'DUPLA_INGRESO', 'TELEFONOS', 'OBSERVACIONES'
 ];
 
-function Act_camposMerge() {
+function Act_camposMerge_() {
   return CAMPOS_MERGE_FUENTE.slice();
 }
 
@@ -350,7 +350,7 @@ var _CAMPOS_MERGE_FECHA_MAX = ['ULTIMO_CONTROL', 'ULTIMO_SEGUIMIENTO'];
  * @returns {aplicados:[{campo, valor, tipo}], conflictos:[{campo}]}
  *   tipo ∈ FILL_ONLY | FECHA_MAX | REEMPLAZO_SNAPSHOT (v0.14.1 §15).
  */
-function Act_mergearPaciente(paciente, n, opciones) {
+function Act_mergearPaciente_(paciente, n, opciones) {
   var aplicados = [], conflictos = [];
   opciones = opciones || {};
   var snapshot = opciones.modo === 'SNAPSHOT_ACTUAL';
@@ -358,8 +358,8 @@ function Act_mergearPaciente(paciente, n, opciones) {
 
   // 2) fechas de estado: se conserva la MÁS RECIENTE válida (nunca borra)
   _CAMPOS_MERGE_FECHA_MAX.forEach(function (campo) {
-    var actual = Utl_texto(paciente[campo]);
-    var can = Utl_texto(n[campo]);
+    var actual = Utl_texto_(paciente[campo]);
+    var can = Utl_texto_(n[campo]);
     if (!can) return; // fuente sin dato: no aporta ni destruye
     if (can > actual) {
       paciente[campo] = can;
@@ -370,11 +370,11 @@ function Act_mergearPaciente(paciente, n, opciones) {
   // 3) demografía: fill-only; divergencia → conflicto (conserva el vigente)
   //    En SNAPSHOT_ACTUAL sigue siendo fill-only: jamás se pisa un valor.
   ['SEXO', 'FECHA_NACIMIENTO'].forEach(function (campo) {
-    var actual = Utl_texto(paciente[campo]);
-    var can = Utl_texto(n[campo]);
-    if (campo === 'SEXO') can = Norm_normalizarSexo(can); // defensivo: canónicos, sin falsos conflictos
+    var actual = Utl_texto_(paciente[campo]);
+    var can = Utl_texto_(n[campo]);
+    if (campo === 'SEXO') can = Norm_normalizarSexo_(can); // defensivo: canónicos, sin falsos conflictos
     if (!can) return; // vacío o inválido en la fuente: no se inventa
-    if (Utl_texto(actual) === '') {
+    if (Utl_texto_(actual) === '') {
       paciente[campo] = can;
       aplicados.push({ campo: campo, valor: can, tipo: 'FILL_ONLY' });
     } else if (actual !== can) {
@@ -388,8 +388,8 @@ function Act_mergearPaciente(paciente, n, opciones) {
     if (campo === 'SEXO' || campo === 'FECHA_NACIMIENTO') return;
     if (_CAMPOS_MERGE_FECHA_MAX.indexOf(campo) !== -1) return;
     if (campo === 'SALUD_MENTAL') return; // defensivo: jamás se escribe en existentes
-    var actual = Utl_texto(paciente[campo]);
-    var can = Utl_texto(n[campo]);
+    var actual = Utl_texto_(paciente[campo]);
+    var can = Utl_texto_(n[campo]);
     if (!can) return;
     if (snapshot && campo === 'TELEFONOS') {
       // Reemplaza el consolidado solo cuando la fuente trae un valor distinto:
@@ -409,8 +409,8 @@ function Act_mergearPaciente(paciente, n, opciones) {
   // 5) SNAPSHOT_ACTUAL: ESTRATIFICACION vigente de la fuente (solo G1/G2/G3
   //    válidas) reemplaza a la consolidada. En modo cotidiano jamás se toca.
   if (snapshot) {
-    var canE = Norm_normalizarEstratificacion(n.ESTRATIFICACION);
-    if (canE && Utl_texto(paciente.ESTRATIFICACION) !== canE) {
+    var canE = Norm_normalizarEstratificacion_(n.ESTRATIFICACION);
+    if (canE && Utl_texto_(paciente.ESTRATIFICACION) !== canE) {
       paciente.ESTRATIFICACION = canE;
       aplicados.push({ campo: 'ESTRATIFICACION', valor: canE, tipo: 'REEMPLAZO_SNAPSHOT' });
     }
@@ -425,30 +425,31 @@ function Act_mergearPaciente(paciente, n, opciones) {
  * validas (no ERROR) y no se tocan pacientes nuevos ni filas sin RUT.
  * Registro: el `resultado` vuelve con revisados/actualizados/sinCambios/
  * conflictos/campos y detalle mínimo (ID + campos), sin PII.
- * @param {Array} staging filas normalizadas (Fuentes_leerStagingAutorizado)
+ * @param {Array} staging filas normalizadas (Fuentes_leerStagingAutorizado_)
  * @param {Array} pacientes objetos PACIENTES (se mutan los tocados)
- * @param {Object} [opciones] {modo} — se propaga a Act_mergearPaciente
+ * @param {Object} [opciones] {modo} — se propaga a Act_mergearPaciente_
  * @returns {revisados, actualizados, sinCambios, conflictos, campos, detalle}
  */
-function Act_mergearPacientesDesdeStaging(staging, pacientes, opciones) {
+function Act_mergearPacientesDesdeStaging_(staging, pacientes, opciones) {
   var reporte = {
     revisados: 0, actualizados: 0, sinCambios: 0, conflictos: 0, campos: 0, detalle: [],
+    marcasRevision: 0, cambiosCanonicos: 0,
     tipos: { FILL_ONLY: 0, FECHA_MAX: 0, REEMPLAZO_SNAPSHOT: 0 }
   };
   var porRut = {};
   (pacientes || []).forEach(function (p) {
-    var k = Utl_texto(p.RUT).toUpperCase();
+    var k = Utl_texto_(p.RUT).toUpperCase();
     if (k) porRut[k] = p;
   });
   (staging || []).forEach(function (fila) {
     if (!fila || !fila.NORMALIZADO || !fila.NORMALIZADO.RUT) return;
     if (fila.ESTADO_VALIDACION === 'ERROR') return; // inválidas jamás alimentan
     var n = fila.NORMALIZADO;
-    var paciente = porRut[Utl_texto(n.RUT).toUpperCase()];
+    var paciente = porRut[Utl_texto_(n.RUT).toUpperCase()];
     if (!paciente) return;
     reporte.revisados++;
-    var fuente = Fuentes_fuenteOrigen(fila);
-    var res = Act_mergearPaciente(paciente, n, opciones);
+    var fuente = Fuentes_fuenteOrigen_(fila);
+    var res = Act_mergearPaciente_(paciente, n, opciones);
     if (res.aplicados.length) {
       reporte.actualizados++;
       reporte.campos += res.aplicados.length;
@@ -456,22 +457,29 @@ function Act_mergearPacientesDesdeStaging(staging, pacientes, opciones) {
         if (reporte.tipos[a.tipo] !== undefined) reporte.tipos[a.tipo]++;
       });
       reporte.detalle.push({
-        id: Utl_texto(paciente.ID_INTERNO),
+        id: Utl_texto_(paciente.ID_INTERNO),
         campos: res.aplicados.map(function (a) { return a.campo; })
       });
     }
     if (res.conflictos.length) {
       reporte.conflictos++;
       reporte.detalle.push({
-        id: Utl_texto(paciente.ID_INTERNO),
+        id: Utl_texto_(paciente.ID_INTERNO),
         conflictos: res.conflictos.map(function (c) { return c.campo + ':FUENTES_DIVERGENTES'; })
       });
     }
-    if (res.aplicados.length || res.conflictos.length) {
-      paciente.FUENTE = Act_appendFuente(paciente.FUENTE, [fuente]);
-      if (res.aplicados.length) paciente.FECHA_ACTUALIZACION = new Date();
-      if (res.conflictos.length && paciente.REQUIERE_REVISION !== true) paciente.REQUIERE_REVISION = true;
-    } else {
+    if (res.aplicados.length) {
+      paciente.FUENTE = Act_appendFuente_(paciente.FUENTE, [fuente]);
+      paciente.FECHA_ACTUALIZACION = new Date();
+      reporte.cambiosCanonicos++;
+    }
+    if (res.conflictos.length && paciente.REQUIERE_REVISION !== true) {
+      paciente.REQUIERE_REVISION = true;
+      paciente.FECHA_ACTUALIZACION = new Date();
+      reporte.marcasRevision++;
+      reporte.cambiosCanonicos++;
+    }
+    if (!res.aplicados.length && !res.conflictos.length) {
       reporte.sinCambios++;
     }
   });
@@ -491,7 +499,7 @@ function Act_resumenImpactoMerge_(merge) {
 }
 
 /** PURA: resumen breve para el toast del menú Actualizar. */
-function Act_resumenActualizacionTexto(reporte) {
+function Act_resumenActualizacionTexto_(reporte) {
   var r = reporte || {};
   var fu = r.fuentes || {};
   var res = fu.resumen || {};
@@ -522,13 +530,13 @@ function Act_resumenActualizacionTexto(reporte) {
  * @returns {ok, ejecucion, estructura, fuentes, enriquecimiento, derivados,
  *          vistas, mantenimiento, advertencias, resumen}
  */
-function Act_actualizarSistema(opciones) {
+function Act_actualizarSistema_(opciones) {
   opciones = opciones || {};
   var ejecutar = opciones.ejecutar !== false;
   var t0 = Date.now();
   var reporte = {
     ok: true,
-    ejecucion: 'ACT-' + Date.now().toString(36).toUpperCase(),
+    ejecucion: 'ACT-' + Date.now().toString(36).toUpperCase() + '-' + Utl_sufijoAleatorio_(4),
     dryRun: !ejecutar,
     estructura: null, fuentes: null, enriquecimiento: null,
     derivados: null, correcciones: null, vistas: null, formato: null,
@@ -547,6 +555,13 @@ function Act_actualizarSistema(opciones) {
     reporte.estructura = Modelo_asegurarEsquemaPacientes_();
     if (reporte.estructura && reporte.estructura.ok === false)
       registrarFallo('estructura', reporte.estructura.motivo);
+    // DEC-104: EVENTOS también es append-only y puede carecer de PROFESIONAL2.
+    // Se reconcilia aquí para que «Reparar» converja el esquema completo sin
+    // esperar a la primera escritura de evento. Es idempotente y no reescribe
+    // ninguna fila histórica.
+    reporte.estructuraEventos = Modelo_asegurarEsquemaEventos_();
+    if (reporte.estructuraEventos && reporte.estructuraEventos.ok === false)
+      registrarFallo('estructura', reporte.estructuraEventos.motivo);
     reporte.alineacion = Modelo_alinearVistasSectoriales_();
     if (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length)
       registrarFallo('estructura', reporte.alineacion.errores.join('; '));
@@ -556,8 +571,8 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 2) INVENTARIO de hojas adicionales: no elimina hojas del usuario.
-  if (ejecutar && typeof Modelo_limpiarHojasResiduales === 'function') {
-    try { reporte.inventario = Modelo_limpiarHojasResiduales(Modelo_ss()); }
+  if (ejecutar && typeof Modelo_limpiarHojasResiduales_ === 'function') {
+    try { reporte.inventario = Modelo_limpiarHojasResiduales_(Modelo_ss_()); }
     catch (eL) { registrarFallo('inventario', eL); }
   }
 
@@ -576,8 +591,8 @@ function Act_actualizarSistema(opciones) {
   }
 
   // 5) DEMOGRAFÍA (fill-only, S5)
-  if (typeof Act_enriquecerPacientes === 'function') {
-    try { reporte.enriquecimiento = Act_enriquecerPacientes({ dryRun: !ejecutar }); }
+  if (typeof Act_enriquecerPacientes_ === 'function') {
+    try { reporte.enriquecimiento = Act_enriquecerPacientes_({ dryRun: !ejecutar }); }
     catch (eEn) { reporte.enriquecimiento = { ok: false, motivo: eEn && eEn.message || String(eEn) }; }
     if (reporte.enriquecimiento &&
         (reporte.enriquecimiento.ok === false || reporte.enriquecimiento.errores > 0))
@@ -588,7 +603,7 @@ function Act_actualizarSistema(opciones) {
   // 6) DERIVADOS
   var derivErrores = [];
   if (ejecutar) try { reporte.derivados = { estratificacion: Estrat_recalcularTodos_() }; } catch (eE) { derivErrores.push('estratificación: ' + (eE && eE.message || eE)); }
-  if (ejecutar) try { reporte.derivados = reporte.derivados || {}; reporte.derivados.controles = Control_recalcularTodos(); } catch (eC) { derivErrores.push('controles: ' + (eC && eC.message || eC)); }
+  if (ejecutar) try { reporte.derivados = reporte.derivados || {}; reporte.derivados.controles = Control_recalcularTodos_(); } catch (eC) { derivErrores.push('controles: ' + (eC && eC.message || eC)); }
   if (reporte.derivados && reporte.derivados.estratificacion && reporte.derivados.estratificacion.ok === false)
     derivErrores.push('estratificación: ' + (reporte.derivados.estratificacion.motivo || 'error'));
   if (reporte.derivados && reporte.derivados.controles && reporte.derivados.controles.ok === false)
@@ -623,9 +638,26 @@ function Act_actualizarSistema(opciones) {
         (reporte.estructura && reporte.estructura.ok === false) ||
         (reporte.alineacion && reporte.alineacion.errores && reporte.alineacion.errores.length) ||
         reporte._errores.indexOf('estructura') !== -1;
-      var datosCambiaron = (reporte.fuentes && reporte.fuentes.ok !== false) ||
-        (reporte.amarillo && reporte.amarillo.ok !== false) ||
-        (reporte.vistas && reporte.vistas.ok !== false);
+      // v256 (P1): marcar INICIO SOLO si hubo CAMBIOS REALES (contadores), no
+      // porque una fase terminara "ok". Una fase exitosa sin cambios no ensucia.
+      var _n = function (x) { return Number(x) || 0; };
+      var _pos = function () { for (var i = 0; i < arguments.length; i++) { if (_n(arguments[i]) > 0) return true; } return false; };
+      var _fu = reporte.fuentes || {};
+      var _mrg = _fu.merge || {};
+      var _am = reporte.amarillo || {};
+      var _amPuerta = _am.puerta || {};
+      var _amHist = _am.historico || {};
+      var _enr = reporte.enriquecimiento || {};
+      var _dv = reporte.derivados || {};
+      var _estr = _dv.estratificacion || {};
+      var _ctrl = _dv.controles || {};
+      var cambiosFuentes = _pos(_fu.nuevos, _mrg.actualizados, _mrg.conflictos, _fu.revision) ||
+        _fu.escritosPacientes === true || _fu.escritosEventos === true;
+      var cambiosAmarillo = _pos(_amPuerta.nuevas, _amHist.eventosCreados, _amHist.pacientesActualizados);
+      var cambiosEnriquecimiento = _pos(_enr.enriquecidos, _enr.actualizados, _enr.escritos);
+      var cambiosDerivados = _pos(_estr.cambios, _estr.actualizados, _estr.recalculados,
+        _ctrl.cambios, _ctrl.actualizados, _ctrl.recalculados);
+      var datosCambiaron = cambiosFuentes || cambiosAmarillo || cambiosEnriquecimiento || cambiosDerivados;
       if (estructuraCambio) {
         Libro_marcarDirty_('ESTRUCTURA'); Libro_marcarDirty_('VISUAL'); Libro_marcarDirty_('VALIDACIONES');
       }
@@ -666,7 +698,7 @@ function Act_actualizarSistema(opciones) {
   // 14) VERIFICACIÓN FINAL — comprobar integridad de las 8 hojas críticas
   if (ejecutar) {
     try {
-      var ss = Modelo_ss();
+      var ss = Modelo_ss_();
       var criticas = [HOJAS.PACIENTES, HOJAS.EVENTOS, HOJAS_SECTOR[0], HOJAS_SECTOR[1],
         HOJAS_SECTOR[2], Object.keys(HOJAS_INGRESO)[0], Object.keys(HOJAS_INGRESO)[1],
         Object.keys(HOJAS_INGRESO)[2]];
@@ -712,10 +744,10 @@ function Act_actualizarSistema(opciones) {
   };
 
   if (ejecutar) {
-    var registrar = reporte.ok ? Log_info : Log_error;
+    var registrar = reporte.ok ? Log_info_ : Log_error_;
     registrar('Actualizacion', 'actualizarSistema', JSON.stringify(reporte.resumen),
       { ejecucion: reporte.ejecucion, dryRun: false });
-    Log_flush();
+    Log_flush_();
   }
   return reporte;
 }

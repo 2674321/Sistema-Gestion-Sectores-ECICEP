@@ -31,13 +31,13 @@ Orden = orden de columnas en la hoja. `Téc` = columna técnica.
 
 | # | Campo | Tipo | Oblig | Téc | Regla |
 |---|-------|------|-------|-----|-------|
-| 1 | ID_INTERNO | id | ✔ | ✔ | `EC-<base36>-<rand>`; estable aunque cambie el RUT |
+| 1 | ID_INTERNO | id | ✔ | ✔ | `EC-<base36>-<rand4>`; automático y estable aunque cambie el RUT. Nunca se deriva de la posición en el lote (DEC-104) |
 | 2 | RUT | texto | ✔ | | Normalizado cuerpo-DV; sin DV en fuente → cuerpo + bandera |
 | 3 | NOMBRE | texto | ✔ | | Mayúsculas, espacios colapsados, conserva tildes |
 | 4 | SEXO | enum | | | M \| F \| OTRO \| '' (REM lo requiere; completo solo si vacío desde hojas INGRESO_* — S5/DEC-057) |
 | 5 | FECHA_NACIMIENTO | fecha | | | ISO; base de EDAD/tramos derivados (REM); completo solo si vacío desde hojas INGRESO_* (S5/DEC-057) |
-| 6 | TELEFONOS | lista | | | Normalizados separados por `/`; prefijo país removido |
-| 7 | TELEFONO_OBS | texto | | | Anotaciones de fuente (ESPOSO…) |
+| 6 | TELEFONOS | lista | | | Normalizados separados por `/`; prefijo país removido. Los separadores internos (`9 6060 0712`, `(2) 2345 6789`) se leen como **un** número, no como varios fragmentos (DEC-104) |
+| 7 | TELEFONO_OBS | texto | | | Anotaciones de fuente (ESPOSO…) y **todo descarte** (`NUMERO DESCARTADO: …`). Ningún fragmento del campo de contacto se pierde sin dejar rastro (DEC-104) |
 | 8 | SECTOR | enum | ✔ | | NARANJO \| AMARILLO \| VERDE (vigente); MULTIPLE solo transitorio del sistema |
 | 9 | ESTRATIFICACION | enum | | | G1\|G2\|G3 vigente; prioridad por cantidad de patologías (ESTRATIFICACION.md) |
 | 10 | ESTADO | enum | | | Canónicos; ver tabla de estados |
@@ -96,3 +96,15 @@ Nota: 'FECHA DE LLAMADO' pasa a capa de eventos (ETAPA 3).
 3. Nombre normalizado + teléfono
 4. Nombre + sector/estratificación → solo candidato → revisión
 Nunca consolidar por similitud de nombres sola.
+
+## Integridad de identidad y persistencia (DEC-112)
+
+- Toda alta demuestra unicidad de `ID_INTERNO` y RUT canónico inmediatamente
+  antes del append. Error de lectura/esquema bloquea la escritura.
+- Cambiar RUT usa un validador puro (formato/DV) y un guard GAS separado con
+  estados `RUT_LIBRE`, `RUT_DUPLICADO` y `RUT_UNICIDAD_NO_VERIFICABLE`.
+- Un rollback solo se declara aplicado tras relectura de la fila exacta y
+  comparación de campos críticos. Si falla: `ROLLBACK_CLINICO_FALLIDO` y
+  conflicto durable sin PII innecesaria.
+- Las altas compensadas desde `INGRESO_*` se localizan por sus `ID_INTERNO`
+  exactos; nunca se borran "las últimas N filas".

@@ -12,20 +12,20 @@ let n = 0;
 const ok = m => { n++; console.log('[PASS] ' + m); };
 
 // T1 (v0.14): Instalar_pInicio_ delega en la subtarea 'inicio' del motor único
-// (sin pipeline propio, sin Modelo_disenoHojas, sin toques a otras hojas).
+// (sin pipeline propio, sin Modelo_disenoHojas_, sin toques a otras hojas).
 const src20 = readFileSync(new URL('20_Instalador.js', root), 'utf8');
 const pInicio = src20.match(/function Instalar_pInicio_\([\s\S]*?\n\}/)?.[0] || '';
 assert.ok(pInicio, 'Instalar_pInicio_ existe');
 assert.match(pInicio, /Presentacion_ejecutarTarea_/);
 assert.match(pInicio, /id: 'inicio'/);
-assert.doesNotMatch(pInicio, /Modelo_disenoHojas\(/, 'no hay llamada a Modelo_disenoHojas');
-assert.doesNotMatch(pInicio, /HVis_aplicarTodasLasSecciones\(/, 'sin pipeline visual paralelo');
-ok('T1 Instalar_pInicio_ delega en la subtarea inicio del motor (sin Modelo_disenoHojas)');
+assert.doesNotMatch(pInicio, /Modelo_disenoHojas_\(/, 'no hay llamada a Modelo_disenoHojas_');
+assert.doesNotMatch(pInicio, /HVis_aplicarTodasLasSecciones_\(/, 'sin pipeline visual paralelo');
+ok('T1 Instalar_pInicio_ delega en la subtarea inicio del motor (sin Modelo_disenoHojas_)');
 
 // T2: Instalar_pInicio_ devuelve {ok, inicio, verificacion, motivo}.
 c.Inicio_construir_ = () => ({ ok: true });
 c.Inicio_diagnosticarVisual_ = () => ({ ok: true, diferencias: [] });
-c.Modelo_ss = () => ({ getSheetByName: () => ({}) });
+c.Modelo_ss_ = () => ({ getSheetByName: () => ({}) });
 const rPi = c.Instalar_pInicio_();
 assert.equal(rPi.ok, true);
 assert.ok(rPi.inicio && rPi.verificacion);
@@ -41,19 +41,19 @@ ok('T3 fallo de Inicio_construir_ llega como motivo del paso');
 // T4: diagnóstico instala paridad/inicio en visualProfundo (solo lectura).
 c.Inicio_construir_ = ({ ok: true });
 c.HVis_compararFamilia_ = () => ({ ok: true, cantidadDiferencias: 0, diferencias: [] });
-c.HVis_diagnosticarTodas = () => ({ diagnostico: {} });
-c.Hojas_formatoCondicional = () => ({ aplicadas: 0 });
+c.HVis_diagnosticarTodas_ = () => ({ diagnostico: {} });
+c.Hojas_formatoCondicional_ = () => ({ aplicadas: 0 });
 c.Triggers_diagnosticarIngresoOnEdit_ = () => ({ estado: 'OK', total: 0 });
-const diag = c.Instalar_diagnosticar();
+const diag = c.Instalar_diagnosticar_();
 const vp = diag.diagnostico.visualProfundo;
 assert.ok(vp && vp.paridad && vp.paridad.ingreso && vp.paridad.sector, 'paridad presente');
 assert.ok(diag.diagnostico.resumen.fasesCompletas.includes('paridad:INGRESO'));
 assert.ok(diag.diagnostico.resumen.fasesCompletas.includes('paridad:SECTOR'));
-ok('T4 Instalar_diagnosticar expone paridad INGRESO/SECTOR (§20)');
+ok('T4 Instalar_diagnosticar_ expone paridad INGRESO/SECTOR (§20)');
 
 // T5: paridad divergente queda pendiente en el resumen.
 c.HVis_compararFamilia_ = () => ({ ok: false, cantidadDiferencias: 2, diferencias: [] });
-const diagDiver = c.Instalar_diagnosticar();
+const diagDiver = c.Instalar_diagnosticar_();
 assert.ok(diagDiver.diagnostico.resumen.fasesPendientes.includes('paridad:INGRESO'));
 ok('T5 paridad divergente → fase pendiente paridad:INGRESO');
 

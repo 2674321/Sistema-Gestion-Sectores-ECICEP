@@ -20,8 +20,8 @@
 /**
  * PURA: normaliza nombre de hoja para lookup de configuración.
  */
-function HVis_normalizarNombreHoja(nombre) {
-  var n = Utl_texto(nombre).toUpperCase().trim();
+function HVis_normalizarNombreHoja_(nombre) {
+  var n = Utl_texto_(nombre).toUpperCase().trim();
   if (n === 'INGRESO_NARANJA') return 'INGRESO_NARANJO';
   return n;
 }
@@ -30,8 +30,8 @@ function HVis_normalizarNombreHoja(nombre) {
  * PURA: obtiene configuración de secciones para una hoja.
  * @returns {Array|null} array de secciones o null si la hoja no tiene config.
  */
-function HVis_obtenerSecciones(nombreHoja) {
-  var clave = HVis_normalizarNombreHoja(nombreHoja);
+function HVis_obtenerSecciones_(nombreHoja) {
+  var clave = HVis_normalizarNombreHoja_(nombreHoja);
   var tipo = TIPO_SECCIONES_POR_HOJA[clave];
   if (!tipo) return null;
   var cfg = SECCIONES_HOJAS[tipo];
@@ -44,10 +44,10 @@ function HVis_obtenerSecciones(nombreHoja) {
 /**
  * PURA: construye mapa columna → índice (1-based) desde encabezados reales.
  */
-function HVis_mapaColumnas(encabezados) {
+function HVis_mapaColumnas_(encabezados) {
   var mapa = {};
   (encabezados || []).forEach(function (h, i) {
-    var k = Utl_texto(h).trim().toUpperCase();
+    var k = Utl_texto_(h).trim().toUpperCase();
     if (k && !(k in mapa)) mapa[k] = i + 1;
   });
   return mapa;
@@ -56,10 +56,10 @@ function HVis_mapaColumnas(encabezados) {
 /**
  * PURA: valida qué columnas de una sección existen realmente.
  */
-function HVis_validarSeccion(seccion, mapaColumnas) {
+function HVis_validarSeccion_(seccion, mapaColumnas) {
   var existentes = [], faltantes = [];
   (seccion.columnas || []).forEach(function (c) {
-    var k = Utl_texto(c).trim().toUpperCase();
+    var k = Utl_texto_(c).trim().toUpperCase();
     if (mapaColumnas[k]) existentes.push({ nombre: c, indice: mapaColumnas[k] });
     else faltantes.push(c);
   });
@@ -70,8 +70,8 @@ function HVis_validarSeccion(seccion, mapaColumnas) {
  * PURA: columnas esperadas de encabezados para una hoja visual
  * (unión de las columnas declaradas en sus secciones, preservando orden).
  */
-function HVis_columnasEsperadas(nombreHoja) {
-  var secciones = HVis_obtenerSecciones(nombreHoja);
+function HVis_columnasEsperadas_(nombreHoja) {
+  var secciones = HVis_obtenerSecciones_(nombreHoja);
   var salida = [];
   (secciones || []).forEach(function (s) {
     (s.columnas || []).forEach(function (c) {
@@ -85,15 +85,15 @@ function HVis_columnasEsperadas(nombreHoja) {
  * PURA: proporción (0..1) de columnas esperadas presentes en una fila real,
  * comparando por clave normalizada (acentos/espacios/símbolos).
  */
-function HVis_coincidenciaEncabezados(fila, esperadas) {
+function HVis_coincidenciaEncabezados_(fila, esperadas) {
   if (!esperadas || !esperadas.length) return 0;
   var set = {};
   (fila || []).forEach(function (h) {
-    var k = Utl_claveAlnum(h);
+    var k = Utl_claveAlnum_(h);
     if (k) set[k] = true;
   });
   var halladas = 0;
-  esperadas.forEach(function (e) { if (set[Utl_claveAlnum(e)]) halladas++; });
+  esperadas.forEach(function (e) { if (set[Utl_claveAlnum_(e)]) halladas++; });
   return halladas / esperadas.length;
 }
 
@@ -101,7 +101,7 @@ function HVis_coincidenciaEncabezados(fila, esperadas) {
  * GAS: localiza la fila física de los encabezados REALES (primeras 8 filas).
  * @returns {Object} {fila, coincidencia, encabezados}
  */
-function HVis_buscarFilaEncabezados(hoja, esperadas) {
+function HVis_buscarFilaEncabezados_(hoja, esperadas) {
   if (!hoja || !esperadas || !esperadas.length) {
     return { fila: 0, coincidencia: 0, encabezados: [] };
   }
@@ -111,7 +111,7 @@ function HVis_buscarFilaEncabezados(hoja, esperadas) {
   var bloque = hoja.getRange(1, 1, cuantas, ancho).getValues();
   var mejor = { fila: 0, coincidencia: 0, encabezados: [] };
   for (var i = 0; i < cuantas; i++) {
-    var c = HVis_coincidenciaEncabezados(bloque[i], esperadas);
+    var c = HVis_coincidenciaEncabezados_(bloque[i], esperadas);
     if (c > mejor.coincidencia) {
       mejor = { fila: i + 1, coincidencia: c, encabezados: bloque[i] };
     }
@@ -122,7 +122,7 @@ function HVis_buscarFilaEncabezados(hoja, esperadas) {
 /**
  * PURA/GAS: detecta hoja vacía (sin valores en absoluto).
  */
-function HVis_hojaVacia(hoja) {
+function HVis_hojaVacia_(hoja) {
   try {
     return hoja.getLastRow() < 1;
   } catch (e) { return false; }
@@ -131,14 +131,14 @@ function HVis_hojaVacia(hoja) {
 /**
  * GAS: ¿el bloque de filas [desde .. desde+cuantas) está completamente vacío?
  */
-function HVis_rangoVacio(hoja, desde, cuantas) {
+function HVis_rangoVacio_(hoja, desde, cuantas) {
   try {
     if (cuantas < 1) return true;
     var ancho = Math.max(hoja.getLastColumn() || 0, 1);
     var vals = hoja.getRange(desde, 1, cuantas, ancho).getValues();
     for (var i = 0; i < vals.length; i++) {
       for (var j = 0; j < vals[i].length; j++) {
-        if (!Utl_vacio(vals[i][j])) return false;
+        if (!Utl_vacio_(vals[i][j])) return false;
       }
     }
     return true;
@@ -150,8 +150,8 @@ function HVis_rangoVacio(hoja, desde, cuantas) {
  * PURA cuando se invoca sin hoja real (pruebas node).
  * @returns {Object} plan con secciones válidas y filas del contrato.
  */
-function HVis_calcularPlan(nombreHoja, secciones, mapa) {
-  var visual = Modelo_esHojaVisual(nombreHoja);
+function HVis_calcularPlan_(nombreHoja, secciones, mapa) {
+  var visual = Modelo_esHojaVisual_(nombreHoja);
   var layout = visual ? CONTRATO_LAYOUT_VISUAL : CONTRATO_LAYOUT_SIMPLE;
   var plan = {
     secciones: [],
@@ -165,10 +165,10 @@ function HVis_calcularPlan(nombreHoja, secciones, mapa) {
     esVisual: visual
   };
   var seccionesValidas = (secciones || []).filter(function (s) {
-    return s && mapa && HVis_validarSeccion(s, mapa).existentes.length > 0;
+    return s && mapa && HVis_validarSeccion_(s, mapa).existentes.length > 0;
   });
   plan.secciones = seccionesValidas.map(function (sec) {
-    var validada = HVis_validarSeccion(sec, mapa);
+    var validada = HVis_validarSeccion_(sec, mapa);
     var colInicio = Math.min.apply(null, validada.existentes.map(function (c) { return c.indice; }));
     var colFin = Math.max.apply(null, validada.existentes.map(function (c) { return c.indice; }));
     return {
@@ -186,16 +186,16 @@ function HVis_calcularPlan(nombreHoja, secciones, mapa) {
  * PURA: estado macro del layout actual según el contrato (sin modificar).
  * @returns {String} 'VACIA' | 'OK' | 'MIGRABLE_ABRIR' | 'MIGRABLE_CIERRE' | 'AMBIGUA' | 'NO_VISUAL'
  */
-function HVis_estadoEstructura(nombreHoja, encabezados, filaEnc, hoja) {
-  if (!Modelo_esHojaVisual(nombreHoja)) return 'NO_VISUAL';
-  var hr = Modelo_headerRow(nombreHoja);
-  if (!filaEnc) return HVis_hojaVacia(hoja) ? 'VACIA' : 'AMBIGUA';
+function HVis_estadoEstructura_(nombreHoja, encabezados, filaEnc, hoja) {
+  if (!Modelo_esHojaVisual_(nombreHoja)) return 'NO_VISUAL';
+  var hr = Modelo_headerRow_(nombreHoja);
+  if (!filaEnc) return HVis_hojaVacia_(hoja) ? 'VACIA' : 'AMBIGUA';
   if (filaEnc === hr) return 'OK';
   if (filaEnc < hr) {
-    var superioresVacias = HVis_rangoVacio(hoja, 1, filaEnc - 1);
+    var superioresVacias = HVis_rangoVacio_(hoja, 1, filaEnc - 1);
     return superioresVacias ? 'MIGRABLE_ABRIR' : 'AMBIGUA';
   }
-  var intersticioVacias = HVis_rangoVacio(hoja, hr, filaEnc - hr);
+  var intersticioVacias = HVis_rangoVacio_(hoja, hr, filaEnc - hr);
   return intersticioVacias ? 'MIGRABLE_CIERRE' : 'AMBIGUA';
 }
 
@@ -204,20 +204,20 @@ function HVis_estadoEstructura(nombreHoja, encabezados, filaEnc, hoja) {
  * con título/secciones? Solo si están vacías o son de un layout previo nuestro
  * (barra de sector, buscador heredado, o secciones ya aplicadas).
  */
-function HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja) {
-  var hr = Modelo_headerRow(hoja.getName());
+function HVis_filasSuperioresEscribibles_(hoja, ultimaCol, sectorHoja) {
+  var hr = Modelo_headerRow_(hoja.getName());
   if (hr <= 1) return true;
-  if (HVis_hojaVacia(hoja)) return true;
+  if (HVis_hojaVacia_(hoja)) return true;
   var marcadores = ['SEGUIMIENTO', 'CONTROLES', 'IDENTIDAD', 'CLINICO', 'CL&#205;NICO',
     'CRC', 'DATOS PERSONALES', 'IDENTIFICACION', 'SECTORIZACION', 'INGRESO',
-    'EVENTO', 'AUDITORIA', 'TECNICO', 'OBSERVACIONES'].map(function (x) { return Utl_claveAlnum(x); });
-  var sector = Utl_claveAlnum(sectorHoja || '');
+    'EVENTO', 'AUDITORIA', 'TECNICO', 'OBSERVACIONES'].map(function (x) { return Utl_claveAlnum_(x); });
+  var sector = Utl_claveAlnum_(sectorHoja || '');
   var ancho = Math.max(hoja.getLastColumn() || 0, 1);
   var bloque = hoja.getRange(1, 1, hr - 1, ancho).getValues();
   for (var r = 0; r < bloque.length; r++) {
-    var noVacios = bloque[r].filter(function (x) { return !Utl_vacio(x); });
+    var noVacios = bloque[r].filter(function (x) { return !Utl_vacio_(x); });
     if (!noVacios.length) continue;
-    var texto = Utl_claveAlnum(noVacios.join(' '));
+    var texto = Utl_claveAlnum_(noVacios.join(' '));
     var esPropio = marcadores.some(function (m) { return texto.indexOf(m) !== -1; })
       || (sector && texto.indexOf(sector) !== -1);
     if (!esPropio) return false;
@@ -240,8 +240,8 @@ function HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja) {
  * provocar la reescritura completa del layout en cada instalación.
  */
 function HVis_tituloEsperado_(nombre) {
-  nombre = Utl_texto(nombre).toUpperCase();
-  var sector = HVis_detectarSectorHoja(nombre);
+  nombre = Utl_texto_(nombre).toUpperCase();
+  var sector = HVis_detectarSectorHoja_(nombre);
   if (nombre.indexOf('INGRESO_') === 0) {
     return 'INGRESOS — ' + sector + ' · v' + ECICEP.VERSION + ' · ← INICIO';
   }
@@ -258,63 +258,63 @@ function HVis_tituloEsperado_(nombre) {
  * INGRESO_* por submit era gran parte de los ~15s de latencia). Ante cualquier
  * anomalía devuelve false → se ejecuta el formateo completo como antes.
  */
-function HVis_yaFormateada(hoja) {
+function HVis_yaFormateada_(hoja) {
   try {
     var nombre = hoja.getName();
     var esperado = HVis_tituloEsperado_(nombre);
-    var hr = Modelo_headerRow(nombre);
+    var hr = Modelo_headerRow_(nombre);
     if (hr < 1) return false;
     // LECTURA ÚNICA del bloque completo 1..hr (antes 3 lecturas separadas:
     // título, fila de secciones y encabezados) → 1 RPC en vez de 3+.
     var ancho = Math.max(hoja.getLastColumn() || 0, 1);
     var bloque = hoja.getRange(1, 1, hr, ancho).getValues();
     if (bloque[0] == null || bloque[1] == null) return false;
-    if (Utl_claveAlnum(Utl_texto(bloque[0][0])) !== Utl_claveAlnum(esperado)) return false;
+    if (Utl_claveAlnum_(Utl_texto_(bloque[0][0])) !== Utl_claveAlnum_(esperado)) return false;
     // SAS-025: todas las secciones DECLARADAS deben estar pintadas en la fila de
     // secciones. Una vista migrada 15→16 (MIG-001) que pinta solo 3 de 4
     // secciones (la columna OBSERVACIONES quedó sin etiqueta) devuelve false →
     // se fuerza el formateo real. No hay RPC extra: los datos ya están en bloque.
     var hdr = bloque[hr - 1];
-    var secciones = HVis_obtenerSecciones(nombre) || [];
-    var plan = HVis_calcularPlan(nombre, secciones, HVis_mapaColumnas(hdr));
+    var secciones = HVis_obtenerSecciones_(nombre) || [];
+    var plan = HVis_calcularPlan_(nombre, secciones, HVis_mapaColumnas_(hdr));
     if (plan.secciones.length !== secciones.length) return false;
     for (var i = 0; i < plan.secciones.length; i++) {
       var sec = plan.secciones[i];
       var actual = bloque[1][sec.colInicio - 1];
-      if (Utl_claveAlnum(actual) !== Utl_claveAlnum(sec.nombre)) return false;
+      if (Utl_claveAlnum_(actual) !== Utl_claveAlnum_(sec.nombre)) return false;
     }
-    var esp = HVis_especVisual(nombre);
+    var esp = HVis_especVisual_(nombre);
     if (typeof hoja.getFrozenRows === 'function' && hoja.getFrozenRows() !== esp.frozenRows) return false;
     if (typeof hoja.getFrozenColumns === 'function' && hoja.getFrozenColumns() !== esp.frozenColumns) return false;
     var titulo = hoja.getRange(1, 1);
     if (typeof titulo.getBackground === 'function' &&
-        !HVis_mismosColor(titulo.getBackground(), esp.colorTitulo)) return false;
+        !HVis_mismosColor_(titulo.getBackground(), esp.colorTitulo)) return false;
     if (typeof titulo.getFontColor === 'function' &&
-        !HVis_mismosColor(titulo.getFontColor(), esp.tintaTitulo)) return false;
+        !HVis_mismosColor_(titulo.getFontColor(), esp.tintaTitulo)) return false;
     var enc = hoja.getRange(hr, 1, 1, ancho);
     if (typeof enc.getBackgrounds === 'function' && !enc.getBackgrounds()[0]
-      .every(function (b) { return HVis_mismosColor(b, esp.encabezados.fondo); })) return false;
+      .every(function (b) { return HVis_mismosColor_(b, esp.encabezados.fondo); })) return false;
     return true;
   } catch (e) { return false; }
 }
 
-function HVis_normalizarLayout(hoja, opciones) {
+function HVis_normalizarLayout_(hoja, opciones) {
   opciones = opciones || {};
   var nombre = hoja.getName();
-  var secciones = HVis_obtenerSecciones(nombre);
+  var secciones = HVis_obtenerSecciones_(nombre);
   var ultimaCol = Math.max(hoja.getLastColumn() || 0, 1);
   var advertencias = [];
   var salida = { ok: true, pre: '', post: '', secciones: 0, insertadas: 0, borradas: 0 };
   if (!secciones) return { ok: true, secciones: 0, pre: 'sin_config', post: 'sin_config' };
-  if (!Modelo_esHojaVisual(nombre)) {
+  if (!Modelo_esHojaVisual_(nombre)) {
     return { ok: true, secciones: 0, pre: 'NO_VISUAL', post: 'NO_VISUAL', motivo: 'layout simple' };
   }
 
-  var hr = Modelo_headerRow(nombre);
-  var esperadas = HVis_columnasEsperadas(nombre);
-  var buscado = HVis_buscarFilaEncabezados(hoja, esperadas);
+  var hr = Modelo_headerRow_(nombre);
+  var esperadas = HVis_columnasEsperadas_(nombre);
+  var buscado = HVis_buscarFilaEncabezados_(hoja, esperadas);
   var filaEnc = buscado.fila;
-  var estado = HVis_estadoEstructura(nombre, buscado.encabezados, filaEnc, hoja);
+  var estado = HVis_estadoEstructura_(nombre, buscado.encabezados, filaEnc, hoja);
   salida.pre = estado;
 
   // --- Migración segura (sin delete/insert a ciegas) ---
@@ -343,7 +343,7 @@ function HVis_normalizarLayout(hoja, opciones) {
     // título/secciones/encabezados (el pipeline formatea en cada envío; de aquí
     // venían gran parte de los ~15s por submit). `forzar:true` (Instalar/reparar)
     // salta el fast-path para que una hoja con secciones incompletas se repare.
-    if (!opciones.forzar && HVis_yaFormateada(hoja)) {
+    if (!opciones.forzar && HVis_yaFormateada_(hoja)) {
       salida.secciones = secciones.length;
       salida.advertencias = advertencias;
       salida.filaEncabezados = hr;
@@ -361,11 +361,11 @@ function HVis_normalizarLayout(hoja, opciones) {
     return salida;
   }
 
-  var sectorHoja = HVis_detectarSectorHoja(nombre);
-  var colorSector = HVis_colorPorSector(sectorHoja);
+  var sectorHoja = HVis_detectarSectorHoja_(nombre);
+  var colorSector = HVis_colorPorSector_(sectorHoja);
 
   // --- Solo sobrescribimos filas superiores si es seguro ---
-  var escribibles = HVis_filasSuperioresEscribibles(hoja, ultimaCol, sectorHoja);
+  var escribibles = HVis_filasSuperioresEscribibles_(hoja, ultimaCol, sectorHoja);
   if (!escribibles) {
     advertencias.push('Filas superiores con datos propios no reconocidos: no se tocaron.');
   }
@@ -394,15 +394,15 @@ function HVis_normalizarLayout(hoja, opciones) {
   // ===== FILA 2: SECCIONES (títulos reales sobre columnas reales) =====
   var seccionesAplicadas = 0;
   try {
-    var hrActual = Modelo_headerRow(nombre);
-    // Reutiliza la fila ya leída por HVis_buscarFilaEncabezados (en estado OK
+    var hrActual = Modelo_headerRow_(nombre);
+    // Reutiliza la fila ya leída por HVis_buscarFilaEncabezados_ (en estado OK
     // su fila física es hr): evita re-leer la misma fila para el mapa de
     // columnas (antes 1 getValues adicional por hoja).
     var encReales = (buscado.encabezados && buscado.encabezados.length === ultimaCol)
       ? buscado.encabezados
       : hoja.getRange(hrActual, 1, 1, ultimaCol).getValues()[0];
-    var mapa = HVis_mapaColumnas(encReales);
-    var plan = HVis_calcularPlan(nombre, secciones, mapa);
+    var mapa = HVis_mapaColumnas_(encReales);
+    var plan = HVis_calcularPlan_(nombre, secciones, mapa);
     // Limpiar residuos de secciones previas en la fila de secciones
     try {
       var rSec = hoja.getRange(plan.seccionesRow, 1, 1, ultimaCol);
@@ -413,7 +413,7 @@ function HVis_normalizarLayout(hoja, opciones) {
     // v0.8.9.6: rampa interna de la familia (barra/sección/encabezado) → cada
     // hoja de sector queda monocromática en su identidad; PACIENTES usa la
     // paleta COLORES_SECCION (familia GENERAL). Mismas propiedades estructurales.
-    var familia = HVis_familiaHoja(nombre);
+    var familia = HVis_familiaHoja_(nombre);
     var rampa = PALETA_SECCION[familia] || null;
     // BATCH (rendimiento): valores y estilos de TODAS las secciones se aplican
     // sobre la fila completa en una llamada por propiedad (setValues +
@@ -463,22 +463,22 @@ function HVis_normalizarLayout(hoja, opciones) {
 
   // ===== ENCABEZADOS REALES: normalizar etiquetas a canónicas =====
   try {
-    var hrEnc = Modelo_headerRow(nombre);
+    var hrEnc = Modelo_headerRow_(nombre);
     // Misma fila ya leída (buscado.encabezados): evita re-leerla para corregir
     // etiquetas (antes 1 getValues adicional por hoja).
     var filaEncActual = (buscado.encabezados && buscado.encabezados.length === ultimaCol)
       ? buscado.encabezados
       : hoja.getRange(hrEnc, 1, 1, ultimaCol).getValues()[0];
-    var mapaE = HVis_mapaColumnas(filaEncActual);
+    var mapaE = HVis_mapaColumnas_(filaEncActual);
     // BATCH: corregir etiquetas en memoria y escribir TODO en un solo
     // setValues de la fila (antes un setValue por etiqueta a corregir).
     var filaCorregida = filaEncActual.slice();
     var correcciones = 0;
     esperadas.forEach(function (c) {
-      var idx = mapaE[Utl_texto(c).toUpperCase()];
+      var idx = mapaE[Utl_texto_(c).toUpperCase()];
       if (!idx) return;
-      var actual = Utl_texto(filaEncActual[idx - 1]);
-      if (Utils_similarEtiqueta(c, actual)) return;
+      var actual = Utl_texto_(filaEncActual[idx - 1]);
+      if (Utils_similarEtiqueta_(c, actual)) return;
       filaCorregida[idx - 1] = c;
       correcciones++;
     });
@@ -496,7 +496,7 @@ function HVis_normalizarLayout(hoja, opciones) {
   } catch (eEnc) { advertencias.push('Encabezados: ' + (eEnc && eEnc.message || eEnc)); }
 
   // ===== CONGELAR filas de encabezados y primera columna =====
-  try { hoja.setFrozenRows(Modelo_headerRow(nombre)); } catch (eF1) { advertencias.push('FrozenRows: ' + (eF1 && eF1.message || eF1)); }
+  try { hoja.setFrozenRows(Modelo_headerRow_(nombre)); } catch (eF1) { advertencias.push('FrozenRows: ' + (eF1 && eF1.message || eF1)); }
   // La fila 1 está combinada a lo ancho; congelar una parte de esa celda
   // provoca el error de Google Sheets "parte de una celda combinada".
   try { hoja.setFrozenColumns(0); } catch (eF2) {}
@@ -504,7 +504,7 @@ function HVis_normalizarLayout(hoja, opciones) {
 
   salida.secciones = seccionesAplicadas;
   salida.advertencias = advertencias;
-  salida.filaEncabezados = Modelo_headerRow(nombre);
+  salida.filaEncabezados = Modelo_headerRow_(nombre);
   salida.estado = salida.post;
   return salida;
 }
@@ -512,20 +512,20 @@ function HVis_normalizarLayout(hoja, opciones) {
 /**
  * PURA: ¿dos etiquetas se consideran "la misma" (coincidencia clave + capitalización)?
  */
-function Utils_similarEtiqueta(canonica, actual) {
-  return Utl_claveAlnum(canonica) === Utl_claveAlnum(actual);
+function Utils_similarEtiqueta_(canonica, actual) {
+  return Utl_claveAlnum_(canonica) === Utl_claveAlnum_(actual);
 }
 
 /**
  * GAS: aplica el diseño visual a UNA hoja (idempotente real).
  */
-function HVis_aplicarSecciones(hoja, opciones) {
+function HVis_aplicarSecciones_(hoja, opciones) {
   if (!hoja) return { ok: false, motivo: 'Hoja no proporcionada' };
   var nombre = hoja.getName();
-  var secciones = HVis_obtenerSecciones(nombre);
+  var secciones = HVis_obtenerSecciones_(nombre);
   if (!secciones) return { ok: true, seccionesAplicadas: 0, motivo: 'Sin configuración para ' + nombre };
 
-  var r = HVis_normalizarLayout(hoja, opciones);
+  var r = HVis_normalizarLayout_(hoja, opciones);
   if (r.pre === 'NO_VISUAL') {
     return { ok: true, hoja: nombre, seccionesAplicadas: 0, motivo: 'layout simple (no aplica)' };
   }
@@ -535,7 +535,7 @@ function HVis_aplicarSecciones(hoja, opciones) {
     seccionesAplicadas: r.secciones,
     estado: r.pre + ' → ' + r.post,
     estructura: r.post,
-    filaEncabezados: r.filaEncabezados || Modelo_headerRow(nombre),
+    filaEncabezados: r.filaEncabezados || Modelo_headerRow_(nombre),
     insertadas: r.insertadas,
     borradas: r.borradas,
     advertencias: r.motivo ? [r.motivo] : r.advertencias
@@ -545,7 +545,7 @@ function HVis_aplicarSecciones(hoja, opciones) {
 /**
  * PURA: detecta sector de la hoja por nombre.
  */
-function HVis_detectarSectorHoja(nombre) {
+function HVis_detectarSectorHoja_(nombre) {
   var n = (nombre || '').toUpperCase();
   if (n.indexOf('AMARILLO') !== -1) return 'AMARILLO';
   if (n.indexOf('NARANJO') !== -1) return 'NARANJO';
@@ -559,8 +559,8 @@ function HVis_detectarSectorHoja(nombre) {
  * AMARILLO, NARANJO o VERDE para las hojas SECTOR e INGRESO del sector;
  * cadena vacía si la hoja no pertenece a ningún sector.
  */
-function HVis_familiaHoja(nombre) {
-  var n = Utl_texto(nombre);
+function HVis_familiaHoja_(nombre) {
+  var n = Utl_texto_(nombre);
   if (n.indexOf('AMARILLO') !== -1) return 'AMARILLO';
   if (n.indexOf('NARANJ') !== -1) return 'NARANJO';
   if (n.indexOf('VERDE') !== -1) return 'VERDE';
@@ -575,10 +575,10 @@ function HVis_familiaHoja(nombre) {
  * de colores sectoriales; el resto (PACIENTES, INICIO, hojas técnicas) es
  * GENERAL (azul de sistema).
  */
-function HVis_identidad(nombre) {
-  var familia = HVis_familiaHoja(nombre);
+function HVis_identidad_(nombre) {
+  var familia = HVis_familiaHoja_(nombre);
   if (familia) return familia;
-  var n = Utl_texto(nombre).toUpperCase();
+  var n = Utl_texto_(nombre).toUpperCase();
   if (n.indexOf('EVENTOS') !== -1) return 'GENERAL';
   return 'GENERAL';
 }
@@ -586,7 +586,7 @@ function HVis_identidad(nombre) {
 /**
  * PURA: color por sector (tono MEDIO de la familia — fila 1).
  */
-function HVis_colorPorSector(sector) {
+function HVis_colorPorSector_(sector) {
   return COLORES_SECTOR[sector] || COLORES_SECTOR.DEFECTO;
 }
 
@@ -598,15 +598,15 @@ function HVis_colorPorSector(sector) {
  * anchos) a las hojas de INGRESO. Idempotente. Fix v0.8.9.5: los encabezados
  * quedaban en blanco cuando la hoja se creaba fuera del instalador.
  */
-function HVis_formatearIngresos() {
+function HVis_formatearIngresos_() {
   var _tF = Date.now();
-  var ss = Modelo_ss();
+  var ss = Modelo_ss_();
   var estados = {}, fallidas = [];
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     var _tHojaF = Date.now();
     var hoja = ss.getSheetByName(nombre);
-    if (hoja && hoja.getLastRow() >= Modelo_headerRow(nombre)) {
-      var r = HVis_aplicarSecciones(hoja);
+    if (hoja && hoja.getLastRow() >= Modelo_headerRow_(nombre)) {
+      var r = HVis_aplicarSecciones_(hoja);
       estados[nombre] = r.estado || 'OK';
       if (r.ok === false) fallidas.push(nombre + ': ' + (r.motivo || r.estado || 'formato incompleto'));
       console.log('[PIPE] formatearIngresos ' + nombre + ': ' + (Date.now() - _tHojaF) + 'ms estado=' + estados[nombre] + ' fast=' + (r.fast ? 'si' : 'no'));;
@@ -614,59 +614,59 @@ function HVis_formatearIngresos() {
   });
   console.log('[PIPE] formatearIngresos total: ' + (Date.now() - _tF) + 'ms');
   estados._fallidas = fallidas;
-  Log_info('HojasVisual', 'formatearIngresos', JSON.stringify(estados));
-  Log_flush();
+  Log_info_('HojasVisual', 'formatearIngresos', JSON.stringify(estados));
+  Log_flush_();
   return estados;
 }
 
 /**
  * @deprecated v0.14 — compatibilidad. La reparación global de secciones vive
  * en el motor único (subtareas formato:* → Presentacion_formatearHoja_ →
- * HVis_reconciliarHoja). Para retoques puntuales usar HVis_aplicarSecciones
- * (una hoja) o HVis_formatearIngresos (puertas INGRESO_*).
+ * HVis_reconciliarHoja_). Para retoques puntuales usar HVis_aplicarSecciones_
+ * (una hoja) o HVis_formatearIngresos_ (puertas INGRESO_*).
  * GAS: aplica el sistema visual a todas las hojas con secciones.
  */
-function HVis_aplicarTodasLasSecciones(opciones) {
-  var ss = Modelo_ss();
+function HVis_aplicarTodasLasSecciones_(opciones) {
+  var ss = Modelo_ss_();
   var resultados = [];
   HOJAS_CON_SECCIONES.forEach(function (nombre) {
     var hoja = ss.getSheetByName(nombre);
     if (hoja) {
-      var r = HVis_aplicarSecciones(hoja, opciones);
+      var r = HVis_aplicarSecciones_(hoja, opciones);
       r.hoja = nombre;
       resultados.push(r);
     } else {
       resultados.push({ hoja: nombre, ok: false, motivo: 'Hoja no existe' });
     }
   });
-  Log_info('HojasVisual', 'aplicarTodas', JSON.stringify(resultados));
-  Log_flush();
+  Log_info_('HojasVisual', 'aplicarTodas', JSON.stringify(resultados));
+  Log_flush_();
   return { ok: true, resultados: resultados };
 }
 
 /**
  * GAS: diagnóstico de diseño SIN modificar, alineado al contrato.
  */
-function HVis_diagnosticarDisenio(nombreHoja) {
-  var ss = Modelo_ss();
+function HVis_diagnosticarDisenio_(nombreHoja) {
+  var ss = Modelo_ss_();
   var hoja = ss.getSheetByName(nombreHoja);
   if (!hoja) return { ok: false, hoja: nombreHoja, motivo: 'No existe' };
-  var secciones = HVis_obtenerSecciones(nombreHoja);
+  var secciones = HVis_obtenerSecciones_(nombreHoja);
   if (!secciones) return { ok: true, hoja: nombreHoja, configurada: false };
 
-  var visual = Modelo_esHojaVisual(nombreHoja);
+  var visual = Modelo_esHojaVisual_(nombreHoja);
   var layout = visual ? CONTRATO_LAYOUT_VISUAL : CONTRATO_LAYOUT_SIMPLE;
-  var esperadas = HVis_columnasEsperadas(nombreHoja);
-  var buscado = HVis_buscarFilaEncabezados(hoja, esperadas);
+  var esperadas = HVis_columnasEsperadas_(nombreHoja);
+  var buscado = HVis_buscarFilaEncabezados_(hoja, esperadas);
   var filaEnc = buscado.fila;
-  var estructura = HVis_estadoEstructura(nombreHoja, buscado.encabezados, filaEnc, hoja);
+  var estructura = HVis_estadoEstructura_(nombreHoja, buscado.encabezados, filaEnc, hoja);
 
   var encabezados = buscado.fila ? buscado.encabezados
     : hoja.getRange(layout.encabezadosRow, 1, 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0];
-  var mapa = HVis_mapaColumnas(encabezados);
+  var mapa = HVis_mapaColumnas_(encabezados);
 
   var detalle = secciones.map(function (s) {
-    var v = HVis_validarSeccion(s, mapa);
+    var v = HVis_validarSeccion_(s, mapa);
     return {
       seccion: s.nombre,
       color: s.color,
@@ -681,7 +681,7 @@ function HVis_diagnosticarDisenio(nombreHoja) {
   var seccionesDetectadas = detalle.filter(function (d) { return d.columnasExistentes > 0; }).length;
   var sinSeccion = columnasReales.filter(function (k) {
     return !secciones.some(function (s) {
-      return s.columnas.some(function (c) { return Utl_claveAlnum(c) === Utl_claveAlnum(k); });
+      return s.columnas.some(function (c) { return Utl_claveAlnum_(c) === Utl_claveAlnum_(k); });
     });
   });
 
@@ -704,9 +704,9 @@ function HVis_diagnosticarDisenio(nombreHoja) {
       seccionesDetectadas: seccionesDetectadas,
       filaEncabezadosReal: filaEnc,
       filaEncabezadosEsperada: layout.encabezadosRow,
-      filasSuperioresEscribibles: HVis_filasSuperioresEscribibles(hoja, Math.max(hoja.getLastColumn() || 0, 1), HVis_detectarSectorHoja(nombreHoja)),
+      filasSuperioresEscribibles: HVis_filasSuperioresEscribibles_(hoja, Math.max(hoja.getLastColumn() || 0, 1), HVis_detectarSectorHoja_(nombreHoja)),
       // v0.8.9.6: CAMBIOS PENDIENTES frente al DESIGN_SYSTEM (solo lectura).
-      visual: HVis_pendientesVisual(hoja)
+      visual: HVis_pendientesVisual_(hoja)
     }
   };
 }
@@ -716,12 +716,12 @@ function HVis_diagnosticarDisenio(nombreHoja) {
  * (Parte 20). No lee la hoja: declara el ESTADO DESEADO (título por
  * identidad, secciones por rampa/paleta, fila de encabezados estándar).
  */
-function HVis_especVisual(nombre) {
-  var familia = HVis_familiaHoja(nombre);
-  var identidad = HVis_identidad(nombre);
-  var det = HVis_detectarSectorHoja(nombre);
-  var secciones = HVis_obtenerSecciones(nombre) || [];
-  var colorTitulo = HVis_colorPorSector(det);
+function HVis_especVisual_(nombre) {
+  var familia = HVis_familiaHoja_(nombre);
+  var identidad = HVis_identidad_(nombre);
+  var det = HVis_detectarSectorHoja_(nombre);
+  var secciones = HVis_obtenerSecciones_(nombre) || [];
+  var colorTitulo = HVis_colorPorSector_(det);
   var colorSecciones;
   if (familia) {
     // Hoja de sector → rampa interna de su familia (monocromática).
@@ -736,22 +736,22 @@ function HVis_especVisual(nombre) {
     hoja: nombre,
     identidad: identidad,
     familia: familia,
-    visual: Modelo_esHojaVisual(nombre),
+    visual: Modelo_esHojaVisual_(nombre),
     colorTitulo: colorTitulo,
     tintaTitulo: TINTA_SECCION,
     colorSecciones: colorSecciones,
     tabColor: typeof Hojas_colorPestana_ === 'function' ? Hojas_colorPestana_(nombre) : colorTitulo,
     frozenRows: HOJAS_UX[nombre] && HOJAS_UX[nombre].frozenRows !== undefined
-      ? HOJAS_UX[nombre].frozenRows : Modelo_headerRow(nombre),
+      ? HOJAS_UX[nombre].frozenRows : Modelo_headerRow_(nombre),
     frozenColumns: HOJAS_UX[nombre] && HOJAS_UX[nombre].frozenColumns !== undefined
       ? HOJAS_UX[nombre].frozenColumns : 0,
     encabezados: {
-      fila: Modelo_headerRow(nombre),
+      fila: Modelo_headerRow_(nombre),
       fondo: PULIDO_ENCABEZADO.fondo,
       tinta: PULIDO_ENCABEZADO.tinta,
       peso: PULIDO_ENCABEZADO.peso,
       tamanio: PULIDO_ENCABEZADO.fuente,
-      altura: Modelo_esHojaVisual(nombre)
+      altura: Modelo_esHojaVisual_(nombre)
         ? PULIDO_ENCABEZADO.alturaVisual
         : PULIDO_ENCABEZADO.alturaSimple
     }
@@ -763,21 +763,21 @@ function HVis_especVisual(nombre) {
  * especificación (Parte 20). NO modifica la hoja. Ej.: CAMBIOS PENDIENTES = 0
  * cuando el diseño ya cumple el DESIGN_SYSTEM (idempotencia verificable).
  */
-function HVis_pendientesVisual(hoja) {
+function HVis_pendientesVisual_(hoja) {
   if (!hoja) return { hoja: '', pendientes: ['Hoja inexistente'] };
   var nombre = hoja.getName();
   var pendientes = [];
-  var esp = HVis_especVisual(nombre);
+  var esp = HVis_especVisual_(nombre);
   try {
     var lastC = Math.max(hoja.getLastColumn() || 0, 1);
-    var hrA = Modelo_headerRow(nombre);
+    var hrA = Modelo_headerRow_(nombre);
     var rEnc = hoja.getRange(hrA, 1, 1, lastC);
     if (esp.visual) {
       if (hoja.getLastRow() >= 1) {
         var r1 = hoja.getRange(1, 1);
-        if (!HVis_mismosColor(r1.getBackground(), esp.colorTitulo))
+        if (!HVis_mismosColor_(r1.getBackground(), esp.colorTitulo))
           pendientes.push('fila1 color=' + r1.getBackground() + ' → ' + esp.colorTitulo);
-        if (!HVis_mismosColor(r1.getFontColor(), esp.tintaTitulo))
+        if (!HVis_mismosColor_(r1.getFontColor(), esp.tintaTitulo))
           pendientes.push('fila1 tinta=' + r1.getFontColor() + ' → ' + esp.tintaTitulo);
         if (r1.getFontSize() !== PULIDO_BARRAS.titulo)
           pendientes.push('fila1 tamaño=' + r1.getFontSize() + ' → ' + PULIDO_BARRAS.titulo);
@@ -785,8 +785,8 @@ function HVis_pendientesVisual(hoja) {
           pendientes.push('fila1 altura=' + hoja.getRowHeight(1));
       }
       // fila 2: secciones (solo si los encabezados están en su fila contractual)
-      if (hoja.getLastRow() >= 2 && !HVis_hojaVacia(hoja)) {
-        var plan = HVis_calcularPlan(nombre, esp.colorSecciones ? HVis_obtenerSecciones(nombre) : [], HVis_mapaColumnas(rEnc.getValues()[0]));
+      if (hoja.getLastRow() >= 2 && !HVis_hojaVacia_(hoja)) {
+        var plan = HVis_calcularPlan_(nombre, esp.colorSecciones ? HVis_obtenerSecciones_(nombre) : [], HVis_mapaColumnas_(rEnc.getValues()[0]));
         if (plan) {
           var bgSecc = hoja.getRange(plan.seccionesRow, 1, 1, lastC).getBackgrounds()[0];
           esp.colorSecciones.forEach(function (esperado, i) {
@@ -798,7 +798,7 @@ function HVis_pendientesVisual(hoja) {
             var malas = [];
             for (var col = sec.colInicio; col <= sec.colFin; col++) {
               if (col < 1 || col > lastC) continue;
-              if (!HVis_mismosColor(bgSecc[col - 1], esperado)) malas.push(col);
+              if (!HVis_mismosColor_(bgSecc[col - 1], esperado)) malas.push(col);
             }
             if (malas.length)
               pendientes.push('sección ' + sec.id + ' cols ' + malas.join(',') + ' color→' + esperado);
@@ -810,10 +810,10 @@ function HVis_pendientesVisual(hoja) {
     }
     if (hoja.getLastRow() >= hrA) {
       var bgs = rEnc.getBackgrounds()[0];
-      var okEnc = bgs.every(function (b) { return HVis_mismosColor(b, esp.encabezados.fondo); });
+      var okEnc = bgs.every(function (b) { return HVis_mismosColor_(b, esp.encabezados.fondo); });
       if (!okEnc) pendientes.push('encabezados fondo≠' + esp.encabezados.fondo);
       var fcs = rEnc.getFontColors()[0];
-      var okTinta = fcs.every(function (c) { return HVis_mismosColor(c, esp.encabezados.tinta); });
+      var okTinta = fcs.every(function (c) { return HVis_mismosColor_(c, esp.encabezados.tinta); });
       if (!okTinta) pendientes.push('encabezados tinta≠' + esp.encabezados.tinta);
       var okBold = rEnc.getFontWeights()[0].every(function (w) { return w !== 'normal'; });
       if (!okBold) pendientes.push('encabezados peso≠bold');
@@ -823,7 +823,7 @@ function HVis_pendientesVisual(hoja) {
         pendientes.push('encabezados altura=' + hoja.getRowHeight(hrA) + ' → ' + esp.encabezados.altura);
     }
     if (typeof hoja.getTabColor === 'function' &&
-        !HVis_mismosColor(hoja.getTabColor(), esp.tabColor)) pendientes.push('TAB_COLOR');
+        !HVis_mismosColor_(hoja.getTabColor(), esp.tabColor)) pendientes.push('TAB_COLOR');
     if (typeof hoja.getFrozenRows === 'function' && hoja.getFrozenRows() !== esp.frozenRows)
       pendientes.push('FREEZE_ROWS');
     if (typeof hoja.getFrozenColumns === 'function' && hoja.getFrozenColumns() !== esp.frozenColumns)
@@ -831,13 +831,13 @@ function HVis_pendientesVisual(hoja) {
     if (typeof hoja.getColumnWidth === 'function' && hoja.getLastRow() >= hrA) {
       var etiquetas = rEnc.getValues()[0];
       etiquetas.forEach(function (et, i) {
-        if (!Utl_texto(et)) return;
-        var ancho = Modelo_anchoColumna(et);
-        if (hoja.getColumnWidth(i + 1) !== ancho) pendientes.push('ANCHO:' + Utl_texto(et));
+        if (!Utl_texto_(et)) return;
+        var ancho = Modelo_anchoColumna_(et);
+        if (hoja.getColumnWidth(i + 1) !== ancho) pendientes.push('ANCHO:' + Utl_texto_(et));
       });
-      var iniDatos = Modelo_dataStartRow(nombre);
+      var iniDatos = Modelo_dataStartRow_(nombre);
       etiquetas.forEach(function (et, i) {
-        var campo = Utl_texto(et).toUpperCase(), celda = hoja.getRange(iniDatos, i + 1);
+        var campo = Utl_texto_(et).toUpperCase(), celda = hoja.getRange(iniDatos, i + 1);
         if (typeof celda.getNumberFormat === 'function') {
           var esperado = Formato_especificacionCampo_(campo).formato;
           if (esperado && celda.getNumberFormat() !== esperado) pendientes.push('FORMATO:' + campo);
@@ -874,33 +874,33 @@ function HVis_pendientesVisual(hoja) {
  *  el mismo drift produce siempre la misma firma. Sin PII (solo propiedades). */
 function HVis_firmaPendientes_(pendientes) {
   return (pendientes || []).map(function (p) {
-    var t = Utl_texto(p).split('[')[0].split('.')[0].replace(/\s*[=→:].*$/, '').trim();
+    var t = Utl_texto_(p).split('[')[0].split('.')[0].replace(/\s*[=→:].*$/, '').trim();
     return t || 'otra';
   }).sort().join('|');
 }
 
-function HVis_reconciliarHoja(hoja, opciones) {
+function HVis_reconciliarHoja_(hoja, opciones) {
   if (!hoja) return { hoja: '', ok: false, motivo: 'Hoja inexistente' };
   // HVis es owner exclusivo de la estructura superior; formatos, anchos,
   // validaciones y pestañas pertenecen a sus fases declarativas.
   opciones = opciones || { layout: true };
   var nombre = hoja.getName();
-  if (!HVis_obtenerSecciones(nombre)) {
+  if (!HVis_obtenerSecciones_(nombre)) {
     return { hoja: nombre, ok: true, sinConfig: true, pendientes: 0 };
   }
-  var esp = HVis_especVisual(nombre);
-  var antes = HVis_pendientesVisual(hoja);
+  var esp = HVis_especVisual_(nombre);
+  var antes = HVis_pendientesVisual_(hoja);
   var firmaAntes = HVis_firmaPendientes_(antes.pendientes);
   var requiereLayout = opciones.layout !== false && (antes.pendientes || []).some(function (p) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 || p.indexOf('encabezados') === 0;
   });
   var aplicado = requiereLayout
     // v0.14.4: con drift real diagnosticado se fuerza la reparación: el
-    // fast-path de normalizarLayout usa HVis_yaFormateada (no mira alturas,
+    // fast-path de normalizarLayout usa HVis_yaFormateada_ (no mira alturas,
     // tintas/pesos/tamaños ni colores de sección) y saltaría dejando el drift
     // que la verificación exige → loop. Hojas sanas no llegan aquí
     // (requiereLayout=false) y otros callers conservan su fast-path.
-    ? HVis_aplicarSecciones(hoja, { forzar: true }) : { estado: 'OK', secciones: 0 };
+    ? HVis_aplicarSecciones_(hoja, { forzar: true }) : { estado: 'OK', secciones: 0 };
   // v0.14.3: aplicarSecciones devuelve estado COMPUESTO 'pre → post' (más
   // 'OK' plano en fast-path); compararlo con 'OK' fallaba SIEMPRE que había
   // reparación real (ej. motivo 'OK → OK'). La señal de fallo es `ok`.
@@ -933,13 +933,13 @@ function HVis_reconciliarHoja(hoja, opciones) {
   // Solo si difieren; nunca se inventa fila si el plan no resuelve.
   var planCheck = null, alturasForzadas = [];
   try {
-    var hrC = Modelo_headerRow(nombre);
+    var hrC = Modelo_headerRow_(nombre);
     var valsC = hoja.getRange(hrC, 1, 1, Math.max(hoja.getLastColumn() || 0, 1)).getValues()[0];
-    planCheck = HVis_calcularPlan(nombre, HVis_obtenerSecciones(nombre) || [], HVis_mapaColumnas(valsC));
+    planCheck = HVis_calcularPlan_(nombre, HVis_obtenerSecciones_(nombre) || [], HVis_mapaColumnas_(valsC));
   } catch (eP) { planCheck = null; }
   if (planCheck && planCheck.seccionesRow) {
     try {
-      var hrH = Modelo_headerRow(nombre);
+      var hrH = Modelo_headerRow_(nombre);
       if (typeof hoja.getRowHeight === 'function' && typeof hoja.setRowHeight === 'function') {
         if (hoja.getRowHeight(1) !== DESIGN_SYSTEM.ALTURAS.barra)
           { hoja.setRowHeight(1, DESIGN_SYSTEM.ALTURAS.barra); alturasForzadas.push('fila1'); }
@@ -950,7 +950,7 @@ function HVis_reconciliarHoja(hoja, opciones) {
       }
     } catch (eH) { /* la verificación dirá si persiste */ }
   }
-  verificado = HVis_pendientesVisual(hoja);
+  verificado = HVis_pendientesVisual_(hoja);
   var pendientesLayout = (verificado.pendientes || []).filter(function (p) {
     return p.indexOf('fila') === 0 || p.indexOf('sección') === 0 ||
       p.indexOf('encabezados') === 0 || p.indexOf('FREEZE_') === 0;
@@ -986,9 +986,9 @@ function HVis_reconciliarHoja(hoja, opciones) {
 }
 
 /** PURA: compara colores normalizados (case-insensitive; vacíos = iguales). */
-function HVis_mismosColor(a, b) {
+function HVis_mismosColor_(a, b) {
   function norm(x) {
-    var t = Utl_texto(x).toUpperCase();
+    var t = Utl_texto_(x).toUpperCase();
     return (t === '' || t === 'TRANSPARENT') ? '' : t;
   }
   return norm(a) === norm(b);
@@ -997,12 +997,12 @@ function HVis_mismosColor(a, b) {
 /**
  * GAS: diagnóstico de todas las hojas configuradas.
  */
-function HVis_diagnosticarTodas() {
-  var ss = Modelo_ss();
+function HVis_diagnosticarTodas_() {
+  var ss = Modelo_ss_();
   var res = {};
   HOJAS_CON_SECCIONES.forEach(function (n) {
     var h = ss.getSheetByName(n);
-    if (h) res[n] = HVis_diagnosticarDisenio(n);
+    if (h) res[n] = HVis_diagnosticarDisenio_(n);
     else res[n] = { ok: false, motivo: 'No existe' };
   });
   return { ok: true, diagnostico: res };
@@ -1014,14 +1014,14 @@ function HVis_diagnosticarTodas() {
 
 /** Devuelve la plantilla única de la familia e inyecta solo la identidad. */
 function HVis_plantillaParaHoja_(nombreHoja) {
-  var nombre = HVis_normalizarNombreHoja(nombreHoja);
+  var nombre = HVis_normalizarNombreHoja_(nombreHoja);
   var base = null;
   if (nombre.indexOf('INGRESO_') === 0) base = PLANTILLA_VISUAL_INGRESO;
   else if (nombre.indexOf('SECTOR_') === 0) base = PLANTILLA_VISUAL_SECTOR;
   else if (nombre === 'PACIENTES') base = PLANTILLA_VISUAL_PACIENTES;
   else if (nombre === 'EVENTOS') base = PLANTILLA_VISUAL_EVENTOS;
   if (!base) return null;
-  var sector = HVis_detectarSectorHoja(nombre), campos = {};
+  var sector = HVis_detectarSectorHoja_(nombre), campos = {};
   base.columnas.forEach(function (campo) {
     var e = Formato_especificacionCampo_(campo);
     campos[e.clave] = {
@@ -1050,11 +1050,11 @@ function HVis_plantillaParaHoja_(nombreHoja) {
     condicionalOwner: base.condicionalOwner,
     identidad: {
       nombre: sector || 'GENERAL',
-      colorPrincipal: sector ? HVis_colorPorSector(sector) : DESIGN_SYSTEM.MARCA.sistema,
+      colorPrincipal: sector ? HVis_colorPorSector_(sector) : DESIGN_SYSTEM.MARCA.sistema,
       colorSecundario: sector && PALETA_SECCION[sector]
         ? PALETA_SECCION[sector].seccion.slice() : RAMPA.GENERAL.seccion.slice(),
       tabColor: typeof Hojas_colorPestana_ === 'function'
-        ? Hojas_colorPestana_(nombre) : HVis_colorPorSector(sector)
+        ? Hojas_colorPestana_(nombre) : HVis_colorPorSector_(sector)
     }
   };
 }
@@ -1068,11 +1068,11 @@ function HVis_auditarCoberturaSecciones_(columnas, secciones, excepciones) {
   }
   columnas = columnas || []; secciones = secciones || []; excepciones = excepciones || [];
   var indices = {}, conteo = {}, desconocidas = [], noContiguas = [];
-  columnas.forEach(function (c, i) { indices[Utl_claveAlnum(c)] = i; });
+  columnas.forEach(function (c, i) { indices[Utl_claveAlnum_(c)] = i; });
   secciones.forEach(function (s) {
     var posiciones = [];
     (s.columnas || []).forEach(function (c) {
-      var k = Utl_claveAlnum(c);
+      var k = Utl_claveAlnum_(c);
       if (indices[k] === undefined) { desconocidas.push(c); return; }
       conteo[k] = (conteo[k] || 0) + 1; posiciones.push(indices[k]);
     });
@@ -1083,10 +1083,10 @@ function HVis_auditarCoberturaSecciones_(columnas, secciones, excepciones) {
       }
     }
   });
-  var ex = {}; excepciones.forEach(function (c) { ex[Utl_claveAlnum(c)] = true; });
+  var ex = {}; excepciones.forEach(function (c) { ex[Utl_claveAlnum_(c)] = true; });
   var faltantes = [], duplicadas = [];
   columnas.forEach(function (c) {
-    var k = Utl_claveAlnum(c), n = conteo[k] || 0;
+    var k = Utl_claveAlnum_(c), n = conteo[k] || 0;
     if (!n && !ex[k]) faltantes.push(c);
     if (n > 1) duplicadas.push(c);
   });
@@ -1124,7 +1124,7 @@ function HVis_firmaValidacion_(dv) {
     return {
       criterio: criterio, valores: valores,
       permitirInvalido: typeof dv.getAllowInvalid === 'function' ? dv.getAllowInvalid() === true : null,
-      ayuda: typeof dv.getHelpText === 'function' ? Utl_texto(dv.getHelpText()) : ''
+      ayuda: typeof dv.getHelpText === 'function' ? Utl_texto_(dv.getHelpText()) : ''
     };
   } catch (e) { return { error: 'VALIDACION_NO_INSPECCIONABLE' }; }
 }
@@ -1138,7 +1138,7 @@ function HVis_firmaRangoRegla_(rango) {
       };
     }
     var a1 = typeof rango.getA1Notation === 'function' ? rango.getA1Notation() : '';
-    return { a1: Utl_texto(a1).replace(/^.*!/, '').replace(/[0-9]+$/g, '#') };
+    return { a1: Utl_texto_(a1).replace(/^.*!/, '').replace(/[0-9]+$/g, '#') };
   } catch (e) { return { error: 'RANGO_NO_INSPECCIONABLE' }; }
 }
 
@@ -1211,7 +1211,7 @@ function HVis_firmaVisualHoja_(hoja, opciones) {
   if (!hoja) return { ok: false, motivo: 'HOJA_INEXISTENTE' };
   var nombre = hoja.getName(), plantilla = HVis_plantillaParaHoja_(nombre);
   var familia = plantilla ? plantilla.familia : (HOJAS_UX[nombre] || {}).familia || 'OTRA';
-  var hr = Modelo_headerRow(nombre), ini = Modelo_dataStartRow(nombre);
+  var hr = Modelo_headerRow_(nombre), ini = Modelo_dataStartRow_(nombre);
   // El ancho canónico de la firma es el de la PLANTILLA (rango gestionado),
   // no getLastColumn(): columnas residuales o datos fuera del diseño en una
   // sola hoja inflaban la comparación entre hojas de la misma familia con
@@ -1229,25 +1229,25 @@ function HVis_firmaVisualHoja_(hoja, opciones) {
   var dvs = HVis_filaMatriz_(rDatos, 'getDataValidations', columnas, null);
   var orden = [], campos = {}, validaciones = {};
   etiquetas.forEach(function (etiqueta, i) {
-    if (!Utl_texto(etiqueta)) return;
+    if (!Utl_texto_(etiqueta)) return;
     var clave = Formato_claveCampo_(etiqueta);
     orden.push(clave);
     campos[clave] = {
-      etiqueta: Utl_texto(etiqueta),
+      etiqueta: Utl_texto_(etiqueta),
       ancho: typeof hoja.getColumnWidth === 'function' ? hoja.getColumnWidth(i + 1) : null,
-      numberFormat: formatos[i], alineacion: Utl_texto(alineaciones[i]).toUpperCase(),
+      numberFormat: formatos[i], alineacion: Utl_texto_(alineaciones[i]).toUpperCase(),
       wrap: wraps[i], superficie: { fondo: fondos[i], tinta: tintas[i] }
     };
     var fv = HVis_firmaValidacion_(dvs[i]);
     if (fv) validaciones[clave] = fv;
   });
-  var secciones = [], cfg = HVis_obtenerSecciones(nombre) || [];
-  var plan = HVis_calcularPlan(nombre, cfg, HVis_mapaColumnas(etiquetas));
+  var secciones = [], cfg = HVis_obtenerSecciones_(nombre) || [];
+  var plan = HVis_calcularPlan_(nombre, cfg, HVis_mapaColumnas_(etiquetas));
   var valoresSeccion = plan.seccionesRow
     ? HVis_filaMatriz_(hoja.getRange(plan.seccionesRow, 1, 1, columnas), 'getValues', columnas, '') : [];
   plan.secciones.forEach(function (s) {
     secciones.push({
-      id: s.id, nombre: Utl_texto(valoresSeccion[s.colInicio - 1] || s.nombre),
+      id: s.id, nombre: Utl_texto_(valoresSeccion[s.colInicio - 1] || s.nombre),
       colInicio: s.colInicio, colFin: s.colFin
     });
   });
@@ -1259,14 +1259,14 @@ function HVis_firmaVisualHoja_(hoja, opciones) {
   return {
     ok: true, familia: familia,
     layout: {
-      tituloRow: Modelo_esHojaVisual(nombre) ? 1 : 0,
-      seccionesRow: Modelo_esHojaVisual(nombre) ? 2 : 0,
+      tituloRow: Modelo_esHojaVisual_(nombre) ? 1 : 0,
+      seccionesRow: Modelo_esHojaVisual_(nombre) ? 2 : 0,
       encabezadosRow: hr, datosDesdeRow: ini
     },
     columnas: { orden: orden, campos: campos },
     filas: {
-      titulo: Modelo_esHojaVisual(nombre) ? HVis_firmaFila_(hoja, 1, columnas) : null,
-      secciones: Modelo_esHojaVisual(nombre) ? HVis_firmaFila_(hoja, 2, columnas) : null,
+      titulo: Modelo_esHojaVisual_(nombre) ? HVis_firmaFila_(hoja, 1, columnas) : null,
+      secciones: Modelo_esHojaVisual_(nombre) ? HVis_firmaFila_(hoja, 2, columnas) : null,
       encabezado: HVis_firmaFila_(hoja, hr, columnas),
       datos: { altura: typeof hoja.getRowHeight === 'function' ? hoja.getRowHeight(ini) : null }
     },
@@ -1286,14 +1286,14 @@ function HVis_firmaVisualHoja_(hoja, opciones) {
 }
 
 function HVis_colorTokenSector_(color, sector) {
-  var c = Utl_texto(color).toUpperCase();
+  var c = Utl_texto_(color).toUpperCase();
   if (!c || !sector || !PALETA_SECCION[sector]) return color;
-  var primarios = [HVis_colorPorSector(sector), IDENTIDAD[sector], PALETA_SECCION[sector].barra,
+  var primarios = [HVis_colorPorSector_(sector), IDENTIDAD[sector], PALETA_SECCION[sector].barra,
     PALETA_SECCION[sector].encabezado];
   for (var i = 0; i < primarios.length; i++)
-    if (c === Utl_texto(primarios[i]).toUpperCase()) return 'SECTOR_PRIMARY';
+    if (c === Utl_texto_(primarios[i]).toUpperCase()) return 'SECTOR_PRIMARY';
   for (var j = 0; j < PALETA_SECCION[sector].seccion.length; j++)
-    if (c === Utl_texto(PALETA_SECCION[sector].seccion[j]).toUpperCase())
+    if (c === Utl_texto_(PALETA_SECCION[sector].seccion[j]).toUpperCase())
       return 'SECTOR_SECONDARY_' + (j + 1);
   return color;
 }
@@ -1317,7 +1317,7 @@ function HVis_normalizarIdentidad_(valor, sector) {
 /** Firma neutral: elimina nombre/color particular del sector, no la geometría. */
 function HVis_firmaVisualNormalizada_(hoja) {
   if (!hoja) return { ok: false, motivo: 'HOJA_INEXISTENTE' };
-  var sector = HVis_detectarSectorHoja(hoja.getName());
+  var sector = HVis_detectarSectorHoja_(hoja.getName());
   return HVis_normalizarIdentidad_(HVis_firmaVisualHoja_(hoja), sector);
 }
 
@@ -1366,7 +1366,7 @@ function HVis_hashEstructural_(valor) {
 /** Compara las hojas de una familia contra la primera, ya neutralizadas. */
 function HVis_compararFamilia_(nombres) {
   nombres = nombres || [];
-  var ss = Modelo_ss(), referencia = nombres[0] || '', refHoja = ss.getSheetByName(referencia);
+  var ss = Modelo_ss_(), referencia = nombres[0] || '', refHoja = ss.getSheetByName(referencia);
   if (!refHoja) return {
     ok: false, referencia: referencia, diferencias: [{ hoja: referencia, propiedad: 'hoja', esperado: 'EXISTE', actual: 'NO_EXISTE' }],
     cantidadDiferencias: 1, hojasDivergentes: [referencia]
@@ -1406,7 +1406,7 @@ function HVis_firmaProtecciones_(hoja) {
       ? SpreadsheetApp.ProtectionType.RANGE : 'RANGE';
     (hoja.getProtections(tipo) || []).forEach(function (p) {
       try {
-        var desc = Utl_texto(p.getDescription && p.getDescription());
+        var desc = Utl_texto_(p.getDescription && p.getDescription());
         var r = p.getRange && p.getRange();
         salida.push({
           owner: desc.indexOf('ECICEP') === 0 ? desc : 'MANUAL',
@@ -1440,7 +1440,7 @@ function HVis_diagnosticoInicio_(ss) {
 /** Diagnóstico profundo, sin PII y estrictamente de solo lectura. */
 function Libro_diagnosticoVisualProfundo_(opciones) {
   opciones = opciones || {};
-  var ss = Modelo_ss();
+  var ss = Modelo_ss_();
   var ingreso = HVis_compararFamilia_(['INGRESO_NARANJO','INGRESO_AMARILLO','INGRESO_VERDE']);
   var sector = HVis_compararFamilia_(['SECTOR_NARANJO','SECTOR_AMARILLO','SECTOR_VERDE']);
   function resumen(comp) {
@@ -1452,7 +1452,7 @@ function Libro_diagnosticoVisualProfundo_(opciones) {
     : HVis_diagnosticoInicio_(ss);
   var hojas = {}, detalle = [], total = ingreso.cantidadDiferencias + sector.cantidadDiferencias + inicio.diferencias;
   ['PACIENTES','EVENTOS'].forEach(function (nombre) {
-    var h = ss.getSheetByName(nombre), d = h ? HVis_pendientesVisual(h) : { pendientes: ['NO_EXISTE'], cantidadPendientes: 1 };
+    var h = ss.getSheetByName(nombre), d = h ? HVis_pendientesVisual_(h) : { pendientes: ['NO_EXISTE'], cantidadPendientes: 1 };
     var n = d.cantidadPendientes === undefined ? (d.pendientes || []).length : d.cantidadPendientes;
     hojas[nombre] = { ok: n === 0, diferencias: n, detalle: d.pendientes || [] };
     total += n;
@@ -1462,7 +1462,7 @@ function Libro_diagnosticoVisualProfundo_(opciones) {
    'SECTOR_NARANJO','SECTOR_AMARILLO','SECTOR_VERDE','REM_SALIDA'].forEach(function (nombre) {
     var h = ss.getSheetByName(nombre); if (!h || typeof h.getTabColor !== 'function') return;
     var esperado = Hojas_colorPestana_(nombre), actual = h.getTabColor();
-    if (!HVis_mismosColor(actual, esperado)) {
+    if (!HVis_mismosColor_(actual, esperado)) {
       tabs.ok = false; tabs.diferencias++; tabs.detalle.push(nombre + ':TAB_COLOR');
     }
   });
@@ -1515,37 +1515,37 @@ function HVis_repararDiferencias_(diagnostico, opciones) {
   opciones = opciones || {};
   var antes = diagnostico || Libro_diagnosticoVisualProfundo_();
   if (antes.ok) return { ok: true, omitida: true, escrituras: 0, antes: antes, despues: antes };
-  var ss = Modelo_ss(), objetivos = {}, acciones = [];
+  var ss = Modelo_ss_(), objetivos = {}, acciones = [];
   (antes.hojasConDiferencias || []).forEach(function (n) { objetivos[n] = true; });
   Object.keys(objetivos).forEach(function (nombre) {
     var h = ss.getSheetByName(nombre); if (!h) return;
-    if (HVis_obtenerSecciones(nombre) && Modelo_esHojaVisual(nombre)) {
-      HVis_aplicarSecciones(h, { forzar: true }); acciones.push(nombre + ':layout');
+    if (HVis_obtenerSecciones_(nombre) && Modelo_esHojaVisual_(nombre)) {
+      HVis_aplicarSecciones_(h, { forzar: true }); acciones.push(nombre + ':layout');
     }
     if (typeof Presentacion_formatearHoja_ === 'function') {
       Presentacion_formatearHoja_(nombre); acciones.push(nombre + ':formato');
     }
     var color = Hojas_colorPestana_(nombre);
-    if (typeof h.getTabColor !== 'function' || !HVis_mismosColor(h.getTabColor(), color)) {
+    if (typeof h.getTabColor !== 'function' || !HVis_mismosColor_(h.getTabColor(), color)) {
       h.setTabColor(color); acciones.push(nombre + ':tab');
     }
   });
   if (antes.validaciones && !antes.validaciones.ok) {
-    Modelo_validarIngresos(ss);
+    Modelo_validarIngresos_(ss);
     Hojas_aplicarValidaciones_(ss, { hojas: [HOJAS.PACIENTES].concat(HOJAS_SECTOR) });
     acciones.push('validaciones');
   }
   if (antes.reglasCondicionales && !antes.reglasCondicionales.ok) {
-    Hojas_formatoCondicional(ss); acciones.push('reglasCondicionales');
+    Hojas_formatoCondicional_(ss); acciones.push('reglasCondicionales');
   }
   if (antes.protecciones && !antes.protecciones.ok) {
-    Modelo_validarIngresos(ss); acciones.push('protecciones');
+    Modelo_validarIngresos_(ss); acciones.push('protecciones');
   }
   if (antes.tabs && !antes.tabs.ok) {
     (Hojas_ordenObjetivo_().concat(['EVENTOS'])).forEach(function (n) {
       var h = ss.getSheetByName(n); if (!h) return;
       var c = Hojas_colorPestana_(n);
-      if (typeof h.getTabColor !== 'function' || !HVis_mismosColor(h.getTabColor(), c)) h.setTabColor(c);
+      if (typeof h.getTabColor !== 'function' || !HVis_mismosColor_(h.getTabColor(), c)) h.setTabColor(c);
     });
     acciones.push('tabs');
   }

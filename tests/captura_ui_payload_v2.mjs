@@ -36,8 +36,8 @@ const archivos = [
   'src/20_Instalador.js', 'src/21_Auditoria.js', 'src/22_HojasVisual.js', 'src/12_Ingresos.js',
   'src/24_Formulario.js', 'src/25_Entorno.js', 'src/Webhook.js', 'src/WebApp.gs',
   'src/06_Modelo.js', 'src/08_Dashboard.js', 'src/11_DatosPrueba.js', 'src/10_Pruebas.js',
-  'src/26_Captura.js',
-  'src/27_Actualizacion.js'
+  'src/26_Captura.js', 'src/27_Actualizacion.js', 'src/29_ActualizacionCaptura.js',
+  'src/30_Ingesta.js', 'src/36_FormsCanal.js'
 ];
 let codigo = '';
 for (const a of archivos) codigo += readFileSync(path.join(raiz, a), 'utf8') + '\n';
@@ -93,21 +93,21 @@ function profundos(a, b, msg) {
 // Oráculo contractual (§5.1): claves permitidas por operación
 // ─────────────────────────────────────────────────────────────────────────────
 const PERMITIDAS = {
-  nuevoIngreso: ['captureId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
+  nuevoIngreso: ['clientRequestId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
     'fechaIngreso', 'estratificacion', 'telefonos', 'profesional', 'profesionalSecundario',
     'observaciones', 'confirmarNuevoPaciente'],
-  registrarControl: ['captureId', 'accion', 'rut', 'fechaEvento', 'profesional',
+  registrarControl: ['clientRequestId', 'accion', 'rut', 'fechaEvento', 'profesional',
     'profesionalSecundario', 'observaciones'],
-  registrarSeguimiento: ['captureId', 'accion', 'rut', 'fechaEvento', 'profesional',
+  registrarSeguimiento: ['clientRequestId', 'accion', 'rut', 'fechaEvento', 'profesional',
     'profesionalSecundario', 'observaciones'],
-  actualizarDatos: ['captureId', 'accion', 'rut', 'telefonos', 'profesional',
+  actualizarDatos: ['clientRequestId', 'accion', 'rut', 'telefonos', 'profesional',
     'profesionalSecundario', 'observaciones']
 };
 const REQ = {
-  nuevoIngreso: ['captureId', 'accion', 'rut', 'nombre', 'fechaNacimiento', 'sector', 'fechaIngreso', 'profesional'],
-  registrarControl: ['captureId', 'accion', 'rut', 'fechaEvento', 'profesional'],
-  registrarSeguimiento: ['captureId', 'accion', 'rut', 'fechaEvento', 'profesional'],
-  actualizarDatos: ['captureId', 'accion', 'rut', 'profesional']
+  nuevoIngreso: ['clientRequestId', 'accion', 'rut', 'nombre', 'fechaNacimiento', 'sector', 'fechaIngreso', 'profesional'],
+  registrarControl: ['clientRequestId', 'accion', 'rut', 'fechaEvento', 'profesional'],
+  registrarSeguimiento: ['clientRequestId', 'accion', 'rut', 'fechaEvento', 'profesional'],
+  actualizarDatos: ['clientRequestId', 'accion', 'rut', 'profesional']
 };
 const ACCION_CAMEL = {
   NUEVO_INGRESO: 'nuevoIngreso', REGISTRAR_CONTROL: 'registrarControl',
@@ -115,7 +115,7 @@ const ACCION_CAMEL = {
 };
 
 const CATALOGO = ['MEDICO/A', 'ENFERMERA/O', 'TENS', 'MATRONA/O', 'PSICOLOGO/A', 'ASISTENTE SOCIAL'];
-function genCid(n) { const s = '00000000000000000000000000000000' + n.toString(16); return 'Cp2-' + s.slice(-32); }
+function genCid(n) { const s = '00000000000000000000000000000000' + n.toString(16); return 'CR-' + s.slice(-32); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estados UI realistas: TODAS las claves que el formulario realmente posee,
@@ -157,7 +157,7 @@ function estadoUIActualizar(over = {}) {
 
 function build(estado, opciones) {
   const est = Object.assign({}, estado);
-  if (!est.captureId) est.captureId = genCid(PASS + 1 + Math.floor(Math.random() * 100000));
+  if (!est.clientRequestId) est.clientRequestId = genCid(PASS + 1 + Math.floor(Math.random() * 100000));
   return sandbox.construirPayloadV2(est, opciones || {});
 }
 const pkeys = (p) => Object.keys(p).sort();
@@ -210,7 +210,7 @@ t('ACTUALIZAR_DATOS: payload ⊆ permitidas, REQ presentes, sin NP', () => {
 
 t('Exactitud: payload NUEVO_INGRESO completo ≡ conjunto permitido lleno (13 claves)', () => {
   const p = build(estadoUINuevoIngreso());
-  const esperadas = ['captureId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
+  const esperadas = ['clientRequestId', 'accion', 'rut', 'nombre', 'sexo', 'fechaNacimiento', 'sector',
     'fechaIngreso', 'estratificacion', 'telefonos', 'profesional', 'profesionalSecundario', 'observaciones'];
   profundos(pkeys(p), esperadas.slice().sort(), 'claves del payload NUEVO_INGRESO');
 });
@@ -249,8 +249,8 @@ console.log('\nPARTE D — Regresión FASE 5 reproducida con el estado UI comple
 t('FASE5: NUEVO_INGRESO completo no trae fechaEvento (aunque fechaEvento exista vacío en DOM)', () => {
   const p = build(estadoUINuevoIngreso());
   A(!Object.prototype.hasOwnProperty.call(p, 'fechaEvento'), 'fechaEvento vacío en DOM no debe cruzar al payload');
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
-  A(v.ok === true, 'validador debe aceptar: ' + JSON.stringify(v.errores || v.errors));
+  const v = sandbox.Form_validarPayloadTransporte_(p);
+  A(v.ok === true, 'transporte debe aceptar: ' + JSON.stringify(v));
 });
 
 t('FASE5: CONTROL con campos de NUEVO_INGRESO en DOM no trae claves NP', () => {
@@ -258,26 +258,26 @@ t('FASE5: CONTROL con campos de NUEVO_INGRESO en DOM no trae claves NP', () => {
   ['nombre', 'sexo', 'fechaNacimiento', 'sector', 'fechaIngreso', 'estratificacion', 'telefonos'].forEach((np) => {
     A(!Object.prototype.hasOwnProperty.call(p, np), 'clave NP presente: ' + np);
   });
-  const v = sandbox.Captura_v2_validar(p, { catalogo: CATALOGO });
-  A(v.ok === true, 'validador debe aceptar: ' + JSON.stringify(v.errores || v.errors));
+  const v = sandbox.Form_validarPayloadTransporte_(p);
+  A(v.ok === true, 'transporte debe aceptar: ' + JSON.stringify(v));
 });
 
 console.log('\nPARTE E — Integración: el payload UI real es aceptado por el validador V2 real.');
 
-t('Integración NUEVO_INGRESO UI → Captura_v2_validar → ok:true', () => {
-  const v = sandbox.Captura_v2_validar(build(estadoUINuevoIngreso()), { catalogo: CATALOGO });
+t('Integración NUEVO_INGRESO UI → transporte durable → ok:true', () => {
+  const v = sandbox.Form_validarPayloadTransporte_(build(estadoUINuevoIngreso()));
   A(v.ok === true, 'FALLA: ' + JSON.stringify(v.errores || v.errors));
 });
-t('Integración REGISTRAR_CONTROL UI → Captura_v2_validar → ok:true', () => {
-  const v = sandbox.Captura_v2_validar(build(estadoUIControl()), { catalogo: CATALOGO });
+t('Integración REGISTRAR_CONTROL UI → transporte durable → ok:true', () => {
+  const v = sandbox.Form_validarPayloadTransporte_(build(estadoUIControl()));
   A(v.ok === true, 'FALLA: ' + JSON.stringify(v.errores || v.errors));
 });
-t('Integración REGISTRAR_SEGUIMIENTO UI → Captura_v2_validar → ok:true', () => {
-  const v = sandbox.Captura_v2_validar(build(estadoUISeguimiento()), { catalogo: CATALOGO });
+t('Integración REGISTRAR_SEGUIMIENTO UI → transporte durable → ok:true', () => {
+  const v = sandbox.Form_validarPayloadTransporte_(build(estadoUISeguimiento()));
   A(v.ok === true, 'FALLA: ' + JSON.stringify(v.errores || v.errors));
 });
-t('Integración ACTUALIZAR_DATOS UI → Captura_v2_validar → ok:true', () => {
-  const v = sandbox.Captura_v2_validar(build(estadoUIActualizar()), { catalogo: CATALOGO });
+t('Integración ACTUALIZAR_DATOS UI → transporte durable → ok:true', () => {
+  const v = sandbox.Form_validarPayloadTransporte_(build(estadoUIActualizar()));
   A(v.ok === true, 'FALLA: ' + JSON.stringify(v.errores || v.errors));
 });
 
@@ -310,7 +310,7 @@ t('H1: _poblarDropdowns() se invoca en el success handler de WebApp_estadoInicia
   const asignacion = 'PROF=r.profesionales';
   const iAsign = html.indexOf(asignacion);
   const iLlamada = html.indexOf('_poblarDropdowns();', iAsign);
-  const iFinRpc = html.indexOf('.WebApp_estadoInicial(window.ECICEP_ACCESO);');
+  const iFinRpc = html.indexOf('.WebApp_estadoInicial();');
   A(iAsign !== -1, 'asignación de PROF presente en init');
   A(iLlamada !== -1 && iLlamada > iAsign && iLlamada < iFinRpc,
     'la llamada debe existir entre PROF=r.profesionales y el envío de la RPC (regresión S8: se eliminó)');
@@ -325,18 +325,18 @@ t('H2: _poblarDropdowns() también se invoca en el failure handler', () => {
 
 t('H3: el catálogo que recibe el dropdown son nombres canónicos (strings de activos), no objetos', () => {
   const gs = readFileSync(path.join(raiz, 'src/WebApp.gs'), 'utf8');
-  A(gs.indexOf('function WebApp_profesionalesDropdown') !== -1, 'helper de dropdown presente en WebApp.gs');
-  const body = gs.slice(gs.indexOf('function WebApp_profesionalesDropdown'));
+  A(gs.indexOf('function WebApp_profesionalesDropdown_') !== -1, 'helper de dropdown presente en WebApp.gs');
+  const body = gs.slice(gs.indexOf('function WebApp_profesionalesDropdown_'));
   A(body.indexOf('.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO') !== -1, 'devuelve NOMBRE_CANONICO (string), no el objeto');
   A(body.indexOf('filter(function (c) { return c && c.ACTIVO !== false') !== -1, 'solo profesionales activos');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('');
-for (const accionUI of Object.keys(ACCION_CAMEL)) t('V3 UI transmite fecha manual en '+accionUI, () => {
-  const p=build(estadoUIActualizar({accionUI,captureId:'Cp3-'+ 'a'.repeat(32),proximoControl:'2027-02-20'}));
+for (const accionUI of Object.keys(ACCION_CAMEL)) t('UI durable transmite fecha manual en '+accionUI, () => {
+  const p=build(estadoUIActualizar({accionUI,clientRequestId:'CR-'+ 'a'.repeat(32),proximoControl:'2027-02-20'}));
   A(p.proximoControl==='2027-02-20','fecha manual incluida');
-  A(sandbox.Captura_v2_validar(p,{catalogo:CATALOGO}).ok,'backend acepta payload del cliente');
+  A(sandbox.Form_validarPayloadTransporte_(p).ok,'transporte acepta payload del cliente');
 });
 console.log('Captura UI Payload V2 — TOTAL: ' + (PASS + FAIL) + ' · PASS: ' + PASS + ' · FAIL: ' + FAIL);
 if (FAIL > 0) process.exit(1);

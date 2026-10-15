@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-10-13T13:22:14-03:00",
+  "status": "BLOCKED_FOR_ACTIVATION",
+  "git": {
+    "approvedHead": "d5c7fd9268299ad06efa3e8a45a394bb415dd219",
+    "branch": "codex/v255-operabilidad-observabilidad",
+    "remoteHead": "d5c7fd9268299ad06efa3e8a45a394bb415dd219",
+    "prePushGitSha": "6fb4ef68048b8e8e24b2481478d080302db55964"
+  },
+  "appsScript": {
+    "scriptId": "1UepWmo3QvQd5nGjk4kC2ytW0SwUvN0AU_G4dKXhmSAnDYwPoshPWB7mI",
+    "deploymentCount": 2,
+    "deploymentId": "AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw",
+    "deploymentVersion": 265,
+    "versionCount": 197,
+    "execUrl": "https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec",
+    "publicHttpStatus": 200,
+    "deployedBuild": "6fb4ef6",
+    "pushExecuted": false,
+    "deployExecuted": false
+  },
+  "spreadsheet": {
+    "spreadsheetId": "1OEV2za6VbPG7CHU4Pd71Nzi4smy3eizqjrLCRq7UggE",
+    "sheetCount": 22,
+    "counts": {
+      "PACIENTES": 2734,
+      "EVENTOS": 21884,
+      "FORM_RESPUESTAS": 227,
+      "CONFLICTOS_ABIERTOS": 20
+    },
+    "legacyQueueStates": {
+      "RECIBIDO": 116,
+      "ERROR": 10,
+      "PROCESADO": 83,
+      "REQUIERE_REVISION": 18,
+      "recoverable": 126,
+      "oldestPendingMin": 52259
+    }
+  },
+  "backup": {
+    "verified": true,
+    "id": "19cJjRAIEK83DKpH0-_RLAb_P3zX3w2rz84gZ-skiM6U",
+    "title": "ECICEP_PREACTIVACION_V258_BACKUP_2026-10-13",
+    "accessible": true,
+    "sheetCount": 22,
+    "counts": {
+      "PACIENTES": 2734,
+      "EVENTOS": 21884,
+      "FORM_RESPUESTAS": 227
+    }
+  },
+  "form": {
+    "status": "BLOCKED_PROPERTY_IDENTITY_UNRESOLVED",
+    "formId": null,
+    "schemaVersion": null,
+    "responseCount": null,
+    "note": "Read-only inspections conflicted; no Form value, response or schema was assumed."
+  },
+  "operatorSecret": {
+    "status": "UNVERIFIED_CONFLICTING_READ_ONLY_INSPECTIONS",
+    "rotated": false,
+    "valueRecorded": false
+  },
+  "triggers": {
+    "ECICEP_onChangeLibro": 1,
+    "Backup_programado": 1,
+    "ECICEP_onEditIngreso": 1,
+    "Form_onFormSubmit_": 0,
+    "Form_worker_": 0
+  },
+  "rollback": {
+    "deploymentId": "AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw",
+    "versionNumber": 265,
+    "url": "https://script.google.com/macros/s/AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw/exec",
+    "sourceGitSha": "6fb4ef68048b8e8e24b2481478d080302db55964",
+    "required": false,
+    "executed": false
+  }
+}

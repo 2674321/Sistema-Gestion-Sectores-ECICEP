@@ -7,6 +7,99 @@
 > (**NORMATIVO**). Una referencia histórica solo se convierte en instrucción
 > vigente cuando aparece en la documentación vigente.
 
+## 2026-10-15 — editor visual guiado para Actualizar
+
+- Claridad operativa posterior (`383ffbf`): el título y el botón principal
+  cambian según Ingreso, Control, Seguimiento o Actualización; la sección
+  profesional deja de presentarse como exclusiva del ingreso. La búsqueda de
+  patologías usa plural correcto e informa explícitamente cuando no encuentra
+  coincidencias. Regresión del editor ampliada a 15 casos.
+- Verificador completo: 170 suites / 0 fallos. Sincronizado al proyecto Apps
+  Script en `@HEAD` mediante `release --push`; `/exec` continúa en `@274` /
+  `175b5e3` porque `VERSION_COUNT=200` impide crear una nueva versión.
+- Revisión funcional posterior (build `175b5e3`): el selector de acción adopta
+  el control visual común; un RUT incompleto ya no invoca el backend; al cargar
+  una ficha el RUT queda bloqueado y “Cambiar paciente” impide perder cambios
+  pendientes. Sin cambios permite limpiar y consultar otra persona.
+- El resumen se movió antes de la ficha para permanecer visible durante la
+  edición. Patologías incorpora búsqueda sin acentos y contador de selecciones;
+  filtrar no modifica el payload clínico. La carga muestra estado ocupado y el
+  cambio visual cubre también campos originalmente ausentes.
+- Regresión ampliada de 9 a 14 casos; verificador completo: 170 suites / 0
+  fallos. Publicado en el mismo deployment `@274`; smoke anónimo read-only OK.
+  El proyecto alcanzó 200 versiones y requiere limpieza manual antes del próximo
+  deploy.
+- Se verificó en una sesión anónima limpia el `/exec` operativo: las cuatro
+  acciones y el catálogo se cargan sin login, clave, OPSESS ni permisos de
+  Spreadsheet. `ACTUALIZAR_DATOS` recuperó read-only la ficha sintética completa
+  de 18 campos y CONTROL/SEGUIMIENTO; no se realizó ningún envío clínico.
+- El editor de actualización ahora presenta una cabecera específica, cuatro
+  pasos, estados de consulta, secciones en tarjetas, controles de atención
+  separados, patologías en una grilla responsive, resaltado de campos cambiados
+  y un resumen persistente antes del envío.
+- Se retiró de esa vista la sección genérica duplicada de identificación. El
+  contrato funcional permanece intacto: mismo RPC público, mismo payload
+  diferencial y misma captura sin clave. Verificación: 170 suites / 0 fallos.
+- Publicado como build `0f8c0e2` en el mismo deployment operativo `@273`; URL
+  pública sin cambios. Smoke visual desktop/móvil y carga pública read-only OK.
+
+## 2026-10-14 — actualización completa pública sin clave (DEC-123)
+
+- Por instrucción explícita del usuario, `ACTUALIZAR_DATOS` vuelve a cargar por
+  RUT la ficha completa de 18 campos y los últimos controles/seguimientos desde
+  el QR, sin clave, login, OPSESS ni token. Esto reemplaza la restricción parcial
+  adoptada en DEC-122.
+- Los cambios completos cruzan el transporte durable mediante el campo interno
+  `ACTUALIZACION_JSON`; el worker valida y entrega el objeto diferencial exacto
+  al mismo pipeline, sin perder campos ni atenciones.
+- `Funciones` permanece fuera de la captura pública y continúa protegido en la
+  superficie administrativa del Spreadsheet.
+
+## 2026-10-14 — captura pública parcial sin login (DEC-122, superada por DEC-123)
+
+- Esta decisión se conserva como historial, pero su restricción del editor
+  completo fue reemplazada por DEC-123 a solicitud explícita del usuario.
+
+## 2026-10-14 — v270 (captura directa al Form no es canal clínico, DEC-116)
+
+- La captura directa al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin
+  `CLIENT_REQUEST_ID` válido) ya no muta el modelo clínico: se registra de forma
+  durable y queda en `REQUIERE_REVISION` para decisión humana. `AGENTS.md`
+  (reglas 3/4) define la Web App como único canal operativo y el Form solo como
+  transporte durable interno; ninguna decisión autorizaba el canal directo.
+- `Form_procesarRespuestaConTransporte_` marca `ctxEnvio.soloRecepcion` y
+  devuelve `REVIEW`; `Captura_v2_enviar_` persiste el registro, escribe el
+  trailer `REQUIERE_REVISION`/`GOOGLE_FORM_DIRECT_REQUIERE_REVISION` y retorna
+  antes de la entrega TR-2 (sin PACIENTES/EVENTOS, agenda ni contacto). El flujo
+  normal `SOURCE=WEBAPP` + `CLIENT_REQUEST_ID` válido no cambia.
+- Guarda: `tests/google_form_direct_review_v0170.mjs`; verificador 162 suites / 0
+  fallos.
+
+## 2026-10-14 — v270 (captura pública sin token legacy, DEC-115)
+
+- La CAPTURA pública deja de inyectar y consumir la credencial legacy:
+  `CapturaWeb.html` sirve `<body>` sin `data-acceso` ni puente
+  `window.ECICEP_ACCESO`, y las cuatro llamadas de captura (`estadoInicial`,
+  `verificarRecepcion`, `capturarRecibirDurable`, `api_webappEstado`) no reciben
+  token. `WebApp_servirCaptura_()` ya no resuelve la credencial; `doGet` la
+  resuelve solo para las vistas de OPERADOR/ADMINISTRACIÓN.
+- Los enlaces de invitación con token quedan obsoletos; el QR es anónimo y
+  `ECICEP_ACCESS_TOKEN` se conserva solo como trazabilidad de operador.
+- Guarda: `tests/public_capture_zero_legacy_token_v0170.mjs`. Contrato §24
+  actualizado (`docs/CONTRATO_CAPTURA_V2.md`).
+
+## 2026-10-13 — v0.17.0 (candidato rc1) / baseline v260
+
+- Commit clínico común con preparación fuera del lock, revalidación, append y
+  verificación bajo una sección breve; contención devuelve `SERVICIO_OCUPADO`.
+- Caché entre requests versionada por `ECICEP_DATA_EPOCH`; un lector anterior
+  no puede repoblar la generación vigente y una falla de Properties degrada a
+  lectura directa.
+- JSON inválido en revisión queda visible como `REVIEW_PAYLOAD_INVALID` y nunca
+  se resuelve automáticamente.
+- Auditoría XSS completa, preflight de release, manifiesto local y asistente de
+  activación sin deploy. Producción no fue modificada; schema permanece en 2.
+
 ## 2026-09-28 — cierre de incorporación territorial (DEC-100)
 
 - Causa raíz: el ingreso de una persona existente no actualizaba el sector

@@ -7,8 +7,8 @@
  *   - Ingresos_leerFilasAcotadas_ lee SOLO la fila de encabezados + las filas
  *     físicas permitidas (getRange de UNA fila cada una), nunca getDataRange
  *     ni getRange(1,1,getLastRow(),...).
- *   - Ingresos_leerHoja usa la ruta acotada cuando filasPermitidas ≤ 50.
- *   - Ingresos_detallePendiente (api_ingresoDetalle) = una sola lectura acotada.
+ *   - Ingresos_leerHoja_ usa la ruta acotada cuando filasPermitidas ≤ 50.
+ *   - Ingresos_detallePendiente_ (api_ingresoDetalle_) = una sola lectura acotada.
  *   - El shape devuelto es [encabezados, ...filas] y no renumero filas ajenas.
  *
  * Fixture: hoja ficticia INGRESO_NARANJO en layout VISUAL real (encabezados en
@@ -92,9 +92,9 @@ function maxAltura(log) { return Math.max(0, ...log.filter((x) => x.tipo === 'ge
 function harness(seed) {
   const c = seed || backend();
   const log = [];
-  const hr = c.Modelo_headerRow('INGRESO_NARANJO');
+  const hr = c.Modelo_headerRow_('INGRESO_NARANJO');
   const sheet = makeSheet(fixture(hr), log);
-  c.Modelo_ss = () => ({ getSheetByName: (n) => (n === 'INGRESO_NARANJO' ? sheet : null) });
+  c.Modelo_ss_ = () => ({ getSheetByName: (n) => (n === 'INGRESO_NARANJO' ? sheet : null) });
   return { c, log, sheet, hr };
 }
 
@@ -138,9 +138,9 @@ t('A3 varias filas permitidas → lecturas individuales, máximo 1 fila de alto'
 console.log('RENDIMIENTO B — ingestión y detalle pendiente usan la ruta acotada.');
 console.log('RENDIMIENTO C — la ruta acotada se usa cuando lisPermitidas ≤ 50.');
 
-t('B1 Ingresos_leerHoja con filasPermitidas=[9876] no escanea la hoja completa', () => {
+t('B1 Ingresos_leerHoja_ con filasPermitidas=[9876] no escanea la hoja completa', () => {
   const { c, log, hr } = harness();
-  const r = c.Ingresos_leerHoja('INGRESO_NARANJO', ['9876']);
+  const r = c.Ingresos_leerHoja_('INGRESO_NARANJO', ['9876']);
   A(contar(log, 'getDataRange') === 0, 'leerHoja acotado sin getDataRange');
   A(maxAltura(log) === 1, 'sin lecturas de bloque');
   A(log.some((x) => x.r === 9876 && x.numR === 1), 'lee la fila objetivo suelta');
@@ -148,10 +148,10 @@ t('B1 Ingresos_leerHoja con filasPermitidas=[9876] no escanea la hoja completa',
   A(String(r.staging[0].FILA_ORIGEN) === '9876', 'FILA_ORIGEN exacta: ' + String(r.staging[0].FILA_ORIGEN));
 });
 
-t('B2 api_ingresoDetalle (pre-ficha) hace UNA lectura acotada, sin barrer INGRESO_NARANJO', () => {
+t('B2 api_ingresoDetalle_ (pre-ficha) hace UNA lectura acotada, sin barrer INGRESO_NARANJO', () => {
   const { c, log, sheet, hr } = harness();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
-  const r = c.api_ingresoDetalle('INGRESO_NARANJO', '9876', 't');
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
+  const r = c.api_ingresoDetalle_('INGRESO_NARANJO', '9876', 't');
   A(r.ok === true && r.fila === 9876, 'detalle entregado para la fila 9876');
   A(r.preFicha && r.preFicha.nombre === 'PERSONA FICTICIA 9876', 'pre-ficha de la fila correcta');
   A(contar(log, 'getDataRange') === 0, 'sin getDataRange');
@@ -162,26 +162,26 @@ t('B2 api_ingresoDetalle (pre-ficha) hace UNA lectura acotada, sin barrer INGRES
 
 t('B3 fila fuera de rango o inválida responde ok:false explícito, sin escanear la hoja', () => {
   const { c, log, sheet } = harness();
-  c.WebApp_autorizarBuscador = () => true; c.Log_error = () => {}; c.Log_flush = () => {};
-  const fuera = c.api_ingresoDetalle('INGRESO_NARANJO', '20000', 't');
+  c.WebApp_autorizarBuscador_ = () => true; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
+  const fuera = c.api_ingresoDetalle_('INGRESO_NARANJO', '20000', 't');
   A(fuera.ok === false && fuera.motivo, 'fila fuera de rango → ok:false con motivo: ' + JSON.stringify(fuera));
   A(maxAltura(log) === 1 && contar(log, 'getDataRange') === 0, 'sin escaneo de bloque para un caso periférico');
   A(sheet.getLastRow() === 10003, 'sin daños a la hoja');
-  const inv = c.api_ingresoDetalle('INGRESO_NARANJO', 'abc', 't');
+  const inv = c.api_ingresoDetalle_('INGRESO_NARANJO', 'abc', 't');
   A(inv.ok === false && inv.motivo === 'FILA_INVALIDA', 'número inválido → FILA_INVALIDA');
 });
 
 t('C1 con 51+ filas permitidas la ruta vuelve al bloque completo (fallback legítimo)', () => {
   const { c, log } = harness();
   let bloqueLlamado = 0;
-  c.Modelo_leerBloqueCabecera = (nombreHoja, hoja) => {
+  c.Modelo_leerBloqueCabecera_ = (nombreHoja, hoja) => {
     bloqueLlamado += 1;
     const hdr = cabecera();
     return [hdr, hdr.map(() => 'X')];
   };
   const muchas = Array.from({ length: 51 }, (_, i) => String(100 + i));
-  const r = c.Ingresos_leerHoja('INGRESO_NARANJO', muchas);
-  A(bloqueLlamado === 1, 'con >50 filas, leerHoja delega en Modelo_leerBloqueCabecera');
+  const r = c.Ingresos_leerHoja_('INGRESO_NARANJO', muchas);
+  A(bloqueLlamado === 1, 'con >50 filas, leerHoja delega en Modelo_leerBloqueCabecera_');
   A(r.staging.length >= 0, 'resultado consistente del fallback');
 });
 
@@ -189,7 +189,7 @@ t('C2 con ≤ 50 filas permitidas nunca se lee un bloque completo', () => {
   const { c, log } = harness();
   const antes = log.filter((x) => x.tipo === 'getDataRange').length;
   const pocas = Array.from({ length: 50 }, (_, i) => String(101 + i));
-  const r = c.Ingresos_leerHoja('INGRESO_NARANJO', pocas);
+  const r = c.Ingresos_leerHoja_('INGRESO_NARANJO', pocas);
   A(contar(log, 'getDataRange') === antes, 'sin getDataRange');
   A(maxAltura(log) === 1, 'ninguna lectura supera 1 fila de alto');
   A(r.staging.length === 50, 'las 50 filas permitidas entran al staging: ' + r.staging.length);
@@ -197,9 +197,9 @@ t('C2 con ≤ 50 filas permitidas nunca se lee un bloque completo', () => {
 });
 
 // ── 3. Regla de activación: el umbral de 50 filas está en el lector ──
-t('D1 Ingresos_detallePendiente reutiliza la ruta acotada (pre-ficha del sidebar)', () => {
+t('D1 Ingresos_detallePendiente_ reutiliza la ruta acotada (pre-ficha del sidebar)', () => {
   const { c, log } = harness();
-  const r = c.Ingresos_detallePendiente('INGRESO_NARANJO', 9876);
+  const r = c.Ingresos_detallePendiente_('INGRESO_NARANJO', 9876);
   A(r.ok === true && r.fila === 9876, 'detalle ok fila 9876');
   A(maxAltura(log) === 1, 'lectura acotada del detalle');
   A(contar(log, 'getDataRange') === 0, 'sin getDataRange en la pre-ficha');

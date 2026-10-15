@@ -5,22 +5,31 @@
 1. Este repositorio trabaja sobre **un único entorno operativo**.
 2. No crear DEV/DEMO/PROD como arquitectura ni separar la aplicación en ambientes paralelos.
 3. La **Web App es el único canal operativo de captura de datos**.
-4. **Google Forms está abandonado** y no debe reintroducirse, activarse ni documentarse como canal operativo.
+4. **Google Forms está autorizado únicamente como transporte durable interno** entre la Web App y el pipeline. La URL del Form no se publica ni se usa como interfaz de captura; la Web App sigue siendo el único canal operativo visible.
 5. Existe **una sola fuente de verdad** para el sistema y un solo pipeline clínico.
 6. No crear una segunda base de datos, un segundo Spreadsheet operativo ni lógica de negocio paralela.
 7. No cambiar backend para resolver un problema que pertenece a UI, publicación o navegación, salvo necesidad técnica demostrada.
 8. Leer `AGENTS.md` y la documentación vigente relevante antes de cambiar arquitectura o contratos.
 9. No reabrir problemas explícitamente cerrados y validados salvo evidencia nueva de regresión.
 10. Ejecutar los tests correspondientes antes de declarar una tarea terminada.
-11. **El acceso concede siempre (DEC-102).** Ninguna vista ni RPC puede quedar
-    bloqueada por credencial: `WebApp_autorizar` autoriza siempre y el token es
-    trazabilidad inyectada por el servidor, no una puerta. No reintroducir
-    validaciones de token (ni de formato) como condición de una acción, ni
-    `ACCESO_DENEGADO` como motivo de fallo: un fallo del motor se reporta como
-    tal. Si alguna vez debe existir una denegación real, se decide y documenta
-    aquí primero.
+11. **La CAPTURA pública concede siempre (DEC-110).** La captura pública concede
+    siempre y jamás depende de login, OPSESS, `Session.getActiveUser()`, OAuth
+    individual ni permiso editor de Sheet. `WebApp_capturarRecibirDurable`,
+    `WebApp_verificarRecepcion`, `WebApp_estadoInicial`, la carga completa de
+    ficha para la acción Actualizar (`WebApp_cargarPacienteEdicionCaptura`) y el
+    estado técnico público (`api_webappEstado`) permanecen anónimos. Por decisión
+    explícita del usuario (DEC-123), Actualizar precarga los 18 campos de la ficha
+    y permite reemplazarlos sin clave; no convertir esa carga en una RPC OPSESS.
+
+    Las vistas/RPC de **OPERADOR y ADMINISTRACIÓN sí requieren sesión OPSESS**.
+    OPSESS no puede bloquear ni ser dependencia de la captura.
+    `ECICEP_ACCESS_TOKEN` es compatibilidad/trazabilidad, no autenticación.
+    Alcance histórico: DEC-101/DEC-102 (acceso universal concedido siempre)
+    describen la etapa previa; DEC-110 los acota: la captura sigue universal,
+    la operación/admin pasa a exigir sesión OPSESS.
 12. Antes de tocar el acceso, ejecutar `node tests/seguridad_webapp_capacidades_vNEXT.mjs`.
-    Esa suite falla si alguien vuelve a condicionar el acceso a un token.
+    Los tests deben garantizar SIMULTÁNEAMENTE: captura pública (sin OPSESS/email/OAuth)
+    y operador/administración protegido (OPSESS obligatorio, superficie pública < 15 globales).
 
 ---
 
@@ -84,9 +93,16 @@ La Web App es la única interfaz operativa destinada a registrar datos de captur
 
 El flujo contractual anterior (nombres de funciones de captura, `FORM_RESPUESTAS`, estados, acciones, validación e idempotencia) fue retirado deliberadamente y **no debe utilizarse como especificación normativa**. La especificación vigente está definida en `docs/CONTRATO_CAPTURA_V2.md` (**NORMATIVO** — única fuente del contrato de captura).
 
-Google Forms **no es parte del flujo actual** y no debe reactivarse: no crear formularios, no completar `FORM_ID`, no instalar triggers `onFormSubmit` y no diseñar lógica de aislamiento para formularios.
+Google Forms forma parte del flujo vigente solo como cola durable interna:
+`CapturaWeb → WebApp_capturarRecibirDurable → FormResponse.submit() → Form_worker_ → Captura V2`.
+El instalador puede adoptar o crear un único Form, registrar sus propiedades y
+mantener un trigger rápido y un worker periódico. No se entrega su URL al usuario,
+no sustituye la Web App y no crea otro pipeline ni otra fuente de verdad.
 
-`FORM_RESPUESTAS` es **implementación existente pendiente de redefinición contractual**: no se asume que su esquema actual sea correcto ni incorrecto.
+`src/30_Ingesta.js` contiene el adaptador activo de `GOOGLE_FORMS` hacia el único
+pipeline `Captura_v2_enviar_`. Cualquier provider no reconocido termina en
+`FALLBACK_PROVIDER_DISABLED` sin escritura. `FORM_RESPUESTAS` sigue siendo la
+cola técnica del mismo pipeline, no una segunda base operativa.
 
 ---
 

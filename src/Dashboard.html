@@ -351,9 +351,15 @@ function errorFatal(msg){
   ['kTotal','kPend','kIng','kRev','kCtrl','kProx'].forEach(function(id){
     var e=document.getElementById(id);if(e)e.textContent='\u2715';});
   var k=document.getElementById('kTotal');
-  if(k&&k.parentElement)k.parentElement.insertAdjacentHTML('afterend',
-    '<div class="card" style="grid-column:1/-1;border-left:4px solid var(--danger)">'+
-    '<b>Error cargando datos:</b> '+msg+'<br><small>Copia este mensaje y avisa para diagnóstico.</small></div>');
+  if(k&&k.parentElement){
+    var card=document.createElement('div');card.className='card';
+    card.style.cssText='grid-column:1/-1;border-left:4px solid var(--danger)';
+    var titulo=document.createElement('b');titulo.textContent='Error cargando datos: ';
+    card.appendChild(titulo);card.appendChild(document.createTextNode(String(msg||'Error')));
+    card.appendChild(document.createElement('br'));
+    var nota=document.createElement('small');nota.textContent='Copia este mensaje y avisa para diagnóstico.';card.appendChild(nota);
+    k.parentElement.insertAdjacentElement('afterend',card);
+  }
 }
 function irRem(){
   var desde=document.getElementById('fDesde').value;
@@ -365,7 +371,7 @@ function irRem(){
     if(sv&&sv.sectores&&sv.sectores.length===1)sector=sv.sectores[0];}catch(e){}
   try{localStorage.setItem('REM_ULTIMA',JSON.stringify({mes:mes,anio:anio,sector:sector}));}catch(e){}
   var remUrl=document.body.getAttribute('data-rem-url');
-  ECICEP_navegar(remUrl,'el visor REM',function(){google.script.run.UI_verRem();});
+  ECICEP_navegar(remUrl,'el visor REM',function(){ECICEP_run().UI_verRem();});
 }
 function cargarDatos(btn){
   if(btn&&btn.disabled)return;
@@ -379,7 +385,7 @@ function cargarDatos(btn){
       if(bz){bz.disabled=false;bz.classList.remove('refresh-spin');}
       barraFin(false,'No fue posible cargar los datos.');return;
     }
-    google.script.run.withSuccessHandler(function(r){
+    ECICEP_run().withSuccessHandler(function(r){
     ['kTotal','kPend','kIng','kRev'].forEach(function(id){
       document.getElementById(id).textContent='…';});
     if(!r||!r.ok){toast(r?r.motivo:'Sin respuesta','err');

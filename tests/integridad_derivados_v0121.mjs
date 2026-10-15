@@ -11,7 +11,7 @@ function contexto() {
 }
 let n = 0;
 function test(nombre, fn) { fn(); n++; console.log('[PASS] ' + nombre); }
-function idxCampo(c, campo) { return c.Modelo_campos().indexOf(campo); }
+function idxCampo(c, campo) { return c.Modelo_campos_().indexOf(campo); }
 
 test('T1 backfill recalcula solo caches desincronizados (EVENTOS como fuente)', () => {
   const c = contexto(); let escrituras = 0;
@@ -19,17 +19,17 @@ test('T1 backfill recalcula solo caches desincronizados (EVENTOS como fuente)', 
     { ID_INTERNO: 'EC-1', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null },
     { ID_INTERNO: 'EC-2', ULTIMO_CONTROL: '2026-01-01', ULTIMO_SEGUIMIENTO: '2026-01-01', FECHA_ACTUALIZACION: null }
   ];
-  c.Modelo_leerPacientes = () => pacientes;
-  c.Modelo_leerEventosCampos = () => [
+  c.Modelo_leerPacientes_ = () => pacientes;
+  c.Modelo_leerEventosCampos_ = () => [
     { ID_INTERNO: 'EC-1', TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-09-01' },
     { ID_INTERNO: 'EC-2', TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-01-01' },
     { ID_INTERNO: 'EC-2', TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-01-01' },
     { ID_INTERNO: 'EC-9', TIPO_EVENTO: 'OTRO', FECHA_EVENTO: '2030-01-01' }
   ];
   c.Modelo_hayCorreccionesFecha_ = () => false;
-  c.Modelo_dataStartRow = () => 2;
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: () => { escrituras++; } }) });
-  c.Modelo_invalidarLecturas = () => {};
+  c.Modelo_dataStartRow_ = () => 2;
+  c.Modelo_hoja_ = () => ({ getRange: () => ({ setValues: () => { escrituras++; } }) });
+  c.Modelo_invalidarLecturas_ = () => {};
   const r = c.Control_recalcularCaches_();
   assert.equal(r.ok, true); assert.equal(r.total, 2); assert.equal(r.cambios, 1);
   assert.equal(r.modo, 'CACHE_CALCULADA');
@@ -40,14 +40,14 @@ test('T1 backfill recalcula solo caches desincronizados (EVENTOS como fuente)', 
 
 test('T2 backfill es idempotente: segunda pasada sin cambios ni escritura', () => {
   const c = contexto(); let llamado = false;
-  c.Modelo_leerPacientes = () => [
+  c.Modelo_leerPacientes_ = () => [
     { ID_INTERNO: 'EC-1', ULTIMO_CONTROL: '2026-09-01', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null }
   ];
-  c.Modelo_leerEventosCampos = () => [{ ID_INTERNO: 'EC-1', TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-09-01' }];
+  c.Modelo_leerEventosCampos_ = () => [{ ID_INTERNO: 'EC-1', TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-09-01' }];
   c.Modelo_hayCorreccionesFecha_ = () => false;
-  c.Modelo_dataStartRow = () => 2;
-  c.Modelo_hoja = () => ({ getRange: () => ({ setValues: v => { llamado = true; } }) });
-  c.Modelo_invalidarLecturas = () => {};
+  c.Modelo_dataStartRow_ = () => 2;
+  c.Modelo_hoja_ = () => ({ getRange: () => ({ setValues: v => { llamado = true; } }) });
+  c.Modelo_invalidarLecturas_ = () => {};
   const r = c.Control_recalcularCaches_();
   assert.equal(r.cambios, 0); assert.equal(llamado, false);
 });
@@ -77,11 +77,11 @@ test('T4 pacientes sin sector se clasifican como solo-reporte, no como pendiente
   const c = contexto();
   c.SpreadsheetApp = {};
   const vistaIds = { SECTOR_VERDE: [['EC-A']] };
-  c.Modelo_ss = () => ({
+  c.Modelo_ss_ = () => ({
     getSheetByName: nombre => vistaIds[nombre]
       ? { getLastRow: () => 3, getRange: (_r, _c, _n) => ({ getValues: () => vistaIds[nombre] }) } : null
   });
-  c.Modelo_dataStartRow = () => 2;
+  c.Modelo_dataStartRow_ = () => 2;
   const pacientes = [
     { ID_INTERNO: 'EC-A', SECTOR: 'VERDE', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', CONDICIONES: '', ESTRATIFICACION: 'G2' },
     { ID_INTERNO: 'EC-S', SECTOR: '', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', CONDICIONES: '', ESTRATIFICACION: 'G2' },
@@ -89,12 +89,12 @@ test('T4 pacientes sin sector se clasifican como solo-reporte, no como pendiente
   ];
   const vistas = c.Integridad_diagnosticarVistas_(pacientes);
   assert.equal(vistas.pendientes, 0); assert.equal(vistas.sinSector, 2);
-  c.Modelo_leerPacientesCampos = () => pacientes;
-  c.Modelo_leerEventosCampos = () => [];
+  c.Modelo_leerPacientesCampos_ = () => pacientes;
+  c.Modelo_leerEventosCampos_ = () => [];
   c.Ingresos_diagnosticarIngresados_ = () => ({ ok: true, error: false,
     conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 0 }, casos: [] });
   c.Captura_diagnosticarCaptureIdsDuplicados_ = () => ({ duplicados: 0 });
-  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G2' });
+  c.Estrat_evaluar_ = () => ({ estado: 'CALCULADO', resultado: 'G2' });
   const r = c.Integridad_diagnosticarDerivados_();
   assert.equal(r.vistasPendientes, 0); assert.equal(r.pacientesSinSector, 2);
   assert.equal(r.derivadosOk, true); assert.equal(r.evidenciaSoloReporte, true); assert.equal(r.ok, false);
@@ -102,13 +102,13 @@ test('T4 pacientes sin sector se clasifican como solo-reporte, no como pendiente
 
 test('T5 DERIVADOS_DESACTUALIZADO renovable (sector con vista) sigue bloqueando', () => {
   const c = contexto();
-  c.Modelo_leerPacientesCampos = () => [];
-  c.Modelo_leerEventosCampos = () => [];
+  c.Modelo_leerPacientesCampos_ = () => [];
+  c.Modelo_leerEventosCampos_ = () => [];
   c.Ingresos_diagnosticarIngresados_ = () => ({ ok: true, error: false,
     conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 1 },
     casos: [{ hoja: 'INGRESO_AMARILLO', fila: 4, clasificacion: 'DERIVADO_DESACTUALIZADO', sector: 'AMARILLO' }] });
   c.Captura_diagnosticarCaptureIdsDuplicados_ = () => ({ duplicados: 0 });
-  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G2' });
+  c.Estrat_evaluar_ = () => ({ estado: 'CALCULADO', resultado: 'G2' });
   const r = c.Integridad_diagnosticarDerivados_();
   assert.equal(r.vistasPendientes, 1); assert.equal(r.pacientesSinSector, 0);
   assert.equal(r.derivadosOk, false);
@@ -160,15 +160,15 @@ test('T7 DERIVADOS_PENDIENTES real tras reparar sigue siendo error explícito', 
 test('T8 derivado INGRESADO sin sector vigente es solo reporte', () => {
   const c = contexto();
   c.SpreadsheetApp = {};
-  c.Modelo_ss = () => ({ getSheetByName: () => null });
-  c.Modelo_leerPacientesCampos = () => [];
-  c.Modelo_leerEventosCampos = () => [];
+  c.Modelo_ss_ = () => ({ getSheetByName: () => null });
+  c.Modelo_leerPacientesCampos_ = () => [];
+  c.Modelo_leerEventosCampos_ = () => [];
   c.Ingresos_diagnosticarIngresados_ = () => ({ ok: true, error: false,
     conteos: { INGRESADO_FALSO: 0, INCONSISTENTE: 0, DERIVADO_DESACTUALIZADO: 1 },
     casos: [{ hoja: 'INGRESO_VERDE', fila: 4, clasificacion: 'DERIVADO_DESACTUALIZADO',
       sector: 'MULTIPLE', sectorIngreso: 'VERDE' }] });
   c.Captura_diagnosticarCaptureIdsDuplicados_ = () => ({ duplicados: 0 });
-  c.Estrat_evaluar = () => ({ estado: 'CALCULADO', resultado: 'G2' });
+  c.Estrat_evaluar_ = () => ({ estado: 'CALCULADO', resultado: 'G2' });
   const r = c.Integridad_diagnosticarDerivados_();
   assert.equal(r.vistasPendientes, 0);
   assert.equal(r.pacientesSinSector, 1);

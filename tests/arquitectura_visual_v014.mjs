@@ -27,10 +27,10 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
 
 // T2: Actualizar NO implementa pipeline visual propio.
 {
-  const s = c.Act_actualizarSistema.toString();
-  for (const fn of ['HVis_aplicarTodasLasSecciones', 'HVis_formatearIngresos',
-    'Hojas_formatoCondicional', 'Modelo_validarIngresos', 'Modelo_aplicarDiseno',
-    'Modelo_disenoHojas', 'Hojas_colorearRutIngresos', 'Inicio_refrescarSiNecesario_'])
+  const s = c.Act_actualizarSistema_.toString();
+  for (const fn of ['HVis_aplicarTodasLasSecciones_', 'HVis_formatearIngresos_',
+    'Hojas_formatoCondicional_', 'Modelo_validarIngresos_', 'Modelo_aplicarDiseno_',
+    'Modelo_disenoHojas_', 'Hojas_colorearRutIngresos_', 'Inicio_refrescarSiNecesario_'])
     assert.ok(!s.includes(fn), 'Actualizar no llama ' + fn);
   assert.ok(s.includes('Libro_mantenimiento_'), 'Actualizar invoca el motor único');
   assert.ok(s.includes('Libro_marcarDirty_'), 'Actualizar marca dirty flags');
@@ -38,19 +38,19 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
   ok('T2 Actualizar reutiliza el motor único con dirty flags y advertencias');
 }
 
-// T3: Modelo_aplicarDiseno reducido (sin segundo motor visual).
+// T3: Modelo_aplicarDiseno_ reducido (sin segundo motor visual).
 {
-  const s = src('06_Modelo.js').match(/function Modelo_aplicarDiseno\(\)[\s\S]*?\n\}/)[0];
-  assert.ok(s.includes('Modelo_esHojaVisual'), 'distingue hojas visuales');
-  assert.ok(!/if \(d\.banda\) \{\s*\n\s*_modelo_aplicarBanda\(h\);/.test(s),
+  const s = src('06_Modelo.js').match(/function Modelo_aplicarDiseno_\(\)[\s\S]*?\n\}/)[0];
+  assert.ok(s.includes('Modelo_esHojaVisual_'), 'distingue hojas visuales');
+  assert.ok(!/if \(d\.banda\) \{\s*\n\s*_modelo_aplicarBanda_\(h\);/.test(s),
     'banding no incondicional');
-  ok('T3 Modelo_aplicarDiseno sin banding/header/freeze en hojas visuales');
+  ok('T3 Modelo_aplicarDiseno_ sin banding/header/freeze en hojas visuales');
 }
 
 // T4: subtarea por hoja absorbe la estructura superior.
 {
   const s = src('35_Presentacion.js');
-  assert.ok(s.includes('HVis_reconciliarHoja'), 'formato:* reconcilia secciones');
+  assert.ok(s.includes('HVis_reconciliarHoja_'), 'formato:* reconcilia secciones');
   assert.ok(s.includes('Presentacion_formatearHoja_'), 'reparación por hoja existe');
   ok('T4 subtarea por hoja con estructura superior absorbida');
 }
@@ -62,7 +62,7 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
   ok('T5 PRESENTACION_MODO con AUTO/REPARAR/FORZAR_INICIO/PROFUNDO');
 }
 
-// T6: api_instalarPaso backward-compatible con las opciones v0.14.
+// T6: api_instalarPaso_ backward-compatible con las opciones v0.14.
 {
   const props = new Map([['OPERADOR_ACCESS_TOKEN','d'.repeat(64)]]);
   c.PropertiesService = { getScriptProperties: () => ({
@@ -71,21 +71,21 @@ const ok = m => { n++; console.log('[PASS] ' + m); };
   c.Session = { getActiveUser: () => ({ getEmail: () => '' }) };
   c.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
   c.Instalar_asegurarBackup_ = () => ({ ok: true, creado: false });
-  c.Log_info = () => {}; c.Log_error = () => {}; c.Log_flush = () => {};
+  c.Log_info_ = () => {}; c.Log_error_ = () => {}; c.Log_flush_ = () => {};
   let invalidados = 0;
   c.Presentacion_invalidarLayout_ = () => { invalidados++; };
   c.Presentacion_ejecutarPaso_ = () => ({ ok: true, continuar: false });
   const clave = c.WebApp_claveOperador_();
-  assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-A').ok, true, 'sin opciones (AUTO)');
-  assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-B', { modoPresentacion: 'REPARAR' }).ok, true);
+  assert.equal(c.api_instalarPaso_('diseno', clave, 'EJ-A').ok, true, 'sin opciones (AUTO)');
+  assert.equal(c.api_instalarPaso_('diseno', clave, 'EJ-B', { modoPresentacion: 'REPARAR' }).ok, true);
   assert.equal(invalidados, 0, 'REPARAR no invalida');
-  assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-C', { forzarInicio: true }).ok, true);
+  assert.equal(c.api_instalarPaso_('diseno', clave, 'EJ-C', { forzarInicio: true }).ok, true);
   assert.equal(invalidados, 1, 'forzarInicio invalida el layout');
-  assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-D', { modoPresentacion: 'PROFUNDO' }).ok, true);
+  assert.equal(c.api_instalarPaso_('diseno', clave, 'EJ-D', { modoPresentacion: 'PROFUNDO' }).ok, true);
   assert.equal(invalidados, 2, 'PROFUNDO invalida el layout');
-  assert.equal(c.api_instalarPaso('diseno', clave, 'EJ-E', { forzarPresentacion: true }).ok, true,
+  assert.equal(c.api_instalarPaso_('diseno', clave, 'EJ-E', { forzarPresentacion: true }).ok, true,
     'opción legacy sigue vigente');
-  ok('T6 api_instalarPaso acepta modoPresentacion/forzarInicio (backward-compatible)');
+  ok('T6 api_instalarPaso_ acepta modoPresentacion/forzarInicio (backward-compatible)');
 }
 
 // T7: instalador HTML con jerarquía, grupos y opciones avanzadas.

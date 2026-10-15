@@ -1,5 +1,88 @@
 # ARQUITECTURA — Sistema ECICEP
 
+> **Actualización 2026-10-13 (v257 — DEC-112, integridad clínica):**
+> - identidad `captureId`, RUT, `ID_INTERNO` e `ID_EVENTO` son barreras
+>   fail-closed: una lectura fallida nunca equivale a identidad libre;
+> - toda confirmación y compensación apunta a una fila/ID exacto y se relee;
+> - `INGRESO_*` solo se limpia tras canon, evento, estado, vista e identidad
+>   confirmados; `CONFLICTOS` es la cola durable de reconciliación existente;
+> - `Ficha.meta.integridad` separa ausencia de indisponibilidad;
+> - REM Bloque B se deriva de PACIENTES con actividad en EVENTOS; Bloque C no
+>   inventa los campos cuya fuente externa sigue sin definirse.
+
+> **Actualización 2026-10-13 (v256 — DEC-111, consistencia runtime):**
+> - Los fallos de infraestructura del canal Forms devuelven `INCIERTO`, nunca
+>   `NO_ENCONTRADO`; `NO_ENCONTRADO` exige evidencia válida de ausencia.
+> - La captura con `clientRequestId` no envía sin reserva resuelta; el worker usa
+>   un lease corto en vez de retener el `ScriptLock` durante el pipeline.
+> - El trailer de `FORM_RESPUESTAS` es autoritativo: eliminadas las claves
+>   `GOOGLE_FORM_ERRORS|<captureId>`; dry-run de reparación estrictamente
+>   read-only; respaldos del instalador con GC acotado.
+> - "Actualizar sistema" marca `INICIO` dirty solo con contadores reales de
+>   cambio. No cambia la arquitectura única, el pipeline ni los contratos públicos.
+
+> **Actualización 2026-10-12 (v255 — DEC-110, frontera RPC de captura/operador):**
+> - La **CAPTURA pública concede siempre** y es anónima:
+>   `WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`,
+>   `WebApp_verificarRecepcion` y `api_webappEstado`. No depende de login, OPSESS,
+>   `Session.getActiveUser()`, OAuth ni permiso editor de Sheet.
+> - **OPERADOR y ADMINISTRACIÓN exigen sesión OPSESS.** Toda RPC operativa es
+>   interna (sufijo `_`, fuera de `google.script.run`) y sólo se alcanza por el
+>   gateway `WebApp_operadorRpc` con el mapa explícito `WEBAPP_OPERATOR_RPC_`
+>   (`src/37_OperadorAuth.js`), previa autenticación `WebApp_operadorIniciar`.
+>   El cliente operativo llama por `ECICEP_run`/`ECICEP_lectura`
+>   (`src/00_OperadorRuntime.html`), nunca por `google.script.run` directo.
+> - La superficie pública total baja de ~709 a **12** funciones (5 runtime, 4 de
+>   captura, 3 de auth). Contrato ejecutable en `tests/rpc_public_allowlist.json`.
+> - DEC-101/DEC-102 (acceso universal concedido siempre) quedan **acotadas**: la
+>   captura sigue universal; la operación/admin pasa a exigir sesión OPSESS.
+> - No cambia el sistema único, el Spreadsheet, la Web App como único canal, el
+>   pipeline clínico, ni el QR/manifest/deployment.
+
+> **Actualización 2026-10-14 (v270 — DEC-115, captura pública sin token legacy):**
+> - La CAPTURA pública deja de inyectar y consumir la credencial legacy. Se
+>   elimina `data-acceso`/`window.ECICEP_ACCESO`/`CAPTURA_ACCESO`/`TOKEN_ACCESO`/
+>   `TOKEN_INVITACION` del HTML servido (`CapturaWeb.html`) y de las 4 llamadas
+>   de captura (`estadoInicial`, `verificarRecepcion`, `capturarRecibirDurable`,
+>   `api_webappEstado`).
+> - `WebApp_servirCaptura_()` ya no recibe la credencial y no la resuelve
+>   (`doGet` solo la resuelve para las vistas de operador); las RPC de captura
+>   ya no reciben ni exigen el parámetro `acceso`.
+> - La credencial `ECICEP_ACCESS_TOKEN` se conserva **solo** como trazabilidad de
+>   las vistas de OPERADOR/ADMINISTRACIÓN y nunca viaja en la URL. La ausencia de
+>   token en la captura está anclada por `tests/public_capture_zero_legacy_token_v0170.mjs`.
+> - No cambia el QR/manifest/deployment, el pipeline clínico ni el contrato de
+>   captura (`docs/CONTRATO_CAPTURA_V2.md` §24).
+
+> **Actualización 2026-10-14 (DEC-123, actualización completa pública):**
+> - El QR público ofrece las cuatro acciones de captura sin login ni OPSESS.
+>   `ACTUALIZAR_DATOS` carga por RUT los 18 campos vigentes de PACIENTES y los
+>   últimos CONTROL/SEGUIMIENTO, y permite reemplazarlos sin clave ni sesión.
+> - La carga es una capacidad explícita de captura pública, separada de las RPC
+>   administrativas. La captura no recibe `PORTAL_URL` ni muestra el botón
+>   `Funciones`; administración se abre desde el Spreadsheet autorizado y recibe
+>   la sesión OPSESS automática de DEC-119.
+> - Google Forms continúa siendo transporte durable interno. El campo técnico
+>   `ACTUALIZACION_JSON` preserva los 18 campos y atenciones hasta el único
+>   pipeline; no se agrega otra interfaz, base, Spreadsheet ni pipeline.
+
+> **Actualización 2026-10-14 (v270 — DEC-116, la captura directa al Form no es canal clínico):**
+> - La captura directa al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin
+>   `CLIENT_REQUEST_ID` válido) deja de procesarse hasta `TERMINAL` con mutación
+>   clínica. La Web App es el único canal operativo de captura y Google Forms
+>   solo un transporte durable interno (reglas 3/4 de `AGENTS.md`).
+> - `Form_procesarRespuestaConTransporte_` marca `ctxEnvio.soloRecepcion` y
+>   devuelve `REVIEW`; `Captura_v2_enviar_` persiste el registro durable, escribe
+>   el trailer `REQUIERE_REVISION`/`GOOGLE_FORM_DIRECT_REQUIERE_REVISION` y
+>   retorna **antes** de la entrega TR-2: no escribe PACIENTES/EVENTOS, agenda ni
+>   contacto.
+> - La fila queda inelegible para el worker (`REQUIERE_REVISION` + `REVIEW`), sin
+>   reintentos en bucle. El flujo automático normal (`SOURCE=WEBAPP` +
+>   `CLIENT_REQUEST_ID` válido) no se altera.
+> - No cambia la captura pública anónima (DEC-110/DEC-115), el pipeline clínico,
+>   el schema ni el QR/deployment. Anclado por
+>   `tests/google_form_direct_review_v0170.mjs`.
+
 > **Actualización 2026-09-27 (v0.16.0, integridad acotada):** Integridad ya no
 > contiene diagnóstico/postcheck monolíticos: cada uno se divide en eventos y
 > cachés, ingresos, vistas y estratificación, con cursor durable técnico versión

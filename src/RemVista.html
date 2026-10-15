@@ -176,7 +176,7 @@ function irEstadisticas() {
     }));
   } catch (e) {}
   var url=document.body.getAttribute('data-dash-url');
-  ECICEP_navegar(url,'las estadísticas',function(){google.script.run.UI_abrirDashboard();});
+  ECICEP_navegar(url,'las estadísticas',function(){ECICEP_run().UI_abrirDashboard();});
 }
 function irGenerar() {
   try {
@@ -188,7 +188,7 @@ function irGenerar() {
     }));
   } catch (e) {}
   var url=document.body.getAttribute('data-generar-url');
-  ECICEP_navegar(url,'el generador de REM',function(){google.script.run.UI_generarRem();});
+  ECICEP_navegar(url,'el generador de REM',function(){ECICEP_run().UI_generarRem();});
 }
 function consultar(btn) {
   var anio = +document.getElementById('selAnio').value;

@@ -1,0 +1,230 @@
+# Runbook Captura — ECICEP
+
+> **Actualización 2026-10-13 (v259, DEC-114):** el backlog del canal actual solo
+> cuenta filas `GOOGLE_FORMS`. Las filas `WEBAPP_LEGACY` se informan aparte y
+> jamás son reintentadas por el worker. Toda reparación mutante se realiza fuera
+> de horario mediante los wrappers seguros del menú y una ventana técnica corta.
+
+> **Actualización 2026-10-13 (v258, DEC-113):** el lease excluye workers entre
+> sí y `Ecicep_conLock_` protege únicamente la mutación clínica de cada
+> candidato. El lock es fail-closed. Toda clasificación (`PROCESSED`, `REVIEW`,
+> `TERMINAL`, `RETRYABLE`) requiere trailer durable antes de mover el cursor.
+
+> **Actualización 2026-10-13 (v256, DEC-111):** ante fallo técnico de
+> verificación de recepción, el estado es `INCIERTO` (nunca `NO_ENCONTRADO`);
+> `NO_ENCONTRADO` solo con evidencia válida de ausencia. Ante `INCIERTO` el
+> usuario reintenta, no asume pérdida. La captura con `clientRequestId` no envía
+> sin reserva resuelta.
+
+Guía operativa del canal de captura (`CapturaWeb → WebApp_capturarRecibirDurable
+→ FormResponse.submit() → Form_worker_ → Captura V2`). **Normativo de operación**,
+no de contrato; el contrato es `docs/CONTRATO_CAPTURA_V2.md`.
+
+Regla base: la Web App es el único canal de captura; Google Forms es la cola
+durable interna. Nunca se entrega la URL del Form al usuario.
+
+Estados de una captura (no confundir `clientRequestId` con `responseId` ni con
+`captureId`; ver `docs/OPERACION_TRANSPORTE_DURABLE.md`):
+
+```text
+RECIBIDO   → el Form aceptó la respuesta (responseId existe). Aún no procesado.
+EN_PROCESO → el worker tomó la respuesta y la está resolviendo.
+PROCESADO  → entregada al pipeline clínico y clasificada.
+INCIERTO   → no se pudo confirmar si el Form aceptó la respuesta.
+NO_ENCONTRADO → no hay respuesta para ese clientRequestId.
+```
+
+---
+
+## 1. ACK incierto (el usuario no sabe si se recibió)
+
+Síntoma: en la UI aparece "Recepción incierta — verifica antes de reintentar" o
+la respuesta tardó más de 60 s.
+
+1. El usuario pulsa **Verificar recepción** (`WebApp_verificarRecepcion`).
+2. La respuesta es una de: `RECIBIDO`, `EN_PROCESO`, `NO_ENCONTRADO`.
+3. `RECIBIDO`/`EN_PROCESO` → **no reintentar**; ya está en la cola.
+4. `NO_ENCONTRADO` → esperar unos segundos (tránsito) y reintentar una vez; si
+   persiste, usar el mismo formulario (el `clientRequestId` se conserva en
+   `sessionStorage` mientras la pestaña siga abierta).
+
+El índice rápido vive en `CacheService`:
+`FORM_REQ:<clientRequestId>` con estados `RESERVED:<ts>` (TTL 120 s) y
+`RECEIVED:<responseId>` (TTL 6 h). Si la caché expira, `Form_worker_` y
+`WebApp_verificarRecepcion` escanean solo respuestas recientes (≤ 6 h) y
+repueblan la caché.
+
+La UI mantiene una única máquina `IDLE → SENDING → UNCERTAIN/RECEIVED`
+(`ENVIO`); no reintroducir el segundo sistema de timeout.
+
+---
+
+## 2. Worker detenido o atrasado
+
+Síntoma: `Form_saludOperativa_()` reporta `WORKER_TRIGGER_AUSENTE` o
+`BACKLOG_PENDIENTE`; `triggerWorker === 0`.
+
+1. Diagnóstico sin efectos: `Form_operativoDiagnosticar_()` / `Form_operativoEstado_()`.
+2. Durante jornada, usar solo el diagnóstico y dry-run desde el menú del
+   Spreadsheet. La aplicación real pertenece a la ventana fuera de horario:
+   ```js
+   Form_operativoReparar_({ repairTriggers: true, dryRun: true })  // simular
+   Form_operativoReparar_({ repairTriggers: true, dryRun: false }) // solo en ventana
+   ```
+   Si no existe trigger de `Form_worker_`, crea uno `everyMinutes(5)`.
+3. Ejecución manual de un lote: `api_formWorkerEjecutarAhora()` (delega en
+   `Form_worker_`, sin bypass de dedupe).
+4. El worker cuenta elegibles reales, no respuestas crudas; `MAX_POR_CORRIDA`
+   limita elegibles por corrida (no respuestas ya procesadas).
+
+---
+
+## 3. Backlog creciente
+
+Síntoma: `Form_backlogResumen_()` crece; alerta `OLDEST_PENDING_EXCEDIDO`
+(`SALUD.OLDEST_PENDING_MAX_MIN = 180`).
+
+1. Leer `Form_saludOperativa_()`: alertas `BACKLOG_PENDIENTE`,
+   `OLDEST_PENDING_EXCEDIDO`, `WORKER_TRIGGER_AUSENTE`.
+2. Confirmar worker activo (sección 2) y revisar `RECHAZADO_EN_ADAPTADOR` con
+   `api_formWorkerEjecutarAhora()` repetido hasta drenar.
+3. Circuit breaker: tras `PENALIZAR_TRIGGER_FALLIDOS = 3` fallos de trigger
+   consecutivos, el circuit abre (`CIRCUIT`) y el worker deja de reintentar
+   agresivamente; revisar la causa antes de forzar.
+
+---
+
+## 4. Google Form caído / no accesible
+
+Síntoma: `Form_operativoEstado_()` con `error` en `info`, o
+`FORM_NO_ACCESIBLE` en reconciliación.
+
+1. `Form_operativoReparar_({ dryRun: true })` para ver acciones propuestas.
+2. La cola es durable: las capturas web ya aceptadas quedan en
+   `FORM_RESPUESTAS`; el worker las drena cuando el Form vuelve.
+3. Si el Form no se puede abrir, **no** crear un reemplazo silencioso. Fuera de
+   horario se adopta el `GOOGLE_FORM_ID` configurado mediante
+   `UI_formCanalInstalarSeguro_`, siempre con `crearNuevo:false`.
+4. No se pierde ni se borra ninguna respuesta durante la contingencia.
+
+---
+
+## 5. Spreadsheet caído / no accesible
+
+1. El `FormResponse.submit()` puede completar aunque Sheets falle; la respuesta
+   queda en el Form.
+2. Cuando Sheets vuelva, `Form_reconciliarTransporte_({ dryRun: true })`
+   (siempre read-only) lista `nuevos`, `yaEnCola`, `fallidos`.
+3. `Form_worker_()` reencola lo `SIN_PROCESAR`. La reconciliación nunca repara
+   por sí sola: la reparación es `Form_operativoReparar_()`.
+
+---
+
+## 6. Schema drift (Form vs. esquema canónico)
+
+Síntoma: `INSTALL_SCHEMA_DRIFT` / receptor detecta columnas o items faltantes.
+`GOOGLE_FORM_SCHEMA_VERSION` menor que el esperado.
+
+1. `Form_operativoDiagnosticar_()` → detalle de drift.
+2. Dry-run: `Form_operativoReparar_({ repairPropiedades: true, dryRun: true })`.
+3. Aplicar: `Form_operativoReparar_({ repairPropiedades: true, dryRun: false })`
+   reconstruye `GOOGLE_FORM_CANONICAL_ITEM_MAP` y asegura columnas de transporte.
+4. El receivador de schema drift del worker procesa estas respuestas sin pérdida.
+
+---
+
+## 7. Permisos del deployer / publicación
+
+1. La captura pública concede siempre acceso (DEC-110); operador y administración
+   requieren OPSESS. Un fallo de OPSESS nunca bloquea la captura.
+2. Tras cualquier cambio de código: `clasp push --force` y republicar la versión
+   sobre el **deployment operativo existente** (`clasp deploy --deploymentId <ID>`).
+   No crear deployments por rutina.
+3. Antes de tocar el acceso: `node tests/seguridad_webapp_capacidades_vNEXT.mjs`.
+
+---
+
+## 8. Reparación segura (`Form_operativoReparar_`)
+
+Contrato de reparación (M04):
+
+- `dryRun` por defecto `true` (nunca aplica sin pedirlo explícitamente).
+- Acciones conmutables: `repairColumnas`, `repairTriggers`,
+  `repairCatalogos`, `repairPropiedades`.
+- Salida: `{ ok, dryRun, formId, acciones:[{accion, estado, detalle}] }`.
+- **Nunca** borra respuestas ni toca pacientes/eventos/historial clínico.
+- La reconciliación (`Form_reconciliarTransporte_`) es **siempre read-only**;
+  toda escritura pasa por esta función separada.
+
+---
+
+## 9. Rollback
+
+1. Web App: reapuntar el mismo deployment a la versión previa anotada en
+   `PREACTIVACION_V258_SNAPSHOT.json`.
+2. HEAD ligado: publicar mediante un worktree temporal limpio el
+   `PRE_PUSH_GIT_SHA` del snapshot; no mover ni destruir la rama vigente.
+3. Contrato de datos: no hay migración destructiva; `FORM_RESPUESTAS` conserva
+   las respuestas y columnas de transporte (`TRANSPORTE_ERROR`,
+   `CLASIFICACION`). Un rollback no borra filas.
+4. Trigger: restaurar el inventario exacto del snapshot; si el rollback cambia
+   el handler del worker, reparar con
+   `Form_operativoReparar_({ repairTriggers: true, dryRun: false })`.
+5. Verificar post-rollback: `Form_saludOperativa_()`, `WebApp_verificarRecepcion`
+   y un envío de prueba de extremo a extremo.
+
+---
+
+## 10. Verificación post-incidente
+
+1. `Form_saludOperativa_()` sin alertas (`WORKER_TRIGGER_AUSENTE`,
+   `BACKLOG_PENDIENTE`, `OLDEST_PENDING_EXCEDIDO`).
+2. `Form_operativoEstado_()`: `triggerOnFormSubmit === 1`, `triggerWorker >= 1`,
+   `schemaVersion` esperada.
+3. Un envío de prueba: `NO_ENCONTRADO → RECIBIDO → PROCESADO` con el mismo
+   `clientRequestId`.
+
+---
+
+## 11. Cola histórica anterior a Google Forms
+
+Una fila es legacy solo cuando su `RESPONSE_ID` cumple
+`^Cp[234]-[0-9a-f]{32}$` y carece de `CAPTURE_PROVIDER`,
+`TRANSPORT_RESPONSE_ID` y `CLIENT_REQUEST_ID`. Tras la migración queda como
+`CAPTURE_PROVIDER=WEBAPP_LEGACY` y `SOURCE=LEGACY_PRE_FORMS`.
+
+- `Form_migrarTrailerLegacy_()` es dry-run por defecto, solo devuelve agregados
+  y no crea columnas.
+- El apply exige ventana técnica abierta y las seis columnas modernas ya
+  instaladas en un bloque contiguo seguro. Escribe ese bloque una vez por fila
+  y verifica todos sus valores, sin reescribir columnas clínicas/históricas.
+- Una fila `WEBAPP_LEGACY` con SOURCE, clasificación o error faltante/diferente
+  es `LEGACY_PARTIAL`: una corrida posterior la detecta y completa. El progreso
+  seguro de filas anteriores se conserva tras una interrupción y la siguiente
+  corrida converge; una tercera debe devolver `cambios=0`.
+- `RECIBIDO` y `ERROR` históricos quedan en `REVIEW`, nunca `RETRYABLE`.
+- `Form_legacyReconciliarDryRun_()` clasifica evidencia de forma agregada y no
+  muestra PII ni aplica reparaciones.
+- `Form_worker_()` obtiene candidatos exclusivamente del Google Form configurado;
+  nunca reconstruye ni reenvía masivamente filas históricas.
+
+La observabilidad separa `formsResponses/processed/retryable/review/pending/
+oldestPendingMin` del canal actual y `legacyTotal/legacyTerminal/legacyReview/
+legacyUnresolved` del historial. `LEGACY_RECONCILIATION_PENDING` es una
+advertencia histórica, no `BACKLOG_PENDIENTE` del worker moderno.
+
+## 12. Administración segura
+
+El menú ofrece wrappers privados: estado, diagnóstico, legacy dry-run,
+instalación segura y sincronización segura. Estado y diagnóstico son solo
+lectura y sanitizados. Los mutadores exigen confirmación humana,
+`ECICEP_ACTIVATION_WINDOW=OPEN:<expiración>` vigente (TTL máximo dos horas) y
+un `GOOGLE_FORM_ID` accesible. La property no se configura durante jornada.
+El instalador solo anuncia éxito si deja exactamente un trigger submit, un
+worker y el diagnóstico posterior completo en verde; si no, devuelve
+`INSTALL_SUBMIT_TRIGGER_FAILED`, `INSTALL_WORKER_FAILED` o
+`POST_INSTALL_DIAGNOSTIC_FAILED`.
+
+`clasp run` es **NO_REQUERIDO / NO_CONFIGURADO**. No crear API Executable,
+deployment adicional, scopes ni cambios GCP para diagnóstico. Usar el menú del
+Spreadsheet y Apps Script → Project Settings → Script Properties.

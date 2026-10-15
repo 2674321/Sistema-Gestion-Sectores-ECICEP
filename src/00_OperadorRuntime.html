@@ -112,15 +112,193 @@
     var intentos = 0;
     function intentar() {
       intentos++;
-      var g = google.script.run
-        .withSuccessHandler(function (r) { if (ok) ok(r); })
-        .withFailureHandler(function (e) {
-          if (intentos < 2 && ECICEP_esLecturaAuto(nombre)) intentar();
-          else if (fail) fail(e);
-        });
-      g[nombre].apply(g, args || []);
+      ECICEP_rpcOperador(nombre, args || [], function (r) {
+        if (ok) ok(r);
+      }, function (e) {
+        if (intentos < 2 && ECICEP_esLecturaAuto(nombre)) intentar();
+        else if (fail) fail(e);
+      });
     }
     intentar();
+  }
+
+  // -----------------------------------------------------------------------
+  // SESIÓN DE OPERADOR (OPSESS) Y GATEWAY RPC (v255, DEC-110)
+  //   La CAPTURA no depende de esto: la captura usa RPC públicas directas.
+  //   Toda RPC de operador pasa por `WebApp_operadorRpc` con token de sesión.
+  //   El token vive solo en `sessionStorage`; nunca en la URL.
+  // ---------------------------------------------------------------------------
+  var CLAVE_TOKEN_OPERADOR = 'ecicep_operador_token';
+
+  function ECICEP_operadorToken(nuevo) {
+    if (arguments.length) {
+      if (nuevo) _sesSet(CLAVE_TOKEN_OPERADOR, nuevo);
+      else _sesRemove(CLAVE_TOKEN_OPERADOR);
+    }
+    return _sesGet(CLAVE_TOKEN_OPERADOR);
+  }
+
+  /* Bootstrap OPSESS (DEC-119). El servidor sólo lo inyecta cuando el HTML se
+     renderiza desde el Spreadsheet autorizado; en Web App y páginas públicas
+     llega vacío. Se consume una vez, se guarda como token de sesión normal y
+     se limpia de memoria. Formato inválido o vacío → se ignora (login normal). */
+  (function _consumirBootstrapOperador() {
+    var b = '';
+    try { b = window.ECICEP_OPSESS_BOOTSTRAP || ''; } catch (e) { b = ''; }
+    try { delete window.ECICEP_OPSESS_BOOTSTRAP; }
+    catch (e2) { try { window.ECICEP_OPSESS_BOOTSTRAP = ''; } catch (e3) {} }
+    if (b && /^OPS-[0-9a-f]{64}$/.test(b)) ECICEP_operadorToken(b);
+  })();
+
+  function ECICEP_esSesionRequerida(r) {
+    var c = (r && (r.codigo || r.code)) || '';
+    return c === 'OPERADOR_SESION_REQUERIDA' || c === 'OPERADOR_NO_CONFIGURADO';
+  }
+
+  /* Overlay de login (una sola vez). No pide correo, OAuth, RUT ni nombre. */
+  function ECICEP_mostrarLogin(res) {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('ecicep-login-overlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'ecicep-login-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(11,18,32,.72);display:flex;align-items:center;justify-content:center;padding:16px;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.35);max-width:360px;width:100%;padding:24px;font-family:Inter,system-ui,sans-serif;color:#0b1220;';
+    var h = document.createElement('h2');
+    h.textContent = 'Operador — ECICEP';
+    h.style.cssText = 'margin:0 0 4px;font-size:18px;';
+    var p = document.createElement('p');
+    p.textContent = 'Clave de acceso';
+    p.style.cssText = 'margin:0 0 12px;font-size:14px;color:#475569;';
+    var inp = document.createElement('input');
+    inp.type = 'password'; inp.autocomplete = 'current-password';
+    inp.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;margin-bottom:12px;';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.textContent = 'Ingresar';
+    btn.style.cssText = 'width:100%;padding:10px 12px;border:0;border-radius:8px;background:#0b5fff;color:#fff;font-size:15px;font-weight:600;cursor:pointer;';
+    var msg = document.createElement('p');
+    msg.style.cssText = 'margin:12px 0 0;font-size:13px;color:#b91c1c;min-height:16px;';
+    if (res && res.motivo) msg.textContent = String(res.motivo);
+    function enviar() {
+      var clave = inp.value || '';
+      if (!clave) { msg.textContent = 'Ingresa la clave de operador.'; return; }
+      btn.disabled = true;
+      ECICEP_operadorLogin(clave, function () {
+        if (ov.parentNode) ov.parentNode.removeChild(ov);
+        _recargar();
+      }, function (res2) {
+        btn.disabled = false;
+        msg.textContent = ECICEP_mensajeUsuario(res2) || 'Clave incorrecta.';
+      });
+    }
+    btn.addEventListener('click', enviar);
+    inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') enviar(); });
+    card.appendChild(h); card.appendChild(p); card.appendChild(inp); card.appendChild(btn); card.appendChild(msg);
+    ov.appendChild(card);
+    (document.body || document.documentElement).appendChild(ov);
+    try { inp.focus(); } catch (e) {}
+  }
+
+  function ECICEP_operadorLogin(clave, ok, fail) {
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (res && res.ok && res.sessionToken) { ECICEP_operadorToken(res.sessionToken); if (ok) ok(res); }
+        else if (fail) fail(res);
+      })
+      .withFailureHandler(function (e) { if (fail) fail(e); })
+      .WebApp_operadorIniciar(clave);
+  }
+
+  function ECICEP_operadorLogout(ok) {
+    var t = ECICEP_operadorToken();
+    ECICEP_operadorToken('');
+    google.script.run
+      .withSuccessHandler(function () { if (ok) ok(); })
+      .withFailureHandler(function () { if (ok) ok(); })
+      .WebApp_operadorCerrar(t || '');
+  }
+
+  /* Confirmación accesible propia: el confirm() nativo no es confiable en el
+     sandbox de Apps Script. El nonce sigue siendo validado por el servidor. */
+  function ECICEP_confirmarOperacion(mensaje, aceptar, cancelar) {
+    if (typeof document === 'undefined') { if (cancelar) cancelar(); return; }
+    var previo = document.getElementById('ecicep-confirm-overlay');
+    if (previo && previo.parentNode) previo.parentNode.removeChild(previo);
+    var ov = document.createElement('div');
+    ov.id = 'ecicep-confirm-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(11,18,32,.72);display:flex;align-items:center;justify-content:center;padding:16px;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.35);max-width:400px;width:100%;padding:24px;font-family:Inter,system-ui,sans-serif;color:#0b1220;';
+    var h = document.createElement('h2'); h.textContent = 'Confirmar operación';
+    h.style.cssText = 'margin:0 0 8px;font-size:18px;';
+    var p = document.createElement('p'); p.textContent = mensaje || 'Esta operación puede eliminar datos.';
+    p.style.cssText = 'margin:0 0 18px;font-size:14px;color:#475569;';
+    var acciones = document.createElement('div'); acciones.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    var no = document.createElement('button'); no.type = 'button'; no.textContent = 'Cancelar';
+    no.style.cssText = 'padding:9px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;';
+    var si = document.createElement('button'); si.type = 'button'; si.textContent = 'Confirmar';
+    si.style.cssText = 'padding:9px 14px;border:0;border-radius:8px;background:#b91c1c;color:#fff;font-weight:600;cursor:pointer;';
+    function cerrar() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+    no.addEventListener('click', function () { cerrar(); if (cancelar) cancelar(); });
+    si.addEventListener('click', function () { cerrar(); if (aceptar) aceptar(); });
+    acciones.appendChild(no); acciones.appendChild(si); card.appendChild(h); card.appendChild(p); card.appendChild(acciones); ov.appendChild(card);
+    (document.body || document.documentElement).appendChild(ov);
+    try { no.focus(); } catch (e) {}
+  }
+
+  function ECICEP_rpcOperadorEnviar(nombre, args, nonce, ok, fail) {
+    var t = ECICEP_operadorToken();
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (ECICEP_esSesionRequerida(res)) { ECICEP_operadorToken(''); ECICEP_mostrarLogin(res); }
+        if (res && res.codigo === 'OPERADOR_CONFIRMACION_REQUERIDA' && res.confirmacion && res.confirmacion.nonce) {
+          ECICEP_confirmarOperacion(res.motivo, function () {
+            ECICEP_rpcOperadorEnviar(nombre, args, res.confirmacion.nonce, ok, fail);
+          }, function () {
+            if (ok) ok({ ok: false, codigo: 'OPERADOR_CONFIRMACION_CANCELADA', motivo: 'Operación cancelada.' });
+          });
+          return;
+        }
+        if (ok) ok(res);
+      })
+      .withFailureHandler(function (e) { if (fail) fail(e); })
+      .WebApp_operadorRpc(t || '', nombre, args || [], nonce || '');
+  }
+
+  /* Gateway único de operador: toda RPC operativa pasa por aquí. */
+  function ECICEP_rpcOperador(nombre, args, ok, fail) {
+    ECICEP_rpcOperadorEnviar(nombre, args || [], '', ok, fail);
+  }
+
+  /* Compatibilidad con el patrón `google.script.run`: ECICEP_run().ui(...)().
+     Nunca expone una función interna: el nombre resuelto viaja al gateway. */
+  function ECICEP_run() {
+    var st = { sh: null, fh: null };
+    var proxy;
+    var b = {
+      // La cadena debe conservar el Proxy. Devolver `b` corta el get trap y
+      // convierte `.api_*`/`.UI_*` en undefined después del primer handler.
+      withSuccessHandler: function (f) { st.sh = f; return proxy; },
+      withFailureHandler: function (f) { st.fh = f; return proxy; },
+      withUserObject: function () { return proxy; }
+    };
+    proxy = new Proxy(b, {
+      get: function (t, prop) {
+        if (prop in t) return t[prop];
+        if (typeof prop !== 'string' || prop === 'then') return undefined;
+        return function () {
+          ECICEP_rpcOperador(prop, Array.prototype.slice.call(arguments), st.sh, st.fh);
+        };
+      }
+    });
+    return proxy;
+  }
+
+  /* Muestra login si no hay sesión. Devuelve true si ya hay token. */
+  function ECICEP_asegurarOperador() {
+    if (ECICEP_operadorToken()) return true;
+    if (typeof window === 'undefined' || window.ECICEP_MODO_OPERADOR !== false) ECICEP_mostrarLogin(null);
+    return false;
   }
 
   window.ECICEP_errorTexto = ECICEP_errorTexto;
@@ -136,5 +314,14 @@
   window.ECICEP_navegar = ECICEP_navegar;
   window.ECICEP_esLecturaAuto = ECICEP_esLecturaAuto;
   window.ECICEP_lectura = ECICEP_lectura;
+  window.ECICEP_operadorToken = ECICEP_operadorToken;
+  window.ECICEP_operadorLogin = ECICEP_operadorLogin;
+  window.ECICEP_operadorLogout = ECICEP_operadorLogout;
+  window.ECICEP_rpcOperador = ECICEP_rpcOperador;
+  window.ECICEP_confirmarOperacion = ECICEP_confirmarOperacion;
+  window.ECICEP_run = ECICEP_run;
+  window.ECICEP_asegurarOperador = ECICEP_asegurarOperador;
+  window.ECICEP_esSesionRequerida = ECICEP_esSesionRequerida;
+  window.ECICEP_mostrarLogin = ECICEP_mostrarLogin;
 })();
 </script>

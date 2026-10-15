@@ -1,15 +1,13 @@
 /**
- * Sistema ECICEP — WebApp de captura (v0.9.3)
- * NUEVO CANAL DE ENTRADA (HTML propio) que reemplaza a Google Forms como
- * interfaz de captura. NO es una segunda implementación: reutiliza el 100%
- * del backend existente (validación, decisión, efectos, idempotencia).
+ * Sistema ECICEP — Web App de captura.
+ * CapturaWeb es la única interfaz operativa. Google Forms funciona detrás de
+ * ella como cola durable interna y nunca se publica como interfaz paralela.
  *
- * Flujo vigente (captura V4 — único canal, contrato docs/CONTRATO_CAPTURA_V2.md NORMATIVO):
- *   CapturaWeb.html → google.script.run → WebApp_previaDuplicadosV2 / WebApp_capturarEnviar
- *     → Captura_v2_enviar (26_Captura.js): persistencia durable en FORM_RESPUESTAS
- *       (RESPONSE_ID Cp2-<32hex>, FORM_VERSION=2/3/4, TRAZA_CRUDA JSON) + entrega acotada + trailer.
- *   El puente de captura y el panel de procesamiento de Google Forms fueron
- *   retirados: la única entrada operativa es WebApp_capturarEnviar.
+ * Flujo vigente (captura V4; contrato docs/CONTRATO_CAPTURA_V2.md):
+ *   CapturaWeb.html → WebApp_capturarRecibirDurable → FormResponse.submit()
+ *     → Form_worker_ → CapturaIngress_adapterForms_ → Captura_v2_enviar_.
+ * La recepción responde RECIBIDO después de persistir. El worker es el único
+ * mutador clínico del transporte y deriva captureId de formId + responseId.
  *
  * AISLAMIENTO: este módulo NO crea bases ni lógica paralela. El código es
  * autónomo y portátil: utiliza el contexto del proyecto (SpreadsheetApp.getActive()
@@ -17,11 +15,22 @@
  * IDs hardcodeados de DEMO ni de producción; el destino de escritura sigue la
  * lógica normal del proyecto Apps Script corriendo.
  *
- * ACCESO UNIVERSAL (DEC-101): una sola credencial habilita TODAS las funciones
- * del sistema. No se distingue entre operador y usuario: el sistema solo lo
- * manejan los trabajadores del CESFAM y todos operan. La credencial se inyecta
- * en servidor al servir cada vista y nunca viaja en la URL, por lo que un QR
- * impreso con la URL base abre el sistema completo.
+ * Frontera de acceso (DEC-110):
+ *   · CAPTURA — anónima/universal. `WebApp_capturarRecibirDurable`,
+ *     `WebApp_estadoInicial`, `WebApp_verificarRecepcion` y `api_webappEstado`
+ *     se sirven por el QR estable SIN sesión de operador (sin OPSESS). El HTML
+ *     servido NO inyecta credencial legacy (ni en el DOM ni en la URL) ni las
+ *     RPC de captura la exigen (v270).
+ *   · OPERADOR / ADMINISTRACIÓN — exigen sesión OPSESS y el secreto
+ *     independiente `ECICEP_OPERATOR_SECRET_SHA256`. Toda RPC operativa es
+ *     interna (sufijo `_`) y sólo se alcanza por el gateway único
+ *     `WebApp_operadorRpc` (ver `src/37_OperadorAuth.js`).
+ *   · `ECICEP_ACCESS_TOKEN` — compatibilidad/trazabilidad legacy: NO es
+ *     autenticación ni abre la operación. Sólo las vistas de operador lo
+ *     reciben embebido; nunca viaja en la URL y la CAPTURA ya no lo consume.
+ *
+ *   Referencia histórica: DEC-101/DEC-102 (acceso universal concedido siempre)
+ *   describen el estado previo; DEC-110 los acota a la CAPTURA pública.
  *
  * Nota doGet: un proyecto Apps Script admite UN SOLO doGet. Este enruta las
  * consultas de webhook de solo lectura y las vistas Web; toda mutación remota
@@ -29,48 +38,48 @@
  */
 
 // ---------------------------------------------------------------------------
-// CONTROL DE ACCESO — ACCESO UNIVERSAL ECICEP (DEC-101)
-//   Una SOLA credencial habilita TODAS las funciones del sistema: capturar,
-//   ficha, ingresos, controles, estadísticas, REM, revisión, configuración,
-//   backups, registro e instalación.
+// CONTROL DE ACCESO — frontera DEC-110
+//   · CAPTURA: anónima/universal. El QR estable abre la captura sin OPSESS.
+//   · OPERADOR/ADMIN: exige sesión OPSESS + secreto independiente
+//     `ECICEP_OPERATOR_SECRET_SHA256`, servido por el gateway único
+//     `WebApp_operadorRpc` (src/37_OperadorAuth.js). Toda RPC operativa es
+//     interna (sufijo `_`) y no es invocable por google.script.run.
+//   · ECICEP_ACCESS_TOKEN: compatibilidad/trazabilidad legacy, NO autenticación.
 //
-//   NO existe distinción entre operador y usuario. El sistema solo lo manejan
-//   los trabajadores del CESFAM y todos operan: separar capacidades dejó el
-//   sistema inaccesible para todos (DEC-097 fue revertido por DEC-101).
+//   Referencia histórica: DEC-101/DEC-102 concedían acceso universal a TODA
+//   función (revertían la separación de capacidades de DEC-097). DEC-110 los
+//   acota: la concesión universal queda sólo para la CAPTURA pública.
 //
-//   Credencial canónica: ECICEP_ACCESS_TOKEN, AUTOAPROVISIONADA si falta
-//   (con lock y relectura), de modo que el sistema nunca queda inaccesible por
-//   una credencial ausente.
-//   Alias heredados aceptados como equivalentes, para que enlaces, QR impresos
-//   y pestañas ya abiertas nunca se rompan: CAPTURA_ACCESS_TOKEN (canónico en
-//   v0.10–v0.16), OPERADOR_ACCESS_TOKEN y LEGACY_ACCESS_TOKEN.
-//
-//   La credencial NUNCA viaja en la URL: el servidor la inyecta al servir cada
-//   vista. Por eso un QR impreso con la URL base sigue funcionando tras rotar
-//   la credencial. El token del webhook es independiente y no se comparte aquí.
+//   Las claves siguientes se conservan para enlaces, QR impresos y pestañas ya
+//   abiertas de las vistas de OPERADOR; se inyectan en servidor y nunca viajan
+//   en la URL. La CAPTURA pública (v270) ya no las consume. El token del webhook
+//   es independiente y no se comparte aquí.
 // ---------------------------------------------------------------------------
 
-/** Claves que contienen (o contuvieron) la credencial universal del sistema.
- *  Todas son equivalentes: cualquiera vigente abre el sistema completo. */
+/** Claves que contienen (o contuvieron) la credencial legacy de trazabilidad.
+ *  Todas son equivalentes; NO autentican la operación (DEC-110). */
 var WEBAPP_CLAVES_ACCESO_ = [
   'ECICEP_ACCESS_TOKEN', 'CAPTURA_ACCESS_TOKEN', 'OPERADOR_ACCESS_TOKEN', 'LEGACY_ACCESS_TOKEN'
 ];
 
-/** Autoriza el acceso universal: SIEMPRE concede.
+/** Alias legacy de trazabilidad: SIEMPRE concede (DEC-102, hoy acotado por
+ *  DEC-110). No es autenticación: la frontera de la OPERACIÓN es el gateway
+ *  `WebApp_operadorRpc`, que exige OPSESS. Aquí sólo se conserva la concesión
+ *  para no romper comprobaciones heredadas del código servidor; la CAPTURA
+ *  pública ya es anónima por diseño.
  *
- *  DEC-102 (corrección directa del incidente «api_buscar: se requiere
- *  autorización»): la credencial universal se inyecta en cada vista, pero una
- *  pestaña cacheada, un token vacío por una carga previa o un valor heredado
- *  NUNCA deben bloquear una acción. El control real es el enlace del
- *  deployment, no el token; el token se conserva solo para compatibilidad y
- *  diagnóstico. Conceder siempre elimina de raíz la clase de fallo que dejó el
- *  sistema inaccesible (DEC-097 → DEC-101 → DEC-102). */
-function WebApp_autorizar(token) { return true; }
+ *  DEC-102 (corrección del incidente «api_buscar_: se requiere autorización»):
+ *  la credencial se inyecta en cada vista, pero una pestaña cacheada, un token
+ *  vacío o un valor heredado NUNCA deben bloquear una acción. Conceder siempre
+ *  eliminó la clase de fallo que dejó el sistema inaccesible (DEC-097 → DEC-101
+ *  → DEC-102). Desde DEC-110 esto sólo alcanza a la CAPTURA; la operación usa
+ *  OPSESS. */
+function WebApp_autorizar_(token) { return true; }
 
-/** Alias de la superficie RPC: una sola capacidad para todo el sistema. */
-function WebApp_autorizarBuscador(token) { return WebApp_autorizar(token); }
-/** Alias del canal de captura: mismo acceso universal, sin capacidades separadas. */
-function WebApp_autorizarCaptura(token) { return WebApp_autorizar(token); }
+/** Alias legacy de trazabilidad (DEC-110): NO autentica la operación. */
+function WebApp_autorizarBuscador_(token) { return WebApp_autorizar_(token); }
+/** Alias legacy del canal de captura (DEC-110): mismo criterio, sin capacidades. */
+function WebApp_autorizarCaptura_(token) { return WebApp_autorizar_(token); }
 
 /**
  * Credencial universal vigente. Devuelve de inmediato el valor existente; solo
@@ -144,9 +153,12 @@ function WebApp_accesoCapturaValido_(token) { return WebApp_accesoUniversalValid
 function WebApp_accesoOperadorValido_(token) { return WebApp_accesoUniversalValido_(token); }
 function WebApp_accesoCompartidoValido_(token) { return WebApp_accesoUniversalValido_(token); }
 
-/** ¿Está operativo el acceso universal? Verdadero siempre (DEC-102).
- *  Sustituye a la antigua allowlist de identidades (DEC-097): no hay roles, todos
- *  los trabajadores operan. Antes devolvía `false` cuando la credencial no se
+/** ¿Está operativo el acceso legacy de trazabilidad? Verdadero siempre (DEC-110,
+ *  heredero de DEC-102). NO es el gate de la operación: desde DEC-110 la
+ *  administración se sirve por el gateway OPSESS. Este flag sólo describe la
+ *  disponibilidad de la credencial legacy para diagnóstico/UI heredada.
+ *  Sustituye a la antigua allowlist de identidades (DEC-097). Antes devolvía
+ *  `false` cuando la credencial no se
  *  podía resolver, y eso denegaba 11 funciones de `28_IA.js` con «Acceso
  *  universal del sistema no disponible» por un fallo de Script Properties o
  *  contención de lock: exactamente el bloqueo que Provocó el incidente. El estado
@@ -176,14 +188,15 @@ function WebApp_diagnosticoSeguridad_() {
  * de funcionar si la credencial se recupera o rota.
  */
 function WebApp_urlCompartida_() {
-  return ECICEP_webAppUrl();
+  return ECICEP_webAppUrl_();
 }
 
-/** URL de una vista operativa. Sin credencial en la URL: acceso universal. */
+/** URL de una vista operativa. Sin credencial en la URL (DEC-110): la operación
+ *  se autentica con OPSESS, no con el token. */
 function WebApp_urlVista_(vista) {
   var base = WebApp_urlCompartida_();
   if (!base) return '';
-  var v = Utl_texto(vista).trim();
+  var v = Utl_texto_(vista).trim();
   if (!v) return base;
   // Separador robusto: la base operativa no lleva cadena de consulta, pero si
   // alguna vez la llevara, concatenar '?vista=' produciría una URL inválida.
@@ -243,23 +256,24 @@ function WebApp_usuarioActivo_() {
 function doGet(e) {
   // GET del webhook queda limitado a acciones de solo lectura.
   if (e && e.parameter && (e.parameter.token !== undefined || e.parameter.action !== undefined)) {
-    return _wh_despachar(e, 'GET');
+    return _wh_despachar_(e, 'GET');
   }
   var p = e && e.parameter || {};
   var vista = String(p.vista || 'captura').trim();
-  // ACCESO UNIVERSAL (DEC-101): no se exige credencial en la URL. El servidor
-  // inyecta la credencial vigente al servir CADA vista, de modo que la URL base
-  // —incluidos los QR ya impresos— abre el sistema completo sin parámetros.
-  // Un `?acceso=` heredado que llega en un enlace viejo se ignora sin efecto.
+  // DEC-110 (v270): la CAPTURA pública es anónima por diseño. El HTML servido
+  // NO inyecta credencial alguna (ni en el DOM ni en la URL) y las RPC de
+  // captura no la exigen; un `?acceso=` heredado en un enlace viejo se ignora
+  // sin efecto. La credencial legacy se resuelve SÓLO para las vistas de
+  // operador (que sí se autentican con OPSESS en el cliente).
+  if (vista === 'captura') {
+    // Captura es la pantalla simple de registro: sin token, ofrece salida
+    // directa al portal de funciones.
+    return WebApp_servirCaptura_();
+  }
   var acceso = '';
   // DEC-102: servir una vista NUNCA puede fallar por la credencial. Cualquier
   // error al resolverla degrada a cadena vacía, que no bloquea nada.
   try { acceso = WebApp_claveUniversal_() || ''; } catch (ignAcceso) { acceso = ''; }
-  if (vista === 'captura') {
-    // Captura es la pantalla simple de registro. Comparte la credencial
-    // universal y ofrece salida directa al portal de funciones.
-    return WebApp_servirCaptura_(acceso);
-  }
   var archivos = WebApp_vistasMapa_();
   var archivo = Object.prototype.hasOwnProperty.call(archivos, vista) ? archivos[vista] : '';
   if (!archivo) return ContentService.createTextOutput('Función no disponible. Abre el enlace actualizado de ECICEP.');
@@ -294,15 +308,17 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Sirve el canal de captura: pantalla simple de registro, con salida única
- *  al portal de funciones (misma credencial universal, sin token en la URL). */
-function WebApp_servirCaptura_(accesoUniversal) {
+/** Sirve la única interfaz operativa de captura. Google Forms queda detrás de
+ *  esta pantalla como transporte durable interno; su URL no se publica.
+ *  v270 (DEC-110): la captura es anónima y NO inyecta credencial legacy en el
+ *  HTML (ni en el DOM ni en la URL); las RPC de captura no la requieren. */
+function WebApp_servirCaptura_() {
   var plantilla = HtmlService.createTemplateFromFile('CapturaWeb');
-  plantilla.CAPTURA_ACCESO = accesoUniversal || '';
-  plantilla.TOKEN_ACCESO = accesoUniversal || '';
-  plantilla.TOKEN_INVITACION = accesoUniversal || '';
   plantilla.MODO_OPERADOR = false;
-  plantilla.PORTAL_URL = WebApp_urlVista_('portal');
+  // La captura distribuida por QR no anuncia ni enlaza la superficie privada.
+  // Administración entra a "Funciones" desde el Spreadsheet autorizado, donde
+  // el runtime emite OPSESS automáticamente (DEC-119).
+  plantilla.PORTAL_URL = '';
   plantilla.FICHA_URL = WebApp_urlVista_('ficha');
   plantilla.REM_URL = '';
   plantilla.DASH_URL = '';
@@ -326,9 +342,8 @@ function WebApp_servirCaptura_(accesoUniversal) {
  * campos requeridos y mensajes de éxito) derivado de FORM_CONFIG. La UI pinta
  * y valida con LO MISMO que valida el backend — sin reglas duplicadas a mano.
  */
-function WebApp_esquemaFormulario(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-  return Form_esquemaFormulario();
+function WebApp_esquemaFormulario_(acceso) {
+  return Form_esquemaFormulario_();
 }
 
 /**
@@ -336,27 +351,26 @@ function WebApp_esquemaFormulario(acceso) {
  * Cuidado de privacidad: NO se expone TELEFONOS ni OBSERVACIONES al navegador;
  * solo identidad y fechas de operación (los datos que el formulario ya conoce).
  */
-function WebApp_resumenPaciente(p) {
+function WebApp_resumenPaciente_(p) {
   if (!p) return null;
   return {
     idInterno: p.ID_INTERNO || '',
-    nombre: Utl_texto(p.NOMBRE),
-    rut: Utl_texto(p.RUT),
-    sexo: Utl_texto(p.SEXO),
-    fechaNacimiento: Utl_texto(p.FECHA_NACIMIENTO),
-    sector: Utl_texto(p.SECTOR),
-    estratificacion: Utl_texto(p.ESTRATIFICACION),
-    fechaIngreso: Utl_texto(p.FECHA_INGRESO)
+    nombre: Utl_texto_(p.NOMBRE),
+    rut: Utl_texto_(p.RUT),
+    sexo: Utl_texto_(p.SEXO),
+    fechaNacimiento: Utl_texto_(p.FECHA_NACIMIENTO),
+    sector: Utl_texto_(p.SECTOR),
+    estratificacion: Utl_texto_(p.ESTRATIFICACION),
+    fechaIngreso: Utl_texto_(p.FECHA_INGRESO)
   };
 }
 
-function api_webappEstado(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) return {ok:false,motivo:'ACCESO_DENEGADO'};
+function api_webappEstado() {
   return {
     ok: true,
     version: ECICEP.VERSION,
     build: WebApp_buildActual_(),
-    entorno: typeof Entorno_actualGAS !== 'undefined' ? Entorno_actualGAS().entorno : 'DESCONOCIDO',
+    entorno: typeof Entorno_actualGAS_ !== 'undefined' ? Entorno_actualGAS_().entorno : 'DESCONOCIDO',
     url: WebApp_urlCompartida_()
   };
 }
@@ -367,19 +381,17 @@ function api_webappEstado(acceso) {
  *
  *  Contrato explícito (v0.10.5): éxito SIEMPRE incluye ok:true; error
  *  ok:false + codigo + motivo. Un catálogo vacío NO se considera éxito:
- *  el formulario no debe quedar semihabilitado sin profesionales cargables. */
-function WebApp_estadoInicial(acceso) {
-  if (!WebApp_autorizarCaptura(acceso)) {
-    return { ok: false, codigo: 'ACCESO_DENEGADO', motivo: 'ACCESO_DENEGADO' };
-  }
+ *  el formulario no debe quedar semihabilitado sin profesionales cargables.
+ *  v270 (DEC-110): anónimo; no recibe ni exige credencial legacy. */
+function WebApp_estadoInicial() {
   try {
-    var profesionales = WebApp_profesionalesDropdown();
+    var profesionales = WebApp_profesionalesDropdown_();
     if (!profesionales || !profesionales.length) {
       return { ok: false, codigo: 'CATALOGO_PROFESIONALES_NO_DISPONIBLE', motivo: 'No fue posible cargar el catálogo de profesionales' };
     }
     return {
       ok: true,
-      esquema: Form_esquemaFormulario(),
+      esquema: Form_esquemaFormulario_(),
       profesionales: profesionales,
       url: WebApp_urlCompartida_(),
       build: WebApp_buildActual_()
@@ -392,10 +404,10 @@ function WebApp_estadoInicial(acceso) {
 /** GAS: catálogo PROFESIONALES para el dropdown de la Web App.
  *  Contrato del api_profesionalesCatalogo retirado: solo profesionales activos,
  *  como nombres canónicos (strings), no objetos. */
-function WebApp_profesionalesDropdown() {
+function WebApp_profesionalesDropdown_() {
   try {
-    if (typeof Captura_v2_catalogo !== 'function') return [];
-    return Captura_v2_catalogo()
+    if (typeof Captura_v2_catalogo_ !== 'function') return [];
+    return Captura_v2_catalogo_()
       .filter(function (c) { return c && c.ACTIVO !== false && (c.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO); })
       .map(function (c) { return c.NOMBRE_CANONICO || c.NOMBRE || c.CODIGO; });
   } catch (e) {

@@ -211,7 +211,7 @@ function backend(proHoja) {
   c.SpreadsheetApp = { BorderStyle: { SOLID: 'SOLID' }, getUi: () => null, flush: () => {} };
   c.Utilities = { formatDate: () => '26-09-2026 12:00' };
   c.PropertiesService = { getScriptProperties: () => null };
-  c.Modelo_ss = () => ({
+  c.Modelo_ss_ = () => ({
     getSheetByName: () => proHoja.hoja,
     getSheets: () => [proHoja.hoja], insertSheet: () => proHoja.hoja, getActiveSheet: () => proHoja.hoja
   });
@@ -226,8 +226,8 @@ function backend(proHoja) {
   c.ECICEP_BUILD = { commit: 'test123' };
   c.WebApp_urlVista_ = v => '#vista-' + v;
   c.WebApp_urlCaptura_ = () => '#captura';
-  c.Modelo_leerPacientesCampos = () => [];
-  c.Modelo_leerEventosCampos = () => [];
+  c.Modelo_leerPacientesCampos_ = () => [];
+  c.Modelo_leerEventosCampos_ = () => [];
   c.Sistema_estadoSalud_ = () => ({ estado: 'OK', datos: { ok: true }, integridad: { ok: true },
     triggers: { ingresoOnEdit: true, backup: true } });
   c.Sistema_ultimaAuditoria_ = () => ({ fecha: '2026-09-24' });
@@ -257,7 +257,7 @@ const escrituras = () => [...RPC.entries()]
   const pro = crearHoja(50, 36);
   const { c } = backend(pro);
   RPC.clear();
-  const r = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  const r = c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   assert.equal(r.ok, true, 'construye');
   const v = c.Inicio_verificar_(pro.hoja);
   assert.equal(v.ok, true, 'verifica: ' + JSON.stringify(v.fallos));
@@ -281,7 +281,7 @@ const escrituras = () => [...RPC.entries()]
   const pro = crearHoja(50, 36);
   const { c, g } = backend(pro);
   const cto = g('INICIO_CONTRATO');
-  c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   const val = a1 => pro.hoja.getRange(a1).getValue();
   assert.equal(JSON.stringify(cto.accesos.map(a => a.texto)),
     JSON.stringify(['PERSONAS', 'CAPTURA', 'INGRESOS', 'CONTROLES', 'ESTADÍSTICAS', 'REM']));
@@ -311,7 +311,7 @@ const escrituras = () => [...RPC.entries()]
   const pro = crearHoja(50, 36);
   const { c } = backend(pro);
   RPC.clear();
-  const r = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  const r = c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   assert.equal(r.ok, true);
   const total = serverCalls();
   const top = [...RPC.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30)
@@ -346,10 +346,10 @@ const escrituras = () => [...RPC.entries()]
 {
   const pro = crearHoja(50, 36);
   const { c } = backend(pro);
-  c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   const antes = { merges: RPC.get('merge') || 0, breakApart: RPC.get('breakApart') || 0,
     anchos: RPC.get('setColumnWidths') || 0, tramos: RPC.get('setRowHeights') || 0 };
-  const r2 = c.Inicio_construir_(c.Modelo_ss(), {});
+  const r2 = c.Inicio_construir_(c.Modelo_ss_(), {});
   assert.equal(r2.ok, true);
   assert.equal(r2.omitida, true, 'layout vigente → fast-path');
   assert.equal(RPC.get('merge') || 0, antes.merges, 'sin merges nuevos');
@@ -363,7 +363,7 @@ const escrituras = () => [...RPC.entries()]
 {
   const pro = crearHoja(60, 44);
   const { c } = backend(pro);
-  const r = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  const r = c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   assert.equal(r.ok, true);
   const d = c.Inicio_diagnosticarVisual_(pro.hoja);
   assert.ok(!d.diferencias.includes('COLUMNA:SOBRANTE'), 'sin SOBRANTE: ' + JSON.stringify(d.diferencias));
@@ -404,7 +404,7 @@ const escrituras = () => [...RPC.entries()]
     // Simula flakiness real: el batch no pega en la columna 9.
     for (let i = 0; i < k; i++) if (col + i !== 9) pro.st.estado.anchos.set(col + i, w);
   };
-  const r = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  const r = c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   assert.equal(r.ok, true, 'reconstruye con autocuración');
   assert.equal(pro.st.estado.anchos.get(9), 38, 'columna 9 corregida individualmente');
   const v = c.Inicio_verificar_(pro.hoja);
@@ -421,14 +421,14 @@ const escrituras = () => [...RPC.entries()]
   const pro = crearHoja(1000, 30);
   const { c } = backend(pro);
   pro.st.merges.push('A39:AD1000'); // marco v0.14 real: filas sobrantes x ancho completo
-  const r = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  const r = c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   assert.equal(r.ok, true, 'construye pese al marco heredado: ' + JSON.stringify(r.errores || r.detalle || ''));
   const v = c.Inicio_verificar_(pro.hoja);
   assert.equal(v.ok, true, 'verificación en verde tras limpiar el marco');
   assert.deepEqual(v.mergesFuera || [], [], 'sin combinaciones fuera del lienzo');
   assert.equal(pro.st.merges.length, 32, 'exactamente los 32 merges del contrato');
   // Idempotencia: una segunda reconstrucción sobre la hoja ya limpia también pasa.
-  const r2 = c.Inicio_construir_(c.Modelo_ss(), { forzar: true });
+  const r2 = c.Inicio_construir_(c.Modelo_ss_(), { forzar: true });
   assert.equal(r2.ok, true, 'reconstrucción idempotente');
   ok('T10 marco heredado fuera del panel: se descombina la hoja completa y se limpia');
 
@@ -436,7 +436,7 @@ const escrituras = () => [...RPC.entries()]
   const pro2 = crearHoja(1000, 40);
   const b2 = backend(pro2);
   pro2.st.merges.push('AE1:AN38', 'A39:AN1000');
-  const r3 = b2.c.Inicio_construir_(b2.c.Modelo_ss(), { forzar: true });
+  const r3 = b2.c.Inicio_construir_(b2.c.Modelo_ss_(), { forzar: true });
   assert.equal(r3.ok, true, 'construye con marco lateral heredado');
   assert.deepEqual(b2.c.Inicio_verificar_(pro2.hoja).mergesFuera || [], [], 'sin marco lateral residual');
   ok('T10b marco lateral heredado: se limpia y verifica sin residuo');

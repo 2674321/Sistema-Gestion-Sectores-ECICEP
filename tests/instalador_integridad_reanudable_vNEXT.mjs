@@ -20,7 +20,7 @@ c.Integridad_diagnosticarBase_=()=>{componentes++;return componentes>4?{...base,
 c.Integridad_diagnosticarIngresosComponente_=()=>{componentes++;return componentes>4?{...ingresos,ingresosFalsos:0,ingresosDerivados:0,sectoresAfectados:[]}:{...ingresos}};
 c.Integridad_diagnosticarVistasComponente_=()=>{componentes++;return componentes>4?{...vistasDiag,vistasPendientes:0,sectoresAfectados:[]}:{...vistasDiag}};
 c.Integridad_diagnosticarEstratificacionComponente_=()=>{componentes++;return componentes>4?{estratificacionPendiente:0}:{...estrat}};
-c.Modelo_leerPacientesCampos=()=>[];c.Modelo_leerEventosCampos=()=>[];c.Integridad_leerVistasIds_=()=>({});
+c.Modelo_leerPacientesCampos_=()=>[];c.Modelo_leerEventosCampos_=()=>[];c.Integridad_leerVistasIds_=()=>({});
 c.Ingresos_diagnosticarIngresados_=()=>({conteos:{INGRESADO_FALSO:1},casos:[]});
 c.Ingresos_reconciliarIngresados_=()=>({ok:true,continuar:false,sectoresAfectados:['AMARILLO']});
 c.Estrat_recalcularTodos_=()=>({ok:true,sectoresAfectados:['VERDE']});

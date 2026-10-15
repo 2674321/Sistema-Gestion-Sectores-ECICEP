@@ -20,14 +20,14 @@
 > - **[PENDIENTE]** — punto abierto; no tiene valor normativo hasta que se cierre.
 >
 > La revisión del 2026-09-16 implementa y prueba la extensión V3 en el mismo backend y pipeline.
-> La pasada v0.10.4 (2026-09-22) estableció el **ACCESO UNIVERSAL ECICEP**
-> (DEC-068, supera DEC-067): una sola credencial `CAPTURA_ACCESS_TOKEN` (valor
-> conservado) autoriza el canal de captura (`WebApp_capturarEnviar`, preflight
-> de duplicados) **y** toda la operación de ficha/administrativa (ficha,
-> revisión, asistencia REM, configuración, backups, CentroPruebas).
-> `OPERADOR_ACCESS_TOKEN` quedó obsoleto y solo se acepta como legacy de
-> transición. El preflight no filtra datos identificables de candidatos y todo
-> RPC exige credencial válida (token inválido/ausente → `ACCESO_DENEGADO`).
+> DEC-102 estableció el **ACCESO UNIVERSAL ECICEP**: ninguna vista ni RPC se
+> bloquea por credencial. El servidor puede inyectar un token para trazabilidad y
+> compatibilidad, pero un valor ausente, antiguo o arbitrario no es una puerta y
+> nunca produce `ACCESO_DENEGADO`. El preflight mantiene la minimización de datos.
+> Esto sigue vigente **sólo para la CAPTURA** (DEC-110): la captura pública es
+> anónima y no usa OPSESS; la operación/administración se autentica con sesión
+> OPSESS a través del gateway `WebApp_operadorRpc`. `ECICEP_ACCESS_TOKEN` es
+> compatibilidad/trazabilidad legacy, no autenticación.
 
 ---
 
@@ -166,13 +166,14 @@ probadas; la referencia a la fase de diseño ya no limita el alcance vigente.
 
 ## 3. Fuente única de captura
 
-1. La **Web App** es el único canal operativo de captura de datos. **[DECISIÓN; confirmada por
-   AGENTS.md]**
-2. **Google Forms está fuera de operación y no forma parte de la arquitectura.** No se crea
-   formulario, no se completa `FORM_ID`, no se instala `onFormSubmit`, no se leen ni se escriben
-   `FormResponse`/`FormItem`. **[DECISIÓN]**
-3. Todo dato clínico llega al sistema exclusivamente por el payload definido en §6. No existe un
-   segundo payload, un segundo pipeline ni un segundo Spreadsheet operativo. **[DECISIÓN]**
+1. La **Web App** es el único canal operativo visible de captura de datos. **[DECISIÓN; confirmada
+   por AGENTS.md]**
+2. Google Forms se usa exclusivamente como transporte durable interno. La Web App convierte el
+   payload aceptado en un `FormResponse`; el worker lo adapta de vuelta al contrato V4 antes de
+   llamar a `Captura_v2_enviar_`. La URL del respondedor no se publica ni reemplaza la Web App.
+   **[DECISIÓN; DEC-106]**
+3. Todo dato clínico nace en el payload definido en §6. No existe un segundo contrato de entrada,
+   un segundo pipeline ni un segundo Spreadsheet operativo. **[DECISIÓN]**
 4. Sheets conserva su rol administrativo/operativo interno; eso **no** crea un segundo canal de
    captura. **[CONFIRMADO]**
 
@@ -183,7 +184,8 @@ probadas; la referencia a la fase de diseño ya no limita el alcance vigente.
 | Captura | Acción de enviar a ECICEP una operación clínico-operativa desde la Web App. |
 | Envío | Una invocación del backend con un payload (§6). |
 | Operación | Tipo de captura solicitado (§5). |
-| `captureId` | Identificador de intención de captura (§12). |
+| `clientRequestId` | Identificador opaco de correlación en CapturaWeb; no es identidad clínica ni clave de idempotencia. |
+| `captureId` | Identificador durable interno derivado por el adaptador de Forms (§12). |
 | Registro de captura | Persistencia de un envío (origen: fila de `FORM_RESPUESTAS` existente, ver §21). |
 | Procesamiento | Aplicación de reglas clínicas a los datos capturados (fuera del contrato, §22). |
 | Adaptador | Capa que traduce identidades históricas ↔ V2 (§25). |
@@ -282,7 +284,7 @@ concepto tiene **un solo nombre** en el payload. Se rechaza cualquier campo desc
 
 | Campo | Tipo | Oblig. | Nullable | Valores permitidos / formato | Generador | Descripción |
 |---|---|---|---|---|---|---|
-| `captureId` | `string` | REQ | No | `Cp2-` + 32 hex minúsculas (`Cp2-[a-f0-9]{32}`) | Cliente | Identidad de la intención de captura (§12). |
+| `captureId` | `string` | REQ | No | `Cp4-` + 32 hex minúsculas en la ruta vigente; Cp2/Cp3 compatibles | Backend/adaptador | Identidad durable derivada de `formId + responseId` (§12). |
 | `accion` | `string` | REQ | No | `nuevoIngreso` · `registrarControl` · `registrarSeguimiento` · `actualizarDatos` | Cliente | Operación solicitada (§5). |
 | `rut` | `string` | REQ | No | Cuerpo-DV, sin puntos, DV mayúscula (ej. `12345678-5`) | Cliente | Identidad de la persona (exacta). |
 | `nombre` | `string` | REQ (`nuevoIngreso`) | No | ≥ 2 palabras; normalización: mayúsculas, espacios colapsados, tildes conservadas | Cliente | Nombre completo de la persona. |
@@ -389,15 +391,17 @@ acepta como alias interno de hoja (§25), nunca en el payload. **[DECISIÓN]**
 
 ## 12. Identidad de captura (`captureId`)
 
-**`captureId`** identifica una **intención de captura**: un único intento lógico del operador (llenar
-el formulario de la Web App y enviarlo).
+**`captureId`** identifica de forma durable una respuesta ya persistida por el transporte interno.
+CapturaWeb puede enviar `clientRequestId` para correlación de interfaz, pero nunca lo usa como
+`captureId` ni como autorización.
 
 Reglas normativas:
 
 1. Formato: `Cp2-` + exactamente 32 hex minúsculas. Formato inválido → `SINTAXIS_INVALIDA`. **[DECISIÓN]**
-2. Lo genera el **cliente** al iniciar una nueva captura. Un mismo formulario rellenado reutiliza el
-   mismo `captureId` en **todos** los reintentos de ese formulario (§13). Un formulario **nuevo**
-   (botón "nueva captura") genera un `captureId` **nuevo**. **[DECISIÓN]**
+2. En la ruta durable vigente lo genera el backend de forma determinista a partir de
+   `formId + responseId`, después de que `FormResponse.submit()` confirma persistencia. Los clientes
+   V2/V3 históricos pueden conservar sus identificadores por compatibilidad; CapturaWeb vigente no
+   fabrica un `captureId`. **[DECISIÓN; DEC-106]**
 3. **Unicidad**: el backend asegura que un `captureId` aceptado queda persistido e inmutable y no se
    reutiliza con otro payload (Caso B, §13).
 4. **No reutiliza** identificadores históricos: `UI-…`, `RESPONSE_ID`, `responseId`, `FORM|…`. Son
@@ -422,8 +426,9 @@ La idempotencia técnica se evalúa por `captureId`, frente al **payload normali
 
 Notas normativas:
 
-- Ausencia de `captureId` en el payload o formato inválido → rechazo `SINTAXIS_INVALIDA` (no hay fila
-  de idempotencia). **[DECISIÓN]**
+- En el payload V4 interno entregado por el adaptador, ausencia o formato inválido de `captureId` →
+  `SINTAXIS_INVALIDA`. La envoltura Web previa a `FormResponse.submit()` usa `clientRequestId` y no
+  está sujeta a esa validación interna. **[DECISIÓN]**
 - La comparación de payload es sobre la **forma canónica** (§11) de todos los campos del campo
   afectado por la operación; los campos `NP` para esa operación no pueden estar presentes (rechazo
   previo a idempotencia).
@@ -446,6 +451,32 @@ backend. **[DECISIÓN]** Capas aplicadas en orden:
    estado `REQUIERE_REVISION` de captura (no error de relanzamiento; ver §18). **[DECISIÓN; sigue la
    práctica operativa CUARENTENA]**
 
+### 14.1 Límites de entrada (v270)
+
+El contrato autoritativo acota el tamaño de la entrada. Estos topes se aplican **siempre**, con
+independencia del canal: un envío que no pase por la Web App (por ejemplo, una respuesta directa del
+Form interno) **no puede saltarse** los límites. Los valores viven en `CAPTURA_V2.LIMITES`
+(`src/26_Captura.js`), fuente única replicada por la capa de transporte.
+
+| Cota | Valor | Código si se excede |
+|---|---|---|
+| Payload serializado completo | 100000 caracteres | `SINTAXIS_INVALIDA` (`campo: null`) |
+| `nombre` | 200 | `CAMPO_INVALIDO` |
+| `rut` | 12 | `CAMPO_INVALIDO` |
+| `profesional` / `profesionalSecundario` | 120 | `CAMPO_INVALIDO` |
+| `telefonos` | 300 | `CAMPO_INVALIDO` |
+| `observaciones` | 2000 | `CAMPO_INVALIDO` |
+| `actualizacion` (editor de ficha), serializado | 60000 caracteres | `CAMPO_INVALIDO` |
+| `actualizacion.campos`, cantidad de campos | 200 | `CAMPO_INVALIDO` |
+| `actualizacion`, profundidad de anidamiento | 6 | `CAMPO_INVALIDO` |
+| `actualizacion.campos.*.valor` / `.anterior` | 5000 | `CAMPO_INVALIDO` |
+| `actualizacion.atenciones`, cantidad | 2 | `CAMPO_INVALIDO` |
+
+Solo se acotan los **campos de texto libre** (los conjuntos cerrados de §9 y las fechas de §10 ya
+están acotados por su propia validación y conservan su código). La cota de payload y de
+`actualizacion` se verifica **antes** de normalizar. El rechazo es temprano y **nunca** expone el
+contenido recibido: solo la cota y el campo (sin PII, §24).
+
 El resultado de la validación es binario: `ok` = todos los campos obligatorios/opcionales provistos
 satisfacen las reglas y no hay campos rechazados.
 
@@ -463,6 +494,24 @@ satisfacen las reglas y no hay campos rechazados.
    evidencia: `max=200`, trailer y `Form_procesarPendientes`]**
 4. La persistencia de la captura es independiente de los efectos clínicos: puede existir registro
    aceptado con procesamiento pendiente (`REQUIERE_REVISION`) sin que ello implique fallo de captura.
+
+### 15.1 Destino de cada campo aceptado (DEC-104)
+
+**Regla:** todo campo que el contrato declara `OPC` (o `REQ`) en §5.1 debe quedar **persistido o
+rechazado con error**. No existe el caso "aceptado y descartado".
+
+| Campo de payload | Destino | Nota |
+|---|---|---|
+| `profesional` | `EVENTOS.PROFESIONAL` | |
+| `profesionalSecundario` | `EVENTOS.PROFESIONAL2` | **Columna propia**, añadida al final del esquema de EVENTOS. No se concatena con `PROFESIONAL`. La fila `INGRESO_*` se relee del libro, así que la dupla viaja por opciones de pipeline hasta `Ev_desdeStaging`; `INGRESO_COLUMNAS` no se amplía. |
+| `telefonos` | `PACIENTES.TELEFONOS` + `PACIENTES.TELEFONO_OBS` | `TELEFONOS` recibe los dígitos normalizados separados por `/`; `TELEFONO_OBS` recibe **toda** anotación y **todo** descarte (`NUMERO DESCARTADO: …`). Separadores internos (`9 6060 0712`, `(2) 2345 6789`) forman **un** número. |
+| `observaciones` | `EVENTOS.OBSERVACIONES` / `INGRESO_*` | |
+| `saludMental` | `PACIENTES.SALUD_MENTAL` | Solo `Cp4-`. |
+| `proximoControl` | `PACIENTES.PROXIMO_CONTROL` | Si su escritura falla, el registro queda `ERROR`/`AGENDA_NO_GUARDADA` con el evento ya escrito (reintentable por `captureId`). |
+
+Los eventos históricos que no tengan `PROFESIONAL2` quedan con `''`; la columna se añade **al final**
+para no desplazar ninguna columna previa ni invalidar lecturas existentes. La reconciliación del
+esquema es idempotente (`Modelo_asegurarEsquemaEventos_`).
 
 ## 16. Respuesta exitosa
 
@@ -639,6 +688,14 @@ vive en `EVENTOS` (`FUENTE` identifica hoja/fila de origen) y en el registro de
 captura; por eso la fila de ingreso se elimina únicamente después de confirmar
 la persistencia canónica y la vista sectorial.
 
+DEC-112 endurece esa confirmación sin cambiar el payload: antes de anexar un
+registro, `captureId` debe resultar inequívocamente `LIBRE`; un fallo de lookup
+es reintentable y produce cero escrituras. Después del append se relee la fila
+física exacta reservada (no `getLastRow()`) y se verifican `RESPONSE_ID`,
+`ESTADO` y, cuando aplican, los identificadores de transporte. La bandeja
+`INGRESO_*` exige además estado reescrito/releído e identidad de origen estable
+antes de eliminar la fila.
+
 - El mapeo **por encabezado**, jamás por índice fijo, se mantiene como invariante operativo
   (`Form_mapeoEncabezados` / `Ingresos_mapearEncabezadosHoja`). **[CONFIRMADO]**
 - **No** se asume que el esquema actual de `FORM_RESPUESTAS` sea correcto o incorrecto (AGENTS.md):
@@ -694,16 +751,23 @@ la persistencia canónica y la vista sectorial.
 
 ## 24. Seguridad / autorización
 
-1. El deployment permite abrir Captura sin cuenta de Google. Apps Script se
-   ejecuta como quien publica y puede ocultar el email de otras cuentas: el
-   email vacío **no** es una prueba de acceso denegado. La Web App acepta una
-   sesión activa o un enlace de invitación generado desde el menú Captura en
-   Sheets. El enlace lleva una clave aleatoria independiente del webhook,
-   guardada solo en Script Properties; el enlace base y claves incorrectas no
-   sirven HTML con `google.script.run`. Cada RPC de captura verifica la clave
-   nuevamente. El QR, la copia y el botón de apertura comparten el mismo enlace.
-   Los envíos sin email registran `ACCESO_COMPARTIDO` como origen, sin atribuir
-   falsamente la acción a una persona concreta.
+1. El deployment permite abrir Captura sin cuenta de Google y **sin credencial
+   alguna**. Apps Script se ejecuta como quien publica y puede ocultar el email
+   de otras cuentas: el email vacío **no** es una prueba de acceso denegado. La
+   CAPTURA pública (v270 / DEC-110) es anónima y **no inyecta ni exige token**:
+   el HTML servido (`CapturaWeb.html`) no contiene credencial en el DOM ni en la
+   URL, y `WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`,
+   `WebApp_verificarRecepcion`, `WebApp_cargarPacienteEdicionCaptura` y
+   `api_webappEstado` no la reciben ni la requieren. Por DEC-123, la carga de
+   ficha completa para `ACTUALIZAR_DATOS` es parte explícita de la captura
+   pública y devuelve los 18 campos editables sin OPSESS. Las vistas y RPC de
+   **OPERADOR / ADMINISTRACIÓN** sí exigen sesión
+   OPSESS; la credencial legacy `ECICEP_ACCESS_TOKEN` se conserva solo como
+   trazabilidad de esas vistas de operador y **nunca viaja en la URL**. El QR, la
+   copia y el botón de apertura comparten el mismo enlace base (sin parámetros de
+   token ni de acceso). El origen del registro se deriva del transporte
+   (`WEBAPP` o `GOOGLE_FORM_DIRECT`), sin atribuir falsamente la acción a una
+   persona concreta.
 2. **No se confía en banderas del cliente.** `confirmarNuevoPaciente` es una **instrucción** validada
    y acotada (solo `nuevoIngreso`, `boolean`), jamás una acreditación; el backend revalida todo
    (duplicados, identidad, enums).
@@ -713,6 +777,12 @@ la persistencia canónica y la vista sectorial.
    por presentarlo.
 5. No hay `if (DEV/DEMO)` ni ramificación de entorno en la captura: un solo entorno operativo, un solo
    Spreadsheet (`ECICEP.SPREADSHEET_ID`). **[CONFIRMADO — AGENTS.md]**
+6. **La captura directa al Form no es canal clínico (v270 / DEC-116).** La Web App es el único canal
+   operativo de captura; Google Forms es solo transporte durable interno y su URL no se publica
+   **[CONFIRMADO — AGENTS.md reglas 3/4]**. Un registro sin `CLIENT_REQUEST_ID` válido
+   (`SOURCE=GOOGLE_FORM_DIRECT`) **no muta** el modelo clínico: se recibe de forma durable y queda en
+   `REQUIERE_REVISION` (`CLASIFICACION=REVIEW`) para decisión humana, sin escribir PACIENTES/EVENTOS,
+   agenda ni contacto. El flujo automático normal exige `SOURCE=WEBAPP` con `CLIENT_REQUEST_ID` válido.
 
 ## 25. Compatibilidad histórica (adaptador)
 
@@ -867,15 +937,16 @@ como fecha de la operación (§5.2). El escenario **nunca** produce `fechaEvento
 Con propósito de cierre explícito; lo que sigue **no es** el contrato y no debe implementarse como
 tal:
 
-- **Google Forms** en cualquier forma (FormApp, `FORM_ID`, `onFormSubmit`, `FormResponse`,
-  `FormItem`, triggers de envío, ventanas de captura por timestamp de Forms).
+- **Google Forms como interfaz pública o contrato clínico alternativo.** `FormApp`, el Form y sus
+  triggers son detalles del transporte durable interno; no definen campos ni reglas clínicas y su
+  URL nunca es el QR operativo.
 - **Identificadores históricos** como entrada válida: `UI-…`, `RESPONSE_ID`, `responseId`, `FORM|…`.
 - **Aliases / variantes ortográficas** de nombres de campo (p. ej. `accion` vs `ACCION`, `rut` vs
   `RUT`) en el payload.
 - **Fallbacks especulativos**: leer `FORM_CONFIG` o `FORM_RESPUESTAS` como especificación, adivinar
   esquemas, "mejor esfuerzo" para mensajes.
-- **Lote en captura**: procesar lotes de respuestas de formulario (es procesamiento; el contrato es
-  un envío intencional por `captureId`).
+- **Lote como contrato de captura**: el worker puede drenar varias respuestas, pero cada una se
+  adapta y procesa como un envío intencional independiente por `captureId`.
 - **Bifurcaciones por entorno** (`DEV`/`DEMO`/`PROD`), segundo Spreadsheet, segunda base, webhooks de
   captura.
 - **Lectura de datos personales en respuestas de error**, logs sin permiso, o exposición de

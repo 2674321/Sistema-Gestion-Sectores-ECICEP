@@ -77,17 +77,20 @@ function validar(html, rel) {
   return { nombre: rel, ok, fail: errores.length, errores };
 }
 
-/** Contrato de Acceso Universal — CapturaWeb.html.
- *  El QR «acceso universal sin permisos» depende de que el template sirva el
- *  token compartido en dos sitios que DEBEN quedar unidos:
+/** Contrato de Acceso Universal — CapturaWeb.html (histórico, v270 lo depreca).
+ *  Hasta v269 el QR «acceso universal sin permisos» dependía de que el template
+ *  sirviera el token compartido en dos sitios que DEBÍAN quedar unidos:
  *    1) <body data-acceso="<?= CAPTURA_ACCESO ?>">  (inyección server-side)
  *    2) el bundle lee window.ECICEP_ACCESO en cada RPC.
- *  Si falta el puente `window.ECICEP_ACCESO = document.body.getAttribute('data-acceso')`,
- *  un visitante anónimo (que escanea el QR sin cuenta Google) envía undefined
- *  como `acceso`, el backend lo niega (ACCESO_DENEGADO) y el QR «no funciona»
- *  aunque el operador con sesión sí vea la página. Regresión real detectada en
- *  la fase de diagnóstico del QR (v0.9.27): el bundle leía la variable 4 veces
- *  sin que nadie la asignara. Esta regla impide que reaparezca. */
+ *  Si faltaba el puente `window.ECICEP_ACCESO = document.body.getAttribute('data-acceso')`,
+ *  un visitante anónimo enviaba undefined como `acceso` y el backend lo negaba
+ *  (ACCESO_DENEGADO): regresión real de la fase QR (v0.9.27).
+ *
+ *  v270 (DEC-110): la CAPTURA pública es anónima por diseño y NO inyecta
+ *  credencial legacy (ni en el DOM ni en la URL); las RPC de captura no la
+ *  exigen. Este guardián queda como red de seguridad: si algún HTML vuelve a
+ *  inyectar CAPTURA_ACCESO en el body, exige el puente coherente. La ausencia
+ *  del token se verifica además en tests/public_capture_zero_legacy_token_v0170.mjs. */
 function validarPuenteAcceso(html, rel, errores) {
   const inyectaTokenEnBody = /<body[^>]*data-acceso\s*=\s*["']<\?=\s*CAPTURA_ACCESO\s*\?>["']/;
   const leeTokenJs = /window\.ECICEP_ACCESO/;

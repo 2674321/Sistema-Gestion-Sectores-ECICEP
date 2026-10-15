@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <?!= include('00_Tokens') ?>
+<?!= include('00_OperadorRuntime') ?>
 <style>
 body{font-size:15px;padding:var(--space-5);display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
 header{display:flex;align-items:center;gap:var(--space-3)}
@@ -124,7 +125,7 @@ var RESP_sec = 'AMARILLO', RESP_draft = [];
 function cargar(){
   var st=document.getElementById('estado');
   st.innerHTML='<span class="chip">Cargando…</span>';
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       if(!r||!r.ok){st.innerHTML='<span class="chip warn">Error: '+_esc(r&&r.motivo||'no data')+'</span>';return;}
       st.innerHTML='<span class="chip">v'+_esc(r.version)+'</span>'+
@@ -140,7 +141,7 @@ function cargar(){
 }
 
 function cargarResponsables(){
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){
       if(!r||!r.ok){toast((r&&r.motivo)||'No se pudo cargar responsables','warn');return;}
       RESP_actual=r.lista||[]; RESP_prof=r.profesionales||[]; RESP_legacy=r.legacy||{};
@@ -392,7 +393,7 @@ function renderRespDiag(){
 
 function guardarResponsables(btn){
   if(!_guardarBot(btn,'Guardando…'))return;
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){_restaurarBot(btn);
       if(!r||!r.ok){
         toast((r&&r.errores&&r.errores.length?r.errores.join(' · '):(r&&r.motivo||'No se pudo guardar')),'err');
@@ -443,7 +444,7 @@ function valorDe(clave){
 
 function guardarFila(btn,clave){
   var fin=_btnCargando(btn,'Guardando…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){setLoading(btn,false);
       if(r&&r.ok){toast('✓ '+clave+' guardada','ok');cargar();}
       else toast(r.motivo||'No se pudo guardar','err');})
@@ -456,7 +457,7 @@ function guardarFila(btn,clave){
 function pedirEliminar(btn,clave){
   if(ARMED[clave]){
     var fin=_btnCargando(btn,'Eliminando…');
-    google.script.run
+    ECICEP_run()
       .withSuccessHandler(function(r){setLoading(btn,false);ARMED[clave]=false;
         if(r&&r.ok){toast('✓ '+clave+' eliminada','ok');cargar();}
         else toast(r.motivo||'No se pudo eliminar','err');})
@@ -478,7 +479,7 @@ function agregarClave(btn){
   var d=document.getElementById('nDesc').value;
   if(!k){toast('Indica una CLAVE','warn');return;}
   var fin=_btnCargando(btn,'…');
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function(r){setLoading(btn,false);
       if(r&&r.ok){toast('✓ Clave '+k+' agregada','ok');
         document.getElementById('nClave').value='';document.getElementById('nValor').value='';document.getElementById('nDesc').value='';

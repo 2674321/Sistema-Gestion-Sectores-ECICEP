@@ -2,6 +2,7 @@
 <html>
 <head>
   <?!= include('00_Tokens') ?>
+  <?!= include('00_OperadorRuntime') ?>
   <base target="_top">
   <style>
     body{font-family:'Inter',sans-serif;background:var(--bg);margin:0;padding:var(--space-5);color:var(--text-primary)}
@@ -158,7 +159,7 @@ function toggleCollap(headerId,bodyId){
 
 function cargarBackups(){
   document.getElementById('bkTabla').innerHTML='<div class="skel"></div><div class="skel" style="margin-top:8px"></div>';
-  google.script.run.withSuccessHandler(pintarBackups).withFailureHandler(function(e){document.getElementById('bkTabla').innerHTML='<div class="empty">Error al cargar</div>';console.error(e);}).api_backupListar(ECICEP_ACCESO);
+  ECICEP_run().withSuccessHandler(pintarBackups).withFailureHandler(function(e){document.getElementById('bkTabla').innerHTML='<div class="empty">Error al cargar</div>';console.error(e);}).api_backupListar(ECICEP_ACCESO);
 }
 
 function pintarBackups(r){
@@ -195,7 +196,7 @@ function pintarBackups(r){
 
 function crearBackup(btn){
   var fin=setLoading(btn,true,'Creando backup\u2026');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast('Backup creado: '+r.nombre,'ok');cargarBackups();}
     else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
@@ -204,7 +205,7 @@ function crearBackup(btn){
 
 function toggleProgramacion(btn){
   var fin=setLoading(btn,true,'Procesando\u2026');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast(r.mensaje||'Actualizado','ok');cargarBackups();}
     else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');
@@ -214,7 +215,7 @@ function toggleProgramacion(btn){
 function podarAuto(btn){
   if(!confirm('Esto eliminar\u00e1 los backups autom\u00e1ticos antiguos (se conservan los \u00faltimos '+(_BK_RETENCION||'configurados')+').'))return;
   var fin=setLoading(btn,true,'Podando\u2026');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast(r.borrados+' backups eliminados','ok');cargarBackups();}
     else toast('Error','err');
@@ -222,7 +223,7 @@ function podarAuto(btn){
 }
 
 function abrirCarpeta(){
-  google.script.run.withSuccessHandler(function(r){if(r&&r.url)window.open(r.url,'_blank');}).api_backupFolder(ECICEP_ACCESO);
+  ECICEP_run().withSuccessHandler(function(r){if(r&&r.url)window.open(r.url,'_blank');}).api_backupFolder(ECICEP_ACCESO);
 }
 
 /* Programación */
@@ -238,7 +239,7 @@ function initHoras(){
 }
 
 function cargarConfig(){
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     if(!r||!r.ok)return;
     document.getElementById('schDia').value=r.dia||'DOMINGO';
     document.getElementById('schHora').value=String(parseInt(r.hora,10)||3);
@@ -260,7 +261,7 @@ function programarBackup(btn){
   var dia=document.getElementById('schDia').value;
   var hora=document.getElementById('schHora').value;
   var fin=setLoading(btn,true,'Programando\u2026');
-  google.script.run.withSuccessHandler(function(r){
+  ECICEP_run().withSuccessHandler(function(r){
     fin();
     if(r&&r.ok){toast(r.mensaje||'Programado','ok');cargarBackups();}
     else toast('Error: '+((r&&r.motivo)||'desconocido'),'err');

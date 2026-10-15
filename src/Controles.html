@@ -403,7 +403,7 @@ function verFicha() {
     return;
   }
   ECICEP_navegar('', 'la ficha', function () {
-    google.script.run
+    ECICEP_run()
       .withSuccessHandler(function (r) {
         if (r === false) {
           toast('No se pudo abrir la ficha: ID inválido', 'err');
@@ -428,7 +428,7 @@ function registrar(tipo) {
   var fecha = {};
   partes.forEach(function (p) { fecha[p.type] = p.value; });
   var hoy = fecha.year + '-' + fecha.month + '-' + fecha.day;
-  google.script.run
+  ECICEP_run()
     .withSuccessHandler(function (r) {
       _registrando = false;
       if (r && r.ok) {

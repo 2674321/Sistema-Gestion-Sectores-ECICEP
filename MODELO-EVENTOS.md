@@ -79,7 +79,7 @@ confirmación de la cliente (PENDIENTES #15) — no se codifican supuestos.
 
 | Campo | Tipo | Nota |
 |---|---|---|
-| ID_EVENTO | id (téc) | `EV-<base36>-<rand>` |
+| ID_EVENTO | id (téc) | `EV-<base36>-<rand4>` — automático, nunca posicional (DEC-104) |
 | ID_INTERNO | link | FK a PACIENTES |
 | RUT | texto | Denormalizado para filtrado directo |
 | NOMBRE | texto | Snapshot al momento del evento |
@@ -88,6 +88,7 @@ confirmación de la cliente (PENDIENTES #15) — no se codifican supuestos.
 | SECTOR | enum | NARANJO \| AMARILLO \| VERDE |
 | RIESGO_G | enum | G1\|G2\|G3 snapshot; '' si aún no clasifica |
 | PROFESIONAL | texto | |
+| PROFESIONAL2 | texto | **Segundo profesional de la dupla** (contrato de captura V2). Columna propia, nunca concatenada con `PROFESIONAL`. Se añade **al final** del esquema: los eventos históricos quedan con `''` y las columnas previas no se desplazan (DEC-104). |
 | PROFESIONAL_TIPO | texto | Lo pide el bloque "atenciones" del REM |
 | DESCRIPCION | texto | Libre |
 | CANTIDAD | número | Solo si aplica |
@@ -141,3 +142,12 @@ registros automáticamente; la fila queda marcada con nota explicativa.
 
 Total proyectado: ~15 hojas con función clara. SEGUIMIENTO como vista de trabajo
 se evalúa dentro de DASHBOARD/SECTOR_* antes de crear otra hoja.
+
+## Integridad v257 (DEC-112)
+
+El append de EVENTOS es fail-closed: esquema o lectura de IDs históricos
+fallida implica cero escrituras. Las cachés `ULTIMO_CONTROL` y
+`ULTIMO_SEGUIMIENTO` se derivan por máximo de fecha válida, sin depender del
+orden físico. Un `CAMBIO_ESTRATIFICACION` que no pudo anexarse deja
+`REQUIERE_REVISION` y evidencia en `CONFLICTOS`; el reconciliador es idempotente
+por `ID_EVENTO` y solo resuelve la marca después de verificar el evento.

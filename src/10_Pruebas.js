@@ -9,7 +9,7 @@
 /**
  * Ejecuta todas las suites. @returns {total, pasados, fallidos, detalles:[{nombre,ok,error}]}
  */
-function Pruebas_ejecutarTodo() {
+function Pruebas_ejecutarTodo_() {
   var detalles = [];
   var t = function (nombre, fn) {
     try { fn(); detalles.push({ nombre: nombre, ok: true }); }
@@ -26,101 +26,101 @@ function Pruebas_ejecutarTodo() {
     }
   };
 
-  _pruebas_rut(t, A);
-  _pruebas_telefonos(t, A);
-  _pruebas_fechas(t, A);
-  _pruebas_nombres(t, A);
-  _pruebas_encabezados(t, A);
-  _pruebas_estados(t, A);
-  _pruebas_estratificacion(t, A);
-  _pruebas_sectores(t, A);
-  _pruebas_sexos(t, A);
-  _pruebas_salud_mental(t, A);
-  _pruebas_tipos_evento(t, A);
-  _pruebas_staging(t, A);
-  _pruebas_identificacion(t, A);
-  _pruebas_duplicados_lote(t, A);
-  _pruebas_eventos_staging(t, A);
-  _pruebas_ingresos_3b(t, A);
-  _pruebas_gate_trazabilidad(t, A);
-  _pruebas_contrato_ingreso(t, A);
-  _pruebas_vistas_sector(t, A);
-  _pruebas_etapa4(t, A);
-  _pruebas_hardguard(t, A);
-  _pruebas_estrat_estado(t, A);
-  _pruebas_motor_estrat(t, A);
-  _pruebas_ponderacion(t, A);
-  _pruebas_contrato_catalogo(t, A);
-  _pruebas_utilidades(t, A);
-  _pruebas_migracion_esquema(t, A);
-  _pruebas_trazabilidad(t, A);
-  _pruebas_rem(t, A);
-  _pruebas_rem_ancho(t, A);
-  _pruebas_diseno(t, A);
-  _pruebas_rem_pdf(t, A);
-  _pruebas_instalador(t, A);
-  _pruebas_rem_excel(t, A);
-  _pruebas_amarillo(t, A);
-  _pruebas_limpieza(t, A);
-  _pruebas_hojas(t, A);
-  _pruebas_calidad(t, A);
-  _pruebas_profesionales(t, A);
-  _pruebas_config_v085(t, A);
-  _pruebas_control_v085(t, A);
-  _pruebas_controles_v087(t, A);
-  _pruebas_dialogos_v087(t, A);
-  _pruebas_responsables_v0872(t, A);
-  _pruebas_auditoria_v088(t, A);
-  _pruebas_escala_v088(t, A);
-  _pruebas_hojasvisual_v0881(t, A);
-  _pruebas_hojasvisual_v0883(t, A);
-  _pruebas_pulido_v0895(t, A);
-  _pruebas_designsystem_v0896(t, A);
-  _pruebas_formulario_v090(t, A);
-  _pruebas_entornos_v091(t, A);
-  _pruebas_operativo_v092(t, A);
-  _pruebas_enriquecimiento_s5(t, A);
-  _pruebas_enriquecimiento_s11(t, A);
-  _pruebas_auditoria_s11r(t, A);
-  _pruebas_separacion_s12(t, A);
-  _pruebas_actualizacion_v096(t, A);
-  _pruebas_s10fix_esquema(t, A);
-  _pruebas_inst1_versionado(t, A);
-  _pruebas_inicio_formulas(t, A);
-  _pruebas_ia_privacidad(t, A);
-  _pruebas_ia_v097(t, A);
-  _pruebas_ia_revision(t, A);
-  _pruebas_p0_auditoria_v098(t, A);
+  _pruebas_rut_(t, A);
+  _pruebas_telefonos_(t, A);
+  _pruebas_fechas_(t, A);
+  _pruebas_nombres_(t, A);
+  _pruebas_encabezados_(t, A);
+  _pruebas_estados_(t, A);
+  _pruebas_estratificacion_(t, A);
+  _pruebas_sectores_(t, A);
+  _pruebas_sexos_(t, A);
+  _pruebas_salud_mental_(t, A);
+  _pruebas_tipos_evento_(t, A);
+  _pruebas_staging_(t, A);
+  _pruebas_identificacion_(t, A);
+  _pruebas_duplicados_lote_(t, A);
+  _pruebas_eventos_staging_(t, A);
+  _pruebas_ingresos_3b_(t, A);
+  _pruebas_gate_trazabilidad_(t, A);
+  _pruebas_contrato_ingreso_(t, A);
+  _pruebas_vistas_sector_(t, A);
+  _pruebas_etapa4_(t, A);
+  _pruebas_hardguard_(t, A);
+  _pruebas_estrat_estado_(t, A);
+  _pruebas_motor_estrat_(t, A);
+  _pruebas_ponderacion_(t, A);
+  _pruebas_contrato_catalogo_(t, A);
+  _pruebas_utilidades_(t, A);
+  _pruebas_migracion_esquema_(t, A);
+  _pruebas_trazabilidad_(t, A);
+  _pruebas_rem_(t, A);
+  _pruebas_rem_ancho_(t, A);
+  _pruebas_diseno_(t, A);
+  _pruebas_rem_pdf_(t, A);
+  _pruebas_instalador_(t, A);
+  _pruebas_rem_excel_(t, A);
+  _pruebas_amarillo_(t, A);
+  _pruebas_limpieza_(t, A);
+  _pruebas_hojas_(t, A);
+  _pruebas_calidad_(t, A);
+  _pruebas_profesionales_(t, A);
+  _pruebas_config_v085_(t, A);
+  _pruebas_control_v085_(t, A);
+  _pruebas_controles_v087_(t, A);
+  _pruebas_dialogos_v087_(t, A);
+  _pruebas_responsables_v0872_(t, A);
+  _pruebas_auditoria_v088_(t, A);
+  _pruebas_escala_v088_(t, A);
+  _pruebas_hojasvisual_v0881_(t, A);
+  _pruebas_hojasvisual_v0883_(t, A);
+  _pruebas_pulido_v0895_(t, A);
+  _pruebas_designsystem_v0896_(t, A);
+  _pruebas_formulario_v090_(t, A);
+  _pruebas_entornos_v091_(t, A);
+  _pruebas_operativo_v092_(t, A);
+  _pruebas_enriquecimiento_s5_(t, A);
+  _pruebas_enriquecimiento_s11_(t, A);
+  _pruebas_auditoria_s11r_(t, A);
+  _pruebas_separacion_s12_(t, A);
+  _pruebas_actualizacion_v096_(t, A);
+  _pruebas_s10fix_esquema_(t, A);
+  _pruebas_inst1_versionado_(t, A);
+  _pruebas_inicio_formulas_(t, A);
+  _pruebas_ia_privacidad_(t, A);
+  _pruebas_ia_v097_(t, A);
+  _pruebas_ia_revision_(t, A);
+  _pruebas_p0_auditoria_v098_(t, A);
 
   var pasados = detalles.filter(function (d) { return d.ok; }).length;
   return { total: detalles.length, pasados: pasados, fallidos: detalles.length - pasados, detalles: detalles };
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_rut(t, A) {
+function _pruebas_rut_(t, A) {
   DATASET_NORMALIZACION.ruts.forEach(function (caso) {
     t('RUT: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_normalizarRut(caso[0]);
+      var r = Norm_normalizarRut_(caso[0]);
       A.igual(r.estado, caso[1], 'estado');
       A.igual(r.rut, caso[2], 'rut');
     });
   });
   t('RUT: DV calculado para cuerpo sin DV', function () {
-    var r = Norm_normalizarRut('72910265');
-    A.igual(r.dvCalculado, Norm_dvModulo11('72910265'), 'dvCalculado coherente con módulo 11');
+    var r = Norm_normalizarRut_('72910265');
+    A.igual(r.dvCalculado, Norm_dvModulo11_('72910265'), 'dvCalculado coherente con módulo 11');
     A.cierto(r.rut.indexOf('-') === -1, 'no se inventa DV');
   });
   t('RUT: validarRut true/false', function () {
-    A.cierto(Norm_validarRut('12.345.678-5'), 'válido');
-    A.cierto(!Norm_validarRut('12345678-4'), 'inválido');
+    A.cierto(Norm_validarRut_('12.345.678-5'), 'válido');
+    A.cierto(!Norm_validarRut_('12345678-4'), 'inválido');
   });
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_telefonos(t, A) {
+function _pruebas_telefonos_(t, A) {
   DATASET_NORMALIZACION.telefonos.forEach(function (caso) {
     t('TEL: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_normalizarTelefono(caso[0]);
+      var r = Norm_normalizarTelefono_(caso[0]);
       A.igual(r.estado, caso[1], 'estado');
       A.arreglos(r.telefonos, caso[2], 'telefonos');
       A.arreglos(r.observaciones, caso[3], 'observaciones');
@@ -129,49 +129,49 @@ function _pruebas_telefonos(t, A) {
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_fechas(t, A) {
+function _pruebas_fechas_(t, A) {
   DATASET_NORMALIZACION.fechas.forEach(function (caso) {
     t('FECHA: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_normalizarFecha(caso[0]);
+      var r = Norm_normalizarFecha_(caso[0]);
       A.igual(r.estado, caso[1], 'estado');
       A.igual(r.iso, caso[2], 'iso');
     });
   });
   t('FECHA: objeto Date válido', function () {
-    var r = Norm_normalizarFecha(new Date(2025, 4, 13));
+    var r = Norm_normalizarFecha_(new Date(2025, 4, 13));
     A.igual(r.estado, 'VALIDA', 'estado');
     A.igual(r.iso, '2025-05-13', 'iso');
   });
   t('FECHA: Date con serial corrupto (año imposible)', function () {
-    var r = Norm_normalizarFecha(new Date(2793723, 0, 1)); // serial corrupto visto en fuentes
+    var r = Norm_normalizarFecha_(new Date(2793723, 0, 1)); // serial corrupto visto en fuentes
     A.igual(r.estado, 'INVALIDA', 'estado');
     A.cierto(r.fecha === null, 'sin fecha inventada');
   });
   t('FECHA: MES_ANO no inventa día', function () {
-    var r = Norm_normalizarFecha('05/2026');
+    var r = Norm_normalizarFecha_('05/2026');
     A.cierto(r.fecha === null, 'fecha null');
     A.igual(r.iso, '2026-05', 'iso mes/año');
   });
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_nombres(t, A) {
+function _pruebas_nombres_(t, A) {
   DATASET_NORMALIZACION.nombres.forEach(function (caso) {
     t('NOMBRE: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_normalizarNombre(caso[0]);
+      var r = Norm_normalizarNombre_(caso[0]);
       A.igual(r.nombre, caso[1], 'nombre');
     });
   });
   t('NOMBRE: clave de matching sin tildes', function () {
-    A.igual(Norm_claveNombre('María Ñancú'), 'MARIA NANCU', 'clave sin tildes');
+    A.igual(Norm_claveNombre_('María Ñancú'), 'MARIA NANCU', 'clave sin tildes');
   });
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_encabezados(t, A) {
+function _pruebas_encabezados_(t, A) {
   DATASET_NORMALIZACION.encabezados.forEach(function (caso) {
     t('ENC: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_mapearEncabezado(caso[0]);
+      var r = Norm_mapearEncabezado_(caso[0]);
       A.igual(r.canonico, caso[1], 'canonico');
       A.igual(r.conocido, caso[2], 'conocido');
       A.igual(r.ambiguo, caso[3], 'ambiguo');
@@ -180,45 +180,45 @@ function _pruebas_encabezados(t, A) {
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_estados(t, A) {
+function _pruebas_estados_(t, A) {
   DATASET_NORMALIZACION.estados.forEach(function (caso) {
     t('ESTADO: ' + JSON.stringify(caso[0]), function () {
-      A.igual(Norm_normalizarEstado(caso[0]), caso[1], 'estado normalizado');
+      A.igual(Norm_normalizarEstado_(caso[0]), caso[1], 'estado normalizado');
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_estratificacion(t, A) {
+function _pruebas_estratificacion_(t, A) {
   DATASET_NORMALIZACION.estratificaciones.forEach(function (caso) {
     t('ESTRAT: ' + JSON.stringify(caso[0]), function () {
-      A.igual(Norm_normalizarEstratificacion(caso[0]), caso[1], 'estratificación');
+      A.igual(Norm_normalizarEstratificacion_(caso[0]), caso[1], 'estratificación');
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_sectores(t, A) {
+function _pruebas_sectores_(t, A) {
   DATASET_NORMALIZACION.sectores.forEach(function (caso) {
     t('SECTOR: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_normalizarSector(caso[0]);
+      var r = Norm_normalizarSector_(caso[0]);
       A.igual(r.estado, caso[1], 'estado');
       A.igual(r.sector, caso[2], 'sector');
     });
   });
   t('SECTOR: dimensiones independientes sector≠G', function () {
     // Un paciente del Sector Amarillo puede ser G3: no existe lógica que cruce ambas.
-    A.igual(Norm_normalizarSector('Amarillo').sector, 'AMARILLO', 'sector');
-    A.igual(Norm_normalizarEstratificacion('G3'), 'G3', 'estratificación independiente');
-    A.igual(Norm_normalizarSector('G3').estado, 'INVALIDO', 'G no es un sector');
+    A.igual(Norm_normalizarSector_('Amarillo').sector, 'AMARILLO', 'sector');
+    A.igual(Norm_normalizarEstratificacion_('G3'), 'G3', 'estratificación independiente');
+    A.igual(Norm_normalizarSector_('G3').estado, 'INVALIDO', 'G no es un sector');
   });
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_sexos(t, A) {
+function _pruebas_sexos_(t, A) {
   DATASET_NORMALIZACION.sexos.forEach(function (caso) {
     t('SEXO: ' + JSON.stringify(caso[0]), function () {
-      A.igual(Norm_normalizarSexo(caso[0]), caso[1], 'sexo normalizado');
+      A.igual(Norm_normalizarSexo_(caso[0]), caso[1], 'sexo normalizado');
     });
   });
 }
@@ -228,10 +228,10 @@ function _pruebas_sexos(t, A) {
 // No se infiere desde texto libre: cualquier abreviatura o frase queda
 // NO_RECONOCIDO para que el negocio decida (no se convierte a un NO implícito).
 // ---------------------------------------------------------------------------
-function _pruebas_salud_mental(t, A) {
+function _pruebas_salud_mental_(t, A) {
   DATASET_NORMALIZACION.saludMental.forEach(function (caso) {
     t('SALUD MENTAL: ' + JSON.stringify(caso[0]), function () {
-      var r = Norm_normalizarSaludMental(caso[0]);
+      var r = Norm_normalizarSaludMental_(caso[0]);
       A.igual(r.estado, caso[1], 'estado (' + caso[0] + ')');
       A.igual(r.valor, caso[2], 'valor normalizado (' + caso[0] + ')');
       if (caso[1] === 'NO_RECONOCIDO') {
@@ -253,9 +253,9 @@ function _pruebas_salud_mental(t, A) {
       'SALUD_MENTAL editable en la ficha');
     A.cierto(_FICHA_CAMPOS_OPERATIVOS.indexOf('SALUD_MENTAL') !== -1,
       'SALUD_MENTAL en la ficha operativa');
-    var src = api_actualizarPaciente.toString();
+    var src = api_actualizarPaciente_.toString();
     A.cierto(src.indexOf('Paciente_aplicarCampos_(') !== -1,
-      'api_actualizarPaciente delega en el dominio (ficha 2.0)');
+      'api_actualizarPaciente_ delega en el dominio (ficha 2.0)');
     A.cierto(typeof Paciente_validarCampo_ === 'function',
       'validación estricta vive en 31_Ficha');
     var vSi = Paciente_validarCampo_('SALUD_MENTAL', 'SI');
@@ -270,10 +270,10 @@ function _pruebas_salud_mental(t, A) {
 }
 
 // ---------------------------------------------------------------------------
-function _pruebas_tipos_evento(t, A) {
+function _pruebas_tipos_evento_(t, A) {
   DATASET_NORMALIZACION.tiposEvento.forEach(function (caso) {
     t('TIPO EV: ' + JSON.stringify(caso[0]), function () {
-      A.igual(Norm_normalizarTipoEvento(caso[0]), caso[1], 'tipo de evento');
+      A.igual(Norm_normalizarTipoEvento_(caso[0]), caso[1], 'tipo de evento');
     });
   });
 }
@@ -282,27 +282,27 @@ function _pruebas_tipos_evento(t, A) {
 // ETAPA 3 — staging / identificación / duplicados / eventos
 // ===========================================================================
 
-function _stagingCaso(nombreCaso, secuencia) {
+function _stagingCaso_(nombreCaso, secuencia) {
   var caso = DATASET_STAGING.casos[nombreCaso];
-  var f = Fuentes_crearFila(caso.origen, caso.valores, secuencia);
-  return Fuentes_normalizar(f);
+  var f = Fuentes_crearFila_(caso.origen, caso.valores, secuencia);
+  return Fuentes_normalizar_(f);
 }
 
-function _pruebas_staging(t, A) {
+function _pruebas_staging_(t, A) {
   t('STAGING: creación con ID determinista y trazabilidad', function () {
-    var f = Fuentes_crearFila(DATASET_STAGING.casos.nuevoOk.origen, DATASET_STAGING.casos.nuevoOk.valores, 7);
+    var f = Fuentes_crearFila_(DATASET_STAGING.casos.nuevoOk.origen, DATASET_STAGING.casos.nuevoOk.valores, 7);
     A.igual(f.ID_PROVISIONAL, 'SG-0007', 'id');
     A.igual(f.HOJA_ORIGEN, 'INGRESO_VERDE', 'hoja');
     A.igual(f.ESTADO_VALIDACION, 'PENDIENTE', 'estado inicial');
   });
   t('STAGING: valores originales intactos tras normalizar', function () {
-    var f = _stagingCaso('nuevoOk', 1);
+    var f = _stagingCaso_('nuevoOk', 1);
     A.igual(f.VALORES_ORIGINALES.NOMBRE, 'Carla Beatriz Muñoz Rojas', 'original conservado');
     A.igual(f.VALORES_ORIGINALES.RUT, '15234987-4', 'original rut');
     A.cierto(f.NORMALIZADO !== f.VALORES_ORIGINALES, 'normalizado separado');
   });
   t('STAGING: fila limpia → OK y campos canónicos', function () {
-    var f = _stagingCaso('nuevoOk', 2);
+    var f = _stagingCaso_('nuevoOk', 2);
     A.igual(f.ESTADO_VALIDACION, 'OK', 'estado');
     A.igual(f.NORMALIZADO.NOMBRE, 'CARLA BEATRIZ MUÑOZ ROJAS', 'nombre');
     A.igual(f.NORMALIZADO.SECTOR, 'VERDE', 'sector');
@@ -312,87 +312,87 @@ function _pruebas_staging(t, A) {
     A.igual(f.NORMALIZADO.RUT_ESTADO, 'OK', 'rut estado');
   });
   t('STAGING: fuente origen archivo|hoja|fila', function () {
-    var f = _stagingCaso('nuevoOk', 3);
-    A.igual(Fuentes_fuenteOrigen(f), 'PRUEBA_INGRESO_VERDE|INGRESO_VERDE|2', 'fuente');
+    var f = _stagingCaso_('nuevoOk', 3);
+    A.igual(Fuentes_fuenteOrigen_(f), 'PRUEBA_INGRESO_VERDE|INGRESO_VERDE|2', 'fuente');
   });
   t('STAGING: estructura detecta campos críticos ausentes', function () {
-    var r = Fuentes_validarEstructura({ NOMBRE: 'Alguien' }, ['RUT', 'NOMBRE']);
+    var r = Fuentes_validarEstructura_({ NOMBRE: 'Alguien' }, ['RUT', 'NOMBRE']);
     A.cierto(!r.ok && r.faltantes.indexOf('RUT') !== -1, 'RUT faltante');
-    A.cierto(Fuentes_validarEstructura({ RUT: 'x', NOMBRE: 'y' }).ok, 'completo ok');
+    A.cierto(Fuentes_validarEstructura_({ RUT: 'x', NOMBRE: 'y' }).ok, 'completo ok');
   });
   t('STAGING: RUT inválido → ERROR sin crash', function () {
-    var f = _stagingCaso('rutInvalido', 4);
+    var f = _stagingCaso_('rutInvalido', 4);
     A.igual(f.ESTADO_VALIDACION, 'ERROR', 'estado');
     A.igual(f.ERRORES[0].campo, 'RUT', 'campo');
     A.cierto(f.ERRORES[0].mensaje.indexOf('DV') !== -1, 'mensaje DV');
   });
   t('STAGING: RUT ausente → ERROR', function () {
-    var f = _stagingCaso('rutAusente', 5);
+    var f = _stagingCaso_('rutAusente', 5);
     A.cierto(f.ERRORES.some(function (e) { return e.campo === 'RUT' && /ausente/.test(e.mensaje); }), 'error RUT');
   });
   t('STAGING: RUT sin DV → WARNING (no bloquea)', function () {
-    var f = _stagingCaso('sinDvCoincide', 6);
+    var f = _stagingCaso_('sinDvCoincide', 6);
     A.igual(f.NORMALIZADO.RUT_ESTADO, 'SIN_DV', 'estado rut');
     A.cierto(f.WARNINGS.some(function (w) { return w.campo === 'RUT'; }), 'warning presente');
     A.igual(f.ESTADO_VALIDACION, 'WARNING', 'estado global');
   });
   t('STAGING: nombre de una palabra → WARNING; vacío → ERROR', function () {
-    var f1 = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Unicornio', RUT: '11111111-1', SECTOR: 'VERDE', FECHA_INGRESO: '01/02/2026' }, 8);
-    Fuentes_normalizar(f1);
+    var f1 = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Unicornio', RUT: '11111111-1', SECTOR: 'VERDE', FECHA_INGRESO: '01/02/2026' }, 8);
+    Fuentes_normalizar_(f1);
     A.cierto(f1.WARNINGS.some(function (w) { return w.campo === 'NOMBRE'; }), 'warning nombre corto');
-    var f2 = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 2 }, { NOMBRE: '', RUT: '11111111-1', SECTOR: 'VERDE' }, 9);
-    Fuentes_normalizar(f2);
+    var f2 = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 2 }, { NOMBRE: '', RUT: '11111111-1', SECTOR: 'VERDE' }, 9);
+    Fuentes_normalizar_(f2);
     A.cierto(f2.ERRORES.some(function (e) { return e.campo === 'NOMBRE'; }), 'error nombre vacío');
   });
   t('STAGING: teléfono deformado → WARNING PARCIAL con ambos números', function () {
-    var f = _stagingCaso('telefonoDeformado', 10);
+    var f = _stagingCaso_('telefonoDeformado', 10);
     A.cierto(f.WARNINGS.some(function (w) { return w.campo === 'TELEFONOS'; }), 'warning');
     A.igual(f.NORMALIZADO.TELEFONOS, '86273266/94561465', 'telefonos conservados');
   });
   t('STAGING: fecha inválida → ERROR trazable, no crash', function () {
-    var f = _stagingCaso('fechaInvalida', 11);
+    var f = _stagingCaso_('fechaInvalida', 11);
     A.igual(f.ESTADO_VALIDACION, 'ERROR', 'estado');
     A.cierto(f.ERRORES.some(function (e) { return e.campo === 'FECHA_INGRESO'; }), 'error fecha');
   });
   t('STAGING: sector inválido y sector ausente → ERROR', function () {
-    var f = _stagingCaso('sectorInvalido', 12);
+    var f = _stagingCaso_('sectorInvalido', 12);
     A.cierto(f.ERRORES.some(function (e) { return e.campo === 'SECTOR'; }), 'sector ROSARIO');
-    var g = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Alguien Dos', RUT: '11111111-1' }, 13);
-    Fuentes_normalizar(g);
+    var g = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Alguien Dos', RUT: '11111111-1' }, 13);
+    Fuentes_normalizar_(g);
     A.cierto(g.ERRORES.some(function (e) { return e.campo === 'SECTOR' && /ausente/.test(e.mensaje); }), 'sector ausente');
   });
   t('STAGING: alias NARANJA aceptado → NARANJO', function () {
-    var f = _stagingCaso('aliasNaranja', 14);
+    var f = _stagingCaso_('aliasNaranja', 14);
     A.igual(f.NORMALIZADO.SECTOR, 'NARANJO', 'canonico');
     A.igual(f.ESTADO_VALIDACION, 'OK', 'sin errores por alias');
   });
   t('STAGING: G3 como sector → ERROR; G3 sí vale como estratificación', function () {
-    var f = _stagingCaso('g3ComoSector', 15);
+    var f = _stagingCaso_('g3ComoSector', 15);
     A.cierto(f.ERRORES.some(function (e) { return e.campo === 'SECTOR'; }), 'G3 no es sector');
     A.igual(f.NORMALIZADO.ESTRATIFICACION, 'G3', 'estratificación independiente intacta');
   });
   t('STAGING: sexo no reconocido → WARNING y descartado', function () {
-    var f = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Lola Landa Larga', RUT: '14141414-3', SEXO: 'INDETERMINADO', SECTOR: 'VERDE', FECHA_INGRESO: '01/02/2026' }, 16);
-    Fuentes_normalizar(f);
+    var f = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Lola Landa Larga', RUT: '14141414-3', SEXO: 'INDETERMINADO', SECTOR: 'VERDE', FECHA_INGRESO: '01/02/2026' }, 16);
+    Fuentes_normalizar_(f);
     A.igual(f.NORMALIZADO.SEXO, '', 'sexo vacío');
     A.cierto(f.WARNINGS.some(function (w) { return w.campo === 'SEXO'; }), 'warning sexo');
   });
   t('STAGING: estratificación no clasificable conserva original + WARNING', function () {
-    var f = _stagingCaso('estratBasura', 17);
+    var f = _stagingCaso_('estratBasura', 17);
     A.igual(f.NORMALIZADO.ESTRATIFICACION, '', 'clasificada vacía');
     A.igual(f.NORMALIZADO.ESTRAT_ORIGEN, 'Z', 'origen conservado');
     A.cierto(f.WARNINGS.some(function (w) { return w.campo === 'ESTRATIFICACION'; }), 'warning pendiente');
   });
   t('STAGING: preingreso textual semántico se conserva', function () {
-    var f = _stagingCaso('preingresoTexto', 18);
+    var f = _stagingCaso_('preingresoTexto', 18);
     A.igual(f.NORMALIZADO.PREINGRESO, 'NO APLICA', 'texto conservado');
   });
 }
 
 // ---------------------------------------------------------------------------
 
-function _pruebas_identificacion(t, A) {
-  var indices = Iden_construirIndices(DATASET_STAGING.base);
+function _pruebas_identificacion_(t, A) {
+  var indices = Iden_construirIndices_(DATASET_STAGING.base);
 
   t('IDEN: índices construidos desde base ficticia', function () {
     A.igual(Object.keys(indices.porRut).length, 4, 'ruts indexados');
@@ -400,57 +400,57 @@ function _pruebas_identificacion(t, A) {
     A.igual(indices.porCuerpo['22222222'][0].ID_INTERNO, 'EC-TEST-0004', 'cuerpo del registro sucio');
   });
   t('IDEN: match exacto por RUT completo', function () {
-    var f = _stagingCaso('existenteRut', 20);
-    var r = Iden_identificar(f.NORMALIZADO, indices);
+    var f = _stagingCaso_('existenteRut', 20);
+    var r = Iden_identificar_(f.NORMALIZADO, indices);
     A.igual(r.resultado, 'MATCH_EXACTO', 'resultado');
     A.igual(r.idPaciente, 'EC-TEST-0001', 'paciente');
     A.igual(r.confianza, 'ALTA', 'confianza');
   });
   t('IDEN: SIN_DV + cuerpo + nombre → MATCH_PARCIAL', function () {
-    var f = _stagingCaso('sinDvCoincide', 21);
-    var r = Iden_identificar(f.NORMALIZADO, indices);
+    var f = _stagingCaso_('sinDvCoincide', 21);
+    var r = Iden_identificar_(f.NORMALIZADO, indices);
     A.igual(r.resultado, 'MATCH_PARCIAL', 'resultado');
     A.igual(r.idPaciente, 'EC-TEST-0003', 'paciente');
     A.igual(r.confianza, 'MEDIA', 'confianza');
   });
   t('IDEN: SIN_DV cuerpo coincide pero nombre difiere → REVISIÓN', function () {
     var n = { RUT: '5555555', RUT_ESTADO: 'SIN_DV', NOMBRE_CLAVE: 'OTRA PERSONA DISTINTA', TELEFONOS: '' };
-    var r = Iden_identificar(n, indices);
+    var r = Iden_identificar_(n, indices);
     A.igual(r.resultado, 'REQUIERE_REVISION', 'conservador');
   });
   t('IDEN: cuerpo existe con DV distinto en base → REVISIÓN (dato sucio)', function () {
-    var f = _stagingCaso('cuerpoConDvDistinto', 22);
-    var r = Iden_identificar(f.NORMALIZADO, indices);
+    var f = _stagingCaso_('cuerpoConDvDistinto', 22);
+    var r = Iden_identificar_(f.NORMALIZADO, indices);
     A.igual(r.resultado, 'REQUIERE_REVISION', 'nunca auto-decidir');
     A.igual(r.idPaciente, 'EC-TEST-0004', 'candidato señalado');
   });
   t('IDEN: nombre + teléfono → MATCH_PARCIAL', function () {
-    var f = _stagingCaso('nombreTelefono', 23);
-    var r = Iden_identificar(f.NORMALIZADO, indices);
+    var f = _stagingCaso_('nombreTelefono', 23);
+    var r = Iden_identificar_(f.NORMALIZADO, indices);
     A.igual(r.resultado, 'MATCH_PARCIAL', 'resultado');
     A.igual(r.idPaciente, 'EC-TEST-0002', 'paciente');
   });
   t('IDEN: solo nombre idéntico → POSIBLE_DUPLICADO (BAJA)', function () {
-    var f = _stagingCaso('posibleDuplicadoNombre', 24);
-    var r = Iden_identificar(f.NORMALIZADO, indices);
+    var f = _stagingCaso_('posibleDuplicadoNombre', 24);
+    var r = Iden_identificar_(f.NORMALIZADO, indices);
     A.igual(r.resultado, 'POSIBLE_DUPLICADO', 'no agresivo');
     A.igual(r.idPaciente, 'EC-TEST-0002', 'candidato');
     A.igual(r.confianza, 'BAJA', 'confianza');
   });
   t('IDEN: paciente nuevo real → SIN_MATCH', function () {
-    var f = _stagingCaso('nuevoOk', 25);
-    var r = Iden_identificar(f.NORMALIZADO, indices);
+    var f = _stagingCaso_('nuevoOk', 25);
+    var r = Iden_identificar_(f.NORMALIZADO, indices);
     A.igual(r.resultado, 'SIN_MATCH', 'nuevo');
   });
 }
 
 // ---------------------------------------------------------------------------
 
-function _pruebas_duplicados_lote(t, A) {
+function _pruebas_duplicados_lote_(t, A) {
   t('LOTE: duplicado exacto por RUT explicado y no destructivo', function () {
-    var a = _stagingCaso('dupLoteA', 30), b = _stagingCaso('dupLoteB', 31), c = _stagingCaso('nuevoOk', 32);
+    var a = _stagingCaso_('dupLoteA', 30), b = _stagingCaso_('dupLoteB', 31), c = _stagingCaso_('nuevoOk', 32);
     var antes = [a.ID_PROVISIONAL, b.ID_PROVISIONAL, c.ID_PROVISIONAL];
-    var dups = Iden_detectarDuplicadosLote([a, b, c]);
+    var dups = Iden_detectarDuplicadosLote_([a, b, c]);
     A.igual(dups.length, 1, 'un par detectado');
     A.igual(dups[0].a, 'SG-0030', 'par a');
     A.igual(dups[0].b, 'SG-0031', 'par b');
@@ -459,55 +459,55 @@ function _pruebas_duplicados_lote(t, A) {
     A.arreglos([a.ID_PROVISIONAL, b.ID_PROVISIONAL, c.ID_PROVISIONAL], antes, 'filas intactas');
   });
   t('LOTE: solo nombre dentro del lote → BAJA', function () {
-    var x = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Pedro Paramo Perez', RUT: '17171717-5', SECTOR: 'VERDE' }, 33);
-    var y = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 2 }, { NOMBRE: 'PEDRO PARAMO PEREZ', RUT: '19191919-K', SECTOR: 'VERDE' }, 34);
-    Fuentes_normalizar(x); Fuentes_normalizar(y);
-    var dups = Iden_detectarDuplicadosLote([x, y]);
+    var x = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 1 }, { NOMBRE: 'Pedro Paramo Perez', RUT: '17171717-5', SECTOR: 'VERDE' }, 33);
+    var y = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 2 }, { NOMBRE: 'PEDRO PARAMO PEREZ', RUT: '19191919-K', SECTOR: 'VERDE' }, 34);
+    Fuentes_normalizar_(x); Fuentes_normalizar_(y);
+    var dups = Iden_detectarDuplicadosLote_([x, y]);
     A.igual(dups.length, 1, 'par por nombre');
     A.igual(dups[0].confianza, 'BAJA', 'solo nombre');
     A.igual(dups[0].criterio, 'Solo nombre idéntico', 'criterio');
   });
   t('LOTE: personas distintas → sin duplicados', function () {
-    var a = _stagingCaso('dupLoteA', 35), c = _stagingCaso('nuevoOk', 36);
-    A.igual(Iden_detectarDuplicadosLote([a, c]).length, 0, 'vacío');
+    var a = _stagingCaso_('dupLoteA', 35), c = _stagingCaso_('nuevoOk', 36);
+    A.igual(Iden_detectarDuplicadosLote_([a, c]).length, 0, 'vacío');
   });
 }
 
 // ---------------------------------------------------------------------------
 
-function _pruebas_eventos_staging(t, A) {
-  var indices = Iden_construirIndices(DATASET_STAGING.base);
+function _pruebas_eventos_staging_(t, A) {
+  var indices = Iden_construirIndices_(DATASET_STAGING.base);
 
   t('EVENTO: fila con ERROR de validación bloqueada', function () {
-    var f = _stagingCaso('rutInvalido', 40);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, indices);
-    var r = Ev_desdeStaging(f);
+    var f = _stagingCaso_('rutInvalido', 40);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, indices);
+    var r = Ev_desdeStaging_(f);
     A.cierto(!r.ok && r.motivo === 'VALIDACION_ERROR', 'gate validación');
   });
   t('EVENTO: identificación pendiente bloqueada', function () {
-    var f = _stagingCaso('nuevoOk', 41); // sin RESULTADO_IDENTIFICACION
-    var r = Ev_desdeStaging(f);
+    var f = _stagingCaso_('nuevoOk', 41); // sin RESULTADO_IDENTIFICACION
+    var r = Ev_desdeStaging_(f);
     A.igual(r.motivo, 'IDENTIFICACION_PENDIENTE', 'gate orden de etapas');
   });
   t('EVENTO: REQUIERE_REVISION bloqueada', function () {
-    var f = _stagingCaso('cuerpoConDvDistinto', 42);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, indices);
-    var r = Ev_desdeStaging(f);
+    var f = _stagingCaso_('cuerpoConDvDistinto', 42);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, indices);
+    var r = Ev_desdeStaging_(f);
     A.igual(r.motivo, 'IDENTIFICACION_REQUIERE_REVISION', 'caso dudoso → humano decide');
   });
   t('EVENTO: POSIBLE_DUPLICADO bloqueada salvo confirmación explícita', function () {
-    var f = _stagingCaso('posibleDuplicadoNombre', 43);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, indices);
-    var r1 = Ev_desdeStaging(f);
+    var f = _stagingCaso_('posibleDuplicadoNombre', 43);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, indices);
+    var r1 = Ev_desdeStaging_(f);
     A.igual(r1.motivo, 'IDENTIFICACION_POSIBLE_DUPLICADO', 'bloqueada');
-    var r2 = Ev_desdeStaging(f, { confirmarNuevo: true });
+    var r2 = Ev_desdeStaging_(f, { confirmarNuevo: true });
     A.cierto(r2.ok, 'override consciente permitido');
     A.cierto(r2.evento.ES_NUEVO_PACIENTE === true, 'nuevo tras override');
   });
   t('EVENTO: nuevo paciente → evento INGRESO completo y trazable', function () {
-    var f = _stagingCaso('nuevoOk', 44);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, indices);
-    var r = Ev_desdeStaging(f, { secuencia: 1 });
+    var f = _stagingCaso_('nuevoOk', 44);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, indices);
+    var r = Ev_desdeStaging_(f, { secuenciaTest: 1 });
     A.cierto(r.ok, 'creado');
     var ev = r.evento;
     A.igual(ev.ID_EVENTO, 'EV-0001', 'id determinista');
@@ -520,18 +520,18 @@ function _pruebas_eventos_staging(t, A) {
     A.cierto(ev.FECHA_REGISTRO === null, 'la fija el sistema al escribir');
   });
   t('EVENTO: match existente conserva ID_INTERNO', function () {
-    var f = _stagingCaso('existenteRut', 45);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, indices);
-    var r = Ev_desdeStaging(f, { tipoEvento: 'CONTROL', fechaIso: '2026-04-20' });
+    var f = _stagingCaso_('existenteRut', 45);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, indices);
+    var r = Ev_desdeStaging_(f, { tipoEvento: 'CONTROL', fechaIso: '2026-04-20' });
     A.cierto(r.ok, 'creado');
     A.igual(r.evento.ID_INTERNO, 'EC-TEST-0001', 'enlazado');
     A.igual(r.evento.TIPO_EVENTO, 'CONTROL', 'tipo explícito');
     A.cierto(!r.evento.ES_NUEVO_PACIENTE, 'no nuevo');
   });
   t('EVENTO: los cuatro tipos del programa quedan como eventos independientes', function () {
-    var f = _stagingCaso('nuevoOk', 46);
+    var f = _stagingCaso_('nuevoOk', 46);
     f.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
-    var salida = Ev_variosDesdeStaging(f, DATASET_STAGING.eventosTipos.map(function (op) {
+    var salida = Ev_variosDesdeStaging_(f, DATASET_STAGING.eventosTipos.map(function (op) {
       return { tipoEvento: op.tipoEvento, fechaIso: op.fechaIso };
     }));
     A.cierto(salida.ok, 'todos creados');
@@ -541,13 +541,13 @@ function _pruebas_eventos_staging(t, A) {
       ['2026-03-05', '2026-06-09', '2026-07-01', '2026-07-15'], 'fechas independientes');
   });
   t('EVENTO: tipo inválido y fecha ausente bloquean', function () {
-    var f = _stagingCaso('nuevoOk', 60);
+    var f = _stagingCaso_('nuevoOk', 60);
     f.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
-    A.igual(Ev_desdeStaging(f, { tipoEvento: 'SUPERVISION', fechaIso: '2026-01-01' }).motivo, 'TIPO_EVENTO_INVALIDO', 'tipo');
-    var sinFecha = Fuentes_crearFila(f.ARCHIVO_ORIGEN ? { archivo: f.ARCHIVO_ORIGEN, hoja: f.HOJA_ORIGEN, fila: f.FILA_ORIGEN } : {}, { NOMBRE: f.VALORES_ORIGINALES.NOMBRE, RUT: f.VALORES_ORIGINALES.RUT, SECTOR: 'VERDE' }, 61);
-    Fuentes_normalizar(sinFecha);
+    A.igual(Ev_desdeStaging_(f, { tipoEvento: 'SUPERVISION', fechaIso: '2026-01-01' }).motivo, 'TIPO_EVENTO_INVALIDO', 'tipo');
+    var sinFecha = Fuentes_crearFila_(f.ARCHIVO_ORIGEN ? { archivo: f.ARCHIVO_ORIGEN, hoja: f.HOJA_ORIGEN, fila: f.FILA_ORIGEN } : {}, { NOMBRE: f.VALORES_ORIGINALES.NOMBRE, RUT: f.VALORES_ORIGINALES.RUT, SECTOR: 'VERDE' }, 61);
+    Fuentes_normalizar_(sinFecha);
     sinFecha.RESULTADO_IDENTIFICACION = { resultado: 'SIN_MATCH', idPaciente: '', criterio: '', confianza: '' };
-    A.igual(Ev_desdeStaging(sinFecha).motivo, 'FECHA_EVENTO_AUSENTE', 'fecha');
+    A.igual(Ev_desdeStaging_(sinFecha).motivo, 'FECHA_EVENTO_AUSENTE', 'fecha');
   });
 }
 
@@ -555,18 +555,18 @@ function _pruebas_eventos_staging(t, A) {
 // ETAPA 3b — adaptadores INGRESO_* · gates · transacción paciente/evento
 // ===========================================================================
 
-function _pruebas_ingresos_3b(t, A) {
+function _pruebas_ingresos_3b_(t, A) {
   t('3B ADAPTADOR: hoja → sector canónico', function () {
-    A.igual(Ingresos_hojaASector('INGRESO_NARANJA'), 'NARANJO', 'naranja→naranjo');
-    A.igual(Ingresos_hojaASector('INGRESO_AMARILLO'), 'AMARILLO', 'amarillo');
-    A.igual(Ingresos_hojaASector('INGRESO_VERDE'), 'VERDE', 'verde');
-    A.igual(Ingresos_hojaASector('INGRESO_X'), '', 'desconocida');
+    A.igual(Ingresos_hojaASector_('INGRESO_NARANJA'), 'NARANJO', 'naranja→naranjo');
+    A.igual(Ingresos_hojaASector_('INGRESO_AMARILLO'), 'AMARILLO', 'amarillo');
+    A.igual(Ingresos_hojaASector_('INGRESO_VERDE'), 'VERDE', 'verde');
+    A.igual(Ingresos_hojaASector_('INGRESO_X'), '', 'desconocida');
   });
 
   // CASO A — paciente nuevo válido
   t('3B CASO A: nuevo → PACIENTES +1, EVENTOS +1', function () {
     var store = { pacientes: [], eventos: [] };
-    var s = Ingresos_procesarFilas([_stagingCaso('nuevoOk', 1)], store,
+    var s = Ingresos_procesarFilas_([_stagingCaso_('nuevoOk', 1)], store,
       { nuevoId: function (i) { return 'EC-TEST-N' + ('00' + i).slice(-3); } });
     A.igual(store.pacientes.length, 1, 'pacientes');
     A.igual(store.eventos.length, 1, 'eventos');
@@ -583,7 +583,7 @@ function _pruebas_ingresos_3b(t, A) {
     var base = DATASET_STAGING.base[0];
     var rut = base.RUT, nombre = base.NOMBRE, telefono = base.TELEFONOS;
     var store = { pacientes: [base], eventos: [] };
-    var s = Ingresos_procesarFilas([_stagingCaso('existenteRut', 2)], store, {});
+    var s = Ingresos_procesarFilas_([_stagingCaso_('existenteRut', 2)], store, {});
     A.igual(store.pacientes.length, 1, '+0 pacientes');
     A.igual(store.eventos.length, 2, 'cambio + ingreso');
     A.igual(store.eventos[1].ID_INTERNO, 'EC-TEST-0001', 'ingreso enlazado');
@@ -598,7 +598,7 @@ function _pruebas_ingresos_3b(t, A) {
   // CASO C — ambiguo: nada se escribe
   t('3B CASO C: POSIBLE_DUPLICADO sin confirmar → REQUIERE_REVISION y cero escritura', function () {
     var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
-    var s = Ingresos_procesarFilas([_stagingCaso('posibleDuplicadoNombre', 3)], store, {});
+    var s = Ingresos_procesarFilas_([_stagingCaso_('posibleDuplicadoNombre', 3)], store, {});
     A.igual(store.pacientes.length, DATASET_STAGING.base.length, '+0 pacientes');
     A.igual(store.eventos.length, 0, '+0 eventos');
     A.igual(s.resumen.revision, 1, 'a revisión');
@@ -609,7 +609,7 @@ function _pruebas_ingresos_3b(t, A) {
   // CASO D — RUT inválido: bloqueado
   t('3B CASO D: RUT inválido → NO ESCRIBIR, ERROR', function () {
     var store = { pacientes: [], eventos: [] };
-    var s = Ingresos_procesarFilas([_stagingCaso('rutInvalido', 4)], store, {});
+    var s = Ingresos_procesarFilas_([_stagingCaso_('rutInvalido', 4)], store, {});
     A.igual(store.pacientes.length, 0, 'sin pacientes');
     A.igual(store.eventos.length, 0, 'sin eventos');
     A.igual(s.resultados[0].estado, 'ERROR', 'bloqueado');
@@ -619,7 +619,7 @@ function _pruebas_ingresos_3b(t, A) {
   // CASO E — ingreso desde INGRESO_AMARILLO
   t('3B CASO E: origen AMARILLO → EVENTO.SECTOR = AMARILLO', function () {
     var store = { pacientes: [], eventos: [] };
-    Ingresos_procesarFilas([_stagingCaso('sectorValido', 5)], store, {});
+    Ingresos_procesarFilas_([_stagingCaso_('sectorValido', 5)], store, {});
     A.igual(store.eventos[0].SECTOR, 'AMARILLO', 'sector del evento');
     A.igual(store.pacientes[0].SECTOR, 'AMARILLO', 'sector de la entidad');
   });
@@ -627,16 +627,16 @@ function _pruebas_ingresos_3b(t, A) {
   // CASO F — ingreso desde INGRESO_NARANJA (alias) → NARANJO
   t('3B CASO F: origen NARANJA → EVENTO.SECTOR = NARANJO', function () {
     var store = { pacientes: [], eventos: [] };
-    Ingresos_procesarFilas([_stagingCaso('aliasNaranja', 6)], store, {});
+    Ingresos_procesarFilas_([_stagingCaso_('aliasNaranja', 6)], store, {});
     A.igual(store.eventos[0].SECTOR, 'NARANJO', 'canónico NARANJO');
   });
 
   // CASO G — G3 en campo sector jamás prospera
   t('3B CASO G: "G3" como sector → ERROR, nunca SECTOR=G3', function () {
     var store = { pacientes: [], eventos: [] };
-    var f = _stagingCaso('g3ComoSector', 7);
+    var f = _stagingCaso_('g3ComoSector', 7);
     A.igual(f.NORMALIZADO.SECTOR, '', 'sector vacío, no G3');
-    var s = Ingresos_procesarFilas([f], store, {});
+    var s = Ingresos_procesarFilas_([f], store, {});
     A.igual(store.pacientes.length, 0, 'sin escritura');
     A.igual(s.resultados[0].estado, 'ERROR', 'bloqueado');
     A.igual(f.NORMALIZADO.ESTRATIFICACION, 'G3', 'estratificación sí es G3');
@@ -649,16 +649,16 @@ function _pruebas_ingresos_3b(t, A) {
       var c = JSON.parse(JSON.stringify(base));
       c.valores.FECHA_INGRESO = fecha;
       c.valores.TIPO_EVENTO = tipo;
-      return Fuentes_normalizar(Fuentes_crearFila(c.origen, c.valores));
+      return Fuentes_normalizar_(Fuentes_crearFila_(c.origen, c.valores));
     }
     var store = { pacientes: [], eventos: [] };
-    var r1 = Ingresos_procesarFilas([variar('05/03/2026', 'INGRESO')], store,
+    var r1 = Ingresos_procesarFilas_([variar('05/03/2026', 'INGRESO')], store,
       { nuevoId: function (i) { return 'EC-TEST-H01'; } });
     A.cierto(r1.ok !== false && store.eventos.length === 1, 'primera gestión');
     var antes = JSON.stringify(store.eventos[0]);
-    Ingresos_procesarFilas([variar('09/06/2026', 'CONTROL')], store,
+    Ingresos_procesarFilas_([variar('09/06/2026', 'CONTROL')], store,
       { nuevoId: function () { throw new Error('no debe crear otro paciente'); } });
-    Ingresos_procesarFilas([variar('01/07/2026', 'SEGUIMIENTO')], store, {});
+    Ingresos_procesarFilas_([variar('01/07/2026', 'SEGUIMIENTO')], store, {});
     A.igual(store.pacientes.length, 1, 'una sola entidad');
     A.igual(store.eventos.length, 3, 'tres eventos');
     A.arreglos(store.eventos.map(function (e) { return e.TIPO_EVENTO; }),
@@ -672,8 +672,8 @@ function _pruebas_ingresos_3b(t, A) {
 
   t('3B: duplicado dentro del lote se enlaza a la ficha creada en el mismo lote', function () {
     var store = { pacientes: [], eventos: [] };
-    var s = Ingresos_procesarFilas(
-      [_stagingCaso('dupLoteA', 10), _stagingCaso('dupLoteB', 11)], store,
+    var s = Ingresos_procesarFilas_(
+      [_stagingCaso_('dupLoteA', 10), _stagingCaso_('dupLoteB', 11)], store,
       { nuevoId: function (i) { return 'EC-TEST-D' + i; } });
     A.igual(store.pacientes.length, 1, 'una sola ficha');
     A.igual(store.eventos.length, 2, 'dos ingresos registrados');
@@ -682,7 +682,7 @@ function _pruebas_ingresos_3b(t, A) {
 
   t('3B: warning no bloquea el procesamiento', function () {
     var store = { pacientes: [], eventos: [] };
-    var s = Ingresos_procesarFilas([_stagingCaso('telefonoDeformado', 12)], store,
+    var s = Ingresos_procesarFilas_([_stagingCaso_('telefonoDeformado', 12)], store,
       { nuevoId: function () { return 'EC-TEST-W1'; } });
     A.igual(s.resultados[0].estado, 'INGRESADO', 'warning procesable');
     A.igual(store.eventos.length, 1, 'evento creado');
@@ -691,17 +691,17 @@ function _pruebas_ingresos_3b(t, A) {
   t('3B: fecha ausente en nueva persona → revisión sin escrituras', function () {
     var store = { pacientes: [], eventos: [] };
     // fila con RUT inválido: el gate de validación manda primero
-    var fila2 = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 2 },
+    var fila2 = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 2 },
       { NOMBRE: 'Nora Nadie Nuñez', RUT: '16161616-?', SECTOR: 'VERDE' }, 21);
-    Fuentes_normalizar(fila2);
-    var s = Ingresos_procesarFilas([fila2], store, {});
+    Fuentes_normalizar_(fila2);
+    var s = Ingresos_procesarFilas_([fila2], store, {});
     A.igual(store.pacientes.length, 0, 'sin escritura');
     A.igual(s.resultados[0].estado, 'ERROR', 'rut inválido manda primero');
     // caso limpio solo sin fecha:
-    var fila3 = Fuentes_crearFila({ archivo: 'M', hoja: 'H', fila: 3 },
+    var fila3 = Fuentes_crearFila_({ archivo: 'M', hoja: 'H', fila: 3 },
       { NOMBRE: 'Ofelia Ocampo Ortiz', RUT: '17171717-5', SECTOR: 'VERDE' }, 22);
-    Fuentes_normalizar(fila3);
-    var s3 = Ingresos_procesarFilas([fila3], store, {});
+    Fuentes_normalizar_(fila3);
+    var s3 = Ingresos_procesarFilas_([fila3], store, {});
     A.igual(s3.resultados[0].estado, 'REQUIERE_REVISION', 'gate fecha');
     A.igual(s3.resultados[0].nota, 'FECHA_EVENTO_AUSENTE', 'motivo trazable');
     A.igual(store.pacientes.length, 0, 'sigue sin escritura');
@@ -709,11 +709,11 @@ function _pruebas_ingresos_3b(t, A) {
 
   t('3B REGRESIÓN: fila CRUDA (sin normalizar) ya no se bloquea — incidente 36/36', function () {
     // Reproduce EXACTAMENTe el defecto real: el wrapper entregaba filas de
-    // Ingresos_leerHoja sin pasar por Fuentes_normalizar.
-    var cruda = Fuentes_crearFila(DATASET_STAGING.casos.nuevoOk.origen, DATASET_STAGING.casos.nuevoOk.valores, 99);
+    // Ingresos_leerHoja_ sin pasar por Fuentes_normalizar_.
+    var cruda = Fuentes_crearFila_(DATASET_STAGING.casos.nuevoOk.origen, DATASET_STAGING.casos.nuevoOk.valores, 99);
     A.igual(cruda.ESTADO_VALIDACION, 'PENDIENTE', 'llega sin validar (como en el bug)');
     var store = { pacientes: [], eventos: [] };
-    var s = Ingresos_procesarFilas([cruda], store,
+    var s = Ingresos_procesarFilas_([cruda], store,
       { nuevoId: function () { return 'EC-TEST-RAW1'; } });
     A.igual(s.resumen.validacionOk, 1, 'normalizada dentro del orquestador');
     A.igual(store.pacientes.length, 1, 'paciente creado');
@@ -723,11 +723,11 @@ function _pruebas_ingresos_3b(t, A) {
 
   t('3B: resumen integrador con lote mixto', function () {
     var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
-    var s = Ingresos_procesarFilas([
-      _stagingCaso('nuevoOk', 30),                 // nuevo
-      _stagingCaso('existenteRut', 31),            // existente (base[0])
-      _stagingCaso('posibleDuplicadoNombre', 32),  // revisión
-      _stagingCaso('rutInvalido', 33)              // error
+    var s = Ingresos_procesarFilas_([
+      _stagingCaso_('nuevoOk', 30),                 // nuevo
+      _stagingCaso_('existenteRut', 31),            // existente (base[0])
+      _stagingCaso_('posibleDuplicadoNombre', 32),  // revisión
+      _stagingCaso_('rutInvalido', 33)              // error
     ], store, { nuevoId: function () { return 'EC-TEST-MIX'; } });
     A.igual(s.resumen.leidos, 4, 'leídos');
     A.igual(s.resumen.conError, 1, 'con error');
@@ -743,50 +743,50 @@ function _pruebas_ingresos_3b(t, A) {
 // ETAPA 3b-fix — tabla de verdad del gate + trazador por etapa
 // ---------------------------------------------------------------------------
 
-function _pruebas_gate_trazabilidad(t, A) {
-  var indices = Iden_construirIndices(DATASET_STAGING.base);
+function _pruebas_gate_trazabilidad_(t, A) {
+  var indices = Iden_construirIndices_(DATASET_STAGING.base);
 
   t('GATE tabla: OK + SIN_MATCH → CREAR_PACIENTE', function () {
-    var f = _stagingCaso('nuevoOk', 40);
-    var tr = Ingresos_trazarFila(f, indices);
+    var f = _stagingCaso_('nuevoOk', 40);
+    var tr = Ingresos_trazarFila_(f, indices);
     A.igual(tr.estadoValidacion, 'OK', 'validación');
     A.igual(tr.identificacion.resultado, 'SIN_MATCH', 'identificación');
     A.igual(tr.decisionGate, 'CREAR_PACIENTE', 'gate');
     A.igual(tr.motivoBloqueo, '', 'sin bloqueo');
   });
   t('GATE tabla: WARNING + SIN_MATCH → CREAR_PACIENTE (warning NO bloquea)', function () {
-    var f = _stagingCaso('telefonoDeformado', 41);
-    var tr = Ingresos_trazarFila(f, indices);
+    var f = _stagingCaso_('telefonoDeformado', 41);
+    var tr = Ingresos_trazarFila_(f, indices);
     A.igual(tr.estadoValidacion, 'WARNING', 'validación');
     A.igual(tr.decisionGate, 'CREAR_PACIENTE', 'gate');
     A.igual(tr.motivoBloqueo, '', 'procesable');
   });
   t('GATE tabla: ERROR (DV incorrecto) → BLOQUEADO con motivo trazable', function () {
-    var f = _stagingCaso('rutInvalido', 42);
-    var tr = Ingresos_trazarFila(f, indices);
+    var f = _stagingCaso_('rutInvalido', 42);
+    var tr = Ingresos_trazarFila_(f, indices);
     A.igual(tr.decisionGate, 'BLOQUEADO', 'gate');
     A.cierto(tr.motivoBloqueo.indexOf('RUT') !== -1 && tr.motivoBloqueo.indexOf('DV') !== -1, 'motivo');
   });
   t('GATE tabla: OK + MATCH_EXACTO → ENLAZAR_EXISTENTE', function () {
-    var f = _stagingCaso('existenteRut', 43);
-    var tr = Ingresos_trazarFila(f, indices);
+    var f = _stagingCaso_('existenteRut', 43);
+    var tr = Ingresos_trazarFila_(f, indices);
     A.igual(tr.identificacion.resultado, 'MATCH_EXACTO', 'identificación');
     A.igual(tr.decisionGate, 'ENLAZAR_EXISTENTE', 'gate');
   });
   t('GATE tabla: POSIBLE_DUPLICADO sin confirmar → REVISION', function () {
-    var f = _stagingCaso('posibleDuplicadoNombre', 44);
-    var tr = Ingresos_trazarFila(f, indices);
+    var f = _stagingCaso_('posibleDuplicadoNombre', 44);
+    var tr = Ingresos_trazarFila_(f, indices);
     A.igual(tr.identificacion.resultado, 'POSIBLE_DUPLICADO', 'identificación conservadora intacta (DEC-024)');
     A.igual(tr.decisionGate, 'REVISION', 'nunca automático');
   });
 
   t('MÉTRICAS separadas: lote mixto desglosado por concepto', function () {
     var store = { pacientes: DATASET_STAGING.base.slice(), eventos: [] };
-    var s = Ingresos_procesarFilas([
-      _stagingCaso('nuevoOk', 50),            // validación OK → nuevo
-      _stagingCaso('telefonoDeformado', 51),  // validación WARNING → nuevo
-      _stagingCaso('rutInvalido', 52),        // validación ERROR → bloqueado
-      _stagingCaso('posibleDuplicadoNombre', 53) // revisión
+    var s = Ingresos_procesarFilas_([
+      _stagingCaso_('nuevoOk', 50),            // validación OK → nuevo
+      _stagingCaso_('telefonoDeformado', 51),  // validación WARNING → nuevo
+      _stagingCaso_('rutInvalido', 52),        // validación ERROR → bloqueado
+      _stagingCaso_('posibleDuplicadoNombre', 53) // revisión
     ], store, { nuevoId: function (i) { return 'EC-TEST-MX' + i; } });
     A.igual(s.resumen.leidos, 4, 'leídos');
     A.igual(s.resumen.validacionOk, 1, 'validación OK (solo nuevoOk)');
@@ -800,7 +800,7 @@ function _pruebas_gate_trazabilidad(t, A) {
   });
 
   t('DATASET: estratBasura corregido a RUT válido → ya no es ERROR', function () {
-    var f = _stagingCaso('estratBasura', 54);
+    var f = _stagingCaso_('estratBasura', 54);
     A.cierto(f.NORMALIZADO.RUT_ESTADO === 'OK' || f.NORMALIZADO.RUT_ESTADO === 'SIN_DV',
       'RUT del caso estratBasura válido (era bug del dataset)');
     A.cierto(!f.ERRORES.some(function (e) { return e.campo === 'RUT'; }), 'sin error de RUT');
@@ -816,9 +816,9 @@ function _pruebas_gate_trazabilidad(t, A) {
 
 // ---------------------------------------------------------------------------
 
-function _pruebas_contrato_ingreso(t, A) {
+function _pruebas_contrato_ingreso_(t, A) {
   t('CONTRATO: todos los encabezados del instalador son procesables por el adaptador', function () {
-    var mapa = Ingresos_mapearEncabezadosHoja(Ingresos_columnasHoja());
+    var mapa = Ingresos_mapearEncabezadosHoja_(Ingresos_columnasHoja_());
     var faltantes = CAMPOS_INGRESO_OPERATIVOS.filter(function (c) { return mapa.campos[c] === undefined; });
     A.arreglos(faltantes, [], 'sin campos operativos sin mapear');
     A.cierto(mapa.estadoIdx !== -1, 'columna ESTADO_INGRESO detectada');
@@ -826,11 +826,11 @@ function _pruebas_contrato_ingreso(t, A) {
     A.igual(mapa.desconocidos.length, 0, 'sin columnas desconocidas');
   });
   t('CONTRATO: regresión TELEFONO(S) → campo TELEFONOS del modelo', function () {
-    var mapa = Ingresos_mapearEncabezadosHoja(Ingresos_columnasHoja());
+    var mapa = Ingresos_mapearEncabezadosHoja_(Ingresos_columnasHoja_());
     A.cierto(mapa.campos.TELEFONOS !== undefined, 'TELEFONOS capturado (bug corregido)');
   });
   t('CONTRATO: etiquetas antiguas siguen mapeando (compatibilidad hojas existentes)', function () {
-    var mapa = Ingresos_mapearEncabezadosHoja(
+    var mapa = Ingresos_mapearEncabezadosHoja_(
       ['NOMBRE', 'RUT', 'FECHA NACIMIENTO', 'TELEFONO(S)', 'FECHA INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA']);
     A.cierto(mapa.campos.FECHA_NACIMIENTO !== undefined, 'FECHA NACIMIENTO');
     A.cierto(mapa.campos.TELEFONOS !== undefined, 'TELEFONO(S)');
@@ -838,28 +838,28 @@ function _pruebas_contrato_ingreso(t, A) {
   });
   t('CONTRATO B1: variantes de encabezado de FECHA_NACIMIENTO (NACIMIENTO / FECHA NAC / F.N. / DOB)', function () {
     ['NACIMIENTO', 'FECHA NAC', 'F.N.', 'DOB'].forEach(function (h) {
-      var mapa = Ingresos_mapearEncabezadosHoja([h]);
+      var mapa = Ingresos_mapearEncabezadosHoja_([h]);
       A.igual(mapa.campos.FECHA_NACIMIENTO, 0, h + ' → FECHA_NACIMIENTO');
       A.igual(mapa.desconocidos.length, 0, h + ' sin desconocidos');
     });
   });
   t('CONTRATO: nombres de hoja oficiales y alias', function () {
-    A.igual(Ingresos_hojaASector('INGRESO_NARANJO'), 'NARANJO', 'ortografía oficial');
-    A.igual(Ingresos_hojaASector('INGRESO_NARANJA'), 'NARANJO', 'alias cliente mantenido');
-    A.igual(Ingresos_hojaASector('INGRESO_AMARILLO'), 'AMARILLO', 'amarillo');
-    A.igual(Ingresos_hojaASector('INGRESO_VERDE'), 'VERDE', 'verde');
+    A.igual(Ingresos_hojaASector_('INGRESO_NARANJO'), 'NARANJO', 'ortografía oficial');
+    A.igual(Ingresos_hojaASector_('INGRESO_NARANJA'), 'NARANJO', 'alias cliente mantenido');
+    A.igual(Ingresos_hojaASector_('INGRESO_AMARILLO'), 'AMARILLO', 'amarillo');
+    A.igual(Ingresos_hojaASector_('INGRESO_VERDE'), 'VERDE', 'verde');
   });
   t('CONTRATO: fila simulada con plantilla real se valida sin ERROR estructural', function () {
     // replica exactamente lo que el instalador crea + lo que el sembrador escribe
-    var encabezados = Ingresos_columnasHoja();
+    var encabezados = Ingresos_columnasHoja_();
     var valores = ['Carla Test Verde', '15234987-4', 'F', '', '968112233', '05/03/2026', 'G2', '', '', 'PENDIENTE', 'PRUEBA'];
-    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var mapa = Ingresos_mapearEncabezadosHoja_(encabezados);
     var v = {};
     CAMPOS_INGRESO_OPERATIVOS.forEach(function (c) {
       if (mapa.campos[c] !== undefined) v[c] = valores[mapa.campos[c]];
     });
-    var f = Fuentes_normalizar(Fuentes_crearFila(
-      { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_VERDE', fila: 2, sector: Ingresos_hojaASector('INGRESO_VERDE') }, v));
+    var f = Fuentes_normalizar_(Fuentes_crearFila_(
+      { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_VERDE', fila: 2, sector: Ingresos_hojaASector_('INGRESO_VERDE') }, v));
     A.igual(f.ESTADO_VALIDACION, 'OK', 'fila de plantilla oficial procesa limpia');
     A.igual(f.NORMALIZADO.SECTOR, 'VERDE', 'sector heredado de la hoja');
   });
@@ -867,7 +867,7 @@ function _pruebas_contrato_ingreso(t, A) {
     // Causa raíz: la lista corta operativa descartaba SEGUIMIENTO/CONTROL/
     // PRÓXIMO CONTROL/PROFESIONAL/PRE INGRESO de las fuentes reales.
     var encabezados = ['NOMBRE', 'RUT', 'SEGUIMIENTO', 'CONTROL', 'PROXIMO CONTROL', 'PROFESIONAL', 'PRE INGRESO'];
-    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var mapa = Ingresos_mapearEncabezadosHoja_(encabezados);
     A.cierto(mapa.campos.ULTIMO_SEGUIMIENTO !== undefined, 'SEGUIMIENTO → ULTIMO_SEGUIMIENTO');
     A.cierto(mapa.campos.ULTIMO_CONTROL !== undefined, 'CONTROL → ULTIMO_CONTROL');
     A.cierto(mapa.campos.PROXIMO_CONTROL !== undefined, 'PROXIMO CONTROL → PROXIMO_CONTROL');
@@ -881,13 +881,13 @@ function _pruebas_contrato_ingreso(t, A) {
       'PRE INGRESO', 'ESTADO_INGRESO', 'NOTA_SISTEMA'];
     var valores = ['Carla Adicional', '15234987-4', '1985-01-01', '968112233', '05/03/2026',
       'G2', '01/04/2026', '01/04/2026', '01/07/2026', 'Dra. Rojas', '01/04/2026', 'PENDIENTE', 'PRUEBA'];
-    var mapa = Ingresos_mapearEncabezadosHoja(encabezados);
+    var mapa = Ingresos_mapearEncabezadosHoja_(encabezados);
     var v = {};
     Object.keys(mapa.campos).forEach(function (c) { v[c] = valores[mapa.campos[c]]; });
-    var f = Fuentes_normalizar(Fuentes_crearFila(
+    var f = Fuentes_normalizar_(Fuentes_crearFila_(
       { archivo: 'FUENTE-X', hoja: 'HOJA 1', fila: 3, sector: 'NARANJO' }, v));
     A.igual(f.ESTADO_VALIDACION, 'OK', 'fila fuente procesada sin ERROR');
-    var salida = Ingresos_procesarFilas([f], { pacientes: [], eventos: [] },
+    var salida = Ingresos_procesarFilas_([f], { pacientes: [], eventos: [] },
       { nuevoId: function () { return 'EC-000001'; } });
     A.igual(salida.resumen.nuevos, 1, 'crea paciente nuevo');
     var p = salida.pacientesNuevos[0];
@@ -901,7 +901,7 @@ function _pruebas_contrato_ingreso(t, A) {
 
 // ---------------------------------------------------------------------------
 
-function _pruebas_vistas_sector(t, A) {
+function _pruebas_vistas_sector_(t, A) {
   var pacientesVarios = [
     { ID_INTERNO: 'EC-V1', RUT: '1-1', NOMBRE: 'UNO VERDE', SECTOR: 'VERDE', ESTRATIFICACION: 'G2',
       TELEFONOS: '911111111', FECHA_NACIMIENTO: '1990-04-12', OBSERVACIONES: '' },
@@ -913,31 +913,31 @@ function _pruebas_vistas_sector(t, A) {
 
   t('VISTA SECTOR: filtra por sector territorial (dimensión independiente de G)', function () {
     var pos = function (c) { return COLUMNAS_SECTOR_VISTA.indexOf(c); };
-    var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
+    var verde = Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'VERDE', ultimo);
     A.igual(verde.length, 1, 'solo el paciente VERDE');
     A.igual(verde[0][pos('ID_INTERNO')], 'EC-V1', 'ID_INTERNO');
     A.igual(verde[0][pos('RUT')], '1-1', 'RUT');
     A.igual(verde[0][pos('FECHA_NACIMIENTO')], '1990-04-12', 'FECHA_NACIMIENTO visible en la vista');
-    A.igual(verde[0][pos('SEXO')], Utl_texto(pacientesVarios[0].SEXO), 'sexo desde PACIENTES');
+    A.igual(verde[0][pos('SEXO')], Utl_texto_(pacientesVarios[0].SEXO), 'sexo desde PACIENTES');
     A.igual(verde[0][pos('RUT_DV_VALIDO')], '', 'RUT_DV_VALIDO presente');
     A.igual(verde[0][pos('ESTRATIFICACION')], 'G2', 'estratificación mostrada, no confundida con sector');
-    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'AMARILLO', {}).length, 1, 'amarillo');
-    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'NARANJO', {}).length, 1, 'naranjo');
+    A.igual(Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'AMARILLO', {}).length, 1, 'amarillo');
+    A.igual(Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'NARANJO', {}).length, 1, 'naranjo');
   });
   t('VISTA SECTOR: EDAD derivada y ULTIMO_EVENTO desde EVENTOS', function () {
     var pos = function (c) { return COLUMNAS_SECTOR_VISTA.indexOf(c); };
-    var verde = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
+    var verde = Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'VERDE', ultimo);
     A.cierto(Number(verde[0][pos('EDAD')]) >= 30, 'edad derivada plausible (nac. 1990)');
     A.igual(verde[0][pos('SEXO')], '', 'sin sexo en fuente → vista sin inventar');
     A.igual(verde[0][pos('ULTIMO_EVENTO')], 'CONTROL (2026-06-01)', 'último evento desde mapa');
-    var sinMapa = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', {});
+    var sinMapa = Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'VERDE', {});
     A.igual(sinMapa[0][pos('ULTIMO_EVENTO')], '', 'sin eventos → vacío');
   });
   t('VISTA SECTOR: es derivada e idempotente (nunca base independiente)', function () {
-    var a = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
-    var b = Modelo_vistaSectorDesdePacientes(pacientesVarios, 'VERDE', ultimo);
+    var a = Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'VERDE', ultimo);
+    var b = Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'VERDE', ultimo);
     A.arreglos(a, b, 'misma entrada → misma salida');
-    A.igual(Modelo_vistaSectorDesdePacientes(pacientesVarios, 'G3', {}).length, 0, 'G no es un sector');
+    A.igual(Modelo_vistaSectorDesdePacientes_(pacientesVarios, 'G3', {}).length, 0, 'G no es un sector');
   });
 }
 
@@ -945,7 +945,7 @@ function _pruebas_vistas_sector(t, A) {
 // ETAPA 4 — limpieza · búsqueda · ficha · revisión
 // ---------------------------------------------------------------------------
 
-function _pruebas_etapa4(t, A) {
+function _pruebas_etapa4_(t, A) {
   var base = [
     { ID_INTERNO: 'EC-P1', RUT: '12345678-5', NOMBRE: 'MARÍA PAZ SOTO VEGA', SECTOR: 'VERDE',
       ESTRATIFICACION: 'G2', ESTADO: 'INGRESADO', TELEFONOS: '987654321', FUENTE: 'HOJA_INGRESO|INGRESO_VERDE|2' },
@@ -962,58 +962,58 @@ function _pruebas_etapa4(t, A) {
 
   // --- BÚSQUEDA ---
   t('BUSCAR: RUT exacto (con formato sucio)', function () {
-    var r = Bus_buscarPacientes(base, '12.345.678-5');
+    var r = Bus_buscarPacientes_(base, '12.345.678-5');
     A.igual(r.length, 1, 'un resultado');
     A.igual(r[0].ID_INTERNO, 'EC-P1', 'paciente correcto');
   });
   t('BUSCAR: por nombre parcial', function () {
-    var r = Bus_buscarPacientes(base, 'perez');
+    var r = Bus_buscarPacientes_(base, 'perez');
     A.igual(r.length, 1, 'encontrado');
     A.igual(r[0].ID_INTERNO, 'EC-P2', 'paciente');
   });
   t('BUSCAR: múltiples resultados con apellido compartido', function () {
     var extra = { ID_INTERNO: 'EC-P3', RUT: '77777777-7', NOMBRE: 'OTRA PERSONA SOTO', NOMBRE_CLAVE: 'OTRA PERSONA SOTO', SECTOR: 'NARANJO' };
-    var r = Bus_buscarPacientes(base.concat([extra]), 'soto');
+    var r = Bus_buscarPacientes_(base.concat([extra]), 'soto');
     A.igual(r.length, 2, 'dos Soto');
   });
   t('BUSCAR: fragmento corto de RUT nunca devuelve filas ajenas', function () {
     var extra = { ID_INTERNO: 'EC-P3', RUT: '7654123-0', NOMBRE: 'OTRA PERSONA', SECTOR: 'NARANJO' };
-    var r = Bus_buscarPacientes(base.concat([extra]), '12');
+    var r = Bus_buscarPacientes_(base.concat([extra]), '12');
     A.igual(r.length, 2, 'solo RUT que contienen 12');
     A.igual(r[0].ID_INTERNO, 'EC-P1', 'primer RUT coincidente');
     A.igual(r[1].ID_INTERNO, 'EC-P3', 'segundo RUT coincidente');
-    A.igual(Bus_buscarPacientes(base, '00').length, 0, 'fragmento ausente no lista filas arbitrarias');
-    A.igual(Bus_buscarPacientes(base, '1234567890').length, 0, 'término numérico inválido no lista filas arbitrarias');
+    A.igual(Bus_buscarPacientes_(base, '00').length, 0, 'fragmento ausente no lista filas arbitrarias');
+    A.igual(Bus_buscarPacientes_(base, '1234567890').length, 0, 'término numérico inválido no lista filas arbitrarias');
   });
   t('BUSCAR: sin resultados y término vacío', function () {
-    A.igual(Bus_buscarPacientes(base, 'ZZZ Nadie').length, 0, 'sin match');
-    A.igual(Bus_buscarPacientes(base, '').length, 0, 'término vacío');
+    A.igual(Bus_buscarPacientes_(base, 'ZZZ Nadie').length, 0, 'sin match');
+    A.igual(Bus_buscarPacientes_(base, '').length, 0, 'término vacío');
   });
 
   // --- LIMPIEZA ---
   t('LIMPIEZA: elimina solo RUT de prueba + origen HOJA_INGRESO', function () {
-    A.igual(Limpieza_esPacienteDePrueba(base[0], ['12345678-5']), true, 'marcado → eliminable');
-    A.igual(Limpieza_esPacienteDePrueba(base[1], []), false, 'sin RUT marcado');
+    A.igual(Limpieza_esPacienteDePrueba_(base[0], ['12345678-5']), true, 'marcado → eliminable');
+    A.igual(Limpieza_esPacienteDePrueba_(base[1], []), false, 'sin RUT marcado');
   });
   t('LIMPIEZA: RUT coincidente pero origen ajeno al flujo de ingreso → NO eliminar', function () {
     var real = { ID_INTERNO: 'EC-R1', RUT: '11111111-1', NOMBRE: 'REGISTRO REAL NO PRUEBA',
                  SECTOR: 'VERDE', FUENTE: 'MIGRACION|EXTERNA|1' };
-    A.igual(Limpieza_esPacienteDePrueba(real, ['11111111-1']), false,
+    A.igual(Limpieza_esPacienteDePrueba_(real, ['11111111-1']), false,
       'sin doble señal (fuente distinta) jamás se purga');
   });
 
   // --- ÚLTIMO EVENTO ---
   t('ULTIMO EVENTO: mayor fecha gana aunque el registro sea posterior', function () {
-    var m = Ev_ultimoPorPaciente(eventosBase);
+    var m = Ev_ultimoPorPaciente_(eventosBase);
     A.igual(m['EC-P1'].tipo, 'CONTROL', 'control jun-26 > seguimiento may-26');
     A.cierto(m['EC-P1'].etiqueta.indexOf('CONTROL') !== -1, 'etiqueta');
   });
 
   // --- REVISIÓN ---
   t('REVISIÓN: fila de conflicto conserva datos para resolver después', function () {
-    var f = _stagingCaso('posibleDuplicadoNombre', 70);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, Iden_construirIndices(DATASET_STAGING.base));
-    var filaArr = Rev_filaConflicto(f);
+    var f = _stagingCaso_('posibleDuplicadoNombre', 70);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, Iden_construirIndices_(DATASET_STAGING.base));
+    var filaArr = Rev_filaConflicto_(f);
     A.igual(filaArr[1], 'POSIBLE_DUPLICADO', 'tipo');
     A.igual(filaArr[8], 'ABIERTO', 'abierta');
     var datos = JSON.parse(filaArr[5]);
@@ -1021,33 +1021,33 @@ function _pruebas_etapa4(t, A) {
     A.cierto(datos.valoresOriginales && datos.valoresOriginales.NOMBRE !== undefined, 'valores originales preservados');
   });
   t('REVISIÓN: CONFIRMAR_MATCH enlaza evento al candidato existente', function () {
-    var f = _stagingCaso('posibleDuplicadoNombre', 71);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, Iden_construirIndices(DATASET_STAGING.base));
-    var datos = JSON.parse(Rev_filaConflicto(f)[5]);
-    var r = Rev_prepararResolucion(datos, 'CONFIRMAR_MATCH', {});
+    var f = _stagingCaso_('posibleDuplicadoNombre', 71);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, Iden_construirIndices_(DATASET_STAGING.base));
+    var datos = JSON.parse(Rev_filaConflicto_(f)[5]);
+    var r = Rev_prepararResolucion_(datos, 'CONFIRMAR_MATCH', {});
     A.cierto(r.ok, 'resuelta');
     A.igual(r.accion, 'ENLAZAR', 'acción');
     A.igual(r.evento.ID_INTERNO, 'EC-TEST-0002', 'evento al candidato');
   });
   t('REVISIÓN: RECHAZAR_MATCH crea paciente nuevo independiente', function () {
-    var f = _stagingCaso('posibleDuplicadoNombre', 72);
-    f.RESULTADO_IDENTIFICACION = Iden_identificar(f.NORMALIZADO, Iden_construirIndices(DATASET_STAGING.base));
-    var datos = JSON.parse(Rev_filaConflicto(f)[5]);
-    var r = Rev_prepararResolucion(datos, 'RECHAZAR_MATCH', { nuevoId: function(){ return 'EC-REV-001'; } });
+    var f = _stagingCaso_('posibleDuplicadoNombre', 72);
+    f.RESULTADO_IDENTIFICACION = Iden_identificar_(f.NORMALIZADO, Iden_construirIndices_(DATASET_STAGING.base));
+    var datos = JSON.parse(Rev_filaConflicto_(f)[5]);
+    var r = Rev_prepararResolucion_(datos, 'RECHAZAR_MATCH', { nuevoId: function(){ return 'EC-REV-001'; } });
     A.cierto(r.ok, 'resuelta');
     A.igual(r.accion, 'CREAR', 'acción');
     A.igual(r.pacienteNuevo.ID_INTERNO, 'EC-REV-001', 'entidad nueva');
     A.igual(r.evento.ID_INTERNO, 'EC-REV-001', 'evento a la nueva');
   });
   t('REVISIÓN: errores críticos siguen bloqueando la resolución', function () {
-    var f = _stagingCaso('rutInvalido', 73);
+    var f = _stagingCaso_('rutInvalido', 73);
     f.RESULTADO_IDENTIFICACION = { resultado: 'REQUIERE_REVISION', criterio: 'test', idPaciente: 'X' };
-    var datos = JSON.parse(Rev_filaConflicto(f)[5]);
-    var r = Rev_prepararResolucion(datos, 'CONFIRMAR_MATCH', {});
+    var datos = JSON.parse(Rev_filaConflicto_(f)[5]);
+    var r = Rev_prepararResolucion_(datos, 'CONFIRMAR_MATCH', {});
     A.cierto(!r.ok && r.motivo.indexOf('VALIDACION_ERROR') === 0, 'gate intacto');
   });
   t('FICHA: arma datos operativos + historial cronológico (simulación pura)', function () {
-    // Modelo_fichaPaciente requiere GAS; aquí validamos las piezas puras que usa
+    // Modelo_fichaPaciente_ requiere GAS; aquí validamos las piezas puras que usa
     var ordenados = eventosBase.slice().sort(function (a, b) {
       return a.FECHA_EVENTO < b.FECHA_EVENTO ? -1 : a.FECHA_EVENTO > b.FECHA_EVENTO ? 1 : 0;
     });
@@ -1055,21 +1055,21 @@ function _pruebas_etapa4(t, A) {
       ['INGRESO', 'SEGUIMIENTO', 'CONTROL'], 'cronológico ascendente');
   });
   t('REVISIÓN: clave de idempotencia por origen (no por ID_PROVISIONAL)', function () {
-    var a = _stagingCaso('posibleDuplicadoNombre', 80);
-    var b = _stagingCaso('posibleDuplicadoNombre', 999);
+    var a = _stagingCaso_('posibleDuplicadoNombre', 80);
+    var b = _stagingCaso_('posibleDuplicadoNombre', 999);
     a.ARCHIVO_ORIGEN = 'X.xlsx'; a.HOJA_ORIGEN = 'A'; a.FILA_ORIGEN = 7;
     b.ARCHIVO_ORIGEN = 'X.xlsx'; b.HOJA_ORIGEN = 'A'; b.FILA_ORIGEN = 7;
-    var fa = Rev_filaConflicto(a), fb = Rev_filaConflicto(b);
+    var fa = Rev_filaConflicto_(a), fb = Rev_filaConflicto_(b);
     A.cierto(fa[5] !== fb[5], 'ID_PROVISIONAL distinto → DETALLE distinto');
-    A.igual(Rev_claveOrigenDesdeFila(fa), Rev_claveOrigenDesdeFila(fb), 'clave misma por origen');
-    var filtrado = Rev_filtrarConflictosNuevos([fa], [Rev_claveOrigenDesdeFila(fa)], Rev_claveOrigenDesdeFila);
+    A.igual(Rev_claveOrigenDesdeFila_(fa), Rev_claveOrigenDesdeFila_(fb), 'clave misma por origen');
+    var filtrado = Rev_filtrarConflictosNuevos_([fa], [Rev_claveOrigenDesdeFila_(fa)], Rev_claveOrigenDesdeFila_);
     A.igual(filtrado.length, 0, 'duplicado del mismo origen se descarta');
   });
   t('REVISIÓN: dedupe intra-lote — la misma fila origen solo encola una vez', function () {
-    var a = _stagingCaso('posibleDuplicadoNombre', 81); a.ARCHIVO_ORIGEN = 'Y.xlsx'; a.HOJA_ORIGEN = 'A'; a.FILA_ORIGEN = 1;
-    var b = _stagingCaso('posibleDuplicadoNombre', 82); b.ARCHIVO_ORIGEN = 'Y.xlsx'; b.HOJA_ORIGEN = 'A'; b.FILA_ORIGEN = 1;
-    var fa = Rev_filaConflicto(a), fb = Rev_filaConflicto(b);
-    var filtrado = Rev_filtrarConflictosNuevos([fa, fb], [], Rev_claveOrigenDesdeFila);
+    var a = _stagingCaso_('posibleDuplicadoNombre', 81); a.ARCHIVO_ORIGEN = 'Y.xlsx'; a.HOJA_ORIGEN = 'A'; a.FILA_ORIGEN = 1;
+    var b = _stagingCaso_('posibleDuplicadoNombre', 82); b.ARCHIVO_ORIGEN = 'Y.xlsx'; b.HOJA_ORIGEN = 'A'; b.FILA_ORIGEN = 1;
+    var fa = Rev_filaConflicto_(a), fb = Rev_filaConflicto_(b);
+    var filtrado = Rev_filtrarConflictosNuevos_([fa, fb], [], Rev_claveOrigenDesdeFila_);
     A.igual(filtrado.length, 1, 'solo una entrada por origen');
   });
 }
@@ -1078,34 +1078,34 @@ function _pruebas_etapa4(t, A) {
 // ETAPA 5-INCIDENTE — hard guard y DRY RUN seguro
 // ---------------------------------------------------------------------------
 
-function _pruebas_hardguard(t, A) {
+function _pruebas_hardguard_(t, A) {
   t('GUARD: bloquea escritura sin autorización', function () {
     var threw = false;
-    try { Modelo_guardEscritura({}); } catch (e) { threw = true; }
+    try { Modelo_guardEscritura_({}); } catch (e) { threw = true; }
     A.cierto(threw, 'debe lanzar error sin autorización');
   });
   t('GUARD: bloquea con contexto vacío', function () {
     var threw = false;
-    try { Modelo_guardEscritura(null); } catch (e) { threw = true; }
+    try { Modelo_guardEscritura_(null); } catch (e) { threw = true; }
     A.cierto(threw, 'contexto null → throw');
   });
   t('GUARD: permite con autorización IMPORT_AUTORIZADO', function () {
     var noThrow = true;
-    try { Modelo_guardEscritura({ autorizacion: 'IMPORT_AUTORIZADO' }); } catch (e) { noThrow = false; }
+    try { Modelo_guardEscritura_({ autorizacion: 'IMPORT_AUTORIZADO' }); } catch (e) { noThrow = false; }
     A.cierto(noThrow, 'autorizado pasa');
   });
   t('GUARD: rechaza autorización incorrecta', function () {
     var threw = false;
-    try { Modelo_guardEscritura({ autorizacion: 'cualquier_cosa' }); } catch (e) { threw = true; }
+    try { Modelo_guardEscritura_({ autorizacion: 'cualquier_cosa' }); } catch (e) { threw = true; }
     A.cierto(threw, 'token incorrecto → throw');
   });
 
   t('DRY RUN: pipeline NO invoca funciones de persistencia', function () {
-    // Simular: el pipeline Ingresos_procesarFilas opera sobre store en memoria.
+    // Simular: el pipeline Ingresos_procesarFilas_ opera sobre store en memoria.
     // Verificar que el resultado contiene datos para escribir pero NADA se escribió.
-    var f = _stagingCaso('nuevoOk', 80);
+    var f = _stagingCaso_('nuevoOk', 80);
     var store = { pacientes: [], eventos: [] };
-    var salida = Ingresos_procesarFilas([f], store,
+    var salida = Ingresos_procesarFilas_([f], store,
       { nuevoId: function () { return 'EC-DRY-TEST'; } });
     // El resultado TIENE datos listos para escribir...
     A.igual(salida.pacientesNuevos.length, 1, 'tiene pacientes en memoria');
@@ -1128,60 +1128,60 @@ function _pruebas_hardguard(t, A) {
 
 // ---------------------------------------------------------------------------
 
-function _pruebas_utilidades(t, A) {
+function _pruebas_utilidades_(t, A) {
   t('UTL: claveAlnum de encabezados reales', function () {
-    A.igual(Utl_claveAlnum('FECHA PROX. CONTROL'), 'FECHAPROXCONTROL');
-    A.igual(Utl_claveAlnum('MEDICO /DUPLA'), 'MEDICODUPLA');
-    A.igual(Utl_claveAlnum('TELÉFONO'), 'TELEFONO');
+    A.igual(Utl_claveAlnum_('FECHA PROX. CONTROL'), 'FECHAPROXCONTROL');
+    A.igual(Utl_claveAlnum_('MEDICO /DUPLA'), 'MEDICODUPLA');
+    A.igual(Utl_claveAlnum_('TELÉFONO'), 'TELEFONO');
   });
   t('UTL: partir() divide bloques exactos', function () {
-    var b = Utl_partir([1, 2, 3, 4, 5], 2);
+    var b = Utl_partir_([1, 2, 3, 4, 5], 2);
     A.igual(b.length, 3, 'cantidad de bloques');
     A.igual(b[2].length, 1, 'tamaño último bloque');
   });
   t('UTL: gruposContiguosFilas agrupa filas consecutivas (escritura por bloques)', function () {
-    var g = Utl_gruposContiguosFilas([3, 1, 2, 8, 9, 10, 15]);
+    var g = Utl_gruposContiguosFilas_([3, 1, 2, 8, 9, 10, 15]);
     A.igual(g.length, 3, 'tres grupos');
     A.igual(JSON.stringify(g[0]), '[1,2,3]', 'grupo inicial [1,2,3]');
     A.igual(JSON.stringify(g[1]), '[8,9,10]', 'grupo medio [8,9,10]');
     A.igual(JSON.stringify(g[2]), '[15]', 'fila suelta al final');
-    A.igual(JSON.stringify(Utl_gruposContiguosFilas([])), '[]', 'sin filas → []');
-    A.igual(JSON.stringify(Utl_gruposContiguosFilas([4])), '[[4]]', 'una sola fila');
+    A.igual(JSON.stringify(Utl_gruposContiguosFilas_([])), '[]', 'sin filas → []');
+    A.igual(JSON.stringify(Utl_gruposContiguosFilas_([4])), '[[4]]', 'una sola fila');
   });
   t('UTL: agruparPor agrupa por clave', function () {
-    var g = Utl_agruparPor([{ s: 'A' }, { s: 'B' }, { s: 'A' }], function (x) { return x.s; });
+    var g = Utl_agruparPor_([{ s: 'A' }, { s: 'B' }, { s: 'A' }], function (x) { return x.s; });
     A.igual(g.get('A').length, 2, 'grupo A');
     A.igual(g.get('B').length, 1, 'grupo B');
   });
   t('UTL: vacío seguro', function () {
-    A.cierto(Utl_vacio(null) && Utl_vacio('   ') && Utl_vacio(''), 'vacíos detectados');
-    A.igual(Utl_texto(null), '', 'texto nulo');
+    A.cierto(Utl_vacio_(null) && Utl_vacio_('   ') && Utl_vacio_(''), 'vacíos detectados');
+    A.igual(Utl_texto_(null), '', 'texto nulo');
   });
-  t('UTL: Rem9_edadEn consolidada sobre Utl_edadDesde (PENDIENTES #34)', function () {
-    A.igual(Rem9_edadEn('1980-05-10', '2026-01-01'), 45, 'edad numérica válida');
-    A.cierto(typeof Rem9_edadEn('1980-05-10', '2026-01-01') === 'number', 'contrato REM: Número, no string');
-    A.igual(Rem9_edadEn('1980-05-10', '2026-05-09'), 45, 'antes del cumpleaños');
-    A.igual(Rem9_edadEn('1980-05-10', '2026-05-10'), 46, 'en el cumpleaños');
-    A.igual(Rem9_edadEn('', '2026-01-01'), '', 'sin nacimiento → vacío');
-    A.igual(Rem9_edadEn('1980-05-10', ''), '', 'sin fecha de referencia → vacío');
-    A.igual(Rem9_edadEn('1980-05-10', 'texto-raro'), '', 'referencia no fecha → vacío');
-    A.igual(Utl_edadDesde('2000-02-29', new Date(2026, 0, 1)), '25', 'año bisiesto sigue consistente');
-    A.igual(Rem9_edadEn('2000-02-29', '2026-01-01'), 25, 'bisiesto vía REM coincide con Utl_edadDesde');
+  t('UTL: Rem9_edadEn_ consolidada sobre Utl_edadDesde_ (PENDIENTES #34)', function () {
+    A.igual(Rem9_edadEn_('1980-05-10', '2026-01-01'), 45, 'edad numérica válida');
+    A.cierto(typeof Rem9_edadEn_('1980-05-10', '2026-01-01') === 'number', 'contrato REM: Número, no string');
+    A.igual(Rem9_edadEn_('1980-05-10', '2026-05-09'), 45, 'antes del cumpleaños');
+    A.igual(Rem9_edadEn_('1980-05-10', '2026-05-10'), 46, 'en el cumpleaños');
+    A.igual(Rem9_edadEn_('', '2026-01-01'), '', 'sin nacimiento → vacío');
+    A.igual(Rem9_edadEn_('1980-05-10', ''), '', 'sin fecha de referencia → vacío');
+    A.igual(Rem9_edadEn_('1980-05-10', 'texto-raro'), '', 'referencia no fecha → vacío');
+    A.igual(Utl_edadDesde_('2000-02-29', new Date(2026, 0, 1)), '25', 'año bisiesto sigue consistente');
+    A.igual(Rem9_edadEn_('2000-02-29', '2026-01-01'), 25, 'bisiesto vía REM coincide con Utl_edadDesde_');
   });
 }
 // ---------------------------------------------------------------------------
 // ETAPA 7 — estratificación: G/null/vacío = PENDIENTE, nunca un nivel
 // ---------------------------------------------------------------------------
 
-function _pruebas_estrat_estado(t, A) {
+function _pruebas_estrat_estado_(t, A) {
   t('ESTRAT ESTADO: G1/G2/G3 → NIVEL_DEFINIDO', function () {
-    A.igual(Norm_normalizarEstratificacion('G1'), 'G1', 'G1');
-    A.igual(Norm_normalizarEstratificacion('G2'), 'G2', 'G2');
-    A.igual(Norm_normalizarEstratificacion('g3'), 'G3', 'G3');
+    A.igual(Norm_normalizarEstratificacion_('G1'), 'G1', 'G1');
+    A.igual(Norm_normalizarEstratificacion_('G2'), 'G2', 'G2');
+    A.igual(Norm_normalizarEstratificacion_('g3'), 'G3', 'G3');
   });
   t('ESTRAT ESTADO: G/null/vacío → PENDIENTE (nunca un nivel)', function () {
     ['G', '', null, undefined, 'NSP'].forEach(function (v) {
-      var r = Norm_normalizarEstratificacion(v);
+      var r = Norm_normalizarEstratificacion_(v);
       A.cierto(r !== 'G1' && r !== 'G2' && r !== 'G3',
         JSON.stringify(v) + ' jamás produce un nivel');
       A.igual(r, '', JSON.stringify(v) + ' → vacío = pendiente');
@@ -1194,7 +1194,7 @@ function _pruebas_estrat_estado(t, A) {
       { SECTOR: 'VERDE', ESTRATIFICACION: '' },     // pendiente
       { SECTOR: 'VERDE', ESTRATIFICACION: 'G' }     // pendiente
     ];
-    var d = Dash_distribucionPacientes(pacientes, null);
+    var d = Dash_distribucionPacientes_(pacientes, null);
     A.igual(d.total, 4, 'total');
     var mv = d.matrizG['VERDE'];
     A.igual(mv['G1'] || 0, 1, 'G1');
@@ -1207,12 +1207,12 @@ function _pruebas_estrat_estado(t, A) {
 // ETAPA 8A — motor de estratificación
 // ---------------------------------------------------------------------------
 
-function _pruebas_motor_estrat(t, A) {
+function _pruebas_motor_estrat_(t, A) {
   var catalogo = CATALOGO_CONDICIONES_ECICEP;
 
   DATASET_ESTRATIFICACION.casosMotor.forEach(function (caso) {
     t('MOTOR: ' + JSON.stringify(caso[0] || '(vacío)').substring(0, 50), function () {
-      var r = Estrat_evaluar(caso[0], catalogo, {
+      var r = Estrat_evaluar_(caso[0], catalogo, {
         REGLA_DISPONIBLE: true, VERSION_REGLA: 'TEST_V1',
         UMBRALES: [
           { maxPuntaje: 0, nivel: 'G0' },
@@ -1233,28 +1233,28 @@ function _pruebas_motor_estrat(t, A) {
   });
 
   t('MOTOR: alias reconocidos correctamente', function () {
-    var r = Norm_normalizarCondiciones('hipertension', catalogo);
+    var r = Norm_normalizarCondiciones_('hipertension', catalogo);
     A.igual(r.detectadas.length, 1, 'detectada');
     A.igual(r.detectadas[0].codigo, 'HTA', 'código canónico');
   });
 
   t('MOTOR: condición desconocida NO se descarta silenciosamente', function () {
-    var r = Norm_normalizarCondiciones('patología XYZ', catalogo);
+    var r = Norm_normalizarCondiciones_('patología XYZ', catalogo);
     A.igual(r.detectadas.length, 0, 'sin detectadas');
     A.igual(r.noReconocidas.length, 1, 'registrada como no reconocida');
     A.igual(r.noReconocidas[0], 'PATOLOGÍA XYZ', 'texto original conservado');
   });
 
   t('MOTOR: regla no disponible → NO_CALCULABLE', function () {
-    var r = Norm_normalizarCondiciones('HTA; DM2', catalogo);
+    var r = Norm_normalizarCondiciones_('HTA; DM2', catalogo);
     var cfgOff = { REGLA_DISPONIBLE: false, VERSION_REGLA: 'OFF', UMBRALES: CFG_ESTRATIFICACION.UMBRALES };
-    var calc = Estrat_calcularPorPuntaje(2, cfgOff);
+    var calc = Estrat_calcularPorPuntaje_(2, cfgOff);
     A.igual(calc.resultado, 'NO_CALCULABLE', 'motor apagado');
     A.igual(calc.regla, 'REGLA_NO_CONFIGURADA', 'motivo');
   });
 
   t('MOTOR: ponderación acumulada desde catálogo', function () {
-    var r = Norm_normalizarCondiciones('HTA; erc avanzada', catalogo);
+    var r = Norm_normalizarCondiciones_('HTA; erc avanzada', catalogo);
     A.igual(r.sumaPonderacion, 3, 'HTA(1) + ERCA avanzada(2) = 3');
   });
 }
@@ -1263,7 +1263,7 @@ function _pruebas_motor_estrat(t, A) {
 // ETAPA 8B — motor por PONDERACIÓN (no simple conteo)
 // ---------------------------------------------------------------------------
 
-function _pruebas_ponderacion(t, A) {
+function _pruebas_ponderacion_(t, A) {
   var cat = CATALOGO_CONDICIONES_ECICEP;
   var cfgActivo = {
     REGLA_DISPONIBLE: true, VERSION_REGLA: 'ECICEP_TEST',
@@ -1276,57 +1276,57 @@ function _pruebas_ponderacion(t, A) {
   };
 
   t('8B PONDERACIÓN: HTA(1) → G1', function () {
-    var r = Estrat_evaluar('HTA', cat, cfgActivo);
+    var r = Estrat_evaluar_('HTA', cat, cfgActivo);
     A.igual(r.puntaje, 1); A.igual(r.resultado, 'G1'); A.igual(r.estado, 'CALCULADO');
   });
 
   t('8B PONDERACIÓN: HTA + EPOC = 2 → G2', function () {
-    var r = Estrat_evaluar('HTA; EPOC', cat, cfgActivo);
+    var r = Estrat_evaluar_('HTA; EPOC', cat, cfgActivo);
     A.igual(r.puntaje, 2); A.igual(r.resultado, 'G2');
   });
 
   t('8B PONDERACIÓN: HTA + EPOC + DM = 4 → G2', function () {
     // HTA(1) + EPOC(1) + DM(2) = 4 puntos → G2
-    var r = Estrat_evaluar('HTA; EPOC; diabetes', cat, cfgActivo);
+    var r = Estrat_evaluar_('HTA; EPOC; diabetes', cat, cfgActivo);
     A.igual(r.puntaje, 4); A.igual(r.resultado, 'G2');
   });
 
   t('8B PONDERACIÓN CRÍTICA: HTA + EPOC + DM + otra = 5 → G3', function () {
     // HTA(1) + EPOC(1) + DM(2) + HIPOT(1) = 5 → G3
-    var r = Estrat_evaluar('HTA; EPOC; diabetes; hipotiroidismo', cat, cfgActivo);
+    var r = Estrat_evaluar_('HTA; EPOC; diabetes; hipotiroidismo', cat, cfgActivo);
     A.igual(r.puntaje, 5); A.igual(r.resultado, 'G3');
   });
 
   t('8B PONDERACIÓN: 3 condiciones simples + 1 doble = puede alcanzar G3', function () {
     // HTA(1) + EPOC(1) + DEP(1) + DM(2) = 5 → G3
-    var r = Estrat_evaluar('HTA; EPOC; depresion; diabetes', cat, cfgActivo);
+    var r = Estrat_evaluar_('HTA; EPOC; depresion; diabetes', cat, cfgActivo);
     A.igual(r.puntaje, 5); A.igual(r.resultado, 'G3');
   });
 
   t('8B PONDERACIÓN: solo condiciones dobles DM(2) + DEM(2) = 4 → G2', function () {
-    var r = Estrat_evaluar('diabetes; demencia', cat, cfgActivo);
+    var r = Estrat_evaluar_('diabetes; demencia', cat, cfgActivo);
     A.igual(r.puntaje, 4); A.igual(r.resultado, 'G2');
   });
 
   t('8B DEDUP: "HTA; hipertensión" cuenta UNA sola vez', function () {
-    var r = Norm_normalizarCondiciones('HTA; hipertension', CATALOGO_CONDICIONES_ECICEP);
+    var r = Norm_normalizarCondiciones_('HTA; hipertension', CATALOGO_CONDICIONES_ECICEP);
     A.igual(r.detectadas.length, 1, 'una condición, no dos');
     A.igual(r.sumaPonderacion, 1, 'un punto, no dos');
   });
 
   t('8B MOTOR APAGADO: REGLA_DISPONIBLE=false → NO_CALCULABLE', function () {
     var cfgOff = { REGLA_DISPONIBLE: false, VERSION_REGLA: 'OFF', UMBRALES: CFG_ESTRATIFICACION.UMBRALES };
-    var r = Estrat_evaluar('HTA; DM', CATALOGO_CONDICIONES_ECICEP, cfgOff);
+    var r = Estrat_evaluar_('HTA; DM', CATALOGO_CONDICIONES_ECICEP, cfgOff);
     A.igual(r.estado, 'NO_CALCULABLE'); A.igual(r.resultado, '');
   });
 
   t('8B SIN_DATOS ≠ G0: null no produce resultado', function () {
-    var r = Estrat_evaluar(null, cat, cfgActivo);
+    var r = Estrat_evaluar_(null, cat, cfgActivo);
     A.igual(r.estado, 'SIN_DATOS'); A.cierto(!r.resultado, 'null ≠ G0');
   });
 
   t('8B NO_RECONOCIDAS: condición desconocida marca NO_CALCULABLE si resultado < G3', function () {
-    var r = Estrat_evaluar('HTA; patología misteriosa XYZ', cat, cfgActivo);
+    var r = Estrat_evaluar_('HTA; patología misteriosa XYZ', cat, cfgActivo);
     A.cierto(r.noReconocidas.length > 0, 'desconocida registrada');
     A.cierto(r.estado !== 'CALCULADO' || r.resultado === 'G3',
       'si tiene desconocidas y resultado < G3 → NO_CALCULABLE');
@@ -1337,18 +1337,18 @@ function _pruebas_ponderacion(t, A) {
 // ETAPA 8C — contrato de validación del catálogo
 // ---------------------------------------------------------------------------
 
-function _pruebas_contrato_catalogo(t, A) {
+function _pruebas_contrato_catalogo_(t, A) {
   var catReal = CATALOGO_CONDICIONES_ECICEP;
 
   t('CONTRATO: catálogo ECICEP real es válido', function () {
-    var v = Estrat_validarCatalogo(catReal);
+    var v = Estrat_validarCatalogo_(catReal);
     A.arreglos(v.errores, [], 'sin errores: ' + JSON.stringify(v.errores));
     A.cierto(v.valido, 'valido');
   });
 
   t('CONTRATO: detecta NOMBRE obsoleto en lugar de NOMBRE_CANONICO', function () {
     var malo = [{ CODIGO:'X', NOMBRE:'Algo', ALIASES:[], PONDERACION:1, ACTIVA:true }];
-    var v = Estrat_validarCatalogo(malo);
+    var v = Estrat_validarCatalogo_(malo);
     A.cierto(!v.valido, 'inválido');
     A.cierto(v.errores.some(function(e){ return e.indexOf('NOMBRE_CANONICO') !== -1; }), 'menciona NOMBRE_CANONICO');
   });
@@ -1358,7 +1358,7 @@ function _pruebas_contrato_catalogo(t, A) {
       { CODIGO:'HTA', NOMBRE_CANONICO:'Hipertensión', ALIASES:[], PONDERACION:1, ACTIVA:true },
       { CODIGO:'HTA', NOMBRE_CANONICO:'Otra cosa', ALIASES:[], PONDERACION:1, ACTIVA:true }
     ];
-    var v = Estrat_validarCatalogo(dup);
+    var v = Estrat_validarCatalogo_(dup);
     A.cierto(!v.valido, 'inválido');
     A.cierto(v.errores.some(function(e){ return e.indexOf('duplicado') !== -1; }), 'menciona duplicado');
   });
@@ -1368,19 +1368,19 @@ function _pruebas_contrato_catalogo(t, A) {
       { CODIGO:'A', NOMBRE_CANONICO:'Condición A', ALIASES:['comun'], PONDERACION:1, ACTIVA:true },
       { CODIGO:'B', NOMBRE_CANONICO:'Condición B', ALIASES:['comun'], PONDERACION:1, ACTIVA:true }
     ];
-    var v = Estrat_validarCatalogo(conf);
+    var v = Estrat_validarCatalogo_(conf);
     A.cierto(!v.valido, 'inválido');
     A.cierto(v.errores.some(function(e){ return e.indexOf('alias') !== -1; }), 'menciona alias');
   });
 
   t('CONTRATO: detecta ponderación inválida', function () {
     var mal = [{ CODIGO:'X', NOMBRE_CANONICO:'X', ALIASES:[], PONDERACION:'alta', ACTIVA:true }];
-    var v = Estrat_validarCatalogo(mal);
+    var v = Estrat_validarCatalogo_(mal);
     A.cierto(!v.valido, 'inválido');
   });
 
   t('CONTRATO: catálogo vacío → inválido', function () {
-    var v = Estrat_validarCatalogo([]);
+    var v = Estrat_validarCatalogo_([]);
     A.cierto(!v.valido, 'vacío inválido');
   });
 
@@ -1404,11 +1404,11 @@ function _pruebas_contrato_catalogo(t, A) {
 // Migración de esquema PACIENTES — drift modelo ↔ hoja física
 // ---------------------------------------------------------------------------
 
-function _pruebas_migracion_esquema(t, A) {
-  var campos = Modelo_campos();
+function _pruebas_migracion_esquema_(t, A) {
+  var campos = Modelo_campos_();
 
   t('ESQUEMA: hoja alineada → sin cambios', function () {
-    var p = Modelo_planMigracionEsquema(campos.slice(), campos);
+    var p = Modelo_planMigracionEsquema_(campos.slice(), campos);
     A.cierto(p.ok, 'ok');
     A.arreglos(p.insertar, [], 'sin inserciones');
     A.igual(p.motivo, 'ESQUEMA_ALINEADO', 'motivo');
@@ -1417,7 +1417,7 @@ function _pruebas_migracion_esquema(t, A) {
   t('ESQUEMA: caso real ETAPA 8E — falta OTRAS_PATOLOGIAS (29 columnas)', function () {
     var fisicos = campos.filter(function (c) { return c !== 'OTRAS_PATOLOGIAS'; });
     A.igual(fisicos.length, campos.length - 1, 'simula hoja pre-8E');
-    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    var p = Modelo_planMigracionEsquema_(fisicos, campos);
     A.cierto(!p.ok, 'requiere migración');
     A.igual(p.insertar.length, 1, 'una inserción');
     A.igual(p.insertar[0].campo, 'OTRAS_PATOLOGIAS', 'campo a insertar');
@@ -1428,7 +1428,7 @@ function _pruebas_migracion_esquema(t, A) {
 
   t('ESQUEMA: múltiples columnas faltantes intercaladas', function () {
     var fisicos = campos.filter(function (c) { return c !== 'CONDICIONES' && c !== 'OTRAS_PATOLOGIAS'; });
-    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    var p = Modelo_planMigracionEsquema_(fisicos, campos);
     A.igual(p.insertar.length, 2, 'dos inserciones');
     A.igual(p.insertar[0].campo, 'CONDICIONES', 'primera');
     A.igual(p.insertar[0].indiceFinal, 19, 'índice CONDICIONES');
@@ -1438,41 +1438,41 @@ function _pruebas_migracion_esquema(t, A) {
 
   t('ESQUEMA: columna faltante al final del modelo', function () {
     var fisicos = campos.slice(0, campos.length - 1);
-    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    var p = Modelo_planMigracionEsquema_(fisicos, campos);
     A.igual(p.insertar.length, 1, 'una inserción');
     A.igual(p.insertar[0].campo, 'REQUIERE_REVISION', 'campo');
     A.igual(p.insertar[0].indiceFinal, campos.length - 1, 'al final');
   });
 
   t('ESQUEMA: encabezados vacíos finales se ignoran', function () {
-    var p = Modelo_planMigracionEsquema(campos.concat(['', '', '']), campos);
+    var p = Modelo_planMigracionEsquema_(campos.concat(['', '', '']), campos);
     A.cierto(p.ok, 'ok sin inserciones');
   });
 
   t('ESQUEMA: orden divergente → incompatible, no propone nada', function () {
     var fisicos = campos.slice();
     var tmp = fisicos[2]; fisicos[2] = fisicos[3]; fisicos[3] = tmp;
-    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    var p = Modelo_planMigracionEsquema_(fisicos, campos);
     A.cierto(!p.ok, 'incompatible');
     A.cierto(p.motivo.indexOf('ORDEN_DIVERGENTE') === 0, 'motivo orden: ' + p.motivo);
     A.arreglos(p.insertar, [], 'sin inserciones');
   });
 
   t('ESQUEMA: columna desconocida → incompatible', function () {
-    var p = Modelo_planMigracionEsquema(campos.concat(['COLUMNA_EXTRA']), campos);
+    var p = Modelo_planMigracionEsquema_(campos.concat(['COLUMNA_EXTRA']), campos);
     A.cierto(!p.ok, 'incompatible');
     A.cierto(p.motivo.indexOf('COLUMNAS_DESCONOCIDAS') === 0, 'motivo: ' + p.motivo);
   });
 
   t('ESQUEMA: hoja sin encabezados → SIN_ENCABEZADOS', function () {
-    var p = Modelo_planMigracionEsquema(['', '', '', ''], campos);
+    var p = Modelo_planMigracionEsquema_(['', '', '', ''], campos);
     A.cierto(!p.ok, 'incompatible');
     A.igual(p.motivo, 'SIN_ENCABEZADOS', 'motivo');
   });
 
   t('ESQUEMA: encabezados con espacios se normalizan al comparar', function () {
     var fisicos = campos.map(function (c, i) { return i === 0 ? ' ID_INTERNO ' : c; });
-    var p = Modelo_planMigracionEsquema(fisicos, campos);
+    var p = Modelo_planMigracionEsquema_(fisicos, campos);
     A.cierto(p.ok, 'trim aplicado');
   });
 
@@ -1486,7 +1486,7 @@ function _pruebas_migracion_esquema(t, A) {
       FUENTE: '',
       REQUIERE_REVISION: ''
     };
-    var n = _modelo_repararObjetoTecnico(obj);
+    var n = _modelo_repararObjetoTecnico_(obj);
     A.igual(obj.NOMBRE_NORMALIZADO, 'SILVIA MONDACA ALFARO', 'normalizado recomputado');
     A.cierto(obj.RUT_DV_VALIDO === true, 'DV válido recomputado como booleano');
     A.cierto(obj.RUT_SIN_DV === false, 'RUT con guion-DV → bandera falsa');
@@ -1496,21 +1496,21 @@ function _pruebas_migracion_esquema(t, A) {
   t('REPARACIÓN: objeto sano no genera cambios', function () {
     var obj = { NOMBRE: 'ANA PEREZ', NOMBRE_NORMALIZADO: 'ANA PEREZ',
                 RUT: '11111111-1', RUT_DV_VALIDO: true, RUT_SIN_DV: false };
-    var n = _modelo_repararObjetoTecnico(obj);
+    var n = _modelo_repararObjetoTecnico_(obj);
     A.igual(n, 0, 'cero cambios');
   });
 
   t('REPARACIÓN: DV inválido se detecta y marca falso', function () {
     var obj = { NOMBRE: 'X Y', NOMBRE_NORMALIZADO: 'X Y',
                 RUT: '11111111-0', RUT_DV_VALIDO: true, RUT_SIN_DV: false };
-    _modelo_repararObjetoTecnico(obj);
+    _modelo_repararObjetoTecnico_(obj);
     A.cierto(obj.RUT_DV_VALIDO === false, 'DV erróneo marcado');
   });
 
   t('REPARACIÓN: RUT almacenado sin DV mantiene bandera verdadera', function () {
     var obj = { NOMBRE: 'X Y', NOMBRE_NORMALIZADO: 'X Y',
                 RUT: '11111111', RUT_DV_VALIDO: false, RUT_SIN_DV: false };
-    _modelo_repararObjetoTecnico(obj);
+    _modelo_repararObjetoTecnico_(obj);
     A.cierto(obj.RUT_SIN_DV === true, 'sin guion → bandera true');
   });
 
@@ -1518,7 +1518,7 @@ function _pruebas_migracion_esquema(t, A) {
     var obj = { NOMBRE: 'X Y', NOMBRE_NORMALIZADO: 'X Y',
                 RUT: '8031158-3', RUT_DV_VALIDO: true,
                 RUT_SIN_DV: 'JUAN CUBILLOS RIVERA' };
-    var n = _modelo_repararObjetoTecnico(obj);
+    var n = _modelo_repararObjetoTecnico_(obj);
     A.cierto(obj.RUT_SIN_DV === false, 'texto reemplazado por false');
     A.cierto(n >= 1, 'cambio contado (' + n + ')');
   });
@@ -1527,7 +1527,7 @@ function _pruebas_migracion_esquema(t, A) {
     var obj = { NOMBRE: 'A B', NOMBRE_NORMALIZADO: 'A B', RUT: '11111111-1',
                 RUT_DV_VALIDO: true, RUT_SIN_DV: false,
                 ESTRAT_ORIGEN: 'FALSE', ESTRAT_CALCULADA: 'TRUE' };
-    var n = _modelo_repararObjetoTecnico(obj);
+    var n = _modelo_repararObjetoTecnico_(obj);
     A.igual(obj.ESTRAT_ORIGEN, '', 'origen limpio');
     A.igual(obj.ESTRAT_CALCULADA, '', 'calculada limpia');
     A.cierto(n >= 2, 'cambios contados (' + n + ')');
@@ -1537,7 +1537,7 @@ function _pruebas_migracion_esquema(t, A) {
     var obj = { NOMBRE: 'C D', NOMBRE_NORMALIZADO: 'C D', RUT: '11111111-1',
                 RUT_DV_VALIDO: true, RUT_SIN_DV: false,
                 ESTRAT_ORIGEN: 'Z', ESTRAT_CALCULADA: '' };
-    var n = _modelo_repararObjetoTecnico(obj);
+    var n = _modelo_repararObjetoTecnico_(obj);
     A.igual(obj.ESTRAT_ORIGEN, 'Z', 'valor de fuente intacto');
     A.igual(n, 0, 'sin cambios');
   });
@@ -1547,7 +1547,7 @@ function _pruebas_migracion_esquema(t, A) {
 // Trazabilidad — FUENTE como contrato (cierre incidente #23/#24)
 // ---------------------------------------------------------------------------
 
-function _pruebas_trazabilidad(t, A) {
+function _pruebas_trazabilidad_(t, A) {
   var pacienteSano = function () {
     return { ID_INTERNO: 'EC-T-001', RUT: '8031158-3', NOMBRE: 'SILVIA MONDACA ALFARO',
              FUENTE: 'ECICEP NARANJO|Ingresos Enero |9',
@@ -1555,7 +1555,7 @@ function _pruebas_trazabilidad(t, A) {
   };
 
   t('TRAZA: paciente con fuente → OK', function () {
-    var ev = Modelo_evaluarTrazabilidad(pacienteSano());
+    var ev = Modelo_evaluarTrazabilidad_(pacienteSano());
     A.igual(ev.estado, 'OK', 'estado');
     A.arreglos(ev.faltantes, [], 'sin faltantes');
     A.cierto(!ev.revisionIndebida, 'sin cierre indebido');
@@ -1563,7 +1563,7 @@ function _pruebas_trazabilidad(t, A) {
 
   t('TRAZA: detección de trazabilidad incompleta (FUENTE vacía)', function () {
     var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = true;
-    var ev = Modelo_evaluarTrazabilidad(p);
+    var ev = Modelo_evaluarTrazabilidad_(p);
     A.igual(ev.estado, 'TRAZABILIDAD_INCOMPLETA', 'estado');
     A.arreglos(ev.faltantes, ['FUENTE'], 'faltante');
     A.cierto(!ev.revisionIndebida, 'revisión abierta → no es cierre indebido');
@@ -1571,22 +1571,22 @@ function _pruebas_trazabilidad(t, A) {
 
   t('TRAZA: FUENTE vacía + REQUIERE_REVISION=false → cierre indebido detectado', function () {
     var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = false;
-    var ev = Modelo_evaluarTrazabilidad(p);
+    var ev = Modelo_evaluarTrazabilidad_(p);
     A.igual(ev.estado, 'TRAZABILIDAD_INCOMPLETA', 'estado');
     A.cierto(ev.revisionIndebida, 'cerrada sin origen');
   });
 
   t('TRAZA: REQUIERE_REVISION como texto TRUE también cuenta como abierta', function () {
     var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = 'TRUE';
-    A.cierto(!Modelo_evaluarTrazabilidad(p).revisionIndebida, 'no indebida');
+    A.cierto(!Modelo_evaluarTrazabilidad_(p).revisionIndebida, 'no indebida');
   });
 
   t('RESTAURACIÓN manual: completar FUENTE devuelve el contrato a OK', function () {
     var p = pacienteSano(); p.FUENTE = ''; p.REQUIERE_REVISION = false;
-    A.igual(Modelo_evaluarTrazabilidad(p).estado, 'TRAZABILIDAD_INCOMPLETA', 'antes');
+    A.igual(Modelo_evaluarTrazabilidad_(p).estado, 'TRAZABILIDAD_INCOMPLETA', 'antes');
     p.FUENTE = 'ECICEP NARANJO|Ingresos Enero |4';
     p.REQUIERE_REVISION = false;
-    var ev = Modelo_evaluarTrazabilidad(p);
+    var ev = Modelo_evaluarTrazabilidad_(p);
     A.igual(ev.estado, 'OK', 'después');
     A.cierto(!ev.revisionIndebida, 'cierre ahora legítimo');
   });
@@ -1596,41 +1596,41 @@ function _pruebas_trazabilidad(t, A) {
     var obj = { NOMBRE: 'JUAN CUBILLOS RIVERA', NOMBRE_NORMALIZADO: 'prueba basura',
                 RUT: '7030521-6', RUT_DV_VALIDO: 'texto corrido', RUT_SIN_DV: 'otro texto',
                 ESTRAT_ORIGEN: 'FALSE', FECHA_ACTUALIZACION: fechaManual };
-    _modelo_repararObjetoTecnico(obj);
+    _modelo_repararObjetoTecnico_(obj);
     A.igual(obj.FECHA_ACTUALIZACION, fechaManual, 'fecha manual intacta');
   });
 
   t('GUARD cierre: impedir cerrar revisión con FUENTE vacía', function () {
     var p = pacienteSano(); p.FUENTE = '';
     var error = null;
-    try { Modelo_guardCerrarRevision(p); } catch (e) { error = e; }
+    try { Modelo_guardCerrarRevision_(p); } catch (e) { error = e; }
     A.cierto(error !== null, 'lanza error');
     A.cierto(String(error && error.message).indexOf('falta FUENTE') !== -1,
       'mensaje claro: ' + (error && error.message));
   });
 
   t('GUARD cierre: permitir cierre con FUENTE presente', function () {
-    A.cierto(Modelo_guardCerrarRevision(pacienteSano()) === true, 'permitido');
+    A.cierto(Modelo_guardCerrarRevision_(pacienteSano()) === true, 'permitido');
   });
 
   t('ALTA: sin FUENTE → rechazada con motivo claro', function () {
     var alta = { NOMBRE: 'PACIENTE NUEVO', RUT: '11111111-1' };
-    var v = Modelo_validarAltaTrazabilidad(alta);
+    var v = Modelo_validarAltaTrazabilidad_(alta);
     A.cierto(!v.ok, 'inválida');
     A.arreglos(v.faltantes, ['FUENTE'], 'faltante');
   });
 
   t('ALTA: con FUENTE → aceptada', function () {
-    var v = Modelo_validarAltaTrazabilidad({ NOMBRE: 'X', FUENTE: 'HOJA_INGRESO|INGRESO_VERDE|2' });
+    var v = Modelo_validarAltaTrazabilidad_({ NOMBRE: 'X', FUENTE: 'HOJA_INGRESO|INGRESO_VERDE|2' });
     A.cierto(v.ok, 'válida');
   });
 
   t('ALTA: estampado automático de FECHA_ACTUALIZACION', function () {
     var alta = { NOMBRE: 'X', FUENTE: 'F|h|1' };
     var fija = new Date(2026, 7, 23, 12, 0, 0);
-    _modelo_estamparActualizacion(alta, fija);
+    _modelo_estamparActualizacion_(alta, fija);
     A.igual(alta.FECHA_ACTUALIZACION, fija, 'fecha estampada');
-    var sinFechaArg = _modelo_estamparActualizacion({ NOMBRE: 'Y' });
+    var sinFechaArg = _modelo_estamparActualizacion_({ NOMBRE: 'Y' });
     A.cierto(sinFechaArg.FECHA_ACTUALIZACION instanceof Date, 'usa ahora por defecto');
   });
 }
@@ -1639,7 +1639,7 @@ function _pruebas_trazabilidad(t, A) {
 // REM mensual — contrato puro serializable + buckets sin pérdidas
 // ---------------------------------------------------------------------------
 
-function _pruebas_rem(t, A) {
+function _pruebas_rem_(t, A) {
   var EV = function (id, nombre, fecha, tipo, sector, g) {
     return { ID_INTERNO: id, RUT: id + '-R', NOMBRE: nombre, FECHA_EVENTO: fecha,
              TIPO_EVENTO: tipo, SECTOR: sector, RIESGO_G: g };
@@ -1659,19 +1659,19 @@ function _pruebas_rem(t, A) {
   ];
 
   t('REM BUCKETS: RIESGO vacío o "G" → PENDIENTE; nunca se pierde un evento', function () {
-    A.igual(Rem_bucketRiesgo(''), 'PENDIENTE', 'vacío');
-    A.igual(Rem_bucketRiesgo('g'), 'PENDIENTE', 'G sola');
-    A.igual(Rem_bucketRiesgo(' G '), 'PENDIENTE', 'con espacios');
-    A.igual(Rem_bucketRiesgo('g2'), 'G2', 'normaliza mayúscula');
+    A.igual(Rem_bucketRiesgo_(''), 'PENDIENTE', 'vacío');
+    A.igual(Rem_bucketRiesgo_('g'), 'PENDIENTE', 'G sola');
+    A.igual(Rem_bucketRiesgo_(' G '), 'PENDIENTE', 'con espacios');
+    A.igual(Rem_bucketRiesgo_('g2'), 'G2', 'normaliza mayúscula');
   });
 
   t('REM BUCKETS: SECTOR vacío → SIN_SECTOR', function () {
-    A.igual(Rem_bucketSector(''), 'SIN_SECTOR', 'vacío');
-    A.igual(Rem_bucketSector(' naranjo '), 'NARANJO', 'mayúsculas');
+    A.igual(Rem_bucketSector_(''), 'SIN_SECTOR', 'vacío');
+    A.igual(Rem_bucketSector_(' naranjo '), 'NARANJO', 'mayúsculas');
   });
 
   t('REM NÚCLEO: tally mixto tipo × riesgo × sector correcto', function () {
-    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    var r = calcularREMBloqueA_(eventos, { anio: 2026, mes: 8 });
     A.igual(r.conteos.length, 8, '8 combinaciones distintas');
     var buscar = function (tipo, g, s) {
       for (var i = 0; i < r.conteos.length; i++) {
@@ -1688,10 +1688,10 @@ function _pruebas_rem(t, A) {
   });
 
   t('REM NÚCLEO: mes sin eventos → vacío sin error; basura nunca cae en ningún mes', function () {
-    var vacio = calcularREMBloqueA([], { anio: 2025, mes: 12 });
+    var vacio = calcularREMBloqueA_([], { anio: 2025, mes: 12 });
     A.arreglos(vacio.conteos, [], 'sin conteos');
     A.igual(vacio.fechasInvalidas, 0, 'entrada limpia → cero inválidas');
-    var otro = calcularREMBloqueA(eventos, { anio: 2025, mes: 12 });
+    var otro = calcularREMBloqueA_(eventos, { anio: 2025, mes: 12 });
     A.arreglos(otro.conteos, [], 'ningún evento de agosto en diciembre');
     A.igual(otro.fechasInvalidas, 1, 'la fecha basura no pertenece a NINGÚN mes');
   });
@@ -1703,18 +1703,18 @@ function _pruebas_rem(t, A) {
       EV('C', 'C', '2026-07-31T23:59:59', 'INGRESO', 'NARANJO', 'G1'),
       EV('D', 'D', '2026-09-01T00:00:00', 'INGRESO', 'NARANJO', 'G1')
     ];
-    var r = calcularREMBloqueA(borde, { anio: 2026, mes: 8 });
+    var r = calcularREMBloqueA_(borde, { anio: 2026, mes: 8 });
     A.igual(r.conteos.length, 1, 'una combinación');
     A.igual(r.conteos[0].conteo, 2, 'solo los dos de agosto');
   });
 
   t('REM NÚCLEO: fechas no interpretables se cuentan como fechasInvalidas', function () {
-    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    var r = calcularREMBloqueA_(eventos, { anio: 2026, mes: 8 });
     A.igual(r.fechasInvalidas, 1, 'visible, nunca silencioso');
   });
 
   t('REM NÚCLEO: salida 100% serializable (sin Date ni objetos GAS)', function () {
-    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
+    var r = calcularREMBloqueA_(eventos, { anio: 2026, mes: 8 });
     var vuelta = JSON.parse(JSON.stringify(r));
     A.igual(JSON.stringify(vuelta), JSON.stringify(r), 'round-trip idéntico');
     r.conteos.forEach(function (c) {
@@ -1727,22 +1727,22 @@ function _pruebas_rem(t, A) {
   t('REM NÚCLEO: la entrada NO se muta al calcular (solo lectura)', function () {
     var antes = JSON.stringify(eventos);
     Object.freeze(eventos);
-    calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
-    Rem_indicadoresPorPaciente(Rem_eventosDelPeriodo(eventos, 2026, 8));
+    calcularREMBloqueA_(eventos, { anio: 2026, mes: 8 });
+    Rem_indicadoresPorPaciente_(Rem_eventosDelPeriodo_(eventos, 2026, 8));
     A.igual(JSON.stringify(eventos), antes, 'snapshot intacto');
   });
 
   t('REM PERIODO: mes/año inválido lanza PERIODO_INVALIDO', function () {
     var error = null;
-    try { calcularREMBloqueA([], { anio: 2026, mes: 13 }); }
+    try { calcularREMBloqueA_([], { anio: 2026, mes: 13 }); }
     catch (e) { error = e; }
     A.cierto(error !== null, 'lanza');
     A.cierto(String(error.message).indexOf('PERIODO_INVALIDO') !== -1, 'motivo');
   });
 
   t('REM TABLA: PENDIENTE visible como columna y nada oculto', function () {
-    var r = calcularREMBloqueA(eventos, { anio: 2026, mes: 8 });
-    var tb = Rem_tablaDesdeConteos(r.conteos);
+    var r = calcularREMBloqueA_(eventos, { anio: 2026, mes: 8 });
+    var tb = Rem_tablaDesdeConteos_(r.conteos);
     A.arreglos(tb.buckets, ['G1', 'G2', 'G3', 'PENDIENTE'], 'buckets orden estable');
     var gcI = tb.filas.filter(function (f) { return f.clave === 'GC_INGRESO'; })[0];
     A.igual(gcI.valores.G1, 1, 'GC en G1 se MUESTRA, no se oculta');
@@ -1752,7 +1752,7 @@ function _pruebas_rem(t, A) {
   });
 
   t('REM INDICADORES: flags por tipo sobre eventos normalizados', function () {
-    var ind = Rem_indicadoresPorPaciente(Rem_eventosDelPeriodo(eventos, 2026, 8));
+    var ind = Rem_indicadoresPorPaciente_(Rem_eventosDelPeriodo_(eventos, 2026, 8));
     A.igual(ind.length, 4, '4 pacientes');
     A.igual(ind[0].nombre, 'ANA UNO', 'orden alfabético estable');
     var ana = ind[0], carla = ind[2], diez = ind[3];
@@ -1763,13 +1763,13 @@ function _pruebas_rem(t, A) {
   });
 
   t('REM CABECERA: reproducible y normalizada', function () {
-    A.igual(Rem_cabecera(2026, 8, ' todOs '), 'REM ECICEP — AGOSTO 2026 · Sector: TODOS', 'agosto');
-    A.igual(Rem_cabecera(2026, 1, ''), 'REM ECICEP — ENERO 2026 · Sector: TODOS', 'default TODOS');
+    A.igual(Rem_cabecera_(2026, 8, ' todOs '), 'REM ECICEP — AGOSTO 2026 · Sector: TODOS', 'agosto');
+    A.igual(Rem_cabecera_(2026, 1, ''), 'REM ECICEP — ENERO 2026 · Sector: TODOS', 'default TODOS');
   });
 
   t('REM REPRODUCIBILIDAD: misma entrada produce salida idéntica byte a byte', function () {
-    var a = JSON.stringify(calcularREMBloqueA(eventos, { anio: 2026, mes: 8 }));
-    var b = JSON.stringify(calcularREMBloqueA(JSON.parse(JSON.stringify(eventos)), { anio: 2026, mes: 8 }));
+    var a = JSON.stringify(calcularREMBloqueA_(eventos, { anio: 2026, mes: 8 }));
+    var b = JSON.stringify(calcularREMBloqueA_(JSON.parse(JSON.stringify(eventos)), { anio: 2026, mes: 8 }));
     A.igual(b, a, 'idéntico');
   });
 }
@@ -1778,10 +1778,10 @@ function _pruebas_rem(t, A) {
 // REM — normalización de ancho para escritura rectangular
 // ---------------------------------------------------------------------------
 
-function _pruebas_rem_ancho(t, A) {
+function _pruebas_rem_ancho_(t, A) {
   t('REM ANCHO: filas mixtas se rellenan al ancho máximo', function () {
     var entrada = [['titulo'], ['a', 'b', 'c', 'd'], []];
-    var salida = _rem_aplanarAncho(entrada);
+    var salida = _rem_aplanarAncho_(entrada);
     A.igual(salida.length, 3, 'misma cantidad de filas');
     salida.forEach(function (f) { A.igual(f.length, 4, 'ancho uniforme'); });
     A.arreglos(salida[0], ['titulo', '', '', ''], 'título rellenado');
@@ -1791,7 +1791,7 @@ function _pruebas_rem_ancho(t, A) {
   t('REM ANCHO: no muta la entrada y soporta fila nula', function () {
     var a = ['x'];
     var entrada = [a, null];
-    var salida = _rem_aplanarAncho(entrada);
+    var salida = _rem_aplanarAncho_(entrada);
     A.arreglos(a, ['x'], 'original intacto');
     A.igual(salida[1].length, 1, 'null tratado como fila vacía');
   });
@@ -1801,7 +1801,7 @@ function _pruebas_rem_ancho(t, A) {
 // Diseño del libro — tabla declarativa íntegra
 // ---------------------------------------------------------------------------
 
-function _pruebas_diseno(t, A) {
+function _pruebas_diseno_(t, A) {
   t('DISEÑO: nombres de hoja únicos y existentes en el modelo', function () {
     var vistos = {};
     MODELO_DISENO.forEach(function (d) {
@@ -1851,12 +1851,12 @@ function _pruebas_diseno(t, A) {
 // REM PDF — nombre de archivo automático
 // ---------------------------------------------------------------------------
 
-function _pruebas_rem_pdf(t, A) {
+function _pruebas_rem_pdf_(t, A) {
   t('REM PDF: nombre automático consistente', function () {
-    A.igual(remNombreArchivo(2026, 8, 'NARANJO'), 'REM_Naranjo_2026-08.pdf', 'naranjo');
-    A.igual(remNombreArchivo(2026, 12, 'TODOS'), 'REM_Todos_2026-12.pdf', 'todos');
-    A.igual(remNombreArchivo('2026', '3', ''), 'REM_Todos_2026-03.pdf', 'default TODOS con cero');
-    A.cierto(/^REM_\w+_\d{4}-\d{2}\.pdf$/.test(remNombreArchivo(2025, 11, 'verde')), 'formato general');
+    A.igual(remNombreArchivo_(2026, 8, 'NARANJO'), 'REM_Naranjo_2026-08.pdf', 'naranjo');
+    A.igual(remNombreArchivo_(2026, 12, 'TODOS'), 'REM_Todos_2026-12.pdf', 'todos');
+    A.igual(remNombreArchivo_('2026', '3', ''), 'REM_Todos_2026-03.pdf', 'default TODOS con cero');
+    A.cierto(/^REM_\w+_\d{4}-\d{2}\.pdf$/.test(remNombreArchivo_(2025, 11, 'verde')), 'formato general');
   });
 }
 
@@ -1864,24 +1864,24 @@ function _pruebas_rem_pdf(t, A) {
 // Instalador profundo — vigencia de exámenes y semillas CONFIG
 // ---------------------------------------------------------------------------
 
-function _pruebas_instalador(t, A) {
+function _pruebas_instalador_(t, A) {
   t('VIGENCIA: vencimiento por meses con normalización de fecha', function () {
-    A.igual(Vigencia_vencimiento('2026-01-31', 1, 'meses'), '2026-02-28', 'mes fin de mes');
-    A.igual(Vigencia_vencimiento('2026-03-15', 6, 'meses'), '2026-09-15', 'semestre');
+    A.igual(Vigencia_vencimiento_('2026-01-31', 1, 'meses'), '2026-02-28', 'mes fin de mes');
+    A.igual(Vigencia_vencimiento_('2026-03-15', 6, 'meses'), '2026-09-15', 'semestre');
   });
 
   t('VIGENCIA: unidades días y años', function () {
-    A.igual(Vigencia_vencimiento('2026-08-23', 10, 'días'), '2026-09-02', 'días');
-    A.igual(Vigencia_vencimiento('2020-02-29', 1, 'años'), '2021-02-28', 'año bisiesto');
+    A.igual(Vigencia_vencimiento_('2026-08-23', 10, 'días'), '2026-09-02', 'días');
+    A.igual(Vigencia_vencimiento_('2020-02-29', 1, 'años'), '2021-02-28', 'año bisiesto');
   });
 
   t('VIGENCIA: estados VIGENTE / POR_VENCER / VENCIDO', function () {
-    A.igual(Vigencia_estado('2026-08-01', 12, 'meses', '2026-08-23').estado, 'VIGENTE', 'vigente');
-    var pv = Vigencia_estado('2026-08-01', 1, 'meses', '2026-08-23');
+    A.igual(Vigencia_estado_('2026-08-01', 12, 'meses', '2026-08-23').estado, 'VIGENTE', 'vigente');
+    var pv = Vigencia_estado_('2026-08-01', 1, 'meses', '2026-08-23');
     A.igual(pv.estado, 'POR_VENCER', 'por vencer (≤30 días)');
     A.cierto(pv.dias >= 0 && pv.dias <= 30, 'dias razonables');
-    A.igual(Vigencia_estado('2025-08-01', 6, 'meses', '2026-08-23').estado, 'VENCIDO', 'vencido');
-    A.igual(Vigencia_estado('fecha mala', 6, 'meses', '2026-08-23').estado, '', 'entrada inválida');
+    A.igual(Vigencia_estado_('2025-08-01', 6, 'meses', '2026-08-23').estado, 'VENCIDO', 'vencido');
+    A.igual(Vigencia_estado_('fecha mala', 6, 'meses', '2026-08-23').estado, '', 'entrada inválida');
   });
 
   t('CONFIG: semillas extendidas sin colisiones con la general', function () {
@@ -1909,7 +1909,7 @@ function _pruebas_instalador(t, A) {
 // ETAPA 9 — REM Excel: núcleo puro (resumen 24c / detalle 28c / validación)
 // ---------------------------------------------------------------------------
 
-function _pruebas_rem_excel(t, A) {
+function _pruebas_rem_excel_(t, A) {
   var PACS = [
     { ID_INTERNO:'P1', RUT:'11111111-1', NOMBRE:'ANA UNO',   SEXO:'F', SECTOR:'NARANJO', FECHA_NACIMIENTO:'1980-05-10' },
     { ID_INTERNO:'P2', RUT:'22222222-2', NOMBRE:'BETO DOS',  SEXO:'M', SECTOR:'NARANJO', FECHA_NACIMIENTO:'1965-01-20' },
@@ -1932,7 +1932,7 @@ function _pruebas_rem_excel(t, A) {
   ];
 
   function construir(){
-    return Rem9_construir({pacientes:PACS,eventos:eventos,anio:2026,mes:8},
+    return Rem9_construir_({pacientes:PACS,eventos:eventos,anio:2026,mes:8},
       {sector:'TODOS',programa:'ECICEP'});
   }
 
@@ -2030,7 +2030,7 @@ function _pruebas_rem_excel(t, A) {
              EV('P9','2026-08-08','CONTROL','G1'),
              EV('P9','2026-08-09','SEGUIMIENTO','G1'),
              EV('P9','2026-08-10','PLAN_CUIDADO','G1')];
-    var c=Rem9_construir({pacientes:[{ID_INTERNO:'P9',RUT:'99999999-9',NOMBRE:'NUEVE',SEXO:'M',
+    var c=Rem9_construir_({pacientes:[{ID_INTERNO:'P9',RUT:'99999999-9',NOMBRE:'NUEVE',SEXO:'M',
       FECHA_NACIMIENTO:'1970-01-01'}],eventos:evs,anio:2026,mes:8},{sector:'TODOS'});
     A.igual(c.resumen.length,1,'una sola fila');
     var r=c.resumen[0];
@@ -2051,14 +2051,14 @@ function _pruebas_rem_excel(t, A) {
   t('REMX: filtro sector excluye otros sectores', function(){
     var evs=JSON.parse(JSON.stringify(eventos));
     evs.push(EV('P5','2026-08-25','INGRESO','G1','VERDE'));
-    var c=Rem9_construir({pacientes:PACS.concat([{ID_INTERNO:'P5',RUT:'55555555-5',NOMBRE:'CINCO',SEXO:'F'}]),
+    var c=Rem9_construir_({pacientes:PACS.concat([{ID_INTERNO:'P5',RUT:'55555555-5',NOMBRE:'CINCO',SEXO:'F'}]),
       eventos:evs,anio:2026,mes:8},{sector:'VERDE'});
     A.igual(c.atenciones,1,'solo VERDE');
   });
 
   t('REMX: resumen es CENSO del sector — incluye pacientes sin actividad en el mes', function(){
     var pacs = PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'CINCO DIEZ', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01' }]);
-    var c = Rem9_construir({ pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 }, { sector: 'TODOS' });
+    var c = Rem9_construir_({ pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 }, { sector: 'TODOS' });
     A.igual(c.resumen.length, 5, 'los 5 pacientes (un censo, no solo actividad)');
     var sinAct = c.resumen.filter(function (r) { return r[0] === '99999999-9'; })[0];
     A.cierto(sinAct, 'paciente presente sin actividad');
@@ -2070,7 +2070,7 @@ function _pruebas_rem_excel(t, A) {
     var pacs = PACS.concat([{ ID_INTERNO:'PV', RUT:'55555555-5', NOMBRE:'CINCO', SEXO:'F', FECHA_NACIMIENTO:'1990-01-01', SECTOR:'VERDE' }]);
     var evs = JSON.parse(JSON.stringify(eventos));
     evs.push({ ID_INTERNO:'PV', RUT:'', NOMBRE:'', FECHA_EVENTO:'2026-08-25', TIPO_EVENTO:'INGRESO', SECTOR:'VERDE', RIESGO_G:'G1', PROFESIONAL:'', CANTIDAD:0, DESCRIPCION:'' });
-    var c = Rem9_construir({ pacientes: pacs, eventos: evs, anio: 2026, mes: 8 }, { sector: 'VERDE' });
+    var c = Rem9_construir_({ pacientes: pacs, eventos: evs, anio: 2026, mes: 8 }, { sector: 'VERDE' });
     A.igual(c.resumen.length, 2, 'P4 (del censo) + PV, ambos VERDE');
     var pv = c.resumen.filter(function (r) { return r[0] === '55555555-5'; })[0];
     A.igual(pv[3], 1, 'ingreso G1 del mes');
@@ -2078,7 +2078,7 @@ function _pruebas_rem_excel(t, A) {
   });
 
   t('REMV: vista GENERAL — censo histórico con indicadores acumulados', function(){
-    var v = Rem9_armarVistaDatos({
+    var v = Rem9_armarVistaDatos_({
       pacientes: PACS.concat([{ ID_INTERNO:'P5', RUT:'55555555-5', NOMBRE:'CINCO', SEXO:'F', FECHA_NACIMIENTO:'1990-01-01', SECTOR:'NARANJO' }]),
       eventos: eventos, anio: 2026, mes: 8 }, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'GENERAL' });
     A.igual(v.meta.modo, 'GENERAL', 'modo');
@@ -2093,7 +2093,7 @@ function _pruebas_rem_excel(t, A) {
   });
 
   t('REMV: vista MES — Bloque A + censo con indicadores del mes', function(){
-    var v = Rem9_armarVistaDatos({
+    var v = Rem9_armarVistaDatos_({
       pacientes: PACS.concat([{ ID_INTERNO:'P5', RUT:'55555555-5', NOMBRE:'CINCO', SEXO:'F', FECHA_NACIMIENTO:'1990-01-01', SECTOR:'NARANJO' }]),
       eventos: eventos, anio: 2026, mes: 8 }, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
     A.igual(v.meta.modo, 'MES', 'modo');
@@ -2109,7 +2109,7 @@ function _pruebas_rem_excel(t, A) {
   });
 
   t('REMV: censo MES filtra pacientes por fecha del evento, no solo por presencia', function(){
-    var v = Rem9_armarVistaDatos({
+    var v = Rem9_armarVistaDatos_({
       pacientes: PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'NUEVE', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01', SECTOR:'NARANJO' }]),
       eventos: eventos, anio: 2026, mes: 8 }, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
     var c = v.tablas[1];
@@ -2123,8 +2123,8 @@ function _pruebas_rem_excel(t, A) {
   t('REMV: censo MES «solo con actividad» excluye sin eventos del mes', function(){
     var pacs = PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'NUEVE', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01', SECTOR:'NARANJO' }]);
     var datos = { pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 };
-    var completo = Rem9_armarVistaDatos(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
-    var solo = Rem9_armarVistaDatos(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES', actividad: true });
+    var completo = Rem9_armarVistaDatos_(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES' });
+    var solo = Rem9_armarVistaDatos_(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'MES', actividad: true });
     A.igual(completo.meta.actividad, false, 'default sin filtro');
     A.igual(completo.tablas[1].filas.length, 5, 'completo: incluye a P9 sin actividad');
     A.igual(solo.meta.actividad, true, 'filtro activo');
@@ -2136,7 +2136,7 @@ function _pruebas_rem_excel(t, A) {
   t('REMV: censo GENERAL «solo con actividad» excluye sin eventos históricos', function(){
     var pacs = PACS.concat([{ ID_INTERNO:'P9', RUT:'99999999-9', NOMBRE:'NUEVE', SEXO:'M', FECHA_NACIMIENTO:'1970-01-01', SECTOR:'NARANJO' }]);
     var datos = { pacientes: pacs, eventos: eventos, anio: 2026, mes: 8 };
-    var solo = Rem9_armarVistaDatos(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'GENERAL', actividad: '1' });
+    var solo = Rem9_armarVistaDatos_(datos, { anio: 2026, mes: 8, sector: 'TODOS', modo: 'GENERAL', actividad: '1' });
     A.igual(solo.meta.actividad, true, 'filtro activo (param string \'1\')');
     var rut = solo.tablas[0].filas.map(function (r) { return r[0]; });
     A.cierto(rut.indexOf('11111111-1') > -1, 'P1 con actividad sigue');
@@ -2148,7 +2148,7 @@ function _pruebas_rem_excel(t, A) {
 // Sector Amarillo — mapeo puerta + histórico idempotente
 // ---------------------------------------------------------------------------
 
-function _pruebas_amarillo(t, A) {
+function _pruebas_amarillo_(t, A) {
   var FILA = { NOMBRE: '  juan pérez  ', G: 'g3', RUT: '14438433-4',
     'TELÉFONO': '95261221.0', PREINGRESO: new Date(2024,0,24),
     INGRESO: new Date(2024,0,11), SEGUIMIENTO: '2026-06-26',
@@ -2156,7 +2156,7 @@ function _pruebas_amarillo(t, A) {
     OBSERVACIONES: 'nota' };
 
   t('AMARILLO: mapeo a contrato INGRESO_* — G normalizada, teléfono sin .0', function () {
-    var m = Amarillo_mapearFila(FILA);
+    var m = Amarillo_mapearFila_(FILA);
     A.igual(m.NOMBRE, 'JUAN PÉREZ', 'nombre normalizado');
     A.igual(m.RUT, '14438433-4', 'rut');
     A.igual(m.ESTRATIFICACION, 'G3', 'G mayúscula');
@@ -2169,7 +2169,7 @@ function _pruebas_amarillo(t, A) {
   });
 
   t('AMARILLO: fechas corruptas/seriales imposibles → null (#no-inventar)', function () {
-    var h = Amarillo_historicoDe(Object.assign({}, FILA,
+    var h = Amarillo_historicoDe_(Object.assign({}, FILA,
       { CONTROL: 972554072, SEGUIMIENTO: '', 'PRÓXIMO CONTROL': 'basura' }));
     A.cierto(h.control === null, 'serial imposible → null');
     A.cierto(h.seguimiento === null, 'vacío → null');
@@ -2180,7 +2180,7 @@ function _pruebas_amarillo(t, A) {
 
   t('AMARILLO: eventos históricos CONTROL+SEGUIMIENTO con snapshot G', function () {
     var pac = { ID_INTERNO: 'PX', RUT: '14438433-4', NOMBRE: 'JUAN PÉREZ' };
-    var evs = Amarillo_eventosNuevos(pac, Amarillo_historicoDe(FILA), [], 12);
+    var evs = Amarillo_eventosNuevos_(pac, Amarillo_historicoDe_(FILA), [], 12);
     A.igual(evs.length, 2, 'dos eventos');
     A.igual(evs[0].TIPO_EVENTO, 'CONTROL', 'tipo');
     A.igual(evs[0].FECHA_EVENTO, '2026-04-19', 'fecha');
@@ -2193,7 +2193,7 @@ function _pruebas_amarillo(t, A) {
     var pac = { ID_INTERNO: 'PX', RUT: '14438433-4', NOMBRE: 'JUAN PÉREZ' };
     var existentes = [{ TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-04-19' },
                       { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-06-26' }];
-    var evs = Amarillo_eventosNuevos(pac, Amarillo_historicoDe(FILA), existentes, 1);
+    var evs = Amarillo_eventosNuevos_(pac, Amarillo_historicoDe_(FILA), existentes, 1);
     A.igual(evs.length, 0, 'cero nuevos si ya existen');
   });
 
@@ -2212,7 +2212,7 @@ function _pruebas_amarillo(t, A) {
       { ID_INTERNO:'N001', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'NARANJO', NOMBRE:'X', FILA:7 },
       { ID_INTERNO:'N001', TIPO_EVENTO:'CONTROL', FECHA_EVENTO:'2026-04-19', FUENTE:'NARANJO', NOMBRE:'X', FILA:8 }
     ];
-    var r = Amarillo_analizarDuplicados(eventos);
+    var r = Amarillo_analizarDuplicados_(eventos);
     A.igual(r.analizados, 5, 'analiza 5 eventos Amarillo (ignora 2 Naranjo)');
     A.igual(r.gruposDuplicados, 2, 'dos grupos duplicados');
     A.igual(r.eliminar, 2, 'dos filas a eliminar');
@@ -2228,11 +2228,11 @@ function _pruebas_amarillo(t, A) {
       { ID_INTERNO:'A118', TIPO_EVENTO:'SEGUIMIENTO', FECHA_EVENTO:'2026-06-26', FUENTE:'AMARILLO|INGRESOS ECICEP', NOMBRE:'JUAN PÉREZ', FILA:4 }
     ];
     // 1ª pasada: filas 3 a eliminar (A118 CONTROL duplicado)
-    var p1 = Amarillo_analizarDuplicados(base);
+    var p1 = Amarillo_analizarDuplicados_(base);
     A.igual(p1.eliminar, 1, 'primera pasada elimina 1');
     // simulamos la conservación: filtramos las filas eliminadas
     var conservados = base.filter(function (e) { return p1.filas.indexOf(e.FILA) === -1; });
-    var p2 = Amarillo_analizarDuplicados(conservados);
+    var p2 = Amarillo_analizarDuplicados_(conservados);
     A.igual(p2.eliminar, 0, 'segunda pasada no elimina nada');
     A.igual(p2.gruposDuplicados, 0, 'sin grupos duplicados restantes');
   });
@@ -2253,7 +2253,7 @@ function _pruebas_amarillo(t, A) {
       { RUT: '99999999-9', NOMBRE: 'NO IMPORTADO', _fila: 2, CONTROL: '', SEGUIMIENTO: '',
         PREINGRESO: '', 'PRÓXIMO CONTROL': '' }
     ];
-    var r = Amarillo_calcularHistorico(pacientes, [], filas, freq);
+    var r = Amarillo_calcularHistorico_(pacientes, [], filas, freq);
     A.igual(r.nuevosEv.length, 1, 'un evento CONTROL generado');
     A.igual(r.actualizados.length, 1, 'solo AA actualizado');
     A.igual(r.pendientes.length, 1, 'RUT sin paciente → pendiente');
@@ -2266,7 +2266,7 @@ function _pruebas_amarillo(t, A) {
   });
 
   t('AMARILLO: calcularHistorico — escala 100/1.000/3.000 (G1/G2/G3 + duplicados), idempotente', function () {
-    var freq = Control_frecuenciaDefault();
+    var freq = Control_frecuenciaDefault_();
     [100, 1000, 3000].forEach(function (P) {
       var filas = [];
       for (var i = 0; i < P; i++) {
@@ -2282,8 +2282,8 @@ function _pruebas_amarillo(t, A) {
           ESTRATIFICACION: ['G1', 'G2', 'G3'][j % 3], ULTIMO_CONTROL: '', PROXIMO_CONTROL: '',
           PREINGRESO: '', ULTIMO_SEGUIMIENTO: '', FECHA_ACTUALIZACION: null });
       }
-      var r1 = Amarillo_calcularHistorico(pacientes, [], filas, freq);
-      var r2 = Amarillo_calcularHistorico(pacientes, r1.nuevosEv, filas, freq);
+      var r1 = Amarillo_calcularHistorico_(pacientes, [], filas, freq);
+      var r2 = Amarillo_calcularHistorico_(pacientes, r1.nuevosEv, filas, freq);
       A.igual(r1.nuevosEv.length, Math.ceil(P / 3), 'P/3 eventos CONTROL en ' + P);
       A.igual(r1.actualizados.length, Math.ceil(P / 3), 'P/3 actualizados en ' + P);
       A.igual(r1.pendientes.length, 1, '1 pendiente (RUT suelto)');
@@ -2297,27 +2297,27 @@ function _pruebas_amarillo(t, A) {
 // Limpieza de hojas residuales
 // ---------------------------------------------------------------------------
 
-function _pruebas_limpieza(t, A) {
+function _pruebas_limpieza_(t, A) {
   t('LIMPIEZA: hojas de diagnóstico y análisis son residuales', function () {
-    A.cierto(Modelo_esHojaResidual('DIAGNOSTICO', false), 'DIAGNOSTICO');
-    A.cierto(Modelo_esHojaResidual('DIAGNOSTICO_FUENTES', false), 'DIAGNOSTICO_FUENTES');
-    A.cierto(Modelo_esHojaResidual('CARGA_ANALISIS', true), 'CARGA_ANALISIS');
-    A.cierto(Modelo_esHojaResidual('IMPORT_MUESTRA', true), 'IMPORT_MUESTRA');
+    A.cierto(Modelo_esHojaResidual_('DIAGNOSTICO', false), 'DIAGNOSTICO');
+    A.cierto(Modelo_esHojaResidual_('DIAGNOSTICO_FUENTES', false), 'DIAGNOSTICO_FUENTES');
+    A.cierto(Modelo_esHojaResidual_('CARGA_ANALISIS', true), 'CARGA_ANALISIS');
+    A.cierto(Modelo_esHojaResidual_('IMPORT_MUESTRA', true), 'IMPORT_MUESTRA');
   });
 
   t('LIMPIEZA: hojas oficiales NUNCA son residuales', function () {
     ['PACIENTES','EVENTOS','CONFIG','LOG','REM_SALIDA',
      'SECTOR_NARANJO','INGRESO_AMARILLO','CAT_VIGENCIA_EXAMENES','Hoja 1']
       .forEach(function (n) {
-        A.cierto(!Modelo_esHojaResidual(n, false), n + ' protegida');
-        A.cierto(!Modelo_esHojaResidual(n, true), n + ' protegida incluso vacía');
+        A.cierto(!Modelo_esHojaResidual_(n, false), n + ' protegida');
+        A.cierto(!Modelo_esHojaResidual_(n, true), n + ' protegida incluso vacía');
       });
-    A.cierto(Modelo_esHojaResidual('DASHBOARD', false), 'DASHBOARD obsoleta → residual');
+    A.cierto(Modelo_esHojaResidual_('DASHBOARD', false), 'DASHBOARD obsoleta → residual');
   });
 
   t('LIMPIEZA: desconocida vacía → residual; con datos → no', function () {
-    A.cierto(Modelo_esHojaResidual('PruebaBorrador', true), 'vacía sí');
-    A.cierto(!Modelo_esHojaResidual('PruebaBorrador', false), 'con datos no');
+    A.cierto(Modelo_esHojaResidual_('PruebaBorrador', true), 'vacía sí');
+    A.cierto(!Modelo_esHojaResidual_('PruebaBorrador', false), 'con datos no');
   });
 }
 
@@ -2326,7 +2326,7 @@ function _pruebas_limpieza(t, A) {
 // Hojas como interfaz — navegación e indicadores
 // ---------------------------------------------------------------------------
 
-function _pruebas_hojas(t, A) {
+function _pruebas_hojas_(t, A) {
   t('INICIO: navegación con hojas existentes y etiquetas únicas', function () {
     var vistos = {};
     HOJAS_NAV.forEach(function (n) {
@@ -2343,12 +2343,12 @@ function _pruebas_hojas(t, A) {
 
   t('INICIO: fórmulas de indicadores vivas (dinámicas según MODELO_PACIENTE)', function () {
     // Verificar que usan columnas reales del modelo, no hardcoded
-    var fTotal = Hojas_formulaIndicador('TOTAL_PAC');
-    var fRev = Hojas_formulaIndicador('POR_REVISAR');
-    var fDup = Hojas_formulaIndicador('DUPLICADOS');
-    var fUlt = Hojas_formulaIndicador('ULT_ACT');
-    var fEstr = Hojas_formulaIndicador('ESTRAT_PEND');
-    var fRut = Hojas_formulaIndicador('RUT_INVALIDOS');
+    var fTotal = Hojas_formulaIndicador_('TOTAL_PAC');
+    var fRev = Hojas_formulaIndicador_('POR_REVISAR');
+    var fDup = Hojas_formulaIndicador_('DUPLICADOS');
+    var fUlt = Hojas_formulaIndicador_('ULT_ACT');
+    var fEstr = Hojas_formulaIndicador_('ESTRAT_PEND');
+    var fRut = Hojas_formulaIndicador_('RUT_INVALIDOS');
 
     // ID_INTERNO sigue en columna A — datos desde dataStartRow (4)
     A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO en A desde fila 4');
@@ -2365,15 +2365,15 @@ function _pruebas_hojas(t, A) {
     // Sin anclas heredadas en fila 2
     A.cierto(fTotal.indexOf('A2:A') === -1, 'sin ancla A2:A');
     A.cierto(fRut.indexOf('X2:X') === -1, 'sin ancla X2:X');
-    A.igual(Hojas_formulaIndicador('DESCONOCIDO'), '', 'desconocido vacío');
+    A.igual(Hojas_formulaIndicador_('DESCONOCIDO'), '', 'desconocido vacío');
   });
 
   t('INICIO: protegida del limpiador incluso vacía', function () {
-    A.cierto(!Modelo_esHojaResidual('INICIO', true), 'INICIO jamás residual');
+    A.cierto(!Modelo_esHojaResidual_('INICIO', true), 'INICIO jamás residual');
   });
 
   t('INICIO: fórmulas auxiliares derivadas del contrato', function () {
-    var fa = Hojas_formulaAlerta();
+    var fa = Hojas_formulaAlerta_();
     // Alerta contiene REGEXREPLACE y las tres categorías
     A.cierto(fa.indexOf('REGEXREPLACE') !== -1, 'alerta usa REGEXREPLACE para separador');
     A.cierto(fa.indexOf('por revisar') !== -1, 'alerta menciona por revisar');
@@ -2383,19 +2383,19 @@ function _pruebas_hojas(t, A) {
     A.cierto(fa.indexOf('PACIENTES!AE') !== -1, 'alerta usa REQUIERE_REVISION en AE');
     A.cierto(fa.indexOf('PACIENTES!X') !== -1, 'alerta usa RUT_DV_VALIDO en X');
 
-    var fm = Hojas_formulaIngresosMes();
+    var fm = Hojas_formulaIngresosMes_();
     A.cierto(fm.indexOf('COUNTIFS') !== -1, 'ingresos del mes usa COUNTIFS');
     A.cierto(fm.indexOf('EOMONTH') !== -1, 'ingresos del mes usa EOMONTH');
-    A.cierto(fm.indexOf('PACIENTES!' + Hojas_rangoPaciente('FECHA_INGRESO')) !== -1, 'ingresos del mes usa rango de FECHA_INGRESO');
+    A.cierto(fm.indexOf('PACIENTES!' + Hojas_rangoPaciente_('FECHA_INGRESO')) !== -1, 'ingresos del mes usa rango de FECHA_INGRESO');
 
-    var fs = Hojas_formulaSinControl();
+    var fs = Hojas_formulaSinControl_();
     A.cierto(fs.indexOf('COUNTIF') !== -1, 'sin control usa COUNTIF');
     A.cierto(fs.indexOf('NSP') !== -1, 'sin control cuenta NSP');
-    A.cierto(fs.indexOf('PACIENTES!' + Hojas_rangoPaciente('PROXIMO_CONTROL')) !== -1, 'sin control usa rango de PROXIMO_CONTROL');
+    A.cierto(fs.indexOf('PACIENTES!' + Hojas_rangoPaciente_('PROXIMO_CONTROL')) !== -1, 'sin control usa rango de PROXIMO_CONTROL');
   });
 
   t('FUENTES: referencia estática = una fila por fuente configurada + hoja oculta', function () {
-    var filas = _modelo_fuentesFilas();
+    var filas = _modelo_fuentesFilas_();
     A.igual(filas.length, Object.keys(FUENTES_DRIVE).length, 'una fila por fuente de FUENTES_DRIVE');
     A.igual(filas[0][0], Object.keys(FUENTES_DRIVE)[0], 'primera columna = archivo');
     A.igual(filas[0][2], (FUENTES_DRIVE[Object.keys(FUENTES_DRIVE)[0]].hojas || []).join('; '), 'hojas unidas');
@@ -2409,59 +2409,59 @@ function _pruebas_hojas(t, A) {
 // Calidad de datos — clasificación, cola y resolución automática (ETAPA cierre)
 // ---------------------------------------------------------------------------
 
-function _pruebas_calidad(t, A) {
+function _pruebas_calidad_(t, A) {
   var P_OK    = { ID_INTERNO:'PA', RUT:'11111111-1', NOMBRE:'ANA',   SECTOR:'NARANJO' };
   var P_MAL   = { ID_INTERNO:'PB', RUT:'11111111-0', NOMBRE:'',     SECTOR:'' };
   var P_SINDV = { ID_INTERNO:'PC', RUT:'12345678',   NOMBRE:'CARLOS',SECTOR:'VERDE' };
   var P_DUP   = { ID_INTERNO:'PD', RUT:'11111111-1', NOMBRE:'ANA CLON', SECTOR:'VERDE' };
 
   t('CALIDAD: paciente sano → cero problemas', function () {
-    A.arreglos(Calidad_problemasPaciente(P_OK, {}), [], 'sin problemas');
+    A.arreglos(Calidad_problemasPaciente_(P_OK, {}), [], 'sin problemas');
   });
 
   t('CALIDAD: RUT con DV errado → RUT_INVALIDO (ERROR)', function () {
-    var pr = Calidad_problemasPaciente(P_MAL, {});
+    var pr = Calidad_problemasPaciente_(P_MAL, {});
     A.igual(pr[0].tipo, 'RUT_INVALIDO', 'tipo');
     A.igual(pr[0].gravedad, 'ERROR', 'gravedad');
   });
 
   t('CALIDAD: RUT sin DV → RUT_INCOMPLETO', function () {
-    A.igual(Calidad_problemasPaciente(P_SINDV, {})[0].tipo, 'RUT_INCOMPLETO', 'tipo');
+    A.igual(Calidad_problemasPaciente_(P_SINDV, {})[0].tipo, 'RUT_INCOMPLETO', 'tipo');
   });
 
   t('CALIDAD: RUT duplicado solo se marca con set de duplicados', function () {
-    var pr = Calidad_problemasPaciente(P_DUP, { '11111111-1': true });
+    var pr = Calidad_problemasPaciente_(P_DUP, { '11111111-1': true });
     A.cierto(pr.some(function (p) { return p.tipo === 'RUT_DUPLICADO'; }), 'detectado con set');
-    A.cierto(!Calidad_problemasPaciente(P_DUP, {}).some(function (p) {
+    A.cierto(!Calidad_problemasPaciente_(P_DUP, {}).some(function (p) {
       return p.tipo === 'RUT_DUPLICADO'; }), 'sin set no marca');
   });
 
   t('CALIDAD: sin nombre y sin sector clasificados', function () {
-    var pr = Calidad_problemasPaciente(P_MAL, {});
+    var pr = Calidad_problemasPaciente_(P_MAL, {});
     A.cierto(pr.some(function (p) { return p.tipo === 'SIN_NOMBRE'; }), 'sin nombre');
     A.cierto(pr.some(function (p) { return p.tipo === 'SIN_SECTOR'; }), 'sin sector');
   });
 
   t('CALIDAD: evento huérfano (paciente inexistente) → ERROR', function () {
-    var pr = Calidad_problemasEvento({ ID_INTERNO:'FANTASMA', FECHA_EVENTO:'2026-08-01',
+    var pr = Calidad_problemasEvento_({ ID_INTERNO:'FANTASMA', FECHA_EVENTO:'2026-08-01',
       TIPO_EVENTO:'CONTROL', RUT:'11111111-1' }, false);
     A.cierto(pr.some(function (p) { return p.tipo === 'EVENTO_HUERFANO'; }), 'huérfano');
   });
 
   t('CALIDAD: evento sin fecha válida → FECHA_INVALIDA', function () {
-    var pr = Calidad_problemasEvento({ ID_INTERNO:'PA', FECHA_EVENTO:'basura',
+    var pr = Calidad_problemasEvento_({ ID_INTERNO:'PA', FECHA_EVENTO:'basura',
       TIPO_EVENTO:'CONTROL', RUT:'' }, true);
     A.cierto(pr.some(function (p) { return p.tipo === 'FECHA_INVALIDA'; }), 'fecha');
   });
 
   t('CALIDAD: peor gravedad escala OK→WARNING→ERROR', function () {
-    A.igual(Calidad_peorGravedad([]), 'OK', 'vacío');
-    A.igual(Calidad_peorGravedad([{ gravedad:'WARNING' }]), 'WARNING', 'warn');
-    A.igual(Calidad_peorGravedad([{ gravedad:'WARNING' }, { gravedad:'ERROR' }]), 'ERROR', 'error domina');
+    A.igual(Calidad_peorGravedad_([]), 'OK', 'vacío');
+    A.igual(Calidad_peorGravedad_([{ gravedad:'WARNING' }]), 'WARNING', 'warn');
+    A.igual(Calidad_peorGravedad_([{ gravedad:'WARNING' }, { gravedad:'ERROR' }]), 'ERROR', 'error domina');
   });
 
   t('COLA: una fila por entidad con TODOS los motivos agregados', function () {
-    var f = Calidad_filaCola('CALIDAD', 'PB', P_MAL, Calidad_problemasPaciente(P_MAL, {}));
+    var f = Calidad_filaCola_('CALIDAD', 'PB', P_MAL, Calidad_problemasPaciente_(P_MAL, {}));
     A.igual(f.estado, 'PENDIENTE', 'requiere intervención humana');
     A.cierto(f.motivos.some(function (m) { return m.gravedad === 'ERROR'; }), 'motivo ERROR presente');
     A.igual(f.rut, '11111111-0', 'rut');
@@ -2469,22 +2469,22 @@ function _pruebas_calidad(t, A) {
   });
 
   t('COLA: entidad sin problemas → RESUELTO_AUTO (sale de la cola)', function () {
-    A.igual(Calidad_filaCola('CALIDAD', 'PA', P_OK, []).estado, 'RESUELTO_AUTO', 'resuelto');
+    A.igual(Calidad_filaCola_('CALIDAD', 'PA', P_OK, []).estado, 'RESUELTO_AUTO', 'resuelto');
   });
 
   t('AMARILLO dedup: eventos existentes con Date NO duplican el histórico', function () {
     var pac = { ID_INTERNO: 'PX', RUT: '14438433-4', NOMBRE: 'JUAN PÉREZ' };
-    var hist = Amarillo_historicoDe({ CONTROL: new Date(2026, 3, 19),
+    var hist = Amarillo_historicoDe_({ CONTROL: new Date(2026, 3, 19),
       SEGUIMIENTO: '', 'PRÓXIMO CONTROL': '', PREINGRESO: '', G: 'G3' });
     var existentes = [{ TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: new Date(2026, 3, 19) }];
-    var evs = Amarillo_eventosNuevos(pac, hist, existentes, 1);
+    var evs = Amarillo_eventosNuevos_(pac, hist, existentes, 1);
     A.igual(evs.length, 0, 'dedup correcto con Date crudo');
   });
 
   t('AMARILLO dedup: sin existentes → crea ambos', function () {
     var pac = { ID_INTERNO: 'PY', RUT: '7478597-2', NOMBRE: 'SANDRA DÍAZ' };
-    var evs = Amarillo_eventosNuevos(pac,
-      Amarillo_historicoDe({ CONTROL: '2026-04-19', SEGUIMIENTO: '2026-06-26',
+    var evs = Amarillo_eventosNuevos_(pac,
+      Amarillo_historicoDe_({ CONTROL: '2026-04-19', SEGUIMIENTO: '2026-06-26',
         'PRÓXIMO CONTROL': '', PREINGRESO: '', G: 'G3' }), [], 2);
     A.igual(evs.length, 2, 'dos eventos nuevos');
   });
@@ -2494,7 +2494,7 @@ function _pruebas_calidad(t, A) {
 // Catálogo central de profesionales
 // ---------------------------------------------------------------------------
 
-function _pruebas_profesionales(t, A) {
+function _pruebas_profesionales_(t, A) {
   t('PROFESIONALES: mapeo de filas canónicas (encabezado + normalización)', function () {
     var filas = [
       ['CODIGO', 'NOMBRE', 'TIPO_ROL', 'ACTIVO'],
@@ -2503,7 +2503,7 @@ function _pruebas_profesionales(t, A) {
       ['', '', '', ''],              // fila vacía → se omite
       ['TENS', 'TENS', 'Técnico', true]
     ];
-    var r = Profesionales_mapear(filas);
+    var r = Profesionales_mapear_(filas);
     A.igual(r.length, 3, 'tres profesionales (vacía omitida)');
     A.igual(r[0].CODIGO, 'MED', 'código normalizado');
     A.igual(r[1].CODIGO, 'ENF', 'código a mayúsculas');
@@ -2513,28 +2513,28 @@ function _pruebas_profesionales(t, A) {
   });
 
   t('PROFESIONALES: validación detecta duplicados y códigos vacíos', function () {
-    var v1 = Profesionales_validar([
+    var v1 = Profesionales_validar_([
       { CODIGO: 'MED', NOMBRE: 'Médico/a' },
       { CODIGO: 'ENF', NOMBRE: 'Enfermera/o' }
     ]);
     A.cierto(v1.ok, 'catálogo válido');
 
-    var v2 = Profesionales_validar([
+    var v2 = Profesionales_validar_([
       { CODIGO: 'MED', NOMBRE: 'Médico/a' },
       { CODIGO: 'med', NOMBRE: 'Médico/a 2' }
     ]);
     A.cierto(!v2.ok, 'duplicado detectado');
     A.cierto(v2.errores.join(' ').indexOf('duplicado') !== -1, 'mensaje de duplicado');
 
-    var v3 = Profesionales_validar([{ CODIGO: ' ', NOMBRE: 'Sin código' }]);
+    var v3 = Profesionales_validar_([{ CODIGO: ' ', NOMBRE: 'Sin código' }]);
     A.cierto(!v3.ok, 'código vacío detectado');
 
-    var v4 = Profesionales_validar([{ CODIGO: 'X1', NOMBRE: '' }]);
+    var v4 = Profesionales_validar_([{ CODIGO: 'X1', NOMBRE: '' }]);
     A.cierto(!v4.ok, 'nombre vacío detectado');
   });
 
   t('PROFESIONALES: catalogo de respaldo desde semilla si hoja vacía', function () {
-    // Profesionales_catalogo() depende de hoja; aquí verificamos la semilla.
+    // Profesionales_catalogo_() depende de hoja; aquí verificamos la semilla.
     A.igual(CATALOGO_PROFESIONALES.length, 9, 'semilla con 9 roles');
     var codigos = CATALOGO_PROFESIONALES.map(function (c) { return c.CODIGO; });
     A.cierto(codigos.indexOf('MED') !== -1 && codigos.indexOf('TO') !== -1, 'contiene extremos');
@@ -2548,48 +2548,48 @@ function _pruebas_profesionales(t, A) {
 // v0.8.5 — CONFIG: secciones, tipo de editor, validación (PURAS, testables)
 // ---------------------------------------------------------------------------
 
-function _pruebas_config_v085(t, A) {
+function _pruebas_config_v085_(t, A) {
   t('CONFIG v0.8.5: sección por clave', function () {
-    A.igual(Config_seccionDe('FREC_CONTROL_G1_CANT'), 'ESTRATIFICACION');
-    A.igual(Config_seccionDe('FREC_CONTROL_G2_UNIDAD'), 'ESTRATIFICACION');
-    A.igual(Config_seccionDe('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES');
-    A.igual(Config_seccionDe('GENERAL_NOMBRE_SISTEMA'), 'COMUNES');
-    A.igual(Config_seccionDe('DASHBOARD_TITULO'), 'COMUNES');
-    A.igual(Config_seccionDe('VERSION'), 'ADMINISTRADOR');
-    A.igual(Config_seccionDe('AMBIENTE'), 'ADMINISTRADOR');
-    A.igual(Config_seccionDe('CLAVE_SUELTA'), 'OTRAS');
+    A.igual(Config_seccionDe_('FREC_CONTROL_G1_CANT'), 'ESTRATIFICACION');
+    A.igual(Config_seccionDe_('FREC_CONTROL_G2_UNIDAD'), 'ESTRATIFICACION');
+    A.igual(Config_seccionDe_('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES');
+    A.igual(Config_seccionDe_('GENERAL_NOMBRE_SISTEMA'), 'COMUNES');
+    A.igual(Config_seccionDe_('DASHBOARD_TITULO'), 'COMUNES');
+    A.igual(Config_seccionDe_('VERSION'), 'ADMINISTRADOR');
+    A.igual(Config_seccionDe_('AMBIENTE'), 'ADMINISTRADOR');
+    A.igual(Config_seccionDe_('CLAVE_SUELTA'), 'OTRAS');
   });
 
   t('CONFIG v0.8.5: tipo de editor por clave', function () {
-    A.igual(Config_tipoDe('FREC_CONTROL_G1_UNIDAD'), 'select');
-    A.igual(Config_tipoDe('FREC_CONTROL_G1_CANT'), 'numero');
-    A.igual(Config_tipoDe('AVISO_CONTROL_DIAS'), 'numero');
-    A.igual(Config_tipoDe('PACIENTES_MIN_BUSQUEDA'), 'numero');
-    A.igual(Config_tipoDe('GENERAL_NOMBRE_SISTEMA'), 'texto');
+    A.igual(Config_tipoDe_('FREC_CONTROL_G1_UNIDAD'), 'select');
+    A.igual(Config_tipoDe_('FREC_CONTROL_G1_CANT'), 'numero');
+    A.igual(Config_tipoDe_('AVISO_CONTROL_DIAS'), 'numero');
+    A.igual(Config_tipoDe_('PACIENTES_MIN_BUSQUEDA'), 'numero');
+    A.igual(Config_tipoDe_('GENERAL_NOMBRE_SISTEMA'), 'texto');
   });
 
   t('CONFIG v0.8.5: opciones de selects', function () {
-    A.arreglos(Config_opcionesDe('FREC_CONTROL_G3_UNIDAD'), ['días', 'meses'], 'unidad');
-    A.cierto(Config_opcionesDe('GENERAL_NOMBRE_SISTEMA').length === 0, 'sin opciones');
+    A.arreglos(Config_opcionesDe_('FREC_CONTROL_G3_UNIDAD'), ['días', 'meses'], 'unidad');
+    A.cierto(Config_opcionesDe_('GENERAL_NOMBRE_SISTEMA').length === 0, 'sin opciones');
   });
 
   t('CONFIG v0.8.5: validación', function () {
-    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', '90'), '');
-    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', '0'), 'debe ser un entero mayor a 0');
-    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', '-5'), 'debe ser un entero mayor a 0');
-    A.igual(Config_validarValor('FREC_CONTROL_G1_CANT', 'abc'), 'debe ser un entero mayor a 0');
-    A.igual(Config_validarValor('FREC_CONTROL_G1_UNIDAD', 'meses'), '');
-    A.igual(Config_validarValor('FREC_CONTROL_G1_UNIDAD', 'días'), '');
-    A.igual(Config_validarValor('FREC_CONTROL_G1_UNIDAD', 'semanal'), 'valor debe ser: días | meses');
-    A.cierto(Config_validarValor('VERSION', '0.8.5') !== '', 'clave protegida rechazada');
-    A.igual(Config_validarValor('GENERAL_NOMBRE_SISTEMA', 'ECICEP'), '');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_CANT', '90'), '');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_CANT', '0'), 'debe ser un entero mayor a 0');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_CANT', '-5'), 'debe ser un entero mayor a 0');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_CANT', 'abc'), 'debe ser un entero mayor a 0');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_UNIDAD', 'meses'), '');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_UNIDAD', 'días'), '');
+    A.igual(Config_validarValor_('FREC_CONTROL_G1_UNIDAD', 'semanal'), 'valor debe ser: días | meses');
+    A.cierto(Config_validarValor_('VERSION', '0.8.5') !== '', 'clave protegida rechazada');
+    A.igual(Config_validarValor_('GENERAL_NOMBRE_SISTEMA', 'ECICEP'), '');
   });
 
   t('CONFIG v0.8.5: protección de claves de sistema', function () {
-    A.cierto(Config_estaProtegida('VERSION'));
-    A.cierto(Config_estaProtegida('SPREADSHEET_ID'));
-    A.cierto(!Config_estaProtegida('FREC_CONTROL_G1_CANT'));
-    A.cierto(!Config_estaProtegida('GENERAL_NOMBRE_SISTEMA'));
+    A.cierto(Config_estaProtegida_('VERSION'));
+    A.cierto(Config_estaProtegida_('SPREADSHEET_ID'));
+    A.cierto(!Config_estaProtegida_('FREC_CONTROL_G1_CANT'));
+    A.cierto(!Config_estaProtegida_('GENERAL_NOMBRE_SISTEMA'));
   });
 }
 
@@ -2598,7 +2598,7 @@ function _pruebas_config_v085(t, A) {
 // recordatorio, panel por persona, edad. Todas llamadas PURAS con freqConfig.
 // ---------------------------------------------------------------------------
 
-function _pruebas_control_v085(t, A) {
+function _pruebas_control_v085_(t, A) {
   var FREC_G1_MES = { G1: { cantidad: 1, unidad: 'meses' }, G2: { cantidad: 180, unidad: 'días' },
                       G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
 
@@ -2611,7 +2611,7 @@ function _pruebas_control_v085(t, A) {
       ['FREC_CONTROL_G3_CANT', '365', ''],
       ['FREC_CONTROL_G3_UNIDAD', 'meses', '']
     ];
-    var r = Control_frecuenciaConfig(filas);
+    var r = Control_frecuenciaConfig_(filas);
     A.arreglos(r.G1, { cantidad: 90, unidad: 'meses' }, 'G1 meses');
     A.arreglos(r.G2, { cantidad: 180, unidad: 'días' }, 'G2 días');
     A.arreglos(r.G3, { cantidad: 365, unidad: 'meses' }, 'G3 meses');
@@ -2619,52 +2619,52 @@ function _pruebas_control_v085(t, A) {
   });
 
   t('CONTROL v0.8.5: frecuenciaConfig default y legacy en días', function () {
-    var r = Control_frecuenciaConfig(null);
+    var r = Control_frecuenciaConfig_(null);
     A.igual(r.G1.cantidad, 90, 'default G1'); A.igual(r.G1.unidad, 'días');
     // legacy: solo FREC_CONTROL_G2=30 (sin _CANT) → se usa en días
-    var leg = Control_frecuenciaConfig([['FREC_CONTROL_G2', '30', '']]);
+    var leg = Control_frecuenciaConfig_([['FREC_CONTROL_G2', '30', '']]);
     A.arreglos(leg.G2, { cantidad: 30, unidad: 'días' }, 'legacy G2 días');
     // si existe _CANT, la legacy NO pisa
-    var mixt = Control_frecuenciaConfig([['FREC_CONTROL_G2_CANT', '60', ''], ['FREC_CONTROL_G2', '30', '']]);
+    var mixt = Control_frecuenciaConfig_([['FREC_CONTROL_G2_CANT', '60', ''], ['FREC_CONTROL_G2', '30', '']]);
     A.igual(mixt.G2.cantidad, 60, 'CANT gana a legacy');
   });
 
   t('CONTROL v0.8.5: frecuenciaDe por nivel', function () {
-    var f = Control_frecuenciaConfig([['FREC_CONTROL_G1_CANT', '45', ''], ['FREC_CONTROL_G1_UNIDAD', 'meses', '']]);
-    A.arreglos(Control_frecuenciaDe('G1', f), { cantidad: 45, unidad: 'meses' });
-    A.igual(Control_frecuenciaDe('G2', f).cantidad, 180, 'G2 fallback');
-    A.arreglos(Control_frecuenciaDe('', f), { cantidad: 180, unidad: 'días' }, 'sin nivel → G');
+    var f = Control_frecuenciaConfig_([['FREC_CONTROL_G1_CANT', '45', ''], ['FREC_CONTROL_G1_UNIDAD', 'meses', '']]);
+    A.arreglos(Control_frecuenciaDe_('G1', f), { cantidad: 45, unidad: 'meses' });
+    A.igual(Control_frecuenciaDe_('G2', f).cantidad, 180, 'G2 fallback');
+    A.arreglos(Control_frecuenciaDe_('', f), { cantidad: 180, unidad: 'días' }, 'sin nivel → G');
   });
 
   t('CONTROL v0.8.5: próximo = último + frecuencia en días', function () {
-    A.igual(Control_calcularProximo('2026-01-01', 'G1', Control_frecuenciaDefault()), '2026-04-01');
-    A.igual(Control_calcularProximo('2026-01-01', 'G3', Control_frecuenciaDefault()), '2027-01-01');
+    A.igual(Control_calcularProximo_('2026-01-01', 'G1', Control_frecuenciaDefault_()), '2026-04-01');
+    A.igual(Control_calcularProximo_('2026-01-01', 'G3', Control_frecuenciaDefault_()), '2027-01-01');
   });
 
   t('CONTROL v0.8.5: próximo respeta meses y fin de mes', function () {
-    A.igual(Control_calcularProximo('2026-01-31', 'G1', FREC_G1_MES), '2026-02-28', 'clamp 31→feb');
-    A.igual(Control_calcularProximo('2026-06-15', 'G1', FREC_G1_MES), '2026-07-15', '1 mes');
+    A.igual(Control_calcularProximo_('2026-01-31', 'G1', FREC_G1_MES), '2026-02-28', 'clamp 31→feb');
+    A.igual(Control_calcularProximo_('2026-06-15', 'G1', FREC_G1_MES), '2026-07-15', '1 mes');
   });
 
   t('CONTROL v0.8.5: sin último control → sin próximo', function () {
-    A.igual(Control_calcularProximo('', 'G1', Control_frecuenciaDefault()), '');
-    A.igual(Control_calcularProximo('fecha-invalida', 'G1', Control_frecuenciaDefault()), '');
+    A.igual(Control_calcularProximo_('', 'G1', Control_frecuenciaDefault_()), '');
+    A.igual(Control_calcularProximo_('fecha-invalida', 'G1', Control_frecuenciaDefault_()), '');
   });
 
   t('CONTROL v0.8.5: estadoVigencia con hoyRef y avisoDias', function () {
-    A.igual(Control_estadoVigencia('2026-08-30', '2026-08-27', 7), 'POR_VENCER', 'a 3 días');
-    A.igual(Control_estadoVigencia('2026-09-15', '2026-08-27', 7), 'VIGENTE', 'lejos');
-    A.igual(Control_estadoVigencia('2026-08-20', '2026-08-27', 7), 'VENCIDO', 'atrasado');
-    A.igual(Control_estadoVigencia('', '2026-08-27', 7), 'SIN_FECHA', 'vacío');
+    A.igual(Control_estadoVigencia_('2026-08-30', '2026-08-27', 7), 'POR_VENCER', 'a 3 días');
+    A.igual(Control_estadoVigencia_('2026-09-15', '2026-08-27', 7), 'VIGENTE', 'lejos');
+    A.igual(Control_estadoVigencia_('2026-08-20', '2026-08-27', 7), 'VENCIDO', 'atrasado');
+    A.igual(Control_estadoVigencia_('', '2026-08-27', 7), 'SIN_FECHA', 'vacío');
   });
 
   t('CONTROL v0.8.5: color y recordatorio por estado', function () {
-    A.igual(Control_colorEstado('VENCIDO'), 'rojo');
-    A.igual(Control_colorEstado('POR_VENCER'), 'ambar');
-    A.igual(Control_colorEstado('VIGENTE'), 'verde');
-    A.igual(Control_colorEstado('SIN_FECHA'), 'gris');
-    A.cierto(Control_recordatorio('VENCIDO').indexOf('VENCIDO') !== -1, 'recordatorio vencido');
-    A.cierto(Control_recordatorio('SIN_FECHA').indexOf('Sin próxima atención') !== -1, 'sin control');
+    A.igual(Control_colorEstado_('VENCIDO'), 'rojo');
+    A.igual(Control_colorEstado_('POR_VENCER'), 'ambar');
+    A.igual(Control_colorEstado_('VIGENTE'), 'verde');
+    A.igual(Control_colorEstado_('SIN_FECHA'), 'gris');
+    A.cierto(Control_recordatorio_('VENCIDO').indexOf('VENCIDO') !== -1, 'recordatorio vencido');
+    A.cierto(Control_recordatorio_('SIN_FECHA').indexOf('Sin próxima atención') !== -1, 'sin control');
   });
 
   t('CONTROL v0.8.5: filasPanel por persona con estado/edad', function () {
@@ -2675,7 +2675,7 @@ function _pruebas_control_v085(t, A) {
       { ID_INTERNO: 'P2', NOMBRE: 'Luis', RUT: '2-5', SECTOR: 'VERDE', ESTRATIFICACION: 'G3',
         ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '2000-01-01' }
     ];
-    var d = Control_filasPanel(pac, Control_frecuenciaDefault(), hoy);
+    var d = Control_filasPanel_(pac, Control_frecuenciaDefault_(), hoy);
     A.igual(d.filas.length, 2, 'dos filas');
     var ana = d.filas.filter(function (f) { return f.idInterno === 'P1'; })[0];
     A.igual(ana.proximo, '2026-08-30', 'próxima fecha manual');
@@ -2692,7 +2692,7 @@ function _pruebas_control_v085(t, A) {
       { ID_INTERNO: 'P1', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '2026-08-01', FECHA_NACIMIENTO: '' },
       { ID_INTERNO: 'P2', SECTOR: 'AMARILLO', ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '', FECHA_NACIMIENTO: '' }
     ];
-    var r = Control_analizar(pac, Control_frecuenciaDefault(), '2026-08-27');
+    var r = Control_analizar_(pac, Control_frecuenciaDefault_(), '2026-08-27');
     A.igual(r.metricas.analizados, 2, 'analizados');
     A.igual(r.metricas.G1, 2, 'G1');
     A.igual(r.metricas.sinUltimoControl, 1, 'uno sin último control');
@@ -2702,47 +2702,47 @@ function _pruebas_control_v085(t, A) {
   t('CONTROL v0.8.5: sincronizarCache conserva la agenda manual en CONTROL', function () {
     var pac = { ID_INTERNO: 'P1', ESTRATIFICACION: 'G2', ULTIMO_CONTROL: '', PROXIMO_CONTROL: '2026-12-05' };
     var ev = { FECHA_EVENTO: '2026-01-01', TIPO_EVENTO: 'CONTROL' };
-    Ingresos_sincronizarCache(pac, ev, Control_frecuenciaDefault());
+    Ingresos_sincronizarCache_(pac, ev, Control_frecuenciaDefault_());
     A.igual(pac.ULTIMO_CONTROL, '2026-01-01');
     A.igual(pac.PROXIMO_CONTROL, '2026-12-05', 'la fecha manual se conserva');
   });
 
   t('CONTROL: una atención histórica no hace retroceder último control o seguimiento', function () {
     var pac = { ULTIMO_CONTROL: '2026-09-10', ULTIMO_SEGUIMIENTO: '2026-09-08', PROXIMO_CONTROL: '2026-10-01' };
-    Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-08-01' });
-    Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-08-02' });
+    Ingresos_sincronizarCache_(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-08-01' });
+    Ingresos_sincronizarCache_(pac, { TIPO_EVENTO: 'SEGUIMIENTO', FECHA_EVENTO: '2026-08-02' });
     A.igual(pac.ULTIMO_CONTROL, '2026-09-10');
     A.igual(pac.ULTIMO_SEGUIMIENTO, '2026-09-08');
     A.igual(pac.PROXIMO_CONTROL, '2026-10-01');
-    Ingresos_sincronizarCache(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-09-11' });
+    Ingresos_sincronizarCache_(pac, { TIPO_EVENTO: 'CONTROL', FECHA_EVENTO: '2026-09-11' });
     A.igual(pac.ULTIMO_CONTROL, '2026-09-11', 'un control posterior sí avanza la fecha');
   });
 
   t('CONTROL: un serial de fecha de Sheets usa la época de Sheets', function () {
-    A.igual(Control_aIso(45292), '2024-01-01');
-    A.igual(Control_aIso(45292.75), '2024-01-01', 'la hora no desplaza la fecha');
-    A.igual(Control_aIso('46000'), '2025-12-09');
+    A.igual(Control_aIso_(45292), '2024-01-01');
+    A.igual(Control_aIso_(45292.75), '2024-01-01', 'la hora no desplaza la fecha');
+    A.igual(Control_aIso_('46000'), '2025-12-09');
   });
 
   t('CONTROL v0.8.5: idempotencia de filasPanel (pura, sin efectos)', function () {
     var pac = [{ ID_INTERNO: 'P1', SECTOR: 'VERDE', ESTRATIFICACION: 'G3', ULTIMO_CONTROL: '2026-01-01', FECHA_NACIMIENTO: '' }];
-    var d1 = JSON.stringify(Control_filasPanel(pac, Control_frecuenciaDefault(), '2026-08-27'));
-    var d2 = JSON.stringify(Control_filasPanel(pac, Control_frecuenciaDefault(), '2026-08-27'));
+    var d1 = JSON.stringify(Control_filasPanel_(pac, Control_frecuenciaDefault_(), '2026-08-27'));
+    var d2 = JSON.stringify(Control_filasPanel_(pac, Control_frecuenciaDefault_(), '2026-08-27'));
     A.igual(d1, d2, 'misma salida');
   });
 
   t('CONTROL v0.8.5: edad desde fecha de nacimiento (cumpleaños)', function () {
-    A.igual(Utl_edadDesde('1990-05-15', new Date(2026, 7, 27)), '36', 'años cumplidos');
-    A.igual(Utl_edadDesde('1990-12-01', new Date(2026, 7, 27)), '35', 'sin cumplir aún');
-    A.igual(Utl_edadDesde('', new Date(2026, 7, 27)), '', 'sin fecha');
-    A.igual(Utl_edadDesde('invalida', new Date(2026, 7, 27)), '', 'fecha inválida');
+    A.igual(Utl_edadDesde_('1990-05-15', new Date(2026, 7, 27)), '36', 'años cumplidos');
+    A.igual(Utl_edadDesde_('1990-12-01', new Date(2026, 7, 27)), '35', 'sin cumplir aún');
+    A.igual(Utl_edadDesde_('', new Date(2026, 7, 27)), '', 'sin fecha');
+    A.igual(Utl_edadDesde_('invalida', new Date(2026, 7, 27)), '', 'fecha inválida');
   });
 }
 
 // ---------------------------------------------------------------------------
 // v0.8.7.1 — CONTROLES POR PERSONA bajo demanda (parámetros → filas paginadas)
 // ---------------------------------------------------------------------------
-function _pruebas_controles_v087(t, A) {
+function _pruebas_controles_v087_(t, A) {
   var PAC = [
     { ID_INTERNO: 'I001', NOMBRE: 'María Pérez', RUT: '8031158-3', SECTOR: 'AMARILLO',
       ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '2026-06-01', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '2026-08-30', FECHA_NACIMIENTO: '1990-05-15' },
@@ -2753,11 +2753,11 @@ function _pruebas_controles_v087(t, A) {
     { ID_INTERNO: 'I004', NOMBRE: 'Pedro Gónzalez', RUT: '5.555.555-5', SECTOR: 'AMARILLO',
       ESTRATIFICACION: 'G1', ULTIMO_CONTROL: '', ULTIMO_SEGUIMIENTO: '', PROXIMO_CONTROL: '', FECHA_NACIMIENTO: '1978-11-11' }
   ];
-  var FR = Control_frecuenciaDefault();
+  var FR = Control_frecuenciaDefault_();
   var HOY = '2026-08-27';
 
   t('CONTROL v0.8.7.1: "Todos los sectores" se consulta (todos) con límite 25', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, {});
+    var r = Control_consultarControles_(PAC, FR, HOY, {});
     A.igual(r.total, 4, 'total (opts vacío = consulta explícita, no inicialización)');
     A.igual(r.filas.length, 4, 'limite default 25 alcanza');
     A.igual(r.limite, 25, 'limite devuelto');
@@ -2766,43 +2766,43 @@ function _pruebas_controles_v087(t, A) {
   });
 
   t('CONTROL v0.8.7.1: filtro por sector (AMARILLO)', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { sector: 'AMARILLO' });
+    var r = Control_consultarControles_(PAC, FR, HOY, { sector: 'AMARILLO' });
     A.igual(r.total, 2, '2 amarillos');
     A.cierto(r.filas.every(function (f) { return f.sector === 'AMARILLO'; }), 'todas amarillas');
   });
 
   t('CONTROL v0.8.7.1: "Todos los sectores" combinado con término acotado', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { sector: '', termino: 'silva' });
+    var r = Control_consultarControles_(PAC, FR, HOY, { sector: '', termino: 'silva' });
     A.igual(r.total, 1, 'Ana Silva');
     A.igual(r.filas[0].idInterno, 'I003');
   });
 
   t('CONTROL v0.8.7.1: búsqueda por RUT ignora puntos y guión', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { termino: '123456789' });
+    var r = Control_consultarControles_(PAC, FR, HOY, { termino: '123456789' });
     A.igual(r.total, 1, 'RUT sin puntos');
     A.igual(r.filas[0].idInterno, 'I002', 'Luis Soto');
   });
 
   t('CONTROL v0.8.7.1: búsqueda por ID interno (subcadena)', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { termino: 'I00' });
+    var r = Control_consultarControles_(PAC, FR, HOY, { termino: 'I00' });
     A.igual(r.total, 4, 'todos los IDs');
-    r = Control_consultarControles(PAC, FR, HOY, { termino: '003' });
+    r = Control_consultarControles_(PAC, FR, HOY, { termino: '003' });
     A.igual(r.total, 1, 'I003');
   });
 
   t('CONTROL v0.8.7.1: búsqueda por nombre ignora tildes', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { termino: 'gonzalez' });
+    var r = Control_consultarControles_(PAC, FR, HOY, { termino: 'gonzalez' });
     A.igual(r.total, 1, 'Pedro (se escribe "Gónzalez")');
     A.igual(r.filas[0].idInterno, 'I004');
   });
 
   t('CONTROL v0.8.7.1: paginación pageSize=2 avanza y conserva total', function () {
-    var p1 = Control_consultarControles(PAC, FR, HOY, { limite: 2 });
+    var p1 = Control_consultarControles_(PAC, FR, HOY, { limite: 2 });
     A.igual(p1.total, 4, 'total');
     A.igual(p1.filas.length, 2, 'página 1');
     A.igual(p1.desde, 0, 'desde 0');
     A.igual(p1.hasta, 2, 'hasta 2');
-    var p2 = Control_consultarControles(PAC, FR, HOY, { inicio: 2, limite: 2 });
+    var p2 = Control_consultarControles_(PAC, FR, HOY, { inicio: 2, limite: 2 });
     A.igual(p2.filas.length, 2, 'página 2');
     A.igual(p2.desde, 2, 'desde 2');
     var ids = p1.filas.map(function (f) { return f.idInterno; }).concat(p2.filas.map(function (f) { return f.idInterno; }));
@@ -2810,33 +2810,33 @@ function _pruebas_controles_v087(t, A) {
   });
 
   t('CONTROL v0.8.7.1: límite se capa a 100 y el desplazamiento no excede total', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { inicio: 999, limite: 999 });
+    var r = Control_consultarControles_(PAC, FR, HOY, { inicio: 999, limite: 999 });
     A.igual(r.limite, 100, 'cap 100');
     A.igual(r.desde, 4, 'desde clamp a total');
     A.igual(r.filas.length, 0, 'sin filas tras el final');
-    r = Control_consultarControles(PAC, FR, HOY, { limite: 0 });
+    r = Control_consultarControles_(PAC, FR, HOY, { limite: 0 });
     A.igual(r.limite, 25, 'limite 0 → default 25');
   });
 
   t('CONTROL v0.8.7.1: sin resultados (término inexistente)', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { termino: 'zznotthere' });
+    var r = Control_consultarControles_(PAC, FR, HOY, { termino: 'zznotthere' });
     A.igual(r.total, 0, 'total 0');
     A.igual(r.filas.length, 0, 'filas vacías');
     A.igual(r.hasta, 0, 'hasta 0');
   });
 
   t('CONTROL v0.8.7.1: ficha usa contexto individual (no recorre la población)', function () {
-    var una = Control_consultarControles([PAC[0]], FR, HOY, { sector: 'AMARILLO' });
+    var una = Control_consultarControles_([PAC[0]], FR, HOY, { sector: 'AMARILLO' });
     A.igual(una.total, 1, 'una sola persona consultada');
     A.igual(una.filas[0].idInterno, 'I001');
-    var sg = Control_filasPanel([PAC[0]], FR, HOY).filas[0];
+    var sg = Control_filasPanel_([PAC[0]], FR, HOY).filas[0];
     A.igual(sg.nombre, 'María Pérez', 'fila individual');
   });
 
   t('CONTROL v0.9.x: pendientes=true lista solo intervención (VENCIDO/POR_VENCER/SIN_FECHA)', function () {
     // I001 (G1, 2026-06-01) → próximo 2026-08-30 → POR_VENCER; I002 vence 2027 → VIGENTE;
     // I003 vence 2027 → VIGENTE; I004 sin control → SIN_FECHA.
-    var r = Control_consultarControles(PAC, FR, HOY, { pendientes: true });
+    var r = Control_consultarControles_(PAC, FR, HOY, { pendientes: true });
     A.igual(r.total, 2, 'pendientes');
     var estados = r.filas.map(function (f) { return f.estado; });
     A.cierto(estados.indexOf('VENCIDO') === -1 && estados.indexOf('POR_VENCER') !== -1 &&
@@ -2847,22 +2847,22 @@ function _pruebas_controles_v087(t, A) {
   });
 
   t('CONTROL v0.9.x: filtro por estados explícito y por estado individual', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { estados: ['VENCIDO'] });
+    var r = Control_consultarControles_(PAC, FR, HOY, { estados: ['VENCIDO'] });
     A.igual(r.total, 0, 'sin vencidos en este dataset');
-    r = Control_consultarControles(PAC, FR, HOY, { estado: 'SIN_FECHA' });
+    r = Control_consultarControles_(PAC, FR, HOY, { estado: 'SIN_FECHA' });
     A.igual(r.total, 1, 'estado individual');
     A.igual(r.filas[0].idInterno, 'I004');
   });
 
   t('CONTROL v0.9.x: sectores se recalculan sobre el subconjunto filtrado', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { pendientes: true });
+    var r = Control_consultarControles_(PAC, FR, HOY, { pendientes: true });
     var personas = 0;
     r.sectores.forEach(function (s) { personas += s.personas; });
     A.igual(personas, r.total, 'conteo de sectores = total filtrado');
   });
 
   t('CONTROL v0.9.x: estados inválidos se ignoran (sin romper la consulta)', function () {
-    var r = Control_consultarControles(PAC, FR, HOY, { estados: ['BASURA', 'VIGENTE'] });
+    var r = Control_consultarControles_(PAC, FR, HOY, { estados: ['BASURA', 'VIGENTE'] });
     A.igual(r.total, 2, 'solo VIGENTE aplicado (I002, I003)');
   });
 }
@@ -2870,7 +2870,7 @@ function _pruebas_controles_v087(t, A) {
 // ---------------------------------------------------------------------------
 // v0.8.7.1 — AUDITORÍA DE DIÁLOGOS: inventario único (UICFG_DIALOGOS)
 // ---------------------------------------------------------------------------
-function _pruebas_dialogos_v087(t, A) {
+function _pruebas_dialogos_v087_(t, A) {
   t('DIÁLOGOS v0.8.7.1: inventario bien formado y sin duplicados', function () {
     A.cierto(Array.isArray(UICFG_DIALOGOS) && UICFG_DIALOGOS.length >= 14, 'inventario poblado');
     var vistos = {};
@@ -2891,17 +2891,17 @@ function _pruebas_dialogos_v087(t, A) {
     var opens = UICFG_DIALOGOS.map(function (d) { return d.opener; });
     A.igual(opens.length, opens.filter(function (x, i) { return opens.indexOf(x) === i; }).length, 'openers únicos');
     A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Controles'; }), 'Controles en el inventario');
-    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.opener === 'UI_abrirControles'; }), 'opener UI_abrirControles');
-    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.opener === 'UI_abrirFicha'; }), 'opener UI_abrirFicha');
-    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Configuracion' && d.opener === 'UI_configuracionEstratificacion'; }),
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.opener === 'UI_abrirControles_'; }), 'opener UI_abrirControles_');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.opener === 'UI_abrirFicha_'; }), 'opener UI_abrirFicha_');
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Configuracion' && d.opener === 'UI_configuracionEstratificacion_'; }),
       'Estratificación integrado a Configuración');
-    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Configuracion' && d.opener === 'UI_configuracionResponsables'; }),
+    A.cierto(UICFG_DIALOGOS.some(function (d) { return d.plantilla === 'Configuracion' && d.opener === 'UI_configuracionResponsables_'; }),
       'Responsables integrado a Configuración');
   });
 
   t('DIÁLOGOS v0.8.7.1: versión del sistema acorde al lanzamiento', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.3', 'versión esperada v0.16.3');
+    A.igual(v, '0.17.0', 'versión esperada v0.17.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -2910,7 +2910,7 @@ function _pruebas_dialogos_v087(t, A) {
 // ---------------------------------------------------------------------------
 // v0.8.7.2 — RESPONSABLES POR SECTOR (acumulables, DEC-039)
 // ---------------------------------------------------------------------------
-function _pruebas_responsables_v0872(t, A) {
+function _pruebas_responsables_v0872_(t, A) {
   var filas = [
     COLUMNAS_RESPONSABLES,
     ['AMARILLO', 'ENF', 'Enfermera/o', 'enfermeria@cli.cl', true],
@@ -2920,7 +2920,7 @@ function _pruebas_responsables_v0872(t, A) {
   ];
 
   t('RESPONSABLES v0.8.7.2: mapeo canónico (sector/código normalizados, vacía omitida)', function () {
-    var r = Responsables_mapear(filas);
+    var r = Responsables_mapear_(filas);
     A.igual(r.length, 3, 'tres asociaciones (vacía omitida)');
     A.igual(r[0].sector, 'AMARILLO', 'sector a mayúsculas');
     A.igual(r[1].sector, 'AMARILLO', 'sector escrito en minúscula normalizado');
@@ -2929,15 +2929,15 @@ function _pruebas_responsables_v0872(t, A) {
   });
 
   t('RESPONSABLES v0.8.7.2: un sector puede tener N responsables sin sobrescribir', function () {
-    var lista = Responsables_mapear(filas);
-    var v1 = Responsables_validarSector('AMARILLO', lista.filter(function (r) { return r.sector === 'AMARILLO'; }), []);
+    var lista = Responsables_mapear_(filas);
+    var v1 = Responsables_validarSector_('AMARILLO', lista.filter(function (r) { return r.sector === 'AMARILLO'; }), []);
     A.cierto(v1.ok, 'sector con ENF y MED válido');
     A.igual(v1.cantidad, 2, 'dos responsables coexisten');
   });
 
   t('RESPONSABLES v0.8.7.2: duplicados (SECTOR+CODIGO) detectados y sin duplicar al guardar', function () {
-    var lista = Responsables_mapear(filas);
-    var v = Responsables_validarSector('AMARILLO', [
+    var lista = Responsables_mapear_(filas);
+    var v = Responsables_validarSector_('AMARILLO', [
       { codigo: 'ENF', nombre: 'Enfermera/o', correo: '', activo: true },
       { codigo: 'enf', nombre: 'Enfermera/o 2', correo: '', activo: true }
     ], []);
@@ -2947,17 +2947,17 @@ function _pruebas_responsables_v0872(t, A) {
   });
 
   t('RESPONSABLES v0.8.7.2: mismo responsable en varios sectores (clave incluye sector)', function () {
-    A.cierto(Responsables_clave('AMARILLO', 'ENF') !== Responsables_clave('NARANJO', 'ENF'), 'claves distintas por sector');
-    var lista = Responsables_mapear(filas); // ENF en AMARILLO y NARANJO
-    var v = Responsables_validarSector('NARANJO', lista.filter(function (r) { return r.sector === 'NARANJO'; }), []);
+    A.cierto(Responsables_clave_('AMARILLO', 'ENF') !== Responsables_clave_('NARANJO', 'ENF'), 'claves distintas por sector');
+    var lista = Responsables_mapear_(filas); // ENF en AMARILLO y NARANJO
+    var v = Responsables_validarSector_('NARANJO', lista.filter(function (r) { return r.sector === 'NARANJO'; }), []);
     A.cierto(v.ok, 'ENF puede estar en NARANJO aunque también esté en AMARILLO');
   });
 
   t('RESPONSABLES v0.8.7.2: sector inválido y responsables sin nombre/código rechazados', function () {
-    var v1 = Responsables_validarSector('AZUL', [], []);
+    var v1 = Responsables_validarSector_('AZUL', [], []);
     A.cierto(!v1.ok, 'sector fuera del conjunto cerrado');
     A.cierto(v1.errores.join(' ').indexOf('Sector inválido') !== -1, 'mensaje de sector');
-    var v2 = Responsables_validarSector('AMARILLO', [{ codigo: 'X1', nombre: '', correo: '', activo: true }], []);
+    var v2 = Responsables_validarSector_('AMARILLO', [{ codigo: 'X1', nombre: '', correo: '', activo: true }], []);
     A.cierto(!v2.ok, 'responsable sin nombre rechazado');
   });
 
@@ -2969,9 +2969,9 @@ function _pruebas_responsables_v0872(t, A) {
       { sector: 'AMARILLO', codigo: 'OFF', nombre: 'Inactivo', correo: 'c@cli.cl', activo: false }
     ];
     var legacy = { AMARILLO: 'b@cli.cl', NARANJO: 'n@cli.cl' };
-    A.arreglos(Responsables_correosDe(lista, 'AMARILLO', legacy, false), ['a@cli.cl', 'b@cli.cl'], 'activos + legacy sin duplicar');
-    A.arreglos(Responsables_correosDe(lista, 'AMARILLO', legacy, true), ['a@cli.cl', 'b@cli.cl', 'c@cli.cl'], 'con inactivos si se pide');
-    A.arreglos(Responsables_correosDe(lista, 'NARANJO', legacy, false), ['n@cli.cl'], 'solo legacy de otro sector');
+    A.arreglos(Responsables_correosDe_(lista, 'AMARILLO', legacy, false), ['a@cli.cl', 'b@cli.cl'], 'activos + legacy sin duplicar');
+    A.arreglos(Responsables_correosDe_(lista, 'AMARILLO', legacy, true), ['a@cli.cl', 'b@cli.cl', 'c@cli.cl'], 'con inactivos si se pide');
+    A.arreglos(Responsables_correosDe_(lista, 'NARANJO', legacy, false), ['n@cli.cl'], 'solo legacy de otro sector');
   });
 
   t('RESPONSABLES v0.8.7.2: inactivo del catálogo no se pierde pero se marca', function () {
@@ -2979,7 +2979,7 @@ function _pruebas_responsables_v0872(t, A) {
       { CODIGO: 'ENF', NOMBRE: 'Enfermera/o', ACTIVO: true },
       { CODIGO: 'MED', NOMBRE: 'Médico/a', ACTIVO: false }
     ];
-    var v = Responsables_validarSector('AMARILLO', [
+    var v = Responsables_validarSector_('AMARILLO', [
       { codigo: 'ENF', nombre: 'Enfermera/o', correo: '', activo: true },
       { codigo: 'MED', nombre: 'Médico/a', correo: '', activo: true }
     ], catalogo);
@@ -2999,7 +2999,7 @@ function _pruebas_responsables_v0872(t, A) {
       { CODIGO: 'R_PERSONA', NOMBRE: 'Persona', ACTIVO: true }
     ];
     var legacy = { VERDE: 'jefe@cli.cl' };
-    var d = Responsables_diagnostico(lista, catalogo, legacy);
+    var d = Responsables_diagnostico_(lista, catalogo, legacy);
     A.igual(d.totales.asociaciones, 4, 'total asociaciones');
     A.igual(d.sectores.join(','), 'AMARILLO,NARANJO,VERDE', 'conjunto cerrado de sectores');
     A.igual(d.duplicados.length, 1, 'duplicado detectado');
@@ -3010,24 +3010,24 @@ function _pruebas_responsables_v0872(t, A) {
   });
 
   t('RESPONSABLES v0.8.7.2: email válido (vacío = opcional) y conjunto de sectores cerrado', function () {
-    A.cierto(Responsables_emailValido(''), 'vacío opcional');
-    A.cierto(Responsables_emailValido('a@b.cl'), 'correo simple válido');
-    A.cierto(!Responsables_emailValido('correo mal'), 'sin @ rechazado');
-    A.cierto(!Responsables_emailValido('a@b'), 'sin dominio rechazado');
+    A.cierto(Responsables_emailValido_(''), 'vacío opcional');
+    A.cierto(Responsables_emailValido_('a@b.cl'), 'correo simple válido');
+    A.cierto(!Responsables_emailValido_('correo mal'), 'sin @ rechazado');
+    A.cierto(!Responsables_emailValido_('a@b'), 'sin dominio rechazado');
     SECTORES_RESPONSABLES.forEach(function (s) {
       A.cierto(/^(AMARILLO|NARANJO|VERDE)$/.test(s), 'sector cerrado: ' + s);
     });
   });
 
   t('RESPONSABLES v0.8.7.2: las claves legacy no se listan (se administran en el panel)', function () {
-    A.igual(Config_seccionDe('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES', 'legacy sigue tipada como correos'); // persistencia del contrato
+    A.igual(Config_seccionDe_('RESPONSABLE_AMARILLO'), 'CORREOS_RESPONSABLES', 'legacy sigue tipada como correos'); // persistencia del contrato
   });
 }
 
 // ---------------------------------------------------------------------------
 // v0.8.8 — AUDITORÍA INTEGRAL (FASE 1 dry-run + escala)
 // ---------------------------------------------------------------------------
-function _pruebas_auditoria_v088(t, A) {
+function _pruebas_auditoria_v088_(t, A) {
   // Datos sintéticos para auditoría
   var HOY = '2026-08-27';
   var FR = { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' }, G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
@@ -3051,7 +3051,7 @@ function _pruebas_auditoria_v088(t, A) {
   ];
 
   t('AUDITORÍA v0.8.8: clasificación de población (VIGENTE/PRÓXIMO/VENCIDO/SIN_ÚLTIMO/DESALINEADO)', function () {
-    var r = Aud_clasificarPoblacion(PAC, FR, HOY, 7);
+    var r = Aud_clasificarPoblacion_(PAC, FR, HOY, 7);
     A.igual(r.metricas.total, 8, 'total');
     A.igual(r.metricas.G1 + r.metricas.G2 + r.metricas.G3 + r.metricas.GPend, 8, 'suma niveles');
     A.igual(r.metricas.G1, 3, 'G1=3');
@@ -3069,10 +3069,10 @@ function _pruebas_auditoria_v088(t, A) {
   });
 
   t('AUDITORÍA v0.8.8: anonimización RUT/NOMBRE/ID', function () {
-    A.igual(Aud_anonRut('12345678-9'), '**.***.**78-9');
-    A.igual(Aud_anonNombre('María Pérez González'), 'M••• P••• G•••');
-    A.igual(Aud_anonId('EC-ABC123-XYZ'), '•••-XYZ');
-    A.igual(Aud_anonId(''), '');
+    A.igual(Aud_anonRut_('12345678-9'), '**.***.**78-9');
+    A.igual(Aud_anonNombre_('María Pérez González'), 'M••• P••• G•••');
+    A.igual(Aud_anonId_('EC-ABC123-XYZ'), '•••-XYZ');
+    A.igual(Aud_anonId_(''), '');
   });
 
   t('AUDITORÍA v0.8.8: auditoría Amarillo (eventos, duplicados, estado)', function () {
@@ -3082,19 +3082,19 @@ function _pruebas_auditoria_v088(t, A) {
       { ID_EVENTO: 'E3', ID_INTERNO: 'I002', TIPO_EVENTO: 'SEGUIMIENTO', SECTOR: 'AMARILLO', FECHA_EVENTO: '2026-06-15', RIESGO_G: 'G2' }
     ];
     try {
-      var r = Aud_auditarAmarillo(PAC, EV, FR, HOY, 7);
+      var r = Aud_auditarAmarillo_(PAC, EV, FR, HOY, 7);
       A.igual(r.total, 3, '3 eventos Amarillo');
       A.igual(r.gruposDuplicados, 1, 'un grupo duplicado');
       A.igual(r.ejemplosDuplicados.length, 1, 'ejemplo duplicado');
     } catch (e) {
-      // En node puede fallar si Amarillo_analizarDuplicados no está disponible
+      // En node puede fallar si Amarillo_analizarDuplicados_ no está disponible
       A.cierto(true, 'Amarillo test skipped in node: ' + (e && e.message || e));
     }
   });
 
   t('AUDITORÍA v0.8.8: auditoría RESPONSABLES (mapeo, correos, diagnóstico)', function () {
     try {
-      var r = Aud_auditarResponsables(PAC);
+      var r = Aud_auditarResponsables_(PAC);
       A.cierto(typeof r.asociaciones === 'number', 'asociaciones numérico');
       A.cierto(Array.isArray(r.porSector), 'porSector array');
       A.cierto(typeof r.unicos === 'number', 'únicos numérico');
@@ -3105,7 +3105,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: auditoría PROFESIONALES (catálogo, uso, inexistentes)', function () {
     try {
-      var r = Aud_auditarProfesionales(PAC);
+      var r = Aud_auditarProfesionales_(PAC);
       A.cierto(typeof r.total === 'number', 'total numérico');
       A.cierto(typeof r.activos === 'number', 'activos numérico');
       A.cierto(typeof r.inexistentesEnCatalogo === 'number', 'inexistentes numérico');
@@ -3120,7 +3120,7 @@ function _pruebas_auditoria_v088(t, A) {
       ['FREC_CONTROL_G1', '90'], ['FREC_CONTROL_G2_CANT', '180'], ['AVISO_CONTROL_DIAS', '7'],
       ['WEBHOOK_TOKEN', 'secret'], ['DESCONOCIDA_X', 'valor']
     ];
-    var r = Aud_auditarConfig(cfg);
+    var r = Aud_auditarConfig_(cfg);
     A.igual(r.total, 8, 'total claves');
     A.igual(r.grupos.ESTRATIFICACIÓN.length, 4, 'G1_CANT, G1_UNIDAD, G2_CANT, AVISO');
     A.igual(r.grupos.LEGACY.length, 1, 'FREC_CONTROL_G1 legacy');
@@ -3129,7 +3129,7 @@ function _pruebas_auditoria_v088(t, A) {
   });
 
   t('AUDITORÍA v0.8.8: render ╔═══════════════════════════════════════════════════════════════════════════════════════════════╗', function () {
-    var txt = Aud_renderTexto({
+    var txt = Aud_renderTexto_({
       TEST: { titulo: 'TEST', lineas: ['línea 1', 'línea 2'] }
     });
     A.cierto(txt.indexOf('╔') === 0, 'inicio marco');
@@ -3141,7 +3141,7 @@ function _pruebas_auditoria_v088(t, A) {
 
   t('AUDITORÍA v0.8.8: versión del sistema actualizada', function () {
     var v = ECICEP.VERSION;
-    A.igual(v, '0.16.3', 'versión esperada v0.16.3');
+    A.igual(v, '0.17.0', 'versión esperada v0.17.0');
     var part = v.split('.');
     A.cierto(part.length === 3 || part.length === 4, 'semver ' + part.length + ' partes');
   });
@@ -3150,7 +3150,7 @@ function _pruebas_auditoria_v088(t, A) {
 // ---------------------------------------------------------------------------
 // v0.8.8 — PRUEBAS DE ESCALA (100 / 500 / 1k / 3k / 5k / 10k sintéticos)
 // ---------------------------------------------------------------------------
-function _pruebas_escala_v088(t, A) {
+function _pruebas_escala_v088_(t, A) {
   function genPacientes(n, base) {
     var out = [];
     for (var i = 0; i < n; i++) {
@@ -3174,10 +3174,10 @@ function _pruebas_escala_v088(t, A) {
   var HOY = '2026-08-27';
 
   [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
-    t('ESCALA v0.8.8: ' + n + ' pacientes — Control_filasPanel O(n) < 2000ms', function () {
+    t('ESCALA v0.8.8: ' + n + ' pacientes — Control_filasPanel_ O(n) < 2000ms', function () {
       var PAC = genPacientes(n, 1);
       var t0 = Date.now();
-      var r = Control_filasPanel(PAC, FR, HOY);
+      var r = Control_filasPanel_(PAC, FR, HOY);
       var ms = Date.now() - t0;
       A.igual(r.filas.length, n, 'todas las filas');
       A.igual(r.sectores.length, 3, 'tres sectores');
@@ -3186,10 +3186,10 @@ function _pruebas_escala_v088(t, A) {
   });
 
   [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
-    t('ESCALA v0.8.8: ' + n + ' pacientes — Aud_clasificarPoblacion O(n) < 2000ms', function () {
+    t('ESCALA v0.8.8: ' + n + ' pacientes — Aud_clasificarPoblacion_ O(n) < 2000ms', function () {
       var PAC = genPacientes(n, 1);
       var t0 = Date.now();
-      var r = Aud_clasificarPoblacion(PAC, FR, HOY, 7);
+      var r = Aud_clasificarPoblacion_(PAC, FR, HOY, 7);
       var ms = Date.now() - t0;
       A.igual(r.metricas.total, n, 'total');
       A.cierto(ms < 2000, 'tiempo ' + ms + 'ms < 2000ms para ' + n);
@@ -3197,7 +3197,7 @@ function _pruebas_escala_v088(t, A) {
   });
 
   [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
-    t('ESCALA v0.8.8: ' + n + ' eventos Amarillo — Amarillo_analizarDuplicados O(n log n) < 3000ms', function () {
+    t('ESCALA v0.8.8: ' + n + ' eventos Amarillo — Amarillo_analizarDuplicados_ O(n log n) < 3000ms', function () {
       var EV = [];
       for (var i = 0; i < n; i++) {
         EV.push({
@@ -3210,7 +3210,7 @@ function _pruebas_escala_v088(t, A) {
         });
       }
       var t0 = Date.now();
-      var r = Amarillo_analizarDuplicados(EV);
+      var r = Amarillo_analizarDuplicados_(EV);
       var ms = Date.now() - t0;
       A.cierto(typeof r.gruposDuplicados === 'number', 'grupos numérico');
       A.cierto(ms < 3000, 'tiempo ' + ms + 'ms < 3000ms para ' + n);
@@ -3218,7 +3218,7 @@ function _pruebas_escala_v088(t, A) {
   });
 
   [100, 500, 1000, 3000, 5000, 10000].forEach(function (n) {
-    t('ESCALA v0.8.8: ' + n + ' responsables — Responsables_diagnostico O(n) < 1000ms', function () {
+    t('ESCALA v0.8.8: ' + n + ' responsables — Responsables_diagnostico_ O(n) < 1000ms', function () {
       var resp = [];
       for (var i = 0; i < n; i++) {
         resp.push({
@@ -3230,7 +3230,7 @@ function _pruebas_escala_v088(t, A) {
         });
       }
       var t0 = Date.now();
-      var r = Responsables_diagnostico(resp, [], {});
+      var r = Responsables_diagnostico_(resp, [], {});
       var ms = Date.now() - t0;
       A.igual(r.totales.asociaciones, n, 'total asociaciones');
       A.cierto(ms < 1000, 'tiempo ' + ms + 'ms < 1000ms para ' + n);
@@ -3242,7 +3242,7 @@ function _pruebas_escala_v088(t, A) {
     var objetivo = PAC[9999].RUT;
     var t0 = Date.now();
     var encontrado = null;
-    for (var i = 0; i < PAC.length; i++) if (Utl_texto(PAC[i].RUT) === objetivo) { encontrado = PAC[i]; break; }
+    for (var i = 0; i < PAC.length; i++) if (Utl_texto_(PAC[i].RUT) === objetivo) { encontrado = PAC[i]; break; }
     var ms = Date.now() - t0;
     A.cierto(encontrado !== null, 'encontrado');
     A.cierto(ms < 100, 'búsqueda lineal 10k ' + ms + 'ms < 100ms');
@@ -3252,7 +3252,7 @@ function _pruebas_escala_v088(t, A) {
 // ---------------------------------------------------------------------------
 // v0.8.9.0 — HOJAS VISUALES: secciones, buscador (sin "Ver sección")
 // ---------------------------------------------------------------------------
-function _pruebas_hojasvisual_v0881(t, A) {
+function _pruebas_hojasvisual_v0881_(t, A) {
   t('HOJAS VISUALES v0.8.9.0: SECCIONES_HOJAS definida para todos los tipos', function () {
     A.cierto(typeof SECCIONES_HOJAS === 'object', 'existe');
     A.cierto(Array.isArray(SECCIONES_HOJAS.INGRESO), 'INGRESO');
@@ -3294,24 +3294,24 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.igual(TIPO_SECCIONES_POR_HOJA['INGRESO_NARANJA'], undefined, 'alias no está en mapa (normalizado en runtime)');
   });
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_normalizarNombreHoja normaliza alias', function () {
-    A.igual(HVis_normalizarNombreHoja('INGRESO_NARANJA'), 'INGRESO_NARANJO');
-    A.igual(HVis_normalizarNombreHoja('ingreso_naranja'), 'INGRESO_NARANJO');
-    A.igual(HVis_normalizarNombreHoja('PACIENTES'), 'PACIENTES');
+  t('HOJAS VISUALES v0.8.9.0: HVis_normalizarNombreHoja_ normaliza alias', function () {
+    A.igual(HVis_normalizarNombreHoja_('INGRESO_NARANJA'), 'INGRESO_NARANJO');
+    A.igual(HVis_normalizarNombreHoja_('ingreso_naranja'), 'INGRESO_NARANJO');
+    A.igual(HVis_normalizarNombreHoja_('PACIENTES'), 'PACIENTES');
   });
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_obtenerSecciones devuelve config válida', function () {
-    var s = HVis_obtenerSecciones('INGRESO_NARANJO');
+  t('HOJAS VISUALES v0.8.9.0: HVis_obtenerSecciones_ devuelve config válida', function () {
+    var s = HVis_obtenerSecciones_('INGRESO_NARANJO');
     A.cierto(Array.isArray(s) && s.length > 0, 'INGRESO_NARANJO');
-    var s2 = HVis_obtenerSecciones('PACIENTES');
+    var s2 = HVis_obtenerSecciones_('PACIENTES');
     A.cierto(Array.isArray(s2) && s2.length > 0, 'PACIENTES');
-    var s3 = HVis_obtenerSecciones('LOG');
+    var s3 = HVis_obtenerSecciones_('LOG');
     A.igual(s3, null, 'LOG sin config');
   });
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_mapaColumnas construye índice 1-based', function () {
+  t('HOJAS VISUALES v0.8.9.0: HVis_mapaColumnas_ construye índice 1-based', function () {
     var enc = ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO'];
-    var mapa = HVis_mapaColumnas(enc);
+    var mapa = HVis_mapaColumnas_(enc);
     A.igual(mapa['NOMBRE'], 1);
     A.igual(mapa['RUT'], 2);
     A.igual(mapa['SEXO'], 3);
@@ -3319,11 +3319,11 @@ function _pruebas_hojasvisual_v0881(t, A) {
     A.igual(mapa['INEXISTENTE'], undefined);
   });
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_validarSeccion filtra columnas existentes', function () {
+  t('HOJAS VISUALES v0.8.9.0: HVis_validarSeccion_ filtra columnas existentes', function () {
     var enc = ['NOMBRE', 'RUT', 'SEXO', 'FECHA_NACIMIENTO'];
-    var mapa = HVis_mapaColumnas(enc);
+    var mapa = HVis_mapaColumnas_(enc);
     var sec = { columnas: ['NOMBRE', 'RUT', 'INEXISTENTE'] };
-    var v = HVis_validarSeccion(sec, mapa);
+    var v = HVis_validarSeccion_(sec, mapa);
     A.igual(v.existentes.length, 2, '2 existentes');
     A.igual(v.faltantes.length, 1, '1 faltante');
     A.igual(v.faltantes[0], 'INEXISTENTE');
@@ -3351,7 +3351,7 @@ function _pruebas_hojasvisual_v0881(t, A) {
 // ---------------------------------------------------------------------------
 // v0.8.9.0 — HOJAS VISUALES REALES + INSTALADOR RECONCILIADOR
 // ---------------------------------------------------------------------------
-function _pruebas_hojasvisual_v0883(t, A) {
+function _pruebas_hojasvisual_v0883_(t, A) {
   // Datos sintéticos para PACIENTES
   var PAC = [
     { ID_INTERNO: 'I001', RUT: '12345678-9', NOMBRE: 'María Pérez', SEXO: 'F', FECHA_NACIMIENTO: '1980-05-15',
@@ -3364,14 +3364,14 @@ function _pruebas_hojasvisual_v0883(t, A) {
   ];
   var FR = { G1: { cantidad: 90, unidad: 'días' }, G2: { cantidad: 180, unidad: 'días' }, G3: { cantidad: 365, unidad: 'días' }, G: { cantidad: 180, unidad: 'días' } };
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_mapaColumnas con encabezados PACIENTES', function () {
+  t('HOJAS VISUALES v0.8.9.0: HVis_mapaColumnas_ con encabezados PACIENTES', function () {
     var enc = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS',
       'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO',
       'PREINGRESO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
       'COMPOSICION_CONTROL', 'CONDICIONES', 'OTRAS_PATOLOGIAS', 'OBSERVACIONES',
       'NOMBRE_NORMALIZADO', 'RUT_DV_VALIDO', 'RUT_SIN_DV', 'ESTRAT_ORIGEN', 'ESTRAT_CALCULADA',
       'ESTRAT_FECHA_CALCULO', 'FUENTE', 'FECHA_ACTUALIZACION', 'REQUIERE_REVISION'];
-    var mapa = HVis_mapaColumnas(enc);
+    var mapa = HVis_mapaColumnas_(enc);
     A.igual(mapa['ID_INTERNO'], 1);
     A.igual(mapa['RUT'], 2);
     A.igual(mapa['NOMBRE'], 3);
@@ -3380,27 +3380,27 @@ function _pruebas_hojasvisual_v0883(t, A) {
     A.igual(mapa['ULTIMO_CONTROL'], 16);
   });
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_validarSeccion para identidad (7 columnas)', function () {
+  t('HOJAS VISUALES v0.8.9.0: HVis_validarSeccion_ para identidad (7 columnas)', function () {
     var enc = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS'];
-    var mapa = HVis_mapaColumnas(enc);
+    var mapa = HVis_mapaColumnas_(enc);
     var sec = { columnas: ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS'] };
-    var v = HVis_validarSeccion(sec, mapa);
+    var v = HVis_validarSeccion_(sec, mapa);
     A.igual(v.existentes.length, 7, '7 existentes');
     A.igual(v.faltantes.length, 0, '0 faltantes');
     A.igual(v.existentes[0].indice, 1);
     A.igual(v.existentes[6].indice, 7);
   });
 
-  t('HOJAS VISUALES v0.8.9.0: HVis_calcularPlan genera filas correctas', function () {
+  t('HOJAS VISUALES v0.8.9.0: HVis_calcularPlan_ genera filas correctas', function () {
     var enc = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONOS', 'TELEFONO_OBS',
       'SECTOR', 'ESTRATIFICACION', 'ESTADO', 'DUPLA_INGRESO', 'PROFESIONAL_SEGUIMIENTO',
       'PREINGRESO', 'FECHA_INGRESO', 'ULTIMO_SEGUIMIENTO', 'ULTIMO_CONTROL', 'PROXIMO_CONTROL',
       'COMPOSICION_CONTROL', 'CONDICIONES', 'OTRAS_PATOLOGIAS', 'OBSERVACIONES',
       'NOMBRE_NORMALIZADO', 'RUT_DV_VALIDO', 'RUT_SIN_DV', 'ESTRAT_ORIGEN', 'ESTRAT_CALCULADA',
       'ESTRAT_FECHA_CALCULO', 'FUENTE', 'FECHA_ACTUALIZACION', 'REQUIERE_REVISION'];
-    var mapa = HVis_mapaColumnas(enc);
+    var mapa = HVis_mapaColumnas_(enc);
     var secciones = SECCIONES_HOJAS.PACIENTES;
-    var plan = HVis_calcularPlan('PACIENTES', secciones, mapa);
+    var plan = HVis_calcularPlan_('PACIENTES', secciones, mapa);
     A.igual(plan.filaSector, 1, 'fila sector (alias título) = 1');
     A.igual(plan.tituloRow, 1, 'título en fila 1');
     A.igual(plan.seccionesRow, 2, 'secciones en fila 2');
@@ -3421,9 +3421,9 @@ function _pruebas_hojasvisual_v0883(t, A) {
   t('HOJAS VISUALES v0.8.9.4: EVENTOS es layout simple (no aplica visual)', function () {
     var enc = ['ID_EVENTO', 'TIPO_EVENTO', 'FECHA_EVENTO', 'DESCRIPCION', 'CANTIDAD',
       'ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'FUENTE', 'REGISTRADO_POR', 'FECHA_REGISTRO'];
-    var mapa = HVis_mapaColumnas(enc);
+    var mapa = HVis_mapaColumnas_(enc);
     var secciones = SECCIONES_HOJAS.EVENTOS;
-    var plan = HVis_calcularPlan('EVENTOS', secciones, mapa);
+    var plan = HVis_calcularPlan_('EVENTOS', secciones, mapa);
     A.igual(plan.esVisual, false, 'EVENTOS NO es visual');
     A.igual(plan.filaEncabezados, 1, 'simple: encabezados en fila 1');
     A.igual(plan.datosDesdeRow, 2, 'simple: datos desde fila 2');
@@ -3431,28 +3431,28 @@ function _pruebas_hojasvisual_v0883(t, A) {
   });
 
   t('HOJAS VISUALES v0.8.9.4: contrato por hoja', function () {
-    A.igual(Modelo_headerRow(HOJAS.PACIENTES), 3, 'PACIENTES headers fila 3');
-    A.igual(Modelo_dataStartRow(HOJAS.PACIENTES), 4, 'PACIENTES datos fila 4');
-    A.cierto(Modelo_esHojaVisual('INGRESO_NARANJO'), 'INGRESO_NARANJO visual');
-    A.igual(Modelo_dataStartRow('INGRESO_VERDE'), 4, 'INGRESO_VERDE datos fila 4');
-    A.igual(Modelo_dataStartRow('SECTOR_AMARILLO'), 4, 'SECTOR_AMARILLO datos fila 4');
-    A.igual(Modelo_dataStartRow(HOJAS.EVENTOS), 2, 'EVENTOS datos fila 2');
-    A.igual(Modelo_dataStartRow(HOJAS.CONFLICTOS), 2, 'CONFLICTOS datos fila 2');
-    A.igual(Modelo_filaFisica('INGRESO_NARANJO', 0), 4, 'fila física índice 0 = 4');
-    A.igual(Modelo_filaFisica(HOJAS.PACIENTES, 7), 11, 'fila física índice 7 = 11');
-    A.igual(Modelo_filaFisica(HOJAS.EVENTOS, 0), 2, 'EVENTOS fila física 0 = 2');
+    A.igual(Modelo_headerRow_(HOJAS.PACIENTES), 3, 'PACIENTES headers fila 3');
+    A.igual(Modelo_dataStartRow_(HOJAS.PACIENTES), 4, 'PACIENTES datos fila 4');
+    A.cierto(Modelo_esHojaVisual_('INGRESO_NARANJO'), 'INGRESO_NARANJO visual');
+    A.igual(Modelo_dataStartRow_('INGRESO_VERDE'), 4, 'INGRESO_VERDE datos fila 4');
+    A.igual(Modelo_dataStartRow_('SECTOR_AMARILLO'), 4, 'SECTOR_AMARILLO datos fila 4');
+    A.igual(Modelo_dataStartRow_(HOJAS.EVENTOS), 2, 'EVENTOS datos fila 2');
+    A.igual(Modelo_dataStartRow_(HOJAS.CONFLICTOS), 2, 'CONFLICTOS datos fila 2');
+    A.igual(Modelo_filaFisica_('INGRESO_NARANJO', 0), 4, 'fila física índice 0 = 4');
+    A.igual(Modelo_filaFisica_(HOJAS.PACIENTES, 7), 11, 'fila física índice 7 = 11');
+    A.igual(Modelo_filaFisica_(HOJAS.EVENTOS, 0), 2, 'EVENTOS fila física 0 = 2');
   });
 
   t('HOJAS VISUALES v0.8.9.4: secciones INGRESO por nombres reales', function () {
     var sec = SECCIONES_HOJAS.INGRESO;
-    var mapa = HVis_mapaColumnas(INGRESO_COLUMNAS);
+    var mapa = HVis_mapaColumnas_(INGRESO_COLUMNAS);
     var faltantes = 0;
     sec.forEach(function (s) {
-      var v = HVis_validarSeccion(s, mapa);
+      var v = HVis_validarSeccion_(s, mapa);
       faltantes += v.faltantes.length;
     });
     A.igual(faltantes, 0, 'todas las columnas de secciones INGRESO existen en INGRESO_COLUMNAS');
-    var esperadas = HVis_columnasEsperadas('INGRESO_AMARILLO');
+    var esperadas = HVis_columnasEsperadas_('INGRESO_AMARILLO');
     var cubre = INGRESO_COLUMNAS.every(function (c) { return esperadas.indexOf(c) !== -1; });
     A.cierto(cubre, 'COLUMNAS esperadas cubren INGRESO_COLUMNAS');
   });
@@ -3462,19 +3462,19 @@ function _pruebas_hojasvisual_v0883(t, A) {
     var filaOk = ['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO', 'TELEFONO(S)'];
     var filaDesc = ['n ó m b r e', 'Rut', 'sexo', 'Fecha de Nacimiento', 'Telefono(s)'];
     var filaMala = ['A', 'B', 'C', 'D', 'E'];
-    A.igual(HVis_coincidenciaEncabezados(filaOk, esperadas), 1, 'exacta = 1');
-    A.cierto(HVis_coincidenciaEncabezados(filaDesc, esperadas) === 1, 'normalizada ignora tildes/espacios');
-    A.igual(HVis_coincidenciaEncabezados(filaMala, esperadas), 0, 'sin coincidencia = 0');
-    A.igual(HVis_coincidenciaEncabezados([], esperadas), 0, 'vacía = 0');
+    A.igual(HVis_coincidenciaEncabezados_(filaOk, esperadas), 1, 'exacta = 1');
+    A.cierto(HVis_coincidenciaEncabezados_(filaDesc, esperadas) === 1, 'normalizada ignora tildes/espacios');
+    A.igual(HVis_coincidenciaEncabezados_(filaMala, esperadas), 0, 'sin coincidencia = 0');
+    A.igual(HVis_coincidenciaEncabezados_([], esperadas), 0, 'vacía = 0');
   });
 
   t('HOJAS VISUALES v0.8.9.4: fórmulas INICIO derivadas del contrato', function () {
-    var fTotal = Hojas_formulaIndicador('TOTAL_PAC');
-    var fEstr = Hojas_formulaIndicador('ESTRAT_PEND');
-    var fRut = Hojas_formulaIndicador('RUT_INVALIDOS');
-    var fDup = Hojas_formulaIndicador('DUPLICADOS');
-    var fUlt = Hojas_formulaIndicador('ULT_ACT');
-    var fEve = Hojas_formulaIndicador('EVENTOS');
+    var fTotal = Hojas_formulaIndicador_('TOTAL_PAC');
+    var fEstr = Hojas_formulaIndicador_('ESTRAT_PEND');
+    var fRut = Hojas_formulaIndicador_('RUT_INVALIDOS');
+    var fDup = Hojas_formulaIndicador_('DUPLICADOS');
+    var fUlt = Hojas_formulaIndicador_('ULT_ACT');
+    var fEve = Hojas_formulaIndicador_('EVENTOS');
     A.igual(fTotal, '=COUNTA(PACIENTES!A4:A)', 'total usa ID_INTERNO (A) desde fila 4');
     A.cierto(fDup.indexOf('SUMPRODUCT') === 1 && fDup.indexOf('PACIENTES!B4:B') !== -1, 'duplicados usa RUT en B desde fila 4');
     A.cierto(fEstr.indexOf('PACIENTES!I4:I') !== -1, 'estratificación pendiente usa I desde fila 4');
@@ -3485,9 +3485,9 @@ function _pruebas_hojasvisual_v0883(t, A) {
     A.cierto(fRut.indexOf('W2:W') === -1, 'sin anclas W2:W');
   });
 
-  t('HOJAS VISUALES v0.8.9.0: Instalar_diagnosticar estructura completa (solo node)', function () {
+  t('HOJAS VISUALES v0.8.9.0: Instalar_diagnosticar_ estructura completa (solo node)', function () {
     // En node no hay SpreadsheetApp, verificar solo que la función existe
-    A.cierto(typeof Instalar_diagnosticar === 'function', 'función existe');
+    A.cierto(typeof Instalar_diagnosticar_ === 'function', 'función existe');
     // Verificar estructura de retorno esperada sin ejecutar
     var r = { ok: true, diagnostico: { resumen: { totalFases: 8, fasesPendientes: [], fasesCompletas: [] } } };
     A.cierto(r.diagnostico.resumen.totalFases >= 8, 'al menos 8 fases');
@@ -3495,16 +3495,16 @@ function _pruebas_hojasvisual_v0883(t, A) {
 
   t('HOJAS VISUALES v0.8.9.0: funciones puras existen', function () {
     // Test puro sin GAS - solo verifica que las funciones existen
-    A.cierto(typeof HVis_calcularPlan === 'function', 'HVis_calcularPlan existe');
-    A.cierto(typeof HVis_validarSeccion === 'function', 'HVis_validarSeccion existe');
-    A.cierto(typeof HVis_mapaColumnas === 'function', 'HVis_mapaColumnas existe');
+    A.cierto(typeof HVis_calcularPlan_ === 'function', 'HVis_calcularPlan_ existe');
+    A.cierto(typeof HVis_validarSeccion_ === 'function', 'HVis_validarSeccion_ existe');
+    A.cierto(typeof HVis_mapaColumnas_ === 'function', 'HVis_mapaColumnas_ existe');
   });
 }
 
 // ---------------------------------------------------------------------------
 // v0.8.9.5 — PULIDO VISUAL + AUTOMATIZACIÓN INGRESOS + UX/TERMINOLOGÍA
 // ---------------------------------------------------------------------------
-function _pruebas_pulido_v0895(t, A) {
+function _pruebas_pulido_v0895_(t, A) {
   function _lum(hex) {
     var h = hex.replace('#', '');
     var r = parseInt(h.substr(0, 2), 16) / 255;
@@ -3589,14 +3589,14 @@ function _pruebas_pulido_v0895(t, A) {
     A.cierto(COLORES_SECCION.CONTROLES !== E.VENCIDO.fondo, 'global ≠ vencido');
   });
 
-  t('PULIDO v0.8.9.5: HVis_familiaHoja asocia cada puerta a su familia', function () {
-    A.igual(HVis_familiaHoja('SECTOR_AMARILLO'), 'AMARILLO', 'sector amarillo');
-    A.igual(HVis_familiaHoja('INGRESO_AMARILLO'), 'AMARILLO', 'ingreso amarillo');
-    A.igual(HVis_familiaHoja('SECTOR_NARANJO'), 'NARANJO', 'sector naranjo');
-    A.igual(HVis_familiaHoja('INGRESO_NARANJA'), 'NARANJO', 'alias naranja');
-    A.igual(HVis_familiaHoja('SECTOR_VERDE'), 'VERDE', 'sector verde');
-    A.igual(HVis_familiaHoja('PACIENTES'), '', 'sin familia');
-    A.igual(HVis_familiaHoja('EVENTOS'), '', 'sin familia');
+  t('PULIDO v0.8.9.5: HVis_familiaHoja_ asocia cada puerta a su familia', function () {
+    A.igual(HVis_familiaHoja_('SECTOR_AMARILLO'), 'AMARILLO', 'sector amarillo');
+    A.igual(HVis_familiaHoja_('INGRESO_AMARILLO'), 'AMARILLO', 'ingreso amarillo');
+    A.igual(HVis_familiaHoja_('SECTOR_NARANJO'), 'NARANJO', 'sector naranjo');
+    A.igual(HVis_familiaHoja_('INGRESO_NARANJA'), 'NARANJO', 'alias naranja');
+    A.igual(HVis_familiaHoja_('SECTOR_VERDE'), 'VERDE', 'sector verde');
+    A.igual(HVis_familiaHoja_('PACIENTES'), '', 'sin familia');
+    A.igual(HVis_familiaHoja_('EVENTOS'), '', 'sin familia');
   });
 
   t('PULIDO v0.8.9.5: tamaños estandarizados de barras', function () {
@@ -3616,41 +3616,41 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(mal.length, 0, 'todas las refs son de la paleta (' + mal.join(', ') + ')');
   });
 
-  t('PULIDO v0.8.9.5: Modelo_anchoColumna centralizado (orden=precedencia)', function () {
-    A.igual(Modelo_anchoColumna('NOMBRE_NORMALIZADO'), 150, 'normalizado gana a NOMBRE');
-    A.igual(Modelo_anchoColumna('NOMBRE'), 240, 'nombre amplio');
-    A.igual(Modelo_anchoColumna('RUT'), 118, 'rut');
-    A.igual(Modelo_anchoColumna('FECHA_ULTIMO_CONTROL'), 110, 'fecha');
-    A.igual(Modelo_anchoColumna('SEXO'), 70, 'sexo compacto');
-    A.igual(Modelo_anchoColumna('CAMPORARO'), 130, 'default');
+  t('PULIDO v0.8.9.5: Modelo_anchoColumna_ centralizado (orden=precedencia)', function () {
+    A.igual(Modelo_anchoColumna_('NOMBRE_NORMALIZADO'), 150, 'normalizado gana a NOMBRE');
+    A.igual(Modelo_anchoColumna_('NOMBRE'), 240, 'nombre amplio');
+    A.igual(Modelo_anchoColumna_('RUT'), 118, 'rut');
+    A.igual(Modelo_anchoColumna_('FECHA_ULTIMO_CONTROL'), 110, 'fecha');
+    A.igual(Modelo_anchoColumna_('SEXO'), 70, 'sexo compacto');
+    A.igual(Modelo_anchoColumna_('CAMPORARO'), 130, 'default');
   });
 
-  t('PULIDO v0.8.9.5: _modelo_camposHoja cubre PACIENTES y hojas con contrato', function () {
-    A.igual(_modelo_camposHoja('PACIENTES').length, MODELO_PACIENTE.length, 'pacientes');
-    A.igual(_modelo_camposHoja('PACIENTES')[0], 'ID_INTERNO', 'primera columna');
-    A.igual(_modelo_camposHoja('SECTOR_AMARILLO').length, COLUMNAS_SECTOR_VISTA.length, 'sector amarillo');
-    A.igual(_modelo_camposHoja('INICIO').length, 0, 'INICIO sin columnas fijas');
+  t('PULIDO v0.8.9.5: _modelo_camposHoja_ cubre PACIENTES y hojas con contrato', function () {
+    A.igual(_modelo_camposHoja_('PACIENTES').length, MODELO_PACIENTE.length, 'pacientes');
+    A.igual(_modelo_camposHoja_('PACIENTES')[0], 'ID_INTERNO', 'primera columna');
+    A.igual(_modelo_camposHoja_('SECTOR_AMARILLO').length, COLUMNAS_SECTOR_VISTA.length, 'sector amarillo');
+    A.igual(_modelo_camposHoja_('INICIO').length, 0, 'INICIO sin columnas fijas');
   });
 
   t('PULIDO v0.8.9.5: hojas INGRESO visuales con encabezados formateados', function () {
-    A.cierto(Modelo_esHojaVisual('INGRESO_AMARILLO'), 'ingreso amarillo visual');
-    A.cierto(Modelo_esHojaVisual('INGRESO_NARANJO'), 'ingreso naranjo visual');
-    A.cierto(Modelo_esHojaVisual('INGRESO_VERDE'), 'ingreso verde visual');
-    A.igual(Modelo_headerRow('INGRESO_AMARILLO'), 3, 'encabezados en fila 3');
-    A.cierto(typeof HVis_formatearIngresos === 'function', 'helper de formato existe');
-    A.igual(Ingresos_hojaASector('INGRESO_AMARILLO'), 'AMARILLO', 'familia de la puerta');
+    A.cierto(Modelo_esHojaVisual_('INGRESO_AMARILLO'), 'ingreso amarillo visual');
+    A.cierto(Modelo_esHojaVisual_('INGRESO_NARANJO'), 'ingreso naranjo visual');
+    A.cierto(Modelo_esHojaVisual_('INGRESO_VERDE'), 'ingreso verde visual');
+    A.igual(Modelo_headerRow_('INGRESO_AMARILLO'), 3, 'encabezados en fila 3');
+    A.cierto(typeof HVis_formatearIngresos_ === 'function', 'helper de formato existe');
+    A.igual(Ingresos_hojaASector_('INGRESO_AMARILLO'), 'AMARILLO', 'familia de la puerta');
   });
 
-  t('PULIDO v0.8.9.5: Ingresos_resumenTexto un solo mensaje breve', function () {
-    A.igual(Ingresos_resumenTexto({}), 'Sin ingresos pendientes', 'vacío');
-    A.igual(Ingresos_resumenTexto(null), 'Sin ingresos pendientes', 'nulo');
-    A.igual(Ingresos_resumenTexto({ leidos: 5, nuevos: 3, existentes: 1, eventosCreados: 4 }),
+  t('PULIDO v0.8.9.5: Ingresos_resumenTexto_ un solo mensaje breve', function () {
+    A.igual(Ingresos_resumenTexto_({}), 'Sin ingresos pendientes', 'vacío');
+    A.igual(Ingresos_resumenTexto_(null), 'Sin ingresos pendientes', 'nulo');
+    A.igual(Ingresos_resumenTexto_({ leidos: 5, nuevos: 3, existentes: 1, eventosCreados: 4 }),
       '✓ Ingresados: 4 · Eventos: 4', 'condeo sin revision/errores');
-    A.igual(Ingresos_resumenTexto({ leidos: 5, nuevos: 2, existentes: 1, eventosCreados: 3, duplicados: 1, revision: 1 }),
+    A.igual(Ingresos_resumenTexto_({ leidos: 5, nuevos: 2, existentes: 1, eventosCreados: 3, duplicados: 1, revision: 1 }),
       '✓ Ingresados: 3 · Eventos: 3 · Duplicados: 1 · Revisión: 1', 'duplicados+revisión');
-    A.cierto(Ingresos_resumenTexto({ leidos: 2, conError: 1, nuevos: 1, eventosCreados: 1 })
+    A.cierto(Ingresos_resumenTexto_({ leidos: 2, conError: 1, nuevos: 1, eventosCreados: 1 })
       .indexOf('Errores: 1') !== -1, 'errores visibles');
-    A.igual(Ingresos_resumenTexto({ leidos: 1 }), '✓ Ingresados: 0 · Eventos: 0', 'ceros presentes');
+    A.igual(Ingresos_resumenTexto_({ leidos: 1 }), '✓ Ingresados: 0 · Eventos: 0', 'ceros presentes');
   });
 
   t('PULIDO v0.8.9.5: lote mixto pendientes → resumen por puerta', function () {
@@ -3659,12 +3659,12 @@ function _pruebas_pulido_v0895(t, A) {
     // los errores no bloquean el avance y cada puerta contabiliza.
     var store = { pacientes: JSON.parse(JSON.stringify(DATASET_STAGING.base)), eventos: [] };
     var filas = [
-      _stagingCaso('nuevoOk', 1),
-      _stagingCaso('existenteRut', 2),
-      _stagingCaso('posibleDuplicadoNombre', 3),
-      _stagingCaso('rutInvalido', 4)
+      _stagingCaso_('nuevoOk', 1),
+      _stagingCaso_('existenteRut', 2),
+      _stagingCaso_('posibleDuplicadoNombre', 3),
+      _stagingCaso_('rutInvalido', 4)
     ];
-    var s = Ingresos_procesarFilas(filas, store, {
+    var s = Ingresos_procesarFilas_(filas, store, {
       nuevoId: function (i) { return 'EC-PUL-' + ('000' + i).slice(-3); }
     });
     A.igual(s.resumen.nuevos, 1, 'nuevos');
@@ -3675,9 +3675,9 @@ function _pruebas_pulido_v0895(t, A) {
     A.igual(s.resumen.eventosCreados, 3, 'dos ingresos + cambio territorial');
   });
 
-  t('PULIDO v0.8.9.5: Ingresos_resumenTexto listo para el toast 3.7', function () {
+  t('PULIDO v0.8.9.5: Ingresos_resumenTexto_ listo para el toast 3.7', function () {
     var resumen = { leidos: 10, nuevos: 4, existentes: 0, eventosCreados: 4, revision: 0, conError: 0 };
-    var txt = Ingresos_resumenTexto(resumen);
+    var txt = Ingresos_resumenTexto_(resumen);
     A.cierto(txt.indexOf('ms') === -1, 'sin tiempo técnico');
     A.cierto(txt.indexOf('Ejecución') === -1, 'sin id de ejecución');
     A.igual(txt, '✓ Ingresados: 4 · Eventos: 4');
@@ -3687,7 +3687,7 @@ function _pruebas_pulido_v0895(t, A) {
 // ---------------------------------------------------------------------------
 // v0.8.9.6 — DESIGN SYSTEM GLOBAL (NORMALIZACIÓN VISUAL ÚNICA)
 // ---------------------------------------------------------------------------
-function _pruebas_designsystem_v0896(t, A) {
+function _pruebas_designsystem_v0896_(t, A) {
   function _lum(hex) {
     var h = hex.replace('#', '');
     var r = parseInt(h.substr(0, 2), 16) / 255;
@@ -3736,14 +3736,14 @@ function _pruebas_designsystem_v0896(t, A) {
     A.cierto(mx - mn <= 0.20, 'secciones en rango comparable (Δ=' + (mx - mn).toFixed(3) + ')');
   });
 
-  t('DESIGN SYSTEM v0.8.9.6: identidad por hoja (HVis_identidad)', function () {
-    A.igual(HVis_identidad('SECTOR_AMARILLO'), 'AMARILLO');
-    A.igual(HVis_identidad('INGRESO_NARANJO'), 'NARANJO');
-    A.igual(HVis_identidad('SECTOR_VERDE'), 'VERDE');
-    A.igual(HVis_identidad('EVENTOS'), 'GENERAL', 'EVENTOS es identidad general (v0.13)');
-    A.igual(HVis_identidad('PACIENTES'), 'GENERAL');
-    A.igual(HVis_identidad('INICIO'), 'GENERAL');
-    A.igual(HVis_identidad('LOG'), 'GENERAL');
+  t('DESIGN SYSTEM v0.8.9.6: identidad por hoja (HVis_identidad_)', function () {
+    A.igual(HVis_identidad_('SECTOR_AMARILLO'), 'AMARILLO');
+    A.igual(HVis_identidad_('INGRESO_NARANJO'), 'NARANJO');
+    A.igual(HVis_identidad_('SECTOR_VERDE'), 'VERDE');
+    A.igual(HVis_identidad_('EVENTOS'), 'GENERAL', 'EVENTOS es identidad general (v0.13)');
+    A.igual(HVis_identidad_('PACIENTES'), 'GENERAL');
+    A.igual(HVis_identidad_('INICIO'), 'GENERAL');
+    A.igual(HVis_identidad_('LOG'), 'GENERAL');
   });
 
   t('DESIGN SYSTEM v0.8.9.6: PULIDO_ENCABEZADO deriva de DESIGN_SYSTEM (una fuente)', function () {
@@ -3785,22 +3785,22 @@ function _pruebas_designsystem_v0896(t, A) {
   t('DESIGN SYSTEM v0.8.9.6: encabezados uniformes en toda hoja de datos', function () {
     ['PACIENTES', 'SECTOR_AMARILLO', 'SECTOR_NARANJO', 'SECTOR_VERDE',
      'INGRESO_AMARILLO', 'INGRESO_NARANJO', 'INGRESO_VERDE'].forEach(function (n) {
-      A.cierto(Modelo_esHojaVisual(n), n + ' contratada como visual');
-      A.igual(Modelo_headerRow(n), 3, n + ' encabezados en fila 3');
+      A.cierto(Modelo_esHojaVisual_(n), n + ' contratada como visual');
+      A.igual(Modelo_headerRow_(n), 3, n + ' encabezados en fila 3');
     });
   });
 
   t('DESIGN SYSTEM v0.8.9.6: anchos con fallback por tipo (Parte 10)', function () {
-    A.igual(Modelo_anchoColumna('ID_INTERNO'), 90, 'identificador');
-    A.igual(Modelo_anchoColumna('FECHA_EVENTO'), 110, 'fecha');
-    A.igual(Modelo_anchoColumna('CANTIDAD'), 90, 'numérico');
-    A.igual(Modelo_anchoColumna('DESCRIPCION'), 220, 'texto largo');
-    A.igual(Modelo_anchoColumna('SEXO'), 70, 'enum compacto');
-    A.igual(Modelo_anchoColumna('ALGO_INVENTADO'), 130, 'default 130');
+    A.igual(Modelo_anchoColumna_('ID_INTERNO'), 90, 'identificador');
+    A.igual(Modelo_anchoColumna_('FECHA_EVENTO'), 110, 'fecha');
+    A.igual(Modelo_anchoColumna_('CANTIDAD'), 90, 'numérico');
+    A.igual(Modelo_anchoColumna_('DESCRIPCION'), 220, 'texto largo');
+    A.igual(Modelo_anchoColumna_('SEXO'), 70, 'enum compacto');
+    A.igual(Modelo_anchoColumna_('ALGO_INVENTADO'), 130, 'default 130');
   });
 
-  t('DESIGN SYSTEM v0.8.9.6: HVis_especVisual declara el estado deseado (Parte 20)', function () {
-    var secAmarillo = HVis_especVisual('SECTOR_AMARILLO');
+  t('DESIGN SYSTEM v0.8.9.6: HVis_especVisual_ declara el estado deseado (Parte 20)', function () {
+    var secAmarillo = HVis_especVisual_('SECTOR_AMARILLO');
     A.igual(secAmarillo.identidad, 'AMARILLO');
     A.igual(secAmarillo.familia, 'AMARILLO');
     A.igual(secAmarillo.colorTitulo, RAMPA.AMARILLO.barra);
@@ -3812,7 +3812,7 @@ function _pruebas_designsystem_v0896(t, A) {
     });
     A.cierto(soloFamilia, 'SECTOR_AMARILLO monocromático amarillo');
 
-    var pac = HVis_especVisual('PACIENTES');
+    var pac = HVis_especVisual_('PACIENTES');
     A.igual(pac.identidad, 'GENERAL');
     A.igual(pac.colorTitulo, RAMPA.GENERAL.barra);
     A.cierto(pac.colorSecciones.length === SECCIONES_HOJAS.PACIENTES.length, 'secciones definidas');
@@ -3822,25 +3822,25 @@ function _pruebas_designsystem_v0896(t, A) {
     });
     A.cierto(usaPaleta, 'PACIENTES usa COLORES_SECCION');
 
-    A.igual(HVis_especVisual('EVENTOS').identidad, 'GENERAL', 'EVENTOS identidad general (v0.13)');
-    A.igual(HVis_especVisual('EVENTOS').visual, false, 'EVENTOS simple');
-    A.igual(HVis_especVisual('EVENTOS').encabezados.altura, PULIDO_ENCABEZADO.alturaSimple,
+    A.igual(HVis_especVisual_('EVENTOS').identidad, 'GENERAL', 'EVENTOS identidad general (v0.13)');
+    A.igual(HVis_especVisual_('EVENTOS').visual, false, 'EVENTOS simple');
+    A.igual(HVis_especVisual_('EVENTOS').encabezados.altura, PULIDO_ENCABEZADO.alturaSimple,
       'EVENTOS encabezado a 30 (simple)');
-    A.igual(HVis_especVisual('SECTOR_VERDE').colorTitulo, RAMPA.VERDE.barra, 'SECTOR_VERDE título rampa');
-    A.cierto(typeof HVis_reconciliarHoja === 'function', 'reconciliador visual existe (Parte 17)');
-    A.cierto(typeof HVis_pendientesVisual === 'function', 'pendientes visual existe (Parte 20)');
+    A.igual(HVis_especVisual_('SECTOR_VERDE').colorTitulo, RAMPA.VERDE.barra, 'SECTOR_VERDE título rampa');
+    A.cierto(typeof HVis_reconciliarHoja_ === 'function', 'reconciliador visual existe (Parte 17)');
+    A.cierto(typeof HVis_pendientesVisual_ === 'function', 'pendientes visual existe (Parte 20)');
   });
 }
 
 // ---------------------------------------------------------------------------
 // v0.9.0 — FORMULARIO COMPLEMENTARIO (puerta de entrada controlada, DEC-048)
 // ---------------------------------------------------------------------------
-function _pruebas_formulario_v090(t, A) {
+function _pruebas_formulario_v090_(t, A) {
   // RUT válido reproducible (DV por módulo 11)
-  var dvA = Norm_dvModulo11('12345678');
+  var dvA = Norm_dvModulo11_('12345678');
   var RUTA = '12345678-' + dvA;
-  A.cierto(Norm_validarRut(RUTA), 'RUT de prueba válido');
-  var dvB = Norm_dvModulo11('98765432');
+  A.cierto(Norm_validarRut_(RUTA), 'RUT de prueba válido');
+  var dvB = Norm_dvModulo11_('98765432');
   var RUTB = '98765432-' + dvB;
 
   function respuestaNuevo(rut, extra) {
@@ -3860,7 +3860,7 @@ function _pruebas_formulario_v090(t, A) {
 
   // ── contrato y mapeo (sin dependencia del número de columna) ──
   t('FORM v0.9.0: columnas técnicas únicas y derivadas del contrato CAMPOS', function () {
-    var cols = Form_columnas();
+    var cols = Form_columnas_();
     A.cierto(cols.length === cols.filter(function (x, i) { return cols.indexOf(x) === i; }).length, 'columnas únicas');
     A.cierto(cols.indexOf('RESPONSE_ID') !== -1 && cols.indexOf('ESTADO') !== -1 && cols.indexOf('TRAZA_CRUDA') !== -1, 'meta presente');
     A.cierto(cols.indexOf('ACCION') !== -1 && cols.indexOf('RUT') !== -1, 'campos del contrato presentes');
@@ -3868,9 +3868,9 @@ function _pruebas_formulario_v090(t, A) {
   });
 
   t('FORM v0.9.0: mapeo por contenido, no por índice (encabezados reordenados)', function () {
-    var cols = Form_columnas();
+    var cols = Form_columnas_();
     var reorden = cols.slice().reverse();
-    var m = Form_mapeoEncabezados(reorden);
+    var m = Form_mapeoEncabezados_(reorden);
     A.cierto(m.idx['ESTADO'] !== undefined && m.idx['RESPONSEID'] !== undefined, 'mapea por clave de encabezado');
     A.igual(m.idx['ESTADO'], cols.length - 1 - cols.indexOf('ESTADO'), 'índice correcto tras reordenar');
   });
@@ -3881,23 +3881,23 @@ function _pruebas_formulario_v090(t, A) {
     });
     A.cierto(FORM_CONFIG.ESTADOS.VALIDOS.indexOf('PROCESADO') !== -1, 'estado PROCESADO definido');
     var sectorCampo = null;
-    Form_campos().forEach(function (c) { if (c.campo === 'SECTOR') sectorCampo = c; });
+    Form_campos_().forEach(function (c) { if (c.campo === 'SECTOR') sectorCampo = c; });
     A.cierto(!!sectorCampo && sectorCampo.opciones && sectorCampo.opciones.length === SECTORES_RESPONSABLES.length, 'opciones de sector = sectores oficiales');
     A.cierto(FORM_CONFIG.MARCAS.PREFIJO === 'FORM|', 'prefijo de marca estándar');
   });
 
   t('FORM v0.9.0: marca de trazabilidad canónica', function () {
-    A.igual(Form_marcadorFuente('RESP-1', 'REGISTRAR_CONTROL'), 'FORM|RESP-1|REGISTRAR_CONTROL', 'marca');
-    A.igual(Form_sectorHojaIngreso('naranjo'), 'INGRESO_NARANJO', 'puerta naranjo');
-    A.igual(Form_sectorHojaIngreso('AMARILLO'), 'INGRESO_AMARILLO', 'puerta amarillo');
-    A.igual(Form_sectorHojaIngreso('VERDE'), 'INGRESO_VERDE', 'puerta verde');
-    A.igual(Form_sectorHojaIngreso('AZUL'), '', 'sector desconocido sin puerta');
+    A.igual(Form_marcadorFuente_('RESP-1', 'REGISTRAR_CONTROL'), 'FORM|RESP-1|REGISTRAR_CONTROL', 'marca');
+    A.igual(Form_sectorHojaIngreso_('naranjo'), 'INGRESO_NARANJO', 'puerta naranjo');
+    A.igual(Form_sectorHojaIngreso_('AMARILLO'), 'INGRESO_AMARILLO', 'puerta amarillo');
+    A.igual(Form_sectorHojaIngreso_('VERDE'), 'INGRESO_VERDE', 'puerta verde');
+    A.igual(Form_sectorHojaIngreso_('AZUL'), '', 'sector desconocido sin puerta');
   });
 
   t('FORM v0.9.0: fila canónica en orden INGRESO_COLUMNAS con NOTA_SISTEMA', function () {
-    var valid = Form_validarRespuesta(respuestaNuevo(RUTA), { hoy: '2026-08-29' });
+    var valid = Form_validarRespuesta_(respuestaNuevo(RUTA), { hoy: '2026-08-29' });
     A.cierto(valid.ok, 'respuesta válida');
-    var fila = Form_filaCanonicaIngreso(valid.normalizado, 'FORM|X|INGRESO', { hoy: '2026-08-29' });
+    var fila = Form_filaCanonicaIngreso_(valid.normalizado, 'FORM|X|INGRESO', { hoy: '2026-08-29' });
     A.igual(fila.length, INGRESO_COLUMNAS.length, 'once celdas');
     A.igual(fila[0], 'MARÍA JOSÉ FUENTES', 'NOMBRE normalizado');
     A.igual(fila[1], RUTA, 'RUT normalizado');
@@ -3910,7 +3910,7 @@ function _pruebas_formulario_v090(t, A) {
 
   // ── validación / normalización ──
   t('FORM v0.9.0: NUEVO_INGRESO válido normaliza con las reglas existentes', function () {
-    var r = Form_validarRespuesta(respuestaNuevo(RUTA), { hoy: '2026-08-29' });
+    var r = Form_validarRespuesta_(respuestaNuevo(RUTA), { hoy: '2026-08-29' });
     A.cierto(r.ok, 'ok');
     A.igual(r.normalizado.ACCION, 'NUEVO_INGRESO', 'accion');
     A.igual(r.normalizado.RUT, RUTA, 'rut canónico');
@@ -3923,32 +3923,32 @@ function _pruebas_formulario_v090(t, A) {
   });
 
   t('FORM v0.9.0: RUT inválido / sin DV son bloqueantes', function () {
-    A.cierto(!Form_validarRespuesta(respuestaNuevo('12345678-x')).ok, 'DV incorrecto bloquea');
-    var sinDv = Form_validarRespuesta(respuestaNuevo('12345678'), { hoy: '2026-08-29' });
+    A.cierto(!Form_validarRespuesta_(respuestaNuevo('12345678-x')).ok, 'DV incorrecto bloquea');
+    var sinDv = Form_validarRespuesta_(respuestaNuevo('12345678'), { hoy: '2026-08-29' });
     A.cierto(!sinDv.ok && sinDv.errores.some(function (e) { return e.campo === 'RUT'; }), 'RUT sin DV bloquea');
   });
 
   t('FORM v0.9.0: campos obligatorios de NUEVO_INGRESO', function () {
-    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { NOMBRE: '' })).errores.some(function (e) { return e.campo === 'NOMBRE'; }), 'NOMBRE requerido');
-    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { FECHA_NACIMIENTO: '' })).errores.some(function (e) { return e.campo === 'FECHA_NACIMIENTO'; }), 'nacimiento requerido');
-    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { FECHA_NACIMIENTO: '31/02/2020' })).errores.length > 0, 'fecha imposible bloquea');
-    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { SECTOR: 'AZUL' })).errores.some(function (e) { return e.campo === 'SECTOR'; }), 'sector no oficial bloquea');
-    A.cierto(Form_validarRespuesta(respuestaNuevo(RUTA, { ESTRATIFICACION: 'G4' })).errores.some(function (e) { return e.campo === 'ESTRATIFICACION'; }), 'estrat no oficial bloquea');
+    A.cierto(Form_validarRespuesta_(respuestaNuevo(RUTA, { NOMBRE: '' })).errores.some(function (e) { return e.campo === 'NOMBRE'; }), 'NOMBRE requerido');
+    A.cierto(Form_validarRespuesta_(respuestaNuevo(RUTA, { FECHA_NACIMIENTO: '' })).errores.some(function (e) { return e.campo === 'FECHA_NACIMIENTO'; }), 'nacimiento requerido');
+    A.cierto(Form_validarRespuesta_(respuestaNuevo(RUTA, { FECHA_NACIMIENTO: '31/02/2020' })).errores.length > 0, 'fecha imposible bloquea');
+    A.cierto(Form_validarRespuesta_(respuestaNuevo(RUTA, { SECTOR: 'AZUL' })).errores.some(function (e) { return e.campo === 'SECTOR'; }), 'sector no oficial bloquea');
+    A.cierto(Form_validarRespuesta_(respuestaNuevo(RUTA, { ESTRATIFICACION: 'G4' })).errores.some(function (e) { return e.campo === 'ESTRATIFICACION'; }), 'estrat no oficial bloquea');
   });
 
   t('FORM v0.9.0: CONTROL valida RUT + fecha de evento', function () {
-    var ok = Form_validarRespuesta(respuestaControl(RUTA));
+    var ok = Form_validarRespuesta_(respuestaControl(RUTA));
     A.cierto(ok.ok && ok.normalizado.FECHA_EVENTO === '2026-06-10', 'control válido');
-    var sfe = Form_validarRespuesta(respuestaControl(RUTA, { FECHA_EVENTO: '' }));
+    var sfe = Form_validarRespuesta_(respuestaControl(RUTA, { FECHA_EVENTO: '' }));
     A.cierto(sfe.errores.some(function (e) { return e.campo === 'FECHA_EVENTO'; }), 'fecha evento requerida');
-    var sfi = Form_validarRespuesta(respuestaControl(RUTA, { FECHA_EVENTO: '45/13/2026' }));
+    var sfi = Form_validarRespuesta_(respuestaControl(RUTA, { FECHA_EVENTO: '45/13/2026' }));
     A.cierto(sfi.errores.length > 0, 'fecha evento inválida bloquea');
   });
 
   t('FORM v0.9.0: acción desconocida cuarentena-ERROR', function () {
-    var r = Form_validarRespuesta({ ACCION: 'BORRAR TODO', RUT: RUTA });
+    var r = Form_validarRespuesta_({ ACCION: 'BORRAR TODO', RUT: RUTA });
     A.cierto(r.errores.some(function (e) { return e.campo === 'ACCION'; }), 'acción inválida');
-    A.igual(Form_erroresTexto(r.errores), 'ACCION: Acción no válida: "BORRAR TODO"', 'motivo legible');
+    A.igual(Form_erroresTexto_(r.errores), 'ACCION: Acción no válida: "BORRAR TODO"', 'motivo legible');
   });
 
   // ── procesamiento de lote (decisiones puras) ──
@@ -3963,7 +3963,7 @@ function _pruebas_formulario_v090(t, A) {
       { responseId: 'R4', estadoPrevio: 'RECIBIDO', crudo: respuestaControl(RUTB) },
       { responseId: 'R5', estadoPrevio: 'PROCESADO', crudo: respuestaNuevo(RUTA) }
     ];
-    var lote = Form_procesarLote(respuestas, ctx, { hoy: '2026-08-29' });
+    var lote = Form_procesarLote_(respuestas, ctx, { hoy: '2026-08-29' });
     var porId = {};
     lote.decisiones.forEach(function (d) { porId[d.responseId] = d; });
     A.igual(porId['R1'].decision, 'ANEXAR', 'nuevo ingreso → anexar');
@@ -3981,18 +3981,18 @@ function _pruebas_formulario_v090(t, A) {
 
   t('FORM v0.9.0: idempotencia por marca de evento', function () {
     var persona = { RUT: RUTA, ID_INTERNO: 'EC-FORM-2' };
-    var marca = Form_marcadorFuente('R2', 'REGISTRAR_CONTROL');
+    var marca = Form_marcadorFuente_('R2', 'REGISTRAR_CONTROL');
     var ctx = { indiceRut: {}, marcas: {} };
     ctx.indiceRut[RUTA.toUpperCase()] = persona;
     ctx.marcas[marca] = { idEvento: 'EV-FORM-9' };
-    var lote = Form_procesarLote(
+    var lote = Form_procesarLote_(
       [{ responseId: 'R2', estadoPrevio: 'VALIDANDO', reintentos: 1, crudo: respuestaControl(RUTA) }],
       ctx, {});
     A.igual(lote.decisiones[0].decision, 'PROCESADO_YA', 'reintento detecta la marca y no duplica');
   });
 
   t('FORM v0.9.0: fila de ingreso ya anexada no se vuelve a anexar', function () {
-    var lote = Form_procesarLote(
+    var lote = Form_procesarLote_(
       [{ responseId: 'R6', estadoPrevio: 'VALIDANDO', ingresoHoja: 'INGRESO_NARANJO', ingresoFila: '7', crudo: respuestaNuevo(RUTA) }],
       {}, { hoy: '2026-08-29' });
     A.igual(lote.decisiones[0].decision, 'YA_ANEXADO', 'no re-anexa');
@@ -4003,26 +4003,26 @@ function _pruebas_formulario_v090(t, A) {
     var crudo = { ACCION: 'ACTUALIZAR_DATOS', RUT: RUTB, TELEFONOS: '+56911112222' };
     var ctxCon = { indiceRut: {}, marcas: {} };
     ctxCon.indiceRut[RUTB.toUpperCase()] = { RUT: RUTB, ID_INTERNO: 'EC-FORM-3' };
-    var l = Form_procesarLote([{ responseId: 'R7', estadoPrevio: 'RECIBIDO', crudo: crudo }], ctxCon, {});
+    var l = Form_procesarLote_([{ responseId: 'R7', estadoPrevio: 'RECIBIDO', crudo: crudo }], ctxCon, {});
     A.igual(l.decisiones[0].decision, 'CLINICA', 'con persona → clínica');
-    var l2 = Form_procesarLote([{ responseId: 'R8', estadoPrevio: 'RECIBIDO', crudo: crudo }], {}, {});
+    var l2 = Form_procesarLote_([{ responseId: 'R8', estadoPrevio: 'RECIBIDO', crudo: crudo }], {}, {});
     A.igual(l2.decisiones[0].decision, 'CUARENTENA', 'sin persona → cuarentena');
   });
 
   // ── resultado → estado del formulario ──
   t('FORM v0.9.0: traducción de estado del pipeline a estado FORM', function () {
-    A.igual(Form_mapearResultadoFila('INGRESADO', '').estado, 'PROCESADO', 'ingresado');
-    A.igual(Form_mapearResultadoFila('DUPLICADO', 'posible duplicado').estado, 'REQUIERE_REVISION', 'duplicado');
-    A.igual(Form_mapearResultadoFila('REQUIERE_REVISION', 'nota').estado, 'REQUIERE_REVISION', 'revisión');
-    A.igual(Form_mapearResultadoFila('ERROR', 'x').estado, 'ERROR', 'error');
-    A.igual(Form_mapearResultadoFila('', '').estado, 'ERROR', 'sin estado no se da por hecho');
+    A.igual(Form_mapearResultadoFila_('INGRESADO', '').estado, 'PROCESADO', 'ingresado');
+    A.igual(Form_mapearResultadoFila_('DUPLICADO', 'posible duplicado').estado, 'REQUIERE_REVISION', 'duplicado');
+    A.igual(Form_mapearResultadoFila_('REQUIERE_REVISION', 'nota').estado, 'REQUIERE_REVISION', 'revisión');
+    A.igual(Form_mapearResultadoFila_('ERROR', 'x').estado, 'ERROR', 'error');
+    A.igual(Form_mapearResultadoFila_('', '').estado, 'ERROR', 'sin estado no se da por hecho');
   });
 
   // ── lectura de pendientes ──
   t('FORM v0.9.0: pendientes excluyen PROCESADO y revisión; reintentos respetan tope', function () {
-    var headers = Form_columnas();
+    var headers = Form_columnas_();
     var idx = function (clave) {
-      var m = Form_mapeoEncabezados(headers).idx;
+      var m = Form_mapeoEncabezados_(headers).idx;
       return m[clave];
     };
     function fila(estado, reint, rid) {
@@ -4037,13 +4037,13 @@ function _pruebas_formulario_v090(t, A) {
       return arr;
     }
     var valores = [headers, fila('RECIBIDO', 0, 'P1'), fila('PROCESADO', 0, 'P2'), fila('REQUIERE_REVISION', 0, 'P3'), fila('ERROR', 1, 'P4'), fila('ERROR', 3, 'P5')];
-    var pend = Form_filasPendientes(valores, Form_mapeoEncabezados(headers), 3);
+    var pend = Form_filasPendientes_(valores, Form_mapeoEncabezados_(headers), 3);
     A.igual(pend.length, 2, 'solo RECIBIDO y ERROR reintentable');
     A.igual(pend[0].responseId, 'P1', 'recibido primero');
     A.igual(pend[1].responseId, 'P4', 'error reintentable (reintentos=1 < 3)');
-    A.igual(pend[0].filaFisica, Modelo_dataStartRow(HOJAS.FORM_RESPUESTAS), 'fila física alineada al layout simple');
+    A.igual(pend[0].filaFisica, Modelo_dataStartRow_(HOJAS.FORM_RESPUESTAS), 'fila física alineada al layout simple');
     A.igual(pend[0].crudo.RUT, RUTA, 'crudo mapeado por campo');
-    var pendMax0 = Form_filasPendientes(valores, Form_mapeoEncabezados(headers), 3, 0);
+    var pendMax0 = Form_filasPendientes_(valores, Form_mapeoEncabezados_(headers), 3, 0);
     A.igual(pendMax0.length, 0, 'tope max=0 devuelve vacío');
   });
 
@@ -4056,7 +4056,7 @@ function _pruebas_formulario_v090(t, A) {
       { ESTADO: 'ERROR', ACCION: 'NUEVO_INGRESO', FECHA_FORMS: '2026-08-04 11:00:00' },
       { ESTADO: 'RECIBIDO', ACCION: 'NUEVO_INGRESO', FECHA_FORMS: '2026-08-05 12:00:00' }
     ];
-    var m = Form_metricas(filas);
+    var m = Form_metricasLote_(filas);
     A.igual(m.total, 5, 'total');
     A.igual(m.procesados, 2, 'procesados');
     A.igual(m.revision, 1, 'revisión');
@@ -4068,13 +4068,13 @@ function _pruebas_formulario_v090(t, A) {
 
   // ── duplicados los decide el pipeline (no el formulario) ──
   t('FORM v0.9.0: dos ingresos iguales NUNCA crean dos pacientes (lo decide el pipeline)', function () {
-    var f1 = Fuentes_normalizar(Fuentes_crearFila(
+    var f1 = Fuentes_normalizar_(Fuentes_crearFila_(
       { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_NARANJO', fila: 4, sector: 'NARANJO' },
       { RUT: RUTA, NOMBRE: 'JUAN PEREZ', FECHA_INGRESO: '2026-01-01' }));
-    var f2 = Fuentes_normalizar(Fuentes_crearFila(
+    var f2 = Fuentes_normalizar_(Fuentes_crearFila_(
       { archivo: 'HOJA_INGRESO', hoja: 'INGRESO_NARANJO', fila: 5, sector: 'NARANJO' },
       { RUT: RUTA, NOMBRE: 'JUAN PEREZ', FECHA_INGRESO: '2026-02-01' }));
-    var salida = Ingresos_procesarFilas([f1, f2], { pacientes: [], eventos: [] },
+    var salida = Ingresos_procesarFilas_([f1, f2], { pacientes: [], eventos: [] },
       { nuevoId: function () { return 'EC-PRUEBA-1'; }, evSecuenciaInicial: 1 });
     A.igual(salida.resumen.nuevos, 1, 'un solo paciente creado');
     A.igual(salida.resumen.existentes, 1, 'el segundo se enlaza al existente');
@@ -4083,73 +4083,73 @@ function _pruebas_formulario_v090(t, A) {
 
   // ── simulador (partes 42/44/46) ──
   t('FORM v0.9.0: simulador 10→3000 determinista y con RUTs válidos', function () {
-    var sim = Form_simularRespuestas(100, { semilla: 42 });
+    var sim = Form_simularRespuestas_(100, { semilla: 42 });
     A.igual(sim.length, 100, '100 generadas');
     var ids = sim.map(function (s) { return s.responseId; });
     A.igual(ids.length, ids.filter(function (x, i) { return ids.indexOf(x) === i; }).length, 'responseIds únicos');
     sim.forEach(function (s) {
       A.cierto(FORM_CONFIG.ACCIONES.VALIDOS.indexOf(s.crudo.ACCION) !== -1, 'acción ' + s.crudo.ACCION);
-      A.cierto(Norm_validarRut(s.crudo.RUT), 'rut válido de ' + s.responseId);
+      A.cierto(Norm_validarRut_(s.crudo.RUT), 'rut válido de ' + s.responseId);
     });
-    var sim2 = Form_simularRespuestas(100, { semilla: 42 });
+    var sim2 = Form_simularRespuestas_(100, { semilla: 42 });
     A.igual(JSON.stringify(sim), JSON.stringify(sim2), 'determinista con la misma semilla');
-    A.igual(Form_simularRespuestas(10, { semilla: 1 }).length, 10, '10');
-    A.igual(Form_simularRespuestas(500, { semilla: 1 }).length, 500, '500');
-    A.igual(Form_simularRespuestas(1000, { semilla: 1 }).length, 1000, '1000');
-    A.igual(Form_simularRespuestas(3000, { semilla: 1 }).length, 3000, '3000');
+    A.igual(Form_simularRespuestas_(10, { semilla: 1 }).length, 10, '10');
+    A.igual(Form_simularRespuestas_(500, { semilla: 1 }).length, 500, '500');
+    A.igual(Form_simularRespuestas_(1000, { semilla: 1 }).length, 1000, '1000');
+    A.igual(Form_simularRespuestas_(3000, { semilla: 1 }).length, 3000, '3000');
   });
 }
 
 // ---------------------------------------------------------------------------
 // v0.9.1 — ENTORNOS DEV/DEMO (estrategia de despliegue, DEC-049)
 // ---------------------------------------------------------------------------
-function _pruebas_entornos_v091(t, A) {
+function _pruebas_entornos_v091_(t, A) {
   var DEV_ID = ENTORNOS.DEV.SPREADSHEET_ID;
   var DEMO_ID = ENTORNOS.DEMO.SPREADSHEET_ID;
 
   t('ENTORNO v0.9.1: identidad por Spreadsheet ID, nunca por nombre', function () {
-    A.igual(Entorno_detectar(DEV_ID), 'DEV', 'DEV por ID');
-    A.igual(Entorno_detectar(DEMO_ID), 'DEMO', 'DEMO por ID');
-    A.igual(Entorno_detectar('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 'DESCONOCIDO', 'libro ajeno → DESCONOCIDO');
-    A.igual(Entorno_detectar(''), 'DESCONOCIDO', 'sin ID → DESCONOCIDO');
-    A.igual(Entorno_detectar('Hoja llamada DEMO pero de otro libro'), 'DESCONOCIDO', 'el nombre visible NO define el entorno');
+    A.igual(Entorno_detectar_(DEV_ID), 'DEV', 'DEV por ID');
+    A.igual(Entorno_detectar_(DEMO_ID), 'DEMO', 'DEMO por ID');
+    A.igual(Entorno_detectar_('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 'DESCONOCIDO', 'libro ajeno → DESCONOCIDO');
+    A.igual(Entorno_detectar_(''), 'DESCONOCIDO', 'sin ID → DESCONOCIDO');
+    A.igual(Entorno_detectar_('Hoja llamada DEMO pero de otro libro'), 'DESCONOCIDO', 'el nombre visible NO define el entorno');
     var porNombre = (function () {
       try { return Function('return typeof Entorno_porNombre !== "undefined"')(); } catch (e) { return false; }
     })();
     A.cierto(!porNombre, 'prohibido resolver el entorno por nombre de hoja');
-    A.cierto(typeof Entorno_detectar === 'function', 'la identidad se resuelve solo por getActiveSpreadsheet().getId()');
-    A.cierto(Entorno_esLibro(DEV_ID, 'DEV'), 'esLibro DEV');
-    A.cierto(!Entorno_esLibro(DEMO_ID, 'DEV'), 'DEMO no es DEV');
+    A.cierto(typeof Entorno_detectar_ === 'function', 'la identidad se resuelve solo por getActiveSpreadsheet().getId()');
+    A.cierto(Entorno_esLibro_(DEV_ID, 'DEV'), 'esLibro DEV');
+    A.cierto(!Entorno_esLibro_(DEMO_ID, 'DEV'), 'DEMO no es DEV');
   });
 
   t('ENTORNO v0.9.1: configuración transversal y clínica sin duplicar (rollback seguro)', function () {
-    Entorno_lista().forEach(function (env) {
-      var d = Entorno_datos(env);
+    Entorno_lista_().forEach(function (env) {
+      var d = Entorno_datos_(env);
       A.cierto(!!d.SPREADSHEET_ID, env + ': spreadsheet registrado');
       A.cierto(!!d.NOMBRE && !!d.ETIQUETA, env + ': nombre y etiqueta');
-      var f = Entorno_carpetaEsperada(env);
+      var f = Entorno_carpetaEsperada_(env);
       A.cierto(f === 'ECICEP_Backups_' + env || (d.BACKUP_FOLDER_ID && f),
         env + ': carpeta de backup derivada o por ID (nunca compartida)');
     });
-    A.cierto(Entorno_carpetaEsperada('DEV') !== Entorno_carpetaEsperada('DEMO'), 'carpetas DEV ≠ DEMO');
+    A.cierto(Entorno_carpetaEsperada_('DEV') !== Entorno_carpetaEsperada_('DEMO'), 'carpetas DEV ≠ DEMO');
     A.cierto(!('FORMATO_FECHAS' in ENTORNOS.DEV) || !('FORMATO_FECHAS' in ENTORNOS.DEMO),
       'la configuración de presentación vive en CFG/GLOBAL, no en ENTORNOS');
   });
 
   t('ENTORNO v0.9.1: gate de procesamiento — entorno correcto pasa', function () {
-    var g = Entorno_validarProcesamiento(DEV_ID, '', {});
+    var g = Entorno_validarProcesamiento_(DEV_ID, '', {});
     A.cierto(g.ok, 'DEV sin form explícito procesa');
     A.igual(g.entorno, 'DEV', 'entorno DEV');
-    var g2 = Entorno_validarProcesamiento(DEMO_ID, '', {});
+    var g2 = Entorno_validarProcesamiento_(DEMO_ID, '', {});
     A.cierto(g2.ok, 'DEMO sin form explícito procesa');
     A.igual(g2.entorno, 'DEMO', 'entorno DEMO');
   });
 
   t('ENTORNO v0.9.1: gate bloquea libro desconocido (ERROR_CONFIG_ENTORNO)', function () {
-    var g = Entorno_validarProcesamiento('11111111111111111111111111111111', '', {});
+    var g = Entorno_validarProcesamiento_('11111111111111111111111111111111', '', {});
     A.cierto(!g.ok, 'libro desconocido bloquea');
     A.igual(g.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo normalizado');
-    var g0 = Entorno_validarProcesamiento('', '', {});
+    var g0 = Entorno_validarProcesamiento_('', '', {});
     A.cierto(!g0.ok, 'sin libro bloquea');
     A.igual(g0.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo sin libro');
     if (!g0.ok) A.igual(g0.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo sin libro');
@@ -4161,13 +4161,13 @@ function _pruebas_entornos_v091(t, A) {
       A.cierto(true, 'SKIP: DEMO.FORM_ID aún no configurado');
       return;
     }
-    var g = Entorno_validarProcesamiento(DEV_ID, formDemo, {});
+    var g = Entorno_validarProcesamiento_(DEV_ID, formDemo, {});
     A.cierto(!g.ok, 'Form DEMO desde DEV bloquea');
     A.igual(g.motivo, 'ERROR_CONFIG_ENTORNO', 'motivo de aislamiento');
   });
 
   t('ENTORNO v0.9.1: mapeo de recursos — diagnóstico sin efecto y con checks', function () {
-    var d = Entorno_diagnostico(DEV_ID, '', { trigger: true, procesador: true, mapeo: 12, campos: 12 });
+    var d = Entorno_diagnostico_(DEV_ID, '', { trigger: true, procesador: true, mapeo: 12, campos: 12 });
     A.igual(d.entorno, 'DEV', 'entorno detectado');
     A.igual(d.esperadoId, DEV_ID, 'esperadoId = spreadsheet DEV');
     var nombres = d.checks.map(function (c) { return c.nombre; });
@@ -4186,13 +4186,13 @@ function _pruebas_entornos_v091(t, A) {
 
   t('ENTORNO v0.9.1: auditoría read-only — ninguna función de entorno escribe', function () {
     var antes = JSON.stringify(ENTORNOS);
-    Entorno_lista().forEach(function (env) {
-      Entorno_detectar(ENTORNOS[env].SPREADSHEET_ID);
-      Entorno_validarProcesamiento(ENTORNOS[env].SPREADSHEET_ID, '', {});
-      Entorno_carpetaEsperada(env);
-      Entorno_diagnostico(ENTORNOS[env].SPREADSHEET_ID, '', { trigger: true });
+    Entorno_lista_().forEach(function (env) {
+      Entorno_detectar_(ENTORNOS[env].SPREADSHEET_ID);
+      Entorno_validarProcesamiento_(ENTORNOS[env].SPREADSHEET_ID, '', {});
+      Entorno_carpetaEsperada_(env);
+      Entorno_diagnostico_(ENTORNOS[env].SPREADSHEET_ID, '', { trigger: true });
     });
-    Entorno_validarProcesamiento('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', {});
+    Entorno_validarProcesamiento_('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '', {});
     A.igual(JSON.stringify(ENTORNOS), antes, 'ninguna mutación de configuración');
   });
 
@@ -4209,7 +4209,7 @@ function _pruebas_entornos_v091(t, A) {
 
 // v0.9.2 — Operativización del formulario (DEC-051): métricas operativas,
 // trazabilidad por-envío, catálogos oficiales y contrato de la hoja FORM_CONTROL.
-function _pruebas_operativo_v092(t, A) {
+function _pruebas_operativo_v092_(t, A) {
   t('OPERATIVO v0.9.2: métricas distinguen registros vía FORM vs manuales (pctViaForm)', function () {
     var eventos = [
       { FUENTE: 'FORM|R-1|REGISTRAR_CONTROL' },
@@ -4218,7 +4218,7 @@ function _pruebas_operativo_v092(t, A) {
       { FUENTE: 'UI_FICHA' },
       { FUENTE: 'PCTS|hoja|1' }
     ];
-    var m = Form_metricasOperativas(eventos, []);
+    var m = Form_metricasOperativas_(eventos, []);
     A.igual(m.viaForm, 3, 'viaForm');
     A.igual(m.manuales, 2, 'manuales');
     A.igual(m.controlesForm, 1, 'controlesForm');
@@ -4237,7 +4237,7 @@ function _pruebas_operativo_v092(t, A) {
       { ESTADO: 'DUPLICADO', REINTENTOS: '0' },
       { ESTADO: 'VALIDO', REINTENTOS: '0' }
     ];
-    var m = Form_metricasOperativas([], filas);
+    var m = Form_metricasOperativas_([], filas);
     A.igual(m.errores, 2, 'errores');
     A.igual(m.rechazos, 1, 'rechazos');
     A.igual(m.duplicadosEvitados, 1, 'duplicadosEvitados');
@@ -4253,8 +4253,8 @@ function _pruebas_operativo_v092(t, A) {
       head,
       ['2026-08-31 10:00:00', 'R-901', 'REGISTRAR_CONTROL', '12.345.678-5', 'PROCESADO', 'ok', '0', 'EC-1', 'EV-1']
     ];
-    var mapa = Form_mapeoEncabezados(head);
-    var traz = Form_trazabilidad(filas, mapa, {});
+    var mapa = Form_mapeoEncabezados_(head);
+    var traz = Form_trazabilidad_(filas, mapa, {});
     A.igual(traz.length, 1, 'una fila');
     A.igual(traz[0].marca, 'FORM|R-901|REGISTRAR_CONTROL', 'marca');
     A.igual(traz[0].idInterno, 'EC-1', 'idInterno');
@@ -4269,14 +4269,14 @@ function _pruebas_operativo_v092(t, A) {
       ['R-12', 'REGISTRAR_CONTROL', 'RECIBIDO'],
       ['R-13', 'REGISTRAR_CONTROL', 'PROCESADO']
     ];
-    var mapa = Form_mapeoEncabezados(head);
-    A.igual(Form_trazabilidad(filas, mapa, { soloError: true }).length, 1, 'soloError');
-    A.igual(Form_trazabilidad(filas, mapa, { soloPendientes: true }).length, 1, 'soloPendientes');
+    var mapa = Form_mapeoEncabezados_(head);
+    A.igual(Form_trazabilidad_(filas, mapa, { soloError: true }).length, 1, 'soloError');
+    A.igual(Form_trazabilidad_(filas, mapa, { soloPendientes: true }).length, 1, 'soloPendientes');
   });
 
   t('OPERATIVO v0.9.2: PROFESIONAL del formulario viene del catálogo oficial (no se duplica)', function () {
     var prof = null;
-    Form_campos().forEach(function (c) { if (c.campo === 'PROFESIONAL') prof = c; });
+    Form_campos_().forEach(function (c) { if (c.campo === 'PROFESIONAL') prof = c; });
     A.cierto(prof !== null, 'campo PROFESIONAL existe');
     A.igual(prof.tipo, 'dropdown', 'tipo dropdown');
     A.cierto(prof.opciones.indexOf('Enfermera/o') !== -1, 'opción Enfermera/o');
@@ -4300,12 +4300,12 @@ function _pruebas_operativo_v092(t, A) {
 // Casos obligatorios A–H + invariantes de identidad, EDAD derivada y FUENTE.
 // ===========================================================================
 
-function _pruebas_enriquecimiento_s5(t, A) {
-  // Origen sintético: mismo shape que Act_leerOrigenesDesdeBloques por RUT.
+function _pruebas_enriquecimiento_s5_(t, A) {
+  // Origen sintético: mismo shape que Act_leerOrigenesDesdeBloques_ por RUT.
   // Los valores pasan por la misma normalización que en producción.
   function origen(sexo, nac, opts) {
-    var s = Act_normalizarCandidato('SEXO', sexo);
-    var n = Act_normalizarCandidato('FECHA_NACIMIENTO', nac);
+    var s = Act_normalizarCandidato_('SEXO', sexo);
+    var n = Act_normalizarCandidato_('FECHA_NACIMIENTO', nac);
     return {
       SEXO: { valor: s, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100',
               conflicto: !!(opts && opts.conflictoSexo) },
@@ -4328,44 +4328,44 @@ function _pruebas_enriquecimiento_s5(t, A) {
   // ---- Caso A: paciente con todos los datos de origen → sin cambios ----
   t('S5 A: paciente completo no se toca (0 campos vacíos)', function () {
     var p = pacienteCompleto();
-    var res = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    var res = Act_aplicarEnriquecimiento_(p, origen('F', '1990-05-10'));
     A.igual(res.aplicados.length, 0, 'sin campos aplicados');
     A.igual(res.bloqueos.length, 0, 'sin bloqueos');
     A.igual(p.SEXO, 'F', 'SEXO intacto');
     A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'FECHA intacta');
-    A.igual(Act_camposVacios(p).length, 0, 'no hay campos vacíos');
+    A.igual(Act_camposVacios_(p).length, 0, 'no hay campos vacíos');
   });
 
   // ---- Caso B: FECHA_NACIMIENTO faltante → se completa (EDAD queda derivada) ----
   t('S5 B: FECHA_NACIMIENTO vacía se completa desde fuente válida', function () {
     var p = pacienteCompleto({ FECHA_NACIMIENTO: '' });
-    var res = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    var res = Act_aplicarEnriquecimiento_(p, origen('F', '1990-05-10'));
     A.igual(res.aplicados.map(function (a) { return a.campo; }).join(','), 'FECHA_NACIMIENTO', 'solo FECHA_NACIMIENTO aplicado');
     A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha completada');
-    A.igual(Norm_normalizarFecha(p.FECHA_NACIMIENTO, { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX }).estado, 'VALIDA', 'fecha válida');
+    A.igual(Norm_normalizarFecha_(p.FECHA_NACIMIENTO, { min: CFG_FECHAS.ANO_MIN_NACIMIENTO, max: CFG_FECHAS.ANO_MAX }).estado, 'VALIDA', 'fecha válida');
     // EDAD nunca se almacena como campo (DECISIONES): no existe en el modelo.
-    A.igual(Act_enriquecimientoCampos().indexOf('EDAD'), -1, 'EDAD no es campo de enriquecimiento');
+    A.igual(Act_enriquecimientoCampos_().indexOf('EDAD'), -1, 'EDAD no es campo de enriquecimiento');
     // La derivación en vivo respeta el cumpleaños (FASE 3).
-    A.igual(Utl_edadDesde('1990-05-10', new Date(2011, 4, 9)), '20', 'edad antes de cumpleaños');
-    A.igual(Utl_edadDesde('1990-05-10', new Date(2011, 4, 10)), '21', 'edad en el cumpleaños');
-    A.igual(Utl_edadDesde('1990-05-10', new Date(2011, 4, 11)), '21', 'edad tras cumpleaños');
-    A.igual(Utl_edadDesde('', new Date(2011, 4, 11)), '', 'sin fecha → sin edad');
-    A.igual(Utl_edadDesde('2026-01-01', new Date(2026, 8, 7)), '0', 'bebé nacido este año → 0');
-    A.igual(Utl_edadDesde('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
+    A.igual(Utl_edadDesde_('1990-05-10', new Date(2011, 4, 9)), '20', 'edad antes de cumpleaños');
+    A.igual(Utl_edadDesde_('1990-05-10', new Date(2011, 4, 10)), '21', 'edad en el cumpleaños');
+    A.igual(Utl_edadDesde_('1990-05-10', new Date(2011, 4, 11)), '21', 'edad tras cumpleaños');
+    A.igual(Utl_edadDesde_('', new Date(2011, 4, 11)), '', 'sin fecha → sin edad');
+    A.igual(Utl_edadDesde_('2026-01-01', new Date(2026, 8, 7)), '0', 'bebé nacido este año → 0');
+    A.igual(Utl_edadDesde_('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
   });
 
   // ---- OPT B2: helpers de fórmula de EDAD en vivo ----
-  t('OPT B2: Utl_columnaLetra índice 1-based → letra A1', function () {
-    A.igual(Utl_columnaLetra(1), 'A', '1→A');
-    A.igual(Utl_columnaLetra(5), 'E', '5→E');
-    A.igual(Utl_columnaLetra(26), 'Z', '26→Z');
-    A.igual(Utl_columnaLetra(27), 'AA', '27→AA');
-    A.igual(Utl_columnaLetra(52), 'AZ', '52→AZ');
-    A.igual(Utl_columnaLetra(53), 'BA', '53→BA');
-    A.igual(Utl_columnaLetra(143), 'EM', '143→EM');
+  t('OPT B2: Utl_columnaLetra_ índice 1-based → letra A1', function () {
+    A.igual(Utl_columnaLetra_(1), 'A', '1→A');
+    A.igual(Utl_columnaLetra_(5), 'E', '5→E');
+    A.igual(Utl_columnaLetra_(26), 'Z', '26→Z');
+    A.igual(Utl_columnaLetra_(27), 'AA', '27→AA');
+    A.igual(Utl_columnaLetra_(52), 'AZ', '52→AZ');
+    A.igual(Utl_columnaLetra_(53), 'BA', '53→BA');
+    A.igual(Utl_columnaLetra_(143), 'EM', '143→EM');
   });
-  t('OPT B2: Utl_formulaEdad genera fórmula DATEDIF viva sobre FECHA_NACIMIENTO', function () {
-    var f1 = Utl_formulaEdad(5, 4);
+  t('OPT B2: Utl_formulaEdad_ genera fórmula DATEDIF viva sobre FECHA_NACIMIENTO', function () {
+    var f1 = Utl_formulaEdad_(5, 4);
     A.cierto(f1.indexOf('=IF(') === 0, 'fórmula IF');
     A.cierto(f1.indexOf('E4') !== -1, 'referencia E4');
     A.cierto(f1.indexOf('DATEDIF') !== -1, 'DATEDIF presente');
@@ -4376,23 +4376,23 @@ function _pruebas_enriquecimiento_s5(t, A) {
     A.cierto(f1.indexOf(',') === -1 && f1.indexOf(';') !== -1,
       'separador ÚNICO ";" (S10-FIX: mezcla ; y , provoca #ERROR! de parseo)');
     A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(E4;TODAY();"Y");""))', 'fórmula canónica');
-    var f2 = Utl_formulaEdad(1, 12);
+    var f2 = Utl_formulaEdad_(1, 12);
     A.cierto(f2.indexOf('A12') !== -1, 'referencia A12 con columna 1');
     A.cierto(f2.indexOf(',') === -1, 'f2 sin comas');
   });
   t('OPT B2: EDAD deriva de FECHA_NACIMIENTO aunque venga como Date (ficha nunca en blanco)', function () {
-    A.igual(Utl_edadDesde(new Date(1990, 4, 10), new Date(2011, 4, 9)), '20', 'Date antes de cumpleaños');
-    A.igual(Utl_edadDesde(new Date(1990, 4, 10), new Date(2011, 4, 11)), '21', 'Date tras cumpleaños');
-    A.igual(Utl_edadDesde(new Date(2026, 0, 1), new Date(2026, 8, 7)), '0', 'Date recién nacido');
-    A.igual(Utl_edadDesde(new Date('invalida'), new Date(2026, 8, 7)), '', 'Date inválido → vacío');
-    A.igual(Utl_edadDesde(1990, new Date(2011, 4, 11)), '', 'serial no ISO → vacío (no se adivina)');
+    A.igual(Utl_edadDesde_(new Date(1990, 4, 10), new Date(2011, 4, 9)), '20', 'Date antes de cumpleaños');
+    A.igual(Utl_edadDesde_(new Date(1990, 4, 10), new Date(2011, 4, 11)), '21', 'Date tras cumpleaños');
+    A.igual(Utl_edadDesde_(new Date(2026, 0, 1), new Date(2026, 8, 7)), '0', 'Date recién nacido');
+    A.igual(Utl_edadDesde_(new Date('invalida'), new Date(2026, 8, 7)), '', 'Date inválido → vacío');
+    A.igual(Utl_edadDesde_(1990, new Date(2011, 4, 11)), '', 'serial no ISO → vacío (no se adivina)');
   });
   t('OPT B7: funciones referenciadas por el menú mínimo existen en el ámbito global', function () {
     // Menú mínimo: cinco flujos operativos + dos acciones de mantenimiento.
     var refs = [
-      'UI_abrirFormularioCaptura', 'UI_abrirBuscador', 'UI_abrirControles',
-      'UI_abrirDashboard', 'UI_abrirIngresos',
-      'UI_actualizarSistema', 'UI_instalarSistema'
+      'UI_abrirFormularioCaptura_', 'UI_abrirBuscador_', 'UI_abrirControles_',
+      'UI_abrirDashboard_', 'UI_abrirIngresos_',
+      'UI_actualizarSistema_', 'UI_instalarSistema_'
     ];
     refs.forEach(function (fn) {
       A.cierto(typeof globalThis[fn] === 'function', fn + ' existe');
@@ -4413,13 +4413,13 @@ function _pruebas_enriquecimiento_s5(t, A) {
   // ---- Caso C: SEXO faltante + fuente válida → se completa ----
   t('S5 C: SEXO vacío se completa con valor canónico válido', function () {
     var p = pacienteCompleto({ SEXO: '' });
-    var res = Act_aplicarEnriquecimiento(p, origen('M', ''));
+    var res = Act_aplicarEnriquecimiento_(p, origen('M', ''));
     A.igual(res.aplicados.map(function (a) { return a.campo; }).join(','), 'SEXO', 'SEXO aplicado');
     A.igual(p.SEXO, 'M', 'SEXO completado');
   });
   t('S5 C2: sinónimo confirmado de fuente se canjea al canónico', function () {
     var p = pacienteCompleto({ SEXO: '' });
-    var res = Act_aplicarEnriquecimiento(p, origen('FEMENINO', ''));
+    var res = Act_aplicarEnriquecimiento_(p, origen('FEMENINO', ''));
     A.igual(p.SEXO, 'F', 'sinónimo → F');
     A.igual(res.aplicados.length, 1, '1 campo');
   });
@@ -4428,15 +4428,15 @@ function _pruebas_enriquecimiento_s5(t, A) {
   t('S5 D: fuente vacía/inválida NO completa SEXO (no se infiere)', function () {
     ['', 'X', 'desconocido', 'NO APLICA', '  '].forEach(function (v) {
       var p = pacienteCompleto({ SEXO: '' });
-      var res = Act_aplicarEnriquecimiento(p, origen(v, ''));
+      var res = Act_aplicarEnriquecimiento_(p, origen(v, ''));
       A.igual(res.aplicados.length, 0, 'sin aplicar para [' + v + ']');
       A.igual(p.SEXO, '', 'SEXO permanece vacío');
-      A.igual(Act_normalizarCandidato('SEXO', v), '', 'candidato inválido → ""');
+      A.igual(Act_normalizarCandidato_('SEXO', v), '', 'candidato inválido → ""');
     });
   });
   t('S5 D2: fecha inválida NO completa FECHA_NACIMIENTO', function () {
     var p = pacienteCompleto({ FECHA_NACIMIENTO: '' });
-    var res = Act_aplicarEnriquecimiento(p, origen('', '2026-13-40'));
+    var res = Act_aplicarEnriquecimiento_(p, origen('', '2026-13-40'));
     A.igual(res.aplicados.length, 0, 'no se completa');
     A.igual(p.FECHA_NACIMIENTO, '', 'sigue vacía');
   });
@@ -4445,19 +4445,19 @@ function _pruebas_enriquecimiento_s5(t, A) {
   t('S5 E: segunda ejecución es estable (idempotencia)', function () {
     var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '' });
     var o = origen('M', '1985-07-20');
-    var r1 = Act_aplicarEnriquecimiento(p, o);
+    var r1 = Act_aplicarEnriquecimiento_(p, o);
     A.igual(r1.aplicados.length, 2, 'primera ejecución aplica');
-    var r2 = Act_aplicarEnriquecimiento(p, o);
+    var r2 = Act_aplicarEnriquecimiento_(p, o);
     A.igual(r2.aplicados.length, 0, 'segunda ejecución no cambia');
     A.igual(r2.bloqueos.length, 0, 'sin bloqueos en 2ª');
     A.igual(p.SEXO, 'M', 'sin duplicar valor');
     A.igual(p.FECHA_NACIMIENTO, '1985-07-20', 'sin corrupción');
-    A.igual(Act_appendFuente('A|B|1', ['A|B|1', 'C|D|2']), 'A|B|1;C|D|2', 'FUENTE no duplica');
-    A.igual(Act_appendFuente('', ['C|D|2']), 'C|D|2', 'FUENTE desde vacío');
+    A.igual(Act_appendFuente_('A|B|1', ['A|B|1', 'C|D|2']), 'A|B|1;C|D|2', 'FUENTE no duplica');
+    A.igual(Act_appendFuente_('', ['C|D|2']), 'C|D|2', 'FUENTE desde vacío');
   });
   t('S5 E2: ya-enriquecido con fuente distinta NO sobrescribe', function () {
     var p = pacienteCompleto({ SEXO: 'F', FECHA_NACIMIENTO: '1990-05-10' });
-    var res = Act_aplicarEnriquecimiento(p, origen('M', '2000-01-01'));
+    var res = Act_aplicarEnriquecimiento_(p, origen('M', '2000-01-01'));
     A.igual(res.aplicados.length, 0, 'nada sobrescrito');
     A.igual(p.SEXO, 'F', 'SEXO original intacto');
     A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha original intacta');
@@ -4466,18 +4466,18 @@ function _pruebas_enriquecimiento_s5(t, A) {
   // ---- Caso F: paciente inexistente / sin origen → nunca se crea ----
   t('S5 F: sin fuente para el RUT → no se inventa dato ni paciente', function () {
     var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '' });
-    var res = Act_aplicarEnriquecimiento(p, null);
+    var res = Act_aplicarEnriquecimiento_(p, null);
     A.igual(res.aplicados.length, 0, 'sin origen → sin aplicar');
     A.igual(res.bloqueos.length, 0, 'sin bloqueo');
     A.igual(p.RUT, '15987654-3', 'paciente intacto (no se duplica ni crea)');
     // Origen sin esa clave (mapa vacío) equivale a null.
-    var vacio = Act_leerOrigenesDesdeBloques([]);
+    var vacio = Act_leerOrigenesDesdeBloques_([]);
     A.cierto(vacio !== null, 'mapa vacío existe');
-    var r2 = Act_aplicarEnriquecimiento(p, undefined);
+    var r2 = Act_aplicarEnriquecimiento_(p, undefined);
     A.igual(r2.aplicados.length, 0, 'undefined → sin aplicar');
   });
   t('S5 F2: bloque sin filas de datos no produce orígenes', function () {
-    var o = Act_leerOrigenesDesdeBloques([{ hoja: 'INGRESO_AMARILLO', headerRow: 3, val: [['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO']] }]);
+    var o = Act_leerOrigenesDesdeBloques_([{ hoja: 'INGRESO_AMARILLO', headerRow: 3, val: [['NOMBRE', 'RUT', 'SEXO', 'FECHA DE NACIMIENTO']] }]);
     A.igual(Object.keys(o || {}).length, 0, 'solo encabezados → sin orígenes');
   });
 
@@ -4485,7 +4485,7 @@ function _pruebas_enriquecimiento_s5(t, A) {
   t('S5 G: SEXO divergente entre fuentes → REQUIERE_REVISION, sin escribir', function () {
     var p = pacienteCompleto({ SEXO: '' });
     var o = origen('M', '', { conflictoSexo: true });
-    var res = Act_aplicarEnriquecimiento(p, o);
+    var res = Act_aplicarEnriquecimiento_(p, o);
     A.igual(res.aplicados.length, 0, 'nada aplicado');
     A.igual(res.bloqueos.length, 1, 'bloqueo presente');
     A.igual(res.bloqueos[0].campo, 'SEXO', 'campo bloqueado');
@@ -4501,7 +4501,7 @@ function _pruebas_enriquecimiento_s5(t, A) {
         ['ANA', '15.987.654-3', 'F', '1990-05-10']
       ]
     }];
-    var o = Act_leerOrigenesDesdeBloques(bloques);
+    var o = Act_leerOrigenesDesdeBloques_(bloques);
     V = o['15987654-3'];
     A.cierto(V.SEXO.conflicto, 'SEXO inconsistente detectado');
     A.igual(V.FECHA_NACIMIENTO.valor, '1990-05-10', 'fecha consistente conservada');
@@ -4516,7 +4516,7 @@ function _pruebas_enriquecimiento_s5(t, A) {
         ['ANA', '15.987.654-3', 'M', '1990-05-10']
       ]
     }];
-    var o = Act_leerOrigenesDesdeBloques(bloques);
+    var o = Act_leerOrigenesDesdeBloques_(bloques);
     var V = o['15987654-3'];
     A.igual(V.SEXO.valor, 'M', 'SEXO consistente');
     A.cierto(V.SEXO.conflicto !== true, 'sin conflicto');
@@ -4530,7 +4530,7 @@ function _pruebas_enriquecimiento_s5(t, A) {
         ['ANA', '15987654', 'F', '1990-05-10']
       ]
     }];
-    var o = Act_leerOrigenesDesdeBloques(bloques);
+    var o = Act_leerOrigenesDesdeBloques_(bloques);
     A.cierto(!o['15987654-3'], 'sin clave con DV (no se inventa el DV)');
     A.cierto(o['15987654'], 'clave por cuerpo queda disponible');
   });
@@ -4539,7 +4539,7 @@ function _pruebas_enriquecimiento_s5(t, A) {
   t('S5 H: campos no autorizados no se modifican al enriquecer', function () {
     var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '912345678', SECTOR: 'AMARILLO', NOMBRE: 'ANA TEST', RUT: '15987654-3' });
     var o = origen('F', '1990-05-10');
-    var res = Act_aplicarEnriquecimiento(p, o);
+    var res = Act_aplicarEnriquecimiento_(p, o);
     A.igual(res.aplicados.length, 2, 'SEXO y FECHA completados');
     A.igual(res.aplicados.map(function (a) { return a.campo; }).join(','), 'SEXO,FECHA_NACIMIENTO', 'solo campos autorizados');
     A.igual(p.NOMBRE, 'ANA TEST', 'NOMBRE intacto');
@@ -4555,7 +4555,7 @@ function _pruebas_enriquecimiento_s5(t, A) {
     var campos = CAMPOS_ENRIQUECIMIENTO.slice().sort();
     A.igual(campos.join(','), 'FECHA_NACIMIENTO,SEXO', 'contrato S5 de campos');
     var p = pacienteCompleto({ SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '', OBSERVACIONES: '', ESTADO: '' });
-    var v = Act_camposVacios(p);
+    var v = Act_camposVacios_(p);
     // Solo se REPORTAN vacíos de los campos autorizados; el resto del modelo queda fuera.
     A.cierto(v.indexOf('SEXO') !== -1 && v.indexOf('FECHA_NACIMIENTO') !== -1, 'SEXO+FECHA detectados');
     A.cierto(v.indexOf('TELEFONOS') === -1, 'TELEFONOS NO es campo S5');
@@ -4565,18 +4565,18 @@ function _pruebas_enriquecimiento_s5(t, A) {
   // ---- Trazabilidad: FUENTE append conserva origen previo ----
   t('S5: FUENTE acumula origen exacto del enriquecimiento sin perder previo', function () {
     var p = pacienteCompleto({ FECHA_NACIMIENTO: '' });
-    var res = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
-    var nueva = Act_appendFuente(p.FUENTE, res.aplicados.map(function (a) { return a.fuente; }));
+    var res = Act_aplicarEnriquecimiento_(p, origen('F', '1990-05-10'));
+    var nueva = Act_appendFuente_(p.FUENTE, res.aplicados.map(function (a) { return a.fuente; }));
     A.cierto(nueva.indexOf('INGRESO_AMARILLO|INGRESO_AMARILLO|90') !== -1, 'FUENTE previa conservada');
     A.cierto(nueva.indexOf('ENRIQUECIMIENTO|INGRESO_AMARILLO|100') !== -1, 'origen enriquecimiento incorporado');
   });
 
   // ---- EDAD: derivación correcta en la frontera del año bisiesto/período ----
   t('S5 EDAD: rango sanitario y fechas de referencia', function () {
-    A.igual(Utl_edadDesde('2026-01-01', new Date(2026, 8, 7)), '0', 'recién nacido del año');
-    A.igual(Utl_edadDesde('1900-01-01', new Date(2026, 8, 7)), '126', 'extremo superior permitido');
-    A.igual(Utl_edadDesde('1900-01-01', new Date(2031, 0, 1)), '', 'fuera de rango >129 → vacío');
-    A.igual(Utl_edadDesde('02-05-1990', new Date(2026, 8, 7)), '', 'formato no ISO → vacío');
+    A.igual(Utl_edadDesde_('2026-01-01', new Date(2026, 8, 7)), '0', 'recién nacido del año');
+    A.igual(Utl_edadDesde_('1900-01-01', new Date(2026, 8, 7)), '126', 'extremo superior permitido');
+    A.igual(Utl_edadDesde_('1900-01-01', new Date(2031, 0, 1)), '', 'fuera de rango >129 → vacío');
+    A.igual(Utl_edadDesde_('02-05-1990', new Date(2026, 8, 7)), '', 'formato no ISO → vacío');
   });
 
   // ---- Wiring: S5 vive en "⚙️ Instalar / reparar sistema", NO en "Actualizar sistema" ----
@@ -4590,10 +4590,10 @@ function _pruebas_enriquecimiento_s5(t, A) {
     A.igual(etapa.fn, 'Instalar_pEnriquecimiento_', 'función privada de la etapa');
     A.cierto(typeof Instalar_pEnriquecimiento_ === 'function', 'Instalar_pEnriquecimiento_ existe');
   });
-  t('S5 wiring: UI_actualizarSistema ya no ejecuta enriquecimiento inline', function () {
-    var fu = UI_actualizarSistema.toString();
-    A.cierto(fu.indexOf('Act_enriquecerPacientes') === -1, 'sin llamada a enriquecimiento en Actualizar sistema');
-    A.cierto(fu.indexOf('Act_diagnosticarEnriquecimiento') === -1, 'sin dry-run en Actualizar sistema');
+  t('S5 wiring: UI_actualizarSistema_ ya no ejecuta enriquecimiento inline', function () {
+    var fu = UI_actualizarSistema_.toString();
+    A.cierto(fu.indexOf('Act_enriquecerPacientes_') === -1, 'sin llamada a enriquecimiento en Actualizar sistema');
+    A.cierto(fu.indexOf('Act_diagnosticarEnriquecimiento_') === -1, 'sin dry-run en Actualizar sistema');
   });
 }
 
@@ -4601,10 +4601,10 @@ function _pruebas_enriquecimiento_s5(t, A) {
 // S11 — Enriquecimiento de datos existentes (EDAD/SEXO) · pruebas A1–A10
 // ---------------------------------------------------------------------------
 
-function _pruebas_enriquecimiento_s11(t, A) {
+function _pruebas_enriquecimiento_s11_(t, A) {
   function origen(sexo, nac) {
-    var s = Act_normalizarCandidato('SEXO', sexo);
-    var n = Act_normalizarCandidato('FECHA_NACIMIENTO', nac);
+    var s = Act_normalizarCandidato_('SEXO', sexo);
+    var n = Act_normalizarCandidato_('FECHA_NACIMIENTO', nac);
     return {
       SEXO: { valor: s, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100', conflicto: false },
       FECHA_NACIMIENTO: { valor: n, fuente: 'ENRIQUECIMIENTO|INGRESO_AMARILLO|100', conflicto: false }
@@ -4620,34 +4620,34 @@ function _pruebas_enriquecimiento_s11(t, A) {
 
   t('S11 A1·A4: FECHA_NACIMIENTO completada → EDAD derivada correcta (nunca almacenada)', function () {
     var p = pac();
-    var r = Act_aplicarEnriquecimiento(p, origen('F', '1990-05-10'));
+    var r = Act_aplicarEnriquecimiento_(p, origen('F', '1990-05-10'));
     A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha completada desde fuente');
-    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 9)), '35', 'edad antes de cumpleaños');
-    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 10)), '36', 'edad en el cumpleaños');
-    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 11)), '36', '36 tras el cumpleaños');
-    A.igual(Act_camposVacios(p).indexOf('EDAD'), -1, 'EDAD no es campo de enriquecimiento');
-    A.igual(Utl_edadDesde('', new Date(2026, 4, 11)), '', 'sin fecha → sin edad');
+    A.igual(Utl_edadDesde_(p.FECHA_NACIMIENTO, new Date(2026, 4, 9)), '35', 'edad antes de cumpleaños');
+    A.igual(Utl_edadDesde_(p.FECHA_NACIMIENTO, new Date(2026, 4, 10)), '36', 'edad en el cumpleaños');
+    A.igual(Utl_edadDesde_(p.FECHA_NACIMIENTO, new Date(2026, 4, 11)), '36', '36 tras el cumpleaños');
+    A.igual(Act_camposVacios_(p).indexOf('EDAD'), -1, 'EDAD no es campo de enriquecimiento');
+    A.igual(Utl_edadDesde_('', new Date(2026, 4, 11)), '', 'sin fecha → sin edad');
   });
 
   t('S11 A2: cambio de fecha de nacimiento actualiza la EDAD derivada; no sobrescribe fecha presente', function () {
     var p = pac();
-    Act_aplicarEnriquecimiento(p, origen('M', '1990-05-10'));
-    var edadAntes = Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 20));
+    Act_aplicarEnriquecimiento_(p, origen('M', '1990-05-10'));
+    var edadAntes = Utl_edadDesde_(p.FECHA_NACIMIENTO, new Date(2026, 4, 20));
     p.FECHA_NACIMIENTO = '1980-05-10'; // corrección administrativa del dato
-    A.igual(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 20)), '46', 'edad sigue la nueva fecha');
-    A.cierto(Utl_edadDesde(p.FECHA_NACIMIENTO, new Date(2026, 4, 20)) !== edadAntes, 'EDAD derivada cambia');
+    A.igual(Utl_edadDesde_(p.FECHA_NACIMIENTO, new Date(2026, 4, 20)), '46', 'edad sigue la nueva fecha');
+    A.cierto(Utl_edadDesde_(p.FECHA_NACIMIENTO, new Date(2026, 4, 20)) !== edadAntes, 'EDAD derivada cambia');
     // El enriquecimiento jamás sobrescribe una FECHA_NACIMIENTO ya presente:
-    var r = Act_aplicarEnriquecimiento(p, origen('F', '2000-01-01'));
+    var r = Act_aplicarEnriquecimiento_(p, origen('F', '2000-01-01'));
     A.igual(r.aplicados.length, 0, 'nada reescrito');
     A.igual(p.FECHA_NACIMIENTO, '1980-05-10', 'fecha presente intacta');
   });
 
   t('S11 A3: fecha futura/inválida no se admite como FECHA_NACIMIENTO', function () {
-    A.igual(Act_normalizarCandidato('FECHA_NACIMIENTO', '2045-01-01'), '', 'más allá de ANO_MAX → no candidato');
-    A.igual(Act_normalizarCandidato('FECHA_NACIMIENTO', '2026-13-40'), '', 'mes/día inválidos → no candidato');
-    A.igual(Utl_edadDesde('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
+    A.igual(Act_normalizarCandidato_('FECHA_NACIMIENTO', '2045-01-01'), '', 'más allá de ANO_MAX → no candidato');
+    A.igual(Act_normalizarCandidato_('FECHA_NACIMIENTO', '2026-13-40'), '', 'mes/día inválidos → no candidato');
+    A.igual(Utl_edadDesde_('2026-09-07', new Date(2026, 0, 1)), '', 'nacimiento futuro → sin edad');
     var p = pac();
-    var r = Act_aplicarEnriquecimiento(p, origen('', '2045-01-01'));
+    var r = Act_aplicarEnriquecimiento_(p, origen('', '2045-01-01'));
     A.igual(r.aplicados.length, 0, 'sin aplicar con fecha inadmisible');
     A.igual(p.FECHA_NACIMIENTO, '', 'sigue vacía');
   });
@@ -4655,7 +4655,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
   t('S11 A5: SEXO explícito válido se completa con valor canónico', function () {
     [['MASCULINO', 'M'], ['F', 'F'], ['OTRO', 'OTRO']].forEach(function (par) {
       var p = pac();
-      var r = Act_aplicarEnriquecimiento(p, origen(par[0], ''));
+      var r = Act_aplicarEnriquecimiento_(p, origen(par[0], ''));
       A.igual(p.SEXO, par[1], '[' + par[0] + '] → ' + par[1]);
       A.igual(r.aplicados.length, 1, 'aplicado');
     });
@@ -4664,7 +4664,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
   t('S11 A6·A7: SEXO ausente o inválido NO se completa (nunca se infiere)', function () {
     ['', 'X', 'desconocido', 'NO APLICA', '  '].forEach(function (v) {
       var p = pac();
-      var r = Act_aplicarEnriquecimiento(p, origen(v, ''));
+      var r = Act_aplicarEnriquecimiento_(p, origen(v, ''));
       A.igual(r.aplicados.length, 0, 'sin aplicar para [' + v + ']');
       A.igual(p.SEXO, '', 'SEXO permanece vacío (faltante)');
     });
@@ -4673,16 +4673,16 @@ function _pruebas_enriquecimiento_s11(t, A) {
   t('S11 A8: segunda ejecución es idempotente (mismas entradas → sin cambios nuevos)', function () {
     var p = pac();
     var o = origen('M', '1985-07-20');
-    var r1 = Act_aplicarEnriquecimiento(p, o);
+    var r1 = Act_aplicarEnriquecimiento_(p, o);
     A.igual(r1.aplicados.length, 2, '1ª aplicación SEXO+FECHA');
-    var r2 = Act_aplicarEnriquecimiento(p, o);
+    var r2 = Act_aplicarEnriquecimiento_(p, o);
     A.igual(r2.aplicados.length, 0, '2ª ejecución sin cambios');
-    A.igual(Act_appendFuente('A|B|1', ['A|B|1']), 'A|B|1', 'FUENTE no duplica segmentos');
+    A.igual(Act_appendFuente_('A|B|1', ['A|B|1']), 'A|B|1', 'FUENTE no duplica segmentos');
   });
 
   t('S11 A9: el enriquecimiento NUNCA crea eventos clínicos', function () {
-    var fu = Act_enriquecerPacientes.toString();
-    A.cierto(fu.indexOf('EVENTOS') === -1, 'Act_enriquecerPacientes no referencia EVENTOS');
+    var fu = Act_enriquecerPacientes_.toString();
+    A.cierto(fu.indexOf('EVENTOS') === -1, 'Act_enriquecerPacientes_ no referencia EVENTOS');
     A.cierto(fu.indexOf('Eventos') === -1, 'sin funciones de eventos');
     var etapa = Instalar_pEnriquecimiento_.toString();
     A.cierto(etapa.indexOf('EVENTOS') === -1 && etapa.indexOf('Eventos') === -1, 'etapa sin eventos');
@@ -4690,23 +4690,23 @@ function _pruebas_enriquecimiento_s11(t, A) {
   });
 
   t('S11 A10: actualización selectiva no duplica pacientes (escritura posicional)', function () {
-    var fu = Act_enriquecerPacientes.toString();
-    A.cierto(fu.indexOf('Utl_escribirBloque') !== -1, 'escritura por bloque posicional');
+    var fu = Act_enriquecerPacientes_.toString();
+    A.cierto(fu.indexOf('Utl_escribirBloque_') !== -1, 'escritura por bloque posicional');
     A.cierto(fu.indexOf('appendRow') === -1, 'sin appendRow');
     A.cierto(fu.indexOf('insertRowAfter') === -1 && fu.indexOf('insertRowsAfter') === -1, 'sin inserción de filas');
     var p = pac();
-    var res = Act_aplicarEnriquecimiento(p, null);
+    var res = Act_aplicarEnriquecimiento_(p, null);
     A.igual(res.aplicados.length, 0, 'sin origen → nada escrito ni duplicado');
     A.igual(p.RUT, '15987654-3', 'un solo registro, intacto');
   });
 
   t('S11 UI: Instalar_pEnriquecimiento aplica enriquecimiento real (v0.10.0)', function () {
     var etapa = Instalar_pEnriquecimiento_.toString();
-    A.cierto(etapa.indexOf('Act_enriquecerPacientes') !== -1, 'SÍ llama Act_enriquecerPacientes');
+    A.cierto(etapa.indexOf('Act_enriquecerPacientes_') !== -1, 'SÍ llama Act_enriquecerPacientes_');
     A.cierto(etapa.indexOf('dryRun: false') !== -1, 'ejecuta con dryRun:false (escribe)');
-    // Act_enriquecerPacientes sigue existiendo para ACTUALIZAR
-    var act = Act_actualizarSistema.toString();
-    A.cierto(act.indexOf('Act_enriquecerPacientes') !== -1, 'Act_actualizarSistema SÍ usa Act_enriquecerPacientes');
+    // Act_enriquecerPacientes_ sigue existiendo para ACTUALIZAR
+    var act = Act_actualizarSistema_.toString();
+    A.cierto(act.indexOf('Act_enriquecerPacientes_') !== -1, 'Act_actualizarSistema_ SÍ usa Act_enriquecerPacientes_');
   });
 }
 
@@ -4714,7 +4714,7 @@ function _pruebas_enriquecimiento_s11(t, A) {
 // S11-R — Auditoría del modelo funcional Instalar/Actualizar (guards del mapa)
 // ---------------------------------------------------------------------------
 
-function _pruebas_auditoria_s11r(t, A) {
+function _pruebas_auditoria_s11r_(t, A) {
   t('S11R-1: EDAD no es campo físico ni dato fuente (solo derivada/fórmula)', function () {
     var campos = MODELO_PACIENTE.map(function (m) { return m.campo; });
     A.cierto(campos.indexOf('EDAD') === -1, 'PACIENTES no tiene columna EDAD');
@@ -4726,42 +4726,42 @@ function _pruebas_auditoria_s11r(t, A) {
   });
 
   t('S11R-2: (S6) "Actualizar" delega en la cadena de mantenimiento; "Instalar / reparar" conserva el panel completo', function () {
-    var act = UI_actualizarSistema.toString();
-    var inst = UI_instalarSistema.toString();
+    var act = UI_actualizarSistema_.toString();
+    var inst = UI_instalarSistema_.toString();
     A.cierto(inst.indexOf("createTemplateFromFile('Instalador')") !== -1,
       'Instalar / reparar abre el dialog Instalador (secuencia completa)');
-    A.cierto(inst.indexOf('api_instalarPaso') === -1, 'el Instalador.html (no 07_UI) ejecuta la secuencia');
-    A.cierto(act.indexOf('UI_instalarSistema(') === -1,
+    A.cierto(inst.indexOf('api_instalarPaso_') === -1, 'el Instalador.html (no 07_UI) ejecuta la secuencia');
+    A.cierto(act.indexOf('UI_instalarSistema_(') === -1,
       'Actualizar ya NO abre el instalador');
-    A.cierto(act.indexOf('Instalar_diagnosticar') === -1,
+    A.cierto(act.indexOf('Instalar_diagnosticar_') === -1,
       'Actualizar ya no diagnostica fases estructurales');
-    A.cierto(act.indexOf('UI_actualizarTodo(') !== -1,
-      'Actualizar delega en UI_actualizarTodo');
-    A.cierto(act.indexOf('api_instalarPaso') === -1,
+    A.cierto(act.indexOf('UI_actualizarTodo_(') !== -1,
+      'Actualizar delega en UI_actualizarTodo_');
+    A.cierto(act.indexOf('api_instalarPaso_') === -1,
       'Actualizar no ejecuta la secuencia del instalador');
-    var todo = UI_actualizarTodo.toString();
-    A.cierto(todo.indexOf('Act_actualizarSistema(') !== -1,
-      'UI_actualizarTodo delega en la cadena única Act_actualizarSistema (sin duplicar lógica)');
-    var cadena = Act_actualizarSistema.toString();
+    var todo = UI_actualizarTodo_.toString();
+    A.cierto(todo.indexOf('Act_actualizarSistema_(') !== -1,
+      'UI_actualizarTodo_ delega en la cadena única Act_actualizarSistema_ (sin duplicar lógica)');
+    var cadena = Act_actualizarSistema_.toString();
     A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes_') !== -1,
       'la cadena repara estructura (columna faltante, idempotente)');
     A.cierto(cadena.indexOf('Fuentes_cargaReal') !== -1,
       'la cadena importa registros nuevos + actualiza existentes desde las fuentes');
-    A.cierto(cadena.indexOf('Act_enriquecerPacientes') !== -1,
+    A.cierto(cadena.indexOf('Act_enriquecerPacientes_') !== -1,
       'la cadena aplica enriquecimiento demográfico');
-    A.cierto(cadena.indexOf('api_instalarPaso') === -1 && cadena.indexOf('Instalar_') === -1,
+    A.cierto(cadena.indexOf('api_instalarPaso_') === -1 && cadena.indexOf('Instalar_') === -1,
       'la cadena no toca el instalador');
   });
 
-  t('S11R-3: enriquecimiento separado — INSTALAR y ACTUALIZAR reutilizan Act_enriquecerPacientes (v0.10.0)', function () {
+  t('S11R-3: enriquecimiento separado — INSTALAR y ACTUALIZAR reutilizan Act_enriquecerPacientes_ (v0.10.0)', function () {
     var enr = INSTALAR_ETAPAS.filter(function (e) { return e.id === 'enriquecimiento'; });
     A.igual(enr.length, 1, 'existe una sola etapa enriquecimiento');
     A.igual(enr[0].fn, 'Instalar_pEnriquecimiento_', 'única función privada de la etapa');
     var p = Instalar_pEnriquecimiento_.toString();
-    A.cierto(p.indexOf('Act_enriquecerPacientes') !== -1,
-      'Instalar SÍ llama Act_enriquecerPacientes (reinstalación real)');
-    A.cierto(Act_actualizarSistema.toString().indexOf('Act_enriquecerPacientes') !== -1,
-      'Actualizar SÍ reutiliza Act_enriquecerPacientes');
+    A.cierto(p.indexOf('Act_enriquecerPacientes_') !== -1,
+      'Instalar SÍ llama Act_enriquecerPacientes_ (reinstalación real)');
+    A.cierto(Act_actualizarSistema_.toString().indexOf('Act_enriquecerPacientes_') !== -1,
+      'Actualizar SÍ reutiliza Act_enriquecerPacientes_');
   });
 }
 
@@ -4770,82 +4770,82 @@ function _pruebas_auditoria_s11r(t, A) {
 // U1–U6, U9. U7/U8 cubiertas por S11R-3 (pipeline completo + enriquecimiento).
 // ---------------------------------------------------------------------------
 
-function _pruebas_separacion_s12(t, A) {
+function _pruebas_separacion_s12_(t, A) {
   t('S12 U1: Actualizar mantiene la separación Instalar vs mantenimiento (importa fuentes, sin instalador)', function () {
-    var act = UI_actualizarSistema.toString();
-    ['Amarillo_', 'Instalar_', 'api_instalarPaso'].forEach(function (f) {
+    var act = UI_actualizarSistema_.toString();
+    ['Amarillo_', 'Instalar_', 'api_instalarPaso_'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar (delegación) no referencia ' + f);
     });
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     A.cierto(cadena.indexOf('Fuentes_') !== -1, 'la cadena importa fuentes (S6/DEC-064)');
-    A.cierto(cadena.indexOf('Instalar_') === -1 && cadena.indexOf('api_instalarPaso') === -1,
+    A.cierto(cadena.indexOf('Instalar_') === -1 && cadena.indexOf('api_instalarPaso_') === -1,
       'la cadena no ejecuta el instalador');
   });
 
   t('S12 U2·U3: Actualizar no crea pacientes/eventos ni estructura directamente (lo gestiona la cadena)', function () {
-    var act = UI_actualizarSistema.toString();
-    var todo = UI_actualizarTodo.toString();
+    var act = UI_actualizarSistema_.toString();
+    var todo = UI_actualizarTodo_.toString();
     ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura_', 'EVENTOS'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no ' + f);
-      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no ' + f);
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo_ no ' + f);
     });
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     ['appendRow', 'insertRowAfter', 'insertRowBefore', 'Modelo_crearEstructura_'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) === -1, 'la cadena no ejecuta ' + f + ' (lo hacen sus funciones)');
     });
   });
 
   t('S12 U4: Actualizar recalcula derivados (estratificación + controles)', function () {
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     A.cierto(cadena.indexOf('Estrat_recalcularTodos_') !== -1, 'recalcula estratificación');
-    A.cierto(cadena.indexOf('Control_recalcularTodos') !== -1, 'recalcula próximos controles');
-    var act = UI_actualizarSistema.toString();
-    A.cierto(act.indexOf('UI_actualizarTodo(') !== -1, 'Actualizar delega la lógica (sin duplicar)');
+    A.cierto(cadena.indexOf('Control_recalcularTodos_') !== -1, 'recalcula próximos controles');
+    var act = UI_actualizarSistema_.toString();
+    A.cierto(act.indexOf('UI_actualizarTodo_(') !== -1, 'Actualizar delega la lógica (sin duplicar)');
   });
 
   t('S12 U5: Actualizar refresca vistas y delega el formato al motor único (v0.14)', function () {
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     ['Modelo_refrescarVistasSectores_', 'Libro_mantenimiento_', 'Libro_marcarDirty_'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) !== -1, 'refresca/deriva con ' + f);
     });
     // Contrato anterior obsoleto (pipeline visual paralelo en Actualizar):
     // el formato vive en el motor (formato:*, validaciones:extras,
     // condicionales, accesorios), no copiado aquí.
-    ['HVis_aplicarTodasLasSecciones', 'HVis_formatearIngresos', 'Hojas_formatoCondicional',
-     'Modelo_validarIngresos', 'Modelo_aplicarDiseno', 'Hojas_colorearRutIngresos'].forEach(function (f) {
+    ['HVis_aplicarTodasLasSecciones_', 'HVis_formatearIngresos_', 'Hojas_formatoCondicional_',
+     'Modelo_validarIngresos_', 'Modelo_aplicarDiseno_', 'Hojas_colorearRutIngresos_'].forEach(function (f) {
       A.cierto(cadena.indexOf(f) === -1, 'sin pipeline paralelo: ' + f + ' vive en el motor');
     });
   });
 
   t('S12 U6: recálculo de derivados idempotente (mismas filas, sin duplicar)', function () {
     var e = Estrat_recalcularTodos_.toString();
-    var c = Control_recalcularTodos.toString();
+    var c = Control_recalcularTodos_.toString();
     A.cierto(e.indexOf('setValues') !== -1 && e.indexOf('appendRow') === -1,
       'Estrat reescribe en sitio (setValues), sin añadir filas');
     A.cierto(c.indexOf('setValues') === -1 && c.indexOf('appendRow') === -1,
       'Control no escribe fechas: agenda exclusivamente manual');
-    A.igual(Control_recalcularTodos().modo, 'AGENDA_MANUAL');
+    A.igual(Control_recalcularTodos_().modo, 'AGENDA_MANUAL');
     ['Fuentes_', 'Amarillo_', 'Act_enriquecer'].forEach(function (f) {
       A.cierto(e.indexOf(f) === -1 && c.indexOf(f) === -1, 'derivados no enganchan ' + f);
     });
   });
 
   t('S12 U9: captura V2 intacta (Actualizar no referencia el canal)', function () {
-    var act = UI_actualizarSistema.toString();
-    var todo = UI_actualizarTodo.toString();
+    var act = UI_actualizarSistema_.toString();
+    var todo = UI_actualizarTodo_.toString();
     ['captureId', 'FORM_RESPUESTAS', 'Form_respuestas', 'api_webappCapturar'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
-      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo_ no referencia ' + f);
     });
   });
 }
 
 // ---------------------------------------------------------------------------
 // S6 — Actualización de datos desde fuentes (merge conservador, v0.9.6).
-// Puras (Act_mergearPaciente / Act_mergearPacientesDesdeStaging) + contrato
+// Puras (Act_mergearPaciente_ / Act_mergearPacientesDesdeStaging_) + contrato
 // de campos (CAMPOS_MERGE_FUENTE) + introspección de la cadena.
 // ---------------------------------------------------------------------------
-function _pruebas_actualizacion_v096(t, A) {
+function _pruebas_actualizacion_v096_(t, A) {
   function pac(extra) {
     var p = { ID_INTERNO: 'EC-X-1', RUT: '15987654-3', NOMBRE: 'ANA TEST',
       SEXO: '', FECHA_NACIMIENTO: '', TELEFONOS: '', TELEFONO_OBS: '', SECTOR: 'AMARILLO',
@@ -4875,23 +4875,23 @@ function _pruebas_actualizacion_v096(t, A) {
 
   t('S6 A1: SEXO/FECHA_NACIMIENTO solo se completan con valor canónico válido (fill-only, nunca inferir)', function () {
     var p = pac();
-    var r = Act_mergearPaciente(p, n({ SEXO: 'MASCULINO', FECHA_NACIMIENTO: '1990-05-10' }));
+    var r = Act_mergearPaciente_(p, n({ SEXO: 'MASCULINO', FECHA_NACIMIENTO: '1990-05-10' }));
     A.igual(p.SEXO, 'M', 'sinónimo MASCULINO → canónico M');
     A.igual(p.FECHA_NACIMIENTO, '1990-05-10', 'fecha completada');
     A.igual(r.aplicados.length, 2, '2 campos aplicados');
     A.igual(r.conflictos.length, 0, 'sin conflictos');
     // el normalizador ya descartó el valor irreconocible → llega vacío → no se inventa
     var p2 = pac();
-    var r2 = Act_mergearPaciente(p2, n({ SEXO: '', FECHA_NACIMIENTO: '' }));
+    var r2 = Act_mergearPaciente_(p2, n({ SEXO: '', FECHA_NACIMIENTO: '' }));
     A.igual(r2.aplicados.length, 0, 'fuente sin dato: nada aplicado');
     A.igual(p2.SEXO, '', 'SEXO permanece vacío');
-    A.igual(Norm_normalizarSexo('X'), '', 'valor irreconocible → vacío por normalización');
+    A.igual(Norm_normalizarSexo_('X'), '', 'valor irreconocible → vacío por normalización');
   });
 
   t('S6 A2: una fuente vacía/inválida NUNCA destruye un dato vigente', function () {
     var p = pac({ SEXO: 'M', FECHA_NACIMIENTO: '1990-05-10', ULTIMO_CONTROL: '2026-04-01',
       PROXIMO_CONTROL: '2026-07-05', TELEFONOS: '912345678', PREINGRESO: 'NO_APLICA' });
-    var r = Act_mergearPaciente(p, n({ SEXO: '', FECHA_NACIMIENTO: '', ULTIMO_CONTROL: '',
+    var r = Act_mergearPaciente_(p, n({ SEXO: '', FECHA_NACIMIENTO: '', ULTIMO_CONTROL: '',
       PROXIMO_CONTROL: '', TELEFONOS: '', PREINGRESO: '' }));
     A.igual(r.aplicados.length, 0, 'sin cambios');
     A.igual(p.SEXO, 'M', 'SEXO conservado');
@@ -4903,17 +4903,17 @@ function _pruebas_actualizacion_v096(t, A) {
 
   t('S6 A3: ULTIMO_CONTROL/ULTIMO_SEGUIMIENTO conservan la fecha MÁS RECIENTE (nunca retroceden)', function () {
     var p = pac({ ULTIMO_CONTROL: '2026-04-01', ULTIMO_SEGUIMIENTO: '2026-03-01' });
-    Act_mergearPaciente(p, n({ ULTIMO_CONTROL: '2026-06-10', ULTIMO_SEGUIMIENTO: '2026-01-01' }));
+    Act_mergearPaciente_(p, n({ ULTIMO_CONTROL: '2026-06-10', ULTIMO_SEGUIMIENTO: '2026-01-01' }));
     A.igual(p.ULTIMO_CONTROL, '2026-06-10', 'control avanza a la fecha más reciente');
     A.igual(p.ULTIMO_SEGUIMIENTO, '2026-03-01', 'seguimiento NO retrocede');
     var p2 = pac({ ULTIMO_CONTROL: '' });
-    Act_mergearPaciente(p2, n({ ULTIMO_CONTROL: '' }));
+    Act_mergearPaciente_(p2, n({ ULTIMO_CONTROL: '' }));
     A.igual(p2.ULTIMO_CONTROL, '', 'punto de estado vacío sigue vacío');
   });
 
   t('S6 A4: divergencia demográfica (SEXO/FECHA_NACIMIENTO) → REQUIERE_REVISION sin sobrescribir', function () {
     var p = pac({ SEXO: 'M', FECHA_NACIMIENTO: '1980-01-01' });
-    var r = Act_mergearPaciente(p, n({ SEXO: 'F', FECHA_NACIMIENTO: '1979-05-05' }));
+    var r = Act_mergearPaciente_(p, n({ SEXO: 'F', FECHA_NACIMIENTO: '1979-05-05' }));
     A.igual(r.aplicados.length, 0, 'NUNCA sobrescribe el vigente');
     A.igual(r.conflictos.length, 2, 'marca conflicto en ambos demográficos');
     A.igual(p.SEXO, 'M', 'SEXO vigente intacto');
@@ -4928,7 +4928,7 @@ function _pruebas_actualizacion_v096(t, A) {
       OBSERVACIONES: 'CONTROLA G3', NOMBRE: 'CAROLINA OTRA', SECTOR: 'VERDE',
       ESTADO: 'INGRESADO', ESTRATIFICACION: 'G3', FECHA_INGRESO: '2025-01-01' }));
     var filaError = fila(n({ SEXO: 'M' }), { ESTADO_VALIDACION: 'ERROR' });
-    var res = Act_mergearPacientesDesdeStaging([fila1, filaError], [p1, p2]);
+    var res = Act_mergearPacientesDesdeStaging_([fila1, filaError], [p1, p2]);
     A.igual(res.revisados, 1, 'solo la fila válida con match cuenta como revisada');
     A.igual(res.sinCambios, 0, 'ninguna sin cambios');
     A.igual(res.conflictos, 0, 'sin conflictos');
@@ -4952,37 +4952,36 @@ function _pruebas_actualizacion_v096(t, A) {
     var p1 = pac();
     var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
     var fila1 = fila(n({ PROXIMO_CONTROL: '2026-07-01', SEXO: 'M' }));
-    var r1 = Act_mergearPacientesDesdeStaging([fila1], [p1, p2]);
+    var r1 = Act_mergearPacientesDesdeStaging_([fila1], [p1, p2]);
     A.igual(r1.actualizados, 1, '1ª corrida: actualiza');
     A.igual(r1.campos, 1, 'solo SEXO: agenda manual protegida');
-    var r2 = Act_mergearPacientesDesdeStaging([fila1], [p1, p2]);
+    var r2 = Act_mergearPacientesDesdeStaging_([fila1], [p1, p2]);
     A.igual(r2.actualizados, 0, '2ª corrida: sin cambios');
     A.igual(r2.sinCambios, 1, 'cuenta como SIN CAMBIOS');
     A.igual(r2.campos, 0, '0 campos nuevos');
     A.igual(p1.SEXO, 'M', 'SEXO conservado en ambas corridas');
   });
 
-  t('S6 A7: trazabilidad — FUENTE append sin duplicar + FECHA_ACTUALIZACION + REQUIERE_REVISION', function () {
+  t('S6 A7: conflicto observado no se registra como FUENTE aceptada; revisión sí estampa fecha', function () {
     var p = pac({ SEXO: 'M' }); // SEXO divergente vs fuente F → conflicto (puro, sin campos aplicados)
     var p2 = pac({ ID_INTERNO: 'EC-X-2', RUT: '98765432-1' });
     var fila1 = fila(n({ SEXO: 'F' })); // match con p: SEXO conflictivo
     var fila2 = fila(n({ RUT: '98765432-1', PREINGRESO: '2026-07-01' }), {
       ARCHIVO_ORIGEN: 'FUENTE B', HOJA_ORIGEN: 'HOJA 2', FILA_ORIGEN: '20' }); // match con p2
-    var res = Act_mergearPacientesDesdeStaging([fila1, fila2], [p, p2]);
+    var res = Act_mergearPacientesDesdeStaging_([fila1, fila2], [p, p2]);
     A.igual(res.revisados, 2, '2 filas revisadas');
     A.igual(res.conflictos, 1, 'conflicto en SEXO de p');
     A.igual(res.actualizados, 1, 'p2 actualizado');
     A.igual(res.campos, 1, '1 campo aplicado (PREINGRESO en p2)');
     A.igual(p.REQUIERE_REVISION, true, 'divergencia → REQUIERE_REVISION');
-    A.cierto(String(p.FUENTE).indexOf('FUENTE A|HOJA 1|10') !== -1, 'FUENTE anexa el origen del conflicto');
-    A.igual(String(p.FUENTE).split(';').filter(function (s) { return s === 'FUENTE A|HOJA 1|10'; }).length, 1,
-      'FUENTE no duplica segmentos');
-    A.igual(p.FECHA_ACTUALIZACION, null, 'conflicto puro sin aplicación no estampa fecha');
+    A.cierto(String(p.FUENTE).indexOf('FUENTE A|HOJA 1|10') === -1,
+      'FUENTE observada en conflicto no se presenta como cambio aceptado');
+    A.cierto(p.FECHA_ACTUALIZACION !== null, 'marcar REQUIERE_REVISION es un cambio real y estampa fecha');
     A.cierto(p2.FECHA_ACTUALIZACION !== null, 'aplicación estampa FECHA_ACTUALIZACION');
   });
 
   t('S6 A8: contrato de campos del merge (CAMPOS_MERGE_FUENTE)', function () {
-    var campos = Act_camposMerge();
+    var campos = Act_camposMerge_();
     A.arreglos(campos, CAMPOS_MERGE_FUENTE, 'campos exactos');
     ['NOMBRE', 'RUT', 'SECTOR', 'ESTADO', 'ESTRATIFICACION', 'FECHA_INGRESO', 'ID_INTERNO',
      'EDAD', 'TIPO_EVENTO', 'PROXIMO_CONTROL'].forEach(function (c) {
@@ -4991,14 +4990,14 @@ function _pruebas_actualizacion_v096(t, A) {
   });
 
   t('S6 A9: la cadena ACTUALIZAR es el mecanismo único de mantenimiento (v0.14: datos + motor visual único)', function () {
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     ['Modelo_asegurarEsquemaPacientes_', 'Modelo_alinearVistasSectoriales_', 'Fuentes_cargaReal',
-     'Act_enriquecerPacientes', 'Estrat_recalcularTodos_', 'Control_recalcularTodos',
+     'Act_enriquecerPacientes_', 'Estrat_recalcularTodos_', 'Control_recalcularTodos_',
      'Modelo_refrescarVistasSectores_', 'Libro_mantenimiento_', 'Libro_marcarDirty_']
       .forEach(function (f) {
         A.cierto(cadena.indexOf(f) !== -1, 'cadena integra ' + f);
       });
-    var resumen = Act_actualizarSistema.toString();
+    var resumen = Act_actualizarSistema_.toString();
     ['fuentesRevisadas', 'nuevos', 'actualizados', 'conflictos', 'camposActualizados',
      'enriquecidos'].forEach(function (k) {
       A.cierto(resumen.indexOf(k) !== -1, 'reporta ' + k);
@@ -5010,7 +5009,7 @@ function _pruebas_actualizacion_v096(t, A) {
 // S10-FIX: esquema canónico de vistas SECTOR_*, fórmula EDAD y migración
 // explícita 15→16 (BUG-E2E). Helper 100% puros + introspección de fuente.
 // ---------------------------------------------------------------------------
-function _pruebas_s10fix_esquema(t, A) {
+function _pruebas_s10fix_esquema_(t, A) {
   t('T1: esquema canónico SECTOR_* = 17 columnas con FECHA_NACIMIENTO idx4 y EDAD idx5', function () {
     A.igual(COLUMNAS_SECTOR_VISTA.length, 17, '17 columnas');
     A.igual(COLUMNAS_SECTOR_VISTA[4], 'FECHA_NACIMIENTO', 'FECHA_NACIMIENTO en índice 4');
@@ -5035,8 +5034,8 @@ function _pruebas_s10fix_esquema(t, A) {
     var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO',
       'ESTRATIFICACION','ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL',
       'PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
-    A.cierto(Modelo_esquemaVistaDivergente(viejo15), 'esquema 15-col divergente');
-    A.cierto(!Modelo_esquemaVistaDivergente(COLUMNAS_SECTOR_VISTA.slice()), 'esquema canónico bajo divergente');
+    A.cierto(Modelo_esquemaVistaDivergente_(viejo15), 'esquema 15-col divergente');
+    A.cierto(!Modelo_esquemaVistaDivergente_(COLUMNAS_SECTOR_VISTA.slice()), 'esquema canónico bajo divergente');
   });
 
   t('T4: reordenar migra fila 15→17 sin corrimiento (FECHA_NACIMIENTO→EDAD→TELEFONOS→RUT_DV)', function () {
@@ -5044,7 +5043,7 @@ function _pruebas_s10fix_esquema(t, A) {
       'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
     var fila = ['X-1','12345678-5','PACIENTE A','F','35','+56 9 5555 6666','TRUE','G','PENDIENTE',
       '10/01/2024','5/06/2026','8/06/2026','2/01/2027','INGRESO (x)','obs'];
-    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    var nueva = Modelo_reordenarFilaVista_(fila, viejo15);
     A.igual(nueva.length, 17, 'largo canónico');
     A.igual(nueva[0], 'X-1', 'ID_INTERNO');
     A.igual(nueva[1], '12345678-5', 'RUT');
@@ -5059,11 +5058,11 @@ function _pruebas_s10fix_esquema(t, A) {
   });
 
   t('T5: EDAD fórmula con separador ÚNICO ";" (sin "," entre argumentos)', function () {
-    var f1 = Utl_formulaEdad(5, 4);
+    var f1 = Utl_formulaEdad_(5, 4);
     A.igual(f1, '=IF(E4="";"";IFERROR(DATEDIF(E4;TODAY();"Y");""))', 'fórmula canónica 5,4');
     A.cierto(f1.indexOf(',') === -1, 'sin coma de separación de argumentos');
     A.cierto(f1.indexOf(';') !== -1, 'separador ; presente');
-    var f2 = Utl_formulaEdad(1, 12);
+    var f2 = Utl_formulaEdad_(1, 12);
     A.igual(f2, '=IF(A12="";"";IFERROR(DATEDIF(A12;TODAY();"Y");""))', 'fórmula canónica 1,12');
   });
 
@@ -5072,7 +5071,7 @@ function _pruebas_s10fix_esquema(t, A) {
       'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
     var fila = ['X-2','22222222-2','PACIENTE B','M','41','98665','FALSE','G1','PENDIENTE',
       '10/01/2024','','8/06/2026','','',''];
-    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    var nueva = Modelo_reordenarFilaVista_(fila, viejo15);
     A.igual(nueva[5], '41', 'EDAD 41 en idx5 tras migración');
     A.igual(nueva[6], '98665', 'tef resta en idx6');
   });
@@ -5081,7 +5080,7 @@ function _pruebas_s10fix_esquema(t, A) {
     var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
       'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
     var fila = ['X-3','33333333-3','PACIENTE C','F','','','','','','','','','','',''];
-    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    var nueva = Modelo_reordenarFilaVista_(fila, viejo15);
     A.arreglos(nueva.slice(0, 3), ['X-3', '33333333-3', 'PACIENTE C'], 'identidad conservada');
   });
 
@@ -5089,7 +5088,7 @@ function _pruebas_s10fix_esquema(t, A) {
     var viejo15 = ['ID_INTERNO','RUT','NOMBRE','SEXO','EDAD','TELEFONOS','RUT_DV_VALIDO','ESTRATIFICACION',
       'ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL','ULTIMO_EVENTO','OBSERVACIONES'];
     var fila = ['X-4','44444444-4','PACIENTE D','F','','999','','','PENDIENTE','','','','','','c'];
-    var nueva = Modelo_reordenarFilaVista(fila, viejo15);
+    var nueva = Modelo_reordenarFilaVista_(fila, viejo15);
     var presentes = 0;
     nueva.forEach(function (v) { if (v !== '') presentes++; });
     for (var i = 0; i < viejo15.length; i++) {
@@ -5101,7 +5100,7 @@ function _pruebas_s10fix_esquema(t, A) {
 
   t('T9: idempotente: encabezados canónicos → identidad (sin tocar datos)', function () {
     var filaCanonica = ['X-5','55555555-5','PACIENTE E','','','','','','','','','','','','','',''];
-    var nueva = Modelo_reordenarFilaVista(filaCanonica, COLUMNAS_SECTOR_VISTA.slice());
+    var nueva = Modelo_reordenarFilaVista_(filaCanonica, COLUMNAS_SECTOR_VISTA.slice());
     A.arreglos(nueva, filaCanonica, 'identidad sobre esquema canónico');
   });
 
@@ -5110,7 +5109,7 @@ function _pruebas_s10fix_esquema(t, A) {
       'ESTRATIFICACION','ESTADO','FECHA_INGRESO','ULTIMO_SEGUIMIENTO','ULTIMO_CONTROL','PROXIMO_CONTROL',
       'ULTIMO_EVENTO','OBSERVACIONES','COLUMNA_FANTASMA_X'];
     var fila = ['X-6','66666666-6','PACIENTE F','','2000-05-10','','989','','','','','','','','','','fantasma'];
-    var nueva = Modelo_reordenarFilaVista(fila, extra);
+    var nueva = Modelo_reordenarFilaVista_(fila, extra);
     A.igual(nueva.length, 17, 'solo canónicas');
     A.igual(nueva.indexOf('fantasma'), -1, 'valor de columna desconocida descartado');
   });
@@ -5119,16 +5118,16 @@ function _pruebas_s10fix_esquema(t, A) {
     var variantes = ['ID_INTERNO','RUT','NOMBRE','SEXO','fecha_nacimiento','EDAD','TELEFONOS','RUT_DV_VALIDO',
       'ESTRATIFICACION','ESTADO','FECHA INGRESO','ULTIMO SEGUIMIENTO','ULTIMO CONTROL','PROXIMO CONTROL',
       'ULTIMO EVENTO','OBSERVACIONES','SALUD MENTAL'];
-    A.cierto(!Modelo_esquemaVistaDivergente(variantes), 'mismas claves normalizadas → no divergente');
+    A.cierto(!Modelo_esquemaVistaDivergente_(variantes), 'mismas claves normalizadas → no divergente');
     var fila = ['X-7','77777777-7','PACIENTE G','F','2001-02-03','25','','TRUE','','','','','','','','','NO'];
-    var nueva = Modelo_reordenarFilaVista(fila, variantes);
+    var nueva = Modelo_reordenarFilaVista_(fila, variantes);
     A.igual(nueva[4], '2001-02-03', 'FECHA_NACIMIENTO mapeada desde variante');
     A.igual(nueva[10], '', 'FECHA INGRESO vacía (ausente en fila)');
     A.igual(nueva[16], 'NO', 'SALUD_MENTAL mapeada al final');
   });
 
   t('T12: Actualizar repara estructura y ejecuta la migración S10-FIX como paso EXPLÍCITO (no instalador)', function () {
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales_()') !== -1, 'migración explícita en Actualizar');
     A.cierto(cadena.indexOf('Modelo_asegurarEsquemaPacientes_') !== -1,
       'repara columnas faltantes de forma idempotente');
@@ -5143,10 +5142,10 @@ function _pruebas_s10fix_esquema(t, A) {
     var fn = Modelo_alinearVistaSector_.toString();
     A.cierto(fn.indexOf('HOJAS_SECTOR') !== -1, 'restringida a SECTOR_*');
     A.cierto(fn.indexOf('COLUMNAS_SECTOR_VISTA') !== -1, 'usa fuente única de verdad');
-    A.cierto(fn.indexOf('Modelo_reordenarFilaVista') !== -1, 'mapea por nombre');
-    A.cierto(fn.indexOf('Modelo_headerRow') !== -1, 'usa headerRow del contrato');
+    A.cierto(fn.indexOf('Modelo_reordenarFilaVista_') !== -1, 'mapea por nombre');
+    A.cierto(fn.indexOf('Modelo_headerRow_') !== -1, 'usa headerRow del contrato');
     A.cierto(fn.indexOf('appendRow') === -1 && fn.indexOf('insertRow') === -1, 'sin append/insert');
-    var cadena = Act_actualizarSistema.toString();
+    var cadena = Act_actualizarSistema_.toString();
     A.cierto(cadena.indexOf('Modelo_alinearVistasSectoriales_') !== -1, 'la cadena la invoca');
   });
 }
@@ -5156,7 +5155,7 @@ function _pruebas_s10fix_esquema(t, A) {
 // migraciones idempotentes, detección de instalaciones y LockService (DEC-059).
 // T1–T15: puras + introspección de fuente. Sin GAS ni datos reales.
 // ---------------------------------------------------------------------------
-function _pruebas_inst1_versionado(t, A) {
+function _pruebas_inst1_versionado_(t, A) {
   function _snap(opts) {
     opts = opts || {};
     var canon = COLUMNAS_SECTOR_VISTA.slice();
@@ -5168,9 +5167,9 @@ function _pruebas_inst1_versionado(t, A) {
     var datos = !!opts.datos;
     var hojas = {};
     criticas.forEach(function (n) {
-      var dat = Modelo_dataStartRow(n);
+      var dat = Modelo_dataStartRow_(n);
       hojas[n] = {
-        layout: Modelo_layoutHoja(n) === CONTRATO_LAYOUT_VISUAL ? 'visual' : 'simple',
+        layout: Modelo_layoutHoja_(n) === CONTRATO_LAYOUT_VISUAL ? 'visual' : 'simple',
         ultimaFila: datos ? dat + 2 : dat - 1,
         maxFilas: 500,
         maxCols: 30,
@@ -5191,7 +5190,7 @@ function _pruebas_inst1_versionado(t, A) {
     A.igual(SISTEMA_VERSION_SCHEMA_ACTUAL, 2, 'SISTEMA_VERSION_SCHEMA_ACTUAL = 2');
     A.igual(String(SISTEMA_VERSION_SCHEMA_ACTUAL), '2', 'esquema objetivo serializa a "2"');
     A.igual(SISTEMA_VERSION_INSTALADOR, 'INST-1', 'SISTEMA_VERSION_INSTALADOR = INST-1');
-    A.igual(String(ECICEP.VERSION || '').indexOf('0.16'), 0, 'versión de aplicación coherente (0.16.x)');
+    A.igual(String(ECICEP.VERSION || '').indexOf('0.17.0'), 0, 'versión de aplicación coherente (0.17.0)');
     A.igual(REGISTRO_MIGRACIONES.length, 2, 'dos migraciones declaradas (MIG-001 y MIG-002)');
     var vistos = {};
     var ultimoHasta = null;
@@ -5207,35 +5206,35 @@ function _pruebas_inst1_versionado(t, A) {
     var m001 = REGISTRO_MIGRACIONES.filter(function (m) { return m.id === 'MIG-001'; })[0];
     A.igual(m001.desde, '0', 'MIG-001 parte de esquema legado (0)');
     A.igual(m001.hasta, '1', 'MIG-001 llega a esquema 1');
-    A.igual(m001.fn, 'Mig_run001', 'MIG-001 ejecuta Mig_run001');
+    A.igual(m001.fn, 'Mig_run001_', 'MIG-001 ejecuta Mig_run001_');
     var m002 = REGISTRO_MIGRACIONES.filter(function (m) { return m.id === 'MIG-002'; })[0];
     A.igual(m002.desde, '1', 'MIG-002 parte de esquema 1');
     A.igual(m002.hasta, '2', 'MIG-002 llega a esquema 2');
-    A.igual(m002.fn, 'Mig_run002', 'MIG-002 ejecuta Mig_run002');
-    var api = api_instalarEtapas.toString();
+    A.igual(m002.fn, 'Mig_run002_', 'MIG-002 ejecuta Mig_run002_');
+    var api = api_instalarEtapas_.toString();
     A.cierto(api.indexOf('SISTEMA_VERSION_INSTALADOR') !== -1 && api.indexOf('SISTEMA_VERSION_SCHEMA_ACTUAL') !== -1,
-      'api_instalarEtapas expone instalador y esquema');
+      'api_instalarEtapas_ expone instalador y esquema');
   });
 
   t('T2: identificación de esquema por clave CONFIG (ausente≡0, ilegible→DESCONOCIDA, mayor→DIVERGENTE, faltan críticas→INCOMPLETA)', function () {
-    var ausente = Mig_clasificarInstalacion(_snap({ datos: true }), null, REGISTRO_MIGRACIONES);
+    var ausente = Mig_clasificarInstalacion_(_snap({ datos: true }), null, REGISTRO_MIGRACIONES);
     A.igual(ausente.version, '0', 'clave ausente ≡ 0');
     A.igual(ausente.estado, 'ANTIGUA', 'legada con datos → ANTIGUA');
-    var ilegible = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: 'abc' } }), null, REGISTRO_MIGRACIONES);
+    var ilegible = Mig_clasificarInstalacion_(_snap({ datos: true, config: { SCHEMA_VERSION: 'abc' } }), null, REGISTRO_MIGRACIONES);
     A.igual(ilegible.estado, 'DESCONOCIDA', 'versión ilegible → DESCONOCIDA');
     A.igual(ilegible.accion, 'manual', 'no se auto-migra ilegible');
-    var mayor = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '3' } }), null, REGISTRO_MIGRACIONES);
+    var mayor = Mig_clasificarInstalacion_(_snap({ datos: true, config: { SCHEMA_VERSION: '3' } }), null, REGISTRO_MIGRACIONES);
     A.igual(mayor.estado, 'DIVERGENTE', 'esquema superior al código → DIVERGENTE');
     A.igual(mayor.accion, 'manual', 'requiere atención humana');
-    var incompleta = Mig_clasificarInstalacion(_snap({ datos: true, faltantes: ['PACIENTES'] }), null, REGISTRO_MIGRACIONES);
+    var incompleta = Mig_clasificarInstalacion_(_snap({ datos: true, faltantes: ['PACIENTES'] }), null, REGISTRO_MIGRACIONES);
     A.igual(incompleta.estado, 'INCOMPLETA', 'faltan hojas críticas → INCOMPLETA');
     A.igual(incompleta.accion, 'reparar', 'accion de reparación');
-    var vigenteComoParametro = Mig_clasificarInstalacion(_snap({ datos: true }), '2', REGISTRO_MIGRACIONES);
+    var vigenteComoParametro = Mig_clasificarInstalacion_(_snap({ datos: true }), '2', REGISTRO_MIGRACIONES);
     A.igual(vigenteComoParametro.estado, 'VIGENTE', 'parámetro explícito respeta snapshot');
   });
 
   t('T3: instalación NUEVA (sin datos y sin versionar) se detecta y migra en cadena', function () {
-    var v = Mig_clasificarInstalacion(_snap({ datos: false }), null, REGISTRO_MIGRACIONES);
+    var v = Mig_clasificarInstalacion_(_snap({ datos: false }), null, REGISTRO_MIGRACIONES);
     A.igual(v.estado, 'NUEVA', 'sin datos → NUEVA');
     A.igual(v.version, '0', 'esquema 0');
     A.igual(v.hayDatos, false, 'sin datos');
@@ -5244,34 +5243,34 @@ function _pruebas_inst1_versionado(t, A) {
   });
 
   t('T4: instalación VIGENTE (esquema 2 canónico) sin migraciones pendientes', function () {
-    var v = Mig_clasificarInstalacion(_snap({ datos: true, config: { SCHEMA_VERSION: '2' } }), null, REGISTRO_MIGRACIONES);
+    var v = Mig_clasificarInstalacion_(_snap({ datos: true, config: { SCHEMA_VERSION: '2' } }), null, REGISTRO_MIGRACIONES);
     A.igual(v.estado, 'VIGENTE', 'estado VIGENTE');
     A.igual(v.version, '2', 'esquema 2');
     A.arreglos(v.pendientes, [], 'sin pendientes');
     A.arreglos(v.sectoresDivergentes, [], 'sectores canónicos');
     A.igual(v.accion, 'ninguna', 'accion ninguna');
-    A.arreglos(Mig_pendientesPura('2', REGISTRO_MIGRACIONES), [], 'desde 2 no hay pendientes');
+    A.arreglos(Mig_pendientesPura_('2', REGISTRO_MIGRACIONES), [], 'desde 2 no hay pendientes');
   });
 
   t('T5: instalación ANTIGUA legada (0) con vistas SECTOR_* divergentes → MIG-001 y MIG-002 pendientes', function () {
-    var v = Mig_clasificarInstalacion(_snap({ datos: true, divergente: true }), null, REGISTRO_MIGRACIONES);
+    var v = Mig_clasificarInstalacion_(_snap({ datos: true, divergente: true }), null, REGISTRO_MIGRACIONES);
     A.igual(v.estado, 'ANTIGUA', 'estado ANTIGUA');
     A.igual(v.version, '0', 'esquema 0');
     A.cierto(v.pendientes.indexOf('MIG-001') !== -1, 'MIG-001 pendiente');
     A.cierto(v.pendientes.indexOf('MIG-002') !== -1, 'MIG-002 pendiente');
     A.cierto(v.sectoresDivergentes.length === 3, 'las tres vistas SECTOR_* divergentes');
     A.igual(v.accion, 'migrar', 'accion migrar');
-    A.arreglos(Mig_pendientesPura('0', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }), ['MIG-001', 'MIG-002'], 'cadena desde 0');
+    A.arreglos(Mig_pendientesPura_('0', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }), ['MIG-001', 'MIG-002'], 'cadena desde 0');
   });
 
   t('T6: la clasificación y las pendientes son idempotentes (doble ejecución idéntica)', function () {
     var s = _snap({ datos: true, divergente: true });
-    var a = Mig_clasificarInstalacion(s, null, REGISTRO_MIGRACIONES);
-    var b = Mig_clasificarInstalacion(s, null, REGISTRO_MIGRACIONES);
+    var a = Mig_clasificarInstalacion_(s, null, REGISTRO_MIGRACIONES);
+    var b = Mig_clasificarInstalacion_(s, null, REGISTRO_MIGRACIONES);
     A.igual(a.estado, b.estado, 'mismo estado');
     A.arreglos(a.pendientes, b.pendientes, 'mismas pendientes');
     A.arreglos(a.sectoresDivergentes, b.sectoresDivergentes, 'mismos sectores divergentes');
-    A.arreglos(Mig_pendientesPura('0'), Mig_pendientesPura('0'), 'pendientes 0 doble llamada idéntica');
+    A.arreglos(Mig_pendientesPura_('0'), Mig_pendientesPura_('0'), 'pendientes 0 doble llamada idéntica');
   });
 
   t('T7: orden determinista de la cadena (desde ascendente, luego id.)', function () {
@@ -5281,23 +5280,23 @@ function _pruebas_inst1_versionado(t, A) {
       { id: 'MIG-003', desde: '1', hasta: '2', fn: 'Mig_stubA' },
       { id: 'MIG-002B', desde: '0', hasta: '1', fn: 'Mig_stubA' }
     ];
-    var ids = Mig_pendientesPura('0', reg, '3').map(function (m) { return m.id; });
+    var ids = Mig_pendientesPura_('0', reg, '3').map(function (m) { return m.id; });
     A.arreglos(ids, ['MIG-002', 'MIG-002B', 'MIG-003', 'MIG-004'], 'orden desde asc + id');
-    A.arreglos(Mig_pendientesPura('1', reg, '3').map(function (m) { return m.id; }), ['MIG-003', 'MIG-004'], 'desde 1 continúa la cadena restante');
-    A.arreglos(Mig_pendientesPura('3', reg, '3'), [], 'desde 3 no queda nada');
+    A.arreglos(Mig_pendientesPura_('1', reg, '3').map(function (m) { return m.id; }), ['MIG-003', 'MIG-004'], 'desde 1 continúa la cadena restante');
+    A.arreglos(Mig_pendientesPura_('3', reg, '3'), [], 'desde 3 no queda nada');
   });
 
   t('T8: el runner persiste SCHEMA_VERSION/LAST_MIGRATION tras cada éxito (test de contrato de persistencia)', function () {
-    var prev = globalThis._inst_configEscribir;
+    var prev = globalThis._inst_configEscribir_;
     var calls = [], restored = false;
     try {
-      globalThis._inst_configEscribir = function (clave, valor) { calls.push([clave, String(valor)]); };
+      globalThis._inst_configEscribir_ = function (clave, valor) { calls.push([clave, String(valor)]); };
       globalThis.Mig_stubA = function () { return { ok: true }; };
       var reg = [
         { id: 'MIG-A', desde: '0', hasta: '1', fn: 'Mig_stubA' },
         { id: 'MIG-B', desde: '1', hasta: '2', fn: 'Mig_stubA' }
       ];
-      var r = Mig_ejecutarDeclaradas(reg, { schemaVersion: '0', persistir: true, objetivo: '2' });
+      var r = Mig_ejecutarDeclaradas_(reg, { schemaVersion: '0', persistir: true, objetivo: '2' });
       A.igual(r.ok, true, 'ok');
       A.arreglos(r.aplicadas, ['MIG-A', 'MIG-B'], 'aplicadas en orden');
       A.igual(r.versionFinal, '2', 'versión final 2');
@@ -5307,11 +5306,11 @@ function _pruebas_inst1_versionado(t, A) {
       A.arreglos(calls[2], ['LAST_MIGRATION', 'MIG-B'], 'persiste LAST_MIGRATION de la 2ª');
       A.arreglos(calls[3], ['SCHEMA_VERSION', '2'], 'persiste SCHEMA_VERSION final');
     } finally {
-      if (prev) { globalThis._inst_configEscribir = prev; restored = true; }
-      else { delete globalThis._inst_configEscribir; }
+      if (prev) { globalThis._inst_configEscribir_ = prev; restored = true; }
+      else { delete globalThis._inst_configEscribir_; }
       delete globalThis.Mig_stubA;
     }
-    A.cierto(restored, 'se restaura _inst_configEscribir');
+    A.cierto(restored, 'se restaura _inst_configEscribir_');
   });
 
   t('T9: una migración fallida DETIENE la cadena y NO avanza la versión', function () {
@@ -5323,7 +5322,7 @@ function _pruebas_inst1_versionado(t, A) {
         { id: 'MIG-FAIL', desde: '1', hasta: '2', fn: 'Mig_stubFail' },
         { id: 'MIG-B', desde: '2', hasta: '3', fn: 'Mig_stubA' }
       ];
-      var r = Mig_ejecutarDeclaradas(reg, { schemaVersion: '0', persistir: false, objetivo: '3' });
+      var r = Mig_ejecutarDeclaradas_(reg, { schemaVersion: '0', persistir: false, objetivo: '3' });
       A.igual(r.ok, false, 'ok false');
       A.arreglos(r.aplicadas, ['MIG-A'], 'solo la primera aplicada');
       A.igual(r.versionFinal, '1', 'la versión NO avanza más allá del éxito previo');
@@ -5331,7 +5330,7 @@ function _pruebas_inst1_versionado(t, A) {
       A.igual(r.motivo, 'FALLO_TEST', 'propaga el motivo');
       // función ausente → también detiene sin marcar
       var rg2 = [{ id: 'MIG-X', desde: '0', hasta: '1', fn: 'Mig_stubNoExiste' }];
-      var r2 = Mig_ejecutarDeclaradas(rg2, { schemaVersion: '0', persistir: false });
+      var r2 = Mig_ejecutarDeclaradas_(rg2, { schemaVersion: '0', persistir: false });
       A.igual(r2.ok, false, 'función ausente → ok false');
       A.cierto(String(r2.motivo).indexOf('FUNCION_AUSENTE') !== -1, 'motivo de función ausente');
       A.arreglos(r2.aplicadas, [], 'nada aplicado');
@@ -5342,14 +5341,14 @@ function _pruebas_inst1_versionado(t, A) {
   });
 
   t('T10: el diagnóstico es SOLO LECTURA (escanea, nunca Modelo_crearEstructura_)', function () {
-    var fn = Instalar_diagnosticar.toString();
-    A.cierto(fn.indexOf('Modelo_escanearEstructura') !== -1, 'usa escaneo de solo lectura');
+    var fn = Instalar_diagnosticar_.toString();
+    A.cierto(fn.indexOf('Modelo_escanearEstructura_') !== -1, 'usa escaneo de solo lectura');
     A.cierto(fn.indexOf('Modelo_crearEstructura_') === -1, 'el diagnóstico NO repara estructura');
     A.cierto(fn.indexOf('versionado') !== -1, 'incluye el bloque versionado');
   });
 
-  t('T11: api_instalarPaso protege etapas mutantes con LockService', function () {
-    var fn = api_instalarPaso.toString();
+  t('T11: api_instalarPaso_ protege etapas mutantes con LockService', function () {
+    var fn = api_instalarPaso_.toString();
     A.cierto(fn.indexOf('LockService') !== -1, 'usa LockService');
     A.cierto(fn.indexOf('tryLock') !== -1, 'usa tryLock');
     A.cierto(fn.indexOf('releaseLock') !== -1, 'libera el lock');
@@ -5368,32 +5367,32 @@ function _pruebas_inst1_versionado(t, A) {
   });
 
   t('T12: Actualizar NO incorpora versionado ni ejecuta migraciones (separación S12/INST-1)', function () {
-    var todo = UI_actualizarTodo.toString();
-    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones_', 'SCHEMA_VERSION', '_inst_configEscribir'].forEach(function (f) {
-      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo no referencia ' + f);
+    var todo = UI_actualizarTodo_.toString();
+    ['Mig_', 'REGISTRO_MIGRACIONES', 'Instalar_pMigraciones_', 'SCHEMA_VERSION', '_inst_configEscribir_'].forEach(function (f) {
+      A.cierto(todo.indexOf(f) === -1, 'UI_actualizarTodo_ no referencia ' + f);
     });
-    var act = UI_actualizarSistema.toString();
+    var act = UI_actualizarSistema_.toString();
     ['Mig_', 'Instalar_pMigraciones_', 'SCHEMA_VERSION'].forEach(function (f) {
       A.cierto(act.indexOf(f) === -1, 'Actualizar no referencia ' + f);
     });
   });
 
   t('T13: la regresión BUG-E2E-003 queda protegida por MIG-001 (detección + re-aplicación)', function () {
-    var v = Mig_clasificarInstalacion(_snap({ datos: true, divergente: true, config: { SCHEMA_VERSION: '1' } }), null, REGISTRO_MIGRACIONES);
+    var v = Mig_clasificarInstalacion_(_snap({ datos: true, divergente: true, config: { SCHEMA_VERSION: '1' } }), null, REGISTRO_MIGRACIONES);
     A.igual(v.estado, 'ANTIGUA', 'esquema 1 con SECTOR_* divergentes → ANTIGUA (defensa)');
     A.cierto(v.sectoresDivergentes.length > 0, 'divergencia detectada');
-    var persistente = Mig_ejecutarPersistente.toString();
+    var persistente = Mig_ejecutarPersistente_.toString();
     A.cierto(persistente.indexOf('sectoresDivergentes') !== -1, 'defensa lee divergencia');
     A.cierto(persistente.indexOf("'MIG-001'") !== -1, 're-aplica MIG-001');
-    var run = Mig_run001.toString();
+    var run = Mig_run001_.toString();
     A.cierto(run.indexOf('Modelo_alinearVistaSector_') !== -1, 'MIG-001 migra por nombre (S10-FIX)');
     A.cierto(run.indexOf('ENCABEZADOS_INCOMPATIBLES') === -1, 'no oculta la incompatibilidad');
   });
 
   t('T14: el motor de migraciones no crea hojas ni filas; MIG-002 muta SOLO esquema (por nombre)', function () {
     var G = (typeof globalThis !== 'undefined') ? globalThis : this;
-    var motor = ['Mig_pendientesPura', 'Mig_clasificarInstalacion', 'Mig_ejecutarDeclaradas',
-      'Mig_ejecutarPersistente', 'Mig_schemaLeido', '_inst_configEscribir', 'Instalar_pMigraciones_'];
+    var motor = ['Mig_pendientesPura_', 'Mig_clasificarInstalacion_', 'Mig_ejecutarDeclaradas_',
+      'Mig_ejecutarPersistente_', 'Mig_schemaLeido_', '_inst_configEscribir_', 'Instalar_pMigraciones_'];
     motor.forEach(function (name) {
       var fn = G[name];
       A.cierto(typeof fn === 'function', name + ' existe');
@@ -5402,49 +5401,49 @@ function _pruebas_inst1_versionado(t, A) {
         A.cierto(src.indexOf(pal) === -1, name + ' sin ' + pal);
       });
     });
-    var run001 = G['Mig_run001'];
-    A.cierto(typeof run001 === 'function', 'Mig_run001 existe');
+    var run001 = G['Mig_run001_'];
+    A.cierto(typeof run001 === 'function', 'Mig_run001_ existe');
     ['appendRow', 'insertRow', 'insertRows', 'insertRowsAfter', 'insertSheet',
      'deleteRow', 'deleteRows', 'Modelo_crearEstructura_', 'PACIENTES', 'EVENTOS'].forEach(function (pal) {
-      A.cierto(run001.toString().indexOf(pal) === -1, 'Mig_run001 sin ' + pal + ' (puro de vistas)');
+      A.cierto(run001.toString().indexOf(pal) === -1, 'Mig_run001_ sin ' + pal + ' (puro de vistas)');
     });
-    var run002 = G['Mig_run002'];
-    A.cierto(typeof run002 === 'function', 'Mig_run002 existe');
+    var run002 = G['Mig_run002_'];
+    A.cierto(typeof run002 === 'function', 'Mig_run002_ existe');
     A.cierto(run002.toString().indexOf('Modelo_asegurarEsquemaPacientes_') !== -1,
       'MIG-002 asegura esquema PACIENTES por nombre');
     A.cierto(run002.toString().indexOf('Modelo_alinearVistasSectoriales_') !== -1,
       'MIG-002 alinea vistas SECTOR_* por nombre');
-    A.cierto(run002.toString().indexOf('_mig002_asegurarIngresosSaludMental') !== -1,
+    A.cierto(run002.toString().indexOf('_mig002_asegurarIngresosSaludMental_') !== -1,
       'MIG-002 agrega encabezado SALUD_MENTAL en INGRESO_*');
     ['appendRow', 'insertRow', 'insertRowsAfter', 'insertSheet',
      'deleteRow', 'deleteRows', 'Modelo_crearEstructura_'].forEach(function (pal) {
-      A.cierto(run002.toString().indexOf(pal) === -1, 'Mig_run002 sin ' + pal);
+      A.cierto(run002.toString().indexOf(pal) === -1, 'Mig_run002_ sin ' + pal);
     });
   });
 
   t('T15: sin duplicación: el runner no crea hojas ni filas y respeta idempotencia', function () {
-    var dec = Mig_ejecutarDeclaradas.toString();
+    var dec = Mig_ejecutarDeclaradas_.toString();
     ['appendRow', 'insertRow', 'insertRows', 'insertSheet', 'deleteRow', 'Modelo_crearEstructura_'].forEach(function (pal) {
-      A.cierto(dec.indexOf(pal) === -1, 'Mig_ejecutarDeclaradas sin ' + pal);
+      A.cierto(dec.indexOf(pal) === -1, 'Mig_ejecutarDeclaradas_ sin ' + pal);
     });
-    ['Mig_run001', 'Mig_run002'].forEach(function (fn) {
+    ['Mig_run001_', 'Mig_run002_'].forEach(function (fn) {
       var src = globalThis[fn].toString();
       ['insertSheet', 'appendRow', 'insertRow', 'deleteRow', 'append'].forEach(function (pal) {
         A.cierto(src.indexOf(pal) === -1, fn + ' sin ' + pal);
       });
     });
     // La cadena desde 1 solo deja MIG-002; al llegar al objetivo canónico no queda nada
-    A.arreglos(Mig_pendientesPura('1', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }),
+    A.arreglos(Mig_pendientesPura_('1', REGISTRO_MIGRACIONES).map(function (m) { return m.id; }),
       ['MIG-002'], 'desde 1 solo queda MIG-002');
-    A.arreglos(Mig_pendientesPura(String(SISTEMA_VERSION_SCHEMA_ACTUAL), REGISTRO_MIGRACIONES),
+    A.arreglos(Mig_pendientesPura_(String(SISTEMA_VERSION_SCHEMA_ACTUAL), REGISTRO_MIGRACIONES),
       [], 'tras llegar al objetivo no queda nada que migrar');
     globalThis.Mig_stubA = function () { return { ok: true }; };
     try {
       var reg = [{ id: 'MIG-STUB', desde: '0', hasta: String(SISTEMA_VERSION_SCHEMA_ACTUAL), fn: 'Mig_stubA' }];
-      var apply = Mig_ejecutarDeclaradas(reg, { schemaVersion: '0', persistir: false });
+      var apply = Mig_ejecutarDeclaradas_(reg, { schemaVersion: '0', persistir: false });
       A.igual(apply.ok, true, 'ejecución declarada (stub) ok');
       A.arreglos(apply.aplicadas, ['MIG-STUB'], 'aplica en cadena sin duplicar');
-      var apply2 = Mig_ejecutarDeclaradas(reg, { schemaVersion: String(SISTEMA_VERSION_SCHEMA_ACTUAL), persistir: false });
+      var apply2 = Mig_ejecutarDeclaradas_(reg, { schemaVersion: String(SISTEMA_VERSION_SCHEMA_ACTUAL), persistir: false });
       A.arreglos(apply2.aplicadas, [], 'segunda ejecución sin duplicar nada');
     } finally {
       delete globalThis.Mig_stubA;
@@ -5454,9 +5453,9 @@ function _pruebas_inst1_versionado(t, A) {
 
 // ---------------------------------------------------------------------------
 // INST-1.1 — Dashboard/INICIO: fórmulas legibles (fecha, sin serial crudo).
-function _pruebas_inicio_formulas(t, A) {
+function _pruebas_inicio_formulas_(t, A) {
   t('INI-1 v0.12: INICIO delega en la portada administrada por snapshots', function () {
-    var src = Hojas_crearInicio.toString();
+    var src = Hojas_crearInicio_.toString();
     A.cierto(src.indexOf('Inicio_construir_') !== -1, 'delega en Inicio_construir_');
     A.cierto(typeof Inicio_calcularMetricas_ === 'function', 'calculador agregado disponible');
   });
@@ -5468,89 +5467,89 @@ function _pruebas_inicio_formulas(t, A) {
   });
 }
 
-function _pruebas_ia_privacidad(t, A) {
+function _pruebas_ia_privacidad_(t, A) {
   t('IA: campos sensibles detectados (RUT, NOMBRE, TELEFONOS)', function () {
-    A.igual(IA_esCampoSensible('RUT'), true, 'RUT');
-    A.igual(IA_esCampoSensible('NOMBRE'), true, 'NOMBRE');
-    A.igual(IA_esCampoSensible('NOMBRE_NORMALIZADO'), true, 'NOMBRE_NORMALIZADO');
-    A.igual(IA_esCampoSensible('TELEFONOS'), true, 'TELEFONOS');
-    A.igual(IA_esCampoSensible('TELEFONO_OBS'), true, 'TELEFONO_OBS');
-    A.igual(IA_esCampoSensible('FECHA_NACIMIENTO'), true, 'FECHA_NACIMIENTO');
-    A.igual(IA_esCampoSensible('OBSERVACIONES'), true, 'OBSERVACIONES');
-    A.igual(IA_esCampoSensible('EMAIL'), true, 'EMAIL');
-    A.igual(IA_esCampoSensible('DIRECCION'), true, 'DIRECCION');
-    A.igual(IA_esCampoSensible('PROFESIONAL'), true, 'PROFESIONAL');
-    A.igual(IA_esCampoSensible('REGISTRADO_POR'), true, 'REGISTRADO_POR');
-    A.igual(IA_esCampoSensible('NOTA_SISTEMA'), true, 'NOTA_SISTEMA');
-    A.igual(IA_esCampoSensible('DUPLA_INGRESO'), true, 'DUPLA_INGRESO');
+    A.igual(IA_esCampoSensible_('RUT'), true, 'RUT');
+    A.igual(IA_esCampoSensible_('NOMBRE'), true, 'NOMBRE');
+    A.igual(IA_esCampoSensible_('NOMBRE_NORMALIZADO'), true, 'NOMBRE_NORMALIZADO');
+    A.igual(IA_esCampoSensible_('TELEFONOS'), true, 'TELEFONOS');
+    A.igual(IA_esCampoSensible_('TELEFONO_OBS'), true, 'TELEFONO_OBS');
+    A.igual(IA_esCampoSensible_('FECHA_NACIMIENTO'), true, 'FECHA_NACIMIENTO');
+    A.igual(IA_esCampoSensible_('OBSERVACIONES'), true, 'OBSERVACIONES');
+    A.igual(IA_esCampoSensible_('EMAIL'), true, 'EMAIL');
+    A.igual(IA_esCampoSensible_('DIRECCION'), true, 'DIRECCION');
+    A.igual(IA_esCampoSensible_('PROFESIONAL'), true, 'PROFESIONAL');
+    A.igual(IA_esCampoSensible_('REGISTRADO_POR'), true, 'REGISTRADO_POR');
+    A.igual(IA_esCampoSensible_('NOTA_SISTEMA'), true, 'NOTA_SISTEMA');
+    A.igual(IA_esCampoSensible_('DUPLA_INGRESO'), true, 'DUPLA_INGRESO');
   });
   t('IA: campos NO sensibles (técnicos/operativos)', function () {
-    A.igual(IA_esCampoSensible('ID_INTERNO'), false, 'ID_INTERNO');
-    A.igual(IA_esCampoSensible('ID_EVENTO'), false, 'ID_EVENTO');
-    A.igual(IA_esCampoSensible('SECTOR'), false, 'SECTOR');
-    A.igual(IA_esCampoSensible('ESTADO'), false, 'ESTADO');
-    A.igual(IA_esCampoSensible('FUENTE'), false, 'FUENTE');
-    A.igual(IA_esCampoSensible('FECHA_REGISTRO'), false, 'FECHA_REGISTRO');
-    A.igual(IA_esCampoSensible('FECHA_EVENTO'), false, 'FECHA_EVENTO');
-    A.igual(IA_esCampoSensible('ESTRATIFICACION'), false, 'ESTRATIFICACION');
-    A.igual(IA_esCampoSensible('SEXO'), false, 'SEXO');
+    A.igual(IA_esCampoSensible_('ID_INTERNO'), false, 'ID_INTERNO');
+    A.igual(IA_esCampoSensible_('ID_EVENTO'), false, 'ID_EVENTO');
+    A.igual(IA_esCampoSensible_('SECTOR'), false, 'SECTOR');
+    A.igual(IA_esCampoSensible_('ESTADO'), false, 'ESTADO');
+    A.igual(IA_esCampoSensible_('FUENTE'), false, 'FUENTE');
+    A.igual(IA_esCampoSensible_('FECHA_REGISTRO'), false, 'FECHA_REGISTRO');
+    A.igual(IA_esCampoSensible_('FECHA_EVENTO'), false, 'FECHA_EVENTO');
+    A.igual(IA_esCampoSensible_('ESTRATIFICACION'), false, 'ESTRATIFICACION');
+    A.igual(IA_esCampoSensible_('SEXO'), false, 'SEXO');
   });
   t('IA: columnaPorNombre resuelve por encabezado', function () {
     var datos = [
       ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR'],
       ['X-1', '1-1', 'ANA', 'NARANJO']
     ];
-    A.igual(IA_columnaPorNombre(datos, 'RUT'), 1, 'RUT idx 1');
-    A.igual(IA_columnaPorNombre(datos, 'NOMBRE'), 2, 'NOMBRE idx 2');
-    A.igual(IA_columnaPorNombre(datos, 'INEXISTENTE'), -1, 'falta → -1');
+    A.igual(IA_columnaPorNombre_(datos, 'RUT'), 1, 'RUT idx 1');
+    A.igual(IA_columnaPorNombre_(datos, 'NOMBRE'), 2, 'NOMBRE idx 2');
+    A.igual(IA_columnaPorNombre_(datos, 'INEXISTENTE'), -1, 'falta → -1');
   });
   t('IA: columnaPorNombre con datos vacíos o null', function () {
-    A.igual(IA_columnaPorNombre([], 'RUT'), -1, 'datos vacíos');
-    A.igual(IA_columnaPorNombre(null, 'RUT'), -1, 'null');
+    A.igual(IA_columnaPorNombre_([], 'RUT'), -1, 'datos vacíos');
+    A.igual(IA_columnaPorNombre_(null, 'RUT'), -1, 'null');
   });
 }
 
-function _pruebas_ia_v097(t, A) {
+function _pruebas_ia_v097_(t, A) {
   t('IA v0.97: parsearFecha solo devuelve ISO plenamente válida', function () {
-    A.igual(IA_parsearFecha('2026-03-14'), '2026-03-14', 'ISO válida');
-    A.igual(IA_parsearFecha('14/03/2026'), '2026-03-14', 'dd/mm/yyyy válida');
-    A.igual(IA_parsearFecha('2026-02-30'), null, 'calendario inexistente → null');
-    A.igual(IA_parsearFecha('03/2026'), null, 'mes/año ambiguo → null (no inventa)');
-    A.igual(IA_parsearFecha('28/13/2026'), null, 'mes 13 → null');
-    A.igual(IA_parsearFecha('cilantro'), null, 'texto → null');
-    A.igual(IA_parsearFecha(''), null, 'vacío → null');
-    A.igual(IA_parsearFecha(null), null, 'null → null');
-    A.igual(IA_parsearFecha(new Date(2026, 2, 14)), '2026-03-14', 'Date objeto válida');
-    A.igual(IA_parsearFecha(new Date(1960, 0, 1)), null, 'Date fuera de rango → null');
+    A.igual(IA_parsearFecha_('2026-03-14'), '2026-03-14', 'ISO válida');
+    A.igual(IA_parsearFecha_('14/03/2026'), '2026-03-14', 'dd/mm/yyyy válida');
+    A.igual(IA_parsearFecha_('2026-02-30'), null, 'calendario inexistente → null');
+    A.igual(IA_parsearFecha_('03/2026'), null, 'mes/año ambiguo → null (no inventa)');
+    A.igual(IA_parsearFecha_('28/13/2026'), null, 'mes 13 → null');
+    A.igual(IA_parsearFecha_('cilantro'), null, 'texto → null');
+    A.igual(IA_parsearFecha_(''), null, 'vacío → null');
+    A.igual(IA_parsearFecha_(null), null, 'null → null');
+    A.igual(IA_parsearFecha_(new Date(2026, 2, 14)), '2026-03-14', 'Date objeto válida');
+    A.igual(IA_parsearFecha_(new Date(1960, 0, 1)), null, 'Date fuera de rango → null');
   });
   t('IA v0.97: normalizarTelefono reutiliza el pipeline canónico (unión con /)', function () {
-    A.igual(IA_normalizarTelefono('912345678'), '912345678', 'número único');
-    A.igual(IA_normalizarTelefono('987654321 / 912345678'), '912345678/987654321', 'varios ordenados');
-    A.igual(IA_normalizarTelefono('+56987654321'), '987654321', 'código país descartado');
-    A.igual(IA_normalizarTelefono('llamar despues'), 'llamar despues', 'sin números → conserva original');
-    A.igual(IA_normalizarTelefono(''), '', 'vacío');
-    A.igual(IA_normalizarTelefono(null), '', 'null');
+    A.igual(IA_normalizarTelefono_('912345678'), '912345678', 'número único');
+    A.igual(IA_normalizarTelefono_('987654321 / 912345678'), '912345678/987654321', 'varios ordenados');
+    A.igual(IA_normalizarTelefono_('+56987654321'), '987654321', 'código país descartado');
+    A.igual(IA_normalizarTelefono_('llamar despues'), 'llamar despues', 'sin números → conserva original');
+    A.igual(IA_normalizarTelefono_(''), '', 'vacío');
+    A.igual(IA_normalizarTelefono_(null), '', 'null');
   });
   t('IA v0.97: indicesAgregar es equivalente incremental a construirIndices', function () {
     var p1 = { ID_INTERNO: 'P1', RUT: '12345678-5', NOMBRE: 'juan perez' };
     var p2 = { ID_INTERNO: 'P2', RUT: '12345678-4', NOMBRE: 'juan perez' };
     var p3 = { ID_INTERNO: 'P3', RUT: '98765432-1', NOMBRE: 'ana muñoz' };
     var p4 = { ID_INTERNO: 'P4', RUT: '', NOMBRE: 'sin rut' };
-    var inc = Iden_indicesAgregar(null, p1);
-    inc = Iden_indicesAgregar(inc, p2);
-    inc = Iden_indicesAgregar(inc, p3);
-    inc = Iden_indicesAgregar(inc, p4);
-    var full = Iden_construirIndices([p1, p2, p3, p4]);
+    var inc = Iden_indicesAgregar_(null, p1);
+    inc = Iden_indicesAgregar_(inc, p2);
+    inc = Iden_indicesAgregar_(inc, p3);
+    inc = Iden_indicesAgregar_(inc, p4);
+    var full = Iden_construirIndices_([p1, p2, p3, p4]);
     A.igual(JSON.stringify(inc), JSON.stringify(full), 'mismo índice que construirIndices');
     A.cierto(!!inc.porRut['12345678-5'], 'rut indexado');
     A.cierto(!inc.porRut['SIN RUT'], 'paciente sin rut no indexa');
     A.cierto(!!inc.porCuerpo['12345678'], 'cuerpo indexado');
-    var clave = Norm_claveNombre('juan perez');
+    var clave = Norm_claveNombre_('juan perez');
     A.igual(inc.porNombre[clave].length, 2, 'dos con mismo nombre');
   });
 }
 
-function _pruebas_ia_revision(t, A) {
+function _pruebas_ia_revision_(t, A) {
   var PAC_ENC = ['ID_INTERNO', 'RUT', 'NOMBRE', 'SECTOR', 'FECHA_INGRESO'];
   var EV_ENC = ['ID_EVENTO', 'ID_INTERNO', 'RUT', 'SECTOR', 'FECHA_EVENTO'];
 
@@ -5558,45 +5557,45 @@ function _pruebas_ia_revision(t, A) {
   t('IA revisión: paciente sin eventos detectado', function () {
     var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
     var ev = [ EV_ENC.slice() ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.igual(probs.length, 1, 'un problema');
     A.igual(probs[0].tipo, 'PACIENTE_SIN_EVENTOS', 'tipo');
-    A.igual(probs[0].fila, Modelo_dataStartRow(HOJAS.PACIENTES), 'fila física PACIENTES');
+    A.igual(probs[0].fila, Modelo_dataStartRow_(HOJAS.PACIENTES), 'fila física PACIENTES');
   });
   t('IA revisión: consistencia limpia con paciente y evento coincidente', function () {
     var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
     var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2026-02-10'] ];
-    A.igual(IA_revisarConsistencia(pac, ev).length, 0, 'sin problemas');
+    A.igual(IA_revisarConsistencia_(pac, ev).length, 0, 'sin problemas');
   });
   t('IA revisión: evento huérfano detectado', function () {
     var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
     var ev = [ EV_ENC.slice(), ['E1', 'NOEXISTE', '12345678-5', 'VERDE', '2026-02-10'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.cierto(probs.some(function (p) { return p.tipo === 'EVENTO_HUERFANO' && p.severidad === 'ERROR'; }),
       'EVENTO_HUERFANO presente');
     A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS'; }),
       'P1 no tiene eventos coincidentes → también SIN_EVENTOS');
   });
-  t('IA revisión: IA_eventosHuerfanos separa huérfanos de IDs vacíos', function () {
+  t('IA revisión: IA_eventosHuerfanos_ separa huérfanos de IDs vacíos', function () {
     var ev = [
       EV_ENC.slice(),
       ['E1', 'NOEXISTE', '12345678-5', 'VERDE', '2026-02-10'],   // huérfano (ID no existe)
       ['E2', '', '12345678-5', 'VERDE', '2026-02-10'],            // sin ID (no borrado)
       ['E3', 'P1', '12345678-5', 'VERDE', '2026-02-10']           // válido
     ];
-    var res = IA_eventosHuerfanos(ev, { P1: true });
+    var res = IA_eventosHuerfanos_(ev, { P1: true });
     A.igual(res.huerfanos.length, 1, 'solo un huérfano real');
     A.igual(res.huerfanos[0].id, 'NOEXISTE', 'ID del huérfano');
-    A.igual(res.huerfanos[0].fila, Modelo_dataStartRow(HOJAS.EVENTOS), 'fila física EVENTOS');
+    A.igual(res.huerfanos[0].fila, Modelo_dataStartRow_(HOJAS.EVENTOS), 'fila física EVENTOS');
     A.igual(res.sinId.length, 1, 'un evento sin ID_INTERNO aparte');
-    A.igual(res.sinId[0].fila, Modelo_dataStartRow(HOJAS.EVENTOS) + 1, 'fila física del sin ID');
+    A.igual(res.sinId[0].fila, Modelo_dataStartRow_(HOJAS.EVENTOS) + 1, 'fila física del sin ID');
     // Con tabla de datos vacía no revienta
-    A.igual(IA_eventosHuerfanos(null, {}).huerfanos.length, 0, 'null sin romper');
+    A.igual(IA_eventosHuerfanos_(null, {}).huerfanos.length, 0, 'null sin romper');
   });
   t('IA revisión: fecha anterior al ingreso NO se reporta (DEC-IA-2026-01)', function () {
     var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
     var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2025-12-31'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.cierto(!probs.some(function (p) { return p.tipo === 'EVENTO_FECHA_ANTERIOR_INGRESO'; }),
       'fecha anterior ignorada por política');
     A.cierto(!probs.some(function (p) { return p.tipo === 'SECTOR_EVENTO_DISTINTO'; }),
@@ -5606,7 +5605,7 @@ function _pruebas_ia_revision(t, A) {
     var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
     var ev = [ EV_ENC.slice(),
       ['E1', 'P1', '99999999-9', 'AMARILLO', '2026-02-10'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.cierto(probs.some(function (p) { return p.tipo === 'RUT_EVENTO_DISTINTO'; }), 'RUT discordante');
     A.cierto(!probs.some(function (p) { return p.tipo === 'SECTOR_EVENTO_DISTINTO'; }), 'sector distinto ignorado por política');
   });
@@ -5618,18 +5617,18 @@ function _pruebas_ia_revision(t, A) {
       ['P3', '12345678-5', 'LUIS PEREZ', 'VERDE', '2026-03-10']  // mismo RUT que P1
     ];
     var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2026-02-10'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_RUT_DUPLICADO'; }), 'RUT duplicado');
     A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_NOMBRE_DUPLICADO'; }), 'nombre duplicado');
-    A.cierto(!probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow(HOJAS.PACIENTES); }),
+    A.cierto(!probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow_(HOJAS.PACIENTES); }),
       'P1 con evento no se marca sin eventos');
     A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS'; }),
       'P2 y P3 sí se marcan sin eventos');
   });
   t('IA revisión: consistencia con datos vacíos no revienta', function () {
-    A.igual(IA_revisarConsistencia([], null).length, 0, 'vacíos');
-    A.igual(IA_revisarConsistencia(null, null).length, 0, 'null');
-    A.igual(IA_revisarConsistencia([['A']], [['A'], ['B']]).length, 0, 'sin ID_INTERNO');
+    A.igual(IA_revisarConsistencia_([], null).length, 0, 'vacíos');
+    A.igual(IA_revisarConsistencia_(null, null).length, 0, 'null');
+    A.igual(IA_revisarConsistencia_([['A']], [['A'], ['B']]).length, 0, 'sin ID_INTERNO');
   });
 
   // CAMPOS NUEVOS
@@ -5638,7 +5637,7 @@ function _pruebas_ia_revision(t, A) {
   t('IA revisión: calidad de campos detecta los problemas nuevos', function () {
     var filaMala = ['P1', '12345678-4', '', 'X', '2026-02-30', 'esto-no-es-fecha',
       'G9', 'INEXISTENTE', '', 'TRUE'];
-    var probs = IA_revisarCamposNuevos([CAMPOS_ENC.slice(), filaMala]);
+    var probs = IA_revisarCamposNuevos_([CAMPOS_ENC.slice(), filaMala]);
     var tipos = probs.map(function (p) { return p.tipo; });
     ['RUT_INVALIDO', 'SIN_NOMBRE', 'SEXO_INVALIDO', 'FECHA_NACIMIENTO_INVALIDA',
       'FECHA_INGRESO_INVALIDA', 'ESTRATIFICACION_INVALIDA', 'ESTADO_INVALIDO',
@@ -5648,14 +5647,14 @@ function _pruebas_ia_revision(t, A) {
   });
   t('IA revisión: RUT sin DV se clasifica RUT_INCOMPLETO', function () {
     var fila = CAMPOS_ENC.slice(); fila[0] = 'P1'; fila[1] = '12345678'; fila[2] = 'ANA';
-    var probs = IA_revisarCamposNuevos([CAMPOS_ENC.slice(), fila]);
+    var probs = IA_revisarCamposNuevos_([CAMPOS_ENC.slice(), fila]);
     A.cierto(probs.some(function (p) { return p.tipo === 'RUT_INCOMPLETO'; }), 'incompleto');
   });
   t('IA revisión: paciente limpio no genera problemas', function () {
     var filaLimpia = ['P1', '12345678-5', 'ANA MUÑOZ', 'F', '1990-05-01', '2026-01-10',
       'G1', 'INGRESADO', 'FUENTE|X|1', 'FALSE'];
-    A.igual(IA_revisarCamposNuevos([CAMPOS_ENC.slice(), filaLimpia]).length, 0, 'sin problemas');
-    A.igual(IA_revisarCamposNuevos([]).length, 0, 'bloque vacío');
+    A.igual(IA_revisarCamposNuevos_([CAMPOS_ENC.slice(), filaLimpia]).length, 0, 'sin problemas');
+    A.igual(IA_revisarCamposNuevos_([]).length, 0, 'bloque vacío');
   });
 
   // CRUCE CON FUENTES DE INGRESO
@@ -5666,29 +5665,29 @@ function _pruebas_ia_revision(t, A) {
       ['ANA', '12.345.678-5', 'INGRESADO'],
       ['OTRO', '7654321-3', 'PENDIENTE']
     ];
-    var res = IA_cruzarBloqueIngreso(rutsPac, 'INGRESO_AMARILLO', ing);
+    var res = IA_cruzarBloqueIngreso_(rutsPac, 'INGRESO_AMARILLO', ing);
     A.igual(res.totalFilas, 2, 'total filas');
     A.igual(res.totalConRut, 2, 'total con RUT');
     A.igual(res.sinEstado, 0, 'sin estado');
     A.igual(res.faltantes.length, 1, 'un faltante');
     A.igual(res.faltantes[0].rut, '7654321-3', 'RUT normalizado');
     A.igual(res.faltantes[0].estado, 'PENDIENTE', 'estado conservado');
-    A.igual(res.faltantes[0].fila, Modelo_dataStartRow('INGRESO_AMARILLO') + 1, 'fila física visual');
+    A.igual(res.faltantes[0].fila, Modelo_dataStartRow_('INGRESO_AMARILLO') + 1, 'fila física visual');
   });
   t('IA revisión: cruce cuenta estados vacíos', function () {
     var ing = [
       ['NOMBRE', 'RUT', 'ESTADO_INGRESO'],
       ['X', '7654321-3', '']
     ];
-    var res = IA_cruzarBloqueIngreso({}, 'INGRESO_AMARILLO', ing);
+    var res = IA_cruzarBloqueIngreso_({}, 'INGRESO_AMARILLO', ing);
     A.igual(res.sinEstado, 1, 'estado vacío contado');
     A.igual(res.faltantes.length, 1, 'faltante con SIN_ESTADO');
     A.igual(res.faltantes[0].estado, 'SIN_ESTADO', 'estado por defecto');
   });
   t('IA revisión: cruce con bloque vacío o sin RUT', function () {
-    A.igual(IA_cruzarBloqueIngreso({}, 'INGRESO_VERDE', []).totalFilas, 0, 'sin datos');
+    A.igual(IA_cruzarBloqueIngreso_({}, 'INGRESO_VERDE', []).totalFilas, 0, 'sin datos');
     var sinRut = [['NOMBRE'], ['ANA']];
-    A.igual(IA_cruzarBloqueIngreso({}, 'INGRESO_VERDE', sinRut).totalConRut, 0, 'sin columna RUT');
+    A.igual(IA_cruzarBloqueIngreso_({}, 'INGRESO_VERDE', sinRut).totalConRut, 0, 'sin columna RUT');
   });
   t('IA revisión: cruce ignora ecos de encabezado duplicado', function () {
     var ing = [
@@ -5696,7 +5695,7 @@ function _pruebas_ia_revision(t, A) {
       ['RUT', 'RUT', 'ESTADO_INGRESO'],   // fila de encabezado duplicada (eco)
       ['ANA', '12345678-5', 'INGRESADO']
     ];
-    var res = IA_cruzarBloqueIngreso({ '12345678-5': true }, 'INGRESO_NARANJA', ing);
+    var res = IA_cruzarBloqueIngreso_({ '12345678-5': true }, 'INGRESO_NARANJA', ing);
     A.igual(res.totalFilas, 2, 'total filas incluye el eco');
     A.igual(res.totalConRut, 1, 'el eco no se cuenta como RUT');
     A.igual(res.faltantes.length, 0, 'sin faltantes del eco');
@@ -5706,13 +5705,13 @@ function _pruebas_ia_revision(t, A) {
   t('IA revisión: celda de fecha como objeto Date no genera falso positivo', function () {
     var fila = ['P1', '12345678-5', 'ANA MUÑOZ', 'F', '1990-05-01', new Date(2026, 0, 10),
       'G1', 'INGRESADO', 'FUENTE|X|1', 'FALSE'];
-    A.igual(IA_revisarCamposNuevos([CAMPOS_ENC.slice(), fila]).length, 0,
+    A.igual(IA_revisarCamposNuevos_([CAMPOS_ENC.slice(), fila]).length, 0,
       'fecha Date válida no se marca inválida');
   });
   t('IA revisión: fecha Date fuera de rango sí se marca inválida', function () {
     var fila = ['P1', '12345678-5', 'ANA MUÑOZ', 'F', '1990-05-01', new Date(1960, 5, 1),
       'G1', 'INGRESADO', 'FUENTE|X|1', 'FALSE']; // FECHA_INGRESO 1960 < ANO_MIN
-    var probs = IA_revisarCamposNuevos([CAMPOS_ENC.slice(), fila]);
+    var probs = IA_revisarCamposNuevos_([CAMPOS_ENC.slice(), fila]);
     A.cierto(probs.some(function (p) { return p.tipo === 'FECHA_INGRESO_INVALIDA'; }),
       'fecha Date fuera de rango marcada');
   });
@@ -5721,7 +5720,7 @@ function _pruebas_ia_revision(t, A) {
   t('IA revisión: RUT con formato alternativo no genera falso positivo', function () {
     var pac = [ PAC_ENC.slice(), ['P1', '12345678-5', 'ANA MUÑOZ', 'VERDE', '2026-01-10'] ];
     var ev = [ EV_ENC.slice(), ['E1', 'P1', '12.345.678-5', 'VERDE', '2026-02-10'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.cierto(!probs.some(function (p) { return p.tipo === 'RUT_EVENTO_DISTINTO'; }),
       'RUT equivalente no se marca discordante');
     A.cierto(!probs.some(function (p) { return p.tipo === 'RUT_EVENTO_DISTINTO' && p.detalle.indexOf('12345678-5') !== -1; }),
@@ -5734,7 +5733,7 @@ function _pruebas_ia_revision(t, A) {
       ['P2', '12.345.678-5', 'ANA MUNOZ', 'VERDE', '2026-02-10']  // RUT con formato distinto, mismo normalizado
     ];
     var ev = [ EV_ENC.slice(), ['E1', 'P1', '12.345.678-5', 'VERDE', '2026-02-10'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
+    var probs = IA_revisarConsistencia_(pac, ev);
     A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_RUT_DUPLICADO'; }),
       'RUTs con distinto formato sí se detectan como duplicados');
   });
@@ -5743,7 +5742,7 @@ function _pruebas_ia_revision(t, A) {
   t('IA revisión: texto del reporte sin hallazgos muestra mensaje limpio', function () {
     var rep = { fecha: '15/09/2026 10:00:00', totalPacientes: 10, totalEventos: 20,
       totalProblemas: 0, porSeveridad: { ERROR: 0, WARNING: 0, INFO: 0 }, categorias: [] };
-    var txt = IA_textoRevision(rep);
+    var txt = IA_textoRevision_(rep);
     A.cierto(txt.indexOf('Total problemas: 0') !== -1, 'resumen 0 problemas');
     A.cierto(txt.indexOf('No se detectaron') !== -1, 'mensaje limpio presente');
   });
@@ -5754,7 +5753,7 @@ function _pruebas_ia_revision(t, A) {
         problemas: [
           { tipo: 'EVENTO_HUERFANO', severidad: 'ERROR', fila: 3, detalle: 'evento sin paciente (ID: E9)' }
         ] }] };
-    var txt = IA_textoRevision(rep);
+    var txt = IA_textoRevision_(rep);
     A.cierto(txt.indexOf('EVENTO_HUERFANO') !== -1, 'tipo listado');
     A.cierto(txt.indexOf('fila 3') !== -1, 'fila mostrada');
   });
@@ -5764,7 +5763,7 @@ function _pruebas_ia_revision(t, A) {
     var rep = { fecha: 'f', totalPacientes: 0, totalEventos: 0, totalProblemas: 180,
       porSeveridad: { ERROR: 0, WARNING: 180, INFO: 0 },
       categorias: [{ etiqueta: 'C', total: 180, problemas: probs }] };
-    var txt = IA_textoRevision(rep);
+    var txt = IA_textoRevision_(rep);
     A.cierto(txt.indexOf('detalle limitado') !== -1, 'aviso de límite incluido');
   });
 
@@ -5776,43 +5775,47 @@ function _pruebas_ia_revision(t, A) {
       ['P2', '87654321-1', 'LUIS PEREZ', 'VERDE', '2026-03-10']
     ];
     var ev = [ EV_ENC.slice(), ['E1', 'P1', '12345678-5', 'VERDE', '2026-02-10'] ];
-    var probs = IA_revisarConsistencia(pac, ev);
-    A.cierto(!probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow(HOJAS.PACIENTES); }),
+    var probs = IA_revisarConsistencia_(pac, ev);
+    A.cierto(!probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow_(HOJAS.PACIENTES); }),
       'P1 con evento no se marca sin eventos');
-    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow(HOJAS.PACIENTES) + 1; }),
+    A.cierto(probs.some(function (p) { return p.tipo === 'PACIENTE_SIN_EVENTOS' && p.fila === Modelo_dataStartRow_(HOJAS.PACIENTES) + 1; }),
       'P2 sí se marca sin eventos');
   });
 
   // ESTABILIDAD DEL DESPACHO (mejora #1)
   t('IA revisión: normalización de nombre de acción para el despacho', function () {
-    A.igual(IA_normalizarNombreAccion('revisar_todo()'), 'revisar_todo', 'con paréntesis');
-    A.igual(IA_normalizarNombreAccion('  corregir_ruts  '), 'corregir_ruts', 'con espacios');
-    A.igual(IA_normalizarNombreAccion('analizar_hoja(PACIENTES)'), 'analizar_hoja', 'con parámetros');
-    A.igual(IA_normalizarNombreAccion(''), '', 'vacío');
-    A.igual(IA_normalizarNombreAccion(null), '', 'null');
-    A.igual(IA_normalizarNombreAccion('revisar_consistencia()'), 'revisar_consistencia', 'nueva acción revisionista');
+    A.igual(IA_normalizarNombreAccion_('revisar_todo()'), 'revisar_todo', 'con paréntesis');
+    A.igual(IA_normalizarNombreAccion_('  corregir_ruts  '), 'corregir_ruts', 'con espacios');
+    A.igual(IA_normalizarNombreAccion_('analizar_hoja(PACIENTES)'), 'analizar_hoja', 'con parámetros');
+    A.igual(IA_normalizarNombreAccion_(''), '', 'vacío');
+    A.igual(IA_normalizarNombreAccion_(null), '', 'null');
+    A.igual(IA_normalizarNombreAccion_('revisar_consistencia()'), 'revisar_consistencia', 'nueva acción revisionista');
   });
 }
 
-function _pruebas_p0_auditoria_v098(t, A) {
+function _pruebas_p0_auditoria_v098_(t, A) {
   // P0: ID_EVENTO colisionaba en cada corrida (seqEv siempre arrancaba en 1)
-  t('P0 v0.98: Ev_nuevoId sin secuencia produce IDs random únicos', function () {
+  t('P0 v0.98: Ev_nuevoId_ sin secuencia produce IDs random únicos', function () {
     var ids = {};
     for (var i = 0; i < 60; i++) {
-      var id = Ev_nuevoId();
+      var id = Ev_nuevoId_();
       A.cierto(!ids[id], 'sin colisión en ' + id);
       ids[id] = true;
       A.cierto(id.indexOf('EV-') === 0, 'prefijo EV-');
       A.cierto(!/^EV-\d{4}$/.test(id), 'no es el secuencial viejo (EV-0001...)');
     }
   });
-  t('P0 v0.98: Ev_nuevoId con secuencia numérica conserva el modo tests', function () {
-    A.igual(Ev_nuevoId(5), 'EV-0005', 'secuencia 5');
-    A.igual(Ev_nuevoId(421), 'EV-0421', 'secuencia 421');
+  t('DEC-104: Ev_nuevoId_ secuencial solo por inyección explícita (modo tests)', function () {
+    A.igual(Ev_nuevoId_({ secuenciaTest: 5 }), 'EV-0005', 'secuencia 5');
+    A.igual(Ev_nuevoId_({ secuenciaTest: 421 }), 'EV-0421', 'secuencia 421');
+    // Un argumento posicional NO puede reintroducir IDs secuenciales en
+    // producción: sin objeto de opciones el generador es siempre automático.
+    A.cierto(!/^EV-\d{4}$/.test(Ev_nuevoId_(5)), 'un número suelto no activa el modo tests');
+    A.cierto(!/^EV-\d{4}$/.test(Ev_nuevoId_()), 'sin opciones → automático');
   });
   t('P0 v0.98: procesarFilas sin evSecuenciaInicial → ID_EVENTO random (no reinicia en 1)', function () {
     var store = { pacientes: [], eventos: [] };
-    Ingresos_procesarFilas([_stagingCaso('nuevoOk', 1)], store, {});
+    Ingresos_procesarFilas_([_stagingCaso_('nuevoOk', 1)], store, {});
     A.igual(store.eventos.length, 1, 'evento creado');
     var id = store.eventos[0].ID_EVENTO;
     A.cierto(typeof id === 'string' && id.length > 4, 'ID_EVENTO no vacío');
@@ -5820,15 +5823,15 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
   t('P0 v0.98: procesarFilas con evSecuenciaInicial → secuencial explícito (modo tests)', function () {
     var store = { pacientes: [], eventos: [] };
-    Ingresos_procesarFilas([_stagingCaso('nuevoOk', 1)], store, { evSecuenciaInicial: 7 });
+    Ingresos_procesarFilas_([_stagingCaso_('nuevoOk', 1)], store, { evSecuenciaInicial: 7 });
     A.igual(store.eventos[0].ID_EVENTO, 'EV-0007', 'secuencia respetada');
   });
-  // PII: Aud_anonRut existente se aplica a los logs (regresión)
-  t('P0 v0.98: Aud_anonRut enmascara RUT en logs', function () {
-    A.igual(Aud_anonRut('12345678-5'), '**.***.**78-5', 'RUT normalizado');
-    A.igual(Aud_anonRut('12.345.678-5'), '**.***.**78-5', 'RUT con puntos');
-    A.igual(Aud_anonRut('11111111-1'), '**.***.**11-1', 'DV explícito');
-    A.igual(Aud_anonRut(''), '', 'vacío');
+  // PII: Aud_anonRut_ existente se aplica a los logs (regresión)
+  t('P0 v0.98: Aud_anonRut_ enmascara RUT en logs', function () {
+    A.igual(Aud_anonRut_('12345678-5'), '**.***.**78-5', 'RUT normalizado');
+    A.igual(Aud_anonRut_('12.345.678-5'), '**.***.**78-5', 'RUT con puntos');
+    A.igual(Aud_anonRut_('11111111-1'), '**.***.**11-1', 'DV explícito');
+    A.igual(Aud_anonRut_(''), '', 'vacío');
   });
   // ACCESO UNIVERSAL (DEC-101): una sola credencial abre todo el sistema.
   // Los guards niegan cualquier credencial que no sea la vigente —incluida la
@@ -5853,24 +5856,24 @@ function _pruebas_p0_auditoria_v098(t, A) {
     try {
       var vigente = almacen.ECICEP_ACCESS_TOKEN;
       // DEC-102: el acceso universal concede SIEMPRE; el token ya no es puerta.
-      A.cierto(WebApp_autorizar(''), 'sin credencial también se autoriza (DEC-102)');
-      A.cierto(WebApp_autorizar('EXISTE'), 'una credencial arbitraria tampoco bloquea');
-      A.cierto(WebApp_autorizar(vigente), 'la credencial universal autoriza');
-      A.cierto(WebApp_autorizarBuscador(vigente), 'alias de operador acepta la universal');
-      A.cierto(WebApp_autorizarCaptura(vigente), 'alias de captura acepta la universal');
+      A.cierto(WebApp_autorizar_(''), 'sin credencial también se autoriza (DEC-102)');
+      A.cierto(WebApp_autorizar_('EXISTE'), 'una credencial arbitraria tampoco bloquea');
+      A.cierto(WebApp_autorizar_(vigente), 'la credencial universal autoriza');
+      A.cierto(WebApp_autorizarBuscador_(vigente), 'alias de operador acepta la universal');
+      A.cierto(WebApp_autorizarCaptura_(vigente), 'alias de captura acepta la universal');
       // Alias heredados vigentes siguen siendo equivalentes (QR/enlaces viejos).
       almacen.OPERADOR_ACCESS_TOKEN = 'b'.repeat(64);
       almacen.CAPTURA_ACCESS_TOKEN = 'c'.repeat(64);
-      A.cierto(WebApp_autorizar('b'.repeat(64)), 'alias heredado OPERADOR sigue autorizando');
-      A.cierto(WebApp_autorizar('c'.repeat(64)), 'alias heredado CAPTURA sigue autorizando');
-      A.cierto(WebApp_autorizar('d'.repeat(64)), 'una clave no vigente tampoco deniega: el token no decide');
+      A.cierto(WebApp_autorizar_('b'.repeat(64)), 'alias heredado OPERADOR sigue autorizando');
+      A.cierto(WebApp_autorizar_('c'.repeat(64)), 'alias heredado CAPTURA sigue autorizando');
+      A.cierto(WebApp_autorizar_('d'.repeat(64)), 'una clave no vigente tampoco deniega: el token no decide');
       delete almacen.ECICEP_ACCESS_TOKEN;
       delete almacen.OPERADOR_ACCESS_TOKEN;
       delete almacen.CAPTURA_ACCESS_TOKEN;
       var creada = WebApp_claveUniversal_();
       A.igual(creada.length, 64, 'la credencial se autoaprovisiona si falta');
       A.igual(almacen.ECICEP_ACCESS_TOKEN, creada, 'queda persistida en la clave canónica');
-      A.cierto(WebApp_autorizar(creada), 'la recién creada autoriza');
+      A.cierto(WebApp_autorizar_(creada), 'la recién creada autoriza');
     } finally {
       if (originalProps === undefined) { delete globalThis.PropertiesService; }
       else { globalThis.PropertiesService = originalProps; }
@@ -5890,9 +5893,9 @@ function _pruebas_p0_auditoria_v098(t, A) {
       }
     }
     ['', 'X', 'd'.repeat(64)].forEach(function (tok) {
-      A.cierto(noDeniega(function () { return api_buscar('EXISTE', tok); }), 'api_buscar no deniega (' + JSON.stringify(tok) + ')');
-      A.cierto(noDeniega(function () { return api_ficha('X', tok); }), 'api_ficha no deniega por acceso');
-      A.cierto(noDeniega(function () { return api_duplaGuardar('X', [], tok); }), 'api_duplaGuardar no deniega por acceso');
+      A.cierto(noDeniega(function () { return api_buscar_('EXISTE', tok); }), 'api_buscar_ no deniega (' + JSON.stringify(tok) + ')');
+      A.cierto(noDeniega(function () { return api_ficha_('X', tok); }), 'api_ficha_ no deniega por acceso');
+      A.cierto(noDeniega(function () { return api_duplaGuardar_('X', [], tok); }), 'api_duplaGuardar_ no deniega por acceso');
     });
   });
 
@@ -5939,12 +5942,12 @@ function _pruebas_p0_auditoria_v098(t, A) {
     };
     FORM_CONFIG.FORM_ID = 'a'.repeat(44) + 'X'; // aunque estuviera configurado…
     try {
-      var res = Form_instalarTrigger();
+      var res = Form_instalarTrigger_();
       A.igual(res.ok, false, 'el instalador de trigger está bloqueado');
       A.igual(res.motivo, 'GOOGLE_FORMS_INHABILITADO', 'motivo explícito (AGENTS)');
       A.igual(llamados, 0, 'no se invocó ScriptApp.newTrigger');
-      A.igual(Form_triggerInstalado(), false, 'sin trigger onFormSubmit activo');
-      A.cierto(typeof globalThis.Form_onFormSubmit === 'undefined', 'el manejador heredado fue retirado');
+      A.igual(Form_triggerInstalado_(), false, 'sin trigger onFormSubmit activo');
+      A.cierto(typeof globalThis.Form_onFormSubmit_ === 'undefined', 'el manejador heredado fue retirado');
     } finally {
       FORM_CONFIG.FORM_ID = formIdOriginal;
       if (originalScriptApp === undefined) { delete globalThis.ScriptApp; } else { globalThis.ScriptApp = originalScriptApp; }
@@ -5960,15 +5963,15 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7: SEXO validation usa valores canónicos M/F/OTRO (no F/M excluyente)', function () {
-    var normM = Norm_normalizarSexo('M');
-    var normF = Norm_normalizarSexo('F');
-    var normO = Norm_normalizarSexo('OTRO');
-    var normEmpty = Norm_normalizarSexo('');
+    var normM = Norm_normalizarSexo_('M');
+    var normF = Norm_normalizarSexo_('F');
+    var normO = Norm_normalizarSexo_('OTRO');
+    var normEmpty = Norm_normalizarSexo_('');
     A.igual(normM, 'M', 'M → M');
     A.igual(normF, 'F', 'F → F');
     A.igual(normO, 'OTRO', 'OTRO → OTRO');
     A.igual(normEmpty, '', 'vacío → vacío');
-    var normInvalido = Norm_normalizarSexo('X');
+    var normInvalido = Norm_normalizarSexo_('X');
     A.cierto(normInvalido !== 'X', 'valor inválido normalizado');
   });
 
@@ -5995,24 +5998,24 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(umbG3.minPuntaje, 5, 'G3 ≥ 5');
   });
 
-  t('S7: Act_actualizarSistema usa el motor único de presentación (v0.14, sin pipeline paralelo)', function () {
-    A.cierto(typeof Act_actualizarSistema === 'function', 'Act_actualizarSistema existe');
-    var src = Act_actualizarSistema.toString();
+  t('S7: Act_actualizarSistema_ usa el motor único de presentación (v0.14, sin pipeline paralelo)', function () {
+    A.cierto(typeof Act_actualizarSistema_ === 'function', 'Act_actualizarSistema_ existe');
+    var src = Act_actualizarSistema_.toString();
     A.cierto(src.indexOf('Libro_mantenimiento_') !== -1, 'invoca el motor único de presentación');
     A.cierto(src.indexOf('Libro_marcarDirty_') !== -1, 'marca dirty flags selectivos');
     A.cierto(src.indexOf('PRESENTACION_PENDIENTE') !== -1, 'fallo visual = advertencia (nunca error)');
-    A.cierto(src.indexOf('HVis_aplicarTodasLasSecciones') === -1, 'sin secciones paralelas');
-    A.cierto(src.indexOf('Modelo_validarIngresos') === -1, 'sin validaciones paralelas');
-    A.cierto(src.indexOf('Modelo_aplicarDiseno') === -1, 'sin diseño paralelo');
-    A.cierto(src.indexOf('Modelo_disenoHojas') === -1, 'sin INICIO paralelo');
-    A.cierto(src.indexOf('Hojas_colorearRutIngresos') === -1, 'sin coloreo RUT paralelo');
+    A.cierto(src.indexOf('HVis_aplicarTodasLasSecciones_') === -1, 'sin secciones paralelas');
+    A.cierto(src.indexOf('Modelo_validarIngresos_') === -1, 'sin validaciones paralelas');
+    A.cierto(src.indexOf('Modelo_aplicarDiseno_') === -1, 'sin diseño paralelo');
+    A.cierto(src.indexOf('Modelo_disenoHojas_') === -1, 'sin INICIO paralelo');
+    A.cierto(src.indexOf('Hojas_colorearRutIngresos_') === -1, 'sin coloreo RUT paralelo');
     A.cierto(src.indexOf('verificacion') !== -1, 'incluye paso de verificación');
   });
 
   t('S7: merge SEXO preserva valores canónicos M/F/OTRO', function () {
     var p = { ID_INTERNO:'E1', RUT:'11111111-1', NOMBRE:'TEST', SEXO:'M', FECHA_NACIMIENTO:'1990-01-01' };
     var n = { SEXO:'F' };
-    var r = Act_mergearPaciente(p, n);
+    var r = Act_mergearPaciente_(p, n);
     A.igual(p.SEXO, 'M', 'SEXO existente no sobrescrito por fuente');
     A.igual(r.aplicados.length, 0, 'sin campos aplicados (dato existente)');
   });
@@ -6020,7 +6023,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   t('S7: merge SEXO fill-only desde fuente cuando destino vacío', function () {
     var p = { ID_INTERNO:'E2', RUT:'22222222-2', NOMBRE:'TEST', SEXO:'', FECHA_NACIMIENTO:'' };
     var n = { SEXO:'M', FECHA_NACIMIENTO:'1985-06-15' };
-    var r = Act_mergearPaciente(p, n);
+    var r = Act_mergearPaciente_(p, n);
     A.igual(p.SEXO, 'M', 'SEXO completado desde fuente');
     A.igual(p.FECHA_NACIMIENTO, '1985-06-15', 'FECHA completada desde fuente');
     A.cierto(r.aplicados.length > 0, 'campos aplicados');
@@ -6028,15 +6031,15 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   // --- S7b: Segunda auditoría — gaps del pipeline ACTUALIZAR ---
   t('S7b: ACTUALIZAR delega validaciones al motor (v0.14, sin pipeline paralelo)', function () {
-    var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('Modelo_validarIngresos(Modelo_ss())') === -1,
+    var src = Act_actualizarSistema_.toString();
+    A.cierto(src.indexOf('Modelo_validarIngresos_(Modelo_ss_())') === -1,
       'sin llamada directa a validaciones (owner: etapa validaciones + motor)');
     A.cierto(src.indexOf('Libro_mantenimiento_') !== -1,
       'la presentación corre en el motor único');
   });
 
   t('S7b: ACTUALIZAR importa Amarillo ANTES de vistas y presentación (v0.14)', function () {
-    var src = Act_actualizarSistema.toString();
+    var src = Act_actualizarSistema_.toString();
     var idxAmarillo = src.indexOf('Amarillo_importarTodo_');
     var idxVistas = src.indexOf('Modelo_refrescarVistasSectores_');
     var idxMotor = src.indexOf('Libro_mantenimiento_');
@@ -6046,7 +6049,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7b: ACTUALIZAR tiene 8 hojas críticas en verificación', function () {
-    var src = Act_actualizarSistema.toString();
+    var src = Act_actualizarSistema_.toString();
     A.cierto(src.indexOf('HOJAS_SECTOR[0]') !== -1, 'verifica SECTOR_NARANJO');
     A.cierto(src.indexOf('HOJAS_SECTOR[1]') !== -1, 'verifica SECTOR_AMARILLO');
     A.cierto(src.indexOf('HOJAS_SECTOR[2]') !== -1, 'verifica SECTOR_VERDE');
@@ -6054,20 +6057,20 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7b: ACTUALIZAR reconstruye menú', function () {
-    var src = Act_actualizarSistema.toString();
+    var src = Act_actualizarSistema_.toString();
     A.cierto(src.indexOf('onOpen()') !== -1, 'llama onOpen() para rebuild menú');
   });
 
   t('S7b: ACTUALIZAR inspecciona hojas adicionales sin borrarlas', function () {
-    var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('Modelo_limpiarHojasResiduales') !== -1,
-      'consulta Modelo_limpiarHojasResiduales');
+    var src = Act_actualizarSistema_.toString();
+    A.cierto(src.indexOf('Modelo_limpiarHojasResiduales_') !== -1,
+      'consulta Modelo_limpiarHojasResiduales_');
   });
 
   t('S7b: ACTUALIZAR formatea INGRESO_* vía motor único (v0.14, sin HVis directo)', function () {
-    var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('HVis_formatearIngresos') === -1,
-      'sin HVis directo (formato:* del plan cubre INGRESO_* vía HVis_reconciliarHoja)');
+    var src = Act_actualizarSistema_.toString();
+    A.cierto(src.indexOf('HVis_formatearIngresos_') === -1,
+      'sin HVis directo (formato:* del plan cubre INGRESO_* vía HVis_reconciliarHoja_)');
     var plan = PRESENTACION_SUBPLAN_DISENO.map(function (t) { return t.id; });
     A.cierto(plan.indexOf('formato:INGRESO_NARANJO') !== -1, 'el plan cubre INGRESO_NARANJO');
     A.cierto(plan.indexOf('formato:INGRESO_AMARILLO') !== -1, 'el plan cubre INGRESO_AMARILLO');
@@ -6075,16 +6078,16 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7b: ACTUALIZAR colorea RUT vía motor único (v0.14, subtarea accesorios)', function () {
-    var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('Hojas_colorearRutIngresos') === -1,
+    var src = Act_actualizarSistema_.toString();
+    A.cierto(src.indexOf('Hojas_colorearRutIngresos_') === -1,
       'sin coloreo directo (subtarea accesorios del plan es el owner)');
   });
 
   t('S7b: ESTRATIFICACION - motor produce G1/G2/G3, nunca G0', function () {
-    var normG0 = Norm_normalizarEstratificacion('G0');
-    var normG1 = Norm_normalizarEstratificacion('G1');
-    var normG2 = Norm_normalizarEstratificacion('G2');
-    var normG3 = Norm_normalizarEstratificacion('G3');
+    var normG0 = Norm_normalizarEstratificacion_('G0');
+    var normG1 = Norm_normalizarEstratificacion_('G1');
+    var normG2 = Norm_normalizarEstratificacion_('G2');
+    var normG3 = Norm_normalizarEstratificacion_('G3');
     A.igual(normG0, '', 'G0 normalizado a vacío (no canonical)');
     A.igual(normG1, 'G1', 'G1 canonical');
     A.igual(normG2, 'G2', 'G2 canonical');
@@ -6092,13 +6095,13 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S7b: ESTRATIFICACION - paciente sin condiciones → vacío (no G0)', function () {
-    var r = Estrat_evaluar('', CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    var r = Estrat_evaluar_('', CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     A.igual(r.estado, 'SIN_DATOS', 'estado SIN_DATOS');
     A.igual(r.resultado, '', 'resultado vacío (no G0)');
   });
 
   t('S7b: SEXO dropdown permite vacío (setAllowInvalid true)', function () {
-    A.cierto(typeof Hojas_formatoCondicional === 'function', 'Hojas_formatoCondicional existe');
+    A.cierto(typeof Hojas_formatoCondicional_ === 'function', 'Hojas_formatoCondicional_ existe');
     var src = Hojas_aplicarValidaciones_.toString() + Hojas_validacionCampo_.toString();
     A.cierto(src.indexOf("setAllowInvalid(cfg.permitirVacio === true)") !== -1,
       'SEXO usa setAllowInvalid(true) — permite vacío');
@@ -6114,9 +6117,9 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   t('S7b: INSTALAR vs ACTUALIZAR — validaciones con owner único (v0.14)', function () {
     var srcI = Instalar_pValidaciones_.toString();
-    var srcA = Act_actualizarSistema.toString();
-    A.cierto(srcI.indexOf('Modelo_validarIngresos') !== -1, 'INSTALAR tiene validaciones');
-    A.cierto(srcA.indexOf('Modelo_validarIngresos') === -1,
+    var srcA = Act_actualizarSistema_.toString();
+    A.cierto(srcI.indexOf('Modelo_validarIngresos_') !== -1, 'INSTALAR tiene validaciones');
+    A.cierto(srcA.indexOf('Modelo_validarIngresos_') === -1,
       'ACTUALIZAR delega validaciones al motor (sin duplicar)');
     A.cierto(srcA.indexOf('Libro_mantenimiento_') !== -1, 'ACTUALIZAR usa el motor único');
   });
@@ -6150,17 +6153,17 @@ function _pruebas_p0_auditoria_v098(t, A) {
       ERRORES: [], WARNINGS: [], ESTADO_VALIDACION: 'OK',
       HOJA_ORIGEN: 'INGRESO_VERDE', FILA_ORIGEN: 2, FUENTE: 'TEST|INGRESO_VERDE|2'
     }];
-    var r = Ingresos_procesarFilas(staging, store, {
+    var r = Ingresos_procesarFilas_(staging, store, {
       nuevoId: function () { return 'EC-TEST-ESTRAT'; }
     });
     A.igual(r.resumen.nuevos, 1, '1 paciente nuevo');
     var pac = store.pacientes[0];
     A.igual(pac.ESTRATIFICACION, 'G2', 'paciente tiene ESTRATIFICACION=G2');
-    var fila = Modelo_filaDesdeObjeto(pac);
+    var fila = Modelo_filaDesdeObjeto_(pac);
     var idxEstr = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf('ESTRATIFICACION');
     A.igual(idxEstr, 8, 'ESTRATIFICACION en index 8');
     A.igual(fila[idxEstr], 'G2', 'fila columna I = G2');
-    var col = Hojas_columnaPaciente('ESTRATIFICACION');
+    var col = Hojas_columnaPaciente_('ESTRATIFICACION');
     A.igual(col, 'I', 'columna PACIENTES = I');
   });
 
@@ -6180,7 +6183,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
       ERRORES: [], WARNINGS: [], ESTADO_VALIDACION: 'OK',
       HOJA_ORIGEN: 'INGRESO_AMARILLO', FILA_ORIGEN: 3, FUENTE: 'TEST|INGRESO_AMARILLO|3'
     }];
-    var r = Ingresos_procesarFilas(staging, store, {
+    var r = Ingresos_procesarFilas_(staging, store, {
       nuevoId: function () { return 'EC-TEST-SINESTRAT'; }
     });
     A.igual(r.resumen.nuevos, 1, '1 paciente nuevo');
@@ -6205,13 +6208,13 @@ function _pruebas_p0_auditoria_v098(t, A) {
       ERRORES: [], WARNINGS: [], ESTADO_VALIDACION: 'OK',
       HOJA_ORIGEN: 'INGRESO_NARANJO', FILA_ORIGEN: 4, FUENTE: 'TEST|INGRESO_NARANJO|4'
     }];
-    var r = Ingresos_procesarFilas(staging, store, {
+    var r = Ingresos_procesarFilas_(staging, store, {
       nuevoId: function () { return 'EC-TEST-PRESERVAR'; }
     });
     var pac = store.pacientes[0];
     A.igual(pac.ESTRATIFICACION, 'G3', 'paciente tiene G3 de fuente');
     A.igual(pac.CONDICIONES, '', 'CONDICIONES vacío (sin datos del motor)');
-    var res = Estrat_evaluar(pac.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
+    var res = Estrat_evaluar_(pac.CONDICIONES, CATALOGO_CONDICIONES_ECICEP, CFG_ESTRATIFICACION);
     A.igual(res.estado, 'SIN_DATOS', 'motor no puede calcular (sin condiciones)');
     A.igual(res.resultado, '', 'motor resultado vacío');
     var nuevoValor = res.estado === 'CALCULADO' ? String(res.resultado) : '';
@@ -6222,8 +6225,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   // --- S8: ACTUALIZAR DATOS completo + PROXIMO_CONTROL editable ---
-  t('S8: api_actualizarPaciente existe y es función', function () {
-    A.cierto(typeof api_actualizarPaciente === 'function', 'api_actualizarPaciente definida');
+  t('S8: api_actualizarPaciente_ existe y es función', function () {
+    A.cierto(typeof api_actualizarPaciente_ === 'function', 'api_actualizarPaciente_ definida');
   });
 
   t('S8: _CAMPOS_EDITABLES_PACIENTE incluye todos los campos editables', function () {
@@ -6279,8 +6282,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(FORM_CONFIG.SECCIONES.clinico.indexOf('CONDICIONES') !== -1, true, 'CONDICIONES en sección clínico');
   });
 
-  t('S8: Form_validarRespuesta normaliza campos de ACTUALIZAR_DATOS', function () {
-    var r = Form_validarRespuesta({
+  t('S8: Form_validarRespuesta_ normaliza campos de ACTUALIZAR_DATOS', function () {
+    var r = Form_validarRespuesta_({
       ACCION: 'ACTUALIZAR_DATOS', RUT: '12345678-5', NOMBRE: 'Test User',
       SEXO: 'M', FECHA_NACIMIENTO: '1990-01-15', SECTOR: 'VERDE',
       ESTRATIFICACION: 'G2', TELEFONOS: '987654321', OBSERVACIONES: 'test obs',
@@ -6296,14 +6299,14 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.igual(r.normalizado.CONDICIONES, 'DM;HTA', 'condiciones preservadas');
   });
 
-  t('S8: Form_actualizarDatosPaciente usa la capa de dominio (no un wrapper api_*)', function () {
-    var src = Form_actualizarDatosPaciente.toString();
-    A.cierto(src.indexOf('Paciente_aplicarCampos_(') !== -1, 'Form_actualizarDatosPaciente llama Paciente_aplicarCampos_ (dominio, §42)');
-    A.cierto(src.indexOf('api_actualizarPaciente') === -1, 'el pipeline no depende de un wrapper api_* con token');
+  t('S8: Form_actualizarDatosPaciente_ usa la capa de dominio (no un wrapper api_*)', function () {
+    var src = Form_actualizarDatosPaciente_.toString();
+    A.cierto(src.indexOf('Paciente_aplicarCampos_(') !== -1, 'Form_actualizarDatosPaciente_ llama Paciente_aplicarCampos_ (dominio, §42)');
+    A.cierto(src.indexOf('api_actualizarPaciente_') === -1, 'el pipeline no depende de un wrapper api_* con token');
   });
 
   t('S8: Sidebar incluye código de edición de próximo control', function () {
-    A.cierto(typeof api_actualizarPaciente === 'function', 'api_actualizarPaciente disponible');
+    A.cierto(typeof api_actualizarPaciente_ === 'function', 'api_actualizarPaciente_ disponible');
     A.cierto(_CAMPOS_EDITABLES_PACIENTE.indexOf('PROXIMO_CONTROL') !== -1, 'PROXIMO_CONTROL en campos editables');
   });
 
@@ -6345,9 +6348,9 @@ function _pruebas_p0_auditoria_v098(t, A) {
   });
 
   t('S9: ACTUALIZAR — mantiene carga de fuentes', function () {
-    var src = Act_actualizarSistema.toString();
-    A.cierto(src.indexOf('Fuentes_cargaReal') !== -1, 'Act_actualizarSistema SÍ llama Fuentes_cargaReal');
-    A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1, 'Act_actualizarSistema SÍ llama Amarillo_importarTodo_');
+    var src = Act_actualizarSistema_.toString();
+    A.cierto(src.indexOf('Fuentes_cargaReal') !== -1, 'Act_actualizarSistema_ SÍ llama Fuentes_cargaReal');
+    A.cierto(src.indexOf('Amarillo_importarTodo_') !== -1, 'Act_actualizarSistema_ SÍ llama Amarillo_importarTodo_');
   });
 
   t('S9: INSTALAR tiene UNA fase principal de presentación (v0.14: visual/inicio absorbidas)', function () {
@@ -6365,19 +6368,19 @@ function _pruebas_p0_auditoria_v098(t, A) {
 
   // --- S10: Auditoría integral ---
   t('S10: eF/eV bug corregido — catch de vistas usa eV.message', function () {
-    var src = Act_actualizarSistema.toString();
+    var src = Act_actualizarSistema_.toString();
     // Debe usar eV.message, NO eF.message, en el catch de vistas
     var idxCatch = src.indexOf('catch (eV)');
-    A.cierto(idxCatch !== -1, 'catch (eV) existe en Act_actualizarSistema');
+    A.cierto(idxCatch !== -1, 'catch (eV) existe en Act_actualizarSistema_');
     var bloque = src.substring(idxCatch, idxCatch + 300);
     A.cierto(bloque.indexOf('eV.message') !== -1, 'usa eV.message (no eF.message)');
     A.cierto(bloque.indexOf('eF.message') === -1, 'NO usa eF.message');
   });
 
-  t('S10: Instalar_pEnriquecimiento reutiliza Act_enriquecerPacientes (fill-only, idempotente)', function () {
+  t('S10: Instalar_pEnriquecimiento reutiliza Act_enriquecerPacientes_ (fill-only, idempotente)', function () {
     var src = Instalar_pEnriquecimiento_.toString();
-    A.cierto(src.indexOf('Act_enriquecerPacientes') !== -1,
-      'Instalar_pEnriquecimiento SÍ llama Act_enriquecerPacientes');
+    A.cierto(src.indexOf('Act_enriquecerPacientes_') !== -1,
+      'Instalar_pEnriquecimiento SÍ llama Act_enriquecerPacientes_');
     A.cierto(src.indexOf('dryRun: false') !== -1,
       'ejecuta enriquecimiento real (fill-only SEXO/FECHA_NACIMIENTO)');
   });
@@ -6388,8 +6391,8 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(src.indexOf('Estrat_recalcularTodos_') === -1, 'no recalcula antes de Integridad');
   });
 
-  t('S10: Act_actualizarSistema trackea errores críticos', function () {
-    var src = Act_actualizarSistema.toString();
+  t('S10: Act_actualizarSistema_ trackea errores críticos', function () {
+    var src = Act_actualizarSistema_.toString();
     A.cierto(src.indexOf('_errores') !== -1, '_errores array existe');
     A.cierto(src.indexOf('reporte._errores.push(fase)') !== -1, 'registra cada fase fallida');
     A.cierto(src.indexOf('reporte.ok = false') !== -1, 'ok se pone false si hay errores');
@@ -6401,7 +6404,7 @@ function _pruebas_p0_auditoria_v098(t, A) {
     A.cierto(ecicepMatch, 'menú ECICEP existe');
     var items = ecicepMatch[1].match(/\.addItem/g);
     A.igual(items ? items.length : 0, 5, 'ECICEP tiene 5 items');
-    A.cierto(ecicepMatch[1].indexOf('UI_irInicio') === -1, 'Inicio no se duplica en menú');
+    A.cierto(ecicepMatch[1].indexOf('UI_irInicio_') === -1, 'Inicio no se duplica en menú');
   });
 
   t('S10: Menú Sistema — actualizar e instalar/reparar (v0.14: reparación visual e INICIO viven en el instalador)', function () {
@@ -6409,31 +6412,31 @@ function _pruebas_p0_auditoria_v098(t, A) {
     var sistemaMatch = src.match(/createMenu\('Sistema'\)([\s\S]*?)\.addToUi/);
     A.cierto(sistemaMatch, 'menú Sistema existe');
     var items = sistemaMatch[1].match(/\.addItem/g);
-    A.igual(items ? items.length : 0, 2, 'Sistema tiene 2 items');
-    A.cierto(sistemaMatch[1].indexOf("addItem('Actualizar sistema', 'UI_actualizarSistema')") !== -1,
+    A.igual(items ? items.length : 0, 3, 'Sistema tiene 3 items');
+    A.cierto(sistemaMatch[1].indexOf("addItem('Actualizar sistema', 'UI_actualizarSistema_')") !== -1,
       'Actualizar sistema está en el menú Sistema');
-    A.cierto(sistemaMatch[1].indexOf("addItem('Instalar / reparar', 'UI_instalarSistema')") !== -1,
+    A.cierto(sistemaMatch[1].indexOf("addItem('Instalar / reparar', 'UI_instalarSistema_')") !== -1,
       'Instalar / reparar está en el menú Sistema');
     // Contrato v0.13 obsoleto: estas capacidades siguen como wrappers internos
     // deprecated (34_LibroUX) pero ya no son acciones principales del menú.
-    A.cierto(sistemaMatch[1].indexOf('UI_repararPresentacion') === -1,
+    A.cierto(sistemaMatch[1].indexOf('UI_repararPresentacion_') === -1,
       'Reparar presentación ya no es item del menú (vive en el instalador)');
-    A.cierto(sistemaMatch[1].indexOf('UI_reconstruirInicio') === -1,
+    A.cierto(sistemaMatch[1].indexOf('UI_reconstruirInicio_') === -1,
       'Reconstruir portada INICIO ya no es item del menú (vive en el instalador)');
-    A.cierto(typeof UI_repararPresentacion === 'function', 'wrapper interno UI_repararPresentacion conservado');
-    A.cierto(typeof UI_reconstruirInicio === 'function', 'wrapper interno UI_reconstruirInicio conservado');
-    ['UI_actualizarInicio', 'ECICEP_autorizar', 'UI_abrirAcercaDe']
+    A.cierto(typeof UI_repararPresentacion_ === 'function', 'wrapper interno UI_repararPresentacion_ conservado');
+    A.cierto(typeof UI_reconstruirInicio_ === 'function', 'wrapper interno UI_reconstruirInicio_ conservado');
+    ['UI_actualizarInicio_', 'ECICEP_autorizar_', 'UI_abrirAcercaDe_']
       .forEach(function (fn) {
         A.cierto(sistemaMatch[1].indexOf(fn) === -1, fn + ' no se duplica en menú');
       });
   });
 
   t('S10: ECICEP.VERSION actualizado', function () {
-    A.cierto(ECICEP.VERSION === '0.16.3', 'VERSION es 0.16.3');
+    A.cierto(ECICEP.VERSION === '0.17.0', 'VERSION es 0.17.0');
   });
 
-  t('S10: Act_actualizarSistema propagación de errores de fuentes', function () {
-    var src = Act_actualizarSistema.toString();
+  t('S10: Act_actualizarSistema_ propagación de errores de fuentes', function () {
+    var src = Act_actualizarSistema_.toString();
     A.cierto(src.indexOf('reporte.fuentes.ok === false') !== -1, 'detecta fuentes.ok === false');
     A.cierto(src.indexOf('registrarFallo(\'fuentes\'') !== -1, 'registra fuentes como fase fallida');
   });

@@ -35,7 +35,7 @@ var HOJAS_NAV = [
 ];
 
 /** PURA: obtiene letra de columna (A, B, ..., Z, AA, AB, ...) a partir de índice 1-based. */
-function Hojas_indiceAColumna(idx) {
+function Hojas_indiceAColumna_(idx) {
   var letra = '';
   while (idx > 0) {
     var resto = (idx - 1) % 26;
@@ -46,26 +46,26 @@ function Hojas_indiceAColumna(idx) {
 }
 
 /** Alias v0.12, explícito y testeable, para columnas A1 más allá de Z. */
-function Hojas_columnaA1_(numero) { return Hojas_indiceAColumna(numero); }
+function Hojas_columnaA1_(numero) { return Hojas_indiceAColumna_(numero); }
 
 /** Resuelve una columna por nombre de campo desde el contrato vigente. */
 function Hojas_columnaCampo_(nombreHoja, campo) {
   var columnas = nombreHoja === HOJAS.PACIENTES
     ? MODELO_PACIENTE.map(function (c) { return c.campo; })
     : (_MODELO_HOJAS_DEF[nombreHoja] || []);
-  var buscada = Utl_claveAlnum(campo), idx = -1;
+  var buscada = Utl_claveAlnum_(campo), idx = -1;
   columnas.some(function (c, i) {
-    if (Utl_claveAlnum(c) === buscada) { idx = i + 1; return true; }
+    if (Utl_claveAlnum_(c) === buscada) { idx = i + 1; return true; }
     return false;
   });
   return idx;
 }
 
 /** PURA: obtiene la letra de columna para un campo en MODELO_PACIENTE. */
-function Hojas_columnaPaciente(campo) {
+function Hojas_columnaPaciente_(campo) {
   var idx = MODELO_PACIENTE.map(function (c) { return c.campo; }).indexOf(campo);
   if (idx === -1) return '';
-  return Hojas_indiceAColumna(idx + 1);
+  return Hojas_indiceAColumna_(idx + 1);
 }
 
 /** GAS helper: cantidad de FILAS GESTIONADAS de una hoja de datos, acotada por
@@ -79,7 +79,7 @@ function Hojas_filasGestionadas_(hoja, nombreHoja, opciones) {
       typeof hoja.getLastRow !== 'function') return 0;
   var dataStart = Number(opciones.filaInicial) > 0
     ? Number(opciones.filaInicial)
-    : Modelo_dataStartRow(nombreHoja);
+    : Modelo_dataStartRow_(nombreHoja);
   var buffer = (opciones.buffer === undefined) ? 250 : Number(opciones.buffer);
   if (!(buffer >= 0)) buffer = 250;
   var max = hoja.getMaxRows();
@@ -92,32 +92,32 @@ function Hojas_filasGestionadas_(hoja, nombreHoja, opciones) {
 
 /** PURA: rango de DATOS (col desde dataStartRow) para un campo de PACIENTES.
  *  Siempre deriva del contrato: jamás "A2:A" hardcoded. */
-function Hojas_rangoPaciente(campo) {
-  var col = Hojas_columnaPaciente(campo);
+function Hojas_rangoPaciente_(campo) {
+  var col = Hojas_columnaPaciente_(campo);
   if (!col) return '';
-  var ini = Modelo_dataStartRow(HOJAS.PACIENTES);
+  var ini = Modelo_dataStartRow_(HOJAS.PACIENTES);
   return col + ini + ':' + col;
 }
 
 /** PURA: rango de DATOS (col desde dataStartRow) para una hoja simple o visual
  *  según _MODELO_HOJAS_DEF / MODELO_PACIENTE. */
-function Hojas_rangoHoja(nombreHoja, campo) {
-  if (nombreHoja === HOJAS.PACIENTES) return Hojas_rangoPaciente(campo);
+function Hojas_rangoHoja_(nombreHoja, campo) {
+  if (nombreHoja === HOJAS.PACIENTES) return Hojas_rangoPaciente_(campo);
   var def = _MODELO_HOJAS_DEF[nombreHoja];
   var col = def && def.indexOf ? def.indexOf(campo) : -1;
   if (col < 0) return '';
-  var letra = Hojas_indiceAColumna(col + 1);
-  var ini = Modelo_dataStartRow(nombreHoja);
+  var letra = Hojas_indiceAColumna_(col + 1);
+  var ini = Modelo_dataStartRow_(nombreHoja);
   return letra + ini + ':' + letra;
 }
 
 /** PURA: genera fórmula de indicador de calidad para INICIO usando columnas
  *  reales de MODELO_PACIENTE y el dataStartRow del contrato (nunca A2:A). */
-function Hojas_formulaIndicador(tipo) {
-  var p = Hojas_rangoPaciente;
+function Hojas_formulaIndicador_(tipo) {
+  var p = Hojas_rangoPaciente_;
   switch (tipo) {
     case 'TOTAL_PAC':   return '=COUNTA(PACIENTES!' + p('ID_INTERNO') + ')';
-    case 'EVENTOS':     return '=COUNTA(EVENTOS!' + Hojas_rangoHoja(HOJAS.EVENTOS, 'ID_EVENTO') + ')';
+    case 'EVENTOS':     return '=COUNTA(EVENTOS!' + Hojas_rangoHoja_(HOJAS.EVENTOS, 'ID_EVENTO') + ')';
     case 'POR_REVISAR': return '=COUNTIF(PACIENTES!' + p('REQUIERE_REVISION') + ';TRUE)';
     case 'ESTRAT_PEND': return '=MAX(0;COUNTA(PACIENTES!' + p('ID_INTERNO') + ')' +
       '-COUNTIFS(PACIENTES!' + p('ID_INTERNO') + ';"<>";PACIENTES!' + p('ESTRATIFICACION') + ';"G1")' +
@@ -132,8 +132,8 @@ function Hojas_formulaIndicador(tipo) {
 
 /** PURA: fórmula de la alerta dinámica de INICIO. Solo lista incidencias con
  *  conteo > 0 (REGEXREPLACE elimina el separador final). Derivada del contrato. */
-function Hojas_formulaAlerta() {
-  var p = Hojas_rangoPaciente;
+function Hojas_formulaAlerta_() {
+  var p = Hojas_rangoPaciente_;
   var nRev = 'COUNTIF(PACIENTES!' + p('REQUIERE_REVISION') + ';TRUE)';
   var nRut = 'COUNTIF(PACIENTES!' + p('RUT_DV_VALIDO') + ';FALSE)';
   var nCtr = 'COUNTIF(PACIENTES!' + p('PROXIMO_CONTROL') + ';"<"&TODAY())';
@@ -147,20 +147,20 @@ function Hojas_formulaAlerta() {
 }
 
 /** PURA: fórmula de ingresos del mes (FECHA_INGRESO dentro del mes actual). */
-function Hojas_formulaIngresosMes() {
-  var p = Hojas_rangoPaciente('FECHA_INGRESO');
+function Hojas_formulaIngresosMes_() {
+  var p = Hojas_rangoPaciente_('FECHA_INGRESO');
   return '=COUNTIFS(PACIENTES!' + p + ';">="&EOMONTH(TODAY();-1)+1;PACIENTES!' + p + ';"<"&EOMONTH(TODAY();0)+1)';
 }
 
 /** PURA: fórmula de pacientes sin próximo control agendado (vacío o NSP). */
-function Hojas_formulaSinControl() {
-  var p = Hojas_rangoPaciente('PROXIMO_CONTROL');
+function Hojas_formulaSinControl_() {
+  var p = Hojas_rangoPaciente_('PROXIMO_CONTROL');
   return '=COUNTIF(PACIENTES!' + p + ';"")+COUNTIF(PACIENTES!' + p + ';"NSP")';
 }
 
 /** GAS: INICIO v0.12 — delega en el centro operativo basado en snapshot. */
-function Hojas_crearInicio(ss) {
-  return Inicio_construir_(ss || Modelo_ss());
+function Hojas_crearInicio_(ss) {
+  return Inicio_construir_(ss || Modelo_ss_());
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ function Hojas_crearInicio(ss) {
 // ---------------------------------------------------------------------------
 
 /** Fórmula compartida del semáforo de la agenda manual. */
-function Hojas_formulaProximoControl(letra, fila, estado) {
+function Hojas_formulaProximoControl_(letra, fila, estado) {
   var celda = '$' + letra + fila;
   if (estado === 'VENCIDO') return '=AND(' + celda + '<>"",' + celda + '<TODAY())';
   if (estado === 'PROXIMO') return '=AND(' + celda + '<>"",' + celda + '>=TODAY(),' + celda + '<=TODAY()+7)';
@@ -238,7 +238,7 @@ function Hojas_aplicarFormatoCondicional_(ss) {
    *  Fórmulas y rangos derivados del contrato (dataStartRow). */
   try {
     var p = ss.getSheetByName(HOJAS.PACIENTES);
-    var iniP = Modelo_dataStartRow(HOJAS.PACIENTES);
+    var iniP = Modelo_dataStartRow_(HOJAS.PACIENTES);
     if (p && p.getLastRow() >= iniP) {
       var filas = Math.max(Hojas_filasGestionadas_(p, HOJAS.PACIENTES), 1);
       var cRut = Hojas_columnaCampo_(HOJAS.PACIENTES, 'RUT'),
@@ -257,11 +257,11 @@ function Hojas_aplicarFormatoCondicional_(ss) {
         regla('=$' + lEst + iniP + '="G2"', DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, cEst, filas, 1)),
         regla('=$' + lEst + iniP + '="G3"', DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, cEst, filas, 1)),
         regla('=OR($' + lEst + iniP + '="",$' + lEst + iniP + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo, p.getRange(iniP, cEst, filas, 1)),
-        regla(Hojas_formulaProximoControl(lProx, iniP, 'VENCIDO'),
+        regla(Hojas_formulaProximoControl_(lProx, iniP, 'VENCIDO'),
           DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, p.getRange(iniP, cProx, filas, 1)),
-        regla(Hojas_formulaProximoControl(lProx, iniP, 'PROXIMO'),
+        regla(Hojas_formulaProximoControl_(lProx, iniP, 'PROXIMO'),
           DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, p.getRange(iniP, cProx, filas, 1)),
-        regla(Hojas_formulaProximoControl(lProx, iniP, 'VIGENTE'),
+        regla(Hojas_formulaProximoControl_(lProx, iniP, 'VIGENTE'),
           DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, p.getRange(iniP, cProx, filas, 1))
       ]);
     }
@@ -271,8 +271,8 @@ function Hojas_aplicarFormatoCondicional_(ss) {
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      var hr = Modelo_headerRow(nombre);
+      var ini = Modelo_dataStartRow_(nombre);
+      var hr = Modelo_headerRow_(nombre);
       if (!h || h.getLastRow() < hr) return;
       var colEstado = INGRESO_COLUMNAS.indexOf('ESTADO_INGRESO') + 1;
       var L = Hojas_columnaA1_(colEstado);
@@ -296,8 +296,8 @@ function Hojas_aplicarFormatoCondicional_(ss) {
   HOJAS_SECTOR.forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
-      var hr = Modelo_headerRow(nombre);
+      var ini = Modelo_dataStartRow_(nombre);
+      var hr = Modelo_headerRow_(nombre);
       if (!h || h.getLastRow() < hr) return;
       var colRut = COLUMNAS_SECTOR_VISTA.indexOf('RUT_DV_VALIDO') + 1;
       var colEst = COLUMNAS_SECTOR_VISTA.indexOf('ESTRATIFICACION') + 1;
@@ -317,11 +317,11 @@ function Hojas_aplicarFormatoCondicional_(ss) {
              h.getRange(ini, colEst, filas, 1)),
         regla('=OR($' + letraEst + ini + '="",$' + letraEst + ini + '="G")', DESIGN_SYSTEM.ESTADOS.REVISION.fondo,
              h.getRange(ini, colEst, filas, 1)),
-        regla(Hojas_formulaProximoControl(letraProx, ini, 'VENCIDO'),
+        regla(Hojas_formulaProximoControl_(letraProx, ini, 'VENCIDO'),
              DESIGN_SYSTEM.ESTADOS.VENCIDO.fondo, h.getRange(ini, colProx, filas, 1)),
-        regla(Hojas_formulaProximoControl(letraProx, ini, 'PROXIMO'),
+        regla(Hojas_formulaProximoControl_(letraProx, ini, 'PROXIMO'),
              DESIGN_SYSTEM.ESTADOS.PROXIMO.fondo, h.getRange(ini, colProx, filas, 1)),
-        regla(Hojas_formulaProximoControl(letraProx, ini, 'VIGENTE'),
+        regla(Hojas_formulaProximoControl_(letraProx, ini, 'VIGENTE'),
              DESIGN_SYSTEM.ESTADOS.VIGENTE.fondo, h.getRange(ini, colProx, filas, 1)),
         regla('=OR($' + letraProx + ini + '="",$' + letraProx + ini + '="NSP")',
              DESIGN_SYSTEM.ESTADOS.REVISION.fondo, h.getRange(ini, colProx, filas, 1))
@@ -332,8 +332,8 @@ function Hojas_aplicarFormatoCondicional_(ss) {
   /* CONFLICTOS: pendiente / resuelto (layout simple → dataStartRow=2) */
   try {
     var con = ss.getSheetByName(HOJAS.CONFLICTOS);
-    var iniC = Modelo_dataStartRow(HOJAS.CONFLICTOS);
-    var hrC = Modelo_headerRow(HOJAS.CONFLICTOS);
+    var iniC = Modelo_dataStartRow_(HOJAS.CONFLICTOS);
+    var hrC = Modelo_headerRow_(HOJAS.CONFLICTOS);
     if (con && con.getLastRow() >= hrC) {
       var rC = con.getRange(iniC, 9, Math.max(Hojas_filasGestionadas_(con, HOJAS.CONFLICTOS), 1), 1);
       aplicar(con, [
@@ -345,9 +345,9 @@ function Hojas_aplicarFormatoCondicional_(ss) {
 
   /* EVENTOS: color discreto únicamente en TIPO_EVENTO. */
   try {
-    var ev = ss.getSheetByName(HOJAS.EVENTOS), iniEv = Modelo_dataStartRow(HOJAS.EVENTOS);
+    var ev = ss.getSheetByName(HOJAS.EVENTOS), iniEv = Modelo_dataStartRow_(HOJAS.EVENTOS);
     var colTipo = Hojas_columnaCampo_(HOJAS.EVENTOS, 'TIPO_EVENTO');
-    if (ev && ev.getLastRow() >= Modelo_headerRow(HOJAS.EVENTOS) && colTipo > 0) {
+    if (ev && ev.getLastRow() >= Modelo_headerRow_(HOJAS.EVENTOS) && colTipo > 0) {
       var filasEv = Math.max(Hojas_filasGestionadas_(ev, HOJAS.EVENTOS), 1), letraTipo = Hojas_columnaA1_(colTipo);
       var rangoTipo = ev.getRange(iniEv, colTipo, filasEv, 1);
       aplicar(ev, [
@@ -366,14 +366,14 @@ function Hojas_aplicarFormatoCondicional_(ss) {
 
 /** GAS: filtros básicos en hojas de datos, anclados en headerRow del contrato
  *  (idempotente; si existe un filtro heredado mal anclado, se recrea). */
-function Hojas_filtros(ss) {
+function Hojas_filtros_(ss) {
   // Un filtro compartido cambia la vista de todos los colaboradores. v0.12
   // conserva los existentes y deja búsqueda/filtrado operativo en la Web App.
   return { filtros: 0, omitida: true, motivo: 'FILTROS_COMPARTIDOS_NO_AUTOMATICOS' };
 }
 
 /** GAS: oculta columnas técnicas (idempotente) — no cambia índices. */
-function Hojas_ocultarTecnicas(ss) {
+function Hojas_ocultarTecnicas_(ss) {
   var ocultas = 0;
   function ocultar(hoja, campos) {
     var nombre = hoja.getName();
@@ -397,7 +397,7 @@ function Hojas_ocultarTecnicas(ss) {
 }
 
 /** GAS: protecciones de ADVERTENCIA según categoría (#2: nunca bloqueo duro). */
-function Hojas_proteger(ss) {
+function Hojas_proteger_(ss) {
   var n = 0;
   function advertir(hoja, a1, desc) {
     desc = 'ECICEP:' + desc;
@@ -439,27 +439,27 @@ function Hojas_proteger(ss) {
 
 /** Compatibilidad histórica: la fase INICIO es dueña exclusiva de la
  *  portada. El resto de la presentación vive en 35_Presentacion.js. */
-function Modelo_disenoHojas() {
-  var ss = Modelo_ss();
-  var res = { inicio: Hojas_crearInicio(ss),
+function Modelo_disenoHojas_() {
+  var ss = Modelo_ss_();
+  var res = { inicio: Hojas_crearInicio_(ss),
     cond: { aplicadas: 0, omitida: true, errores: [] },
     filtros: { filtros: 0, omitida: true },
     ocultas: { ocultas: 0, omitida: true },
     protecciones: { protecciones: 0, omitida: true } };
-  Log_info('Hojas', 'inicio', JSON.stringify({ ok: res.inicio.ok !== false }));
-  Log_flush();
+  Log_info_('Hojas', 'inicio', JSON.stringify({ ok: res.inicio.ok !== false }));
+  Log_flush_();
   return res;
 }
 
 /** Colorea todas las celdas RUT en INGRESO_* según validación (idempotente).
  *  Fast-path 0.12.1: si la coloración actual ya coincide, cero escrituras. */
-function Hojas_colorearRutIngresos(ss) {
+function Hojas_colorearRutIngresos_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var ok = 0, fallidas = [];
   Object.keys(HOJAS_INGRESO).forEach(function (nombre) {
     try {
       var h = ss.getSheetByName(nombre);
-      var ini = Modelo_dataStartRow(nombre);
+      var ini = Modelo_dataStartRow_(nombre);
       if (!h || h.getLastRow() < ini) return;
       var colRut = INGRESO_COLUMNAS.indexOf('RUT') + 1;
       var cantidad = Hojas_filasGestionadas_(h, nombre);
@@ -468,10 +468,10 @@ function Hojas_colorearRutIngresos(ss) {
       var vals = h.getRange(ini, colRut, cantidad, 1).getValues();
       var backgrounds = [];
       for (var i = 0; i < vals.length; i++) {
-        var rut = Utl_texto(vals[i][0]);
+        var rut = Utl_texto_(vals[i][0]);
         if (!rut) { backgrounds.push(['']); continue; }
-        var norm = Norm_normalizarRut(rut);
-        var valido = norm.rut && Norm_validarRut(norm.rut);
+        var norm = Norm_normalizarRut_(rut);
+        var valido = norm.rut && Norm_validarRut_(norm.rut);
         backgrounds.push([valido ? DESIGN_SYSTEM.ESTADOS.OK.fondo : DESIGN_SYSTEM.ESTADOS.ERROR.fondo]);
       }
       var r = h.getRange(ini, colRut, backgrounds.length, 1);
@@ -506,7 +506,7 @@ function onEdit(e) {
     var esSector = HOJAS_SECTOR.indexOf(nombre) !== -1;
     if (!esIngreso && !esSector) return;
     var fila = e.range.getRow(), col = e.range.getColumn();
-    var ini = Modelo_dataStartRow(nombre);
+    var ini = Modelo_dataStartRow_(nombre);
     if (fila < ini) return;
 
     var colRut;
@@ -523,11 +523,11 @@ function onEdit(e) {
       celda.setBackground(null).setNote(null);
       return;
     }
-    var norm = Norm_normalizarRut(String(crudo));
+    var norm = Norm_normalizarRut_(String(crudo));
     if (norm.rut && norm.rut !== String(crudo).trim() && e.value === String(crudo)) {
       celda.setValue(norm.rut);
     }
-    var valido = norm.rut && Norm_validarRut(norm.rut);
+    var valido = norm.rut && Norm_validarRut_(norm.rut);
     celda.setBackground(valido ? DESIGN_SYSTEM.ESTADOS.OK.fondo : DESIGN_SYSTEM.ESTADOS.ERROR.fondo);
     celda.setNote(valido ? '✓ RUT válido' :
       '❌ RUT inválido (revisa dígito verificador o formato)');
@@ -539,7 +539,7 @@ function onEdit(e) {
     var colVals = sh.getRange(ini, col, Math.max(sh.getLastRow() - ini + 1, 1), 1).getValues();
     var cnt = 0;
     colVals.forEach(function (r) {
-      if (Utl_texto(r[0]).toUpperCase() === ultimo.toUpperCase()) cnt++;
+      if (Utl_texto_(r[0]).toUpperCase() === ultimo.toUpperCase()) cnt++;
     });
     if (cnt > 1) celda.setNote('⚠ Posible duplicado (' + cnt + ' filas con este RUT)');
   } catch (err) { /* simple trigger: jamás interrumpir al usuario */ }
@@ -556,14 +556,14 @@ function onEdit(e) {
  * @returns {ok, backupUrl?, hojasEliminadas}
  */
 function Hojas_resetFabrica_(conBackup) {
-  var ss = Modelo_ss();
+  var ss = Modelo_ss_();
   var backupUrl = null;
   if (conBackup) {
     var nombreBackup = 'BACKUP_ECICEP_' + Utilities.formatDate(new Date(),
       Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
     var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombreBackup);
     backupUrl = copia.getUrl();
-    Log_info('Fabrica', 'reset', 'Backup creado: ' + nombreBackup);
+    Log_info_('Fabrica', 'reset', 'Backup creado: ' + nombreBackup);
   }
   var primera = ss.getSheets()[0];
   ss.getSheets().forEach(function (sh) {
@@ -573,15 +573,15 @@ function Hojas_resetFabrica_(conBackup) {
   primera.setName('Hoja 1');
   primera.setTabColor(null);
   if (primera.getFilter()) primera.getFilter().remove();
-  Log_warning('Fabrica', 'reset', 'Todas las hojas eliminadas (' +
+  Log_warning_('Fabrica', 'reset', 'Todas las hojas eliminadas (' +
     (conBackup ? 'con backup' : 'SIN backup') + ')');
-  Log_flush();
+  Log_flush_();
   return { ok: true, backupUrl: backupUrl };
 }
 
 /** GAS: confirmación en dos pasos con palabra clave. */
-function UI_resetFabrica(conBackup) {
-  var ui = _UI_get();
+function UI_resetFabrica_(conBackup) {
+  var ui = _UI_get_();
   var r1 = ui.prompt(
     '⚠️ RESET DE FÁBRICA — Paso 1/2',
     'Esto ELIMINARÁ TODAS las hojas y datos del spreadsheet\n' +
@@ -589,7 +589,7 @@ function UI_resetFabrica(conBackup) {
     'Escribe ELIMINAR para continuar:',
     ui.ButtonSet.OK_CANCEL);
   if (r1.getSelectedButton() !== ui.Button.OK) return;
-  if (Utl_texto(r1.getResponseText()).trim() !== 'ELIMINAR') {
+  if (Utl_texto_(r1.getResponseText()).trim() !== 'ELIMINAR') {
     ui.alert('Palabra incorrecta — operación cancelada.');
     return;
   }
@@ -600,7 +600,7 @@ function UI_resetFabrica(conBackup) {
     'Escribe SI para crear backup, NO para borrar sin backup:',
     ui.ButtonSet.OK_CANCEL);
   if (r2.getSelectedButton() !== ui.Button.OK) return;
-  var resp = Utl_texto(r2.getResponseText()).trim().toUpperCase();
+  var resp = Utl_texto_(r2.getResponseText()).trim().toUpperCase();
   if (resp !== 'SI' && resp !== 'NO') {
     ui.alert('Respuesta inválida — operación cancelada.');
     return;
@@ -627,9 +627,9 @@ var BACKUP_FOLDER_NOMBRE = 'ECICEP_Backups';
  *  Aislamiento DEV/DEMO: usa BACKUP_FOLDER_ID del entorno si está configurado;
  *  si no, deriva el nombre 'ECICEP_Backups_<ENV>' (DEV ≠ DEMO jamás comparten).
  *  Si el entorno es desconocido, cae al nombre genérico (solo lectura segura). */
-function _backup_folder() {
-  var cur = Entorno_actualGAS();
-  var idEsperado = Entorno_recursoEsperado(cur.entorno, 'BACKUP_FOLDER_ID');
+function _backup_folder_() {
+  var cur = Entorno_actualGAS_();
+  var idEsperado = Entorno_recursoEsperado_(cur.entorno, 'BACKUP_FOLDER_ID');
   if (idEsperado) {
     try {
       var fById = DriveApp.getFolderById(idEsperado);
@@ -638,49 +638,49 @@ function _backup_folder() {
   }
   var nombre = cur.entorno === 'DESCONOCIDO'
     ? BACKUP_FOLDER_NOMBRE
-    : Entorno_carpetaEsperada(cur.entorno);
+    : Entorno_carpetaEsperada_(cur.entorno);
   var folders = DriveApp.getFoldersByName(nombre);
   if (folders.hasNext()) return folders.next();
   var creada = DriveApp.createFolder(nombre);
-  Log_info('Backup', 'carpeta', 'creada ' + nombre, null, null);
+  Log_info_('Backup', 'carpeta', 'creada ' + nombre, null, null);
   return creada;
 }
 
 /** Solo lectura: busca la carpeta sin crear recursos durante un diagnóstico. */
 function _backup_folderExistente_() {
-  var cur = Entorno_actualGAS();
-  var id = Entorno_recursoEsperado(cur.entorno, 'BACKUP_FOLDER_ID');
+  var cur = Entorno_actualGAS_();
+  var id = Entorno_recursoEsperado_(cur.entorno, 'BACKUP_FOLDER_ID');
   if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
-  var nombre = cur.entorno === 'DESCONOCIDO' ? BACKUP_FOLDER_NOMBRE : Entorno_carpetaEsperada(cur.entorno);
+  var nombre = cur.entorno === 'DESCONOCIDO' ? BACKUP_FOLDER_NOMBRE : Entorno_carpetaEsperada_(cur.entorno);
   var folders = DriveApp.getFoldersByName(nombre);
   return folders.hasNext() ? folders.next() : null;
 }
 
 /** Obtiene el límite de retención desde CONFIG (editable por el usuario). */
-function _backup_mantener() {
-  var v = parseInt(_config_leerValores(['BACKUP_MANTENER'])['BACKUP_MANTENER'], 10);
+function _backup_mantener_() {
+  var v = parseInt(_config_leerValores_(['BACKUP_MANTENER'])['BACKUP_MANTENER'], 10);
   return (v > 0) ? v : BACKUP_DEFAULT_MANTENER;
 }
 
 /** GAS: crea backup completo en carpeta dedicada. */
 function Backup_crear_(etiqueta) {
   try {
-    var ss = Modelo_ss();
+    var ss = Modelo_ss_();
     var tz = Session.getScriptTimeZone();
     var ts = Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss');
-    etiqueta = Utl_texto(etiqueta || 'MANUAL').toUpperCase();
+    etiqueta = Utl_texto_(etiqueta || 'MANUAL').toUpperCase();
     var prefijo = etiqueta === 'AUTO' ? BACKUP_PREFIJO_AUTO
       : (etiqueta.indexOf('PRE_') === 0 ? BACKUP_PREFIJO_PRE : BACKUP_PREFIJO_MAN);
     var nombre = prefijo + (etiqueta.indexOf('PRE_') === 0 ? '_' + etiqueta : '') + '_' + ts;
-    var folder = _backup_folder();
+    var folder = _backup_folder_();
     var copia = DriveApp.getFileById(ss.getId()).makeCopy(nombre, folder);
     var tamano = copia.getSize();
-    Log_info('Backup', 'crear', nombre + ' · ' + tamano + ' bytes');
-    Log_flush();
+    Log_info_('Backup', 'crear', nombre + ' · ' + tamano + ' bytes');
+    Log_flush_();
     return { ok: true, nombre: nombre, url: copia.getUrl(), id: copia.getId(), tamano: tamano };
   } catch (e) {
-    Log_error('Backup', 'crear', e && e.message ? e.message : String(e));
-    Log_flush();
+    Log_error_('Backup', 'crear', e && e.message ? e.message : String(e));
+    Log_flush_();
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
   }
 }
@@ -689,7 +689,7 @@ function Backup_crear_(etiqueta) {
 function Backup_listar_() {
   var items = [];
   var folder = null;
-  try { folder = _backup_folder(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
+  try { folder = _backup_folder_(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
   var files = folder.getFiles();
   while (files.hasNext()) {
     var f = files.next();
@@ -721,9 +721,9 @@ function Backup_listar_() {
 
 /** GAS: elimina los backups automáticos más viejos, conserva los últimos N. */
 function Backup_podar_(mantener) {
-  mantener = mantener || _backup_mantener();
+  mantener = mantener || _backup_mantener_();
   var folder = null;
-  try { folder = _backup_folder(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
+  try { folder = _backup_folder_(); } catch (e) { return { ok: false, motivo: 'No se pudo acceder a Drive' }; }
   var autoFiles = [];
   var files = folder.getFiles();
   while (files.hasNext()) {
@@ -739,30 +739,30 @@ function Backup_podar_(mantener) {
 }
 
 /** GAS: punto de entrada del TRIGGER semanal (sin UI). */
-function Backup_programado() {
+function Backup_programado_() {
   var r = Backup_crear_('AUTO');
   var poda = Backup_podar_();
-  _config_set('BACKUP_AUTO_ULTIMA', Utilities.formatDate(new Date(),
+  _config_set_('BACKUP_AUTO_ULTIMA', Utilities.formatDate(new Date(),
     Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
-  Log_info('Backup', 'programado', r.nombre + ' · podados=' + (poda.borrados || 0));
-  Log_flush();
+  Log_info_('Backup', 'programado', r.nombre + ' · podados=' + (poda.borrados || 0));
+  Log_flush_();
   return r;
 }
 
 /** GAS: ¿existe el trigger programado? */
-function Backup_triggerInstalado() {
+function Backup_triggerInstalado_() {
   return ScriptApp.getProjectTriggers().some(function (t) {
-    return t.getHandlerFunction() === 'Backup_programado';
+    return t.getHandlerFunction() === 'Backup_programado_';
   });
 }
 
 /** Estado real y de solo lectura del respaldo. No crea carpeta ni archivos. */
 function Backup_estadoOperativo_() {
-  var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
+  var cfg = _config_leerValores_(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
   var mantener = parseInt(cfg.BACKUP_MANTENER, 10);
   if (!(mantener > 0)) mantener = BACKUP_DEFAULT_MANTENER;
   var trigger = false, folder = null, listado = { items: [], autoCount: 0, manCount: 0 };
-  try { trigger = Backup_triggerInstalado(); } catch (eT) {}
+  try { trigger = Backup_triggerInstalado_(); } catch (eT) {}
   try { folder = _backup_folderExistente_(); } catch (eF) {}
   if (folder) {
     var files = folder.getFiles();
@@ -795,29 +795,29 @@ function Backup_programar_(dia, hora) {
   var weekDay = dias[String(dia).toUpperCase()] || ScriptApp.WeekDay.SUNDAY;
   var hour = parseInt(hora, 10);
   if (isNaN(hour) || hour < 0 || hour > 23) hour = 3;
-  ScriptApp.newTrigger('Backup_programado').timeBased()
+  ScriptApp.newTrigger('Backup_programado_').timeBased()
     .onWeekDay(weekDay).atHour(hour).create();
-  _config_set('BACKUP_DIA', String(dia).toUpperCase());
-  _config_set('BACKUP_HORA', String(hour));
-  Log_info('Backup', 'programar', dia + ' ' + hour + ':00');
-  Log_flush();
+  _config_set_('BACKUP_DIA', String(dia).toUpperCase());
+  _config_set_('BACKUP_HORA', String(hour));
+  Log_info_('Backup', 'programar', dia + ' ' + hour + ':00');
+  Log_flush_();
 }
 
 /** GAS: quita el trigger semanal. */
 function Backup_quitarProgramacion_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'Backup_programado') ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === 'Backup_programado_') ScriptApp.deleteTrigger(t);
   });
 }
 
 /** Endpoint: estado + historial completo (para el HTML).
  *  UNA lectura de CONFIG para `BACKUP_AUTO_ULTIMA` y `BACKUP_MANTENER`
  *  (antes eran dos lecturas completas de la misma hoja). */
-function api_backupListar(token) {
-  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+function api_backupListar_(token) {
+  if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   var st = Backup_listar_();
-  var trigger = Backup_triggerInstalado();
-  var cfg = _config_leerValores(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
+  var trigger = Backup_triggerInstalado_();
+  var cfg = _config_leerValores_(['BACKUP_AUTO_ULTIMA', 'BACKUP_MANTENER', 'BACKUP_DIA', 'BACKUP_HORA']);
   var ultima = cfg['BACKUP_AUTO_ULTIMA'] || '';
   var mantener = parseInt(cfg['BACKUP_MANTENER'], 10);
   if (!(mantener > 0)) mantener = BACKUP_DEFAULT_MANTENER;
@@ -835,21 +835,21 @@ function api_backupListar(token) {
 }
 
 /** Endpoint: crear backup manual. */
-function api_backupCrear(etiqueta, token) {
-  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+function api_backupCrear_(etiqueta, token) {
+  if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Backup_crear_(etiqueta || 'MANUAL');
 }
 
 /** Endpoint: toggle automático (activar/desactivar). */
-function api_backupToggle(token) {
+function api_backupToggle_(token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-    if (Backup_triggerInstalado()) {
+    if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    if (Backup_triggerInstalado_()) {
       Backup_quitarProgramacion_();
       return { ok: true, mensaje: 'Backup automático desactivado' };
     } else {
-      var dia = _rem9_configValor('BACKUP_DIA') || 'DOMINGO';
-      var hora = _rem9_configValor('BACKUP_HORA') || '3';
+      var dia = _rem9_configValor_('BACKUP_DIA') || 'DOMINGO';
+      var hora = _rem9_configValor_('BACKUP_HORA') || '3';
       Backup_programar_(dia, hora);
       return { ok: true, mensaje: 'Backup automático activado (' + dia + ' ' + hora + ':00)' };
     }
@@ -859,9 +859,9 @@ function api_backupToggle(token) {
 }
 
 /** Endpoint: programar backup con día y hora específicos. */
-function api_backupProgramar(dia, hora, token) {
+function api_backupProgramar_(dia, hora, token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     Backup_programar_(dia, hora);
     return { ok: true, mensaje: 'Backup programado: ' + dia + ' ' + hora + ':00' };
   } catch (e) {
@@ -870,27 +870,27 @@ function api_backupProgramar(dia, hora, token) {
 }
 
 /** Endpoint: leer configuración actual de programación. */
-function api_backupConfigLeer(token) {
-  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+function api_backupConfigLeer_(token) {
+  if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return {
     ok: true,
-    dia: _rem9_configValor('BACKUP_DIA') || 'DOMINGO',
-    hora: _rem9_configValor('BACKUP_HORA') || '3',
-    mantener: _backup_mantener()
+    dia: _rem9_configValor_('BACKUP_DIA') || 'DOMINGO',
+    hora: _rem9_configValor_('BACKUP_HORA') || '3',
+    mantener: _backup_mantener_()
   };
 }
 
 /** Endpoint: podar backups automáticos viejos. */
-function api_backupPodar(token) {
-  if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+function api_backupPodar_(token) {
+  if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
   return Backup_podar_();
 }
 
 /** Endpoint: URL de la carpeta de backups. */
-function api_backupFolder(token) {
+function api_backupFolder_(token) {
   try {
-    if (!WebApp_autorizarBuscador(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
-    var folder = _backup_folder();
+    if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
+    var folder = _backup_folder_();
     return { ok: true, url: folder.getUrl(), id: folder.getId() };
   } catch (e) {
     return { ok: false, motivo: e && e.message ? e.message : String(e) };
@@ -898,6 +898,6 @@ function api_backupFolder(token) {
 }
 
 /** 💾 Menú de backups: abre dashboard HTML. */
-function UI_backup() {
-  _ui_dialogo('Backup', 'Backups del sistema');
+function UI_backup_() {
+  _ui_dialogo_('Backup', 'Backups del sistema');
 }

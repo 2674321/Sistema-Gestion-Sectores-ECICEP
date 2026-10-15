@@ -2323,3 +2323,524 @@ de `tests/operador_resiliencia_vNEXT.mjs` fija la serialización de las reescrit
 y el volcado de los errores de captura.
 **Validación:** núcleo 674/674 y batería 67/67 sin fallos.
 **Fecha:** 2026-09-30
+
+## DEC-104
+**Título:** Identificadores automáticos y ningún campo aceptado se pierde en silencio.
+**Estado:** Aprobada
+**Motivo:** La identidad de los registros era **posicional** en varios puntos del
+sistema, y dos campos que el contrato de captura declara opcionales se
+aceptaban y luego se perdían. Ambas cosas son la misma clase de fallo: el
+sistema acepta el dato, informa éxito y la información no queda en ninguna parte.
+
+1. **Identidad posicional.** `Ingresos_procesarFilas` generaba `EC-000001`,
+   `EC-000002`… según el **orden del lote** (`nuevoId(i)`), y el generador de
+   eventos `EV-0001` aceptaba un número como secuencia por argumento posicional.
+   Consecuencias: el mismo lote reordenado producía identidades distintas; un
+   staging reprocesado podía reasignar la identidad de un paciente ya
+   incorporado; y la numeración era reiniciable por construcción.
+   Ahora `Modelo_nuevoIdInterno` produce `EC-<base36 tiempo>-<rand4>`,
+   `Ev_nuevoId` produce `EV-<base36 tiempo>-<rand4>` y la secuencia de test solo
+   existe por **inyección explícita** (`{secuenciaTest: n}`): un argumento
+   posicional ya no activa el modo test. `Modelo_resolverIdInterno_` rechaza un
+   ID ya ocupado en lugar de devolverlo, y `Modelo_agregarPacientes_` /
+   `Modelo_agregarEventos_` se niegan a escribir un ID vacío o duplicado.
+   Los IDs históricos no canónicos (`EC-000012`) **se conservan**: no se
+   reescriben datos ya incorporados.
+2. **`profesionalSecundario` se aceptaba y se perdía.** El contrato lo declara
+   `OPC` en las cuatro operaciones (§5.1) y la Web App lo enviaba, pero ninguna
+   llamada a `Eventos_registrarPaciente_` lo transmitía y el esquema de EVENTOS
+   no tenía dónde guardarlo. La fila `INGRESO_*` se relee del libro, de modo que
+   la fila canónica no alcanza: la dupla viaja por opciones hasta
+   `Ev_desdeStaging` y se persiste en la columna nueva `PROFESIONAL2`. Se añade
+   **al final** del esquema —nunca entre columnas existentes— y
+   `Modelo_asegurarEsquemaEventos_` la reconcilia de forma idempotente, con los
+   eventos históricos en `''`. `INGRESO_COLUMNAS` no se amplía.
+3. **Las observaciones del teléfono se descartaban.** `Captura_v2_validar`
+   conservaba solo `Norm_normalizarTelefono(...).telefonos` y tiraba
+   `.observaciones`, donde vive tanto la anotación de fuente (`ESPOSO`) como
+   el rastro de lo que se descartó (`NUMERO DESCARTADO: …`). Ahora
+   `TELEFONO_OBS` se persiste en PACIENTES.
+4. **Un teléfono escrito con espacios se perdía entero.** `Norm_normalizarTelefono`
+   validaba **cada fragmento** por separado, de modo que `9 6060 0712`,
+   `+56 9 9060 0712` o `(2) 2345 6789` —las formas más naturales de escribir un
+   teléfono— producían `VACIO` con todos los fragmentos descartados: el campo se
+   aceptaba y no quedaba nada. Ahora se interpreta primero la corrida completa
+   de dígitos y solo se separan en grupos cuando esa corrida no puede ser un
+   teléfono; los varios números en un mismo campo (`a / b`) siguen siendo varios.
+5. **`Calidad_sincronizarCola_` leía la columna equivocada.** Mezclaba base 0
+   (lectura con `getValues`) y base 1 (`getRange`): leía `FUENTE_B` en lugar de
+   `FUENTE_A`, de modo que `filasCalidad` quedaba **siempre vacío**, cada
+   sincronización **duplicaba** la cola y el auto-resolve era **código muerto**.
+   Los índices se derivan ahora del encabezado real, y la escritura por bloques
+   convierte a base 1 en un único punto.
+6. **`Calidad_normalizarFormatoRuts_` escribía sobre el banner.** Usaba `2 + ix`
+   como fila física en PACIENTES, que tiene layout visual (datos desde la fila 4):
+   con `ix=0` escribía el RUT en el banner de secciones y con `ix=1` sobre los
+   encabezados, y el resto del bloque quedaba corrido dos filas. La coordenada
+   sale ahora de `Modelo_filaFisica(HOJAS.PACIENTES, ix)`.
+7. **IDs de ejecución solo con el reloj.** `CARGA-`/`ACT-`/`EJ-` se componían
+   únicamente de `Date.now()`, con lo que dos ejecuciones en el mismo milisegundo
+   compartían identificador. Llevan ahora sufijo aleatorio.
+
+**Guardas nuevas:** `tests/ids_automaticos_vNEXT.mjs` (formatos canónicos,
+independencia del índice, colisiones, inyección de test explícita, sufijo
+aleatorio en los IDs de ejecución, `captureId` criptográfico),
+`tests/captura_persistencia_campos_vNEXT.mjs` (E2E por el mismo entrypoint que
+`WebApp_capturarEnviar`: `profesionalSecundario` en las cuatro operaciones,
+teléfonos recuperables y con descarte anotado, migración de EVENTOS sin pérdida
+de filas históricas, reintento idempotente) e
+`tests/integridad_calidad_cola_vNEXT.mjs` (índices derivados del encabezado,
+auto-resolve vivo, fila de RUT desde el layout). El allowlist RPC registra
+`Utl_sufijoAleatorio` como helper público sin efectos; las dos funciones nuevas de
+modelo son privadas (sufijo `_`).
+
+**Compatibilidad:** no se reescribe ningún dato existente; las columnas se
+añaden al final y los valores históricos quedan vacíos.
+**Validación:** núcleo 679/679 y batería 70/70 sin fallos. `Reparar` reconcilia
+también el esquema de EVENTOS, de modo que una instalación existente converge
+sin ejecutar migración; `tests/captura_persistencia_campos_vNEXT.mjs` fija que la
+migración es idempotente y no reescribe filas históricas.
+**Fecha:** 2026-10-05
+
+## DEC-105
+**Título:** Identidad de captura en `PROCESADO`, fuentes de evento en doble formato e
+ingreso alternativo como placeholder.
+**Estado:** Aprobada (post-auditoría `aed3567`)
+**Motivo:** La auditoría posterior a `aed3567` confirmó la causa raíz de la pérdida
+silenciosa (fila física reutilizada → falso "ya incorporado" → captura sin alta) y
+encontró un hueco de recuperación: el pipeline INGRESO persiste `EVENTOS.FUENTE`
+como **captureId desnudo** (`Fuentes_fuenteOrigen`), mientras la recuperación de
+identidad buscaba la marca completa `FORM|<cid>|<ACCIÓN>` (eventos manuales). Tres
+decisiones:
+
+1. **`PROCESADO` nunca sin identidad.** `Captura_v2_completarIds_` completa
+   `idInterno`/`idEvento` desde la evidencia durable y DEGRADA a
+   `REQUIERE_REVISION`/`PROCESADO_SIN_IDS` únicamente cuando tras la recuperación
+   sigue sin existir **ningún** id (firma real de "se procesó sin crear nada").
+   Con `idInterno` presente, `idEvento: ''` es válido por la respuesta §16 del
+   contrato (`docs/CONTRATO_CAPTURA_V2.md`) y una traza de auditoría pendiente no
+   degrada el guardado (suite de edición). El gate estricto en la entrega del
+   ingreso se mantiene dentro de `Captura_v2_entregarIngreso`.
+2. **`EVENTOS.FUENTE` en doble formato leído.** `Captura_v2_marcaEnEventos` busca
+   la marca completa y, si no hay match exacto, el captureId desnudo derivado
+   (`Captura_v2_captureIdDesdeMarca_`, mismo criterio que
+   `Ingresos_captureIdDesdeMarca_`). El reconciliador dryRun
+   (`Captura_v2_clasificarPendiente_`) acepta ambos formatos como evidencia
+   durable. No se toca el escritor INGRESO (idempotencia keyed por cid).
+   `Eventos_buscarPorFuente_` hace match exacto: sin colisiones de substring.
+3. **`src/30_Ingesta.js` es un placeholder DESACTIVADO.** Define la superficie
+   `CapturaIngress_*` reservada para un hipotético ingreso alternativo; ningún
+   provider distinto de `WEBAPP` escribe (`FALLBACK_PROVIDER_DISABLED`, `escrito:0`).
+   No crea Form, trigger, segunda Sheet ni segundo pipeline; su activación requiere
+   decisión explícita registrada aquí.
+
+Se mantiene la regla DEC-102 y de `AGENTS.md`: el acceso concede siempre; el fallo
+de acceso a una fuente externa (`EXTERNAL_SOURCE_PERMISSION_DENIED`) no es un
+fallo de acceso de la Web App. El diagnóstico `Captura_v2_diagnosticoPermisos`
+separa los tres dominios (Web App / Spreadsheet canónico / fuentes externas).
+**Validación:** núcleo 679/679, `aceptacion_formulario` 50/50, `contrato_captura_v2`
+36/36, `validar_html` 21 OK, `seguridad_webapp_capacidades` PASS y `tools/verificar`
+83 suites / 0 fallos; vNEXT `procesado_requiere_ids`, `legacy_reconciliacion_dryrun`,
+`reuso_fila_50_50`, `permisos_dominios`, `naranjo_y_ingesta`, `observabilidad_sin_pii`,
+`transaccion_eventos_crash` y `captura_trailer_revalidacion` PASS.
+**Fecha:** 2026-10-07
+
+## DEC-106
+**Título:** Web App única con Google Forms como transporte durable interno.
+**Estado:** Aprobada por autorización explícita del usuario
+**Motivo:** La captura sigue ocurriendo únicamente en `CapturaWeb`. Para separar la
+recepción rápida del procesamiento clínico, la Web App persiste cada envío como
+`FormResponse` y responde `RECIBIDO`; `Form_worker` recupera la respuesta, aplica
+el adaptador al contrato V4 y llama al único pipeline `Captura_v2_enviar`.
+
+El Form no se expone como UI, su URL no reemplaza el QR y no constituye una
+segunda fuente de verdad. El instalador adopta el Form conocido, no crea otro si
+el ID registrado es inaccesible, mantiene exactamente un trigger rápido y un
+worker periódico, y solo reconstruye un schema cuando el Form tiene cero
+respuestas. Con respuestas existentes, cualquier reparación potencialmente
+destructiva termina en `FORM_SCHEMA_REQUIRES_REVIEW`.
+
+La activación real queda fuera del ensayo en seco: no se ejecutan `clasp push`,
+deploy, cambios de Form/Sheet/ScriptProperties/triggers remotos ni merge de PR.
+**Fecha:** 2026-10-12
+
+### Cierre v254.4
+
+La instalación adopta por ID explícito y no crea Forms salvo `crearNuevo:true`.
+Persiste `GOOGLE_FORM_CANONICAL_ITEM_MAP` (`GLOBAL|ACCION` y
+`SECCION|CAMPO`), elimina la pregunta artificial de cierre y configura cada
+sección para enviar. CapturaWeb usa un selector y `clientRequestId`; la identidad
+clínica se deriva de `formId + responseId`. `Form_onFormSubmit` solo deja una
+señal y `Form_worker`, con lock de 750 ms, ventana solapada de 24 horas y cursor
+que se detiene ante el primer retryable, es el único mutador clínico.
+
+## DEC-110
+**Título:** v255 — separación PUBLIC_CAPTURE / OPERATOR: captura anónima, operación tras sesión OPSESS.
+**Estado:** Aprobada
+**Motivo:** la auditoría v255 demostró que `USER_DEPLOYING + ANYONE_ANONYMOUS`
+con acceso universal dejaba ~709 funciones globales invocables por
+`google.script.run`, incluidas lecturas clínicas (RUT, nombre, teléfono,
+observaciones, ficha, REM individualizado), instalación, reparación, backup y
+mutaciones. Eso no es aceptable con una Web App anónima: el boundary debe ser de
+RPC, no de deployment (el QR y la URL no cambian).
+
+La captura sigue siendo anónima y no depende de login, OPSESS,
+`Session.getActiveUser()`, OAuth individual ni permiso editor de Sheet. Se
+conservan públicas SOLO las cuatro RPC de captura
+(`WebApp_capturarRecibirDurable`, `WebApp_estadoInicial`, `WebApp_verificarRecepcion`,
+`api_webappEstado`) y tres de autenticación/gateway (`WebApp_operadorIniciar`,
+`WebApp_operadorCerrar`, `WebApp_operadorRpc`). Todo lo demás se privatiza con el
+sufijo `_`, que Apps Script excluye de `google.script.run`.
+
+Las vistas y RPC de operador/admin pasan por `WebApp_operadorRpc`, que exige una
+sesión OPSESS válida (`CacheService`, clave `OPSESS:<sha256(token)>`, TTL 6 h) y
+un mapa **explícito** `WEBAPP_OPERATOR_RPC_` (sin `globalThis[metodo]`, `eval`
+ni `Function`). El secreto operador se guarda solo como
+`ECICEP_OPERATOR_SECRET_SHA256` (nunca en claro); `ECICEP_ACCESS_TOKEN` queda como
+compatibilidad/trazabilidad, nunca como autenticación. La captura jamás depende
+de OPSESS: un fallo de `CacheService`, hash ausente o token malformado degrada
+solo al operador, nunca a la captura.
+
+**Alcance histórico:** DEC-101 y DEC-102 permanecen válidas **solo para la
+captura pública**. DEC-110 acota su alcance: lo que antes era «acceso universal a
+todo el sistema» pasa a ser captura pública universal + operación autenticada.
+**Validación:** `tools/verificar.mjs` 0 fallos; `seguridad_webapp_capacidades_vNEXT`
+reescrita al contrato DEC-110; suites `public_capture_unauthenticated_v255`,
+`operator_rpc_boundary_v255`, `operator_html_gateway_v255`,
+`operator_no_session_no_pii_v255`, `operator_session_v255`,
+`private_trigger_menu_handlers_v255` y `rpc_public_surface_v255` PASS. Surface
+pública ≥15 → <15; PII sin OPSESS: 0; RPC directa operador fuera del gateway: 0.
+**Fecha:** 2026-10-12
+
+## DEC-111
+**Título:** v256 — cierre transversal runtime P0/P1: incertidumbre técnica, concurrencia y verdad operativa.
+**Estado:** Aprobada
+**Motivo:** la fase v255 dejó rutas donde un error de infraestructura se degradaba
+a un estado de negocio concluyente y donde el worker/captura serializaban de más o
+de menos. v256 los corrige sin cambiar contratos públicos ni producción.
+**Contenido:**
+- `NO_ENCONTRADO` **nunca** por fallo técnico: `Form_incierto_` devuelve `INCIERTO`
+  ante Form no configurado/no accesible, `getResponses` fallido o verificación
+  fallida. Una fila ilegible se omite, no anula la búsqueda.
+- La captura con `clientRequestId` **jamás** hace `submit()` sin reserva resuelta
+  (`Form_reservarRequestIdConLock_` → `RECIBIDO|EN_PROCESO|RESERVADO|SERVICIO_OCUPADO`;
+  sin lock ⇒ `INCIERTO/SERVICIO_OCUPADO`).
+- El worker usa **lease corto** (`Form_lease*`, `WORKER_LEASE.TTL_S`); el
+  `ScriptLock` no cubre I/O ni pipeline.
+- Dry-run de reparación es **read-only** (`{simular}`); el trailer de
+  `FORM_RESPUESTAS` es la fuente autoritativa (se elimina `GOOGLE_FORM_ERRORS|<captureId>`).
+- Cola ilegible ⇒ `QUEUE_STATE_READ_FAILED` (no "todos elegibles"); fallo de
+  `getResponses` del worker ⇒ circuito; el cursor no avanza si el trailer falla.
+- `Form_metricaSumar_` atómico (lock breve); el trigger `onFormSubmit` es lock-free.
+- Instalador: GC acotado (`ECICEP_INST_BK|` ≤ `INSTALAR_BK_GC_MAX`).
+- `Act_actualizarSistema_` marca `INICIO` **solo** con contadores reales de cambio.
+**Validación:** `tools/verificar.mjs` 130 suites / 0 fallos; `tests/forms_v256_failure_semantics.mjs`.
+**Fecha:** 2026-10-13
+
+## DEC-112
+**Título:** v257 — integridad fail-closed e identidad física verificable en flujos clínicos.
+**Estado:** Aprobada
+**Motivo:** ninguna operación puede traducir incertidumbre técnica en ausencia,
+unicidad, persistencia o rollback confirmado. La captura comprueba `captureId`
+mediante una sola barrera autoritativa (`LIBRE|DUPLICADO|LOOKUP_FAILED`) y
+confirma la fila física exacta escrita. El cambio de RUT separa validación pura
+de un guard GAS fail-closed. Los rollbacks clínicos se reescriben y releen;
+si divergen responden `ROLLBACK_CLINICO_FALLIDO` y usan `CONFLICTOS`, sin crear
+otra cola.
+
+Las altas de PACIENTES protegen simultáneamente `ID_INTERNO` y RUT canónico.
+La compensación de altas de ingreso se hace por los IDs exactos del lote, nunca
+por cantidad/posición. `ESTADO_INGRESO` se confirma por relectura y una fila no
+se limpia mientras exista un estado, conflicto, vista o identidad sin verificar.
+La ficha expone disponibilidad parcial en `meta.integridad`; `[]` significa
+exclusivamente una lectura exitosa sin datos.
+
+Las vistas siguen siendo derivadas: su fallo no revierte el canon, pero produce
+`VISTA_SECTOR_PENDIENTE`. Los cambios de estratificación sin evento dejan marca
+y conflicto durable reconciliable. Bloque B del REM queda implementado desde
+PACIENTES + actividad de EVENTOS; Bloque C permanece pendiente de definición externa.
+**Validación:** `tests/data_integrity_v257.mjs` y batería completa indicada en
+`INFORME_V257_INTEGRIDAD_DATOS_FLUJOS.md`.
+**Fecha:** 2026-10-13
+
+## DEC-113
+**Título:** v258 — exclusión clínica fail-closed y confirmación durable antes de activar GAS.
+**Estado:** Aprobada
+**Motivo:** el lease del worker resuelve worker/worker, pero no serializa la
+entrega clínica frente a mutaciones de operador. Desde v258 cada candidato toma
+`Ecicep_conLock_` solo alrededor de `CapturaIngress_enviar_`; el I/O del Form,
+schema, extracción y trailer permanece fuera. Si `getScriptLock()` falla o el
+lock no se adquiere, no se ejecuta la mutación y el candidato queda reintentable.
+
+La clasificación durable se centraliza: ninguna rama mueve el cursor si no pudo
+persistir su trailer. La liberación de lease nunca lee ni borra propiedades sin
+haber adquirido lock. La limpieza de `INGRESO_*` relee tras `deleteRows` y
+reporta `ORIGEN_ELIMINACION_INCIERTA`; el reconciliador limpia y verifica
+`REQUIERE_REVISION` antes de resolver el conflicto; los rollbacks de ficha
+verifican todos los campos realmente tocados y sus derivados.
+
+**Validación local:** seis suites conductuales v258 más `tools/verificar.mjs`:
+137 suites / 0 fallos; núcleo 679/679; aceptación 50/50; contrato 36/36; HTML
+21/21; `auditar_v254` y placeholders PASS.
+**Fecha:** 2026-10-13
+## DEC-114
+**Título:** v259 — preparación local durante jornada y activación exclusivamente fuera de horario.
+**Estado:** Aprobada
+**Fecha:** 2026-10-13
+
+Mientras exista actividad clínica u operativa, ECICEP admite únicamente
+auditoría, lectura, backup y preparación local. Durante la jornada quedan
+prohibidos `clasp push`, deploy, instalación/reparación del Form, cambios de
+ScriptProperties, triggers, E2E mutante, migraciones del libro, cambio de QR y
+edición técnica de datos clínicos.
+
+La activación requiere simultáneamente `JORNADA_FINALIZADA`, `USUARIOS_FUERA`,
+`BACKUP_RECIENTE_VERIFICADO` y `ROLLBACK_LISTO`. Los mutadores administrativos
+del canal se exponen solo mediante wrappers de UI y una ventana técnica corta
+(`ECICEP_ACTIVATION_WINDOW=OPEN:<expiración>`, máximo dos horas). Esta property
+no bloquea ni participa en la operación clínica normal.
+
+Las filas anteriores a Google Forms se identifican por `Cp2/Cp3/Cp4` más
+ausencia inequívoca de metadatos modernos. Se marcan `WEBAPP_LEGACY` y
+`LEGACY_PRE_FORMS`, se observan fuera del backlog vigente y nunca se reenvían
+automáticamente al pipeline. Su migración es dry-run por defecto, solo completa
+el trailer moderno y exige columnas preexistentes. `clasp run` queda
+`NO_REQUERIDO / NO_CONFIGURADO`; la operación usa menú del Spreadsheet y Project
+Settings, sin API Executable, scopes ni deployment adicional.
+
+## DEC-115
+**Título:** v270 — captura pública sin token legacy (fin del enlace de invitación y de la credencial en el DOM).
+**Estado:** Aprobada
+**Motivo:** DEC-110 hizo la captura pública anónima, pero el HTML servido y las
+cuatro llamadas de captura seguían arrastrando la credencial legacy
+(`data-acceso` / `window.ECICEP_ACCESO` / `CAPTURA_ACCESO` / `TOKEN_ACCESO` /
+`TOKEN_INVITACION`), ignorada en destino. Esa credencial en el DOM no aportaba
+seguridad (la autorización es por boundary de RPC) y contradecía la superficie
+de captura anónima.
+**Contenido:**
+- Se elimina la inyección y el consumo de la credencial legacy en la CAPTURA:
+  `CapturaWeb.html` sirve `<body>` sin `data-acceso` ni puente
+  `window.ECICEP_ACCESO`; las llamadas `api_webappEstado`,
+  `WebApp_verificarRecepcion`, `WebApp_capturarRecibirDurable` y
+  `WebApp_estadoInicial` no reciben token.
+- `WebApp_servirCaptura_()` ya no recibe ni resuelve la credencial; `doGet` la
+  resuelve solo para las vistas de OPERADOR/ADMINISTRACIÓN.
+- `WebApp_verificarRecepcion(clientRequestId)` y
+  `WebApp_capturarRecibirDurable(payload)` dejan de aceptar el parámetro `acceso`.
+- `ECICEP_ACCESS_TOKEN` se conserva exclusivamente como trazabilidad de las
+  vistas de operador y nunca viaja en la URL; los enlaces de invitación con token
+  quedan obsoletos.
+**Validación:** `tests/public_capture_zero_legacy_token_v0170.mjs` PASS; batería
+de captura/anónimo verde sin token en HTML ni URL.
+**Fecha:** 2026-10-14
+
+## DEC-116
+**Título:** v270 — la captura directa al Form no es canal clínico: recepción durable + REVIEW.
+**Estado:** Aprobada
+**Motivo:** `AGENTS.md` (reglas 3 y 4) define la Web App como único canal
+operativo de captura y Google Forms únicamente como transporte durable interno,
+con su URL no publicada. El pipeline, sin embargo, procesaba la captura directa
+al Form (`SOURCE=GOOGLE_FORM_DIRECT`, sin `CLIENT_REQUEST_ID`) hasta `TERMINAL`
+con mutación clínica completa (escritura en PACIENTES/EVENTOS), sin ninguna
+decisión que autorizara ese canal como vía clínica. Se auditaron
+`DECISIONES.md`/`docs/CONTRATO_CAPTURA_V2.md`: no existe autorización; al
+contrario, la regla 5 ("una sola fuente de verdad") y la regla 4 (Form solo
+como transporte) de `AGENTS.md`, más el contrato §24.1, lo excluyen.
+**Contenido:**
+- La captura directa al Form (sin `clientRequestId` válido) ya **no muta** el
+  modelo clínico. Se registra de forma durable y queda en `REQUIERE_REVISION`
+  para decisión humana.
+- `Form_procesarRespuestaConTransporte_` marca `ctxEnvio.soloRecepcion` cuando
+  `!requestId && SOURCE=GOOGLE_FORM_DIRECT` y devuelve
+  `{ok:false, clasificacion:'REVIEW', estado:'REQUIERE_REVISION'}`.
+- `Captura_v2_enviar_` respeta `ctx.soloRecepcion`: persiste el registro,
+  escribe el trailer `REQUIERE_REVISION`/`GOOGLE_FORM_DIRECT_REQUIERE_REVISION`
+  y retorna **antes** de `Captura_v2_ejecutarEntrega_` (sin escribir
+  PACIENTES/EVENTOS ni agenda/contacto).
+- El flujo automático normal sigue siendo `SOURCE=WEBAPP` con
+  `CLIENT_REQUEST_ID` válido; ese caso no se altera.
+- La fila queda inelegible para el worker (`ESTADO=REQUIERE_REVISION` y
+  `CLASIFICACION=REVIEW`), evitando reintentos en bucle; el cursor avanza.
+- No cambia el contrato de la captura pública anónima (DEC-110/DEC-115): la Web
+  App sigue siendo el único canal visible.
+**Validación:** `tests/google_form_direct_review_v0170.mjs` PASS (núcleo sin
+entrega clínica + frontera Forms directo→REVIEW / WebApp→TERMINAL + guardas);
+verificador completo 162 suites / 0 fallos.
+**Fecha:** 2026-10-14
+
+## DEC-117
+**Título:** v0.17.0 — confirmación server-side consume-once para RPC destructivas de operador.
+**Estado:** Aprobada
+**Motivo:** OPSESS y el allowlist impedían invocaciones anónimas, pero una sesión
+válida podía llamar una RPC destructiva sin una autorización de servidor ligada
+a la operación exacta. Las confirmaciones de HTML o los diálogos de Sheets no
+protegen por sí solos la frontera RPC.
+**Contenido:** `WebApp_operadorRpc` clasifica las operaciones destructivas, emite
+un nonce opaco con TTL 120 s ligado al hash de `método + argumentos canónicos +
+OPSESS`, y lo consume antes de comparar y ejecutar. Cambiar método, argumentos o
+sesión, reutilizar el nonce, expirar el TTL o perder CacheService deniega la
+mutación. El runtime de operador usa un diálogo DOM accesible y reenvía el nonce;
+la captura pública no participa de este mecanismo.
+**Alcance inicial:** poda de backups, eliminación de CONFIG, reversión selectiva,
+limpieza de datos de prueba y aplicación de deduplicación histórica Amarillo
+(el dry-run permanece read-only).
+**Validación:** `tests/operator_destructive_nonce_v0170.mjs`,
+`tests/operator_rpc_boundary_v255.mjs`, `tests/operator_html_gateway_v255.mjs`,
+`tests/seguridad_webapp_capacidades_vNEXT.mjs` y `tests/validar_html.mjs`.
+**Fecha:** 2026-10-14
+
+## DEC-118
+**Título:** El manifest de release es un artefacto generado, no versionado.
+**Estado:** Aprobada
+**Motivo:** `RELEASE_CANDIDATE.json` contiene el SHA de HEAD. Versionarlo deja ese
+SHA obsoleto en el mismo commit que actualiza el archivo y puede producir una
+declaración de release falsa.
+**Contenido:** el manifest se deriva de fuentes reales y del verificador, se
+regenera localmente desde el HEAD efectivo y queda ignorado por Git, igual que
+`src/BUILD.js`. Así `--push`/`--publish` pueden generar ambos artefactos sin
+ensuciar el árbol y sin editar conteos manuales.
+**Validación:** `tests/release_manifest_v260.mjs` y gate
+`node tools/release.mjs --check`.
+**Fecha:** 2026-10-14
+
+## DEC-119
+**Título:** Bootstrap OPSESS automático desde el Spreadsheet autorizado.
+**Estado:** Aprobada
+**Motivo:** abrir las vistas administrativas desde la propia hoja ECICEP exigía
+reescribir la clave de operador en cada diálogo, fricción que empujaba a usos
+inseguros. El usuario ya está dentro del Spreadsheet autorizado (contexto
+container-bound), por lo que corresponde emitir una sesión OPSESS sin exponer ni
+recuperar la clave, sin debilitar la frontera RPC.
+**Contenido:** `WebApp_operadorEmitirSesion_()` centraliza la creación de sesión
+(login con clave y bootstrap). `WebApp_operadorSesionDesdeSheets_()` concede SOLO
+si `SpreadsheetApp.getActiveSpreadsheet()` existe, su ID coincide EXACTO con
+`ECICEP.SPREADSHEET_ID` y `SpreadsheetApp.getUi()` responde (frontera que Web App
+y `google.script.run` no cumplen); es fail-closed
+(`SHEETS_OPERATOR_BOOTSTRAP_DENIED`). El include del runtime inyecta el token
+como variable JS escapada (`window.ECICEP_OPSESS_BOOTSTRAP`) sólo en el render
+desde Sheets; el runtime lo valida (`OPS-<64hex>`), lo guarda en `sessionStorage`
+y borra la variable. En Web App el bootstrap va vacío → login de operador. La
+captura pública sigue anónima y las operaciones destructivas conservan su nonce.
+**Alcance:** vistas administrativas/operativas servidas por Sheets (Sidebar,
+Controles, Dashboard, Configuración, Backup, LogVisor, CentroPruebas, REM,
+Acerca de, Instalador). No aplica a CapturaWeb.
+**Validación:** `tests/operator_sheets_bootstrap_v0170.mjs`,
+`tests/operator_html_gateway_v255.mjs`, `tests/seguridad_webapp_capacidades_vNEXT.mjs`,
+`tests/rpc_public_surface_v255.mjs` y `tests/operator_destructive_nonce_v0170.mjs`.
+**Fecha:** 2026-10-14
+
+## DEC-120
+**Título:** La acción de captura es una única fuente de verdad: `<select id="accion">`.
+**Estado:** Aprobada
+**Motivo:** reparar la regresión P0 de `ACTUALIZAR_DATOS`. Al migrar CapturaWeb de
+radios a un `<select>` en v254 (`4814e15`), `EditorPaciente.html` conservó
+`document.querySelector('input[name="accion"]:checked')`; los radios ya no
+existen, `activo()` devolvía siempre falsy y la ficha completa nunca se activaba:
+solo quedaban visibles las secciones genéricas (tel/prof/obs), percibidas como
+"2 campos". No era un problema de backend: `CAPTURA_EDICION_CAMPOS` y
+`WebApp_cargarPacienteEdicion_` ya devolvían la ficha completa de 18 campos.
+**Contenido:** `EditorPaciente.html` deriva la acción con `accionActual_()` desde
+`document.getElementById('accion').value` (única fuente); `activo()` compara con
+`ACTUALIZAR_DATOS`. El listener de cambio se registra sobre el `<select>` y difiere
+`ajustar()` con `setTimeout(…,0)` para ejecutarse después del handler de CapturaWeb
+(sin competir por el estado). `cargar()` exige `ok && id && rutOriginal && campos`
+antes de renderizar. Se mantienen los 18 campos editables y los controles de
+CONTROL/SEGUIMIENTO; los campos vacíos se renderizan igual (no se filtran por
+verdad) y el envío sigue siendo diferencial. El editor oculta `secTel`/`secAgenda`/
+`secObs` para no duplicar teléfono/observaciones. La captura pública y el canal
+durable no cambian.
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (A–H, incluye
+mutación que reimplantaría los radios y debe fallar) y
+`tests/actualizar_datos_campos_contrato_v0170.mjs` (frontend ≡ backend, 18 campos).
+**Fecha:** 2026-10-14
+
+## DEC-121
+**Título:** Publicación segura ante el límite de 200 versiones de Apps Script.
+**Estado:** Aprobada
+**Motivo:** `clasp deploy` falló con "Script has reached the limit of 200 versions":
+Apps Script limita a 200 **versiones existentes**, no al número más alto (los
+números tienen huecos por versiones borradas). `clasp` 3.3.0 no borra versiones y
+la API `projects.versions` solo expone `create/get/list`, no `delete`; la limpieza
+es exclusivamente manual por la UI (`Project history → Bulk delete versions`). Sin
+preflight, el release llegaba hasta el deploy para fallar tarde.
+**Contenido:** `tools/release.mjs --publish` ejecuta un preflight de capacidad antes
+de `clasp deploy`: aborta con `APPS_SCRIPT_VERSION_LIMIT_REACHED` si
+`VERSION_COUNT >= 200` (sin invocar el deploy, fail-closed) y avisa
+`APPS_SCRIPT_VERSION_LIMIT_NEAR` desde 190, permitiendo publicar si queda ≥1 slot.
+El conteo se deriva de `clasp versions` (número de líneas), **nunca** de
+`max(versionNumber)`. Política de mantenimiento (runbook): preservar toda versión
+referenciada por un deployment activo (`@HEAD`, versión operativa) y ~30 recientes
+para reversión; borrado preventivo de snapshots antiguos no referenciados pasando
+180 versiones, objetivo `VERSION_COUNT_AFTER <= 120`. Nunca se crea un deployment
+ni un proyecto nuevos.
+**Validación:** `tests/release_version_capacity_v0170.mjs` (199 permite y despliega,
+200 bloquea sin llamar a `clasp deploy`, 201+ bloquea, parser robusto).
+**Fecha:** 2026-10-14
+
+## DEC-122
+**Título:** Captura pública completa sin lectura de ficha; Funciones sólo en la superficie administrativa.
+**Estado:** Aprobada
+**Motivo:** los operadores generales trabajan mediante el QR público y necesitan
+las cuatro acciones de captura sin clave, cuenta Google ni sesión OPSESS. La
+acción `ACTUALIZAR_DATOS` activaba el editor de ficha completa, cuya lectura es
+correctamente privada, y por ello abría el login de operador en un flujo que
+debe ser anónimo. A la vez, el botón `Funciones` exponía en la captura el acceso
+a una superficie que sí exige sesión administrativa.
+**Contenido:** en `MODO_OPERADOR=false`, `ACTUALIZAR_DATOS` usa únicamente los
+campos operativos del formulario público (RUT, equipo, contacto, próxima
+atención y observaciones), se envía por el mismo Google Form durable y el mismo
+pipeline, y jamás invoca `WebApp_cargarPacienteEdicion`. El editor completo de
+18 campos conserva su contrato, pero sólo se activa en contexto de operador. La
+captura pública ya no recibe `PORTAL_URL` ni renderiza `Funciones`; administración
+entra desde el Spreadsheet autorizado, donde DEC-119 emite OPSESS automáticamente.
+No cambia la captura anónima, la fuente de verdad, el Spreadsheet, el deployment
+ni el pipeline clínico.
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (caso I),
+`tests/public_capture_zero_legacy_token_v0170.mjs` y
+`tests/seguridad_webapp_capacidades_vNEXT.mjs`; verificador completo 170 suites /
+0 fallos.
+**Fecha:** 2026-10-14
+
+## DEC-123
+**Título:** Actualizar carga y reemplaza la ficha completa desde la captura pública, sin clave.
+**Estado:** Aprobada; reemplaza el alcance parcial de DEC-122.
+**Motivo:** instrucción explícita del usuario: la finalidad de Actualizar es
+precargar los datos vigentes del paciente para poder reemplazarlos. Se acepta
+expresamente que esa acción exponga los datos de la ficha y se prohíbe cambiar
+otra vez este método sin autorización. Los operadores del QR son numerosos y no
+deben usar clave, login ni OPSESS para ninguna función del formulario.
+**Contenido:** `WebApp_cargarPacienteEdicionCaptura(rut)` es una RPC pública de
+captura que devuelve los 18 campos de `CAPTURA_EDICION_CAMPOS`, últimos CONTROL/
+SEGUIMIENTO y catálogo de condiciones. `EditorPaciente` la llama directamente,
+sin token ni segundo argumento, muestra todos los campos y envía sólo diferencias.
+El transporte interno agrega `ACTUALIZACION_JSON` (schema Form 4) y lo migra de
+forma idempotente en el único Form operativo; el worker valida y reconstruye el
+objeto completo, incluidas atenciones. `Funciones` y todas las RPC administrativas
+continúan bajo OPSESS y no se muestran en la captura.
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (caso I),
+`tests/forms_roundtrip_v254.mjs`, `tests/public_capture_zero_legacy_token_v0170.mjs`,
+`tests/seguridad_webapp_capacidades_vNEXT.mjs` y allowlist pública <15.
+**Fecha:** 2026-10-14
+
+## DEC-124
+**Título:** Se descarta (por decisión del usuario) exigir autorización para la carga pública de la ficha en `ACTUALIZAR_DATOS`.
+**Estado:** Aprobada; confirma y mantiene DEC-123.
+**Motivo:** se evaluó añadir una guarda de privacidad al flujo público de
+Actualizar (token firmado efímero ligado al paciente / sesión) para impedir
+`usuario anónimo + cualquier RUT → ficha clínica completa`. Se concluyó que una
+UX sin contraseña ni OPSESS que además devuelve la ficha completa al navegador
+**no puede** impedir la enumeración anónima por RUT: cualquier token emitido a
+una página anónima es obtenible por el mismo atacante. La privacidad real
+exigiría un factor de autorización (secreto del enlace/QR u OPSESS), lo que
+contradice la UX pública. **Decisión explícita del usuario: mantener el flujo
+público actual** (DEC-123) y no añadir la guarda.
+**Contenido:** `WebApp_cargarPacienteEdicionCaptura(rut)` permanece pública y sin
+token; `Funciones` y todas las RPC administrativas siguen bajo OPSESS; la
+captura de registro permanece anónima. No se introduce ningún mecanismo de token
+de actualización. Requisito #3 del prompt de cierre queda **rechazado por
+instrucción del usuario**; cualquier cambio futuro de este modelo requiere nueva
+autorización explícita (DEC-123).
+**Validación:** `tests/actualizar_datos_editor_regression_v0170.mjs` (caso I),
+`tests/public_capture_zero_legacy_token_v0170.mjs`,
+`tests/seguridad_webapp_capacidades_vNEXT.mjs`.
+**Fecha:** 2026-10-14

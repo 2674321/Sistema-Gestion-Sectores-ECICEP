@@ -1,0 +1,3 @@
+# Activos de branding alojados junto al código: fuera del ámbito de push.
+# El resto de src/ (código Apps Script) se publica íntegro.
+src/assets/**

@@ -26,9 +26,9 @@ const PACIENTES = [
     REQUIERE_REVISION: false, RUT_DV_VALIDO: 'TRUE', PROXIMO_CONTROL: '2027-01-01' }
 ].map(p => ({ ...p, NOMBRE: PII_NOMBRE }));
 c.Utilities = { formatDate: () => '2026-09-25' };
-c.Modelo_leerPacientesCampos = () => PACIENTES;
-c.Modelo_leerEventosCampos = () => [{ ID_EVENTO: 'E-1' }, { ID_EVENTO: 'E-2' }];
-c.Modelo_ss = () => ({ getSheetByName: () => null });
+c.Modelo_leerPacientesCampos_ = () => PACIENTES;
+c.Modelo_leerEventosCampos_ = () => [{ ID_EVENTO: 'E-1' }, { ID_EVENTO: 'E-2' }];
+c.Modelo_ss_ = () => ({ getSheetByName: () => null });
 c.Sistema_estadoSalud_ = () => ({ estado: 'OK', datos: { ok: true }, integridad: { ok: true },
   triggers: { ingresoOnEdit: true, backup: true } });
 c.Sistema_ultimaAuditoria_ = () => ({ fecha: '2026-09-24' });

@@ -3,7 +3,7 @@
 // inmovilizadas residuales.
 // Síntoma real: "No se pueden combinar filas inmovilizadas con filas no
 // inmovilizadas" en la fase "Preparando la portada" (Instalar_pInicio_ →
-// Modelo_disenoHojas → Hojas_crearInicio → Inicio_construir_). Ocurre cuando
+// Modelo_disenoHojas_ → Hojas_crearInicio_ → Inicio_construir_). Ocurre cuando
 // la hoja hereda freeze de una instalación anterior y las escrituras del
 // constructor cruzan el límite congelado/no-congelado.
 // Invariante verificada: orden setFrozenRows(0) → escrituras → setFrozenRows(2).
@@ -241,20 +241,20 @@ const hojaC = {
   showSheet: () => {}
 };
 const disenoOriginal = c.MODELO_DISENO;
-const modeloSsOriginal = c.Modelo_ss;
+const modeloSsOriginal = c.Modelo_ss_;
 c.MODELO_DISENO = [{ nombre: 'INICIO', color: '#0E5C68', estilo: false }];
-c.Modelo_ss = () => ({
+c.Modelo_ss_ = () => ({
   getActiveSheet: () => hojaC,
   getSheetByName: nombre => nombre === 'INICIO' ? hojaC : null,
   getSheets: () => [hojaC],
   setActiveSheet: () => {},
   moveActiveSheet: () => {}
 });
-const resC = c.Modelo_aplicarDiseno();
+const resC = c.Modelo_aplicarDiseno_();
 c.MODELO_DISENO = disenoOriginal;
-c.Modelo_ss = modeloSsOriginal;
+c.Modelo_ss_ = modeloSsOriginal;
 assert.deepEqual(freezePresentacion, [],
-  'Modelo_aplicarDiseno no escribe frozen rows/columns en INICIO');
+  'Modelo_aplicarDiseno_ no escribe frozen rows/columns en INICIO');
 assert.deepEqual(Array.from(resC.fallidas), [],
   'la presentación no falla sobre A1:X2 combinada');
 assert.equal(resC.congeladas.includes('INICIO'), false,

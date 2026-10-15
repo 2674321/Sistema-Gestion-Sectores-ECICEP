@@ -12,7 +12,7 @@ var _LOG_NIVELES = { DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40 };
  * ni identificadores personales aunque un caller entregue un error demasiado
  * descriptivo. Los contextos quedan restringidos a métricas operativas. */
 function Log_sanitizarTexto_(valor) {
-  return Utl_texto(valor)
+  return Utl_texto_(valor)
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL]')
     .replace(/\b\d{1,2}\.\d{3}\.\d{3}-[0-9K]\b/gi, '[RUT]')
     .replace(/\b\+?56\s?9\s?\d{4}\s?\d{4}\b/g, '[TELEFONO]')
@@ -32,28 +32,28 @@ function Log_sanitizarContexto_(contexto) {
 }
 
 /** Registra una entrada en el búfer. contexto puede ser objeto/string. */
-function Log_registrar(nivel, modulo, operacion, mensaje, contexto, duracionMs) {
+function Log_registrar_(nivel, modulo, operacion, mensaje, contexto, duracionMs) {
   try {
     if ((_LOG_NIVELES[nivel] || 0) < (_LOG_NIVELES[CFG_LOG.NIVEL] || 0)) return;
     _LOG_BUFFER.push([
       new Date(),
       nivel,
-      Utl_texto(modulo).substring(0, 40),
-      Utl_texto(operacion).substring(0, 60),
+      Utl_texto_(modulo).substring(0, 40),
+      Utl_texto_(operacion).substring(0, 60),
       Log_sanitizarTexto_(mensaje).substring(0, 500),
       duracionMs || '',
       Log_sanitizarContexto_(contexto)
     ]);
-    if (_LOG_BUFFER.length >= CFG_LOG.MAX_BUFFER) Log_flush();
+    if (_LOG_BUFFER.length >= CFG_LOG.MAX_BUFFER) Log_flush_();
   } catch (e) { /* el log nunca rompe el flujo */ }
 }
 
-function Log_info(modulo, operacion, mensaje, contexto) { Log_registrar('INFO', modulo, operacion, mensaje, contexto); }
-function Log_warning(modulo, operacion, mensaje, contexto) { Log_registrar('WARNING', modulo, operacion, mensaje, contexto); }
-function Log_error(modulo, operacion, mensaje, contexto) { Log_registrar('ERROR', modulo, operacion, mensaje, contexto); }
+function Log_info_(modulo, operacion, mensaje, contexto) { Log_registrar_('INFO', modulo, operacion, mensaje, contexto); }
+function Log_warning_(modulo, operacion, mensaje, contexto) { Log_registrar_('WARNING', modulo, operacion, mensaje, contexto); }
+function Log_error_(modulo, operacion, mensaje, contexto) { Log_registrar_('ERROR', modulo, operacion, mensaje, contexto); }
 
 /** Métricas técnicas sin PII. Ignora cualquier clave fuera de la lista. */
-function Log_perf(modulo, accion, metricas) {
+function Log_perf_(modulo, accion, metricas) {
   var permitidas = ['sector', 'modo', 'cantidad', 'filasFisicas', 'filasIdentidad',
     'pendientes', 'errores', 'warnings', 'duracionMs', 'cacheHit', 'captureId',
     'operacionId', 'ejecucion'];
@@ -61,14 +61,14 @@ function Log_perf(modulo, accion, metricas) {
   Object.keys(metricas || {}).forEach(function (k) {
     if (permitidas.indexOf(k) !== -1) seguras[k] = metricas[k];
   });
-  Log_registrar('INFO', modulo, accion, 'PERF', seguras, Number(seguras.duracionMs) || '');
+  Log_registrar_('INFO', modulo, accion, 'PERF', seguras, Number(seguras.duracionMs) || '');
 }
 
 /**
  * Vuelca el búfer a la hoja LOG en una sola escritura.
  * En entornos sin SpreadsheetApp (pruebas node) es no-op silencioso.
  */
-function Log_flush() {
+function Log_flush_() {
   if (!_LOG_BUFFER.length) return;
   var entradas = _LOG_BUFFER;
   _LOG_BUFFER = [];
@@ -99,12 +99,12 @@ function Log_flush() {
         hoja.deleteRows(2, borrarDesde - 1);
         ultimaFila = hoja.getLastRow();
       }
-      Utl_escribirBloque(hoja, ultimaFila + 1, 1, entradas);
+      Utl_escribirBloque_(hoja, ultimaFila + 1, 1, entradas);
     } finally {
       if (adquiridoAqui) lock.releaseLock();
     }
   } catch (e) {
     // Último recurso: consola/Logger para no perder trazabilidad
-    try { console.error('Log_flush fallo: ' + e.message); } catch (e2) { /* noop */ }
+    try { console.error('Log_flush_ fallo: ' + e.message); } catch (e2) { /* noop */ }
   }
 }
