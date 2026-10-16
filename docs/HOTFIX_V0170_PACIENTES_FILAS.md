@@ -60,6 +60,21 @@ anidado). EVENTOS sigue siendo estrictamente append-only.
   `aceptacion_formulario.mjs` 50/50, `contrato_captura_v2.mjs` 36/36,
   `validar_html.mjs` 20/20, `automatizacion_hojas_v012.mjs` 11/11.
 
+## Publicación
+- `clasp push --force`: **OK** (59 archivos sincronizados; el proyecto Apps Script
+  ya ejecuta el código con el fix, incluido el deployment `@HEAD`).
+- `clasp deploy` sobre el deployment operativo
+  `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`
+  (`@275`, el que sirve `ECICEP.WEB_APP_URL` y el QR): **BLOQUEADO** — el script
+  alcanzó el límite duro de **200 versiones** de Apps Script (máx. actual: 275).
+  No se puede crear la versión 276 sin eliminar una versión previa desde la
+  página de historial del proyecto (script.google.com). `clasp` no elimina
+  versiones.
+- Consecuencia: el código desplegado (`@HEAD`) ya tiene el fix, pero la Web App
+  operativa (`@275`, QR) **todavía no** lo sirve hasta liberar cupo de versiones
+  y republicar el mismo deployment. **No** crear un deployment nuevo (invalidaría
+  el QR vigente).
+
 ## Alcance / no-alcance
 - No se modificaron datos clínicos de producción.
 - No se recompactaron las otras hojas (ya saneadas).
