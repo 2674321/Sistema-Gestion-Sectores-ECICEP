@@ -233,7 +233,9 @@ function Modelo_asegurarEsquemaPacientes_() {
   }
   // insertColumns desplazó los índices de columnas: cualquier lectura memoizada
   // de PACIENTES de esta invocación quedó vieja → invalidar antes de continuar.
-  Modelo_invalidarLecturas_(null, { incrementarEpoch: !(contexto && contexto.commitAtomico) });
+  // (Sin contexto aquí: epoch siempre se incrementa; la referencia previa a un
+  // `contexto` inexistente era un ReferenceError latente en la ruta de alta.)
+  Modelo_invalidarLecturas_();
   var repar = Modelo_repararCamposTecnicos_();
   Log_warning_('Modelo', 'asegurarEsquema',
     'Migración PACIENTES: +' + plan.insertar.map(function (x) { return x.campo; }).join(',') +
@@ -831,6 +833,36 @@ function Modelo_dataStartRow_(nombreHoja) {
 /** PURA: fila física (1-based) de un índice de datos (0-based). */
 function Modelo_filaFisica_(nombreHoja, idxDato) {
   return Modelo_dataStartRow_(nombreHoja) + idxDato;
+}
+
+/** GAS: fila física del ÚLTIMO paciente real de PACIENTES (con ID_INTERNO no
+ *  vacío). Nunca decide por getLastRow() — que se contamina con defaults
+ *  técnicos (p.ej. FALSE en REQUIERE_REVISION sobre filas reservadas) — ni por
+ *  getMaxRows(), que incluye reservas de capacidad. En hoja con encabezados y
+ *  cero pacientes devuelve dataStartRow-1 (el destino del primer alta es
+ *  dataStartRow); con N pacientes consecutivos devuelve dataStartRow+N-1.
+ *  No filtra ni reordena: un hueco histórico se conserva y el destino queda
+ *  después del último paciente físico, preservando el mapeo índice↔fila. */
+function Modelo_ultimaFilaPaciente_(hoja) {
+  var ini = Modelo_dataStartRow_(HOJAS.PACIENTES);
+  hoja = hoja || Modelo_hoja_(HOJAS.PACIENTES);
+  if (!hoja || typeof hoja.getRange !== 'function') return ini - 1;
+  var hr = Modelo_headerRow_(HOJAS.PACIENTES);
+  var ancho = Math.max(hoja.getLastColumn() || 0, 1);
+  var enc = hoja.getRange(hr, 1, 1, ancho).getValues()[0] || [];
+  var colId = -1;
+  for (var i = 0; i < enc.length; i++) {
+    if (Utl_texto_(enc[i]).trim().toUpperCase() === 'ID_INTERNO') { colId = i + 1; break; }
+  }
+  if (colId < 0) return ini - 1;
+  var ultima = hoja.getLastRow() || 0;
+  if (ultima < ini) return ini - 1;
+  var valores = hoja.getRange(ini, colId, ultima - ini + 1, 1).getValues();
+  var ultFila = ini - 1;
+  for (var f = 0; f < valores.length; f++) {
+    if (Utl_texto_(valores[f][0]).trim() !== '') ultFila = ini + f;
+  }
+  return ultFila;
 }
 
 /**
@@ -1858,9 +1890,47 @@ function Modelo_guardEscritura_(contexto) {
   }
 }
 
+/** Comprueba que el rectángulo de destino de un alta en PACIENTES no contiene
+ *  identidad ni datos clínicos. Se acepta únicamente celdas vacías o, como
+ *  máximo, el default técnico conocido FALSE en REQUIERE_REVISION (reserva
+ *  contaminada sin identidad, recuperable). Cualquier otro contenido →
+ *  DESTINO_PACIENTES_OCUPADO: jamás se sobrescribe datos no clasificados.
+ *  Filas fuera del rango físico de la hoja se consideran libres por definición. */
+function Modelo_destinoPacientesLibre_(hoja, filaDestino, cantidad) {
+  var ini = Modelo_dataStartRow_(HOJAS.PACIENTES);
+  if (!(filaDestino >= ini) || !(cantidad >= 1)) return { ok: false, motivo: 'DESTINO_PACIENTES_OCUPADO' };
+  var max = hoja.getMaxRows();
+  if (filaDestino + cantidad - 1 > max) return { ok: true, libre: true };
+  var ancho = Math.max(hoja.getLastColumn() || 0, Modelo_campos_().length);
+  var enc = hoja.getRange(Modelo_headerRow_(HOJAS.PACIENTES), 1, 1, ancho).getValues()[0] || [];
+  var colRev = -1;
+  for (var i = 0; i < enc.length; i++) {
+    if (Utl_texto_(enc[i]).trim().toUpperCase() === 'REQUIERE_REVISION') { colRev = i; break; }
+  }
+  var bloque = hoja.getRange(filaDestino, 1, cantidad, ancho).getValues();
+  for (var f = 0; f < bloque.length; f++) {
+    for (var c = 0; c < bloque[f].length; c++) {
+      var v = bloque[f][c];
+      if (Utl_vacio_(v)) continue;
+      if (c === colRev && (v === false || Utl_texto_(v).trim().toUpperCase() === 'FALSE')) continue;
+      return { ok: false, motivo: 'DESTINO_PACIENTES_OCUPADO',
+               fila: filaDestino + f, columna: c + 1 };
+    }
+  }
+  return { ok: true, libre: true };
+}
+
 /**
  * Agrega pacientes nuevos en UNA escritura. Los objetos deben venir completos
  * desde la capa de ingresos; aquí solo se fija FECHA_ACTUALIZACION.
+ * DESTINO (hotfix huecos PACIENTES): la fila de escritura se calcula UNA vez a
+ * partir del último paciente real (ID_INTERNO) ANTES de expandir capacidad, y
+ * se escribe exactamente ahí. Jamás se decide por getLastRow() tras preparar
+ * reservas: una reserva contaminada con defaults (FALSE en REQUIERE_REVISION)
+ * desplazaría el alta detrás de ~200 filas vacías y rompería la contigüidad.
+ * Lectura-comprobación-escritura corre serializada: los llamadores canónicos
+ * (revision resolver, incorporación de ingresos, carga real) ya poseen
+ * Ecicep_conLock_; no se adquiere un lock anidado (ScriptLock no es reentrante).
  * @param {Array} objetos pacientes canónicos
  * @param {Object} [contexto] REQUERIDO: {autorizacion:'IMPORT_AUTORIZADO', operacion:'...'}
  */
@@ -1913,9 +1983,20 @@ function Modelo_agregarPacientes_(objetos, contexto) {
     return Modelo_filaDesdeObjeto_(_modelo_estamparActualizacion_(o, ahora));
   });
   var hoja = Modelo_hoja_(HOJAS.PACIENTES);
+  if (!hoja) throw new Error('SIN_HOJA_PACIENTES');
+  // Destino canónico: primera fila libre DESPUÉS del último paciente real.
+  // Se fija antes de cualquier expansión/formateo y no se recalcula con
+  // getLastRow(): la preparación de reservas no debe mover el alta.
+  var filaDestino = Modelo_ultimaFilaPaciente_(hoja) + 1;
+  var filaFinal = filaDestino + filas.length - 1;
   if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
-    Hojas_asegurarCapacidadGestionada_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
-  var n = Utl_escribirBloque_(hoja, hoja.getLastRow() + 1, 1, filas);
+    Hojas_asegurarCapacidadGestionada_(hoja, filaFinal, { bloque: 200 });
+  var libertad = Modelo_destinoPacientesLibre_(hoja, filaDestino, filas.length);
+  if (!libertad.ok) {
+    throw new Error('DESTINO_PACIENTES_OCUPADO: fila ' + libertad.fila +
+      ' columna ' + libertad.columna + ' contiene datos sin identificar');
+  }
+  var n = Utl_escribirBloque_(hoja, filaDestino, 1, filas);
   // El append agregó filas: invalidar el memo para que cualquier lectura
   // posterior de PACIENTES en la misma invocación vea las filas nuevas
   // (no depender de que el llamador acabe llamando a refrescarVistas, que también invalida).
@@ -2029,9 +2110,13 @@ function Modelo_agregarEventos_(eventos, registradoPor, contexto) {
       return (v === undefined || v === null) ? '' : v;
     });
   });
+  // Append-only: la fila destino se fija ANTES de expandir capacidad para que
+  // una preparación de reservas jamás desplace el anexo detrás de filas nuevas
+  // (misma defensa del hotfix de PACIENTES; EVENTOS no se reordena nunca).
+  var filaDestinoEventos = hoja.getLastRow() + 1;
   if (typeof Hojas_asegurarCapacidadGestionada_ === 'function')
-    Hojas_asegurarCapacidadGestionada_(hoja, hoja.getLastRow() + filas.length, { bloque: 200 });
-  var N = Utl_escribirBloque_(hoja, hoja.getLastRow() + 1, 1, filas);
+    Hojas_asegurarCapacidadGestionada_(hoja, filaDestinoEventos + filas.length - 1, { bloque: 200 });
+  var N = Utl_escribirBloque_(hoja, filaDestinoEventos, 1, filas);
   Modelo_invalidarLecturas_(null, { incrementarEpoch: !(contexto && contexto.commitAtomico) });
   return N;
 }

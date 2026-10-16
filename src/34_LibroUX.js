@@ -1063,6 +1063,15 @@ function Hojas_asegurarCapacidad_(hoja, filaNecesaria, opciones) {
   var bloque = Math.max(Number(opciones.bloque || 200), filaNecesaria + reserva - max);
   hoja.insertRowsAfter(max, bloque);
   Hojas_prepararRangoDatos_(hoja.getName(), max + 1, bloque);
+  // DEFENSA (hotfix huecos PACIENTES): las filas reservadas deben quedar VACÍAS
+  // de valores aunque conserven estilo, formato y validaciones. Cualquier valor
+  // accidental (p.ej. FALSE en REQUIERE_REVISION) convertiría la reserva en
+  // "ocupada" para getLastRow() y desplazaría el siguiente alta detrás del
+  // bloque reservado. clearContent preserva formato/validaciones; solo borra
+  // contenido, y solo sobre el rango recién insertado (nunca datos reales).
+  try {
+    hoja.getRange(max + 1, 1, bloque, Math.max(hoja.getLastColumn(), 1)).clearContent();
+  } catch (eLimpieza) { /* mejor esfuerzo: la fila destino ya no depende de getLastRow */ }
   return { ok: true, expandida: true, agregadas: bloque, maxRows: max + bloque };
 }
 
