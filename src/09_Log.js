@@ -48,9 +48,9 @@ function Log_registrar_(nivel, modulo, operacion, mensaje, contexto, duracionMs)
   } catch (e) { /* el log nunca rompe el flujo */ }
 }
 
-function Log_info_(modulo, operacion, mensaje, contexto) { Log_registrar_('INFO', modulo, operacion, mensaje, contexto); }
-function Log_warning_(modulo, operacion, mensaje, contexto) { Log_registrar_('WARNING', modulo, operacion, mensaje, contexto); }
-function Log_error_(modulo, operacion, mensaje, contexto) { Log_registrar_('ERROR', modulo, operacion, mensaje, contexto); }
+function Log_info_(modulo, operacion, mensaje, contexto, duracionMs) { Log_registrar_('INFO', modulo, operacion, mensaje, contexto, duracionMs); }
+function Log_warning_(modulo, operacion, mensaje, contexto, duracionMs) { Log_registrar_('WARNING', modulo, operacion, mensaje, contexto, duracionMs); }
+function Log_error_(modulo, operacion, mensaje, contexto, duracionMs) { Log_registrar_('ERROR', modulo, operacion, mensaje, contexto, duracionMs); }
 
 /** Métricas técnicas sin PII. Ignora cualquier clave fuera de la lista. */
 function Log_perf_(modulo, accion, metricas) {

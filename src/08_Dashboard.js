@@ -100,12 +100,18 @@ function Dash_actividadMensual_(eventosFiltrados, desdeIso, hastaIso) {
  */
 function Dash_calidadDatos_(pacientes) {
   var sinRut = 0, rutInvalido = 0, sinSector = 0, sinEstrat = 0, requiereRev = 0;
+  // bool canónico: true/false o 'TRUE'/'FALSE'; cualquier otra cosa → null.
+  var bool = function (v) {
+    if (v === true || v === 'TRUE') return true;
+    if (v === false || v === 'FALSE') return false;
+    return null;
+  };
   (pacientes || []).forEach(function (p) {
     if (Utl_vacio_(p.RUT)) sinRut++;
-    else if (p.RUT_DV_VALIDO === false || p.RUT_SIN_DV === true) rutInvalido++;
+    else if (bool(p.RUT_DV_VALIDO) === false || bool(p.RUT_SIN_DV) === true) rutInvalido++;
     if (Utl_vacio_(p.SECTOR)) sinSector++;
     if (!/^G[123]$/.test(Utl_texto_(p.ESTRATIFICACION).trim().toUpperCase())) sinEstrat++;
-    if (p.REQUIERE_REVISION === true) requiereRev++;
+    if (bool(p.REQUIERE_REVISION) === true) requiereRev++;
   });
   return { sinRut: sinRut, rutInvalido: rutInvalido, sinSector: sinSector,
            estratPendiente: sinEstrat, requiereRevision: requiereRev };

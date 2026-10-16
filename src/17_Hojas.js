@@ -481,7 +481,12 @@ function Hojas_colorearRutIngresos_(ss) {
           var actuales = r.getBackgrounds();
           yaCoincide = actuales.length === backgrounds.length &&
             actuales.every(function (fila, fi) {
-              return fila && fila[0] === backgrounds[fi][0];
+              var esperado = backgrounds[fi][0];
+              // Sin RUT no se pinta color: el default de la hoja no debe forzar
+              // una reescritura. Con color esperado, compara formato-insensible
+              // (getBackgrounds puede devolver '#rrggbb' o 'rgb(...)').
+              if (esperado === '') return true;
+              return fila && Utl_colorIgual_(fila[0], esperado);
             });
         }
       } catch (eBg) { yaCoincide = false; }

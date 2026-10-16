@@ -690,7 +690,7 @@ function api_configEliminar_(clave, token) {
     if (!WebApp_autorizarBuscador_(token)) return { ok: false, motivo: 'ACCESO_DENEGADO' };
     var k = Utl_texto_(clave).trim();
     if (!k) return { ok: false, motivo: 'CLAVE_VACIA' };
-    if (Config_estaProtegida_(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
+    if (Config_estaProtegida_(k) || Config_esSecreto_(k)) return { ok: false, motivo: 'CLAVE_PROTEGIDA: ' + k };
     var hoja = Modelo_hoja_(HOJAS.CONFIG);
     var eliminada = false;
     if (hoja && hoja.getLastRow() > 1) {
@@ -2205,7 +2205,7 @@ function _centro_resumen_(pacientes, eventos, hoyIso, tz) {
     var sec = secs[Utl_texto_(p.SECTOR).toUpperCase()];
     if (sec) { sec.pacientes++; if (rev) sec.porRevisar++; }
     var est = Utl_texto_(p.ESTRATIFICACION).trim().toUpperCase();
-    if (est === '' || est === 'G') estratPendiente++;
+    if (!/^G[123]$/.test(est)) estratPendiente++;
     if (p.FECHA_ACTUALIZACION instanceof Date &&
         (!ultimaActF || p.FECHA_ACTUALIZACION > ultimaActF)) ultimaActF = p.FECHA_ACTUALIZACION;
   });

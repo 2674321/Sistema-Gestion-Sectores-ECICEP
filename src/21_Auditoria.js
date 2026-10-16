@@ -218,16 +218,19 @@ function Aud_auditarResponsables_(lista, profesionales, legacy) {
  * PURA: auditoría PROFESIONALES.
  */
 function Aud_auditarProfesionales_(pacientes) {
-  var catalogo = Profesionales_catalogo_().filter(function (c) { return c.ACTIVO; });
-  var inactivos = Profesionales_catalogo_().filter(function (c) { return !c.ACTIVO; });
+  var catalogoCompleto = Profesionales_catalogo_();
+  var catalogo = catalogoCompleto.filter(function (c) { return c.ACTIVO; });
+  var inactivos = catalogoCompleto.filter(function (c) { return !c.ACTIVO; });
   var usados = {};
   (pacientes || []).forEach(function (p) {
     var dup = Utl_texto_(p.DUPLA_INGRESO).split(';').map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
     var ps = Utl_texto_(p.PROFESIONAL_SEGUIMIENTO).trim().toUpperCase();
     [].concat(dup, ps).forEach(function (c) { if (c) usados[c] = (usados[c] || 0) + 1; });
   });
+  // Inexistente = código que NO está en el catálogo (activo o inactivo); un
+  // profesional inactivo referenciado es válido como referencia histórica.
   var inexistentes = Object.keys(usados).filter(function (c) {
-    return !catalogo.some(function (cat) { return cat.CODIGO === c; });
+    return !catalogoCompleto.some(function (cat) { return cat.CODIGO === c; });
   });
   var duplicadosNombres = {};
   catalogo.forEach(function (c) {
@@ -278,7 +281,7 @@ function Aud_auditarConfig_(configRows) {
     }
     if (grupo === 'ESTRATIFICACIÓN' && k.endsWith('_UNIDAD')) {
       var u = Utl_sinTildes_(v).toLowerCase();
-      if (u.indexOf('día') !== 0 && u.indexOf('mes') !== 0) unidadesInvalidas++;
+      if (u.indexOf('dia') !== 0 && u.indexOf('mes') !== 0) unidadesInvalidas++;
     }
   });
   Object.keys(grupos).forEach(function (g) {

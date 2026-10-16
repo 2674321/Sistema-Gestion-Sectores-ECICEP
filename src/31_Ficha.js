@@ -886,7 +886,7 @@ function Ficha_prepararMutacion_(idInterno, cambios) {
     };
     eventos.push(evento);
   }
-  if ('RUT' in final) { final.RUT_DV_VALIDO = true; final.RUT_SIN_DV = false; }
+  if (tocados.indexOf('RUT') !== -1) { final.RUT_DV_VALIDO = true; final.RUT_SIN_DV = false; }
   if ('NOMBRE' in final) { final.NOMBRE_NORMALIZADO = Norm_claveNombre_(final.NOMBRE); }
 
   return {

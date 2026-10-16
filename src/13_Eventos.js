@@ -127,6 +127,13 @@ function Ev_variosDesdeStaging_(fila, listaOpciones) {
  */
 function Ev_ultimoPorPaciente_(eventos) {
   var mapa = {};
+  // FECHA_REGISTRO llega como Date (fila de hoja) o texto; String(Date) no
+  // ordena cronológicamente, así que el empate se decide por timestamp.
+  var aMs = function (v) {
+    if (v instanceof Date) return isNaN(v.getTime()) ? 0 : v.getTime();
+    var t = Date.parse(Utl_texto_(v));
+    return isNaN(t) ? 0 : t;
+  };
   (eventos || []).forEach(function (ev) {
     var id = Utl_texto_(ev.ID_INTERNO);
     if (!id) return;
@@ -134,12 +141,13 @@ function Ev_ultimoPorPaciente_(eventos) {
     var mejor = !actual ||
       Utl_texto_(ev.FECHA_EVENTO) > Utl_texto_(actual.fecha) ||
       (Utl_texto_(ev.FECHA_EVENTO) === Utl_texto_(actual.fecha) &&
-       Utl_texto_(ev.FECHA_REGISTRO) > Utl_texto_(actual.registro));
+       aMs(ev.FECHA_REGISTRO) > actual.registroMs);
     if (mejor) {
       mapa[id] = {
         tipo: ev.TIPO_EVENTO,
         fecha: ev.FECHA_EVENTO,
         registro: ev.FECHA_REGISTRO || '',
+        registroMs: aMs(ev.FECHA_REGISTRO),
         etiqueta: Utl_texto_(ev.TIPO_EVENTO) + (ev.FECHA_EVENTO ? ' (' + ev.FECHA_EVENTO + ')' : '')
       };
     }

@@ -694,7 +694,7 @@ function Instalar_pAmarillo_() {
   var r;
   try { r = Amarillo_importarTodo_(true); }
   catch (e) { return { ok: false, motivo: e && e.message ? e.message : String(e) }; }
-  if (!r || r.ok === false) return { ok: false, motivo: r.motivo || (r && r.linea) || 'No se pudo cargar el sector amarillo' };
+  if (!r || r.ok === false) return { ok: false, motivo: (r && (r.motivo || r.linea)) || 'No se pudo cargar el sector amarillo' };
   return { ok: true, aplicaHistorico: true, puerta: r.puerta, historico: r.historico };
 }
 function Instalar_pValidaciones_() {
