@@ -62,18 +62,18 @@ anidado). EVENTOS sigue siendo estrictamente append-only.
 
 ## Publicación
 - `clasp push --force`: **OK** (59 archivos sincronizados; el proyecto Apps Script
-  ya ejecuta el código con el fix, incluido el deployment `@HEAD`).
+  ejecuta el código con el fix, incluido el deployment `@HEAD`).
 - `clasp deploy` sobre el deployment operativo
-  `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`
-  (`@275`, el que sirve `ECICEP.WEB_APP_URL` y el QR): **BLOQUEADO** — el script
-  alcanzó el límite duro de **200 versiones** de Apps Script (máx. actual: 275).
-  No se puede crear la versión 276 sin eliminar una versión previa desde la
-  página de historial del proyecto (script.google.com). `clasp` no elimina
-  versiones.
-- Consecuencia: el código desplegado (`@HEAD`) ya tiene el fix, pero la Web App
-  operativa (`@275`, QR) **todavía no** lo sirve hasta liberar cupo de versiones
-  y republicar el mismo deployment. **No** crear un deployment nuevo (invalidaría
-  el QR vigente).
+  `AKfycbx16nfHiSKgHA04JlZnjjNn4JVri_kPO9fI4LC0sgwfP-42IGoYRFaXZ9XDGuwgRuYSCw`:
+  **OK → `@276`**. Inicialmente bloqueado por el límite duro de 200 versiones de
+  Apps Script (máx. `275`); tras liberar una versión obsoleta desde la página de
+  historial del proyecto, se publicó la versión 276 **sobre el mismo deployment**
+  (misma URL `/exec` y QR intactos).
+- Smoke test anónimo: `GET <WEB_APP_URL>/exec` → HTTP 200 (Web App sirve; sin
+  escrituras a datos de producción).
+- E2E funcional del alta (paciente que cae consecutivo) **no** se ejecutó contra
+  producción: escribiría datos clínicos reales, fuera de la ventana técnica; el
+  path queda cubierto por la suite `pacientes_destino_consecutivo_vNEXT` (12/12).
 
 ## Alcance / no-alcance
 - No se modificaron datos clínicos de producción.

@@ -19,14 +19,14 @@ operaciones runtime:
 - cerrar la ventana y emitir GO/NO-GO.
 
 ### Bloqueador de publicación (2026-10-16)
-- El proyecto Apps Script alcanzó el **límite duro de 200 versiones** (máx. actual
-  `@275`). `clasp deploy` no puede crear la versión 276 sobre el deployment
-  operativo `@275` (`ECICEP.WEB_APP_URL` / QR) hasta que un humano elimine
-  versiones obsoletas desde la página de historial del proyecto
-  (script.google.com). `clasp` no elimina versiones. `clasp push --force` sí
-  funcionó (el código con el fix HOTFIX_PACIENTES_FILAS ya está en `@HEAD`).
-  No crear un deployment nuevo: invalidaría el QR vigente. Ver
+- **RESUELTO.** El proyecto Apps Script había alcanzado el límite duro de 200
+  versiones. Tras liberar una versión obsoleta, `clasp deploy` publicó la versión
+  `@276` **sobre el mismo deployment operativo** (`ECICEP.WEB_APP_URL` / QR
+  intactos). `clasp push --force` OK. Ver
   `docs/HOTFIX_V0170_PACIENTES_FILAS.md`.
+- Vigilar el cupo de 200 versiones: al acercarse, eliminar versiones obsoletas
+  (preferir las `No description` sin dependencia) desde script.google.com antes
+  de la próxima publicación.
 
 ## DEUDA TÉCNICA ACTUAL
 
