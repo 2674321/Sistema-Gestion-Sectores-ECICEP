@@ -17,7 +17,7 @@ raíz y agrega una regresión reproducible por hallazgo.
 
 | Lote | Fecha | Rama | IDs | Errores reales | Con regresión | Commit | Informe |
 |------|-------|------|-----|----------------|---------------|--------|---------|
-| 001 | 2026-10-16 | `codex/ecicep-microfix-lote-001` | MF-001…MF-010 | 10 | 10 | _(ver informe)_ | `docs/INFORME_MICROFIX_LOTE_001.md` |
+| 001 | 2026-10-16 | `codex/ecicep-microfix-lote-001` | MF-001…MF-010 | 10 | 10 | `e84f01f` | `docs/INFORME_MICROFIX_LOTE_001.md` |
 
 ## Índice de microfixes
 
